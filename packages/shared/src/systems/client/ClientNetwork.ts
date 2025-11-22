@@ -1163,25 +1163,24 @@ export class ClientNetwork extends SystemBase {
     });
 
     // CRITICAL: Also emit PLAYER_EQUIPMENT_CHANGED for each slot
-    // so EquipmentVisualSystem can attach 3D models to the avatar
+    // so EquipmentVisualSystem can attach/remove 3D models to the avatar
     if (data.equipment) {
       const equipment = data.equipment;
       const slots = ["weapon", "shield", "helmet", "body", "legs", "arrows"];
 
       for (const slot of slots) {
         const slotData = equipment[slot];
-        if (slotData) {
-          const itemId = slotData.itemId || slotData.item?.id || null;
-          console.log(
-            `[ClientNetwork] 📤 Emitting PLAYER_EQUIPMENT_CHANGED for ${slot}:`,
-            itemId,
-          );
-          this.world.emit(EventType.PLAYER_EQUIPMENT_CHANGED, {
-            playerId: data.playerId,
-            slot: slot,
-            itemId: itemId,
-          });
-        }
+        // Emit for ALL slots, including null (to remove items on death)
+        const itemId = slotData?.itemId || slotData?.item?.id || null;
+        console.log(
+          `[ClientNetwork] 📤 Emitting PLAYER_EQUIPMENT_CHANGED for ${slot}:`,
+          itemId || "null (remove)",
+        );
+        this.world.emit(EventType.PLAYER_EQUIPMENT_CHANGED, {
+          playerId: data.playerId,
+          slot: slot,
+          itemId: itemId,
+        });
       }
     }
   };
