@@ -63,15 +63,24 @@ export const users = pgTable(
     avatar: text(),
     privyUserId: text(),
     farcasterFid: text(),
+    wallet: text(),
   },
   (table) => [
     index("idx_users_farcaster").using(
       "btree",
       table.farcasterFid.asc().nullsLast().op("text_ops"),
     ),
+    index("idx_users_name").using(
+      "btree",
+      table.name.asc().nullsLast().op("text_ops"),
+    ),
     index("idx_users_privy").using(
       "btree",
       table.privyUserId.asc().nullsLast().op("text_ops"),
+    ),
+    index("idx_users_wallet").using(
+      "btree",
+      table.wallet.asc().nullsLast().op("text_ops"),
     ),
     unique("users_privyUserId_unique").on(table.privyUserId),
   ],
@@ -135,11 +144,16 @@ export const characters = pgTable(
     lastLogin: bigint({ mode: "number" }).default(0),
     avatar: text(),
     wallet: text(),
+    isAgent: integer().default(0).notNull(),
   },
   (table) => [
     index("idx_characters_account").using(
       "btree",
       table.accountId.asc().nullsLast().op("text_ops"),
+    ),
+    index("idx_characters_is_agent").using(
+      "btree",
+      table.isAgent.asc().nullsLast().op("int4_ops"),
     ),
     index("idx_characters_wallet").using(
       "btree",
@@ -230,6 +244,60 @@ export const playerSessions = pgTable(
       foreignColumns: [characters.id],
       name: "player_sessions_playerId_characters_id_fk",
     }).onDelete("cascade"),
+  ],
+);
+
+export const agentMappings = pgTable(
+  "agent_mappings",
+  {
+    agentId: text("agent_id").primaryKey().notNull(),
+    accountId: text("account_id").notNull(),
+    characterId: text("character_id").notNull(),
+    agentName: text("agent_name").notNull(),
+    createdAt: timestamp("created_at", { mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_agent_mappings_account").using(
+      "btree",
+      table.accountId.asc().nullsLast().op("text_ops"),
+    ),
+    index("idx_agent_mappings_character").using(
+      "btree",
+      table.characterId.asc().nullsLast().op("text_ops"),
+    ),
+    foreignKey({
+      columns: [table.accountId],
+      foreignColumns: [users.id],
+      name: "agent_mappings_account_id_users_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.characterId],
+      foreignColumns: [characters.id],
+      name: "agent_mappings_character_id_characters_id_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const characterTemplates = pgTable(
+  "character_templates",
+  {
+    id: serial().primaryKey().notNull(),
+    name: text().notNull(),
+    description: text().notNull(),
+    emoji: text().notNull(),
+    templateUrl: text().notNull(),
+    // You can use { mode: "bigint" } if numbers are exceeding js number limitations
+    createdAt: bigint({ mode: "number" })
+      .default(sql`((EXTRACT(epoch FROM now()) * (1000)`)
+      .notNull(),
+  },
+  (table) => [
+    unique("character_templates_templateUrl_unique").on(table.templateUrl),
   ],
 );
 
