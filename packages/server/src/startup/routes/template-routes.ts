@@ -174,7 +174,8 @@ export function registerTemplateRoutes(
       return reply.send(templateConfig);
     } catch (error) {
       console.error(
-        `[TemplateRoutes] ❌ Failed to serve template config ${templateId}:`,
+        "[TemplateRoutes] ❌ Failed to serve template config %s:",
+        templateId,
         error,
       );
 
