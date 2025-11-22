@@ -208,13 +208,14 @@ function checkExistingEntities(
  * Disable player movement and interaction controls
  */
 export function disablePlayerControls(world: World) {
-  const input = world.getSystem("controls") as {
+  // The input system is named "client-input", not "controls"
+  const input = world.getSystem("client-input") as {
     disable?: () => void;
     setEnabled?: (enabled: boolean) => void;
   } | null;
 
   if (!input) {
-    console.warn("[SpectatorMode] Controls system not found");
+    console.warn("[SpectatorMode] client-input system not found");
     return;
   }
 
@@ -243,13 +244,14 @@ export function disablePlayerControls(world: World) {
  * Enable player controls (undo spectator mode)
  */
 export function enablePlayerControls(world: World) {
-  const input = world.getSystem("controls") as {
+  // The input system is named "client-input", not "controls"
+  const input = world.getSystem("client-input") as {
     enable?: () => void;
     setEnabled?: (enabled: boolean) => void;
   } | null;
 
   if (!input) {
-    console.warn("[SpectatorMode] Controls system not found");
+    console.warn("[SpectatorMode] client-input system not found");
     return;
   }
 

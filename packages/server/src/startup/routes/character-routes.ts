@@ -297,6 +297,85 @@ export function registerCharacterRoutes(
       });
 
       /**
+       * GET /api/characters/:id/skills
+       *
+       * Get a character's current skills data.
+       * Used by the dashboard to display agent skills in real-time.
+       *
+       * Path Parameters:
+       *   - id: string - The character ID
+       *
+       * Response:
+       * {
+       *   success: true,
+       *   skills: {
+       *     attack: { level: 1, xp: 0 },
+       *     strength: { level: 1, xp: 0 },
+       *     ...
+       *   }
+       * }
+       */
+      fastify.get<{
+        Params: { id: string };
+      }>("/api/characters/:id/skills", async (request, reply) => {
+        const { id } = request.params;
+
+        if (!id) {
+          return reply.status(400).send({
+            success: false,
+            error: "Missing character ID parameter",
+          });
+        }
+
+        console.log(
+          `[CharacterRoutes] 📊 Fetching skills for character: ${id}`,
+        );
+
+        try {
+          // Get skills from database
+          const skills = await databaseSystem.getCharacterSkills(id);
+
+          if (skills) {
+            console.log(
+              `[CharacterRoutes] ✅ Skills found for character ${id}`,
+            );
+            return reply.send({
+              success: true,
+              skills,
+            });
+          } else {
+            // Return default skills if not found in database
+            console.log(
+              `[CharacterRoutes] ⚠️  No skills found for ${id}, returning defaults`,
+            );
+            return reply.send({
+              success: true,
+              skills: {
+                attack: { level: 1, xp: 0 },
+                strength: { level: 1, xp: 0 },
+                defense: { level: 1, xp: 0 },
+                constitution: { level: 10, xp: 0 },
+                ranged: { level: 1, xp: 0 },
+                woodcutting: { level: 1, xp: 0 },
+                fishing: { level: 1, xp: 0 },
+                firemaking: { level: 1, xp: 0 },
+                cooking: { level: 1, xp: 0 },
+              },
+            });
+          }
+        } catch (error) {
+          console.error(
+            `[CharacterRoutes] ❌ Error fetching skills for ${id}:`,
+            error,
+          );
+          return reply.status(500).send({
+            success: false,
+            error: "Failed to fetch character skills",
+          });
+        }
+      });
+
+      /**
        * PATCH /api/characters/:id
        *
        * Update a character's properties.

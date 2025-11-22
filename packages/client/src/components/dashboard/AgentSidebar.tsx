@@ -9,10 +9,12 @@ import {
   Server,
 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
+import { AgentSkillsPanel } from "./AgentSkillsPanel";
 
 interface AgentSidebarProps {
   agents: Agent[];
   selectedAgentId: string | null;
+  viewportAgentId: string | null;
   onSelectAgent: (agentId: string) => void;
   onCreateAgent: () => void;
   onStartAgent: (agentId: string) => void;
@@ -23,12 +25,14 @@ interface AgentSidebarProps {
 export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   agents,
   selectedAgentId,
+  viewportAgentId,
   onSelectAgent,
   onCreateAgent,
   onStartAgent,
   onStopAgent,
   onDeleteAgent,
 }) => {
+  const selectedAgent = agents.find((a) => a.id === selectedAgentId);
   return (
     <div className="w-64 flex flex-col border-r border-[#8b4513]/30 bg-[#0b0a15]/95 backdrop-blur-md">
       {/* Header */}
@@ -126,6 +130,14 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
           <span className="text-sm font-medium">Create New Agent</span>
         </button>
       </div>
+
+      {/* Skills Panel for Selected Agent */}
+      {selectedAgent && (
+        <AgentSkillsPanel
+          agent={selectedAgent}
+          isViewportActive={viewportAgentId === selectedAgentId}
+        />
+      )}
 
       {/* Footer */}
       <div className="p-3 border-t border-[#8b4513]/30 space-y-1">

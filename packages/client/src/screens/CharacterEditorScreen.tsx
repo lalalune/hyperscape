@@ -92,8 +92,6 @@ export const CharacterEditorScreen: React.FC = () => {
   );
   const [saving, setSaving] = React.useState(false);
   const [errors, setErrors] = React.useState<string[]>([]);
-  const [showBrowserExtensionWarning, setShowBrowserExtensionWarning] =
-    React.useState(true);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [cancelAction, setCancelAction] = React.useState<
     "none" | "deleting" | "converting"
@@ -730,37 +728,6 @@ export const CharacterEditorScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Browser Extension Warning (dismissible) */}
-      {showBrowserExtensionWarning && (
-        <div className="max-w-7xl mx-auto px-6 pt-4">
-          <div className="bg-blue-900/20 border border-blue-500/40 rounded-lg p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <span className="text-blue-400 text-lg">ℹ️</span>
-                <div>
-                  <h3 className="text-blue-300 font-bold text-sm mb-1">
-                    Browser Extension Errors (Safe to Ignore)
-                  </h3>
-                  <p className="text-blue-200/80 text-sm leading-relaxed">
-                    If you see errors like "A listener indicated an asynchronous
-                    response...", these are from browser extensions (password
-                    managers, ad blockers, etc.) and can be safely ignored. Your
-                    data is still being saved correctly.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowBrowserExtensionWarning(false)}
-                className="text-blue-400/60 hover:text-blue-400 transition-colors"
-                title="Dismiss"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Errors */}
       {errors.length > 0 && (
         <div className="max-w-7xl mx-auto px-6 pt-4">
@@ -1071,6 +1038,36 @@ const PluginsTab: React.FC<{
   character: CharacterTemplate;
   onChange: (character: CharacterTemplate) => void;
 }> = ({ character, onChange }) => {
+  const [showTooltip, setShowTooltip] = React.useState(false);
+  const [addedPlugin, setAddedPlugin] = React.useState<string | null>(null);
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handlePluginAdd = (plugin: string) => {
+    // Only show tooltip for non-hyperscape plugins
+    if (plugin !== "@hyperscape/plugin-hyperscape") {
+      // Clear any existing timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      setAddedPlugin(plugin);
+      setShowTooltip(true);
+      // Auto-hide after 10 seconds
+      timeoutRef.current = setTimeout(() => {
+        setShowTooltip(false);
+        setAddedPlugin(null);
+        timeoutRef.current = null;
+      }, 10000);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-[#1a1005] border border-[#f2d08a]/20 rounded-lg p-4">
@@ -1080,47 +1077,57 @@ const PluginsTab: React.FC<{
         </p>
       </div>
 
-      {/* Plugin Installation Warning */}
-      <div className="bg-orange-900/20 border border-orange-500/40 rounded-lg p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <span className="text-orange-400 text-xl mt-0.5">⚠️</span>
-          <div className="flex-1">
-            <h3 className="text-orange-300 font-bold text-sm mb-2">
-              Plugin Installation Required
-            </h3>
-            <p className="text-orange-200/80 text-sm leading-relaxed mb-3">
-              Before plugins can be used, they must be installed into your
-              ElizaOS project. Simply adding them to this list is not
-              sufficient.
-            </p>
-            <div className="bg-black/40 border border-orange-500/30 rounded p-3 mb-2">
-              <p className="text-orange-200/70 text-xs font-semibold mb-1.5">
-                After adding a plugin here, run this command:
+      {/* Plugin Installation Tooltip - Only shows when a new plugin is added */}
+      {showTooltip && addedPlugin && (
+        <div className="bg-orange-900/20 border border-orange-500/40 rounded-lg p-4 space-y-3 relative transition-all duration-300 ease-in-out">
+          <button
+            onClick={() => {
+              if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+              }
+              setShowTooltip(false);
+              setAddedPlugin(null);
+            }}
+            className="absolute top-2 right-2 text-orange-400/60 hover:text-orange-400 transition-colors"
+            title="Dismiss"
+          >
+            <X size={16} />
+          </button>
+          <div className="flex items-start gap-3 pr-6">
+            <span className="text-orange-400 text-xl mt-0.5">⚠️</span>
+            <div className="flex-1">
+              <h3 className="text-orange-300 font-bold text-sm mb-2">
+                Plugin Installation Required
+              </h3>
+              <p className="text-orange-200/80 text-sm leading-relaxed mb-3">
+                Before plugins can be used, they must be installed into your
+                ElizaOS project. Simply adding them to this list is not
+                sufficient.
               </p>
-              <code className="block bg-black/60 text-orange-300 px-3 py-2 rounded text-xs font-mono">
-                bunx elizaos plugins add @elizaos/plugin-name
-              </code>
+              <div className="bg-black/40 border border-orange-500/30 rounded p-3 mb-2">
+                <p className="text-orange-200/70 text-xs font-semibold mb-1.5">
+                  After adding a plugin here, run this command:
+                </p>
+                <code className="block bg-black/60 text-orange-300 px-3 py-2 rounded text-xs font-mono">
+                  bunx elizaos plugins add {addedPlugin}
+                </code>
+              </div>
+              <p className="text-orange-200/60 text-xs leading-relaxed">
+                <strong>Note:</strong> Make sure to run this command in your
+                ElizaOS project directory before the agent can use this plugin.
+              </p>
             </div>
-            <p className="text-orange-200/60 text-xs leading-relaxed">
-              <strong>Example:</strong> For{" "}
-              <code className="text-orange-300 bg-black/40 px-1.5 py-0.5 rounded">
-                @elizaos/plugin-openrouter
-              </code>
-              , run:
-              <br />
-              <code className="text-orange-300 bg-black/40 px-1.5 py-0.5 rounded text-xs font-mono mt-1 inline-block">
-                bunx elizaos plugins add @elizaos/plugin-openrouter
-              </code>
-            </p>
           </div>
         </div>
-      </div>
+      )}
 
       <ArrayInput
         label="Plugins"
         description="ElizaOS plugins to load for this character"
         value={character.plugins || []}
         onChange={(plugins) => onChange({ ...character, plugins })}
+        onAdd={handlePluginAdd}
         placeholder="@elizaos/plugin-name"
         required
       />

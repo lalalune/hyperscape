@@ -3,30 +3,20 @@
  *
  * REST API endpoints for:
  * 1. Fetching character templates from database (archetypes)
- * 2. Serving template JSON files for ElizaOS agent creation
+ * 2. Serving template JSON configs from database for ElizaOS agent creation
+ *
+ * **Architecture**:
+ * - Templates are stored in the `character_templates` table
+ * - Each template has metadata (name, description, emoji) AND full ElizaOS config
+ * - The `templateConfig` column stores the full character JSON that gets merged with user data
+ * - No filesystem JSON files needed - everything is database-driven
  */
 
 import type { FastifyInstance } from "fastify";
 import type { World } from "@hyperscape/shared";
 import type { DatabaseSystem } from "../../systems/DatabaseSystem/index.js";
-import { promises as fs } from "node:fs";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Get the templates directory
-// Default: PROJECT_ROOT/.eliza/data/character-templates/
-function getTemplatesDir(): string {
-  if (process.env.ELIZA_TEMPLATES_DIR) {
-    return process.env.ELIZA_TEMPLATES_DIR;
-  }
-
-  const projectRoot = join(__dirname, "../../../../..");
-  return join(projectRoot, ".eliza", "data", "character-templates");
-}
+import { eq } from "drizzle-orm";
+import { characterTemplates } from "../../database/schema.js";
 
 /**
  * Register template management routes
@@ -107,64 +97,84 @@ export function registerTemplateRoutes(
   });
 
   /**
-   * GET /templates/:filename
+   * GET /api/templates/:templateId/config
    *
-   * Serve a character template JSON file.
-   * Reads the file from .eliza/data/character-templates/
+   * Serve a character template's full ElizaOS configuration from the database.
+   * This is the config that gets merged with user-specific data during agent creation.
    *
    * Path Parameters:
-   * - filename: string - The template filename (e.g., "skiller.json")
+   * - templateId: number - The template ID in the database
    *
    * Response:
-   * Raw JSON character template file
+   * Full ElizaOS character configuration JSON
    */
   fastify.get<{
-    Params: { filename: string };
-  }>("/templates/:filename", async (request, reply) => {
-    const { filename } = request.params;
+    Params: { templateId: string };
+  }>("/api/templates/:templateId/config", async (request, reply) => {
+    const { templateId } = request.params;
+    const id = parseInt(templateId, 10);
 
-    // Security: Only allow .json files and alphanumeric + dash + underscore
-    if (
-      !filename.endsWith(".json") ||
-      !/^[a-zA-Z0-9_-]+\.json$/.test(filename)
-    ) {
+    if (isNaN(id) || id <= 0) {
       return reply.status(400).send({
         success: false,
-        error: "Invalid filename format",
+        error: "Invalid template ID",
       });
     }
 
     try {
-      const templatesDir = getTemplatesDir();
-      const filePath = join(templatesDir, filename);
-
-      console.log(`[TemplateRoutes] Serving template file: ${filePath}`);
-
-      // Check if file exists
-      try {
-        await fs.access(filePath);
-      } catch {
-        console.log(`[TemplateRoutes] ⚠️ Template file not found: ${filename}`);
-        return reply.status(404).send({
+      if (!world) {
+        return reply.status(500).send({
           success: false,
-          error: "Template file not found",
+          error: "World instance not available",
         });
       }
 
-      // Read and parse the JSON file
-      const fileContents = await fs.readFile(filePath, "utf-8");
-      const templateJson = JSON.parse(fileContents);
+      const databaseSystem = world.getSystem("database") as DatabaseSystem;
+      if (!databaseSystem) {
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      console.log(`[TemplateRoutes] Fetching template config for ID: ${id}`);
+
+      // Fetch template from database
+      const template =
+        await databaseSystem.db.query.characterTemplates.findFirst({
+          where: eq(characterTemplates.id, id),
+        });
+
+      if (!template) {
+        console.log(`[TemplateRoutes] ⚠️ Template not found: ${id}`);
+        return reply.status(404).send({
+          success: false,
+          error: "Template not found",
+        });
+      }
+
+      if (!template.templateConfig) {
+        console.log(
+          `[TemplateRoutes] ⚠️ Template has no config: ${template.name}`,
+        );
+        return reply.status(404).send({
+          success: false,
+          error: "Template configuration not available",
+        });
+      }
+
+      // Parse and return the template config
+      const templateConfig = JSON.parse(template.templateConfig);
 
       console.log(
-        `[TemplateRoutes] ✅ Serving template: ${templateJson.name || filename}`,
+        `[TemplateRoutes] ✅ Serving template config: ${template.name}`,
       );
 
-      // Set content type and return the template
       reply.type("application/json");
-      return reply.send(templateJson);
+      return reply.send(templateConfig);
     } catch (error) {
       console.error(
-        `[TemplateRoutes] ❌ Failed to serve template ${filename}:`,
+        `[TemplateRoutes] ❌ Failed to serve template config ${templateId}:`,
         error,
       );
 
@@ -173,7 +183,93 @@ export function registerTemplateRoutes(
         error:
           error instanceof Error
             ? error.message
-            : "Failed to serve template file",
+            : "Failed to serve template config",
+      });
+    }
+  });
+
+  /**
+   * GET /templates/:filename (LEGACY - deprecated)
+   *
+   * Legacy endpoint for serving template JSON files from filesystem.
+   * Maintained for backwards compatibility but redirects to database-backed endpoint.
+   *
+   * @deprecated Use /api/templates/:templateId/config instead
+   */
+  fastify.get<{
+    Params: { filename: string };
+  }>("/templates/:filename", async (request, reply) => {
+    const { filename } = request.params;
+
+    // Extract template name from filename (e.g., "skiller.json" -> "skiller")
+    const templateName = filename.replace(/\.json$/, "");
+
+    // Map common filenames to template names in database
+    const nameMap: Record<string, string> = {
+      skiller: "The Skiller",
+      pvmer: "PvM Slayer",
+      ironman: "Ironman",
+      completionist: "Completionist",
+    };
+
+    const dbTemplateName = nameMap[templateName.toLowerCase()];
+
+    if (!dbTemplateName) {
+      console.log(`[TemplateRoutes] ⚠️ Unknown template filename: ${filename}`);
+      return reply.status(404).send({
+        success: false,
+        error:
+          "Template not found. Use /api/templates/:templateId/config instead.",
+      });
+    }
+
+    try {
+      if (!world) {
+        return reply.status(500).send({
+          success: false,
+          error: "World instance not available",
+        });
+      }
+
+      const databaseSystem = world.getSystem("database") as DatabaseSystem;
+      if (!databaseSystem) {
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Fetch template by name from database
+      const template =
+        await databaseSystem.db.query.characterTemplates.findFirst({
+          where: eq(characterTemplates.name, dbTemplateName),
+        });
+
+      if (!template || !template.templateConfig) {
+        return reply.status(404).send({
+          success: false,
+          error: "Template configuration not available",
+        });
+      }
+
+      const templateConfig = JSON.parse(template.templateConfig);
+
+      console.log(
+        `[TemplateRoutes] ✅ Serving legacy template: ${template.name}`,
+      );
+
+      reply.type("application/json");
+      return reply.send(templateConfig);
+    } catch (error) {
+      console.error(
+        `[TemplateRoutes] ❌ Failed to serve legacy template ${filename}:`,
+        error,
+      );
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to serve template",
       });
     }
   });

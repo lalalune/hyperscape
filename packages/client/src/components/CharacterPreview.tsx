@@ -108,8 +108,11 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
 
         // Update humanoid once to set initial pose
         vrm.humanoid.update();
+
+        // Hide model until animations are loaded to avoid T-pose flash
+        vrm.scene.visible = false;
         scene.add(vrm.scene);
-        console.log("[CharacterPreview] VRM loaded successfully");
+        console.log("[CharacterPreview] VRM loaded, waiting for animations...");
 
         // --- Animation Setup ---
         // Calculate rootToHips
@@ -183,8 +186,12 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
         let idleTimer = 0;
         const IDLE_DURATION = 7;
 
-        // Start Sequence
+        // Start Sequence - wave first, then show the model
         waveAction.reset().play();
+
+        // Now that animation is playing, show the model (no more T-pose)
+        vrm.scene.visible = true;
+        console.log("[CharacterPreview] Animations ready, model visible");
 
         mixer.addEventListener("finished", (e) => {
           if (e.action === waveAction) {
@@ -195,7 +202,7 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
           }
         });
 
-        // Animation State
+        // Animation State - manages the wave -> idle -> wave loop
         (mixerRef.current as any).animState = {
           waveAction,
           idleAction,
@@ -203,14 +210,18 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
             if (!isWaving) {
               idleTimer += delta;
               if (idleTimer >= IDLE_DURATION) {
+                // Transition from idle back to wave
                 idleAction.fadeOut(0.5);
                 waveAction.reset().fadeIn(0.5).play();
                 isWaving = true;
+                idleTimer = 0; // Reset timer for next cycle
               }
             }
           },
         };
-        console.log("[CharacterPreview] Animations started");
+        console.log(
+          "[CharacterPreview] Animation loop: wave -> idle (7s) -> wave",
+        );
       } catch (error) {
         console.error(
           "[CharacterPreview] Error loading VRM/Animations:",
@@ -254,24 +265,48 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
     };
     animate();
 
-    // Handle Resize
+    // Handle Resize - responds to both window resize AND container size changes
+    const baseAspect = 16 / 9; // Reference aspect ratio
+    const baseCameraZ = 3.0; // Base camera distance
+
     const handleResize = () => {
       if (containerRef.current && cameraRef.current && rendererRef.current) {
-        cameraRef.current.aspect =
-          containerRef.current.clientWidth / containerRef.current.clientHeight;
-        cameraRef.current.updateProjectionMatrix();
-        rendererRef.current.setSize(
-          containerRef.current.clientWidth,
-          containerRef.current.clientHeight,
-        );
+        const width = containerRef.current.clientWidth;
+        const height = containerRef.current.clientHeight;
+        if (width > 0 && height > 0) {
+          const aspect = width / height;
+          cameraRef.current.aspect = aspect;
+
+          // Adjust camera distance for narrower aspect ratios to keep character fully visible
+          // When aspect ratio is narrower than base, move camera back proportionally
+          if (aspect < baseAspect) {
+            const zoomFactor = baseAspect / aspect;
+            cameraRef.current.position.z =
+              baseCameraZ * Math.min(zoomFactor, 1.5); // Cap at 1.5x distance
+          } else {
+            cameraRef.current.position.z = baseCameraZ;
+          }
+
+          cameraRef.current.updateProjectionMatrix();
+          rendererRef.current.setSize(width, height);
+        }
       }
     };
     window.addEventListener("resize", handleResize);
+
+    // Use ResizeObserver to detect container size changes (e.g., when layout shifts)
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+    });
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
 
     // Cleanup
     return () => {
       isMounted = false;
       window.removeEventListener("resize", handleResize);
+      resizeObserver.disconnect();
       cancelAnimationFrame(frameIdRef.current);
       if (rendererRef.current && containerRef.current) {
         containerRef.current.removeChild(rendererRef.current.domElement);

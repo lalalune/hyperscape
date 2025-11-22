@@ -264,11 +264,15 @@ export class ClientNetwork extends SystemBase {
       this.id = null;
     }
 
-    // Try to get Privy token first, fall back to legacy auth token
+    // Check if wsUrl already contains an authToken (e.g., from embedded viewport)
+    // If so, use it as-is instead of overwriting with localStorage
+    const urlHasAuthToken = wsUrl.includes("authToken=");
+
     let authToken = "";
     let privyUserId = "";
 
-    if (typeof localStorage !== "undefined") {
+    if (!urlHasAuthToken && typeof localStorage !== "undefined") {
+      // Only get from localStorage if URL doesn't already have authToken
       const privyToken = localStorage.getItem("privy_auth_token");
       const privyId = localStorage.getItem("privy_user_id");
 
@@ -283,8 +287,17 @@ export class ClientNetwork extends SystemBase {
       }
     }
 
-    let url = `${wsUrl}?authToken=${authToken}`;
-    if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
+    // Build WebSocket URL - preserve existing params if authToken already present
+    let url: string;
+    if (urlHasAuthToken) {
+      // URL already has authToken (embedded mode) - use as-is
+      url = wsUrl;
+      this.logger.debug("Using authToken from URL (embedded mode)");
+    } else {
+      // Normal mode - add authToken from localStorage
+      url = `${wsUrl}?authToken=${authToken}`;
+      if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
+    }
     if (name) url += `&name=${encodeURIComponent(name)}`;
     if (avatar) url += `&avatar=${encodeURIComponent(avatar)}`;
 

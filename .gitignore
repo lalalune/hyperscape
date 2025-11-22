@@ -66,10 +66,7 @@ packages/client/dist/models/
 
 # Claude Code and Cursor IDE development files (keep locally, not in git)
 # Allow .claude/settings.json and .claude/README.md for marketplace configuration
-.claude/*
-!.claude/settings.json
-!.claude/README.md
-.cursor/
+
 
 # Development documentation (temporary notes, not main docs)
 # Keep: README.md, CLAUDE.md, LORE.md

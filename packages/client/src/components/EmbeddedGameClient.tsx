@@ -13,6 +13,37 @@ import type { World } from "@hyperscape/shared";
 import { EventType } from "@hyperscape/shared";
 
 /**
+ * Disable all player input controls (spectator mode)
+ * This prevents click-to-move, keyboard movement, and all other player input
+ */
+function disablePlayerControls(world: World) {
+  // The input system is named "client-input", not "controls"
+  const input = world.getSystem("client-input") as {
+    disable?: () => void;
+    setEnabled?: (enabled: boolean) => void;
+  } | null;
+
+  if (input?.disable) {
+    input.disable();
+    console.log("[EmbeddedGameClient] Player controls disabled via disable()");
+    return true;
+  }
+
+  if (input?.setEnabled) {
+    input.setEnabled(false);
+    console.log(
+      "[EmbeddedGameClient] Player controls disabled via setEnabled(false)",
+    );
+    return true;
+  }
+
+  console.warn(
+    "[EmbeddedGameClient] Could not disable controls - client-input system not found or missing disable method",
+  );
+  return false;
+}
+
+/**
  * Setup spectator camera to follow agent's character
  */
 function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
@@ -20,6 +51,33 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
     "[EmbeddedGameClient] Setting up spectator camera for:",
     config.characterId || config.followEntity,
   );
+
+  // CRITICAL: Disable player input IMMEDIATELY for spectator mode
+  // This prevents click-to-move and all other input
+  if (config.mode === "spectator") {
+    // Try to disable immediately
+    const disabled = disablePlayerControls(world);
+
+    // If not ready yet, retry after systems initialize (with max retries)
+    if (!disabled) {
+      const MAX_RETRIES = 10;
+      let retryCount = 0;
+
+      const retryDisable = () => {
+        retryCount++;
+        const success = disablePlayerControls(world);
+        if (!success && retryCount < MAX_RETRIES) {
+          // Retry with increasing delay (100, 200, 300, ... 500ms max)
+          setTimeout(retryDisable, Math.min(100 * retryCount, 500));
+        } else if (!success) {
+          console.warn(
+            `[EmbeddedGameClient] Failed to disable controls after ${MAX_RETRIES} retries - spectator mode may not work correctly`,
+          );
+        }
+      };
+      setTimeout(retryDisable, 100);
+    }
+  }
 
   const targetEntityId = config.followEntity || config.characterId;
 
@@ -67,17 +125,9 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
         target: { position: entity.position },
       });
 
-      // Disable player input controls for spectator mode
+      // Ensure controls are still disabled (belt and suspenders)
       if (config.mode === "spectator") {
-        const input = world.getSystem("controls") as {
-          disable?: () => void;
-        } | null;
-        if (input?.disable) {
-          input.disable();
-          console.log(
-            "[EmbeddedGameClient] Player controls disabled (spectator mode)",
-          );
-        }
+        disablePlayerControls(world);
       }
     }
   };

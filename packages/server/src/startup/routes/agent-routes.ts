@@ -345,6 +345,106 @@ export function registerAgentRoutes(
   });
 
   /**
+   * GET /api/agents/mapping/:agentId
+   *
+   * Get a single agent mapping by agent ID.
+   * Returns the character ID and other details for this agent.
+   * Used by dashboard viewport to get character ID for iframe embedding.
+   *
+   * Response:
+   * {
+   *   success: true,
+   *   agentId: "agent-uuid",
+   *   characterId: "character-uuid",
+   *   accountId: "privy-user-id",
+   *   agentName: "Agent Name"
+   * }
+   */
+  fastify.get("/api/agents/mapping/:agentId", async (request, reply) => {
+    try {
+      const params = request.params as { agentId: string };
+      const { agentId } = params;
+
+      if (!agentId) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required parameter: agentId",
+        });
+      }
+
+      console.log("[AgentRoutes] Fetching mapping for agent:", agentId);
+
+      // Get database system
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              select: (fields?: unknown) => {
+                from: (table: unknown) => {
+                  where: (condition: unknown) => Promise<unknown[]>;
+                };
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        console.error("[AgentRoutes] DatabaseSystem not available");
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Import schema and eq operator
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq } = await import("drizzle-orm");
+
+      // Query agent mapping by agent ID
+      const mappings = (await databaseSystem.db
+        .select()
+        .from(agentMappings)
+        .where(eq(agentMappings.agentId, agentId))) as Array<{
+        agentId: string;
+        accountId: string;
+        characterId: string;
+        agentName: string;
+      }>;
+
+      if (mappings.length === 0) {
+        console.log(`[AgentRoutes] No mapping found for agent: ${agentId}`);
+        return reply.status(404).send({
+          success: false,
+          error: "Agent mapping not found",
+        });
+      }
+
+      const mapping = mappings[0];
+
+      console.log(
+        `[AgentRoutes] ✅ Found mapping for agent ${agentId}: characterId=${mapping.characterId}`,
+      );
+
+      return reply.send({
+        success: true,
+        agentId: mapping.agentId,
+        characterId: mapping.characterId,
+        accountId: mapping.accountId,
+        agentName: mapping.agentName,
+      });
+    } catch (error) {
+      console.error("[AgentRoutes] ❌ Failed to fetch agent mapping:", error);
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch agent mapping",
+      });
+    }
+  });
+
+  /**
    * DELETE /api/agents/mappings/:agentId
    *
    * Delete agent mapping from Hyperscape database.

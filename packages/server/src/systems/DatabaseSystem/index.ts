@@ -316,6 +316,30 @@ export class DatabaseSystem extends SystemBase {
     );
   }
 
+  /**
+   * Get character skills
+   * Delegates to CharacterRepository
+   *
+   * Retrieves skill levels and XP for a character. Used by the dashboard
+   * to display agent skill progress in real-time.
+   *
+   * @param characterId - The character ID to fetch skills for
+   * @returns Skills object with level and xp for each skill, or null if not found
+   */
+  async getCharacterSkills(characterId: string): Promise<{
+    attack: { level: number; xp: number };
+    strength: { level: number; xp: number };
+    defense: { level: number; xp: number };
+    constitution: { level: number; xp: number };
+    ranged: { level: number; xp: number };
+    woodcutting: { level: number; xp: number };
+    fishing: { level: number; xp: number };
+    firemaking: { level: number; xp: number };
+    cooking: { level: number; xp: number };
+  } | null> {
+    return this.characterRepository.getCharacterSkills(characterId);
+  }
+
   // ============================================================================
   // USER MANAGEMENT
   // ============================================================================

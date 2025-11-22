@@ -16,6 +16,7 @@ interface ArrayInputProps {
   required?: boolean;
   maxItems?: number;
   inputType?: "text" | "textarea";
+  onAdd?: (item: string) => void;
 }
 
 export const ArrayInput: React.FC<ArrayInputProps> = ({
@@ -27,6 +28,7 @@ export const ArrayInput: React.FC<ArrayInputProps> = ({
   required = false,
   maxItems,
   inputType = "text",
+  onAdd,
 }) => {
   const [newItem, setNewItem] = React.useState("");
 
@@ -34,7 +36,9 @@ export const ArrayInput: React.FC<ArrayInputProps> = ({
     if (!newItem.trim()) return;
     if (maxItems && value.length >= maxItems) return;
 
-    onChange([...value, newItem.trim()]);
+    const trimmedItem = newItem.trim();
+    onChange([...value, trimmedItem]);
+    onAdd?.(trimmedItem);
     setNewItem("");
   };
 
