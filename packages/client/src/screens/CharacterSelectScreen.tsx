@@ -342,6 +342,16 @@ export function CharacterSelectScreen({
       return; // Don't create websocket until Privy is ready
     }
 
+    // CRITICAL: Verify Privy user object exists before attempting connection
+    // This prevents race conditions where `authenticated=true` but user data isn't loaded yet
+    if (!user || !user.id) {
+      console.log(
+        "[CharacterSelect] ⏳ Waiting for Privy user data to load...",
+      );
+      setWsReady(false);
+      return;
+    }
+
     // Wait until Privy auth values are present in localStorage
     const token = authDeps.token;
     const privyUserId = authDeps.privyUserId;
@@ -353,8 +363,23 @@ export function CharacterSelectScreen({
       return; // Don't create websocket without auth
     }
 
+    // Extra validation: ensure localStorage privyUserId matches Privy hook user.id
+    // This catches cases where stale tokens are in localStorage
+    if (user.id !== privyUserId) {
+      console.warn(
+        `[CharacterSelect] ⚠️ Privy user ID mismatch! Hook: ${user.id}, localStorage: ${privyUserId}`,
+      );
+      console.log("[CharacterSelect] 🔄 Clearing stale auth tokens...");
+      localStorage.removeItem("privy_auth_token");
+      localStorage.removeItem("privy_user_id");
+      setAuthDeps({ token: "", privyUserId: "" });
+      setWsReady(false);
+      return;
+    }
+
     console.log(
       "[CharacterSelect] ✅ Privy ready and authenticated, connecting...",
+      { userId: user.id, privyUserId },
     );
 
     let url = `${wsUrl}?authToken=${encodeURIComponent(token)}`;
@@ -366,6 +391,10 @@ export function CharacterSelectScreen({
     preWsRef.current = ws;
     setWsReady(false);
     ws.addEventListener("open", () => {
+      console.log(
+        "[CharacterSelect] ✅ WebSocket opened with authenticated user:",
+        user.id,
+      );
       setWsReady(true);
       // Request character list from server
       const packet = writePacket("characterListRequest", {});
@@ -519,8 +548,8 @@ export function CharacterSelectScreen({
                 agentResult,
               );
 
-              // Extract agent ID from response (ElizaOS returns: { success: true, data: { id: "uuid", character: {...} } })
-              const agentId = agentResult.data?.id;
+              // Extract agent ID from response - ElizaOS returns UUID in data.character.id
+              const agentId = agentResult.data?.character?.id;
 
               if (!agentId) {
                 console.error(
@@ -611,6 +640,8 @@ export function CharacterSelectScreen({
     ready,
     authenticated,
     characterType,
+    user,
+    selectedAvatarIndex,
   ]);
 
   const selectCharacter = React.useCallback(

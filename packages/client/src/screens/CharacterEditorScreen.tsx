@@ -14,6 +14,75 @@ import {
   type CharacterTemplate,
 } from "../utils/characterTemplate";
 
+/**
+ * Helper function to generate JWT with retry logic
+ * Prevents broken agents due to temporary network failures
+ *
+ * @param characterId - Character UUID
+ * @param accountId - User account ID (Privy)
+ * @param maxRetries - Maximum number of retry attempts (default: 3)
+ * @param retryDelay - Delay between retries in milliseconds (default: 1000)
+ * @returns JWT token string
+ * @throws Error if all retry attempts fail
+ */
+async function generateJWTWithRetry(
+  characterId: string,
+  accountId: string,
+  maxRetries: number = 3,
+  retryDelay: number = 1000,
+): Promise<string> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `[CharacterEditor] JWT generation attempt ${attempt}/${maxRetries}...`,
+      );
+
+      const credResponse = await fetch(
+        "http://localhost:5555/api/agents/credentials",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characterId,
+            accountId,
+          }),
+        },
+      );
+
+      if (!credResponse.ok) {
+        throw new Error(`JWT generation failed: HTTP ${credResponse.status}`);
+      }
+
+      const credentials = await credResponse.json();
+      if (!credentials.authToken) {
+        throw new Error("JWT generation failed: No token in response");
+      }
+
+      console.log(
+        `[CharacterEditor] ✅ JWT generated successfully on attempt ${attempt}`,
+      );
+      return credentials.authToken;
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(
+        `[CharacterEditor] JWT generation attempt ${attempt} failed: ${lastError.message}`,
+      );
+
+      if (attempt < maxRetries) {
+        console.log(`[CharacterEditor] Retrying in ${retryDelay / 1000}s...`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      }
+    }
+  }
+
+  // All retries failed
+  throw new Error(
+    `JWT generation failed after ${maxRetries} attempts: ${lastError?.message || "Unknown error"}`,
+  );
+}
+
 export const CharacterEditorScreen: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState<
     "basic" | "content" | "style" | "plugins" | "secrets"
@@ -138,7 +207,7 @@ export const CharacterEditorScreen: React.FC = () => {
 
             // Merge existing agent data with template defaults (existing data takes priority)
             const loadedAgent: CharacterTemplate = {
-              id: existingAgent.id || characterIdParam, // Use agent ID or character ID
+              id: existingAgent.id, // Use ElizaOS-generated UUID (will be undefined if not set)
               name: existingAgent.name || name,
               username: existingAgent.username || baseTemplate.username,
               system: existingAgent.system || baseTemplate.system,
@@ -178,29 +247,18 @@ export const CharacterEditorScreen: React.FC = () => {
               },
             };
 
-            // Fetch JWT securely from backend (never from URL)
+            // Fetch JWT securely from backend with retry logic (never from URL)
             try {
-              console.log("[CharacterEditor] Fetching JWT securely...");
-              const credResponse = await fetch(
-                "http://localhost:5555/api/agents/credentials",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    characterId: characterIdParam,
-                    accountId,
-                  }),
-                },
+              const authToken = await generateJWTWithRetry(
+                characterIdParam,
+                accountId,
               );
-
-              if (credResponse.ok) {
-                const credentials = await credResponse.json();
-                loadedAgent.settings.secrets.HYPERSCAPE_AUTH_TOKEN =
-                  credentials.authToken;
-                console.log("[CharacterEditor] ✅ JWT fetched securely");
-              }
+              loadedAgent.settings.secrets.HYPERSCAPE_AUTH_TOKEN = authToken;
             } catch (error) {
-              console.error("[CharacterEditor] Failed to fetch JWT:", error);
+              console.error(
+                "[CharacterEditor] Failed to fetch JWT after retries:",
+                error,
+              );
             }
 
             // Pre-fill other fields from URL params (only if not already set)
@@ -241,30 +299,19 @@ export const CharacterEditorScreen: React.FC = () => {
         characterIdParam,
       );
 
-      // Fetch JWT securely (never from URL)
+      // Fetch JWT securely with retry logic (never from URL)
       try {
-        console.log("[CharacterEditor] Generating JWT for new template...");
-        const credResponse = await fetch(
-          "http://localhost:5555/api/agents/credentials",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              characterId: characterIdParam,
-              accountId,
-            }),
-          },
+        const authToken = await generateJWTWithRetry(
+          characterIdParam,
+          accountId,
         );
-
-        if (credResponse.ok) {
-          const credentials = await credResponse.json();
-          template.settings.secrets.HYPERSCAPE_AUTH_TOKEN =
-            credentials.authToken;
-          template.settings.secrets.HYPERSCAPE_CHARACTER_ID = characterIdParam;
-          console.log("[CharacterEditor] ✅ JWT generated securely");
-        }
+        template.settings.secrets.HYPERSCAPE_AUTH_TOKEN = authToken;
+        template.settings.secrets.HYPERSCAPE_CHARACTER_ID = characterIdParam;
       } catch (error) {
-        console.error("[CharacterEditor] Failed to generate JWT:", error);
+        console.error(
+          "[CharacterEditor] Failed to generate JWT after retries:",
+          error,
+        );
       }
 
       setCharacter(template);
@@ -293,33 +340,15 @@ export const CharacterEditorScreen: React.FC = () => {
         throw new Error("Not authenticated - no account ID found");
       }
 
-      // Ensure all required secrets are present
+      // Ensure all required secrets are present (with retry logic)
       if (!character.settings?.secrets?.HYPERSCAPE_AUTH_TOKEN) {
-        console.log("[CharacterEditor] Missing JWT, generating credentials...");
-
-        // Generate permanent Hyperscape JWT for agent
-        const credentialsResponse = await fetch(
-          "http://localhost:5555/api/agents/credentials",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              characterId,
-              accountId,
-            }),
-          },
+        console.log(
+          "[CharacterEditor] Missing JWT, generating credentials with retry logic...",
         );
 
-        if (!credentialsResponse.ok) {
-          throw new Error(
-            `Failed to generate credentials: ${credentialsResponse.status}`,
-          );
-        }
-
-        const credentials = await credentialsResponse.json();
-        character.settings.secrets.HYPERSCAPE_AUTH_TOKEN =
-          credentials.authToken;
-        console.log("[CharacterEditor] JWT generated successfully");
+        // Generate permanent Hyperscape JWT for agent with retry logic
+        const authToken = await generateJWTWithRetry(characterId, accountId);
+        character.settings.secrets.HYPERSCAPE_AUTH_TOKEN = authToken;
       }
 
       // Update character with complete settings
@@ -350,11 +379,17 @@ export const CharacterEditorScreen: React.FC = () => {
           "[CharacterEditor] No valid agent ID found, creating new agent...",
         );
 
+        // Strip 'id' field - let ElizaOS generate UUID (it expects valid UUID, we have Privy ID)
+        const { id, ...characterWithoutId } = updatedCharacter;
+        console.log(
+          "[CharacterEditor] Removed id field from character payload (ElizaOS will generate UUID)",
+        );
+
         // Create new agent with POST
         const createResponse = await fetch(`http://localhost:3000/api/agents`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ characterJson: updatedCharacter }),
+          body: JSON.stringify({ characterJson: characterWithoutId }),
         });
 
         if (!createResponse.ok) {
@@ -380,7 +415,7 @@ export const CharacterEditorScreen: React.FC = () => {
             newAgentId,
           );
 
-          // Save agent mapping to Hyperscape database
+          // Save agent mapping to Hyperscape database (CRITICAL - rollback if fails)
           try {
             const mappingResponse = await fetch(
               "http://localhost:5555/api/agents/mappings",
@@ -396,21 +431,37 @@ export const CharacterEditorScreen: React.FC = () => {
               },
             );
 
-            if (mappingResponse.ok) {
-              console.log(
-                "[CharacterEditor] ✅ Agent mapping saved successfully",
-              );
-            } else {
-              console.warn(
-                "[CharacterEditor] ⚠️  Failed to save agent mapping (non-fatal)",
+            if (!mappingResponse.ok) {
+              throw new Error(
+                `Failed to save agent mapping: HTTP ${mappingResponse.status}`,
               );
             }
-          } catch (error) {
-            console.error(
-              "[CharacterEditor] ⚠️  Error saving agent mapping:",
-              error,
+
+            console.log(
+              "[CharacterEditor] ✅ Agent mapping saved successfully",
             );
-            // Non-fatal - agent was still created
+          } catch (mappingError) {
+            console.error(
+              "[CharacterEditor] ❌ Agent mapping save failed, rolling back agent creation:",
+              mappingError,
+            );
+
+            // ROLLBACK: Delete agent from ElizaOS
+            try {
+              await fetch(`http://localhost:3000/api/agents/${newAgentId}`, {
+                method: "DELETE",
+              });
+              console.log("[CharacterEditor] ✅ Rolled back agent creation");
+            } catch (rollbackError) {
+              console.error(
+                "[CharacterEditor] ❌ Rollback failed:",
+                rollbackError,
+              );
+            }
+
+            throw new Error(
+              `Agent creation failed: Could not save agent mapping. ${mappingError instanceof Error ? mappingError.message : String(mappingError)}`,
+            );
           }
         }
 
@@ -459,7 +510,7 @@ export const CharacterEditorScreen: React.FC = () => {
       const result = await updateResponse.json();
       console.log("[CharacterEditor] ✅ ElizaOS agent updated:", result);
 
-      // Update agent mapping in Hyperscape database
+      // Update agent mapping in Hyperscape database (CRITICAL)
       if (agentId) {
         console.log("[CharacterEditor] Updating agent mapping for:", agentId);
 
@@ -478,21 +529,24 @@ export const CharacterEditorScreen: React.FC = () => {
             },
           );
 
-          if (mappingResponse.ok) {
-            console.log(
-              "[CharacterEditor] ✅ Agent mapping updated successfully",
-            );
-          } else {
-            console.warn(
-              "[CharacterEditor] ⚠️  Failed to update agent mapping (non-fatal)",
+          if (!mappingResponse.ok) {
+            throw new Error(
+              `Failed to update agent mapping: HTTP ${mappingResponse.status}`,
             );
           }
-        } catch (error) {
-          console.error(
-            "[CharacterEditor] ⚠️  Error updating agent mapping:",
-            error,
+
+          console.log(
+            "[CharacterEditor] ✅ Agent mapping updated successfully",
           );
-          // Non-fatal - agent was still updated
+        } catch (mappingError) {
+          console.error(
+            "[CharacterEditor] ❌ Agent mapping update failed:",
+            mappingError,
+          );
+
+          throw new Error(
+            `Agent was updated but mapping sync failed. Dashboard may show outdated info. ${mappingError instanceof Error ? mappingError.message : String(mappingError)}`,
+          );
         }
       }
 

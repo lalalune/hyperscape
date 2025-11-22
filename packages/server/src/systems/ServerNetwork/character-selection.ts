@@ -237,7 +237,7 @@ export async function handleCharacterCreate(
       wallet?: string;
       isAgent?: boolean;
     }) || {};
-  const name = (payload.name || "").trim().slice(0, 20) || "Adventurer";
+  const name = (payload.name || "").trim().slice(0, 50) || "Adventurer";
   const avatar = payload.avatar || undefined;
   const wallet = payload.wallet || undefined;
   const isAgent = payload.isAgent || false;
@@ -255,7 +255,7 @@ export async function handleCharacterCreate(
     isAgent,
   });
 
-  // Basic validation: alphanumeric plus spaces, 3-20 chars
+  // Basic validation: alphanumeric plus spaces, 3-50 chars
   const safeName = name.replace(/[^a-zA-Z0-9 ]/g, "").trim();
   const finalName = safeName.length >= 3 ? safeName : "Adventurer";
 
@@ -397,11 +397,86 @@ export async function handleEnterWorld(
   const payload = (data as { characterId?: string }) || {};
   const characterId = payload.characterId || null;
 
+  // Set socket.characterId IMMEDIATELY for synchronous duplicate detection
+  // This must happen BEFORE any async operations (DB queries, entity creation)
+  if (characterId) {
+    socket.characterId = characterId;
+  }
+
   console.log("[CharacterSelection] Enter world params:", {
     accountId,
     characterId,
     hasSocket: !!socket,
   });
+
+  // DUPLICATE PROTECTION: Check if this characterId already has an active entity
+  if (characterId) {
+    // First check: Look for active socket with this character
+    const networkSystem = world.getSystem("network") as
+      | { sockets: Map<string, ServerSocket> }
+      | undefined;
+    let existingActiveSocket: ServerSocket | undefined = undefined;
+
+    if (networkSystem?.sockets) {
+      for (const [, sock] of networkSystem.sockets.entries()) {
+        // Check if this socket has claimed this characterId (set immediately on enterWorld)
+        // This works even before the player entity is created, preventing race conditions
+        if (
+          sock.characterId === characterId &&
+          sock.alive &&
+          sock.id !== socket.id
+        ) {
+          existingActiveSocket = sock;
+          break;
+        }
+      }
+    }
+
+    // If we found an active socket with this character, reject immediately
+    if (existingActiveSocket) {
+      console.warn(
+        `[CharacterSelection] ⚠️ Character ${characterId} is already connected with alive socket ${existingActiveSocket.id}! Rejecting duplicate spawn from socket ${socket.id}.`,
+      );
+      sendToFn(socket.id, "showToast", {
+        message:
+          "This character is already logged in. Please disconnect the other session first.",
+        type: "error",
+      });
+      return; // Reject duplicate connection
+    }
+
+    // Second check: Look for stale entities (entity exists but socket is dead)
+    let existingEntity = null;
+    for (const [, entity] of world.entities.items.entries()) {
+      // Check if this entity was spawned with the same characterId
+      // (stored as entity ID for persistent characters)
+      if (entity.id === characterId) {
+        existingEntity = entity;
+        break;
+      }
+    }
+
+    if (existingEntity) {
+      // Entity exists but no active socket - this is a stale entity from a crashed connection
+      console.log(
+        `[CharacterSelection] 🔄 Character ${characterId} has stale entity. Removing stale entity and allowing reconnection.`,
+      );
+
+      // Remove the stale entity
+      if (world.entities?.remove) {
+        world.entities.remove(existingEntity.id);
+        console.log(
+          `[CharacterSelection] ✅ Removed stale entity ${existingEntity.id}`,
+        );
+      }
+
+      // Broadcast entity removal to all clients
+      sendFn("entityRemoved", existingEntity.id);
+      console.log(
+        `[CharacterSelection] 📤 Broadcasted entity removal for ${existingEntity.id}`,
+      );
+    }
+  }
 
   // Load character data from DB if characterId provided
   let name = "Adventurer";
@@ -431,39 +506,20 @@ export async function handleEnterWorld(
             avatar,
           });
         } else {
-          console.warn(
-            `[CharacterSelection] ❌ Character ${characterId} not found for account ${accountId}`,
+          // Character not found - fail fast instead of auto-creating with wrong data
+          console.error(
+            `[CharacterSelection] ❌ CRITICAL: Character ${characterId} not found for account ${accountId}. Refusing to spawn with incorrect data.`,
           );
-
-          // Auto-create character in database to avoid foreign key violations
-          console.log(
-            `[CharacterSelection] 🆕 Creating character record for ${characterId}`,
-          );
-          try {
-            const created = await databaseSystem.createCharacter(
-              accountId,
-              characterId,
-              name,
-              avatar,
-              undefined, // wallet
-              false, // isAgent
-            );
-            if (created) {
-              console.log(
-                `[CharacterSelection] ✅ Created character record for ${characterId}`,
-              );
-              characterData = { id: characterId, name, avatar: avatar || null };
-            } else {
-              console.error(
-                `[CharacterSelection] ❌ Failed to create character record`,
-              );
-            }
-          } catch (createErr) {
-            console.error(
-              `[CharacterSelection] ❌ Error creating character:`,
-              createErr,
-            );
+          sendToFn(socket.id, "showToast", {
+            message:
+              "Character not found. Please select a valid character or create a new one.",
+            type: "error",
+          });
+          // Disconnect socket to force user to return to character selection
+          if (socket.ws && socket.ws.close) {
+            socket.ws.close(4004, "Character not found");
           }
+          return; // Exit early - do not spawn
         }
       }
     } catch (err) {

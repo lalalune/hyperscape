@@ -143,6 +143,21 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
     );
   }
 
+  // Only load game world when agent is active
+  if (agent.status !== "active") {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-[#0b0a15] text-[#f2d08a]/60">
+        <div className="text-6xl mb-4">⏸️</div>
+        <h2 className="text-xl font-bold text-[#f2d08a] mb-2">
+          Agent is {agent.status}
+        </h2>
+        <p className="text-center max-w-md">
+          Start the agent to view the live game world and interact with it.
+        </p>
+      </div>
+    );
+  }
+
   if (!authToken) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-[#0b0a15] text-[#f2d08a]/60">

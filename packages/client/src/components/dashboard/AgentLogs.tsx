@@ -59,23 +59,89 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
     const fetchLogs = async () => {
       if (isPaused) return;
 
+      // Only fetch logs for active agents
+      if (agent.status !== "active") {
+        console.log(
+          `[AgentLogs] Agent ${agent.name} is ${agent.status} - skipping log fetch`,
+        );
+        setLogs([]);
+        return;
+      }
+
       try {
         // Use ElizaOS REST API to fetch agent logs
+        // Use 'limit' parameter (not 'count') and 'level' filter
         const response = await fetch(
-          `http://localhost:3000/api/agents/${agent.id}/logs?count=100&excludeTypes=debug,trace`,
+          `http://localhost:3000/api/agents/${agent.id}/logs?limit=200&level=info`,
+        );
+        console.log(
+          "[AgentLogs] Fetching logs from:",
+          `http://localhost:3000/api/agents/${agent.id}/logs`,
         );
         if (response.ok) {
-          const data = await response.json();
-          // ElizaOS returns array of log objects directly
-          const logs = Array.isArray(data) ? data : [];
+          const result = await response.json();
+          console.log("[AgentLogs] Raw response:", result);
+
+          // ElizaOS returns { success, data: [...] } where data is the logs array
+          if (!result.success || !result.data || !Array.isArray(result.data)) {
+            console.warn("[AgentLogs] Unexpected response format:", result);
+            setLogs([]);
+            return;
+          }
+
+          const logs = result.data;
+          console.log("[AgentLogs] Logs count from API:", logs.length);
+          console.log("[AgentLogs] First log sample:", logs[0]);
+
+          // Extract log level from type (e.g., "useModel:TEXT_EMBEDDING" -> "info")
+          const extractLevel = (log: any): string => {
+            const type = log.type || "";
+            if (type.includes("error") || type.includes("Error"))
+              return "error";
+            if (type.includes("warn") || type.includes("Warning"))
+              return "warn";
+            if (type.includes("debug")) return "debug";
+            return "info"; // Default to info
+          };
+
+          // Extract message from log body and type
+          const extractMessage = (log: any): string => {
+            const type = log.type || "unknown";
+            const body = log.body || {};
+
+            // Format based on type
+            if (type.startsWith("useModel:")) {
+              const modelType =
+                body.modelType || type.split(":")[1] || "unknown";
+              const executionTime = body.executionTime
+                ? `${body.executionTime.toFixed(2)}ms`
+                : "";
+              return `Used ${modelType} model${executionTime ? ` (${executionTime})` : ""}`;
+            }
+
+            // Generic fallback
+            return type;
+          };
+
           const formattedLogs = logs.map((log: any) => ({
-            id: log.id || `${Date.now()}-${Math.random()}`,
-            timestamp: new Date(log.timestamp || log.createdAt || Date.now()),
-            level: log.level || log.type || "info",
-            message: log.message || log.body || log.text || "",
-            source: log.source || log.agentId || agent.name,
+            id: log.id,
+            timestamp: new Date(log.createdAt),
+            level: extractLevel(log),
+            message: extractMessage(log),
+            source: agent.name,
           }));
+
+          console.log(
+            "[AgentLogs] Formatted logs count:",
+            formattedLogs.length,
+          );
           setLogs(formattedLogs);
+        } else {
+          console.error(
+            "[AgentLogs] Response not OK:",
+            response.status,
+            response.statusText,
+          );
         }
       } catch (error) {
         console.error("Failed to fetch logs:", error);
@@ -85,7 +151,7 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
     fetchLogs();
     const interval = setInterval(fetchLogs, 2000); // Poll every 2 seconds
     return () => clearInterval(interval);
-  }, [agent.id, isPaused]);
+  }, [agent.id, agent.status, isPaused]);
 
   // Auto-scroll to bottom
   React.useEffect(() => {
@@ -206,8 +272,22 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
             ))}
 
           {logs.length === 0 && (
-            <div className="text-center py-20 text-[#f2d08a]/20">
-              Waiting for logs...
+            <div className="text-center py-20 text-[#f2d08a]/40">
+              {agent.status !== "active" ? (
+                <>
+                  <div className="text-lg font-bold text-[#f2d08a]/60 mb-2">
+                    Agent is {agent.status}
+                  </div>
+                  <div className="text-sm">Start the agent to see logs</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-lg font-bold text-[#f2d08a]/60 mb-2">
+                    No logs yet
+                  </div>
+                  <div className="text-sm">Waiting for agent activity...</div>
+                </>
+              )}
             </div>
           )}
         </div>

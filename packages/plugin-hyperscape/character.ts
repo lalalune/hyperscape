@@ -34,9 +34,15 @@ export const character: Character = {
     "Inventory management",
     "Player interactions",
   ],
-  plugins: [hyperscapePlugin],
+  plugins: [
+    hyperscapePlugin,
+    "@elizaos/plugin-sql",
+    "@elizaos/plugin-openrouter",
+    "@elizaos/plugin-openai",
+    "@elizaos/plugin-anthropic",
+  ],
   clients: [],
-  modelProvider: "openai",
+  modelProvider: "openrouter", // Use openrouter as primary (falls back to openai if not configured)
   settings: {
     secrets: {},
   },

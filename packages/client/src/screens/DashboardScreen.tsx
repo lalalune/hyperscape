@@ -4,7 +4,6 @@ import { AgentChat } from "../components/dashboard/AgentChat";
 import { AgentViewportChat } from "../components/dashboard/AgentViewportChat";
 import { AgentSettings } from "../components/dashboard/AgentSettings";
 import { AgentLogs } from "../components/dashboard/AgentLogs";
-import { AgentViewport } from "../components/dashboard/AgentViewport";
 import { AgentMemories } from "../components/dashboard/AgentMemories";
 import { AgentTimeline } from "../components/dashboard/AgentTimeline";
 import { AgentDynamicPanel } from "../components/dashboard/AgentDynamicPanel";
@@ -51,7 +50,6 @@ export const DashboardScreen: React.FC = () => {
     | "chat"
     | "settings"
     | "logs"
-    | "viewport"
     | "memories"
     | "timeline"
     | "runs"
@@ -190,10 +188,74 @@ export const DashboardScreen: React.FC = () => {
   };
 
   const deleteAgent = async (agentId: string) => {
-    try {
-      console.log(`[Dashboard] Deleting agent ${agentId}...`);
+    console.log(
+      `[Dashboard] 🗑️  Starting atomic deletion for agent ${agentId}...`,
+    );
 
-      // Delete from ElizaOS
+    // Store mapping data for potential rollback
+    let deletedMapping: {
+      agentId: string;
+      accountId: string;
+      characterId: string;
+      agentName: string;
+    } | null = null;
+
+    try {
+      // STEP 1: Fetch mapping data before deletion (for rollback)
+      console.log(
+        `[Dashboard] 📋 Fetching mapping data for rollback protection...`,
+      );
+      try {
+        const getMappingResponse = await fetch(
+          `http://localhost:5555/api/agents/mappings/${agentId}`,
+        );
+
+        if (getMappingResponse.ok) {
+          const mappingData = await getMappingResponse.json();
+          deletedMapping = {
+            agentId: mappingData.agentId || agentId,
+            accountId: mappingData.accountId || userAccountId || "",
+            characterId: mappingData.characterId || "",
+            agentName: mappingData.agentName || "Unknown Agent",
+          };
+          console.log(
+            `[Dashboard] ✅ Mapping data cached for rollback:`,
+            deletedMapping,
+          );
+        } else {
+          console.warn(
+            `[Dashboard] ⚠️  Could not fetch mapping data (HTTP ${getMappingResponse.status}) - proceeding without rollback protection`,
+          );
+        }
+      } catch (fetchError) {
+        console.warn(
+          `[Dashboard] ⚠️  Error fetching mapping data:`,
+          fetchError,
+          `- proceeding without rollback protection`,
+        );
+      }
+
+      // STEP 2: Delete mapping FIRST (cheap operation, fast)
+      console.log(
+        `[Dashboard] 🗑️  Step 1/2: Deleting mapping from Hyperscape database...`,
+      );
+      const mappingResponse = await fetch(
+        `http://localhost:5555/api/agents/mappings/${agentId}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      if (!mappingResponse.ok) {
+        throw new Error(
+          `Failed to delete agent mapping from Hyperscape: HTTP ${mappingResponse.status}`,
+        );
+      }
+
+      console.log(`[Dashboard] ✅ Mapping deleted from Hyperscape database`);
+
+      // STEP 3: Delete from ElizaOS SECOND (expensive operation, slow)
+      console.log(`[Dashboard] 🗑️  Step 2/2: Deleting agent from ElizaOS...`);
       const elizaResponse = await fetch(`${ELIZAOS_API}/agents/${agentId}`, {
         method: "DELETE",
       });
@@ -204,41 +266,67 @@ export const DashboardScreen: React.FC = () => {
 
       console.log(`[Dashboard] ✅ Agent deleted from ElizaOS`);
 
-      // Delete agent mapping from Hyperscape database
-      try {
-        const mappingResponse = await fetch(
-          `http://localhost:5555/api/agents/mappings/${agentId}`,
-          {
-            method: "DELETE",
-          },
-        );
-
-        if (mappingResponse.ok) {
-          console.log(`[Dashboard] ✅ Agent mapping deleted from Hyperscape`);
-        } else {
-          console.warn(
-            `[Dashboard] Failed to delete agent mapping: HTTP ${mappingResponse.status}`,
-          );
-        }
-      } catch (mappingError) {
-        console.error(
-          `[Dashboard] Error deleting agent mapping:`,
-          mappingError,
-        );
-      }
-
-      // Clear selection if deleted agent was selected
+      // STEP 4: Clear selection if deleted agent was selected
       if (selectedAgentId === agentId) {
         setSelectedAgentId(null);
       }
 
-      // Refresh agent list
+      // STEP 5: Refresh agent list
       await fetchAgents();
 
-      console.log(`[Dashboard] ✅ Agent deletion completed`);
+      console.log(`[Dashboard] ✅ Atomic deletion completed successfully`);
     } catch (error) {
-      console.error(`[Dashboard] Failed to delete agent:`, error);
-      throw error; // Re-throw so UI can show error
+      console.error(`[Dashboard] ❌ Agent deletion failed:`, error);
+
+      // ROLLBACK: Restore mapping if ElizaOS deletion failed
+      if (deletedMapping) {
+        console.log(
+          `[Dashboard] 🔄 ElizaOS deletion failed, attempting rollback of mapping deletion...`,
+        );
+
+        try {
+          const rollbackResponse = await fetch(
+            `http://localhost:5555/api/agents/mappings`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(deletedMapping),
+            },
+          );
+
+          if (rollbackResponse.ok) {
+            console.log(
+              `[Dashboard] ✅ Mapping rollback successful - agent restored in dashboard`,
+            );
+          } else {
+            console.error(
+              `[Dashboard] ❌ Mapping rollback failed: HTTP ${rollbackResponse.status} - ghost agent may appear`,
+            );
+          }
+        } catch (rollbackError) {
+          console.error(
+            `[Dashboard] ❌ Mapping rollback error:`,
+            rollbackError,
+            `- ghost agent may appear`,
+          );
+        }
+
+        // Refresh agent list to show current state (rolled back)
+        await fetchAgents();
+      } else {
+        console.warn(
+          `[Dashboard] ⚠️  No mapping data available for rollback - cannot restore agent in dashboard`,
+        );
+      }
+
+      // Re-throw with clear error message
+      throw new Error(
+        `Failed to delete agent: ${error instanceof Error ? error.message : String(error)}. ${
+          deletedMapping
+            ? "Mapping has been restored."
+            : "Please refresh the page to see current state."
+        }`,
+      );
     }
   };
 
@@ -363,12 +451,6 @@ export const DashboardScreen: React.FC = () => {
             />
             <div className="w-px h-6 bg-[#8b4513]/30 mx-2" />
             <NavButton
-              active={activeView === "viewport"}
-              onClick={() => setActiveView("viewport")}
-              icon={<Monitor size={18} />}
-              label="Game Viewport"
-            />
-            <NavButton
               active={activeView === "system"}
               onClick={() => setActiveView("system")}
               icon={<Server size={18} />}
@@ -408,9 +490,6 @@ export const DashboardScreen: React.FC = () => {
             )}
             {activeView === "runs" && <AgentRuns agent={selectedAgent} />}
             {activeView === "logs" && <AgentLogs agent={selectedAgent} />}
-            {activeView === "viewport" && (
-              <AgentViewport agent={selectedAgent} />
-            )}
             {activeView === "system" && <SystemStatus />}
 
             {/* Dynamic Plugin Panels */}
