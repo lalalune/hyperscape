@@ -446,7 +446,7 @@ export async function handleEnterWorld(
     }
 
     // Second check: Look for stale entities (entity exists but socket is dead)
-    let existingEntity = null;
+    let existingEntity: Entity | null = null;
     for (const [, entity] of world.entities.items.entries()) {
       // Check if this entity was spawned with the same characterId
       // (stored as entity ID for persistent characters)

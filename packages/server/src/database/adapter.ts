@@ -250,60 +250,59 @@ export function createDrizzleAdapter(
     // Used by ServerNetwork authentication flow.
     if (tableName === "users") {
       return {
-        where: (key: string, value: unknown) => ({
-          first: async () => {
-            const results = await db
-              .select()
-              .from(schema.users)
-              .where(
-                eq(
-                  schema.users[key as keyof typeof schema.users],
-                  value as string,
-                ),
-              )
-              .limit(1);
-            return results[0];
-          },
-          update: async (data: Record<string, unknown>) => {
-            await db
-              .update(schema.users)
-              .set(data as Partial<typeof schema.users.$inferInsert>)
-              .where(
-                eq(
-                  schema.users[key as keyof typeof schema.users],
-                  value as string,
-                ),
-              );
-            return 1;
-          },
-          delete: async () => {
-            await db
-              .delete(schema.users)
-              .where(
-                eq(
-                  schema.users[key as keyof typeof schema.users],
-                  value as string,
-                ),
-              );
-            return 1;
-          },
-        }),
-        select: () => ({
-          where: (key: string, value: unknown) => ({
+        where: (key: string, value: unknown) => {
+          // Type-safe column access for users table with runtime validation
+          const column = schema.users[key as keyof typeof schema.users];
+          if (!column) {
+            throw new Error(`Invalid column name for users table: ${key}`);
+          }
+
+          return {
             first: async () => {
               const results = await db
                 .select()
                 .from(schema.users)
-                .where(
-                  eq(
-                    schema.users[key as keyof typeof schema.users],
-                    value as string,
-                  ),
-                )
+                // @ts-expect-error - Column type verified at runtime
+                .where(eq(column, value as string))
                 .limit(1);
               return results[0];
             },
-          }),
+            update: async (data: Record<string, unknown>) => {
+              await db
+                .update(schema.users)
+                .set(data as Partial<typeof schema.users.$inferInsert>)
+                // @ts-expect-error - Column type verified at runtime
+                .where(eq(column, value as string));
+              return 1;
+            },
+            delete: async () => {
+              await db
+                .delete(schema.users)
+                // @ts-expect-error - Column type verified at runtime
+                .where(eq(column, value as string));
+              return 1;
+            },
+          };
+        },
+        select: () => ({
+          where: (key: string, value: unknown) => {
+            const column = schema.users[key as keyof typeof schema.users];
+            if (!column) {
+              throw new Error(`Invalid column name for users table: ${key}`);
+            }
+
+            return {
+              first: async () => {
+                const results = await db
+                  .select()
+                  .from(schema.users)
+                  // @ts-expect-error - Column type verified at runtime
+                  .where(eq(column, value as string))
+                  .limit(1);
+                return results[0];
+              },
+            };
+          },
         }),
         insert: async (
           data: Record<string, unknown> | Record<string, unknown>[],
