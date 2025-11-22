@@ -201,7 +201,8 @@ export function registerUserRoutes(
       });
     } catch (error) {
       console.error(
-        `[UserRoutes] ❌ Failed to create user account for ${accountId}:`,
+        "[UserRoutes] ❌ Failed to create user account for %s:",
+        accountId,
         error,
       );
 
