@@ -53,6 +53,7 @@ export interface PlayerRow {
   positionX: number;
   positionY: number;
   positionZ: number;
+  attackStyle?: string; // Combat style preference (accurate, aggressive, defensive)
   lastLogin: number;
   createdAt: number;
   woodcuttingLevel: number;

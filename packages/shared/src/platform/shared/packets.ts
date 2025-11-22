@@ -8,7 +8,7 @@
  * **Protocol Design**:
  * - All packets are binary ArrayBuffers (no JSON overhead)
  * - Packet format: [packet_id, data] where packet_id is a small integer
- * - Packet IDs map to method names on the receiving end (e.g., id 0 → 'onSnapshot')
+ * - Packet IDs map to method names with "on" prefix (e.g., 'snapshot' → 'onSnapshot')
  * - msgpackr provides efficient binary serialization with structured clone support
  *
  * **Packet Types**:
@@ -60,7 +60,7 @@
  * **Adding New Packets**:
  * 1. Add packet name to the `names` array (order matters!)
  * 2. Packet ID is automatically assigned based on array index
- * 3. Handler method name uses the same name (e.g., 'snapshot' → 'snapshot')
+ * 3. Handler method name gets "on" prefix (e.g., 'snapshot' → 'onSnapshot')
  * 4. Implement handler in ServerNetwork or ClientNetwork
  *
  * **Referenced by**: Socket (send/receive), ServerNetwork, ClientNetwork
@@ -117,12 +117,18 @@ const names = [
   'gatheringComplete',
   // Combat packets
   'attackMob',
+  'changeAttackStyle',
   // Item pickup packets
   'pickupItem',
   // Inventory action packets
   'dropItem',
+  // Equipment packets
+  'equipItem',
+  'unequipItem',
   // Inventory sync packets
   'inventoryUpdated',
+  // Equipment sync packets
+  'equipmentUpdated',
   // Skills sync packets
   'skillsUpdated',
   // UI feedback packets
@@ -136,6 +142,13 @@ const names = [
   'playerRespawned',
   // Loot packets
   'corpseLoot',
+  // Attack style packets
+  'attackStyleChanged',
+  'attackStyleUpdate',
+  // Combat visual feedback packets
+  'combatDamageDealt',
+  // Player state packets
+  'playerUpdated',
   // Character selection packets (feature-flagged usage)
   'characterListRequest',
   'characterCreate',
@@ -155,10 +168,14 @@ for (const name of names) {
   const info: PacketInfo = {
     id,
     name,
-    method: name, // Direct mapping - no conversion needed
+    method: `on${capitalize(name)}`, // eg 'connect' -> 'onConnect'
   };
   byName[name] = info;
   byId[id] = info;
+}
+
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 export function writePacket(name: string, data: unknown): ArrayBuffer {

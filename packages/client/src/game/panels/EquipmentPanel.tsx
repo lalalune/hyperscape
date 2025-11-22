@@ -1,12 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { COLORS } from "../../constants";
 import { useDroppable } from "@dnd-kit/core";
-import { EquipmentSlotName } from "@hyperscape/shared";
-import type { PlayerEquipmentItems, Item, PlayerStats } from "../../types";
+import { EquipmentSlotName, EventType } from "@hyperscape/shared";
+import type {
+  PlayerEquipmentItems,
+  Item,
+  PlayerStats,
+  ClientWorld,
+} from "../../types";
 
 interface EquipmentPanelProps {
   equipment: PlayerEquipmentItems | null;
   stats?: PlayerStats | null;
+  world?: ClientWorld;
   onItemDrop?: (item: Item, slot: keyof typeof EquipmentSlotName) => void;
 }
 
@@ -37,6 +43,29 @@ function DroppableEquipmentSlot({
     <button
       ref={setNodeRef}
       onClick={() => onSlotClick(slot)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!slot.item) return;
+
+        const items = [
+          { id: "unequip", label: `Unequip ${slot.item.name}`, enabled: true },
+          { id: "examine", label: "Examine", enabled: true },
+        ];
+
+        const evt = new CustomEvent("contextmenu", {
+          detail: {
+            target: {
+              id: `equipment_slot_${slot.key}`,
+              type: "equipment",
+              name: slot.item.name,
+            },
+            mousePosition: { x: e.clientX, y: e.clientY },
+            items,
+          },
+        });
+        window.dispatchEvent(evt);
+      }}
       className="w-full h-full rounded transition-all duration-200 cursor-pointer group relative"
       style={{
         background: isEmpty
@@ -135,6 +164,7 @@ function DroppableEquipmentSlot({
 export function EquipmentPanel({
   equipment,
   stats,
+  world,
   onItemDrop: _onItemDrop,
 }: EquipmentPanelProps) {
   const [selectedSlot, setSelectedSlot] = useState<EquipmentSlot | null>(null);
@@ -183,13 +213,15 @@ export function EquipmentPanel({
   const totalStats = slots.reduce(
     (acc, slot) => {
       if (slot.item) {
-        acc.attack += slot.item.stats?.attack || 0;
-        acc.defense += slot.item.stats?.defense || 0;
-        acc.strength += slot.item.stats?.strength || 0;
+        // Use bonuses field for equipment stat bonuses (not stats field)
+        acc.attack += slot.item.bonuses?.attack || 0;
+        acc.defense += slot.item.bonuses?.defense || 0;
+        acc.strength += slot.item.bonuses?.strength || 0;
+        acc.ranged += slot.item.bonuses?.ranged || 0;
       }
       return acc;
     },
-    { attack: 0, defense: 0, strength: 0 },
+    { attack: 0, defense: 0, strength: 0, ranged: 0 },
   );
 
   const handleSlotClick = (slot: EquipmentSlot) => {
@@ -200,7 +232,18 @@ export function EquipmentPanel({
 
   // Get player stats with proper defaults
   const playerLevel = stats?.level || 1;
-  const combatLevel = stats?.combatLevel || 1;
+  // Calculate combat level using OSRS formula (same as SkillsPanel and CombatPanel)
+  const combatLevel = stats?.skills
+    ? (() => {
+        const s = stats.skills;
+        const base =
+          0.25 * ((s.defense?.level || 1) + (s.constitution?.level || 10));
+        const melee =
+          0.325 * ((s.attack?.level || 1) + (s.strength?.level || 1));
+        const ranged = 0.325 * Math.floor((s.ranged?.level || 1) * 1.5);
+        return Math.floor(base + Math.max(melee, ranged));
+      })()
+    : 1;
   const health = {
     current: stats?.health?.current ?? 100,
     max: stats?.health?.max ?? 100,
@@ -208,6 +251,48 @@ export function EquipmentPanel({
   const attackSkill = stats?.skills?.attack?.level || 1;
   const strengthSkill = stats?.skills?.strength?.level || 1;
   const defenseSkill = stats?.skills?.defense?.level || 1;
+
+  useEffect(() => {
+    const onCtxSelect = (evt: Event) => {
+      const ce = evt as CustomEvent<{ actionId: string; targetId: string }>;
+      const target = ce.detail?.targetId || "";
+      if (!target.startsWith("equipment_slot_")) return;
+
+      const slotKey = target.replace("equipment_slot_", "");
+      const slot = slots.find((s) => s.key === slotKey);
+
+      if (!slot || !slot.item) return;
+
+      if (ce.detail.actionId === "unequip") {
+        const localPlayer = world?.getPlayer();
+        if (localPlayer && world?.network?.send) {
+          console.log("[EquipmentPanel] 📤 Sending unequipItem to server:", {
+            playerId: localPlayer.id,
+            slot: slotKey,
+          });
+          world.network.send("unequipItem", {
+            playerId: localPlayer.id,
+            slot: slotKey,
+          });
+        } else {
+          console.error("[EquipmentPanel] ❌ No local player or network.send!");
+        }
+      }
+
+      if (ce.detail.actionId === "examine") {
+        world?.emit(EventType.UI_TOAST, {
+          message: `It's a ${slot.item.name}.`,
+          type: "info",
+        });
+      }
+    };
+    window.addEventListener("contextmenu:select", onCtxSelect as EventListener);
+    return () =>
+      window.removeEventListener(
+        "contextmenu:select",
+        onCtxSelect as EventListener,
+      );
+  }, [equipment, world]);
 
   // Helper to find slot by key
   const getSlot = (key: string) => slots.find((s) => s.key === key) || null;
@@ -409,17 +494,6 @@ export function EquipmentPanel({
                     }}
                   >
                     {attackSkill}
-                    {totalStats.attack > 0 && (
-                      <span
-                        style={{
-                          color: "#22c55e",
-                          fontSize: "clamp(0.5rem, 0.9vw, 0.563rem)",
-                        }}
-                      >
-                        {" "}
-                        +{totalStats.attack}
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -451,17 +525,6 @@ export function EquipmentPanel({
                     }}
                   >
                     {strengthSkill}
-                    {totalStats.strength > 0 && (
-                      <span
-                        style={{
-                          color: "#22c55e",
-                          fontSize: "clamp(0.5rem, 0.9vw, 0.563rem)",
-                        }}
-                      >
-                        {" "}
-                        +{totalStats.strength}
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -493,17 +556,6 @@ export function EquipmentPanel({
                     }}
                   >
                     {defenseSkill}
-                    {totalStats.defense > 0 && (
-                      <span
-                        style={{
-                          color: "#22c55e",
-                          fontSize: "clamp(0.5rem, 0.9vw, 0.563rem)",
-                        }}
-                      >
-                        {" "}
-                        +{totalStats.defense}
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
@@ -582,6 +634,25 @@ export function EquipmentPanel({
                       }}
                     >
                       +{totalStats.strength}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span
+                      style={{
+                        fontSize: "clamp(0.563rem, 1vw, 0.625rem)",
+                        color: "rgba(242, 208, 138, 0.8)",
+                      }}
+                    >
+                      🏹 Ranged Bonus
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "clamp(0.563rem, 1vw, 0.625rem)",
+                        color: "#22c55e",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      +{totalStats.ranged}
                     </span>
                   </div>
                 </div>
@@ -869,8 +940,17 @@ export function EquipmentPanel({
                 {/* Unequip Button */}
                 <button
                   onClick={() => {
-                    // Unequip functionality not yet implemented
-                    // Will require network protocol for item unequip action
+                    // Send unequip request to server
+                    const localPlayer = world?.getPlayer();
+                    if (world?.network?.send && selectedSlot && localPlayer) {
+                      console.log(
+                        "[EquipmentPanel] 📤 Unequip button clicked, sending to server",
+                      );
+                      world.network.send("unequipItem", {
+                        playerId: localPlayer.id,
+                        slot: selectedSlot.key,
+                      });
+                    }
                     setSelectedSlot(null);
                   }}
                   className="w-full mt-4 py-2 px-4 rounded transition-all duration-200 hover:scale-[1.02]"

@@ -11,6 +11,7 @@ import { SkeletonHelper } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { VRMLoaderPlugin } from "@pixiv/three-vrm";
 
 export interface Transform {
   position: { x: number; y: number; z: number };
@@ -87,6 +88,9 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
     const avatarRef = useRef<THREE.Object3D | null>(null);
     const equipmentRef = useRef<THREE.Object3D | null>(null);
     const loader = useRef(new GLTFLoader());
+    // Register VRM plugin to support loading VRM files
+    loader.current.register((parser) => new VRMLoaderPlugin(parser));
+    const vrmRef = useRef<any>(null);
     // const exporter = useRef(new GLTFExporter())
     const skeletonHelperRef = useRef<SkeletonHelper | null>(null);
     const equipmentWrapperRef = useRef<THREE.Group | null>(null);
@@ -599,6 +603,10 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
           // Load new avatar
           const gltf = await loader.current.loadAsync(avatarUrl);
           const avatar = gltf.scene;
+          if (gltf.userData.vrm) {
+            vrmRef.current = gltf.userData.vrm;
+            console.log("✅ VRM instance captured for export rebaking");
+          }
 
           console.log(`📦 Loaded GLTF from ${avatarUrl}`);
           console.log(`   Scene children: ${avatar.children.length}`);
@@ -1803,8 +1811,198 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
 
       exportAlignedEquipment: async () => {
         if (!equipmentRef.current) return new ArrayBuffer(0);
+
+        // Get the EquipmentWrapper (which contains all the positioning data)
+        const wrapper = equipmentRef.current.parent;
+        if (!wrapper || wrapper.name !== "EquipmentWrapper") {
+          console.error("Equipment not in wrapper!");
+          return new ArrayBuffer(0);
+        }
+
+        // Clone the wrapper with all children (preserves hierarchy and transforms)
+        const exportRoot = wrapper.clone(true);
+
+        // Map Asset Forge bone names to VRM standard bone names
+        const boneNameMap: Record<string, string> = {
+          Hand_R: "rightHand",
+          Hand_L: "leftHand",
+          LeftHand: "leftHand",
+          RightHand: "rightHand",
+          Spine: "spine",
+          Spine2: "chest",
+          Chest: "chest",
+          Head: "head",
+          Hips: "hips",
+        };
+
+        const vrmBoneName = boneNameMap[equipmentSlot] || "rightHand";
+
+        // --- REBAKE LOGIC (Paranoid Mode) ---
+        // We directly measure the environment to ensure we get the correct factors.
+        // Reliance on userData or refs has proven flaky.
+
+        let boneScale = 1.0;
+        let heightRatio = 1.0;
+
+        if (wrapper.parent) {
+          const rawBone = wrapper.parent;
+
+          // 1. Measure Bone Scale Directly
+          rawBone.updateMatrixWorld(true);
+          const worldScale = new THREE.Vector3();
+          rawBone.getWorldScale(worldScale);
+          boneScale = worldScale.x; // Assume uniform scale for simplicity, or use max component
+          console.log(`📏 Measured Bone Scale: ${boneScale.toFixed(6)}`);
+
+          // 2. Find Avatar Root to measure Height
+          let avatarRoot = avatarRef.current;
+          if (!avatarRoot) {
+            // Traverse up to find the root (usually the Scene or a Group containing the SkinnedMesh)
+            let curr: THREE.Object3D | null = rawBone;
+            while (curr && curr.parent && curr.parent.type !== "Scene") {
+              curr = curr.parent;
+            }
+            avatarRoot = curr;
+            console.log(
+              `🔍 Found Avatar Root via traversal: ${avatarRoot?.name}`,
+            );
+          }
+
+          if (avatarRoot) {
+            const currentHeight = calculateAvatarHeight(avatarRoot);
+            const TARGET_HEIGHT = 1.6;
+            if (Math.abs(currentHeight - TARGET_HEIGHT) > 0.1) {
+              heightRatio = TARGET_HEIGHT / currentHeight;
+            }
+            console.log(
+              `📏 Measured Avatar Height: ${currentHeight.toFixed(2)}m (Target: ${TARGET_HEIGHT}m) -> Ratio: ${heightRatio.toFixed(4)}`,
+            );
+          }
+        } else {
+          console.warn("⚠️ Wrapper has no parent! Cannot measure bone scale.");
+          // Fallback to userData if available
+          if (wrapper.userData.boneScale) {
+            boneScale = wrapper.userData.boneScale;
+            console.log(`⚠️ Using fallback userData.boneScale: ${boneScale}`);
+          }
+        }
+
+        // TWEAK FACTOR: User requested to make it bigger.
+        // 1.0 = Normalized to 1.6m human height.
+        // 1.5 = 50% bigger.
+        const EXPORT_SCALE_MULTIPLIER = 1.5;
+
+        const totalScaleFactor = boneScale * heightRatio;
+
+        // 3. Apply Scale/Position Correction
+        // REVERT FIX: The Hyperscape bone is actually Scale 1.0 (Normalized).
+        // Asset Forge bone is Scale 0.01 (Tiny).
+        // Wrapper is Scale 100 (Huge) to compensate.
+        // We MUST multiply by boneScale (0.01) to convert Wrapper to Scale 1.0.
+        // Hyperscape: Bone(1.0) * Wrapper(1.0) = 1.0 (Correct).
+
+        const originalScale = wrapper.scale.clone();
+        exportRoot.scale.copy(originalScale).multiplyScalar(totalScaleFactor);
+
+        const originalPos = wrapper.position.clone();
+        const scaledPos = originalPos.multiplyScalar(totalScaleFactor);
+        exportRoot.position.copy(scaledPos);
+
+        // 4. Apply Rotation Correction (if VRM is available)
+        // Try to find VRM instance if ref is missing
+        let vrmInstance = vrmRef.current;
+        if (
+          !vrmInstance &&
+          avatarRef.current &&
+          avatarRef.current.userData.vrm
+        ) {
+          vrmInstance = avatarRef.current.userData.vrm;
+          console.log("✅ Found VRM instance in avatarRef.userData");
+        }
+
+        if (vrmInstance && wrapper.parent) {
+          const rawBone = wrapper.parent;
+          const normalizedBone =
+            vrmInstance.humanoid.getNormalizedBoneNode(vrmBoneName);
+
+          if (normalizedBone) {
+            console.log(`🔄 Applying rotation correction for ${vrmBoneName}`);
+
+            rawBone.updateMatrixWorld(true);
+            normalizedBone.updateMatrixWorld(true);
+
+            const rawQuat = new THREE.Quaternion();
+            rawBone.getWorldQuaternion(rawQuat);
+
+            const normQuat = new THREE.Quaternion();
+            normalizedBone.getWorldQuaternion(normQuat);
+
+            // Rotation needed to go from Raw Bone space to Normalized Bone space
+            const rotationCorrection = normQuat
+              .clone()
+              .invert()
+              .multiply(rawQuat);
+
+            // Apply rotation to position
+            exportRoot.position.applyQuaternion(rotationCorrection);
+
+            // Apply rotation to orientation
+            const originalRot = wrapper.quaternion.clone();
+            const correctedRot = rotationCorrection.multiply(originalRot);
+            exportRoot.quaternion.copy(correctedRot);
+          } else {
+            console.warn(
+              `⚠️ Could not find normalized bone ${vrmBoneName} - skipping rotation correction`,
+            );
+          }
+        } else {
+          console.warn(
+            `⚠️ VRM ref or parent missing - skipping rotation correction`,
+          );
+          if (!vrmInstance) console.warn("   Reason: No VRM instance found");
+          if (!wrapper.parent) console.warn("   Reason: No wrapper parent");
+        }
+        exportRoot.updateMatrix();
+
+        console.log(`✅ Rebaked Final:`);
+        console.log(
+          `   Pos: ${exportRoot.position.x.toFixed(3)}, ${exportRoot.position.y.toFixed(3)}, ${exportRoot.position.z.toFixed(3)}`,
+        );
+        console.log(
+          `   Rot: ${exportRoot.rotation.x.toFixed(3)}, ${exportRoot.rotation.y.toFixed(3)}, ${exportRoot.rotation.z.toFixed(3)}`,
+        );
+        console.log(`   Scl: ${exportRoot.scale.x.toFixed(6)}`);
+
+        // Embed attachment metadata for Hyperscape
+        exportRoot.userData.hyperscape = {
+          // VRM bone name to attach to (Hyperscape uses VRM standard)
+          vrmBoneName: vrmBoneName,
+
+          // Original slot from Asset Forge (for reference)
+          originalSlot: equipmentSlot,
+
+          // Instructions for Hyperscape
+          usage:
+            "Attach to VRM bone '" +
+            vrmBoneName +
+            "' with identity transform. Position/rotation are pre-baked relative to NORMALIZED bone.",
+
+          // Metadata for debugging/info
+          weaponType: weaponType || "weapon",
+          avatarHeight: avatarHeight || 1.83,
+          exportedFrom: "asset-forge-equipment-fitting",
+          exportedAt: new Date().toISOString(),
+
+          // Note: position/rotation are already in the GLB hierarchy!
+          // No need to apply offsets in Hyperscape - just attach directly
+          note:
+            "This weapon is pre-positioned. In Hyperscape: vrm.humanoid.getNormalizedBoneNode('" +
+            vrmBoneName +
+            "').add(weaponMesh)",
+        };
+
         const _exporter = new GLTFExporter();
-        const gltf = await _exporter.parseAsync(equipmentRef.current, {
+        const gltf = await _exporter.parseAsync(exportRoot, {
           binary: true,
           includeCustomExtensions: true,
         });
