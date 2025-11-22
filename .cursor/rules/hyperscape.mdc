@@ -1,0 +1,739 @@
+# Building Games on Hyperscape: A Conceptual Guide
+
+## Understanding Hyperscape as a Game Platform
+
+Hyperscape is fundamentally different from traditional game engines. Rather than being a tool for creating isolated game experiences, it's a platform for persistent, shared virtual worlds where multiple experiences can coexist and interact.
+
+### Core Principles
+
+**Persistence Over Sessions**: Unlike traditional games that exist only while players are actively engaged, Hyperscape worlds persist continuously. This changes how you think about game state, progression, and world evolution.
+
+**Shared Reality**: Every player experiences the same world state. There's no concept of "single player" or isolated instances - everything happens in a shared space that all participants can affect.
+
+**Real-time Synchronization**: The platform handles the complexity of keeping all participants synchronized. As a game designer, you define what happens; Hyperscape ensures everyone sees it happen simultaneously.
+
+**Apps as Building Blocks**: Instead of monolithic game logic, Hyperscape uses "Apps" - self-contained interactive objects that can be combined to create complex experiences. Think of them as smart objects that know how to behave and interact.
+
+## The Virtual World Philosophy
+
+### Worlds vs Games
+
+In Hyperscape, you don't build a "game" in the traditional sense. You build a world with game-like mechanics. This distinction is crucial:
+
+- **Traditional Game**: Players launch, play through designed experiences, then exit
+- **Hyperscape World**: A persistent space where gameplay emerges from the interaction of systems, players, and objects
+
+## Architecture and Design Patterns
+
+### The Client-Server Authority Model
+
+Hyperscape uses an authoritative server model, which fundamentally shapes how you design game mechanics:
+
+**Server Authority Means**:
+- The server is the single source of truth
+- Clients send intentions, not actions
+- All game logic validation happens server-side
+- State changes propagate from server to clients
+
+**Design Implications**:
+- Never trust client input
+- Design with latency in mind
+- Implement prediction for responsive feel
+- Plan for conflict resolution
+
+### System-Based Architecture
+
+Hyperscape encourages system-based thinking. Instead of objects with behaviors, you have:
+
+- **Systems**: Logic processors that operate on components
+- **Components**: Pure data containers
+- **Entities**: Identifiers that link components together
+
+This separation allows for incredible flexibility and reusability.
+
+### Event-Driven Communication
+
+Systems communicate through events rather than direct calls. This creates loose coupling and allows for:
+- Easy extension of functionality
+- Multiple systems responding to single actions
+- Clean separation of concerns
+- Easier debugging and testing
+
+## The Entity Component System Paradigm
+
+### Thinking in Components
+
+Traditional object-oriented game design often leads to complex inheritance hierarchies. ECS flips this by using composition:
+
+**Traditional Approach**: 
+- Player inherits from Character
+- Character inherits from GameObject
+- Deep, rigid hierarchies
+
+**ECS Approach**:
+- Player is an entity with Position, Health, Inventory components
+- NPC is an entity with Position, Health, AI components
+- Flexible composition
+
+### System Responsibilities
+
+Each system should have a single, clear responsibility:
+
+- **Movement System**: Handles all position updates
+- **Combat System**: Manages damage calculations and combat state
+- **Inventory System**: Tracks items and equipment
+- **AI System**: Processes NPC decisions
+
+Systems query for entities with specific component combinations and process them accordingly.
+
+### Data-Driven Design
+
+Components should be pure data. This enables:
+- Easy serialization for networking
+- Simple state persistence
+- Clear separation of data and logic
+- Predictable behavior
+
+## Building Interactive Worlds
+
+### Terrain and Environment
+
+Hyperscape worlds start with terrain. The approach you take shapes everything else:
+
+**Height-Map Based Worlds**:
+- Efficient for large, open environments
+- Natural-looking landscapes
+- Easy to generate procedurally
+- Limited to no overhangs or caves
+
+**Constructed Environments**:
+- Built from 3D models and prefabs
+- Allows for complex architecture
+- More control over aesthetics
+- Higher performance cost
+
+## The App System Philosophy
+
+### Apps as Smart Objects
+
+Apps in Hyperscape are more than just 3D models - they're complete interactive experiences:
+
+**Self-Contained Logic**:
+- Each app manages its own behavior
+- Clear boundaries of responsibility
+- Reusable across different contexts
+
+**Configurable Properties**:
+- Expose key parameters for customization
+- Allow non-programmers to modify behavior
+- Create variants without code duplication
+
+### Composition Over Complexity
+
+Build complex experiences from simple apps:
+- A shop is a building app + NPC app + inventory interface
+- A quest is an NPC app + objective tracker + reward system
+- A dungeon is terrain apps + monster apps + loot apps
+
+### Interoperability
+
+Design apps to work together:
+- Standard communication protocols
+- Consistent data formats
+- Clear interaction patterns
+- Predictable behaviors
+
+## Technical Implementation Examples
+
+### Building Apps in Hyperscape
+
+Apps are the fundamental building blocks of interactive content. Here's how they work technically:
+
+```javascript
+// App configuration - expose customizable properties
+app.configure([
+  {
+    type: 'number',
+    key: 'health',
+    label: 'Starting Health',
+    initial: 100,
+    min: 1,
+    max: 1000
+  },
+  {
+    type: 'text',
+    key: 'mobType',
+    label: 'Mob Type',
+    initial: 'goblin'
+  }
+])
+
+// Access the 3D model nodes
+const model = app.get('GoblinModel') // Reference to GLB model node
+const nameTag = app.get('NameTag') // Reference to text display
+
+// App state management
+app.state = {
+  currentHealth: props.health,
+  isAggro: false,
+  target: null
+}
+
+// Create interactive elements
+const action = app.create('action')
+action.label = 'Attack Goblin'
+action.distance = 5
+action.duration = 0.5
+
+action.onTrigger = () => {
+  // Send attack request to server
+  app.send('mob:attack', { 
+    mobId: app.instanceId,
+    attackerId: world.getPlayer().id 
+  })
+}
+
+model.add(action)
+
+// Handle server events
+app.on('mob:damaged', (data) => {
+  app.state.currentHealth = data.newHealth
+  
+  // Visual feedback
+  const flash = app.create('mesh')
+  flash.material.color = 'red'
+  flash.material.opacity = 0.5
+  // ... animate flash effect
+})
+
+// Update loop for client-side animations
+app.on('update', (dt) => {
+  // Idle animation
+  model.rotation.y += dt * 0.5
+  
+  // Update health display
+  if (nameTag) {
+    nameTag.text = `${props.mobType} (${app.state.currentHealth}/${props.health})`
+  }
+})
+```
+
+### Creating Game Systems
+
+Systems in Hyperscape extend a base System class and process entities with specific components:
+
+```typescript
+import { System } from 'hyperscape'
+
+export class MobSystem extends System {
+  name = 'MobSystem'
+  
+  // System state
+  private mobs: Map<string, MobData> = new Map()
+  private respawnQueue: RespawnEntry[] = []
+  
+  async init(): Promise<void> {
+    // Listen for world events
+    this.world.on('entity:created', this.onEntityCreated.bind(this))
+    this.world.on('mob:attack', this.handleAttack.bind(this))
+    
+    // Start update loop
+    this.startUpdateLoop()
+  }
+  
+  private onEntityCreated(event: any) {
+    const entity = this.getEntity(event.entityId)
+    if (entity?.type === 'mob') {
+      this.registerMob(entity)
+    }
+  }
+  
+  private registerMob(entity: Entity) {
+    const mobData = {
+      id: entity.id,
+      type: entity.data.mobType,
+      level: entity.data.level || 1,
+      maxHealth: entity.data.health || 100,
+      currentHealth: entity.data.health || 100,
+      position: entity.position,
+      spawnPoint: entity.position.clone(),
+      aggroRange: 10,
+      state: 'idle'
+    }
+    
+    this.mobs.set(entity.id, mobData)
+    
+    // Add components
+    entity.addComponent('stats', {
+      attack: this.calculateAttack(mobData.level),
+      strength: this.calculateStrength(mobData.level),
+      defense: this.calculateDefense(mobData.level)
+    })
+    
+    entity.addComponent('combat', {
+      inCombat: false,
+      target: null,
+      lastAttack: 0
+    })
+  }
+  
+  update(deltaTime: number) {
+    const now = Date.now()
+    
+    // Process each mob
+    for (const [mobId, mobData] of this.mobs) {
+      const entity = this.getEntity(mobId)
+      if (!entity) continue
+      
+      // AI behavior based on state
+      switch (mobData.state) {
+        case 'idle':
+          this.processIdleState(entity, mobData)
+          break
+        case 'aggressive':
+          this.processAggressiveState(entity, mobData)
+          break
+        case 'returning':
+          this.processReturningState(entity, mobData)
+          break
+      }
+    }
+    
+    // Process respawns
+    this.processRespawnQueue(now)
+  }
+  
+  private processIdleState(entity: Entity, mobData: MobData) {
+    // Check for nearby players
+    const players = this.world.getPlayers()
+    
+    for (const player of players) {
+      const distance = entity.position.distanceTo(player.position)
+      
+      if (distance <= mobData.aggroRange) {
+        // Check if mob is aggressive type
+        if (this.isAggressiveMob(mobData.type)) {
+          mobData.state = 'aggressive'
+          mobData.target = player.id
+          
+          // Emit aggro event
+          this.world.emit('mob:aggro', {
+            mobId: entity.id,
+            targetId: player.id
+          })
+        }
+      }
+    }
+  }
+  
+  private handleAttack(event: { mobId: string, attackerId: string }) {
+    const mob = this.mobs.get(event.mobId)
+    const attacker = this.getEntity(event.attackerId)
+    
+    if (!mob || !attacker) return
+    
+    // Validate attack
+    const distance = this.calculateDistance(
+      this.getEntity(event.mobId), 
+      attacker
+    )
+    
+    if (distance > 2) {
+      // Too far away
+      return
+    }
+    
+    // Apply damage
+    const damage = this.calculateDamage(attacker, mob)
+    mob.currentHealth -= damage
+    
+    // Broadcast damage event
+    this.world.broadcast('mob:damaged', {
+      mobId: event.mobId,
+      damage,
+      newHealth: mob.currentHealth,
+      attackerId: event.attackerId
+    })
+    
+    // Check death
+    if (mob.currentHealth <= 0) {
+      this.handleMobDeath(event.mobId, event.attackerId)
+    }
+  }
+  
+  private handleMobDeath(mobId: string, killerId: string) {
+    const mob = this.mobs.get(mobId)
+    if (!mob) return
+    
+    // Drop loot
+    this.world.emit('loot:drop', {
+      position: this.getEntity(mobId).position,
+      drops: this.calculateLoot(mob),
+      killerId
+    })
+    
+    // Award experience
+    this.world.emit('experience:grant', {
+      playerId: killerId,
+      skill: 'combat',
+      amount: mob.level * 10
+    })
+    
+    // Schedule respawn
+    this.respawnQueue.push({
+      mobType: mob.type,
+      position: mob.spawnPoint,
+      respawnTime: Date.now() + 30000 // 30 seconds
+    })
+    
+    // Remove entity
+    const entity = this.getEntity(mobId)
+    entity?.destroy()
+    this.mobs.delete(mobId)
+  }
+}
+```
+
+### Combat System Implementation
+
+The combat system manages all combat interactions between entities:
+
+```typescript
+export class CombatSystem extends System {
+  name = 'CombatSystem'
+  
+  private combatSessions: Map<string, CombatSession> = new Map()
+  private readonly TICK_RATE = 600 // Game tick in ms
+  
+  async init(): Promise<void> {
+    // Combat initiation
+    this.world.on('combat:initiate', this.startCombat.bind(this))
+    this.world.on('combat:cancel', this.endCombat.bind(this))
+    
+    // Start combat tick
+    setInterval(() => this.processCombatTick(), this.TICK_RATE)
+  }
+  
+  private startCombat(event: { attackerId: string, targetId: string }) {
+    // Validate combat initiation
+    const attacker = this.getEntity(event.attackerId)
+    const target = this.getEntity(event.targetId)
+    
+    if (!this.canAttack(attacker, target)) {
+      return
+    }
+    
+    // Create combat session
+    const session: CombatSession = {
+      attackerId: event.attackerId,
+      targetId: event.targetId,
+      startTime: Date.now(),
+      attackStyle: this.getAttackStyle(attacker)
+    }
+    
+    this.combatSessions.set(event.attackerId, session)
+    
+    // Update components
+    const combatComp = attacker.getComponent('combat')
+    combatComp.inCombat = true
+    combatComp.target = event.targetId
+  }
+  
+  private processCombatTick() {
+    for (const [sessionId, session] of this.combatSessions) {
+      const attacker = this.getEntity(session.attackerId)
+      const target = this.getEntity(session.targetId)
+      
+      // Validate session
+      if (!this.isValidSession(attacker, target)) {
+        this.endCombat({ entityId: session.attackerId })
+        continue
+      }
+      
+      // Calculate hit
+      const hitResult = this.calculateHit(attacker, target)
+      
+      // Apply damage
+      if (hitResult.hit) {
+        this.applyDamage(target, hitResult.damage)
+        
+        // Special effects for different attack types
+        if (session.attackStyle === 'magic') {
+          this.processMagicEffects(attacker, target, hitResult)
+        } else if (session.attackStyle === 'ranged') {
+          this.consumeAmmunition(attacker)
+        }
+      }
+      
+      // Broadcast combat update
+      this.world.broadcast('combat:update', {
+        attackerId: session.attackerId,
+        targetId: session.targetId,
+        damage: hitResult.damage,
+        hitType: hitResult.hit ? 'hit' : 'miss'
+      })
+      
+      // Award experience
+      if (hitResult.hit) {
+        this.awardCombatExperience(attacker, hitResult.damage, session.attackStyle)
+      }
+    }
+  }
+  
+  private calculateHit(attacker: Entity, target: Entity): HitResult {
+    const attackerStats = attacker.getComponent('stats')
+    const targetStats = target.getComponent('stats')
+    const equipment = attacker.getComponent('equipment')
+    
+    // Get attack bonuses from equipment
+    const attackBonus = this.getEquipmentBonus(equipment, 'attack')
+    const strengthBonus = this.getEquipmentBonus(equipment, 'strength')
+    
+    // Calculate accuracy
+    const attackRoll = Math.random() * (attackerStats.attack + attackBonus + 8)
+    const defenseRoll = Math.random() * (targetStats.defense + 8)
+    
+    if (attackRoll <= defenseRoll) {
+      return { hit: false, damage: 0 }
+    }
+    
+    // Calculate damage
+    const maxHit = Math.floor(
+      0.5 + (attackerStats.strength + strengthBonus + 8) / 10
+    )
+    const damage = Math.floor(Math.random() * (maxHit + 1))
+    
+    return { hit: true, damage }
+  }
+  
+  private awardCombatExperience(
+    attacker: Entity, 
+    damage: number, 
+    style: string
+  ) {
+    const xpAmount = damage * 4 // RuneScape style
+    
+    switch (style) {
+      case 'accurate':
+        this.world.emit('experience:grant', {
+          entityId: attacker.id,
+          skill: 'attack',
+          amount: xpAmount
+        })
+        break
+      case 'aggressive':
+        this.world.emit('experience:grant', {
+          entityId: attacker.id,
+          skill: 'strength',
+          amount: xpAmount
+        })
+        break
+      case 'defensive':
+        this.world.emit('experience:grant', {
+          entityId: attacker.id,
+          skill: 'defense',
+          amount: xpAmount
+        })
+        break
+    }
+    
+    // Always award constitution XP
+    this.world.emit('experience:grant', {
+      entityId: attacker.id,
+      skill: 'constitution',
+      amount: xpAmount * 0.33
+    })
+  }
+}
+```
+
+### Creating Interactive NPCs
+
+NPCs combine apps with AI behavior:
+
+```javascript
+// NPC App Script
+app.configure([
+  {
+    type: 'text',
+    key: 'npcName',
+    label: 'NPC Name',
+    initial: 'Guard'
+  },
+  {
+    type: 'file',
+    key: 'dialogue',
+    label: 'Dialogue Tree',
+    kind: 'json'
+  }
+])
+
+// Create interaction zones
+const interactionZone = app.create('trigger')
+interactionZone.radius = 5
+interactionZone.height = 2
+
+interactionZone.onEnter = (other) => {
+  if (other.tag === 'player') {
+    // Show interaction prompt
+    app.send('ui:show_prompt', {
+      playerId: other.id,
+      message: `Talk to ${props.npcName}`
+    })
+  }
+}
+
+// Create dialogue action
+const talkAction = app.create('action')
+talkAction.label = `Talk to ${props.npcName}`
+talkAction.distance = 3
+
+talkAction.onTrigger = () => {
+  const player = world.getPlayer()
+  
+  app.send('dialogue:start', {
+    npcId: app.instanceId,
+    playerId: player.id,
+    dialogueTree: props.dialogue
+  })
+}
+
+// NPC behavior patterns
+let behaviorState = 'idle'
+let patrolPath = [
+  { x: 0, z: 0 },
+  { x: 10, z: 0 },
+  { x: 10, z: 10 },
+  { x: 0, z: 10 }
+]
+let currentPatrolIndex = 0
+
+app.on('update', (dt) => {
+  switch (behaviorState) {
+    case 'idle':
+      // Random chance to start patrol
+      if (Math.random() < 0.001) {
+        behaviorState = 'patrolling'
+      }
+      break
+      
+    case 'patrolling':
+      const target = patrolPath[currentPatrolIndex]
+      const distance = Math.sqrt(
+        Math.pow(app.position.x - target.x, 2) + 
+        Math.pow(app.position.z - target.z, 2)
+      )
+      
+      if (distance < 0.5) {
+        currentPatrolIndex = (currentPatrolIndex + 1) % patrolPath.length
+      } else {
+        // Move towards target
+        const dir = {
+          x: target.x - app.position.x,
+          z: target.z - app.position.z
+        }
+        const len = Math.sqrt(dir.x * dir.x + dir.z * dir.z)
+        dir.x /= len
+        dir.z /= len
+        
+        app.position.x += dir.x * dt * 2
+        app.position.z += dir.z * dt * 2
+      }
+      break
+  }
+})
+```
+
+## Physics and Spatial Reasoning
+
+### Understanding PhysX Integration
+
+Hyperscape uses PhysX for physics simulation, which provides:
+- Realistic collision detection
+- Efficient broad-phase culling
+- Stable constraint solving
+- Deterministic results
+
+### Designing with Physics
+
+Physics isn't just for realism - it's a design tool:
+
+**Movement Mechanics**:
+- Controller capsules for character movement
+- Terrain collision for environmental boundaries
+- Trigger volumes for area detection
+
+**Interaction Systems**:
+- Proximity-based activation
+- Line-of-sight checks
+- Projectile trajectories
+- Area effects
+
+### Practical Physics Implementation
+
+```javascript
+// Create a physics-enabled mob controller
+const controller = app.create('controller')
+controller.radius = 0.5
+controller.height = 1.8
+controller.layer = 'enemy'
+
+// Movement with physics
+app.on('update', (dt) => {
+  if (app.state.target) {
+    const direction = new Vector3()
+      .subVectors(app.state.target.position, app.position)
+      .normalize()
+    
+    // Apply movement with physics constraints
+    controller.move(direction.multiplyScalar(dt * 5))
+    
+    // Gravity
+    controller.move(new Vector3(0, -9.81 * dt, 0))
+  }
+})
+
+// Create trigger zones for abilities
+const aoeAttack = app.create('trigger')
+aoeAttack.radius = 5
+aoeAttack.tag = 'damage_zone'
+
+aoeAttack.onEnter = (other) => {
+  if (other.tag === 'player') {
+    app.send('damage:area', {
+      targetId: other.id,
+      damage: 10,
+      damageType: 'fire'
+    })
+  }
+}
+```
+
+## Performance Considerations
+
+When building complex systems:
+
+1. **Entity Pooling**: Reuse entities instead of creating/destroying
+2. **Spatial Partitioning**: Only process nearby entities
+3. **LOD Systems**: Reduce detail for distant objects
+4. **Update Throttling**: Not everything needs to update every frame
+
+## Security and Trust
+
+Never trust the client:
+- Validate all inputs server-side
+- Implement rate limiting
+- Check permissions for actions
+- Log suspicious behavior
+
+Virtual economies need protection:
+- Transaction validation
+- Exploit detection
+- Market manipulation prevention
+- Item duplication checks
+
+Protect player experiences:
+- Anti-griefing mechanics
+- Reporting systems
+- Moderation tools
+- Community guidelines
