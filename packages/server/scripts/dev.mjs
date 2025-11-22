@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * Simple Server Dev Script
- *
+ * 
  * Just watches and rebuilds the server - no child process management.
  * Turbo handles orchestration, this script just focuses on the server.
  */
 
-import { spawn, execSync } from 'child_process'
+import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 import path from 'path'
 import fs from 'fs'
@@ -70,84 +70,6 @@ await esbuild.build({
 
 console.log('✅ Server build complete')
 `
-
-// Check if Docker is available
-function isDockerAvailable() {
-  try {
-    execSync('docker info', { stdio: 'ignore' })
-    return true
-  } catch (_e) {
-    return false
-  }
-}
-
-// Start CDN container if not running
-async function ensureCDNRunning() {
-  if (!isDockerAvailable()) {
-    console.log(`${colors.yellow}⚠️  Docker not available - skipping CDN startup${colors.reset}`)
-    console.log(`${colors.dim}Assets will be served from filesystem${colors.reset}`)
-    return false
-  }
-
-  try {
-    // Check if CDN is already running
-    const status = execSync('docker ps --filter "name=hyperscape-cdn" --format "{{.Status}}"', { encoding: 'utf8' }).trim()
-
-    if (status && status.includes('Up')) {
-      console.log(`${colors.green}✓ CDN container already running${colors.reset}`)
-      return true
-    }
-
-    // Start CDN
-    console.log(`${colors.blue}Starting CDN container...${colors.reset}`)
-    execSync('docker-compose up -d cdn', {
-      stdio: 'inherit',
-      cwd: rootDir
-    })
-
-    // Wait for health check
-    console.log(`${colors.dim}Waiting for CDN to be healthy...${colors.reset}`)
-    let attempts = 0
-    const maxAttempts = 30
-    while (attempts < maxAttempts) {
-      try {
-        const healthRes = await fetch('http://localhost:8080/health')
-        if (healthRes.ok) {
-          console.log(`${colors.green}✓ CDN is healthy and ready${colors.reset}`)
-          return true
-        }
-      } catch (_e) {
-        // Still starting up
-      }
-      attempts++
-      await new Promise(r => setTimeout(r, 1000))
-    }
-
-    console.log(`${colors.yellow}⚠️  CDN started but health check timed out${colors.reset}`)
-    return false
-  } catch (e) {
-    console.log(`${colors.yellow}⚠️  Failed to start CDN: ${e.message}${colors.reset}`)
-    return false
-  }
-}
-
-// Stop CDN container
-function stopCDN() {
-  if (!isDockerAvailable()) return
-
-  try {
-    console.log(`${colors.dim}Stopping CDN container...${colors.reset}`)
-    execSync('docker-compose down cdn', {
-      stdio: 'ignore',
-      cwd: rootDir
-    })
-  } catch (_e) {
-    // Ignore errors
-  }
-}
-
-// Start CDN first (needed for assets)
-await ensureCDNRunning()
 
 // Initial build
 console.log(`${colors.blue}Building server...${colors.reset}`)
@@ -284,7 +206,6 @@ const cleanup = () => {
   if (serverProcess && !serverProcess.killed) {
     serverProcess.kill('SIGTERM')
   }
-  stopCDN()
 }
 
 process.on('SIGINT', () => {
