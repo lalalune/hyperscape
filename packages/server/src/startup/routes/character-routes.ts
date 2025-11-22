@@ -376,7 +376,8 @@ export async function registerCharacterRoutes(
           }
         } catch (error) {
           console.error(
-            `[CharacterRoutes] ❌ Error fetching skills for ${id}:`,
+            "[CharacterRoutes] ❌ Error fetching skills for %s:",
+            id,
             error,
           );
           return reply.status(500).send({
