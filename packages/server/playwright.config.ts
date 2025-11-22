@@ -21,11 +21,15 @@ export default defineConfig({
     timeout: 120 * 1000, // 2 minutes to start
     reuseExistingServer: !process.env.CI, // In CI, always start fresh server
     env: {
-      ...process.env, // Inherit all environment variables from parent (including DATABASE_URL from CI)
       NODE_ENV: "test",
-      // In CI, disable Docker since PostgreSQL service is already running
+      // In CI, disable Docker and explicitly pass DATABASE_URL
       // Locally, allow Docker to be used (default behavior)
-      ...(process.env.CI && { USE_LOCAL_POSTGRES: "false" }),
+      ...(process.env.CI && {
+        USE_LOCAL_POSTGRES: "false",
+        DATABASE_URL:
+          process.env.DATABASE_URL ||
+          "postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test",
+      }),
     },
   },
 });
