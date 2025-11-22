@@ -31,13 +31,17 @@ import fs from 'fs'
 const assetsDir = path.join(rootDir, 'assets/web')
 fs.mkdirSync(assetsDir, { recursive: true })
 
-const physxWasm = path.join(rootDir, 'world/assets/web/physx-js-webidl.wasm')
-const physxJs = path.join(rootDir, 'world/assets/web/physx-js-webidl.js')
+// Copy from physx-js-webidl package in workspace
+const physxWasm = path.join(rootDir, '../physx-js-webidl/dist/physx-js-webidl.wasm')
+const physxJs = path.join(rootDir, '../physx-js-webidl/dist/physx-js-webidl.js')
 
 if (fs.existsSync(physxWasm)) {
   fs.copyFileSync(physxWasm, path.join(assetsDir, 'physx-js-webidl.wasm'))
   fs.copyFileSync(physxJs, path.join(assetsDir, 'physx-js-webidl.js'))
   console.log('✓ PhysX assets copied to assets/web/')
+} else {
+  console.error('❌ PhysX WASM not found at:', physxWasm)
+  throw new Error('PhysX WASM files missing - ensure @hyperscape/physx-js-webidl is built first')
 }
 
 console.log('✓ Server built successfully')
