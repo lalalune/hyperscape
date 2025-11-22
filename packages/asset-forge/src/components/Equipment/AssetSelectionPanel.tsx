@@ -36,7 +36,10 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
   >("avatar");
 
   // Filter assets
-  const avatarAssets = assets.filter((a) => a.type === "character");
+  // ONLY show VRM avatars for equipment fitting
+  const avatarAssets = assets.filter(
+    (a) => a.type === "character" && a.modelFormat === "vrm",
+  );
   const equipmentAssets = assets.filter((a) => {
     // Only include weapons and shields, exclude armor
     if (a.type === "armor") return false;
@@ -201,14 +204,20 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
                             >
                               {asset.type}
                             </Badge>
-                            <Badge
-                              variant="primary"
-                              size="sm"
-                              className="bg-primary/20 text-primary border border-primary/30"
-                            >
-                              <Box size={10} className="mr-1" />
-                              3D
-                            </Badge>
+                            {asset.modelFormat && (
+                              <Badge
+                                variant="primary"
+                                size="sm"
+                                className={
+                                  asset.modelFormat === "vrm"
+                                    ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                                    : "bg-primary/20 text-primary border border-primary/30"
+                                }
+                              >
+                                <Box size={10} className="mr-1" />
+                                {asset.modelFormat.toUpperCase()}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -268,14 +277,20 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
                                     >
                                       {asset.type}
                                     </Badge>
-                                    <Badge
-                                      variant="primary"
-                                      size="sm"
-                                      className="bg-primary/20 text-primary border border-primary/30"
-                                    >
-                                      <Box size={10} className="mr-1" />
-                                      3D
-                                    </Badge>
+                                    {asset.modelFormat && (
+                                      <Badge
+                                        variant="primary"
+                                        size="sm"
+                                        className={
+                                          asset.modelFormat === "vrm"
+                                            ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                                            : "bg-primary/20 text-primary border border-primary/30"
+                                        }
+                                      >
+                                        <Box size={10} className="mr-1" />
+                                        {asset.modelFormat.toUpperCase()}
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
                               </div>

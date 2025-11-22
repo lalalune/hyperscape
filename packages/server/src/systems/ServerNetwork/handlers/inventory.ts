@@ -83,3 +83,86 @@ export function handleDropItem(
     slot: payload.slot,
   });
 }
+
+export function handleEquipItem(
+  socket: ServerSocket,
+  data: unknown,
+  world: World,
+): void {
+  console.log("[ServerNetwork] 🔥 handleEquipItem CALLED with data:", data);
+
+  const playerEntity = socket.player;
+  if (!playerEntity) {
+    console.error(
+      "[Inventory] ❌ handleEquipItem: no player entity for socket",
+    );
+    return;
+  }
+
+  console.log("[ServerNetwork] ✅ Player entity found:", playerEntity.id);
+
+  const payload = data as {
+    playerId?: string;
+    itemId?: string | number;
+    inventorySlot?: number;
+  };
+
+  if (!payload?.itemId) {
+    console.error(
+      "[Inventory] ❌ handleEquipItem: missing itemId in payload:",
+      payload,
+    );
+    return;
+  }
+
+  console.log(
+    "[ServerNetwork] 📥 handleEquipItem SUCCESS - emitting INVENTORY_ITEM_RIGHT_CLICK:",
+    {
+      playerId: playerEntity.id,
+      itemId: payload.itemId,
+      inventorySlot: payload.inventorySlot,
+    },
+  );
+
+  // Emit event for EquipmentSystem to handle
+  world.emit(EventType.INVENTORY_ITEM_RIGHT_CLICK, {
+    playerId: playerEntity.id,
+    itemId: payload.itemId,
+    slot: payload.inventorySlot,
+  });
+
+  console.log("[ServerNetwork] ✅ INVENTORY_ITEM_RIGHT_CLICK event emitted");
+}
+
+export function handleUnequipItem(
+  socket: ServerSocket,
+  data: unknown,
+  world: World,
+): void {
+  const playerEntity = socket.player;
+  if (!playerEntity) {
+    console.warn("[Inventory] handleUnequipItem: no player entity for socket");
+    return;
+  }
+
+  const payload = data as {
+    playerId?: string;
+    slot?: string;
+  };
+
+  if (!payload?.slot) {
+    console.warn("[Inventory] handleUnequipItem: missing slot");
+    return;
+  }
+
+  console.log("[ServerNetwork] 📥 handleUnequipItem received:", {
+    playerId: playerEntity.id,
+    slot: payload.slot,
+  });
+
+  // Emit event for EquipmentSystem to handle
+  world.emit(EventType.EQUIPMENT_UNEQUIP, {
+    playerId: playerEntity.id,
+    slot: payload.slot,
+  });
+}

@@ -578,12 +578,18 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
                       "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
                   }}
                 >
-                  {Math.floor(
-                    (s.attack?.level || 1) * 0.25 +
-                      (s.strength?.level || 1) * 0.25 +
-                      (s.defense?.level || 1) * 0.25 +
-                      (s.constitution?.level || 10) * 0.25,
-                  )}
+                  {(() => {
+                    // OSRS Combat Level Formula (simplified - no Prayer/Magic yet)
+                    const base =
+                      0.25 *
+                      ((s.defense?.level || 1) + (s.constitution?.level || 10));
+                    const melee =
+                      0.325 *
+                      ((s.attack?.level || 1) + (s.strength?.level || 1));
+                    const ranged =
+                      0.325 * Math.floor((s.ranged?.level || 1) * 1.5);
+                    return Math.floor(base + Math.max(melee, ranged));
+                  })()}
                 </span>
               </div>
 

@@ -218,6 +218,9 @@ export const characters = pgTable(
     positionY: real("positionY").default(10),
     positionZ: real("positionZ").default(0),
 
+    // Combat preferences
+    attackStyle: text("attackStyle").default("accurate"),
+
     lastLogin: bigint("lastLogin", { mode: "number" }).default(0),
 
     // Avatar and wallet

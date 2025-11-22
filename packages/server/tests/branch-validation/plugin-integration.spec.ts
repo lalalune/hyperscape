@@ -321,6 +321,10 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
         });
       });
 
+      // Wait for initial snapshot (sent on connection)
+      const snapshot = await waitForPacket(ws, "snapshot", 10000);
+      logs.push(`[${testName}] ✅ Received initial snapshot`);
+
       // Send enterWorld packet (plugin does this in HyperscapeService.ts:340-380)
       ws.send(
         encodePacket("enterWorld", {
@@ -330,10 +334,10 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
       );
       logs.push(`[${testName}] Sent enterWorld packet`);
 
-      // Wait for snapshot (world spawn confirmation)
-      const snapshot = await waitForPacket(ws, "snapshot", 10000);
+      // Wait for entityAdded (player spawned in world)
+      const playerEntity = await waitForPacket(ws, "entityAdded", 10000);
       logs.push(
-        `[${testName}] ✅ Received snapshot - character spawned in world`,
+        `[${testName}] ✅ Received entityAdded - character spawned in world`,
       );
 
       ws.close();

@@ -69,8 +69,13 @@ import { EventBridge } from "./event-bridge";
 import { InitializationManager } from "./initialization";
 import { ConnectionHandler } from "./connection-handler";
 import { handleChatAdded } from "./handlers/chat";
-import { handleAttackMob } from "./handlers/combat";
-import { handlePickupItem, handleDropItem } from "./handlers/inventory";
+import { handleAttackMob, handleChangeAttackStyle } from "./handlers/combat";
+import {
+  handlePickupItem,
+  handleDropItem,
+  handleEquipItem,
+  handleUnequipItem,
+} from "./handlers/inventory";
 import { handleResourceGather } from "./handlers/resources";
 import {
   handleEntityModified,
@@ -212,7 +217,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    * Sets up the handler registry with delegates to modular handlers.
    */
   private registerHandlers(): void {
-    this.handlers["chatAdded"] = (socket, data) =>
+    this.handlers["onChatAdded"] = (socket, data) =>
       handleChatAdded(
         socket,
         data,
@@ -220,7 +225,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this.broadcastManager.sendToAll.bind(this.broadcastManager),
       );
 
-    this.handlers["command"] = (socket, data) =>
+    this.handlers["onCommand"] = (socket, data) =>
       handleCommand(
         socket,
         data,
@@ -230,7 +235,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this.isBuilder.bind(this),
       );
 
-    this.handlers["entityModified"] = (socket, data) =>
+    this.handlers["onEntityModified"] = (socket, data) =>
       handleEntityModified(
         socket,
         data,
@@ -238,35 +243,44 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this.broadcastManager.sendToAll.bind(this.broadcastManager),
       );
 
-    this.handlers["entityEvent"] = (socket, data) =>
+    this.handlers["onEntityEvent"] = (socket, data) =>
       handleEntityEvent(socket, data, this.world);
 
-    this.handlers["entityRemoved"] = (socket, data) =>
+    this.handlers["onEntityRemoved"] = (socket, data) =>
       handleEntityRemoved(socket, data);
 
-    this.handlers["settingsModified"] = (socket, data) =>
+    this.handlers["onSettingsModified"] = (socket, data) =>
       handleSettings(socket, data);
 
-    this.handlers["resourceGather"] = (socket, data) =>
+    this.handlers["onResourceGather"] = (socket, data) =>
       handleResourceGather(socket, data, this.world);
 
-    this.handlers["moveRequest"] = (socket, data) =>
+    this.handlers["onMoveRequest"] = (socket, data) =>
       this.movementManager.handleMoveRequest(socket, data);
 
-    this.handlers["input"] = (socket, data) =>
+    this.handlers["onInput"] = (socket, data) =>
       this.movementManager.handleInput(socket, data);
 
-    this.handlers["attackMob"] = (socket, data) =>
+    this.handlers["onAttackMob"] = (socket, data) =>
       handleAttackMob(socket, data, this.world);
 
-    this.handlers["pickupItem"] = (socket, data) =>
+    this.handlers["onChangeAttackStyle"] = (socket, data) =>
+      handleChangeAttackStyle(socket, data, this.world);
+
+    this.handlers["onPickupItem"] = (socket, data) =>
       handlePickupItem(socket, data, this.world);
 
-    this.handlers["dropItem"] = (socket, data) =>
+    this.handlers["onDropItem"] = (socket, data) =>
       handleDropItem(socket, data, this.world);
 
+    this.handlers["onEquipItem"] = (socket, data) =>
+      handleEquipItem(socket, data, this.world);
+
+    this.handlers["onUnequipItem"] = (socket, data) =>
+      handleUnequipItem(socket, data, this.world);
+
     // Death/respawn handlers
-    this.handlers["requestRespawn"] = (socket, data) => {
+    this.handlers["onRequestRespawn"] = (socket, data) => {
       const playerEntity = socket.player;
       if (playerEntity) {
         console.log(
@@ -283,10 +297,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     };
 
     // Character selection handlers
-    this.handlers["characterListRequest"] = (socket) =>
+    this.handlers["onCharacterListRequest"] = (socket) =>
       handleCharacterListRequest(socket, this.world);
 
-    this.handlers["characterCreate"] = (socket, data) =>
+    this.handlers["onCharacterCreate"] = (socket, data) =>
       handleCharacterCreate(
         socket,
         data,
@@ -294,14 +308,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this.broadcastManager.sendToSocket.bind(this.broadcastManager),
       );
 
-    this.handlers["characterSelected"] = (socket, data) =>
+    this.handlers["onCharacterSelected"] = (socket, data) =>
       handleCharacterSelected(
         socket,
         data,
         this.broadcastManager.sendToSocket.bind(this.broadcastManager),
       );
 
-    this.handlers["enterWorld"] = (socket, data) =>
+    this.handlers["onEnterWorld"] = (socket, data) =>
       handleEnterWorld(
         socket,
         data,

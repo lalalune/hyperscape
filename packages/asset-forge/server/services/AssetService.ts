@@ -24,6 +24,7 @@ interface Asset {
   metadata: AssetMetadataType;
   hasModel: boolean;
   modelFile?: string;
+  modelFormat?: "glb" | "vrm"; // NEW - track model format
   generatedAt?: string;
 }
 
@@ -77,17 +78,43 @@ export class AssetService {
 
           const files = await fs.readdir(assetPath);
           const glbFile = files.find((f) => f.endsWith(".glb"));
+          const vrmFile = files.find((f) => f.endsWith(".vrm"));
 
-          assets.push({
+          // Determine model format (prefer VRM for characters)
+          let modelFormat: "glb" | "vrm" | undefined;
+          let modelFile: string | undefined;
+
+          if (metadata.type === "character" && vrmFile) {
+            modelFormat = "vrm";
+            modelFile = vrmFile;
+          } else if (glbFile) {
+            modelFormat = "glb";
+            modelFile = glbFile;
+          } else if (vrmFile) {
+            modelFormat = "vrm";
+            modelFile = vrmFile;
+          }
+
+          const assetData = {
             id: assetDir,
             name: metadata.name || assetDir,
             description: metadata.description || "",
             type: metadata.type || "unknown",
             metadata: metadata,
-            hasModel: !!glbFile,
-            modelFile: glbFile,
+            hasModel: !!modelFile,
+            modelFile: modelFile,
+            modelFormat: modelFormat,
             generatedAt: metadata.generatedAt,
-          });
+          };
+
+          // Debug log for human asset
+          if (assetDir === "human") {
+            console.log(
+              `[AssetService] Human asset modelFormat: ${modelFormat}, modelFile: ${modelFile}`,
+            );
+          }
+
+          assets.push(assetData);
         } catch (error) {
           // Skip assets that can't be loaded
           const err = error as Error;
@@ -118,8 +145,9 @@ export class AssetService {
     }
 
     // Read metadata to check if it's a character with a rigged model
+    let metadata: AssetMetadataType | null = null;
     try {
-      const metadata = await this.getAssetMetadata(assetId);
+      metadata = await this.getAssetMetadata(assetId);
 
       // For characters, prefer the rigged model if available
       if (metadata.type === "character" && metadata.riggedModelPath) {
@@ -145,8 +173,22 @@ export class AssetService {
       );
     }
 
-    // Default behavior: find the first .glb file
+    // Get all files in the asset directory
     const files = await fs.readdir(assetPath);
+
+    // For characters/avatars, prefer VRM files over GLB files
+    const isCharacter = metadata?.type === "character";
+
+    if (isCharacter) {
+      // Look for VRM file first for characters
+      const vrmFile = files.find((f) => f.endsWith(".vrm"));
+      if (vrmFile) {
+        console.log(`Returning VRM model for character ${assetId}: ${vrmFile}`);
+        return path.join(assetPath, vrmFile);
+      }
+    }
+
+    // Fall back to GLB file
     const glbFile = files.find((f) => f.endsWith(".glb"));
 
     if (!glbFile) {
@@ -179,6 +221,22 @@ export class AssetService {
 
       const files = await fs.readdir(assetPath);
       const glbFile = files.find((f) => f.endsWith(".glb"));
+      const vrmFile = files.find((f) => f.endsWith(".vrm"));
+
+      // Determine model format (prefer VRM for characters)
+      let modelFormat: "glb" | "vrm" | undefined;
+      let modelFile: string | undefined;
+
+      if (metadata.type === "character" && vrmFile) {
+        modelFormat = "vrm";
+        modelFile = vrmFile;
+      } else if (glbFile) {
+        modelFormat = "glb";
+        modelFile = glbFile;
+      } else if (vrmFile) {
+        modelFormat = "vrm";
+        modelFile = vrmFile;
+      }
 
       return {
         id: assetId,
@@ -186,8 +244,9 @@ export class AssetService {
         description: metadata.description || "",
         type: metadata.type || "unknown",
         metadata: metadata,
-        hasModel: !!glbFile,
-        modelFile: glbFile,
+        hasModel: !!modelFile,
+        modelFile: modelFile,
+        modelFormat: modelFormat,
         generatedAt: metadata.generatedAt,
       };
     } catch (error) {

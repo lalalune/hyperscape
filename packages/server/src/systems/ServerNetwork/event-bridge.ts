@@ -49,6 +49,8 @@ export class EventBridge {
     this.setupInventoryEvents();
     this.setupSkillEvents();
     this.setupUIEvents();
+    this.setupCombatEvents();
+    this.setupPlayerEvents();
   }
 
   /**
@@ -259,8 +261,120 @@ export class EventBridge {
           this.broadcast.sendToPlayer(data.playerId, "playerRespawned", data);
         }
       });
+
+      // Forward attack style change events to specific player
+      this.world.on(EventType.UI_ATTACK_STYLE_CHANGED, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          currentStyle: unknown;
+          availableStyles: unknown;
+          canChange: boolean;
+          cooldownRemaining?: number;
+        };
+
+        if (data.playerId) {
+          console.log(
+            `[EventBridge] Forwarding UI_ATTACK_STYLE_CHANGED to player ${data.playerId}`,
+          );
+          this.broadcast.sendToPlayer(
+            data.playerId,
+            "attackStyleChanged",
+            data,
+          );
+        }
+      });
+
+      // Forward attack style update events to specific player
+      this.world.on(EventType.UI_ATTACK_STYLE_UPDATE, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          currentStyle: unknown;
+          availableStyles: unknown;
+          canChange: boolean;
+        };
+
+        if (data.playerId) {
+          console.log(
+            `[EventBridge] Forwarding UI_ATTACK_STYLE_UPDATE to player ${data.playerId}`,
+          );
+          this.broadcast.sendToPlayer(data.playerId, "attackStyleUpdate", data);
+        }
+      });
     } catch (_err) {
       console.error("[EventBridge] Error setting up UI events:", _err);
+    }
+  }
+
+  /**
+   * Setup combat system event listeners
+   *
+   * Forwards combat damage events to all connected clients for visual feedback
+   * (damage splats, hit effects, etc.)
+   *
+   * @private
+   */
+  private setupCombatEvents(): void {
+    try {
+      // Forward damage dealt events to all clients for visual effects
+      this.world.on(EventType.COMBAT_DAMAGE_DEALT, (payload: unknown) => {
+        const data = payload as {
+          attackerId: string;
+          targetId: string;
+          damage: number;
+          targetType: "player" | "mob";
+          position: { x: number; y: number; z: number };
+        };
+
+        console.log(
+          `[EventBridge] Forwarding COMBAT_DAMAGE_DEALT: ${data.damage} damage to ${data.targetId}`,
+        );
+
+        // Broadcast to all clients so everyone sees the damage splat
+        this.broadcast.sendToAll("combatDamageDealt", data);
+      });
+    } catch (_err) {
+      console.error("[EventBridge] Error setting up combat events:", _err);
+    }
+  }
+
+  /**
+   * Setup player system event listeners
+   *
+   * Forwards player state updates (health, stats, etc.) to specific players
+   *
+   * @private
+   */
+  private setupPlayerEvents(): void {
+    try {
+      // Forward player updates to specific player (health, stats, etc.)
+      this.world.on(EventType.PLAYER_UPDATED, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          playerData?: {
+            id: string;
+            name: string;
+            level: number;
+            health: number;
+            maxHealth: number;
+            alive: boolean;
+          };
+        };
+
+        if (data.playerId && data.playerData) {
+          console.log(
+            `[EventBridge] Forwarding PLAYER_UPDATED to ${data.playerId}: health ${data.playerData.health}/${data.playerData.maxHealth}`,
+          );
+
+          // Send to specific player
+          this.broadcast.sendToPlayer(data.playerId, "playerUpdated", {
+            health: data.playerData.health,
+            maxHealth: data.playerData.maxHealth,
+            alive: data.playerData.alive,
+          });
+        }
+      });
+    } catch (_err) {
+      console.error("[EventBridge] Error setting up player events:", _err);
     }
   }
 }

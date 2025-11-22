@@ -13,6 +13,7 @@ import THREE from "../../../extras/three/three";
 import { EventType } from "../../../types/events";
 import { dataManager } from "../../../data/DataManager";
 import equipmentRequirementsData from "../../../data/equipment-requirements.json";
+import equipmentStatsData from "../../../data/equipment-stats.json";
 
 // Helper functions for equipment requirements (replaces deleted EquipmentRequirements class)
 const equipmentRequirements = {
@@ -59,7 +60,6 @@ const equipmentRequirements = {
 };
 import { SystemBase } from "..";
 import { Logger } from "../../../utils/Logger";
-import { PlayerIdMapper } from "../../../utils/PlayerIdMapper";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
 
 import { World } from "../../../core/World";
@@ -129,6 +129,11 @@ export class EquipmentSystem extends SystemBase {
   }
 
   async init(): Promise<void> {
+    console.log(
+      "[EquipmentSystem] Initializing on",
+      this.world.isServer ? "SERVER" : "CLIENT",
+    );
+
     // Get DatabaseSystem for persistence
     this.databaseSystem = this.world.getSystem("database") as
       | DatabaseSystem
@@ -147,6 +152,14 @@ export class EquipmentSystem extends SystemBase {
     });
     this.subscribe(EventType.PLAYER_JOINED, (data) => {
       const typedData = data as { playerId: string };
+      this.loadEquipmentFromDatabase(typedData.playerId);
+    });
+    this.subscribe(EventType.PLAYER_RESPAWNED, (data) => {
+      const typedData = data as { playerId: string };
+      // Reload equipment from database after respawn (equipment cleared on death)
+      console.log(
+        `[EquipmentSystem] Player ${typedData.playerId} respawned, reloading equipment from database`,
+      );
       this.loadEquipmentFromDatabase(typedData.playerId);
     });
     this.subscribe(EventType.PLAYER_UNREGISTERED, (data) => {
@@ -206,15 +219,22 @@ export class EquipmentSystem extends SystemBase {
         slot: typedData.slot,
       });
     });
+    console.log(
+      "[EquipmentSystem] Subscribing to INVENTORY_ITEM_RIGHT_CLICK event",
+    );
     this.subscribe(EventType.INVENTORY_ITEM_RIGHT_CLICK, (data) => {
       const typedData = data as {
         playerId: string;
         itemId: string;
         slot: number;
       };
+      console.log(
+        "[EquipmentSystem] ⚡ RECEIVED INVENTORY_ITEM_RIGHT_CLICK:",
+        typedData,
+      );
       this.handleItemRightClick({
         playerId: typedData.playerId,
-        itemId: parseInt(typedData.itemId, 10),
+        itemId: typedData.itemId,
         slot: typedData.slot,
       });
     });
@@ -225,12 +245,6 @@ export class EquipmentSystem extends SystemBase {
   }
 
   private initializePlayerEquipment(playerData: { id: string }): void {
-    // Extract userId from entity for persistence
-    const entity = this.world.entities.get(playerData.id);
-    if (entity && entity.data?.userId) {
-      PlayerIdMapper.register(playerData.id, entity.data.userId as string);
-    }
-
     const equipment: PlayerEquipment = {
       playerId: playerData.id,
       weapon: {
@@ -286,30 +300,71 @@ export class EquipmentSystem extends SystemBase {
 
     this.playerEquipment.set(playerData.id, equipment);
 
-    // Equip starting equipment per GDD (bronze sword)
-    this.equipStartingItems(playerData.id);
+    // NOTE: Starting items are equipped in loadEquipmentFromDatabase()
+    // only if no equipment is found in the database
   }
 
   private equipStartingItems(playerId: string): void {
+    console.log(
+      "[EquipmentSystem] ⚠️ equipStartingItems() called for:",
+      playerId,
+    );
+    console.log(
+      "[EquipmentSystem] ⚠️ This should ONLY happen for NEW players with NO saved equipment!",
+    );
+    console.trace("[EquipmentSystem] Stack trace for equipStartingItems:");
+
     // Per GDD, players start with bronze sword equipped
     const bronzeSword = this.getItemData("bronze_sword");
     if (bronzeSword) {
+      console.log(
+        "[EquipmentSystem] 🗡️ Force-equipping bronze sword for new player:",
+        playerId,
+      );
       this.forceEquipItem(playerId, bronzeSword, "weapon");
     }
   }
 
   private async loadEquipmentFromDatabase(playerId: string): Promise<void> {
-    if (!this.databaseSystem) return;
+    if (!this.databaseSystem) {
+      console.warn(
+        "[EquipmentSystem] ⚠️ No database system - cannot load equipment for:",
+        playerId,
+      );
+      return;
+    }
 
-    // Use userId for database lookup
-    const databaseId = PlayerIdMapper.getDatabaseId(playerId);
+    console.log(
+      "[EquipmentSystem] 📂 Loading equipment from database for:",
+      playerId,
+    );
 
+    // Use playerId directly - database layer handles character ID mapping
     const dbEquipment =
-      await this.databaseSystem.getPlayerEquipmentAsync(databaseId);
+      await this.databaseSystem.getPlayerEquipmentAsync(playerId);
+
+    console.log(
+      "[EquipmentSystem] 📦 Database returned:",
+      dbEquipment?.length || 0,
+      "equipment items for player:",
+      playerId,
+    );
+    if (dbEquipment && dbEquipment.length > 0) {
+      console.log(
+        "[EquipmentSystem] 📋 Equipment items from DB:",
+        dbEquipment.map((e) => `${e.slotType}: ${e.itemId}`).join(", "),
+      );
+    }
 
     if (dbEquipment && dbEquipment.length > 0) {
       const equipment = this.playerEquipment.get(playerId);
-      if (!equipment) return;
+      if (!equipment) {
+        console.error(
+          "[EquipmentSystem] ❌ Equipment object not found for player:",
+          playerId,
+        );
+        return;
+      }
 
       // Load equipped items from database
       for (const dbItem of dbEquipment) {
@@ -317,6 +372,9 @@ export class EquipmentSystem extends SystemBase {
 
         const itemData = this.getItemData(dbItem.itemId);
         if (itemData && dbItem.slotType) {
+          console.log(
+            `[EquipmentSystem] ✅ Loading ${dbItem.slotType}: ${dbItem.itemId} (${itemData.name})`,
+          );
           const slot = equipment[dbItem.slotType as keyof PlayerEquipment];
           // Strong type assumption - slot is EquipmentSlot if it exists
           if (
@@ -325,26 +383,105 @@ export class EquipmentSystem extends SystemBase {
             slot !== equipment.totalStats
           ) {
             const equipSlot = slot as EquipmentSlot;
-            equipSlot.itemId = parseInt(dbItem.itemId, 10);
+            // Keep itemId as STRING (matches database format)
+            equipSlot.itemId = dbItem.itemId;
             equipSlot.item = itemData;
           }
+        } else {
+          console.warn(
+            `[EquipmentSystem] ⚠️ Failed to load item: ${dbItem.itemId} for slot: ${dbItem.slotType}`,
+          );
         }
       }
 
       // Recalculate stats after loading equipment
       this.recalculateStats(playerId);
+
+      // CRITICAL: Send loaded equipment state to client
+      if (this.world.isServer && this.world.network?.send) {
+        console.log(
+          "[EquipmentSystem] 📤 Sending loaded equipment to client on login:",
+          playerId,
+        );
+        const equipmentData = this.getPlayerEquipment(playerId);
+        this.world.network.send("equipmentUpdated", {
+          playerId,
+          equipment: equipmentData,
+        });
+      }
+
+      // Emit PLAYER_EQUIPMENT_CHANGED for each slot to update visuals
+      const slots = [
+        "weapon",
+        "shield",
+        "helmet",
+        "body",
+        "legs",
+        "arrows",
+      ] as const;
+      for (const slotName of slots) {
+        const slot = equipment[slotName] as EquipmentSlot | null;
+        const itemId = slot?.itemId ? slot.itemId.toString() : null;
+        this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
+          playerId: playerId,
+          slot: slotName as EquipmentSlotName,
+          itemId: itemId,
+        });
+      }
     } else {
+      console.log(
+        "[EquipmentSystem] No equipment found in database for player:",
+        playerId,
+        "- starting with empty equipment",
+      );
+      // NEW PLAYERS START WITH EMPTY EQUIPMENT
+      // Starting items (like bronze sword) should be in INVENTORY, not equipped
+
+      // Send empty equipment to client
+      if (this.world.isServer && this.world.network?.send) {
+        const equipmentData = this.getPlayerEquipment(playerId);
+        this.world.network.send("equipmentUpdated", {
+          playerId,
+          equipment: equipmentData,
+        });
+      }
+
+      // Emit PLAYER_EQUIPMENT_CHANGED for each slot with null (clear visuals)
+      const slots = [
+        "weapon",
+        "shield",
+        "helmet",
+        "body",
+        "legs",
+        "arrows",
+      ] as const;
+      for (const slotName of slots) {
+        this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
+          playerId: playerId,
+          slot: slotName as EquipmentSlotName,
+          itemId: null, // No equipment - clear visuals
+        });
+      }
     }
   }
 
   private async saveEquipmentToDatabase(playerId: string): Promise<void> {
-    if (!this.databaseSystem) return;
+    if (!this.databaseSystem) {
+      console.warn(
+        "[EquipmentSystem] 💾 Cannot save - no database system for:",
+        playerId,
+      );
+      return;
+    }
 
     const equipment = this.playerEquipment.get(playerId);
-    if (!equipment) return;
-
-    // Use userId for database save
-    const databaseId = PlayerIdMapper.getDatabaseId(playerId);
+    if (!equipment) {
+      console.warn(
+        "[EquipmentSystem] 💾 Cannot save - no equipment data for:",
+        playerId,
+      );
+      return;
+    }
 
     // Convert to database format
     const dbEquipment: Array<{
@@ -372,6 +509,9 @@ export class EquipmentSystem extends SystemBase {
       ) {
         const typedSlot = equipSlot as EquipmentSlot;
         if (typedSlot.itemId) {
+          console.log(
+            `[EquipmentSystem] 💾 Preparing to save ${slot}: ${typedSlot.itemId} (${typedSlot.item?.name || "unknown"})`,
+          );
           dbEquipment.push({
             slotType: slot,
             itemId: String(typedSlot.itemId),
@@ -381,10 +521,104 @@ export class EquipmentSystem extends SystemBase {
       }
     }
 
-    this.databaseSystem.savePlayerEquipment(databaseId, dbEquipment);
+    console.log(
+      "[EquipmentSystem] 💾 Saving equipment to database for:",
+      playerId,
+      "- Items:",
+      dbEquipment.length,
+    );
+    console.log(
+      "[EquipmentSystem] 💾 Equipment to save:",
+      dbEquipment.map((e) => `${e.slotType}:${e.itemId}`).join(", "),
+    );
 
-    if (databaseId !== playerId) {
+    // Use playerId directly - database layer handles character ID mapping
+    // CRITICAL: Use async method to ensure save completes before returning
+    await this.databaseSystem.savePlayerEquipmentAsync(playerId, dbEquipment);
+
+    console.log(
+      "[EquipmentSystem] ✅ Equipment saved to database for:",
+      playerId,
+    );
+  }
+
+  /**
+   * Clear all equipped items immediately (for death system)
+   * CRITICAL for death system to prevent item duplication
+   */
+  async clearEquipmentImmediate(playerId: string): Promise<number> {
+    const equipment = this.playerEquipment.get(playerId);
+    if (!equipment) {
+      console.log(
+        `[EquipmentSystem] No equipment found for ${playerId}, nothing to clear`,
+      );
+      return 0;
     }
+
+    // Count equipped items before clearing
+    let clearedCount = 0;
+    const slots = [
+      "weapon",
+      "shield",
+      "helmet",
+      "body",
+      "legs",
+      "arrows",
+    ] as const;
+
+    for (const slotName of slots) {
+      const slot = equipment[slotName] as EquipmentSlot | null;
+      if (slot && slot.item) {
+        clearedCount++;
+
+        // CRITICAL: Clear the slot's contents, but keep the slot object intact!
+        // Don't do: equipment[slotName] = null (this destroys the slot object)
+        // Instead: Clear the slot's properties while keeping the object
+        slot.itemId = null;
+        slot.item = null;
+        if (slot.visualMesh) {
+          slot.visualMesh = undefined;
+        }
+
+        // Emit PLAYER_EQUIPMENT_CHANGED for visual system to remove item from avatar
+        this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
+          playerId: playerId,
+          slot: slotName as EquipmentSlotName,
+          itemId: null, // null = item removed
+        });
+      }
+    }
+
+    // Reset total stats
+    equipment.totalStats = {
+      attack: 0,
+      strength: 0,
+      defense: 0,
+      ranged: 0,
+      constitution: 0,
+    };
+
+    // Emit UI update event
+    this.emitTypedEvent(EventType.UI_EQUIPMENT_UPDATE, {
+      playerId,
+      equipment: {
+        weapon: null,
+        shield: null,
+        helmet: null,
+        body: null,
+        legs: null,
+        arrows: null,
+      },
+    });
+
+    // CRITICAL: Persist to database IMMEDIATELY (no debounce)
+    await this.saveEquipmentToDatabase(playerId);
+
+    console.log(
+      `[EquipmentSystem] ✅ Immediately cleared equipment for ${playerId}: ${clearedCount} items`,
+    );
+
+    return clearedCount;
   }
 
   private cleanupPlayerEquipment(playerId: string): void {
@@ -393,23 +627,52 @@ export class EquipmentSystem extends SystemBase {
 
   private handleItemRightClick(data: {
     playerId: string;
-    itemId: number;
+    itemId: string | number;
     slot: number;
   }): void {
+    console.log(
+      "[EquipmentSystem] ==================== EQUIP ATTEMPT ====================",
+    );
+    console.log("[EquipmentSystem] handleItemRightClick:", {
+      playerId: data.playerId,
+      itemId: data.itemId,
+      itemIdType: typeof data.itemId,
+      slot: data.slot,
+      slotType: typeof data.slot,
+    });
+
     const itemData = this.getItemData(data.itemId);
+    console.log("[EquipmentSystem] getItemData result:", {
+      found: !!itemData,
+      itemName: itemData?.name,
+      itemId: itemData?.id,
+      equipSlot: itemData?.equipSlot,
+    });
+
     if (!itemData) {
+      console.error(
+        "[EquipmentSystem] ❌ No item data found for:",
+        data.itemId,
+        "- Check if itemId matches items.json",
+      );
       return;
     }
 
     // Determine if this is equippable
     const equipSlot = this.getEquipmentSlot(itemData);
+    console.log("[EquipmentSystem] Equipment slot determined:", equipSlot);
+
     if (equipSlot) {
+      console.log(
+        "[EquipmentSystem] ✓ Valid equipment slot, calling tryEquipItem...",
+      );
       this.tryEquipItem({
         playerId: data.playerId,
         itemId: data.itemId,
         inventorySlot: data.slot,
       });
     } else {
+      console.warn("[EquipmentSystem] Item not equippable:", data.itemId);
       // Not equippable - maybe it's consumable?
       if (itemData.type === "food") {
         this.emitTypedEvent(EventType.INVENTORY_CONSUME_ITEM, {
@@ -426,20 +689,49 @@ export class EquipmentSystem extends SystemBase {
     itemId: string | number;
     inventorySlot?: number;
   }): void {
+    console.log("[EquipmentSystem] 🔍 tryEquipItem START:", data);
     const player = this.world.getPlayer(data.playerId);
     const equipment = this.playerEquipment.get(data.playerId);
 
+    console.log(
+      "[EquipmentSystem] 🔍 Step 1 - Player:",
+      !!player,
+      "Equipment:",
+      !!equipment,
+    );
     if (!player || !equipment) {
+      console.error("[EquipmentSystem] ❌ Missing player or equipment data!");
       return;
     }
 
+    console.log(
+      "[EquipmentSystem] 🔍 Step 2 - About to call getItemData for:",
+      data.itemId,
+    );
     const itemData = this.getItemData(data.itemId);
+    console.log(
+      "[EquipmentSystem] 🔍 Step 3 - Got itemData:",
+      itemData?.name || "NULL",
+    );
     if (!itemData) {
+      console.error(
+        "[EquipmentSystem] ❌ No item data in tryEquipItem for:",
+        data.itemId,
+      );
       return;
     }
 
+    console.log("[EquipmentSystem] 🔍 Step 4 - About to call getEquipmentSlot");
     const equipSlot = this.getEquipmentSlot(itemData);
+    console.log(
+      "[EquipmentSystem] 🔍 Step 5 - Got equipSlot:",
+      equipSlot || "NULL",
+    );
     if (!equipSlot) {
+      console.error(
+        "[EquipmentSystem] ❌ No equipment slot for:",
+        itemData.name,
+      );
       this.sendMessage(
         data.playerId,
         `${itemData.name} cannot be equipped.`,
@@ -448,14 +740,23 @@ export class EquipmentSystem extends SystemBase {
       return;
     }
 
-    // Check level requirements
-    if (!this.meetsLevelRequirements(data.playerId, itemData)) {
+    console.log("[EquipmentSystem] 🔍 Step 6 - Checking level requirements");
+    const meetsRequirements = this.meetsLevelRequirements(
+      data.playerId,
+      itemData,
+    );
+    console.log(
+      "[EquipmentSystem] 🔍 Step 7 - Meets requirements:",
+      meetsRequirements,
+    );
+    if (!meetsRequirements) {
       const requirements =
         equipmentRequirements.getLevelRequirements(itemData.id as string) || {};
       const reqText = Object.entries(requirements as Record<string, number>)
         .map(([skill, level]) => `${skill} ${level}`)
         .join(", ");
 
+      console.log("[EquipmentSystem] ❌ Failed level requirements:", reqText);
       this.sendMessage(
         data.playerId,
         `You need ${reqText} to equip ${itemData.name}.`,
@@ -464,10 +765,41 @@ export class EquipmentSystem extends SystemBase {
       return;
     }
 
-    // Check if item is in inventory
-    if (!this.playerHasItem(data.playerId, data.itemId)) {
+    console.log(
+      "[EquipmentSystem] 🔍 Step 8 - Checking inventory (inventorySlot:",
+      data.inventorySlot,
+      ")",
+    );
+
+    // Debug: Check inventory system state
+    const invSystem = this.world.getSystem("inventory") as any;
+    if (invSystem) {
+      const playerInv = invSystem.getPlayerInventory?.(data.playerId);
+      console.log("[EquipmentSystem] 📦 Player inventory state:", {
+        hasInventory: !!playerInv,
+        itemCount: playerInv?.items?.length || 0,
+        items: playerInv?.items?.map((i: any) => ({
+          itemId: i.itemId,
+          slot: i.slot,
+          quantity: i.quantity,
+        })),
+      });
+    }
+
+    if (
+      data.inventorySlot === undefined &&
+      !this.playerHasItem(data.playerId, data.itemId)
+    ) {
+      console.log(
+        "[EquipmentSystem] ❌ Player doesn't have item:",
+        data.itemId,
+      );
       return;
     }
+
+    console.log(
+      "[EquipmentSystem] ✅ Step 9 - All checks passed! Calling equipItem",
+    );
 
     // Perform the equipment
     this.equipItem({
@@ -484,16 +816,30 @@ export class EquipmentSystem extends SystemBase {
     slot: string;
     inventorySlot?: number;
   }): void {
+    console.log("[EquipmentSystem] 🔧 equipItem called:", data);
     const equipment = this.playerEquipment.get(data.playerId);
-    if (!equipment) return;
+    if (!equipment) {
+      console.error("[EquipmentSystem] ❌ No equipment data for player");
+      return;
+    }
 
     // Check for valid itemId before calling getItemData
     if (data.itemId === null || data.itemId === undefined) {
+      console.error("[EquipmentSystem] ❌ Invalid itemId");
       return;
     }
 
     const itemData = this.getItemData(data.itemId);
-    if (!itemData) return;
+    if (!itemData) {
+      console.error("[EquipmentSystem] ❌ No item data for:", data.itemId);
+      return;
+    }
+
+    console.log("[EquipmentSystem] ✅ Got item data:", itemData.name);
+    console.log(
+      "[EquipmentSystem] 📦 Current inventory slot:",
+      data.inventorySlot,
+    );
 
     const slot = data.slot;
     if (!this.isValidEquipmentSlot(slot)) return;
@@ -545,18 +891,26 @@ export class EquipmentSystem extends SystemBase {
       });
     }
 
-    // Equip new item - convert to number for slot storage
-    // Strong type assumption - data.itemId is string | number per function signature
-    const itemIdNumber = (data.itemId as string).toString
-      ? parseInt(data.itemId as string, 10)
-      : (data.itemId as number);
-    equipmentSlot.itemId = itemIdNumber;
+    // Equip new item - keep itemId as string | number
+    console.log(
+      "[EquipmentSystem] Equipping item:",
+      data.itemId,
+      "into slot:",
+      slot,
+    );
+    equipmentSlot.itemId = data.itemId;
     equipmentSlot.item = itemData;
 
     // Create visual representation
     this.createEquipmentVisual(data.playerId, equipmentSlot);
 
     // Remove from inventory
+    console.log("[EquipmentSystem] 📤 Emitting INVENTORY_ITEM_REMOVED:", {
+      playerId: data.playerId,
+      itemId: data.itemId,
+      quantity: 1,
+      slot: data.inventorySlot,
+    });
     this.emitTypedEvent(EventType.INVENTORY_ITEM_REMOVED, {
       playerId: data.playerId,
       itemId: data.itemId,
@@ -568,12 +922,37 @@ export class EquipmentSystem extends SystemBase {
     this.recalculateStats(data.playerId);
 
     // Update combat system with new equipment (emit per-slot change for type consistency)
+    const itemIdForEvent =
+      equipmentSlot.itemId !== null
+        ? typeof equipmentSlot.itemId === "string"
+          ? equipmentSlot.itemId
+          : equipmentSlot.itemId.toString()
+        : null;
+
+    console.log("[EquipmentSystem] Emitting PLAYER_EQUIPMENT_CHANGED:", {
+      playerId: data.playerId,
+      slot: slot,
+      itemId: itemIdForEvent,
+    });
+
     this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
       playerId: data.playerId,
       slot: slot as EquipmentSlotName,
-      itemId:
-        equipmentSlot.itemId !== null ? equipmentSlot.itemId.toString() : null,
+      itemId: itemIdForEvent,
     });
+
+    // CRITICAL: Send equipment state to client
+    console.log(
+      "[EquipmentSystem] 📤 Sending equipment update to client via network",
+    );
+    if (this.world.isServer && this.world.network?.send) {
+      const equipment = this.getPlayerEquipment(data.playerId);
+      console.log("[EquipmentSystem] Equipment to send:", equipment);
+      this.world.network.send("equipmentUpdated", {
+        playerId: data.playerId,
+        equipment,
+      });
+    }
 
     this.sendMessage(data.playerId, `Equipped ${itemData.name}.`, "info");
 
@@ -602,13 +981,19 @@ export class EquipmentSystem extends SystemBase {
 
     // Store item name before clearing the slot
     const itemName = equipmentSlot.item.name;
+    const itemIdToAdd = equipmentSlot.itemId?.toString() || "";
 
     // Add back to inventory - use correct event format for InventoryItemAddedPayload
+    console.log("[EquipmentSystem] 📤 Emitting INVENTORY_ITEM_ADDED:", {
+      playerId: data.playerId,
+      itemId: itemIdToAdd,
+      quantity: 1,
+    });
     this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
       playerId: data.playerId,
       item: {
         id: `inv_${data.playerId}_${Date.now()}`,
-        itemId: equipmentSlot.itemId?.toString() || "",
+        itemId: itemIdToAdd,
         quantity: 1,
         slot: -1, // Let system find empty slot
         metadata: null,
@@ -632,6 +1017,19 @@ export class EquipmentSystem extends SystemBase {
       slot: slot as EquipmentSlotName,
       itemId: null,
     });
+
+    // CRITICAL: Send equipment state to client
+    console.log(
+      "[EquipmentSystem] 📤 Sending equipment update to client after unequip",
+    );
+    if (this.world.isServer && this.world.network?.send) {
+      const equipment = this.getPlayerEquipment(data.playerId);
+      console.log("[EquipmentSystem] Equipment to send:", equipment);
+      this.world.network.send("equipmentUpdated", {
+        playerId: data.playerId,
+        equipment,
+      });
+    }
 
     this.sendMessage(data.playerId, `Unequipped ${itemName}.`, "info");
 
@@ -666,7 +1064,8 @@ export class EquipmentSystem extends SystemBase {
       return;
     }
 
-    equipmentSlot.itemId = parseInt(itemData.id, 10) || 0;
+    // Keep itemId as STRING (e.g., "bronze_sword", "steel_sword")
+    equipmentSlot.itemId = itemData.id as string | number;
     equipmentSlot.item = itemData;
 
     // Create visual representation
@@ -764,6 +1163,16 @@ export class EquipmentSystem extends SystemBase {
     // Get player skills (simplified for MVP)
     const playerSkills = this.getPlayerSkills(playerId);
 
+    console.log(
+      `[EquipmentSystem] 🔍 Checking requirements for ${itemData.id}:`,
+    );
+    console.log(`[EquipmentSystem] 🔍 Required:`, requirements);
+    console.log(`[EquipmentSystem] 🔍 Player skills:`, playerSkills);
+    console.log(
+      `[EquipmentSystem] 🔍 Skills cache has player:`,
+      this.playerSkills.has(playerId),
+    );
+
     // Check each specific skill requirement
     const skillChecks = [
       { skill: "attack" as const, required: requirements.attack },
@@ -775,11 +1184,18 @@ export class EquipmentSystem extends SystemBase {
 
     for (const { skill, required } of skillChecks) {
       const playerLevel = playerSkills[skill] || 1;
+      console.log(
+        `[EquipmentSystem] 🔍 ${skill}: player=${playerLevel}, required=${required}`,
+      );
       if (playerLevel < required) {
+        console.log(
+          `[EquipmentSystem] ❌ FAILED: ${skill} level ${playerLevel} < required ${required}`,
+        );
         return false;
       }
     }
 
+    console.log(`[EquipmentSystem] ✅ All requirements met!`);
     return true;
   }
 
@@ -874,8 +1290,11 @@ export class EquipmentSystem extends SystemBase {
     if (requirements) {
       // Create basic item data for known equipment
       const itemType = this.inferItemTypeFromId(itemIdStr);
-      const inferredBonuses =
-        this.inferBonusesFromLevelRequirement(requirements);
+
+      // Get OSRS-accurate stats from equipment-stats.json
+      const osrsStats = this.getOSRSEquipmentStats(itemIdStr);
+      const bonuses =
+        osrsStats || this.inferBonusesFromLevelRequirement(requirements);
 
       return {
         id: itemIdStr,
@@ -902,15 +1321,15 @@ export class EquipmentSystem extends SystemBase {
         iconPath: "",
         healAmount: 0,
         stats: {
-          attack: inferredBonuses.attack || 0,
-          defense: inferredBonuses.defense || 0,
-          strength: inferredBonuses.strength || 0,
+          attack: bonuses.attack || 0,
+          defense: bonuses.defense || 0,
+          strength: bonuses.strength || 0,
         },
         bonuses: {
-          attack: inferredBonuses.attack,
-          defense: inferredBonuses.defense,
-          ranged: inferredBonuses.ranged,
-          strength: inferredBonuses.strength,
+          attack: bonuses.attack,
+          defense: bonuses.defense,
+          ranged: bonuses.ranged,
+          strength: bonuses.strength,
         },
         requirements: {
           level: Math.max(
@@ -995,14 +1414,43 @@ export class EquipmentSystem extends SystemBase {
   private inferBonusesFromLevelRequirement(
     requirements: LevelRequirement,
   ): ItemBonuses {
-    // Infer combat bonuses from level requirements
-    // Higher requirements typically mean better stats
+    // DEPRECATED: This fallback should rarely be used
+    // All equipment should have OSRS-accurate stats in equipment-stats.json
+    console.warn(
+      "[EquipmentSystem] Using fallback bonus calculation - equipment stats missing!",
+    );
     return {
       attack: Math.floor(requirements.attack * 0.8),
       defense: Math.floor(requirements.defense * 0.8),
       ranged: Math.floor(requirements.ranged * 0.8),
       strength: Math.floor(requirements.strength * 0.6),
     };
+  }
+
+  private getOSRSEquipmentStats(itemId: string): ItemBonuses | null {
+    // Get OSRS-accurate equipment stats from equipment-stats.json
+    const allStats = equipmentStatsData as {
+      weapons: Record<string, ItemBonuses>;
+      shields: Record<string, ItemBonuses>;
+      armor: Record<string, ItemBonuses>;
+    };
+
+    // Check weapons
+    if (allStats.weapons[itemId]) {
+      return allStats.weapons[itemId];
+    }
+
+    // Check shields
+    if (allStats.shields[itemId]) {
+      return allStats.shields[itemId];
+    }
+
+    // Check armor
+    if (allStats.armor[itemId]) {
+      return allStats.armor[itemId];
+    }
+
+    return null;
   }
 
   private sendMessage(
