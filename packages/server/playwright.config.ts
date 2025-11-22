@@ -21,10 +21,8 @@ export default defineConfig({
     timeout: 120 * 1000, // 2 minutes to start
     reuseExistingServer: !process.env.CI, // In CI, always start fresh server
     env: {
+      ...process.env, // Inherit all environment variables from parent (including DATABASE_URL from CI)
       NODE_ENV: "test",
-      DATABASE_URL:
-        process.env.DATABASE_URL ||
-        "postgresql://localhost:5432/hyperscape_test",
     },
   },
 });
