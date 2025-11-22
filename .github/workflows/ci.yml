@@ -59,6 +59,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Setup database schema
+        working-directory: packages/server
+        run: bunx drizzle-kit push
+        env:
+          DATABASE_URL: postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test
+
       - name: Run tests
         run: bun run test
         env:
