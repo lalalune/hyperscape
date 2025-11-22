@@ -1,0 +1,15 @@
+{
+  "extraKnownMarketplaces": {
+    "hyperscape-ai": {
+      "source": {
+        "source": "github",
+        "repo": "HyperscapeAI/claude"
+      }
+    }
+  },
+  "autoInstallPlugins": {
+    "hyperscape-ai": [
+      "hyperscape-ai-assistant"
+    ]
+  }
+}
