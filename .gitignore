@@ -5,6 +5,7 @@ yarn.lock
 
 # Build outputs
 dist/
+!packages/physx-js-webidl/dist/  # Exception: PhysX pre-built binaries must be committed
 build/
 *.tsbuildinfo
 
