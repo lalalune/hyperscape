@@ -2,8 +2,8 @@
   "levelRequirements": {
     "weapons": {
       "bronze_sword": { "attack": 1, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
-      "iron_sword": { "attack": 1, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
-      "steel_sword": { "attack": 1, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
+      "iron_sword": { "attack": 5, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
+      "steel_sword": { "attack": 10, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
       "mithril_sword": { "attack": 20, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
       "adamant_sword": { "attack": 30, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
       "rune_sword": { "attack": 40, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
