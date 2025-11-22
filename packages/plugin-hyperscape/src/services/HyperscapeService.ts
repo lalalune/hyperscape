@@ -112,8 +112,8 @@ export class HyperscapeService
     }
 
     if (!service.characterId) {
-      logger.warn(
-        "[HyperscapeService] No HYPERSCAPE_CHARACTER_ID found - agent will not auto-join world",
+      logger.info(
+        "[HyperscapeService] No HYPERSCAPE_CHARACTER_ID - waiting for character selection (this is normal)",
       );
     }
 
@@ -474,8 +474,8 @@ export class HyperscapeService
       );
 
       if (characters.length === 0) {
-        logger.warn(
-          "[HyperscapeService] No characters found in snapshot - cannot auto-join",
+        logger.info(
+          "[HyperscapeService] No characters found - agent will join after character creation/selection",
         );
         return;
       }

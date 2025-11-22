@@ -60,7 +60,7 @@
  * **Adding New Packets**:
  * 1. Add packet name to the `names` array (order matters!)
  * 2. Packet ID is automatically assigned based on array index
- * 3. Handler method name is auto-generated as `on${Name}` (e.g., 'snapshot' → 'onSnapshot')
+ * 3. Handler method name uses the same name (e.g., 'snapshot' → 'snapshot')
  * 4. Implement handler in ServerNetwork or ClientNetwork
  *
  * **Referenced by**: Socket (send/receive), ServerNetwork, ClientNetwork
@@ -155,14 +155,10 @@ for (const name of names) {
   const info: PacketInfo = {
     id,
     name,
-    method: `on${capitalize(name)}`, // eg 'connect' -> 'onConnect'
+    method: name, // Direct mapping - no conversion needed
   };
   byName[name] = info;
   byId[id] = info;
-}
-
-function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 export function writePacket(name: string, data: unknown): ArrayBuffer {

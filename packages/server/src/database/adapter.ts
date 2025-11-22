@@ -244,6 +244,104 @@ export function createDrizzleAdapter(
     }
 
     // ========================================================================
+    // USERS TABLE ADAPTER
+    // ========================================================================
+    // The users table stores user accounts and authentication data.
+    // Used by ServerNetwork authentication flow.
+    if (tableName === "users") {
+      return {
+        where: (key: string, value: unknown) => ({
+          first: async () => {
+            const results = await db
+              .select()
+              .from(schema.users)
+              .where(
+                eq(
+                  schema.users[key as keyof typeof schema.users],
+                  value as string,
+                ),
+              )
+              .limit(1);
+            return results[0];
+          },
+          update: async (data: Record<string, unknown>) => {
+            await db
+              .update(schema.users)
+              .set(data as Partial<typeof schema.users.$inferInsert>)
+              .where(
+                eq(
+                  schema.users[key as keyof typeof schema.users],
+                  value as string,
+                ),
+              );
+            return 1;
+          },
+          delete: async () => {
+            await db
+              .delete(schema.users)
+              .where(
+                eq(
+                  schema.users[key as keyof typeof schema.users],
+                  value as string,
+                ),
+              );
+            return 1;
+          },
+        }),
+        select: () => ({
+          where: (key: string, value: unknown) => ({
+            first: async () => {
+              const results = await db
+                .select()
+                .from(schema.users)
+                .where(
+                  eq(
+                    schema.users[key as keyof typeof schema.users],
+                    value as string,
+                  ),
+                )
+                .limit(1);
+              return results[0];
+            },
+          }),
+        }),
+        insert: async (
+          data: Record<string, unknown> | Record<string, unknown>[],
+        ) => {
+          type UsersInsert = typeof schema.users.$inferInsert;
+          const rows = Array.isArray(data) ? data : [data];
+          await db.insert(schema.users).values(rows as UsersInsert[]);
+        },
+        update: async (data: Record<string, unknown>) => {
+          await db
+            .update(schema.users)
+            .set(data as Partial<typeof schema.users.$inferInsert>);
+          return 1;
+        },
+        delete: async () => {
+          await db.delete(schema.users);
+          return 1;
+        },
+        first: async () => {
+          const results = await db.select().from(schema.users).limit(1);
+          return results[0];
+        },
+        then: async <T>(onfulfilled: (value: unknown[]) => T) => {
+          const results = await db.select().from(schema.users);
+          return onfulfilled(results);
+        },
+        catch: async <T>(onrejected: (reason: unknown) => T) => {
+          try {
+            const results = await db.select().from(schema.users);
+            return results as unknown as T;
+          } catch (error) {
+            return onrejected(error);
+          }
+        },
+      };
+    }
+
+    // ========================================================================
     // FALLBACK ADAPTER (OTHER TABLES)
     // ========================================================================
     // For tables not specifically implemented, provide no-op methods.

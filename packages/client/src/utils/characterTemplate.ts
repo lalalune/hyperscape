@@ -5,7 +5,7 @@
  */
 
 export interface CharacterTemplate {
-  id: string;
+  id?: string; // Optional - ElizaOS generates UUID on agent creation
   name: string;
   username: string;
   system: string;
@@ -56,8 +56,8 @@ function generateUUID(): string {
  * @param name - The character's name
  * @param wallet - Optional wallet address
  * @param avatar - Optional avatar URL
- * @param characterId - Optional character ID (uses existing Hyperscape character ID)
- * @returns A complete character template
+ * @param characterId - Optional character ID (stored in secrets, not used as agent ID)
+ * @returns A complete character template (without id - ElizaOS will generate UUID)
  */
 export function generateCharacterTemplate(
   name: string,
@@ -68,7 +68,7 @@ export function generateCharacterTemplate(
   const username = name.toLowerCase().replace(/\s+/g, "_");
 
   return {
-    id: characterId || generateUUID(), // Use provided ID or generate new one
+    // Note: Don't set 'id' - let ElizaOS generate UUID, link via HYPERSCAPE_CHARACTER_ID
     name,
     username,
     system: `You are ${name}, an AI agent playing Hyperscape, a 3D multiplayer RPG. You can move around the world, fight enemies, gather resources, manage your inventory, and interact with other players. You are adventurous, strategic, and always ready for new challenges. Respond to situations naturally and make decisions based on your goals and the current game state.`,
