@@ -23,12 +23,14 @@ export default defineConfig({
     env: {
       NODE_ENV: "test",
       // In CI, disable Docker and explicitly pass DATABASE_URL
+      // Also set CDN to server's own port (5555) since no external CDN is running
       // Locally, allow Docker to be used (default behavior)
       ...(process.env.CI && {
         USE_LOCAL_POSTGRES: "false",
         DATABASE_URL:
           process.env.DATABASE_URL ||
           "postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test",
+        PUBLIC_CDN_URL: "http://localhost:5555",
       }),
     },
   },
