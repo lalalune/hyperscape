@@ -62,7 +62,7 @@
   },
   "devDependencies": {
     "@docusaurus/core": "^3.9.1",
-    "@docusaurus/preset-classic": "^3.9.1",
+    "@docusaurus/preset-classic": "^3.9.2",
     "@elizaos/cli": "^1.6.4",
     "@eslint/js": "^9.0.0",
     "@types/node": "^24.8.0",
