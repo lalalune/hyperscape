@@ -184,12 +184,10 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
-    // Check if target is already dead (for mobs)
-    if (targetType === "mob") {
-      const mobEntity = target as MobEntity;
-      if (mobEntity.isDead()) {
-        return;
-      }
+    // CRITICAL: Check if target is already dead BEFORE processing attack (Issue #265)
+    // This prevents attacks from being processed on dead entities
+    if (!this.isEntityAlive(target, targetType)) {
+      return;
     }
 
     // Check if in melee range (use 2D distance to avoid Y terrain height issues)
@@ -226,7 +224,7 @@ export class CombatSystem extends SystemBase {
     // Apply damage
     this.applyDamage(targetId, targetType, damage, attackerId);
 
-    // Emit damage splatter event with capped damage (never exceeds remaining HP)
+    // CRITICAL: ALWAYS emit damage splatter event (including for killing blow - RuneScape shows final damage)
     const targetPosition = target.position || target.getPosition();
     this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
       attackerId,
@@ -235,6 +233,13 @@ export class CombatSystem extends SystemBase {
       targetType,
       position: targetPosition,
     });
+
+    // CRITICAL: Check if target died from this attack - if so, skip remaining combat logic (Issue #265)
+    // We already emitted the damage event above so player sees the killing blow
+    const targetStillAlive = this.isEntityAlive(target, targetType);
+    if (!targetStillAlive) {
+      return; // Target died, don't update cooldowns or combat state
+    }
 
     // Set attack cooldown
     this.attackCooldowns.set(typedAttackerId, now);
@@ -266,6 +271,12 @@ export class CombatSystem extends SystemBase {
 
     // Check entities exist
     if (!attacker || !target) {
+      return;
+    }
+
+    // CRITICAL: Check if target is already dead BEFORE processing attack (Issue #265)
+    // This prevents attacks from being processed on dead entities
+    if (!this.isEntityAlive(target, targetType)) {
       return;
     }
 
@@ -308,7 +319,7 @@ export class CombatSystem extends SystemBase {
     // Apply damage
     this.applyDamage(targetId, targetType, damage, attackerId);
 
-    // Emit damage splatter event with capped damage (never exceeds remaining HP)
+    // CRITICAL: ALWAYS emit damage splatter event (including for killing blow - RuneScape shows final damage)
     const targetPosition = target.position || target.getPosition();
     this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
       attackerId,
@@ -317,6 +328,13 @@ export class CombatSystem extends SystemBase {
       targetType,
       position: targetPosition,
     });
+
+    // CRITICAL: Check if target died from this attack - if so, skip remaining combat logic (Issue #265)
+    // We already emitted the damage event above so player sees the killing blow
+    const targetStillAlive = this.isEntityAlive(target, targetType);
+    if (!targetStillAlive) {
+      return; // Target died, don't update cooldowns or combat state
+    }
 
     // Set attack cooldown
     this.attackCooldowns.set(typedAttackerId, now);
@@ -595,8 +613,28 @@ export class CombatSystem extends SystemBase {
       }
 
       const damaged = playerSystem.damagePlayer(targetId, damage, attackerId);
+
+      // CRITICAL: If damage failed, check if player is dead and end combat
+      // damagePlayer() returns false when player.alive = false (line 1097)
       if (!damaged) {
+        const targetEntity = this.getEntity(targetId, "player");
+        const isAlive = this.isEntityAlive(targetEntity, "player");
+        if (!isAlive) {
+          // Player is dead - end ALL combat with this player immediately
+          this.handleEntityDied(targetId, "player");
+          return;
+        }
+        // Player not dead but damage still failed - log and continue
         console.error(`[CombatSystem] Failed to damage player ${targetId}`);
+        return;
+      }
+
+      // CRITICAL: Check if player died from THIS attack - end ALL combat with this player
+      // This prevents additional auto-attacks from ANY mob in the same frame
+      const targetEntity = this.getEntity(targetId, "player");
+      const isAlive = this.isEntityAlive(targetEntity, "player");
+      if (!isAlive) {
+        this.handleEntityDied(targetId, "player");
         return;
       }
 
@@ -1091,11 +1129,18 @@ export class CombatSystem extends SystemBase {
       this.endCombat({ entityId });
     }
 
+    // CRITICAL: Convert to array first to avoid iterator issues when deleting during iteration
     // Also end combat for anyone attacking this entity
+    const attackersToEnd: string[] = [];
     for (const [attackerId, state] of this.combatStates) {
       if (String(state.targetId) === entityId) {
-        this.endCombat({ entityId: String(attackerId) });
+        attackersToEnd.push(String(attackerId));
       }
+    }
+
+    // Now end combat for all attackers
+    for (const attackerId of attackersToEnd) {
+      this.endCombat({ entityId: attackerId });
     }
   }
 
@@ -1121,6 +1166,18 @@ export class CombatSystem extends SystemBase {
     const target = this.getEntity(targetId, opts.targetType);
 
     if (!attacker || !target) {
+      return false;
+    }
+
+    // CRITICAL: Cannot start combat with dead entities (RuneScape-style validation)
+    // This prevents mobs from starting combat with dead players (Issue #265)
+    const attackerAlive = this.isEntityAlive(attacker, opts.attackerType);
+    const targetAlive = this.isEntityAlive(target, opts.targetType);
+
+    if (!attackerAlive) {
+      return false;
+    }
+    if (!targetAlive) {
       return false;
     }
 
@@ -1196,8 +1253,18 @@ export class CombatSystem extends SystemBase {
   update(_dt: number): void {
     const now = Date.now();
 
+    // CRITICAL: Convert to array first to avoid iterator issues when deleting during iteration
+    // When a player dies, handleEntityDied() deletes multiple entries, but the for...of loop
+    // has already captured the entries and will continue processing deleted ones
+    const statesToProcess = Array.from(this.combatStates.entries());
+
     // Process all active combat sessions
-    for (const [entityId, combatState] of this.combatStates) {
+    for (const [entityId, combatState] of statesToProcess) {
+      // CRITICAL: Re-check if this combat state still exists (might have been deleted by previous iteration)
+      if (!this.combatStates.has(entityId)) {
+        continue;
+      }
+
       // Check for combat timeout first
       if (
         combatState.inCombat &&
@@ -1222,6 +1289,9 @@ export class CombatSystem extends SystemBase {
    * This creates the continuous attack loop that makes combat feel like RuneScape
    */
   private processAutoAttack(combatState: CombatData, now: number): void {
+    const attackerId = String(combatState.attackerId);
+    const targetId = String(combatState.targetId);
+
     // Use combatState.lastAttackTime for cooldown check to respect alternating attack offset
     const lastAttack = combatState.lastAttackTime;
 
@@ -1238,10 +1308,6 @@ export class CombatSystem extends SystemBase {
     // Also update the global cooldown map for consistency
     const typedAttackerId = combatState.attackerId;
 
-    // Get attacker and target entities
-    const attackerId = String(combatState.attackerId);
-    const targetId = String(combatState.targetId);
-
     const attacker = this.getEntity(attackerId, combatState.attackerType);
     const target = this.getEntity(targetId, combatState.targetType);
 
@@ -1252,13 +1318,18 @@ export class CombatSystem extends SystemBase {
     }
 
     // Check if attacker is still alive (prevent dead attackers from auto-attacking)
-    if (!this.isEntityAlive(attacker, combatState.attackerType)) {
+    const attackerAlive = this.isEntityAlive(
+      attacker,
+      combatState.attackerType,
+    );
+    if (!attackerAlive) {
       this.endCombat({ entityId: attackerId });
       return;
     }
 
     // Check if target is still alive
-    if (!this.isEntityAlive(target, combatState.targetType)) {
+    const targetAlive = this.isEntityAlive(target, combatState.targetType);
+    if (!targetAlive) {
       this.endCombat({ entityId: attackerId });
       return;
     }
@@ -1302,7 +1373,7 @@ export class CombatSystem extends SystemBase {
 
     this.applyDamage(targetId, combatState.targetType, damage, attackerId);
 
-    // Emit damage splatter event even for 0 damage (blue splatter)
+    // CRITICAL: ALWAYS emit damage splatter event (including for killing blow - RuneScape shows final damage)
     const targetPosition = target.position || target.getPosition();
     this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
       attackerId,
@@ -1311,6 +1382,14 @@ export class CombatSystem extends SystemBase {
       targetType: combatState.targetType,
       position: targetPosition,
     });
+
+    // CRITICAL: Check if target died from this attack - if so, combat state was deleted by handleEntityDied() (Issue #265)
+    // We already emitted the damage event above so player sees the killing blow
+    // Now we skip updating cooldowns and combat state since combat has ended
+    const combatStateStillExists = this.combatStates.has(typedAttackerId);
+    if (!combatStateStillExists) {
+      return; // Combat ended, don't update cooldowns or combat state
+    }
 
     // Set attack cooldown to prevent bypass
     this.attackCooldowns.set(typedAttackerId, now);
