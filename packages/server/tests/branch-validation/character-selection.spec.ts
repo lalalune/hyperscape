@@ -47,13 +47,13 @@ const PACKET_IDS = {
   command: 1,
   chatAdded: 2,
   entityAdded: 4,
-  showToast: 36, // Fixed: was 37, actual is 36
-  characterListRequest: 43,
-  characterCreate: 44,
-  characterList: 45,
-  characterCreated: 46,
-  characterSelected: 47,
-  enterWorld: 48,
+  showToast: 35,
+  characterListRequest: 46,
+  characterCreate: 47,
+  characterList: 48,
+  characterCreated: 49,
+  characterSelected: 50,
+  enterWorld: 51,
 };
 
 function encodePacket(packetName: string, data: unknown): Buffer {
