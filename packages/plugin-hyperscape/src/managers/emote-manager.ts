@@ -30,6 +30,13 @@ export class EmoteManager {
   }
 
   async uploadEmotes() {
+    if (EMOTES_LIST.length === 0) {
+      console.info(
+        "[EmoteManager] No emotes configured for upload (emotes served via CDN)",
+      );
+      return;
+    }
+
     for (const emote of EMOTES_LIST) {
       const moduleDirPath = getModuleDirectory();
       const emoteBuffer = await fsPromises.readFile(moduleDirPath + emote.path);
@@ -85,6 +92,17 @@ export class EmoteManager {
     if (!agentPlayer.data) {
       throw new Error("[EmoteManager] Player has no data property");
     }
+
+    // Get duration from EMOTES_LIST (or use default if not found)
+    const emoteMeta = EMOTES_LIST.find((e) => e.name === emoteName);
+    if (!emoteMeta) {
+      console.warn(
+        `[EmoteManager] Emote '${emoteName}' not found in EMOTES_LIST (emotes served via CDN)`,
+      );
+      return;
+    }
+    const duration = emoteMeta.duration;
+
     const playerData = agentPlayer.data;
     if (!playerData.effect) {
       playerData.effect = { emote: emoteName };
@@ -95,10 +113,6 @@ export class EmoteManager {
     console.info(`[Emote] Playing '${emoteName}'`);
 
     this.clearTimers();
-
-    // Get duration from EMOTES_LIST
-    const emoteMeta = EMOTES_LIST.find((e) => e.name === emoteName)!;
-    const duration = emoteMeta.duration;
 
     this.movementCheckInterval = setInterval(() => {
       // Check if player is moving (only PlayerLocal/PlayerRemote have moving property)
