@@ -481,10 +481,12 @@ export async function handleEnterWorld(
   // Load character data from DB if characterId provided
   let name = "Adventurer";
   let avatar: string | undefined = undefined;
+  let walletAddress: string | undefined = undefined;
   let characterData: {
     id: string;
     name: string;
     avatar?: string | null;
+    wallet?: string | null;
   } | null = null;
   if (characterId && accountId) {
     try {
@@ -501,6 +503,7 @@ export async function handleEnterWorld(
         if (characterData) {
           name = characterData.name;
           avatar = characterData.avatar || undefined;
+          walletAddress = characterData.wallet || undefined;
           console.log("[CharacterSelection] ✅ Found character:", {
             name,
             avatar,
@@ -656,6 +659,7 @@ export async function handleEnterWorld(
         avatar:
           avatar || world.settings.avatar?.url || "asset://avatar-male-01.vrm", // ✅ Use character's avatar from DB
         sessionAvatar: avatar || undefined, // ✅ Also set sessionAvatar for runtime override
+        wallet: walletAddress, // ✅ Character's HD wallet address
         roles,
         // CRITICAL: Pass loaded skills so PlayerEntity constructor uses them instead of defaults
         skills: savedSkills,
