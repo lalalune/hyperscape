@@ -52,6 +52,18 @@ export class AggroManager {
       const playerPos = player.node?.position;
       if (!playerPos) continue;
 
+      // CRITICAL: Skip dead players (RuneScape-style: mobs don't aggro on corpses)
+      const playerObj = player as any;
+      if (
+        playerObj.health?.current !== undefined &&
+        playerObj.health.current <= 0
+      ) {
+        continue; // Dead player, skip
+      }
+      if (playerObj.alive === false) {
+        continue; // Dead player, skip
+      }
+
       // Quick distance check (RuneScape-style: first player in range)
       const dx = playerPos.x - currentPos.x;
       const dz = playerPos.z - currentPos.z;
@@ -83,6 +95,18 @@ export class AggroManager {
   ): PlayerTarget | null {
     const player = getPlayerFn(playerId);
     if (!player || !player.node?.position) return null;
+
+    // CRITICAL: Return null if player is dead (RuneScape-style: clear target when player dies)
+    const playerObj = player as any;
+    if (
+      playerObj.health?.current !== undefined &&
+      playerObj.health.current <= 0
+    ) {
+      return null; // Dead player
+    }
+    if (playerObj.alive === false) {
+      return null; // Dead player
+    }
 
     return {
       id: player.id,
