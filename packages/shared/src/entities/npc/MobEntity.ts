@@ -100,6 +100,8 @@ import {
   type AIStateContext,
 } from "../managers/AIStateMachine";
 import { RespawnManager } from "../managers/RespawnManager";
+import { UIRenderer } from "../../utils/rendering/UIRenderer";
+import { GAME_CONSTANTS } from "../../constants";
 import { AggroManager } from "../managers/AggroManager";
 
 // Polyfill ProgressEvent for Node.js server environment
@@ -1072,6 +1074,31 @@ export class MobEntity extends CombatantEntity {
   // Track when death animation started on client (in Date.now() milliseconds)
   private clientDeathStartTime: number | null = null;
 
+  /**
+   * Override health bar rendering to show 0 during death animation
+   * This is the production-ready solution - handle death in UI layer, not network layer
+   */
+  protected override updateHealthBar(): void {
+    if (!this.healthSprite) {
+      return;
+    }
+
+    // CRITICAL: Show 0 health during death animation regardless of actual health value
+    // This prevents health bar from showing server respawn health during client-side death animation
+    const displayHealth = this.deathManager.isCurrentlyDead() ? 0 : this.health;
+
+    const healthCanvas = UIRenderer.createHealthBar(
+      displayHealth,
+      this.maxHealth,
+      {
+        width: GAME_CONSTANTS.UI.HEALTH_BAR_WIDTH,
+        height: GAME_CONSTANTS.UI.HEALTH_BAR_HEIGHT,
+      },
+    );
+
+    UIRenderer.updateSpriteTexture(this.healthSprite, healthCanvas);
+  }
+
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
     this.clientUpdateCalls++;
@@ -1323,7 +1350,6 @@ export class MobEntity extends CombatantEntity {
     this.combatManager.enterCombat(attackerId);
 
     // Apply damage
-    const oldHealth = this.config.currentHealth;
     this.config.currentHealth = Math.max(0, this.config.currentHealth - damage);
 
     // Sync all health fields (single source of truth)
@@ -1741,6 +1767,10 @@ export class MobEntity extends CombatantEntity {
         newState === MobAIState.DEAD &&
         !this.deathManager.isCurrentlyDead()
       ) {
+        // CRITICAL: Clear the death timer so clientUpdate() can set a fresh timestamp
+        // Without this, stale timestamps from previous deaths cause immediate reset
+        this.clientDeathStartTime = null;
+
         if ("p" in data && Array.isArray(data.p) && data.p.length === 3) {
           // Use server's authoritative death position
           const deathPos = new THREE.Vector3(data.p[0], data.p[1], data.p[2]);
@@ -1754,21 +1784,43 @@ export class MobEntity extends CombatantEntity {
             this._avatarInstance.move(this.node.matrixWorld);
           }
         } else {
+          // No server death position - use current position and force death manager to dead state
           console.warn(
-            `[MobEntity] [CLIENT] ⚠️ No server death position in death state update`,
+            `[MobEntity] [CLIENT] ⚠️ No server death position in death state update - using current position`,
           );
+          const currentPos = new THREE.Vector3(
+            this.position.x,
+            this.position.y,
+            this.position.z,
+          );
+          this.deathManager.applyDeathPositionFromServer(currentPos);
         }
       }
 
       // CRITICAL: ALWAYS check if death manager should be reset (not just on state change!)
       // Server might send multiple updates with same state (aiState=idle, idle, idle...)
       // We need to reset death manager on ANY update where server says NOT DEAD
-      if (newState !== MobAIState.DEAD && this.deathManager.isCurrentlyDead()) {
-        this.clientDeathStartTime = null;
-        this.deathManager.reset();
+      // BUT: Don't reset until death animation is complete (4.5 seconds)
+      const deathManagerDead = this.deathManager.isCurrentlyDead();
 
-        // Mark that we need to restore visibility AFTER position update
-        (this as any)._pendingRespawnRestore = true;
+      if (newState !== MobAIState.DEAD && deathManagerDead) {
+        // Check if death animation has finished (4.5 seconds)
+        const deathAnimationDuration = 4500;
+
+        // CRITICAL: If clientDeathStartTime is null, death just happened but
+        // clientUpdate() hasn't run yet to set the timestamp. DON'T reset in this case!
+        if (this.clientDeathStartTime) {
+          const timeSinceDeath = Date.now() - this.clientDeathStartTime;
+
+          if (timeSinceDeath >= deathAnimationDuration) {
+            // Death animation is complete, safe to reset
+            this.clientDeathStartTime = null;
+            this.deathManager.reset();
+
+            // Mark that we need to restore visibility AFTER position update
+            (this as any)._pendingRespawnRestore = true;
+          }
+        }
       }
 
       this.config.aiState = newState;
@@ -1778,8 +1830,6 @@ export class MobEntity extends CombatantEntity {
     if ("currentHealth" in data) {
       const newHealth = data.currentHealth as number;
       this.config.currentHealth = newHealth;
-      // CRITICAL: Update entity health and health bar by calling setHealth
-      // This ensures the health bar visual updates on the client
       this.setHealth(newHealth);
     }
 
@@ -1843,7 +1893,6 @@ export class MobEntity extends CombatantEntity {
         super.modify(data);
       }
     } else {
-      // Position NOT locked - process normally
       super.modify(data);
     }
 
@@ -1869,6 +1918,10 @@ export class MobEntity extends CombatantEntity {
       if (this.mesh && !this.mesh.visible) {
         this.mesh.visible = true;
       }
+
+      // Update health bar now that mesh is visible again
+      // This ensures the health bar shows the correct health after respawn
+      this.setHealth(this.config.currentHealth);
 
       // Reset VRM animation and move to UPDATED position (from server)
       if (this._avatarInstance) {
