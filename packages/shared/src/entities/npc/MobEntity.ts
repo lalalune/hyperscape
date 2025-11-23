@@ -1440,9 +1440,11 @@ export class MobEntity extends CombatantEntity {
     this.setHealth(0);
 
     // End combat
+    // CRITICAL FIX FOR ISSUE #275: Don't reset target's emote when mob dies
+    // The target might be mid-attack animation (they just landed the killing blow)
     const combatSystem = this.world.getSystem("combat") as any;
     if (combatSystem && typeof combatSystem.forceEndCombat === "function") {
-      combatSystem.forceEndCombat(this.id);
+      combatSystem.forceEndCombat(this.id, { skipTargetEmoteReset: true });
     }
 
     // Play death animation via server emote broadcast

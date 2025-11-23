@@ -214,6 +214,14 @@ export class CombatSystem extends SystemBase {
       return; // Still on cooldown
     }
 
+    // Play attack animation once (will reset to idle after 1000ms)
+    this.setCombatEmote(attackerId, attackerType);
+
+    // Reset emote back to idle after animation plays (RuneScape-style one-shot animation)
+    setTimeout(() => {
+      this.resetEmote(attackerId, attackerType);
+    }, 1000); // 1000ms for full combat/sword animation to play
+
     // Calculate damage
     const damage = this.calculateMeleeDamage(attacker, target);
 
@@ -308,6 +316,14 @@ export class CombatSystem extends SystemBase {
     if (isAttackOnCooldown(lastAttack, now, attackSpeed)) {
       return; // Still on cooldown
     }
+
+    // Play attack animation once (will reset to idle after 1000ms)
+    this.setCombatEmote(attackerId, attackerType);
+
+    // Reset emote back to idle after animation plays (RuneScape-style one-shot animation)
+    setTimeout(() => {
+      this.resetEmote(attackerId, attackerType);
+    }, 1000); // 1000ms for full bow/ranged animation to play
 
     // Calculate damage
     const damage = this.calculateRangedDamage(attacker, target);
@@ -841,6 +857,16 @@ export class CombatSystem extends SystemBase {
         }
         // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
 
+        // CRITICAL FIX FOR ISSUE #275: Send immediate network update BEFORE damage is applied
+        // This ensures the emote update arrives at clients BEFORE any death events
+        // Without this, the batched network update arrives too late (after death event)
+        if (this.world.isServer && this.world.network?.send) {
+          this.world.network.send("entityModified", {
+            id: entityId,
+            e: combatEmote,
+          });
+        }
+
         (playerEntity as any).markNetworkDirty?.();
       }
     } else if (entityType === "mob") {
@@ -871,6 +897,15 @@ export class CombatSystem extends SystemBase {
           (playerEntity as any).data.e = "idle";
         }
         // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
+
+        // Send immediate network update for emote reset (same as setCombatEmote)
+        if (this.world.isServer && this.world.network?.send) {
+          this.world.network.send("entityModified", {
+            id: entityId,
+            e: "idle",
+          });
+        }
+
         (playerEntity as any).markNetworkDirty?.();
       }
     }
@@ -1076,7 +1111,11 @@ export class CombatSystem extends SystemBase {
     }
   }
 
-  private endCombat(data: { entityId: string }): void {
+  private endCombat(data: {
+    entityId: string;
+    skipAttackerEmoteReset?: boolean;
+    skipTargetEmoteReset?: boolean;
+  }): void {
     // Validate entity ID before processing
     if (!data.entityId) {
       return;
@@ -1087,8 +1126,14 @@ export class CombatSystem extends SystemBase {
     if (!combatState) return;
 
     // Reset emotes for both entities
-    this.resetEmote(data.entityId, combatState.attackerType);
-    this.resetEmote(String(combatState.targetId), combatState.targetType);
+    // Skip attacker emote reset if requested (e.g., when target died during attack animation)
+    if (!data.skipAttackerEmoteReset) {
+      this.resetEmote(data.entityId, combatState.attackerType);
+    }
+    // Skip target emote reset if requested (e.g., when dead entity ends combat, don't reset their attacker)
+    if (!data.skipTargetEmoteReset) {
+      this.resetEmote(String(combatState.targetId), combatState.targetType);
+    }
 
     // Clear combat state from player entities
     this.clearCombatStateFromEntity(data.entityId, combatState.attackerType);
@@ -1124,9 +1169,11 @@ export class CombatSystem extends SystemBase {
     const typedEntityId = createEntityID(entityId);
 
     // End combat for this entity
+    // CRITICAL FIX FOR ISSUE #275: Don't reset target's emote when dead entity ends combat
+    // The target is likely the ATTACKER who just landed the killing blow and is mid-animation
     const combatState = this.combatStates.get(typedEntityId);
     if (combatState) {
-      this.endCombat({ entityId });
+      this.endCombat({ entityId, skipTargetEmoteReset: true });
     }
 
     // CRITICAL: Convert to array first to avoid iterator issues when deleting during iteration
@@ -1139,8 +1186,10 @@ export class CombatSystem extends SystemBase {
     }
 
     // Now end combat for all attackers
+    // Skip resetting attacker emotes - they're mid-attack animation (1000ms duration)
+    // The setTimeout from their attack will handle the reset properly
     for (const attackerId of attackersToEnd) {
-      this.endCombat({ entityId: attackerId });
+      this.endCombat({ entityId: attackerId, skipAttackerEmoteReset: true });
     }
   }
 
@@ -1207,8 +1256,18 @@ export class CombatSystem extends SystemBase {
     return this.combatStates.get(createEntityID(entityId)) || null;
   }
 
-  public forceEndCombat(entityId: string): void {
-    this.endCombat({ entityId });
+  public forceEndCombat(
+    entityId: string,
+    options?: {
+      skipAttackerEmoteReset?: boolean;
+      skipTargetEmoteReset?: boolean;
+    },
+  ): void {
+    this.endCombat({
+      entityId,
+      skipAttackerEmoteReset: options?.skipAttackerEmoteReset,
+      skipTargetEmoteReset: options?.skipTargetEmoteReset,
+    });
   }
 
   private getEntity(
@@ -1323,14 +1382,18 @@ export class CombatSystem extends SystemBase {
       combatState.attackerType,
     );
     if (!attackerAlive) {
-      this.endCombat({ entityId: attackerId });
+      // CRITICAL FIX FOR ISSUE #275: Don't reset target's emote when dead attacker ends combat
+      // The target might be mid-attack animation (they just killed this attacker with the final blow)
+      this.endCombat({ entityId: attackerId, skipTargetEmoteReset: true });
       return;
     }
 
     // Check if target is still alive
     const targetAlive = this.isEntityAlive(target, combatState.targetType);
     if (!targetAlive) {
-      this.endCombat({ entityId: attackerId });
+      // CRITICAL FIX FOR ISSUE #275: Don't reset attacker's emote when target dies during attack
+      // The attack animation was just set and has a pending 600ms timeout to reset it properly
+      this.endCombat({ entityId: attackerId, skipAttackerEmoteReset: true });
       return;
     }
 
@@ -1353,13 +1416,13 @@ export class CombatSystem extends SystemBase {
     // Note: Rotation handled client-side in PlayerLocal/PlayerRemote/MobEntity clientUpdate
     // They check inCombat/combatTarget and rotate every frame for smooth tracking
 
-    // Play attack animation once (will reset to idle after 600ms)
+    // Play attack animation once (will reset to idle after 1000ms)
     this.setCombatEmote(attackerId, combatState.attackerType);
 
     // Reset emote back to idle after animation plays (RuneScape-style one-shot animation)
     setTimeout(() => {
       this.resetEmote(attackerId, combatState.attackerType);
-    }, 600); // 600ms is enough for the punch animation to play once
+    }, 1000); // 1000ms for full combat/sword animation to play
 
     // Calculate and apply damage
     const damage =
