@@ -710,6 +710,13 @@ export async function handleEnterWorld(
           playerId: socket.player.id,
           skills: savedSkills,
         });
+
+        // CRITICAL: Also emit server-side event so EquipmentSystem cache gets populated
+        // Without this, equipment validation fails because EquipmentSystem.playerSkills is empty
+        world.emit(EventType.SKILLS_UPDATED, {
+          playerId: socket.player.id,
+          skills: savedSkills,
+        });
       }
       // Send inventory snapshot immediately from persistence to avoid races
       try {
