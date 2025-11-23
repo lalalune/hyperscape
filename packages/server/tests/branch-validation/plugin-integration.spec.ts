@@ -78,9 +78,9 @@ async function httpRequest(
 const PACKET_IDS = {
   snapshot: 0,
   entityAdded: 4,
-  characterListRequest: 46,
-  characterList: 48,
-  enterWorld: 51,
+  characterListRequest: 51,
+  characterList: 53,
+  enterWorld: 56,
 };
 
 function encodePacket(packetName: string, data: unknown): Buffer {
