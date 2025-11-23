@@ -8,7 +8,7 @@
  * **Protocol Design**:
  * - All packets are binary ArrayBuffers (no JSON overhead)
  * - Packet format: [packet_id, data] where packet_id is a small integer
- * - Packet IDs map to method names on the receiving end (e.g., id 0 → 'onSnapshot')
+ * - Packet IDs map to method names with "on" prefix (e.g., 'snapshot' → 'onSnapshot')
  * - msgpackr provides efficient binary serialization with structured clone support
  *
  * **Packet Types**:
@@ -60,7 +60,7 @@
  * **Adding New Packets**:
  * 1. Add packet name to the `names` array (order matters!)
  * 2. Packet ID is automatically assigned based on array index
- * 3. Handler method name is auto-generated as `on${Name}` (e.g., 'snapshot' → 'onSnapshot')
+ * 3. Handler method name gets "on" prefix (e.g., 'snapshot' → 'onSnapshot')
  * 4. Implement handler in ServerNetwork or ClientNetwork
  *
  * **Referenced by**: Socket (send/receive), ServerNetwork, ClientNetwork

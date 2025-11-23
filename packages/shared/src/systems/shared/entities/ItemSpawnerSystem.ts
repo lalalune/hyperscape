@@ -88,6 +88,14 @@ export class ItemSpawnerSystem extends SystemBase {
   }
 
   start(): void {
+    // Only spawn items on server - clients receive entities via network
+    if (!this.world.isServer) {
+      console.log(
+        "[ItemSpawnerSystem] Client-side: skipping item spawning (entities come from server)",
+      );
+      return;
+    }
+
     // Wait for terrain to be ready before spawning items
     const checkTerrainAndSpawn = async () => {
       const terrainSystem = this.world.getSystem("terrain") as

@@ -1,32 +1,38 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "module": "ESNext",
-    "target": "ES2022",
-    "moduleResolution": "bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "jsx": "react-jsx",
-    "jsxImportSource": "react",
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+    "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
+    "sourceMap": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": [],
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "baseUrl": ".",
     "paths": {
-      "@elizaos/core": ["../../packages/core/dist"],
-      "@elizaos/core/*": ["../../packages/core/dist/*"],
-      "@hyperscape/shared": ["../hyperscape/build/index.d.ts"],
-      "@hyperscape/shared/*": ["../hyperscape/build/*"]
+      "@/*": ["./src/frontend/*"]
     }
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*"],
   "exclude": [
-    "node_modules", 
-    "dist", 
-    "**/*.test.ts", 
-    "**/__tests__/**",
-    "../hyperscape/src/**"
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "src/__tests__/**",
+    "src/testing/**"
   ]
 }

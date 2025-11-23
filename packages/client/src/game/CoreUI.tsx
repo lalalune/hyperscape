@@ -92,15 +92,16 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       setKicked(data.reason || "Kicked from server");
     };
     const handleDisconnected = () => setDisconnected(true);
-    const handleDeathScreen = (data: {
-      message: string;
-      killedBy: string;
-      respawnTime: number;
-    }) => {
+    const handleDeathScreen = (...args: unknown[]) => {
+      const data = args[0] as {
+        message: string;
+        killedBy: string;
+        respawnTime: number;
+      };
       console.log("[CoreUI] Death screen triggered:", data);
       setDeathScreen(data);
     };
-    const handleDeathScreenClose = () => {
+    const handleDeathScreenClose = (...args: unknown[]) => {
       console.log("[CoreUI] Death screen closed");
       setDeathScreen(null);
     };

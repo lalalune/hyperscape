@@ -151,7 +151,12 @@ export function createMockPlaywrightManager() {
   };
 }
 
-export function createMockEmoteManager() {
+export function createMockEmoteManager(): {
+  playEmote: ReturnType<typeof vi.fn>;
+  stopEmote: ReturnType<typeof vi.fn>;
+  uploadEmotes: ReturnType<typeof vi.fn>;
+  getEmoteList: ReturnType<typeof vi.fn>;
+} {
   return {
     playEmote: vi.fn(),
     stopEmote: vi.fn(),
@@ -173,7 +178,11 @@ export function createMockEmoteManager() {
   };
 }
 
-export function createMockMessageManager() {
+export function createMockMessageManager(): {
+  sendMessage: ReturnType<typeof vi.fn>;
+  processMessage: ReturnType<typeof vi.fn>;
+  getHistory: ReturnType<typeof vi.fn>;
+} {
   return {
     sendMessage: vi.fn(),
     processMessage: vi.fn(),
@@ -181,7 +190,14 @@ export function createMockMessageManager() {
   };
 }
 
-export function createMockVoiceManager() {
+export function createMockVoiceManager(): {
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+  joinChannel: ReturnType<typeof vi.fn>;
+  leaveChannel: ReturnType<typeof vi.fn>;
+  mute: ReturnType<typeof vi.fn>;
+  unmute: ReturnType<typeof vi.fn>;
+} {
   return {
     start: vi.fn(),
     stop: vi.fn(),
@@ -192,7 +208,11 @@ export function createMockVoiceManager() {
   };
 }
 
-export function createMockBehaviorManager() {
+export function createMockBehaviorManager(): {
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+  isRunning: boolean;
+} {
   return {
     start: vi.fn(),
     stop: vi.fn(),
@@ -200,7 +220,15 @@ export function createMockBehaviorManager() {
   };
 }
 
-export function createMockBuildManager() {
+export function createMockBuildManager(): {
+  duplicate: ReturnType<typeof vi.fn>;
+  translate: ReturnType<typeof vi.fn>;
+  rotate: ReturnType<typeof vi.fn>;
+  scale: ReturnType<typeof vi.fn>;
+  delete: ReturnType<typeof vi.fn>;
+  importEntity: ReturnType<typeof vi.fn>;
+  findNearbyEntities: ReturnType<typeof vi.fn>;
+} {
   return {
     duplicate: vi.fn(),
     translate: vi.fn(),

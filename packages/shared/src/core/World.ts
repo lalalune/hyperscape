@@ -271,6 +271,7 @@ export class World extends EventEmitter {
       string,
       Record<string, { level: number; xp: number }>
     >;
+    lastEquipmentByPlayerId?: Record<string, unknown>;
   };
 
   /** Environment system (lighting, skybox, fog, shadows) */

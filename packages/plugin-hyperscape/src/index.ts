@@ -1,162 +1,222 @@
 /**
- * Hyperscape ElizaOS Plugin
+ * @hyperscape/plugin-hyperscape - ElizaOS Plugin for Hyperscape
  *
- * This plugin integrates ElizaOS AI agents with Hyperscape 3D multiplayer worlds.
- * It enables autonomous agents to join virtual worlds, navigate environments, interact
- * with objects, chat with users, and perform actions just like human players.
+ * This plugin connects ElizaOS AI agents to Hyperscape multiplayer RPG worlds,
+ * enabling agents to play as real players with full access to game mechanics.
  *
- * **Key Features**:
- *
- * **Agent Actions**:
- * - `perception`: Scan the environment and identify nearby entities
- * - `goto`: Navigate to specific entities or locations
- * - `use`: Use/activate items or objects in the world
- * - `unuse`: Stop using an item
- * - `stop`: Stop current movement
- * - `walk_randomly`: Wander around randomly
- * - `ambient`: Perform ambient behaviors (idle animations, emotes)
- * - `build`: Place and modify world entities (if agent has builder role)
- * - `reply`: Respond to chat messages
- * - `ignore`: Ignore specific messages or users
- *
- * **Providers** (context for agent decision-making):
- * - `world`: Current world state, entities, and environment info
- * - `emote`: Available emotes and gestures
- * - `actions`: Available actions the agent can perform
- * - `character`: Agent's character state (health, inventory, etc.)
- *
- * **Service**:
- * `HyperscapeService` manages the connection to Hyperscape worlds, handles
- * real-time state synchronization, and executes actions on behalf of the agent.
- *
- * **Events**:
- * Listens for world events (chat messages, entity spawns, etc.) and routes
- * them to the agent's decision-making system.
- *
- * **Configuration**:
- * - `DEFAULT_HYPERSCAPE_WS_URL`: WebSocket URL for the Hyperscape server
- *   (default: ws://localhost:5555/ws)
- *
- * **Usage**:
- * ```typescript
- * import { hyperscapePlugin } from '@hyperscape/plugin';
- *
- * const character = {
- *   name: 'MyAgent',
- *   plugins: [hyperscapePlugin],
- *   // ...
- * };
- * ```
- *
- * **Architecture**:
- * This plugin follows the ElizaOS plugin pattern:
- * - Service: Long-lived connection and state management
- * - Actions: Discrete tasks the agent can perform
- * - Providers: Context injection for agent prompts
- * - Events: React to world events
- *
- * **Referenced by**: ElizaOS agent configurations, character definitions
+ * Architecture:
+ * - Service: HyperscapeService manages WebSocket connection and game state
+ * - Providers: Supply game context (health, inventory, nearby entities, skills, equipment, actions)
+ * - Actions: Execute game commands (movement, combat, skills, inventory, social, banking)
+ * - Event Handlers: Store game events as memories for learning
  */
 
-import type { Plugin } from "@elizaos/core";
+import type { Plugin, IAgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
-import { HyperscapeService } from "./service";
 import { z } from "zod";
-// import { hyperscapeChatAction } from './actions/chat';
-import { hyperscapeGotoEntityAction } from "./actions/goto";
-import { useAction } from "./actions/use";
-import { hyperscapeUnuseItemAction } from "./actions/unuse";
-import { hyperscapeStopMovingAction } from "./actions/stop";
-import { hyperscapeWalkRandomlyAction } from "./actions/walk_randomly";
-import { ambientAction } from "./actions/ambient";
-import { hyperscapeScenePerceptionAction } from "./actions/perception";
-import { hyperscapeEditEntityAction } from "./actions/build";
-import { replyAction } from "./actions/reply";
-import { ignoreAction } from "./actions/ignore";
-// RPG actions are loaded dynamically when RPG systems are detected
-// import { chopTreeAction } from "./actions/chopTree";
-// import { catchFishAction } from "./actions/catchFish";
-// import { lightFireAction } from "./actions/lightFire";
-// import { cookFoodAction } from "./actions/cookFood";
-// import { checkInventoryAction } from "./actions/checkInventory";
-// import { bankItemsAction } from "./actions/bankItems";
-import { hyperscapeProvider } from "./providers/world";
-import { hyperscapeEmoteProvider } from "./providers/emote";
-import { hyperscapeActionsProvider } from "./providers/actions";
-import { characterProvider } from "./providers/character";
-import { bankingProvider } from "./providers/banking";
-import { hyperscapeSkillProvider } from "./providers/skills";
-// Dynamic skill providers are loaded when RPG systems detect specific skills are available
-// import { woodcuttingSkillProvider } from "./providers/skills/woodcutting";
-// import { fishingSkillProvider } from "./providers/skills/fishing";
-// import { cookingSkillProvider } from "./providers/skills/cooking";
-// import { firemakingSkillProvider } from "./providers/skills/firemaking";
-import { hyperscapeEvents } from "./events";
 
-import { NETWORK_CONFIG } from "./config/constants";
+// Service
+import { HyperscapeService } from "./services/HyperscapeService.js";
 
-/**
- * Configuration schema for the Hyperscape plugin
- * Validates environment variables and plugin settings
- */
-const hyperscapePluginConfigSchema = z.object({
-  DEFAULT_HYPERSCAPE_WS_URL: z.string().url().optional(),
+// Providers
+import { gameStateProvider } from "./providers/gameState.js";
+import { inventoryProvider } from "./providers/inventory.js";
+import { nearbyEntitiesProvider } from "./providers/nearbyEntities.js";
+import { skillsProvider } from "./providers/skills.js";
+import { equipmentProvider } from "./providers/equipment.js";
+import { availableActionsProvider } from "./providers/availableActions.js";
+
+// Actions
+import {
+  moveToAction,
+  followEntityAction,
+  stopMovementAction,
+} from "./actions/movement.js";
+import {
+  attackEntityAction,
+  changeCombatStyleAction,
+} from "./actions/combat.js";
+import {
+  chopTreeAction,
+  catchFishAction,
+  lightFireAction,
+  cookFoodAction,
+} from "./actions/skills.js";
+import {
+  equipItemAction,
+  useItemAction,
+  dropItemAction,
+} from "./actions/inventory.js";
+import { chatMessageAction } from "./actions/social.js";
+import { bankDepositAction, bankWithdrawAction } from "./actions/banking.js";
+
+// Event handlers
+import { registerEventHandlers } from "./events/handlers.js";
+
+// API routes
+import { callbackRoute, statusRoute } from "./routes/auth.js";
+import { getSettingsRoute } from "./routes/settings.js";
+import { getLogsRoute } from "./routes/logs.js";
+
+// Configuration schema
+const configSchema = z.object({
+  HYPERSCAPE_SERVER_URL: z
+    .string()
+    .url()
+    .optional()
+    .default("ws://localhost:5555/ws")
+    .describe("WebSocket URL for Hyperscape server"),
+  HYPERSCAPE_AUTO_RECONNECT: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((val) => val !== "false")
+    .describe("Automatically reconnect on disconnect"),
+  HYPERSCAPE_AUTH_TOKEN: z
+    .string()
+    .optional()
+    .describe("Privy auth token for authenticated connections"),
+  HYPERSCAPE_PRIVY_USER_ID: z
+    .string()
+    .optional()
+    .describe("Privy user ID for authenticated connections"),
 });
 
 /**
- * Main Hyperscape Plugin Definition
+ * Hyperscape Plugin for ElizaOS
  *
- * Registers all services, actions, providers, and event handlers with ElizaOS
+ * Enables AI agents to play Hyperscape as real players with:
+ * - Real-time game state awareness via providers
+ * - Full action repertoire (movement, combat, skills, inventory, social)
+ * - Event-driven memory storage for learning
+ * - Automatic reconnection and error handling
  */
 export const hyperscapePlugin: Plugin = {
-  name: "hyperscape", // Renamed plugin
-  description: "Integrates ElizaOS agents with Hyperscape worlds",
+  name: "@hyperscape/plugin-hyperscape",
+  description:
+    "Connect ElizaOS AI agents to Hyperscape 3D multiplayer RPG worlds",
+
   config: {
-    // Map environment variables to config keys
-    DEFAULT_HYPERSCAPE_WS_URL: NETWORK_CONFIG.DEFAULT_WS_URL,
+    HYPERSCAPE_SERVER_URL: process.env.HYPERSCAPE_SERVER_URL,
+    HYPERSCAPE_AUTO_RECONNECT: process.env.HYPERSCAPE_AUTO_RECONNECT,
+    HYPERSCAPE_AUTH_TOKEN: process.env.HYPERSCAPE_AUTH_TOKEN,
+    HYPERSCAPE_PRIVY_USER_ID: process.env.HYPERSCAPE_PRIVY_USER_ID,
   },
-  async init(config: Record<string, string | undefined>) {
-    logger.info("*** Initializing Hyperscape Integration plugin ***");
-    // Validate config using the schema
-    const validatedConfig = await hyperscapePluginConfigSchema.parseAsync({
-      DEFAULT_HYPERSCAPE_WS_URL: config.DEFAULT_HYPERSCAPE_WS_URL,
-    });
-    logger.info(
-      `Hyperscape plugin config validated: ${JSON.stringify(validatedConfig)}`,
-    );
-    // Store validated config for service use (runtime.pluginConfigs is usually the way)
+
+  async init(config: Record<string, string>, runtime: IAgentRuntime) {
+    logger.info("[HyperscapePlugin] Initializing plugin...");
+
+    try {
+      // Validate configuration
+      const validatedConfig = await configSchema.parseAsync(config);
+
+      // Set environment variables from validated config
+      for (const [key, value] of Object.entries(validatedConfig)) {
+        if (value !== undefined) {
+          process.env[key] = String(value);
+        }
+      }
+
+      logger.info("[HyperscapePlugin] Configuration validated");
+      logger.info(
+        `[HyperscapePlugin] Server URL: ${validatedConfig.HYPERSCAPE_SERVER_URL}`,
+      );
+      logger.info(
+        `[HyperscapePlugin] Auto-reconnect: ${validatedConfig.HYPERSCAPE_AUTO_RECONNECT}`,
+      );
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessages =
+          error.issues?.map((e) => e.message)?.join(", ") ||
+          "Unknown validation error";
+        throw new Error(
+          `[HyperscapePlugin] Invalid configuration: ${errorMessages}`,
+        );
+      }
+      throw new Error(
+        `[HyperscapePlugin] Configuration error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    logger.info("[HyperscapePlugin] Plugin initialized successfully");
   },
+
+  // Service for managing game connection and state
   services: [HyperscapeService],
-  events: hyperscapeEvents,
-  actions: [
-    // Core world interaction actions
-    hyperscapeScenePerceptionAction,
-    hyperscapeGotoEntityAction,
-    useAction,
-    hyperscapeUnuseItemAction,
-    hyperscapeStopMovingAction,
-    hyperscapeWalkRandomlyAction,
-    ambientAction,
-    hyperscapeEditEntityAction,
-    replyAction,
-    ignoreAction,
-    // RPG actions are loaded dynamically when RPG systems are available
-  ],
+
+  // Providers supply game context to the agent
   providers: [
-    // Standard providers - always loaded
-    hyperscapeProvider,
-    hyperscapeEmoteProvider,
-    hyperscapeActionsProvider,
-    characterProvider,
-    hyperscapeSkillProvider,
-    bankingProvider,
-    // Dynamic skill providers are loaded when their systems are detected
-    // (woodcuttingSkillProvider, fishingSkillProvider, etc.)
+    gameStateProvider, // Player health, stamina, position, combat status
+    inventoryProvider, // Inventory items, coins, free slots
+    nearbyEntitiesProvider, // Players, NPCs, resources nearby
+    skillsProvider, // Skill levels and XP
+    equipmentProvider, // Equipped items
+    availableActionsProvider, // Context-aware available actions
   ],
-  routes: [],
+
+  // HTTP API routes for agent management
+  routes: [callbackRoute, statusRoute, getSettingsRoute, getLogsRoute],
+
+  // Actions the agent can perform in the game
+  actions: [
+    // Movement
+    moveToAction,
+    followEntityAction,
+    stopMovementAction,
+
+    // Combat
+    attackEntityAction,
+    changeCombatStyleAction,
+
+    // Skills
+    chopTreeAction,
+    catchFishAction,
+    lightFireAction,
+    cookFoodAction,
+
+    // Inventory
+    equipItemAction,
+    useItemAction,
+    dropItemAction,
+
+    // Social
+    chatMessageAction,
+
+    // Banking
+    bankDepositAction,
+    bankWithdrawAction,
+  ],
+
+  // Event handlers for storing game events as memories
+  events: {
+    // Service started - register event handlers
+    RUN_STARTED: [
+      async (payload) => {
+        const runtime = payload.runtime;
+        const service =
+          runtime.getService<HyperscapeService>("hyperscapeService");
+
+        if (service) {
+          registerEventHandlers(runtime, service);
+          logger.info(
+            "[HyperscapePlugin] Event handlers registered on RUN_STARTED",
+          );
+        } else {
+          logger.warn(
+            "[HyperscapePlugin] HyperscapeService not found, could not register event handlers",
+          );
+        }
+      },
+    ],
+  },
 };
 
+// Default export
 export default hyperscapePlugin;
 
-// Export content packs for easy integration
-export * from "./content-packs";
+// Export types for external use
+export * from "./types.js";
+export { HyperscapeService };
+
+// Export content packs
+export * from "./content-packs/index.js";

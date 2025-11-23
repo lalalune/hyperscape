@@ -1,16 +1,3 @@
-/**
- * CLAUDE.md Exception: Test mock utilities
- *
- * This file uses `unknown` types for test mocks to provide flexibility
- * in test scenarios while maintaining type safety where possible.
- *
- * Rationale: Test mocks need flexibility to accommodate various test scenarios
- * and runtime behaviors. Using `unknown` instead of `any` where possible maintains
- * some type safety while allowing test configuration.
- *
- * Note: These mocks should ONLY be used in lightweight test utilities,
- * NOT in actual test assertions. Real integration tests should be preferred.
- */
 import { vi } from "vitest";
 import {
   IAgentRuntime,

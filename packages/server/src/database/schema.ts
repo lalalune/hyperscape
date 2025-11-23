@@ -112,6 +112,7 @@ export const config = pgTable("config", {
  * - `privyUserId` - Privy authentication ID (unique, indexed)
  * - `farcasterFid` - Farcaster Frame ID if linked (indexed)
  * - `roles` - Comma-separated roles (e.g., "admin,builder")
+ * - `wallet` - Main Privy embedded wallet address (HD index 0)
  */
 export const users = pgTable(
   "users",
@@ -121,6 +122,7 @@ export const users = pgTable(
     roles: text("roles").notNull(),
     createdAt: text("createdAt").notNull(),
     avatar: text("avatar"),
+    wallet: text("wallet"),
     privyUserId: text("privyUserId").unique(),
     farcasterFid: text("farcasterFid"),
   },
@@ -182,7 +184,7 @@ export const characters = pgTable(
     ),
 
     // Combat stats
-    combatLevel: integer("combatLevel").default(1),
+    combatLevel: integer("combatLevel").default(3),
     attackLevel: integer("attackLevel").default(1),
     strengthLevel: integer("strengthLevel").default(1),
     defenseLevel: integer("defenseLevel").default(1),
@@ -220,9 +222,57 @@ export const characters = pgTable(
     attackStyle: text("attackStyle").default("accurate"),
 
     lastLogin: bigint("lastLogin", { mode: "number" }).default(0),
+
+    // Avatar and wallet
+    avatar: text("avatar"),
+    wallet: text("wallet"),
+
+    // Agent flag - true if this character is controlled by an AI agent (ElizaOS)
+    isAgent: integer("isAgent").default(0).notNull(), // SQLite: 0=false, 1=true
   },
   (table) => ({
     accountIdx: index("idx_characters_account").on(table.accountId),
+    walletIdx: index("idx_characters_wallet").on(table.wallet),
+    isAgentIdx: index("idx_characters_is_agent").on(table.isAgent),
+  }),
+);
+
+/**
+ * Agent Mappings Table - Tracks ElizaOS agent ownership
+ *
+ * Maps ElizaOS agent UUIDs to Hyperscape users and characters.
+ * This allows the dashboard to filter agents by user since ElizaOS doesn't expose this.
+ *
+ * Key columns:
+ * - `agentId` - ElizaOS agent UUID (primary key)
+ * - `accountId` - References users.id (CASCADE DELETE)
+ * - `characterId` - References characters.id (CASCADE DELETE)
+ * - `agentName` - Agent name (denormalized for performance)
+ * - `createdAt` - When mapping was created
+ * - `updatedAt` - Last sync timestamp
+ *
+ * Design notes:
+ * - Created when user creates an AI agent through Character Editor
+ * - Deleted automatically when user/character is deleted (CASCADE)
+ * - Used by Dashboard to filter "My Agents" without relying on ElizaOS API
+ */
+export const agentMappings = pgTable(
+  "agent_mappings",
+  {
+    agentId: text("agent_id").primaryKey().notNull(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    characterId: text("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    agentName: text("agent_name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    accountIdx: index("idx_agent_mappings_account").on(table.accountId),
+    characterIdx: index("idx_agent_mappings_character").on(table.characterId),
   }),
 );
 
@@ -527,6 +577,45 @@ export const playerDeaths = pgTable(
 );
 
 /**
+ * Character Templates Table - Pre-configured character archetypes
+ *
+ * Stores template configurations for character creation (Skiller, Ironman, etc.).
+ * Players can choose from these templates when creating a new character.
+ *
+ * Key columns:
+ * - `id` - Auto-incrementing primary key
+ * - `name` - Template name (e.g., "The Skiller", "PvM Slayer")
+ * - `description` - Template description shown in character select
+ * - `emoji` - Icon emoji for the template
+ * - `templateUrl` - URL to ElizaOS character config JSON (unique)
+ * - `createdAt` - When template was created
+ *
+ * Design notes:
+ * - Templates are seeded during initial setup
+ * - templateUrl must be unique (constraint enforced)
+ * - Used by CharacterSelectScreen to show available archetypes
+ */
+export const characterTemplates = pgTable(
+  "character_templates",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    emoji: text("emoji").notNull(),
+    templateUrl: text("templateUrl").notNull(),
+    // Full ElizaOS character configuration stored as JSON string
+    // This contains the complete character template that gets merged with user-specific data
+    templateConfig: text("templateConfig"),
+    createdAt: bigint("createdAt", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+  },
+  (table) => ({
+    uniqueTemplateUrl: unique().on(table.templateUrl),
+  }),
+);
+
+/**
  * ============================================================================
  * TABLE RELATIONS
  * ============================================================================
@@ -550,6 +639,18 @@ export const charactersRelations = relations(characters, ({ many }) => ({
   chunkActivities: many(chunkActivity),
   npcKills: many(npcKills),
   deaths: many(playerDeaths),
+  agentMappings: many(agentMappings),
+}));
+
+export const agentMappingsRelations = relations(agentMappings, ({ one }) => ({
+  user: one(users, {
+    fields: [agentMappings.accountId],
+    references: [users.id],
+  }),
+  character: one(characters, {
+    fields: [agentMappings.characterId],
+    references: [characters.id],
+  }),
 }));
 
 export const inventoryRelations = relations(inventory, ({ one }) => ({

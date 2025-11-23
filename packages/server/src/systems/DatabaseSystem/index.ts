@@ -28,6 +28,7 @@
 import { SystemBase } from "@hyperscape/shared";
 import type { World } from "@hyperscape/shared";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { eq } from "drizzle-orm";
 import type pg from "pg";
 import * as schema from "../../database/schema";
 import type {
@@ -49,6 +50,7 @@ import {
   WorldChunkRepository,
   NPCKillRepository,
   DeathRepository,
+  TemplateRepository,
 } from "../../database/repositories";
 
 /**
@@ -82,6 +84,7 @@ export class DatabaseSystem extends SystemBase {
   private worldChunkRepository!: WorldChunkRepository;
   private npcKillRepository!: NPCKillRepository;
   private deathRepository!: DeathRepository;
+  private templateRepository!: TemplateRepository;
 
   /**
    * Constructor
@@ -130,6 +133,7 @@ export class DatabaseSystem extends SystemBase {
       this.worldChunkRepository = new WorldChunkRepository(this.db, this.pool);
       this.npcKillRepository = new NPCKillRepository(this.db, this.pool);
       this.deathRepository = new DeathRepository(this.db, this.pool);
+      this.templateRepository = new TemplateRepository(this.db, this.pool);
     } else {
       throw new Error(
         "[DatabaseSystem] Drizzle database not provided on world object",
@@ -166,6 +170,8 @@ export class DatabaseSystem extends SystemBase {
     this.sessionRepository.markDestroying();
     this.worldChunkRepository.markDestroying();
     this.npcKillRepository.markDestroying();
+    this.deathRepository.markDestroying();
+    this.templateRepository.markDestroying();
 
     if (this.pendingOperations.size === 0) {
       return;
@@ -247,9 +253,15 @@ export class DatabaseSystem extends SystemBase {
    * Get all characters for an account
    * Delegates to CharacterRepository
    */
-  async getCharactersAsync(
-    accountId: string,
-  ): Promise<Array<{ id: string; name: string }>> {
+  async getCharactersAsync(accountId: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      avatar?: string | null;
+      wallet?: string | null;
+      isAgent?: boolean;
+    }>
+  > {
     return this.characterRepository.getCharactersAsync(accountId);
   }
 
@@ -261,8 +273,180 @@ export class DatabaseSystem extends SystemBase {
     accountId: string,
     id: string,
     name: string,
+    avatar?: string,
+    wallet?: string,
+    isAgent?: boolean,
   ): Promise<boolean> {
-    return this.characterRepository.createCharacter(accountId, id, name);
+    return this.characterRepository.createCharacter(
+      accountId,
+      id,
+      name,
+      avatar,
+      wallet,
+      isAgent,
+    );
+  }
+
+  /**
+   * Delete a character by ID
+   * Delegates to CharacterRepository
+   *
+   * Used when users cancel agent creation or explicitly delete unwanted characters.
+   *
+   * @param characterId - The character ID to delete
+   * @returns true if character was deleted, false if not found
+   */
+  async deleteCharacter(characterId: string): Promise<boolean> {
+    return this.characterRepository.deleteCharacter(characterId);
+  }
+
+  /**
+   * Update character's isAgent flag
+   * Delegates to CharacterRepository
+   *
+   * Converts a character between agent and human types. Used when users
+   * decide to convert an abandoned agent character to play themselves.
+   *
+   * @param characterId - The character ID to update
+   * @param isAgent - New value for isAgent flag
+   * @returns true if character was updated, false if not found
+   */
+  async updateCharacterIsAgent(
+    characterId: string,
+    isAgent: boolean,
+  ): Promise<boolean> {
+    return this.characterRepository.updateCharacterIsAgent(
+      characterId,
+      isAgent,
+    );
+  }
+
+  /**
+   * Get character skills
+   * Delegates to CharacterRepository
+   *
+   * Retrieves skill levels and XP for a character. Used by the dashboard
+   * to display agent skill progress in real-time.
+   *
+   * @param characterId - The character ID to fetch skills for
+   * @returns Skills object with level and xp for each skill, or null if not found
+   */
+  async getCharacterSkills(characterId: string): Promise<{
+    attack: { level: number; xp: number };
+    strength: { level: number; xp: number };
+    defense: { level: number; xp: number };
+    constitution: { level: number; xp: number };
+    ranged: { level: number; xp: number };
+    woodcutting: { level: number; xp: number };
+    fishing: { level: number; xp: number };
+    firemaking: { level: number; xp: number };
+    cooking: { level: number; xp: number };
+  } | null> {
+    return this.characterRepository.getCharacterSkills(characterId);
+  }
+
+  // ============================================================================
+  // TEMPLATE MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Get all character templates
+   * Delegates to TemplateRepository
+   *
+   * Retrieves all available character templates (archetypes) that players
+   * can choose from when creating new characters.
+   *
+   * @returns Array of all character templates
+   */
+  async getTemplatesAsync(): Promise<
+    Array<{
+      id: number;
+      name: string;
+      description: string;
+      emoji: string;
+      templateUrl: string;
+      templateConfig: string | null;
+      createdAt: number;
+    }>
+  > {
+    return this.templateRepository.getAllTemplates();
+  }
+
+  /**
+   * Get template by ID
+   * Delegates to TemplateRepository
+   *
+   * Retrieves a specific character template by its database ID.
+   *
+   * @param templateId - The template ID to fetch
+   * @returns Template data or null if not found
+   */
+  async getTemplateByIdAsync(templateId: number): Promise<{
+    id: number;
+    name: string;
+    description: string;
+    emoji: string;
+    templateUrl: string;
+    templateConfig: string | null;
+    createdAt: number;
+  } | null> {
+    return this.templateRepository.getTemplateById(templateId);
+  }
+
+  /**
+   * Get template by name
+   * Delegates to TemplateRepository
+   *
+   * Retrieves a character template by its name (e.g., "The Skiller").
+   * Used for legacy filename-based lookups.
+   *
+   * @param templateName - The template name to search for
+   * @returns Template data or null if not found
+   */
+  async getTemplateByNameAsync(templateName: string): Promise<{
+    id: number;
+    name: string;
+    description: string;
+    emoji: string;
+    templateUrl: string;
+    templateConfig: string | null;
+    createdAt: number;
+  } | null> {
+    return this.templateRepository.getTemplateByName(templateName);
+  }
+
+  // ============================================================================
+  // USER MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Update a user's wallet address
+   * This assigns the user's main Privy embedded wallet (HD index 0) to their user record
+   *
+   * @param accountId - The user's Privy account ID
+   * @param wallet - The wallet address to assign
+   */
+  async updateUserWallet(accountId: string, wallet: string): Promise<void> {
+    if (!this.db) {
+      throw new Error(
+        "[DatabaseSystem] Database not initialized - cannot update user wallet",
+      );
+    }
+
+    await this.db
+      .update(schema.users)
+      .set({ wallet })
+      .where(eq(schema.users.id, accountId));
+  }
+
+  /**
+   * Get the raw Drizzle database instance
+   * This allows other systems to perform custom queries
+   *
+   * @returns The Drizzle database instance or null if not initialized
+   */
+  getDb(): NodePgDatabase<typeof schema> | null {
+    return this.db;
   }
 
   // ============================================================================

@@ -691,7 +691,7 @@ export class SkillsSystem extends SystemBase {
         });
         break;
 
-      case "controlled":
+      case "controlled": {
         // Train all three combat skills equally - split the 4 XP per damage
         const controlledXP = Math.floor(combatSkillXP / 3);
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
@@ -710,6 +710,7 @@ export class SkillsSystem extends SystemBase {
           amount: controlledXP,
         });
         break;
+      }
 
       case "ranged":
         // Train Ranged only

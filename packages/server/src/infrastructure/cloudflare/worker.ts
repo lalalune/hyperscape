@@ -57,6 +57,23 @@ import { Container, getRandom } from "@cloudflare/containers";
 // ============================================================================
 // TypeScript definitions for Cloudflare Workers runtime APIs
 
+/** Cloudflare Request with cf property */
+interface CloudflareRequest extends Request {
+  cf?: {
+    colo?: string;
+    country?: string;
+    city?: string;
+    continent?: string;
+    latitude?: string;
+    longitude?: string;
+    postalCode?: string;
+    metroCode?: string;
+    region?: string;
+    regionCode?: string;
+    timezone?: string;
+  };
+}
+
 /** Durable Object namespace for container management */
 type DurableObjectNamespace = {
   idFromName(name: string): DurableObjectId;
@@ -172,7 +189,7 @@ export default {
    * @returns HTTP response
    */
   async fetch(
-    request: Request,
+    request: CloudflareRequest,
     env: Env,
     _ctx: ExecutionContext,
   ): Promise<Response> {

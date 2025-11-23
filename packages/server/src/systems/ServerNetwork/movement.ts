@@ -13,10 +13,9 @@
 
 import type { ServerSocket } from "../../shared/types";
 import { THREE, TerrainSystem, World } from "@hyperscape/shared";
-import type { Vector3 } from "three";
 
 interface MoveTarget {
-  target: Vector3;
+  target: THREE.Vector3;
   maxSpeed: number;
   lastUpdate: number;
 }

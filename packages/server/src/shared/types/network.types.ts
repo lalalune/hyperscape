@@ -47,6 +47,7 @@ export interface ServerSocket extends Socket {
   // Server-specific extensions
   accountId?: string;
   selectedCharacterId?: string;
+  characterId?: string; // Track active character immediately for duplicate detection
 }
 
 // ============================================================================

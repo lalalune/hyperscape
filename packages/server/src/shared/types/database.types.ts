@@ -153,5 +153,6 @@ export interface DatabaseSystemOperations {
       slotIndex: number | null;
     }>
   >;
+  getPlayerEquipmentAsync?: (playerId: string) => Promise<EquipmentRow[]>;
   getPlayerAsync?: (playerId: string) => Promise<{ coins?: number } | null>;
 }

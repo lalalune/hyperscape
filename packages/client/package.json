@@ -67,6 +67,7 @@
     "three": "^0.181.0",
     "three-custom-shader-material": "^6.3.7",
     "three-mesh-bvh": "^0.8.3",
+    "viem": "^2.39.3",
     "yoga-layout": "^3.2.1"
   },
   "devDependencies": {

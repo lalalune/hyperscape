@@ -63,6 +63,32 @@ export class InteractionSystem extends System {
     super(world);
   }
 
+  /**
+   * Check if player controls are enabled (not in spectator mode)
+   * Returns true if controls are enabled and input should be processed
+   */
+  private areControlsEnabled(): boolean {
+    // Check the client-input system for disabled state
+    const input = this.world.getSystem("client-input") as {
+      isEnabled?: () => boolean;
+      _controlsEnabled?: boolean;
+    } | null;
+
+    if (input) {
+      // Try isEnabled() method first
+      if (typeof input.isEnabled === "function") {
+        return input.isEnabled();
+      }
+      // Fall back to direct property access
+      if (typeof input._controlsEnabled === "boolean") {
+        return input._controlsEnabled;
+      }
+    }
+
+    // Default to enabled if we can't determine state
+    return true;
+  }
+
   override start(): void {
     this.canvas = this.world.graphics?.renderer?.domElement ?? null;
     if (!this.canvas) return;
@@ -229,6 +255,9 @@ export class InteractionSystem extends System {
   }
 
   private onContextMenu(event: MouseEvent): void {
+    // Block context menus if controls are disabled (spectator mode)
+    if (!this.areControlsEnabled()) return;
+
     const target = this.getEntityAtPosition(event.clientX, event.clientY);
     if (target) {
       event.preventDefault();
@@ -260,6 +289,9 @@ export class InteractionSystem extends System {
 
   private onCameraTap = (event: { x: number; y: number }): void => {
     if (!this.canvas || !this.world.camera) return;
+
+    // Block input if controls are disabled (spectator mode)
+    if (!this.areControlsEnabled()) return;
 
     // Check if tapping on an entity first
     const target = this.getEntityAtPosition(event.x, event.y);
@@ -296,6 +328,9 @@ export class InteractionSystem extends System {
 
     if (event.button !== 0) return; // Left click only
     if (!this.canvas || !this.world.camera) return;
+
+    // Block input if controls are disabled (spectator mode)
+    if (!this.areControlsEnabled()) return;
 
     // Check if clicking on an interactable entity (item, NPC, etc.)
     const target = this.getEntityAtPosition(event.clientX, event.clientY);
@@ -344,6 +379,9 @@ export class InteractionSystem extends System {
 
   private handleMoveRequest(_mouse: THREE.Vector2, isShiftDown = false): void {
     if (!this.world.camera) return;
+
+    // Block movement if controls are disabled (spectator mode)
+    if (!this.areControlsEnabled()) return;
 
     // Raycast to find click position
     _raycaster.setFromCamera(_mouse, this.world.camera);
@@ -448,6 +486,9 @@ export class InteractionSystem extends System {
   };
 
   private onMouseDown = (event: MouseEvent): void => {
+    // Block interactions if controls are disabled (spectator mode)
+    if (!this.areControlsEnabled()) return;
+
     if (event.button === 2) {
       const target = this.getEntityAtPosition(event.clientX, event.clientY);
       if (target) {
@@ -474,6 +515,9 @@ export class InteractionSystem extends System {
   };
 
   private onTouchStart(event: TouchEvent): void {
+    // Block touch interactions if controls are disabled (spectator mode)
+    if (!this.areControlsEnabled()) return;
+
     const touch = event.touches[0];
     if (!touch) return;
 

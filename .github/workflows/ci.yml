@@ -59,11 +59,72 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Build physx-js-webidl package (required dependency)
+        working-directory: packages/physx-js-webidl
+        run: bun run build
+
+      - name: Build shared package
+        working-directory: packages/shared
+        run: bun run build
+
+      - name: Build server package
+        working-directory: packages/server
+        run: bun run build
+
+      - name: Setup database schema
+        working-directory: packages/server
+        run: bunx drizzle-kit push
+        env:
+          DATABASE_URL: postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test
+
+      - name: Build plugin-hyperscape package
+        working-directory: packages/plugin-hyperscape
+        run: bun run build
+
+      - name: Install ElizaOS CLI
+        run: bun add -g @elizaos/cli
+
+      - name: Start ElizaOS in background
+        working-directory: packages/plugin-hyperscape
+        run: |
+          mkdir -p logs
+          elizaos start --character character.json > logs/elizaos.log 2>&1 &
+          echo "ELIZAOS_PID=$!" >> $GITHUB_ENV
+        env:
+          NODE_ENV: test
+
+      - name: Wait for ElizaOS to be ready
+        run: |
+          echo "⏳ Waiting for ElizaOS to start..."
+          MAX_RETRIES=30
+          RETRY_DELAY=2
+          for i in $(seq 1 $MAX_RETRIES); do
+            if curl -f -s http://localhost:3000/health > /dev/null 2>&1; then
+              echo "✓ ElizaOS is ready (attempt $i/$MAX_RETRIES)"
+              exit 0
+            fi
+            if [ $i -eq 1 ]; then
+              echo "  Waiting for health endpoint..."
+            fi
+            sleep $RETRY_DELAY
+          done
+          echo "❌ ElizaOS did not become ready after $((MAX_RETRIES * RETRY_DELAY)) seconds"
+          echo "=== ElizaOS Logs ==="
+          cat packages/plugin-hyperscape/logs/elizaos.log || echo "No ElizaOS logs found"
+          exit 1
+
       - name: Run tests
         run: bun run test
         env:
           DATABASE_URL: postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test
           NODE_ENV: test
+          ELIZAOS_API_URL: http://localhost:3000
+
+      - name: Show ElizaOS logs if tests failed
+        if: failure()
+        run: |
+          echo "=== ElizaOS Logs ==="
+          cat packages/plugin-hyperscape/logs/elizaos.log || echo "No ElizaOS logs found"
 
   build:
     name: Build
@@ -80,6 +141,10 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Build physx-js-webidl package (required dependency)
+        working-directory: packages/physx-js-webidl
+        run: bun run build
 
       - name: Build shared package
         working-directory: packages/shared
@@ -120,7 +185,7 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./packages/server
+          context: .
           file: ./packages/server/Dockerfile
           push: false
           tags: hyperscape-server:${{ github.sha }}

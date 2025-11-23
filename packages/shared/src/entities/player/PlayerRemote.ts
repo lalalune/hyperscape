@@ -226,7 +226,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
     const avatarUrl =
       (this.data.sessionAvatar as string) ||
       (this.data.avatar as string) ||
-      "asset://avatar.vrm";
+      "asset://avatar-male-01.vrm";
     if (this.avatarUrl === avatarUrl) return;
 
     // Skip avatar loading on server (no loader system)
@@ -244,7 +244,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.avatar.deactivate();
       // If avatar has an instance, destroy it to clean up VRM scene
       const avatarWithInstance = this.avatar as AvatarWithInstance;
-      avatarWithInstance.instance!.destroy();
+      if (avatarWithInstance.instance) {
+        avatarWithInstance.instance.destroy();
+      }
     }
 
     // Note: VRM hooks will be set on the avatar node before mounting
@@ -548,7 +550,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
   }
 
   override modify(data: Partial<NetworkData>) {
-    let avatarChanged;
+    let avatarChanged: boolean = false;
     // Strong type assumptions - check properties directly
     if ("t" in data) {
       this.teleport++;
