@@ -318,6 +318,9 @@ export class PlayerEntity extends CombatantEntity {
     if (data.sessionAvatar !== undefined) {
       this.data.sessionAvatar = data.sessionAvatar;
     }
+    if (data.wallet !== undefined) {
+      this.data.wallet = data.wallet;
+    }
 
     // Initialize player-specific properties
     this.playerId = playerData.playerId || data.id;

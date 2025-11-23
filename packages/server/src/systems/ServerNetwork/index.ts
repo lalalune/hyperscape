@@ -249,7 +249,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["onEntityRemoved"] = (socket, data) =>
       handleEntityRemoved(socket, data);
 
-    this.handlers["onSettings"] = (socket, data) =>
+    this.handlers["onSettingsModified"] = (socket, data) =>
       handleSettings(socket, data);
 
     this.handlers["onResourceGather"] = (socket, data) =>
@@ -291,7 +291,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         });
       } else {
         console.warn(
-          "[ServerNetwork] onRequestRespawn: no player entity on socket",
+          "[ServerNetwork] requestRespawn: no player entity on socket",
         );
       }
     };

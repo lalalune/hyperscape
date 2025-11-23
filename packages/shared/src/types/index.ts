@@ -137,6 +137,7 @@ export type {
 export { ITEMS } from "../data/items";
 export * from "../data/npcs";
 export * from "../data/world-areas";
+export * from "../data/avatars";
 
 // Types are now re-exported above in the main export block
 

@@ -21,7 +21,10 @@ interface EmoteResult {
 
 interface AvatarResult {
   gltf: GLTF;
-  factory: undefined;
+  factory: {
+    toClip?: (target: THREE.Object3D) => THREE.AnimationClip | null;
+    [key: string]: unknown;
+  };
   toNodes(): THREE.Object3D;
 }
 
@@ -36,14 +39,13 @@ if (typeof globalThis !== "undefined") {
   // Mock self if needed by any dependency
   // globalThis.self = globalThis;
 
-  // Mock window minimally for GLTFLoader compatibility
-  (globalThis as { window?: typeof globalThis }).window =
-    (globalThis as { window?: typeof globalThis }).window || globalThis;
+  // Mock window minimally
+  // @ts-ignore - Mocking for GLTFLoader compatibility
+  globalThis.window = globalThis.window || globalThis;
 
-  // Mock document minimally for GLTFLoader compatibility
-  (globalThis as { document?: unknown }).document = (
-    globalThis as { document?: unknown }
-  ).document || {
+  // Mock document minimally for GLTFLoader
+  // @ts-ignore - Mocking for GLTFLoader compatibility
+  globalThis.document = globalThis.document || {
     createElementNS: (ns: string, type: string) => {
       if (type === "img") {
         // Basic mock for image elements if texture loading is attempted (though we aim to bypass it)
@@ -183,7 +185,14 @@ export class AgentLoader extends System {
         },
       };
     } else if (type === "avatar") {
-      const factory = undefined;
+      // AnimationFactory interface matches avatar.ts - only toClip is required
+      type AnimationFactory = {
+        toClip?: (target: THREE.Object3D) => THREE.AnimationClip | null;
+        [key: string]: unknown;
+      };
+      const factory: AnimationFactory = {
+        toClip: (_target: THREE.Object3D) => null,
+      };
       // const root = createNode('group', { id: '$root' }); // Not available
       const root = new THREE.Group(); // Mock root
       root.add(new AgentAvatar({ id: "avatar", factory }));
@@ -193,7 +202,7 @@ export class AgentLoader extends System {
         toNodes() {
           return root.clone(true);
         },
-      };
+      } as AvatarResult;
     } else {
       throw new Error(`[AgentLoader] Unsupported GLTF type: ${type}`);
     }

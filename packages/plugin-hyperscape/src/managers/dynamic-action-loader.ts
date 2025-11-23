@@ -14,27 +14,6 @@ import type {
 import { HyperscapeService } from "../service";
 import { World, Entity } from "../types/core-types";
 
-/**
- * CLAUDE.md Compliance: Strong typing for dynamic action results
- */
-export interface DynamicActionResult {
-  success: boolean;
-  pending?: boolean;
-  message?: string;
-  error?: string;
-  data?: Record<string, string | number | boolean | unknown>;
-}
-
-export interface DynamicActionResponse {
-  text: string;
-  success: boolean;
-  data: {
-    action: string;
-    parameters: Record<string, unknown>;
-    result: DynamicActionResult;
-  };
-}
-
 // HyperscapeActionDescriptor is now imported from core-types
 
 /**
@@ -155,7 +134,7 @@ export class DynamicActionLoader {
       state?: State,
       _options?: {},
       callback?: HandlerCallback,
-    ): Promise<DynamicActionResponse> => {
+    ): Promise<any> => {
       logger.info(`[DynamicAction] Executing ${descriptor.name}`);
 
       const service = runtime.getService<HyperscapeService>(
@@ -172,12 +151,9 @@ export class DynamicActionLoader {
       );
 
       // Execute the action through world interface
-      let result: DynamicActionResult;
+      let result;
       const worldActions = world.actions as {
-        execute?: (
-          name: string,
-          params: Record<string, unknown>,
-        ) => Promise<DynamicActionResult>;
+        execute?: (name: string, params: Record<string, any>) => Promise<any>;
       };
       if (worldActions?.execute) {
         result = await worldActions.execute(descriptor.name, params);
@@ -221,8 +197,8 @@ export class DynamicActionLoader {
     message: Memory,
     state: State | undefined,
     runtime: IAgentRuntime,
-  ): Promise<Record<string, unknown>> {
-    const params: Record<string, unknown> = {};
+  ): Promise<Record<string, any>> {
+    const params: Record<string, any> = {};
 
     // Simple extraction from message text
     const messageText = message.content?.text || "";
@@ -259,7 +235,12 @@ export class DynamicActionLoader {
   private async generateResponse(
     descriptor: HyperscapeActionDescriptor,
     params: Record<string, unknown>,
-    result: DynamicActionResult,
+    result: {
+      success: boolean;
+      message?: string;
+      error?: string;
+      data?: unknown;
+    },
     runtime: IAgentRuntime,
     state?: State,
   ): Promise<string> {

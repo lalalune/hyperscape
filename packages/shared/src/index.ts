@@ -146,6 +146,9 @@ export {
 // Export item helpers used by server network snapshot
 export { getItem } from "./data/items";
 
+// Export avatar options for character creation
+export { AVATAR_OPTIONS } from "./data/avatars";
+
 // Export systems (organized by platform for tree-shaking)
 export { Entities } from "./systems/shared";
 export { Physics } from "./systems/shared";

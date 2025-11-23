@@ -61,6 +61,7 @@ export async function authenticateUser(
       const privyInfo = await verifyPrivyToken(authToken);
 
       if (privyInfo && privyInfo.privyUserId === privyUserId) {
+        console.log("[Authentication] 🔐 Verifying Privy User:", privyUserId);
         let dbResult: User | undefined;
         try {
           dbResult = (await db("users")
@@ -74,6 +75,7 @@ export async function authenticateUser(
 
         if (dbResult) {
           // Existing Privy user
+          console.log("[Authentication] ✅ Found existing user:", dbResult.id);
           userWithPrivy = dbResult as User & {
             privyUserId?: string | null;
             farcasterFid?: string | null;
@@ -81,6 +83,10 @@ export async function authenticateUser(
           user = userWithPrivy;
         } else {
           // New Privy user - create account with stable id equal to privyUserId
+          console.log(
+            "[Authentication] 🆕 Creating new user for Privy ID:",
+            privyInfo.privyUserId,
+          );
           const timestamp = new Date().toISOString();
           const newUser: {
             id: string;
@@ -139,16 +145,69 @@ export async function authenticateUser(
     }
   }
 
-  // Fall back to legacy JWT authentication if Privy didn't work
+  // Fall back to Hyperscape JWT authentication if Privy didn't work
   if (!user && authToken) {
     try {
       const jwtPayload = await verifyJWT(authToken);
       if (jwtPayload && jwtPayload.userId) {
-        const dbResult = await db("users")
+        // Check if this is an agent token
+        const isAgent = jwtPayload.isAgent === true;
+        const characterId = jwtPayload.characterId as string | undefined;
+
+        if (isAgent && characterId) {
+          console.log(
+            `[Authentication] 🤖 Agent JWT detected for character: ${characterId}`,
+          );
+        } else {
+          console.log("[Authentication] 🔐 Hyperscape JWT detected");
+        }
+
+        // Look up user account
+        let dbResult = await db("users")
           .where("id", jwtPayload.userId as string)
           .first();
+
+        // If user doesn't exist and this is a Privy ID, create the user record
+        if (
+          !dbResult &&
+          (jwtPayload.userId as string).startsWith("did:privy:")
+        ) {
+          console.log(
+            `[Authentication] 🆕 Creating user record for Privy ID from JWT: ${jwtPayload.userId}`,
+          );
+          const timestamp = new Date().toISOString();
+          const newUser = {
+            id: jwtPayload.userId as string,
+            name: name || "Agent",
+            avatar: avatar || null,
+            roles: "",
+            createdAt: timestamp,
+            privyUserId: jwtPayload.userId as string,
+          };
+
+          try {
+            await db("users").insert(newUser);
+            dbResult = newUser as User;
+            console.log(
+              `[Authentication] ✅ Created user record for ${jwtPayload.userId}`,
+            );
+          } catch (insertErr) {
+            console.error(
+              "[Authentication] Failed to create user record:",
+              insertErr,
+            );
+            // Try fetching again in case of race condition
+            dbResult = await db("users")
+              .where("id", jwtPayload.userId as string)
+              .first();
+          }
+        }
+
         if (dbResult) {
           user = dbResult as User;
+          console.log(
+            `[Authentication] ✅ JWT verified for ${isAgent ? "agent" : "user"}: ${user.id}`,
+          );
         }
       }
     } catch (err) {

@@ -1,5 +1,8 @@
 // Re-export core types and classes for convenience
-export { World, Entity, System } from "./core-types";
+// World and System are classes from @hyperscape/shared
+export { World, System } from "./core-types";
+// Entity is a type alias
+export type { Entity } from "./core-types";
 export type {
   Player,
   Vector3,
@@ -9,12 +12,9 @@ export type {
   Entities,
   Events,
   WorldOptions,
-} from "./core-types";
-
-// Additional common types for cross-file compatibility
-export type {
   Position,
   ContentInstance,
-  HyperscapeAction,
-  HyperscapeProvider,
 } from "./core-types";
+
+// Re-export plugin-specific interfaces
+export type { HyperscapeAction, HyperscapeProvider } from "./core-interfaces";

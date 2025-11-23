@@ -518,6 +518,9 @@ export class ClientInput extends SystemBase {
   private onKeyDown = (e: KeyboardEvent) => {
     if (e.defaultPrevented || e.repeat || this.isInputFocused()) return;
 
+    // Block input if controls are disabled (spectator mode)
+    if (!this._controlsEnabled) return;
+
     // CRITICAL: Block ALL input during death
     const player = (this.world as any).player;
     if (player && ((player as any).isDying || (player.data as any)?.isDying)) {
@@ -549,6 +552,9 @@ export class ClientInput extends SystemBase {
   private onKeyUp = (e: KeyboardEvent) => {
     if (e.repeat || this.isInputFocused()) return;
 
+    // Block input if controls are disabled (spectator mode)
+    if (!this._controlsEnabled) return;
+
     if (e.code === "MetaLeft" || e.code === "MetaRight") {
       return this.releaseAllButtons();
     }
@@ -575,6 +581,9 @@ export class ClientInput extends SystemBase {
     type ExtendedPointerEvent = PointerEvent & { isCoreUI?: boolean };
     if ((e as ExtendedPointerEvent).isCoreUI) return;
 
+    // Block input if controls are disabled (spectator mode)
+    if (!this._controlsEnabled) return;
+
     // CRITICAL: Block ALL pointer input during death
     const player = (this.world as any).player;
     if (player && ((player as any).isDying || (player.data as any)?.isDying)) {
@@ -590,6 +599,9 @@ export class ClientInput extends SystemBase {
   private onPointerMove = (e: PointerEvent) => {
     type ExtendedPointerEvent = PointerEvent & { isCoreUI?: boolean };
     if ((e as ExtendedPointerEvent).isCoreUI || !this.viewport) return;
+
+    // Block input if controls are disabled (spectator mode)
+    if (!this._controlsEnabled) return;
 
     const rect = this.viewport.getBoundingClientRect();
     const offsetX = e.pageX - rect.left;
@@ -1364,6 +1376,37 @@ export class ClientInput extends SystemBase {
    */
   getIsNavigating(): boolean {
     return this.isNavigating;
+  }
+
+  /**
+   * Disable all input controls (for spectator mode)
+   * Prevents keyboard, mouse, and touch input from affecting the game
+   */
+  private _controlsEnabled = true;
+
+  disable(): void {
+    this._controlsEnabled = false;
+    // Clear all current input states
+    this.buttonsDown.clear();
+    this.lmbDown = false;
+    this.rmbDown = false;
+    this.moveVector.set(0, 0, 0);
+    console.log("[ClientInput] Controls disabled");
+  }
+
+  /**
+   * Re-enable input controls
+   */
+  enable(): void {
+    this._controlsEnabled = true;
+    console.log("[ClientInput] Controls enabled");
+  }
+
+  /**
+   * Check if controls are enabled
+   */
+  isEnabled(): boolean {
+    return this._controlsEnabled;
   }
 
   destroy() {

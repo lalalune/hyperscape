@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
-import * as matchers from "@testing-library/jest-dom/matchers";
+// @testing-library/jest-dom/matchers not available - using vitest matchers instead
+// import * as matchers from "@testing-library/jest-dom/matchers";
 import { expect } from "vitest";
 import {
   createMockRuntime,
@@ -13,10 +14,14 @@ import { IAgentRuntime, Memory } from "@elizaos/core";
 
 type MockWebSocket = Partial<WebSocket>;
 type MockFetch = typeof fetch;
-type MockIntersectionObserver = Partial<IntersectionObserver>;
+type MockIntersectionObserver = Partial<
+  typeof IntersectionObserver extends new (...args: any[]) => infer T
+    ? T
+    : never
+>;
 
 // Extend Vitest's expect with jest-dom matchers
-expect.extend(matchers);
+// expect.extend(matchers); // Commented out - matchers not available
 
 // Global test setup
 beforeAll(async () => {
@@ -26,9 +31,9 @@ beforeAll(async () => {
     lastModified: number;
 
     constructor(
-      chunks: BlobPart[],
+      chunks: (Blob | BufferSource | string)[],
       filename: string,
-      options?: FilePropertyBag & { lastModified?: number },
+      options?: { type?: string; lastModified?: number },
     ) {
       super(chunks, options);
       this.name = filename;
@@ -36,22 +41,28 @@ beforeAll(async () => {
     }
   } as typeof File;
 
-  global.crypto = {
-    randomUUID: () =>
-      `test-uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    subtle: {
-      digest: async (_algorithm: string, data: BufferSource) => {
-        // Mock implementation for testing
-        return new ArrayBuffer(32); // Mock hash
+  Object.defineProperty(global, "crypto", {
+    writable: true,
+    value: {
+      randomUUID: () =>
+        `test-uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      subtle: {
+        digest: async (
+          _algorithm: string,
+          data: ArrayBuffer | ArrayBufferView,
+        ) => {
+          // Mock implementation for testing
+          return new ArrayBuffer(32); // Mock hash
+        },
       },
-    },
-    getRandomValues: (array: Uint8Array) => {
-      for (let i = 0; i < array.length; i++) {
-        array[i] = Math.floor(Math.random() * 256);
-      }
-      return array;
-    },
-  } as Crypto;
+      getRandomValues: (array: Uint8Array) => {
+        for (let i = 0; i < array.length; i++) {
+          array[i] = Math.floor(Math.random() * 256);
+        }
+        return array;
+      },
+    } as typeof Crypto,
+  });
 });
 
 afterAll(async () => {
@@ -204,7 +215,7 @@ export const mockFetch = (
     status,
     json: async () => response,
     text: async () => textResponse,
-    blob: async () => new Blob(),
+    blob: async () => new Blob([]),
     arrayBuffer: async () => new ArrayBuffer(0),
   });
 

@@ -15,7 +15,7 @@ export default defineConfig({
         __dirname,
         "../../node_modules/react/jsx-runtime",
       ),
-      three: path.resolve(__dirname, "../../node_modules/three"),
+      // three is resolved from local node_modules, not root
     },
   },
   optimizeDeps: {

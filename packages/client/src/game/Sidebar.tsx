@@ -5,6 +5,7 @@ import type {
   PlayerEquipmentItems,
   PlayerStats,
   InventorySlotItem,
+  InventoryItem,
 } from "../types";
 import { useChatContext } from "./chat/ChatContext";
 import { HintProvider } from "../components/Hint";
@@ -58,7 +59,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     visible: boolean;
     corpseId: string;
     corpseName: string;
-    lootItems: InventorySlotViewItem[];
+    lootItems: InventoryItem[];
   } | null>(null);
 
   // Update chat context whenever windows open/close
@@ -203,9 +204,11 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         corpseName: `Gravestone`, // TODO: Get actual corpse name
         lootItems:
           data.lootItems?.map((item, index) => ({
+            id: `${data.corpseId}-${index}`,
             slot: index,
             itemId: item.itemId,
             quantity: item.quantity,
+            metadata: null,
           })) || [],
       });
 
@@ -245,7 +248,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         }
         const cachedEquipment = world.network?.lastEquipmentByPlayerId?.[lp];
         if (cachedEquipment) {
-          const rawEq = cachedEquipment;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rawEq = cachedEquipment as any;
           const mappedEquipment: PlayerEquipmentItems = {
             weapon: rawEq.weapon?.item || null,
             shield: rawEq.shield?.item || null,

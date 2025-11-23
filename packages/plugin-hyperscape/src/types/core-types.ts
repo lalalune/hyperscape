@@ -7,23 +7,34 @@ import { System, World } from "@hyperscape/shared";
 import type {
   Component,
   Events as BaseEvents,
+  Physics as BasePhysics,
   Quaternion,
   Vector3,
   WorldOptions,
-  Player as HyperscapePlayer,
-  Entity as HyperscapeEntity,
-  Entities as HyperscapeEntities,
-  ChatMessage as HyperscapeChatMessage,
-  PlayerInput,
-  PlayerStats,
-  Physics as HyperscapePhysics,
-  RigidBody as HyperscapeRigidBody,
-  Collider,
-  PhysicsMaterial,
 } from "@hyperscape/shared";
 
-// Re-export RigidBody from shared - it has the interface we need
-export type RigidBody = HyperscapeRigidBody;
+// Import Entity and Entities from the main package but alias them to avoid conflicts
+import type {
+  Entity as HyperscapeEntity,
+  Entities as HyperscapeEntities,
+} from "@hyperscape/shared";
+
+// Import additional types that may not be in the built package
+import type { PlayerInput, PlayerStats } from "@hyperscape/shared";
+
+// Define missing types locally
+export interface RigidBody {
+  type: "static" | "dynamic" | "kinematic";
+  mass: number;
+  position: Vector3;
+  rotation: Quaternion;
+  velocity: Vector3;
+  angularVelocity: Vector3;
+  applyForce(force: Vector3, point?: Vector3): void;
+  applyImpulse(impulse: Vector3, point?: Vector3): void;
+  setLinearVelocity(velocity: Vector3): void;
+  setAngularVelocity(velocity: Vector3): void;
+}
 
 export interface Avatar {
   id: string;
@@ -31,14 +42,29 @@ export interface Avatar {
   url?: string;
 }
 
-// Re-export ChatMessage from shared with plugin-specific extensions
-export type ChatMessage = HyperscapeChatMessage & {
-  // Plugin-specific extensions if needed
-  message?: string; // For backward compatibility
-};
-
 export interface ChatListener {
   (messages: ChatMessage[]): void;
+}
+
+// Remove duplicate definitions - these are defined in other type files
+
+// Define ChatMessage interface locally since it's not exported from the built package
+export interface ChatMessage {
+  id: string;
+  from: string;
+  fromId?: string;
+  userId?: string;
+  userName?: string;
+  username?: string;
+  body: string;
+  text: string;
+  message?: string; // For backward compatibility
+  timestamp: number;
+  createdAt: string;
+  avatar?: string;
+  entityId?: string;
+  playerId?: string;
+  playerName?: string;
 }
 
 // Re-export hyperscape classes and types for plugin use
@@ -58,30 +84,72 @@ export type Entity = HyperscapeEntity & {
   base?: {
     position: Vector3;
     visible?: boolean;
-    children?: Entity[];
-    parent?: Entity | null;
+    children?: unknown[];
+    parent?: unknown | null;
   };
 };
 
 // Re-export the aliased Entities type
 export type Entities = HyperscapeEntities;
 
-// Plugin-specific Physics interface extends shared Physics
-// Note: We extend HyperscapePhysics with controller management for AI agent use
-export interface Physics extends HyperscapePhysics {
-  // Additional plugin-specific properties
-  controllers?: Map<string, CharacterController>;
-  rigidBodies?: Map<string, RigidBody>;
+// Plugin-specific Physics interface - don't extend BasePhysics to avoid conflicts
+export interface ExtendedPhysics {
+  enabled: boolean;
+  gravity: Vector3;
+  timeStep: number;
+  substeps?: number;
+  world?: unknown | null;
+  controllers: Map<string, CharacterController>;
+  rigidBodies: Map<string, any>;
 
-  // Additional plugin-specific methods
+  // Physics methods from BasePhysics
+  createRigidBody: (
+    type: "static" | "dynamic" | "kinematic",
+    position?: Vector3,
+    rotation?: Quaternion,
+  ) => RigidBody;
+  createCollider: (
+    geometry: unknown,
+    material?: unknown,
+    isTrigger?: boolean,
+  ) => unknown;
+  createMaterial: (
+    staticFriction?: number,
+    dynamicFriction?: number,
+    restitution?: number,
+  ) => unknown;
+  createLayerMask: (...layers: string[]) => number;
+  sphereCast: (
+    origin: Vector3,
+    radius: number,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number,
+  ) => unknown | null;
+  raycast: (
+    origin: Vector3,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number,
+  ) => unknown | null;
+  sweep: (
+    geometry: unknown,
+    origin: Vector3,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number,
+  ) => unknown | null;
+  simulate: (deltaTime: number) => void;
+
+  // Additional methods
   step?: (deltaTime: number) => void;
-  createCharacterController?: (
-    options: CharacterControllerOptions,
-  ) => CharacterController;
 }
 
+// Use the extended physics type
+export type Physics = ExtendedPhysics;
+
 // Extended Player type with movement methods for plugin use
-export type Player = HyperscapePlayer & {
+export type Player = import("@hyperscape/shared").Player & {
   // Movement methods for AI agent control
   walkToward?: (
     targetPosition: { x: number; y?: number; z: number },
@@ -89,28 +157,14 @@ export type Player = HyperscapePlayer & {
   ) => Position;
   walk?: (direction: { x: number; z: number }, speed?: number) => Position;
   teleport?: (options: { position?: Position; rotationY?: number }) => void;
-  modify?: (data: { name?: string; avatar?: string; color?: string }) => void;
-  setSessionAvatar?: (url: string) => void;
+  modify?: (data: { name?: string; [key: string]: unknown }) => void;
 };
 
 // Export plugin-specific interfaces from core-interfaces
-export type { HyperscapeAction, HyperscapeProvider } from "./core-interfaces";
-
-// Character controller options (defined here to avoid circular dependencies)
-export interface CharacterControllerOptions {
-  height?: number;
-  radius?: number;
-  stepHeight?: number;
-  slopeLimit?: number;
-  skinWidth?: number;
-  minMoveDistance?: number;
-  center?: { x: number; y: number; z: number };
-  mass?: number;
-  drag?: number;
-  angularDrag?: number;
-  useGravity?: boolean;
-  isKinematic?: boolean;
-}
+export type {
+  HyperscapeAction,
+  HyperscapeProvider,
+} from "./core-interfaces.js";
 
 // Position type (alias for Vector3 for backwards compatibility)
 export type Position = Vector3;
@@ -122,185 +176,44 @@ export interface Transform {
   scale?: Position;
 }
 
-// Network data type
-export type NetworkData = Record<string, string | number | boolean | string[]>;
-
-// Network connection class
-export class NetworkConnection {
-  public id: string;
-  public socket?: WebSocket;
-  public lastPing: number;
-  public metadata: Record<string, string | number>;
-
-  constructor(id: string, socket?: WebSocket) {
-    this.id = id;
-    this.socket = socket;
-    this.lastPing = Date.now();
-    this.metadata = {};
-  }
-
-  updatePing(): void {
-    this.lastPing = Date.now();
-  }
-
-  getTimeSinceLastPing(): number {
-    return Date.now() - this.lastPing;
-  }
-
-  isAlive(timeout: number = 30000): boolean {
-    return this.getTimeSinceLastPing() < timeout;
-  }
+// Network types (plugin-specific)
+export interface NetworkSystem {
+  id: string | null;
+  connections?: Map<string, NetworkConnection>;
+  broadcast?: (event: string, data: unknown) => void;
+  send: (event: string, data?: unknown) => void;
+  upload?: (file: File) => Promise<string>;
+  disconnect: () => Promise<void>;
+  maxUploadSize?: number;
 }
 
-// Network system class - manages network connections and messaging
-export class NetworkSystem {
-  public id: string | null;
-  public connections: Map<string, NetworkConnection>;
-  public maxUploadSize: number;
-
-  constructor(id: string | null = null) {
-    this.id = id;
-    this.connections = new Map();
-    this.maxUploadSize = 10 * 1024 * 1024; // 10MB default
-  }
-
-  broadcast(event: string, data?: NetworkData): void {
-    this.connections.forEach((connection) => {
-      if (connection.socket?.readyState === WebSocket.OPEN) {
-        connection.socket.send(JSON.stringify({ event, data }));
-      }
-    });
-  }
-
-  send(event: string, data?: NetworkData): void {
-    // Override in implementation
-    console.log(`NetworkSystem: send ${event}`, data);
-  }
-
-  async upload(file: File): Promise<string> {
-    if (file.size > this.maxUploadSize) {
-      throw new ServiceError(
-        `File size ${file.size} exceeds max upload size ${this.maxUploadSize}`,
-        "FILE_TOO_LARGE",
-      );
-    }
-    // Override in implementation
-    throw new ServiceError("Upload not implemented", "NOT_IMPLEMENTED");
-  }
-
-  async disconnect(): Promise<void> {
-    this.connections.forEach((connection) => {
-      connection.socket?.close();
-    });
-    this.connections.clear();
-  }
-
-  addConnection(connection: NetworkConnection): void {
-    this.connections.set(connection.id, connection);
-  }
-
-  removeConnection(id: string): void {
-    this.connections.delete(id);
-  }
-
-  getActiveConnections(): NetworkConnection[] {
-    return Array.from(this.connections.values()).filter((conn) =>
-      conn.isAlive(),
-    );
-  }
+export interface NetworkConnection {
+  id: string;
+  socket?: WebSocket;
+  lastPing?: number;
+  [key: string]: unknown;
 }
 
-// Chat system class - manages chat messages and listeners
-export class ChatSystem {
-  public msgs: ChatMessage[];
-  public listeners: ((msgs: ChatMessage[]) => void)[];
-
-  constructor() {
-    this.msgs = [];
-    this.listeners = [];
-  }
-
-  add(message: ChatMessage, broadcast: boolean = true): void {
-    this.msgs.push(message);
-    if (broadcast) {
-      this.notifyListeners();
-    }
-  }
-
-  subscribe(callback: (msgs: ChatMessage[]) => void): () => void {
-    this.listeners.push(callback);
-    // Return unsubscribe function
-    return () => {
-      const index = this.listeners.indexOf(callback);
-      if (index !== -1) {
-        this.listeners.splice(index, 1);
-      }
-    };
-  }
-
-  clear(): void {
-    this.msgs = [];
-    this.notifyListeners();
-  }
-
-  private notifyListeners(): void {
-    this.listeners.forEach((listener) => listener([...this.msgs]));
-  }
+// Chat system types
+export interface ChatSystem {
+  msgs: ChatMessage[];
+  listeners?: ((msgs: ChatMessage[]) => void)[];
+  add: (message: ChatMessage, broadcast?: boolean) => void;
+  subscribe?: (callback: (msgs: ChatMessage[]) => void) => () => void;
+  clear?: () => void;
 }
 
-// EventData is imported from event-types.ts (re-exported via index)
-// Event system types - plugin-specific class with event management
-export class EventSystem {
-  public listeners: Map<
-    string,
-    ((data: Record<string, string | number | boolean>) => void)[]
-  >;
-
-  constructor() {
-    this.listeners = new Map();
-  }
-
-  emit(
-    eventName: string,
-    data?: Record<string, string | number | boolean>,
-  ): void {
-    const callbacks = this.listeners.get(eventName);
-    if (callbacks) {
-      callbacks.forEach((callback) => callback(data || {}));
-    }
-  }
-
-  on(
-    eventName: string,
-    callback: (data: Record<string, string | number | boolean>) => void,
-  ): void {
-    if (!this.listeners.has(eventName)) {
-      this.listeners.set(eventName, []);
-    }
-    this.listeners.get(eventName)!.push(callback);
-  }
-
-  off(
-    eventName: string,
-    callback?: (data: Record<string, string | number | boolean>) => void,
-  ): void {
-    if (!callback) {
-      this.listeners.delete(eventName);
-      return;
-    }
-
-    const callbacks = this.listeners.get(eventName);
-    if (callbacks) {
-      const index = callbacks.indexOf(callback);
-      if (index !== -1) {
-        callbacks.splice(index, 1);
-      }
-    }
-  }
-
-  clear(): void {
-    this.listeners.clear();
-  }
+// Event system types - plugin-specific interface that supports array operations
+export interface EventSystem {
+  listeners: Map<string, ((data: unknown) => void)[]>;
+  emit: (eventName: string, data?: unknown) => void;
+  on: (eventName: string, callback: (data: unknown) => void) => void;
+  off: (eventName: string, callback?: (data: unknown) => void) => void;
+  // Additional array-like methods used in the service
+  push?: (callback: (data: unknown) => void) => void;
+  indexOf?: (callback: (data: unknown) => void) => number;
+  splice?: (index: number, count: number) => void;
+  clear?: () => void;
 }
 
 // World configuration - plugin-specific configuration that extends WorldOptions
@@ -319,29 +232,14 @@ export interface WorldConfig extends WorldOptions {
 }
 
 export interface MockElement {
-  appendChild: (child: HTMLElement | MockElement) => void;
-  removeChild: (child: HTMLElement | MockElement) => void;
+  appendChild: (child: unknown) => void;
+  removeChild: (child: unknown) => void;
   offsetWidth: number;
   offsetHeight: number;
-  addEventListener: (
-    event: string,
-    handler: EventListener | ((event: Event) => void),
-  ) => void;
-  removeEventListener: (
-    event: string,
-    handler: EventListener | ((event: Event) => void),
-  ) => void;
-  style: Record<string, string | number>;
+  addEventListener: (event: string, handler: unknown) => void;
+  removeEventListener: (event: string, handler: unknown) => void;
+  style: Record<string, unknown>;
 }
-
-// Content bundle configuration type
-export type ContentBundleConfig = Record<
-  string,
-  string | number | boolean | Record<string, string | number | boolean>
->;
-
-// Event handler function type
-export type NetworkEventHandler = (data: NetworkData) => void;
 
 // Content bundle types
 export interface ContentBundle {
@@ -351,9 +249,12 @@ export interface ContentBundle {
   version?: string;
   actions?: Action[];
   providers?: Provider[];
-  handlers?: NetworkEventHandler[];
+  handlers?: unknown[];
   dynamicActions?: HyperscapeActionDescriptor[];
-  config?: ContentBundleConfig;
+  config?: {
+    features?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
   install?: (world: World, runtime: IAgentRuntime) => Promise<ContentInstance>;
 }
 
@@ -361,8 +262,8 @@ export interface ContentInstance {
   actions?: Action[];
   providers?: Provider[];
   dynamicActions?: string[];
-  metadata?: Record<string, string | number>;
   uninstall?: () => Promise<void>;
+  [key: string]: unknown;
 }
 
 // Action descriptor type
@@ -387,11 +288,8 @@ export interface ActionParameter {
   type: "string" | "number" | "boolean" | "object" | "array";
   required: boolean;
   description: string;
-  default?: string | number | boolean;
+  default?: unknown;
 }
-
-// Action handler options type
-export type ActionHandlerOptions = Record<string, string | number | boolean>;
 
 // Manager types
 export interface ManagerInterface {
@@ -402,49 +300,11 @@ export interface ManagerInterface {
 }
 
 // Response types
-export class ResponseContent {
-  public text?: string;
-  public action?: string;
-  public emote?: string;
-  public thought?: string;
-  public data?: Record<string, string | number | boolean>;
-
-  constructor(text?: string, action?: string) {
-    this.text = text;
-    this.action = action;
-  }
-
-  setEmote(emote: string): void {
-    this.emote = emote;
-  }
-
-  setThought(thought: string): void {
-    this.thought = thought;
-  }
-
-  setData(key: string, value: string | number | boolean): void {
-    if (!this.data) {
-      this.data = {};
-    }
-    this.data[key] = value;
-  }
-
-  toJSON(): Record<
-    string,
-    | string
-    | number
-    | boolean
-    | Record<string, string | number | boolean>
-    | undefined
-  > {
-    return {
-      text: this.text,
-      action: this.action,
-      emote: this.emote,
-      thought: this.thought,
-      ...(this.data || {}),
-    };
-  }
+export interface ResponseContent {
+  text?: string;
+  action?: string;
+  emote?: string;
+  [key: string]: unknown;
 }
 
 export interface BehaviorResponse {
@@ -453,48 +313,14 @@ export interface BehaviorResponse {
 }
 
 // Multi-agent types
-export class AgentInstance {
-  public id: UUID;
-  public runtime: IAgentRuntime;
-  public service: Service;
-  public name: string;
-  public position?: Position;
-  public status: "connecting" | "connected" | "disconnected" | "error";
-  public lastUpdate: number;
-
-  constructor(
-    id: UUID,
-    runtime: IAgentRuntime,
-    service: Service,
-    name: string,
-  ) {
-    this.id = id;
-    this.runtime = runtime;
-    this.service = service;
-    this.name = name;
-    this.status = "connecting";
-    this.lastUpdate = Date.now();
-  }
-
-  updateStatus(
-    status: "connecting" | "connected" | "disconnected" | "error",
-  ): void {
-    this.status = status;
-    this.lastUpdate = Date.now();
-  }
-
-  updatePosition(position: Position): void {
-    this.position = position;
-    this.lastUpdate = Date.now();
-  }
-
-  isConnected(): boolean {
-    return this.status === "connected";
-  }
-
-  getTimeSinceUpdate(): number {
-    return Date.now() - this.lastUpdate;
-  }
+export interface AgentInstance {
+  id: UUID;
+  runtime: IAgentRuntime;
+  service: Service;
+  name: string;
+  position?: Position;
+  status: "connecting" | "connected" | "disconnected" | "error";
+  lastUpdate: number;
 }
 
 export interface MultiAgentConfig {
@@ -518,26 +344,10 @@ export interface ServiceConfig {
   worldId: UUID;
 }
 
-// Service error class - custom error with code and details
-export class ServiceError extends Error {
-  public code?: string;
-  public details?: Record<string, string | number | boolean>;
-
-  constructor(
-    message: string,
-    code?: string,
-    details?: Record<string, string | number | boolean>,
-  ) {
-    super(message);
-    this.name = "ServiceError";
-    this.code = code;
-    this.details = details;
-
-    // Maintains proper stack trace for where error was thrown
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ServiceError);
-    }
-  }
+// Error types
+export interface ServiceError extends Error {
+  code?: string;
+  details?: unknown;
 }
 
 // Model type enum (from core-interfaces.ts)
@@ -548,77 +358,24 @@ export enum ModelType {
   SMART = "smart",
 }
 
-export class CharacterController {
-  public id: string;
-  public position: Position;
-  public velocity: Position;
-  public isGrounded: boolean;
-  public radius: number;
-  public height: number;
-  public maxSpeed: number;
-
-  constructor(id: string, options: CharacterControllerOptions = {}) {
-    this.id = id;
-    this.position = { x: 0, y: 0, z: 0 };
-    this.velocity = { x: 0, y: 0, z: 0 };
-    this.isGrounded = false;
-    this.radius = options.radius || 0.5;
-    this.height = options.height || 1.8;
-    this.maxSpeed = 5.0;
-  }
-
-  move(displacement: Position): void {
-    this.position.x += displacement.x;
-    this.position.y += displacement.y;
-    this.position.z += displacement.z;
-  }
-
-  jump(): void {
-    if (this.isGrounded) {
-      this.velocity.y = 5.0;
-      this.isGrounded = false;
-    }
-  }
-
-  walkToward(
+export interface CharacterController {
+  id: string;
+  position: Position;
+  velocity: Position;
+  isGrounded: boolean;
+  radius: number;
+  height: number;
+  maxSpeed: number;
+  move: (displacement: Position) => void;
+  jump: () => void;
+  walkToward: (
     targetPosition: { x: number; y?: number; z: number },
-    speed: number = this.maxSpeed,
-  ): Position {
-    const dx = targetPosition.x - this.position.x;
-    const dz = targetPosition.z - this.position.z;
-    const distance = Math.sqrt(dx * dx + dz * dz);
-
-    if (distance > 0.1) {
-      const normalizedX = dx / distance;
-      const normalizedZ = dz / distance;
-
-      this.position.x += normalizedX * speed * 0.016; // Assuming 60fps
-      this.position.z += normalizedZ * speed * 0.016;
-    }
-
-    return this.position;
-  }
-
-  walk(
-    direction: { x: number; z: number },
-    speed: number = this.maxSpeed,
-  ): Position {
-    this.position.x += direction.x * speed * 0.016;
-    this.position.z += direction.z * speed * 0.016;
-    return this.position;
-  }
-
-  setPosition(position: Position): void {
-    this.position = { ...position };
-  }
-
-  getPosition(): Position {
-    return { ...this.position };
-  }
-
-  getVelocity(): Position {
-    return { ...this.velocity };
-  }
+    speed?: number,
+  ) => Position;
+  walk?: (direction: { x: number; z: number }, speed?: number) => Position;
+  setPosition: (position: Position) => void;
+  getPosition: () => Position;
+  getVelocity: () => Position;
 }
 
 // CharacterControllerOptions is defined in content-types.ts
@@ -628,9 +385,7 @@ export interface Control {
   id: string;
   playerId: string;
   enabled: boolean;
-  keys?: Record<string, InputState>;
-  mouse?: { x: number; y: number; buttons: Record<number, boolean> };
-  touch?: { x: number; y: number; active: boolean };
+  [key: string]: any;
 }
 
 export interface InputState {

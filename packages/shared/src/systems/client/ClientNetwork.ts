@@ -190,6 +190,10 @@ export class ClientNetwork extends SystemBase {
   private maxSnapshots: number = 10;
   private extrapolationLimit: number = 500; // ms
 
+  // Embedded viewport configuration (read once at init)
+  private embeddedCharacterId: string | null = null;
+  private isEmbeddedSpectator: boolean = false;
+
   constructor(world: World) {
     super(world, {
       name: "client-network",
@@ -260,11 +264,15 @@ export class ClientNetwork extends SystemBase {
       this.id = null;
     }
 
-    // Try to get Privy token first, fall back to legacy auth token
+    // Check if wsUrl already contains an authToken (e.g., from embedded viewport)
+    // If so, use it as-is instead of overwriting with localStorage
+    const urlHasAuthToken = wsUrl.includes("authToken=");
+
     let authToken = "";
     let privyUserId = "";
 
-    if (typeof localStorage !== "undefined") {
+    if (!urlHasAuthToken && typeof localStorage !== "undefined") {
+      // Only get from localStorage if URL doesn't already have authToken
       const privyToken = localStorage.getItem("privy_auth_token");
       const privyId = localStorage.getItem("privy_user_id");
 
@@ -279,10 +287,40 @@ export class ClientNetwork extends SystemBase {
       }
     }
 
-    let url = `${wsUrl}?authToken=${authToken}`;
-    if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
+    // Build WebSocket URL - preserve existing params if authToken already present
+    let url: string;
+    if (urlHasAuthToken) {
+      // URL already has authToken (embedded mode) - use as-is
+      url = wsUrl;
+      this.logger.debug("Using authToken from URL (embedded mode)");
+    } else {
+      // Normal mode - add authToken from localStorage
+      url = `${wsUrl}?authToken=${authToken}`;
+      if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
+    }
     if (name) url += `&name=${encodeURIComponent(name)}`;
     if (avatar) url += `&avatar=${encodeURIComponent(avatar)}`;
+
+    // Read embedded configuration once at initialization
+    if (typeof window !== "undefined") {
+      const isEmbedded = (window as { __HYPERSCAPE_EMBEDDED__?: boolean })
+        .__HYPERSCAPE_EMBEDDED__;
+      const embeddedConfig = (
+        window as {
+          __HYPERSCAPE_CONFIG__?: { mode?: string; characterId?: string };
+        }
+      ).__HYPERSCAPE_CONFIG__;
+
+      if (isEmbedded && embeddedConfig) {
+        this.isEmbeddedSpectator = embeddedConfig.mode === "spectator";
+        this.embeddedCharacterId = embeddedConfig.characterId || null;
+
+        this.logger.debug("[ClientNetwork] Embedded config loaded", {
+          isSpectator: this.isEmbeddedSpectator,
+          hasCharacterId: !!this.embeddedCharacterId,
+        } as unknown as Record<string, unknown>);
+      }
+    }
 
     // console.debug('[ClientNetwork] Connecting to WebSocket:', url)
 
@@ -436,17 +474,32 @@ export class ClientNetwork extends SystemBase {
 
     this.logger.debug("Snapshot received - checking character select mode");
 
-    if (isCharacterSelectMode && typeof localStorage !== "undefined") {
-      const selectedCharacterId = localStorage.getItem("selectedCharacterId");
-      this.logger.debug("Selected character ID found in localStorage");
+    // Handle character selection and world entry
+    if (isCharacterSelectMode) {
+      // Get characterId from embedded config (read at init) OR localStorage
+      const characterId =
+        this.embeddedCharacterId ||
+        (typeof localStorage !== "undefined"
+          ? localStorage.getItem("selectedCharacterId")
+          : null);
 
-      if (selectedCharacterId) {
-        // Send enterWorld immediately so server spawns the selected character
-        this.logger.debug("Sending enterWorld with selected characterId");
-        this.send("enterWorld", { characterId: selectedCharacterId });
+      if (characterId) {
+        this.logger.debug(`Auto-selecting character: ${characterId}`, {
+          isEmbedded: this.isEmbeddedSpectator,
+        } as unknown as Record<string, unknown>);
+
+        // Embedded spectator mode needs characterSelected packet first
+        if (this.isEmbeddedSpectator) {
+          this.send("characterSelected", { characterId });
+        }
+
+        // Both modes need enterWorld to spawn the character
+        this.send("enterWorld", { characterId });
+
+        this.logger.debug("Character selection packets sent");
       } else {
         this.logger.debug(
-          "No selectedCharacterId in localStorage, cannot auto-enter world",
+          "No characterId available, skipping auto-enter world",
         );
       }
     }

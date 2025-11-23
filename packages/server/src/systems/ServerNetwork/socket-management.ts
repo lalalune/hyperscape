@@ -129,6 +129,9 @@ export class SocketManager {
     this.socketFirstSeenAt.delete(socket.id);
     this.socketMissedPongs.delete(socket.id);
 
+    // Clear character claim for duplicate detection
+    socket.characterId = undefined;
+
     // Clean up any socket-specific resources
     if (socket.player) {
       // Emit typed player left event

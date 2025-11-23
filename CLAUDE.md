@@ -1,361 +1,344 @@
-# CLAUDE.md - Cursor Rules Documentation
+# CLAUDE.md
 
-This document provides a comprehensive overview of all Cursor rules and their locations within the Hyperscape project. These rules guide development practices, coding standards, and project architecture.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 📁 Directory Structure
+## Project Overview
 
-```
-/Users/home/dev/hyperscape/
-├── .cursor/
-│   ├── rules/                    # Cursor Rules (TO BE CREATED)
-│   ├── workflows/                # Development Workflows (TO BE CREATED)
-│   └── memory/                   # Memory Bank (TO BE CREATED)
-├── adr/                         # Architectural Decision Records (TO BE CREATED)
-└── CLAUDE.md                    # This file
-```
+Hyperscape is an AI-powered RuneScape-style MMORPG built on a custom 3D multiplayer engine. The project combines a real-time 3D metaverse engine (Hyperscape) with ElizaOS AI agents, allowing both humans and AI to play together in a persistent world.
 
-## 🎯 Required Cursor Rules Directory Structure
+## Essential Commands
 
-### `.cursor/rules/` - Development Rules
+### Development Workflow
+```bash
+# Install dependencies
+bun install
 
-The following rule files should be created in `.cursor/rules/`:
+# Build all packages (required before first run)
+bun run build
 
-#### 1. **coding-standards.mdc**
-```markdown
----
-alwaysApply: true
-globs: *.ts,*.tsx,*.js,*.jsx
----
-# TypeScript Strong Typing Rules
+# Development mode with hot reload
+bun run dev
 
-## Core Principles
-- NO `any` or `unknown` types
-- Prefer classes over interfaces for type definitions
-- Share types across modules from types/core.ts
-- Avoid property checks on polymorphic objects
-- Make strong type assumptions based on context
+# Start game server (production mode)
+bun start               # or: cd packages/server && bun run start
 
-## Required Patterns
-- Use non-null assertions: `value!`
-- Define return types explicitly on public methods
-- Use discriminated unions for variant types
-- Import types with `import type { TypeName }`
+# Run all tests
+npm test
 
-## Forbidden Patterns
-- `as any` - NEVER use this
-- Property existence checks like `'property' in object`
-- Optional chaining for type narrowing
+# Lint codebase
+npm run lint
+
+# Clean build artifacts
+npm run clean
 ```
 
-#### 2. **architecture-patterns.mdc**
-```markdown
----
-alwaysApply: true
-description: Hyperscape architecture and development patterns
----
-# Hyperscape Architecture Patterns
+### Package-Specific Commands
+```bash
+# Build individual packages
+bun run build:shared    # Core engine (must build first)
+bun run build:client    # Web client
+bun run build:server    # Game server
 
-## Tech Stack
-- Hyperscape (packages/hypefy) - 3D multiplayer game engine
-- ElizaOS - AI agent framework with plugin-hyperscape
-- Three.js - 3D graphics library
-- Playwright - Browser automation for testing
-- SQLite - Persistence layer
-
-## Core Principles
-- Always make features self-contained and modular
-- Build toward the general case, not specific examples
-- Separate data from logic - no hardcoded data
-- Use existing Hyperscape systems instead of new abstractions
-- Keep RPG isolated from Hyperscape core as standalone .hyp app
-
-## File Organization
-- Define types in types.ts files
-- Use existing types before creating new ones
-- Make packages self-contained with workspace imports
-- Avoid circular dependencies
+# Development mode for specific packages
+bun run dev:shared      # Shared package with watch mode
+bun run dev:client      # Client with Vite HMR
+bun run dev:server      # Server with auto-restart
 ```
 
-#### 3. **testing-standards.mdc**
-```markdown
----
-alwaysApply: true
-description: Testing methodologies and requirements
----
-# Real Testing Standards
+### Testing
+```bash
+# Run all tests (uses Playwright for real gameplay testing)
+npm test
 
-## Core Principles
-- NO mocks, spies, or test framework abstractions
-- Build mini-worlds for each feature test
-- Use real Hyperscape instances with Playwright
-- Test multimodal verification (data + visual)
+# Run tests for specific package
+npm test --workspace=packages/server
 
-## Testing Methods
-1. **Three.js Testing** - Check scene hierarchy and positions
-2. **Visual Testing** - Screenshot analysis with colored cube proxies
-3. **System Integration** - ECS systems and data introspection
-4. **LLM Verification** - GPT-4o for image analysis when needed
+# Tests MUST use real Hyperscape instances - NO MOCKS ALLOWED
+# Visual testing with screenshots and Three.js scene introspection
+```
 
-## Visual Testing Proxies
+### Mobile Development
+```bash
+# iOS
+npm run ios             # Build, sync, and open Xcode
+npm run ios:dev         # Sync and open without rebuild
+npm run ios:build       # Production build
+
+# Android
+npm run android         # Build, sync, and open Android Studio
+npm run android:dev     # Sync and open without rebuild
+npm run android:build   # Production build
+
+# Capacitor sync (copy web build to native projects)
+npm run cap:sync        # Sync both platforms
+npm run cap:sync:ios    # iOS only
+npm run cap:sync:android # Android only
+```
+
+### Documentation
+```bash
+# Generate API documentation (TypeDoc)
+npm run docs:generate
+
+# Start docs dev server (http://localhost:3000)
+npm run docs:dev
+
+# Build production docs
+npm run docs:build
+```
+
+## Architecture Overview
+
+### Monorepo Structure
+
+This is a **Turbo monorepo** with 7 packages:
+
+```
+packages/
+├── shared/              # Core Hyperscape 3D engine
+│   ├── Entity Component System (ECS)
+│   ├── Three.js + PhysX integration
+│   ├── Real-time multiplayer networking
+│   └── React UI components
+├── server/              # Game server (Fastify + WebSockets)
+│   ├── World management
+│   ├── SQLite/PostgreSQL persistence
+│   └── LiveKit voice chat integration
+├── client/              # Web client (Vite + React)
+│   ├── 3D rendering
+│   ├── Player controls
+│   └── UI/HUD
+├── plugin-hyperscape/   # ElizaOS AI agent plugin
+│   ├── AI agent actions (combat, skills, movement)
+│   └── ElizaOS providers for world state
+├── physx-js-webidl/     # PhysX WASM bindings
+├── asset-forge/         # AI asset generation (GPT-4, MeshyAI)
+└── docs-site/           # Docusaurus documentation site
+```
+
+### Build Dependency Graph
+
+**Critical**: Packages must build in this order due to dependencies:
+
+1. **physx-js-webidl** - PhysX WASM (takes longest, ~5-10 min first time)
+2. **shared** - Depends on physx-js-webidl
+3. **All other packages** - Depend on shared
+
+The `turbo.json` configuration handles this automatically via `dependsOn: ["^build"]`.
+
+### Entity Component System (ECS)
+
+The RPG is built using Hyperscape's ECS architecture:
+
+- **Entities**: Game objects (players, mobs, items, trees)
+- **Components**: Data containers (position, health, inventory)
+- **Systems**: Logic processors (combat, skills, movement)
+
+All game logic runs through systems, not entity methods. Entities are just data containers.
+
+### RPG Implementation Architecture
+
+**Important**: Despite references to "Hyperscape apps (.hyp)" in development rules, `.hyp` files **do not currently exist**. This is an aspirational architecture pattern for future development.
+
+**Current Implementation**:
+The RPG is built directly into [packages/shared/src/](packages/shared/src/) using:
+- **Entity Classes**: [PlayerEntity.ts](packages/shared/src/entities/player/PlayerEntity.ts), [MobEntity.ts](packages/shared/src/entities/npc/MobEntity.ts), [ItemEntity.ts](packages/shared/src/entities/world/ItemEntity.ts)
+- **ECS Systems**: Combat, inventory, skills, AI in [src/systems/](packages/shared/src/systems/)
+- **Components**: Data containers for stats, health, equipment, etc.
+
+**Design Principle** (from development rules):
+- Keep RPG game logic **conceptually isolated** from core Hyperscape engine
+- Use existing Hyperscape abstractions (ECS, networking, physics)
+- Don't reinvent systems that Hyperscape already provides
+- Separation of concerns: core engine vs. game content
+
+## Critical Development Rules
+
+### TypeScript Strong Typing
+
+**NO `any` types are allowed** - ESLint will reject them.
+
+- **Prefer classes over interfaces** for type definitions
+- Use type assertions when you know the type: `entity as Player`
+- Share types from `types.ts` files - don't recreate them
+- Use `import type` for type-only imports
+- Make strong type assumptions based on context (don't over-validate)
+
+```typescript
+// ❌ FORBIDDEN
+const player: any = getEntity(id);
+if ('health' in player) { ... }
+
+// ✅ CORRECT
+const player = getEntity(id) as Player;
+player.health -= damage;
+```
+
+### File Management
+
+**Don't create new files unless absolutely necessary.**
+
+- Revise existing files instead of creating `_v2.ts` variants
+- Delete old files when replacing them
+- Update all imports when moving code
+- Clean up test files immediately after use
+- Don't create temporary `check-*.ts`, `test-*.mjs`, `fix-*.js` files
+
+### Testing Philosophy
+
+**NO MOCKS** - Use real Hyperscape instances with Playwright.
+
+Every feature MUST have tests that:
+1. Start a real Hyperscape server
+2. Open a real browser with Playwright
+3. Execute actual gameplay actions
+4. Verify with screenshots + Three.js scene queries
+5. Save error logs to `/logs/` folder
+
+Visual testing uses colored cube proxies:
 - 🔴 Players
-- 🟢 Goblins  
+- 🟢 Goblins
 - 🔵 Items
 - 🟡 Trees
 - 🟣 Banks
-- 🟨 Stores
 
-## Requirements
-- Every feature MUST have tests
-- All tests MUST pass before moving on
-- Use real gameplay, real objects, real data
-- Save error logs to /logs folder
+### Production Code Only
+
+- No TODOs or "will fill this out later" - implement completely
+- No hardcoded data - use JSON files and general systems
+- No shortcuts or workarounds - fix root causes
+- Build toward the general case (many items, players, mobs)
+
+### Separation of Concerns
+
+- **Data vs Logic**: Never hardcode data into logic files
+- **RPG vs Engine**: Keep RPG isolated from Hyperscape core
+- **Types**: Define in `types.ts`, import everywhere
+- **Systems**: Use existing Hyperscape systems before creating new ones
+
+## Working with the Codebase
+
+### Understanding Hyperscape Systems
+
+Before creating new abstractions, research existing Hyperscape systems:
+
+1. Check [packages/shared/src/systems/](packages/shared/src/systems/)
+2. Look for similar patterns in existing code
+3. Use Hyperscape's built-in features (ECS, networking, physics)
+4. Read entity/component definitions in `types/` folders
+
+### Common Patterns
+
+**Getting Systems:**
+```typescript
+const combatSystem = world.getSystem('combat') as CombatSystem;
 ```
 
-#### 4. **development-workflow.mdc**
-```markdown
----
-alwaysApply: true
-description: Development workflow and file management
----
-# Development Workflow Rules
-
-## File Management
-- NEVER create new files unless absolutely necessary
-- Revise existing files instead of creating _v2.ts
-- Delete old files completely when replacing
-- Update all imports in dependent files
-- Clean up orphaned files immediately
-
-## Code Quality
-- Write production code only - no examples or shortcuts
-- Implement complete functionality, no TODOs
-- Don't work around problems - fix root causes
-- Research Hyperscape systems before creating new ones
-
-## Environment Setup
-- Use environment variables in .env with dotenv
-- Keep Hyperscape isolated from RPG code
-- Make each package self-contained and modular
-- Use workspace imports for package communication
+**Entity Queries:**
+```typescript
+const players = world.getEntitiesByType('Player');
 ```
 
-#### 5. **security-protocols.mdc**
-```markdown
----
-alwaysApply: true
-description: Security requirements and practices
----
-# Security Protocols
-
-## API Keys and Credentials
-- Store API keys in root .env file
-- Use dotenv package for environment variable access
-- Never hardcode credentials in source code
-- Document all required API keys and credentials
-
-## Data Protection
-- All authentication handled by Privy (industry-standard)
-- JWT tokens for secure session management
-- No passwords stored on Hyperscape servers
-- Automatic session refresh and token rotation
-
-## Web3 Security
-- Maintain flexibility for both Web3 and traditional auth
-- Implement proper wallet connection strategies
-- Support blockchain interactions securely
-- Ensure proper transaction handling
+**Event Handling:**
+```typescript
+world.on('inventory:add', (event: InventoryAddEvent) => {
+  // Handle event - assume properties exist
+});
 ```
 
-#### 6. **performance-guidelines.mdc**
-```markdown
----
-globs: *.ts,*.tsx
-description: Performance optimization standards
----
-# Performance Guidelines
+### Development Server
 
-## Hyperscape Optimization
-- Use Hyperscape abstractions where possible
-- Minimize test-specific code and objects
-- Optimize for 50-100 concurrent players
-- Monitor memory usage (4GB+ recommended)
+The dev server provides:
+- Hot module replacement (HMR) for client
+- Auto-rebuild and restart for server
+- Watch mode for shared package
+- Colored logs for debugging
 
-## Three.js Best Practices
-- Leverage Hyperscape's 3D abstractions
-- Use existing scene hierarchy patterns
-- Optimize rendering for multiplayer scenarios
-- Implement proper cleanup on unmount
+Access points:
+- Client: `http://localhost:3333` (Vite dev server)
+- Server WebSocket: `ws://localhost:5555/ws`
+- Game: Open browser to `http://localhost:5555`
 
-## Database Performance
-- SQLite handles thousands of players efficiently
-- Use proper indexing for player data
-- Optimize queries for real-time updates
+### Environment Variables
+
+Store in `.env` at project root using dotenv:
+
+```bash
+# Database
+DATABASE_URL=postgresql://...
+
+# Authentication
+PRIVY_APP_ID=...
+PRIVY_APP_SECRET=...
+
+# LiveKit (optional)
+LIVEKIT_API_KEY=...
+LIVEKIT_API_SECRET=...
+LIVEKIT_URL=...
+
+# AI Generation (optional)
+OPENAI_API_KEY=...
+MESHY_API_KEY=...
 ```
 
-#### 7. **api-standards.mdc**
-```markdown
----
-description: API versioning and documentation standards
----
-# API Standards
+## Package Manager
 
-## REST API Endpoints
-- GET /api/state - Available state queries
-- GET /api/state/player-stats?playerId=123 - Player information
-- POST /api/actions/attack - Execute player actions
-- GET /api/actions/available?playerId=123 - Available actions
+This project uses **Bun** (v1.1.38+) as the package manager and runtime.
 
-## Documentation Requirements
-- Document all API endpoints thoroughly
-- Include request/response examples
-- Specify required parameters and authentication
-- Maintain API versioning for breaking changes
+- Install: `bun install` (NOT `npm install`)
+- Run scripts: `bun run <script>` or `bun <file>`
+- Some commands use `npm` prefix for Turbo workspace filtering
 
-## Error Handling
-- Implement comprehensive error handling
-- Provide meaningful error messages
-- Log errors to /logs folder for debugging
-- Handle edge cases gracefully
+## Tech Stack
+
+- **Runtime**: Bun v1.1.38+
+- **Engine**: Three.js 0.180.0, PhysX (WASM)
+- **UI**: React 19.2.0, styled-components
+- **Server**: Fastify, WebSockets, LiveKit
+- **Database**: SQLite (local), PostgreSQL (production via Neon)
+- **Testing**: Playwright, Vitest
+- **Build**: Turbo, esbuild, Vite
+- **AI Agents**: ElizaOS
+- **Mobile**: Capacitor
+
+## Troubleshooting
+
+### Build Issues
+
+```bash
+# Clean everything and rebuild
+npm run clean
+rm -rf node_modules packages/*/node_modules
+bun install
+bun run build
 ```
 
-#### 8. **compliance-checklist.mdc**
-```markdown
----
-alwaysApply: true
-description: Security and compliance checklist
----
-# Compliance Checklist
+### PhysX Build Fails
 
-## Pre-Deployment Checklist
-- [ ] All tests pass (no failing tests allowed)
-- [ ] No `any` types in production code
-- [ ] All features have comprehensive tests
-- [ ] Error logs are properly handled
-- [ ] API keys are in environment variables
-- [ ] No hardcoded data in source code
-- [ ] File dependencies are updated
-- [ ] Documentation is current
-
-## Code Review Requirements
-- [ ] TypeScript strict typing enforced
-- [ ] Real tests implemented (no mocks)
-- [ ] Performance impact assessed
-- [ ] Security implications reviewed
-- [ ] Backward compatibility maintained
+PhysX is pre-built and committed. If it needs rebuilding:
+```bash
+cd packages/physx-js-webidl
+./make.sh  # Requires emscripten toolchain
 ```
 
-### `.cursor/workflows/` - Development Workflows
+### Port Conflicts
 
-#### 1. **project-initialization.md**
-- Project setup process
-- Environment configuration
-- Dependency installation
-- Initial testing verification
+```bash
+# Kill processes on ports 3333 and 5555
+lsof -ti:3333 | xargs kill -9
+lsof -ti:5555 | xargs kill -9
+```
 
-#### 2. **feature-development.md**
-- Feature implementation flow
-- Testing requirements
-- Code review process
-- Deployment procedures
+### Tests Failing
 
-#### 3. **testing-workflow.md**
-- Test execution procedures
-- Visual testing setup
-- Error log collection
-- Test result validation
+- Ensure server is not running before tests
+- Check `/logs/` folder for error details
+- Tests spawn their own Hyperscape instances
+- Visual tests require headless browser support
 
-#### 4. **deployment-process.md**
-- Production deployment steps
-- Environment variable setup
-- Database migration procedures
-- Performance monitoring
+## Additional Resources
 
-### `.cursor/memory/` - Memory Bank
-
-#### 1. **activeContext.md**
-- Current session state and objectives
-- Active blockers and issues
-- Recent decisions and rationale
-
-#### 2. **productContext.md**
-- Project scope and components
-- Architecture decisions
-- Technology stack details
-
-#### 3. **progress.md**
-- Work status and completed tasks
-- Next steps and priorities
-- Timeline and milestones
-
-#### 4. **decisionLog.md**
-- Technical decisions and alternatives
-- Architecture choices and rationale
-- Trade-offs and considerations
-
-## 🚀 Current Workspace Rules (Already Applied)
-
-The following rules are currently active in the workspace:
-
-### Always Applied Rules
-1. **Development Guidelines** - Real code only, no mocks, comprehensive testing
-2. **Tech Stack Rules** - Hyperscape, ElizaOS, Three.js, Playwright, SQLite
-3. **TypeScript Strong Typing** - No `any` types, prefer classes over interfaces
-4. **File Management** - No new files unless necessary, clean up after yourself
-5. **Testing Standards** - Real gameplay testing with Playwright and visual verification
-
-### Agent Requestable Rules
-1. **elizaos** - ElizaOS AI agent integration into Hyperscape
-2. **hyperscape-docs** - Hyperscape docs and Three.js engine references
-3. **lore** - Game lore, world generation, and region information
-4. **models** - LLM model usage (OpenAI, Anthropic, MeshyAI)
-5. **no-any-quick-reference** - Quick reference for avoiding `any` and `unknown`
-
-## 📋 Implementation Status
-
-### ✅ Completed
-- [x] Workspace-level rules defined and active
-- [x] Agent requestable rules configured
-- [x] Development guidelines established
-- [x] Testing standards defined
-
-### 🚧 To Be Implemented
-- [ ] Create `.cursor/rules/` directory structure
-- [ ] Generate all 8 required rule files (.mdc format)
-- [ ] Create `.cursor/workflows/` directory and workflow files
-- [ ] Create `.cursor/memory/` directory and memory bank files
-- [ ] Create `adr/` directory for architectural decision records
-
-## 🎯 Next Steps
-
-1. **Create Directory Structure**
-   ```bash
-   mkdir -p .cursor/{rules,workflows,memory}
-   mkdir -p adr
-   ```
-
-2. **Generate Rule Files**
-   - Create all 8 `.mdc` rule files in `.cursor/rules/`
-   - Ensure proper frontmatter metadata
-   - Include comprehensive rule content
-
-3. **Setup Workflows**
-   - Create workflow templates in `.cursor/workflows/`
-   - Define development process flows
-   - Document deployment procedures
-
-4. **Initialize Memory Bank**
-   - Create memory bank files in `.cursor/memory/`
-   - Document current project state
-   - Track decisions and progress
-
-## 📚 Related Documentation
-
-- [README.md](README.md) - Main project documentation
-- [LORE.md](LORE.md) - Game world and lore information
-- [packages/hyperscape/README.md](packages/hyperscape/README.md) - Engine documentation
-- [packages/plugin-hyperscape/README.md](packages/plugin-hyperscape/README.md) - AI agent integration
-- [eslint.config.js](eslint.config.js) - Code quality configuration
-
----
-
-**Note**: This document serves as a blueprint for implementing comprehensive Cursor rules. The actual rule files should be created in the specified directories with the `.mdc` extension and proper frontmatter metadata as shown in the examples above.
+- [README.md](README.md) - Full project documentation
+- [.cursor/rules/](.cursor/rules/) - Detailed development rules
+- [packages/shared/](packages/shared/) - Core engine source
+- Game Design Document: See `.cursor/rules/gdd.mdc`

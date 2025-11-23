@@ -122,13 +122,6 @@ export class Socket {
 
     if (result && result.length === 2) {
       const [method, data] = result;
-
-      if (
-        method === "onChatAdded" ||
-        method === "onCharacterListRequest" ||
-        method === "onCharacterCreate"
-      ) {
-      }
       this.network.enqueue(this, method, data);
     } else {
       console.error(
