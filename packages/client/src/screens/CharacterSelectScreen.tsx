@@ -252,6 +252,12 @@ export function CharacterSelectScreen({
   const { user, ready, authenticated } = usePrivy();
   const { createWallet } = useCreateWallet();
 
+  // Refs for message handler state (prevents stale closures)
+  const characterTypeRef = React.useRef(characterType);
+  const selectedAvatarIndexRef = React.useRef(selectedAvatarIndex);
+  const selectedTemplateRef = React.useRef(selectedTemplate);
+  const userRef = React.useRef(user);
+
   // Check if ElizaOS is available with Hyperscape plugin
   React.useEffect(() => {
     const checkElizaOS = async () => {
@@ -283,6 +289,14 @@ export function CharacterSelectScreen({
 
     checkElizaOS();
   }, []);
+
+  // Sync refs with current state (allows message handlers to access latest values)
+  React.useEffect(() => {
+    characterTypeRef.current = characterType;
+    selectedAvatarIndexRef.current = selectedAvatarIndex;
+    selectedTemplateRef.current = selectedTemplate;
+    userRef.current = user;
+  }, [characterType, selectedAvatarIndex, selectedTemplate, user]);
 
   // Auto-open create form if in createAgent mode
   React.useEffect(() => {
@@ -334,50 +348,49 @@ export function CharacterSelectScreen({
     type: "create";
     name: string;
   }>(null);
-  const [authDeps, setAuthDeps] = React.useState<{
-    token: string;
-    privyUserId: string;
-  }>({
-    token: localStorage.getItem("privy_auth_token") || "",
-    privyUserId: localStorage.getItem("privy_user_id") || "",
-  });
+  // Use primitive states instead of object to prevent unnecessary re-renders
+  const [authToken, setAuthToken] = React.useState(
+    localStorage.getItem("privy_auth_token") || "",
+  );
+  const [privyUserId, setPrivyUserId] = React.useState(
+    localStorage.getItem("privy_user_id") || "",
+  );
 
   // Watch for Privy auth being written to localStorage before opening WS
   React.useEffect(() => {
     const onStorage = (e: Event) => {
       const storageEvent = e as { key?: string | null };
       if (!storageEvent.key) return;
-      if (
-        storageEvent.key === "privy_auth_token" ||
-        storageEvent.key === "privy_user_id"
-      ) {
+      if (storageEvent.key === "privy_auth_token") {
         const token = localStorage.getItem("privy_auth_token") || "";
-        const privyUserId = localStorage.getItem("privy_user_id") || "";
-        setAuthDeps({ token, privyUserId });
+        if (token !== authToken) setAuthToken(token);
+      }
+      if (storageEvent.key === "privy_user_id") {
+        const userId = localStorage.getItem("privy_user_id") || "";
+        if (userId !== privyUserId) setPrivyUserId(userId);
       }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  }, [authToken, privyUserId]);
 
   React.useEffect(() => {
-    if (authDeps.token && authDeps.privyUserId) return;
+    if (authToken && privyUserId) return;
     let attempts = 0;
     const id = window.setInterval(() => {
       const token = localStorage.getItem("privy_auth_token") || "";
-      const privyUserId = localStorage.getItem("privy_user_id") || "";
-      if (token && privyUserId) {
-        // Only update if values actually changed
-        if (token !== authDeps.token || privyUserId !== authDeps.privyUserId) {
-          setAuthDeps({ token, privyUserId });
-        }
+      const userId = localStorage.getItem("privy_user_id") || "";
+      if (token && userId) {
+        // Only update if different (prevents unnecessary re-renders)
+        if (token !== authToken) setAuthToken(token);
+        if (userId !== privyUserId) setPrivyUserId(userId);
         window.clearInterval(id);
       } else if (++attempts > 50) {
         window.clearInterval(id);
       }
     }, 200);
     return () => window.clearInterval(id);
-  }, [authDeps.token, authDeps.privyUserId]);
+  }, [authToken, privyUserId]);
 
   // Debug logging for state changes
   React.useEffect(() => {}, [wsReady, showCreate, characters]);
@@ -394,7 +407,8 @@ export function CharacterSelectScreen({
 
     // CRITICAL: Verify Privy user object exists before attempting connection
     // This prevents race conditions where `authenticated=true` but user data isn't loaded yet
-    if (!user || !user.id) {
+    const currentUser = userRef.current;
+    if (!currentUser || !currentUser.id) {
       console.log(
         "[CharacterSelect] ⏳ Waiting for Privy user data to load...",
       );
@@ -403,9 +417,7 @@ export function CharacterSelectScreen({
     }
 
     // Wait until Privy auth values are present in localStorage
-    const token = authDeps.token;
-    const privyUserId = authDeps.privyUserId;
-    if (!token || !privyUserId) {
+    if (!authToken || !privyUserId) {
       console.log(
         "[CharacterSelect] ⏳ Waiting for localStorage auth tokens...",
       );
@@ -415,24 +427,25 @@ export function CharacterSelectScreen({
 
     // Extra validation: ensure localStorage privyUserId matches Privy hook user.id
     // This catches cases where stale tokens are in localStorage
-    if (user.id !== privyUserId) {
+    if (currentUser.id !== privyUserId) {
       console.warn(
-        `[CharacterSelect] ⚠️ Privy user ID mismatch! Hook: ${user.id}, localStorage: ${privyUserId}`,
+        `[CharacterSelect] ⚠️ Privy user ID mismatch! Hook: ${currentUser.id}, localStorage: ${privyUserId}`,
       );
       console.log("[CharacterSelect] 🔄 Clearing stale auth tokens...");
       localStorage.removeItem("privy_auth_token");
       localStorage.removeItem("privy_user_id");
-      setAuthDeps({ token: "", privyUserId: "" });
+      setAuthToken("");
+      setPrivyUserId("");
       setWsReady(false);
       return;
     }
 
     console.log(
       "[CharacterSelect] ✅ Privy ready and authenticated, connecting...",
-      { userId: user.id, privyUserId },
+      { userId: currentUser.id, privyUserId },
     );
 
-    let url = `${wsUrl}?authToken=${encodeURIComponent(token)}`;
+    let url = `${wsUrl}?authToken=${encodeURIComponent(authToken)}`;
     if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
 
     console.log("[CharacterSelect] 🔌 Creating WebSocket connection to:", url);
@@ -443,7 +456,7 @@ export function CharacterSelectScreen({
     ws.addEventListener("open", () => {
       console.log(
         "[CharacterSelect] ✅ WebSocket opened with authenticated user:",
-        user.id,
+        currentUser.id,
       );
       setWsReady(true);
       // Request character list from server
@@ -486,9 +499,15 @@ export function CharacterSelectScreen({
           return newList;
         });
 
+        // Read current values from refs (prevents stale closures)
+        const currentCharacterType = characterTypeRef.current;
+        const currentUser = userRef.current;
+        const currentSelectedTemplate = selectedTemplateRef.current;
+        const currentSelectedAvatarIndex = selectedAvatarIndexRef.current;
+
         // AGENT FLOW: Generate JWT, create ElizaOS agent, redirect to character editor
         // HUMAN FLOW: Show "Enter World" confirmation screen
-        if (characterType === "agent") {
+        if (currentCharacterType === "agent") {
           console.log(
             "[CharacterSelect] 🤖 Agent character created, generating JWT and creating ElizaOS agent...",
           );
@@ -497,7 +516,7 @@ export function CharacterSelectScreen({
           const createAgentAndRedirect = async () => {
             try {
               // Use user.id from Privy hook instead of localStorage to ensure correct Privy DID
-              const accountId = user?.id;
+              const accountId = currentUser?.id;
               if (!accountId) {
                 throw new Error("No account ID found - user not authenticated");
               }
@@ -526,20 +545,22 @@ export function CharacterSelectScreen({
               console.log("[CharacterSelect] ✅ JWT generated successfully");
 
               // Step 2: Get template config and create ElizaOS agent
-              if (!selectedTemplate) {
+              if (!currentSelectedTemplate) {
                 throw new Error("No character template selected");
               }
 
               console.log(
-                `[CharacterSelect] 📥 Using template: ${selectedTemplate.name}`,
+                `[CharacterSelect] 📥 Using template: ${currentSelectedTemplate.name}`,
               );
 
               // Parse template config from database (stored as JSON string)
               // This avoids a separate fetch - config is already in the templates response
-              let templateJson;
-              if (selectedTemplate.templateConfig) {
+              let templateJson: Record<string, unknown>;
+              if (currentSelectedTemplate.templateConfig) {
                 try {
-                  templateJson = JSON.parse(selectedTemplate.templateConfig);
+                  templateJson = JSON.parse(
+                    currentSelectedTemplate.templateConfig,
+                  );
                   console.log(
                     "[CharacterSelect] ✅ Template config parsed from database",
                   );
@@ -556,7 +577,7 @@ export function CharacterSelectScreen({
                   "[CharacterSelect] ⚠️ No templateConfig in database, fetching from URL...",
                 );
                 const templateResponse = await fetch(
-                  selectedTemplate.templateUrl,
+                  currentSelectedTemplate.templateUrl,
                 );
                 if (!templateResponse.ok) {
                   throw new Error(
@@ -567,10 +588,20 @@ export function CharacterSelectScreen({
                 console.log("[CharacterSelect] ✅ Template fetched from URL");
               }
 
+              // Remove fields that ElizaOS validation doesn't accept
+              // Migration 0006 has 'modelProvider' but ElizaOS schema rejects it
+              delete templateJson.modelProvider;
+
               // Merge template with character-specific data
               // Handle case where templateJson.settings might not exist
-              const baseSettings = templateJson.settings || {};
-              const baseSecrets = baseSettings.secrets || {};
+              const baseSettings = (templateJson.settings || {}) as Record<
+                string,
+                unknown
+              >;
+              const baseSecrets = (baseSettings.secrets || {}) as Record<
+                string,
+                unknown
+              >;
 
               const characterTemplate = {
                 ...templateJson,
@@ -580,7 +611,7 @@ export function CharacterSelectScreen({
                   ...baseSettings,
                   accountId,
                   characterType: "ai-agent",
-                  avatar: AVATAR_OPTIONS[selectedAvatarIndex]?.url || "",
+                  avatar: AVATAR_OPTIONS[currentSelectedAvatarIndex]?.url || "",
                   secrets: {
                     ...baseSecrets,
                     HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
@@ -593,7 +624,7 @@ export function CharacterSelectScreen({
               };
 
               console.log(
-                `[CharacterSelect] 🤖 Creating ${selectedTemplate.name} agent with character-specific data...`,
+                `[CharacterSelect] 🤖 Creating ${currentSelectedTemplate.name} agent with character-specific data...`,
               );
 
               // Create agent in ElizaOS
@@ -746,17 +777,7 @@ export function CharacterSelectScreen({
       ws.close();
       if (preWsRef.current === ws) preWsRef.current = null;
     };
-  }, [
-    wsUrl,
-    authDeps.token,
-    authDeps.privyUserId,
-    ready,
-    authenticated,
-    characterType,
-    user,
-    selectedAvatarIndex,
-    selectedTemplate,
-  ]);
+  }, [wsUrl, authToken, privyUserId, ready, authenticated]);
 
   const selectCharacter = React.useCallback(
     async (id: string) => {
