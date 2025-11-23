@@ -13,9 +13,15 @@ CREATE TABLE IF NOT EXISTS character_templates (
     "createdAt" BIGINT NOT NULL DEFAULT (EXTRACT(epoch FROM now()) * 1000)
 );
 
--- Create unique constraint if it doesn't exist
+-- Create unique constraints if they don't exist (must be before INSERT...ON CONFLICT)
 DO $$
 BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'character_templates_name_unique'
+    ) THEN
+        ALTER TABLE character_templates ADD CONSTRAINT character_templates_name_unique UNIQUE (name);
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'character_templates_templateUrl_unique'
     ) THEN
@@ -263,13 +269,3 @@ ON CONFLICT (name) DO UPDATE SET
     emoji = EXCLUDED.emoji,
     "templateUrl" = EXCLUDED."templateUrl",
     "templateConfig" = EXCLUDED."templateConfig";
-
--- Add unique constraint on name if it doesn't exist
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'character_templates_name_unique'
-    ) THEN
-        ALTER TABLE character_templates ADD CONSTRAINT character_templates_name_unique UNIQUE (name);
-    END IF;
-END $$;
