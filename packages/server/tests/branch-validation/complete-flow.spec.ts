@@ -75,7 +75,7 @@ async function httpRequest(
 
 const PACKET_IDS = {
   snapshot: 0,
-  enterWorld: 51,
+  enterWorld: 56,
   moveRequest: 6,
 };
 
