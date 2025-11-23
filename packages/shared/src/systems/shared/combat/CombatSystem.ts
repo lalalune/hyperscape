@@ -219,15 +219,19 @@ export class CombatSystem extends SystemBase {
     // Calculate damage
     const damage = this.calculateMeleeDamage(attacker, target);
 
+    // Get target's current health to cap damage display at remaining HP
+    const currentHealth = this.getEntityHealth(target);
+    const displayDamage = Math.min(damage, currentHealth);
+
     // Apply damage
     this.applyDamage(targetId, targetType, damage, attackerId);
 
-    // Emit damage splatter event even for 0 damage (blue splatter)
+    // Emit damage splatter event with capped damage (never exceeds remaining HP)
     const targetPosition = target.position || target.getPosition();
     this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
       attackerId,
       targetId,
-      damage,
+      damage: displayDamage,
       targetType,
       position: targetPosition,
     });
@@ -297,15 +301,19 @@ export class CombatSystem extends SystemBase {
     // Calculate damage
     const damage = this.calculateRangedDamage(attacker, target);
 
+    // Get target's current health to cap damage display at remaining HP
+    const currentHealth = this.getEntityHealth(target);
+    const displayDamage = Math.min(damage, currentHealth);
+
     // Apply damage
     this.applyDamage(targetId, targetType, damage, attackerId);
 
-    // Emit damage splatter event even for 0 damage (blue splatter)
+    // Emit damage splatter event with capped damage (never exceeds remaining HP)
     const targetPosition = target.position || target.getPosition();
     this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
       attackerId,
       targetId,
-      damage,
+      damage: displayDamage,
       targetType,
       position: targetPosition,
     });
@@ -1288,6 +1296,10 @@ export class CombatSystem extends SystemBase {
         ? this.calculateRangedDamage(attacker, target)
         : this.calculateMeleeDamage(attacker, target);
 
+    // Get target's current health to cap damage display at remaining HP
+    const currentHealth = this.getEntityHealth(target);
+    const displayDamage = Math.min(damage, currentHealth);
+
     this.applyDamage(targetId, combatState.targetType, damage, attackerId);
 
     // Emit damage splatter event even for 0 damage (blue splatter)
@@ -1295,7 +1307,7 @@ export class CombatSystem extends SystemBase {
     this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
       attackerId,
       targetId,
-      damage,
+      damage: displayDamage, // Capped to remaining HP
       targetType: combatState.targetType,
       position: targetPosition,
     });
@@ -1340,6 +1352,24 @@ export class CombatSystem extends SystemBase {
       return mobEntity.getMobData().name;
     }
     return entity.name || "Enemy";
+  }
+
+  /**
+   * Get current health of an entity
+   * Returns the current HP value to prevent damage overkill display
+   */
+  private getEntityHealth(entity: Entity | MobEntity | null): number {
+    if (!entity) {
+      return 0;
+    }
+
+    // All entities inherit getHealth() from Entity base class
+    try {
+      const health = entity.getHealth();
+      return Math.max(0, health);
+    } catch (err) {
+      return 0;
+    }
   }
 
   /**
