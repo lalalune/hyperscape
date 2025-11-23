@@ -257,6 +257,17 @@ export class MobEntity extends CombatantEntity {
       this.handleRespawn(spawnPoint);
     });
 
+    // Listen for player deaths - disengage if we were targeting them
+    this.world.on(EventType.PLAYER_SET_DEAD, (data: unknown) => {
+      const deathData = data as { playerId: string; isDead: boolean };
+      if (
+        deathData.isDead &&
+        this.config.targetPlayerId === deathData.playerId
+      ) {
+        this.clearTargetAndExitCombat();
+      }
+    });
+
     // CRITICAL: Use RespawnManager for INITIAL spawn too (not just respawn)
     // This ensures the mob spawns at a random location within the spawn area
     // instead of always at the same fixed point
@@ -976,6 +987,16 @@ export class MobEntity extends CombatantEntity {
       return; // Don't run AI when dead
     }
 
+    // Validate target is still alive before running AI (RuneScape-style: instant disengage on target death)
+    if (this.config.targetPlayerId) {
+      const targetPlayer = this.world.getPlayer(this.config.targetPlayerId);
+
+      // Target is dead or gone - immediately disengage
+      if (!targetPlayer || targetPlayer.health.current <= 0) {
+        this.clearTargetAndExitCombat();
+      }
+    }
+
     // Update AI state machine
     this.aiStateMachine.update(this.createAIContext(), deltaTime);
 
@@ -1615,6 +1636,23 @@ export class MobEntity extends CombatantEntity {
     return this.aggroManager.getPlayer(playerId, (id) =>
       this.world.getPlayer(id),
     );
+  }
+
+  /**
+   * Clear current target and exit combat (called when target dies or becomes invalid)
+   * RuneScape-style: Mob immediately disengages and returns to spawn area
+   */
+  private clearTargetAndExitCombat(): void {
+    // Clear target
+    this.config.targetPlayerId = null;
+    this.aggroManager.clearTarget();
+
+    // Exit combat state
+    this.combatManager.exitCombat();
+
+    // Force AI to WANDER (return to spawn behavior)
+    const context = this.createAIContext();
+    this.aiStateMachine.forceState(MobAIState.WANDER, context);
   }
 
   // Map internal AI states to interface expected states (RuneScape-style)
