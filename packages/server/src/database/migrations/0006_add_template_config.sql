@@ -1,16 +1,36 @@
--- Migration: Add templateConfig column to character_templates
--- Description: Store full ElizaOS character configurations in the database
+-- Migration: Add character_templates table and seed with ElizaOS configs
+-- Description: Create character_templates table and populate with character archetypes
 -- Created: 2025-11-22
 
--- Add templateConfig column to store full ElizaOS character JSON
-ALTER TABLE character_templates ADD COLUMN IF NOT EXISTS "templateConfig" text;
+-- Create the character_templates table if it doesn't exist
+CREATE TABLE IF NOT EXISTS character_templates (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    emoji TEXT NOT NULL,
+    "templateUrl" TEXT,
+    "templateConfig" TEXT,
+    "createdAt" BIGINT NOT NULL DEFAULT (EXTRACT(epoch FROM now()) * 1000)
+);
 
--- Seed templates with full ElizaOS character configurations
--- These are base templates that get merged with user-specific data (name, credentials, etc.)
+-- Create unique constraint if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'character_templates_templateUrl_unique'
+    ) THEN
+        ALTER TABLE character_templates ADD CONSTRAINT character_templates_templateUrl_unique UNIQUE ("templateUrl");
+    END IF;
+END $$;
 
--- The Skiller Template
-UPDATE character_templates
-SET "templateConfig" = '{
+-- Insert or update The Skiller template
+INSERT INTO character_templates (name, description, emoji, "templateUrl", "templateConfig")
+VALUES (
+    'The Skiller',
+    'Peaceful artisan focused on gathering and crafting. Masters woodcutting, fishing, cooking, and firemaking.',
+    '🌳',
+    '/api/templates/1/config',
+    '{
   "name": "The Skiller",
   "username": "skiller",
   "modelProvider": "openai",
@@ -56,11 +76,21 @@ SET "templateConfig" = '{
     "behaviorPriorities": ["skill", "gather", "explore"]
   }
 }'
-WHERE name = 'The Skiller';
+)
+ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+    emoji = EXCLUDED.emoji,
+    "templateUrl" = EXCLUDED."templateUrl",
+    "templateConfig" = EXCLUDED."templateConfig";
 
--- PvM Slayer Template
-UPDATE character_templates
-SET "templateConfig" = '{
+-- Insert or update PvM Slayer template
+INSERT INTO character_templates (name, description, emoji, "templateUrl", "templateConfig")
+VALUES (
+    'PvM Slayer',
+    'Fierce warrior dedicated to hunting monsters. Lives for combat and glory.',
+    '⚔️',
+    '/api/templates/2/config',
+    '{
   "name": "PvM Slayer",
   "username": "slayer",
   "modelProvider": "openai",
@@ -106,11 +136,21 @@ SET "templateConfig" = '{
     "behaviorPriorities": ["combat", "hunt", "loot"]
   }
 }'
-WHERE name = 'PvM Slayer';
+)
+ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+    emoji = EXCLUDED.emoji,
+    "templateUrl" = EXCLUDED."templateUrl",
+    "templateConfig" = EXCLUDED."templateConfig";
 
--- Ironman Template
-UPDATE character_templates
-SET "templateConfig" = '{
+-- Insert or update Ironman template
+INSERT INTO character_templates (name, description, emoji, "templateUrl", "templateConfig")
+VALUES (
+    'Ironman',
+    'Self-sufficient adventurer who relies on no one. Everything must be earned.',
+    '🛡️',
+    '/api/templates/3/config',
+    '{
   "name": "Ironman",
   "username": "ironman",
   "modelProvider": "openai",
@@ -157,11 +197,21 @@ SET "templateConfig" = '{
     "tradingEnabled": false
   }
 }'
-WHERE name = 'Ironman';
+)
+ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+    emoji = EXCLUDED.emoji,
+    "templateUrl" = EXCLUDED."templateUrl",
+    "templateConfig" = EXCLUDED."templateConfig";
 
--- Completionist Template
-UPDATE character_templates
-SET "templateConfig" = '{
+-- Insert or update Completionist template
+INSERT INTO character_templates (name, description, emoji, "templateUrl", "templateConfig")
+VALUES (
+    'Completionist',
+    'Obsessive achiever who must complete everything. Tracks every stat and achievement.',
+    '🏆',
+    '/api/templates/4/config',
+    '{
   "name": "Completionist",
   "username": "completionist",
   "modelProvider": "openai",
@@ -207,49 +257,19 @@ SET "templateConfig" = '{
     "behaviorPriorities": ["explore", "achieve", "collect"]
   }
 }'
-WHERE name = 'Completionist';
+)
+ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+    emoji = EXCLUDED.emoji,
+    "templateUrl" = EXCLUDED."templateUrl",
+    "templateConfig" = EXCLUDED."templateConfig";
 
--- If templates don't exist yet, insert them
-INSERT INTO character_templates (name, description, emoji, "templateUrl", "templateConfig")
-SELECT 'The Skiller', 'Peaceful artisan focused on gathering and crafting. Masters woodcutting, fishing, cooking, and firemaking.', '🌳', 'http://localhost:5555/api/templates/1/config', '{
-  "name": "The Skiller",
-  "username": "skiller",
-  "modelProvider": "openai",
-  "bio": ["A peaceful artisan focused on gathering and crafting"],
-  "plugins": ["@hyperscape/plugin-hyperscape"],
-  "settings": {"secrets": {}, "characterType": "ai-agent", "combatStyle": "avoid", "primarySkills": ["woodcutting", "fishing", "cooking", "firemaking"]}
-}'
-WHERE NOT EXISTS (SELECT 1 FROM character_templates WHERE name = 'The Skiller');
-
-INSERT INTO character_templates (name, description, emoji, "templateUrl", "templateConfig")
-SELECT 'PvM Slayer', 'Fierce warrior dedicated to hunting monsters. Lives for combat and glory.', '⚔️', 'http://localhost:5555/api/templates/2/config', '{
-  "name": "PvM Slayer",
-  "username": "slayer",
-  "modelProvider": "openai",
-  "bio": ["A fierce warrior dedicated to hunting monsters"],
-  "plugins": ["@hyperscape/plugin-hyperscape"],
-  "settings": {"secrets": {}, "characterType": "ai-agent", "combatStyle": "aggressive", "primarySkills": ["attack", "strength", "defense"]}
-}'
-WHERE NOT EXISTS (SELECT 1 FROM character_templates WHERE name = 'PvM Slayer');
-
-INSERT INTO character_templates (name, description, emoji, "templateUrl", "templateConfig")
-SELECT 'Ironman', 'Self-sufficient adventurer who relies on no one. Everything must be earned.', '🛡️', 'http://localhost:5555/api/templates/3/config', '{
-  "name": "Ironman",
-  "username": "ironman",
-  "modelProvider": "openai",
-  "bio": ["A self-sufficient adventurer who relies on no one"],
-  "plugins": ["@hyperscape/plugin-hyperscape"],
-  "settings": {"secrets": {}, "characterType": "ai-agent", "tradingEnabled": false}
-}'
-WHERE NOT EXISTS (SELECT 1 FROM character_templates WHERE name = 'Ironman');
-
-INSERT INTO character_templates (name, description, emoji, "templateUrl", "templateConfig")
-SELECT 'Completionist', 'Obsessive achiever who must complete everything. Tracks every stat and achievement.', '🏆', 'http://localhost:5555/api/templates/4/config', '{
-  "name": "Completionist",
-  "username": "completionist",
-  "modelProvider": "openai",
-  "bio": ["An obsessive achiever who must complete everything"],
-  "plugins": ["@hyperscape/plugin-hyperscape"],
-  "settings": {"secrets": {}, "characterType": "ai-agent", "behaviorPriorities": ["explore", "achieve", "collect"]}
-}'
-WHERE NOT EXISTS (SELECT 1 FROM character_templates WHERE name = 'Completionist');
+-- Add unique constraint on name if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'character_templates_name_unique'
+    ) THEN
+        ALTER TABLE character_templates ADD CONSTRAINT character_templates_name_unique UNIQUE (name);
+    END IF;
+END $$;

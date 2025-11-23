@@ -15,8 +15,6 @@
 import type { FastifyInstance } from "fastify";
 import type { World } from "@hyperscape/shared";
 import type { DatabaseSystem } from "../../systems/DatabaseSystem/index.js";
-import { eq } from "drizzle-orm";
-import { characterTemplates } from "../../database/schema.js";
 
 /**
  * Register template management routes
@@ -71,11 +69,8 @@ export function registerTemplateRoutes(
         "[TemplateRoutes] Fetching character templates from database",
       );
 
-      // Fetch all character templates
-      const templates =
-        await databaseSystem.db.query.characterTemplates.findMany({
-          orderBy: (templates, { asc }) => [asc(templates.id)],
-        });
+      // Fetch all character templates via DatabaseSystem
+      const templates = await databaseSystem.getTemplatesAsync();
 
       console.log(
         `[TemplateRoutes] ✅ Found ${templates.length} character templates`,
@@ -139,11 +134,8 @@ export function registerTemplateRoutes(
 
       console.log(`[TemplateRoutes] Fetching template config for ID: ${id}`);
 
-      // Fetch template from database
-      const template =
-        await databaseSystem.db.query.characterTemplates.findFirst({
-          where: eq(characterTemplates.id, id),
-        });
+      // Fetch template from database via DatabaseSystem
+      const template = await databaseSystem.getTemplateByIdAsync(id);
 
       if (!template) {
         console.log(`[TemplateRoutes] ⚠️ Template not found: ${id}`);
@@ -240,11 +232,9 @@ export function registerTemplateRoutes(
         });
       }
 
-      // Fetch template by name from database
+      // Fetch template by name from database via DatabaseSystem
       const template =
-        await databaseSystem.db.query.characterTemplates.findFirst({
-          where: eq(characterTemplates.name, dbTemplateName),
-        });
+        await databaseSystem.getTemplateByNameAsync(dbTemplateName);
 
       if (!template || !template.templateConfig) {
         return reply.status(404).send({

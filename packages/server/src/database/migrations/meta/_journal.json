@@ -48,7 +48,14 @@
       "idx": 6,
       "version": "7",
       "when": 1763827200000,
-      "tag": "0006_update_template_urls",
+      "tag": "0006_add_template_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1763830800000,
+      "tag": "0007_fix_combat_level_default",
       "breakpoints": true
     }
   ]

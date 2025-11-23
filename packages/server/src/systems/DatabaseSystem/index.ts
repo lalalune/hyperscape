@@ -50,6 +50,7 @@ import {
   WorldChunkRepository,
   NPCKillRepository,
   DeathRepository,
+  TemplateRepository,
 } from "../../database/repositories";
 
 /**
@@ -83,6 +84,7 @@ export class DatabaseSystem extends SystemBase {
   private worldChunkRepository!: WorldChunkRepository;
   private npcKillRepository!: NPCKillRepository;
   private deathRepository!: DeathRepository;
+  private templateRepository!: TemplateRepository;
 
   /**
    * Constructor
@@ -131,6 +133,7 @@ export class DatabaseSystem extends SystemBase {
       this.worldChunkRepository = new WorldChunkRepository(this.db, this.pool);
       this.npcKillRepository = new NPCKillRepository(this.db, this.pool);
       this.deathRepository = new DeathRepository(this.db, this.pool);
+      this.templateRepository = new TemplateRepository(this.db, this.pool);
     } else {
       throw new Error(
         "[DatabaseSystem] Drizzle database not provided on world object",
@@ -167,6 +170,8 @@ export class DatabaseSystem extends SystemBase {
     this.sessionRepository.markDestroying();
     this.worldChunkRepository.markDestroying();
     this.npcKillRepository.markDestroying();
+    this.deathRepository.markDestroying();
+    this.templateRepository.markDestroying();
 
     if (this.pendingOperations.size === 0) {
       return;
@@ -338,6 +343,76 @@ export class DatabaseSystem extends SystemBase {
     cooking: { level: number; xp: number };
   } | null> {
     return this.characterRepository.getCharacterSkills(characterId);
+  }
+
+  // ============================================================================
+  // TEMPLATE MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Get all character templates
+   * Delegates to TemplateRepository
+   *
+   * Retrieves all available character templates (archetypes) that players
+   * can choose from when creating new characters.
+   *
+   * @returns Array of all character templates
+   */
+  async getTemplatesAsync(): Promise<
+    Array<{
+      id: number;
+      name: string;
+      description: string;
+      emoji: string;
+      templateUrl: string;
+      templateConfig: string | null;
+      createdAt: number;
+    }>
+  > {
+    return this.templateRepository.getAllTemplates();
+  }
+
+  /**
+   * Get template by ID
+   * Delegates to TemplateRepository
+   *
+   * Retrieves a specific character template by its database ID.
+   *
+   * @param templateId - The template ID to fetch
+   * @returns Template data or null if not found
+   */
+  async getTemplateByIdAsync(templateId: number): Promise<{
+    id: number;
+    name: string;
+    description: string;
+    emoji: string;
+    templateUrl: string;
+    templateConfig: string | null;
+    createdAt: number;
+  } | null> {
+    return this.templateRepository.getTemplateById(templateId);
+  }
+
+  /**
+   * Get template by name
+   * Delegates to TemplateRepository
+   *
+   * Retrieves a character template by its name (e.g., "The Skiller").
+   * Used for legacy filename-based lookups.
+   *
+   * @param templateName - The template name to search for
+   * @returns Template data or null if not found
+   */
+  async getTemplateByNameAsync(templateName: string): Promise<{
+    id: number;
+    name: string;
+    description: string;
+    emoji: string;
+    templateUrl: string;
+    templateConfig: string | null;
+    createdAt: number;
+  } | null> {
+    return this.templateRepository.getTemplateByName(templateName);
   }
 
   // ============================================================================
