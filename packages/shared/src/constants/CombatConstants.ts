@@ -10,7 +10,7 @@ export const COMBAT_CONSTANTS = {
 
   // Attack timing (RuneScape-style speeds)
   ATTACK_COOLDOWN_MS: 2400, // 2.4 seconds - standard weapon attack speed (4 ticks)
-  COMBAT_TIMEOUT_MS: 10000, // 10 seconds without attacks ends combat
+  COMBAT_TIMEOUT_MS: 4800, // 4.8 seconds (8 ticks) - OSRS in-combat timer after last hit
 
   // OSRS Constants
   TICK_DURATION_MS: 600, // 0.6 seconds per game tick

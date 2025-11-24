@@ -1439,13 +1439,14 @@ export class MobEntity extends CombatantEntity {
     // Update base health property for isDead() check
     this.setHealth(0);
 
-    // End combat
-    // CRITICAL FIX FOR ISSUE #275: Don't reset target's emote when mob dies
-    // The target might be mid-attack animation (they just landed the killing blow)
-    const combatSystem = this.world.getSystem("combat") as any;
-    if (combatSystem && typeof combatSystem.forceEndCombat === "function") {
-      combatSystem.forceEndCombat(this.id, { skipTargetEmoteReset: true });
-    }
+    // CRITICAL FIX FOR ISSUE #269: Don't end combat immediately when mob dies
+    // Let combat timeout naturally after 4.8 seconds (8 ticks) to keep health bars visible
+    // This matches RuneScape behavior where combat state persists briefly after death
+    // CombatSystem.handleEntityDied() already removes the dead mob's combat state
+    // The attacker's combat will timeout naturally via the 4.8 second timer
+    //
+    // NOTE: Issue #275 fix (not resetting target's emote) is still preserved because
+    // we're not calling endCombat() at all - the emote will finish naturally
 
     // Play death animation via server emote broadcast
     this.setServerEmote(Emotes.DEATH);
