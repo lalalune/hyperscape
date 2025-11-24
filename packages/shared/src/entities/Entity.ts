@@ -1424,16 +1424,6 @@ export class Entity implements IEntity {
       }
     }
 
-    // Debug logging for players only
-    if (this.type === "player") {
-      console.log(`[Entity.getNetworkData] Player ${this.id}`);
-      console.log(`  this.data keys:`, Object.keys(this.data));
-      console.log(`  dataFields:`, dataFields);
-      console.log(`  inCombat:`, dataFields.inCombat);
-      console.log(`  combatTarget:`, dataFields.combatTarget);
-      console.log(`  emote (e):`, dataFields.e);
-    }
-
     return {
       id: this.id,
       type: this.type,

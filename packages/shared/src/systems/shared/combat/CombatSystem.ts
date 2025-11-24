@@ -744,15 +744,30 @@ export class CombatSystem extends SystemBase {
   ): void {
     if (entityType === "player") {
       const playerEntity = this.world.getPlayer?.(entityId);
-      if (playerEntity && (playerEntity as any).combat) {
-        // Set combat state so client knows we're in combat
-        (playerEntity as any).combat.inCombat = true;
-        (playerEntity as any).combat.combatTarget = targetId;
+      if (playerEntity) {
+        // Set combat property if it exists (legacy support)
+        if ((playerEntity as any).combat) {
+          (playerEntity as any).combat.inCombat = true;
+          (playerEntity as any).combat.combatTarget = targetId;
+        }
 
-        // Also set in data for network sync
+        // ALWAYS set in data for network sync (using abbreviated keys for efficiency)
         if ((playerEntity as any).data) {
-          (playerEntity as any).data.inCombat = true;
-          (playerEntity as any).data.combatTarget = targetId;
+          (playerEntity as any).data.c = true; // c = inCombat
+          (playerEntity as any).data.ct = targetId; // ct = combatTarget
+
+          // CRITICAL FIX FOR ISSUE #269: Send immediate network update when combat starts
+          // This ensures health bar appears immediately, not just when emote changes
+          if (this.world.isServer && this.world.network?.send) {
+            this.world.network.send("entityModified", {
+              id: entityId,
+              c: true, // Combat started
+              ct: targetId, // Combat target
+            });
+            console.log(
+              `[CombatSystem] ✅ Sent immediate c: true for player ${entityId} entering combat`,
+            );
+          }
         }
 
         (playerEntity as any).markNetworkDirty?.();
@@ -769,17 +784,37 @@ export class CombatSystem extends SystemBase {
   ): void {
     if (entityType === "player") {
       const playerEntity = this.world.getPlayer?.(entityId);
-      if (playerEntity && (playerEntity as any).combat) {
-        (playerEntity as any).combat.inCombat = false;
-        (playerEntity as any).combat.combatTarget = null;
+      if (playerEntity) {
+        // Clear combat property if it exists (legacy support)
+        if ((playerEntity as any).combat) {
+          (playerEntity as any).combat.inCombat = false;
+          (playerEntity as any).combat.combatTarget = null;
+        }
 
-        // Also clear in data for network sync
+        // ALWAYS clear in data for network sync (using abbreviated keys)
         if ((playerEntity as any).data) {
-          (playerEntity as any).data.inCombat = false;
-          (playerEntity as any).data.combatTarget = null;
+          (playerEntity as any).data.c = false; // c = inCombat
+          (playerEntity as any).data.ct = null; // ct = combatTarget
+
+          // CRITICAL FIX FOR ISSUE #269: Send immediate network update when combat ends
+          // This ensures health bar disappears 4.8 seconds after last hit (RuneScape pattern)
+          if (this.world.isServer && this.world.network?.send) {
+            this.world.network.send("entityModified", {
+              id: entityId,
+              c: false, // Clear inCombat state when combat truly ends
+              ct: null, // Clear combat target
+            });
+            console.log(
+              `[CombatSystem] ✅ Sent immediate c: false for player ${entityId}`,
+            );
+          }
         }
 
         (playerEntity as any).markNetworkDirty?.();
+      } else {
+        console.warn(
+          `[CombatSystem] Cannot clear combat state - player entity not found`,
+        );
       }
     }
   }
@@ -864,6 +899,8 @@ export class CombatSystem extends SystemBase {
           this.world.network.send("entityModified", {
             id: entityId,
             e: combatEmote,
+            c: true, // Send inCombat state immediately (for health bar display)
+            ct: (playerEntity as any).combat?.combatTarget || null, // Send combat target
           });
         }
 
@@ -899,6 +936,7 @@ export class CombatSystem extends SystemBase {
         // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
 
         // Send immediate network update for emote reset (same as setCombatEmote)
+        // NOTE: Don't send c: false here - combat may still be active, just resetting animation
         if (this.world.isServer && this.world.network?.send) {
           this.world.network.send("entityModified", {
             id: entityId,
@@ -1163,34 +1201,33 @@ export class CombatSystem extends SystemBase {
   }
 
   /**
-   * Handle entity death - end all combat involving this entity
+   * Handle entity death - mark dead entity as non-targetable, let combat timeout naturally
+   * CRITICAL FIX FOR ISSUE #269: RuneScape-style combat timer
+   * In OSRS, combat lasts for 8 ticks (4.8 seconds) after the LAST hit
+   * Don't end combat immediately - let the timer expire naturally so health bars stay visible
    */
   private handleEntityDied(entityId: string, entityType: string): void {
     const typedEntityId = createEntityID(entityId);
 
-    // End combat for this entity
-    // CRITICAL FIX FOR ISSUE #275: Don't reset target's emote when dead entity ends combat
-    // The target is likely the ATTACKER who just landed the killing blow and is mid-animation
-    const combatState = this.combatStates.get(typedEntityId);
-    if (combatState) {
-      this.endCombat({ entityId, skipTargetEmoteReset: true });
-    }
+    // Simply remove the dead entity's combat state - they're no longer in combat
+    // But DON'T call endCombat() for attackers - let their combat timer expire naturally
+    this.combatStates.delete(typedEntityId);
 
-    // CRITICAL: Convert to array first to avoid iterator issues when deleting during iteration
-    // Also end combat for anyone attacking this entity
-    const attackersToEnd: string[] = [];
+    // Find all attackers targeting this dead entity
+    // Their combat will naturally timeout after 4.8 seconds (8 ticks) since they got the last hit
+    // This matches RuneScape behavior where health bars stay visible briefly after combat ends
     for (const [attackerId, state] of this.combatStates) {
       if (String(state.targetId) === entityId) {
-        attackersToEnd.push(String(attackerId));
+        // Mark this combat state as having a dead target
+        // The update loop will let it timeout naturally after COMBAT_TIMEOUT_MS
+        console.log(
+          `[CombatSystem] ${attackerId} was attacking dead entity ${entityId}, combat will timeout naturally in ${COMBAT_CONSTANTS.COMBAT_TIMEOUT_MS}ms`,
+        );
       }
     }
 
-    // Now end combat for all attackers
-    // Skip resetting attacker emotes - they're mid-attack animation (1000ms duration)
-    // The setTimeout from their attack will handle the reset properly
-    for (const attackerId of attackersToEnd) {
-      this.endCombat({ entityId: attackerId, skipAttackerEmoteReset: true });
-    }
+    // Reset dead entity's emote if they were mid-animation
+    this.resetEmote(entityId, entityType as "player" | "mob");
   }
 
   // Public API methods
@@ -1370,9 +1407,12 @@ export class CombatSystem extends SystemBase {
     const attacker = this.getEntity(attackerId, combatState.attackerType);
     const target = this.getEntity(targetId, combatState.targetType);
 
-    // Entity not found (disconnected player, despawned mob, etc.) - end combat
+    // CRITICAL FIX FOR ISSUE #269: RuneScape-style combat timer
+    // If entity not found (dead mob, disconnected player, etc.), DON'T end combat immediately
+    // Let the 4.8 second timeout expire naturally to keep health bars visible
+    // This matches OSRS behavior where health bars stay visible for 8 ticks after combat ends
     if (!attacker || !target) {
-      this.endCombat({ entityId: attackerId });
+      // Skip this auto-attack iteration - combat will end naturally when timer expires
       return;
     }
 
@@ -1382,18 +1422,20 @@ export class CombatSystem extends SystemBase {
       combatState.attackerType,
     );
     if (!attackerAlive) {
-      // CRITICAL FIX FOR ISSUE #275: Don't reset target's emote when dead attacker ends combat
-      // The target might be mid-attack animation (they just killed this attacker with the final blow)
-      this.endCombat({ entityId: attackerId, skipTargetEmoteReset: true });
+      // CRITICAL FIX FOR ISSUE #269: RuneScape-style combat timer
+      // Don't end combat immediately when attacker dies - let the 4.8 second timer expire naturally
+      // This keeps the health bar visible for 4.8 seconds after the last hit (8 ticks in OSRS)
+      // Just skip this auto-attack and let the update loop's timeout mechanism handle ending combat
       return;
     }
 
     // Check if target is still alive
     const targetAlive = this.isEntityAlive(target, combatState.targetType);
     if (!targetAlive) {
-      // CRITICAL FIX FOR ISSUE #275: Don't reset attacker's emote when target dies during attack
-      // The attack animation was just set and has a pending 600ms timeout to reset it properly
-      this.endCombat({ entityId: attackerId, skipAttackerEmoteReset: true });
+      // CRITICAL FIX FOR ISSUE #269: RuneScape-style combat timer
+      // Don't end combat immediately when target dies - let the 4.8 second timer expire naturally
+      // This keeps the health bar visible for 4.8 seconds after the last hit (8 ticks in OSRS)
+      // Just skip this auto-attack and let the update loop's timeout mechanism handle ending combat
       return;
     }
 
