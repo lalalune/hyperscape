@@ -25,15 +25,11 @@ function disablePlayerControls(world: World) {
 
   if (input?.disable) {
     input.disable();
-    console.log("[EmbeddedGameClient] Player controls disabled via disable()");
     return true;
   }
 
   if (input?.setEnabled) {
     input.setEnabled(false);
-    console.log(
-      "[EmbeddedGameClient] Player controls disabled via setEnabled(false)",
-    );
     return true;
   }
 
@@ -47,11 +43,6 @@ function disablePlayerControls(world: World) {
  * Setup spectator camera to follow agent's character
  */
 function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
-  console.log(
-    "[EmbeddedGameClient] Setting up spectator camera for:",
-    config.characterId || config.followEntity,
-  );
-
   // CRITICAL: Disable player input IMMEDIATELY for spectator mode
   // This prevents click-to-move and all other input
   if (config.mode === "spectator") {
@@ -115,11 +106,6 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
       entity.id === targetEntityId || entity.characterId === targetEntityId;
 
     if (isTargetEntity && entity.position) {
-      console.log(
-        "[EmbeddedGameClient] Found target entity, locking camera:",
-        entity.id,
-      );
-
       // Lock camera to this entity's position
       world.emit(EventType.CAMERA_SET_TARGET, {
         target: { position: entity.position },
@@ -140,9 +126,6 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
     // Get entity manager (may not be ready immediately)
     const entityManager = world.getSystem("entity-manager");
     if (!entityManager) {
-      console.log(
-        "[EmbeddedGameClient] Entity manager not ready yet, will wait for ENTITY_SPAWNED event",
-      );
       return;
     }
 
@@ -183,10 +166,6 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
  */
 function applyQualityPresets(world: World, config: EmbeddedViewportConfig) {
   const quality = getQualityPreset();
-  console.log(
-    `[EmbeddedGameClient] Applying ${config.quality || "medium"} quality preset:`,
-    quality,
-  );
 
   // Apply render scale
   const graphics = world.getSystem("graphics") as {
@@ -195,9 +174,6 @@ function applyQualityPresets(world: World, config: EmbeddedViewportConfig) {
 
   if (graphics?.setRenderScale) {
     graphics.setRenderScale(quality.renderScale);
-    console.log(
-      `[EmbeddedGameClient] Render scale set to ${quality.renderScale}`,
-    );
   }
 
   // Note: Other quality settings (shadows, antialiasing, etc.) would be
@@ -223,18 +199,15 @@ export function EmbeddedGameClient() {
       return;
     }
 
-    if (!embeddedConfig.authToken) {
-      setError("No authentication token provided");
+    // Auth token is OPTIONAL for spectator mode
+    // Spectators connect anonymously and receive broadcast entity updates
+    if (!embeddedConfig.authToken && embeddedConfig.mode !== "spectator") {
+      setError(
+        "No authentication token provided (required for non-spectator mode)",
+      );
       console.error("[EmbeddedGameClient] Missing authToken in config");
       return;
     }
-
-    console.log("[EmbeddedGameClient] Initializing embedded viewport:", {
-      agentId: embeddedConfig.agentId,
-      mode: embeddedConfig.mode,
-      quality: embeddedConfig.quality,
-      wsUrl: embeddedConfig.wsUrl,
-    });
 
     setConfig(embeddedConfig);
   }, []);
@@ -263,7 +236,10 @@ export function EmbeddedGameClient() {
           ) : (
             <>
               <h2>🎮 Loading Hyperscape Viewport...</h2>
-              <p>Initializing agent view</p>
+              <p>
+                Initializing{" "}
+                {config?.mode === "spectator" ? "spectator" : "agent"} view
+              </p>
             </>
           )}
         </div>
@@ -271,27 +247,22 @@ export function EmbeddedGameClient() {
     );
   }
 
-  // Build WebSocket URL with auth token
-  const wsUrl = `${config.wsUrl}?authToken=${encodeURIComponent(config.authToken)}`;
+  // Build WebSocket URL for spectator mode
+  // Spectators pass mode=spectator parameter instead of auth token
+  const wsUrl =
+    config.mode === "spectator"
+      ? `${config.wsUrl}?mode=spectator&followEntity=${encodeURIComponent(config.followEntity || config.characterId || "")}&characterId=${encodeURIComponent(config.characterId || "")}`
+      : config.authToken
+        ? `${config.wsUrl}?authToken=${encodeURIComponent(config.authToken)}`
+        : config.wsUrl;
 
   // Setup callback to configure spectator mode
   const handleSetup = (world: World) => {
-    console.log("[EmbeddedGameClient] World setup callback");
-
     // Setup spectator camera
     setupSpectatorCamera(world, config);
 
     // Apply quality presets
     applyQualityPresets(world, config);
-
-    // Note: UI element hiding would be configured here if needed
-    // For now, the embedded viewport uses CSS to hide UI elements via iframe parameters
-    if (config.hiddenUI && config.hiddenUI.length > 0) {
-      console.log(
-        "[EmbeddedGameClient] Requested hidden UI elements:",
-        config.hiddenUI,
-      );
-    }
   };
 
   return (

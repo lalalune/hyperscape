@@ -48,6 +48,7 @@ export interface ServerSocket extends Socket {
   accountId?: string;
   selectedCharacterId?: string;
   characterId?: string; // Track active character immediately for duplicate detection
+  createdAt?: number; // Timestamp when socket was created (for reconnection grace period)
 }
 
 // ============================================================================
@@ -65,6 +66,9 @@ export interface ConnectionParams {
   name?: string;
   avatar?: string;
   privyUserId?: string;
+  mode?: string; // "spectator" for read-only connections
+  followEntity?: string; // Entity ID to follow (for spectator mode)
+  characterId?: string; // Character ID hint
 }
 
 /**

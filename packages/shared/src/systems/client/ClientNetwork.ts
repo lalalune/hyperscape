@@ -466,41 +466,62 @@ export class ClientNetwork extends SystemBase {
       (this.world as { network?: unknown }).network = this;
     }
 
-    // Auto-enter world if in character-select mode and we have a selected character
-    const isCharacterSelectMode =
-      Array.isArray(data.entities) &&
-      data.entities.length === 0 &&
-      Array.isArray((data as { characters?: unknown[] }).characters);
+    // Check if this is a spectator connection (from server snapshot)
+    const isSpectatorMode =
+      (data as { spectatorMode?: boolean }).spectatorMode === true;
+    const followEntityId = (data as { followEntity?: string }).followEntity;
 
-    this.logger.debug("Snapshot received - checking character select mode");
+    if (isSpectatorMode) {
+      this.logger.info(
+        "👁️ Spectator mode detected - skipping character selection and enterWorld",
+      );
+      this.logger.info(
+        `👁️ Spectator snapshot contains ${data.entities?.length || 0} entities`,
+      );
+      // Spectators don't spawn player entities - they just receive broadcasts
+      // Store followEntity for camera setup after entities are loaded
+      if (followEntityId) {
+        this.logger.info(`👁️ Spectator will follow entity: ${followEntityId}`);
+        (this as any).spectatorFollowEntity = followEntityId;
+      }
+      // Continue to entity processing below
+    } else {
+      // Auto-enter world if in character-select mode and we have a selected character
+      const isCharacterSelectMode =
+        Array.isArray(data.entities) &&
+        data.entities.length === 0 &&
+        Array.isArray((data as { characters?: unknown[] }).characters);
 
-    // Handle character selection and world entry
-    if (isCharacterSelectMode) {
-      // Get characterId from embedded config (read at init) OR localStorage
-      const characterId =
-        this.embeddedCharacterId ||
-        (typeof localStorage !== "undefined"
-          ? localStorage.getItem("selectedCharacterId")
-          : null);
+      this.logger.debug("Snapshot received - checking character select mode");
 
-      if (characterId) {
-        this.logger.debug(`Auto-selecting character: ${characterId}`, {
-          isEmbedded: this.isEmbeddedSpectator,
-        } as unknown as Record<string, unknown>);
+      // Handle character selection and world entry (non-spectators only)
+      if (isCharacterSelectMode) {
+        // Get characterId from embedded config (read at init) OR localStorage
+        const characterId =
+          this.embeddedCharacterId ||
+          (typeof localStorage !== "undefined"
+            ? localStorage.getItem("selectedCharacterId")
+            : null);
 
-        // Embedded spectator mode needs characterSelected packet first
-        if (this.isEmbeddedSpectator) {
-          this.send("characterSelected", { characterId });
+        if (characterId) {
+          this.logger.debug(`Auto-selecting character: ${characterId}`, {
+            isEmbedded: this.isEmbeddedSpectator,
+          } as unknown as Record<string, unknown>);
+
+          // Embedded spectator mode needs characterSelected packet first
+          if (this.isEmbeddedSpectator) {
+            this.send("characterSelected", { characterId });
+          }
+
+          // Both modes need enterWorld to spawn the character
+          this.send("enterWorld", { characterId });
+
+          this.logger.debug("Character selection packets sent");
+        } else {
+          this.logger.debug(
+            "No characterId available, skipping auto-enter world",
+          );
         }
-
-        // Both modes need enterWorld to spawn the character
-        this.send("enterWorld", { characterId });
-
-        this.logger.debug("Character selection packets sent");
-      } else {
-        this.logger.debug(
-          "No characterId available, skipping auto-enter world",
-        );
       }
     }
     // Ensure Physics is fully initialized before processing entities
@@ -648,6 +669,62 @@ export class ClientNetwork extends SystemBase {
     ) {
       const list = this.lastCharacterList || [];
       this.world.emit(EventType.CHARACTER_LIST, { characters: list });
+    }
+
+    // Spectator mode: Auto-follow the target entity after entities are loaded
+    const spectatorFollowId = (this as any).spectatorFollowEntity;
+    if (isSpectatorMode && spectatorFollowId) {
+      // Defer camera follow until next tick to ensure entity is fully initialized
+      setTimeout(() => {
+        const targetEntity =
+          this.world.entities.items.get(spectatorFollowId) ||
+          this.world.entities.players.get(spectatorFollowId);
+        if (targetEntity) {
+          this.logger.info(
+            `👁️ Spectator following entity ${spectatorFollowId}`,
+          );
+          // SPECTATOR FIX: Set camera target directly instead of using input.followEntity()
+          // input.followEntity() requires a local player which doesn't exist in spectator mode
+          const camera = this.world.getSystem("camera") as {
+            setTarget?: (target: any) => void;
+          };
+          if (camera?.setTarget) {
+            this.logger.info(
+              `👁️ Setting camera target to entity ${spectatorFollowId}`,
+            );
+            camera.setTarget(targetEntity);
+          } else {
+            this.logger.warn(
+              "👁️ Camera system not found or missing setTarget method",
+            );
+          }
+        } else {
+          this.logger.warn(
+            `👁️ Spectator target entity ${spectatorFollowId} not found yet - will retry`,
+          );
+          // Retry after a longer delay in case the entity hasn't been created yet
+          setTimeout(() => {
+            const retryEntity =
+              this.world.entities.items.get(spectatorFollowId) ||
+              this.world.entities.players.get(spectatorFollowId);
+            if (retryEntity) {
+              this.logger.info(
+                `👁️ Retry: Found spectator target entity ${spectatorFollowId}`,
+              );
+              const camera = this.world.getSystem("camera") as {
+                setTarget?: (target: any) => void;
+              };
+              if (camera?.setTarget) {
+                camera.setTarget(retryEntity);
+              }
+            } else {
+              this.logger.error(
+                `👁️ Failed to find spectator target entity ${spectatorFollowId} after retries`,
+              );
+            }
+          }, 500);
+        }
+      }, 100);
     }
 
     if (data.livekit) {

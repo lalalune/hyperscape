@@ -517,5 +517,165 @@ export function registerAgentRoutes(
     }
   });
 
+  /**
+   * POST /api/agents/:agentId/message
+   *
+   * Send a message to an agent via ElizaOS messaging system.
+   * This properly integrates with ElizaOS's runtime, allowing the agent to
+   * process messages through its personality, providers, and actions.
+   *
+   * Request body:
+   * {
+   *   content: "Move to coordinates [10, 0, 5]",
+   *   userId: "user-id" (optional)
+   * }
+   *
+   * Response:
+   * {
+   *   success: true,
+   *   message: "Message sent to agent"
+   * }
+   */
+  fastify.post("/api/agents/:agentId/message", async (request, reply) => {
+    try {
+      const params = request.params as { agentId: string };
+      const body = request.body as {
+        content: string;
+        userId?: string;
+      };
+
+      const { agentId } = params;
+      const { content, userId = "dashboard-user" } = body;
+
+      if (!agentId) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required parameter: agentId",
+        });
+      }
+
+      if (!content) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required field: content",
+        });
+      }
+
+      console.log(
+        `[AgentRoutes] Sending message to agent ${agentId}:`,
+        content,
+      );
+
+      // Get the agent's character ID from mappings
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              select: (fields?: unknown) => {
+                from: (table: unknown) => {
+                  where: (condition: unknown) => Promise<unknown[]>;
+                };
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        console.error("[AgentRoutes] DatabaseSystem not available");
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Import schema and eq operator
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq } = await import("drizzle-orm");
+
+      // Get agent's mapping to verify it exists
+      const mappings = (await databaseSystem.db
+        .select()
+        .from(agentMappings)
+        .where(eq(agentMappings.agentId, agentId))) as Array<{
+        agentId: string;
+        characterId: string;
+        agentName: string;
+      }>;
+
+      if (mappings.length === 0) {
+        console.warn(`[AgentRoutes] Agent ${agentId} not found in mappings`);
+        return reply.status(404).send({
+          success: false,
+          error: "Agent not found",
+        });
+      }
+
+      const mapping = mappings[0];
+      const characterId = mapping.characterId;
+      console.log(
+        `[AgentRoutes] Found agent ${mapping.agentName} (character: ${characterId})`,
+      );
+
+      // Send message via in-game chat system
+      // The agent receives this through the game's WebSocket and processes it via ElizaOS
+      const chatSystem = world.getSystem("chat") as
+        | {
+            add: (
+              message: {
+                id: string;
+                from: string;
+                fromId: string;
+                body: string;
+                text: string;
+                timestamp: number;
+                createdAt: string;
+              },
+              broadcast?: boolean,
+            ) => void;
+          }
+        | undefined;
+
+      if (!chatSystem) {
+        console.error("[AgentRoutes] ChatSystem not available");
+        return reply.status(500).send({
+          success: false,
+          error: "Chat system not available",
+        });
+      }
+
+      // Create chat message
+      const chatMessage = {
+        id: crypto.randomUUID(),
+        from: "Dashboard",
+        fromId: userId,
+        body: content,
+        text: content,
+        timestamp: Date.now(),
+        createdAt: new Date().toISOString(),
+      };
+
+      // Broadcast through game chat - agent will receive via chatAdded packet
+      chatSystem.add(chatMessage, true);
+
+      console.log(
+        `[AgentRoutes] ✅ Message sent to agent ${agentId} via game chat`,
+      );
+
+      return reply.send({
+        success: true,
+        message: "Message sent to agent",
+      });
+    } catch (error) {
+      console.error("[AgentRoutes] ❌ Failed to send message to agent:", error);
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to send message to agent",
+      });
+    }
+  });
+
   console.log("[AgentRoutes] ✅ Agent credential routes registered");
 }

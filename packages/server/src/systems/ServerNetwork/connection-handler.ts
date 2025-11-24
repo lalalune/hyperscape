@@ -95,7 +95,15 @@ export class ConnectionHandler {
         return;
       }
 
-      // Check player limit
+      // Check for spectator mode - spectators don't need authentication
+      const isSpectator = params.mode === "spectator";
+
+      if (isSpectator) {
+        await this.handleSpectatorConnection(ws, params);
+        return;
+      }
+
+      // Check player limit (only for players, not spectators)
       if (!this.checkPlayerLimit(ws)) {
         return;
       }
@@ -135,6 +143,44 @@ export class ConnectionHandler {
 
       // Send resource snapshot
       await this.sendResourceSnapshot(socket);
+
+      // CRITICAL FIX: Remove old socket for same account (prevents duplicate connections)
+      // Grace period: Only close old sockets that are stale (no player after 10s) or have a player
+      // This prevents closing sockets that are still in the spawn process
+      const GRACE_PERIOD_MS = 10000; // 10 seconds
+      for (const [oldSocketId, oldSocket] of this.sockets) {
+        if (
+          oldSocket.accountId === socket.accountId &&
+          oldSocketId !== socket.id
+        ) {
+          const socketAge = Date.now() - (oldSocket.createdAt || 0);
+          const hasPlayer = !!oldSocket.player;
+          const isStale = socketAge > GRACE_PERIOD_MS;
+
+          // Only close if the old socket has a player (legitimate reconnection)
+          // OR if it's been idle for too long without spawning a player (stale connection)
+          if (hasPlayer || isStale) {
+            console.warn(
+              `[ConnectionHandler] 🔄 Detected reconnection for account ${socket.accountId}`,
+            );
+            console.warn(
+              `[ConnectionHandler] Closing old socket ${oldSocketId} (hasPlayer: ${hasPlayer}, age: ${Math.round(socketAge / 1000)}s), replacing with new socket ${socket.id}`,
+            );
+            oldSocket.ws?.close?.();
+            this.sockets.delete(oldSocketId);
+          } else {
+            console.warn(
+              `[ConnectionHandler] ⏳ Found recent socket ${oldSocketId} for account ${socket.accountId} (age: ${Math.round(socketAge / 1000)}s, no player yet)`,
+            );
+            console.warn(
+              `[ConnectionHandler] ❌ Rejecting new connection ${socket.id} - socket ${oldSocketId} is still spawning (within grace period)`,
+            );
+            // Close the NEW connection and don't register it
+            socket.ws?.close?.();
+            return;
+          }
+        }
+      }
 
       // Register socket
       this.sockets.set(socket.id, socket);
@@ -184,6 +230,7 @@ export class ConnectionHandler {
    */
   private createSocket(ws: NodeWebSocket, accountId: string): ServerSocket {
     const socketId = require("@hyperscape/shared").uuid();
+
     const socket = new Socket({
       id: socketId,
       ws,
@@ -191,6 +238,8 @@ export class ConnectionHandler {
       player: undefined,
     }) as ServerSocket;
     socket.accountId = accountId;
+    socket.createdAt = Date.now(); // Track creation time for reconnection grace period
+
     return socket;
   }
 
@@ -371,8 +420,18 @@ export class ConnectionHandler {
    */
   private serializeEntities(socket: ServerSocket): unknown[] {
     const allEntities: unknown[] = [];
+    const isSpectator = (socket as any).isSpectator === true;
 
-    if (socket.player) {
+    if (isSpectator) {
+      // Spectators don't have a player entity - serialize all world entities
+      if (this.world.entities?.items) {
+        for (const [entityId, entity] of this.world.entities.items.entries()) {
+          const serialized = entity.serialize();
+          allEntities.push(serialized);
+        }
+      }
+    } else if (socket.player) {
+      // Normal players: serialize their player first, then other entities
       allEntities.push(socket.player.serialize());
 
       if (this.world.entities?.items) {
@@ -452,5 +511,143 @@ export class ConnectionHandler {
         err,
       );
     }
+  }
+
+  /**
+   * Handle spectator connection
+   *
+   * Spectators are read-only connections that don't spawn players.
+   * They receive entity updates but cannot send commands.
+   * SECURITY: Spectators must prove ownership of the character they want to watch.
+   *
+   * @param ws - WebSocket connection
+   * @param params - Connection parameters
+   * @private
+   */
+  private async handleSpectatorConnection(
+    ws: NodeWebSocket,
+    params: ConnectionParams,
+  ): Promise<void> {
+    try {
+      const characterId = params.followEntity || params.characterId;
+      const claimedOwnerId = params.privyUserId;
+
+      // SECURITY: Verify ownership - spectator must own the character they want to watch
+      if (!characterId) {
+        console.warn(
+          "[ConnectionHandler] ❌ Spectator missing characterId/followEntity",
+        );
+        ws.close(4003, "Missing character ID");
+        return;
+      }
+
+      if (!claimedOwnerId) {
+        console.warn(
+          "[ConnectionHandler] ❌ Spectator missing privyUserId for ownership verification",
+        );
+        ws.close(4003, "Missing owner ID for verification");
+        return;
+      }
+
+      // Verify this character belongs to this account
+      const databaseSystem = this.world.getSystem("database") as
+        | import("../DatabaseSystem").DatabaseSystem
+        | undefined;
+
+      if (!databaseSystem) {
+        console.error(
+          "[ConnectionHandler] ❌ DatabaseSystem not available for ownership verification",
+        );
+        ws.close(5000, "Server error");
+        return;
+      }
+
+      const characters =
+        await databaseSystem.getCharactersAsync(claimedOwnerId);
+      const ownsCharacter = characters.some((c) => c.id === characterId);
+
+      if (!ownsCharacter) {
+        console.warn(
+          `[ConnectionHandler] ❌ SECURITY: Account ${claimedOwnerId} does not own character ${characterId}. Rejecting spectator connection.`,
+        );
+        ws.close(
+          4003,
+          "Permission denied - character not owned by this account",
+        );
+        return;
+      }
+
+      // Create socket without authentication
+      const socketId = require("@hyperscape/shared").uuid();
+
+      const socket = new Socket({
+        id: socketId,
+        ws,
+        network: this.world.network as unknown as NetworkWithSocket,
+        player: undefined,
+      }) as ServerSocket;
+
+      // Mark as spectator (use real owner accountId for tracking)
+      socket.accountId = claimedOwnerId;
+      socket.createdAt = Date.now();
+      (socket as any).isSpectator = true;
+      (socket as any).spectatingCharacterId = characterId;
+
+      // Wait for terrain system
+      if (!(await this.waitForTerrain(ws))) {
+        return;
+      }
+
+      // Send snapshot to spectator (no character list, no auth token)
+      await this.sendSpectatorSnapshot(socket, params);
+
+      // Send resource snapshot
+      await this.sendResourceSnapshot(socket);
+
+      // Register spectator socket
+      this.sockets.set(socket.id, socket);
+    } catch (err) {
+      console.error(
+        "[ConnectionHandler] Error in handleSpectatorConnection:",
+        err,
+      );
+    }
+  }
+
+  /**
+   * Create and send spectator snapshot
+   *
+   * Spectators receive a limited snapshot with no authentication or character data.
+   *
+   * @param socket - Spectator socket
+   * @param params - Connection parameters (may include followEntity hint)
+   * @private
+   */
+  private async sendSpectatorSnapshot(
+    socket: ServerSocket,
+    params: ConnectionParams,
+  ): Promise<void> {
+    const spectatorSnapshot = {
+      id: socket.id,
+      serverTime: performance.now(),
+      assetsUrl: this.world.assetsUrl,
+      apiUrl: process.env.PUBLIC_API_URL,
+      maxUploadSize: process.env.PUBLIC_MAX_UPLOAD_SIZE,
+      settings: this.world.settings.serialize() || {},
+      chat: this.world.chat.serialize() || [],
+      entities: this.serializeEntities(socket),
+      livekit: undefined,
+      authToken: "", // No auth for spectators
+      account: {
+        accountId: socket.accountId,
+        name: "Spectator",
+        providers: {},
+      },
+      characters: [], // No character selection for spectators
+      spectatorMode: true, // Flag for client to recognize spectator mode
+      followEntity: params.followEntity || params.characterId, // Hint for which entity to follow
+    };
+
+    socket.send("snapshot", spectatorSnapshot);
   }
 }

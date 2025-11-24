@@ -715,8 +715,30 @@ export class ClientCameraSystem extends SystemBase {
     this.cameraOffset.y = event.camHeight || 1.6;
 
     const localPlayer = this.world.getPlayer();
+
+    // Normal player mode: set target to local player
     if (localPlayer && localPlayer.id === event.playerId && !this.target) {
       this.onSetTarget({ target: localPlayer as CameraTarget });
+      return;
+    }
+
+    // SPECTATOR MODE FIX: If no local player, check if this is a remote player we should follow
+    // This happens in spectator mode where we're watching an agent
+    if (!localPlayer && !this.target) {
+      // Try to find the player entity (could be in items or players map)
+      const remotePlayer =
+        this.world.entities.items.get(event.playerId) ||
+        this.world.entities.players.get(event.playerId);
+      if (remotePlayer) {
+        this.onSetTarget({ target: remotePlayer as CameraTarget });
+      }
+    } else if (!localPlayer && this.target) {
+      // SPECTATOR FIX: Camera already has target, but avatar just loaded - reinitialize camera position
+      // with the correct camHeight now that we know the avatar's actual height
+      const targetId = (this.target as any).id;
+      if (targetId === event.playerId) {
+        this.initializeCameraPosition();
+      }
     }
   }
 
