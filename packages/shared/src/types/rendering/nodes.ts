@@ -125,6 +125,10 @@ export interface NametagHandle {
   subtextColor?: string;
   visible: boolean;
   offset: number;
+  move: (newMatrix: THREE.Matrix4) => void;
+  setName: (name: string) => void;
+  setHealth: (health: number) => void;
+  setInCombat: (inCombat: boolean) => void;
   destroy: () => void;
 }
 

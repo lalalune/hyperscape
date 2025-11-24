@@ -779,11 +779,12 @@ export class EntityManager extends SystemBase {
         // Get network data from entity (includes health and other properties)
         const networkData = entity.getNetworkData();
 
-        // Disabled verbose player logging (too spammy)
+        // Debug logging disabled (too spammy)
         // if (entity.type === 'player') {
         //   console.log(`[EntityManager] 📤 Syncing player ${entityId}`);
         //   console.log(`[EntityManager] 📤 networkData keys:`, Object.keys(networkData));
-        //   console.log(`[EntityManager] 📤 networkData.e:`, (networkData as any).e);
+        //   console.log(`[EntityManager] 📤 networkData.c (inCombat):`, (networkData as { c?: boolean }).c);
+        //   console.log(`[EntityManager] 📤 networkData.e (emote):`, (networkData as { e?: string }).e);
         //   console.log(`[EntityManager] 📤 Full networkData:`, JSON.stringify(networkData, null, 2));
         // }
 

@@ -19,15 +19,18 @@ const _v3_1 = new THREE.Vector3();
 
 const RES = 2;
 const NAMETAG_WIDTH = 160 * RES; // Reduced 20% (was 200)
-const NAMETAG_HEIGHT = 20 * RES; // Reduced to fix Y-stretch (was 35)
+const NAMETAG_HEIGHT = 30 * RES; // Increased to fit name + health bar (was 20)
 const NAME_FONT_SIZE = 14 * RES; // Slightly smaller (was 16)
 const NAME_OUTLINE_SIZE = 3 * RES; // Reduced proportionally (was 4)
 
 const HEALTH_MAX = 100;
-const HEALTH_HEIGHT = 3 * RES; // Reduced 4x (was 12)
-const HEALTH_WIDTH = 50 * RES; // Reduced 2x (was 100)
-const HEALTH_BORDER = 1 * RES; // Reduced proportionally (was 1.5)
-const HEALTH_BORDER_RADIUS = 10 * RES; // Reduced proportionally (was 20)
+// Match UIRenderer health bar visual size (mob health bars use 50×5px at scale 0.05)
+// Mob visual size: 0.5 units wide × 0.05 units tall
+// Nametag plane: 1 unit wide × 0.1875 units tall, canvas: 320px × 60px
+// To match mob size: 0.5/1 = 50% width = 160px, 0.05/0.1875 = 26.67% height = 16px
+const HEALTH_WIDTH = 80 * RES; // 160px canvas width = 0.5 units visual width (matches mob)
+const HEALTH_HEIGHT = 8 * RES; // 16px canvas height = 0.05 units visual height (matches mob)
+const HEALTH_BORDER = 1 * RES; // Scale border proportionally
 
 const PER_ROW = 8;
 const PER_COLUMN = 32;
@@ -246,6 +249,7 @@ export class Nametags extends SystemBase {
       idx,
       name,
       health,
+      inCombat: false,
       matrix,
       move: (newMatrix: THREE.Matrix4) => {
         // copy over just position
@@ -263,6 +267,11 @@ export class Nametags extends SystemBase {
       setHealth: (health: number) => {
         if (nametag.health === health) return;
         nametag.health = health;
+        this.draw(nametag);
+      },
+      setInCombat: (inCombat: boolean) => {
+        if (nametag.inCombat === inCombat) return;
+        nametag.inCombat = inCombat;
         this.draw(nametag);
       },
       destroy: () => {
@@ -354,46 +363,45 @@ export class Nametags extends SystemBase {
     this.ctx.strokeText(text, x + NAMETAG_WIDTH / 2, y + 2);
     this.ctx.restore();
     this.ctx.fillText(text, x + NAMETAG_WIDTH / 2, y + 2);
-    // draw health
-    if (nametag.health < HEALTH_MAX) {
-      // bar
-      {
-        const fillStyle = "rgba(0, 0, 0, 0.6)";
-        const width = HEALTH_WIDTH;
-        const height = HEALTH_HEIGHT;
-        const left = x + (NAMETAG_WIDTH - HEALTH_WIDTH) / 2;
-        const top = y + NAME_FONT_SIZE + 5;
-        const borderRadius = HEALTH_BORDER_RADIUS;
-        fillRoundRect(
-          this.ctx,
-          left,
-          top,
-          width,
-          height,
-          borderRadius,
-          fillStyle,
-        );
-      }
-      // health
-      {
-        const fillStyle = "#229710";
-        const maxWidth = HEALTH_WIDTH - HEALTH_BORDER * 2;
-        const perc = nametag.health / HEALTH_MAX;
-        const width = maxWidth * perc;
-        const height = HEALTH_HEIGHT - HEALTH_BORDER * 2;
-        const left = x + (NAMETAG_WIDTH - HEALTH_WIDTH) / 2 + HEALTH_BORDER;
-        const top = y + NAME_FONT_SIZE + 5 + HEALTH_BORDER;
-        const borderRadius = HEALTH_BORDER_RADIUS;
-        fillRoundRect(
-          this.ctx,
-          left,
-          top,
-          width,
-          height,
-          borderRadius,
-          fillStyle,
-        );
-      }
+    // draw health - show ONLY during combat (RuneScape pattern)
+    const shouldDrawHealthBar = nametag.inCombat;
+    const barLeft = x + (NAMETAG_WIDTH - HEALTH_WIDTH) / 2;
+    const barTop = y + NAME_FONT_SIZE + 5;
+
+    if (shouldDrawHealthBar) {
+      // Match UIRenderer health bar style (same as mob health bars)
+      // Draw background (black)
+      this.ctx.fillStyle = "rgba(0, 0, 0, 0.8)"; // Match UIRenderer
+      this.ctx.fillRect(barLeft, barTop, HEALTH_WIDTH, HEALTH_HEIGHT);
+
+      // Draw health fill (green)
+      const perc = nametag.health / HEALTH_MAX;
+      const fillWidth = (HEALTH_WIDTH - HEALTH_BORDER * 2) * perc;
+      this.ctx.fillStyle = "#4CAF50"; // Match UIRenderer green
+      this.ctx.fillRect(
+        barLeft + HEALTH_BORDER,
+        barTop + HEALTH_BORDER,
+        fillWidth,
+        HEALTH_HEIGHT - HEALTH_BORDER * 2,
+      );
+
+      // Draw white border
+      this.ctx.strokeStyle = "#ffffff";
+      this.ctx.lineWidth = HEALTH_BORDER;
+      this.ctx.strokeRect(
+        barLeft + HEALTH_BORDER / 2,
+        barTop + HEALTH_BORDER / 2,
+        HEALTH_WIDTH - HEALTH_BORDER,
+        HEALTH_HEIGHT - HEALTH_BORDER,
+      );
+    } else {
+      // Clear health bar area when not in combat and at full health
+      this.ctx.clearRect(
+        barLeft - 2,
+        barTop - 2,
+        HEALTH_WIDTH + 4,
+        HEALTH_HEIGHT + 4,
+      );
     }
     // update texture
     this.texture.needsUpdate = true;

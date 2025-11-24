@@ -816,12 +816,18 @@ export class PlayerLocal extends Entity implements HotReloadable {
   // Override modify to handle shorthand network keys like PlayerRemote does
   override modify(data: Partial<EntityData>): void {
     // Map shorthand keys to full property names
-    // Handle combat state updates
-    if ("inCombat" in data) {
-      this.combat.inCombat = data.inCombat as boolean;
+    // Handle combat state updates (using abbreviated key 'c' for inCombat)
+    if ("c" in data) {
+      const newInCombat = data.c as boolean;
+      this.combat.inCombat = newInCombat;
+      // Update nametag to show/hide health bar (RuneScape pattern)
+      if (this.nametag && this.nametag.handle?.setInCombat) {
+        this.nametag.handle.setInCombat(newInCombat);
+      }
     }
-    if ("combatTarget" in data) {
-      this.combat.combatTarget = data.combatTarget as string | null;
+    // Handle combat target (using abbreviated key 'ct' for combatTarget)
+    if ("ct" in data) {
+      this.combat.combatTarget = data.ct as string | null;
     }
 
     if ("e" in data && data.e !== undefined) {
@@ -935,7 +941,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
       // Update _playerHealth for getPlayerData() which the UI reads
       this._playerHealth.current = newHealth;
       if (this.nametag) {
-        this.nametag.health = newHealth;
+        // Convert to percentage for Nametags system
+        const maxHealth = this.maxHealth || 100;
+        const healthPercent = (newHealth / maxHealth) * 100;
+
+        this.nametag.health = healthPercent;
       }
     }
     if ("maxHealth" in data && data.maxHealth !== undefined) {
@@ -1070,32 +1080,31 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
     this.active = true;
 
-    // Create a proper THREE.Group for the aura
+    // Create a raw THREE.Group for the aura
     this.aura = new THREE.Group();
-    if (this.aura) {
-      this.aura.name = "player-aura";
-    }
+    this.aura.name = "player-aura";
     if (!this.aura) {
       throw new Error("Failed to create aura node for PlayerLocal");
     }
 
+    // Convert health to percentage for Nametags system (expects 0-100%)
+    const currentHealth = (this.data.health as number) || 100;
+    const maxHealth = (this.data.maxHealth as number) || 100;
+    const healthPercent = (currentHealth / maxHealth) * 100;
+
     this.nametag = createNode("nametag", {
-      label: "",
-      health: this.data.health,
-      active: false,
+      label: "", // Empty label for local player (no name shown)
+      health: healthPercent,
+      active: true, // Always active to show health bar in combat (RuneScape pattern)
     }) as Nametag;
     if (!this.nametag) {
       throw new Error("Failed to create nametag node for PlayerLocal");
     }
-    // Activate the nametag to create its THREE.js representation
-    if (this.nametag.activate) {
-      this.nametag.activate(this.world);
-    }
-    // Add the nametag's THREE.js object if it exists
-    const nametagInstance = (this.nametag as unknown as NodeWithInstance)
-      .instance;
-    if (nametagInstance && nametagInstance.isObject3D) {
-      this.aura.add(nametagInstance);
+    // Set world context for nametag (needed for mounting to Nametags system)
+    this.nametag.ctx = this.world;
+    // Mount the nametag to register with Nametags system
+    if (this.nametag.mount) {
+      this.nametag.mount();
     }
 
     this.bubble = createNode("ui", {
@@ -1134,23 +1143,20 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
     this.bubble.add(this.bubbleBox);
     this.bubbleBox.add(this.bubbleText);
-    // Activate the bubble UI to create its THREE.js representation
+    // Set world context and activate bubble UI
+    this.bubble.ctx = this.world;
     if (this.bubble.activate) {
       this.bubble.activate(this.world);
     }
-    // Add the bubble's THREE.js object if it exists
+    // Add bubble's THREE.js representation to aura
     const bubbleInstance = (this.bubble as unknown as NodeWithInstance)
       .instance;
     if (bubbleInstance && bubbleInstance.isObject3D) {
       this.aura.add(bubbleInstance);
     }
 
-    // THREE.Groups don't need activation, they're just containers
-    // The custom nodes inside them (nametag, bubble) will activate themselves
-
-    // Note: Group nodes don't have Three.js representations - their children handle their own scene addition
+    // Add aura to base for nametag/bubble positioning
     if (this.base) {
-      // Also add aura to base for nametag/bubble
       this.base.add(this.aura);
     }
 
@@ -1361,11 +1367,10 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // Set up nametag and bubble positioning
     const headHeight = this._avatar!.getHeadToHeight!()!;
     const safeHeadHeight = headHeight ?? 1.8;
-    this.nametag!.position.y = safeHeadHeight + 0.2;
+    // Position nametag at Y=2.0 like mob health bars (not at head height!)
+    // Bubble still goes at head height for chat
     this.bubble!.position.y = safeHeadHeight + 0.2;
-    if (!this.bubble!.active) {
-      this.nametag!.active = true;
-    }
+    // Nametag is always active to show health bar in combat (set at initialization)
 
     // Set camera height
     const avatarHeight = (this._avatar as unknown as { height: number }).height;
@@ -2049,6 +2054,14 @@ export class PlayerLocal extends Entity implements HotReloadable {
           this.aura.position.setFromMatrixPosition(matrix);
         }
       }
+      // Update nametag position above head (like mob health bars)
+      if (this.nametag && this.nametag.handle && this.base) {
+        // Position at fixed Y offset from player base (like mob health bars at Y=2.0)
+        const nametagMatrix = new THREE.Matrix4();
+        nametagMatrix.copy(this.base.matrixWorld);
+        nametagMatrix.elements[13] += 2.0; // Add fixed Y offset
+        this.nametag.handle.move(nametagMatrix);
+      }
     }
   }
 
@@ -2139,12 +2152,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   chat(msg: string): void {
-    this.nametag!.active = false;
+    // Keep nametag active to show health bar in combat (RuneScape pattern)
+    // Nametag has empty label, so only health bar shows (no overlap with chat bubble)
     this.bubbleText!.value = msg;
     this.bubble!.active = true;
     setTimeout(() => {
       this.bubble!.active = false;
-      this.nametag!.active = true;
     }, 5000);
   }
 
@@ -2159,7 +2172,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
 
     if (data.health !== undefined) {
-      this.nametag!.health = data.health as number;
+      // Convert to percentage for Nametags system
+      const currentHealth = data.health as number;
+      const maxHealth = this.maxHealth || 100;
+      const healthPercent = (currentHealth / maxHealth) * 100;
+
+      this.nametag!.health = healthPercent;
     }
   }
 
@@ -2170,7 +2188,10 @@ export class PlayerLocal extends Entity implements HotReloadable {
     maxHealth: number;
   }): void {
     if (event.playerId === this.data.id) {
-      this.nametag!.health = event.health;
+      // Convert to percentage for Nametags system
+      const healthPercent = (event.health / event.maxHealth) * 100;
+
+      this.nametag!.health = healthPercent;
     }
   }
 
