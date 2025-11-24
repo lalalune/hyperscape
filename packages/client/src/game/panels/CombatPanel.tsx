@@ -14,8 +14,19 @@ interface CombatPanelProps {
   equipment: PlayerEquipmentItems | null;
 }
 
+// Client-side cache for combat style state (persists across panel opens/closes)
+// This enables instant display when reopening panel (RuneScape pattern)
+const combatStyleCache = new Map<string, string>();
+
 export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
-  const [style, setStyle] = useState<string>("accurate");
+  // Initialize from cache if available, otherwise default to "accurate"
+  const [style, setStyle] = useState<string>(() => {
+    const playerId = world.entities?.player?.id;
+    if (playerId && combatStyleCache.has(playerId)) {
+      return combatStyleCache.get(playerId)!;
+    }
+    return "accurate";
+  });
   const [cooldown, setCooldown] = useState<number>(0);
   const [targetName, setTargetName] = useState<string | null>(null);
   const [targetHealth, setTargetHealth] = useState<PlayerHealth | null>(null);
@@ -66,6 +77,8 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
         );
         if (info) {
           console.log(`[CombatPanel] Setting initial style to: ${info.style}`);
+          // Update cache for instant display on panel reopen
+          combatStyleCache.set(playerId, info.style);
           setStyle(info.style);
           setCooldown(info.cooldown || 0);
         }
@@ -82,6 +95,8 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
         return;
       }
       console.log("[CombatPanel] Setting style to:", d.currentStyle.id);
+      // Update cache for instant display on panel reopen
+      combatStyleCache.set(playerId, d.currentStyle.id);
       setStyle(d.currentStyle.id);
     };
     const onChanged = (data: unknown) => {
@@ -94,6 +109,8 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
         return;
       }
       console.log("[CombatPanel] Setting style to:", d.currentStyle.id);
+      // Update cache for instant display on panel reopen
+      combatStyleCache.set(playerId, d.currentStyle.id);
       setStyle(d.currentStyle.id);
     };
 
