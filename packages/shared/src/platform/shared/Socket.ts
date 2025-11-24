@@ -79,8 +79,6 @@ export class Socket {
     this.ws.on("message", (arg?: unknown) => {
       // Strong type assumption - message is always ArrayBuffer or Uint8Array
       const data = arg as ArrayBuffer | Uint8Array;
-      const size = data instanceof Uint8Array ? data.length : data.byteLength;
-
       this.onMessage(data);
     });
     this.ws.on("pong", () => {

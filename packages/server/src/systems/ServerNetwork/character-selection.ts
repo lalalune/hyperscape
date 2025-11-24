@@ -384,13 +384,19 @@ export async function handleEnterWorld(
   sendToFn: (socketId: string, name: string, data: unknown) => void,
 ): Promise<void> {
   console.log(
-    "[CharacterSelection] 🚪 handleEnterWorld called with data:",
-    data,
+    `[CharacterSelection] 🚪 handleEnterWorld called for socket ${socket.id}`,
+    {
+      data,
+      hasPlayer: !!socket.player,
+      accountId: socket.accountId,
+    },
   );
 
   // Spawn the entity now, preserving legacy spawn shape
   if (socket.player) {
-    console.log("[CharacterSelection] Player already spawned, skipping");
+    console.log(
+      `[CharacterSelection] Player already spawned for socket ${socket.id}, skipping`,
+    );
     return; // Already spawned
   }
   const accountId = socket.accountId || undefined;
@@ -666,6 +672,16 @@ export async function handleEnterWorld(
       })
     : undefined;
   socket.player = (addedEntity as Entity) || undefined;
+
+  console.log(
+    `[CharacterSelection] ✅ socket.player set for socket ${socket.id}`,
+    {
+      playerId: socket.player?.id,
+      playerName: socket.player?.data?.name,
+      hasPlayer: !!socket.player,
+    },
+  );
+
   if (socket.player) {
     world.emit(EventType.PLAYER_JOINED, {
       playerId: socket.player.data.id as string,

@@ -36,7 +36,8 @@ export type EventType =
   | "INVENTORY_UPDATED"
   | "ITEM_PICKED_UP"
   | "ITEM_DROPPED"
-  | "PLAYER_EQUIPMENT_CHANGED";
+  | "PLAYER_EQUIPMENT_CHANGED"
+  | "CHAT_MESSAGE";
 
 // Network message from server
 export interface NetworkEvent {

@@ -6,89 +6,32 @@ interface AgentViewportProps {
 }
 
 export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
-  const [authToken, setAuthToken] = useState<string>("");
   const [characterId, setCharacterId] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAgentCredentials();
+    fetchCharacterId();
   }, [agent.id]);
 
-  const fetchAgentCredentials = async () => {
+  const fetchCharacterId = async () => {
     try {
-      // Step 1: Fetch mapping data from Hyperscape (source of truth)
-      // This gives us characterId and accountId needed for credentials
-      let charId = "";
-      let accountId = "";
-
-      try {
-        const mappingResponse = await fetch(
-          `http://localhost:5555/api/agents/mapping/${agent.id}`,
+      // Fetch character ID for the spectator viewport to follow
+      // We also need to verify ownership on the server
+      const mappingResponse = await fetch(
+        `http://localhost:5555/api/agents/mapping/${agent.id}`,
+      );
+      if (mappingResponse.ok) {
+        const mappingData = await mappingResponse.json();
+        const charId = mappingData.characterId || "";
+        setCharacterId(charId);
+      } else {
+        console.warn(
+          "[AgentViewport] Mapping not found, status:",
+          mappingResponse.status,
         );
-        if (mappingResponse.ok) {
-          const mappingData = await mappingResponse.json();
-          charId = mappingData.characterId || "";
-          accountId = mappingData.accountId || "";
-          console.log("[AgentViewport] Got mapping:", {
-            characterId: charId,
-            accountId: accountId,
-          });
-        } else {
-          console.warn(
-            "[AgentViewport] Mapping not found, status:",
-            mappingResponse.status,
-          );
-        }
-      } catch (mappingError) {
-        console.warn("[AgentViewport] Failed to fetch mapping:", mappingError);
       }
-
-      // Step 2: Generate fresh JWT credentials for the embedded viewport
-      // This ensures the token has the correct characterId and accountId
-      let token = "";
-      if (charId && accountId) {
-        try {
-          const credentialsResponse = await fetch(
-            `http://localhost:5555/api/agents/credentials`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                characterId: charId,
-                accountId: accountId,
-              }),
-            },
-          );
-          if (credentialsResponse.ok) {
-            const credData = await credentialsResponse.json();
-            token = credData.authToken || "";
-            console.log(
-              "[AgentViewport] Generated fresh JWT for embedded viewport",
-            );
-          } else {
-            console.warn(
-              "[AgentViewport] Failed to generate credentials:",
-              credentialsResponse.status,
-            );
-          }
-        } catch (credError) {
-          console.warn(
-            "[AgentViewport] Failed to generate credentials:",
-            credError,
-          );
-        }
-      }
-
-      setAuthToken(token);
-      setCharacterId(charId);
-
-      console.log("[AgentViewport] Loaded credentials:", {
-        hasToken: !!token,
-        characterId: charId,
-        agentName: agent.name,
-      });
     } catch (error) {
-      console.error("[AgentViewport] Error fetching credentials:", error);
+      console.error("[AgentViewport] Error fetching character ID:", error);
     } finally {
       setLoading(false);
     }
@@ -118,28 +61,33 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
     );
   }
 
-  if (!authToken) {
+  if (!characterId) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-[#0b0a15] text-[#f2d08a]/60">
         <div className="text-6xl mb-4">⚠️</div>
         <h2 className="text-xl font-bold text-[#f2d08a] mb-2">
-          Agent Not Configured
+          Character Not Found
         </h2>
         <p className="text-center max-w-md">
-          This agent needs Hyperscape credentials. Please start the agent from
-          the dashboard to generate authentication tokens.
+          Could not find character for this agent. Make sure the agent is
+          properly configured.
         </p>
       </div>
     );
   }
 
-  // Build iframe URL with all required params
+  // Build iframe URL for spectator mode
+  // Spectators must prove ownership by passing their Privy user ID
+  // Server verifies they own the character before allowing spectator connection
+  const userAccountId = localStorage.getItem("privy_user_id") || "";
+
   const iframeParams = new URLSearchParams({
     embedded: "true",
-    mode: "spectator",
+    mode: "spectator", // Server recognizes this and skips auth token validation
     agentId: agent.id,
-    authToken: authToken,
     characterId: characterId,
+    followEntity: characterId, // Camera will follow this entity
+    privyUserId: userAccountId, // For ownership verification
     hiddenUI: "chat,inventory,minimap,hotbar,stats",
   });
 

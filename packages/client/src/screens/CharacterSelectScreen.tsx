@@ -865,9 +865,11 @@ export function CharacterSelectScreen({
       );
       setSelectedCharacterId(id);
       setView("confirm");
-      const ws = preWsRef.current!;
-      if (ws.readyState !== WebSocket.OPEN) return;
-      ws.send(writePacket("characterSelected", { characterId: id }));
+
+      // DON'T send characterSelected packet here!
+      // For spectator mode: Browser should not spawn ANY character (human or agent)
+      // Characters are only spawned when clicked "Enter World" OR by the agent service
+      // This allows you to view the game world without controlling a character
     },
     [characters],
   );

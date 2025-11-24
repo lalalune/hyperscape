@@ -57,6 +57,7 @@ import { registerEventHandlers } from "./events/handlers.js";
 import { callbackRoute, statusRoute } from "./routes/auth.js";
 import { getSettingsRoute } from "./routes/settings.js";
 import { getLogsRoute } from "./routes/logs.js";
+import { messageRoute } from "./routes/message.js";
 
 // Configuration schema
 const configSchema = z.object({
@@ -155,7 +156,13 @@ export const hyperscapePlugin: Plugin = {
   ],
 
   // HTTP API routes for agent management
-  routes: [callbackRoute, statusRoute, getSettingsRoute, getLogsRoute],
+  routes: [
+    callbackRoute,
+    statusRoute,
+    getSettingsRoute,
+    getLogsRoute,
+    messageRoute,
+  ],
 
   // Actions the agent can perform in the game
   actions: [
@@ -197,10 +204,18 @@ export const hyperscapePlugin: Plugin = {
           runtime.getService<HyperscapeService>("hyperscapeService");
 
         if (service) {
-          registerEventHandlers(runtime, service);
-          logger.info(
-            "[HyperscapePlugin] Event handlers registered on RUN_STARTED",
-          );
+          // Only register handlers once per service instance
+          if (!service.arePluginEventHandlersRegistered()) {
+            registerEventHandlers(runtime, service);
+            service.markPluginEventHandlersRegistered();
+            logger.info(
+              "[HyperscapePlugin] Event handlers registered on RUN_STARTED",
+            );
+          } else {
+            logger.debug(
+              "[HyperscapePlugin] Event handlers already registered, skipping",
+            );
+          }
         } else {
           logger.warn(
             "[HyperscapePlugin] HyperscapeService not found, could not register event handlers",

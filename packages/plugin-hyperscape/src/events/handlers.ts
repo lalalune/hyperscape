@@ -158,6 +158,72 @@ export function registerEventHandlers(
     logger.info(`[HyperscapePlugin] Player left: ${eventData.playerName}`);
   });
 
+  // Chat message handling - process through ElizaOS runtime
+  service.onGameEvent("CHAT_MESSAGE", async (data: unknown) => {
+    const chatData = data as {
+      from: string;
+      fromId: string;
+      text: string;
+      timestamp: number;
+    };
+
+    // Ignore messages from the agent itself
+    const agentCharacterId = service.getGameState()?.playerEntity?.id;
+    if (chatData.fromId === agentCharacterId) {
+      return;
+    }
+
+    logger.info(
+      `[HyperscapePlugin] Chat message from ${chatData.from}: "${chatData.text}"`,
+    );
+
+    try {
+      // Create memory for the chat message
+      const memory = await runtime.createMemory(
+        {
+          entityId: runtime.agentId, // Use agentId as entityId (it's a UUID)
+          agentId: runtime.agentId,
+          roomId: runtime.agentId, // Use agentId as roomId
+          content: {
+            text: chatData.text,
+            source: "hyperscape_chat",
+          },
+          metadata: {
+            type: "message",
+            senderName: chatData.from,
+            senderId: chatData.fromId,
+            timestamp: chatData.timestamp,
+          },
+          // Don't pass embedding - let ElizaOS handle it
+        },
+        "messages",
+        false,
+      );
+
+      // Process through ElizaOS message handler to trigger actions
+      if (runtime.messageService) {
+        await runtime.messageService.handleMessage(
+          runtime,
+          memory,
+          async (responseContent) => {
+            // Send response back to game chat
+            logger.info(
+              `[HyperscapePlugin] Sending response: "${responseContent.text}"`,
+            );
+
+            // TODO: Send chat message back to game via service.sendChatMessage()
+            // For now just log it
+          },
+        );
+      }
+    } catch (error) {
+      logger.error(
+        { error },
+        "[HyperscapePlugin] Failed to process chat message:",
+      );
+    }
+  });
+
   logger.info("[HyperscapePlugin] Event handlers registered");
 }
 

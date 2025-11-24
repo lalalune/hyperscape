@@ -111,6 +111,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
   chatTimer?: NodeJS.Timeout;
   destroyed: boolean = false;
   private lastEmote?: string;
+  private isLoadingAvatar: boolean = false;
   private prevPosition: THREE.Vector3 = new THREE.Vector3();
   public velocity = new THREE.Vector3();
   public enableInterpolation: boolean = false; // Disabled - ensure basic movement works first
@@ -233,103 +234,155 @@ export class PlayerRemote extends Entity implements HotReloadable {
       (this.data.sessionAvatar as string) ||
       (this.data.avatar as string) ||
       "asset://avatar-male-01.vrm";
-    if (this.avatarUrl === avatarUrl) return;
+
+    // Skip if already loading ANY avatar (prevent race conditions)
+    if (this.isLoadingAvatar) {
+      return;
+    }
+
+    // Skip if avatar already loaded
+    if (this.avatarUrl === avatarUrl && this.avatar) {
+      return;
+    }
 
     // Skip avatar loading on server (no loader system)
     if (!this.world.loader) {
       return;
     }
 
-    const src = (await this.world.loader.load(
-      "avatar",
-      avatarUrl,
-    )) as LoadedAvatar;
+    // Set loading flag to prevent duplicate loads
+    this.isLoadingAvatar = true;
 
-    // Clean up previous avatar
-    if (this.avatar) {
-      this.avatar.deactivate();
-      // If avatar has an instance, destroy it to clean up VRM scene
-      const avatarWithInstance = this.avatar as AvatarWithInstance;
-      if (avatarWithInstance.instance) {
-        avatarWithInstance.instance.destroy();
+    let loadSuccess = false;
+    try {
+      const src = (await this.world.loader.load(
+        "avatar",
+        avatarUrl,
+      )) as LoadedAvatar;
+
+      // Clean up previous avatar
+      if (this.avatar) {
+        this.avatar.deactivate();
+        // If avatar has an instance, destroy it to clean up VRM scene
+        const avatarWithInstance = this.avatar as AvatarWithInstance;
+        if (avatarWithInstance.instance) {
+          avatarWithInstance.instance.destroy();
+        }
       }
+
+      // CRITICAL: Pass VRM hooks to toNodes() so VRMFactory applies normalization and rotation
+      // This must happen DURING toNodes() call, not after
+      const vrmHooks: VRMHooks = {
+        scene: this.world.stage.scene,
+        octree: this.world.stage.octree as VRMHooks["octree"],
+        camera: this.world.camera,
+        loader: this.world.loader,
+      };
+      const nodeMap = src.toNodes(vrmHooks);
+
+      const rootNode = nodeMap.get("root");
+      if (!rootNode) {
+        throw new Error(
+          `[PlayerRemote] No root node found in loaded avatar. Available keys: ${Array.from(nodeMap.keys())}`,
+        );
+      }
+
+      // The avatar node is a child of the root node or in the map directly
+      // MATCH PlayerLocal: Simple fallback logic
+      const avatarNode = nodeMap.get("avatar") || rootNode;
+
+      // Use the avatar node
+      const nodeToUse = avatarNode;
+
+      this.avatar = nodeToUse as Avatar;
+
+      // Set up the avatar node properly - cast to access internal properties
+      interface AvatarNodeInternal {
+        ctx: World;
+        parent: { matrixWorld: THREE.Matrix4 } | null;
+        activate: (world: World) => void;
+        mount: () => Promise<void>;
+        hooks: VRMHooks;
+        position: THREE.Vector3;
+      }
+      const nodeObj = nodeToUse as Avatar & AvatarNodeInternal;
+      nodeObj.ctx = this.world;
+
+      // Assign the VRM hooks to the node (already passed to toNodes above)
+      nodeObj.hooks = vrmHooks;
+
+      // Set the parent so the node knows where it belongs in the hierarchy
+      // Note: PlayerRemote uses Hyperscape Group node (not raw THREE.Group like PlayerLocal)
+      // The node system handles matrix updates automatically
+      (nodeObj as any).parent = { matrixWorld: this.base.matrixWorld };
+
+      // CRITICAL: Avatar node position should be at origin (0,0,0) (matches PlayerLocal)
+      // The instance.move() method will position it at the base's world position
+      nodeObj.position.set(0, 0, 0);
+
+      // Activate and mount the avatar node
+      nodeObj.activate(this.world);
+      await nodeObj.mount();
+
+      // The avatar instance will be managed by the VRM factory
+      // Don't add anything to base - the VRM scene is added to world.stage.scene
+
+      // Disable distance-based LOD throttling for smooth animations
+      const avatarWithInstance = nodeToUse as unknown as AvatarWithInstance;
+      if (
+        avatarWithInstance.instance &&
+        avatarWithInstance.instance.disableRateCheck
+      ) {
+        avatarWithInstance.instance.disableRateCheck();
+      }
+
+      // Set up positioning
+      const headHeight = this.avatar.getHeadToHeight()!;
+      // Position nametag at fixed Y=2.0 like mob health bars
+      this.nametag.position.y = 2.0;
+      // Bubble still goes at head height for chat
+      this.bubble.position.y = headHeight + 0.2;
+
+      if (!this.bubble.active) {
+        this.nametag.active = true;
+      }
+
+      // CRITICAL: Make avatar visible and ensure proper positioning (matches PlayerLocal)
+      (this.avatar as unknown as { visible: boolean }).visible = true;
+      nodeObj.position.set(0, 0, 0);
+
+      // Ensure a default idle emote after mount so avatar isn't frozen
+      (this.avatar as Avatar).setEmote(Emotes.IDLE);
+      this.lastEmote = Emotes.IDLE;
+
+      // Calculate camera height for spectator mode (same as PlayerLocal)
+      const avatarHeight = (this.avatar as unknown as { height: number })
+        .height;
+      const camHeight = Math.max(1.2, avatarHeight * 0.9);
+
+      // Avatar loaded successfully
+      loadSuccess = true;
+      this.avatarUrl = avatarUrl;
+
+      // SPECTATOR FIX: Emit PLAYER_AVATAR_READY so camera system can set proper offset
+      // This is critical for spectator mode to work correctly
+      this.world.emit(EventType.PLAYER_AVATAR_READY, {
+        playerId: this.id,
+        avatar: this.avatar,
+        camHeight: camHeight,
+      });
+    } catch (error) {
+      console.error("[PlayerRemote] Avatar load failed:", error);
+      loadSuccess = false;
+    } finally {
+      // Clear loading flag
+      this.isLoadingAvatar = false;
+      // Emit event so spectators and loading screens can track avatar completion
+      this.world.emit(EventType.AVATAR_LOAD_COMPLETE, {
+        playerId: this.id,
+        success: loadSuccess,
+      });
     }
-
-    // Note: VRM hooks will be set on the avatar node before mounting
-    const nodeMap = src.toNodes();
-
-    const rootNode = nodeMap.get("root");
-    if (!rootNode) {
-      throw new Error(
-        `[PlayerRemote] No root node found in loaded avatar. Available keys: ${Array.from(nodeMap.keys())}`,
-      );
-    }
-
-    // The avatar node is a child of the root node or in the map directly
-    const avatarNode =
-      nodeMap.get("avatar") || (rootNode as Group).get("avatar");
-
-    // Use the avatar node
-    const nodeToUse = avatarNode || rootNode;
-
-    this.avatar = nodeToUse as Avatar;
-
-    // Set up the avatar node properly - cast to access internal properties
-    interface AvatarNodeInternal {
-      ctx: World;
-      parent: { matrixWorld: THREE.Matrix4 } | null;
-      activate: (world: World) => void;
-      mount: () => Promise<void>;
-      hooks: VRMHooks;
-    }
-    const nodeObj = nodeToUse as Avatar & AvatarNodeInternal;
-    nodeObj.ctx = this.world;
-
-    // Use world.stage.scene and manually update position
-    const vrmHooks: VRMHooks = {
-      scene: this.world.stage.scene,
-      octree: this.world.stage.octree as VRMHooks["octree"],
-      camera: this.world.camera,
-      loader: this.world.loader,
-    };
-    nodeObj.hooks = vrmHooks;
-
-    // Set the parent to base's matrix so it follows the remote player
-    Object.assign(nodeObj, { parent: { matrixWorld: this.base.matrixWorld } });
-
-    // Activate and mount the avatar node
-    nodeObj.activate(this.world);
-    await nodeObj.mount();
-
-    // The avatar instance will be managed by the VRM factory
-    // Don't add anything to base - the VRM scene is added to world.stage.scene
-
-    // Disable distance-based LOD throttling for smooth animations
-    const avatarWithInstance = nodeToUse as unknown as AvatarWithInstance;
-    if (
-      avatarWithInstance.instance &&
-      avatarWithInstance.instance.disableRateCheck
-    ) {
-      avatarWithInstance.instance.disableRateCheck();
-    }
-
-    // Set up positioning
-    const headHeight = this.avatar.getHeadToHeight()!;
-    // Position nametag at fixed Y=2.0 like mob health bars
-    this.nametag.position.y = 2.0;
-    // Bubble still goes at head height for chat
-    this.bubble.position.y = headHeight + 0.2;
-
-    if (!this.bubble.active) {
-      this.nametag.active = true;
-    }
-    this.avatarUrl = avatarUrl;
-
-    // Ensure a default idle emote after mount so avatar isn't frozen
-    console.log("[PlayerRemote.applyAvatar] Setting idle emote:", Emotes.IDLE);
-    (this.avatar as Avatar).setEmote(Emotes.IDLE);
-    this.lastEmote = Emotes.IDLE;
-    console.log("[PlayerRemote.applyAvatar] Idle emote set");
   }
 
   getAnchorMatrix() {
@@ -358,8 +411,11 @@ export class PlayerRemote extends Entity implements HotReloadable {
         // Get the target position directly from lerp.current and apply it
         const targetPos = this.lerpPosition.current;
         if (targetPos) {
+          this.base.position.copy(targetPos);
           this.node.position.copy(targetPos);
           this.position.copy(targetPos);
+          // CRITICAL: Update base transform for instance.move()
+          this.base.updateTransform();
           // Position applied directly without interpolation
         }
 
@@ -369,9 +425,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
         }
       } else {
         // Use interpolated values
+        this.base.position.copy(this.lerpPosition.value);
         this.node.position.copy(this.lerpPosition.value);
         this.position.copy(this.lerpPosition.value);
         this.node.quaternion.copy(this.lerpQuaternion.value);
+        // CRITICAL: Update base transform for instance.move()
+        this.base.updateTransform();
       }
     }
 
@@ -461,6 +520,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
         //     matrixAutoUpdate: avatarScene.matrixAutoUpdate
         //   })
         // }
+      }
+
+      // CRITICAL: Update avatar position/rotation every frame (matches PlayerLocal)
+      // The move() method applies the transform matrix with normalization and rotation
+      if (instance && instance.move && this.base) {
+        instance.move(this.base.matrixWorld);
       }
 
       // Update avatar animations
@@ -568,9 +633,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.lerpPosition.pushArray(data.p, this.teleport || null);
       // Apply position immediately for responsiveness - assume it's a 3-element array
       const pos = data.p as number[];
-      // Update both base and node positions IMMEDIATELY
+      // Update base, node, and position IMMEDIATELY
+      this.base.position.set(pos[0], pos[1], pos[2]);
       this.node.position.set(pos[0], pos[1], pos[2]);
       this.position.set(pos[0], pos[1], pos[2]);
+      // CRITICAL: Force base to update its matrix so instance.move() gets correct transform
+      this.base.updateTransform();
     }
     if (data.q !== undefined) {
       // Rotation is no longer stored in EntityData, apply directly to entity transform
