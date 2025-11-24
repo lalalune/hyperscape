@@ -22,6 +22,7 @@ export class Nametag extends Node {
     move: (newMatrix: THREE.Matrix4) => void;
     setName: (name: string) => void;
     setHealth: (health: number) => void;
+    setInCombat: (inCombat: boolean) => void;
     destroy: () => void;
   } | null;
 

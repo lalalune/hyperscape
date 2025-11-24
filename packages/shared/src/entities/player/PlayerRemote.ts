@@ -166,9 +166,15 @@ export class PlayerRemote extends Entity implements HotReloadable {
     // this.base.add(this.caps)
 
     this.aura = createNode("group") as Group;
+
+    // Convert health to 0-100 percentage for Nametags system
+    const currentHealth = (this.data.health as number) || 100;
+    const maxHealth = (this.data.maxHealth as number) || 100;
+    const healthPercent = (currentHealth / maxHealth) * 100;
+
     this.nametag = createNode("nametag", {
       label: this.data.name || "",
-      health: this.data.health,
+      health: healthPercent, // Use percentage, not absolute value
       active: false,
     }) as Nametag;
     this.aura?.add(this.nametag);
@@ -309,7 +315,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
 
     // Set up positioning
     const headHeight = this.avatar.getHeadToHeight()!;
-    this.nametag.position.y = headHeight + 0.2;
+    // Position nametag at fixed Y=2.0 like mob health bars
+    this.nametag.position.y = 2.0;
+    // Bubble still goes at head height for chat
     this.bubble.position.y = headHeight + 0.2;
 
     if (!this.bubble.active) {
@@ -580,12 +588,20 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.nametag.label = (data.name as string) || "";
     }
     if (data.health !== undefined) {
-      this.data.health = data.health as number;
-      this.nametag.health = data.health as number;
+      const currentHealth = data.health as number;
+      const maxHealth = (this.data.maxHealth as number) || 100;
+
+      this.data.health = currentHealth;
+
+      // Convert to 0-100 percentage scale for Nametags system
+      // Nametags expects health as a percentage (0-100), not absolute value
+      const healthPercent = (currentHealth / maxHealth) * 100;
+      this.nametag.health = healthPercent;
+
       this.world.emit(EventType.PLAYER_HEALTH_UPDATED, {
         playerId: this.data.id,
-        health: data.health as number,
-        maxHealth: (this.data.maxHealth as number) || 100,
+        health: currentHealth,
+        maxHealth: maxHealth,
       });
     }
     if (data.avatar !== undefined) {
@@ -605,17 +621,18 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.velocity.set(vel[0], vel[1], vel[2]);
     }
     // Handle combat state updates for RuneScape-style auto-retaliate rotation
-    if ("inCombat" in data) {
-      this.combat.inCombat = data.inCombat as boolean;
-      console.log(
-        `[PlayerRemote.modify] ${this.id} combat state: ${this.combat.inCombat}`,
-      );
+    // Using abbreviated key 'c' for inCombat (network efficiency)
+    if ("c" in data) {
+      const newInCombat = data.c as boolean;
+      this.combat.inCombat = newInCombat;
+      // Update nametag to show/hide health bar (RuneScape pattern)
+      if (this.nametag && this.nametag.handle) {
+        this.nametag.handle.setInCombat(newInCombat);
+      }
     }
-    if ("combatTarget" in data) {
-      this.combat.combatTarget = data.combatTarget as string | null;
-      console.log(
-        `[PlayerRemote.modify] ${this.id} combat target: ${this.combat.combatTarget}`,
-      );
+    // Using abbreviated key 'ct' for combatTarget (network efficiency)
+    if ("ct" in data) {
+      this.combat.combatTarget = data.ct as string | null;
     }
     if (avatarChanged) {
       this.applyAvatar();
