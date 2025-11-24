@@ -94,7 +94,7 @@ export class PlayerSystem extends SystemBase {
   // Attack style tracking (merged from AttackStyleSystem)
   private playerAttackStyles = new Map<string, PlayerAttackStyleState>();
   private styleChangeTimers = new Map<string, NodeJS.Timeout>();
-  private readonly STYLE_CHANGE_COOLDOWN = 5000; // 5 seconds between style changes
+  private readonly STYLE_CHANGE_COOLDOWN = 0; // No cooldown - instant style switching like RuneScape
   private skillSaveTimers = new Map<string, NodeJS.Timeout>();
 
   // Attack styles per GDD - Train one skill exclusively
