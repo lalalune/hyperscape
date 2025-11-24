@@ -81,9 +81,6 @@ export class ClientCameraSystem extends SystemBase {
     leftDown: false,
     lastPosition: new THREE.Vector2(),
     delta: new THREE.Vector2(),
-    leftDownPosition: new THREE.Vector2(), // Track where left click started
-    hasDragged: false, // Track if significant drag occurred
-    lastDragEndTime: 0, // Track when last drag ended to suppress click events
   };
   // Touch state for mobile
   private touchState = {
@@ -260,13 +257,6 @@ export class ClientCameraSystem extends SystemBase {
       true,
     );
 
-    // Listen to click events to suppress them after drags
-    this.canvas.addEventListener(
-      "click",
-      this.onClickCapture.bind(this) as EventListener,
-      true,
-    );
-
     // Listen to contextmenu to mark when we're handling camera rotation
     // Use capture phase to run before InteractionSystem
     this.canvas.addEventListener(
@@ -314,16 +304,10 @@ export class ClientCameraSystem extends SystemBase {
       event.stopPropagation(); // Stop event from reaching other systems
       this.mouseState.rightDown = true;
     } else if (event.button === 1) {
-      // Middle mouse button for zoom
+      // Middle mouse button for camera rotation
       event.preventDefault();
       event.stopPropagation(); // Stop event from reaching other systems
       this.mouseState.middleDown = true;
-      this.canvas!.style.cursor = "grabbing";
-    } else if (event.button === 0) {
-      // Left mouse button - drag to rotate OR click to move
-      this.mouseState.leftDown = true;
-      this.mouseState.leftDownPosition.set(event.clientX, event.clientY);
-      this.mouseState.hasDragged = false;
 
       // Align targets to current spherical to avoid any initial jump
       this.targetSpherical.theta = this.spherical.theta;
@@ -332,67 +316,26 @@ export class ClientCameraSystem extends SystemBase {
       this.orbitingPrimed = true;
       this.orbitingActive = false;
 
-      // Don't prevent default yet - wait to see if user drags or just clicks
+      this.canvas!.style.cursor = "grabbing";
+    } else if (event.button === 0) {
+      // Left mouse button - click to move only (no rotation)
+      this.mouseState.leftDown = true;
+      // Don't prevent default - let click propagate to InteractionSystem
     }
 
     this.mouseState.lastPosition.set(event.clientX, event.clientY);
   }
 
   private onMouseMove(event: MouseEvent): void {
-    // Handle middle mouse button drag for zoom
+    // Handle middle mouse button drag for camera rotation
     if (this.mouseState.middleDown) {
       event.preventDefault();
       event.stopPropagation();
 
-      const deltaY = event.clientY - this.mouseState.lastPosition.y;
-
-      // Vertical drag changes zoom: drag down = zoom out, drag up = zoom in
-      const zoomSensitivity = 0.02;
-      this.targetSpherical.radius += deltaY * zoomSensitivity;
-      this.targetSpherical.radius = clamp(
-        this.targetSpherical.radius,
-        this.settings.minDistance,
-        this.settings.maxDistance,
+      this.mouseState.delta.set(
+        event.clientX - this.mouseState.lastPosition.x,
+        event.clientY - this.mouseState.lastPosition.y,
       );
-
-      // Snap zoom immediately for responsive feel
-      this.spherical.radius = this.targetSpherical.radius;
-      this.effectiveRadius = this.targetSpherical.radius;
-      this.zoomDirty = true;
-      this.lastDesiredRadius = this.spherical.radius;
-
-      this.mouseState.lastPosition.set(event.clientX, event.clientY);
-      return;
-    }
-
-    // Left-click drag for camera rotation
-    if (!this.mouseState.leftDown) return;
-
-    this.mouseState.delta.set(
-      event.clientX - this.mouseState.lastPosition.x,
-      event.clientY - this.mouseState.lastPosition.y,
-    );
-
-    // Check if user has dragged enough to be considered a drag (not a click)
-    if (!this.mouseState.hasDragged) {
-      const totalDrag = Math.hypot(
-        event.clientX - this.mouseState.leftDownPosition.x,
-        event.clientY - this.mouseState.leftDownPosition.y,
-      );
-
-      if (totalDrag > 5) {
-        // 5px threshold
-        // User is dragging - mark as dragged and prevent click-to-move
-        this.mouseState.hasDragged = true;
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    }
-
-    // If we've established this is a drag, handle rotation
-    if (this.mouseState.hasDragged) {
-      event.preventDefault();
-      event.stopPropagation();
 
       // Activate orbiting only after surpassing a small movement threshold
       if (!this.orbitingActive) {
@@ -405,29 +348,28 @@ export class ClientCameraSystem extends SystemBase {
         }
       }
 
-      if (!this.orbitingActive) {
-        this.mouseState.lastPosition.set(event.clientX, event.clientY);
-        return;
+      if (this.orbitingActive) {
+        const invert = this.settings.invertY === true ? -1 : 1;
+        // RS3-like: keep rotation responsive when fully zoomed out
+        const minR = this.settings.minDistance;
+        const maxR = this.settings.maxDistance;
+        const r = THREE.MathUtils.clamp(this.spherical.radius, minR, maxR);
+        const t = (r - minR) / (maxR - minR); // 0 at min zoom, 1 at max zoom
+        const speedScale = THREE.MathUtils.lerp(1.0, 1.3, t); // slightly faster when zoomed out
+        const inputScale = this.settings.rotateSpeed * 0.01 * speedScale;
+        this.targetSpherical.theta -= this.mouseState.delta.x * inputScale;
+        this.targetSpherical.phi -=
+          invert * this.mouseState.delta.y * inputScale;
+        this.targetSpherical.phi = clamp(
+          this.targetSpherical.phi,
+          this.settings.minPolarAngle,
+          this.settings.maxPolarAngle,
+        );
       }
 
-      const invert = this.settings.invertY === true ? -1 : 1;
-      // RS3-like: keep rotation responsive when fully zoomed out
-      const minR = this.settings.minDistance;
-      const maxR = this.settings.maxDistance;
-      const r = THREE.MathUtils.clamp(this.spherical.radius, minR, maxR);
-      const t = (r - minR) / (maxR - minR); // 0 at min zoom, 1 at max zoom
-      const speedScale = THREE.MathUtils.lerp(1.0, 1.3, t); // slightly faster when zoomed out
-      const inputScale = this.settings.rotateSpeed * 0.01 * speedScale;
-      this.targetSpherical.theta -= this.mouseState.delta.x * inputScale;
-      this.targetSpherical.phi -= invert * this.mouseState.delta.y * inputScale;
-      this.targetSpherical.phi = clamp(
-        this.targetSpherical.phi,
-        this.settings.minPolarAngle,
-        this.settings.maxPolarAngle,
-      );
+      this.mouseState.lastPosition.set(event.clientX, event.clientY);
+      return;
     }
-
-    this.mouseState.lastPosition.set(event.clientX, event.clientY);
   }
 
   private onMouseUp(event: MouseEvent): void {
@@ -443,41 +385,14 @@ export class ClientCameraSystem extends SystemBase {
       event.preventDefault();
       event.stopPropagation();
       this.mouseState.middleDown = false;
+      this.orbitingActive = false;
+      this.orbitingPrimed = false;
       this.canvas!.style.cursor = "default";
     }
 
     if (event.button === 0) {
-      // Left mouse button
-      // If user dragged, prevent click-to-move from triggering
-      if (this.mouseState.hasDragged) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        // Mark time of drag end to suppress subsequent click event
-        this.mouseState.lastDragEndTime = performance.now();
-
-        // Freeze target to current to avoid any snap when stopping rotation
-        this.targetSpherical.theta = this.spherical.theta;
-        this.targetSpherical.phi = this.spherical.phi;
-        this.canvas!.style.cursor = "default";
-      }
-      // Otherwise, let the click event propagate to InteractionSystem for click-to-move
-
+      // Left mouse button - just track state
       this.mouseState.leftDown = false;
-      this.mouseState.hasDragged = false;
-      this.orbitingActive = false;
-      this.orbitingPrimed = false;
-    }
-  }
-
-  private onClickCapture(event: MouseEvent): void {
-    // If a drag just ended (within last 50ms), suppress the click event
-    const timeSinceDragEnd =
-      performance.now() - this.mouseState.lastDragEndTime;
-    if (timeSinceDragEnd < 50) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
     }
   }
 
@@ -520,7 +435,6 @@ export class ClientCameraSystem extends SystemBase {
     this.mouseState.rightDown = false;
     this.mouseState.middleDown = false;
     this.mouseState.leftDown = false;
-    this.mouseState.hasDragged = false;
     this.orbitingActive = false;
     this.orbitingPrimed = false;
     if (this.canvas) {
@@ -861,7 +775,7 @@ export class ClientCameraSystem extends SystemBase {
 
     // Apply spherical smoothing only while orbiting. When not orbiting, snap to target to avoid drift.
     const rotationDamping = this.settings.rotationDampingFactor;
-    if (this.mouseState.rightDown || this.touchState.active) {
+    if (this.mouseState.middleDown || this.touchState.active) {
       const phiDelta = this.targetSpherical.phi - this.spherical.phi;
       const thetaDelta = this.shortestAngleDelta(
         this.spherical.theta,
@@ -1077,7 +991,7 @@ export class ClientCameraSystem extends SystemBase {
       target: this.target,
       offset: _cameraInfoOffset,
       position: position,
-      isControlling: this.mouseState.rightDown || this.touchState.active,
+      isControlling: this.mouseState.middleDown || this.touchState.active,
       spherical: {
         radius: this.spherical.radius,
         phi: this.spherical.phi,
