@@ -61,6 +61,7 @@ if (isEmbedded) {
       : undefined,
     quality: (urlParams.get("quality") as any) || "medium",
     sessionToken: urlParams.get("sessionToken") || "",
+    privyUserId: urlParams.get("privyUserId") || undefined,
   };
 
   (window as any).__HYPERSCAPE_CONFIG__ = config;

@@ -518,7 +518,10 @@ export class ConnectionHandler {
    *
    * Spectators are read-only connections that don't spawn players.
    * They receive entity updates but cannot send commands.
-   * SECURITY: Spectators must prove ownership of the character they want to watch.
+   *
+   * SECURITY: Spectators must authenticate via JWT/Privy token to prove identity.
+   * The server verifies the token and checks character ownership - we never trust
+   * client-provided user IDs directly.
    *
    * @param ws - WebSocket connection
    * @param params - Connection parameters
@@ -530,9 +533,8 @@ export class ConnectionHandler {
   ): Promise<void> {
     try {
       const characterId = params.followEntity || params.characterId;
-      const claimedOwnerId = params.privyUserId;
 
-      // SECURITY: Verify ownership - spectator must own the character they want to watch
+      // SECURITY: Require character ID
       if (!characterId) {
         console.warn(
           "[ConnectionHandler] ❌ Spectator missing characterId/followEntity",
@@ -541,15 +543,43 @@ export class ConnectionHandler {
         return;
       }
 
-      if (!claimedOwnerId) {
+      // SECURITY: Require authentication token - we verify identity server-side
+      if (!params.authToken) {
         console.warn(
-          "[ConnectionHandler] ❌ Spectator missing privyUserId for ownership verification",
+          "[ConnectionHandler] ❌ Spectator missing authToken for authentication",
         );
-        ws.close(4003, "Missing owner ID for verification");
+        ws.close(4001, "Authentication required for spectator mode");
         return;
       }
 
-      // Verify this character belongs to this account
+      // SECURITY: Authenticate the user via the same flow as regular connections
+      // This verifies the JWT/Privy token and returns the verified user
+      let verifiedUserId: string | null = null;
+
+      try {
+        const { user } = await authenticateUser(params, this.db);
+        verifiedUserId = user.id;
+        console.log(
+          `[ConnectionHandler] 🔐 Spectator authenticated as: ${verifiedUserId}`,
+        );
+      } catch (authErr) {
+        console.warn(
+          "[ConnectionHandler] ❌ Spectator authentication failed:",
+          authErr,
+        );
+        ws.close(4001, "Authentication failed");
+        return;
+      }
+
+      if (!verifiedUserId) {
+        console.warn(
+          "[ConnectionHandler] ❌ Spectator authentication returned no user",
+        );
+        ws.close(4001, "Authentication failed");
+        return;
+      }
+
+      // SECURITY: Verify this character belongs to the authenticated user
       const databaseSystem = this.world.getSystem("database") as
         | import("../DatabaseSystem").DatabaseSystem
         | undefined;
@@ -563,12 +593,12 @@ export class ConnectionHandler {
       }
 
       const characters =
-        await databaseSystem.getCharactersAsync(claimedOwnerId);
+        await databaseSystem.getCharactersAsync(verifiedUserId);
       const ownsCharacter = characters.some((c) => c.id === characterId);
 
       if (!ownsCharacter) {
         console.warn(
-          `[ConnectionHandler] ❌ SECURITY: Account ${claimedOwnerId} does not own character ${characterId}. Rejecting spectator connection.`,
+          `[ConnectionHandler] ❌ SECURITY: Verified user ${verifiedUserId} does not own character ${characterId}. Rejecting spectator.`,
         );
         ws.close(
           4003,
@@ -577,7 +607,11 @@ export class ConnectionHandler {
         return;
       }
 
-      // Create socket without authentication
+      console.log(
+        `[ConnectionHandler] ✅ Spectator ownership verified: ${verifiedUserId} owns ${characterId}`,
+      );
+
+      // Create socket with verified accountId
       const socketId = require("@hyperscape/shared").uuid();
 
       const socket = new Socket({
@@ -587,8 +621,8 @@ export class ConnectionHandler {
         player: undefined,
       }) as ServerSocket;
 
-      // Mark as spectator (use real owner accountId for tracking)
-      socket.accountId = claimedOwnerId;
+      // Mark as spectator with VERIFIED accountId (not client-provided)
+      socket.accountId = verifiedUserId;
       socket.createdAt = Date.now();
       (socket as any).isSpectator = true;
       (socket as any).spectatingCharacterId = characterId;

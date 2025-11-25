@@ -9,7 +9,13 @@
  * - Broadcasts game events to registered handlers
  */
 
-import { Service, logger, type IAgentRuntime } from "@elizaos/core";
+import {
+  Service,
+  logger,
+  type IAgentRuntime,
+  type Memory,
+  type Action,
+} from "@elizaos/core";
 import WebSocket from "ws";
 import { Packr, Unpackr } from "msgpackr";
 import type {
@@ -275,48 +281,119 @@ export class HyperscapeService
       );
 
       try {
-        // PRAGMATIC APPROACH: Parse and execute movement commands directly
-        // This bypasses ElizaOS's memory/action evaluation for now
-        // TODO: Integrate with full ElizaOS pipeline once entity constraints are resolved
+        // Create a Memory object for ElizaOS action processing
+        // Note: Memory uses entityId (not userId) for the message sender
+        const memory: Memory = {
+          id: dashboardUuid as `${string}-${string}-${string}-${string}-${string}`,
+          entityId:
+            dashboardUuid as `${string}-${string}-${string}-${string}-${string}`,
+          agentId: runtime.agentId,
+          roomId:
+            dashboardUuid as `${string}-${string}-${string}-${string}-${string}`,
+          content: {
+            text: messageText,
+            source: "hyperscape_dashboard",
+          },
+          createdAt: chatData.timestamp,
+        };
 
-        // Parse movement commands like "Move to coordinates [x, y, z]"
-        const coordMatch = messageText.match(
-          /\[(-?\d+\.?\d*),\s*(-?\d+\.?\d*),\s*(-?\d+\.?\d*)\]/,
+        // Import registered actions to find appropriate one
+        const { moveToAction, stopMovementAction } = await import(
+          "../actions/movement.js"
         );
 
-        if (coordMatch) {
-          const target: [number, number, number] = [
-            parseFloat(coordMatch[1]),
-            parseFloat(coordMatch[2]),
-            parseFloat(coordMatch[3]),
-          ];
+        // Determine which action to invoke based on message content
+        let actionToInvoke: Action | null = null;
 
-          const runMode = messageText.toLowerCase().includes("run");
+        // Check for stop commands
+        const stopPatterns = /^(stop|halt|stay|cancel|abort)/i;
+        if (stopPatterns.test(messageText.trim())) {
+          actionToInvoke = stopMovementAction;
+        }
+        // Check for movement commands (coordinates pattern)
+        else if (
+          messageText.match(
+            /\[(-?\d+\.?\d*),\s*(-?\d+\.?\d*),\s*(-?\d+\.?\d*)\]/,
+          )
+        ) {
+          actionToInvoke = moveToAction;
+        }
 
-          // Check if agent has spawned player entity
-          const playerEntity = this.getGameState()?.playerEntity;
+        if (actionToInvoke) {
+          // PRAGMATIC VALIDATION: Use `this` service (which has player entity)
+          // instead of runtime.getService() which may return a different instance
+          const playerEntity = this.getPlayerEntity();
+          const serviceConnected = this.isConnected();
+
+          logger.info(
+            `[HyperscapePlugin] Pre-validation check: connected=${serviceConnected}, hasPlayer=${!!playerEntity}, alive=${playerEntity?.alive}`,
+          );
+
+          if (!serviceConnected) {
+            logger.warn(
+              `[HyperscapePlugin] ⚠️ Cannot execute ${actionToInvoke.name}: service not connected`,
+            );
+            return;
+          }
+
           if (!playerEntity) {
             logger.warn(
-              `[HyperscapePlugin] ⚠️ Cannot execute movement - no player entity spawned yet`,
+              `[HyperscapePlugin] ⚠️ Cannot execute ${actionToInvoke.name}: no player entity`,
+            );
+            return;
+          }
+
+          // Check alive status - default to true if not explicitly false
+          // Some server responses may not include 'alive' property
+          if (playerEntity.alive === false) {
+            logger.warn(
+              `[HyperscapePlugin] ⚠️ Cannot execute ${actionToInvoke.name}: player is dead`,
             );
             return;
           }
 
           logger.info(
-            `[HyperscapePlugin] 🎯 Executing movement to [${target.join(", ")}]${runMode ? " (running)" : ""} for player ${playerEntity.id}`,
+            `[HyperscapePlugin] 🎯 Executing ElizaOS action: ${actionToInvoke.name}`,
           );
 
-          await this.executeMove({ target, runMode });
-
-          logger.info(
-            `[HyperscapePlugin] ✅ Movement command sent successfully`,
+          // Execute action through ElizaOS handler with callback
+          // HandlerCallback returns Memory[] so we return empty array
+          const result = await actionToInvoke.handler(
+            runtime,
+            memory,
+            undefined, // state - will be composed by action if needed
+            undefined, // options
+            async (response) => {
+              // Callback for action response - could send back to game chat
+              logger.info(
+                `[HyperscapePlugin] 📤 Action response: ${response.text}`,
+              );
+              return []; // HandlerCallback expects Memory[] return
+            },
           );
+
+          if (result && typeof result === "object" && "success" in result) {
+            if (result.success) {
+              logger.info(
+                `[HyperscapePlugin] ✅ Action ${actionToInvoke.name} completed successfully`,
+              );
+            } else {
+              logger.warn(
+                `[HyperscapePlugin] ⚠️ Action ${actionToInvoke.name} failed: ${(result as { error?: Error }).error?.message || "Unknown error"}`,
+              );
+            }
+          }
           return;
         }
 
-        // If no direct command matched, log for future AI integration
+        // No specific action matched - log for future AI integration
+        // In a full implementation, this would go through ElizaOS's AI
+        // to determine the appropriate action based on context
         logger.info(
-          `[HyperscapePlugin] No direct command matched - future: integrate with ElizaOS AI`,
+          `[HyperscapePlugin] 💭 No direct action matched for: "${messageText}"`,
+        );
+        logger.info(
+          `[HyperscapePlugin] Future: Route through ElizaOS AI for intelligent action selection`,
         );
       } catch (error) {
         logger.error(

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Agent } from "../../screens/DashboardScreen";
 import { Send, Bot, User, Paperclip, Mic } from "lucide-react";
+import { privyAuthManager } from "../../auth/PrivyAuthManager";
 
 interface Message {
   id: string;
@@ -17,6 +18,7 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
   agent,
 }) => {
   const [characterId, setCharacterId] = useState<string>("");
+  const [authToken, setAuthToken] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -24,13 +26,19 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchCharacterId();
+    fetchSpectatorData();
   }, [agent.id]);
 
-  const fetchCharacterId = async () => {
+  const fetchSpectatorData = async () => {
     try {
-      // Fetch only the character ID for the spectator viewport to follow
-      // No authentication needed - spectator mode is unauthenticated
+      // Get auth token for API calls and spectator mode
+      const token =
+        privyAuthManager.getToken() ||
+        localStorage.getItem("privy_auth_token") ||
+        "";
+      setAuthToken(token);
+
+      // Fetch character ID for the spectator viewport to follow
       const mappingResponse = await fetch(
         `http://localhost:5555/api/agents/mapping/${agent.id}`,
       );
@@ -45,7 +53,10 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
         );
       }
     } catch (error) {
-      console.error("[AgentViewportChat] Error fetching character ID:", error);
+      console.error(
+        "[AgentViewportChat] Error fetching spectator data:",
+        error,
+      );
     } finally {
       setLoading(false);
     }
@@ -62,6 +73,18 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
+    // SECURITY: Require authentication for sending messages
+    if (!authToken) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        sender: "agent",
+        text: "⚠️ Please log in to send messages to the agent.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       sender: "user",
@@ -74,26 +97,24 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
     setIsTyping(true);
 
     try {
-      const messageId = crypto.randomUUID();
-      const userId = localStorage.getItem("privy_user_id") || "anonymous-user";
-      const channelId = `dashboard-chat-${agent.id}`;
-
+      // SECURITY: Include auth token in Authorization header
       const response = await fetch(
         `http://localhost:5555/api/agents/${agent.id}/message`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             content: userMessage.text,
-            userId: userId,
           }),
         },
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
@@ -160,18 +181,33 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
     );
   }
 
+  if (!authToken) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-[#0b0a15] text-[#f2d08a]/60">
+        <div className="text-6xl mb-4">🔐</div>
+        <h2 className="text-xl font-bold text-[#f2d08a] mb-2">
+          Authentication Required
+        </h2>
+        <p className="text-center max-w-md">
+          Please log in to view and interact with the agent.
+        </p>
+      </div>
+    );
+  }
+
   // Build iframe URL for spectator mode
-  // Spectators must prove ownership by passing their Privy user ID
-  // Server verifies they own the character before allowing spectator connection
-  const userAccountId = localStorage.getItem("privy_user_id") || "";
+  // SECURITY: Server verifies authToken and checks character ownership
+  const privyUserId =
+    privyAuthManager.getUserId() || localStorage.getItem("privy_user_id") || "";
 
   const iframeParams = new URLSearchParams({
     embedded: "true",
-    mode: "spectator", // Server recognizes this and skips auth token validation
+    mode: "spectator",
     agentId: agent.id,
+    authToken: authToken, // Server verifies this JWT
     characterId: characterId,
     followEntity: characterId, // Camera will follow this entity
-    privyUserId: userAccountId, // For ownership verification
+    privyUserId: privyUserId,
     hiddenUI: "chat,inventory,minimap,hotbar,stats",
   });
 

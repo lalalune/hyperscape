@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Agent } from "../../screens/DashboardScreen";
+import { privyAuthManager } from "../../auth/PrivyAuthManager";
 
 interface AgentViewportProps {
   agent: Agent;
@@ -7,16 +8,30 @@ interface AgentViewportProps {
 
 export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
   const [characterId, setCharacterId] = useState<string>("");
+  const [authToken, setAuthToken] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchCharacterId();
+    fetchSpectatorData();
   }, [agent.id]);
 
-  const fetchCharacterId = async () => {
+  const fetchSpectatorData = async () => {
     try {
+      // Get auth token from PrivyAuthManager or localStorage
+      // This will be verified server-side for ownership
+      const token =
+        privyAuthManager.getToken() ||
+        localStorage.getItem("privy_auth_token") ||
+        "";
+      setAuthToken(token);
+
+      if (!token) {
+        console.warn(
+          "[AgentViewport] No auth token available - spectator mode requires authentication",
+        );
+      }
+
       // Fetch character ID for the spectator viewport to follow
-      // We also need to verify ownership on the server
       const mappingResponse = await fetch(
         `http://localhost:5555/api/agents/mapping/${agent.id}`,
       );
@@ -31,7 +46,7 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
         );
       }
     } catch (error) {
-      console.error("[AgentViewport] Error fetching character ID:", error);
+      console.error("[AgentViewport] Error fetching spectator data:", error);
     } finally {
       setLoading(false);
     }
@@ -76,18 +91,35 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
     );
   }
 
+  if (!authToken) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-[#0b0a15] text-[#f2d08a]/60">
+        <div className="text-6xl mb-4">🔐</div>
+        <h2 className="text-xl font-bold text-[#f2d08a] mb-2">
+          Authentication Required
+        </h2>
+        <p className="text-center max-w-md">
+          Please log in to view the agent viewport. Spectator mode requires
+          authentication to verify character ownership.
+        </p>
+      </div>
+    );
+  }
+
   // Build iframe URL for spectator mode
-  // Spectators must prove ownership by passing their Privy user ID
-  // Server verifies they own the character before allowing spectator connection
-  const userAccountId = localStorage.getItem("privy_user_id") || "";
+  // SECURITY: Server verifies authToken and checks character ownership
+  // We pass the user's actual Privy auth token for server-side verification
+  const privyUserId =
+    privyAuthManager.getUserId() || localStorage.getItem("privy_user_id") || "";
 
   const iframeParams = new URLSearchParams({
     embedded: "true",
-    mode: "spectator", // Server recognizes this and skips auth token validation
+    mode: "spectator",
     agentId: agent.id,
+    authToken: authToken, // Server verifies this JWT to get real user identity
     characterId: characterId,
     followEntity: characterId, // Camera will follow this entity
-    privyUserId: userAccountId, // For ownership verification
+    privyUserId: privyUserId, // Also pass for Privy token verification
     hiddenUI: "chat,inventory,minimap,hotbar,stats",
   });
 

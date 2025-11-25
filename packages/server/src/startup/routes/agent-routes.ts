@@ -524,10 +524,14 @@ export function registerAgentRoutes(
    * This properly integrates with ElizaOS's runtime, allowing the agent to
    * process messages through its personality, providers, and actions.
    *
+   * SECURITY: Requires authentication. User must own the agent to send messages.
+   *
+   * Headers:
+   * - Authorization: Bearer <token> (Privy or Hyperscape JWT)
+   *
    * Request body:
    * {
-   *   content: "Move to coordinates [10, 0, 5]",
-   *   userId: "user-id" (optional)
+   *   content: "Move to coordinates [10, 0, 5]"
    * }
    *
    * Response:
@@ -541,11 +545,65 @@ export function registerAgentRoutes(
       const params = request.params as { agentId: string };
       const body = request.body as {
         content: string;
-        userId?: string;
       };
 
       const { agentId } = params;
-      const { content, userId = "dashboard-user" } = body;
+      const { content } = body;
+
+      // SECURITY: Require authentication via Authorization header
+      const authHeader = request.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        console.warn(
+          "[AgentRoutes] ❌ Message endpoint called without auth token",
+        );
+        return reply.status(401).send({
+          success: false,
+          error:
+            "Authentication required. Provide Bearer token in Authorization header.",
+        });
+      }
+
+      const token = authHeader.slice(7); // Remove "Bearer " prefix
+
+      // Verify the token and get user identity
+      const { verifyJWT } = await import("../../shared/utils.js");
+      const { verifyPrivyToken, isPrivyEnabled } = await import(
+        "../../infrastructure/auth/privy-auth.js"
+      );
+
+      let verifiedUserId: string | null = null;
+
+      // Try Privy token verification first (if enabled)
+      if (isPrivyEnabled()) {
+        try {
+          const privyInfo = await verifyPrivyToken(token);
+          if (privyInfo) {
+            verifiedUserId = privyInfo.privyUserId;
+            console.log(
+              `[AgentRoutes] 🔐 Privy auth verified: ${verifiedUserId}`,
+            );
+          }
+        } catch {
+          // Privy verification failed, try JWT next
+        }
+      }
+
+      // Fall back to Hyperscape JWT verification
+      if (!verifiedUserId) {
+        const jwtPayload = await verifyJWT(token);
+        if (jwtPayload && jwtPayload.userId) {
+          verifiedUserId = jwtPayload.userId as string;
+          console.log(`[AgentRoutes] 🔐 JWT auth verified: ${verifiedUserId}`);
+        }
+      }
+
+      if (!verifiedUserId) {
+        console.warn("[AgentRoutes] ❌ Token verification failed");
+        return reply.status(401).send({
+          success: false,
+          error: "Invalid or expired authentication token",
+        });
+      }
 
       if (!agentId) {
         return reply.status(400).send({
@@ -561,12 +619,7 @@ export function registerAgentRoutes(
         });
       }
 
-      console.log(
-        `[AgentRoutes] Sending message to agent ${agentId}:`,
-        content,
-      );
-
-      // Get the agent's character ID from mappings
+      // Get database system
       const databaseSystem = world.getSystem("database") as
         | {
             db: {
@@ -591,12 +644,13 @@ export function registerAgentRoutes(
       const { agentMappings } = await import("../../database/schema.js");
       const { eq } = await import("drizzle-orm");
 
-      // Get agent's mapping to verify it exists
+      // Get agent's mapping to verify it exists AND user owns it
       const mappings = (await databaseSystem.db
         .select()
         .from(agentMappings)
         .where(eq(agentMappings.agentId, agentId))) as Array<{
         agentId: string;
+        accountId: string;
         characterId: string;
         agentName: string;
       }>;
@@ -610,7 +664,22 @@ export function registerAgentRoutes(
       }
 
       const mapping = mappings[0];
+
+      // SECURITY: Verify the authenticated user owns this agent
+      if (mapping.accountId !== verifiedUserId) {
+        console.warn(
+          `[AgentRoutes] ❌ SECURITY: User ${verifiedUserId} tried to message agent ${agentId} owned by ${mapping.accountId}`,
+        );
+        return reply.status(403).send({
+          success: false,
+          error: "You do not have permission to message this agent",
+        });
+      }
+
       const characterId = mapping.characterId;
+      console.log(
+        `[AgentRoutes] ✅ Ownership verified: ${verifiedUserId} owns agent ${mapping.agentName}`,
+      );
       console.log(
         `[AgentRoutes] Found agent ${mapping.agentName} (character: ${characterId})`,
       );
@@ -642,11 +711,11 @@ export function registerAgentRoutes(
         });
       }
 
-      // Create chat message
+      // Create chat message - use verified user ID as sender
       const chatMessage = {
         id: crypto.randomUUID(),
         from: "Dashboard",
-        fromId: userId,
+        fromId: verifiedUserId,
         body: content,
         text: content,
         timestamp: Date.now(),
