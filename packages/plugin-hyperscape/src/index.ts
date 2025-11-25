@@ -49,6 +49,20 @@ import {
 } from "./actions/inventory.js";
 import { chatMessageAction } from "./actions/social.js";
 import { bankDepositAction, bankWithdrawAction } from "./actions/banking.js";
+import {
+  exploreAction,
+  fleeAction,
+  idleAction,
+  approachEntityAction,
+} from "./actions/autonomous.js";
+
+// Evaluators
+import {
+  survivalEvaluator,
+  explorationEvaluator,
+  socialEvaluator,
+  combatEvaluator,
+} from "./evaluators/index.js";
 
 // Event handlers
 import { registerEventHandlers } from "./events/handlers.js";
@@ -155,6 +169,14 @@ export const hyperscapePlugin: Plugin = {
     availableActionsProvider, // Context-aware available actions
   ],
 
+  // Evaluators assess game state for autonomous decision making
+  evaluators: [
+    survivalEvaluator, // Assess health, threats, survival needs (runs first)
+    explorationEvaluator, // Identify exploration opportunities
+    socialEvaluator, // Identify social interaction opportunities
+    combatEvaluator, // Assess combat opportunities and threats
+  ],
+
   // HTTP API routes for agent management
   routes: [
     callbackRoute,
@@ -166,6 +188,12 @@ export const hyperscapePlugin: Plugin = {
 
   // Actions the agent can perform in the game
   actions: [
+    // Autonomous behavior actions (used by AutonomousBehaviorManager)
+    exploreAction, // Move to explore new areas
+    fleeAction, // Run away from danger
+    idleAction, // Stand still and observe
+    approachEntityAction, // Move towards a specific entity
+
     // Movement
     moveToAction,
     followEntityAction,
