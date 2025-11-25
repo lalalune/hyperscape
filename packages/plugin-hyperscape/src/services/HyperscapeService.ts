@@ -34,6 +34,7 @@ import type {
   BankCommand,
   HyperscapeServiceInterface,
 } from "../types.js";
+import { AutonomousBehaviorManager } from "../managers/autonomous-behavior-manager.js";
 
 // msgpackr instances for binary packet encoding/decoding
 const packr = new Packr({ structuredClone: true });
@@ -63,6 +64,8 @@ export class HyperscapeService
   private hasReceivedSnapshot: boolean = false;
   private pluginEventHandlersRegistered: boolean = false;
   private chatHandlerRegistered: boolean = false;
+  private autonomousBehaviorManager: AutonomousBehaviorManager | null = null;
+  private autonomousBehaviorEnabled: boolean = true;
 
   constructor(runtime?: IAgentRuntime) {
     super(runtime);
@@ -985,6 +988,9 @@ export class HyperscapeService
           logger.info(
             `[HyperscapeService] 🎮 Player entity spawned: ${data.id} on WebSocket ${wsId}, runtime: ${this.runtime.agentId}`,
           );
+
+          // Start autonomous exploration when player spawns
+          this.startAutonomousExploration();
         } else if (data && data.id) {
           logger.debug(
             `[HyperscapeService] Entity ${data.id} added (not our player)`,
@@ -1146,6 +1152,89 @@ export class HyperscapeService
    */
   getGameState(): GameStateCache {
     return { ...this.gameState };
+  }
+
+  /**
+   * Start autonomous behavior (full ElizaOS decision loop)
+   * Called automatically when player spawns, but can also be called manually
+   */
+  startAutonomousBehavior(): void {
+    if (!this.autonomousBehaviorEnabled) {
+      logger.info("[HyperscapeService] Autonomous behavior is disabled");
+      return;
+    }
+
+    if (this.autonomousBehaviorManager?.running) {
+      logger.debug("[HyperscapeService] Autonomous behavior already running");
+      return;
+    }
+
+    if (!this.runtime) {
+      logger.warn(
+        "[HyperscapeService] No runtime, cannot start autonomous behavior",
+      );
+      return;
+    }
+
+    logger.info(
+      "[HyperscapeService] 🚀 Starting autonomous behavior (ElizaOS decision loop)...",
+    );
+    this.autonomousBehaviorManager = new AutonomousBehaviorManager(
+      this.runtime,
+      {
+        tickInterval: 10000, // 10 seconds between decisions
+        debug: false,
+      },
+    );
+    this.autonomousBehaviorManager.start();
+  }
+
+  /**
+   * Stop autonomous behavior
+   */
+  stopAutonomousBehavior(): void {
+    if (this.autonomousBehaviorManager?.running) {
+      logger.info("[HyperscapeService] 🛑 Stopping autonomous behavior...");
+      this.autonomousBehaviorManager.stop();
+    }
+  }
+
+  /**
+   * Check if autonomous behavior is running
+   */
+  isAutonomousBehaviorRunning(): boolean {
+    return this.autonomousBehaviorManager?.running ?? false;
+  }
+
+  /**
+   * Enable or disable autonomous behavior
+   */
+  setAutonomousBehaviorEnabled(enabled: boolean): void {
+    this.autonomousBehaviorEnabled = enabled;
+    logger.info(
+      `[HyperscapeService] Autonomous behavior ${enabled ? "enabled" : "disabled"}`,
+    );
+
+    if (!enabled && this.autonomousBehaviorManager?.running) {
+      this.stopAutonomousBehavior();
+    }
+  }
+
+  // Legacy aliases for backward compatibility
+  startAutonomousExploration(): void {
+    this.startAutonomousBehavior();
+  }
+
+  stopAutonomousExploration(): void {
+    this.stopAutonomousBehavior();
+  }
+
+  isExplorationRunning(): boolean {
+    return this.isAutonomousBehaviorRunning();
+  }
+
+  setAutonomousExplorationEnabled(enabled: boolean): void {
+    this.setAutonomousBehaviorEnabled(enabled);
   }
 
   /**
