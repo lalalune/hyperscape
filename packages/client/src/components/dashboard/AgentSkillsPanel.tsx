@@ -129,30 +129,34 @@ export const AgentSkillsPanel: React.FC<AgentSkillsPanelProps> = ({
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [characterId, setCharacterId] = useState<string | null>(null);
 
-  // Fetch skills when component mounts or agent changes
+  // Fetch character ID once when agent changes
   useEffect(() => {
     if (agent.status !== "active") {
       setSkills(null);
+      setCharacterId(null);
       return;
     }
-    fetchSkills();
+    fetchCharacterId();
   }, [agent.id, agent.status]);
 
-  // Poll for skills updates when viewport is active
+  // Poll for skills updates when viewport is active and we have characterId
   useEffect(() => {
-    if (!isViewportActive || agent.status !== "active") return;
+    if (!isViewportActive || agent.status !== "active" || !characterId) return;
+
+    // Fetch immediately
+    fetchSkills();
 
     const interval = setInterval(fetchSkills, 5000); // Poll every 5 seconds
     return () => clearInterval(interval);
-  }, [isViewportActive, agent.id, agent.status]);
+  }, [isViewportActive, agent.id, agent.status, characterId]);
 
-  const fetchSkills = async () => {
+  const fetchCharacterId = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // First get the character ID from agent mapping
       const mappingResponse = await fetch(
         `http://localhost:5555/api/agents/mapping/${agent.id}`,
       );
@@ -166,14 +170,26 @@ export const AgentSkillsPanel: React.FC<AgentSkillsPanelProps> = ({
       }
 
       const mappingData = await mappingResponse.json();
-      const characterId = mappingData.characterId;
+      const charId = mappingData.characterId;
 
-      if (!characterId) {
+      if (!charId) {
         setError("No character linked");
         return;
       }
 
-      // Fetch skills from character endpoint
+      setCharacterId(charId);
+    } catch (err) {
+      console.error("[AgentSkillsPanel] Error fetching character ID:", err);
+      setError("Failed to fetch");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSkills = async () => {
+    if (!characterId) return;
+
+    try {
       const skillsResponse = await fetch(
         `http://localhost:5555/api/characters/${characterId}/skills`,
       );
@@ -199,22 +215,23 @@ export const AgentSkillsPanel: React.FC<AgentSkillsPanelProps> = ({
 
       const skillsData = await skillsResponse.json();
       setSkills(skillsData.skills || skillsData);
+      setError(null);
     } catch (err) {
       console.error("[AgentSkillsPanel] Error fetching skills:", err);
-      // Set default skills on error
-      setSkills({
-        attack: { level: 1, xp: 0 },
-        strength: { level: 1, xp: 0 },
-        defense: { level: 1, xp: 0 },
-        constitution: { level: 10, xp: 0 },
-        ranged: { level: 1, xp: 0 },
-        woodcutting: { level: 1, xp: 0 },
-        fishing: { level: 1, xp: 0 },
-        firemaking: { level: 1, xp: 0 },
-        cooking: { level: 1, xp: 0 },
-      });
-    } finally {
-      setLoading(false);
+      // Set default skills on error but don't spam error state
+      if (!skills) {
+        setSkills({
+          attack: { level: 1, xp: 0 },
+          strength: { level: 1, xp: 0 },
+          defense: { level: 1, xp: 0 },
+          constitution: { level: 10, xp: 0 },
+          ranged: { level: 1, xp: 0 },
+          woodcutting: { level: 1, xp: 0 },
+          fishing: { level: 1, xp: 0 },
+          firemaking: { level: 1, xp: 0 },
+          cooking: { level: 1, xp: 0 },
+        });
+      }
     }
   };
 

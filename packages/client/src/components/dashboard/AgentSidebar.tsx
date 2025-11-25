@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
 import { AgentSkillsPanel } from "./AgentSkillsPanel";
+import { AgentPositionPanel } from "./AgentPositionPanel";
 
 interface AgentSidebarProps {
   agents: Agent[];
@@ -134,6 +135,14 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
       {/* Skills Panel for Selected Agent */}
       {selectedAgent && (
         <AgentSkillsPanel
+          agent={selectedAgent}
+          isViewportActive={viewportAgentId === selectedAgentId}
+        />
+      )}
+
+      {/* Position Panel for Selected Agent */}
+      {selectedAgent && (
+        <AgentPositionPanel
           agent={selectedAgent}
           isViewportActive={viewportAgentId === selectedAgentId}
         />
