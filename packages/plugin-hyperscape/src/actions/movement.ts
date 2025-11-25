@@ -25,17 +25,30 @@ export const moveToAction: Action = {
 
   validate: async (runtime: IAgentRuntime, _message: Memory) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
-    if (!service) return false;
-    const playerEntity = service.getPlayerEntity();
+    if (!service) {
+      console.warn("[MOVE_TO] Validation failed: service not found");
+      return false;
+    }
 
     if (!service.isConnected()) {
+      console.warn("[MOVE_TO] Validation failed: service not connected");
       return false;
     }
 
-    if (!playerEntity || !playerEntity.alive) {
+    const playerEntity = service.getPlayerEntity();
+    if (!playerEntity) {
+      console.warn("[MOVE_TO] Validation failed: no player entity");
       return false;
     }
 
+    if (!playerEntity.alive) {
+      console.warn(
+        `[MOVE_TO] Validation failed: player not alive (alive=${playerEntity.alive})`,
+      );
+      return false;
+    }
+
+    console.info("[MOVE_TO] Validation passed");
     return true;
   },
 

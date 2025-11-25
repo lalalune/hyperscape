@@ -199,12 +199,10 @@ export function EmbeddedGameClient() {
       return;
     }
 
-    // Auth token is OPTIONAL for spectator mode
-    // Spectators connect anonymously and receive broadcast entity updates
-    if (!embeddedConfig.authToken && embeddedConfig.mode !== "spectator") {
-      setError(
-        "No authentication token provided (required for non-spectator mode)",
-      );
+    // Auth token is REQUIRED for all modes (including spectator)
+    // Server verifies the token and checks character ownership for security
+    if (!embeddedConfig.authToken) {
+      setError("Authentication required - please log in to view this viewport");
       console.error("[EmbeddedGameClient] Missing authToken in config");
       return;
     }
@@ -247,14 +245,12 @@ export function EmbeddedGameClient() {
     );
   }
 
-  // Build WebSocket URL for spectator mode
-  // Spectators pass mode=spectator parameter instead of auth token
+  // Build WebSocket URL with authentication
+  // SECURITY: authToken is always required - server verifies identity server-side
   const wsUrl =
     config.mode === "spectator"
-      ? `${config.wsUrl}?mode=spectator&followEntity=${encodeURIComponent(config.followEntity || config.characterId || "")}&characterId=${encodeURIComponent(config.characterId || "")}`
-      : config.authToken
-        ? `${config.wsUrl}?authToken=${encodeURIComponent(config.authToken)}`
-        : config.wsUrl;
+      ? `${config.wsUrl}?mode=spectator&authToken=${encodeURIComponent(config.authToken)}&followEntity=${encodeURIComponent(config.followEntity || config.characterId || "")}&characterId=${encodeURIComponent(config.characterId || "")}&privyUserId=${encodeURIComponent(config.privyUserId || "")}`
+      : `${config.wsUrl}?authToken=${encodeURIComponent(config.authToken)}`;
 
   // Setup callback to configure spectator mode
   const handleSetup = (world: World) => {
