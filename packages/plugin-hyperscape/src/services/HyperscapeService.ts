@@ -35,6 +35,7 @@ import type {
   HyperscapeServiceInterface,
 } from "../types.js";
 import { AutonomousBehaviorManager } from "../managers/autonomous-behavior-manager.js";
+import { registerEventHandlers } from "../events/handlers.js";
 
 // msgpackr instances for binary packet encoding/decoding
 const packr = new Packr({ structuredClone: true });
@@ -66,6 +67,8 @@ export class HyperscapeService
   private chatHandlerRegistered: boolean = false;
   private autonomousBehaviorManager: AutonomousBehaviorManager | null = null;
   private autonomousBehaviorEnabled: boolean = true;
+  /** Temporarily stores the last removed entity for event handlers */
+  private _lastRemovedEntity: Entity | null = null;
 
   constructor(runtime?: IAgentRuntime) {
     super(runtime);
@@ -776,6 +779,12 @@ export class HyperscapeService
         if (packetName === "chatAdded") {
           logger.info(`[HyperscapeService] 📢 Broadcasting CHAT_MESSAGE event`);
         }
+        // Debug: Log entityRemoved packets
+        if (packetName === "entityRemoved") {
+          logger.info(
+            `[HyperscapeService] 🗑️ entityRemoved packet received: ${JSON.stringify(packetData)}, lastRemovedEntity: ${this._lastRemovedEntity?.name || "none"}`,
+          );
+        }
         this.broadcastEvent(eventType, packetData);
       }
     } catch (error) {
@@ -855,8 +864,33 @@ export class HyperscapeService
       "characterCreated",
       "characterSelected",
       "enterWorld",
+      "syncGoal", // Agent goal sync packet (for dashboard display)
     ];
     return packetNames[id] || null;
+  }
+
+  /**
+   * Translate abbreviated entity property names from server to full names
+   * Server sends: p (position), v (velocity), q (quaternion), e (emote)
+   * Plugin expects: position, velocity, quaternion, emote
+   */
+  private translateEntityChanges(
+    changes: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const translated: Record<string, unknown> = {};
+    const abbreviations: Record<string, string> = {
+      p: "position",
+      v: "velocity",
+      q: "quaternion",
+      e: "emote",
+    };
+
+    for (const [key, value] of Object.entries(changes)) {
+      const fullName = abbreviations[key] || key;
+      translated[fullName] = value;
+    }
+
+    return translated;
   }
 
   /**
@@ -1006,24 +1040,89 @@ export class HyperscapeService
           data.id === this.characterId &&
           this.gameState.playerEntity
         ) {
-          Object.assign(this.gameState.playerEntity, data.changes || data);
+          const changes = data.changes || data;
+          // Translate abbreviated property names from server to full names
+          // Server sends: p (position), v (velocity), q (quaternion), e (emote)
+          const translatedChanges = this.translateEntityChanges(changes);
+          Object.assign(this.gameState.playerEntity, translatedChanges);
+          // Log position updates for debugging
+          if (translatedChanges.position) {
+            const pos = translatedChanges.position as
+              | number[]
+              | { x: number; y: number; z: number };
+            const posStr = Array.isArray(pos)
+              ? `[${pos[0]?.toFixed?.(0) || pos[0]}, ${pos[1]?.toFixed?.(0) || pos[1]}, ${pos[2]?.toFixed?.(0) || pos[2]}]`
+              : `{x:${pos.x?.toFixed?.(0) || pos.x}, y:${pos.y?.toFixed?.(0) || pos.y}, z:${pos.z?.toFixed?.(0) || pos.z}}`;
+            logger.info(
+              `[HyperscapeService] 📍 Player position updated: ${posStr}`,
+            );
+          }
         } else if (data && data.id) {
+          const changes = data.changes || data;
+          const translatedChanges = this.translateEntityChanges(changes);
+          // Log if we get entityModified for a different entity (to debug why player isn't updating)
+          if (data.id && translatedChanges.position) {
+            logger.debug(
+              `[HyperscapeService] 📍 Entity ${data.id} position updated (not player ${this.characterId})`,
+            );
+          }
           const entity = this.gameState.nearbyEntities.get(data.id);
           if (entity) {
-            Object.assign(entity, data.changes || data);
+            Object.assign(entity, translatedChanges);
           }
         }
         break;
 
-      case "entityRemoved":
-        if (data && data.id) {
-          this.gameState.nearbyEntities.delete(data.id);
+      case "entityRemoved": {
+        // Get the entity ID - packet may send just ID string or {id: string}
+        const entityId = typeof data === "string" ? data : data?.id;
+        if (entityId) {
+          // Save entity data BEFORE deletion for the event handler
+          const removedEntity = this.gameState.nearbyEntities.get(entityId);
+          this.gameState.nearbyEntities.delete(entityId);
+
+          // Store the removed entity in a temporary property for the broadcast
+          // We need to store it somewhere handlers can access since we can't
+          // modify primitive string data
+          if (removedEntity) {
+            this._lastRemovedEntity = removedEntity;
+          }
+        }
+        break;
+      }
+
+      case "inventoryUpdated":
+        if (this.gameState.playerEntity && data) {
+          Object.assign(this.gameState.playerEntity, data);
+          const invData = data as { items?: unknown[] };
+          logger.info(
+            `[HyperscapeService] 📦 Inventory updated: ${invData.items?.length || 0} items`,
+          );
         }
         break;
 
-      case "inventoryUpdated":
       case "skillsUpdated":
         if (this.gameState.playerEntity && data) {
+          Object.assign(this.gameState.playerEntity, data);
+        }
+        break;
+
+      case "playerUpdated":
+      case "playerState":
+        // Handle player position/state updates
+        if (this.gameState.playerEntity && data) {
+          // Update position if present
+          if (data.position) {
+            this.gameState.playerEntity.position = data.position;
+            const pos = data.position;
+            const posStr = Array.isArray(pos)
+              ? `[${pos[0]?.toFixed?.(0) || pos[0]}, ${pos[1]?.toFixed?.(0) || pos[1]}, ${pos[2]?.toFixed?.(0) || pos[2]}]`
+              : `{x:${pos.x?.toFixed?.(0) || pos.x}, z:${pos.z?.toFixed?.(0) || pos.z}}`;
+            logger.info(
+              `[HyperscapeService] 📍 Player position via ${packetName}: ${posStr}`,
+            );
+          }
+          // Also copy any other state (health, etc)
           Object.assign(this.gameState.playerEntity, data);
         }
         break;
@@ -1096,7 +1195,13 @@ export class HyperscapeService
     }
 
     const handlers = this.eventHandlers.get(eventType);
-    if (handlers) {
+    if (handlers && handlers.length > 0) {
+      // Debug: Log ENTITY_LEFT broadcasts
+      if (eventType === "ENTITY_LEFT") {
+        logger.info(
+          `[HyperscapeService] 📢 Broadcasting ENTITY_LEFT to ${handlers.length} handler(s)`,
+        );
+      }
       handlers.forEach((handler) => {
         try {
           handler(data);
@@ -1107,6 +1212,10 @@ export class HyperscapeService
           );
         }
       });
+    } else if (eventType === "ENTITY_LEFT") {
+      logger.warn(
+        `[HyperscapeService] ⚠️ ENTITY_LEFT event but no handlers registered!`,
+      );
     }
   }
 
@@ -1148,6 +1257,16 @@ export class HyperscapeService
   }
 
   /**
+   * Get the last removed entity (for ENTITY_LEFT handlers)
+   * This is set before the entity is removed from the cache and cleared after broadcast
+   */
+  getLastRemovedEntity(): Entity | null {
+    const entity = this._lastRemovedEntity;
+    this._lastRemovedEntity = null; // Clear after reading
+    return entity;
+  }
+
+  /**
    * Get complete game state
    */
   getGameState(): GameStateCache {
@@ -1182,6 +1301,19 @@ export class HyperscapeService
         "[HyperscapeService] No runtime, cannot start autonomous behavior",
       );
       return;
+    }
+
+    // Register event handlers if not already registered
+    // This ensures kill tracking and other game event handling is set up
+    if (!this.pluginEventHandlersRegistered) {
+      logger.info(
+        "[HyperscapeService] Registering event handlers for game events...",
+      );
+      registerEventHandlers(this.runtime, this);
+      this.pluginEventHandlersRegistered = true;
+      logger.info(
+        "[HyperscapeService] ✅ Event handlers registered successfully",
+      );
     }
 
     logger.info(
@@ -1357,6 +1489,7 @@ export class HyperscapeService
       "characterCreated",
       "characterSelected",
       "enterWorld",
+      "syncGoal", // Agent goal sync packet (for dashboard display)
     ];
     const index = packetNames.indexOf(name);
     return index >= 0 ? index : null;
@@ -1410,9 +1543,29 @@ export class HyperscapeService
 
   /**
    * Execute gather resource command
+   * Maps resourceEntityId to resourceId for server compatibility
    */
   async executeGatherResource(command: GatherResourceCommand): Promise<void> {
-    this.sendCommand("gatherResource", command);
+    // Get player position for the server
+    const player = this.getPlayerEntity();
+    const rawPos = player?.position as unknown;
+    let playerPosition: { x: number; y: number; z: number } | undefined;
+
+    if (Array.isArray(rawPos) && rawPos.length >= 3) {
+      playerPosition = { x: rawPos[0], y: rawPos[1], z: rawPos[2] };
+    } else if (rawPos && typeof rawPos === "object" && "x" in rawPos) {
+      playerPosition = rawPos as { x: number; y: number; z: number };
+    }
+
+    // Send with server-expected field name
+    logger.info(
+      `[HyperscapeService] Sending resourceGather: resourceId=${command.resourceEntityId}, ` +
+        `playerPosition=${JSON.stringify(playerPosition)}`,
+    );
+    this.sendCommand("resourceGather", {
+      resourceId: command.resourceEntityId,
+      playerPosition,
+    });
   }
 
   /**
@@ -1420,5 +1573,29 @@ export class HyperscapeService
    */
   async executeBankAction(command: BankCommand): Promise<void> {
     this.sendCommand("bankAction", command);
+  }
+
+  /**
+   * Sync goal state to server for dashboard display
+   * Called whenever the goal changes
+   */
+  syncGoalToServer(): void {
+    const goal = this.autonomousBehaviorManager?.getGoal();
+    this.sendCommand("syncGoal", {
+      characterId: this.characterId,
+      goal: goal
+        ? {
+            type: goal.type,
+            description: goal.description,
+            progress: goal.progress,
+            target: goal.target,
+            location: goal.location,
+            targetEntity: goal.targetEntity,
+            targetSkill: goal.targetSkill,
+            targetSkillLevel: goal.targetSkillLevel,
+            startedAt: goal.startedAt,
+          }
+        : null,
+    });
   }
 }

@@ -909,5 +909,236 @@ export function registerAgentRoutes(
     }
   });
 
+  /**
+   * GET /api/agents/:agentId/goal
+   *
+   * Get the current goal for an agent.
+   * Used by the dashboard to display agent goal progress.
+   *
+   * Response:
+   * {
+   *   success: true,
+   *   goal: { type, description, progress, target, ... } | null
+   * }
+   */
+  fastify.get("/api/agents/:agentId/goal", async (request, reply) => {
+    try {
+      const params = request.params as { agentId: string };
+      const { agentId } = params;
+
+      if (!agentId) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required parameter: agentId",
+        });
+      }
+
+      // Get database system
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              select: (fields?: unknown) => {
+                from: (table: unknown) => {
+                  where: (condition: unknown) => Promise<unknown[]>;
+                };
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Import schema and eq operator
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq } = await import("drizzle-orm");
+
+      // Get agent's character ID
+      const mappings = (await databaseSystem.db
+        .select()
+        .from(agentMappings)
+        .where(eq(agentMappings.agentId, agentId))) as Array<{
+        characterId: string;
+      }>;
+
+      if (mappings.length === 0) {
+        // Agent not registered yet - return success with null goal
+        return reply.send({
+          success: true,
+          goal: null,
+          message: "Agent not registered in game yet",
+        });
+      }
+
+      const characterId = mappings[0].characterId;
+
+      // Get goal from ServerNetwork storage
+      const { ServerNetwork } = await import(
+        "../../systems/ServerNetwork/index.js"
+      );
+      const goal = ServerNetwork.agentGoals.get(characterId);
+
+      if (!goal) {
+        return reply.send({
+          success: true,
+          goal: null,
+          message: "No active goal",
+        });
+      }
+
+      // Calculate progress percentage
+      const goalData = goal as {
+        progress?: number;
+        target?: number;
+        startedAt?: number;
+      };
+      const progressPercent =
+        goalData.target && goalData.target > 0
+          ? Math.round(((goalData.progress || 0) / goalData.target) * 100)
+          : 0;
+
+      return reply.send({
+        success: true,
+        goal: {
+          ...goalData,
+          progressPercent,
+          elapsedMs: goalData.startedAt ? Date.now() - goalData.startedAt : 0,
+        },
+      });
+    } catch (error) {
+      console.error("[AgentRoutes] ❌ Failed to fetch agent goal:", error);
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to fetch agent goal",
+        goal: null,
+      });
+    }
+  });
+
+  /**
+   * GET /api/debug/resources
+   *
+   * Get all resources in the world (trees, fishing spots, etc.)
+   * Used for debugging and finding resource locations.
+   */
+  fastify.get("/api/debug/resources", async (_request, reply) => {
+    try {
+      // Get all entities from world
+      const entities: Array<{
+        id: string;
+        name: string;
+        type: string;
+        resourceType?: string;
+        position: [number, number, number];
+      }> = [];
+
+      const entitiesMap =
+        (world.entities as { items?: Map<string, unknown> }).items || new Map();
+      for (const [id, entity] of entitiesMap.entries()) {
+        const entityAny = entity as Record<string, unknown>;
+        const position = entityAny.position as
+          | [number, number, number]
+          | { x: number; y: number; z: number }
+          | undefined;
+
+        let posArray: [number, number, number] = [0, 0, 0];
+        if (Array.isArray(position)) {
+          posArray = position;
+        } else if (position && typeof position === "object") {
+          posArray = [position.x || 0, position.y || 0, position.z || 0];
+        }
+
+        // Check if it's a resource
+        const resourceType = entityAny.resourceType as string | undefined;
+        const type = (entityAny.type || entityAny.entityType || "") as string;
+        const name = (entityAny.name || "") as string;
+
+        if (
+          resourceType ||
+          type === "resource" ||
+          /tree|fishing|ore|herb/i.test(name)
+        ) {
+          entities.push({
+            id: id as string,
+            name,
+            type,
+            resourceType,
+            position: posArray,
+          });
+        }
+      }
+
+      // Get resources from TerrainSystem tiles
+      const terrainSystem = world.getSystem("terrain") as {
+        getTiles?: () => Map<
+          string,
+          {
+            x: number;
+            z: number;
+            resources: Array<{
+              id: string;
+              type: string;
+              position: { x: number; y: number; z: number };
+            }>;
+          }
+        >;
+        CONFIG?: { TILE_SIZE: number };
+      } | null;
+
+      const tileSize = terrainSystem?.CONFIG?.TILE_SIZE || 100;
+      const terrainResources: Array<{
+        id: string;
+        type: string;
+        position: [number, number, number];
+        tileKey: string;
+      }> = [];
+
+      const tiles = terrainSystem?.getTiles?.();
+      if (tiles) {
+        for (const [key, tile] of tiles.entries()) {
+          for (const resource of tile.resources || []) {
+            // Resource position is relative to tile - convert to world position
+            const worldX = tile.x * tileSize + resource.position.x;
+            const worldY = resource.position.y;
+            const worldZ = tile.z * tileSize + resource.position.z;
+
+            terrainResources.push({
+              id: resource.id,
+              type: resource.type,
+              position: [worldX, worldY, worldZ],
+              tileKey: key,
+            });
+          }
+        }
+      }
+
+      // Filter for trees specifically
+      const trees = terrainResources.filter((r) => r.type === "tree");
+
+      return reply.send({
+        success: true,
+        entities,
+        terrainResources,
+        trees,
+        treeCount: trees.length,
+        tileCount: tiles?.size || 0,
+        totalEntities: entitiesMap.size,
+      });
+    } catch (error) {
+      console.error("[AgentRoutes] ❌ Failed to fetch resources:", error);
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to fetch resources",
+      });
+    }
+  });
+
   console.log("[AgentRoutes] ✅ Agent credential routes registered");
 }

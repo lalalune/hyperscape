@@ -35,6 +35,8 @@ export function registerEventHandlers(
     );
   });
 
+  // NOTE: COMBAT_KILL is an internal server event that is NOT sent over WebSocket.
+  // We keep this handler in case we add the packet in the future.
   service.onGameEvent("COMBAT_KILL", async (data: unknown) => {
     const eventData = data as { targetName: string; xpGained: number };
     await storeCombatMemory(
@@ -64,6 +66,177 @@ export function registerEventHandlers(
           `[HyperscapePlugin] Goal progress updated: ${goal.progress + 1}/${goal.target} (killed ${eventData.targetName})`,
         );
       }
+    }
+  });
+
+  // Track mob kills via ENTITY_LEFT - when a mob entity is removed, it likely died
+  // This is a workaround since COMBAT_KILL isn't sent over WebSocket
+  // The service stores the removed entity before deletion via getLastRemovedEntity()
+  logger.info(
+    "[HyperscapePlugin] 📝 Registering ENTITY_LEFT handler for kill tracking",
+  );
+  service.onGameEvent("ENTITY_LEFT", async (_data: unknown) => {
+    logger.info("[HyperscapePlugin] 🔔 ENTITY_LEFT handler invoked");
+    // Get the removed entity data (stored by HyperscapeService before cache deletion)
+    const entity = service.getLastRemovedEntity();
+    if (!entity) {
+      logger.debug(
+        "[HyperscapePlugin] ENTITY_LEFT fired but no entity data available",
+      );
+      return;
+    }
+
+    // Check if this was a mob entity
+    const entityAny = entity as unknown as Record<string, unknown>;
+    logger.debug(
+      `[HyperscapePlugin] ENTITY_LEFT: ${entity.name || entity.id} (type=${entityAny.type}, mobType=${entityAny.mobType})`,
+    );
+    const isMob =
+      "mobType" in entity ||
+      entityAny.type === "mob" ||
+      entityAny.entityType === "mob" ||
+      (entity.name &&
+        /goblin|bandit|skeleton|zombie|rat|spider|wolf/i.test(entity.name));
+
+    if (!isMob) {
+      logger.debug(
+        `[HyperscapePlugin] Entity ${entity.name} is not a mob, skipping`,
+      );
+      return;
+    }
+
+    logger.info(
+      `[HyperscapePlugin] Mob removed: ${entity.name || entity.id} (likely killed)`,
+    );
+
+    // Update goal progress if we have a combat_training goal
+    const behaviorManager = service.getBehaviorManager();
+    const goal = behaviorManager?.getGoal();
+
+    logger.debug(
+      `[HyperscapePlugin] Current goal: ${goal ? `${goal.type} - ${goal.progress}/${goal.target}` : "none"}`,
+    );
+
+    if (goal?.type === "combat_training") {
+      // Check if the killed target matches our goal target (if specified)
+      const targetMatches =
+        !goal.targetEntity ||
+        (entity.name &&
+          entity.name.toLowerCase().includes(goal.targetEntity.toLowerCase()));
+
+      logger.debug(
+        `[HyperscapePlugin] Target match check: goalTarget="${goal.targetEntity}", entityName="${entity.name}", matches=${targetMatches}`,
+      );
+
+      if (targetMatches) {
+        behaviorManager?.updateGoalProgress(1);
+        logger.info(
+          `[HyperscapePlugin] Goal progress updated: ${goal.progress + 1}/${goal.target} (mob removed: ${entity.name})`,
+        );
+      } else {
+        logger.debug(
+          `[HyperscapePlugin] Mob ${entity.name} doesn't match goal target ${goal.targetEntity}`,
+        );
+      }
+    } else if (goal) {
+      logger.debug(
+        `[HyperscapePlugin] Goal type is ${goal.type}, not combat_training`,
+      );
+    }
+  });
+
+  // Track mob health to detect kills via ENTITY_UPDATED
+  // This is the MAIN method for kill detection since mobs don't get removed - they respawn in place
+  const previousMobHealth = new Map<string, number>();
+
+  logger.info(
+    "[HyperscapePlugin] 📝 Registering ENTITY_UPDATED handler for kill tracking",
+  );
+  service.onGameEvent("ENTITY_UPDATED", async (data: unknown) => {
+    const updateData = data as {
+      id?: string;
+      changes?: Record<string, unknown>;
+      currentHealth?: number;
+      maxHealth?: number;
+      deathTime?: number | null;
+      mobType?: string;
+      type?: string;
+    };
+
+    // Extract entity ID and changes
+    const entityId =
+      updateData.id ||
+      ((updateData as Record<string, unknown>).entityId as string);
+    const changes = updateData.changes || updateData;
+
+    if (!entityId) return;
+
+    // Get entity from cache to check if it's a mob
+    const entity = service.getGameState()?.nearbyEntities.get(entityId);
+    const entityAny = (entity || changes) as Record<string, unknown>;
+
+    // Check if this is a mob
+    const isMob =
+      entityAny.mobType !== undefined ||
+      entityAny.type === "mob" ||
+      (entity?.name &&
+        /goblin|bandit|skeleton|zombie|rat|spider|wolf/i.test(entity.name));
+
+    if (!isMob) return;
+
+    // Get current health from changes
+    const currentHealth = (changes as Record<string, unknown>).currentHealth as
+      | number
+      | undefined;
+    const deathTime = (changes as Record<string, unknown>).deathTime as
+      | number
+      | null
+      | undefined;
+    const previousHealth = previousMobHealth.get(entityId);
+
+    // Update tracked health
+    if (currentHealth !== undefined) {
+      previousMobHealth.set(entityId, currentHealth);
+    }
+
+    // Detect kill: health dropped to 0 OR deathTime was just set
+    const healthDroppedToZero =
+      currentHealth !== undefined &&
+      currentHealth <= 0 &&
+      (previousHealth === undefined || previousHealth > 0);
+    const justDied =
+      deathTime !== undefined && deathTime !== null && deathTime > 0;
+
+    if (healthDroppedToZero || justDied) {
+      const mobName = entity?.name || (entityAny.mobType as string) || entityId;
+      logger.info(
+        `[HyperscapePlugin] 💀 Mob killed detected: ${mobName} (health: ${previousHealth} → ${currentHealth}, deathTime: ${deathTime})`,
+      );
+
+      // Update goal progress if we have a combat_training goal
+      const behaviorManager = service.getBehaviorManager();
+      const goal = behaviorManager?.getGoal();
+
+      if (goal?.type === "combat_training") {
+        // Check if the killed target matches our goal target (if specified)
+        const targetMatches =
+          !goal.targetEntity ||
+          mobName.toLowerCase().includes(goal.targetEntity.toLowerCase());
+
+        if (targetMatches) {
+          behaviorManager?.updateGoalProgress(1);
+          logger.info(
+            `[HyperscapePlugin] 🎯 Goal progress updated: ${goal.progress + 1}/${goal.target} (killed ${mobName})`,
+          );
+        } else {
+          logger.debug(
+            `[HyperscapePlugin] Mob ${mobName} doesn't match goal target ${goal.targetEntity}`,
+          );
+        }
+      }
+
+      // Clear this mob from tracking so we can detect the next kill after respawn
+      previousMobHealth.delete(entityId);
     }
   });
 
@@ -135,18 +308,59 @@ export function registerEventHandlers(
     );
   });
 
-  // Skill progression events
+  // Track previous skill levels to detect level-ups from skillsUpdated
+  let previousSkillLevels: Record<string, number> = {};
+
+  // NOTE: SKILLS_LEVEL_UP is an internal server event NOT sent over WebSocket.
+  // We keep this handler in case we add the packet in the future.
   service.onGameEvent("SKILLS_LEVEL_UP", async (data: unknown) => {
     const eventData = data as { skillName: string; newLevel: number };
-    await storeFactMemory(
+    await handleSkillLevelUp(
       runtime,
-      `Leveled up ${eventData.skillName} to level ${eventData.newLevel}`,
-      eventData,
-      ["skill", "levelup", eventData.skillName],
+      service,
+      eventData.skillName,
+      eventData.newLevel,
     );
-    logger.info(
-      `[HyperscapePlugin] Skill level up: ${eventData.skillName} → ${eventData.newLevel}`,
+  });
+
+  // Detect level-ups from SKILLS_UPDATED packet by comparing with previous levels
+  // This is the main way we detect skill level-ups since SKILLS_LEVEL_UP isn't sent over WebSocket
+  service.onGameEvent("SKILLS_UPDATED", async (data: unknown) => {
+    const skillsData = data as {
+      skills?: Record<string, { level: number; xp: number }>;
+    };
+
+    if (!skillsData?.skills) {
+      logger.debug(
+        "[HyperscapePlugin] SKILLS_UPDATED received but no skills data",
+      );
+      return;
+    }
+
+    logger.debug(
+      `[HyperscapePlugin] SKILLS_UPDATED received with ${Object.keys(skillsData.skills).length} skills`,
     );
+
+    // Check each skill for level-ups
+    for (const [skillName, skillInfo] of Object.entries(skillsData.skills)) {
+      const previousLevel = previousSkillLevels[skillName] || 0;
+      const newLevel = skillInfo.level;
+
+      // Detect level-up (skip initial load where previousLevel is 0)
+      if (previousLevel > 0 && newLevel > previousLevel) {
+        logger.info(
+          `[HyperscapePlugin] Detected level-up via SKILLS_UPDATED: ${skillName} ${previousLevel} → ${newLevel}`,
+        );
+        await handleSkillLevelUp(runtime, service, skillName, newLevel);
+      } else if (previousLevel === 0) {
+        logger.debug(
+          `[HyperscapePlugin] Initial skill load: ${skillName} = ${newLevel}`,
+        );
+      }
+
+      // Update tracked level
+      previousSkillLevels[skillName] = newLevel;
+    }
   });
 
   service.onGameEvent("SKILLS_XP_GAINED", async (data: unknown) => {
@@ -196,10 +410,18 @@ export function registerEventHandlers(
   service.onGameEvent("CHAT_MESSAGE", async (data: unknown) => {
     const chatData = data as {
       from: string;
-      fromId: string;
+      fromId: string | null;
       text: string;
       timestamp: number;
     };
+
+    // Ignore system messages (from: "System" or fromId is null)
+    if (chatData.from === "System" || !chatData.fromId) {
+      logger.info(
+        `[HyperscapePlugin] Ignoring system message: "${chatData.text}"`,
+      );
+      return;
+    }
 
     // Ignore messages from the agent itself
     const agentCharacterId = service.getGameState()?.playerEntity?.id;
@@ -212,12 +434,12 @@ export function registerEventHandlers(
     );
 
     try {
-      // Create memory for the chat message
-      const memory = await runtime.createMemory(
+      // Store chat message as memory for context
+      await runtime.createMemory(
         {
-          entityId: runtime.agentId, // Use agentId as entityId (it's a UUID)
+          entityId: runtime.agentId,
           agentId: runtime.agentId,
-          roomId: runtime.agentId, // Use agentId as roomId
+          roomId: runtime.agentId,
           content: {
             text: chatData.text,
             source: "hyperscape_chat",
@@ -228,32 +450,20 @@ export function registerEventHandlers(
             senderId: chatData.fromId,
             timestamp: chatData.timestamp,
           },
-          // Don't pass embedding - let ElizaOS handle it
         },
         "messages",
         false,
       );
 
-      // Process through ElizaOS message handler to trigger actions
-      if (runtime.messageService) {
-        await runtime.messageService.handleMessage(
-          runtime,
-          memory,
-          async (responseContent) => {
-            // Send response back to game chat
-            logger.info(
-              `[HyperscapePlugin] Sending response: "${responseContent.text}"`,
-            );
-
-            // TODO: Send chat message back to game via service.sendChatMessage()
-            // For now just log it
-          },
-        );
-      }
+      // Note: Chat messages from players are stored for context but not actively processed
+      // The autonomous behavior manager handles action selection based on goals
+      logger.info(
+        `[HyperscapePlugin] Stored chat message from ${chatData.from} for context`,
+      );
     } catch (error) {
       logger.error(
         { error },
-        "[HyperscapePlugin] Failed to process chat message:",
+        "[HyperscapePlugin] Failed to store chat message:",
       );
     }
   });
@@ -285,7 +495,7 @@ async function storeCombatMemory(
           timestamp: Date.now(),
           tags: ["hyperscape", "combat", ...tags],
         },
-        embedding: [],
+        // Don't pass embedding - let ElizaOS generate it
       },
       "facts",
       false,
@@ -329,7 +539,7 @@ async function storeResourceMemory(
           timestamp: Date.now(),
           tags: ["hyperscape", "resource", ...tags],
         },
-        embedding: [],
+        // Don't pass embedding - let ElizaOS generate it
       },
       "facts",
       false,
@@ -368,7 +578,7 @@ async function storeFactMemory(
           timestamp: Date.now(),
           tags: ["hyperscape", ...tags],
         },
-        embedding: [],
+        // Don't pass embedding - let ElizaOS generate it
       },
       "facts",
       false,
@@ -377,5 +587,48 @@ async function storeFactMemory(
     logger.debug(`[HyperscapePlugin] Stored fact memory: ${description}`);
   } catch (error) {
     logger.error({ error }, "[HyperscapePlugin] Failed to store fact memory:");
+  }
+}
+
+/**
+ * Handle skill level-up - store memory and check goal completion
+ */
+async function handleSkillLevelUp(
+  runtime: IAgentRuntime,
+  service: HyperscapeService,
+  skillName: string,
+  newLevel: number,
+): Promise<void> {
+  // Store memory
+  await storeFactMemory(
+    runtime,
+    `Leveled up ${skillName} to level ${newLevel}`,
+    { skillName, newLevel },
+    ["skill", "levelup", skillName],
+  );
+
+  logger.info(`[HyperscapePlugin] Skill level up: ${skillName} → ${newLevel}`);
+
+  // Check if we've reached our skill goal
+  const behaviorManager = service.getBehaviorManager();
+  const goal = behaviorManager?.getGoal();
+  if (
+    goal?.targetSkill &&
+    goal.targetSkillLevel &&
+    skillName.toLowerCase() === goal.targetSkill.toLowerCase()
+  ) {
+    // Update goal progress to current skill level
+    behaviorManager?.setSkillProgress(newLevel);
+
+    if (newLevel >= goal.targetSkillLevel) {
+      logger.info(
+        `[HyperscapePlugin] 🎯 Skill goal COMPLETE! Reached ${skillName} level ${newLevel} (target was ${goal.targetSkillLevel})`,
+      );
+      behaviorManager?.clearGoal();
+    } else {
+      logger.info(
+        `[HyperscapePlugin] 🎯 Skill goal progress: ${skillName} ${newLevel}/${goal.targetSkillLevel}`,
+      );
+    }
   }
 }
