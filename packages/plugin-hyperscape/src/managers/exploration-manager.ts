@@ -243,7 +243,12 @@ export class ExplorationManager {
 
     for (const entity of nearbyEntities) {
       if (entity.id === player.id) continue; // Skip self
-      if (!entity.position || !Array.isArray(entity.position)) continue; // Skip entities without position
+      if (
+        !entity.position ||
+        !Array.isArray(entity.position) ||
+        entity.position.length < 3
+      )
+        continue; // Skip entities without valid position
 
       const dist = this.calculateDistance(currentPos, entity.position);
       if (dist > 50) continue; // Skip entities too far away

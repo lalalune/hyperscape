@@ -58,6 +58,15 @@ export const survivalEvaluator: Evaluator = {
     const player = service.getPlayerEntity();
     if (!player) return { success: true };
 
+    // Require valid position data for distance calculations
+    if (
+      !player.position ||
+      !Array.isArray(player.position) ||
+      player.position.length < 3
+    ) {
+      return { success: true, text: "Waiting for position data" };
+    }
+
     // Defensive health calculation - handle missing/malformed health data
     const currentHealth =
       player.health?.current ??
@@ -75,6 +84,12 @@ export const survivalEvaluator: Evaluator = {
     // Check for nearby threats (hostile mobs)
     const threats = nearbyEntities.filter((entity) => {
       if (!("mobType" in entity)) return false;
+      if (
+        !entity.position ||
+        !Array.isArray(entity.position) ||
+        entity.position.length < 3
+      )
+        return false;
       const dist = calculateDistance(
         player.position,
         entity.position as [number, number, number],
@@ -186,6 +201,15 @@ export const explorationEvaluator: Evaluator = {
     const player = service.getPlayerEntity();
     if (!player) return false;
 
+    // Require valid position data
+    if (
+      !player.position ||
+      !Array.isArray(player.position) ||
+      player.position.length < 3
+    ) {
+      return false;
+    }
+
     // Only treat as dead if explicitly false
     if (player.alive === false) return false;
 
@@ -203,6 +227,15 @@ export const explorationEvaluator: Evaluator = {
 
     const player = service.getPlayerEntity();
     if (!player) return { success: true };
+
+    // Require valid position data
+    if (
+      !player.position ||
+      !Array.isArray(player.position) ||
+      player.position.length < 3
+    ) {
+      return { success: true, text: "Waiting for position data" };
+    }
 
     const nearbyEntities = service.getNearbyEntities();
     const facts: string[] = [];
@@ -224,6 +257,12 @@ export const explorationEvaluator: Evaluator = {
 
     // Add resources as POIs
     for (const resource of resources) {
+      if (
+        !resource.position ||
+        !Array.isArray(resource.position) ||
+        resource.position.length < 3
+      )
+        continue;
       const dist = calculateDistance(
         player.position,
         resource.position as [number, number, number],
@@ -240,6 +279,8 @@ export const explorationEvaluator: Evaluator = {
 
     // Add other players as social POIs
     for (const p of players) {
+      if (!p.position || !Array.isArray(p.position) || p.position.length < 3)
+        continue;
       const dist = calculateDistance(
         player.position,
         p.position as [number, number, number],
@@ -365,9 +406,23 @@ export const socialEvaluator: Evaluator = {
     const player = service.getPlayerEntity();
     if (!player) return { success: true };
 
+    // Require valid position data for distance calculations
+    if (
+      !player.position ||
+      !Array.isArray(player.position) ||
+      player.position.length < 3
+    ) {
+      return { success: true, text: "Waiting for position data" };
+    }
+
     const nearbyEntities = service.getNearbyEntities();
     const nearbyPlayers = nearbyEntities.filter(
-      (e) => "playerId" in e && e.id !== player.id,
+      (e) =>
+        "playerId" in e &&
+        e.id !== player.id &&
+        e.position &&
+        Array.isArray(e.position) &&
+        e.position.length >= 3,
     );
 
     const facts: string[] = [];
@@ -444,8 +499,24 @@ export const combatEvaluator: Evaluator = {
     const player = service.getPlayerEntity();
     if (!player) return { success: true };
 
+    // Require valid position data for distance calculations
+    if (
+      !player.position ||
+      !Array.isArray(player.position) ||
+      player.position.length < 3
+    ) {
+      return { success: true, text: "Waiting for position data" };
+    }
+
     const nearbyEntities = service.getNearbyEntities();
-    const mobs = nearbyEntities.filter((e) => "mobType" in e);
+    // Filter mobs with valid positions
+    const mobs = nearbyEntities.filter(
+      (e) =>
+        "mobType" in e &&
+        e.position &&
+        Array.isArray(e.position) &&
+        e.position.length >= 3,
+    );
 
     const facts: string[] = [];
 
@@ -491,18 +562,30 @@ export const combatEvaluator: Evaluator = {
     const recommendations: string[] = [];
 
     if (player.inCombat && healthPercent < 30) {
-      recommendations.push("Consider fleeing - health is low");
+      recommendations.push("FLEE - health is critically low!");
     } else if (
       !player.inCombat &&
-      healthPercent > 70 &&
+      healthPercent > 50 &&
       nearbyMobs.length > 0
     ) {
       const aliveMobs = nearbyMobs.filter(
         (m) => (m as unknown as { alive?: boolean }).alive !== false,
       );
       if (aliveMobs.length > 0) {
-        recommendations.push("Could engage nearby mobs for combat training");
+        const nearest = aliveMobs[0];
+        recommendations.push(
+          `ATTACK_ENTITY recommended - ${nearest.name} is nearby and you have ${healthPercent.toFixed(0)}% health`,
+        );
+        facts.push(
+          `** COMBAT OPPORTUNITY: Use ATTACK_ENTITY to fight ${nearest.name} **`,
+        );
       }
+    } else if (
+      !player.inCombat &&
+      healthPercent <= 50 &&
+      nearbyMobs.length > 0
+    ) {
+      recommendations.push("Avoid combat - health is below 50%");
     }
 
     if (state) {

@@ -753,6 +753,23 @@ export class Entities extends SystemBase implements IEntities {
       return false;
     }
 
+    // Broadcast entityRemoved to all clients BEFORE destroying (server-only)
+    // This notifies clients to remove the entity from their local cache
+    const network = this.world.network;
+    if (network && network.isServer) {
+      try {
+        network.send("entityRemoved", id);
+        console.log(
+          `[Entities] 📤 Sent entityRemoved packet for ${id} (${entity.type})`,
+        );
+      } catch (error) {
+        console.warn(
+          `[Entities] Failed to send entityRemoved packet for ${id}:`,
+          error,
+        );
+      }
+    }
+
     if (entity.isPlayer) {
       this.players.delete(entity.id);
       this.emitTypedEvent("PLAYER_LEFT", { playerId: entity.id });
