@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Agent } from "../../screens/DashboardScreen";
-import { privyAuthManager } from "../../auth/PrivyAuthManager";
+import { usePrivy } from "@privy-io/react-auth";
 
 interface AgentViewportProps {
   agent: Agent;
@@ -14,6 +14,9 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
   // Store spectator token in ref to persist across re-renders
   const spectatorTokenRef = useRef<string | null>(null);
 
+  // Use Privy hook to get fresh access token (not stale localStorage token)
+  const { getAccessToken, user } = usePrivy();
+
   useEffect(() => {
     fetchSpectatorData();
   }, [agent.id]);
@@ -21,11 +24,9 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
   const fetchSpectatorData = async () => {
     setError(null);
     try {
-      // Get Privy token for initial authentication
-      const privyToken =
-        privyAuthManager.getToken() ||
-        localStorage.getItem("privy_auth_token") ||
-        "";
+      // Get FRESH Privy token using the SDK (not stale localStorage)
+      // This ensures we always have a valid, non-expired token
+      const privyToken = await getAccessToken();
 
       if (!privyToken) {
         console.warn(
@@ -175,8 +176,7 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
   // Build iframe URL for spectator mode
   // authToken is now a permanent Hyperscape JWT (obtained by exchanging Privy token)
   // This JWT never expires, solving the session timeout issue
-  const privyUserId =
-    privyAuthManager.getUserId() || localStorage.getItem("privy_user_id") || "";
+  const privyUserId = user?.id || "";
 
   const iframeParams = new URLSearchParams({
     embedded: "true",

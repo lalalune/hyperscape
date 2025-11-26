@@ -442,7 +442,9 @@ function mountApp() {
       );
       root.render(
         <ErrorBoundary>
-          <DashboardScreen />
+          <PrivyAuthProvider>
+            <DashboardScreen />
+          </PrivyAuthProvider>
         </ErrorBoundary>,
       );
     } else if (page === "character-editor") {
@@ -451,7 +453,9 @@ function mountApp() {
       );
       root.render(
         <ErrorBoundary>
-          <CharacterEditorScreen />
+          <PrivyAuthProvider>
+            <CharacterEditorScreen />
+          </PrivyAuthProvider>
         </ErrorBoundary>,
       );
     } else {
