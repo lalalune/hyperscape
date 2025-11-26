@@ -746,5 +746,168 @@ export function registerAgentRoutes(
     }
   });
 
+  /**
+   * POST /api/spectator/token
+   *
+   * Exchange a Privy token for a permanent spectator JWT.
+   * This solves the issue where Privy tokens expire after ~1 hour,
+   * causing spectator mode to lose authentication.
+   *
+   * SECURITY: Verifies Privy token and checks agent ownership before issuing JWT.
+   *
+   * Request body:
+   * {
+   *   agentId: "agent-uuid",
+   *   privyToken: "privy-access-token"
+   * }
+   *
+   * Response:
+   * {
+   *   success: true,
+   *   spectatorToken: "permanent-jwt-token",
+   *   characterId: "character-uuid",
+   *   expiresAt: null  // Token never expires
+   * }
+   */
+  fastify.post("/api/spectator/token", async (request, reply) => {
+    try {
+      const body = request.body as {
+        agentId: string;
+        privyToken: string;
+      };
+
+      const { agentId, privyToken } = body;
+
+      if (!agentId || !privyToken) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required fields: agentId, privyToken",
+        });
+      }
+
+      // Verify the Privy token
+      const { verifyPrivyToken, isPrivyEnabled } = await import(
+        "../../infrastructure/auth/privy-auth.js"
+      );
+
+      if (!isPrivyEnabled()) {
+        return reply.status(503).send({
+          success: false,
+          error: "Privy authentication is not configured on this server",
+        });
+      }
+
+      let verifiedUserId: string | null = null;
+
+      try {
+        const privyInfo = await verifyPrivyToken(privyToken);
+        if (privyInfo) {
+          verifiedUserId = privyInfo.privyUserId;
+        }
+      } catch (err) {
+        console.warn(
+          "[AgentRoutes] Privy token verification failed:",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+
+      if (!verifiedUserId) {
+        return reply.status(401).send({
+          success: false,
+          error: "Invalid or expired Privy token. Please log in again.",
+        });
+      }
+
+      // Get database system to check agent ownership
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              select: (fields?: unknown) => {
+                from: (table: unknown) => {
+                  where: (condition: unknown) => Promise<unknown[]>;
+                };
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        console.error("[AgentRoutes] DatabaseSystem not available");
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Import schema and eq operator
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq } = await import("drizzle-orm");
+
+      // Query agent mapping to verify ownership
+      const mappings = (await databaseSystem.db
+        .select()
+        .from(agentMappings)
+        .where(eq(agentMappings.agentId, agentId))) as Array<{
+        agentId: string;
+        accountId: string;
+        characterId: string;
+        agentName: string;
+      }>;
+
+      if (mappings.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          error: "Agent not found",
+        });
+      }
+
+      const mapping = mappings[0];
+
+      // SECURITY: Verify the authenticated user owns this agent
+      if (mapping.accountId !== verifiedUserId) {
+        console.warn(
+          `[AgentRoutes] ❌ SECURITY: User ${verifiedUserId} tried to get spectator token for agent ${agentId} owned by ${mapping.accountId}`,
+        );
+        return reply.status(403).send({
+          success: false,
+          error: "You do not have permission to spectate this agent",
+        });
+      }
+
+      // Generate permanent spectator JWT (no expiration)
+      const spectatorToken = await createJWT({
+        userId: verifiedUserId,
+        characterId: mapping.characterId,
+        agentId: agentId,
+        isSpectator: true,
+      });
+
+      console.log(
+        `[AgentRoutes] ✅ Generated spectator JWT for user ${verifiedUserId} watching agent ${mapping.agentName}`,
+      );
+
+      return reply.send({
+        success: true,
+        spectatorToken,
+        characterId: mapping.characterId,
+        agentName: mapping.agentName,
+        expiresAt: null, // Token never expires
+      });
+    } catch (error) {
+      console.error(
+        "[AgentRoutes] ❌ Failed to generate spectator token:",
+        error,
+      );
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate spectator token",
+      });
+    }
+  });
+
   console.log("[AgentRoutes] ✅ Agent credential routes registered");
 }
