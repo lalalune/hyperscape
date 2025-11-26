@@ -9,6 +9,7 @@ import {
   Server,
 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
+import { AgentGoalPanel } from "./AgentGoalPanel";
 import { AgentSkillsPanel } from "./AgentSkillsPanel";
 import { AgentPositionPanel } from "./AgentPositionPanel";
 
@@ -131,6 +132,14 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
           <span className="text-sm font-medium">Create New Agent</span>
         </button>
       </div>
+
+      {/* Goal Panel for Selected Agent - Most important, show first */}
+      {selectedAgent && (
+        <AgentGoalPanel
+          agent={selectedAgent}
+          isViewportActive={viewportAgentId === selectedAgentId}
+        />
+      )}
 
       {/* Skills Panel for Selected Agent */}
       {selectedAgent && (

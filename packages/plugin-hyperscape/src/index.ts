@@ -76,6 +76,7 @@ import { callbackRoute, statusRoute } from "./routes/auth.js";
 import { getSettingsRoute } from "./routes/settings.js";
 import { getLogsRoute } from "./routes/logs.js";
 import { messageRoute } from "./routes/message.js";
+import { goalRoute } from "./routes/goal.js";
 
 // Configuration schema
 const configSchema = z.object({
@@ -190,6 +191,7 @@ export const hyperscapePlugin: Plugin = {
     getSettingsRoute,
     getLogsRoute,
     messageRoute,
+    goalRoute,
   ],
 
   // Actions the agent can perform in the game

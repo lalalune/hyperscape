@@ -156,6 +156,8 @@ const names = [
   'characterCreated',
   'characterSelected',
   'enterWorld',
+  // Agent goal sync packet (for dashboard display)
+  'syncGoal',
 ]
 
 const byName: Record<string, PacketInfo> = {};

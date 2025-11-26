@@ -36,6 +36,8 @@ import {
   attackEntityAction,
 } from "../actions/autonomous.js";
 import { setGoalAction, navigateToAction } from "../actions/goals.js";
+import { chopTreeAction } from "../actions/skills.js";
+import { KNOWN_LOCATIONS } from "../providers/goalProvider.js";
 
 // Configuration
 const DEFAULT_TICK_INTERVAL = 10000; // 10 seconds between decisions
@@ -70,6 +72,10 @@ export interface CurrentGoal {
   progress: number;
   location?: string;
   targetEntity?: string;
+  /** For skill-based goals: which skill to train */
+  targetSkill?: string;
+  /** For skill-based goals: target level to reach */
+  targetSkillLevel?: number;
   startedAt: number;
 }
 
@@ -267,9 +273,43 @@ export class AutonomousBehaviorManager {
     );
     if (!isValid) {
       logger.warn(
-        `[AutonomousBehavior] Action ${selectedAction.name} failed validation, falling back to IDLE`,
+        `[AutonomousBehavior] Action ${selectedAction.name} failed validation`,
       );
-      // Fall back to IDLE which should always be valid
+
+      // Smart fallback: If a goal-related action failed (CHOP_TREE, ATTACK_ENTITY),
+      // try NAVIGATE_TO first to get to the goal location
+      const goalRelatedActions = [
+        "CHOP_TREE",
+        "ATTACK_ENTITY",
+        "APPROACH_ENTITY",
+      ];
+      if (goalRelatedActions.includes(selectedAction.name)) {
+        const goal = this.currentGoal;
+        if (goal?.location) {
+          logger.info(
+            `[AutonomousBehavior] Goal has location "${goal.location}", trying NAVIGATE_TO`,
+          );
+          const navValid = await navigateToAction.validate(
+            this.runtime,
+            tickMessage,
+            state,
+          );
+          if (navValid) {
+            logger.info(
+              "[AutonomousBehavior] NAVIGATE_TO validated, executing...",
+            );
+            await this.executeAction(navigateToAction, tickMessage, state);
+            return;
+          } else {
+            logger.info(
+              "[AutonomousBehavior] NAVIGATE_TO also failed validation",
+            );
+          }
+        }
+      }
+
+      // Final fallback to IDLE
+      logger.info("[AutonomousBehavior] Falling back to IDLE");
       const idleValid = await idleAction.validate(
         this.runtime,
         tickMessage,
@@ -345,6 +385,7 @@ export class AutonomousBehaviorManager {
       setGoalAction,
       navigateToAction,
       attackEntityAction,
+      chopTreeAction, // For woodcutting goals
       exploreAction,
       fleeAction,
       idleAction,
@@ -359,7 +400,7 @@ export class AutonomousBehaviorManager {
     // Read goal directly from behavior manager (more reliable than evaluator state)
     const goal = this.currentGoal;
 
-    // Extract other facts from evaluators
+    // Extract facts from evaluators
     const survivalFacts = (state.survivalFacts as string[]) || [];
     const combatFacts = (state.combatFacts as string[]) || [];
     const combatRecommendations =
@@ -367,24 +408,59 @@ export class AutonomousBehaviorManager {
     const survivalRecommendations =
       (state.survivalRecommendations as string[]) || [];
 
+    // Extract data from providers (populated by composeState)
+    const skillsData = state.skillsData as
+      | { totalLevel?: number; combatLevel?: number }
+      | undefined;
+    const skills = this.service?.getPlayerEntity()?.skills as
+      | Record<string, { level: number; xp: number }>
+      | undefined;
+
     const lines = [
       "You are an AI agent playing a 3D RPG game. Select ONE action to perform.",
       "You should have a GOAL and work towards it purposefully, not wander randomly.",
       "",
-      "=== GOAL STATUS ===",
     ];
+
+    // Add skills summary if available
+    if (skills) {
+      lines.push("=== YOUR SKILLS ===");
+      const combatSkills = ["attack", "strength", "defense", "constitution"];
+      for (const skillName of combatSkills) {
+        const skill = skills[skillName];
+        if (skill) {
+          lines.push(`  ${skillName}: Level ${skill.level} (${skill.xp} XP)`);
+        }
+      }
+      if (skillsData?.combatLevel) {
+        lines.push(`  Combat Level: ${skillsData.combatLevel}`);
+      }
+      lines.push("");
+    }
+
+    lines.push("=== GOAL STATUS ===");
 
     // Add goal info directly from behavior manager
     if (goal) {
       lines.push(`  Goal: ${goal.description}`);
       lines.push(`  Type: ${goal.type}`);
-      lines.push(`  Progress: ${goal.progress}/${goal.target}`);
+      lines.push(`  Kill Progress: ${goal.progress}/${goal.target}`);
       if (goal.location) lines.push(`  Location: ${goal.location}`);
       if (goal.targetEntity) lines.push(`  Target: ${goal.targetEntity}`);
 
+      // Show skill-based progress if applicable
+      if (goal.targetSkill && goal.targetSkillLevel && skills) {
+        const currentLevel = skills[goal.targetSkill]?.level ?? 0;
+        const skillProgress = `${currentLevel}/${goal.targetSkillLevel}`;
+        lines.push(`  Skill Goal: ${goal.targetSkill} ${skillProgress}`);
+        if (currentLevel >= goal.targetSkillLevel) {
+          lines.push("  ** SKILL GOAL REACHED! **");
+        }
+      }
+
       // Add recommendation based on goal type
       if (goal.progress >= goal.target) {
-        lines.push("  ** GOAL COMPLETE! Set a new goal. **");
+        lines.push("  ** KILL GOAL COMPLETE! Set a new goal. **");
       }
     } else {
       lines.push("  ** NO ACTIVE GOAL ** - You MUST use SET_GOAL first!");
@@ -427,19 +503,19 @@ export class AutonomousBehaviorManager {
     lines.push("1. If urgency is CRITICAL or health < 30% with threats: FLEE");
     lines.push("2. If NO GOAL: SET_GOAL (you must have purpose!)");
     lines.push("3. If goal requires travel: NAVIGATE_TO the goal location");
-    lines.push(
-      "4. If at goal location with targets: ATTACK_ENTITY (for combat goals)",
-    );
-    lines.push("5. If waiting for respawn/recovery: IDLE briefly");
-    lines.push("6. If goal is exploration: EXPLORE");
+    lines.push("4. If combat_training goal with mobs nearby: ATTACK_ENTITY");
+    lines.push("5. If woodcutting goal with trees nearby: CHOP_TREE");
+    lines.push("6. If waiting for respawn/recovery: IDLE briefly");
+    lines.push("7. If goal is exploration or no targets: EXPLORE");
 
     // Compute priority action directly based on goal and nearby entities
     let priorityAction: string | null = null;
+    const nearbyEntities = this.service?.getNearbyEntities() || [];
+
     if (!goal) {
       priorityAction = "SET_GOAL";
     } else if (goal.type === "combat_training") {
       // Check for nearby mobs - flexible detection
-      const nearbyEntities = this.service?.getNearbyEntities() || [];
       const mobs = nearbyEntities.filter((entity) => {
         const entityAny = entity as unknown as Record<string, unknown>;
         const isMob =
@@ -454,11 +530,119 @@ export class AutonomousBehaviorManager {
         priorityAction = "ATTACK_ENTITY";
         lines.push(`  ** ${mobs.length} attackable mob(s) nearby! **`);
       } else {
-        priorityAction = "EXPLORE";
-        lines.push("  No mobs nearby - explore to find targets");
+        // No mobs nearby - navigate to where mobs are (spawn area has goblins)
+        const playerPos = this.service?.getPlayerEntity()?.position || [
+          0, 0, 0,
+        ];
+        const spawnPos = [0, 0, 0]; // Goblins are at spawn
+        const distToSpawn = Math.sqrt(
+          Math.pow(playerPos[0] - spawnPos[0], 2) +
+            Math.pow(playerPos[2] - spawnPos[2], 2),
+        );
+
+        if (distToSpawn > 30) {
+          priorityAction = "NAVIGATE_TO";
+          lines.push(
+            `  No mobs nearby - navigate to spawn (${Math.round(distToSpawn)} units away)`,
+          );
+        } else {
+          priorityAction = "EXPLORE";
+          lines.push("  At spawn but no mobs visible - explore nearby");
+        }
+      }
+    } else if (goal.type === "woodcutting") {
+      // Check for trees WITHIN approach range (20m - CHOP_TREE will walk to tree)
+      const APPROACH_RANGE = 20;
+      const playerPos = this.service?.getPlayerEntity()?.position;
+      const allTrees = nearbyEntities.filter((entity) => {
+        const entityAny = entity as unknown as Record<string, unknown>;
+        const name = entity.name?.toLowerCase() || "";
+        // Exclude items
+        if (name.startsWith("item:")) return false;
+        return (
+          entityAny.resourceType === "tree" ||
+          entityAny.type === "tree" ||
+          (entity.name && /tree/i.test(entity.name) && !name.includes("item"))
+        );
+      });
+
+      // Filter by distance - trees within approach range
+      const approachableTrees = allTrees.filter((entity) => {
+        const entityAny = entity as unknown as Record<string, unknown>;
+        const entityPos = entityAny.position as
+          | [number, number, number]
+          | { x: number; z: number }
+          | undefined;
+        if (!entityPos || !playerPos) return false;
+
+        let ex: number, ez: number;
+        if (Array.isArray(entityPos)) {
+          ex = entityPos[0];
+          ez = entityPos[2];
+        } else if (typeof entityPos === "object" && "x" in entityPos) {
+          ex = entityPos.x;
+          ez = entityPos.z;
+        } else {
+          return false;
+        }
+
+        let px: number, pz: number;
+        if (Array.isArray(playerPos)) {
+          px = playerPos[0];
+          pz = playerPos[2];
+        } else if (typeof playerPos === "object" && "x" in playerPos) {
+          px = (playerPos as { x: number; z: number }).x;
+          pz = (playerPos as { x: number; z: number }).z;
+        } else {
+          return false;
+        }
+
+        const dist = Math.sqrt((px - ex) ** 2 + (pz - ez) ** 2);
+        return dist <= APPROACH_RANGE;
+      });
+
+      if (approachableTrees.length > 0) {
+        priorityAction = "CHOP_TREE";
+        lines.push(
+          `  ** ${approachableTrees.length} tree(s) within approach range! Use CHOP_TREE to walk to and chop them! **`,
+        );
+      } else if (allTrees.length > 0) {
+        // Trees exist but not in approach range - need to navigate to forest
+        priorityAction = "NAVIGATE_TO";
+        lines.push(
+          `  Trees in world but too far (${allTrees.length} total). Navigate to forest.`,
+        );
+      } else {
+        // No trees anywhere - navigate to the forest where trees are
+        const forestPos = KNOWN_LOCATIONS.forest?.position || [-130, 30, 400];
+        const pPos = playerPos || [0, 0, 0];
+        let fpx = 0,
+          fpz = 0;
+        if (Array.isArray(pPos)) {
+          fpx = pPos[0];
+          fpz = pPos[2];
+        } else if (typeof pPos === "object" && "x" in pPos) {
+          fpx = (pPos as { x: number; z: number }).x;
+          fpz = (pPos as { x: number; z: number }).z;
+        }
+        const distToForest = Math.sqrt(
+          Math.pow(fpx - forestPos[0], 2) + Math.pow(fpz - forestPos[2], 2),
+        );
+
+        if (distToForest > 30) {
+          priorityAction = "NAVIGATE_TO";
+          lines.push(
+            `  No trees nearby - navigate to forest (${Math.round(distToForest)} units away)`,
+          );
+        } else {
+          priorityAction = "EXPLORE";
+          lines.push("  At forest but no trees visible - explore nearby");
+        }
       }
     } else if (goal.type === "exploration") {
       priorityAction = "EXPLORE";
+    } else if (goal.type === "idle") {
+      priorityAction = "IDLE";
     }
 
     if (priorityAction) {
@@ -751,6 +935,8 @@ export class AutonomousBehaviorManager {
     logger.info(
       `[AutonomousBehavior] Goal set: ${goal.description} (target: ${goal.target})`,
     );
+    // Sync to server for dashboard display
+    this.service?.syncGoalToServer();
   }
 
   /**
@@ -759,26 +945,58 @@ export class AutonomousBehaviorManager {
   clearGoal(): void {
     this.currentGoal = null;
     logger.info("[AutonomousBehavior] Goal cleared");
+    // Sync to server for dashboard display
+    this.service?.syncGoalToServer();
   }
 
   /**
-   * Update goal progress
+   * Update goal progress (for non-skill goals like exploration)
+   * For skill-based goals, use setSkillProgress() instead
    */
   updateGoalProgress(increment: number = 1): void {
     if (!this.currentGoal) return;
+
+    // For skill-based goals, DON'T update progress via kills
+    // Progress is tracked by skill level, not kill count
+    if (this.currentGoal.targetSkill && this.currentGoal.targetSkillLevel) {
+      logger.debug(
+        `[AutonomousBehavior] Skill-based goal - progress tracked via skill level, not kill count`,
+      );
+      return;
+    }
 
     this.currentGoal.progress += increment;
     logger.info(
       `[AutonomousBehavior] Goal progress: ${this.currentGoal.progress}/${this.currentGoal.target}`,
     );
 
-    // Check if goal is complete
+    // Check if goal is complete (for non-skill goals like exploration)
     if (this.currentGoal.progress >= this.currentGoal.target) {
       logger.info(
         `[AutonomousBehavior] Goal COMPLETE: ${this.currentGoal.description}`,
       );
       this.currentGoal = null; // Clear so agent picks new goal
     }
+
+    // Sync to server for dashboard display
+    this.service?.syncGoalToServer();
+  }
+
+  /**
+   * Update skill-based goal progress (called when skill level changes)
+   */
+  setSkillProgress(newLevel: number): void {
+    if (!this.currentGoal) return;
+    if (!this.currentGoal.targetSkill || !this.currentGoal.targetSkillLevel)
+      return;
+
+    this.currentGoal.progress = newLevel;
+    logger.info(
+      `[AutonomousBehavior] Skill goal progress: ${this.currentGoal.progress}/${this.currentGoal.target} (${this.currentGoal.targetSkill})`,
+    );
+
+    // Sync to server for dashboard display
+    this.service?.syncGoalToServer();
   }
 
   /**

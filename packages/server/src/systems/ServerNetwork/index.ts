@@ -135,6 +135,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   /** Handler method registry */
   private handlers: Record<string, NetworkHandler> = {};
 
+  /** Agent goal storage (characterId -> goal data) for dashboard display */
+  static agentGoals: Map<string, unknown> = new Map();
+
   /** Modular managers */
   private movementManager!: MovementManager;
   private socketManager!: SocketManager;
@@ -342,6 +345,18 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this.broadcastManager.sendToAll.bind(this.broadcastManager),
         this.broadcastManager.sendToSocket.bind(this.broadcastManager),
       );
+
+    // Agent goal sync handler - stores goal for dashboard display
+    this.handlers["onSyncGoal"] = (socket, data) => {
+      const goalData = data as { characterId?: string; goal: unknown };
+      if (goalData.characterId) {
+        ServerNetwork.agentGoals.set(goalData.characterId, goalData.goal);
+        console.log(
+          `[ServerNetwork] Goal synced for character ${goalData.characterId}:`,
+          goalData.goal ? "active" : "cleared",
+        );
+      }
+    };
   }
 
   async init(options: WorldOptions): Promise<void> {
