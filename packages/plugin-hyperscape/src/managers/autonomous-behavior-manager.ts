@@ -77,6 +77,12 @@ export interface CurrentGoal {
   /** For skill-based goals: target level to reach */
   targetSkillLevel?: number;
   startedAt: number;
+  /** If true, autonomous SET_GOAL will skip (manual override active) */
+  locked?: boolean;
+  /** Who locked the goal */
+  lockedBy?: "manual" | "autonomous";
+  /** When the goal was locked */
+  lockedAt?: number;
 }
 
 export class AutonomousBehaviorManager {
@@ -304,6 +310,44 @@ export class AutonomousBehaviorManager {
             logger.info(
               "[AutonomousBehavior] NAVIGATE_TO also failed validation",
             );
+          }
+        }
+      }
+
+      // Reverse fallback: If NAVIGATE_TO failed (already at location), try the goal's target action
+      if (selectedAction.name === "NAVIGATE_TO") {
+        const goal = this.currentGoal;
+        if (goal) {
+          let goalAction: Action | null = null;
+          if (goal.type === "woodcutting") {
+            goalAction = chopTreeAction;
+            logger.info(
+              "[AutonomousBehavior] At forest location, trying CHOP_TREE instead",
+            );
+          } else if (goal.type === "combat_training") {
+            goalAction = attackEntityAction;
+            logger.info(
+              "[AutonomousBehavior] At spawn location, trying ATTACK_ENTITY instead",
+            );
+          }
+
+          if (goalAction) {
+            const goalActionValid = await goalAction.validate(
+              this.runtime,
+              tickMessage,
+              state,
+            );
+            if (goalActionValid) {
+              logger.info(
+                `[AutonomousBehavior] ${goalAction.name} validated, executing...`,
+              );
+              await this.executeAction(goalAction, tickMessage, state);
+              return;
+            } else {
+              logger.info(
+                `[AutonomousBehavior] ${goalAction.name} also failed validation - may need to wait`,
+              );
+            }
           }
         }
       }
@@ -540,7 +584,7 @@ export class AutonomousBehaviorManager {
             Math.pow(playerPos[2] - spawnPos[2], 2),
         );
 
-        if (distToSpawn > 30) {
+        if (distToSpawn > 15) {
           priorityAction = "NAVIGATE_TO";
           lines.push(
             `  No mobs nearby - navigate to spawn (${Math.round(distToSpawn)} units away)`,
@@ -629,7 +673,7 @@ export class AutonomousBehaviorManager {
           Math.pow(fpx - forestPos[0], 2) + Math.pow(fpz - forestPos[2], 2),
         );
 
-        if (distToForest > 30) {
+        if (distToForest > 15) {
           priorityAction = "NAVIGATE_TO";
           lines.push(
             `  No trees nearby - navigate to forest (${Math.round(distToForest)} units away)`,

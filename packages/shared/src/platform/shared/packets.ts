@@ -158,6 +158,8 @@ const names = [
   'enterWorld',
   // Agent goal sync packet (for dashboard display)
   'syncGoal',
+  // Agent goal override packet (dashboard -> plugin)
+  'goalOverride',
 ]
 
 const byName: Record<string, PacketInfo> = {};

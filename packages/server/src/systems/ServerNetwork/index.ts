@@ -138,6 +138,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   /** Agent goal storage (characterId -> goal data) for dashboard display */
   static agentGoals: Map<string, unknown> = new Map();
 
+  /** Agent available goals storage (characterId -> available goals) for dashboard selection */
+  static agentAvailableGoals: Map<string, unknown[]> = new Map();
+
+  /** Character ID to socket mapping for sending goal overrides */
+  static characterSockets: Map<string, ServerSocket> = new Map();
+
   /** Modular managers */
   private movementManager!: MovementManager;
   private socketManager!: SocketManager;
@@ -346,14 +352,34 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this.broadcastManager.sendToSocket.bind(this.broadcastManager),
       );
 
-    // Agent goal sync handler - stores goal for dashboard display
+    // Agent goal sync handler - stores goal and available goals for dashboard display
     this.handlers["onSyncGoal"] = (socket, data) => {
-      const goalData = data as { characterId?: string; goal: unknown };
+      const goalData = data as {
+        characterId?: string;
+        goal: unknown;
+        availableGoals?: unknown[];
+      };
       if (goalData.characterId) {
+        // Store goal
         ServerNetwork.agentGoals.set(goalData.characterId, goalData.goal);
+
+        // Store available goals if provided
+        if (goalData.availableGoals) {
+          ServerNetwork.agentAvailableGoals.set(
+            goalData.characterId,
+            goalData.availableGoals,
+          );
+        }
+
+        // Track socket for this character (for sending goal overrides)
+        ServerNetwork.characterSockets.set(goalData.characterId, socket);
+
         console.log(
           `[ServerNetwork] Goal synced for character ${goalData.characterId}:`,
           goalData.goal ? "active" : "cleared",
+          goalData.availableGoals
+            ? `(${goalData.availableGoals.length} available goals)`
+            : "",
         );
       }
     };

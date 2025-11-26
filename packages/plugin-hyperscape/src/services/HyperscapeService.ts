@@ -36,6 +36,7 @@ import type {
 } from "../types.js";
 import { AutonomousBehaviorManager } from "../managers/autonomous-behavior-manager.js";
 import { registerEventHandlers } from "../events/handlers.js";
+import { getAvailableGoals } from "../providers/goalProvider.js";
 
 // msgpackr instances for binary packet encoding/decoding
 const packr = new Packr({ structuredClone: true });
@@ -865,6 +866,7 @@ export class HyperscapeService
       "characterSelected",
       "enterWorld",
       "syncGoal", // Agent goal sync packet (for dashboard display)
+      "goalOverride", // Agent goal override packet (dashboard -> plugin)
     ];
     return packetNames[id] || null;
   }
@@ -1125,6 +1127,11 @@ export class HyperscapeService
           // Also copy any other state (health, etc)
           Object.assign(this.gameState.playerEntity, data);
         }
+        break;
+
+      case "goalOverride":
+        // Handle manual goal override from dashboard
+        this.handleGoalOverride(data);
         break;
     }
 
@@ -1490,6 +1497,7 @@ export class HyperscapeService
       "characterSelected",
       "enterWorld",
       "syncGoal", // Agent goal sync packet (for dashboard display)
+      "goalOverride", // Agent goal override packet (dashboard -> plugin)
     ];
     const index = packetNames.indexOf(name);
     return index >= 0 ? index : null;
@@ -1576,11 +1584,108 @@ export class HyperscapeService
   }
 
   /**
+   * Handle manual goal override from dashboard
+   * Sets the goal with locked flag to prevent autonomous override
+   */
+  private handleGoalOverride(data: unknown): void {
+    const payload = data as {
+      goalId?: string;
+      unlock?: boolean;
+      source?: string;
+    };
+
+    // Handle unlock command
+    if (payload?.unlock) {
+      logger.info("[HyperscapeService] 🔓 Goal unlock received from dashboard");
+      this.unlockGoal();
+      return;
+    }
+
+    if (!payload?.goalId) {
+      logger.warn("[HyperscapeService] goalOverride received without goalId");
+      return;
+    }
+
+    logger.info(
+      `[HyperscapeService] 🎯 Goal override received: ${payload.goalId} from ${payload.source || "unknown"}`,
+    );
+
+    // Get available goals
+    const availableGoals = getAvailableGoals(this);
+    const selectedGoal = availableGoals.find((g) => g.id === payload.goalId);
+
+    if (!selectedGoal) {
+      logger.warn(
+        `[HyperscapeService] Goal override failed: unknown goal ID "${payload.goalId}"`,
+      );
+      return;
+    }
+
+    // Get current skill levels for progress calculation
+    const player = this.getPlayerEntity();
+    const skills = player?.skills as
+      | Record<string, { level: number; xp: number }>
+      | undefined;
+
+    // Calculate progress and target for skill-based goals
+    let progress = 0;
+    let target = 10;
+
+    if (selectedGoal.targetSkill && selectedGoal.targetSkillLevel) {
+      const currentLevel = skills?.[selectedGoal.targetSkill]?.level ?? 1;
+      progress = currentLevel;
+      target = selectedGoal.targetSkillLevel;
+    } else if (selectedGoal.type === "exploration") {
+      progress = 0;
+      target = 3;
+    } else if (selectedGoal.type === "idle") {
+      progress = 0;
+      target = 1;
+    }
+
+    // Set the goal with locked flag
+    this.autonomousBehaviorManager?.setGoal({
+      type: selectedGoal.type,
+      description: selectedGoal.description,
+      target,
+      progress,
+      location: selectedGoal.location,
+      targetEntity: selectedGoal.targetEntity,
+      targetSkill: selectedGoal.targetSkill,
+      targetSkillLevel: selectedGoal.targetSkillLevel,
+      startedAt: Date.now(),
+      locked: true,
+      lockedBy: "manual",
+      lockedAt: Date.now(),
+    });
+
+    logger.info(
+      `[HyperscapeService] ✅ Goal set from dashboard: ${selectedGoal.description} (locked)`,
+    );
+  }
+
+  /**
+   * Unlock the current goal, allowing autonomous behavior to change it
+   */
+  unlockGoal(): void {
+    const goal = this.autonomousBehaviorManager?.getGoal();
+    if (goal) {
+      goal.locked = false;
+      goal.lockedBy = undefined;
+      goal.lockedAt = undefined;
+      logger.info("[HyperscapeService] 🔓 Goal unlocked");
+      this.syncGoalToServer();
+    }
+  }
+
+  /**
    * Sync goal state to server for dashboard display
    * Called whenever the goal changes
    */
   syncGoalToServer(): void {
     const goal = this.autonomousBehaviorManager?.getGoal();
+    const availableGoals = getAvailableGoals(this);
+
     this.sendCommand("syncGoal", {
       characterId: this.characterId,
       goal: goal
@@ -1594,8 +1699,20 @@ export class HyperscapeService
             targetSkill: goal.targetSkill,
             targetSkillLevel: goal.targetSkillLevel,
             startedAt: goal.startedAt,
+            locked: goal.locked,
+            lockedBy: goal.lockedBy,
           }
         : null,
+      availableGoals: availableGoals.map((g) => ({
+        id: g.id,
+        type: g.type,
+        description: g.description,
+        priority: g.priority,
+        reason: g.reason,
+        targetSkill: g.targetSkill,
+        targetSkillLevel: g.targetSkillLevel,
+        location: g.location,
+      })),
     });
   }
 }
