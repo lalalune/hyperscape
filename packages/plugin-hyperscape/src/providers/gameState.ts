@@ -50,6 +50,12 @@ export const gameStateProvider: Provider = {
       };
     }
 
+    // Defensive check for position data
+    const hasValidPosition =
+      playerEntity.position &&
+      Array.isArray(playerEntity.position) &&
+      playerEntity.position.length >= 3;
+
     const gameStateData: GameStateData = {
       health: playerEntity.health,
       stamina: playerEntity.stamina,
@@ -59,17 +65,26 @@ export const gameStateProvider: Provider = {
       alive: playerEntity.alive,
     };
 
-    const healthPercent = Math.round(
-      (playerEntity.health.current / playerEntity.health.max) * 100,
-    );
-    const staminaPercent = Math.round(
-      (playerEntity.stamina.current / playerEntity.stamina.max) * 100,
-    );
+    // Defensive calculations with fallbacks
+    const currentHealth = playerEntity.health?.current ?? 100;
+    const maxHealth = playerEntity.health?.max ?? 100;
+    const healthPercent =
+      maxHealth > 0 ? Math.round((currentHealth / maxHealth) * 100) : 100;
+
+    const currentStamina = playerEntity.stamina?.current ?? 100;
+    const maxStamina = playerEntity.stamina?.max ?? 100;
+    const staminaPercent =
+      maxStamina > 0 ? Math.round((currentStamina / maxStamina) * 100) : 100;
+
+    // Safe position string
+    const positionStr = hasValidPosition
+      ? `[${playerEntity.position[0].toFixed(1)}, ${playerEntity.position[1].toFixed(1)}, ${playerEntity.position[2].toFixed(1)}]`
+      : "[loading...]";
 
     const text = `## Your Current State
-- **Health**: ${playerEntity.health.current}/${playerEntity.health.max} HP (${healthPercent}%)
-- **Stamina**: ${playerEntity.stamina.current}/${playerEntity.stamina.max} (${staminaPercent}%)
-- **Position**: [${playerEntity.position[0].toFixed(1)}, ${playerEntity.position[1].toFixed(1)}, ${playerEntity.position[2].toFixed(1)}]
+- **Health**: ${currentHealth}/${maxHealth} HP (${healthPercent}%)
+- **Stamina**: ${currentStamina}/${maxStamina} (${staminaPercent}%)
+- **Position**: ${positionStr}
 - **Status**: ${playerEntity.alive ? "Alive" : "Dead"}${playerEntity.inCombat ? `, In Combat with ${playerEntity.combatTarget}` : ""}`;
 
     return {

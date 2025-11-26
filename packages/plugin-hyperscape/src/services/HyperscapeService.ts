@@ -1155,6 +1155,14 @@ export class HyperscapeService
   }
 
   /**
+   * Get the autonomous behavior manager
+   * Used by actions to access/update goals
+   */
+  getBehaviorManager(): AutonomousBehaviorManager | null {
+    return this.autonomousBehaviorManager;
+  }
+
+  /**
    * Start autonomous behavior (full ElizaOS decision loop)
    * Called automatically when player spawns, but can also be called manually
    */
@@ -1372,7 +1380,11 @@ export class HyperscapeService
    * Execute attack command
    */
   async executeAttack(command: AttackEntityCommand): Promise<void> {
-    this.sendCommand("attackEntity", command);
+    // Server expects { mobId, attackType }, translate from our command format
+    this.sendCommand("attackMob", {
+      mobId: command.targetEntityId,
+      attackType: "melee", // Default to melee for now
+    });
   }
 
   /**
