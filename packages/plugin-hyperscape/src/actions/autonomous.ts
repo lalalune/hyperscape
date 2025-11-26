@@ -22,14 +22,28 @@ import { logger } from "@elizaos/core";
 import type { HyperscapeService } from "../services/HyperscapeService.js";
 
 /**
- * Helper to calculate distance between two positions
+ * Helper to get x, z coordinates from a position (handles array or object format)
  */
-function calculateDistance(
-  pos1: [number, number, number],
-  pos2: [number, number, number],
-): number {
-  const dx = pos1[0] - pos2[0];
-  const dz = pos1[2] - pos2[2];
+function getXZ(pos: unknown): { x: number; z: number } | null {
+  if (Array.isArray(pos) && pos.length >= 3) {
+    return { x: pos[0], z: pos[2] };
+  }
+  if (pos && typeof pos === "object" && "x" in pos && "z" in pos) {
+    const objPos = pos as { x: number; z: number };
+    return { x: objPos.x, z: objPos.z };
+  }
+  return null;
+}
+
+/**
+ * Helper to calculate distance between two positions (handles array or object format)
+ */
+function calculateDistance(pos1: unknown, pos2: unknown): number {
+  const p1 = getXZ(pos1);
+  const p2 = getXZ(pos2);
+  if (!p1 || !p2) return Infinity;
+  const dx = p1.x - p2.x;
+  const dz = p1.z - p2.z;
   return Math.sqrt(dx * dx + dz * dz);
 }
 
@@ -111,6 +125,15 @@ export const exploreAction: Action = {
       const player = service.getPlayerEntity();
       if (!player) {
         return { success: false, error: "Player entity not available" };
+      }
+
+      // Require valid position data
+      if (
+        !player.position ||
+        !Array.isArray(player.position) ||
+        player.position.length < 3
+      ) {
+        return { success: false, error: "Player position not available yet" };
       }
 
       // Get exploration target from state (set by explorationEvaluator)
@@ -248,10 +271,25 @@ export const fleeAction: Action = {
         return { success: false, error: "Player entity not available" };
       }
 
+      // Require valid position data
+      if (
+        !player.position ||
+        !Array.isArray(player.position) ||
+        player.position.length < 3
+      ) {
+        return { success: false, error: "Player position not available yet" };
+      }
+
       // Find threats to flee from
       const nearbyEntities = service.getNearbyEntities();
       const threats = nearbyEntities.filter((entity) => {
         if (!("mobType" in entity)) return false;
+        if (
+          !entity.position ||
+          !Array.isArray(entity.position) ||
+          entity.position.length < 3
+        )
+          return false;
         const dist = calculateDistance(
           player.position,
           entity.position as [number, number, number],
@@ -447,6 +485,15 @@ export const approachEntityAction: Action = {
         return { success: false, error: "Player entity not available" };
       }
 
+      // Require valid position data
+      if (
+        !player.position ||
+        !Array.isArray(player.position) ||
+        player.position.length < 3
+      ) {
+        return { success: false, error: "Player position not available yet" };
+      }
+
       // Get target from state assessments
       const explorationAssessment = state?.explorationAssessment as
         | {
@@ -546,10 +593,281 @@ export const approachEntityAction: Action = {
   ],
 };
 
+/**
+ * ATTACK_ENTITY - Engage in combat with a nearby mob
+ *
+ * Autonomous-friendly version that finds targets from nearby entities
+ * Uses combatEvaluator state or finds nearest attackable mob
+ */
+export const attackEntityAction: Action = {
+  name: "ATTACK_ENTITY",
+  similes: ["ATTACK", "FIGHT", "COMBAT", "ENGAGE"],
+  description:
+    "Attack a nearby NPC/mob. Use when you want to engage in combat for training or loot. Requires good health.",
+
+  validate: async (runtime: IAgentRuntime, _message: Memory, state?: State) => {
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service?.isConnected()) {
+      logger.debug("[ATTACK_ENTITY] Validation failed: service not connected");
+      return false;
+    }
+
+    const player = service.getPlayerEntity();
+    if (!player) {
+      logger.debug("[ATTACK_ENTITY] Validation failed: no player entity");
+      return false;
+    }
+
+    // Don't attack if already in combat
+    if (player.inCombat) {
+      logger.debug("[ATTACK_ENTITY] Validation failed: already in combat");
+      return false;
+    }
+
+    // Don't attack if dead
+    if (player.alive === false) {
+      logger.debug("[ATTACK_ENTITY] Validation failed: player is dead");
+      return false;
+    }
+
+    // Require minimum health to engage (30%)
+    const currentHealth = player.health?.current ?? 100;
+    const maxHealth = player.health?.max ?? 100;
+    const healthPercent =
+      maxHealth > 0 ? (currentHealth / maxHealth) * 100 : 100;
+
+    if (healthPercent < 30) {
+      logger.debug(
+        `[ATTACK_ENTITY] Validation failed: health too low (${healthPercent.toFixed(0)}%)`,
+      );
+      return false;
+    }
+
+    // Check if there are attackable mobs nearby
+    const nearbyEntities = service.getNearbyEntities();
+    logger.info(`[ATTACK_ENTITY] Nearby entities: ${nearbyEntities.length}`);
+
+    // Debug: log what entities we see
+    for (const entity of nearbyEntities) {
+      const entityAny = entity as unknown as Record<string, unknown>;
+      logger.info(
+        `[ATTACK_ENTITY] Entity: "${entity.name}" id=${entity.id} type=${entityAny.type} mobType=${entityAny.mobType} alive=${entityAny.alive} hasPos=${!!entity.position}`,
+      );
+    }
+
+    const attackableMobs = nearbyEntities.filter((entity) => {
+      const entityAny = entity as unknown as Record<string, unknown>;
+
+      // Check if this is a mob - try multiple detection methods
+      const hasMobType = "mobType" in entity;
+      const typeIsMob = entityAny.type === "mob";
+      const entityTypeIsMob = entityAny.entityType === "mob";
+      const nameMatchesMob =
+        entity.name &&
+        /goblin|bandit|skeleton|zombie|rat|spider|wolf/i.test(entity.name);
+      const isMob =
+        hasMobType || typeIsMob || entityTypeIsMob || nameMatchesMob;
+
+      // Check position - handle both array [x,y,z] and object {x,y,z} formats
+      let hasValidPosition = false;
+      if (entity.position) {
+        if (Array.isArray(entity.position) && entity.position.length >= 3) {
+          hasValidPosition = true;
+        } else if (
+          typeof entity.position === "object" &&
+          "x" in entity.position &&
+          "z" in entity.position
+        ) {
+          // Position is an object like {x, y, z}
+          hasValidPosition = true;
+        }
+      }
+
+      // Check if mob is alive (undefined = alive)
+      const isAlive = entityAny.alive !== false;
+
+      // Debug: log why this entity passes or fails
+      if (isMob) {
+        const posType = Array.isArray(entity.position)
+          ? "array"
+          : typeof entity.position === "object"
+            ? "object"
+            : typeof entity.position;
+        logger.info(
+          `[ATTACK_ENTITY] Mob candidate: "${entity.name}" - isMob=${isMob}, hasPos=${hasValidPosition} (${posType}), alive=${isAlive}`,
+        );
+      }
+
+      if (!isMob) return false;
+      if (!hasValidPosition) return false;
+      if (!isAlive) return false;
+
+      return true;
+    });
+
+    if (attackableMobs.length === 0) {
+      logger.warn(
+        `[ATTACK_ENTITY] Validation failed: no attackable mobs nearby (${nearbyEntities.length} total entities)`,
+      );
+      return false;
+    }
+
+    logger.info(
+      `[ATTACK_ENTITY] Validation passed - ${attackableMobs.length} targets available`,
+    );
+    return true;
+  },
+
+  handler: async (
+    runtime: IAgentRuntime,
+    _message: Memory,
+    state?: State,
+    _options?: unknown,
+    callback?: HandlerCallback,
+  ) => {
+    try {
+      const service =
+        runtime.getService<HyperscapeService>("hyperscapeService");
+      if (!service) {
+        return { success: false, error: "Hyperscape service not available" };
+      }
+
+      const player = service.getPlayerEntity();
+      if (!player) {
+        return { success: false, error: "Player entity not available" };
+      }
+
+      // Require valid position for distance calculations (handle both array and object formats)
+      const playerPos = getXZ(player.position);
+      if (!playerPos) {
+        return { success: false, error: "Player position not available yet" };
+      }
+
+      // Find attackable mobs
+      const nearbyEntities = service.getNearbyEntities();
+      const attackableMobs = nearbyEntities.filter((entity) => {
+        const entityAny = entity as unknown as Record<string, unknown>;
+
+        // Check if this is a mob - try multiple detection methods
+        const isMob =
+          "mobType" in entity ||
+          entityAny.type === "mob" ||
+          entityAny.entityType === "mob" ||
+          (entity.name &&
+            /goblin|bandit|skeleton|zombie|rat|spider|wolf/i.test(entity.name));
+
+        if (!isMob) return false;
+
+        // Check position - handle both array and object formats
+        if (!entity.position) return false;
+        const isArrayPos =
+          Array.isArray(entity.position) && entity.position.length >= 3;
+        const isObjectPos =
+          typeof entity.position === "object" &&
+          "x" in entity.position &&
+          "z" in entity.position;
+        if (!isArrayPos && !isObjectPos) return false;
+
+        if (entityAny.alive === false) return false;
+        return true;
+      });
+
+      if (attackableMobs.length === 0) {
+        return { success: false, error: "No attackable mobs nearby" };
+      }
+
+      // Find nearest mob
+      let nearestMob = attackableMobs[0];
+      let nearestDist = calculateDistance(player.position, nearestMob.position);
+
+      for (const mob of attackableMobs) {
+        const dist = calculateDistance(player.position, mob.position);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestMob = mob;
+        }
+      }
+
+      // Get mob position for movement
+      const mobPos = getXZ(nearestMob.position);
+      if (!mobPos) {
+        return { success: false, error: "Cannot determine mob position" };
+      }
+
+      const MELEE_RANGE = 3; // Melee attack range in units
+
+      // If not in melee range, move towards the mob first
+      if (nearestDist > MELEE_RANGE) {
+        // Calculate position to move to (stop just before the mob)
+        const dx = mobPos.x - playerPos.x;
+        const dz = mobPos.z - playerPos.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const stopDist = 2; // Stop 2 units away from mob
+
+        const targetX = playerPos.x + (dx / dist) * (dist - stopDist);
+        const targetZ = playerPos.z + (dz / dist) * (dist - stopDist);
+
+        logger.info(
+          `[ATTACK_ENTITY] Moving towards ${nearestMob.name} at [${targetX.toFixed(1)}, ${targetZ.toFixed(1)}] (distance: ${nearestDist.toFixed(1)})`,
+        );
+
+        // Move towards mob - MUST use array format [x, y, z]
+        await service.executeMove({
+          target: [targetX, 0, targetZ],
+          runMode: true, // Run to engage faster
+        });
+      }
+
+      // Send attack command (server will handle the actual combat when in range)
+      await service.executeAttack({ targetEntityId: nearestMob.id });
+
+      const responseText =
+        nearestDist > MELEE_RANGE
+          ? `Moving to attack ${nearestMob.name}!`
+          : `Attacking ${nearestMob.name}!`;
+      await callback?.({ text: responseText, action: "ATTACK_ENTITY" });
+
+      logger.info(
+        `[ATTACK_ENTITY] ${responseText} (distance: ${nearestDist.toFixed(1)})`,
+      );
+
+      return {
+        success: true,
+        text: responseText,
+        values: { target: nearestMob.name, distance: nearestDist },
+        data: {
+          action: "ATTACK_ENTITY",
+          targetId: nearestMob.id,
+          targetName: nearestMob.name,
+        },
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(`[ATTACK_ENTITY] Failed: ${errorMsg}`);
+      await callback?.({ text: `Failed to attack: ${errorMsg}`, error: true });
+      return { success: false, error: errorMsg };
+    }
+  },
+
+  examples: [
+    [
+      {
+        name: "system",
+        content: { text: "Goblin nearby, agent is healthy" },
+      },
+      {
+        name: "agent",
+        content: { text: "Attacking Goblin!", action: "ATTACK_ENTITY" },
+      },
+    ],
+  ],
+};
+
 // Export all autonomous actions
 export const autonomousActions = [
   exploreAction,
   fleeAction,
   idleAction,
   approachEntityAction,
+  attackEntityAction,
 ];

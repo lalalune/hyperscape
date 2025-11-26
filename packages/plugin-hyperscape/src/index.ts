@@ -25,6 +25,7 @@ import { nearbyEntitiesProvider } from "./providers/nearbyEntities.js";
 import { skillsProvider } from "./providers/skills.js";
 import { equipmentProvider } from "./providers/equipment.js";
 import { availableActionsProvider } from "./providers/availableActions.js";
+import { goalProvider } from "./providers/goalProvider.js";
 
 // Actions
 import {
@@ -54,7 +55,9 @@ import {
   fleeAction,
   idleAction,
   approachEntityAction,
+  attackEntityAction as autonomousAttackAction,
 } from "./actions/autonomous.js";
+import { setGoalAction, navigateToAction } from "./actions/goals.js";
 
 // Evaluators
 import {
@@ -63,6 +66,7 @@ import {
   socialEvaluator,
   combatEvaluator,
 } from "./evaluators/index.js";
+import { goalEvaluator } from "./evaluators/goalEvaluator.js";
 
 // Event handlers
 import { registerEventHandlers } from "./events/handlers.js";
@@ -161,6 +165,7 @@ export const hyperscapePlugin: Plugin = {
 
   // Providers supply game context to the agent
   providers: [
+    goalProvider, // Current goal and progress (runs first for goal-aware decisions)
     gameStateProvider, // Player health, stamina, position, combat status
     inventoryProvider, // Inventory items, coins, free slots
     nearbyEntitiesProvider, // Players, NPCs, resources nearby
@@ -171,7 +176,8 @@ export const hyperscapePlugin: Plugin = {
 
   // Evaluators assess game state for autonomous decision making
   evaluators: [
-    survivalEvaluator, // Assess health, threats, survival needs (runs first)
+    goalEvaluator, // Check goal progress and provide recommendations (runs first)
+    survivalEvaluator, // Assess health, threats, survival needs
     explorationEvaluator, // Identify exploration opportunities
     socialEvaluator, // Identify social interaction opportunities
     combatEvaluator, // Assess combat opportunities and threats
@@ -188,7 +194,12 @@ export const hyperscapePlugin: Plugin = {
 
   // Actions the agent can perform in the game
   actions: [
+    // Goal-oriented actions (highest priority for autonomous behavior)
+    setGoalAction, // Set a new goal when none exists
+    navigateToAction, // Navigate to goal location
+
     // Autonomous behavior actions (used by AutonomousBehaviorManager)
+    autonomousAttackAction, // Attack nearby mobs (autonomous-friendly)
     exploreAction, // Move to explore new areas
     fleeAction, // Run away from danger
     idleAction, // Stand still and observe

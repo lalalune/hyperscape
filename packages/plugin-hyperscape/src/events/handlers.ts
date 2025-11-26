@@ -46,6 +46,25 @@ export function registerEventHandlers(
     logger.info(
       `[HyperscapePlugin] Defeated ${eventData.targetName}, gained ${eventData.xpGained} XP`,
     );
+
+    // Update goal progress if we have a combat_training goal
+    const behaviorManager = service.getBehaviorManager();
+    const goal = behaviorManager?.getGoal();
+    if (goal?.type === "combat_training") {
+      // Check if the killed target matches our goal target (if specified)
+      const targetMatches =
+        !goal.targetEntity ||
+        eventData.targetName
+          .toLowerCase()
+          .includes(goal.targetEntity.toLowerCase());
+
+      if (targetMatches) {
+        behaviorManager?.updateGoalProgress(1);
+        logger.info(
+          `[HyperscapePlugin] Goal progress updated: ${goal.progress + 1}/${goal.target} (killed ${eventData.targetName})`,
+        );
+      }
+    }
   });
 
   service.onGameEvent("PLAYER_DIED", async (data: unknown) => {
@@ -70,6 +89,21 @@ export function registerEventHandlers(
       eventData,
       ["resource", "gathered", eventData.resourceType],
     );
+
+    // Update goal progress if we have a woodcutting goal and gathered from a tree
+    const behaviorManager = service.getBehaviorManager();
+    const goal = behaviorManager?.getGoal();
+    if (
+      goal?.type === "woodcutting" &&
+      (eventData.resourceType === "tree" ||
+        eventData.resourceName.toLowerCase().includes("tree") ||
+        eventData.resourceName.toLowerCase().includes("log"))
+    ) {
+      behaviorManager?.updateGoalProgress(1);
+      logger.info(
+        `[HyperscapePlugin] Goal progress updated: ${goal.progress + 1}/${goal.target} (gathered ${eventData.resourceName})`,
+      );
+    }
   });
 
   service.onGameEvent("RESOURCE_DEPLETED", async (data: unknown) => {
