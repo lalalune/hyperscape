@@ -228,17 +228,51 @@ export function Minimap({
     };
   }, []);
 
-  // Update camera position based on player position
+  // Update camera position based on player position (or spectated entity in spectator mode)
   useEffect(() => {
     let rafId: number | null = null;
     const loop = () => {
       const cam = cameraRef.current;
       const player = world.entities?.player as Entity | undefined;
-      if (cam && player) {
-        // Keep centered on player
-        cam.position.x = player.node.position.x;
-        cam.position.z = player.node.position.z;
-        cam.lookAt(player.node.position.x, 0, player.node.position.z);
+
+      // Get target position - either local player or spectated entity
+      let targetPosition: { x: number; z: number } | null = null;
+
+      if (player) {
+        // Normal mode: follow local player
+        targetPosition = {
+          x: player.node.position.x,
+          z: player.node.position.z,
+        };
+      } else {
+        // Spectator mode: get camera target from camera system
+        const config = (
+          window as {
+            __HYPERSCAPE_CONFIG__?: { mode?: string; followEntity?: string };
+          }
+        ).__HYPERSCAPE_CONFIG__;
+        if (config?.mode === "spectator") {
+          // Try to get camera target position
+          const cameraSystem = world.getSystem("client-camera-system") as {
+            getCameraInfo?: () => {
+              target?: { position?: { x: number; z: number } };
+            };
+          } | null;
+          const cameraInfo = cameraSystem?.getCameraInfo?.();
+          if (cameraInfo?.target?.position) {
+            targetPosition = {
+              x: cameraInfo.target.position.x,
+              z: cameraInfo.target.position.z,
+            };
+          }
+        }
+      }
+
+      if (cam && targetPosition) {
+        // Keep centered on target (player or spectated entity)
+        cam.position.x = targetPosition.x;
+        cam.position.z = targetPosition.z;
+        cam.lookAt(targetPosition.x, 0, targetPosition.z);
 
         // Rotate minimap with main camera yaw if enabled
         if (rotateWithCamera && world.camera) {
@@ -264,8 +298,8 @@ export function Minimap({
 
         // Clear destination when reached
         if (lastDestinationWorld) {
-          const dx = lastDestinationWorld.x - player.node.position.x;
-          const dz = lastDestinationWorld.z - player.node.position.z;
+          const dx = lastDestinationWorld.x - targetPosition.x;
+          const dz = lastDestinationWorld.z - targetPosition.z;
           if (Math.hypot(dx, dz) < 0.6) {
             setLastDestinationWorld(null);
             setLastMinimapClickScreen(null);
@@ -302,7 +336,10 @@ export function Minimap({
       const newCache = new Map<string, EntityPip>();
 
       const player = world.entities?.player as Entity | undefined;
+      let playerPipId: string | null = null;
+
       if (player?.node?.position) {
+        // Normal mode: local player is the green pip
         const playerPip: EntityPip = {
           id: "local-player",
           type: "player",
@@ -311,28 +348,60 @@ export function Minimap({
         };
         pips.push(playerPip);
         newCache.set("local-player", playerPip);
+        playerPipId = player.id;
+      } else {
+        // Spectator mode: get spectated entity from camera system as green pip
+        const config = (
+          window as {
+            __HYPERSCAPE_CONFIG__?: { mode?: string; followEntity?: string };
+          }
+        ).__HYPERSCAPE_CONFIG__;
+        if (config?.mode === "spectator") {
+          const cameraSystem = world.getSystem("client-camera-system") as {
+            getCameraInfo?: () => {
+              target?: { id?: string; node?: { position?: THREE.Vector3 } };
+            };
+          } | null;
+          const cameraInfo = cameraSystem?.getCameraInfo?.();
+          if (cameraInfo?.target?.node?.position) {
+            const spectatedPip: EntityPip = {
+              id: "spectated-player",
+              type: "player",
+              position: cameraInfo.target.node.position,
+              color: "#00ff00",
+            };
+            pips.push(spectatedPip);
+            newCache.set("spectated-player", spectatedPip);
+            playerPipId = cameraInfo.target.id ?? null;
+          }
+        }
       }
 
       // Add other players using entities system for reliable positions
       if (world.entities) {
         const players = world.entities.getAllPlayers();
         players.forEach((otherPlayer) => {
-          if (!player || otherPlayer.id !== player.id) {
-            const otherEntity = world.entities.get(otherPlayer.id);
-            if (otherEntity && otherEntity.node && otherEntity.node.position) {
-              const playerPip: EntityPip = {
-                id: otherPlayer.id,
-                type: "player",
-                position: new THREE.Vector3(
-                  otherEntity.node.position.x,
-                  0,
-                  otherEntity.node.position.z,
-                ),
-                color: "#0088ff",
-              };
-              pips.push(playerPip);
-              newCache.set(otherPlayer.id, playerPip);
-            }
+          // Skip local player or spectated entity (already shown as green pip)
+          if (
+            (player && otherPlayer.id === player.id) ||
+            (playerPipId && otherPlayer.id === playerPipId)
+          ) {
+            return;
+          }
+          const otherEntity = world.entities.get(otherPlayer.id);
+          if (otherEntity && otherEntity.node && otherEntity.node.position) {
+            const playerPip: EntityPip = {
+              id: otherPlayer.id,
+              type: "player",
+              position: new THREE.Vector3(
+                otherEntity.node.position.x,
+                0,
+                otherEntity.node.position.z,
+              ),
+              color: "#0088ff",
+            };
+            pips.push(playerPip);
+            newCache.set(otherPlayer.id, playerPip);
           }
         });
       }

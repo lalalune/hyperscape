@@ -64,10 +64,6 @@ export class Nametags extends SystemBase {
     this.canvas.width = NAMETAG_WIDTH * PER_ROW;
     this.canvas.height = NAMETAG_HEIGHT * PER_COLUMN;
 
-    // DEBUG: show on screen
-    // document.body.appendChild(this.canvas)
-    // this.canvas.style = `position:absolute;top:0;left:0;z-index:9999;border:1px solid red;transform:scale(${1 / RES});transform-origin:top left;pointer-events:none;`
-
     this.ctx = this.canvas.getContext("2d")!;
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
@@ -270,7 +266,9 @@ export class Nametags extends SystemBase {
         this.draw(nametag);
       },
       setInCombat: (inCombat: boolean) => {
-        if (nametag.inCombat === inCombat) return;
+        if (nametag.inCombat === inCombat) {
+          return;
+        }
         nametag.inCombat = inCombat;
         this.draw(nametag);
       },
@@ -344,6 +342,7 @@ export class Nametags extends SystemBase {
     const col = idx % PER_ROW;
     const x = col * NAMETAG_WIDTH;
     const y = row * NAMETAG_HEIGHT;
+
     // clear any previously drawn stuff
     this.ctx.clearRect(x, y, NAMETAG_WIDTH, NAMETAG_HEIGHT);
     // draw background
