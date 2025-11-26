@@ -377,6 +377,96 @@ export function registerCharacterRoutes(
       });
 
       /**
+       * GET /api/characters/:id/position
+       *
+       * Get a character's current live position from the game world.
+       * Used by the dashboard to display agent coordinates in real-time.
+       *
+       * Path Parameters:
+       *   - id: string - The character ID
+       *
+       * Response:
+       * {
+       *   success: true,
+       *   position: { x: number, y: number, z: number },
+       *   online: boolean
+       * }
+       */
+      fastify.get<{
+        Params: { id: string };
+      }>("/api/characters/:id/position", async (request, reply) => {
+        const { id } = request.params;
+
+        if (!id) {
+          return reply.status(400).send({
+            success: false,
+            error: "Missing character ID parameter",
+          });
+        }
+
+        try {
+          // Get the network system to find the player's socket
+          const network = world.network as unknown as {
+            sockets: Map<
+              string,
+              {
+                characterId?: string;
+                player?: {
+                  position: { x: number; y: number; z: number };
+                };
+              }
+            >;
+          };
+
+          if (!network?.sockets) {
+            return reply.status(500).send({
+              success: false,
+              error: "Network system not available",
+            });
+          }
+
+          // Find the socket for this character
+          let playerPosition: { x: number; y: number; z: number } | null = null;
+
+          for (const [, socket] of network.sockets) {
+            if (socket.characterId === id && socket.player?.position) {
+              playerPosition = {
+                x: Math.round(socket.player.position.x * 100) / 100,
+                y: Math.round(socket.player.position.y * 100) / 100,
+                z: Math.round(socket.player.position.z * 100) / 100,
+              };
+              break;
+            }
+          }
+
+          if (playerPosition) {
+            return reply.send({
+              success: true,
+              position: playerPosition,
+              online: true,
+            });
+          } else {
+            // Character not currently online
+            return reply.send({
+              success: true,
+              position: null,
+              online: false,
+            });
+          }
+        } catch (error) {
+          console.error(
+            "[CharacterRoutes] ❌ Error fetching position for %s:",
+            id,
+            error,
+          );
+          return reply.status(500).send({
+            success: false,
+            error: "Failed to fetch character position",
+          });
+        }
+      });
+
+      /**
        * PATCH /api/characters/:id
        *
        * Update a character's properties.

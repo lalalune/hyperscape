@@ -37,6 +37,8 @@ export interface EmbeddedViewportConfig {
   hiddenUI?: HideableUIElement[];
   quality?: GraphicsQuality;
   sessionToken: string;
+  /** Privy user ID for authentication verification */
+  privyUserId?: string;
 }
 
 /**

@@ -61,6 +61,7 @@ if (isEmbedded) {
       : undefined,
     quality: (urlParams.get("quality") as any) || "medium",
     sessionToken: urlParams.get("sessionToken") || "",
+    privyUserId: urlParams.get("privyUserId") || undefined,
   };
 
   (window as any).__HYPERSCAPE_CONFIG__ = config;
@@ -441,7 +442,9 @@ function mountApp() {
       );
       root.render(
         <ErrorBoundary>
-          <DashboardScreen />
+          <PrivyAuthProvider>
+            <DashboardScreen />
+          </PrivyAuthProvider>
         </ErrorBoundary>,
       );
     } else if (page === "character-editor") {
@@ -450,7 +453,9 @@ function mountApp() {
       );
       root.render(
         <ErrorBoundary>
-          <CharacterEditorScreen />
+          <PrivyAuthProvider>
+            <CharacterEditorScreen />
+          </PrivyAuthProvider>
         </ErrorBoundary>,
       );
     } else {

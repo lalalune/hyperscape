@@ -517,5 +517,397 @@ export function registerAgentRoutes(
     }
   });
 
+  /**
+   * POST /api/agents/:agentId/message
+   *
+   * Send a message to an agent via ElizaOS messaging system.
+   * This properly integrates with ElizaOS's runtime, allowing the agent to
+   * process messages through its personality, providers, and actions.
+   *
+   * SECURITY: Requires authentication. User must own the agent to send messages.
+   *
+   * Headers:
+   * - Authorization: Bearer <token> (Privy or Hyperscape JWT)
+   *
+   * Request body:
+   * {
+   *   content: "Move to coordinates [10, 0, 5]"
+   * }
+   *
+   * Response:
+   * {
+   *   success: true,
+   *   message: "Message sent to agent"
+   * }
+   */
+  fastify.post("/api/agents/:agentId/message", async (request, reply) => {
+    try {
+      const params = request.params as { agentId: string };
+      const body = request.body as {
+        content: string;
+      };
+
+      const { agentId } = params;
+      const { content } = body;
+
+      // SECURITY: Require authentication via Authorization header
+      const authHeader = request.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        console.warn(
+          "[AgentRoutes] ❌ Message endpoint called without auth token",
+        );
+        return reply.status(401).send({
+          success: false,
+          error:
+            "Authentication required. Provide Bearer token in Authorization header.",
+        });
+      }
+
+      const token = authHeader.slice(7); // Remove "Bearer " prefix
+
+      // Verify the token and get user identity
+      const { verifyJWT } = await import("../../shared/utils.js");
+      const { verifyPrivyToken, isPrivyEnabled } = await import(
+        "../../infrastructure/auth/privy-auth.js"
+      );
+
+      let verifiedUserId: string | null = null;
+
+      // Try Privy token verification first (if enabled)
+      if (isPrivyEnabled()) {
+        try {
+          const privyInfo = await verifyPrivyToken(token);
+          if (privyInfo) {
+            verifiedUserId = privyInfo.privyUserId;
+            console.log(
+              `[AgentRoutes] 🔐 Privy auth verified: ${verifiedUserId}`,
+            );
+          }
+        } catch {
+          // Privy verification failed, try JWT next
+        }
+      }
+
+      // Fall back to Hyperscape JWT verification
+      if (!verifiedUserId) {
+        const jwtPayload = await verifyJWT(token);
+        if (jwtPayload && jwtPayload.userId) {
+          verifiedUserId = jwtPayload.userId as string;
+          console.log(`[AgentRoutes] 🔐 JWT auth verified: ${verifiedUserId}`);
+        }
+      }
+
+      if (!verifiedUserId) {
+        console.warn("[AgentRoutes] ❌ Token verification failed");
+        return reply.status(401).send({
+          success: false,
+          error: "Invalid or expired authentication token",
+        });
+      }
+
+      if (!agentId) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required parameter: agentId",
+        });
+      }
+
+      if (!content) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required field: content",
+        });
+      }
+
+      // Get database system
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              select: (fields?: unknown) => {
+                from: (table: unknown) => {
+                  where: (condition: unknown) => Promise<unknown[]>;
+                };
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        console.error("[AgentRoutes] DatabaseSystem not available");
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Import schema and eq operator
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq } = await import("drizzle-orm");
+
+      // Get agent's mapping to verify it exists AND user owns it
+      const mappings = (await databaseSystem.db
+        .select()
+        .from(agentMappings)
+        .where(eq(agentMappings.agentId, agentId))) as Array<{
+        agentId: string;
+        accountId: string;
+        characterId: string;
+        agentName: string;
+      }>;
+
+      if (mappings.length === 0) {
+        console.warn(`[AgentRoutes] Agent ${agentId} not found in mappings`);
+        return reply.status(404).send({
+          success: false,
+          error: "Agent not found",
+        });
+      }
+
+      const mapping = mappings[0];
+
+      // SECURITY: Verify the authenticated user owns this agent
+      if (mapping.accountId !== verifiedUserId) {
+        console.warn(
+          `[AgentRoutes] ❌ SECURITY: User ${verifiedUserId} tried to message agent ${agentId} owned by ${mapping.accountId}`,
+        );
+        return reply.status(403).send({
+          success: false,
+          error: "You do not have permission to message this agent",
+        });
+      }
+
+      const characterId = mapping.characterId;
+      console.log(
+        `[AgentRoutes] ✅ Ownership verified: ${verifiedUserId} owns agent ${mapping.agentName}`,
+      );
+      console.log(
+        `[AgentRoutes] Found agent ${mapping.agentName} (character: ${characterId})`,
+      );
+
+      // Send message via in-game chat system
+      // The agent receives this through the game's WebSocket and processes it via ElizaOS
+      const chatSystem = world.getSystem("chat") as
+        | {
+            add: (
+              message: {
+                id: string;
+                from: string;
+                fromId: string;
+                body: string;
+                text: string;
+                timestamp: number;
+                createdAt: string;
+              },
+              broadcast?: boolean,
+            ) => void;
+          }
+        | undefined;
+
+      if (!chatSystem) {
+        console.error("[AgentRoutes] ChatSystem not available");
+        return reply.status(500).send({
+          success: false,
+          error: "Chat system not available",
+        });
+      }
+
+      // Create chat message - use verified user ID as sender
+      const chatMessage = {
+        id: crypto.randomUUID(),
+        from: "Dashboard",
+        fromId: verifiedUserId,
+        body: content,
+        text: content,
+        timestamp: Date.now(),
+        createdAt: new Date().toISOString(),
+      };
+
+      // Broadcast through game chat - agent will receive via chatAdded packet
+      chatSystem.add(chatMessage, true);
+
+      console.log(
+        `[AgentRoutes] ✅ Message sent to agent ${agentId} via game chat`,
+      );
+
+      return reply.send({
+        success: true,
+        message: "Message sent to agent",
+      });
+    } catch (error) {
+      console.error("[AgentRoutes] ❌ Failed to send message to agent:", error);
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to send message to agent",
+      });
+    }
+  });
+
+  /**
+   * POST /api/spectator/token
+   *
+   * Exchange a Privy token for a permanent spectator JWT.
+   * This solves the issue where Privy tokens expire after ~1 hour,
+   * causing spectator mode to lose authentication.
+   *
+   * SECURITY: Verifies Privy token and checks agent ownership before issuing JWT.
+   *
+   * Request body:
+   * {
+   *   agentId: "agent-uuid",
+   *   privyToken: "privy-access-token"
+   * }
+   *
+   * Response:
+   * {
+   *   success: true,
+   *   spectatorToken: "permanent-jwt-token",
+   *   characterId: "character-uuid",
+   *   expiresAt: null  // Token never expires
+   * }
+   */
+  fastify.post("/api/spectator/token", async (request, reply) => {
+    try {
+      const body = request.body as {
+        agentId: string;
+        privyToken: string;
+      };
+
+      const { agentId, privyToken } = body;
+
+      if (!agentId || !privyToken) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required fields: agentId, privyToken",
+        });
+      }
+
+      // Verify the Privy token
+      const { verifyPrivyToken, isPrivyEnabled } = await import(
+        "../../infrastructure/auth/privy-auth.js"
+      );
+
+      if (!isPrivyEnabled()) {
+        return reply.status(503).send({
+          success: false,
+          error: "Privy authentication is not configured on this server",
+        });
+      }
+
+      let verifiedUserId: string | null = null;
+
+      try {
+        const privyInfo = await verifyPrivyToken(privyToken);
+        if (privyInfo) {
+          verifiedUserId = privyInfo.privyUserId;
+        }
+      } catch (err) {
+        console.warn(
+          "[AgentRoutes] Privy token verification failed:",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+
+      if (!verifiedUserId) {
+        return reply.status(401).send({
+          success: false,
+          error: "Invalid or expired Privy token. Please log in again.",
+        });
+      }
+
+      // Get database system to check agent ownership
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              select: (fields?: unknown) => {
+                from: (table: unknown) => {
+                  where: (condition: unknown) => Promise<unknown[]>;
+                };
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        console.error("[AgentRoutes] DatabaseSystem not available");
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Import schema and eq operator
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq } = await import("drizzle-orm");
+
+      // Query agent mapping to verify ownership
+      const mappings = (await databaseSystem.db
+        .select()
+        .from(agentMappings)
+        .where(eq(agentMappings.agentId, agentId))) as Array<{
+        agentId: string;
+        accountId: string;
+        characterId: string;
+        agentName: string;
+      }>;
+
+      if (mappings.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          error: "Agent not found",
+        });
+      }
+
+      const mapping = mappings[0];
+
+      // SECURITY: Verify the authenticated user owns this agent
+      if (mapping.accountId !== verifiedUserId) {
+        console.warn(
+          `[AgentRoutes] ❌ SECURITY: User ${verifiedUserId} tried to get spectator token for agent ${agentId} owned by ${mapping.accountId}`,
+        );
+        return reply.status(403).send({
+          success: false,
+          error: "You do not have permission to spectate this agent",
+        });
+      }
+
+      // Generate permanent spectator JWT (no expiration)
+      const spectatorToken = await createJWT({
+        userId: verifiedUserId,
+        characterId: mapping.characterId,
+        agentId: agentId,
+        isSpectator: true,
+      });
+
+      console.log(
+        `[AgentRoutes] ✅ Generated spectator JWT for user ${verifiedUserId} watching agent ${mapping.agentName}`,
+      );
+
+      return reply.send({
+        success: true,
+        spectatorToken,
+        characterId: mapping.characterId,
+        agentName: mapping.agentName,
+        expiresAt: null, // Token never expires
+      });
+    } catch (error) {
+      console.error(
+        "[AgentRoutes] ❌ Failed to generate spectator token:",
+        error,
+      );
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate spectator token",
+      });
+    }
+  });
+
   console.log("[AgentRoutes] ✅ Agent credential routes registered");
 }

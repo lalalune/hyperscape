@@ -49,6 +49,20 @@ import {
 } from "./actions/inventory.js";
 import { chatMessageAction } from "./actions/social.js";
 import { bankDepositAction, bankWithdrawAction } from "./actions/banking.js";
+import {
+  exploreAction,
+  fleeAction,
+  idleAction,
+  approachEntityAction,
+} from "./actions/autonomous.js";
+
+// Evaluators
+import {
+  survivalEvaluator,
+  explorationEvaluator,
+  socialEvaluator,
+  combatEvaluator,
+} from "./evaluators/index.js";
 
 // Event handlers
 import { registerEventHandlers } from "./events/handlers.js";
@@ -57,6 +71,7 @@ import { registerEventHandlers } from "./events/handlers.js";
 import { callbackRoute, statusRoute } from "./routes/auth.js";
 import { getSettingsRoute } from "./routes/settings.js";
 import { getLogsRoute } from "./routes/logs.js";
+import { messageRoute } from "./routes/message.js";
 
 // Configuration schema
 const configSchema = z.object({
@@ -154,11 +169,31 @@ export const hyperscapePlugin: Plugin = {
     availableActionsProvider, // Context-aware available actions
   ],
 
+  // Evaluators assess game state for autonomous decision making
+  evaluators: [
+    survivalEvaluator, // Assess health, threats, survival needs (runs first)
+    explorationEvaluator, // Identify exploration opportunities
+    socialEvaluator, // Identify social interaction opportunities
+    combatEvaluator, // Assess combat opportunities and threats
+  ],
+
   // HTTP API routes for agent management
-  routes: [callbackRoute, statusRoute, getSettingsRoute, getLogsRoute],
+  routes: [
+    callbackRoute,
+    statusRoute,
+    getSettingsRoute,
+    getLogsRoute,
+    messageRoute,
+  ],
 
   // Actions the agent can perform in the game
   actions: [
+    // Autonomous behavior actions (used by AutonomousBehaviorManager)
+    exploreAction, // Move to explore new areas
+    fleeAction, // Run away from danger
+    idleAction, // Stand still and observe
+    approachEntityAction, // Move towards a specific entity
+
     // Movement
     moveToAction,
     followEntityAction,
@@ -197,10 +232,18 @@ export const hyperscapePlugin: Plugin = {
           runtime.getService<HyperscapeService>("hyperscapeService");
 
         if (service) {
-          registerEventHandlers(runtime, service);
-          logger.info(
-            "[HyperscapePlugin] Event handlers registered on RUN_STARTED",
-          );
+          // Only register handlers once per service instance
+          if (!service.arePluginEventHandlersRegistered()) {
+            registerEventHandlers(runtime, service);
+            service.markPluginEventHandlersRegistered();
+            logger.info(
+              "[HyperscapePlugin] Event handlers registered on RUN_STARTED",
+            );
+          } else {
+            logger.debug(
+              "[HyperscapePlugin] Event handlers already registered, skipping",
+            );
+          }
         } else {
           logger.warn(
             "[HyperscapePlugin] HyperscapeService not found, could not register event handlers",

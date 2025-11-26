@@ -56,7 +56,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ agent }) => {
       const channelId = `dashboard-chat-${agent.id}`; // Use agent-specific channel
 
       const response = await fetch(
-        `http://localhost:3000/api/agents/${agent.id}/message`,
+        `http://localhost:5555/api/agents/${agent.id}/message`,
         {
           method: "POST",
           headers: {
@@ -64,8 +64,6 @@ export const AgentChat: React.FC<AgentChatProps> = ({ agent }) => {
           },
           body: JSON.stringify({
             content: userMessage.text,
-            channelId: channelId,
-            messageId: messageId,
             userId: userId,
           }),
         },
