@@ -44,9 +44,20 @@ export class Nametag extends Node {
   }
 
   mount() {
+    // Prevent multiple mounts - if we already have a handle, destroy it first
+    if (this.handle) {
+      this.handle.destroy();
+      this.handle = null;
+    }
+
+    // Find Nametags system - check systemName first (reliable across minification),
+    // then fall back to constructor.name for backward compatibility
     const nametags = this.ctx?.systems.find(
-      (s) => s.constructor.name === "Nametags",
+      (s) =>
+        (s as { systemName?: string }).systemName === "nametags" ||
+        s.constructor.name === "Nametags",
     ) as NametagsSystem;
+
     if (nametags) {
       this.handle = nametags.add({
         name: this._label || "",

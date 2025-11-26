@@ -124,6 +124,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
     combatTarget: null as string | null,
   };
 
+  // Guard to prevent double initialization
+  private _initialized: boolean = false;
+
   constructor(world: World, data: EntityData, local?: boolean) {
     super(world, data, local);
     this.isPlayer = true;
@@ -142,6 +145,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
   }
 
   async init(): Promise<void> {
+    // Prevent double initialization (constructor calls init(), then Entities.add() calls it again)
+    if (this._initialized) {
+      return;
+    }
+    this._initialized = true;
+
     this.base = createNode("group") as Group;
     // Position and rotation are now handled by Entity base class
     // Use entity's position/rotation properties instead of data
@@ -176,9 +185,18 @@ export class PlayerRemote extends Entity implements HotReloadable {
     this.nametag = createNode("nametag", {
       label: this.data.name || "",
       health: healthPercent, // Use percentage, not absolute value
-      active: false,
+      active: true,
     }) as Nametag;
-    this.aura?.add(this.nametag);
+    // Set world context for nametag (needed for mounting to Nametags system)
+    // This matches PlayerLocal behavior - without ctx, mount() can't find the Nametags system
+    this.nametag.ctx = this.world;
+    // CRITICAL FIX: Mount nametag directly like PlayerLocal does, NOT via aura hierarchy
+    // If added to aura, the node's commit() method would call move() with the wrong position
+    // (based on aura's matrixWorld instead of the player's actual position)
+    // PlayerRemote.lateUpdate() handles positioning via handle.move() directly
+    if (this.nametag.mount) {
+      this.nametag.mount();
+    }
 
     this.bubble = createNode("ui", {
       width: 300,
@@ -593,6 +611,16 @@ export class PlayerRemote extends Entity implements HotReloadable {
     if (this.avatar) {
       const matrix = this.avatar.getBoneTransform("head");
       if (matrix) this.aura.position.setFromMatrixPosition(matrix);
+    }
+
+    // Update nametag position in Nametags system (required for health bar rendering)
+    // This matches PlayerLocal behavior - without this, the nametag renders at origin
+    if (this.nametag && this.nametag.handle && this.base) {
+      // Position at fixed Y offset from player base (like mob health bars at Y=2.0)
+      const nametagMatrix = new THREE.Matrix4();
+      nametagMatrix.copy(this.base.matrixWorld);
+      nametagMatrix.elements[13] += 2.0; // Add fixed Y offset above head
+      this.nametag.handle.move(nametagMatrix);
     }
   }
 
