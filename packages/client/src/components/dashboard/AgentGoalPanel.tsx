@@ -8,6 +8,9 @@ import {
   TreePine,
   Compass,
   Clock,
+  Lock,
+  Unlock,
+  RefreshCw,
 } from "lucide-react";
 
 interface Goal {
@@ -22,6 +25,19 @@ interface Goal {
   targetSkillLevel?: number;
   startedAt: number;
   elapsedMs: number;
+  locked?: boolean;
+  lockedBy?: string;
+}
+
+interface AvailableGoal {
+  id: string;
+  type: string;
+  description: string;
+  priority: number;
+  reason: string;
+  targetSkill?: string;
+  targetSkillLevel?: number;
+  location?: string;
 }
 
 interface AgentGoalPanelProps {
@@ -34,14 +50,19 @@ export const AgentGoalPanel: React.FC<AgentGoalPanelProps> = ({
   isViewportActive,
 }) => {
   const [goal, setGoal] = useState<Goal | null>(null);
+  const [availableGoals, setAvailableGoals] = useState<AvailableGoal[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [showSelector, setShowSelector] = useState(false);
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [settingGoal, setSettingGoal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Poll for goal updates when viewport is active
   useEffect(() => {
     if (agent.status !== "active") {
       setGoal(null);
+      setAvailableGoals([]);
       return;
     }
 
@@ -70,12 +91,63 @@ export const AgentGoalPanel: React.FC<AgentGoalPanelProps> = ({
 
       const data = await response.json();
       setGoal(data.goal);
+      setAvailableGoals(data.availableGoals || []);
       setError(null);
     } catch (err) {
       console.error("[AgentGoalPanel] Error fetching goal:", err);
       // Don't show error on fetch failure - just keep last known state
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSetGoal = async () => {
+    if (!selectedGoalId) return;
+
+    setSettingGoal(true);
+    try {
+      const response = await fetch(
+        `http://localhost:5555/api/agents/${agent.id}/goal`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ goalId: selectedGoalId }),
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to set goal");
+      }
+
+      // Success - close selector and refresh
+      setShowSelector(false);
+      setSelectedGoalId(null);
+      await fetchGoal();
+    } catch (err) {
+      console.error("[AgentGoalPanel] Error setting goal:", err);
+      setError(err instanceof Error ? err.message : "Failed to set goal");
+    } finally {
+      setSettingGoal(false);
+    }
+  };
+
+  const handleUnlockGoal = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:5555/api/agents/${agent.id}/goal/unlock`,
+        { method: "POST" },
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to unlock goal");
+      }
+
+      await fetchGoal();
+    } catch (err) {
+      console.error("[AgentGoalPanel] Error unlocking goal:", err);
+      setError(err instanceof Error ? err.message : "Failed to unlock goal");
     }
   };
 
@@ -126,9 +198,12 @@ export const AgentGoalPanel: React.FC<AgentGoalPanelProps> = ({
             Current Goal
           </span>
           {goal && (
-            <span className="text-[10px] text-[#f2d08a]/50">
-              {goal.progressPercent}%
-            </span>
+            <>
+              <span className="text-[10px] text-[#f2d08a]/50">
+                {goal.progressPercent}%
+              </span>
+              {goal.locked && <Lock size={10} className="text-yellow-500/70" />}
+            </>
           )}
         </div>
         {expanded ? (
@@ -155,6 +230,14 @@ export const AgentGoalPanel: React.FC<AgentGoalPanelProps> = ({
               <div className="text-[9px] opacity-60 mt-1">
                 Agent will set a goal automatically
               </div>
+              {availableGoals.length > 0 && (
+                <button
+                  onClick={() => setShowSelector(true)}
+                  className="mt-2 px-3 py-1 text-[9px] bg-[#f2d08a]/20 hover:bg-[#f2d08a]/30 text-[#f2d08a] rounded border border-[#f2d08a]/30 transition-colors"
+                >
+                  Set Goal Manually
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
@@ -199,12 +282,53 @@ export const AgentGoalPanel: React.FC<AgentGoalPanelProps> = ({
                 </div>
               )}
 
-              {/* Elapsed Time */}
-              <div className="flex items-center justify-center gap-1 pt-1 border-t border-[#8b4513]/20">
-                <Clock size={10} className="text-[#f2d08a]/40" />
-                <span className="text-[9px] text-[#f2d08a]/50">
-                  {formatElapsed(goal.elapsedMs)}
-                </span>
+              {/* Lock Status & Controls */}
+              <div className="flex items-center justify-between pt-1 border-t border-[#8b4513]/20">
+                <div className="flex items-center gap-2">
+                  {/* Elapsed Time */}
+                  <div className="flex items-center gap-1">
+                    <Clock size={10} className="text-[#f2d08a]/40" />
+                    <span className="text-[9px] text-[#f2d08a]/50">
+                      {formatElapsed(goal.elapsedMs)}
+                    </span>
+                  </div>
+
+                  {/* Lock indicator */}
+                  {goal.locked && (
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20">
+                      <Lock size={8} className="text-yellow-500/70" />
+                      <span className="text-[8px] text-yellow-500/70">
+                        Manual
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-1">
+                  {goal.locked && (
+                    <button
+                      onClick={handleUnlockGoal}
+                      className="p-1 rounded hover:bg-[#f2d08a]/10 transition-colors group"
+                      title="Unlock (allow autonomous changes)"
+                    >
+                      <Unlock
+                        size={12}
+                        className="text-[#f2d08a]/40 group-hover:text-[#f2d08a]/80"
+                      />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowSelector(true)}
+                    className="p-1 rounded hover:bg-[#f2d08a]/10 transition-colors group"
+                    title="Change goal"
+                  >
+                    <RefreshCw
+                      size={12}
+                      className="text-[#f2d08a]/40 group-hover:text-[#f2d08a]/80"
+                    />
+                  </button>
+                </div>
               </div>
 
               {/* Live indicator when viewport active */}
@@ -216,6 +340,94 @@ export const AgentGoalPanel: React.FC<AgentGoalPanelProps> = ({
                   </span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Goal Selector Modal */}
+          {showSelector && (
+            <div className="mt-2 p-2 rounded bg-black/50 border border-[#f2d08a]/30">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold text-[#f2d08a]/80">
+                  Select New Goal
+                </span>
+                <button
+                  onClick={() => {
+                    setShowSelector(false);
+                    setSelectedGoalId(null);
+                  }}
+                  className="text-[#f2d08a]/40 hover:text-[#f2d08a]/80 text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {availableGoals.length === 0 ? (
+                <div className="text-center py-2 text-[9px] text-[#f2d08a]/50">
+                  No goals available
+                </div>
+              ) : (
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {availableGoals
+                    .sort((a, b) => b.priority - a.priority)
+                    .map((g) => (
+                      <label
+                        key={g.id}
+                        className={`flex items-start gap-2 p-1.5 rounded cursor-pointer transition-colors ${
+                          selectedGoalId === g.id
+                            ? "bg-[#f2d08a]/20 border border-[#f2d08a]/40"
+                            : "hover:bg-[#f2d08a]/10 border border-transparent"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="goalSelection"
+                          checked={selectedGoalId === g.id}
+                          onChange={() => setSelectedGoalId(g.id)}
+                          className="mt-0.5 accent-[#f2d08a]"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            {getGoalIcon(g.type)}
+                            <span className="text-[9px] font-bold text-[#f2d08a]/90">
+                              {g.type.replace(/_/g, " ")}
+                            </span>
+                            {g.priority >= 70 && (
+                              <span className="text-[8px] px-1 py-0.5 rounded bg-green-500/20 text-green-400">
+                                Recommended
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[8px] text-[#e8ebf4]/60 mt-0.5">
+                            {g.description}
+                          </div>
+                          <div className="text-[8px] text-[#f2d08a]/40 mt-0.5 italic">
+                            {g.reason}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex gap-2 mt-2 pt-2 border-t border-[#8b4513]/20">
+                <button
+                  onClick={() => {
+                    setShowSelector(false);
+                    setSelectedGoalId(null);
+                  }}
+                  className="flex-1 px-2 py-1 text-[9px] bg-black/30 hover:bg-black/50 text-[#f2d08a]/60 rounded border border-[#8b4513]/30 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSetGoal}
+                  disabled={!selectedGoalId || settingGoal}
+                  className="flex-1 px-2 py-1 text-[9px] bg-[#f2d08a]/20 hover:bg-[#f2d08a]/30 text-[#f2d08a] rounded border border-[#f2d08a]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {settingGoal ? "Setting..." : "Set Goal"}
+                </button>
+              </div>
             </div>
           )}
         </div>

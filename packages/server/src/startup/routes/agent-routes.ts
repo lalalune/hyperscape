@@ -976,16 +976,19 @@ export function registerAgentRoutes(
 
       const characterId = mappings[0].characterId;
 
-      // Get goal from ServerNetwork storage
+      // Get goal and available goals from ServerNetwork storage
       const { ServerNetwork } = await import(
         "../../systems/ServerNetwork/index.js"
       );
       const goal = ServerNetwork.agentGoals.get(characterId);
+      const availableGoals =
+        ServerNetwork.agentAvailableGoals.get(characterId) || [];
 
       if (!goal) {
         return reply.send({
           success: true,
           goal: null,
+          availableGoals,
           message: "No active goal",
         });
       }
@@ -995,6 +998,8 @@ export function registerAgentRoutes(
         progress?: number;
         target?: number;
         startedAt?: number;
+        locked?: boolean;
+        lockedBy?: string;
       };
       const progressPercent =
         goalData.target && goalData.target > 0
@@ -1008,6 +1013,7 @@ export function registerAgentRoutes(
           progressPercent,
           elapsedMs: goalData.startedAt ? Date.now() - goalData.startedAt : 0,
         },
+        availableGoals,
       });
     } catch (error) {
       console.error("[AgentRoutes] ❌ Failed to fetch agent goal:", error);
@@ -1017,6 +1023,214 @@ export function registerAgentRoutes(
         error:
           error instanceof Error ? error.message : "Failed to fetch agent goal",
         goal: null,
+      });
+    }
+  });
+
+  /**
+   * POST /api/agents/:agentId/goal
+   *
+   * Set a new goal for an agent from the dashboard.
+   * Sends a goalOverride packet to the agent's plugin via WebSocket.
+   *
+   * Request body:
+   * {
+   *   goalId: string  // ID of the goal to set (from availableGoals)
+   * }
+   *
+   * Response:
+   * {
+   *   success: true,
+   *   message: "Goal change requested"
+   * }
+   */
+  fastify.post("/api/agents/:agentId/goal", async (request, reply) => {
+    try {
+      const params = request.params as { agentId: string };
+      const body = request.body as { goalId?: string };
+      const { agentId } = params;
+      const { goalId } = body;
+
+      if (!agentId) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required parameter: agentId",
+        });
+      }
+
+      if (!goalId) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required body parameter: goalId",
+        });
+      }
+
+      // Get database system to find character ID
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              select: (fields?: unknown) => {
+                from: (table: unknown) => {
+                  where: (condition: unknown) => Promise<unknown[]>;
+                };
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Import schema and eq operator
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq } = await import("drizzle-orm");
+
+      // Get agent's character ID
+      const mappings = (await databaseSystem.db
+        .select()
+        .from(agentMappings)
+        .where(eq(agentMappings.agentId, agentId))) as Array<{
+        characterId: string;
+      }>;
+
+      if (mappings.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          error: "Agent not registered in game",
+        });
+      }
+
+      const characterId = mappings[0].characterId;
+
+      // Get the socket for this character
+      const { ServerNetwork } = await import(
+        "../../systems/ServerNetwork/index.js"
+      );
+      const socket = ServerNetwork.characterSockets.get(characterId);
+
+      if (!socket) {
+        return reply.status(404).send({
+          success: false,
+          error: "Agent not connected (no active WebSocket)",
+        });
+      }
+
+      // Send goalOverride packet to the plugin
+      socket.send("goalOverride", {
+        goalId,
+        source: "dashboard",
+      });
+
+      console.log(
+        `[AgentRoutes] 🎯 Sent goalOverride to ${characterId}: ${goalId}`,
+      );
+
+      return reply.send({
+        success: true,
+        message: `Goal change requested: ${goalId}`,
+      });
+    } catch (error) {
+      console.error("[AgentRoutes] ❌ Failed to set agent goal:", error);
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to set agent goal",
+      });
+    }
+  });
+
+  /**
+   * POST /api/agents/:agentId/goal/unlock
+   *
+   * Unlock the current goal, allowing autonomous behavior to change it.
+   */
+  fastify.post("/api/agents/:agentId/goal/unlock", async (request, reply) => {
+    try {
+      const params = request.params as { agentId: string };
+      const { agentId } = params;
+
+      if (!agentId) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required parameter: agentId",
+        });
+      }
+
+      // Get database system to find character ID
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              select: (fields?: unknown) => {
+                from: (table: unknown) => {
+                  where: (condition: unknown) => Promise<unknown[]>;
+                };
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq } = await import("drizzle-orm");
+
+      const mappings = (await databaseSystem.db
+        .select()
+        .from(agentMappings)
+        .where(eq(agentMappings.agentId, agentId))) as Array<{
+        characterId: string;
+      }>;
+
+      if (mappings.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          error: "Agent not registered in game",
+        });
+      }
+
+      const characterId = mappings[0].characterId;
+
+      // Get the socket for this character
+      const { ServerNetwork } = await import(
+        "../../systems/ServerNetwork/index.js"
+      );
+      const socket = ServerNetwork.characterSockets.get(characterId);
+
+      if (!socket) {
+        return reply.status(404).send({
+          success: false,
+          error: "Agent not connected (no active WebSocket)",
+        });
+      }
+
+      // Send goalOverride packet with special "unlock" command
+      socket.send("goalOverride", {
+        unlock: true,
+        source: "dashboard",
+      });
+
+      console.log(`[AgentRoutes] 🔓 Sent goal unlock to ${characterId}`);
+
+      return reply.send({
+        success: true,
+        message: "Goal unlocked",
+      });
+    } catch (error) {
+      console.error("[AgentRoutes] ❌ Failed to unlock agent goal:", error);
+
+      return reply.status(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to unlock goal",
       });
     }
   });

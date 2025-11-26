@@ -46,6 +46,16 @@ export const setGoalAction: Action = {
 
     // Check behavior manager directly for existing goal
     const behaviorManager = service.getBehaviorManager();
+    const currentGoal = behaviorManager?.getGoal();
+
+    // Don't override locked goals (manually set from dashboard)
+    if (currentGoal?.locked) {
+      logger.debug(
+        "[SET_GOAL] Validation failed: goal is locked (manually set)",
+      );
+      return false;
+    }
+
     if (behaviorManager?.hasGoal()) {
       logger.debug("[SET_GOAL] Validation failed: already has a goal");
       return false;
@@ -318,9 +328,9 @@ export const navigateToAction: Action = {
         `distance: ${distance.toFixed(0)}`,
     );
 
-    if (distance < 30) {
+    if (distance <= 15) {
       logger.info(
-        "[NAVIGATE_TO] Validation failed: already at location (< 30 units)",
+        "[NAVIGATE_TO] Validation failed: already at location (<= 15 units)",
       );
       return false;
     }
