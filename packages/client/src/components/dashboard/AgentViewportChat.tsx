@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Agent } from "../../screens/DashboardScreen";
 import { Send, Bot, User, Paperclip, Mic } from "lucide-react";
-import { privyAuthManager } from "../../auth/PrivyAuthManager";
+import { usePrivy } from "@privy-io/react-auth";
 
 interface Message {
   id: string;
@@ -25,32 +25,79 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Use Privy hook to get fresh access token (not stale localStorage token)
+  const { getAccessToken, user } = usePrivy();
+
   useEffect(() => {
     fetchSpectatorData();
   }, [agent.id]);
 
   const fetchSpectatorData = async () => {
     try {
-      // Get auth token for API calls and spectator mode
-      const token =
-        privyAuthManager.getToken() ||
-        localStorage.getItem("privy_auth_token") ||
-        "";
-      setAuthToken(token);
+      // Get FRESH Privy token using the SDK (not stale localStorage)
+      // This ensures we always have a valid, non-expired token
+      const privyToken = await getAccessToken();
 
-      // Fetch character ID for the spectator viewport to follow
-      const mappingResponse = await fetch(
-        `http://localhost:5555/api/agents/mapping/${agent.id}`,
-      );
-      if (mappingResponse.ok) {
-        const mappingData = await mappingResponse.json();
-        const charId = mappingData.characterId || "";
-        setCharacterId(charId);
-      } else {
+      if (!privyToken) {
         console.warn(
-          "[AgentViewportChat] Mapping not found, status:",
-          mappingResponse.status,
+          "[AgentViewportChat] No Privy token available - spectator mode requires authentication",
         );
+        setLoading(false);
+        return;
+      }
+
+      // Exchange Privy token for permanent spectator JWT
+      // This solves the token expiration issue - spectator JWT never expires
+      const tokenResponse = await fetch(
+        `http://localhost:5555/api/spectator/token`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            agentId: agent.id,
+            privyToken: privyToken,
+          }),
+        },
+      );
+
+      if (tokenResponse.ok) {
+        const tokenData = await tokenResponse.json();
+        setAuthToken(tokenData.spectatorToken);
+        setCharacterId(tokenData.characterId || "");
+        console.log(
+          "[AgentViewportChat] ✅ Got permanent spectator token for:",
+          tokenData.agentName,
+        );
+      } else if (tokenResponse.status === 401) {
+        // Privy token expired - user needs to re-authenticate
+        console.warn(
+          "[AgentViewportChat] Privy token expired, need to re-login",
+        );
+        // Clear stale token from localStorage
+        localStorage.removeItem("privy_auth_token");
+      } else if (tokenResponse.status === 403) {
+        console.warn("[AgentViewportChat] No permission to view this agent");
+      } else if (tokenResponse.status === 404) {
+        console.warn("[AgentViewportChat] Agent not found");
+      } else {
+        // Fallback: try to get character ID from mapping endpoint
+        console.warn(
+          "[AgentViewportChat] Spectator token endpoint failed, falling back to mapping",
+        );
+        const mappingResponse = await fetch(
+          `http://localhost:5555/api/agents/mapping/${agent.id}`,
+        );
+        if (mappingResponse.ok) {
+          const mappingData = await mappingResponse.json();
+          setCharacterId(mappingData.characterId || "");
+          // Use Privy token as fallback (will expire)
+          setAuthToken(privyToken);
+          console.warn(
+            "[AgentViewportChat] Using Privy token as fallback - may expire in ~1 hour",
+          );
+        }
       }
     } catch (error) {
       console.error(
@@ -197,8 +244,7 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
 
   // Build iframe URL for spectator mode
   // SECURITY: Server verifies authToken and checks character ownership
-  const privyUserId =
-    privyAuthManager.getUserId() || localStorage.getItem("privy_user_id") || "";
+  const privyUserId = user?.id || "";
 
   const iframeParams = new URLSearchParams({
     embedded: "true",
