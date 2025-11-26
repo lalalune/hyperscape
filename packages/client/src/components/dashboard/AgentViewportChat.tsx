@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Agent } from "../../screens/DashboardScreen";
 import { Send, Bot, User, Paperclip, Mic } from "lucide-react";
+import { usePrivy } from "@privy-io/react-auth";
 
 interface Message {
   id: string;
@@ -16,96 +17,93 @@ interface AgentViewportChatProps {
 export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
   agent,
 }) => {
-  const [authToken, setAuthToken] = useState<string>("");
   const [characterId, setCharacterId] = useState<string>("");
+  const [authToken, setAuthToken] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Use Privy hook to get fresh access token (not stale localStorage token)
+  const { getAccessToken, user } = usePrivy();
+
   useEffect(() => {
-    fetchAgentCredentials();
+    fetchSpectatorData();
   }, [agent.id]);
 
-  const fetchAgentCredentials = async () => {
+  const fetchSpectatorData = async () => {
     try {
-      // Step 1: Fetch mapping data from Hyperscape (source of truth)
-      // This gives us characterId and accountId needed for credentials
-      let charId = "";
-      let accountId = "";
+      // Get FRESH Privy token using the SDK (not stale localStorage)
+      // This ensures we always have a valid, non-expired token
+      const privyToken = await getAccessToken();
 
-      try {
+      if (!privyToken) {
+        console.warn(
+          "[AgentViewportChat] No Privy token available - spectator mode requires authentication",
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Exchange Privy token for permanent spectator JWT
+      // This solves the token expiration issue - spectator JWT never expires
+      const tokenResponse = await fetch(
+        `http://localhost:5555/api/spectator/token`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            agentId: agent.id,
+            privyToken: privyToken,
+          }),
+        },
+      );
+
+      if (tokenResponse.ok) {
+        const tokenData = await tokenResponse.json();
+        setAuthToken(tokenData.spectatorToken);
+        setCharacterId(tokenData.characterId || "");
+        console.log(
+          "[AgentViewportChat] ✅ Got permanent spectator token for:",
+          tokenData.agentName,
+        );
+      } else if (tokenResponse.status === 401) {
+        // Privy token expired - user needs to re-authenticate
+        console.warn(
+          "[AgentViewportChat] Privy token expired, need to re-login",
+        );
+        // Clear stale token from localStorage
+        localStorage.removeItem("privy_auth_token");
+      } else if (tokenResponse.status === 403) {
+        console.warn("[AgentViewportChat] No permission to view this agent");
+      } else if (tokenResponse.status === 404) {
+        console.warn("[AgentViewportChat] Agent not found");
+      } else {
+        // Fallback: try to get character ID from mapping endpoint
+        console.warn(
+          "[AgentViewportChat] Spectator token endpoint failed, falling back to mapping",
+        );
         const mappingResponse = await fetch(
           `http://localhost:5555/api/agents/mapping/${agent.id}`,
         );
         if (mappingResponse.ok) {
           const mappingData = await mappingResponse.json();
-          charId = mappingData.characterId || "";
-          accountId = mappingData.accountId || "";
-          console.log("[AgentViewportChat] Got mapping:", {
-            characterId: charId,
-            accountId: accountId,
-          });
-        } else {
+          setCharacterId(mappingData.characterId || "");
+          // Use Privy token as fallback (will expire)
+          setAuthToken(privyToken);
           console.warn(
-            "[AgentViewportChat] Mapping not found, status:",
-            mappingResponse.status,
-          );
-        }
-      } catch (mappingError) {
-        console.warn(
-          "[AgentViewportChat] Failed to fetch mapping:",
-          mappingError,
-        );
-      }
-
-      // Step 2: Generate fresh JWT credentials for the embedded viewport
-      // This ensures the token has the correct characterId and accountId
-      let token = "";
-      if (charId && accountId) {
-        try {
-          const credentialsResponse = await fetch(
-            `http://localhost:5555/api/agents/credentials`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                characterId: charId,
-                accountId: accountId,
-              }),
-            },
-          );
-          if (credentialsResponse.ok) {
-            const credData = await credentialsResponse.json();
-            token = credData.authToken || "";
-            console.log(
-              "[AgentViewportChat] Generated fresh JWT for embedded viewport",
-            );
-          } else {
-            console.warn(
-              "[AgentViewportChat] Failed to generate credentials:",
-              credentialsResponse.status,
-            );
-          }
-        } catch (credError) {
-          console.warn(
-            "[AgentViewportChat] Failed to generate credentials:",
-            credError,
+            "[AgentViewportChat] Using Privy token as fallback - may expire in ~1 hour",
           );
         }
       }
-
-      setAuthToken(token);
-      setCharacterId(charId);
-
-      console.log("[AgentViewportChat] Loaded credentials:", {
-        hasToken: !!token,
-        characterId: charId,
-        agentName: agent.name,
-      });
     } catch (error) {
-      console.error("[AgentViewportChat] Error fetching credentials:", error);
+      console.error(
+        "[AgentViewportChat] Error fetching spectator data:",
+        error,
+      );
     } finally {
       setLoading(false);
     }
@@ -122,6 +120,18 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
+    // SECURITY: Require authentication for sending messages
+    if (!authToken) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        sender: "agent",
+        text: "⚠️ Please log in to send messages to the agent.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       sender: "user",
@@ -134,28 +144,24 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
     setIsTyping(true);
 
     try {
-      const messageId = crypto.randomUUID();
-      const userId = localStorage.getItem("privy_user_id") || "anonymous-user";
-      const channelId = `dashboard-chat-${agent.id}`;
-
+      // SECURITY: Include auth token in Authorization header
       const response = await fetch(
-        `http://localhost:3000/api/agents/${agent.id}/message`,
+        `http://localhost:5555/api/agents/${agent.id}/message`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             content: userMessage.text,
-            channelId: channelId,
-            messageId: messageId,
-            userId: userId,
           }),
         },
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
@@ -207,29 +213,47 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
     );
   }
 
-  if (!authToken) {
+  if (!characterId) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-[#0b0a15] text-[#f2d08a]/60">
         <div className="text-6xl mb-4">⚠️</div>
         <h2 className="text-xl font-bold text-[#f2d08a] mb-2">
-          Agent Not Configured
+          Character Not Found
         </h2>
         <p className="text-center max-w-md">
-          This agent needs Hyperscape credentials. Please start the agent from
-          the dashboard to generate authentication tokens.
+          Could not find character for this agent. Make sure the agent is
+          properly configured.
         </p>
       </div>
     );
   }
 
-  // Build iframe URL with all required params
+  if (!authToken) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-[#0b0a15] text-[#f2d08a]/60">
+        <div className="text-6xl mb-4">🔐</div>
+        <h2 className="text-xl font-bold text-[#f2d08a] mb-2">
+          Authentication Required
+        </h2>
+        <p className="text-center max-w-md">
+          Please log in to view and interact with the agent.
+        </p>
+      </div>
+    );
+  }
+
+  // Build iframe URL for spectator mode
+  // SECURITY: Server verifies authToken and checks character ownership
+  const privyUserId = user?.id || "";
+
   const iframeParams = new URLSearchParams({
     embedded: "true",
     mode: "spectator",
     agentId: agent.id,
-    authToken: authToken,
+    authToken: authToken, // Server verifies this JWT
     characterId: characterId,
-    wsUrl: "ws://localhost:5555/ws",
+    followEntity: characterId, // Camera will follow this entity
+    privyUserId: privyUserId,
     hiddenUI: "chat,inventory,minimap,hotbar,stats",
   });
 

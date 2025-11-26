@@ -42,13 +42,15 @@ export function registerWebSocket(
   fastify: FastifyInstance,
   world: World,
 ): void {
-  console.log("[WebSocket] Registering /ws endpoint...");
-
   // In @fastify/websocket v11+, the first parameter IS the WebSocket directly
   fastify.get("/ws", { websocket: true }, (socket, req: FastifyRequest) => {
     const ws = socket as unknown as NodeWebSocket;
 
-    fastify.log.info("[WebSocket] Connection established");
+    // Add unique identifier to track this WebSocket on server
+    const wsId = `SERVER-WS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    (ws as any).__wsId = wsId;
+
+    fastify.log.info(`[WebSocket] Connection established - ${wsId}`);
 
     // Basic null check only - let ServerNetwork handle the rest
     if (!ws || typeof ws.send !== "function") {
@@ -60,6 +62,4 @@ export function registerWebSocket(
     const query = req.query as Record<string, JSONValue>;
     world.network.onConnection!(ws, query);
   });
-
-  console.log("[WebSocket] ✅ WebSocket endpoint registered");
 }

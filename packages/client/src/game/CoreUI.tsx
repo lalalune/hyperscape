@@ -33,11 +33,19 @@ export function CoreUI({ world }: { world: ClientWorld }) {
   // Track system and asset progress separately to gate presentation on assets
   const [_systemsComplete, setSystemsComplete] = useState(false);
   const [_assetsProgress, setAssetsProgress] = useState(0);
+
+  // Check if this is spectator mode (from embedded config)
+  const isSpectatorMode = (() => {
+    const config = (window as any).__HYPERSCAPE_CONFIG__;
+    return config?.mode === "spectator";
+  })();
+
   // Presentation gating flags
   const [playerReady, setPlayerReady] = useState(() => !!world.entities.player);
   const [_physReady, setPhysReady] = useState(false);
-  const [_terrainReady, setTerrainReady] = useState(false);
+  const [terrainReady, setTerrainReady] = useState(false);
   const [_player, setPlayer] = useState(() => world.entities.player);
+  const [targetAvatarLoaded, setTargetAvatarLoaded] = useState(false);
   const [ui, setUI] = useState(world.ui?.state);
   const [_menu, setMenu] = useState(null);
   const [_settings, _setSettings] = useState(false);
@@ -50,6 +58,12 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     respawnTime: number;
   } | null>(null);
   useEffect(() => {
+    // Get the target entity ID for spectators
+    const getSpectatorTargetId = () => {
+      const config = (window as any).__HYPERSCAPE_CONFIG__;
+      return config?.followEntity || config?.characterId;
+    };
+
     // Create handlers with proper types
     const handleReady = () => {
       // A READY signal indicates a major subsystem finished; mark loading as potentially complete
@@ -65,24 +79,39 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       };
       // Prefer system-stage events when present
       if (progressData.stage) {
-        if (progressData.progress >= 100) setSystemsComplete(true);
+        if (progressData.progress >= 100) {
+          setSystemsComplete(true);
+        }
       } else if (typeof progressData.total === "number") {
         setAssetsProgress(progressData.progress);
       }
     };
+
     const handlePlayerSpawned = () => {
-      const player = world.entities?.player;
-      if (player) {
-        setPlayer(player);
-        setPlayerReady(true);
+      // Only handle for non-spectators (spectators don't spawn local players)
+      if (!isSpectatorMode) {
+        const player = world.entities?.player;
+        if (player) {
+          setPlayer(player);
+          setPlayerReady(true);
+        }
       }
     };
-    const handleAvatarComplete = (_data: {
+
+    const handleAvatarComplete = (data: {
       playerId: string;
       success: boolean;
     }) => {
-      // Avatar loaded for a player — consider local player ready for presentation
-      setPlayerReady(true);
+      if (isSpectatorMode) {
+        // For spectators: check if this is the entity we're following
+        const targetId = getSpectatorTargetId();
+        if (data.playerId === targetId && data.success) {
+          setTargetAvatarLoaded(true);
+        }
+      } else {
+        // For normal players: any avatar complete means player is ready
+        setPlayerReady(true);
+      }
     };
     const handleUIToggle = (data: { visible: boolean }) => {
       setUI((prev) => (prev ? { ...prev, visible: data.visible } : undefined));
@@ -98,11 +127,9 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         killedBy: string;
         respawnTime: number;
       };
-      console.log("[CoreUI] Death screen triggered:", data);
       setDeathScreen(data);
     };
     const handleDeathScreenClose = (...args: unknown[]) => {
-      console.log("[CoreUI] Death screen closed");
       setDeathScreen(null);
     };
 
@@ -149,12 +176,28 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     };
   }, []);
 
-  // Poll terrain readiness at the player's tile until ready
+  // Poll terrain readiness until ready
   useEffect(() => {
     let terrainInterval: NodeJS.Timeout | null = null;
     function startPolling() {
       if (terrainInterval) return;
       terrainInterval = setInterval(() => {
+        // CRITICAL: For spectators, check terrain directly without requiring local player
+        if (isSpectatorMode) {
+          const terrain = world.getSystem?.("terrain") as
+            | { isReady?: () => boolean }
+            | undefined;
+          if (terrain && terrain.isReady && terrain.isReady()) {
+            setTerrainReady(true);
+            if (terrainInterval) {
+              clearInterval(terrainInterval);
+              terrainInterval = null;
+            }
+          }
+          return;
+        }
+
+        // For normal players: require player entity before checking terrain
         const player = world.entities?.player as
           | { position?: { x: number; z: number } }
           | undefined;
@@ -177,7 +220,15 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     return () => {
       if (terrainInterval) clearInterval(terrainInterval);
     };
-  }, [world]);
+  }, [world, isSpectatorMode]);
+
+  // For spectators: set playerReady when target avatar AND terrain are loaded
+  // This mimics the normal player flow: wait for avatar + terrain before presenting
+  useEffect(() => {
+    if (isSpectatorMode && targetAvatarLoaded && terrainReady && !playerReady) {
+      setPlayerReady(true);
+    }
+  }, [isSpectatorMode, targetAvatarLoaded, terrainReady, playerReady]);
 
   // Start the 300ms delay once all presentable conditions are met
   useEffect(() => {
@@ -295,10 +346,6 @@ function DeathScreen({
   world: ClientWorld;
 }) {
   const handleRespawn = () => {
-    console.log("[DeathScreen] Respawn button clicked!");
-    console.log("[DeathScreen] Player ID:", world.entities?.player?.id);
-    console.log("[DeathScreen] Network exists:", !!world.network);
-
     // Send respawn request to server via network
     const network = world.network as {
       send?: (packet: string, data: unknown) => void;
@@ -311,19 +358,13 @@ function DeathScreen({
 
     if (!network.send) {
       console.error("[DeathScreen] Network.send method doesn't exist!");
-      console.log(
-        "[DeathScreen] Available network methods:",
-        Object.keys(network),
-      );
       return;
     }
 
-    console.log("[DeathScreen] Sending requestRespawn packet...");
     try {
       network.send("requestRespawn", {
         playerId: world.entities?.player?.id,
       });
-      console.log("[DeathScreen] Packet sent successfully!");
     } catch (err) {
       console.error("[DeathScreen] Error sending packet:", err);
     }

@@ -38,22 +38,56 @@ export function StatusBars({ world }: StatusBarsProps) {
 
   useEffect(() => {
     const update = () => {
-      const player = world.entities?.player as
-        | {
-            playerData?: {
-              health?: { current: number; max: number };
-              stats?: { prayer?: { level: number; points: number } };
-            };
-            stamina?: number;
-            runMode?: boolean;
-          }
+      // Type for player data source (local player or spectated entity)
+      // PlayerLocal uses playerData.health, PlayerRemote uses data.health/data.maxHealth
+      type PlayerDataSource = {
+        playerData?: {
+          health?: { current: number; max: number };
+          stats?: { prayer?: { level: number; points: number } };
+        };
+        // PlayerRemote stores health directly in data object
+        data?: {
+          health?: number;
+          maxHealth?: number;
+        };
+        stamina?: number;
+        runMode?: boolean;
+      };
+
+      let player: PlayerDataSource | undefined = world.entities?.player as
+        | PlayerDataSource
         | undefined;
+
+      // In spectator mode, get data from spectated entity via camera system
+      if (!player) {
+        const config = (
+          window as {
+            __HYPERSCAPE_CONFIG__?: { mode?: string; followEntity?: string };
+          }
+        ).__HYPERSCAPE_CONFIG__;
+        if (config?.mode === "spectator") {
+          const cameraSystem = world.getSystem("client-camera-system") as {
+            getCameraInfo?: () => { target?: PlayerDataSource };
+          } | null;
+          const cameraInfo = cameraSystem?.getCameraInfo?.();
+          if (cameraInfo?.target) {
+            player = cameraInfo.target;
+          }
+        }
+      }
+
       if (player) {
-        // Get health from player data
+        // Get health - try playerData.health first (PlayerLocal), then data.health (PlayerRemote)
         if (player.playerData?.health) {
           setHealth({
             current: player.playerData.health.current,
             max: player.playerData.health.max,
+          });
+        } else if (player.data?.health !== undefined) {
+          // PlayerRemote stores health in data.health and data.maxHealth
+          setHealth({
+            current: player.data.health,
+            max: player.data.maxHealth ?? 100,
           });
         }
 

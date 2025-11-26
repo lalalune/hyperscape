@@ -158,7 +158,12 @@ export class MovementManager {
    */
   handleMoveRequest(socket: ServerSocket, data: unknown): void {
     const playerEntity = socket.player;
-    if (!playerEntity) return;
+    if (!playerEntity) {
+      console.warn(
+        `[MovementManager] ⚠️ moveRequest ignored - socket ${socket.id} has no player entity attached`,
+      );
+      return;
+    }
 
     const payload = data as {
       target?: number[] | null;

@@ -217,6 +217,24 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    * Sets up the handler registry with delegates to modular handlers.
    */
   private registerHandlers(): void {
+    // Character selection handlers
+    this.handlers["characterSelected"] = (socket, data) =>
+      handleCharacterSelected(
+        socket,
+        data,
+        this.world,
+        this.broadcastManager.sendTo.bind(this.broadcastManager),
+      );
+
+    this.handlers["enterWorld"] = (socket, data) =>
+      handleEnterWorld(
+        socket,
+        data,
+        this.world,
+        this.db,
+        this.broadcastManager.sendToAll.bind(this.broadcastManager),
+      );
+
     this.handlers["onChatAdded"] = (socket, data) =>
       handleChatAdded(
         socket,
@@ -422,6 +440,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   flush(): void {
     while (this.queue.length) {
       const [socket, method, data] = this.queue.shift()!;
+
       const handler = this.handlers[method];
       if (handler) {
         const result = handler.call(this, socket, data);
