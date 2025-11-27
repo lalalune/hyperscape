@@ -576,8 +576,8 @@ export class SkillsSystem extends SystemBase {
       // Update hitpoints max
       const newMax = this.calculateMaxHitpoints(newLevel);
       stats.health.max = newMax;
-      // If current HP is higher than new max, cap it
-      stats.health.current = Math.min(stats.health.current, newMax);
+      // If current HP is higher than new max, cap it (floor for integer health)
+      stats.health.current = Math.floor(Math.min(stats.health.current, newMax));
     }
 
     // Special handling for Prayer level up - skipping for MVP

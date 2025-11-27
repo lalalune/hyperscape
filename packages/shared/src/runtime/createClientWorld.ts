@@ -227,11 +227,7 @@ export function createClientWorld() {
 
     const damageSplatSystem = world.getSystem("damage-splat");
     if (damageSplatSystem && !damageSplatSystem.isInitialized()) {
-      console.log(
-        "[createClientWorld] 🔄 Manually initializing DamageSplatSystem...",
-      );
       await damageSplatSystem.init(worldOptions);
-      console.log("[createClientWorld] ✅ DamageSplatSystem initialized!");
     }
 
     // Re-expose utilities after RPG systems load (in case they were cleared)
