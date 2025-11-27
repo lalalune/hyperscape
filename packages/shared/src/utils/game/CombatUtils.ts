@@ -113,7 +113,10 @@ export function applyDamage(
   if (!stats || damage <= 0) return false;
 
   if (stats.health) {
-    stats.health.current = Math.max(0, stats.health.current - damage);
+    // Floor to ensure health is always an integer
+    stats.health.current = Math.floor(
+      Math.max(0, stats.health.current - damage),
+    );
   }
 
   // Emit damage event for systems to handle
@@ -143,9 +146,9 @@ export function healEntity(
 
   const oldHealth = stats.health?.current || 0;
   if (stats.health) {
-    stats.health.current = Math.min(
-      stats.health.max,
-      stats.health.current + healAmount,
+    // Floor to ensure health is always an integer
+    stats.health.current = Math.floor(
+      Math.min(stats.health.max, stats.health.current + healAmount),
     );
   }
   const actualHeal = (stats.health?.current || 0) - oldHealth;

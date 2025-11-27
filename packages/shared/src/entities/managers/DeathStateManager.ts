@@ -228,9 +228,6 @@ export class DeathStateManager {
       this.isDead = true;
     }
     this.deathPosition = position.clone();
-    console.log(
-      `[DeathStateManager] [CLIENT] Locked to server death position: (${this.deathPosition.x.toFixed(2)}, ${this.deathPosition.y.toFixed(2)}, ${this.deathPosition.z.toFixed(2)})`,
-    );
   }
 
   /**

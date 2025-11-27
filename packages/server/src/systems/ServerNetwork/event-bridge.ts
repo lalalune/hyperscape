@@ -347,29 +347,29 @@ export class EventBridge {
   private setupPlayerEvents(): void {
     try {
       // Forward player updates to specific player (health, stats, etc.)
+      // Note: emitPlayerUpdate() sends { playerId, component, data: playerData }
+      // where data.health is { current, max } object
       this.world.on(EventType.PLAYER_UPDATED, (payload: unknown) => {
         const data = payload as {
           playerId: string;
-          playerData?: {
+          component?: string;
+          data?: {
             id: string;
             name: string;
             level: number;
-            health: number;
-            maxHealth: number;
+            health: { current: number; max: number };
             alive: boolean;
           };
         };
 
-        if (data.playerId && data.playerData) {
-          console.log(
-            `[EventBridge] Forwarding PLAYER_UPDATED to ${data.playerId}: health ${data.playerData.health}/${data.playerData.maxHealth}`,
-          );
+        if (data.playerId && data.data) {
+          const playerData = data.data;
 
-          // Send to specific player
+          // Send to specific player with flat health values for client
           this.broadcast.sendToPlayer(data.playerId, "playerUpdated", {
-            health: data.playerData.health,
-            maxHealth: data.playerData.maxHealth,
-            alive: data.playerData.alive,
+            health: playerData.health.current,
+            maxHealth: playerData.health.max,
+            alive: playerData.alive,
           });
         }
       });
