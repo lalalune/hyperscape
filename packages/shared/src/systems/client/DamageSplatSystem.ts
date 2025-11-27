@@ -40,43 +40,19 @@ export class DamageSplatSystem extends System {
 
   constructor(world: World) {
     super(world);
-    console.log("[DamageSplatSystem] 🏗️ Constructor called");
   }
 
   async init(): Promise<void> {
     // Only run on client
     if (!this.world.isClient) {
-      console.log(
-        "[DamageSplatSystem] Skipping initialization (not on client)",
-      );
       return;
     }
 
-    console.log("[DamageSplatSystem] Initializing on client...");
-    console.log(
-      `[DamageSplatSystem] EventType.COMBAT_DAMAGE_DEALT = "${EventType.COMBAT_DAMAGE_DEALT}"`,
-    );
-
     // Listen for combat damage events
-    console.log("[DamageSplatSystem] Registering event listener...");
     this.world.on(
       EventType.COMBAT_DAMAGE_DEALT,
       this.onDamageDealt.bind(this),
       this,
-    );
-    console.log("[DamageSplatSystem] Event listener registered");
-
-    // Verify listener was added
-    const listeners = (this.world as any)._events?.[
-      EventType.COMBAT_DAMAGE_DEALT
-    ];
-    console.log(
-      `[DamageSplatSystem] Event listeners for COMBAT_DAMAGE_DEALT:`,
-      listeners ? listeners.length : "none",
-    );
-
-    console.log(
-      "[DamageSplatSystem] ✅ Initialized and listening for COMBAT_DAMAGE_DEALT events",
     );
   }
 
@@ -89,21 +65,10 @@ export class DamageSplatSystem extends System {
 
     const { damage, targetId, position } = payload;
 
-    console.log(
-      `[DamageSplatSystem] 💥 onDamageDealt: ${damage} damage to ${targetId}, position:`,
-      position,
-    );
-
     // Get target entity for position
     const target = this.world.entities.get(targetId);
     if (!target) {
-      console.warn(
-        `[DamageSplatSystem] Target entity ${targetId} not found, using provided position`,
-      );
       if (!position) {
-        console.error(
-          "[DamageSplatSystem] No position provided and target not found, cannot show splat",
-        );
         return;
       }
       this.createDamageSplat(damage, position);
@@ -113,13 +78,8 @@ export class DamageSplatSystem extends System {
     // Use provided position or entity position
     const targetPos = position || target.position;
     if (!targetPos) {
-      console.error(
-        `[DamageSplatSystem] No position available for target ${targetId}`,
-      );
       return;
     }
-
-    console.log(`[DamageSplatSystem] Creating splat at position:`, targetPos);
 
     // Create damage splat
     this.createDamageSplat(damage, targetPos);
@@ -129,15 +89,8 @@ export class DamageSplatSystem extends System {
     damage: number,
     position: { x: number; y: number; z: number },
   ): void {
-    console.log(
-      `[DamageSplatSystem] 🎨 Creating splat: damage=${damage}, pos=(${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)})`,
-    );
-
     // Check if scene is available
     if (!this.world.stage?.scene) {
-      console.error(
-        "[DamageSplatSystem] Cannot create splat: world.stage.scene not available",
-      );
       return;
     }
 
@@ -145,7 +98,6 @@ export class DamageSplatSystem extends System {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
     if (!context) {
-      console.error("[DamageSplatSystem] Failed to get 2D context for canvas");
       return;
     }
 
@@ -200,10 +152,6 @@ export class DamageSplatSystem extends System {
 
     // Add to scene
     this.world.stage.scene.add(sprite);
-
-    console.log(
-      `[DamageSplatSystem] ✅ Splat added to scene at (${sprite.position.x.toFixed(1)}, ${sprite.position.y.toFixed(1)}, ${sprite.position.z.toFixed(1)}), active splats: ${this.activeSplats.length + 1}`,
-    );
 
     // Track splat for animation
     this.activeSplats.push({

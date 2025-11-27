@@ -716,9 +716,9 @@ export class PlayerSystem extends SystemBase {
       );
       player.health.current = player.health.max;
     } else {
-      player.health.current = Math.max(
-        0,
-        Math.min(validCurrentHealth, player.health.max),
+      // Floor to ensure health is always an integer (RuneScape-style)
+      player.health.current = Math.floor(
+        Math.max(0, Math.min(validCurrentHealth, player.health.max)),
       );
     }
 
@@ -786,8 +786,10 @@ export class PlayerSystem extends SystemBase {
       return;
     }
 
-    // Apply damage
-    const newHealth = Math.max(0, player.health.current - data.damage);
+    // Apply damage - floor to ensure health is always an integer (RuneScape-style)
+    const newHealth = Math.floor(
+      Math.max(0, player.health.current - data.damage),
+    );
     player.health.current = newHealth;
 
     // Update player entity if it exists
@@ -938,9 +940,9 @@ export class PlayerSystem extends SystemBase {
     if (!player || !player.alive) return false;
 
     const oldHealth = player.health.current;
-    player.health.current = Math.min(
-      player.health.max,
-      player.health.current + amount,
+    // Floor to ensure health is always an integer (RuneScape-style)
+    player.health.current = Math.floor(
+      Math.min(player.health.max, player.health.current + amount),
     );
 
     if (player.health.current !== oldHealth) {
@@ -1106,7 +1108,10 @@ export class PlayerSystem extends SystemBase {
         ? player.health.current
         : player.health.max;
 
-    player.health.current = Math.max(0, currentHealth - validAmount);
+    // Floor to ensure health is always an integer (RuneScape-style)
+    player.health.current = Math.floor(
+      Math.max(0, currentHealth - validAmount),
+    );
 
     // Sync damage to PlayerEntity if it exists
     const playerEntity = this.world.getPlayer?.(

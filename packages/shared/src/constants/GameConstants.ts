@@ -24,7 +24,9 @@ export const PLAYER_CONSTANTS = {
   DEFAULT_MAX_STAMINA: 100,
   BASE_MOVEMENT_SPEED: 1.0,
   RUNNING_SPEED_MULTIPLIER: 1.5,
-  HEALTH_REGEN_RATE: 1.0,
+  HEALTH_REGEN_RATE: 1, // 1 HP per regen tick (RuneScape-style)
+  HEALTH_REGEN_COOLDOWN: 10000, // 10 seconds after combat/damage before regen starts
+  HEALTH_REGEN_INTERVAL: 60000, // Regen 1 HP every 60 seconds (RuneScape-style)
   STAMINA_REGEN_RATE: 2.0,
   STAMINA_DRAIN_RATE: 5.0,
 } as const;
