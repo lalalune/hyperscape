@@ -66,6 +66,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
     // Spawn a default test mob near origin BEFORE accepting connections (server-only)
     if (this.world.isServer) {
       await this.spawnDefaultMob();
+      // NOTE: Bank spawning moved to EntityManager - banks are world objects, not mobs
     }
 
     // Mobs are now spawned reactively as terrain tiles generate

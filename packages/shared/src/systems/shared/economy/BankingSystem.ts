@@ -82,37 +82,46 @@ export class BankingSystem extends SystemBase {
   }
 
   async init(): Promise<void> {
-    // Subscribe to banking events with proper type casting
-    // Listen to PLAYER_REGISTERED for all players (real and test)
-    this.subscribe(EventType.PLAYER_REGISTERED, (data) =>
-      this.initializePlayerBanks({
-        id: (data as { playerId: string }).playerId,
-      }),
-    );
-    this.subscribe(EventType.PLAYER_UNREGISTERED, (data) => {
-      this.cleanupPlayerBanks((data as { playerId: string }).playerId);
-    });
-    this.subscribe(EventType.BANK_OPEN, (data) =>
-      this.openBank(
-        data as {
-          playerId: string;
-          bankId: string;
-          playerPosition?: { x: number; y: number; z: number };
-        },
-      ),
-    );
-    this.subscribe(EventType.BANK_CLOSE, (data) =>
-      this.closeBank(data as { playerId: string; bankId: string }),
-    );
-    this.subscribe(EventType.BANK_DEPOSIT, (data) =>
-      this.depositItem(data as unknown as BankDepositEvent),
-    );
-    this.subscribe(EventType.BANK_WITHDRAW, (data) =>
-      this.withdrawItem(data as unknown as BankWithdrawEvent),
-    );
-    this.subscribe(EventType.BANK_DEPOSIT_ALL, (data) =>
-      this.depositAllItems(data as { playerId: string; bankId: string }),
-    );
+    // NOTE: Banking is now handled server-side via network packets (bankOpen, bankDeposit, bankWithdraw)
+    // and persisted to database via BankRepository.
+    // The client sends packets directly via world.network.send() from InteractionSystem.
+    // This in-memory system is kept for backwards compatibility but server packet handlers
+    // have priority for actual bank operations.
+
+    // Only subscribe to events on server (client uses network packets directly)
+    if (!this.world.isClient) {
+      // Subscribe to banking events with proper type casting
+      // Listen to PLAYER_REGISTERED for all players (real and test)
+      this.subscribe(EventType.PLAYER_REGISTERED, (data) =>
+        this.initializePlayerBanks({
+          id: (data as { playerId: string }).playerId,
+        }),
+      );
+      this.subscribe(EventType.PLAYER_UNREGISTERED, (data) => {
+        this.cleanupPlayerBanks((data as { playerId: string }).playerId);
+      });
+      this.subscribe(EventType.BANK_OPEN, (data) =>
+        this.openBank(
+          data as {
+            playerId: string;
+            bankId: string;
+            playerPosition?: { x: number; y: number; z: number };
+          },
+        ),
+      );
+      this.subscribe(EventType.BANK_CLOSE, (data) =>
+        this.closeBank(data as { playerId: string; bankId: string }),
+      );
+      this.subscribe(EventType.BANK_DEPOSIT, (data) =>
+        this.depositItem(data as unknown as BankDepositEvent),
+      );
+      this.subscribe(EventType.BANK_WITHDRAW, (data) =>
+        this.withdrawItem(data as unknown as BankWithdrawEvent),
+      );
+      this.subscribe(EventType.BANK_DEPOSIT_ALL, (data) =>
+        this.depositAllItems(data as { playerId: string; bankId: string }),
+      );
+    }
 
     // Listen to inventory updates for reactive pattern
     this.subscribe(EventType.INVENTORY_UPDATED, (data) => {

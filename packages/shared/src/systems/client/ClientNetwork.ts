@@ -1323,6 +1323,26 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.SKILLS_UPDATED, data);
   };
 
+  // --- Bank state handler ---
+  onBankState = (data: {
+    playerId: string;
+    bankId?: string;
+    items: Array<{ itemId: string; quantity: number; slot: number }>;
+    maxSlots: number;
+  }) => {
+    // Emit as UI update for BankPanel to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      playerId: data.playerId,
+      component: "bank",
+      data: {
+        bankId: data.bankId,
+        items: data.items,
+        maxSlots: data.maxSlots,
+        isOpen: true,
+      },
+    });
+  };
+
   // --- Character selection (flag-gated by server) ---
   onCharacterList = (data: {
     characters: Array<{

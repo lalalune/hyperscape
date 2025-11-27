@@ -27,6 +27,7 @@ export enum EntityType {
   RESOURCE = "resource",
   HEADSTONE = "headstone",
   STATIC = "static",
+  BANK = "bank",
 }
 
 export enum InteractionType {
@@ -360,6 +361,13 @@ export interface LocalHeadstoneData extends Omit<HeadstoneData, "deathTime"> {
 export interface HeadstoneEntityConfig
   extends EntityConfig<BaseEntityProperties> {
   headstoneData: HeadstoneData;
+}
+
+// Bank entity config
+export interface BankEntityConfig extends EntityConfig<BaseEntityProperties> {
+  properties: BaseEntityProperties & {
+    bankId: string;
+  };
 }
 
 // Spawn data interfaces for entity creation
