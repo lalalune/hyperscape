@@ -17,7 +17,7 @@
  * Inventory items do NOT stack (each item gets its own slot).
  */
 
-import { type World, EventType } from "@hyperscape/shared";
+import { type World, EventType, getItem } from "@hyperscape/shared";
 import type { ServerSocket } from "../../../shared/types";
 import { BankRepository } from "../../../database/repositories/BankRepository";
 import { InventoryRepository } from "../../../database/repositories/InventoryRepository";
@@ -31,6 +31,11 @@ const MAX_INVENTORY_SLOTS = 28;
 const MAX_BANK_SLOTS = 480;
 const MAX_ITEM_QUANTITY = 2147483647; // PostgreSQL integer max
 const MAX_ITEM_ID_LENGTH = 100;
+
+// Rate limiting: Only prevents extreme bot spam, not normal fast clicking
+// Real security comes from DB transactions with FOR UPDATE row locking
+const lastOperationTime = new Map<string, number>();
+const RATE_LIMIT_MS = 10; // 10ms = allows ~100 ops/sec (normal clicking is ~10/sec)
 
 /**
  * Get player ID from socket
@@ -103,6 +108,42 @@ function isValidQuantity(quantity: unknown): quantity is number {
  */
 function wouldOverflow(current: number, add: number): boolean {
   return current > MAX_ITEM_QUANTITY - add;
+}
+
+/**
+ * Rate limiting check - prevents rapid-fire exploit attempts
+ * Returns true if operation should be allowed
+ */
+function checkRateLimit(playerId: string): boolean {
+  const now = Date.now();
+  const lastOp = lastOperationTime.get(playerId) ?? 0;
+
+  if (now - lastOp < RATE_LIMIT_MS) {
+    return false; // Rate limited
+  }
+
+  lastOperationTime.set(playerId, now);
+
+  // Cleanup old entries periodically (every 1000 operations)
+  if (lastOperationTime.size > 1000) {
+    const cutoff = now - 60000; // Remove entries older than 1 minute
+    for (const [id, time] of lastOperationTime.entries()) {
+      if (time < cutoff) {
+        lastOperationTime.delete(id);
+      }
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Validate item exists in game database
+ * Prevents issues with items removed from game after being deposited
+ */
+function isValidGameItem(itemId: string): boolean {
+  const item = getItem(itemId);
+  return item !== null;
 }
 
 /**
@@ -184,13 +225,22 @@ export async function handleBankDeposit(
     return;
   }
 
+  // SECURITY: Rate limiting to prevent rapid-fire exploits
+  if (!checkRateLimit(playerId)) {
+    sendToSocket(socket, "showToast", {
+      message: "Please wait before trying again",
+      type: "error",
+    });
+    return;
+  }
+
   const db = getDatabase(world);
   if (!db) {
     console.error("[BankHandler] No database available");
     return;
   }
 
-  // SECURITY: Validate itemId
+  // SECURITY: Validate itemId format
   if (!isValidItemId(data.itemId)) {
     sendToSocket(socket, "showToast", {
       message: "Invalid item",
@@ -463,16 +513,38 @@ export async function handleBankWithdraw(
     return;
   }
 
+  // SECURITY: Rate limiting to prevent rapid-fire exploits
+  if (!checkRateLimit(playerId)) {
+    sendToSocket(socket, "showToast", {
+      message: "Please wait before trying again",
+      type: "error",
+    });
+    return;
+  }
+
   const db = getDatabase(world);
   if (!db) {
     console.error("[BankHandler] No database available");
     return;
   }
 
-  // SECURITY: Validate itemId
+  // SECURITY: Validate itemId format
   if (!isValidItemId(data.itemId)) {
     sendToSocket(socket, "showToast", {
       message: "Invalid item",
+      type: "error",
+    });
+    return;
+  }
+
+  // SECURITY: Validate item exists in game database
+  // Prevents withdrawing items that were removed from the game
+  if (!isValidGameItem(data.itemId)) {
+    console.warn(
+      `[BankHandler] SECURITY: Player ${playerId} attempted to withdraw unknown item: ${data.itemId}`,
+    );
+    sendToSocket(socket, "showToast", {
+      message: "This item no longer exists",
       type: "error",
     });
     return;
@@ -695,6 +767,249 @@ export async function handleBankWithdraw(
     message: "Failed to withdraw item - please try again",
     type: "error",
   });
+}
+
+/**
+ * Handle bank deposit all request
+ *
+ * Deposits ALL items from inventory to bank in a single atomic transaction.
+ * Much faster than individual deposits - all items move at once.
+ *
+ * SECURITY:
+ * - Uses single transaction for atomicity
+ * - Row-level locking prevents race conditions
+ * - Validates all items before processing
+ */
+export async function handleBankDepositAll(
+  socket: ServerSocket,
+  _data: unknown,
+  world: World,
+): Promise<void> {
+  const playerId = getPlayerId(socket);
+  if (!playerId) {
+    console.warn("[BankHandler] No player on socket for bankDepositAll");
+    return;
+  }
+
+  // SECURITY: Rate limiting
+  if (!checkRateLimit(playerId)) {
+    sendToSocket(socket, "showToast", {
+      message: "Please wait before trying again",
+      type: "error",
+    });
+    return;
+  }
+
+  const db = getDatabase(world);
+  if (!db) {
+    console.error("[BankHandler] No database available");
+    return;
+  }
+
+  // Track all removed slots for in-memory sync
+  const allRemovedSlots: Array<{
+    itemId: string;
+    slot: number;
+    quantity: number;
+  }> = [];
+
+  try {
+    await db.drizzle.transaction(async (tx) => {
+      // Step 1: Get ALL inventory items with row lock
+      const inventoryResult = await tx.execute(
+        sql`SELECT * FROM inventory
+            WHERE "playerId" = ${playerId}
+            ORDER BY "slotIndex"
+            FOR UPDATE`,
+      );
+
+      const invRows = inventoryResult.rows as Array<{
+        id: number;
+        playerId: string;
+        itemId: string;
+        quantity: number | null;
+        slotIndex: number | null;
+      }>;
+
+      if (invRows.length === 0) {
+        throw new Error("INVENTORY_EMPTY");
+      }
+
+      // Step 2: Group items by itemId and calculate totals
+      const itemGroups = new Map<
+        string,
+        { total: number; rows: typeof invRows }
+      >();
+      for (const row of invRows) {
+        const existing = itemGroups.get(row.itemId) || { total: 0, rows: [] };
+        existing.total += row.quantity ?? 1;
+        existing.rows.push(row);
+        itemGroups.set(row.itemId, existing);
+      }
+
+      // Step 3: Lock ALL bank items for this player
+      const bankResult = await tx.execute(
+        sql`SELECT * FROM bank_storage
+            WHERE "playerId" = ${playerId}
+            FOR UPDATE`,
+      );
+
+      const bankRows = bankResult.rows as Array<{
+        id: number;
+        itemId: string;
+        quantity: number | null;
+        slot: number | null;
+      }>;
+
+      // Create lookup map for existing bank items
+      const bankByItemId = new Map<
+        string,
+        { id: number; quantity: number; slot: number }
+      >();
+      const usedBankSlots = new Set<number>();
+      for (const row of bankRows) {
+        bankByItemId.set(row.itemId, {
+          id: row.id,
+          quantity: row.quantity ?? 0,
+          slot: row.slot ?? 0,
+        });
+        usedBankSlots.add(row.slot ?? 0);
+      }
+
+      // Step 4: Check for overflow on any item type
+      for (const [itemId, group] of itemGroups) {
+        const existingBank = bankByItemId.get(itemId);
+        if (existingBank && wouldOverflow(existingBank.quantity, group.total)) {
+          throw new Error(`OVERFLOW:${itemId}`);
+        }
+      }
+
+      // Check bank has enough slots for new item types
+      let newItemTypes = 0;
+      for (const itemId of itemGroups.keys()) {
+        if (!bankByItemId.has(itemId)) {
+          newItemTypes++;
+        }
+      }
+      const freeSlots = MAX_BANK_SLOTS - usedBankSlots.size;
+      if (newItemTypes > freeSlots) {
+        throw new Error("BANK_FULL");
+      }
+
+      // Step 5: Delete ALL inventory items
+      await tx
+        .delete(schema.inventory)
+        .where(eq(schema.inventory.playerId, playerId));
+
+      // Track removed slots for sync
+      for (const row of invRows) {
+        allRemovedSlots.push({
+          itemId: row.itemId,
+          slot: row.slotIndex ?? -1,
+          quantity: row.quantity ?? 1,
+        });
+      }
+
+      // Step 6: Update/insert bank items
+      let nextFreeSlot = 0;
+      for (const [itemId, group] of itemGroups) {
+        const existingBank = bankByItemId.get(itemId);
+
+        if (existingBank) {
+          // Update existing bank stack
+          await tx.execute(
+            sql`UPDATE bank_storage
+                SET quantity = quantity + ${group.total}
+                WHERE id = ${existingBank.id}`,
+          );
+        } else {
+          // Find next free slot
+          while (usedBankSlots.has(nextFreeSlot)) {
+            nextFreeSlot++;
+          }
+
+          // Insert new bank item
+          await tx.insert(schema.bankStorage).values({
+            playerId,
+            itemId,
+            quantity: group.total,
+            slot: nextFreeSlot,
+          });
+
+          usedBankSlots.add(nextFreeSlot);
+          nextFreeSlot++;
+        }
+      }
+    });
+
+    // Transaction succeeded - send updated states
+    const bankRepo = new BankRepository(db.drizzle, db.pool);
+    const inventoryRepo = new InventoryRepository(db.drizzle, db.pool);
+
+    const bankItems = await bankRepo.getPlayerBank(playerId);
+    sendToSocket(socket, "bankState", {
+      playerId,
+      items: bankItems,
+      maxSlots: MAX_BANK_SLOTS,
+    });
+
+    const updatedInventory =
+      await inventoryRepo.getPlayerInventoryAsync(playerId);
+    sendToSocket(socket, "inventoryUpdated", {
+      playerId,
+      items: updatedInventory.map((i) => ({
+        slot: i.slotIndex ?? -1,
+        itemId: i.itemId,
+        quantity: i.quantity ?? 1,
+      })),
+      coins: 0,
+    });
+
+    // CRITICAL: Sync in-memory InventorySystem
+    for (const removed of allRemovedSlots) {
+      world.emit(EventType.INVENTORY_ITEM_REMOVED, {
+        playerId,
+        itemId: removed.itemId,
+        quantity: removed.quantity,
+        slot: removed.slot >= 0 ? removed.slot : undefined,
+      });
+    }
+
+    console.log(
+      `[BankHandler] Deposited ALL (${allRemovedSlots.length} items) for ${playerId}`,
+    );
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    if (errorMsg === "INVENTORY_EMPTY") {
+      sendToSocket(socket, "showToast", {
+        message: "Inventory is empty",
+        type: "error",
+      });
+      return;
+    }
+    if (errorMsg === "BANK_FULL") {
+      sendToSocket(socket, "showToast", {
+        message: "Not enough bank space",
+        type: "error",
+      });
+      return;
+    }
+    if (errorMsg.startsWith("OVERFLOW:")) {
+      const itemId = errorMsg.split(":")[1];
+      sendToSocket(socket, "showToast", {
+        message: `Bank stack limit reached for ${itemId}`,
+        type: "error",
+      });
+      return;
+    }
+
+    console.error("[BankHandler] Error depositing all:", error);
+    sendToSocket(socket, "showToast", {
+      message: "Failed to deposit items",
+      type: "error",
+    });
+  }
 }
 
 /**

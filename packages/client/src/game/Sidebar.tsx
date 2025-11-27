@@ -585,6 +585,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             world={world}
             inventory={inventory}
             coins={coins}
+            bankId={bankData.bankId}
             onClose={() => {
               setBankData(null);
               if (world.network?.send) {
