@@ -164,6 +164,7 @@ const names = [
   'bankOpen',
   'bankState',
   'bankDeposit',
+  'bankDepositAll',
   'bankWithdraw',
   'bankClose',
 ]

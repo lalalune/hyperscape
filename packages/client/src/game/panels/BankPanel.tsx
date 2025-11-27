@@ -2,14 +2,15 @@
  * BankPanel - RuneScape-style bank interface
  *
  * Features:
- * - Grid display of bank items with pagination
- * - Left-click to withdraw 1, right-click to withdraw all
- * - Deposit functionality via inventory integration
+ * - Scrollable grid display of bank items (480 slots)
+ * - Right-click context menu with withdraw/deposit options (1, 5, 10, All, X)
+ * - Left-click for quick withdraw/deposit 1
  * - All items stack in bank (MVP simplification)
  * - Shows alongside inventory when open
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import type { ClientWorld, InventorySlotItem } from "../../types";
 import { COLORS } from "../../constants";
 
@@ -30,12 +31,22 @@ interface BankPanelProps {
   world: ClientWorld;
   inventory: InventorySlotViewItem[];
   coins: number;
+  bankId: string;
   onClose: () => void;
 }
 
-const BANK_SLOTS_PER_ROW = 8;
-const BANK_VISIBLE_ROWS = 6;
-const BANK_VISIBLE_SLOTS = BANK_SLOTS_PER_ROW * BANK_VISIBLE_ROWS; // 48 visible at once
+interface ContextMenuState {
+  visible: boolean;
+  x: number;
+  y: number;
+  itemId: string;
+  quantity: number;
+  type: "bank" | "inventory";
+}
+
+const BANK_SLOTS_PER_ROW = 10;
+const BANK_VISIBLE_ROWS = 8; // Height of visible area to match inventory
+const BANK_SCROLL_HEIGHT = BANK_VISIBLE_ROWS * 45; // 45px per row (44px + gap)
 
 const INV_SLOTS_PER_ROW = 4;
 const INV_ROWS = 7;
@@ -96,22 +107,225 @@ function formatQuantity(quantity: number): string {
   return String(quantity);
 }
 
+/**
+ * Context Menu Component
+ */
+function ContextMenu({
+  menu,
+  onAction,
+  onClose,
+}: {
+  menu: ContextMenuState;
+  onAction: (action: string, quantity: number) => void;
+  onClose: () => void;
+}) {
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customAmount, setCustomAmount] = useState("");
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  const actionLabel = menu.type === "bank" ? "Withdraw" : "Deposit";
+
+  const handleCustomSubmit = () => {
+    const amount = parseInt(customAmount, 10);
+    if (amount > 0) {
+      onAction(menu.type === "bank" ? "withdraw" : "deposit", amount);
+    }
+    onClose();
+  };
+
+  // Close on click outside - only when menu is visible
+  // Use capture phase to catch events BEFORE stopPropagation in BankPanel
+  useEffect(() => {
+    if (!menu.visible) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      // Check if click is outside the menu
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+
+    // Add listener on next frame to avoid immediate trigger from right-click
+    requestAnimationFrame(() => {
+      // Use capture: true to catch events before they're stopped by BankPanel
+      document.addEventListener("mousedown", handleClickOutside, true);
+    });
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+    };
+  }, [menu.visible, onClose]);
+
+  if (!menu.visible) return null;
+
+  const menuOptions = [
+    { label: `${actionLabel} 1`, amount: 1 },
+    { label: `${actionLabel} 5`, amount: 5 },
+    { label: `${actionLabel} 10`, amount: 10 },
+    { label: `${actionLabel} All`, amount: menu.quantity },
+    { label: `${actionLabel} X`, amount: -1 }, // -1 indicates custom
+  ];
+
+  // Use portal to render menu directly to body, avoiding transform issues
+  return createPortal(
+    <div
+      ref={menuRef}
+      className="fixed z-[10000] pointer-events-auto"
+      style={{
+        left: menu.x,
+        top: menu.y,
+        width: "auto",
+      }}
+    >
+      <div
+        className="rounded shadow-xl py-1 inline-block"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(30, 25, 20, 0.98) 0%, rgba(20, 15, 10, 0.98) 100%)",
+          border: "1px solid rgba(139, 69, 19, 0.8)",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.8)",
+        }}
+      >
+        {showCustomInput ? (
+          <div className="px-2 py-2">
+            <input
+              type="number"
+              min="1"
+              max={menu.quantity}
+              value={customAmount}
+              onChange={(e) => setCustomAmount(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCustomSubmit();
+                if (e.key === "Escape") onClose();
+              }}
+              autoFocus
+              className="w-full px-2 py-1 text-sm rounded"
+              style={{
+                background: "rgba(0, 0, 0, 0.5)",
+                border: "1px solid rgba(139, 69, 19, 0.6)",
+                color: "#fff",
+                outline: "none",
+              }}
+              placeholder={`1-${menu.quantity}`}
+            />
+            <div className="flex gap-1 mt-1">
+              <button
+                onClick={handleCustomSubmit}
+                className="flex-1 px-2 py-1 text-xs rounded"
+                style={{
+                  background: "rgba(100, 150, 100, 0.6)",
+                  color: "#fff",
+                }}
+              >
+                OK
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 px-2 py-1 text-xs rounded"
+                style={{
+                  background: "rgba(150, 100, 100, 0.6)",
+                  color: "#fff",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          menuOptions.map((option, idx) => (
+            <button
+              key={idx}
+              className="block px-3 py-1 text-left text-xs transition-colors whitespace-nowrap"
+              style={{
+                color: "rgba(242, 208, 138, 0.9)",
+                background: "transparent",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(139, 69, 19, 0.4)";
+                e.currentTarget.style.color = "#fff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "rgba(242, 208, 138, 0.9)";
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (option.amount === -1) {
+                  setShowCustomInput(true);
+                } else {
+                  onAction(
+                    menu.type === "bank" ? "withdraw" : "deposit",
+                    Math.min(option.amount, menu.quantity),
+                  );
+                  onClose();
+                }
+              }}
+            >
+              {option.label}
+            </button>
+          ))
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// Maximum distance from bank before auto-closing (in world units)
+const BANK_MAX_DISTANCE = 4;
+
 export function BankPanel({
   items,
   maxSlots,
   world,
   inventory,
   coins,
+  bankId,
   onClose,
 }: BankPanelProps) {
-  const [page, setPage] = useState(0);
-  const totalPages = Math.ceil(maxSlots / BANK_VISIBLE_SLOTS);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    visible: false,
+    x: 0,
+    y: 0,
+    itemId: "",
+    quantity: 0,
+    type: "bank",
+  });
 
-  const startSlot = page * BANK_VISIBLE_SLOTS;
-  const visibleItems = items.filter(
-    (item) =>
-      item.slot >= startSlot && item.slot < startSlot + BANK_VISIBLE_SLOTS,
-  );
+  // Auto-close when player moves away from bank
+  useEffect(() => {
+    const checkDistance = () => {
+      // Get player entity (local player)
+      const player = world.entities?.player;
+      // Get bank entity by ID
+      const bank = world.entities?.get?.(bankId);
+
+      if (!player || !bank) return;
+
+      // Get positions - try different common position properties
+      const playerPos = player.root?.position ?? player.position;
+      const bankPos = bank.root?.position ?? bank.position;
+
+      if (!playerPos || !bankPos) return;
+
+      const dx = playerPos.x - bankPos.x;
+      const dz = playerPos.z - bankPos.z;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+
+      if (distance > BANK_MAX_DISTANCE) {
+        onClose();
+      }
+    };
+
+    // Check immediately and then every 200ms
+    checkDistance();
+    const interval = setInterval(checkDistance, 200);
+
+    return () => clearInterval(interval);
+  }, [world.entities, bankId, onClose]);
+
+  // Calculate total rows needed for all bank slots
+  const totalBankRows = Math.ceil(maxSlots / BANK_SLOTS_PER_ROW);
 
   // Convert inventory array to slot-indexed array
   const inventorySlots: (InventorySlotViewItem | null)[] = Array(28).fill(null);
@@ -121,24 +335,71 @@ export function BankPanel({
     }
   });
 
-  const handleWithdraw = (itemId: string, quantity: number) => {
-    if (world.network?.send) {
-      world.network.send("bankWithdraw", { itemId, quantity });
-    }
-  };
+  const handleWithdraw = useCallback(
+    (itemId: string, quantity: number) => {
+      if (world.network?.send) {
+        world.network.send("bankWithdraw", { itemId, quantity });
+      }
+    },
+    [world.network],
+  );
 
-  const handleDeposit = (itemId: string, quantity: number) => {
-    if (world.network?.send) {
-      world.network.send("bankDeposit", { itemId, quantity });
-    }
-  };
+  const handleDeposit = useCallback(
+    (itemId: string, quantity: number) => {
+      if (world.network?.send) {
+        world.network.send("bankDeposit", { itemId, quantity });
+      }
+    },
+    [world.network],
+  );
 
   const handleDepositAll = () => {
-    // Deposit all inventory items
-    inventory.forEach((item) => {
-      if (item && item.itemId) {
-        handleDeposit(item.itemId, item.quantity || 1);
+    // Deposit all inventory items in a single batch operation
+    if (world.network?.send) {
+      world.network.send("bankDepositAll", {});
+    }
+  };
+
+  const handleContextMenuAction = useCallback(
+    (action: string, quantity: number) => {
+      if (action === "withdraw") {
+        handleWithdraw(contextMenu.itemId, quantity);
+      } else if (action === "deposit") {
+        handleDeposit(contextMenu.itemId, quantity);
       }
+    },
+    [contextMenu.itemId, handleWithdraw, handleDeposit],
+  );
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const openContextMenu = (
+    e: React.MouseEvent,
+    itemId: string,
+    quantity: number,
+    type: "bank" | "inventory",
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // For inventory items, calculate total count across ALL slots
+    // (since inventory items don't stack - each is in its own slot with qty=1)
+    let totalQuantity = quantity;
+    if (type === "inventory") {
+      totalQuantity = inventory
+        .filter((item) => item && item.itemId === itemId)
+        .reduce((sum, item) => sum + (item.quantity || 1), 0);
+    }
+
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      itemId,
+      quantity: totalQuantity,
+      type,
     });
   };
 
@@ -153,6 +414,30 @@ export function BankPanel({
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
+      {/* Custom scrollbar styles for webkit browsers */}
+      <style>{`
+        .bank-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .bank-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 4px;
+        }
+        .bank-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(139, 69, 19, 0.6);
+          border-radius: 4px;
+        }
+        .bank-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(139, 69, 19, 0.8);
+        }
+      `}</style>
+      {/* Context Menu */}
+      <ContextMenu
+        menu={contextMenu}
+        onAction={handleContextMenuAction}
+        onClose={closeContextMenu}
+      />
+
       <div className="flex gap-2">
         {/* Bank Panel - Left Side */}
         <div
@@ -199,17 +484,24 @@ export function BankPanel({
             </button>
           </div>
 
-          {/* Item Grid */}
-          <div className="p-3">
+          {/* Scrollable Item Grid */}
+          <div
+            className="p-3 overflow-y-auto overflow-x-hidden bank-scrollbar"
+            style={{
+              maxHeight: `${BANK_SCROLL_HEIGHT}px`,
+              scrollbarWidth: "thin",
+              scrollbarColor: "rgba(139, 69, 19, 0.6) rgba(0, 0, 0, 0.3)",
+            }}
+          >
             <div
               className="grid gap-1"
               style={{
                 gridTemplateColumns: `repeat(${BANK_SLOTS_PER_ROW}, 44px)`,
               }}
             >
-              {Array.from({ length: BANK_VISIBLE_SLOTS }).map((_, idx) => {
-                const slotIndex = startSlot + idx;
-                const item = visibleItems.find((i) => i.slot === slotIndex);
+              {Array.from({ length: maxSlots }).map((_, idx) => {
+                const slotIndex = idx;
+                const item = items.find((i) => i.slot === slotIndex);
 
                 return (
                   <div
@@ -235,8 +527,9 @@ export function BankPanel({
                     }
                     onClick={() => item && handleWithdraw(item.itemId, 1)}
                     onContextMenu={(e) => {
-                      e.preventDefault();
-                      if (item) handleWithdraw(item.itemId, item.quantity);
+                      if (item) {
+                        openContextMenu(e, item.itemId, item.quantity, "bank");
+                      }
                     }}
                     onMouseEnter={(e) => {
                       if (item) {
@@ -285,51 +578,6 @@ export function BankPanel({
             </div>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-3 pb-3">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="px-3 py-1 rounded transition-colors"
-                style={{
-                  background:
-                    page === 0
-                      ? "rgba(50, 50, 50, 0.5)"
-                      : "rgba(139, 69, 19, 0.6)",
-                  color: page === 0 ? "rgba(255, 255, 255, 0.4)" : "#fff",
-                  cursor: page === 0 ? "not-allowed" : "pointer",
-                }}
-              >
-                ◀
-              </button>
-              <span
-                className="text-sm"
-                style={{ color: "rgba(242, 208, 138, 0.8)" }}
-              >
-                Page {page + 1} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page === totalPages - 1}
-                className="px-3 py-1 rounded transition-colors"
-                style={{
-                  background:
-                    page === totalPages - 1
-                      ? "rgba(50, 50, 50, 0.5)"
-                      : "rgba(139, 69, 19, 0.6)",
-                  color:
-                    page === totalPages - 1
-                      ? "rgba(255, 255, 255, 0.4)"
-                      : "#fff",
-                  cursor: page === totalPages - 1 ? "not-allowed" : "pointer",
-                }}
-              >
-                ▶
-              </button>
-            </div>
-          )}
-
           {/* Footer */}
           <div
             className="px-4 py-2 rounded-b-lg"
@@ -345,7 +593,7 @@ export function BankPanel({
               <span>
                 {items.length} / {maxSlots} slots
               </span>
-              <span>Left: Withdraw 1 | Right: Withdraw All</span>
+              <span>Left: -1 | Right: Options</span>
             </div>
           </div>
         </div>
@@ -416,9 +664,14 @@ export function BankPanel({
                       }
                       onClick={() => item && handleDeposit(item.itemId, 1)}
                       onContextMenu={(e) => {
-                        e.preventDefault();
-                        if (item)
-                          handleDeposit(item.itemId, item.quantity || 1);
+                        if (item) {
+                          openContextMenu(
+                            e,
+                            item.itemId,
+                            item.quantity || 1,
+                            "inventory",
+                          );
+                        }
                       }}
                       onMouseEnter={(e) => {
                         if (item) {
@@ -513,7 +766,7 @@ export function BankPanel({
               className="text-[10px]"
               style={{ color: "rgba(242, 208, 138, 0.5)" }}
             >
-              Click: Deposit 1 | Right: Deposit All
+              Left: +1 | Right: Options
             </span>
           </div>
         </div>
