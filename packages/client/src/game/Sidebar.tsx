@@ -21,6 +21,7 @@ import { SettingsPanel } from "./panels/SettingsPanel";
 import { AccountPanel } from "./panels/AccountPanel";
 import { DashboardPanel } from "./panels/DashboardPanel";
 import { LootWindow } from "./panels/LootWindow";
+import { BankPanel } from "./panels/BankPanel";
 
 type InventorySlotViewItem = Pick<
   InventorySlotItem,
@@ -60,6 +61,14 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     corpseId: string;
     corpseName: string;
     lootItems: InventoryItem[];
+  } | null>(null);
+
+  // Bank panel state
+  const [bankData, setBankData] = useState<{
+    visible: boolean;
+    items: Array<{ itemId: string; quantity: number; slot: number }>;
+    maxSlots: number;
+    bankId: string;
   } | null>(null);
 
   // Update chat context whenever windows open/close
@@ -144,6 +153,23 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           arrows: mappedEquipment.arrows?.name || "empty",
         });
         setEquipment(mappedEquipment);
+      }
+      // Handle bank state updates
+      if (update.component === "bank") {
+        const data = update.data as {
+          items: Array<{ itemId: string; quantity: number; slot: number }>;
+          maxSlots: number;
+          bankId?: string;
+          isOpen?: boolean;
+        };
+        if (data.isOpen) {
+          setBankData({
+            visible: true,
+            items: data.items || [],
+            maxSlots: data.maxSlots || 480,
+            bankId: data.bankId || "spawn_bank",
+          });
+        }
       }
     };
     const onInventory = (raw: unknown) => {
@@ -548,6 +574,23 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             lootItems={lootWindowData.lootItems}
             onClose={() => setLootWindowData(null)}
             world={world}
+          />
+        )}
+
+        {/* Bank Panel (includes integrated inventory) */}
+        {bankData?.visible && (
+          <BankPanel
+            items={bankData.items}
+            maxSlots={bankData.maxSlots}
+            world={world}
+            inventory={inventory}
+            coins={coins}
+            onClose={() => {
+              setBankData(null);
+              if (world.network?.send) {
+                world.network.send("bankClose", {});
+              }
+            }}
           />
         )}
       </div>

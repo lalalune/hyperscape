@@ -57,6 +57,20 @@
       "when": 1763830800000,
       "tag": "0007_fix_combat_level_default",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1764228544490,
+      "tag": "0008_add_bank_storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1764400000000,
+      "tag": "0009_add_inventory_slot_constraint",
+      "breakpoints": true
     }
   ]
 }

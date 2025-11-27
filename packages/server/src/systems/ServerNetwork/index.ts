@@ -78,6 +78,12 @@ import {
 } from "./handlers/inventory";
 import { handleResourceGather } from "./handlers/resources";
 import {
+  handleBankOpen,
+  handleBankDeposit,
+  handleBankWithdraw,
+  handleBankClose,
+} from "./handlers/bank";
+import {
   handleEntityModified,
   handleEntityEvent,
   handleEntityRemoved,
@@ -383,6 +389,27 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         );
       }
     };
+
+    // Bank handlers
+    this.handlers["onBankOpen"] = (socket, data) =>
+      handleBankOpen(socket, data as { bankId: string }, this.world);
+
+    this.handlers["onBankDeposit"] = (socket, data) =>
+      handleBankDeposit(
+        socket,
+        data as { itemId: string; quantity: number; slot?: number },
+        this.world,
+      );
+
+    this.handlers["onBankWithdraw"] = (socket, data) =>
+      handleBankWithdraw(
+        socket,
+        data as { itemId: string; quantity: number },
+        this.world,
+      );
+
+    this.handlers["onBankClose"] = (socket, data) =>
+      handleBankClose(socket, data, this.world);
   }
 
   async init(options: WorldOptions): Promise<void> {

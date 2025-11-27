@@ -372,16 +372,38 @@ export class InventorySystem extends SystemBase {
       }
     }
 
-    // Find empty slot
-    const emptySlot = this.findEmptySlot(inventory);
-    if (emptySlot === -1) {
+    // Determine slot to use:
+    // - If slot is provided AND it's free, use it (for bank sync)
+    // - Otherwise find an empty slot
+    let targetSlot: number;
+    if (
+      data.slot !== undefined &&
+      data.slot >= 0 &&
+      data.slot < this.MAX_INVENTORY_SLOTS
+    ) {
+      // Check if the provided slot is already occupied
+      const slotOccupied = inventory.items.some(
+        (item) => item.slot === data.slot,
+      );
+      if (!slotOccupied) {
+        targetSlot = data.slot;
+      } else {
+        // Slot is occupied, find a free one
+        targetSlot = this.findEmptySlot(inventory);
+      }
+    } else {
+      // No slot provided, find empty one
+      targetSlot = this.findEmptySlot(inventory);
+    }
+
+    if (targetSlot === -1) {
       this.emitTypedEvent(EventType.INVENTORY_FULL, { playerId: playerId });
       return false;
     }
 
-    // Add new item
+    // Add new item to the target slot
     inventory.items.push({
-      slot: emptySlot,
+      slot: targetSlot,
       itemId: itemId,
       quantity: data.quantity,
       item: itemData,
@@ -1339,6 +1361,9 @@ export class InventorySystem extends SystemBase {
     const playerId = data.playerId;
     const itemId = data.item.itemId;
     const quantity = data.item.quantity;
+    // Extract slot if provided (used by bank sync to maintain slot consistency)
+    const slot =
+      typeof data.item.slot === "number" ? data.item.slot : undefined;
 
     // Validate the event data before processing
     if (!playerId) {
@@ -1369,7 +1394,8 @@ export class InventorySystem extends SystemBase {
       return;
     }
 
-    const result = this.addItem({ playerId, itemId, quantity });
+    // Pass slot to addItem for proper sync (e.g., from bank withdrawal)
+    const result = this.addItem({ playerId, itemId, quantity, slot });
   }
 
   /**

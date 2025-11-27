@@ -75,6 +75,7 @@ import { NPCEntity } from "../../../entities/npc/NPCEntity";
 import { ItemEntity } from "../../../entities/world/ItemEntity";
 import { ResourceEntity } from "../../../entities/world/ResourceEntity";
 import { HeadstoneEntity } from "../../../entities/world/HeadstoneEntity";
+import { BankEntity } from "../../../entities/world/BankEntity";
 import type {
   MobEntityConfig,
   NPCEntityConfig,
@@ -82,6 +83,7 @@ import type {
   ResourceEntityConfig,
   HeadstoneData,
   HeadstoneEntityConfig,
+  BankEntityConfig,
 } from "../../../types/entities";
 import {
   EntityType,
@@ -118,6 +120,7 @@ const EntityTypes: Record<string, EntityConstructor> = {
   npc: NPCEntity as unknown as EntityConstructor, // NPC entities
   resource: ResourceEntity as unknown as EntityConstructor, // Resource entities (trees, rocks, etc)
   headstone: HeadstoneEntity as unknown as EntityConstructor, // Death markers
+  bank: BankEntity as unknown as EntityConstructor, // Bank booths
 };
 
 /**
@@ -677,6 +680,66 @@ export class Entities extends SystemBase implements IEntities {
       };
 
       const entity = new HeadstoneEntity(this.world, headstoneConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity if it has an init method
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch((err) =>
+          this.logger.error(`Entity ${entity.id} async init failed`, err),
+        );
+      }
+
+      return entity;
+    } else if (data.type === "bank") {
+      // Build BankEntity from network data (similar to HeadstoneEntity handling)
+      const positionArray = (data.position || [0, 40, -25]) as [
+        number,
+        number,
+        number,
+      ];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [
+        number,
+        number,
+        number,
+        number,
+      ];
+      const name = data.name || "Bank";
+      const networkData = data as { properties?: { bankId?: string } };
+
+      const bankConfig: BankEntityConfig = {
+        id: data.id,
+        name: name,
+        type: EntityType.BANK,
+        position: {
+          x: positionArray[0],
+          y: positionArray[1],
+          z: positionArray[2],
+        },
+        rotation: {
+          x: quaternionArray[0],
+          y: quaternionArray[1],
+          z: quaternionArray[2],
+          w: quaternionArray[3],
+        },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.BANK,
+        interactionDistance: 3,
+        description: "A secure place to store your items.",
+        model: null,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 1, max: 1 },
+          level: 1,
+          bankId: networkData.properties?.bankId || "spawn_bank",
+        },
+      };
+
+      const entity = new BankEntity(this.world, bankConfig);
       this.items.set(entity.id, entity);
 
       // Initialize entity if it has an init method

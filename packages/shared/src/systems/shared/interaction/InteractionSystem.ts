@@ -359,6 +359,43 @@ export class InteractionSystem extends System {
         return;
       }
 
+      // Handle bank with left-click (Use Bank directly)
+      if (target.type === "bank") {
+        event.preventDefault();
+        const localPlayer = this.world.getPlayer();
+        if (localPlayer) {
+          const distance = this.calculateDistance(
+            localPlayer.position,
+            target.position,
+          );
+          const bankRange = 3.0;
+
+          if (distance > bankRange) {
+            // Walk to bank, then open
+            this.walkTo(target.position);
+            const walkTime = Math.min(distance * 400, 3000);
+            setTimeout(() => {
+              if (this.world.network?.send) {
+                const bankId =
+                  (target.entity as { userData?: { bankId?: string } })
+                    ?.userData?.bankId || target.id;
+                this.world.network.send("bankOpen", { bankId });
+              }
+            }, walkTime);
+            return;
+          }
+
+          // Close enough - open bank immediately
+          if (this.world.network?.send) {
+            const bankId =
+              (target.entity as { userData?: { bankId?: string } })?.userData
+                ?.bankId || target.id;
+            this.world.network.send("bankOpen", { bankId });
+          }
+        }
+        return;
+      }
+
       // For other entities (mobs, NPCs, players, resources), don't show movement indicator
       // They should use context menus or other interaction methods
       return;
@@ -1033,6 +1070,65 @@ export class InteractionSystem extends System {
           icon: "👁️",
           enabled: true,
           handler: () => this.examineEntity(target, playerId),
+        });
+        break;
+      }
+
+      case "bank": {
+        // Primary action: Use Bank
+        actions.push({
+          id: "use-bank",
+          label: "Use Bank",
+          icon: "🏦",
+          enabled: true,
+          handler: () => {
+            const player = this.world.getPlayer();
+            if (!player) return;
+
+            const distance = this.calculateDistance(
+              player.position,
+              target.position,
+            );
+            const bankRange = 3.0;
+
+            if (distance > bankRange) {
+              // Walk to bank, then open
+              this.walkTo(target.position);
+              const walkTime = Math.min(distance * 400, 3000);
+              setTimeout(() => {
+                if (this.world.network?.send) {
+                  const bankId =
+                    (target.entity as { userData?: { bankId?: string } })
+                      ?.userData?.bankId || target.id;
+                  this.world.network.send("bankOpen", { bankId });
+                }
+              }, walkTime);
+              return;
+            }
+
+            // Close enough - open bank
+            if (this.world.network?.send) {
+              const bankId =
+                (target.entity as { userData?: { bankId?: string } })?.userData
+                  ?.bankId || target.id;
+              this.world.network.send("bankOpen", { bankId });
+            }
+          },
+        });
+
+        // Examine action
+        actions.push({
+          id: "examine",
+          label: "Examine",
+          icon: "👁️",
+          enabled: true,
+          handler: () => {
+            this.world.emit(EventType.UI_MESSAGE, {
+              playerId,
+              message: "A secure place to store your items.",
+              type: "examine",
+            });
+          },
         });
         break;
       }

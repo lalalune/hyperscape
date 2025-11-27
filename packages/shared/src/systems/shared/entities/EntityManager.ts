@@ -12,6 +12,7 @@ import { World } from "../../../core/World";
 import { Entity, EntityConfig } from "../../../entities/Entity";
 import { ItemEntity } from "../../../entities/world/ItemEntity";
 import { HeadstoneEntity } from "../../../entities/world/HeadstoneEntity";
+import { BankEntity } from "../../../entities/world/BankEntity";
 import { MobEntity } from "../../../entities/npc/MobEntity";
 import { NPCEntity } from "../../../entities/npc/NPCEntity";
 import { ResourceEntity } from "../../../entities/world/ResourceEntity";
@@ -27,6 +28,7 @@ import type {
   ResourceEntityProperties as _ResourceEntityProperties,
   ResourceSpawnData as _ResourceSpawnData,
   HeadstoneEntityConfig,
+  BankEntityConfig,
 } from "../../../types/entities";
 import {
   EntityType,
@@ -232,6 +234,66 @@ export class EntityManager extends SystemBase {
     }
   }
 
+  /**
+   * Start method - called after init, spawns world objects
+   */
+  async start(): Promise<void> {
+    // Server spawns static world objects (banks, etc.)
+    if (this.world.isServer) {
+      await this.spawnWorldObjects();
+    }
+  }
+
+  /**
+   * Spawn static world objects (banks, etc.)
+   * These are permanent fixtures in the world, not mobs or NPCs
+   */
+  private async spawnWorldObjects(): Promise<void> {
+    // Get terrain system for height lookup
+    const terrain = this.world.getSystem<TerrainSystem>("terrain");
+
+    // Get terrain height at bank location
+    let bankY = 40; // Default height
+    if (terrain?.getHeightAt) {
+      const height = terrain.getHeightAt(0, -25);
+      if (height !== null && height !== undefined && Number.isFinite(height)) {
+        bankY = (height as number) + 1; // +1 to sit on ground
+      }
+    }
+
+    // Spawn bank at (0, y, -25) - behind player spawn, safe from goblin
+    const bankConfig: BankEntityConfig = {
+      id: "bank_spawn_bank",
+      name: "Bank",
+      type: EntityType.BANK,
+      position: { x: 0, y: bankY, z: -25 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 },
+      scale: { x: 1, y: 1, z: 1 },
+      visible: true,
+      interactable: true,
+      interactionType: InteractionType.BANK,
+      interactionDistance: 3,
+      description: "A secure place to store your items.",
+      model: null,
+      properties: {
+        movementComponent: null,
+        combatComponent: null,
+        healthComponent: null,
+        visualComponent: null,
+        health: { current: 1, max: 1 },
+        level: 1,
+        bankId: "spawn_bank",
+      },
+    };
+
+    try {
+      await this.spawnEntity(bankConfig);
+      console.log(`[EntityManager] Spawned bank at (0, ${bankY}, -25)`);
+    } catch (err) {
+      console.error("[EntityManager] Error spawning bank:", err);
+    }
+  }
+
   update(deltaTime: number): void {
     // Update all entities that need updates
     this.entitiesNeedingUpdate.forEach((entityId) => {
@@ -310,6 +372,10 @@ export class EntityManager extends SystemBase {
           this.world,
           config as HeadstoneEntityConfig,
         );
+        break;
+      case EntityType.BANK:
+      case "bank":
+        entity = new BankEntity(this.world, config as BankEntityConfig);
         break;
       case "mob":
         entity = new MobEntity(this.world, config as MobEntityConfig);
