@@ -124,6 +124,7 @@ import { DamageSplatSystem } from "../../client";
 import type { CameraSystem as CameraSystemInterface } from "../../../types/systems/physics";
 import { ActionRegistry } from "..";
 import { SkillsSystem } from "..";
+import { HealthRegenSystem } from "..";
 
 // Interface for the systems collection
 export interface Systems {
@@ -152,6 +153,7 @@ export interface Systems {
   npc?: NPCSystem;
   mobNpcSpawner?: MobNPCSpawnerSystem;
   itemSpawner?: ItemSpawnerSystem;
+  healthRegen?: HealthRegenSystem;
 }
 
 /**
@@ -285,6 +287,20 @@ export async function registerSystems(world: World): Promise<void> {
   // 12a. XP system alias for backward compatibility with test framework
   world.register("xp", SkillsSystem);
 
+  // 12b. Health regeneration system - Passive health regen (depends on combat system)
+  // Server-only: handles RuneScape-style out-of-combat health regeneration
+  // Note: world.isServer isn't reliable here because ServerNetwork registers later
+  // Use Node.js environment check instead
+  const isServerEnvironment =
+    typeof process !== "undefined" &&
+    process.versions &&
+    typeof process.versions.node === "string";
+
+  if (isServerEnvironment) {
+    world.register("health-regen", HealthRegenSystem);
+    console.log("[SystemLoader] ✅ HealthRegenSystem registered (server-only)");
+  }
+
   // === SPECIALIZED SYSTEMS ===
   // These systems provide specific game features
 
@@ -319,15 +335,11 @@ export async function registerSystems(world: World): Promise<void> {
 
   // Client-only visual effects
   if (world.isClient) {
-    console.log("[SystemLoader] 🎨 Registering DamageSplatSystem on client...");
     try {
       world.register("damage-splat", DamageSplatSystem);
-      console.log(
-        "[SystemLoader] ✅ DamageSplatSystem registered successfully",
-      );
     } catch (err) {
       console.error(
-        "[SystemLoader] ❌ Failed to register DamageSplatSystem:",
+        "[SystemLoader] Failed to register DamageSplatSystem:",
         err,
       );
     }
@@ -364,6 +376,7 @@ export async function registerSystems(world: World): Promise<void> {
   systems.aggro = getSystem(world, "aggro") as AggroSystem;
   systems.equipment = getSystem(world, "equipment") as EquipmentSystem;
   systems.processing = getSystem(world, "processing") as ProcessingSystem;
+  systems.healthRegen = getSystem(world, "health-regen") as HealthRegenSystem;
   systems.playerDeath = getSystem(world, "player-death") as PlayerDeathSystem;
   systems.mobDeath = getSystem(world, "mob-death") as MobDeathSystem;
 

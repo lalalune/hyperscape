@@ -867,9 +867,6 @@ export class ClientNetwork extends SystemBase {
       // Clear interpolation buffer for ANY dead mob (defense in depth)
       if (isDead && this.interpolationStates.has(id)) {
         this.interpolationStates.delete(id);
-        console.log(
-          `[ClientNetwork] ✅ Cleared interpolation buffer for dead mob ${id}`,
-        );
       }
 
       // Skip adding new interpolation snapshots for dead mobs
@@ -1558,21 +1555,8 @@ export class ClientNetwork extends SystemBase {
     targetType: "player" | "mob";
     position: { x: number; y: number; z: number };
   }) => {
-    console.log(
-      `[ClientNetwork] Received combatDamageDealt: ${data.damage} damage to ${data.targetId}`,
-    );
-
-    // Check if DamageSplatSystem exists
-    const damageSplatSystem = this.world.getSystem("damage-splat");
-    console.log(
-      `[ClientNetwork] DamageSplatSystem found:`,
-      damageSplatSystem ? "YES ✅" : "NO ❌",
-    );
-
     // Forward to local event system so DamageSplatSystem can show visual feedback
-    console.log(`[ClientNetwork] Emitting COMBAT_DAMAGE_DEALT event...`);
     this.world.emit(EventType.COMBAT_DAMAGE_DEALT, data);
-    console.log(`[ClientNetwork] Event emitted successfully`);
   };
 
   onPlayerUpdated = (data: {
@@ -1585,10 +1569,6 @@ export class ClientNetwork extends SystemBase {
       console.warn("[ClientNetwork] onPlayerUpdated: No local player found");
       return;
     }
-
-    console.log(
-      `[ClientNetwork] 💚 Received playerUpdated: health ${data.health}/${data.maxHealth}`,
-    );
 
     // Use modify() to update entity - this triggers PlayerLocal.modify()
     // which updates _playerHealth (the field the UI reads)
@@ -1608,10 +1588,6 @@ export class ClientNetwork extends SystemBase {
       health: data.health,
       maxHealth: data.maxHealth,
     });
-
-    console.log(
-      `[ClientNetwork] ✅ Local player health updated: ${data.health}/${data.maxHealth}`,
-    );
   };
 
   onCorpseLoot = (data: {
