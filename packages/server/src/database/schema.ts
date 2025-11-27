@@ -379,6 +379,40 @@ export const equipment = pgTable(
 );
 
 /**
+ * Bank Storage Table - Player bank item storage
+ *
+ * Stores items deposited in banks. All items stack in bank (MVP simplification).
+ * Shared storage - same items accessible from any bank location.
+ *
+ * Key columns:
+ * - `playerId` - References characters.id (CASCADE DELETE)
+ * - `itemId` - Item identifier (matches inventory itemId format)
+ * - `quantity` - Stack size (all items stack in bank)
+ * - `slot` - Bank slot index (0-479, 480 max slots)
+ *
+ * Design notes:
+ * - All items stack in bank for simplicity
+ * - Unique constraint on (playerId, slot) ensures one item per slot
+ * - CASCADE DELETE ensures cleanup when character is deleted
+ */
+export const bankStorage = pgTable(
+  "bank_storage",
+  {
+    id: serial("id").primaryKey(),
+    playerId: text("playerId")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    itemId: text("itemId").notNull(),
+    quantity: integer("quantity").default(1).notNull(),
+    slot: integer("slot").default(0).notNull(),
+  },
+  (table) => ({
+    uniquePlayerSlot: unique().on(table.playerId, table.slot),
+    playerIdx: index("idx_bank_storage_player").on(table.playerId),
+  }),
+);
+
+/**
  * World Chunks Table - Persistent world state
  *
  * Stores modifications to world chunks (resources, buildings, terrain changes).
@@ -635,6 +669,7 @@ export const characterTemplates = pgTable(
 export const charactersRelations = relations(characters, ({ many }) => ({
   inventory: many(inventory),
   equipment: many(equipment),
+  bankStorage: many(bankStorage),
   sessions: many(playerSessions),
   chunkActivities: many(chunkActivity),
   npcKills: many(npcKills),
@@ -663,6 +698,13 @@ export const inventoryRelations = relations(inventory, ({ one }) => ({
 export const equipmentRelations = relations(equipment, ({ one }) => ({
   character: one(characters, {
     fields: [equipment.playerId],
+    references: [characters.id],
+  }),
+}));
+
+export const bankStorageRelations = relations(bankStorage, ({ one }) => ({
+  character: one(characters, {
+    fields: [bankStorage.playerId],
     references: [characters.id],
   }),
 }));

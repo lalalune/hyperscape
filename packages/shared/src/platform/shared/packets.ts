@@ -160,6 +160,13 @@ const names = [
   'syncGoal',
   // Agent goal override packet (dashboard -> plugin)
   'goalOverride',
+  // Bank packets
+  'bankOpen',
+  'bankState',
+  'bankDeposit',
+  'bankDepositAll',
+  'bankWithdraw',
+  'bankClose',
 ]
 
 const byName: Record<string, PacketInfo> = {};
