@@ -61,6 +61,8 @@ import {
   handleEnterWorld,
 } from "./character-selection";
 import { MovementManager } from "./movement";
+import { TileMovementManager } from "./tile-movement";
+import { TickSystem, TickPriority } from "../TickSystem";
 import { SocketManager } from "./socket-management";
 import { BroadcastManager } from "./broadcast";
 import { SaveManager } from "./save-manager";
@@ -153,6 +155,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   /** Modular managers */
   private movementManager!: MovementManager;
+  private tileMovementManager!: TileMovementManager;
+  private tickSystem!: TickSystem;
   private socketManager!: SocketManager;
   private broadcastManager!: BroadcastManager;
   private saveManager!: SaveManager;
@@ -185,11 +189,25 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Broadcast manager (needed by many others)
     this.broadcastManager = new BroadcastManager(this.sockets);
 
-    // Movement manager
+    // Legacy movement manager (for compatibility)
     this.movementManager = new MovementManager(
       this.world,
       this.broadcastManager.sendToAll.bind(this.broadcastManager),
     );
+
+    // Tick system for RuneScape-style 600ms ticks
+    this.tickSystem = new TickSystem();
+
+    // Tile-based movement manager (RuneScape-style)
+    this.tileMovementManager = new TileMovementManager(
+      this.world,
+      this.broadcastManager.sendToAll.bind(this.broadcastManager),
+    );
+
+    // Register tile movement to run on each tick
+    this.tickSystem.onTick((tickNumber) => {
+      this.tileMovementManager.onTick(tickNumber);
+    }, TickPriority.MOVEMENT);
 
     // Socket manager
     this.socketManager = new SocketManager(
@@ -289,11 +307,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["onResourceGather"] = (socket, data) =>
       handleResourceGather(socket, data, this.world);
 
+    // Use tile-based movement manager for RuneScape-style movement
     this.handlers["onMoveRequest"] = (socket, data) =>
-      this.movementManager.handleMoveRequest(socket, data);
+      this.tileMovementManager.handleMoveRequest(socket, data);
 
     this.handlers["onInput"] = (socket, data) =>
-      this.movementManager.handleInput(socket, data);
+      this.tileMovementManager.handleInput(socket, data);
 
     this.handlers["onAttackMob"] = (socket, data) =>
       handleAttackMob(socket, data, this.world);
@@ -449,11 +468,16 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Setup event bridge (world events → network messages)
     this.eventBridge.setupEventListeners();
+
+    // Start tick system (600ms RuneScape-style ticks)
+    this.tickSystem.start();
+    console.log("[ServerNetwork] Tick system started (600ms ticks)");
   }
 
   override destroy(): void {
     this.socketManager.destroy();
     this.saveManager.destroy();
+    this.tickSystem.stop();
 
     for (const [_id, socket] of this.sockets) {
       socket.close?.();

@@ -420,34 +420,43 @@ export class PlayerRemote extends Entity implements HotReloadable {
   update(delta: number): void {
     const anchor = this.getAnchorMatrix();
     if (!anchor) {
-      // Update lerp values
-      this.lerpPosition.update(delta);
-      this.lerpQuaternion.update(delta);
+      // Check if TileInterpolator is controlling this entity's position
+      // If so, skip our position interpolation to avoid fighting
+      const tileControlled = this.data.tileInterpolatorControlled === true;
 
-      // FORCE APPLY POSITION - no interpolation bullshit
-      if (!this.enableInterpolation) {
-        // Get the target position directly from lerp.current and apply it
-        const targetPos = this.lerpPosition.current;
-        if (targetPos) {
-          this.base.position.copy(targetPos);
-          this.node.position.copy(targetPos);
-          this.position.copy(targetPos);
+      if (!tileControlled) {
+        // Update lerp values
+        this.lerpPosition.update(delta);
+        this.lerpQuaternion.update(delta);
+
+        // FORCE APPLY POSITION - no interpolation bullshit
+        if (!this.enableInterpolation) {
+          // Get the target position directly from lerp.current and apply it
+          const targetPos = this.lerpPosition.current;
+          if (targetPos) {
+            this.base.position.copy(targetPos);
+            this.node.position.copy(targetPos);
+            this.position.copy(targetPos);
+            // CRITICAL: Update base transform for instance.move()
+            this.base.updateTransform();
+            // Position applied directly without interpolation
+          }
+
+          const targetRot = this.lerpQuaternion.current;
+          if (targetRot) {
+            this.node.quaternion.copy(targetRot);
+          }
+        } else {
+          // Use interpolated values
+          this.base.position.copy(this.lerpPosition.value);
+          this.node.position.copy(this.lerpPosition.value);
+          this.position.copy(this.lerpPosition.value);
+          this.node.quaternion.copy(this.lerpQuaternion.value);
           // CRITICAL: Update base transform for instance.move()
           this.base.updateTransform();
-          // Position applied directly without interpolation
-        }
-
-        const targetRot = this.lerpQuaternion.current;
-        if (targetRot) {
-          this.node.quaternion.copy(targetRot);
         }
       } else {
-        // Use interpolated values
-        this.base.position.copy(this.lerpPosition.value);
-        this.node.position.copy(this.lerpPosition.value);
-        this.position.copy(this.lerpPosition.value);
-        this.node.quaternion.copy(this.lerpQuaternion.value);
-        // CRITICAL: Update base transform for instance.move()
+        // TileInterpolator is controlling position - just update base transform
         this.base.updateTransform();
       }
     }
@@ -657,16 +666,21 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.teleport++;
     }
     if (data.p !== undefined) {
-      // Position is no longer stored in EntityData, apply directly to entity transform
-      this.lerpPosition.pushArray(data.p, this.teleport || null);
-      // Apply position immediately for responsiveness - assume it's a 3-element array
-      const pos = data.p as number[];
-      // Update base, node, and position IMMEDIATELY
-      this.base.position.set(pos[0], pos[1], pos[2]);
-      this.node.position.set(pos[0], pos[1], pos[2]);
-      this.position.set(pos[0], pos[1], pos[2]);
-      // CRITICAL: Force base to update its matrix so instance.move() gets correct transform
-      this.base.updateTransform();
+      // Check if TileInterpolator is controlling position - if so, skip position updates
+      // TileInterpolator handles position smoothly, we don't want to fight it
+      const tileControlled = this.data.tileInterpolatorControlled === true;
+      if (!tileControlled) {
+        // Position is no longer stored in EntityData, apply directly to entity transform
+        this.lerpPosition.pushArray(data.p, this.teleport || null);
+        // Apply position immediately for responsiveness - assume it's a 3-element array
+        const pos = data.p as number[];
+        // Update base, node, and position IMMEDIATELY
+        this.base.position.set(pos[0], pos[1], pos[2]);
+        this.node.position.set(pos[0], pos[1], pos[2]);
+        this.position.set(pos[0], pos[1], pos[2]);
+        // CRITICAL: Force base to update its matrix so instance.move() gets correct transform
+        this.base.updateTransform();
+      }
     }
     if (data.q !== undefined) {
       // Rotation is no longer stored in EntityData, apply directly to entity transform
