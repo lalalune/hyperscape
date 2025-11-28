@@ -739,10 +739,15 @@ export class TileInterpolator {
         }
         // Keep the flag set so PlayerRemote doesn't overwrite
         entity.data.tileInterpolatorControlled = true;
-        // Set rotation on base (consistent with combat code in PlayerLocal)
-        // VRM models have 180° rotation baked in, base.quaternion adds to that
-        if (state.quaternion && entity.base) {
-          entity.base.quaternion.copy(state.quaternion);
+        // Set rotation: Use base for players, fall back to node for mobs
+        if (state.quaternion) {
+          if (entity.base) {
+            // Players: VRM models have 180° rotation baked in, base.quaternion adds to that
+            entity.base.quaternion.copy(state.quaternion);
+          } else if (entity.node && "quaternion" in entity.node) {
+            // Mobs/other entities: Set rotation directly on node
+            (entity.node as THREE.Object3D).quaternion.copy(state.quaternion);
+          }
         }
         // No path = not moving = idle animation
         state.isMoving = false;
@@ -868,10 +873,14 @@ export class TileInterpolator {
       // Expose isMoving so PlayerLocal/PlayerRemote can check for combat rotation
       // OSRS behavior: only face combat target when standing still, not while moving
       entity.data.tileMovementActive = state.isMoving;
-      // Set rotation on base (consistent with combat code in PlayerLocal)
-      // VRM models have 180° rotation baked in, base.quaternion adds to that
+      // Set rotation: Use base for players (VRM has 180° rotation baked in),
+      // fall back to node for mobs/other entities that don't have base
       if (entity.base) {
+        // Players: Set rotation on base (VRM models have 180° rotation baked in, base.quaternion adds to that)
         entity.base.quaternion.copy(state.quaternion);
+      } else if (entity.node && "quaternion" in entity.node) {
+        // Mobs/other entities: Set rotation directly on node
+        (entity.node as THREE.Object3D).quaternion.copy(state.quaternion);
       }
       entity.data.emote = state.emote;
 

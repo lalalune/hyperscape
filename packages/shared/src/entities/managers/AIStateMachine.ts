@@ -9,10 +9,22 @@
  *
  * Each state is a separate class implementing AIState interface.
  * States are responsible for their own logic and return the next state to transition to.
+ *
+ * IMPORTANT: Uses TILE-BASED distance checks for movement states (WANDER, RETURN)
+ * because movement is tile-based (600ms ticks). World-space distance checks cause
+ * infinite loops when target is on the same tile but different world position.
  */
 
 import type { Position3D } from "../../types";
 import { MobAIState } from "../../types/entities";
+import {
+  worldToTile,
+  tilesEqual,
+  tilesAdjacent,
+  getBestAdjacentTile,
+  tileToWorld,
+  type TileCoord,
+} from "../../systems/shared/movement/TileSystem";
 
 export interface AIStateContext {
   // Position & Movement
@@ -124,6 +136,11 @@ export class IdleState implements AIState {
 
 /**
  * WANDER State - Random walking within wander radius
+ *
+ * IMPORTANT: Uses TILE-BASED distance check for arrival detection.
+ * Movement is tile-based (600ms ticks), so we must check if we're on the
+ * same tile as the target, not world-space distance. This prevents infinite
+ * loops when target is on the same tile but different world position.
  */
 export class WanderState implements AIState {
   readonly name = MobAIState.WANDER;
@@ -147,15 +164,15 @@ export class WanderState implements AIState {
       context.setWanderTarget(wanderTarget);
     }
 
-    // Move towards wander target
+    // TILE-BASED arrival check: Convert positions to tiles and compare
+    // This is critical for tick-based movement - world distance doesn't work
     const currentPos = context.getPosition();
-    const distanceToTarget = Math.sqrt(
-      Math.pow(wanderTarget.x - currentPos.x, 2) +
-        Math.pow(wanderTarget.z - currentPos.z, 2),
-    );
+    const currentTile = worldToTile(currentPos.x, currentPos.z);
+    const targetTile = worldToTile(wanderTarget.x, wanderTarget.z);
 
-    if (distanceToTarget < 0.5) {
-      // Reached wander target - return to idle
+    // Check if we're on the same tile as the target
+    if (tilesEqual(currentTile, targetTile)) {
+      // Reached wander target (same tile) - return to idle
       context.setWanderTarget(null);
       return MobAIState.IDLE;
     }
@@ -172,6 +189,14 @@ export class WanderState implements AIState {
 
 /**
  * CHASE State - Pursuing a player
+ *
+ * OSRS-STYLE MELEE COMBAT POSITIONING:
+ * - Melee combat range = adjacent tile (Chebyshev distance = 1)
+ * - Mob chases until on an ADJACENT tile to the player (not same tile)
+ * - Mob paths to the nearest adjacent tile, not the exact player position
+ * - This prevents entities from standing on top of each other
+ *
+ * @see https://oldschool.runescape.wiki/w/Attack_range
  */
 export class ChaseState implements AIState {
   readonly name = MobAIState.CHASE;
@@ -201,22 +226,48 @@ export class ChaseState implements AIState {
       return MobAIState.RETURN;
     }
 
-    // Calculate distance to target
+    // TILE-BASED COMBAT RANGE CHECK (OSRS-style)
+    // Melee combat = adjacent tiles (Chebyshev distance = 1)
     const currentPos = context.getPosition();
-    const dx = targetPlayer.position.x - currentPos.x;
-    const dz = targetPlayer.position.z - currentPos.z;
-    const distance2D = Math.sqrt(dx * dx + dz * dz);
+    const currentTile = worldToTile(currentPos.x, currentPos.z);
+    const targetTile = worldToTile(
+      targetPlayer.position.x,
+      targetPlayer.position.z,
+    );
 
-    // Switch to attack if in range
-    if (distance2D <= context.getCombatRange()) {
+    // Check if already adjacent to target (in melee range)
+    if (tilesAdjacent(currentTile, targetTile)) {
       console.log(
-        `[ChaseState] In combat range (${distance2D.toFixed(2)}), switching to ATTACK`,
+        `[ChaseState] Adjacent to target at tile (${targetTile.x},${targetTile.z}), switching to ATTACK`,
       );
       return MobAIState.ATTACK;
     }
 
-    // Chase the player
-    context.moveTowards(targetPlayer.position, deltaTime);
+    // If somehow on same tile as target (shouldn't happen), also switch to attack
+    // But log a warning as this indicates a positioning bug
+    if (tilesEqual(currentTile, targetTile)) {
+      console.warn(
+        `[ChaseState] On same tile as target! This shouldn't happen. Switching to ATTACK.`,
+      );
+      return MobAIState.ATTACK;
+    }
+
+    // PATH TO ADJACENT TILE (not exact player position)
+    // Find the best adjacent tile to the player that we should stand on
+    const adjacentTile = getBestAdjacentTile(targetTile, currentTile, false);
+    if (adjacentTile) {
+      // Convert adjacent tile to world position and move towards it
+      const adjacentWorld = tileToWorld(adjacentTile);
+      context.moveTowards(
+        { x: adjacentWorld.x, y: currentPos.y, z: adjacentWorld.z },
+        deltaTime,
+      );
+    } else {
+      // Fallback: no valid adjacent tile, try moving closer anyway
+      // This handles edge cases like all adjacent tiles being blocked
+      context.moveTowards(targetPlayer.position, deltaTime);
+    }
+
     return null; // Stay in CHASE
   }
 
@@ -227,6 +278,13 @@ export class ChaseState implements AIState {
 
 /**
  * ATTACK State - In melee range, attacking
+ *
+ * OSRS-STYLE MELEE COMBAT:
+ * - Stay on current tile (don't move closer)
+ * - Attack when on adjacent tile to target
+ * - Switch to CHASE if target moves away (no longer adjacent)
+ *
+ * @see https://oldschool.runescape.wiki/w/Attack_range
  */
 export class AttackState implements AIState {
   readonly name = MobAIState.ATTACK;
@@ -256,15 +314,23 @@ export class AttackState implements AIState {
       return MobAIState.IDLE;
     }
 
-    // Check if player moved out of range
+    // TILE-BASED RANGE CHECK (OSRS-style)
+    // Melee combat = must be on adjacent tile
     const currentPos = context.getPosition();
-    const dx = targetPlayer.position.x - currentPos.x;
-    const dz = targetPlayer.position.z - currentPos.z;
-    const distance2D = Math.sqrt(dx * dx + dz * dz);
+    const currentTile = worldToTile(currentPos.x, currentPos.z);
+    const targetTile = worldToTile(
+      targetPlayer.position.x,
+      targetPlayer.position.z,
+    );
 
-    if (distance2D > context.getCombatRange()) {
+    // Check if still adjacent to target (in melee range)
+    // Also allow attacking if on same tile (edge case that shouldn't happen)
+    const isAdjacent = tilesAdjacent(currentTile, targetTile);
+    const isSameTile = tilesEqual(currentTile, targetTile);
+
+    if (!isAdjacent && !isSameTile) {
       console.log(
-        `[AttackState] Player out of range (${distance2D.toFixed(2)}), switching to CHASE`,
+        `[AttackState] Target moved away from tile (${targetTile.x},${targetTile.z}), switching to CHASE`,
       );
       return MobAIState.CHASE;
     }
@@ -276,6 +342,10 @@ export class AttackState implements AIState {
       context.performAttack(targetId, currentTime);
     }
 
+    // NOTE: In ATTACK state, we DON'T call moveTowards()
+    // The mob stays on its current tile and attacks from there
+    // This prevents walking INTO the player's tile
+
     return null; // Stay in ATTACK
   }
 
@@ -286,6 +356,11 @@ export class AttackState implements AIState {
 
 /**
  * RETURN State - Walking back to spawn (leashed)
+ *
+ * IMPORTANT: Uses TILE-BASED distance check for arrival detection.
+ * Movement is tile-based (600ms ticks), so we must check if we're on the
+ * same tile as spawn, not world-space distance. This prevents infinite
+ * loops when spawn is on the same tile but different world position.
  */
 export class ReturnState implements AIState {
   readonly name = MobAIState.RETURN;
@@ -299,6 +374,7 @@ export class ReturnState implements AIState {
     // IGNORE all players while returning (prevents infinite CHASE→RETURN loop)
 
     const spawnDistance = context.getDistanceFromSpawn();
+    const spawnPoint = context.getSpawnPoint();
 
     // Safety: teleport if extremely far AND not in combat
     if (
@@ -308,7 +384,6 @@ export class ReturnState implements AIState {
       console.warn(
         `[ReturnState] Too far from spawn (${spawnDistance.toFixed(1)}), teleporting (not in combat)`,
       );
-      const spawnPoint = context.getSpawnPoint();
       context.teleportTo(spawnPoint);
       return MobAIState.IDLE;
     } else if (spawnDistance > this.RETURN_TELEPORT_DISTANCE) {
@@ -317,14 +392,19 @@ export class ReturnState implements AIState {
       );
     }
 
-    // Reached spawn - reset to IDLE and heal
-    if (spawnDistance < 0.5) {
-      console.log(`[ReturnState] Reached spawn, switching to IDLE`);
+    // TILE-BASED arrival check: Convert positions to tiles and compare
+    // This is critical for tick-based movement - world distance doesn't work
+    const currentPos = context.getPosition();
+    const currentTile = worldToTile(currentPos.x, currentPos.z);
+    const spawnTile = worldToTile(spawnPoint.x, spawnPoint.z);
+
+    // Check if we're on the same tile as spawn
+    if (tilesEqual(currentTile, spawnTile)) {
+      console.log(`[ReturnState] Reached spawn tile, switching to IDLE`);
       return MobAIState.IDLE;
     }
 
     // Walk back to spawn
-    const spawnPoint = context.getSpawnPoint();
     context.moveTowards(spawnPoint, deltaTime);
     return null; // Stay in RETURN
   }

@@ -103,6 +103,7 @@ import { RespawnManager } from "../managers/RespawnManager";
 import { UIRenderer } from "../../utils/rendering/UIRenderer";
 import { GAME_CONSTANTS } from "../../constants";
 import { AggroManager } from "../managers/AggroManager";
+import { worldToTile } from "../../systems/shared/movement/TileSystem";
 
 // Polyfill ProgressEvent for Node.js server environment
 if (typeof ProgressEvent === "undefined") {
@@ -156,6 +157,10 @@ export class MobEntity extends CombatantEntity {
   private readonly WANDER_MIN_DISTANCE = 1; // Minimum wander distance
   private readonly WANDER_MAX_DISTANCE = 5; // Maximum wander distance
   private readonly STUCK_TIMEOUT = 3000; // Give up after 3 seconds stuck
+  // Tile movement throttling - prevent emitting duplicate move requests
+  // Uses tick-based throttling (aligned with 600ms server ticks) instead of time-based
+  private _lastRequestedTargetTile: { x: number; z: number } | null = null;
+  private _lastMoveRequestTick: number = -1;
 
   // ===== SPAWN TRACKING =====
   // Track the mob's CURRENT spawn location (changes on respawn)
@@ -164,6 +169,11 @@ export class MobEntity extends CombatantEntity {
 
   // ===== DEBUG TRACKING =====
   private _justRespawned = false; // Track if we just respawned (for one-time logging)
+
+  // ===== TICK-ALIGNED AI =====
+  // AI runs once per server tick (600ms), not every frame (~16ms)
+  // This prevents excessive movement requests and aligns with OSRS tick system
+  private _lastAITick: number = -1;
 
   async init(): Promise<void> {
     await super.init();
@@ -753,8 +763,50 @@ export class MobEntity extends CombatantEntity {
     return {
       // Position & Movement
       getPosition: () => this.getPosition(),
-      moveTowards: (target, deltaTime) =>
-        this.moveTowardsTarget(target, deltaTime),
+      moveTowards: (target, _deltaTime) => {
+        // Emit tile movement request instead of continuous movement
+        // Server's MobTileMovementManager will handle the actual movement on ticks
+        // The deltaTime parameter is ignored - movement is now tick-based
+
+        // Convert positions to tiles for comparison
+        const currentPos = this.getPosition();
+        const currentTile = worldToTile(currentPos.x, currentPos.z);
+        const targetTile = worldToTile(target.x, target.z);
+
+        // CRITICAL: Skip if already at target tile (defense-in-depth)
+        // This prevents spam when AI states call moveTowards to same tile
+        // The AI states should also check this, but this is a safety net
+        if (currentTile.x === targetTile.x && currentTile.z === targetTile.z) {
+          return; // Already at destination tile - nothing to do
+        }
+
+        // TICK-BASED THROTTLING: Only emit one move request per tick per target
+        // This aligns with the 600ms server tick system instead of arbitrary time cooldowns
+        const currentTick = this.world.currentTick;
+        const targetTileChanged =
+          !this._lastRequestedTargetTile ||
+          this._lastRequestedTargetTile.x !== targetTile.x ||
+          this._lastRequestedTargetTile.z !== targetTile.z;
+
+        if (!targetTileChanged && currentTick === this._lastMoveRequestTick) {
+          return; // Same tick, same target - already requested this movement
+        }
+
+        // Update tracking
+        this._lastRequestedTargetTile = { x: targetTile.x, z: targetTile.z };
+        this._lastMoveRequestTick = currentTick;
+
+        // Note: Debug logging removed for production. Enable if needed:
+        // console.log(`[MobEntity] moveTowards: ${this.id} from tile (${currentTile.x}, ${currentTile.z}) to tile (${targetTile.x}, ${targetTile.z}), emitting MOB_NPC_MOVE_REQUEST`);
+
+        this.world.emit(EventType.MOB_NPC_MOVE_REQUEST, {
+          mobId: this.id,
+          targetPos: target,
+          // If chasing a player, include targetEntityId for dynamic repathing
+          targetEntityId: this.config.targetPlayerId || undefined,
+          tilesPerTick: 2, // Default mob walk speed (same as player walk)
+        });
+      },
       teleportTo: (position) => {
         this.setPosition(position.x, position.y, position.z);
         this.config.aiState = MobAIState.IDLE;
@@ -997,7 +1049,21 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    // Update AI state machine
+    // ===== TICK-ALIGNED AI UPDATE =====
+    // Only run AI once per server tick (600ms), not every frame (~16ms)
+    // This aligns with OSRS tick system and prevents excessive movement requests
+    //
+    // world.currentTick is set by ServerNetwork's TickSystem at the start of each tick
+    // On client, currentTick is always 0, so AI won't run (client mobs are visual only)
+    const currentTick = this.world.currentTick;
+    if (currentTick === this._lastAITick) {
+      // Same tick as last AI update - skip AI processing
+      // This saves ~59 out of 60 AI updates per second
+      return;
+    }
+    this._lastAITick = currentTick;
+
+    // Update AI state machine (now runs once per tick instead of every frame)
     this.aiStateMachine.update(this.createAIContext(), deltaTime);
 
     // Sync config.aiState with AI state machine current state
@@ -1178,7 +1244,11 @@ export class MobEntity extends CombatantEntity {
       }
 
       // COMBAT ROTATION: Rotate to face target when in ATTACK state (RuneScape-style)
+      // BUT: Only apply combat rotation when NOT moving via tile movement
+      // TileInterpolator handles rotation when entity is walking/running
+      const isTileMoving = this.data.tileMovementActive === true;
       if (
+        !isTileMoving &&
         this.config.aiState === MobAIState.ATTACK &&
         this.config.targetPlayerId
       ) {
@@ -1898,7 +1968,23 @@ export class MobEntity extends CombatantEntity {
 
     // Handle emote from server (like PlayerRemote does)
     if ("e" in data && data.e !== undefined && this._avatarInstance) {
-      const emoteUrl = data.e as string;
+      const serverEmote = data.e as string;
+
+      // Map symbolic emote names to asset URLs (same as PlayerRemote)
+      let emoteUrl: string;
+      if (serverEmote.startsWith("asset://")) {
+        emoteUrl = serverEmote;
+      } else {
+        const emoteMap: Record<string, string> = {
+          idle: Emotes.IDLE,
+          walk: Emotes.WALK,
+          run: Emotes.RUN,
+          combat: Emotes.COMBAT,
+          death: Emotes.DEATH,
+        };
+        emoteUrl = emoteMap[serverEmote] || Emotes.IDLE;
+      }
+
       if (this._currentEmote !== emoteUrl) {
         this._currentEmote = emoteUrl;
         this._avatarInstance.setEmote(emoteUrl);

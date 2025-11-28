@@ -108,6 +108,94 @@ export function tilesEqual(a: TileCoord, b: TileCoord): boolean {
 }
 
 /**
+ * Check if two tiles are adjacent (Chebyshev distance = 1)
+ * This includes diagonal adjacency (8 directions).
+ * Used for general "next to each other" checks.
+ *
+ * OSRS Reference: Entities are considered "in melee range" when adjacent.
+ */
+export function tilesAdjacent(a: TileCoord, b: TileCoord): boolean {
+  const dx = Math.abs(a.x - b.x);
+  const dz = Math.abs(a.z - b.z);
+  // Adjacent if max distance is 1 and not the same tile
+  return dx <= 1 && dz <= 1 && (dx > 0 || dz > 0);
+}
+
+/**
+ * Check if two tiles are cardinally adjacent (Manhattan distance = 1)
+ * This is N/S/E/W only, no diagonals.
+ * In OSRS, melee attacks are cardinal-only (except salamanders).
+ *
+ * OSRS Reference: Standard melee can only attack N/S/E/W, not diagonally.
+ */
+export function tilesCardinallyAdjacent(a: TileCoord, b: TileCoord): boolean {
+  const dx = Math.abs(a.x - b.x);
+  const dz = Math.abs(a.z - b.z);
+  // Cardinal if exactly 1 step in only one axis
+  return (dx === 1 && dz === 0) || (dx === 0 && dz === 1);
+}
+
+/**
+ * Get the best adjacent tile to stand on when attacking a target.
+ * Returns the adjacent tile to `target` that is closest to `attacker`.
+ * This is used for melee combat positioning - stand next to target, not on it.
+ *
+ * OSRS Reference: NPCs path to an adjacent tile when chasing for melee combat.
+ *
+ * @param target - The tile the target is standing on
+ * @param attacker - The tile the attacker is currently on
+ * @param cardinalOnly - If true, only consider N/S/E/W tiles (OSRS melee behavior)
+ * @param isWalkable - Optional function to check if a tile is walkable
+ * @returns The best adjacent tile to stand on, or null if none available
+ */
+export function getBestAdjacentTile(
+  target: TileCoord,
+  attacker: TileCoord,
+  cardinalOnly: boolean = false,
+  isWalkable?: (tile: TileCoord) => boolean,
+): TileCoord | null {
+  // Get candidate tiles (cardinal or all 8 directions)
+  const candidates = cardinalOnly
+    ? [
+        { x: target.x - 1, z: target.z }, // West
+        { x: target.x + 1, z: target.z }, // East
+        { x: target.x, z: target.z - 1 }, // South
+        { x: target.x, z: target.z + 1 }, // North
+      ]
+    : getAdjacentTiles(target);
+
+  // Filter out unwalkable tiles if isWalkable function provided
+  const walkableCandidates = isWalkable
+    ? candidates.filter(isWalkable)
+    : candidates;
+
+  if (walkableCandidates.length === 0) {
+    return null;
+  }
+
+  // If attacker is already on one of these tiles, return that tile
+  for (const candidate of walkableCandidates) {
+    if (tilesEqual(candidate, attacker)) {
+      return candidate;
+    }
+  }
+
+  // Find the candidate closest to the attacker using Chebyshev distance
+  let best = walkableCandidates[0];
+  let bestDist = tileChebyshevDistance(best, attacker);
+
+  for (let i = 1; i < walkableCandidates.length; i++) {
+    const dist = tileChebyshevDistance(walkableCandidates[i], attacker);
+    if (dist < bestDist) {
+      best = walkableCandidates[i];
+      bestDist = dist;
+    }
+  }
+
+  return best;
+}
+
+/**
  * Get adjacent tiles (8 directions - RuneScape order)
  * Order: W, E, S, N, SW, SE, NW, NE
  */
