@@ -216,6 +216,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.broadcastManager.sendToAll.bind(this.broadcastManager),
     );
 
+    // Clean up tile movement state when player disconnects (prevents memory leak)
+    this.world.on(EventType.PLAYER_LEFT, (event: { playerId: string }) => {
+      this.tileMovementManager.cleanup(event.playerId);
+    });
+
     // Save manager
     this.saveManager = new SaveManager(this.world, this.db);
 
