@@ -41,11 +41,17 @@ interface TickListener {
 
 /**
  * Server tick system for RuneScape-style game loop
+ *
+ * Uses self-correcting setTimeout instead of setInterval to prevent drift.
+ * setInterval can accumulate timing errors over time, especially under load.
+ * This implementation tracks the ideal next tick time and adjusts delays
+ * to maintain accurate long-term tick timing.
  */
 export class TickSystem {
   private tickNumber = 0;
   private lastTickTime = 0;
-  private tickInterval: ReturnType<typeof setInterval> | null = null;
+  private nextTickTime = 0; // Ideal time for next tick (drift correction)
+  private tickTimeout: ReturnType<typeof setTimeout> | null = null;
   private listeners: TickListener[] = [];
   private isRunning = false;
 
@@ -59,26 +65,49 @@ export class TickSystem {
     }
 
     this.isRunning = true;
-    this.lastTickTime = Date.now();
+    const now = Date.now();
+    this.lastTickTime = now;
+    this.nextTickTime = now + TICK_DURATION_MS;
 
     console.log(
-      `[TickSystem] Starting tick loop (${TICK_DURATION_MS}ms per tick)`,
+      `[TickSystem] Starting tick loop (${TICK_DURATION_MS}ms per tick, drift-corrected)`,
     );
 
-    // Use setInterval for consistent tick timing
-    // Note: setInterval can drift slightly, but for 600ms ticks this is acceptable
-    this.tickInterval = setInterval(() => {
+    // Schedule first tick
+    this.scheduleNextTick();
+  }
+
+  /**
+   * Schedule the next tick with drift correction
+   *
+   * Instead of fixed intervals, we calculate delay based on when the tick
+   * SHOULD fire vs current time. This compensates for:
+   * - setTimeout/setInterval inaccuracy
+   * - Long-running tick handlers
+   * - System load causing delays
+   */
+  private scheduleNextTick(): void {
+    if (!this.isRunning) return;
+
+    const now = Date.now();
+    // Calculate delay to hit the ideal next tick time
+    // If we're behind, this will be small (or even negative → immediate)
+    // If we're somehow ahead, this ensures we don't fire too early
+    const delay = Math.max(1, this.nextTickTime - now);
+
+    this.tickTimeout = setTimeout(() => {
       this.processTick();
-    }, TICK_DURATION_MS);
+      this.scheduleNextTick();
+    }, delay);
   }
 
   /**
    * Stop the tick loop
    */
   stop(): void {
-    if (this.tickInterval) {
-      clearInterval(this.tickInterval);
-      this.tickInterval = null;
+    if (this.tickTimeout) {
+      clearTimeout(this.tickTimeout);
+      this.tickTimeout = null;
     }
     this.isRunning = false;
     console.log("[TickSystem] Stopped");
@@ -92,6 +121,18 @@ export class TickSystem {
     const deltaMs = now - this.lastTickTime;
     this.lastTickTime = now;
     this.tickNumber++;
+
+    // Advance ideal next tick time (maintains long-term accuracy)
+    // Even if this tick was late, the next tick target stays on schedule
+    this.nextTickTime += TICK_DURATION_MS;
+
+    // If we've fallen very far behind (>2 ticks), reset to prevent catch-up storm
+    if (now > this.nextTickTime + TICK_DURATION_MS) {
+      console.warn(
+        `[TickSystem] Tick ${this.tickNumber} was ${now - this.nextTickTime + TICK_DURATION_MS}ms late, resetting schedule`,
+      );
+      this.nextTickTime = now + TICK_DURATION_MS;
+    }
 
     // Sort listeners by priority (stable sort preserves registration order within same priority)
     const sortedListeners = [...this.listeners].sort(
