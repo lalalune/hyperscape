@@ -462,35 +462,60 @@ export class PlayerRemote extends Entity implements HotReloadable {
     }
 
     // COMBAT ROTATION: Rotate to face target when in combat (RuneScape-style)
-    // Check if any nearby mobs are targeting us (since combat state isn't synced from server)
+    // Priority: 1) Our combat target (from server), 2) Mob attacking us
     let combatTarget: {
       position: { x: number; z: number };
       id: string;
     } | null = null;
 
-    // Look for mobs that are attacking us
-    for (const entity of this.world.entities.items.values()) {
-      if (entity.type === "mob" && entity.position) {
-        const mobEntity = entity as any;
-        // Check if mob is in ATTACK state and targeting this player
-        if (
-          mobEntity.config?.aiState === "attack" &&
-          mobEntity.config?.targetPlayerId === this.id
-        ) {
-          const dx = entity.position.x - this.position.x;
-          const dz = entity.position.z - this.position.z;
-          const distance2D = Math.sqrt(dx * dx + dz * dz);
+    // First check if WE have a combat target (player attacking mob)
+    if (this.combat.combatTarget) {
+      const targetEntity = this.world.entities.items.get(
+        this.combat.combatTarget,
+      );
+      if (targetEntity?.position) {
+        const dx = targetEntity.position.x - this.position.x;
+        const dz = targetEntity.position.z - this.position.z;
+        const distance2D = Math.sqrt(dx * dx + dz * dz);
+        // Only rotate if target is within reasonable combat range
+        if (distance2D <= 10) {
+          combatTarget = {
+            position: targetEntity.position,
+            id: targetEntity.id,
+          };
+        }
+      }
+    }
 
-          // Only rotate if mob is within reasonable combat range
-          if (distance2D <= 3) {
-            combatTarget = { position: entity.position, id: entity.id };
-            break; // Only face one mob at a time
+    // If no target from our combat state, check for mobs attacking us
+    if (!combatTarget) {
+      for (const entity of this.world.entities.items.values()) {
+        if (entity.type === "mob" && entity.position) {
+          const mobEntity = entity as any;
+          // Check if mob is in ATTACK state and targeting this player
+          if (
+            mobEntity.config?.aiState === "attack" &&
+            mobEntity.config?.targetPlayerId === this.id
+          ) {
+            const dx = entity.position.x - this.position.x;
+            const dz = entity.position.z - this.position.z;
+            const distance2D = Math.sqrt(dx * dx + dz * dz);
+
+            // Only rotate if mob is within reasonable combat range
+            if (distance2D <= 3) {
+              combatTarget = { position: entity.position, id: entity.id };
+              break; // Only face one mob at a time
+            }
           }
         }
       }
     }
 
-    if (combatTarget) {
+    // OSRS behavior: Only face combat target when STANDING STILL
+    // When moving, face movement direction (handled by TileInterpolator)
+    const isMoving = this.data.tileMovementActive === true;
+
+    if (combatTarget && !isMoving) {
       // Calculate angle to target (XZ plane only, like RuneScape)
       const dx = combatTarget.position.x - this.position.x;
       const dz = combatTarget.position.z - this.position.z;
@@ -683,9 +708,14 @@ export class PlayerRemote extends Entity implements HotReloadable {
       }
     }
     if (data.q !== undefined) {
-      // Rotation is no longer stored in EntityData, apply directly to entity transform
-      this.lerpQuaternion.pushArray(data.q, this.teleport || null);
-      // When explicit rotation update arrives, clear any movement-facing override to avoid fighting network
+      // CRITICAL: Skip quaternion updates when TileInterpolator is controlling rotation
+      // TileInterpolator handles rotation smoothly for tile-based movement
+      const tileControlled = this.data.tileInterpolatorControlled === true;
+      if (!tileControlled) {
+        // Rotation is no longer stored in EntityData, apply directly to entity transform
+        this.lerpQuaternion.pushArray(data.q, this.teleport || null);
+        // When explicit rotation update arrives, clear any movement-facing override to avoid fighting network
+      }
     }
     if (data.e !== undefined) {
       this.data.emote = data.e;

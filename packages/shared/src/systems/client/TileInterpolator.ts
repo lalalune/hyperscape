@@ -328,20 +328,42 @@ export class TileInterpolator {
     worldPos: THREE.Vector3,
     emote: string,
     quaternion?: number[],
-    _entityCurrentPos?: THREE.Vector3,
+    entityCurrentPos?: THREE.Vector3,
     tickNumber?: number,
   ): void {
     const state = this.entityStates.get(entityId);
 
     if (!state) {
       // No active path - this might be a sync update for a stationary entity
-      // Create a minimal state just holding position
+      // IMPORTANT: Use entity's current visual position if available, not server position
+      // This prevents teleporting to wrong location when state is first created
+      const currentPos = entityCurrentPos || worldPos;
+
+      // Check if server position is very different from current position
+      const currentTile = worldToTile(currentPos.x, currentPos.z);
+      const dist = Math.max(
+        Math.abs(currentTile.x - serverTile.x),
+        Math.abs(currentTile.z - serverTile.z),
+      );
+
+      // If large discrepancy and we have entity position, trust entity over server
+      const usePos =
+        dist > MAX_DESYNC_DISTANCE && entityCurrentPos
+          ? entityCurrentPos
+          : worldPos;
+
+      if (dist > MAX_DESYNC_DISTANCE && entityCurrentPos) {
+        console.warn(
+          `[TileInterpolator] Creating state: large discrepancy (${dist} tiles). Using entity pos (${currentTile.x},${currentTile.z}) not server (${serverTile.x},${serverTile.z})`,
+        );
+      }
+
       const newState: EntityMovementState = {
         fullPath: [],
         targetTileIndex: 0,
         destinationTile: null,
-        visualPosition: worldPos.clone(),
-        targetWorldPos: worldPos.clone(),
+        visualPosition: usePos.clone(),
+        targetWorldPos: usePos.clone(),
         quaternion: quaternion
           ? new THREE.Quaternion(
               quaternion[0],
@@ -481,22 +503,31 @@ export class TileInterpolator {
       );
       const dist = this.tileDistance(currentTile, serverTile);
 
-      if (dist > MAX_DESYNC_DISTANCE) {
-        if (this.debugMode) {
-          console.log(
-            `[TileInterpolator] Large desync (${dist} tiles), snapping to server tile`,
-          );
-        }
-        // Teleport/large desync - snap to server tile center
+      // IMPORTANT: If we have an active path, trust it over server updates
+      // This prevents teleporting back when server has stale position data
+      // Only teleport if we're STATIONARY (no path) and server says we're far away
+      const hasActivePath =
+        state.fullPath.length > 0 &&
+        state.targetTileIndex < state.fullPath.length;
+
+      if (dist > MAX_DESYNC_DISTANCE && !hasActivePath) {
+        // Large desync while stationary - snap to server position
+        console.warn(
+          `[TileInterpolator] Large desync (${dist} tiles) while stationary, snapping to server tile (${serverTile.x},${serverTile.z})`,
+        );
         const serverTileCenter = tileToWorld(serverTile);
         state.visualPosition.x = serverTileCenter.x;
         state.visualPosition.z = serverTileCenter.z;
         state.visualPosition.y = worldPos.y; // Use server's terrain height
         state.targetWorldPos.copy(state.visualPosition);
-        state.fullPath = [];
-        state.targetTileIndex = 0;
         state.isMoving = false;
-        state.catchUpMultiplier = 1.0; // Reset catch-up speed after teleport
+        state.catchUpMultiplier = 1.0;
+      } else if (dist > MAX_DESYNC_DISTANCE && hasActivePath) {
+        // Large desync but we have an active path - trust our path, ignore server
+        // This prevents glitching back to old positions when server has stale data
+        console.warn(
+          `[TileInterpolator] Ignoring large desync (${dist} tiles) - trusting active path. Server: (${serverTile.x},${serverTile.z}), Client: (${currentTile.x},${currentTile.z})`,
+        );
       }
       // Otherwise ignore - we'll continue on our predicted path
     }
@@ -609,12 +640,14 @@ export class TileInterpolator {
   /**
    * Update visual positions for all entities
    * This is the main movement driver - walks through path at fixed speed
+   *
+   * @param deltaTime - Time since last frame in seconds
+   * @param getEntity - Function to get entity by ID
+   * @param getTerrainHeight - Optional function to get terrain height at X/Z (for smooth Y)
    */
   update(
     deltaTime: number,
-    getEntity: (
-      id: string,
-    ) =>
+    getEntity: (id: string) =>
       | {
           position: THREE.Vector3;
           node?: THREE.Object3D;
@@ -622,6 +655,7 @@ export class TileInterpolator {
           data: Record<string, unknown>;
         }
       | undefined,
+    getTerrainHeight?: (x: number, z: number) => number | null,
   ): void {
     for (const [entityId, state] of this.entityStates) {
       const entity = getEntity(entityId);
@@ -632,6 +666,16 @@ export class TileInterpolator {
         state.fullPath.length === 0 ||
         state.targetTileIndex >= state.fullPath.length
       ) {
+        // Update Y from terrain if available
+        if (getTerrainHeight) {
+          const height = getTerrainHeight(
+            state.visualPosition.x,
+            state.visualPosition.z,
+          );
+          if (height !== null && Number.isFinite(height)) {
+            state.visualPosition.y = height + 0.1; // Small offset above ground
+          }
+        }
         entity.position.copy(state.visualPosition);
         // Also sync to node.position if available (for PlayerRemote compatibility)
         if (entity.node && "position" in entity.node) {
@@ -648,6 +692,7 @@ export class TileInterpolator {
         state.isMoving = false;
         state.emote = "idle";
         entity.data.emote = "idle";
+        entity.data.tileMovementActive = false; // Not moving - allow combat rotation
         continue;
       }
 
@@ -679,7 +724,7 @@ export class TileInterpolator {
           // Arrived at current target tile - snap to tile center and advance
           state.visualPosition.x = state.targetWorldPos.x;
           state.visualPosition.z = state.targetWorldPos.z;
-          state.visualPosition.y = state.targetWorldPos.y;
+          // Y will be set from terrain at end of loop
 
           // Subtract the distance we traveled from our movement budget
           remainingMove -= dist;
@@ -729,11 +774,7 @@ export class TileInterpolator {
           this._tempDir.set(dx, 0, dz).normalize();
           state.visualPosition.x += this._tempDir.x * remainingMove;
           state.visualPosition.z += this._tempDir.z * remainingMove;
-
-          // Interpolate Y toward target
-          const dy = state.targetWorldPos.y - state.visualPosition.y;
-          const yProgress = remainingMove / dist;
-          state.visualPosition.y += dy * Math.min(1, yProgress);
+          // Y will be set from terrain at end of loop
 
           // Update rotation to face movement direction (only if distance is sufficient)
           // When very close to target, preserve existing rotation to avoid brief twitches
@@ -749,6 +790,17 @@ export class TileInterpolator {
         }
       }
 
+      // Update Y from terrain for smooth ground following
+      if (getTerrainHeight) {
+        const height = getTerrainHeight(
+          state.visualPosition.x,
+          state.visualPosition.z,
+        );
+        if (height !== null && Number.isFinite(height)) {
+          state.visualPosition.y = height + 0.1; // Small offset above ground
+        }
+      }
+
       // Apply visual state to entity
       entity.position.copy(state.visualPosition);
       // Also sync to node.position if available (for PlayerRemote compatibility)
@@ -757,6 +809,9 @@ export class TileInterpolator {
       }
       // Mark entity as controlled by tile interpolator to prevent other systems from overwriting
       entity.data.tileInterpolatorControlled = true;
+      // Expose isMoving so PlayerLocal/PlayerRemote can check for combat rotation
+      // OSRS behavior: only face combat target when standing still, not while moving
+      entity.data.tileMovementActive = state.isMoving;
       // Set rotation on base (consistent with combat code in PlayerLocal)
       // VRM models have 180° rotation baked in, base.quaternion adds to that
       if (entity.base) {

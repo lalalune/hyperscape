@@ -710,7 +710,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
       }
 
       // Check for large divergence from server
-      if (this.serverPosition) {
+      // CRITICAL: Skip this check when TileInterpolator is controlling position
+      // TileInterpolator smoothly interpolates position, and serverPosition may be stale
+      // (not updated because we skip applying server position during tile movement)
+      const tileControlled = this.data?.tileInterpolatorControlled === true;
+      if (this.serverPosition && !tileControlled) {
         const dist = this.position.distanceTo(this.serverPosition);
         if (dist > 100) {
           console.warn(
@@ -874,10 +878,21 @@ export class PlayerLocal extends Entity implements HotReloadable {
       const pos = data.p as number[];
       if (pos.length === 3) {
         // CRITICAL: Block position updates during death animation
-        // Server might still be sending position packets from queued movement
-        // BUT continue processing other updates (like emote for death animation!)
         if ((this as any).isDying || (this.data as any).isDying) {
           // Ignore position updates during death
+        }
+        // CRITICAL: Skip position updates when TileInterpolator is controlling position
+        // TileInterpolator smoothly interpolates between tiles, server sends discrete
+        // tile positions every 600ms tick. Applying server position causes flickering.
+        // EXCEPTION: Allow explicit teleports (marked with "t" flag in packet)
+        else if (
+          this.data?.tileInterpolatorControlled === true &&
+          !("t" in data)
+        ) {
+          // Store server position for reference/debugging, but DON'T apply it
+          this.serverPosition.set(pos[0], pos[1], pos[2]);
+          this.lastServerUpdate = Date.now();
+          // Skip applying - TileInterpolator handles position smoothly
         } else {
           // Store as server position for reference
           this.serverPosition.set(pos[0], pos[1], pos[2]);
@@ -913,10 +928,17 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
 
     if ("q" in data && data.q !== undefined) {
-      // Quaternion update - apply to rotation
-      const quat = data.q as number[];
-      if (quat.length === 4 && this.base) {
-        this.base.quaternion.set(quat[0], quat[1], quat[2], quat[3]);
+      // CRITICAL: Skip quaternion updates when TileInterpolator is controlling rotation
+      // TileInterpolator calculates smooth inter-frame rotation, while server sends
+      // discrete tile-based rotation. Applying server rotation would cause flickering.
+      if (this.data?.tileInterpolatorControlled === true) {
+        // Ignore server quaternion - TileInterpolator handles rotation smoothly
+      } else {
+        // Quaternion update - apply to rotation (only when not tile-controlled)
+        const quat = data.q as number[];
+        if (quat.length === 4 && this.base) {
+          this.base.quaternion.set(quat[0], quat[1], quat[2], quat[3]);
+        }
       }
     }
 
@@ -1886,35 +1908,60 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
 
     // COMBAT ROTATION: Rotate to face target when in combat (RuneScape-style)
-    // Check if any nearby mobs are targeting us (since combat state isn't synced from server)
+    // Priority: 1) Our combat target (from server), 2) Mob attacking us
     let combatTarget: {
       position: { x: number; z: number };
       id: string;
     } | null = null;
 
-    // Look for mobs that are attacking us
-    for (const entity of this.world.entities.items.values()) {
-      if (entity.type === "mob" && entity.position) {
-        const mobEntity = entity as any;
-        // Check if mob is in ATTACK state and targeting this player
-        if (
-          mobEntity.config?.aiState === "attack" &&
-          mobEntity.config?.targetPlayerId === this.id
-        ) {
-          const dx = entity.position.x - this.position.x;
-          const dz = entity.position.z - this.position.z;
-          const distance2D = Math.sqrt(dx * dx + dz * dz);
+    // First check if WE have a combat target (player attacking mob)
+    if (this.combat.combatTarget) {
+      const targetEntity = this.world.entities.items.get(
+        this.combat.combatTarget,
+      );
+      if (targetEntity?.position) {
+        const dx = targetEntity.position.x - this.position.x;
+        const dz = targetEntity.position.z - this.position.z;
+        const distance2D = Math.sqrt(dx * dx + dz * dz);
+        // Only rotate if target is within reasonable combat range
+        if (distance2D <= 10) {
+          combatTarget = {
+            position: targetEntity.position,
+            id: targetEntity.id,
+          };
+        }
+      }
+    }
 
-          // Only rotate if mob is within reasonable combat range
-          if (distance2D <= 3) {
-            combatTarget = { position: entity.position, id: entity.id };
-            break; // Only face one mob at a time
+    // If no target from our combat state, check for mobs attacking us
+    if (!combatTarget) {
+      for (const entity of this.world.entities.items.values()) {
+        if (entity.type === "mob" && entity.position) {
+          const mobEntity = entity as any;
+          // Check if mob is in ATTACK state and targeting this player
+          if (
+            mobEntity.config?.aiState === "attack" &&
+            mobEntity.config?.targetPlayerId === this.id
+          ) {
+            const dx = entity.position.x - this.position.x;
+            const dz = entity.position.z - this.position.z;
+            const distance2D = Math.sqrt(dx * dx + dz * dz);
+
+            // Only rotate if mob is within reasonable combat range
+            if (distance2D <= 3) {
+              combatTarget = { position: entity.position, id: entity.id };
+              break; // Only face one mob at a time
+            }
           }
         }
       }
     }
 
-    if (combatTarget) {
+    // OSRS behavior: Only face combat target when STANDING STILL
+    // When moving, face movement direction (handled by TileInterpolator)
+    const isMoving = this.data?.tileMovementActive === true;
+
+    if (combatTarget && !isMoving) {
       // Calculate angle to target (XZ plane only, like RuneScape)
       const dx = combatTarget.position.x - this.position.x;
       const dz = combatTarget.position.z - this.position.z;
