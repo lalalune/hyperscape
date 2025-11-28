@@ -105,6 +105,8 @@ import { EventType } from "../../types/events";
 import { uuid } from "../../utils";
 import { SystemBase } from "../shared";
 import { PlayerLocal } from "../../entities/player/PlayerLocal";
+import { TileInterpolator } from "./TileInterpolator";
+import { type TileCoord } from "../shared/movement/TileSystem"; // Internal import within shared package
 
 const _v3_1 = new THREE.Vector3();
 const _quat_1 = new THREE.Quaternion();
@@ -189,6 +191,9 @@ export class ClientNetwork extends SystemBase {
   private interpolationDelay: number = 100; // ms
   private maxSnapshots: number = 10;
   private extrapolationLimit: number = 500; // ms
+
+  // Tile-based interpolation for RuneScape-style movement
+  private tileInterpolator: TileInterpolator = new TileInterpolator();
 
   // Embedded viewport configuration (read once at init)
   private embeddedCharacterId: string | null = null;
@@ -849,7 +854,15 @@ export class ClientNetwork extends SystemBase {
 
     if (isLocal && (hasP || hasV || hasQ)) {
       // Local player - apply directly through entity.modify()
-      entity.modify(changes);
+      // BUT: Skip position AND rotation updates if tile movement is active
+      // (let tile interpolator handle them smoothly - server values cause twitching)
+      if (this.tileInterpolator.hasState(id)) {
+        // Tile movement active - strip position and rotation
+        const { p, q, ...restChanges } = changes as Record<string, unknown>;
+        entity.modify(restChanges);
+      } else {
+        entity.modify(changes);
+      }
     } else {
       // Remote entities - use interpolation for smooth movement
       // CRITICAL: If mob is DEAD (or entering DEAD state), clear interpolation buffer
@@ -870,7 +883,9 @@ export class ClientNetwork extends SystemBase {
       }
 
       // Skip adding new interpolation snapshots for dead mobs
-      if (hasP && !isDead) {
+      // Also skip for entities using tile movement (tile interpolator handles them)
+      const hasTileState = this.tileInterpolator.hasState(id);
+      if (hasP && !isDead && !hasTileState) {
         this.addInterpolationSnapshot(
           id,
           changes as {
@@ -882,7 +897,14 @@ export class ClientNetwork extends SystemBase {
       }
 
       // Still apply non-transform changes immediately
-      entity.modify(changes);
+      // But strip position AND rotation for tile-moving entities
+      // (let tile interpolator handle them smoothly - server values cause twitching)
+      if (hasTileState) {
+        const { p, q, ...restChanges } = changes as Record<string, unknown>;
+        entity.modify(restChanges);
+      } else {
+        entity.modify(changes);
+      }
     }
 
     // Re-emit normalized change event so other systems can react
@@ -976,9 +998,16 @@ export class ClientNetwork extends SystemBase {
     const renderTime = now - this.interpolationDelay;
 
     for (const [entityId, state] of this.interpolationStates) {
-      // Skip local player
+      // Skip local player - tile interpolation handles local player movement
       if (entityId === this.world.entities.player?.id) {
         this.interpolationStates.delete(entityId);
+        continue;
+      }
+
+      // Skip entities that have ANY tile interpolation state
+      // Once an entity uses tile movement, ALL position updates should come from tile packets
+      // Using hasState() instead of isInterpolating() prevents position conflicts when entity is stationary
+      if (this.tileInterpolator.hasState(entityId)) {
         continue;
       }
 
@@ -993,9 +1022,6 @@ export class ClientNetwork extends SystemBase {
       // Check if entity has aiState property (indicates it's a MobEntity)
       const mobData = entity.serialize();
       if (mobData.aiState === "dead") {
-        console.log(
-          `[ClientNetwork] ⏭️ Skipping interpolation for dead mob ${entityId}`,
-        );
         continue; // Don't interpolate - let MobEntity maintain locked death position
       }
 
@@ -1395,6 +1421,8 @@ export class ClientNetwork extends SystemBase {
   onEntityRemoved = (id: string) => {
     // Remove from interpolation tracking
     this.interpolationStates.delete(id);
+    // Remove from tile interpolation tracking (RuneScape-style movement)
+    this.tileInterpolator.removeEntity(id);
     // Clean up pending modifications tracking
     this.pendingModifications.delete(id);
     this.pendingModificationTimestamps.delete(id);
@@ -1408,6 +1436,22 @@ export class ClientNetwork extends SystemBase {
    */
   lateUpdate(delta: number): void {
     this.updateInterpolation(delta);
+
+    // Update tile-based interpolation (RuneScape-style)
+    this.tileInterpolator.update(delta, (id: string) => {
+      const entity = this.world.entities.get(id);
+      if (!entity) return undefined;
+      // Cast to access base (players have VRM on base, rotation should be set there)
+      const entityWithBase = entity as typeof entity & {
+        base?: THREE.Object3D;
+      };
+      return {
+        position: entity.position as THREE.Vector3,
+        node: entity.node as THREE.Object3D | undefined,
+        base: entityWithBase.base,
+        data: entity.data as Record<string, unknown>,
+      };
+    });
   }
 
   onGatheringComplete = (data: {
@@ -1698,6 +1742,117 @@ export class ClientNetwork extends SystemBase {
     });
   };
 
+  // ==== Tile Movement Handlers (RuneScape-style) ====
+
+  /**
+   * Handle tile position update from server
+   * Server sends this every tick (600ms) when an entity moves
+   */
+  onEntityTileUpdate = (data: {
+    id: string;
+    tile: TileCoord;
+    worldPos: [number, number, number];
+    quaternion?: [number, number, number, number];
+    emote: string;
+    tickNumber: number;
+  }) => {
+    console.log(
+      `[ClientNetwork] onEntityTileUpdate: ${data.id} -> tile (${data.tile.x},${data.tile.z}) tick ${data.tickNumber}`,
+    );
+
+    const worldPos = new THREE.Vector3(
+      data.worldPos[0],
+      data.worldPos[1],
+      data.worldPos[2],
+    );
+
+    // Get entity's current position as fallback for smooth interpolation
+    // (in case tileMovementStart was missed due to packet loss)
+    const entity = this.world.entities.get(data.id);
+    const entityCurrentPos = entity?.position
+      ? (entity.position as THREE.Vector3).clone()
+      : undefined;
+
+    // Update tile interpolator with tick number for proper sequencing
+    this.tileInterpolator.onTileUpdate(
+      data.id,
+      data.tile,
+      worldPos,
+      data.emote,
+      data.quaternion,
+      entityCurrentPos,
+      data.tickNumber,
+    );
+
+    // Also update the entity data for consistency
+    if (entity) {
+      entity.data.emote = data.emote;
+      if (data.quaternion) {
+        entity.data.quaternion = data.quaternion;
+      }
+    }
+  };
+
+  /**
+   * Handle movement path started
+   *
+   * OSRS Model: Client receives FULL PATH and walks through it at fixed speed.
+   * Server tick updates are for sync/verification only.
+   */
+  onTileMovementStart = (data: {
+    id: string;
+    path: TileCoord[];
+    running: boolean;
+    destinationTile?: TileCoord;
+  }) => {
+    console.log(
+      `[ClientNetwork] onTileMovementStart: ${data.id} path length ${data.path.length}, running: ${data.running}, dest: ${data.destinationTile ? `(${data.destinationTile.x},${data.destinationTile.z})` : "none"}`,
+    );
+
+    // Get entity's current position for smooth start
+    const entity = this.world.entities.get(data.id);
+    const currentPosition = entity?.position
+      ? (entity.position as THREE.Vector3).clone()
+      : undefined;
+
+    // Pass FULL PATH to interpolator - it will walk through autonomously
+    // destinationTile is authoritative - ensures we end at the clicked tile even if path differs
+    this.tileInterpolator.onMovementStart(
+      data.id,
+      data.path,
+      data.running,
+      currentPosition,
+      data.destinationTile,
+    );
+  };
+
+  /**
+   * Handle entity arrived at destination
+   */
+  onTileMovementEnd = (data: {
+    id: string;
+    tile: TileCoord;
+    worldPos: [number, number, number];
+  }) => {
+    const worldPos = new THREE.Vector3(
+      data.worldPos[0],
+      data.worldPos[1],
+      data.worldPos[2],
+    );
+    // Let TileInterpolator handle the arrival smoothly
+    // It will snap only if already at destination, otherwise let interpolation finish
+    this.tileInterpolator.onMovementEnd(data.id, data.tile, worldPos);
+
+    // DON'T snap entity position here - TileInterpolator handles smooth arrival
+    // Only update emote if interpolator says we're not moving
+    if (!this.tileInterpolator.isInterpolating(data.id)) {
+      const entity = this.world.entities.get(data.id);
+      if (entity) {
+        entity.data.emote = "idle";
+      }
+    }
+  };
+
   onClose = (code: CloseEvent) => {
     console.error("[ClientNetwork] 🔌 WebSocket CLOSED:", {
       code: code.code,
@@ -1743,6 +1898,8 @@ export class ClientNetwork extends SystemBase {
     this.connected = false;
     // Clear interpolation states
     this.interpolationStates.clear();
+    // Clear tile interpolation states
+    this.tileInterpolator.clear();
     // Clear pending modifications tracking
     this.pendingModifications.clear();
     this.pendingModificationTimestamps.clear();
