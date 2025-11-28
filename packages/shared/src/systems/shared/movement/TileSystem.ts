@@ -43,6 +43,7 @@ export interface TileMovementState {
   path: TileCoord[]; // Queue of tiles to walk through
   pathIndex: number; // Current position in path
   isRunning: boolean; // Walk (1 tile/tick) vs Run (2 tiles/tick)
+  moveSeq: number; // Movement sequence number (incremented on each new path)
 }
 
 /**
@@ -186,5 +187,6 @@ export function createTileMovementState(
     path: [],
     pathIndex: 0,
     isRunning: false,
+    moveSeq: 0,
   };
 }

@@ -164,6 +164,9 @@ export class TileMovementManager {
     state.path = path;
     state.pathIndex = 0;
     state.isRunning = payload?.runMode ?? false;
+    // Increment movement sequence for packet ordering
+    // Client uses this to ignore stale packets from previous movements
+    state.moveSeq = (state.moveSeq || 0) + 1;
 
     // Immediately rotate player toward destination and send first tile update
     if (path.length > 0) {
@@ -195,11 +198,13 @@ export class TileMovementManager {
       // Broadcast movement started with path
       // Include destination tile explicitly so client knows where to end up
       // (path might be calculated from server position which can differ from client visual)
+      // moveSeq ensures client can detect and ignore stale packets from previous movements
       this.sendFn("tileMovementStart", {
         id: playerEntity.id,
         path: path.map((t) => ({ x: t.x, z: t.z })),
         running: state.isRunning,
         destinationTile: { x: targetTile.x, z: targetTile.z },
+        moveSeq: state.moveSeq,
       });
 
       // Send initial rotation and emote
@@ -310,6 +315,7 @@ export class TileMovementManager {
       );
 
       // Broadcast tile position update to clients
+      // Include moveSeq so client can ignore stale packets from previous movements
       this.sendFn("entityTileUpdate", {
         id: playerId,
         tile: state.currentTile,
@@ -317,6 +323,7 @@ export class TileMovementManager {
         quaternion: entity.data.quaternion,
         emote: state.isRunning ? "run" : "walk",
         tickNumber,
+        moveSeq: state.moveSeq,
       });
 
       // Check if arrived at destination
@@ -324,10 +331,12 @@ export class TileMovementManager {
         console.log(`[TileMovement] ${playerId} arrived at destination`);
 
         // Broadcast movement end
+        // Include moveSeq so client can ignore stale end packets
         this.sendFn("tileMovementEnd", {
           id: playerId,
           tile: state.currentTile,
           worldPos: [worldPos.x, worldPos.y, worldPos.z],
+          moveSeq: state.moveSeq,
         });
 
         // Clear path

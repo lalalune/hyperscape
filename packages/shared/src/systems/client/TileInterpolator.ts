@@ -79,6 +79,9 @@ interface EntityMovementState {
   // Catch-up multiplier for when client is behind server
   // 1.0 = normal speed, >1.0 = catching up
   catchUpMultiplier: number;
+  // Movement sequence number - used to ignore stale packets from previous movements
+  // Incremented on server each time a new path starts
+  moveSeq: number;
 }
 
 /**
@@ -181,6 +184,8 @@ export class TileInterpolator {
   /**
    * Called when server sends a movement path started
    * This is the PRIMARY way movement begins - client receives full path
+   *
+   * @param moveSeq Movement sequence number for packet ordering
    */
   onMovementStart(
     entityId: string,
@@ -188,11 +193,30 @@ export class TileInterpolator {
     running: boolean,
     currentPosition?: THREE.Vector3,
     destinationTile?: TileCoord,
+    moveSeq?: number,
   ): void {
     if (this.debugMode) {
       console.log(
-        `[TileInterpolator] onMovementStart: ${entityId}, path=${path.length} tiles, running=${running}, dest=${destinationTile ? `(${destinationTile.x},${destinationTile.z})` : "none"}`,
+        `[TileInterpolator] onMovementStart: ${entityId}, path=${path.length} tiles, running=${running}, dest=${destinationTile ? `(${destinationTile.x},${destinationTile.z})` : "none"}, moveSeq=${moveSeq}`,
       );
+    }
+
+    // Get existing state to check moveSeq
+    const existingState = this.entityStates.get(entityId);
+
+    // If we have moveSeq and existing state, validate sequence
+    // Ignore stale start packets from previous movements
+    if (
+      moveSeq !== undefined &&
+      existingState &&
+      existingState.moveSeq > moveSeq
+    ) {
+      if (this.debugMode) {
+        console.log(
+          `[TileInterpolator] Ignoring stale onMovementStart: moveSeq ${moveSeq} < current ${existingState.moveSeq}`,
+        );
+      }
+      return;
     }
 
     if (path.length === 0) {
@@ -288,6 +312,7 @@ export class TileInterpolator {
       state.serverConfirmedTile = { ...startTile };
       state.lastServerTick = 0;
       state.catchUpMultiplier = 1.0;
+      state.moveSeq = moveSeq ?? state.moveSeq;
     } else {
       // Create new state
       state = {
@@ -307,6 +332,7 @@ export class TileInterpolator {
         serverConfirmedTile: { ...startTile },
         lastServerTick: 0,
         catchUpMultiplier: 1.0,
+        moveSeq: moveSeq ?? 0,
       };
       this.entityStates.set(entityId, state);
     }
@@ -321,6 +347,8 @@ export class TileInterpolator {
   /**
    * Called when server sends a tile position update (every 600ms tick)
    * This is for SYNC/VERIFICATION only - not the primary movement driver
+   *
+   * @param moveSeq Movement sequence number for packet ordering
    */
   onTileUpdate(
     entityId: string,
@@ -330,8 +358,19 @@ export class TileInterpolator {
     quaternion?: number[],
     entityCurrentPos?: THREE.Vector3,
     tickNumber?: number,
+    moveSeq?: number,
   ): void {
     const state = this.entityStates.get(entityId);
+
+    // Validate moveSeq if provided - ignore stale packets from previous movements
+    if (moveSeq !== undefined && state && state.moveSeq > moveSeq) {
+      if (this.debugMode) {
+        console.log(
+          `[TileInterpolator] Ignoring stale onTileUpdate: moveSeq ${moveSeq} < current ${state.moveSeq}`,
+        );
+      }
+      return;
+    }
 
     if (!state) {
       // No active path - this might be a sync update for a stationary entity
@@ -378,6 +417,7 @@ export class TileInterpolator {
         serverConfirmedTile: { ...serverTile },
         lastServerTick: tickNumber ?? 0,
         catchUpMultiplier: 1.0,
+        moveSeq: moveSeq ?? 0,
       };
       this.entityStates.set(entityId, newState);
       return;
@@ -536,20 +576,33 @@ export class TileInterpolator {
   /**
    * Called when entity arrives at destination
    * IMPORTANT: Don't snap immediately - let interpolation finish naturally
+   *
+   * @param moveSeq Movement sequence number for packet ordering
    */
   onMovementEnd(
     entityId: string,
     tile: TileCoord,
     worldPos: THREE.Vector3,
+    moveSeq?: number,
   ): void {
     if (this.debugMode) {
       console.log(
-        `[TileInterpolator] onMovementEnd: ${entityId} at (${tile.x},${tile.z})`,
+        `[TileInterpolator] onMovementEnd: ${entityId} at (${tile.x},${tile.z}), moveSeq=${moveSeq}`,
       );
     }
 
     const state = this.entityStates.get(entityId);
     if (!state) return;
+
+    // Validate moveSeq - ignore stale end packets from previous movements
+    if (moveSeq !== undefined && state.moveSeq > moveSeq) {
+      if (this.debugMode) {
+        console.log(
+          `[TileInterpolator] Ignoring stale onMovementEnd: moveSeq ${moveSeq} < current ${state.moveSeq}`,
+        );
+      }
+      return;
+    }
 
     // Update server confirmed position
     state.serverConfirmedTile = { ...tile };
