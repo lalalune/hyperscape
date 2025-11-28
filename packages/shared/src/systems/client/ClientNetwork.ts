@@ -1017,6 +1017,12 @@ export class ClientNetwork extends SystemBase {
         continue;
       }
 
+      // CRITICAL: Skip interpolation for entities controlled by TileInterpolator
+      // TileInterpolator handles position and rotation for tile-based movement
+      if (entity.data?.tileInterpolatorControlled === true) {
+        continue; // Don't interpolate - TileInterpolator handles this entity
+      }
+
       // CRITICAL: Skip interpolation for dead mobs to prevent death animation sliding
       // Dead mobs lock their position client-side for RuneScape-style stationary death
       // Check if entity has aiState property (indicates it's a MobEntity)
@@ -1437,21 +1443,33 @@ export class ClientNetwork extends SystemBase {
   lateUpdate(delta: number): void {
     this.updateInterpolation(delta);
 
+    // Get terrain system for height lookups
+    const terrain = this.world.getSystem("terrain") as {
+      getHeightAt?: (x: number, z: number) => number | null;
+    } | null;
+
     // Update tile-based interpolation (RuneScape-style)
-    this.tileInterpolator.update(delta, (id: string) => {
-      const entity = this.world.entities.get(id);
-      if (!entity) return undefined;
-      // Cast to access base (players have VRM on base, rotation should be set there)
-      const entityWithBase = entity as typeof entity & {
-        base?: THREE.Object3D;
-      };
-      return {
-        position: entity.position as THREE.Vector3,
-        node: entity.node as THREE.Object3D | undefined,
-        base: entityWithBase.base,
-        data: entity.data as Record<string, unknown>,
-      };
-    });
+    this.tileInterpolator.update(
+      delta,
+      (id: string) => {
+        const entity = this.world.entities.get(id);
+        if (!entity) return undefined;
+        // Cast to access base (players have VRM on base, rotation should be set there)
+        const entityWithBase = entity as typeof entity & {
+          base?: THREE.Object3D;
+        };
+        return {
+          position: entity.position as THREE.Vector3,
+          node: entity.node as THREE.Object3D | undefined,
+          base: entityWithBase.base,
+          data: entity.data as Record<string, unknown>,
+        };
+      },
+      // Pass terrain height function for smooth Y updates
+      terrain?.getHeightAt
+        ? (x: number, z: number) => terrain.getHeightAt!(x, z)
+        : undefined,
+    );
   }
 
   onGatheringComplete = (data: {
@@ -1784,12 +1802,21 @@ export class ClientNetwork extends SystemBase {
       data.tickNumber,
     );
 
+    // CRITICAL: Set the flag IMMEDIATELY after tile update
+    // This prevents race conditions where entityModified packets arrive after this
+    // and apply stale server rotation, causing flickering
+    if (entity?.data) {
+      entity.data.tileInterpolatorControlled = true;
+    }
+
     // Also update the entity data for consistency
     if (entity) {
       entity.data.emote = data.emote;
-      if (data.quaternion) {
-        entity.data.quaternion = data.quaternion;
-      }
+      // DON'T update quaternion here - TileInterpolator handles rotation smoothly
+      // Storing server quaternion in entity.data could cause other code to read and apply it
+      // if (data.quaternion) {
+      //   entity.data.quaternion = data.quaternion;
+      // }
     }
   };
 
@@ -1824,6 +1851,13 @@ export class ClientNetwork extends SystemBase {
       currentPosition,
       data.destinationTile,
     );
+
+    // CRITICAL: Set the flag IMMEDIATELY when movement starts
+    // This prevents race conditions where entityModified packets arrive before update() runs
+    // and apply stale server rotation, causing flickering between north/south
+    if (entity?.data) {
+      entity.data.tileInterpolatorControlled = true;
+    }
   };
 
   /**
@@ -1843,10 +1877,18 @@ export class ClientNetwork extends SystemBase {
     // It will snap only if already at destination, otherwise let interpolation finish
     this.tileInterpolator.onMovementEnd(data.id, data.tile, worldPos);
 
+    // Get entity for flag and emote updates
+    const entity = this.world.entities.get(data.id);
+
+    // CRITICAL: Keep the flag set - TileInterpolator might still be finishing interpolation
+    // The flag will be managed by TileInterpolator during its update cycle
+    if (entity?.data) {
+      entity.data.tileInterpolatorControlled = true;
+    }
+
     // DON'T snap entity position here - TileInterpolator handles smooth arrival
     // Only update emote if interpolator says we're not moving
     if (!this.tileInterpolator.isInterpolating(data.id)) {
-      const entity = this.world.entities.get(data.id);
       if (entity) {
         entity.data.emote = "idle";
       }
