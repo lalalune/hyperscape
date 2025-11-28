@@ -228,10 +228,13 @@ export class TileInterpolator {
     // Get or create state
     let state = this.entityStates.get(entityId);
 
-    // Starting position (visual position or current position)
+    // Starting position for path calculation
+    // IMPORTANT: Prioritize visualPosition (interpolator's true position) over entity.position
+    // entity.position might be stale if TileInterpolator hasn't updated it this frame yet
+    // This ensures smooth path interruption without visual jumps
     const startPos =
-      currentPosition?.clone() ||
       state?.visualPosition?.clone() ||
+      currentPosition?.clone() ||
       new THREE.Vector3();
     const startTile = worldToTile(startPos.x, startPos.z);
 
