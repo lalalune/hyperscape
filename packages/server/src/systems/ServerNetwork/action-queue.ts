@@ -84,7 +84,6 @@ const MAX_ACTION_AGE_MS = 10000; // 10 seconds
  */
 export class ActionQueue {
   private playerQueues: Map<string, PlayerQueueState> = new Map();
-  private currentTick = 0;
 
   // Action handlers - set by ServerNetwork
   private moveHandler: ((socket: ServerSocket, data: unknown) => void) | null =
@@ -242,7 +241,6 @@ export class ActionQueue {
    * Called by TickSystem at INPUT priority
    */
   processTick(tickNumber: number): void {
-    this.currentTick = tickNumber;
     const now = Date.now();
 
     for (const [playerId, state] of this.playerQueues) {

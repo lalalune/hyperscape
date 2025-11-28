@@ -62,6 +62,7 @@ import {
 } from "./character-selection";
 import { MovementManager } from "./movement";
 import { TileMovementManager } from "./tile-movement";
+import { MobTileMovementManager } from "./mob-tile-movement";
 import { ActionQueue } from "./action-queue";
 import { TickSystem, TickPriority } from "../TickSystem";
 import { SocketManager } from "./socket-management";
@@ -157,6 +158,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   /** Modular managers */
   private movementManager!: MovementManager;
   private tileMovementManager!: TileMovementManager;
+  private mobTileMovementManager!: MobTileMovementManager;
   private actionQueue!: ActionQueue;
   private tickSystem!: TickSystem;
   private socketManager!: SocketManager;
@@ -240,7 +242,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       },
     });
 
-    // Register action queue to process inputs at INPUT priority (runs first)
+    // FIRST: Update world.currentTick on each tick so all systems can read it
+    // This must run before any other tick processing (INPUT is earliest priority)
+    // Mobs use this to run AI only once per tick instead of every frame
+    this.tickSystem.onTick((tickNumber) => {
+      this.world.currentTick = tickNumber;
+    }, TickPriority.INPUT);
+
+    // Register action queue to process inputs at INPUT priority
     this.tickSystem.onTick((tickNumber) => {
       this.actionQueue.processTick(tickNumber);
     }, TickPriority.INPUT);
@@ -248,6 +257,17 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Register tile movement to run on each tick (after inputs)
     this.tickSystem.onTick((tickNumber) => {
       this.tileMovementManager.onTick(tickNumber);
+    }, TickPriority.MOVEMENT);
+
+    // Mob tile-based movement manager (same tick system as players)
+    this.mobTileMovementManager = new MobTileMovementManager(
+      this.world,
+      this.broadcastManager.sendToAll.bind(this.broadcastManager),
+    );
+
+    // Register mob tile movement to run on each tick (same priority as player movement)
+    this.tickSystem.onTick((tickNumber) => {
+      this.mobTileMovementManager.onTick(tickNumber);
     }, TickPriority.MOVEMENT);
 
     // Socket manager
@@ -261,6 +281,44 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.world.on(EventType.PLAYER_LEFT, (event: { playerId: string }) => {
       this.tileMovementManager.cleanup(event.playerId);
       this.actionQueue.cleanup(event.playerId);
+    });
+
+    // Handle mob tile movement requests from MobEntity AI
+    this.world.on(EventType.MOB_NPC_MOVE_REQUEST, (event) => {
+      const moveEvent = event as {
+        mobId: string;
+        targetPos: { x: number; y: number; z: number };
+        targetEntityId?: string;
+        tilesPerTick?: number;
+      };
+      // Note: Debug logging removed for production
+      this.mobTileMovementManager.requestMoveTo(
+        moveEvent.mobId,
+        moveEvent.targetPos,
+        moveEvent.targetEntityId || null,
+        moveEvent.tilesPerTick,
+      );
+    });
+
+    // Initialize mob tile movement state on spawn
+    // This ensures mobs have proper tile state from the moment they're created
+    this.world.on(EventType.MOB_NPC_SPAWNED, (event) => {
+      const spawnEvent = event as {
+        mobId: string;
+        mobType: string;
+        position: { x: number; y: number; z: number };
+      };
+      this.mobTileMovementManager.initializeMob(
+        spawnEvent.mobId,
+        spawnEvent.position,
+        2, // Default walk speed: 2 tiles per tick
+      );
+    });
+
+    // Clean up mob tile movement state on mob death/despawn
+    this.world.on(EventType.MOB_NPC_DESPAWNED, (event) => {
+      const despawnEvent = event as { mobId: string };
+      this.mobTileMovementManager.cleanup(despawnEvent.mobId);
     });
 
     // Save manager
