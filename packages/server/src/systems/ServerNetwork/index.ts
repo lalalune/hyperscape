@@ -62,6 +62,7 @@ import {
 } from "./character-selection";
 import { MovementManager } from "./movement";
 import { TileMovementManager } from "./tile-movement";
+import { ActionQueue } from "./action-queue";
 import { TickSystem, TickPriority } from "../TickSystem";
 import { SocketManager } from "./socket-management";
 import { BroadcastManager } from "./broadcast";
@@ -156,6 +157,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   /** Modular managers */
   private movementManager!: MovementManager;
   private tileMovementManager!: TileMovementManager;
+  private actionQueue!: ActionQueue;
   private tickSystem!: TickSystem;
   private socketManager!: SocketManager;
   private broadcastManager!: BroadcastManager;
@@ -204,7 +206,46 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.broadcastManager.sendToAll.bind(this.broadcastManager),
     );
 
-    // Register tile movement to run on each tick
+    // Action queue for OSRS-style input processing
+    this.actionQueue = new ActionQueue();
+
+    // Set up action queue handlers - these execute the actual game logic
+    this.actionQueue.setHandlers({
+      movement: (socket, data) => {
+        this.tileMovementManager.handleMoveRequest(socket, data);
+      },
+      combat: (socket, data) => {
+        // Combat actions trigger the combat system
+        const playerEntity = socket.player;
+        if (!playerEntity) return;
+
+        const payload = data as { mobId?: string; targetId?: string };
+        const targetId = payload.mobId || payload.targetId;
+        if (!targetId) return;
+
+        this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
+          playerId: playerEntity.id,
+          targetId,
+          attackerType: "player",
+          targetType: "mob",
+          attackType: "melee",
+        });
+      },
+      interaction: (socket, data) => {
+        // Generic interaction handler - can be extended for object/NPC interactions
+        console.log(
+          `[ActionQueue] Interaction from ${socket.player?.id}:`,
+          data,
+        );
+      },
+    });
+
+    // Register action queue to process inputs at INPUT priority (runs first)
+    this.tickSystem.onTick((tickNumber) => {
+      this.actionQueue.processTick(tickNumber);
+    }, TickPriority.INPUT);
+
+    // Register tile movement to run on each tick (after inputs)
     this.tickSystem.onTick((tickNumber) => {
       this.tileMovementManager.onTick(tickNumber);
     }, TickPriority.MOVEMENT);
@@ -216,9 +257,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.broadcastManager.sendToAll.bind(this.broadcastManager),
     );
 
-    // Clean up tile movement state when player disconnects (prevents memory leak)
+    // Clean up player state when player disconnects (prevents memory leak)
     this.world.on(EventType.PLAYER_LEFT, (event: { playerId: string }) => {
       this.tileMovementManager.cleanup(event.playerId);
+      this.actionQueue.cleanup(event.playerId);
     });
 
     // Save manager
@@ -312,15 +354,31 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["onResourceGather"] = (socket, data) =>
       handleResourceGather(socket, data, this.world);
 
-    // Use tile-based movement manager for RuneScape-style movement
-    this.handlers["onMoveRequest"] = (socket, data) =>
-      this.tileMovementManager.handleMoveRequest(socket, data);
+    // Route movement and combat through action queue for OSRS-style tick processing
+    // Actions are queued and processed on tick boundaries, not immediately
+    this.handlers["onMoveRequest"] = (socket, data) => {
+      this.actionQueue.queueMovement(socket, data);
+    };
 
-    this.handlers["onInput"] = (socket, data) =>
-      this.tileMovementManager.handleInput(socket, data);
+    this.handlers["onInput"] = (socket, data) => {
+      // Legacy input handler - convert clicks to movement queue
+      const payload = data as {
+        type?: string;
+        target?: number[];
+        runMode?: boolean;
+      };
+      if (payload.type === "click" && Array.isArray(payload.target)) {
+        this.actionQueue.queueMovement(socket, {
+          target: payload.target,
+          runMode: payload.runMode,
+        });
+      }
+    };
 
-    this.handlers["onAttackMob"] = (socket, data) =>
-      handleAttackMob(socket, data, this.world);
+    // Combat is queued - OSRS style: clicking enemy queues attack action
+    this.handlers["onAttackMob"] = (socket, data) => {
+      this.actionQueue.queueCombat(socket, data);
+    };
 
     this.handlers["onChangeAttackStyle"] = (socket, data) =>
       handleChangeAttackStyle(socket, data, this.world);
@@ -476,7 +534,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Start tick system (600ms RuneScape-style ticks)
     this.tickSystem.start();
-    console.log("[ServerNetwork] Tick system started (600ms ticks)");
+    console.log(
+      "[ServerNetwork] Tick system started (600ms ticks) with action queue",
+    );
   }
 
   override destroy(): void {
