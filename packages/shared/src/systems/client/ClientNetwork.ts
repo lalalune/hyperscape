@@ -1773,9 +1773,10 @@ export class ClientNetwork extends SystemBase {
     quaternion?: [number, number, number, number];
     emote: string;
     tickNumber: number;
+    moveSeq?: number;
   }) => {
     console.log(
-      `[ClientNetwork] onEntityTileUpdate: ${data.id} -> tile (${data.tile.x},${data.tile.z}) tick ${data.tickNumber}`,
+      `[ClientNetwork] onEntityTileUpdate: ${data.id} -> tile (${data.tile.x},${data.tile.z}) tick ${data.tickNumber} moveSeq ${data.moveSeq}`,
     );
 
     const worldPos = new THREE.Vector3(
@@ -1791,7 +1792,7 @@ export class ClientNetwork extends SystemBase {
       ? (entity.position as THREE.Vector3).clone()
       : undefined;
 
-    // Update tile interpolator with tick number for proper sequencing
+    // Update tile interpolator with tick number and moveSeq for proper sequencing
     this.tileInterpolator.onTileUpdate(
       data.id,
       data.tile,
@@ -1800,6 +1801,7 @@ export class ClientNetwork extends SystemBase {
       data.quaternion,
       entityCurrentPos,
       data.tickNumber,
+      data.moveSeq,
     );
 
     // CRITICAL: Set the flag IMMEDIATELY after tile update
@@ -1831,9 +1833,10 @@ export class ClientNetwork extends SystemBase {
     path: TileCoord[];
     running: boolean;
     destinationTile?: TileCoord;
+    moveSeq?: number;
   }) => {
     console.log(
-      `[ClientNetwork] onTileMovementStart: ${data.id} path length ${data.path.length}, running: ${data.running}, dest: ${data.destinationTile ? `(${data.destinationTile.x},${data.destinationTile.z})` : "none"}`,
+      `[ClientNetwork] onTileMovementStart: ${data.id} path length ${data.path.length}, running: ${data.running}, dest: ${data.destinationTile ? `(${data.destinationTile.x},${data.destinationTile.z})` : "none"}, moveSeq: ${data.moveSeq}`,
     );
 
     // Get entity's current position for smooth start
@@ -1844,12 +1847,14 @@ export class ClientNetwork extends SystemBase {
 
     // Pass FULL PATH to interpolator - it will walk through autonomously
     // destinationTile is authoritative - ensures we end at the clicked tile even if path differs
+    // moveSeq ensures proper packet ordering and stale packet rejection
     this.tileInterpolator.onMovementStart(
       data.id,
       data.path,
       data.running,
       currentPosition,
       data.destinationTile,
+      data.moveSeq,
     );
 
     // CRITICAL: Set the flag IMMEDIATELY when movement starts
@@ -1867,6 +1872,7 @@ export class ClientNetwork extends SystemBase {
     id: string;
     tile: TileCoord;
     worldPos: [number, number, number];
+    moveSeq?: number;
   }) => {
     const worldPos = new THREE.Vector3(
       data.worldPos[0],
@@ -1875,7 +1881,13 @@ export class ClientNetwork extends SystemBase {
     );
     // Let TileInterpolator handle the arrival smoothly
     // It will snap only if already at destination, otherwise let interpolation finish
-    this.tileInterpolator.onMovementEnd(data.id, data.tile, worldPos);
+    // moveSeq ensures stale end packets are ignored
+    this.tileInterpolator.onMovementEnd(
+      data.id,
+      data.tile,
+      worldPos,
+      data.moveSeq,
+    );
 
     // Get entity for flag and emote updates
     const entity = this.world.entities.get(data.id);
