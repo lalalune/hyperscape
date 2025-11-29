@@ -1,33 +1,3 @@
-
-### 1.2 Smooth Catch-Up Speed Multiplier
-**Impact**: High - eliminates visible speed jank
-**Effort**: Low
-**File**: `packages/shared/src/systems/client/TileInterpolator.ts`
-
-**Problem**: When client falls behind server, speed multiplier jumps instantly from 1.0x to 1.4-2.6x, causing visible stuttering.
-
-**Solution**: Blend the multiplier over 200-300ms instead of instant change. Track `targetMultiplier` and lerp `currentMultiplier` toward it each frame.
-
-**Status**: [ ] Not started
-
----
-
-### 1.3 Bundle Emote with Movement Packets
-**Impact**: High - animation matches movement immediately
-**Effort**: Low
-**Files**:
-- `packages/server/src/systems/ServerNetwork/tile-movement.ts`
-- `packages/server/src/systems/ServerNetwork/mob-tile-movement.ts`
-- `packages/shared/src/systems/client/TileInterpolator.ts`
-
-**Problem**: Emote updates sent in separate `entityModified` packet from movement. Results in brief animation mismatch (running body, walking animation).
-
-**Solution**: Include `emote` field in `tileMovementStart` packet. Client sets animation immediately when receiving movement start.
-
-**Status**: [ ] Not started
-
----
-
 ## Priority 2: High (Do Second)
 
 ### 2.1 Y-Position Interpolation

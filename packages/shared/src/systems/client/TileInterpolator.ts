@@ -196,6 +196,7 @@ export class TileInterpolator {
    * This is the PRIMARY way movement begins - client receives full path
    *
    * @param moveSeq Movement sequence number for packet ordering
+   * @param emote Optional emote bundled with movement (OSRS-style)
    */
   onMovementStart(
     entityId: string,
@@ -204,6 +205,7 @@ export class TileInterpolator {
     currentPosition?: THREE.Vector3,
     destinationTile?: TileCoord,
     moveSeq?: number,
+    emote?: string,
   ): void {
     if (this.debugMode) {
       console.log(
@@ -321,7 +323,7 @@ export class TileInterpolator {
       state.quaternion.copy(initialRotation);
       state.isRunning = running;
       state.isMoving = true;
-      state.emote = running ? "run" : "walk";
+      state.emote = emote ?? (running ? "run" : "walk");
       state.serverConfirmedTile = { ...startTile };
       state.lastServerTick = 0;
       state.catchUpMultiplier = 1.0;
@@ -342,7 +344,7 @@ export class TileInterpolator {
         quaternion: initialRotation.clone(),
         isRunning: running,
         isMoving: true,
-        emote: running ? "run" : "walk",
+        emote: emote ?? (running ? "run" : "walk"),
         serverConfirmedTile: { ...startTile },
         lastServerTick: 0,
         catchUpMultiplier: 1.0,
@@ -728,6 +730,8 @@ export class TileInterpolator {
           node?: THREE.Object3D;
           base?: THREE.Object3D;
           data: Record<string, unknown>;
+          // modify() is needed to trigger PlayerLocal's emote handling (avatar animation)
+          modify: (data: Record<string, unknown>) => void;
         }
       | undefined,
     getTerrainHeight?: (x: number, z: number) => number | null,
@@ -771,7 +775,8 @@ export class TileInterpolator {
         // No path = not moving = idle animation
         state.isMoving = false;
         state.emote = "idle";
-        entity.data.emote = "idle";
+        // Use modify() to trigger PlayerLocal's emote handling which updates avatar animation
+        entity.modify({ e: "idle" });
         entity.data.tileMovementActive = false; // Not moving - allow combat rotation
         continue;
       }
@@ -926,7 +931,9 @@ export class TileInterpolator {
         // Mobs/other entities: Set rotation directly on node
         (entity.node as THREE.Object3D).quaternion.copy(state.quaternion);
       }
-      entity.data.emote = state.emote;
+      // Use modify() to trigger PlayerLocal's emote handling which updates avatar animation
+      // For other entities (PlayerRemote, MobEntity), modify() just does Object.assign to data
+      entity.modify({ e: state.emote });
 
       if (this.debugMode && Math.random() < 0.01) {
         console.log(

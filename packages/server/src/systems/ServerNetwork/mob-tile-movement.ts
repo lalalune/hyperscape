@@ -287,6 +287,7 @@ export class MobTileMovementManager {
     }
 
     // Broadcast movement started
+    // OSRS-style: Bundle emote with movement packet to prevent animation mismatch
     this.sendFn("tileMovementStart", {
       id: mobId,
       path: chasePath.map((t) => ({ x: t.x, z: t.z })),
@@ -294,15 +295,7 @@ export class MobTileMovementManager {
       destinationTile: { x: targetTile.x, z: targetTile.z },
       moveSeq: state.moveSeq,
       isMob: true,
-    });
-
-    // Send rotation and emote
-    this.sendFn("entityModified", {
-      id: mobId,
-      changes: {
-        q: entity.data?.quaternion,
-        e: "walk",
-      },
+      emote: state.isRunning ? "run" : "walk",
     });
   }
 

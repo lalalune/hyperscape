@@ -199,21 +199,14 @@ export class TileMovementManager {
       // Include destination tile explicitly so client knows where to end up
       // (path might be calculated from server position which can differ from client visual)
       // moveSeq ensures client can detect and ignore stale packets from previous movements
+      // OSRS-style: Bundle emote with movement packet to prevent animation mismatch
       this.sendFn("tileMovementStart", {
         id: playerEntity.id,
         path: path.map((t) => ({ x: t.x, z: t.z })),
         running: state.isRunning,
         destinationTile: { x: targetTile.x, z: targetTile.z },
         moveSeq: state.moveSeq,
-      });
-
-      // Send initial rotation and emote
-      this.sendFn("entityModified", {
-        id: playerEntity.id,
-        changes: {
-          q: playerEntity.data.quaternion,
-          e: state.isRunning ? "run" : "walk",
-        },
+        emote: state.isRunning ? "run" : "walk",
       });
     } else {
       console.log(`[TileMovement] No path found or already at destination`);
