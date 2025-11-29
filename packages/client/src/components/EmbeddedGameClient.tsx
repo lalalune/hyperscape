@@ -41,6 +41,11 @@ function disablePlayerControls(world: World) {
 
 /**
  * Setup spectator camera to follow agent's character
+ *
+ * CRITICAL: For camera following to work, we must pass the ACTUAL entity instance
+ * (not a copy) as the camera target. The camera reads target.position every frame,
+ * and TileInterpolator updates entity.position as a THREE.Vector3. If we pass a copy,
+ * the camera won't see position updates.
  */
 function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
   // CRITICAL: Disable player input IMMEDIATELY for spectator mode
@@ -77,6 +82,63 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
     return;
   }
 
+  /**
+   * Find the ACTUAL entity instance from world.entities
+   * This is critical - we need the live entity object, not a copy,
+   * so the camera can track position updates from TileInterpolator
+   */
+  const findLiveEntity = (entityId: string) => {
+    // Try world.entities.items first (contains all entity types)
+    const fromItems = world.entities?.items?.get(entityId);
+    if (fromItems) return fromItems;
+
+    // Try world.entities.players (PlayerRemote instances)
+    const fromPlayers = world.entities?.players?.get(entityId);
+    if (fromPlayers) return fromPlayers;
+
+    // Try entity-manager as fallback
+    const entityManager = world.getSystem("entity-manager") as {
+      getEntity?: (id: string) => unknown;
+    } | null;
+    if (entityManager?.getEntity) {
+      return entityManager.getEntity(entityId);
+    }
+
+    return null;
+  };
+
+  /**
+   * Set camera to follow the target entity
+   * CRITICAL: Pass the actual entity instance, not a wrapper object!
+   */
+  const setCameraTarget = (entity: unknown) => {
+    if (!entity) return;
+
+    const e = entity as { id?: string; position?: unknown };
+    if (!e.position) {
+      console.warn(
+        `[EmbeddedGameClient] Entity ${e.id} has no position - cannot follow`,
+      );
+      return;
+    }
+
+    console.log(
+      `[EmbeddedGameClient] Setting camera to follow entity: ${e.id}`,
+    );
+
+    // CRITICAL: Pass the FULL ENTITY as target, not just { position: entity.position }
+    // The camera system reads target.position every frame, and we need
+    // TileInterpolator's position updates to be reflected automatically
+    world.emit(EventType.CAMERA_SET_TARGET, {
+      target: entity,
+    });
+
+    // Ensure controls are still disabled (belt and suspenders)
+    if (config.mode === "spectator") {
+      disablePlayerControls(world);
+    }
+  };
+
   // Listen for entity spawns to find agent's character
   const handleEntitySpawned = (data: {
     entityId?: string;
@@ -86,34 +148,24 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
   }) => {
     if (!data.entityId) return;
 
-    // Get entity manager to fetch full entity data
-    const entityManager = world.getSystem("entity-manager");
-    if (!entityManager) return;
-
-    const em = entityManager as {
-      getEntity?: (id: string) => {
-        id: string;
-        characterId?: string;
-        position?: { x: number; y: number; z: number };
-      } | null;
-    };
-
-    const entity = em.getEntity?.(data.entityId);
-    if (!entity) return;
-
     // Check if this is the entity we want to follow
-    const isTargetEntity =
-      entity.id === targetEntityId || entity.characterId === targetEntityId;
+    const isTargetById = data.entityId === targetEntityId;
 
-    if (isTargetEntity && entity.position) {
-      // Lock camera to this entity's position
-      world.emit(EventType.CAMERA_SET_TARGET, {
-        target: { position: entity.position },
-      });
+    // Also check characterId in entity data
+    const entityCharacterId = data.entityData?.characterId as
+      | string
+      | undefined;
+    const isTargetByCharacterId = entityCharacterId === targetEntityId;
 
-      // Ensure controls are still disabled (belt and suspenders)
-      if (config.mode === "spectator") {
-        disablePlayerControls(world);
+    if (isTargetById || isTargetByCharacterId) {
+      // Find the LIVE entity instance
+      const liveEntity = findLiveEntity(data.entityId);
+      if (liveEntity) {
+        setCameraTarget(liveEntity);
+      } else {
+        console.warn(
+          `[EmbeddedGameClient] Entity spawned but not found in world.entities: ${data.entityId}`,
+        );
       }
     }
   };
@@ -123,42 +175,60 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
 
   // Also check existing entities (in case character already spawned)
   const checkExistingEntities = () => {
-    // Get entity manager (may not be ready immediately)
-    const entityManager = world.getSystem("entity-manager");
-    if (!entityManager) {
-      return;
-    }
+    // First, try to find the entity directly by ID
+    let targetEntity = findLiveEntity(targetEntityId);
 
-    const em = entityManager as {
-      getAllEntities?: () => Map<
-        string,
-        {
-          id: string;
-          characterId?: string;
-          position?: { x: number; y: number; z: number };
-        }
-      >;
-    };
-
-    if (em.getAllEntities) {
-      for (const [, entity] of em.getAllEntities()) {
-        const isTargetEntity =
-          entity.id === targetEntityId || entity.characterId === targetEntityId;
-
-        if (isTargetEntity && entity.position) {
-          // Simulate event data structure
-          handleEntitySpawned({
-            entityId: entity.id,
-            position: entity.position,
-          });
+    // If not found by ID, search all entities for matching characterId
+    if (!targetEntity && world.entities?.items) {
+      for (const [, entity] of world.entities.items) {
+        const e = entity as { characterId?: string };
+        if (e.characterId === targetEntityId) {
+          targetEntity = entity;
           break;
         }
       }
     }
+
+    // Also check players map
+    if (!targetEntity && world.entities?.players) {
+      for (const [, player] of world.entities.players) {
+        const p = player as { id?: string; characterId?: string };
+        if (p.id === targetEntityId || p.characterId === targetEntityId) {
+          targetEntity = player;
+          break;
+        }
+      }
+    }
+
+    if (targetEntity) {
+      setCameraTarget(targetEntity);
+    } else {
+      // Entity not found yet - will be caught by ENTITY_SPAWNED event
+      console.log(
+        `[EmbeddedGameClient] Target entity ${targetEntityId} not found yet, waiting for spawn...`,
+      );
+    }
   };
 
   // Check after a short delay to allow systems to initialize
-  setTimeout(checkExistingEntities, 1000);
+  setTimeout(checkExistingEntities, 500);
+
+  // Also check periodically in case entity spawns are delayed
+  const checkInterval = setInterval(() => {
+    // If we already have a camera target, stop checking
+    const cameraSystem = world.getSystem("client-camera-system") as {
+      target?: unknown;
+    } | null;
+    if (cameraSystem?.target) {
+      clearInterval(checkInterval);
+      return;
+    }
+
+    checkExistingEntities();
+  }, 1000);
+
+  // Stop checking after 10 seconds
+  setTimeout(() => clearInterval(checkInterval), 10000);
 }
 
 /**
