@@ -518,13 +518,7 @@ export class PlayerSystem extends SystemBase {
     if (this.databaseSystem) {
       const dbData = await this.databaseSystem.getPlayerAsync(databaseId);
       if (dbData) {
-        console.log(
-          `[PlayerSystem] 📊 Loading player from DB - health: ${dbData.health}/${dbData.maxHealth}`,
-        );
         playerData = PlayerMigration.fromPlayerRow(dbData, data.playerId);
-        console.log(
-          `[PlayerSystem] 📊 After fromPlayerRow - health: ${playerData.health.current}/${playerData.health.max}`,
-        );
       }
     }
 
@@ -534,13 +528,6 @@ export class PlayerSystem extends SystemBase {
       // CRITICAL: Use the playerLocal.name from the entity spawn, which comes from the character DB record
       // Never auto-generate names - they must come from the character creation system
       const playerName = playerLocal?.name || "Adventurer";
-
-      console.log("[PlayerSystem] 🎭 Creating new player data:", {
-        playerId: data.playerId,
-        databaseId,
-        playerLocalName: playerLocal?.name,
-        finalPlayerName: playerName,
-      });
 
       playerData = PlayerMigration.createNewPlayer(
         data.playerId,
@@ -592,10 +579,6 @@ export class PlayerSystem extends SystemBase {
         ? playerData.skills.constitution.level
         : 10;
 
-    console.log(
-      `[PlayerSystem] 📊 Before health validation - current: ${playerData.health.current}, max: ${playerData.health.max}, constitution: ${constitutionLevel}`,
-    );
-
     // Always set maxHealth to constitution level
     playerData.health.max = constitutionLevel;
 
@@ -605,25 +588,15 @@ export class PlayerSystem extends SystemBase {
       playerData.health.current <= 0 // FIX: Changed < to <= (0 health means dead!)
     ) {
       // Player is dead or has invalid health - restore to full
-      console.log(
-        `[PlayerSystem] ⚠️ Health invalid or <= 0, restoring to full: ${playerData.health.max}`,
-      );
       playerData.health.current = playerData.health.max;
       playerData.alive = true; // Ensure player is alive
     } else {
       // Clamp current health to maxHealth
-      console.log(
-        `[PlayerSystem] ✅ Health valid, clamping to max: ${Math.min(playerData.health.current, playerData.health.max)}`,
-      );
       playerData.health.current = Math.min(
         playerData.health.current,
         playerData.health.max,
       );
     }
-
-    console.log(
-      `[PlayerSystem] 📊 Final health values - current: ${playerData.health.current}, max: ${playerData.health.max}`,
-    );
 
     // Add to our system using entity ID for runtime lookups
     this.players.set(data.playerId, playerData);

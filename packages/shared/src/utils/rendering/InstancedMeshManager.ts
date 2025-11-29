@@ -351,25 +351,15 @@ export class InstancedMeshManager {
 
     const playerPos = this.getPlayerPosition();
     if (!playerPos) {
-      console.warn(
-        "[InstancedMeshManager] No player position for visibility update",
-      );
+      // Player not loaded yet - skip visibility update silently
       return;
     }
 
     // Force one full update the first time we have a player position
     if (!this.didInitialVisibility) {
       this.didInitialVisibility = true;
-      console.log(
-        "[InstancedMeshManager] First visibility update with player at",
-        playerPos,
-      );
       for (const type of this.instancedMeshes.keys()) {
         this.updateInstanceVisibility(type);
-        const data = this.instancedMeshes.get(type);
-        console.log(
-          `[InstancedMeshManager] ${type}: ${data?.mesh.count}/${data?.allInstances.size} visible`,
-        );
       }
       return;
     }

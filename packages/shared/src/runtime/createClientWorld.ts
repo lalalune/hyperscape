@@ -201,13 +201,7 @@ export function createClientWorld() {
   // RPG systems are loaded asynchronously to avoid blocking world creation.
 
   (async () => {
-    console.log("[createClientWorld] 🔧 About to register systems...");
     await registerSystems(world);
-    console.log("[createClientWorld] ✅ Systems registered!");
-    console.log(
-      "[createClientWorld] Equipment system exists:",
-      !!world.getSystem("equipment"),
-    );
 
     // CRITICAL: Initialize newly registered systems
     const worldOptions = {
@@ -218,11 +212,7 @@ export function createClientWorld() {
 
     const equipmentSystem = world.getSystem("equipment");
     if (equipmentSystem && !equipmentSystem.isInitialized()) {
-      console.log(
-        "[createClientWorld] 🔄 Manually initializing EquipmentSystem...",
-      );
       await equipmentSystem.init(worldOptions);
-      console.log("[createClientWorld] ✅ EquipmentSystem initialized!");
     }
 
     const damageSplatSystem = world.getSystem("damage-splat");

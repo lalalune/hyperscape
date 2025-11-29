@@ -284,13 +284,6 @@ export class InventorySystem extends SystemBase {
     quantity: number;
     slot?: number;
   }): boolean {
-    console.log("[InventorySystem] 🎯 addItem called:", {
-      playerId: data.playerId,
-      itemId: data.itemId,
-      quantity: data.quantity,
-      slot: data.slot,
-    });
-
     if (!data.playerId) {
       Logger.systemError(
         "InventorySystem",
@@ -474,24 +467,12 @@ export class InventorySystem extends SystemBase {
     }
 
     // Find item
-    console.log("[InventorySystem] 🔍 Searching for item to remove:", {
-      slot: data.slot,
-      itemId: itemId,
-      inventoryItems: inventory.items.map((i) => ({
-        slot: i.slot,
-        itemId: i.itemId,
-      })),
-    });
-
     const itemIndex =
       data.slot !== undefined
         ? inventory.items.findIndex((item) => item.slot === data.slot)
         : inventory.items.findIndex((item) => item.itemId === itemId);
 
-    console.log("[InventorySystem] 🔍 Found item at index:", itemIndex);
-
     if (itemIndex === -1) {
-      console.error("[InventorySystem] ❌ Item not found in inventory!");
       return false;
     }
 
@@ -503,9 +484,6 @@ export class InventorySystem extends SystemBase {
       inventory.items.splice(itemIndex, 1);
     }
 
-    console.log(
-      "[InventorySystem] ✅ Item removed successfully, emitting INVENTORY_UPDATED",
-    );
     const playerIdKey = toPlayerID(playerId);
     if (playerIdKey) {
       this.emitInventoryUpdate(playerIdKey);
@@ -864,12 +842,6 @@ export class InventorySystem extends SystemBase {
       maxSlots: inventoryData.maxSlots,
     };
 
-    console.log(
-      "[InventorySystem] 📤 Emitting INVENTORY_UPDATED with",
-      inventoryData.items.length,
-      "items",
-    );
-
     // Emit local event for server-side systems
     this.emitTypedEvent(EventType.INVENTORY_UPDATED, inventoryUpdateData);
 
@@ -1069,25 +1041,11 @@ export class InventorySystem extends SystemBase {
     const db = this.getDatabase();
     if (!db) return false;
 
-    console.log(
-      "[InventorySystem] 📦 Loading persisted inventory for:",
-      playerId,
-    );
-
     const rows = await db.getPlayerInventoryAsync(playerId);
     const playerRow = await db.getPlayerAsync(playerId);
 
-    console.log("[InventorySystem] Loaded from DB:", {
-      inventoryRows: rows.length,
-      hasPlayerRow: !!playerRow,
-      coins: playerRow?.coins,
-    });
-
     const hasState = (rows && rows.length > 0) || !!playerRow;
     if (!hasState) {
-      console.log(
-        "[InventorySystem] No persisted inventory found, will create fresh",
-      );
       return false;
     }
 
@@ -1109,12 +1067,6 @@ export class InventorySystem extends SystemBase {
         slot,
       });
     }
-
-    console.log(
-      "[InventorySystem] ✅ Loaded",
-      inv.items.length,
-      "items from database",
-    );
 
     const data = this.getInventoryData(playerId);
     this.emitTypedEvent(EventType.INVENTORY_INITIALIZED, {

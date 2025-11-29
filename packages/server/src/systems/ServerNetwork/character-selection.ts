@@ -383,20 +383,8 @@ export async function handleEnterWorld(
   sendFn: (name: string, data: unknown, ignoreSocketId?: string) => void,
   sendToFn: (socketId: string, name: string, data: unknown) => void,
 ): Promise<void> {
-  console.log(
-    `[CharacterSelection] 🚪 handleEnterWorld called for socket ${socket.id}`,
-    {
-      data,
-      hasPlayer: !!socket.player,
-      accountId: socket.accountId,
-    },
-  );
-
   // Spawn the entity now, preserving legacy spawn shape
   if (socket.player) {
-    console.log(
-      `[CharacterSelection] Player already spawned for socket ${socket.id}, skipping`,
-    );
     return; // Already spawned
   }
   const accountId = socket.accountId || undefined;
@@ -408,12 +396,6 @@ export async function handleEnterWorld(
   if (characterId) {
     socket.characterId = characterId;
   }
-
-  console.log("[CharacterSelection] Enter world params:", {
-    accountId,
-    characterId,
-    hasSocket: !!socket,
-  });
 
   // DUPLICATE PROTECTION: Check if this characterId already has an active entity
   if (characterId) {
@@ -501,19 +483,11 @@ export async function handleEnterWorld(
         | undefined;
       if (databaseSystem) {
         const characters = await databaseSystem.getCharactersAsync(accountId);
-        console.log(
-          "[CharacterSelection] Loaded characters for account:",
-          characters,
-        );
         characterData = characters.find((c) => c.id === characterId) || null;
         if (characterData) {
           name = characterData.name;
           avatar = characterData.avatar || undefined;
           walletAddress = characterData.wallet || undefined;
-          console.log("[CharacterSelection] ✅ Found character:", {
-            name,
-            avatar,
-          });
         } else {
           // Character not found - fail fast instead of auto-creating with wrong data
           console.error(
@@ -537,18 +511,8 @@ export async function handleEnterWorld(
         err,
       );
     }
-  } else {
-    console.warn(
-      "[CharacterSelection] ⚠️ Missing characterId or accountId for enterWorld",
-    );
   }
 
-  console.log(
-    "[CharacterSelection] Will spawn player with name:",
-    name,
-    "avatar:",
-    avatar,
-  );
   const roles: string[] = [];
 
   // Require a characterId to ensure persistence uses stable IDs
@@ -673,15 +637,6 @@ export async function handleEnterWorld(
     : undefined;
   socket.player = (addedEntity as Entity) || undefined;
 
-  console.log(
-    `[CharacterSelection] ✅ socket.player set for socket ${socket.id}`,
-    {
-      playerId: socket.player?.id,
-      playerName: socket.player?.data?.name,
-      hasPlayer: !!socket.player,
-    },
-  );
-
   if (socket.player) {
     world.emit(EventType.PLAYER_JOINED, {
       playerId: socket.player.data.id as string,
@@ -705,9 +660,6 @@ export async function handleEnterWorld(
             entityCount++;
           }
         }
-        console.log(
-          `[CharacterSelection] 📤 Sent ${entityCount} existing entities to new player ${socket.player.id}`,
-        );
       }
 
       // Immediately reinforce authoritative transform to avoid initial client-side default pose
@@ -798,12 +750,6 @@ export async function handleEnterWorld(
           ? await dbSys.getPlayerEquipmentAsync(persistenceId)
           : [];
 
-        console.log(
-          `[CharacterSelection] 📂 Loaded equipment from DB for ${persistenceId}:`,
-          equipmentRows.length,
-          "items",
-        );
-
         if (equipmentRows.length > 0) {
           const equipmentData: Record<string, unknown> = {};
           for (const row of equipmentRows) {
@@ -814,9 +760,6 @@ export async function handleEnterWorld(
                   item: itemDef,
                   itemId: String(row.itemId),
                 };
-                console.log(
-                  `[CharacterSelection] ✅ Loaded equipment: ${row.slotType} = ${itemDef.name} (${row.itemId})`,
-                );
               }
             }
           }
@@ -826,14 +769,6 @@ export async function handleEnterWorld(
             playerId: socket.player.id,
             equipment: equipmentData,
           });
-
-          console.log(
-            `[CharacterSelection] 📤 Sent equipment to client for ${persistenceId}`,
-          );
-        } else {
-          console.log(
-            `[CharacterSelection] ⚠️ No equipment in DB for ${persistenceId} - will equip starting items via PLAYER_JOINED`,
-          );
         }
       } catch (err) {
         console.error("[CharacterSelection] ❌ Failed to load equipment:", err);

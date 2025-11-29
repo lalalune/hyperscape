@@ -45,11 +45,6 @@ export class CharacterRepository extends BaseRepository {
   > {
     this.ensureDatabase();
 
-    console.log(
-      "[CharacterRepository] 📋 Loading characters for accountId:",
-      accountId,
-    );
-
     const results = await this.db
       .select({
         id: schema.characters.id,
@@ -62,13 +57,6 @@ export class CharacterRepository extends BaseRepository {
       })
       .from(schema.characters)
       .where(eq(schema.characters.accountId, accountId));
-
-    console.log(
-      "[CharacterRepository] 📋 Found",
-      results.length,
-      "characters:",
-      results,
-    );
 
     // Convert isAgent from number (0/1) to boolean
     return results.map((char) => ({

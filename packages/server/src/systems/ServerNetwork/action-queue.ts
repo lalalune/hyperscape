@@ -133,16 +133,8 @@ export class ActionQueue {
   queueMovement(socket: ServerSocket, data: unknown): void {
     const playerId = socket.player?.id;
     if (!playerId) {
-      console.warn(
-        `[ActionQueue] ⚠️ Movement ignored - socket ${socket.id} has no player entity (socket.player is ${socket.player === undefined ? "undefined" : "null"})`,
-      );
       return;
     }
-
-    console.log(
-      `[ActionQueue] 📥 Queuing movement for player ${playerId}:`,
-      JSON.stringify(data),
-    );
 
     const state = this.getOrCreateState(playerId);
     const action: QueuedAction = {
@@ -214,9 +206,6 @@ export class ActionQueue {
 
     // Limit queue size
     if (state.interactionQueue.length >= MAX_INTERACTION_QUEUE) {
-      console.log(
-        `[ActionQueue] Player ${playerId} interaction queue full, dropping oldest`,
-      );
       state.interactionQueue.shift();
     }
 
@@ -242,8 +231,6 @@ export class ActionQueue {
     state.pendingAction = null;
     state.interactionQueue = [];
     state.combatTarget = null;
-
-    console.log(`[ActionQueue] Cleared all actions for player ${playerId}`);
   }
 
   /**
@@ -253,23 +240,9 @@ export class ActionQueue {
   processTick(tickNumber: number): void {
     const now = Date.now();
 
-    // Debug: log queue state
-    if (this.playerQueues.size > 0) {
-      for (const [playerId, state] of this.playerQueues) {
-        if (state.pendingAction) {
-          console.log(
-            `[ActionQueue] 🔄 processTick(${tickNumber}): Player ${playerId} has pending ${state.pendingAction.type}, lastProcessedTick=${state.lastProcessedTick}`,
-          );
-        }
-      }
-    }
-
     for (const [playerId, state] of this.playerQueues) {
       // Skip if already processed this tick
       if (state.lastProcessedTick >= tickNumber) {
-        console.log(
-          `[ActionQueue] ⏭️ Skipping player ${playerId} - already processed tick ${tickNumber} (lastProcessedTick=${state.lastProcessedTick})`,
-        );
         continue;
       }
       state.lastProcessedTick = tickNumber;
@@ -280,9 +253,6 @@ export class ActionQueue {
 
         // Check if action is too old
         if (now - action.timestamp > MAX_ACTION_AGE_MS) {
-          console.log(
-            `[ActionQueue] Discarding stale action for player ${playerId}`,
-          );
           state.pendingAction = null;
         } else {
           this.executeAction(action);
@@ -317,14 +287,7 @@ export class ActionQueue {
       switch (action.type) {
         case ActionType.MOVEMENT:
           if (this.moveHandler) {
-            console.log(
-              `[ActionQueue] 🚶 Executing movement for player ${action.playerId}`,
-            );
             this.moveHandler(action.socket, action.data);
-          } else {
-            console.warn(
-              `[ActionQueue] ⚠️ No moveHandler registered for movement action!`,
-            );
           }
           break;
 
