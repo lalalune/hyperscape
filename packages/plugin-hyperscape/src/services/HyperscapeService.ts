@@ -867,6 +867,17 @@ export class HyperscapeService
       "enterWorld",
       "syncGoal", // Agent goal sync packet (for dashboard display)
       "goalOverride", // Agent goal override packet (dashboard -> plugin)
+      // Bank packets
+      "bankOpen",
+      "bankState",
+      "bankDeposit",
+      "bankDepositAll",
+      "bankWithdraw",
+      "bankClose",
+      // Tile movement packets (RuneScape-style)
+      "entityTileUpdate", // Server -> Client: entity moved to new tile position
+      "tileMovementStart", // Server -> Client: movement path started
+      "tileMovementEnd", // Server -> Client: arrived at destination
     ];
     return packetNames[id] || null;
   }
@@ -1133,6 +1144,116 @@ export class HyperscapeService
         // Handle manual goal override from dashboard
         this.handleGoalOverride(data);
         break;
+
+      // Tile movement packets (RuneScape-style 600ms tick movement)
+      case "tileMovementStart": {
+        // Movement started - update position tracking
+        // Packet contains: { id, startTile, path, running, destinationTile, moveSeq, emote }
+        const moveData = data as {
+          id?: string;
+          startTile?: { x: number; z: number };
+          path?: Array<{ x: number; z: number }>;
+          running?: boolean;
+          destinationTile?: { x: number; z: number };
+        };
+
+        if (moveData.id === this.characterId && this.gameState.playerEntity) {
+          // Update player's movement state
+          if (moveData.startTile) {
+            // Convert tile to world position (tiles are 1 unit)
+            // Position type is [x, y, z] tuple
+            const currentY = this.gameState.playerEntity.position?.[1] || 0;
+            this.gameState.playerEntity.position = [
+              moveData.startTile.x,
+              currentY,
+              moveData.startTile.z,
+            ];
+          }
+          logger.debug(
+            `[HyperscapeService] 🚶 Tile movement started: ${moveData.path?.length || 0} tiles, running: ${moveData.running}`,
+          );
+        } else if (moveData.id) {
+          // Update nearby entity
+          const entity = this.gameState.nearbyEntities.get(moveData.id);
+          if (entity && moveData.startTile) {
+            const currentY = entity.position?.[1] || 0;
+            entity.position = [
+              moveData.startTile.x,
+              currentY,
+              moveData.startTile.z,
+            ];
+          }
+        }
+        break;
+      }
+
+      case "entityTileUpdate": {
+        // Entity position sync during tile movement
+        // Packet contains: { id, tile, worldPos, emote, quaternion, tickNumber, moveSeq }
+        const tileData = data as {
+          id?: string;
+          tile?: { x: number; z: number };
+          worldPos?: [number, number, number];
+        };
+
+        if (tileData.id === this.characterId && this.gameState.playerEntity) {
+          if (tileData.worldPos) {
+            // worldPos is already [x, y, z] tuple
+            this.gameState.playerEntity.position = [
+              tileData.worldPos[0],
+              tileData.worldPos[1],
+              tileData.worldPos[2],
+            ];
+            logger.debug(
+              `[HyperscapeService] 📍 Tile update: [${tileData.worldPos[0].toFixed(0)}, ${tileData.worldPos[2].toFixed(0)}]`,
+            );
+          }
+        } else if (tileData.id) {
+          const entity = this.gameState.nearbyEntities.get(tileData.id);
+          if (entity && tileData.worldPos) {
+            entity.position = [
+              tileData.worldPos[0],
+              tileData.worldPos[1],
+              tileData.worldPos[2],
+            ];
+          }
+        }
+        break;
+      }
+
+      case "tileMovementEnd": {
+        // Movement completed - entity arrived at destination
+        // Packet contains: { id, tile, worldPos }
+        const endData = data as {
+          id?: string;
+          tile?: { x: number; z: number };
+          worldPos?: [number, number, number];
+        };
+
+        if (endData.id === this.characterId && this.gameState.playerEntity) {
+          if (endData.worldPos) {
+            // worldPos is already [x, y, z] tuple
+            this.gameState.playerEntity.position = [
+              endData.worldPos[0],
+              endData.worldPos[1],
+              endData.worldPos[2],
+            ];
+          }
+          logger.debug(
+            `[HyperscapeService] 🏁 Tile movement ended at tile (${endData.tile?.x}, ${endData.tile?.z})`,
+          );
+        } else if (endData.id) {
+          const entity = this.gameState.nearbyEntities.get(endData.id);
+          if (entity && endData.worldPos) {
+            entity.position = [
+              endData.worldPos[0],
+              endData.worldPos[1],
+              endData.worldPos[2],
+            ];
+          }
+        }
+        break;
+      }
     }
 
     this.gameState.lastUpdate = Date.now();
@@ -1498,6 +1619,17 @@ export class HyperscapeService
       "enterWorld",
       "syncGoal", // Agent goal sync packet (for dashboard display)
       "goalOverride", // Agent goal override packet (dashboard -> plugin)
+      // Bank packets
+      "bankOpen",
+      "bankState",
+      "bankDeposit",
+      "bankDepositAll",
+      "bankWithdraw",
+      "bankClose",
+      // Tile movement packets (RuneScape-style)
+      "entityTileUpdate", // Server -> Client: entity moved to new tile position
+      "tileMovementStart", // Server -> Client: movement path started
+      "tileMovementEnd", // Server -> Client: arrived at destination
     ];
     const index = packetNames.indexOf(name);
     return index >= 0 ? index : null;

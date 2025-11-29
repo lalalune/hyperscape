@@ -709,6 +709,11 @@ export class TileInterpolator {
         if (entity.node && "position" in entity.node) {
           (entity.node as THREE.Object3D).position.copy(state.visualPosition);
         }
+        // CRITICAL: Also sync base.position for PlayerRemote avatar positioning
+        // PlayerRemote.update() uses base.matrixWorld for instance.move() which positions the avatar
+        if (entity.base && "position" in entity.base) {
+          (entity.base as THREE.Object3D).position.copy(state.visualPosition);
+        }
         // Keep the flag set so PlayerRemote doesn't overwrite
         entity.data.tileInterpolatorControlled = true;
         // Set rotation: Use base for players, fall back to node for mobs
@@ -920,6 +925,11 @@ export class TileInterpolator {
       // Also sync to node.position if available (for PlayerRemote compatibility)
       if (entity.node && "position" in entity.node) {
         (entity.node as THREE.Object3D).position.copy(state.visualPosition);
+      }
+      // CRITICAL: Also sync base.position for PlayerRemote avatar positioning
+      // PlayerRemote.update() uses base.matrixWorld for instance.move() which positions the avatar
+      if (entity.base && "position" in entity.base) {
+        (entity.base as THREE.Object3D).position.copy(state.visualPosition);
       }
       // Mark entity as controlled by tile interpolator to prevent other systems from overwriting
       entity.data.tileInterpolatorControlled = true;
