@@ -102,6 +102,7 @@ import {
 import { RespawnManager } from "../managers/RespawnManager";
 import { UIRenderer } from "../../utils/rendering/UIRenderer";
 import { GAME_CONSTANTS } from "../../constants";
+import { COMBAT_CONSTANTS } from "../../constants/CombatConstants";
 import { AggroManager } from "../managers/AggroManager";
 import { worldToTile } from "../../systems/shared/movement/TileSystem";
 import { attackSpeedSecondsToTicks } from "../../utils/game/CombatCalculations";
@@ -176,6 +177,10 @@ export class MobEntity extends CombatantEntity {
   // This prevents excessive movement requests and aligns with OSRS tick system
   private _lastAITick: number = -1;
 
+  // ===== HEALTH BAR VISIBILITY (RuneScape pattern: show only when damaged) =====
+  private _healthBarVisibleUntil: number = 0; // Timestamp when health bar should hide
+  private _lastKnownHealth: number = 0; // Track previous health to detect damage
+
   async init(): Promise<void> {
     await super.init();
 
@@ -183,6 +188,13 @@ export class MobEntity extends CombatantEntity {
     // Client: VRM animations via clientUpdate()
     // Server: AI behavior via serverUpdate()
     this.world.setHot(this, true);
+
+    // Hide health bar initially (RuneScape pattern: only show after damaged)
+    // Health bar is created by Entity.initializeVisuals() called from super.init()
+    if (this.healthSprite) {
+      this.healthSprite.visible = false;
+    }
+    this._lastKnownHealth = this.config.currentHealth;
 
     // TODO: Server-side validation disabled due to ProgressEvent polyfill issues
     // Validation happens on client side instead (see clientUpdate)
@@ -1195,6 +1207,14 @@ export class MobEntity extends CombatantEntity {
     super.clientUpdate(deltaTime);
     this.clientUpdateCalls++;
 
+    // Hide health bar after combat timeout (RuneScape pattern: 4.8 seconds)
+    if (this.healthSprite && this._healthBarVisibleUntil > 0) {
+      if (Date.now() >= this._healthBarVisibleUntil) {
+        this.healthSprite.visible = false;
+        this._healthBarVisibleUntil = 0;
+      }
+    }
+
     // Handle dead state on client (hide mesh and stop VRM animation after death animation)
     if (this.config.aiState === MobAIState.DEAD) {
       // Start tracking client-side death time when we first see DEAD state
@@ -1972,6 +1992,16 @@ export class MobEntity extends CombatantEntity {
     // Update health from server
     if ("currentHealth" in data) {
       const newHealth = data.currentHealth as number;
+
+      // Show health bar when damaged (RuneScape pattern)
+      // Only show if health decreased (took damage), not on heal/respawn
+      if (newHealth < this._lastKnownHealth && this.healthSprite) {
+        this.healthSprite.visible = true;
+        this._healthBarVisibleUntil =
+          Date.now() + COMBAT_CONSTANTS.COMBAT_TIMEOUT_MS;
+      }
+      this._lastKnownHealth = newHealth;
+
       this.config.currentHealth = newHealth;
       this.setHealth(newHealth);
     }
