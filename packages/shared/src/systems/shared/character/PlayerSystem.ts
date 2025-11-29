@@ -771,6 +771,10 @@ export class PlayerSystem extends SystemBase {
     ) as PlayerEntity | null;
     if (playerEntity && "setHealth" in playerEntity) {
       playerEntity.setHealth(newHealth);
+
+      // Set lastDamageTick for health regen cooldown (17 ticks = 10.2s after damage)
+      (playerEntity as unknown as { lastDamageTick: number }).lastDamageTick =
+        this.world.currentTick;
     }
 
     // Check for death
@@ -1116,6 +1120,10 @@ export class PlayerSystem extends SystemBase {
 
       // COMBAT_DAMAGE_DEALT is emitted by CombatSystem - no need to emit here
       // to avoid duplicate damage splats
+
+      // Set lastDamageTick for health regen cooldown (17 ticks = 10.2s after damage)
+      (playerEntity as unknown as { lastDamageTick: number }).lastDamageTick =
+        this.world.currentTick;
     }
 
     this.emitTypedEvent(EventType.PLAYER_HEALTH_UPDATED, {
