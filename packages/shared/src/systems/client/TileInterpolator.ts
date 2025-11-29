@@ -15,8 +15,6 @@
  * - Walking: TILES_PER_TICK_WALK tiles per 600ms tick
  * - Running: TILES_PER_TICK_RUN tiles per 600ms tick
  *
- * @see https://secure.runescape.com/m=news/dev-blog---movement-in-runescape
- * @see https://osrs-docs.com/docs/variables/client-tick/
  */
 
 import * as THREE from "three";
@@ -53,6 +51,18 @@ const CATCHUP_MAX_CHANGE_PER_SEC = 3.0; // Can change by at most 3.0 per second
 // Higher = faster rotation, lower = smoother/slower rotation
 // 12.0 = ~90% of rotation completed in ~0.2 seconds (responsive but smooth)
 const ROTATION_SLERP_SPEED = 12.0;
+
+// Emotes that are controlled by TileInterpolator (movement-related)
+// Other emotes like "chopping", "combat", "death" etc. should NOT be overridden
+// TileInterpolator only resets to idle if current emote is a movement emote
+const MOVEMENT_EMOTES = new Set<string | undefined | null>([
+  "walk",
+  "run",
+  "idle",
+  undefined,
+  null,
+  "",
+]);
 
 /**
  * Movement state for a single entity
@@ -604,7 +614,10 @@ export class TileInterpolator {
       state.fullPath = [];
       state.targetTileIndex = 0;
       state.isMoving = false;
-      state.emote = "idle";
+      // Only track idle state if current emote is movement-related
+      if (MOVEMENT_EMOTES.has(state.emote as string | undefined | null)) {
+        state.emote = "idle";
+      }
       state.catchUpMultiplier = 1.0;
       state.targetCatchUpMultiplier = 1.0;
     } else {
@@ -710,9 +723,14 @@ export class TileInterpolator {
         }
         // No path = not moving = idle animation
         state.isMoving = false;
-        state.emote = "idle";
-        // Use modify() to trigger PlayerLocal's emote handling which updates avatar animation
-        entity.modify({ e: "idle" });
+        // Only reset to idle if current emote is a movement emote
+        // Don't override special emotes like "chopping", "combat", "death" etc.
+        const currentEmote = entity.data?.emote || entity.data?.e;
+        if (MOVEMENT_EMOTES.has(currentEmote as string | undefined | null)) {
+          state.emote = "idle";
+          // Use modify() to trigger PlayerLocal's emote handling which updates avatar animation
+          entity.modify({ e: "idle" });
+        }
         entity.data.tileMovementActive = false; // Not moving - allow combat rotation
         continue;
       }
@@ -841,7 +859,11 @@ export class TileInterpolator {
             state.visualPosition.x = finalWorld.x;
             state.visualPosition.z = finalWorld.z;
             state.isMoving = false;
-            state.emote = "idle";
+            // Only track idle state if current emote is movement-related
+            // (actual emote change is handled in the empty path block above)
+            if (MOVEMENT_EMOTES.has(state.emote as string | undefined | null)) {
+              state.emote = "idle";
+            }
             state.destinationTile = null; // Clear destination as we've arrived
             state.catchUpMultiplier = 1.0;
             state.targetCatchUpMultiplier = 1.0;
@@ -983,7 +1005,10 @@ export class TileInterpolator {
       state.targetWorldPos.set(worldPos.x, position.y, worldPos.z);
       state.serverConfirmedTile = { ...newTile };
       state.isMoving = false;
-      state.emote = "idle";
+      // Only track idle state if current emote is movement-related
+      if (MOVEMENT_EMOTES.has(state.emote as string | undefined | null)) {
+        state.emote = "idle";
+      }
       state.catchUpMultiplier = 1.0;
       state.targetCatchUpMultiplier = 1.0;
       state.moveSeq++;
