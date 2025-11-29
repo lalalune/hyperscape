@@ -36,6 +36,20 @@ function getXZ(pos: unknown): { x: number; z: number } | null {
 }
 
 /**
+ * Helper to get [x, y, z] position array from either array or object format
+ */
+function getPositionArray(pos: unknown): [number, number, number] | null {
+  if (Array.isArray(pos) && pos.length >= 3) {
+    return [pos[0], pos[1], pos[2]];
+  }
+  if (pos && typeof pos === "object" && "x" in pos && "z" in pos) {
+    const objPos = pos as { x: number; y?: number; z: number };
+    return [objPos.x, objPos.y ?? 0, objPos.z];
+  }
+  return null;
+}
+
+/**
  * Helper to calculate distance between two positions (handles array or object format)
  */
 function calculateDistance(pos1: unknown, pos2: unknown): number {
@@ -127,12 +141,9 @@ export const exploreAction: Action = {
         return { success: false, error: "Player entity not available" };
       }
 
-      // Require valid position data
-      if (
-        !player.position ||
-        !Array.isArray(player.position) ||
-        player.position.length < 3
-      ) {
+      // Require valid position data (handles both array and object formats)
+      const playerPos = getPositionArray(player.position);
+      if (!playerPos) {
         return { success: false, error: "Player position not available yet" };
       }
 
@@ -157,9 +168,9 @@ export const exploreAction: Action = {
         const angle = Math.random() * Math.PI * 2;
         const distance = 15 + Math.random() * 15; // 15-30 units
         target = [
-          player.position[0] + Math.cos(angle) * distance,
-          player.position[1],
-          player.position[2] + Math.sin(angle) * distance,
+          playerPos[0] + Math.cos(angle) * distance,
+          playerPos[1],
+          playerPos[2] + Math.sin(angle) * distance,
         ];
         logger.info(
           `[EXPLORE] Generated random target: [${target[0].toFixed(1)}, ${target[2].toFixed(1)}]`,
@@ -271,12 +282,9 @@ export const fleeAction: Action = {
         return { success: false, error: "Player entity not available" };
       }
 
-      // Require valid position data
-      if (
-        !player.position ||
-        !Array.isArray(player.position) ||
-        player.position.length < 3
-      ) {
+      // Require valid position data (handles both array and object formats)
+      const playerPos = getPositionArray(player.position);
+      if (!playerPos) {
         return { success: false, error: "Player position not available yet" };
       }
 
@@ -284,16 +292,9 @@ export const fleeAction: Action = {
       const nearbyEntities = service.getNearbyEntities();
       const threats = nearbyEntities.filter((entity) => {
         if (!("mobType" in entity)) return false;
-        if (
-          !entity.position ||
-          !Array.isArray(entity.position) ||
-          entity.position.length < 3
-        )
-          return false;
-        const dist = calculateDistance(
-          player.position,
-          entity.position as [number, number, number],
-        );
+        const entityPos = getPositionArray(entity.position);
+        if (!entityPos) return false;
+        const dist = calculateDistance(playerPos, entityPos);
         return dist < 20;
       });
 
@@ -304,30 +305,33 @@ export const fleeAction: Action = {
         let avgX = 0;
         let avgZ = 0;
         for (const threat of threats) {
-          avgX += threat.position[0];
-          avgZ += threat.position[2];
+          const threatPos = getPositionArray(threat.position);
+          if (threatPos) {
+            avgX += threatPos[0];
+            avgZ += threatPos[2];
+          }
         }
         avgX /= threats.length;
         avgZ /= threats.length;
 
         // Flee in opposite direction
-        const dx = player.position[0] - avgX;
-        const dz = player.position[2] - avgZ;
+        const dx = playerPos[0] - avgX;
+        const dz = playerPos[2] - avgZ;
         const dist = Math.sqrt(dx * dx + dz * dz) || 1;
         const fleeDistance = 30; // Run 30 units away
 
         fleeDirection = [
-          player.position[0] + (dx / dist) * fleeDistance,
-          player.position[1],
-          player.position[2] + (dz / dist) * fleeDistance,
+          playerPos[0] + (dx / dist) * fleeDistance,
+          playerPos[1],
+          playerPos[2] + (dz / dist) * fleeDistance,
         ];
       } else {
         // No specific threat, just run in a random direction
         const angle = Math.random() * Math.PI * 2;
         fleeDirection = [
-          player.position[0] + Math.cos(angle) * 30,
-          player.position[1],
-          player.position[2] + Math.sin(angle) * 30,
+          playerPos[0] + Math.cos(angle) * 30,
+          playerPos[1],
+          playerPos[2] + Math.sin(angle) * 30,
         ];
       }
 
@@ -485,12 +489,9 @@ export const approachEntityAction: Action = {
         return { success: false, error: "Player entity not available" };
       }
 
-      // Require valid position data
-      if (
-        !player.position ||
-        !Array.isArray(player.position) ||
-        player.position.length < 3
-      ) {
+      // Require valid position data (handles both array and object formats)
+      const playerPos = getPositionArray(player.position);
+      if (!playerPos) {
         return { success: false, error: "Player position not available yet" };
       }
 
@@ -528,8 +529,11 @@ export const approachEntityAction: Action = {
           (e) => e.id === nearestPlayer.id,
         );
         if (playerEntity) {
-          target = playerEntity.position as [number, number, number];
-          targetName = nearestPlayer.name;
+          const entityPos = getPositionArray(playerEntity.position);
+          if (entityPos) {
+            target = entityPos;
+            targetName = nearestPlayer.name;
+          }
         }
       }
 
@@ -544,19 +548,19 @@ export const approachEntityAction: Action = {
       }
 
       // Move towards target (stop a bit short to not collide)
-      const dx = target[0] - player.position[0];
-      const dz = target[2] - player.position[2];
+      const dx = target[0] - playerPos[0];
+      const dz = target[2] - playerPos[2];
       const dist = Math.sqrt(dx * dx + dz * dz);
       const stopDistance = 3; // Stop 3 units away
 
       const adjustedTarget: [number, number, number] =
         dist > stopDistance
           ? [
-              player.position[0] + (dx / dist) * (dist - stopDistance),
-              player.position[1],
-              player.position[2] + (dz / dist) * (dist - stopDistance),
+              playerPos[0] + (dx / dist) * (dist - stopDistance),
+              playerPos[1],
+              playerPos[2] + (dz / dist) * (dist - stopDistance),
             ]
-          : player.position;
+          : playerPos;
 
       await service.executeMove({ target: adjustedTarget, runMode: false });
 
@@ -745,6 +749,24 @@ export const attackEntityAction: Action = {
 
       // Find attackable mobs
       const nearbyEntities = service.getNearbyEntities();
+
+      // Debug: Log all nearby entities and their positions after respawn
+      logger.info(
+        `[ATTACK_ENTITY] 🔍 Scanning ${nearbyEntities.length} nearby entities...`,
+      );
+      for (const ent of nearbyEntities) {
+        const entAny = ent as unknown as Record<string, unknown>;
+        const isMobLike =
+          "mobType" in ent ||
+          entAny.type === "mob" ||
+          /goblin/i.test(ent.name || "");
+        if (isMobLike) {
+          logger.info(
+            `[ATTACK_ENTITY] 🦎 MOB: "${ent.name}" id=${ent.id} position=${JSON.stringify(ent.position)} (type: ${typeof ent.position})`,
+          );
+        }
+      }
+
       const attackableMobs = nearbyEntities.filter((entity) => {
         const entityAny = entity as unknown as Record<string, unknown>;
 
@@ -789,14 +811,24 @@ export const attackEntityAction: Action = {
       }
 
       // Get mob position for movement
+      // Debug: log the raw position data to diagnose (0,0) issue after respawn
+      logger.info(
+        `[ATTACK_ENTITY] nearestMob.position raw: ${JSON.stringify(nearestMob.position)} (type: ${typeof nearestMob.position}, isArray: ${Array.isArray(nearestMob.position)})`,
+      );
       const mobPos = getXZ(nearestMob.position);
+      logger.info(
+        `[ATTACK_ENTITY] mobPos after getXZ: ${JSON.stringify(mobPos)}`,
+      );
       if (!mobPos) {
         return { success: false, error: "Cannot determine mob position" };
       }
 
       const MELEE_RANGE = 3; // Melee attack range in units
 
-      // If not in melee range, move towards the mob first
+      // If not in melee range, move towards the mob first and return
+      // DO NOT send attack command yet - it would replace the movement action!
+      // Combat action has higher priority than movement, so we must only move first.
+      // On the next tick, we'll check again and attack when in range.
       if (nearestDist > MELEE_RANGE) {
         // Calculate position to move to (stop just before the mob)
         const dx = mobPos.x - playerPos.x;
@@ -816,15 +848,31 @@ export const attackEntityAction: Action = {
           target: [targetX, 0, targetZ],
           runMode: true, // Run to engage faster
         });
+
+        const responseText = `Moving to attack ${nearestMob.name}!`;
+        await callback?.({ text: responseText, action: "ATTACK_ENTITY" });
+
+        logger.info(
+          `[ATTACK_ENTITY] ${responseText} (distance: ${nearestDist.toFixed(1)})`,
+        );
+
+        return {
+          success: true,
+          text: responseText,
+          values: { target: nearestMob.name, distance: nearestDist },
+          data: {
+            action: "ATTACK_ENTITY",
+            targetId: nearestMob.id,
+            targetName: nearestMob.name,
+            moving: true, // Flag that we're still moving
+          },
+        };
       }
 
-      // Send attack command (server will handle the actual combat when in range)
+      // In melee range - send attack command
       await service.executeAttack({ targetEntityId: nearestMob.id });
 
-      const responseText =
-        nearestDist > MELEE_RANGE
-          ? `Moving to attack ${nearestMob.name}!`
-          : `Attacking ${nearestMob.name}!`;
+      const responseText = `Attacking ${nearestMob.name}!`;
       await callback?.({ text: responseText, action: "ATTACK_ENTITY" });
 
       logger.info(
