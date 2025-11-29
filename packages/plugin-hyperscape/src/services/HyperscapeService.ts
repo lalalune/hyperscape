@@ -883,6 +883,24 @@ export class HyperscapeService
   }
 
   /**
+   * Normalize position to [x, y, z] array format
+   * Handles both array [x, y, z] and object {x, y, z} formats from server
+   * Returns null if position cannot be normalized
+   */
+  private normalizePosition(pos: unknown): [number, number, number] | null {
+    if (Array.isArray(pos) && pos.length >= 3) {
+      return [pos[0], pos[1], pos[2]];
+    }
+    if (pos && typeof pos === "object" && "x" in pos) {
+      const objPos = pos as { x: number; y?: number; z: number };
+      // Handle both {x, y, z} and {x, z} (no y) formats
+      const z = "z" in objPos ? objPos.z : 0;
+      return [objPos.x, objPos.y ?? 0, z];
+    }
+    return null;
+  }
+
+  /**
    * Translate abbreviated entity property names from server to full names
    * Server sends: p (position), v (velocity), q (quaternion), e (emote)
    * Plugin expects: position, velocity, quaternion, emote
@@ -1036,13 +1054,75 @@ export class HyperscapeService
             `[HyperscapeService] 🎮 Player entity spawned: ${data.id} on WebSocket ${wsId}, runtime: ${this.runtime.agentId}`,
           );
 
-          // Start autonomous exploration when player spawns
-          this.startAutonomousExploration();
+          // Normalize position to [x, y, z] array format if present
+          const normalizedPos = this.normalizePosition(data.position);
+          if (normalizedPos) {
+            this.gameState.playerEntity.position = normalizedPos;
+            logger.info(
+              `[HyperscapeService] Position available on spawn: [${normalizedPos[0].toFixed(0)}, ${normalizedPos[2].toFixed(0)}], starting autonomous exploration`,
+            );
+            this.startAutonomousExploration();
+          } else {
+            logger.info(
+              `[HyperscapeService] Waiting for position before starting autonomous exploration (raw position: ${JSON.stringify(data.position)})`,
+            );
+          }
         } else if (data && data.id) {
-          logger.debug(
-            `[HyperscapeService] Entity ${data.id} added (not our player)`,
-          );
-          this.gameState.nearbyEntities.set(data.id, data as Entity);
+          // Debug: Log mob entity additions with position info
+          const entityData = data as Record<string, unknown>;
+          const isMob =
+            entityData.mobType ||
+            entityData.type === "mob" ||
+            /goblin/i.test(String(entityData.name || ""));
+
+          // Check if we already have this entity with a valid position
+          const existingEntity = this.gameState.nearbyEntities.get(data.id);
+          const existingPos = existingEntity?.position as unknown;
+
+          // Helper to check if position is valid (not at origin 0,0)
+          const isValidPosition = (pos: unknown): boolean => {
+            if (Array.isArray(pos) && pos.length >= 3) {
+              return pos[0] !== 0 || pos[2] !== 0;
+            }
+            if (pos && typeof pos === "object") {
+              const objPos = pos as { x?: number; z?: number };
+              return (
+                objPos.x !== undefined &&
+                objPos.z !== undefined &&
+                (objPos.x !== 0 || objPos.z !== 0)
+              );
+            }
+            return false;
+          };
+
+          const hasExistingValidPos = isValidPosition(existingPos);
+          const incomingPos = entityData.position;
+          const hasIncomingValidPos = isValidPosition(incomingPos);
+
+          if (isMob) {
+            logger.info(
+              `[HyperscapeService] 🦎 MOB ADDED: "${entityData.name}" id=${data.id} incomingPos=${JSON.stringify(incomingPos)} existingPos=${JSON.stringify(existingPos)} hasExistingValid=${hasExistingValidPos} hasIncomingValid=${hasIncomingValidPos}`,
+            );
+          } else {
+            logger.debug(
+              `[HyperscapeService] Entity ${data.id} added (not our player)`,
+            );
+          }
+
+          // CRITICAL FIX: If we have existing valid position but incoming has (0,0), preserve existing
+          // This prevents respawn from overwriting good mob position data with stale/default positions
+          if (existingEntity && hasExistingValidPos && !hasIncomingValidPos) {
+            // Merge incoming data but preserve our known good position
+            const mergedEntity = { ...data, position: existingPos } as Entity;
+            this.gameState.nearbyEntities.set(data.id, mergedEntity);
+            if (isMob) {
+              logger.info(
+                `[HyperscapeService] 🦎 MOB PRESERVED POSITION: "${entityData.name}" - kept existing pos ${JSON.stringify(existingPos)} instead of ${JSON.stringify(incomingPos)}`,
+              );
+            }
+          } else {
+            this.gameState.nearbyEntities.set(data.id, data as Entity);
+          }
         }
         break;
 
@@ -1058,29 +1138,35 @@ export class HyperscapeService
           // Server sends: p (position), v (velocity), q (quaternion), e (emote)
           const translatedChanges = this.translateEntityChanges(changes);
           Object.assign(this.gameState.playerEntity, translatedChanges);
-          // Log position updates for debugging
+
+          // Normalize position to [x, y, z] array format if it was updated
           if (translatedChanges.position) {
-            const pos = translatedChanges.position as
-              | number[]
-              | { x: number; y: number; z: number };
-            const posStr = Array.isArray(pos)
-              ? `[${pos[0]?.toFixed?.(0) || pos[0]}, ${pos[1]?.toFixed?.(0) || pos[1]}, ${pos[2]?.toFixed?.(0) || pos[2]}]`
-              : `{x:${pos.x?.toFixed?.(0) || pos.x}, y:${pos.y?.toFixed?.(0) || pos.y}, z:${pos.z?.toFixed?.(0) || pos.z}}`;
-            logger.info(
-              `[HyperscapeService] 📍 Player position updated: ${posStr}`,
+            const normalizedPos = this.normalizePosition(
+              translatedChanges.position,
             );
+            if (normalizedPos) {
+              this.gameState.playerEntity.position = normalizedPos;
+              logger.info(
+                `[HyperscapeService] 📍 Player position updated: [${normalizedPos[0].toFixed(0)}, ${normalizedPos[2].toFixed(0)}]`,
+              );
+            }
           }
         } else if (data && data.id) {
           const changes = data.changes || data;
           const translatedChanges = this.translateEntityChanges(changes);
-          // Log if we get entityModified for a different entity (to debug why player isn't updating)
-          if (data.id && translatedChanges.position) {
-            logger.debug(
-              `[HyperscapeService] 📍 Entity ${data.id} position updated (not player ${this.characterId})`,
-            );
-          }
           const entity = this.gameState.nearbyEntities.get(data.id);
           if (entity) {
+            // Debug: Log mob position updates
+            const entityAny = entity as unknown as Record<string, unknown>;
+            const isMob =
+              entityAny.mobType ||
+              entityAny.type === "mob" ||
+              /goblin/i.test(String(entity.name || ""));
+            if (isMob && translatedChanges.position) {
+              logger.info(
+                `[HyperscapeService] 🦎 MOB POSITION UPDATE: "${entity.name}" id=${data.id} newPos=${JSON.stringify(translatedChanges.position)}`,
+              );
+            }
             Object.assign(entity, translatedChanges);
           }
         }
@@ -1124,19 +1210,41 @@ export class HyperscapeService
       case "playerState":
         // Handle player position/state updates
         if (this.gameState.playerEntity && data) {
-          // Update position if present
+          // Check if we had a valid position before this update
+          const hadPositionBefore = !!this.normalizePosition(
+            this.gameState.playerEntity.position,
+          );
+
+          // Normalize and update position if present
           if (data.position) {
-            this.gameState.playerEntity.position = data.position;
-            const pos = data.position;
-            const posStr = Array.isArray(pos)
-              ? `[${pos[0]?.toFixed?.(0) || pos[0]}, ${pos[1]?.toFixed?.(0) || pos[1]}, ${pos[2]?.toFixed?.(0) || pos[2]}]`
-              : `{x:${pos.x?.toFixed?.(0) || pos.x}, z:${pos.z?.toFixed?.(0) || pos.z}}`;
-            logger.info(
-              `[HyperscapeService] 📍 Player position via ${packetName}: ${posStr}`,
-            );
+            const normalizedPos = this.normalizePosition(data.position);
+            if (normalizedPos) {
+              this.gameState.playerEntity.position = normalizedPos;
+              logger.info(
+                `[HyperscapeService] 📍 Player position via ${packetName}: [${normalizedPos[0].toFixed(0)}, ${normalizedPos[2].toFixed(0)}]`,
+              );
+
+              // Start autonomous exploration if this is the first position and not already running
+              if (!hadPositionBefore && !this.isAutonomousBehaviorRunning()) {
+                logger.info(
+                  `[HyperscapeService] First position received, starting autonomous exploration`,
+                );
+                this.startAutonomousExploration();
+              }
+            } else {
+              logger.warn(
+                `[HyperscapeService] Could not normalize position: ${JSON.stringify(data.position)}`,
+              );
+            }
           }
-          // Also copy any other state (health, etc)
+
+          // Copy other state (health, etc), but preserve our normalized position
+          const savedPosition = this.gameState.playerEntity.position;
           Object.assign(this.gameState.playerEntity, data);
+          // Restore normalized position (in case raw data overwrote it)
+          if (savedPosition) {
+            this.gameState.playerEntity.position = savedPosition;
+          }
         }
         break;
 
@@ -1158,16 +1266,31 @@ export class HyperscapeService
         };
 
         if (moveData.id === this.characterId && this.gameState.playerEntity) {
+          // Check if we had a valid position before this update
+          const hadPositionBefore = !!this.normalizePosition(
+            this.gameState.playerEntity.position,
+          );
+
           // Update player's movement state
           if (moveData.startTile) {
-            // Convert tile to world position (tiles are 1 unit)
-            // Position type is [x, y, z] tuple
-            const currentY = this.gameState.playerEntity.position?.[1] || 0;
+            // Convert tile {x, z} to world position [x, y, z]
+            const prevPos = this.normalizePosition(
+              this.gameState.playerEntity.position,
+            );
+            const currentY = prevPos ? prevPos[1] : 0;
             this.gameState.playerEntity.position = [
               moveData.startTile.x,
               currentY,
               moveData.startTile.z,
             ];
+
+            // Start autonomous exploration if this is the first position
+            if (!hadPositionBefore && !this.isAutonomousBehaviorRunning()) {
+              logger.info(
+                `[HyperscapeService] First position via tileMovementStart: [${moveData.startTile.x}, ${moveData.startTile.z}], starting autonomous exploration`,
+              );
+              this.startAutonomousExploration();
+            }
           }
           logger.debug(
             `[HyperscapeService] 🚶 Tile movement started: ${moveData.path?.length || 0} tiles, running: ${moveData.running}`,
@@ -1211,6 +1334,17 @@ export class HyperscapeService
         } else if (tileData.id) {
           const entity = this.gameState.nearbyEntities.get(tileData.id);
           if (entity && tileData.worldPos) {
+            // Debug: Log mob tile position updates
+            const entityAny = entity as unknown as Record<string, unknown>;
+            const isMob =
+              entityAny.mobType ||
+              entityAny.type === "mob" ||
+              /goblin/i.test(String(entity.name || ""));
+            if (isMob) {
+              logger.info(
+                `[HyperscapeService] 🦎 MOB TILE UPDATE: "${entity.name}" id=${tileData.id} worldPos=[${tileData.worldPos[0].toFixed(1)}, ${tileData.worldPos[2].toFixed(1)}]`,
+              );
+            }
             entity.position = [
               tileData.worldPos[0],
               tileData.worldPos[1],

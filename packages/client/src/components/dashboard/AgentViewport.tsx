@@ -187,6 +187,7 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
     followEntity: characterId, // Camera will follow this entity
     privyUserId: privyUserId, // For additional verification
     hiddenUI: "chat,inventory,minimap,hotbar,stats",
+    quality: "low", // Use low quality for embedded viewports to improve performance
   });
 
   return (

@@ -97,6 +97,11 @@ export class TileMovementManager {
       return;
     }
 
+    console.log(
+      `[TileMovement] 📥 handleMoveRequest for player ${playerEntity.id}:`,
+      JSON.stringify(data),
+    );
+
     const payload = data as {
       target?: number[] | null;
       targetTile?: TileCoord;
@@ -154,6 +159,10 @@ export class TileMovementManager {
       (tile) => this.isTileWalkable(tile),
     );
 
+    console.log(
+      `[TileMovement] 📍 Path calculation: from (${state.currentTile.x},${state.currentTile.z}) to (${targetTile.x},${targetTile.z}) - found ${path.length} tiles`,
+    );
+
     // Store path and update state
     state.path = path;
     state.pathIndex = 0;
@@ -164,6 +173,9 @@ export class TileMovementManager {
 
     // Immediately rotate player toward destination and send first tile update
     if (path.length > 0) {
+      console.log(
+        `[TileMovement] ✅ Path found! Broadcasting tileMovementStart with ${path.length} tiles`,
+      );
       const nextTile = path[0];
       const nextWorld = tileToWorld(nextTile);
       const curr = playerEntity.position;
@@ -207,6 +219,9 @@ export class TileMovementManager {
       });
     } else {
       // No path found or already at destination
+      console.warn(
+        `[TileMovement] ⚠️ No path found from (${state.currentTile.x},${state.currentTile.z}) to (${targetTile.x},${targetTile.z})`,
+      );
     }
   }
 
