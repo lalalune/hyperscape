@@ -420,68 +420,102 @@ export class PlayerRemote extends Entity implements HotReloadable {
   update(delta: number): void {
     const anchor = this.getAnchorMatrix();
     if (!anchor) {
-      // Update lerp values
-      this.lerpPosition.update(delta);
-      this.lerpQuaternion.update(delta);
+      // Check if TileInterpolator is controlling this entity's position
+      // If so, skip our position interpolation to avoid fighting
+      const tileControlled = this.data.tileInterpolatorControlled === true;
 
-      // FORCE APPLY POSITION - no interpolation bullshit
-      if (!this.enableInterpolation) {
-        // Get the target position directly from lerp.current and apply it
-        const targetPos = this.lerpPosition.current;
-        if (targetPos) {
-          this.base.position.copy(targetPos);
-          this.node.position.copy(targetPos);
-          this.position.copy(targetPos);
+      if (!tileControlled) {
+        // Update lerp values
+        this.lerpPosition.update(delta);
+        this.lerpQuaternion.update(delta);
+
+        // FORCE APPLY POSITION - no interpolation bullshit
+        if (!this.enableInterpolation) {
+          // Get the target position directly from lerp.current and apply it
+          const targetPos = this.lerpPosition.current;
+          if (targetPos) {
+            this.base.position.copy(targetPos);
+            this.node.position.copy(targetPos);
+            this.position.copy(targetPos);
+            // CRITICAL: Update base transform for instance.move()
+            this.base.updateTransform();
+            // Position applied directly without interpolation
+          }
+
+          const targetRot = this.lerpQuaternion.current;
+          if (targetRot) {
+            this.node.quaternion.copy(targetRot);
+          }
+        } else {
+          // Use interpolated values
+          this.base.position.copy(this.lerpPosition.value);
+          this.node.position.copy(this.lerpPosition.value);
+          this.position.copy(this.lerpPosition.value);
+          this.node.quaternion.copy(this.lerpQuaternion.value);
           // CRITICAL: Update base transform for instance.move()
           this.base.updateTransform();
-          // Position applied directly without interpolation
-        }
-
-        const targetRot = this.lerpQuaternion.current;
-        if (targetRot) {
-          this.node.quaternion.copy(targetRot);
         }
       } else {
-        // Use interpolated values
-        this.base.position.copy(this.lerpPosition.value);
-        this.node.position.copy(this.lerpPosition.value);
-        this.position.copy(this.lerpPosition.value);
-        this.node.quaternion.copy(this.lerpQuaternion.value);
-        // CRITICAL: Update base transform for instance.move()
+        // TileInterpolator is controlling position - just update base transform
         this.base.updateTransform();
       }
     }
 
     // COMBAT ROTATION: Rotate to face target when in combat (RuneScape-style)
-    // Check if any nearby mobs are targeting us (since combat state isn't synced from server)
+    // Priority: 1) Our combat target (from server), 2) Mob attacking us
     let combatTarget: {
       position: { x: number; z: number };
       id: string;
     } | null = null;
 
-    // Look for mobs that are attacking us
-    for (const entity of this.world.entities.items.values()) {
-      if (entity.type === "mob" && entity.position) {
-        const mobEntity = entity as any;
-        // Check if mob is in ATTACK state and targeting this player
-        if (
-          mobEntity.config?.aiState === "attack" &&
-          mobEntity.config?.targetPlayerId === this.id
-        ) {
-          const dx = entity.position.x - this.position.x;
-          const dz = entity.position.z - this.position.z;
-          const distance2D = Math.sqrt(dx * dx + dz * dz);
+    // First check if WE have a combat target (player attacking mob)
+    if (this.combat.combatTarget) {
+      const targetEntity = this.world.entities.items.get(
+        this.combat.combatTarget,
+      );
+      if (targetEntity?.position) {
+        const dx = targetEntity.position.x - this.position.x;
+        const dz = targetEntity.position.z - this.position.z;
+        const distance2D = Math.sqrt(dx * dx + dz * dz);
+        // Only rotate if target is within reasonable combat range
+        if (distance2D <= 10) {
+          combatTarget = {
+            position: targetEntity.position,
+            id: targetEntity.id,
+          };
+        }
+      }
+    }
 
-          // Only rotate if mob is within reasonable combat range
-          if (distance2D <= 3) {
-            combatTarget = { position: entity.position, id: entity.id };
-            break; // Only face one mob at a time
+    // If no target from our combat state, check for mobs attacking us
+    if (!combatTarget) {
+      for (const entity of this.world.entities.items.values()) {
+        if (entity.type === "mob" && entity.position) {
+          const mobEntity = entity as any;
+          // Check if mob is in ATTACK state and targeting this player
+          if (
+            mobEntity.config?.aiState === "attack" &&
+            mobEntity.config?.targetPlayerId === this.id
+          ) {
+            const dx = entity.position.x - this.position.x;
+            const dz = entity.position.z - this.position.z;
+            const distance2D = Math.sqrt(dx * dx + dz * dz);
+
+            // Only rotate if mob is within reasonable combat range
+            if (distance2D <= 3) {
+              combatTarget = { position: entity.position, id: entity.id };
+              break; // Only face one mob at a time
+            }
           }
         }
       }
     }
 
-    if (combatTarget) {
+    // OSRS behavior: Only face combat target when STANDING STILL
+    // When moving, face movement direction (handled by TileInterpolator)
+    const isMoving = this.data.tileMovementActive === true;
+
+    if (combatTarget && !isMoving) {
       // Calculate angle to target (XZ plane only, like RuneScape)
       const dx = combatTarget.position.x - this.position.x;
       const dz = combatTarget.position.z - this.position.z;
@@ -657,21 +691,31 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.teleport++;
     }
     if (data.p !== undefined) {
-      // Position is no longer stored in EntityData, apply directly to entity transform
-      this.lerpPosition.pushArray(data.p, this.teleport || null);
-      // Apply position immediately for responsiveness - assume it's a 3-element array
-      const pos = data.p as number[];
-      // Update base, node, and position IMMEDIATELY
-      this.base.position.set(pos[0], pos[1], pos[2]);
-      this.node.position.set(pos[0], pos[1], pos[2]);
-      this.position.set(pos[0], pos[1], pos[2]);
-      // CRITICAL: Force base to update its matrix so instance.move() gets correct transform
-      this.base.updateTransform();
+      // Check if TileInterpolator is controlling position - if so, skip position updates
+      // TileInterpolator handles position smoothly, we don't want to fight it
+      const tileControlled = this.data.tileInterpolatorControlled === true;
+      if (!tileControlled) {
+        // Position is no longer stored in EntityData, apply directly to entity transform
+        this.lerpPosition.pushArray(data.p, this.teleport || null);
+        // Apply position immediately for responsiveness - assume it's a 3-element array
+        const pos = data.p as number[];
+        // Update base, node, and position IMMEDIATELY
+        this.base.position.set(pos[0], pos[1], pos[2]);
+        this.node.position.set(pos[0], pos[1], pos[2]);
+        this.position.set(pos[0], pos[1], pos[2]);
+        // CRITICAL: Force base to update its matrix so instance.move() gets correct transform
+        this.base.updateTransform();
+      }
     }
     if (data.q !== undefined) {
-      // Rotation is no longer stored in EntityData, apply directly to entity transform
-      this.lerpQuaternion.pushArray(data.q, this.teleport || null);
-      // When explicit rotation update arrives, clear any movement-facing override to avoid fighting network
+      // CRITICAL: Skip quaternion updates when TileInterpolator is controlling rotation
+      // TileInterpolator handles rotation smoothly for tile-based movement
+      const tileControlled = this.data.tileInterpolatorControlled === true;
+      if (!tileControlled) {
+        // Rotation is no longer stored in EntityData, apply directly to entity transform
+        this.lerpQuaternion.pushArray(data.q, this.teleport || null);
+        // When explicit rotation update arrives, clear any movement-facing override to avoid fighting network
+      }
     }
     if (data.e !== undefined) {
       this.data.emote = data.e;

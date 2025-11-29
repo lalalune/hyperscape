@@ -1,10 +1,17 @@
 /**
- * WildernessDeathHandler
+ * WildernessDeathHandler (TICK-BASED)
  *
  * Handles player death in wilderness/PvP zones (RuneScape-style):
- * 1. Items → ground items immediately (2 minutes)
- * 2. Ground items despawn
+ * 1. Items → ground items immediately (200 ticks = 2 minutes)
+ * 2. Ground items despawn via GroundItemManager tick processing
  * No gravestone protection in dangerous areas
+ *
+ * TICK-BASED TIMING (OSRS-accurate):
+ * - Uses tick constants from COMBAT_CONSTANTS
+ * - Ground item despawn handled by GroundItemManager.processTick()
+ * - Loot protection expires after 100 ticks (1 minute)
+ *
+ * @see https://oldschool.runescape.wiki/w/Wilderness#Death
  */
 
 import type { World } from "../../../core/World";
@@ -12,10 +19,17 @@ import type { InventoryItem } from "../../../types/core/core";
 import type { GroundItemManager } from "./GroundItemManager";
 import type { DeathStateManager } from "./DeathStateManager";
 import { ZoneType } from "../../../types/death";
+import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
+import { ticksToMs } from "../../../utils/game/CombatCalculations";
 
 export class WildernessDeathHandler {
-  private readonly GROUND_ITEM_DURATION = 2 * 60 * 1000; // 2 minutes
-  private readonly LOOT_PROTECTION_DURATION = 60 * 1000; // 1 minute (only for killer)
+  // Convert tick constants to ms for GroundItemOptions backwards compatibility
+  private readonly GROUND_ITEM_DURATION_MS = ticksToMs(
+    COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS,
+  );
+  private readonly LOOT_PROTECTION_DURATION_MS = ticksToMs(
+    COMBAT_CONSTANTS.LOOT_PROTECTION_TICKS,
+  );
 
   constructor(
     private world: World,
@@ -59,13 +73,14 @@ export class WildernessDeathHandler {
     }
 
     // Spawn ground items immediately (no gravestone in wilderness)
+    // Uses ms values for GroundItemOptions, internally converted to ticks by GroundItemManager
     const groundItemIds = await this.groundItemManager.spawnGroundItems(
       items,
       position,
       {
-        despawnTime: this.GROUND_ITEM_DURATION,
+        despawnTime: this.GROUND_ITEM_DURATION_MS, // 200 ticks = 2 minutes
         droppedBy: playerId,
-        lootProtection: this.LOOT_PROTECTION_DURATION, // 1 minute protection for killer
+        lootProtection: this.LOOT_PROTECTION_DURATION_MS, // 100 ticks = 1 minute protection for killer
         scatter: true,
         scatterRadius: 3.0, // Wider scatter in wilderness
       },

@@ -1,37 +1,53 @@
 /**
- * RespawnManager - Manages mob respawn locations and timing
+ * RespawnManager - Manages mob respawn locations and timing (TICK-BASED)
  *
  * Production-quality respawn system:
  * - Mobs spawn in an AREA, not at a single point (RuneScape-style)
  * - Random spawn location within configured radius
  * - Separate initial spawn from respawn locations
  * - Prevents spawn camping and exploitation
+ * - TICK-BASED timing for OSRS-accurate respawn mechanics
  *
  * Design:
  * 1. Define spawn area (center point + radius)
  * 2. Generate random spawn point within area
  * 3. Snap to terrain height
  * 4. Use same system for initial spawn AND respawn
+ *
+ * Timing:
+ * - Config accepts milliseconds for backwards compatibility
+ * - Internally converts to ticks for OSRS-accurate timing
+ * - Respawn timer tracked in ticks (600ms per tick)
+ *
+ * @see https://oldschool.runescape.wiki/w/Respawn_rate
  */
 
 import type { Position3D } from "../../types";
+import { COMBAT_CONSTANTS } from "../../constants/CombatConstants";
+import { msToTicks, ticksToMs } from "../../utils/game/CombatCalculations";
 
 export interface RespawnConfig {
   /** Center of the spawn area */
   spawnAreaCenter: Position3D;
   /** Radius of spawn area (meters) - mob can spawn anywhere within this radius */
   spawnAreaRadius: number;
-  /** Minimum time before respawn (milliseconds) */
+  /** Minimum time before respawn (milliseconds) - converted to ticks internally */
   respawnTimeMin: number;
-  /** Maximum time before respawn (milliseconds) - adds randomness */
+  /** Maximum time before respawn (milliseconds) - adds randomness, converted to ticks internally */
   respawnTimeMax: number;
 }
 
 export class RespawnManager {
   private config: RespawnConfig;
   private currentRespawnPoint: Position3D | null = null;
-  private respawnTimerStart: number | null = null;
-  private respawnDuration: number = 0;
+
+  // TICK-BASED respawn timing (OSRS-accurate)
+  private respawnStartTick: number | null = null;
+  private respawnDurationTicks: number = 0;
+
+  // Cached tick values (converted from ms config)
+  private respawnTicksMin: number;
+  private respawnTicksMax: number;
 
   // Callback when mob should respawn
   private onRespawnCallback?: (spawnPoint: Position3D) => void;
@@ -39,15 +55,26 @@ export class RespawnManager {
   constructor(config: RespawnConfig) {
     this.config = {
       ...config,
-      // Enforce minimum respawn time (15 seconds)
+      // Enforce minimum respawn time (15 seconds = 25 ticks)
       respawnTimeMin: Math.max(config.respawnTimeMin || 15000, 15000),
       respawnTimeMax: Math.max(config.respawnTimeMax || 15000, 15000),
     };
 
+    // Convert ms config to ticks (with minimum of RESPAWN_TICKS_MIN)
+    this.respawnTicksMin = msToTicks(
+      this.config.respawnTimeMin,
+      COMBAT_CONSTANTS.RESPAWN_TICKS_MIN,
+    );
+    this.respawnTicksMax = msToTicks(
+      this.config.respawnTimeMax,
+      COMBAT_CONSTANTS.RESPAWN_TICKS_MIN,
+    );
+
     console.log("[RespawnManager] Created with config:", {
       center: `(${config.spawnAreaCenter.x.toFixed(1)}, ${config.spawnAreaCenter.z.toFixed(1)})`,
       radius: `${config.spawnAreaRadius}m`,
-      respawnTime: `${this.config.respawnTimeMin / 1000}-${this.config.respawnTimeMax / 1000}s`,
+      respawnTicks: `${this.respawnTicksMin}-${this.respawnTicksMax} ticks`,
+      respawnTime: `${(ticksToMs(this.respawnTicksMin) / 1000).toFixed(1)}-${(ticksToMs(this.respawnTicksMax) / 1000).toFixed(1)}s`,
     });
   }
 
@@ -92,26 +119,29 @@ export class RespawnManager {
   }
 
   /**
-   * Start the respawn timer
+   * Start the respawn timer (TICK-BASED)
    * Called when mob dies
    *
-   * @param currentTime - Current timestamp (Date.now())
+   * @param currentTick - Current server tick number
    * @param deathPosition - Where the mob died (for logging only - NOT used for respawn)
    */
-  startRespawnTimer(currentTime: number, deathPosition?: Position3D): void {
-    // Generate random respawn duration between min and max
-    const randomRange = this.config.respawnTimeMax - this.config.respawnTimeMin;
-    this.respawnDuration =
-      this.config.respawnTimeMin + Math.random() * randomRange;
+  startRespawnTimer(currentTick: number, deathPosition?: Position3D): void {
+    // Generate random respawn duration between min and max (in ticks)
+    const randomTickRange = this.respawnTicksMax - this.respawnTicksMin;
+    this.respawnDurationTicks =
+      this.respawnTicksMin + Math.floor(Math.random() * (randomTickRange + 1));
 
-    this.respawnTimerStart = currentTime;
+    this.respawnStartTick = currentTick;
 
     // Generate NEW random spawn point for respawn
     // CRITICAL: This is DIFFERENT from death location!
     this.currentRespawnPoint = this.generateSpawnPoint();
 
+    const durationMs = ticksToMs(this.respawnDurationTicks);
     console.log("[RespawnManager] ⏰ Respawn timer started:", {
-      duration: `${(this.respawnDuration / 1000).toFixed(1)}s`,
+      durationTicks: this.respawnDurationTicks,
+      durationSeconds: `${(durationMs / 1000).toFixed(1)}s`,
+      respawnTick: currentTick + this.respawnDurationTicks,
       deathLocation: deathPosition
         ? `(${deathPosition.x.toFixed(2)}, ${deathPosition.y.toFixed(2)}, ${deathPosition.z.toFixed(2)})`
         : "unknown",
@@ -135,18 +165,21 @@ export class RespawnManager {
   }
 
   /**
-   * Update respawn timer
-   * Call this every frame to check if respawn time has elapsed
+   * Update respawn timer (TICK-BASED)
+   * Call this on each tick to check if respawn time has elapsed
+   *
+   * @param currentTick - Current server tick number
    */
-  update(currentTime: number): void {
-    if (!this.respawnTimerStart) return;
+  update(currentTick: number): void {
+    if (this.respawnStartTick === null) return;
 
-    const elapsed = currentTime - this.respawnTimerStart;
+    const elapsedTicks = currentTick - this.respawnStartTick;
 
-    if (elapsed >= this.respawnDuration) {
+    if (elapsedTicks >= this.respawnDurationTicks) {
       console.log("[RespawnManager] ⏰ Respawn timer expired:", {
-        elapsed: `${(elapsed / 1000).toFixed(1)}s`,
-        threshold: `${(this.respawnDuration / 1000).toFixed(1)}s`,
+        elapsedTicks,
+        thresholdTicks: this.respawnDurationTicks,
+        elapsedSeconds: `${(ticksToMs(elapsedTicks) / 1000).toFixed(1)}s`,
       });
 
       this.triggerRespawn();
@@ -167,8 +200,8 @@ export class RespawnManager {
     });
 
     // Reset timer
-    this.respawnTimerStart = null;
-    this.respawnDuration = 0;
+    this.respawnStartTick = null;
+    this.respawnDurationTicks = 0;
 
     // Call respawn callback with the spawn point
     if (this.onRespawnCallback && this.currentRespawnPoint) {
@@ -180,17 +213,31 @@ export class RespawnManager {
    * Check if respawn timer is active
    */
   isRespawnTimerActive(): boolean {
-    return this.respawnTimerStart !== null;
+    return this.respawnStartTick !== null;
   }
 
   /**
-   * Get time until respawn (milliseconds)
+   * Get ticks until respawn (TICK-BASED)
    * Returns -1 if not active
+   *
+   * @param currentTick - Current server tick number
    */
-  getTimeUntilRespawn(currentTime: number): number {
-    if (!this.respawnTimerStart) return -1;
-    const elapsed = currentTime - this.respawnTimerStart;
-    return Math.max(0, this.respawnDuration - elapsed);
+  getTicksUntilRespawn(currentTick: number): number {
+    if (this.respawnStartTick === null) return -1;
+    const elapsedTicks = currentTick - this.respawnStartTick;
+    return Math.max(0, this.respawnDurationTicks - elapsedTicks);
+  }
+
+  /**
+   * Get time until respawn in milliseconds (for UI display)
+   * Returns -1 if not active
+   *
+   * @param currentTick - Current server tick number
+   */
+  getTimeUntilRespawn(currentTick: number): number {
+    const ticksRemaining = this.getTicksUntilRespawn(currentTick);
+    if (ticksRemaining < 0) return -1;
+    return ticksToMs(ticksRemaining);
   }
 
   /**
@@ -207,8 +254,8 @@ export class RespawnManager {
    * Reset to initial state
    */
   reset(): void {
-    this.respawnTimerStart = null;
-    this.respawnDuration = 0;
+    this.respawnStartTick = null;
+    this.respawnDurationTicks = 0;
     this.currentRespawnPoint = null;
   }
 

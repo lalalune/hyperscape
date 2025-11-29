@@ -10,6 +10,7 @@ import {
   createResourceID,
 } from "../../../utils/IdentifierUtils";
 import type { TerrainResourceSpawnPoint } from "../../../types/world/terrain";
+import { TICK_DURATION_MS } from "../movement/TileSystem";
 
 /**
  * Resource System
@@ -29,18 +30,22 @@ import type { TerrainResourceSpawnPoint } from "../../../types/world/terrain";
  */
 export class ResourceSystem extends SystemBase {
   private resources = new Map<ResourceID, Resource>();
+  // Tick-based gathering sessions (OSRS-accurate timing)
   private activeGathering = new Map<
     PlayerID,
     {
       playerId: PlayerID;
       resourceId: ResourceID;
-      startTime: number;
-      skillCheck: number;
-      nextAttemptAt: number;
+      startTick: number; // Tick when gathering started
+      nextAttemptTick: number; // Next tick to roll for success
+      cycleTickInterval: number; // Ticks between attempts
       attempts: number;
       successes: number;
     }
   >();
+  // Tick-based respawn tracking (replaces setTimeout)
+  private respawnAtTick = new Map<ResourceID, number>();
+  // Legacy respawn timers (for backwards compatibility during transition)
   private respawnTimers = new Map<ResourceID, NodeJS.Timeout>();
   private playerSkills = new Map<
     string,
@@ -277,6 +282,15 @@ export class ResourceSystem extends SystemBase {
         (playerEntity as any).data.e = emote;
       }
 
+      // Send immediate network update for emote (same pattern as CombatSystem)
+      // This ensures the emote update arrives at clients immediately
+      if (this.world.isServer && this.world.network?.send) {
+        this.world.network.send("entityModified", {
+          id: playerId,
+          e: emote,
+        });
+      }
+
       (playerEntity as any).markNetworkDirty?.();
     }
   }
@@ -299,6 +313,14 @@ export class ResourceSystem extends SystemBase {
         (playerEntity as any).data.e = "idle";
       }
 
+      // Send immediate network update for emote reset (same pattern as CombatSystem)
+      if (this.world.isServer && this.world.network?.send) {
+        this.world.network.send("entityModified", {
+          id: playerId,
+          e: "idle",
+        });
+      }
+
       (playerEntity as any).markNetworkDirty?.();
     }
   }
@@ -306,12 +328,9 @@ export class ResourceSystem extends SystemBase {
   async start(): Promise<void> {
     // Resources will be spawned procedurally by TerrainSystem across all terrain tiles
     // No need for manual default spawning - TerrainSystem generates resources based on biome
-
-    // Only run gathering update loop on server (server-authoritative)
-    if (this.world.isServer) {
-      const interval = this.createInterval(() => this.updateGathering(), 500); // Check every 500ms
-    } else {
-    }
+    // NOTE: Gathering is now processed via processGatheringTick() called by TickSystem
+    // The old 500ms interval has been removed in favor of OSRS-accurate 600ms tick-based processing
+    // Registration happens in ServerNetwork/index.ts at TickPriority.RESOURCES
   }
 
   /**
@@ -529,7 +548,10 @@ export class ResourceSystem extends SystemBase {
       levelRequired:
         resourceType === "tree" ? tuned.levelRequired : levelRequired,
       toolRequired,
-      respawnTime: resourceType === "tree" ? tuned.respawnMs : respawnTime,
+      respawnTime:
+        resourceType === "tree"
+          ? this.ticksToMs(tuned.respawnTicks)
+          : respawnTime,
       isAvailable: true,
       lastDepleted: 0,
       drops:
@@ -705,18 +727,32 @@ export class ResourceSystem extends SystemBase {
           ? "fishing"
           : "gathering";
     const resourceName = resource.name || resource.type.replace("_", " ");
-    const skillCheck = Math.floor(Math.random() * 100);
 
-    // Create timed session
+    // Create tick-based session
     const sessionResourceId = createResourceID(resource.id);
 
-    // Schedule first attempt immediately (attempt loop drives cadence)
+    // Get current tick from world (OSRS-accurate tick-based timing)
+    const currentTick = this.world.currentTick || 0;
+
+    // Compute tick-based cycle interval
+    const variant =
+      this.resourceVariants.get(sessionResourceId) || "tree_normal";
+    const tuned = this.getVariantTuning(variant);
+    const axe = this.getBestAxeTier(data.playerId);
+    const toolMultiplier = axe ? axe.cycleMultiplier : 1.0;
+    const cycleTickInterval = this.computeCycleTicks(
+      skillLevel,
+      tuned,
+      toolMultiplier,
+    );
+
+    // Schedule first attempt on next tick
     this.activeGathering.set(playerId, {
       playerId,
       resourceId: sessionResourceId,
-      startTime: Date.now(),
-      skillCheck,
-      nextAttemptAt: Date.now(),
+      startTick: currentTick,
+      nextAttemptTick: currentTick + 1, // First attempt next tick
+      cycleTickInterval,
       attempts: 0,
       successes: 0,
     });
@@ -726,11 +762,13 @@ export class ResourceSystem extends SystemBase {
       this.setGatheringEmote(data.playerId, "chopping");
     }
 
-    // Emit gathering started event
+    // Emit gathering started event with tick timing info for client progress bar
     this.emitTypedEvent(EventType.RESOURCE_GATHERING_STARTED, {
       playerId: data.playerId,
       resourceId: resource.id,
       skill: resource.skillRequired,
+      cycleTicks: cycleTickInterval,
+      tickDurationMs: TICK_DURATION_MS,
     });
 
     // Send feedback to player via chat and UI
@@ -769,8 +807,59 @@ export class ResourceSystem extends SystemBase {
     this.activeGathering.delete(createPlayerID(playerId));
   }
 
-  private updateGathering(): void {
-    const now = Date.now();
+  /**
+   * Process resource respawns on tick (OSRS-accurate tick-based timing)
+   * Replaces setTimeout-based respawn with deterministic tick counting
+   */
+  private processRespawns(tickNumber: number): void {
+    const respawnedResources: ResourceID[] = [];
+
+    for (const [resourceId, respawnTick] of this.respawnAtTick.entries()) {
+      if (tickNumber >= respawnTick) {
+        const resource = this.resources.get(resourceId);
+        if (resource) {
+          resource.isAvailable = true;
+          resource.lastDepleted = 0;
+
+          // Call entity respawn method if available
+          const ent = this.world.entities.get(resourceId);
+          if (
+            ent &&
+            typeof (ent as unknown as { respawn?: () => void }).respawn ===
+              "function"
+          ) {
+            (ent as unknown as { respawn: () => void }).respawn();
+          }
+
+          this.emitTypedEvent(EventType.RESOURCE_RESPAWNED, {
+            resourceId: resourceId,
+            position: resource.position,
+          });
+          this.sendNetworkMessage("resourceRespawned", {
+            resourceId: resourceId,
+            position: resource.position,
+            depleted: false,
+          });
+        }
+        respawnedResources.push(resourceId);
+      }
+    }
+
+    // Clean up processed respawns
+    for (const resourceId of respawnedResources) {
+      this.respawnAtTick.delete(resourceId);
+    }
+  }
+
+  /**
+   * Process gathering on each server tick (OSRS-accurate)
+   * Called by TickSystem at RESOURCES priority
+   */
+  public processGatheringTick(tickNumber: number): void {
+    // Process respawns first (tick-based)
+    this.processRespawns(tickNumber);
+
+    // Process active gathering sessions
     const completedSessions: PlayerID[] = [];
 
     for (const [playerId, session] of this.activeGathering.entries()) {
@@ -781,8 +870,8 @@ export class ResourceSystem extends SystemBase {
         continue;
       }
 
-      // Only process when it's time for the next attempt
-      if (now < session.nextAttemptAt) continue;
+      // Only process when it's time for the next attempt (tick-based)
+      if (tickNumber < session.nextAttemptTick) continue;
 
       // Proximity check before attempt
       const p = this.world.getPlayer?.(playerId as unknown as string);
@@ -825,23 +914,18 @@ export class ResourceSystem extends SystemBase {
         }
       }
 
-      // Compute cycle time based on variant and skill
-      const cachedSkills = this.playerSkills.get(playerId);
-      const skillLevel = cachedSkills?.[resource.skillRequired]?.level ?? 1;
+      // Get variant tuning for this resource
       const variant =
         this.resourceVariants.get(session.resourceId) || "tree_normal";
       const tuned = this.getVariantTuning(variant);
-      // Apply tool tier multiplier to cycle time (faster with better axes)
-      const axe = this.getBestAxeTier(playerId as unknown as string);
-      const toolMultiplier = axe ? axe.cycleMultiplier : 1.0;
-      const cycleMs = Math.max(
-        800,
-        Math.floor(this.computeCycleMs(skillLevel, tuned) * toolMultiplier),
-      );
-      session.nextAttemptAt = now + cycleMs;
+
+      // Schedule next attempt (tick-based)
+      session.nextAttemptTick = tickNumber + session.cycleTickInterval;
       session.attempts++;
 
       // Attempt success roll
+      const cachedSkills = this.playerSkills.get(playerId);
+      const skillLevel = cachedSkills?.[resource.skillRequired]?.level ?? 1;
       const successRate = this.computeSuccessRate(skillLevel, tuned);
       const isSuccessful = Math.random() < successRate;
 
@@ -881,7 +965,7 @@ export class ResourceSystem extends SystemBase {
 
         // Depletion roll
         if (Math.random() < tuned.depleteChance) {
-          // Deplete resource and schedule respawn
+          // Deplete resource and schedule tick-based respawn
           resource.isAvailable = false;
           resource.lastDepleted = Date.now();
 
@@ -908,31 +992,9 @@ export class ResourceSystem extends SystemBase {
             depleted: true,
           });
 
-          const respawnTimer = this.createTimer(() => {
-            resource.isAvailable = true;
-            resource.lastDepleted = 0;
-            const ent = this.world.entities.get(session.resourceId);
-            if (
-              ent &&
-              typeof (ent as unknown as { respawn?: () => void }).respawn ===
-                "function"
-            ) {
-              (ent as unknown as { respawn: () => void }).respawn();
-            }
-            this.emitTypedEvent(EventType.RESOURCE_RESPAWNED, {
-              resourceId: session.resourceId,
-              position: resource.position,
-            });
-            this.sendNetworkMessage("resourceRespawned", {
-              resourceId: session.resourceId,
-              position: resource.position,
-              depleted: false,
-            });
-            this.respawnTimers.delete(session.resourceId);
-          }, resource.respawnTime);
-          if (respawnTimer) {
-            this.respawnTimers.set(session.resourceId, respawnTimer);
-          }
+          // Schedule tick-based respawn (replaces setTimeout)
+          const respawnTick = tickNumber + tuned.respawnTicks;
+          this.respawnAtTick.set(session.resourceId, respawnTick);
 
           // Emit completion for this session
           this.emitTypedEvent(EventType.RESOURCE_GATHERING_COMPLETED, {
@@ -964,80 +1026,103 @@ export class ResourceSystem extends SystemBase {
 
   // Legacy completeGathering() method removed - continuous loop in updateGathering() handles all gathering now
 
-  // ===== Tuning helpers =====
+  // ===== Tuning helpers (TICK-BASED for OSRS accuracy) =====
+  // OSRS Reference: https://oldschool.runescape.wiki/w/Tick_manipulation
+  // Standard woodcutting = 4 ticks (2.4 seconds) per attempt
+  // Respawn times from OSRS Wiki: https://oldschool.runescape.wiki/w/Tree
   private getVariantTuning(variantKey: string): {
     levelRequired: number;
     xpPerLog: number;
-    baseCycleMs: number;
+    baseCycleTicks: number; // Ticks between attempts (600ms each)
     depleteChance: number;
-    respawnMs: number;
+    respawnTicks: number; // Respawn time in ticks
   } {
-    // Defaults for normal tree
+    // OSRS-accurate: All trees use 4-tick base cycle (2.4 seconds per attempt)
+    // Respawn times are OSRS-accurate from the wiki
+    // Defaults for normal tree: respawns in 36-60 seconds (~60-100 ticks)
     const defaults = {
       levelRequired: 1,
       xpPerLog: 25,
-      baseCycleMs: 3600,
-      depleteChance: 0.2,
-      respawnMs: 10000,
+      baseCycleTicks: 4, // OSRS standard: 4 ticks = 2.4s
+      depleteChance: 0.125, // ~1/8 chance per log
+      respawnTicks: 80, // ~48 seconds (middle of 36-60s range)
     };
     switch (variantKey) {
       case "tree_oak":
+        // OSRS Wiki: Oak respawns in 14 ticks (8.4 seconds)
         return {
           levelRequired: 15,
-          xpPerLog: 38,
-          baseCycleMs: 4000,
-          depleteChance: 0.18,
-          respawnMs: 15000,
+          xpPerLog: 38, // OSRS: 37.5 rounded
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per log
+          respawnTicks: 14, // OSRS-accurate: 8.4 seconds
         };
       case "tree_willow":
+        // OSRS Wiki: Willow respawns in 14 ticks (8.4 seconds)
         return {
           levelRequired: 30,
-          xpPerLog: 68,
-          baseCycleMs: 4300,
-          depleteChance: 0.16,
-          respawnMs: 20000,
+          xpPerLog: 68, // OSRS: 67.5 rounded
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per log
+          respawnTicks: 14, // OSRS-accurate: 8.4 seconds
         };
       case "tree_maple":
+        // OSRS Wiki: Maple respawns in 59 ticks (35.4 seconds)
         return {
           levelRequired: 45,
           xpPerLog: 100,
-          baseCycleMs: 4600,
-          depleteChance: 0.14,
-          respawnMs: 25000,
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per log
+          respawnTicks: 59, // OSRS-accurate: 35.4 seconds
         };
       case "tree_yew":
+        // OSRS Wiki: Yew respawns in 99 ticks (59.4 seconds)
         return {
           levelRequired: 60,
           xpPerLog: 175,
-          baseCycleMs: 5000,
-          depleteChance: 0.12,
-          respawnMs: 30000,
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per log
+          respawnTicks: 99, // OSRS-accurate: ~1 minute
         };
       case "tree_magic":
+        // OSRS Wiki: Magic respawns in 199 ticks (119.4 seconds)
         return {
           levelRequired: 75,
           xpPerLog: 250,
-          baseCycleMs: 5400,
-          depleteChance: 0.1,
-          respawnMs: 40000,
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per log
+          respawnTicks: 199, // OSRS-accurate: ~2 minutes
         };
       default:
         return defaults;
     }
   }
 
-  private computeCycleMs(
+  /**
+   * Compute gathering cycle in ticks (OSRS-accurate)
+   * Higher skill level = fewer ticks between attempts
+   * Better tools = fewer ticks (via multiplier)
+   */
+  private computeCycleTicks(
     skillLevel: number,
-    tuned: { levelRequired: number; baseCycleMs: number },
+    tuned: { levelRequired: number; baseCycleTicks: number },
+    toolMultiplier: number = 1.0,
   ): number {
     const levelDelta = Math.max(0, skillLevel - tuned.levelRequired);
     // Up to ~30% faster at high level delta
     const levelFactor = Math.min(0.3, levelDelta * 0.005);
-    const result = Math.max(
-      1200,
-      Math.floor(tuned.baseCycleMs * (1 - levelFactor)),
-    );
-    return result;
+    const baseTicks = Math.ceil(tuned.baseCycleTicks * (1 - levelFactor));
+    // Apply tool multiplier (better axes = fewer ticks)
+    const finalTicks = Math.floor(baseTicks * toolMultiplier);
+    // Minimum 2 ticks (1.2s) to prevent instant gathering
+    return Math.max(2, finalTicks);
+  }
+
+  /**
+   * Convert ticks to milliseconds for client progress bar
+   */
+  private ticksToMs(ticks: number): number {
+    return ticks * TICK_DURATION_MS;
   }
 
   private computeSuccessRate(

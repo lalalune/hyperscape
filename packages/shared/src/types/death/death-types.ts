@@ -43,27 +43,30 @@ export interface DeathLock {
 
 /**
  * Ground item spawn options
+ * Config accepts milliseconds for backwards compatibility,
+ * internally converted to ticks by GroundItemManager
  */
 export interface GroundItemOptions {
-  despawnTime: number; // Milliseconds until despawn
+  despawnTime: number; // Milliseconds until despawn (converted to ticks internally)
   droppedBy?: string; // Player who dropped it
-  lootProtection?: number; // Milliseconds of loot protection
+  lootProtection?: number; // Milliseconds of loot protection (converted to ticks internally)
   scatter?: boolean; // Scatter items around position
   scatterRadius?: number; // Radius for scattering
 }
 
 /**
- * Ground item data tracked by GroundItemManager
+ * Ground item data tracked by GroundItemManager (TICK-BASED)
+ * Uses tick numbers for OSRS-accurate despawn timing
  */
 export interface GroundItemData {
   entityId: string;
   itemId: string;
   quantity: number;
   position: { x: number; y: number; z: number };
-  despawnTime: number;
+  despawnTick: number; // Tick number when item despawns
   droppedBy?: string;
-  lootProtectionUntil?: number;
-  spawnedAt: number;
+  lootProtectionTick?: number; // Tick number when loot protection ends
+  spawnedAt: number; // Timestamp for logging only
 }
 
 /**

@@ -51,7 +51,15 @@ import {
   isDatabaseInstance,
   World,
   EventType,
+  CombatSystem,
+  LootSystem,
+  ResourceSystem,
 } from "@hyperscape/shared";
+
+// PlayerDeathSystem type for tick processing (not exported from main index)
+interface PlayerDeathSystemWithTick {
+  processTick(currentTick: number): void;
+}
 
 // Import modular components
 import {
@@ -61,6 +69,10 @@ import {
   handleEnterWorld,
 } from "./character-selection";
 import { MovementManager } from "./movement";
+import { TileMovementManager } from "./tile-movement";
+import { MobTileMovementManager } from "./mob-tile-movement";
+import { ActionQueue } from "./action-queue";
+import { TickSystem, TickPriority } from "../TickSystem";
 import { SocketManager } from "./socket-management";
 import { BroadcastManager } from "./broadcast";
 import { SaveManager } from "./save-manager";
@@ -153,6 +165,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   /** Modular managers */
   private movementManager!: MovementManager;
+  private tileMovementManager!: TileMovementManager;
+  private mobTileMovementManager!: MobTileMovementManager;
+  private actionQueue!: ActionQueue;
+  private tickSystem!: TickSystem;
   private socketManager!: SocketManager;
   private broadcastManager!: BroadcastManager;
   private saveManager!: SaveManager;
@@ -185,11 +201,136 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Broadcast manager (needed by many others)
     this.broadcastManager = new BroadcastManager(this.sockets);
 
-    // Movement manager
+    // Legacy movement manager (for compatibility)
     this.movementManager = new MovementManager(
       this.world,
       this.broadcastManager.sendToAll.bind(this.broadcastManager),
     );
+
+    // Tick system for RuneScape-style 600ms ticks
+    this.tickSystem = new TickSystem();
+
+    // Tile-based movement manager (RuneScape-style)
+    this.tileMovementManager = new TileMovementManager(
+      this.world,
+      this.broadcastManager.sendToAll.bind(this.broadcastManager),
+    );
+
+    // Action queue for OSRS-style input processing
+    this.actionQueue = new ActionQueue();
+
+    // Set up action queue handlers - these execute the actual game logic
+    this.actionQueue.setHandlers({
+      movement: (socket, data) => {
+        this.tileMovementManager.handleMoveRequest(socket, data);
+      },
+      combat: (socket, data) => {
+        // Combat actions trigger the combat system
+        const playerEntity = socket.player;
+        if (!playerEntity) return;
+
+        const payload = data as { mobId?: string; targetId?: string };
+        const targetId = payload.mobId || payload.targetId;
+        if (!targetId) return;
+
+        this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
+          playerId: playerEntity.id,
+          targetId,
+          attackerType: "player",
+          targetType: "mob",
+          attackType: "melee",
+        });
+      },
+      interaction: (socket, data) => {
+        // Generic interaction handler - can be extended for object/NPC interactions
+        console.log(
+          `[ActionQueue] Interaction from ${socket.player?.id}:`,
+          data,
+        );
+      },
+    });
+
+    // FIRST: Update world.currentTick on each tick so all systems can read it
+    // This must run before any other tick processing (INPUT is earliest priority)
+    // Mobs use this to run AI only once per tick instead of every frame
+    this.tickSystem.onTick((tickNumber) => {
+      this.world.currentTick = tickNumber;
+    }, TickPriority.INPUT);
+
+    // Register action queue to process inputs at INPUT priority
+    this.tickSystem.onTick((tickNumber) => {
+      this.actionQueue.processTick(tickNumber);
+    }, TickPriority.INPUT);
+
+    // Register tile movement to run on each tick (after inputs)
+    this.tickSystem.onTick((tickNumber) => {
+      this.tileMovementManager.onTick(tickNumber);
+    }, TickPriority.MOVEMENT);
+
+    // Mob tile-based movement manager (same tick system as players)
+    this.mobTileMovementManager = new MobTileMovementManager(
+      this.world,
+      this.broadcastManager.sendToAll.bind(this.broadcastManager),
+    );
+
+    // Register mob tile movement to run on each tick (same priority as player movement)
+    this.tickSystem.onTick((tickNumber) => {
+      this.mobTileMovementManager.onTick(tickNumber);
+    }, TickPriority.MOVEMENT);
+
+    // Register combat system to process on each tick (after movement, before AI)
+    // This is OSRS-accurate: combat runs on the game tick, not per-frame
+    this.tickSystem.onTick((tickNumber) => {
+      const combatSystem = this.world.getSystem(
+        "combat",
+      ) as CombatSystem | null;
+      if (combatSystem) {
+        combatSystem.processCombatTick(tickNumber);
+      }
+    }, TickPriority.COMBAT);
+
+    // Register death system to process on each tick (after combat)
+    // Handles gravestone expiration and ground item despawn (OSRS-accurate tick-based timing)
+    this.tickSystem.onTick((tickNumber) => {
+      const playerDeathSystem = this.world.getSystem(
+        "player-death",
+      ) as unknown as PlayerDeathSystemWithTick | null;
+      if (
+        playerDeathSystem &&
+        typeof playerDeathSystem.processTick === "function"
+      ) {
+        playerDeathSystem.processTick(tickNumber);
+      }
+    }, TickPriority.COMBAT); // Same priority as combat (after movement)
+
+    // Register loot system to process on each tick (after combat)
+    // Handles mob corpse despawn (OSRS-accurate tick-based timing)
+    this.tickSystem.onTick((tickNumber) => {
+      const lootSystem = this.world.getSystem("loot") as LootSystem | null;
+      if (
+        lootSystem &&
+        typeof (lootSystem as unknown as PlayerDeathSystemWithTick)
+          .processTick === "function"
+      ) {
+        (lootSystem as unknown as PlayerDeathSystemWithTick).processTick(
+          tickNumber,
+        );
+      }
+    }, TickPriority.COMBAT); // Same priority as combat (after movement)
+
+    // Register resource gathering system to process on each tick (after combat)
+    // OSRS-accurate: Woodcutting attempts every 4 ticks (2.4 seconds)
+    this.tickSystem.onTick((tickNumber) => {
+      const resourceSystem = this.world.getSystem(
+        "resource",
+      ) as ResourceSystem | null;
+      if (
+        resourceSystem &&
+        typeof resourceSystem.processGatheringTick === "function"
+      ) {
+        resourceSystem.processGatheringTick(tickNumber);
+      }
+    }, TickPriority.RESOURCES);
 
     // Socket manager
     this.socketManager = new SocketManager(
@@ -197,6 +338,97 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.world,
       this.broadcastManager.sendToAll.bind(this.broadcastManager),
     );
+
+    // Clean up player state when player disconnects (prevents memory leak)
+    this.world.on(EventType.PLAYER_LEFT, (event: { playerId: string }) => {
+      this.tileMovementManager.cleanup(event.playerId);
+      this.actionQueue.cleanup(event.playerId);
+    });
+
+    // Sync tile position when player respawns at spawn point
+    // CRITICAL: Without this, TileMovementManager has stale tile position from death location
+    // and paths would be calculated from wrong starting tile
+    this.world.on(
+      EventType.PLAYER_RESPAWNED,
+      (event: {
+        playerId: string;
+        spawnPosition: { x: number; y: number; z: number };
+      }) => {
+        if (event.playerId && event.spawnPosition) {
+          this.tileMovementManager.syncPlayerPosition(
+            event.playerId,
+            event.spawnPosition,
+          );
+          // Also clear any pending actions from before death
+          this.actionQueue.cleanup(event.playerId);
+          console.log(
+            `[ServerNetwork] Synced tile position for respawned player ${event.playerId} at (${event.spawnPosition.x}, ${event.spawnPosition.z})`,
+          );
+        }
+      },
+    );
+
+    // Handle mob tile movement requests from MobEntity AI
+    this.world.on(EventType.MOB_NPC_MOVE_REQUEST, (event) => {
+      const moveEvent = event as {
+        mobId: string;
+        targetPos: { x: number; y: number; z: number };
+        targetEntityId?: string;
+        tilesPerTick?: number;
+      };
+      // Note: Debug logging removed for production
+      this.mobTileMovementManager.requestMoveTo(
+        moveEvent.mobId,
+        moveEvent.targetPos,
+        moveEvent.targetEntityId || null,
+        moveEvent.tilesPerTick,
+      );
+    });
+
+    // Initialize mob tile movement state on spawn
+    // This ensures mobs have proper tile state from the moment they're created
+    this.world.on(EventType.MOB_NPC_SPAWNED, (event) => {
+      const spawnEvent = event as {
+        mobId: string;
+        mobType: string;
+        position: { x: number; y: number; z: number };
+      };
+      this.mobTileMovementManager.initializeMob(
+        spawnEvent.mobId,
+        spawnEvent.position,
+        2, // Default walk speed: 2 tiles per tick
+      );
+    });
+
+    // Clean up mob tile movement state on mob death
+    // This immediately clears stale tile state when mob dies
+    this.world.on(EventType.NPC_DIED, (event) => {
+      const diedEvent = event as { mobId: string };
+      this.mobTileMovementManager.cleanup(diedEvent.mobId);
+    });
+
+    // Clean up mob tile movement state on mob despawn (backup cleanup)
+    this.world.on(EventType.MOB_NPC_DESPAWNED, (event) => {
+      const despawnEvent = event as { mobId: string };
+      this.mobTileMovementManager.cleanup(despawnEvent.mobId);
+    });
+
+    // CRITICAL: Reinitialize mob tile state on respawn
+    // Without this, the mob's tile state has stale currentTile from death location
+    // causing teleportation when the mob starts moving again
+    this.world.on(EventType.MOB_NPC_RESPAWNED, (event) => {
+      const respawnEvent = event as {
+        mobId: string;
+        position: { x: number; y: number; z: number };
+      };
+      // Clear old state and initialize at new spawn position
+      this.mobTileMovementManager.cleanup(respawnEvent.mobId);
+      this.mobTileMovementManager.initializeMob(
+        respawnEvent.mobId,
+        respawnEvent.position,
+        2, // Default walk speed: 2 tiles per tick
+      );
+    });
 
     // Save manager
     this.saveManager = new SaveManager(this.world, this.db);
@@ -289,14 +521,31 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["onResourceGather"] = (socket, data) =>
       handleResourceGather(socket, data, this.world);
 
-    this.handlers["onMoveRequest"] = (socket, data) =>
-      this.movementManager.handleMoveRequest(socket, data);
+    // Route movement and combat through action queue for OSRS-style tick processing
+    // Actions are queued and processed on tick boundaries, not immediately
+    this.handlers["onMoveRequest"] = (socket, data) => {
+      this.actionQueue.queueMovement(socket, data);
+    };
 
-    this.handlers["onInput"] = (socket, data) =>
-      this.movementManager.handleInput(socket, data);
+    this.handlers["onInput"] = (socket, data) => {
+      // Legacy input handler - convert clicks to movement queue
+      const payload = data as {
+        type?: string;
+        target?: number[];
+        runMode?: boolean;
+      };
+      if (payload.type === "click" && Array.isArray(payload.target)) {
+        this.actionQueue.queueMovement(socket, {
+          target: payload.target,
+          runMode: payload.runMode,
+        });
+      }
+    };
 
-    this.handlers["onAttackMob"] = (socket, data) =>
-      handleAttackMob(socket, data, this.world);
+    // Combat is queued - OSRS style: clicking enemy queues attack action
+    this.handlers["onAttackMob"] = (socket, data) => {
+      this.actionQueue.queueCombat(socket, data);
+    };
 
     this.handlers["onChangeAttackStyle"] = (socket, data) =>
       handleChangeAttackStyle(socket, data, this.world);
@@ -449,11 +698,18 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Setup event bridge (world events → network messages)
     this.eventBridge.setupEventListeners();
+
+    // Start tick system (600ms RuneScape-style ticks)
+    this.tickSystem.start();
+    console.log(
+      "[ServerNetwork] Tick system started (600ms ticks) with action queue",
+    );
   }
 
   override destroy(): void {
     this.socketManager.destroy();
     this.saveManager.destroy();
+    this.tickSystem.stop();
 
     for (const [_id, socket] of this.sockets) {
       socket.close?.();

@@ -170,6 +170,9 @@ export { XR } from "./systems/client/XR";
 export { EventBus } from "./systems/shared";
 export { System as SystemClass } from "./systems/shared";
 export { SystemBase } from "./systems/shared";
+export { CombatSystem } from "./systems/shared/combat";
+export { LootSystem } from "./systems/shared/economy/LootSystem";
+export { ResourceSystem } from "./systems/shared/entities/ResourceSystem";
 
 // Export node client components
 export { ServerLoader } from "./systems/server/ServerLoader";
@@ -630,3 +633,38 @@ export { CircularSpawnArea } from "./utils/physics/CircularSpawnArea";
 
 // Export terrain system
 export { TerrainSystem } from "./systems/shared";
+
+// Export tile movement system (RuneScape-style)
+export {
+  // Constants
+  TILE_SIZE,
+  TICK_DURATION_MS,
+  TILES_PER_TICK_WALK,
+  TILES_PER_TICK_RUN,
+  MAX_PATH_LENGTH,
+  PATHFIND_RADIUS,
+  TILE_DIRECTIONS,
+  // Utility functions
+  worldToTile,
+  tileToWorld,
+  tileManhattanDistance,
+  tileChebyshevDistance,
+  tilesEqual,
+  tilesAdjacent,
+  tilesCardinallyAdjacent,
+  getBestAdjacentTile,
+  getAdjacentTiles,
+  isDiagonal,
+  tileKey,
+  parseTileKey,
+  clampTile,
+  createTileMovementState,
+} from "./systems/shared/movement/TileSystem";
+export type {
+  TileCoord,
+  TileMovementState,
+  TileFlags,
+} from "./systems/shared/movement/TileSystem";
+export { BFSPathfinder } from "./systems/shared/movement/BFSPathfinder";
+export { chaseStep } from "./systems/shared/movement/ChasePathfinding";
+export type { WalkabilityChecker } from "./systems/shared/movement/BFSPathfinder";

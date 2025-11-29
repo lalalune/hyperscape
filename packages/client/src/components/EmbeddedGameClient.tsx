@@ -5,12 +5,15 @@
  * Auto-connects with embedded configuration and sets up spectator camera.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { GameClient } from "../screens/GameClient";
 import type { EmbeddedViewportConfig } from "../types/embeddedConfig";
 import { getEmbeddedConfig, getQualityPreset } from "../types/embeddedConfig";
 import type { World } from "@hyperscape/shared";
 import { EventType } from "@hyperscape/shared";
+
+/** Cleanup function type returned by setup functions */
+type CleanupFn = () => void;
 
 /**
  * Disable all player input controls (spectator mode)
@@ -41,8 +44,23 @@ function disablePlayerControls(world: World) {
 
 /**
  * Setup spectator camera to follow agent's character
+ *
+ * CRITICAL: For camera following to work, we must pass the ACTUAL entity instance
+ * (not a copy) as the camera target. The camera reads target.position every frame,
+ * and TileInterpolator updates entity.position as a THREE.Vector3. If we pass a copy,
+ * the camera won't see position updates.
+ *
+ * Returns a cleanup function to remove event listeners and clear timers.
  */
-function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
+function setupSpectatorCamera(
+  world: World,
+  config: EmbeddedViewportConfig,
+): CleanupFn {
+  // Track all timers for cleanup
+  const timeoutIds: ReturnType<typeof setTimeout>[] = [];
+  let checkIntervalId: ReturnType<typeof setInterval> | null = null;
+  let isCleanedUp = false;
+
   // CRITICAL: Disable player input IMMEDIATELY for spectator mode
   // This prevents click-to-move and all other input
   if (config.mode === "spectator") {
@@ -55,18 +73,21 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
       let retryCount = 0;
 
       const retryDisable = () => {
+        if (isCleanedUp) return; // Stop if cleaned up
         retryCount++;
         const success = disablePlayerControls(world);
         if (!success && retryCount < MAX_RETRIES) {
           // Retry with increasing delay (100, 200, 300, ... 500ms max)
-          setTimeout(retryDisable, Math.min(100 * retryCount, 500));
+          const id = setTimeout(retryDisable, Math.min(100 * retryCount, 500));
+          timeoutIds.push(id);
         } else if (!success) {
           console.warn(
             `[EmbeddedGameClient] Failed to disable controls after ${MAX_RETRIES} retries - spectator mode may not work correctly`,
           );
         }
       };
-      setTimeout(retryDisable, 100);
+      const id = setTimeout(retryDisable, 100);
+      timeoutIds.push(id);
     }
   }
 
@@ -74,8 +95,64 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
 
   if (!targetEntityId) {
     console.warn("[EmbeddedGameClient] No entity to follow specified");
-    return;
+    return () => {
+      isCleanedUp = true;
+      timeoutIds.forEach(clearTimeout);
+    };
   }
+
+  /**
+   * Find the ACTUAL entity instance from world.entities
+   * This is critical - we need the live entity object, not a copy,
+   * so the camera can track position updates from TileInterpolator
+   */
+  const findLiveEntity = (entityId: string) => {
+    // Try world.entities.items first (contains all entity types)
+    const fromItems = world.entities?.items?.get(entityId);
+    if (fromItems) return fromItems;
+
+    // Try world.entities.players (PlayerRemote instances)
+    const fromPlayers = world.entities?.players?.get(entityId);
+    if (fromPlayers) return fromPlayers;
+
+    // Try entity-manager as fallback
+    const entityManager = world.getSystem("entity-manager") as {
+      getEntity?: (id: string) => unknown;
+    } | null;
+    if (entityManager?.getEntity) {
+      return entityManager.getEntity(entityId);
+    }
+
+    return null;
+  };
+
+  /**
+   * Set camera to follow the target entity
+   * CRITICAL: Pass the actual entity instance, not a wrapper object!
+   */
+  const setCameraTarget = (entity: unknown) => {
+    if (!entity || isCleanedUp) return;
+
+    const e = entity as { id?: string; position?: unknown };
+    if (!e.position) {
+      console.warn(
+        `[EmbeddedGameClient] Entity ${e.id} has no position - cannot follow`,
+      );
+      return;
+    }
+
+    // CRITICAL: Pass the FULL ENTITY as target, not just { position: entity.position }
+    // The camera system reads target.position every frame, and we need
+    // TileInterpolator's position updates to be reflected automatically
+    world.emit(EventType.CAMERA_SET_TARGET, {
+      target: entity,
+    });
+
+    // Ensure controls are still disabled (belt and suspenders)
+    if (config.mode === "spectator") {
+      disablePlayerControls(world);
+    }
+  };
 
   // Listen for entity spawns to find agent's character
   const handleEntitySpawned = (data: {
@@ -84,36 +161,26 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
     position?: { x: number; y: number; z: number };
     entityData?: Record<string, unknown>;
   }) => {
-    if (!data.entityId) return;
-
-    // Get entity manager to fetch full entity data
-    const entityManager = world.getSystem("entity-manager");
-    if (!entityManager) return;
-
-    const em = entityManager as {
-      getEntity?: (id: string) => {
-        id: string;
-        characterId?: string;
-        position?: { x: number; y: number; z: number };
-      } | null;
-    };
-
-    const entity = em.getEntity?.(data.entityId);
-    if (!entity) return;
+    if (!data.entityId || isCleanedUp) return;
 
     // Check if this is the entity we want to follow
-    const isTargetEntity =
-      entity.id === targetEntityId || entity.characterId === targetEntityId;
+    const isTargetById = data.entityId === targetEntityId;
 
-    if (isTargetEntity && entity.position) {
-      // Lock camera to this entity's position
-      world.emit(EventType.CAMERA_SET_TARGET, {
-        target: { position: entity.position },
-      });
+    // Also check characterId in entity data
+    const entityCharacterId = data.entityData?.characterId as
+      | string
+      | undefined;
+    const isTargetByCharacterId = entityCharacterId === targetEntityId;
 
-      // Ensure controls are still disabled (belt and suspenders)
-      if (config.mode === "spectator") {
-        disablePlayerControls(world);
+    if (isTargetById || isTargetByCharacterId) {
+      // Find the LIVE entity instance
+      const liveEntity = findLiveEntity(data.entityId);
+      if (liveEntity) {
+        setCameraTarget(liveEntity);
+      } else {
+        console.warn(
+          `[EmbeddedGameClient] Entity spawned but not found in world.entities: ${data.entityId}`,
+        );
       }
     }
   };
@@ -123,42 +190,87 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
 
   // Also check existing entities (in case character already spawned)
   const checkExistingEntities = () => {
-    // Get entity manager (may not be ready immediately)
-    const entityManager = world.getSystem("entity-manager");
-    if (!entityManager) {
-      return;
-    }
+    if (isCleanedUp) return;
 
-    const em = entityManager as {
-      getAllEntities?: () => Map<
-        string,
-        {
-          id: string;
-          characterId?: string;
-          position?: { x: number; y: number; z: number };
-        }
-      >;
-    };
+    // First, try to find the entity directly by ID
+    let targetEntity = findLiveEntity(targetEntityId);
 
-    if (em.getAllEntities) {
-      for (const [, entity] of em.getAllEntities()) {
-        const isTargetEntity =
-          entity.id === targetEntityId || entity.characterId === targetEntityId;
-
-        if (isTargetEntity && entity.position) {
-          // Simulate event data structure
-          handleEntitySpawned({
-            entityId: entity.id,
-            position: entity.position,
-          });
+    // If not found by ID, search all entities for matching characterId
+    if (!targetEntity && world.entities?.items) {
+      for (const [, entity] of world.entities.items) {
+        const e = entity as { characterId?: string };
+        if (e.characterId === targetEntityId) {
+          targetEntity = entity;
           break;
         }
       }
     }
+
+    // Also check players map
+    if (!targetEntity && world.entities?.players) {
+      for (const [, player] of world.entities.players) {
+        const p = player as { id?: string; characterId?: string };
+        if (p.id === targetEntityId || p.characterId === targetEntityId) {
+          targetEntity = player;
+          break;
+        }
+      }
+    }
+
+    if (targetEntity) {
+      setCameraTarget(targetEntity);
+    }
   };
 
   // Check after a short delay to allow systems to initialize
-  setTimeout(checkExistingEntities, 1000);
+  const initialCheckId = setTimeout(checkExistingEntities, 500);
+  timeoutIds.push(initialCheckId);
+
+  // Also check periodically in case entity spawns are delayed
+  checkIntervalId = setInterval(() => {
+    if (isCleanedUp) {
+      if (checkIntervalId) clearInterval(checkIntervalId);
+      return;
+    }
+
+    // If we already have a camera target, stop checking
+    const cameraSystem = world.getSystem("client-camera-system") as {
+      target?: unknown;
+    } | null;
+    if (cameraSystem?.target) {
+      if (checkIntervalId) clearInterval(checkIntervalId);
+      checkIntervalId = null;
+      return;
+    }
+
+    checkExistingEntities();
+  }, 1000);
+
+  // Stop checking after 10 seconds
+  const stopCheckingId = setTimeout(() => {
+    if (checkIntervalId) {
+      clearInterval(checkIntervalId);
+      checkIntervalId = null;
+    }
+  }, 10000);
+  timeoutIds.push(stopCheckingId);
+
+  // Return cleanup function
+  return () => {
+    isCleanedUp = true;
+
+    // Clear all timeouts
+    timeoutIds.forEach(clearTimeout);
+
+    // Clear interval
+    if (checkIntervalId) {
+      clearInterval(checkIntervalId);
+      checkIntervalId = null;
+    }
+
+    // Remove event listener
+    world.off(EventType.ENTITY_SPAWNED, handleEntitySpawned);
+  };
 }
 
 /**
@@ -187,6 +299,9 @@ export function EmbeddedGameClient() {
   const [config, setConfig] = useState<EmbeddedViewportConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Store cleanup function in ref to call on unmount
+  const cleanupRef = useRef<CleanupFn | null>(null);
+
   useEffect(() => {
     // Get embedded configuration
     const embeddedConfig = getEmbeddedConfig();
@@ -208,9 +323,37 @@ export function EmbeddedGameClient() {
     }
 
     setConfig(embeddedConfig);
+
+    // Cleanup on unmount
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+    };
   }, []);
 
-  // Loading state
+  // Setup callback to configure spectator mode
+  // IMPORTANT: All hooks must be called before any conditional returns
+  const handleSetup = useCallback(
+    (world: World) => {
+      if (!config) return;
+
+      // Cleanup previous setup if any
+      if (cleanupRef.current) {
+        cleanupRef.current();
+      }
+
+      // Setup spectator camera and store cleanup function
+      cleanupRef.current = setupSpectatorCamera(world, config);
+
+      // Apply quality presets
+      applyQualityPresets(world, config);
+    },
+    [config],
+  );
+
+  // Loading state - must be after all hooks
   if (!config) {
     return (
       <div
@@ -228,16 +371,13 @@ export function EmbeddedGameClient() {
         <div style={{ textAlign: "center" }}>
           {error ? (
             <>
-              <h2>⚠️ Configuration Error</h2>
+              <h2>Configuration Error</h2>
               <p>{error}</p>
             </>
           ) : (
             <>
-              <h2>🎮 Loading Hyperscape Viewport...</h2>
-              <p>
-                Initializing{" "}
-                {config?.mode === "spectator" ? "spectator" : "agent"} view
-              </p>
+              <h2>Loading Hyperscape Viewport...</h2>
+              <p>Initializing viewport</p>
             </>
           )}
         </div>
@@ -251,15 +391,6 @@ export function EmbeddedGameClient() {
     config.mode === "spectator"
       ? `${config.wsUrl}?mode=spectator&authToken=${encodeURIComponent(config.authToken)}&followEntity=${encodeURIComponent(config.followEntity || config.characterId || "")}&characterId=${encodeURIComponent(config.characterId || "")}&privyUserId=${encodeURIComponent(config.privyUserId || "")}`
       : `${config.wsUrl}?authToken=${encodeURIComponent(config.authToken)}`;
-
-  // Setup callback to configure spectator mode
-  const handleSetup = (world: World) => {
-    // Setup spectator camera
-    setupSpectatorCamera(world, config);
-
-    // Apply quality presets
-    applyQualityPresets(world, config);
-  };
 
   return (
     <div

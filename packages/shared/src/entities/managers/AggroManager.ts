@@ -16,11 +16,15 @@
  */
 
 import type { Position3D } from "../../types";
+import {
+  worldToTile,
+  tilesAdjacent,
+} from "../../systems/shared/movement/TileSystem";
 
 export interface AggroConfig {
   /** Range at which mob detects and chases players */
   aggroRange: number;
-  /** Range at which mob can attack target */
+  /** Range at which mob can attack target (legacy - melee now uses tile adjacency) */
   combatRange: number;
 }
 
@@ -43,25 +47,39 @@ export class AggroManager {
    */
   findNearbyPlayer(
     currentPos: Position3D,
-    players: Array<{ id: string; node?: { position?: Position3D } }>,
+    players: Array<{
+      id: string;
+      position?: Position3D;
+      node?: { position?: Position3D };
+    }>,
   ): PlayerTarget | null {
     // Early exit if no players
     if (players.length === 0) return null;
 
     for (const player of players) {
-      const playerPos = player.node?.position;
+      // Check both direct position AND node.position for compatibility
+      // Server-side players may have position directly, client-side may use node.position
+      const playerPos = player.position || player.node?.position;
       if (!playerPos) continue;
 
       // CRITICAL: Skip dead players (RuneScape-style: mobs don't aggro on corpses)
+      // PlayerEntity has isDead() method and health as a number (not { current, max })
       const playerObj = player as any;
+      if (typeof playerObj.isDead === "function" && playerObj.isDead()) {
+        continue; // Dead player (has isDead method), skip
+      }
+      if (typeof playerObj.health === "number" && playerObj.health <= 0) {
+        continue; // Dead player (health is 0), skip
+      }
+      // Also check health.current for legacy/network data formats
       if (
         playerObj.health?.current !== undefined &&
         playerObj.health.current <= 0
       ) {
-        continue; // Dead player, skip
+        continue; // Dead player (health.current is 0), skip
       }
       if (playerObj.alive === false) {
-        continue; // Dead player, skip
+        continue; // Dead player (alive flag), skip
       }
 
       // Quick distance check (RuneScape-style: first player in range)
@@ -91,29 +109,46 @@ export class AggroManager {
     playerId: string,
     getPlayerFn: (
       id: string,
-    ) => { id: string; node?: { position?: Position3D } } | null,
+    ) => {
+      id: string;
+      position?: Position3D;
+      node?: { position?: Position3D };
+    } | null,
   ): PlayerTarget | null {
     const player = getPlayerFn(playerId);
-    if (!player || !player.node?.position) return null;
+    if (!player) return null;
+
+    // Check both direct position AND node.position for compatibility
+    // Server-side players may have position directly, client-side may use node.position
+    const playerPos = player.position || player.node?.position;
+    if (!playerPos) return null;
 
     // CRITICAL: Return null if player is dead (RuneScape-style: clear target when player dies)
+    // PlayerEntity has isDead() method and health as a number (not { current, max })
     const playerObj = player as any;
+    if (typeof playerObj.isDead === "function" && playerObj.isDead()) {
+      return null; // Dead player (has isDead method)
+    }
+    if (typeof playerObj.health === "number" && playerObj.health <= 0) {
+      return null; // Dead player (health is 0)
+    }
+    // Also check health.current for legacy/network data formats
     if (
       playerObj.health?.current !== undefined &&
       playerObj.health.current <= 0
     ) {
-      return null; // Dead player
+      return null; // Dead player (health.current is 0)
     }
     if (playerObj.alive === false) {
-      return null; // Dead player
+      return null; // Dead player (alive flag)
     }
 
     return {
       id: player.id,
       position: {
-        x: player.node.position.x,
-        y: player.node.position.y,
-        z: player.node.position.z,
+        x: playerPos.x,
+        y: playerPos.y,
+        z: playerPos.z,
       },
     };
   }
@@ -129,13 +164,15 @@ export class AggroManager {
   }
 
   /**
-   * Check if target is within combat range
+   * Check if target is within combat range (melee = adjacent tile)
+   *
+   * OSRS-STYLE: Melee combat requires being on an adjacent tile
+   * (Chebyshev distance of 1, including diagonals)
    */
   isInCombatRange(mobPos: Position3D, targetPos: Position3D): boolean {
-    const dx = targetPos.x - mobPos.x;
-    const dz = targetPos.z - mobPos.z;
-    const distSquared = dx * dx + dz * dz;
-    return distSquared <= this.config.combatRange * this.config.combatRange;
+    const mobTile = worldToTile(mobPos.x, mobPos.z);
+    const targetTile = worldToTile(targetPos.x, targetPos.z);
+    return tilesAdjacent(mobTile, targetTile);
   }
 
   /**

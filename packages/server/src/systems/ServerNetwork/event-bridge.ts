@@ -252,7 +252,10 @@ export class EventBridge {
 
       // Forward player respawn events to clients
       this.world.on(EventType.PLAYER_RESPAWNED, (payload: unknown) => {
-        const data = payload as { playerId: string; spawnPosition: number[] };
+        const data = payload as {
+          playerId: string;
+          spawnPosition: { x: number; y: number; z: number };
+        };
 
         if (data.playerId) {
           console.log(

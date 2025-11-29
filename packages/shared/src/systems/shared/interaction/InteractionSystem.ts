@@ -5,6 +5,7 @@ import { AttackType } from "../../../types/core/core";
 import { EventType } from "../../../types/events";
 import type { Entity } from "../../../entities/Entity";
 import * as THREE from "three";
+import { worldToTile, tileToWorld, TILE_SIZE } from "../movement/TileSystem";
 
 interface InteractionAction {
   id: string;
@@ -123,57 +124,27 @@ export class InteractionSystem extends System {
   }
 
   private createTargetMarker(): void {
-    // Create a circle marker that projects onto terrain
-    // We'll create a mesh with vertices that we can update to follow terrain contours
-    const segments = 32;
-    const innerRadius = 0.3;
-    const outerRadius = 0.5;
+    // Create a tile-sized square marker (RuneScape-style)
+    // Slightly smaller than full tile for visual clarity
+    const tileSize = TILE_SIZE * 0.9;
 
-    const geometry = new THREE.BufferGeometry();
-    const vertices: number[] = [];
-    const indices: number[] = [];
+    // Create a plane geometry for the tile marker
+    const geometry = new THREE.PlaneGeometry(tileSize, tileSize, 4, 4);
+    geometry.rotateX(-Math.PI / 2); // Lay flat on ground
 
-    // Create ring geometry with vertices we can update
-    for (let i = 0; i <= segments; i++) {
-      const angle = (i / segments) * Math.PI * 2;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-
-      // Inner vertex
-      vertices.push(cos * innerRadius, 0, sin * innerRadius);
-      // Outer vertex
-      vertices.push(cos * outerRadius, 0, sin * outerRadius);
-    }
-
-    // Create indices for triangles
-    for (let i = 0; i < segments; i++) {
-      const i1 = i * 2;
-      const i2 = i1 + 1;
-      const i3 = i1 + 2;
-      const i4 = i1 + 3;
-
-      indices.push(i1, i3, i2);
-      indices.push(i2, i3, i4);
-    }
-
-    geometry.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(vertices, 3),
-    );
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-
+    // Yellow/gold color like RuneScape destination markers
     const material = new THREE.MeshBasicMaterial({
-      color: 0x00ff00,
+      color: 0xffff00,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.4,
       depthWrite: false,
       depthTest: true,
     });
 
     this.targetMarker = new THREE.Mesh(geometry, material);
     this.targetMarker.visible = false;
+    this.targetMarker.renderOrder = 999; // Render on top
 
     const scene = this.world.stage?.scene;
     if (scene) {
@@ -476,7 +447,12 @@ export class InteractionSystem extends System {
         }
       }
 
-      // Update target position and show NEW marker
+      // SNAP TARGET TO TILE CENTER (RuneScape-style)
+      const targetTile = worldToTile(target.x, target.z);
+      const snappedPos = tileToWorld(targetTile);
+      target = new THREE.Vector3(snappedPos.x, target.y, snappedPos.z);
+
+      // Update target position and show NEW marker at tile center
       this.targetPosition = target.clone();
       if (this.targetMarker) {
         this.targetMarker.position.set(target.x, 0, target.z);
@@ -488,8 +464,9 @@ export class InteractionSystem extends System {
       // ONLY send move request to server - no local movement!
       // Server is completely authoritative for movement
       if (this.world.network?.send) {
-        // Cancel any previous movement first to ensure server resets pathing
-        this.world.network.send("moveRequest", { target: null, cancel: true });
+        // Note: No need to cancel first - server replaces path automatically
+        // Sending cancel would cause idle flicker before new movement starts
+
         // Read player's runMode toggle if available; otherwise, use shift key status
         let runMode = isShiftDown;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -499,8 +476,10 @@ export class InteractionSystem extends System {
         if (player && typeof player.runMode === "boolean") {
           runMode = player.runMode;
         }
+        // Send both world coordinates and tile coordinates
         this.world.network.send("moveRequest", {
           target: [target.x, target.y, target.z],
+          targetTile: { x: targetTile.x, z: targetTile.z },
           runMode,
           cancel: false, // Explicitly not cancelling
         });
