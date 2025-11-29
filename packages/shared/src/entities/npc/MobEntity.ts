@@ -1898,7 +1898,7 @@ export class MobEntity extends CombatantEntity {
     if ("aiState" in data) {
       const newState = data.aiState as MobAIState;
 
-      // If entering DEAD state on client, apply death position from server
+      // If entering DEAD state on client, lock position to CURRENT VISUAL position
       if (
         newState === MobAIState.DEAD &&
         !this.deathManager.isCurrentlyDead()
@@ -1907,32 +1907,25 @@ export class MobEntity extends CombatantEntity {
         // Without this, stale timestamps from previous deaths cause immediate reset
         this.clientDeathStartTime = null;
 
-        if ("p" in data && Array.isArray(data.p) && data.p.length === 3) {
-          // Use server's authoritative death position
-          const deathPos = new THREE.Vector3(data.p[0], data.p[1], data.p[2]);
-          this.deathManager.applyDeathPositionFromServer(deathPos);
+        // CRITICAL: Use current VISUAL position (this.position), NOT server position (data.p)
+        // TileInterpolator may be mid-interpolation, showing the mob at a different location
+        // than the server's authoritative position. The mob should die WHERE THE PLAYER SEES IT,
+        // not teleport to the server position. This matches RS3's smooth movement philosophy.
+        const visualDeathPos = new THREE.Vector3(
+          this.position.x,
+          this.position.y,
+          this.position.z,
+        );
+        this.deathManager.applyDeathPositionFromServer(visualDeathPos);
 
-          // CRITICAL: Set BOTH position and node.position to death position
-          // This ensures TileInterpolator gets the correct position if it queries entity.position
-          this.position.set(deathPos.x, deathPos.y, deathPos.z);
-          this.node.position.set(deathPos.x, deathPos.y, deathPos.z);
+        // Clear TileInterpolator control flag so it stops updating this entity
+        this.data.tileInterpolatorControlled = false;
 
-          // Position VRM scene ONCE at death position
-          if (this._avatarInstance) {
-            this.node.updateMatrix();
-            this.node.updateMatrixWorld(true);
-            this._avatarInstance.move(this.node.matrixWorld);
-          }
-        } else {
-          // No server death position - use current position
-          // This can happen if the death packet was lost or stripped
-          // Don't warn - this is a normal fallback scenario
-          const currentPos = new THREE.Vector3(
-            this.position.x,
-            this.position.y,
-            this.position.z,
-          );
-          this.deathManager.applyDeathPositionFromServer(currentPos);
+        // Position VRM scene at current visual position for death animation
+        if (this._avatarInstance) {
+          this.node.updateMatrix();
+          this.node.updateMatrixWorld(true);
+          this._avatarInstance.move(this.node.matrixWorld);
         }
       }
 
@@ -2044,11 +2037,17 @@ export class MobEntity extends CombatantEntity {
     // Handle position for living mobs (non-death, non-respawn cases)
     // Death/respawn position is handled above in the aiState logic
     if (!this.deathManager.shouldLockPosition()) {
-      // Not dead - apply position updates from server
-      if ("p" in data && Array.isArray(data.p) && data.p.length === 3) {
-        const pos = data.p as [number, number, number];
-        this.position.set(pos[0], pos[1], pos[2]);
-        this.node.position.set(pos[0], pos[1], pos[2]);
+      // Check if TileInterpolator is controlling position - if so, skip position updates
+      // TileInterpolator handles position smoothly for tile-based movement
+      // This prevents entityModified packets from overriding smooth interpolation
+      const tileControlled = this.data.tileInterpolatorControlled === true;
+      if (!tileControlled) {
+        // Not dead and not tile-controlled - apply position updates from server
+        if ("p" in data && Array.isArray(data.p) && data.p.length === 3) {
+          const pos = data.p as [number, number, number];
+          this.position.set(pos[0], pos[1], pos[2]);
+          this.node.position.set(pos[0], pos[1], pos[2]);
+        }
       }
     } else {
       // Dead - enforce locked position (defense in depth)

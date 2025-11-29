@@ -439,6 +439,24 @@ export class MobTileMovementManager {
             state.hasDestination = true;
             state.lastTargetTile = { ...currentTargetTile };
 
+            // CRITICAL: Increment moveSeq and send tileMovementStart with new path
+            // Without this, the client only receives entityTileUpdate (sync packets)
+            // and has no path to interpolate through, causing teleporting
+            state.moveSeq = (state.moveSeq || 0) + 1;
+            this.sendFn("tileMovementStart", {
+              id: mobId,
+              startTile: { x: state.currentTile.x, z: state.currentTile.z },
+              path: chasePath.map((t) => ({ x: t.x, z: t.z })),
+              running: state.isRunning,
+              destinationTile: {
+                x: chasePath[chasePath.length - 1].x,
+                z: chasePath[chasePath.length - 1].z,
+              },
+              moveSeq: state.moveSeq,
+              isMob: true,
+              emote: state.isRunning ? "run" : "walk",
+            });
+
             if (this.DEBUG_MODE)
               console.log(
                 `[MobTileMovement] Chase: ${chasePath.length} steps toward target (${currentTargetTile.x},${currentTargetTile.z})`,
