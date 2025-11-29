@@ -857,6 +857,7 @@ export class Entity implements IEntity {
       {
         width: GAME_CONSTANTS.UI.HEALTH_BAR_WIDTH,
         height: GAME_CONSTANTS.UI.HEALTH_BAR_HEIGHT,
+        borderWidth: GAME_CONSTANTS.UI.HEALTH_BAR_BORDER,
       },
     );
 
@@ -887,6 +888,7 @@ export class Entity implements IEntity {
       {
         width: GAME_CONSTANTS.UI.HEALTH_BAR_WIDTH,
         height: GAME_CONSTANTS.UI.HEALTH_BAR_HEIGHT,
+        borderWidth: GAME_CONSTANTS.UI.HEALTH_BAR_BORDER,
       },
     );
 

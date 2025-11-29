@@ -1,12 +1,21 @@
 /**
  * UI Renderer Utility
  *
- * Centralizes UI rendering logic for health bars, name tags, and other
- * canvas-based UI elements to eliminate duplicate rendering code.
+ * Provides sprite creation and general UI rendering utilities.
+ * Health bar rendering is delegated to HealthBarRenderer.
+ *
+ * @see HealthBarRenderer for health bar logic
  */
 
 /// <reference lib="dom" />
 import THREE from "../../extras/three/three";
+import {
+  createHealthBarCanvas,
+  updateHealthBarCanvas,
+  drawHealthBar,
+  HEALTH_BAR_COLORS,
+  type HealthBarStyle,
+} from "./HealthBarRenderer";
 
 export interface BarOptions {
   width?: number;
@@ -31,12 +40,8 @@ export interface NameTagOptions {
 
 export class UIRenderer {
   /**
-   * Check if a canvas context is valid and has all required methods
-   */
-  // Removed type guard - assume context is valid CanvasRenderingContext2D
-
-  /**
    * Create and render a health bar on a canvas
+   * Delegates to HealthBarRenderer for actual rendering
    */
   static createHealthBar(
     currentHealth: number,
@@ -44,35 +49,27 @@ export class UIRenderer {
     options: BarOptions = {},
   ): HTMLCanvasElement {
     const {
-      width = 50, // Reduced 2x (was 100)
-      height = 3, // Reduced 4x (was 12)
-      backgroundColor = "#b91c1c", // Red for depleted health (RuneScape style)
-      fillColor = "#4CAF50",
-      borderColor = "#ffffff",
+      width = 50,
+      height = 3,
+      backgroundColor = HEALTH_BAR_COLORS.BACKGROUND,
+      fillColor = HEALTH_BAR_COLORS.FILL,
+      borderColor = HEALTH_BAR_COLORS.BORDER,
       borderWidth = 1,
     } = options;
 
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-
-    const context = canvas.getContext("2d")!;
-
-    this.renderHealthBar(context, currentHealth, maxHealth, {
+    return createHealthBarCanvas(currentHealth, maxHealth, {
       width,
       height,
       backgroundColor,
       fillColor,
       borderColor,
       borderWidth,
-      percentage: Math.max(0, Math.min(1, currentHealth / maxHealth)),
     });
-
-    return canvas;
   }
 
   /**
    * Update an existing health bar canvas
+   * Delegates to HealthBarRenderer for actual rendering
    */
   static updateHealthBar(
     canvas: HTMLCanvasElement,
@@ -80,75 +77,19 @@ export class UIRenderer {
     maxHealth: number,
     options: BarOptions = {},
   ): void {
-    const context = canvas.getContext("2d")!;
-
     const {
-      width = canvas.width,
-      height = canvas.height,
-      backgroundColor = "#b91c1c", // Red for depleted health (RuneScape style)
-      fillColor = "#4CAF50",
-      borderColor = "#ffffff",
+      backgroundColor = HEALTH_BAR_COLORS.BACKGROUND,
+      fillColor = HEALTH_BAR_COLORS.FILL,
+      borderColor = HEALTH_BAR_COLORS.BORDER,
       borderWidth = 1,
     } = options;
 
-    this.renderHealthBar(context, currentHealth, maxHealth, {
-      width,
-      height,
+    updateHealthBarCanvas(canvas, currentHealth, maxHealth, {
       backgroundColor,
       fillColor,
       borderColor,
       borderWidth,
-      percentage: Math.max(0, Math.min(1, currentHealth / maxHealth)),
     });
-  }
-
-  /**
-   * Internal method to render health bar on context
-   */
-  private static renderHealthBar(
-    context: CanvasRenderingContext2D,
-    currentHealth: number,
-    maxHealth: number,
-    options: Required<BarOptions>,
-  ): void {
-    const {
-      width,
-      height,
-      backgroundColor,
-      fillColor,
-      borderColor,
-      borderWidth,
-      percentage,
-    } = options;
-    const healthPercent = percentage;
-
-    // Not clearing explicitly; we redraw the full background each time below
-
-    // Draw background
-    context.fillStyle = backgroundColor;
-    context.fillRect(0, 0, width, height);
-
-    // Draw health fill
-    const fillWidth = (width - borderWidth * 2) * healthPercent;
-    context.fillStyle = fillColor;
-    context.fillRect(
-      borderWidth,
-      borderWidth,
-      fillWidth,
-      height - borderWidth * 2,
-    );
-
-    // Draw border
-    if (borderWidth > 0) {
-      context.strokeStyle = borderColor;
-      context.lineWidth = borderWidth;
-      context.strokeRect(
-        borderWidth / 2,
-        borderWidth / 2,
-        width - borderWidth,
-        height - borderWidth,
-      );
-    }
   }
 
   /**
@@ -357,16 +298,14 @@ export class UIRenderer {
     canvas.height = height;
 
     const context = canvas.getContext("2d")!;
+    const percentage = max > 0 ? current / max : 0;
 
-    // Render the bar
-    this.renderHealthBar(context, current, max, {
-      width,
-      height,
+    // Render the bar using HealthBarRenderer
+    drawHealthBar(context, 0, 0, width, height, percentage, {
       backgroundColor,
       fillColor,
       borderColor,
       borderWidth,
-      percentage: current / max,
     });
 
     // Add label text
