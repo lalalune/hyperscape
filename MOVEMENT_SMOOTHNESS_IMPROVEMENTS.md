@@ -28,6 +28,35 @@
 
 ---
 
+### 2.2.1 Fix Slerp Long Path (180° Flip Bug)
+**Impact**: High - eliminates random 180° spins during straight-line movement
+**Effort**: Low
+**File**: `packages/shared/src/systems/client/TileInterpolator.ts`
+
+**Problem**: When spam clicking in a straight line (e.g., running north), character occasionally does a quick 180° spin and back. This is caused by two quaternion-related issues:
+
+1. **Slerp "long way around"**: Quaternions have double cover (`q` and `-q` are the same rotation). When the dot product between current and target quaternion is negative, `slerp()` takes the long path (~360° rotation) instead of the short path (~0°).
+
+2. **First tile behind visual position**: When spam clicking, server sends new path from its known position (which may lag behind client visual position). If first tile in path is behind visual position, rotation briefly faces backward.
+
+**Solution**:
+1. Before calling `slerp()`, check `quaternion.dot(targetQuaternion) < 0`. If negative, negate target quaternion (same rotation, but slerps short way):
+   ```typescript
+   if (state.quaternion.dot(state.targetQuaternion) < 0) {
+     state.targetQuaternion.set(
+       -state.targetQuaternion.x, -state.targetQuaternion.y,
+       -state.targetQuaternion.z, -state.targetQuaternion.w
+     );
+   }
+   state.quaternion.slerp(state.targetQuaternion, rotationAlpha);
+   ```
+
+2. In `onMovementStart`, use destination tile (not first path tile) for initial rotation calculation.
+
+**Status**: [x] Completed
+
+---
+
 ### 2.3 Rotation Damping Threshold
 **Impact**: Medium - prevents micro-jitter during movement
 **Effort**: Low
@@ -35,9 +64,9 @@
 
 **Problem**: Rotation updates on every frame even for tiny direction changes, causing subtle jitter.
 
-**Solution**: Only update target rotation if direction changed by more than 15 degrees. Add hysteresis to prevent oscillation.
+**Solution**: Only update target rotation if direction changed by more than ~16 degrees. Uses quaternion dot product: `|dot| < 0.99` means angle > ~16°.
 
-**Status**: [ ] Not started
+**Status**: [x] Completed
 
 ---
 
@@ -46,11 +75,11 @@
 **Effort**: Low
 **File**: `packages/shared/src/systems/client/TileInterpolator.ts`
 
-**Problem**: Currently recalculates rotation every frame during movement (line 805-810). This causes "wobble" as tiny position changes affect facing direction.
+**Problem**: Currently recalculates rotation every frame during movement. This causes "wobble" as tiny position changes affect facing direction.
 
-**Solution**: Only update target rotation when transitioning from one tile to the next, not every frame. Character maintains stable facing during tile traversal.
+**Solution**: Removed mid-tile rotation update entirely. Rotation only updates when reaching tile boundaries, not every frame. Initial rotation faces destination, tile transitions handle direction changes at turns.
 
-**Status**: [ ] Not started
+**Status**: [x] Completed
 
 ---
 
@@ -203,13 +232,14 @@
 2. ~~**1.2** Smooth Catch-Up Speed~~ ✅ Completed (exponential smoothing + rate limiting)
 3. ~~**1.3** Bundle Emote with Movement~~ ✅ Completed (emote in tileMovementStart packet)
 4. ~~**2.6** Fix Path Mismatch~~ ✅ Completed (server authoritative path)
-5. **2.2** Rotation Slerp (high impact - eliminates jarring turns)
-6. **2.3** Rotation Damping Threshold (quick win)
-7. **2.4** Only Rotate on Tile Transitions (quick win)
-8. **2.1** Y-Position Interpolation (quick win)
-9. **2.5** Tick System Profiling (debugging)
-10. **3.1-3.4** Medium priority items
-11. **4.1-4.4** Future polish
+5. ~~**2.2** Rotation Slerp~~ ✅ Completed (smooth direction changes)
+6. ~~**2.2.1** Fix Slerp Long Path~~ ✅ Completed (dot product check + destination rotation + skip behind tiles)
+7. ~~**2.3** Rotation Damping Threshold~~ ✅ Completed (~16° threshold via quaternion dot)
+8. ~~**2.4** Only Rotate on Tile Transitions~~ ✅ Completed (removed mid-tile rotation)
+9. **2.1** Y-Position Interpolation (quick win)
+10. **2.5** Tick System Profiling (debugging)
+11. **3.1-3.4** Medium priority items
+12. **4.1-4.4** Future polish
 
 ---
 
