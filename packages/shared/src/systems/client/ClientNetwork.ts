@@ -1315,8 +1315,6 @@ export class ClientNetwork extends SystemBase {
   };
 
   onEquipmentUpdated = (data: { playerId: string; equipment: any }) => {
-    console.log("[ClientNetwork] 📥 Received equipmentUpdated:", data);
-
     // Cache latest equipment for late-mounting UI
     this.lastEquipmentByPlayerId = this.lastEquipmentByPlayerId || {};
     this.lastEquipmentByPlayerId[data.playerId] = data.equipment;
@@ -1339,10 +1337,6 @@ export class ClientNetwork extends SystemBase {
         const slotData = equipment[slot];
         // Emit for ALL slots, including null (to remove items on death)
         const itemId = slotData?.itemId || slotData?.item?.id || null;
-        console.log(
-          `[ClientNetwork] 📤 Emitting PLAYER_EQUIPMENT_CHANGED for ${slot}:`,
-          itemId || "null (remove)",
-        );
         this.world.emit(EventType.PLAYER_EQUIPMENT_CHANGED, {
           playerId: data.playerId,
           slot: slot,
@@ -1785,10 +1779,6 @@ export class ClientNetwork extends SystemBase {
     tickNumber: number;
     moveSeq?: number;
   }) => {
-    console.log(
-      `[ClientNetwork] onEntityTileUpdate: ${data.id} -> tile (${data.tile.x},${data.tile.z}) tick ${data.tickNumber} moveSeq ${data.moveSeq}`,
-    );
-
     const worldPos = new THREE.Vector3(
       data.worldPos[0],
       data.worldPos[1],

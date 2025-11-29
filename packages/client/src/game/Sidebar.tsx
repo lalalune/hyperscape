@@ -144,14 +144,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           legs: rawEq.legs?.item || null,
           arrows: rawEq.arrows?.item || null,
         };
-        console.log("[Sidebar] 🛡️ Equipment updated:", {
-          weapon: mappedEquipment.weapon?.name || "empty",
-          shield: mappedEquipment.shield?.name || "empty",
-          helmet: mappedEquipment.helmet?.name || "empty",
-          body: mappedEquipment.body?.name || "empty",
-          legs: mappedEquipment.legs?.name || "empty",
-          arrows: mappedEquipment.arrows?.name || "empty",
-        });
         setEquipment(mappedEquipment);
       }
       // Handle bank state updates
@@ -178,15 +170,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         playerId: string;
         coins: number;
       };
-      console.log("[Sidebar] 📥 Received INVENTORY_UPDATED:", {
-        itemCount: data.items.length,
-        coins: data.coins,
-        items: data.items.map((i) => ({
-          slot: i.slot,
-          itemId: i.itemId,
-          qty: i.quantity,
-        })),
-      });
       setInventory(data.items);
       setCoins(data.coins);
     };
@@ -216,13 +199,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         position: { x: number; y: number; z: number };
       };
 
-      console.log(
-        `[Sidebar] CORPSE_CLICK received for ${data.corpseId} with ${data.lootItems?.length || 0} items:`,
-        data.lootItems
-          ?.map((item) => `${item.itemId} x${item.quantity}`)
-          .join(", ") || "(none)",
-      );
-
       // Open loot window with corpse items
       setLootWindowData({
         visible: true,
@@ -237,10 +213,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             metadata: null,
           })) || [],
       });
-
-      console.log(
-        `[Sidebar] LootWindow opened with ${data.lootItems?.length || 0} items`,
-      );
     };
 
     world.on(EventType.UI_UPDATE, onUIUpdate);
@@ -284,14 +256,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             legs: rawEq.legs?.item || null,
             arrows: rawEq.arrows?.item || null,
           };
-          console.log("[Sidebar] 📦 Loaded cached equipment on mount:", {
-            weapon: mappedEquipment.weapon?.name || "empty",
-            shield: mappedEquipment.shield?.name || "empty",
-            helmet: mappedEquipment.helmet?.name || "empty",
-            body: mappedEquipment.body?.name || "empty",
-            legs: mappedEquipment.legs?.name || "empty",
-            arrows: mappedEquipment.arrows?.name || "empty",
-          });
           setEquipment(mappedEquipment);
         }
         world.emit(EventType.INVENTORY_REQUEST, { playerId: lp });

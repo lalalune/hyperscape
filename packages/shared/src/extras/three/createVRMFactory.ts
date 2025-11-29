@@ -121,11 +121,6 @@ export function createVRMFactory(
   const isVRM1OrHigher =
     version !== "0" &&
     (!version || (typeof version === "string" && !version.startsWith("0.")));
-  console.log(
-    "[VRMFactory] VRM version detected:",
-    { version, isVRM1OrHigher },
-    "(will apply 180° rotation for VRM 1.0+)",
-  );
 
   // Setup skinned meshes with NORMAL bind mode (for normalized bone compatibility)
   // DetachedBindMode is incompatible with normalized bones in scene graph
@@ -190,10 +185,6 @@ export function createVRMFactory(
   }
 
   const height = targetHeight;
-
-  console.log(
-    `[VRMFactory] Normalized avatar from ${originalHeight.toFixed(3)}m to ${height.toFixed(3)}m (scale: ${scaleFactor.toFixed(3)})`,
-  );
 
   // Calculate head to height for camera positioning
   const headPos = normBones.head?.node?.getWorldPosition(v1) || v1.set(0, 0, 0);
@@ -296,7 +287,6 @@ export function createVRMFactory(
     // VRM 0.x models already face the correct direction
     let finalMatrix = matrix;
     if (isVRM1OrHigher) {
-      console.log("[VRMFactory] Applying 180° rotation for VRM 1.0+ model");
       const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI);
       finalMatrix = new THREE.Matrix4().multiplyMatrices(
         matrix,

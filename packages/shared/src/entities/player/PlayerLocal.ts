@@ -1989,15 +1989,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // Base is a child of node and should stay at origin
     // This prevents double transforms since node already has world position
     if (this.base) {
-      // Ensure base stays at origin relative to node
+      // Ensure base stays at origin relative to node (silently correct if drifted)
       if (
         this.base.position.x !== 0 ||
         this.base.position.y !== 0 ||
         this.base.position.z !== 0
       ) {
-        console.warn(
-          "[PlayerLocal] Base position was not at origin, correcting...",
-        );
         this.base.position.set(0, 0, 0);
       }
       this.base!.updateMatrix();

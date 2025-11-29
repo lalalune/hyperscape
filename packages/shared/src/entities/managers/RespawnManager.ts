@@ -69,13 +69,6 @@ export class RespawnManager {
       this.config.respawnTimeMax,
       COMBAT_CONSTANTS.RESPAWN_TICKS_MIN,
     );
-
-    console.log("[RespawnManager] Created with config:", {
-      center: `(${config.spawnAreaCenter.x.toFixed(1)}, ${config.spawnAreaCenter.z.toFixed(1)})`,
-      radius: `${config.spawnAreaRadius}m`,
-      respawnTicks: `${this.respawnTicksMin}-${this.respawnTicksMax} ticks`,
-      respawnTime: `${(ticksToMs(this.respawnTicksMin) / 1000).toFixed(1)}-${(ticksToMs(this.respawnTicksMax) / 1000).toFixed(1)}s`,
-    });
   }
 
   /**
@@ -98,11 +91,6 @@ export class RespawnManager {
       y: center.y, // Will be snapped to terrain
       z: center.z + Math.sin(angle) * distance,
     };
-
-    console.log("[RespawnManager] Generated spawn point:", {
-      point: `(${spawnPoint.x.toFixed(2)}, ${spawnPoint.y.toFixed(2)}, ${spawnPoint.z.toFixed(2)})`,
-      distanceFromCenter: distance.toFixed(2),
-    });
 
     return spawnPoint;
   }
@@ -136,23 +124,6 @@ export class RespawnManager {
     // Generate NEW random spawn point for respawn
     // CRITICAL: This is DIFFERENT from death location!
     this.currentRespawnPoint = this.generateSpawnPoint();
-
-    const durationMs = ticksToMs(this.respawnDurationTicks);
-    console.log("[RespawnManager] ⏰ Respawn timer started:", {
-      durationTicks: this.respawnDurationTicks,
-      durationSeconds: `${(durationMs / 1000).toFixed(1)}s`,
-      respawnTick: currentTick + this.respawnDurationTicks,
-      deathLocation: deathPosition
-        ? `(${deathPosition.x.toFixed(2)}, ${deathPosition.y.toFixed(2)}, ${deathPosition.z.toFixed(2)})`
-        : "unknown",
-      newRespawnPoint: `(${this.currentRespawnPoint.x.toFixed(2)}, ${this.currentRespawnPoint.y.toFixed(2)}, ${this.currentRespawnPoint.z.toFixed(2)})`,
-      distanceFromDeath: deathPosition
-        ? this.calculateDistance(
-            deathPosition,
-            this.currentRespawnPoint,
-          ).toFixed(2)
-        : "N/A",
-    });
   }
 
   /**
@@ -176,12 +147,6 @@ export class RespawnManager {
     const elapsedTicks = currentTick - this.respawnStartTick;
 
     if (elapsedTicks >= this.respawnDurationTicks) {
-      console.log("[RespawnManager] ⏰ Respawn timer expired:", {
-        elapsedTicks,
-        thresholdTicks: this.respawnDurationTicks,
-        elapsedSeconds: `${(ticksToMs(elapsedTicks) / 1000).toFixed(1)}s`,
-      });
-
       this.triggerRespawn();
     }
   }
@@ -194,10 +159,6 @@ export class RespawnManager {
       console.error("[RespawnManager] No respawn point available!");
       return;
     }
-
-    console.log("[RespawnManager] 🔄 Respawning at:", {
-      point: `(${this.currentRespawnPoint.x.toFixed(2)}, ${this.currentRespawnPoint.y.toFixed(2)}, ${this.currentRespawnPoint.z.toFixed(2)})`,
-    });
 
     // Reset timer
     this.respawnStartTick = null;

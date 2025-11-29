@@ -252,13 +252,6 @@ export class Entities extends SystemBase implements IEntities {
       const networkModel = (data as { model?: string }).model;
       const finalModelPath = networkModel || fallbackModelPath;
 
-      console.log(`[Entities] Creating mob entity:`, {
-        mobType: derivedMobType,
-        networkModel,
-        fallbackModelPath,
-        finalModelPath,
-      });
-
       const mobConfig: MobEntityConfig = {
         id: data.id,
         name: name,
