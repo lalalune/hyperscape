@@ -1471,6 +1471,8 @@ export class ClientNetwork extends SystemBase {
           node: entity.node as THREE.Object3D | undefined,
           base: entityWithBase.base,
           data: entity.data as Record<string, unknown>,
+          // modify() triggers PlayerLocal's emote handling (avatar animation updates)
+          modify: (data: Record<string, unknown>) => entity.modify(data),
         };
       },
       // Pass terrain height function for smooth Y updates
@@ -1842,9 +1844,10 @@ export class ClientNetwork extends SystemBase {
     running: boolean;
     destinationTile?: TileCoord;
     moveSeq?: number;
+    emote?: string;
   }) => {
     console.log(
-      `[ClientNetwork] onTileMovementStart: ${data.id} path length ${data.path.length}, running: ${data.running}, dest: ${data.destinationTile ? `(${data.destinationTile.x},${data.destinationTile.z})` : "none"}, moveSeq: ${data.moveSeq}`,
+      `[ClientNetwork] onTileMovementStart: ${data.id} path length ${data.path.length}, running: ${data.running}, dest: ${data.destinationTile ? `(${data.destinationTile.x},${data.destinationTile.z})` : "none"}, moveSeq: ${data.moveSeq}, emote: ${data.emote}`,
     );
 
     // Get entity's current position for smooth start
@@ -1856,6 +1859,7 @@ export class ClientNetwork extends SystemBase {
     // Pass FULL PATH to interpolator - it will walk through autonomously
     // destinationTile is authoritative - ensures we end at the clicked tile even if path differs
     // moveSeq ensures proper packet ordering and stale packet rejection
+    // emote is bundled for immediate animation (OSRS-style, no separate packet)
     this.tileInterpolator.onMovementStart(
       data.id,
       data.path,
@@ -1863,6 +1867,7 @@ export class ClientNetwork extends SystemBase {
       currentPosition,
       data.destinationTile,
       data.moveSeq,
+      data.emote,
     );
 
     // CRITICAL: Set the flag IMMEDIATELY when movement starts
@@ -1870,6 +1875,12 @@ export class ClientNetwork extends SystemBase {
     // and apply stale server rotation, causing flickering between north/south
     if (entity?.data) {
       entity.data.tileInterpolatorControlled = true;
+      // Apply emote immediately - don't wait for interpolator update() cycle
+      // This ensures animation matches movement from the very first frame
+      // Use modify() to trigger PlayerLocal's emote handling (avatar animation update)
+      if (data.emote) {
+        entity.modify({ e: data.emote });
+      }
     }
   };
 
