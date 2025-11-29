@@ -49,6 +49,11 @@ const CATCHUP_SMOOTHING_RATE = 8.0; // ~125ms to reach 63% of target (1/8 second
 // Maximum multiplier change per second to prevent jarring jumps during lag spikes
 const CATCHUP_MAX_CHANGE_PER_SEC = 3.0; // Can change by at most 3.0 per second
 
+// Rotation slerp speed - how fast character turns toward target direction
+// Higher = faster rotation, lower = smoother/slower rotation
+// 12.0 = ~90% of rotation completed in ~0.2 seconds (responsive but smooth)
+const ROTATION_SLERP_SPEED = 12.0;
+
 /**
  * Movement state for a single entity
  */
@@ -67,8 +72,10 @@ interface EntityMovementState {
   visualPosition: THREE.Vector3;
   // Target world position (current target tile in world coords)
   targetWorldPos: THREE.Vector3;
-  // Current rotation
+  // Current visual rotation (what we render, smoothly interpolated via slerp)
   quaternion: THREE.Quaternion;
+  // Target rotation (what we're rotating toward)
+  targetQuaternion: THREE.Quaternion;
 
   // ========== Movement State ==========
   // Whether entity is running (affects speed)
@@ -250,7 +257,9 @@ export class TileInterpolator {
       state.destinationTile = destinationTile ? { ...destinationTile } : null;
       state.visualPosition.copy(startPos);
       state.targetWorldPos.set(firstTileWorld.x, startPos.y, firstTileWorld.z);
-      state.quaternion.copy(initialRotation);
+      // DON'T snap quaternion - keep current visual rotation for smooth turn
+      // Set target rotation - slerp will smoothly rotate toward it
+      state.targetQuaternion.copy(initialRotation);
       state.isRunning = running;
       state.isMoving = true;
       state.emote = emote ?? (running ? "run" : "walk");
@@ -260,7 +269,7 @@ export class TileInterpolator {
       state.targetCatchUpMultiplier = 1.0;
       state.moveSeq = moveSeq ?? state.moveSeq;
     } else {
-      // Create new state
+      // Create new state - set both quaternion and target to initial (no slerp needed for first movement)
       state = {
         fullPath: finalPath,
         targetTileIndex: 0,
@@ -272,6 +281,7 @@ export class TileInterpolator {
           firstTileWorld.z,
         ),
         quaternion: initialRotation.clone(),
+        targetQuaternion: initialRotation.clone(),
         isRunning: running,
         isMoving: true,
         emote: emote ?? (running ? "run" : "walk"),
@@ -344,20 +354,22 @@ export class TileInterpolator {
         );
       }
 
+      const initialQuat = quaternion
+        ? new THREE.Quaternion(
+            quaternion[0],
+            quaternion[1],
+            quaternion[2],
+            quaternion[3],
+          )
+        : new THREE.Quaternion();
       const newState: EntityMovementState = {
         fullPath: [],
         targetTileIndex: 0,
         destinationTile: null,
         visualPosition: usePos.clone(),
         targetWorldPos: usePos.clone(),
-        quaternion: quaternion
-          ? new THREE.Quaternion(
-              quaternion[0],
-              quaternion[1],
-              quaternion[2],
-              quaternion[3],
-            )
-          : new THREE.Quaternion(),
+        quaternion: initialQuat.clone(),
+        targetQuaternion: initialQuat.clone(),
         isRunning: emote === "run",
         isMoving: false,
         emote: emote,
@@ -774,7 +786,8 @@ export class TileInterpolator {
               nextPos,
             );
             if (nextRotation) {
-              state.quaternion.copy(nextRotation);
+              // Set TARGET rotation - slerp will smoothly interpolate toward it
+              state.targetQuaternion.copy(nextRotation);
             }
             // Continue loop to use remaining movement toward next tile
           } else {
@@ -807,7 +820,8 @@ export class TileInterpolator {
             state.targetWorldPos,
           );
           if (movementRotation) {
-            state.quaternion.copy(movementRotation);
+            // Set TARGET rotation - slerp will smoothly interpolate toward it
+            state.targetQuaternion.copy(movementRotation);
           }
 
           remainingMove = 0; // All movement consumed
@@ -824,6 +838,12 @@ export class TileInterpolator {
           state.visualPosition.y = height + 0.1; // Small offset above ground
         }
       }
+
+      // Smoothly interpolate rotation toward target using spherical lerp (slerp)
+      // This prevents jarring direction snaps when player course-corrects
+      // Uses exponential smoothing: alpha = 1 - e^(-dt * rate) for frame-rate independence
+      const rotationAlpha = 1 - Math.exp(-deltaTime * ROTATION_SLERP_SPEED);
+      state.quaternion.slerp(state.targetQuaternion, rotationAlpha);
 
       // Apply visual state to entity
       entity.position.copy(state.visualPosition);
@@ -931,6 +951,7 @@ export class TileInterpolator {
         visualPosition: new THREE.Vector3(worldPos.x, position.y, worldPos.z),
         targetWorldPos: new THREE.Vector3(worldPos.x, position.y, worldPos.z),
         quaternion: new THREE.Quaternion(),
+        targetQuaternion: new THREE.Quaternion(),
         isRunning: false,
         isMoving: false,
         emote: "idle",

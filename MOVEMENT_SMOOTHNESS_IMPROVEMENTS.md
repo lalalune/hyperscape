@@ -24,7 +24,7 @@
 
 **RS3 Reference**: RS3's smooth movement update uses Bézier curves and smooth rotation transitions.
 
-**Status**: [ ] Not started
+**Status**: [x] Completed
 
 ---
 
