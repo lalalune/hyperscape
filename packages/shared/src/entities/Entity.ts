@@ -801,7 +801,9 @@ export class Entity implements IEntity {
     // Note: createMesh is async in Entity, so this will be called from init()
 
     // Create name tag if entity has a name
-    if (this.name) {
+    // Skip mobs and items - RuneScape pattern: names shown in right-click menu only
+    const shouldShowNametag = this.type !== "mob" && this.type !== "item";
+    if (this.name && shouldShowNametag) {
       this.createNameTag();
     }
 
