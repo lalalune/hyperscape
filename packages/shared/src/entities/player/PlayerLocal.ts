@@ -74,6 +74,10 @@ import { Layers } from "../../physics/Layers";
 import { Emotes } from "../../data/playerEmotes";
 import THREE from "../../extras/three/three";
 import { Nametag, UI, UIText, UIView } from "../../nodes";
+import type {
+  HealthBars as HealthBarsSystem,
+  HealthBarHandle,
+} from "../../systems/client/HealthBars";
 import { getPhysX, waitForPhysX } from "../../physics/PhysXManager";
 import type { PhysicsHandle } from "../../systems/shared";
 import type { TerrainSystem } from "../../systems/shared";
@@ -491,6 +495,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
   base: THREE.Group | undefined = undefined;
   aura: THREE.Group | null = null;
   nametag: Nametag | null = null;
+  private _healthBarHandle: HealthBarHandle | null = null; // Separate health bar (HealthBars system)
   bubble: UI | null = null;
   bubbleBox: UIView | null = null;
   bubbleText: UIText | null = null;
@@ -824,9 +829,13 @@ export class PlayerLocal extends Entity implements HotReloadable {
     if ("c" in data) {
       const newInCombat = data.c as boolean;
       this.combat.inCombat = newInCombat;
-      // Update nametag to show/hide health bar (RuneScape pattern)
-      if (this.nametag && this.nametag.handle?.setInCombat) {
-        this.nametag.handle.setInCombat(newInCombat);
+      // Show/hide health bar based on combat state (RuneScape pattern)
+      if (this._healthBarHandle) {
+        if (newInCombat) {
+          this._healthBarHandle.show();
+        } else {
+          this._healthBarHandle.hide();
+        }
       }
     }
     // Handle combat target (using abbreviated key 'ct' for combatTarget)
@@ -962,12 +971,10 @@ export class PlayerLocal extends Entity implements HotReloadable {
       this.setHealth(newHealth);
       // Update _playerHealth for getPlayerData() which the UI reads
       this._playerHealth.current = newHealth;
-      if (this.nametag) {
-        // Convert to percentage for Nametags system
+      // Update health bar (HealthBars system)
+      if (this._healthBarHandle) {
         const maxHealth = this.maxHealth || 100;
-        const healthPercent = (newHealth / maxHealth) * 100;
-
-        this.nametag.health = healthPercent;
+        this._healthBarHandle.setHealth(newHealth, maxHealth);
       }
     }
     if ("maxHealth" in data && data.maxHealth !== undefined) {
@@ -1109,15 +1116,10 @@ export class PlayerLocal extends Entity implements HotReloadable {
       throw new Error("Failed to create aura node for PlayerLocal");
     }
 
-    // Convert health to percentage for Nametags system (expects 0-100%)
-    const currentHealth = (this.data.health as number) || 100;
-    const maxHealth = (this.data.maxHealth as number) || 100;
-    const healthPercent = (currentHealth / maxHealth) * 100;
-
+    // Create nametag for name display only (no health - that's now in HealthBars system)
     this.nametag = createNode("nametag", {
       label: "", // Empty label for local player (no name shown)
-      health: healthPercent,
-      active: true, // Always active to show health bar in combat (RuneScape pattern)
+      active: true,
     }) as Nametag;
     if (!this.nametag) {
       throw new Error("Failed to create nametag node for PlayerLocal");
@@ -1127,6 +1129,20 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // Mount the nametag to register with Nametags system
     if (this.nametag.mount) {
       this.nametag.mount();
+    }
+
+    // Register with HealthBars system (separate from nametags)
+    const healthbars = this.world.systems.find(
+      (s) =>
+        (s as { systemName?: string }).systemName === "healthbars" ||
+        s.constructor.name === "HealthBars",
+    ) as HealthBarsSystem | undefined;
+
+    if (healthbars) {
+      const currentHealth = (this.data.health as number) || 100;
+      const maxHealth = (this.data.maxHealth as number) || 100;
+      this._healthBarHandle = healthbars.add(this.id, currentHealth, maxHealth);
+      // Health bar starts hidden (RuneScape pattern: only show during combat)
     }
 
     this.bubble = createNode("ui", {
@@ -2098,13 +2114,21 @@ export class PlayerLocal extends Entity implements HotReloadable {
           this.aura.position.setFromMatrixPosition(matrix);
         }
       }
-      // Update nametag position above head (like mob health bars)
+      // Update nametag position above head
       if (this.nametag && this.nametag.handle && this.base) {
-        // Position at fixed Y offset from player base (like mob health bars at Y=2.0)
+        // Position at fixed Y offset from player base
         const nametagMatrix = new THREE.Matrix4();
         nametagMatrix.copy(this.base.matrixWorld);
-        nametagMatrix.elements[13] += 2.0; // Add fixed Y offset
+        nametagMatrix.elements[13] += 2.2; // Nametag slightly higher (above health bar)
         this.nametag.handle.move(nametagMatrix);
+      }
+
+      // Update health bar position (separate from nametag, slightly lower)
+      if (this._healthBarHandle && this.base) {
+        const healthBarMatrix = new THREE.Matrix4();
+        healthBarMatrix.copy(this.base.matrixWorld);
+        healthBarMatrix.elements[13] += 2.0; // Health bar at Y=2.0
+        this._healthBarHandle.move(healthBarMatrix);
       }
     }
   }
@@ -2211,17 +2235,14 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   onNetworkData(data: Partial<NetworkData>): void {
-    if (data.name) {
-      this.nametag!.label = (data.name as string) || "";
+    if (data.name && this.nametag) {
+      this.nametag.label = (data.name as string) || "";
     }
 
-    if (data.health !== undefined) {
-      // Convert to percentage for Nametags system
+    if (data.health !== undefined && this._healthBarHandle) {
       const currentHealth = data.health as number;
       const maxHealth = this.maxHealth || 100;
-      const healthPercent = (currentHealth / maxHealth) * 100;
-
-      this.nametag!.health = healthPercent;
+      this._healthBarHandle.setHealth(currentHealth, maxHealth);
     }
   }
 
@@ -2231,11 +2252,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
     health: number;
     maxHealth: number;
   }): void {
-    if (event.playerId === this.data.id) {
-      // Convert to percentage for Nametags system
-      const healthPercent = (event.health / event.maxHealth) * 100;
-
-      this.nametag!.health = healthPercent;
+    if (event.playerId === this.data.id && this._healthBarHandle) {
+      this._healthBarHandle.setHealth(event.health, event.maxHealth);
     }
   }
 
@@ -2462,6 +2480,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
     if (this.nametag) {
       this.nametag.deactivate();
       this.nametag = null;
+    }
+
+    // Clean up health bar handle (HealthBars system)
+    if (this._healthBarHandle) {
+      this._healthBarHandle.destroy();
+      this._healthBarHandle = null;
     }
 
     if (this.bubble) {

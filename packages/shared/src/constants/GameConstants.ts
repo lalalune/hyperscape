@@ -76,15 +76,21 @@ export const MOB_CONSTANTS = {
   PATHFINDING_UPDATE_RATE: 500, // 0.5 seconds
 } as const;
 
+// Import health bar dimensions from single source of truth
+import { HEALTH_BAR_DIMENSIONS } from "../utils/rendering/HealthBarRenderer";
+
 // === UI AND VISUAL ===
 export const UI_CONSTANTS = {
-  HEALTH_BAR_WIDTH: 50,
-  HEALTH_BAR_HEIGHT: 5,
+  // Health bar dimensions - from HealthBarRenderer (single source of truth)
+  HEALTH_BAR_WIDTH: HEALTH_BAR_DIMENSIONS.WIDTH,
+  HEALTH_BAR_HEIGHT: HEALTH_BAR_DIMENSIONS.HEIGHT,
+  HEALTH_BAR_BORDER: HEALTH_BAR_DIMENSIONS.BORDER_WIDTH,
+  HEALTH_SPRITE_SCALE: HEALTH_BAR_DIMENSIONS.SPRITE_SCALE,
+  // Other UI constants
   NAME_TAG_WIDTH: 200,
   NAME_TAG_HEIGHT: 25,
   UI_SCALE: 0.1, // Canvas to world scale
   SPRITE_SCALE: 0.1,
-  HEALTH_SPRITE_SCALE: 0.05,
   HUD_UPDATE_RATE: 100, // 10 FPS for UI updates
   CHAT_MESSAGE_TIMEOUT: 5000, // 5 seconds
 } as const;
