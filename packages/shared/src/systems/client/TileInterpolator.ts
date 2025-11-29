@@ -239,12 +239,22 @@ export class TileInterpolator {
       return;
     }
 
-    // Calculate rotation to face first tile
+    // Calculate rotation to face DESTINATION (not first tile in path)
+    // When spam clicking, server's path starts from its known position which may be
+    // behind the client's visual position. Using first tile could cause facing backward.
+    // Instead, face the destination - this matches OSRS behavior (face where you clicked).
     const firstTileWorld = tileToWorld(finalPath[0]);
+    const rotationTargetTile =
+      destinationTile || finalPath[finalPath.length - 1];
+    const rotationTargetWorld = tileToWorld(rotationTargetTile);
     const initialRotation =
       this.calculateFacingRotation(
         startPos,
-        new THREE.Vector3(firstTileWorld.x, startPos.y, firstTileWorld.z),
+        new THREE.Vector3(
+          rotationTargetWorld.x,
+          startPos.y,
+          rotationTargetWorld.z,
+        ),
       ) ?? new THREE.Quaternion(); // Default to identity if too close
 
     // Use server's startTile for confirmed position tracking
@@ -750,6 +760,32 @@ export class TileInterpolator {
         state.targetWorldPos.z = targetWorld.z;
         // Note: Y is updated from server updates (terrain height)
 
+        // Skip tiles that are BEHIND the visual position (prevents backward movement)
+        // This happens when server's path starts from a position behind the client's visual position
+        // due to network latency during spam clicking
+        if (
+          state.destinationTile &&
+          state.targetTileIndex < state.fullPath.length - 1
+        ) {
+          const destWorld = tileToWorld(state.destinationTile);
+          const toTargetX = state.targetWorldPos.x - state.visualPosition.x;
+          const toTargetZ = state.targetWorldPos.z - state.visualPosition.z;
+          const toDestX = destWorld.x - state.visualPosition.x;
+          const toDestZ = destWorld.z - state.visualPosition.z;
+
+          // Dot product: if negative, target tile is behind us relative to destination
+          const dot = toTargetX * toDestX + toTargetZ * toDestZ;
+          const distToTarget = Math.sqrt(
+            toTargetX * toTargetX + toTargetZ * toTargetZ,
+          );
+
+          // Skip if target is behind us AND not very close (avoid skipping near-destination tiles)
+          if (dot < 0 && distToTarget > 0.5) {
+            state.targetTileIndex++;
+            continue; // Re-evaluate with next tile
+          }
+        }
+
         // Calculate distance to target
         const dx = state.targetWorldPos.x - state.visualPosition.x;
         const dz = state.targetWorldPos.z - state.visualPosition.z;
@@ -786,8 +822,13 @@ export class TileInterpolator {
               nextPos,
             );
             if (nextRotation) {
-              // Set TARGET rotation - slerp will smoothly interpolate toward it
-              state.targetQuaternion.copy(nextRotation);
+              // Only update rotation if direction changed significantly (>~16°)
+              // This prevents micro-pivots during nearly-straight movement
+              // Quaternion dot product: |dot| > 0.99 means angle < ~16°
+              const dot = Math.abs(state.targetQuaternion.dot(nextRotation));
+              if (dot < 0.99) {
+                state.targetQuaternion.copy(nextRotation);
+              }
             }
             // Continue loop to use remaining movement toward next tile
           } else {
@@ -813,16 +854,11 @@ export class TileInterpolator {
           state.visualPosition.z += this._tempDir.z * remainingMove;
           // Y will be set from terrain at end of loop
 
-          // Update rotation to face movement direction (only if distance is sufficient)
-          // When very close to target, preserve existing rotation to avoid brief twitches
-          const movementRotation = this.calculateFacingRotation(
-            state.visualPosition,
-            state.targetWorldPos,
-          );
-          if (movementRotation) {
-            // Set TARGET rotation - slerp will smoothly interpolate toward it
-            state.targetQuaternion.copy(movementRotation);
-          }
+          // NOTE: Removed mid-tile rotation update (2.4 Only Rotate on Tile Transitions)
+          // Rotation is only updated when reaching tile boundaries, not every frame.
+          // This prevents micro-pivots from floating point variations during movement.
+          // The initial rotation (set in onMovementStart) faces the destination,
+          // and tile transition rotation (above) handles direction changes at turns.
 
           remainingMove = 0; // All movement consumed
         }
@@ -842,6 +878,18 @@ export class TileInterpolator {
       // Smoothly interpolate rotation toward target using spherical lerp (slerp)
       // This prevents jarring direction snaps when player course-corrects
       // Uses exponential smoothing: alpha = 1 - e^(-dt * rate) for frame-rate independence
+      //
+      // IMPORTANT: Quaternions have double cover - q and -q represent the SAME rotation.
+      // When dot product is negative, slerp takes the "long way" around (~360° rotation).
+      // Fix: negate target quaternion when dot < 0 to ensure short path interpolation.
+      if (state.quaternion.dot(state.targetQuaternion) < 0) {
+        state.targetQuaternion.set(
+          -state.targetQuaternion.x,
+          -state.targetQuaternion.y,
+          -state.targetQuaternion.z,
+          -state.targetQuaternion.w,
+        );
+      }
       const rotationAlpha = 1 - Math.exp(-deltaTime * ROTATION_SLERP_SPEED);
       state.quaternion.slerp(state.targetQuaternion, rotationAlpha);
 
