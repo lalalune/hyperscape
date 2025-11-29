@@ -1,29 +1,29 @@
 /**
- * HealthRegenSystem - Passive Health Regeneration (RuneScape-style)
+ * HealthRegenSystem - Passive Health Regeneration (OSRS-style)
  *
  * Server-authoritative system that handles passive health regeneration for all players.
- * Implements RuneScape-like mechanics:
+ * Implements OSRS-accurate mechanics using game ticks (600ms each):
  * - No regeneration while in combat
- * - 10-second cooldown after taking damage before regen starts
- * - Regenerates 1 HP per second when conditions are met
+ * - 17 tick cooldown (10.2 seconds) after taking damage before regen starts
+ * - Regenerates 1 HP every 100 ticks (60 seconds) when conditions are met
  *
  * Works for both human players and AI agent players automatically.
  *
  * @see {@link CombatSystem} for combat state tracking
- * @see {@link GAME_CONSTANTS.PLAYER} for regen rate configuration
+ * @see {@link COMBAT_CONSTANTS.HEALTH_REGEN_COOLDOWN_TICKS} for cooldown (17 ticks)
+ * @see {@link COMBAT_CONSTANTS.HEALTH_REGEN_INTERVAL_TICKS} for regen interval (100 ticks)
  */
 
 import { SystemBase } from "..";
 import type { World } from "../../../core/World";
 import { GAME_CONSTANTS } from "../../../constants/GameConstants";
+import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import type { CombatSystem } from "../combat/CombatSystem";
 import type { PlayerSystem } from "./PlayerSystem";
 import type { Player } from "../../../types/core/core";
 
-// Default constants if not defined in GameConstants
+// Default regen rate if not defined in GameConstants
 const DEFAULT_REGEN_RATE = 1; // 1 HP per regen tick
-const DEFAULT_REGEN_COOLDOWN = 10000; // 10 seconds after combat/damage
-const DEFAULT_REGEN_INTERVAL = 60000; // 60 seconds between regen ticks (RuneScape-style)
 
 /**
  * HealthRegenSystem - Manages passive health regeneration for all players
@@ -36,8 +36,8 @@ const DEFAULT_REGEN_INTERVAL = 60000; // 60 seconds between regen ticks (RuneSca
 export class HealthRegenSystem extends SystemBase {
   declare world: World;
 
-  /** Time accumulator for throttled updates */
-  private timeSinceLastRegen: number = 0;
+  /** Last tick when global regen was processed */
+  private lastRegenTick: number = 0;
 
   /** Reference to combat system for checking combat state */
   private combatSystem: CombatSystem | null = null;
@@ -45,10 +45,8 @@ export class HealthRegenSystem extends SystemBase {
   /** Reference to player system for getting players */
   private playerSystem: PlayerSystem | null = null;
 
-  /** Regen configuration */
+  /** HP amount to regenerate per interval */
   private regenRate: number;
-  private regenCooldown: number;
-  private regenInterval: number;
 
   constructor(world: World) {
     super(world, {
@@ -59,15 +57,9 @@ export class HealthRegenSystem extends SystemBase {
       autoCleanup: true,
     });
 
-    // Load configuration from constants
+    // Load regen rate from constants (default: 1 HP per regen tick)
     this.regenRate =
       GAME_CONSTANTS.PLAYER.HEALTH_REGEN_RATE ?? DEFAULT_REGEN_RATE;
-    this.regenCooldown =
-      (GAME_CONSTANTS.PLAYER as { HEALTH_REGEN_COOLDOWN?: number })
-        .HEALTH_REGEN_COOLDOWN ?? DEFAULT_REGEN_COOLDOWN;
-    this.regenInterval =
-      (GAME_CONSTANTS.PLAYER as { HEALTH_REGEN_INTERVAL?: number })
-        .HEALTH_REGEN_INTERVAL ?? DEFAULT_REGEN_INTERVAL;
   }
 
   /**
@@ -78,6 +70,9 @@ export class HealthRegenSystem extends SystemBase {
     // Get reference to combat system
     this.combatSystem = this.world.getSystem("combat") as CombatSystem | null;
     this.playerSystem = this.world.getSystem("player") as PlayerSystem | null;
+
+    // Initialize lastRegenTick to current tick
+    this.lastRegenTick = this.world.currentTick ?? 0;
 
     if (!this.combatSystem) {
       console.warn(
@@ -92,34 +87,37 @@ export class HealthRegenSystem extends SystemBase {
     }
 
     console.log(
-      `[HealthRegenSystem] Started - Rate: ${this.regenRate} HP/sec, ` +
-        `Cooldown: ${this.regenCooldown}ms, Interval: ${this.regenInterval}ms`,
+      `[HealthRegenSystem] Started - Rate: ${this.regenRate} HP, ` +
+        `Cooldown: ${COMBAT_CONSTANTS.HEALTH_REGEN_COOLDOWN_TICKS} ticks, ` +
+        `Interval: ${COMBAT_CONSTANTS.HEALTH_REGEN_INTERVAL_TICKS} ticks`,
     );
   }
 
   /**
    * Update loop - called every frame
-   * Throttled to only process regen at configured interval
+   * Processes regen every 100 ticks (60 seconds)
    */
-  override update(delta: number): void {
+  override update(_delta: number): void {
     // Only run on server
     if (!this.world.isServer) return;
 
     // Need player system to function
     if (!this.playerSystem) return;
 
-    // Accumulate time
-    this.timeSinceLastRegen += delta * 1000; // Convert to ms
+    const currentTick = this.world.currentTick ?? 0;
 
-    // Throttle updates to configured interval (default: every 60 seconds)
-    if (this.timeSinceLastRegen < this.regenInterval) {
+    // Check if 100 ticks have passed since last regen
+    if (
+      currentTick - this.lastRegenTick <
+      COMBAT_CONSTANTS.HEALTH_REGEN_INTERVAL_TICKS
+    ) {
       return;
     }
 
-    // Reset timer
-    this.timeSinceLastRegen = 0;
+    // Update last regen tick
+    this.lastRegenTick = currentTick;
 
-    // Process all players - heal fixed amount per tick
+    // Process all players - heal fixed amount per regen interval
     this.processPlayerRegen();
   }
 
@@ -129,12 +127,11 @@ export class HealthRegenSystem extends SystemBase {
   private processPlayerRegen(): void {
     if (!this.playerSystem) return;
 
-    const now = Date.now();
     const players = this.playerSystem.getAllPlayers();
 
     for (const player of players) {
       // Check if player should regenerate
-      const regenStatus = this.getRegenStatus(player, now);
+      const regenStatus = this.getRegenStatus(player);
 
       if (!regenStatus.shouldRegen) {
         continue;
@@ -148,10 +145,7 @@ export class HealthRegenSystem extends SystemBase {
   /**
    * Get detailed regen status for debugging
    */
-  private getRegenStatus(
-    player: Player,
-    now: number,
-  ): {
+  private getRegenStatus(player: Player): {
     shouldRegen: boolean;
     alive: boolean;
     healthFull: boolean;
@@ -165,9 +159,14 @@ export class HealthRegenSystem extends SystemBase {
     const inCombat = this.combatSystem?.isInCombat(player.id) ?? false;
 
     const playerEntity = this.world.entities?.get(player.id);
-    const lastDamageTime = this.getLastDamageTime(playerEntity);
+    const lastDamageTick = this.getLastDamageTick(playerEntity);
+    const currentTick = this.world.currentTick ?? 0;
+
+    // Cooldown: 17 ticks (10.2 seconds) after taking damage
     const cooldownExpired =
-      lastDamageTime === null || now - lastDamageTime >= this.regenCooldown;
+      lastDamageTick === null ||
+      currentTick - lastDamageTick >=
+        COMBAT_CONSTANTS.HEALTH_REGEN_COOLDOWN_TICKS;
 
     return {
       shouldRegen: alive && !healthFull && !inCombat && cooldownExpired,
@@ -191,68 +190,21 @@ export class HealthRegenSystem extends SystemBase {
     if (currentHealth >= maxHealth) return;
 
     // Use PlayerSystem.healPlayer() - this properly updates health AND emits network events
-    // Heal exactly regenRate HP per tick (default: 1 HP every 60 seconds)
+    // Heal exactly regenRate HP per interval (default: 1 HP every 100 ticks / 60 seconds)
     this.playerSystem.healPlayer(player.id, this.regenRate);
   }
 
   /**
-   * Get last damage time from entity
+   * Get last damage tick from entity (tick-based for OSRS accuracy)
    */
-  private getLastDamageTime(entity: unknown): number | null {
+  private getLastDamageTick(entity: unknown): number | null {
     if (!entity || typeof entity !== "object") return null;
 
     const entityObj = entity as Record<string, unknown>;
 
-    // Try direct property
-    if (typeof entityObj.lastDamageTime === "number") {
-      return entityObj.lastDamageTime;
-    }
-
-    // Try health component data
-    if (entityObj.health && typeof entityObj.health === "object") {
-      const healthObj = entityObj.health as Record<string, unknown>;
-      if (typeof healthObj.lastDamageTime === "number") {
-        return healthObj.lastDamageTime;
-      }
-    }
-
-    // Try components Map/object
-    if (entityObj.components && typeof entityObj.components === "object") {
-      const components = entityObj.components as Record<string, unknown>;
-      const healthComp = components.health as
-        | Record<string, unknown>
-        | undefined;
-      if (healthComp) {
-        if (typeof healthComp.lastDamageTime === "number") {
-          return healthComp.lastDamageTime;
-        }
-        // Try data property of component
-        const data = healthComp.data as Record<string, unknown> | undefined;
-        if (data && typeof data.lastDamageTime === "number") {
-          return data.lastDamageTime;
-        }
-      }
-    }
-
-    // Try getComponent method
-    if (
-      typeof (entityObj as { getComponent?: (name: string) => unknown })
-        .getComponent === "function"
-    ) {
-      const healthComp = (
-        entityObj as { getComponent: (name: string) => unknown }
-      ).getComponent("health");
-      if (healthComp && typeof healthComp === "object") {
-        const hc = healthComp as Record<string, unknown>;
-        if (typeof hc.lastDamageTime === "number") {
-          return hc.lastDamageTime;
-        }
-        // Try data property
-        const data = hc.data as Record<string, unknown> | undefined;
-        if (data && typeof data.lastDamageTime === "number") {
-          return data.lastDamageTime;
-        }
-      }
+    // Try direct property (set by PlayerSystem.takeDamage/damagePlayer)
+    if (typeof entityObj.lastDamageTick === "number") {
+      return entityObj.lastDamageTick;
     }
 
     return null;
@@ -263,13 +215,15 @@ export class HealthRegenSystem extends SystemBase {
    */
   getStats(): {
     regenRate: number;
-    regenCooldown: number;
-    regenInterval: number;
+    regenCooldownTicks: number;
+    regenIntervalTicks: number;
+    lastRegenTick: number;
   } {
     return {
       regenRate: this.regenRate,
-      regenCooldown: this.regenCooldown,
-      regenInterval: this.regenInterval,
+      regenCooldownTicks: COMBAT_CONSTANTS.HEALTH_REGEN_COOLDOWN_TICKS,
+      regenIntervalTicks: COMBAT_CONSTANTS.HEALTH_REGEN_INTERVAL_TICKS,
+      lastRegenTick: this.lastRegenTick,
     };
   }
 }

@@ -19,6 +19,8 @@ export const COMBAT_CONSTANTS = {
   DEFAULT_ATTACK_SPEED_TICKS: 4, // Unarmed/standard weapon (2.4s)
   COMBAT_TIMEOUT_TICKS: 8, // 4.8s - health bar visible after combat ends
   LOGOUT_PREVENTION_TICKS: 16, // 9.6s - can't logout after taking damage
+  HEALTH_REGEN_COOLDOWN_TICKS: 17, // 10.2s - cooldown after damage before regen starts
+  HEALTH_REGEN_INTERVAL_TICKS: 100, // 60s - regenerate 1 HP every 100 ticks
 
   // Weapon speed tiers in ticks (OSRS-accurate)
   // @see https://oldschool.runescape.wiki/w/Attack_speed
