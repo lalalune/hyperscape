@@ -78,6 +78,7 @@ import { modelCache } from "../utils/rendering/ModelCache";
 import type { StageSystem } from "../types/systems/system-interfaces";
 import { LODs } from "../systems/shared";
 import { Nametags } from "../systems/client/Nametags";
+import { HealthBars } from "../systems/client/HealthBars";
 import { EquipmentVisualSystem } from "../systems/client/EquipmentVisualSystem";
 import { Particles } from "../systems/shared";
 import { Wind } from "../systems/shared";
@@ -175,6 +176,7 @@ export function createClientWorld() {
 
   world.register("lods", LODs); // Level-of-detail mesh management
   world.register("nametags", Nametags); // Player/NPC name labels
+  world.register("healthbars", HealthBars); // Entity health bars (separate from nametags)
   world.register("equipment-visual", EquipmentVisualSystem); // Visual weapon/equipment attachment
   world.register("particles", Particles); // Particle effects system
   world.register("wind", Wind); // Environmental wind effects

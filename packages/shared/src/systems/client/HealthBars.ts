@@ -1,63 +1,76 @@
+/**
+ * HealthBars System
+ *
+ * Renders health bars for all entities (players and mobs) using a single
+ * instanced mesh for optimal performance.
+ *
+ * Similar architecture to Nametags but ONLY handles health bars.
+ * This separation ensures clean responsibility:
+ * - Nametags: names only
+ * - HealthBars: health bars only
+ *
+ * @see Nametags for the name rendering system
+ * @see HealthBarRenderer for the drawing logic
+ */
+
 import THREE, { toTHREEVector3 } from "../../extras/three/three";
 import CustomShaderMaterial from "../../libs/three-custom-shader-material";
 import { SystemBase } from "../shared";
 import type { World } from "../../types";
 import { EventType } from "../../types/events";
+import {
+  drawHealthBar,
+  clearHealthBar,
+  HEALTH_BAR_DIMENSIONS,
+  HEALTH_BAR_COLORS,
+} from "../../utils/rendering/HealthBarRenderer";
 
 const _v3_1 = new THREE.Vector3();
 
-/**
- * Nametags System
- *
- * Renders player/entity names using a single atlas and instanced mesh for optimal performance.
- *
- * IMPORTANT: This system ONLY handles names. Health bars are handled separately by the HealthBars system.
- * This separation ensures clean responsibility:
- * - Nametags: names only
- * - HealthBars: health bars only
- *
- * @see HealthBars for the health bar rendering system
- */
+// Atlas configuration
+const SLOT_WIDTH = HEALTH_BAR_DIMENSIONS.WIDTH; // 160px
+const SLOT_HEIGHT = HEALTH_BAR_DIMENSIONS.HEIGHT; // 16px
+const BORDER_WIDTH = HEALTH_BAR_DIMENSIONS.BORDER_WIDTH; // 2px
 
-const RES = 2;
-const NAMETAG_WIDTH = 160 * RES;
-const NAMETAG_HEIGHT = 20 * RES; // Reduced - no longer need space for health bar
-const NAME_FONT_SIZE = 14 * RES;
-const NAME_OUTLINE_SIZE = 3 * RES;
-
-const PER_ROW = 8;
-const PER_COLUMN = 32;
-const MAX_INSTANCES = PER_ROW * PER_COLUMN;
+const PER_ROW = 16;
+const PER_COLUMN = 16;
+const MAX_INSTANCES = PER_ROW * PER_COLUMN; // 256 health bars
 
 const defaultQuaternion = new THREE.Quaternion(0, 0, 0, 1);
 const defaultScale = toTHREEVector3(new THREE.Vector3(1, 1, 1));
 
 /**
- * Nametag entry for tracking
+ * Health bar entry for tracking
  */
-interface NametagEntry {
+interface HealthBarEntry {
   idx: number;
-  name: string;
+  entityId: string;
+  health: number;
+  maxHealth: number;
+  visible: boolean;
+  hideTimeout: ReturnType<typeof setTimeout> | null;
   matrix: THREE.Matrix4;
 }
 
 /**
- * Handle returned to entities for manipulating their nametag
+ * Handle returned to entities for manipulating their health bar
  */
-export interface NametagHandle {
-  idx: number;
-  name: string;
-  matrix: THREE.Matrix4;
+export interface HealthBarHandle {
+  entityId: string;
   /** Update position in world space */
   move: (newMatrix: THREE.Matrix4) => void;
-  /** Update name text */
-  setName: (name: string) => void;
-  /** Remove nametag from system */
+  /** Update health value */
+  setHealth: (current: number, max: number) => void;
+  /** Show health bar (optionally with auto-hide timeout) */
+  show: (timeoutMs?: number) => void;
+  /** Hide health bar immediately */
+  hide: () => void;
+  /** Remove health bar from system */
   destroy: () => void;
 }
 
-export class Nametags extends SystemBase {
-  nametags: NametagEntry[];
+export class HealthBars extends SystemBase {
+  healthBars: HealthBarEntry[];
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   texture: THREE.CanvasTexture;
@@ -72,14 +85,14 @@ export class Nametags extends SystemBase {
 
   constructor(world: World) {
     super(world, {
-      name: "nametags",
+      name: "healthbars",
       dependencies: { required: ["stage"], optional: [] },
       autoCleanup: true,
     });
-    this.nametags = [];
+    this.healthBars = [];
     this.canvas = document.createElement("canvas");
-    this.canvas.width = NAMETAG_WIDTH * PER_ROW;
-    this.canvas.height = NAMETAG_HEIGHT * PER_COLUMN;
+    this.canvas.width = SLOT_WIDTH * PER_ROW;
+    this.canvas.height = SLOT_HEIGHT * PER_COLUMN;
 
     this.ctx = this.canvas.getContext("2d")!;
     this.texture = new THREE.CanvasTexture(this.canvas);
@@ -202,7 +215,14 @@ export class Nametags extends SystemBase {
         }
       `,
     } as ConstructorParameters<typeof CustomShaderMaterial>[0]);
-    this.geometry = new THREE.PlaneGeometry(1, NAMETAG_HEIGHT / NAMETAG_WIDTH);
+
+    // Health bar size must match player health bars (drawn inside Nametags)
+    // Player nametag: PlaneGeometry(1, 60/320) = 1.0 × 0.1875 world units
+    // Health bar inside: 160px / 320px = 50% width = 0.5 world units
+    // Height: 16px / 60px * 0.1875 = 0.05 world units
+    const worldWidth = 0.5; // Match player health bar width
+    const worldHeight = 0.05; // Match player health bar height (10:1 aspect)
+    this.geometry = new THREE.PlaneGeometry(worldWidth, worldHeight);
     this.geometry.setAttribute(
       "coords",
       new THREE.InstancedBufferAttribute(
@@ -215,7 +235,7 @@ export class Nametags extends SystemBase {
       this.material,
       MAX_INSTANCES,
     );
-    this.mesh.renderOrder = 9999;
+    this.mesh.renderOrder = 9998; // Just below nametags (9999)
     this.mesh.matrixAutoUpdate = false;
     this.mesh.matrixWorldAutoUpdate = false;
     this.mesh.frustumCulled = false;
@@ -230,19 +250,24 @@ export class Nametags extends SystemBase {
   }
 
   /**
-   * Add a nametag for an entity
-   * @param name - The name to display
+   * Add a health bar for an entity
    */
-  add({ name }: { name: string }): NametagHandle | null {
-    const idx = this.nametags.length;
+  add(
+    entityId: string,
+    initialHealth = 100,
+    maxHealth = 100,
+  ): HealthBarHandle | null {
+    const idx = this.healthBars.length;
     if (idx >= MAX_INSTANCES) {
-      console.error("nametags: reached max");
+      console.error("healthbars: reached max");
       return null;
     }
 
+    // Increment instance count
     this.mesh.count++;
     this.mesh.instanceMatrix.needsUpdate = true;
 
+    // Set atlas coordinates
     const row = Math.floor(idx / PER_ROW);
     const col = idx % PER_ROW;
     const coords = this.mesh.geometry.attributes
@@ -250,22 +275,28 @@ export class Nametags extends SystemBase {
     coords.setXY(idx, col / PER_ROW, row / PER_COLUMN);
     coords.needsUpdate = true;
 
+    // Create entry
     const matrix = new THREE.Matrix4();
     const position = _v3_1.set(0, 0, 0);
     matrix.compose(position, defaultQuaternion, defaultScale);
 
-    const entry: NametagEntry = {
+    const entry: HealthBarEntry = {
       idx,
-      name,
+      entityId,
+      health: initialHealth,
+      maxHealth,
+      visible: false, // Start hidden
+      hideTimeout: null,
       matrix,
     };
-    this.nametags[idx] = entry;
+    this.healthBars[idx] = entry;
+
+    // Clear the slot initially (hidden)
+    this.undraw(entry);
 
     // Create handle
-    const handle: NametagHandle = {
-      idx,
-      name,
-      matrix,
+    const handle: HealthBarHandle = {
+      entityId,
       move: (newMatrix: THREE.Matrix4) => {
         matrix.elements[12] = newMatrix.elements[12];
         matrix.elements[13] = newMatrix.elements[13];
@@ -273,104 +304,136 @@ export class Nametags extends SystemBase {
         this.mesh.setMatrixAt(entry.idx, matrix);
         this.mesh.instanceMatrix.needsUpdate = true;
       },
-      setName: (newName: string) => {
-        if (entry.name === newName) return;
-        entry.name = newName;
-        handle.name = newName;
+      setHealth: (current: number, max: number) => {
+        if (entry.health === current && entry.maxHealth === max) return;
+        entry.health = current;
+        entry.maxHealth = max;
+        if (entry.visible) {
+          this.draw(entry);
+        }
+      },
+      show: (timeoutMs?: number) => {
+        // Clear any existing timeout
+        if (entry.hideTimeout) {
+          clearTimeout(entry.hideTimeout);
+          entry.hideTimeout = null;
+        }
+        entry.visible = true;
         this.draw(entry);
+
+        // Set auto-hide timeout if specified
+        if (timeoutMs !== undefined && timeoutMs > 0) {
+          entry.hideTimeout = setTimeout(() => {
+            entry.visible = false;
+            this.undraw(entry);
+            entry.hideTimeout = null;
+          }, timeoutMs);
+        }
+      },
+      hide: () => {
+        if (entry.hideTimeout) {
+          clearTimeout(entry.hideTimeout);
+          entry.hideTimeout = null;
+        }
+        entry.visible = false;
+        this.undraw(entry);
       },
       destroy: () => {
         this.remove(entry);
       },
     };
 
-    this.draw(entry);
     return handle;
   }
 
-  private remove(entry: NametagEntry) {
-    if (!this.nametags.includes(entry)) {
-      return console.warn("nametags: attempted to remove non-existent nametag");
+  /**
+   * Remove a health bar entry
+   */
+  private remove(entry: HealthBarEntry) {
+    if (!this.healthBars.includes(entry)) {
+      return console.warn("healthbars: attempted to remove non-existent entry");
     }
-    const last = this.nametags[this.nametags.length - 1];
+
+    // Clear timeout
+    if (entry.hideTimeout) {
+      clearTimeout(entry.hideTimeout);
+    }
+
+    const last = this.healthBars[this.healthBars.length - 1];
     const isLast = entry === last;
+
     if (isLast) {
-      this.nametags.pop();
+      this.healthBars.pop();
       this.undraw(entry);
     } else {
+      // Swap with last
       this.undraw(last);
       last.idx = entry.idx;
-      this.draw(last);
+      if (last.visible) {
+        this.draw(last);
+      }
+      // Update coords for swapped instance
       const coords = this.mesh.geometry.attributes
         .coords as THREE.InstancedBufferAttribute;
       const row = Math.floor(entry.idx / PER_ROW);
       const col = entry.idx % PER_ROW;
       coords.setXY(entry.idx, col / PER_ROW, row / PER_COLUMN);
       coords.needsUpdate = true;
+      // Update matrix and references
       this.mesh.setMatrixAt(last.idx, last.matrix);
-      this.nametags[last.idx] = last;
-      this.nametags.pop();
+      this.healthBars[last.idx] = last;
+      this.healthBars.pop();
     }
+
     this.mesh.count--;
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
-  private fitText(text: string, maxWidth: number): string {
-    const metrics = this.ctx.measureText(text);
-    if (metrics.width <= maxWidth) {
-      return text;
-    }
-
-    let truncated = text;
-    while (truncated.length > 0) {
-      truncated = truncated.slice(0, -1);
-      const testText = truncated + "...";
-      const testMetrics = this.ctx.measureText(testText);
-      if (testMetrics.width <= maxWidth) {
-        return testText;
-      }
-    }
-    return "...";
-  }
-
-  private draw(entry: NametagEntry) {
+  /**
+   * Draw health bar to atlas
+   */
+  private draw(entry: HealthBarEntry) {
     const idx = entry.idx;
     const row = Math.floor(idx / PER_ROW);
     const col = idx % PER_ROW;
-    const x = col * NAMETAG_WIDTH;
-    const y = row * NAMETAG_HEIGHT;
+    const x = col * SLOT_WIDTH;
+    const y = row * SLOT_HEIGHT;
 
-    this.ctx.clearRect(x, y, NAMETAG_WIDTH, NAMETAG_HEIGHT);
+    // Clear slot
+    this.ctx.clearRect(x, y, SLOT_WIDTH, SLOT_HEIGHT);
 
-    // Draw name only (no health bar - that's handled by HealthBars system)
-    this.ctx.font = `800 ${NAME_FONT_SIZE}px Rubik`;
-    this.ctx.fillStyle = "white";
-    this.ctx.textAlign = "center";
-    this.ctx.textBaseline = "middle";
-    this.ctx.lineWidth = NAME_OUTLINE_SIZE;
-    this.ctx.strokeStyle = "rgba(0,0,0,0.5)";
-    const text = this.fitText(entry.name, NAMETAG_WIDTH);
-    this.ctx.save();
-    this.ctx.globalCompositeOperation = "xor";
-    this.ctx.globalAlpha = 1;
-    this.ctx.strokeText(text, x + NAMETAG_WIDTH / 2, y + NAMETAG_HEIGHT / 2);
-    this.ctx.restore();
-    this.ctx.fillText(text, x + NAMETAG_WIDTH / 2, y + NAMETAG_HEIGHT / 2);
+    // Draw health bar
+    const healthPercent =
+      entry.maxHealth > 0 ? entry.health / entry.maxHealth : 0;
+    drawHealthBar(this.ctx, x, y, SLOT_WIDTH, SLOT_HEIGHT, healthPercent, {
+      borderWidth: BORDER_WIDTH,
+    });
 
     this.texture.needsUpdate = true;
   }
 
-  private undraw(entry: NametagEntry) {
+  /**
+   * Clear health bar from atlas (hide)
+   */
+  private undraw(entry: HealthBarEntry) {
     const idx = entry.idx;
     const row = Math.floor(idx / PER_ROW);
     const col = idx % PER_ROW;
-    const x = col * NAMETAG_WIDTH;
-    const y = row * NAMETAG_HEIGHT;
-    this.ctx.clearRect(x, y, NAMETAG_WIDTH, NAMETAG_HEIGHT);
+    const x = col * SLOT_WIDTH;
+    const y = row * SLOT_HEIGHT;
+
+    this.ctx.clearRect(x, y, SLOT_WIDTH, SLOT_HEIGHT);
     this.texture.needsUpdate = true;
   }
 
   private onXRSession = (session: unknown) => {
     this.uniforms.uXR.value = session ? 1 : 0;
   };
+
+  /**
+   * Find health bar by entity ID
+   */
+  getByEntityId(entityId: string): HealthBarEntry | undefined {
+    return this.healthBars.find((e) => e.entityId === entityId);
+  }
 }

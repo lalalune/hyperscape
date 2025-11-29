@@ -65,6 +65,10 @@ import { Entity } from "../Entity";
 import { Avatar, Nametag, Group, Mesh, UI, UIView, UIText } from "../../nodes";
 import { EventType } from "../../types/events";
 import type { PlayerEffect, VRMHooks } from "../../types/systems/physics";
+import type {
+  HealthBars as HealthBarsSystem,
+  HealthBarHandle,
+} from "../../systems/client/HealthBars";
 
 interface AvatarWithInstance {
   instance: {
@@ -98,6 +102,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
   collider!: Mesh;
   aura!: Group;
   nametag!: Nametag;
+  private _healthBarHandle: HealthBarHandle | null = null; // Separate health bar (HealthBars system)
   bubble!: UI;
   bubbleBox!: UIView;
   bubbleText!: UIText;
@@ -177,25 +182,30 @@ export class PlayerRemote extends Entity implements HotReloadable {
 
     this.aura = createNode("group") as Group;
 
-    // Convert health to 0-100 percentage for Nametags system
-    const currentHealth = (this.data.health as number) || 100;
-    const maxHealth = (this.data.maxHealth as number) || 100;
-    const healthPercent = (currentHealth / maxHealth) * 100;
-
+    // Create nametag for name display only (no health - that's now in HealthBars system)
     this.nametag = createNode("nametag", {
       label: this.data.name || "",
-      health: healthPercent, // Use percentage, not absolute value
       active: true,
     }) as Nametag;
     // Set world context for nametag (needed for mounting to Nametags system)
-    // This matches PlayerLocal behavior - without ctx, mount() can't find the Nametags system
     this.nametag.ctx = this.world;
-    // CRITICAL FIX: Mount nametag directly like PlayerLocal does, NOT via aura hierarchy
-    // If added to aura, the node's commit() method would call move() with the wrong position
-    // (based on aura's matrixWorld instead of the player's actual position)
-    // PlayerRemote.lateUpdate() handles positioning via handle.move() directly
+    // Mount nametag directly (PlayerRemote.lateUpdate() handles positioning via handle.move())
     if (this.nametag.mount) {
       this.nametag.mount();
+    }
+
+    // Register with HealthBars system (separate from nametags)
+    const healthbars = this.world.systems.find(
+      (s) =>
+        (s as { systemName?: string }).systemName === "healthbars" ||
+        s.constructor.name === "HealthBars",
+    ) as HealthBarsSystem | undefined;
+
+    if (healthbars) {
+      const currentHealth = (this.data.health as number) || 100;
+      const maxHealth = (this.data.maxHealth as number) || 100;
+      this._healthBarHandle = healthbars.add(this.id, currentHealth, maxHealth);
+      // Health bar starts hidden (RuneScape pattern: only show during combat)
     }
 
     this.bubble = createNode("ui", {
@@ -647,14 +657,22 @@ export class PlayerRemote extends Entity implements HotReloadable {
       if (matrix) this.aura.position.setFromMatrixPosition(matrix);
     }
 
-    // Update nametag position in Nametags system (required for health bar rendering)
+    // Update nametag position in Nametags system (name only - no health)
     // This matches PlayerLocal behavior - without this, the nametag renders at origin
     if (this.nametag && this.nametag.handle && this.base) {
-      // Position at fixed Y offset from player base (like mob health bars at Y=2.0)
+      // Position nametag slightly higher than health bar
       const nametagMatrix = new THREE.Matrix4();
       nametagMatrix.copy(this.base.matrixWorld);
-      nametagMatrix.elements[13] += 2.0; // Add fixed Y offset above head
+      nametagMatrix.elements[13] += 2.2; // Name slightly higher
       this.nametag.handle.move(nametagMatrix);
+    }
+
+    // Update health bar position in HealthBars system (separate from nametag)
+    if (this._healthBarHandle && this.base) {
+      const healthBarMatrix = new THREE.Matrix4();
+      healthBarMatrix.copy(this.base.matrixWorld);
+      healthBarMatrix.elements[13] += 2.0; // Health bar at Y=2.0
+      this._healthBarHandle.move(healthBarMatrix);
     }
   }
 
@@ -733,10 +751,10 @@ export class PlayerRemote extends Entity implements HotReloadable {
 
       this.data.health = currentHealth;
 
-      // Convert to 0-100 percentage scale for Nametags system
-      // Nametags expects health as a percentage (0-100), not absolute value
-      const healthPercent = (currentHealth / maxHealth) * 100;
-      this.nametag.health = healthPercent;
+      // Update health bar via HealthBars system (separate from nametag)
+      if (this._healthBarHandle) {
+        this._healthBarHandle.setHealth(currentHealth, maxHealth);
+      }
 
       this.world.emit(EventType.PLAYER_HEALTH_UPDATED, {
         playerId: this.data.id,
@@ -765,9 +783,13 @@ export class PlayerRemote extends Entity implements HotReloadable {
     if ("c" in data) {
       const newInCombat = data.c as boolean;
       this.combat.inCombat = newInCombat;
-      // Update nametag to show/hide health bar (RuneScape pattern)
-      if (this.nametag && this.nametag.handle) {
-        this.nametag.handle.setInCombat(newInCombat);
+      // Show/hide health bar via HealthBars system (RuneScape pattern)
+      if (this._healthBarHandle) {
+        if (newInCombat) {
+          this._healthBarHandle.show();
+        } else {
+          this._healthBarHandle.hide();
+        }
       }
     }
     // Using abbreviated key 'ct' for combatTarget (network efficiency)
@@ -800,6 +822,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
     this.world.setHot(this, false);
     this.world.emit(EventType.PLAYER_LEFT, { playerId: this.data.id });
     this.aura.deactivate();
+
+    // Clean up health bar from HealthBars system
+    if (this._healthBarHandle) {
+      this._healthBarHandle.destroy();
+      this._healthBarHandle = null;
+    }
 
     this.world.entities.remove(this.data.id);
     // if removed locally we need to broadcast to server/clients

@@ -1,46 +1,45 @@
 /**
  * Nametag.ts - Player/NPC Name Label
  *
- * Displays character names and health bars above entities.
+ * Displays character names above entities.
+ *
+ * IMPORTANT: Health bars are now handled separately by the HealthBars system.
+ * This node ONLY handles name display.
+ *
+ * @see HealthBar node for health bar display
+ * @see HealthBars system for the rendering system
  */
 
-import type { Nametags as NametagsSystem } from "../systems/client/Nametags";
+import type {
+  Nametags as NametagsSystem,
+  NametagHandle,
+} from "../systems/client/Nametags";
 import type { NametagData } from "../types/rendering/nodes";
 import { Node } from "./Node";
 import THREE from "../extras/three/three";
 
 const defaults = {
   label: "...",
-  health: 100,
 };
 
-// NOTE: this is the frontend nametag node
-// just a handle to the nametags system
-// not to be confused with the nametag system itself
+/**
+ * Nametag Node - Frontend handle for the Nametags system
+ *
+ * Provides a clean API for entities to manage their name label.
+ * Health bars are handled separately by the HealthBar node/HealthBars system.
+ */
 export class Nametag extends Node {
-  handle?: {
-    move: (newMatrix: THREE.Matrix4) => void;
-    setName: (name: string) => void;
-    setHealth: (health: number) => void;
-    setInCombat: (inCombat: boolean) => void;
-    destroy: () => void;
-  } | null;
+  handle: NametagHandle | null = null;
 
-  _label?: string;
-  _health?: number;
+  private _label: string = defaults.label;
 
   constructor(data: NametagData = {}) {
     super(data);
     this.name = "nametag";
 
-    // Convert label to string if it's a number
     if (data.label !== undefined) {
-      this.label =
-        data.label !== undefined ? String(data.label) : defaults.label;
-    } else {
-      this.label = defaults.label;
+      this._label = String(data.label);
     }
-    this.health = data.health;
   }
 
   mount() {
@@ -50,34 +49,32 @@ export class Nametag extends Node {
       this.handle = null;
     }
 
-    // Find Nametags system - check systemName first (reliable across minification),
-    // then fall back to constructor.name for backward compatibility
+    // Find Nametags system
     const nametags = this.ctx?.systems.find(
       (s) =>
         (s as { systemName?: string }).systemName === "nametags" ||
         s.constructor.name === "Nametags",
-    ) as NametagsSystem;
+    ) as NametagsSystem | undefined;
 
     if (nametags) {
-      this.handle = nametags.add({
-        name: this._label || "",
-        health: this._health || 0,
-      });
+      this.handle = nametags.add({ name: this._label });
       if (this.handle) {
         this.handle.move(this.matrixWorld);
       }
     }
   }
 
-  commit(didMove) {
-    if (didMove) {
-      this.handle?.move(this.matrixWorld);
+  commit(didMove: boolean) {
+    if (didMove && this.handle) {
+      this.handle.move(this.matrixWorld);
     }
   }
 
   unmount() {
-    this.handle?.destroy();
-    this.handle = null;
+    if (this.handle) {
+      this.handle.destroy();
+      this.handle = null;
+    }
   }
 
   copy(source: Nametag, recursive: boolean) {
@@ -86,26 +83,15 @@ export class Nametag extends Node {
     return this;
   }
 
-  get label() {
+  get label(): string {
     return this._label;
   }
 
-  set label(value) {
+  set label(value: string | undefined) {
     const newValue = value !== undefined ? String(value) : defaults.label;
     if (this._label === newValue) return;
     this._label = newValue;
     this.handle?.setName(newValue);
-  }
-
-  get health() {
-    return this._health;
-  }
-
-  set health(value) {
-    const newValue = value ?? defaults.health;
-    if (this._health === newValue) return;
-    this._health = newValue;
-    this.handle?.setHealth(newValue);
   }
 
   getProxy() {
@@ -115,20 +101,14 @@ export class Nametag extends Node {
         get label() {
           return self.label;
         },
-        set label(value) {
+        set label(value: string) {
           self.label = value;
-        },
-        get health() {
-          return self.health;
-        },
-        set health(value) {
-          self.health = value;
         },
       };
       proxy = Object.defineProperties(
         proxy,
         Object.getOwnPropertyDescriptors(super.getProxy()),
-      ); // inherit Node properties
+      );
       this.proxy = proxy;
     }
     return this.proxy;

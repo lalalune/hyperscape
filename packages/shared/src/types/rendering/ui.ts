@@ -10,16 +10,13 @@ import type { World } from "../../index";
 import type { Curve } from "../../extras/animation/Curve";
 
 // Nametag interfaces (UI handle for manipulation)
+// Note: Health bars are now handled separately by HealthBars system
 export interface NametagHandle {
   idx: number;
   name: string;
-  health: number;
-  inCombat: boolean;
   matrix: THREE.Matrix4;
   move: (newMatrix: THREE.Matrix4) => void;
   setName: (name: string) => void;
-  setHealth: (health: number) => void;
-  setInCombat: (inCombat: boolean) => void;
   destroy: () => void;
 }
 

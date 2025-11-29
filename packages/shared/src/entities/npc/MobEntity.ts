@@ -102,6 +102,10 @@ import {
 import { RespawnManager } from "../managers/RespawnManager";
 import { UIRenderer } from "../../utils/rendering/UIRenderer";
 import { GAME_CONSTANTS } from "../../constants";
+import type {
+  HealthBars as HealthBarsSystem,
+  HealthBarHandle,
+} from "../../systems/client/HealthBars";
 import { COMBAT_CONSTANTS } from "../../constants/CombatConstants";
 import { AggroManager } from "../managers/AggroManager";
 import { worldToTile } from "../../systems/shared/movement/TileSystem";
@@ -177,7 +181,8 @@ export class MobEntity extends CombatantEntity {
   // This prevents excessive movement requests and aligns with OSRS tick system
   private _lastAITick: number = -1;
 
-  // ===== HEALTH BAR VISIBILITY (RuneScape pattern: show only when damaged) =====
+  // ===== HEALTH BAR (HealthBars system - atlas-based instanced mesh) =====
+  private _healthBarHandle: HealthBarHandle | null = null; // Handle to HealthBars system
   private _healthBarVisibleUntil: number = 0; // Timestamp when health bar should hide
   private _lastKnownHealth: number = 0; // Track previous health to detect damage
 
@@ -189,15 +194,40 @@ export class MobEntity extends CombatantEntity {
     // Server: AI behavior via serverUpdate()
     this.world.setHot(this, true);
 
-    // Hide health bar initially (RuneScape pattern: only show after damaged)
-    // Health bar is created by Entity.initializeVisuals() called from super.init()
-    if (this.healthSprite) {
-      this.healthSprite.visible = false;
+    // Register with HealthBars system (client-side only)
+    // Uses atlas-based instanced mesh for performance instead of sprite per mob
+    if (!this.world.isServer) {
+      const healthbars = this.world.systems.find(
+        (s) =>
+          (s as { systemName?: string }).systemName === "healthbars" ||
+          s.constructor.name === "HealthBars",
+      ) as HealthBarsSystem | undefined;
+
+      if (healthbars) {
+        this._healthBarHandle = healthbars.add(
+          this.id,
+          this.config.currentHealth,
+          this.config.maxHealth,
+        );
+        // Health bar starts hidden (RuneScape pattern: only show during combat)
+      }
     }
+
     this._lastKnownHealth = this.config.currentHealth;
 
     // TODO: Server-side validation disabled due to ProgressEvent polyfill issues
     // Validation happens on client side instead (see clientUpdate)
+  }
+
+  /**
+   * Override initializeVisuals to skip sprite health bar creation
+   * MobEntity uses HealthBars system (atlas + instanced mesh) instead
+   */
+  protected override initializeVisuals(): void {
+    // Call parent but it won't create health bar for mobs because we override createHealthBar
+    // Note: We still want name tags from Entity.ts if applicable
+    // But mobs don't show nametags (RS pattern: names in right-click menu only)
+    // So just create the mesh without UI elements
   }
 
   constructor(world: World, config: MobEntityConfig) {
@@ -1179,11 +1209,11 @@ export class MobEntity extends CombatantEntity {
   private clientDeathStartTime: number | null = null;
 
   /**
-   * Override health bar rendering to show 0 during death animation
-   * This is the production-ready solution - handle death in UI layer, not network layer
+   * Override health bar rendering to use HealthBars system (atlas + instanced mesh)
+   * Shows 0 during death animation regardless of actual health value
    */
   protected override updateHealthBar(): void {
-    if (!this.healthSprite) {
+    if (!this._healthBarHandle) {
       return;
     }
 
@@ -1191,26 +1221,27 @@ export class MobEntity extends CombatantEntity {
     // This prevents health bar from showing server respawn health during client-side death animation
     const displayHealth = this.deathManager.isCurrentlyDead() ? 0 : this.health;
 
-    const healthCanvas = UIRenderer.createHealthBar(
-      displayHealth,
-      this.maxHealth,
-      {
-        width: GAME_CONSTANTS.UI.HEALTH_BAR_WIDTH,
-        height: GAME_CONSTANTS.UI.HEALTH_BAR_HEIGHT,
-      },
-    );
-
-    UIRenderer.updateSpriteTexture(this.healthSprite, healthCanvas);
+    this._healthBarHandle.setHealth(displayHealth, this.maxHealth);
   }
 
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
     this.clientUpdateCalls++;
 
+    // Update health bar position (HealthBars system uses atlas + instanced mesh)
+    if (this._healthBarHandle) {
+      // Position health bar above mob's head
+      const healthBarMatrix = new THREE.Matrix4();
+      healthBarMatrix.copyPosition(this.node.matrixWorld);
+      // Offset Y to position above the mob (2.0 units up)
+      healthBarMatrix.elements[13] += 2.0;
+      this._healthBarHandle.move(healthBarMatrix);
+    }
+
     // Hide health bar after combat timeout (RuneScape pattern: 4.8 seconds)
-    if (this.healthSprite && this._healthBarVisibleUntil > 0) {
+    if (this._healthBarHandle && this._healthBarVisibleUntil > 0) {
       if (Date.now() >= this._healthBarVisibleUntil) {
-        this.healthSprite.visible = false;
+        this._healthBarHandle.hide();
         this._healthBarVisibleUntil = 0;
       }
     }
@@ -2000,9 +2031,9 @@ export class MobEntity extends CombatantEntity {
     // Show health bar when in combat (including 0 damage hits), hide after timeout
     if ("c" in data) {
       const inCombat = data.c as boolean;
-      if (inCombat && this.healthSprite) {
+      if (inCombat && this._healthBarHandle) {
         // In combat - show health bar and set/extend timeout
-        this.healthSprite.visible = true;
+        this._healthBarHandle.show();
         this._healthBarVisibleUntil =
           Date.now() + COMBAT_CONSTANTS.COMBAT_TIMEOUT_MS;
       }
@@ -2152,11 +2183,17 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
-   * Override destroy to clean up animations
+   * Override destroy to clean up animations and health bar
    */
   override destroy(): void {
     // Unregister entity from hot updates
     this.world.setHot(this, false);
+
+    // Clean up health bar handle (HealthBars system)
+    if (this._healthBarHandle) {
+      this._healthBarHandle.destroy();
+      this._healthBarHandle = null;
+    }
 
     // Clean up VRM instance
     if (this._avatarInstance) {
