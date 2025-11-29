@@ -1867,6 +1867,12 @@ export class MobEntity extends CombatantEntity {
     }
 
     // Normal path for living mobs
+    // Query CombatSystem for combat state (like players send 'c')
+    const combatSystem = this.world.getSystem("combat") as {
+      isInCombat?: (entityId: string) => boolean;
+    } | null;
+    const inCombat = combatSystem?.isInCombat?.(this.id) ?? false;
+
     const networkData: Record<string, unknown> = {
       ...baseData,
       model: this.config.model,
@@ -1876,6 +1882,7 @@ export class MobEntity extends CombatantEntity {
       maxHealth: this.config.maxHealth,
       aiState: this.config.aiState,
       targetPlayerId: this.config.targetPlayerId,
+      c: inCombat, // Combat state for health bar visibility (like players)
     };
 
     // CRITICAL: Force position to be included if not present
@@ -1989,19 +1996,23 @@ export class MobEntity extends CombatantEntity {
       this.config.aiState = newState;
     }
 
-    // Update health from server
-    if ("currentHealth" in data) {
-      const newHealth = data.currentHealth as number;
-
-      // Show health bar when damaged (RuneScape pattern)
-      // Only show if health decreased (took damage), not on heal/respawn
-      if (newHealth < this._lastKnownHealth && this.healthSprite) {
+    // Handle combat state for health bar visibility (like players)
+    // Show health bar when in combat (including 0 damage hits), hide after timeout
+    if ("c" in data) {
+      const inCombat = data.c as boolean;
+      if (inCombat && this.healthSprite) {
+        // In combat - show health bar and set/extend timeout
         this.healthSprite.visible = true;
         this._healthBarVisibleUntil =
           Date.now() + COMBAT_CONSTANTS.COMBAT_TIMEOUT_MS;
       }
-      this._lastKnownHealth = newHealth;
+      // Note: Hiding is handled by clientUpdate() when timeout expires
+    }
 
+    // Update health from server
+    if ("currentHealth" in data) {
+      const newHealth = data.currentHealth as number;
+      this._lastKnownHealth = newHealth;
       this.config.currentHealth = newHealth;
       this.setHealth(newHealth);
     }
