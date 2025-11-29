@@ -53,6 +53,7 @@ import {
   EventType,
   CombatSystem,
   LootSystem,
+  ResourceSystem,
 } from "@hyperscape/shared";
 
 // PlayerDeathSystem type for tick processing (not exported from main index)
@@ -316,6 +317,20 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         );
       }
     }, TickPriority.COMBAT); // Same priority as combat (after movement)
+
+    // Register resource gathering system to process on each tick (after combat)
+    // OSRS-accurate: Woodcutting attempts every 4 ticks (2.4 seconds)
+    this.tickSystem.onTick((tickNumber) => {
+      const resourceSystem = this.world.getSystem(
+        "resource",
+      ) as ResourceSystem | null;
+      if (
+        resourceSystem &&
+        typeof resourceSystem.processGatheringTick === "function"
+      ) {
+        resourceSystem.processGatheringTick(tickNumber);
+      }
+    }, TickPriority.RESOURCES);
 
     // Socket manager
     this.socketManager = new SocketManager(

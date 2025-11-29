@@ -172,6 +172,7 @@ export { System as SystemClass } from "./systems/shared";
 export { SystemBase } from "./systems/shared";
 export { CombatSystem } from "./systems/shared/combat";
 export { LootSystem } from "./systems/shared/economy/LootSystem";
+export { ResourceSystem } from "./systems/shared/entities/ResourceSystem";
 
 // Export node client components
 export { ServerLoader } from "./systems/server/ServerLoader";
