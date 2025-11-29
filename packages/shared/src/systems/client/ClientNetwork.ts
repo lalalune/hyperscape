@@ -1840,6 +1840,7 @@ export class ClientNetwork extends SystemBase {
    */
   onTileMovementStart = (data: {
     id: string;
+    startTile?: TileCoord;
     path: TileCoord[];
     running: boolean;
     destinationTile?: TileCoord;
@@ -1847,24 +1848,27 @@ export class ClientNetwork extends SystemBase {
     emote?: string;
   }) => {
     console.log(
-      `[ClientNetwork] onTileMovementStart: ${data.id} path length ${data.path.length}, running: ${data.running}, dest: ${data.destinationTile ? `(${data.destinationTile.x},${data.destinationTile.z})` : "none"}, moveSeq: ${data.moveSeq}, emote: ${data.emote}`,
+      `[ClientNetwork] onTileMovementStart: ${data.id} start: ${data.startTile ? `(${data.startTile.x},${data.startTile.z})` : "none"}, path length ${data.path.length}, running: ${data.running}, dest: ${data.destinationTile ? `(${data.destinationTile.x},${data.destinationTile.z})` : "none"}, moveSeq: ${data.moveSeq}, emote: ${data.emote}`,
     );
 
-    // Get entity's current position for smooth start
+    // Get entity's current position for smooth start (fallback if startTile not provided)
     const entity = this.world.entities.get(data.id);
     const currentPosition = entity?.position
       ? (entity.position as THREE.Vector3).clone()
       : undefined;
 
-    // Pass FULL PATH to interpolator - it will walk through autonomously
-    // destinationTile is authoritative - ensures we end at the clicked tile even if path differs
-    // moveSeq ensures proper packet ordering and stale packet rejection
-    // emote is bundled for immediate animation (OSRS-style, no separate packet)
+    // Pass server's authoritative path to interpolator
+    // startTile: where server knows entity IS (authoritative)
+    // path: complete path from server (no client recalculation)
+    // destinationTile: final target for verification
+    // moveSeq: packet ordering to ignore stale packets
+    // emote: bundled animation (OSRS-style)
     this.tileInterpolator.onMovementStart(
       data.id,
       data.path,
       data.running,
       currentPosition,
+      data.startTile,
       data.destinationTile,
       data.moveSeq,
       data.emote,

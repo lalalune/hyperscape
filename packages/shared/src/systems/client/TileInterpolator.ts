@@ -120,50 +120,6 @@ export class TileInterpolator {
   }
 
   /**
-   * Calculate intermediate tiles between two tiles using naive diagonal pathing
-   * Used to fill in gaps when server's path starts ahead of client's visual position
-   * Returns tiles from start (exclusive) to end (inclusive)
-   */
-  private calculateIntermediateTiles(
-    start: TileCoord,
-    end: TileCoord,
-  ): TileCoord[] {
-    const tiles: TileCoord[] = [];
-    let current = { ...start };
-
-    // Maximum iterations to prevent infinite loops
-    const maxIterations = 100;
-    let iterations = 0;
-
-    while (!tilesEqual(current, end) && iterations < maxIterations) {
-      iterations++;
-
-      // Calculate direction to target
-      const dx = Math.sign(end.x - current.x);
-      const dz = Math.sign(end.z - current.z);
-
-      // Move diagonally if needed, otherwise cardinally
-      if (dx !== 0 && dz !== 0) {
-        // Diagonal movement
-        current = { x: current.x + dx, z: current.z + dz };
-      } else if (dx !== 0) {
-        // Horizontal movement
-        current = { x: current.x + dx, z: current.z };
-      } else if (dz !== 0) {
-        // Vertical movement
-        current = { x: current.x, z: current.z + dz };
-      } else {
-        // Already at destination
-        break;
-      }
-
-      tiles.push({ ...current });
-    }
-
-    return tiles;
-  }
-
-  /**
    * Calculate rotation quaternion to face from one position to another
    * Uses atan2 for stable yaw calculation (avoids setFromUnitVectors instability)
    * Returns null if distance is too small to determine direction
@@ -195,6 +151,11 @@ export class TileInterpolator {
    * Called when server sends a movement path started
    * This is the PRIMARY way movement begins - client receives full path
    *
+   * Server is AUTHORITATIVE - client follows server path exactly, no recalculation.
+   * If client visual position differs from server's startTile, catch-up multiplier handles it.
+   *
+   * @param startTile Server's authoritative starting tile (where server knows entity IS)
+   * @param destinationTile Final target tile for verification
    * @param moveSeq Movement sequence number for packet ordering
    * @param emote Optional emote bundled with movement (OSRS-style)
    */
@@ -203,13 +164,14 @@ export class TileInterpolator {
     path: TileCoord[],
     running: boolean,
     currentPosition?: THREE.Vector3,
+    startTile?: TileCoord,
     destinationTile?: TileCoord,
     moveSeq?: number,
     emote?: string,
   ): void {
     if (this.debugMode) {
       console.log(
-        `[TileInterpolator] onMovementStart: ${entityId}, path=${path.length} tiles, running=${running}, dest=${destinationTile ? `(${destinationTile.x},${destinationTile.z})` : "none"}, moveSeq=${moveSeq}`,
+        `[TileInterpolator] onMovementStart: ${entityId}, startTile=${startTile ? `(${startTile.x},${startTile.z})` : "none"}, path=${path.length} tiles, running=${running}, dest=${destinationTile ? `(${destinationTile.x},${destinationTile.z})` : "none"}, moveSeq=${moveSeq}`,
       );
     }
 
@@ -240,52 +202,17 @@ export class TileInterpolator {
     // Get or create state
     let state = this.entityStates.get(entityId);
 
-    // Starting position for path calculation
-    // IMPORTANT: Prioritize visualPosition (interpolator's true position) over entity.position
-    // entity.position might be stale if TileInterpolator hasn't updated it this frame yet
-    // This ensures smooth path interruption without visual jumps
+    // Starting visual position for interpolation
+    // Prioritize current visual position for smooth path interruption
     const startPos =
       state?.visualPosition?.clone() ||
       currentPosition?.clone() ||
       new THREE.Vector3();
-    const startTile = worldToTile(startPos.x, startPos.z);
 
-    // Build the final path, handling server-client position desync
-    // The server's path starts from ITS position, which might be ahead of the client's visual position
-    // We need to prepend intermediate tiles so the client walks tile-by-tile, not directly to a far tile
-    let finalPath: TileCoord[] = [];
-
-    if (path.length > 0) {
-      const firstServerTile = path[0];
-
-      // Check if client's current tile is different from where server's path starts
-      // If so, we need to calculate intermediate tiles from client position to first server tile
-      if (!tilesEqual(startTile, firstServerTile)) {
-        // Calculate intermediate tiles using naive diagonal pathing
-        // This ensures smooth tile-by-tile movement from client's position to server's path
-        const intermediateTiles = this.calculateIntermediateTiles(
-          startTile,
-          firstServerTile,
-        );
-        finalPath.push(...intermediateTiles);
-
-        if (this.debugMode && intermediateTiles.length > 0) {
-          console.log(
-            `[TileInterpolator] Prepended ${intermediateTiles.length} intermediate tiles from (${startTile.x},${startTile.z}) to (${firstServerTile.x},${firstServerTile.z})`,
-          );
-        }
-      }
-
-      // Add server's path (but skip the first tile if we already added it via intermediate)
-      const serverPathStart =
-        finalPath.length > 0 &&
-        tilesEqual(finalPath[finalPath.length - 1], firstServerTile)
-          ? 1
-          : 0;
-      for (let i = serverPathStart; i < path.length; i++) {
-        finalPath.push({ ...path[i] });
-      }
-    }
+    // SERVER PATH IS AUTHORITATIVE - no client path calculation
+    // Server sends complete path from its known position. Client follows exactly.
+    // If client visual position differs from server's startTile, catch-up multiplier handles sync.
+    const finalPath = path.map((t) => ({ ...t }));
 
     // Ensure destination is included (authoritative from server)
     if (destinationTile) {
@@ -313,6 +240,9 @@ export class TileInterpolator {
         new THREE.Vector3(firstTileWorld.x, startPos.y, firstTileWorld.z),
       ) ?? new THREE.Quaternion(); // Default to identity if too close
 
+    // Use server's startTile for confirmed position tracking
+    const serverConfirmed = startTile ?? worldToTile(startPos.x, startPos.z);
+
     if (state) {
       // Update existing state with new path
       state.fullPath = finalPath;
@@ -324,7 +254,7 @@ export class TileInterpolator {
       state.isRunning = running;
       state.isMoving = true;
       state.emote = emote ?? (running ? "run" : "walk");
-      state.serverConfirmedTile = { ...startTile };
+      state.serverConfirmedTile = { ...serverConfirmed };
       state.lastServerTick = 0;
       state.catchUpMultiplier = 1.0;
       state.targetCatchUpMultiplier = 1.0;
@@ -345,7 +275,7 @@ export class TileInterpolator {
         isRunning: running,
         isMoving: true,
         emote: emote ?? (running ? "run" : "walk"),
-        serverConfirmedTile: { ...startTile },
+        serverConfirmedTile: { ...serverConfirmed },
         lastServerTick: 0,
         catchUpMultiplier: 1.0,
         targetCatchUpMultiplier: 1.0,
@@ -667,33 +597,17 @@ export class TileInterpolator {
         state.fullPath = state.fullPath.slice(0, destInPath + 1);
       } else if (destInPath >= 0 && destInPath < state.targetTileIndex) {
         // We've already passed the destination in our path (edge case)
-        // Create a new path from current position to destination
-        const currentTile = worldToTile(
-          state.visualPosition.x,
-          state.visualPosition.z,
-        );
-        const intermediateTiles = this.calculateIntermediateTiles(
-          currentTile,
-          tile,
-        );
-        state.fullPath =
-          intermediateTiles.length > 0 ? intermediateTiles : [{ ...tile }];
+        // Server is authoritative - just path directly to destination
+        // Catch-up multiplier handles smooth movement
+        state.fullPath = [{ ...tile }];
         state.targetTileIndex = 0;
       } else if (state.fullPath.length > 0) {
         // Destination not in path - append it
         state.fullPath.push({ ...tile });
       } else {
-        // No path at all - create one to destination
-        const currentTile = worldToTile(
-          state.visualPosition.x,
-          state.visualPosition.z,
-        );
-        const intermediateTiles = this.calculateIntermediateTiles(
-          currentTile,
-          tile,
-        );
-        state.fullPath =
-          intermediateTiles.length > 0 ? intermediateTiles : [{ ...tile }];
+        // No path at all - go directly to destination
+        // Server is authoritative - no client path calculation
+        state.fullPath = [{ ...tile }];
         state.targetTileIndex = 0;
       }
 

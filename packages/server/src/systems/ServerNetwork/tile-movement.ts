@@ -196,12 +196,15 @@ export class TileMovementManager {
       }
 
       // Broadcast movement started with path
-      // Include destination tile explicitly so client knows where to end up
-      // (path might be calculated from server position which can differ from client visual)
-      // moveSeq ensures client can detect and ignore stale packets from previous movements
-      // OSRS-style: Bundle emote with movement packet to prevent animation mismatch
+      // Server sends COMPLETE authoritative path - client follows exactly, no recalculation
+      // startTile: where server knows player IS (client uses this, not its visual position)
+      // path: tiles to walk through (server's BFS result)
+      // destinationTile: final target (for verification)
+      // moveSeq: packet ordering to ignore stale packets
+      // emote: bundled animation (OSRS-style, no separate packet)
       this.sendFn("tileMovementStart", {
         id: playerEntity.id,
+        startTile: { x: state.currentTile.x, z: state.currentTile.z },
         path: path.map((t) => ({ x: t.x, z: t.z })),
         running: state.isRunning,
         destinationTile: { x: targetTile.x, z: targetTile.z },

@@ -13,20 +13,48 @@
 
 ---
 
-### 2.2 Rotation Damping Threshold
-**Impact**: Medium - smoother direction changes
+### 2.2 Rotation Slerp (Spherical Interpolation)
+**Impact**: High - eliminates jarring direction snaps
 **Effort**: Low
 **File**: `packages/shared/src/systems/client/TileInterpolator.ts`
 
-**Problem**: Rotation updates on every frame even for tiny direction changes, causing subtle jitter.
+**Problem**: Rotation uses `quaternion.copy()` which instantly snaps to new direction. When player clicks to course-correct (common in OSRS gameplay), character jerks to face new direction.
 
-**Solution**: Only update rotation if direction changed by more than 15 degrees. Add hysteresis to prevent oscillation.
+**Solution**: Use `quaternion.slerp(targetRotation, alpha)` to smoothly interpolate rotation over 100-200ms. Store `targetQuaternion` separately from `currentQuaternion` and blend each frame.
+
+**RS3 Reference**: RS3's smooth movement update uses Bézier curves and smooth rotation transitions.
 
 **Status**: [ ] Not started
 
 ---
 
-### 2.3 Add Tick System Profiling
+### 2.3 Rotation Damping Threshold
+**Impact**: Medium - prevents micro-jitter during movement
+**Effort**: Low
+**File**: `packages/shared/src/systems/client/TileInterpolator.ts`
+
+**Problem**: Rotation updates on every frame even for tiny direction changes, causing subtle jitter.
+
+**Solution**: Only update target rotation if direction changed by more than 15 degrees. Add hysteresis to prevent oscillation.
+
+**Status**: [ ] Not started
+
+---
+
+### 2.4 Only Rotate on Tile Transitions
+**Impact**: Medium - reduces unnecessary rotation calculations
+**Effort**: Low
+**File**: `packages/shared/src/systems/client/TileInterpolator.ts`
+
+**Problem**: Currently recalculates rotation every frame during movement (line 805-810). This causes "wobble" as tiny position changes affect facing direction.
+
+**Solution**: Only update target rotation when transitioning from one tile to the next, not every frame. Character maintains stable facing during tile traversal.
+
+**Status**: [ ] Not started
+
+---
+
+### 2.5 Add Tick System Profiling
 **Impact**: High for debugging
 **Effort**: Low
 **File**: `packages/server/src/systems/TickSystem.ts`
@@ -39,20 +67,19 @@
 
 ---
 
-### 2.4 Fix Client/Server Path Mismatch
+### 2.6 Fix Client/Server Path Mismatch
 **Impact**: Medium - eliminates route desync
 **Effort**: High
 **Files**:
 - `packages/shared/src/systems/client/TileInterpolator.ts`
-- `packages/shared/src/systems/shared/movement/TileSystem.ts`
+- `packages/server/src/systems/ServerNetwork/tile-movement.ts`
+- `packages/server/src/systems/ServerNetwork/mob-tile-movement.ts`
 
 **Problem**: Client uses naive diagonal pathing to calculate intermediate tiles. Server uses BFS. Results in client taking slightly different route.
 
-**Solution**: Either:
-- (A) Run same BFS on client for validation, OR
-- (B) Server sends complete detailed path including all intermediate tiles
+**Solution**: Server sends complete authoritative path with `startTile`. Client follows server path exactly - no client-side path calculation. Deleted `calculateIntermediateTiles()` method.
 
-**Status**: [ ] Not started
+**Status**: [x] Completed
 
 ---
 
@@ -172,15 +199,17 @@
 
 ## Implementation Order
 
-1. **1.1** Throttle Mob Repathing (critical perf)
-2. **1.2** Smooth Catch-Up Speed (high visibility)
-3. **1.3** Bundle Emote with Movement (quick win)
-4. **2.1** Y-Position Interpolation (quick win)
-5. **2.2** Rotation Damping (quick win)
-6. **2.3** Tick System Profiling (debugging)
-7. **2.4** Fix Path Mismatch (complex)
-8. **3.1-3.4** Medium priority items
-9. **4.1-4.4** Future polish
+1. ~~**1.1** Throttle Mob Repathing~~ ✅ Completed (chaseStep pathfinder)
+2. ~~**1.2** Smooth Catch-Up Speed~~ ✅ Completed (exponential smoothing + rate limiting)
+3. ~~**1.3** Bundle Emote with Movement~~ ✅ Completed (emote in tileMovementStart packet)
+4. ~~**2.6** Fix Path Mismatch~~ ✅ Completed (server authoritative path)
+5. **2.2** Rotation Slerp (high impact - eliminates jarring turns)
+6. **2.3** Rotation Damping Threshold (quick win)
+7. **2.4** Only Rotate on Tile Transitions (quick win)
+8. **2.1** Y-Position Interpolation (quick win)
+9. **2.5** Tick System Profiling (debugging)
+10. **3.1-3.4** Medium priority items
+11. **4.1-4.4** Future polish
 
 ---
 
