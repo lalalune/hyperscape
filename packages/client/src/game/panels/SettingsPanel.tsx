@@ -635,6 +635,25 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
                       </span>
                     </button>
                   )}
+
+                  {/* Back to Lobby Button */}
+                  <button
+                    onClick={() => {
+                      world.network?.disconnect?.();
+                      window.location.href = "/";
+                    }}
+                    className="w-full text-[8px] rounded py-0.5 px-1.5 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] border"
+                    style={{
+                      backgroundColor: "rgba(139, 69, 19, 0.2)",
+                      borderColor: "rgba(139, 69, 19, 0.4)",
+                      color: COLORS.ACCENT,
+                    }}
+                  >
+                    <span className="flex items-center justify-center gap-1">
+                      <span>🚪</span>
+                      <span>Back to Lobby</span>
+                    </span>
+                  </button>
                 </div>
               </div>
             </>
