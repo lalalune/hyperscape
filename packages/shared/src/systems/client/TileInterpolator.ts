@@ -1022,9 +1022,6 @@ export class TileInterpolator {
       state.catchUpMultiplier = 1.0;
       state.targetCatchUpMultiplier = 1.0;
       state.moveSeq++;
-      console.log(
-        `[TileInterpolator] Synced ${entityId} to tile (${newTile.x},${newTile.z})`,
-      );
     } else {
       // No existing state - create fresh state at new position
       state = {
@@ -1045,9 +1042,6 @@ export class TileInterpolator {
         moveSeq: 0,
       };
       this.entityStates.set(entityId, state);
-      console.log(
-        `[TileInterpolator] Created fresh state for ${entityId} at tile (${newTile.x},${newTile.z})`,
-      );
     }
   }
 

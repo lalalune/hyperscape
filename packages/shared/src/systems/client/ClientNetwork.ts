@@ -1847,10 +1847,6 @@ export class ClientNetwork extends SystemBase {
     moveSeq?: number;
     emote?: string;
   }) => {
-    console.log(
-      `[ClientNetwork] onTileMovementStart: ${data.id} start: ${data.startTile ? `(${data.startTile.x},${data.startTile.z})` : "none"}, path length ${data.path.length}, running: ${data.running}, dest: ${data.destinationTile ? `(${data.destinationTile.x},${data.destinationTile.z})` : "none"}, moveSeq: ${data.moveSeq}, emote: ${data.emote}`,
-    );
-
     // Get entity's current position for smooth start (fallback if startTile not provided)
     const entity = this.world.entities.get(data.id);
     const currentPosition = entity?.position
