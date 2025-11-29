@@ -46,7 +46,7 @@ export class UIRenderer {
     const {
       width = 50, // Reduced 2x (was 100)
       height = 3, // Reduced 4x (was 12)
-      backgroundColor = "rgba(0, 0, 0, 0.8)",
+      backgroundColor = "#b91c1c", // Red for depleted health (RuneScape style)
       fillColor = "#4CAF50",
       borderColor = "#ffffff",
       borderWidth = 1,
@@ -85,7 +85,7 @@ export class UIRenderer {
     const {
       width = canvas.width,
       height = canvas.height,
-      backgroundColor = "rgba(0, 0, 0, 0.8)",
+      backgroundColor = "#b91c1c", // Red for depleted health (RuneScape style)
       fillColor = "#4CAF50",
       borderColor = "#ffffff",
       borderWidth = 1,

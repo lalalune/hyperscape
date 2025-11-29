@@ -369,8 +369,8 @@ export class Nametags extends SystemBase {
 
     if (shouldDrawHealthBar) {
       // Match UIRenderer health bar style (same as mob health bars)
-      // Draw background (black)
-      this.ctx.fillStyle = "rgba(0, 0, 0, 0.8)"; // Match UIRenderer
+      // Draw background (red for depleted health - RuneScape style)
+      this.ctx.fillStyle = "#b91c1c"; // Red for depleted health
       this.ctx.fillRect(barLeft, barTop, HEALTH_WIDTH, HEALTH_HEIGHT);
 
       // Draw health fill (green)
