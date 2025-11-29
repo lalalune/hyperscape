@@ -42,6 +42,13 @@ const TILE_ARRIVAL_THRESHOLD = 0.02;
 // Should be larger than max tiles moved per tick to avoid false snaps
 const MAX_DESYNC_DISTANCE = Math.max(TILES_PER_TICK_RUN * 2, 8);
 
+// Exponential smoothing time constant for catch-up multiplier blending
+// Larger = slower/smoother transitions, smaller = faster/snappier
+// Using exponential decay: alpha = 1 - exp(-deltaTime / TIME_CONSTANT)
+const CATCHUP_SMOOTHING_RATE = 8.0; // ~125ms to reach 63% of target (1/8 second time constant)
+// Maximum multiplier change per second to prevent jarring jumps during lag spikes
+const CATCHUP_MAX_CHANGE_PER_SEC = 3.0; // Can change by at most 3.0 per second
+
 /**
  * Movement state for a single entity
  */
@@ -76,9 +83,12 @@ interface EntityMovementState {
   serverConfirmedTile: TileCoord;
   // Last tick number from server
   lastServerTick: number;
-  // Catch-up multiplier for when client is behind server
+  // Catch-up multiplier for when client is behind server (current, smoothly lerped)
   // 1.0 = normal speed, >1.0 = catching up
   catchUpMultiplier: number;
+  // Target catch-up multiplier (set by sync logic, current lerps toward this)
+  // Smooth blending prevents jarring speed changes
+  targetCatchUpMultiplier: number;
   // Movement sequence number - used to ignore stale packets from previous movements
   // Incremented on server each time a new path starts
   moveSeq: number;
@@ -315,6 +325,7 @@ export class TileInterpolator {
       state.serverConfirmedTile = { ...startTile };
       state.lastServerTick = 0;
       state.catchUpMultiplier = 1.0;
+      state.targetCatchUpMultiplier = 1.0;
       state.moveSeq = moveSeq ?? state.moveSeq;
     } else {
       // Create new state
@@ -335,6 +346,7 @@ export class TileInterpolator {
         serverConfirmedTile: { ...startTile },
         lastServerTick: 0,
         catchUpMultiplier: 1.0,
+        targetCatchUpMultiplier: 1.0,
         moveSeq: moveSeq ?? 0,
       };
       this.entityStates.set(entityId, state);
@@ -420,6 +432,7 @@ export class TileInterpolator {
         serverConfirmedTile: { ...serverTile },
         lastServerTick: tickNumber ?? 0,
         catchUpMultiplier: 1.0,
+        targetCatchUpMultiplier: 1.0,
         moveSeq: moveSeq ?? 0,
       };
       this.entityStates.set(entityId, newState);
@@ -514,7 +527,9 @@ export class TileInterpolator {
           serverTileInPath + 1,
           state.fullPath.length,
         );
-        state.catchUpMultiplier = 1.0; // Reset after teleport
+        // Instant reset after teleport - no need to blend
+        state.catchUpMultiplier = 1.0;
+        state.targetCatchUpMultiplier = 1.0;
 
         if (state.targetTileIndex < state.fullPath.length) {
           const nextTile = state.fullPath[state.targetTileIndex];
@@ -524,15 +539,16 @@ export class TileInterpolator {
       } else if (tileDiff > 2) {
         // MODERATE LAG: 3-6 tiles behind - use speed boost to catch up smoothly
         // Multiplier scales with how far behind we are (1.5x to 2.5x)
-        state.catchUpMultiplier = 1.0 + (tileDiff - 2) * 0.4; // 3 behind = 1.4x, 6 behind = 2.6x
+        // Set TARGET multiplier - actual will lerp toward it for smooth acceleration
+        state.targetCatchUpMultiplier = 1.0 + (tileDiff - 2) * 0.4; // 3 behind = 1.4x, 6 behind = 2.6x
         if (this.debugMode) {
           console.log(
-            `[TileInterpolator] Behind by ${tileDiff} tiles, catch-up multiplier: ${state.catchUpMultiplier.toFixed(2)}x`,
+            `[TileInterpolator] Behind by ${tileDiff} tiles, target catch-up: ${state.targetCatchUpMultiplier.toFixed(2)}x`,
           );
         }
-      } else if (tileDiff <= 1) {
-        // IN SYNC or ahead: Reset catch-up multiplier
-        state.catchUpMultiplier = 1.0;
+      } else {
+        // IN SYNC, nearly caught up, or ahead (tileDiff <= 2): Smoothly return to normal speed
+        state.targetCatchUpMultiplier = 1.0;
       }
 
       // Update Y position from server (terrain height)
@@ -564,7 +580,9 @@ export class TileInterpolator {
         state.visualPosition.y = worldPos.y; // Use server's terrain height
         state.targetWorldPos.copy(state.visualPosition);
         state.isMoving = false;
+        // Instant reset after snap - no need to blend
         state.catchUpMultiplier = 1.0;
+        state.targetCatchUpMultiplier = 1.0;
       } else if (dist > MAX_DESYNC_DISTANCE && hasActivePath) {
         // Large desync but we have an active path - trust our path, ignore server
         // This prevents glitching back to old positions when server has stale data
@@ -634,6 +652,7 @@ export class TileInterpolator {
       state.isMoving = false;
       state.emote = "idle";
       state.catchUpMultiplier = 1.0;
+      state.targetCatchUpMultiplier = 1.0;
     } else {
       // Not at destination yet - ensure we have a path to get there
       // Keep walking animation until we actually arrive
@@ -757,6 +776,30 @@ export class TileInterpolator {
         continue;
       }
 
+      // Smooth catch-up multiplier toward target (prevents jarring speed changes)
+      // Uses exponential smoothing with rate limiting for consistent feel across frame rates
+      if (state.catchUpMultiplier !== state.targetCatchUpMultiplier) {
+        const diff = state.targetCatchUpMultiplier - state.catchUpMultiplier;
+
+        // Exponential smoothing: alpha = 1 - e^(-dt * rate)
+        // This is frame-rate independent - same behavior at 30fps or 144fps
+        const alpha = 1 - Math.exp(-deltaTime * CATCHUP_SMOOTHING_RATE);
+        let change = diff * alpha;
+
+        // Rate limit: cap maximum change per frame to prevent jarring jumps during lag spikes
+        const maxChange = CATCHUP_MAX_CHANGE_PER_SEC * deltaTime;
+        if (Math.abs(change) > maxChange) {
+          change = Math.sign(change) * maxChange;
+        }
+
+        state.catchUpMultiplier += change;
+
+        // Snap when very close to avoid floating point drift
+        if (Math.abs(diff) < 0.01) {
+          state.catchUpMultiplier = state.targetCatchUpMultiplier;
+        }
+      }
+
       // Movement speed and total movement budget for this frame
       // Apply catch-up multiplier to move faster when behind server
       const baseSpeed = state.isRunning ? RUN_SPEED : WALK_SPEED;
@@ -827,7 +870,8 @@ export class TileInterpolator {
             state.isMoving = false;
             state.emote = "idle";
             state.destinationTile = null; // Clear destination as we've arrived
-            state.catchUpMultiplier = 1.0; // Reset catch-up speed
+            state.catchUpMultiplier = 1.0;
+            state.targetCatchUpMultiplier = 1.0;
             remainingMove = 0; // Stop processing
           }
         } else {
@@ -952,6 +996,7 @@ export class TileInterpolator {
       state.isMoving = false;
       state.emote = "idle";
       state.catchUpMultiplier = 1.0;
+      state.targetCatchUpMultiplier = 1.0;
       state.moveSeq++;
       console.log(
         `[TileInterpolator] Synced ${entityId} to tile (${newTile.x},${newTile.z})`,
@@ -971,6 +1016,7 @@ export class TileInterpolator {
         serverConfirmedTile: { ...newTile },
         lastServerTick: 0,
         catchUpMultiplier: 1.0,
+        targetCatchUpMultiplier: 1.0,
         moveSeq: 0,
       };
       this.entityStates.set(entityId, state);

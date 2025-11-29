@@ -1,25 +1,3 @@
-# Movement & Animation Smoothness Improvements
-
-This document tracks all identified improvements for the game tick and tile movement systems, organized by priority and impact.
-
----
-
-## Priority 1: Critical (Do First)
-
-### 1.1 Throttle Mob Repathing
-**Impact**: Critical performance issue
-**Effort**: Medium
-**File**: `packages/server/src/systems/ServerNetwork/mob-tile-movement.ts`
-
-**Problem**: Every tick, every mob recalculates its entire path if the target moved at all. With 50 mobs chasing, this is 3,000-5,000 BFS calls/second.
-
-**Solution**: Only repath if:
-- Target moved >1 tile from last known position, OR
-- 5+ ticks (3 seconds) elapsed since last repath
-
-**Status**: [ ] Not started
-
----
 
 ### 1.2 Smooth Catch-Up Speed Multiplier
 **Impact**: High - eliminates visible speed jank
