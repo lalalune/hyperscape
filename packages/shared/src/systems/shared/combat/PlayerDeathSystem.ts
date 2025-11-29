@@ -1220,4 +1220,25 @@ export class PlayerDeathSystem extends SystemBase {
   postLateUpdate(): void {}
   commit(): void {}
   postTick(): void {}
+
+  /**
+   * Process tick - update ground item and gravestone expiration (TICK-BASED)
+   * Called once per tick by TickSystem
+   *
+   * @param currentTick - Current server tick number
+   */
+  processTick(currentTick: number): void {
+    // Process ground item despawn
+    if (this.groundItemManager) {
+      this.groundItemManager.processTick(currentTick);
+    }
+
+    // Process gravestone expiration (safe area)
+    if (this.safeAreaHandler) {
+      this.safeAreaHandler.processTick(currentTick);
+    }
+
+    // WildernessDeathHandler doesn't need tick processing
+    // (ground items are handled by GroundItemManager)
+  }
 }

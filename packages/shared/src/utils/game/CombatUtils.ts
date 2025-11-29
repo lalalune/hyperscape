@@ -8,6 +8,10 @@
 import type { World } from "../../types";
 import { EventType } from "../../types/events";
 import { calculateDistance, getEntityWithComponent } from "../game/EntityUtils";
+import {
+  worldToTile,
+  tilesAdjacent,
+} from "../../systems/shared/movement/TileSystem";
 
 // Import proper health and skill structures
 import type {
@@ -42,6 +46,9 @@ export function isEntityAlive(world: World, entityId: string): boolean {
 
 /**
  * Check if entity is in combat range
+ *
+ * OSRS-STYLE MELEE: Must be on adjacent tile (Chebyshev distance = 1)
+ * RANGED: Uses world unit distance (10 units)
  */
 export function isInCombatRange(
   world: World,
@@ -62,17 +69,26 @@ export function isInCombatRange(
     return false;
   }
 
-  const distance = calculateDistance(
-    attackerResult.entity.position,
-    targetResult.entity.position,
-  );
-
-  // Default combat ranges
-  const meleeRange = 1.5;
-  const rangedRange = 10.0;
-  const maxRange = combatType === "melee" ? meleeRange : rangedRange;
-
-  return distance <= maxRange;
+  if (combatType === "melee") {
+    // OSRS-STYLE: Melee requires adjacent tile (Chebyshev distance = 1)
+    const attackerTile = worldToTile(
+      attackerResult.entity.position.x,
+      attackerResult.entity.position.z,
+    );
+    const targetTile = worldToTile(
+      targetResult.entity.position.x,
+      targetResult.entity.position.z,
+    );
+    return tilesAdjacent(attackerTile, targetTile);
+  } else {
+    // Ranged uses world distance
+    const distance = calculateDistance(
+      attackerResult.entity.position,
+      targetResult.entity.position,
+    );
+    const rangedRange = 10.0;
+    return distance <= rangedRange;
+  }
 }
 
 /**

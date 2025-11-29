@@ -117,6 +117,15 @@ export class World extends EventEmitter {
   /** Accumulated time for fixed-step physics updates */
   accumulator = 0;
 
+  /**
+   * Current server tick number (OSRS-style 600ms ticks).
+   * Set by TickSystem on the server, used by mobs/NPCs for tick-aligned AI.
+   * On client, this is 0 (client uses frame-based updates).
+   *
+   * @server-only Set by ServerNetwork's TickSystem
+   */
+  currentTick = 0;
+
   // ============================================================================
   // CORE PROPERTIES
   // ============================================================================

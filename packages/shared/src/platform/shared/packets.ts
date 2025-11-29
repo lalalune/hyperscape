@@ -167,6 +167,10 @@ const names = [
   'bankDepositAll',
   'bankWithdraw',
   'bankClose',
+  // Tile movement packets (RuneScape-style)
+  'entityTileUpdate',    // Server -> Client: entity moved to new tile position
+  'tileMovementStart',   // Server -> Client: movement path started
+  'tileMovementEnd',     // Server -> Client: arrived at destination
 ]
 
 const byName: Record<string, PacketInfo> = {};

@@ -121,7 +121,7 @@ export const AgentPositionPanel: React.FC<AgentPositionPanelProps> = ({
           </span>
           {online && position && (
             <span className="text-[10px] text-[#f2d08a]/50">
-              ({position.x}, {position.z})
+              ({Math.floor(position.x)}, {Math.floor(position.z)})
             </span>
           )}
         </div>
@@ -149,17 +149,29 @@ export const AgentPositionPanel: React.FC<AgentPositionPanelProps> = ({
             </div>
           ) : position ? (
             <div className="space-y-1">
-              {/* Coordinate Grid */}
+              {/* Coordinate Grid - Show tile positions (whole numbers) */}
               <div className="grid grid-cols-3 gap-1">
-                <CoordinateBox label="X" value={position.x} color="red" />
-                <CoordinateBox label="Y" value={position.y} color="green" />
-                <CoordinateBox label="Z" value={position.z} color="blue" />
+                <CoordinateBox
+                  label="X"
+                  value={Math.floor(position.x)}
+                  color="red"
+                />
+                <CoordinateBox
+                  label="Y"
+                  value={Math.floor(position.y)}
+                  color="green"
+                />
+                <CoordinateBox
+                  label="Z"
+                  value={Math.floor(position.z)}
+                  color="blue"
+                />
               </div>
 
               {/* Copy button */}
               <button
                 onClick={() => {
-                  const coordString = `${position.x}, ${position.y}, ${position.z}`;
+                  const coordString = `${Math.floor(position.x)}, ${Math.floor(position.y)}, ${Math.floor(position.z)}`;
                   navigator.clipboard.writeText(coordString);
                 }}
                 className="w-full mt-1 py-1 px-2 text-[9px] text-[#f2d08a]/60 hover:text-[#f2d08a] hover:bg-[#f2d08a]/10 rounded transition-colors"
@@ -204,9 +216,7 @@ function CoordinateBox({
       className={`flex flex-col items-center p-1.5 rounded bg-black/30 border ${colorClasses[color]}`}
     >
       <span className="text-[8px] opacity-60 uppercase">{label}</span>
-      <span className="text-[11px] font-mono font-bold">
-        {value.toFixed(1)}
-      </span>
+      <span className="text-[11px] font-mono font-bold">{value}</span>
     </div>
   );
 }

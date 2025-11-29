@@ -103,6 +103,8 @@ import { RespawnManager } from "../managers/RespawnManager";
 import { UIRenderer } from "../../utils/rendering/UIRenderer";
 import { GAME_CONSTANTS } from "../../constants";
 import { AggroManager } from "../managers/AggroManager";
+import { worldToTile } from "../../systems/shared/movement/TileSystem";
+import { attackSpeedSecondsToTicks } from "../../utils/game/CombatCalculations";
 
 // Polyfill ProgressEvent for Node.js server environment
 if (typeof ProgressEvent === "undefined") {
@@ -156,6 +158,10 @@ export class MobEntity extends CombatantEntity {
   private readonly WANDER_MIN_DISTANCE = 1; // Minimum wander distance
   private readonly WANDER_MAX_DISTANCE = 5; // Maximum wander distance
   private readonly STUCK_TIMEOUT = 3000; // Give up after 3 seconds stuck
+  // Tile movement throttling - prevent emitting duplicate move requests
+  // Uses tick-based throttling (aligned with 600ms server ticks) instead of time-based
+  private _lastRequestedTargetTile: { x: number; z: number } | null = null;
+  private _lastMoveRequestTick: number = -1;
 
   // ===== SPAWN TRACKING =====
   // Track the mob's CURRENT spawn location (changes on respawn)
@@ -164,6 +170,11 @@ export class MobEntity extends CombatantEntity {
 
   // ===== DEBUG TRACKING =====
   private _justRespawned = false; // Track if we just respawned (for one-time logging)
+
+  // ===== TICK-ALIGNED AI =====
+  // AI runs once per server tick (600ms), not every frame (~16ms)
+  // This prevents excessive movement requests and aligns with OSRS tick system
+  private _lastAITick: number = -1;
 
   async init(): Promise<void> {
     await super.init();
@@ -223,10 +234,11 @@ export class MobEntity extends CombatantEntity {
 
     // NOTE: Respawn callback is now handled by RespawnManager, not DeathStateManager
 
-    // Combat State Manager
+    // Combat State Manager (TICK-BASED)
+    // Convert attackSpeed from seconds (mob config) to ticks
     this.combatManager = new CombatStateManager({
       attackPower: this.config.attackPower,
-      attackSpeed: this.config.attackSpeed,
+      attackSpeedTicks: attackSpeedSecondsToTicks(this.config.attackSpeed),
       attackRange: this.config.combatRange,
     });
 
@@ -753,8 +765,50 @@ export class MobEntity extends CombatantEntity {
     return {
       // Position & Movement
       getPosition: () => this.getPosition(),
-      moveTowards: (target, deltaTime) =>
-        this.moveTowardsTarget(target, deltaTime),
+      moveTowards: (target, _deltaTime) => {
+        // Emit tile movement request instead of continuous movement
+        // Server's MobTileMovementManager will handle the actual movement on ticks
+        // The deltaTime parameter is ignored - movement is now tick-based
+
+        // Convert positions to tiles for comparison
+        const currentPos = this.getPosition();
+        const currentTile = worldToTile(currentPos.x, currentPos.z);
+        const targetTile = worldToTile(target.x, target.z);
+
+        // CRITICAL: Skip if already at target tile (defense-in-depth)
+        // This prevents spam when AI states call moveTowards to same tile
+        // The AI states should also check this, but this is a safety net
+        if (currentTile.x === targetTile.x && currentTile.z === targetTile.z) {
+          return; // Already at destination tile - nothing to do
+        }
+
+        // TICK-BASED THROTTLING: Only emit one move request per tick per target
+        // This aligns with the 600ms server tick system instead of arbitrary time cooldowns
+        const currentTick = this.world.currentTick;
+        const targetTileChanged =
+          !this._lastRequestedTargetTile ||
+          this._lastRequestedTargetTile.x !== targetTile.x ||
+          this._lastRequestedTargetTile.z !== targetTile.z;
+
+        if (!targetTileChanged && currentTick === this._lastMoveRequestTick) {
+          return; // Same tick, same target - already requested this movement
+        }
+
+        // Update tracking
+        this._lastRequestedTargetTile = { x: targetTile.x, z: targetTile.z };
+        this._lastMoveRequestTick = currentTick;
+
+        // Note: Debug logging removed for production. Enable if needed:
+        // console.log(`[MobEntity] moveTowards: ${this.id} from tile (${currentTile.x}, ${currentTile.z}) to tile (${targetTile.x}, ${targetTile.z}), emitting MOB_NPC_MOVE_REQUEST`);
+
+        this.world.emit(EventType.MOB_NPC_MOVE_REQUEST, {
+          mobId: this.id,
+          targetPos: target,
+          // If chasing a player, include targetEntityId for dynamic repathing
+          targetEntityId: this.config.targetPlayerId || undefined,
+          tilesPerTick: 2, // Default mob walk speed (same as player walk)
+        });
+      },
       teleportTo: (position) => {
         this.setPosition(position.x, position.y, position.z);
         this.config.aiState = MobAIState.IDLE;
@@ -781,12 +835,13 @@ export class MobEntity extends CombatantEntity {
         }
       },
 
-      // Combat
-      canAttack: (currentTime) => this.combatManager.canAttack(currentTime),
-      performAttack: (targetId, currentTime) => {
-        this.combatManager.performAttack(targetId, currentTime);
+      // Combat (TICK-BASED, OSRS-accurate)
+      canAttack: (currentTick) => this.combatManager.canAttack(currentTick),
+      performAttack: (targetId, currentTick) => {
+        this.combatManager.performAttack(targetId, currentTick);
       },
       isInCombat: () => this.combatManager.isInCombat(),
+      exitCombat: () => this.combatManager.exitCombat(),
 
       // Spawn & Leashing (use CURRENT spawn location, not area center)
       // CRITICAL: Return mob's current spawn point (changes on respawn)
@@ -806,8 +861,9 @@ export class MobEntity extends CombatantEntity {
       },
       generateWanderTarget: () => this.generateWanderTarget(),
 
-      // Timing (CRITICAL: Use Date.now() for consistent milliseconds, NOT world.getTime())
-      getTime: () => Date.now(),
+      // Timing
+      getCurrentTick: () => this.world.currentTick, // Server tick number for combat timing
+      getTime: () => Date.now(), // Date.now() for non-combat timing (idle duration, etc.)
 
       // State management
       markNetworkDirty: () => this.markNetworkDirty(),
@@ -979,9 +1035,10 @@ export class MobEntity extends CombatantEntity {
       // Update death manager (handles death animation timing only, not respawn)
       this.deathManager.update(deltaTime, currentTime);
 
-      // Update respawn manager (handles respawn timer and location)
+      // Update respawn manager (TICK-BASED - handles respawn timer and location)
+      // Uses server tick for OSRS-accurate timing instead of Date.now()
       if (this.respawnManager.isRespawnTimerActive()) {
-        this.respawnManager.update(currentTime);
+        this.respawnManager.update(this.world.currentTick);
       }
 
       return; // Don't run AI when dead
@@ -997,7 +1054,21 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    // Update AI state machine
+    // ===== TICK-ALIGNED AI UPDATE =====
+    // Only run AI once per server tick (600ms), not every frame (~16ms)
+    // This aligns with OSRS tick system and prevents excessive movement requests
+    //
+    // world.currentTick is set by ServerNetwork's TickSystem at the start of each tick
+    // On client, currentTick is always 0, so AI won't run (client mobs are visual only)
+    const currentTick = this.world.currentTick;
+    if (currentTick === this._lastAITick) {
+      // Same tick as last AI update - skip AI processing
+      // This saves ~59 out of 60 AI updates per second
+      return;
+    }
+    this._lastAITick = currentTick;
+
+    // Update AI state machine (now runs once per tick instead of every frame)
     this.aiStateMachine.update(this.createAIContext(), deltaTime);
 
     // Sync config.aiState with AI state machine current state
@@ -1178,7 +1249,11 @@ export class MobEntity extends CombatantEntity {
       }
 
       // COMBAT ROTATION: Rotate to face target when in ATTACK state (RuneScape-style)
+      // BUT: Only apply combat rotation when NOT moving via tile movement
+      // TileInterpolator handles rotation when entity is walking/running
+      const isTileMoving = this.data.tileMovementActive === true;
       if (
+        !isTileMoving &&
         this.config.aiState === MobAIState.ATTACK &&
         this.config.targetPlayerId
       ) {
@@ -1424,8 +1499,12 @@ export class MobEntity extends CombatantEntity {
     // Delegate death logic to DeathStateManager (position locking, death animation timing)
     this.deathManager.die(deathPosition, currentTime);
 
-    // Start respawn timer with RespawnManager (generates NEW random spawn point - NOT death location!)
-    this.respawnManager.startRespawnTimer(currentTime, deathPosition);
+    // Start respawn timer with RespawnManager (TICK-BASED - generates NEW random spawn point - NOT death location!)
+    // Uses server tick for OSRS-accurate timing
+    this.respawnManager.startRespawnTimer(
+      this.world.currentTick,
+      deathPosition,
+    );
 
     // Update config state for network sync
     this.config.aiState = MobAIState.DEAD;
@@ -1658,6 +1737,21 @@ export class MobEntity extends CombatantEntity {
     this.aiStateMachine.forceState(MobAIState.WANDER, context);
   }
 
+  /**
+   * Called by CombatSystem when this mob's current target dies
+   * Resets combat state so mob can immediately attack new targets (e.g., respawned player)
+   * @param targetId - ID of the target that died (for validation)
+   */
+  onTargetDied(targetId: string): void {
+    // Only reset if this was actually our target
+    if (this.config.targetPlayerId === targetId) {
+      console.log(
+        `[MobEntity] ${this.id} target ${targetId} died, resetting combat state`,
+      );
+      this.clearTargetAndExitCombat();
+    }
+  }
+
   // Map internal AI states to interface expected states (RuneScape-style)
   private mapAIStateToInterface(
     internalState: string,
@@ -1741,9 +1835,10 @@ export class MobEntity extends CombatantEntity {
         this._serverEmote = null;
       }
 
-      // Send locked death position on first update only
+      // ALWAYS send death position when dead (handles packet loss, late-joining clients)
+      // Previously only sent once, but clients would miss it and use wrong position
       const deathPos = this.deathManager.getDeathPosition();
-      if (!this.deathManager.hasSentDeathState() && deathPos) {
+      if (deathPos) {
         networkData.p = [deathPos.x, deathPos.y, deathPos.z];
         this.deathManager.markDeathStateSent();
       }
@@ -1803,7 +1898,7 @@ export class MobEntity extends CombatantEntity {
     if ("aiState" in data) {
       const newState = data.aiState as MobAIState;
 
-      // If entering DEAD state on client, apply death position from server
+      // If entering DEAD state on client, lock position to CURRENT VISUAL position
       if (
         newState === MobAIState.DEAD &&
         !this.deathManager.isCurrentlyDead()
@@ -1812,29 +1907,25 @@ export class MobEntity extends CombatantEntity {
         // Without this, stale timestamps from previous deaths cause immediate reset
         this.clientDeathStartTime = null;
 
-        if ("p" in data && Array.isArray(data.p) && data.p.length === 3) {
-          // Use server's authoritative death position
-          const deathPos = new THREE.Vector3(data.p[0], data.p[1], data.p[2]);
-          this.deathManager.applyDeathPositionFromServer(deathPos);
+        // CRITICAL: Use current VISUAL position (this.position), NOT server position (data.p)
+        // TileInterpolator may be mid-interpolation, showing the mob at a different location
+        // than the server's authoritative position. The mob should die WHERE THE PLAYER SEES IT,
+        // not teleport to the server position. This matches RS3's smooth movement philosophy.
+        const visualDeathPos = new THREE.Vector3(
+          this.position.x,
+          this.position.y,
+          this.position.z,
+        );
+        this.deathManager.applyDeathPositionFromServer(visualDeathPos);
 
-          // Position VRM scene ONCE at death position
-          if (this._avatarInstance) {
-            this.node.position.copy(deathPos);
-            this.node.updateMatrix();
-            this.node.updateMatrixWorld(true);
-            this._avatarInstance.move(this.node.matrixWorld);
-          }
-        } else {
-          // No server death position - use current position and force death manager to dead state
-          console.warn(
-            `[MobEntity] [CLIENT] ⚠️ No server death position in death state update - using current position`,
-          );
-          const currentPos = new THREE.Vector3(
-            this.position.x,
-            this.position.y,
-            this.position.z,
-          );
-          this.deathManager.applyDeathPositionFromServer(currentPos);
+        // Clear TileInterpolator control flag so it stops updating this entity
+        this.data.tileInterpolatorControlled = false;
+
+        // Position VRM scene at current visual position for death animation
+        if (this._avatarInstance) {
+          this.node.updateMatrix();
+          this.node.updateMatrixWorld(true);
+          this._avatarInstance.move(this.node.matrixWorld);
         }
       }
 
@@ -1857,6 +1948,17 @@ export class MobEntity extends CombatantEntity {
             // Death animation is complete, safe to reset
             this.clientDeathStartTime = null;
             this.deathManager.reset();
+
+            // CRITICAL: Snap position immediately to server's new spawn point
+            // This prevents interpolation from starting at death location
+            if ("p" in data && Array.isArray(data.p) && data.p.length === 3) {
+              const spawnPos = data.p as [number, number, number];
+              this.position.set(spawnPos[0], spawnPos[1], spawnPos[2]);
+              this.node.position.set(spawnPos[0], spawnPos[1], spawnPos[2]);
+              console.log(
+                `[MobEntity] [CLIENT] 🔄 Snapped ${this.id} to respawn position (${spawnPos[0].toFixed(2)}, ${spawnPos[1].toFixed(2)}, ${spawnPos[2].toFixed(2)})`,
+              );
+            }
 
             // Mark that we need to restore visibility AFTER position update
             (this as any)._pendingRespawnRestore = true;
@@ -1898,7 +2000,23 @@ export class MobEntity extends CombatantEntity {
 
     // Handle emote from server (like PlayerRemote does)
     if ("e" in data && data.e !== undefined && this._avatarInstance) {
-      const emoteUrl = data.e as string;
+      const serverEmote = data.e as string;
+
+      // Map symbolic emote names to asset URLs (same as PlayerRemote)
+      let emoteUrl: string;
+      if (serverEmote.startsWith("asset://")) {
+        emoteUrl = serverEmote;
+      } else {
+        const emoteMap: Record<string, string> = {
+          idle: Emotes.IDLE,
+          walk: Emotes.WALK,
+          run: Emotes.RUN,
+          combat: Emotes.COMBAT,
+          death: Emotes.DEATH,
+        };
+        emoteUrl = emoteMap[serverEmote] || Emotes.IDLE;
+      }
+
       if (this._currentEmote !== emoteUrl) {
         this._currentEmote = emoteUrl;
         this._avatarInstance.setEmote(emoteUrl);
@@ -1914,28 +2032,41 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    // Call parent modify for standard properties (position, rotation, etc.)
-    // But if dead, don't let server position updates override our locked death position
-    if (this.deathManager.shouldLockPosition()) {
-      const lockedPos = this.deathManager.getLockedPosition();
-      if (lockedPos) {
-        // Remove position data to prevent parent from overriding
-        const dataWithoutPosition = { ...data };
-        delete dataWithoutPosition.p;
-        delete dataWithoutPosition.x;
-        delete dataWithoutPosition.y;
-        delete dataWithoutPosition.z;
-        delete dataWithoutPosition.position;
-        super.modify(dataWithoutPosition);
-        // Restore locked death position (defense in depth)
-        this.node.position.copy(lockedPos);
-        this.position.copy(lockedPos);
-      } else {
-        super.modify(data);
+    // ===== POSITION HANDLING =====
+    // The base Entity.modify() does NOT handle position - we must do it here
+    // Handle position for living mobs (non-death, non-respawn cases)
+    // Death/respawn position is handled above in the aiState logic
+    if (!this.deathManager.shouldLockPosition()) {
+      // Check if TileInterpolator is controlling position - if so, skip position updates
+      // TileInterpolator handles position smoothly for tile-based movement
+      // This prevents entityModified packets from overriding smooth interpolation
+      const tileControlled = this.data.tileInterpolatorControlled === true;
+      if (!tileControlled) {
+        // Not dead and not tile-controlled - apply position updates from server
+        if ("p" in data && Array.isArray(data.p) && data.p.length === 3) {
+          const pos = data.p as [number, number, number];
+          this.position.set(pos[0], pos[1], pos[2]);
+          this.node.position.set(pos[0], pos[1], pos[2]);
+        }
       }
     } else {
-      super.modify(data);
+      // Dead - enforce locked position (defense in depth)
+      const lockedPos = this.deathManager.getLockedPosition();
+      if (lockedPos) {
+        this.node.position.copy(lockedPos);
+        this.position.copy(lockedPos);
+      }
     }
+
+    // Call parent modify for standard properties (non-transform data like entity data)
+    // Strip position from data since we handled it above
+    const dataWithoutPosition = { ...data };
+    delete dataWithoutPosition.p;
+    delete dataWithoutPosition.x;
+    delete dataWithoutPosition.y;
+    delete dataWithoutPosition.z;
+    delete dataWithoutPosition.position;
+    super.modify(dataWithoutPosition);
 
     // CRITICAL: Restore visibility AFTER position has been updated from server
     // This ensures VRM is moved to the correct spawn location, not death location
@@ -1970,8 +2101,8 @@ export class MobEntity extends CombatantEntity {
         this._avatarInstance.setEmote(Emotes.IDLE);
         this._manualEmoteOverrideUntil = 0;
 
-        // CRITICAL: Position has NOW been updated by super.modify() above
-        // So this.node.position is the NEW spawn point from server, not death location!
+        // Position has been updated above in the position handling section
+        // So this.node.position is the NEW spawn point from server, not death location
         this.node.updateMatrix();
         this.node.updateMatrixWorld(true);
         this._avatarInstance.move(this.node.matrixWorld);

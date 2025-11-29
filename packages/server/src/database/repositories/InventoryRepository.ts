@@ -6,13 +6,13 @@
  *
  * Responsibilities:
  * - Load player inventory from database
- * - Save complete inventory state (atomic replace)
+ * - Save complete inventory state (atomic upsert)
  * - Handle item metadata (JSON serialization)
  *
  * Used by: Inventory system, item pickup/drop, trading
  */
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { BaseRepository } from "./BaseRepository";
 import * as schema from "../schema";
 import type { InventoryRow, InventorySaveItem } from "../../shared/types";
@@ -50,8 +50,13 @@ export class InventoryRepository extends BaseRepository {
   /**
    * Save player inventory to database
    *
-   * Performs an atomic replace of the entire inventory using a transaction.
-   * This prevents data loss on hot reload/crash.
+   * Uses a two-phase approach to handle race conditions:
+   * 1. Delete slots that are no longer occupied
+   * 2. Upsert current items using raw SQL with ON CONFLICT
+   *
+   * This prevents duplicate key errors when concurrent saves occur.
+   * Uses raw SQL for upsert because the unique index is a partial index
+   * (inventory_player_slot_unique WHERE slotIndex >= 0).
    *
    * @param playerId - The player ID to save inventory for
    * @param items - Complete inventory state to save
@@ -67,22 +72,46 @@ export class InventoryRepository extends BaseRepository {
 
     this.ensureDatabase();
 
-    // Perform atomic replace using a transaction to avoid data loss on hot reload/crash
+    // Get the slots currently occupied (valid slots only)
+    const validItems = items.filter((item) => (item.slotIndex ?? -1) >= 0);
+    const occupiedSlots = validItems.map((item) => item.slotIndex!);
+
     await this.db.transaction(async (tx) => {
-      // Delete existing inventory
-      await tx
-        .delete(schema.inventory)
-        .where(eq(schema.inventory.playerId, playerId));
-      // Insert new items
-      if (items.length > 0) {
-        await tx.insert(schema.inventory).values(
-          items.map((item) => ({
-            playerId,
-            itemId: item.itemId,
-            quantity: item.quantity,
-            slotIndex: item.slotIndex ?? -1,
-            metadata: item.metadata ? JSON.stringify(item.metadata) : null,
-          })),
+      // Step 1: Delete items in slots that are no longer occupied
+      if (occupiedSlots.length > 0) {
+        // Delete slots NOT in the current occupied list
+        await tx.execute(
+          sql`DELETE FROM inventory
+              WHERE "playerId" = ${playerId}
+              AND "slotIndex" >= 0
+              AND "slotIndex" NOT IN (${sql.join(
+                occupiedSlots.map((s) => sql`${s}`),
+                sql`, `,
+              )})`,
+        );
+      } else {
+        // No items - delete all inventory for this player
+        await tx
+          .delete(schema.inventory)
+          .where(eq(schema.inventory.playerId, playerId));
+      }
+
+      // Step 2: Upsert each item using raw SQL with ON CONFLICT
+      // This handles both new items and quantity/metadata changes
+      // Note: The unique index is a partial index (WHERE slotIndex >= 0),
+      // so we specify the columns directly and let PostgreSQL match the index
+      for (const item of validItems) {
+        const slotIndex = item.slotIndex!;
+        const metadata = item.metadata ? JSON.stringify(item.metadata) : null;
+
+        await tx.execute(
+          sql`INSERT INTO inventory ("playerId", "itemId", "quantity", "slotIndex", "metadata")
+              VALUES (${playerId}, ${item.itemId}, ${item.quantity}, ${slotIndex}, ${metadata})
+              ON CONFLICT ("playerId", "slotIndex") WHERE "slotIndex" >= 0
+              DO UPDATE SET
+                "itemId" = EXCLUDED."itemId",
+                "quantity" = EXCLUDED."quantity",
+                "metadata" = EXCLUDED."metadata"`,
         );
       }
     });

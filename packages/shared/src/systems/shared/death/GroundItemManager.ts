@@ -1,9 +1,16 @@
 /**
- * GroundItemManager
+ * GroundItemManager (TICK-BASED)
  *
  * Manages lifecycle of ALL ground items (player death + mob loot).
  * Extracted from LootSystem for DRY principle.
- * Handles spawning, despawn timers, and cleanup.
+ * Handles spawning, tick-based despawn, and cleanup.
+ *
+ * TICK-BASED TIMING (OSRS-accurate):
+ * - Despawn timers tracked in ticks, not milliseconds
+ * - processTick() called once per tick by TickSystem
+ * - Config accepts ms for backwards compatibility, converts to ticks internally
+ *
+ * @see https://oldschool.runescape.wiki/w/Dropped_items
  */
 
 import type { World } from "../../../core/World";
@@ -19,10 +26,11 @@ import {
 import type { ItemEntityConfig } from "../../../types/entities";
 import { groundToTerrain } from "../../../utils/game/EntityUtils";
 import { getItem } from "../../../data/items";
+import { msToTicks, ticksToMs } from "../../../utils/game/CombatCalculations";
+import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 
 export class GroundItemManager {
   private groundItems = new Map<string, GroundItemData>();
-  private despawnTimers = new Map<string, NodeJS.Timeout>();
   private nextItemId = 1;
 
   constructor(
@@ -31,7 +39,8 @@ export class GroundItemManager {
   ) {}
 
   /**
-   * Spawn a single ground item
+   * Spawn a single ground item (TICK-BASED despawn)
+   * Options accept ms for backwards compatibility, converted to ticks internally
    */
   async spawnGroundItem(
     itemId: string,
@@ -55,6 +64,13 @@ export class GroundItemManager {
 
     const dropId = `ground_item_${this.nextItemId++}`;
     const now = Date.now();
+    const currentTick = this.world.currentTick;
+
+    // Convert ms config to ticks
+    const despawnTicks = msToTicks(options.despawnTime);
+    const lootProtectionTicks = options.lootProtection
+      ? msToTicks(options.lootProtection)
+      : 0;
 
     // Ground item to terrain
     const groundedPosition = groundToTerrain(
@@ -116,27 +132,28 @@ export class GroundItemManager {
       return "";
     }
 
-    // Track ground item
+    // Track ground item (TICK-BASED)
     const groundItemData: GroundItemData = {
       entityId: dropId,
       itemId: itemId,
       quantity: quantity,
       position: groundedPosition,
-      despawnTime: now + options.despawnTime,
+      despawnTick: currentTick + despawnTicks,
       droppedBy: options.droppedBy,
-      lootProtectionUntil: options.lootProtection
-        ? now + options.lootProtection
-        : undefined,
+      lootProtectionTick:
+        lootProtectionTicks > 0 ? currentTick + lootProtectionTicks : undefined,
       spawnedAt: now,
     };
 
     this.groundItems.set(dropId, groundItemData);
 
-    // Schedule despawn
-    this.scheduleItemDespawn(dropId, options.despawnTime);
-
     console.log(
-      `[GroundItemManager] Spawned ground item ${dropId} (${itemId} x${quantity}) at (${groundedPosition.x}, ${groundedPosition.y}, ${groundedPosition.z})`,
+      `[GroundItemManager] Spawned ground item ${dropId} (${itemId} x${quantity}) at (${groundedPosition.x.toFixed(2)}, ${groundedPosition.y.toFixed(2)}, ${groundedPosition.z.toFixed(2)})`,
+      {
+        despawnTick: groundItemData.despawnTick,
+        despawnIn: `${despawnTicks} ticks (${(ticksToMs(despawnTicks) / 1000).toFixed(1)}s)`,
+        lootProtectionTick: groundItemData.lootProtectionTick,
+      },
     );
 
     return dropId;
@@ -189,32 +206,46 @@ export class GroundItemManager {
     }
 
     console.log(
-      `[GroundItemManager] Spawned ${entityIds.length} ground items at (${position.x}, ${position.y}, ${position.z})`,
+      `[GroundItemManager] Spawned ${entityIds.length} ground items at (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)})`,
     );
 
     return entityIds;
   }
 
   /**
-   * Schedule item despawn
+   * Process tick - check for expired items (TICK-BASED)
+   * Called once per tick by TickSystem
+   *
+   * @param currentTick - Current server tick number
    */
-  private scheduleItemDespawn(itemId: string, delay: number): void {
-    const timer = setTimeout(() => {
-      this.handleItemExpire(itemId);
-    }, delay);
+  processTick(currentTick: number): void {
+    const expiredItems: string[] = [];
 
-    this.despawnTimers.set(itemId, timer);
+    for (const [itemId, itemData] of this.groundItems) {
+      if (currentTick >= itemData.despawnTick) {
+        expiredItems.push(itemId);
+      }
+    }
+
+    // Despawn expired items
+    for (const itemId of expiredItems) {
+      this.handleItemExpire(itemId, currentTick);
+    }
   }
 
   /**
-   * Handle item expiration
+   * Handle item expiration (TICK-BASED)
    */
-  private handleItemExpire(itemId: string): void {
+  private handleItemExpire(itemId: string, currentTick: number): void {
     const itemData = this.groundItems.get(itemId);
     if (!itemData) return;
 
+    const ticksExisted =
+      currentTick -
+      (itemData.despawnTick - COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS);
+
     console.log(
-      `[GroundItemManager] Item ${itemId} (${itemData.itemId}) despawning after timeout`,
+      `[GroundItemManager] Item ${itemId} (${itemData.itemId}) despawning after ${ticksExisted} ticks (${(ticksToMs(ticksExisted) / 1000).toFixed(1)}s)`,
     );
 
     // Remove from world
@@ -236,13 +267,6 @@ export class GroundItemManager {
 
     // Destroy entity
     this.entityManager.destroyEntity(itemId);
-
-    // Clear timer
-    const timer = this.despawnTimers.get(itemId);
-    if (timer) {
-      clearTimeout(timer);
-      this.despawnTimers.delete(itemId);
-    }
 
     // Remove from tracking
     this.groundItems.delete(itemId);
@@ -288,17 +312,35 @@ export class GroundItemManager {
    * Clean up all ground items
    */
   destroy(): void {
-    // Clear all timers
-    for (const timer of this.despawnTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.despawnTimers.clear();
-
     // Destroy all entities
     for (const itemId of this.groundItems.keys()) {
       this.entityManager.destroyEntity(itemId);
     }
     this.groundItems.clear();
+  }
+
+  /**
+   * Check if item is still under loot protection (TICK-BASED)
+   * @param itemId - Ground item entity ID
+   * @param currentTick - Current server tick
+   * @returns true if loot protection is still active
+   */
+  isLootProtected(itemId: string, currentTick: number): boolean {
+    const itemData = this.groundItems.get(itemId);
+    if (!itemData || !itemData.lootProtectionTick) return false;
+    return currentTick < itemData.lootProtectionTick;
+  }
+
+  /**
+   * Get ticks until despawn (TICK-BASED)
+   * @param itemId - Ground item entity ID
+   * @param currentTick - Current server tick
+   * @returns Ticks until despawn, or -1 if item not found
+   */
+  getTicksUntilDespawn(itemId: string, currentTick: number): number {
+    const itemData = this.groundItems.get(itemId);
+    if (!itemData) return -1;
+    return Math.max(0, itemData.despawnTick - currentTick);
   }
 
   /**
