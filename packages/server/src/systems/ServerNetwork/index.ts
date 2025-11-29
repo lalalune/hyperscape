@@ -51,7 +51,14 @@ import {
   isDatabaseInstance,
   World,
   EventType,
+  CombatSystem,
+  LootSystem,
 } from "@hyperscape/shared";
+
+// PlayerDeathSystem type for tick processing (not exported from main index)
+interface PlayerDeathSystemWithTick {
+  processTick(currentTick: number): void;
+}
 
 // Import modular components
 import {
@@ -270,6 +277,46 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.mobTileMovementManager.onTick(tickNumber);
     }, TickPriority.MOVEMENT);
 
+    // Register combat system to process on each tick (after movement, before AI)
+    // This is OSRS-accurate: combat runs on the game tick, not per-frame
+    this.tickSystem.onTick((tickNumber) => {
+      const combatSystem = this.world.getSystem(
+        "combat",
+      ) as CombatSystem | null;
+      if (combatSystem) {
+        combatSystem.processCombatTick(tickNumber);
+      }
+    }, TickPriority.COMBAT);
+
+    // Register death system to process on each tick (after combat)
+    // Handles gravestone expiration and ground item despawn (OSRS-accurate tick-based timing)
+    this.tickSystem.onTick((tickNumber) => {
+      const playerDeathSystem = this.world.getSystem(
+        "player-death",
+      ) as unknown as PlayerDeathSystemWithTick | null;
+      if (
+        playerDeathSystem &&
+        typeof playerDeathSystem.processTick === "function"
+      ) {
+        playerDeathSystem.processTick(tickNumber);
+      }
+    }, TickPriority.COMBAT); // Same priority as combat (after movement)
+
+    // Register loot system to process on each tick (after combat)
+    // Handles mob corpse despawn (OSRS-accurate tick-based timing)
+    this.tickSystem.onTick((tickNumber) => {
+      const lootSystem = this.world.getSystem("loot") as LootSystem | null;
+      if (
+        lootSystem &&
+        typeof (lootSystem as unknown as PlayerDeathSystemWithTick)
+          .processTick === "function"
+      ) {
+        (lootSystem as unknown as PlayerDeathSystemWithTick).processTick(
+          tickNumber,
+        );
+      }
+    }, TickPriority.COMBAT); // Same priority as combat (after movement)
+
     // Socket manager
     this.socketManager = new SocketManager(
       this.sockets,
@@ -282,6 +329,29 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.tileMovementManager.cleanup(event.playerId);
       this.actionQueue.cleanup(event.playerId);
     });
+
+    // Sync tile position when player respawns at spawn point
+    // CRITICAL: Without this, TileMovementManager has stale tile position from death location
+    // and paths would be calculated from wrong starting tile
+    this.world.on(
+      EventType.PLAYER_RESPAWNED,
+      (event: {
+        playerId: string;
+        spawnPosition: { x: number; y: number; z: number };
+      }) => {
+        if (event.playerId && event.spawnPosition) {
+          this.tileMovementManager.syncPlayerPosition(
+            event.playerId,
+            event.spawnPosition,
+          );
+          // Also clear any pending actions from before death
+          this.actionQueue.cleanup(event.playerId);
+          console.log(
+            `[ServerNetwork] Synced tile position for respawned player ${event.playerId} at (${event.spawnPosition.x}, ${event.spawnPosition.z})`,
+          );
+        }
+      },
+    );
 
     // Handle mob tile movement requests from MobEntity AI
     this.world.on(EventType.MOB_NPC_MOVE_REQUEST, (event) => {
@@ -315,10 +385,34 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       );
     });
 
-    // Clean up mob tile movement state on mob death/despawn
+    // Clean up mob tile movement state on mob death
+    // This immediately clears stale tile state when mob dies
+    this.world.on(EventType.NPC_DIED, (event) => {
+      const diedEvent = event as { mobId: string };
+      this.mobTileMovementManager.cleanup(diedEvent.mobId);
+    });
+
+    // Clean up mob tile movement state on mob despawn (backup cleanup)
     this.world.on(EventType.MOB_NPC_DESPAWNED, (event) => {
       const despawnEvent = event as { mobId: string };
       this.mobTileMovementManager.cleanup(despawnEvent.mobId);
+    });
+
+    // CRITICAL: Reinitialize mob tile state on respawn
+    // Without this, the mob's tile state has stale currentTile from death location
+    // causing teleportation when the mob starts moving again
+    this.world.on(EventType.MOB_NPC_RESPAWNED, (event) => {
+      const respawnEvent = event as {
+        mobId: string;
+        position: { x: number; y: number; z: number };
+      };
+      // Clear old state and initialize at new spawn position
+      this.mobTileMovementManager.cleanup(respawnEvent.mobId);
+      this.mobTileMovementManager.initializeMob(
+        respawnEvent.mobId,
+        respawnEvent.position,
+        2, // Default walk speed: 2 tiles per tick
+      );
     });
 
     // Save manager

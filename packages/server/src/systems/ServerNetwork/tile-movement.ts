@@ -372,6 +372,42 @@ export class TileMovementManager {
   }
 
   /**
+   * Sync player position after respawn or teleport
+   *
+   * CRITICAL: When a player respawns at spawn point, the TileMovementManager's
+   * internal state still has their old tile position. This method resets the
+   * internal state to match the actual world position, preventing path calculation
+   * from the wrong starting tile.
+   */
+  syncPlayerPosition(
+    playerId: string,
+    position: { x: number; y: number; z: number },
+  ): void {
+    const newTile = worldToTile(position.x, position.z);
+
+    // Get existing state or create new one
+    let state = this.playerStates.get(playerId);
+
+    if (state) {
+      // Clear any pending movement and update tile
+      state.currentTile = newTile;
+      state.path = [];
+      state.pathIndex = 0;
+      state.moveSeq = (state.moveSeq || 0) + 1; // Increment to invalidate stale client packets
+      console.log(
+        `[TileMovement] Synced ${playerId} position to tile (${newTile.x},${newTile.z}) after respawn/teleport`,
+      );
+    } else {
+      // Create fresh state at new position
+      state = createTileMovementState(newTile);
+      this.playerStates.set(playerId, state);
+      console.log(
+        `[TileMovement] Created new state for ${playerId} at tile (${newTile.x},${newTile.z})`,
+      );
+    }
+  }
+
+  /**
    * Get current tile for a player
    */
   getCurrentTile(playerId: string): TileCoord | null {
