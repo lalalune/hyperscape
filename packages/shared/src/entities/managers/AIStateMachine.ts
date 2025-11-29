@@ -38,9 +38,9 @@ export interface AIStateContext {
   getCurrentTarget(): string | null;
   setTarget(playerId: string | null): void;
 
-  // Combat
-  canAttack(currentTime: number): boolean;
-  performAttack(targetId: string, currentTime: number): void;
+  // Combat (TICK-BASED, OSRS-accurate)
+  canAttack(currentTick: number): boolean;
+  performAttack(targetId: string, currentTick: number): void;
   isInCombat(): boolean;
 
   // Spawn & Leashing
@@ -55,7 +55,8 @@ export interface AIStateContext {
   generateWanderTarget(): Position3D;
 
   // Timing
-  getTime(): number;
+  getCurrentTick(): number; // Server tick number for combat timing
+  getTime(): number; // Date.now() for non-combat timing (idle duration, etc.)
 
   // State management
   markNetworkDirty(): void;
@@ -335,11 +336,11 @@ export class AttackState implements AIState {
       return MobAIState.CHASE;
     }
 
-    // Perform attack if cooldown ready
-    const currentTime = context.getTime();
-    if (context.canAttack(currentTime)) {
+    // Perform attack if cooldown ready (TICK-BASED, OSRS-accurate)
+    const currentTick = context.getCurrentTick();
+    if (context.canAttack(currentTick)) {
       console.log(`[AttackState] ⚔️ Performing attack on ${targetId}`);
-      context.performAttack(targetId, currentTime);
+      context.performAttack(targetId, currentTick);
     }
 
     // NOTE: In ATTACK state, we DON'T call moveTowards()

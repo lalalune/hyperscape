@@ -193,7 +193,8 @@ export class ClientNetwork extends SystemBase {
   private extrapolationLimit: number = 500; // ms
 
   // Tile-based interpolation for RuneScape-style movement
-  private tileInterpolator: TileInterpolator = new TileInterpolator();
+  // Public to allow position sync on respawn/teleport
+  public tileInterpolator: TileInterpolator = new TileInterpolator();
 
   // Embedded viewport configuration (read once at init)
   private embeddedCharacterId: string | null = null;
@@ -882,6 +883,12 @@ export class ClientNetwork extends SystemBase {
         this.interpolationStates.delete(id);
       }
 
+      // CRITICAL: Clear tile state when mob dies - they need death/respawn positions
+      // Without this, position is stripped and mob can't receive death position or respawn position
+      if (isDead && this.tileInterpolator.hasState(id)) {
+        this.tileInterpolator.removeEntity(id);
+      }
+
       // Skip adding new interpolation snapshots for dead mobs
       // Also skip for entities using tile movement (tile interpolator handles them)
       const hasTileState = this.tileInterpolator.hasState(id);
@@ -898,8 +905,9 @@ export class ClientNetwork extends SystemBase {
 
       // Still apply non-transform changes immediately
       // But strip position AND rotation for tile-moving entities
+      // EXCEPTION: Dead entities need position for death/respawn (don't strip)
       // (let tile interpolator handle them smoothly - server values cause twitching)
-      if (hasTileState) {
+      if (hasTileState && !isDead) {
         const { p, q, ...restChanges } = changes as Record<string, unknown>;
         entity.modify(restChanges);
       } else {

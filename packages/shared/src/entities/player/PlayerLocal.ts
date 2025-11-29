@@ -2327,7 +2327,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
   /**
    * Handle PLAYER_RESPAWNED event from server
-   * Exits death state and allows normal gameplay
+   * Exits death state, teleports to spawn position, and allows normal gameplay
    */
   handlePlayerRespawned(event: any): void {
     if (event.playerId !== this.data.id) return;
@@ -2335,6 +2335,64 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // Clear isDying flag (allows input again)
     (this as any).isDying = false;
     (this.data as any).isDying = false;
+
+    // CRITICAL: Teleport player to spawn position
+    // Without this, player stays at death location instead of respawning at spawn
+    if (event.spawnPosition) {
+      const spawnPos = event.spawnPosition;
+      const x =
+        typeof spawnPos.x === "number"
+          ? spawnPos.x
+          : Array.isArray(spawnPos)
+            ? spawnPos[0]
+            : 0;
+      const y =
+        typeof spawnPos.y === "number"
+          ? spawnPos.y
+          : Array.isArray(spawnPos)
+            ? spawnPos[1]
+            : 0;
+      const z =
+        typeof spawnPos.z === "number"
+          ? spawnPos.z
+          : Array.isArray(spawnPos)
+            ? spawnPos[2]
+            : 0;
+
+      console.log(
+        `[PlayerLocal] Teleporting to spawn position: (${x}, ${y}, ${z})`,
+      );
+
+      // Update all position representations
+      this.position.set(x, y, z);
+      this.node.position.set(x, y, z);
+      if (Array.isArray(this.data.position)) {
+        this.data.position[0] = x;
+        this.data.position[1] = y;
+        this.data.position[2] = z;
+      }
+
+      // Update physics capsule position if it exists
+      if (this.capsule && (globalThis as any).PHYSX) {
+        const PHYSX = (globalThis as any).PHYSX;
+        const pose = this.capsule.getGlobalPose();
+        pose.p.x = x;
+        pose.p.y = y;
+        pose.p.z = z;
+        this.capsule.setGlobalPose(pose, true);
+      }
+
+      // Clear tile interpolator state and control flag
+      // This ensures the next movement starts fresh from the new position
+      this.data.tileInterpolatorControlled = false;
+      this.data.tileMovementActive = false;
+
+      // Try to sync tile interpolator through world's network system
+      const network = this.world.network as any;
+      if (network?.tileInterpolator?.syncPosition) {
+        network.tileInterpolator.syncPosition(this.data.id, { x, y, z });
+      }
+    }
 
     // Unfreeze physics capsule (make it DYNAMIC again)
     if (this.capsule && (globalThis as any).PHYSX) {

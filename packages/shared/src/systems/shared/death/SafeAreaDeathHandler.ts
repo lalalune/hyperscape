@@ -1,10 +1,17 @@
 /**
- * SafeAreaDeathHandler
+ * SafeAreaDeathHandler (TICK-BASED)
  *
  * Handles player death in safe zones (RuneScape-style):
- * 1. Items → gravestone (5 minutes)
- * 2. Gravestone expires → ground items (2 minutes)
- * 3. Ground items despawn
+ * 1. Items → gravestone (500 ticks = 5 minutes)
+ * 2. Gravestone expires → ground items (200 ticks = 2 minutes)
+ * 3. Ground items despawn via GroundItemManager tick processing
+ *
+ * TICK-BASED TIMING (OSRS-accurate):
+ * - Gravestone expiration tracked in ticks
+ * - processTick() called once per tick by TickSystem
+ * - Uses constants from COMBAT_CONSTANTS
+ *
+ * @see https://oldschool.runescape.wiki/w/Gravestone
  */
 
 import type { World } from "../../../core/World";
@@ -16,11 +23,26 @@ import type { EntityManager } from "..";
 import { ZoneType } from "../../../types/death";
 import { EntityType, InteractionType } from "../../../types/entities";
 import type { HeadstoneEntityConfig } from "../../../types/entities";
+import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
+import { ticksToMs } from "../../../utils/game/CombatCalculations";
+
+/** Gravestone data tracked for tick-based expiration */
+interface GravestoneData {
+  gravestoneId: string;
+  playerId: string;
+  position: { x: number; y: number; z: number };
+  items: InventoryItem[];
+  expirationTick: number;
+}
 
 export class SafeAreaDeathHandler {
-  private gravestoneTimers = new Map<string, NodeJS.Timeout>();
-  private readonly GRAVESTONE_DURATION = 5 * 60 * 1000; // 5 minutes
-  private readonly GROUND_ITEM_DURATION = 2 * 60 * 1000; // 2 minutes
+  // TICK-BASED gravestone tracking (no more setTimeout)
+  private gravestones = new Map<string, GravestoneData>();
+
+  // Keep ms values for backwards compatibility with GroundItemOptions
+  private readonly GROUND_ITEM_DURATION_MS = ticksToMs(
+    COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS,
+  );
 
   constructor(
     private world: World,
@@ -98,8 +120,21 @@ export class SafeAreaDeathHandler {
       tx, // Pass transaction context
     );
 
-    // Schedule gravestone expiration (5 minutes)
-    this.scheduleGravestoneExpiration(playerId, gravestoneId, position, items);
+    // Track gravestone for tick-based expiration (500 ticks = 5 minutes)
+    const currentTick = this.world.currentTick;
+    const expirationTick = currentTick + COMBAT_CONSTANTS.GRAVESTONE_TICKS;
+
+    this.gravestones.set(gravestoneId, {
+      gravestoneId,
+      playerId,
+      position,
+      items,
+      expirationTick,
+    });
+
+    console.log(
+      `[SafeAreaDeathHandler] Gravestone ${gravestoneId} will expire at tick ${expirationTick} (${COMBAT_CONSTANTS.GRAVESTONE_TICKS} ticks = ${(ticksToMs(COMBAT_CONSTANTS.GRAVESTONE_TICKS) / 1000).toFixed(1)}s)`,
+    );
   }
 
   /**
@@ -120,7 +155,9 @@ export class SafeAreaDeathHandler {
     }
 
     const gravestoneId = `gravestone_${playerId}_${Date.now()}`;
-    const despawnTime = Date.now() + this.GRAVESTONE_DURATION;
+    // Calculate despawnTime in ms for entity config (backwards compatible)
+    const despawnTime =
+      Date.now() + ticksToMs(COMBAT_CONSTANTS.GRAVESTONE_TICKS);
 
     // Create gravestone entity
     const gravestoneConfig: HeadstoneEntityConfig = {
@@ -176,37 +213,44 @@ export class SafeAreaDeathHandler {
   }
 
   /**
-   * Schedule gravestone expiration timer
+   * Process tick - check for expired gravestones (TICK-BASED)
+   * Called once per tick by TickSystem
+   *
+   * @param currentTick - Current server tick number
    */
-  private scheduleGravestoneExpiration(
-    playerId: string,
-    gravestoneId: string,
-    position: { x: number; y: number; z: number },
-    items: InventoryItem[],
-  ): void {
-    const timer = setTimeout(() => {
-      this.handleGravestoneExpire(playerId, gravestoneId, position, items);
-    }, this.GRAVESTONE_DURATION);
+  processTick(currentTick: number): void {
+    const expiredGravestones: GravestoneData[] = [];
 
-    this.gravestoneTimers.set(gravestoneId, timer);
+    for (const gravestoneData of this.gravestones.values()) {
+      if (currentTick >= gravestoneData.expirationTick) {
+        expiredGravestones.push(gravestoneData);
+      }
+    }
 
-    console.log(
-      `[SafeAreaDeathHandler] Scheduled gravestone expiration for ${gravestoneId} in ${this.GRAVESTONE_DURATION / 1000}s`,
-    );
+    // Process expired gravestones
+    for (const gravestoneData of expiredGravestones) {
+      this.handleGravestoneExpire(gravestoneData, currentTick);
+    }
   }
 
   /**
-   * Handle gravestone expiration (transition to ground items)
+   * Handle gravestone expiration (transition to ground items) - TICK-BASED
    */
   private async handleGravestoneExpire(
-    playerId: string,
-    gravestoneId: string,
-    position: { x: number; y: number; z: number },
-    items: InventoryItem[],
+    gravestoneData: GravestoneData,
+    currentTick: number,
   ): Promise<void> {
+    const { gravestoneId, playerId, position, items } = gravestoneData;
+
+    const ticksExisted =
+      currentTick -
+      (gravestoneData.expirationTick - COMBAT_CONSTANTS.GRAVESTONE_TICKS);
     console.log(
-      `[SafeAreaDeathHandler] Gravestone ${gravestoneId} expired, transitioning to ground items`,
+      `[SafeAreaDeathHandler] Gravestone ${gravestoneId} expired after ${ticksExisted} ticks (${(ticksToMs(ticksExisted) / 1000).toFixed(1)}s), transitioning to ground items`,
     );
+
+    // Remove from tracking
+    this.gravestones.delete(gravestoneId);
 
     // Destroy gravestone entity
     const entityManager = this.world.getSystem(
@@ -216,12 +260,12 @@ export class SafeAreaDeathHandler {
       entityManager.destroyEntity(gravestoneId);
     }
 
-    // Spawn ground items
+    // Spawn ground items (using ms for GroundItemOptions backwards compatibility)
     const groundItemIds = await this.groundItemManager.spawnGroundItems(
       items,
       position,
       {
-        despawnTime: this.GROUND_ITEM_DURATION,
+        despawnTime: this.GROUND_ITEM_DURATION_MS,
         droppedBy: playerId,
         lootProtection: 0, // No loot protection after gravestone expires
         scatter: true,
@@ -231,9 +275,6 @@ export class SafeAreaDeathHandler {
 
     // Update death lock
     await this.deathStateManager.onGravestoneExpired(playerId, groundItemIds);
-
-    // Clear timer
-    this.gravestoneTimers.delete(gravestoneId);
 
     console.log(
       `[SafeAreaDeathHandler] Transitioned gravestone ${gravestoneId} to ${groundItemIds.length} ground items`,
@@ -249,26 +290,33 @@ export class SafeAreaDeathHandler {
   }
 
   /**
-   * Cancel gravestone timer (e.g., all items looted)
+   * Cancel gravestone tracking (e.g., all items looted)
    */
   cancelGravestoneTimer(gravestoneId: string): void {
-    const timer = this.gravestoneTimers.get(gravestoneId);
-    if (timer) {
-      clearTimeout(timer);
-      this.gravestoneTimers.delete(gravestoneId);
+    if (this.gravestones.has(gravestoneId)) {
+      this.gravestones.delete(gravestoneId);
       console.log(
-        `[SafeAreaDeathHandler] Cancelled gravestone timer for ${gravestoneId}`,
+        `[SafeAreaDeathHandler] Cancelled gravestone tracking for ${gravestoneId}`,
       );
     }
   }
 
   /**
-   * Clean up all gravestone timers
+   * Get ticks until gravestone expires (TICK-BASED)
+   * @param gravestoneId - Gravestone entity ID
+   * @param currentTick - Current server tick
+   * @returns Ticks until expiration, or -1 if not found
+   */
+  getTicksUntilExpiration(gravestoneId: string, currentTick: number): number {
+    const gravestoneData = this.gravestones.get(gravestoneId);
+    if (!gravestoneData) return -1;
+    return Math.max(0, gravestoneData.expirationTick - currentTick);
+  }
+
+  /**
+   * Clean up all gravestone tracking
    */
   destroy(): void {
-    for (const timer of this.gravestoneTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.gravestoneTimers.clear();
+    this.gravestones.clear();
   }
 }

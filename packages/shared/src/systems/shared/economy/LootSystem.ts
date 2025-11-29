@@ -1,11 +1,18 @@
 /**
- * Loot System - GDD Compliant
+ * Loot System - GDD Compliant (TICK-BASED)
  * Handles loot drops, loot tables, and item spawning per GDD specifications:
  * - Guaranteed drops from all mobs
  * - Tier-based loot tables
  * - Visual dropped items in world
  * - Pickup mechanics
- * - Loot despawn timers
+ * - TICK-BASED despawn timers
+ *
+ * TICK-BASED TIMING (OSRS-accurate):
+ * - Corpse despawn tracked in ticks
+ * - processTick() called once per tick by TickSystem
+ * - Uses constants from COMBAT_CONSTANTS
+ *
+ * @see https://oldschool.runescape.wiki/w/Loot
  */
 
 import type { World } from "../../../types/index";
@@ -27,15 +34,26 @@ import type { DroppedItem } from "../../../types/systems/system-interfaces";
 import { groundToTerrain } from "../../../utils/game/EntityUtils";
 import { EntityManager } from "..";
 import { ALL_NPCS } from "../../../data/npcs";
+import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
+import { ticksToMs } from "../../../utils/game/CombatCalculations";
+
+/** Corpse data tracked for tick-based despawn */
+interface CorpseData {
+  corpseId: string;
+  despawnTick: number;
+}
 
 export class LootSystem extends SystemBase {
   private lootTables = new Map<string, LootTable>(); // String key = mob ID from mobs.json
   private itemDatabase = new Map<string, Item>();
   private droppedItems = new Map<string, DroppedItem>();
+  private corpses = new Map<string, CorpseData>(); // TICK-BASED corpse tracking
   private nextItemId = 1;
 
-  // Loot constants per GDD
-  private readonly LOOT_DESPAWN_TIME = 120000; // 2 minutes
+  // Loot constants per GDD (converted from tick constants for backwards compatibility)
+  private readonly LOOT_DESPAWN_TIME_MS = ticksToMs(
+    COMBAT_CONSTANTS.CORPSE_DESPAWN_TICKS,
+  );
   private readonly PICKUP_RANGE = 5; // meters
   private readonly MAX_DROPPED_ITEMS = 1000; // Performance limit
 
@@ -99,10 +117,56 @@ export class LootSystem extends SystemBase {
       ),
     );
 
-    // Start managed cleanup timer
-    this.createInterval(() => {
-      this.cleanupExpiredLoot();
-    }, 30000); // Check every 30 seconds
+    // NOTE: Cleanup is now tick-based via processTick() called by TickSystem
+    // No more setInterval-based cleanup needed
+  }
+
+  /**
+   * Process tick - check for expired corpses and dropped items (TICK-BASED)
+   * Called once per tick by TickSystem
+   *
+   * @param currentTick - Current server tick number
+   */
+  processTick(currentTick: number): void {
+    // Check for expired corpses
+    const expiredCorpses: string[] = [];
+    for (const [corpseId, corpseData] of this.corpses) {
+      if (currentTick >= corpseData.despawnTick) {
+        expiredCorpses.push(corpseId);
+      }
+    }
+
+    // Despawn expired corpses
+    for (const corpseId of expiredCorpses) {
+      this.despawnCorpse(corpseId, currentTick);
+    }
+
+    // Clean up expired dropped items (legacy time-based check for backwards compatibility)
+    this.cleanupExpiredLoot();
+  }
+
+  /**
+   * Despawn a corpse entity
+   */
+  private despawnCorpse(corpseId: string, currentTick: number): void {
+    const corpseData = this.corpses.get(corpseId);
+    if (!corpseData) return;
+
+    const ticksExisted =
+      currentTick -
+      (corpseData.despawnTick - COMBAT_CONSTANTS.CORPSE_DESPAWN_TICKS);
+    console.log(
+      `[LootSystem] Corpse ${corpseId} despawning after ${ticksExisted} ticks (${(ticksToMs(ticksExisted) / 1000).toFixed(1)}s)`,
+    );
+
+    // Remove corpse entity
+    const entityManager = this.world.getSystem<EntityManager>("entity-manager");
+    if (entityManager) {
+      entityManager.destroyEntity(corpseId);
+    }
+
+    // Remove from tracking
+    this.corpses.delete(corpseId);
   }
 
   /**
@@ -283,6 +347,10 @@ export class LootSystem extends SystemBase {
       Infinity,
     );
 
+    // Calculate despawn tick (TICK-BASED)
+    const currentTick = this.world.currentTick;
+    const despawnTick = currentTick + COMBAT_CONSTANTS.CORPSE_DESPAWN_TICKS;
+
     const corpseConfig: HeadstoneEntityConfig = {
       id: corpseId,
       name: `${data.mobType} corpse`,
@@ -304,7 +372,7 @@ export class LootSystem extends SystemBase {
         position: groundedPosition,
         items: inventoryItems,
         itemCount: inventoryItems.length,
-        despawnTime: Date.now() + this.LOOT_DESPAWN_TIME,
+        despawnTime: Date.now() + this.LOOT_DESPAWN_TIME_MS, // For backwards compat display
       },
       properties: {
         movementComponent: null,
@@ -317,6 +385,16 @@ export class LootSystem extends SystemBase {
     };
 
     await entityManager.spawnEntity(corpseConfig);
+
+    // Track corpse for tick-based despawn
+    this.corpses.set(corpseId, {
+      corpseId,
+      despawnTick,
+    });
+
+    console.log(
+      `[LootSystem] Created corpse ${corpseId} with ${inventoryItems.length} items, despawns at tick ${despawnTick} (${COMBAT_CONSTANTS.CORPSE_DESPAWN_TICKS} ticks = ${(ticksToMs(COMBAT_CONSTANTS.CORPSE_DESPAWN_TICKS) / 1000).toFixed(1)}s)`,
+    );
 
     // Emit loot dropped event
     this.emitTypedEvent(EventType.LOOT_DROPPED, {
@@ -387,7 +465,7 @@ export class LootSystem extends SystemBase {
       itemId: itemId,
       quantity: quantity,
       position: groundedPosition,
-      despawnTime: now + this.LOOT_DESPAWN_TIME,
+      despawnTime: now + this.LOOT_DESPAWN_TIME_MS, // Keep for backwards compat with existing code
       droppedBy: droppedBy ?? "unknown",
       droppedAt: now,
       entityId: dropId,
@@ -615,6 +693,9 @@ export class LootSystem extends SystemBase {
   destroy(): void {
     // Clear all dropped items
     this.droppedItems.clear();
+
+    // Clear all corpses
+    this.corpses.clear();
 
     // Clear loot tables
     this.lootTables.clear();

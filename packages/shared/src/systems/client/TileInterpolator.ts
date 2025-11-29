@@ -923,6 +923,64 @@ export class TileInterpolator {
   }
 
   /**
+   * Sync entity position after teleport/respawn
+   *
+   * Resets the entity's movement state to a new position, clearing any pending
+   * path and setting the visual position to the new location. Used when a player
+   * respawns or is teleported to prevent stale movement state.
+   *
+   * @param entityId - Entity to sync
+   * @param position - New world position
+   */
+  syncPosition(
+    entityId: string,
+    position: { x: number; y: number; z: number },
+  ): void {
+    const newTile = worldToTile(position.x, position.z);
+    const worldPos = tileToWorld(newTile);
+
+    // Get existing state or create minimal new state
+    let state = this.entityStates.get(entityId);
+    if (state) {
+      // Reset existing state to new position
+      state.fullPath = [];
+      state.targetTileIndex = 0;
+      state.destinationTile = null;
+      state.visualPosition.set(worldPos.x, position.y, worldPos.z);
+      state.targetWorldPos.set(worldPos.x, position.y, worldPos.z);
+      state.serverConfirmedTile = { ...newTile };
+      state.isMoving = false;
+      state.emote = "idle";
+      state.catchUpMultiplier = 1.0;
+      state.moveSeq++;
+      console.log(
+        `[TileInterpolator] Synced ${entityId} to tile (${newTile.x},${newTile.z})`,
+      );
+    } else {
+      // No existing state - create fresh state at new position
+      state = {
+        fullPath: [],
+        targetTileIndex: 0,
+        destinationTile: null,
+        visualPosition: new THREE.Vector3(worldPos.x, position.y, worldPos.z),
+        targetWorldPos: new THREE.Vector3(worldPos.x, position.y, worldPos.z),
+        quaternion: new THREE.Quaternion(),
+        isRunning: false,
+        isMoving: false,
+        emote: "idle",
+        serverConfirmedTile: { ...newTile },
+        lastServerTick: 0,
+        catchUpMultiplier: 1.0,
+        moveSeq: 0,
+      };
+      this.entityStates.set(entityId, state);
+      console.log(
+        `[TileInterpolator] Created fresh state for ${entityId} at tile (${newTile.x},${newTile.z})`,
+      );
+    }
+  }
+
+  /**
    * Clear all interpolation states
    */
   clear(): void {

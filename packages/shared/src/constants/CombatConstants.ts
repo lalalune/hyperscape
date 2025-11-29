@@ -14,6 +14,35 @@ export const COMBAT_CONSTANTS = {
 
   // OSRS Constants
   TICK_DURATION_MS: 600, // 0.6 seconds per game tick
+
+  // OSRS-accurate tick-based combat timing
+  DEFAULT_ATTACK_SPEED_TICKS: 4, // Unarmed/standard weapon (2.4s)
+  COMBAT_TIMEOUT_TICKS: 8, // 4.8s - health bar visible after combat ends
+  LOGOUT_PREVENTION_TICKS: 16, // 9.6s - can't logout after taking damage
+
+  // Weapon speed tiers in ticks (OSRS-accurate)
+  // @see https://oldschool.runescape.wiki/w/Attack_speed
+  ATTACK_SPEED_TICKS: {
+    FASTEST: 3, // Darts, blowpipe (1.8s)
+    FAST: 4, // Scimitars, whip, daggers, unarmed (2.4s)
+    MEDIUM: 5, // Longswords, crossbows (3.0s)
+    SLOW: 6, // Godswords, battleaxes (3.6s)
+    SLOWEST: 7, // Halberds, 2H swords (4.2s)
+  },
+
+  // Respawn timing in ticks (OSRS-style)
+  // @see https://oldschool.runescape.wiki/w/Respawn_rate
+  RESPAWN_TICKS_MIN: 25, // 15 seconds - minimum respawn time
+  RESPAWN_TICKS_DEFAULT: 25, // 15 seconds - standard mob respawn
+  RESPAWN_TICKS_RANDOMNESS: 8, // +0-8 ticks randomness (~0-5 seconds)
+
+  // Death/Loot timing in ticks (OSRS-style)
+  // @see https://oldschool.runescape.wiki/w/Gravestone
+  GRAVESTONE_TICKS: 500, // 5 minutes (300 seconds / 0.6)
+  GROUND_ITEM_DESPAWN_TICKS: 200, // 2 minutes (120 seconds / 0.6)
+  LOOT_PROTECTION_TICKS: 100, // 1 minute (60 seconds / 0.6) - killer exclusivity
+  CORPSE_DESPAWN_TICKS: 200, // 2 minutes - mob corpse despawn
+
   BASE_CONSTANT: 64, // Added to equipment bonuses in formulas
   EFFECTIVE_LEVEL_CONSTANT: 8, // Added to effective levels
   DAMAGE_DIVISOR: 640, // Used in max hit calculation
