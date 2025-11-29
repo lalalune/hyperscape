@@ -110,7 +110,7 @@ export class TileMovementManager {
     if (payload?.cancel && !payload?.target && !payload?.targetTile) {
       state.path = [];
       state.pathIndex = 0;
-      console.log(`[TileMovement] Cancelled movement for ${playerEntity.id}`);
+      // Movement cancelled
 
       // Broadcast idle state
       const curr = playerEntity.position;
@@ -147,18 +147,12 @@ export class TileMovementManager {
       return;
     }
 
-    console.log(
-      `[TileMovement] Move request: ${playerEntity.id} from tile (${state.currentTile.x},${state.currentTile.z}) to (${targetTile.x},${targetTile.z})`,
-    );
-
     // Calculate BFS path from current tile to target
     const path = this.pathfinder.findPath(
       state.currentTile,
       targetTile,
       (tile) => this.isTileWalkable(tile),
     );
-
-    console.log(`[TileMovement] Path found: ${path.length} tiles`);
 
     // Store path and update state
     state.path = path;
@@ -212,7 +206,7 @@ export class TileMovementManager {
         emote: state.isRunning ? "run" : "walk",
       });
     } else {
-      console.log(`[TileMovement] No path found or already at destination`);
+      // No path found or already at destination
     }
   }
 
@@ -306,10 +300,6 @@ export class TileMovementManager {
         ];
       }
 
-      console.log(
-        `[TileMovement] Tick ${tickNumber}: ${playerId} moved to tile (${state.currentTile.x},${state.currentTile.z}) - ${state.pathIndex}/${state.path.length}`,
-      );
-
       // Broadcast tile position update to clients
       // Include moveSeq so client can ignore stale packets from previous movements
       this.sendFn("entityTileUpdate", {
@@ -324,8 +314,6 @@ export class TileMovementManager {
 
       // Check if arrived at destination
       if (state.pathIndex >= state.path.length) {
-        console.log(`[TileMovement] ${playerId} arrived at destination`);
-
         // Broadcast movement end
         // Include moveSeq so client can ignore stale end packets
         this.sendFn("tileMovementEnd", {

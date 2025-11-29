@@ -161,10 +161,6 @@ export class CombatSystem extends SystemBase {
           ranged: number;
         };
       }) => {
-        console.log(
-          `[CombatSystem] 📊 Equipment stats updated for ${data.playerId}:`,
-          data.equipmentStats,
-        );
         this.playerEquipmentStats.set(data.playerId, data.equipmentStats);
       },
     );
@@ -441,10 +437,6 @@ export class CombatSystem extends SystemBase {
     attacker: Entity | MobEntity,
     target: Entity | MobEntity,
   ): number {
-    console.log(
-      `[CombatSystem] 🎲 CALCULATING MELEE DAMAGE: ${attacker.id} -> ${target.id}`,
-    );
-
     // Extract required properties for damage calculation
     let attackerData: {
       stats?: CombatStats;
@@ -548,10 +540,6 @@ export class CombatSystem extends SystemBase {
       targetData,
       AttackType.MELEE,
       equipmentStats,
-    );
-
-    console.log(
-      `[CombatSystem] ⚔️ MELEE RESULT: damage=${result.damage}, didHit=${result.didHit}`,
     );
 
     return result.damage;
@@ -676,11 +664,6 @@ export class CombatSystem extends SystemBase {
     damage: number,
     attackerId: string,
   ): void {
-    // CRITICAL DEBUG: Log all damage applications
-    console.log(
-      `[CombatSystem] 🔴 APPLYING DAMAGE: ${damage} to ${targetType} ${targetId} from ${attackerId}`,
-    );
-
     // Handle damage based on target type
     if (targetType === "player") {
       // Get player system and use its damage method
@@ -755,9 +738,6 @@ export class CombatSystem extends SystemBase {
           damage: damage,
           attackerId: attackerId,
         });
-        console.log(
-          `[CombatSystem] 📤 Emitted MOB_NPC_ATTACKED event for ${targetId}`,
-        );
       } else {
         // Fallback for entities without takeDamage method
         const currentHealth = mobEntity.getProperty("health") as
@@ -832,9 +812,6 @@ export class CombatSystem extends SystemBase {
               c: true, // Combat started
               ct: targetId, // Combat target
             });
-            console.log(
-              `[CombatSystem] ✅ Sent immediate c: true for player ${entityId} entering combat`,
-            );
           }
         }
 
@@ -872,9 +849,6 @@ export class CombatSystem extends SystemBase {
               c: false, // Clear inCombat state when combat truly ends
               ct: null, // Clear combat target
             });
-            console.log(
-              `[CombatSystem] ✅ Sent immediate c: false for player ${entityId}`,
-            );
           }
         }
 
@@ -898,8 +872,6 @@ export class CombatSystem extends SystemBase {
         // Check if player has a sword equipped - get from EquipmentSystem (source of truth)
         let combatEmote = "combat"; // Default to punching
 
-        console.log(`[CombatSystem] 🗡️ Checking combat emote for ${entityId}`);
-
         // Get equipment from EquipmentSystem (source of truth)
         const equipmentSystem = this.world.getSystem("equipment") as
           | {
@@ -911,45 +883,16 @@ export class CombatSystem extends SystemBase {
 
         if (equipmentSystem?.getPlayerEquipment) {
           const equipment = equipmentSystem.getPlayerEquipment(entityId);
-          console.log(`[CombatSystem] 🗡️ Equipment from system:`, !!equipment);
-          console.log(
-            `[CombatSystem] 🗡️ Weapon from system:`,
-            !!equipment?.weapon,
-          );
-          console.log(
-            `[CombatSystem] 🗡️ Weapon item from system:`,
-            !!equipment?.weapon?.item,
-          );
 
           if (equipment?.weapon?.item) {
             const weaponItem = equipment.weapon.item;
-            console.log(
-              `[CombatSystem] 🗡️ Weapon item:`,
-              JSON.stringify(weaponItem, null, 2),
-            );
-            console.log(`[CombatSystem] 🗡️ weaponType:`, weaponItem.weaponType);
 
             // Check if the weapon is a sword
             if (weaponItem.weaponType === "SWORD") {
               combatEmote = "sword_swing";
-              console.log(
-                `[CombatSystem] ✅ SWORD detected! Using sword_swing emote`,
-              );
-            } else {
-              console.log(
-                `[CombatSystem] ❌ Not a sword, weaponType: ${weaponItem.weaponType}`,
-              );
             }
-          } else {
-            console.log(`[CombatSystem] ❌ No weapon equipped, using punch`);
           }
-        } else {
-          console.warn(
-            `[CombatSystem] ⚠️ EquipmentSystem not found or missing getPlayerEquipment`,
-          );
         }
-
-        console.log(`[CombatSystem] 🗡️ Final emote: ${combatEmote}`);
 
         // Set emote STRING KEY (players use 'combat' or 'sword_swing' string which gets mapped to URL)
         if ((playerEntity as any).emote !== undefined) {
@@ -1112,9 +1055,6 @@ export class CombatSystem extends SystemBase {
       "health" in targetEntity &&
       (targetEntity as any).health <= 0
     ) {
-      console.log(
-        `[CombatSystem] Target ${targetId} is dead (health ${(targetEntity as any).health}), aborting combat`,
-      );
       return;
     }
 
@@ -1123,9 +1063,6 @@ export class CombatSystem extends SystemBase {
     if (playerSystem?.players) {
       const targetPlayer = playerSystem.players.get(String(targetId));
       if (targetPlayer && !targetPlayer.alive) {
-        console.log(
-          `[CombatSystem] Target player ${targetId} is dead (alive=${targetPlayer.alive}), aborting combat`,
-        );
         return;
       }
     }
@@ -1304,12 +1241,6 @@ export class CombatSystem extends SystemBase {
     // This matches RuneScape behavior where health bars stay visible briefly after combat ends
     for (const [attackerId, state] of this.combatStates) {
       if (String(state.targetId) === entityId) {
-        // Mark this combat state as having a dead target
-        // The update loop will let it timeout naturally after COMBAT_TIMEOUT_MS
-        console.log(
-          `[CombatSystem] ${attackerId} was attacking dead entity ${entityId}, combat will timeout naturally in ${COMBAT_CONSTANTS.COMBAT_TIMEOUT_MS}ms`,
-        );
-
         // CRITICAL: Clear the attacker's attack cooldown so they can attack new targets immediately
         // Without this, mobs would be stuck waiting for cooldown after their target dies and respawns
         this.nextAttackTicks.delete(attackerId);
@@ -1437,10 +1368,6 @@ export class CombatSystem extends SystemBase {
     // Find all entities that were targeting this disconnected player
     for (const [attackerId, state] of this.combatStates) {
       if (String(state.targetId) === playerId) {
-        console.log(
-          `[CombatSystem] ${attackerId} was targeting disconnected player ${playerId}, clearing combat`,
-        );
-
         // Clear the attacker's cooldown so they can immediately retarget
         this.nextAttackTicks.delete(attackerId);
 
@@ -1464,10 +1391,6 @@ export class CombatSystem extends SystemBase {
         }
       }
     }
-
-    console.log(
-      `[CombatSystem] Cleaned up combat state for disconnected player ${playerId}`,
-    );
   }
 
   private getEntity(

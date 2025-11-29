@@ -122,10 +122,6 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
       return;
     }
 
-    console.log(
-      `[EmbeddedGameClient] Setting camera to follow entity: ${e.id}`,
-    );
-
     // CRITICAL: Pass the FULL ENTITY as target, not just { position: entity.position }
     // The camera system reads target.position every frame, and we need
     // TileInterpolator's position updates to be reflected automatically
