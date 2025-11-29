@@ -287,9 +287,12 @@ export class MobTileMovementManager {
     }
 
     // Broadcast movement started
+    // Server sends COMPLETE authoritative path - client follows exactly, no recalculation
+    // startTile: where server knows mob IS
     // OSRS-style: Bundle emote with movement packet to prevent animation mismatch
     this.sendFn("tileMovementStart", {
       id: mobId,
+      startTile: { x: state.currentTile.x, z: state.currentTile.z },
       path: chasePath.map((t) => ({ x: t.x, z: t.z })),
       running: state.isRunning,
       destinationTile: { x: targetTile.x, z: targetTile.z },
