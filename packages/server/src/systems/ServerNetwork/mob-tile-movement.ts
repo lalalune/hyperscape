@@ -7,14 +7,15 @@
  * Key behaviors:
  * - Movement happens on ticks, not frames
  * - Mobs move 1-2 tiles per tick (based on mob speed)
- * - Uses BFS pathfinding for paths
+ * - Uses greedy/direct pathfinding (chaseStep), NOT BFS
+ * - Mobs walk directly toward target, getting stuck behind obstacles
+ * - This enables "safespotting" gameplay (authentic OSRS behavior)
  * - Client interpolates visually between tile positions
- * - Integrates with AIStateMachine (WANDER, CHASE, RETURN states)
  *
  * OSRS Reference:
- * - Mobs move at fixed speeds based on type
- * - Paths recalculate when target moves
- * - Leash distance returns mob to spawn
+ * - Mobs use "dumb" pathfinding - they don't navigate around obstacles
+ * - This is why safespotting works in OSRS
+ * - @see https://oldschool.runescape.wiki/w/Pathfinding
  */
 
 import {
@@ -26,8 +27,7 @@ import {
   tileToWorld,
   tilesEqual,
   tilesAdjacent,
-  getBestAdjacentTile,
-  BFSPathfinder,
+  chaseStep,
 } from "@hyperscape/shared";
 import type {
   TileCoord,
@@ -40,14 +40,16 @@ import type {
  * Includes mob-specific fields like target entity tracking
  */
 interface MobTileState extends TileMovementState {
-  /** Target entity ID (for CHASE state - recalculates path when target moves) */
+  /** Target entity ID (for CHASE state - uses dumb pathfinder every tick) */
   targetEntityId: string | null;
-  /** Last known target position (to detect when we need to repath) */
+  /** Last known target position (to detect when target moved) */
   lastTargetTile: TileCoord | null;
   /** Movement speed in tiles per tick (default: 2 for walk) */
   tilesPerTick: number;
-  /** Whether mob is currently pathfinding to a destination */
+  /** Whether mob is currently chasing/moving to a destination */
   hasDestination: boolean;
+  /** Whether mob is actively chasing a moving target (uses dumb pathfinder) */
+  isChasing: boolean;
 }
 
 /**
@@ -67,15 +69,19 @@ function createMobTileState(
     lastTargetTile: null,
     tilesPerTick,
     hasDestination: false,
+    isChasing: false,
   };
 }
 
 /**
  * Tile-based movement manager for mobs (RuneScape-style)
+ *
+ * IMPORTANT: Mobs use greedy/direct pathfinding (chaseStep), NOT BFS.
+ * This is authentic OSRS behavior - mobs walk directly toward their target
+ * and get stuck behind obstacles (enabling safespotting gameplay).
  */
 export class MobTileMovementManager {
   private mobStates: Map<string, MobTileState> = new Map();
-  private pathfinder: BFSPathfinder;
   // Y-axis for stable yaw rotation calculation
   private _up = new THREE.Vector3(0, 1, 0);
   private _tempQuat = new THREE.Quaternion();
@@ -89,9 +95,7 @@ export class MobTileMovementManager {
       data: unknown,
       ignoreSocketId?: string,
     ) => void,
-  ) {
-    this.pathfinder = new BFSPathfinder();
-  }
+  ) {}
 
   /**
    * Get terrain system
@@ -138,6 +142,10 @@ export class MobTileMovementManager {
    * Request movement to a target position
    * Called by MobEntity when AI wants to move
    *
+   * IMPORTANT: Mobs use greedy/direct pathfinding (chaseStep), NOT BFS.
+   * This is authentic OSRS behavior - mobs walk directly toward their target
+   * and get stuck behind obstacles (enabling safespotting gameplay).
+   *
    * @param mobId - The mob's entity ID
    * @param targetPos - Target world position
    * @param targetEntityId - Optional entity ID being chased (for dynamic repathing)
@@ -163,102 +171,139 @@ export class MobTileMovementManager {
 
     if (this.DEBUG_MODE)
       console.log(
-        `[MobTileMovement] requestMoveTo: ${mobId} from tile (${state.currentTile.x},${state.currentTile.z}) to tile (${targetTile.x},${targetTile.z}), hasDestination=${state.hasDestination}, pathLen=${state.path.length}`,
+        `[MobTileMovement] requestMoveTo: ${mobId} from tile (${state.currentTile.x},${state.currentTile.z}) to tile (${targetTile.x},${targetTile.z})`,
       );
 
-    // If already at destination, nothing to do
+    // If already at destination, nothing to do (but still update chase state)
     if (tilesEqual(state.currentTile, targetTile)) {
       if (this.DEBUG_MODE)
-        console.log(
-          `[MobTileMovement] requestMoveTo: Already at destination tile`,
-        );
+        console.log(`[MobTileMovement] requestMoveTo: Already at destination`);
+      // Still update chase state so combat system knows who we're targeting
+      state.targetEntityId = targetEntityId;
+      state.isChasing = !!targetEntityId;
       state.hasDestination = false;
       state.path = [];
       state.pathIndex = 0;
       return;
     }
 
-    // Optimization: Skip re-pathing if we already have a valid path to the same target
-    // This prevents expensive BFS calculations every frame
-    if (state.hasDestination && state.path.length > 0) {
-      const currentDestination = state.path[state.path.length - 1];
-      if (tilesEqual(currentDestination, targetTile)) {
-        // Already pathing to this tile, no need to recalculate
-        if (this.DEBUG_MODE)
-          console.log(
-            `[MobTileMovement] requestMoveTo: Already pathing to this tile, skipping`,
-          );
-        return;
-      }
+    // If chasing an entity and already adjacent, we're in melee range - stop moving
+    // (Only for combat - when returning to spawn, we want the exact tile)
+    if (
+      targetEntityId !== null &&
+      tilesAdjacent(state.currentTile, targetTile)
+    ) {
+      if (this.DEBUG_MODE)
+        console.log(
+          `[MobTileMovement] requestMoveTo: Already adjacent to target entity`,
+        );
+      // Update chase state so combat system knows who we're targeting
+      state.targetEntityId = targetEntityId;
+      state.isChasing = true;
+      state.hasDestination = false;
+      state.path = [];
+      state.pathIndex = 0;
+      return;
     }
 
-    // Calculate BFS path from current tile to target
-    const path = this.pathfinder.findPath(
-      state.currentTile,
-      targetTile,
-      (tile) => this.isTileWalkable(tile),
-    );
+    // If already chasing this same entity, let onTick handle continued movement
+    if (
+      state.isChasing &&
+      state.targetEntityId === targetEntityId &&
+      targetEntityId !== null
+    ) {
+      if (this.DEBUG_MODE)
+        console.log(
+          `[MobTileMovement] requestMoveTo: Already chasing ${targetEntityId}, onTick handles`,
+        );
+      state.tilesPerTick = tilesPerTick;
+      return;
+    }
+
+    // Set up chase state - onTick will use chaseStep for actual movement
+    state.targetEntityId = targetEntityId;
+    state.lastTargetTile = { ...targetTile };
+    state.tilesPerTick = tilesPerTick;
+    state.isChasing = !!targetEntityId;
+    state.hasDestination = true;
+    state.moveSeq = (state.moveSeq || 0) + 1;
+
+    // Calculate initial chase path using chaseStep (NOT BFS!)
+    const chasePath: TileCoord[] = [];
+    let currentPos = { ...state.currentTile };
+
+    for (let step = 0; step < tilesPerTick; step++) {
+      const nextTile = chaseStep(currentPos, targetTile, (tile) =>
+        this.isTileWalkable(tile),
+      );
+
+      if (!nextTile) break; // Blocked
+
+      chasePath.push(nextTile);
+      currentPos = nextTile;
+
+      // Stop if we'll be adjacent after this step
+      if (tilesAdjacent(nextTile, targetTile)) break;
+    }
+
+    if (chasePath.length === 0) {
+      // Completely blocked from the start
+      if (this.DEBUG_MODE)
+        console.log(`[MobTileMovement] requestMoveTo: Blocked, can't move`);
+      state.hasDestination = false;
+      return;
+    }
+
+    state.path = chasePath;
+    state.pathIndex = 0;
 
     if (this.DEBUG_MODE)
       console.log(
-        `[MobTileMovement] requestMoveTo: BFS path calculated, length=${path.length}`,
+        `[MobTileMovement] requestMoveTo: Chase path ${chasePath.length} steps`,
       );
 
-    // Update state
-    state.path = path;
-    state.pathIndex = 0;
-    state.targetEntityId = targetEntityId;
-    state.lastTargetTile = targetEntityId ? { ...targetTile } : null;
-    state.tilesPerTick = tilesPerTick;
-    state.hasDestination = path.length > 0;
-    state.moveSeq = (state.moveSeq || 0) + 1;
+    // Rotate mob toward first tile
+    const nextTile = chasePath[0];
+    const nextWorld = tileToWorld(nextTile);
+    const curr = entity.position;
+    const dx = nextWorld.x - curr.x;
+    const dz = nextWorld.z - curr.z;
 
-    if (path.length > 0) {
-      // Immediately rotate mob toward first tile in path (same as player)
-      const nextTile = path[0];
-      const nextWorld = tileToWorld(nextTile);
-      const curr = entity.position;
-      const dx = nextWorld.x - curr.x;
-      const dz = nextWorld.z - curr.z;
+    if (Math.abs(dx) + Math.abs(dz) > 0.01) {
+      const yaw = Math.atan2(-dx, -dz);
+      this._tempQuat.setFromAxisAngle(this._up, yaw);
 
-      // Calculate rotation to face movement direction
-      if (Math.abs(dx) + Math.abs(dz) > 0.01) {
-        // VRM faces -Z after factory rotation
-        const yaw = Math.atan2(-dx, -dz);
-        this._tempQuat.setFromAxisAngle(this._up, yaw);
-
-        if (entity.node) {
-          entity.node.quaternion.copy(this._tempQuat);
-        }
-        if (entity.data) {
-          entity.data.quaternion = [
-            this._tempQuat.x,
-            this._tempQuat.y,
-            this._tempQuat.z,
-            this._tempQuat.w,
-          ];
-        }
+      if (entity.node) {
+        entity.node.quaternion.copy(this._tempQuat);
       }
-
-      // Broadcast movement started
-      this.sendFn("tileMovementStart", {
-        id: mobId,
-        path: path.map((t) => ({ x: t.x, z: t.z })),
-        running: state.isRunning,
-        destinationTile: { x: targetTile.x, z: targetTile.z },
-        moveSeq: state.moveSeq,
-        isMob: true,
-      });
-
-      // Send initial rotation and emote (same as player)
-      this.sendFn("entityModified", {
-        id: mobId,
-        changes: {
-          q: entity.data?.quaternion,
-          e: "walk",
-        },
-      });
+      if (entity.data) {
+        entity.data.quaternion = [
+          this._tempQuat.x,
+          this._tempQuat.y,
+          this._tempQuat.z,
+          this._tempQuat.w,
+        ];
+      }
     }
+
+    // Broadcast movement started
+    this.sendFn("tileMovementStart", {
+      id: mobId,
+      path: chasePath.map((t) => ({ x: t.x, z: t.z })),
+      running: state.isRunning,
+      destinationTile: { x: targetTile.x, z: targetTile.z },
+      moveSeq: state.moveSeq,
+      isMob: true,
+    });
+
+    // Send rotation and emote
+    this.sendFn("entityModified", {
+      id: mobId,
+      changes: {
+        q: entity.data?.quaternion,
+        e: "walk",
+      },
+    });
   }
 
   /**
@@ -273,6 +318,7 @@ export class MobTileMovementManager {
     state.targetEntityId = null;
     state.lastTargetTile = null;
     state.hasDestination = false;
+    state.isChasing = false;
 
     // Broadcast idle state
     const entity = this.world.entities.get(mobId);
@@ -317,11 +363,20 @@ export class MobTileMovementManager {
           `[MobTileMovement] onTick: Mob ${mobId} - hasDestination=${state.hasDestination}, pathLen=${state.path.length}, pathIndex=${state.pathIndex}`,
         );
 
-      // Check if we're chasing a moving target and need to repath
-      // OSRS-STYLE: Path to an ADJACENT tile, not the exact target tile
-      // This prevents mobs from standing inside players during combat
-      if (state.targetEntityId && state.hasDestination) {
-        const targetEntity = this.world.entities.get(state.targetEntityId);
+      // OSRS-STYLE DUMB PATHFINDER FOR CHASE MODE
+      // Instead of expensive BFS repathing every tick, NPCs use a simple algorithm:
+      // 1. Try diagonal step toward target
+      // 2. Try cardinal steps (prioritize axis with greater distance)
+      // 3. If all blocked = NPC is "stuck" (safespotting!)
+      //
+      // This is O(1) per step, so no throttling is needed.
+      // @see https://oldschool.runescape.wiki/w/Pathfinding
+      if (state.isChasing && state.targetEntityId) {
+        // CRITICAL: Players are NOT in world.entities - they're accessed via world.getPlayer()
+        // Mobs are in world.entities, but when chasing we're always targeting players
+        const targetPlayer = this.world.getPlayer?.(state.targetEntityId);
+        const targetEntity =
+          targetPlayer || this.world.entities.get(state.targetEntityId);
         if (targetEntity) {
           const currentTargetTile = worldToTile(
             targetEntity.position.x,
@@ -332,8 +387,7 @@ export class MobTileMovementManager {
           // If so, we're in melee range - no need to move closer!
           if (tilesAdjacent(state.currentTile, currentTargetTile)) {
             // Already in combat range - stop moving and clear path
-            // The mob should stay on this adjacent tile and attack
-            if (state.path.length > 0) {
+            if (state.path.length > 0 || state.hasDestination) {
               if (this.DEBUG_MODE)
                 console.log(
                   `[MobTileMovement] Already adjacent to target at (${currentTargetTile.x},${currentTargetTile.z}), stopping`,
@@ -355,62 +409,61 @@ export class MobTileMovementManager {
                 isMob: true,
               });
             }
-            continue; // Skip movement processing for this mob
+            continue; // Skip movement processing - we're in attack range
           }
 
-          // If target moved to a different tile, recalculate path
-          if (
-            !state.lastTargetTile ||
-            !tilesEqual(state.lastTargetTile, currentTargetTile)
-          ) {
-            // OSRS-STYLE: Path to the best ADJACENT tile, not the exact target tile
-            // This ensures mob stops next to player, not on top of them
-            const adjacentTile = getBestAdjacentTile(
-              currentTargetTile,
-              state.currentTile,
-              false, // Allow diagonal adjacency
-              (tile) => this.isTileWalkable(tile),
+          // NOT adjacent - use chase pathfinder to calculate steps toward target
+          // Calculate up to tilesPerTick steps (O(1) per step, unlike BFS which is O(tiles²))
+          const chasePath: TileCoord[] = [];
+          let currentPos = { ...state.currentTile };
+
+          for (let step = 0; step < state.tilesPerTick; step++) {
+            // Check if this step would make us adjacent to target
+            const nextTile = chaseStep(currentPos, currentTargetTile, (tile) =>
+              this.isTileWalkable(tile),
             );
 
-            if (adjacentTile) {
-              // Path to adjacent tile (not target's exact tile)
-              const newPath = this.pathfinder.findPath(
-                state.currentTile,
-                adjacentTile,
-                (tile) => this.isTileWalkable(tile),
-              );
+            if (!nextTile) {
+              // Blocked - stop here (safespotting!)
+              break;
+            }
 
-              if (newPath.length > 0) {
-                if (this.DEBUG_MODE)
-                  console.log(
-                    `[MobTileMovement] Repathing to adjacent tile (${adjacentTile.x},${adjacentTile.z}) near target (${currentTargetTile.x},${currentTargetTile.z})`,
-                  );
-                state.path = newPath;
-                state.pathIndex = 0;
-                state.lastTargetTile = { ...currentTargetTile };
-                state.moveSeq++;
-              }
-            } else {
-              // No walkable adjacent tile found - try pathing directly as fallback
-              // This handles edge cases like all adjacent tiles being blocked
-              if (this.DEBUG_MODE)
-                console.warn(
-                  `[MobTileMovement] No walkable adjacent tile to target, attempting direct path`,
-                );
-              const newPath = this.pathfinder.findPath(
-                state.currentTile,
-                currentTargetTile,
-                (tile) => this.isTileWalkable(tile),
-              );
+            chasePath.push(nextTile);
+            currentPos = nextTile;
 
-              if (newPath.length > 0) {
-                state.path = newPath;
-                state.pathIndex = 0;
-                state.lastTargetTile = { ...currentTargetTile };
-                state.moveSeq++;
-              }
+            // Stop early if we'll be adjacent after this step
+            if (tilesAdjacent(nextTile, currentTargetTile)) {
+              break;
             }
           }
+
+          if (chasePath.length > 0) {
+            state.path = chasePath;
+            state.pathIndex = 0;
+            state.hasDestination = true;
+            state.lastTargetTile = { ...currentTargetTile };
+
+            if (this.DEBUG_MODE)
+              console.log(
+                `[MobTileMovement] Chase: ${chasePath.length} steps toward target (${currentTargetTile.x},${currentTargetTile.z})`,
+              );
+          } else {
+            // All directions blocked - NPC is stuck (safespotted!)
+            // This is intentional behavior - NPCs don't search around obstacles
+            if (this.DEBUG_MODE)
+              console.log(
+                `[MobTileMovement] NPC stuck (safespotted?) - all paths to target blocked`,
+              );
+            state.path = [];
+            state.pathIndex = 0;
+            state.hasDestination = false;
+            continue; // Skip movement - we're blocked
+          }
+        } else {
+          // Target entity no longer exists - stop chasing
+          state.isChasing = false;
+          state.targetEntityId = null;
+          state.lastTargetTile = null;
         }
       }
 
@@ -439,7 +492,10 @@ export class MobTileMovementManager {
       // Get target tile if chasing (for collision prevention)
       let targetOccupiedTile: TileCoord | null = null;
       if (state.targetEntityId) {
-        const targetEntity = this.world.entities.get(state.targetEntityId);
+        // CRITICAL: Players are NOT in world.entities - they're accessed via world.getPlayer()
+        const targetPlayer = this.world.getPlayer?.(state.targetEntityId);
+        const targetEntity =
+          targetPlayer || this.world.entities.get(state.targetEntityId);
         if (targetEntity) {
           targetOccupiedTile = worldToTile(
             targetEntity.position.x,
@@ -552,15 +608,20 @@ export class MobTileMovementManager {
         state.path = [];
         state.pathIndex = 0;
 
-        // Broadcast idle state
-        this.sendFn("entityModified", {
-          id: mobId,
-          changes: {
-            p: [worldPos.x, worldPos.y, worldPos.z],
-            v: [0, 0, 0],
-            e: "idle",
-          },
-        });
+        // ONLY broadcast idle state if NOT chasing a target
+        // When chasing (in combat), the AI state machine and CombatSystem
+        // control the animation - they will set combat/idle appropriately.
+        // Sending "idle" here would override the combat animation!
+        if (!state.isChasing) {
+          this.sendFn("entityModified", {
+            id: mobId,
+            changes: {
+              p: [worldPos.x, worldPos.y, worldPos.z],
+              v: [0, 0, 0],
+              e: "idle",
+            },
+          });
+        }
       }
     }
   }
