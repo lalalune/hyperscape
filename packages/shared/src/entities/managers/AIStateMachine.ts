@@ -42,6 +42,7 @@ export interface AIStateContext {
   canAttack(currentTick: number): boolean;
   performAttack(targetId: string, currentTick: number): void;
   isInCombat(): boolean;
+  exitCombat(): void;
 
   // Spawn & Leashing
   getSpawnPoint(): Position3D;
@@ -102,16 +103,12 @@ export class IdleState implements AIState {
     this.idleDuration =
       this.IDLE_MIN_DURATION +
       Math.random() * (this.IDLE_MAX_DURATION - this.IDLE_MIN_DURATION);
-    //console.log(
-    //  `[IdleState] Entered, will idle for ${(this.idleDuration / 1000).toFixed(1)}s`,
-    //);
   }
 
   update(context: AIStateContext, _deltaTime: number): MobAIState | null {
     // Check for nearby players (instant aggro)
     const nearbyPlayer = context.findNearbyPlayer();
     if (nearbyPlayer) {
-      //console.log(`[IdleState] Detected player, switching to CHASE`);
       context.setTarget(nearbyPlayer.id);
       context.emitEvent("MOB_NPC_AGGRO", {
         mobId: "self",
@@ -123,7 +120,6 @@ export class IdleState implements AIState {
     // After idle duration, start wandering
     const now = context.getTime();
     if (now - this.idleStartTime > this.idleDuration) {
-      //console.log(`[IdleState] Idle expired, switching to WANDER`);
       return MobAIState.WANDER;
     }
 
@@ -203,14 +199,13 @@ export class ChaseState implements AIState {
   readonly name = MobAIState.CHASE;
 
   enter(_context: AIStateContext): void {
-    console.log(`[ChaseState] Entered`);
+    // No-op
   }
 
   update(context: AIStateContext, deltaTime: number): MobAIState | null {
     // Check wander radius boundary (leashing)
     const spawnDistance = context.getDistanceFromSpawn();
     if (spawnDistance > context.getWanderRadius()) {
-      console.log(`[ChaseState] Outside wander radius, switching to RETURN`);
       context.setTarget(null);
       return MobAIState.RETURN;
     }
@@ -238,9 +233,6 @@ export class ChaseState implements AIState {
 
     // Check if already adjacent to target (in melee range)
     if (tilesAdjacent(currentTile, targetTile)) {
-      console.log(
-        `[ChaseState] Adjacent to target at tile (${targetTile.x},${targetTile.z}), switching to ATTACK`,
-      );
       return MobAIState.ATTACK;
     }
 
@@ -291,14 +283,13 @@ export class AttackState implements AIState {
   readonly name = MobAIState.ATTACK;
 
   enter(_context: AIStateContext): void {
-    console.log(`[AttackState] Entered`);
+    // No-op
   }
 
   update(context: AIStateContext, _deltaTime: number): MobAIState | null {
     // Check wander radius boundary (can leash even while attacking)
     const spawnDistance = context.getDistanceFromSpawn();
     if (spawnDistance > context.getWanderRadius()) {
-      console.log(`[AttackState] Outside wander radius, switching to RETURN`);
       context.setTarget(null);
       return MobAIState.RETURN;
     }
@@ -330,16 +321,12 @@ export class AttackState implements AIState {
     const isSameTile = tilesEqual(currentTile, targetTile);
 
     if (!isAdjacent && !isSameTile) {
-      console.log(
-        `[AttackState] Target moved away from tile (${targetTile.x},${targetTile.z}), switching to CHASE`,
-      );
       return MobAIState.CHASE;
     }
 
     // Perform attack if cooldown ready (TICK-BASED, OSRS-accurate)
     const currentTick = context.getCurrentTick();
     if (context.canAttack(currentTick)) {
-      console.log(`[AttackState] ⚔️ Performing attack on ${targetId}`);
       context.performAttack(targetId, currentTick);
     }
 
@@ -368,7 +355,7 @@ export class ReturnState implements AIState {
   private readonly RETURN_TELEPORT_DISTANCE = 50;
 
   enter(_context: AIStateContext): void {
-    console.log(`[ReturnState] Entered, returning to spawn`);
+    // No-op
   }
 
   update(context: AIStateContext, deltaTime: number): MobAIState | null {
@@ -382,15 +369,8 @@ export class ReturnState implements AIState {
       spawnDistance > this.RETURN_TELEPORT_DISTANCE &&
       !context.isInCombat()
     ) {
-      console.warn(
-        `[ReturnState] Too far from spawn (${spawnDistance.toFixed(1)}), teleporting (not in combat)`,
-      );
       context.teleportTo(spawnPoint);
       return MobAIState.IDLE;
-    } else if (spawnDistance > this.RETURN_TELEPORT_DISTANCE) {
-      console.log(
-        `[ReturnState] Far from spawn but IN COMBAT, walking back (no teleport)`,
-      );
     }
 
     // TILE-BASED arrival check: Convert positions to tiles and compare
@@ -401,7 +381,9 @@ export class ReturnState implements AIState {
 
     // Check if we're on the same tile as spawn
     if (tilesEqual(currentTile, spawnTile)) {
-      console.log(`[ReturnState] Reached spawn tile, switching to IDLE`);
+      // CRITICAL: Reset combat state so mob can attack immediately on re-aggro
+      // Without this, nextAttackTick retains its old value and canAttack() returns false
+      context.exitCombat();
       return MobAIState.IDLE;
     }
 

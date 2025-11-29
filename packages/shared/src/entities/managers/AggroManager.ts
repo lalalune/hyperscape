@@ -47,13 +47,19 @@ export class AggroManager {
    */
   findNearbyPlayer(
     currentPos: Position3D,
-    players: Array<{ id: string; node?: { position?: Position3D } }>,
+    players: Array<{
+      id: string;
+      position?: Position3D;
+      node?: { position?: Position3D };
+    }>,
   ): PlayerTarget | null {
     // Early exit if no players
     if (players.length === 0) return null;
 
     for (const player of players) {
-      const playerPos = player.node?.position;
+      // Check both direct position AND node.position for compatibility
+      // Server-side players may have position directly, client-side may use node.position
+      const playerPos = player.position || player.node?.position;
       if (!playerPos) continue;
 
       // CRITICAL: Skip dead players (RuneScape-style: mobs don't aggro on corpses)
@@ -103,10 +109,19 @@ export class AggroManager {
     playerId: string,
     getPlayerFn: (
       id: string,
-    ) => { id: string; node?: { position?: Position3D } } | null,
+    ) => {
+      id: string;
+      position?: Position3D;
+      node?: { position?: Position3D };
+    } | null,
   ): PlayerTarget | null {
     const player = getPlayerFn(playerId);
-    if (!player || !player.node?.position) return null;
+    if (!player) return null;
+
+    // Check both direct position AND node.position for compatibility
+    // Server-side players may have position directly, client-side may use node.position
+    const playerPos = player.position || player.node?.position;
+    if (!playerPos) return null;
 
     // CRITICAL: Return null if player is dead (RuneScape-style: clear target when player dies)
     // PlayerEntity has isDead() method and health as a number (not { current, max })
@@ -131,9 +146,9 @@ export class AggroManager {
     return {
       id: player.id,
       position: {
-        x: player.node.position.x,
-        y: player.node.position.y,
-        z: player.node.position.z,
+        x: playerPos.x,
+        y: playerPos.y,
+        z: playerPos.z,
       },
     };
   }

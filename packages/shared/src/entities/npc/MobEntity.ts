@@ -841,6 +841,7 @@ export class MobEntity extends CombatantEntity {
         this.combatManager.performAttack(targetId, currentTick);
       },
       isInCombat: () => this.combatManager.isInCombat(),
+      exitCombat: () => this.combatManager.exitCombat(),
 
       // Spawn & Leashing (use CURRENT spawn location, not area center)
       // CRITICAL: Return mob's current spawn point (changes on respawn)

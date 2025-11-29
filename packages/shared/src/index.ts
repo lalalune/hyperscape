@@ -665,4 +665,5 @@ export type {
   TileFlags,
 } from "./systems/shared/movement/TileSystem";
 export { BFSPathfinder } from "./systems/shared/movement/BFSPathfinder";
+export { chaseStep } from "./systems/shared/movement/ChasePathfinding";
 export type { WalkabilityChecker } from "./systems/shared/movement/BFSPathfinder";
