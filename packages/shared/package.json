@@ -139,7 +139,7 @@
     "autoprefixer": "^10.4.21",
     "chokidar": "^4.0.3",
     "dts-bundle-generator": "^9.5.1",
-    "esbuild": "^0.25.5",
+    "esbuild": "^0.27.0",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.34.0",
