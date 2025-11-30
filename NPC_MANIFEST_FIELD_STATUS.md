@@ -1,0 +1,178 @@
+# NPC Manifest Field Status
+
+This document tracks which fields from `npcs.json` manifests are properly wired up through the spawn chain to affect mob behavior.
+
+**Data Flow**: `npcs.json` → `DataManager.loadManifestsFromCDN()` → `ALL_NPCS` Map → `MobNPCSpawnerSystem` → `EntityManager.spawnEntity()` → `MobEntity`
+
+## Status Legend
+
+| Symbol | Meaning |
+|--------|---------|
+| ✅ | Fully working - field flows from manifest to behavior |
+| ⚠️ | Partially working - normalized but not fully used |
+| ❌ | Not working - field is ignored |
+
+---
+
+## Critical Missing Fields (High Impact)
+
+### 1. `combat.retaliates` ✅ FIXED
+- **Purpose**: Controls if mob fights back when attacked
+- **Expected**: `false` = peaceful mob that doesn't fight back (like chickens)
+- **Status**: WORKING - Mob checks `retaliates` flag before fighting back
+- **Fixed in**:
+  - `types/entities/entities.ts` - Added to MobEntityConfig
+  - `systems/shared/entities/MobNPCSpawnerSystem.ts` - Passed from manifest
+  - `systems/shared/entities/Entities.ts` - Added default (true)
+  - `systems/shared/entities/EntityManager.ts` - Added default (true)
+  - `systems/shared/combat/CombatSystem.ts` - Checks flag before setting up retaliation
+  - `entities/npc/MobEntity.ts` - Checks flag in takeDamage() before targeting attacker
+
+### 2. `movement.type` ✅ FIXED
+- **Purpose**: Controls movement behavior ("stationary" | "wander" | "patrol")
+- **Expected**: `"stationary"` = mob stands still, `"wander"` = random movement
+- **Status**: WORKING - Stationary mobs stay in IDLE, wander mobs roam
+- **Fixed in**:
+  - `types/entities/entities.ts` - Added movementType to MobEntityConfig
+  - `systems/shared/entities/MobNPCSpawnerSystem.ts` - Passed from manifest
+  - `systems/shared/entities/Entities.ts` - Added default ("wander")
+  - `systems/shared/entities/EntityManager.ts` - Added default ("wander")
+  - `entities/managers/AIStateMachine.ts` - Added getMovementType() to context, IdleState checks it
+  - `entities/npc/MobEntity.ts` - Exposed in createAIContext(), fixed clearTargetAndExitCombat()
+
+### 3. `drops.defaultDrop` ✅ FIXED
+- **Purpose**: Guaranteed drop every mob has (bones, ashes, etc.)
+- **Expected**: Every goblin drops bones on death
+- **Status**: WORKING - Uses calculateNPCDrops() which handles defaultDrop
+- **Fixed in**:
+  - `entities/npc/MobEntity.ts` - Rewrote dropLoot() to use calculateNPCDrops()
+
+### 4. `drops.always/uncommon/rare/veryRare` ✅ FIXED
+- **Purpose**: RuneScape-style tiered drop system
+- **Expected**: Different rarity tiers with appropriate drop rates
+- **Status**: WORKING - calculateNPCDrops() processes all tiers
+- **Fixed in**:
+  - `entities/npc/MobEntity.ts` - Same fix as defaultDrop (uses existing npcs.ts function)
+
+### 5. `appearance.scale` ❌
+- **Purpose**: Scale mob model (e.g., 2.0 for big boss, 0.5 for small critter)
+- **Expected**: Manifest scale affects visual size
+- **Actual**: Hardcoded to 1.0 (or 100 for GLB cm→m conversion)
+- **Root Cause**: MobNPCSpawnerSystem hardcodes scale, MobEntity ignores config.scale
+- **Files to fix**:
+  - `systems/shared/entities/MobNPCSpawnerSystem.ts` - Pass scale from manifest
+  - `entities/npc/MobEntity.ts` - Apply config.scale to mesh/VRM
+
+---
+
+## Medium Impact Missing Fields
+
+### 6. `combat.attackable` ❌
+- **Purpose**: Controls if players can attack this NPC
+- **Expected**: `false` = friendly NPC that can't be attacked
+- **Actual**: All mobs can be attacked
+- **Root Cause**: Field not passed, no check in interaction/combat systems
+
+### 7. `stats.attack` ❌
+- **Purpose**: Affects hit accuracy (OSRS-style)
+- **Expected**: Higher attack = more accurate hits
+- **Actual**: Only `stats.strength` used as `attackPower`
+- **Root Cause**: Field not passed to MobEntityConfig
+
+### 8. `stats.constitution/ranged/magic` ❌
+- **Purpose**: Support different combat styles
+- **Expected**: Ranged/magic mobs with appropriate stats
+- **Actual**: Only melee stats work
+- **Root Cause**: Fields not passed, combat only uses melee
+
+### 9. `combat.poisonous` ❌
+- **Purpose**: Mob can poison players on hit
+- **Expected**: Poison damage over time after being hit
+- **Actual**: No poison system implemented
+- **Root Cause**: Field not passed, no poison logic
+
+### 10. `combat.immuneToPoison` ❌
+- **Purpose**: Mob immune to poison damage
+- **Expected**: Poison attacks have no effect
+- **Actual**: No poison system to be immune to
+- **Root Cause**: Field not passed, no poison logic
+
+### 11. `movement.roaming` ❌
+- **Purpose**: Can mob leave spawn area permanently
+- **Expected**: `true` = mob can roam freely, not leashed
+- **Actual**: All mobs leashed to spawn
+- **Root Cause**: Field not passed, leashing always active
+
+---
+
+## Working Fields ✅
+
+These fields are properly wired up from manifest to behavior:
+
+| Field | Status | Notes |
+|-------|--------|-------|
+| `id` | ✅ | Used as mobType |
+| `name` | ✅ | Displayed in UI |
+| `description` | ✅ | Used for examine |
+| `stats.level` | ✅ | Combat level |
+| `stats.health` | ✅ | Max/current health |
+| `stats.strength` | ✅ | Used as attackPower |
+| `stats.defense` | ✅ | Defense rating |
+| `combat.aggressive` | ✅ | Fixed! Controls if mob attacks on sight |
+| `combat.retaliates` | ✅ | Fixed! Controls if mob fights back when attacked |
+| `movement.type` | ✅ | Fixed! Controls idle movement (stationary/wander/patrol) |
+| `combat.aggroRange` | ✅ | Detection range |
+| `combat.combatRange` | ✅ | Attack range |
+| `combat.attackSpeed` | ✅ | Attack cooldown |
+| `combat.respawnTime` | ✅ | Respawn delay |
+| `combat.xpReward` | ✅ | XP on kill |
+| `movement.speed` | ✅ | Move speed |
+| `movement.wanderRadius` | ✅ | Wander distance |
+| `drops.defaultDrop` | ✅ | Fixed! Guaranteed drop (bones/ashes) |
+| `drops.always` | ✅ | Fixed! 100% drop rate items |
+| `drops.common` | ✅ | Common drop table |
+| `drops.uncommon` | ✅ | Fixed! Uncommon drops now work |
+| `drops.rare` | ✅ | Fixed! Rare drops now work |
+| `drops.veryRare` | ✅ | Fixed! Very rare drops now work |
+| `appearance.modelPath` | ✅ | 3D model path |
+
+---
+
+## Fix Progress
+
+- [x] `combat.aggressive` - Fixed
+- [x] `combat.retaliates` - Fixed (MobEntityConfig, spawner, CombatSystem check, MobEntity.takeDamage)
+- [x] `movement.type` - Fixed (MobEntityConfig, spawner, AIStateMachine, MobEntity)
+- [x] `drops.defaultDrop` - Fixed (MobEntity.dropLoot() now uses calculateNPCDrops())
+- [x] `drops.always/uncommon/rare/veryRare` - Fixed (same as above - one fix for all!)
+- [ ] `appearance.scale` - TODO
+
+---
+
+## Testing Checklist
+
+For each field fix, test with these manifest changes:
+
+### combat.retaliates
+```json
+"combat": { "retaliates": false }
+```
+Expected: Mob doesn't fight back when attacked
+
+### movement.type
+```json
+"movement": { "type": "stationary" }
+```
+Expected: Mob stands still, doesn't wander
+
+### drops.defaultDrop
+```json
+"drops": { "defaultDrop": { "enabled": true, "itemId": "bones", "quantity": 1 } }
+```
+Expected: Mob always drops bones on death
+
+### appearance.scale
+```json
+"appearance": { "scale": 2.0 }
+```
+Expected: Mob appears twice as large

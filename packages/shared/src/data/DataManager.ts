@@ -53,9 +53,32 @@ import type { MobSpawnPoint, NPCLocation, WorldArea } from "./world-areas";
 import { WeaponType, EquipmentSlotName, AttackType } from "../types/core/core";
 
 /**
- * Data validation results
+ * External Resource Data - loaded from resources.json manifest
  */
-// DataValidationResult moved to shared types
+export interface ExternalResourceData {
+  id: string;
+  name: string;
+  type: string;
+  resourceType: string;
+  modelPath: string | null;
+  stumpModelPath: string | null;
+  scale: number;
+  stumpScale: number;
+  harvestSkill: string;
+  toolRequired: string | null;
+  levelRequired: number;
+  baseCycleTicks: number;
+  depleteChance: number;
+  respawnTicks: number;
+  harvestYield: Array<{
+    itemId: string;
+    itemName: string;
+    quantity: number;
+    chance: number;
+    xpAmount: number;
+    stackable: boolean;
+  }>;
+}
 
 /**
  * Centralized Data Manager
@@ -113,46 +136,37 @@ export class DataManager {
 
       // Load NPCs (unified standardized structure with categories: mob, boss, neutral, quest)
       const npcsRes = await fetch(`${baseUrl}/npcs.json`);
-      const npcsData = (await npcsRes.json()) as {
-        npcs: Array<NPCData>;
-        metadata?: unknown;
-      };
+      const npcList = (await npcsRes.json()) as Array<NPCData>;
 
       // Store all NPCs in unified collection
-      const npcList = npcsData.npcs || [];
       for (const npc of npcList) {
-        (ALL_NPCS as Map<string, NPCData>).set(npc.id, npc);
+        const normalized = this.normalizeNPC(npc);
+        (ALL_NPCS as Map<string, NPCData>).set(normalized.id, normalized);
       }
 
       // Load resources
       const resourcesRes = await fetch(`${baseUrl}/resources.json`);
-      const resourceList = (await resourcesRes.json()) as Array<{
-        id: string;
-        name: string;
-        type: string;
-        modelPath: string | null;
-        harvestSkill: string;
-        requiredLevel: number;
-        harvestTime: number;
-        respawnTime: number;
-        harvestYield: Array<{
-          itemId: string;
-          quantity: number;
-          chance: number;
-        }>;
-      }>;
+      const resourceList =
+        (await resourcesRes.json()) as Array<ExternalResourceData>;
 
       if (
-        !(globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> })
-          .EXTERNAL_RESOURCES
+        !(
+          globalThis as {
+            EXTERNAL_RESOURCES?: Map<string, ExternalResourceData>;
+          }
+        ).EXTERNAL_RESOURCES
       ) {
         (
-          globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }
+          globalThis as {
+            EXTERNAL_RESOURCES?: Map<string, ExternalResourceData>;
+          }
         ).EXTERNAL_RESOURCES = new Map();
       }
       for (const resource of resourceList) {
         (
-          globalThis as unknown as { EXTERNAL_RESOURCES: Map<string, unknown> }
+          globalThis as unknown as {
+            EXTERNAL_RESOURCES: Map<string, ExternalResourceData>;
+          }
         ).EXTERNAL_RESOURCES.set(resource.id, resource);
       }
 
@@ -260,6 +274,63 @@ export class DataManager {
       attackType: attackType as AttackType | null,
       ...defaults,
     };
+  }
+
+  private normalizeNPC(npc: NPCData): NPCData {
+    // Ensure required fields have sane defaults
+    const defaults: Partial<NPCData> = {
+      faction: npc.faction || "unknown",
+      stats: {
+        level: npc.stats?.level ?? 1,
+        health: npc.stats?.health ?? 10,
+        attack: npc.stats?.attack ?? 1,
+        strength: npc.stats?.strength ?? 1,
+        defense: npc.stats?.defense ?? 1,
+        constitution: npc.stats?.constitution ?? 10,
+        ranged: npc.stats?.ranged ?? 1,
+        magic: npc.stats?.magic ?? 1,
+      },
+      combat: {
+        attackable: npc.combat?.attackable ?? true,
+        aggressive: npc.combat?.aggressive ?? false,
+        retaliates: npc.combat?.retaliates ?? true,
+        aggroRange: npc.combat?.aggroRange ?? 0,
+        combatRange: npc.combat?.combatRange ?? 1.5,
+        attackSpeed: npc.combat?.attackSpeed ?? 2400,
+        respawnTime: npc.combat?.respawnTime ?? 60000,
+        xpReward: npc.combat?.xpReward ?? 0,
+        poisonous: npc.combat?.poisonous ?? false,
+        immuneToPoison: npc.combat?.immuneToPoison ?? false,
+      },
+      movement: {
+        type: npc.movement?.type ?? "stationary",
+        speed: npc.movement?.speed ?? 1,
+        wanderRadius: npc.movement?.wanderRadius ?? 0,
+        roaming: npc.movement?.roaming ?? false,
+      },
+      drops: npc.drops || {
+        defaultDrop: { enabled: false, itemId: "", quantity: 0 },
+        always: [],
+        common: [],
+        uncommon: [],
+        rare: [],
+        veryRare: [],
+        rareDropTable: false,
+      },
+      services: npc.services || { enabled: false, types: [] },
+      behavior: npc.behavior || { enabled: false },
+      appearance: {
+        modelPath: npc.appearance?.modelPath ?? "",
+        iconPath: npc.appearance?.iconPath,
+        scale: npc.appearance?.scale ?? 1.0,
+        tint: npc.appearance?.tint,
+      },
+      position: npc.position || { x: 0, y: 0, z: 0 },
+    };
+    return {
+      ...npc,
+      ...defaults,
+    } as NPCData;
   }
 
   /**

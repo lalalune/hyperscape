@@ -283,6 +283,9 @@ export class Entities extends SystemBase implements IEntities {
         defense: 2,
         attackSpeed: 1.5,
         moveSpeed: 3.0, // Walking speed (matches player walk)
+        aggressive: true, // Default to aggressive for backwards compatibility
+        retaliates: true, // Default to retaliating for backwards compatibility
+        movementType: "wander", // Default to wander for backwards compatibility
         aggroRange: 15.0, // 15 meters detection range
         combatRange: 1.5, // 1.5 meters melee range
         wanderRadius: 10, // 10 meter wander radius from spawn (RuneScape-style)
@@ -576,7 +579,7 @@ export class Entities extends SystemBase implements IEntities {
                 ? ResourceType.MINING_ROCK
                 : ResourceType.TREE,
         resourceId:
-          (data as { resourceId?: string }).resourceId || "normal_tree",
+          (data as { resourceId?: string }).resourceId || "tree_normal",
         harvestSkill:
           (data as { harvestSkill?: string }).harvestSkill || "woodcutting",
         requiredLevel: (data as { requiredLevel?: number }).requiredLevel || 1,

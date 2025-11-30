@@ -76,20 +76,8 @@ export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
       },
     ],
     mobSpawns: [
-      {
-        mobId: "goblin",
-        position: { x: 25, y: 43, z: 25 },
-        spawnRadius: 10,
-        maxCount: 3,
-        respawnTime: 60000,
-      },
-      {
-        mobId: "goblin",
-        position: { x: -25, y: 43, z: 25 },
-        spawnRadius: 10,
-        maxCount: 2,
-        respawnTime: 60000,
-      },
+      // Starter area is a safe zone - no mob spawns
+      // The default test goblin is spawned by MobNPCSpawnerSystem near origin
     ],
     connections: [],
     specialFeatures: [],

@@ -55,6 +55,9 @@ export interface AIStateContext {
   setWanderTarget(target: Position3D | null): void;
   generateWanderTarget(): Position3D;
 
+  // Movement type (from manifest)
+  getMovementType(): "stationary" | "wander" | "patrol";
+
   // Timing
   getCurrentTick(): number; // Server tick number for combat timing
   getTime(): number; // Date.now() for non-combat timing (idle duration, etc.)
@@ -117,9 +120,17 @@ export class IdleState implements AIState {
       return MobAIState.CHASE;
     }
 
-    // After idle duration, start wandering
+    // After idle duration, start wandering (unless stationary)
     const now = context.getTime();
     if (now - this.idleStartTime > this.idleDuration) {
+      // Stationary mobs don't wander - reset timer and stay in IDLE
+      if (context.getMovementType() === "stationary") {
+        this.idleStartTime = now;
+        this.idleDuration =
+          this.IDLE_MIN_DURATION +
+          Math.random() * (this.IDLE_MAX_DURATION - this.IDLE_MIN_DURATION);
+        return null; // Stay in IDLE
+      }
       return MobAIState.WANDER;
     }
 

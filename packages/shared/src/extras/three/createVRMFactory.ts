@@ -371,6 +371,23 @@ export function createVRMFactory(
     // CRITICAL: Mixer must be on vrm.scene where normalized bones live
     const mixer = new THREE.AnimationMixer(vrm.scene);
 
+    // DIAGNOSTIC: Log all bones in VRM scene for debugging animation issues
+    console.log(`[VRM] 📊 VRM scene bones (for animation binding):`);
+    const allBones: string[] = [];
+    vrm.scene.traverse((obj) => {
+      if (
+        obj.name &&
+        (obj.name.includes("Normalized_") ||
+          obj.name.includes("Hips") ||
+          obj.name.includes("hips"))
+      ) {
+        allBones.push(obj.name);
+      }
+    });
+    console.log(
+      `  Found ${allBones.length} bones: ${allBones.slice(0, 10).join(", ")}${allBones.length > 10 ? "..." : ""}`,
+    );
+
     // IDEA: we should use a global frame "budget" to distribute across avatars
     // https://chatgpt.com/c/4bbd469d-982e-4987-ad30-97e9c5ee6729
 
@@ -379,6 +396,7 @@ export function createVRMFactory(
     let rateCheckedAt = 999;
     let rateCheck = true;
     let updateCallCount = 0;
+    let hasLoggedUpdatePipeline = false;
     const update = (delta) => {
       updateCallCount++;
       elapsed += delta;
@@ -399,6 +417,21 @@ export function createVRMFactory(
       }
 
       if (should) {
+        // DIAGNOSTIC: Log update pipeline status once
+        if (!hasLoggedUpdatePipeline) {
+          hasLoggedUpdatePipeline = true;
+          console.log(`[VRM] 🔧 Update pipeline diagnostic:`);
+          console.log(`  - _tvrm defined: ${!!_tvrm}`);
+          console.log(`  - _tvrm.humanoid defined: ${!!_tvrm?.humanoid}`);
+          console.log(
+            `  - _tvrm.humanoid.update defined: ${!!_tvrm?.humanoid?.update}`,
+          );
+          console.log(`  - mixer defined: ${!!mixer}`);
+          console.log(
+            `  - skeleton defined: ${!!skeleton}, bones: ${skeleton?.bones?.length || 0}`,
+          );
+        }
+
         // HYBRID APPROACH - Asset Forge animation pipeline:
 
         // Step 1: Update AnimationMixer (animates normalized bones)
@@ -411,6 +444,10 @@ export function createVRMFactory(
         // Without this, normalized bone changes never reach the visible skeleton
         if (_tvrm?.humanoid?.update) {
           _tvrm.humanoid.update(elapsed);
+        } else if (!hasLoggedUpdatePipeline) {
+          console.warn(
+            `[VRM] ⚠️ humanoid.update NOT available - animations may not propagate to visible skeleton!`,
+          );
         }
 
         // Step 3: Update skeleton matrices for skinning
@@ -480,11 +517,32 @@ export function createVRMFactory(
         (hooks.loader as LoaderType)
           .load("emote", url)
           .then((emo) => {
+            console.log(`[VRM] 📊 Emote loaded: ${url}`);
+
+            // DIAGNOSTIC: Log what getBoneName returns for a few key bones
+            console.log(`[VRM] 📊 getBoneName diagnostics:`);
+            console.log(`  - hips -> "${getBoneName("hips")}"`);
+            console.log(`  - spine -> "${getBoneName("spine")}"`);
+            console.log(`  - leftUpperArm -> "${getBoneName("leftUpperArm")}"`);
+
             const clip = emo.toClip({
               rootToHips,
               version,
               getBoneName,
             });
+            console.log(
+              `[VRM] 📊 Animation clip created: ${clip?.name}, tracks: ${clip?.tracks?.length}`,
+            );
+
+            // DIAGNOSTIC: Log first few track names
+            if (clip?.tracks?.length > 0) {
+              console.log(`[VRM] 📊 First 5 track names:`);
+              clip.tracks
+                .slice(0, 5)
+                .forEach((t, i) => console.log(`  [${i}] ${t.name}`));
+            } else {
+              console.warn(`[VRM] ⚠️ Animation clip has NO tracks!`);
+            }
             const action = mixer.clipAction(clip);
             action.timeScale = speed;
             newEmote.action = action;
@@ -497,6 +555,11 @@ export function createVRMFactory(
                 Infinity,
               );
               action.play();
+              console.log(`[VRM] ✅ Animation playing: ${clip?.name}`);
+            } else {
+              console.log(
+                `[VRM] ⚠️ Emote changed before load finished, not playing`,
+              );
             }
           })
           .catch((err) => {
@@ -618,13 +681,29 @@ function cloneGLB(glb: GLBData): GLBData {
 
   const originalVRM = glb.userData?.vrm;
 
+  // DIAGNOSTIC: Log VRM cloning status
+  console.log(`[VRM] 🔄 cloneGLB diagnostic:`);
+  console.log(`  - originalVRM defined: ${!!originalVRM}`);
+  console.log(`  - originalVRM.humanoid defined: ${!!originalVRM?.humanoid}`);
+  console.log(
+    `  - originalVRM.humanoid.clone defined: ${!!originalVRM?.humanoid?.clone}`,
+  );
+  console.log(
+    `  - originalVRM.humanoid.update defined: ${!!originalVRM?.humanoid?.update}`,
+  );
+
   // If no VRM or no humanoid, just return cloned scene
   if (!originalVRM?.humanoid?.clone) {
+    console.warn(
+      `[VRM] ⚠️ No humanoid.clone - returning scene without VRM humanoid!`,
+    );
     return { ...glb, scene: clonedScene };
   }
 
   // Clone the VRM humanoid
   const clonedHumanoid = originalVRM.humanoid.clone();
+  console.log(`  - clonedHumanoid defined: ${!!clonedHumanoid}`);
+  console.log(`  - clonedHumanoid.update defined: ${!!clonedHumanoid?.update}`);
 
   // CRITICAL: Remap humanoid bone references to cloned scene
   remapHumanoidBonesToClonedScene(clonedHumanoid, clonedScene);

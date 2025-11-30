@@ -11,6 +11,8 @@ import {
 } from "../../../utils/IdentifierUtils";
 import type { TerrainResourceSpawnPoint } from "../../../types/world/terrain";
 import { TICK_DURATION_MS } from "../movement/TileSystem";
+import { getExternalResource } from "../../../utils/ExternalAssetUtils";
+import type { ExternalResourceData } from "../../../data/DataManager";
 
 /**
  * Resource System
@@ -374,7 +376,10 @@ export class ResourceSystem extends SystemBase {
       this.resources.set(rid, resource);
       // Track variant/subtype for tuning (e.g., 'tree_oak')
       if (resource.type === "tree") {
-        const variant = spawnPoint.subType || "tree_normal";
+        // Build full key: if subType is "normal", key is "tree_normal"
+        const variant = spawnPoint.subType
+          ? `tree_${spawnPoint.subType}`
+          : "tree_normal";
         this.resourceVariants.set(rid, variant);
       }
 
@@ -408,7 +413,9 @@ export class ResourceSystem extends SystemBase {
         properties: {},
         // ResourceEntity specific
         resourceType: resource.type,
-        resourceId: spawnPoint.subType || `${resource.type}_normal`,
+        resourceId: spawnPoint.subType
+          ? `${resource.type}_${spawnPoint.subType}`
+          : `${resource.type}_normal`,
         harvestSkill: resource.skillRequired,
         requiredLevel: resource.levelRequired,
         harvestTime: 3000,
@@ -419,6 +426,16 @@ export class ResourceSystem extends SystemBase {
         })),
         respawnTime: resource.respawnTime,
         depleted: false,
+        // Manifest-driven model config
+        stumpModelPath: this.getStumpModelPathForResource(
+          resource.type,
+          spawnPoint.subType,
+        ),
+        modelScale: this.getScaleForResource(resource.type, spawnPoint.subType),
+        stumpModelScale: this.getStumpScaleForResource(
+          resource.type,
+          spawnPoint.subType,
+        ),
       };
 
       try {
@@ -444,25 +461,110 @@ export class ResourceSystem extends SystemBase {
   }
 
   /**
-   * Get model path for resource type
+   * Get model path for resource type from manifest
+   * Fails fast if manifest data not found
    */
   private getModelPathForResource(type: string, subType?: string): string {
-    switch (type) {
-      case "tree":
-        // Use the high-quality Meshy-generated tree model
-        return "asset://models/basic-reg-tree/basic-tree.glb";
-      case "fishing_spot":
-        return ""; // Fishing spots don't need models
-      case "ore":
-      case "rock":
-      case "gem":
-      case "rare_ore":
-        return ""; // Use placeholder for rocks (no model yet)
-      case "herb_patch":
-        return ""; // Use placeholder for herbs (no model yet)
-      default:
-        return "";
+    // Build resource ID to look up in manifest
+    const variantKey = subType ? `${type}_${subType}` : `${type}_normal`;
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
     }
+
+    // Return modelPath (can be null for fishing spots, etc.)
+    return manifestData.modelPath || "";
+  }
+
+  /**
+   * Get stump model path for resource type from manifest
+   * Fails fast if manifest data not found
+   */
+  private getStumpModelPathForResource(
+    type: string,
+    subType?: string,
+  ): string | null {
+    const variantKey = subType ? `${type}_${subType}` : `${type}_normal`;
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
+    }
+
+    return manifestData.stumpModelPath;
+  }
+
+  /**
+   * Get scale for resource type from manifest
+   * Fails fast if manifest data not found
+   */
+  private getScaleForResource(type: string, subType?: string): number {
+    const variantKey = subType ? `${type}_${subType}` : `${type}_normal`;
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
+    }
+
+    return manifestData.scale;
+  }
+
+  /**
+   * Get stump scale for resource type from manifest
+   * Fails fast if manifest data not found
+   */
+  private getStumpScaleForResource(type: string, subType?: string): number {
+    const variantKey = subType ? `${type}_${subType}` : `${type}_normal`;
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
+    }
+
+    return manifestData.stumpScale;
+  }
+
+  /**
+   * Get drops for resource type from manifest
+   * Fails fast if manifest data not found
+   */
+  private getDropsFromManifest(variantKey: string): ResourceDrop[] {
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
+    }
+
+    if (!manifestData.harvestYield || manifestData.harvestYield.length === 0) {
+      throw new Error(
+        `[ResourceSystem] Resource '${variantKey}' has no harvestYield defined in manifest.`,
+      );
+    }
+
+    return manifestData.harvestYield.map((yield_) => ({
+      itemId: yield_.itemId,
+      itemName: yield_.itemName,
+      quantity: yield_.quantity,
+      chance: yield_.chance,
+      xpAmount: yield_.xpAmount,
+      stackable: yield_.stackable,
+    }));
   }
 
   /**
@@ -522,9 +624,12 @@ export class ResourceSystem extends SystemBase {
             : "tree";
 
     // Determine variant key and tuned parameters
+    // Build full key: if subType is "normal", key is "tree_normal"
     const variantKey =
       resourceType === "tree"
-        ? spawnPoint.subType || "tree_normal"
+        ? spawnPoint.subType
+          ? `tree_${spawnPoint.subType}`
+          : "tree_normal"
         : `${resourceType}_normal`;
     const tuned = this.getVariantTuning(variantKey);
 
@@ -554,12 +659,7 @@ export class ResourceSystem extends SystemBase {
           : respawnTime,
       isAvailable: true,
       lastDepleted: 0,
-      drops:
-        resourceType === "tree"
-          ? this.RESOURCE_DROPS.get(variantKey) ||
-            this.RESOURCE_DROPS.get("tree_normal") ||
-            []
-          : this.RESOURCE_DROPS.get(`${resourceType}_normal`) || [],
+      drops: this.getDropsFromManifest(variantKey),
     };
 
     return resource;
@@ -1037,65 +1137,31 @@ export class ResourceSystem extends SystemBase {
     depleteChance: number;
     respawnTicks: number; // Respawn time in ticks
   } {
-    // OSRS-accurate: All trees use 4-tick base cycle (2.4 seconds per attempt)
-    // Respawn times are OSRS-accurate from the wiki
-    // Defaults for normal tree: respawns in 36-60 seconds (~60-100 ticks)
-    const defaults = {
-      levelRequired: 1,
-      xpPerLog: 25,
-      baseCycleTicks: 4, // OSRS standard: 4 ticks = 2.4s
-      depleteChance: 0.125, // ~1/8 chance per log
-      respawnTicks: 80, // ~48 seconds (middle of 36-60s range)
-    };
-    switch (variantKey) {
-      case "tree_oak":
-        // OSRS Wiki: Oak respawns in 14 ticks (8.4 seconds)
-        return {
-          levelRequired: 15,
-          xpPerLog: 38, // OSRS: 37.5 rounded
-          baseCycleTicks: 4, // OSRS standard
-          depleteChance: 0.125, // ~1/8 chance per log
-          respawnTicks: 14, // OSRS-accurate: 8.4 seconds
-        };
-      case "tree_willow":
-        // OSRS Wiki: Willow respawns in 14 ticks (8.4 seconds)
-        return {
-          levelRequired: 30,
-          xpPerLog: 68, // OSRS: 67.5 rounded
-          baseCycleTicks: 4, // OSRS standard
-          depleteChance: 0.125, // ~1/8 chance per log
-          respawnTicks: 14, // OSRS-accurate: 8.4 seconds
-        };
-      case "tree_maple":
-        // OSRS Wiki: Maple respawns in 59 ticks (35.4 seconds)
-        return {
-          levelRequired: 45,
-          xpPerLog: 100,
-          baseCycleTicks: 4, // OSRS standard
-          depleteChance: 0.125, // ~1/8 chance per log
-          respawnTicks: 59, // OSRS-accurate: 35.4 seconds
-        };
-      case "tree_yew":
-        // OSRS Wiki: Yew respawns in 99 ticks (59.4 seconds)
-        return {
-          levelRequired: 60,
-          xpPerLog: 175,
-          baseCycleTicks: 4, // OSRS standard
-          depleteChance: 0.125, // ~1/8 chance per log
-          respawnTicks: 99, // OSRS-accurate: ~1 minute
-        };
-      case "tree_magic":
-        // OSRS Wiki: Magic respawns in 199 ticks (119.4 seconds)
-        return {
-          levelRequired: 75,
-          xpPerLog: 250,
-          baseCycleTicks: 4, // OSRS standard
-          depleteChance: 0.125, // ~1/8 chance per log
-          respawnTicks: 199, // OSRS-accurate: ~2 minutes
-        };
-      default:
-        return defaults;
+    // Load from manifest - fail fast if not found
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
     }
+
+    if (!manifestData.harvestYield || manifestData.harvestYield.length === 0) {
+      throw new Error(
+        `[ResourceSystem] Resource '${variantKey}' has no harvestYield defined in manifest.`,
+      );
+    }
+
+    // Get XP from first harvest yield entry
+    const xpPerLog = manifestData.harvestYield[0].xpAmount;
+    return {
+      levelRequired: manifestData.levelRequired,
+      xpPerLog,
+      baseCycleTicks: manifestData.baseCycleTicks,
+      depleteChance: manifestData.depleteChance,
+      respawnTicks: manifestData.respawnTicks,
+    };
   }
 
   /**
