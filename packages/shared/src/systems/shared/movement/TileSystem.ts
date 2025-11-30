@@ -122,6 +122,30 @@ export function tilesAdjacent(a: TileCoord, b: TileCoord): boolean {
 }
 
 /**
+ * Check if two tiles are within a given range (Chebyshev distance)
+ * Used for combat range checks where mobs may have extended melee range.
+ *
+ * @param a - First tile
+ * @param b - Second tile
+ * @param rangeTiles - Maximum range in tiles (minimum 1)
+ * @returns true if tiles are within range and not the same tile
+ *
+ * OSRS Reference: Most melee is 1 tile, halberds are 2 tiles.
+ */
+export function tilesWithinRange(
+  a: TileCoord,
+  b: TileCoord,
+  rangeTiles: number,
+): boolean {
+  const dx = Math.abs(a.x - b.x);
+  const dz = Math.abs(a.z - b.z);
+  const chebyshevDistance = Math.max(dx, dz);
+  // Minimum range is 1 (adjacent), can't attack from same tile
+  const effectiveRange = Math.max(1, Math.floor(rangeTiles));
+  return chebyshevDistance <= effectiveRange && chebyshevDistance > 0;
+}
+
+/**
  * Check if two tiles are cardinally adjacent (Manhattan distance = 1)
  * This is N/S/E/W only, no diagonals.
  * In OSRS, melee attacks are cardinal-only (except salamanders).

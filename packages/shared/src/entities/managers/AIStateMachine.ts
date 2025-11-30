@@ -20,7 +20,7 @@ import { MobAIState } from "../../types/entities";
 import {
   worldToTile,
   tilesEqual,
-  tilesAdjacent,
+  tilesWithinRange,
   getBestAdjacentTile,
   tileToWorld,
   type TileCoord,
@@ -242,8 +242,9 @@ export class ChaseState implements AIState {
       targetPlayer.position.z,
     );
 
-    // Check if already adjacent to target (in melee range)
-    if (tilesAdjacent(currentTile, targetTile)) {
+    // Check if already in combat range (uses manifest combatRange)
+    const combatRangeTiles = context.getCombatRange();
+    if (tilesWithinRange(currentTile, targetTile, combatRangeTiles)) {
       return MobAIState.ATTACK;
     }
 
@@ -317,8 +318,7 @@ export class AttackState implements AIState {
       return MobAIState.IDLE;
     }
 
-    // TILE-BASED RANGE CHECK (OSRS-style)
-    // Melee combat = must be on adjacent tile
+    // TILE-BASED RANGE CHECK (uses manifest combatRange)
     const currentPos = context.getPosition();
     const currentTile = worldToTile(currentPos.x, currentPos.z);
     const targetTile = worldToTile(
@@ -326,12 +326,17 @@ export class AttackState implements AIState {
       targetPlayer.position.z,
     );
 
-    // Check if still adjacent to target (in melee range)
+    // Check if still in combat range
     // Also allow attacking if on same tile (edge case that shouldn't happen)
-    const isAdjacent = tilesAdjacent(currentTile, targetTile);
+    const combatRangeTiles = context.getCombatRange();
+    const isInRange = tilesWithinRange(
+      currentTile,
+      targetTile,
+      combatRangeTiles,
+    );
     const isSameTile = tilesEqual(currentTile, targetTile);
 
-    if (!isAdjacent && !isSameTile) {
+    if (!isInRange && !isSameTile) {
       return MobAIState.CHASE;
     }
 

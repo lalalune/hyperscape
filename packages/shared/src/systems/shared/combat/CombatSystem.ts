@@ -27,7 +27,7 @@ import { EntityManager } from "..";
 import { MobNPCSystem } from "..";
 import { SystemBase } from "..";
 import { Emotes } from "../../../data/playerEmotes";
-import { worldToTile, tilesAdjacent } from "../movement/TileSystem";
+import { worldToTile, tilesWithinRange } from "../movement/TileSystem";
 
 export interface CombatData {
   attackerId: EntityID;
@@ -231,15 +231,15 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
-    // OSRS-STYLE: Check if attacker is on an adjacent tile to target
-    // Melee requires being on an adjacent tile (Chebyshev distance of 1)
-    // This includes diagonal adjacency (8 directions around target)
+    // OSRS-STYLE: Check if attacker is within combat range of target
+    // Uses combatRange from mob manifest (default 1 tile for players)
     const attackerPos = attacker.position || attacker.getPosition();
     const targetPos = target.position || target.getPosition();
     const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
     const targetTile = worldToTile(targetPos.x, targetPos.z);
+    const combatRangeTiles = this.getEntityCombatRange(attacker, attackerType);
 
-    if (!tilesAdjacent(attackerTile, targetTile)) {
+    if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
       this.emitTypedEvent(EventType.COMBAT_ATTACK_FAILED, {
         attackerId,
         targetId,
@@ -1356,10 +1356,14 @@ export class CombatSystem extends SystemBase {
         return false;
       }
     } else {
-      // MELEE: Must be on adjacent tile (Chebyshev distance = 1)
+      // MELEE: Check combat range (uses manifest combatRange for mobs)
       const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
       const targetTile = worldToTile(targetPos.x, targetPos.z);
-      if (!tilesAdjacent(attackerTile, targetTile)) {
+      const combatRangeTiles = this.getEntityCombatRange(
+        attacker,
+        opts.attackerType,
+      );
+      if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
         return false;
       }
     }
@@ -1569,11 +1573,15 @@ export class CombatSystem extends SystemBase {
         return;
       }
     } else {
-      // MELEE: Must be on adjacent tile (Chebyshev distance = 1)
-      // This is the OSRS-accurate check - same as handleMeleeAttack()
+      // MELEE: Must be within attacker's combat range (configurable per mob, minimum 1 tile)
+      // OSRS-style: most mobs have 1 tile range, halberds have 2 tiles
       const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
       const targetTile = worldToTile(targetPos.x, targetPos.z);
-      if (!tilesAdjacent(attackerTile, targetTile)) {
+      const combatRangeTiles = this.getEntityCombatRange(
+        attacker,
+        combatState.attackerType,
+      );
+      if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
         // Out of melee range - don't end combat, just skip this attack
         return;
       }
@@ -1715,6 +1723,25 @@ export class CombatSystem extends SystemBase {
 
     // Default attack speed (4 ticks = 2.4 seconds for unarmed/standard weapons)
     return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
+  }
+
+  /**
+   * Get combat range for an entity in tiles
+   * Mobs use combatRange from manifest, players default to 1 (melee)
+   */
+  private getEntityCombatRange(
+    entity: Entity | MobEntity,
+    entityType: string,
+  ): number {
+    if (entityType === "mob") {
+      const mobEntity = entity as MobEntity;
+      if (typeof mobEntity.getCombatRange === "function") {
+        return mobEntity.getCombatRange();
+      }
+    }
+    // Players default to 1 tile melee range
+    // Could add weapon-based range (halberds) here later
+    return 1;
   }
 
   /**
