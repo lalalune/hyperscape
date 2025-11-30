@@ -376,7 +376,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         targetEntityId?: string;
         tilesPerTick?: number;
       };
-      // Note: Debug logging removed for production
       this.mobTileMovementManager.requestMoveTo(
         moveEvent.mobId,
         moveEvent.targetPos,

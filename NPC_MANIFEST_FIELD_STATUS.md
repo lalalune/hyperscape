@@ -117,7 +117,7 @@ These fields are properly wired up from manifest to behavior:
 | `combat.attackSpeed` | ✅ | Attack cooldown |
 | `combat.respawnTime` | ✅ | Respawn delay |
 | `combat.xpReward` | ✅ | XP on kill |
-| `movement.speed` | ✅ | Move speed |
+| `movement.speed` | ✅ | Fixed! Move speed (tiles per tick) |
 | `movement.wanderRadius` | ✅ | Fixed! Wander distance from spawn |
 | `drops.defaultDrop` | ✅ | Fixed! Guaranteed drop (bones/ashes) |
 | `drops.always` | ✅ | Fixed! 100% drop rate items |
@@ -141,6 +141,7 @@ These fields are properly wired up from manifest to behavior:
 - [x] `combat.attackable` - Fixed (MobEntityConfig, spawner, EntityManager, Entities.ts, CombatSystem check)
 - [x] `stats.attack` - Fixed (MobEntityConfig, MobEntityData, spawner, EntityManager bug fix, CombatSystem)
 - [x] `movement.wanderRadius` - Fixed (EntityManager was hardcoded, now uses getMobWanderRadius helper)
+- [x] `movement.speed` - Fixed (Server calculates tilesPerTick from config.moveSpeed, sends to client in tileMovementStart, TileInterpolator uses per-entity speed)
 
 ---
 
@@ -188,3 +189,14 @@ Expected: Mob hits often but for low damage (high accuracy, low max hit)
 "stats": { "attack": 1, "strength": 50 }
 ```
 Expected: Mob misses often but hits hard when landing (low accuracy, high max hit)
+
+### movement.speed
+```json
+"movement": { "speed": 5 }
+```
+Expected: Mob moves faster (3 tiles per tick instead of default 2)
+
+```json
+"movement": { "speed": 1.5 }
+```
+Expected: Mob moves slower (1 tile per tick)
