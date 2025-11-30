@@ -111,7 +111,8 @@ export interface MobEntityData {
   level: number;
   health: number;
   maxHealth: number;
-  attackPower: number;
+  attack: number; // Attack level for accuracy
+  attackPower: number; // Strength-based, for max hit
   defense: number;
   xpReward: number;
   aiState: "idle" | "wander" | "chase" | "attack" | "return" | "dead";

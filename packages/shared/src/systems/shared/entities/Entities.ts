@@ -297,6 +297,7 @@ export class Entities extends SystemBase implements IEntities {
         level: 1,
         currentHealth: 100,
         maxHealth: 100,
+        attack: 1, // Default attack level for accuracy
         attackPower: 10,
         defense: 2,
         attackSpeed: 1.5,

@@ -79,11 +79,18 @@ This document tracks which fields from `npcs.json` manifests are properly wired 
   - `systems/shared/entities/Entities.ts` - Added default (true)
   - `systems/shared/combat/CombatSystem.ts` - Checks flag in handleMeleeAttack() and handleRangedAttack()
 
-### 7. `stats.attack` ❌
+### 7. `stats.attack` ✅ FIXED
 - **Purpose**: Affects hit accuracy (OSRS-style)
 - **Expected**: Higher attack = more accurate hits
-- **Actual**: Only `stats.strength` used as `attackPower`
-- **Root Cause**: Field not passed to MobEntityConfig
+- **Status**: WORKING - Attack stat now used in accuracy calculation
+- **Fixed in**:
+  - `types/entities/entities.ts` - Added `attack` to MobEntityConfig
+  - `types/entities/npc-mob-types.ts` - Added `attack` to MobEntityData
+  - `systems/shared/entities/MobNPCSpawnerSystem.ts` - Passes `stats.attack`
+  - `systems/shared/entities/EntityManager.ts` - Fixed bug (was using attack for strength), added getMobAttack()
+  - `systems/shared/entities/Entities.ts` - Added default
+  - `entities/npc/MobEntity.ts` - Added to getMobData()
+  - `systems/shared/combat/CombatSystem.ts` - Passes attack stat to calculateDamage()
 
 ### 8. `movement.roaming` ❌
 - **Purpose**: Can mob leave spawn area permanently
@@ -104,7 +111,8 @@ These fields are properly wired up from manifest to behavior:
 | `description` | ✅ | Used for examine |
 | `stats.level` | ✅ | Combat level |
 | `stats.health` | ✅ | Max/current health |
-| `stats.strength` | ✅ | Used as attackPower |
+| `stats.attack` | ✅ | Fixed! Attack level for accuracy |
+| `stats.strength` | ✅ | Used as attackPower (max hit) |
 | `stats.defense` | ✅ | Defense rating |
 | `combat.aggressive` | ✅ | Fixed! Controls if mob attacks on sight |
 | `combat.retaliates` | ✅ | Fixed! Controls if mob fights back when attacked |
@@ -137,6 +145,7 @@ These fields are properly wired up from manifest to behavior:
 - [x] `drops.always/uncommon/rare/veryRare` - Fixed (same as above - one fix for all!)
 - [x] `appearance.scale` - Fixed (spawner passes from manifest, MobEntity applies to GLB/VRM/placeholder)
 - [x] `combat.attackable` - Fixed (MobEntityConfig, spawner, EntityManager, Entities.ts, CombatSystem check)
+- [x] `stats.attack` - Fixed (MobEntityConfig, MobEntityData, spawner, EntityManager bug fix, CombatSystem)
 
 ---
 
@@ -173,3 +182,14 @@ Expected: Mob appears twice as large
 "combat": { "attackable": false }
 ```
 Expected: Player cannot attack this mob (attack fails with "target_not_attackable" reason)
+
+### stats.attack (accuracy)
+```json
+"stats": { "attack": 50, "strength": 1 }
+```
+Expected: Mob hits often but for low damage (high accuracy, low max hit)
+
+```json
+"stats": { "attack": 1, "strength": 50 }
+```
+Expected: Mob misses often but hits hard when landing (low accuracy, high max hit)

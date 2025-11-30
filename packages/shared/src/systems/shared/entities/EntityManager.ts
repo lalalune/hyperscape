@@ -711,6 +711,7 @@ export class EntityManager extends SystemBase {
       level: level,
       currentHealth: this.getMobMaxHealth(mobType, level),
       maxHealth: this.getMobMaxHealth(mobType, level),
+      attack: this.getMobAttack(mobType, level),
       attackPower: this.getMobAttackPower(mobType, level),
       defense: this.getMobDefense(mobType, level),
       attackSpeed: this.getMobAttackSpeed(mobType),
@@ -978,12 +979,21 @@ export class EntityManager extends SystemBase {
     return npcData.stats.health + (level - npcData.stats.level) * 10;
   }
 
+  private getMobAttack(mobType: string, level: number): number {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
+      return 1 + (level - 1); // Default attack scaling
+    }
+    return npcData.stats.attack + (level - npcData.stats.level);
+  }
+
   private getMobAttackPower(mobType: string, level: number): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
       return 5 + (level - 1) * 2;
     }
-    return npcData.stats.attack + (level - npcData.stats.level) * 2;
+    // FIX: Use strength for attackPower (max hit), not attack (accuracy)
+    return npcData.stats.strength + (level - npcData.stats.level) * 2;
   }
 
   private getMobDefense(mobType: string, level: number): number {

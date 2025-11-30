@@ -475,6 +475,7 @@ export class CombatSystem extends SystemBase {
     if (attackerMob.getMobData) {
       const mobData = attackerMob.getMobData();
       attackerData = {
+        stats: { attack: mobData.attack }, // Pass attack stat for accuracy calculation
         config: { attackPower: mobData.attackPower },
       };
     } else {
@@ -516,6 +517,7 @@ export class CombatSystem extends SystemBase {
     if (targetMob.getMobData) {
       const mobData = targetMob.getMobData();
       targetData = {
+        stats: { defense: mobData.defense }, // Pass defense stat for accuracy calculation
         config: { defense: mobData.defense },
       };
     } else {
@@ -589,6 +591,7 @@ export class CombatSystem extends SystemBase {
     if (attackerMob.getMobData) {
       const mobData = attackerMob.getMobData();
       attackerData = {
+        stats: { attack: mobData.attack }, // Pass attack stat for accuracy calculation
         config: { attackPower: mobData.attackPower },
       };
     } else {
@@ -630,6 +633,7 @@ export class CombatSystem extends SystemBase {
     if (targetMob.getMobData) {
       const mobData = targetMob.getMobData();
       targetData = {
+        stats: { defense: mobData.defense }, // Pass defense stat for accuracy calculation
         config: { defense: mobData.defense },
       };
     } else {
