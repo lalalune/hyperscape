@@ -1265,7 +1265,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     return (
       (this.data.sessionAvatar as string) ||
       (this.data.avatar as string) ||
-      "asset://avatar-male-01.vrm"
+      "asset://avatars/avatar-male-01.vrm"
     );
   }
 

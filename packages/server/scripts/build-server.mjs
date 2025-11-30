@@ -28,7 +28,7 @@ await serverCtx.dispose()
 
 // Copy PhysX WASM files to assets/web/ for server-side loading
 import fs from 'fs'
-const assetsDir = path.join(rootDir, 'assets/web')
+const assetsDir = path.join(rootDir, 'world/assets/web')
 fs.mkdirSync(assetsDir, { recursive: true })
 
 // Copy from physx-js-webidl package in workspace
@@ -38,7 +38,7 @@ const physxJs = path.join(rootDir, '../physx-js-webidl/dist/physx-js-webidl.js')
 if (fs.existsSync(physxWasm)) {
   fs.copyFileSync(physxWasm, path.join(assetsDir, 'physx-js-webidl.wasm'))
   fs.copyFileSync(physxJs, path.join(assetsDir, 'physx-js-webidl.js'))
-  console.log('✓ PhysX assets copied to assets/web/')
+  console.log('✓ PhysX assets copied to world/assets/web/')
 } else {
   console.error('❌ PhysX WASM not found at:', physxWasm)
   throw new Error('PhysX WASM files missing - ensure @hyperscape/physx-js-webidl is built first')
