@@ -1836,6 +1836,7 @@ export class ClientNetwork extends SystemBase {
     destinationTile?: TileCoord;
     moveSeq?: number;
     emote?: string;
+    tilesPerTick?: number; // Mob-specific speed (optional, defaults to walk/run speed)
   }) => {
     // Get entity's current position for smooth start (fallback if startTile not provided)
     const entity = this.world.entities.get(data.id);
@@ -1849,6 +1850,7 @@ export class ClientNetwork extends SystemBase {
     // destinationTile: final target for verification
     // moveSeq: packet ordering to ignore stale packets
     // emote: bundled animation (OSRS-style)
+    // tilesPerTick: mob-specific speed (for faster/slower mobs)
     this.tileInterpolator.onMovementStart(
       data.id,
       data.path,
@@ -1858,6 +1860,7 @@ export class ClientNetwork extends SystemBase {
       data.destinationTile,
       data.moveSeq,
       data.emote,
+      data.tilesPerTick,
     );
 
     // CRITICAL: Set the flag IMMEDIATELY when movement starts

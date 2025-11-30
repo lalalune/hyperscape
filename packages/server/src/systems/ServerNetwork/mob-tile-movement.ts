@@ -299,6 +299,7 @@ export class MobTileMovementManager {
       moveSeq: state.moveSeq,
       isMob: true,
       emote: state.isRunning ? "run" : "walk",
+      tilesPerTick: state.tilesPerTick, // Mob-specific speed for client interpolation
     });
   }
 
@@ -455,6 +456,7 @@ export class MobTileMovementManager {
               moveSeq: state.moveSeq,
               isMob: true,
               emote: state.isRunning ? "run" : "walk",
+              tilesPerTick: state.tilesPerTick, // Mob-specific speed for client interpolation
             });
 
             if (this.DEBUG_MODE)

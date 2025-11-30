@@ -109,7 +109,10 @@ import type {
 } from "../../systems/client/HealthBars";
 import { COMBAT_CONSTANTS } from "../../constants/CombatConstants";
 import { AggroManager } from "../managers/AggroManager";
-import { worldToTile } from "../../systems/shared/movement/TileSystem";
+import {
+  worldToTile,
+  TICK_DURATION_MS,
+} from "../../systems/shared/movement/TileSystem";
 import { attackSpeedSecondsToTicks } from "../../utils/game/CombatCalculations";
 
 // Polyfill ProgressEvent for Node.js server environment
@@ -899,7 +902,10 @@ export class MobEntity extends CombatantEntity {
           targetPos: target,
           // If chasing a player, include targetEntityId for dynamic repathing
           targetEntityId: this.config.targetPlayerId || undefined,
-          tilesPerTick: 2, // Default mob walk speed (same as player walk)
+          tilesPerTick: Math.max(
+            1,
+            Math.round((this.config.moveSpeed * TICK_DURATION_MS) / 1000),
+          ),
         });
       },
       teleportTo: (position) => {
