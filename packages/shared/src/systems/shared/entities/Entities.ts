@@ -303,6 +303,7 @@ export class Entities extends SystemBase implements IEntities {
         moveSpeed: 3.0, // Walking speed (matches player walk)
         aggressive: true, // Default to aggressive for backwards compatibility
         retaliates: true, // Default to retaliating for backwards compatibility
+        attackable: true, // Default to attackable for backwards compatibility
         movementType: "wander", // Default to wander for backwards compatibility
         aggroRange: 15.0, // 15 meters detection range
         combatRange: 1.5, // 1.5 meters melee range

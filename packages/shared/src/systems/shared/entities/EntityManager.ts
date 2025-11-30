@@ -717,6 +717,7 @@ export class EntityManager extends SystemBase {
       moveSpeed: this.getMobMoveSpeed(mobType),
       aggressive: npcDataFromDB?.combat.aggressive ?? true, // Default to aggressive if not specified
       retaliates: npcDataFromDB?.combat.retaliates ?? true, // Default to retaliating if not specified
+      attackable: npcDataFromDB?.combat.attackable ?? true, // Default to attackable if not specified
       movementType: npcDataFromDB?.movement.type ?? "wander", // Default to wander if not specified
       aggroRange: this.getMobAggroRange(mobType),
       combatRange: this.getMobCombatRange(mobType),

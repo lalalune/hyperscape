@@ -182,6 +182,7 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   moveSpeed: number;
   aggressive: boolean; // If true, mob attacks players on sight; if false, only retaliates
   retaliates: boolean; // If true, mob fights back when attacked; if false, mob is peaceful
+  attackable: boolean; // If true, players can attack this mob; if false, mob cannot be targeted
   movementType: "stationary" | "wander" | "patrol"; // Controls idle movement behavior
   aggroRange: number;
   combatRange: number;
