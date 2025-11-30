@@ -1940,6 +1940,15 @@ export class MobEntity extends CombatantEntity {
     return this.config.attackable;
   }
 
+  /**
+   * Get this mob's combat range in tiles
+   * Controlled by combat.combatRange in the manifest (meters, 1 tile = 1 meter)
+   * @returns Combat range in tiles (minimum 1)
+   */
+  getCombatRange(): number {
+    return Math.max(1, Math.floor(this.config.combatRange));
+  }
+
   // Override serialize to include model path for client
   override serialize(): EntityData {
     const baseData = super.serialize();
