@@ -104,7 +104,8 @@ These fields are properly wired up from manifest to behavior:
 | `name` | ✅ | Displayed in UI |
 | `description` | ✅ | Used for examine |
 | `stats.level` | ✅ | Combat level |
-| `stats.health` | ✅ | Max/current health |
+| `stats.health` | ✅ | OSRS-style: hitpoints = max HP directly (no RS3 ×10) |
+| `stats.constitution` | ⚠️ | REMOVED - mobs use health directly (OSRS style) |
 | `stats.attack` | ✅ | Fixed! Attack level for accuracy |
 | `stats.strength` | ✅ | Used as attackPower (max hit) |
 | `stats.defense` | ✅ | Defense rating |
@@ -116,7 +117,7 @@ These fields are properly wired up from manifest to behavior:
 | `combat.combatRange` | ✅ | Attack range |
 | `combat.attackSpeed` | ✅ | Attack cooldown |
 | `combat.respawnTime` | ✅ | Respawn delay |
-| `combat.xpReward` | ✅ | XP on kill |
+| `combat.xpReward` | ⚠️ | REMOVED - XP uses OSRS damage-based formula (4 XP per damage) |
 | `movement.speed` | ✅ | Fixed! Move speed (tiles per tick) |
 | `movement.wanderRadius` | ✅ | Fixed! Wander distance from spawn |
 | `drops.defaultDrop` | ✅ | Fixed! Guaranteed drop (bones/ashes) |
@@ -142,6 +143,16 @@ These fields are properly wired up from manifest to behavior:
 - [x] `stats.attack` - Fixed (MobEntityConfig, MobEntityData, spawner, EntityManager bug fix, CombatSystem)
 - [x] `movement.wanderRadius` - Fixed (EntityManager was hardcoded, now uses getMobWanderRadius helper)
 - [x] `movement.speed` - Fixed (Server calculates tilesPerTick from config.moveSpeed, sends to client in tileMovementStart, TileInterpolator uses per-entity speed)
+- [x] `stats.health` vs `stats.constitution` - Fixed (Standardized on OSRS approach: hitpoints = max HP directly, no RS3 multiplication)
+
+---
+
+## Remaining Tasks
+
+### Future Features (Not Currently Used)
+- [ ] `faction` - Type exists but no faction system implemented (for faction-based aggro/alliances)
+- [ ] `drops.rareDropTable` - OSRS-style rare drop table access (defined but not wired to drop calculation)
+- [ ] `appearance.iconPath` - Only used for items, not NPCs (for UI/tooltips)
 
 ---
 

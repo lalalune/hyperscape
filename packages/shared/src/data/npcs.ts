@@ -157,11 +157,11 @@ export function calculateNPCCombatLevel(npc: NPCData): number {
   const attack = stats.attack;
   const strength = stats.strength;
   const defense = stats.defense;
-  const constitution = stats.constitution;
+  const hitpoints = stats.health; // OSRS: hitpoints = max HP directly
   const ranged = stats.ranged * 1.5; // Ranged counts for 1.5x
 
   const combatLevel = Math.floor(
-    (defense + constitution + Math.floor(ranged / 2)) * 0.25 +
+    (defense + hitpoints + Math.floor(ranged / 2)) * 0.25 +
       Math.max(attack + strength, (ranged * 2) / 3) * 0.325,
   );
 
