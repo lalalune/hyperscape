@@ -1096,20 +1096,36 @@ export class CombatSystem extends SystemBase {
 
     // OSRS Retaliation: Target retaliates after ceil(speed/2) + 1 ticks
     // @see https://oldschool.runescape.wiki/w/Auto_Retaliate
-    const retaliationDelay = calculateRetaliationDelay(targetAttackSpeedTicks);
+    // Check if target can retaliate (mobs have retaliates flag, players always can)
+    let canRetaliate = true;
+    if (targetType === "mob" && targetEntity) {
+      // Check mob's retaliates config - if false, mob won't fight back
+      const mobConfig = (
+        targetEntity as unknown as { config?: { retaliates?: boolean } }
+      ).config;
+      if (mobConfig && mobConfig.retaliates === false) {
+        canRetaliate = false;
+      }
+    }
 
-    this.combatStates.set(targetId, {
-      attackerId: targetId,
-      targetId: attackerId,
-      attackerType: targetType,
-      targetType: attackerType,
-      weaponType: AttackType.MELEE,
-      inCombat: true,
-      lastAttackTick: currentTick,
-      nextAttackTick: currentTick + retaliationDelay,
-      combatEndTick,
-      attackSpeedTicks: targetAttackSpeedTicks,
-    });
+    if (canRetaliate) {
+      const retaliationDelay = calculateRetaliationDelay(
+        targetAttackSpeedTicks,
+      );
+
+      this.combatStates.set(targetId, {
+        attackerId: targetId,
+        targetId: attackerId,
+        attackerType: targetType,
+        targetType: attackerType,
+        weaponType: AttackType.MELEE,
+        inCombat: true,
+        lastAttackTick: currentTick,
+        nextAttackTick: currentTick + retaliationDelay,
+        combatEndTick,
+        attackSpeedTicks: targetAttackSpeedTicks,
+      });
+    }
 
     // Rotate both entities to face each other (RuneScape-style)
     this.rotateTowardsTarget(

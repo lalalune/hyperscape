@@ -712,6 +712,9 @@ export class EntityManager extends SystemBase {
       defense: this.getMobDefense(mobType, level),
       attackSpeed: this.getMobAttackSpeed(mobType),
       moveSpeed: this.getMobMoveSpeed(mobType),
+      aggressive: npcDataFromDB?.combat.aggressive ?? true, // Default to aggressive if not specified
+      retaliates: npcDataFromDB?.combat.retaliates ?? true, // Default to retaliating if not specified
+      movementType: npcDataFromDB?.movement.type ?? "wander", // Default to wander if not specified
       aggroRange: this.getMobAggroRange(mobType),
       combatRange: this.getMobCombatRange(mobType),
       wanderRadius: 10, // 10 meter wander radius from spawn (RuneScape-style)

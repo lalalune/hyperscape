@@ -93,6 +93,7 @@ import type {
   AvatarHooks,
 } from "../../types/rendering/nodes";
 import { Emotes } from "../../data/playerEmotes";
+import { calculateNPCDrops, getNPCById } from "../../data/npcs";
 import { DeathStateManager } from "../managers/DeathStateManager";
 import { CombatStateManager } from "../managers/CombatStateManager";
 import {
@@ -249,6 +250,10 @@ export class MobEntity extends CombatantEntity {
 
     super(world, combatConfig);
     this.config = config;
+
+    // DIAGNOSTIC: Log the config received
+    console.log(`[MobEntity] 📊 Constructor for ${config.mobType}:`);
+    console.log(`  - model: "${config.model}"`);
 
     // Ensure respawnTime is at least 15 seconds (RuneScape-style)
     if (!this.config.respawnTime || this.config.respawnTime < 15000) {
@@ -457,6 +462,12 @@ export class MobEntity extends CombatantEntity {
    * Load VRM model and create avatar instance
    */
   private async loadVRMModel(): Promise<void> {
+    // DIAGNOSTIC: Log model path being used
+    console.log(
+      `[MobEntity] 📊 loadVRMModel called for ${this.config.mobType}:`,
+    );
+    console.log(`  - config.model: "${this.config.model}"`);
+
     if (!this.world.loader) {
       console.error(
         `[MobEntity] ❌ No loader available for ${this.config.mobType}`,
@@ -522,9 +533,16 @@ export class MobEntity extends CombatantEntity {
       this.node.matrixWorld,
       vrmHooks,
     );
+    console.log(
+      `[MobEntity] ✅ VRM instance created for ${this.config.mobType}`,
+    );
 
     // Set initial emote to idle
     this._currentEmote = Emotes.IDLE;
+    console.log(
+      `[MobEntity] 📊 Setting initial emote for ${this.config.mobType}:`,
+    );
+    console.log(`  - emote: "${this._currentEmote}"`);
     this._avatarInstance.setEmote(this._currentEmote);
 
     // NOTE: Don't register VRM instance as hot - the MobEntity itself is registered
@@ -902,6 +920,9 @@ export class MobEntity extends CombatantEntity {
         this._wanderTarget = target ? { x: target.x, z: target.z } : null;
       },
       generateWanderTarget: () => this.generateWanderTarget(),
+
+      // Movement type (from manifest)
+      getMovementType: () => this.config.movementType,
 
       // Timing
       getCurrentTick: () => this.world.currentTick, // Server tick number for combat timing
@@ -1526,7 +1547,8 @@ export class MobEntity extends CombatantEntity {
       return true; // Mob died
     } else {
       // Become aggressive towards attacker (use AggroManager for target management)
-      if (attackerId && !this.config.targetPlayerId) {
+      // BUT only if mob retaliates - peaceful mobs (retaliates: false) don't fight back
+      if (attackerId && !this.config.targetPlayerId && this.config.retaliates) {
         this.config.targetPlayerId = attackerId;
         this.aggroManager.setTargetIfNone(attackerId);
         this.aiStateMachine.forceState(
@@ -1618,21 +1640,38 @@ export class MobEntity extends CombatantEntity {
   }
 
   private dropLoot(killerId: string): void {
-    if (!this.config.lootTable.length) return;
+    // Check if this mob type exists in the NPC manifest
+    const npcData = getNPCById(this.config.mobType);
 
-    for (const lootItem of this.config.lootTable) {
-      if (Math.random() < lootItem.chance) {
-        const quantity =
-          Math.floor(
-            Math.random() * (lootItem.maxQuantity - lootItem.minQuantity + 1),
-          ) + lootItem.minQuantity;
-
+    if (npcData) {
+      // Use manifest drops - handles defaultDrop (bones) + all rarity tiers
+      const drops = calculateNPCDrops(this.config.mobType);
+      for (const drop of drops) {
         this.world.emit(EventType.ITEM_SPAWN, {
-          itemId: lootItem.itemId,
-          quantity,
+          itemId: drop.itemId,
+          quantity: drop.quantity,
           position: this.getPosition(),
           droppedBy: killerId,
         });
+      }
+    } else {
+      // Fall back to config.lootTable for custom mobs not in manifest
+      if (!this.config.lootTable.length) return;
+
+      for (const lootItem of this.config.lootTable) {
+        if (Math.random() < lootItem.chance) {
+          const quantity =
+            Math.floor(
+              Math.random() * (lootItem.maxQuantity - lootItem.minQuantity + 1),
+            ) + lootItem.minQuantity;
+
+          this.world.emit(EventType.ITEM_SPAWN, {
+            itemId: lootItem.itemId,
+            quantity,
+            position: this.getPosition(),
+            droppedBy: killerId,
+          });
+        }
       }
     }
   }
@@ -1753,8 +1792,17 @@ export class MobEntity extends CombatantEntity {
   /**
    * Find nearby player within aggro range (RuneScape-style)
    * Delegates to AggroManager component
+   *
+   * IMPORTANT: Only scans for players if mob is aggressive.
+   * Non-aggressive mobs won't attack on sight.
+   * Retaliation when attacked is controlled by the separate `retaliates` flag.
    */
   private findNearbyPlayer(): { id: string; position: Position3D } | null {
+    // Non-aggressive mobs don't scan for players
+    if (!this.config.aggressive) {
+      return null;
+    }
+
     const currentPos = this.getPosition();
     const players = this.world.getPlayers();
     return this.aggroManager.findNearbyPlayer(currentPos, players);
@@ -1783,9 +1831,15 @@ export class MobEntity extends CombatantEntity {
     // Exit combat state
     this.combatManager.exitCombat();
 
-    // Force AI to WANDER (return to spawn behavior)
+    // Force AI state based on movement type
     const context = this.createAIContext();
-    this.aiStateMachine.forceState(MobAIState.WANDER, context);
+    if (this.config.movementType === "stationary") {
+      // Stationary mobs go directly to IDLE
+      this.aiStateMachine.forceState(MobAIState.IDLE, context);
+    } else {
+      // Wandering mobs go to RETURN to walk back to spawn area
+      this.aiStateMachine.forceState(MobAIState.RETURN, context);
+    }
   }
 
   /**
@@ -1841,6 +1895,12 @@ export class MobEntity extends CombatantEntity {
   // Override serialize to include model path for client
   override serialize(): EntityData {
     const baseData = super.serialize();
+    // DIAGNOSTIC: Log model path being serialized
+    if (this.world.isServer) {
+      console.log(
+        `[MobEntity] 📊 serialize() for ${this.config.mobType}: model="${this.config.model}"`,
+      );
+    }
     return {
       ...baseData,
       model: this.config.model, // CRITICAL: Include model path for client VRM loading

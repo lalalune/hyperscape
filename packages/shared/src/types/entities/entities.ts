@@ -180,6 +180,9 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   defense: number;
   attackSpeed: number;
   moveSpeed: number;
+  aggressive: boolean; // If true, mob attacks players on sight; if false, only retaliates
+  retaliates: boolean; // If true, mob fights back when attacked; if false, mob is peaceful
+  movementType: "stationary" | "wander" | "patrol"; // Controls idle movement behavior
   aggroRange: number;
   combatRange: number;
   wanderRadius: number; // Fixed distance from spawn point (RuneScape-style)
@@ -229,6 +232,9 @@ export interface ResourceEntityConfig
   }>;
   depleted: boolean;
   lastHarvestTime: number;
+  stumpModelPath?: string | null;
+  modelScale?: number;
+  stumpModelScale?: number;
 }
 
 // Component interfaces
