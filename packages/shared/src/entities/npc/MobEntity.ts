@@ -1915,6 +1915,7 @@ export class MobEntity extends CombatantEntity {
       level: this.config.level,
       health: this.config.currentHealth,
       maxHealth: this.config.maxHealth,
+      attack: this.config.attack,
       attackPower: this.config.attackPower,
       defense: this.config.defense,
       xpReward: this.config.xpReward,

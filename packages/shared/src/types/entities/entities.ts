@@ -176,7 +176,8 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   level: number;
   maxHealth: number;
   currentHealth: number;
-  attackPower: number;
+  attack: number; // Attack level for accuracy calculations (OSRS-style)
+  attackPower: number; // Strength-based, determines max hit
   defense: number;
   attackSpeed: number;
   moveSpeed: number;
