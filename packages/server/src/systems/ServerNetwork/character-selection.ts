@@ -627,7 +627,9 @@ export async function handleEnterWorld(
         health: playerHealth, // Use constitution level instead of HEALTH_MAX
         maxHealth: playerHealth, // Also set maxHealth
         avatar:
-          avatar || world.settings.avatar?.url || "asset://avatar-male-01.vrm", // ✅ Use character's avatar from DB
+          avatar ||
+          world.settings.avatar?.url ||
+          "asset://avatars/avatar-male-01.vrm", // ✅ Use character's avatar from DB
         sessionAvatar: avatar || undefined, // ✅ Also set sessionAvatar for runtime override
         wallet: walletAddress, // ✅ Character's HD wallet address
         roles,
