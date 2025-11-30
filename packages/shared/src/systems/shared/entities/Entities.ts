@@ -252,6 +252,24 @@ export class Entities extends SystemBase implements IEntities {
       const networkModel = (data as { model?: string }).model;
       const finalModelPath = networkModel || fallbackModelPath;
 
+      // Get scale from network data (sent by server from manifest)
+      // Handle both object format {x,y,z} from getNetworkData and array [x,y,z] from serialize
+      const rawScale = (
+        data as {
+          scale?:
+            | { x: number; y: number; z: number }
+            | [number, number, number];
+        }
+      ).scale;
+      let finalScale = { x: 1, y: 1, z: 1 };
+      if (rawScale) {
+        if (Array.isArray(rawScale)) {
+          finalScale = { x: rawScale[0], y: rawScale[1], z: rawScale[2] };
+        } else {
+          finalScale = rawScale;
+        }
+      }
+
       const mobConfig: MobEntityConfig = {
         id: data.id,
         name: name,
@@ -267,7 +285,7 @@ export class Entities extends SystemBase implements IEntities {
           z: quaternionArray[2],
           w: quaternionArray[3],
         },
-        scale: { x: 1, y: 1, z: 1 },
+        scale: finalScale,
         visible: true,
         interactable: true,
         interactionType: InteractionType.ATTACK,
