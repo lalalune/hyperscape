@@ -450,7 +450,7 @@ export class ResourceSystem extends SystemBase {
     switch (type) {
       case "tree":
         // Use the high-quality Meshy-generated tree model
-        return "asset://models/basic-tree/basic-tree.glb";
+        return "asset://models/basic-reg-tree/basic-tree.glb";
       case "fishing_spot":
         return ""; // Fishing spots don't need models
       case "ore":
