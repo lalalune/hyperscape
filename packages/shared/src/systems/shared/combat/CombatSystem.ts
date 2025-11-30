@@ -213,6 +213,19 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
+    // Check if target is attackable (for mobs that have attackable: false in manifest)
+    if (targetType === "mob") {
+      const mobEntity = target as MobEntity;
+      if (mobEntity.isAttackable && !mobEntity.isAttackable()) {
+        this.emitTypedEvent(EventType.COMBAT_ATTACK_FAILED, {
+          attackerId,
+          targetId,
+          reason: "target_not_attackable",
+        });
+        return;
+      }
+    }
+
     // CRITICAL: Can't attack yourself
     if (attackerId === targetId) {
       return;
@@ -334,6 +347,19 @@ export class CombatSystem extends SystemBase {
     // This prevents attacks from being processed on dead entities
     if (!this.isEntityAlive(target, targetType)) {
       return;
+    }
+
+    // Check if target is attackable (for mobs that have attackable: false in manifest)
+    if (targetType === "mob") {
+      const mobEntity = target as MobEntity;
+      if (mobEntity.isAttackable && !mobEntity.isAttackable()) {
+        this.emitTypedEvent(EventType.COMBAT_ATTACK_FAILED, {
+          attackerId,
+          targetId,
+          reason: "target_not_attackable",
+        });
+        return;
+      }
     }
 
     // CRITICAL: Can't attack yourself

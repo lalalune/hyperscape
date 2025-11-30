@@ -1925,6 +1925,14 @@ export class MobEntity extends CombatantEntity {
     };
   }
 
+  /**
+   * Check if this mob can be attacked by players
+   * Controlled by combat.attackable in the manifest
+   */
+  isAttackable(): boolean {
+    return this.config.attackable;
+  }
+
   // Override serialize to include model path for client
   override serialize(): EntityData {
     const baseData = super.serialize();

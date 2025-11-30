@@ -68,11 +68,16 @@ This document tracks which fields from `npcs.json` manifests are properly wired 
 
 ## Medium Impact Missing Fields
 
-### 6. `combat.attackable` ❌
+### 6. `combat.attackable` ✅ FIXED
 - **Purpose**: Controls if players can attack this NPC
 - **Expected**: `false` = friendly NPC that can't be attacked
-- **Actual**: All mobs can be attacked
-- **Root Cause**: Field not passed, no check in interaction/combat systems
+- **Status**: WORKING - CombatSystem checks attackable before allowing attack
+- **Fixed in**:
+  - `types/entities/entities.ts` - Added to MobEntityConfig
+  - `systems/shared/entities/MobNPCSpawnerSystem.ts` - Passed from manifest
+  - `systems/shared/entities/EntityManager.ts` - Added default (true)
+  - `systems/shared/entities/Entities.ts` - Added default (true)
+  - `systems/shared/combat/CombatSystem.ts` - Checks flag in handleMeleeAttack() and handleRangedAttack()
 
 ### 7. `stats.attack` ❌
 - **Purpose**: Affects hit accuracy (OSRS-style)
@@ -80,25 +85,7 @@ This document tracks which fields from `npcs.json` manifests are properly wired 
 - **Actual**: Only `stats.strength` used as `attackPower`
 - **Root Cause**: Field not passed to MobEntityConfig
 
-### 8. `stats.constitution/ranged/magic` ❌
-- **Purpose**: Support different combat styles
-- **Expected**: Ranged/magic mobs with appropriate stats
-- **Actual**: Only melee stats work
-- **Root Cause**: Fields not passed, combat only uses melee
-
-### 9. `combat.poisonous` ❌
-- **Purpose**: Mob can poison players on hit
-- **Expected**: Poison damage over time after being hit
-- **Actual**: No poison system implemented
-- **Root Cause**: Field not passed, no poison logic
-
-### 10. `combat.immuneToPoison` ❌
-- **Purpose**: Mob immune to poison damage
-- **Expected**: Poison attacks have no effect
-- **Actual**: No poison system to be immune to
-- **Root Cause**: Field not passed, no poison logic
-
-### 11. `movement.roaming` ❌
+### 8. `movement.roaming` ❌
 - **Purpose**: Can mob leave spawn area permanently
 - **Expected**: `true` = mob can roam freely, not leashed
 - **Actual**: All mobs leashed to spawn
@@ -121,6 +108,7 @@ These fields are properly wired up from manifest to behavior:
 | `stats.defense` | ✅ | Defense rating |
 | `combat.aggressive` | ✅ | Fixed! Controls if mob attacks on sight |
 | `combat.retaliates` | ✅ | Fixed! Controls if mob fights back when attacked |
+| `combat.attackable` | ✅ | Fixed! Controls if players can attack this mob |
 | `movement.type` | ✅ | Fixed! Controls idle movement (stationary/wander/patrol) |
 | `combat.aggroRange` | ✅ | Detection range |
 | `combat.combatRange` | ✅ | Attack range |
@@ -148,6 +136,7 @@ These fields are properly wired up from manifest to behavior:
 - [x] `drops.defaultDrop` - Fixed (MobEntity.dropLoot() now uses calculateNPCDrops())
 - [x] `drops.always/uncommon/rare/veryRare` - Fixed (same as above - one fix for all!)
 - [x] `appearance.scale` - Fixed (spawner passes from manifest, MobEntity applies to GLB/VRM/placeholder)
+- [x] `combat.attackable` - Fixed (MobEntityConfig, spawner, EntityManager, Entities.ts, CombatSystem check)
 
 ---
 
@@ -178,3 +167,9 @@ Expected: Mob always drops bones on death
 "appearance": { "scale": 2.0 }
 ```
 Expected: Mob appears twice as large
+
+### combat.attackable
+```json
+"combat": { "attackable": false }
+```
+Expected: Player cannot attack this mob (attack fails with "target_not_attackable" reason)
