@@ -74,7 +74,7 @@
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
     "chokidar": "^4.0.3",
-    "esbuild": "^0.25.5",
+    "esbuild": "^0.27.0",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^9.1.0",
     "playwright": "^1.54.2",
