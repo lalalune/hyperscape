@@ -282,11 +282,10 @@ export class DataManager {
       faction: npc.faction || "unknown",
       stats: {
         level: npc.stats?.level ?? 1,
-        health: npc.stats?.health ?? 10,
+        health: npc.stats?.health ?? 10, // OSRS: hitpoints = max HP directly
         attack: npc.stats?.attack ?? 1,
         strength: npc.stats?.strength ?? 1,
         defense: npc.stats?.defense ?? 1,
-        constitution: npc.stats?.constitution ?? 10,
         ranged: npc.stats?.ranged ?? 1,
         magic: npc.stats?.magic ?? 1,
       },

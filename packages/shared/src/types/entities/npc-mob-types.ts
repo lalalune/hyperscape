@@ -204,14 +204,15 @@ export interface DefaultDropConfig {
 
 /**
  * NPC Stats - Unified across all NPCs
+ * Note: In OSRS, monster "hitpoints" IS the max HP directly (no multiplication).
+ * The `health` field is the hitpoints level AND max HP (1:1 ratio).
  */
 export interface NPCStats {
   level: number;
-  health: number;
+  health: number; // This IS the hitpoints level AND max HP (OSRS style)
   attack: number;
   strength: number;
   defense: number;
-  constitution: number;
   ranged: number;
   magic: number;
 }
@@ -344,15 +345,15 @@ export interface NPCData {
 /**
  * Mob Stats
  * Used by MobData for backward compatibility with existing mob systems
+ * Note: health IS the max HP (OSRS style)
  */
 export interface MobStats {
   level: number;
-  health: number;
+  health: number; // This IS max HP (OSRS style)
   attack: number;
   strength: number;
   defense: number;
   ranged: number;
-  constitution: number;
 }
 
 /**
@@ -467,7 +468,6 @@ export interface MobInstance {
     attack: number;
     strength: number;
     defense: number;
-    constitution: number;
     ranged: number;
   };
 
@@ -504,13 +504,13 @@ export interface MobSpawnConfig {
   type: string; // Mob ID from mobs.json
   name: string;
   level: number;
+  health: number; // OSRS: hitpoints = max HP directly
   description?: string;
   difficultyLevel?: 1 | 2 | 3;
   stats?: {
     attack: number;
     strength: number;
     defense: number;
-    constitution: number;
     ranged: number;
   };
   behavior?: MobBehavior;
