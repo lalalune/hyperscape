@@ -23,6 +23,8 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "node scripts/ensure-assets.mjs",
+    "assets:sync": "cd packages/server/world/assets && git pull origin main",
     "build": "bun run docs:generate && turbo run build --filter='!3d-asset-forge'",
     "build:shared": "cd packages/shared && bun run build",
     "build:client": "cd packages/client && bun run build",
