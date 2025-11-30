@@ -51,7 +51,7 @@
     "@tensorflow/tfjs-backend-webgl": "^4.22.0",
     "chalk": "^4.1.2",
     "clsx": "^2.0.0",
-    "concurrently": "^8.2.2",
+    "concurrently": "^9.2.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "drizzle-orm": "^0.44.6",
