@@ -556,6 +556,29 @@ export class MobEntity extends CombatantEntity {
       this.mesh = instanceWithRaw.raw.scene;
       this.mesh.name = `Mob_VRM_${this.config.mobType}_${this.id}`;
 
+      // Apply manifest scale on top of VRM's height normalization
+      // VRM is auto-normalized to 1.6m, so scale 2.0 = 3.2m tall
+      const configScale = this.config.scale;
+      const beforeScale = {
+        x: this.mesh.scale.x,
+        y: this.mesh.scale.y,
+        z: this.mesh.scale.z,
+      };
+      this.mesh.scale.set(
+        this.mesh.scale.x * configScale.x,
+        this.mesh.scale.y * configScale.y,
+        this.mesh.scale.z * configScale.z,
+      );
+      console.log(`[MobEntity] 📏 VRM Scale for ${this.config.mobType}:`);
+      console.log(`  - config.scale: ${JSON.stringify(configScale)}`);
+      console.log(`  - before: ${JSON.stringify(beforeScale)}`);
+      console.log(
+        `  - after: ${JSON.stringify({ x: this.mesh.scale.x, y: this.mesh.scale.y, z: this.mesh.scale.z })}`,
+      );
+      console.log(
+        `  - (this.mesh === vrm.scene, so move() will use these values)`,
+      );
+
       // Set up userData for interaction detection
       const userData: MeshUserData = {
         type: "mob",
@@ -691,8 +714,14 @@ export class MobEntity extends CombatantEntity {
         this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
 
         // CRITICAL: Scale the root mesh transform, then bind skeleton
+        // Apply cm→m conversion (100x) multiplied by manifest scale
         const modelScale = 100; // cm to meters
-        this.mesh.scale.set(modelScale, modelScale, modelScale);
+        const configScale = this.config.scale;
+        this.mesh.scale.set(
+          modelScale * configScale.x,
+          modelScale * configScale.y,
+          modelScale * configScale.z,
+        );
         this.mesh.updateMatrix();
         this.mesh.updateMatrixWorld(true);
 
@@ -767,6 +796,10 @@ export class MobEntity extends CombatantEntity {
     this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
+
+    // Apply manifest scale to placeholder
+    const configScale = this.config.scale;
+    this.mesh.scale.set(configScale.x, configScale.y, configScale.z);
 
     // Set up userData with proper typing for mob
     const userData: MeshUserData = {
@@ -1910,6 +1943,11 @@ export class MobEntity extends CombatantEntity {
       maxHealth: this.config.maxHealth,
       aiState: this.config.aiState,
       targetPlayerId: this.config.targetPlayerId,
+      scale: [
+        this.config.scale.x,
+        this.config.scale.y,
+        this.config.scale.z,
+      ] as [number, number, number], // CRITICAL: Include scale for client model sizing
     };
   }
 
@@ -1938,6 +1976,7 @@ export class MobEntity extends CombatantEntity {
         aiState: this.config.aiState,
         targetPlayerId: this.config.targetPlayerId,
         deathTime: this.deathManager.getDeathTime(),
+        scale: this.config.scale, // Include scale for client
       };
 
       // Send death emote once
@@ -1974,6 +2013,7 @@ export class MobEntity extends CombatantEntity {
       aiState: this.config.aiState,
       targetPlayerId: this.config.targetPlayerId,
       c: inCombat, // Combat state for health bar visibility (like players)
+      scale: this.config.scale, // Include scale for client model sizing
     };
 
     // CRITICAL: Force position to be included if not present

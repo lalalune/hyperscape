@@ -54,14 +54,15 @@ This document tracks which fields from `npcs.json` manifests are properly wired 
 - **Fixed in**:
   - `entities/npc/MobEntity.ts` - Same fix as defaultDrop (uses existing npcs.ts function)
 
-### 5. `appearance.scale` ❌
+### 5. `appearance.scale` ✅ FIXED
 - **Purpose**: Scale mob model (e.g., 2.0 for big boss, 0.5 for small critter)
 - **Expected**: Manifest scale affects visual size
-- **Actual**: Hardcoded to 1.0 (or 100 for GLB cm→m conversion)
-- **Root Cause**: MobNPCSpawnerSystem hardcodes scale, MobEntity ignores config.scale
-- **Files to fix**:
-  - `systems/shared/entities/MobNPCSpawnerSystem.ts` - Pass scale from manifest
-  - `entities/npc/MobEntity.ts` - Apply config.scale to mesh/VRM
+- **Status**: WORKING - Manifest scale is applied to GLB, VRM, and placeholder models
+- **Fixed in**:
+  - `systems/shared/entities/MobNPCSpawnerSystem.ts` - Passes scale from manifest (both spawn methods)
+  - `entities/npc/MobEntity.ts` - GLB: multiplies cm→m conversion by config.scale
+  - `entities/npc/MobEntity.ts` - VRM: multiplies VRM's height normalization by config.scale
+  - `entities/npc/MobEntity.ts` - Placeholder: applies config.scale to capsule mesh
 
 ---
 
@@ -135,6 +136,7 @@ These fields are properly wired up from manifest to behavior:
 | `drops.rare` | ✅ | Fixed! Rare drops now work |
 | `drops.veryRare` | ✅ | Fixed! Very rare drops now work |
 | `appearance.modelPath` | ✅ | 3D model path |
+| `appearance.scale` | ✅ | Fixed! Model scale multiplier |
 
 ---
 
@@ -145,7 +147,7 @@ These fields are properly wired up from manifest to behavior:
 - [x] `movement.type` - Fixed (MobEntityConfig, spawner, AIStateMachine, MobEntity)
 - [x] `drops.defaultDrop` - Fixed (MobEntity.dropLoot() now uses calculateNPCDrops())
 - [x] `drops.always/uncommon/rare/veryRare` - Fixed (same as above - one fix for all!)
-- [ ] `appearance.scale` - TODO
+- [x] `appearance.scale` - Fixed (spawner passes from manifest, MobEntity applies to GLB/VRM/placeholder)
 
 ---
 

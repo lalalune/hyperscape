@@ -690,13 +690,16 @@ export class EntityManager extends SystemBase {
     // Only generate a new ID if customId is not provided (fallback case)
     const mobId = data.customId || `mob_${this.nextEntityId++}`;
 
+    // Get scale from manifest (default to 1.0 if not specified)
+    const manifestScale = npcDataFromDB?.appearance?.scale ?? 1;
+
     const config: MobEntityConfig = {
       id: mobId,
       name: `Mob: ${data.name || mobType || "Unknown"} (Lv${level})`,
       type: EntityType.MOB,
       position: position,
       rotation: { x: 0, y: 0, z: 0, w: 1 },
-      scale: { x: 1, y: 1, z: 1 },
+      scale: { x: manifestScale, y: manifestScale, z: manifestScale },
       visible: true,
       interactable: true,
       interactionType: InteractionType.ATTACK,

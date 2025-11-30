@@ -134,7 +134,11 @@ export class MobNPCSpawnerSystem extends SystemBase {
       name: goblinData.name,
       position: spawnPosition,
       rotation: { x: 0, y: 0, z: 0, w: 1 },
-      scale: { x: 1, y: 1, z: 1 },
+      scale: {
+        x: goblinData.appearance.scale ?? 1,
+        y: goblinData.appearance.scale ?? 1,
+        z: goblinData.appearance.scale ?? 1,
+      },
       visible: true,
       interactable: true,
       interactionType: "attack",
@@ -220,7 +224,11 @@ export class MobNPCSpawnerSystem extends SystemBase {
       name: mobData.name, // Use manifest name directly (e.g., "Goblin")
       position: position,
       rotation: { x: 0, y: 0, z: 0, w: 1 },
-      scale: { x: 1, y: 1, z: 1 },
+      scale: {
+        x: mobData.appearance.scale ?? 1,
+        y: mobData.appearance.scale ?? 1,
+        z: mobData.appearance.scale ?? 1,
+      },
       visible: true,
       interactable: true,
       interactionType: "attack",
