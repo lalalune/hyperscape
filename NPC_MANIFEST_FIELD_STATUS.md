@@ -92,12 +92,6 @@ This document tracks which fields from `npcs.json` manifests are properly wired 
   - `entities/npc/MobEntity.ts` - Added to getMobData()
   - `systems/shared/combat/CombatSystem.ts` - Passes attack stat to calculateDamage()
 
-### 8. `movement.roaming` ❌
-- **Purpose**: Can mob leave spawn area permanently
-- **Expected**: `true` = mob can roam freely, not leashed
-- **Actual**: All mobs leashed to spawn
-- **Root Cause**: Field not passed, leashing always active
-
 ---
 
 ## Working Fields ✅
@@ -124,7 +118,7 @@ These fields are properly wired up from manifest to behavior:
 | `combat.respawnTime` | ✅ | Respawn delay |
 | `combat.xpReward` | ✅ | XP on kill |
 | `movement.speed` | ✅ | Move speed |
-| `movement.wanderRadius` | ✅ | Wander distance |
+| `movement.wanderRadius` | ✅ | Fixed! Wander distance from spawn |
 | `drops.defaultDrop` | ✅ | Fixed! Guaranteed drop (bones/ashes) |
 | `drops.always` | ✅ | Fixed! 100% drop rate items |
 | `drops.common` | ✅ | Common drop table |
@@ -146,6 +140,7 @@ These fields are properly wired up from manifest to behavior:
 - [x] `appearance.scale` - Fixed (spawner passes from manifest, MobEntity applies to GLB/VRM/placeholder)
 - [x] `combat.attackable` - Fixed (MobEntityConfig, spawner, EntityManager, Entities.ts, CombatSystem check)
 - [x] `stats.attack` - Fixed (MobEntityConfig, MobEntityData, spawner, EntityManager bug fix, CombatSystem)
+- [x] `movement.wanderRadius` - Fixed (EntityManager was hardcoded, now uses getMobWanderRadius helper)
 
 ---
 
