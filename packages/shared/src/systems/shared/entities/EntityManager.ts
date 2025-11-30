@@ -722,7 +722,7 @@ export class EntityManager extends SystemBase {
       movementType: npcDataFromDB?.movement.type ?? "wander", // Default to wander if not specified
       aggroRange: this.getMobAggroRange(mobType),
       combatRange: this.getMobCombatRange(mobType),
-      wanderRadius: 10, // 10 meter wander radius from spawn (RuneScape-style)
+      wanderRadius: this.getMobWanderRadius(mobType),
       xpReward: this.getMobXPReward(mobType, level),
       lootTable: this.getMobLootTable(mobType),
       respawnTime: 300000, // 5 minutes default
@@ -1018,6 +1018,14 @@ export class EntityManager extends SystemBase {
       return 3.0; // Default: 3 units/sec (walking speed, matches player walk)
     }
     return npcData.movement.speed;
+  }
+
+  private getMobWanderRadius(mobType: string): number {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
+      return 10; // Default: 10 meter wander radius from spawn
+    }
+    return npcData.movement.wanderRadius;
   }
 
   private getMobAggroRange(mobType: string): number {
