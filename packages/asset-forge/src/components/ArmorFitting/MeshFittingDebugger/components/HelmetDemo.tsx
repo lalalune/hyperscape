@@ -19,10 +19,10 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
   const helmetRef = useRef<THREE.Group>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const _mixer = useRef<THREE.AnimationMixer>();
+  const _mixer = useRef<THREE.AnimationMixer | null>(null);
   const _lastTime = useRef(0);
   const _activeAction = useRef<THREE.AnimationAction | null>(null);
-  const _animationFrame = useRef<number>();
+  const _animationFrame = useRef<number | null>(null);
 
   // Check if paths are valid before attempting to load
   const hasValidPaths =
