@@ -107,7 +107,7 @@ const useIntroMusic = (enabled: boolean) => {
       setCurrentTrack(track);
 
       const cdnUrl = "http://localhost:8080"; // CDN URL
-      const musicPath = `${cdnUrl}/music/intro/${track}`;
+      const musicPath = `${cdnUrl}/audio/music/intro/${track}`;
 
       // Resume audio context if suspended (browser autoplay policy)
       if (ctx.state === "suspended") {
