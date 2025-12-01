@@ -79,8 +79,6 @@ export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
       // Starter area is a safe zone - no mob spawns
       // The default test goblin is spawned by MobNPCSpawnerSystem near origin
     ],
-    connections: [],
-    specialFeatures: [],
   },
 };
 
@@ -106,15 +104,6 @@ export function getAreasByDifficulty(level: 0 | 1 | 2 | 3): WorldArea[] {
 
 export function getSafeZones(): WorldArea[] {
   return Object.values(ALL_WORLD_AREAS).filter((area) => area.safeZone);
-}
-
-export function getConnectedAreas(areaId: string): WorldArea[] {
-  const area = getAreaById(areaId);
-  if (!area) return [];
-
-  return area.connections
-    .map((id) => getAreaById(id))
-    .filter((area) => area !== null) as WorldArea[];
 }
 
 export function getNPCsInArea(areaId: string): NPCLocation[] {
