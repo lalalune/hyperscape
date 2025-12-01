@@ -60,20 +60,8 @@ export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
       },
     ],
     resources: [
-      {
-        type: "tree",
-        position: { x: 10, y: 43, z: 10 },
-        resourceId: "tree_starter_1",
-        respawnTime: 60000,
-        level: 1,
-      },
-      {
-        type: "tree",
-        position: { x: -15, y: 43, z: 8 },
-        resourceId: "tree_starter_2",
-        respawnTime: 60000,
-        level: 1,
-      },
+      // Resources are now defined in world-areas.json manifest only
+      // Do not add hardcoded resources here
     ],
     mobSpawns: [
       // Starter area is a safe zone - no mob spawns
