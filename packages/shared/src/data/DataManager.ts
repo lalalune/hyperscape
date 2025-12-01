@@ -59,7 +59,6 @@ export interface ExternalResourceData {
   id: string;
   name: string;
   type: string;
-  resourceType: string;
   modelPath: string | null;
   stumpModelPath: string | null;
   scale: number;

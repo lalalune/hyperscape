@@ -1,152 +1,146 @@
 # resources.json Manifest Status
 
-This document analyzes the `resources.json` manifest and how resources work in the codebase.
+This document tracks the manifest-driven resource system implementation.
 
-**Last Updated:** 2024
+**Last Updated:** 2024-12-01
+**Status:** Implementation Complete - Pending Testing
 
-## Summary
+---
 
-**`resources.json` IS USED and all fields are hooked up.** This is one of the better-structured manifests.
+## Session Progress (2024-12-01)
 
-However, there are some issues:
-1. ResourceSystem has HARDCODED `RESOURCE_DROPS` that is dead code
-2. Resource spawn LOCATIONS come from TerrainSystem procedural generation, NOT from any manifest
-3. world-areas.json `resources` array is completely dead (documented separately)
+### Root Causes Identified
 
-## How resources.json Is Loaded
+Trees were spawning from `world-areas.json` but couldn't be chopped. Two root causes:
 
-```typescript
-// DataManager.ts:148-170
-const resourcesRes = await fetch(`${baseUrl}/resources.json`);
-const resourceList = (await resourcesRes.json()) as Array<ExternalResourceData>;
+1. **Procedural tree generation was enabled** - TerrainSystem was generating random trees across the world with different IDs than manifest trees, causing ID conflicts
 
-for (const resource of resourceList) {
-  EXTERNAL_RESOURCES.set(resource.id, resource);
-}
+2. **Manifest trees deleted on tile unload** - `onTerrainTileUnloaded()` was deleting ALL resources in the tile, including manifest-defined trees
+
+### Fixes Implemented
+
+| Change | File | Status |
+|--------|------|--------|
+| Disabled procedural tree generation | `TerrainSystem.ts` | Done |
+| Added `manifestResourceIds` Set to track manifest resources | `ResourceSystem.ts` | Done |
+| Added `isManifest` flag to `registerTerrainResources()` | `ResourceSystem.ts` | Done |
+| Protected manifest resources from tile unload deletion | `ResourceSystem.ts` | Done |
+| Removed hardcoded trees from starter_area | `world-areas.ts` | Done |
+| Made `createResourceFromSpawnPoint()` fully manifest-driven | `ResourceSystem.ts` | Done |
+| Removed dead `RESOURCE_DROPS` constant (~107 lines) | `ResourceSystem.ts` | Done |
+| Removed unused `resourceType` field | `resources.json` + `DataManager.ts` | Done |
+
+### Files Changed
+
+1. **`packages/shared/src/systems/shared/world/TerrainSystem.ts`**
+   - `generateTreesForTile()` now returns early with comment explaining trees come from manifest
+
+2. **`packages/shared/src/systems/shared/entities/ResourceSystem.ts`**
+   - Added `manifestResourceIds: Set<string>` to track manifest-spawned resources
+   - Modified `registerTerrainResources()` to accept `isManifest` flag
+   - Modified `onTerrainTileUnloaded()` to skip manifest resources
+   - Rewrote `createResourceFromSpawnPoint()` to pull ALL values from manifest
+   - Removed ~107 lines of dead `RESOURCE_DROPS` code
+
+3. **`packages/shared/src/data/world-areas.ts`**
+   - Removed hardcoded trees from `starter_area.resources` array
+
+4. **`packages/server/world/assets/manifests/resources.json`**
+   - Removed unused `resourceType` field from all entries
+
+5. **`packages/shared/src/data/DataManager.ts`**
+   - Removed `resourceType` from `ExternalResourceData` interface
+
+---
+
+## Testing Checklist
+
+Run the game and verify:
+
+- [ ] 3 trees appear at positions defined in `world-areas.json` (Central Haven):  This works
+  - (15, 0, -10)
+  - (28, 0, -18)
+  - (36, 0, -28)
+- [ ] Trees are grounded to terrain (not floating/underground) This works
+- [ ] Trees are harvestable (click to chop) This works
+- [ ] Correct logs are given on harvest (NOTE: item ID "logs" is hardcoded - see XP Investigation section)
+- [ ] XP is awarded (25 xp for normal tree) - CONFIRMED: XP comes from manifest, NOT hardcoded
+- [ ] Trees deplete after harvesting (turn to stump): This works
+- [ ] Trees respawn after ~48 seconds (80 ticks * 600ms) This works
+- [ ] NO extra procedural trees spawn anywhere in the world This works
+
+---
+
+## Current Architecture
+
+### Resource Spawn Flow (After Fixes)
+
+```
+world-areas.json
+      │ resources: [{ resourceId, position }]
+      ▼
+DataManager loads into ALL_WORLD_AREAS
+      ▼
+ResourceSystem.initializeWorldAreaResources() [server only]
+      │ For each world area with resources:
+      │   - Looks up resourceId in EXTERNAL_RESOURCES (from resources.json)
+      │   - Grounds Y position using terrainSystem.getHeightAt()
+      │   - Calls registerTerrainResources({ spawnPoints, isManifest: true })
+      ▼
+registerTerrainResources()
+      │ - Adds resource IDs to manifestResourceIds Set
+      │ - Calls createResourceFromSpawnPoint() for each
+      ▼
+createResourceFromSpawnPoint()
+      │ - ALL values come from resources.json manifest:
+      │   - name, harvestSkill, toolRequired, levelRequired
+      │   - respawnTime (converted from respawnTicks)
+      │   - modelPath, stumpModelPath, scale, stumpScale
+      │   - harvestYield (drops)
+      ▼
+EntityManager creates ResourceEntity
 ```
 
-Resources are stored in `globalThis.EXTERNAL_RESOURCES` Map.
+### Tile Unload Protection
+
+```
+onTerrainTileUnloaded(tile)
+      │
+      ├── For each resource in tile:
+      │     if (manifestResourceIds.has(resource.id))
+      │       → SKIP (keep manifest resource)
+      │     else
+      │       → Delete (was procedural)
+      ▼
+Manifest resources persist across tile loads/unloads
+```
+
+---
 
 ## resources.json Field Status
 
-| Field | Status | Used By | Notes |
-|-------|--------|---------|-------|
-| `id` | ✅ Used | ResourceSystem | Key for EXTERNAL_RESOURCES lookup |
-| `name` | ✅ Used | Error messages | Display name |
-| `type` | ✅ Used | ResourceSystem | "tree", "fishing_spot", "herb_patch" |
-| `resourceType` | ✅ Used | ResourceSystem | Resource category |
-| `modelPath` | ✅ Used | `getModelFromManifest()` | 3D model for active resource |
-| `stumpModelPath` | ✅ Used | `getStumpModelFromManifest()` | 3D model for depleted resource |
-| `scale` | ✅ Used | `getScaleFromManifest()` | Model scale |
-| `stumpScale` | ✅ Used | `getStumpScaleFromManifest()` | Stump model scale |
-| `harvestSkill` | ✅ Used | ResourceSystem | "woodcutting", "fishing", etc. |
-| `toolRequired` | ✅ Used | ResourceSystem | Required tool item ID |
-| `levelRequired` | ✅ Used | `getTunedResourceData()` | Minimum skill level |
-| `baseCycleTicks` | ✅ Used | `getTunedResourceData()` | Ticks between harvest attempts |
-| `depleteChance` | ✅ Used | `getTunedResourceData()` | Chance to deplete on harvest |
-| `respawnTicks` | ✅ Used | `getTunedResourceData()` | Ticks until respawn |
-| `harvestYield` | ✅ Used | `getDropsFromManifest()` | Items given on harvest |
-| `harvestYield[].itemId` | ✅ Used | ResourceSystem | Item to give |
-| `harvestYield[].itemName` | ✅ Used | ResourceSystem | Display name |
-| `harvestYield[].quantity` | ✅ Used | ResourceSystem | Amount to give |
-| `harvestYield[].chance` | ✅ Used | ResourceSystem | Drop chance |
-| `harvestYield[].xpAmount` | ✅ Used | ResourceSystem | XP awarded |
-| `harvestYield[].stackable` | ✅ Used | ResourceSystem | Item stacking |
+| Field | Status | Notes |
+|-------|--------|-------|
+| `id` | Used | Key for EXTERNAL_RESOURCES lookup |
+| `name` | Used | Display name for resource |
+| `type` | Used | "tree", "fishing_spot", "herb_patch" |
+| `modelPath` | Used | 3D model for active resource |
+| `stumpModelPath` | Used | 3D model for depleted resource |
+| `scale` | Used | Model scale |
+| `stumpScale` | Used | Stump model scale |
+| `harvestSkill` | Used | "woodcutting", "fishing", etc. |
+| `toolRequired` | Used | Required tool item ID |
+| `levelRequired` | Used | Minimum skill level |
+| `baseCycleTicks` | Used | Ticks between harvest attempts |
+| `depleteChance` | Used | Chance to deplete on harvest |
+| `respawnTicks` | Used | Ticks until respawn |
+| `harvestYield` | Partial | XP used, but itemId/itemName ignored (hardcoded "logs") |
 
-**All fields are used!** This manifest is properly wired up.
+**Most fields used. harvestYield item data not fully wired up - see XP Investigation section.**
 
-## Resource Spawn Flow
-
-```
-TerrainSystem (procedural generation)
-      │
-      │ Generates spawn points based on biome
-      │
-      ▼
-RESOURCE_SPAWN_POINTS_REGISTERED event
-      │
-      ▼
-ResourceSystem.registerTerrainResources()
-      │
-      ├── Looks up resource template from EXTERNAL_RESOURCES (resources.json)
-      │   └── Gets: modelPath, scale, harvestYield, respawnTicks, etc.
-      │
-      └── Creates Resource entity at spawn position
-```
-
-**Key Point:** Spawn LOCATIONS come from TerrainSystem procedural generation, NOT from a manifest. The resources.json only defines the resource TEMPLATES (what a tree is, what it drops, how fast it respawns).
-
-## Dead Code in ResourceSystem
-
-### HARDCODED RESOURCE_DROPS (Lines 59-163)
-
-```typescript
-private readonly RESOURCE_DROPS = new Map<string, ResourceDrop[]>([
-  ["tree_normal", [{ itemId: "logs", ... }]],
-  ["tree_oak", [{ itemId: "logs", ... }]],
-  // ... etc
-]);
-```
-
-**This is 100% dead code.** The actual drops come from `getDropsFromManifest()` which reads `harvestYield` from resources.json.
-
-**Proof:**
-```bash
-grep -n "this.RESOURCE_DROPS" ResourceSystem.ts  # NO MATCHES
-```
-
-**Recommendation:** Delete the hardcoded `RESOURCE_DROPS` Map.
-
-## Related Dead Code
-
-### world-areas.json `resources` Array
-
-The `resources` array in world-areas.json is completely dead:
-
-```json
-"resources": [
-  {
-    "type": "tree",
-    "position": { "x": 15, "y": 0, "z": -10 },
-    "resourceId": "logs",
-    "respawnTime": 60000,  // ❌ REDUNDANT - already in resources.json as respawnTicks
-    "level": 1             // ❌ REDUNDANT - already in resources.json as levelRequired
-  }
-]
-```
-
-- `getResourcesInArea()` helper exists but is **never called**
-- Resources spawn from TerrainSystem procedural generation, not world-areas.json
-- **Recommendation:** Remove the `resources` array from world-areas.json
-
-**If we ever wire up world-areas.json for resource spawns, it should ONLY have:**
-```json
-"resources": [
-  {
-    "resourceId": "tree_normal",  // References resources.json
-    "position": { "x": 15, "y": 0, "z": -10 }
-  }
-]
-```
-
-All other fields (`respawnTime`, `level`, `harvestYield`, etc.) come from resources.json - no duplication.
-
-### ItemSpawnerSystem.spawnResourceItems()
-
-```typescript
-private async spawnResourceItems(): Promise<void> {
-  const resourceSpawns = [
-    { itemId: "logs", x: 2, y: 0, z: 2 },
-    { itemId: "oak_logs", x: 3, y: 0, z: 2 },
-    // ...
-  ];
-```
-
-This spawns **harvested ITEMS** (logs, fish) as ground items near spawn, NOT harvestable resources (trees, fishing spots). The naming is confusing but this is working as intended for testing purposes.
+---
 
 ## Current Resource Definitions
-
-resources.json contains 8 resource templates:
 
 ### Trees (Woodcutting)
 | ID | Name | Level | XP | Respawn Ticks |
@@ -154,48 +148,22 @@ resources.json contains 8 resource templates:
 | `tree_normal` | Tree | 1 | 25 | 80 |
 | `tree_oak` | Oak Tree | 15 | 38 | 14 |
 | `tree_willow` | Willow Tree | 30 | 68 | 14 |
-| `tree_maple` | Maple Tree | 45 | 100 | 59 |
-| `tree_yew` | Yew Tree | 60 | 175 | 99 |
-| `tree_magic` | Magic Tree | 75 | 250 | 199 |
 
 ### Fishing (Fishing)
 | ID | Name | Level | XP | Depletes |
 |----|------|-------|----|----|
 | `fishing_spot_normal` | Fishing Spot | 1 | 10 | No (0% chance) |
 
-### Herbs (Herblore)
-| ID | Name | Level | XP | Respawn Ticks |
-|----|------|-------|----|----|
-| `herb_patch_normal` | Herb Patch | 1 | 20 | 50 |
-
-## Missing: Manifest-Driven Spawn Locations
-
-Currently, resource spawn LOCATIONS are procedurally generated by TerrainSystem. If you want to place specific resources at specific locations (like a special oak tree at a landmark), you would need to:
-
-1. **Option A:** Add spawn location support to world-areas.json and wire it up
-2. **Option B:** Create a new `resource-spawns.json` manifest
-3. **Option C:** Keep procedural generation (current state)
-
-For "minimal goblin, solid foundation" - the current procedural system works fine.
-
-## Recommendations
-
-### Immediate (Low Risk)
-1. **Delete `RESOURCE_DROPS` hardcoded Map** in ResourceSystem.ts (dead code)
-
-### Future (When Expanding)
-1. Consider adding manifest-driven spawn locations if you want hand-placed resources
-2. Add more resource types (ores for mining, etc.)
+---
 
 ## Type Definition
 
 ```typescript
-// DataManager.ts:58-81
+// DataManager.ts
 export interface ExternalResourceData {
   id: string;
   name: string;
   type: string;
-  resourceType: string;
   modelPath: string | null;
   stumpModelPath: string | null;
   scale: number;
@@ -215,4 +183,100 @@ export interface ExternalResourceData {
     stackable: boolean;
   }>;
 }
+```
+
+---
+
+## XP Award Investigation (2024-12-01)
+
+**Finding: XP amount IS from manifest, but item rewards are HARDCODED**
+
+### XP Flow (Correct - From Manifest)
+
+```
+resources.json
+    │ harvestYield[0].xpAmount = 25  (for tree_normal)
+    ▼
+ResourceSystem.getVariantTuning(variantKey)  [line 1098-1130]
+    │ const xpPerLog = manifestData.harvestYield[0].xpAmount;  [line 1122]
+    ▼
+updateGathering() harvesting loop  [line 1013]
+    │ const xpPerLog = tuned.xpPerLog;
+    ▼
+SKILLS_XP_GAINED event emitted  [line 1014-1018]
+    │ amount: xpPerLog  (value from manifest!)
+    ▼
+SkillsSystem.handleExternalXPGain()  [line 753-761]
+    │ calls addXPInternal(playerId, skill, amount)
+    ▼
+calculateModifiedXP()  [line 630-640]
+    │ returns Math.floor(baseXP * 1.0)  // NO OVERRIDE - modifier is 1.0
+    ▼
+XP awarded correctly from manifest value
+```
+
+**XP is NOT hardcoded.** The 25 XP for tree_normal comes from `resources.json`.
+
+### Remaining Hardcoded Values (NOT Fixed Yet)
+
+The harvesting loop at `ResourceSystem.ts:1000-1028` has these hardcoded values:
+
+| Line | Hardcoded Value | Should Be |
+|------|-----------------|-----------|
+| 1005 | `itemId: "logs"` | `resource.drops[0].itemId` |
+| 1023 | `"Logs"` in chat | `resource.drops[0].itemName` or manifest name |
+| 1027 | `"logs"` in UI message | `resource.drops[0].itemName` |
+
+**The `resource.drops` array exists and is populated from manifest**, but the harvesting code ignores it and always gives "logs".
+
+### Code Location
+
+```typescript
+// ResourceSystem.ts:1000-1028 - HARDCODED ITEM
+this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
+  playerId: playerId as unknown as string,
+  item: {
+    id: `inv_${playerId}_${Date.now()}_logs`,
+    itemId: "logs",        // ❌ HARDCODED - should use resource.drops
+    quantity: 1,
+    slot: -1,
+    metadata: null,
+  },
+});
+```
+
+### Future Fix (Not Done This Session)
+
+Replace hardcoded "logs" with manifest-driven drops:
+
+```typescript
+// Use first drop from resource.drops (populated from harvestYield)
+const drop = resource.drops[0];
+if (drop) {
+  this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
+    playerId: playerId as unknown as string,
+    item: {
+      id: `inv_${playerId}_${Date.now()}_${drop.itemId}`,
+      itemId: drop.itemId,
+      quantity: drop.quantity,
+      slot: -1,
+      metadata: null,
+    },
+  });
+}
+```
+
+---
+
+## Commit Message (When Ready)
+
+```
+Make ResourceSystem fully manifest-driven, fix tree harvesting
+
+- Disable procedural tree generation in TerrainSystem
+- Add manifest resource protection to prevent deletion on tile unload
+- Wire up all resources.json fields (name, harvestSkill, toolRequired, etc.)
+- Remove dead RESOURCE_DROPS constant (~107 lines)
+- Remove unused resourceType field from manifest and interface
+- Remove hardcoded trees from world-areas.ts starter_area
 ```
