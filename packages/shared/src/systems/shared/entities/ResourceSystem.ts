@@ -1,4 +1,4 @@
-import { SystemBase } from "..";
+import { SystemBase, TerrainSystem } from "..";
 import { uuid } from "../../../utils";
 import type { World } from "../../../types";
 import { EventType } from "../../../types/events";
@@ -13,6 +13,7 @@ import type { TerrainResourceSpawnPoint } from "../../../types/world/terrain";
 import { TICK_DURATION_MS } from "../movement/TileSystem";
 import { getExternalResource } from "../../../utils/ExternalAssetUtils";
 import type { ExternalResourceData } from "../../../data/DataManager";
+import { ALL_WORLD_AREAS } from "../../../data/world-areas";
 
 /**
  * Resource System
@@ -54,6 +55,10 @@ export class ResourceSystem extends SystemBase {
     Record<string, { level: number; xp: number }>
   >();
   private resourceVariants = new Map<ResourceID, string>();
+  // Track manifest-spawned resources (from world-areas.json) - these should NOT be deleted on tile unload
+  private manifestResourceIds = new Set<ResourceID>();
+  // Terrain system reference for height lookups
+  private terrainSystem: TerrainSystem | null = null;
 
   // Resource drop tables per GDD
   private readonly RESOURCE_DROPS = new Map<string, ResourceDrop[]>([
@@ -249,7 +254,13 @@ export class ResourceSystem extends SystemBase {
     }>(EventType.SKILLS_UPDATED, (data) => {
       this.playerSkills.set(data.playerId, data.skills);
     });
+
+    // Get terrain system for height lookups
+    this.terrainSystem = this.world.getSystem(
+      "terrain",
+    ) as TerrainSystem | null;
   }
+
   private sendChat(playerId: string, text: string): void {
     const chat = (
       this.world as unknown as {
@@ -333,15 +344,101 @@ export class ResourceSystem extends SystemBase {
     // NOTE: Gathering is now processed via processGatheringTick() called by TickSystem
     // The old 500ms interval has been removed in favor of OSRS-accurate 600ms tick-based processing
     // Registration happens in ServerNetwork/index.ts at TickPriority.RESOURCES
+
+    // Load explicit resource placements from world-areas.json (server only)
+    // This must be in start() not init() because network broadcast isn't ready during init()
+    if (this.world.isServer) {
+      this.initializeWorldAreaResources();
+    }
+  }
+
+  /**
+   * Initialize resources from world-areas.json manifest
+   * Called once on server startup to spawn explicit resource placements
+   */
+  private initializeWorldAreaResources(): void {
+    // Type mapping: resources.json type → TerrainResourceSpawnPoint type
+    const typeMap: Record<string, TerrainResourceSpawnPoint["type"]> = {
+      tree: "tree",
+      fishing_spot: "fish",
+      herb_patch: "herb",
+      rock: "rock",
+      ore: "ore",
+    };
+
+    console.log(
+      `[ResourceSystem] initializeWorldAreaResources() called. ALL_WORLD_AREAS keys: ${Object.keys(ALL_WORLD_AREAS).join(", ")}`,
+    );
+
+    for (const [areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
+      if (!area.resources || area.resources.length === 0) continue;
+      console.log(
+        `[ResourceSystem] Processing area "${areaId}" with ${area.resources.length} resources`,
+      );
+
+      const spawnPoints: TerrainResourceSpawnPoint[] = [];
+
+      for (const r of area.resources) {
+        // Look up resource in manifest to get authoritative type
+        const resourceData = getExternalResource(r.resourceId);
+        console.log(
+          `[ResourceSystem] getExternalResource("${r.resourceId}") returned: ${resourceData ? resourceData.type : "null"}`,
+        );
+        if (!resourceData) {
+          console.warn(
+            `[ResourceSystem] Unknown resource ID in world-areas: ${r.resourceId}`,
+          );
+          continue;
+        }
+
+        // Map type (e.g., "fishing_spot" → "fish")
+        const mappedType = typeMap[resourceData.type] || resourceData.type;
+
+        // Extract subType by removing type prefix from resourceId
+        // "tree_oak" - "tree_" = "oak"
+        // "tree_normal" - "tree_" = "normal" → undefined
+        const suffix = r.resourceId.replace(resourceData.type + "_", "");
+        const subType = suffix === "normal" ? undefined : suffix;
+
+        // Ground Y position to terrain height
+        let groundedY = r.position.y;
+        if (this.terrainSystem) {
+          const terrainHeight = this.terrainSystem.getHeightAt(
+            r.position.x,
+            r.position.z,
+          );
+          if (Number.isFinite(terrainHeight)) {
+            groundedY = terrainHeight + 0.1; // Slight offset above ground
+          }
+        }
+
+        spawnPoints.push({
+          position: { x: r.position.x, y: groundedY, z: r.position.z },
+          type: mappedType as TerrainResourceSpawnPoint["type"],
+          subType: subType as TerrainResourceSpawnPoint["subType"],
+        });
+      }
+
+      if (spawnPoints.length > 0) {
+        console.log(
+          `[ResourceSystem] Spawning ${spawnPoints.length} explicit resources for area "${areaId}"`,
+        );
+        // Pass isManifest: true to protect these resources from tile unload deletion
+        this.registerTerrainResources({ spawnPoints, isManifest: true });
+      }
+    }
   }
 
   /**
    * Handle terrain system resource registration (new procedural system)
+   * @param data.spawnPoints - Resource spawn points to register
+   * @param data.isManifest - If true, resources are from world-areas.json and won't be deleted on tile unload
    */
   private async registerTerrainResources(data: {
     spawnPoints: TerrainResourceSpawnPoint[];
+    isManifest?: boolean;
   }): Promise<void> {
-    const { spawnPoints } = data;
+    const { spawnPoints, isManifest = false } = data;
 
     if (spawnPoints.length === 0) return;
 
@@ -374,6 +471,15 @@ export class ResourceSystem extends SystemBase {
       // Store in map for tracking
       const rid = createResourceID(resource.id);
       this.resources.set(rid, resource);
+
+      // Mark manifest resources so they're not deleted on tile unload
+      if (isManifest) {
+        this.manifestResourceIds.add(rid);
+      }
+
+      console.log(
+        `[ResourceSystem] Stored resource in map: id="${resource.id}", rid="${rid}", map size=${this.resources.size}${isManifest ? " (manifest)" : ""}`,
+      );
       // Track variant/subtype for tuning (e.g., 'tree_oak')
       if (resource.type === "tree") {
         // Build full key: if subType is "normal", key is "tree_normal"
@@ -667,13 +773,19 @@ export class ResourceSystem extends SystemBase {
 
   /**
    * Handle terrain tile unloading - remove resources from unloaded tiles
+   * Note: Manifest resources (from world-areas.json) are protected and never deleted
    */
   private onTerrainTileUnloaded(data: { tileId: string }): void {
     // Extract tileX and tileZ from tileId (format: "x,z")
     const [tileX, tileZ] = data.tileId.split(",").map(Number);
 
-    // Remove resources that belong to this tile
+    // Remove resources that belong to this tile (but not manifest resources)
     for (const [resourceId, resource] of this.resources) {
+      // Skip manifest resources - they are permanent and shouldn't be deleted on tile unload
+      if (this.manifestResourceIds.has(resourceId)) {
+        continue;
+      }
+
       // Check if resource belongs to this tile (based on position)
       const resourceTileX = Math.floor(resource.position.x / 100); // 100m tile size
       const resourceTileZ = Math.floor(resource.position.z / 100);
@@ -1332,6 +1444,7 @@ export class ResourceSystem extends SystemBase {
 
     // Clear all resource data
     this.resources.clear();
+    this.manifestResourceIds.clear();
 
     // Call parent cleanup (automatically clears all tracked timers, intervals, and listeners)
     super.destroy();
