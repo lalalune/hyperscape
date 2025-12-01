@@ -437,26 +437,41 @@ export class MobNPCSpawnerSystem extends SystemBase {
       );
 
       if (spawnTileX === tileData.tileX && spawnTileZ === tileData.tileZ) {
-        // Ground mob spawn to terrain height
-        let mobY = spawnPoint.position.y;
-        const th = this.terrainSystem.getHeightAt(
-          spawnPoint.position.x,
-          spawnPoint.position.z,
-        );
-        if (Number.isFinite(th)) mobY = (th as number) + 0.1;
-
-        console.log(
-          `[MobNPCSpawnerSystem]   -> Spawning ${spawnPoint.mobId} at (${spawnPoint.position.x}, ${mobY}, ${spawnPoint.position.z})`,
-        );
-
-        // Directly spawn the mob instead of emitting an event back to ourselves
         const mobData = ALL_NPCS.get(spawnPoint.mobId);
-        if (mobData) {
-          this.spawnMobFromData(mobData, {
-            x: spawnPoint.position.x,
-            y: mobY,
-            z: spawnPoint.position.z,
-          });
+        if (!mobData) continue;
+
+        // Spawn maxCount mobs (default to 1 if not specified)
+        const maxCount = spawnPoint.maxCount ?? 1;
+        // Use spawnRadius for spreading, or 2 units if multiple mobs but no radius
+        const effectiveRadius =
+          spawnPoint.spawnRadius > 0
+            ? spawnPoint.spawnRadius
+            : maxCount > 1
+              ? 2
+              : 0;
+
+        for (let i = 0; i < maxCount; i++) {
+          // Calculate position: spread mobs evenly in circle when multiple
+          let mobX = spawnPoint.position.x;
+          let mobZ = spawnPoint.position.z;
+
+          if (maxCount > 1) {
+            // Deterministic positions: evenly spaced in a circle
+            const angle = (i / maxCount) * Math.PI * 2;
+            mobX += Math.cos(angle) * effectiveRadius;
+            mobZ += Math.sin(angle) * effectiveRadius;
+          }
+
+          // Ground mob spawn to terrain height
+          let mobY = spawnPoint.position.y;
+          const th = this.terrainSystem.getHeightAt(mobX, mobZ);
+          if (Number.isFinite(th)) mobY = (th as number) + 0.1;
+
+          console.log(
+            `[MobNPCSpawnerSystem]   -> Spawning ${spawnPoint.mobId} #${i + 1}/${maxCount} at (${mobX.toFixed(1)}, ${mobY.toFixed(1)}, ${mobZ.toFixed(1)})`,
+          );
+
+          this.spawnMobFromData(mobData, { x: mobX, y: mobY, z: mobZ });
         }
       }
     }

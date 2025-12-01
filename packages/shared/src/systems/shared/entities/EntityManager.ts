@@ -1296,16 +1296,16 @@ export class EntityManager extends SystemBase {
     // If it's a store, register it with the store system
     if (data.type === "general_store" || data.services?.includes("buy_items")) {
       // Map NPC ID to store ID based on position
-      // NPCs are named like "lumbridge_shopkeeper", stores are like "store_town_0"
+      // NPCs are named like "central_haven_shopkeeper", stores are like "store_town_0"
       let storeId = "store_town_0"; // Default to central
       if (
-        data.npcId.includes("lumbridge") ||
+        data.npcId.includes("central_haven") ||
         (data.position.x < 50 &&
           data.position.x > -50 &&
           data.position.z < 50 &&
           data.position.z > -50)
       ) {
-        storeId = "store_town_0"; // Central
+        storeId = "store_town_0"; // Central Haven
       } else if (data.position.x > 50) {
         storeId = "store_town_1"; // Eastern
       } else if (data.position.x < -50) {
