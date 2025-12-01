@@ -14,6 +14,7 @@ interface AgentSkills {
   constitution?: SkillData;
   ranged?: SkillData;
   woodcutting?: SkillData;
+  mining?: SkillData;
   fishing?: SkillData;
   firemaking?: SkillData;
   cooking?: SkillData;
@@ -32,6 +33,7 @@ const SKILL_CONFIG = [
   { key: "constitution", label: "HP", icon: "❤️" },
   { key: "ranged", label: "Ranged", icon: "🏹" },
   { key: "woodcutting", label: "Woodcut", icon: "🪓" },
+  { key: "mining", label: "Mining", icon: "⛏️" },
   { key: "fishing", label: "Fishing", icon: "🎣" },
   { key: "firemaking", label: "Fire", icon: "🔥" },
   { key: "cooking", label: "Cooking", icon: "🍳" },

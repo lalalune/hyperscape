@@ -5,7 +5,7 @@
  *
  * **Skills Managed:**
  * - Combat: attack, strength, defense, constitution, ranged
- * - Gathering: woodcutting, fishing
+ * - Gathering: woodcutting, mining, fishing
  * - Artisan: firemaking, cooking
  *
  * **XP Calculation:**

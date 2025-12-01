@@ -55,7 +55,7 @@ export const Emotes = {
   CHOPPING: "asset://emotes/emote_chopping.glb",
 
   /** Mining animation (used when mining rocks) */
-  MINING: "asset://emotes/emote_chopping.glb", // Reuse chopping animation for now
+  MINING: "asset://emotes/emote_mining.glb",
 
   /** Death animation */
   DEATH: "asset://emotes/emote-death.glb",

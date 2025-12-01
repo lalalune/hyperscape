@@ -65,6 +65,7 @@ export interface Skills {
   constitution: { level: number; xp: number };
   ranged: { level: number; xp: number };
   woodcutting: { level: number; xp: number };
+  mining: { level: number; xp: number };
   fishing: { level: number; xp: number };
   firemaking: { level: number; xp: number };
   cooking: { level: number; xp: number };

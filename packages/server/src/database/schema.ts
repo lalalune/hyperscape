@@ -15,7 +15,7 @@
  * **Character System** (RuneScape-inspired):
  * - `characters`: Player characters with stats, levels, XP, and position
  *   - Combat skills: attack, strength, defense, constitution (health), ranged
- *   - Gathering skills: woodcutting, fishing, firemaking, cooking
+ *   - Gathering skills: woodcutting, mining, fishing, firemaking, cooking
  *   - Each skill has level and XP tracking
  * - `inventory`: Player item storage (28 slots with quantities and metadata)
  * - `equipment`: Worn/wielded items (weapon, armor, etc.) by slot type
@@ -167,7 +167,7 @@ export const entities = pgTable("entities", {
  *
  * **Skills**:
  * Combat: attack, strength, defense, constitution (health), ranged
- * Gathering: woodcutting, fishing, firemaking, cooking
+ * Gathering: woodcutting, mining, fishing, firemaking, cooking
  *
  * **Foreign Keys**:
  * - inventory, equipment, sessions, chunkActivity all reference characters.id
@@ -193,6 +193,7 @@ export const characters = pgTable(
 
     // Gathering skills
     woodcuttingLevel: integer("woodcuttingLevel").default(1),
+    miningLevel: integer("miningLevel").default(1),
     fishingLevel: integer("fishingLevel").default(1),
     firemakingLevel: integer("firemakingLevel").default(1),
     cookingLevel: integer("cookingLevel").default(1),
@@ -204,6 +205,7 @@ export const characters = pgTable(
     constitutionXp: integer("constitutionXp").default(1154),
     rangedXp: integer("rangedXp").default(0),
     woodcuttingXp: integer("woodcuttingXp").default(0),
+    miningXp: integer("miningXp").default(0),
     fishingXp: integer("fishingXp").default(0),
     firemakingXp: integer("firemakingXp").default(0),
     cookingXp: integer("cookingXp").default(0),

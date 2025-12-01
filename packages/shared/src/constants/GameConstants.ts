@@ -246,6 +246,7 @@ export const SKILLS = {
   CONSTITUTION: "constitution",
   RANGE: "range",
   WOODCUTTING: "woodcutting",
+  MINING: "mining",
   FISHING: "fishing",
   FIREMAKING: "firemaking",
   COOKING: "cooking",

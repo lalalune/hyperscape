@@ -149,8 +149,8 @@ export class PlayerMigration {
         constitution: { level: old.constitutionLevel, xp: old.constitutionXp },
         ranged: { level: old.rangedLevel, xp: old.rangedXp },
         mining: {
-          level: old.miningLevel || 1,
-          xp: old.miningXp || 0,
+          level: old.miningLevel,
+          xp: old.miningXp,
         },
         woodcutting: {
           level: old.woodcuttingLevel || 1,

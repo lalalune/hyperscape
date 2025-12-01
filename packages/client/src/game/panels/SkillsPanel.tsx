@@ -314,6 +314,13 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
       xp: s?.woodcutting?.xp || 0,
     },
     {
+      key: "mining",
+      label: "Mining",
+      icon: "⛏️",
+      level: s?.mining?.level || 1,
+      xp: s?.mining?.xp || 0,
+    },
+    {
       key: "fishing",
       label: "Fishing",
       icon: "🎣",

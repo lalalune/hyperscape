@@ -207,6 +207,7 @@ export class CharacterRepository extends BaseRepository {
     constitution: { level: number; xp: number };
     ranged: { level: number; xp: number };
     woodcutting: { level: number; xp: number };
+    mining: { level: number; xp: number };
     fishing: { level: number; xp: number };
     firemaking: { level: number; xp: number };
     cooking: { level: number; xp: number };
@@ -221,6 +222,7 @@ export class CharacterRepository extends BaseRepository {
         constitutionLevel: schema.characters.constitutionLevel,
         rangedLevel: schema.characters.rangedLevel,
         woodcuttingLevel: schema.characters.woodcuttingLevel,
+        miningLevel: schema.characters.miningLevel,
         fishingLevel: schema.characters.fishingLevel,
         firemakingLevel: schema.characters.firemakingLevel,
         cookingLevel: schema.characters.cookingLevel,
@@ -230,6 +232,7 @@ export class CharacterRepository extends BaseRepository {
         constitutionXp: schema.characters.constitutionXp,
         rangedXp: schema.characters.rangedXp,
         woodcuttingXp: schema.characters.woodcuttingXp,
+        miningXp: schema.characters.miningXp,
         fishingXp: schema.characters.fishingXp,
         firemakingXp: schema.characters.firemakingXp,
         cookingXp: schema.characters.cookingXp,
@@ -256,6 +259,10 @@ export class CharacterRepository extends BaseRepository {
       woodcutting: {
         level: row.woodcuttingLevel || 1,
         xp: row.woodcuttingXp || 0,
+      },
+      mining: {
+        level: row.miningLevel || 1,
+        xp: row.miningXp || 0,
       },
       fishing: { level: row.fishingLevel || 1, xp: row.fishingXp || 0 },
       firemaking: {

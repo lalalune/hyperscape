@@ -116,6 +116,7 @@ export class PlayerEntity extends CombatantEntity {
         constitution: { level: 10, xp: 1154 },
         ranged: { level: 1, xp: 0 },
         woodcutting: { level: 1, xp: 0 },
+        mining: { level: 1, xp: 0 },
         fishing: { level: 1, xp: 0 },
         firemaking: { level: 1, xp: 0 },
         cooking: { level: 1, xp: 0 },
