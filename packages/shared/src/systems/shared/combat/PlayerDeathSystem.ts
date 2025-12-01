@@ -1,10 +1,7 @@
 import { SystemBase } from "..";
 import type { World } from "../../../core/World";
 import { EventType } from "../../../types/events";
-import {
-  getNearestTown,
-  WORLD_STRUCTURE_CONSTANTS,
-} from "../../../data/world-structure";
+import { WORLD_STRUCTURE_CONSTANTS } from "../../../data/world-structure";
 import type { HeadstoneData } from "../../../types/entities";
 import type {
   ZoneData,
@@ -649,7 +646,7 @@ export class PlayerDeathSystem extends SystemBase {
       );
     }
 
-    // RuneScape-style: Always respawn at dedicated death spawn (like Lumbridge)
+    // Always respawn at Central Haven (the main spawn point)
     // Central Haven (0, 0) is our death respawn location
     // Y coordinate will be properly grounded by PlayerSystem's spawn logic
     const DEATH_RESPAWN_POSITION = { x: 0, y: 0, z: 0 };

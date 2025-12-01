@@ -28,7 +28,7 @@ import {
   getMobSpawnsInArea,
   getNPCsInArea,
 } from "./world-areas";
-import { BIOMES, WORLD_ZONES } from "./world-structure";
+import { BIOMES } from "./world-structure";
 
 // Define constants from JSON data
 const equipmentRequirements = equipmentRequirementsData;
@@ -196,10 +196,8 @@ export class DataManager {
         BIOMES[biome.id] = biome;
       }
 
-      // Load zones
-      const zonesRes = await fetch(`${baseUrl}/zones.json`);
-      const zoneList = (await zonesRes.json()) as Array<ZoneData>;
-      WORLD_ZONES.push(...zoneList);
+      // zones.json removed - use world-areas.json instead
+      // WORLD_ZONES remains empty, ZoneDetectionSystem uses ALL_WORLD_AREAS as primary
 
       // Load banks
       const banksRes = await fetch(`${baseUrl}/banks.json`);
