@@ -205,36 +205,105 @@ export class HyperscapeService
     try {
       // Insert dashboard entity directly into entities table if it doesn't exist
       // This satisfies the foreign key constraint for memories.entityId
-      const db = (runtime as any).databaseAdapter?.db || (runtime as any).db;
+      const dbAdapter = (runtime as any).databaseAdapter;
+      const db = dbAdapter?.db || (runtime as any).db;
 
-      if (db) {
-        // Use INSERT OR IGNORE for SQLite / ON CONFLICT DO NOTHING for PostgreSQL
-        await db.run(
-          `
-          INSERT INTO entities (id, name, details, created_at)
-          VALUES (?, ?, ?, ?)
-          ON CONFLICT (id) DO NOTHING
-        `,
-          [
-            dashboardUuid,
-            "Dashboard",
-            JSON.stringify({
-              username: "dashboard",
-              source: "hyperscape_dashboard",
-              description: "Hyperscape Dashboard User",
-            }),
-            new Date().toISOString(),
-          ],
-        );
-
-        logger.info(
-          "[HyperscapePlugin] Ensured dashboard entity exists in database",
-        );
-      } else {
+      if (!db) {
         logger.warn(
           "[HyperscapePlugin] Could not access database to create dashboard entity",
         );
+        return;
       }
+
+      // Check if entity already exists
+      let entityExists = false;
+      try {
+        // Try to query the entity - use different methods based on adapter type
+        if (db.query) {
+          // PostgreSQL/Drizzle style: use query method
+          const result = await db.query(
+            `SELECT id FROM entities WHERE id = $1`,
+            [dashboardUuid],
+          );
+          entityExists = result && result.rows && result.rows.length > 0;
+        } else if (db.prepare) {
+          // SQLite style: use prepare
+          const stmt = db.prepare(`SELECT id FROM entities WHERE id = ?`);
+          const result = stmt.get(dashboardUuid);
+          entityExists = !!result;
+        } else if (db.select) {
+          // Drizzle ORM style: use select
+          const result = await db
+            .select()
+            .from((db as any).entities || "entities")
+            .where((db as any).eq?.((db as any).entities?.id, dashboardUuid));
+          entityExists = result && result.length > 0;
+        }
+      } catch (checkError) {
+        // If query fails, assume entity doesn't exist and try to insert
+        logger.debug(
+          "[HyperscapePlugin] Could not check if entity exists, will attempt insert",
+        );
+      }
+
+      if (entityExists) {
+        logger.debug(
+          "[HyperscapePlugin] Dashboard entity already exists in database",
+        );
+        return;
+      }
+
+      // Insert entity using the correct schema: id, data, createdAt, updatedAt
+      const entityData = JSON.stringify({
+        username: "dashboard",
+        source: "hyperscape_dashboard",
+        description: "Hyperscape Dashboard User",
+        name: "Dashboard",
+      });
+
+      if (db.query) {
+        // PostgreSQL: use query with parameterized query
+        await db.query(
+          `INSERT INTO entities (id, data, "createdAt", "updatedAt")
+           VALUES ($1, $2, NOW(), NOW())
+           ON CONFLICT (id) DO NOTHING`,
+          [dashboardUuid, entityData],
+        );
+      } else if (db.prepare) {
+        // SQLite: use prepare
+        const stmt = db.prepare(
+          `INSERT OR IGNORE INTO entities (id, data, createdAt, updatedAt)
+           VALUES (?, ?, datetime('now'), datetime('now'))`,
+        );
+        stmt.run(dashboardUuid, entityData);
+      } else if (db.insert) {
+        // Drizzle ORM style: use insert
+        try {
+          await db.insert((db as any).entities || "entities").values({
+            id: dashboardUuid,
+            data: entityData,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        } catch (insertError: any) {
+          // Ignore duplicate key errors
+          if (
+            insertError?.code !== "23505" &&
+            !insertError?.message?.includes("UNIQUE constraint")
+          ) {
+            throw insertError;
+          }
+        }
+      } else {
+        logger.warn(
+          "[HyperscapePlugin] Database adapter does not support insert operations",
+        );
+        return;
+      }
+
+      logger.info(
+        "[HyperscapePlugin] Ensured dashboard entity exists in database",
+      );
     } catch (error) {
       logger.warn(
         { error },

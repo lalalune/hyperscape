@@ -510,6 +510,34 @@ export class ClientNetwork extends SystemBase {
             : null);
 
         if (characterId) {
+          // Check if we recently got a 4004 error for this character ID
+          // This prevents infinite retry loops when character doesn't exist
+          const last4004Error = sessionStorage.getItem("last4004CharacterId");
+          if (last4004Error === characterId) {
+            this.logger.warn(
+              `[ClientNetwork] ⚠️ Skipping auto-enter for character ${characterId} - previously failed with 4004`,
+            );
+            // Clear the stored ID to prevent future attempts
+            if (typeof localStorage !== "undefined") {
+              localStorage.removeItem("selectedCharacterId");
+            }
+            // Clear embedded config if it exists
+            if (
+              typeof window !== "undefined" &&
+              this.embeddedCharacterId === characterId
+            ) {
+              const embeddedConfig = (
+                window as {
+                  __HYPERSCAPE_CONFIG__?: { characterId?: string };
+                }
+              ).__HYPERSCAPE_CONFIG__;
+              if (embeddedConfig) {
+                delete embeddedConfig.characterId;
+              }
+            }
+            return; // Don't try to enter world with invalid character
+          }
+
           this.logger.debug(`Auto-selecting character: ${characterId}`, {
             isEmbedded: this.isEmbeddedSpectator,
           } as unknown as Record<string, unknown>);
@@ -1925,6 +1953,25 @@ export class ClientNetwork extends SystemBase {
       stackTrace: new Error().stack,
     });
     this.connected = false;
+
+    // If character not found (4004), store the character ID to prevent retry loops
+    if (code.code === 4004) {
+      const characterId =
+        this.embeddedCharacterId ||
+        (typeof localStorage !== "undefined"
+          ? localStorage.getItem("selectedCharacterId")
+          : null);
+      if (characterId) {
+        // Store in sessionStorage to prevent retrying this character ID
+        if (typeof sessionStorage !== "undefined") {
+          sessionStorage.setItem("last4004CharacterId", characterId);
+        }
+        this.logger.warn(
+          `[ClientNetwork] Character ${characterId} not found (4004) - will not auto-retry`,
+        );
+      }
+    }
+
     this.world.chat.add(
       {
         id: uuid(),

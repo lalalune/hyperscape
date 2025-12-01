@@ -8,9 +8,12 @@ import { calculateDistance } from "../../../utils/game/EntityUtils";
 import {
   createPlayerID,
   createResourceID,
+  createItemID,
 } from "../../../utils/IdentifierUtils";
 import type { TerrainResourceSpawnPoint } from "../../../types/world/terrain";
 import { TICK_DURATION_MS } from "../movement/TileSystem";
+import { ALL_WORLD_AREAS } from "../../../data/world-areas";
+import { ResourceType } from "../../../types/entities/entities";
 
 /**
  * Resource System
@@ -30,6 +33,8 @@ import { TICK_DURATION_MS } from "../movement/TileSystem";
  */
 export class ResourceSystem extends SystemBase {
   private resources = new Map<ResourceID, Resource>();
+  // Track which resources are from world-areas.json (static, shouldn't be unloaded)
+  private staticResources = new Set<ResourceID>();
   // Tick-based gathering sessions (OSRS-accurate timing)
   private activeGathering = new Map<
     PlayerID,
@@ -278,19 +283,39 @@ export class ResourceSystem extends SystemBase {
 
   async init(): Promise<void> {
     // Set up type-safe event subscriptions for resource management
-    this.subscribe<{ spawnPoints: TerrainResourceSpawnPoint[] }>(
-      EventType.RESOURCE_SPAWN_POINTS_REGISTERED,
-      async (data) => {
-        await this.registerTerrainResources(data);
-      },
-    );
+    this.subscribe<{
+      spawnPoints: Array<{
+        id: string;
+        type: string;
+        position: { x: number; y: number; z: number };
+        subType?: string;
+      }>;
+    }>(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, async (data) => {
+      console.log(
+        `[ResourceSystem] Received RESOURCE_SPAWN_POINTS_REGISTERED event with ${data.spawnPoints.length} spawn points`,
+      );
+      // Convert event payload back to TerrainResourceSpawnPoint format
+      const terrainSpawnPoints: TerrainResourceSpawnPoint[] =
+        data.spawnPoints.map((sp) => ({
+          position: sp.position,
+          type: sp.type as TerrainResourceSpawnPoint["type"],
+          subType: (sp.subType ||
+            (sp.type === "tree"
+              ? "oak"
+              : sp.type === "ore"
+                ? "copper"
+                : "oak")) as TerrainResourceSpawnPoint["subType"],
+        }));
+      await this.registerTerrainResources({ spawnPoints: terrainSpawnPoints });
+    });
 
     // Subscribe to direct harvest requests from ResourceEntity interactions
     this.subscribe(EventType.RESOURCE_HARVEST_REQUEST, (data) => {
       // Forward to RESOURCE_GATHER handler with correct format
+      // Use entityId directly - it should match the resource.id we stored
       this.world.emit(EventType.RESOURCE_GATHER, {
         playerId: data.playerId,
-        resourceId: data.entityId, // entityId is the resource entity ID
+        resourceId: data.entityId, // entityId is the resource entity ID (e.g., "ore_3_-25")
         playerPosition: undefined, // Will be looked up from player entity
       });
     });
@@ -318,11 +343,10 @@ export class ResourceSystem extends SystemBase {
       });
     });
 
-    // Set up player gathering event subscriptions (RESOURCE_GATHER only to avoid loops)
-    this.subscribe<{ playerId: string; resourceId: string }>(
-      EventType.RESOURCE_GATHERING_STOPPED,
-      (data) => this.stopGathering(data),
-    );
+    // Set up player gathering event subscriptions
+    // NOTE: We do NOT subscribe to RESOURCE_GATHERING_STOPPED here to avoid circular calls
+    // stopGathering() emits RESOURCE_GATHERING_STOPPED, but we handle cleanup internally
+    // Other systems can listen to RESOURCE_GATHERING_STOPPED for their own purposes
     this.subscribe<{ id: string }>(EventType.PLAYER_UNREGISTERED, (data) =>
       this.cleanupPlayerGathering(data.id),
     );
@@ -423,6 +447,137 @@ export class ResourceSystem extends SystemBase {
     // NOTE: Gathering is now processed via processGatheringTick() called by TickSystem
     // The old 500ms interval has been removed in favor of OSRS-accurate 600ms tick-based processing
     // Registration happens in ServerNetwork/index.ts at TickPriority.RESOURCES
+
+    // Load resource spawn points from world-areas.json
+    // Only on server - clients receive entities via network
+    if (this.world.isServer) {
+      await this.loadWorldAreaResources();
+    }
+  }
+
+  /**
+   * Load resource spawn points from world-areas.json and emit them
+   */
+  private async loadWorldAreaResources(): Promise<void> {
+    const spawnPoints: TerrainResourceSpawnPoint[] = [];
+
+    // Process all world areas
+    for (const area of Object.values(ALL_WORLD_AREAS)) {
+      if (!area.resources || area.resources.length === 0) {
+        continue;
+      }
+
+      // Convert BiomeResource to TerrainResourceSpawnPoint
+      for (const resource of area.resources) {
+        // Get subType from resource (world-areas.json has subType field directly)
+        // Also try extracting from resourceId as fallback (e.g., "ore_copper" -> "copper")
+        let subType: string | undefined;
+        const resourceWithSubType = resource as {
+          subType?: string;
+          resourceId?: string;
+        };
+        if (resourceWithSubType.subType) {
+          subType = resourceWithSubType.subType;
+        } else if (resourceWithSubType.resourceId) {
+          // Fallback: extract from resourceId (e.g., "ore_copper" -> "copper")
+          const parts = resourceWithSubType.resourceId.split("_");
+          if (parts.length >= 2) {
+            subType = parts.slice(1).join("_"); // Handle multi-part subTypes
+          }
+        }
+
+        // Map resource type to TerrainResourceSpawnPoint type
+        let terrainType: TerrainResourceSpawnPoint["type"];
+        const resourceTypeStr = resource.type as string;
+        if (resourceTypeStr === "tree") {
+          terrainType = "tree";
+        } else if (resourceTypeStr === "ore" || resourceTypeStr === "mine") {
+          terrainType = "ore";
+        } else if (resourceTypeStr === "fishing_spot") {
+          terrainType = "fish";
+        } else if (resourceTypeStr === "herb_patch") {
+          terrainType = "herb";
+        } else {
+          // Skip unknown types
+          continue;
+        }
+
+        // Validate subType matches the union type
+        const validSubTypes = [
+          "willow",
+          "oak",
+          "yew",
+          "coal",
+          "iron",
+          "mithril",
+          "adamant",
+          "runite",
+          "copper",
+          "tin",
+        ];
+
+        // Create spawn point - subType is required in the type
+        const spawnPoint: TerrainResourceSpawnPoint = {
+          position: {
+            x: resource.position.x,
+            y: resource.position.y,
+            z: resource.position.z,
+          },
+          type: terrainType,
+          // Use validated subType or default based on type
+          subType: (subType && validSubTypes.includes(subType)
+            ? subType
+            : terrainType === "tree"
+              ? "oak" // Default tree subType
+              : terrainType === "ore"
+                ? "copper" // Default ore subType
+                : "oak") as TerrainResourceSpawnPoint["subType"],
+        };
+
+        spawnPoints.push(spawnPoint);
+      }
+    }
+
+    // Emit spawn points event to trigger registration
+    if (spawnPoints.length > 0) {
+      console.log(
+        `[ResourceSystem] Loaded ${spawnPoints.length} resource spawn points from world areas`,
+      );
+      console.log(
+        `[ResourceSystem] Spawn points:`,
+        spawnPoints.map(
+          (sp) =>
+            `${sp.type}_${sp.subType} at (${sp.position.x}, ${sp.position.y}, ${sp.position.z})`,
+        ),
+      );
+      console.log(
+        `[ResourceSystem] Emitting RESOURCE_SPAWN_POINTS_REGISTERED event...`,
+      );
+      // Convert TerrainResourceSpawnPoint[] to event payload format (adds id field)
+      // Note: Event payload expects { id, type, position } but we need subType, so we'll pass the full TerrainResourceSpawnPoint
+      // The subscription handler will convert it back
+      this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, {
+        spawnPoints: spawnPoints.map((sp) => ({
+          id: `${sp.type}_${sp.position.x}_${sp.position.z}`,
+          type: sp.type,
+          position: sp.position,
+          // Include subType in a way that the handler can access it
+          subType: sp.subType,
+        })) as Array<{
+          id: string;
+          type: string;
+          position: { x: number; y: number; z: number };
+          subType?: string;
+        }>,
+      });
+      console.log(
+        `[ResourceSystem] Event emitted, waiting for registerTerrainResources to be called...`,
+      );
+    } else {
+      console.warn(
+        "[ResourceSystem] No resource spawn points found in world areas",
+      );
+    }
   }
 
   /**
@@ -431,14 +586,29 @@ export class ResourceSystem extends SystemBase {
   private async registerTerrainResources(data: {
     spawnPoints: TerrainResourceSpawnPoint[];
   }): Promise<void> {
+    console.log(
+      `[ResourceSystem] registerTerrainResources called with ${data.spawnPoints.length} spawn points`,
+    );
     const { spawnPoints } = data;
 
-    if (spawnPoints.length === 0) return;
+    if (spawnPoints.length === 0) {
+      console.warn(
+        `[ResourceSystem] registerTerrainResources called with 0 spawn points, returning`,
+      );
+      return;
+    }
 
     // Only spawn actual entities on the server (authoritative)
     if (!this.world.isServer) {
+      console.log(
+        `[ResourceSystem] Not server, skipping resource registration`,
+      );
       return;
     }
+
+    console.log(
+      `[ResourceSystem] Starting resource registration on server for ${spawnPoints.length} spawn points`,
+    );
 
     // Get EntityManager for spawning
     const entityManager = this.world.getSystem("entity-manager") as {
@@ -455,15 +625,30 @@ export class ResourceSystem extends SystemBase {
     let failed = 0;
 
     for (const spawnPoint of spawnPoints) {
+      console.log(
+        `[ResourceSystem] Processing spawn point: ${spawnPoint.type}_${spawnPoint.subType} at (${spawnPoint.position.x}, ${spawnPoint.position.y}, ${spawnPoint.position.z})`,
+      );
+
       const resource = this.createResourceFromSpawnPoint(spawnPoint);
       if (!resource) {
+        console.error(
+          `[ResourceSystem] Failed to create resource from spawn point: ${spawnPoint.type}_${spawnPoint.subType}`,
+        );
         failed++;
         continue;
       }
 
       // Store in map for tracking
+      // resource.id is the entity ID (e.g., "ore_3_-25")
+      // We store it with createResourceID wrapper for type safety
       const rid = createResourceID(resource.id);
       this.resources.set(rid, resource);
+      // Mark as static resource (from world-areas.json) - don't unload with tiles
+      this.staticResources.add(rid);
+
+      console.log(
+        `[ResourceSystem] ✅ Registered ${resource.type} resource ${resource.id} (key: ${rid}) at (${resource.position.x}, ${resource.position.y}, ${resource.position.z}) as STATIC`,
+      );
       // Track variant/subtype for tuning (e.g., 'tree_oak', 'ore_copper')
       // Variant key is constructed as: type_subType (e.g., "tree_oak", "ore_copper")
       if (resource.type === "tree") {
@@ -471,11 +656,28 @@ export class ResourceSystem extends SystemBase {
           ? `tree_${spawnPoint.subType}`
           : "tree_normal";
         this.resourceVariants.set(rid, variant);
+        console.log(
+          `[ResourceSystem] Set variant for ${resource.id}: ${variant}`,
+        );
       } else if (resource.type === "ore") {
         const variant = spawnPoint.subType
           ? `ore_${spawnPoint.subType}`
           : "ore_copper";
         this.resourceVariants.set(rid, variant);
+        console.log(
+          `[ResourceSystem] Set variant for ${resource.id}: ${variant} (subType: ${spawnPoint.subType})`,
+        );
+        // Verify drop table exists for this variant
+        const drops = this.RESOURCE_DROPS.get(variant);
+        if (drops && drops.length > 0) {
+          console.log(
+            `[ResourceSystem] ✅ Drop table found for ${variant}: will produce ${drops[0].itemId} (${drops[0].itemName})`,
+          );
+        } else {
+          console.warn(
+            `[ResourceSystem] ⚠️ No drop table found for variant ${variant}!`,
+          );
+        }
       }
 
       // Spawn actual ResourceEntity instance
@@ -488,13 +690,30 @@ export class ResourceSystem extends SystemBase {
         w: Math.cos(randomYRotation / 2),
       };
 
+      // Ground Y position to terrain height
+      const terrain = this.world.getSystem("terrain") as
+        | { getHeightAt: (x: number, z: number) => number | null }
+        | undefined;
+      let yPosition = resource.position.y;
+      if (terrain?.getHeightAt) {
+        const terrainHeight = terrain.getHeightAt(
+          resource.position.x,
+          resource.position.z,
+        );
+        if (Number.isFinite(terrainHeight) && terrainHeight !== null) {
+          yPosition = (terrainHeight as number) + 0.1; // Slightly above terrain
+        } else {
+          yPosition = 10; // Fallback safe height
+        }
+      }
+
       const resourceConfig = {
         id: resource.id,
         type: "resource" as const,
         name: resource.name,
         position: {
           x: resource.position.x,
-          y: resource.position.y,
+          y: yPosition,
           z: resource.position.z,
         },
         rotation: quat, // Proper quaternion for random Y-axis rotation
@@ -507,7 +726,15 @@ export class ResourceSystem extends SystemBase {
         model: this.getModelPathForResource(resource.type, spawnPoint.subType),
         properties: {},
         // ResourceEntity specific
-        resourceType: resource.type,
+        // Map string resource.type to ResourceType enum
+        resourceType:
+          resource.type === "tree"
+            ? ResourceType.TREE
+            : resource.type === "ore"
+              ? ResourceType.MINING_ROCK
+              : resource.type === "fishing_spot"
+                ? ResourceType.FISHING_SPOT
+                : ResourceType.TREE, // Default fallback
         resourceId: spawnPoint.subType || `${resource.type}_normal`,
         harvestSkill: resource.skillRequired,
         requiredLevel: resource.levelRequired,
@@ -522,13 +749,22 @@ export class ResourceSystem extends SystemBase {
       };
 
       try {
+        console.log(
+          `[ResourceSystem] Spawning ${resource.type} ${resource.name} (harvestSkill: ${resourceConfig.harvestSkill}, resourceType: ${resourceConfig.resourceType}) at (${resourceConfig.position.x}, ${resourceConfig.position.y}, ${resourceConfig.position.z}) with model: ${resourceConfig.model}`,
+        );
         const spawnedEntity = (await entityManager.spawnEntity(
           resourceConfig,
         )) as { id?: string } | null;
         if (spawnedEntity) {
           spawned++;
+          console.log(
+            `[ResourceSystem] ✅ Successfully spawned ${resource.name} (${spawnedEntity.id})`,
+          );
         } else {
           failed++;
+          console.error(
+            `[ResourceSystem] ❌ EntityManager returned null for ${resource.id}`,
+          );
         }
       } catch (err) {
         failed++;
@@ -540,6 +776,11 @@ export class ResourceSystem extends SystemBase {
     }
 
     if (spawned > 0) {
+      console.log(
+        `[ResourceSystem] ✅ Spawned ${spawned} resources (${failed} failed)`,
+      );
+    } else if (failed > 0) {
+      console.error(`[ResourceSystem] ❌ Failed to spawn ${failed} resources`);
     }
   }
 
@@ -651,6 +892,8 @@ export class ResourceSystem extends SystemBase {
           : `${resourceType}_normal`;
     const tuned = this.getVariantTuning(variantKey);
 
+    // Generate resource ID using the spawnPoint type (e.g., "ore") not resourceType
+    // This ensures the ID matches what the entity will have
     const resource: Resource = {
       id: `${type}_${position.x.toFixed(0)}_${position.z.toFixed(0)}`,
       type: resourceType,
@@ -717,14 +960,29 @@ export class ResourceSystem extends SystemBase {
     // Extract tileX and tileZ from tileId (format: "x,z")
     const [tileX, tileZ] = data.tileId.split(",").map(Number);
 
+    console.log(
+      `[ResourceSystem] Tile unloaded: ${data.tileId} (tileX: ${tileX}, tileZ: ${tileZ}), checking ${this.resources.size} resources`,
+    );
+
     // Remove resources that belong to this tile
+    // BUT: Don't remove static resources from world-areas.json
+    let removedCount = 0;
     for (const [resourceId, resource] of this.resources) {
+      // Skip static resources (from world-areas.json) - they should never be unloaded
+      if (this.staticResources.has(resourceId)) {
+        continue;
+      }
+
       // Check if resource belongs to this tile (based on position)
       const resourceTileX = Math.floor(resource.position.x / 100); // 100m tile size
       const resourceTileZ = Math.floor(resource.position.z / 100);
 
       if (resourceTileX === tileX && resourceTileZ === tileZ) {
+        console.log(
+          `[ResourceSystem] Removing resource ${resourceId} (${resource.type}) from unloaded tile (${resourceTileX}, ${resourceTileZ})`,
+        );
         this.resources.delete(resourceId);
+        removedCount++;
 
         // Clean up any active gathering on this resource
         // Note: activeGathering is keyed by PlayerID, not ResourceID
@@ -738,6 +996,16 @@ export class ResourceSystem extends SystemBase {
         // Clean up respawn timer (now managed by SystemBase auto-cleanup)
         this.respawnTimers.delete(resourceId);
       }
+    }
+
+    if (removedCount > 0) {
+      console.log(
+        `[ResourceSystem] Removed ${removedCount} resources from unloaded tile ${data.tileId}. Remaining: ${this.resources.size} (${this.staticResources.size} static)`,
+      );
+    } else {
+      console.log(
+        `[ResourceSystem] No resources removed from tile ${data.tileId} (all are static or in different tiles). Total: ${this.resources.size} (${this.staticResources.size} static)`,
+      );
     }
   }
 
@@ -754,13 +1022,26 @@ export class ResourceSystem extends SystemBase {
     const playerId = createPlayerID(data.playerId);
     const resourceId = createResourceID(data.resourceId);
 
+    console.log(
+      `[ResourceSystem] Looking up resource with ID: ${data.resourceId} (wrapped: ${resourceId})`,
+    );
+    console.log(
+      `[ResourceSystem] Available resource IDs:`,
+      Array.from(this.resources.keys()).slice(0, 10),
+    );
+
+    // Try direct lookup first
     let resource = this.resources.get(resourceId);
 
+    // If still not found, try matching by position (fallback for ID mismatches)
     if (!resource) {
       for (const r of this.resources.values()) {
         const derived = `${r.type}_${Math.round(r.position.x)}_${Math.round(r.position.z)}`;
         if (derived === (data.resourceId || "")) {
           resource = r;
+          console.log(
+            `[ResourceSystem] Matched resource by position: ${derived} -> ${r.id}`,
+          );
           break;
         }
       }
@@ -933,21 +1214,30 @@ export class ResourceSystem extends SystemBase {
     );
 
     // Schedule first attempt on next tick
+    // IMPORTANT: Set nextAttemptTick to currentTick + cycleTickInterval (not +1)
+    // This gives the player time to get into position before the first attempt
     this.activeGathering.set(playerId, {
       playerId,
       resourceId: sessionResourceId,
       startTick: currentTick,
-      nextAttemptTick: currentTick + 1, // First attempt next tick
+      nextAttemptTick: currentTick + cycleTickInterval, // First attempt after one full cycle
       cycleTickInterval,
       attempts: 0,
       successes: 0,
     });
+
+    console.log(
+      `[ResourceSystem] Started gathering session for ${data.playerId} on ${resource.id} (variant: ${variant}, cycleTicks: ${cycleTickInterval}, nextAttemptTick: ${currentTick + cycleTickInterval})`,
+    );
 
     // Set gathering emote for the player
     if (resource.skillRequired === "woodcutting") {
       this.setGatheringEmote(data.playerId, "chopping");
     } else if (resource.skillRequired === "mining") {
       this.setGatheringEmote(data.playerId, "mining");
+      console.log(
+        `[ResourceSystem] Set mining emote for ${data.playerId}, gathering session active: ${this.activeGathering.has(playerId)}`,
+      );
     }
 
     // Emit gathering started event with tick timing info for client progress bar
@@ -979,6 +1269,9 @@ export class ResourceSystem extends SystemBase {
     const playerId = createPlayerID(data.playerId);
     const session = this.activeGathering.get(playerId);
     if (session) {
+      console.log(
+        `[ResourceSystem] Stopping gathering for ${data.playerId}, resource: ${session.resourceId}`,
+      );
       this.activeGathering.delete(playerId);
 
       // Reset emote back to idle when gathering stops
@@ -988,6 +1281,10 @@ export class ResourceSystem extends SystemBase {
         playerId: data.playerId,
         resourceId: session.resourceId,
       });
+    } else {
+      console.warn(
+        `[ResourceSystem] stopGathering called for ${data.playerId} but no active session found`,
+      );
     }
   }
 
@@ -1053,21 +1350,135 @@ export class ResourceSystem extends SystemBase {
     for (const [playerId, session] of this.activeGathering.entries()) {
       const resource = this.resources.get(session.resourceId);
       if (!resource?.isAvailable) {
+        console.log(
+          `[ResourceSystem] Resource ${session.resourceId} not available, ending session for ${playerId}`,
+        );
         // Resource depleted, end session
         completedSessions.push(playerId);
         continue;
       }
 
       // Only process when it's time for the next attempt (tick-based)
-      if (tickNumber < session.nextAttemptTick) continue;
+      if (tickNumber < session.nextAttemptTick) {
+        // IMPORTANT: Keep emote active while waiting for next attempt
+        // The emote should loop continuously during gathering (VRM factory loops by default)
+        // Re-apply emote periodically to ensure it stays active (every 5 ticks = 3 seconds)
+        // This ensures the animation keeps looping even if something resets it
+        if (tickNumber % 5 === 0) {
+          const resource = this.resources.get(session.resourceId);
+          if (resource) {
+            if (resource.skillRequired === "woodcutting") {
+              this.setGatheringEmote(playerId as unknown as string, "chopping");
+            } else if (resource.skillRequired === "mining") {
+              this.setGatheringEmote(playerId as unknown as string, "mining");
+            }
+          }
+        }
+        continue;
+      }
+
+      console.log(
+        `[ResourceSystem] Processing gathering attempt for ${playerId} on ${session.resourceId} (tick ${tickNumber}, nextAttemptTick: ${session.nextAttemptTick})`,
+      );
 
       // Proximity check before attempt
+      // Try multiple ways to get player position (robust lookup)
+      let playerPos: { x: number; y: number; z: number } | null = null;
+
+      // Method 1: Try world.getPlayer
       const p = this.world.getPlayer?.(playerId as unknown as string);
-      const playerPos =
-        p && (p as { position?: { x: number; y: number; z: number } }).position
-          ? (p as { position: { x: number; y: number; z: number } }).position
-          : null;
-      if (!playerPos || calculateDistance(playerPos, resource.position) > 4.0) {
+      if (
+        p &&
+        (p as { position?: { x: number; y: number; z: number } }).position
+      ) {
+        playerPos = (p as { position: { x: number; y: number; z: number } })
+          .position;
+      }
+
+      // Method 2: Try entities.getPlayer directly
+      if (!playerPos && this.world.entities?.getPlayer) {
+        const p2 = this.world.entities.getPlayer(playerId as unknown as string);
+        if (
+          p2 &&
+          (p2 as { position?: { x: number; y: number; z: number } }).position
+        ) {
+          playerPos = (p2 as { position: { x: number; y: number; z: number } })
+            .position;
+        }
+      }
+
+      // Method 3: Try entities.getPlayers and find by ID
+      if (!playerPos && this.world.entities?.getPlayers) {
+        const players = this.world.entities.getPlayers();
+        const foundPlayer = players.find(
+          (pl: { id?: string }) => pl.id === (playerId as unknown as string),
+        );
+        if (
+          foundPlayer &&
+          (foundPlayer as { position?: { x: number; y: number; z: number } })
+            .position
+        ) {
+          playerPos = (
+            foundPlayer as { position: { x: number; y: number; z: number } }
+          ).position;
+        }
+      }
+
+      // Method 4: Try direct access to entities.players Map (server-side players may be here)
+      if (
+        !playerPos &&
+        this.world.entities &&
+        (this.world.entities as { players?: Map<string, unknown> }).players
+      ) {
+        const playersMap = (
+          this.world.entities as { players: Map<string, unknown> }
+        ).players;
+        const playerFromMap = playersMap.get(playerId as unknown as string);
+        if (
+          playerFromMap &&
+          (playerFromMap as { position?: { x: number; y: number; z: number } })
+            .position
+        ) {
+          playerPos = (
+            playerFromMap as { position: { x: number; y: number; z: number } }
+          ).position;
+        }
+      }
+
+      // Method 5: Try PlayerSystem.players Map (server-side player storage)
+      if (!playerPos) {
+        const playerSystem = this.world.getSystem?.("player") as {
+          players?: Map<
+            string,
+            { position?: { x: number; y: number; z: number } }
+          >;
+        } | null;
+        if (playerSystem?.players) {
+          const playerFromSystem = playerSystem.players.get(
+            playerId as unknown as string,
+          );
+          if (playerFromSystem?.position) {
+            playerPos = playerFromSystem.position;
+          }
+        }
+      }
+
+      if (!playerPos) {
+        console.warn(
+          `[ResourceSystem] Player ${playerId} position not found (tried all methods), stopping gathering`,
+        );
+        this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
+          playerId: playerId as unknown as string,
+          resourceId: session.resourceId,
+        });
+        completedSessions.push(playerId);
+        continue;
+      }
+      const distance = calculateDistance(playerPos, resource.position);
+      if (distance > 4.0) {
+        console.warn(
+          `[ResourceSystem] Player ${playerId} too far from resource (${distance.toFixed(2)}m > 4.0m), stopping gathering`,
+        );
         this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
           playerId: playerId as unknown as string,
           resourceId: session.resourceId,
@@ -1087,6 +1498,13 @@ export class ResourceSystem extends SystemBase {
       const primaryDrop = drops[0] as ResourceDrop | undefined;
       const itemId = primaryDrop?.itemId || "logs";
       const itemName = primaryDrop?.itemName || "Logs";
+
+      // Debug logging for ore production
+      if (resource.skillRequired === "mining") {
+        console.log(
+          `[ResourceSystem] Mining attempt - variant: ${variant}, drops: ${drops.length}, itemId: ${itemId}, itemName: ${itemName}`,
+        );
+      }
 
       // Inventory capacity guard - if full, stop session
       const inventorySystem = this.world.getSystem?.("inventory") as {
@@ -1124,6 +1542,14 @@ export class ResourceSystem extends SystemBase {
       session.nextAttemptTick = tickNumber + session.cycleTickInterval;
       session.attempts++;
 
+      // IMPORTANT: Re-apply emote after each attempt to ensure it keeps looping
+      // This ensures the mining/chopping animation continues swinging continuously
+      if (resource.skillRequired === "woodcutting") {
+        this.setGatheringEmote(playerId as unknown as string, "chopping");
+      } else if (resource.skillRequired === "mining") {
+        this.setGatheringEmote(playerId as unknown as string, "mining");
+      }
+
       // Attempt success roll
       const cachedSkills = this.playerSkills.get(playerId);
       const skillLevel = cachedSkills?.[resource.skillRequired]?.level ?? 1;
@@ -1134,11 +1560,19 @@ export class ResourceSystem extends SystemBase {
         session.successes++;
 
         // Add item to inventory (ore for mining, logs for woodcutting, etc.)
+        console.log(
+          `[ResourceSystem] ✅ Mining success! Adding ${itemId} (${itemName}) to inventory for ${playerId}`,
+        );
+
+        // IMPORTANT: Use createItemID to ensure proper ID format (same as woodcutting)
+        // This ensures the itemId is properly validated and formatted
+        const validItemId = createItemID(itemId);
+
         this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
           playerId: playerId as unknown as string,
           item: {
             id: `inv_${playerId}_${Date.now()}_${itemId}`,
-            itemId: itemId,
+            itemId: validItemId,
             quantity: 1,
             slot: -1,
             metadata: null,
@@ -1210,10 +1644,19 @@ export class ResourceSystem extends SystemBase {
             skill: resource.skillRequired,
           });
 
+          // Stop gathering when resource depletes (emote will be reset)
           completedSessions.push(playerId);
         }
+        // IMPORTANT: If successful but resource doesn't deplete, gathering CONTINUES
+        // The emote stays active and the player keeps swinging until:
+        // - Resource depletes (handled above)
+        // - Player moves away (handled in proximity check)
+        // - Inventory fills (handled in inventory check)
+        // - Player explicitly stops gathering
       } else {
         // Failure feedback (resource-aware)
+        // IMPORTANT: On failure, gathering CONTINUES - player keeps swinging
+        // The emote stays active and we'll try again on the next cycle
         const failureMessage =
           resource.skillRequired === "mining"
             ? "You fail to mine any ore."
@@ -1225,6 +1668,7 @@ export class ResourceSystem extends SystemBase {
           message: failureMessage,
           type: "info",
         });
+        // Don't add to completedSessions - gathering continues!
       }
     }
 

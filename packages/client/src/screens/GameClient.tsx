@@ -199,10 +199,58 @@ export function GameClient({ wsUrl, onSetup }: GameClientProps) {
       await world.init(config);
     };
 
+    // Handle network disconnection - redirect to character selection if character not found
+    const handleNetworkDisconnected = (data: {
+      code?: number;
+      reason?: string;
+    }) => {
+      // Code 4004 = Character not found
+      if (data.code === 4004) {
+        console.warn(
+          "[GameClient] ❌ Character not found (code 4004)",
+          `Reason: ${data.reason || "Unknown"}`,
+        );
+        console.log(
+          "[GameClient] Clearing character ID and redirecting to character selection...",
+        );
+
+        // Clear all possible character ID storage locations
+        localStorage.removeItem("selectedCharacterId");
+
+        // Also clear embedded config if it exists
+        if (typeof window !== "undefined") {
+          const embeddedConfig = (
+            window as {
+              __HYPERSCAPE_CONFIG__?: { characterId?: string };
+            }
+          ).__HYPERSCAPE_CONFIG__;
+          if (embeddedConfig && embeddedConfig.characterId) {
+            console.log("[GameClient] Clearing embedded character ID");
+            delete embeddedConfig.characterId;
+          }
+        }
+
+        // Show user-friendly message before reload
+        alert(
+          "Character not found. You will be redirected to character selection.\n\n" +
+            "This usually happens if:\n" +
+            "- The character was deleted\n" +
+            "- You're using a different account\n" +
+            "- The database was reset",
+        );
+
+        // Reload page to return to character selection
+        window.location.reload();
+      }
+    };
+
+    world.on(EventType.NETWORK_DISCONNECTED, handleNetworkDisconnected);
+
     init();
 
     // Cleanup function
     return () => {
+      world.off(EventType.NETWORK_DISCONNECTED, handleNetworkDisconnected);
       if (!cleanedUp) {
         cleanedUp = true;
         // Destroy the world to cleanup WebSocket and resources

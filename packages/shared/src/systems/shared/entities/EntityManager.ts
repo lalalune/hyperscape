@@ -261,7 +261,7 @@ export class EntityManager extends SystemBase {
       }
     }
 
-    // Spawn bank at (0, y, -25) - behind player spawn, safe from goblin
+    // Spawn bank at (0, y, -25) - safe area away from goblins and loot spawns
     const bankConfig: BankEntityConfig = {
       id: "bank_spawn_bank",
       name: "Bank",

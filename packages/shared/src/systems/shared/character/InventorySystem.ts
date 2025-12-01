@@ -114,6 +114,9 @@ export class InventorySystem extends SystemBase {
     });
     this.subscribe(EventType.INVENTORY_ITEM_ADDED, (data) => {
       console.log("[InventorySystem] 📥 Received INVENTORY_ITEM_ADDED:", data);
+      console.log(
+        `[InventorySystem] Item details: itemId=${data.item?.itemId}, quantity=${data.item?.quantity}, slot=${data.item?.slot}`,
+      );
       this.handleInventoryAdd(data);
     });
 
@@ -1349,6 +1352,17 @@ export class InventorySystem extends SystemBase {
 
     // Pass slot to addItem for proper sync (e.g., from bank withdrawal)
     const result = this.addItem({ playerId, itemId, quantity, slot });
+    if (!result) {
+      Logger.systemError(
+        "InventorySystem",
+        `handleInventoryAdd: Failed to add item ${itemId} (quantity: ${quantity}) to inventory for ${playerId}`,
+        new Error(`Failed to add item ${itemId}`),
+      );
+    } else {
+      console.log(
+        `[InventorySystem] ✅ Successfully added ${quantity}x ${itemId} to inventory for ${playerId}`,
+      );
+    }
   }
 
   /**

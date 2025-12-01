@@ -60,6 +60,7 @@ import type {
   EntityInteractionData,
   ResourceEntityConfig,
 } from "../../types/entities";
+import { ResourceType } from "../../types/entities/entities";
 import { modelCache } from "../../utils/rendering/ModelCache";
 import { EventType } from "../../types/events";
 
@@ -75,7 +76,11 @@ export class ResourceEntity extends InteractableEntity {
     const interactableConfig: InteractableConfig = {
       ...config,
       interaction: {
-        prompt: `${config.harvestSkill} ${config.resourceType}`,
+        prompt: config.harvestSkill === "mining" 
+          ? "Mine ore" 
+          : config.harvestSkill === "woodcutting"
+            ? "Chop tree"
+            : `${config.harvestSkill} ${config.resourceType}`,
         description: `${config.resourceType} - Level ${config.requiredLevel} ${config.harvestSkill} required`,
         range: 2.0,
         cooldown: config.harvestTime || 3000,
@@ -167,7 +172,7 @@ export class ResourceEntity extends InteractableEntity {
     if (this.world.isServer || !this.node) return;
 
     // Only trees have stumps
-    if (this.config.resourceType !== "tree") {
+    if (this.config.resourceType !== ResourceType.TREE) {
       // For other resources, just hide the mesh
       if (this.mesh) {
         this.mesh.visible = false;
@@ -311,10 +316,16 @@ export class ResourceEntity extends InteractableEntity {
 
     // Try to load 3D model if available (same approach as MobEntity for Meshy models)
     if (this.config.model && this.world.loader) {
+      console.log(
+        `[ResourceEntity] Loading model for ${this.config.resourceType} ${this.config.name}: ${this.config.model}`,
+      );
       try {
         const { scene } = await modelCache.loadModel(
           this.config.model,
           this.world,
+        );
+        console.log(
+          `[ResourceEntity] ✅ Model loaded successfully for ${this.config.resourceType}`,
         );
 
         this.mesh = scene;
@@ -330,9 +341,13 @@ export class ResourceEntity extends InteractableEntity {
         let modelScale = 1.0;
         let needsXRotation = false; // Some models are exported lying flat
 
-        if (this.config.resourceType === "tree") {
+        if (this.config.resourceType === ResourceType.TREE) {
           modelScale = 3.0; // Scale up from base size (uniform scaling only)
           // Trees from Meshy are typically exported standing upright, no rotation needed
+        } else if (this.config.resourceType === ResourceType.MINING_ROCK) {
+          modelScale = 1.0; // Ores are typically already at correct size
+          // Ores from Meshy might need rotation - check if model is lying flat
+          // For now, assume they're exported correctly oriented
         }
 
         // Apply UNIFORM scale only (x=y=z to prevent stretching)
@@ -398,16 +413,20 @@ export class ResourceEntity extends InteractableEntity {
     let geometry: THREE.BufferGeometry;
     let material: THREE.Material;
 
-    if (this.config.resourceType === "tree") {
+    if (this.config.resourceType === ResourceType.TREE) {
       geometry = new THREE.CylinderGeometry(0.3, 0.5, 3, 8);
       material = new THREE.MeshStandardMaterial({ color: 0x8b4513 }); // Brown for tree
-    } else if (this.config.resourceType === "fishing_spot") {
+    } else if (this.config.resourceType === ResourceType.FISHING_SPOT) {
       geometry = new THREE.SphereGeometry(0.5, 8, 6);
       material = new THREE.MeshStandardMaterial({
         color: 0x4169e1,
         transparent: true,
         opacity: 0.7,
       }); // Blue for water
+    } else if (this.config.resourceType === ResourceType.MINING_ROCK) {
+      // Ores get a more visible placeholder - larger and colored
+      geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+      material = new THREE.MeshStandardMaterial({ color: 0x8b4513 }); // Brown/copper color for ores
     } else {
       geometry = new THREE.BoxGeometry(1, 1, 1);
       material = new THREE.MeshStandardMaterial({ color: 0x808080 }); // Gray default
@@ -430,11 +449,14 @@ export class ResourceEntity extends InteractableEntity {
     };
 
     // Scale based on resource type
-    if (this.config.resourceType === "tree") {
+    if (this.config.resourceType === ResourceType.TREE) {
       this.mesh.scale.set(2, 3, 2);
-    } else if (this.config.resourceType === "fishing_spot") {
+    } else if (this.config.resourceType === ResourceType.FISHING_SPOT) {
       this.mesh.scale.set(1, 0.1, 1);
       this.mesh.position.y = -0.4;
+    } else if (this.config.resourceType === ResourceType.MINING_ROCK) {
+      // Ores should be visible - use reasonable size
+      this.mesh.scale.set(1.5, 1.5, 1.5);
     }
 
     this.node.add(this.mesh);

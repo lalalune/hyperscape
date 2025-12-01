@@ -97,8 +97,9 @@ export default defineConfig(({ mode }) => {
       },
     ],
 
-    // Tell Vite to look for .env files in the client directory
-    envDir: clientDir,
+    // Tell Vite to look for .env files in both workspace root and client directory
+    // Workspace root takes precedence for shared config (like Privy)
+    envDir: workspaceRoot,
 
     // Vite automatically exposes PUBLIC_ prefixed variables via import.meta.env
     envPrefix: "PUBLIC_",
@@ -115,6 +116,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: path.resolve(__dirname, "src/index.html"),
         external: ["fs", "fs-extra", "path", "node:fs", "node:path"],
+        // Don't externalize buffer - it should be bundled as a polyfill
         output: {
           // Provide empty stubs for Node.js modules
           globals: {
@@ -151,6 +153,7 @@ export default defineConfig(({ mode }) => {
 
     define: {
       global: "globalThis", // Needed for some node polyfills in browser
+      "global.Buffer": "globalThis.Buffer", // Buffer polyfill
 
       // ============================================================================
       // SECURITY: process.env Polyfill for Browser
@@ -210,12 +213,14 @@ export default defineConfig(({ mode }) => {
           __dirname,
           "../shared/build/framework.client.js",
         ),
+        // Polyfill buffer for browser compatibility
+        buffer: "buffer",
       },
       dedupe: ["three"],
     },
 
     optimizeDeps: {
-      include: ["three", "react", "react-dom"],
+      include: ["three", "react", "react-dom", "buffer"],
       exclude: [
         "@hyperscape/shared", // CRITICAL: Exclude from dep optimization so changes are detected
         "@playwright/test", // Exclude Playwright from optimization
