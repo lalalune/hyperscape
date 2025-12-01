@@ -465,11 +465,16 @@ export class ResourceSystem extends SystemBase {
       const rid = createResourceID(resource.id);
       this.resources.set(rid, resource);
       // Track variant/subtype for tuning (e.g., 'tree_oak', 'ore_copper')
+      // Variant key is constructed as: type_subType (e.g., "tree_oak", "ore_copper")
       if (resource.type === "tree") {
-        const variant = spawnPoint.subType || "tree_normal";
+        const variant = spawnPoint.subType
+          ? `tree_${spawnPoint.subType}`
+          : "tree_normal";
         this.resourceVariants.set(rid, variant);
       } else if (resource.type === "ore") {
-        const variant = spawnPoint.subType || "ore_copper";
+        const variant = spawnPoint.subType
+          ? `ore_${spawnPoint.subType}`
+          : "ore_copper";
         this.resourceVariants.set(rid, variant);
       }
 
@@ -540,11 +545,14 @@ export class ResourceSystem extends SystemBase {
 
   /**
    * Get model path for resource type
+   * Note: Trees use the same model for all variants (subType only affects tuning)
+   * Ores can use the same model for all variants (like trees) or different models per variant
    */
   private getModelPathForResource(type: string, subType?: string): string {
     switch (type) {
       case "tree":
-        // Use the high-quality Meshy-generated tree model
+        // All tree variants use the same model (subType only affects tuning)
+        // subType like "oak", "willow", "maple" all use basic-tree.glb
         return "asset://models/basic-reg-tree/basic-tree.glb";
       case "fishing_spot":
         return ""; // Fishing spots don't need models
@@ -552,7 +560,19 @@ export class ResourceSystem extends SystemBase {
       case "rock":
       case "gem":
       case "rare_ore":
-        return ""; // Use placeholder for rocks (no model yet)
+        // All ore variants use the same model (like trees)
+        // subType like "copper", "tin", "iron" all use the same model
+        // If you want different models per ore type, uncomment the conditional logic below
+        return "asset://models/ore-copper/copper.glb"; // Single model for all ores
+
+      // OPTIONAL: Use different models per ore type (uncomment to enable):
+      // if (subType === "copper" || subType === "ore_copper" || subType?.includes("copper")) {
+      //   return "asset://models/ore-copper/copper.glb";
+      // }
+      // if (subType === "tin" || subType === "ore_tin" || subType?.includes("tin")) {
+      //   return "asset://models/ore-tin/tin.glb";
+      // }
+      // return "asset://models/ore-copper/copper.glb"; // Default
       case "herb_patch":
         return ""; // Use placeholder for herbs (no model yet)
       default:
@@ -617,11 +637,17 @@ export class ResourceSystem extends SystemBase {
             : "tree";
 
     // Determine variant key and tuned parameters
+    // For trees: subType like "oak", "willow" becomes "tree_oak", "tree_willow"
+    // For ores: subType like "copper", "tin" becomes "ore_copper", "ore_tin"
     const variantKey =
       resourceType === "tree"
-        ? spawnPoint.subType || "tree_normal"
+        ? spawnPoint.subType
+          ? `tree_${spawnPoint.subType}`
+          : "tree_normal"
         : resourceType === "ore"
-          ? spawnPoint.subType || "ore_copper" // Default to copper for mining
+          ? spawnPoint.subType
+            ? `ore_${spawnPoint.subType}`
+            : "ore_copper" // Default to copper for mining
           : `${resourceType}_normal`;
     const tuned = this.getVariantTuning(variantKey);
 

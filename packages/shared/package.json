@@ -131,6 +131,7 @@
     "@types/webxr": "^0.5.22",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
+    "bun-types": "^1.2.20",
     "@vitejs/plugin-react": "^5.0.4",
     "@vitest/coverage-v8": "^4.0.6",
     "@vitest/ui": "^4.0.6",
