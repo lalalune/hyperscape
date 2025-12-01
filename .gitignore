@@ -75,7 +75,7 @@ WALLET_JWT_FIX_SUMMARY.md
 clear-users.sql
 
 # Symlinks
-world
+/world
 
 # Kluster
 .kluster
