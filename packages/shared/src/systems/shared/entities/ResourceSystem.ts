@@ -1083,8 +1083,8 @@ export class ResourceSystem extends SystemBase {
       const tuned = this.getVariantTuning(variant);
 
       // Get drop table for this variant
-      const drops = this.RESOURCE_DROPS.get(variant) || resource.drops || [];
-      const primaryDrop = drops[0];
+      const drops = this.RESOURCE_DROPS.get(variant) || [];
+      const primaryDrop = drops[0] as ResourceDrop | undefined;
       const itemId = primaryDrop?.itemId || "logs";
       const itemName = primaryDrop?.itemName || "Logs";
 

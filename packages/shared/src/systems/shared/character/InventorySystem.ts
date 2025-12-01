@@ -234,6 +234,7 @@ export class InventorySystem extends SystemBase {
       { itemId: "arrows", quantity: 100 },
       { itemId: "tinderbox", quantity: 1 },
       { itemId: "bronze_hatchet", quantity: 1 },
+      { itemId: "bronze_pickaxe", quantity: 1 },
       { itemId: "fishing_rod", quantity: 1 },
     ];
 
