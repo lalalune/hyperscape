@@ -284,10 +284,7 @@ export async function registerSystems(world: World): Promise<void> {
   // 12. XP system - Experience and leveling (depends on player system)
   world.register("skills", SkillsSystem);
 
-  // 12a. XP system alias for backward compatibility with test framework
-  world.register("xp", SkillsSystem);
-
-  // 12b. Health regeneration system - Passive health regen (depends on combat system)
+  // 12a. Health regeneration system - Passive health regen (depends on combat system)
   // Server-only: handles RuneScape-style out-of-combat health regeneration
   // Note: world.isServer isn't reliable here because ServerNetwork registers later
   // Use Node.js environment check instead

@@ -83,7 +83,7 @@ export class SkillsSystem extends SystemBase {
     super(world, {
       name: "skills",
       dependencies: {
-        optional: ["xp", "combat", "ui", "quest"],
+        optional: ["combat", "ui", "quest"],
       },
       autoCleanup: true,
     });

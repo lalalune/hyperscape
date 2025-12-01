@@ -60,120 +60,12 @@ export class ResourceSystem extends SystemBase {
   // Terrain system reference for height lookups
   private terrainSystem: TerrainSystem | null = null;
 
-  // Resource drop tables per GDD
-  private readonly RESOURCE_DROPS = new Map<string, ResourceDrop[]>([
-    [
-      "tree_normal",
-      [
-        {
-          itemId: "logs", // Use canonical item id from items.ts
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0, // Always get logs
-          xpAmount: 25, // Woodcutting XP per log (per normal tree)
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "tree_oak",
-      [
-        {
-          itemId: "logs",
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0,
-          xpAmount: 38, // Approx RS 37.5 rounded
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "tree_willow",
-      [
-        {
-          itemId: "logs",
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0,
-          xpAmount: 68, // Approx RS 67.5 rounded
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "tree_maple",
-      [
-        {
-          itemId: "logs",
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0,
-          xpAmount: 100,
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "tree_yew",
-      [
-        {
-          itemId: "logs",
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0,
-          xpAmount: 175,
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "tree_magic",
-      [
-        {
-          itemId: "logs",
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0,
-          xpAmount: 250,
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "herb_patch_normal",
-      [
-        {
-          itemId: "herbs", // Use string ID
-          itemName: "Herbs",
-          quantity: 1,
-          chance: 1.0, // Always get herbs
-          xpAmount: 20, // Herbalism XP per herb
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "fishing_spot_normal",
-      [
-        {
-          itemId: "raw_shrimps", // Use string ID that matches items.ts
-          itemName: "Raw Shrimps",
-          quantity: 1,
-          chance: 1.0, // Always get fish (when successful)
-          xpAmount: 10, // Fishing XP per fish
-          stackable: true,
-        },
-      ],
-    ],
-  ]);
-
   constructor(world: World) {
     super(world, {
       name: "resource",
       dependencies: {
         required: [], // Resource system can work independently
-        optional: ["inventory", "xp", "skills", "ui", "terrain"], // Better with inventory, skills, and terrain systems
+        optional: ["inventory", "skills", "ui", "terrain"], // Better with inventory, skills, and terrain systems
       },
       autoCleanup: true,
     });
@@ -674,52 +566,15 @@ export class ResourceSystem extends SystemBase {
   }
 
   /**
-   * Create resource from terrain spawn point
+   * Create a Resource from a spawn point - ALL values come from resources.json manifest
+   * No hardcoded values - manifest is the single source of truth
    */
   private createResourceFromSpawnPoint(
     spawnPoint: TerrainResourceSpawnPoint,
   ): Resource | undefined {
-    const { position, type, subType: _subType } = spawnPoint;
+    const { position, type } = spawnPoint;
 
-    let skillRequired: string;
-    let toolRequired: string;
-    let respawnTime: number;
-    let levelRequired: number = 1;
-
-    switch (type) {
-      case "tree":
-        skillRequired = "woodcutting";
-        toolRequired = "bronze_hatchet"; // Bronze Hatchet
-        respawnTime = 10000; // 10s respawn for MVP
-        break;
-
-      case "fish":
-        skillRequired = "fishing";
-        toolRequired = "fishing_rod"; // Fishing Rod
-        respawnTime = 30000; // 30 second respawn
-        break;
-
-      case "rock":
-      case "ore":
-      case "gem":
-      case "rare_ore":
-        skillRequired = "mining";
-        toolRequired = "bronze_pickaxe"; // Bronze Pickaxe
-        respawnTime = 120000; // 2 minute respawn
-        levelRequired = 5;
-        break;
-
-      case "herb":
-        skillRequired = "herbalism";
-        toolRequired = ""; // No tool required for herbs
-        respawnTime = 45000; // 45 second respawn
-        levelRequired = 1;
-        break;
-
-      default:
-        throw new Error(`Unknown resource type: ${type}`);
-    }
-
+    // Map spawn type to resource type for manifest lookup
     const resourceType: "tree" | "fishing_spot" | "ore" | "herb_patch" =
       type === "rock" || type === "ore" || type === "gem" || type === "rare_ore"
         ? "ore"
@@ -729,40 +584,38 @@ export class ResourceSystem extends SystemBase {
             ? "herb_patch"
             : "tree";
 
-    // Determine variant key and tuned parameters
-    // Build full key: if subType is "normal", key is "tree_normal"
+    // Build variant key for manifest lookup
+    // e.g., "tree_normal", "tree_oak", "fishing_spot_normal"
     const variantKey =
       resourceType === "tree"
         ? spawnPoint.subType
           ? `tree_${spawnPoint.subType}`
           : "tree_normal"
         : `${resourceType}_normal`;
-    const tuned = this.getVariantTuning(variantKey);
 
+    // Get manifest data - fail fast if not found
+    const manifestData = getExternalResource(variantKey);
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
+    }
+
+    // All values come from manifest - no hardcoding
     const resource: Resource = {
       id: `${type}_${position.x.toFixed(0)}_${position.z.toFixed(0)}`,
       type: resourceType,
-      name:
-        type === "fish"
-          ? "Fishing Spot"
-          : type === "tree"
-            ? "Tree"
-            : type === "herb"
-              ? "Herb"
-              : "Rock",
+      name: manifestData.name,
       position: {
         x: position.x,
         y: position.y,
         z: position.z,
       },
-      skillRequired,
-      levelRequired:
-        resourceType === "tree" ? tuned.levelRequired : levelRequired,
-      toolRequired,
-      respawnTime:
-        resourceType === "tree"
-          ? this.ticksToMs(tuned.respawnTicks)
-          : respawnTime,
+      skillRequired: manifestData.harvestSkill,
+      levelRequired: manifestData.levelRequired,
+      toolRequired: manifestData.toolRequired || "",
+      respawnTime: this.ticksToMs(manifestData.respawnTicks),
       isAvailable: true,
       lastDepleted: 0,
       drops: this.getDropsFromManifest(variantKey),
