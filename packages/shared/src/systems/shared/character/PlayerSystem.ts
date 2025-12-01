@@ -1873,6 +1873,7 @@ export class PlayerSystem extends SystemBase {
         statsComponent.data.defense = data.skills.defense;
         statsComponent.data.constitution = data.skills.constitution;
         statsComponent.data.ranged = data.skills.ranged;
+        statsComponent.data.mining = data.skills.mining;
         statsComponent.data.woodcutting = data.skills.woodcutting;
         statsComponent.data.fishing = data.skills.fishing;
         statsComponent.data.firemaking = data.skills.firemaking;
@@ -1918,6 +1919,8 @@ export class PlayerSystem extends SystemBase {
       defenseLevel: s.defense.level,
       constitutionLevel: s.constitution.level,
       rangedLevel: s.ranged.level,
+      // Gathering & artisan skills
+      miningLevel: s.mining.level,
       woodcuttingLevel: s.woodcutting.level,
       fishingLevel: s.fishing.level,
       firemakingLevel: s.firemaking.level,
@@ -1928,6 +1931,7 @@ export class PlayerSystem extends SystemBase {
       defenseXp: Math.floor(s.defense.xp),
       constitutionXp: Math.floor(s.constitution.xp),
       rangedXp: Math.floor(s.ranged.xp),
+      miningXp: Math.floor(s.mining.xp),
       woodcuttingXp: Math.floor(s.woodcutting.xp),
       fishingXp: Math.floor(s.fishing.xp),
       firemakingXp: Math.floor(s.firemaking.xp),

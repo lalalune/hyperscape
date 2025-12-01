@@ -133,6 +133,98 @@ export class ResourceSystem extends SystemBase {
         },
       ],
     ],
+    // Mining ore drops (OSRS-accurate XP values)
+    [
+      "ore_copper",
+      [
+        {
+          itemId: "copper_ore",
+          itemName: "Copper Ore",
+          quantity: 1,
+          chance: 1.0,
+          xpAmount: 17.5, // OSRS: 17.5 XP per ore
+          stackable: false,
+        },
+      ],
+    ],
+    [
+      "ore_tin",
+      [
+        {
+          itemId: "tin_ore",
+          itemName: "Tin Ore",
+          quantity: 1,
+          chance: 1.0,
+          xpAmount: 17.5, // OSRS: 17.5 XP per ore
+          stackable: false,
+        },
+      ],
+    ],
+    [
+      "ore_iron",
+      [
+        {
+          itemId: "iron_ore",
+          itemName: "Iron Ore",
+          quantity: 1,
+          chance: 1.0,
+          xpAmount: 35, // OSRS: 35 XP per ore
+          stackable: false,
+        },
+      ],
+    ],
+    [
+      "ore_coal",
+      [
+        {
+          itemId: "coal_ore",
+          itemName: "Coal Ore",
+          quantity: 1,
+          chance: 1.0,
+          xpAmount: 50, // OSRS: 50 XP per ore
+          stackable: false,
+        },
+      ],
+    ],
+    [
+      "ore_mithril",
+      [
+        {
+          itemId: "mithril_ore",
+          itemName: "Mithril Ore",
+          quantity: 1,
+          chance: 1.0,
+          xpAmount: 80, // OSRS: 80 XP per ore
+          stackable: false,
+        },
+      ],
+    ],
+    [
+      "ore_adamantite",
+      [
+        {
+          itemId: "adamantite_ore",
+          itemName: "Adamantite Ore",
+          quantity: 1,
+          chance: 1.0,
+          xpAmount: 95, // OSRS: 95 XP per ore
+          stackable: false,
+        },
+      ],
+    ],
+    [
+      "ore_runite",
+      [
+        {
+          itemId: "runite_ore",
+          itemName: "Runite Ore",
+          quantity: 1,
+          chance: 1.0,
+          xpAmount: 125, // OSRS: 125 XP per ore
+          stackable: false,
+        },
+      ],
+    ],
     [
       "herb_patch_normal",
       [
@@ -372,9 +464,12 @@ export class ResourceSystem extends SystemBase {
       // Store in map for tracking
       const rid = createResourceID(resource.id);
       this.resources.set(rid, resource);
-      // Track variant/subtype for tuning (e.g., 'tree_oak')
+      // Track variant/subtype for tuning (e.g., 'tree_oak', 'ore_copper')
       if (resource.type === "tree") {
         const variant = spawnPoint.subType || "tree_normal";
+        this.resourceVariants.set(rid, variant);
+      } else if (resource.type === "ore") {
+        const variant = spawnPoint.subType || "ore_copper";
         this.resourceVariants.set(rid, variant);
       }
 
@@ -525,7 +620,9 @@ export class ResourceSystem extends SystemBase {
     const variantKey =
       resourceType === "tree"
         ? spawnPoint.subType || "tree_normal"
-        : `${resourceType}_normal`;
+        : resourceType === "ore"
+          ? spawnPoint.subType || "ore_copper" // Default to copper for mining
+          : `${resourceType}_normal`;
     const tuned = this.getVariantTuning(variantKey);
 
     const resource: Resource = {
@@ -538,7 +635,23 @@ export class ResourceSystem extends SystemBase {
             ? "Tree"
             : type === "herb"
               ? "Herb"
-              : "Rock",
+              : resourceType === "ore"
+                ? variantKey.includes("copper")
+                  ? "Copper Rock"
+                  : variantKey.includes("tin")
+                    ? "Tin Rock"
+                    : variantKey.includes("iron")
+                      ? "Iron Rock"
+                      : variantKey.includes("coal")
+                        ? "Coal Rock"
+                        : variantKey.includes("mithril")
+                          ? "Mithril Rock"
+                          : variantKey.includes("adamantite")
+                            ? "Adamantite Rock"
+                            : variantKey.includes("runite")
+                              ? "Runite Rock"
+                              : "Rock"
+                : "Rock",
       position: {
         x: position.x,
         y: position.y,
@@ -546,10 +659,12 @@ export class ResourceSystem extends SystemBase {
       },
       skillRequired,
       levelRequired:
-        resourceType === "tree" ? tuned.levelRequired : levelRequired,
+        resourceType === "tree" || resourceType === "ore"
+          ? tuned.levelRequired
+          : levelRequired,
       toolRequired,
       respawnTime:
-        resourceType === "tree"
+        resourceType === "tree" || resourceType === "ore"
           ? this.ticksToMs(tuned.respawnTicks)
           : respawnTime,
       isAvailable: true,
@@ -559,7 +674,11 @@ export class ResourceSystem extends SystemBase {
           ? this.RESOURCE_DROPS.get(variantKey) ||
             this.RESOURCE_DROPS.get("tree_normal") ||
             []
-          : this.RESOURCE_DROPS.get(`${resourceType}_normal`) || [],
+          : resourceType === "ore"
+            ? this.RESOURCE_DROPS.get(variantKey) ||
+              this.RESOURCE_DROPS.get("ore_copper") ||
+              []
+            : this.RESOURCE_DROPS.get(`${resourceType}_normal`) || [],
     };
 
     return resource;
@@ -714,6 +833,32 @@ export class ResourceSystem extends SystemBase {
       }
     }
 
+    // Tool check for mining (RuneScape-style: any pickaxe qualifies; tier affects speed)
+    if (resource.skillRequired === "mining") {
+      const pickaxeInfo = this.getBestPickaxeTier(data.playerId);
+      if (!pickaxeInfo) {
+        this.sendChat(data.playerId, `You need a pickaxe to mine this rock.`);
+        this.emitTypedEvent(EventType.UI_MESSAGE, {
+          playerId: data.playerId,
+          message: `You need a pickaxe to mine this rock.`,
+          type: "error",
+        });
+        return;
+      }
+
+      // Enforce pickaxe level requirement
+      const cached = this.playerSkills.get(data.playerId);
+      const miningLevel = cached?.[resource.skillRequired]?.level ?? 1;
+      if (miningLevel < pickaxeInfo.levelRequired) {
+        this.emitTypedEvent(EventType.UI_MESSAGE, {
+          playerId: data.playerId,
+          message: `You need level ${pickaxeInfo.levelRequired} mining to use this pickaxe.`,
+          type: "error",
+        });
+        return;
+      }
+    }
+
     // If player is already gathering, replace session with the latest request
     if (this.activeGathering.has(playerId)) {
       this.activeGathering.delete(playerId);
@@ -723,9 +868,11 @@ export class ResourceSystem extends SystemBase {
     const actionName =
       resource.skillRequired === "woodcutting"
         ? "chopping"
-        : resource.skillRequired === "fishing"
-          ? "fishing"
-          : "gathering";
+        : resource.skillRequired === "mining"
+          ? "mining"
+          : resource.skillRequired === "fishing"
+            ? "fishing"
+            : "gathering";
     const resourceName = resource.name || resource.type.replace("_", " ");
 
     // Create tick-based session
@@ -736,10 +883,23 @@ export class ResourceSystem extends SystemBase {
 
     // Compute tick-based cycle interval
     const variant =
-      this.resourceVariants.get(sessionResourceId) || "tree_normal";
+      this.resourceVariants.get(sessionResourceId) ||
+      (resource.type === "ore" ? "ore_copper" : "tree_normal");
     const tuned = this.getVariantTuning(variant);
-    const axe = this.getBestAxeTier(data.playerId);
-    const toolMultiplier = axe ? axe.cycleMultiplier : 1.0;
+    // Get appropriate tool multiplier based on skill type
+    const axe =
+      resource.skillRequired === "woodcutting"
+        ? this.getBestAxeTier(data.playerId)
+        : null;
+    const pickaxe =
+      resource.skillRequired === "mining"
+        ? this.getBestPickaxeTier(data.playerId)
+        : null;
+    const toolMultiplier = axe
+      ? axe.cycleMultiplier
+      : pickaxe
+        ? pickaxe.cycleMultiplier
+        : 1.0;
     const cycleTickInterval = this.computeCycleTicks(
       skillLevel,
       tuned,
@@ -760,6 +920,8 @@ export class ResourceSystem extends SystemBase {
     // Set gathering emote for the player
     if (resource.skillRequired === "woodcutting") {
       this.setGatheringEmote(data.playerId, "chopping");
+    } else if (resource.skillRequired === "mining") {
+      this.setGatheringEmote(data.playerId, "mining");
     }
 
     // Emit gathering started event with tick timing info for client progress bar
@@ -888,6 +1050,18 @@ export class ResourceSystem extends SystemBase {
         continue;
       }
 
+      // Get variant tuning for this resource
+      const variant =
+        this.resourceVariants.get(session.resourceId) ||
+        (resource.type === "ore" ? "ore_copper" : "tree_normal");
+      const tuned = this.getVariantTuning(variant);
+
+      // Get drop table for this variant
+      const drops = this.RESOURCE_DROPS.get(variant) || resource.drops || [];
+      const primaryDrop = drops[0];
+      const itemId = primaryDrop?.itemId || "logs";
+      const itemName = primaryDrop?.itemName || "Logs";
+
       // Inventory capacity guard - if full, stop session
       const inventorySystem = this.world.getSystem?.("inventory") as {
         getInventory?: (playerId: string) => {
@@ -900,9 +1074,15 @@ export class ResourceSystem extends SystemBase {
         const capacity = (inv?.capacity as number) ?? 28;
         const count = Array.isArray(inv?.items) ? inv!.items!.length : 0;
         if (count >= capacity) {
+          const resourceTypeName =
+            resource.skillRequired === "mining"
+              ? "ore"
+              : resource.skillRequired === "woodcutting"
+                ? "logs"
+                : "items";
           this.emitTypedEvent(EventType.UI_MESSAGE, {
             playerId: playerId as unknown as string,
-            message: "Your inventory is too full to hold any more logs.",
+            message: `Your inventory is too full to hold any more ${resourceTypeName}.`,
             type: "warning",
           });
           this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
@@ -913,11 +1093,6 @@ export class ResourceSystem extends SystemBase {
           continue;
         }
       }
-
-      // Get variant tuning for this resource
-      const variant =
-        this.resourceVariants.get(session.resourceId) || "tree_normal";
-      const tuned = this.getVariantTuning(variant);
 
       // Schedule next attempt (tick-based)
       session.nextAttemptTick = tickNumber + session.cycleTickInterval;
@@ -932,34 +1107,34 @@ export class ResourceSystem extends SystemBase {
       if (isSuccessful) {
         session.successes++;
 
-        // Add one log to inventory
+        // Add item to inventory (ore for mining, logs for woodcutting, etc.)
         this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
           playerId: playerId as unknown as string,
           item: {
-            id: `inv_${playerId}_${Date.now()}_logs`,
-            itemId: "logs",
+            id: `inv_${playerId}_${Date.now()}_${itemId}`,
+            itemId: itemId,
             quantity: 1,
             slot: -1,
             metadata: null,
           },
         });
 
-        // Award XP per log immediately
-        const xpPerLog = tuned.xpPerLog;
+        // Award XP immediately
+        const xpAmount = tuned.xpPerLog; // Also used as xpPerOre for mining
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: playerId as unknown as string,
           skill: resource.skillRequired,
-          amount: xpPerLog,
+          amount: xpAmount,
         });
 
-        // Feedback
+        // Feedback (resource-aware)
         this.sendChat(
           playerId as unknown as string,
-          `You receive 1x ${"Logs"}.`,
+          `You receive 1x ${itemName}.`,
         );
         this.emitTypedEvent(EventType.UI_MESSAGE, {
           playerId: playerId as unknown as string,
-          message: `You get some logs. (+${xpPerLog} ${resource.skillRequired} XP)`,
+          message: `You get some ${itemName.toLowerCase()}. (+${xpAmount} ${resource.skillRequired} XP)`,
           type: "success",
         });
 
@@ -982,10 +1157,15 @@ export class ResourceSystem extends SystemBase {
             resourceId: session.resourceId,
             position: resource.position,
           });
-          this.sendChat(
-            playerId as unknown as string,
-            "The tree is chopped down.",
-          );
+
+          // Resource-aware depletion message
+          const depletionMessage =
+            resource.skillRequired === "mining"
+              ? "The rock is depleted of ore."
+              : resource.skillRequired === "woodcutting"
+                ? "The tree is chopped down."
+                : "The resource is depleted.";
+          this.sendChat(playerId as unknown as string, depletionMessage);
           this.sendNetworkMessage("resourceDepleted", {
             resourceId: session.resourceId,
             position: resource.position,
@@ -1007,10 +1187,16 @@ export class ResourceSystem extends SystemBase {
           completedSessions.push(playerId);
         }
       } else {
-        // Failure feedback (optional gentle info)
+        // Failure feedback (resource-aware)
+        const failureMessage =
+          resource.skillRequired === "mining"
+            ? "You fail to mine any ore."
+            : resource.skillRequired === "woodcutting"
+              ? "You fail to chop the tree."
+              : "You fail to gather the resource.";
         this.emitTypedEvent(EventType.UI_MESSAGE, {
           playerId: playerId as unknown as string,
-          message: `You fail to chop the tree.`,
+          message: failureMessage,
           type: "info",
         });
       }
@@ -1030,9 +1216,10 @@ export class ResourceSystem extends SystemBase {
   // OSRS Reference: https://oldschool.runescape.wiki/w/Tick_manipulation
   // Standard woodcutting = 4 ticks (2.4 seconds) per attempt
   // Respawn times from OSRS Wiki: https://oldschool.runescape.wiki/w/Tree
+  // Mining respawn times from OSRS Wiki: https://oldschool.runescape.wiki/w/Rocks
   private getVariantTuning(variantKey: string): {
     levelRequired: number;
-    xpPerLog: number;
+    xpPerLog: number; // Also used as xpPerOre for mining
     baseCycleTicks: number; // Ticks between attempts (600ms each)
     depleteChance: number;
     respawnTicks: number; // Respawn time in ticks
@@ -1092,6 +1279,70 @@ export class ResourceSystem extends SystemBase {
           baseCycleTicks: 4, // OSRS standard
           depleteChance: 0.125, // ~1/8 chance per log
           respawnTicks: 199, // OSRS-accurate: ~2 minutes
+        };
+      // Mining ore variants (OSRS-accurate)
+      case "ore_copper":
+        // OSRS Wiki: Copper rocks respawn in ~3 ticks (1.8 seconds)
+        return {
+          levelRequired: 1,
+          xpPerLog: 17.5, // OSRS: 17.5 XP per ore
+          baseCycleTicks: 4, // OSRS standard: 4 ticks = 2.4s
+          depleteChance: 0.125, // ~1/8 chance per ore
+          respawnTicks: 3, // OSRS-accurate: ~1.8 seconds
+        };
+      case "ore_tin":
+        // OSRS Wiki: Tin rocks respawn in ~3 ticks (1.8 seconds)
+        return {
+          levelRequired: 1,
+          xpPerLog: 17.5, // OSRS: 17.5 XP per ore
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per ore
+          respawnTicks: 3, // OSRS-accurate: ~1.8 seconds
+        };
+      case "ore_iron":
+        // OSRS Wiki: Iron rocks respawn in ~9 ticks (5.4 seconds)
+        return {
+          levelRequired: 15,
+          xpPerLog: 35, // OSRS: 35 XP per ore
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per ore
+          respawnTicks: 9, // OSRS-accurate: ~5.4 seconds
+        };
+      case "ore_coal":
+        // OSRS Wiki: Coal rocks respawn in ~49 ticks (29.4 seconds)
+        return {
+          levelRequired: 30,
+          xpPerLog: 50, // OSRS: 50 XP per ore
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per ore
+          respawnTicks: 49, // OSRS-accurate: ~29.4 seconds
+        };
+      case "ore_mithril":
+        // OSRS Wiki: Mithril rocks respawn in ~200 ticks (120 seconds)
+        return {
+          levelRequired: 55,
+          xpPerLog: 80, // OSRS: 80 XP per ore
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per ore
+          respawnTicks: 200, // OSRS-accurate: ~2 minutes
+        };
+      case "ore_adamantite":
+        // OSRS Wiki: Adamantite rocks respawn in ~400 ticks (240 seconds)
+        return {
+          levelRequired: 70,
+          xpPerLog: 95, // OSRS: 95 XP per ore
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per ore
+          respawnTicks: 400, // OSRS-accurate: ~4 minutes
+        };
+      case "ore_runite":
+        // OSRS Wiki: Runite rocks respawn in ~1200 ticks (720 seconds)
+        return {
+          levelRequired: 85,
+          xpPerLog: 125, // OSRS: 125 XP per ore
+          baseCycleTicks: 4, // OSRS standard
+          depleteChance: 0.125, // ~1/8 chance per ore
+          respawnTicks: 1200, // OSRS-accurate: ~12 minutes
         };
       default:
         return defaults;
@@ -1198,6 +1449,106 @@ export class ResourceSystem extends SystemBase {
         match: (id) =>
           id.includes("bronze") &&
           (id.includes("hatchet") || id.includes("axe")),
+      },
+    ];
+
+    const inventorySystem = this.world.getSystem?.("inventory") as {
+      getInventory?: (playerId: string) => {
+        items?: Array<{ itemId?: string }>;
+        capacity?: number;
+      };
+    } | null;
+    const inv = inventorySystem?.getInventory
+      ? inventorySystem.getInventory(playerId)
+      : undefined;
+    const items = (inv?.items as Array<{ itemId?: string }> | undefined) || [];
+    let best: {
+      id: string;
+      levelRequired: number;
+      cycleMultiplier: number;
+    } | null = null;
+    for (const t of tiers) {
+      const found = items.some(
+        (it) =>
+          typeof it?.itemId === "string" && t.match(it.itemId!.toLowerCase()),
+      );
+      if (found) {
+        best = {
+          id: t.id,
+          levelRequired: t.levelRequired,
+          cycleMultiplier: t.cycleMultiplier,
+        };
+        break;
+      }
+    }
+    return best;
+  }
+
+  private getBestPickaxeTier(
+    playerId: string,
+  ): { id: string; levelRequired: number; cycleMultiplier: number } | null {
+    // Known pickaxe tiers: bronze, iron, steel, mithril, adamant, rune, dragon
+    const tiers: Array<{
+      id: string;
+      levelRequired: number;
+      cycleMultiplier: number;
+      match: (id: string) => boolean;
+    }> = [
+      {
+        id: "dragon_pickaxe",
+        levelRequired: 61,
+        cycleMultiplier: 0.7,
+        match: (id) =>
+          id.includes("dragon") &&
+          (id.includes("pickaxe") || id.includes("pick")),
+      },
+      {
+        id: "rune_pickaxe",
+        levelRequired: 41,
+        cycleMultiplier: 0.78,
+        match: (id) =>
+          id.includes("rune") &&
+          (id.includes("pickaxe") || id.includes("pick")),
+      },
+      {
+        id: "adamant_pickaxe",
+        levelRequired: 31,
+        cycleMultiplier: 0.84,
+        match: (id) =>
+          id.includes("adamant") &&
+          (id.includes("pickaxe") || id.includes("pick")),
+      },
+      {
+        id: "mithril_pickaxe",
+        levelRequired: 21,
+        cycleMultiplier: 0.88,
+        match: (id) =>
+          id.includes("mithril") &&
+          (id.includes("pickaxe") || id.includes("pick")),
+      },
+      {
+        id: "steel_pickaxe",
+        levelRequired: 6,
+        cycleMultiplier: 0.92,
+        match: (id) =>
+          id.includes("steel") &&
+          (id.includes("pickaxe") || id.includes("pick")),
+      },
+      {
+        id: "iron_pickaxe",
+        levelRequired: 1,
+        cycleMultiplier: 0.96,
+        match: (id) =>
+          id.includes("iron") &&
+          (id.includes("pickaxe") || id.includes("pick")),
+      },
+      {
+        id: "bronze_pickaxe",
+        levelRequired: 1,
+        cycleMultiplier: 1.0,
+        match: (id) =>
+          id.includes("bronze") &&
+          (id.includes("pickaxe") || id.includes("pick")),
       },
     ];
 

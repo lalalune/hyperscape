@@ -419,6 +419,7 @@ export interface XPDrop {
     | "defense"
     | "constitution"
     | "ranged"
+    | "mining"
     | "woodcutting"
     | "fishing"
     | "firemaking"
@@ -500,6 +501,8 @@ export interface SkillsData {
   defense: { level: number; xp: number };
   constitution: { level: number; xp: number };
   ranged: { level: number; xp: number };
+  // Gathering & artisan skills
+  mining: { level: number; xp: number };
   woodcutting: { level: number; xp: number };
   fishing: { level: number; xp: number };
   firemaking: { level: number; xp: number };

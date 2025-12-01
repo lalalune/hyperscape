@@ -53,7 +53,7 @@ const CATCHUP_MAX_CHANGE_PER_SEC = 3.0; // Can change by at most 3.0 per second
 const ROTATION_SLERP_SPEED = 12.0;
 
 // Emotes that are controlled by TileInterpolator (movement-related)
-// Other emotes like "chopping", "combat", "death" etc. should NOT be overridden
+// Other emotes like "chopping", "mining", "combat", "death" etc. should NOT be overridden
 // TileInterpolator only resets to idle if current emote is a movement emote
 const MOVEMENT_EMOTES = new Set<string | undefined | null>([
   "walk",
@@ -729,7 +729,7 @@ export class TileInterpolator {
         // No path = not moving = idle animation
         state.isMoving = false;
         // Only reset to idle if current emote is a movement emote
-        // Don't override special emotes like "chopping", "combat", "death" etc.
+        // Don't override special emotes like "chopping", "mining", "combat", "death" etc.
         const currentEmote = entity.data?.emote || entity.data?.e;
         if (MOVEMENT_EMOTES.has(currentEmote as string | undefined | null)) {
           state.emote = "idle";
