@@ -161,13 +161,17 @@ export class ActionQueue {
    */
   queueCombat(socket: ServerSocket, data: unknown): void {
     const playerId = socket.player?.id;
-    if (!playerId) return;
+    if (!playerId) {
+      return;
+    }
 
     const state = this.getOrCreateState(playerId);
     const payload = data as { mobId?: string; targetId?: string };
     const targetId = payload.mobId || payload.targetId;
 
-    if (!targetId) return;
+    if (!targetId) {
+      return;
+    }
 
     // Set persistent combat target (replaces any existing target)
     state.combatTarget = targetId;
