@@ -203,6 +203,34 @@ export interface DefaultDropConfig {
 // ============== UNIFIED NPC DATA STRUCTURE ==============
 
 /**
+ * NPCDataInput - Used for JSON input where most fields are optional
+ * DataManager.normalizeNPC() converts this to full NPCData with all defaults filled in
+ *
+ * Only core identity fields (id, name, description, category) are required.
+ * All other fields will be filled with sensible defaults by normalizeNPC().
+ */
+export interface NPCDataInput {
+  // REQUIRED - Core identity
+  id: string;
+  name: string;
+  description: string;
+  category: NPCCategory;
+
+  // OPTIONAL - Will be filled with defaults by normalizeNPC()
+  faction?: string;
+  stats?: Partial<NPCStats>;
+  combat?: Partial<NPCCombatConfig>;
+  movement?: Partial<NPCMovementConfig>;
+  drops?: Partial<NPCDrops>;
+  services?: Partial<NPCServicesConfig>;
+  behavior?: Partial<NPCBehaviorConfig>;
+  appearance?: Partial<NPCAppearanceConfig>;
+  position?: Position3D;
+  spawnBiomes?: string[];
+  dialogue?: NPCDialogueTree;
+}
+
+/**
  * NPC Stats - Unified across all NPCs
  * Note: In OSRS, monster "hitpoints" IS the max HP directly (no multiplication).
  * The `health` field is the hitpoints level AND max HP (1:1 ratio).
