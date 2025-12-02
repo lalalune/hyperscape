@@ -1331,6 +1331,34 @@ export class ClientNetwork extends SystemBase {
     this.lastEquipmentByPlayerId = this.lastEquipmentByPlayerId || {};
     this.lastEquipmentByPlayerId[data.playerId] = data.equipment;
 
+    // CRITICAL: Update local player's equipment so systems can access it
+    // Equipment format from server: { weapon: { item: Item, itemId: string }, ... }
+    // Local player format: { weapon: Item | null, ... }
+    const localPlayer = this.world.getPlayer?.();
+    if (localPlayer && data.playerId === localPlayer.id) {
+      const rawEq = data.equipment;
+      if (rawEq && "equipment" in localPlayer) {
+        const playerWithEquipment = localPlayer as unknown as {
+          equipment: {
+            weapon: unknown;
+            shield: unknown;
+            helmet: unknown;
+            body: unknown;
+            legs: unknown;
+            arrows: unknown;
+          };
+        };
+        playerWithEquipment.equipment = {
+          weapon: rawEq.weapon?.item || null,
+          shield: rawEq.shield?.item || null,
+          helmet: rawEq.helmet?.item || null,
+          body: rawEq.body?.item || null,
+          legs: rawEq.legs?.item || null,
+          arrows: rawEq.arrows?.item || null,
+        };
+      }
+    }
+
     // Re-emit as UI update event for Sidebar to handle
     this.world.emit(EventType.UI_UPDATE, {
       component: "equipment",

@@ -1770,7 +1770,7 @@ export class CombatSystem extends SystemBase {
 
   /**
    * Get combat range for an entity in tiles
-   * Mobs use combatRange from manifest, players default to 1 (melee)
+   * Mobs use combatRange from manifest, players use equipped weapon's attackRange
    */
   private getEntityCombatRange(
     entity: Entity | MobEntity,
@@ -1782,8 +1782,40 @@ export class CombatSystem extends SystemBase {
         return mobEntity.getCombatRange();
       }
     }
-    // Players default to 1 tile melee range
-    // Could add weapon-based range (halberds) here later
+
+    // Players: get weapon attackRange from equipped weapon via EquipmentSystem
+    if (entityType === "player") {
+      const equipmentSystem = this.world.getSystem?.("equipment") as
+        | {
+            getPlayerEquipment?: (id: string) => {
+              weapon?: { item?: { attackRange?: number; id?: string } };
+            } | null;
+          }
+        | undefined;
+
+      if (equipmentSystem?.getPlayerEquipment) {
+        const equipment = equipmentSystem.getPlayerEquipment(entity.id);
+
+        if (equipment?.weapon?.item) {
+          const weaponItem = equipment.weapon.item;
+
+          // First check if Item has attackRange directly
+          if (weaponItem.attackRange) {
+            return weaponItem.attackRange;
+          }
+
+          // Fallback: look up from ITEMS map
+          if (weaponItem.id) {
+            const itemData = getItem(weaponItem.id);
+            if (itemData?.attackRange) {
+              return itemData.attackRange;
+            }
+          }
+        }
+      }
+    }
+
+    // Default to 1 tile (punching/unarmed)
     return 1;
   }
 

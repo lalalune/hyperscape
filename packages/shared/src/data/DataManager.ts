@@ -271,6 +271,14 @@ export class DataManager {
       // Optional properties
       healAmount: item.healAmount,
       attackSpeed: item.attackSpeed,
+      // Default attackRange: 1 for melee, 7 for ranged, undefined for non-weapons
+      attackRange:
+        item.attackRange ??
+        (attackType === AttackType.RANGED
+          ? 7
+          : attackType === AttackType.MELEE
+            ? 1
+            : undefined),
       equippedModelPath: item.equippedModelPath,
       bonuses: item.bonuses,
       requirements: item.requirements,

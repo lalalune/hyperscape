@@ -140,6 +140,7 @@ export interface Item {
   equipable?: boolean; // Default: false (derived from equipSlot if not specified)
   attackType?: AttackType | null; // Default: null
   attackSpeed?: number; // Attack speed in game ticks (OSRS-style: 4 = standard sword)
+  attackRange?: number; // Attack range in tiles (1 = adjacent melee, 2 = halberd, 7+ = ranged)
   is2h?: boolean; // Explicit flag for 2-handed weapons (alternative to equipSlot: '2h')
 
   // Item properties

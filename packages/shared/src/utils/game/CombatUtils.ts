@@ -332,6 +332,18 @@ export function hasEquippedWeapon(player: Player): boolean {
   return !!player.equipment?.weapon;
 }
 
+/**
+ * Get player's weapon attack range in tiles
+ * Returns the attackRange from the equipped weapon, or 1 if no weapon (punching)
+ */
+export function getPlayerWeaponRange(player: Player): number {
+  const weapon = player.equipment?.weapon;
+  if (!weapon) return 1; // No weapon = punching = 1 tile
+
+  // Get attackRange from item data, default to 1 for melee
+  return weapon.attackRange ?? 1;
+}
+
 export function canUseRanged(player: Player): boolean {
   return (
     hasEquippedWeapon(player) &&

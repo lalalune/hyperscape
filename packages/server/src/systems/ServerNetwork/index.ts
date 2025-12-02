@@ -238,7 +238,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         const payload = data as { mobId?: string; targetId?: string };
         const targetId = payload.mobId || payload.targetId;
         if (!targetId) return;
-
         this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
           playerId: playerEntity.id,
           targetId,
