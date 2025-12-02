@@ -167,6 +167,13 @@ const names = [
   'bankDepositAll',
   'bankWithdraw',
   'bankClose',
+  // NPC interaction packets
+  'npcInteract',
+  // Dialogue packets
+  'dialogueStart',
+  'dialogueNodeChange',
+  'dialogueResponse',
+  'dialogueEnd',
   // Tile movement packets (RuneScape-style)
   'entityTileUpdate',    // Server -> Client: entity moved to new tile position
   'tileMovementStart',   // Server -> Client: movement path started

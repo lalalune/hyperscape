@@ -51,12 +51,10 @@ export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
     safeZone: true,
     npcs: [
       {
-        id: "banker_starter",
-        name: "Banker Bob",
+        id: "bank_clerk",
         type: "bank",
-        position: { x: 15, y: 43, z: 5 },
-        services: ["bank"],
-        description: "A friendly banker",
+        position: { x: 5, y: 0, z: -5 },
+        // All other NPC data (name, services, model, description) comes from npcs.json
       },
     ],
     resources: [

@@ -271,8 +271,36 @@ export interface NPCServicesConfig {
     price: number;
     stockRefreshTime?: number;
   }>;
-  dialogue?: unknown; // Dialogue tree structure
   questIds?: string[]; // Quest IDs this NPC is involved in
+}
+
+/**
+ * NPC Dialogue Response - A single response option in a dialogue node
+ * Note: Uses string-based conditions/effects for JSON serialization (vs function-based DialogueOption)
+ */
+export interface NPCDialogueResponse {
+  text: string; // Display text for this response option
+  nextNodeId: string; // ID of the next dialogue node
+  condition?: string; // Optional condition (e.g., "hasItem:coins:100")
+  effect?: string; // Optional effect when selected (e.g., "openBank", "startQuest:goblin_slayer")
+}
+
+/**
+ * NPC Dialogue Node - A single node in a dialogue tree
+ * Note: Data-only for JSON serialization (vs function-based DialogueNode in animation-dialogue-types)
+ */
+export interface NPCDialogueNode {
+  id: string; // Unique identifier for this node
+  text: string; // NPC's dialogue text
+  responses?: NPCDialogueResponse[]; // Player response options (if empty, dialogue ends)
+}
+
+/**
+ * NPC Dialogue Tree - Full conversation tree for an NPC
+ */
+export interface NPCDialogueTree {
+  entryNodeId: string; // Starting node ID
+  nodes: NPCDialogueNode[]; // All dialogue nodes
 }
 
 /**
@@ -331,6 +359,9 @@ export interface NPCData {
 
   // ========== BEHAVIOR AI (Optional - for complex behaviors) ==========
   behavior: NPCBehaviorConfig;
+
+  // ========== DIALOGUE (Optional - for NPC conversations) ==========
+  dialogue?: NPCDialogueTree;
 
   // ========== APPEARANCE ==========
   appearance: NPCAppearanceConfig;

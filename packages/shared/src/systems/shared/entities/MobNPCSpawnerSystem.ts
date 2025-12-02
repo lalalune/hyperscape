@@ -63,9 +63,116 @@ export class MobNPCSpawnerSystem extends SystemBase {
   }
 
   async start(): Promise<void> {
-    // NOTE: Removed hardcoded spawnDefaultMob() - mobs should come from manifests only
-    // Mobs are now spawned reactively as terrain tiles generate via world-areas.json
-    // No need to spawn all mobs at startup - tiles will trigger spawning
+    // Spawn NPCs immediately at world start (they're static, not reactive to terrain)
+    // NPCs like bank clerks, shopkeepers should be available from the start
+    if (this.world.isServer) {
+      await this.spawnAllNPCsFromManifest();
+    }
+    // Mobs are spawned reactively as terrain tiles generate via world-areas.json
+  }
+
+  /**
+   * Spawn all NPCs defined in world-areas.json immediately
+   * Unlike mobs, NPCs are static and should be available at world start
+   */
+  private async spawnAllNPCsFromManifest(): Promise<void> {
+    // Wait for EntityManager to be ready
+    let entityManager = this.world.getSystem("entity-manager") as {
+      spawnEntity?: (config: unknown) => Promise<unknown>;
+    } | null;
+    let attempts = 0;
+
+    while ((!entityManager || !entityManager.spawnEntity) && attempts < 50) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      entityManager = this.world.getSystem("entity-manager") as {
+        spawnEntity?: (config: unknown) => Promise<unknown>;
+      } | null;
+      attempts++;
+    }
+
+    if (!entityManager?.spawnEntity) {
+      console.error(
+        "[MobNPCSpawnerSystem] ❌ EntityManager not available for NPC spawning",
+      );
+      return;
+    }
+
+    // Get terrain height function
+    const terrainSystem = this.world.getSystem("terrain") as {
+      getHeightAt?: (x: number, z: number) => number | null;
+    } | null;
+
+    console.log("[MobNPCSpawnerSystem] 📍 Spawning NPCs from world-areas...");
+    console.log(
+      `[MobNPCSpawnerSystem] Areas: ${Object.keys(ALL_WORLD_AREAS).join(", ")}`,
+    );
+
+    for (const area of Object.values(ALL_WORLD_AREAS)) {
+      if (!area.npcs || area.npcs.length === 0) continue;
+
+      for (const npc of area.npcs) {
+        // Get ground height at NPC position
+        const groundY =
+          terrainSystem?.getHeightAt?.(npc.position.x, npc.position.z) ?? 43;
+        const spawnY = groundY + 1.0;
+
+        // ALL NPC data comes from npcs.json manifest - world-areas only provides position/type
+        const npcManifestData = getNPCById(npc.id);
+        if (!npcManifestData) {
+          console.warn(
+            `[MobNPCSpawnerSystem] ⚠️ NPC ${npc.id} not found in npcs.json manifest!`,
+          );
+          continue; // Skip NPCs not in manifest
+        }
+
+        const modelPath =
+          npcManifestData.appearance?.modelPath ||
+          "asset://models/human/human_rigged.glb";
+        const npcServices = npcManifestData.services?.types || [];
+        const npcDescription = npcManifestData.description || npc.id;
+        const npcName = npcManifestData.name || npc.id;
+
+        console.log(`[MobNPCSpawnerSystem] 📊 NPC ${npc.id}:`);
+        console.log(`  - name: ${npcName}`);
+        console.log(`  - model: ${modelPath}`);
+        console.log(`  - services: ${npcServices.join(", ")}`);
+
+        const npcConfig = {
+          id: `npc_${npc.id}_${Date.now()}`,
+          type: "npc" as const,
+          name: npcName, // From npcs.json
+          position: { x: npc.position.x, y: spawnY, z: npc.position.z },
+          rotation: { x: 0, y: 0, z: 0, w: 1 },
+          scale: { x: 100, y: 100, z: 100 }, // Scale up rigged models
+          visible: true,
+          interactable: true,
+          interactionType: "talk",
+          interactionDistance: 3,
+          description: npcDescription, // From npcs.json
+          model: modelPath, // From npcs.json
+          properties: {},
+          npcType: npc.type, // From world-areas (bank, store, etc.)
+          npcId: npc.id, // Manifest ID for dialogue lookup
+          dialogueLines: [],
+          services: npcServices, // From npcs.json
+          inventory: [],
+          skillsOffered: [],
+          questsAvailable: [],
+        };
+
+        try {
+          await entityManager.spawnEntity(npcConfig);
+          console.log(
+            `[MobNPCSpawnerSystem] ✅ Spawned NPC: ${npcName} (${npc.id}) at (${npc.position.x}, ${spawnY.toFixed(1)}, ${npc.position.z})`,
+          );
+        } catch (err) {
+          console.error(
+            `[MobNPCSpawnerSystem] ❌ Failed to spawn NPC ${npc.id}:`,
+            err,
+          );
+        }
+      }
+    }
   }
 
   /**
