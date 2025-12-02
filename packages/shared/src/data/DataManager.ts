@@ -61,9 +61,9 @@ export interface ExternalResourceData {
   name: string;
   type: string;
   modelPath: string | null;
-  stumpModelPath: string | null;
+  depletedModelPath: string | null;
   scale: number;
-  stumpScale: number;
+  depletedScale: number;
   harvestSkill: string;
   toolRequired: string | null;
   levelRequired: number;

@@ -233,9 +233,9 @@ export interface ResourceEntityConfig
   }>;
   depleted: boolean;
   lastHarvestTime: number;
-  stumpModelPath?: string | null;
+  depletedModelPath?: string | null;
   modelScale?: number;
-  stumpModelScale?: number;
+  depletedModelScale?: number;
 }
 
 // Component interfaces
