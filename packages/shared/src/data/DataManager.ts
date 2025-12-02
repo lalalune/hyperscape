@@ -198,12 +198,8 @@ export class DataManager {
       // zones.json removed - use world-areas.json instead
       // WORLD_ZONES remains empty, ZoneDetectionSystem uses ALL_WORLD_AREAS as primary
 
-      // Load banks
-      const banksRes = await fetch(`${baseUrl}/banks.json`);
-      const bankList = (await banksRes.json()) as Array<BankEntityData>;
-      for (const bank of bankList) {
-        BANKS[bank.id] = bank;
-      }
+      // banks.json removed - BankingSystem uses hardcoded STARTER_TOWN_BANKS
+      // BANKS object exists but is unused
 
       // Load stores
       const storesRes = await fetch(`${baseUrl}/stores.json`);
@@ -244,6 +240,14 @@ export class DataManager {
     const safeWeaponType = item.weaponType ?? WeaponType.NONE;
     const equipSlot = item.equipSlot ?? null;
     const attackType = item.attackType ?? null;
+
+    // Validate: weapons with equipSlot "weapon" should have equippedModelPath
+    if (equipSlot === "weapon" && !item.equippedModelPath) {
+      console.warn(
+        `[DataManager] Weapon "${item.id}" missing equippedModelPath - will use convention fallback`,
+      );
+    }
+
     const defaults = {
       quantity: 1,
       stackable: false,
@@ -254,6 +258,8 @@ export class DataManager {
       description: item.description || item.name || "Item",
       examine: item.examine || item.description || item.name || "Item",
       healAmount: item.healAmount ?? 0,
+      attackSpeed: item.attackSpeed, // undefined = use system default (2400ms)
+      equippedModelPath: item.equippedModelPath,
       stats: item.stats || { attack: 0, defense: 0, strength: 0 },
       bonuses: item.bonuses || {
         attack: 0,

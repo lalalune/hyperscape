@@ -137,7 +137,7 @@ export interface Item {
   weaponType: WeaponType | null; // Type of weapon (if applicable)
   equipable: boolean; // Can be equipped
   attackType: AttackType | null; // Type of attack (melee, ranged, magic)
-  attackSpeed?: number; // Attack speed in milliseconds (for weapons)
+  attackSpeed?: number; // Attack speed in game ticks (OSRS-style: 4 = standard sword)
   is2h?: boolean; // Explicit flag for 2-handed weapons (alternative to equipSlot: '2h')
 
   // Item properties
@@ -147,7 +147,8 @@ export interface Item {
   rarity: ItemRarity; // ItemRarity tier
 
   // Visual assets
-  modelPath: string | null; // 3D model path (null if no model exists yet)
+  modelPath: string | null; // 3D model path for DROPPED items (null if no model exists yet)
+  equippedModelPath?: string | null; // 3D model path for EQUIPPED items (hand-held weapons)
   iconPath: string; // UI icon path
 
   // Consumable properties
