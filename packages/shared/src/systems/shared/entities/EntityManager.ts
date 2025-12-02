@@ -713,7 +713,7 @@ export class EntityManager extends SystemBase {
       attack: this.getMobAttack(mobType, level),
       attackPower: this.getMobAttackPower(mobType, level),
       defense: this.getMobDefense(mobType, level),
-      attackSpeed: this.getMobAttackSpeed(mobType),
+      attackSpeedTicks: this.getMobAttackSpeedTicks(mobType),
       moveSpeed: this.getMobMoveSpeed(mobType),
       aggressive: npcDataFromDB?.combat.aggressive ?? true, // Default to aggressive if not specified
       retaliates: npcDataFromDB?.combat.retaliates ?? true, // Default to retaliating if not specified
@@ -1002,12 +1002,12 @@ export class EntityManager extends SystemBase {
     return npcData.stats.defense + (level - npcData.stats.level);
   }
 
-  private getMobAttackSpeed(mobType: string): number {
+  private getMobAttackSpeedTicks(mobType: string): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
-      return 1.5;
+      return 4; // Default: 4 ticks (2.4 seconds, standard sword speed)
     }
-    return npcData.combat.attackSpeed;
+    return npcData.combat.attackSpeedTicks;
   }
 
   private getMobMoveSpeed(mobType: string): number {

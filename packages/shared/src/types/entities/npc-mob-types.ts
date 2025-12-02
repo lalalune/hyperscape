@@ -114,6 +114,7 @@ export interface MobEntityData {
   attack: number; // Attack level for accuracy
   attackPower: number; // Strength-based, for max hit
   defense: number;
+  attackSpeedTicks: number; // Game ticks between attacks (1 tick = 600ms)
   xpReward: number;
   aiState: "idle" | "wander" | "chase" | "attack" | "return" | "dead";
   targetPlayerId: string | null;
@@ -254,7 +255,7 @@ export interface NPCCombatConfig {
   retaliates: boolean; // Fights back when attacked?
   aggroRange: number; // Detection range (0 = non-aggressive)
   combatRange: number; // Attack range
-  attackSpeed: number; // Seconds between attacks
+  attackSpeedTicks: number; // Game ticks between attacks (4 = standard sword, 600ms/tick)
   respawnTime: number; // Milliseconds to respawn
   xpReward: number; // XP rewarded on kill
   poisonous: boolean; // Can poison players?
@@ -472,7 +473,7 @@ export interface MobData {
   };
   spawnBiomes: string[];
   modelPath: string;
-  attackSpeed?: number; // Seconds between attacks
+  attackSpeedTicks?: number; // Game ticks between attacks (4 = standard sword, 600ms/tick)
   moveSpeed?: number; // Units per second
   combatRange?: number; // Distance in units
   animationSet?: {

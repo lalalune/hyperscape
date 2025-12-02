@@ -1744,19 +1744,19 @@ export class CombatSystem extends SystemBase {
       return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
     }
 
-    // For mobs, check mob attack speed (stored in seconds in npcs.json)
+    // For mobs, check mob attack speed (stored in ticks in npcs.json)
     const entity = this.getEntity(String(entityId), entityType);
     if (entity) {
       const mobEntity = entity as MobEntity;
       if (mobEntity.getMobData) {
         const mobData = mobEntity.getMobData();
-        const mobAttackSpeed = (mobData as { attackSpeed?: number })
-          .attackSpeed;
-        if (mobAttackSpeed) {
+        const mobAttackSpeedTicks = (mobData as { attackSpeedTicks?: number })
+          .attackSpeedTicks;
+        if (mobAttackSpeedTicks) {
           console.log(
-            `[CombatSystem] Mob ${entityId} attackSpeed: ${mobAttackSpeed}s`,
+            `[CombatSystem] Mob ${entityId} attackSpeedTicks: ${mobAttackSpeedTicks}`,
           );
-          return attackSpeedSecondsToTicks(mobAttackSpeed);
+          return mobAttackSpeedTicks;
         }
       }
     }

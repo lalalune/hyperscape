@@ -305,7 +305,7 @@ export class DataManager {
         retaliates: npc.combat?.retaliates ?? true,
         aggroRange: npc.combat?.aggroRange ?? 0,
         combatRange: npc.combat?.combatRange ?? 1.5,
-        attackSpeed: npc.combat?.attackSpeed ?? 2400,
+        attackSpeedTicks: npc.combat?.attackSpeedTicks ?? 4,
         respawnTime: npc.combat?.respawnTime ?? 60000,
         xpReward: npc.combat?.xpReward ?? 0,
         poisonous: npc.combat?.poisonous ?? false,
