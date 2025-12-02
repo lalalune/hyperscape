@@ -256,7 +256,8 @@ export interface NPCCombatConfig {
   aggroRange: number; // Detection range (0 = non-aggressive)
   combatRange: number; // Attack range
   attackSpeedTicks: number; // Game ticks between attacks (4 = standard sword, 600ms/tick)
-  respawnTime: number; // Milliseconds to respawn
+  respawnTicks?: number; // Game ticks to respawn (manifest input, converted to ms internally)
+  respawnTime: number; // Milliseconds to respawn (computed from respawnTicks)
   xpReward: number; // XP rewarded on kill
   poisonous: boolean; // Can poison players?
   immuneToPoison: boolean; // Immune to poison damage?

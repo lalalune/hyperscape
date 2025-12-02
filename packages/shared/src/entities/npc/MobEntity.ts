@@ -260,12 +260,9 @@ export class MobEntity extends CombatantEntity {
     console.log(`[MobEntity] 📊 Constructor for ${config.mobType}:`);
     console.log(`  - model: "${config.model}"`);
 
-    // Ensure respawnTime is at least 15 seconds (RuneScape-style)
-    if (!this.config.respawnTime || this.config.respawnTime < 15000) {
-      console.warn(
-        `[MobEntity] respawnTime was ${this.config.respawnTime}, setting to 15000ms (15 seconds)`,
-      );
-      this.config.respawnTime = 15000; // 15 seconds minimum
+    // Manifest is source of truth for respawnTime - no minimum enforcement
+    if (!this.config.respawnTime) {
+      this.config.respawnTime = 15000; // Default 15s if not specified
     }
 
     // ===== INITIALIZE COMPONENTS =====
