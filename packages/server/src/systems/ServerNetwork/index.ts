@@ -662,6 +662,55 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onBankClose"] = (socket, data) =>
       handleBankClose(socket, data, this.world);
+
+    // NPC interaction handler - client clicked on NPC
+    this.handlers["onNpcInteract"] = (socket, data) => {
+      const playerEntity = socket.player;
+      if (!playerEntity) return;
+
+      const payload = data as {
+        npcId: string;
+        npc: { id: string; name: string; type: string };
+      };
+
+      // Emit NPC_INTERACTION event for DialogueSystem to handle
+      this.world.emit(EventType.NPC_INTERACTION, {
+        playerId: playerEntity.id,
+        npcId: payload.npcId,
+        npc: payload.npc,
+      });
+    };
+
+    // Dialogue handlers
+    this.handlers["onDialogueResponse"] = (socket, data) => {
+      const playerEntity = socket.player;
+      if (!playerEntity) return;
+      const payload = data as {
+        npcId: string;
+        responseIndex: number;
+        nextNodeId: string;
+        effect?: string;
+      };
+      // Emit event for DialogueSystem to handle
+      this.world.emit(EventType.DIALOGUE_RESPONSE, {
+        playerId: playerEntity.id,
+        npcId: payload.npcId,
+        responseIndex: payload.responseIndex,
+        nextNodeId: payload.nextNodeId,
+        effect: payload.effect,
+      });
+    };
+
+    this.handlers["onDialogueClose"] = (socket, data) => {
+      const playerEntity = socket.player;
+      if (!playerEntity) return;
+      const payload = data as { npcId: string };
+      // Emit event for DialogueSystem to handle cleanup
+      this.world.emit(EventType.DIALOGUE_END, {
+        playerId: playerEntity.id,
+        npcId: payload.npcId,
+      });
+    };
   }
 
   async init(options: WorldOptions): Promise<void> {

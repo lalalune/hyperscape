@@ -1377,6 +1377,52 @@ export class ClientNetwork extends SystemBase {
     });
   };
 
+  // --- Dialogue handlers ---
+  onDialogueStart = (data: {
+    npcId: string;
+    npcName: string;
+    nodeId: string;
+    text: string;
+    responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+  }) => {
+    // Emit as UI update for DialoguePanel to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogue",
+      data: {
+        npcId: data.npcId,
+        npcName: data.npcName,
+        text: data.text,
+        responses: data.responses,
+      },
+    });
+  };
+
+  onDialogueNodeChange = (data: {
+    npcId: string;
+    nodeId: string;
+    text: string;
+    responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+  }) => {
+    // Emit as UI update for DialoguePanel to handle - preserve npcName from previous state
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogue",
+      data: {
+        npcId: data.npcId,
+        npcName: "", // Will be preserved by UI from existing state
+        text: data.text,
+        responses: data.responses,
+      },
+    });
+  };
+
+  onDialogueEnd = (data: { npcId: string }) => {
+    // Emit UI update to close dialogue panel
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogueEnd",
+      data: { npcId: data.npcId },
+    });
+  };
+
   // --- Character selection (flag-gated by server) ---
   onCharacterList = (data: {
     characters: Array<{

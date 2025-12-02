@@ -117,6 +117,7 @@ import { LootSystem } from "..";
 
 // World Content Systems
 import { NPCSystem } from "..";
+import { DialogueSystem } from "..";
 
 // Client-only visual systems
 import { DamageSplatSystem } from "../../client";
@@ -349,6 +350,9 @@ export async function registerSystems(world: World): Promise<void> {
   if (world.isServer) {
     world.register("npc", NPCSystem);
   }
+
+  // Dialogue system - handles NPC dialogue trees
+  world.register("dialogue", DialogueSystem);
 
   // DYNAMIC WORLD CONTENT SYSTEMS - FULL THREE.JS ACCESS, NO SANDBOX
   world.register("mob-npc-spawner", MobNPCSpawnerSystem);

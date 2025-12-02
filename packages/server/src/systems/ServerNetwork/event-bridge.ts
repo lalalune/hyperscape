@@ -20,6 +20,10 @@
 import type { World } from "@hyperscape/shared";
 import { EventType } from "@hyperscape/shared";
 import type { BroadcastManager } from "./broadcast";
+import { BankRepository } from "../../database/repositories/BankRepository";
+import type pg from "pg";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type * as schema from "../../database/schema";
 
 /**
  * EventBridge - Bridges world events to network messages
@@ -39,6 +43,30 @@ export class EventBridge {
   ) {}
 
   /**
+   * Get database from world object
+   *
+   * @private
+   */
+  private getDatabase(): {
+    drizzle: NodePgDatabase<typeof schema>;
+    pool: pg.Pool;
+  } | null {
+    const serverWorld = this.world as {
+      pgPool?: pg.Pool;
+      drizzleDb?: NodePgDatabase<typeof schema>;
+    };
+
+    if (serverWorld.drizzleDb && serverWorld.pgPool) {
+      return {
+        drizzle: serverWorld.drizzleDb,
+        pool: serverWorld.pgPool,
+      };
+    }
+
+    return null;
+  }
+
+  /**
    * Setup all event listeners
    *
    * Registers listeners for all world events that need to be
@@ -51,6 +79,8 @@ export class EventBridge {
     this.setupUIEvents();
     this.setupCombatEvents();
     this.setupPlayerEvents();
+    this.setupDialogueEvents();
+    this.setupBankingEvents();
   }
 
   /**
@@ -378,6 +408,135 @@ export class EventBridge {
       });
     } catch (_err) {
       console.error("[EventBridge] Error setting up player events:", _err);
+    }
+  }
+
+  /**
+   * Setup dialogue system event listeners
+   *
+   * Forwards dialogue events (start, node change, end) to specific players
+   * for the DialoguePanel UI component.
+   *
+   * @private
+   */
+  private setupDialogueEvents(): void {
+    try {
+      // Forward dialogue start events to specific player
+      this.world.on(EventType.DIALOGUE_START, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          npcId: string;
+          npcName: string;
+          nodeId: string;
+          text: string;
+          responses: Array<{
+            text: string;
+            nextNodeId: string;
+            effect?: string;
+          }>;
+        };
+
+        if (data.playerId) {
+          this.broadcast.sendToPlayer(data.playerId, "dialogueStart", {
+            npcId: data.npcId,
+            npcName: data.npcName,
+            nodeId: data.nodeId,
+            text: data.text,
+            responses: data.responses,
+          });
+        }
+      });
+
+      // Forward dialogue node change events to specific player
+      this.world.on(EventType.DIALOGUE_NODE_CHANGE, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          npcId: string;
+          nodeId: string;
+          text: string;
+          responses: Array<{
+            text: string;
+            nextNodeId: string;
+            effect?: string;
+          }>;
+        };
+
+        if (data.playerId) {
+          this.broadcast.sendToPlayer(data.playerId, "dialogueNodeChange", {
+            npcId: data.npcId,
+            nodeId: data.nodeId,
+            text: data.text,
+            responses: data.responses,
+          });
+        }
+      });
+
+      // Forward dialogue end events to specific player
+      this.world.on(EventType.DIALOGUE_END, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          npcId: string;
+        };
+
+        if (data.playerId) {
+          this.broadcast.sendToPlayer(data.playerId, "dialogueEnd", {
+            npcId: data.npcId,
+          });
+        }
+      });
+    } catch (_err) {
+      console.error("[EventBridge] Error setting up dialogue events:", _err);
+    }
+  }
+
+  /**
+   * Setup banking system event listeners
+   *
+   * Handles bank open requests from dialogue effects and other sources.
+   * Queries the database for player's bank items and sends bankState to client.
+   *
+   * @private
+   */
+  private setupBankingEvents(): void {
+    try {
+      // Handle bank open requests (from dialogue effects, NPC interactions, etc.)
+      this.world.on(EventType.BANK_OPEN_REQUEST, async (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          npcId: string;
+        };
+
+        if (!data.playerId) {
+          console.warn("[EventBridge] BANK_OPEN_REQUEST missing playerId");
+          return;
+        }
+
+        try {
+          // Query database for player's bank items (universal bank - same as BankEntity)
+          const db = this.getDatabase();
+          if (!db) {
+            console.error(
+              "[EventBridge] No database available for bank operation",
+            );
+            return;
+          }
+
+          const bankRepo = new BankRepository(db.drizzle, db.pool);
+          const items = await bankRepo.getPlayerBank(data.playerId);
+
+          // Send bankState to player (same format as handleBankOpen in bank.ts)
+          this.broadcast.sendToPlayer(data.playerId, "bankState", {
+            playerId: data.playerId,
+            bankId: "spawn_bank", // Universal bank ID
+            items,
+            maxSlots: 480,
+          });
+        } catch (err) {
+          console.error("[EventBridge] Error fetching bank data:", err);
+        }
+      });
+    } catch (_err) {
+      console.error("[EventBridge] Error setting up banking events:", _err);
     }
   }
 }

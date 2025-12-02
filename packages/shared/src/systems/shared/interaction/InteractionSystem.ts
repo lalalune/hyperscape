@@ -367,7 +367,32 @@ export class InteractionSystem extends System {
         return;
       }
 
-      // For other entities (mobs, NPCs, players, resources), don't show movement indicator
+      // Handle NPC with left-click (Talk/Interact)
+      if (target.type === "npc") {
+        event.preventDefault();
+        const localPlayer = this.world.getPlayer();
+        if (localPlayer && this.world.network?.send) {
+          // Get NPC manifest data from entity config
+          type NPCEntityType = {
+            config?: { npcId?: string; npcType?: string; services?: string[] };
+          };
+          const npcEntity = target.entity as NPCEntityType;
+          const npcConfig = npcEntity?.config || {};
+
+          // Send NPC interaction to server
+          this.world.network.send("npcInteract", {
+            npcId: target.id, // Entity instance ID
+            npc: {
+              id: npcConfig.npcId || target.id, // Manifest ID (e.g., "bank_clerk")
+              name: target.name,
+              type: npcConfig.npcType || "dialogue",
+            },
+          });
+        }
+        return;
+      }
+
+      // For other entities (mobs, players, resources), don't show movement indicator
       // They should use context menus or other interaction methods
       return;
     }
@@ -412,7 +437,8 @@ export class InteractionSystem extends System {
       }
     }
 
-    // If we clicked on an entity, don't show movement indicator
+    // If we clicked on an entity, the click was already handled in onCanvasClick
+    // This code path is for clicks on empty terrain (movement)
     if (clickedOnEntity) {
       return;
     }
@@ -1036,10 +1062,27 @@ export class InteractionSystem extends System {
           icon: "💬",
           enabled: true,
           handler: () => {
-            this.world.emit(EventType.NPC_DIALOGUE, {
-              playerId,
-              npcId: target.id,
-            });
+            // Send NPC interaction to server (not local event)
+            if (this.world.network?.send) {
+              type NPCEntityType = {
+                config?: {
+                  npcId?: string;
+                  npcType?: string;
+                  services?: string[];
+                };
+              };
+              const npcEntity = target.entity as NPCEntityType;
+              const npcConfig = npcEntity?.config || {};
+
+              this.world.network.send("npcInteract", {
+                npcId: target.id, // Entity instance ID
+                npc: {
+                  id: npcConfig.npcId || target.id, // Manifest ID (e.g., "bank_clerk")
+                  name: target.name,
+                  type: npcConfig.npcType || "dialogue",
+                },
+              });
+            }
           },
         });
 

@@ -451,16 +451,49 @@ export class Entities extends SystemBase implements IEntities {
         number,
         number,
       ];
-      // Derive npcType from name: "Bank: Bank Clerk Niles" -> bank, "Store: General Store Owner Mara" -> store
+
+      // Use network data if available, otherwise derive from name
       const name = data.name || "NPC";
-      const npcTypeMatch = name.match(/^(Bank|Store|Trainer|Quest):/i);
+      const networkData = data as {
+        npcType?: string;
+        npcId?: string;
+        services?: string[];
+      };
+
+      // DEBUG: Log received network data for NPCs
+      console.log(`[Entities.addFromNetwork] NPC ${data.id}:`);
+      console.log(`  - networkData.npcId: ${networkData.npcId}`);
+      console.log(`  - networkData.npcType: ${networkData.npcType}`);
+      console.log(`  - networkData.services: ${networkData.services}`);
+
+      // Use npcType from network data, otherwise derive from name prefix
       let derivedNPCType: NPCType = NPCType.QUEST_GIVER;
-      if (npcTypeMatch) {
-        const prefix = npcTypeMatch[1].toLowerCase();
-        if (prefix === "bank") derivedNPCType = NPCType.BANK;
-        else if (prefix === "store") derivedNPCType = NPCType.STORE;
-        else if (prefix === "trainer") derivedNPCType = NPCType.TRAINER;
+      if (networkData.npcType) {
+        // Map string to NPCType enum
+        if (networkData.npcType === "bank") derivedNPCType = NPCType.BANK;
+        else if (networkData.npcType === "store")
+          derivedNPCType = NPCType.STORE;
+        else if (networkData.npcType === "trainer")
+          derivedNPCType = NPCType.TRAINER;
+        else if (networkData.npcType === "quest_giver")
+          derivedNPCType = NPCType.QUEST_GIVER;
+      } else {
+        // Fallback: derive from name prefix
+        const npcTypeMatch = name.match(/^(Bank|Store|Trainer|Quest):/i);
+        if (npcTypeMatch) {
+          const prefix = npcTypeMatch[1].toLowerCase();
+          if (prefix === "bank") derivedNPCType = NPCType.BANK;
+          else if (prefix === "store") derivedNPCType = NPCType.STORE;
+          else if (prefix === "trainer") derivedNPCType = NPCType.TRAINER;
+        }
       }
+
+      // CRITICAL: Use npcId from network data (manifest ID like "bank_clerk")
+      // NOT data.id (entity instance ID like "npc_bank_clerk_123")
+      const npcId = networkData.npcId || data.id;
+      const services = networkData.services || [];
+      // CRITICAL: Use model from network data for NPC model loading
+      const modelPath = (networkData as { model?: string }).model || null;
 
       const npcConfig: NPCEntityConfig = {
         id: data.id,
@@ -483,12 +516,12 @@ export class Entities extends SystemBase implements IEntities {
         interactionType: InteractionType.TALK,
         interactionDistance: 3,
         description: name,
-        model: null, // NPCs don't have models generated yet
-        // Minimal required NPCEntity fields
+        model: modelPath, // Use model path from network data
+        // Use network data for NPCEntity fields
         npcType: derivedNPCType,
-        npcId: data.id,
+        npcId: npcId,
         dialogueLines: ["Hello there!"],
-        services: [],
+        services: services,
         inventory: [],
         skillsOffered: [],
         questsAvailable: [],
@@ -515,7 +548,7 @@ export class Entities extends SystemBase implements IEntities {
             aggressionLevel: 0,
             dialogueLines: ["Hello there!"],
             dialogue: null,
-            services: [],
+            services: services, // Use services from network data
           },
           dialogue: [],
           shopInventory: [],

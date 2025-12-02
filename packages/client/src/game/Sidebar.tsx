@@ -22,6 +22,7 @@ import { AccountPanel } from "./panels/AccountPanel";
 import { DashboardPanel } from "./panels/DashboardPanel";
 import { LootWindow } from "./panels/LootWindow";
 import { BankPanel } from "./panels/BankPanel";
+import { DialoguePanel } from "./panels/DialoguePanel";
 
 type InventorySlotViewItem = Pick<
   InventorySlotItem,
@@ -69,6 +70,15 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     items: Array<{ itemId: string; quantity: number; slot: number }>;
     maxSlots: number;
     bankId: string;
+  } | null>(null);
+
+  // Dialogue panel state
+  const [dialogueData, setDialogueData] = useState<{
+    visible: boolean;
+    npcId: string;
+    npcName: string;
+    text: string;
+    responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
   } | null>(null);
 
   // Update chat context whenever windows open/close
@@ -162,6 +172,31 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             bankId: data.bankId || "spawn_bank",
           });
         }
+      }
+      // Handle dialogue state updates
+      if (update.component === "dialogue") {
+        const data = update.data as {
+          npcId: string;
+          npcName: string;
+          text: string;
+          responses: Array<{
+            text: string;
+            nextNodeId: string;
+            effect?: string;
+          }>;
+        };
+        setDialogueData((prev) => ({
+          visible: true,
+          npcId: data.npcId,
+          // Preserve npcName from previous state if not provided (nodeChange packets)
+          npcName: data.npcName || prev?.npcName || "NPC",
+          text: data.text,
+          responses: data.responses || [],
+        }));
+      }
+      // Handle dialogue end
+      if (update.component === "dialogueEnd") {
+        setDialogueData(null);
       }
     };
     const onInventory = (raw: unknown) => {
@@ -554,6 +589,34 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
               setBankData(null);
               if (world.network?.send) {
                 world.network.send("bankClose", {});
+              }
+            }}
+          />
+        )}
+
+        {/* Dialogue Panel */}
+        {dialogueData?.visible && (
+          <DialoguePanel
+            visible={dialogueData.visible}
+            npcName={dialogueData.npcName}
+            npcId={dialogueData.npcId}
+            text={dialogueData.text}
+            responses={dialogueData.responses}
+            world={world}
+            onSelectResponse={(index, response) => {
+              // Response handling is done in DialoguePanel via network.send
+              // If response has no nextNodeId, dialogue ends
+              if (!response.nextNodeId) {
+                setDialogueData(null);
+              }
+            }}
+            onClose={() => {
+              setDialogueData(null);
+              // Notify server that dialogue is closed
+              if (world.network?.send) {
+                world.network.send("dialogueClose", {
+                  npcId: dialogueData.npcId,
+                });
               }
             }}
           />
