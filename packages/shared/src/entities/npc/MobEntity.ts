@@ -236,13 +236,15 @@ export class MobEntity extends CombatantEntity {
 
   constructor(world: World, config: MobEntityConfig) {
     // Convert MobEntityConfig to CombatantConfig format with proper type assertion
+    // attackSpeedTicks is in game ticks (600ms each), convert to attacks/second for legacy field
+    const attacksPerSecond = 1.0 / (config.attackSpeedTicks * 0.6);
     const combatConfig = {
       ...config,
       rotation: config.rotation || { x: 0, y: 0, z: 0, w: 1 },
       combat: {
         attack: Math.floor(config.attackPower / 10),
         defense: Math.floor(config.defense / 10),
-        attackSpeed: 1.0 / config.attackSpeed,
+        attackSpeed: attacksPerSecond,
         criticalChance: 0.05,
         combatLevel: config.level,
         respawnTime: config.respawnTime,
@@ -285,10 +287,10 @@ export class MobEntity extends CombatantEntity {
     // NOTE: Respawn callback is now handled by RespawnManager, not DeathStateManager
 
     // Combat State Manager (TICK-BASED)
-    // Convert attackSpeed from seconds (mob config) to ticks
+    // attackSpeedTicks from manifest is already in ticks
     this.combatManager = new CombatStateManager({
       attackPower: this.config.attackPower,
-      attackSpeedTicks: attackSpeedSecondsToTicks(this.config.attackSpeed),
+      attackSpeedTicks: this.config.attackSpeedTicks,
       attackRange: this.config.combatRange,
     });
 
@@ -1924,6 +1926,7 @@ export class MobEntity extends CombatantEntity {
       attack: this.config.attack,
       attackPower: this.config.attackPower,
       defense: this.config.defense,
+      attackSpeedTicks: this.config.attackSpeedTicks,
       xpReward: this.config.xpReward,
       aiState: this.mapAIStateToInterface(this.config.aiState),
       targetPlayerId: this.config.targetPlayerId || null,

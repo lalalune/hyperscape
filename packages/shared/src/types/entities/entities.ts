@@ -178,7 +178,7 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   attack: number; // Attack level for accuracy calculations (OSRS-style)
   attackPower: number; // Strength-based, determines max hit
   defense: number;
-  attackSpeed: number;
+  attackSpeedTicks: number;
   moveSpeed: number;
   aggressive: boolean; // If true, mob attacks players on sight; if false, only retaliates
   retaliates: boolean; // If true, mob fights back when attacked; if false, mob is peaceful

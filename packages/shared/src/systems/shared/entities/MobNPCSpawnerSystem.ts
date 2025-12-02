@@ -261,7 +261,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
       attack: goblinData.stats.attack,
       attackPower: goblinData.stats.strength,
       defense: goblinData.stats.defense,
-      attackSpeed: goblinData.combat.attackSpeed,
+      attackSpeedTicks: goblinData.combat.attackSpeedTicks,
       moveSpeed: goblinData.movement.speed,
       xpReward: goblinData.combat.xpReward,
       lootTable: goblinData.drops.common.map((drop) => ({
@@ -353,7 +353,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
       attack: mobData.stats.attack,
       attackPower: mobData.stats.strength,
       defense: mobData.stats.defense,
-      attackSpeed: mobData.combat.attackSpeed,
+      attackSpeedTicks: mobData.combat.attackSpeedTicks,
       moveSpeed: mobData.movement.speed,
       xpReward: mobData.combat.xpReward,
       lootTable: mobData.drops.common.map((drop) => ({

@@ -300,7 +300,7 @@ export class Entities extends SystemBase implements IEntities {
         attack: 1, // Default attack level for accuracy
         attackPower: 10,
         defense: 2,
-        attackSpeed: 1.5,
+        attackSpeedTicks: 4,
         moveSpeed: 3.0, // Walking speed (matches player walk)
         aggressive: true, // Default to aggressive for backwards compatibility
         retaliates: true, // Default to retaliating for backwards compatibility
