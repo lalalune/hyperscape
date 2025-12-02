@@ -11,6 +11,7 @@ import { calculateDistance } from "../../../utils/game/EntityUtils";
 import { createItemID, createStoreID } from "../../../utils/IdentifierUtils";
 import { SystemBase } from "..";
 import { GENERAL_STORES } from "../../../data/banks-stores";
+import { dataManager } from "../../../data/DataManager";
 
 /**
  * Store System
@@ -62,12 +63,20 @@ export class StoreSystem extends SystemBase {
     this.subscribe<StoreBuyEvent>(EventType.STORE_BUY, (data) => {
       this.buyItem(data);
     });
-    this.subscribe<{ playerId: string; itemId: string; quantity: number }>(
-      EventType.STORE_SELL,
-      (data) => {
-        this.sellItem(data.playerId, data.itemId, data.quantity);
-      },
-    );
+    this.subscribe<{
+      playerId: string;
+      storeId: string;
+      itemId: string;
+      quantity: number;
+    }>(EventType.STORE_SELL, (data) => {
+      this.sellItem(
+        data.playerId,
+        data.itemId,
+        data.quantity,
+        undefined,
+        data.storeId,
+      );
+    });
 
     // Listen for NPC registrations from world content system
     this.subscribe<{
@@ -126,11 +135,9 @@ export class StoreSystem extends SystemBase {
     });
   }
 
-  private closeStore(data: StoreCloseEvent): void {
-    this.emitTypedEvent(EventType.STORE_CLOSE, {
-      playerId: data.playerId,
-      storeId: data.storeId,
-    });
+  private closeStore(_data: StoreCloseEvent): void {
+    // Store close is handled by the client UI
+    // No server-side cleanup needed for now
   }
 
   private buyItem(data: StoreBuyEvent): void {
@@ -193,6 +200,7 @@ export class StoreSystem extends SystemBase {
 
   /**
    * Public API method for selling items (used by tests and internal events)
+   * Accepts any tradeable item - looks up value from DataManager
    * Compatible with test system signature: sellItem(playerId, itemId, quantity, expectedPrice)
    */
   public sellItem(
@@ -200,30 +208,57 @@ export class StoreSystem extends SystemBase {
     itemId: string,
     quantity: number,
     _expectedPrice?: number,
+    storeId?: string,
   ): boolean {
     const validItemId = createItemID(itemId);
 
-    // Find a store that buys the item
+    // Find a store that accepts buyback
     let targetStore: Store | undefined;
-    for (const store of this.stores.values()) {
-      if (
-        store.buyback &&
-        store.items.find((item) => item.id === validItemId)
-      ) {
-        targetStore = store;
-        break;
+    if (storeId) {
+      targetStore = this.stores.get(createStoreID(storeId));
+    } else {
+      // Find any store that accepts buyback
+      for (const store of this.stores.values()) {
+        if (store.buyback) {
+          targetStore = store;
+          break;
+        }
       }
     }
 
-    if (!targetStore) {
-      throw new Error(`No store buys item: ${itemId}`);
+    if (!targetStore || !targetStore.buyback) {
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: playerId,
+        message: "This store doesn't buy items.",
+        type: "error",
+      });
+      return false;
     }
 
-    const storeItem = targetStore.items.find(
-      (item) => item.id === validItemId,
-    )!;
+    // Look up item data from DataManager
+    const itemData = dataManager.getItem(validItemId);
+    if (!itemData) {
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: playerId,
+        message: "Unknown item.",
+        type: "error",
+      });
+      return false;
+    }
+
+    // Check if item is tradeable (not untradeable)
+    const baseValue = itemData.value ?? 0;
+    if (baseValue <= 0) {
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: playerId,
+        message: "You can't sell that item.",
+        type: "error",
+      });
+      return false;
+    }
+
     const buybackRate = targetStore.buybackRate ?? 0.5;
-    const sellPrice = Math.floor(storeItem.price * buybackRate);
+    const sellPrice = Math.floor(baseValue * buybackRate);
     const totalValue = sellPrice * quantity;
 
     // Process the sale immediately
@@ -243,7 +278,7 @@ export class StoreSystem extends SystemBase {
     // Send success message
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId: playerId,
-      message: `Sold ${quantity}x ${storeItem.name} for ${totalValue} coins.`,
+      message: `Sold ${quantity}x ${itemData.name} for ${totalValue} coins.`,
       type: "success",
     });
 

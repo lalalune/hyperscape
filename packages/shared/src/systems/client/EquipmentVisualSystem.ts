@@ -24,6 +24,7 @@ import { EventType } from "../../types/events";
 import { SystemBase } from "../shared/infrastructure/SystemBase";
 import type { World } from "../../types";
 import type { VRM, VRMHumanBoneName } from "@pixiv/three-vrm";
+import { getItem } from "../../data/items";
 
 interface EquipmentAttachmentData {
   vrmBoneName: string; // VRM bone to attach to (e.g., "rightHand")
@@ -67,7 +68,6 @@ export class EquipmentVisualSystem extends SystemBase {
   async init(): Promise<void> {
     // Only run on client
     if (this.world.isServer) {
-      console.log("[EquipmentVisualSystem] Skipping init - running on server");
       return;
     }
 
@@ -163,49 +163,66 @@ export class EquipmentVisualSystem extends SystemBase {
     vrm: VRM,
   ): Promise<void> {
     try {
-      // Convert itemId to asset folder format
-      // itemId format: "{material}_{item}" e.g., "steel_sword"
-      // asset format: "{item}-{material}" e.g., "sword-steel"
-      let assetId = itemId.replace(/_/g, "-");
-
-      // Check if we need to reverse the order (material_item -> item-material)
-      const parts = itemId.split("_");
-      if (parts.length === 2) {
-        const [material, item] = parts;
-        // Known materials to detect
-        const materials = [
-          "bronze",
-          "steel",
-          "mithril",
-          "iron",
-          "rune",
-          "dragon",
-          "wood",
-          "oak",
-          "willow",
-          "yew",
-        ];
-        if (materials.includes(material)) {
-          assetId = `${item}-${material}`;
-        }
-      }
-
-      // Load weapon GLB from Hyperscape CDN assets
-      // Try fitted version first (sword-steel-aligned.glb), fallback to base (sword-steel.glb)
       const assetsUrl = this.world.assetsUrl?.replace(/\/$/, "") || "";
-      const weaponUrl = `${assetsUrl}/models/${assetId}/${assetId}-aligned.glb`;
-      const fallbackUrl = `${assetsUrl}/models/${assetId}/${assetId}.glb`;
+
+      // Look up item data from manifest for equippedModelPath
+      const itemData = getItem(itemId);
+      let weaponUrl: string;
+      let fallbackUrl: string | null = null;
+
+      if (itemData?.equippedModelPath) {
+        // Use explicit equippedModelPath from items.json
+        // Convert "asset://models/..." to full CDN URL
+        weaponUrl = itemData.equippedModelPath.replace(
+          "asset://",
+          `${assetsUrl}/`,
+        );
+      } else {
+        // Fallback to convention-based derivation
+        // itemId format: "{material}_{item}" e.g., "steel_sword"
+        // asset format: "{item}-{material}" e.g., "sword-steel"
+        let assetId = itemId.replace(/_/g, "-");
+
+        // Check if we need to reverse the order (material_item -> item-material)
+        const parts = itemId.split("_");
+        if (parts.length === 2) {
+          const [material, item] = parts;
+          // Known materials to detect
+          const materials = [
+            "bronze",
+            "steel",
+            "mithril",
+            "iron",
+            "rune",
+            "dragon",
+            "wood",
+            "oak",
+            "willow",
+            "yew",
+          ];
+          if (materials.includes(material)) {
+            assetId = `${item}-${material}`;
+          }
+        }
+
+        // Try fitted version first, fallback to base
+        weaponUrl = `${assetsUrl}/models/${assetId}/${assetId}-aligned.glb`;
+        fallbackUrl = `${assetsUrl}/models/${assetId}/${assetId}.glb`;
+      }
 
       // Check cache first
       let gltf = this.weaponCache.get(itemId);
 
       if (!gltf) {
         try {
-          // Try fitted version first
           gltf = await this.loader.loadAsync(weaponUrl);
         } catch (error) {
-          // Fallback to base model if fitted version not found
-          gltf = await this.loader.loadAsync(fallbackUrl);
+          // Fallback to base model if fitted version not found (only for convention-based)
+          if (fallbackUrl) {
+            gltf = await this.loader.loadAsync(fallbackUrl);
+          } else {
+            throw error;
+          }
         }
         this.weaponCache.set(itemId, gltf);
       }
@@ -295,19 +312,12 @@ export class EquipmentVisualSystem extends SystemBase {
       const avatarRoot = (rawInstance?.scene || rawInstance) as THREE.Object3D;
 
       if (avatarRoot && avatarRoot.traverse) {
-        console.log(
-          `[EquipmentVisual] 🔍 Searching for bone '${targetBoneName}' in avatarRoot (ID: ${avatarRoot.id}, Name: "${avatarRoot.name}")`,
-        );
         avatarRoot.traverse((child) => {
           if (child.name === targetBoneName) {
             targetBone = child;
           }
         });
       } else {
-        console.error(
-          `[EquipmentVisual] ❌ avatarRoot is not traversable!`,
-          rawInstance,
-        );
         if (player.node) {
           player.node.traverse((child) => {
             if (child.name === targetBoneName) {

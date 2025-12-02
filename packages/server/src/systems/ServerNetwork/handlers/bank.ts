@@ -178,10 +178,6 @@ export async function handleBankOpen(
       items,
       maxSlots: 480,
     });
-
-    console.log(
-      `[BankHandler] Opened bank for ${playerId} with ${items.length} items`,
-    );
   } catch (error) {
     console.error("[BankHandler] Error opening bank:", error);
     sendToSocket(socket, "showToast", {
@@ -414,10 +410,6 @@ export async function handleBankDeposit(
           slot: removed.slot >= 0 ? removed.slot : undefined,
         });
       }
-
-      console.log(
-        `[BankHandler] Deposited ${data.quantity}x ${data.itemId} for ${playerId} (removed from ${removedSlots.length} slots)`,
-      );
       return;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -711,10 +703,6 @@ export async function handleBankWithdraw(
           },
         });
       }
-
-      console.log(
-        `[BankHandler] Withdrew ${addedSlots.length}x ${data.itemId} for ${playerId} (added to slots: ${addedSlots.join(", ")})`,
-      );
       return;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -974,10 +962,6 @@ export async function handleBankDepositAll(
         slot: removed.slot >= 0 ? removed.slot : undefined,
       });
     }
-
-    console.log(
-      `[BankHandler] Deposited ALL (${allRemovedSlots.length} items) for ${playerId}`,
-    );
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
 
@@ -1018,10 +1002,9 @@ export async function handleBankDepositAll(
  * No server action needed - just client UI closing.
  */
 export function handleBankClose(
-  socket: ServerSocket,
+  _socket: ServerSocket,
   _data: unknown,
   _world: World,
 ): void {
-  const playerId = getPlayerId(socket);
-  console.log(`[BankHandler] Bank closed by ${playerId}`);
+  // No server action needed - just client UI closing
 }

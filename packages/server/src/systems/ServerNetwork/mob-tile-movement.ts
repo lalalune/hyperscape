@@ -26,7 +26,7 @@ import {
   worldToTile,
   tileToWorld,
   tilesEqual,
-  tilesAdjacent,
+  tilesWithinRange,
   chaseStep,
 } from "@hyperscape/shared";
 import type {
@@ -50,6 +50,8 @@ interface MobTileState extends TileMovementState {
   hasDestination: boolean;
   /** Whether mob is actively chasing a moving target (uses dumb pathfinder) */
   isChasing: boolean;
+  /** Combat range in tiles (from manifest combatRange, default 1 for melee) */
+  combatRange: number;
 }
 
 /**
@@ -58,6 +60,7 @@ interface MobTileState extends TileMovementState {
 function createMobTileState(
   currentTile: TileCoord,
   tilesPerTick = TILES_PER_TICK_WALK,
+  combatRange = 1,
 ): MobTileState {
   return {
     currentTile: { ...currentTile },
@@ -70,6 +73,7 @@ function createMobTileState(
     tilesPerTick,
     hasDestination: false,
     isChasing: false,
+    combatRange,
   };
 }
 
@@ -150,12 +154,14 @@ export class MobTileMovementManager {
    * @param targetPos - Target world position
    * @param targetEntityId - Optional entity ID being chased (for dynamic repathing)
    * @param tilesPerTick - Movement speed (default: walk speed)
+   * @param combatRange - Combat range in tiles (default: 1 for melee)
    */
   requestMoveTo(
     mobId: string,
     targetPos: Position3D,
     targetEntityId: string | null = null,
     tilesPerTick: number = TILES_PER_TICK_WALK,
+    combatRange: number = 1,
   ): void {
     const entity = this.world.entities.get(mobId);
     if (!entity) {
@@ -174,6 +180,9 @@ export class MobTileMovementManager {
         `[MobTileMovement] requestMoveTo: ${mobId} from tile (${state.currentTile.x},${state.currentTile.z}) to tile (${targetTile.x},${targetTile.z})`,
       );
 
+    // Store combat range for this mob
+    state.combatRange = combatRange;
+
     // If already at destination, nothing to do (but still update chase state)
     if (tilesEqual(state.currentTile, targetTile)) {
       if (this.DEBUG_MODE)
@@ -187,15 +196,15 @@ export class MobTileMovementManager {
       return;
     }
 
-    // If chasing an entity and already adjacent, we're in melee range - stop moving
+    // If chasing an entity and already within combat range - stop moving
     // (Only for combat - when returning to spawn, we want the exact tile)
     if (
       targetEntityId !== null &&
-      tilesAdjacent(state.currentTile, targetTile)
+      tilesWithinRange(state.currentTile, targetTile, combatRange)
     ) {
       if (this.DEBUG_MODE)
         console.log(
-          `[MobTileMovement] requestMoveTo: Already adjacent to target entity`,
+          `[MobTileMovement] requestMoveTo: Already in combat range (${combatRange}) of target entity`,
         );
       // Update chase state so combat system knows who we're targeting
       state.targetEntityId = targetEntityId;
@@ -242,8 +251,8 @@ export class MobTileMovementManager {
       chasePath.push(nextTile);
       currentPos = nextTile;
 
-      // Stop if we'll be adjacent after this step
-      if (tilesAdjacent(nextTile, targetTile)) break;
+      // Stop if we'll be in combat range after this step
+      if (tilesWithinRange(nextTile, targetTile, combatRange)) break;
     }
 
     if (chasePath.length === 0) {
@@ -299,6 +308,7 @@ export class MobTileMovementManager {
       moveSeq: state.moveSeq,
       isMob: true,
       emote: state.isRunning ? "run" : "walk",
+      tilesPerTick: state.tilesPerTick, // Mob-specific speed for client interpolation
     });
   }
 
@@ -379,14 +389,17 @@ export class MobTileMovementManager {
             targetEntity.position.z,
           );
 
-          // OSRS COMBAT POSITIONING: Check if we're already adjacent to target
-          // If so, we're in melee range - no need to move closer!
-          if (tilesAdjacent(state.currentTile, currentTargetTile)) {
+          // OSRS COMBAT POSITIONING: Check if we're already in combat range
+          // If so, we're in attack range - no need to move closer!
+          const combatRange = state.combatRange || 1;
+          if (
+            tilesWithinRange(state.currentTile, currentTargetTile, combatRange)
+          ) {
             // Already in combat range - stop moving and clear path
             if (state.path.length > 0 || state.hasDestination) {
               if (this.DEBUG_MODE)
                 console.log(
-                  `[MobTileMovement] Already adjacent to target at (${currentTargetTile.x},${currentTargetTile.z}), stopping`,
+                  `[MobTileMovement] Already in combat range (${combatRange}) of target at (${currentTargetTile.x},${currentTargetTile.z}), stopping`,
                 );
               state.path = [];
               state.pathIndex = 0;
@@ -408,13 +421,13 @@ export class MobTileMovementManager {
             continue; // Skip movement processing - we're in attack range
           }
 
-          // NOT adjacent - use chase pathfinder to calculate steps toward target
+          // NOT in combat range - use chase pathfinder to calculate steps toward target
           // Calculate up to tilesPerTick steps (O(1) per step, unlike BFS which is O(tiles²))
           const chasePath: TileCoord[] = [];
           let currentPos = { ...state.currentTile };
 
           for (let step = 0; step < state.tilesPerTick; step++) {
-            // Check if this step would make us adjacent to target
+            // Check if this step would put us in combat range
             const nextTile = chaseStep(currentPos, currentTargetTile, (tile) =>
               this.isTileWalkable(tile),
             );
@@ -427,8 +440,8 @@ export class MobTileMovementManager {
             chasePath.push(nextTile);
             currentPos = nextTile;
 
-            // Stop early if we'll be adjacent after this step
-            if (tilesAdjacent(nextTile, currentTargetTile)) {
+            // Stop early if we'll be in combat range after this step
+            if (tilesWithinRange(nextTile, currentTargetTile, combatRange)) {
               break;
             }
           }
@@ -455,6 +468,7 @@ export class MobTileMovementManager {
               moveSeq: state.moveSeq,
               isMob: true,
               emote: state.isRunning ? "run" : "walk",
+              tilesPerTick: state.tilesPerTick, // Mob-specific speed for client interpolation
             });
 
             if (this.DEBUG_MODE)

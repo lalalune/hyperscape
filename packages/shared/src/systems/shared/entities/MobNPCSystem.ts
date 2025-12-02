@@ -61,11 +61,11 @@ export class MobNPCSystem extends SystemBase {
           type: npcId, // NPC ID from npcs.json
           name: npcData.name,
           level: npcData.stats.level,
+          health: npcData.stats.health, // OSRS: hitpoints = max HP directly
           stats: {
             attack: npcData.stats.attack,
             strength: npcData.stats.strength,
             defense: npcData.stats.defense,
-            constitution: npcData.stats.constitution,
             ranged: npcData.stats.ranged,
           },
           equipment: {
@@ -232,8 +232,8 @@ export class MobNPCSystem extends SystemBase {
       respawnTime: config.respawnTime,
       xpReward: config.xpReward || config.level * 10,
       level: config.level,
-      health: (config.stats?.constitution || 10) * 10, // Health = Constitution * 10 per GDD
-      maxHealth: (config.stats?.constitution || 10) * 10,
+      health: config.health,
+      maxHealth: config.health,
       position: {
         x: groundedPosition.x,
         y: groundedPosition.y,
@@ -275,11 +275,10 @@ export class MobNPCSystem extends SystemBase {
       lastAI: Date.now(),
       stats: {
         level: config.level,
-        health: (config.stats?.constitution || 10) * 10,
+        health: config.health,
         attack: config.stats?.attack || 1,
         strength: config.stats?.strength || 1,
         defense: config.stats?.defense || 1,
-        constitution: config.stats?.constitution || 10,
         ranged: config.stats?.ranged || 1,
       },
       target: null,
@@ -470,11 +469,11 @@ export class MobNPCSystem extends SystemBase {
       type: config.type,
       name: config.name,
       level: config.level,
+      health: config.health ?? config.level * 3, // OSRS: hitpoints = max HP
       stats: config.stats ?? {
         attack: config.level,
         strength: config.level,
         defense: config.level,
-        constitution: 30,
         ranged: 1,
       },
       equipment: {

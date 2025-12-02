@@ -103,6 +103,12 @@ import {
   handleSettings,
 } from "./handlers/entities";
 import { handleCommand } from "./handlers/commands";
+import {
+  handleStoreOpen,
+  handleStoreBuy,
+  handleStoreSell,
+  handleStoreClose,
+} from "./handlers/store";
 
 const defaultSpawn = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }';
 
@@ -232,7 +238,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         const payload = data as { mobId?: string; targetId?: string };
         const targetId = payload.mobId || payload.targetId;
         if (!targetId) return;
-
         this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
           playerId: playerEntity.id,
           targetId,
@@ -376,7 +381,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         targetEntityId?: string;
         tilesPerTick?: number;
       };
-      // Note: Debug logging removed for production
       this.mobTileMovementManager.requestMoveTo(
         moveEvent.mobId,
         moveEvent.targetPos,
@@ -663,6 +667,86 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onBankClose"] = (socket, data) =>
       handleBankClose(socket, data, this.world);
+
+    // NPC interaction handler - client clicked on NPC
+    this.handlers["onNpcInteract"] = (socket, data) => {
+      const playerEntity = socket.player;
+      if (!playerEntity) return;
+
+      const payload = data as {
+        npcId: string;
+        npc: { id: string; name: string; type: string };
+      };
+
+      // Emit NPC_INTERACTION event for DialogueSystem to handle
+      // npcId is the entity instance ID, pass as npcEntityId for distance checking
+      this.world.emit(EventType.NPC_INTERACTION, {
+        playerId: playerEntity.id,
+        npcId: payload.npcId,
+        npc: payload.npc,
+        npcEntityId: payload.npcId,
+      });
+    };
+
+    // Dialogue handlers
+    this.handlers["onDialogueResponse"] = (socket, data) => {
+      const playerEntity = socket.player;
+      if (!playerEntity) return;
+      const payload = data as {
+        npcId: string;
+        responseIndex: number;
+        nextNodeId: string;
+        effect?: string;
+      };
+      // Emit event for DialogueSystem to handle
+      this.world.emit(EventType.DIALOGUE_RESPONSE, {
+        playerId: playerEntity.id,
+        npcId: payload.npcId,
+        responseIndex: payload.responseIndex,
+        nextNodeId: payload.nextNodeId,
+        effect: payload.effect,
+      });
+    };
+
+    this.handlers["onDialogueClose"] = (socket, data) => {
+      const playerEntity = socket.player;
+      if (!playerEntity) return;
+      const payload = data as { npcId: string };
+      // Emit event for DialogueSystem to handle cleanup
+      this.world.emit(EventType.DIALOGUE_END, {
+        playerId: playerEntity.id,
+        npcId: payload.npcId,
+      });
+    };
+
+    // Store handlers
+    this.handlers["onStoreOpen"] = (socket, data) =>
+      handleStoreOpen(
+        socket,
+        data as {
+          npcId: string;
+          storeId?: string;
+          npcPosition?: { x: number; y: number; z: number };
+        },
+        this.world,
+      );
+
+    this.handlers["onStoreBuy"] = (socket, data) =>
+      handleStoreBuy(
+        socket,
+        data as { storeId: string; itemId: string; quantity: number },
+        this.world,
+      );
+
+    this.handlers["onStoreSell"] = (socket, data) =>
+      handleStoreSell(
+        socket,
+        data as { storeId: string; itemId: string; quantity: number },
+        this.world,
+      );
+
+    this.handlers["onStoreClose"] = (socket, data) =>
+      handleStoreClose(socket, data as { storeId: string }, this.world);
   }
 
   async init(options: WorldOptions): Promise<void> {

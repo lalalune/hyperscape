@@ -90,9 +90,6 @@ export class ItemSpawnerSystem extends SystemBase {
   start(): void {
     // Only spawn items on server - clients receive entities via network
     if (!this.world.isServer) {
-      console.log(
-        "[ItemSpawnerSystem] Client-side: skipping item spawning (entities come from server)",
-      );
       return;
     }
 
@@ -371,7 +368,6 @@ export class ItemSpawnerSystem extends SystemBase {
       value: itemData.value || 0,
       weight: itemData.weight || 0,
       rarity: itemData.rarity || ItemRarity.COMMON,
-      stats: (itemData.stats as Record<string, number>) || {},
       requirements: {
         level: itemData.requirements?.level || 1,
       },

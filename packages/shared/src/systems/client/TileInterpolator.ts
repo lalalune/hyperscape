@@ -94,6 +94,9 @@ interface EntityMovementState {
   isMoving: boolean;
   // Current emote (walk/run/idle)
   emote: string;
+  // Per-entity movement speed (tiles per server tick)
+  // Defaults to TILES_PER_TICK_WALK/RUN, but can be overridden for mobs
+  tilesPerTick: number | null;
 
   // ========== Sync State ==========
   // Last tile confirmed by server
@@ -175,6 +178,7 @@ export class TileInterpolator {
    * @param destinationTile Final target tile for verification
    * @param moveSeq Movement sequence number for packet ordering
    * @param emote Optional emote bundled with movement (OSRS-style)
+   * @param tilesPerTick Optional per-entity speed (tiles per server tick)
    */
   onMovementStart(
     entityId: string,
@@ -185,6 +189,7 @@ export class TileInterpolator {
     destinationTile?: TileCoord,
     moveSeq?: number,
     emote?: string,
+    tilesPerTick?: number,
   ): void {
     if (this.debugMode) {
       console.log(
@@ -288,6 +293,7 @@ export class TileInterpolator {
       state.catchUpMultiplier = 1.0;
       state.targetCatchUpMultiplier = 1.0;
       state.moveSeq = moveSeq ?? state.moveSeq;
+      state.tilesPerTick = tilesPerTick ?? null;
     } else {
       // Create new state - set both quaternion and target to initial (no slerp needed for first movement)
       state = {
@@ -310,13 +316,14 @@ export class TileInterpolator {
         catchUpMultiplier: 1.0,
         targetCatchUpMultiplier: 1.0,
         moveSeq: moveSeq ?? 0,
+        tilesPerTick: tilesPerTick ?? null,
       };
       this.entityStates.set(entityId, state);
     }
 
     if (this.debugMode) {
       console.log(
-        `[TileInterpolator] Path set: ${finalPath.map((t) => `(${t.x},${t.z})`).join(" -> ")}`,
+        `[TileInterpolator] Path set: ${finalPath.map((t) => `(${t.x},${t.z})`).join(" -> ")}, tilesPerTick=${tilesPerTick ?? "default"}`,
       );
     }
   }
@@ -398,6 +405,7 @@ export class TileInterpolator {
         catchUpMultiplier: 1.0,
         targetCatchUpMultiplier: 1.0,
         moveSeq: moveSeq ?? 0,
+        tilesPerTick: null, // Will be set when movement starts
       };
       this.entityStates.set(entityId, newState);
       return;
@@ -766,7 +774,13 @@ export class TileInterpolator {
 
       // Movement speed and total movement budget for this frame
       // Apply catch-up multiplier to move faster when behind server
-      const baseSpeed = state.isRunning ? RUN_SPEED : WALK_SPEED;
+      // Use per-entity tilesPerTick if set (for mobs with custom speed), else default walk/run speed
+      const baseSpeed =
+        state.tilesPerTick !== null
+          ? state.tilesPerTick / (TICK_DURATION_MS / 1000) // Convert tiles/tick to tiles/sec
+          : state.isRunning
+            ? RUN_SPEED
+            : WALK_SPEED;
       const speed = baseSpeed * state.catchUpMultiplier;
       let remainingMove = speed * deltaTime;
 
@@ -1040,6 +1054,7 @@ export class TileInterpolator {
         catchUpMultiplier: 1.0,
         targetCatchUpMultiplier: 1.0,
         moveSeq: 0,
+        tilesPerTick: null,
       };
       this.entityStates.set(entityId, state);
     }

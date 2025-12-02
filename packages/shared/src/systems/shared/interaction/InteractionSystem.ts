@@ -1,11 +1,105 @@
 import { System } from "..";
 import type { World } from "../../../core/World";
 import type { Position3D } from "../../../types/core/base-types";
+import type { Player } from "../../../types/core/core";
 import { AttackType } from "../../../types/core/core";
 import { EventType } from "../../../types/events";
 import type { Entity } from "../../../entities/Entity";
 import * as THREE from "three";
-import { worldToTile, tileToWorld, TILE_SIZE } from "../movement/TileSystem";
+import {
+  worldToTile,
+  tileToWorld,
+  TILE_SIZE,
+  tilesWithinRange,
+  type TileCoord,
+} from "../movement/TileSystem";
+import { getPlayerWeaponRange } from "../../../utils/game/CombatUtils";
+
+/**
+ * Find the best tile position for combat based on weapon range.
+ * OSRS-style: Combat happens from within range but NEVER from the same tile.
+ *
+ * For range 1 (most melee): walk to adjacent tile
+ * For range 2+ (halberds, etc): can attack from 1-N tiles away, prefer staying at max range
+ *
+ * When walking from far away, we find the closest tile that's within combat range.
+ * This means for halberds (range 2), we stop 2 tiles away if that's closer than 1 tile.
+ *
+ * @param playerPos - Player's current world position
+ * @param targetPos - Target's world position
+ * @param range - Combat range in tiles (default 1)
+ * @returns World position of the best tile to walk to for combat
+ */
+function getAdjacentCombatPosition(
+  playerPos: Position3D,
+  targetPos: Position3D,
+  range: number = 1,
+): Position3D {
+  const playerTile = worldToTile(playerPos.x, playerPos.z);
+  const targetTile = worldToTile(targetPos.x, targetPos.z);
+  const effectiveRange = Math.max(1, Math.floor(range));
+
+  // If already within combat range (but not same tile), stay where we are
+  if (tilesWithinRange(playerTile, targetTile, effectiveRange)) {
+    return playerPos;
+  }
+
+  // Generate all valid combat positions around the target
+  // These are tiles at distance 1 to effectiveRange (not 0 - can't attack from same tile)
+  const validCombatTiles: Array<{
+    tile: TileCoord;
+    distToTarget: number;
+    distToPlayer: number;
+  }> = [];
+
+  // Check all tiles in a square around the target up to the combat range
+  for (let dx = -effectiveRange; dx <= effectiveRange; dx++) {
+    for (let dz = -effectiveRange; dz <= effectiveRange; dz++) {
+      const candidateTile: TileCoord = {
+        x: targetTile.x + dx,
+        z: targetTile.z + dz,
+      };
+
+      // Distance from candidate to target (Chebyshev)
+      const distToTarget = Math.max(Math.abs(dx), Math.abs(dz));
+
+      // Must be within range AND not on same tile (distance 1 to effectiveRange)
+      if (distToTarget >= 1 && distToTarget <= effectiveRange) {
+        // Distance from player to this candidate tile
+        const playerDx = candidateTile.x - playerTile.x;
+        const playerDz = candidateTile.z - playerTile.z;
+        const distToPlayer = Math.max(Math.abs(playerDx), Math.abs(playerDz));
+
+        validCombatTiles.push({
+          tile: candidateTile,
+          distToTarget,
+          distToPlayer,
+        });
+      }
+    }
+  }
+
+  if (validCombatTiles.length === 0) {
+    // Fallback: return a position one tile south of target
+    const fallbackWorld = tileToWorld({ x: targetTile.x, z: targetTile.z + 1 });
+    return { x: fallbackWorld.x, y: targetPos.y, z: fallbackWorld.z };
+  }
+
+  // OSRS-style: Stay at MAX range for safety (enables kiting)
+  // Sort by: 1) farthest from target (max range), 2) closest to player (minimize walking)
+  validCombatTiles.sort((a, b) => {
+    // Primary: maximize distance to target (stay at max range for safety/kiting)
+    if (a.distToTarget !== b.distToTarget) {
+      return b.distToTarget - a.distToTarget;
+    }
+    // Secondary: minimize distance to player (among tiles at max range, pick closest)
+    return a.distToPlayer - b.distToPlayer;
+  });
+
+  const bestTile = validCombatTiles[0].tile;
+  const worldPos = tileToWorld(bestTile);
+  return { x: worldPos.x, y: targetPos.y, z: worldPos.z };
+}
 
 interface InteractionAction {
   id: string;
@@ -59,6 +153,10 @@ export class InteractionSystem extends System {
     string,
     { itemId: string; position: Position3D }
   >();
+
+  // Auto-attack tracking (walk-to-attack)
+  // Only stores mobId - we look up current position dynamically to handle moving targets
+  private pendingAttacks = new Map<string, { mobId: string }>();
 
   constructor(world: World) {
     super(world);
@@ -339,35 +437,169 @@ export class InteractionSystem extends System {
             localPlayer.position,
             target.position,
           );
-          const bankRange = 3.0;
+          const bankRange = 2.0; // Must match panel auto-close range (Chebyshev)
+          const minDelay = 50; // Minimum delay to avoid race conditions
 
           if (distance > bankRange) {
-            // Walk to bank, then open
             this.walkTo(target.position);
-            const walkTime = Math.min(distance * 400, 3000);
+          }
+          const actionDelay =
+            distance > bankRange ? Math.min(distance * 400, 3000) : minDelay;
+          setTimeout(() => {
+            if (this.world.network?.send) {
+              const bankId =
+                (target.entity as { userData?: { bankId?: string } })?.userData
+                  ?.bankId || target.id;
+              this.world.network.send("bankOpen", { bankId });
+            }
+          }, actionDelay);
+        }
+        return;
+      }
+
+      // Handle NPC with left-click (primary action based on services)
+      if (target.type === "npc") {
+        event.preventDefault();
+        const localPlayer = this.world.getPlayer();
+        if (localPlayer && this.world.network?.send) {
+          // Get NPC manifest data from entity config
+          type NPCEntityType = {
+            config?: { npcId?: string; npcType?: string; services?: string[] };
+          };
+          const npcEntity = target.entity as NPCEntityType;
+          const npcConfig = npcEntity?.config || {};
+          const services = npcConfig.services || [];
+
+          const distance = this.calculateDistance(
+            localPlayer.position,
+            target.position,
+          );
+          const interactRange = 2.0; // Must match panel auto-close range (Chebyshev)
+
+          // Determine primary action based on services
+          // Always use a small delay to avoid race conditions with UI events
+          const minDelay = 50; // Minimum delay even when already in range
+
+          if (services.includes("bank")) {
+            // Primary action: Use Bank
+            if (distance > interactRange) {
+              this.walkTo(target.position);
+            }
+            const actionDelay =
+              distance > interactRange
+                ? Math.min(distance * 400, 3000)
+                : minDelay;
             setTimeout(() => {
               if (this.world.network?.send) {
-                const bankId =
-                  (target.entity as { userData?: { bankId?: string } })
-                    ?.userData?.bankId || target.id;
-                this.world.network.send("bankOpen", { bankId });
+                this.world.network.send("bankOpen", { bankId: target.id });
               }
-            }, walkTime);
-            return;
-          }
-
-          // Close enough - open bank immediately
-          if (this.world.network?.send) {
-            const bankId =
-              (target.entity as { userData?: { bankId?: string } })?.userData
-                ?.bankId || target.id;
-            this.world.network.send("bankOpen", { bankId });
+            }, actionDelay);
+          } else if (services.includes("store") || services.includes("shop")) {
+            // Primary action: Trade (open store)
+            if (distance > interactRange) {
+              this.walkTo(target.position);
+            }
+            const actionDelay =
+              distance > interactRange
+                ? Math.min(distance * 400, 3000)
+                : minDelay;
+            setTimeout(() => {
+              if (this.world.network?.send) {
+                this.world.network.send("storeOpen", {
+                  npcId: npcConfig.npcId || target.id,
+                  npcEntityId: target.id,
+                });
+              }
+            }, actionDelay);
+          } else {
+            // Primary action: Talk (dialogue)
+            if (distance > interactRange) {
+              this.walkTo(target.position);
+            }
+            const actionDelay =
+              distance > interactRange
+                ? Math.min(distance * 400, 3000)
+                : minDelay;
+            setTimeout(() => {
+              if (this.world.network?.send) {
+                this.world.network.send("npcInteract", {
+                  npcId: target.id,
+                  npc: {
+                    id: npcConfig.npcId || target.id,
+                    name: target.name,
+                    type: npcConfig.npcType || "dialogue",
+                  },
+                });
+              }
+            }, actionDelay);
           }
         }
         return;
       }
 
-      // For other entities (mobs, NPCs, players, resources), don't show movement indicator
+      // Handle mob with left-click (Attack)
+      if (target.type === "mob") {
+        event.preventDefault();
+        const localPlayer = this.world.getPlayer();
+        if (localPlayer && this.world.network?.send) {
+          // Check if mob is alive
+          type MobEntity = {
+            getMobData?: () => { health?: number; level?: number } | null;
+          };
+          const mobData = (target.entity as MobEntity).getMobData
+            ? (target.entity as MobEntity).getMobData!()
+            : null;
+          const isAlive = (mobData?.health || 0) > 0;
+
+          if (!isAlive) {
+            return; // Don't attack dead mobs
+          }
+
+          // Get combat range from player's equipped weapon (default 1 for punching)
+          const combatRange = this.getPlayerCombatRange(localPlayer);
+
+          // Check for debouncing
+          const attackKey = `${localPlayer.id}:${target.id}`;
+          const now = Date.now();
+          const lastRequest = this.recentAttackRequests.get(attackKey);
+          if (lastRequest && now - lastRequest < this.ATTACK_DEBOUNCE_TIME) {
+            return;
+          }
+          this.recentAttackRequests.set(attackKey, now);
+
+          // OSRS-style: Use tile-based distance check for consistency with server
+          const playerTile = worldToTile(
+            localPlayer.position.x,
+            localPlayer.position.z,
+          );
+          const targetTile = worldToTile(target.position.x, target.position.z);
+          const inCombatRange = tilesWithinRange(
+            playerTile,
+            targetTile,
+            combatRange,
+          );
+
+          if (!inCombatRange) {
+            // Not in range - walk to combat position, track pending attack for when we arrive
+            const adjacentPos = getAdjacentCombatPosition(
+              localPlayer.position,
+              target.position,
+              combatRange,
+            );
+            this.pendingAttacks.set(localPlayer.id, { mobId: target.id });
+            this.walkTo(adjacentPos);
+          } else {
+            // In range - attack immediately
+            this.world.network.send("attackMob", {
+              mobId: target.id,
+              attackType: "melee",
+            });
+          }
+        }
+        return;
+      }
+
+      // For other entities (players, resources), don't show movement indicator
       // They should use context menus or other interaction methods
       return;
     }
@@ -412,7 +644,8 @@ export class InteractionSystem extends System {
       }
     }
 
-    // If we clicked on an entity, don't show movement indicator
+    // If we clicked on an entity, the click was already handled in onCanvasClick
+    // This code path is for clicks on empty terrain (movement)
     if (clickedOnEntity) {
       return;
     }
@@ -428,6 +661,13 @@ export class InteractionSystem extends System {
       if (this.targetMarker && this.targetMarker.visible) {
         // Hide old marker immediately
         this.targetMarker.visible = false;
+      }
+
+      // Clear any pending attack - player clicked to move elsewhere, canceling attack intent
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const localPlayer = (this.world as any).entities?.player;
+      if (localPlayer?.id) {
+        this.pendingAttacks.delete(localPlayer.id);
       }
 
       // Clamp target distance from player on XZ plane (server will also validate)
@@ -936,6 +1176,9 @@ export class InteractionSystem extends System {
               return; // Mob is dead, don't attack
             }
 
+            const player = this.world.getPlayer();
+            if (!player) return;
+
             // Check for debouncing to prevent duplicate attack requests
             const attackKey = `${playerId}:${target.id}`;
             const now = Date.now();
@@ -958,21 +1201,51 @@ export class InteractionSystem extends System {
               }
             }
 
-            if (this.world.network?.send) {
-              this.world.network.send("attackMob", {
-                mobId: target.id,
-                attackType: "melee",
-              });
-            } else {
-              console.warn(
-                "[InteractionSystem] No network.send available for attack",
+            // OSRS-style: Use tile-based distance check for consistency with server
+            const playerTile = worldToTile(
+              player.position.x,
+              player.position.z,
+            );
+            const targetTile = worldToTile(
+              target.position.x,
+              target.position.z,
+            );
+            // Get combat range from player's equipped weapon (default 1 for punching)
+            const combatRange = this.getPlayerCombatRange(player);
+            const inCombatRange = tilesWithinRange(
+              playerTile,
+              targetTile,
+              combatRange,
+            );
+
+            if (!inCombatRange) {
+              // Not in range (1 to combatRange tiles) - walk to valid combat tile
+              // Store only mobId - we'll look up current position dynamically
+              this.pendingAttacks.set(player.id, { mobId: target.id });
+              const adjacentPos = getAdjacentCombatPosition(
+                player.position,
+                target.position,
+                combatRange,
               );
-              // Fallback for single-player
-              this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
-                playerId,
-                targetId: target.id,
-                attackType: AttackType.MELEE,
-              });
+              this.walkTo(adjacentPos);
+            } else {
+              // In range - attack immediately
+              if (this.world.network?.send) {
+                this.world.network.send("attackMob", {
+                  mobId: target.id,
+                  attackType: "melee",
+                });
+              } else {
+                console.warn(
+                  "[InteractionSystem] No network.send available for attack",
+                );
+                // Fallback for single-player
+                this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
+                  playerId,
+                  targetId: target.id,
+                  attackType: AttackType.MELEE,
+                });
+              }
             }
           },
         });
@@ -998,34 +1271,78 @@ export class InteractionSystem extends System {
         const npcConfig = (target.entity as NPCEntity).config || {};
         const services = npcConfig.services || [];
 
+        // Minimum delay even when already in range to avoid race conditions with UI events
+        const minDelay = 50;
+
         if (services.includes("bank")) {
           actions.push({
-            id: "open-bank",
-            label: "Open Bank",
+            id: "use-bank",
+            label: "Use Bank",
             icon: "🏦",
             enabled: true,
             handler: () => {
-              this.world.emit(EventType.BANK_OPEN, {
-                playerId,
-                bankId: target.id,
-                position: target.position,
-              });
+              const player = this.world.getPlayer();
+              if (!player) return;
+
+              const distance = this.calculateDistance(
+                player.position,
+                target.position,
+              );
+              const interactRange = 2.0; // Must match panel auto-close range (Chebyshev)
+
+              if (distance > interactRange) {
+                this.walkTo(target.position);
+              }
+              const actionDelay =
+                distance > interactRange
+                  ? Math.min(distance * 400, 3000)
+                  : minDelay;
+              setTimeout(() => {
+                if (this.world.network?.send) {
+                  this.world.network.send("bankOpen", { bankId: target.id });
+                }
+              }, actionDelay);
             },
           });
         }
 
-        if (services.includes("store")) {
+        if (services.includes("store") || services.includes("shop")) {
           actions.push({
             id: "open-store",
             label: "Trade",
             icon: "🏪",
             enabled: true,
             handler: () => {
-              this.world.emit(EventType.STORE_OPEN, {
-                playerId,
-                storeId: target.id,
-                position: target.position,
-              });
+              const player = this.world.getPlayer();
+              if (!player) return;
+
+              const distance = this.calculateDistance(
+                player.position,
+                target.position,
+              );
+              const interactRange = 2.0; // Must match panel auto-close range (Chebyshev)
+
+              type NPCEntityType = {
+                config?: { npcId?: string };
+              };
+              const npcEntity = target.entity as NPCEntityType;
+              const npcConfig = npcEntity?.config || {};
+
+              if (distance > interactRange) {
+                this.walkTo(target.position);
+              }
+              const actionDelay =
+                distance > interactRange
+                  ? Math.min(distance * 400, 3000)
+                  : minDelay;
+              setTimeout(() => {
+                if (this.world.network?.send) {
+                  this.world.network.send("storeOpen", {
+                    npcId: npcConfig.npcId || target.id,
+                    npcEntityId: target.id, // Entity ID for distance checking
+                  });
+                }
+              }, actionDelay);
             },
           });
         }
@@ -1036,10 +1353,46 @@ export class InteractionSystem extends System {
           icon: "💬",
           enabled: true,
           handler: () => {
-            this.world.emit(EventType.NPC_DIALOGUE, {
-              playerId,
-              npcId: target.id,
-            });
+            const player = this.world.getPlayer();
+            if (!player) return;
+
+            const distance = this.calculateDistance(
+              player.position,
+              target.position,
+            );
+            const interactRange = 2.0; // Must match panel auto-close range (Chebyshev)
+
+            type NPCEntityType = {
+              config?: {
+                npcId?: string;
+                npcType?: string;
+                services?: string[];
+              };
+            };
+            const npcEntity = target.entity as NPCEntityType;
+            const npcConfig = npcEntity?.config || {};
+
+            const sendInteract = () => {
+              if (this.world.network?.send) {
+                this.world.network.send("npcInteract", {
+                  npcId: target.id, // Entity instance ID
+                  npc: {
+                    id: npcConfig.npcId || target.id, // Manifest ID (e.g., "bank_clerk")
+                    name: target.name,
+                    type: npcConfig.npcType || "dialogue",
+                  },
+                });
+              }
+            };
+
+            if (distance > interactRange) {
+              this.walkTo(target.position);
+            }
+            const actionDelay =
+              distance > interactRange
+                ? Math.min(distance * 400, 3000)
+                : minDelay;
+            setTimeout(sendInteract, actionDelay);
           },
         });
 
@@ -1068,30 +1421,22 @@ export class InteractionSystem extends System {
               player.position,
               target.position,
             );
-            const bankRange = 3.0;
+            const bankRange = 2.0; // Must match panel auto-close range (Chebyshev)
+            const minDelay = 50; // Minimum delay to avoid race conditions
 
             if (distance > bankRange) {
-              // Walk to bank, then open
               this.walkTo(target.position);
-              const walkTime = Math.min(distance * 400, 3000);
-              setTimeout(() => {
-                if (this.world.network?.send) {
-                  const bankId =
-                    (target.entity as { userData?: { bankId?: string } })
-                      ?.userData?.bankId || target.id;
-                  this.world.network.send("bankOpen", { bankId });
-                }
-              }, walkTime);
-              return;
             }
-
-            // Close enough - open bank
-            if (this.world.network?.send) {
-              const bankId =
-                (target.entity as { userData?: { bankId?: string } })?.userData
-                  ?.bankId || target.id;
-              this.world.network.send("bankOpen", { bankId });
-            }
+            const actionDelay =
+              distance > bankRange ? Math.min(distance * 400, 3000) : minDelay;
+            setTimeout(() => {
+              if (this.world.network?.send) {
+                const bankId =
+                  (target.entity as { userData?: { bankId?: string } })
+                    ?.userData?.bankId || target.id;
+                this.world.network.send("bankOpen", { bankId });
+              }
+            }, actionDelay);
           },
         });
 
@@ -1283,12 +1628,23 @@ export class InteractionSystem extends System {
   // === Distance-based pickup helper methods ===
 
   /**
-   * Calculate distance between two positions
+   * Calculate distance between two positions using Chebyshev distance (OSRS-style tile system)
+   * This matches the panel auto-close distance checks for consistency
    */
   private calculateDistance(pos1: Position3D, pos2: Position3D): number {
     const dx = pos1.x - pos2.x;
     const dz = pos1.z - pos2.z;
-    return Math.sqrt(dx * dx + dz * dz);
+    // Chebyshev distance - square tile range like OSRS
+    return Math.max(Math.abs(dx), Math.abs(dz));
+  }
+
+  /**
+   * Get player's combat range based on equipped weapon
+   * Returns attackRange from weapon, or 1 if no weapon (punching)
+   */
+  private getPlayerCombatRange(player: Entity): number {
+    const playerData = player as unknown as Player;
+    return getPlayerWeaponRange(playerData);
   }
 
   /**
@@ -1381,12 +1737,18 @@ export class InteractionSystem extends System {
     if (data.changes.e === "idle") {
       const player = this.world.getPlayer();
       if (player && player.id === data.id) {
+        // CRITICAL: Use position from changes.p if available (server-authoritative final position)
+        // player.position may be stale because tile interpolator strips position from entity.modify()
+        const playerPosition: Position3D = data.changes.p
+          ? { x: data.changes.p[0], y: data.changes.p[1], z: data.changes.p[2] }
+          : player.position;
+
         // Check if we have a pending pickup for this player
         const pendingPickup = this.pendingPickups.get(player.id);
         if (pendingPickup) {
           // Check if we're close enough to the item now
           const distance = this.calculateDistance(
-            player.position,
+            playerPosition,
             pendingPickup.position,
           );
           const pickupRange = 2.0;
@@ -1403,6 +1765,66 @@ export class InteractionSystem extends System {
 
           // Clear the pending pickup regardless
           this.pendingPickups.delete(player.id);
+        }
+
+        // Check if we have a pending attack for this player
+        const pendingAttack = this.pendingAttacks.get(player.id);
+        if (pendingAttack) {
+          // Look up mob's CURRENT position (not stored position - mob may have moved)
+          const mobEntity = this.world.entities.get(pendingAttack.mobId);
+
+          if (!mobEntity || !mobEntity.position) {
+            // Mob no longer exists or has no position - clear pending
+            this.pendingAttacks.delete(player.id);
+            return;
+          }
+
+          // Check if mob is still alive
+          const mobData = (
+            mobEntity as {
+              getMobData?: () => { health?: number } | null;
+            }
+          ).getMobData?.();
+          if (mobData && mobData.health !== undefined && mobData.health <= 0) {
+            // Mob is dead - clear pending
+            this.pendingAttacks.delete(player.id);
+            return;
+          }
+
+          // OSRS-style: Use tile-based distance check for consistency with server
+          const playerTile = worldToTile(playerPosition.x, playerPosition.z);
+          const mobTile = worldToTile(
+            mobEntity.position.x,
+            mobEntity.position.z,
+          );
+          // Get combat range from player's equipped weapon (default 1 for punching)
+          const combatRange = this.getPlayerCombatRange(player);
+          const inCombatRange = tilesWithinRange(
+            playerTile,
+            mobTile,
+            combatRange,
+          );
+
+          if (inCombatRange) {
+            // Close enough - send attack
+            if (this.world.network?.send) {
+              this.world.network.send("attackMob", {
+                mobId: pendingAttack.mobId,
+                attackType: "melee",
+              });
+            }
+            // Clear the pending attack - we attacked
+            this.pendingAttacks.delete(player.id);
+          } else {
+            // Still too far - mob moved! Walk to combat position
+            const adjacentPos = getAdjacentCombatPosition(
+              playerPosition,
+              mobEntity.position,
+              combatRange,
+            );
+            this.walkTo(adjacentPos);
+            // DON'T clear pendingAttack - keep tracking until we attack or cancel
+          }
         }
       }
     }

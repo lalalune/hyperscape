@@ -28,7 +28,7 @@ import {
   getMobSpawnsInArea,
   getNPCsInArea,
 } from "./world-areas";
-import { BIOMES, WORLD_ZONES } from "./world-structure";
+import { BIOMES } from "./world-structure";
 
 // Define constants from JSON data
 const equipmentRequirements = equipmentRequirementsData;
@@ -41,6 +41,7 @@ const getTreasureLocationsByDifficulty = (_difficulty: number) =>
 import type {
   Item,
   NPCData,
+  NPCDataInput,
   NPCCategory,
   TreasureLocation,
   BankEntityData,
@@ -53,9 +54,31 @@ import type { MobSpawnPoint, NPCLocation, WorldArea } from "./world-areas";
 import { WeaponType, EquipmentSlotName, AttackType } from "../types/core/core";
 
 /**
- * Data validation results
+ * External Resource Data - loaded from resources.json manifest
  */
-// DataValidationResult moved to shared types
+export interface ExternalResourceData {
+  id: string;
+  name: string;
+  type: string;
+  modelPath: string | null;
+  depletedModelPath: string | null;
+  scale: number;
+  depletedScale: number;
+  harvestSkill: string;
+  toolRequired: string | null;
+  levelRequired: number;
+  baseCycleTicks: number;
+  depleteChance: number;
+  respawnTicks: number;
+  harvestYield: Array<{
+    itemId: string;
+    itemName: string;
+    quantity: number;
+    chance: number;
+    xpAmount: number;
+    stackable: boolean;
+  }>;
+}
 
 /**
  * Centralized Data Manager
@@ -112,47 +135,39 @@ export class DataManager {
       }
 
       // Load NPCs (unified standardized structure with categories: mob, boss, neutral, quest)
+      // JSON uses NPCDataInput (optional fields), normalizeNPC() fills in defaults to produce NPCData
       const npcsRes = await fetch(`${baseUrl}/npcs.json`);
-      const npcsData = (await npcsRes.json()) as {
-        npcs: Array<NPCData>;
-        metadata?: unknown;
-      };
+      const npcList = (await npcsRes.json()) as Array<NPCDataInput>;
 
       // Store all NPCs in unified collection
-      const npcList = npcsData.npcs || [];
       for (const npc of npcList) {
-        (ALL_NPCS as Map<string, NPCData>).set(npc.id, npc);
+        const normalized = this.normalizeNPC(npc);
+        (ALL_NPCS as Map<string, NPCData>).set(normalized.id, normalized);
       }
 
       // Load resources
       const resourcesRes = await fetch(`${baseUrl}/resources.json`);
-      const resourceList = (await resourcesRes.json()) as Array<{
-        id: string;
-        name: string;
-        type: string;
-        modelPath: string | null;
-        harvestSkill: string;
-        requiredLevel: number;
-        harvestTime: number;
-        respawnTime: number;
-        harvestYield: Array<{
-          itemId: string;
-          quantity: number;
-          chance: number;
-        }>;
-      }>;
+      const resourceList =
+        (await resourcesRes.json()) as Array<ExternalResourceData>;
 
       if (
-        !(globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> })
-          .EXTERNAL_RESOURCES
+        !(
+          globalThis as {
+            EXTERNAL_RESOURCES?: Map<string, ExternalResourceData>;
+          }
+        ).EXTERNAL_RESOURCES
       ) {
         (
-          globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }
+          globalThis as {
+            EXTERNAL_RESOURCES?: Map<string, ExternalResourceData>;
+          }
         ).EXTERNAL_RESOURCES = new Map();
       }
       for (const resource of resourceList) {
         (
-          globalThis as unknown as { EXTERNAL_RESOURCES: Map<string, unknown> }
+          globalThis as unknown as {
+            EXTERNAL_RESOURCES: Map<string, ExternalResourceData>;
+          }
         ).EXTERNAL_RESOURCES.set(resource.id, resource);
       }
 
@@ -182,17 +197,11 @@ export class DataManager {
         BIOMES[biome.id] = biome;
       }
 
-      // Load zones
-      const zonesRes = await fetch(`${baseUrl}/zones.json`);
-      const zoneList = (await zonesRes.json()) as Array<ZoneData>;
-      WORLD_ZONES.push(...zoneList);
+      // zones.json removed - use world-areas.json instead
+      // WORLD_ZONES remains empty, ZoneDetectionSystem uses ALL_WORLD_AREAS as primary
 
-      // Load banks
-      const banksRes = await fetch(`${baseUrl}/banks.json`);
-      const bankList = (await banksRes.json()) as Array<BankEntityData>;
-      for (const bank of bankList) {
-        BANKS[bank.id] = bank;
-      }
+      // banks.json removed - BankingSystem uses hardcoded STARTER_TOWN_BANKS
+      // BANKS object exists but is unused
 
       // Load stores
       const storesRes = await fetch(`${baseUrl}/stores.json`);
@@ -233,33 +242,117 @@ export class DataManager {
     const safeWeaponType = item.weaponType ?? WeaponType.NONE;
     const equipSlot = item.equipSlot ?? null;
     const attackType = item.attackType ?? null;
-    const defaults = {
-      quantity: 1,
-      stackable: false,
-      maxStackSize: 1,
-      value: 0,
-      weight: 0.1,
-      equipable: !!equipSlot,
-      description: item.description || item.name || "Item",
-      examine: item.examine || item.description || item.name || "Item",
-      healAmount: item.healAmount ?? 0,
-      stats: item.stats || { attack: 0, defense: 0, strength: 0 },
-      bonuses: item.bonuses || {
-        attack: 0,
-        defense: 0,
-        strength: 0,
-        ranged: 0,
-      },
-      requirements: item.requirements || { level: 1, skills: {} },
-    };
-    return {
+
+    // Validate: weapons with equipSlot "weapon" should have equippedModelPath
+    if (equipSlot === "weapon" && !item.equippedModelPath) {
+      console.warn(
+        `[DataManager] Weapon "${item.id}" missing equippedModelPath - will use convention fallback`,
+      );
+    }
+
+    // Apply defaults only for missing fields (use ?? to preserve falsy values like 0)
+    const normalized: Item = {
       ...item,
       type: item.type,
       weaponType: safeWeaponType,
       equipSlot: equipSlot as EquipmentSlotName | null,
       attackType: attackType as AttackType | null,
-      ...defaults,
+      // Inventory properties with defaults
+      quantity: item.quantity ?? 1,
+      stackable: item.stackable ?? false,
+      maxStackSize: item.maxStackSize ?? 1,
+      value: item.value ?? 0,
+      weight: item.weight ?? 0.1,
+      // Equipment properties with defaults
+      equipable: item.equipable ?? !!equipSlot,
+      // Item properties with defaults
+      description: item.description || item.name || "Item",
+      examine: item.examine || item.description || item.name || "Item",
+      // Optional properties
+      healAmount: item.healAmount,
+      attackSpeed: item.attackSpeed,
+      // Default attackRange: 1 for melee, 7 for ranged, undefined for non-weapons
+      attackRange:
+        item.attackRange ??
+        (attackType === AttackType.RANGED
+          ? 7
+          : attackType === AttackType.MELEE
+            ? 1
+            : undefined),
+      equippedModelPath: item.equippedModelPath,
+      bonuses: item.bonuses,
+      requirements: item.requirements,
     };
+    return normalized;
+  }
+
+  private normalizeNPC(npc: NPCDataInput): NPCData {
+    // Ensure required fields have sane defaults
+    const defaults: Partial<NPCData> = {
+      faction: npc.faction || "unknown",
+      stats: {
+        level: npc.stats?.level ?? 1,
+        health: npc.stats?.health ?? 10, // OSRS: hitpoints = max HP directly
+        attack: npc.stats?.attack ?? 1,
+        strength: npc.stats?.strength ?? 1,
+        defense: npc.stats?.defense ?? 1,
+        ranged: npc.stats?.ranged ?? 1,
+        magic: npc.stats?.magic ?? 1,
+      },
+      combat: {
+        attackable: npc.combat?.attackable ?? true,
+        aggressive: npc.combat?.aggressive ?? false,
+        retaliates: npc.combat?.retaliates ?? true,
+        aggroRange: npc.combat?.aggroRange ?? 0,
+        combatRange: npc.combat?.combatRange ?? 1.5,
+        attackSpeedTicks: npc.combat?.attackSpeedTicks ?? 4,
+        respawnTime: (npc.combat?.respawnTicks ?? 25) * 600, // Convert ticks to ms
+        xpReward: npc.combat?.xpReward ?? 0,
+        poisonous: npc.combat?.poisonous ?? false,
+        immuneToPoison: npc.combat?.immuneToPoison ?? false,
+      },
+      movement: {
+        type: npc.movement?.type ?? "stationary",
+        speed: npc.movement?.speed ?? 1,
+        wanderRadius: npc.movement?.wanderRadius ?? 0,
+        roaming: npc.movement?.roaming ?? false,
+      },
+      drops: {
+        defaultDrop: npc.drops?.defaultDrop ?? {
+          enabled: false,
+          itemId: "",
+          quantity: 0,
+        },
+        always: npc.drops?.always ?? [],
+        common: npc.drops?.common ?? [],
+        uncommon: npc.drops?.uncommon ?? [],
+        rare: npc.drops?.rare ?? [],
+        veryRare: npc.drops?.veryRare ?? [],
+        rareDropTable: npc.drops?.rareDropTable ?? false,
+        rareDropTableChance: npc.drops?.rareDropTableChance,
+      },
+      services: {
+        enabled: npc.services?.enabled ?? false,
+        types: npc.services?.types ?? [],
+        shopInventory: npc.services?.shopInventory,
+        questIds: npc.services?.questIds,
+      },
+      behavior: {
+        enabled: npc.behavior?.enabled ?? false,
+        config: npc.behavior?.config,
+      },
+      appearance: {
+        modelPath: npc.appearance?.modelPath ?? "",
+        iconPath: npc.appearance?.iconPath,
+        scale: npc.appearance?.scale ?? 1.0,
+        tint: npc.appearance?.tint,
+      },
+      position: npc.position || { x: 0, y: 0, z: 0 },
+    };
+    return {
+      ...npc,
+      ...defaults,
+    } as NPCData;
   }
 
   /**

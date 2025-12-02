@@ -5,19 +5,7 @@
 
 import { ALL_NPCS } from "../data/npcs";
 import type { NPCData } from "../types/core/core";
-
-interface ExternalResource {
-  id: string;
-  name: string;
-  type: string;
-  modelPath: string;
-  iconPath?: string;
-  harvestSkill: string;
-  requiredLevel: number;
-  harvestTime: number;
-  respawnTime: number;
-  yields: Array<{ itemId: string; quantity: number; chance: number }>;
-}
+import type { ExternalResourceData } from "../data/DataManager";
 
 interface ExternalBuilding {
   id: string;
@@ -56,9 +44,9 @@ export function getExternalNPC(id: string): NPCData | null {
 /**
  * Get all external resources loaded from manifests
  */
-export function getExternalResources(): Map<string, ExternalResource> {
+export function getExternalResources(): Map<string, ExternalResourceData> {
   const resources = (
-    globalThis as { EXTERNAL_RESOURCES?: Map<string, ExternalResource> }
+    globalThis as { EXTERNAL_RESOURCES?: Map<string, ExternalResourceData> }
   ).EXTERNAL_RESOURCES;
   return resources || new Map();
 }
@@ -66,7 +54,7 @@ export function getExternalResources(): Map<string, ExternalResource> {
 /**
  * Get external resource by ID
  */
-export function getExternalResource(id: string): ExternalResource | null {
+export function getExternalResource(id: string): ExternalResourceData | null {
   const resources = getExternalResources();
   return resources.get(id) || null;
 }

@@ -600,7 +600,6 @@ export class EntityManager extends SystemBase {
       value: itemData?.value || data.value || 0,
       weight: itemData?.weight || this.getItemWeight(itemIdToUse),
       rarity: itemData?.rarity || ItemRarity.COMMON,
-      stats: (itemData?.stats as Record<string, number>) || {},
       requirements: {
         level: itemData?.requirements?.level || 1,
         attack:
@@ -690,13 +689,16 @@ export class EntityManager extends SystemBase {
     // Only generate a new ID if customId is not provided (fallback case)
     const mobId = data.customId || `mob_${this.nextEntityId++}`;
 
+    // Get scale from manifest (default to 1.0 if not specified)
+    const manifestScale = npcDataFromDB?.appearance?.scale ?? 1;
+
     const config: MobEntityConfig = {
       id: mobId,
       name: `Mob: ${data.name || mobType || "Unknown"} (Lv${level})`,
       type: EntityType.MOB,
       position: position,
       rotation: { x: 0, y: 0, z: 0, w: 1 },
-      scale: { x: 1, y: 1, z: 1 },
+      scale: { x: manifestScale, y: manifestScale, z: manifestScale },
       visible: true,
       interactable: true,
       interactionType: InteractionType.ATTACK,
@@ -708,13 +710,18 @@ export class EntityManager extends SystemBase {
       level: level,
       currentHealth: this.getMobMaxHealth(mobType, level),
       maxHealth: this.getMobMaxHealth(mobType, level),
+      attack: this.getMobAttack(mobType, level),
       attackPower: this.getMobAttackPower(mobType, level),
       defense: this.getMobDefense(mobType, level),
-      attackSpeed: this.getMobAttackSpeed(mobType),
+      attackSpeedTicks: this.getMobAttackSpeedTicks(mobType),
       moveSpeed: this.getMobMoveSpeed(mobType),
+      aggressive: npcDataFromDB?.combat.aggressive ?? true, // Default to aggressive if not specified
+      retaliates: npcDataFromDB?.combat.retaliates ?? true, // Default to retaliating if not specified
+      attackable: npcDataFromDB?.combat.attackable ?? true, // Default to attackable if not specified
+      movementType: npcDataFromDB?.movement.type ?? "wander", // Default to wander if not specified
       aggroRange: this.getMobAggroRange(mobType),
       combatRange: this.getMobCombatRange(mobType),
-      wanderRadius: 10, // 10 meter wander radius from spawn (RuneScape-style)
+      wanderRadius: this.getMobWanderRadius(mobType),
       xpReward: this.getMobXPReward(mobType, level),
       lootTable: this.getMobLootTable(mobType),
       respawnTime: 300000, // 5 minutes default
@@ -931,7 +938,6 @@ export class EntityManager extends SystemBase {
       value: 0,
       weight: 0,
       rarity: ItemRarity.COMMON,
-      stats: {},
       requirements: {},
       effects: [],
       armorSlot: null,
@@ -971,12 +977,21 @@ export class EntityManager extends SystemBase {
     return npcData.stats.health + (level - npcData.stats.level) * 10;
   }
 
+  private getMobAttack(mobType: string, level: number): number {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
+      return 1 + (level - 1); // Default attack scaling
+    }
+    return npcData.stats.attack + (level - npcData.stats.level);
+  }
+
   private getMobAttackPower(mobType: string, level: number): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
       return 5 + (level - 1) * 2;
     }
-    return npcData.stats.attack + (level - npcData.stats.level) * 2;
+    // FIX: Use strength for attackPower (max hit), not attack (accuracy)
+    return npcData.stats.strength + (level - npcData.stats.level) * 2;
   }
 
   private getMobDefense(mobType: string, level: number): number {
@@ -987,12 +1002,12 @@ export class EntityManager extends SystemBase {
     return npcData.stats.defense + (level - npcData.stats.level);
   }
 
-  private getMobAttackSpeed(mobType: string): number {
+  private getMobAttackSpeedTicks(mobType: string): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
-      return 1.5;
+      return 4; // Default: 4 ticks (2.4 seconds, standard sword speed)
     }
-    return npcData.combat.attackSpeed;
+    return npcData.combat.attackSpeedTicks;
   }
 
   private getMobMoveSpeed(mobType: string): number {
@@ -1001,6 +1016,14 @@ export class EntityManager extends SystemBase {
       return 3.0; // Default: 3 units/sec (walking speed, matches player walk)
     }
     return npcData.movement.speed;
+  }
+
+  private getMobWanderRadius(mobType: string): number {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
+      return 10; // Default: 10 meter wander radius from spawn
+    }
+    return npcData.movement.wanderRadius;
   }
 
   private getMobAggroRange(mobType: string): number {
@@ -1271,16 +1294,16 @@ export class EntityManager extends SystemBase {
     // If it's a store, register it with the store system
     if (data.type === "general_store" || data.services?.includes("buy_items")) {
       // Map NPC ID to store ID based on position
-      // NPCs are named like "lumbridge_shopkeeper", stores are like "store_town_0"
+      // NPCs are named like "central_haven_shopkeeper", stores are like "store_town_0"
       let storeId = "store_town_0"; // Default to central
       if (
-        data.npcId.includes("lumbridge") ||
+        data.npcId.includes("central_haven") ||
         (data.position.x < 50 &&
           data.position.x > -50 &&
           data.position.z < 50 &&
           data.position.z > -50)
       ) {
-        storeId = "store_town_0"; // Central
+        storeId = "store_town_0"; // Central Haven
       } else if (data.position.x > 50) {
         storeId = "store_town_1"; // Eastern
       } else if (data.position.x < -50) {
