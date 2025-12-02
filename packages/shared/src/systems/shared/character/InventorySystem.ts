@@ -64,10 +64,6 @@ export class InventorySystem extends SystemBase {
         if (!loaded) {
           if (process.env.DEBUG_RPG === "1") {
           }
-          console.log(
-            "[InventorySystem] Creating fresh inventory for player:",
-            data.playerId,
-          );
           this.initializeInventory({ id: data.playerId });
         }
       },
@@ -76,20 +72,12 @@ export class InventorySystem extends SystemBase {
       this.cleanupInventory({ id: data.playerId });
     });
     this.subscribe(EventType.INVENTORY_ITEM_REMOVED, (data) => {
-      console.log(
-        "[InventorySystem] 📥 Received INVENTORY_ITEM_REMOVED:",
-        data,
-      );
       this.removeItem(data);
     });
     // Handle remove item requests (e.g., from store sell)
     this.subscribe<{ playerId: string; itemId: string; quantity: number }>(
       EventType.INVENTORY_REMOVE_ITEM,
       (data) => {
-        console.log(
-          "[InventorySystem] 📥 Received INVENTORY_REMOVE_ITEM:",
-          data,
-        );
         this.removeItem(data);
       },
     );
@@ -127,14 +115,10 @@ export class InventorySystem extends SystemBase {
     this.subscribe<{ playerId: string; amount: number }>(
       EventType.INVENTORY_ADD_COINS,
       (data) => {
-        console.log(
-          `[InventorySystem] Adding ${data.amount} coins to player ${data.playerId}`,
-        );
         this.updateCoins({ playerId: data.playerId, amount: data.amount });
       },
     );
     this.subscribe(EventType.INVENTORY_ITEM_ADDED, (data) => {
-      console.log("[InventorySystem] 📥 Received INVENTORY_ITEM_ADDED:", data);
       this.handleInventoryAdd(data);
     });
 
@@ -185,12 +169,6 @@ export class InventorySystem extends SystemBase {
       } catch {
         // Skip on DB errors during autosave
       }
-    }
-
-    if (savedCount > 0) {
-      console.log(
-        `[InventorySystem] 💾 Auto-saved ${savedCount} player(s) with ${totalItems} total items`,
-      );
     }
   }
 
@@ -1183,10 +1161,6 @@ export class InventorySystem extends SystemBase {
     // Save immediately (synchronous/atomic)
     db.savePlayerInventory(playerId, saveItems);
     db.savePlayer(playerId, { coins: inv.coins });
-
-    console.log(
-      `[InventorySystem] ✅ Immediately persisted inventory for ${playerId}: ${saveItems.length} items, ${inv.coins} coins`,
-    );
   }
 
   /**
@@ -1208,10 +1182,6 @@ export class InventorySystem extends SystemBase {
 
     // CRITICAL: Persist to database IMMEDIATELY (no debounce)
     await this.persistInventoryImmediate(playerId);
-
-    console.log(
-      `[InventorySystem] ✅ Immediately cleared inventory for ${playerId}: ${droppedItemCount} items`,
-    );
 
     return droppedItemCount;
   }

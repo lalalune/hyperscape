@@ -261,9 +261,6 @@ export class EventBridge {
         };
 
         if (data.playerId) {
-          console.log(
-            `[EventBridge] Forwarding UI_DEATH_SCREEN to player ${data.playerId}`,
-          );
           this.broadcast.sendToPlayer(data.playerId, "deathScreen", data);
         }
       });
@@ -273,9 +270,6 @@ export class EventBridge {
         const data = payload as { playerId: string };
 
         if (data.playerId) {
-          console.log(
-            `[EventBridge] Forwarding UI_DEATH_SCREEN_CLOSE to player ${data.playerId}`,
-          );
           this.broadcast.sendToPlayer(data.playerId, "deathScreenClose", data);
         }
       });
@@ -285,9 +279,6 @@ export class EventBridge {
         const data = payload as { playerId: string; isDead: boolean };
 
         if (data.playerId) {
-          console.log(
-            `[EventBridge] Forwarding PLAYER_SET_DEAD to player ${data.playerId}, isDead:${data.isDead}`,
-          );
           this.broadcast.sendToPlayer(data.playerId, "playerSetDead", data);
         }
       });
@@ -300,9 +291,6 @@ export class EventBridge {
         };
 
         if (data.playerId) {
-          console.log(
-            `[EventBridge] Forwarding PLAYER_RESPAWNED to player ${data.playerId}`,
-          );
           this.broadcast.sendToPlayer(data.playerId, "playerRespawned", data);
         }
       });
@@ -318,9 +306,6 @@ export class EventBridge {
         };
 
         if (data.playerId) {
-          console.log(
-            `[EventBridge] Forwarding UI_ATTACK_STYLE_CHANGED to player ${data.playerId}`,
-          );
           this.broadcast.sendToPlayer(
             data.playerId,
             "attackStyleChanged",
@@ -339,9 +324,6 @@ export class EventBridge {
         };
 
         if (data.playerId) {
-          console.log(
-            `[EventBridge] Forwarding UI_ATTACK_STYLE_UPDATE to player ${data.playerId}`,
-          );
           this.broadcast.sendToPlayer(data.playerId, "attackStyleUpdate", data);
         }
       });
@@ -369,10 +351,6 @@ export class EventBridge {
           targetType: "player" | "mob";
           position: { x: number; y: number; z: number };
         };
-
-        console.log(
-          `[EventBridge] Forwarding COMBAT_DAMAGE_DEALT: ${data.damage} damage to ${data.targetId}`,
-        );
 
         // Broadcast to all clients so everyone sees the damage splat
         this.broadcast.sendToAll("combatDamageDealt", data);

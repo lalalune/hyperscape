@@ -102,11 +102,6 @@ export class MobNPCSpawnerSystem extends SystemBase {
       getHeightAt?: (x: number, z: number) => number | null;
     } | null;
 
-    console.log("[MobNPCSpawnerSystem] 📍 Spawning NPCs from world-areas...");
-    console.log(
-      `[MobNPCSpawnerSystem] Areas: ${Object.keys(ALL_WORLD_AREAS).join(", ")}`,
-    );
-
     for (const area of Object.values(ALL_WORLD_AREAS)) {
       if (!area.npcs || area.npcs.length === 0) continue;
 
@@ -131,11 +126,6 @@ export class MobNPCSpawnerSystem extends SystemBase {
         const npcServices = npcManifestData.services?.types || [];
         const npcDescription = npcManifestData.description || npc.id;
         const npcName = npcManifestData.name || npc.id;
-
-        console.log(`[MobNPCSpawnerSystem] 📊 NPC ${npc.id}:`);
-        console.log(`  - name: ${npcName}`);
-        console.log(`  - model: ${modelPath}`);
-        console.log(`  - services: ${npcServices.join(", ")}`);
 
         const npcConfig = {
           id: `npc_${npc.id}_${Date.now()}`,
@@ -162,9 +152,6 @@ export class MobNPCSpawnerSystem extends SystemBase {
 
         try {
           await entityManager.spawnEntity(npcConfig);
-          console.log(
-            `[MobNPCSpawnerSystem] ✅ Spawned NPC: ${npcName} (${npc.id}) at (${npc.position.x}, ${spawnY.toFixed(1)}, ${npc.position.z})`,
-          );
         } catch (err) {
           console.error(
             `[MobNPCSpawnerSystem] ❌ Failed to spawn NPC ${npc.id}:`,
@@ -217,20 +204,6 @@ export class MobNPCSpawnerSystem extends SystemBase {
     if (!goblinData.appearance?.modelPath) {
       throw new Error(
         `[MobNPCSpawnerSystem] NPC 'goblin' has no modelPath defined in manifest.`,
-      );
-    }
-
-    // DIAGNOSTIC: Log the model path to verify it matches expected value
-    const expectedModelPath = "asset://models/goblin/goblin.vrm";
-    console.log(`[MobNPCSpawnerSystem] 📊 Goblin manifest data:`);
-    console.log(`  - modelPath: "${goblinData.appearance.modelPath}"`);
-    console.log(`  - expected:  "${expectedModelPath}"`);
-    console.log(
-      `  - match: ${goblinData.appearance.modelPath === expectedModelPath}`,
-    );
-    if (goblinData.appearance.modelPath !== expectedModelPath) {
-      console.warn(
-        `[MobNPCSpawnerSystem] ⚠️ Model path MISMATCH! This could cause animation issues.`,
       );
     }
 
@@ -304,9 +277,6 @@ export class MobNPCSpawnerSystem extends SystemBase {
 
     // Check if we already spawned at this location
     if (this.spawnedMobs.has(spawnKey)) {
-      console.log(
-        `[MobNPCSpawnerSystem] Skipping duplicate spawn at ${spawnKey}`,
-      );
       return;
     }
 
@@ -478,13 +448,6 @@ export class MobNPCSpawnerSystem extends SystemBase {
       maxZ: (tileData.tileZ + 1) * TILE_SIZE,
     };
 
-    console.log(
-      `[MobNPCSpawnerSystem] TERRAIN_TILE_GENERATED: tile (${tileData.tileX}, ${tileData.tileZ}), bounds: [${tileBounds.minX}-${tileBounds.maxX}, ${tileBounds.minZ}-${tileBounds.maxZ}]`,
-    );
-    console.log(
-      `[MobNPCSpawnerSystem] ALL_WORLD_AREAS keys: ${Object.keys(ALL_WORLD_AREAS).join(", ")}`,
-    );
-
     // Find which world areas overlap with this new tile
     const overlappingAreas: Array<
       (typeof ALL_WORLD_AREAS)[keyof typeof ALL_WORLD_AREAS]
@@ -499,9 +462,6 @@ export class MobNPCSpawnerSystem extends SystemBase {
         tileBounds.maxZ > areaBounds.minZ
       ) {
         overlappingAreas.push(area);
-        console.log(
-          `[MobNPCSpawnerSystem]   Overlapping area: "${area.id}" (mobSpawns: ${area.mobSpawns.length})`,
-        );
       }
     }
 
@@ -531,17 +491,10 @@ export class MobNPCSpawnerSystem extends SystemBase {
     tileData: { tileX: number; tileZ: number },
   ): void {
     const TILE_SIZE = this.terrainSystem.getTileSize();
-    console.log(
-      `[MobNPCSpawnerSystem] Processing area "${area.id}" for tile (${tileData.tileX}, ${tileData.tileZ}), mobSpawns: ${area.mobSpawns.length}`,
-    );
 
     for (const spawnPoint of area.mobSpawns) {
       const spawnTileX = Math.floor(spawnPoint.position.x / TILE_SIZE);
       const spawnTileZ = Math.floor(spawnPoint.position.z / TILE_SIZE);
-
-      console.log(
-        `[MobNPCSpawnerSystem]   SpawnPoint ${spawnPoint.mobId} at (${spawnPoint.position.x}, ${spawnPoint.position.z}) -> tile (${spawnTileX}, ${spawnTileZ})`,
-      );
 
       if (spawnTileX === tileData.tileX && spawnTileZ === tileData.tileZ) {
         const mobData = ALL_NPCS.get(spawnPoint.mobId);
@@ -573,10 +526,6 @@ export class MobNPCSpawnerSystem extends SystemBase {
           let mobY = spawnPoint.position.y;
           const th = this.terrainSystem.getHeightAt(mobX, mobZ);
           if (Number.isFinite(th)) mobY = (th as number) + 0.1;
-
-          console.log(
-            `[MobNPCSpawnerSystem]   -> Spawning ${spawnPoint.mobId} #${i + 1}/${maxCount} at (${mobX.toFixed(1)}, ${mobY.toFixed(1)}, ${mobZ.toFixed(1)})`,
-          );
 
           this.spawnMobFromData(mobData, { x: mobX, y: mobY, z: mobZ });
         }
