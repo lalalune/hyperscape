@@ -41,6 +41,7 @@ const getTreasureLocationsByDifficulty = (_difficulty: number) =>
 import type {
   Item,
   NPCData,
+  NPCDataInput,
   NPCCategory,
   TreasureLocation,
   BankEntityData,
@@ -134,8 +135,9 @@ export class DataManager {
       }
 
       // Load NPCs (unified standardized structure with categories: mob, boss, neutral, quest)
+      // JSON uses NPCDataInput (optional fields), normalizeNPC() fills in defaults to produce NPCData
       const npcsRes = await fetch(`${baseUrl}/npcs.json`);
-      const npcList = (await npcsRes.json()) as Array<NPCData>;
+      const npcList = (await npcsRes.json()) as Array<NPCDataInput>;
 
       // Store all NPCs in unified collection
       for (const npc of npcList) {
@@ -276,7 +278,7 @@ export class DataManager {
     return normalized;
   }
 
-  private normalizeNPC(npc: NPCData): NPCData {
+  private normalizeNPC(npc: NPCDataInput): NPCData {
     // Ensure required fields have sane defaults
     const defaults: Partial<NPCData> = {
       faction: npc.faction || "unknown",
@@ -307,17 +309,30 @@ export class DataManager {
         wanderRadius: npc.movement?.wanderRadius ?? 0,
         roaming: npc.movement?.roaming ?? false,
       },
-      drops: npc.drops || {
-        defaultDrop: { enabled: false, itemId: "", quantity: 0 },
-        always: [],
-        common: [],
-        uncommon: [],
-        rare: [],
-        veryRare: [],
-        rareDropTable: false,
+      drops: {
+        defaultDrop: npc.drops?.defaultDrop ?? {
+          enabled: false,
+          itemId: "",
+          quantity: 0,
+        },
+        always: npc.drops?.always ?? [],
+        common: npc.drops?.common ?? [],
+        uncommon: npc.drops?.uncommon ?? [],
+        rare: npc.drops?.rare ?? [],
+        veryRare: npc.drops?.veryRare ?? [],
+        rareDropTable: npc.drops?.rareDropTable ?? false,
+        rareDropTableChance: npc.drops?.rareDropTableChance,
       },
-      services: npc.services || { enabled: false, types: [] },
-      behavior: npc.behavior || { enabled: false },
+      services: {
+        enabled: npc.services?.enabled ?? false,
+        types: npc.services?.types ?? [],
+        shopInventory: npc.services?.shopInventory,
+        questIds: npc.services?.questIds,
+      },
+      behavior: {
+        enabled: npc.behavior?.enabled ?? false,
+        config: npc.behavior?.config,
+      },
       appearance: {
         modelPath: npc.appearance?.modelPath ?? "",
         iconPath: npc.appearance?.iconPath,
