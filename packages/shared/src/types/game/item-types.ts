@@ -126,17 +126,19 @@ export interface Item {
   id: string; // Unique item ID (e.g., "bronze_sword", "cooked_fish")
   name: string; // Display name
   type: ItemType; // Item category
-  quantity: number; // Quantity of the item
-  stackable: boolean; // Can stack in inventory
-  maxStackSize: number; // Max stack size (999 for stackable, 1 for non-stackable)
-  value: number; // Base value in coins
-  weight: number; // Item weight
 
-  // Equipment properties
-  equipSlot: EquipmentSlotName | "2h" | null; // Equipment slot (weapon, shield, helmet, etc.) or '2h' for two-handed
-  weaponType: WeaponType | null; // Type of weapon (if applicable)
-  equipable: boolean; // Can be equipped
-  attackType: AttackType | null; // Type of attack (melee, ranged, magic)
+  // Inventory properties - optional, DataManager provides defaults
+  quantity?: number; // Default: 1
+  stackable?: boolean; // Default: false
+  maxStackSize?: number; // Default: 1 (only specify for stackable items)
+  value?: number; // Default: 0
+  weight?: number; // Default: 0.1
+
+  // Equipment properties - optional, only needed for equipable items
+  equipSlot?: EquipmentSlotName | "2h" | null; // Default: null (not equipable)
+  weaponType?: WeaponType | null; // Default: null
+  equipable?: boolean; // Default: false (derived from equipSlot if not specified)
+  attackType?: AttackType | null; // Default: null
   attackSpeed?: number; // Attack speed in game ticks (OSRS-style: 4 = standard sword)
   is2h?: boolean; // Explicit flag for 2-handed weapons (alternative to equipSlot: '2h')
 
@@ -151,21 +153,14 @@ export interface Item {
   equippedModelPath?: string | null; // 3D model path for EQUIPPED items (hand-held weapons)
   iconPath: string; // UI icon path
 
-  // Consumable properties
-  healAmount: number; // Health restored (0 if not consumable)
+  // Consumable properties - only for food/consumables
+  healAmount?: number; // Health restored when consumed
 
-  // Combat stats (for equipment)
-  stats: {
-    attack: number;
-    defense: number;
-    strength: number;
-  };
+  // Combat bonuses (for equipment) - optional for non-equipment items
+  bonuses?: CombatBonuses;
 
-  // Combat bonuses (for equipment)
-  bonuses: CombatBonuses;
-
-  // Requirements to use/equip
-  requirements: {
+  // Requirements to use/equip - optional, default: no requirements
+  requirements?: {
     level: number;
     skills: Partial<Record<keyof Skills, number>>;
   };

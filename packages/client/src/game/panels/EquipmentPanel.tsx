@@ -131,7 +131,7 @@ function DroppableEquipmentSlot({
             >
               {slot.item!.name}
             </div>
-            {slot.item!.quantity > 1 && (
+            {(slot.item!.quantity ?? 1) > 1 && (
               <div
                 className="absolute bottom-1 right-1.5 font-bold"
                 style={{
@@ -140,7 +140,7 @@ function DroppableEquipmentSlot({
                   textShadow: "0 1px 2px rgba(0, 0, 0, 0.8)",
                 }}
               >
-                {slot.item!.quantity}
+                {slot.item!.quantity ?? 1}
               </div>
             )}
           </>
@@ -781,117 +781,50 @@ export function EquipmentPanel({
                   </div>
                 )}
 
-                {/* Stats */}
-                {(item.stats.attack > 0 ||
-                  item.stats.defense > 0 ||
-                  item.stats.strength > 0) && (
-                  <div className="mb-3">
-                    <div
-                      className="mb-1"
-                      style={{
-                        fontSize: "clamp(0.688rem, 1.2vw, 0.75rem)",
-                        color: "rgba(242, 208, 138, 0.9)",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      Combat Stats
-                    </div>
-                    <div className="space-y-1">
-                      {item.stats.attack > 0 && (
-                        <div
-                          className="flex justify-between"
-                          style={{
-                            fontSize: "clamp(0.625rem, 1.1vw, 0.75rem)",
-                            color: "rgba(242, 208, 138, 0.8)",
-                          }}
-                        >
-                          <span>⚔️ Attack</span>
-                          <span
-                            style={{ color: "#22c55e", fontWeight: "bold" }}
-                          >
-                            +{item.stats.attack}
-                          </span>
-                        </div>
-                      )}
-                      {item.stats.defense > 0 && (
-                        <div
-                          className="flex justify-between"
-                          style={{
-                            fontSize: "clamp(0.625rem, 1.1vw, 0.75rem)",
-                            color: "rgba(242, 208, 138, 0.8)",
-                          }}
-                        >
-                          <span>🛡️ Defense</span>
-                          <span
-                            style={{ color: "#22c55e", fontWeight: "bold" }}
-                          >
-                            +{item.stats.defense}
-                          </span>
-                        </div>
-                      )}
-                      {item.stats.strength > 0 && (
-                        <div
-                          className="flex justify-between"
-                          style={{
-                            fontSize: "clamp(0.625rem, 1.1vw, 0.75rem)",
-                            color: "rgba(242, 208, 138, 0.8)",
-                          }}
-                        >
-                          <span>💪 Strength</span>
-                          <span
-                            style={{ color: "#22c55e", fontWeight: "bold" }}
-                          >
-                            +{item.stats.strength}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {/* Requirements */}
-                {(item.requirements.level > 1 ||
-                  Object.keys(item.requirements.skills || {}).length > 0) && (
-                  <div className="mb-3">
-                    <div
-                      className="mb-1"
-                      style={{
-                        fontSize: "clamp(0.688rem, 1.2vw, 0.75rem)",
-                        color: "rgba(242, 208, 138, 0.9)",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      Requirements
-                    </div>
-                    <div className="space-y-1">
-                      {item.requirements.level > 1 && (
-                        <div
-                          style={{
-                            fontSize: "clamp(0.625rem, 1.1vw, 0.75rem)",
-                            color: "rgba(242, 208, 138, 0.8)",
-                          }}
-                        >
-                          Level {item.requirements.level}
-                        </div>
-                      )}
-                      {item.requirements.skills &&
-                        Object.entries(item.requirements.skills).map(
-                          ([skill, level]) => (
-                            <div
-                              key={skill}
-                              style={{
-                                fontSize: "clamp(0.625rem, 1.1vw, 0.75rem)",
-                                color: "rgba(242, 208, 138, 0.8)",
-                              }}
-                            >
-                              {skill.charAt(0).toUpperCase() + skill.slice(1)}:{" "}
-                              {level}
-                            </div>
-                          ),
+                {item.requirements &&
+                  ((item.requirements.level ?? 0) > 1 ||
+                    Object.keys(item.requirements.skills || {}).length > 0) && (
+                    <div className="mb-3">
+                      <div
+                        className="mb-1"
+                        style={{
+                          fontSize: "clamp(0.688rem, 1.2vw, 0.75rem)",
+                          color: "rgba(242, 208, 138, 0.9)",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        Requirements
+                      </div>
+                      <div className="space-y-1">
+                        {(item.requirements.level ?? 0) > 1 && (
+                          <div
+                            style={{
+                              fontSize: "clamp(0.625rem, 1.1vw, 0.75rem)",
+                              color: "rgba(242, 208, 138, 0.8)",
+                            }}
+                          >
+                            Level {item.requirements.level}
+                          </div>
                         )}
+                        {item.requirements.skills &&
+                          Object.entries(item.requirements.skills).map(
+                            ([skill, level]) => (
+                              <div
+                                key={skill}
+                                style={{
+                                  fontSize: "clamp(0.625rem, 1.1vw, 0.75rem)",
+                                  color: "rgba(242, 208, 138, 0.8)",
+                                }}
+                              >
+                                {skill.charAt(0).toUpperCase() + skill.slice(1)}
+                                : {level}
+                              </div>
+                            ),
+                          )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Item Properties */}
                 <div className="space-y-1">
@@ -919,7 +852,7 @@ export function EquipmentPanel({
                       {item.weight} kg
                     </span>
                   </div>
-                  {item.quantity > 1 && (
+                  {(item.quantity ?? 1) > 1 && (
                     <div
                       className="flex justify-between"
                       style={{
@@ -931,7 +864,7 @@ export function EquipmentPanel({
                       <span
                         style={{ color: COLORS.ACCENT, fontWeight: "bold" }}
                       >
-                        {item.quantity}
+                        {item.quantity ?? 1}
                       </span>
                     </div>
                   )}

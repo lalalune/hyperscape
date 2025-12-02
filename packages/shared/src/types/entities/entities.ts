@@ -158,7 +158,6 @@ export interface ItemEntityConfig extends EntityConfig<ItemEntityProperties> {
   value: number;
   weight: number;
   rarity: ItemRarity;
-  stats: Record<string, number>;
   requirements: Record<string, number>;
   effects: Array<{ type: string; value: number; duration: number }>;
   armorSlot: string | null;

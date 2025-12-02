@@ -55,11 +55,6 @@ function createMinimalItem(
     modelPath: "",
     iconPath: "",
     healAmount: 0,
-    stats: {
-      attack: 0,
-      defense: 0,
-      strength: 0,
-    },
     bonuses: {},
     requirements: {
       level: 1,
@@ -196,7 +191,6 @@ export class InventoryInteractionSystem extends SystemBase {
       modelPath: item.modelPath || "",
       iconPath: item.iconPath || "",
       healAmount: item.healAmount || 0,
-      stats: item.stats || { attack: 0, defense: 0, strength: 0 },
       bonuses: item.bonuses || {
         attack: 0,
         defense: 0,

@@ -371,7 +371,6 @@ export class ItemSpawnerSystem extends SystemBase {
       value: itemData.value || 0,
       weight: itemData.weight || 0,
       rarity: itemData.rarity || ItemRarity.COMMON,
-      stats: (itemData.stats as Record<string, number>) || {},
       requirements: {
         level: itemData.requirements?.level || 1,
       },

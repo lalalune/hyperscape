@@ -248,35 +248,32 @@ export class DataManager {
       );
     }
 
-    const defaults = {
-      quantity: 1,
-      stackable: false,
-      maxStackSize: 1,
-      value: 0,
-      weight: 0.1,
-      equipable: !!equipSlot,
-      description: item.description || item.name || "Item",
-      examine: item.examine || item.description || item.name || "Item",
-      healAmount: item.healAmount ?? 0,
-      attackSpeed: item.attackSpeed, // undefined = use system default (2400ms)
-      equippedModelPath: item.equippedModelPath,
-      stats: item.stats || { attack: 0, defense: 0, strength: 0 },
-      bonuses: item.bonuses || {
-        attack: 0,
-        defense: 0,
-        strength: 0,
-        ranged: 0,
-      },
-      requirements: item.requirements || { level: 1, skills: {} },
-    };
-    return {
+    // Apply defaults only for missing fields (use ?? to preserve falsy values like 0)
+    const normalized: Item = {
       ...item,
       type: item.type,
       weaponType: safeWeaponType,
       equipSlot: equipSlot as EquipmentSlotName | null,
       attackType: attackType as AttackType | null,
-      ...defaults,
+      // Inventory properties with defaults
+      quantity: item.quantity ?? 1,
+      stackable: item.stackable ?? false,
+      maxStackSize: item.maxStackSize ?? 1,
+      value: item.value ?? 0,
+      weight: item.weight ?? 0.1,
+      // Equipment properties with defaults
+      equipable: item.equipable ?? !!equipSlot,
+      // Item properties with defaults
+      description: item.description || item.name || "Item",
+      examine: item.examine || item.description || item.name || "Item",
+      // Optional properties
+      healAmount: item.healAmount,
+      attackSpeed: item.attackSpeed,
+      equippedModelPath: item.equippedModelPath,
+      bonuses: item.bonuses,
+      requirements: item.requirements,
     };
+    return normalized;
   }
 
   private normalizeNPC(npc: NPCData): NPCData {
