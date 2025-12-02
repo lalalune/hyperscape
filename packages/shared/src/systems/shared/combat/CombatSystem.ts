@@ -27,6 +27,7 @@ import { EntityManager } from "..";
 import { MobNPCSystem } from "..";
 import { SystemBase } from "..";
 import { Emotes } from "../../../data/playerEmotes";
+import { getItem } from "../../../data/items";
 import { worldToTile, tilesWithinRange } from "../movement/TileSystem";
 
 export interface CombatData {
@@ -1699,29 +1700,71 @@ export class CombatSystem extends SystemBase {
    * @returns Attack speed in game ticks (default: 4 ticks = 2.4 seconds)
    */
   private getAttackSpeedTicks(entityId: EntityID, entityType: string): number {
+    // For players, get equipment via EquipmentSystem
+    if (entityType === "player") {
+      const equipmentSystem = this.world.getSystem?.("equipment") as
+        | {
+            getPlayerEquipment?: (id: string) => {
+              weapon?: { item?: { attackSpeed?: number; id?: string } };
+            } | null;
+          }
+        | undefined;
+
+      if (equipmentSystem?.getPlayerEquipment) {
+        const equipment = equipmentSystem.getPlayerEquipment(String(entityId));
+
+        if (equipment?.weapon?.item) {
+          const weaponItem = equipment.weapon.item;
+
+          // First check if Item has attackSpeed directly
+          if (weaponItem.attackSpeed) {
+            console.log(
+              `[CombatSystem] Player ${entityId} weapon attackSpeed: ${weaponItem.attackSpeed} ticks`,
+            );
+            return weaponItem.attackSpeed;
+          }
+
+          // Fallback: look up from ITEMS map
+          if (weaponItem.id) {
+            const itemData = getItem(weaponItem.id);
+            if (itemData?.attackSpeed) {
+              console.log(
+                `[CombatSystem] Player ${entityId} ITEMS lookup "${weaponItem.id}": ${itemData.attackSpeed} ticks`,
+              );
+              return itemData.attackSpeed;
+            }
+          }
+        }
+      }
+
+      // Player with no weapon - use default
+      console.log(
+        `[CombatSystem] Player ${entityId} - no weapon or attackSpeed, using default`,
+      );
+      return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
+    }
+
+    // For mobs, check mob attack speed (stored in seconds in npcs.json)
     const entity = this.getEntity(String(entityId), entityType);
-    if (!entity) return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
-
-    // Check equipment for weapon attack speed (stored in ms)
-    const equipmentComponent = entity.getComponent("equipment");
-    if (equipmentComponent?.data?.weapon) {
-      const weapon = equipmentComponent.data.weapon as { attackSpeed?: number };
-      if (weapon.attackSpeed) {
-        return attackSpeedMsToTicks(weapon.attackSpeed);
+    if (entity) {
+      const mobEntity = entity as MobEntity;
+      if (mobEntity.getMobData) {
+        const mobData = mobEntity.getMobData();
+        const mobAttackSpeed = (mobData as { attackSpeed?: number })
+          .attackSpeed;
+        if (mobAttackSpeed) {
+          console.log(
+            `[CombatSystem] Mob ${entityId} attackSpeed: ${mobAttackSpeed}s`,
+          );
+          return attackSpeedSecondsToTicks(mobAttackSpeed);
+        }
       }
     }
 
-    // Check mob attack speed (stored in seconds)
-    const mobEntity = entity as MobEntity;
-    if (mobEntity.getMobData) {
-      const mobData = mobEntity.getMobData();
-      const mobAttackSpeed = (mobData as { attackSpeed?: number }).attackSpeed;
-      if (mobAttackSpeed) {
-        return attackSpeedSecondsToTicks(mobAttackSpeed);
-      }
-    }
-
-    // Default attack speed (4 ticks = 2.4 seconds for unarmed/standard weapons)
+    // Default attack speed (4 ticks = 2.4 seconds)
+    console.log(
+      `[CombatSystem] ${entityType} ${entityId} using DEFAULT: ${COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS} ticks`,
+    );
     return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
   }
 
