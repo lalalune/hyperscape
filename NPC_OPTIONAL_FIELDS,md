@@ -1,0 +1,1 @@
+There are fields in the npc.json that should be optional, for instance, nuetral npcs do not need combat stats.

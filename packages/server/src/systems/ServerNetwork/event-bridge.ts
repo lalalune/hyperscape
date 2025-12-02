@@ -18,9 +18,10 @@
  */
 
 import type { World } from "@hyperscape/shared";
-import { EventType } from "@hyperscape/shared";
+import { EventType, ALL_WORLD_AREAS } from "@hyperscape/shared";
 import type { BroadcastManager } from "./broadcast";
 import { BankRepository } from "../../database/repositories/BankRepository";
+import type { StoreSystem } from "@hyperscape/shared";
 import type pg from "pg";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../../database/schema";
@@ -81,6 +82,7 @@ export class EventBridge {
     this.setupPlayerEvents();
     this.setupDialogueEvents();
     this.setupBankingEvents();
+    this.setupStoreEvents();
   }
 
   /**
@@ -146,6 +148,16 @@ export class EventBridge {
         };
 
         this.broadcast.sendToPlayer(data.playerId, "inventoryUpdated", packet);
+      });
+
+      // Handle coin updates - send to specific player
+      this.world.on(EventType.INVENTORY_COINS_UPDATED, (payload: unknown) => {
+        const data = payload as { playerId: string; coins: number };
+        // Send coins update to the specific player
+        this.broadcast.sendToPlayer(data.playerId, "coinsUpdated", {
+          playerId: data.playerId,
+          coins: data.coins,
+        });
       });
 
       // Handle inventory data requests
@@ -434,15 +446,18 @@ export class EventBridge {
             nextNodeId: string;
             effect?: string;
           }>;
+          npcEntityId?: string;
         };
 
         if (data.playerId) {
+          // Pass npcEntityId for live position lookup on client (like bank does)
           this.broadcast.sendToPlayer(data.playerId, "dialogueStart", {
             npcId: data.npcId,
             npcName: data.npcName,
             nodeId: data.nodeId,
             text: data.text,
             responses: data.responses,
+            npcEntityId: data.npcEntityId,
           });
         }
       });
@@ -504,6 +519,7 @@ export class EventBridge {
         const data = payload as {
           playerId: string;
           npcId: string;
+          npcEntityId?: string;
         };
 
         if (!data.playerId) {
@@ -525,9 +541,10 @@ export class EventBridge {
           const items = await bankRepo.getPlayerBank(data.playerId);
 
           // Send bankState to player (same format as handleBankOpen in bank.ts)
+          // Use npcEntityId for distance checking if available (from dialogue), otherwise use spawn_bank
           this.broadcast.sendToPlayer(data.playerId, "bankState", {
             playerId: data.playerId,
-            bankId: "spawn_bank", // Universal bank ID
+            bankId: data.npcEntityId || "spawn_bank",
             items,
             maxSlots: 480,
           });
@@ -538,5 +555,99 @@ export class EventBridge {
     } catch (_err) {
       console.error("[EventBridge] Error setting up banking events:", _err);
     }
+  }
+
+  /**
+   * Setup store system event listeners
+   *
+   * Handles store open requests from dialogue effects.
+   * Looks up store data and sends storeState to client.
+   *
+   * @private
+   */
+  private setupStoreEvents(): void {
+    try {
+      this.world.on(EventType.STORE_OPEN_REQUEST, async (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          npcId: string;
+          storeId?: string;
+          npcEntityId?: string;
+        };
+
+        if (!data.playerId) {
+          console.warn("[EventBridge] STORE_OPEN_REQUEST missing playerId");
+          return;
+        }
+
+        // Get storeId - either from event or look up from NPC
+        let storeId = data.storeId;
+        if (!storeId) {
+          storeId = this.getStoreIdForNpc(data.npcId);
+        }
+
+        if (!storeId) {
+          console.warn(`[EventBridge] No store linked to NPC ${data.npcId}`);
+          return;
+        }
+
+        // Get store data from StoreSystem
+        const storeSystem = this.world.getSystem("store") as
+          | StoreSystem
+          | undefined;
+        const store = storeSystem?.getStore(storeId);
+
+        if (!store) {
+          console.warn(`[EventBridge] Store not found: ${storeId}`);
+          return;
+        }
+
+        // Send storeState packet to player (include npcEntityId for distance checking)
+        this.broadcast.sendToPlayer(data.playerId, "storeState", {
+          storeId: store.id,
+          storeName: store.name,
+          buybackRate: store.buybackRate,
+          items: store.items,
+          isOpen: true,
+          npcEntityId: data.npcEntityId,
+        });
+      });
+    } catch (_err) {
+      console.error("[EventBridge] Error setting up store events:", _err);
+    }
+  }
+
+  /**
+   * Look up storeId for an NPC from world areas
+   */
+  private getStoreIdForNpc(npcId: string): string | undefined {
+    // ALL_WORLD_AREAS is flat: Record<string, WorldArea>
+    for (const area of Object.values(ALL_WORLD_AREAS)) {
+      const typedArea = area as {
+        npcs?: Array<{ id: string; storeId?: string }>;
+      };
+      const npc = typedArea.npcs?.find((n) => n.id === npcId);
+      if (npc?.storeId) return npc.storeId;
+    }
+    return undefined;
+  }
+
+  /**
+   * Look up NPC position from world areas
+   */
+  private getNpcPositionFromWorldAreas(
+    npcId: string,
+  ): { x: number; y: number; z: number } | undefined {
+    for (const area of Object.values(ALL_WORLD_AREAS)) {
+      const typedArea = area as {
+        npcs?: Array<{
+          id: string;
+          position: { x: number; y: number; z: number };
+        }>;
+      };
+      const npc = typedArea.npcs?.find((n) => n.id === npcId);
+      if (npc?.position) return npc.position;
+    }
+    return undefined;
   }
 }

@@ -149,6 +149,9 @@ export { getItem } from "./data/items";
 // Export avatar options for character creation
 export { AVATAR_OPTIONS } from "./data/avatars";
 
+// Export world area data for server use
+export { ALL_WORLD_AREAS } from "./data/world-areas";
+
 // Export systems (organized by platform for tree-shaking)
 export { Entities } from "./systems/shared";
 export { Physics } from "./systems/shared";

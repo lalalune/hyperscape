@@ -82,6 +82,17 @@ export class InventorySystem extends SystemBase {
       );
       this.removeItem(data);
     });
+    // Handle remove item requests (e.g., from store sell)
+    this.subscribe<{ playerId: string; itemId: string; quantity: number }>(
+      EventType.INVENTORY_REMOVE_ITEM,
+      (data) => {
+        console.log(
+          "[InventorySystem] 📥 Received INVENTORY_REMOVE_ITEM:",
+          data,
+        );
+        this.removeItem(data);
+      },
+    );
     this.subscribe(EventType.ITEM_DROP, (data) => {
       this.dropItem(data);
     });
@@ -112,6 +123,16 @@ export class InventorySystem extends SystemBase {
     this.subscribe(EventType.INVENTORY_REMOVE_COINS, (data) => {
       this.handleRemoveCoins(data);
     });
+    // Handle add coins requests (e.g., from store sell)
+    this.subscribe<{ playerId: string; amount: number }>(
+      EventType.INVENTORY_ADD_COINS,
+      (data) => {
+        console.log(
+          `[InventorySystem] Adding ${data.amount} coins to player ${data.playerId}`,
+        );
+        this.updateCoins({ playerId: data.playerId, amount: data.amount });
+      },
+    );
     this.subscribe(EventType.INVENTORY_ITEM_ADDED, (data) => {
       console.log("[InventorySystem] 📥 Received INVENTORY_ITEM_ADDED:", data);
       this.handleInventoryAdd(data);
