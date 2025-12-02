@@ -85,47 +85,26 @@ This document tracks manifest inconsistencies and improvements needed for OSRS-s
 
 **File:** `packages/client/src/game/panels/InventoryPanel.tsx`
 
-**Current state in manifest (items.json):**
-```json
-{
-  "id": "bronze_sword",
-  "weight": 2
-}
-```
+**Status:** ✅ COMPLETED
 
-**Current state in client code (lines 323-328):**
+**What was fixed:**
+- Added `getItem` import from `@hyperscape/shared`
+- Updated weight calculation to use actual item weights from manifest
+- Default weight now matches DataManager (0.1) instead of hardcoded 0.5
+
+**Files modified:**
+1. `InventoryPanel.tsx` - Import and weight calculation
+
+**New code (lines 322-328):**
 ```typescript
-const totalWeight = items.reduce((sum, item) => {
-  // Estimate weight based on item type (since we don't have full item data)
-  const baseWeight = 0.5;
-  const quantity = item.quantity || 1;
-  return sum + baseWeight * quantity;
-}, 0);
-```
-
-**Problem:**
-- Client UI hardcodes `0.5kg` for ALL items instead of using the actual `weight` from the manifest
-- The server-side `InventorySystem.getTotalWeight()` correctly uses `itemData?.weight`
-- This causes inventory weight display to be inaccurate
-
-**Code references:**
-- `InventoryPanel.tsx:323-328`: hardcoded 0.5kg weight
-- `InventorySystem.ts:986-988`: correctly uses `itemData?.weight`
-- `DataManager.ts:265`: `weight: item.weight ?? 0.1` (default is 0.1, not 0.5)
-
-**Solution:** Fetch actual item weight from shared data:
-```typescript
-import { getItem } from "@hyperscape/shared";
-
+// Calculate stats using actual item weights from manifest
 const totalWeight = items.reduce((sum, item) => {
   const itemData = getItem(item.itemId);
-  const weight = itemData?.weight ?? 0.1;
+  const weight = itemData?.weight ?? 0.1; // Default matches DataManager
   const quantity = item.quantity || 1;
   return sum + weight * quantity;
 }, 0);
 ```
-
-**Status:** ❌ Not started
 
 ---
 
@@ -155,6 +134,6 @@ const totalWeight = items.reduce((sum, item) => {
 
 ### Priority
 1. ~~**HIGH:** Fix npcs.json attackSpeed bug~~ ✅ DONE
-2. **MEDIUM:** Fix client weight display to use manifest weights
+2. ~~**MEDIUM:** Fix client weight display to use manifest weights~~ ✅ DONE
 3. **LOW:** Rename stumpModelPath for clarity
 4. ~~**LOW:** Standardize npcs.json respawnTime to respawnTicks~~ ✅ DONE
