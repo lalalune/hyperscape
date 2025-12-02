@@ -600,7 +600,6 @@ export class EntityManager extends SystemBase {
       value: itemData?.value || data.value || 0,
       weight: itemData?.weight || this.getItemWeight(itemIdToUse),
       rarity: itemData?.rarity || ItemRarity.COMMON,
-      stats: (itemData?.stats as Record<string, number>) || {},
       requirements: {
         level: itemData?.requirements?.level || 1,
         attack:
@@ -939,7 +938,6 @@ export class EntityManager extends SystemBase {
       value: 0,
       weight: 0,
       rarity: ItemRarity.COMMON,
-      stats: {},
       requirements: {},
       effects: [],
       armorSlot: null,

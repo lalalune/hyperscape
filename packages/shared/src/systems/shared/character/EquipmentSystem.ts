@@ -1270,11 +1270,6 @@ export class EquipmentSystem extends SystemBase {
         modelPath: "",
         iconPath: "",
         healAmount: 0,
-        stats: {
-          attack: bonuses.attack || 0,
-          defense: bonuses.defense || 0,
-          strength: bonuses.strength || 0,
-        },
         bonuses: {
           attack: bonuses.attack,
           defense: bonuses.defense,

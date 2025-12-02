@@ -877,7 +877,7 @@ function setupAPI(world: World, systems: Systems): void {
         const inventoryItem = {
           id: `${playerId}_${"itemId" in item ? item.itemId : item.id}_${Date.now()}`,
           itemId: "itemId" in item ? item.itemId : item.id,
-          quantity: "quantity" in item ? item.quantity : 1,
+          quantity: ("quantity" in item ? item.quantity : 1) ?? 1,
           slot: -1, // Let inventory system assign slot
           metadata: null,
         };

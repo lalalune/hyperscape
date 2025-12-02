@@ -256,8 +256,8 @@ export class NPCSystem extends SystemBase {
       if (item) {
         storeItems[itemId] = {
           quantity: quantity,
-          buyPrice: Math.ceil(item.value * this.BUY_PRICE_MULTIPLIER),
-          sellPrice: Math.floor(item.value * this.SELL_PRICE_MULTIPLIER),
+          buyPrice: Math.ceil((item.value ?? 0) * this.BUY_PRICE_MULTIPLIER),
+          sellPrice: Math.floor((item.value ?? 0) * this.SELL_PRICE_MULTIPLIER),
         };
       }
     }
@@ -436,7 +436,7 @@ export class NPCSystem extends SystemBase {
     }
 
     const totalPrice =
-      Math.ceil(item.value * this.BUY_PRICE_MULTIPLIER) * quantity;
+      Math.ceil((item.value ?? 0) * this.BUY_PRICE_MULTIPLIER) * quantity;
 
     // Check if player has enough coins - delegate to inventory system
     const inventorySystem = getSystem<InventorySystem>(this.world, "inventory");
@@ -507,7 +507,7 @@ export class NPCSystem extends SystemBase {
     }
 
     const totalPrice =
-      Math.floor(item.value * this.SELL_PRICE_MULTIPLIER) * quantity;
+      Math.floor((item.value ?? 0) * this.SELL_PRICE_MULTIPLIER) * quantity;
 
     // Update store inventory (store buys back items)
     const currentStoreQuantity = this.storeInventory.get(itemId) || 0;

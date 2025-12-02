@@ -899,8 +899,8 @@ export class InventorySystem extends SystemBase {
           id: item.item.id,
           name: item.item.name,
           type: item.item.type,
-          stackable: item.item.stackable,
-          weight: item.item.weight,
+          stackable: item.item.stackable ?? false,
+          weight: item.item.weight ?? 0.1,
         },
       })),
       coins: inventory.coins,
@@ -1282,7 +1282,7 @@ export class InventorySystem extends SystemBase {
           id: inventoryItem.itemId,
           quantity: inventoryItem.quantity,
           name: item.name,
-          stackable: item.stackable,
+          stackable: item.stackable ?? false,
           slot: inventoryItem.slot.toString(),
         }
       : null;

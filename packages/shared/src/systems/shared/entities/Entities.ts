@@ -400,7 +400,6 @@ export class Entities extends SystemBase implements IEntities {
         value: value,
         weight: weight,
         rarity: (rarity as ItemRarity) || ItemRarity.COMMON,
-        stats: {},
         requirements: { level: 1 },
         effects: [],
         armorSlot: null,
