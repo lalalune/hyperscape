@@ -425,12 +425,12 @@ export class ResourceSystem extends SystemBase {
         respawnTime: resource.respawnTime,
         depleted: false,
         // Manifest-driven model config
-        stumpModelPath: this.getStumpModelPathForResource(
+        depletedModelPath: this.getDepletedModelPathForResource(
           resource.type,
           spawnPoint.subType,
         ),
         modelScale: this.getScaleForResource(resource.type, spawnPoint.subType),
-        stumpModelScale: this.getStumpScaleForResource(
+        depletedModelScale: this.getDepletedScaleForResource(
           resource.type,
           spawnPoint.subType,
         ),
@@ -479,10 +479,10 @@ export class ResourceSystem extends SystemBase {
   }
 
   /**
-   * Get stump model path for resource type from manifest
+   * Get depleted model path for resource type from manifest
    * Fails fast if manifest data not found
    */
-  private getStumpModelPathForResource(
+  private getDepletedModelPathForResource(
     type: string,
     subType?: string,
   ): string | null {
@@ -496,7 +496,7 @@ export class ResourceSystem extends SystemBase {
       );
     }
 
-    return manifestData.stumpModelPath;
+    return manifestData.depletedModelPath;
   }
 
   /**
@@ -518,10 +518,10 @@ export class ResourceSystem extends SystemBase {
   }
 
   /**
-   * Get stump scale for resource type from manifest
+   * Get depleted scale for resource type from manifest
    * Fails fast if manifest data not found
    */
-  private getStumpScaleForResource(type: string, subType?: string): number {
+  private getDepletedScaleForResource(type: string, subType?: string): number {
     const variantKey = subType ? `${type}_${subType}` : `${type}_normal`;
     const manifestData = getExternalResource(variantKey);
 
@@ -532,7 +532,7 @@ export class ResourceSystem extends SystemBase {
       );
     }
 
-    return manifestData.stumpScale;
+    return manifestData.depletedScale;
   }
 
   /**
