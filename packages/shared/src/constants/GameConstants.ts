@@ -271,7 +271,8 @@ export const ATTACK_STYLES = {
 
 // === WORLD AREAS (for content loading) ===
 export const WORLD_AREAS = {
-  LUMBRIDGE: "lumbridge",
+  CENTRAL_HAVEN: "central_haven",
+  // TODO: Rename these to original Hyperscape names
   VARROCK: "varrock",
   FALADOR: "falador",
   WILDERNESS: "wilderness",

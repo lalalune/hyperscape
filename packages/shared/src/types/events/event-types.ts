@@ -312,6 +312,12 @@ export enum EventType {
   STORE_TRANSACTION = "store:transaction",
   STORE_PLAYER_COINS = "store:player_coins",
 
+  // Dialogue System
+  DIALOGUE_START = "dialogue:start",
+  DIALOGUE_NODE_CHANGE = "dialogue:node_change",
+  DIALOGUE_RESPONSE = "dialogue:response",
+  DIALOGUE_END = "dialogue:end",
+
   // Resource System
   RESOURCE_SPAWNED = "resource:spawned",
   RESOURCE_GATHER = "resource:gather",

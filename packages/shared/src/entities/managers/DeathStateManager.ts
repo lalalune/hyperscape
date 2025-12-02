@@ -44,8 +44,8 @@ export class DeathStateManager {
       ...config,
       // Enforce defaults
       deathAnimationDuration: config.deathAnimationDuration || 4500, // 4.5 seconds
-      // Enforce minimum 15 second respawn time (RuneScape-style)
-      respawnTime: Math.max(config.respawnTime || 15000, 15000),
+      // Manifest is source of truth for respawnTime - no minimum enforcement
+      respawnTime: config.respawnTime || 15000,
     };
   }
 
@@ -67,24 +67,6 @@ export class DeathStateManager {
     this.deathTime = currentTime;
     this.isDead = true;
     this.sentDeathStateToClient = false;
-
-    const spawnDist = Math.sqrt(
-      Math.pow(currentPosition.x - this.config.spawnPoint.x, 2) +
-        Math.pow(currentPosition.z - this.config.spawnPoint.z, 2),
-    );
-
-    console.log("[DeathStateManager] 💀 Mob died:");
-    console.log(
-      `  Death position: (${this.deathPosition.x.toFixed(2)}, ${this.deathPosition.y.toFixed(2)}, ${this.deathPosition.z.toFixed(2)})`,
-    );
-    console.log(
-      `  Spawn position: (${this.config.spawnPoint.x.toFixed(2)}, ${this.config.spawnPoint.y.toFixed(2)}, ${this.config.spawnPoint.z.toFixed(2)})`,
-    );
-    console.log(`  Distance from spawn: ${spawnDist.toFixed(2)} units`);
-    console.log(
-      `  Respawn timer: ${this.config.respawnTime}ms (${(this.config.respawnTime / 1000).toFixed(1)}s)`,
-    );
-    console.log(`  Position LOCKED - will not move until respawn`);
   }
 
   /**
@@ -117,11 +99,8 @@ export class DeathStateManager {
    */
   private respawn(): void {
     if (!this.isDead) {
-      console.warn("[DeathStateManager] respawn() called but not dead");
       return;
     }
-
-    console.log(`[DeathStateManager] 🔄 Resetting death state for respawn`);
 
     // Reset death state
     this.isDead = false;

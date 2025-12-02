@@ -614,6 +614,32 @@ export interface EventMap {
     playerPosition?: Position3D;
   };
   [EventType.AGGRO_FORCE_TRIGGER]: { playerId: string };
+  [EventType.DIALOGUE_START]: {
+    playerId: string;
+    npcId: string;
+    npcName: string;
+    nodeId: string;
+    text: string;
+    responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+  };
+  [EventType.DIALOGUE_NODE_CHANGE]: {
+    playerId: string;
+    npcId: string;
+    nodeId: string;
+    text: string;
+    responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+  };
+  [EventType.DIALOGUE_RESPONSE]: {
+    playerId: string;
+    npcId: string;
+    responseIndex: number;
+    nextNodeId: string;
+    effect?: string;
+  };
+  [EventType.DIALOGUE_END]: {
+    playerId: string;
+    npcId: string;
+  };
 }
 
 /**

@@ -122,6 +122,31 @@ export function tilesAdjacent(a: TileCoord, b: TileCoord): boolean {
 }
 
 /**
+ * Check if two tiles are within a given range (Chebyshev distance)
+ * Used for combat range checks where mobs may have extended melee range.
+ *
+ * @param a - First tile
+ * @param b - Second tile
+ * @param rangeTiles - Maximum range in tiles (minimum 1)
+ * @returns true if tiles are within range but NOT the same tile
+ *
+ * OSRS Reference: Most melee is 1 tile, halberds are 2 tiles.
+ * Combat requires adjacent tiles - you cannot attack from the same tile.
+ */
+export function tilesWithinRange(
+  a: TileCoord,
+  b: TileCoord,
+  rangeTiles: number,
+): boolean {
+  const dx = Math.abs(a.x - b.x);
+  const dz = Math.abs(a.z - b.z);
+  const chebyshevDistance = Math.max(dx, dz);
+  // OSRS-style: Combat requires being on different tiles (adjacent, not overlapping)
+  const effectiveRange = Math.max(1, Math.floor(rangeTiles));
+  return chebyshevDistance <= effectiveRange && chebyshevDistance > 0;
+}
+
+/**
  * Check if two tiles are cardinally adjacent (Manhattan distance = 1)
  * This is N/S/E/W only, no diagonals.
  * In OSRS, melee attacks are cardinal-only (except salamanders).
@@ -193,6 +218,84 @@ export function getBestAdjacentTile(
   }
 
   return best;
+}
+
+/**
+ * Get the best tile to stand on when attacking a target, respecting combat range.
+ * OSRS-style: Mobs/players want to get within their combat range ASAP.
+ *
+ * For mobs: Walk to the CLOSEST tile that's within combatRange (get in range fast to attack)
+ * This is different from players who want to stay at MAX range for kiting.
+ *
+ * @param target - The tile the target is standing on
+ * @param attacker - The tile the attacker is currently on
+ * @param combatRange - Maximum combat range in tiles (1 = melee, 2+ = extended)
+ * @param isWalkable - Optional function to check if a tile is walkable
+ * @returns The best tile to stand on for combat, or null if none available
+ */
+export function getBestCombatRangeTile(
+  target: TileCoord,
+  attacker: TileCoord,
+  combatRange: number = 1,
+  isWalkable?: (tile: TileCoord) => boolean,
+): TileCoord | null {
+  const effectiveRange = Math.max(1, Math.floor(combatRange));
+
+  // If already in range, stay where we are
+  if (tilesWithinRange(attacker, target, effectiveRange)) {
+    return attacker;
+  }
+
+  // Generate all valid combat tiles around the target
+  // These are tiles at distance 1 to effectiveRange (not 0)
+  const validCombatTiles: Array<{
+    tile: TileCoord;
+    distToTarget: number;
+    distToAttacker: number;
+  }> = [];
+
+  for (let dx = -effectiveRange; dx <= effectiveRange; dx++) {
+    for (let dz = -effectiveRange; dz <= effectiveRange; dz++) {
+      const candidateTile: TileCoord = {
+        x: target.x + dx,
+        z: target.z + dz,
+      };
+
+      // Distance from candidate to target (Chebyshev)
+      const distToTarget = Math.max(Math.abs(dx), Math.abs(dz));
+
+      // Must be within range AND not on same tile (distance 1 to effectiveRange)
+      if (distToTarget >= 1 && distToTarget <= effectiveRange) {
+        // Check walkability if function provided
+        if (isWalkable && !isWalkable(candidateTile)) {
+          continue;
+        }
+
+        // Distance from attacker to this candidate tile
+        const attackerDx = candidateTile.x - attacker.x;
+        const attackerDz = candidateTile.z - attacker.z;
+        const distToAttacker = Math.max(
+          Math.abs(attackerDx),
+          Math.abs(attackerDz),
+        );
+
+        validCombatTiles.push({
+          tile: candidateTile,
+          distToTarget,
+          distToAttacker,
+        });
+      }
+    }
+  }
+
+  if (validCombatTiles.length === 0) {
+    return null;
+  }
+
+  // Mobs want to get in range ASAP: sort by closest to attacker (minimize walking)
+  validCombatTiles.sort((a, b) => a.distToAttacker - b.distToAttacker);
+
+  return validCombatTiles[0].tile;
 }
 
 /**

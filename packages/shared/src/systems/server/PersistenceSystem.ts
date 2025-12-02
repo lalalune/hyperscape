@@ -332,12 +332,6 @@ export class PersistenceSystem extends SystemBase {
     const duration = Date.now() - startTime;
     this.stats.totalSaves += saveCount;
     this.stats.lastSaveTime = Date.now();
-
-    if (saveCount > 0) {
-      this.logger.info(
-        `💾 Periodic save completed: ${saveCount} items in ${duration}ms`,
-      );
-    }
   }
 
   private async performChunkCleanup(): Promise<void> {

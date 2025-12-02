@@ -936,9 +936,6 @@ export class DatabaseSystem extends SystemBase {
    * @returns Empty array (use async method to get real data)
    */
   getInactiveChunks(_minutes: number): WorldChunkRow[] {
-    console.warn(
-      "[DatabaseSystem] getInactiveChunks called synchronously - use getInactiveChunksAsync instead",
-    );
     return [];
   }
 

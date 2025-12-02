@@ -18,13 +18,13 @@
 import type { Position3D } from "../../types";
 import {
   worldToTile,
-  tilesAdjacent,
+  tilesWithinRange,
 } from "../../systems/shared/movement/TileSystem";
 
 export interface AggroConfig {
   /** Range at which mob detects and chases players */
   aggroRange: number;
-  /** Range at which mob can attack target (legacy - melee now uses tile adjacency) */
+  /** Range at which mob can attack target (in meters, 1 tile = 1 meter) */
   combatRange: number;
 }
 
@@ -107,9 +107,7 @@ export class AggroManager {
    */
   getPlayer(
     playerId: string,
-    getPlayerFn: (
-      id: string,
-    ) => {
+    getPlayerFn: (id: string) => {
       id: string;
       position?: Position3D;
       node?: { position?: Position3D };
@@ -164,15 +162,14 @@ export class AggroManager {
   }
 
   /**
-   * Check if target is within combat range (melee = adjacent tile)
-   *
-   * OSRS-STYLE: Melee combat requires being on an adjacent tile
-   * (Chebyshev distance of 1, including diagonals)
+   * Check if target is within combat range
+   * Uses combatRange from config (in tiles, minimum 1)
    */
   isInCombatRange(mobPos: Position3D, targetPos: Position3D): boolean {
     const mobTile = worldToTile(mobPos.x, mobPos.z);
     const targetTile = worldToTile(targetPos.x, targetPos.z);
-    return tilesAdjacent(mobTile, targetTile);
+    const rangeTiles = Math.max(1, Math.floor(this.config.combatRange));
+    return tilesWithinRange(mobTile, targetTile, rangeTiles);
   }
 
   /**

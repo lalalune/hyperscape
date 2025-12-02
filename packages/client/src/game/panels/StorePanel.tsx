@@ -1,12 +1,13 @@
 /**
- * BankPanel - RuneScape-style bank interface
+ * StorePanel - RuneScape-style store interface
  *
  * Features:
- * - Scrollable grid display of bank items (480 slots)
- * - Right-click context menu with withdraw/deposit options (1, 5, 10, All, X)
- * - Left-click for quick withdraw/deposit 1
- * - All items stack in bank (MVP simplification)
- * - Shows alongside inventory when open
+ * - Grid display of store items for sale
+ * - Player inventory for selling items
+ * - Fixed prices (from stores.json manifest)
+ * - Buyback at 50% of item value
+ * - Left-click to buy/sell 1
+ * - Right-click context menu for buy/sell options (1, 5, 10, All, X)
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -14,10 +15,14 @@ import { createPortal } from "react-dom";
 import type { ClientWorld, InventorySlotItem } from "../../types";
 import { COLORS } from "../../constants";
 
-interface BankItem {
+interface StoreItem {
+  id: string;
   itemId: string;
-  quantity: number;
-  slot: number;
+  name: string;
+  price: number;
+  stockQuantity: number;
+  description?: string;
+  category?: string;
 }
 
 type InventorySlotViewItem = Pick<
@@ -25,13 +30,15 @@ type InventorySlotViewItem = Pick<
   "slot" | "itemId" | "quantity"
 >;
 
-interface BankPanelProps {
-  items: BankItem[];
-  maxSlots: number;
+interface StorePanelProps {
+  storeId: string;
+  storeName: string;
+  buybackRate: number;
+  items: StoreItem[];
   world: ClientWorld;
   inventory: InventorySlotViewItem[];
   coins: number;
-  bankId: string;
+  npcEntityId?: string;
   onClose: () => void;
 }
 
@@ -41,12 +48,14 @@ interface ContextMenuState {
   y: number;
   itemId: string;
   quantity: number;
-  type: "bank" | "inventory";
+  price: number;
+  type: "store" | "inventory";
+  itemName: string;
 }
 
-const BANK_SLOTS_PER_ROW = 10;
-const BANK_VISIBLE_ROWS = 8; // Height of visible area to match inventory
-const BANK_SCROLL_HEIGHT = BANK_VISIBLE_ROWS * 45; // 45px per row (44px + gap)
+const STORE_SLOTS_PER_ROW = 8;
+const STORE_VISIBLE_ROWS = 5;
+const STORE_SCROLL_HEIGHT = STORE_VISIBLE_ROWS * 55;
 
 const INV_SLOTS_PER_ROW = 4;
 const INV_ROWS = 7;
@@ -87,6 +96,8 @@ function getItemIcon(itemId: string): string {
   if (id.includes("bone")) return "🦴";
   if (id.includes("hatchet") || id.includes("axe")) return "🪓";
   if (id.includes("pickaxe")) return "⛏️";
+  if (id.includes("fishing") || id.includes("rod")) return "🎣";
+  if (id.includes("tinderbox")) return "🔥";
   return "📦";
 }
 
@@ -108,6 +119,15 @@ function formatQuantity(quantity: number): string {
 }
 
 /**
+ * Format price for display
+ */
+function formatPrice(price: number): string {
+  if (price >= 1000000) return `${(price / 1000000).toFixed(1)}M`;
+  if (price >= 1000) return `${Math.floor(price / 1000)}K`;
+  return String(price);
+}
+
+/**
  * Context Menu Component
  */
 function ContextMenu({
@@ -123,31 +143,26 @@ function ContextMenu({
   const [customAmount, setCustomAmount] = useState("");
   const menuRef = React.useRef<HTMLDivElement>(null);
 
-  const actionLabel = menu.type === "bank" ? "Withdraw" : "Deposit";
+  const actionLabel = menu.type === "store" ? "Buy" : "Sell";
 
   const handleCustomSubmit = () => {
     const amount = parseInt(customAmount, 10);
     if (amount > 0) {
-      onAction(menu.type === "bank" ? "withdraw" : "deposit", amount);
+      onAction(menu.type === "store" ? "buy" : "sell", amount);
     }
     onClose();
   };
 
-  // Close on click outside - only when menu is visible
-  // Use capture phase to catch events BEFORE stopPropagation in BankPanel
   useEffect(() => {
     if (!menu.visible) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      // Check if click is outside the menu
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
 
-    // Add listener on next frame to avoid immediate trigger from right-click
     requestAnimationFrame(() => {
-      // Use capture: true to catch events before they're stopped by BankPanel
       document.addEventListener("mousedown", handleClickOutside, true);
     });
 
@@ -158,15 +173,20 @@ function ContextMenu({
 
   if (!menu.visible) return null;
 
+  const maxQuantity =
+    menu.type === "store"
+      ? menu.quantity === -1
+        ? 9999
+        : menu.quantity
+      : menu.quantity;
+
   const menuOptions = [
     { label: `${actionLabel} 1`, amount: 1 },
     { label: `${actionLabel} 5`, amount: 5 },
     { label: `${actionLabel} 10`, amount: 10 },
-    { label: `${actionLabel} All`, amount: menu.quantity },
-    { label: `${actionLabel} X`, amount: -1 }, // -1 indicates custom
+    { label: `${actionLabel} X`, amount: -1 },
   ];
 
-  // Use portal to render menu directly to body, avoiding transform issues
   return createPortal(
     <div
       ref={menuRef}
@@ -186,12 +206,33 @@ function ContextMenu({
           boxShadow: "0 4px 12px rgba(0, 0, 0, 0.8)",
         }}
       >
+        {/* Item name header */}
+        <div
+          className="px-3 py-1 text-xs font-bold border-b"
+          style={{
+            color: COLORS.ACCENT,
+            borderColor: "rgba(139, 69, 19, 0.4)",
+          }}
+        >
+          {menu.itemName}
+        </div>
+        {/* Price info */}
+        <div
+          className="px-3 py-1 text-xs border-b"
+          style={{
+            color: "#fbbf24",
+            borderColor: "rgba(139, 69, 19, 0.4)",
+          }}
+        >
+          {menu.type === "store" ? "Price" : "Sell"}: {formatPrice(menu.price)}{" "}
+          gp
+        </div>
         {showCustomInput ? (
           <div className="px-2 py-2">
             <input
               type="number"
               min="1"
-              max={menu.quantity}
+              max={maxQuantity}
               value={customAmount}
               onChange={(e) => setCustomAmount(e.target.value)}
               onKeyDown={(e) => {
@@ -206,7 +247,7 @@ function ContextMenu({
                 color: "#fff",
                 outline: "none",
               }}
-              placeholder={`1-${menu.quantity}`}
+              placeholder={`1-${maxQuantity}`}
             />
             <div className="flex gap-1 mt-1">
               <button
@@ -235,7 +276,7 @@ function ContextMenu({
           menuOptions.map((option, idx) => (
             <button
               key={idx}
-              className="block px-3 py-1 text-left text-xs transition-colors whitespace-nowrap"
+              className="block w-full px-3 py-1 text-left text-xs transition-colors whitespace-nowrap"
               style={{
                 color: "rgba(242, 208, 138, 0.9)",
                 background: "transparent",
@@ -254,8 +295,8 @@ function ContextMenu({
                   setShowCustomInput(true);
                 } else {
                   onAction(
-                    menu.type === "bank" ? "withdraw" : "deposit",
-                    Math.min(option.amount, menu.quantity),
+                    menu.type === "store" ? "buy" : "sell",
+                    Math.min(option.amount, maxQuantity),
                   );
                   onClose();
                 }
@@ -271,39 +312,43 @@ function ContextMenu({
   );
 }
 
-// Maximum distance from bank before auto-closing (in tiles, Chebyshev/OSRS-style)
-const BANK_MAX_DISTANCE = 2;
+// Maximum distance from NPC before auto-closing (in tiles, Chebyshev/OSRS-style)
+const STORE_MAX_DISTANCE = 2;
 
-export function BankPanel({
+export function StorePanel({
+  storeId,
+  storeName,
+  buybackRate,
   items,
-  maxSlots,
   world,
   inventory,
   coins,
-  bankId,
+  npcEntityId,
   onClose,
-}: BankPanelProps) {
+}: StorePanelProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     visible: false,
     x: 0,
     y: 0,
     itemId: "",
     quantity: 0,
-    type: "bank",
+    price: 0,
+    type: "store",
+    itemName: "",
   });
 
   // Track consecutive entity lookup failures
   const entityLookupFailures = useRef(0);
 
-  // Auto-close when player moves away from bank
+  // Auto-close when player moves away from NPC (entity lookup like BankPanel)
   useEffect(() => {
     const checkDistance = () => {
       // Get player entity (local player)
       const player = world.entities?.player;
-      // Get bank entity by ID
-      const bank = world.entities?.get?.(bankId);
+      // Get NPC entity by ID (like bank does)
+      const npc = world.entities?.get?.(npcEntityId || "");
 
-      if (!player || !bank) {
+      if (!player || !npc) {
         entityLookupFailures.current++;
         if (entityLookupFailures.current >= 3) {
           onClose(); // Entity consistently not found - close panel
@@ -313,9 +358,9 @@ export function BankPanel({
 
       // Get positions - try different common position properties
       const playerPos = player.root?.position ?? player.position;
-      const bankPos = bank.root?.position ?? bank.position;
+      const npcPos = npc.root?.position ?? npc.position;
 
-      if (!playerPos || !bankPos) {
+      if (!playerPos || !npcPos) {
         entityLookupFailures.current++;
         if (entityLookupFailures.current >= 3) {
           onClose();
@@ -326,12 +371,12 @@ export function BankPanel({
       // Success - reset failure counter
       entityLookupFailures.current = 0;
 
-      const dx = playerPos.x - bankPos.x;
-      const dz = playerPos.z - bankPos.z;
+      const dx = playerPos.x - npcPos.x;
+      const dz = playerPos.z - npcPos.z;
       // Chebyshev distance (OSRS-style square range, not circular)
       const distance = Math.max(Math.abs(dx), Math.abs(dz));
 
-      if (distance > BANK_MAX_DISTANCE) {
+      if (distance > STORE_MAX_DISTANCE) {
         onClose();
       }
     };
@@ -341,10 +386,7 @@ export function BankPanel({
     const interval = setInterval(checkDistance, 200);
 
     return () => clearInterval(interval);
-  }, [world.entities, bankId, onClose]);
-
-  // Calculate total rows needed for all bank slots
-  const totalBankRows = Math.ceil(maxSlots / BANK_SLOTS_PER_ROW);
+  }, [world.entities, npcEntityId, onClose]);
 
   // Convert inventory array to slot-indexed array
   const inventorySlots: (InventorySlotViewItem | null)[] = Array(28).fill(null);
@@ -354,71 +396,83 @@ export function BankPanel({
     }
   });
 
-  const handleWithdraw = useCallback(
+  const handleBuy = useCallback(
     (itemId: string, quantity: number) => {
       if (world.network?.send) {
-        world.network.send("bankWithdraw", { itemId, quantity });
+        world.network.send("storeBuy", { storeId, itemId, quantity });
       }
     },
-    [world.network],
+    [world.network, storeId],
   );
 
-  const handleDeposit = useCallback(
+  const handleSell = useCallback(
     (itemId: string, quantity: number) => {
       if (world.network?.send) {
-        world.network.send("bankDeposit", { itemId, quantity });
+        world.network.send("storeSell", { storeId, itemId, quantity });
       }
     },
-    [world.network],
+    [world.network, storeId],
   );
-
-  const handleDepositAll = () => {
-    // Deposit all inventory items in a single batch operation
-    if (world.network?.send) {
-      world.network.send("bankDepositAll", {});
-    }
-  };
 
   const handleContextMenuAction = useCallback(
     (action: string, quantity: number) => {
-      if (action === "withdraw") {
-        handleWithdraw(contextMenu.itemId, quantity);
-      } else if (action === "deposit") {
-        handleDeposit(contextMenu.itemId, quantity);
+      if (action === "buy") {
+        handleBuy(contextMenu.itemId, quantity);
+      } else if (action === "sell") {
+        handleSell(contextMenu.itemId, quantity);
       }
     },
-    [contextMenu.itemId, handleWithdraw, handleDeposit],
+    [contextMenu.itemId, handleBuy, handleSell],
   );
 
   const closeContextMenu = useCallback(() => {
     setContextMenu((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  const openContextMenu = (
-    e: React.MouseEvent,
-    itemId: string,
-    quantity: number,
-    type: "bank" | "inventory",
-  ) => {
+  const openStoreContextMenu = (e: React.MouseEvent, item: StoreItem) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // For inventory items, calculate total count across ALL slots
-    // (since inventory items don't stack - each is in its own slot with qty=1)
-    let totalQuantity = quantity;
-    if (type === "inventory") {
-      totalQuantity = inventory
-        .filter((item) => item && item.itemId === itemId)
-        .reduce((sum, item) => sum + (item.quantity || 1), 0);
-    }
 
     setContextMenu({
       visible: true,
       x: e.clientX,
       y: e.clientY,
-      itemId,
+      itemId: item.itemId,
+      quantity: item.stockQuantity,
+      price: item.price,
+      type: "store",
+      itemName: item.name,
+    });
+  };
+
+  const openInventoryContextMenu = (
+    e: React.MouseEvent,
+    item: InventorySlotViewItem,
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Calculate total quantity of this item in inventory
+    const totalQuantity = inventory
+      .filter((i) => i && i.itemId === item.itemId)
+      .reduce((sum, i) => sum + (i.quantity || 1), 0);
+
+    // Calculate sell price (buybackRate * base value)
+    // For now, estimate from store items or use a flat rate
+    const storeItem = items.find((si) => si.itemId === item.itemId);
+    const sellPrice = storeItem
+      ? Math.floor(storeItem.price * buybackRate)
+      : Math.floor(10 * buybackRate); // Default 10 gp base value
+
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      itemId: item.itemId,
       quantity: totalQuantity,
-      type,
+      price: sellPrice,
+      type: "inventory",
+      itemName: formatItemName(item.itemId),
     });
   };
 
@@ -433,24 +487,22 @@ export function BankPanel({
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      {/* Custom scrollbar styles for webkit browsers */}
       <style>{`
-        .bank-scrollbar::-webkit-scrollbar {
+        .store-scrollbar::-webkit-scrollbar {
           width: 8px;
         }
-        .bank-scrollbar::-webkit-scrollbar-track {
+        .store-scrollbar::-webkit-scrollbar-track {
           background: rgba(0, 0, 0, 0.3);
           border-radius: 4px;
         }
-        .bank-scrollbar::-webkit-scrollbar-thumb {
+        .store-scrollbar::-webkit-scrollbar-thumb {
           background: rgba(139, 69, 19, 0.6);
           border-radius: 4px;
         }
-        .bank-scrollbar::-webkit-scrollbar-thumb:hover {
+        .store-scrollbar::-webkit-scrollbar-thumb:hover {
           background: rgba(139, 69, 19, 0.8);
         }
       `}</style>
-      {/* Context Menu */}
       <ContextMenu
         menu={contextMenu}
         onAction={handleContextMenuAction}
@@ -458,7 +510,7 @@ export function BankPanel({
       />
 
       <div className="flex gap-2">
-        {/* Bank Panel - Left Side */}
+        {/* Store Panel - Left Side */}
         <div
           className="rounded-lg shadow-xl"
           style={{
@@ -482,8 +534,8 @@ export function BankPanel({
               className="text-lg font-bold flex items-center gap-2"
               style={{ color: COLORS.ACCENT }}
             >
-              <span>🏦</span>
-              <span>Bank</span>
+              <span>🏪</span>
+              <span>{storeName}</span>
             </h2>
             <button
               onClick={onClose}
@@ -503,97 +555,73 @@ export function BankPanel({
             </button>
           </div>
 
-          {/* Scrollable Item Grid */}
+          {/* Store Items Grid */}
           <div
-            className="p-3 overflow-y-auto overflow-x-hidden bank-scrollbar"
+            className="p-3 overflow-y-auto overflow-x-hidden store-scrollbar"
             style={{
-              maxHeight: `${BANK_SCROLL_HEIGHT}px`,
+              maxHeight: `${STORE_SCROLL_HEIGHT}px`,
               scrollbarWidth: "thin",
               scrollbarColor: "rgba(139, 69, 19, 0.6) rgba(0, 0, 0, 0.3)",
             }}
           >
             <div
-              className="grid gap-1"
+              className="grid gap-2"
               style={{
-                gridTemplateColumns: `repeat(${BANK_SLOTS_PER_ROW}, 44px)`,
+                gridTemplateColumns: `repeat(${STORE_SLOTS_PER_ROW}, 50px)`,
               }}
             >
-              {Array.from({ length: maxSlots }).map((_, idx) => {
-                const slotIndex = idx;
-                const item = items.find((i) => i.slot === slotIndex);
-
-                return (
-                  <div
-                    key={slotIndex}
-                    className={`
-                      w-11 h-11 rounded
-                      flex items-center justify-center relative
-                      transition-colors duration-150
-                      ${item ? "cursor-pointer" : ""}
-                    `}
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="w-[50px] h-[50px] rounded flex flex-col items-center justify-center relative cursor-pointer transition-colors duration-150"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)",
+                    border: "1px solid rgba(242, 208, 138, 0.3)",
+                  }}
+                  title={`${item.name} - ${item.price} gp${item.stockQuantity !== -1 ? ` (${item.stockQuantity} in stock)` : ""}`}
+                  onClick={() => handleBuy(item.itemId, 1)}
+                  onContextMenu={(e) => openStoreContextMenu(e, item)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(135deg, rgba(242, 208, 138, 0.2) 0%, rgba(242, 208, 138, 0.1) 100%)";
+                    e.currentTarget.style.borderColor =
+                      "rgba(242, 208, 138, 0.5)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)";
+                    e.currentTarget.style.borderColor =
+                      "rgba(242, 208, 138, 0.3)";
+                  }}
+                >
+                  <span className="text-xl select-none">
+                    {getItemIcon(item.itemId)}
+                  </span>
+                  {/* Price */}
+                  <span
+                    className="absolute bottom-0 right-0.5 text-[9px] font-bold"
                     style={{
-                      background: item
-                        ? "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)"
-                        : "rgba(0, 0, 0, 0.4)",
-                      border: item
-                        ? "1px solid rgba(242, 208, 138, 0.3)"
-                        : "1px solid rgba(242, 208, 138, 0.1)",
-                    }}
-                    title={
-                      item
-                        ? `${formatItemName(item.itemId)} x${item.quantity}`
-                        : "Empty slot"
-                    }
-                    onClick={() => item && handleWithdraw(item.itemId, 1)}
-                    onContextMenu={(e) => {
-                      if (item) {
-                        openContextMenu(e, item.itemId, item.quantity, "bank");
-                      }
-                    }}
-                    onMouseEnter={(e) => {
-                      if (item) {
-                        e.currentTarget.style.background =
-                          "linear-gradient(135deg, rgba(242, 208, 138, 0.2) 0%, rgba(242, 208, 138, 0.1) 100%)";
-                        e.currentTarget.style.borderColor =
-                          "rgba(242, 208, 138, 0.5)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (item) {
-                        e.currentTarget.style.background =
-                          "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)";
-                        e.currentTarget.style.borderColor =
-                          "rgba(242, 208, 138, 0.3)";
-                      }
+                      color: "#fbbf24",
+                      textShadow: "1px 1px 1px black, -1px -1px 1px black",
                     }}
                   >
-                    {item && (
-                      <>
-                        <span className="text-xl select-none">
-                          {getItemIcon(item.itemId)}
-                        </span>
-                        {item.quantity > 1 && (
-                          <span
-                            className="absolute bottom-0 right-0.5 text-[10px] font-bold"
-                            style={{
-                              color:
-                                item.quantity >= 10000000
-                                  ? "#00ff00"
-                                  : item.quantity >= 100000
-                                    ? "#ffffff"
-                                    : "#ffff00",
-                              textShadow:
-                                "1px 1px 1px black, -1px -1px 1px black",
-                            }}
-                          >
-                            {formatQuantity(item.quantity)}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
+                    {formatPrice(item.price)}
+                  </span>
+                  {/* Stock indicator */}
+                  {item.stockQuantity !== -1 && item.stockQuantity < 10 && (
+                    <span
+                      className="absolute top-0 left-0.5 text-[8px] font-bold"
+                      style={{
+                        color: item.stockQuantity === 0 ? "#ff6666" : "#ffffff",
+                        textShadow: "1px 1px 1px black",
+                      }}
+                    >
+                      {item.stockQuantity}
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
@@ -609,15 +637,13 @@ export function BankPanel({
               className="flex justify-between items-center text-xs"
               style={{ color: "rgba(242, 208, 138, 0.6)" }}
             >
-              <span>
-                {items.length} / {maxSlots} slots
-              </span>
-              <span>Left: -1 | Right: Options</span>
+              <span>Sells at {Math.floor(buybackRate * 100)}% value</span>
+              <span>Left: Buy 1 | Right: Options</span>
             </div>
           </div>
         </div>
 
-        {/* Inventory Panel - Right Side (Bank Mode) */}
+        {/* Inventory Panel - Right Side */}
         <div
           className="rounded-lg shadow-xl"
           style={{
@@ -663,11 +689,11 @@ export function BankPanel({
                     <div
                       key={idx}
                       className={`
-                      w-[42px] h-[42px] rounded
-                      flex items-center justify-center relative
-                      transition-colors duration-150
-                      ${item ? "cursor-pointer" : ""}
-                    `}
+                        w-[42px] h-[42px] rounded
+                        flex items-center justify-center relative
+                        transition-colors duration-150
+                        ${item ? "cursor-pointer" : ""}
+                      `}
                       style={{
                         background: item
                           ? "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)"
@@ -678,26 +704,21 @@ export function BankPanel({
                       }}
                       title={
                         item
-                          ? `${formatItemName(item.itemId)} x${item.quantity} - Click to deposit`
+                          ? `${formatItemName(item.itemId)} x${item.quantity} - Click to sell`
                           : "Empty slot"
                       }
-                      onClick={() => item && handleDeposit(item.itemId, 1)}
+                      onClick={() => item && handleSell(item.itemId, 1)}
                       onContextMenu={(e) => {
                         if (item) {
-                          openContextMenu(
-                            e,
-                            item.itemId,
-                            item.quantity || 1,
-                            "inventory",
-                          );
+                          openInventoryContextMenu(e, item);
                         }
                       }}
                       onMouseEnter={(e) => {
                         if (item) {
                           e.currentTarget.style.background =
-                            "linear-gradient(135deg, rgba(100, 200, 100, 0.2) 0%, rgba(100, 200, 100, 0.1) 100%)";
+                            "linear-gradient(135deg, rgba(200, 150, 100, 0.2) 0%, rgba(200, 150, 100, 0.1) 100%)";
                           e.currentTarget.style.borderColor =
-                            "rgba(100, 200, 100, 0.5)";
+                            "rgba(200, 150, 100, 0.5)";
                         }
                       }}
                       onMouseLeave={(e) => {
@@ -735,30 +756,6 @@ export function BankPanel({
             </div>
           </div>
 
-          {/* Deposit All Button */}
-          <div className="px-2 pb-2">
-            <button
-              onClick={handleDepositAll}
-              className="w-full py-2 rounded text-sm font-bold transition-colors"
-              style={{
-                background:
-                  "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(139, 69, 19, 0.5) 100%)",
-                color: COLORS.ACCENT,
-                border: "1px solid rgba(139, 69, 19, 0.8)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background =
-                  "linear-gradient(180deg, rgba(139, 69, 19, 0.9) 0%, rgba(139, 69, 19, 0.7) 100%)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background =
-                  "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(139, 69, 19, 0.5) 100%)";
-              }}
-            >
-              Deposit All
-            </button>
-          </div>
-
           {/* Coins */}
           <div
             className="px-3 py-2 rounded-b-lg flex items-center justify-between"
@@ -769,7 +766,7 @@ export function BankPanel({
           >
             <span className="text-sm">💰</span>
             <span className="text-sm font-bold" style={{ color: "#fbbf24" }}>
-              {coins.toLocaleString()}
+              {coins.toLocaleString()} gp
             </span>
           </div>
 
@@ -785,7 +782,7 @@ export function BankPanel({
               className="text-[10px]"
               style={{ color: "rgba(242, 208, 138, 0.5)" }}
             >
-              Left: +1 | Right: Options
+              Left: Sell 1 | Right: Options
             </span>
           </div>
         </div>

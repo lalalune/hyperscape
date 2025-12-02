@@ -1245,8 +1245,6 @@ export class ClientNetwork extends SystemBase {
     position?: { x: number; y: number; z: number };
     depleted?: boolean;
   }) => {
-    console.log("[ClientNetwork] 🪵 Resource depleted:", data.resourceId);
-
     // Update the ResourceEntity visual
     const entity = this.world.entities.get(data.resourceId);
     if (
@@ -1273,8 +1271,6 @@ export class ClientNetwork extends SystemBase {
     position?: { x: number; y: number; z: number };
     depleted?: boolean;
   }) => {
-    console.log("[ClientNetwork] 🌳 Resource respawned:", data.resourceId);
-
     // Update the ResourceEntity visual
     const entity = this.world.entities.get(data.resourceId);
     if (
@@ -1314,10 +1310,50 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.INVENTORY_UPDATED, data);
   };
 
+  onCoinsUpdated = (data: { playerId: string; coins: number }) => {
+    // Update cached inventory coins
+    if (this.lastInventoryByPlayerId[data.playerId]) {
+      this.lastInventoryByPlayerId[data.playerId].coins = data.coins;
+    }
+    // Emit event for UI to update coin display
+    this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+      playerId: data.playerId,
+      coins: data.coins,
+    });
+  };
+
   onEquipmentUpdated = (data: { playerId: string; equipment: any }) => {
     // Cache latest equipment for late-mounting UI
     this.lastEquipmentByPlayerId = this.lastEquipmentByPlayerId || {};
     this.lastEquipmentByPlayerId[data.playerId] = data.equipment;
+
+    // CRITICAL: Update local player's equipment so systems can access it
+    // Equipment format from server: { weapon: { item: Item, itemId: string }, ... }
+    // Local player format: { weapon: Item | null, ... }
+    const localPlayer = this.world.getPlayer?.();
+    if (localPlayer && data.playerId === localPlayer.id) {
+      const rawEq = data.equipment;
+      if (rawEq && "equipment" in localPlayer) {
+        const playerWithEquipment = localPlayer as unknown as {
+          equipment: {
+            weapon: unknown;
+            shield: unknown;
+            helmet: unknown;
+            body: unknown;
+            legs: unknown;
+            arrows: unknown;
+          };
+        };
+        playerWithEquipment.equipment = {
+          weapon: rawEq.weapon?.item || null,
+          shield: rawEq.shield?.item || null,
+          helmet: rawEq.helmet?.item || null,
+          body: rawEq.body?.item || null,
+          legs: rawEq.legs?.item || null,
+          arrows: rawEq.arrows?.item || null,
+        };
+      }
+    }
 
     // Re-emit as UI update event for Sidebar to handle
     this.world.emit(EventType.UI_UPDATE, {
@@ -1374,6 +1410,85 @@ export class ClientNetwork extends SystemBase {
         maxSlots: data.maxSlots,
         isOpen: true,
       },
+    });
+  };
+
+  // --- Store state handler ---
+  onStoreState = (data: {
+    storeId: string;
+    storeName: string;
+    buybackRate: number;
+    items: Array<{
+      id: string;
+      itemId: string;
+      name: string;
+      price: number;
+      stockQuantity: number;
+      description?: string;
+      category?: string;
+    }>;
+    isOpen: boolean;
+    npcEntityId?: string;
+  }) => {
+    // Emit as UI update for StorePanel to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "store",
+      data: {
+        storeId: data.storeId,
+        storeName: data.storeName,
+        buybackRate: data.buybackRate,
+        items: data.items,
+        isOpen: data.isOpen,
+        npcEntityId: data.npcEntityId,
+      },
+    });
+  };
+
+  // --- Dialogue handlers ---
+  onDialogueStart = (data: {
+    npcId: string;
+    npcName: string;
+    nodeId: string;
+    text: string;
+    responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+    npcEntityId?: string;
+  }) => {
+    // Emit as UI update for DialoguePanel to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogue",
+      data: {
+        npcId: data.npcId,
+        npcName: data.npcName,
+        text: data.text,
+        responses: data.responses,
+        npcEntityId: data.npcEntityId,
+      },
+    });
+  };
+
+  onDialogueNodeChange = (data: {
+    npcId: string;
+    nodeId: string;
+    text: string;
+    responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+  }) => {
+    // Emit as UI update for DialoguePanel to handle - preserve npcName from previous state
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogue",
+      data: {
+        npcId: data.npcId,
+        npcName: "", // Will be preserved by UI from existing state
+        text: data.text,
+        responses: data.responses,
+      },
+    });
+  };
+
+  onDialogueEnd = (data: { npcId: string }) => {
+    // Emit UI update to close dialogue panel
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogueEnd",
+      data: { npcId: data.npcId },
     });
   };
 
@@ -1530,10 +1645,6 @@ export class ClientNetwork extends SystemBase {
     // Only show death screen for local player
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
-      console.log(
-        "[ClientNetwork] Received deathScreen, forwarding to UI:",
-        data,
-      );
       // Forward to local event system for death screen display
       this.world.emit(EventType.UI_DEATH_SCREEN, {
         message: data.message,
@@ -1547,9 +1658,6 @@ export class ClientNetwork extends SystemBase {
     // Only close death screen for local player
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
-      console.log(
-        "[ClientNetwork] Received deathScreenClose, forwarding to UI",
-      );
       // Forward to local event system to close death screen
       this.world.emit(EventType.UI_DEATH_SCREEN_CLOSE, {
         playerId: data.playerId,
@@ -1565,9 +1673,6 @@ export class ClientNetwork extends SystemBase {
     // Only handle for local player
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
-      console.log(
-        `[ClientNetwork] Received playerSetDead for local player, isDead:${data.isDead}, forwarding to event system`,
-      );
       // Forward to local event system so PlayerLocal can handle it
       this.world.emit(EventType.PLAYER_SET_DEAD, {
         playerId: data.playerId,
@@ -1586,9 +1691,6 @@ export class ClientNetwork extends SystemBase {
     // Only handle for local player
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
-      console.log(
-        "[ClientNetwork] Received playerRespawned for local player, forwarding to event system",
-      );
       // Forward to local event system so PlayerLocal can handle it
       this.world.emit(EventType.PLAYER_RESPAWNED, {
         playerId: data.playerId,
@@ -1609,9 +1711,6 @@ export class ClientNetwork extends SystemBase {
     // Only handle for local player
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
-      console.log(
-        "[ClientNetwork] Received attackStyleChanged for local player, forwarding to event system",
-      );
       // Forward to local event system so UI can update
       this.world.emit(EventType.UI_ATTACK_STYLE_CHANGED, data);
     }
@@ -1626,9 +1725,6 @@ export class ClientNetwork extends SystemBase {
     // Only handle for local player
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
-      console.log(
-        "[ClientNetwork] Received attackStyleUpdate for local player, forwarding to event system",
-      );
       // Forward to local event system so UI can update
       this.world.emit(EventType.UI_ATTACK_STYLE_UPDATE, data);
     }
@@ -1708,23 +1804,14 @@ export class ClientNetwork extends SystemBase {
     playerId: string;
     position: [number, number, number];
   }) => {
-    console.log(`[ClientNetwork] Received playerTeleport packet:`, data);
     const player = this.world.entities.player;
-    console.log(
-      `[ClientNetwork] Player entity exists:`,
-      !!player,
-      `Is PlayerLocal:`,
-      player instanceof PlayerLocal,
-    );
     if (player instanceof PlayerLocal) {
       const pos = _v3_1.set(
         data.position[0],
         data.position[1],
         data.position[2],
       );
-      console.log(`[ClientNetwork] Teleporting player to:`, pos);
       player.teleport(pos);
-      console.log(`[ClientNetwork] Teleport complete`);
     }
   };
 
@@ -1836,6 +1923,7 @@ export class ClientNetwork extends SystemBase {
     destinationTile?: TileCoord;
     moveSeq?: number;
     emote?: string;
+    tilesPerTick?: number; // Mob-specific speed (optional, defaults to walk/run speed)
   }) => {
     // Get entity's current position for smooth start (fallback if startTile not provided)
     const entity = this.world.entities.get(data.id);
@@ -1849,6 +1937,7 @@ export class ClientNetwork extends SystemBase {
     // destinationTile: final target for verification
     // moveSeq: packet ordering to ignore stale packets
     // emote: bundled animation (OSRS-style)
+    // tilesPerTick: mob-specific speed (for faster/slower mobs)
     this.tileInterpolator.onMovementStart(
       data.id,
       data.path,
@@ -1858,6 +1947,7 @@ export class ClientNetwork extends SystemBase {
       data.destinationTile,
       data.moveSeq,
       data.emote,
+      data.tilesPerTick,
     );
 
     // CRITICAL: Set the flag IMMEDIATELY when movement starts

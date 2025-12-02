@@ -104,14 +104,13 @@ export class NPCSystem extends SystemBase {
   }
 
   async start(): Promise<void> {
-    // Spawn a default test NPC (banker) near origin BEFORE accepting connections
-    if (this.world.isServer) {
-      await this.spawnDefaultNPC();
-    }
+    // NPCs are now spawned by MobNPCSpawnerSystem from world-areas manifest
+    // No need to spawn here - avoids duplicates
   }
 
   /**
-   * Spawn a default test banker for initial world content
+   * Spawn a default bank clerk for initial world content
+   * Position matches bank_clerk in world-areas.json/world-areas.ts
    */
   private async spawnDefaultNPC(): Promise<void> {
     // Wait for EntityManager to be ready
@@ -138,27 +137,30 @@ export class NPCSystem extends SystemBase {
       return;
     }
 
-    // Use fixed Y position for simplicity
-    const y = 43;
+    // Use terrain height at spawn position, fallback to 43
+    const terrainSystem = this.world.getSystem("terrain") as {
+      getHeightAt?: (x: number, z: number) => number | null;
+    } | null;
+    const groundY = terrainSystem?.getHeightAt?.(5, -5) ?? 43;
 
     const npcConfig = {
-      id: "default_banker_1",
+      id: "bank_clerk_1",
       type: "npc" as const,
-      name: "Banker",
-      position: { x: 15, y: y + 1.0, z: 5 }, // Raised Y
+      name: "Bank Clerk",
+      position: { x: 5, y: groundY + 1.0, z: -5 }, // Match world-areas.json position
       rotation: { x: 0, y: 0, z: 0, w: 1 },
       scale: { x: 100, y: 100, z: 100 }, // Scale up rigged model
       visible: true,
       interactable: true,
       interactionType: "talk",
       interactionDistance: 3,
-      description: "A friendly banker",
+      description: "A helpful bank clerk who manages deposits and withdrawals",
       model: "asset://models/human/human_rigged.glb",
       properties: {},
       // NPCEntity specific
       npcType: "bank",
-      npcId: "default_banker",
-      dialogueLines: ["Welcome to the bank!", "How may I help you today?"],
+      npcId: "bank_clerk",
+      dialogueLines: [], // Dialogue handled by DialogueSystem from npcs.json
       services: ["bank"],
       inventory: [],
       skillsOffered: [],
@@ -171,9 +173,14 @@ export class NPCSystem extends SystemBase {
       } | null;
 
       // Verify it's in the world
-      const verify = this.world.entities.get("default_banker_1");
+      const verify = this.world.entities.get("bank_clerk_1");
+      if (verify) {
+        console.log(
+          "[NPCSystem] ✅ Bank Clerk spawned at (5, " + (groundY + 1) + ", -5)",
+        );
+      }
     } catch (err) {
-      console.error("[NPCSystem] ❌ Error spawning default banker:", err);
+      console.error("[NPCSystem] ❌ Error spawning bank clerk:", err);
     }
   }
 
@@ -249,8 +256,8 @@ export class NPCSystem extends SystemBase {
       if (item) {
         storeItems[itemId] = {
           quantity: quantity,
-          buyPrice: Math.ceil(item.value * this.BUY_PRICE_MULTIPLIER),
-          sellPrice: Math.floor(item.value * this.SELL_PRICE_MULTIPLIER),
+          buyPrice: Math.ceil((item.value ?? 0) * this.BUY_PRICE_MULTIPLIER),
+          sellPrice: Math.floor((item.value ?? 0) * this.SELL_PRICE_MULTIPLIER),
         };
       }
     }
@@ -429,7 +436,7 @@ export class NPCSystem extends SystemBase {
     }
 
     const totalPrice =
-      Math.ceil(item.value * this.BUY_PRICE_MULTIPLIER) * quantity;
+      Math.ceil((item.value ?? 0) * this.BUY_PRICE_MULTIPLIER) * quantity;
 
     // Check if player has enough coins - delegate to inventory system
     const inventorySystem = getSystem<InventorySystem>(this.world, "inventory");
@@ -500,7 +507,7 @@ export class NPCSystem extends SystemBase {
     }
 
     const totalPrice =
-      Math.floor(item.value * this.SELL_PRICE_MULTIPLIER) * quantity;
+      Math.floor((item.value ?? 0) * this.SELL_PRICE_MULTIPLIER) * quantity;
 
     // Update store inventory (store buys back items)
     const currentStoreQuantity = this.storeInventory.get(itemId) || 0;

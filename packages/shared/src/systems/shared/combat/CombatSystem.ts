@@ -27,7 +27,8 @@ import { EntityManager } from "..";
 import { MobNPCSystem } from "..";
 import { SystemBase } from "..";
 import { Emotes } from "../../../data/playerEmotes";
-import { worldToTile, tilesAdjacent } from "../movement/TileSystem";
+import { getItem } from "../../../data/items";
+import { worldToTile, tilesWithinRange } from "../movement/TileSystem";
 
 export interface CombatData {
   attackerId: EntityID;
@@ -213,20 +214,33 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
+    // Check if target is attackable (for mobs that have attackable: false in manifest)
+    if (targetType === "mob") {
+      const mobEntity = target as MobEntity;
+      if (mobEntity.isAttackable && !mobEntity.isAttackable()) {
+        this.emitTypedEvent(EventType.COMBAT_ATTACK_FAILED, {
+          attackerId,
+          targetId,
+          reason: "target_not_attackable",
+        });
+        return;
+      }
+    }
+
     // CRITICAL: Can't attack yourself
     if (attackerId === targetId) {
       return;
     }
 
-    // OSRS-STYLE: Check if attacker is on an adjacent tile to target
-    // Melee requires being on an adjacent tile (Chebyshev distance of 1)
-    // This includes diagonal adjacency (8 directions around target)
+    // OSRS-STYLE: Check if attacker is within combat range of target
+    // Uses combatRange from mob manifest (default 1 tile for players)
     const attackerPos = attacker.position || attacker.getPosition();
     const targetPos = target.position || target.getPosition();
     const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
     const targetTile = worldToTile(targetPos.x, targetPos.z);
+    const combatRangeTiles = this.getEntityCombatRange(attacker, attackerType);
 
-    if (!tilesAdjacent(attackerTile, targetTile)) {
+    if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
       this.emitTypedEvent(EventType.COMBAT_ATTACK_FAILED, {
         attackerId,
         targetId,
@@ -334,6 +348,19 @@ export class CombatSystem extends SystemBase {
     // This prevents attacks from being processed on dead entities
     if (!this.isEntityAlive(target, targetType)) {
       return;
+    }
+
+    // Check if target is attackable (for mobs that have attackable: false in manifest)
+    if (targetType === "mob") {
+      const mobEntity = target as MobEntity;
+      if (mobEntity.isAttackable && !mobEntity.isAttackable()) {
+        this.emitTypedEvent(EventType.COMBAT_ATTACK_FAILED, {
+          attackerId,
+          targetId,
+          reason: "target_not_attackable",
+        });
+        return;
+      }
     }
 
     // CRITICAL: Can't attack yourself
@@ -449,6 +476,7 @@ export class CombatSystem extends SystemBase {
     if (attackerMob.getMobData) {
       const mobData = attackerMob.getMobData();
       attackerData = {
+        stats: { attack: mobData.attack }, // Pass attack stat for accuracy calculation
         config: { attackPower: mobData.attackPower },
       };
     } else {
@@ -490,6 +518,7 @@ export class CombatSystem extends SystemBase {
     if (targetMob.getMobData) {
       const mobData = targetMob.getMobData();
       targetData = {
+        stats: { defense: mobData.defense }, // Pass defense stat for accuracy calculation
         config: { defense: mobData.defense },
       };
     } else {
@@ -563,6 +592,7 @@ export class CombatSystem extends SystemBase {
     if (attackerMob.getMobData) {
       const mobData = attackerMob.getMobData();
       attackerData = {
+        stats: { attack: mobData.attack }, // Pass attack stat for accuracy calculation
         config: { attackPower: mobData.attackPower },
       };
     } else {
@@ -604,6 +634,7 @@ export class CombatSystem extends SystemBase {
     if (targetMob.getMobData) {
       const mobData = targetMob.getMobData();
       targetData = {
+        stats: { defense: mobData.defense }, // Pass defense stat for accuracy calculation
         config: { defense: mobData.defense },
       };
     } else {
@@ -1096,20 +1127,36 @@ export class CombatSystem extends SystemBase {
 
     // OSRS Retaliation: Target retaliates after ceil(speed/2) + 1 ticks
     // @see https://oldschool.runescape.wiki/w/Auto_Retaliate
-    const retaliationDelay = calculateRetaliationDelay(targetAttackSpeedTicks);
+    // Check if target can retaliate (mobs have retaliates flag, players always can)
+    let canRetaliate = true;
+    if (targetType === "mob" && targetEntity) {
+      // Check mob's retaliates config - if false, mob won't fight back
+      const mobConfig = (
+        targetEntity as unknown as { config?: { retaliates?: boolean } }
+      ).config;
+      if (mobConfig && mobConfig.retaliates === false) {
+        canRetaliate = false;
+      }
+    }
 
-    this.combatStates.set(targetId, {
-      attackerId: targetId,
-      targetId: attackerId,
-      attackerType: targetType,
-      targetType: attackerType,
-      weaponType: AttackType.MELEE,
-      inCombat: true,
-      lastAttackTick: currentTick,
-      nextAttackTick: currentTick + retaliationDelay,
-      combatEndTick,
-      attackSpeedTicks: targetAttackSpeedTicks,
-    });
+    if (canRetaliate) {
+      const retaliationDelay = calculateRetaliationDelay(
+        targetAttackSpeedTicks,
+      );
+
+      this.combatStates.set(targetId, {
+        attackerId: targetId,
+        targetId: attackerId,
+        attackerType: targetType,
+        targetType: attackerType,
+        weaponType: AttackType.MELEE,
+        inCombat: true,
+        lastAttackTick: currentTick,
+        nextAttackTick: currentTick + retaliationDelay,
+        combatEndTick,
+        attackSpeedTicks: targetAttackSpeedTicks,
+      });
+    }
 
     // Rotate both entities to face each other (RuneScape-style)
     this.rotateTowardsTarget(
@@ -1310,10 +1357,14 @@ export class CombatSystem extends SystemBase {
         return false;
       }
     } else {
-      // MELEE: Must be on adjacent tile (Chebyshev distance = 1)
+      // MELEE: Check combat range (uses manifest combatRange for mobs)
       const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
       const targetTile = worldToTile(targetPos.x, targetPos.z);
-      if (!tilesAdjacent(attackerTile, targetTile)) {
+      const combatRangeTiles = this.getEntityCombatRange(
+        attacker,
+        opts.attackerType,
+      );
+      if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
         return false;
       }
     }
@@ -1523,11 +1574,15 @@ export class CombatSystem extends SystemBase {
         return;
       }
     } else {
-      // MELEE: Must be on adjacent tile (Chebyshev distance = 1)
-      // This is the OSRS-accurate check - same as handleMeleeAttack()
+      // MELEE: Must be within attacker's combat range (configurable per mob, minimum 1 tile)
+      // OSRS-style: most mobs have 1 tile range, halberds have 2 tiles
       const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
       const targetTile = worldToTile(targetPos.x, targetPos.z);
-      if (!tilesAdjacent(attackerTile, targetTile)) {
+      const combatRangeTiles = this.getEntityCombatRange(
+        attacker,
+        combatState.attackerType,
+      );
+      if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
         // Out of melee range - don't end combat, just skip this attack
         return;
       }
@@ -1645,30 +1700,123 @@ export class CombatSystem extends SystemBase {
    * @returns Attack speed in game ticks (default: 4 ticks = 2.4 seconds)
    */
   private getAttackSpeedTicks(entityId: EntityID, entityType: string): number {
+    // For players, get equipment via EquipmentSystem
+    if (entityType === "player") {
+      const equipmentSystem = this.world.getSystem?.("equipment") as
+        | {
+            getPlayerEquipment?: (id: string) => {
+              weapon?: { item?: { attackSpeed?: number; id?: string } };
+            } | null;
+          }
+        | undefined;
+
+      if (equipmentSystem?.getPlayerEquipment) {
+        const equipment = equipmentSystem.getPlayerEquipment(String(entityId));
+
+        if (equipment?.weapon?.item) {
+          const weaponItem = equipment.weapon.item;
+
+          // First check if Item has attackSpeed directly
+          if (weaponItem.attackSpeed) {
+            console.log(
+              `[CombatSystem] Player ${entityId} weapon attackSpeed: ${weaponItem.attackSpeed} ticks`,
+            );
+            return weaponItem.attackSpeed;
+          }
+
+          // Fallback: look up from ITEMS map
+          if (weaponItem.id) {
+            const itemData = getItem(weaponItem.id);
+            if (itemData?.attackSpeed) {
+              console.log(
+                `[CombatSystem] Player ${entityId} ITEMS lookup "${weaponItem.id}": ${itemData.attackSpeed} ticks`,
+              );
+              return itemData.attackSpeed;
+            }
+          }
+        }
+      }
+
+      // Player with no weapon - use default
+      console.log(
+        `[CombatSystem] Player ${entityId} - no weapon or attackSpeed, using default`,
+      );
+      return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
+    }
+
+    // For mobs, check mob attack speed (stored in ticks in npcs.json)
     const entity = this.getEntity(String(entityId), entityType);
-    if (!entity) return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
-
-    // Check equipment for weapon attack speed (stored in ms)
-    const equipmentComponent = entity.getComponent("equipment");
-    if (equipmentComponent?.data?.weapon) {
-      const weapon = equipmentComponent.data.weapon as { attackSpeed?: number };
-      if (weapon.attackSpeed) {
-        return attackSpeedMsToTicks(weapon.attackSpeed);
+    if (entity) {
+      const mobEntity = entity as MobEntity;
+      if (mobEntity.getMobData) {
+        const mobData = mobEntity.getMobData();
+        const mobAttackSpeedTicks = (mobData as { attackSpeedTicks?: number })
+          .attackSpeedTicks;
+        if (mobAttackSpeedTicks) {
+          console.log(
+            `[CombatSystem] Mob ${entityId} attackSpeedTicks: ${mobAttackSpeedTicks}`,
+          );
+          return mobAttackSpeedTicks;
+        }
       }
     }
 
-    // Check mob attack speed (stored in seconds)
-    const mobEntity = entity as MobEntity;
-    if (mobEntity.getMobData) {
-      const mobData = mobEntity.getMobData();
-      const mobAttackSpeed = (mobData as { attackSpeed?: number }).attackSpeed;
-      if (mobAttackSpeed) {
-        return attackSpeedSecondsToTicks(mobAttackSpeed);
-      }
-    }
-
-    // Default attack speed (4 ticks = 2.4 seconds for unarmed/standard weapons)
+    // Default attack speed (4 ticks = 2.4 seconds)
+    console.log(
+      `[CombatSystem] ${entityType} ${entityId} using DEFAULT: ${COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS} ticks`,
+    );
     return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
+  }
+
+  /**
+   * Get combat range for an entity in tiles
+   * Mobs use combatRange from manifest, players use equipped weapon's attackRange
+   */
+  private getEntityCombatRange(
+    entity: Entity | MobEntity,
+    entityType: string,
+  ): number {
+    if (entityType === "mob") {
+      const mobEntity = entity as MobEntity;
+      if (typeof mobEntity.getCombatRange === "function") {
+        return mobEntity.getCombatRange();
+      }
+    }
+
+    // Players: get weapon attackRange from equipped weapon via EquipmentSystem
+    if (entityType === "player") {
+      const equipmentSystem = this.world.getSystem?.("equipment") as
+        | {
+            getPlayerEquipment?: (id: string) => {
+              weapon?: { item?: { attackRange?: number; id?: string } };
+            } | null;
+          }
+        | undefined;
+
+      if (equipmentSystem?.getPlayerEquipment) {
+        const equipment = equipmentSystem.getPlayerEquipment(entity.id);
+
+        if (equipment?.weapon?.item) {
+          const weaponItem = equipment.weapon.item;
+
+          // First check if Item has attackRange directly
+          if (weaponItem.attackRange) {
+            return weaponItem.attackRange;
+          }
+
+          // Fallback: look up from ITEMS map
+          if (weaponItem.id) {
+            const itemData = getItem(weaponItem.id);
+            if (itemData?.attackRange) {
+              return itemData.attackRange;
+            }
+          }
+        }
+      }
+    }
+
+    // Default to 1 tile (punching/unarmed)
+    return 1;
   }
 
   /**

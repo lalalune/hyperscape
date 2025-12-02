@@ -1100,9 +1100,8 @@ export class HyperscapeService
           const hasIncomingValidPos = isValidPosition(incomingPos);
 
           if (isMob) {
-            logger.info(
-              `[HyperscapeService] 🦎 MOB ADDED: "${entityData.name}" id=${data.id} incomingPos=${JSON.stringify(incomingPos)} existingPos=${JSON.stringify(existingPos)} hasExistingValid=${hasExistingValidPos} hasIncomingValid=${hasIncomingValidPos}`,
-            );
+            // Disabled verbose mob logging - use debug level if needed
+            // logger.debug(`[HyperscapeService] MOB ADDED: "${entityData.name}" id=${data.id}`);
           } else {
             logger.debug(
               `[HyperscapeService] Entity ${data.id} added (not our player)`,
@@ -1115,11 +1114,10 @@ export class HyperscapeService
             // Merge incoming data but preserve our known good position
             const mergedEntity = { ...data, position: existingPos } as Entity;
             this.gameState.nearbyEntities.set(data.id, mergedEntity);
-            if (isMob) {
-              logger.info(
-                `[HyperscapeService] 🦎 MOB PRESERVED POSITION: "${entityData.name}" - kept existing pos ${JSON.stringify(existingPos)} instead of ${JSON.stringify(incomingPos)}`,
-              );
-            }
+            // Disabled verbose mob logging
+            // if (isMob) {
+            //   logger.debug(`[HyperscapeService] MOB PRESERVED POSITION: "${entityData.name}"`);
+            // }
           } else {
             this.gameState.nearbyEntities.set(data.id, data as Entity);
           }
@@ -1162,11 +1160,10 @@ export class HyperscapeService
               entityAny.mobType ||
               entityAny.type === "mob" ||
               /goblin/i.test(String(entity.name || ""));
-            if (isMob && translatedChanges.position) {
-              logger.info(
-                `[HyperscapeService] 🦎 MOB POSITION UPDATE: "${entity.name}" id=${data.id} newPos=${JSON.stringify(translatedChanges.position)}`,
-              );
-            }
+            // Disabled verbose mob position logging
+            // if (isMob && translatedChanges.position) {
+            //   logger.debug(`[HyperscapeService] MOB POSITION UPDATE: "${entity.name}" id=${data.id}`);
+            // }
             Object.assign(entity, translatedChanges);
           }
         }
@@ -1340,11 +1337,10 @@ export class HyperscapeService
               entityAny.mobType ||
               entityAny.type === "mob" ||
               /goblin/i.test(String(entity.name || ""));
-            if (isMob) {
-              logger.info(
-                `[HyperscapeService] 🦎 MOB TILE UPDATE: "${entity.name}" id=${tileData.id} worldPos=[${tileData.worldPos[0].toFixed(1)}, ${tileData.worldPos[2].toFixed(1)}]`,
-              );
-            }
+            // Disabled verbose mob tile logging
+            // if (isMob) {
+            //   logger.debug(`[HyperscapeService] MOB TILE UPDATE: "${entity.name}" id=${tileData.id}`);
+            // }
             entity.position = [
               tileData.worldPos[0],
               tileData.worldPos[1],

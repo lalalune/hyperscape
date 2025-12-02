@@ -20,8 +20,8 @@ import { MobAIState } from "../../types/entities";
 import {
   worldToTile,
   tilesEqual,
-  tilesAdjacent,
-  getBestAdjacentTile,
+  tilesWithinRange,
+  getBestCombatRangeTile,
   tileToWorld,
   type TileCoord,
 } from "../../systems/shared/movement/TileSystem";
@@ -54,6 +54,9 @@ export interface AIStateContext {
   getWanderTarget(): Position3D | null;
   setWanderTarget(target: Position3D | null): void;
   generateWanderTarget(): Position3D;
+
+  // Movement type (from manifest)
+  getMovementType(): "stationary" | "wander" | "patrol";
 
   // Timing
   getCurrentTick(): number; // Server tick number for combat timing
@@ -117,9 +120,17 @@ export class IdleState implements AIState {
       return MobAIState.CHASE;
     }
 
-    // After idle duration, start wandering
+    // After idle duration, start wandering (unless stationary)
     const now = context.getTime();
     if (now - this.idleStartTime > this.idleDuration) {
+      // Stationary mobs don't wander - reset timer and stay in IDLE
+      if (context.getMovementType() === "stationary") {
+        this.idleStartTime = now;
+        this.idleDuration =
+          this.IDLE_MIN_DURATION +
+          Math.random() * (this.IDLE_MAX_DURATION - this.IDLE_MIN_DURATION);
+        return null; // Stay in IDLE
+      }
       return MobAIState.WANDER;
     }
 
@@ -187,10 +198,10 @@ export class WanderState implements AIState {
 /**
  * CHASE State - Pursuing a player
  *
- * OSRS-STYLE MELEE COMBAT POSITIONING:
- * - Melee combat range = adjacent tile (Chebyshev distance = 1)
- * - Mob chases until on an ADJACENT tile to the player (not same tile)
- * - Mob paths to the nearest adjacent tile, not the exact player position
+ * OSRS-STYLE COMBAT POSITIONING:
+ * - Uses manifest combatRange to determine how close mob needs to get
+ * - Mob chases until within combatRange tiles (Chebyshev distance 1-N)
+ * - Mob paths to the nearest valid combat tile, not the exact player position
  * - This prevents entities from standing on top of each other
  *
  * @see https://oldschool.runescape.wiki/w/Attack_range
@@ -223,7 +234,6 @@ export class ChaseState implements AIState {
     }
 
     // TILE-BASED COMBAT RANGE CHECK (OSRS-style)
-    // Melee combat = adjacent tiles (Chebyshev distance = 1)
     const currentPos = context.getPosition();
     const currentTile = worldToTile(currentPos.x, currentPos.z);
     const targetTile = worldToTile(
@@ -231,8 +241,9 @@ export class ChaseState implements AIState {
       targetPlayer.position.z,
     );
 
-    // Check if already adjacent to target (in melee range)
-    if (tilesAdjacent(currentTile, targetTile)) {
+    // Check if already in combat range (uses manifest combatRange)
+    const combatRangeTiles = context.getCombatRange();
+    if (tilesWithinRange(currentTile, targetTile, combatRangeTiles)) {
       return MobAIState.ATTACK;
     }
 
@@ -245,19 +256,23 @@ export class ChaseState implements AIState {
       return MobAIState.ATTACK;
     }
 
-    // PATH TO ADJACENT TILE (not exact player position)
-    // Find the best adjacent tile to the player that we should stand on
-    const adjacentTile = getBestAdjacentTile(targetTile, currentTile, false);
-    if (adjacentTile) {
-      // Convert adjacent tile to world position and move towards it
-      const adjacentWorld = tileToWorld(adjacentTile);
+    // PATH TO COMBAT RANGE TILE (not exact player position)
+    // Find the best tile within combat range that's closest to us
+    const combatTile = getBestCombatRangeTile(
+      targetTile,
+      currentTile,
+      combatRangeTiles,
+    );
+    if (combatTile) {
+      // Convert combat tile to world position and move towards it
+      const combatWorld = tileToWorld(combatTile);
       context.moveTowards(
-        { x: adjacentWorld.x, y: currentPos.y, z: adjacentWorld.z },
+        { x: combatWorld.x, y: currentPos.y, z: combatWorld.z },
         deltaTime,
       );
     } else {
-      // Fallback: no valid adjacent tile, try moving closer anyway
-      // This handles edge cases like all adjacent tiles being blocked
+      // Fallback: no valid combat tile, try moving closer anyway
+      // This handles edge cases like all combat tiles being blocked
       context.moveTowards(targetPlayer.position, deltaTime);
     }
 
@@ -306,8 +321,7 @@ export class AttackState implements AIState {
       return MobAIState.IDLE;
     }
 
-    // TILE-BASED RANGE CHECK (OSRS-style)
-    // Melee combat = must be on adjacent tile
+    // TILE-BASED RANGE CHECK (uses manifest combatRange)
     const currentPos = context.getPosition();
     const currentTile = worldToTile(currentPos.x, currentPos.z);
     const targetTile = worldToTile(
@@ -315,12 +329,17 @@ export class AttackState implements AIState {
       targetPlayer.position.z,
     );
 
-    // Check if still adjacent to target (in melee range)
+    // Check if still in combat range
     // Also allow attacking if on same tile (edge case that shouldn't happen)
-    const isAdjacent = tilesAdjacent(currentTile, targetTile);
+    const combatRangeTiles = context.getCombatRange();
+    const isInRange = tilesWithinRange(
+      currentTile,
+      targetTile,
+      combatRangeTiles,
+    );
     const isSameTile = tilesEqual(currentTile, targetTile);
 
-    if (!isAdjacent && !isSameTile) {
+    if (!isInRange && !isSameTile) {
       return MobAIState.CHASE;
     }
 

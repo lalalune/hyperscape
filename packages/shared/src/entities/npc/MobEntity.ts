@@ -93,6 +93,7 @@ import type {
   AvatarHooks,
 } from "../../types/rendering/nodes";
 import { Emotes } from "../../data/playerEmotes";
+import { calculateNPCDrops, getNPCById } from "../../data/npcs";
 import { DeathStateManager } from "../managers/DeathStateManager";
 import { CombatStateManager } from "../managers/CombatStateManager";
 import {
@@ -108,7 +109,10 @@ import type {
 } from "../../systems/client/HealthBars";
 import { COMBAT_CONSTANTS } from "../../constants/CombatConstants";
 import { AggroManager } from "../managers/AggroManager";
-import { worldToTile } from "../../systems/shared/movement/TileSystem";
+import {
+  worldToTile,
+  TICK_DURATION_MS,
+} from "../../systems/shared/movement/TileSystem";
 import { attackSpeedSecondsToTicks } from "../../utils/game/CombatCalculations";
 
 // Polyfill ProgressEvent for Node.js server environment
@@ -232,13 +236,15 @@ export class MobEntity extends CombatantEntity {
 
   constructor(world: World, config: MobEntityConfig) {
     // Convert MobEntityConfig to CombatantConfig format with proper type assertion
+    // attackSpeedTicks is in game ticks (600ms each), convert to attacks/second for legacy field
+    const attacksPerSecond = 1.0 / (config.attackSpeedTicks * 0.6);
     const combatConfig = {
       ...config,
       rotation: config.rotation || { x: 0, y: 0, z: 0, w: 1 },
       combat: {
         attack: Math.floor(config.attackPower / 10),
         defense: Math.floor(config.defense / 10),
-        attackSpeed: 1.0 / config.attackSpeed,
+        attackSpeed: attacksPerSecond,
         criticalChance: 0.05,
         combatLevel: config.level,
         respawnTime: config.respawnTime,
@@ -250,12 +256,9 @@ export class MobEntity extends CombatantEntity {
     super(world, combatConfig);
     this.config = config;
 
-    // Ensure respawnTime is at least 15 seconds (RuneScape-style)
-    if (!this.config.respawnTime || this.config.respawnTime < 15000) {
-      console.warn(
-        `[MobEntity] respawnTime was ${this.config.respawnTime}, setting to 15000ms (15 seconds)`,
-      );
-      this.config.respawnTime = 15000; // 15 seconds minimum
+    // Manifest is source of truth for respawnTime - no minimum enforcement
+    if (!this.config.respawnTime) {
+      this.config.respawnTime = 15000; // Default 15s if not specified
     }
 
     // ===== INITIALIZE COMPONENTS =====
@@ -277,10 +280,10 @@ export class MobEntity extends CombatantEntity {
     // NOTE: Respawn callback is now handled by RespawnManager, not DeathStateManager
 
     // Combat State Manager (TICK-BASED)
-    // Convert attackSpeed from seconds (mob config) to ticks
+    // attackSpeedTicks from manifest is already in ticks
     this.combatManager = new CombatStateManager({
       attackPower: this.config.attackPower,
-      attackSpeedTicks: attackSpeedSecondsToTicks(this.config.attackSpeed),
+      attackSpeedTicks: this.config.attackSpeedTicks,
       attackRange: this.config.combatRange,
     });
 
@@ -457,22 +460,7 @@ export class MobEntity extends CombatantEntity {
    * Load VRM model and create avatar instance
    */
   private async loadVRMModel(): Promise<void> {
-    if (!this.world.loader) {
-      console.error(
-        `[MobEntity] ❌ No loader available for ${this.config.mobType}`,
-      );
-      return;
-    }
-
-    if (!this.config.model) {
-      console.error(`[MobEntity] ❌ No model path for ${this.config.mobType}`);
-      return;
-    }
-
-    if (!this.world.stage?.scene) {
-      console.error(
-        `[MobEntity] ❌ No world.stage.scene available for ${this.config.mobType}`,
-      );
+    if (!this.world.loader || !this.config.model || !this.world.stage?.scene) {
       return;
     }
 
@@ -495,7 +483,6 @@ export class MobEntity extends CombatantEntity {
     const avatarNode = nodeMap.get("avatar") || nodeMap.get("root");
 
     if (!avatarNode) {
-      console.error(`[MobEntity] ❌ No avatar node found in nodeMap`);
       return;
     }
 
@@ -507,9 +494,6 @@ export class MobEntity extends CombatantEntity {
     };
 
     if (!avatarNodeWithFactory?.factory) {
-      console.error(
-        `[MobEntity] ❌ No factory found on avatar node for ${this.config.mobType}`,
-      );
       return;
     }
 
@@ -537,6 +521,20 @@ export class MobEntity extends CombatantEntity {
     if (instanceWithRaw?.raw?.scene) {
       this.mesh = instanceWithRaw.raw.scene;
       this.mesh.name = `Mob_VRM_${this.config.mobType}_${this.id}`;
+
+      // Apply manifest scale on top of VRM's height normalization
+      // VRM is auto-normalized to 1.6m, so scale 2.0 = 3.2m tall
+      const configScale = this.config.scale;
+      const beforeScale = {
+        x: this.mesh.scale.x,
+        y: this.mesh.scale.y,
+        z: this.mesh.scale.z,
+      };
+      this.mesh.scale.set(
+        this.mesh.scale.x * configScale.x,
+        this.mesh.scale.y * configScale.y,
+        this.mesh.scale.z * configScale.z,
+      );
 
       // Set up userData for interaction detection
       const userData: MeshUserData = {
@@ -673,8 +671,14 @@ export class MobEntity extends CombatantEntity {
         this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
 
         // CRITICAL: Scale the root mesh transform, then bind skeleton
+        // Apply cm→m conversion (100x) multiplied by manifest scale
         const modelScale = 100; // cm to meters
-        this.mesh.scale.set(modelScale, modelScale, modelScale);
+        const configScale = this.config.scale;
+        this.mesh.scale.set(
+          modelScale * configScale.x,
+          modelScale * configScale.y,
+          modelScale * configScale.z,
+        );
         this.mesh.updateMatrix();
         this.mesh.updateMatrixWorld(true);
 
@@ -749,6 +753,10 @@ export class MobEntity extends CombatantEntity {
     this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
+
+    // Apply manifest scale to placeholder
+    const configScale = this.config.scale;
+    this.mesh.scale.set(configScale.x, configScale.y, configScale.z);
 
     // Set up userData with proper typing for mob
     const userData: MeshUserData = {
@@ -848,7 +856,10 @@ export class MobEntity extends CombatantEntity {
           targetPos: target,
           // If chasing a player, include targetEntityId for dynamic repathing
           targetEntityId: this.config.targetPlayerId || undefined,
-          tilesPerTick: 2, // Default mob walk speed (same as player walk)
+          tilesPerTick: Math.max(
+            1,
+            Math.round((this.config.moveSpeed * TICK_DURATION_MS) / 1000),
+          ),
         });
       },
       teleportTo: (position) => {
@@ -902,6 +913,9 @@ export class MobEntity extends CombatantEntity {
         this._wanderTarget = target ? { x: target.x, z: target.z } : null;
       },
       generateWanderTarget: () => this.generateWanderTarget(),
+
+      // Movement type (from manifest)
+      getMovementType: () => this.config.movementType,
 
       // Timing
       getCurrentTick: () => this.world.currentTick, // Server tick number for combat timing
@@ -1526,7 +1540,8 @@ export class MobEntity extends CombatantEntity {
       return true; // Mob died
     } else {
       // Become aggressive towards attacker (use AggroManager for target management)
-      if (attackerId && !this.config.targetPlayerId) {
+      // BUT only if mob retaliates - peaceful mobs (retaliates: false) don't fight back
+      if (attackerId && !this.config.targetPlayerId && this.config.retaliates) {
         this.config.targetPlayerId = attackerId;
         this.aggroManager.setTargetIfNone(attackerId);
         this.aiStateMachine.forceState(
@@ -1618,21 +1633,38 @@ export class MobEntity extends CombatantEntity {
   }
 
   private dropLoot(killerId: string): void {
-    if (!this.config.lootTable.length) return;
+    // Check if this mob type exists in the NPC manifest
+    const npcData = getNPCById(this.config.mobType);
 
-    for (const lootItem of this.config.lootTable) {
-      if (Math.random() < lootItem.chance) {
-        const quantity =
-          Math.floor(
-            Math.random() * (lootItem.maxQuantity - lootItem.minQuantity + 1),
-          ) + lootItem.minQuantity;
-
+    if (npcData) {
+      // Use manifest drops - handles defaultDrop (bones) + all rarity tiers
+      const drops = calculateNPCDrops(this.config.mobType);
+      for (const drop of drops) {
         this.world.emit(EventType.ITEM_SPAWN, {
-          itemId: lootItem.itemId,
-          quantity,
+          itemId: drop.itemId,
+          quantity: drop.quantity,
           position: this.getPosition(),
           droppedBy: killerId,
         });
+      }
+    } else {
+      // Fall back to config.lootTable for custom mobs not in manifest
+      if (!this.config.lootTable.length) return;
+
+      for (const lootItem of this.config.lootTable) {
+        if (Math.random() < lootItem.chance) {
+          const quantity =
+            Math.floor(
+              Math.random() * (lootItem.maxQuantity - lootItem.minQuantity + 1),
+            ) + lootItem.minQuantity;
+
+          this.world.emit(EventType.ITEM_SPAWN, {
+            itemId: lootItem.itemId,
+            quantity,
+            position: this.getPosition(),
+            droppedBy: killerId,
+          });
+        }
       }
     }
   }
@@ -1753,8 +1785,17 @@ export class MobEntity extends CombatantEntity {
   /**
    * Find nearby player within aggro range (RuneScape-style)
    * Delegates to AggroManager component
+   *
+   * IMPORTANT: Only scans for players if mob is aggressive.
+   * Non-aggressive mobs won't attack on sight.
+   * Retaliation when attacked is controlled by the separate `retaliates` flag.
    */
   private findNearbyPlayer(): { id: string; position: Position3D } | null {
+    // Non-aggressive mobs don't scan for players
+    if (!this.config.aggressive) {
+      return null;
+    }
+
     const currentPos = this.getPosition();
     const players = this.world.getPlayers();
     return this.aggroManager.findNearbyPlayer(currentPos, players);
@@ -1783,9 +1824,15 @@ export class MobEntity extends CombatantEntity {
     // Exit combat state
     this.combatManager.exitCombat();
 
-    // Force AI to WANDER (return to spawn behavior)
+    // Force AI state based on movement type
     const context = this.createAIContext();
-    this.aiStateMachine.forceState(MobAIState.WANDER, context);
+    if (this.config.movementType === "stationary") {
+      // Stationary mobs go directly to IDLE
+      this.aiStateMachine.forceState(MobAIState.IDLE, context);
+    } else {
+      // Wandering mobs go to RETURN to walk back to spawn area
+      this.aiStateMachine.forceState(MobAIState.RETURN, context);
+    }
   }
 
   /**
@@ -1796,9 +1843,6 @@ export class MobEntity extends CombatantEntity {
   onTargetDied(targetId: string): void {
     // Only reset if this was actually our target
     if (this.config.targetPlayerId === targetId) {
-      console.log(
-        `[MobEntity] ${this.id} target ${targetId} died, resetting combat state`,
-      );
       this.clearTargetAndExitCombat();
     }
   }
@@ -1828,14 +1872,33 @@ export class MobEntity extends CombatantEntity {
       level: this.config.level,
       health: this.config.currentHealth,
       maxHealth: this.config.maxHealth,
+      attack: this.config.attack,
       attackPower: this.config.attackPower,
       defense: this.config.defense,
+      attackSpeedTicks: this.config.attackSpeedTicks,
       xpReward: this.config.xpReward,
       aiState: this.mapAIStateToInterface(this.config.aiState),
       targetPlayerId: this.config.targetPlayerId || null,
       spawnPoint: this.config.spawnPoint,
       position: this.getPosition(),
     };
+  }
+
+  /**
+   * Check if this mob can be attacked by players
+   * Controlled by combat.attackable in the manifest
+   */
+  isAttackable(): boolean {
+    return this.config.attackable;
+  }
+
+  /**
+   * Get this mob's combat range in tiles
+   * Controlled by combat.combatRange in the manifest (meters, 1 tile = 1 meter)
+   * @returns Combat range in tiles (minimum 1)
+   */
+  getCombatRange(): number {
+    return Math.max(1, Math.floor(this.config.combatRange));
   }
 
   // Override serialize to include model path for client
@@ -1850,6 +1913,11 @@ export class MobEntity extends CombatantEntity {
       maxHealth: this.config.maxHealth,
       aiState: this.config.aiState,
       targetPlayerId: this.config.targetPlayerId,
+      scale: [
+        this.config.scale.x,
+        this.config.scale.y,
+        this.config.scale.z,
+      ] as [number, number, number], // CRITICAL: Include scale for client model sizing
     };
   }
 
@@ -1878,6 +1946,7 @@ export class MobEntity extends CombatantEntity {
         aiState: this.config.aiState,
         targetPlayerId: this.config.targetPlayerId,
         deathTime: this.deathManager.getDeathTime(),
+        scale: this.config.scale, // Include scale for client
       };
 
       // Send death emote once
@@ -1914,6 +1983,7 @@ export class MobEntity extends CombatantEntity {
       aiState: this.config.aiState,
       targetPlayerId: this.config.targetPlayerId,
       c: inCombat, // Combat state for health bar visibility (like players)
+      scale: this.config.scale, // Include scale for client model sizing
     };
 
     // CRITICAL: Force position to be included if not present
@@ -2013,9 +2083,6 @@ export class MobEntity extends CombatantEntity {
               const spawnPos = data.p as [number, number, number];
               this.position.set(spawnPos[0], spawnPos[1], spawnPos[2]);
               this.node.position.set(spawnPos[0], spawnPos[1], spawnPos[2]);
-              console.log(
-                `[MobEntity] [CLIENT] 🔄 Snapped ${this.id} to respawn position (${spawnPos[0].toFixed(2)}, ${spawnPos[1].toFixed(2)}, ${spawnPos[2].toFixed(2)})`,
-              );
             }
 
             // Mark that we need to restore visibility AFTER position update

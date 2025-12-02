@@ -1,4 +1,4 @@
-import { SystemBase } from "..";
+import { SystemBase, TerrainSystem } from "..";
 import { uuid } from "../../../utils";
 import type { World } from "../../../types";
 import { EventType } from "../../../types/events";
@@ -11,6 +11,9 @@ import {
 } from "../../../utils/IdentifierUtils";
 import type { TerrainResourceSpawnPoint } from "../../../types/world/terrain";
 import { TICK_DURATION_MS } from "../movement/TileSystem";
+import { getExternalResource } from "../../../utils/ExternalAssetUtils";
+import type { ExternalResourceData } from "../../../data/DataManager";
+import { ALL_WORLD_AREAS } from "../../../data/world-areas";
 
 /**
  * Resource System
@@ -52,121 +55,17 @@ export class ResourceSystem extends SystemBase {
     Record<string, { level: number; xp: number }>
   >();
   private resourceVariants = new Map<ResourceID, string>();
-
-  // Resource drop tables per GDD
-  private readonly RESOURCE_DROPS = new Map<string, ResourceDrop[]>([
-    [
-      "tree_normal",
-      [
-        {
-          itemId: "logs", // Use canonical item id from items.ts
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0, // Always get logs
-          xpAmount: 25, // Woodcutting XP per log (per normal tree)
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "tree_oak",
-      [
-        {
-          itemId: "logs",
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0,
-          xpAmount: 38, // Approx RS 37.5 rounded
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "tree_willow",
-      [
-        {
-          itemId: "logs",
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0,
-          xpAmount: 68, // Approx RS 67.5 rounded
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "tree_maple",
-      [
-        {
-          itemId: "logs",
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0,
-          xpAmount: 100,
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "tree_yew",
-      [
-        {
-          itemId: "logs",
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0,
-          xpAmount: 175,
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "tree_magic",
-      [
-        {
-          itemId: "logs",
-          itemName: "Logs",
-          quantity: 1,
-          chance: 1.0,
-          xpAmount: 250,
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "herb_patch_normal",
-      [
-        {
-          itemId: "herbs", // Use string ID
-          itemName: "Herbs",
-          quantity: 1,
-          chance: 1.0, // Always get herbs
-          xpAmount: 20, // Herbalism XP per herb
-          stackable: true,
-        },
-      ],
-    ],
-    [
-      "fishing_spot_normal",
-      [
-        {
-          itemId: "raw_shrimps", // Use string ID that matches items.ts
-          itemName: "Raw Shrimps",
-          quantity: 1,
-          chance: 1.0, // Always get fish (when successful)
-          xpAmount: 10, // Fishing XP per fish
-          stackable: true,
-        },
-      ],
-    ],
-  ]);
+  // Track manifest-spawned resources (from world-areas.json) - these should NOT be deleted on tile unload
+  private manifestResourceIds = new Set<ResourceID>();
+  // Terrain system reference for height lookups
+  private terrainSystem: TerrainSystem | null = null;
 
   constructor(world: World) {
     super(world, {
       name: "resource",
       dependencies: {
         required: [], // Resource system can work independently
-        optional: ["inventory", "xp", "skills", "ui", "terrain"], // Better with inventory, skills, and terrain systems
+        optional: ["inventory", "skills", "ui", "terrain"], // Better with inventory, skills, and terrain systems
       },
       autoCleanup: true,
     });
@@ -247,7 +146,13 @@ export class ResourceSystem extends SystemBase {
     }>(EventType.SKILLS_UPDATED, (data) => {
       this.playerSkills.set(data.playerId, data.skills);
     });
+
+    // Get terrain system for height lookups
+    this.terrainSystem = this.world.getSystem(
+      "terrain",
+    ) as TerrainSystem | null;
   }
+
   private sendChat(playerId: string, text: string): void {
     const chat = (
       this.world as unknown as {
@@ -331,15 +236,101 @@ export class ResourceSystem extends SystemBase {
     // NOTE: Gathering is now processed via processGatheringTick() called by TickSystem
     // The old 500ms interval has been removed in favor of OSRS-accurate 600ms tick-based processing
     // Registration happens in ServerNetwork/index.ts at TickPriority.RESOURCES
+
+    // Load explicit resource placements from world-areas.json (server only)
+    // This must be in start() not init() because network broadcast isn't ready during init()
+    if (this.world.isServer) {
+      this.initializeWorldAreaResources();
+    }
+  }
+
+  /**
+   * Initialize resources from world-areas.json manifest
+   * Called once on server startup to spawn explicit resource placements
+   */
+  private initializeWorldAreaResources(): void {
+    // Type mapping: resources.json type → TerrainResourceSpawnPoint type
+    const typeMap: Record<string, TerrainResourceSpawnPoint["type"]> = {
+      tree: "tree",
+      fishing_spot: "fish",
+      herb_patch: "herb",
+      rock: "rock",
+      ore: "ore",
+    };
+
+    console.log(
+      `[ResourceSystem] initializeWorldAreaResources() called. ALL_WORLD_AREAS keys: ${Object.keys(ALL_WORLD_AREAS).join(", ")}`,
+    );
+
+    for (const [areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
+      if (!area.resources || area.resources.length === 0) continue;
+      console.log(
+        `[ResourceSystem] Processing area "${areaId}" with ${area.resources.length} resources`,
+      );
+
+      const spawnPoints: TerrainResourceSpawnPoint[] = [];
+
+      for (const r of area.resources) {
+        // Look up resource in manifest to get authoritative type
+        const resourceData = getExternalResource(r.resourceId);
+        console.log(
+          `[ResourceSystem] getExternalResource("${r.resourceId}") returned: ${resourceData ? resourceData.type : "null"}`,
+        );
+        if (!resourceData) {
+          console.warn(
+            `[ResourceSystem] Unknown resource ID in world-areas: ${r.resourceId}`,
+          );
+          continue;
+        }
+
+        // Map type (e.g., "fishing_spot" → "fish")
+        const mappedType = typeMap[resourceData.type] || resourceData.type;
+
+        // Extract subType by removing type prefix from resourceId
+        // "tree_oak" - "tree_" = "oak"
+        // "tree_normal" - "tree_" = "normal" → undefined
+        const suffix = r.resourceId.replace(resourceData.type + "_", "");
+        const subType = suffix === "normal" ? undefined : suffix;
+
+        // Ground Y position to terrain height
+        let groundedY = r.position.y;
+        if (this.terrainSystem) {
+          const terrainHeight = this.terrainSystem.getHeightAt(
+            r.position.x,
+            r.position.z,
+          );
+          if (Number.isFinite(terrainHeight)) {
+            groundedY = terrainHeight + 0.1; // Slight offset above ground
+          }
+        }
+
+        spawnPoints.push({
+          position: { x: r.position.x, y: groundedY, z: r.position.z },
+          type: mappedType as TerrainResourceSpawnPoint["type"],
+          subType: subType as TerrainResourceSpawnPoint["subType"],
+        });
+      }
+
+      if (spawnPoints.length > 0) {
+        console.log(
+          `[ResourceSystem] Spawning ${spawnPoints.length} explicit resources for area "${areaId}"`,
+        );
+        // Pass isManifest: true to protect these resources from tile unload deletion
+        this.registerTerrainResources({ spawnPoints, isManifest: true });
+      }
+    }
   }
 
   /**
    * Handle terrain system resource registration (new procedural system)
+   * @param data.spawnPoints - Resource spawn points to register
+   * @param data.isManifest - If true, resources are from world-areas.json and won't be deleted on tile unload
    */
   private async registerTerrainResources(data: {
     spawnPoints: TerrainResourceSpawnPoint[];
+    isManifest?: boolean;
   }): Promise<void> {
-    const { spawnPoints } = data;
+    const { spawnPoints, isManifest = false } = data;
 
     if (spawnPoints.length === 0) return;
 
@@ -372,9 +363,21 @@ export class ResourceSystem extends SystemBase {
       // Store in map for tracking
       const rid = createResourceID(resource.id);
       this.resources.set(rid, resource);
+
+      // Mark manifest resources so they're not deleted on tile unload
+      if (isManifest) {
+        this.manifestResourceIds.add(rid);
+      }
+
+      console.log(
+        `[ResourceSystem] Stored resource in map: id="${resource.id}", rid="${rid}", map size=${this.resources.size}${isManifest ? " (manifest)" : ""}`,
+      );
       // Track variant/subtype for tuning (e.g., 'tree_oak')
       if (resource.type === "tree") {
-        const variant = spawnPoint.subType || "tree_normal";
+        // Build full key: if subType is "normal", key is "tree_normal"
+        const variant = spawnPoint.subType
+          ? `tree_${spawnPoint.subType}`
+          : "tree_normal";
         this.resourceVariants.set(rid, variant);
       }
 
@@ -408,7 +411,9 @@ export class ResourceSystem extends SystemBase {
         properties: {},
         // ResourceEntity specific
         resourceType: resource.type,
-        resourceId: spawnPoint.subType || `${resource.type}_normal`,
+        resourceId: spawnPoint.subType
+          ? `${resource.type}_${spawnPoint.subType}`
+          : `${resource.type}_normal`,
         harvestSkill: resource.skillRequired,
         requiredLevel: resource.levelRequired,
         harvestTime: 3000,
@@ -419,6 +424,16 @@ export class ResourceSystem extends SystemBase {
         })),
         respawnTime: resource.respawnTime,
         depleted: false,
+        // Manifest-driven model config
+        depletedModelPath: this.getDepletedModelPathForResource(
+          resource.type,
+          spawnPoint.subType,
+        ),
+        modelScale: this.getScaleForResource(resource.type, spawnPoint.subType),
+        depletedModelScale: this.getDepletedScaleForResource(
+          resource.type,
+          spawnPoint.subType,
+        ),
       };
 
       try {
@@ -444,74 +459,122 @@ export class ResourceSystem extends SystemBase {
   }
 
   /**
-   * Get model path for resource type
+   * Get model path for resource type from manifest
+   * Fails fast if manifest data not found
    */
   private getModelPathForResource(type: string, subType?: string): string {
-    switch (type) {
-      case "tree":
-        // Use the high-quality Meshy-generated tree model
-        return "asset://models/basic-reg-tree/basic-tree.glb";
-      case "fishing_spot":
-        return ""; // Fishing spots don't need models
-      case "ore":
-      case "rock":
-      case "gem":
-      case "rare_ore":
-        return ""; // Use placeholder for rocks (no model yet)
-      case "herb_patch":
-        return ""; // Use placeholder for herbs (no model yet)
-      default:
-        return "";
+    // Build resource ID to look up in manifest
+    const variantKey = subType ? `${type}_${subType}` : `${type}_normal`;
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
     }
+
+    // Return modelPath (can be null for fishing spots, etc.)
+    return manifestData.modelPath || "";
   }
 
   /**
-   * Create resource from terrain spawn point
+   * Get depleted model path for resource type from manifest
+   * Fails fast if manifest data not found
+   */
+  private getDepletedModelPathForResource(
+    type: string,
+    subType?: string,
+  ): string | null {
+    const variantKey = subType ? `${type}_${subType}` : `${type}_normal`;
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
+    }
+
+    return manifestData.depletedModelPath;
+  }
+
+  /**
+   * Get scale for resource type from manifest
+   * Fails fast if manifest data not found
+   */
+  private getScaleForResource(type: string, subType?: string): number {
+    const variantKey = subType ? `${type}_${subType}` : `${type}_normal`;
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
+    }
+
+    return manifestData.scale;
+  }
+
+  /**
+   * Get depleted scale for resource type from manifest
+   * Fails fast if manifest data not found
+   */
+  private getDepletedScaleForResource(type: string, subType?: string): number {
+    const variantKey = subType ? `${type}_${subType}` : `${type}_normal`;
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
+    }
+
+    return manifestData.depletedScale;
+  }
+
+  /**
+   * Get drops for resource type from manifest
+   * Fails fast if manifest data not found
+   */
+  private getDropsFromManifest(variantKey: string): ResourceDrop[] {
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
+    }
+
+    if (!manifestData.harvestYield || manifestData.harvestYield.length === 0) {
+      throw new Error(
+        `[ResourceSystem] Resource '${variantKey}' has no harvestYield defined in manifest.`,
+      );
+    }
+
+    return manifestData.harvestYield.map((yield_) => ({
+      itemId: yield_.itemId,
+      itemName: yield_.itemName,
+      quantity: yield_.quantity,
+      chance: yield_.chance,
+      xpAmount: yield_.xpAmount,
+      stackable: yield_.stackable,
+    }));
+  }
+
+  /**
+   * Create a Resource from a spawn point - ALL values come from resources.json manifest
+   * No hardcoded values - manifest is the single source of truth
    */
   private createResourceFromSpawnPoint(
     spawnPoint: TerrainResourceSpawnPoint,
   ): Resource | undefined {
-    const { position, type, subType: _subType } = spawnPoint;
+    const { position, type } = spawnPoint;
 
-    let skillRequired: string;
-    let toolRequired: string;
-    let respawnTime: number;
-    let levelRequired: number = 1;
-
-    switch (type) {
-      case "tree":
-        skillRequired = "woodcutting";
-        toolRequired = "bronze_hatchet"; // Bronze Hatchet
-        respawnTime = 10000; // 10s respawn for MVP
-        break;
-
-      case "fish":
-        skillRequired = "fishing";
-        toolRequired = "fishing_rod"; // Fishing Rod
-        respawnTime = 30000; // 30 second respawn
-        break;
-
-      case "rock":
-      case "ore":
-      case "gem":
-      case "rare_ore":
-        skillRequired = "mining";
-        toolRequired = "bronze_pickaxe"; // Bronze Pickaxe
-        respawnTime = 120000; // 2 minute respawn
-        levelRequired = 5;
-        break;
-
-      case "herb":
-        skillRequired = "herbalism";
-        toolRequired = ""; // No tool required for herbs
-        respawnTime = 45000; // 45 second respawn
-        levelRequired = 1;
-        break;
-
-      default:
-        throw new Error(`Unknown resource type: ${type}`);
-    }
-
+    // Map spawn type to resource type for manifest lookup
     const resourceType: "tree" | "fishing_spot" | "ore" | "herb_patch" =
       type === "rock" || type === "ore" || type === "gem" || type === "rare_ore"
         ? "ore"
@@ -521,45 +584,41 @@ export class ResourceSystem extends SystemBase {
             ? "herb_patch"
             : "tree";
 
-    // Determine variant key and tuned parameters
+    // Build variant key for manifest lookup
+    // e.g., "tree_normal", "tree_oak", "fishing_spot_normal"
     const variantKey =
       resourceType === "tree"
-        ? spawnPoint.subType || "tree_normal"
+        ? spawnPoint.subType
+          ? `tree_${spawnPoint.subType}`
+          : "tree_normal"
         : `${resourceType}_normal`;
-    const tuned = this.getVariantTuning(variantKey);
 
+    // Get manifest data - fail fast if not found
+    const manifestData = getExternalResource(variantKey);
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
+    }
+
+    // All values come from manifest - no hardcoding
     const resource: Resource = {
       id: `${type}_${position.x.toFixed(0)}_${position.z.toFixed(0)}`,
       type: resourceType,
-      name:
-        type === "fish"
-          ? "Fishing Spot"
-          : type === "tree"
-            ? "Tree"
-            : type === "herb"
-              ? "Herb"
-              : "Rock",
+      name: manifestData.name,
       position: {
         x: position.x,
         y: position.y,
         z: position.z,
       },
-      skillRequired,
-      levelRequired:
-        resourceType === "tree" ? tuned.levelRequired : levelRequired,
-      toolRequired,
-      respawnTime:
-        resourceType === "tree"
-          ? this.ticksToMs(tuned.respawnTicks)
-          : respawnTime,
+      skillRequired: manifestData.harvestSkill,
+      levelRequired: manifestData.levelRequired,
+      toolRequired: manifestData.toolRequired || "",
+      respawnTime: this.ticksToMs(manifestData.respawnTicks),
       isAvailable: true,
       lastDepleted: 0,
-      drops:
-        resourceType === "tree"
-          ? this.RESOURCE_DROPS.get(variantKey) ||
-            this.RESOURCE_DROPS.get("tree_normal") ||
-            []
-          : this.RESOURCE_DROPS.get(`${resourceType}_normal`) || [],
+      drops: this.getDropsFromManifest(variantKey),
     };
 
     return resource;
@@ -567,13 +626,19 @@ export class ResourceSystem extends SystemBase {
 
   /**
    * Handle terrain tile unloading - remove resources from unloaded tiles
+   * Note: Manifest resources (from world-areas.json) are protected and never deleted
    */
   private onTerrainTileUnloaded(data: { tileId: string }): void {
     // Extract tileX and tileZ from tileId (format: "x,z")
     const [tileX, tileZ] = data.tileId.split(",").map(Number);
 
-    // Remove resources that belong to this tile
+    // Remove resources that belong to this tile (but not manifest resources)
     for (const [resourceId, resource] of this.resources) {
+      // Skip manifest resources - they are permanent and shouldn't be deleted on tile unload
+      if (this.manifestResourceIds.has(resourceId)) {
+        continue;
+      }
+
       // Check if resource belongs to this tile (based on position)
       const resourceTileX = Math.floor(resource.position.x / 100); // 100m tile size
       const resourceTileZ = Math.floor(resource.position.z / 100);
@@ -1037,65 +1102,31 @@ export class ResourceSystem extends SystemBase {
     depleteChance: number;
     respawnTicks: number; // Respawn time in ticks
   } {
-    // OSRS-accurate: All trees use 4-tick base cycle (2.4 seconds per attempt)
-    // Respawn times are OSRS-accurate from the wiki
-    // Defaults for normal tree: respawns in 36-60 seconds (~60-100 ticks)
-    const defaults = {
-      levelRequired: 1,
-      xpPerLog: 25,
-      baseCycleTicks: 4, // OSRS standard: 4 ticks = 2.4s
-      depleteChance: 0.125, // ~1/8 chance per log
-      respawnTicks: 80, // ~48 seconds (middle of 36-60s range)
-    };
-    switch (variantKey) {
-      case "tree_oak":
-        // OSRS Wiki: Oak respawns in 14 ticks (8.4 seconds)
-        return {
-          levelRequired: 15,
-          xpPerLog: 38, // OSRS: 37.5 rounded
-          baseCycleTicks: 4, // OSRS standard
-          depleteChance: 0.125, // ~1/8 chance per log
-          respawnTicks: 14, // OSRS-accurate: 8.4 seconds
-        };
-      case "tree_willow":
-        // OSRS Wiki: Willow respawns in 14 ticks (8.4 seconds)
-        return {
-          levelRequired: 30,
-          xpPerLog: 68, // OSRS: 67.5 rounded
-          baseCycleTicks: 4, // OSRS standard
-          depleteChance: 0.125, // ~1/8 chance per log
-          respawnTicks: 14, // OSRS-accurate: 8.4 seconds
-        };
-      case "tree_maple":
-        // OSRS Wiki: Maple respawns in 59 ticks (35.4 seconds)
-        return {
-          levelRequired: 45,
-          xpPerLog: 100,
-          baseCycleTicks: 4, // OSRS standard
-          depleteChance: 0.125, // ~1/8 chance per log
-          respawnTicks: 59, // OSRS-accurate: 35.4 seconds
-        };
-      case "tree_yew":
-        // OSRS Wiki: Yew respawns in 99 ticks (59.4 seconds)
-        return {
-          levelRequired: 60,
-          xpPerLog: 175,
-          baseCycleTicks: 4, // OSRS standard
-          depleteChance: 0.125, // ~1/8 chance per log
-          respawnTicks: 99, // OSRS-accurate: ~1 minute
-        };
-      case "tree_magic":
-        // OSRS Wiki: Magic respawns in 199 ticks (119.4 seconds)
-        return {
-          levelRequired: 75,
-          xpPerLog: 250,
-          baseCycleTicks: 4, // OSRS standard
-          depleteChance: 0.125, // ~1/8 chance per log
-          respawnTicks: 199, // OSRS-accurate: ~2 minutes
-        };
-      default:
-        return defaults;
+    // Load from manifest - fail fast if not found
+    const manifestData = getExternalResource(variantKey);
+
+    if (!manifestData) {
+      throw new Error(
+        `[ResourceSystem] Resource manifest not found for '${variantKey}'. ` +
+          `Ensure resources.json is loaded and contains this resource type.`,
+      );
     }
+
+    if (!manifestData.harvestYield || manifestData.harvestYield.length === 0) {
+      throw new Error(
+        `[ResourceSystem] Resource '${variantKey}' has no harvestYield defined in manifest.`,
+      );
+    }
+
+    // Get XP from first harvest yield entry
+    const xpPerLog = manifestData.harvestYield[0].xpAmount;
+    return {
+      levelRequired: manifestData.levelRequired,
+      xpPerLog,
+      baseCycleTicks: manifestData.baseCycleTicks,
+      depleteChance: manifestData.depleteChance,
+      respawnTicks: manifestData.respawnTicks,
+    };
   }
 
   /**
@@ -1266,6 +1297,7 @@ export class ResourceSystem extends SystemBase {
 
     // Clear all resource data
     this.resources.clear();
+    this.manifestResourceIds.clear();
 
     // Call parent cleanup (automatically clears all tracked timers, intervals, and listeners)
     super.destroy();

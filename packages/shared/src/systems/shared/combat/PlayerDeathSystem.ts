@@ -1,10 +1,7 @@
 import { SystemBase } from "..";
 import type { World } from "../../../core/World";
 import { EventType } from "../../../types/events";
-import {
-  getNearestTown,
-  WORLD_STRUCTURE_CONSTANTS,
-} from "../../../data/world-structure";
+import { WORLD_STRUCTURE_CONSTANTS } from "../../../data/world-structure";
 import type { HeadstoneData } from "../../../types/entities";
 import type {
   ZoneData,
@@ -107,10 +104,6 @@ export class PlayerDeathSystem extends SystemBase {
       this.deathStateManager,
     );
 
-    console.log(
-      "[PlayerDeathSystem] Initialized modular death system components",
-    );
-
     // Event subscriptions
     // Listen for death events via event bus
     this.subscribe(
@@ -211,8 +204,6 @@ export class PlayerDeathSystem extends SystemBase {
 
     // Clear death locations
     this.deathLocations.clear();
-
-    console.log("[PlayerDeathSystem] Cleaned up all death system resources");
   }
 
   private handlePlayerDeath(data: {
@@ -295,11 +286,6 @@ export class PlayerDeathSystem extends SystemBase {
         });
       }
     }
-
-    console.log(
-      `[PlayerDeathSystem] Converted ${items.length} equipped items to drop:`,
-      items.map((i) => `${i.itemId} x${i.quantity}`).join(", ") || "(none)",
-    );
 
     return items;
   }
@@ -405,10 +391,6 @@ export class PlayerDeathSystem extends SystemBase {
         // Merge inventory + equipment items
         itemsToDrop = [...inventoryItems, ...equipmentItems];
 
-        console.log(
-          `[PlayerDeathSystem] Total items to drop: ${itemsToDrop.length} (${inventoryItems.length} inventory + ${equipmentItems.length} equipment)`,
-        );
-
         // Step 2: Detect zone type (safe vs wilderness)
         const zoneType = this.zoneDetection.getZoneType(deathPosition);
 
@@ -452,9 +434,6 @@ export class PlayerDeathSystem extends SystemBase {
         // Also clear equipment
         if (equipmentSystem && equipmentSystem.clearEquipmentImmediate) {
           await equipmentSystem.clearEquipmentImmediate(playerId);
-          console.log(
-            `[PlayerDeathSystem] ✅ Cleared equipment for ${playerId}`,
-          );
         }
 
         // Transaction will auto-commit here if all succeeded
@@ -627,10 +606,6 @@ export class PlayerDeathSystem extends SystemBase {
       return;
     }
 
-    console.log(
-      `[PlayerDeathSystem] Spawned headstone entity ${headstoneId} at (${groundedPosition.x}, ${groundedPosition.y}, ${groundedPosition.z}) with ${items.length} items`,
-    );
-
     // Store headstone entity ID for tracking
     const deathData = this.deathLocations.get(playerId);
     if (deathData) {
@@ -649,15 +624,11 @@ export class PlayerDeathSystem extends SystemBase {
       );
     }
 
-    // RuneScape-style: Always respawn at dedicated death spawn (like Lumbridge)
+    // Always respawn at Central Haven (the main spawn point)
     // Central Haven (0, 0) is our death respawn location
     // Y coordinate will be properly grounded by PlayerSystem's spawn logic
     const DEATH_RESPAWN_POSITION = { x: 0, y: 0, z: 0 };
     const DEATH_RESPAWN_TOWN = "Central Haven";
-
-    console.log(
-      `[PlayerDeathSystem] Respawning player ${playerId} at death spawn: ${DEATH_RESPAWN_TOWN} (${DEATH_RESPAWN_POSITION.x}, ${DEATH_RESPAWN_POSITION.z})`,
-    );
 
     // Respawn player at death spawn location (handles terrain grounding internally)
     this.respawnPlayer(playerId, DEATH_RESPAWN_POSITION, DEATH_RESPAWN_TOWN);
@@ -904,10 +875,6 @@ export class PlayerDeathSystem extends SystemBase {
     position: { x: number; y: number; z: number },
     items: InventoryItem[],
   ): Promise<void> {
-    console.log(
-      `[PlayerDeathSystem] Gravestone ${gravestoneId} expired, transitioning to ground items`,
-    );
-
     // Destroy gravestone entity
     const entityManager = this.world.getSystem(
       "entity-manager",
@@ -925,10 +892,6 @@ export class PlayerDeathSystem extends SystemBase {
       scatter: true,
       scatterRadius: 2.0,
     });
-
-    console.log(
-      `[PlayerDeathSystem] Transitioned gravestone ${gravestoneId} to ground items`,
-    );
   }
 
   private handleRespawnRequest(data: { playerId: string }): void {
@@ -969,10 +932,6 @@ export class PlayerDeathSystem extends SystemBase {
   async onPlayerReconnect(playerId: string): Promise<{
     blockInventoryLoad: boolean;
   }> {
-    console.log(
-      `[PlayerDeathSystem] Player ${playerId} reconnected, checking for active death lock...`,
-    );
-
     // Check for active death lock (checks both memory and database)
     const deathLock = await this.deathStateManager.getDeathLock(playerId);
 
@@ -983,25 +942,9 @@ export class PlayerDeathSystem extends SystemBase {
       const deathAge = Date.now() - deathLock.timestamp;
 
       if (deathAge > MAX_DEATH_LOCK_AGE) {
-        console.log(
-          `[PlayerDeathSystem] ⚠️  Found STALE death lock for ${playerId} (age: ${Math.round(deathAge / 1000 / 60)} minutes)`,
-        );
-        console.log(
-          `[PlayerDeathSystem] ✓ Clearing stale death lock and allowing normal login`,
-        );
         await this.deathStateManager.clearDeathLock(playerId);
         return { blockInventoryLoad: false };
       }
-
-      console.log(
-        `[PlayerDeathSystem] ⚠️  Player ${playerId} reconnected with active death lock!`,
-      );
-      console.log(
-        `[PlayerDeathSystem] Death location: (${deathLock.position.x}, ${deathLock.position.y}, ${deathLock.position.z})`,
-      );
-      console.log(
-        `[PlayerDeathSystem] Zone: ${deathLock.zoneType}, Items: ${deathLock.itemCount}, Age: ${Math.round(deathAge / 1000)}s`,
-      );
 
       // Restore death location to memory
       this.deathLocations.set(playerId, {
@@ -1012,10 +955,6 @@ export class PlayerDeathSystem extends SystemBase {
       });
 
       // Immediately trigger respawn (RuneScape-style - no waiting, no screen)
-      console.log(
-        `[PlayerDeathSystem] ✓ Triggering immediate respawn for ${playerId} on reconnect`,
-      );
-
       // Very short delay, then auto-respawn (just enough for world to load)
       setTimeout(() => {
         this.initiateRespawn(playerId);
@@ -1026,9 +965,6 @@ export class PlayerDeathSystem extends SystemBase {
       return { blockInventoryLoad: true };
     }
 
-    console.log(
-      `[PlayerDeathSystem] ✓ No active death lock for ${playerId}, normal login`,
-    );
     return { blockInventoryLoad: false };
   }
 
@@ -1106,9 +1042,6 @@ export class PlayerDeathSystem extends SystemBase {
         this.world.getSystem<EntityManager>("entity-manager");
       if (entityManager) {
         entityManager.destroyEntity(headstoneId);
-        console.log(
-          `[PlayerDeathSystem] Despawned headstone ${headstoneId} for player ${playerId}`,
-        );
       }
     }
 

@@ -158,7 +158,6 @@ export interface ItemEntityConfig extends EntityConfig<ItemEntityProperties> {
   value: number;
   weight: number;
   rarity: ItemRarity;
-  stats: Record<string, number>;
   requirements: Record<string, number>;
   effects: Array<{ type: string; value: number; duration: number }>;
   armorSlot: string | null;
@@ -176,10 +175,15 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   level: number;
   maxHealth: number;
   currentHealth: number;
-  attackPower: number;
+  attack: number; // Attack level for accuracy calculations (OSRS-style)
+  attackPower: number; // Strength-based, determines max hit
   defense: number;
-  attackSpeed: number;
+  attackSpeedTicks: number;
   moveSpeed: number;
+  aggressive: boolean; // If true, mob attacks players on sight; if false, only retaliates
+  retaliates: boolean; // If true, mob fights back when attacked; if false, mob is peaceful
+  attackable: boolean; // If true, players can attack this mob; if false, mob cannot be targeted
+  movementType: "stationary" | "wander" | "patrol"; // Controls idle movement behavior
   aggroRange: number;
   combatRange: number;
   wanderRadius: number; // Fixed distance from spawn point (RuneScape-style)
@@ -229,6 +233,9 @@ export interface ResourceEntityConfig
   }>;
   depleted: boolean;
   lastHarvestTime: number;
+  depletedModelPath?: string | null;
+  modelScale?: number;
+  depletedModelScale?: number;
 }
 
 // Component interfaces
