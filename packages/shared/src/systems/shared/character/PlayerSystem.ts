@@ -433,10 +433,6 @@ export class PlayerSystem extends SystemBase {
     // This matches the inventory initialization pattern - send data in PLAYER_REGISTERED
     const player = this.players.get(data.playerId);
     if (player) {
-      console.log(
-        `[PlayerSystem] 📊 PLAYER_REGISTERED: Sending health to client - ${player.health.current}/${player.health.max}`,
-      );
-
       // Emit PLAYER_UPDATED so EventBridge forwards to client
       this.emitTypedEvent(EventType.PLAYER_UPDATED, {
         playerId: data.playerId,
@@ -449,10 +445,6 @@ export class PlayerSystem extends SystemBase {
           alive: player.alive,
         },
       });
-    } else {
-      console.warn(
-        `[PlayerSystem] ⚠️ PLAYER_REGISTERED but player data not found: ${data.playerId}`,
-      );
     }
   }
 
@@ -467,10 +459,6 @@ export class PlayerSystem extends SystemBase {
     const player = this.players.get(data.entityId);
     if (!player) return;
 
-    console.log(
-      `[PlayerSystem] 💪 Combat level changed for ${data.entityId}: ${data.oldLevel} → ${data.newLevel}`,
-    );
-
     // Update combat level in player data (SkillsSystem already updated StatsComponent)
     player.combat.combatLevel = data.newLevel;
 
@@ -479,10 +467,6 @@ export class PlayerSystem extends SystemBase {
     this.databaseSystem.savePlayer(databaseId, {
       combatLevel: data.newLevel,
     });
-
-    console.log(
-      `[PlayerSystem] ✅ Combat level ${data.newLevel} saved to database for ${data.entityId}`,
-    );
   }
 
   async onPlayerEnter(data: PlayerEnterEvent): Promise<void> {
@@ -708,29 +692,15 @@ export class PlayerSystem extends SystemBase {
   }
 
   private handleDeath(data: PlayerDeathEvent): void {
-    console.log(
-      `[PlayerSystem] handleDeath called for ${data.playerId}, cause: ${data.cause}`,
-    );
-
     const player = this.players.get(data.playerId);
     if (!player) {
-      console.warn(
-        `[PlayerSystem] Player ${data.playerId} not found in handleDeath`,
-      );
       return; // Player not found, ignore
     }
 
     // Prevent infinite recursion: if player is already dead, don't process again
     if (!player.alive) {
-      console.log(
-        `[PlayerSystem] Player ${data.playerId} already dead, ignoring duplicate death event`,
-      );
       return; // Already dead, ignore duplicate death events
     }
-
-    console.log(
-      `[PlayerSystem] Marking player ${data.playerId} as dead, emitting ENTITY_DEATH`,
-    );
 
     // Mark player as dead in PlayerSystem data
     player.alive = false;
@@ -744,8 +714,6 @@ export class PlayerSystem extends SystemBase {
       killedBy: data.cause || "unknown",
       entityType: "player" as const,
     });
-
-    console.log(`[PlayerSystem] ENTITY_DEATH emitted for ${data.playerId}`);
 
     this.emitPlayerUpdate(data.playerId);
   }
@@ -1132,14 +1100,7 @@ export class PlayerSystem extends SystemBase {
       maxHealth: player.health.max,
     });
 
-    console.log(
-      `[PlayerSystem] damagePlayer: ${playerId} health now ${player.health.current}/${player.health.max}, alive: ${player.alive}`,
-    );
-
     if (player.health.current <= 0) {
-      console.log(
-        `[PlayerSystem] Player ${playerId} health <= 0, calling handleDeath`,
-      );
       this.handleDeath({
         playerId,
         deathLocation: player.position,
@@ -1470,10 +1431,6 @@ export class PlayerSystem extends SystemBase {
 
     this.playerAttackStyles.set(playerId, playerState);
 
-    console.log(
-      `[PlayerSystem] Initialized attack style for ${playerId}: ${initialStyle} (saved: ${savedStyle})`,
-    );
-
     // Notify UI of initial attack style
     this.emitTypedEvent(EventType.UI_ATTACK_STYLE_CHANGED, {
       playerId,
@@ -1491,29 +1448,15 @@ export class PlayerSystem extends SystemBase {
     newStyle: string;
   }): void {
     const { playerId, newStyle } = data;
-    console.log(
-      `[PlayerSystem] handleStyleChange called for ${playerId}, newStyle: ${newStyle}`,
-    );
 
     const playerState = this.playerAttackStyles.get(playerId);
     if (!playerState) {
-      console.error(
-        `[PlayerSystem] No attack style state found for player ${playerId}`,
-      );
       return;
     }
-
-    console.log(
-      `[PlayerSystem] Current style: ${playerState.selectedStyle}, requested: ${newStyle}`,
-    );
 
     // Validate new style
     const style = this.ATTACK_STYLES[newStyle];
     if (!style) {
-      console.error(
-        `[PlayerSystem] Invalid style requested: ${newStyle}, available styles:`,
-        Object.keys(this.ATTACK_STYLES),
-      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: `Invalid attack style: ${newStyle}`,
@@ -1525,9 +1468,6 @@ export class PlayerSystem extends SystemBase {
     // Check cooldown
     const now = Date.now();
     const timeSinceLastChange = now - playerState.lastStyleChange;
-    console.log(
-      `[PlayerSystem] Time since last change: ${timeSinceLastChange}ms, cooldown: ${this.STYLE_CHANGE_COOLDOWN}ms`,
-    );
 
     if (timeSinceLastChange < this.STYLE_CHANGE_COOLDOWN) {
       const remainingCooldown = Math.ceil(
@@ -1576,9 +1516,6 @@ export class PlayerSystem extends SystemBase {
     this.styleChangeTimers.set(playerId, cooldownTimer);
 
     // Notify UI immediately
-    console.log(
-      `[PlayerSystem] Emitting UI_ATTACK_STYLE_CHANGED for ${playerId}, new style: ${style.id}`,
-    );
     this.emitTypedEvent(EventType.UI_ATTACK_STYLE_CHANGED, {
       playerId,
       currentStyle: style,
@@ -1586,9 +1523,6 @@ export class PlayerSystem extends SystemBase {
       canChange: false,
       cooldownRemaining: this.STYLE_CHANGE_COOLDOWN,
     });
-    console.log(
-      `[PlayerSystem] Style change complete: ${oldStyle} -> ${newStyle}`,
-    );
 
     // Notify chat
     this.emitTypedEvent(EventType.UI_MESSAGE, {
@@ -1603,9 +1537,6 @@ export class PlayerSystem extends SystemBase {
       this.databaseSystem.savePlayer(databaseId, {
         attackStyle: newStyle,
       });
-      console.log(
-        `[PlayerSystem] Saved attack style to database: ${playerId} -> ${newStyle}`,
-      );
     }
   }
 

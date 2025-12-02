@@ -256,10 +256,6 @@ export class MobEntity extends CombatantEntity {
     super(world, combatConfig);
     this.config = config;
 
-    // DIAGNOSTIC: Log the config received
-    console.log(`[MobEntity] 📊 Constructor for ${config.mobType}:`);
-    console.log(`  - model: "${config.model}"`);
-
     // Manifest is source of truth for respawnTime - no minimum enforcement
     if (!this.config.respawnTime) {
       this.config.respawnTime = 15000; // Default 15s if not specified
@@ -464,28 +460,7 @@ export class MobEntity extends CombatantEntity {
    * Load VRM model and create avatar instance
    */
   private async loadVRMModel(): Promise<void> {
-    // DIAGNOSTIC: Log model path being used
-    console.log(
-      `[MobEntity] 📊 loadVRMModel called for ${this.config.mobType}:`,
-    );
-    console.log(`  - config.model: "${this.config.model}"`);
-
-    if (!this.world.loader) {
-      console.error(
-        `[MobEntity] ❌ No loader available for ${this.config.mobType}`,
-      );
-      return;
-    }
-
-    if (!this.config.model) {
-      console.error(`[MobEntity] ❌ No model path for ${this.config.mobType}`);
-      return;
-    }
-
-    if (!this.world.stage?.scene) {
-      console.error(
-        `[MobEntity] ❌ No world.stage.scene available for ${this.config.mobType}`,
-      );
+    if (!this.world.loader || !this.config.model || !this.world.stage?.scene) {
       return;
     }
 
@@ -508,7 +483,6 @@ export class MobEntity extends CombatantEntity {
     const avatarNode = nodeMap.get("avatar") || nodeMap.get("root");
 
     if (!avatarNode) {
-      console.error(`[MobEntity] ❌ No avatar node found in nodeMap`);
       return;
     }
 
@@ -520,9 +494,6 @@ export class MobEntity extends CombatantEntity {
     };
 
     if (!avatarNodeWithFactory?.factory) {
-      console.error(
-        `[MobEntity] ❌ No factory found on avatar node for ${this.config.mobType}`,
-      );
       return;
     }
 
@@ -535,16 +506,9 @@ export class MobEntity extends CombatantEntity {
       this.node.matrixWorld,
       vrmHooks,
     );
-    console.log(
-      `[MobEntity] ✅ VRM instance created for ${this.config.mobType}`,
-    );
 
     // Set initial emote to idle
     this._currentEmote = Emotes.IDLE;
-    console.log(
-      `[MobEntity] 📊 Setting initial emote for ${this.config.mobType}:`,
-    );
-    console.log(`  - emote: "${this._currentEmote}"`);
     this._avatarInstance.setEmote(this._currentEmote);
 
     // NOTE: Don't register VRM instance as hot - the MobEntity itself is registered
@@ -570,15 +534,6 @@ export class MobEntity extends CombatantEntity {
         this.mesh.scale.x * configScale.x,
         this.mesh.scale.y * configScale.y,
         this.mesh.scale.z * configScale.z,
-      );
-      console.log(`[MobEntity] 📏 VRM Scale for ${this.config.mobType}:`);
-      console.log(`  - config.scale: ${JSON.stringify(configScale)}`);
-      console.log(`  - before: ${JSON.stringify(beforeScale)}`);
-      console.log(
-        `  - after: ${JSON.stringify({ x: this.mesh.scale.x, y: this.mesh.scale.y, z: this.mesh.scale.z })}`,
-      );
-      console.log(
-        `  - (this.mesh === vrm.scene, so move() will use these values)`,
       );
 
       // Set up userData for interaction detection
@@ -1888,9 +1843,6 @@ export class MobEntity extends CombatantEntity {
   onTargetDied(targetId: string): void {
     // Only reset if this was actually our target
     if (this.config.targetPlayerId === targetId) {
-      console.log(
-        `[MobEntity] ${this.id} target ${targetId} died, resetting combat state`,
-      );
       this.clearTargetAndExitCombat();
     }
   }
@@ -1952,12 +1904,6 @@ export class MobEntity extends CombatantEntity {
   // Override serialize to include model path for client
   override serialize(): EntityData {
     const baseData = super.serialize();
-    // DIAGNOSTIC: Log model path being serialized
-    if (this.world.isServer) {
-      console.log(
-        `[MobEntity] 📊 serialize() for ${this.config.mobType}: model="${this.config.model}"`,
-      );
-    }
     return {
       ...baseData,
       model: this.config.model, // CRITICAL: Include model path for client VRM loading
@@ -2137,9 +2083,6 @@ export class MobEntity extends CombatantEntity {
               const spawnPos = data.p as [number, number, number];
               this.position.set(spawnPos[0], spawnPos[1], spawnPos[2]);
               this.node.position.set(spawnPos[0], spawnPos[1], spawnPos[2]);
-              console.log(
-                `[MobEntity] [CLIENT] 🔄 Snapped ${this.id} to respawn position (${spawnPos[0].toFixed(2)}, ${spawnPos[1].toFixed(2)}, ${spawnPos[2].toFixed(2)})`,
-              );
             }
 
             // Mark that we need to restore visibility AFTER position update

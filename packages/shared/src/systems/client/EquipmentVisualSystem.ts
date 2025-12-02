@@ -68,7 +68,6 @@ export class EquipmentVisualSystem extends SystemBase {
   async init(): Promise<void> {
     // Only run on client
     if (this.world.isServer) {
-      console.log("[EquipmentVisualSystem] Skipping init - running on server");
       return;
     }
 
@@ -313,19 +312,12 @@ export class EquipmentVisualSystem extends SystemBase {
       const avatarRoot = (rawInstance?.scene || rawInstance) as THREE.Object3D;
 
       if (avatarRoot && avatarRoot.traverse) {
-        console.log(
-          `[EquipmentVisual] 🔍 Searching for bone '${targetBoneName}' in avatarRoot (ID: ${avatarRoot.id}, Name: "${avatarRoot.name}")`,
-        );
         avatarRoot.traverse((child) => {
           if (child.name === targetBoneName) {
             targetBone = child;
           }
         });
       } else {
-        console.error(
-          `[EquipmentVisual] ❌ avatarRoot is not traversable!`,
-          rawInstance,
-        );
         if (player.node) {
           player.node.traverse((child) => {
             if (child.name === targetBoneName) {

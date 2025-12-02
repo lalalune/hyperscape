@@ -459,12 +459,6 @@ export class Entities extends SystemBase implements IEntities {
         services?: string[];
       };
 
-      // DEBUG: Log received network data for NPCs
-      console.log(`[Entities.addFromNetwork] NPC ${data.id}:`);
-      console.log(`  - networkData.npcId: ${networkData.npcId}`);
-      console.log(`  - networkData.npcType: ${networkData.npcType}`);
-      console.log(`  - networkData.services: ${networkData.services}`);
-
       // Use npcType from network data, otherwise derive from name prefix
       let derivedNPCType: NPCType = NPCType.QUEST_GIVER;
       if (networkData.npcType) {
@@ -870,14 +864,8 @@ export class Entities extends SystemBase implements IEntities {
     if (network && network.isServer) {
       try {
         network.send("entityRemoved", id);
-        console.log(
-          `[Entities] 📤 Sent entityRemoved packet for ${id} (${entity.type})`,
-        );
       } catch (error) {
-        console.warn(
-          `[Entities] Failed to send entityRemoved packet for ${id}:`,
-          error,
-        );
+        console.warn(`[Entities] Failed to send entityRemoved packet:`, error);
       }
     }
 
