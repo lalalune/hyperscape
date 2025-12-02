@@ -15,7 +15,7 @@ import {
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { EventType } from "@hyperscape/shared";
+import { EventType, getItem } from "@hyperscape/shared";
 import type { ClientWorld, InventorySlotItem } from "../../types";
 
 type InventorySlotViewItem = Pick<
@@ -319,12 +319,12 @@ export function InventoryPanel({
     ? slotItems[parseInt(activeId.split("-")[1])]
     : null;
 
-  // Calculate stats
+  // Calculate stats using actual item weights from manifest
   const totalWeight = items.reduce((sum, item) => {
-    // Estimate weight based on item type (since we don't have full item data)
-    const baseWeight = 0.5;
+    const itemData = getItem(item.itemId);
+    const weight = itemData?.weight ?? 0.1; // Default matches DataManager
     const quantity = item.quantity || 1;
-    return sum + baseWeight * quantity;
+    return sum + weight * quantity;
   }, 0);
 
   const itemCount = items.filter((item) => item !== null).length;
