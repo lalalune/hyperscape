@@ -55,20 +55,14 @@ export class RespawnManager {
   constructor(config: RespawnConfig) {
     this.config = {
       ...config,
-      // Enforce minimum respawn time (15 seconds = 25 ticks)
-      respawnTimeMin: Math.max(config.respawnTimeMin || 15000, 15000),
-      respawnTimeMax: Math.max(config.respawnTimeMax || 15000, 15000),
+      // Manifest is source of truth for respawnTime - no minimum enforcement
+      respawnTimeMin: config.respawnTimeMin || 15000,
+      respawnTimeMax: config.respawnTimeMax || 15000,
     };
 
-    // Convert ms config to ticks (with minimum of RESPAWN_TICKS_MIN)
-    this.respawnTicksMin = msToTicks(
-      this.config.respawnTimeMin,
-      COMBAT_CONSTANTS.RESPAWN_TICKS_MIN,
-    );
-    this.respawnTicksMax = msToTicks(
-      this.config.respawnTimeMax,
-      COMBAT_CONSTANTS.RESPAWN_TICKS_MIN,
-    );
+    // Convert ms config to ticks (minimum 1 tick to avoid zero/negative)
+    this.respawnTicksMin = msToTicks(this.config.respawnTimeMin, 1);
+    this.respawnTicksMax = msToTicks(this.config.respawnTimeMax, 1);
   }
 
   /**

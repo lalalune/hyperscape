@@ -306,7 +306,7 @@ export class DataManager {
         aggroRange: npc.combat?.aggroRange ?? 0,
         combatRange: npc.combat?.combatRange ?? 1.5,
         attackSpeedTicks: npc.combat?.attackSpeedTicks ?? 4,
-        respawnTime: npc.combat?.respawnTime ?? 60000,
+        respawnTime: (npc.combat?.respawnTicks ?? 25) * 600, // Convert ticks to ms
         xpReward: npc.combat?.xpReward ?? 0,
         poisonous: npc.combat?.poisonous ?? false,
         immuneToPoison: npc.combat?.immuneToPoison ?? false,

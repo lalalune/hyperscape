@@ -12,10 +12,12 @@ This document tracks manifest inconsistencies and improvements needed for OSRS-s
 
 **What was fixed:**
 - Changed `attackSpeed: 2400` → `attackSpeedTicks: 4` in npcs.json
+- Changed `respawnTime: 15000` → `respawnTicks: 25` in npcs.json
 - Updated all code references to use `attackSpeedTicks` directly (no conversion)
 - Fixed the bug where mobs attacked once every 4,000,000 ticks instead of 4 ticks
+- DataManager converts `respawnTicks` to `respawnTime` (ms) for internal use
 
-**Files modified:**
+**Files modified for attackSpeedTicks:**
 1. `npcs.json` - Field rename
 2. `DataManager.ts` - Field mapping
 3. `MobEntity.ts` - Use ticks directly
@@ -26,7 +28,10 @@ This document tracks manifest inconsistencies and improvements needed for OSRS-s
 8. `entities.ts` - Type definitions
 9. `Entities.ts` - Default value
 
-**Note:** `respawnTime` still uses milliseconds (15000 = 15 seconds). This works correctly but is inconsistent with resources.json which uses `respawnTicks`. Consider standardizing in a future update.
+**Files modified for respawnTicks:**
+1. `npcs.json` - Field rename (`respawnTime` → `respawnTicks`)
+2. `DataManager.ts` - Converts ticks to ms: `(npc.combat?.respawnTicks ?? 25) * 600`
+3. `npc-mob-types.ts` - Added `respawnTicks?: number` to NPCCombatConfig
 
 ---
 
@@ -131,12 +136,12 @@ const totalWeight = items.reduce((sum, item) => {
 | Manifest | Field | Current | Target | Status |
 |----------|-------|---------|--------|--------|
 | npcs.json | attackSpeedTicks | 4 (ticks) | ✅ Fixed | ✅ |
-| npcs.json | respawnTime | 15000 (ms) | respawnTicks: 25 | ❌ |
+| npcs.json | respawnTicks | 25 (ticks) | ✅ Fixed | ✅ |
 | items.json | attackSpeed | 4 (ticks) | ✅ Already correct | ✅ |
 | resources.json | baseCycleTicks | 4 (ticks) | ✅ Already correct | ✅ |
 | resources.json | respawnTicks | 80 (ticks) | ✅ Already correct | ✅ |
 
-**Status:** ⚠️ Mostly complete (only npcs.json respawnTime remaining)
+**Status:** ✅ All tick-based timing is now consistent across manifests!
 
 ---
 
@@ -152,4 +157,4 @@ const totalWeight = items.reduce((sum, item) => {
 1. ~~**HIGH:** Fix npcs.json attackSpeed bug~~ ✅ DONE
 2. **MEDIUM:** Fix client weight display to use manifest weights
 3. **LOW:** Rename stumpModelPath for clarity
-4. **LOW:** Standardize npcs.json respawnTime to respawnTicks
+4. ~~**LOW:** Standardize npcs.json respawnTime to respawnTicks~~ ✅ DONE

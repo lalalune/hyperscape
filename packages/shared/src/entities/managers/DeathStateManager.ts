@@ -44,8 +44,8 @@ export class DeathStateManager {
       ...config,
       // Enforce defaults
       deathAnimationDuration: config.deathAnimationDuration || 4500, // 4.5 seconds
-      // Enforce minimum 15 second respawn time (RuneScape-style)
-      respawnTime: Math.max(config.respawnTime || 15000, 15000),
+      // Manifest is source of truth for respawnTime - no minimum enforcement
+      respawnTime: config.respawnTime || 15000,
     };
   }
 
