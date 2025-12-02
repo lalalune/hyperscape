@@ -22,6 +22,7 @@ import { AccountPanel } from "./panels/AccountPanel";
 import { DashboardPanel } from "./panels/DashboardPanel";
 import { LootWindow } from "./panels/LootWindow";
 import { BankPanel } from "./panels/BankPanel";
+import { StorePanel } from "./panels/StorePanel";
 import { DialoguePanel } from "./panels/DialoguePanel";
 
 type InventorySlotViewItem = Pick<
@@ -72,6 +73,24 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     bankId: string;
   } | null>(null);
 
+  // Store panel state
+  const [storeData, setStoreData] = useState<{
+    visible: boolean;
+    storeId: string;
+    storeName: string;
+    buybackRate: number;
+    npcEntityId?: string;
+    items: Array<{
+      id: string;
+      itemId: string;
+      name: string;
+      price: number;
+      stockQuantity: number;
+      description?: string;
+      category?: string;
+    }>;
+  } | null>(null);
+
   // Dialogue panel state
   const [dialogueData, setDialogueData] = useState<{
     visible: boolean;
@@ -79,6 +98,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     npcName: string;
     text: string;
     responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+    npcEntityId?: string;
   } | null>(null);
 
   // Update chat context whenever windows open/close
@@ -165,12 +185,45 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           isOpen?: boolean;
         };
         if (data.isOpen) {
-          setBankData({
+          // Preserve existing bankId if new one not provided (deposit/withdraw responses)
+          // This prevents the distance check from failing after operations
+          setBankData((prev) => ({
             visible: true,
             items: data.items || [],
             maxSlots: data.maxSlots || 480,
-            bankId: data.bankId || "spawn_bank",
+            bankId: data.bankId || prev?.bankId || "spawn_bank",
+          }));
+        }
+      }
+      // Handle store state updates
+      if (update.component === "store") {
+        const data = update.data as {
+          storeId: string;
+          storeName: string;
+          buybackRate: number;
+          npcEntityId?: string;
+          items: Array<{
+            id: string;
+            itemId: string;
+            name: string;
+            price: number;
+            stockQuantity: number;
+            description?: string;
+            category?: string;
+          }>;
+          isOpen?: boolean;
+        };
+        if (data.isOpen) {
+          setStoreData({
+            visible: true,
+            storeId: data.storeId,
+            storeName: data.storeName,
+            buybackRate: data.buybackRate || 0.5,
+            npcEntityId: data.npcEntityId,
+            items: data.items || [],
           });
+        } else {
+          setStoreData(null);
         }
       }
       // Handle dialogue state updates
@@ -184,6 +237,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             nextNodeId: string;
             effect?: string;
           }>;
+          npcEntityId?: string;
         };
         setDialogueData((prev) => ({
           visible: true,
@@ -192,6 +246,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           npcName: data.npcName || prev?.npcName || "NPC",
           text: data.text,
           responses: data.responses || [],
+          // Preserve npcEntityId from previous state if not provided
+          npcEntityId: data.npcEntityId || prev?.npcEntityId,
         }));
       }
       // Handle dialogue end
@@ -594,6 +650,28 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           />
         )}
 
+        {/* Store Panel (includes integrated inventory) */}
+        {storeData?.visible && (
+          <StorePanel
+            storeId={storeData.storeId}
+            storeName={storeData.storeName}
+            buybackRate={storeData.buybackRate}
+            items={storeData.items}
+            world={world}
+            inventory={inventory}
+            coins={coins}
+            npcEntityId={storeData.npcEntityId}
+            onClose={() => {
+              setStoreData(null);
+              if (world.network?.send) {
+                world.network.send("storeClose", {
+                  storeId: storeData.storeId,
+                });
+              }
+            }}
+          />
+        )}
+
         {/* Dialogue Panel */}
         {dialogueData?.visible && (
           <DialoguePanel
@@ -602,6 +680,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             npcId={dialogueData.npcId}
             text={dialogueData.text}
             responses={dialogueData.responses}
+            npcEntityId={dialogueData.npcEntityId}
             world={world}
             onSelectResponse={(index, response) => {
               // Response handling is done in DialoguePanel via network.send

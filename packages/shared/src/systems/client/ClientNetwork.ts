@@ -1314,6 +1314,18 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.INVENTORY_UPDATED, data);
   };
 
+  onCoinsUpdated = (data: { playerId: string; coins: number }) => {
+    // Update cached inventory coins
+    if (this.lastInventoryByPlayerId[data.playerId]) {
+      this.lastInventoryByPlayerId[data.playerId].coins = data.coins;
+    }
+    // Emit event for UI to update coin display
+    this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+      playerId: data.playerId,
+      coins: data.coins,
+    });
+  };
+
   onEquipmentUpdated = (data: { playerId: string; equipment: any }) => {
     // Cache latest equipment for late-mounting UI
     this.lastEquipmentByPlayerId = this.lastEquipmentByPlayerId || {};
@@ -1377,6 +1389,37 @@ export class ClientNetwork extends SystemBase {
     });
   };
 
+  // --- Store state handler ---
+  onStoreState = (data: {
+    storeId: string;
+    storeName: string;
+    buybackRate: number;
+    items: Array<{
+      id: string;
+      itemId: string;
+      name: string;
+      price: number;
+      stockQuantity: number;
+      description?: string;
+      category?: string;
+    }>;
+    isOpen: boolean;
+    npcEntityId?: string;
+  }) => {
+    // Emit as UI update for StorePanel to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "store",
+      data: {
+        storeId: data.storeId,
+        storeName: data.storeName,
+        buybackRate: data.buybackRate,
+        items: data.items,
+        isOpen: data.isOpen,
+        npcEntityId: data.npcEntityId,
+      },
+    });
+  };
+
   // --- Dialogue handlers ---
   onDialogueStart = (data: {
     npcId: string;
@@ -1384,6 +1427,7 @@ export class ClientNetwork extends SystemBase {
     nodeId: string;
     text: string;
     responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+    npcEntityId?: string;
   }) => {
     // Emit as UI update for DialoguePanel to handle
     this.world.emit(EventType.UI_UPDATE, {
@@ -1393,6 +1437,7 @@ export class ClientNetwork extends SystemBase {
         npcName: data.npcName,
         text: data.text,
         responses: data.responses,
+        npcEntityId: data.npcEntityId,
       },
     });
   };

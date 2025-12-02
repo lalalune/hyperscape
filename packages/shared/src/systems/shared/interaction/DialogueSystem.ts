@@ -23,6 +23,7 @@ interface DialogueState {
   npcName: string;
   dialogueTree: NPCDialogueTree;
   currentNodeId: string;
+  npcEntityId?: string;
 }
 
 /**
@@ -52,6 +53,7 @@ export class DialogueSystem extends SystemBase {
         playerId: string;
         npcId: string;
         npc: { id: string; name: string; type: string };
+        npcEntityId?: string;
       }) => {
         this.handleNPCInteraction(data);
       },
@@ -79,8 +81,9 @@ export class DialogueSystem extends SystemBase {
     playerId: string;
     npcId: string;
     npc: { id: string; name: string; type: string };
+    npcEntityId?: string;
   }): void {
-    const { playerId, npc } = data;
+    const { playerId, npc, npcEntityId } = data;
 
     // Look up NPC data from manifest
     const npcData = getNPCById(npc.id);
@@ -91,8 +94,14 @@ export class DialogueSystem extends SystemBase {
       return;
     }
 
-    // Start dialogue
-    this.startDialogue(playerId, npc.id, npc.name, npcData.dialogue);
+    // Start dialogue (pass npcEntityId for distance checking on client)
+    this.startDialogue(
+      playerId,
+      npc.id,
+      npc.name,
+      npcData.dialogue,
+      npcEntityId,
+    );
   }
 
   /**
@@ -103,6 +112,7 @@ export class DialogueSystem extends SystemBase {
     npcId: string,
     npcName: string,
     dialogueTree: NPCDialogueTree,
+    npcEntityId?: string,
   ): void {
     // Find entry node
     const entryNode = dialogueTree.nodes.find(
@@ -115,16 +125,24 @@ export class DialogueSystem extends SystemBase {
       return;
     }
 
-    // Store dialogue state
+    // Store dialogue state (include npcEntityId for distance checking)
     this.activeDialogues.set(playerId, {
       npcId,
       npcName,
       dialogueTree,
       currentNodeId: entryNode.id,
+      npcEntityId,
     });
 
-    // Send dialogue start to client
-    this.sendDialogueNode(playerId, npcId, npcName, entryNode, true);
+    // Send dialogue start to client (include npcEntityId)
+    this.sendDialogueNode(
+      playerId,
+      npcId,
+      npcName,
+      entryNode,
+      true,
+      npcEntityId,
+    );
   }
 
   /**
@@ -147,9 +165,9 @@ export class DialogueSystem extends SystemBase {
       return;
     }
 
-    // Execute effect if present
+    // Execute effect if present (pass npcEntityId for bank/store distance checking)
     if (effect) {
-      this.executeEffect(playerId, npcId, effect);
+      this.executeEffect(playerId, npcId, effect, state.npcEntityId);
     }
 
     // Find next node
@@ -187,6 +205,7 @@ export class DialogueSystem extends SystemBase {
     npcName: string,
     node: NPCDialogueNode,
     isStart: boolean,
+    npcEntityId?: string,
   ): void {
     const responses = (node.responses || []).map((r) => ({
       text: r.text,
@@ -202,6 +221,7 @@ export class DialogueSystem extends SystemBase {
         nodeId: node.id,
         text: node.text,
         responses,
+        npcEntityId,
       });
     } else {
       this.emitTypedEvent(EventType.DIALOGUE_NODE_CHANGE, {
@@ -232,7 +252,12 @@ export class DialogueSystem extends SystemBase {
   /**
    * Execute a dialogue effect
    */
-  private executeEffect(playerId: string, npcId: string, effect: string): void {
+  private executeEffect(
+    playerId: string,
+    npcId: string,
+    effect: string,
+    npcEntityId?: string,
+  ): void {
     this.logger.info(
       `Executing dialogue effect: ${effect} for player ${playerId}`,
     );
@@ -245,6 +270,7 @@ export class DialogueSystem extends SystemBase {
         this.emitTypedEvent(EventType.BANK_OPEN_REQUEST, {
           playerId,
           npcId,
+          npcEntityId, // Pass entity ID for distance checking
         });
         break;
 
@@ -253,7 +279,7 @@ export class DialogueSystem extends SystemBase {
         this.emitTypedEvent(EventType.STORE_OPEN_REQUEST, {
           playerId,
           npcId,
-          inventory: [],
+          npcEntityId, // Pass entity ID for distance checking
         });
         break;
 

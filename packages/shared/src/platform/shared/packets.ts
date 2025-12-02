@@ -127,6 +127,7 @@ const names = [
   'unequipItem',
   // Inventory sync packets
   'inventoryUpdated',
+  'coinsUpdated',
   // Equipment sync packets
   'equipmentUpdated',
   // Skills sync packets
@@ -167,6 +168,12 @@ const names = [
   'bankDepositAll',
   'bankWithdraw',
   'bankClose',
+  // Store packets
+  'storeOpen',
+  'storeState',
+  'storeBuy',
+  'storeSell',
+  'storeClose',
   // NPC interaction packets
   'npcInteract',
   // Dialogue packets
@@ -174,6 +181,7 @@ const names = [
   'dialogueNodeChange',
   'dialogueResponse',
   'dialogueEnd',
+  'dialogueClose',
   // Tile movement packets (RuneScape-style)
   'entityTileUpdate',    // Server -> Client: entity moved to new tile position
   'tileMovementStart',   // Server -> Client: movement path started

@@ -103,6 +103,12 @@ import {
   handleSettings,
 } from "./handlers/entities";
 import { handleCommand } from "./handlers/commands";
+import {
+  handleStoreOpen,
+  handleStoreBuy,
+  handleStoreSell,
+  handleStoreClose,
+} from "./handlers/store";
 
 const defaultSpawn = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }';
 
@@ -674,10 +680,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       };
 
       // Emit NPC_INTERACTION event for DialogueSystem to handle
+      // npcId is the entity instance ID, pass as npcEntityId for distance checking
       this.world.emit(EventType.NPC_INTERACTION, {
         playerId: playerEntity.id,
         npcId: payload.npcId,
         npc: payload.npc,
+        npcEntityId: payload.npcId,
       });
     };
 
@@ -711,6 +719,35 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         npcId: payload.npcId,
       });
     };
+
+    // Store handlers
+    this.handlers["onStoreOpen"] = (socket, data) =>
+      handleStoreOpen(
+        socket,
+        data as {
+          npcId: string;
+          storeId?: string;
+          npcPosition?: { x: number; y: number; z: number };
+        },
+        this.world,
+      );
+
+    this.handlers["onStoreBuy"] = (socket, data) =>
+      handleStoreBuy(
+        socket,
+        data as { storeId: string; itemId: string; quantity: number },
+        this.world,
+      );
+
+    this.handlers["onStoreSell"] = (socket, data) =>
+      handleStoreSell(
+        socket,
+        data as { storeId: string; itemId: string; quantity: number },
+        this.world,
+      );
+
+    this.handlers["onStoreClose"] = (socket, data) =>
+      handleStoreClose(socket, data as { storeId: string }, this.world);
   }
 
   async init(options: WorldOptions): Promise<void> {

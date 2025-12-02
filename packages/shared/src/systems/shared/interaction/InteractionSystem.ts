@@ -339,35 +339,27 @@ export class InteractionSystem extends System {
             localPlayer.position,
             target.position,
           );
-          const bankRange = 3.0;
+          const bankRange = 2.0; // Must match panel auto-close range (Chebyshev)
+          const minDelay = 50; // Minimum delay to avoid race conditions
 
           if (distance > bankRange) {
-            // Walk to bank, then open
             this.walkTo(target.position);
-            const walkTime = Math.min(distance * 400, 3000);
-            setTimeout(() => {
-              if (this.world.network?.send) {
-                const bankId =
-                  (target.entity as { userData?: { bankId?: string } })
-                    ?.userData?.bankId || target.id;
-                this.world.network.send("bankOpen", { bankId });
-              }
-            }, walkTime);
-            return;
           }
-
-          // Close enough - open bank immediately
-          if (this.world.network?.send) {
-            const bankId =
-              (target.entity as { userData?: { bankId?: string } })?.userData
-                ?.bankId || target.id;
-            this.world.network.send("bankOpen", { bankId });
-          }
+          const actionDelay =
+            distance > bankRange ? Math.min(distance * 400, 3000) : minDelay;
+          setTimeout(() => {
+            if (this.world.network?.send) {
+              const bankId =
+                (target.entity as { userData?: { bankId?: string } })?.userData
+                  ?.bankId || target.id;
+              this.world.network.send("bankOpen", { bankId });
+            }
+          }, actionDelay);
         }
         return;
       }
 
-      // Handle NPC with left-click (Talk/Interact)
+      // Handle NPC with left-click (primary action based on services)
       if (target.type === "npc") {
         event.preventDefault();
         const localPlayer = this.world.getPlayer();
@@ -378,16 +370,71 @@ export class InteractionSystem extends System {
           };
           const npcEntity = target.entity as NPCEntityType;
           const npcConfig = npcEntity?.config || {};
+          const services = npcConfig.services || [];
 
-          // Send NPC interaction to server
-          this.world.network.send("npcInteract", {
-            npcId: target.id, // Entity instance ID
-            npc: {
-              id: npcConfig.npcId || target.id, // Manifest ID (e.g., "bank_clerk")
-              name: target.name,
-              type: npcConfig.npcType || "dialogue",
-            },
-          });
+          const distance = this.calculateDistance(
+            localPlayer.position,
+            target.position,
+          );
+          const interactRange = 2.0; // Must match panel auto-close range (Chebyshev)
+
+          // Determine primary action based on services
+          // Always use a small delay to avoid race conditions with UI events
+          const minDelay = 50; // Minimum delay even when already in range
+
+          if (services.includes("bank")) {
+            // Primary action: Use Bank
+            if (distance > interactRange) {
+              this.walkTo(target.position);
+            }
+            const actionDelay =
+              distance > interactRange
+                ? Math.min(distance * 400, 3000)
+                : minDelay;
+            setTimeout(() => {
+              if (this.world.network?.send) {
+                this.world.network.send("bankOpen", { bankId: target.id });
+              }
+            }, actionDelay);
+          } else if (services.includes("store") || services.includes("shop")) {
+            // Primary action: Trade (open store)
+            if (distance > interactRange) {
+              this.walkTo(target.position);
+            }
+            const actionDelay =
+              distance > interactRange
+                ? Math.min(distance * 400, 3000)
+                : minDelay;
+            setTimeout(() => {
+              if (this.world.network?.send) {
+                this.world.network.send("storeOpen", {
+                  npcId: npcConfig.npcId || target.id,
+                  npcEntityId: target.id,
+                });
+              }
+            }, actionDelay);
+          } else {
+            // Primary action: Talk (dialogue)
+            if (distance > interactRange) {
+              this.walkTo(target.position);
+            }
+            const actionDelay =
+              distance > interactRange
+                ? Math.min(distance * 400, 3000)
+                : minDelay;
+            setTimeout(() => {
+              if (this.world.network?.send) {
+                this.world.network.send("npcInteract", {
+                  npcId: target.id,
+                  npc: {
+                    id: npcConfig.npcId || target.id,
+                    name: target.name,
+                    type: npcConfig.npcType || "dialogue",
+                  },
+                });
+              }
+            }, actionDelay);
+          }
         }
         return;
       }
@@ -1024,34 +1071,78 @@ export class InteractionSystem extends System {
         const npcConfig = (target.entity as NPCEntity).config || {};
         const services = npcConfig.services || [];
 
+        // Minimum delay even when already in range to avoid race conditions with UI events
+        const minDelay = 50;
+
         if (services.includes("bank")) {
           actions.push({
-            id: "open-bank",
-            label: "Open Bank",
+            id: "use-bank",
+            label: "Use Bank",
             icon: "🏦",
             enabled: true,
             handler: () => {
-              this.world.emit(EventType.BANK_OPEN, {
-                playerId,
-                bankId: target.id,
-                position: target.position,
-              });
+              const player = this.world.getPlayer();
+              if (!player) return;
+
+              const distance = this.calculateDistance(
+                player.position,
+                target.position,
+              );
+              const interactRange = 2.0; // Must match panel auto-close range (Chebyshev)
+
+              if (distance > interactRange) {
+                this.walkTo(target.position);
+              }
+              const actionDelay =
+                distance > interactRange
+                  ? Math.min(distance * 400, 3000)
+                  : minDelay;
+              setTimeout(() => {
+                if (this.world.network?.send) {
+                  this.world.network.send("bankOpen", { bankId: target.id });
+                }
+              }, actionDelay);
             },
           });
         }
 
-        if (services.includes("store")) {
+        if (services.includes("store") || services.includes("shop")) {
           actions.push({
             id: "open-store",
             label: "Trade",
             icon: "🏪",
             enabled: true,
             handler: () => {
-              this.world.emit(EventType.STORE_OPEN, {
-                playerId,
-                storeId: target.id,
-                position: target.position,
-              });
+              const player = this.world.getPlayer();
+              if (!player) return;
+
+              const distance = this.calculateDistance(
+                player.position,
+                target.position,
+              );
+              const interactRange = 2.0; // Must match panel auto-close range (Chebyshev)
+
+              type NPCEntityType = {
+                config?: { npcId?: string };
+              };
+              const npcEntity = target.entity as NPCEntityType;
+              const npcConfig = npcEntity?.config || {};
+
+              if (distance > interactRange) {
+                this.walkTo(target.position);
+              }
+              const actionDelay =
+                distance > interactRange
+                  ? Math.min(distance * 400, 3000)
+                  : minDelay;
+              setTimeout(() => {
+                if (this.world.network?.send) {
+                  this.world.network.send("storeOpen", {
+                    npcId: npcConfig.npcId || target.id,
+                    npcEntityId: target.id, // Entity ID for distance checking
+                  });
+                }
+              }, actionDelay);
             },
           });
         }
@@ -1062,27 +1153,46 @@ export class InteractionSystem extends System {
           icon: "💬",
           enabled: true,
           handler: () => {
-            // Send NPC interaction to server (not local event)
-            if (this.world.network?.send) {
-              type NPCEntityType = {
-                config?: {
-                  npcId?: string;
-                  npcType?: string;
-                  services?: string[];
-                };
-              };
-              const npcEntity = target.entity as NPCEntityType;
-              const npcConfig = npcEntity?.config || {};
+            const player = this.world.getPlayer();
+            if (!player) return;
 
-              this.world.network.send("npcInteract", {
-                npcId: target.id, // Entity instance ID
-                npc: {
-                  id: npcConfig.npcId || target.id, // Manifest ID (e.g., "bank_clerk")
-                  name: target.name,
-                  type: npcConfig.npcType || "dialogue",
-                },
-              });
+            const distance = this.calculateDistance(
+              player.position,
+              target.position,
+            );
+            const interactRange = 2.0; // Must match panel auto-close range (Chebyshev)
+
+            type NPCEntityType = {
+              config?: {
+                npcId?: string;
+                npcType?: string;
+                services?: string[];
+              };
+            };
+            const npcEntity = target.entity as NPCEntityType;
+            const npcConfig = npcEntity?.config || {};
+
+            const sendInteract = () => {
+              if (this.world.network?.send) {
+                this.world.network.send("npcInteract", {
+                  npcId: target.id, // Entity instance ID
+                  npc: {
+                    id: npcConfig.npcId || target.id, // Manifest ID (e.g., "bank_clerk")
+                    name: target.name,
+                    type: npcConfig.npcType || "dialogue",
+                  },
+                });
+              }
+            };
+
+            if (distance > interactRange) {
+              this.walkTo(target.position);
             }
+            const actionDelay =
+              distance > interactRange
+                ? Math.min(distance * 400, 3000)
+                : minDelay;
+            setTimeout(sendInteract, actionDelay);
           },
         });
 
@@ -1111,30 +1221,22 @@ export class InteractionSystem extends System {
               player.position,
               target.position,
             );
-            const bankRange = 3.0;
+            const bankRange = 2.0; // Must match panel auto-close range (Chebyshev)
+            const minDelay = 50; // Minimum delay to avoid race conditions
 
             if (distance > bankRange) {
-              // Walk to bank, then open
               this.walkTo(target.position);
-              const walkTime = Math.min(distance * 400, 3000);
-              setTimeout(() => {
-                if (this.world.network?.send) {
-                  const bankId =
-                    (target.entity as { userData?: { bankId?: string } })
-                      ?.userData?.bankId || target.id;
-                  this.world.network.send("bankOpen", { bankId });
-                }
-              }, walkTime);
-              return;
             }
-
-            // Close enough - open bank
-            if (this.world.network?.send) {
-              const bankId =
-                (target.entity as { userData?: { bankId?: string } })?.userData
-                  ?.bankId || target.id;
-              this.world.network.send("bankOpen", { bankId });
-            }
+            const actionDelay =
+              distance > bankRange ? Math.min(distance * 400, 3000) : minDelay;
+            setTimeout(() => {
+              if (this.world.network?.send) {
+                const bankId =
+                  (target.entity as { userData?: { bankId?: string } })
+                    ?.userData?.bankId || target.id;
+                this.world.network.send("bankOpen", { bankId });
+              }
+            }, actionDelay);
           },
         });
 
@@ -1326,12 +1428,14 @@ export class InteractionSystem extends System {
   // === Distance-based pickup helper methods ===
 
   /**
-   * Calculate distance between two positions
+   * Calculate distance between two positions using Chebyshev distance (OSRS-style tile system)
+   * This matches the panel auto-close distance checks for consistency
    */
   private calculateDistance(pos1: Position3D, pos2: Position3D): number {
     const dx = pos1.x - pos2.x;
     const dz = pos1.z - pos2.z;
-    return Math.sqrt(dx * dx + dz * dz);
+    // Chebyshev distance - square tile range like OSRS
+    return Math.max(Math.abs(dx), Math.abs(dz));
   }
 
   /**
