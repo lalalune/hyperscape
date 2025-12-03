@@ -23,7 +23,7 @@ cd /path/to/elizaos
 npm start
 ```
 
-ElizaOS API should be running on `http://localhost:3000`
+ElizaOS API should be running on `http://localhost:4001`
 
 ### 3. Verify Services
 ```bash
@@ -31,7 +31,7 @@ ElizaOS API should be running on `http://localhost:3000`
 curl http://localhost:5555/api/characters
 
 # Check ElizaOS
-curl http://localhost:3000/api/agents
+curl http://localhost:4001/api/agents
 ```
 
 ---

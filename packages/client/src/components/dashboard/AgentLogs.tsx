@@ -9,6 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
+import { ELIZAOS_API } from "@/lib/api-config";
 
 interface LogEntry {
   id: string;
@@ -34,7 +35,7 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
     setDeletingLogId(logId);
     try {
       const response = await fetch(
-        `http://localhost:3000/api/agents/${agent.id}/logs/${logId}`,
+        `${ELIZAOS_API}/agents/${agent.id}/logs/${logId}`,
         { method: "DELETE" },
       );
 
@@ -72,11 +73,11 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
         // Use ElizaOS REST API to fetch agent logs
         // Use 'limit' parameter (not 'count') and 'level' filter
         const response = await fetch(
-          `http://localhost:3000/api/agents/${agent.id}/logs?limit=200&level=info`,
+          `${ELIZAOS_API}/agents/${agent.id}/logs?limit=200&level=info`,
         );
         console.log(
           "[AgentLogs] Fetching logs from:",
-          `http://localhost:3000/api/agents/${agent.id}/logs`,
+          `${ELIZAOS_API}/agents/${agent.id}/logs`,
         );
         if (response.ok) {
           const result = await response.json();

@@ -39,7 +39,7 @@ async function createElizaOSAgent(
 ): Promise<void> {
   try {
     const elizaOSApiUrl =
-      process.env.ELIZAOS_API_URL || "http://localhost:3000";
+      process.env.ELIZAOS_API_URL || "http://localhost:4001";
 
     console.log(
       `[CharacterSelection] 🤖 Creating ElizaOS agent for character: ${name} (${characterId})`,

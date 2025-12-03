@@ -61,9 +61,9 @@ export async function createHttpServer(
   // Configure CORS for development and production
   await fastify.register(cors, {
     origin: [
-      "http://localhost:3000",
-      "http://localhost:3333",
-      "http://localhost:5555",
+      "http://localhost:4001", // ElizaOS API
+      "http://localhost:3333", // Game Client
+      "http://localhost:5555", // Game Server
       "http://localhost:7777",
       /^https?:\/\/localhost:\d+$/,
       /^https:\/\/.+\.farcaster\.xyz$/,

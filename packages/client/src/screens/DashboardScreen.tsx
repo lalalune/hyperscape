@@ -21,6 +21,7 @@ import {
   Activity,
   Server,
 } from "lucide-react";
+import { ELIZAOS_API } from "@/lib/api-config";
 import "./DashboardScreen.css";
 
 export interface Agent {
@@ -71,8 +72,6 @@ export const DashboardScreen: React.FC = () => {
     null,
   );
   const [viewportAgentId, setViewportAgentId] = useState<string | null>(null);
-
-  const ELIZAOS_API = "http://localhost:3000/api";
 
   // Get user's main account ID from Privy localStorage
   useEffect(() => {

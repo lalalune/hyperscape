@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Clock, Activity, MessageSquare, Zap, AlertCircle } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
+import { ELIZAOS_API } from "@/lib/api-config";
 
 interface TimelineEvent {
   id: string;
@@ -29,7 +30,7 @@ export const AgentTimeline: React.FC<AgentTimelineProps> = ({ agent }) => {
       // For now, we'll use logs as timeline events
       // In a real implementation, this would fetch from a dedicated timeline API
       const response = await fetch(
-        `http://localhost:3000/api/agents/${agent.id}/logs?count=50`,
+        `${ELIZAOS_API}/agents/${agent.id}/logs?count=50`,
       );
 
       if (!response.ok) {

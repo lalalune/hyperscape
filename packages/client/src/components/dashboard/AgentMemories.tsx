@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Brain, Plus, Search, Trash2, Edit2 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
+import { ELIZAOS_API } from "@/lib/api-config";
 
 interface Memory {
   id: string;
@@ -33,7 +34,7 @@ export const AgentMemories: React.FC<AgentMemoriesProps> = ({ agent }) => {
       // Fetch memories from ElizaOS API
       // Note: We need a default roomId - using agent's ID as room for now
       const response = await fetch(
-        `http://localhost:3000/api/agents/${agent.id}/rooms/${agent.id}/memories?limit=100&tableName=messages`,
+        `${ELIZAOS_API}/agents/${agent.id}/rooms/${agent.id}/memories?limit=100&tableName=messages`,
       );
 
       if (!response.ok) {
