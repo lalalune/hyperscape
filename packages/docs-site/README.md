@@ -36,7 +36,7 @@ This will:
 bun run docs:dev
 ```
 
-This starts a local development server at `http://localhost:3000` with hot-reload.
+This starts a local development server at `http://localhost:3402` with hot-reload.
 
 ### Build for Production
 

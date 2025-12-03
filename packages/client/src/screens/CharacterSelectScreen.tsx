@@ -32,6 +32,7 @@ import {
 import React from "react";
 import { CharacterPreview } from "../components/CharacterPreview";
 import { usePrivy, useCreateWallet } from "@privy-io/react-auth";
+import { ELIZAOS_API } from "@/lib/api-config";
 
 type Character = {
   id: string;
@@ -263,7 +264,7 @@ export function CharacterSelectScreen({
     const checkElizaOS = async () => {
       try {
         // Check if ElizaOS API is running
-        const response = await fetch("http://localhost:3000/api/agents", {
+        const response = await fetch("${ELIZAOS_API}/agents", {
           method: "GET",
         });
 
@@ -628,14 +629,11 @@ export function CharacterSelectScreen({
               );
 
               // Create agent in ElizaOS
-              const createAgentResponse = await fetch(
-                "http://localhost:3000/api/agents",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ characterJson: characterTemplate }),
-                },
-              );
+              const createAgentResponse = await fetch("${ELIZAOS_API}/agents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ characterJson: characterTemplate }),
+              });
 
               if (!createAgentResponse.ok) {
                 const errorData = await createAgentResponse
@@ -792,7 +790,7 @@ export function CharacterSelectScreen({
 
         try {
           // Try to fetch agent from ElizaOS by character ID
-          const response = await fetch(`http://localhost:3000/api/agents`);
+          const response = await fetch(`${ELIZAOS_API}/agents`);
           if (response.ok) {
             const data = await response.json();
             const agents = data.data?.agents || [];

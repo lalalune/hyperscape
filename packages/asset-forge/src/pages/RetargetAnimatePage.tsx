@@ -28,13 +28,13 @@ const normalizeVRMUrl = (vrmUrl: string): string => {
     return vrmUrl;
   }
 
-  // Relative paths need to be prepended with the asset-forge server URL
+  // Relative paths are served by Vite proxy (routes to backend)
   if (vrmUrl.startsWith("/")) {
-    return `http://localhost:3004${vrmUrl}`;
+    return vrmUrl;
   }
 
   // Default: assume it's a relative path without leading slash
-  return `http://localhost:3004/${vrmUrl}`;
+  return `/${vrmUrl}`;
 };
 
 export const RetargetAnimatePage: React.FC = () => {

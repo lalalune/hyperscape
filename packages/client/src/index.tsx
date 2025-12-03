@@ -97,6 +97,7 @@ interface ImportMetaEnv {
   readonly PUBLIC_ENABLE_FARCASTER?: string;
   readonly PUBLIC_APP_URL?: string;
   readonly PUBLIC_API_URL?: string;
+  readonly PUBLIC_ELIZAOS_URL?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
