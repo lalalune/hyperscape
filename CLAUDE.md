@@ -81,7 +81,7 @@ npm run cap:sync:android # Android only
 npm run docs:generate
 
 # Start docs dev server (http://localhost:3402)
-bun run dev:docs
+bun run docs:dev
 
 # Build production docs
 npm run docs:build
@@ -260,7 +260,7 @@ bun run dev        # Core game (client + server + shared)
 bun run dev:ai     # Core game + ElizaOS AI agents
 bun run dev:all    # Everything: game + AI + AssetForge
 bun run dev:forge  # AssetForge (standalone)
-bun run dev:docs   # Documentation site (standalone)
+bun run docs:dev   # Documentation site (standalone)
 ```
 
 ### Port Allocation
@@ -272,7 +272,7 @@ All services have unique default ports to avoid conflicts:
 | 3333 | Game Client | `VITE_PORT` | `bun run dev` |
 | 3400 | AssetForge UI | `ASSET_FORGE_PORT` | `bun run dev:forge` |
 | 3401 | AssetForge API | `ASSET_FORGE_API_PORT` | `bun run dev:forge` |
-| 3402 | Docusaurus | (hardcoded) | `bun run dev:docs` |
+| 3402 | Docusaurus | (hardcoded) | `bun run docs:dev` |
 | 4000 | ElizaOS Dashboard | (internal) | `bun run dev:ai` |
 | 4001 | ElizaOS API | `ELIZAOS_PORT` | `bun run dev:ai` |
 | 5555 | Game Server | `PORT` | `bun run dev` |

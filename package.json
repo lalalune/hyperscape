@@ -54,7 +54,7 @@
     "cap:sync": "cd packages/client && bun run cap:sync",
     "cap:sync:ios": "cd packages/client && bun run cap:sync:ios",
     "cap:sync:android": "cd packages/client && bun run cap:sync:android",
-    "dev:docs": "cd packages/docs-site && bun run start",
+    "docs:dev": "cd packages/docs-site && bun run start",
     "docs:generate": "typedoc",
     "docs:build": "bun run docs:generate && cd packages/docs-site && bun run build",
     "docs:serve": "cd packages/docs-site && bun run serve",
