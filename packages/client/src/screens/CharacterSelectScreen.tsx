@@ -264,7 +264,7 @@ export function CharacterSelectScreen({
     const checkElizaOS = async () => {
       try {
         // Check if ElizaOS API is running
-        const response = await fetch("${ELIZAOS_API}/agents", {
+        const response = await fetch(`${ELIZAOS_API}/agents`, {
           method: "GET",
         });
 
@@ -629,7 +629,7 @@ export function CharacterSelectScreen({
               );
 
               // Create agent in ElizaOS
-              const createAgentResponse = await fetch("${ELIZAOS_API}/agents", {
+              const createAgentResponse = await fetch(`${ELIZAOS_API}/agents`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ characterJson: characterTemplate }),

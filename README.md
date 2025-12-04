@@ -75,19 +75,24 @@ cp packages/asset-forge/.env.example packages/asset-forge/.env
 
 1. **Start Docker** - Open Docker Desktop (macOS/Windows) or start the daemon (`sudo systemctl start docker` on Linux)
 
-2. **Start the CDN** (serves game assets):
+2. **Build the project** (required first time):
+   ```bash
+   bun run build
+   ```
+
+3. **Start the CDN** (serves game assets):
    ```bash
    bun run cdn:up
    ```
 
-3. **Start the game**:
+4. **Start the game**:
    ```bash
    bun run dev          # Game only (client + server)
    # OR
    bun run dev:ai       # Game + AI agents (ElizaOS)
    ```
 
-4. Open **http://localhost:3333** in your browser.
+5. Open **http://localhost:3333** in your browser.
 
 > PostgreSQL starts automatically via Docker when the server starts.
 
