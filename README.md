@@ -40,32 +40,56 @@ bun install
 ### Setup Environment Files
 
 ```bash
-# Required: Client config (Privy auth)
+# Required: Copy both client and server env files
 cp packages/client/.env.example packages/client/.env
-# Edit and set PUBLIC_PRIVY_APP_ID from https://dashboard.privy.io
-
-# Optional: Server config (defaults work for local dev)
 cp packages/server/.env.example packages/server/.env
+```
 
-# Optional: AI agents (only if using bun run dev:ai)
+**Configure Privy Authentication** (required):
+
+1. Create a free account at [Privy Dashboard](https://dashboard.privy.io)
+2. Create an app and copy your **App ID** and **App Secret**
+3. Set in `packages/client/.env`:
+   ```
+   PUBLIC_PRIVY_APP_ID=your-app-id
+   ```
+4. Set in `packages/server/.env`:
+   ```
+   PUBLIC_PRIVY_APP_ID=your-app-id
+   PRIVY_APP_SECRET=your-app-secret
+   ```
+
+> **⚠️ Without Privy credentials**, the game runs in anonymous mode where users get a new identity on every page refresh. Characters will appear to vanish because they're tied to the old anonymous account.
+
+**Optional configs:**
+```bash
+# AI agents (only if using bun run dev:ai)
 cp packages/plugin-hyperscape/.env.example packages/plugin-hyperscape/.env
 
-# Optional: Asset generation tools (only if using bun run dev:forge)
+# Asset generation tools (only if using bun run dev:forge)
 cp packages/asset-forge/.env.example packages/asset-forge/.env
 # Edit and set OPENAI_API_KEY, MESHY_API_KEY
 ```
 
 ### Run the Game
 
-```bash
-bun run dev          # Game only (client + server)
-# OR
-bun run dev:ai       # Game + AI agents (ElizaOS)
-```
+1. **Start Docker** - Open Docker Desktop (macOS/Windows) or start the daemon (`sudo systemctl start docker` on Linux)
 
-Open **http://localhost:3333** in your browser.
+2. **Start the CDN** (serves game assets):
+   ```bash
+   bun run cdn:up
+   ```
 
-> Docker PostgreSQL and asset CDN start automatically.
+3. **Start the game**:
+   ```bash
+   bun run dev          # Game only (client + server)
+   # OR
+   bun run dev:ai       # Game + AI agents (ElizaOS)
+   ```
+
+4. Open **http://localhost:3333** in your browser.
+
+> PostgreSQL starts automatically via Docker when the server starts.
 
 ## Project Structure
 
@@ -140,11 +164,14 @@ bun run assets:sync    # Pull latest assets from repo
 ## Configuration
 
 **Required for local development:**
-- `packages/client/.env` - Must set `PUBLIC_PRIVY_APP_ID` (get from [Privy Dashboard](https://dashboard.privy.io))
+- `packages/client/.env` - Set `PUBLIC_PRIVY_APP_ID`
+- `packages/server/.env` - Set `PUBLIC_PRIVY_APP_ID` and `PRIVY_APP_SECRET`
+
+Both must use the same Privy App ID from [Privy Dashboard](https://dashboard.privy.io).
 
 **Optional configuration** - see `.env.example` files for all options:
-- `packages/server/.env.example` - Database, server auth, ports
-- `packages/client/.env.example` - API URLs, Privy, Farcaster
+- `packages/server/.env.example` - Database, ports, LiveKit voice chat
+- `packages/client/.env.example` - API URLs, Farcaster integration
 - `packages/asset-forge/.env.example` - AI API keys (OpenAI, Meshy)
 - `packages/plugin-hyperscape/.env.example` - ElizaOS agent config
 
@@ -161,6 +188,15 @@ bun run assets:sync    # Pull latest assets from repo
 | 3402 | Documentation | `bun run docs:dev` |
 
 ## Troubleshooting
+
+**Characters vanishing / not appearing on character select:**
+This happens when Privy credentials are missing. Each page refresh creates a new anonymous user, orphaning your characters. Fix: Set `PUBLIC_PRIVY_APP_ID` in client `.env` and both `PUBLIC_PRIVY_APP_ID` + `PRIVY_APP_SECRET` in server `.env`.
+
+**Assets not loading (404 errors for models/avatars):**
+The CDN container needs to be running. It starts automatically with `bun run dev`, but if you're running services separately:
+```bash
+cd packages/server && bun run cdn:up
+```
 
 **Port conflicts:**
 ```bash
