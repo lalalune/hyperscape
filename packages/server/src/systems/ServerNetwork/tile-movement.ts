@@ -58,13 +58,22 @@ export class TileMovementManager {
   }
 
   /**
-   * Check if a tile is walkable
-   * For MVP: All tiles are walkable (no obstacles)
+   * Check if a tile is walkable based on terrain constraints
+   * Uses TerrainSystem to check water level, slope, and biome rules
    */
-  private isTileWalkable(_tile: TileCoord): boolean {
-    // MVP: All tiles are walkable
-    // TODO: Add terrain slope checks and collision objects later
-    return true;
+  private isTileWalkable(tile: TileCoord): boolean {
+    const terrain = this.getTerrain();
+    if (!terrain) {
+      // Fallback: walkable if no terrain system available
+      return true;
+    }
+
+    // Convert tile to world coordinates (center of tile)
+    const worldPos = tileToWorld(tile);
+
+    // Use TerrainSystem's walkability check (water, slope, lakes biome)
+    const result = terrain.isPositionWalkable(worldPos.x, worldPos.z);
+    return result.walkable;
   }
 
   /**
