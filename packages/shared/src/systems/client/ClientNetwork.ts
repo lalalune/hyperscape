@@ -680,55 +680,83 @@ export class ClientNetwork extends SystemBase {
     // Spectator mode: Auto-follow the target entity after entities are loaded
     const spectatorFollowId = (this as any).spectatorFollowEntity;
     if (isSpectatorMode && spectatorFollowId) {
-      // Defer camera follow until next tick to ensure entity is fully initialized
-      setTimeout(() => {
+      // Mark that we're waiting for spectator target
+      (this as any).spectatorTargetPending = true;
+
+      const MAX_RETRY_SECONDS = 15;
+      let retryCount = 0;
+
+      // Helper to set camera target
+      const setCameraTarget = (entity: unknown) => {
+        const camera = this.world.getSystem("camera") as {
+          setTarget?: (target: unknown) => void;
+        };
+        if (camera?.setTarget) {
+          this.logger.info(
+            `👁️ Setting camera target to entity ${spectatorFollowId}`,
+          );
+          camera.setTarget(entity);
+        } else {
+          this.logger.warn(
+            "👁️ Camera system not found or missing setTarget method",
+          );
+        }
+      };
+
+      // Helper to attempt following the entity
+      const attemptFollow = (): boolean => {
         const targetEntity =
           this.world.entities.items.get(spectatorFollowId) ||
           this.world.entities.players.get(spectatorFollowId);
+
         if (targetEntity) {
+          // Found the entity - clear pending state and interval
+          (this as any).spectatorTargetPending = false;
+          if ((this as any).spectatorRetryInterval) {
+            clearInterval((this as any).spectatorRetryInterval);
+            (this as any).spectatorRetryInterval = null;
+          }
           this.logger.info(
             `👁️ Spectator following entity ${spectatorFollowId}`,
           );
-          // SPECTATOR FIX: Set camera target directly instead of using input.followEntity()
-          // input.followEntity() requires a local player which doesn't exist in spectator mode
-          const camera = this.world.getSystem("camera") as {
-            setTarget?: (target: any) => void;
-          };
-          if (camera?.setTarget) {
-            this.logger.info(
-              `👁️ Setting camera target to entity ${spectatorFollowId}`,
-            );
-            camera.setTarget(targetEntity);
-          } else {
-            this.logger.warn(
-              "👁️ Camera system not found or missing setTarget method",
-            );
-          }
-        } else {
-          this.logger.warn(
-            `👁️ Spectator target entity ${spectatorFollowId} not found yet - will retry`,
+          setCameraTarget(targetEntity);
+          return true;
+        }
+        return false;
+      };
+
+      // Try immediately after a short delay for entity initialization
+      setTimeout(() => {
+        if (!attemptFollow()) {
+          this.logger.info(
+            `👁️ Spectator target entity ${spectatorFollowId} not found - starting retry loop`,
           );
-          // Retry after a longer delay in case the entity hasn't been created yet
-          setTimeout(() => {
-            const retryEntity =
-              this.world.entities.items.get(spectatorFollowId) ||
-              this.world.entities.players.get(spectatorFollowId);
-            if (retryEntity) {
+
+          // Start retry interval - check every 1 second for up to 15 seconds
+          (this as any).spectatorRetryInterval = setInterval(() => {
+            retryCount++;
+
+            if (attemptFollow()) {
               this.logger.info(
-                `👁️ Retry: Found spectator target entity ${spectatorFollowId}`,
+                `👁️ Found spectator target after ${retryCount}s`,
               );
-              const camera = this.world.getSystem("camera") as {
-                setTarget?: (target: any) => void;
-              };
-              if (camera?.setTarget) {
-                camera.setTarget(retryEntity);
-              }
-            } else {
+              return;
+            }
+
+            if (retryCount >= MAX_RETRY_SECONDS) {
+              clearInterval((this as any).spectatorRetryInterval);
+              (this as any).spectatorRetryInterval = null;
+              (this as any).spectatorTargetPending = false;
               this.logger.error(
-                `👁️ Failed to find spectator target entity ${spectatorFollowId} after retries`,
+                `👁️ Agent entity ${spectatorFollowId} not found after ${MAX_RETRY_SECONDS}s`,
+              );
+            } else if (retryCount % 5 === 0) {
+              // Log progress every 5 seconds to avoid spam
+              this.logger.info(
+                `👁️ Still waiting for agent entity (${retryCount}/${MAX_RETRY_SECONDS}s)...`,
               );
             }
-          }, 500);
+          }, 1000);
         }
       }, 100);
     }
@@ -786,6 +814,34 @@ export class ClientNetwork extends SystemBase {
         if (newEntity instanceof PlayerLocal) {
           newEntity.position.set(pos[0], pos[1], pos[2]);
           newEntity.updateServerPosition(pos[0], pos[1], pos[2]);
+        }
+      }
+
+      // Check if this is the spectator target entity we're waiting for
+      const spectatorFollowId = (this as any).spectatorFollowEntity;
+      const isWaitingForTarget = (this as any).spectatorTargetPending;
+
+      if (isWaitingForTarget && data.id === spectatorFollowId) {
+        this.logger.info(
+          `👁️ Spectator target entity ${spectatorFollowId} just spawned!`,
+        );
+
+        // Clear retry interval if running
+        if ((this as any).spectatorRetryInterval) {
+          clearInterval((this as any).spectatorRetryInterval);
+          (this as any).spectatorRetryInterval = null;
+        }
+        (this as any).spectatorTargetPending = false;
+
+        // Set camera to follow this entity
+        const camera = this.world.getSystem("camera") as {
+          setTarget?: (target: unknown) => void;
+        };
+        if (camera?.setTarget) {
+          this.logger.info(
+            `👁️ Setting camera target to newly spawned entity ${spectatorFollowId}`,
+          );
+          camera.setTarget(newEntity);
         }
       }
     }

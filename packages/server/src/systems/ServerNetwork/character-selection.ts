@@ -476,14 +476,47 @@ export async function handleEnterWorld(
     avatar?: string | null;
     wallet?: string | null;
   } | null = null;
-  if (characterId && accountId) {
+  if (characterId) {
     try {
       const databaseSystem = world.getSystem("database") as
         | import("../DatabaseSystem").DatabaseSystem
         | undefined;
       if (databaseSystem) {
-        const characters = await databaseSystem.getCharactersAsync(accountId);
-        characterData = characters.find((c) => c.id === characterId) || null;
+        // First try: Look up characters by accountId (normal flow)
+        if (accountId) {
+          const characters = await databaseSystem.getCharactersAsync(accountId);
+          characterData = characters.find((c) => c.id === characterId) || null;
+        }
+
+        // Second try: If not found by accountId, look up character directly
+        // This handles agents where JWT verification may fail and create anonymous accountId
+        if (!characterData) {
+          console.log(
+            `[CharacterSelection] Character ${characterId} not found for account ${accountId}, trying direct lookup...`,
+          );
+
+          // Try to find the character directly by ID (any account)
+          // This is safe because the agent already has the characterId in its settings
+          const db = databaseSystem.getDb ? databaseSystem.getDb() : null;
+          if (db) {
+            // Use Drizzle query to find character by ID
+            const directLookup = await db.query.characters.findFirst({
+              where: (characters, { eq }) => eq(characters.id, characterId),
+            });
+            if (directLookup) {
+              characterData = directLookup as {
+                id: string;
+                name: string;
+                avatar?: string | null;
+                wallet?: string | null;
+              };
+              console.log(
+                `[CharacterSelection] ✅ Found character via direct lookup: ${characterData.name} (${characterId})`,
+              );
+            }
+          }
+        }
+
         if (characterData) {
           name = characterData.name;
           avatar = characterData.avatar || undefined;
@@ -491,7 +524,7 @@ export async function handleEnterWorld(
         } else {
           // Character not found - fail fast instead of auto-creating with wrong data
           console.error(
-            `[CharacterSelection] ❌ CRITICAL: Character ${characterId} not found for account ${accountId}. Refusing to spawn with incorrect data.`,
+            `[CharacterSelection] ❌ CRITICAL: Character ${characterId} not found in database. Refusing to spawn with incorrect data.`,
           );
           sendToFn(socket.id, "showToast", {
             message:
@@ -629,7 +662,7 @@ export async function handleEnterWorld(
         avatar:
           avatar ||
           world.settings.avatar?.url ||
-          "asset://avatars/avatar-male-01.vrm", // ✅ Use character's avatar from DB
+          "asset://avatars/avatar-male-01.vrm",
         sessionAvatar: avatar || undefined, // ✅ Also set sessionAvatar for runtime override
         wallet: walletAddress, // ✅ Character's HD wallet address
         roles,

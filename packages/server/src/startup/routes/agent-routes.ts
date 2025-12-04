@@ -882,8 +882,37 @@ export function registerAgentRoutes(
         isSpectator: true,
       });
 
+      // Check if the agent's player entity exists in the game world
+      // This helps the dashboard know when the agent has fully connected
+      const characterId = mapping.characterId;
+      const entityFromGet = world.entities.get(characterId);
+      const entityFromItems = (
+        world.entities as { items?: Map<string, unknown> }
+      ).items?.get(characterId);
+      const entityFromPlayers = (
+        world.entities as { players?: Map<string, unknown> }
+      ).players?.get(characterId);
+      const entityExists =
+        entityFromGet != null ||
+        entityFromItems != null ||
+        entityFromPlayers != null;
+
+      // Debug: List all player entities currently in the world
+      const playersMap = (world.entities as { players?: Map<string, unknown> })
+        .players;
+      const playerIds = playersMap ? Array.from(playersMap.keys()) : [];
+
       console.log(
-        `[AgentRoutes] ✅ Generated spectator JWT for user ${verifiedUserId} watching agent ${mapping.agentName}`,
+        `[AgentRoutes] 🔍 Entity check for characterId=${characterId}:`,
+        `\n  - world.entities.get(): ${entityFromGet ? "FOUND" : "null"}`,
+        `\n  - world.entities.items.get(): ${entityFromItems ? "FOUND" : "null"}`,
+        `\n  - world.entities.players.get(): ${entityFromPlayers ? "FOUND" : "null"}`,
+        `\n  - All player IDs in world: [${playerIds.join(", ")}]`,
+        `\n  - entityExists: ${entityExists}`,
+      );
+
+      console.log(
+        `[AgentRoutes] ✅ Generated spectator JWT for user ${verifiedUserId} watching agent ${mapping.agentName} (entityExists: ${entityExists})`,
       );
 
       return reply.send({
@@ -892,6 +921,7 @@ export function registerAgentRoutes(
         characterId: mapping.characterId,
         agentName: mapping.agentName,
         expiresAt: null, // Token never expires
+        entityExists, // Whether the agent's player entity is in the game world
       });
     } catch (error) {
       console.error(
