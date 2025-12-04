@@ -200,7 +200,27 @@ This happens when Privy credentials are missing. Each page refresh creates a new
 **Assets not loading (404 errors for models/avatars):**
 The CDN container needs to be running. It starts automatically with `bun run dev`, but if you're running services separately:
 ```bash
-cd packages/server && bun run cdn:up
+bun run cdn:up
+```
+
+**Database schema errors or stale data after pulling updates:**
+Migrations only run once, so pulling new code won't fix an outdated database schema. Reset to fresh:
+> ⚠️ **Warning:** This will delete all local data (characters, inventory, progress).
+```bash
+# Stop and remove postgres container
+docker stop hyperscape-postgres 2>/dev/null; docker rm hyperscape-postgres 2>/dev/null
+
+# Remove postgres volumes
+docker volume rm hyperscape-postgres-data 2>/dev/null; docker volume rm server_postgres-data 2>/dev/null
+
+# Remove any remaining hyperscape volumes
+docker volume ls | grep -i hyperscape | awk '{print $2}' | xargs -r docker volume rm
+
+# Verify volumes are gone
+docker volume ls | grep -i hyperscape
+
+# Restart with fresh database
+bun run dev
 ```
 
 **Port conflicts:**

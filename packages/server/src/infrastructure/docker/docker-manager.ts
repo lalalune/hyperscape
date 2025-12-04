@@ -188,12 +188,16 @@ export class DockerManager {
 
   private async waitForPostgres(maxAttempts: number = 30): Promise<void> {
     for (let i = 0; i < maxAttempts; i++) {
-      const { stdout } = await execAsync(
-        `docker exec ${this.config.containerName} pg_isready -U ${this.config.postgresUser}`,
-      );
+      try {
+        const { stdout } = await execAsync(
+          `docker exec ${this.config.containerName} pg_isready -U ${this.config.postgresUser}`,
+        );
 
-      if (stdout.includes("accepting connections")) {
-        return;
+        if (stdout.includes("accepting connections")) {
+          return;
+        }
+      } catch {
+        // pg_isready returns non-zero when not ready - this is expected, retry
       }
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
