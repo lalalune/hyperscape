@@ -122,9 +122,17 @@ export class HyperscapeService
     service.authToken = process.env.HYPERSCAPE_AUTH_TOKEN;
     service.privyUserId = process.env.HYPERSCAPE_PRIVY_USER_ID;
 
+    // Debug: Log what we got from environment
+    logger.info(
+      `[HyperscapeService] 🔑 Credentials from env: authToken=${service.authToken ? "***" + service.authToken.slice(-8) : "null"}, privyUserId=${service.privyUserId || "null"}`,
+    );
+
     // Try to get from agent settings if not in env
     if (!service.authToken && runtime.agentId) {
       const settings = runtime.getSetting("HYPERSCAPE_AUTH_TOKEN");
+      logger.info(
+        `[HyperscapeService] 🔑 getSetting("HYPERSCAPE_AUTH_TOKEN") = ${settings ? "***" + String(settings).slice(-8) : "null"}`,
+      );
       if (settings) {
         service.authToken = String(settings);
       }
@@ -137,15 +145,33 @@ export class HyperscapeService
     }
     if (!service.characterId && runtime.agentId) {
       const settings = runtime.getSetting("HYPERSCAPE_CHARACTER_ID");
+      logger.info(
+        `[HyperscapeService] 🔑 getSetting("HYPERSCAPE_CHARACTER_ID") = ${settings || "null"}`,
+      );
       if (settings) {
         service.characterId = String(settings);
-        logger.info(`[HyperscapeService] Character ID: ${service.characterId}`);
+        logger.info(
+          `[HyperscapeService] ✅ Character ID set: ${service.characterId}`,
+        );
       }
     }
 
+    // Summary of final credential state
+    logger.info(
+      `[HyperscapeService] 📋 Final credentials:\n` +
+        `  - authToken: ${service.authToken ? "SET (***" + service.authToken.slice(-8) + ")" : "NOT SET ⚠️"}\n` +
+        `  - privyUserId: ${service.privyUserId || "NOT SET"}\n` +
+        `  - characterId: ${service.characterId || "NOT SET ⚠️"}`,
+    );
+
     if (!service.characterId) {
-      logger.info(
-        "[HyperscapeService] No HYPERSCAPE_CHARACTER_ID - waiting for character selection (this is normal)",
+      logger.warn(
+        "[HyperscapeService] ⚠️ No HYPERSCAPE_CHARACTER_ID - agent will NOT be able to enter the game world!",
+      );
+    }
+    if (!service.authToken) {
+      logger.warn(
+        "[HyperscapeService] ⚠️ No HYPERSCAPE_AUTH_TOKEN - agent will NOT be able to authenticate!",
       );
     }
 
@@ -844,9 +870,10 @@ export class HyperscapeService
       "pickupItem",
       "dropItem",
       "equipItem",
-      "unequipItem", // ✅ ADDED - was missing!
+      "unequipItem",
       "inventoryUpdated",
-      "equipmentUpdated", // ✅ ADDED - was missing!
+      "coinsUpdated", // ✅ CRITICAL: Must match server packets.ts order!
+      "equipmentUpdated",
       "skillsUpdated",
       "showToast",
       "deathScreen",
@@ -874,6 +901,20 @@ export class HyperscapeService
       "bankDepositAll",
       "bankWithdraw",
       "bankClose",
+      // Store packets
+      "storeOpen",
+      "storeState",
+      "storeBuy",
+      "storeSell",
+      "storeClose",
+      // NPC interaction packets
+      "npcInteract",
+      // Dialogue packets
+      "dialogueStart",
+      "dialogueNodeChange",
+      "dialogueResponse",
+      "dialogueEnd",
+      "dialogueClose",
       // Tile movement packets (RuneScape-style)
       "entityTileUpdate", // Server -> Client: entity moved to new tile position
       "tileMovementStart", // Server -> Client: movement path started
@@ -941,67 +982,68 @@ export class HyperscapeService
 
   /**
    * Handle snapshot packet - auto-select character and enter world
+   *
+   * IMPORTANT: Agents get their characterId from settings (set when agent is created).
+   * They don't need to rely on the snapshot's character list - they can enter directly.
    */
   private async handleSnapshot(snapshotData: any): Promise<void> {
     try {
       logger.info("[HyperscapeService] Processing snapshot...");
 
-      // Extract character list from snapshot
+      // CRITICAL FIX: If we already have a characterId from settings, use it directly
+      // Don't wait for snapshot to include the character - the server JWT auth already
+      // verified our identity, we just need to tell it which character to spawn
+      if (this.characterId) {
+        logger.info(
+          `[HyperscapeService] ✅ Using characterId from settings: ${this.characterId}`,
+        );
+
+        // Wait a moment for server to be ready
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Send character selected packet
+        this.sendBinaryPacket("characterSelected", {
+          characterId: this.characterId,
+        });
+        logger.info(
+          `[HyperscapeService] 📤 Sent characterSelected: ${this.characterId}`,
+        );
+
+        // Wait a moment before entering world
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Send enter world packet
+        this.sendBinaryPacket("enterWorld", {
+          characterId: this.characterId,
+        });
+        logger.info(
+          `[HyperscapeService] 🚪 Sent enterWorld: ${this.characterId}`,
+        );
+
+        logger.info(
+          `[HyperscapeService] ✅ Auto-join complete! Agent should spawn with characterId: ${this.characterId}`,
+        );
+        return;
+      }
+
+      // Fallback: No characterId in settings, try to use snapshot characters
+      // (This path is for human players or agents without pre-configured characterId)
       const characters = snapshotData?.characters || [];
       logger.info(
-        `[HyperscapeService] Found ${characters.length} character(s)`,
+        `[HyperscapeService] No characterId in settings, checking snapshot: ${characters.length} character(s)`,
       );
 
       if (characters.length === 0) {
-        logger.info(
-          "[HyperscapeService] No characters found - agent will join after character creation/selection",
+        logger.warn(
+          "[HyperscapeService] ⚠️ No characterId in settings AND no characters in snapshot - agent cannot enter world!",
         );
         return;
       }
 
-      // Find character by ID if specified
-      let selectedCharacter: any | null = null;
-      if (this.characterId) {
-        selectedCharacter =
-          characters.find((c: any) => c.id === this.characterId) || null;
-        if (selectedCharacter) {
-          logger.info(
-            `[HyperscapeService] ✅ Found character by ID: ${selectedCharacter.name} (${this.characterId})`,
-          );
-        } else {
-          logger.warn(
-            `[HyperscapeService] Character ${this.characterId} not found, using first character`,
-          );
-        }
-      }
-
-      // Fall back to first character if no ID or not found
-      if (!selectedCharacter && characters.length > 0) {
-        selectedCharacter = characters[0];
-        logger.info(
-          `[HyperscapeService] Using first character: ${selectedCharacter.name} (${selectedCharacter.id})`,
-        );
-      }
-
-      // Safety check - should not happen since we checked characters.length above
-      if (!selectedCharacter) {
-        logger.error(
-          "[HyperscapeService] No character available after selection logic",
-        );
-        return;
-      }
-
-      // Store character details for logging
-      const characterName = selectedCharacter.name;
-      const characterAvatar = selectedCharacter.avatar || "default avatar";
-      const characterWallet = selectedCharacter.wallet || "no wallet";
-
+      // Use first character from snapshot as fallback
+      const selectedCharacter = characters[0];
       logger.info(
-        `[HyperscapeService] 🎭 Selected character details:\n` +
-          `  Name: ${characterName}\n` +
-          `  ID: ${selectedCharacter.id}\n` +
-          `  Avatar: ${characterAvatar}\n` +
-          `  Wallet: ${characterWallet}`,
+        `[HyperscapeService] Using first character from snapshot: ${selectedCharacter.name} (${selectedCharacter.id})`,
       );
 
       // Wait a moment for server to be ready
@@ -1027,7 +1069,7 @@ export class HyperscapeService
       );
 
       logger.info(
-        `[HyperscapeService] ✅ Auto-join complete! Agent should spawn as ${characterName} with avatar: ${characterAvatar}`,
+        `[HyperscapeService] ✅ Auto-join complete! Agent should spawn as ${selectedCharacter.name}`,
       );
     } catch (error) {
       logger.error(
@@ -1726,9 +1768,10 @@ export class HyperscapeService
       "pickupItem",
       "dropItem",
       "equipItem",
-      "unequipItem", // ✅ ADDED - was missing!
+      "unequipItem",
       "inventoryUpdated",
-      "equipmentUpdated", // ✅ ADDED - was missing!
+      "coinsUpdated", // ✅ CRITICAL: Must match server packets.ts order!
+      "equipmentUpdated",
       "skillsUpdated",
       "showToast",
       "deathScreen",
@@ -1756,6 +1799,20 @@ export class HyperscapeService
       "bankDepositAll",
       "bankWithdraw",
       "bankClose",
+      // Store packets
+      "storeOpen",
+      "storeState",
+      "storeBuy",
+      "storeSell",
+      "storeClose",
+      // NPC interaction packets
+      "npcInteract",
+      // Dialogue packets
+      "dialogueStart",
+      "dialogueNodeChange",
+      "dialogueResponse",
+      "dialogueEnd",
+      "dialogueClose",
       // Tile movement packets (RuneScape-style)
       "entityTileUpdate", // Server -> Client: entity moved to new tile position
       "tileMovementStart", // Server -> Client: movement path started

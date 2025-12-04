@@ -20,19 +20,28 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
   const [characterId, setCharacterId] = useState<string>("");
   const [authToken, setAuthToken] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [waitingForEntity, setWaitingForEntity] = useState(false);
+  const [entityError, setEntityError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isMountedRef = useRef(true);
 
   // Use Privy hook to get fresh access token (not stale localStorage token)
   const { getAccessToken, user } = usePrivy();
 
   useEffect(() => {
+    isMountedRef.current = true;
     fetchSpectatorData();
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [agent.id]);
 
   const fetchSpectatorData = async () => {
+    const MAX_ATTEMPTS = 15; // Wait up to 15 seconds for entity to appear
+
     try {
       // Get FRESH Privy token using the SDK (not stale localStorage)
       // This ensures we always have a valid, non-expired token
@@ -46,65 +55,107 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
         return;
       }
 
-      // Exchange Privy token for permanent spectator JWT
-      // This solves the token expiration issue - spectator JWT never expires
-      const tokenResponse = await fetch(
-        `http://localhost:5555/api/spectator/token`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            agentId: agent.id,
-            privyToken: privyToken,
-          }),
-        },
-      );
+      // Poll for entity existence - agent may still be connecting to game world
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        if (!isMountedRef.current) return; // Component unmounted
 
-      if (tokenResponse.ok) {
-        const tokenData = await tokenResponse.json();
-        setAuthToken(tokenData.spectatorToken);
-        setCharacterId(tokenData.characterId || "");
-        console.log(
-          "[AgentViewportChat] ✅ Got permanent spectator token for:",
-          tokenData.agentName,
+        // Exchange Privy token for permanent spectator JWT
+        const tokenResponse = await fetch(
+          `http://localhost:5555/api/spectator/token`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              agentId: agent.id,
+              privyToken: privyToken,
+            }),
+          },
         );
-      } else if (tokenResponse.status === 401) {
-        // Privy token expired - user needs to re-authenticate
-        console.warn(
-          "[AgentViewportChat] Privy token expired, need to re-login",
-        );
-        // Clear stale token from localStorage
-        localStorage.removeItem("privy_auth_token");
-      } else if (tokenResponse.status === 403) {
-        console.warn("[AgentViewportChat] No permission to view this agent");
-      } else if (tokenResponse.status === 404) {
-        console.warn("[AgentViewportChat] Agent not found");
-      } else {
-        // Fallback: try to get character ID from mapping endpoint
-        console.warn(
-          "[AgentViewportChat] Spectator token endpoint failed, falling back to mapping",
-        );
-        const mappingResponse = await fetch(
-          `http://localhost:5555/api/agents/mapping/${agent.id}`,
-        );
-        if (mappingResponse.ok) {
-          const mappingData = await mappingResponse.json();
-          setCharacterId(mappingData.characterId || "");
-          // Use Privy token as fallback (will expire)
-          setAuthToken(privyToken);
-          console.warn(
-            "[AgentViewportChat] Using Privy token as fallback - may expire in ~1 hour",
+
+        if (tokenResponse.ok) {
+          const tokenData = await tokenResponse.json();
+
+          // Check if entity exists in the game world
+          if (tokenData.entityExists) {
+            setAuthToken(tokenData.spectatorToken);
+            setCharacterId(tokenData.characterId || "");
+            setWaitingForEntity(false);
+            setLoading(false);
+            console.log(
+              "[AgentViewportChat] ✅ Got permanent spectator token for:",
+              tokenData.agentName,
+            );
+            return;
+          }
+
+          // Entity not ready yet - show waiting state and poll
+          if (attempt === 1) {
+            setWaitingForEntity(true);
+            // Store token for when entity is ready
+            setAuthToken(tokenData.spectatorToken);
+            setCharacterId(tokenData.characterId || "");
+          }
+
+          console.log(
+            `[AgentViewportChat] Waiting for agent entity (${attempt}/${MAX_ATTEMPTS})...`,
           );
+
+          // Wait 1 second before next attempt
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          continue;
+        } else if (tokenResponse.status === 401) {
+          // Privy token expired - user needs to re-authenticate
+          console.warn(
+            "[AgentViewportChat] Privy token expired, need to re-login",
+          );
+          localStorage.removeItem("privy_auth_token");
+          setLoading(false);
+          return;
+        } else if (tokenResponse.status === 403) {
+          console.warn("[AgentViewportChat] No permission to view this agent");
+          setLoading(false);
+          return;
+        } else if (tokenResponse.status === 404) {
+          console.warn("[AgentViewportChat] Agent not found");
+          setLoading(false);
+          return;
+        } else {
+          // Fallback: try to get character ID from mapping endpoint
+          console.warn(
+            "[AgentViewportChat] Spectator token endpoint failed, falling back to mapping",
+          );
+          const mappingResponse = await fetch(
+            `http://localhost:5555/api/agents/mapping/${agent.id}`,
+          );
+          if (mappingResponse.ok) {
+            const mappingData = await mappingResponse.json();
+            setCharacterId(mappingData.characterId || "");
+            setAuthToken(privyToken);
+            console.warn(
+              "[AgentViewportChat] Using Privy token as fallback - may expire in ~1 hour",
+            );
+          }
+          setLoading(false);
+          return;
         }
       }
+
+      // Max attempts reached - entity never appeared
+      console.warn(
+        `[AgentViewportChat] Agent entity not found after ${MAX_ATTEMPTS} seconds`,
+      );
+      setEntityError(
+        "Agent is taking too long to connect to the game world. Please try stopping and restarting the agent.",
+      );
+      setWaitingForEntity(false);
+      setLoading(false);
     } catch (error) {
       console.error(
         "[AgentViewportChat] Error fetching spectator data:",
         error,
       );
-    } finally {
       setLoading(false);
     }
   };
@@ -190,10 +241,28 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
     }
   };
 
-  if (loading) {
+  if (loading || waitingForEntity) {
     return (
-      <div className="flex items-center justify-center h-full bg-[#0b0a15]">
+      <div className="flex flex-col items-center justify-center h-full bg-[#0b0a15]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f2d08a]"></div>
+        {waitingForEntity && (
+          <p className="text-[#f2d08a]/60 mt-4 text-sm">
+            Connecting agent to game world...
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Show error if entity failed to appear
+  if (entityError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-[#0b0a15] text-[#f2d08a]/60">
+        <div className="text-6xl mb-4">⚠️</div>
+        <h2 className="text-xl font-bold text-[#f2d08a] mb-2">
+          Connection Issue
+        </h2>
+        <p className="text-center max-w-md">{entityError}</p>
       </div>
     );
   }
