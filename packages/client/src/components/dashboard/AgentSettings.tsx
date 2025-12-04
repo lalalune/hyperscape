@@ -1,6 +1,7 @@
 import React from "react";
 import { Save, RefreshCw, Trash2 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
+import { ELIZAOS_URL, ELIZAOS_API } from "@/lib/api-config";
 
 interface AgentSettingsProps {
   agent: Agent;
@@ -21,7 +22,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
     const fetchSettings = async () => {
       try {
         const response = await fetch(
-          `http://localhost:3000/hyperscape/settings/${agent.id}`,
+          `${ELIZAOS_URL}/hyperscape/settings/${agent.id}`,
         );
         if (response.ok) {
           const data = await response.json();
@@ -43,22 +44,19 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
     setSaving(true);
     try {
       // Use official ElizaOS API to update agent configuration
-      const response = await fetch(
-        `http://localhost:3000/api/agents/${agent.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: settings.name,
-            username: settings.username,
-            bio: settings.bio,
-            lore: settings.lore,
-            topics: settings.topics,
-            style: settings.style,
-            adjectives: settings.adjectives,
-          }),
-        },
-      );
+      const response = await fetch(`${ELIZAOS_API}/agents/${agent.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: settings.name,
+          username: settings.username,
+          bio: settings.bio,
+          lore: settings.lore,
+          topics: settings.topics,
+          style: settings.style,
+          adjectives: settings.adjectives,
+        }),
+      });
       if (response.ok) {
         console.log("[AgentSettings] ✅ Settings updated successfully");
         alert("Settings saved successfully!");

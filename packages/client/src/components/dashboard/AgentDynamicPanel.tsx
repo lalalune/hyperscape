@@ -1,6 +1,7 @@
 import React from "react";
 import { ExternalLink } from "lucide-react";
 import { AgentPanel } from "../../screens/DashboardScreen";
+import { ELIZAOS_URL } from "@/lib/api-config";
 
 interface AgentDynamicPanelProps {
   panel: AgentPanel;
@@ -14,7 +15,7 @@ export const AgentDynamicPanel: React.FC<AgentDynamicPanelProps> = ({
   // Construct full URL for the panel
   const panelUrl = panel.url.startsWith("http")
     ? panel.url
-    : `http://localhost:3000${panel.url}`;
+    : `${ELIZAOS_URL}${panel.url}`;
 
   return (
     <div className="flex flex-col h-full bg-[#0b0a15]/50 backdrop-blur-sm">

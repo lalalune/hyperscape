@@ -72,7 +72,7 @@ jobs:
           MAX_RETRIES=30
           RETRY_DELAY=2
           for i in $(seq 1 $MAX_RETRIES); do
-            if curl -f -s http://localhost:3000/health > /dev/null 2>&1; then
+            if curl -f -s http://localhost:4001/health > /dev/null 2>&1; then
               echo "✓ ElizaOS is ready (attempt $i/$MAX_RETRIES)"
               exit 0
             fi
@@ -128,7 +128,7 @@ jobs:
         working-directory: packages/server
         run: bun scripts/test-integration.mjs
         env:
-          ELIZAOS_API_URL: http://localhost:3000
+          ELIZAOS_API_URL: http://localhost:4001
 
       - name: Show logs if test failed
         if: failure()

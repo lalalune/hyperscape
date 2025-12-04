@@ -9,6 +9,7 @@ import {
   Filter,
 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
+import { ELIZAOS_API } from "@/lib/api-config";
 
 interface AgentRun {
   id: string;
@@ -48,7 +49,7 @@ export const AgentRuns: React.FC<AgentRunsProps> = ({ agent }) => {
       }
 
       const response = await fetch(
-        `http://localhost:3000/api/agents/${agent.id}/runs?${params.toString()}`,
+        `${ELIZAOS_API}/agents/${agent.id}/runs?${params.toString()}`,
       );
 
       if (!response.ok) {
