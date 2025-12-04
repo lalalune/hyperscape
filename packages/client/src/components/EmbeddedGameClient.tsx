@@ -61,34 +61,14 @@ function setupSpectatorCamera(
   let checkIntervalId: ReturnType<typeof setInterval> | null = null;
   let isCleanedUp = false;
 
-  // CRITICAL: Disable player input IMMEDIATELY for spectator mode
-  // This prevents click-to-move and all other input
+  // In spectator mode, we don't need to disable player controls because:
+  // 1. There's no local player entity to control
+  // 2. The client-input system may not be fully initialized
+  // 3. Spectators are read-only viewers by design
   if (config.mode === "spectator") {
-    // Try to disable immediately
-    const disabled = disablePlayerControls(world);
-
-    // If not ready yet, retry after systems initialize (with max retries)
-    if (!disabled) {
-      const MAX_RETRIES = 10;
-      let retryCount = 0;
-
-      const retryDisable = () => {
-        if (isCleanedUp) return; // Stop if cleaned up
-        retryCount++;
-        const success = disablePlayerControls(world);
-        if (!success && retryCount < MAX_RETRIES) {
-          // Retry with increasing delay (100, 200, 300, ... 500ms max)
-          const id = setTimeout(retryDisable, Math.min(100 * retryCount, 500));
-          timeoutIds.push(id);
-        } else if (!success) {
-          console.warn(
-            `[EmbeddedGameClient] Failed to disable controls after ${MAX_RETRIES} retries - spectator mode may not work correctly`,
-          );
-        }
-      };
-      const id = setTimeout(retryDisable, 100);
-      timeoutIds.push(id);
-    }
+    console.log(
+      "[EmbeddedGameClient] Spectator mode - player controls not applicable (no local player)",
+    );
   }
 
   const targetEntityId = config.followEntity || config.characterId;

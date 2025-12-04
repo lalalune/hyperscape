@@ -13,6 +13,7 @@ import {
   validateCharacter,
   type CharacterTemplate,
 } from "../utils/characterTemplate";
+import { ELIZAOS_API } from "@/lib/api-config";
 
 /**
  * Helper function to generate JWT with retry logic
@@ -157,7 +158,7 @@ export const CharacterEditorScreen: React.FC = () => {
         console.log(
           "[CharacterEditor] Fetching existing agent from ElizaOS...",
         );
-        const response = await fetch(`http://localhost:3000/api/agents`);
+        const response = await fetch(`${ELIZAOS_API}/agents`);
 
         if (response.ok) {
           const data = await response.json();
@@ -384,7 +385,7 @@ export const CharacterEditorScreen: React.FC = () => {
         );
 
         // Create new agent with POST
-        const createResponse = await fetch(`http://localhost:3000/api/agents`, {
+        const createResponse = await fetch(`${ELIZAOS_API}/agents`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ characterJson: characterWithoutId }),
@@ -446,7 +447,7 @@ export const CharacterEditorScreen: React.FC = () => {
 
             // ROLLBACK: Delete agent from ElizaOS
             try {
-              await fetch(`http://localhost:3000/api/agents/${newAgentId}`, {
+              await fetch(`${ELIZAOS_API}/agents/${newAgentId}`, {
                 method: "DELETE",
               });
               console.log("[CharacterEditor] ✅ Rolled back agent creation");
@@ -471,27 +472,24 @@ export const CharacterEditorScreen: React.FC = () => {
 
       console.log("[CharacterEditor] Updating existing agent:", agentId);
 
-      const updateResponse = await fetch(
-        `http://localhost:3000/api/agents/${agentId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: updatedCharacter.name,
-            username: updatedCharacter.username,
-            system: updatedCharacter.system, // ✅ System prompt (ElizaOS core field)
-            bio: updatedCharacter.bio,
-            messageExamples: updatedCharacter.messageExamples,
-            postExamples: updatedCharacter.postExamples,
-            topics: updatedCharacter.topics,
-            style: updatedCharacter.style,
-            adjectives: updatedCharacter.adjectives,
-            knowledge: updatedCharacter.knowledge,
-            plugins: updatedCharacter.plugins,
-            settings: updatedCharacter.settings,
-          }),
-        },
-      );
+      const updateResponse = await fetch(`${ELIZAOS_API}/agents/${agentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: updatedCharacter.name,
+          username: updatedCharacter.username,
+          system: updatedCharacter.system, // ✅ System prompt (ElizaOS core field)
+          bio: updatedCharacter.bio,
+          messageExamples: updatedCharacter.messageExamples,
+          postExamples: updatedCharacter.postExamples,
+          topics: updatedCharacter.topics,
+          style: updatedCharacter.style,
+          adjectives: updatedCharacter.adjectives,
+          knowledge: updatedCharacter.knowledge,
+          plugins: updatedCharacter.plugins,
+          settings: updatedCharacter.settings,
+        }),
+      });
 
       if (!updateResponse.ok) {
         const errorData = await updateResponse.json().catch(() => ({}));

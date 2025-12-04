@@ -187,7 +187,7 @@ No major gaps identified. All critical paths are covered:
 
 ### Prerequisites
 1. Hyperscape server running on `http://localhost:5555`
-2. ElizaOS API running on `http://localhost:3000`
+2. ElizaOS API running on `http://localhost:4001`
 3. PostgreSQL/SQLite database accessible
 
 ### Run All Tests

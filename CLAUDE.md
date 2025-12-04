@@ -80,8 +80,8 @@ npm run cap:sync:android # Android only
 # Generate API documentation (TypeDoc)
 npm run docs:generate
 
-# Start docs dev server (http://localhost:3000)
-npm run docs:dev
+# Start docs dev server (http://localhost:3402)
+bun run docs:dev
 
 # Build production docs
 npm run docs:build
@@ -254,32 +254,58 @@ The dev server provides:
 - Watch mode for shared package
 - Colored logs for debugging
 
-Access points:
-- Client: `http://localhost:3333` (Vite dev server)
-- Server WebSocket: `ws://localhost:5555/ws`
-- Game: Open browser to `http://localhost:5555`
+**Commands:**
+```bash
+bun run dev        # Core game (client + server + shared)
+bun run dev:ai     # Core game + ElizaOS AI agents
+bun run dev:all    # Everything: game + AI + AssetForge
+bun run dev:forge  # AssetForge (standalone)
+bun run docs:dev   # Documentation site (standalone)
+```
+
+### Port Allocation
+
+All services have unique default ports to avoid conflicts:
+
+| Port | Service | Env Var | Started By |
+|------|---------|---------|------------|
+| 3333 | Game Client | `VITE_PORT` | `bun run dev` |
+| 3400 | AssetForge UI | `ASSET_FORGE_PORT` | `bun run dev:forge` |
+| 3401 | AssetForge API | `ASSET_FORGE_API_PORT` | `bun run dev:forge` |
+| 3402 | Docusaurus | (hardcoded) | `bun run docs:dev` |
+| 4000 | ElizaOS Dashboard | (internal) | `bun run dev:ai` |
+| 4001 | ElizaOS API | `ELIZAOS_PORT` | `bun run dev:ai` |
+| 5555 | Game Server | `PORT` | `bun run dev` |
 
 ### Environment Variables
 
-Store in `.env` at project root using dotenv:
+**Zero-config local development**: The defaults work out of the box. Just run `bun run dev`.
 
+**Package-specific `.env` files**: Each package has its own `.env.example` with deployment documentation:
+
+| Package | File | Purpose |
+|---------|------|---------|
+| Server | `packages/server/.env.example` | Server deployment (Railway, Fly.io, Docker) |
+| Client | `packages/client/.env.example` | Client deployment (Vercel, Netlify, Pages) |
+| AssetForge | `packages/asset-forge/.env.example` | AssetForge deployment |
+
+**Common variables**:
 ```bash
-# Database
-DATABASE_URL=postgresql://...
+# Server (packages/server/.env)
+DATABASE_URL=postgresql://...    # Required for production
+JWT_SECRET=...                   # Required for production
+PRIVY_APP_ID=...                 # For Privy auth
+PRIVY_APP_SECRET=...             # For Privy auth
 
-# Authentication
-PRIVY_APP_ID=...
-PRIVY_APP_SECRET=...
-
-# LiveKit (optional)
-LIVEKIT_API_KEY=...
-LIVEKIT_API_SECRET=...
-LIVEKIT_URL=...
-
-# AI Generation (optional)
-OPENAI_API_KEY=...
-MESHY_API_KEY=...
+# Client (packages/client/.env)
+PUBLIC_PRIVY_APP_ID=...          # Must match server's PRIVY_APP_ID
+PUBLIC_API_URL=https://...       # Point to your server
+PUBLIC_WS_URL=wss://...          # Point to your server WebSocket
 ```
+
+**Split deployment** (client and server on different hosts):
+- `PUBLIC_PRIVY_APP_ID` (client) must equal `PRIVY_APP_ID` (server)
+- `PUBLIC_WS_URL` and `PUBLIC_API_URL` must point to your server
 
 ## Package Manager
 
@@ -324,10 +350,13 @@ cd packages/physx-js-webidl
 ### Port Conflicts
 
 ```bash
-# Kill processes on ports 3333 and 5555
-lsof -ti:3333 | xargs kill -9
-lsof -ti:5555 | xargs kill -9
+# Kill processes on common Hyperscape ports
+lsof -ti:3333 | xargs kill -9  # Game Client
+lsof -ti:5555 | xargs kill -9  # Game Server
+lsof -ti:4001 | xargs kill -9  # ElizaOS
 ```
+
+See [Port Allocation](#port-allocation) section for full port list.
 
 ### Tests Failing
 

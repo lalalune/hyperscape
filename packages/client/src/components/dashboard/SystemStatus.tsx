@@ -8,6 +8,7 @@ import {
   XCircle,
   RefreshCw,
 } from "lucide-react";
+import { ELIZAOS_URL, ELIZAOS_API } from "@/lib/api-config";
 
 interface ServerStatus {
   status: "healthy" | "unhealthy" | "unknown";
@@ -40,9 +41,7 @@ export const SystemStatus: React.FC = () => {
   const fetchStatus = async () => {
     try {
       // Fetch health status from ElizaOS API
-      const healthResponse = await fetch(
-        "http://localhost:3000/api/server/health",
-      );
+      const healthResponse = await fetch(`${ELIZAOS_API}/server/health`);
       if (healthResponse.ok) {
         const healthData = await healthResponse.json();
         setHealth({
@@ -234,7 +233,7 @@ export const SystemStatus: React.FC = () => {
               <div className="flex items-center gap-2 py-1">
                 <div className="w-2 h-2 rounded-full bg-green-400"></div>
                 <span className="text-[#e8ebf4]/80 font-mono">
-                  http://localhost:3000
+                  {ELIZAOS_URL}
                 </span>
                 <span className="text-[#f2d08a]/40">ElizaOS API</span>
               </div>

@@ -53,7 +53,8 @@ await fs.promises.mkdir(path.join(ROOT_DIR, "temp-images"), {
 });
 
 // Initialize services
-const API_PORT = process.env.API_PORT || 3004;
+const API_PORT =
+  process.env.ASSET_FORGE_API_PORT || process.env.API_PORT || 3401;
 const assetService = new AssetService(path.join(ROOT_DIR, "gdd-assets"));
 const retextureService = new RetextureService({
   meshyApiKey: process.env.MESHY_API_KEY || "",

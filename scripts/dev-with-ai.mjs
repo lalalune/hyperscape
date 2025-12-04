@@ -1,9 +1,11 @@
 #!/usr/bin/env bun
 /**
- * Development Script with ElizaOS Integration
- * 
- * Runs all Hyperscape dev servers via Turbo AND starts ElizaOS dev server
- * All services run in parallel - no need for multiple terminals!
+ * Development Script with AI (ElizaOS) Integration
+ *
+ * Runs all Hyperscape dev servers via Turbo AND starts ElizaOS AI agent server.
+ * Use this when working on AI agent features.
+ *
+ * Usage: bun run dev:ai
  */
 
 import { spawn, execSync } from 'child_process';
@@ -25,7 +27,7 @@ const colors = {
 
 console.log(`${colors.bright}${colors.cyan}
 ╔═══════════════════════════════════════════╗
-║   Starting Hyperscape + ElizaOS Dev       ║
+║   Starting Hyperscape + AI Agents         ║
 ╚═══════════════════════════════════════════╝
 ${colors.reset}`);
 
@@ -97,7 +99,7 @@ if (!checkElizaOS() && process.env.START_ELIZAOS === 'true') {
     shell: true,
     env: {
       ...process.env,
-      PORT: process.env.ELIZAOS_PORT || '3000',
+      PORT: process.env.ELIZAOS_PORT || '4001',
     },
   });
   
@@ -139,7 +141,7 @@ if (!checkElizaOS() && process.env.START_ELIZAOS === 'true') {
   console.log(`\n${colors.green}✓ All services starting!${colors.reset}`);
   console.log(`${colors.cyan}  - Hyperscape Server: http://localhost:5555${colors.reset}`);
   console.log(`${colors.cyan}  - Hyperscape Client: http://localhost:3333${colors.reset}`);
-  console.log(`${colors.cyan}  - ElizaOS Server: http://localhost:3000${colors.reset}`);
+  console.log(`${colors.cyan}  - ElizaOS Server: http://localhost:${process.env.ELIZAOS_PORT || '4001'}${colors.reset}`);
   console.log(`${colors.cyan}  - ElizaOS UI: http://localhost:4000 (with Hyperscape plugin components)${colors.reset}`);
   console.log(`\n${colors.dim}Press Ctrl+C to stop all services${colors.reset}\n`);
 } else {

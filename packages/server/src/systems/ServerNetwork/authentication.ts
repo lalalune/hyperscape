@@ -132,6 +132,12 @@ export async function authenticateUser(
         console.warn(
           "[Authentication] Privy token expired - user needs to re-authenticate",
         );
+      } else if (
+        err instanceof Error &&
+        (err.message.includes("alg") || err.name === "JOSEAlgNotAllowed")
+      ) {
+        // Algorithm mismatch is expected when a Hyperscape JWT is passed to Privy
+        // This happens with agent tokens - silently fall through to Hyperscape JWT verification
       } else {
         console.error("[Authentication] Privy authentication error:", err);
       }
