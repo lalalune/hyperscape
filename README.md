@@ -108,7 +108,7 @@ bun run dev:client    # Client only (port 3333)
 bun run dev:server    # Server only (port 5555)
 bun run dev:ai        # Game + ElizaOS agents (adds port 4001)
 bun run dev:forge     # AssetForge tools (ports 3400, 3401)
-bun run dev:docs      # Documentation site (port 3402)
+bun run docs:dev      # Documentation site (port 3402)
 bun run dev:all       # Everything: game + AI + AssetForge
 ```
 
@@ -158,7 +158,7 @@ bun run assets:sync    # Pull latest assets from repo
 | 3400 | AssetForge UI | `bun run dev:forge` |
 | 3401 | AssetForge API | `bun run dev:forge` |
 | 4001 | ElizaOS API | `bun run dev:ai` |
-| 3402 | Documentation | `bun run dev:docs` |
+| 3402 | Documentation | `bun run docs:dev` |
 
 ## Troubleshooting
 
