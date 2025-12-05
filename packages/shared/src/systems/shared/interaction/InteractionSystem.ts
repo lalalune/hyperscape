@@ -14,6 +14,10 @@ import {
   type TileCoord,
 } from "../movement/TileSystem";
 import { getPlayerWeaponRange } from "../../../utils/game/CombatUtils";
+import { getNPCById } from "../../../data/npcs";
+import { getExternalResource } from "../../../utils/ExternalAssetUtils";
+import { getItem } from "../../../data/items";
+import { uuid } from "../../../utils";
 
 /**
  * Find the best tile position for combat based on weapon range.
@@ -937,7 +941,10 @@ export class InteractionSystem extends System {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) return;
 
-    const actions = this.getActionsForEntityType(target, localPlayer.id);
+    const actions = this.getActionsForEntityType(target, localPlayer.id, {
+      x: screenX,
+      y: screenY,
+    });
 
     if (actions.length === 0) {
       console.warn("[InteractionSystem] No actions available for", target.type);
@@ -994,6 +1001,7 @@ export class InteractionSystem extends System {
       position: Position3D;
     },
     playerId: string,
+    screenPosition?: { x: number; y: number },
   ): InteractionAction[] {
     const actions: InteractionAction[] = [];
 
@@ -1031,11 +1039,25 @@ export class InteractionSystem extends System {
           icon: "👁️",
           enabled: true,
           handler: () => {
-            this.world.emit(EventType.UI_MESSAGE, {
-              playerId,
-              message: `It's ${target.name.toLowerCase()}.`,
-              type: "examine",
+            // Get item data for examine text
+            type ItemEntityType = { config?: { itemId?: string } };
+            const itemEntity = target.entity as ItemEntityType;
+            const itemId = itemEntity?.config?.itemId;
+            let examineText = `It's ${target.name.toLowerCase()}.`;
+
+            if (itemId) {
+              const itemData = getItem(itemId);
+              if (itemData?.examine) {
+                examineText = itemData.examine;
+              }
+            }
+
+            this.world.emit(EventType.UI_TOAST, {
+              message: examineText,
+              type: "info",
+              position: screenPosition,
             });
+            this.addExamineToChat(examineText);
           },
         });
         break;
@@ -1115,11 +1137,13 @@ export class InteractionSystem extends System {
           icon: "👁️",
           enabled: true,
           handler: () => {
-            this.world.emit(EventType.UI_MESSAGE, {
-              playerId,
-              message: `The corpse of a ${target.name.toLowerCase()}.`,
-              type: "examine",
+            const examineText = `The corpse of a ${target.name.toLowerCase()}.`;
+            this.world.emit(EventType.UI_TOAST, {
+              message: examineText,
+              type: "info",
+              position: screenPosition,
             });
+            this.addExamineToChat(examineText);
           },
         });
         break;
@@ -1170,7 +1194,7 @@ export class InteractionSystem extends System {
           label: "Examine",
           icon: "👁️",
           enabled: true,
-          handler: () => this.examineEntity(target, playerId),
+          handler: () => this.examineEntity(target, playerId, screenPosition),
         });
         break;
       }
@@ -1285,7 +1309,7 @@ export class InteractionSystem extends System {
           label: "Examine",
           icon: "👁️",
           enabled: true,
-          handler: () => this.examineEntity(target, playerId),
+          handler: () => this.examineEntity(target, playerId, screenPosition),
         });
         break;
       }
@@ -1425,7 +1449,7 @@ export class InteractionSystem extends System {
           label: "Examine",
           icon: "👁️",
           enabled: true,
-          handler: () => this.examineEntity(target, playerId),
+          handler: () => this.examineEntity(target, playerId, screenPosition),
         });
         break;
       }
@@ -1471,11 +1495,13 @@ export class InteractionSystem extends System {
           icon: "👁️",
           enabled: true,
           handler: () => {
-            this.world.emit(EventType.UI_MESSAGE, {
-              playerId,
-              message: "A secure place to store your items.",
-              type: "examine",
+            const examineText = "A secure place to store your items.";
+            this.world.emit(EventType.UI_TOAST, {
+              message: examineText,
+              type: "info",
+              position: screenPosition,
             });
+            this.addExamineToChat(examineText);
           },
         });
         break;
@@ -1618,35 +1644,93 @@ export class InteractionSystem extends System {
   private examineEntity(
     target: { type: string; name: string; entity: unknown },
     playerId: string,
+    screenPosition?: { x: number; y: number },
   ): void {
     let message = `It's ${target.name.toLowerCase()}.`;
 
-    if (target.type === "mob") {
-      type MobEntity = {
-        getMobData?: () => { health?: number; level?: number } | null;
+    if (
+      target.type === "mob" ||
+      target.type === "npc" ||
+      target.type === "bank"
+    ) {
+      // Get mob/NPC data for level/health info
+      type MobOrNPCEntity = {
+        getMobData?: () => {
+          health?: number;
+          level?: number;
+          type?: string;
+        } | null;
+        config?: { mobType?: string; npcId?: string };
       };
-      const mobData = (target.entity as MobEntity).getMobData
-        ? (target.entity as MobEntity).getMobData!()
-        : null;
-      message = `A level ${mobData?.level || 1} ${target.name}. ${(mobData?.health || 0) > 0 ? "It looks dangerous!" : "It is dead."}`;
+      const entity = target.entity as MobOrNPCEntity;
+      const mobData = entity.getMobData?.() || null;
+      // NPCs use npcId, mobs use mobType
+      const npcOrMobId =
+        entity.config?.npcId || entity.config?.mobType || mobData?.type;
+
+      // Look up NPC data for examine text (use description field)
+      if (npcOrMobId) {
+        const npcData = getNPCById(npcOrMobId);
+        if (npcData?.description) {
+          message = npcData.description;
+        } else {
+          // Fallback to dynamic message with level
+          message = `A level ${mobData?.level || 1} ${target.name}.`;
+        }
+      }
     } else if (target.type === "resource") {
-      type ResourceEntity = { config?: { resourceType?: string } };
-      const resourceType =
-        (target.entity as ResourceEntity).config?.resourceType || "tree";
-      if (resourceType.includes("tree")) {
-        message = "A tree. I can chop it down with a hatchet.";
-      } else if (resourceType.includes("rock")) {
-        message = "A rock containing ore. I could mine it with a pickaxe.";
-      } else if (resourceType.includes("fish")) {
-        message = "Fish are swimming in the water here.";
+      type ResourceEntity = {
+        config?: { resourceType?: string; resourceId?: string };
+      };
+      const entity = target.entity as ResourceEntity;
+      const resourceId = entity.config?.resourceId;
+      const resourceType = entity.config?.resourceType || "tree";
+
+      // Look up resource data for examine text
+      if (resourceId) {
+        const resourceData = getExternalResource(resourceId);
+        if (resourceData?.examine) {
+          message = resourceData.examine;
+        }
+      }
+
+      // Fallback to type-based messages if no examine text found
+      if (message === `It's ${target.name.toLowerCase()}.`) {
+        if (resourceType.includes("tree")) {
+          message = `A ${target.name.toLowerCase()}. I can chop it down with a hatchet.`;
+        } else if (
+          resourceType.includes("rock") ||
+          resourceType.includes("ore")
+        ) {
+          message = `${target.name}. I could mine it with a pickaxe.`;
+        } else if (resourceType.includes("fish")) {
+          message = "There are fish swimming in the water here.";
+        }
       }
     }
 
-    this.world.emit(EventType.UI_MESSAGE, {
-      playerId,
+    // Emit UI_TOAST for client-side display (UI_MESSAGE is for server->client routing)
+    this.world.emit(EventType.UI_TOAST, {
       message,
-      type: "examine",
+      type: "info",
+      position: screenPosition,
     });
+
+    // Also add to chat (OSRS-style game message)
+    this.addExamineToChat(message);
+  }
+
+  /** Add examine message to chat as a game message (no sender) */
+  private addExamineToChat(message: string): void {
+    if (this.world.chat?.add) {
+      this.world.chat.add({
+        id: uuid(),
+        from: "", // Empty = no [username] prefix, just game text
+        body: message,
+        createdAt: new Date().toISOString(),
+        timestamp: Date.now(),
+      });
+    }
   }
 
   // === Distance-based pickup helper methods ===
