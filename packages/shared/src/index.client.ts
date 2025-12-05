@@ -77,6 +77,17 @@ export {
   uuid,
 } from "./utils/index";
 
+// Export tile utilities (used for OSRS-style tile-based distance checks)
+export {
+  worldToTile,
+  tileToWorld,
+  tilesEqual,
+  tilesAdjacent,
+  tilesWithinRange,
+  TILE_SIZE,
+  type TileCoord,
+} from "./systems/shared/movement/TileSystem";
+
 // Export item helpers used by server network snapshot
 export { getItem } from "./data/items";
 

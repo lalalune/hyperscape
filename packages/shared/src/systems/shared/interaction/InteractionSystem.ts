@@ -11,6 +11,8 @@ import {
   tileToWorld,
   TILE_SIZE,
   tilesWithinRange,
+  tilesEqual,
+  tilesAdjacent,
   type TileCoord,
 } from "../movement/TileSystem";
 import { getPlayerWeaponRange } from "../../../utils/game/CombatUtils";
@@ -131,6 +133,13 @@ export class InteractionSystem extends System {
   private canvas: HTMLCanvasElement | null = null;
   private targetMarker: THREE.Mesh | null = null;
   private targetPosition: THREE.Vector3 | null = null;
+  // RS3-style click indicators: yellow X for ground/movement, red X for entity interactions
+  private clickIndicatorYellow: THREE.Sprite | null = null;
+  private clickIndicatorRed: THREE.Sprite | null = null;
+  private activeClickIndicator: THREE.Sprite | null = null;
+  private clickIndicatorTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Desired screen size for click indicators (in pixels, roughly)
+  private readonly CLICK_INDICATOR_SCREEN_SIZE = 32;
   private isDragging: boolean = false;
   private mouseDownButton: number | null = null;
   private mouseDownClientPos: { x: number; y: number } | null = null;
@@ -161,6 +170,23 @@ export class InteractionSystem extends System {
   // Auto-attack tracking (walk-to-attack)
   // Only stores mobId - we look up current position dynamically to handle moving targets
   private pendingAttacks = new Map<string, { mobId: string }>();
+
+  // Pending bank interactions (walk-to-bank, event-based opening)
+  private pendingBankInteractions = new Map<
+    string,
+    { bankId: string; bankPosition: Position3D }
+  >();
+
+  // Pending NPC interactions (walk-to-NPC, event-based service)
+  private pendingNPCInteractions = new Map<
+    string,
+    {
+      npcId: string;
+      npcEntityId: string;
+      service: "bank" | "store" | "dialogue";
+      npcPosition: Position3D;
+    }
+  >();
 
   constructor(world: World) {
     super(world);
@@ -223,6 +249,9 @@ export class InteractionSystem extends System {
 
     // Create target marker (visual indicator)
     this.createTargetMarker();
+
+    // Create click indicator (red X hitmarker for entity interactions)
+    this.createClickIndicator();
   }
 
   private createTargetMarker(): void {
@@ -252,6 +281,128 @@ export class InteractionSystem extends System {
     if (scene) {
       scene.add(this.targetMarker);
     }
+  }
+
+  /**
+   * Create click indicator sprites (RS3-style)
+   * Yellow X for ground/movement clicks, Red X for entity interactions
+   */
+  private createClickIndicator(): void {
+    if (this.world.isServer) return;
+
+    const scene = this.world.stage?.scene;
+    if (!scene) return;
+
+    // Helper to create X sprite with given color
+    const createXSprite = (color: string): THREE.Sprite => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext("2d")!;
+
+      // Draw X with outline for visibility
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 8;
+      ctx.lineCap = "round";
+
+      const margin = 12;
+      ctx.beginPath();
+      ctx.moveTo(margin, margin);
+      ctx.lineTo(canvas.width - margin, canvas.height - margin);
+      ctx.moveTo(canvas.width - margin, margin);
+      ctx.lineTo(margin, canvas.height - margin);
+      ctx.stroke();
+
+      // Draw colored X on top
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(margin, margin);
+      ctx.lineTo(canvas.width - margin, canvas.height - margin);
+      ctx.moveTo(canvas.width - margin, margin);
+      ctx.lineTo(margin, canvas.height - margin);
+      ctx.stroke();
+
+      const texture = new THREE.CanvasTexture(canvas);
+      const material = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+
+      const sprite = new THREE.Sprite(material);
+      sprite.visible = false;
+      sprite.renderOrder = 1000; // Render on top
+      return sprite;
+    };
+
+    // Create yellow X for ground clicks
+    this.clickIndicatorYellow = createXSprite("#ffff00");
+    scene.add(this.clickIndicatorYellow);
+
+    // Create red X for entity interactions
+    this.clickIndicatorRed = createXSprite("#ff0000");
+    scene.add(this.clickIndicatorRed);
+  }
+
+  /**
+   * Show click indicator at the specified position
+   * RS3-style: Yellow for ground, Red for entities
+   * Scales based on camera distance to maintain consistent screen size
+   * Auto-hides after 300ms
+   *
+   * @param position - World position where the click occurred (raycast intersection)
+   * @param type - "ground" for yellow X (movement), "entity" for red X (interaction)
+   */
+  private showClickIndicator(
+    position: Position3D,
+    type: "ground" | "entity",
+  ): void {
+    const indicator =
+      type === "ground" ? this.clickIndicatorYellow : this.clickIndicatorRed;
+    if (!indicator) return;
+
+    // Hide the other indicator
+    if (this.activeClickIndicator && this.activeClickIndicator !== indicator) {
+      this.activeClickIndicator.visible = false;
+    }
+    this.activeClickIndicator = indicator;
+
+    // Position at the click point (slightly above ground to avoid z-fighting)
+    indicator.position.set(position.x, position.y + 0.1, position.z);
+
+    // Calculate scale based on camera distance for consistent screen size
+    // The sprite should appear roughly the same size on screen regardless of distance
+    const camera = this.world.camera;
+    if (camera) {
+      const distance = camera.position.distanceTo(indicator.position);
+      // Scale factor: larger distance = larger scale to maintain screen size
+      // Base scale at distance 10 is ~0.25, adjust proportionally
+      const baseDistance = 10;
+      const baseScale = 0.25;
+      const scale = (distance / baseDistance) * baseScale;
+      // Clamp scale to reasonable bounds
+      const clampedScale = Math.max(0.12, Math.min(0.8, scale));
+      indicator.scale.set(clampedScale, clampedScale, 1);
+    } else {
+      indicator.scale.set(0.25, 0.25, 1);
+    }
+
+    indicator.visible = true;
+
+    // Clear existing timeout
+    if (this.clickIndicatorTimeout) {
+      clearTimeout(this.clickIndicatorTimeout);
+    }
+
+    // Hide after 300ms (like RS3)
+    this.clickIndicatorTimeout = setTimeout(() => {
+      if (indicator) {
+        indicator.visible = false;
+      }
+      this.activeClickIndicator = null;
+    }, 300);
   }
 
   private projectMarkerOntoTerrain(
@@ -411,6 +562,9 @@ export class InteractionSystem extends System {
     // Check if clicking on an interactable entity (item, NPC, etc.)
     const target = this.getEntityAtPosition(event.clientX, event.clientY);
     if (target) {
+      // Show click indicator (red X) at the actual click location for entity interactions
+      this.showClickIndicator(target.hitPoint, "entity");
+
       // Handle item pickup with left-click (OSRS-style: pick up highest value item in pile)
       if (target.type === "item") {
         event.preventDefault();
@@ -428,15 +582,18 @@ export class InteractionSystem extends System {
             pileItems[0],
           );
 
-          // Check distance to item
-          const distance = this.calculateDistance(
-            localPlayer.position,
-            bestItem.position,
+          // OSRS-accurate: Must stand ON the item's tile to pick it up
+          const playerTile = worldToTile(
+            localPlayer.position.x,
+            localPlayer.position.z,
           );
-          const pickupRange = 2.0; // Same as ItemEntity interaction range
+          const targetItemTile = worldToTile(
+            bestItem.position.x,
+            bestItem.position.z,
+          );
 
-          if (distance > pickupRange) {
-            // Too far - move towards the item first
+          if (!tilesEqual(playerTile, targetItemTile)) {
+            // Not on same tile - move to item first
             this.moveToItem(localPlayer, {
               id: bestItem.id,
               position: bestItem.position,
@@ -444,7 +601,7 @@ export class InteractionSystem extends System {
             return;
           }
 
-          // Close enough - pick up the BEST value item
+          // Standing on item - pick it up
           this.attemptPickupById(bestItem.id);
         }
         return;
@@ -455,26 +612,45 @@ export class InteractionSystem extends System {
         event.preventDefault();
         const localPlayer = this.world.getPlayer();
         if (localPlayer) {
-          const distance = this.calculateDistance(
-            localPlayer.position,
-            target.position,
-          );
-          const bankRange = 2.0; // Must match panel auto-close range (Chebyshev)
-          const minDelay = 50; // Minimum delay to avoid race conditions
+          // Use hitPoint (where player clicked) instead of entity center
+          // This is important for large bank objects where the center may be multiple tiles away
+          const clickPoint = target.hitPoint;
 
-          if (distance > bankRange) {
-            this.walkTo(target.position);
-          }
-          const actionDelay =
-            distance > bankRange ? Math.min(distance * 400, 3000) : minDelay;
-          setTimeout(() => {
+          // OSRS-accurate tile-based distance check
+          const playerTile = worldToTile(
+            localPlayer.position.x,
+            localPlayer.position.z,
+          );
+          const bankTile = worldToTile(clickPoint.x, clickPoint.z);
+          const isAdjacent =
+            tilesAdjacent(playerTile, bankTile) ||
+            tilesEqual(playerTile, bankTile);
+
+          // Use entity ID for network message (allows client to look up entity for distance check)
+          // Server will map entity ID to bank account as needed
+          const entityId = target.id;
+
+          if (isAdjacent) {
+            // Already adjacent - open immediately
             if (this.world.network?.send) {
-              const bankId =
-                (target.entity as { userData?: { bankId?: string } })?.userData
-                  ?.bankId || target.id;
-              this.world.network.send("bankOpen", { bankId });
+              this.world.network.send("bankOpen", { bankId: entityId });
             }
-          }, actionDelay);
+          } else {
+            // Too far - walk to ADJACENT position to where player clicked
+            const adjacentPos = getAdjacentCombatPosition(
+              localPlayer.position,
+              clickPoint,
+              1, // Range 1 = adjacent tile
+            );
+
+            // Track pending interaction for event-based opening when player arrives
+            // Use click point, not entity center, for adjacency checking
+            this.pendingBankInteractions.set(localPlayer.id, {
+              bankId: entityId,
+              bankPosition: clickPoint,
+            });
+            this.walkTo(adjacentPos);
+          }
         }
         return;
       }
@@ -492,68 +668,58 @@ export class InteractionSystem extends System {
           const npcConfig = npcEntity?.config || {};
           const services = npcConfig.services || [];
 
-          const distance = this.calculateDistance(
-            localPlayer.position,
-            target.position,
+          // OSRS-accurate tile-based distance check
+          const playerTile = worldToTile(
+            localPlayer.position.x,
+            localPlayer.position.z,
           );
-          const interactRange = 2.0; // Must match panel auto-close range (Chebyshev)
+          const npcTile = worldToTile(target.position.x, target.position.z);
+          const isAdjacent =
+            tilesAdjacent(playerTile, npcTile) ||
+            tilesEqual(playerTile, npcTile);
 
-          // Determine primary action based on services
-          // Always use a small delay to avoid race conditions with UI events
-          const minDelay = 50; // Minimum delay even when already in range
-
+          // Determine service type
+          let service: "bank" | "store" | "dialogue" = "dialogue";
           if (services.includes("bank")) {
-            // Primary action: Use Bank
-            if (distance > interactRange) {
-              this.walkTo(target.position);
-            }
-            const actionDelay =
-              distance > interactRange
-                ? Math.min(distance * 400, 3000)
-                : minDelay;
-            setTimeout(() => {
-              if (this.world.network?.send) {
-                this.world.network.send("bankOpen", { bankId: target.id });
-              }
-            }, actionDelay);
+            service = "bank";
           } else if (services.includes("store") || services.includes("shop")) {
-            // Primary action: Trade (open store)
-            if (distance > interactRange) {
-              this.walkTo(target.position);
+            service = "store";
+          }
+
+          if (isAdjacent) {
+            // Already adjacent - trigger service immediately
+            if (service === "bank") {
+              this.world.network.send("bankOpen", { bankId: target.id });
+            } else if (service === "store") {
+              this.world.network.send("storeOpen", {
+                npcId: npcConfig.npcId || target.id,
+                npcEntityId: target.id,
+              });
+            } else {
+              this.world.network.send("npcInteract", {
+                npcId: target.id,
+                npc: {
+                  id: npcConfig.npcId || target.id,
+                  name: target.name,
+                  type: npcConfig.npcType || "dialogue",
+                },
+              });
             }
-            const actionDelay =
-              distance > interactRange
-                ? Math.min(distance * 400, 3000)
-                : minDelay;
-            setTimeout(() => {
-              if (this.world.network?.send) {
-                this.world.network.send("storeOpen", {
-                  npcId: npcConfig.npcId || target.id,
-                  npcEntityId: target.id,
-                });
-              }
-            }, actionDelay);
           } else {
-            // Primary action: Talk (dialogue)
-            if (distance > interactRange) {
-              this.walkTo(target.position);
-            }
-            const actionDelay =
-              distance > interactRange
-                ? Math.min(distance * 400, 3000)
-                : minDelay;
-            setTimeout(() => {
-              if (this.world.network?.send) {
-                this.world.network.send("npcInteract", {
-                  npcId: target.id,
-                  npc: {
-                    id: npcConfig.npcId || target.id,
-                    name: target.name,
-                    type: npcConfig.npcType || "dialogue",
-                  },
-                });
-              }
-            }, actionDelay);
+            // Too far - walk to adjacent position and track pending interaction
+            const adjacentPos = getAdjacentCombatPosition(
+              localPlayer.position,
+              target.position,
+              1, // Range 1 = adjacent tile
+            );
+
+            this.pendingNPCInteractions.set(localPlayer.id, {
+              npcId: npcConfig.npcId || target.id,
+              npcEntityId: target.id,
+              service,
+              npcPosition: target.position,
+            });
+            this.walkTo(adjacentPos);
           }
         }
         return;
@@ -621,7 +787,30 @@ export class InteractionSystem extends System {
         return;
       }
 
-      // For other entities (players, resources), don't show movement indicator
+      // Handle resource with left-click (same as right-click primary action)
+      if (target.type === "resource") {
+        event.preventDefault();
+        const localPlayer = this.world.getPlayer();
+        if (localPlayer) {
+          type ResourceEntity = { config?: { resourceType?: string } };
+          const resourceType =
+            (target.entity as ResourceEntity).config?.resourceType || "tree";
+
+          // Determine action based on resource type (matches context menu logic)
+          let action = "chop"; // default for trees
+          if (resourceType.includes("rock") || resourceType.includes("ore")) {
+            action = "mine";
+          } else if (resourceType.includes("fish")) {
+            action = "fish";
+          }
+
+          // Reuse existing handleResourceAction - it already handles walk-if-too-far
+          this.handleResourceAction(target.id, action);
+        }
+        return;
+      }
+
+      // For other entities (players), don't show movement indicator
       // They should use context menus or other interaction methods
       return;
     }
@@ -679,6 +868,12 @@ export class InteractionSystem extends System {
     }
 
     if (target) {
+      // Show yellow X click indicator at the terrain intersection point (RS3-style)
+      this.showClickIndicator(
+        { x: target.x, y: target.y, z: target.z },
+        "ground",
+      );
+
       // Clear any previous target
       if (this.targetMarker && this.targetMarker.visible) {
         // Hide old marker immediately
@@ -891,6 +1086,7 @@ export class InteractionSystem extends System {
     name: string;
     entity: unknown;
     position: Position3D;
+    hitPoint: Position3D; // Actual raycast intersection point (where user clicked)
   } | null {
     if (!this.canvas || !this.world.camera || !this.world.stage?.scene)
       return null;
@@ -925,12 +1121,18 @@ export class InteractionSystem extends System {
             const worldPos = new THREE.Vector3();
             obj.getWorldPosition(worldPos);
 
+            // Return both entity position and actual hit point (where user clicked)
             return {
               id: entityId,
               type: entity.type || userData.type || "unknown",
               name: entity.name || userData.name || "Entity",
               entity,
               position: { x: worldPos.x, y: worldPos.y, z: worldPos.z },
+              hitPoint: {
+                x: intersect.point.x,
+                y: intersect.point.y,
+                z: intersect.point.z,
+              },
             };
           }
         }
@@ -1583,10 +1785,8 @@ export class InteractionSystem extends System {
               distance > bankRange ? Math.min(distance * 400, 3000) : minDelay;
             setTimeout(() => {
               if (this.world.network?.send) {
-                const bankId =
-                  (target.entity as { userData?: { bankId?: string } })
-                    ?.userData?.bankId || target.id;
-                this.world.network.send("bankOpen", { bankId });
+                // Use entity ID for network message (allows client to look up entity for distance check)
+                this.world.network.send("bankOpen", { bankId: target.id });
               }
             }, actionDelay);
           },
@@ -1872,11 +2072,15 @@ export class InteractionSystem extends System {
       position: target.position,
     });
 
-    // Send move request to get closer to the item
+    // Send move request to walk/run to the item's tile (OSRS: must stand on item to pick up)
     if (this.world.network?.send) {
+      // Respect player's current run mode preference
+      const playerData = player as unknown as { runMode?: boolean };
+      const runMode = playerData.runMode ?? true;
+
       this.world.network.send("moveRequest", {
         target: [target.position.x, target.position.y, target.position.z],
-        runMode: false,
+        runMode,
       });
     }
 
@@ -1958,15 +2162,15 @@ export class InteractionSystem extends System {
         // Check if we have a pending pickup for this player
         const pendingPickup = this.pendingPickups.get(player.id);
         if (pendingPickup) {
-          // Check if we're close enough to the item now
-          const distance = this.calculateDistance(
-            playerPosition,
-            pendingPickup.position,
+          // OSRS-accurate: Must stand ON the item's tile to pick it up
+          const playerTile = worldToTile(playerPosition.x, playerPosition.z);
+          const itemTile = worldToTile(
+            pendingPickup.position.x,
+            pendingPickup.position.z,
           );
-          const pickupRange = 2.0;
 
-          if (distance <= pickupRange) {
-            // Close enough - attempt pickup
+          if (tilesEqual(playerTile, itemTile)) {
+            // Standing on item - pick it up
             const target = {
               id: pendingPickup.itemId,
               position: pendingPickup.position,
@@ -2037,6 +2241,68 @@ export class InteractionSystem extends System {
             this.walkTo(adjacentPos);
             // DON'T clear pendingAttack - keep tracking until we attack or cancel
           }
+        }
+
+        // Check if we have a pending bank interaction for this player
+        const pendingBank = this.pendingBankInteractions.get(player.id);
+        if (pendingBank) {
+          // OSRS-accurate tile-based adjacent check
+          const playerTile = worldToTile(playerPosition.x, playerPosition.z);
+          const bankTile = worldToTile(
+            pendingBank.bankPosition.x,
+            pendingBank.bankPosition.z,
+          );
+          const isAdjacent =
+            tilesAdjacent(playerTile, bankTile) ||
+            tilesEqual(playerTile, bankTile);
+
+          if (isAdjacent) {
+            // Adjacent to bank - open it
+            if (this.world.network?.send) {
+              this.world.network.send("bankOpen", {
+                bankId: pendingBank.bankId,
+              });
+            }
+            this.pendingBankInteractions.delete(player.id);
+          }
+          // Note: Don't clear if still too far - player may still be walking
+        }
+
+        // Check if we have a pending NPC interaction for this player
+        const pendingNPC = this.pendingNPCInteractions.get(player.id);
+        if (pendingNPC) {
+          // OSRS-accurate tile-based adjacent check
+          const playerTile = worldToTile(playerPosition.x, playerPosition.z);
+          const npcTile = worldToTile(
+            pendingNPC.npcPosition.x,
+            pendingNPC.npcPosition.z,
+          );
+          const isAdjacent =
+            tilesAdjacent(playerTile, npcTile) ||
+            tilesEqual(playerTile, npcTile);
+
+          if (isAdjacent) {
+            // Adjacent to NPC - trigger service
+            if (this.world.network?.send) {
+              if (pendingNPC.service === "bank") {
+                this.world.network.send("bankOpen", {
+                  bankId: pendingNPC.npcEntityId,
+                });
+              } else if (pendingNPC.service === "store") {
+                this.world.network.send("storeOpen", {
+                  npcId: pendingNPC.npcId,
+                  npcEntityId: pendingNPC.npcEntityId,
+                });
+              } else {
+                this.world.network.send("npcInteract", {
+                  npcId: pendingNPC.npcId,
+                  npcEntityId: pendingNPC.npcEntityId,
+                });
+              }
+            }
+            this.pendingNPCInteractions.delete(player.id);
+          }
+          // Note: Don't clear if still too far - player may still be walking
         }
       }
     }
