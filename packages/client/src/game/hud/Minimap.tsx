@@ -37,6 +37,7 @@ export function Minimap({
   onCompassClick,
   isVisible = true,
 }: MinimapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<UniversalRenderer | null>(null);
@@ -751,13 +752,14 @@ export function Minimap({
     [handleMinimapClick],
   );
 
-  const onMinimapWheel = useCallback(
-    (e: React.WheelEvent<HTMLDivElement>) => {
+  // Wheel handler for minimap zoom - uses native WheelEvent for passive: false support
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
       const sign = Math.sign(e.deltaY);
       if (sign === 0) return;
-      // Notched steps
+      // Notched steps for smooth zoom
       const steps = Math.max(
         1,
         Math.min(5, Math.round(Math.abs(e.deltaY) / 100)),
@@ -772,28 +774,22 @@ export function Minimap({
     [extent],
   );
 
-  const onOverlayWheel = useCallback(
-    (e: React.WheelEvent<HTMLCanvasElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const sign = Math.sign(e.deltaY);
-      if (sign === 0) return;
-      const steps = Math.max(
-        1,
-        Math.min(5, Math.round(Math.abs(e.deltaY) / 100)),
-      );
-      const next = THREE.MathUtils.clamp(
-        extent + sign * steps * STEP_EXTENT,
-        MIN_EXTENT,
-        MAX_EXTENT,
-      );
-      setExtent(next);
-    },
-    [extent],
-  );
+  // Attach wheel listener with { passive: false } to allow preventDefault()
+  // React's onWheel is passive by default, causing "Unable to preventDefault" errors
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, [handleWheel]);
 
   return (
     <div
+      ref={containerRef}
       className={`minimap border-2 border-white/30 rounded-full overflow-visible bg-black/80 relative touch-none select-none ${className}`}
       style={{
         width,
@@ -802,7 +798,6 @@ export function Minimap({
         WebkitTouchCallout: "none",
         ...style,
       }}
-      onWheel={onMinimapWheel}
       onMouseDown={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -826,7 +821,6 @@ export function Minimap({
         height={height}
         className="absolute inset-0 block w-full h-full pointer-events-auto cursor-crosshair z-[1] rounded-full overflow-hidden"
         onClick={onOverlayClick}
-        onWheel={onOverlayWheel}
         onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
