@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { COLORS } from "../../constants";
 import { useDroppable } from "@dnd-kit/core";
-import { EquipmentSlotName, EventType } from "@hyperscape/shared";
+import { EquipmentSlotName, EventType, getItem } from "@hyperscape/shared";
 import type {
   PlayerEquipmentItems,
   Item,
@@ -280,8 +280,10 @@ export function EquipmentPanel({
       }
 
       if (ce.detail.actionId === "examine") {
+        const itemData = getItem(slot.item.id);
+        const examineText = itemData?.examine || `It's a ${slot.item.name}.`;
         world?.emit(EventType.UI_TOAST, {
-          message: `It's a ${slot.item.name}.`,
+          message: examineText,
           type: "info",
         });
       }

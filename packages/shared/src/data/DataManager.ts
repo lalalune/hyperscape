@@ -60,6 +60,7 @@ export interface ExternalResourceData {
   id: string;
   name: string;
   type: string;
+  examine?: string;
   modelPath: string | null;
   depletedModelPath: string | null;
   scale: number;
