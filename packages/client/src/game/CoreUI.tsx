@@ -502,11 +502,15 @@ function ActionIcon({ icon }: { icon: IconComponent }) {
 }
 
 function Toast({ world }: { world: ClientWorld }) {
-  const [msg, setMsg] = useState<{ text: string; id: number } | null>(null);
+  const [msg, setMsg] = useState<{
+    text: string;
+    id: number;
+    position?: { x: number; y: number };
+  } | null>(null);
   useEffect(() => {
     let ids = 0;
     const onToast = (data: EventMap[EventType.UI_TOAST]) => {
-      setMsg({ text: data.message, id: ++ids });
+      setMsg({ text: data.message, id: ++ids, position: data.position });
     };
     world.on(EventType.UI_TOAST, onToast);
     return () => {
@@ -514,6 +518,29 @@ function Toast({ world }: { world: ClientWorld }) {
     };
   }, []);
   if (!msg) return null;
+
+  // RS3-style: If position is provided, render positioned tooltip
+  if (msg.position) {
+    return (
+      <>
+        <style>{`
+          @keyframes examineTooltipIn {
+            from {
+              opacity: 0;
+              transform: scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+        `}</style>
+        <PositionedToast key={msg.id} text={msg.text} position={msg.position} />
+      </>
+    );
+  }
+
+  // Default: Centered toast (for system messages)
   return (
     <div
       className="absolute left-0 right-0 flex justify-center"
@@ -534,6 +561,77 @@ function Toast({ world }: { world: ClientWorld }) {
         }
       `}</style>
       {msg && <ToastMsg key={msg.id} text={msg.text} />}
+    </div>
+  );
+}
+
+/** RS3-style positioned tooltip that appears near cursor */
+function PositionedToast({
+  text,
+  position,
+}: {
+  text: string;
+  position: { x: number; y: number };
+}) {
+  const [visible, setVisible] = useState(true);
+  const [coords, setCoords] = useState({ x: 0, y: 0 });
+  const tooltipRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Calculate position with edge detection
+    const tooltipWidth = 250; // Estimated max width
+    const tooltipHeight = 40; // Estimated height
+    const offset = 15; // Offset from cursor
+    const padding = 10; // Padding from viewport edge
+
+    let x = position.x + offset;
+    let y = position.y + offset;
+
+    // Flip horizontally if too close to right edge
+    if (x + tooltipWidth + padding > window.innerWidth) {
+      x = position.x - tooltipWidth - offset;
+    }
+
+    // Flip vertically if too close to bottom edge
+    if (y + tooltipHeight + padding > window.innerHeight) {
+      y = position.y - tooltipHeight - offset;
+    }
+
+    // Clamp to viewport
+    x = Math.max(
+      padding,
+      Math.min(x, window.innerWidth - tooltipWidth - padding),
+    );
+    y = Math.max(
+      padding,
+      Math.min(y, window.innerHeight - tooltipHeight - padding),
+    );
+
+    setCoords({ x, y });
+
+    // RS3-style: Display for 2.5 seconds then fade out
+    const timer = setTimeout(() => setVisible(false), 2500);
+    return () => clearTimeout(timer);
+  }, [position]);
+
+  return (
+    <div
+      ref={tooltipRef}
+      className={cls(
+        "fixed px-3 py-2 bg-[rgba(11,10,21,0.92)] border border-[#3a3b49] backdrop-blur-[8px] rounded-lg text-white text-sm font-medium shadow-lg pointer-events-none z-[99999] max-w-[250px]",
+        {
+          "opacity-100 scale-100 animate-[examineTooltipIn_0.15s_ease-out]":
+            visible,
+          "opacity-0 scale-95 transition-all duration-300 ease-in-out":
+            !visible,
+        },
+      )}
+      style={{
+        left: `${coords.x}px`,
+        top: `${coords.y}px`,
+      }}
+    >
+      {text}
     </div>
   );
 }

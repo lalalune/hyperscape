@@ -17,6 +17,7 @@ import { getPlayerWeaponRange } from "../../../utils/game/CombatUtils";
 import { getNPCById } from "../../../data/npcs";
 import { getExternalResource } from "../../../utils/ExternalAssetUtils";
 import { getItem } from "../../../data/items";
+import { uuid } from "../../../utils";
 
 /**
  * Find the best tile position for combat based on weapon range.
@@ -940,7 +941,10 @@ export class InteractionSystem extends System {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) return;
 
-    const actions = this.getActionsForEntityType(target, localPlayer.id);
+    const actions = this.getActionsForEntityType(target, localPlayer.id, {
+      x: screenX,
+      y: screenY,
+    });
 
     if (actions.length === 0) {
       console.warn("[InteractionSystem] No actions available for", target.type);
@@ -997,6 +1001,7 @@ export class InteractionSystem extends System {
       position: Position3D;
     },
     playerId: string,
+    screenPosition?: { x: number; y: number },
   ): InteractionAction[] {
     const actions: InteractionAction[] = [];
 
@@ -1050,7 +1055,9 @@ export class InteractionSystem extends System {
             this.world.emit(EventType.UI_TOAST, {
               message: examineText,
               type: "info",
+              position: screenPosition,
             });
+            this.addExamineToChat(examineText);
           },
         });
         break;
@@ -1130,11 +1137,13 @@ export class InteractionSystem extends System {
           icon: "👁️",
           enabled: true,
           handler: () => {
-            this.world.emit(EventType.UI_MESSAGE, {
-              playerId,
-              message: `The corpse of a ${target.name.toLowerCase()}.`,
-              type: "examine",
+            const examineText = `The corpse of a ${target.name.toLowerCase()}.`;
+            this.world.emit(EventType.UI_TOAST, {
+              message: examineText,
+              type: "info",
+              position: screenPosition,
             });
+            this.addExamineToChat(examineText);
           },
         });
         break;
@@ -1185,7 +1194,7 @@ export class InteractionSystem extends System {
           label: "Examine",
           icon: "👁️",
           enabled: true,
-          handler: () => this.examineEntity(target, playerId),
+          handler: () => this.examineEntity(target, playerId, screenPosition),
         });
         break;
       }
@@ -1300,7 +1309,7 @@ export class InteractionSystem extends System {
           label: "Examine",
           icon: "👁️",
           enabled: true,
-          handler: () => this.examineEntity(target, playerId),
+          handler: () => this.examineEntity(target, playerId, screenPosition),
         });
         break;
       }
@@ -1440,7 +1449,7 @@ export class InteractionSystem extends System {
           label: "Examine",
           icon: "👁️",
           enabled: true,
-          handler: () => this.examineEntity(target, playerId),
+          handler: () => this.examineEntity(target, playerId, screenPosition),
         });
         break;
       }
@@ -1486,11 +1495,13 @@ export class InteractionSystem extends System {
           icon: "👁️",
           enabled: true,
           handler: () => {
-            this.world.emit(EventType.UI_MESSAGE, {
-              playerId,
-              message: "A secure place to store your items.",
-              type: "examine",
+            const examineText = "A secure place to store your items.";
+            this.world.emit(EventType.UI_TOAST, {
+              message: examineText,
+              type: "info",
+              position: screenPosition,
             });
+            this.addExamineToChat(examineText);
           },
         });
         break;
@@ -1633,6 +1644,7 @@ export class InteractionSystem extends System {
   private examineEntity(
     target: { type: string; name: string; entity: unknown },
     playerId: string,
+    screenPosition?: { x: number; y: number },
   ): void {
     let message = `It's ${target.name.toLowerCase()}.`;
 
@@ -1701,7 +1713,24 @@ export class InteractionSystem extends System {
     this.world.emit(EventType.UI_TOAST, {
       message,
       type: "info",
+      position: screenPosition,
     });
+
+    // Also add to chat (OSRS-style game message)
+    this.addExamineToChat(message);
+  }
+
+  /** Add examine message to chat as a game message (no sender) */
+  private addExamineToChat(message: string): void {
+    if (this.world.chat?.add) {
+      this.world.chat.add({
+        id: uuid(),
+        from: "", // Empty = no [username] prefix, just game text
+        body: message,
+        createdAt: new Date().toISOString(),
+        timestamp: Date.now(),
+      });
+    }
   }
 
   // === Distance-based pickup helper methods ===
