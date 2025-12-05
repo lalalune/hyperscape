@@ -266,8 +266,10 @@ export function InventoryPanel({
         }
       }
       if (ce.detail.actionId === "examine") {
+        const itemData = getItem(it.itemId);
+        const examineText = itemData?.examine || `It's a ${it.itemId}.`;
         world?.emit(EventType.UI_TOAST, {
-          message: `It's a ${it.itemId}.`,
+          message: examineText,
           type: "info",
         });
       }
