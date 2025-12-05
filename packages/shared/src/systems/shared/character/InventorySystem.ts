@@ -534,13 +534,14 @@ export class InventorySystem extends SystemBase {
       }
       const position = player.node.position;
 
+      // Drop at player's exact position - GroundItemManager will snap to tile center
       this.emitTypedEvent(EventType.ITEM_SPAWN_REQUEST, {
         itemId: data.itemId,
         quantity: qty,
         position: {
-          x: position.x + (Math.random() - 0.5) * 2,
+          x: position.x,
           y: position.y,
-          z: position.z + (Math.random() - 0.5) * 2,
+          z: position.z,
         },
       });
     }

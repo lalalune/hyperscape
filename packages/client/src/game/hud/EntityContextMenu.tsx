@@ -131,17 +131,23 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
 
   if (!menu.visible || !menu.target) return null;
 
+  // Calculate position to keep menu in viewport
+  const menuStyle: React.CSSProperties = {
+    left: `${menu.position.x}px`,
+    top: `${menu.position.y}px`,
+    minWidth: "160px",
+    maxWidth: "280px",
+    maxHeight: "300px", // Limit height for large piles
+    overflowY: "auto", // Scroll if too many items
+    pointerEvents: "auto",
+    userSelect: "none",
+    color: "#fff", // White text
+  };
+
   return (
     <div
       className="context-menu fixed bg-[rgba(20,20,20,0.95)] border border-[#555] rounded pointer-events-auto z-[99999]"
-      style={{
-        left: `${menu.position.x}px`,
-        top: `${menu.position.y}px`,
-        minWidth: "160px",
-        pointerEvents: "auto",
-        userSelect: "none",
-        color: "#fff", // White text
-      }}
+      style={menuStyle}
       onClick={(e) => {
         e.stopPropagation();
       }}
