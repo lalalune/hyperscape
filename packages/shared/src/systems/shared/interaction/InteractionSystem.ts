@@ -411,26 +411,41 @@ export class InteractionSystem extends System {
     // Check if clicking on an interactable entity (item, NPC, etc.)
     const target = this.getEntityAtPosition(event.clientX, event.clientY);
     if (target) {
-      // Handle item pickup with left-click
+      // Handle item pickup with left-click (OSRS-style: pick up highest value item in pile)
       if (target.type === "item") {
         event.preventDefault();
         const localPlayer = this.world.getPlayer();
         if (localPlayer) {
+          // OSRS-STYLE: Get all items at this tile and pick up highest value
+          const itemTile = worldToTile(target.position.x, target.position.z);
+          const pileItems = this.getItemEntitiesAtTile(itemTile);
+
+          if (pileItems.length === 0) return;
+
+          // Find highest value item in pile
+          const bestItem = pileItems.reduce(
+            (best, item) => (item.value > best.value ? item : best),
+            pileItems[0],
+          );
+
           // Check distance to item
           const distance = this.calculateDistance(
             localPlayer.position,
-            target.position,
+            bestItem.position,
           );
           const pickupRange = 2.0; // Same as ItemEntity interaction range
 
           if (distance > pickupRange) {
             // Too far - move towards the item first
-            this.moveToItem(localPlayer, target);
+            this.moveToItem(localPlayer, {
+              id: bestItem.id,
+              position: bestItem.position,
+            });
             return;
           }
 
-          // Close enough - proceed with pickup
-          this.attemptPickup(localPlayer, target);
+          // Close enough - pick up the BEST value item
+          this.attemptPickupById(bestItem.id);
         }
         return;
       }
@@ -927,6 +942,76 @@ export class InteractionSystem extends System {
     return null;
   }
 
+  /**
+   * Get all item entities at a specific tile (OSRS-style pile query)
+   * Used for context menu to show all items in a pile
+   */
+  private getItemEntitiesAtTile(tile: { x: number; z: number }): Array<{
+    id: string;
+    name: string;
+    itemId: string;
+    quantity: number;
+    value: number;
+    entity: Entity;
+    position: Position3D;
+  }> {
+    const items: Array<{
+      id: string;
+      name: string;
+      itemId: string;
+      quantity: number;
+      value: number;
+      entity: Entity;
+      position: Position3D;
+    }> = [];
+
+    const tileCenter = tileToWorld(tile);
+    const tolerance = TILE_SIZE * 0.6; // Half tile width + small margin
+
+    // Iterate all entities, filter to items on this tile
+    for (const entity of this.world.entities.values()) {
+      if (entity.type !== "item") continue;
+
+      const pos = entity.getPosition();
+      const dx = Math.abs(pos.x - tileCenter.x);
+      const dz = Math.abs(pos.z - tileCenter.z);
+
+      if (dx < tolerance && dz < tolerance) {
+        items.push({
+          id: entity.id,
+          name: entity.name || "Item",
+          itemId: entity.getProperty("itemId") || entity.id,
+          quantity: entity.getProperty("quantity") || 1,
+          value: entity.getProperty("value") || 0,
+          entity,
+          position: pos,
+        });
+      }
+    }
+
+    // Sort by drop order (newer entities have higher IDs typically, so reverse)
+    return items.reverse();
+  }
+
+  /**
+   * Attempt to pickup an item by entity ID
+   * Note: Server expects entityId as 'itemId' field (legacy naming)
+   */
+  private attemptPickupById(entityId: string): void {
+    // Debounce check
+    const now = Date.now();
+    const lastRequest = this.recentPickupRequests.get(entityId);
+    if (lastRequest && now - lastRequest < this.PICKUP_DEBOUNCE_TIME) {
+      return;
+    }
+    this.recentPickupRequests.set(entityId, now);
+
+    if (this.world.network?.send) {
+      // Server expects entityId as 'itemId' field
+      this.world.network.send("pickupItem", { itemId: entityId });
+    }
+  }
+
   private showContextMenu(
     target: {
       id: string;
@@ -1006,61 +1091,80 @@ export class InteractionSystem extends System {
     const actions: InteractionAction[] = [];
 
     switch (target.type) {
-      case "item":
-        actions.push({
-          id: "pickup",
-          label: `Take ${target.name}`,
-          icon: "🎒",
-          enabled: true,
-          handler: () => {
-            const player = this.world.getPlayer();
-            if (!player) return;
+      case "item": {
+        // OSRS-STYLE: Get all items at this tile for pile display
+        const itemTile = worldToTile(target.position.x, target.position.z);
+        const pileItems = this.getItemEntitiesAtTile(itemTile);
 
-            // Check distance to item
-            const distance = this.calculateDistance(
-              player.position,
-              target.position,
-            );
-            const pickupRange = 2.0; // Same as ItemEntity interaction range
+        // Add "Take" for each item in pile (newest first = top of menu)
+        for (const pileItem of pileItems) {
+          const quantityStr =
+            pileItem.quantity > 1 ? ` (${pileItem.quantity})` : "";
+          actions.push({
+            id: `pickup_${pileItem.id}`,
+            label: `Take ${pileItem.name}${quantityStr}`,
+            icon: "🎒",
+            enabled: true,
+            handler: () => {
+              const player = this.world.getPlayer();
+              if (!player) return;
 
-            if (distance > pickupRange) {
-              // Too far - move towards the item first
-              this.moveToItem(player, target);
-              return;
-            }
+              // Check distance to item
+              const distance = this.calculateDistance(
+                player.position,
+                pileItem.position,
+              );
+              const pickupRange = 2.0;
 
-            // Close enough - proceed with pickup
-            this.attemptPickup(player, target);
-          },
-        });
-        actions.push({
-          id: "examine",
-          label: "Examine",
-          icon: "👁️",
-          enabled: true,
-          handler: () => {
-            // Get item data for examine text
-            type ItemEntityType = { config?: { itemId?: string } };
-            const itemEntity = target.entity as ItemEntityType;
-            const itemId = itemEntity?.config?.itemId;
-            let examineText = `It's ${target.name.toLowerCase()}.`;
-
-            if (itemId) {
-              const itemData = getItem(itemId);
-              if (itemData?.examine) {
-                examineText = itemData.examine;
+              if (distance > pickupRange) {
+                // Too far - move towards the item first
+                this.moveToItem(player, {
+                  id: pileItem.id,
+                  position: pileItem.position,
+                });
+                return;
               }
-            }
 
-            this.world.emit(EventType.UI_TOAST, {
-              message: examineText,
-              type: "info",
-              position: screenPosition,
-            });
-            this.addExamineToChat(examineText);
+              // Close enough - proceed with pickup
+              this.attemptPickupById(pileItem.id);
+            },
+          });
+        }
+
+        // Add "Walk here" option (OSRS always shows this)
+        actions.push({
+          id: "walk_here",
+          label: "Walk here",
+          icon: "👟",
+          enabled: true,
+          handler: () => {
+            this.walkTo(target.position);
           },
         });
+
+        // Add "Examine" for each item in pile
+        for (const pileItem of pileItems) {
+          actions.push({
+            id: `examine_${pileItem.id}`,
+            label: `Examine ${pileItem.name}`,
+            icon: "👁️",
+            enabled: true,
+            handler: () => {
+              const itemData = getItem(pileItem.itemId);
+              const examineText =
+                itemData?.examine || `It's ${pileItem.name.toLowerCase()}.`;
+
+              this.world.emit(EventType.UI_TOAST, {
+                message: examineText,
+                type: "info",
+                position: screenPosition,
+              });
+              this.addExamineToChat(examineText);
+            },
+          });
+        }
         break;
+      }
 
       case "headstone":
       case "corpse":
