@@ -75,6 +75,7 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
             detail: {
               actionId: item.id,
               targetId: target.id,
+              position: mousePosition,
             },
           });
           window.dispatchEvent(selectEvent);
