@@ -382,6 +382,9 @@ export class InteractionSystem extends System {
     }
     this.targetPosition = null;
 
+    // Clear minimap destination marker
+    delete (window as { __lastRaycastTarget?: unknown }).__lastRaycastTarget;
+
     // Send cancel movement to server
     if (this.world.network?.send) {
       this.world.network.send("moveRequest", {
@@ -701,6 +704,24 @@ export class InteractionSystem extends System {
         this.targetMarker.visible = true;
       }
 
+      // Sync destination with minimap - set global target so minimap shows destination
+      // from main game clicks (RuneScape-style unified destination marker)
+      (
+        window as {
+          __lastRaycastTarget?: {
+            x: number;
+            y: number;
+            z: number;
+            method: string;
+          };
+        }
+      ).__lastRaycastTarget = {
+        x: target.x,
+        y: target.y,
+        z: target.z,
+        method: "interaction",
+      };
+
       // ONLY send move request to server - no local movement!
       // Server is completely authoritative for movement
       if (this.world.network?.send) {
@@ -832,6 +853,9 @@ export class InteractionSystem extends System {
         if (distance < 0.5) {
           this.targetMarker.visible = false;
           this.targetPosition = null;
+          // Clear minimap destination marker when player arrives
+          delete (window as { __lastRaycastTarget?: unknown })
+            .__lastRaycastTarget;
         }
       }
     }
