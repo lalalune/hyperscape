@@ -45,6 +45,10 @@ type ChatWorld = ClientWorld & {
   };
   network: {
     id: string;
+    lastInventoryByPlayerId?: Record<
+      string,
+      { items: InventorySlotItem[]; coins: number }
+    >;
   };
 };
 
@@ -105,7 +109,31 @@ export function Chat({ world }: { world: ChatWorld }) {
       setInventory(data.items);
     };
     world.on(EventType.INVENTORY_UPDATED, onInventory);
+
+    // Request initial inventory data (same pattern as Sidebar.tsx)
+    const requestInitial = () => {
+      const playerId = world.entities?.player?.id;
+      if (playerId) {
+        // Check cached inventory first for instant load
+        const cached = world.network?.lastInventoryByPlayerId?.[playerId];
+        if (cached && Array.isArray(cached.items)) {
+          setInventory(cached.items);
+        }
+        // Request fresh data from server
+        world.emit(EventType.INVENTORY_REQUEST, { playerId });
+        return true;
+      }
+      return false;
+    };
+
+    // Try immediately, retry after delay if player not ready
+    let timeoutId: number | null = null;
+    if (!requestInitial()) {
+      timeoutId = window.setTimeout(() => requestInitial(), 400);
+    }
+
     return () => {
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
       world.off(EventType.INVENTORY_UPDATED, onInventory);
     };
   }, [world]);
