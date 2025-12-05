@@ -305,6 +305,19 @@ export function Minimap({
             setLastMinimapClickScreen(null);
           }
         }
+
+        // Also clear global raycast target when player reaches it
+        // This prevents stale destination dots from persisting
+        const windowWithTarget = window as {
+          __lastRaycastTarget?: { x: number; z: number };
+        };
+        if (windowWithTarget.__lastRaycastTarget) {
+          const dx = windowWithTarget.__lastRaycastTarget.x - targetPosition.x;
+          const dz = windowWithTarget.__lastRaycastTarget.z - targetPosition.z;
+          if (Math.hypot(dx, dz) < 0.6) {
+            delete windowWithTarget.__lastRaycastTarget;
+          }
+        }
       }
       rafId = requestAnimationFrame(loop);
     };
@@ -406,59 +419,9 @@ export function Minimap({
         });
       }
 
-      // Add enemies - check entities or stage entities (cached)
-      if (world.stage.scene) {
-        world.stage.scene.traverse((object) => {
-          // Look for mob entities with certain naming patterns
-          if (
-            object.name &&
-            (object.name.includes("Goblin") ||
-              object.name.includes("Bandit") ||
-              object.name.includes("Barbarian") ||
-              object.name.includes("Guard") ||
-              object.name.includes("Knight") ||
-              object.name.includes("Warrior") ||
-              object.name.includes("Ranger"))
-          ) {
-            const worldPos = new THREE.Vector3();
-            object.getWorldPosition(worldPos);
-
-            const enemyPip: EntityPip = {
-              id: object.uuid,
-              type: "enemy",
-              position: new THREE.Vector3(worldPos.x, 0, worldPos.z),
-              color: "#ff4444", // Red for enemies
-            };
-            pips.push(enemyPip);
-            newCache.set(object.uuid, enemyPip);
-          }
-
-          // Look for building/structure entities
-          if (
-            object.name &&
-            (object.name.includes("Bank") ||
-              object.name.includes("Store") ||
-              object.name.includes("Building") ||
-              object.name.includes("Structure") ||
-              object.name.includes("House") ||
-              object.name.includes("Shop"))
-          ) {
-            const worldPos = new THREE.Vector3();
-            object.getWorldPosition(worldPos);
-
-            const buildingPip: EntityPip = {
-              id: object.uuid,
-              type: "building",
-              position: new THREE.Vector3(worldPos.x, 0, worldPos.z),
-              color: "#ffaa00", // Orange for buildings
-            };
-            pips.push(buildingPip);
-            newCache.set(object.uuid, buildingPip);
-          }
-        });
-      }
-
       // Add pips for all known entities safely (cached)
+      // Note: We use the entity system exclusively for detecting mobs/buildings.
+      // Scene traversal was removed as it caused stale dots (matched static objects by name)
       if (world.entities) {
         const allEntities = world.entities.getAll();
         allEntities.forEach((entity) => {
