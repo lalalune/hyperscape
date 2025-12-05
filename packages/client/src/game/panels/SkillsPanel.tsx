@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { COLORS } from "../../constants";
 import type { ClientWorld, PlayerStats } from "../../types";
 
@@ -48,13 +49,14 @@ function SkillBox({
   onLeave,
 }: {
   skill: Skill;
-  onHover: (skill: Skill) => void;
+  onHover: (skill: Skill, e: React.MouseEvent) => void;
   onLeave: () => void;
 }) {
   return (
     <button
       className="relative group flex flex-col items-center p-0.5"
-      onMouseEnter={() => onHover(skill)}
+      onMouseEnter={(e) => onHover(skill, e)}
+      onMouseMove={(e) => onHover(skill, e)}
       onMouseLeave={onLeave}
       style={{
         background:
@@ -534,7 +536,10 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
                 <SkillBox
                   key={skill.key}
                   skill={skill}
-                  onHover={setHoveredSkill}
+                  onHover={(s, e) => {
+                    setHoveredSkill(s);
+                    setMousePos({ x: e.clientX, y: e.clientY });
+                  }}
                   onLeave={() => setHoveredSkill(null)}
                 />
               ))}
@@ -675,115 +680,119 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
         )}
       </div>
 
-      {/* Tooltip for Skills Tab */}
+      {/* Tooltip for Skills Tab - rendered via portal to avoid transform issues */}
       {activeTab === "skills" &&
         hoveredSkill &&
-        (() => {
-          const currentLevelXP = calculateXPForLevel(hoveredSkill.level);
-          const nextLevelXP = calculateXPForLevel(hoveredSkill.level + 1);
-          const xpRemaining = nextLevelXP - hoveredSkill.xp;
-          const xpIntoLevel = hoveredSkill.xp - currentLevelXP;
-          const xpForThisLevel = nextLevelXP - currentLevelXP;
-          const progress = Math.min(
-            100,
-            Math.max(0, (xpIntoLevel / xpForThisLevel) * 100),
-          );
+        createPortal(
+          (() => {
+            const currentLevelXP = calculateXPForLevel(hoveredSkill.level);
+            const nextLevelXP = calculateXPForLevel(hoveredSkill.level + 1);
+            const xpRemaining = nextLevelXP - hoveredSkill.xp;
+            const xpIntoLevel = hoveredSkill.xp - currentLevelXP;
+            const xpForThisLevel = nextLevelXP - currentLevelXP;
+            const progress = Math.min(
+              100,
+              Math.max(0, (xpIntoLevel / xpForThisLevel) * 100),
+            );
 
-          const tooltipWidth = 200;
-          const tooltipHeight = 100;
-          const padding = 12;
+            const tooltipWidth = 200;
+            const tooltipHeight = 100;
+            const padding = 12;
 
-          let left = mousePos.x + padding;
-          if (left + tooltipWidth > window.innerWidth - 8) {
-            left = mousePos.x - tooltipWidth - padding;
-          }
-          if (left < 8) left = 8;
+            let left = mousePos.x + padding;
+            if (left + tooltipWidth > window.innerWidth - 8) {
+              left = mousePos.x - tooltipWidth - padding;
+            }
+            if (left < 8) left = 8;
 
-          let top = mousePos.y + padding;
-          if (top + tooltipHeight > window.innerHeight - 8) {
-            top = mousePos.y - tooltipHeight - padding;
-          }
-          if (top < 8) top = 8;
+            let top = mousePos.y + padding;
+            if (top + tooltipHeight > window.innerHeight - 8) {
+              top = mousePos.y - tooltipHeight - padding;
+            }
+            if (top < 8) top = 8;
 
-          return (
-            <div
-              className="fixed border rounded pointer-events-none z-[200] p-2"
-              style={{
-                left,
-                top,
-                minWidth: tooltipWidth,
-                background:
-                  "linear-gradient(135deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.95) 100%)",
-                borderColor: "rgba(242, 208, 138, 0.5)",
-                boxShadow: "0 4px 16px rgba(0, 0, 0, 0.9)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-1">
-                  <span className="text-base">{hoveredSkill.icon}</span>
+            return (
+              <div
+                className="fixed border rounded pointer-events-none z-[10000] p-2"
+                style={{
+                  left,
+                  top,
+                  minWidth: tooltipWidth,
+                  background:
+                    "linear-gradient(135deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.95) 100%)",
+                  borderColor: "rgba(242, 208, 138, 0.5)",
+                  boxShadow: "0 4px 16px rgba(0, 0, 0, 0.9)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-base">{hoveredSkill.icon}</span>
+                    <span
+                      className="font-semibold text-[10px]"
+                      style={{ color: COLORS.ACCENT }}
+                    >
+                      {hoveredSkill.label}
+                    </span>
+                  </div>
                   <span
-                    className="font-semibold text-[10px]"
-                    style={{ color: COLORS.ACCENT }}
+                    className="font-bold text-[10px]"
+                    style={{
+                      color:
+                        hoveredSkill.level >= 99 ? "#fbbf24" : COLORS.ACCENT,
+                    }}
                   >
-                    {hoveredSkill.label}
+                    {hoveredSkill.level}
                   </span>
                 </div>
-                <span
-                  className="font-bold text-[10px]"
-                  style={{
-                    color: hoveredSkill.level >= 99 ? "#fbbf24" : COLORS.ACCENT,
-                  }}
-                >
-                  {hoveredSkill.level}
-                </span>
-              </div>
 
-              {hoveredSkill.key !== "total" ? (
-                <>
-                  <div
-                    className="mb-0.5 text-[9px]"
-                    style={{ color: "rgba(242, 208, 138, 0.8)" }}
-                  >
-                    XP: {Math.floor(hoveredSkill.xp).toLocaleString()}
-                  </div>
-                  <div
-                    className="mb-1 text-[9px]"
-                    style={{ color: "rgba(242, 208, 138, 0.8)" }}
-                  >
-                    Next level: {xpRemaining.toLocaleString()} XP
-                  </div>
-
-                  <div
-                    className="rounded overflow-hidden h-1.5"
-                    style={{ background: "rgba(0, 0, 0, 0.5)" }}
-                  >
+                {hoveredSkill.key !== "total" ? (
+                  <>
                     <div
-                      className="h-full transition-all duration-300"
-                      style={{
-                        width: `${progress}%`,
-                        background:
-                          hoveredSkill.level >= 99
-                            ? "linear-gradient(90deg, rgba(251, 191, 36, 0.9) 0%, rgba(251, 191, 36, 0.7) 100%)"
-                            : "linear-gradient(90deg, rgba(34, 197, 94, 0.9) 0%, rgba(34, 197, 94, 0.7) 100%)",
-                        boxShadow:
-                          hoveredSkill.level >= 99
-                            ? "0 0 6px rgba(251, 191, 36, 0.5)"
-                            : "0 0 6px rgba(34, 197, 94, 0.4)",
-                      }}
-                    />
+                      className="mb-0.5 text-[9px]"
+                      style={{ color: "rgba(242, 208, 138, 0.8)" }}
+                    >
+                      XP: {Math.floor(hoveredSkill.xp).toLocaleString()}
+                    </div>
+                    <div
+                      className="mb-1 text-[9px]"
+                      style={{ color: "rgba(242, 208, 138, 0.8)" }}
+                    >
+                      Next level: {xpRemaining.toLocaleString()} XP
+                    </div>
+
+                    <div
+                      className="rounded overflow-hidden h-1.5"
+                      style={{ background: "rgba(0, 0, 0, 0.5)" }}
+                    >
+                      <div
+                        className="h-full transition-all duration-300"
+                        style={{
+                          width: `${progress}%`,
+                          background:
+                            hoveredSkill.level >= 99
+                              ? "linear-gradient(90deg, rgba(251, 191, 36, 0.9) 0%, rgba(251, 191, 36, 0.7) 100%)"
+                              : "linear-gradient(90deg, rgba(34, 197, 94, 0.9) 0%, rgba(34, 197, 94, 0.7) 100%)",
+                          boxShadow:
+                            hoveredSkill.level >= 99
+                              ? "0 0 6px rgba(251, 191, 36, 0.5)"
+                              : "0 0 6px rgba(34, 197, 94, 0.4)",
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    className="text-[9px]"
+                    style={{ color: "rgba(242, 208, 138, 0.8)" }}
+                  >
+                    Total XP: {Math.floor(totalXP).toLocaleString()}
                   </div>
-                </>
-              ) : (
-                <div
-                  className="text-[9px]"
-                  style={{ color: "rgba(242, 208, 138, 0.8)" }}
-                >
-                  Total XP: {Math.floor(totalXP).toLocaleString()}
-                </div>
-              )}
-            </div>
-          );
-        })()}
+                )}
+              </div>
+            );
+          })(),
+          document.body,
+        )}
     </div>
   );
 }
