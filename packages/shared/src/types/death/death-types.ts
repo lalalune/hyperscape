@@ -70,6 +70,17 @@ export interface GroundItemData {
 }
 
 /**
+ * Ground item pile data - tracks all items at a single tile
+ * Used for OSRS-style item stacking where only top item is visible
+ */
+export interface GroundItemPileData {
+  tileKey: string; // "x_z" format for Map key
+  tile: { x: number; z: number }; // Tile coordinates
+  items: GroundItemData[]; // Ordered by drop time (newest first)
+  topItemEntityId: string; // The currently visible item entity
+}
+
+/**
  * Death event data
  */
 export interface DeathEventData {

@@ -16,7 +16,11 @@
 import type { World } from "../../../core/World";
 import type { EntityManager } from "..";
 import type { InventoryItem } from "../../../types/core/core";
-import type { GroundItemOptions, GroundItemData } from "../../../types/death";
+import type {
+  GroundItemOptions,
+  GroundItemData,
+  GroundItemPileData,
+} from "../../../types/death";
 import { EventType } from "../../../types/events";
 import {
   EntityType,
@@ -28,9 +32,11 @@ import { groundToTerrain } from "../../../utils/game/EntityUtils";
 import { getItem } from "../../../data/items";
 import { msToTicks, ticksToMs } from "../../../utils/game/CombatCalculations";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
+import { worldToTile, tileToWorld } from "../movement/TileSystem";
 
 export class GroundItemManager {
   private groundItems = new Map<string, GroundItemData>();
+  private groundItemPiles = new Map<string, GroundItemPileData>();
   private nextItemId = 1;
 
   constructor(
@@ -39,8 +45,45 @@ export class GroundItemManager {
   ) {}
 
   /**
+   * Get tile key for Map lookup
+   */
+  private getTileKey(tile: { x: number; z: number }): string {
+    return `${tile.x}_${tile.z}`;
+  }
+
+  /**
+   * Get all items at a specific tile
+   */
+  getItemsAtTile(tile: { x: number; z: number }): GroundItemData[] {
+    const tileKey = this.getTileKey(tile);
+    const pile = this.groundItemPiles.get(tileKey);
+    return pile ? [...pile.items] : [];
+  }
+
+  /**
+   * Get pile data at a specific tile
+   */
+  getPileAtTile(tile: { x: number; z: number }): GroundItemPileData | null {
+    return this.groundItemPiles.get(this.getTileKey(tile)) || null;
+  }
+
+  /**
+   * Update item visibility in pile (server sets property, syncs to client)
+   */
+  private setItemVisibility(entityId: string, visible: boolean): void {
+    const entity = this.world.entities.get(entityId);
+    if (entity) {
+      entity.setProperty("visibleInPile", visible);
+      if (typeof entity.markNetworkDirty === "function") {
+        entity.markNetworkDirty();
+      }
+    }
+  }
+
+  /**
    * Spawn a single ground item (TICK-BASED despawn)
    * Options accept ms for backwards compatibility, converted to ticks internally
+   * Items are snapped to tile centers and managed in piles (OSRS-style stacking)
    */
   async spawnGroundItem(
     itemId: string,
@@ -62,7 +105,6 @@ export class GroundItemManager {
       return "";
     }
 
-    const dropId = `ground_item_${this.nextItemId++}`;
     const now = Date.now();
     const currentTick = this.world.currentTick;
 
@@ -72,18 +114,66 @@ export class GroundItemManager {
       ? msToTicks(options.lootProtection)
       : 0;
 
-    // Ground item to terrain
+    // OSRS-STYLE: Snap position to tile center
+    const tile = worldToTile(position.x, position.z);
+    const tileKey = this.getTileKey(tile);
+    const tileCenter = tileToWorld(tile);
+
+    // Ground the tile center position to terrain
     const groundedPosition = groundToTerrain(
       this.world,
-      position,
+      { x: tileCenter.x, y: position.y, z: tileCenter.z },
       0.2,
       Infinity,
     );
 
-    // Create item entity
+    // Check for existing pile at this tile
+    const existingPile = this.groundItemPiles.get(tileKey);
+
+    // OSRS-STYLE: If stackable, try to merge with existing item of same type
+    if (item.stackable && existingPile) {
+      const existingStackItem = existingPile.items.find(
+        (pileItem) =>
+          pileItem.itemId === itemId &&
+          // Only merge if both have no loot protection or same owner
+          (!pileItem.lootProtectionTick ||
+            pileItem.droppedBy === options.droppedBy),
+      );
+
+      if (existingStackItem) {
+        // Merge quantities - update existing entity, don't create new one
+        const newQuantity = existingStackItem.quantity + quantity;
+        existingStackItem.quantity = newQuantity;
+
+        // Extend despawn timer to the newer drop's timer
+        existingStackItem.despawnTick = currentTick + despawnTicks;
+
+        // Update entity properties
+        const existingEntity = this.world.entities.get(
+          existingStackItem.entityId,
+        );
+        if (existingEntity) {
+          existingEntity.setProperty("quantity", newQuantity);
+          existingEntity.name = `${item.name} (${newQuantity})`;
+          if (typeof existingEntity.markNetworkDirty === "function") {
+            existingEntity.markNetworkDirty();
+          }
+        }
+
+        console.log(
+          `[GroundItemManager] Merged stackable item ${itemId} x${quantity} into existing stack (now x${newQuantity}) at tile (${tile.x}, ${tile.z})`,
+        );
+
+        return existingStackItem.entityId;
+      }
+    }
+
+    // Create new item entity
+    const dropId = `ground_item_${this.nextItemId++}`;
+
     const itemEntity = await this.entityManager.spawnEntity({
       id: dropId,
-      name: `${item.name} (${quantity})`,
+      name: `${item.name}${quantity > 1 ? ` (${quantity})` : ""}`,
       type: EntityType.ITEM,
       position: groundedPosition,
       rotation: { x: 0, y: 0, z: 0, w: 1 },
@@ -124,6 +214,7 @@ export class GroundItemManager {
         value: item.value ?? 0,
         weight: item.weight || 1.0,
         rarity: item.rarity,
+        visibleInPile: true, // New item is visible (will be top of pile)
       },
     } as ItemEntityConfig);
 
@@ -147,12 +238,32 @@ export class GroundItemManager {
 
     this.groundItems.set(dropId, groundItemData);
 
+    // OSRS-STYLE: Manage pile - hide previous top item, add new item to pile
+    if (existingPile) {
+      // Hide the current top item
+      this.setItemVisibility(existingPile.topItemEntityId, false);
+
+      // Add new item to front of pile (newest first)
+      existingPile.items.unshift(groundItemData);
+      existingPile.topItemEntityId = dropId;
+    } else {
+      // Create new pile
+      const newPile: GroundItemPileData = {
+        tileKey,
+        tile,
+        items: [groundItemData],
+        topItemEntityId: dropId,
+      };
+      this.groundItemPiles.set(tileKey, newPile);
+    }
+
     console.log(
-      `[GroundItemManager] Spawned ground item ${dropId} (${itemId} x${quantity}) at (${groundedPosition.x.toFixed(2)}, ${groundedPosition.y.toFixed(2)}, ${groundedPosition.z.toFixed(2)})`,
+      `[GroundItemManager] Spawned ground item ${dropId} (${itemId} x${quantity}) at tile (${tile.x}, ${tile.z})`,
       {
         despawnTick: groundItemData.despawnTick,
         despawnIn: `${despawnTicks} ticks (${(ticksToMs(despawnTicks) / 1000).toFixed(1)}s)`,
         lootProtectionTick: groundItemData.lootProtectionTick,
+        pileSize: existingPile ? existingPile.items.length : 1,
       },
     );
 
@@ -260,10 +371,36 @@ export class GroundItemManager {
 
   /**
    * Remove ground item immediately
+   * Also updates pile to show next item if applicable
    */
   removeGroundItem(itemId: string): void {
     const itemData = this.groundItems.get(itemId);
     if (!itemData) return;
+
+    // Find the pile this item belongs to
+    const tile = worldToTile(itemData.position.x, itemData.position.z);
+    const tileKey = this.getTileKey(tile);
+    const pile = this.groundItemPiles.get(tileKey);
+
+    if (pile) {
+      // Remove item from pile
+      const itemIndex = pile.items.findIndex((i) => i.entityId === itemId);
+      if (itemIndex !== -1) {
+        pile.items.splice(itemIndex, 1);
+      }
+
+      // If this was the top item, show the next item
+      if (pile.topItemEntityId === itemId && pile.items.length > 0) {
+        const nextItem = pile.items[0];
+        pile.topItemEntityId = nextItem.entityId;
+        this.setItemVisibility(nextItem.entityId, true);
+      }
+
+      // If pile is now empty, remove it
+      if (pile.items.length === 0) {
+        this.groundItemPiles.delete(tileKey);
+      }
+    }
 
     // Destroy entity
     this.entityManager.destroyEntity(itemId);
@@ -317,6 +454,7 @@ export class GroundItemManager {
       this.entityManager.destroyEntity(itemId);
     }
     this.groundItems.clear();
+    this.groundItemPiles.clear();
   }
 
   /**
