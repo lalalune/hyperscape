@@ -15,7 +15,7 @@ import {
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { EventType, getItem } from "@hyperscape/shared";
+import { EventType, getItem, uuid } from "@hyperscape/shared";
 import type { ClientWorld, InventorySlotItem } from "../../types";
 
 type InventorySlotViewItem = Pick<
@@ -224,7 +224,11 @@ export function InventoryPanel({
 
   useEffect(() => {
     const onCtxSelect = (evt: Event) => {
-      const ce = evt as CustomEvent<{ actionId: string; targetId: string }>;
+      const ce = evt as CustomEvent<{
+        actionId: string;
+        targetId: string;
+        position?: { x: number; y: number };
+      }>;
       const target = ce.detail?.targetId || "";
       if (!target.startsWith("inventory_slot_")) return;
       const slotIndex = parseInt(target.replace("inventory_slot_", ""), 10);
@@ -266,10 +270,23 @@ export function InventoryPanel({
         }
       }
       if (ce.detail.actionId === "examine") {
+        const itemData = getItem(it.itemId);
+        const examineText = itemData?.examine || `It's a ${it.itemId}.`;
         world?.emit(EventType.UI_TOAST, {
-          message: `It's a ${it.itemId}.`,
+          message: examineText,
           type: "info",
+          position: ce.detail.position,
         });
+        // Also add to chat (OSRS-style game message)
+        if (world?.chat?.add) {
+          world.chat.add({
+            id: uuid(),
+            from: "",
+            body: examineText,
+            createdAt: new Date().toISOString(),
+            timestamp: Date.now(),
+          });
+        }
       }
     };
     window.addEventListener("contextmenu:select", onCtxSelect as EventListener);

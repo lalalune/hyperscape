@@ -405,6 +405,8 @@ export interface EventMap {
   [EventType.UI_TOAST]: {
     message: string;
     type: "info" | "success" | "warning" | "error" | string;
+    /** Screen coordinates for positioned toasts (RS3-style). If omitted, toast displays centered. */
+    position?: { x: number; y: number };
   };
   [EventType.UI_SIDEBAR_CHAT_TOGGLE]: void;
   [EventType.UI_ACTIONS_UPDATE]: Array<{
