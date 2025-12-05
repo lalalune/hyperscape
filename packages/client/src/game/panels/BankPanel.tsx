@@ -13,6 +13,12 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { ClientWorld, InventorySlotItem } from "../../types";
 import { COLORS } from "../../constants";
+import {
+  worldToTile,
+  tilesAdjacent,
+  tilesEqual,
+  tilesWithinRange,
+} from "@hyperscape/shared";
 
 interface BankItem {
   itemId: string;
@@ -271,8 +277,8 @@ function ContextMenu({
   );
 }
 
-// Maximum distance from bank before auto-closing (in tiles, Chebyshev/OSRS-style)
-const BANK_MAX_DISTANCE = 2;
+// Grace period before first distance check (allows player to settle after walking)
+const BANK_DISTANCE_CHECK_GRACE_MS = 500;
 
 export function BankPanel({
   items,
@@ -326,21 +332,34 @@ export function BankPanel({
       // Success - reset failure counter
       entityLookupFailures.current = 0;
 
-      const dx = playerPos.x - bankPos.x;
-      const dz = playerPos.z - bankPos.z;
-      // Chebyshev distance (OSRS-style square range, not circular)
-      const distance = Math.max(Math.abs(dx), Math.abs(dz));
+      // Tile-based distance check - allow 2 tiles for bank entities
+      // (accounts for large bank objects and positioning edge cases)
+      const playerTile = worldToTile(playerPos.x, playerPos.z);
+      const bankTile = worldToTile(bankPos.x, bankPos.z);
+      const isNearBank =
+        tilesWithinRange(playerTile, bankTile, 2) ||
+        tilesEqual(playerTile, bankTile);
 
-      if (distance > BANK_MAX_DISTANCE) {
+      if (!isNearBank) {
         onClose();
       }
     };
 
-    // Check immediately and then every 200ms
-    checkDistance();
-    const interval = setInterval(checkDistance, 200);
+    // Grace period before first check (allows player to settle after walking)
+    // Then check every 200ms for distance violations
+    // IMPORTANT: Start interval AFTER grace period, not immediately
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const initialDelay = setTimeout(() => {
+      checkDistance(); // First check after grace period
+      interval = setInterval(checkDistance, 200); // Then check periodically
+    }, BANK_DISTANCE_CHECK_GRACE_MS);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialDelay);
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, [world.entities, bankId, onClose]);
 
   // Calculate total rows needed for all bank slots
