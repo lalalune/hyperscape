@@ -155,6 +155,8 @@ export class MobEntity extends CombatantEntity {
   private _tempScale = new THREE.Vector3(1, 1, 1);
   private _terrainWarningLogged = false;
   private _hasValidTerrainHeight = false;
+  // Placeholder hitbox for click detection before VRM loads (RuneScape-style: entity is functional immediately)
+  private _placeholderHitbox: THREE.Mesh | null = null;
 
   // ===== PATROL SYSTEM (Can be componentized later) =====
   private patrolPoints: Array<{ x: number; z: number }> = [];
@@ -460,7 +462,19 @@ export class MobEntity extends CombatantEntity {
    * Load VRM model and create avatar instance
    */
   private async loadVRMModel(): Promise<void> {
-    if (!this.world.loader || !this.config.model || !this.world.stage?.scene) {
+    // LOGGING: No more silent failures - log all early returns
+    if (!this.world.loader) {
+      console.warn(
+        `[MobEntity] ${this.id}: No world.loader available for VRM loading`,
+      );
+      return;
+    }
+    if (!this.config.model) {
+      console.warn(`[MobEntity] ${this.id}: No model path configured`);
+      return;
+    }
+    if (!this.world.stage?.scene) {
+      console.warn(`[MobEntity] ${this.id}: No world.stage.scene available`);
       return;
     }
 
@@ -483,6 +497,9 @@ export class MobEntity extends CombatantEntity {
     const avatarNode = nodeMap.get("avatar") || nodeMap.get("root");
 
     if (!avatarNode) {
+      console.warn(
+        `[MobEntity] ${this.id}: No avatar/root node found in VRM for ${this.config.model}`,
+      );
       return;
     }
 
@@ -494,6 +511,9 @@ export class MobEntity extends CombatantEntity {
     };
 
     if (!avatarNodeWithFactory?.factory) {
+      console.warn(
+        `[MobEntity] ${this.id}: No VRM factory found on avatar node for ${this.config.model}`,
+      );
       return;
     }
 
@@ -560,6 +580,27 @@ export class MobEntity extends CombatantEntity {
       console.error(
         `[MobEntity] ❌ No scene in VRM instance for ${this.config.mobType}`,
       );
+    }
+  }
+
+  /**
+   * Load VRM model asynchronously (background loading).
+   * Replaces placeholder hitbox when complete.
+   * This is the non-blocking wrapper for loadVRMModel() used by createMesh().
+   */
+  private async loadVRMModelAsync(): Promise<void> {
+    try {
+      await this.loadVRMModel();
+
+      // On success, remove placeholder (VRM scene is now the mesh)
+      // Only remove if VRM actually loaded (this.mesh was updated)
+      if (this.mesh && this.mesh !== this._placeholderHitbox) {
+        this.removePlaceholderHitbox();
+      }
+    } catch (err) {
+      // Log and re-throw so caller's catch block fires
+      console.error(`[MobEntity] VRM load error for ${this.id}:`, err);
+      throw err;
     }
   }
 
@@ -647,18 +688,102 @@ export class MobEntity extends CombatantEntity {
     }
   }
 
+  /**
+   * Create an invisible but clickable placeholder hitbox for the mob.
+   * This ensures the mob is interactive BEFORE VRM model loads.
+   * RuneScape-style: entity is functional immediately, visuals are secondary.
+   *
+   * The placeholder is an invisible capsule that matches the mob's expected size.
+   * It has full userData setup so click detection works immediately.
+   */
+  private createPlaceholderHitbox(): void {
+    // Skip on server - no visuals needed
+    if (this.world.isServer) return;
+
+    // Create invisible capsule geometry matching mob's expected size
+    // Use manifest scale to size placeholder appropriately
+    const configScale = this.config.scale;
+    const baseRadius = 0.4 * configScale.x;
+    const baseHeight = 1.6 * configScale.y;
+
+    const geometry = new THREE.CapsuleGeometry(baseRadius, baseHeight, 4, 8);
+    const material = new THREE.MeshBasicMaterial({
+      visible: false, // Invisible - only for click detection
+      transparent: true,
+      opacity: 0,
+    });
+
+    const hitbox = new THREE.Mesh(geometry, material);
+    hitbox.name = `Mob_Hitbox_${this.config.mobType}_${this.id}`;
+
+    // CRITICAL: Set up userData for click detection (same as VRM/GLB mesh)
+    const userData: MeshUserData = {
+      type: "mob",
+      entityId: this.id,
+      name: this.config.name,
+      interactable: true,
+      mobData: {
+        id: this.id,
+        name: this.config.name,
+        type: this.config.mobType,
+        level: this.config.level,
+        health: this.config.currentHealth,
+        maxHealth: this.config.maxHealth,
+      },
+    };
+    hitbox.userData = { ...userData };
+
+    // Store reference for later removal when VRM loads
+    this._placeholderHitbox = hitbox;
+
+    // Add to node so it's in the scene and raycastable
+    this.node.add(hitbox);
+
+    // CRITICAL: Set as this.mesh so existing systems work immediately
+    // When VRM loads, this.mesh will be replaced with the VRM scene
+    this.mesh = hitbox;
+  }
+
+  /**
+   * Remove placeholder hitbox after VRM model loads successfully.
+   * Cleans up geometry and material to prevent memory leaks.
+   */
+  private removePlaceholderHitbox(): void {
+    if (this._placeholderHitbox) {
+      this.node.remove(this._placeholderHitbox);
+      this._placeholderHitbox.geometry.dispose();
+      (this._placeholderHitbox.material as THREE.Material).dispose();
+      this._placeholderHitbox = null;
+    }
+  }
+
   protected async createMesh(): Promise<void> {
     if (this.world.isServer) {
       return;
     }
 
+    // ===== PHASE 1: CREATE PLACEHOLDER HITBOX IMMEDIATELY =====
+    // RuneScape-style: Entity is functional (clickable, attackable) before visuals load
+    // This fixes the race condition where mobs spawned before VRM loads are "glitched"
+    this.createPlaceholderHitbox();
+
+    // ===== PHASE 2: LOAD VRM MODEL IN BACKGROUND (NON-BLOCKING) =====
     // Try to load 3D model if available
     if (this.config.model && this.world.loader) {
       try {
         // Check if this is a VRM file
         if (this.config.model.endsWith(".vrm")) {
-          await this.loadVRMModel();
-          return;
+          // Fire-and-forget VRM loading - placeholder is already functional
+          // If VRM loads successfully, it will replace the placeholder
+          // If VRM fails, the placeholder remains functional (invisible but clickable)
+          this.loadVRMModelAsync().catch((err) => {
+            console.warn(
+              `[MobEntity] VRM loading failed for ${this.config.mobType}, using placeholder:`,
+              err instanceof Error ? err.message : err,
+            );
+            // Placeholder is already in place - mob remains functional
+          });
+          return; // Mesh is set (placeholder), VRM loading continues in background
         }
 
         // Otherwise load as GLB (existing code path)
@@ -667,6 +792,8 @@ export class MobEntity extends CombatantEntity {
           this.world,
         );
 
+        // GLB loaded successfully - remove placeholder and use GLB scene
+        this.removePlaceholderHitbox();
         this.mesh = scene;
         this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
 
@@ -736,9 +863,20 @@ export class MobEntity extends CombatantEntity {
           `[MobEntity] Failed to load model for ${this.config.mobType}, using placeholder:`,
           error,
         );
-        // Fall through to placeholder
+        // Fall through to visible placeholder
       }
     }
+
+    // ===== PHASE 3: UPGRADE TO VISIBLE PLACEHOLDER =====
+    // No model or model loading failed - make placeholder visible for debugging
+    // The invisible placeholder is already functional (clickable/attackable)
+    // This replaces it with a visible colored capsule for mobs without models
+
+    // Remove invisible placeholder (if it's still the current mesh)
+    if (this.mesh === this._placeholderHitbox) {
+      this.removePlaceholderHitbox();
+    }
+
     const mobName = String(this.config.mobType).toLowerCase();
     const colorHash = mobName
       .split("")
@@ -746,17 +884,19 @@ export class MobEntity extends CombatantEntity {
     const hue = (colorHash % 360) / 360;
     const color = new THREE.Color().setHSL(hue, 0.6, 0.4);
 
-    const geometry = new THREE.CapsuleGeometry(0.4, 1.6, 4, 8);
+    const configScale = this.config.scale;
+    const geometry = new THREE.CapsuleGeometry(
+      0.4 * configScale.x,
+      1.6 * configScale.y,
+      4,
+      8,
+    );
     const material = new THREE.MeshLambertMaterial({ color: color.getHex() });
 
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
-
-    // Apply manifest scale to placeholder
-    const configScale = this.config.scale;
-    this.mesh.scale.set(configScale.x, configScale.y, configScale.z);
 
     // Set up userData with proper typing for mob
     const userData: MeshUserData = {
@@ -773,15 +913,10 @@ export class MobEntity extends CombatantEntity {
         maxHealth: this.config.maxHealth,
       },
     };
-    if (this.mesh) {
-      // Spread userData to match THREE.js userData type
-      this.mesh.userData = { ...userData };
-    }
+    this.mesh.userData = { ...userData };
 
     // Add mesh to node so it appears in the scene
-    if (this.mesh) {
-      this.node.add(this.mesh);
-    }
+    this.node.add(this.mesh);
 
     // Health bar is created by Entity base class
   }
@@ -1427,6 +1562,28 @@ export class MobEntity extends CombatantEntity {
       return;
     }
 
+    // ===== PLACEHOLDER MODE: VRM still loading in background =====
+    // If mesh is the placeholder hitbox, VRM is still loading asynchronously
+    // Skip animation updates - placeholder doesn't animate
+    if (this.mesh === this._placeholderHitbox) {
+      // Just update position from terrain while waiting for VRM to load
+      const terrain = this.world.getSystem("terrain");
+      if (terrain && "getHeightAt" in terrain) {
+        try {
+          const terrainHeight = (
+            terrain as { getHeightAt: (x: number, z: number) => number }
+          ).getHeightAt(this.node.position.x, this.node.position.z);
+          if (Number.isFinite(terrainHeight)) {
+            this.node.position.y = terrainHeight + 0.1;
+            this.position.y = terrainHeight + 0.1;
+          }
+        } catch {
+          // Terrain tile not generated yet
+        }
+      }
+      return; // No animation updates while in placeholder mode
+    }
+
     // GLB path: Existing animation code for non-VRM mobs
     // Update animations based on AI state
     this.updateAnimation();
@@ -1434,12 +1591,8 @@ export class MobEntity extends CombatantEntity {
     // Update animation mixer
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
 
-    // EXPECT: Mixer should exist after animations loaded
-    if (this.clientUpdateCalls === 10 && !mixer) {
-      throw new Error(
-        `[MobEntity] NO MIXER on update #10: ${this.config.mobType}`,
-      );
-    }
+    // Note: Mixer may not exist for mobs with no animations - that's OK
+    // The visible placeholder fallback doesn't have a mixer
 
     if (mixer) {
       mixer.update(deltaTime);
@@ -2250,11 +2403,14 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
-   * Override destroy to clean up animations and health bar
+   * Override destroy to clean up animations, health bar, and placeholder
    */
   override destroy(): void {
     // Unregister entity from hot updates
     this.world.setHot(this, false);
+
+    // Clean up placeholder hitbox (if VRM never loaded)
+    this.removePlaceholderHitbox();
 
     // Clean up health bar handle (HealthBars system)
     if (this._healthBarHandle) {
