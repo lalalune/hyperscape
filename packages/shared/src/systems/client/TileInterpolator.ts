@@ -678,6 +678,7 @@ export class TileInterpolator {
    * @param deltaTime - Time since last frame in seconds
    * @param getEntity - Function to get entity by ID
    * @param getTerrainHeight - Optional function to get terrain height at X/Z (for smooth Y)
+   * @param onMovementComplete - Optional callback when an entity finishes moving (arrives at destination)
    */
   update(
     deltaTime: number,
@@ -692,6 +693,10 @@ export class TileInterpolator {
         }
       | undefined,
     getTerrainHeight?: (x: number, z: number) => number | null,
+    onMovementComplete?: (
+      entityId: string,
+      position: { x: number; y: number; z: number },
+    ) => void,
   ): void {
     for (const [entityId, state] of this.entityStates) {
       const entity = getEntity(entityId);
@@ -735,6 +740,7 @@ export class TileInterpolator {
           }
         }
         // No path = not moving = idle animation
+        const wasMoving = state.isMoving;
         state.isMoving = false;
         // Only reset to idle if current emote is a movement emote
         // Don't override special emotes like "chopping", "combat", "death" etc.
@@ -745,6 +751,16 @@ export class TileInterpolator {
           entity.modify({ e: "idle" });
         }
         entity.data.tileMovementActive = false; // Not moving - allow combat rotation
+
+        // Notify when entity finishes moving (transitions from moving to idle)
+        // This enables event-based interaction systems (e.g., InteractionSystem pending NPC)
+        if (wasMoving && onMovementComplete) {
+          onMovementComplete(entityId, {
+            x: state.visualPosition.x,
+            y: state.visualPosition.y,
+            z: state.visualPosition.z,
+          });
+        }
         continue;
       }
 
@@ -877,6 +893,7 @@ export class TileInterpolator {
             const finalWorld = tileToWorld(finalTile);
             state.visualPosition.x = finalWorld.x;
             state.visualPosition.z = finalWorld.z;
+            const wasMoving = state.isMoving;
             state.isMoving = false;
             // Only track idle state if current emote is movement-related
             // (actual emote change is handled in the empty path block above)
@@ -887,6 +904,15 @@ export class TileInterpolator {
             state.catchUpMultiplier = 1.0;
             state.targetCatchUpMultiplier = 1.0;
             remainingMove = 0; // Stop processing
+
+            // Notify when entity finishes walking path (arrives at destination)
+            if (wasMoving && onMovementComplete) {
+              onMovementComplete(entityId, {
+                x: state.visualPosition.x,
+                y: state.visualPosition.y,
+                z: state.visualPosition.z,
+              });
+            }
           }
         } else {
           // Move toward target, consuming all remaining movement
