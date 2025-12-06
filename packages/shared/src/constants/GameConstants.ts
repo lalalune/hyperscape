@@ -73,7 +73,6 @@ export const MOB_CONSTANTS = {
   MAX_MOBS_PER_AREA: 10,
   MOB_RESPAWN_TIME: 30000, // 30 seconds
   AI_UPDATE_INTERVAL: 1000, // 1 second
-  PATHFINDING_UPDATE_RATE: 500, // 0.5 seconds
 } as const;
 
 // Import health bar dimensions from single source of truth

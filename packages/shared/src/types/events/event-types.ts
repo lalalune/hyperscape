@@ -403,9 +403,6 @@ export enum EventType {
   CHUNK_LOADED = "chunk:loaded",
   CHUNK_UNLOADED = "chunk:unloaded",
 
-  // Pathfinding System
-  PATHFINDING_REQUEST = "pathfinding:request",
-
   // Physics Test Events
   PHYSICS_TEST_RUN_ALL = "physics:test:run_all",
   PHYSICS_TEST_BALL_RAMP = "physics:test:ball_ramp",
