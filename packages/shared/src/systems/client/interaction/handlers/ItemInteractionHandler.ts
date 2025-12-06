@@ -16,7 +16,12 @@
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
-import { INTERACTION_RANGE, TIMING } from "../constants";
+import {
+  INTERACTION_RANGE,
+  TIMING,
+  DEBUG_INTERACTIONS,
+  MESSAGE_TYPES,
+} from "../constants";
 import { getItem } from "../../../../data/items";
 import {
   worldToTile,
@@ -113,7 +118,12 @@ export class ItemInteractionHandler extends BaseInteractionHandler {
     // Verify entity exists at queue time
     const entity = this.world.entities.get(entityId);
     if (!entity) {
-      return; // Already picked up by another click
+      if (DEBUG_INTERACTIONS) {
+        console.debug(
+          `[ItemHandler] Entity ${entityId} not found at queue time (expected during spam-click)`,
+        );
+      }
+      return;
     }
 
     this.queueInteraction({
@@ -136,11 +146,16 @@ export class ItemInteractionHandler extends BaseInteractionHandler {
         // - Already picked up by a previous click (sync delay)
         const currentEntity = this.world.entities.get(entityId);
         if (!currentEntity) {
-          return; // Item no longer exists - silently skip
+          if (DEBUG_INTERACTIONS) {
+            console.debug(
+              `[ItemHandler] Entity ${entityId} not found at execute time (race condition)`,
+            );
+          }
+          return;
         }
 
         // Server expects entityId as 'itemId' field (legacy naming)
-        this.send("pickupItem", { itemId: entityId });
+        this.send(MESSAGE_TYPES.PICKUP_ITEM, { itemId: entityId });
       },
     });
   }

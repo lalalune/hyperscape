@@ -19,7 +19,7 @@ import { System } from "../..";
 import type { World } from "../../../core/World";
 import type { InteractableEntityType } from "./types";
 import type { Position3D } from "../../../types/core/base-types";
-import { INPUT, TIMING } from "./constants";
+import { INPUT, TIMING, MESSAGE_TYPES, DEBUG_INTERACTIONS } from "./constants";
 import { EventType } from "../../../types/events/event-types";
 import { worldToTile, tileToWorld } from "../../shared/movement/TileSystem";
 
@@ -167,6 +167,9 @@ export class InteractionRouter extends System {
     this.actionQueue.destroy();
     this.visualFeedback.destroy();
     this.contextMenu.destroy();
+
+    // Clear handlers map to prevent memory leaks on recreation
+    this.handlers.clear();
 
     if (this.longPressTimer) {
       clearTimeout(this.longPressTimer);
@@ -395,9 +398,28 @@ export class InteractionRouter extends System {
 
     // Extract server-authoritative position from changes.p
     // CRITICAL: This is the accurate position, not the interpolated player.position
-    const serverPosition: Position3D = data.changes.p
-      ? { x: data.changes.p[0], y: data.changes.p[1], z: data.changes.p[2] }
-      : player.position;
+    let serverPosition: Position3D;
+
+    // Validate position data to prevent NaN propagation
+    const p = data.changes.p;
+    if (
+      Array.isArray(p) &&
+      p.length >= 3 &&
+      Number.isFinite(p[0]) &&
+      Number.isFinite(p[1]) &&
+      Number.isFinite(p[2])
+    ) {
+      serverPosition = { x: p[0], y: p[1], z: p[2] };
+    } else {
+      // Fallback to player position if data is malformed
+      if (DEBUG_INTERACTIONS && p !== undefined) {
+        console.warn(
+          `[InteractionRouter] Invalid position data in ENTITY_MODIFIED:`,
+          p,
+        );
+      }
+      serverPosition = player.position;
+    }
 
     // Notify action queue that player is now idle at this position
     this.actionQueue.onPlayerIdle(serverPosition);
@@ -463,7 +485,7 @@ export class InteractionRouter extends System {
         runMode = playerEntity.runMode;
       }
 
-      this.world.network.send("moveRequest", {
+      this.world.network.send(MESSAGE_TYPES.MOVE_REQUEST, {
         target: [snappedPos.x, terrainPos.y, snappedPos.z],
         targetTile: { x: tile.x, z: tile.z },
         runMode,

@@ -14,7 +14,7 @@
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
-import { INTERACTION_RANGE } from "../constants";
+import { INTERACTION_RANGE, MESSAGE_TYPES } from "../constants";
 
 export class PlayerInteractionHandler extends BaseInteractionHandler {
   /**
@@ -72,7 +72,7 @@ export class PlayerInteractionHandler extends BaseInteractionHandler {
 
   private followPlayer(target: RaycastTarget): void {
     // Send follow request to server
-    this.send("followPlayer", {
+    this.send(MESSAGE_TYPES.FOLLOW_PLAYER, {
       targetPlayerId: target.entityId,
     });
 

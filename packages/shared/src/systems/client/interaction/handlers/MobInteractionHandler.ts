@@ -16,7 +16,7 @@
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
-import { INTERACTION_RANGE, TIMING } from "../constants";
+import { INTERACTION_RANGE, TIMING, MESSAGE_TYPES } from "../constants";
 import { getNPCById } from "../../../../data/npcs";
 import { getPlayerWeaponRange } from "../../../../utils/game/CombatUtils";
 import type { Player } from "../../../../types/core/core";
@@ -103,7 +103,7 @@ export class MobInteractionHandler extends BaseInteractionHandler {
       actionId: "attack",
       range: combatRange,
       onExecute: () => {
-        this.send("attackMob", {
+        this.send(MESSAGE_TYPES.ATTACK_MOB, {
           mobId: target.entityId,
           attackType: "melee",
         });

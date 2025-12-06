@@ -125,3 +125,47 @@ export const ACTION_QUEUE = {
    */
   ITEM_PICKUP_TOLERANCE_TILES: 0.75,
 } as const;
+
+/**
+ * Debug flags for interaction system
+ *
+ * Set DEBUG_INTERACTIONS to true to enable verbose logging for:
+ * - Silent failure cases (entity not found, race conditions)
+ * - Action queue state changes
+ * - Range check results
+ *
+ * Useful for debugging interaction issues without cluttering production logs.
+ */
+export const DEBUG_INTERACTIONS =
+  typeof window !== "undefined" &&
+  (window as { __DEBUG_INTERACTIONS__?: boolean }).__DEBUG_INTERACTIONS__ ===
+    true;
+
+/**
+ * Network message type constants
+ *
+ * Centralizes all network message strings to prevent typos and enable
+ * IDE autocomplete. If a message type changes on the server, update here.
+ */
+export const MESSAGE_TYPES = {
+  /** Pick up ground item */
+  PICKUP_ITEM: "pickupItem",
+  /** Attack mob */
+  ATTACK_MOB: "attackMob",
+  /** Attack player (PvP) */
+  ATTACK_PLAYER: "attackPlayer",
+  /** Gather from resource (tree, rock, fishing spot) */
+  RESOURCE_GATHER: "resourceGather",
+  /** Open bank interface via NPC */
+  BANK_OPEN: "bankOpen",
+  /** Open store interface */
+  STORE_OPEN: "storeOpen",
+  /** Interact with NPC (dialogue) */
+  NPC_INTERACT: "npcInteract",
+  /** Loot from corpse/gravestone */
+  LOOT_CORPSE: "lootCorpse",
+  /** Request movement to position */
+  MOVE_REQUEST: "moveRequest",
+  /** Follow another player */
+  FOLLOW_PLAYER: "followPlayer",
+} as const;

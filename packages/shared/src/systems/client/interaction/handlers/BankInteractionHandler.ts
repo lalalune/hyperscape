@@ -13,7 +13,7 @@
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
-import { INTERACTION_RANGE } from "../constants";
+import { INTERACTION_RANGE, MESSAGE_TYPES } from "../constants";
 
 export class BankInteractionHandler extends BaseInteractionHandler {
   /**
@@ -65,7 +65,7 @@ export class BankInteractionHandler extends BaseInteractionHandler {
       actionId: "use-bank",
       range: INTERACTION_RANGE.BANK,
       onExecute: () => {
-        this.send("bankOpen", { bankId: target.entityId });
+        this.send(MESSAGE_TYPES.BANK_OPEN, { bankId: target.entityId });
       },
     });
   }
