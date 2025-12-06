@@ -55,12 +55,12 @@ export function DialoguePanel({
 
   const handleResponseClick = (index: number, response: DialogueResponse) => {
     // Send response to server
+    // SECURITY: Only send responseIndex - server determines nextNodeId and effect
+    // from its own dialogue state to prevent dialogue skipping exploits
     if (world.network?.send) {
       world.network.send("dialogueResponse", {
         npcId,
         responseIndex: index,
-        nextNodeId: response.nextNodeId,
-        effect: response.effect,
       });
     }
     onSelectResponse(index, response);

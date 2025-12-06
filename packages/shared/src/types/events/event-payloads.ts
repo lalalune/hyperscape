@@ -635,8 +635,9 @@ export interface EventMap {
     playerId: string;
     npcId: string;
     responseIndex: number;
-    nextNodeId: string;
-    effect?: string;
+    // SECURITY: nextNodeId and effect are computed server-side from dialogue state
+    // based on responseIndex. Client cannot specify these values to prevent
+    // dialogue skipping or effect injection exploits.
   };
   [EventType.DIALOGUE_END]: {
     playerId: string;
