@@ -182,6 +182,11 @@ export class ItemSpawnerSystem extends SystemBase {
 
   private async spawnShopItems(): Promise<void> {
     for (const store of Object.values(GENERAL_STORES)) {
+      // Skip stores without location (position comes from NPC entity now)
+      if (!store.location?.position) {
+        continue;
+      }
+
       const shopItemInstances: string[] = [];
 
       for (let itemIndex = 0; itemIndex < store.items.length; itemIndex++) {

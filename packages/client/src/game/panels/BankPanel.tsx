@@ -13,12 +13,6 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { ClientWorld, InventorySlotItem } from "../../types";
 import { COLORS } from "../../constants";
-import {
-  worldToTile,
-  tilesAdjacent,
-  tilesEqual,
-  tilesWithinRange,
-} from "@hyperscape/shared";
 
 interface BankItem {
   itemId: string;
@@ -277,8 +271,11 @@ function ContextMenu({
   );
 }
 
-// Grace period before first distance check (allows player to settle after walking)
-const BANK_DISTANCE_CHECK_GRACE_MS = 500;
+// NOTE: Distance validation is now SERVER-AUTHORITATIVE
+// The server tracks interaction sessions and sends bankClose packets
+// when the player moves too far away. The client no longer polls distance.
+// This prevents race conditions between server and client position sync
+// that caused unreliable bank opening under lag.
 
 export function BankPanel({
   items,
@@ -298,69 +295,9 @@ export function BankPanel({
     type: "bank",
   });
 
-  // Track consecutive entity lookup failures
-  const entityLookupFailures = useRef(0);
-
-  // Auto-close when player moves away from bank
-  useEffect(() => {
-    const checkDistance = () => {
-      // Get player entity (local player)
-      const player = world.entities?.player;
-      // Get bank entity by ID
-      const bank = world.entities?.get?.(bankId);
-
-      if (!player || !bank) {
-        entityLookupFailures.current++;
-        if (entityLookupFailures.current >= 3) {
-          onClose(); // Entity consistently not found - close panel
-        }
-        return;
-      }
-
-      // Get positions - try different common position properties
-      const playerPos = player.root?.position ?? player.position;
-      const bankPos = bank.root?.position ?? bank.position;
-
-      if (!playerPos || !bankPos) {
-        entityLookupFailures.current++;
-        if (entityLookupFailures.current >= 3) {
-          onClose();
-        }
-        return;
-      }
-
-      // Success - reset failure counter
-      entityLookupFailures.current = 0;
-
-      // Tile-based distance check - allow 2 tiles for bank entities
-      // (accounts for large bank objects and positioning edge cases)
-      const playerTile = worldToTile(playerPos.x, playerPos.z);
-      const bankTile = worldToTile(bankPos.x, bankPos.z);
-      const isNearBank =
-        tilesWithinRange(playerTile, bankTile, 2) ||
-        tilesEqual(playerTile, bankTile);
-
-      if (!isNearBank) {
-        onClose();
-      }
-    };
-
-    // Grace period before first check (allows player to settle after walking)
-    // Then check every 200ms for distance violations
-    // IMPORTANT: Start interval AFTER grace period, not immediately
-    let interval: ReturnType<typeof setInterval> | null = null;
-    const initialDelay = setTimeout(() => {
-      checkDistance(); // First check after grace period
-      interval = setInterval(checkDistance, 200); // Then check periodically
-    }, BANK_DISTANCE_CHECK_GRACE_MS);
-
-    return () => {
-      clearTimeout(initialDelay);
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [world.entities, bankId, onClose]);
+  // NOTE: Distance validation is handled server-side (InteractionSessionManager)
+  // The server sends bankClose packets when the player moves too far away.
+  // This eliminates race conditions between server and client position sync.
 
   // Calculate total rows needed for all bank slots
   const totalBankRows = Math.ceil(maxSlots / BANK_SLOTS_PER_ROW);

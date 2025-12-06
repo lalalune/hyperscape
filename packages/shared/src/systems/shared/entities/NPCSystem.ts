@@ -73,24 +73,9 @@ export class NPCSystem extends SystemBase {
         },
       ),
     );
-    this.subscribe(EventType.STORE_BUY, (data) =>
-      this.handleStoreBuy(
-        data as unknown as {
-          playerId: string;
-          itemId: string;
-          quantity: number;
-        },
-      ),
-    );
-    this.subscribe(EventType.STORE_SELL, (data) =>
-      this.handleStoreSell(
-        data as unknown as {
-          playerId: string;
-          itemId: string;
-          quantity: number;
-        },
-      ),
-    );
+    // NOTE: STORE_BUY and STORE_SELL events are now handled securely by the
+    // server handler (packages/server/src/systems/ServerNetwork/handlers/store.ts)
+    // with database transactions, input validation, and rate limiting.
 
     // Subscribe to terrain generation to spawn NPCs and towns
     this.subscribe(EventType.TERRAIN_TILE_GENERATED, (data) =>
@@ -408,131 +393,10 @@ export class NPCSystem extends SystemBase {
     });
   }
 
-  /**
-   * Handle store purchase
-   */
-  private handleStoreBuy(data: {
-    playerId: string;
-    itemId: string;
-    quantity: number;
-  }): void {
-    const { playerId, itemId, quantity } = data;
-
-    if (quantity <= 0) {
-      this.sendError(playerId, "Invalid quantity for purchase");
-      return;
-    }
-
-    const item = getItem(itemId);
-    if (!item) {
-      this.sendError(playerId, "Item not found");
-      return;
-    }
-
-    const storeQuantity = this.storeInventory.get(itemId) || 0;
-    if (storeQuantity < quantity) {
-      this.sendError(playerId, "Not enough items in store");
-      return;
-    }
-
-    const totalPrice =
-      Math.ceil((item.value ?? 0) * this.BUY_PRICE_MULTIPLIER) * quantity;
-
-    // Check if player has enough coins - delegate to inventory system
-    const inventorySystem = getSystem<InventorySystem>(this.world, "inventory");
-    const playerCoins = inventorySystem?.getCoins(playerId) || 0;
-    if (playerCoins < totalPrice) {
-      this.emitTypedEvent(EventType.UI_MESSAGE, {
-        playerId,
-        message: `You need ${totalPrice} coins but only have ${playerCoins}.`,
-        type: "error",
-      });
-      return;
-    }
-
-    // Update store inventory
-    this.storeInventory.set(itemId, storeQuantity - quantity);
-
-    // Record transaction
-    const transaction: StoreTransaction = {
-      type: "buy",
-      itemId,
-      quantity,
-      totalPrice,
-      playerId,
-      timestamp: Date.now(),
-    };
-    this.transactionHistory.push(transaction);
-
-    // Emit success event
-    this.emitTypedEvent(EventType.STORE_BUY, {
-      playerId,
-      itemId,
-      quantity,
-      totalPrice,
-      newStoreQuantity: this.storeInventory.get(itemId),
-    });
-  }
-
-  /**
-   * Handle store sale
-   */
-  private handleStoreSell(data: {
-    playerId: string;
-    itemId: string;
-    quantity: number;
-  }): void {
-    const { playerId, itemId, quantity } = data;
-
-    if (quantity <= 0) {
-      this.sendError(playerId, "Invalid quantity for sale");
-      return;
-    }
-
-    const item = getItem(itemId);
-    if (!item) {
-      this.sendError(playerId, "Item not found");
-      return;
-    }
-
-    // Check if player has the item in inventory
-    const inventorySystem = getSystem<InventorySystem>(this.world, "inventory");
-    if (!inventorySystem?.hasItem(playerId, itemId, quantity)) {
-      this.emitTypedEvent(EventType.UI_MESSAGE, {
-        playerId,
-        message: `You don't have ${quantity} ${itemId} to sell.`,
-        type: "error",
-      });
-      return;
-    }
-
-    const totalPrice =
-      Math.floor((item.value ?? 0) * this.SELL_PRICE_MULTIPLIER) * quantity;
-
-    // Update store inventory (store buys back items)
-    const currentStoreQuantity = this.storeInventory.get(itemId) || 0;
-    this.storeInventory.set(itemId, currentStoreQuantity + quantity);
-
-    // Record transaction
-    const transaction: StoreTransaction = {
-      type: "sell",
-      itemId,
-      quantity,
-      totalPrice,
-      playerId,
-      timestamp: Date.now(),
-    };
-    this.transactionHistory.push(transaction);
-
-    // Emit success event
-    this.emitTypedEvent(EventType.STORE_SELL, {
-      playerId,
-      itemId,
-      quantity,
-      totalPrice,
-      newStoreQuantity: this.storeInventory.get(itemId),
-    });
-  }
+  // NOTE: handleStoreBuy and handleStoreSell have been removed.
+  // Store transactions are now handled securely by the server handler
+  // (packages/server/src/systems/ServerNetwork/handlers/store.ts)
+  // with database transactions, input validation, and rate limiting.
 
   /**
    * Get or create player bank storage
@@ -627,6 +491,7 @@ export class NPCSystem extends SystemBase {
       position: data.position,
       type: "npc",
       data: {
+        npcId: data.npcId, // Store manifest ID for store/bank lookups
         npcType: data.type,
         services: data.services || [],
         modelPath: data.modelPath || "asset://models/npcs/default.glb",

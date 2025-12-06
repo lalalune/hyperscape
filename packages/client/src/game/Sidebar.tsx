@@ -179,18 +179,21 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       // Handle bank state updates
       if (update.component === "bank") {
         const data = update.data as {
-          items: Array<{ itemId: string; quantity: number; slot: number }>;
-          maxSlots: number;
+          items?: Array<{ itemId: string; quantity: number; slot: number }>;
+          maxSlots?: number;
           bankId?: string;
           isOpen?: boolean;
         };
-        if (data.isOpen) {
+        if (data.isOpen === false) {
+          // Server-authoritative close (player walked too far)
+          setBankData(null);
+        } else if (data.isOpen || data.items) {
+          // Open or update bank state
           // Preserve existing bankId if new one not provided (deposit/withdraw responses)
-          // This prevents the distance check from failing after operations
           setBankData((prev) => ({
             visible: true,
-            items: data.items || [],
-            maxSlots: data.maxSlots || 480,
+            items: data.items || prev?.items || [],
+            maxSlots: data.maxSlots || prev?.maxSlots || 480,
             bankId: data.bankId || prev?.bankId || "spawn_bank",
           }));
         }

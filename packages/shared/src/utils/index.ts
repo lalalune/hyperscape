@@ -33,3 +33,6 @@ export * from "./NoiseGenerator";
 export * from "./game"; // Combat, entity, component utils
 export * from "./physics"; // Physics, movement, spawning
 export * from "./rendering"; // Rendering, mesh, model cache, UI
+
+// Distance utilities (OSRS-style Chebyshev)
+export * from "./distance";
