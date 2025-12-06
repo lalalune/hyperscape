@@ -60,23 +60,11 @@ export class StoreSystem extends SystemBase {
     this.subscribe<StoreCloseEvent>(EventType.STORE_CLOSE, (data) => {
       this.closeStore(data);
     });
-    this.subscribe<StoreBuyEvent>(EventType.STORE_BUY, (data) => {
-      this.buyItem(data);
-    });
-    this.subscribe<{
-      playerId: string;
-      storeId: string;
-      itemId: string;
-      quantity: number;
-    }>(EventType.STORE_SELL, (data) => {
-      this.sellItem(
-        data.playerId,
-        data.itemId,
-        data.quantity,
-        undefined,
-        data.storeId,
-      );
-    });
+
+    // NOTE: STORE_BUY and STORE_SELL are now handled by the server handler
+    // (packages/server/src/systems/ServerNetwork/handlers/store.ts)
+    // with proper database transactions, input validation, and security measures.
+    // The buyItem and sellItem methods below are deprecated but kept for backwards compatibility.
 
     // Listen for NPC registrations from world content system
     this.subscribe<{
@@ -140,7 +128,15 @@ export class StoreSystem extends SystemBase {
     // No server-side cleanup needed for now
   }
 
+  /**
+   * @deprecated Use server handler handleStoreBuy instead.
+   * This method lacks proper security measures (transactions, validation).
+   * Kept for backwards compatibility only - do not use in new code.
+   */
   private buyItem(data: StoreBuyEvent): void {
+    console.warn(
+      "[StoreSystem] buyItem is deprecated - use server handler for secure transactions",
+    );
     const storeId = createStoreID(data.storeId);
     const store = this.stores.get(storeId)!; // Store must exist
     const itemId = createItemID(String(data.itemId));
@@ -199,6 +195,10 @@ export class StoreSystem extends SystemBase {
   }
 
   /**
+   * @deprecated Use server handler handleStoreSell instead.
+   * This method lacks proper security measures (transactions, validation).
+   * Kept for backwards compatibility and tests only - do not use in new code.
+   *
    * Public API method for selling items (used by tests and internal events)
    * Accepts any tradeable item - looks up value from DataManager
    * Compatible with test system signature: sellItem(playerId, itemId, quantity, expectedPrice)
@@ -210,6 +210,9 @@ export class StoreSystem extends SystemBase {
     _expectedPrice?: number,
     storeId?: string,
   ): boolean {
+    console.warn(
+      "[StoreSystem] sellItem is deprecated - use server handler for secure transactions",
+    );
     const validItemId = createItemID(itemId);
 
     // Find a store that accepts buyback
