@@ -364,6 +364,43 @@ export class InventorySystem extends SystemBase {
       }
     }
 
+    // For non-stackable items with quantity > 1, create multiple separate items
+    // Each non-stackable item occupies its own slot with quantity=1
+    // (e.g., buying 5 logs creates 5 separate inventory slots)
+    if (!itemData.stackable && data.quantity > 1) {
+      let added = 0;
+      for (let i = 0; i < data.quantity; i++) {
+        const slot = this.findEmptySlot(inventory);
+        if (slot === -1) {
+          // Inventory full
+          if (added === 0) {
+            this.emitTypedEvent(EventType.INVENTORY_FULL, {
+              playerId: playerId,
+            });
+          }
+          break;
+        }
+
+        inventory.items.push({
+          slot: slot,
+          itemId: itemId,
+          quantity: 1, // Each non-stackable item has quantity 1
+          item: itemData,
+        });
+        added++;
+      }
+
+      if (added > 0) {
+        const playerIdKey = toPlayerID(playerId);
+        if (playerIdKey) {
+          this.emitInventoryUpdate(playerIdKey);
+          this.scheduleInventoryPersist(playerId);
+        }
+      }
+
+      return added > 0;
+    }
+
     // Determine slot to use:
     // - If slot is provided AND it's free, use it (for bank sync)
     // - Otherwise find an empty slot
