@@ -27,7 +27,6 @@
  * - MobNPCSpawnerSystem: Dynamic mob NPC population control
  * - ResourceSystem: Gathering nodes (trees, rocks, ore)
  * - ItemSpawnerSystem: Ground item management
- * - PathfindingSystem: A* pathfinding for AI movement
  *
  * **Interaction Systems:**
  * - InteractionSystem: Player-entity interaction handling
@@ -101,7 +100,6 @@ import { InventorySystem } from "..";
 import { ItemSpawnerSystem } from "..";
 import { MobNPCSpawnerSystem } from "..";
 import { MobNPCSystem } from "..";
-import { PathfindingSystem } from "..";
 import { PersistenceSystem } from "../../server/PersistenceSystem";
 import { PlayerSystem } from "..";
 import { ProcessingSystem } from "..";
@@ -140,7 +138,6 @@ export interface Systems {
   mobNpc?: MobNPCSystem;
   store?: StoreSystem;
   resource?: ResourceSystem;
-  pathfinding?: PathfindingSystem;
   aggro?: AggroSystem;
   equipment?: EquipmentSystem;
   processing?: ProcessingSystem;
@@ -243,13 +240,7 @@ export async function registerSystems(world: World): Promise<void> {
   // 5. Player system - Core player management (depends on database & persistence)
   world.register("player", PlayerSystem);
 
-  // 22. Pathfinding system - AI movement (depends on mob system)
-  world.register("pathfinding", PathfindingSystem);
-
-  // 23. Player spawn system - Player spawning logic (depends on player & world systems)
-
   systems.player = getSystem(world, "player") as PlayerSystem;
-  systems.pathfinding = getSystem(world, "pathfinding") as PathfindingSystem;
   systems.entityManager = getSystem(world, "entity-manager") as EntityManager;
 
   if (world.isClient) {
