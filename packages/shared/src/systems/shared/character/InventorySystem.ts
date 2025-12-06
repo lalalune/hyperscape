@@ -465,30 +465,53 @@ export class InventorySystem extends SystemBase {
       return false;
     }
 
-    // Find item
-    const itemIndex =
-      data.slot !== undefined
-        ? inventory.items.findIndex((item) => item.slot === data.slot)
-        : inventory.items.findIndex((item) => item.itemId === itemId);
+    // Loop through all matching items until quantity is fulfilled
+    // This handles non-stackable items spread across multiple slots
+    // (e.g., 5 bronze swords in 5 separate slots with qty=1 each)
+    let remainingQuantity = data.quantity;
+    let itemsRemoved = false;
 
-    if (itemIndex === -1) {
-      return false;
+    while (remainingQuantity > 0) {
+      // Find next matching item
+      const itemIndex =
+        data.slot !== undefined
+          ? inventory.items.findIndex((item) => item.slot === data.slot)
+          : inventory.items.findIndex((item) => item.itemId === itemId);
+
+      if (itemIndex === -1) {
+        // No more matching items
+        break;
+      }
+
+      const item = inventory.items[itemIndex];
+      itemsRemoved = true;
+
+      if (item.quantity > remainingQuantity) {
+        // This stack has enough - subtract and we're done
+        item.quantity -= remainingQuantity;
+        remainingQuantity = 0;
+      } else {
+        // This stack doesn't have enough - remove entire slot, continue
+        remainingQuantity -= item.quantity;
+        inventory.items.splice(itemIndex, 1);
+      }
+
+      // If a specific slot was requested, only remove from that slot
+      if (data.slot !== undefined) {
+        break;
+      }
     }
 
-    const item = inventory.items[itemIndex];
-
-    if (item.quantity > data.quantity) {
-      item.quantity -= data.quantity;
-    } else {
-      inventory.items.splice(itemIndex, 1);
+    // Emit update and persist (only if we removed something)
+    if (itemsRemoved) {
+      const playerIdKey = toPlayerID(playerId);
+      if (playerIdKey) {
+        this.emitInventoryUpdate(playerIdKey);
+        this.scheduleInventoryPersist(data.playerId);
+      }
     }
 
-    const playerIdKey = toPlayerID(playerId);
-    if (playerIdKey) {
-      this.emitInventoryUpdate(playerIdKey);
-      this.scheduleInventoryPersist(data.playerId);
-    }
-    return true;
+    return itemsRemoved;
   }
 
   private dropItem(data: {
