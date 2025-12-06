@@ -364,6 +364,43 @@ export class InventorySystem extends SystemBase {
       }
     }
 
+    // For non-stackable items with quantity > 1, create multiple separate items
+    // Each non-stackable item occupies its own slot with quantity=1
+    // (e.g., buying 5 logs creates 5 separate inventory slots)
+    if (!itemData.stackable && data.quantity > 1) {
+      let added = 0;
+      for (let i = 0; i < data.quantity; i++) {
+        const slot = this.findEmptySlot(inventory);
+        if (slot === -1) {
+          // Inventory full
+          if (added === 0) {
+            this.emitTypedEvent(EventType.INVENTORY_FULL, {
+              playerId: playerId,
+            });
+          }
+          break;
+        }
+
+        inventory.items.push({
+          slot: slot,
+          itemId: itemId,
+          quantity: 1, // Each non-stackable item has quantity 1
+          item: itemData,
+        });
+        added++;
+      }
+
+      if (added > 0) {
+        const playerIdKey = toPlayerID(playerId);
+        if (playerIdKey) {
+          this.emitInventoryUpdate(playerIdKey);
+          this.scheduleInventoryPersist(playerId);
+        }
+      }
+
+      return added > 0;
+    }
+
     // Determine slot to use:
     // - If slot is provided AND it's free, use it (for bank sync)
     // - Otherwise find an empty slot
@@ -465,30 +502,53 @@ export class InventorySystem extends SystemBase {
       return false;
     }
 
-    // Find item
-    const itemIndex =
-      data.slot !== undefined
-        ? inventory.items.findIndex((item) => item.slot === data.slot)
-        : inventory.items.findIndex((item) => item.itemId === itemId);
+    // Loop through all matching items until quantity is fulfilled
+    // This handles non-stackable items spread across multiple slots
+    // (e.g., 5 bronze swords in 5 separate slots with qty=1 each)
+    let remainingQuantity = data.quantity;
+    let itemsRemoved = false;
 
-    if (itemIndex === -1) {
-      return false;
+    while (remainingQuantity > 0) {
+      // Find next matching item
+      const itemIndex =
+        data.slot !== undefined
+          ? inventory.items.findIndex((item) => item.slot === data.slot)
+          : inventory.items.findIndex((item) => item.itemId === itemId);
+
+      if (itemIndex === -1) {
+        // No more matching items
+        break;
+      }
+
+      const item = inventory.items[itemIndex];
+      itemsRemoved = true;
+
+      if (item.quantity > remainingQuantity) {
+        // This stack has enough - subtract and we're done
+        item.quantity -= remainingQuantity;
+        remainingQuantity = 0;
+      } else {
+        // This stack doesn't have enough - remove entire slot, continue
+        remainingQuantity -= item.quantity;
+        inventory.items.splice(itemIndex, 1);
+      }
+
+      // If a specific slot was requested, only remove from that slot
+      if (data.slot !== undefined) {
+        break;
+      }
     }
 
-    const item = inventory.items[itemIndex];
-
-    if (item.quantity > data.quantity) {
-      item.quantity -= data.quantity;
-    } else {
-      inventory.items.splice(itemIndex, 1);
+    // Emit update and persist (only if we removed something)
+    if (itemsRemoved) {
+      const playerIdKey = toPlayerID(playerId);
+      if (playerIdKey) {
+        this.emitInventoryUpdate(playerIdKey);
+        this.scheduleInventoryPersist(data.playerId);
+      }
     }
 
-    const playerIdKey = toPlayerID(playerId);
-    if (playerIdKey) {
-      this.emitInventoryUpdate(playerIdKey);
-      this.scheduleInventoryPersist(data.playerId);
-    }
-    return true;
+    return itemsRemoved;
   }
 
   private dropItem(data: {
