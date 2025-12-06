@@ -782,6 +782,20 @@ export class ClientNetwork extends SystemBase {
     this.world.chat.clear();
   };
 
+  onSystemMessage = (data: { message: string; type: string }) => {
+    // Add system message to chat (from UI_MESSAGE events)
+    // These are server-generated messages like equipment requirements, combat info, etc.
+    const chatMessage: ChatMessage = {
+      id: `sys_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      from: "", // Empty from = system message (no [PlayerName] prefix)
+      body: data.message,
+      text: data.message,
+      timestamp: Date.now(),
+      createdAt: new Date().toISOString(),
+    };
+    this.world.chat.add(chatMessage, false);
+  };
+
   onEntityAdded = (data: EntityData) => {
     // Add debugging for mob entities
     if (data.type === "mob") {

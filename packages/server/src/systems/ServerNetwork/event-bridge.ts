@@ -237,6 +237,22 @@ export class EventBridge {
    */
   private setupUIEvents(): void {
     try {
+      // Forward UI_MESSAGE events to chat (system messages, warnings, etc.)
+      this.world.on(EventType.UI_MESSAGE, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          message: string;
+          type: "info" | "warning" | "error" | "damage" | "system";
+        };
+
+        if (data.playerId && data.message) {
+          this.broadcast.sendToPlayer(data.playerId, "systemMessage", {
+            message: data.message,
+            type: data.type || "info",
+          });
+        }
+      });
+
       this.world.on(EventType.UI_UPDATE, (payload: unknown) => {
         const data = payload as
           | { component?: string; data?: { playerId?: string } }

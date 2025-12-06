@@ -62,7 +62,6 @@ import { SystemBase } from "..";
 import type { TerrainSystem } from "..";
 import { PlayerIdMapper } from "../../../utils/PlayerIdMapper";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
-import equipmentRequirementsData from "../../../data/equipment-requirements.json";
 import * as THREE from "three";
 
 /**
@@ -88,8 +87,12 @@ export class PlayerSystem extends SystemBase {
   private _tempVec3_1 = new THREE.Vector3();
   private _tempVec3_2 = new THREE.Vector3();
   private _tempVec3_3 = new THREE.Vector3();
-  private readonly STARTER_EQUIPMENT =
-    equipmentRequirementsData.starterEquipment || [];
+  /** Starter equipment for new players */
+  private readonly STARTER_EQUIPMENT: Array<{
+    itemId: string;
+    slot: string;
+    autoEquip: boolean;
+  }> = [{ itemId: "bronze_sword", slot: "weapon", autoEquip: true }];
 
   // Attack style tracking (merged from AttackStyleSystem)
   private playerAttackStyles = new Map<string, PlayerAttackStyleState>();
