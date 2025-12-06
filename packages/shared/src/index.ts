@@ -178,6 +178,7 @@ export { System as SystemClass } from "./systems/shared";
 export { SystemBase } from "./systems/shared";
 export { CombatSystem } from "./systems/shared/combat";
 export { LootSystem } from "./systems/shared/economy/LootSystem";
+export { StoreSystem } from "./systems/shared/economy/StoreSystem";
 export { ResourceSystem } from "./systems/shared/entities/ResourceSystem";
 
 // Export node client components
@@ -676,3 +677,36 @@ export type {
 export { BFSPathfinder } from "./systems/shared/movement/BFSPathfinder";
 export { chaseStep } from "./systems/shared/movement/ChasePathfinding";
 export type { WalkabilityChecker } from "./systems/shared/movement/BFSPathfinder";
+
+// ============================================================================
+// Interaction System (Store, Bank, Dialogue)
+// Single source of truth for session management, validation, and distance
+// ============================================================================
+
+// Constants
+export {
+  SessionType,
+  INTERACTION_DISTANCE,
+  TRANSACTION_RATE_LIMIT_MS,
+  SESSION_CONFIG,
+  INPUT_LIMITS,
+} from "./constants/interaction";
+
+// Distance utilities (OSRS-style Chebyshev)
+export {
+  chebyshevDistance,
+  isWithinDistance,
+  type Position2D,
+} from "./utils/distance";
+
+// Types and interfaces
+export type {
+  InteractionSession,
+  ISessionReader,
+  ISessionWriter,
+  ISessionManager,
+  ITransactionValidator,
+  IRateLimiter,
+  ValidationResult,
+  SessionCloseReason,
+} from "./types/interaction";

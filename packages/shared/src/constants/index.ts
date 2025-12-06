@@ -6,3 +6,4 @@
 export * from "./BankingConstants";
 export * from "./CombatConstants";
 export * from "./GameConstants";
+export * from "./interaction";

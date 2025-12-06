@@ -5,11 +5,17 @@
  * - Displays NPC dialogue text
  * - Shows response options as clickable buttons
  * - Closes when dialogue ends (no responses)
- * - Auto-closes when player walks away from NPC
  * - OSRS-style appearance
+ *
+ * PRODUCTION PATTERN (OSRS/WoW style):
+ * - Server is the single source of truth for UI state
+ * - Server tracks active dialogue sessions via InteractionSessionManager
+ * - Server validates distance and sends close packets when player moves away
+ * - Client NEVER independently polls distance - this prevents race conditions
+ *   with server/client position sync under network lag
  */
 
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import type { World } from "@hyperscape/shared";
 
 interface DialogueResponse {
@@ -30,9 +36,6 @@ interface DialoguePanelProps {
   world: World;
 }
 
-// Maximum distance from NPC before auto-closing (in tiles, Chebyshev/OSRS-style)
-const DIALOGUE_MAX_DISTANCE = 2;
-
 export function DialoguePanel({
   visible,
   npcName,
@@ -44,74 +47,9 @@ export function DialoguePanel({
   onClose,
   world,
 }: DialoguePanelProps) {
-  // Track consecutive entity lookup failures
-  const entityLookupFailures = useRef(0);
-
-  // Auto-close when player moves away from NPC (entity lookup like BankPanel)
-  useEffect(() => {
-    if (!visible) return;
-
-    const checkDistance = () => {
-      const entities = (
-        world as {
-          entities?: {
-            player?: {
-              root?: { position?: { x: number; z: number } };
-              position?: { x: number; z: number };
-            };
-            get?: (
-              id: string,
-            ) =>
-              | {
-                  root?: { position?: { x: number; z: number } };
-                  position?: { x: number; z: number };
-                }
-              | undefined;
-          };
-        }
-      ).entities;
-      const player = entities?.player;
-      // Get NPC entity by ID (like bank does)
-      const npc = entities?.get?.(npcEntityId || "");
-
-      if (!player || !npc) {
-        entityLookupFailures.current++;
-        if (entityLookupFailures.current >= 3) {
-          onClose(); // Entity consistently not found - close panel
-        }
-        return;
-      }
-
-      // Get positions - try different common position properties
-      const playerPos = player.root?.position ?? player.position;
-      const npcPos = npc.root?.position ?? npc.position;
-
-      if (!playerPos || !npcPos) {
-        entityLookupFailures.current++;
-        if (entityLookupFailures.current >= 3) {
-          onClose();
-        }
-        return;
-      }
-
-      // Success - reset failure counter
-      entityLookupFailures.current = 0;
-
-      const dx = playerPos.x - npcPos.x;
-      const dz = playerPos.z - npcPos.z;
-      // Chebyshev distance (OSRS-style square range, not circular)
-      const distance = Math.max(Math.abs(dx), Math.abs(dz));
-
-      if (distance > DIALOGUE_MAX_DISTANCE) {
-        onClose();
-      }
-    };
-
-    checkDistance();
-    const interval = setInterval(checkDistance, 200);
-
-    return () => clearInterval(interval);
-  }, [visible, npcEntityId, onClose, world]);
+  // NOTE: Distance validation is handled server-side by InteractionSessionManager.
+  // The server sends 'dialogueClose' packets when the player moves too far away.
+  // This prevents race conditions between client and server position sync under lag.
 
   if (!visible) return null;
 

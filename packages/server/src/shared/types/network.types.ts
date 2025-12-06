@@ -37,6 +37,10 @@ export type NodeWebSocket = WebSocket & {
  *
  * Extends the base Socket class with server-specific properties
  * for tracking player state, account ID, and character selection.
+ *
+ * NOTE (Phase 6): Interaction tracking (activeStoreNpcEntityId, activeBankEntityId)
+ * has been moved to InteractionSessionManager as the single source of truth.
+ * Handlers now query the session manager for targetEntityId instead of socket properties.
  */
 export interface ServerSocket extends Socket {
   player: any;

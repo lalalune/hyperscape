@@ -110,4 +110,22 @@ export class BroadcastManager {
     }
     return false;
   }
+
+  /**
+   * Get the socket for a specific player
+   *
+   * Looks up the socket by player ID. Useful for accessing player
+   * entity data or sending targeted messages.
+   *
+   * @param playerId - Target player ID
+   * @returns The socket if found, undefined otherwise
+   */
+  getPlayerSocket(playerId: string): ServerSocket | undefined {
+    for (const socket of this.sockets.values()) {
+      if (socket.player && socket.player.id === playerId) {
+        return socket;
+      }
+    }
+    return undefined;
+  }
 }

@@ -1122,19 +1122,7 @@ function setupAPI(world: World, systems: Systems): void {
         world.emit(EventType.STORE_OPEN, { playerId, storeId, playerPosition });
       },
 
-      buyItem: (
-        playerId: string,
-        storeId: string,
-        itemId: number,
-        quantity: number,
-      ) => {
-        world.emit(EventType.STORE_BUY, {
-          playerId,
-          storeId,
-          itemId,
-          quantity,
-        });
-      },
+      // NOTE: buyItem removed - use network.send("storeBuy") for secure transactions
 
       // Resource actions
       startGathering: (
@@ -1229,13 +1217,7 @@ function setupAPI(world: World, systems: Systems): void {
         world.emit(EventType.BANK_WITHDRAW, { playerId, itemId, quantity });
       },
 
-      storeBuy: (playerId: string, itemId: string, quantity: number) => {
-        world.emit(EventType.STORE_BUY, { playerId, itemId, quantity });
-      },
-
-      storeSell: (playerId: string, itemId: string, quantity: number) => {
-        world.emit(EventType.STORE_SELL, { playerId, itemId, quantity });
-      },
+      // NOTE: storeBuy and storeSell removed - use network.send() for secure transactions
 
       // Mob AI actions
       attackMob: (playerId: string, mobId: string, damage: number) => {
