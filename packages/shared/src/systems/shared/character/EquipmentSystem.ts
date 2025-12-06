@@ -12,41 +12,69 @@
 import THREE from "../../../extras/three/three";
 import { EventType } from "../../../types/events";
 import { dataManager } from "../../../data/DataManager";
-import equipmentRequirementsData from "../../../data/equipment-requirements.json";
 import equipmentStatsData from "../../../data/equipment-stats.json";
 
-// Helper functions for equipment requirements (replaces deleted EquipmentRequirements class)
+/**
+ * Equipment color mapping by material type (visual only)
+ * Used for colored cube representations in the game.
+ */
+const EQUIPMENT_COLORS: Record<string, string> = {
+  bronze: "#CD7F32",
+  steel: "#C0C0C0",
+  mithril: "#4169E1",
+  leather: "#8B4513",
+  hard_leather: "#A0522D",
+  studded_leather: "#654321",
+  wood: "#8B4513",
+  oak: "#8B7355",
+  willow: "#9ACD32",
+  arrows: "#FFD700",
+};
+
+/**
+ * Helper functions for equipment requirements
+ * Now uses manifest-driven data from DataManager instead of separate JSON file.
+ */
 const equipmentRequirements = {
-  getLevelRequirements: (itemId: string) => {
-    const allReqs = equipmentRequirementsData.levelRequirements;
-    return (
-      allReqs.weapons[itemId] ||
-      allReqs.shields[itemId] ||
-      allReqs.armor.helmets[itemId] ||
-      allReqs.armor.body[itemId] ||
-      allReqs.armor.legs[itemId] ||
-      allReqs.ammunition[itemId] ||
-      null
-    );
+  /**
+   * Get skill requirements for an item from the manifest.
+   * Returns object like { attack: 10 } or { woodcutting: 1, attack: 1 }
+   */
+  getLevelRequirements: (itemId: string): Record<string, number> | null => {
+    const item = dataManager.getItem(itemId);
+    return item?.requirements?.skills || null;
   },
-  getRequirementText: (itemId: string) => {
+
+  /**
+   * Format requirements as human-readable text.
+   * e.g., "Attack 10" or "Woodcutting 1, Attack 1"
+   */
+  getRequirementText: (itemId: string): string => {
     const reqs = equipmentRequirements.getLevelRequirements(itemId);
     if (!reqs) return "";
-    const parts: string[] = [];
-    if (reqs.attack > 0) parts.push(`Attack ${reqs.attack}`);
-    if (reqs.strength > 0) parts.push(`Strength ${reqs.strength}`);
-    if (reqs.defense > 0) parts.push(`Defense ${reqs.defense}`);
-    if (reqs.ranged > 0) parts.push(`Ranged ${reqs.ranged}`);
-    if (reqs.constitution > 0) parts.push(`Constitution ${reqs.constitution}`);
-    return parts.join(", ");
+    return Object.entries(reqs)
+      .filter(([, level]) => level > 0)
+      .map(
+        ([skill, level]) =>
+          `${skill.charAt(0).toUpperCase() + skill.slice(1)} ${level}`,
+      )
+      .join(", ");
   },
-  getEquipmentColor: (itemId: string) => {
+
+  /**
+   * Get equipment color based on material prefix (for visual representation)
+   */
+  getEquipmentColor: (itemId: string): string | null => {
     const match = itemId.match(
       /^(bronze|steel|mithril|leather|hard_leather|studded_leather|wood|oak|willow|arrows)_/,
     );
-    return match ? equipmentRequirementsData.equipmentColors[match[1]] : null;
+    return match ? EQUIPMENT_COLORS[match[1]] : null;
   },
-  getDefaultColorByType: (itemType: string) => {
+
+  /**
+   * Get default color by item type
+   */
+  getDefaultColorByType: (itemType: string): string => {
     const defaults: Record<string, string> = {
       weapon: "#808080",
       shield: "#A0A0A0",
@@ -595,13 +623,16 @@ export class EquipmentSystem extends SystemBase {
     if (!meetsRequirements) {
       const requirements =
         equipmentRequirements.getLevelRequirements(itemData.id as string) || {};
-      const reqText = Object.entries(requirements as Record<string, number>)
-        .map(([skill, level]) => `${skill} ${level}`)
-        .join(", ");
+      const reqList = Object.entries(requirements as Record<string, number>)
+        .map(
+          ([skill, level]) =>
+            `level ${level} ${skill.charAt(0).toUpperCase() + skill.slice(1)}`,
+        )
+        .join(" and ");
 
       this.sendMessage(
         data.playerId,
-        `You need ${reqText} to equip ${itemData.name}.`,
+        `You need at least ${reqList} to equip ${itemData.name}.`,
         "warning",
       );
       return;
@@ -935,16 +966,9 @@ export class EquipmentSystem extends SystemBase {
     // Get player skills (simplified for MVP)
     const playerSkills = this.getPlayerSkills(playerId);
 
-    // Check each specific skill requirement
-    const skillChecks = [
-      { skill: "attack" as const, required: requirements.attack },
-      { skill: "strength" as const, required: requirements.strength },
-      { skill: "defense" as const, required: requirements.defense },
-      { skill: "ranged" as const, required: requirements.ranged },
-      { skill: "constitution" as const, required: requirements.constitution },
-    ];
-
-    for (const { skill, required } of skillChecks) {
+    // Check each required skill from manifest
+    // New format only includes skills that are required (no zeros)
+    for (const [skill, required] of Object.entries(requirements)) {
       const playerLevel = playerSkills[skill] || 1;
       if (playerLevel < required) {
         return false;
@@ -1162,7 +1186,7 @@ export class EquipmentSystem extends SystemBase {
   }
 
   private inferBonusesFromLevelRequirement(
-    requirements: LevelRequirement,
+    requirements: Record<string, number>,
   ): ItemBonuses {
     // DEPRECATED: This fallback should rarely be used
     // All equipment should have OSRS-accurate stats in equipment-stats.json
@@ -1170,10 +1194,10 @@ export class EquipmentSystem extends SystemBase {
       "[EquipmentSystem] Using fallback bonus calculation - equipment stats missing!",
     );
     return {
-      attack: Math.floor(requirements.attack * 0.8),
-      defense: Math.floor(requirements.defense * 0.8),
-      ranged: Math.floor(requirements.ranged * 0.8),
-      strength: Math.floor(requirements.strength * 0.6),
+      attack: Math.floor((requirements.attack || 0) * 0.8),
+      defense: Math.floor((requirements.defense || 0) * 0.8),
+      ranged: Math.floor((requirements.ranged || 0) * 0.8),
+      strength: Math.floor((requirements.strength || 0) * 0.6),
     };
   }
 
@@ -1363,15 +1387,17 @@ export class EquipmentSystem extends SystemBase {
   }
 
   /**
-   * Get equipment color based on material
+   * Get equipment color based on material (returns Three.js hex number)
    */
   private getEquipmentColor(item: Item): number {
     const nameLower = (item.name as string)?.toLowerCase() || "";
 
-    return (
+    const hexString =
       equipmentRequirements.getEquipmentColor(nameLower) ??
-      equipmentRequirements.getDefaultColorByType(item.type as string)
-    );
+      equipmentRequirements.getDefaultColorByType(item.type as string);
+
+    // Convert CSS hex string (#RRGGBB) to Three.js number (0xRRGGBB)
+    return parseInt(hexString.replace("#", ""), 16);
   }
 
   /**
