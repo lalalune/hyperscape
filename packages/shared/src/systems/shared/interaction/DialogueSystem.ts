@@ -147,15 +147,19 @@ export class DialogueSystem extends SystemBase {
 
   /**
    * Handle player selecting a dialogue response
+   *
+   * SECURITY: Server determines nextNodeId and effect from its own dialogue state.
+   * The client only sends responseIndex - we NEVER trust client-provided
+   * nextNodeId or effect values to prevent dialogue skipping exploits.
    */
   private handleDialogueResponse(data: {
     playerId: string;
     npcId: string;
     responseIndex: number;
-    nextNodeId: string;
-    effect?: string;
+    // NOTE: nextNodeId and effect are intentionally NOT accepted from client
+    // Server computes these from dialogue state based on responseIndex
   }): void {
-    const { playerId, npcId, responseIndex, nextNodeId, effect } = data;
+    const { playerId, npcId, responseIndex } = data;
 
     const state = this.activeDialogues.get(playerId);
     if (!state || state.npcId !== npcId) {
@@ -165,12 +169,39 @@ export class DialogueSystem extends SystemBase {
       return;
     }
 
-    // Execute effect if present (pass npcEntityId for bank/store distance checking)
+    // Get current node from SERVER state
+    const currentNode = state.dialogueTree.nodes.find(
+      (node) => node.id === state.currentNodeId,
+    );
+    if (
+      !currentNode ||
+      !currentNode.responses ||
+      currentNode.responses.length === 0
+    ) {
+      this.logger.warn(`Current node ${state.currentNodeId} has no responses`);
+      this.endDialogue(playerId, npcId);
+      return;
+    }
+
+    // Validate responseIndex is in bounds (SECURITY: prevent array out-of-bounds)
+    if (responseIndex < 0 || responseIndex >= currentNode.responses.length) {
+      this.logger.warn(
+        `Invalid responseIndex ${responseIndex} for node with ${currentNode.responses.length} responses`,
+      );
+      return;
+    }
+
+    // SERVER determines nextNodeId and effect from the selected response
+    const selectedResponse = currentNode.responses[responseIndex];
+    const nextNodeId = selectedResponse.nextNodeId;
+    const effect = selectedResponse.effect;
+
+    // Execute effect if present (now from SERVER data, not client)
     if (effect) {
       this.executeEffect(playerId, npcId, effect, state.npcEntityId);
     }
 
-    // Find next node
+    // Find next node (using SERVER-determined nextNodeId)
     const nextNode = state.dialogueTree.nodes.find(
       (node) => node.id === nextNodeId,
     );

@@ -79,3 +79,29 @@ export function isValidBankSlot(value: unknown): value is number {
     value < INPUT_LIMITS.MAX_BANK_SLOTS
   );
 }
+
+/**
+ * Validate npcId - must be non-empty string within length limits
+ * Uses same limits as itemId since NPC IDs follow similar patterns
+ */
+export function isValidNpcId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= INPUT_LIMITS.MAX_ITEM_ID_LENGTH &&
+    !CONTROL_CHAR_REGEX.test(value)
+  );
+}
+
+/**
+ * Validate dialogue responseIndex - must be non-negative integer
+ * Max 10 responses per dialogue node (generous limit for OSRS-style dialogues)
+ */
+export function isValidResponseIndex(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value < 10
+  );
+}
