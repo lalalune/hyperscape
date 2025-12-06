@@ -114,7 +114,14 @@ export class ActionQueueService {
    */
   cancelCurrentAction(): void {
     if (this.currentAction) {
-      this.currentAction.onCancel?.();
+      try {
+        this.currentAction.onCancel?.();
+      } catch (error) {
+        console.error(
+          `[ActionQueue] onCancel error for ${this.currentAction.id}:`,
+          error,
+        );
+      }
       this.currentAction = null;
     }
   }
@@ -176,8 +183,13 @@ export class ActionQueueService {
       // In range - execute action
       // Clear BEFORE executing to prevent re-entry from rapid events
       const onExecute = action.onExecute;
+      const actionId = action.id;
       this.currentAction = null;
-      onExecute();
+      try {
+        onExecute();
+      } catch (error) {
+        console.error(`[ActionQueue] onExecute error for ${actionId}:`, error);
+      }
     }
     // If not in range, action stays queued for future idle events or update() polling
   }
@@ -285,8 +297,13 @@ export class ActionQueueService {
     if (inRange) {
       // In range - execute action
       const onExecute = action.onExecute;
+      const actionId = action.id;
       this.currentAction = null; // Clear before executing to prevent re-entry
-      onExecute();
+      try {
+        onExecute();
+      } catch (error) {
+        console.error(`[ActionQueue] onExecute error for ${actionId}:`, error);
+      }
     }
   }
 

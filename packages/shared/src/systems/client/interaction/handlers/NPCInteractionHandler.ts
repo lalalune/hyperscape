@@ -18,7 +18,7 @@
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
-import { INTERACTION_RANGE } from "../constants";
+import { INTERACTION_RANGE, MESSAGE_TYPES } from "../constants";
 import { getNPCById } from "../../../../data/npcs";
 
 /**
@@ -112,7 +112,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
       actionId: "use-bank",
       range: INTERACTION_RANGE.NPC,
       onExecute: () => {
-        this.send("bankOpen", { bankId: target.entityId });
+        this.send(MESSAGE_TYPES.BANK_OPEN, { bankId: target.entityId });
       },
     });
   }
@@ -125,7 +125,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
       actionId: "trade",
       range: INTERACTION_RANGE.NPC,
       onExecute: () => {
-        this.send("storeOpen", {
+        this.send(MESSAGE_TYPES.STORE_OPEN, {
           npcId: config.npcId || target.entityId,
           npcEntityId: target.entityId,
         });
@@ -141,7 +141,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
       actionId: "talk",
       range: INTERACTION_RANGE.NPC,
       onExecute: () => {
-        this.send("npcInteract", {
+        this.send(MESSAGE_TYPES.NPC_INTERACT, {
           npcId: target.entityId,
           npc: {
             id: config.npcId || target.entityId,

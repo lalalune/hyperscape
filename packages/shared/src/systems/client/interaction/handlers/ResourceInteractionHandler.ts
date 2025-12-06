@@ -16,7 +16,7 @@
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
-import { INTERACTION_RANGE, TIMING } from "../constants";
+import { INTERACTION_RANGE, TIMING, MESSAGE_TYPES } from "../constants";
 import { getExternalResource } from "../../../../utils/ExternalAssetUtils";
 
 /**
@@ -113,7 +113,7 @@ export class ResourceInteractionHandler extends BaseInteractionHandler {
         const currentPlayer = this.getPlayer();
         if (!currentPlayer) return;
 
-        this.send("resourceGather", {
+        this.send(MESSAGE_TYPES.RESOURCE_GATHER, {
           resourceId: target.entityId,
           playerPosition: {
             x: currentPlayer.position.x,
