@@ -1644,6 +1644,17 @@ export class ClientNetwork extends SystemBase {
       terrain?.getHeightAt
         ? (x: number, z: number) => terrain.getHeightAt!(x, z)
         : undefined,
+      // Callback when entity finishes moving - emit ENTITY_MODIFIED for InteractionSystem
+      // This enables event-based pending interactions (NPC trade, bank open, etc.)
+      (entityId: string, position: { x: number; y: number; z: number }) => {
+        this.world.emit(EventType.ENTITY_MODIFIED, {
+          id: entityId,
+          changes: {
+            e: "idle",
+            p: [position.x, position.y, position.z],
+          },
+        });
+      },
     );
   }
 
