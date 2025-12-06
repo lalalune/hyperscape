@@ -109,7 +109,7 @@ import { ResourceSystem } from "..";
 import { StoreSystem } from "..";
 
 // New MMO-style Systems
-import { InteractionSystem } from "..";
+import { InteractionRouter } from "../../client";
 import { LootSystem } from "..";
 // Movement now handled by physics in PlayerLocal
 // CameraSystem is ClientCameraSystem
@@ -136,7 +136,7 @@ export interface Systems {
   combat?: CombatSystem;
   skills?: SkillsSystem;
   banking?: BankingSystem;
-  interaction?: InteractionSystem;
+  interaction?: InteractionRouter;
   mobNpc?: MobNPCSystem;
   store?: StoreSystem;
   resource?: ResourceSystem;
@@ -253,10 +253,11 @@ export async function registerSystems(world: World): Promise<void> {
   systems.entityManager = getSystem(world, "entity-manager") as EntityManager;
 
   if (world.isClient) {
-    world.register("interaction", InteractionSystem);
+    // Register new modular interaction system (replaces legacy InteractionSystem)
+    world.register("interaction", InteractionRouter);
     // CameraSystem is ClientCameraSystem
     // UI components are React-based in the client package
-    systems.interaction = getSystem(world, "interaction") as InteractionSystem;
+    systems.interaction = getSystem(world, "interaction") as InteractionRouter;
     // Camera system API is accessed through world events, not direct system reference
     systems.cameraSystem = undefined;
     systems.movementSystem = getSystem(world, "client-movement-system");

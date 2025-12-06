@@ -675,12 +675,11 @@ export class InventorySystem extends SystemBase {
 
     const entity = entityManager.getEntity(data.entityId);
     if (!entity) {
-      // Item may have already been picked up by another player
-      Logger.systemError(
-        "InventorySystem",
-        `Entity not found (already picked up?): ${data.entityId}`,
-        new Error(`Entity not found: ${data.entityId}`),
-      );
+      // Item may have already been picked up - this is expected during:
+      // - Spam clicking item piles (player races themselves)
+      // - Multiple players grabbing same item (race condition)
+      // - Client sync delay (item removed server-side but client still shows it)
+      // Silently ignore - not an error condition
       return;
     }
 
