@@ -139,7 +139,9 @@ export class ActionQueueService {
    * @param serverPosition - The server-authoritative position from changes.p
    */
   onPlayerIdle(serverPosition: Position3D): void {
-    if (!this.currentAction) return;
+    if (!this.currentAction) {
+      return;
+    }
 
     const action = this.currentAction;
 

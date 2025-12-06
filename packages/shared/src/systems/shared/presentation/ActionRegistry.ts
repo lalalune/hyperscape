@@ -444,87 +444,11 @@ export class ActionRegistry extends SystemBase {
       },
     });
 
-    this.actionRegistryInstance.register({
-      name: "buy_item",
-      description: "Buy an item from a store",
-      parameters: [
-        {
-          name: "storeId",
-          type: "string",
-          required: true,
-          description: "ID of the store",
-        },
-        {
-          name: "itemId",
-          type: "string",
-          required: true,
-          description: "ID of the item to buy",
-        },
-        {
-          name: "quantity",
-          type: "number",
-          required: false,
-          description: "Amount to buy",
-        },
-      ],
-      execute: async (
-        context: ActionContext,
-        params: Record<string, unknown>,
-      ) => {
-        const playerId = context.playerId || context.world.network.id;
-        this.emitTypedEvent(EventType.STORE_BUY, {
-          playerId,
-          storeId: params.storeId as string,
-          itemId: params.itemId as string,
-          quantity: (params.quantity as number) || 1,
-        });
-        return {
-          success: true,
-          message: `Buying ${(params.quantity as number) || 1} ${params.itemId}`,
-        };
-      },
-    });
-
-    this.actionRegistryInstance.register({
-      name: "sell_item",
-      description: "Sell an item to a store",
-      parameters: [
-        {
-          name: "storeId",
-          type: "string",
-          required: true,
-          description: "ID of the store",
-        },
-        {
-          name: "itemId",
-          type: "string",
-          required: true,
-          description: "ID of the item to sell",
-        },
-        {
-          name: "quantity",
-          type: "number",
-          required: false,
-          description: "Amount to sell",
-        },
-      ],
-      execute: async (
-        context: ActionContext,
-        params: Record<string, unknown>,
-      ) => {
-        const playerId = context.playerId || context.world.network.id;
-        this.emitTypedEvent(EventType.STORE_SELL, {
-          playerId,
-          storeId: params.storeId as string,
-          itemId: params.itemId as string,
-          quantity: (params.quantity as number) || 1,
-        });
-        return {
-          success: true,
-          message: `Selling ${(params.quantity as number) || 1} ${params.itemId}`,
-        };
-      },
-    });
+    // NOTE: buy_item and sell_item actions have been removed.
+    // Store transactions must go through the secure server handler
+    // (packages/server/src/systems/ServerNetwork/handlers/store.ts)
+    // via network.send("storeBuy"/"storeSell") to ensure proper
+    // database transactions, input validation, and rate limiting.
   }
 
   private registerMovementActions(): void {

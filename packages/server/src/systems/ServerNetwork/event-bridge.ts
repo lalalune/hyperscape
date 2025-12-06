@@ -577,11 +577,24 @@ export class EventBridge {
         // Get storeId - either from event or look up from NPC
         let storeId = data.storeId;
         if (!storeId) {
+          // First try with the npcId directly (might be manifest ID)
           storeId = this.getStoreIdForNpc(data.npcId);
+
+          // If not found and we have npcEntityId, look up the entity to get manifest npcId
+          if (!storeId && data.npcEntityId) {
+            const manifestNpcId = this.getManifestNpcIdFromEntity(
+              data.npcEntityId,
+            );
+            if (manifestNpcId) {
+              storeId = this.getStoreIdForNpc(manifestNpcId);
+            }
+          }
         }
 
         if (!storeId) {
-          console.warn(`[EventBridge] No store linked to NPC ${data.npcId}`);
+          console.warn(
+            `[EventBridge] No store linked to NPC ${data.npcId} (entityId: ${data.npcEntityId})`,
+          );
           return;
         }
 
@@ -595,6 +608,10 @@ export class EventBridge {
           console.warn(`[EventBridge] Store not found: ${storeId}`);
           return;
         }
+
+        // Phase 6: Removed socket.activeStoreNpcEntityId assignment
+        // InteractionSessionManager now tracks targetEntityId as single source of truth
+        // (It listens to STORE_OPEN_REQUEST and creates session with targetEntityId = npcEntityId)
 
         // Send storeState packet to player (include npcEntityId for distance checking)
         this.broadcast.sendToPlayer(data.playerId, "storeState", {
@@ -623,6 +640,59 @@ export class EventBridge {
       const npc = typedArea.npcs?.find((n) => n.id === npcId);
       if (npc?.storeId) return npc.storeId;
     }
+    return undefined;
+  }
+
+  /**
+   * Get manifest npcId from an NPC entity by its entity ID
+   *
+   * NPC entities store their manifest ID (e.g., "shopkeeper") in their config/data,
+   * while their entity ID includes a timestamp (e.g., "npc_shopkeeper_1765003446078").
+   * This method looks up the entity and extracts the manifest ID.
+   *
+   * Fallback: If entity lookup fails, parse the manifest ID from the entity ID format.
+   */
+  private getManifestNpcIdFromEntity(entityId: string): string | undefined {
+    // First try to look up the entity and get npcId from its config/data
+    const entity = this.world.entities?.get?.(entityId);
+    if (entity) {
+      // Try to get npcId from various possible locations on the entity
+      const entityWithConfig = entity as {
+        config?: { npcId?: string };
+        data?: { npcId?: string };
+        npcId?: string;
+      };
+
+      const npcId =
+        entityWithConfig.config?.npcId ||
+        entityWithConfig.data?.npcId ||
+        entityWithConfig.npcId;
+
+      if (npcId) {
+        return npcId;
+      }
+    }
+
+    // Fallback: Parse manifest ID from entity ID format
+    // Entity IDs are formatted as: npc_${manifestId}_${timestamp}
+    // Example: "npc_shopkeeper_1765003446078" -> "shopkeeper"
+    if (entityId.startsWith("npc_")) {
+      const parts = entityId.split("_");
+      if (parts.length >= 3) {
+        // The manifest ID is everything between "npc_" and the final timestamp
+        // Handle cases like "npc_bank_clerk_1234" -> "bank_clerk"
+        const timestampPart = parts[parts.length - 1];
+        // Check if the last part looks like a timestamp (all digits, 13+ chars)
+        if (/^\d{13,}$/.test(timestampPart)) {
+          // Remove "npc_" prefix and "_timestamp" suffix
+          const manifestId = parts.slice(1, -1).join("_");
+          if (manifestId) {
+            return manifestId;
+          }
+        }
+      }
+    }
+
     return undefined;
   }
 

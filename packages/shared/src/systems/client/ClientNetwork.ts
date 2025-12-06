@@ -438,12 +438,21 @@ export class ClientNetwork extends SystemBase {
         handler = (this as Record<string, unknown>)[onName];
       }
       if (!handler) {
-        throw new Error(`No handler for packet '${method}'`);
+        console.error(`[ClientNetwork] No handler for packet '${method}'`);
+        continue; // Skip unknown packets instead of throwing to avoid breaking queue
       }
-      // Strong type assumption - handler is a function
-      const result = (handler as Function).call(this, data);
-      if (result instanceof Promise) {
-        await result;
+      try {
+        // Strong type assumption - handler is a function
+        const result = (handler as Function).call(this, data);
+        if (result instanceof Promise) {
+          await result;
+        }
+      } catch (err) {
+        console.error(
+          `[ClientNetwork] Error handling packet '${method}':`,
+          err,
+        );
+        // Continue processing remaining packets even if one fails
       }
     }
   }
@@ -1483,6 +1492,19 @@ export class ClientNetwork extends SystemBase {
     });
   };
 
+  // --- Bank close handler (server-authoritative) ---
+  // Server sends this when player moves too far from bank
+  onBankClose = (data: { reason: string; sessionType: string }) => {
+    // Emit UI update to close the bank
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "bank",
+      data: {
+        isOpen: false,
+        reason: data.reason,
+      },
+    });
+  };
+
   // --- Store state handler ---
   onStoreState = (data: {
     storeId: string;
@@ -1510,6 +1532,19 @@ export class ClientNetwork extends SystemBase {
         items: data.items,
         isOpen: data.isOpen,
         npcEntityId: data.npcEntityId,
+      },
+    });
+  };
+
+  // --- Store close handler (server-authoritative) ---
+  // Server sends this when player moves too far from shopkeeper
+  onStoreClose = (data: { reason: string; sessionType: string }) => {
+    // Emit UI update to close the store
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "store",
+      data: {
+        isOpen: false,
+        reason: data.reason,
       },
     });
   };
@@ -1559,6 +1594,19 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.UI_UPDATE, {
       component: "dialogueEnd",
       data: { npcId: data.npcId },
+    });
+  };
+
+  // --- Dialogue close handler (server-authoritative) ---
+  // Server sends this when player moves too far from NPC during dialogue
+  onDialogueClose = (data: { reason: string; sessionType: string }) => {
+    // Emit UI update to close the dialogue
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogueEnd",
+      data: {
+        reason: data.reason,
+        serverClose: true,
+      },
     });
   };
 

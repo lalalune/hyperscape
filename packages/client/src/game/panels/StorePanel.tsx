@@ -312,8 +312,11 @@ function ContextMenu({
   );
 }
 
-// Maximum distance from NPC before auto-closing (in tiles, Chebyshev/OSRS-style)
-const STORE_MAX_DISTANCE = 2;
+// NOTE: Distance validation is now SERVER-AUTHORITATIVE
+// The server tracks interaction sessions and sends storeClose packets
+// when the player moves too far away. The client no longer polls distance.
+// This prevents race conditions between server and client position sync
+// that caused unreliable store opening under lag.
 
 export function StorePanel({
   storeId,
@@ -337,56 +340,9 @@ export function StorePanel({
     itemName: "",
   });
 
-  // Track consecutive entity lookup failures
-  const entityLookupFailures = useRef(0);
-
-  // Auto-close when player moves away from NPC (entity lookup like BankPanel)
-  useEffect(() => {
-    const checkDistance = () => {
-      // Get player entity (local player)
-      const player = world.entities?.player;
-      // Get NPC entity by ID (like bank does)
-      const npc = world.entities?.get?.(npcEntityId || "");
-
-      if (!player || !npc) {
-        entityLookupFailures.current++;
-        if (entityLookupFailures.current >= 3) {
-          onClose(); // Entity consistently not found - close panel
-        }
-        return;
-      }
-
-      // Get positions - try different common position properties
-      const playerPos = player.root?.position ?? player.position;
-      const npcPos = npc.root?.position ?? npc.position;
-
-      if (!playerPos || !npcPos) {
-        entityLookupFailures.current++;
-        if (entityLookupFailures.current >= 3) {
-          onClose();
-        }
-        return;
-      }
-
-      // Success - reset failure counter
-      entityLookupFailures.current = 0;
-
-      const dx = playerPos.x - npcPos.x;
-      const dz = playerPos.z - npcPos.z;
-      // Chebyshev distance (OSRS-style square range, not circular)
-      const distance = Math.max(Math.abs(dx), Math.abs(dz));
-
-      if (distance > STORE_MAX_DISTANCE) {
-        onClose();
-      }
-    };
-
-    // Check immediately and then every 200ms
-    checkDistance();
-    const interval = setInterval(checkDistance, 200);
-
-    return () => clearInterval(interval);
-  }, [world.entities, npcEntityId, onClose]);
+  // NOTE: Distance validation is handled server-side (InteractionSessionManager)
+  // The server sends storeClose packets when the player moves too far away.
+  // This eliminates race conditions between server and client position sync.
 
   // Convert inventory array to slot-indexed array
   const inventorySlots: (InventorySlotViewItem | null)[] = Array(28).fill(null);
