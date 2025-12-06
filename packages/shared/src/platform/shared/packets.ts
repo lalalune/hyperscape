@@ -186,6 +186,8 @@ const names = [
   'entityTileUpdate',    // Server -> Client: entity moved to new tile position
   'tileMovementStart',   // Server -> Client: movement path started
   'tileMovementEnd',     // Server -> Client: arrived at destination
+  // System message packets (UI_MESSAGE events -> chat)
+  'systemMessage',       // Server -> Client: system/game messages for chat
 ]
 
 const byName: Record<string, PacketInfo> = {};

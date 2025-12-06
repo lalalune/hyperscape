@@ -19,7 +19,6 @@
  */
 
 import { BANKS, GENERAL_STORES } from "./banks-stores";
-import equipmentRequirementsData from "./equipment-requirements.json";
 import { ITEMS } from "./items";
 import { ALL_NPCS } from "./npcs";
 import {
@@ -31,7 +30,6 @@ import {
 import { BIOMES } from "./world-structure";
 
 // Define constants from JSON data
-const equipmentRequirements = equipmentRequirementsData;
 const STARTING_ITEMS: Array<{ id: string }> = []; // Stub - data removed
 const TREASURE_LOCATIONS: TreasureLocation[] = []; // Stub - data removed
 const getAllTreasureLocations = () => TREASURE_LOCATIONS;
@@ -602,15 +600,8 @@ export class DataManager {
   }
 
   // =============================================================================
-  // EQUIPMENT AND STARTING DATA ACCESS METHODS
+  // STARTING DATA ACCESS METHODS
   // =============================================================================
-
-  /**
-   * Get equipment requirements
-   */
-  public getEquipmentRequirements() {
-    return equipmentRequirements;
-  }
 
   /**
    * Get starting items
