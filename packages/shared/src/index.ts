@@ -146,6 +146,9 @@ export {
 // Export item helpers used by server network snapshot
 export { getItem } from "./data/items";
 
+// Export store helpers used by server store handler
+export { getStoreById } from "./data/banks-stores";
+
 // Export avatar options for character creation
 export { AVATAR_OPTIONS } from "./data/avatars";
 
