@@ -3,30 +3,25 @@
  * Handles loot drops, loot tables, and item spawning per GDD specifications:
  * - Guaranteed drops from all mobs
  * - Tier-based loot tables
- * - Visual dropped items in world
- * - Pickup mechanics
- * - TICK-BASED despawn timers
+ * - OSRS-style ground items (not corpse entities)
+ * - Pickup mechanics via ItemInteractionHandler
+ * - TICK-BASED despawn timers via GroundItemManager
  *
- * TICK-BASED TIMING (OSRS-accurate):
- * - Corpse despawn tracked in ticks
- * - processTick() called once per tick by TickSystem
- * - Uses constants from COMBAT_CONSTANTS
+ * OSRS-STYLE BEHAVIOR:
+ * - Mob dies → Items drop directly to ground at tile center
+ * - Items pile on same tile, stackables merge
+ * - Click item directly to pick up (no loot window)
+ * - 2 minute despawn timer per item
  *
  * @see https://oldschool.runescape.wiki/w/Loot
+ * @see https://oldschool.runescape.wiki/w/Dropped_items
  */
 
 import type { World } from "../../../types/index";
 import { EventType } from "../../../types/events";
 import { LootTable, InventoryItem, ItemType } from "../../../types/core/core";
-import {
-  EntityType,
-  InteractionType,
-  ItemRarity,
-} from "../../../types/entities";
-import type {
-  HeadstoneEntityConfig,
-  ItemEntityConfig,
-} from "../../../types/entities";
+import { ItemRarity } from "../../../types/entities";
+import type { ItemEntityConfig } from "../../../types/entities";
 import { Item } from "../../../types/index";
 import { SystemBase } from "..";
 import { items } from "../../../data/items";
@@ -36,23 +31,18 @@ import { EntityManager } from "..";
 import { ALL_NPCS } from "../../../data/npcs";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import { ticksToMs } from "../../../utils/game/CombatCalculations";
-
-/** Corpse data tracked for tick-based despawn */
-interface CorpseData {
-  corpseId: string;
-  despawnTick: number;
-}
+import { GroundItemManager } from "../death/GroundItemManager";
 
 export class LootSystem extends SystemBase {
   private lootTables = new Map<string, LootTable>(); // String key = mob ID from mobs.json
   private itemDatabase = new Map<string, Item>();
-  private droppedItems = new Map<string, DroppedItem>();
-  private corpses = new Map<string, CorpseData>(); // TICK-BASED corpse tracking
+  private droppedItems = new Map<string, DroppedItem>(); // For manual player drops only
+  private groundItemManager: GroundItemManager | null = null; // For mob loot (OSRS-style)
   private nextItemId = 1;
 
   // Loot constants per GDD (converted from tick constants for backwards compatibility)
   private readonly LOOT_DESPAWN_TIME_MS = ticksToMs(
-    COMBAT_CONSTANTS.CORPSE_DESPAWN_TICKS,
+    COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS,
   );
   private readonly PICKUP_RANGE = 5; // meters
   private readonly MAX_DROPPED_ITEMS = 1000; // Performance limit
@@ -74,6 +64,21 @@ export class LootSystem extends SystemBase {
 
     // Set up loot tables per GDD specifications
     this.setupLootTables();
+
+    // Initialize GroundItemManager for OSRS-style mob loot drops
+    const entityManager = this.world.getSystem<EntityManager>("entity-manager");
+    if (entityManager) {
+      // Use "mob" prefix to prevent ID collisions with PlayerDeathSystem's GroundItemManager
+      this.groundItemManager = new GroundItemManager(
+        this.world,
+        entityManager,
+        "mob",
+      );
+    } else {
+      console.warn(
+        "[LootSystem] EntityManager not found - mob loot drops disabled",
+      );
+    }
 
     // Subscribe to loot events using type-safe event system
     // Listen for the official mob death event (normalize various emitters)
@@ -100,12 +105,7 @@ export class LootSystem extends SystemBase {
       },
     );
 
-    // Subscribe to corpse loot requests (separate from ground item pickup)
-    this.subscribe(EventType.CORPSE_LOOT_REQUEST, (data) =>
-      this.handleLootPickup(
-        data as { playerId: string; itemId: string; corpseId?: string },
-      ),
-    );
+    // Subscribe to manual item drops (from player inventory)
     this.subscribe(EventType.ITEM_DROPPED, (data) =>
       this.dropItem(
         data as {
@@ -117,56 +117,24 @@ export class LootSystem extends SystemBase {
       ),
     );
 
+    // NOTE: Ground item pickup is handled by InventorySystem via ITEM_PICKUP event
     // NOTE: Cleanup is now tick-based via processTick() called by TickSystem
-    // No more setInterval-based cleanup needed
   }
 
   /**
-   * Process tick - check for expired corpses and dropped items (TICK-BASED)
+   * Process tick - check for expired ground items and dropped items (TICK-BASED)
    * Called once per tick by TickSystem
    *
    * @param currentTick - Current server tick number
    */
   processTick(currentTick: number): void {
-    // Check for expired corpses
-    const expiredCorpses: string[] = [];
-    for (const [corpseId, corpseData] of this.corpses) {
-      if (currentTick >= corpseData.despawnTick) {
-        expiredCorpses.push(corpseId);
-      }
+    // Process ground item despawn (OSRS-style mob loot)
+    if (this.groundItemManager) {
+      this.groundItemManager.processTick(currentTick);
     }
 
-    // Despawn expired corpses
-    for (const corpseId of expiredCorpses) {
-      this.despawnCorpse(corpseId, currentTick);
-    }
-
-    // Clean up expired dropped items (legacy time-based check for backwards compatibility)
+    // Clean up expired manually dropped items (legacy time-based check)
     this.cleanupExpiredLoot();
-  }
-
-  /**
-   * Despawn a corpse entity
-   */
-  private despawnCorpse(corpseId: string, currentTick: number): void {
-    const corpseData = this.corpses.get(corpseId);
-    if (!corpseData) return;
-
-    const ticksExisted =
-      currentTick -
-      (corpseData.despawnTick - COMBAT_CONSTANTS.CORPSE_DESPAWN_TICKS);
-    console.log(
-      `[LootSystem] Corpse ${corpseId} despawning after ${ticksExisted} ticks (${(ticksToMs(ticksExisted) / 1000).toFixed(1)}s)`,
-    );
-
-    // Remove corpse entity
-    const entityManager = this.world.getSystem<EntityManager>("entity-manager");
-    if (entityManager) {
-      entityManager.destroyEntity(corpseId);
-    }
-
-    // Remove from tracking
-    this.corpses.delete(corpseId);
   }
 
   /**
@@ -271,7 +239,10 @@ export class LootSystem extends SystemBase {
   }
 
   /**
-   * Handle mob death and generate loot
+   * Handle mob death and generate loot (OSRS-style ground items)
+   *
+   * Drops items directly to ground at tile center instead of creating
+   * a corpse entity. Items can be picked up by clicking directly.
    */
   private async handleMobDeath(data: {
     mobId: string;
@@ -287,7 +258,14 @@ export class LootSystem extends SystemBase {
       return;
     }
 
-    const corpseId = `corpse_${data.mobId}`;
+    // Check if GroundItemManager is available
+    if (!this.groundItemManager) {
+      console.error(
+        "[LootSystem] GroundItemManager not available, cannot drop loot",
+      );
+      return;
+    }
+
     const lootItems: Array<{ itemId: string; quantity: number }> = [];
 
     // Process guaranteed drops
@@ -321,25 +299,20 @@ export class LootSystem extends SystemBase {
       }
     }
 
-    // Convert loot items to InventoryItem format
+    if (lootItems.length === 0) {
+      return; // No loot to drop
+    }
+
+    // Convert loot items to InventoryItem format for GroundItemManager
     const inventoryItems: InventoryItem[] = lootItems.map((loot, index) => ({
-      id: `loot_${corpseId}_${index}`,
+      id: `mob_loot_${data.mobId}_${index}`,
       itemId: loot.itemId,
       quantity: loot.quantity,
       slot: index,
       metadata: null,
     }));
 
-    // Create corpse entity with loot via EntityManager
-    const entityManager = this.world.getSystem<EntityManager>("entity-manager");
-    if (!entityManager) {
-      console.error(
-        "[LootSystem] EntityManager not found, cannot spawn corpse",
-      );
-      return;
-    }
-
-    // Ground to terrain
+    // Ground position to terrain
     const groundedPosition = groundToTerrain(
       this.world,
       data.position,
@@ -347,56 +320,24 @@ export class LootSystem extends SystemBase {
       Infinity,
     );
 
-    // Calculate despawn tick (TICK-BASED)
-    const currentTick = this.world.currentTick;
-    const despawnTick = currentTick + COMBAT_CONSTANTS.CORPSE_DESPAWN_TICKS;
-
-    const corpseConfig: HeadstoneEntityConfig = {
-      id: corpseId,
-      name: `${data.mobType} corpse`,
-      type: EntityType.HEADSTONE,
-      position: groundedPosition,
-      rotation: { x: 0, y: 0, z: 0, w: 1 },
-      scale: { x: 1, y: 1, z: 1 },
-      visible: true,
-      interactable: true,
-      interactionType: InteractionType.LOOT,
-      interactionDistance: 2,
-      description: `Corpse of a ${data.mobType}`,
-      model: null,
-      headstoneData: {
-        playerId: data.mobId,
-        playerName: data.mobType,
-        deathTime: Date.now(),
-        deathMessage: `Killed by ${data.killedBy}`,
-        position: groundedPosition,
-        items: inventoryItems,
-        itemCount: inventoryItems.length,
-        despawnTime: Date.now() + this.LOOT_DESPAWN_TIME_MS, // For backwards compat display
+    // OSRS-STYLE: Spawn ground items directly (no corpse entity)
+    // Items pile at tile center, stackables merge, 2 minute despawn
+    await this.groundItemManager.spawnGroundItems(
+      inventoryItems,
+      groundedPosition,
+      {
+        despawnTime: ticksToMs(COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS), // 2 minutes
+        droppedBy: data.killedBy, // Killer gets loot protection
+        lootProtection: ticksToMs(COMBAT_CONSTANTS.LOOT_PROTECTION_TICKS), // 1 minute protection
+        scatter: false, // Items pile at mob position tile center (OSRS-style)
       },
-      properties: {
-        movementComponent: null,
-        combatComponent: null,
-        healthComponent: null,
-        visualComponent: null,
-        health: { current: 1, max: 1 },
-        level: 1,
-      },
-    };
-
-    await entityManager.spawnEntity(corpseConfig);
-
-    // Track corpse for tick-based despawn
-    this.corpses.set(corpseId, {
-      corpseId,
-      despawnTick,
-    });
-
-    console.log(
-      `[LootSystem] Created corpse ${corpseId} with ${inventoryItems.length} items, despawns at tick ${despawnTick} (${COMBAT_CONSTANTS.CORPSE_DESPAWN_TICKS} ticks = ${(ticksToMs(COMBAT_CONSTANTS.CORPSE_DESPAWN_TICKS) / 1000).toFixed(1)}s)`,
     );
 
-    // Emit loot dropped event
+    console.log(
+      `[LootSystem] Dropped ${inventoryItems.length} ground items for ${mobType} killed by ${data.killedBy}`,
+    );
+
+    // Emit loot dropped event for any listeners
     this.emitTypedEvent(EventType.LOOT_DROPPED, {
       mobId: data.mobId,
       mobType: mobType,
@@ -512,76 +453,6 @@ export class LootSystem extends SystemBase {
   }
 
   /**
-   * Handle corpse loot pickup (from headstones/corpses)
-   */
-  private async handleLootPickup(data: {
-    playerId: string;
-    itemId: string;
-    corpseId?: string;
-  }): Promise<void> {
-    const droppedItem = this.droppedItems.get(data.itemId);
-    if (!droppedItem) {
-      return;
-    }
-
-    // Check if item is still valid
-    if (Date.now() > droppedItem.despawnTime) {
-      this.removeDroppedItem(data.itemId);
-      return;
-    }
-
-    // Try to add item to player inventory
-    const success = await this.addItemToPlayer(
-      data.playerId,
-      droppedItem.itemId,
-      droppedItem.quantity,
-    );
-
-    if (success) {
-      // Remove from world
-      this.removeDroppedItem(data.itemId);
-
-      // Emit notification event (not ITEM_PICKUP to avoid confusion with ground items)
-      this.emitTypedEvent(EventType.UI_MESSAGE, {
-        playerId: data.playerId,
-        message: `You looted ${droppedItem.quantity}x ${droppedItem.itemId}`,
-        type: "success",
-      });
-    } else {
-      // Inventory full - show message
-      this.emitTypedEvent(EventType.UI_MESSAGE, {
-        playerId: data.playerId,
-        message: "Your inventory is full.",
-        type: "warning",
-      });
-    }
-  }
-
-  /**
-   * Add item to player inventory via inventory system
-   */
-  private async addItemToPlayer(
-    playerId: string,
-    itemId: string,
-    quantity: number,
-  ): Promise<boolean> {
-    return new Promise((resolve) => {
-      this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
-        playerId: playerId,
-        item: {
-          id: `${playerId}_${itemId}_${Date.now()}`,
-          itemId: itemId,
-          quantity: quantity,
-          slot: 0,
-          metadata: null,
-        },
-      });
-      // Assume success - inventory system will handle validation
-      resolve(true);
-    });
-  }
-
-  /**
    * Manual item drop (from inventory)
    */
   private async dropItem(data: {
@@ -691,11 +562,14 @@ export class LootSystem extends SystemBase {
   }
 
   destroy(): void {
-    // Clear all dropped items
-    this.droppedItems.clear();
+    // Clean up ground item manager
+    if (this.groundItemManager) {
+      this.groundItemManager.destroy();
+      this.groundItemManager = null;
+    }
 
-    // Clear all corpses
-    this.corpses.clear();
+    // Clear all dropped items (manual player drops)
+    this.droppedItems.clear();
 
     // Clear loot tables
     this.lootTables.clear();
