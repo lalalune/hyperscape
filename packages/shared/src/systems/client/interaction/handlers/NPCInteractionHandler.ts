@@ -119,6 +119,9 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
 
   private openStore(target: RaycastTarget): void {
     const config = this.getNPCConfig(target);
+    // Get manifest ID with fallback to parsing from entity ID
+    const npcId =
+      config.npcId || this.extractManifestIdFromEntityId(target.entityId);
 
     this.queueInteraction({
       target,
@@ -126,7 +129,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
       range: INTERACTION_RANGE.NPC,
       onExecute: () => {
         this.send(MESSAGE_TYPES.STORE_OPEN, {
-          npcId: config.npcId || target.entityId,
+          npcId,
           npcEntityId: target.entityId,
         });
       },
@@ -173,5 +176,34 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
       }
     }
     return `It's ${target.name.toLowerCase()}.`;
+  }
+
+  /**
+   * Extract manifest NPC ID from entity ID format
+   *
+   * Entity IDs are formatted as: npc_${manifestId}_${timestamp}
+   * Example: "npc_shopkeeper_1765003446078" -> "shopkeeper"
+   * Example: "npc_bank_clerk_1765003446078" -> "bank_clerk"
+   *
+   * Falls back to the full entityId if parsing fails.
+   */
+  private extractManifestIdFromEntityId(entityId: string): string {
+    if (entityId.startsWith("npc_")) {
+      const parts = entityId.split("_");
+      if (parts.length >= 3) {
+        // The manifest ID is everything between "npc_" and the final timestamp
+        const timestampPart = parts[parts.length - 1];
+        // Check if the last part looks like a timestamp (all digits, 13+ chars)
+        if (/^\d{13,}$/.test(timestampPart)) {
+          // Remove "npc_" prefix and "_timestamp" suffix
+          const manifestId = parts.slice(1, -1).join("_");
+          if (manifestId) {
+            return manifestId;
+          }
+        }
+      }
+    }
+    // Fallback: return the original entityId
+    return entityId;
   }
 }

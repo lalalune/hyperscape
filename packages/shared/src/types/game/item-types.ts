@@ -215,7 +215,8 @@ export interface StoreItem {
 export interface Store {
   id: string;
   name: string;
-  position: { x: number; y: number; z: number };
+  /** @deprecated Position comes from the NPC entity, not the store */
+  position?: { x: number; y: number; z: number };
   items: StoreItem[];
   npcName: string;
   buyback: boolean;

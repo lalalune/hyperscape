@@ -80,6 +80,7 @@ import { PositionValidator } from "./position-validator";
 import { EventBridge } from "./event-bridge";
 import { InitializationManager } from "./initialization";
 import { ConnectionHandler } from "./connection-handler";
+import { InteractionSessionManager } from "./InteractionSessionManager";
 import { handleChatAdded } from "./handlers/chat";
 import { handleAttackMob, handleChangeAttackStyle } from "./handlers/combat";
 import {
@@ -182,6 +183,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   private eventBridge!: EventBridge;
   private initializationManager!: InitializationManager;
   private connectionHandler!: ConnectionHandler;
+  private interactionSessionManager!: InteractionSessionManager;
 
   constructor(world: World) {
     super(world);
@@ -446,6 +448,24 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Event bridge
     this.eventBridge = new EventBridge(this.world, this.broadcastManager);
+
+    // Interaction session manager (server-authoritative UI sessions)
+    this.interactionSessionManager = new InteractionSessionManager(
+      this.world,
+      this.broadcastManager,
+    );
+    this.interactionSessionManager.initialize(this.tickSystem);
+
+    // Store session manager on world so handlers can access it (Phase 6: single source of truth)
+    // This replaces the previous pattern of storing entity IDs on socket properties
+    (
+      this.world as { interactionSessionManager?: InteractionSessionManager }
+    ).interactionSessionManager = this.interactionSessionManager;
+
+    // Clean up interaction sessions when player disconnects
+    this.world.on(EventType.PLAYER_LEFT, (event: { playerId: string }) => {
+      this.interactionSessionManager.onPlayerDisconnect(event.playerId);
+    });
 
     // Initialization manager
     this.initializationManager = new InitializationManager(this.world, this.db);
@@ -793,6 +813,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   override destroy(): void {
     this.socketManager.destroy();
     this.saveManager.destroy();
+    this.interactionSessionManager.destroy();
     this.tickSystem.stop();
 
     for (const [_id, socket] of this.sockets) {

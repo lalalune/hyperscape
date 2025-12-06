@@ -89,7 +89,12 @@ export abstract class BaseInteractionHandler {
    */
   protected queueInteraction(params: QueueInteractionParams): void {
     const player = this.world.getPlayer();
-    if (!player) return;
+    if (!player) {
+      console.warn(
+        "[BaseInteractionHandler] queueInteraction: No player found",
+      );
+      return;
+    }
 
     const playerPos = player.position;
     const targetTile = worldToTile(
