@@ -38,11 +38,20 @@ export class GroundItemManager {
   private groundItems = new Map<string, GroundItemData>();
   private groundItemPiles = new Map<string, GroundItemPileData>();
   private nextItemId = 1;
+  private idPrefix: string;
 
+  /**
+   * @param world - World instance
+   * @param entityManager - EntityManager for spawning entities
+   * @param idPrefix - Optional prefix for entity IDs to prevent collisions between instances
+   */
   constructor(
     private world: World,
     private entityManager: EntityManager,
-  ) {}
+    idPrefix: string = "",
+  ) {
+    this.idPrefix = idPrefix;
+  }
 
   /**
    * Get tile key for Map lookup
@@ -168,8 +177,10 @@ export class GroundItemManager {
       }
     }
 
-    // Create new item entity
-    const dropId = `ground_item_${this.nextItemId++}`;
+    // Create new item entity (use prefix to prevent ID collisions between instances)
+    const dropId = this.idPrefix
+      ? `ground_item_${this.idPrefix}_${this.nextItemId++}`
+      : `ground_item_${this.nextItemId++}`;
 
     const itemEntity = await this.entityManager.spawnEntity({
       id: dropId,
