@@ -854,7 +854,11 @@ export class Entities extends SystemBase implements IEntities {
   remove(id: string): boolean {
     const entity = this.items.get(id);
     if (!entity) {
-      this.logger.warn(`Tried to remove entity that did not exist: ${id}`);
+      // Entity already removed - this is expected during:
+      // - Duplicate removal calls (race condition)
+      // - Client receiving entityRemoved for already-removed entity
+      // - Cleanup during rapid interactions (spam clicking)
+      // Silently return false - not an error condition
       return false;
     }
 

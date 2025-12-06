@@ -872,11 +872,12 @@ export class EntityManager extends SystemBase {
             ...networkData, // Include all entity-specific data (health, aiState, etc.)
           },
         });
-      } else {
-        console.warn(
-          `[EntityManager] ⚠️ Cannot sync ${entityId}: entity not found in EntityManager.entities or world.players`,
-        );
       }
+      // Entity not found - this is expected when:
+      // - Items are picked up between marking dirty and sync
+      // - Mobs die between marking dirty and sync
+      // - Any entity is removed during the frame
+      // Silently skip - not an error condition
     });
 
     // Clear dirty entities
