@@ -4,7 +4,7 @@
  * Handles player death in safe zones (RuneScape-style):
  * 1. Items → gravestone (500 ticks = 5 minutes)
  * 2. Gravestone expires → ground items (200 ticks = 2 minutes)
- * 3. Ground items despawn via GroundItemManager tick processing
+ * 3. Ground items despawn via GroundItemSystem tick processing
  *
  * TICK-BASED TIMING (OSRS-accurate):
  * - Gravestone expiration tracked in ticks
@@ -16,9 +16,8 @@
 
 import type { World } from "../../../core/World";
 import type { InventoryItem } from "../../../types/core/core";
-import type { GroundItemManager } from "./GroundItemManager";
+import type { GroundItemSystem } from "../economy/GroundItemSystem";
 import type { DeathStateManager } from "./DeathStateManager";
-import type { LootSystem } from "../economy/LootSystem";
 import type { EntityManager } from "..";
 import { ZoneType } from "../../../types/death";
 import { EntityType, InteractionType } from "../../../types/entities";
@@ -46,7 +45,7 @@ export class SafeAreaDeathHandler {
 
   constructor(
     private world: World,
-    private groundItemManager: GroundItemManager,
+    private groundItemManager: GroundItemSystem,
     private deathStateManager: DeathStateManager,
   ) {}
 
