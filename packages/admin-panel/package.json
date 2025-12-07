@@ -10,6 +10,7 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@hyperscape/shared": "workspace:*",
     "@monaco-editor/react": "^4.7.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.4.2",
@@ -23,9 +24,9 @@
     "pg": "^8.16.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "recharts": "^3.5.1",
     "tailwind-merge": "^3.3.1",
-    "three": "^0.180.0",
-    "@hyperscape/shared": "workspace:*"
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",

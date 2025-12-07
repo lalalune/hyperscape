@@ -2,8 +2,9 @@
 
 import { useTheme } from "@/components/providers/theme-provider";
 import { cn } from "@/lib/utils";
-import { Sun, Moon, Search, Bell } from "lucide-react";
+import { Sun, Moon, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { NotificationsPopover } from "@/components/layout/notifications-popover";
 
 interface TopBarProps {
   sidebarCollapsed?: boolean;
@@ -34,16 +35,7 @@ export function TopBar({ sidebarCollapsed }: TopBarProps) {
       {/* Actions */}
       <div className="flex items-center gap-4">
         {/* Notifications */}
-        <button
-          className={cn(
-            "p-2 rounded-md transition-colors",
-            "hover:bg-(--bg-hover) text-(--text-secondary)",
-            "relative",
-          )}
-        >
-          <Bell size={20} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-(--accent-primary) rounded-full" />
-        </button>
+        <NotificationsPopover />
 
         {/* Theme Toggle */}
         <button

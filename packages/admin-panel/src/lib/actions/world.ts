@@ -79,12 +79,13 @@ export async function getWorldState(): Promise<WorldState> {
 
       // Add NPCs defined in this area
       if (area.npcs) {
-        area.npcs.forEach((npcRef: NPCLocation) => {
+        area.npcs.forEach((npcRef: NPCLocation, idx: number) => {
           // Look up full NPC details from DataManager to get correct name/type
           const manifestNPC = dataManager.getNPC(npcRef.id);
 
           entities.push({
-            id: `npc_${npcRef.id}_${npcRef.position.x}_${npcRef.position.z}`,
+            // Ensure uniqueness by including area ID and index
+            id: `npc_${area.id}_${idx}_${npcRef.id}`,
             type: "npc",
             name: manifestNPC?.name || npcRef.id, // Use manifest name if available
             position: npcRef.position,
