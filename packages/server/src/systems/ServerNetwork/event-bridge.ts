@@ -21,6 +21,7 @@ import type { World } from "@hyperscape/shared";
 import { EventType, ALL_WORLD_AREAS } from "@hyperscape/shared";
 import type { BroadcastManager } from "./broadcast";
 import { BankRepository } from "../../database/repositories/BankRepository";
+import { PlayerRepository } from "../../database/repositories/PlayerRepository";
 import type { StoreSystem } from "@hyperscape/shared";
 import type pg from "pg";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -216,6 +217,61 @@ export class EventBridge {
         const data = payload as { playerId?: string; skills?: unknown };
 
         if (data?.playerId) {
+          // Persist skills to database (Async check)
+          if (data.skills) {
+            const db = this.getDatabase();
+            if (db) {
+              const playerRepo = new PlayerRepository(db.drizzle, db.pool);
+              const skills = data.skills as Record<
+                string,
+                { level: number; xp: number }
+              >;
+
+              // Map skills to DB columns using specific keys
+              const updateData: Record<string, unknown> = {};
+              const skillNames = [
+                "attack",
+                "strength",
+                "defense",
+                "ranged",
+                "magic",
+                "woodcutting",
+                "mining",
+                "fishing",
+                "cooking",
+                "firemaking",
+                "smithing",
+                "constitution",
+              ];
+
+              let hasData = false;
+              for (const skill of skillNames) {
+                if (skills[skill]) {
+                  updateData[`${skill}Level`] = skills[skill].level;
+                  updateData[`${skill}Xp`] = skills[skill].xp;
+                  hasData = true;
+                }
+              }
+
+              if (hasData) {
+                // Fire and forget save
+                playerRepo
+                  .savePlayerAsync(data.playerId, updateData)
+                  .then(() =>
+                    console.log(
+                      `[EventBridge] Persisted skills for ${data.playerId}`,
+                    ),
+                  )
+                  .catch((err) =>
+                    console.error(
+                      `[EventBridge] Failed to persist skills for ${data.playerId}:`,
+                      err,
+                    ),
+                  );
+              }
+            }
+          }
+
           // Send to specific player
           this.broadcast.sendToPlayer(data.playerId, "skillsUpdated", data);
         } else {
@@ -657,7 +713,7 @@ export class EventBridge {
     const entity = this.world.entities?.get?.(entityId);
     if (entity) {
       // Try to get npcId from various possible locations on the entity
-      const entityWithConfig = entity as {
+      const entityWithConfig = entity as unknown as {
         config?: { npcId?: string };
         data?: { npcId?: string };
         npcId?: string;

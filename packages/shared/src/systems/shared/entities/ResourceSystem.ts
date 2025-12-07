@@ -221,6 +221,10 @@ export class ResourceSystem extends SystemBase {
       }
 
       entity.markNetworkDirty?.();
+    } else {
+      console.warn(
+        `[ResourceSystem] ⚠️ setGatheringEmote: Player ${playerId} not found! World has player? ${!!this.world.getPlayer}`,
+      );
     }
   }
 
@@ -612,14 +616,24 @@ export class ResourceSystem extends SystemBase {
             ? "herb_patch"
             : "tree";
 
+    console.log(
+      `[ResourceSystem] createResourceFromSpawnPoint - spawnPoint.type: "${type}", mapped to resourceType: "${resourceType}"`,
+    );
+
     // Build variant key for manifest lookup
-    // e.g., "tree_normal", "tree_oak", "fishing_spot_normal"
-    const variantKey =
-      resourceType === "tree"
-        ? spawnPoint.subType
-          ? `tree_${spawnPoint.subType}`
-          : "tree_normal"
-        : `${resourceType}_normal`;
+    // e.g., "tree_normal", "tree_oak", "ore_copper", "ore_tin"
+    let variantKey: string;
+    if (resourceType === "tree") {
+      variantKey = spawnPoint.subType
+        ? `tree_${spawnPoint.subType}`
+        : "tree_normal";
+    } else if (resourceType === "ore") {
+      variantKey = spawnPoint.subType
+        ? `ore_${spawnPoint.subType}`
+        : "ore_copper"; // Default to copper if no subType
+    } else {
+      variantKey = `${resourceType}_normal`;
+    }
 
     // Get manifest data - fail fast if not found
     const manifestData = getExternalResource(variantKey);
@@ -648,6 +662,9 @@ export class ResourceSystem extends SystemBase {
       lastDepleted: 0,
       drops: this.getDropsFromManifest(variantKey),
     };
+
+    // Store variant key for gathering session logic
+    this.resourceVariants.set(createResourceID(resource.id), variantKey);
 
     return resource;
   }
@@ -769,6 +786,10 @@ export class ResourceSystem extends SystemBase {
       resource.levelRequired !== undefined &&
       skillLevel < resource.levelRequired
     ) {
+      console.log(
+        `[ResourceSystem] Level validation failed: Resource ${resource.id} requires ${resource.levelRequired}, player has ${skillLevel}`,
+      );
+
       this.sendChat(
         data.playerId,
         `You need level ${resource.levelRequired} ${resource.skillRequired} to use this resource.`,
@@ -784,12 +805,18 @@ export class ResourceSystem extends SystemBase {
     // Tool check (RuneScape-style: any hatchet/pickaxe qualifies; tier affects speed)
     if (resource.skillRequired === "woodcutting") {
       const axeInfo = this.getBestAxeTier(data.playerId);
+      console.log(
+        `[ResourceSystem] Woodcutting check for ${data.playerId}: axe=${axeInfo?.id}, req=${axeInfo?.levelRequired}, playerLvl=${skillLevel}`,
+      );
+
       if (!axeInfo) {
+        console.log(`[ResourceSystem] No axe found for ${data.playerId}`);
         this.sendChat(data.playerId, `You need an axe to chop this tree.`);
         this.emitTypedEvent(EventType.UI_MESSAGE, {
           playerId: data.playerId,
           message: `You need an axe to chop this tree.`,
           type: "error",
+          position: resource.position,
         });
         return;
       }
@@ -798,21 +825,31 @@ export class ResourceSystem extends SystemBase {
       const cached = this.playerSkills.get(data.playerId);
       const wcLevel = cached?.[resource.skillRequired]?.level ?? 1;
       if (wcLevel < axeInfo.levelRequired) {
+        console.log(
+          `[ResourceSystem] Axe level too low: player=${wcLevel}, axe=${axeInfo.levelRequired}`,
+        );
         this.emitTypedEvent(EventType.UI_MESSAGE, {
           playerId: data.playerId,
           message: `You need level ${axeInfo.levelRequired} woodcutting to use this axe.`,
           type: "error",
+          position: resource.position,
         });
         return;
       }
     } else if (resource.skillRequired === "mining") {
       const pickaxeInfo = this.getBestPickaxeTier(data.playerId);
+      console.log(
+        `[ResourceSystem] Mining check for ${data.playerId}: pickaxe=${pickaxeInfo?.id}, req=${pickaxeInfo?.levelRequired}, playerLvl=${skillLevel}`,
+      );
+
       if (!pickaxeInfo) {
+        console.log(`[ResourceSystem] No pickaxe found for ${data.playerId}`);
         this.sendChat(data.playerId, `You need a pickaxe to mine this rock.`);
         this.emitTypedEvent(EventType.UI_MESSAGE, {
           playerId: data.playerId,
           message: `You need a pickaxe to mine this rock.`,
           type: "error",
+          position: resource.position,
         });
         return;
       }
@@ -821,10 +858,14 @@ export class ResourceSystem extends SystemBase {
       const cached = this.playerSkills.get(data.playerId);
       const miningLevel = cached?.[resource.skillRequired]?.level ?? 1;
       if (miningLevel < pickaxeInfo.levelRequired) {
+        console.log(
+          `[ResourceSystem] Pickaxe level too low: player=${miningLevel}, pick=${pickaxeInfo.levelRequired}`,
+        );
         this.emitTypedEvent(EventType.UI_MESSAGE, {
           playerId: data.playerId,
           message: `You need level ${pickaxeInfo.levelRequired} mining to use this pickaxe.`,
           type: "error",
+          position: resource.position,
         });
         return;
       }
@@ -856,8 +897,17 @@ export class ResourceSystem extends SystemBase {
     const variant =
       this.resourceVariants.get(sessionResourceId) || "tree_normal";
     const tuned = this.getVariantTuning(variant);
-    const axe = this.getBestAxeTier(data.playerId);
-    const toolMultiplier = axe ? axe.cycleMultiplier : 1.0;
+    // Determine tool multiplier based on skill
+    let toolMultiplier = 1.0;
+
+    if (resource.skillRequired === "woodcutting") {
+      const axe = this.getBestAxeTier(data.playerId);
+      if (axe) toolMultiplier = axe.cycleMultiplier;
+    } else if (resource.skillRequired === "mining") {
+      const pickaxe = this.getBestPickaxeTier(data.playerId);
+      if (pickaxe) toolMultiplier = pickaxe.cycleMultiplier;
+    }
+
     const cycleTickInterval = this.computeCycleTicks(
       skillLevel,
       tuned,
@@ -877,7 +927,13 @@ export class ResourceSystem extends SystemBase {
 
     // Set gathering emote for the player
     if (resource.skillRequired === "woodcutting") {
-      this.setGatheringEmote(data.playerId, "chopping");
+      this.setGatheringEmote(playerId, "chopping");
+    } else if (resource.skillRequired === "mining") {
+      this.setGatheringEmote(playerId, "mining");
+    } else {
+      console.warn(
+        `[ResourceSystem] No emote mapped for skill: ${resource.skillRequired}`,
+      );
     }
 
     // Emit gathering started event with tick timing info for client progress bar
@@ -1060,6 +1116,10 @@ export class ResourceSystem extends SystemBase {
 
       if (isSuccessful) {
         session.successes++;
+
+        console.log(
+          `[ResourceSystem] Dropping ${yieldData.itemId} from resource variant: ${variant}`,
+        );
 
         // Add item to inventory
         this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {

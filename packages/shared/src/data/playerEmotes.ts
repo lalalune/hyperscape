@@ -57,7 +57,7 @@ export const Emotes = {
   /** Death animation */
   DEATH: "asset://emotes/emote-death.glb",
   /** Mining animation (used when mining rocks) */
-  MINING: "asset://emotes/emote_mining_heavy.glb",
+  MINING: "asset://emotes/emote_mining.glb",
 };
 
 /** Array of all emote URLs (for preloading) */

@@ -150,7 +150,7 @@ function PrayerCard({
       <div className="flex items-center justify-between gap-0.5">
         {/* Icon - Left */}
         <div
-          className="flex items-center justify-center rounded text-xs w-5 h-5 sm:text-sm sm:w-6 sm:h-6 flex-shrink-0"
+          className="flex items-center justify-center rounded text-xs w-5 h-5 sm:text-sm sm:w-6 sm:h-6 shrink-0"
           style={{
             background: prayer.active
               ? "rgba(34, 197, 94, 0.15)"
@@ -176,7 +176,7 @@ function PrayerCard({
         </div>
 
         {/* Level - Right */}
-        <div className="flex items-center gap-0.5 flex-shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
           <div
             className="text-[10px] font-semibold"
             style={{ color: "rgba(242, 208, 138, 0.8)" }}
@@ -199,7 +199,7 @@ function PrayerCard({
       {/* Tooltip */}
       {showTooltip && (
         <div
-          className="absolute z-[200] border rounded pointer-events-none p-1.5"
+          className="absolute z-200 border rounded pointer-events-none p-1.5"
           style={{
             bottom: "110%",
             left: "50%",
@@ -335,6 +335,13 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
       icon: "🍳",
       level: s?.cooking?.level || 1,
       xp: s?.cooking?.xp || 0,
+    },
+    {
+      key: "mining",
+      label: "Mining",
+      icon: "⛏️",
+      level: s?.mining?.level || 1,
+      xp: s?.mining?.xp || 0,
     },
   ];
 
@@ -713,7 +720,7 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
 
             return (
               <div
-                className="fixed border rounded pointer-events-none z-[10000] p-2"
+                className="fixed border rounded pointer-events-none z-10000 p-2"
                 style={{
                   left,
                   top,

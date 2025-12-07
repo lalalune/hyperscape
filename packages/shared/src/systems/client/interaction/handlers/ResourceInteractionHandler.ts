@@ -45,6 +45,9 @@ export class ResourceInteractionHandler extends BaseInteractionHandler {
   getContextMenuActions(target: RaycastTarget): ContextMenuAction[] {
     const actions: ContextMenuAction[] = [];
     const resourceType = this.getResourceType(target);
+    console.log(
+      `[ResourceInteractionHandler] getContextMenuActions - resourceType: "${resourceType}", target.name: "${target.name}"`,
+    );
 
     // Primary gather action based on resource type
     if (resourceType.includes("tree")) {
@@ -127,7 +130,36 @@ export class ResourceInteractionHandler extends BaseInteractionHandler {
 
   private getResourceType(target: RaycastTarget): string {
     const entity = target.entity as unknown as ResourceEntity;
-    return entity.config?.resourceType || "tree";
+
+    // Try entity.config first (from ResourceEntity)
+    if (entity.config?.resourceType) {
+      return entity.config.resourceType;
+    }
+
+    // Try mesh.userData (set during createMesh)
+    const object = (target as any).object as
+      | { userData?: { resourceType?: string } }
+      | undefined;
+    if (object?.userData?.resourceType) {
+      return object.userData.resourceType;
+    }
+
+    // Try target name to infer type
+    const name = target.name?.toLowerCase() || "";
+    if (
+      name.includes("ore") ||
+      name.includes("rock") ||
+      name.includes("copper") ||
+      name.includes("tin") ||
+      name.includes("iron")
+    ) {
+      return "ore";
+    }
+    if (name.includes("fish")) {
+      return "fishing_spot";
+    }
+
+    return "tree"; // Default for trees
   }
 
   private getActionForResourceType(resourceType: string): string {
