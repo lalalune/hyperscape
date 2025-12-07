@@ -44,7 +44,7 @@ export interface DeathLock {
 /**
  * Ground item spawn options
  * Config accepts milliseconds for backwards compatibility,
- * internally converted to ticks by GroundItemManager
+ * internally converted to ticks by GroundItemSystem
  */
 export interface GroundItemOptions {
   despawnTime: number; // Milliseconds until despawn (converted to ticks internally)
@@ -55,7 +55,7 @@ export interface GroundItemOptions {
 }
 
 /**
- * Ground item data tracked by GroundItemManager (TICK-BASED)
+ * Ground item data tracked by GroundItemSystem (TICK-BASED)
  * Uses tick numbers for OSRS-accurate despawn timing
  */
 export interface GroundItemData {

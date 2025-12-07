@@ -4,7 +4,7 @@
  * Handles player death in safe zones (RuneScape-style):
  * 1. Items → gravestone (500 ticks = 5 minutes)
  * 2. Gravestone expires → ground items (200 ticks = 2 minutes)
- * 3. Ground items despawn via GroundItemManager tick processing
+ * 3. Ground items despawn via GroundItemSystem tick processing
  *
  * TICK-BASED TIMING (OSRS-accurate):
  * - Gravestone expiration tracked in ticks

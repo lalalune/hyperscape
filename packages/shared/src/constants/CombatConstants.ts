@@ -44,7 +44,8 @@ export const COMBAT_CONSTANTS = {
   // Death/Loot timing in ticks (OSRS-style)
   // @see https://oldschool.runescape.wiki/w/Gravestone
   GRAVESTONE_TICKS: 500, // 5 minutes (300 seconds / 0.6)
-  GROUND_ITEM_DESPAWN_TICKS: 200, // 2 minutes (120 seconds / 0.6)
+  GROUND_ITEM_DESPAWN_TICKS: 200, // 2 minutes (120 seconds / 0.6) - tradeable items
+  UNTRADEABLE_DESPAWN_TICKS: 300, // 3 minutes (180 seconds / 0.6) - untradeable items
   LOOT_PROTECTION_TICKS: 100, // 1 minute (60 seconds / 0.6) - killer exclusivity
   CORPSE_DESPAWN_TICKS: 200, // 2 minutes - mob corpse despawn
 
