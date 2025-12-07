@@ -1,11 +1,80 @@
 /**
  * Inventory Handler
  *
- * Handles item pickup and drop actions from clients
+ * Handles item pickup and drop actions from clients.
+ * All inputs are validated before processing.
+ * Includes rate limiting to prevent spam attacks.
  */
 
 import type { ServerSocket } from "../../../shared/types";
-import { EventType, World } from "@hyperscape/shared";
+import {
+  EventType,
+  World,
+  COMBAT_CONSTANTS,
+  INPUT_LIMITS,
+} from "@hyperscape/shared";
+import { isValidItemId } from "../services/InputValidation";
+
+// Regex to detect control characters (security)
+const CONTROL_CHAR_REGEX = /[\x00-\x1f]/;
+
+// Rate limiting for pickup requests
+const MAX_PICKUPS_PER_SECOND = 5;
+const pickupRateLimiter = new Map<
+  string,
+  { count: number; resetTime: number }
+>();
+
+/**
+ * Check and update rate limit for a player
+ * @returns true if request is allowed, false if rate limited
+ */
+function checkPickupRateLimit(playerId: string): boolean {
+  const now = Date.now();
+  const playerLimit = pickupRateLimiter.get(playerId);
+
+  if (playerLimit) {
+    if (now < playerLimit.resetTime) {
+      if (playerLimit.count >= MAX_PICKUPS_PER_SECOND) {
+        // Rate limited - reject request
+        return false;
+      }
+      playerLimit.count++;
+    } else {
+      // Reset window
+      playerLimit.count = 1;
+      playerLimit.resetTime = now + 1000;
+    }
+  } else {
+    pickupRateLimiter.set(playerId, { count: 1, resetTime: now + 1000 });
+  }
+
+  return true;
+}
+
+// Clean up stale rate limit entries periodically (every 60 seconds)
+setInterval(() => {
+  const now = Date.now();
+  for (const [playerId, limit] of pickupRateLimiter.entries()) {
+    if (now > limit.resetTime + 60000) {
+      // Entry is more than 60 seconds stale
+      pickupRateLimiter.delete(playerId);
+    }
+  }
+}, 60000);
+
+/**
+ * Validate entity ID for ground items
+ * Similar to itemId validation but for world entity IDs
+ */
+function isValidEntityId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 128 && // Entity IDs can be longer (e.g., "ground_item_mob_123")
+    !CONTROL_CHAR_REGEX.test(value)
+  );
+}
 
 export function handlePickupItem(
   socket: ServerSocket,
@@ -18,14 +87,26 @@ export function handlePickupItem(
     return;
   }
 
-  const payload = data as { itemId?: string; entityId?: string };
+  // Rate limit check - prevent spam attacks
+  if (!checkPickupRateLimit(playerEntity.id)) {
+    // Rate limited - silently ignore (don't log to prevent log spam)
+    return;
+  }
+
+  // Validate payload structure
+  if (!data || typeof data !== "object") {
+    console.warn("[Inventory] handlePickupItem: invalid payload");
+    return;
+  }
+
+  const payload = data as Record<string, unknown>;
 
   // The client sends the entity ID as 'itemId' in the payload
-  // entityId is the world entity ID (required), itemId is the item definition (optional)
-  const entityId = payload.itemId; // Client sends entity ID as 'itemId'
+  const entityId = payload.itemId;
 
-  if (!entityId) {
-    console.warn("[Inventory] handlePickupItem: no entityId in payload");
+  // Validate entityId
+  if (!isValidEntityId(entityId)) {
+    console.warn("[Inventory] handlePickupItem: invalid entityId");
     return;
   }
 
@@ -37,7 +118,8 @@ export function handlePickupItem(
         Math.pow(playerEntity.position.z - itemEntity.position.z, 2),
     );
 
-    const pickupRange = 2.5; // Slightly larger than client range to account for movement
+    // Use constant for pickup range (slightly larger than client to account for movement)
+    const pickupRange = COMBAT_CONSTANTS.PICKUP_RANGE ?? 2.5;
     if (distance > pickupRange) {
       console.warn(
         `[Inventory] Player ${playerEntity.id} tried to pickup item ${entityId} from too far away (${distance.toFixed(2)}m > ${pickupRange}m)`,
@@ -64,23 +146,50 @@ export function handleDropItem(
     console.warn("[Inventory] handleDropItem: no player entity for socket");
     return;
   }
-  const payload = data as {
-    itemId?: string;
-    slot?: number;
-    quantity?: number;
-  };
-  if (!payload?.itemId) {
-    console.warn("[Inventory] handleDropItem: missing itemId");
+
+  // Validate payload structure
+  if (!data || typeof data !== "object") {
+    console.warn("[Inventory] handleDropItem: invalid payload");
     return;
   }
-  const quantity = Math.max(1, Number(payload.quantity) || 1);
-  // Basic sanity: clamp quantity to 1000 to avoid abuse
-  const q = Math.min(quantity, 1000);
+
+  const payload = data as Record<string, unknown>;
+
+  // Validate itemId
+  if (!isValidItemId(payload.itemId)) {
+    console.warn("[Inventory] handleDropItem: invalid itemId");
+    return;
+  }
+
+  // Validate and clamp quantity
+  let quantity = 1;
+  if (payload.quantity !== undefined) {
+    if (
+      typeof payload.quantity !== "number" ||
+      !Number.isInteger(payload.quantity)
+    ) {
+      console.warn("[Inventory] handleDropItem: invalid quantity type");
+      return;
+    }
+    quantity = Math.max(
+      1,
+      Math.min(payload.quantity, INPUT_LIMITS.MAX_QUANTITY),
+    );
+  }
+
+  // Validate slot if provided
+  const slot =
+    typeof payload.slot === "number" &&
+    Number.isInteger(payload.slot) &&
+    payload.slot >= 0
+      ? payload.slot
+      : undefined;
+
   world.emit(EventType.ITEM_DROP, {
     playerId: playerEntity.id,
     itemId: payload.itemId,
-    quantity: q,
-    slot: payload.slot,
+    quantity,
+    slot,
   });
 }
 
@@ -89,50 +198,60 @@ export function handleEquipItem(
   data: unknown,
   world: World,
 ): void {
-  console.log("[ServerNetwork] 🔥 handleEquipItem CALLED with data:", data);
-
   const playerEntity = socket.player;
   if (!playerEntity) {
-    console.error(
-      "[Inventory] ❌ handleEquipItem: no player entity for socket",
-    );
+    console.warn("[Inventory] handleEquipItem: no player entity for socket");
     return;
   }
 
-  console.log("[ServerNetwork] ✅ Player entity found:", playerEntity.id);
-
-  const payload = data as {
-    playerId?: string;
-    itemId?: string | number;
-    inventorySlot?: number;
-  };
-
-  if (!payload?.itemId) {
-    console.error(
-      "[Inventory] ❌ handleEquipItem: missing itemId in payload:",
-      payload,
-    );
+  // Validate payload structure
+  if (!data || typeof data !== "object") {
+    console.warn("[Inventory] handleEquipItem: invalid payload");
     return;
   }
 
-  console.log(
-    "[ServerNetwork] 📥 handleEquipItem SUCCESS - emitting INVENTORY_ITEM_RIGHT_CLICK:",
-    {
-      playerId: playerEntity.id,
-      itemId: payload.itemId,
-      inventorySlot: payload.inventorySlot,
-    },
-  );
+  const payload = data as Record<string, unknown>;
+
+  // itemId can be string or number (some systems use numeric IDs)
+  const itemId = payload.itemId;
+  if (
+    (typeof itemId !== "string" && typeof itemId !== "number") ||
+    (typeof itemId === "string" && !isValidItemId(itemId))
+  ) {
+    console.warn("[Inventory] handleEquipItem: invalid itemId");
+    return;
+  }
+
+  // Validate inventorySlot if provided
+  const inventorySlot =
+    typeof payload.inventorySlot === "number" &&
+    Number.isInteger(payload.inventorySlot) &&
+    payload.inventorySlot >= 0
+      ? payload.inventorySlot
+      : undefined;
 
   // Emit event for EquipmentSystem to handle
   world.emit(EventType.INVENTORY_ITEM_RIGHT_CLICK, {
     playerId: playerEntity.id,
-    itemId: payload.itemId,
-    slot: payload.inventorySlot,
+    itemId,
+    slot: inventorySlot,
   });
-
-  console.log("[ServerNetwork] ✅ INVENTORY_ITEM_RIGHT_CLICK event emitted");
 }
+
+// Valid equipment slot names
+const VALID_EQUIPMENT_SLOTS = new Set([
+  "weapon",
+  "shield",
+  "head",
+  "body",
+  "legs",
+  "feet",
+  "hands",
+  "cape",
+  "neck",
+  "ring",
+  "ammo",
+]);
 
 export function handleUnequipItem(
   socket: ServerSocket,
@@ -145,24 +264,24 @@ export function handleUnequipItem(
     return;
   }
 
-  const payload = data as {
-    playerId?: string;
-    slot?: string;
-  };
-
-  if (!payload?.slot) {
-    console.warn("[Inventory] handleUnequipItem: missing slot");
+  // Validate payload structure
+  if (!data || typeof data !== "object") {
+    console.warn("[Inventory] handleUnequipItem: invalid payload");
     return;
   }
 
-  console.log("[ServerNetwork] 📥 handleUnequipItem received:", {
-    playerId: playerEntity.id,
-    slot: payload.slot,
-  });
+  const payload = data as Record<string, unknown>;
+
+  // Validate slot - must be a valid equipment slot name
+  const slot = payload.slot;
+  if (typeof slot !== "string" || !VALID_EQUIPMENT_SLOTS.has(slot)) {
+    console.warn("[Inventory] handleUnequipItem: invalid slot");
+    return;
+  }
 
   // Emit event for EquipmentSystem to handle
   world.emit(EventType.EQUIPMENT_UNEQUIP, {
     playerId: playerEntity.id,
-    slot: payload.slot,
+    slot,
   });
 }

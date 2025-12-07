@@ -1,14 +1,18 @@
 /**
- * GroundItemManager (TICK-BASED)
+ * GroundItemSystem - Shared Ground Item Manager
  *
- * Manages lifecycle of ALL ground items (player death + mob loot).
- * Extracted from LootSystem for DRY principle.
- * Handles spawning, tick-based despawn, and cleanup.
+ * SystemBase wrapper around ground item functionality.
+ * Registered as a world system so all systems share the same instance.
  *
- * TICK-BASED TIMING (OSRS-accurate):
- * - Despawn timers tracked in ticks, not milliseconds
- * - processTick() called once per tick by TickSystem
- * - Config accepts ms for backwards compatibility, converts to ticks internally
+ * This replaces multiple GroundItemManager instances (LootSystem, PlayerDeathSystem)
+ * with a single shared system, eliminating the need for ID prefixes.
+ *
+ * Features:
+ * - OSRS-style tile-based piling
+ * - Stackable item merging
+ * - Tick-based despawn timers
+ * - Loot protection
+ * - O(1) tile lookups via spatial indexing
  *
  * @see https://oldschool.runescape.wiki/w/Dropped_items
  */
@@ -34,24 +38,33 @@ import { getItem } from "../../../data/items";
 import { msToTicks, ticksToMs } from "../../../utils/game/CombatCalculations";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import { worldToTile, tileToWorld } from "../movement/TileSystem";
+import { SystemBase } from "..";
 
-export class GroundItemManager {
+export class GroundItemSystem extends SystemBase {
   private groundItems = new Map<string, GroundItemData>();
   private groundItemPiles = new Map<string, GroundItemPileData>();
   private nextItemId = 1;
-  private idPrefix: string;
+  private entityManager: EntityManager | null = null;
 
-  /**
-   * @param world - World instance
-   * @param entityManager - EntityManager for spawning entities
-   * @param idPrefix - Optional prefix for entity IDs to prevent collisions between instances
-   */
-  constructor(
-    private world: World,
-    private entityManager: EntityManager,
-    idPrefix: string = "",
-  ) {
-    this.idPrefix = idPrefix;
+  constructor(world: World) {
+    super(world, {
+      name: "ground-items",
+      dependencies: {
+        required: ["entity-manager"],
+        optional: [],
+      },
+      autoCleanup: true,
+    });
+  }
+
+  async init(): Promise<void> {
+    this.entityManager =
+      this.world.getSystem<EntityManager>("entity-manager") ?? null;
+    if (!this.entityManager) {
+      console.error(
+        "[GroundItemSystem] EntityManager not found - ground items disabled",
+      );
+    }
   }
 
   /**
@@ -62,7 +75,7 @@ export class GroundItemManager {
   }
 
   /**
-   * Get all items at a specific tile
+   * Get all items at a specific tile (O(1) lookup)
    */
   getItemsAtTile(tile: { x: number; z: number }): GroundItemData[] {
     const tileKey = this.getTileKey(tile);
@@ -104,18 +117,22 @@ export class GroundItemManager {
     // CRITICAL: Server authority check - prevent client from spawning arbitrary items
     if (!this.world.isServer) {
       console.error(
-        `[GroundItemManager] ⚠️  Client attempted server-only ground item spawn - BLOCKED`,
+        `[GroundItemSystem] ⚠️  Client attempted server-only ground item spawn - BLOCKED`,
       );
+      return "";
+    }
+
+    if (!this.entityManager) {
+      console.error("[GroundItemSystem] EntityManager not available");
       return "";
     }
 
     const item = getItem(itemId);
     if (!item) {
-      console.warn(`[GroundItemManager] Unknown item: ${itemId}`);
+      console.warn(`[GroundItemSystem] Unknown item: ${itemId}`);
       return "";
     }
 
-    const now = Date.now();
     const currentTick = this.world.currentTick;
 
     // Convert ms config to ticks
@@ -171,17 +188,15 @@ export class GroundItemManager {
         }
 
         console.log(
-          `[GroundItemManager] Merged stackable item ${itemId} x${quantity} into existing stack (now x${newQuantity}) at tile (${tile.x}, ${tile.z})`,
+          `[GroundItemSystem] Merged stackable item ${itemId} x${quantity} into existing stack (now x${newQuantity}) at tile (${tile.x}, ${tile.z})`,
         );
 
         return existingStackItem.entityId;
       }
     }
 
-    // Create new item entity (use prefix to prevent ID collisions between instances)
-    const dropId = this.idPrefix
-      ? `ground_item_${this.idPrefix}_${this.nextItemId++}`
-      : `ground_item_${this.nextItemId++}`;
+    // Create new item entity (single instance, no prefix needed)
+    const dropId = `ground_item_${this.nextItemId++}`;
 
     const itemEntity = await this.entityManager.spawnEntity({
       id: dropId,
@@ -231,7 +246,7 @@ export class GroundItemManager {
     } as ItemEntityConfig);
 
     if (!itemEntity) {
-      console.error(`[GroundItemManager] Failed to spawn item: ${itemId}`);
+      console.error(`[GroundItemSystem] Failed to spawn item: ${itemId}`);
       return "";
     }
 
@@ -245,7 +260,7 @@ export class GroundItemManager {
       droppedBy: options.droppedBy,
       lootProtectionTick:
         lootProtectionTicks > 0 ? currentTick + lootProtectionTicks : undefined,
-      spawnedAt: now,
+      spawnedAt: Date.now(),
     };
 
     this.groundItems.set(dropId, groundItemData);
@@ -270,7 +285,7 @@ export class GroundItemManager {
     }
 
     console.log(
-      `[GroundItemManager] Spawned ground item ${dropId} (${itemId} x${quantity}) at tile (${tile.x}, ${tile.z})`,
+      `[GroundItemSystem] Spawned ground item ${dropId} (${itemId} x${quantity}) at tile (${tile.x}, ${tile.z})`,
       {
         despawnTick: groundItemData.despawnTick,
         despawnIn: `${despawnTicks} ticks (${(ticksToMs(despawnTicks) / 1000).toFixed(1)}s)`,
@@ -293,7 +308,7 @@ export class GroundItemManager {
     // CRITICAL: Server authority check - prevent client from mass-spawning items
     if (!this.world.isServer) {
       console.error(
-        `[GroundItemManager] ⚠️  Client attempted server-only ground items spawn - BLOCKED`,
+        `[GroundItemSystem] ⚠️  Client attempted server-only ground items spawn - BLOCKED`,
       );
       return [];
     }
@@ -329,7 +344,7 @@ export class GroundItemManager {
     }
 
     console.log(
-      `[GroundItemManager] Spawned ${entityIds.length} ground items at (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)})`,
+      `[GroundItemSystem] Spawned ${entityIds.length} ground items at (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)})`,
     );
 
     return entityIds;
@@ -368,14 +383,14 @@ export class GroundItemManager {
       (itemData.despawnTick - COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS);
 
     console.log(
-      `[GroundItemManager] Item ${itemId} (${itemData.itemId}) despawning after ${ticksExisted} ticks (${(ticksToMs(ticksExisted) / 1000).toFixed(1)}s)`,
+      `[GroundItemSystem] Item ${itemId} (${itemData.itemId}) despawning after ${ticksExisted} ticks (${(ticksToMs(ticksExisted) / 1000).toFixed(1)}s)`,
     );
 
     // Remove from world
     this.removeGroundItem(itemId);
 
     // Emit event
-    this.world.emit(EventType.ITEM_DESPAWNED, {
+    this.emitTypedEvent(EventType.ITEM_DESPAWNED, {
       itemId: itemId,
       itemType: itemData.itemId,
     });
@@ -384,41 +399,47 @@ export class GroundItemManager {
   /**
    * Remove ground item immediately
    * Also updates pile to show next item if applicable
+   * Handles both tracked items (spawned via GroundItemSystem) and untracked items
    */
-  removeGroundItem(itemId: string): void {
+  removeGroundItem(itemId: string): boolean {
     const itemData = this.groundItems.get(itemId);
-    if (!itemData) return;
 
-    // Find the pile this item belongs to
-    const tile = worldToTile(itemData.position.x, itemData.position.z);
-    const tileKey = this.getTileKey(tile);
-    const pile = this.groundItemPiles.get(tileKey);
+    if (itemData) {
+      // Item was tracked - handle pile management
+      const tile = worldToTile(itemData.position.x, itemData.position.z);
+      const tileKey = this.getTileKey(tile);
+      const pile = this.groundItemPiles.get(tileKey);
 
-    if (pile) {
-      // Remove item from pile
-      const itemIndex = pile.items.findIndex((i) => i.entityId === itemId);
-      if (itemIndex !== -1) {
-        pile.items.splice(itemIndex, 1);
+      if (pile) {
+        // Remove item from pile
+        const itemIndex = pile.items.findIndex((i) => i.entityId === itemId);
+        if (itemIndex !== -1) {
+          pile.items.splice(itemIndex, 1);
+        }
+
+        // If this was the top item, show the next item
+        if (pile.topItemEntityId === itemId && pile.items.length > 0) {
+          const nextItem = pile.items[0];
+          pile.topItemEntityId = nextItem.entityId;
+          this.setItemVisibility(nextItem.entityId, true);
+        }
+
+        // If pile is now empty, remove it
+        if (pile.items.length === 0) {
+          this.groundItemPiles.delete(tileKey);
+        }
       }
 
-      // If this was the top item, show the next item
-      if (pile.topItemEntityId === itemId && pile.items.length > 0) {
-        const nextItem = pile.items[0];
-        pile.topItemEntityId = nextItem.entityId;
-        this.setItemVisibility(nextItem.entityId, true);
-      }
-
-      // If pile is now empty, remove it
-      if (pile.items.length === 0) {
-        this.groundItemPiles.delete(tileKey);
-      }
+      // Remove from tracking
+      this.groundItems.delete(itemId);
     }
 
-    // Destroy entity
-    this.entityManager.destroyEntity(itemId);
+    // Always destroy entity (handles both tracked and untracked items)
+    if (this.entityManager) {
+      return this.entityManager.destroyEntity(itemId);
+    }
 
-    // Remove from tracking
-    this.groundItems.delete(itemId);
+    return false;
   }
 
   /**
@@ -458,18 +479,6 @@ export class GroundItemManager {
   }
 
   /**
-   * Clean up all ground items
-   */
-  destroy(): void {
-    // Destroy all entities
-    for (const itemId of this.groundItems.keys()) {
-      this.entityManager.destroyEntity(itemId);
-    }
-    this.groundItems.clear();
-    this.groundItemPiles.clear();
-  }
-
-  /**
    * Check if item is still under loot protection (TICK-BASED)
    * @param itemId - Ground item entity ID
    * @param currentTick - Current server tick
@@ -479,6 +488,23 @@ export class GroundItemManager {
     const itemData = this.groundItems.get(itemId);
     if (!itemData || !itemData.lootProtectionTick) return false;
     return currentTick < itemData.lootProtectionTick;
+  }
+
+  /**
+   * Check if a player can pick up an item (considering loot protection)
+   */
+  canPickup(itemId: string, playerId: string, currentTick: number): boolean {
+    const itemData = this.groundItems.get(itemId);
+    if (!itemData) return false;
+
+    // If no loot protection, anyone can pick up
+    if (!itemData.lootProtectionTick) return true;
+
+    // If protection expired, anyone can pick up
+    if (currentTick >= itemData.lootProtectionTick) return true;
+
+    // Only the dropper can pick up during protection
+    return itemData.droppedBy === playerId;
   }
 
   /**
@@ -497,8 +523,23 @@ export class GroundItemManager {
    * Helper: Get item type string
    */
   private getItemTypeString(itemType: ItemType | string | undefined): string {
-    // ItemType enum values are already strings, so just return them
     if (typeof itemType === "string") return itemType;
     return "misc";
+  }
+
+  /**
+   * Clean up all ground items
+   */
+  destroy(): void {
+    // Destroy all entities
+    if (this.entityManager) {
+      for (const itemId of this.groundItems.keys()) {
+        this.entityManager.destroyEntity(itemId);
+      }
+    }
+    this.groundItems.clear();
+    this.groundItemPiles.clear();
+
+    super.destroy();
   }
 }

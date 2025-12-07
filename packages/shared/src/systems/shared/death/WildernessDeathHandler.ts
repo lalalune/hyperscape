@@ -16,7 +16,7 @@
 
 import type { World } from "../../../core/World";
 import type { InventoryItem } from "../../../types/core/core";
-import type { GroundItemManager } from "./GroundItemManager";
+import type { GroundItemSystem } from "../economy/GroundItemSystem";
 import type { DeathStateManager } from "./DeathStateManager";
 import { ZoneType } from "../../../types/death";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
@@ -33,7 +33,7 @@ export class WildernessDeathHandler {
 
   constructor(
     private world: World,
-    private groundItemManager: GroundItemManager,
+    private groundItemManager: GroundItemSystem,
     private deathStateManager: DeathStateManager,
   ) {}
 
