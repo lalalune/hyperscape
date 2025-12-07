@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Users,
@@ -15,7 +15,7 @@ import {
   ChevronRight,
   Settings,
   Activity,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -23,47 +23,48 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/users', label: 'Users', icon: Users },
-  { href: '/characters', label: 'Characters', icon: Swords },
-  { href: '/sessions', label: 'Sessions', icon: Activity },
-  { href: '/assets', label: 'Assets', icon: Box },
-  { href: '/world', label: 'World', icon: Globe },
-  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/users", label: "Users", icon: Users },
+  { href: "/characters", label: "Characters", icon: Swords },
+  { href: "/sessions", label: "Sessions", icon: Activity },
+  { href: "/assets", label: "Assets", icon: Box },
+  { href: "/world", label: "World", icon: Globe },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
-const bottomItems = [
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
+const bottomItems = [{ href: "/settings", label: "Settings", icon: Settings }];
 
-export function Sidebar({ collapsed: controlledCollapsed, onCollapsedChange }: SidebarProps) {
+export function Sidebar({
+  collapsed: controlledCollapsed,
+  onCollapsedChange,
+}: SidebarProps) {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const pathname = usePathname();
-  
+
   const collapsed = controlledCollapsed ?? internalCollapsed;
   const setCollapsed = onCollapsedChange ?? setInternalCollapsed;
 
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen transition-all duration-300',
-        'bg-[var(--bg-secondary)] border-r border-[var(--border-primary)]',
-        collapsed ? 'w-16' : 'w-64'
+        "fixed left-0 top-0 z-40 h-screen transition-all duration-300",
+        "bg-(--bg-secondary) border-r border-(--border-primary)",
+        collapsed ? "w-16" : "w-64",
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between px-4 border-b border-[var(--border-primary)]">
+      <div className="flex h-16 items-center justify-between px-4 border-b border-(--border-primary)">
         {!collapsed && (
-          <span className="text-lg font-bold text-[var(--accent-secondary)]">
+          <span className="text-lg font-bold text-(--accent-secondary)">
             HYPERSCAPE
           </span>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
-            'p-2 rounded-md transition-colors',
-            'hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]',
-            collapsed && 'mx-auto'
+            "p-2 rounded-md transition-colors",
+            "hover:bg-(--bg-hover) text-(--text-secondary)",
+            collapsed && "mx-auto",
           )}
         >
           {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
@@ -80,12 +81,12 @@ export function Sidebar({ collapsed: controlledCollapsed, onCollapsedChange }: S
                 <Link
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-150',
-                    'text-sm font-medium',
+                    "flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-150",
+                    "text-sm font-medium",
                     isActive
-                      ? 'bg-[var(--accent-primary)] text-white'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]',
-                    collapsed && 'justify-center'
+                      ? "bg-(--accent-primary) text-white"
+                      : "text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)",
+                    collapsed && "justify-center",
                   )}
                 >
                   <item.icon size={20} />
@@ -96,7 +97,7 @@ export function Sidebar({ collapsed: controlledCollapsed, onCollapsedChange }: S
           })}
         </ul>
 
-        <ul className="space-y-1 pt-2 border-t border-[var(--border-primary)]">
+        <ul className="space-y-1 pt-2 border-t border-(--border-primary)">
           {bottomItems.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -104,12 +105,12 @@ export function Sidebar({ collapsed: controlledCollapsed, onCollapsedChange }: S
                 <Link
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-150',
-                    'text-sm font-medium',
+                    "flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-150",
+                    "text-sm font-medium",
                     isActive
-                      ? 'bg-[var(--accent-primary)] text-white'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]',
-                    collapsed && 'justify-center'
+                      ? "bg-(--accent-primary) text-white"
+                      : "text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)",
+                    collapsed && "justify-center",
                   )}
                 >
                   <item.icon size={20} />

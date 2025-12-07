@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { forwardRef, InputHTMLAttributes } from 'react';
-import { cn } from '@/lib/utils';
+import { forwardRef, InputHTMLAttributes } from "react";
+import { cn } from "@/lib/utils";
 
-export interface SwitchProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
+export interface SwitchProps
+  extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
   checked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
 }
@@ -22,26 +23,26 @@ const Switch = forwardRef<HTMLInputElement, SwitchProps>(
         />
         <div
           className={cn(
-            'w-11 h-6 rounded-full transition-colors duration-150',
-            'bg-[var(--bg-tertiary)] border border-[var(--border-primary)]',
-            'peer-checked:bg-[var(--accent-primary)] peer-checked:border-[var(--accent-primary)]',
-            'peer-focus:ring-2 peer-focus:ring-[var(--accent-primary)] peer-focus:ring-offset-2 peer-focus:ring-offset-[var(--bg-primary)]',
-            'peer-disabled:opacity-50 peer-disabled:cursor-not-allowed',
-            className
+            "w-11 h-6 rounded-full transition-colors duration-150",
+            "bg-(--bg-tertiary) border border-(--border-primary)",
+            "peer-checked:bg-(--accent-primary) peer-checked:border-(--accent-primary)",
+            "peer-focus:ring-2 peer-focus:ring-(--accent-primary) peer-focus:ring-offset-2 peer-focus:ring-offset-(--bg-primary)",
+            "peer-disabled:opacity-50 peer-disabled:cursor-not-allowed",
+            className,
           )}
         >
           <div
             className={cn(
-              'absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform duration-150',
-              'bg-[var(--text-primary)]',
-              'peer-checked:translate-x-5'
+              "absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform duration-150",
+              "bg-(--text-primary)",
+              "peer-checked:translate-x-5",
             )}
           />
         </div>
       </label>
     );
-  }
+  },
 );
-Switch.displayName = 'Switch';
+Switch.displayName = "Switch";
 
 export { Switch };

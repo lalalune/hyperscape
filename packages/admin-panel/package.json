@@ -10,23 +10,37 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.2",
+    "@types/three": "^0.180.0",
+    "clsx": "^2.0.0",
+    "drizzle-orm": "^0.44.6",
+    "fs-extra": "^11.3.2",
+    "lucide-react": "^0.553.0",
+    "monaco-editor": "^0.55.1",
     "next": "15.3.3",
+    "pg": "^8.16.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "lucide-react": "^0.553.0",
-    "clsx": "^2.0.0",
     "tailwind-merge": "^3.3.1",
-    "drizzle-orm": "^0.44.6",
-    "pg": "^8.16.3"
+    "three": "^0.180.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.3",
+    "@next/eslint-plugin-next": "15.3.3",
     "@tailwindcss/postcss": "^4",
+    "@types/fs-extra": "^11.0.4",
     "@types/node": "^24",
     "@types/pg": "^8.15.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.3.3",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

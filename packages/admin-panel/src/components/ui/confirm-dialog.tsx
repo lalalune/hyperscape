@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { Dialog, DialogContent, DialogFooter } from './dialog';
-import { Button } from './button';
-import { AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogFooter } from "./dialog";
+import { Button } from "./button";
+import { AlertTriangle } from "lucide-react";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -12,18 +12,18 @@ interface ConfirmDialogProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: 'danger' | 'warning' | 'info';
+  variant?: "danger" | "warning" | "info";
 }
 
 export function ConfirmDialog({
   open,
   onClose,
   onConfirm,
-  title = 'Confirm Action',
+  title = "Confirm Action",
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  variant = 'warning',
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  variant = "warning",
 }: ConfirmDialogProps) {
   const handleConfirm = () => {
     onConfirm();
@@ -32,21 +32,21 @@ export function ConfirmDialog({
 
   const getVariantStyles = () => {
     switch (variant) {
-      case 'danger':
+      case "danger":
         return {
-          iconColor: 'text-[var(--color-error)]',
-          buttonVariant: 'danger' as const,
+          iconColor: "text-(--color-error)",
+          buttonVariant: "danger" as const,
         };
-      case 'warning':
+      case "warning":
         return {
-          iconColor: 'text-[var(--color-warning)]',
-          buttonVariant: 'primary' as const,
+          iconColor: "text-(--color-warning)",
+          buttonVariant: "primary" as const,
         };
-      case 'info':
+      case "info":
       default:
         return {
-          iconColor: 'text-[var(--color-info)]',
-          buttonVariant: 'primary' as const,
+          iconColor: "text-(--color-info)",
+          buttonVariant: "primary" as const,
         };
     }
   };
@@ -57,8 +57,10 @@ export function ConfirmDialog({
     <Dialog open={open} onClose={onClose} title={title}>
       <DialogContent>
         <div className="flex items-start gap-4">
-          <AlertTriangle className={`h-6 w-6 flex-shrink-0 mt-1 ${styles.iconColor}`} />
-          <p className="text-[var(--text-primary)]">{message}</p>
+          <AlertTriangle
+            className={`h-6 w-6 flex-shrink-0 mt-1 ${styles.iconColor}`}
+          />
+          <p className="text-(--text-primary)">{message}</p>
         </div>
       </DialogContent>
       <DialogFooter>

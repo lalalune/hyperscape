@@ -1,10 +1,16 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-type ToastType = 'success' | 'error' | 'info' | 'warning';
+type ToastType = "success" | "error" | "info" | "warning";
 
 interface Toast {
   id: string;
@@ -26,7 +32,7 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
-    throw new Error('useToast must be used within ToastProvider');
+    throw new Error("useToast must be used within ToastProvider");
   }
   return context;
 }
@@ -43,7 +49,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
   }, []);
 
   const showToast = useCallback(
-    (message: string, type: ToastType = 'info', duration: number = 5000) => {
+    (message: string, type: ToastType = "info", duration: number = 5000) => {
       const id = Math.random().toString(36).substring(7);
       const toast: Toast = { id, message, type, duration };
 
@@ -53,50 +59,64 @@ export function ToastProvider({ children }: ToastProviderProps) {
         setTimeout(() => removeToast(id), duration);
       }
     },
-    [removeToast]
+    [removeToast],
   );
 
-  const showSuccess = useCallback((message: string) => showToast(message, 'success'), [showToast]);
-  const showError = useCallback((message: string) => showToast(message, 'error', 8000), [showToast]);
-  const showInfo = useCallback((message: string) => showToast(message, 'info'), [showToast]);
-  const showWarning = useCallback((message: string) => showToast(message, 'warning', 6000), [showToast]);
+  const showSuccess = useCallback(
+    (message: string) => showToast(message, "success"),
+    [showToast],
+  );
+  const showError = useCallback(
+    (message: string) => showToast(message, "error", 8000),
+    [showToast],
+  );
+  const showInfo = useCallback(
+    (message: string) => showToast(message, "info"),
+    [showToast],
+  );
+  const showWarning = useCallback(
+    (message: string) => showToast(message, "warning", 6000),
+    [showToast],
+  );
 
   const getToastStyles = (type: ToastType) => {
     switch (type) {
-      case 'success':
+      case "success":
         return {
-          bg: 'bg-[var(--color-success)]/10',
-          border: 'border-[var(--color-success)]',
+          bg: "bg-(--color-success)/10",
+          border: "border-(--color-success)",
           icon: CheckCircle,
-          iconColor: 'text-[var(--color-success)]',
+          iconColor: "text-(--color-success)",
         };
-      case 'error':
+      case "error":
         return {
-          bg: 'bg-[var(--color-error)]/10',
-          border: 'border-[var(--color-error)]',
+          bg: "bg-(--color-error)/10",
+          border: "border-(--color-error)",
           icon: AlertCircle,
-          iconColor: 'text-[var(--color-error)]',
+          iconColor: "text-(--color-error)",
         };
-      case 'warning':
+      case "warning":
         return {
-          bg: 'bg-[var(--color-warning)]/10',
-          border: 'border-[var(--color-warning)]',
+          bg: "bg-(--color-warning)/10",
+          border: "border-(--color-warning)",
           icon: AlertTriangle,
-          iconColor: 'text-[var(--color-warning)]',
+          iconColor: "text-(--color-warning)",
         };
-      case 'info':
+      case "info":
       default:
         return {
-          bg: 'bg-[var(--color-info)]/10',
-          border: 'border-[var(--color-info)]',
+          bg: "bg-(--color-info)/10",
+          border: "border-(--color-info)",
           icon: Info,
-          iconColor: 'text-[var(--color-info)]',
+          iconColor: "text-(--color-info)",
         };
     }
   };
 
   return (
-    <ToastContext.Provider value={{ showToast, showSuccess, showError, showInfo, showWarning }}>
+    <ToastContext.Provider
+      value={{ showToast, showSuccess, showError, showInfo, showWarning }}
+    >
       {children}
 
       {/* Toast Container */}
@@ -109,17 +129,21 @@ export function ToastProvider({ children }: ToastProviderProps) {
             <div
               key={toast.id}
               className={cn(
-                'flex items-start gap-3 p-4 rounded-lg border shadow-lg',
-                'animate-in slide-in-from-right duration-300',
-                'bg-[var(--bg-elevated)]',
-                styles.border
+                "flex items-start gap-3 p-4 rounded-lg border shadow-lg",
+                "animate-in slide-in-from-right duration-300",
+                "bg-(--bg-elevated)",
+                styles.border,
               )}
             >
-              <Icon className={cn('h-5 w-5 flex-shrink-0 mt-0.5', styles.iconColor)} />
-              <p className="flex-1 text-sm text-[var(--text-primary)]">{toast.message}</p>
+              <Icon
+                className={cn("h-5 w-5 flex-shrink-0 mt-0.5", styles.iconColor)}
+              />
+              <p className="flex-1 text-sm text-(--text-primary)">
+                {toast.message}
+              </p>
               <button
                 onClick={() => removeToast(toast.id)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                className="text-(--text-muted) hover:text-(--text-primary) transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>

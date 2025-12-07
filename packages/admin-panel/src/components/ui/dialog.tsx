@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useCallback, type ReactNode } from 'react';
-import { X, ArrowLeft } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from './button';
+import { useEffect, useCallback, type ReactNode } from "react";
+import { X, ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "./button";
 
 interface DialogProps {
   open: boolean;
@@ -14,26 +14,33 @@ interface DialogProps {
   onBack?: () => void;
 }
 
-export function Dialog({ open, onClose, children, className, title, onBack }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  children,
+  className,
+  title,
+  onBack,
+}: DialogProps) {
   // Handle escape key
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         onClose();
       }
     },
-    [onClose]
+    [onClose],
   );
 
   useEffect(() => {
     if (open) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
     };
   }, [open, handleEscape]);
 
@@ -50,18 +57,18 @@ export function Dialog({ open, onClose, children, className, title, onBack }: Di
       {/* Dialog */}
       <div
         className={cn(
-          'relative w-full max-w-4xl max-h-[90vh] overflow-hidden',
-          'bg-[var(--bg-elevated)] border border-[var(--border-primary)]',
-          'rounded-lg shadow-xl',
-          'bracket-corners',
-          'animate-in zoom-in-95 fade-in duration-200',
-          className
+          "relative w-full max-w-4xl max-h-[90vh] overflow-hidden",
+          "bg-(--bg-elevated) border border-(--border-primary)",
+          "rounded-lg shadow-xl",
+          "bracket-corners",
+          "animate-in zoom-in-95 fade-in duration-200",
+          className,
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         {title && (
-          <div className="flex items-center justify-between p-6 border-b border-[var(--border-secondary)]">
+          <div className="flex items-center justify-between p-6 border-b border-(--border-secondary)">
             <div className="flex items-center gap-2">
               {onBack && (
                 <Button
@@ -73,7 +80,9 @@ export function Dialog({ open, onClose, children, className, title, onBack }: Di
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               )}
-              <h2 className="text-xl font-semibold text-[var(--text-primary)]">{title}</h2>
+              <h2 className="text-xl font-semibold text-(--text-primary)">
+                {title}
+              </h2>
             </div>
             <Button
               variant="ghost"
@@ -102,7 +111,7 @@ interface DialogHeaderProps {
 
 export function DialogHeader({ children, className }: DialogHeaderProps) {
   return (
-    <div className={cn('p-6 border-b border-[var(--border-secondary)]', className)}>
+    <div className={cn("p-6 border-b border-(--border-secondary)", className)}>
       {children}
     </div>
   );
@@ -114,7 +123,7 @@ interface DialogContentProps {
 }
 
 export function DialogContent({ children, className }: DialogContentProps) {
-  return <div className={cn('p-6', className)}>{children}</div>;
+  return <div className={cn("p-6", className)}>{children}</div>;
 }
 
 interface DialogFooterProps {
@@ -126,8 +135,8 @@ export function DialogFooter({ children, className }: DialogFooterProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-end gap-3 p-6 border-t border-[var(--border-secondary)]',
-        className
+        "flex items-center justify-end gap-3 p-6 border-t border-(--border-secondary)",
+        className,
       )}
     >
       {children}

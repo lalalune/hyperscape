@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState, ReactNode } from 'react';
-import { Sidebar } from './sidebar';
-import { TopBar } from './top-bar';
-import { ToastProvider } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { useState, ReactNode } from "react";
+import { Sidebar } from "./sidebar";
+import { TopBar } from "./top-bar";
+import { ToastProvider } from "@/components/ui";
+import { cn } from "@/lib/utils";
 
 interface AppShellProps {
   children: ReactNode;
@@ -15,19 +15,20 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-[var(--bg-primary)]">
-        <Sidebar collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
+      <div className="min-h-screen bg-(--bg-primary)">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setSidebarCollapsed}
+        />
         <TopBar sidebarCollapsed={sidebarCollapsed} />
 
         <main
           className={cn(
-            'pt-16 min-h-screen transition-all duration-300',
-            sidebarCollapsed ? 'pl-16' : 'pl-64'
+            "pt-16 min-h-screen transition-all duration-300",
+            sidebarCollapsed ? "pl-16" : "pl-64",
           )}
         >
-          <div className="p-6">
-            {children}
-          </div>
+          <div className="p-6">{children}</div>
         </main>
       </div>
     </ToastProvider>

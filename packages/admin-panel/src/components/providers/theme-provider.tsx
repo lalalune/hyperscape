@@ -1,8 +1,14 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
 
-type Theme = 'light' | 'dark';
+type Theme = "light" | "dark";
 
 interface ThemeContextType {
   theme: Theme;
@@ -13,29 +19,30 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     // Check for saved preference or system preference
-    const saved = localStorage.getItem('admin-theme') as Theme | null;
+    const saved = localStorage.getItem("admin-theme") as Theme | null;
     if (saved) {
       setTheme(saved);
-    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-      setTheme('light');
+    } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
+      setTheme("light");
     }
   }, []);
 
   useEffect(() => {
     if (mounted) {
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('admin-theme', theme);
+      document.documentElement.setAttribute("data-theme", theme);
+      localStorage.setItem("admin-theme", theme);
     }
   }, [theme, mounted]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
   };
 
   // Prevent flash of wrong theme
@@ -53,7 +60,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    throw new Error("useTheme must be used within a ThemeProvider");
   }
   return context;
 }

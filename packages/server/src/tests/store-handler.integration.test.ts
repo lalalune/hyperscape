@@ -5,7 +5,7 @@
  * Verifies distance validation and rate limiting work correctly.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   INTERACTION_DISTANCE,
   SessionType,

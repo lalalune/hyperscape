@@ -1,12 +1,18 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 export default function DesignPage() {
   const [switchOn, setSwitchOn] = useState(false);
@@ -20,8 +26,10 @@ export default function DesignPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Kitchen Sink</h1>
-        <p className="text-[var(--text-secondary)]">
+        <h1 className="text-2xl font-bold text-(--text-primary)">
+          Kitchen Sink
+        </h1>
+        <p className="text-(--text-secondary)">
           Component verification page - Tactical Command Design System
         </p>
       </div>
@@ -48,7 +56,7 @@ export default function DesignPage() {
           <div className="flex flex-wrap gap-4">
             <Button disabled>Disabled</Button>
             <Button loading={loading} onClick={handleLoadingClick}>
-              {loading ? 'Loading...' : 'Click to Load'}
+              {loading ? "Loading..." : "Click to Load"}
             </Button>
           </div>
         </CardContent>
@@ -98,13 +106,17 @@ export default function DesignPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="input-password">Password</Label>
-              <Input id="input-password" type="password" placeholder="••••••••" />
+              <Input
+                id="input-password"
+                type="password"
+                placeholder="••••••••"
+              />
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <Switch checked={switchOn} onCheckedChange={setSwitchOn} />
-            <Label>Toggle Switch: {switchOn ? 'ON' : 'OFF'}</Label>
+            <Label>Toggle Switch: {switchOn ? "ON" : "OFF"}</Label>
           </div>
         </CardContent>
       </Card>
@@ -122,29 +134,29 @@ export default function DesignPage() {
                 <CardTitle className="text-base">Bracket Corners</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-[var(--text-secondary)]">
+                <p className="text-sm text-(--text-secondary)">
                   This card has tactical bracket corners
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Standard Card</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-[var(--text-secondary)]">
+                <p className="text-sm text-(--text-secondary)">
                   A basic card component
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card className="gradient-tactical">
               <CardHeader>
                 <CardTitle className="text-base">Gradient Card</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-[var(--text-secondary)]">
+                <p className="text-sm text-(--text-secondary)">
                   Card with tactical gradient
                 </p>
               </CardContent>
@@ -162,20 +174,22 @@ export default function DesignPage() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <div className="h-20 rounded-md bg-[var(--bg-primary)] border border-[var(--border-primary)]" />
-              <p className="text-xs text-[var(--text-secondary)]">bg-primary</p>
+              <div className="h-20 rounded-md bg-(--bg-primary) border border-(--border-primary)" />
+              <p className="text-xs text-(--text-secondary)">bg-primary</p>
             </div>
             <div className="space-y-2">
-              <div className="h-20 rounded-md bg-[var(--bg-secondary)]" />
-              <p className="text-xs text-[var(--text-secondary)]">bg-secondary</p>
+              <div className="h-20 rounded-md bg-(--bg-secondary)" />
+              <p className="text-xs text-(--text-secondary)">bg-secondary</p>
             </div>
             <div className="space-y-2">
-              <div className="h-20 rounded-md bg-[var(--accent-primary)]" />
-              <p className="text-xs text-[var(--text-secondary)]">accent-primary</p>
+              <div className="h-20 rounded-md bg-(--accent-primary)" />
+              <p className="text-xs text-(--text-secondary)">accent-primary</p>
             </div>
             <div className="space-y-2">
-              <div className="h-20 rounded-md bg-[var(--accent-secondary)]" />
-              <p className="text-xs text-[var(--text-secondary)]">accent-secondary</p>
+              <div className="h-20 rounded-md bg-(--accent-secondary)" />
+              <p className="text-xs text-(--text-secondary)">
+                accent-secondary
+              </p>
             </div>
           </div>
         </CardContent>
@@ -188,14 +202,26 @@ export default function DesignPage() {
           <CardDescription>Text styles and hierarchy</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <h1 className="text-4xl font-bold text-[var(--text-primary)]">Heading 1</h1>
-          <h2 className="text-3xl font-bold text-[var(--text-primary)]">Heading 2</h2>
-          <h3 className="text-2xl font-semibold text-[var(--text-primary)]">Heading 3</h3>
-          <h4 className="text-xl font-semibold text-[var(--text-primary)]">Heading 4</h4>
-          <p className="text-base text-[var(--text-primary)]">Body text - primary</p>
-          <p className="text-base text-[var(--text-secondary)]">Body text - secondary</p>
-          <p className="text-sm text-[var(--text-tertiary)]">Small text - tertiary</p>
-          <p className="text-xs text-[var(--text-muted)]">Caption text - muted</p>
+          <h1 className="text-4xl font-bold text-(--text-primary)">
+            Heading 1
+          </h1>
+          <h2 className="text-3xl font-bold text-(--text-primary)">
+            Heading 2
+          </h2>
+          <h3 className="text-2xl font-semibold text-(--text-primary)">
+            Heading 3
+          </h3>
+          <h4 className="text-xl font-semibold text-(--text-primary)">
+            Heading 4
+          </h4>
+          <p className="text-base text-(--text-primary)">Body text - primary</p>
+          <p className="text-base text-(--text-secondary)">
+            Body text - secondary
+          </p>
+          <p className="text-sm text-(--text-tertiary)">
+            Small text - tertiary
+          </p>
+          <p className="text-xs text-(--text-muted)">Caption text - muted</p>
         </CardContent>
       </Card>
     </div>

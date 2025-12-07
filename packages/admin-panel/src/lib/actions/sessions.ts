@@ -1,4 +1,4 @@
-'use server';
+"use server";
 
 /**
  * Session Server Actions
@@ -6,9 +6,9 @@
  * Server-side functions for managing player sessions.
  */
 
-import { getDatabase } from '@/lib/db';
-import { playerSessions, characters, users } from '@/lib/schema';
-import { desc, eq, sql } from 'drizzle-orm';
+import { getDatabase } from "@/lib/db";
+import { playerSessions, characters, users } from "@/lib/schema";
+import { desc, eq, sql } from "drizzle-orm";
 
 export interface SessionWithDetails {
   id: string;
@@ -46,7 +46,7 @@ export async function getActiveSessions(): Promise<SessionWithDetails[]> {
     .where(sql`${playerSessions.sessionEnd} IS NULL`)
     .orderBy(desc(playerSessions.sessionStart));
 
-  return activeSessions.map(s => ({
+  return activeSessions.map((s) => ({
     id: s.id,
     playerId: s.playerId,
     characterName: s.characterName,
@@ -69,7 +69,7 @@ export async function closeSession(sessionId: string) {
     .update(playerSessions)
     .set({
       sessionEnd: Date.now(),
-      reason: 'Admin closed',
+      reason: "Admin closed",
     })
     .where(eq(playerSessions.id, sessionId));
 
@@ -81,15 +81,20 @@ export async function closeSession(sessionId: string) {
  */
 export async function closeInactiveSessions(inactiveMinutes: number = 30) {
   const db = getDatabase();
-  const cutoffTime = Date.now() - (inactiveMinutes * 60 * 1000);
+  const cutoffTime = Date.now() - inactiveMinutes * 60 * 1000;
 
   const result = await db
     .update(playerSessions)
     .set({
       sessionEnd: Date.now(),
-      reason: 'Auto-closed (inactive)',
+      reason: "Auto-closed (inactive)",
     })
-    .where(sql`${playerSessions.sessionEnd} IS NULL AND ${playerSessions.lastActivity} < ${cutoffTime}`);
+    .where(
+      sql`${playerSessions.sessionEnd} IS NULL AND ${playerSessions.lastActivity} < ${cutoffTime}`,
+    );
 
-  return { success: true, closed: (result as any).rowCount || 0 };
+  return {
+    success: true,
+    closed: (result as unknown as { rowCount: number }).rowCount || 0,
+  };
 }
