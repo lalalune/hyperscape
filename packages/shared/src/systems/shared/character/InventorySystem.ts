@@ -28,6 +28,7 @@ import { EntityManager } from "..";
 import { SystemBase } from "..";
 import { Logger } from "../../../utils/Logger";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
+import type { GroundItemSystem } from "../economy/GroundItemSystem";
 
 export class InventorySystem extends SystemBase {
   protected playerInventories = new Map<PlayerID, PlayerInventory>();
@@ -35,6 +36,9 @@ export class InventorySystem extends SystemBase {
   private persistTimers = new Map<string, NodeJS.Timeout>();
   private saveInterval?: NodeJS.Timeout;
   private readonly AUTO_SAVE_INTERVAL = 30000; // 30 seconds
+
+  // Pickup locks to prevent race conditions when multiple players try to pickup same item
+  private pickupLocks = new Set<string>();
 
   constructor(world: World) {
     super(world, {
@@ -446,6 +450,41 @@ export class InventorySystem extends SystemBase {
     return true;
   }
 
+  /**
+   * Check if an item can be added to inventory without modifying state
+   * Used for pre-validation before pickup to prevent wasted operations
+   *
+   * @param playerId - Player to check
+   * @param itemId - Item to check
+   * @param quantity - Quantity to check
+   * @returns true if item can be added
+   */
+  private canAddItem(
+    playerId: string,
+    itemId: string,
+    quantity: number,
+  ): boolean {
+    const inventory = this.playerInventories.get(playerId as PlayerID);
+    if (!inventory) return true; // New inventory will be created
+
+    const itemData = getItem(itemId);
+    if (!itemData) return false;
+
+    // Coins always fit (no slot limit)
+    if (itemId === "coins") return true;
+
+    // Stackable: check if we have existing stack or empty slot
+    if (itemData.stackable) {
+      const existingStack = inventory.items.find((i) => i.itemId === itemId);
+      if (existingStack) return true; // Can add to existing stack
+    }
+
+    // Need empty slots
+    const slotsNeeded = itemData.stackable ? 1 : quantity;
+    const emptySlots = this.MAX_INVENTORY_SLOTS - inventory.items.length;
+    return emptySlots >= slotsNeeded;
+  }
+
   private removeItem(data: {
     playerId: string;
     itemId: string | number;
@@ -551,12 +590,12 @@ export class InventorySystem extends SystemBase {
     return itemsRemoved;
   }
 
-  private dropItem(data: {
+  private async dropItem(data: {
     playerId: string;
     itemId: string;
     quantity: number;
     slot?: number;
-  }): void {
+  }): Promise<void> {
     // Server-authoritative only
     if (!this.world.isServer) {
       return;
@@ -594,16 +633,40 @@ export class InventorySystem extends SystemBase {
       }
       const position = player.node.position;
 
-      // Drop at player's exact position - GroundItemManager will snap to tile center
-      this.emitTypedEvent(EventType.ITEM_SPAWN_REQUEST, {
-        itemId: data.itemId,
-        quantity: qty,
-        position: {
-          x: position.x,
-          y: position.y,
-          z: position.z,
-        },
-      });
+      // Use GroundItemSystem for proper pile management (OSRS-style)
+      const groundItems =
+        this.world.getSystem<GroundItemSystem>("ground-items");
+      if (groundItems) {
+        // Spawn through GroundItemSystem for tile-based pile management
+        await groundItems.spawnGroundItem(
+          data.itemId,
+          qty,
+          {
+            x: position.x,
+            y: position.y,
+            z: position.z,
+          },
+          {
+            despawnTime: 120000, // 2 minutes default despawn
+            droppedBy: data.playerId,
+          },
+        );
+      } else {
+        // Fallback to old method if GroundItemSystem not available
+        Logger.system(
+          "InventorySystem",
+          "GroundItemSystem not available, using legacy spawn",
+        );
+        this.emitTypedEvent(EventType.ITEM_SPAWN_REQUEST, {
+          itemId: data.itemId,
+          quantity: qty,
+          position: {
+            x: position.x,
+            y: position.y,
+            z: position.z,
+          },
+        });
+      }
     }
   }
 
@@ -719,78 +782,116 @@ export class InventorySystem extends SystemBase {
       return;
     }
 
-    // Get item entity data from entity manager
-    const entityManager = getSystem(
-      this.world,
-      "entity-manager",
-    ) as EntityManager;
-    if (!entityManager) {
-      Logger.systemError(
-        "InventorySystem",
-        "EntityManager system not found",
-        new Error("EntityManager system not found"),
-      );
+    // ATOMIC OPERATION: Acquire lock to prevent race conditions
+    // Two players clicking same item simultaneously should only result in one pickup
+    const lockKey = `pickup:${data.entityId}`;
+    if (this.pickupLocks.has(lockKey)) {
+      // Another pickup in progress for this item - silently ignore
       return;
     }
 
-    const entity = entityManager.getEntity(data.entityId);
-    if (!entity) {
-      // Item may have already been picked up - this is expected during:
-      // - Spam clicking item piles (player races themselves)
-      // - Multiple players grabbing same item (race condition)
-      // - Client sync delay (item removed server-side but client still shows it)
-      // Silently ignore - not an error condition
-      return;
-    }
+    this.pickupLocks.add(lockKey);
 
-    // Get itemId from event data (passed from ItemEntity.handleInteraction) or from entity properties
-    const itemId = data.itemId || (entity.getProperty("itemId") as string);
-    const quantity = (entity.getProperty("quantity") as number) || 1;
-
-    if (!itemId) {
-      Logger.systemError(
-        "InventorySystem",
-        `No itemId found for entity ${data.entityId}`,
-        new Error(`No itemId found for entity ${data.entityId}`),
-      );
-      return;
-    }
-
-    // Validate that the item exists in the item database
-    const itemData = getItem(itemId);
-    if (!itemData) {
-      Logger.systemError(
-        "InventorySystem",
-        `Item not found in database: ${itemId}`,
-        new Error(`Item not found in database: ${itemId}`),
-      );
-      return;
-    }
-
-    // Try to add to inventory using the validated itemData
-    const added = this.addItem({
-      playerId: data.playerId,
-      itemId: itemData.id, // Use the validated item's ID
-      quantity,
-    });
-
-    if (added) {
-      // Destroy item entity immediately on server to prevent duplication
-      const destroyed = entityManager.destroyEntity(data.entityId);
-      if (!destroyed) {
+    try {
+      // Get item entity data from entity manager
+      const entityManager = getSystem(
+        this.world,
+        "entity-manager",
+      ) as EntityManager;
+      if (!entityManager) {
         Logger.systemError(
           "InventorySystem",
-          `Failed to destroy item entity ${data.entityId}`,
-          new Error(`Failed to destroy item entity ${data.entityId}`),
+          "EntityManager system not found",
+          new Error("EntityManager system not found"),
         );
-      } else {
+        return;
       }
-    } else {
-      // Could not add (inventory full, etc.)
-      Logger.system(
-        "InventorySystem",
-        `Failed to add item ${itemId} to inventory for player ${data.playerId}`,
-      );
+
+      // Re-check entity exists AFTER acquiring lock
+      // Between validation and lock, the item may have been picked up
+      const entity = entityManager.getEntity(data.entityId);
+      if (!entity) {
+        // Item may have already been picked up - this is expected during:
+        // - Spam clicking item piles (player races themselves)
+        // - Multiple players grabbing same item (race condition)
+        // - Client sync delay (item removed server-side but client still shows it)
+        // Silently ignore - not an error condition
+        return;
+      }
+
+      // Get itemId from event data or from entity properties
+      const itemId = data.itemId || (entity.getProperty("itemId") as string);
+      const quantity = (entity.getProperty("quantity") as number) || 1;
+
+      if (!itemId) {
+        Logger.systemError(
+          "InventorySystem",
+          `No itemId found for entity ${data.entityId}`,
+          new Error(`No itemId found for entity ${data.entityId}`),
+        );
+        return;
+      }
+
+      // Validate that the item exists in the item database
+      const itemData = getItem(itemId);
+      if (!itemData) {
+        Logger.systemError(
+          "InventorySystem",
+          `Item not found in database: ${itemId}`,
+          new Error(`Item not found in database: ${itemId}`),
+        );
+        return;
+      }
+
+      // PRE-CHECK: Verify inventory capacity BEFORE modifying anything
+      // This prevents wasted operations and provides better UX
+      if (!this.canAddItem(data.playerId, itemData.id, quantity)) {
+        this.emitTypedEvent(EventType.UI_TOAST, {
+          playerId: data.playerId,
+          message: "Your inventory is full.",
+          type: "warning",
+        });
+        return;
+      }
+
+      // ATOMIC: Add to inventory first
+      const added = this.addItem({
+        playerId: data.playerId,
+        itemId: itemData.id,
+        quantity,
+      });
+
+      if (added) {
+        // Use GroundItemSystem if available - it handles entity destruction AND pile updates
+        const groundItems =
+          this.world.getSystem<GroundItemSystem>("ground-items");
+        if (groundItems) {
+          // removeGroundItem handles:
+          // 1. Removing from pile tracking
+          // 2. Showing next item in pile (setting visibleInPile)
+          // 3. Destroying the entity
+          groundItems.removeGroundItem(data.entityId);
+        } else {
+          // Fallback: destroy entity directly if GroundItemSystem not available
+          const destroyed = entityManager.destroyEntity(data.entityId);
+          if (!destroyed) {
+            Logger.systemError(
+              "InventorySystem",
+              `Failed to destroy item entity ${data.entityId}`,
+              new Error(`Failed to destroy item entity ${data.entityId}`),
+            );
+          }
+        }
+      } else {
+        // Could not add (should not happen after canAddItem check, but handle defensively)
+        Logger.system(
+          "InventorySystem",
+          `Failed to add item ${itemId} to inventory for player ${data.playerId}`,
+        );
+      }
+    } finally {
+      // Always release lock
+      this.pickupLocks.delete(lockKey);
     }
   }
 

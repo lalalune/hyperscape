@@ -8,6 +8,9 @@ export const COMBAT_CONSTANTS = {
   MELEE_RANGE: 2,
   RANGED_RANGE: 10,
 
+  // Pickup range (server-side validation, slightly larger than client to account for movement)
+  PICKUP_RANGE: 2.5,
+
   // Attack timing (RuneScape-style speeds)
   ATTACK_COOLDOWN_MS: 2400, // 2.4 seconds - standard weapon attack speed (4 ticks)
   COMBAT_TIMEOUT_MS: 4800, // 4.8 seconds (8 ticks) - OSRS in-combat timer after last hit

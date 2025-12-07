@@ -93,7 +93,7 @@ import type {
   AvatarHooks,
 } from "../../types/rendering/nodes";
 import { Emotes } from "../../data/playerEmotes";
-import { calculateNPCDrops, getNPCById } from "../../data/npcs";
+// NOTE: Loot drops are handled by LootSystem, not MobEntity directly
 import { DeathStateManager } from "../managers/DeathStateManager";
 import { CombatStateManager } from "../managers/CombatStateManager";
 import {
@@ -1779,46 +1779,10 @@ export class MobEntity extends CombatantEntity {
         attackStyle: attackStyle,
       });
 
-      this.dropLoot(lastAttackerId);
+      // NOTE: Loot is handled by LootSystem via NPC_DIED event (emitted above)
+      // Do NOT call dropLoot() here - it would cause duplicate drops
     } else {
       console.warn(`[MobEntity] ${this.id} died but no lastAttackerId found`);
-    }
-  }
-
-  private dropLoot(killerId: string): void {
-    // Check if this mob type exists in the NPC manifest
-    const npcData = getNPCById(this.config.mobType);
-
-    if (npcData) {
-      // Use manifest drops - handles defaultDrop (bones) + all rarity tiers
-      const drops = calculateNPCDrops(this.config.mobType);
-      for (const drop of drops) {
-        this.world.emit(EventType.ITEM_SPAWN, {
-          itemId: drop.itemId,
-          quantity: drop.quantity,
-          position: this.getPosition(),
-          droppedBy: killerId,
-        });
-      }
-    } else {
-      // Fall back to config.lootTable for custom mobs not in manifest
-      if (!this.config.lootTable.length) return;
-
-      for (const lootItem of this.config.lootTable) {
-        if (Math.random() < lootItem.chance) {
-          const quantity =
-            Math.floor(
-              Math.random() * (lootItem.maxQuantity - lootItem.minQuantity + 1),
-            ) + lootItem.minQuantity;
-
-          this.world.emit(EventType.ITEM_SPAWN, {
-            itemId: lootItem.itemId,
-            quantity,
-            position: this.getPosition(),
-            droppedBy: killerId,
-          });
-        }
-      }
     }
   }
 
