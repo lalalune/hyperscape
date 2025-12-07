@@ -67,6 +67,9 @@ export { PlayerLocal } from "./entities/player/PlayerLocal";
 export { PlayerRemote } from "./entities/player/PlayerRemote";
 export type { EventCallback } from "./entities/Entity";
 
+// Export all modular core types
+export * from "./types/core/core";
+
 // Export all types from types/index.ts
 export type {
   Anchors,
@@ -154,6 +157,9 @@ export { AVATAR_OPTIONS } from "./data/avatars";
 
 // Export world area data for server use
 export { ALL_WORLD_AREAS } from "./data/world-areas";
+
+// Export DataManager for unified data access
+export { dataManager, DataManager } from "./data/DataManager";
 
 // Export systems (organized by platform for tree-shaking)
 export { Entities } from "./systems/shared";

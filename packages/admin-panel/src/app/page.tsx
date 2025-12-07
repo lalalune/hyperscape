@@ -120,9 +120,10 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bracket-corners">
+      {/* Bento Grid Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-[minmax(180px,auto)]">
+        {/* Stats Cards - Row 1 & 2 Mixed */}
+        <Card className="bracket-corners relative overflow-hidden group">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-(--text-secondary)">
               Total Users
@@ -130,16 +131,17 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-(--accent-primary)" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-(--text-primary)">
+            <div className="text-3xl font-bold text-(--text-primary)">
               {stats.totalUsers.toLocaleString()}
             </div>
-            <p className="text-xs text-(--text-secondary)">
+            <p className="text-xs text-(--text-secondary) mt-1">
               Registered accounts
             </p>
+            <div className="absolute -bottom-4 -right-4 h-24 w-24 bg-(--accent-primary)/5 rounded-full blur-2xl group-hover:bg-(--accent-primary)/10 transition-colors" />
           </CardContent>
         </Card>
 
-        <Card className="bracket-corners">
+        <Card className="bracket-corners relative overflow-hidden group">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-(--text-secondary)">
               Characters
@@ -147,75 +149,46 @@ export default function DashboardPage() {
             <Swords className="h-4 w-4 text-(--accent-secondary)" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-(--text-primary)">
+            <div className="text-3xl font-bold text-(--text-primary)">
               {stats.totalCharacters.toLocaleString()}
             </div>
-            <p className="text-xs text-(--text-secondary)">
-              {stats.humanCharacters} human, {stats.agentCharacters} AI
+            <p className="text-xs text-(--text-secondary) mt-1">
+              {stats.humanCharacters} human • {stats.agentCharacters} AI
             </p>
+            <div className="absolute -bottom-4 -right-4 h-24 w-24 bg-(--accent-secondary)/5 rounded-full blur-2xl group-hover:bg-(--accent-secondary)/10 transition-colors" />
           </CardContent>
         </Card>
 
-        <Card className="bracket-corners">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-(--text-secondary)">
-              Total Items
-            </CardTitle>
-            <Package className="h-4 w-4 text-(--accent-tertiary)" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-(--text-primary)">
-              {(
-                stats.totalInventoryItems +
-                stats.totalEquipmentItems +
-                stats.totalBankItems
-              ).toLocaleString()}
-            </div>
-            <p className="text-xs text-(--text-secondary)">
-              Across all players
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bracket-corners">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-(--text-secondary)">
-              Active Now
-            </CardTitle>
-            <Activity className="h-4 w-4 text-(--color-success)" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-(--text-primary)">
-              {stats.activeSessions.toLocaleString()}
-            </div>
-            <p className="text-xs text-(--text-secondary)">Players online</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activity & Top Players */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        {/* Recent Activity - Large Block (Span 2x2) */}
+        <Card className="col-span-1 md:col-span-2 lg:col-span-2 lg:row-span-2 bracket-corners flex flex-col">
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-(--text-primary)" />
+              Recent Activity
+            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 overflow-hidden relative">
             {activity.length === 0 ? (
-              <p className="text-sm text-(--text-muted) text-center py-8">
-                No recent activity
-              </p>
+              <div className="h-full flex flex-col items-center justify-center text-(--text-muted)">
+                <RefreshCw className="h-8 w-8 mb-2 opacity-20" />
+                <p>No recent activity</p>
+              </div>
             ) : (
-              <div className="space-y-4">
+              <div className="h-full overflow-y-auto custom-scrollbar endless-mask-y py-2 space-y-0 divide-y divide-(--border-secondary)">
                 {activity.map((item) => (
-                  <div key={item.id} className="flex items-center gap-4">
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-4 py-3 hover:bg-(--bg-hover) px-2 rounded-lg transition-colors -mx-2"
+                  >
                     <div
-                      className={`w-2 h-2 rounded-full ${getActivityIcon(item.type)}`}
+                      className={`w-2 h-2 rounded-full shrink-0 ${getActivityIcon(item.type)}`}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-(--text-primary) truncate">
+                      <p className="text-sm font-medium text-(--text-primary) truncate">
                         {item.description}
                       </p>
-                      <p className="text-xs text-(--text-muted)">
+                      <p className="text-xs text-(--text-muted) flex items-center gap-1 mt-0.5">
+                        <Clock className="h-3 w-3" />
                         {formatTimeAgo(item.timestamp)}
                       </p>
                     </div>
@@ -226,7 +199,48 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bracket-corners relative overflow-hidden group">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-(--text-secondary)">
+              Total Items
+            </CardTitle>
+            <Package className="h-4 w-4 text-(--accent-tertiary)" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-(--text-primary)">
+              {(
+                stats.totalInventoryItems +
+                stats.totalEquipmentItems +
+                stats.totalBankItems
+              ).toLocaleString()}
+            </div>
+            <p className="text-xs text-(--text-secondary) mt-1">
+              Global economy size
+            </p>
+            <div className="absolute -bottom-4 -right-4 h-24 w-24 bg-(--accent-tertiary)/5 rounded-full blur-2xl group-hover:bg-(--accent-tertiary)/10 transition-colors" />
+          </CardContent>
+        </Card>
+
+        <Card className="bracket-corners relative overflow-hidden group">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-(--text-secondary)">
+              Active Now
+            </CardTitle>
+            <RefreshCw className="h-4 w-4 text-(--color-success)" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-(--text-primary)">
+              {stats.activeSessions.toLocaleString()}
+            </div>
+            <p className="text-xs text-(--text-secondary) mt-1">
+              Live sessions
+            </p>
+            <div className="absolute -bottom-4 -right-4 h-24 w-24 bg-(--color-success)/5 rounded-full blur-2xl group-hover:bg-(--color-success)/10 transition-colors" />
+          </CardContent>
+        </Card>
+
+        {/* Top Players - Wide Block at Bottom (Span 4) */}
+        <Card className="col-span-1 md:col-span-2 lg:col-span-4 bracket-corners">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-(--accent-primary)" />
@@ -235,30 +249,26 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {topPlayers.length === 0 ? (
-              <p className="text-sm text-(--text-muted) text-center py-8">
-                No playtime data yet
-              </p>
+              <div className="text-center py-8 text-(--text-muted)">
+                No playtime data available
+              </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {topPlayers.map((player, index) => (
                   <div
                     key={player.characterId}
-                    className="flex items-center gap-4"
+                    className="flex items-center gap-3 p-3 rounded-lg bg-(--bg-secondary) border border-(--border-secondary) hover:border-(--accent-primary)/30 transition-colors group"
                   >
-                    <div className="w-8 h-8 rounded-full bg-(--bg-tertiary) flex items-center justify-center">
-                      <span className="text-sm font-bold text-(--accent-primary)">
-                        #{index + 1}
-                      </span>
+                    <div className="w-10 h-10 rounded-full bg-(--bg-tertiary) flex items-center justify-center shrink-0 font-bold text-(--accent-primary) group-hover:scale-110 transition-transform">
+                      #{index + 1}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-(--text-primary) truncate">
                         {player.characterName}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-(--text-secondary)">
+                      <div className="flex items-center gap-1.5 text-xs text-(--text-secondary) mt-0.5">
                         <Clock className="h-3 w-3" />
                         <span>{formatPlaytime(player.totalPlaytime)}</span>
-                        <span>•</span>
-                        <span>{player.sessionCount} sessions</span>
                       </div>
                     </div>
                   </div>
