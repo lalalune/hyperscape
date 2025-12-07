@@ -1,0 +1,170 @@
+@import "tailwindcss";
+
+/* Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+/* CSS Variables for Theme Switching */
+:root {
+  /* Default to Shadow Ops (Dark) */
+  --bg-primary: #1a1a1e;
+  --bg-secondary: #252529;
+  --bg-tertiary: #2f2f35;
+  --bg-card: #252529;
+  --bg-hover: #2f2f35;
+  --bg-elevated: #35353d;
+
+  --text-primary: #faf8f5;
+  --text-secondary: #b8b8c0;
+  --text-tertiary: #8a8a95;
+  --text-muted: #5a5a65;
+
+  --border-primary: #3a3a40;
+  --border-secondary: #45454d;
+  --border-hover: #55555d;
+
+  --accent-primary: #dc2626;
+  --accent-secondary: #c9a227;
+  --accent-tertiary: #f59e0b;
+
+  /* Semantic */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Layout */
+  --sidebar-width: 256px;
+  --sidebar-collapsed: 64px;
+  --topbar-height: 64px;
+}
+
+/* Royal Command (Light Theme) */
+[data-theme="light"] {
+  --bg-primary: #faf8f5;
+  --bg-secondary: #f5f3f0;
+  --bg-tertiary: #efede8;
+  --bg-card: #ffffff;
+  --bg-hover: #efede8;
+  --bg-elevated: #ffffff;
+
+  --text-primary: #1a1a1e;
+  --text-secondary: #4a4a52;
+  --text-tertiary: #6b6b75;
+  --text-muted: #9a9aa5;
+
+  --border-primary: #d1ccc4;
+  --border-secondary: #e5e2dc;
+  --border-hover: #b8b3aa;
+
+  --accent-primary: #2e5bba;
+  --accent-secondary: #c9a227;
+  --accent-tertiary: #1e3a5f;
+}
+
+/* Base Styles */
+html {
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tactical Command Components */
+
+/* Bracket Corners - Applied via pseudo-elements */
+.bracket-corners {
+  position: relative;
+}
+
+.bracket-corners::before,
+.bracket-corners::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-color: var(--accent-primary);
+  pointer-events: none;
+}
+
+.bracket-corners::before {
+  top: 0;
+  left: 0;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+
+.bracket-corners::after {
+  bottom: 0;
+  right: 0;
+  border-bottom: 2px solid;
+  border-right: 2px solid;
+}
+
+/* Tactical Button Base */
+.btn-tactical {
+  position: relative;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  transition: all 150ms ease;
+}
+
+/* Industrial gradient */
+.gradient-tactical {
+  background: linear-gradient(
+    135deg,
+    var(--bg-secondary) 0%,
+    var(--bg-tertiary) 100%
+  );
+}
+
+/* Accent gradient */
+.gradient-accent {
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary) 0%,
+    var(--accent-tertiary) 100%
+  );
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+
+/* Focus Ring */
+.focus-tactical:focus {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg-primary),
+    0 0 0 4px var(--accent-primary);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--accent-primary);
+  color: white;
+}

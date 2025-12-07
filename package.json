@@ -39,6 +39,8 @@
     "dev:server": "cd packages/server && bun run dev",
     "dev:reset": "bun run clean && rm -rf packages/*/node_modules/.vite && bun run build:shared && bun run dev",
     "dev:forge": "bun run --cwd packages/asset-forge dev",
+    "dev:admin": "bun run --cwd packages/admin-panel dev",
+    "build:admin": "bun run --cwd packages/admin-panel build",
     "cdn:up": "bun scripts/cdn.mjs",
     "cdn:down": "cd packages/server && docker-compose down cdn",
     "start": "cd packages/server && bun run start",
