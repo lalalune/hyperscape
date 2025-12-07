@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
+  Activity,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/users', label: 'Users', icon: Users },
   { href: '/characters', label: 'Characters', icon: Swords },
+  { href: '/sessions', label: 'Sessions', icon: Activity },
   { href: '/assets', label: 'Assets', icon: Box },
   { href: '/world', label: 'World', icon: Globe },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },

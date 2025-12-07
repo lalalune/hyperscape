@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Input } from '@/components/ui';
 import { Search, ChevronLeft, ChevronRight, Users, RefreshCw } from 'lucide-react';
 import { getUsers, getUserStats, type UserWithStats } from '@/lib/actions/users';
+import { UserDetailModal } from '@/components/users/user-detail-modal';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserWithStats[]>([]);
@@ -13,6 +14,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ totalUsers: 0, totalCharacters: 0, activeSessions: 0 });
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   
   const limit = 20;
   const totalPages = Math.ceil(total / limit);
@@ -168,9 +170,10 @@ export default function UsersPage() {
                   </thead>
                   <tbody>
                     {users.map((user) => (
-                      <tr 
-                        key={user.id} 
+                      <tr
+                        key={user.id}
                         className="border-b border-[var(--border-secondary)] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
+                        onClick={() => setSelectedUserId(user.id)}
                       >
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
@@ -234,6 +237,14 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* User Detail Modal */}
+      {selectedUserId && (
+        <UserDetailModal
+          userId={selectedUserId}
+          onClose={() => setSelectedUserId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -14,3 +14,9 @@ export { Label } from './label';
 
 export { Switch } from './switch';
 export type { SwitchProps } from './switch';
+
+export { Dialog, DialogHeader, DialogContent, DialogFooter } from './dialog';
+
+export { ToastProvider, useToast } from './toast';
+
+export { ConfirmDialog } from './confirm-dialog';

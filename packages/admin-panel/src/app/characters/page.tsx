@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Input } from '@/components/ui';
 import { Search, ChevronLeft, ChevronRight, RefreshCw, Swords, Bot, User } from 'lucide-react';
 import { getCharacters, getCharacterStats, type CharacterWithDetails } from '@/lib/actions/characters';
+import { CharacterDetailModal } from '@/components/characters/character-detail-modal';
 
 export default function CharactersPage() {
   const [characters, setCharacters] = useState<CharacterWithDetails[]>([]);
@@ -13,6 +14,7 @@ export default function CharactersPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, agents: 0, humans: 0 });
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   
   const limit = 20;
   const totalPages = Math.ceil(total / limit);
@@ -146,9 +148,10 @@ export default function CharactersPage() {
                   </thead>
                   <tbody>
                     {characters.map((char) => (
-                      <tr 
-                        key={char.id} 
+                      <tr
+                        key={char.id}
                         className="border-b border-[var(--border-secondary)] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
+                        onClick={() => setSelectedCharacterId(char.id)}
                       >
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
@@ -230,6 +233,14 @@ export default function CharactersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Character Detail Modal */}
+      {selectedCharacterId && (
+        <CharacterDetailModal
+          characterId={selectedCharacterId}
+          onClose={() => setSelectedCharacterId(null)}
+        />
+      )}
     </div>
   );
 }

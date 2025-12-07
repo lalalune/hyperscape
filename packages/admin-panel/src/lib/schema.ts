@@ -163,6 +163,23 @@ export const npcKills = pgTable(
   }),
 );
 
+// Agent Mappings Table - ElizaOS agent tracking
+export const agentMappings = pgTable(
+  'agent_mappings',
+  {
+    agentId: text('agent_id').primaryKey().notNull(),
+    accountId: text('account_id').notNull(),
+    characterId: text('character_id').notNull(),
+    agentName: text('agent_name').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    accountIdx: index('idx_agent_mappings_account').on(table.accountId),
+    characterIdx: index('idx_agent_mappings_character').on(table.characterId),
+  }),
+);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   characters: many(characters),
@@ -178,6 +195,18 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
   bankStorage: many(bankStorage),
   sessions: many(playerSessions),
   npcKills: many(npcKills),
+  agentMappings: many(agentMappings),
+}));
+
+export const agentMappingsRelations = relations(agentMappings, ({ one }) => ({
+  user: one(users, {
+    fields: [agentMappings.accountId],
+    references: [users.id],
+  }),
+  character: one(characters, {
+    fields: [agentMappings.characterId],
+    references: [characters.id],
+  }),
 }));
 
 export const inventoryRelations = relations(inventory, ({ one }) => ({
