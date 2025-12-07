@@ -31,7 +31,7 @@ import type { InventorySystem } from "../character/InventorySystem";
  * - SafeAreaDeathHandler: Handles gravestone → ground items (5min → 2min)
  * - WildernessDeathHandler: Handles immediate ground item drops (2min)
  * - DeathStateManager: Database death locks (anti-duplication)
- * - GroundItemManager: Ground item lifecycle management
+ * - GroundItemSystem: Ground item lifecycle management
  *
  * RuneScape-style mechanics:
  * - Safe zones: Items → gravestone (5min) → ground items (2min) → despawn
@@ -1073,7 +1073,7 @@ export class PlayerDeathSystem extends SystemBase {
       this.respawnTimers.delete(playerId);
     }
 
-    // Item despawn is now handled by GroundItemManager
+    // Item despawn is now handled by GroundItemSystem
   }
 
   private cleanupPlayerDeath(data: { id: string }): void {
@@ -1176,6 +1176,6 @@ export class PlayerDeathSystem extends SystemBase {
     }
 
     // WildernessDeathHandler doesn't need tick processing
-    // (ground items are handled by GroundItemManager)
+    // (ground items are handled by GroundItemSystem)
   }
 }

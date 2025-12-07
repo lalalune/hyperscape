@@ -46,6 +46,12 @@ export class GroundItemSystem extends SystemBase {
   private nextItemId = 1;
   private entityManager: EntityManager | null = null;
 
+  /** OSRS: Maximum items per tile */
+  private readonly MAX_PILE_SIZE = 128;
+
+  /** Server-wide ground item limit to prevent memory exhaustion */
+  private readonly MAX_GLOBAL_ITEMS = 65536;
+
   constructor(world: World) {
     super(world, {
       name: "ground-items",
@@ -127,6 +133,14 @@ export class GroundItemSystem extends SystemBase {
       return "";
     }
 
+    // Global ground item limit - prevent memory exhaustion attacks
+    if (this.groundItems.size >= this.MAX_GLOBAL_ITEMS) {
+      console.warn(
+        `[GroundItemSystem] Global item limit reached (${this.MAX_GLOBAL_ITEMS}), rejecting spawn`,
+      );
+      return "";
+    }
+
     const item = getItem(itemId);
     if (!item) {
       console.warn(`[GroundItemSystem] Unknown item: ${itemId}`);
@@ -135,8 +149,13 @@ export class GroundItemSystem extends SystemBase {
 
     const currentTick = this.world.currentTick;
 
-    // Convert ms config to ticks
-    const despawnTicks = msToTicks(options.despawnTime);
+    // OSRS: Untradeable items ALWAYS despawn in 3 min, tradeable uses caller's time
+    // This overrides caller's despawnTime for untradeable items (OSRS-accurate behavior)
+    const despawnTicks =
+      item.tradeable === false
+        ? COMBAT_CONSTANTS.UNTRADEABLE_DESPAWN_TICKS // 300 ticks = 3 min (forced)
+        : msToTicks(options.despawnTime); // Use caller's value
+
     const lootProtectionTicks = options.lootProtection
       ? msToTicks(options.lootProtection)
       : 0;
@@ -156,6 +175,21 @@ export class GroundItemSystem extends SystemBase {
 
     // Check for existing pile at this tile
     const existingPile = this.groundItemPiles.get(tileKey);
+
+    // OSRS-STYLE: Check pile size limit (max 128 items per tile)
+    // If full, remove oldest item (bottom of pile) to make room
+    if (existingPile && existingPile.items.length >= this.MAX_PILE_SIZE) {
+      const oldestItem = existingPile.items.pop(); // Remove from end (oldest)
+      if (oldestItem) {
+        this.groundItems.delete(oldestItem.entityId);
+        if (this.entityManager) {
+          this.entityManager.destroyEntity(oldestItem.entityId);
+        }
+        console.log(
+          `[GroundItemSystem] Pile full at (${tile.x}, ${tile.z}), removed oldest item ${oldestItem.entityId}`,
+        );
+      }
+    }
 
     // OSRS-STYLE: If stackable, try to merge with existing item of same type
     if (item.stackable && existingPile) {
@@ -491,11 +525,41 @@ export class GroundItemSystem extends SystemBase {
   }
 
   /**
+   * Check if an item is visible to a specific player (OSRS visibility phases)
+   * - Private phase (0-100 ticks): Only dropper/killer sees item
+   * - Public phase (100-200 ticks): Everyone sees item
+   *
+   * NOTE: Currently used for validation. Full visual filtering requires
+   * network layer changes (see GROUND_ITEM_IMPLEMENTATION_PLAN.md Phase 5).
+   */
+  isVisibleTo(itemId: string, playerId: string, currentTick: number): boolean {
+    const itemData = this.groundItems.get(itemId);
+
+    // Untracked items (world spawns) are always visible
+    if (!itemData) return true;
+
+    // If no loot protection, everyone can see
+    if (!itemData.lootProtectionTick) return true;
+
+    // If public phase reached, everyone can see
+    if (currentTick >= itemData.lootProtectionTick) return true;
+
+    // Private phase: only dropper can see
+    return itemData.droppedBy === playerId;
+  }
+
+  /**
    * Check if a player can pick up an item (considering loot protection)
+   *
+   * Returns true for untracked items (world spawns from ItemSpawnerSystem)
+   * since they have no loot protection to enforce.
    */
   canPickup(itemId: string, playerId: string, currentTick: number): boolean {
     const itemData = this.groundItems.get(itemId);
-    if (!itemData) return false;
+
+    // Untracked items (world spawns, resource drops) have no protection
+    // If we can't find tracking data, allow pickup
+    if (!itemData) return true;
 
     // If no loot protection, anyone can pick up
     if (!itemData.lootProtectionTick) return true;
@@ -503,7 +567,7 @@ export class GroundItemSystem extends SystemBase {
     // If protection expired, anyone can pick up
     if (currentTick >= itemData.lootProtectionTick) return true;
 
-    // Only the dropper can pick up during protection
+    // Only the dropper/killer can pick up during protection
     return itemData.droppedBy === playerId;
   }
 

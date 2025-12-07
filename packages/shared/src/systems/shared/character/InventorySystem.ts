@@ -843,6 +843,21 @@ export class InventorySystem extends SystemBase {
         return;
       }
 
+      // Check loot protection (OSRS: killer has 1 minute exclusivity on mob loot)
+      const groundItems =
+        this.world.getSystem<GroundItemSystem>("ground-items");
+      if (groundItems) {
+        const currentTick = this.world.currentTick;
+        if (!groundItems.canPickup(data.entityId, data.playerId, currentTick)) {
+          this.emitTypedEvent(EventType.UI_TOAST, {
+            playerId: data.playerId,
+            message: "This item belongs to another player.",
+            type: "warning",
+          });
+          return;
+        }
+      }
+
       // PRE-CHECK: Verify inventory capacity BEFORE modifying anything
       // This prevents wasted operations and provides better UX
       if (!this.canAddItem(data.playerId, itemData.id, quantity)) {
