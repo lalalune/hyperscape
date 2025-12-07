@@ -109,6 +109,7 @@ import { StoreSystem } from "..";
 // New MMO-style Systems
 import { InteractionRouter } from "../../client";
 import { LootSystem } from "..";
+import { GroundItemSystem } from "../economy/GroundItemSystem";
 // Movement now handled by physics in PlayerLocal
 // CameraSystem is ClientCameraSystem
 // UI components are React-based in the client package
@@ -145,6 +146,7 @@ export interface Systems {
   playerDeath?: PlayerDeathSystem;
   mobDeath?: MobDeathSystem;
   inventoryInteraction?: InventoryInteractionSystem;
+  groundItems?: GroundItemSystem;
   loot?: LootSystem;
   cameraSystem?: CameraSystemInterface;
   movementSystem?: unknown;
@@ -335,6 +337,10 @@ export async function registerSystems(world: World): Promise<void> {
     }
   }
 
+  // Ground Item System - shared across loot and death systems
+  // Must be registered before systems that depend on it
+  world.register("ground-items", GroundItemSystem);
+
   // New MMO-style Systems
   world.register("loot", LootSystem);
 
@@ -380,6 +386,9 @@ export async function registerSystems(world: World): Promise<void> {
       "inventory-interaction",
     ) as InventoryInteractionSystem;
   }
+
+  // Ground Item System
+  systems.groundItems = getSystem(world, "ground-items") as GroundItemSystem;
 
   // New MMO-style Systems
   systems.loot = getSystem(world, "loot") as LootSystem;

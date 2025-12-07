@@ -3,12 +3,12 @@
  *
  * Handles player death in wilderness/PvP zones (RuneScape-style):
  * 1. Items → ground items immediately (200 ticks = 2 minutes)
- * 2. Ground items despawn via GroundItemManager tick processing
+ * 2. Ground items despawn via GroundItemSystem tick processing
  * No gravestone protection in dangerous areas
  *
  * TICK-BASED TIMING (OSRS-accurate):
  * - Uses tick constants from COMBAT_CONSTANTS
- * - Ground item despawn handled by GroundItemManager.processTick()
+ * - Ground item despawn handled by GroundItemSystem.processTick()
  * - Loot protection expires after 100 ticks (1 minute)
  *
  * @see https://oldschool.runescape.wiki/w/Wilderness#Death
@@ -16,7 +16,7 @@
 
 import type { World } from "../../../core/World";
 import type { InventoryItem } from "../../../types/core/core";
-import type { GroundItemManager } from "./GroundItemManager";
+import type { GroundItemSystem } from "../economy/GroundItemSystem";
 import type { DeathStateManager } from "./DeathStateManager";
 import { ZoneType } from "../../../types/death";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
@@ -33,7 +33,7 @@ export class WildernessDeathHandler {
 
   constructor(
     private world: World,
-    private groundItemManager: GroundItemManager,
+    private groundItemManager: GroundItemSystem,
     private deathStateManager: DeathStateManager,
   ) {}
 
@@ -73,7 +73,7 @@ export class WildernessDeathHandler {
     }
 
     // Spawn ground items immediately (no gravestone in wilderness)
-    // Uses ms values for GroundItemOptions, internally converted to ticks by GroundItemManager
+    // Uses ms values for GroundItemOptions, internally converted to ticks by GroundItemSystem
     const groundItemIds = await this.groundItemManager.spawnGroundItems(
       items,
       position,
@@ -121,9 +121,9 @@ export class WildernessDeathHandler {
   }
 
   /**
-   * Clean up (no timers to manage, GroundItemManager handles despawn)
+   * Clean up (no timers to manage, GroundItemSystem handles despawn)
    */
   destroy(): void {
-    // No cleanup needed - GroundItemManager handles all timers
+    // No cleanup needed - GroundItemSystem handles all timers
   }
 }

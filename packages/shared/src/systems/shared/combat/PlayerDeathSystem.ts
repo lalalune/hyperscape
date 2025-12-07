@@ -17,7 +17,7 @@ import { EntityType, InteractionType } from "../../../types/entities";
 import type { HeadstoneEntityConfig } from "../../../types/entities";
 import type { EntityManager } from "..";
 import { ZoneDetectionSystem } from "../death/ZoneDetectionSystem";
-import { GroundItemManager } from "../death/GroundItemManager";
+import type { GroundItemSystem } from "../economy/GroundItemSystem";
 import { DeathStateManager } from "../death/DeathStateManager";
 import { SafeAreaDeathHandler } from "../death/SafeAreaDeathHandler";
 import { WildernessDeathHandler } from "../death/WildernessDeathHandler";
@@ -31,7 +31,7 @@ import type { InventorySystem } from "../character/InventorySystem";
  * - SafeAreaDeathHandler: Handles gravestone → ground items (5min → 2min)
  * - WildernessDeathHandler: Handles immediate ground item drops (2min)
  * - DeathStateManager: Database death locks (anti-duplication)
- * - GroundItemManager: Ground item lifecycle management
+ * - GroundItemSystem: Ground item lifecycle management
  *
  * RuneScape-style mechanics:
  * - Safe zones: Items → gravestone (5min) → ground items (2min) → despawn
@@ -68,7 +68,7 @@ export class PlayerDeathSystem extends SystemBase {
 
   // Modular death system components
   private zoneDetection!: ZoneDetectionSystem;
-  private groundItemManager!: GroundItemManager;
+  private groundItemSystem!: GroundItemSystem;
   private deathStateManager!: DeathStateManager;
   private safeAreaHandler!: SafeAreaDeathHandler;
   private wildernessHandler!: WildernessDeathHandler;
@@ -76,7 +76,10 @@ export class PlayerDeathSystem extends SystemBase {
   constructor(world: World) {
     super(world, {
       name: "player-death",
-      dependencies: { required: [], optional: ["inventory", "entity-manager"] },
+      dependencies: {
+        required: ["ground-items"], // Depends on shared GroundItemSystem
+        optional: ["inventory", "entity-manager"],
+      },
       autoCleanup: true,
     });
   }
@@ -86,21 +89,27 @@ export class PlayerDeathSystem extends SystemBase {
     this.zoneDetection = new ZoneDetectionSystem(this.world);
     await this.zoneDetection.init();
 
-    const entityManager =
-      this.world.getSystem<EntityManager>("entity-manager")!;
-    this.groundItemManager = new GroundItemManager(this.world, entityManager);
+    // Get shared GroundItemSystem (registered as world system)
+    this.groundItemSystem =
+      this.world.getSystem<GroundItemSystem>("ground-items")!;
+    if (!this.groundItemSystem) {
+      console.error(
+        "[PlayerDeathSystem] GroundItemSystem not found - death drops disabled",
+      );
+    }
+
     this.deathStateManager = new DeathStateManager(this.world);
     await this.deathStateManager.init();
 
     this.safeAreaHandler = new SafeAreaDeathHandler(
       this.world,
-      this.groundItemManager,
+      this.groundItemSystem,
       this.deathStateManager,
     );
 
     this.wildernessHandler = new WildernessDeathHandler(
       this.world,
-      this.groundItemManager,
+      this.groundItemSystem,
       this.deathStateManager,
     );
 
@@ -192,9 +201,7 @@ export class PlayerDeathSystem extends SystemBase {
     if (this.wildernessHandler) {
       this.wildernessHandler.destroy();
     }
-    if (this.groundItemManager) {
-      this.groundItemManager.destroy();
-    }
+    // Note: groundItemSystem is a shared system - don't destroy it here
 
     // Clear all respawn timers
     for (const timer of this.respawnTimers.values()) {
@@ -885,7 +892,7 @@ export class PlayerDeathSystem extends SystemBase {
 
     // Spawn ground items (2 minute despawn timer)
     const GROUND_ITEM_DURATION = 2 * 60 * 1000;
-    await this.groundItemManager.spawnGroundItems(items, position, {
+    await this.groundItemSystem.spawnGroundItems(items, position, {
       despawnTime: GROUND_ITEM_DURATION,
       droppedBy: playerId,
       lootProtection: 0,
@@ -1066,7 +1073,7 @@ export class PlayerDeathSystem extends SystemBase {
       this.respawnTimers.delete(playerId);
     }
 
-    // Item despawn is now handled by GroundItemManager
+    // Item despawn is now handled by GroundItemSystem
   }
 
   private cleanupPlayerDeath(data: { id: string }): void {
@@ -1161,10 +1168,7 @@ export class PlayerDeathSystem extends SystemBase {
    * @param currentTick - Current server tick number
    */
   processTick(currentTick: number): void {
-    // Process ground item despawn
-    if (this.groundItemManager) {
-      this.groundItemManager.processTick(currentTick);
-    }
+    // Note: groundItemSystem is a shared system - it handles its own ticks
 
     // Process gravestone expiration (safe area)
     if (this.safeAreaHandler) {
@@ -1172,6 +1176,6 @@ export class PlayerDeathSystem extends SystemBase {
     }
 
     // WildernessDeathHandler doesn't need tick processing
-    // (ground items are handled by GroundItemManager)
+    // (ground items are handled by GroundItemSystem)
   }
 }
