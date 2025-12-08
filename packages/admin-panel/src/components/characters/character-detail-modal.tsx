@@ -28,7 +28,7 @@ import {
   Fish,
   Flame,
   ChefHat,
-  Pickaxe,
+  Hammer,
   TrendingUp,
   Trophy,
 } from "lucide-react";
@@ -188,7 +188,7 @@ export function CharacterDetailModal({
       name: "Mining",
       level: character.miningLevel,
       xp: character.miningXp,
-      icon: Pickaxe,
+      icon: Hammer,
     },
     {
       name: "Woodcutting",
