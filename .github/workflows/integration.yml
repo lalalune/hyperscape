@@ -54,17 +54,19 @@ jobs:
         working-directory: packages/plugin-hyperscape
         run: bun run build
 
-      - name: Install ElizaOS CLI
-        run: bun add -g @elizaos/cli
+      # - name: Install ElizaOS CLI
+      #   run: bun add -g @elizaos/cli
 
       - name: Start ElizaOS in background
         working-directory: packages/plugin-hyperscape
         run: |
           mkdir -p logs
-          elizaos start --character character.json > logs/elizaos.log 2>&1 &
+          bunx @elizaos/cli start --character character.json > logs/elizaos.log 2>&1 &
           echo "ELIZAOS_PID=$!" >> $GITHUB_ENV
         env:
           NODE_ENV: test
+          OPENAI_API_KEY: sk-mock-key-for-integration-tests
+          SECRET_SALT: mock-salt-for-integration-tests
 
       - name: Wait for ElizaOS to be ready
         run: |
@@ -159,4 +161,3 @@ jobs:
             packages/server/logs/
             packages/plugin-hyperscape/logs/
           retention-days: 7
-
