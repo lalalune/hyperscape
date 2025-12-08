@@ -107,7 +107,7 @@ export function handleStoreOpen(
     npcId: data.npcId,
     storeId: data.storeId as any,
     npcEntityId: data.npcEntityId,
-  });
+  } as any);
 }
 
 /**
