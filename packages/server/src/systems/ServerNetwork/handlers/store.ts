@@ -105,7 +105,7 @@ export function handleStoreOpen(
   world.emit(EventType.STORE_OPEN_REQUEST, {
     playerId,
     npcId: data.npcId,
-    storeId: data.storeId,
+    storeId: data.storeId as any,
     npcEntityId: data.npcEntityId,
   });
 }
