@@ -87,10 +87,24 @@ async function main() {
     }
 
     // Clone with depth 1 for faster download (keep .git for future syncs)
-    execSync(`git clone --depth 1 ${assetsRepo} "${assetsDir}"`, {
-      stdio: "inherit",
-      cwd: rootDir,
-    });
+    try {
+      execSync(`git clone --depth 1 ${assetsRepo} "${assetsDir}"`, {
+        stdio: "inherit",
+        cwd: rootDir,
+      });
+    } catch (e) {
+      console.warn("⚠️ Standard clone failed (likely LFS budget). Retrying without LFS blobs...");
+      // Cleanup failed partial clone
+      execSync(`rm -rf "${assetsDir}"`, { stdio: "ignore" });
+      
+      // Retry with smudge skipped
+      execSync(`git clone --depth 1 ${assetsRepo} "${assetsDir}"`, {
+        stdio: "inherit",
+        cwd: rootDir,
+        env: { ...process.env, GIT_LFS_SKIP_SMUDGE: "1" }
+      });
+      console.warn("⚠️ Assets downloaded as LFS pointers only. Binary files are missing.");
+    }
 
     console.log("✅ Assets downloaded successfully!");
     console.log("   Run 'bun run assets:sync' to update assets later");
@@ -98,6 +112,9 @@ async function main() {
     console.error("❌ Failed to download assets:", error.message);
     console.error("   You can manually clone:");
     console.error(`   git clone ${assetsRepo} ${assetsDir}`);
+    // Do not exit with error in CI if fallback works, but if fallback failed, we crash.
+    // Actually, distinct try/catch above handles the fallback. 
+    // This outer catch handles IF THE FALLBACK ALSO FAILS.
     process.exit(1);
   }
 }
