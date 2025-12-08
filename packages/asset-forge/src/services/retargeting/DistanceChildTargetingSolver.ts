@@ -10,6 +10,7 @@
  */
 
 import * as THREE from "three";
+
 import { AutoSkinSolver } from "./AutoSkinSolver";
 
 export class DistanceChildTargetingSolver extends AutoSkinSolver {

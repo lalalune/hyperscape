@@ -15,6 +15,7 @@ export const SessionType = {
   DIALOGUE: "dialogue",
 } as const;
 
+// eslint-disable-next-line no-redeclare
 export type SessionType = (typeof SessionType)[keyof typeof SessionType];
 
 // ============================================================================

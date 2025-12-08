@@ -1,8 +1,8 @@
 import { Grid3x3, CheckCircle, AlertCircle, Loader2, Download, Package, RefreshCw, Eye } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 
-import { spriteGeneratorClient } from '../../utils/sprite-generator-client'
 import { Asset } from '../../types'
+import { spriteGeneratorClient } from '../../utils/sprite-generator-client'
 import { Modal, ModalHeader, ModalBody, ModalFooter, ModalSection, Button, Select, Badge } from '../common'
 
 import { apiFetch } from '@/utils/api'

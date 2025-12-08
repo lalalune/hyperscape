@@ -227,7 +227,7 @@ export class EquipmentVisualSystem extends SystemBase {
         this.weaponCache.set(itemId, gltf);
       }
 
-      let weaponMesh: THREE.Object3D = gltf.scene.clone(true); // Clone to allow multiple instances
+      const weaponMesh: THREE.Object3D = gltf.scene.clone(true); // Clone to allow multiple instances
 
       // Read attachment metadata from Asset Forge export
       const attachmentData = weaponMesh.userData.hyperscape as
@@ -257,7 +257,7 @@ export class EquipmentVisualSystem extends SystemBase {
 
       // CRITICAL: Asset Forge exports have transforms baked into the hierarchy
       // Find the EquipmentWrapper child which has the fitting position
-      let equipmentWrapper = weaponMesh.children.find(
+      const equipmentWrapper = weaponMesh.children.find(
         (child) => child.name === "EquipmentWrapper",
       );
 
