@@ -1815,7 +1815,7 @@ export class MobEntity extends CombatantEntity {
       direction.z /= length;
 
       const moveDistance = this.config.moveSpeed * deltaTime;
-      let newPos = {
+      const newPos = {
         x: currentPos.x + direction.x * moveDistance,
         y: currentPos.y,
         z: currentPos.z + direction.z * moveDistance,

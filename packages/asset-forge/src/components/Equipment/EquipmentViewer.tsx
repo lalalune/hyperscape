@@ -1,3 +1,4 @@
+import { VRMLoaderPlugin } from "@pixiv/three-vrm";
 import React, {
   useEffect,
   useRef,
@@ -11,7 +12,6 @@ import { SkeletonHelper } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { VRMLoaderPlugin } from "@pixiv/three-vrm";
 
 export interface Transform {
   position: { x: number; y: number; z: number };

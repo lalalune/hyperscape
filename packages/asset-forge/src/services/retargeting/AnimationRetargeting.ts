@@ -5,8 +5,8 @@
  * Retargets Mixamo animations to VRM skeletons.
  */
 
-import * as THREE from "three";
 import type { VRM } from "@pixiv/three-vrm";
+import * as THREE from "three";
 
 const q1 = new THREE.Quaternion();
 const restRotationInverse = new THREE.Quaternion();

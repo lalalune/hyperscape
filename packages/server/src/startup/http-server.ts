@@ -370,7 +370,7 @@ function registerMusicRoute(
           category,
           filename,
         );
-        // eslint-disable-next-line no-await-in-loop
+
         if (await fs.pathExists(altPath)) {
           reply.type("audio/mpeg");
           reply.header("Accept-Ranges", "bytes");

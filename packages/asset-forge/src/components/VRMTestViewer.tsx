@@ -4,12 +4,13 @@
  * Uses @pixiv/three-vrm to load and test VRM files with actual animations
  */
 
+import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import React, { useEffect, useRef, useState } from "react";
+import styled from "styled-components";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
-import styled from "styled-components";
+
 import { retargetAnimation } from "../services/retargeting/AnimationRetargeting";
 
 const Container = styled.div`

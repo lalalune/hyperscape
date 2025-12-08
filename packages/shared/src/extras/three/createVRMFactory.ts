@@ -379,7 +379,7 @@ export function createVRMFactory(
     let rateCheckedAt = 999;
     let rateCheck = true;
     let updateCallCount = 0;
-    let hasLoggedUpdatePipeline = false;
+    const hasLoggedUpdatePipeline = false;
     const update = (delta) => {
       updateCallCount++;
       elapsed += delta;

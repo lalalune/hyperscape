@@ -16,6 +16,7 @@ import {
 import { isValidItemId } from "../services/InputValidation";
 
 // Regex to detect control characters (security)
+// eslint-disable-next-line no-control-regex
 const CONTROL_CHAR_REGEX = /[\x00-\x1f]/;
 
 // Rate limiting for pickup requests

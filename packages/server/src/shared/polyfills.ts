@@ -307,6 +307,5 @@ try {
     g.WebSocket = WS as unknown;
   }
 } catch (err) {
-  // eslint-disable-next-line no-console
   console.error("[Polyfills] Failed to install WebSocket polyfill:", err);
 }

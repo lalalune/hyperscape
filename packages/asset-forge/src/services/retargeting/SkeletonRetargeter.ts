@@ -4,8 +4,9 @@
  */
 
 import * as THREE from "three";
-import { DistanceSolver } from "./DistanceSolver";
+
 import { DistanceChildTargetingSolver } from "./DistanceChildTargetingSolver";
+import { DistanceSolver } from "./DistanceSolver";
 
 export type SolverType = "distance" | "distance-child" | "distance-targeting";
 
