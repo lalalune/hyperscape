@@ -296,6 +296,7 @@ describe("Bank Handler Integration - Input Validation", () => {
   });
 
   it("validates slot index is within bounds", () => {
+    /* eslint-disable no-constant-binary-expression */
     const maxSlots = INPUT_LIMITS.MAX_INVENTORY_SLOTS;
 
     // Valid slots

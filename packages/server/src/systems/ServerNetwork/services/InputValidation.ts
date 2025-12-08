@@ -9,6 +9,7 @@
 
 import { INPUT_LIMITS } from "@hyperscape/shared";
 
+// eslint-disable-next-line no-control-regex
 const CONTROL_CHAR_REGEX = /[\x00-\x1f]/;
 
 /**
