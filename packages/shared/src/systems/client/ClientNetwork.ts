@@ -1802,11 +1802,20 @@ export class ClientNetwork extends SystemBase {
     // Only handle for local player
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
+      // Convert array format to object format for event payload
+      const deathPosition = data.deathPosition
+        ? {
+            x: data.deathPosition[0],
+            y: data.deathPosition[1],
+            z: data.deathPosition[2],
+          }
+        : undefined;
+
       // Forward to local event system so PlayerLocal can handle it
       this.world.emit(EventType.PLAYER_SET_DEAD, {
         playerId: data.playerId,
         isDead: data.isDead,
-        deathPosition: data.deathPosition,
+        deathPosition,
       });
     }
   };
