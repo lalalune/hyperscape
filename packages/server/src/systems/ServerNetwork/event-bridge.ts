@@ -565,8 +565,7 @@ export class EventBridge {
         const data = payload as {
           playerId: string;
           npcId: string;
-          storeId?: string;
-          npcEntityId?: string;
+          inventory: unknown[];
         };
 
         if (!data.playerId) {
@@ -574,27 +573,11 @@ export class EventBridge {
           return;
         }
 
-        // Get storeId - either from event or look up from NPC
-        let storeId = data.storeId;
-        if (!storeId) {
-          // First try with the npcId directly (might be manifest ID)
-          storeId = this.getStoreIdForNpc(data.npcId);
-
-          // If not found and we have npcEntityId, look up the entity to get manifest npcId
-          if (!storeId && data.npcEntityId) {
-            const manifestNpcId = this.getManifestNpcIdFromEntity(
-              data.npcEntityId,
-            );
-            if (manifestNpcId) {
-              storeId = this.getStoreIdForNpc(manifestNpcId);
-            }
-          }
-        }
+        // Look up storeId from NPC (npcId is manifest ID)
+        const storeId = this.getStoreIdForNpc(data.npcId);
 
         if (!storeId) {
-          console.warn(
-            `[EventBridge] No store linked to NPC ${data.npcId} (entityId: ${data.npcEntityId})`,
-          );
+          console.warn(`[EventBridge] No store linked to NPC ${data.npcId}`);
           return;
         }
 
@@ -613,14 +596,13 @@ export class EventBridge {
         // InteractionSessionManager now tracks targetEntityId as single source of truth
         // (It listens to STORE_OPEN_REQUEST and creates session with targetEntityId = npcEntityId)
 
-        // Send storeState packet to player (include npcEntityId for distance checking)
+        // Send storeState packet to player
         this.broadcast.sendToPlayer(data.playerId, "storeState", {
           storeId: store.id,
           storeName: store.name,
           buybackRate: store.buybackRate,
           items: store.items,
           isOpen: true,
-          npcEntityId: data.npcEntityId,
         });
       });
     } catch (_err) {
@@ -657,7 +639,7 @@ export class EventBridge {
     const entity = this.world.entities?.get?.(entityId);
     if (entity) {
       // Try to get npcId from various possible locations on the entity
-      const entityWithConfig = entity as {
+      const entityWithConfig = entity as unknown as {
         config?: { npcId?: string };
         data?: { npcId?: string };
         npcId?: string;

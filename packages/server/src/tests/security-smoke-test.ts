@@ -17,7 +17,7 @@ import {
   isValidItemId,
   isValidQuantity,
   wouldOverflow,
-  isValidSlotIndex,
+  isValidInventorySlot,
 } from "../systems/ServerNetwork/services/InputValidation";
 
 import { RateLimitService } from "../systems/ServerNetwork/services/RateLimitService";
@@ -88,18 +88,9 @@ test(
 );
 test("Safe addition allowed", !wouldOverflow(100, 100));
 
-test(
-  "Valid slot index accepted",
-  isValidSlotIndex(0, INPUT_LIMITS.MAX_INVENTORY_SLOTS),
-);
-test(
-  "Negative slot rejected",
-  !isValidSlotIndex(-1, INPUT_LIMITS.MAX_INVENTORY_SLOTS),
-);
-test(
-  "Out of bounds slot rejected",
-  !isValidSlotIndex(28, INPUT_LIMITS.MAX_INVENTORY_SLOTS),
-);
+test("Valid slot index accepted", isValidInventorySlot(0));
+test("Negative slot rejected", !isValidInventorySlot(-1));
+test("Out of bounds slot rejected", !isValidInventorySlot(28));
 
 // Rate limiting tests
 console.log("\n--- Rate Limiting ---");

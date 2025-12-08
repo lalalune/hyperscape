@@ -232,7 +232,7 @@ export function emitInventorySyncEvents(
       world.emit(EventType.INVENTORY_ITEM_ADDED, {
         playerId,
         item: {
-          id: 0, // Database ID not needed for sync
+          id: "0", // Database ID not needed for sync (placeholder string)
           itemId: added.itemId,
           quantity: added.quantity,
           slot: added.slot,

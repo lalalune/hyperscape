@@ -359,25 +359,23 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Sync tile position when player respawns at spawn point
     // CRITICAL: Without this, TileMovementManager has stale tile position from death location
     // and paths would be calculated from wrong starting tile
-    this.world.on(
-      EventType.PLAYER_RESPAWNED,
-      (event: {
+    this.world.on(EventType.PLAYER_RESPAWNED, (...args: unknown[]) => {
+      const event = args[0] as {
         playerId: string;
         spawnPosition: { x: number; y: number; z: number };
-      }) => {
-        if (event.playerId && event.spawnPosition) {
-          this.tileMovementManager.syncPlayerPosition(
-            event.playerId,
-            event.spawnPosition,
-          );
-          // Also clear any pending actions from before death
-          this.actionQueue.cleanup(event.playerId);
-          console.log(
-            `[ServerNetwork] Synced tile position for respawned player ${event.playerId} at (${event.spawnPosition.x}, ${event.spawnPosition.z})`,
-          );
-        }
-      },
-    );
+      };
+      if (event.playerId && event.spawnPosition) {
+        this.tileMovementManager.syncPlayerPosition(
+          event.playerId,
+          event.spawnPosition,
+        );
+        // Also clear any pending actions from before death
+        this.actionQueue.cleanup(event.playerId);
+        console.log(
+          `[ServerNetwork] Synced tile position for respawned player ${event.playerId} at (${event.spawnPosition.x}, ${event.spawnPosition.z})`,
+        );
+      }
+    });
 
     // Handle mob tile movement requests from MobEntity AI
     this.world.on(EventType.MOB_NPC_MOVE_REQUEST, (event) => {
@@ -498,8 +496,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       handleCharacterSelected(
         socket,
         data,
-        this.world,
-        this.broadcastManager.sendTo.bind(this.broadcastManager),
+        this.broadcastManager.sendToSocket.bind(this.broadcastManager),
       );
 
     this.handlers["enterWorld"] = (socket, data) =>
@@ -507,8 +504,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         socket,
         data,
         this.world,
-        this.db,
+        this.spawn,
         this.broadcastManager.sendToAll.bind(this.broadcastManager),
+        this.broadcastManager.sendToSocket.bind(this.broadcastManager),
       );
 
     this.handlers["onChatAdded"] = (socket, data) =>
