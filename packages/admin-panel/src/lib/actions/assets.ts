@@ -228,7 +228,7 @@ export async function getAssetsByCategory(
 
     return assets;
   } catch (error) {
-    console.error(`Failed to get assets for category ${category}:`, error);
+    console.error("Failed to get assets for category:", category, error);
     return [];
   }
 }
@@ -243,7 +243,16 @@ export async function getAssetFile(relativePath: string): Promise<{
   size: number;
 }> {
   try {
-    const fullPath = path.join(ASSETS_ROOT, relativePath);
+    // Normalize and validate path to prevent directory traversal
+    const fullPath = path.resolve(ASSETS_ROOT, relativePath);
+    const assetsRootResolved = path.resolve(ASSETS_ROOT);
+    if (
+      !fullPath.startsWith(assetsRootResolved + path.sep) &&
+      fullPath !== assetsRootResolved
+    ) {
+      throw new Error("Access to file outside assets directory is not allowed");
+    }
+
     const stats = await fs.stat(fullPath);
     const ext = path.extname(relativePath).toLowerCase();
 
@@ -404,14 +413,28 @@ export async function getManifestData(
   manifestFile: ManifestFile,
 ): Promise<unknown[]> {
   try {
-    const filePath = path.join(ASSETS_ROOT, "manifests", manifestFile);
+    // Validate manifestFile against whitelist
+    if (!MANIFEST_FILES.includes(manifestFile)) {
+      throw new Error("Invalid manifest file name");
+    }
+
+    const manifestsDir = path.resolve(ASSETS_ROOT, "manifests");
+    const filePath = path.resolve(manifestsDir, manifestFile);
+    // Ensure resolved path is still inside manifestsDir
+    if (
+      !filePath.startsWith(manifestsDir + path.sep) &&
+      filePath !== manifestsDir
+    ) {
+      throw new Error("Manifest file resolves outside manifests directory");
+    }
+
     const contents = await fs.readFile(filePath, "utf-8");
     const data = JSON.parse(contents);
 
     return Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error(`Failed to get manifest ${manifestFile}:`, error);
-    throw new Error(`Failed to load manifest: ${manifestFile}`);
+    console.error("Failed to get manifest:", manifestFile, error);
+    throw new Error("Failed to load manifest");
   }
 }
 
@@ -427,10 +450,24 @@ export async function updateManifest(
       throw new Error("Manifest data must be an array");
     }
 
-    const filePath = path.join(ASSETS_ROOT, "manifests", manifestFile);
+    // Validate manifestFile against whitelist
+    if (!MANIFEST_FILES.includes(manifestFile)) {
+      throw new Error("Invalid manifest file name");
+    }
+
+    const manifestsDir = path.resolve(ASSETS_ROOT, "manifests");
+    const filePath = path.resolve(manifestsDir, manifestFile);
+    // Ensure resolved path is still inside manifestsDir
+    if (
+      !filePath.startsWith(manifestsDir + path.sep) &&
+      filePath !== manifestsDir
+    ) {
+      throw new Error("Manifest file resolves outside manifests directory");
+    }
+
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
   } catch (error) {
-    console.error(`Failed to update manifest ${manifestFile}:`, error);
+    console.error("Failed to update manifest:", manifestFile, error);
     throw new Error("Failed to update manifest");
   }
 }
@@ -521,7 +558,7 @@ export async function findAssetReferences(assetPath: string): Promise<
 
     return references;
   } catch (error) {
-    console.error(`Failed to find references for ${assetPath}:`, error);
+    console.error("Failed to find references for:", assetPath, error);
     return [];
   }
 }
@@ -544,6 +581,16 @@ export async function getAssetInfo(relativePath: string): Promise<{
     field: string;
   }>;
 }> {
+  // Normalize and validate the path at entry point
+  const fullPath = path.resolve(ASSETS_ROOT, relativePath);
+  const assetsRootResolved = path.resolve(ASSETS_ROOT);
+  if (
+    !fullPath.startsWith(assetsRootResolved + path.sep) &&
+    fullPath !== assetsRootResolved
+  ) {
+    throw new Error("Access to file outside assets directory is not allowed");
+  }
+
   try {
     const file = await getAssetFile(relativePath);
     const ext = path.extname(relativePath).toLowerCase();
@@ -579,7 +626,7 @@ export async function getAssetInfo(relativePath: string): Promise<{
       references,
     };
   } catch (error) {
-    console.error(`Failed to get asset info for ${relativePath}:`, error);
+    console.error("Failed to get asset info for:", relativePath, error);
     throw new Error("Failed to load asset information");
   }
 }
