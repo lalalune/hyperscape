@@ -842,7 +842,7 @@ export function Minimap({
         ref={overlayCanvasRef}
         width={width}
         height={height}
-        className="absolute inset-0 block w-full h-full pointer-events-auto cursor-crosshair z-[1] rounded-full overflow-hidden"
+        className="absolute inset-0 block w-full h-full pointer-events-auto cursor-crosshair z-1 rounded-full overflow-hidden"
         onClick={onOverlayClick}
         onMouseDown={(e) => {
           e.preventDefault();

@@ -305,7 +305,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
 function Disconnected() {
   return (
     <>
-      <div className="fixed top-0 left-0 w-full h-full backdrop-grayscale pointer-events-none z-[9999] opacity-0 animate-[fadeIn_3s_ease-in-out_forwards]" />
+      <div className="fixed top-0 left-0 w-full h-full backdrop-grayscale pointer-events-none z-9999 opacity-0 animate-[fadeIn_3s_ease-in-out_forwards]" />
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; }
@@ -371,7 +371,7 @@ function DeathScreen({
   };
 
   return (
-    <div className="absolute inset-0 bg-black/80 flex items-center justify-center pointer-events-auto z-[10000]">
+    <div className="absolute inset-0 bg-black/80 flex items-center justify-center pointer-events-auto z-10000">
       <div className="flex flex-col items-center gap-6 max-w-md p-8 bg-dark-bg border-2 border-red-600 rounded-2xl backdrop-blur-md">
         <div className="text-4xl font-bold text-red-500">
           Oh dear, you are dead!
@@ -618,7 +618,7 @@ function PositionedToast({
     <div
       ref={tooltipRef}
       className={cls(
-        "fixed px-3 py-2 bg-[rgba(11,10,21,0.92)] border border-[#3a3b49] backdrop-blur-[8px] rounded-lg text-white text-sm font-medium shadow-lg pointer-events-none z-[99999] max-w-[250px]",
+        "fixed px-3 py-2 bg-[rgba(11,10,21,0.92)] border border-[#3a3b49] backdrop-blur-sm rounded-lg text-white text-sm font-medium shadow-lg pointer-events-none z-99999 max-w-[250px]",
         {
           "opacity-100 scale-100 animate-[examineTooltipIn_0.15s_ease-out]":
             visible,
@@ -644,7 +644,7 @@ function ToastMsg({ text }: { text: string }) {
   return (
     <div
       className={cls(
-        "h-[2.875rem] flex items-center justify-center px-4 bg-[rgba(11,10,21,0.85)] border border-[#2a2b39] backdrop-blur-[5px] rounded-[1.4375rem] transition-all duration-100 ease-in-out text-white text-[0.9375rem] font-medium",
+        "h-11.5 flex items-center justify-center px-4 bg-dark-bg border border-dark-border backdrop-blur-[5px] rounded-[1.4375rem] transition-all duration-100 ease-in-out text-white text-[0.9375rem] font-medium",
         {
           "opacity-100 translate-y-0 scale-100 animate-[toastIn_0.1s_ease-in-out]":
             visible,
