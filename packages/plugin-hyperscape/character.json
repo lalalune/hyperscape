@@ -61,7 +61,7 @@
     ]
   },
   "plugins": [
-    "@hyperscape/plugin-hyperscape",
+    "./dist/index.js",
     "@elizaos/plugin-sql",
     "@elizaos/plugin-openrouter",
     "@elizaos/plugin-openai",
