@@ -332,7 +332,7 @@ export class ResourceEntity extends InteractableEntity {
         // Different Meshy models have different base scales and orientations
         // ALWAYS use uniform scaling to preserve model proportions
         let modelScale = 1.0;
-        let needsXRotation = false; // Some models are exported lying flat
+        const needsXRotation = false; // Some models are exported lying flat
 
         if (this.config.resourceType === "tree") {
           modelScale = 3.0; // Scale up from base size (uniform scaling only)

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
 import { X, Save, Upload, Download, Link2, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import * as THREE from "three";
 
 interface BoneMappingInterfaceProps {

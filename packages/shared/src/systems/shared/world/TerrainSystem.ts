@@ -282,13 +282,14 @@ export class TerrainSystem extends System {
   }
 
   // World Configuration - Your Specifications
+  // OSRS-STYLE: Gentle rolling terrain, not dramatic peaks
   private readonly CONFIG = {
     // Core World Specs
     TILE_SIZE: 100, // 100m x 100m tiles
     WORLD_SIZE: 100, // 100x100 grid = 10km x 10km world
     TILE_RESOLUTION: 64, // 64x64 vertices per tile for smooth terrain
-    MAX_HEIGHT: 80, // 80m max height variation
-    WATER_THRESHOLD: 14.4, // Water appears below 14.4m (0.18 * MAX_HEIGHT)
+    MAX_HEIGHT: 30, // 30m max height variation (OSRS-style: gentle, not dramatic)
+    WATER_THRESHOLD: 5.4, // Water appears below 5.4m (0.18 * MAX_HEIGHT)
 
     // Chunking - Only adjacent tiles
     VIEW_DISTANCE: 1, // Load only 1 tile in each direction (3x3 = 9 tiles)
@@ -969,7 +970,7 @@ export class TerrainSystem extends System {
 
       // Get biome influences for smooth color blending
       const biomeInfluences = this.getBiomeInfluencesAtPosition(x, z);
-      const normalizedHeight = height / 80; // Max height is 80
+      const normalizedHeight = height / 30; // Max height is 30 (OSRS-style)
 
       // Store dominant biome ID for shader
       const dominantBiome = biomeInfluences[0].type;
@@ -1133,32 +1134,32 @@ export class TerrainSystem extends System {
       2.5,
     );
 
-    // Combine layers with carefully tuned weights
+    // Combine layers with OSRS-style tuning (gentle, not dramatic)
     let height = 0;
 
     // Base continental elevation (40% weight)
     height += continentNoise * 0.4;
 
-    // Add mountain ridges with squared effect for sharper peaks (30% weight)
-    const ridgeContribution = ridgeNoise * Math.abs(ridgeNoise);
-    height += ridgeContribution * 0.3;
+    // Add mountain ridges - LINEAR, not squared (10% weight)
+    // OSRS-style: gentle ridges, not sharp peaks
+    height += ridgeNoise * 0.1;
 
-    // Add rolling hills (20% weight)
-    height += hillNoise * 0.2;
+    // Add rolling hills (12% weight) - reduced for flatter terrain
+    height += hillNoise * 0.12;
 
-    // Apply erosion to create valleys (10% weight, subtractive)
-    height += erosionNoise * 0.1;
+    // Apply erosion to create valleys (8% weight, subtractive)
+    height += erosionNoise * 0.08;
 
-    // Add fine detail (5% weight)
-    height += detailNoise * 0.05;
+    // Add fine detail (3% weight) - subtle texture
+    height += detailNoise * 0.03;
 
     // Normalize to [0, 1] range
     height = (height + 1) * 0.5;
     height = Math.max(0, Math.min(1, height));
 
-    // Apply power curve to create more dramatic elevation changes
-    // Lower values = more valleys, higher values = more peaks
-    height = Math.pow(height, 1.4);
+    // Apply gentle power curve (OSRS-style: mostly flat with gentle variation)
+    // 1.1 instead of 1.4 = much less dramatic peaks
+    height = Math.pow(height, 1.1);
 
     // Create ocean depressions
     const oceanScale = 0.0015;
@@ -1173,8 +1174,8 @@ export class TerrainSystem extends System {
       height *= Math.max(0.1, 1 - oceanDepth);
     }
 
-    // Scale to actual world height
-    const MAX_HEIGHT = 80; // Maximum terrain height in meters
+    // Scale to actual world height (OSRS-style: gentle terrain)
+    const MAX_HEIGHT = 30; // Maximum terrain height in meters
     const finalHeight = height * MAX_HEIGHT;
 
     return finalHeight;
@@ -1244,7 +1245,7 @@ export class TerrainSystem extends System {
   ): Array<{ type: string; weight: number }> {
     // Get height for biome weighting
     const height = this.getHeightAt(worldX, worldZ);
-    const normalizedHeight = height / 80;
+    const normalizedHeight = height / 30; // Max height is 30 (OSRS-style)
 
     const biomeInfluences: Array<{ type: string; weight: number }> = [];
 
@@ -1375,12 +1376,14 @@ export class TerrainSystem extends System {
     // Roads are now generated using noise patterns instead of segments
   }
 
-  private generateTreesForTile(tile: TerrainTile, biomeData: BiomeData): void {
+  private generateTreesForTile(
+    _tile: TerrainTile,
+    _biomeData: BiomeData,
+  ): void {
     // DISABLED: Procedural tree generation is disabled.
     // Trees are now exclusively spawned from world-areas.json manifest via ResourceSystem.
     // To add trees, edit: packages/server/world/assets/manifests/world-areas.json
     // This prevents random trees from spawning across the world - only manifest-defined trees exist.
-    return;
   }
 
   private generateOtherResourcesForTile(

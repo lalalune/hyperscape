@@ -12,6 +12,7 @@
  */
 
 import * as THREE from "three";
+
 import { createBoneMapping, MESHY_TO_MIXAMO } from "./BoneMappings";
 
 export interface BoneMapping {
