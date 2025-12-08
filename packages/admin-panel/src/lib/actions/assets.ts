@@ -192,6 +192,11 @@ async function buildTree(
 export async function getAssetsByCategory(
   category: AssetCategory,
 ): Promise<AssetFile[]> {
+  // Validate category input to prevent path traversal and only allow known categories
+  if (!ASSET_CATEGORIES.includes(category)) {
+    // Return empty or handle error for invalid category
+    return [];
+  }
   const categoryPath = path.join(ASSETS_ROOT, category);
 
   try {
