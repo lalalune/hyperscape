@@ -1806,7 +1806,13 @@ export class ClientNetwork extends SystemBase {
       this.world.emit(EventType.PLAYER_SET_DEAD, {
         playerId: data.playerId,
         isDead: data.isDead,
-        deathPosition: data.deathPosition,
+        deathPosition: data.deathPosition
+          ? {
+              x: data.deathPosition[0],
+              y: data.deathPosition[1],
+              z: data.deathPosition[2],
+            }
+          : undefined,
       });
     }
   };
