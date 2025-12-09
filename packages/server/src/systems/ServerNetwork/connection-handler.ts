@@ -144,7 +144,7 @@ export class ConnectionHandler {
       // Send resource snapshot
       await this.sendResourceSnapshot(socket);
 
-      // CRITICAL FIX: Remove old socket for same account (prevents duplicate connections)
+      // Remove old socket for same account (prevents duplicate connections)
       // Grace period: Only close old sockets that are stale (no player after 10s) or have a player
       // This prevents closing sockets that are still in the spawn process
       const GRACE_PERIOD_MS = 10000; // 10 seconds

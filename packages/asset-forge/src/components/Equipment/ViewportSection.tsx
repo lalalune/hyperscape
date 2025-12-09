@@ -22,7 +22,7 @@ interface ViewportSectionProps {
   equipmentSlot: string;
   showSkeleton: boolean;
   setShowSkeleton: (show: boolean) => void;
-  viewerRef: React.RefObject<EquipmentViewerRef>;
+  viewerRef: React.RefObject<EquipmentViewerRef | null>;
   handleDetectionResult: HandleDetectionResult | null;
   avatarHeight: number;
   autoScaleWeapon: boolean;

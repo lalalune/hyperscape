@@ -1255,19 +1255,25 @@ Hyperscape world integration service that enables agents to:
         msgs: [],
         listeners: [] as Array<(msgs: ChatMessage[]) => void>,
         add: (msg: ChatMessage, _broadcast?: boolean) => {
-          const chat = minimalWorld.chat as {
+          const chat = minimalWorld.chat as unknown as {
             msgs: ChatMessage[];
             listeners: Array<(msgs: ChatMessage[]) => void>;
           };
-          chat.msgs.push(msg);
-          // Notify listeners
-          const chatListeners = chat.listeners;
-          for (const listener of chatListeners) {
-            listener(chat.msgs);
+          const chat = minimalWorld.chat as unknown as {
+            msgs: ChatMessage[];
+            listeners: Array<(msgs: ChatMessage[]) => void>;
+          };
+          if (chat && chat.msgs) {
+            chat.msgs.push(msg);
+            // Notify listeners
+            const chatListeners = chat.listeners;
+            for (const listener of chatListeners) {
+              listener(chat.msgs);
+            }
           }
         },
         subscribe: ((callback: (msgs: ChatMessage[]) => void) => {
-          const chat = minimalWorld.chat as {
+          const chat = minimalWorld.chat as unknown as {
             msgs: ChatMessage[];
             listeners: Array<(msgs: ChatMessage[]) => void>;
           };

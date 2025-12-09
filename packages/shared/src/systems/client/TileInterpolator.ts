@@ -722,7 +722,7 @@ export class TileInterpolator {
         if (entity.node && "position" in entity.node) {
           (entity.node as THREE.Object3D).position.copy(state.visualPosition);
         }
-        // CRITICAL: Also sync base.position for PlayerRemote avatar positioning
+        // Also sync base.position for PlayerRemote avatar positioning
         // PlayerRemote.update() uses base.matrixWorld for instance.move() which positions the avatar
         if (entity.base && "position" in entity.base) {
           (entity.base as THREE.Object3D).position.copy(state.visualPosition);

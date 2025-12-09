@@ -46,7 +46,14 @@ export interface PlayerHealthUpdatedEvent {
 
 export interface PlayerAvatarReadyEvent {
   playerId: string;
-  avatar: unknown; // Avatar type needs proper definition
+  avatar: {
+    getHeight?: () => number;
+    getHeadToHeight?: () => number;
+    setEmote?: (emote: string) => void;
+    getBoneTransform?: (boneName: string) => THREE.Matrix4 | null;
+    position?: { x: number; y: number; z: number };
+    [key: string]: unknown; // Allow additional avatar properties
+  };
   camHeight: number;
 }
 

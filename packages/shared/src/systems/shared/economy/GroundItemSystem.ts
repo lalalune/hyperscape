@@ -39,6 +39,7 @@ import { msToTicks, ticksToMs } from "../../../utils/game/CombatCalculations";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import { worldToTile, tileToWorld } from "../movement/TileSystem";
 import { SystemBase } from "..";
+import { Logger } from "../../../utils/Logger";
 
 export class GroundItemSystem extends SystemBase {
   private groundItems = new Map<string, GroundItemData>();
@@ -48,6 +49,28 @@ export class GroundItemSystem extends SystemBase {
 
   /** OSRS: Maximum items per tile */
   private readonly MAX_PILE_SIZE = 128;
+
+  // Reusable arrays for performance (avoid allocation every tick/call)
+  private readonly expiredItemsBuffer: string[] = [];
+  private readonly nearbyItemsBuffer: GroundItemData[] = [];
+  private readonly tileItemsBuffer: GroundItemData[] = [];
+  private readonly entityIdsBuffer: string[] = [];
+  // Reusable position objects for calculations (avoid allocation per call)
+  private readonly scatterPositionBuffer: { x: number; y: number; z: number } =
+    {
+      x: 0,
+      y: 0,
+      z: 0,
+    };
+  private readonly tileCenterPositionBuffer: {
+    x: number;
+    y: number;
+    z: number;
+  } = {
+    x: 0,
+    y: 0,
+    z: 0,
+  };
 
   /** Server-wide ground item limit to prevent memory exhaustion */
   private readonly MAX_GLOBAL_ITEMS = 65536;
@@ -67,8 +90,9 @@ export class GroundItemSystem extends SystemBase {
     this.entityManager =
       this.world.getSystem<EntityManager>("entity-manager") ?? null;
     if (!this.entityManager) {
-      console.error(
-        "[GroundItemSystem] EntityManager not found - ground items disabled",
+      this.logger.error(
+        "EntityManager not found - ground items disabled",
+        new Error("EntityManager missing"),
       );
     }
   }
@@ -86,7 +110,15 @@ export class GroundItemSystem extends SystemBase {
   getItemsAtTile(tile: { x: number; z: number }): GroundItemData[] {
     const tileKey = this.getTileKey(tile);
     const pile = this.groundItemPiles.get(tileKey);
-    return pile ? [...pile.items] : [];
+    if (!pile) {
+      return [];
+    }
+
+    this.tileItemsBuffer.length = 0;
+    for (const item of pile.items) {
+      this.tileItemsBuffer.push(item);
+    }
+    return this.tileItemsBuffer.slice();
   }
 
   /**
@@ -101,12 +133,10 @@ export class GroundItemSystem extends SystemBase {
    */
   private setItemVisibility(entityId: string, visible: boolean): void {
     const entity = this.world.entities.get(entityId);
-    if (entity) {
-      entity.setProperty("visibleInPile", visible);
-      if (typeof entity.markNetworkDirty === "function") {
-        entity.markNetworkDirty();
-      }
-    }
+    if (!entity) return;
+
+    entity.setProperty("visibleInPile", visible);
+    entity.markNetworkDirty?.();
   }
 
   /**
@@ -120,30 +150,32 @@ export class GroundItemSystem extends SystemBase {
     position: { x: number; y: number; z: number },
     options: GroundItemOptions,
   ): Promise<string> {
-    // CRITICAL: Server authority check - prevent client from spawning arbitrary items
     if (!this.world.isServer) {
-      console.error(
-        `[GroundItemSystem] ⚠️  Client attempted server-only ground item spawn - BLOCKED`,
+      this.logger.error(
+        "Client attempted server-only ground item spawn - BLOCKED",
+        new Error("Client attempted server operation"),
       );
       return "";
     }
 
     if (!this.entityManager) {
-      console.error("[GroundItemSystem] EntityManager not available");
+      this.logger.error(
+        "EntityManager not available",
+        new Error("EntityManager missing"),
+      );
       return "";
     }
 
-    // Global ground item limit - prevent memory exhaustion attacks
     if (this.groundItems.size >= this.MAX_GLOBAL_ITEMS) {
-      console.warn(
-        `[GroundItemSystem] Global item limit reached (${this.MAX_GLOBAL_ITEMS}), rejecting spawn`,
+      this.logger.warn(
+        `Global item limit reached (${this.MAX_GLOBAL_ITEMS}), rejecting spawn`,
       );
       return "";
     }
 
     const item = getItem(itemId);
     if (!item) {
-      console.warn(`[GroundItemSystem] Unknown item: ${itemId}`);
+      this.logger.warn("Unknown item:", { itemId });
       return "";
     }
 
@@ -165,10 +197,12 @@ export class GroundItemSystem extends SystemBase {
     const tileKey = this.getTileKey(tile);
     const tileCenter = tileToWorld(tile);
 
-    // Ground the tile center position to terrain
+    this.tileCenterPositionBuffer.x = tileCenter.x;
+    this.tileCenterPositionBuffer.y = position.y;
+    this.tileCenterPositionBuffer.z = tileCenter.z;
     const groundedPosition = groundToTerrain(
       this.world,
-      { x: tileCenter.x, y: position.y, z: tileCenter.z },
+      this.tileCenterPositionBuffer,
       0.2,
       Infinity,
     );
@@ -185,8 +219,8 @@ export class GroundItemSystem extends SystemBase {
         if (this.entityManager) {
           this.entityManager.destroyEntity(oldestItem.entityId);
         }
-        console.log(
-          `[GroundItemSystem] Pile full at (${tile.x}, ${tile.z}), removed oldest item ${oldestItem.entityId}`,
+        this.logger.debug(
+          `Pile full at (${tile.x}, ${tile.z}), removed oldest item ${oldestItem.entityId}`,
         );
       }
     }
@@ -216,13 +250,11 @@ export class GroundItemSystem extends SystemBase {
         if (existingEntity) {
           existingEntity.setProperty("quantity", newQuantity);
           existingEntity.name = item.name; // Quantity tracked as property
-          if (typeof existingEntity.markNetworkDirty === "function") {
-            existingEntity.markNetworkDirty();
-          }
+          existingEntity.markNetworkDirty?.();
         }
 
-        console.log(
-          `[GroundItemSystem] Merged stackable item ${itemId} x${quantity} into existing stack (now x${newQuantity}) at tile (${tile.x}, ${tile.z})`,
+        this.logger.debug(
+          `Merged stackable item ${itemId} x${quantity} into existing stack (now x${newQuantity}) at tile (${tile.x}, ${tile.z})`,
         );
 
         return existingStackItem.entityId;
@@ -280,7 +312,10 @@ export class GroundItemSystem extends SystemBase {
     } as ItemEntityConfig);
 
     if (!itemEntity) {
-      console.error(`[GroundItemSystem] Failed to spawn item: ${itemId}`);
+      this.logger.error(
+        `Failed to spawn item: ${itemId}`,
+        new Error("Item spawn failed"),
+      );
       return "";
     }
 
@@ -318,8 +353,8 @@ export class GroundItemSystem extends SystemBase {
       this.groundItemPiles.set(tileKey, newPile);
     }
 
-    console.log(
-      `[GroundItemSystem] Spawned ground item ${dropId} (${itemId} x${quantity}) at tile (${tile.x}, ${tile.z})`,
+    this.logger.debug(
+      `Spawned ground item ${dropId} (${itemId} x${quantity}) at tile (${tile.x}, ${tile.z})`,
       {
         despawnTick: groundItemData.despawnTick,
         despawnIn: `${despawnTicks} ticks (${(ticksToMs(despawnTicks) / 1000).toFixed(1)}s)`,
@@ -339,49 +374,54 @@ export class GroundItemSystem extends SystemBase {
     position: { x: number; y: number; z: number },
     options: GroundItemOptions,
   ): Promise<string[]> {
-    // CRITICAL: Server authority check - prevent client from mass-spawning items
     if (!this.world.isServer) {
-      console.error(
-        `[GroundItemSystem] ⚠️  Client attempted server-only ground items spawn - BLOCKED`,
+      this.logger.error(
+        "Client attempted server-only ground items spawn - BLOCKED",
+        new Error("Client attempted server operation"),
       );
       return [];
     }
 
-    const entityIds: string[] = [];
+    this.entityIdsBuffer.length = 0;
+    const radius = options.scatterRadius || 2.0;
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
 
-      // Calculate scatter position
-      let itemPosition = { ...position };
       if (options.scatter) {
-        const radius = options.scatterRadius || 2.0;
         const offsetX = (Math.random() - 0.5) * radius;
         const offsetZ = (Math.random() - 0.5) * radius;
-        itemPosition = {
-          x: position.x + offsetX,
-          y: position.y,
-          z: position.z + offsetZ,
-        };
+        this.scatterPositionBuffer.x = position.x + offsetX;
+        this.scatterPositionBuffer.y = position.y;
+        this.scatterPositionBuffer.z = position.z + offsetZ;
+      } else {
+        this.scatterPositionBuffer.x = position.x;
+        this.scatterPositionBuffer.y = position.y;
+        this.scatterPositionBuffer.z = position.z;
       }
 
       const entityId = await this.spawnGroundItem(
         item.itemId,
         item.quantity,
-        itemPosition,
+        this.scatterPositionBuffer,
         options,
       );
 
       if (entityId) {
-        entityIds.push(entityId);
+        this.entityIdsBuffer.push(entityId);
       }
     }
 
-    console.log(
-      `[GroundItemSystem] Spawned ${entityIds.length} ground items at (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)})`,
-    );
+    this.logger.debug("Spawned ground items", {
+      count: this.entityIdsBuffer.length,
+      position: {
+        x: position.x.toFixed(2),
+        y: position.y.toFixed(2),
+        z: position.z.toFixed(2),
+      },
+    });
 
-    return entityIds;
+    return this.entityIdsBuffer.slice();
   }
 
   /**
@@ -391,16 +431,15 @@ export class GroundItemSystem extends SystemBase {
    * @param currentTick - Current server tick number
    */
   processTick(currentTick: number): void {
-    const expiredItems: string[] = [];
+    this.expiredItemsBuffer.length = 0;
 
     for (const [itemId, itemData] of this.groundItems) {
       if (currentTick >= itemData.despawnTick) {
-        expiredItems.push(itemId);
+        this.expiredItemsBuffer.push(itemId);
       }
     }
 
-    // Despawn expired items
-    for (const itemId of expiredItems) {
+    for (const itemId of this.expiredItemsBuffer) {
       this.handleItemExpire(itemId, currentTick);
     }
   }
@@ -416,9 +455,12 @@ export class GroundItemSystem extends SystemBase {
       currentTick -
       (itemData.despawnTick - COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS);
 
-    console.log(
-      `[GroundItemSystem] Item ${itemId} (${itemData.itemId}) despawning after ${ticksExisted} ticks (${(ticksToMs(ticksExisted) / 1000).toFixed(1)}s)`,
-    );
+    this.logger.debug("Item despawning", {
+      itemId,
+      itemType: itemData.itemId,
+      ticksExisted,
+      secondsExisted: (ticksToMs(ticksExisted) / 1000).toFixed(1),
+    });
 
     // Remove from world
     this.removeGroundItem(itemId);
@@ -445,10 +487,12 @@ export class GroundItemSystem extends SystemBase {
       const pile = this.groundItemPiles.get(tileKey);
 
       if (pile) {
-        // Remove item from pile
-        const itemIndex = pile.items.findIndex((i) => i.entityId === itemId);
-        if (itemIndex !== -1) {
-          pile.items.splice(itemIndex, 1);
+        // Remove item from pile (iterate backwards for O(n) removal)
+        for (let i = pile.items.length - 1; i >= 0; i--) {
+          if (pile.items[i].entityId === itemId) {
+            pile.items.splice(i, 1);
+            break;
+          }
         }
 
         // If this was the top item, show the next item
@@ -490,19 +534,22 @@ export class GroundItemSystem extends SystemBase {
     position: { x: number; y: number; z: number },
     radius: number,
   ): GroundItemData[] {
-    const nearbyItems: GroundItemData[] = [];
+    // Reuse buffer array - clear and reuse instead of allocating new one
+    this.nearbyItemsBuffer.length = 0;
+    const radiusSquared = radius * radius; // Avoid sqrt in loop
 
     for (const itemData of this.groundItems.values()) {
       const dx = itemData.position.x - position.x;
       const dz = itemData.position.z - position.z;
-      const distance = Math.sqrt(dx * dx + dz * dz);
+      const distanceSquared = dx * dx + dz * dz;
 
-      if (distance <= radius) {
-        nearbyItems.push(itemData);
+      if (distanceSquared <= radiusSquared) {
+        this.nearbyItemsBuffer.push(itemData);
       }
     }
 
-    return nearbyItems;
+    // Return copy to avoid external mutation of buffer
+    return this.nearbyItemsBuffer.slice();
   }
 
   /**

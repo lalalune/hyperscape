@@ -260,7 +260,7 @@ export class ClientNetwork extends SystemBase {
       return;
     }
 
-    // CRITICAL: If we already have a WORKING WebSocket, don't recreate
+    // If we already have a working WebSocket, don't recreate
     // But if it's closed or closing, we need to reconnect
     if (this.ws && this.ws.readyState === WebSocket.OPEN && this.connected) {
       this.logger.debug(
@@ -494,7 +494,7 @@ export class ClientNetwork extends SystemBase {
     this.id = data.id; // Store our network ID
     this.connected = true; // Mark as connected when we get the snapshot
 
-    // CRITICAL: Ensure world.network points to this instance and has our ID
+    // Ensure world.network points to this instance and has our ID
     if (
       !this.world.network ||
       (this.world.network as { id?: string }).id !== this.id
@@ -970,11 +970,11 @@ export class ClientNetwork extends SystemBase {
       }
     } else {
       // Remote entities - use interpolation for smooth movement
-      // CRITICAL: If mob is DEAD (or entering DEAD state), clear interpolation buffer
+      // If mob is dead (or entering dead state), clear interpolation buffer
       // This prevents sliding from stale snapshots that were added before death
       const entityData = entity.serialize();
 
-      // CRITICAL FIX: Use NEW state if present, otherwise use current state
+      // Use new state if present, otherwise use current state
       // This ensures when mob respawns (changes.aiState='idle'), it's treated as alive
       // and position updates are applied correctly
       const newState = changes.aiState || entityData.aiState;
@@ -987,7 +987,7 @@ export class ClientNetwork extends SystemBase {
         this.interpolationStates.delete(id);
       }
 
-      // CRITICAL: Clear tile state when mob dies - they need death/respawn positions
+      // Clear tile state when mob dies - they need death/respawn positions
       // Without this, position is stripped and mob can't receive death position or respawn position
       if (isDead && this.tileInterpolator.hasState(id)) {
         this.tileInterpolator.removeEntity(id);
@@ -1133,13 +1133,13 @@ export class ClientNetwork extends SystemBase {
         continue;
       }
 
-      // CRITICAL: Skip interpolation for entities controlled by TileInterpolator
+      // Skip interpolation for entities controlled by TileInterpolator
       // TileInterpolator handles position and rotation for tile-based movement
       if (entity.data?.tileInterpolatorControlled === true) {
         continue; // Don't interpolate - TileInterpolator handles this entity
       }
 
-      // CRITICAL: Skip interpolation for dead mobs to prevent death animation sliding
+      // Skip interpolation for dead mobs to prevent death animation sliding
       // Dead mobs lock their position client-side for RuneScape-style stationary death
       // Check if entity has aiState property (indicates it's a MobEntity)
       const mobData = entity.serialize();
@@ -1417,7 +1417,7 @@ export class ClientNetwork extends SystemBase {
     this.lastEquipmentByPlayerId = this.lastEquipmentByPlayerId || {};
     this.lastEquipmentByPlayerId[data.playerId] = data.equipment;
 
-    // CRITICAL: Update local player's equipment so systems can access it
+    // Update local player's equipment so systems can access it
     // Equipment format from server: { weapon: { item: Item, itemId: string }, ... }
     // Local player format: { weapon: Item | null, ... }
     const localPlayer = this.world.getPlayer?.();
@@ -1455,7 +1455,7 @@ export class ClientNetwork extends SystemBase {
       },
     });
 
-    // CRITICAL: Also emit PLAYER_EQUIPMENT_CHANGED for each slot
+    // Also emit PLAYER_EQUIPMENT_CHANGED for each slot
     // so EquipmentVisualSystem can attach/remove 3D models to the avatar
     if (data.equipment) {
       const equipment = data.equipment;
@@ -2110,7 +2110,7 @@ export class ClientNetwork extends SystemBase {
       data.moveSeq,
     );
 
-    // CRITICAL: Set the flag IMMEDIATELY after tile update
+    // Set the flag immediately after tile update
     // This prevents race conditions where entityModified packets arrive after this
     // and apply stale server rotation, causing flickering
     if (entity?.data) {
@@ -2169,7 +2169,7 @@ export class ClientNetwork extends SystemBase {
       data.tilesPerTick,
     );
 
-    // CRITICAL: Set the flag IMMEDIATELY when movement starts
+    // Set the flag immediately when movement starts
     // This prevents race conditions where entityModified packets arrive before update() runs
     // and apply stale server rotation, causing flickering between north/south
     if (entity?.data) {
@@ -2210,7 +2210,7 @@ export class ClientNetwork extends SystemBase {
     // Get entity for flag and emote updates
     const entity = this.world.entities.get(data.id);
 
-    // CRITICAL: Keep the flag set - TileInterpolator might still be finishing interpolation
+    // Keep the flag set - TileInterpolator might still be finishing interpolation
     // The flag will be managed by TileInterpolator during its update cycle
     if (entity?.data) {
       entity.data.tileInterpolatorControlled = true;

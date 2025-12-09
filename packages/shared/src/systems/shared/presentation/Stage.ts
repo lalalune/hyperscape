@@ -468,8 +468,8 @@ export class Stage extends SystemBase {
       "children" in object
     ) {
       // This appears to be a Hyperscape Node, not a THREE.Object3D
-      console.warn(
-        "[Stage] Attempted to add a Hyperscape Node to the scene. Nodes should be converted to THREE.Object3D first.",
+      this.logger.warn(
+        "Attempted to add a Hyperscape Node to the scene. Nodes should be converted to THREE.Object3D first.",
       );
 
       // If it's a Node with a mesh property, add the mesh instead
@@ -483,7 +483,7 @@ export class Stage extends SystemBase {
       }
 
       // Otherwise, skip adding it
-      console.warn("[Stage] Skipping Node object:", object);
+      this.logger.warn("Skipping Node object", { object });
       return;
     }
 
@@ -492,7 +492,7 @@ export class Stage extends SystemBase {
     if (obj3d) {
       this.scene.add(obj3d);
     } else {
-      console.warn("[Stage] Object is null or undefined:", object);
+      this.logger.warn("Object is null or undefined", { object });
     }
   }
 
@@ -515,9 +515,7 @@ export class Stage extends SystemBase {
         }
       }
 
-      console.warn(
-        "[Stage] Attempted to remove a Hyperscape Node from the scene.",
-      );
+      this.logger.warn("Attempted to remove a Hyperscape Node from the scene.");
       return;
     }
 
@@ -526,7 +524,7 @@ export class Stage extends SystemBase {
     if (obj3d) {
       this.scene.remove(obj3d);
     } else {
-      console.warn("[Stage] Object is null or undefined:", object);
+      this.logger.warn("Object is null or undefined", { object });
     }
   }
 

@@ -24,10 +24,19 @@ import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import { ticksToMs } from "../../../utils/game/CombatCalculations";
 import { LootTableService } from "./LootTableService";
 import type { GroundItemSystem } from "./GroundItemSystem";
+import type { GroundItemOptions } from "../../../types/death";
 
 export class LootSystem extends SystemBase {
   private lootTableService: LootTableService;
   private groundItemSystem: GroundItemSystem | null = null;
+
+  private readonly inventoryItemsBuffer: InventoryItem[] = [];
+  private readonly groundItemOptionsBuffer: GroundItemOptions = {
+    despawnTime: 0,
+    droppedBy: "",
+    lootProtection: 0,
+    scatter: false,
+  };
 
   constructor(world: World) {
     super(world, {
@@ -48,9 +57,7 @@ export class LootSystem extends SystemBase {
     this.groundItemSystem =
       this.world.getSystem<GroundItemSystem>("ground-items") ?? null;
     if (!this.groundItemSystem) {
-      console.warn(
-        "[LootSystem] GroundItemSystem not found - mob loot drops disabled",
-      );
+      this.logger.warn("GroundItemSystem not found - mob loot drops disabled");
     }
 
     // Subscribe to mob death events
@@ -64,19 +71,18 @@ export class LootSystem extends SystemBase {
         killedBy?: string;
         position?: { x: number; y: number; z: number };
       }) => {
-        // Validate event data
         if (!event || typeof event !== "object") {
-          console.warn("[LootSystem] Invalid NPC_DIED event");
+          this.logger.warn("Invalid NPC_DIED event");
           return;
         }
 
         if (typeof event.mobId !== "string" || !event.mobId) {
-          console.warn("[LootSystem] NPC_DIED missing mobId");
+          this.logger.warn("NPC_DIED missing mobId");
           return;
         }
 
         if (!event.position || typeof event.position !== "object") {
-          console.warn("[LootSystem] NPC_DIED missing position");
+          this.logger.warn("NPC_DIED missing position");
           return;
         }
 
@@ -86,7 +92,7 @@ export class LootSystem extends SystemBase {
           typeof pos.y !== "number" ||
           typeof pos.z !== "number"
         ) {
-          console.warn("[LootSystem] NPC_DIED invalid position");
+          this.logger.warn("NPC_DIED invalid position");
           return;
         }
 
@@ -125,35 +131,36 @@ export class LootSystem extends SystemBase {
     killedBy: string;
     position: { x: number; y: number; z: number };
   }): Promise<void> {
-    // Roll loot using service
     const lootItems = this.lootTableService.rollLoot(data.mobType);
     if (lootItems.length === 0) {
       if (!this.lootTableService.hasLootTable(data.mobType)) {
-        console.warn(
-          `[LootSystem] No loot table found for mob type: ${data.mobType}`,
-        );
+        this.logger.warn("No loot table found for mob type:", {
+          mobType: data.mobType,
+        });
       }
       return;
     }
 
-    // Check if GroundItemSystem is available
     if (!this.groundItemSystem) {
-      console.error(
-        "[LootSystem] GroundItemSystem not available, cannot drop loot",
+      this.logger.error(
+        "GroundItemSystem not available, cannot drop loot",
+        new Error("GroundItemSystem missing"),
       );
       return;
     }
 
-    // Convert loot items to InventoryItem format
-    const inventoryItems: InventoryItem[] = lootItems.map((loot, index) => ({
-      id: `mob_loot_${data.mobId}_${index}`,
-      itemId: loot.itemId,
-      quantity: loot.quantity,
-      slot: index,
-      metadata: null,
-    }));
+    this.inventoryItemsBuffer.length = 0;
+    for (let index = 0; index < lootItems.length; index++) {
+      const loot = lootItems[index];
+      this.inventoryItemsBuffer.push({
+        id: `mob_loot_${data.mobId}_${index}`,
+        itemId: loot.itemId,
+        quantity: loot.quantity,
+        slot: index,
+        metadata: null,
+      });
+    }
 
-    // Ground position to terrain
     const groundedPosition = groundToTerrain(
       this.world,
       data.position,
@@ -161,22 +168,26 @@ export class LootSystem extends SystemBase {
       Infinity,
     );
 
-    // OSRS-STYLE: Spawn ground items directly (no corpse entity)
-    // Items pile at tile center, stackables merge, 2 minute despawn
+    this.groundItemOptionsBuffer.despawnTime = ticksToMs(
+      COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS,
+    );
+    this.groundItemOptionsBuffer.droppedBy = data.killedBy;
+    this.groundItemOptionsBuffer.lootProtection = ticksToMs(
+      COMBAT_CONSTANTS.LOOT_PROTECTION_TICKS,
+    );
+    this.groundItemOptionsBuffer.scatter = false;
+
     await this.groundItemSystem.spawnGroundItems(
-      inventoryItems,
+      this.inventoryItemsBuffer,
       groundedPosition,
-      {
-        despawnTime: ticksToMs(COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS), // 2 minutes
-        droppedBy: data.killedBy, // Killer gets loot protection
-        lootProtection: ticksToMs(COMBAT_CONSTANTS.LOOT_PROTECTION_TICKS), // 1 minute protection
-        scatter: false, // Items pile at mob position tile center (OSRS-style)
-      },
+      this.groundItemOptionsBuffer,
     );
 
-    console.log(
-      `[LootSystem] Dropped ${inventoryItems.length} ground items for ${data.mobType} killed by ${data.killedBy}`,
-    );
+    this.logger.debug("Dropped ground items", {
+      count: this.inventoryItemsBuffer.length,
+      mobType: data.mobType,
+      killedBy: data.killedBy,
+    });
 
     // Emit loot dropped event for any listeners
     this.emitTypedEvent(EventType.LOOT_DROPPED, {

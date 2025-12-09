@@ -257,7 +257,7 @@ export class VisualFeedbackService {
     ) as THREE.BufferAttribute;
     if (!positionAttribute) return;
 
-    const terrainSystem = this.world.getSystem("terrain") as
+    const terrainSystem = this.world.getSystem("terrain") as unknown as
       | { getHeightAt: (x: number, z: number) => number }
       | undefined;
 

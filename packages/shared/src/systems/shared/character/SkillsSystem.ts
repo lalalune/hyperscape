@@ -149,10 +149,15 @@ export class SkillsSystem extends SystemBase {
 
   update(_deltaTime: number): void {
     // Clean up old XP drops (for UI)
+    // Optimize: avoid filter allocation - remove items in-place
     const currentTime = Date.now();
-    this.xpDrops = this.xpDrops.filter(
-      (drop) => currentTime - drop.timestamp < 3000, // Keep for 3 seconds
-    );
+    const drops = this.xpDrops;
+    for (let i = drops.length - 1; i >= 0; i--) {
+      if (currentTime - drops[i].timestamp >= 3000) {
+        // Remove expired drop
+        drops.splice(i, 1);
+      }
+    }
   }
 
   /**
@@ -298,11 +303,17 @@ export class SkillsSystem extends SystemBase {
     const stats = getStatsComponent(entity);
     if (!stats) return false;
 
-    for (const [skill, requiredLevel] of Object.entries(requirements)) {
-      const skillData = stats[skill as keyof Skills] as SkillData;
-      if (!skillData) return false;
-      if (skillData.level < (requiredLevel ?? 0)) {
-        return false;
+    // Optimize: avoid Object.entries allocation - use Object.keys iteration
+    const reqKeys = Object.keys(requirements);
+    for (let i = 0; i < reqKeys.length; i++) {
+      const skill = reqKeys[i] as keyof Skills;
+      const requiredLevel = requirements[skill];
+      if (requiredLevel !== undefined) {
+        const skillData = stats[skill] as SkillData;
+        if (!skillData) return false;
+        if (skillData.level < requiredLevel) {
+          return false;
+        }
       }
     }
 
@@ -769,8 +780,14 @@ export class SkillsSystem extends SystemBase {
   }): void {
     if (!data.rewards.xp) return;
 
-    for (const [skill, xp] of Object.entries(data.rewards.xp)) {
-      this.grantXP(data.playerId, skill as keyof Skills, xp);
+    // Optimize: avoid Object.entries allocation - use Object.keys iteration
+    const xpKeys = Object.keys(data.rewards.xp);
+    for (let i = 0; i < xpKeys.length; i++) {
+      const skill = xpKeys[i] as keyof Skills;
+      const xp = data.rewards.xp[skill];
+      if (xp !== undefined) {
+        this.grantXP(data.playerId, skill, xp);
+      }
     }
   }
 

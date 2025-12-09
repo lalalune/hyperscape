@@ -631,7 +631,7 @@ export class HyperscapeService
   /**
    * Build WebSocket URL with auth tokens as query parameters
    *
-   * CRITICAL: Strip any existing query parameters to prevent duplicates.
+   * Strip any existing query parameters to prevent duplicates.
    * When auto-reconnect is triggered, the URL may already have authToken from previous connection.
    * Duplicate authToken parameters cause server to authenticate as wrong user.
    */
@@ -830,7 +830,7 @@ export class HyperscapeService
    * Get packet name from packet ID (matching packets.ts)
    */
   private getPacketName(id: number): string | null {
-    // CRITICAL: This list MUST exactly match packages/shared/src/platform/shared/packets.ts
+    // This list must exactly match packages/shared/src/platform/shared/packets.ts
     // Any mismatch will cause packet IDs to be misinterpreted!
     const packetNames = [
       "snapshot",
@@ -871,7 +871,7 @@ export class HyperscapeService
       "equipItem",
       "unequipItem",
       "inventoryUpdated",
-      "coinsUpdated", // ✅ CRITICAL: Must match server packets.ts order!
+      "coinsUpdated", // Must match server packets.ts order
       "equipmentUpdated",
       "skillsUpdated",
       "showToast",
@@ -989,7 +989,7 @@ export class HyperscapeService
     try {
       logger.info("[HyperscapeService] Processing snapshot...");
 
-      // CRITICAL FIX: If we already have a characterId from settings, use it directly
+      // If we already have a characterId from settings, use it directly
       // Don't wait for snapshot to include the character - the server JWT auth already
       // verified our identity, we just need to tell it which character to spawn
       if (this.characterId) {
@@ -1149,7 +1149,7 @@ export class HyperscapeService
             );
           }
 
-          // CRITICAL FIX: If we have existing valid position but incoming has (0,0), preserve existing
+          // If we have existing valid position but incoming has (0,0), preserve existing
           // This prevents respawn from overwriting good mob position data with stale/default positions
           if (existingEntity && hasExistingValidPos && !hasIncomingValidPos) {
             // Merge incoming data but preserve our known good position
@@ -1728,7 +1728,7 @@ export class HyperscapeService
    * Get packet ID from packet name (matching packets.ts)
    */
   private getPacketId(name: string): number | null {
-    // CRITICAL: This list MUST exactly match packages/shared/src/platform/shared/packets.ts
+    // This list must exactly match packages/shared/src/platform/shared/packets.ts
     // Any mismatch will cause packet IDs to be misinterpreted!
     const packetNames = [
       "snapshot",
@@ -1769,7 +1769,7 @@ export class HyperscapeService
       "equipItem",
       "unequipItem",
       "inventoryUpdated",
-      "coinsUpdated", // ✅ CRITICAL: Must match server packets.ts order!
+      "coinsUpdated", // Must match server packets.ts order
       "equipmentUpdated",
       "skillsUpdated",
       "showToast",

@@ -16,11 +16,13 @@
 
 import type { World } from "../../../core/World";
 import type { InventoryItem } from "../../../types/core/core";
+import type { DatabaseTransaction } from "../../../types/network/database";
 import type { GroundItemSystem } from "../economy/GroundItemSystem";
 import type { DeathStateManager } from "./DeathStateManager";
 import { ZoneType } from "../../../types/death";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import { ticksToMs } from "../../../utils/game/CombatCalculations";
+import { Logger } from "../../../utils/Logger";
 
 export class WildernessDeathHandler {
   // Convert tick constants to ms for GroundItemOptions backwards compatibility
@@ -30,6 +32,20 @@ export class WildernessDeathHandler {
   private readonly LOOT_PROTECTION_DURATION_MS = ticksToMs(
     COMBAT_CONSTANTS.LOOT_PROTECTION_TICKS,
   );
+
+  private readonly groundItemOptionsBuffer: {
+    despawnTime: number;
+    droppedBy: string;
+    lootProtection: number;
+    scatter: boolean;
+    scatterRadius: number;
+  } = {
+    despawnTime: 0,
+    droppedBy: "",
+    lootProtection: 0,
+    scatter: true,
+    scatterRadius: 3.0,
+  };
 
   constructor(
     private world: World,
@@ -53,50 +69,56 @@ export class WildernessDeathHandler {
     items: InventoryItem[],
     killedBy: string,
     zoneType: ZoneType,
-    tx?: any, // Transaction context for atomic death processing
+    tx?: DatabaseTransaction,
   ): Promise<void> {
-    // CRITICAL: Server authority check - prevent client from spawning fake ground items
     if (!this.world.isServer) {
-      console.error(
-        `[WildernessDeathHandler] ⚠️  Client attempted server-only death handling for ${playerId} - BLOCKED`,
+      Logger.systemError(
+        "WildernessDeathHandler",
+        `Client attempted server-only death handling for ${playerId} - BLOCKED`,
+        new Error("Client attempted server operation"),
       );
       return;
     }
 
-    console.log(
-      `[WildernessDeathHandler] Handling ${zoneType} death for ${playerId} at (${position.x}, ${position.y}, ${position.z})${tx ? " (in transaction)" : ""}`,
+    Logger.system(
+      "WildernessDeathHandler",
+      `Handling ${zoneType} death for ${playerId} at (${position.x}, ${position.y}, ${position.z})${tx ? " (in transaction)" : ""}`,
     );
 
     if (items.length === 0) {
-      console.log(`[WildernessDeathHandler] No items to drop for ${playerId}`);
+      Logger.system(
+        "WildernessDeathHandler",
+        `No items to drop for ${playerId}`,
+      );
       return;
     }
 
-    // Spawn ground items immediately (no gravestone in wilderness)
-    // Uses ms values for GroundItemOptions, internally converted to ticks by GroundItemSystem
+    this.groundItemOptionsBuffer.despawnTime = this.GROUND_ITEM_DURATION_MS;
+    this.groundItemOptionsBuffer.droppedBy = playerId;
+    this.groundItemOptionsBuffer.lootProtection =
+      this.LOOT_PROTECTION_DURATION_MS;
+    this.groundItemOptionsBuffer.scatter = true;
+    this.groundItemOptionsBuffer.scatterRadius = 3.0;
+
     const groundItemIds = await this.groundItemManager.spawnGroundItems(
       items,
       position,
-      {
-        despawnTime: this.GROUND_ITEM_DURATION_MS, // 200 ticks = 2 minutes
-        droppedBy: playerId,
-        lootProtection: this.LOOT_PROTECTION_DURATION_MS, // 100 ticks = 1 minute protection for killer
-        scatter: true,
-        scatterRadius: 3.0, // Wider scatter in wilderness
-      },
+      this.groundItemOptionsBuffer,
     );
 
     if (groundItemIds.length === 0) {
       const errorMsg = `Failed to spawn ground items for ${playerId}`;
-      console.error(`[WildernessDeathHandler] ${errorMsg}`);
-      // If in transaction, throw to trigger rollback
+      Logger.systemError(
+        "WildernessDeathHandler",
+        errorMsg,
+        new Error("Ground item spawn failed"),
+      );
       if (tx) {
         throw new Error(errorMsg);
       }
       return;
     }
 
-    // Create death lock in database (with transaction if provided)
     await this.deathStateManager.createDeathLock(
       playerId,
       {
@@ -105,11 +127,12 @@ export class WildernessDeathHandler {
         zoneType: zoneType,
         itemCount: items.length,
       },
-      tx, // Pass transaction context
+      tx,
     );
 
-    console.log(
-      `[WildernessDeathHandler] Spawned ${groundItemIds.length} ground items for ${playerId} in ${zoneType}`,
+    Logger.system(
+      "WildernessDeathHandler",
+      `Spawned ${groundItemIds.length} ground items for ${playerId} in ${zoneType}`,
     );
   }
 

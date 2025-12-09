@@ -76,8 +76,12 @@ export class PlayerSystem extends SystemBase {
   private respawnTimers = new Map<string, NodeJS.Timeout>();
   private entityManager?: EntityManager;
   private databaseSystem?: DatabaseSystem;
-  private playerLocalRefs = new Map<string, PlayerLocal>(); // Store PlayerLocal references for integration
+  private playerLocalRefs = new Map<string, PlayerLocal>();
   private readonly RESPAWN_TIME = 30000; // 30 seconds per GDD
+
+  // Cached attack style arrays (initialized after ATTACK_STYLES is defined)
+  private _cachedAttackStylesArray: AttackStyle[] = [];
+  private _cachedAttackStyleKeys: string[] = [];
   private readonly AUTO_SAVE_INTERVAL = 30000; // 30 seconds auto-save
   private saveInterval?: NodeJS.Timeout;
   private _tempVec3 = new THREE.Vector3();
@@ -172,6 +176,9 @@ export class PlayerSystem extends SystemBase {
       },
       autoCleanup: true,
     });
+    // Initialize cached attack style arrays
+    this._cachedAttackStylesArray = Object.values(this.ATTACK_STYLES);
+    this._cachedAttackStyleKeys = Object.keys(this.ATTACK_STYLES);
   }
 
   async init(): Promise<void> {
@@ -432,7 +439,7 @@ export class PlayerSystem extends SystemBase {
     }
     this.initializePlayerAttackStyle(data.playerId, savedAttackStyle);
 
-    // CRITICAL: Send health data to client NOW (after client is connected and ready)
+    // Send health data to client now (after client is connected and ready)
     // This matches the inventory initialization pattern - send data in PLAYER_REGISTERED
     const player = this.players.get(data.playerId);
     if (player) {
@@ -512,7 +519,7 @@ export class PlayerSystem extends SystemBase {
     // Create new player if not found in database
     if (!playerData) {
       const playerLocal = this.playerLocalRefs.get(data.playerId);
-      // CRITICAL: Use the playerLocal.name from the entity spawn, which comes from the character DB record
+      // Use the playerLocal.name from the entity spawn, which comes from the character DB record
       // Never auto-generate names - they must come from the character creation system
       const playerName = playerLocal?.name || "Adventurer";
 
@@ -572,7 +579,7 @@ export class PlayerSystem extends SystemBase {
     // Validate and fix health values
     if (
       !Number.isFinite(playerData.health.current) ||
-      playerData.health.current <= 0 // FIX: Changed < to <= (0 health means dead!)
+      playerData.health.current <= 0 // 0 health means dead
     ) {
       // Player is dead or has invalid health - restore to full
       playerData.health.current = playerData.health.max;
@@ -791,7 +798,7 @@ export class PlayerSystem extends SystemBase {
     // Update PlayerEntity health if it exists
     const playerEntity = this.world.getPlayer?.(
       data.playerId,
-    ) as PlayerEntity | null;
+    ) as unknown as PlayerEntity | null;
     if (playerEntity) {
       playerEntity.setHealth(player.health.max);
     }
@@ -1064,7 +1071,7 @@ export class PlayerSystem extends SystemBase {
     // Sync damage to PlayerEntity if it exists
     const playerEntity = this.world.getPlayer?.(
       playerId,
-    ) as PlayerEntity | null;
+    ) as unknown as PlayerEntity | null;
     if (playerEntity) {
       // Update Entity's health using setHealth method (which updates health bar)
       playerEntity.setHealth(player.health.current);
@@ -1438,7 +1445,7 @@ export class PlayerSystem extends SystemBase {
     this.emitTypedEvent(EventType.UI_ATTACK_STYLE_CHANGED, {
       playerId,
       currentStyle: this.ATTACK_STYLES[initialStyle],
-      availableStyles: Object.values(this.ATTACK_STYLES),
+      availableStyles: this._cachedAttackStylesArray,
       canChange: true,
     });
   }
@@ -1511,7 +1518,7 @@ export class PlayerSystem extends SystemBase {
       this.emitTypedEvent(EventType.UI_ATTACK_STYLE_UPDATE, {
         playerId,
         currentStyle: this.ATTACK_STYLES[playerState.selectedStyle],
-        availableStyles: Object.values(this.ATTACK_STYLES),
+        availableStyles: this._cachedAttackStylesArray,
         canChange: true,
       });
     }, this.STYLE_CHANGE_COOLDOWN);
@@ -1522,7 +1529,7 @@ export class PlayerSystem extends SystemBase {
     this.emitTypedEvent(EventType.UI_ATTACK_STYLE_CHANGED, {
       playerId,
       currentStyle: style,
-      availableStyles: Object.values(this.ATTACK_STYLES),
+      availableStyles: this._cachedAttackStylesArray,
       canChange: false,
       cooldownRemaining: this.STYLE_CHANGE_COOLDOWN,
     });
@@ -1684,7 +1691,7 @@ export class PlayerSystem extends SystemBase {
       style: playerState.selectedStyle, // Return the string ID that UI expects
       cooldown: cooldownRemaining, // Use 'cooldown' not 'cooldownRemaining'
       currentStyle,
-      availableStyles: Object.values(this.ATTACK_STYLES),
+      availableStyles: this._cachedAttackStylesArray,
       canChange,
       styleHistory: playerState.combatStyleHistory.slice(-10),
     };
@@ -1701,7 +1708,7 @@ export class PlayerSystem extends SystemBase {
       this.emitTypedEvent(EventType.UI_ATTACK_STYLE_UPDATE, {
         playerId,
         currentStyle,
-        availableStyles: Object.values(this.ATTACK_STYLES),
+        availableStyles: this._cachedAttackStylesArray,
         canChange,
         styleHistory: playerState.combatStyleHistory.slice(-10),
       });
@@ -1717,7 +1724,7 @@ export class PlayerSystem extends SystemBase {
   }
 
   getAllAttackStyles(): AttackStyle[] {
-    return Object.values(this.ATTACK_STYLES);
+    return this._cachedAttackStylesArray;
   }
 
   canPlayerChangeStyle(playerId: string): boolean {
@@ -1774,7 +1781,7 @@ export class PlayerSystem extends SystemBase {
     return {
       totalPlayers,
       activeStyles,
-      availableStyles: Object.keys(this.ATTACK_STYLES),
+      availableStyles: this._cachedAttackStyleKeys,
       activeCooldowns: this.styleChangeTimers.size,
       systemLoaded: true,
     };

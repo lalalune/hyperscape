@@ -21,6 +21,8 @@ export interface LootDrop {
 export class LootTableService {
   private lootTables = new Map<string, LootTable>();
 
+  private readonly lootItemsBuffer: LootDrop[] = [];
+
   constructor() {
     this.setupLootTables();
   }
@@ -96,7 +98,15 @@ export class LootTableService {
         });
       }
 
-      for (const drop of [...npcData.drops.rare, ...npcData.drops.veryRare]) {
+      for (const drop of npcData.drops.rare) {
+        rareDrops.push({
+          itemId: drop.itemId,
+          quantity: drop.minQuantity,
+          chance: drop.chance,
+        });
+      }
+
+      for (const drop of npcData.drops.veryRare) {
         rareDrops.push({
           itemId: drop.itemId,
           quantity: drop.minQuantity,
@@ -126,51 +136,47 @@ export class LootTableService {
       return [];
     }
 
-    const lootItems: LootDrop[] = [];
+    this.lootItemsBuffer.length = 0;
 
-    // Process guaranteed drops
     for (const entry of lootTable.guaranteedDrops) {
       const quantity =
         entry.itemId === "coins"
           ? this.randomizeCoins(entry.quantity)
           : entry.quantity;
-      lootItems.push({ itemId: entry.itemId, quantity });
+      this.lootItemsBuffer.push({ itemId: entry.itemId, quantity });
     }
 
-    // Process common drops with chance rolls
     for (const entry of lootTable.commonDrops) {
       if (Math.random() < entry.chance) {
         const quantity =
           entry.itemId === "coins"
             ? this.randomizeCoins(entry.quantity)
             : entry.quantity;
-        lootItems.push({ itemId: entry.itemId, quantity });
+        this.lootItemsBuffer.push({ itemId: entry.itemId, quantity });
       }
     }
 
-    // Process uncommon drops with chance rolls
     for (const entry of lootTable.uncommonDrops) {
       if (Math.random() < entry.chance) {
         const quantity =
           entry.itemId === "coins"
             ? this.randomizeCoins(entry.quantity)
             : entry.quantity;
-        lootItems.push({ itemId: entry.itemId, quantity });
+        this.lootItemsBuffer.push({ itemId: entry.itemId, quantity });
       }
     }
 
-    // Process rare drops with chance rolls
     for (const entry of lootTable.rareDrops) {
       if (Math.random() < entry.chance) {
         const quantity =
           entry.itemId === "coins"
             ? this.randomizeCoins(entry.quantity)
             : entry.quantity;
-        lootItems.push({ itemId: entry.itemId, quantity });
+        this.lootItemsBuffer.push({ itemId: entry.itemId, quantity });
       }
     }
 
-    return lootItems;
+    return this.lootItemsBuffer.slice();
   }
 
   /**

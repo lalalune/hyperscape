@@ -1,6 +1,7 @@
 import { SystemBase } from "..";
 import { getSystem } from "../../../utils/SystemUtils";
 import { EventType } from "../../../types/events";
+import { Logger } from "../../../utils/Logger";
 import { GENERAL_STORES } from "../../../data/banks-stores";
 import { getItem } from "../../../data/items";
 // treasure-locations removed - stub function returning typed array
@@ -99,8 +100,9 @@ export class ItemSpawnerSystem extends SystemBase {
         getHeightAt?: (x: number, z: number) => number;
       } | null;
       if (!terrainSystem || typeof terrainSystem.getHeightAt !== "function") {
-        console.warn(
-          "[ItemSpawnerSystem] Terrain system not ready, waiting...",
+        Logger.systemWarn(
+          "ItemSpawnerSystem",
+          "Terrain system not ready, waiting...",
         );
         setTimeout(checkTerrainAndSpawn, 500);
         return;
@@ -109,8 +111,9 @@ export class ItemSpawnerSystem extends SystemBase {
       // Test if terrain has tiles loaded
       const testHeight = terrainSystem.getHeightAt(0, 0);
       if (!Number.isFinite(testHeight) || testHeight === null) {
-        console.warn(
-          "[ItemSpawnerSystem] Terrain tiles not generated yet, waiting...",
+        Logger.systemWarn(
+          "ItemSpawnerSystem",
+          "Terrain tiles not generated yet, waiting...",
         );
         setTimeout(checkTerrainAndSpawn, 500);
         return;
@@ -194,9 +197,8 @@ export class ItemSpawnerSystem extends SystemBase {
         const itemData = getItem(shopItem.itemId);
 
         if (itemData) {
-          // Create shop display positions - Y will be grounded to terrain
-          const offsetX = (itemIndex % 3) * 1.5 - 1.5; // 3 items per row
-          const offsetZ = Math.floor(itemIndex / 3) * 2 - 1; // Create rows
+          const offsetX = (itemIndex % 3) * 1.5 - 1.5;
+          const offsetZ = Math.floor(itemIndex / 3) * 2 - 1;
 
           const position = {
             x: store.location.position.x + offsetX,
@@ -220,8 +222,6 @@ export class ItemSpawnerSystem extends SystemBase {
   }
 
   private async spawnChestLootItems(): Promise<void> {
-    // Define chest locations closer to origin for visual verification
-    // Y values will be grounded to terrain
     const chestLocations = [
       { name: "Central Test Chest", x: 0, y: 0, z: 0, tier: ItemRarity.RARE },
       { name: "North Test Chest", x: 0, y: 0, z: 10, tier: ItemRarity.RARE },
@@ -271,8 +271,6 @@ export class ItemSpawnerSystem extends SystemBase {
   }
 
   private async spawnResourceItems(): Promise<void> {
-    // Spawn resources close to origin for easy visual verification
-    // Y values will be grounded to terrain
     const resourceSpawns = [
       // Logs near origin
       { itemId: "logs", x: 2, y: 0, z: 2 },
@@ -336,13 +334,17 @@ export class ItemSpawnerSystem extends SystemBase {
 
     // VALIDATE: Check if Y position is reasonable
     if (groundedPosition.y > 100) {
-      console.error(
-        `[ItemSpawnerSystem] ❌ EXTREME Y after grounding for ${itemData.name}: ${groundedPosition.y.toFixed(2)}m`,
+      Logger.systemError(
+        "ItemSpawnerSystem",
+        `EXTREME Y after grounding for ${itemData.name}: ${groundedPosition.y.toFixed(2)}m`,
+        new Error("Invalid terrain height"),
+        {
+          itemName: itemData.name,
+          y: groundedPosition.y,
+          position: { x: position.x, z: position.z },
+          expectedRange: "0-30m",
+        },
       );
-      console.error(
-        `  This suggests terrain height at (${position.x}, ${position.z}) is ${groundedPosition.y.toFixed(2)}m`,
-      );
-      console.error(`  Expected terrain height: 0-30m`);
     }
 
     // Create item entity via EntityManager
@@ -684,22 +686,13 @@ export class ItemSpawnerSystem extends SystemBase {
     return stats;
   }
 
-  // Required System lifecycle methods
-  update(_dt: number): void {
-    // Update item behaviors, check for respawns, etc.
-  }
+  update(_dt: number): void {}
 
-  /**
-   * Cleanup when system is destroyed
-   */
   destroy(): void {
-    // Clear all spawn tracking
     this.spawnedItems.clear();
     this.shopItems.clear();
     this.worldItems.clear();
     this.chestItems.clear();
-
-    // Call parent cleanup
     super.destroy();
   }
 }

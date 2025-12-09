@@ -6,9 +6,13 @@
 import THREE from "../extras/three/three";
 import type { System, SystemDependencies } from "../systems/shared";
 import type { World } from "../core/World";
-import type { EntityData as BaseEntityData, Position3D } from "./core/base-types";
+import type {
+  EntityData as BaseEntityData,
+  Position3D,
+} from "./core/base-types";
 import type { PlayerRow } from "./network/database";
 import type { HeadstoneData, ItemRarity } from "./entities";
+import type { PlayerEffect } from "./systems/physics";
 
 // Re-export types for components
 export type { World, Position3D };
@@ -942,7 +946,7 @@ export interface Player {
 
   // Equipment and inventory
   equipment: PlayerEquipmentItems;
-  inventory?: { items?: unknown[] }; // For interaction system compatibility
+  inventory?: { items?: InventoryItem[] }; // For interaction system compatibility
   coins: number;
 
   // Combat
@@ -973,7 +977,7 @@ export interface Player {
     health?: number;
     roles?: string[];
     owner?: string;
-    effect?: unknown;
+    effect?: PlayerEffect;
   }; // Hyperscape entity data
   avatar?: {
     getHeight?: () => number;
@@ -2002,7 +2006,7 @@ export interface DefaultDropConfig {
 }
 
 /**
- * NPC Stats - Unified across all NPCs
+ * NPC Stats - shared across all NPCs
  */
 export interface NPCStats {
   level: number;
@@ -2092,9 +2096,9 @@ export interface NPCAppearanceConfig {
 }
 
 /**
- * NPC Data - UNIFIED STRUCTURE FOR ALL NPCs
+ * NPC Data - standard structure for all NPCs
  *
- * This is the single, standardized interface for ALL non-player characters.
+ * This is the single, standardized interface for all non-player characters.
  * Every NPC uses the same structure with flags to enable/disable features.
  *
  * Key Design Principles:

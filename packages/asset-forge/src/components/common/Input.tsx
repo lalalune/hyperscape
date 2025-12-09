@@ -3,8 +3,7 @@ import React from "react";
 import { cn } from "../../styles";
 
 // Input Component
-export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: boolean;
 }
 
@@ -23,8 +22,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 Input.displayName = "Input";
 
 // Textarea Component
-export interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   error?: boolean;
 }
 
@@ -47,8 +45,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 Textarea.displayName = "Textarea";
 
 // Select Component
-export interface SelectProps
-  extends React.SelectHTMLAttributes<HTMLSelectElement> {
+export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   error?: boolean;
 }
 
@@ -69,8 +66,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 Select.displayName = "Select";
 
 // Label Component
-export interface LabelProps
-  extends React.LabelHTMLAttributes<HTMLLabelElement> {
+export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
   required?: boolean;
 }
 
@@ -88,8 +84,7 @@ const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
 Label.displayName = "Label";
 
 // Helper Text Component
-export interface HelperTextProps
-  extends React.HTMLAttributes<HTMLParagraphElement> {
+export interface HelperTextProps extends React.HTMLAttributes<HTMLParagraphElement> {
   error?: boolean;
 }
 
@@ -123,12 +118,19 @@ const FormField: React.FC<FormFieldProps> = ({
   required = false,
   children,
 }) => {
-  const childWithError = React.cloneElement(children, { error: !!error });
+  const childProps = children.props as Record<string, unknown> & {
+    id?: string;
+  };
+  const childWithError = React.cloneElement(children, {
+    ...childProps,
+    error: !!error,
+  } as Record<string, unknown>);
+  const childId = childProps.id;
 
   return (
     <div className="stack gap-1">
       {label && (
-        <Label htmlFor={children.props.id} required={required}>
+        <Label htmlFor={childId} required={required}>
           {label}
         </Label>
       )}

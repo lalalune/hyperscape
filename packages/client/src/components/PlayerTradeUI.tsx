@@ -90,11 +90,14 @@ export function TradeRequestModal({
       return;
     }
 
-    world.network.send("tradeResponse", {
-      tradeId: request.tradeId,
-      fromPlayerId: request.fromPlayerId,
-      accepted: true,
-    });
+    (world.network.send as (method: string, data: unknown) => void)(
+      "tradeResponse",
+      {
+        tradeId: request.tradeId,
+        fromPlayerId: request.fromPlayerId,
+        accepted: true,
+      },
+    );
 
     setRequest(null);
     if (onClose) onClose();
@@ -112,11 +115,14 @@ export function TradeRequestModal({
       return;
     }
 
-    world.network.send("tradeResponse", {
-      tradeId: request.tradeId,
-      fromPlayerId: request.fromPlayerId,
-      accepted: false,
-    });
+    (world.network.send as (method: string, data: unknown) => void)(
+      "tradeResponse",
+      {
+        tradeId: request.tradeId,
+        fromPlayerId: request.fromPlayerId,
+        accepted: false,
+      },
+    );
 
     setRequest(null);
     if (onClose) onClose();
@@ -518,11 +524,14 @@ export function TradeWindow({
       console.log("═══════════════════════════════════════════════════════");
 
       // Send update to server
-      world.network.send("tradeOffer", {
-        tradeId: tradeState.tradeId,
-        items: newItems,
-        coins: tradeState.yourOffer.coins,
-      });
+      (world.network.send as (method: string, data: unknown) => void)(
+        "tradeOffer",
+        {
+          tradeId: tradeState.tradeId,
+          items: newItems,
+          coins: tradeState.yourOffer.coins,
+        },
+      );
 
       // Show feedback
       world.emit(EventType.UI_TOAST, {
@@ -549,11 +558,14 @@ export function TradeWindow({
         (i) => i.slot !== slot,
       );
 
-      world.network.send("tradeOffer", {
-        tradeId: tradeState.tradeId,
-        items: newItems,
-        coins: tradeState.yourOffer.coins,
-      });
+      (world.network.send as (method: string, data: unknown) => void)(
+        "tradeOffer",
+        {
+          tradeId: tradeState.tradeId,
+          items: newItems,
+          coins: tradeState.yourOffer.coins,
+        },
+      );
 
       // Show feedback
       if (removedItem) {
@@ -593,11 +605,14 @@ export function TradeWindow({
       return;
     }
 
-    world.network.send("tradeOffer", {
-      tradeId: tradeState.tradeId,
-      items: tradeState.yourOffer.items,
-      coins: coinAmount,
-    });
+    (world.network.send as (method: string, data: unknown) => void)(
+      "tradeOffer",
+      {
+        tradeId: tradeState.tradeId,
+        items: tradeState.yourOffer.items,
+        coins: coinAmount,
+      },
+    );
 
     // Show feedback if amount changed
     if (coinAmount !== tradeState.yourOffer.coins) {
@@ -620,9 +635,12 @@ export function TradeWindow({
     }
 
     console.log("[TradeWindow] Confirming trade");
-    world.network.send("tradeConfirm", {
-      tradeId: tradeState.tradeId,
-    });
+    (world.network.send as (method: string, data: unknown) => void)(
+      "tradeConfirm",
+      {
+        tradeId: tradeState.tradeId,
+      },
+    );
   }, [tradeState, world]);
 
   const handleCancel = useCallback(() => {
@@ -634,9 +652,12 @@ export function TradeWindow({
     }
 
     console.log("[TradeWindow] Cancelling trade");
-    world.network.send("tradeCancel", {
-      tradeId: tradeState.tradeId,
-    });
+    (world.network.send as (method: string, data: unknown) => void)(
+      "tradeCancel",
+      {
+        tradeId: tradeState.tradeId,
+      },
+    );
   }, [tradeState, world]);
 
   // Drag and drop handlers

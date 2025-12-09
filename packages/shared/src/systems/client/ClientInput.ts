@@ -1,7 +1,7 @@
 /**
  * ClientInput.ts - Input Handling System
  *
- * Unified input system for keyboard, mouse, touch, and XR controllers.
+ * Input system for keyboard, mouse, touch, and XR controllers.
  * Provides a consistent API for all input devices with configurable bindings.
  *
  * Key Features:
@@ -521,7 +521,7 @@ export class ClientInput extends SystemBase {
     // Block input if controls are disabled (spectator mode)
     if (!this._controlsEnabled) return;
 
-    // CRITICAL: Block ALL input during death
+    // Block all input during death
     const player = (this.world as any).player;
     if (player && ((player as any).isDying || (player.data as any)?.isDying)) {
       console.log(
@@ -584,7 +584,7 @@ export class ClientInput extends SystemBase {
     // Block input if controls are disabled (spectator mode)
     if (!this._controlsEnabled) return;
 
-    // CRITICAL: Block ALL pointer input during death
+    // Block all pointer input during death
     const player = (this.world as any).player;
     if (player && ((player as any).isDying || (player.data as any)?.isDying)) {
       console.log(

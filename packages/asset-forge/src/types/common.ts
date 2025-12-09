@@ -109,9 +109,9 @@ export interface ExtendedWindow extends Window {
 }
 
 // Import meta extensions
-export interface ExtendedImportMeta extends ImportMeta {
+export type ExtendedImportMeta = ImportMeta & {
   env?: EnvironmentVariables;
-}
+};
 
 // Generic event handlers
 export type EventHandler<T = Event> = (event: T) => void;

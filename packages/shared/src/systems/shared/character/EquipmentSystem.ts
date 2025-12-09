@@ -111,6 +111,18 @@ const attachmentPoints = {
   arrows: { bone: "spine", offset: new THREE.Vector3(0, 0, -0.2) },
 };
 
+// Cache attachment point entries to avoid Object.entries allocation
+const attachmentPointEntries: Array<
+  [string, { bone: string; offset: THREE.Vector3 }]
+> = [
+  ["helmet", attachmentPoints.helmet],
+  ["body", attachmentPoints.body],
+  ["legs", attachmentPoints.legs],
+  ["weapon", attachmentPoints.weapon],
+  ["shield", attachmentPoints.shield],
+  ["arrows", attachmentPoints.arrows],
+];
+
 // Re-export for backward compatibility
 export type { EquipmentSlot, PlayerEquipment };
 
@@ -132,6 +144,43 @@ export class EquipmentSystem extends SystemBase {
   private databaseSystem?: DatabaseSystem;
   private saveInterval?: NodeJS.Timeout;
   private readonly AUTO_SAVE_INTERVAL = 30000; // 30 seconds
+
+  // Reusable arrays to avoid allocations
+  private readonly _reusableSlotsArray: Array<{
+    key: string;
+    slot: EquipmentSlotName;
+  }> = [
+    { key: "weapon", slot: EquipmentSlotName.WEAPON },
+    { key: "shield", slot: EquipmentSlotName.SHIELD },
+    { key: "helmet", slot: EquipmentSlotName.HELMET },
+    { key: "body", slot: EquipmentSlotName.BODY },
+    { key: "legs", slot: EquipmentSlotName.LEGS },
+    { key: "arrows", slot: EquipmentSlotName.ARROWS },
+  ];
+  private readonly _reusableSlotNames: readonly string[] = [
+    "weapon",
+    "shield",
+    "helmet",
+    "body",
+    "legs",
+    "arrows",
+  ] as const;
+  private readonly _reusableStatKeys: readonly (keyof {
+    attack: number;
+    strength: number;
+    defense: number;
+    ranged: number;
+    constitution: number;
+  })[] = ["attack", "strength", "defense", "ranged", "constitution"] as const;
+  // Cache EquipmentSlotName values to avoid Object.values allocation
+  private readonly _cachedEquipmentSlotNames: readonly EquipmentSlotName[] = [
+    EquipmentSlotName.WEAPON,
+    EquipmentSlotName.SHIELD,
+    EquipmentSlotName.HELMET,
+    EquipmentSlotName.BODY,
+    EquipmentSlotName.LEGS,
+    EquipmentSlotName.ARROWS,
+  ] as const;
 
   // GDD-compliant level requirements
   // Level requirements are now stored in item data directly
@@ -896,6 +945,7 @@ export class EquipmentSystem extends SystemBase {
     };
 
     // Add bonuses from each equipped item
+    // Optimize: avoid filter/forEach/Object.keys allocations
     const slots = [
       equipment.weapon,
       equipment.shield,
@@ -903,20 +953,24 @@ export class EquipmentSystem extends SystemBase {
       equipment.body,
       equipment.legs,
       equipment.arrows,
-    ].filter((slot): slot is EquipmentSlot => slot !== null);
+    ];
 
-    slots.forEach((slot) => {
-      if (slot.item) {
-        const bonuses = slot.item.bonuses || {};
-
-        Object.keys(equipment.totalStats).forEach((stat) => {
-          if (bonuses[stat]) {
-            equipment.totalStats[stat as keyof typeof equipment.totalStats] +=
-              bonuses[stat];
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i];
+      if (slot && slot.item) {
+        const bonuses = slot.item.bonuses;
+        if (bonuses) {
+          // Optimize: iterate stat keys directly instead of Object.keys()
+          for (let j = 0; j < this._reusableStatKeys.length; j++) {
+            const stat = this._reusableStatKeys[j];
+            const bonus = bonuses[stat];
+            if (bonus) {
+              equipment.totalStats[stat] += bonus;
+            }
           }
-        });
+        }
       }
-    });
+    }
 
     // Emit stats update
     this.emitTypedEvent(EventType.PLAYER_STATS_EQUIPMENT_UPDATED, {
@@ -965,10 +1019,16 @@ export class EquipmentSystem extends SystemBase {
 
     // Check each required skill from manifest
     // New format only includes skills that are required (no zeros)
-    for (const [skill, required] of Object.entries(requirements)) {
-      const playerLevel = playerSkills[skill] || 1;
-      if (playerLevel < required) {
-        return false;
+    // Optimize: avoid Object.entries allocation - use Object.keys iteration
+    const reqKeys = Object.keys(requirements);
+    for (let i = 0; i < reqKeys.length; i++) {
+      const skill = reqKeys[i];
+      const required = requirements[skill];
+      if (required !== undefined) {
+        const playerLevel = playerSkills[skill] || 1;
+        if (playerLevel < required) {
+          return false;
+        }
       }
     }
 
@@ -1027,6 +1087,7 @@ export class EquipmentSystem extends SystemBase {
     // Also check if item is already equipped
     const equipment = this.playerEquipment.get(playerId);
     if (equipment) {
+      // Optimize: avoid filter/some allocations - use direct checks
       const slots = [
         equipment.weapon,
         equipment.shield,
@@ -1034,14 +1095,15 @@ export class EquipmentSystem extends SystemBase {
         equipment.body,
         equipment.legs,
         equipment.arrows,
-      ].filter((slot): slot is EquipmentSlot => slot !== null);
-
-      const isEquipped = slots.some(
-        (slot) =>
-          slot.itemId === parseInt(itemIdStr, 10) || slot.itemId === itemId,
-      );
-      if (isEquipped) {
-        return true;
+      ];
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
+        if (
+          slot &&
+          (slot.itemId === parseInt(itemIdStr, 10) || slot.itemId === itemId)
+        ) {
+          return true;
+        }
       }
     }
 
@@ -1107,6 +1169,7 @@ export class EquipmentSystem extends SystemBase {
     const equipment = this.playerEquipment.get(playerId);
     if (!equipment) return false;
 
+    // Optimize: avoid filter/some allocations - use direct checks
     const slots = [
       equipment.weapon,
       equipment.shield,
@@ -1114,9 +1177,14 @@ export class EquipmentSystem extends SystemBase {
       equipment.body,
       equipment.legs,
       equipment.arrows,
-    ].filter((slot): slot is EquipmentSlot => slot !== null);
-
-    return slots.some((slot) => slot.itemId === itemId);
+    ];
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i];
+      if (slot && slot.itemId === itemId) {
+        return true;
+      }
+    }
+    return false;
   }
 
   canEquipItem(playerId: string, itemId: number): boolean {
@@ -1277,7 +1345,9 @@ export class EquipmentSystem extends SystemBase {
     equipment: PlayerEquipment,
   ): void {
     // Process each equipment slot
-    Object.entries(attachmentPoints).forEach(([slotName, attachment]) => {
+    // Optimize: avoid Object.entries/forEach allocations - use cached entries array
+    for (let i = 0; i < attachmentPointEntries.length; i++) {
+      const [slotName, attachment] = attachmentPointEntries[i];
       const slot = equipment[
         slotName as keyof PlayerEquipment
       ] as EquipmentSlot;
@@ -1289,7 +1359,7 @@ export class EquipmentSystem extends SystemBase {
           attachment.offset,
         );
       }
-    });
+    }
   }
 
   /**

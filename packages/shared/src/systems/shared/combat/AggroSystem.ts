@@ -413,9 +413,7 @@ export class AggroSystem extends SystemBase {
 
       // Strong type assumption - positions are always valid Position3D objects
       if (!mobState.currentPosition || !mobState.homePosition) {
-        console.warn(
-          `[AggroSystem] Missing positions for mob ${mobState.mobId}`,
-        );
+        this.logger.warn(`Missing positions for mob ${mobState.mobId}`);
         continue;
       }
 
@@ -490,7 +488,7 @@ export class AggroSystem extends SystemBase {
 
     // Strong type assumption - player.node.position is always Vector3
     if (!player.node?.position) {
-      console.warn(`[AggroSystem] Player ${player.id} has no node`);
+      this.logger.warn(`Player ${player.id} has no node`);
       this.stopChasing(mobState);
       return;
     }

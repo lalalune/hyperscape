@@ -133,12 +133,12 @@ export class DataManager {
         (ITEMS as Map<string, Item>).set(normalized.id, normalized);
       }
 
-      // Load NPCs (unified standardized structure with categories: mob, boss, neutral, quest)
+      // Load NPCs (standardized structure with categories: mob, boss, neutral, quest)
       // JSON uses NPCDataInput (optional fields), normalizeNPC() fills in defaults to produce NPCData
       const npcsRes = await fetch(`${baseUrl}/npcs.json`);
       const npcList = (await npcsRes.json()) as Array<NPCDataInput>;
 
-      // Store all NPCs in unified collection
+      // Store all NPCs in collection
       for (const npc of npcList) {
         const normalized = this.normalizeNPC(npc);
         (ALL_NPCS as Map<string, NPCData>).set(normalized.id, normalized);

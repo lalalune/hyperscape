@@ -3,7 +3,11 @@
  * These types represent the structure of data as stored in the database
  */
 
+import type { Knex } from "knex";
 import { EquipmentSlotName } from "../core/core";
+
+// Database transaction type (Knex transaction)
+export type DatabaseTransaction = Knex.Transaction;
 
 // Boolean representation in database (0 or 1 for compatibility)
 type SQLiteBoolean = 0 | 1;

@@ -20,6 +20,8 @@ export class TerrainLODManager {
   private maxLod = 4; // Start with 4 LODs for RPG
   private lod1Range = 2; // 2 chunks at highest detail
   private activeChunks = new Map<string, Chunk>();
+  // Reusable array for toRemove to avoid filter allocation
+  private readonly _reusableToRemove: Chunk[] = [];
 
   constructor(private terrainSystem: TerrainSystem) {}
 
@@ -72,10 +74,14 @@ export class TerrainLODManager {
       }
     }
 
-    // Find chunks to remove
-    const toRemove = [...this.activeChunks.values()].filter(
-      (chunk) => !requiredChunks.has(chunk.key),
-    );
+    // Optimize: Find chunks to remove using direct loop instead of filter
+    this._reusableToRemove.length = 0;
+    for (const chunk of this.activeChunks.values()) {
+      if (!requiredChunks.has(chunk.key)) {
+        this._reusableToRemove.push(chunk);
+      }
+    }
+    const toRemove = this._reusableToRemove;
 
     // Update active chunks
     for (const chunk of toAdd) {

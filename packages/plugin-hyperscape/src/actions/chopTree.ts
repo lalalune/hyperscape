@@ -95,7 +95,7 @@ export const chopTreeAction: Action = {
     const world = service?.getWorld();
     const player = world?.entities?.player;
 
-    if (!service || !world || !world.network || !player) {
+    if (!service || !world || !(world as any).network || !player) {
       logger.error(
         "[CHOP_TREE] Hyperscape service, world, or network not available",
       );
@@ -167,7 +167,7 @@ export const chopTreeAction: Action = {
       });
 
       // Find nearby tree resources using ResourceSystem
-      const resourceSystem = world.getSystem?.("resource") as
+      const resourceSystem = (world as any).getSystem?.("resource") as
         | {
             getResourcesByType?: (type: string) => Array<{
               id: string;
@@ -397,10 +397,22 @@ export const chopTreeAction: Action = {
 
         const cleanup = () => {
           clearTimeout(timeout);
-          world.off(RESOURCE_GATHERING_COMPLETED, completionHandler);
-          world.off(INVENTORY_UPDATED, inventoryHandler);
-          world.off(SKILLS_XP_GAINED, xpHandler);
-          world.off(SKILLS_LEVEL_UP, levelUpHandler);
+          (world as any).off?.(
+            RESOURCE_GATHERING_COMPLETED,
+            completionHandler as (...args: unknown[]) => void,
+          );
+          (world as any).off?.(
+            INVENTORY_UPDATED,
+            inventoryHandler as (...args: unknown[]) => void,
+          );
+          (world as any).off?.(
+            SKILLS_XP_GAINED,
+            xpHandler as (...args: unknown[]) => void,
+          );
+          (world as any).off?.(
+            SKILLS_LEVEL_UP,
+            levelUpHandler as (...args: unknown[]) => void,
+          );
         };
 
         // Timeout after 15 seconds - resolve with whatever we collected
@@ -422,10 +434,22 @@ export const chopTreeAction: Action = {
         }, 15000);
 
         // Register all event listeners
-        world.on(RESOURCE_GATHERING_COMPLETED, completionHandler);
-        world.on(INVENTORY_UPDATED, inventoryHandler);
-        world.on(SKILLS_XP_GAINED, xpHandler);
-        world.on(SKILLS_LEVEL_UP, levelUpHandler);
+        (world as any).on?.(
+          RESOURCE_GATHERING_COMPLETED,
+          completionHandler as (...args: unknown[]) => void,
+        );
+        (world as any).on?.(
+          INVENTORY_UPDATED,
+          inventoryHandler as (...args: unknown[]) => void,
+        );
+        (world as any).on?.(
+          SKILLS_XP_GAINED,
+          xpHandler as (...args: unknown[]) => void,
+        );
+        (world as any).on?.(
+          SKILLS_LEVEL_UP,
+          levelUpHandler as (...args: unknown[]) => void,
+        );
 
         // Also resolve after a short delay when gathering succeeds (don't wait full timeout)
         const checkCompletion = setInterval(() => {
@@ -446,7 +470,7 @@ export const chopTreeAction: Action = {
         }, 500);
 
         // Send gather packet via WebSocket
-        world.network.send("gatherResource", {
+        (world as any).network?.send?.("gatherResource", {
           resourceId: suitableTree.id,
           playerPosition: {
             x: player.position.x,

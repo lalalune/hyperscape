@@ -20,8 +20,6 @@ import type {
   EventSubscription,
 } from "../../../types/events";
 
-// Types moved to shared event-system.ts
-
 /**
  * Type-safe event bus for world-wide event communication
  */
@@ -29,6 +27,8 @@ export class EventBus extends EventEmitter {
   private subscriptionCounter = 0;
   private activeSubscriptions = new Map<string, EventSubscription>();
   private eventHistory: SystemEvent<AnyEvent>[] = [];
+  private historyWriteIndex = 0;
+  private historySize = 0;
   private readonly maxHistorySize = 1000;
 
   /**
@@ -47,13 +47,11 @@ export class EventBus extends EventEmitter {
       id: `${source}-${type}-${++this.subscriptionCounter}`,
     };
 
-    // Add to history for debugging
-    this.eventHistory.push(event);
-    if (this.eventHistory.length > this.maxHistorySize) {
-      this.eventHistory.shift();
-    }
+    // Ring buffer for O(1) history insertion
+    this.eventHistory[this.historyWriteIndex] = event;
+    this.historyWriteIndex = (this.historyWriteIndex + 1) % this.maxHistorySize;
+    if (this.historySize < this.maxHistorySize) this.historySize++;
 
-    // Emit the event
     this.emit(type, event);
   }
 
@@ -82,17 +80,8 @@ export class EventBus extends EventEmitter {
       event: SystemEvent<AnyEvent | EventPayloads[keyof EventPayloads]>,
     ) => {
       if (!active) return;
-
-      const result = handler(event);
-
-      // Handle async handlers
-      if (result instanceof Promise) {
-        result; // Let promise rejection propagate naturally
-      }
-
-      if (once) {
-        subscription.unsubscribe();
-      }
+      handler(event);
+      if (once) subscription.unsubscribe();
     };
 
     // Register the handler
@@ -192,14 +181,8 @@ export class EventBus extends EventEmitter {
     responseData: T,
     source: string,
   ): void {
-    if (!originalEvent.data._responseType || !originalEvent.data._requestId) {
-      console.warn(
-        "[EventBus] Attempted to respond to non-request event:",
-        originalEvent,
-      );
+    if (!originalEvent.data._responseType || !originalEvent.data._requestId)
       return;
-    }
-
     this.emitEvent(originalEvent.data._responseType, responseData, source);
   }
 
@@ -207,10 +190,14 @@ export class EventBus extends EventEmitter {
    * Get event history for debugging
    */
   getEventHistory(filterByType?: string): SystemEvent[] {
-    if (filterByType) {
-      return this.eventHistory.filter((event) => event.type === filterByType);
+    const result: SystemEvent[] = [];
+    const startIndex =
+      this.historySize < this.maxHistorySize ? 0 : this.historyWriteIndex;
+    for (let i = 0; i < this.historySize; i++) {
+      const event = this.eventHistory[(startIndex + i) % this.maxHistorySize];
+      if (!filterByType || event.type === filterByType) result.push(event);
     }
-    return [...this.eventHistory];
+    return result;
   }
 
   /**
@@ -224,11 +211,13 @@ export class EventBus extends EventEmitter {
    * Cleanup all subscriptions
    */
   cleanup(): void {
-    this.activeSubscriptions.forEach((subscription) => {
+    for (const subscription of this.activeSubscriptions.values()) {
       subscription.unsubscribe();
-    });
+    }
     this.activeSubscriptions.clear();
     this.eventHistory.length = 0;
+    this.historyWriteIndex = 0;
+    this.historySize = 0;
     this.removeAllListeners();
   }
 }

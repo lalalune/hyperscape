@@ -33,7 +33,7 @@ interface ReferenceImageCardProps {
 export const ReferenceImageCard: React.FC<ReferenceImageCardProps> = ({
   generationType,
   mode,
-  _source,
+  source: _source,
   url,
   dataUrl,
   onModeChange,

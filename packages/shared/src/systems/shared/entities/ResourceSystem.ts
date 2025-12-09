@@ -240,7 +240,11 @@ export class ResourceSystem extends SystemBase {
     // Load explicit resource placements from world-areas.json (server only)
     // This must be in start() not init() because network broadcast isn't ready during init()
     if (this.world.isServer) {
-      const _interval = this.createInterval(() => this.updateGathering(), 500); // Check every 500ms
+      // NOTE: Gathering is processed via processGatheringTick() called by TickSystem
+      // This interval is kept for backward compatibility but does nothing
+      const _interval = this.createInterval(() => {
+        // Gathering is handled by TickSystem.processGatheringTick()
+      }, 500);
       this.initializeWorldAreaResources();
     }
     // Client doesn't run gathering update loop

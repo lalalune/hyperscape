@@ -89,6 +89,7 @@ import type {
   PlayerHealth,
   Skills,
 } from "../../types/core/core";
+import type { InventoryItem } from "../../types/entities/entity-types";
 import { EventType } from "../../types/events";
 import {
   ClientLoader,
@@ -152,6 +153,20 @@ interface AvatarNode {
   getHeadToHeight?: () => number;
   getBoneTransform?: (boneName: string) => THREE.Matrix4 | null;
   deactivate?: () => void;
+}
+
+// Typed PhysX global interface - avoids `as any` casts throughout
+interface PhysXGlobal {
+  PxVec3: new (x: number, y: number, z: number) => PhysX.PxVec3;
+  PxRigidBodyFlagEnum: {
+    eKINEMATIC: number;
+  };
+}
+
+/** Get typed PhysX from global scope */
+function getGlobalPhysX(): PhysXGlobal | null {
+  const g = globalThis as { PHYSX?: PhysXGlobal };
+  return g.PHYSX ?? null;
 }
 
 // Camera system accessor with strong type assumption
@@ -356,8 +371,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
     legs: null,
     arrows: null,
   };
-  inventory?: { items?: unknown[] } = { items: [] };
+  inventory?: { items?: InventoryItem[] } = { items: [] };
   coins: number = 0;
+
+  // Death state tracking - blocks input during death animation
+  private _isDying: boolean = false;
+
   combat: PlayerCombatData = {
     combatLevel: 1,
     combatStyle: "attack",
@@ -392,7 +411,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
       position: { x: this.position.x, y: this.position.y, z: this.position.z },
       skills: this.skills,
       equipment: this.equipment,
-      inventory: this.inventory,
+      inventory: this.inventory as { items?: InventoryItem[] } | undefined,
       coins: this.coins,
       combat: this.combat,
       stats: this.stats,
@@ -596,7 +615,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
       this.data.emote = "idle";
     }
 
-    // CRITICAL: Initialize server position BEFORE anything else
+    // Initialize server position first
     // Server position is ABSOLUTE TRUTH - use it or crash
     if (
       data.position &&
@@ -846,10 +865,9 @@ export class PlayerLocal extends Entity implements HotReloadable {
     if ("e" in data && data.e !== undefined) {
       const newEmote = data.e as string;
 
-      // CRITICAL: Block emote changes during death EXCEPT for death emote itself
+      // Block emote changes during death except for death emote itself
       // This prevents clicks from interrupting the death animation
-      const isDyingState = (this as any).isDying || (this.data as any).isDying;
-      const shouldBlockEmote = isDyingState && newEmote !== "death";
+      const shouldBlockEmote = this._isDying && newEmote !== "death";
 
       if (shouldBlockEmote) {
         // Skip this emote change but continue processing other updates
@@ -886,11 +904,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
       // Position update - for server-authoritative movement
       const pos = data.p as number[];
       if (pos.length === 3) {
-        // CRITICAL: Block position updates during death animation
-        if ((this as any).isDying || (this.data as any).isDying) {
+        // Block position updates during death animation
+        if (this._isDying) {
           // Ignore position updates during death
         }
-        // CRITICAL: Skip position updates when TileInterpolator is controlling position
+        // Skip position updates when TileInterpolator is controlling position
         // TileInterpolator smoothly interpolates between tiles, server sends discrete
         // tile positions every 600ms tick. Applying server position causes flickering.
         // EXCEPTION: Allow explicit teleports (marked with "t" flag in packet)
@@ -937,7 +955,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
 
     if ("q" in data && data.q !== undefined) {
-      // CRITICAL: Skip quaternion updates when TileInterpolator is controlling rotation
+      // Skip quaternion updates when TileInterpolator is controlling rotation
       // TileInterpolator calculates smooth inter-frame rotation, while server sends
       // discrete tile-based rotation. Applying server rotation would cause flickering.
       if (this.data?.tileInterpolatorControlled === true) {
@@ -954,14 +972,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
     if ("v" in data && data.v !== undefined) {
       // Velocity update
       const vel = data.v as number[];
-      if (vel.length === 3) {
-        // CRITICAL: Block velocity updates during death
-        // BUT continue processing other updates (like emote for death animation!)
-        if ((this as any).isDying || (this.data as any).isDying) {
-          // Ignore velocity updates during death
-        } else {
-          this.velocity.set(vel[0], vel[1], vel[2]);
-        }
+      if (vel.length === 3 && !this._isDying) {
+        this.velocity.set(vel[0], vel[1], vel[2]);
       }
     }
 
@@ -1856,13 +1868,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
   public setClickMoveTarget(
     target: { x: number; y: number; z: number } | null,
   ): void {
-    // CRITICAL: Block ALL movement during death
-    if (
-      (this as any).isDying ||
-      (this.data as any).isDying ||
-      this.health <= 0
-    ) {
-      console.log("[PlayerLocal] Movement blocked - player is dying/dead");
+    // Block all movement during death
+    if (this._isDying || this.health <= 0) {
       return;
     }
 
@@ -1986,24 +1993,22 @@ export class PlayerLocal extends Entity implements HotReloadable {
       }
     }
 
-    // If no target from our combat state, check for mobs attacking us
+    // If no target, check CombatSystem for entities attacking us
     if (!combatTarget) {
-      for (const entity of this.world.entities.items.values()) {
-        if (entity.type === "mob" && entity.position) {
-          const mobEntity = entity as any;
-          // Check if mob is in ATTACK state and targeting this player
-          if (
-            mobEntity.config?.aiState === "attack" &&
-            mobEntity.config?.targetPlayerId === this.id
-          ) {
-            const dx = entity.position.x - this.position.x;
-            const dz = entity.position.z - this.position.z;
-            const distance2D = Math.sqrt(dx * dx + dz * dz);
-
-            // Only rotate if mob is within reasonable combat range
-            if (distance2D <= 3) {
-              combatTarget = { position: entity.position, id: entity.id };
-              break; // Only face one mob at a time
+      const combatSystem = this.world.getSystem?.("combat") as {
+        getAttackersOf?: (targetId: string) => string[];
+      } | null;
+      const attackerIds = combatSystem?.getAttackersOf?.(this.id);
+      if (attackerIds && attackerIds.length > 0) {
+        // Find closest attacker within combat range (squared distance 9 = 3^2)
+        for (const attackerId of attackerIds) {
+          const attacker = this.world.entities.items.get(attackerId);
+          if (attacker?.position) {
+            const dx = attacker.position.x - this.position.x;
+            const dz = attacker.position.z - this.position.z;
+            if (dx * dx + dz * dz <= 9) {
+              combatTarget = { position: attacker.position, id: attacker.id };
+              break;
             }
           }
         }
@@ -2309,9 +2314,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
   /**
    * Handle PLAYER_SET_DEAD event from server
-   * CRITICAL: This is the entry point to death flow - blocks all input and movement
    */
-  handlePlayerSetDead(event: any): void {
+  handlePlayerSetDead(event: {
+    playerId: string;
+    isDead: boolean;
+    deathPosition?: { x: number; y: number; z: number };
+  }): void {
     if (event.playerId !== this.data.id) return;
 
     // CRITICAL: Check if player is being set to dead or alive
@@ -2320,14 +2328,13 @@ export class PlayerLocal extends Entity implements HotReloadable {
       // Player is being restored to alive (after respawn)
 
       // Clear isDying flag (same as handlePlayerRespawned)
-      (this as any).isDying = false;
-      (this.data as any).isDying = false;
+      this._isDying = false;
 
       // Unfreeze physics if needed
-      if (this.capsule && (globalThis as any).PHYSX) {
-        const PHYSX = (globalThis as any).PHYSX;
+      const physx1 = getGlobalPhysX();
+      if (this.capsule && physx1) {
         this.capsule.setRigidBodyFlag(
-          PHYSX.PxRigidBodyFlagEnum.eKINEMATIC,
+          physx1.PxRigidBodyFlagEnum.eKINEMATIC,
           false,
         );
       }
@@ -2335,86 +2342,46 @@ export class PlayerLocal extends Entity implements HotReloadable {
       return;
     }
 
-    // isDead:true = player is dying
-    // Set isDying flag (blocks all input)
-    (this as any).isDying = true;
-    (this.data as any).isDying = true;
+    // isDead:true = player is dying - block all input
+    this._isDying = true;
 
-    // CRITICAL: Clear ALL movement state immediately to stop camera following
+    // Clear all movement state immediately
     this.clickMoveTarget = null;
     this.moveDir.set(0, 0, 0);
     this.moving = false;
     this.running = false;
-    if (this.velocity) {
-      this.velocity.set(0, 0, 0);
-    }
+    this.velocity?.set(0, 0, 0);
 
-    // Clear any queued movement (defensive - clear everything)
-    if ((this as any).movementTarget) (this as any).movementTarget = null;
-    if ((this as any).path) (this as any).path = null;
-    if ((this as any).destination) (this as any).destination = null;
-
-    // CRITICAL: Freeze physics capsule (make it KINEMATIC = frozen, no forces applied)
-    if (this.capsule && (globalThis as any).PHYSX) {
-      const PHYSX = (globalThis as any).PHYSX;
-      console.log("[PlayerLocal] Freezing physics capsule...");
-
-      // Zero out all velocities
-      const zeroVec = new PHYSX.PxVec3(0, 0, 0);
+    // Freeze physics capsule (kinematic = frozen, no forces applied)
+    const physx2 = getGlobalPhysX();
+    if (this.capsule && physx2) {
+      const zeroVec = new physx2.PxVec3(0, 0, 0);
       this.capsule.setLinearVelocity(zeroVec);
       this.capsule.setAngularVelocity(zeroVec);
-
-      // Set to KINEMATIC mode (frozen in place, position-driven)
-      this.capsule.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true);
-      console.log("[PlayerLocal] ✅ Physics frozen (KINEMATIC mode)");
-    } else {
-      console.warn(
-        "[PlayerLocal] ⚠️  No physics capsule - cannot freeze physics",
+      this.capsule.setRigidBodyFlag(
+        physx2.PxRigidBodyFlagEnum.eKINEMATIC,
+        true,
       );
     }
-
-    console.log(
-      "[PlayerLocal] ✅ Death state applied - all movement blocked for 4.5s death animation",
-    );
   }
 
   /**
    * Handle PLAYER_RESPAWNED event from server
-   * Exits death state, teleports to spawn position, and allows normal gameplay
    */
-  handlePlayerRespawned(event: any): void {
+  handlePlayerRespawned(event: {
+    playerId: string;
+    spawnPosition?: { x: number; y: number; z: number };
+  }): void {
     if (event.playerId !== this.data.id) return;
 
-    // Clear isDying flag (allows input again)
-    (this as any).isDying = false;
-    (this.data as any).isDying = false;
+    this._isDying = false;
 
-    // CRITICAL: Teleport player to spawn position
-    // Without this, player stays at death location instead of respawning at spawn
+    // Teleport player to spawn position
     if (event.spawnPosition) {
       const spawnPos = event.spawnPosition;
-      const x =
-        typeof spawnPos.x === "number"
-          ? spawnPos.x
-          : Array.isArray(spawnPos)
-            ? spawnPos[0]
-            : 0;
-      const y =
-        typeof spawnPos.y === "number"
-          ? spawnPos.y
-          : Array.isArray(spawnPos)
-            ? spawnPos[1]
-            : 0;
-      const z =
-        typeof spawnPos.z === "number"
-          ? spawnPos.z
-          : Array.isArray(spawnPos)
-            ? spawnPos[2]
-            : 0;
-
-      console.log(
-        `[PlayerLocal] Teleporting to spawn position: (${x}, ${y}, ${z})`,
-      );
+      const x = typeof spawnPos.x === "number" ? spawnPos.x : 0;
+      const y = typeof spawnPos.y === "number" ? spawnPos.y : 0;
+      const z = typeof spawnPos.z === "number" ? spawnPos.z : 0;
 
       // Update all position representations
       this.position.set(x, y, z);
@@ -2425,9 +2392,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
         this.data.position[2] = z;
       }
 
-      // Update physics capsule position if it exists
-      if (this.capsule && (globalThis as any).PHYSX) {
-        const PHYSX = (globalThis as any).PHYSX;
+      // Update physics capsule position
+      if (this.capsule) {
         const pose = this.capsule.getGlobalPose();
         pose.p.x = x;
         pose.p.y = y;
@@ -2435,34 +2401,34 @@ export class PlayerLocal extends Entity implements HotReloadable {
         this.capsule.setGlobalPose(pose, true);
       }
 
-      // Clear tile interpolator state and control flag
-      // This ensures the next movement starts fresh from the new position
+      // Clear tile interpolator state
       this.data.tileInterpolatorControlled = false;
       this.data.tileMovementActive = false;
 
-      // Try to sync tile interpolator through world's network system
-      const network = this.world.network as any;
-      if (network?.tileInterpolator?.syncPosition) {
-        network.tileInterpolator.syncPosition(this.data.id, { x, y, z });
-      }
+      // Sync tile interpolator
+      const tileInterpolator = (
+        this.world.network as {
+          tileInterpolator?: {
+            syncPosition?: (
+              id: string,
+              pos: { x: number; y: number; z: number },
+            ) => void;
+          };
+        }
+      )?.tileInterpolator;
+      tileInterpolator?.syncPosition?.(this.data.id, { x, y, z });
     }
 
     // Unfreeze physics capsule (make it DYNAMIC again)
-    if (this.capsule && (globalThis as any).PHYSX) {
-      const PHYSX = (globalThis as any).PHYSX;
-
-      // Set back to DYNAMIC mode (normal physics)
+    const physx = getGlobalPhysX();
+    if (this.capsule && physx) {
       this.capsule.setRigidBodyFlag(
-        PHYSX.PxRigidBodyFlagEnum.eKINEMATIC,
+        physx.PxRigidBodyFlagEnum.eKINEMATIC,
         false,
       );
-
-      // Zero out velocities to prevent sudden movements
-      const zeroVec = new PHYSX.PxVec3(0, 0, 0);
+      const zeroVec = new physx.PxVec3(0, 0, 0);
       this.capsule.setLinearVelocity(zeroVec);
       this.capsule.setAngularVelocity(zeroVec);
-
-      console.log("[PlayerLocal] ✅ Physics unfrozen (DYNAMIC mode)");
     }
 
     console.log(

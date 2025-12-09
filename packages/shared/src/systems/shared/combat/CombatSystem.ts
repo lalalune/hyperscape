@@ -84,6 +84,37 @@ export class CombatSystem extends SystemBase {
     { tick: number; entityType: "player" | "mob" }
   >();
 
+  // PERFORMANCE: Cached system references (avoid repeated lookups)
+  private cachedEquipmentSystem?: {
+    getPlayerEquipment?: (id: string) => {
+      weapon?: {
+        item?: {
+          attackSpeed?: number;
+          attackRange?: number;
+          id?: string;
+          weaponType?: string;
+        };
+      };
+    } | null;
+    clearEquipmentImmediate?: (playerId: string) => Promise<void>;
+  };
+  private cachedPlayerSystem?: PlayerSystem;
+
+  // PERFORMANCE: Reusable objects to avoid allocations in hot paths
+  private readonly reusablePos = { x: 0, y: 0, z: 0 };
+  private readonly reusablePos2 = { x: 0, y: 0, z: 0 };
+  private readonly reusableQuat = { x: 0, y: 0, z: 0, w: 1 };
+  private readonly reusableAttackerData = {
+    stats: {} as CombatStats,
+    config: {} as { attackPower?: number },
+  };
+  private readonly reusableTargetData = {
+    stats: {} as CombatStats,
+    config: {} as { defense?: number },
+  };
+  private readonly reusableCombatStatesArray: Array<[EntityID, CombatData]> =
+    [];
+
   // Combat constants
 
   constructor(world: World) {
@@ -108,6 +139,22 @@ export class CombatSystem extends SystemBase {
 
     // Get mob NPC system - optional but recommended
     this.mobSystem = this.world.getSystem<MobNPCSystem>("mob-npc");
+
+    // PERFORMANCE: Cache system references to avoid repeated lookups
+    this.cachedEquipmentSystem = this.world.getSystem("equipment") as {
+      getPlayerEquipment?: (id: string) => {
+        weapon?: {
+          item?: {
+            attackSpeed?: number;
+            attackRange?: number;
+            id?: string;
+            weaponType?: string;
+          };
+        };
+      } | null;
+      clearEquipmentImmediate?: (playerId: string) => Promise<void>;
+    };
+    this.cachedPlayerSystem = this.world.getSystem<PlayerSystem>("player");
 
     // Set up event listeners - required for combat to function
     this.subscribe(
@@ -484,21 +531,22 @@ export class CombatSystem extends SystemBase {
     attacker: Entity | MobEntity,
     target: Entity | MobEntity,
   ): number {
-    // Extract required properties for damage calculation
-    let attackerData: {
-      stats?: CombatStats;
-      config?: { attackPower?: number };
-    } = {};
-    let targetData: { stats?: CombatStats; config?: { defense?: number } } = {};
+    // PERFORMANCE: Reuse objects instead of creating new ones
+    const attackerData = this.reusableAttackerData;
+    const targetData = this.reusableTargetData;
+
+    // Clear previous data
+    attackerData.stats = {} as CombatStats;
+    attackerData.config = {};
+    targetData.stats = {} as CombatStats;
+    targetData.config = {};
 
     // Strong type assumption - check if attacker has getMobData method (MobEntity)
     const attackerMob = attacker as MobEntity;
     if (attackerMob.getMobData) {
       const mobData = attackerMob.getMobData();
-      attackerData = {
-        stats: { attack: mobData.attack }, // Pass attack stat for accuracy calculation
-        config: { attackPower: mobData.attackPower },
-      };
+      attackerData.stats.attack = mobData.attack; // Pass attack stat for accuracy calculation
+      attackerData.config.attackPower = mobData.attackPower;
     } else {
       // Handle player or other Entity - get stats from components
       const statsComponent = attacker.getComponent("stats");
@@ -510,26 +558,22 @@ export class CombatSystem extends SystemBase {
           defense?: { level: number } | number;
           ranged?: { level: number } | number;
         };
-        attackerData = {
-          stats: {
-            attack:
-              typeof stats.attack === "object"
-                ? stats.attack.level
-                : (stats.attack ?? 1),
-            strength:
-              typeof stats.strength === "object"
-                ? stats.strength.level
-                : (stats.strength ?? 1),
-            defense:
-              typeof stats.defense === "object"
-                ? stats.defense.level
-                : (stats.defense ?? 1),
-            ranged:
-              typeof stats.ranged === "object"
-                ? stats.ranged.level
-                : (stats.ranged ?? 1),
-          },
-        };
+        attackerData.stats.attack =
+          typeof stats.attack === "object"
+            ? stats.attack.level
+            : (stats.attack ?? 1);
+        attackerData.stats.strength =
+          typeof stats.strength === "object"
+            ? stats.strength.level
+            : (stats.strength ?? 1);
+        attackerData.stats.defense =
+          typeof stats.defense === "object"
+            ? stats.defense.level
+            : (stats.defense ?? 1);
+        attackerData.stats.ranged =
+          typeof stats.ranged === "object"
+            ? stats.ranged.level
+            : (stats.ranged ?? 1);
       }
     }
 
@@ -537,10 +581,8 @@ export class CombatSystem extends SystemBase {
     const targetMob = target as MobEntity;
     if (targetMob.getMobData) {
       const mobData = targetMob.getMobData();
-      targetData = {
-        stats: { defense: mobData.defense }, // Pass defense stat for accuracy calculation
-        config: { defense: mobData.defense },
-      };
+      targetData.stats.defense = mobData.defense; // Pass defense stat for accuracy calculation
+      targetData.config.defense = mobData.defense;
     } else {
       // Handle player or other Entity
       const statsComponent = target.getComponent("stats");
@@ -552,26 +594,22 @@ export class CombatSystem extends SystemBase {
           defense?: { level: number } | number;
           ranged?: { level: number } | number;
         };
-        targetData = {
-          stats: {
-            attack:
-              typeof stats.attack === "object"
-                ? stats.attack.level
-                : (stats.attack ?? 1),
-            strength:
-              typeof stats.strength === "object"
-                ? stats.strength.level
-                : (stats.strength ?? 1),
-            defense:
-              typeof stats.defense === "object"
-                ? stats.defense.level
-                : (stats.defense ?? 1),
-            ranged:
-              typeof stats.ranged === "object"
-                ? stats.ranged.level
-                : (stats.ranged ?? 1),
-          },
-        };
+        targetData.stats.attack =
+          typeof stats.attack === "object"
+            ? stats.attack.level
+            : (stats.attack ?? 1);
+        targetData.stats.strength =
+          typeof stats.strength === "object"
+            ? stats.strength.level
+            : (stats.strength ?? 1);
+        targetData.stats.defense =
+          typeof stats.defense === "object"
+            ? stats.defense.level
+            : (stats.defense ?? 1);
+        targetData.stats.ranged =
+          typeof stats.ranged === "object"
+            ? stats.ranged.level
+            : (stats.ranged ?? 1);
       }
     }
 
@@ -717,16 +755,16 @@ export class CombatSystem extends SystemBase {
   ): void {
     // Handle damage based on target type
     if (targetType === "player") {
-      // Get player system and use its damage method
-      const playerSystem = this.world.getSystem<PlayerSystem>("player");
+      // PERFORMANCE: Use cached player system reference
+      const playerSystem = this.cachedPlayerSystem;
       if (!playerSystem) {
-        console.error("[CombatSystem] PlayerSystem not found!");
+        this.logger.error("PlayerSystem not found!");
         return;
       }
 
       const entity = this.getEntity(targetId, "player");
       if (!entity) {
-        console.error(`[CombatSystem] Player entity not found for ${targetId}`);
+        this.logger.error(`Player entity not found for ${targetId}`);
         return;
       }
 
@@ -743,7 +781,7 @@ export class CombatSystem extends SystemBase {
           return;
         }
         // Player not dead but damage still failed - log and continue
-        console.error(`[CombatSystem] Failed to damage player ${targetId}`);
+        this.logger.error(`Failed to damage player ${targetId}`);
         return;
       }
 
@@ -767,15 +805,15 @@ export class CombatSystem extends SystemBase {
       // For mobs, get the entity from EntityManager and use its takeDamage method
       const mobEntity = this.world.entities.get(targetId) as MobEntity;
       if (!mobEntity) {
-        console.warn(
-          `[CombatSystem] Mob entity not found for ${targetId} - may have been destroyed`,
+        this.logger.warn(
+          `Mob entity not found for ${targetId} - may have been destroyed`,
         );
         return;
       }
 
       // Check if mob is already dead
       if (mobEntity.isDead()) {
-        console.warn(`[CombatSystem] Cannot damage dead mob ${targetId}`);
+        this.logger.warn(`Cannot damage dead mob ${targetId}`);
         return;
       }
 
@@ -921,14 +959,8 @@ export class CombatSystem extends SystemBase {
         // Check if player has a sword equipped - get from EquipmentSystem (source of truth)
         let combatEmote = "combat"; // Default to punching
 
-        // Get equipment from EquipmentSystem (source of truth)
-        const equipmentSystem = this.world.getSystem("equipment") as
-          | {
-              getPlayerEquipment?: (playerId: string) => {
-                weapon?: { item?: { weaponType?: string; id?: string } };
-              };
-            }
-          | undefined;
+        // PERFORMANCE: Use cached equipment system reference
+        const equipmentSystem = this.cachedEquipmentSystem;
 
         if (equipmentSystem?.getPlayerEquipment) {
           const equipment = equipmentSystem.getPlayerEquipment(entityId);
@@ -1098,23 +1130,27 @@ export class CombatSystem extends SystemBase {
     const currentTick = this.world.currentTick;
     const combatEndTick = currentTick + COMBAT_CONSTANTS.COMBAT_TIMEOUT_TICKS;
 
+    // PERFORMANCE: Cache string conversions to avoid repeated String() calls
+    const attackerIdStr = String(attackerId);
+    const targetIdStr = String(targetId);
+
     // Detect entity types (don't assume attacker is always player!)
-    const attackerEntity = this.world.entities.get(String(attackerId));
-    const targetEntity = this.world.entities.get(String(targetId));
+    const attackerEntity = this.world.entities.get(attackerIdStr);
+    const targetEntity = this.world.entities.get(targetIdStr);
 
     // Don't enter combat if target is dead
-    if (
-      targetEntity &&
-      "health" in targetEntity &&
-      (targetEntity as any).health <= 0
-    ) {
-      return;
+    if (targetEntity && "getHealth" in targetEntity) {
+      const entityWithHealth = targetEntity as { getHealth: () => number };
+      if (entityWithHealth.getHealth() <= 0) {
+        return;
+      }
     }
 
     // Also check if target is a player marked as dead
-    const playerSystem = this.world.getSystem?.("player") as any;
-    if (playerSystem?.players) {
-      const targetPlayer = playerSystem.players.get(String(targetId));
+    // PERFORMANCE: Use cached player system reference and cached string conversion
+    const playerSystem = this.cachedPlayerSystem;
+    if (playerSystem) {
+      const targetPlayer = playerSystem.getPlayer(targetIdStr);
       if (targetPlayer && !targetPlayer.alive) {
         return;
       }
@@ -1181,49 +1217,42 @@ export class CombatSystem extends SystemBase {
     }
 
     // Rotate both entities to face each other (RuneScape-style)
+    // PERFORMANCE: Use cached string conversions
     this.rotateTowardsTarget(
-      String(attackerId),
-      String(targetId),
+      attackerIdStr,
+      targetIdStr,
       attackerType,
       targetType,
     );
     this.rotateTowardsTarget(
-      String(targetId),
-      String(attackerId),
+      targetIdStr,
+      attackerIdStr,
       targetType,
       attackerType,
     );
 
     // Sync combat state to player entities for client-side combat awareness
-    this.syncCombatStateToEntity(
-      String(attackerId),
-      String(targetId),
-      attackerType,
-    );
-    this.syncCombatStateToEntity(
-      String(targetId),
-      String(attackerId),
-      targetType,
-    );
+    this.syncCombatStateToEntity(attackerIdStr, targetIdStr, attackerType);
+    this.syncCombatStateToEntity(targetIdStr, attackerIdStr, targetType);
 
     // DON'T set combat emotes here - we set them when attacks happen instead
     // This prevents the animation from looping continuously
 
     // Emit combat started event
     this.emitTypedEvent(EventType.COMBAT_STARTED, {
-      attackerId: String(attackerId),
-      targetId: String(targetId),
+      attackerId: attackerIdStr,
+      targetId: targetIdStr,
     });
 
-    // Show combat UI indicator for the local player (whoever that is)
+    // Show combat UI indicator for the local player
+    // PERFORMANCE: Use cached string conversions
     const localPlayer = this.world.getPlayer();
     if (
       localPlayer &&
-      (String(attackerId) === localPlayer.id ||
-        String(targetId) === localPlayer.id)
+      (attackerIdStr === localPlayer.id || targetIdStr === localPlayer.id)
     ) {
       const opponent =
-        String(attackerId) === localPlayer.id ? targetEntity : attackerEntity;
+        attackerIdStr === localPlayer.id ? targetEntity : attackerEntity;
       const opponentName = opponent!.name;
 
       this.emitTypedEvent(EventType.UI_MESSAGE, {
@@ -1308,8 +1337,12 @@ export class CombatSystem extends SystemBase {
     // Find all attackers targeting this dead entity
     // Their combat will naturally timeout after 4.8 seconds (8 ticks) since they got the last hit
     // This matches RuneScape behavior where health bars stay visible briefly after combat ends
+    // PERFORMANCE: Cache entityId (already a string) and cache string conversions in loop
+    const entityIdStr = entityId;
     for (const [attackerId, state] of this.combatStates) {
-      if (String(state.targetId) === entityId) {
+      // PERFORMANCE: Cache string conversion for comparison
+      const targetIdStr = String(state.targetId);
+      if (targetIdStr === entityIdStr) {
         // CRITICAL: Clear the attacker's attack cooldown so they can attack new targets immediately
         // Without this, mobs would be stuck waiting for cooldown after their target dies and respawns
         this.nextAttackTicks.delete(attackerId);
@@ -1317,11 +1350,11 @@ export class CombatSystem extends SystemBase {
         // CRITICAL: If the attacker is a mob, reset its internal CombatStateManager
         // This clears the mob's own nextAttackTick so it can attack immediately when target respawns
         if (state.attackerType === "mob") {
-          const mobEntity = this.world.entities.get(
-            String(attackerId),
-          ) as MobEntity;
+          // PERFORMANCE: Cache string conversion
+          const attackerIdStr = String(attackerId);
+          const mobEntity = this.world.entities.get(attackerIdStr) as MobEntity;
           if (mobEntity && typeof mobEntity.onTargetDied === "function") {
-            mobEntity.onTargetDied(entityId);
+            mobEntity.onTargetDied(entityIdStr);
           }
         }
       }
@@ -1439,19 +1472,23 @@ export class CombatSystem extends SystemBase {
     this.playerEquipmentStats.delete(playerId);
 
     // Find all entities that were targeting this disconnected player
+    // PERFORMANCE: Cache playerId (already a string, but for consistency)
+    const playerIdStr = playerId;
     for (const [attackerId, state] of this.combatStates) {
-      if (String(state.targetId) === playerId) {
+      // PERFORMANCE: Cache string conversion for comparison
+      const targetIdStr = String(state.targetId);
+      if (targetIdStr === playerIdStr) {
         // Clear the attacker's cooldown so they can immediately retarget
         this.nextAttackTicks.delete(attackerId);
 
         // If attacker is a mob, reset its internal combat state
         if (state.attackerType === "mob") {
-          const mobEntity = this.world.entities.get(
-            String(attackerId),
-          ) as MobEntity;
+          // PERFORMANCE: Cache string conversion
+          const attackerIdStr = String(attackerId);
+          const mobEntity = this.world.entities.get(attackerIdStr) as MobEntity;
           if (mobEntity && typeof mobEntity.onTargetDied === "function") {
             // Reuse the same method - disconnect is similar to death
-            mobEntity.onTargetDied(playerId);
+            mobEntity.onTargetDied(playerIdStr);
           }
         }
 
@@ -1460,7 +1497,9 @@ export class CombatSystem extends SystemBase {
 
         // Clear combat state from entity if it's a player
         if (state.attackerType === "player") {
-          this.clearCombatStateFromEntity(String(attackerId), "player");
+          // PERFORMANCE: Cache string conversion
+          const attackerIdStr = String(attackerId);
+          this.clearCombatStateFromEntity(attackerIdStr, "player");
         }
       }
     }
@@ -1484,8 +1523,8 @@ export class CombatSystem extends SystemBase {
       // Look up players from world.entities.players (includes fake test players)
       const player = this.world.entities.players.get(entityId);
       if (!player) {
-        console.warn(
-          `[CombatSystem] Player entity not found: ${entityId} (probably disconnected)`,
+        this.logger.warn(
+          `Player entity not found: ${entityId} (probably disconnected)`,
         );
         return null;
       }
@@ -1493,12 +1532,12 @@ export class CombatSystem extends SystemBase {
     }
 
     if (!this.entityManager) {
-      console.warn("[CombatSystem] Entity manager not available");
+      this.logger.warn("Entity manager not available");
       return null;
     }
     const entity = this.entityManager.getEntity(entityId);
     if (!entity) {
-      console.warn(`[CombatSystem] Entity not found: ${entityId}`);
+      this.logger.warn(`Entity not found: ${entityId}`);
       return null;
     }
     return entity;
@@ -1525,12 +1564,16 @@ export class CombatSystem extends SystemBase {
       }
     }
 
-    // CRITICAL: Convert to array first to avoid iterator issues when deleting during iteration
-    const statesToProcess = Array.from(this.combatStates.entries());
+    // PERFORMANCE: Reuse array instead of creating new one every tick
+    // Clear and repopulate to avoid allocations
+    this.reusableCombatStatesArray.length = 0;
+    for (const entry of this.combatStates.entries()) {
+      this.reusableCombatStatesArray.push(entry);
+    }
 
     // Process all active combat sessions
-    for (const [entityId, combatState] of statesToProcess) {
-      // CRITICAL: Re-check if this combat state still exists
+    for (const [entityId, combatState] of this.reusableCombatStatesArray) {
+      // Re-check if this combat state still exists
       if (!this.combatStates.has(entityId)) {
         continue;
       }
@@ -1724,13 +1767,8 @@ export class CombatSystem extends SystemBase {
   private getAttackSpeedTicks(entityId: EntityID, entityType: string): number {
     // For players, get equipment via EquipmentSystem
     if (entityType === "player") {
-      const equipmentSystem = this.world.getSystem?.("equipment") as
-        | {
-            getPlayerEquipment?: (id: string) => {
-              weapon?: { item?: { attackSpeed?: number; id?: string } };
-            } | null;
-          }
-        | undefined;
+      // PERFORMANCE: Use cached equipment system reference
+      const equipmentSystem = this.cachedEquipmentSystem;
 
       if (equipmentSystem?.getPlayerEquipment) {
         const equipment = equipmentSystem.getPlayerEquipment(String(entityId));
@@ -1740,9 +1778,6 @@ export class CombatSystem extends SystemBase {
 
           // First check if Item has attackSpeed directly
           if (weaponItem.attackSpeed) {
-            console.log(
-              `[CombatSystem] Player ${entityId} weapon attackSpeed: ${weaponItem.attackSpeed} ticks`,
-            );
             return weaponItem.attackSpeed;
           }
 
@@ -1750,9 +1785,6 @@ export class CombatSystem extends SystemBase {
           if (weaponItem.id) {
             const itemData = getItem(weaponItem.id);
             if (itemData?.attackSpeed) {
-              console.log(
-                `[CombatSystem] Player ${entityId} ITEMS lookup "${weaponItem.id}": ${itemData.attackSpeed} ticks`,
-              );
               return itemData.attackSpeed;
             }
           }
@@ -1760,9 +1792,6 @@ export class CombatSystem extends SystemBase {
       }
 
       // Player with no weapon - use default
-      console.log(
-        `[CombatSystem] Player ${entityId} - no weapon or attackSpeed, using default`,
-      );
       return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
     }
 
@@ -1775,18 +1804,12 @@ export class CombatSystem extends SystemBase {
         const mobAttackSpeedTicks = (mobData as { attackSpeedTicks?: number })
           .attackSpeedTicks;
         if (mobAttackSpeedTicks) {
-          console.log(
-            `[CombatSystem] Mob ${entityId} attackSpeedTicks: ${mobAttackSpeedTicks}`,
-          );
           return mobAttackSpeedTicks;
         }
       }
     }
 
     // Default attack speed (4 ticks = 2.4 seconds)
-    console.log(
-      `[CombatSystem] ${entityType} ${entityId} using DEFAULT: ${COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS} ticks`,
-    );
     return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
   }
 
@@ -1807,13 +1830,8 @@ export class CombatSystem extends SystemBase {
 
     // Players: get weapon attackRange from equipped weapon via EquipmentSystem
     if (entityType === "player") {
-      const equipmentSystem = this.world.getSystem?.("equipment") as
-        | {
-            getPlayerEquipment?: (id: string) => {
-              weapon?: { item?: { attackRange?: number; id?: string } };
-            } | null;
-          }
-        | undefined;
+      // PERFORMANCE: Use cached equipment system reference
+      const equipmentSystem = this.cachedEquipmentSystem;
 
       if (equipmentSystem?.getPlayerEquipment) {
         const equipment = equipmentSystem.getPlayerEquipment(entity.id);

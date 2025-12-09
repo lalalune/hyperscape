@@ -201,13 +201,13 @@ export function retargetAnimation(
     firstQuatTrack &&
     firstQuatTrack instanceof THREE.QuaternionKeyframeTrack
   ) {
-    const firstValues = firstQuatTrack.values.slice(0, 4);
+    const firstValues = Array.from(firstQuatTrack.values.slice(0, 4));
     console.log(
       "[AnimationRetargeting] Sample quaternion values (first keyframe):",
     );
     console.log(`  Track: ${firstQuatTrack.name}`);
     console.log(
-      `  Values: [${firstValues.map((v) => v.toFixed(3)).join(", ")}]`,
+      `  Values: [${firstValues.map((v: number) => v.toFixed(3)).join(", ")}]`,
     );
   }
 

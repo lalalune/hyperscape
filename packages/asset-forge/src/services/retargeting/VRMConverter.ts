@@ -104,35 +104,36 @@ const _VRM_HUMANOID_BONES: VRMHumanoidBones = {
  * Meshy bone name → VRM HumanoidBone mapping
  * Uses fuzzy matching to handle case variations
  */
-const MESHY_TO_VRM_BONE_MAP: Record<string, keyof typeof VRM_HUMANOID_BONES> = {
-  // Torso
-  Hips: "hips",
-  Spine: "spine",
-  Spine01: "chest",
-  Spine02: "upperChest",
-  neck: "neck",
-  Head: "head",
-  // Left Arm
-  LeftShoulder: "leftShoulder",
-  LeftArm: "leftUpperArm",
-  LeftForeArm: "leftLowerArm",
-  LeftHand: "leftHand",
-  // Right Arm
-  RightShoulder: "rightShoulder",
-  RightArm: "rightUpperArm",
-  RightForeArm: "rightLowerArm",
-  RightHand: "rightHand",
-  // Left Leg
-  LeftUpLeg: "leftUpperLeg",
-  LeftLeg: "leftLowerLeg",
-  LeftFoot: "leftFoot",
-  LeftToe: "leftToes",
-  // Right Leg
-  RightUpLeg: "rightUpperLeg",
-  RightLeg: "rightLowerLeg",
-  RightFoot: "rightFoot",
-  RightToe: "rightToes",
-};
+const MESHY_TO_VRM_BONE_MAP: Record<string, keyof typeof _VRM_HUMANOID_BONES> =
+  {
+    // Torso
+    Hips: "hips",
+    Spine: "spine",
+    Spine01: "chest",
+    Spine02: "upperChest",
+    neck: "neck",
+    Head: "head",
+    // Left Arm
+    LeftShoulder: "leftShoulder",
+    LeftArm: "leftUpperArm",
+    LeftForeArm: "leftLowerArm",
+    LeftHand: "leftHand",
+    // Right Arm
+    RightShoulder: "rightShoulder",
+    RightArm: "rightUpperArm",
+    RightForeArm: "rightLowerArm",
+    RightHand: "rightHand",
+    // Left Leg
+    LeftUpLeg: "leftUpperLeg",
+    LeftLeg: "leftLowerLeg",
+    LeftFoot: "leftFoot",
+    LeftToe: "leftToes",
+    // Right Leg
+    RightUpLeg: "rightUpperLeg",
+    RightLeg: "rightLowerLeg",
+    RightFoot: "rightFoot",
+    RightToe: "rightToes",
+  };
 
 export interface VRMConversionOptions {
   avatarName?: string;
@@ -280,12 +281,13 @@ export class VRMConverter {
     let armature: THREE.Object3D | null = null;
     this.scene.traverse((obj) => {
       if (obj.name === "Armature" && obj !== this.skinnedMesh) {
-        armature = obj;
+        armature = obj as THREE.Object3D;
       }
     });
 
     if (armature && armature.parent) {
-      const armatureScale = armature.scale.x; // Assume uniform scale
+      const armatureObj = armature;
+      const armatureScale = armatureObj.scale.x; // Assume uniform scale
       console.log(`   Found Armature with scale: ${armatureScale.toFixed(3)}`);
 
       if (Math.abs(armatureScale - 1.0) > 0.001) {
@@ -300,7 +302,7 @@ export class VRMConverter {
         });
 
         // Set Armature scale to 1.0 (removing the parent scale)
-        armature.scale.set(1, 1, 1);
+        armatureObj.scale.set(1, 1, 1);
 
         // Update world matrices
         this.scene.updateMatrixWorld(true);

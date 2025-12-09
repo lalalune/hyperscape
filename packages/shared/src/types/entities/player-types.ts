@@ -7,7 +7,8 @@ import THREE from "../../extras/three/three";
 import type { PlayerRow } from "../network/database";
 import type { Position3D } from "../core/base-types";
 import type { Item, EquipmentSlot } from "../game/item-types";
-import type { Skills, SkillData } from "./entity-types";
+import type { Skills, SkillData, InventoryItem } from "./entity-types";
+import type { PlayerEffect } from "../systems/physics";
 
 // Core position and health structures
 export interface PlayerPosition {
@@ -74,7 +75,7 @@ export interface Player {
 
   // Equipment and inventory
   equipment: PlayerEquipmentItems;
-  inventory?: { items?: unknown[] }; // For interaction system compatibility
+  inventory?: { items?: InventoryItem[] }; // For interaction system compatibility
   coins: number;
 
   // Combat
@@ -105,7 +106,7 @@ export interface Player {
     health?: number;
     roles?: string[];
     owner?: string;
-    effect?: unknown;
+    effect?: PlayerEffect;
   }; // Hyperscape entity data
   avatar?: {
     getHeight?: () => number;
