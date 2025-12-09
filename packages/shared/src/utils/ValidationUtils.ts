@@ -6,6 +6,10 @@
  */
 
 import type { Position3D } from "../types/index";
+import {
+  calculateDistance as mathCalculateDistance,
+  calculateDistance2D as mathCalculateDistance2D,
+} from "./MathUtils";
 
 // Basic type guards
 export function isNumber(value: unknown): value is number {
@@ -52,19 +56,6 @@ export function validatePosition(pos: unknown): pos is Position3D {
   return isNumber(p.x) && isNumber(p.y) && isNumber(p.z);
 }
 
-// Distance calculation
-export function calculateDistance(pos1: Position3D, pos2: Position3D): number {
-  const dx = pos2.x - pos1.x;
-  const dy = pos2.y - pos1.y;
-  const dz = pos2.z - pos1.z;
-  return Math.sqrt(dx * dx + dy * dy + dz * dz);
-}
-
-export function calculateDistance2D(
-  pos1: Position3D,
-  pos2: Position3D,
-): number {
-  const dx = pos2.x - pos1.x;
-  const dz = pos2.z - pos1.z;
-  return Math.sqrt(dx * dx + dz * dz);
-}
+// Distance calculations - re-exported from MathUtils for convenience
+export const calculateDistance = mathCalculateDistance;
+export const calculateDistance2D = mathCalculateDistance2D;

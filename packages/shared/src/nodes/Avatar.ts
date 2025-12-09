@@ -10,10 +10,10 @@ import type {
   AvatarData,
   VRMAvatarInstance,
   VRMAvatarFactory,
-} from "../types/nodes";
-import THREE from "../extras/three";
+} from "../types/rendering/nodes";
+import THREE from "../extras/three/three";
 import { Node } from "./Node";
-import { Emotes } from "../extras/playerEmotes";
+import { Emotes } from "../data/playerEmotes";
 
 const defaults = {
   src: null,

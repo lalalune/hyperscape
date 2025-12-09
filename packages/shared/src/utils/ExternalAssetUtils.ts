@@ -4,7 +4,7 @@
  */
 
 import { ALL_NPCS } from "../data/npcs";
-import type { NPCData } from "../types/core";
+import type { NPCData } from "../types/core/core";
 
 interface ExternalResource {
   id: string;

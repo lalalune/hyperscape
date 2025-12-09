@@ -7,8 +7,8 @@
 import { every, isArray, isBoolean, isNumber, isString } from "lodash-es";
 import type * as YogaTypes from "yoga-layout";
 import Yoga from "yoga-layout";
-import { borderRoundRect } from "../extras/borderRoundRect";
-import { fillRoundRect } from "../extras/roundRect";
+import { borderRoundRect } from "../extras/ui/borderRoundRect";
+import { fillRoundRect } from "../extras/ui/roundRect";
 import {
   AlignContent,
   AlignItems,
@@ -22,7 +22,7 @@ import {
   isFlexWrap,
   isJustifyContent,
   JustifyContent,
-} from "../extras/yoga";
+} from "../extras/ui/yoga";
 import { Node } from "./Node";
 import type {
   UIViewData,
@@ -30,7 +30,7 @@ import type {
   FlexBasis,
   EdgeValue,
   UIContext,
-} from "../types/nodes";
+} from "../types/rendering/nodes";
 
 const defaults = {
   display: "flex",

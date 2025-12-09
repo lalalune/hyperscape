@@ -4,7 +4,7 @@
  * Defines collision geometry for physics interactions. Supports box, sphere, capsule, and mesh shapes.
  */
 
-import THREE, { safeMatrixDecompose } from "../extras/three";
+import THREE, { safeMatrixDecompose } from "../extras/three/three";
 
 import type {
   PxBoxGeometry,
@@ -17,14 +17,14 @@ import type {
   PxTransform,
   PxTriangleMeshGeometry,
   PxVec3,
-} from "../types/physics";
-import type { ColliderData } from "../types/nodes";
+} from "../types/systems/physics";
+import type { ColliderData } from "../types/rendering/nodes";
 
 import { getRef, Node } from "./Node";
 import { isNumber, isBoolean } from "../utils/ValidationUtils";
 
-import { Layers } from "../extras/Layers";
-import { geometryToPxMesh } from "../extras/geometryToPxMesh";
+import { Layers } from "../physics/Layers";
+import { geometryToPxMesh } from "../extras/three/geometryToPxMesh";
 
 // PhysX mesh scale interface
 interface PxMeshScale {

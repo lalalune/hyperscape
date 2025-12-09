@@ -20,10 +20,10 @@
  * - Event-based communication
  */
 
-import { SystemBase } from "./SystemBase";
+import { SystemBase } from "./shared";
 import { EventType } from "../types/events";
 import { Logger } from "../utils/Logger";
-import type { World } from "../World";
+import type { World } from "../core/World";
 import { keccak256, solidityPacked, randomBytes } from "ethers";
 
 export interface ItemInstance {

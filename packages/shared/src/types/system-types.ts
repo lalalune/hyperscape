@@ -6,7 +6,7 @@
  */
 
 import type THREE from "three";
-import type { System } from "../systems/System";
+import type { System } from "../systems/shared";
 import type { Entity } from "../entities/Entity";
 
 /**

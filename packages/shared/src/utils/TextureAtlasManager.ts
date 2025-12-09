@@ -1,4 +1,4 @@
-import THREE from "../extras/three";
+import THREE from "../extras/three/three";
 
 interface MaterialInfo {
   name: string;

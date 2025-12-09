@@ -4,12 +4,12 @@
  * Represents a renderable mesh with geometry and material. Supports instanced rendering for performance.
  */
 
-import THREE from "../extras/three";
+import THREE from "../extras/three/three";
 
-import type { MeshData } from "../types/nodes";
+import type { MeshData } from "../types/rendering/nodes";
 
-import { getTextureBytesFromMaterial } from "../extras/getTextureBytesFromMaterial";
-import { getTrianglesFromGeometry } from "../extras/getTrianglesFromGeometry";
+import { getTextureBytesFromMaterial } from "../extras/three/getTextureBytesFromMaterial";
+import { getTrianglesFromGeometry } from "../extras/three/getTrianglesFromGeometry";
 import { Node } from "./Node";
 import { getMountedContext } from "./NodeContext";
 

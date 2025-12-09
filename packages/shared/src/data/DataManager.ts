@@ -47,10 +47,10 @@ import type {
   StoreData,
   BiomeData,
   ZoneData,
-} from "../types/core";
-import type { DataValidationResult } from "../types/validation-types";
+} from "../types/core/core";
+import type { DataValidationResult } from "../types/core/validation-types";
 import type { MobSpawnPoint, NPCLocation, WorldArea } from "./world-areas";
-import { WeaponType, EquipmentSlotName, AttackType } from "../types/core";
+import { WeaponType, EquipmentSlotName, AttackType } from "../types/core/core";
 
 /**
  * Data validation results
