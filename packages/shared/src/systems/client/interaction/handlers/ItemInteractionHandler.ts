@@ -207,7 +207,11 @@ export class ItemInteractionHandler extends BaseInteractionHandler {
         }
 
         // Server expects entityId as 'itemId' field (legacy naming)
-        this.send(MESSAGE_TYPES.PICKUP_ITEM, { itemId: entityId });
+        // Include timestamp for replay attack prevention
+        this.send(MESSAGE_TYPES.PICKUP_ITEM, {
+          itemId: entityId,
+          timestamp: Date.now(),
+        });
       },
     });
   }

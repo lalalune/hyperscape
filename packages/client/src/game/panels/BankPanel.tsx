@@ -44,6 +44,12 @@ interface ContextMenuState {
   type: "bank" | "inventory";
 }
 
+interface CoinModalState {
+  visible: boolean;
+  action: "deposit" | "withdraw";
+  maxAmount: number;
+}
+
 const BANK_SLOTS_PER_ROW = 10;
 const BANK_VISIBLE_ROWS = 8; // Height of visible area to match inventory
 const BANK_SCROLL_HEIGHT = BANK_VISIBLE_ROWS * 45; // 45px per row (44px + gap)
@@ -271,6 +277,191 @@ function ContextMenu({
   );
 }
 
+/**
+ * Coin Amount Modal Component
+ * For entering custom deposit/withdraw amounts
+ */
+function CoinAmountModal({
+  modal,
+  onConfirm,
+  onClose,
+}: {
+  modal: CoinModalState;
+  onConfirm: (amount: number) => void;
+  onClose: () => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (modal.visible && inputRef.current) {
+      inputRef.current.focus();
+      setAmount("");
+    }
+  }, [modal.visible]);
+
+  if (!modal.visible) return null;
+
+  const handleSubmit = () => {
+    const numAmount = parseInt(amount, 10);
+    if (numAmount > 0 && numAmount <= modal.maxAmount) {
+      onConfirm(numAmount);
+      onClose();
+    }
+  };
+
+  const handleQuickAmount = (value: number) => {
+    const actualAmount = Math.min(value, modal.maxAmount);
+    if (actualAmount > 0) {
+      onConfirm(actualAmount);
+      onClose();
+    }
+  };
+
+  const actionLabel = modal.action === "deposit" ? "Deposit" : "Withdraw";
+  const actionColor =
+    modal.action === "deposit"
+      ? "rgba(100, 180, 100, 0.8)"
+      : "rgba(180, 150, 100, 0.8)";
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[10001] flex items-center justify-center"
+      style={{ background: "rgba(0, 0, 0, 0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-lg p-4 shadow-xl"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(30, 25, 20, 0.98) 0%, rgba(20, 15, 10, 0.98) 100%)",
+          border: "2px solid rgba(139, 69, 19, 0.8)",
+          minWidth: "280px",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3
+          className="text-lg font-bold mb-3 text-center"
+          style={{ color: "rgba(242, 208, 138, 0.9)" }}
+        >
+          🪙 {actionLabel} Coins
+        </h3>
+
+        {/* Quick amounts */}
+        <div className="grid grid-cols-4 gap-2 mb-3">
+          {[1, 10, 100, 1000].map((qty) => (
+            <button
+              key={qty}
+              onClick={() => handleQuickAmount(qty)}
+              disabled={modal.maxAmount < qty}
+              className="py-2 rounded text-sm font-bold transition-colors disabled:opacity-30"
+              style={{
+                background:
+                  modal.maxAmount >= qty
+                    ? actionColor
+                    : "rgba(50, 50, 50, 0.5)",
+                color: "#fff",
+                border: "1px solid rgba(139, 69, 19, 0.6)",
+              }}
+            >
+              {qty >= 1000 ? `${qty / 1000}K` : qty}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <button
+            onClick={() => handleQuickAmount(Math.floor(modal.maxAmount / 2))}
+            disabled={modal.maxAmount < 2}
+            className="py-2 rounded text-sm font-bold transition-colors disabled:opacity-30"
+            style={{
+              background: actionColor,
+              color: "#fff",
+              border: "1px solid rgba(139, 69, 19, 0.6)",
+            }}
+          >
+            Half ({formatQuantity(Math.floor(modal.maxAmount / 2))})
+          </button>
+          <button
+            onClick={() => handleQuickAmount(modal.maxAmount)}
+            disabled={modal.maxAmount < 1}
+            className="py-2 rounded text-sm font-bold transition-colors disabled:opacity-30"
+            style={{
+              background: actionColor,
+              color: "#fff",
+              border: "1px solid rgba(139, 69, 19, 0.6)",
+            }}
+          >
+            All ({formatQuantity(modal.maxAmount)})
+          </button>
+        </div>
+
+        {/* Custom amount input */}
+        <div className="mb-3">
+          <label
+            className="text-xs mb-1 block"
+            style={{ color: "rgba(242, 208, 138, 0.7)" }}
+          >
+            Custom amount (max: {modal.maxAmount.toLocaleString()})
+          </label>
+          <input
+            ref={inputRef}
+            type="number"
+            min="1"
+            max={modal.maxAmount}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSubmit();
+              if (e.key === "Escape") onClose();
+            }}
+            className="w-full px-3 py-2 rounded text-sm"
+            style={{
+              background: "rgba(0, 0, 0, 0.5)",
+              border: "1px solid rgba(139, 69, 19, 0.6)",
+              color: "#fff",
+              outline: "none",
+            }}
+            placeholder="Enter amount..."
+          />
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={handleSubmit}
+            disabled={
+              !amount ||
+              parseInt(amount, 10) <= 0 ||
+              parseInt(amount, 10) > modal.maxAmount
+            }
+            className="flex-1 py-2 rounded text-sm font-bold transition-colors disabled:opacity-30"
+            style={{
+              background: actionColor,
+              color: "#fff",
+              border: "1px solid rgba(139, 69, 19, 0.6)",
+            }}
+          >
+            {actionLabel}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded text-sm font-bold transition-colors"
+            style={{
+              background: "rgba(100, 100, 100, 0.5)",
+              color: "#fff",
+              border: "1px solid rgba(139, 69, 19, 0.6)",
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 // NOTE: Distance validation is now SERVER-AUTHORITATIVE
 // The server tracks interaction sessions and sends bankClose packets
 // when the player moves too far away. The client no longer polls distance.
@@ -295,9 +486,19 @@ export function BankPanel({
     type: "bank",
   });
 
+  const [coinModal, setCoinModal] = useState<CoinModalState>({
+    visible: false,
+    action: "deposit",
+    maxAmount: 0,
+  });
+
   // NOTE: Distance validation is handled server-side (InteractionSessionManager)
   // The server sends bankClose packets when the player moves too far away.
   // This eliminates race conditions between server and client position sync.
+
+  // Calculate bank coins from items array
+  const bankCoinsItem = items.find((item) => item.itemId === "coins");
+  const bankCoins = bankCoinsItem?.quantity ?? 0;
 
   // Calculate total rows needed for all bank slots
   const totalBankRows = Math.ceil(maxSlots / BANK_SLOTS_PER_ROW);
@@ -332,6 +533,44 @@ export function BankPanel({
     // Deposit all inventory items in a single batch operation
     if (world.network?.send) {
       world.network.send("bankDepositAll", {});
+    }
+  };
+
+  // Coin deposit/withdraw handlers
+  const handleDepositCoins = useCallback(
+    (amount: number) => {
+      if (world.network?.send && amount > 0) {
+        world.network.send("bankDepositCoins", { amount });
+      }
+    },
+    [world.network],
+  );
+
+  const handleWithdrawCoins = useCallback(
+    (amount: number) => {
+      if (world.network?.send && amount > 0) {
+        world.network.send("bankWithdrawCoins", { amount });
+      }
+    },
+    [world.network],
+  );
+
+  const openCoinModal = (action: "deposit" | "withdraw") => {
+    const maxAmount = action === "deposit" ? coins : bankCoins;
+    if (maxAmount > 0) {
+      setCoinModal({ visible: true, action, maxAmount });
+    }
+  };
+
+  const closeCoinModal = () => {
+    setCoinModal((prev) => ({ ...prev, visible: false }));
+  };
+
+  const handleCoinModalConfirm = (amount: number) => {
+    if (coinModal.action === "deposit") {
+      handleDepositCoins(amount);
+    } else {
+      handleWithdrawCoins(amount);
     }
   };
 
@@ -413,6 +652,13 @@ export function BankPanel({
         onClose={closeContextMenu}
       />
 
+      {/* Coin Amount Modal */}
+      <CoinAmountModal
+        modal={coinModal}
+        onConfirm={handleCoinModalConfirm}
+        onClose={closeCoinModal}
+      />
+
       <div className="flex gap-2">
         {/* Bank Panel - Left Side */}
         <div
@@ -457,6 +703,103 @@ export function BankPanel({
             >
               ✕
             </button>
+          </div>
+
+          {/* Coin Section */}
+          <div
+            className="mx-3 mt-2 p-2 rounded"
+            style={{
+              background: "rgba(0, 0, 0, 0.3)",
+              border: "1px solid rgba(139, 69, 19, 0.4)",
+            }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              {/* Bank Coins */}
+              <div className="flex items-center gap-2 flex-1">
+                <span className="text-lg">🏦</span>
+                <div className="flex flex-col">
+                  <span
+                    className="text-[10px]"
+                    style={{ color: "rgba(242, 208, 138, 0.6)" }}
+                  >
+                    Bank
+                  </span>
+                  <span
+                    className="text-sm font-bold"
+                    style={{ color: "#fbbf24" }}
+                  >
+                    {bankCoins.toLocaleString()}
+                  </span>
+                </div>
+                <button
+                  onClick={() => openCoinModal("withdraw")}
+                  disabled={bankCoins <= 0}
+                  className="ml-auto px-2 py-1 rounded text-xs font-bold transition-colors disabled:opacity-30"
+                  style={{
+                    background: "rgba(180, 150, 100, 0.6)",
+                    color: "#fff",
+                    border: "1px solid rgba(139, 69, 19, 0.5)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (bankCoins > 0)
+                      e.currentTarget.style.background =
+                        "rgba(180, 150, 100, 0.8)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "rgba(180, 150, 100, 0.6)";
+                  }}
+                >
+                  Withdraw
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div
+                className="h-8 w-px"
+                style={{ background: "rgba(139, 69, 19, 0.4)" }}
+              />
+
+              {/* Money Pouch */}
+              <div className="flex items-center gap-2 flex-1">
+                <span className="text-lg">💰</span>
+                <div className="flex flex-col">
+                  <span
+                    className="text-[10px]"
+                    style={{ color: "rgba(242, 208, 138, 0.6)" }}
+                  >
+                    Pouch
+                  </span>
+                  <span
+                    className="text-sm font-bold"
+                    style={{ color: "#fbbf24" }}
+                  >
+                    {coins.toLocaleString()}
+                  </span>
+                </div>
+                <button
+                  onClick={() => openCoinModal("deposit")}
+                  disabled={coins <= 0}
+                  className="ml-auto px-2 py-1 rounded text-xs font-bold transition-colors disabled:opacity-30"
+                  style={{
+                    background: "rgba(100, 180, 100, 0.6)",
+                    color: "#fff",
+                    border: "1px solid rgba(139, 69, 19, 0.5)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (coins > 0)
+                      e.currentTarget.style.background =
+                        "rgba(100, 180, 100, 0.8)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "rgba(100, 180, 100, 0.6)";
+                  }}
+                >
+                  Deposit
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Scrollable Item Grid */}

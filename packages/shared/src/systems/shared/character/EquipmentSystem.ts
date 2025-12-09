@@ -12,6 +12,8 @@
 import THREE from "../../../extras/three/three";
 import { EventType } from "../../../types/events";
 import { dataManager } from "../../../data/DataManager";
+import type { InventorySystem } from "./InventorySystem";
+import { EQUIPMENT_SLOT_NAMES } from "../../../constants/EquipmentConstants";
 
 /**
  * Equipment color mapping by material type (visual only)
@@ -219,14 +221,16 @@ export class EquipmentSystem extends SystemBase {
       const typedData = data as { playerId: string };
       this.initializePlayerEquipment({ id: typedData.playerId });
     });
-    this.subscribe(EventType.PLAYER_JOINED, (data) => {
+    // CRITICAL: Must await database load to prevent race condition
+    // where client receives empty equipment before DB load completes
+    this.subscribe(EventType.PLAYER_JOINED, async (data) => {
       const typedData = data as { playerId: string };
-      this.loadEquipmentFromDatabase(typedData.playerId);
+      await this.loadEquipmentFromDatabase(typedData.playerId);
     });
-    this.subscribe(EventType.PLAYER_RESPAWNED, (data) => {
+    this.subscribe(EventType.PLAYER_RESPAWNED, async (data) => {
       const typedData = data as { playerId: string };
       // Reload equipment from database after respawn (equipment cleared on death)
-      this.loadEquipmentFromDatabase(typedData.playerId);
+      await this.loadEquipmentFromDatabase(typedData.playerId);
     });
     this.subscribe(EventType.PLAYER_UNREGISTERED, (data) => {
       const typedData = data as { playerId: string };
@@ -245,29 +249,29 @@ export class EquipmentSystem extends SystemBase {
       };
       this.playerSkills.set(typedData.playerId, typedData.skills);
     });
-    this.subscribe(EventType.EQUIPMENT_EQUIP, (data) => {
+    this.subscribe(EventType.EQUIPMENT_EQUIP, async (data) => {
       const typedData = data as {
         playerId: string;
         itemId: string;
         slot: string;
       };
-      this.equipItem({
+      await this.equipItem({
         playerId: typedData.playerId,
         itemId: typedData.itemId,
         slot: typedData.slot,
         inventorySlot: undefined,
       });
     });
-    this.subscribe(EventType.EQUIPMENT_UNEQUIP, (data) => {
+    this.subscribe(EventType.EQUIPMENT_UNEQUIP, async (data) => {
       const typedData = data as { playerId: string; slot: string };
-      this.unequipItem({
+      await this.unequipItem({
         playerId: typedData.playerId,
         slot: typedData.slot,
       });
     });
-    this.subscribe(EventType.EQUIPMENT_TRY_EQUIP, (data) => {
+    this.subscribe(EventType.EQUIPMENT_TRY_EQUIP, async (data) => {
       const typedData = data as { playerId: string; itemId: string };
-      this.tryEquipItem({
+      await this.tryEquipItem({
         playerId: typedData.playerId,
         itemId: typedData.itemId,
         inventorySlot: undefined,
@@ -285,21 +289,21 @@ export class EquipmentSystem extends SystemBase {
         slot: typedData.slot,
       });
     });
-    this.subscribe(EventType.INVENTORY_ITEM_RIGHT_CLICK, (data) => {
+    this.subscribe(EventType.INVENTORY_ITEM_RIGHT_CLICK, async (data) => {
       const typedData = data as {
         playerId: string;
         itemId: string;
         slot: number;
       };
-      this.handleItemRightClick({
+      await this.handleItemRightClick({
         playerId: typedData.playerId,
         itemId: typedData.itemId,
         slot: typedData.slot,
       });
     });
-    this.subscribe(EventType.EQUIPMENT_CONSUME_ARROW, (data) => {
+    this.subscribe(EventType.EQUIPMENT_CONSUME_ARROW, async (data) => {
       const typedData = data as { playerId: string };
-      this.consumeArrow(typedData.playerId);
+      await this.consumeArrow(typedData.playerId);
     });
   }
 
@@ -420,15 +424,7 @@ export class EquipmentSystem extends SystemBase {
       }
 
       // Emit PLAYER_EQUIPMENT_CHANGED for each slot to update visuals
-      const slots = [
-        "weapon",
-        "shield",
-        "helmet",
-        "body",
-        "legs",
-        "arrows",
-      ] as const;
-      for (const slotName of slots) {
+      for (const slotName of EQUIPMENT_SLOT_NAMES) {
         const slot = equipment[slotName] as EquipmentSlot | null;
         const itemId = slot?.itemId ? slot.itemId.toString() : null;
         this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
@@ -451,15 +447,7 @@ export class EquipmentSystem extends SystemBase {
       }
 
       // Emit PLAYER_EQUIPMENT_CHANGED for each slot with null (clear visuals)
-      const slots = [
-        "weapon",
-        "shield",
-        "helmet",
-        "body",
-        "legs",
-        "arrows",
-      ] as const;
-      for (const slotName of slots) {
+      for (const slotName of EQUIPMENT_SLOT_NAMES) {
         this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
           playerId: playerId,
           slot: slotName as EquipmentSlotName,
@@ -539,16 +527,8 @@ export class EquipmentSystem extends SystemBase {
 
     // Count equipped items before clearing
     let clearedCount = 0;
-    const slots = [
-      "weapon",
-      "shield",
-      "helmet",
-      "body",
-      "legs",
-      "arrows",
-    ] as const;
 
-    for (const slotName of slots) {
+    for (const slotName of EQUIPMENT_SLOT_NAMES) {
       const slot = equipment[slotName] as EquipmentSlot | null;
       if (slot && slot.item) {
         clearedCount++;
@@ -603,11 +583,11 @@ export class EquipmentSystem extends SystemBase {
     this.playerEquipment.delete(playerId);
   }
 
-  private handleItemRightClick(data: {
+  private async handleItemRightClick(data: {
     playerId: string;
     itemId: string | number;
     slot: number;
-  }): void {
+  }): Promise<void> {
     const itemData = this.getItemData(data.itemId);
 
     if (!itemData) {
@@ -618,7 +598,7 @@ export class EquipmentSystem extends SystemBase {
     const equipSlot = this.getEquipmentSlot(itemData);
 
     if (equipSlot) {
-      this.tryEquipItem({
+      await this.tryEquipItem({
         playerId: data.playerId,
         itemId: data.itemId,
         inventorySlot: data.slot,
@@ -635,11 +615,11 @@ export class EquipmentSystem extends SystemBase {
     }
   }
 
-  private tryEquipItem(data: {
+  private async tryEquipItem(data: {
     playerId: string;
     itemId: string | number;
     inventorySlot?: number;
-  }): void {
+  }): Promise<void> {
     const player = this.world.getPlayer(data.playerId);
     const equipment = this.playerEquipment.get(data.playerId);
 
@@ -691,8 +671,8 @@ export class EquipmentSystem extends SystemBase {
       return;
     }
 
-    // Perform the equipment
-    this.equipItem({
+    // Perform the equipment - MUST await to ensure DB save completes
+    await this.equipItem({
       playerId: data.playerId,
       itemId: data.itemId,
       slot: equipSlot,
@@ -700,12 +680,12 @@ export class EquipmentSystem extends SystemBase {
     });
   }
 
-  private equipItem(data: {
+  private async equipItem(data: {
     playerId: string;
     itemId: string | number;
     slot: string;
     inventorySlot?: number;
-  }): void {
+  }): Promise<void> {
     const equipment = this.playerEquipment.get(data.playerId);
     if (!equipment) {
       return;
@@ -742,7 +722,7 @@ export class EquipmentSystem extends SystemBase {
 
     // If equipping a 2h weapon, unequip shield first
     if (is2hWeapon && slot === "weapon" && equipment.shield?.itemId) {
-      this.unequipItem({
+      await this.unequipItem({
         playerId: data.playerId,
         slot: "shield",
       });
@@ -765,7 +745,7 @@ export class EquipmentSystem extends SystemBase {
 
     // Unequip current item in slot if any
     if (equipmentSlot.itemId) {
-      this.unequipItem({
+      await this.unequipItem({
         playerId: data.playerId,
         slot: data.slot,
       });
@@ -814,11 +794,14 @@ export class EquipmentSystem extends SystemBase {
 
     this.sendMessage(data.playerId, `Equipped ${itemData.name}.`, "info");
 
-    // Save to database after equipping
-    this.saveEquipmentToDatabase(data.playerId);
+    // Save to database after equipping - MUST await to prevent data loss on logout
+    await this.saveEquipmentToDatabase(data.playerId);
   }
 
-  private unequipItem(data: { playerId: string; slot: string }): void {
+  private async unequipItem(data: {
+    playerId: string;
+    slot: string;
+  }): Promise<void> {
     const equipment = this.playerEquipment.get(data.playerId);
     if (!equipment) return;
 
@@ -882,8 +865,8 @@ export class EquipmentSystem extends SystemBase {
 
     this.sendMessage(data.playerId, `Unequipped ${itemName}.`, "info");
 
-    // Save to database after unequipping
-    this.saveEquipmentToDatabase(data.playerId);
+    // Save to database after unequipping - MUST await to prevent data loss on logout
+    await this.saveEquipmentToDatabase(data.playerId);
   }
 
   private handleForceEquip(data: {
@@ -1067,20 +1050,11 @@ export class EquipmentSystem extends SystemBase {
   }
 
   private playerHasItem(playerId: string, itemId: number | string): boolean {
-    // Check with inventory system via events
     const itemIdStr = itemId.toString();
 
-    // Request item check from inventory system
-    let hasItemResult = false;
-    this.emitTypedEvent(EventType.INVENTORY_HAS_ITEM, {
-      playerId: playerId,
-      itemId: itemIdStr,
-      callback: ((hasItem: boolean) => {
-        hasItemResult = hasItem;
-      }) as unknown,
-    });
-
-    if (hasItemResult) {
+    // Check with InventorySystem directly (not via events - events require subscriber)
+    const inventorySystem = this.world.getSystem<InventorySystem>("inventory");
+    if (inventorySystem && inventorySystem.hasItem(playerId, itemIdStr, 1)) {
       return true;
     }
 
@@ -1133,11 +1107,40 @@ export class EquipmentSystem extends SystemBase {
     });
   }
 
-  // Public API
+  // ========== Public API ==========
+
+  /**
+   * Get the full equipment state for a player.
+   *
+   * Returns all equipped items and calculated stat bonuses.
+   * Used by combat system and UI to determine player capabilities.
+   *
+   * @param playerId - The player ID to look up
+   * @returns PlayerEquipment object with all slots and stats, or undefined if not found
+   *
+   * @example
+   * const equipment = equipmentSystem.getPlayerEquipment(playerId);
+   * if (equipment?.weapon?.item) {
+   *   console.log(`Wielding: ${equipment.weapon.item.name}`);
+   * }
+   */
   getPlayerEquipment(playerId: string): PlayerEquipment | undefined {
     return this.playerEquipment.get(playerId);
   }
 
+  /**
+   * Get equipped items as a simplified data object.
+   *
+   * Returns only the Item data for each slot (no slot metadata).
+   * Useful for serialization or when only item info is needed.
+   *
+   * @param playerId - The player ID to look up
+   * @returns Record with slot names as keys and Item data (or null) as values
+   *
+   * @example
+   * const data = equipmentSystem.getEquipmentData(playerId);
+   * // { weapon: { id: "bronze_sword", ... }, shield: null, ... }
+   */
   getEquipmentData(playerId: string): Record<string, unknown> {
     const equipment = this.playerEquipment.get(playerId);
     if (!equipment) return {};
@@ -1152,6 +1155,19 @@ export class EquipmentSystem extends SystemBase {
     };
   }
 
+  /**
+   * Get total stat bonuses from all equipped items.
+   *
+   * Aggregates attack, strength, defense, ranged, and constitution
+   * bonuses from all equipped gear. Used by combat calculations.
+   *
+   * @param playerId - The player ID to look up
+   * @returns Record with stat names and their total bonus values
+   *
+   * @example
+   * const stats = equipmentSystem.getEquipmentStats(playerId);
+   * const totalAttack = baseAttack + stats.attack;
+   */
   getEquipmentStats(playerId: string): Record<string, number> {
     const equipment = this.playerEquipment.get(playerId);
     return (
@@ -1165,6 +1181,20 @@ export class EquipmentSystem extends SystemBase {
     );
   }
 
+  /**
+   * Check if a specific item is currently equipped by a player.
+   *
+   * Searches all equipment slots for the given item ID.
+   *
+   * @param playerId - The player ID to check
+   * @param itemId - The item ID to search for
+   * @returns true if item is equipped in any slot
+   *
+   * @example
+   * if (equipmentSystem.isItemEquipped(playerId, bronzeSwordId)) {
+   *   console.log("Player has bronze sword equipped");
+   * }
+   */
   isItemEquipped(playerId: string, itemId: number): boolean {
     const equipment = this.playerEquipment.get(playerId);
     if (!equipment) return false;
@@ -1187,6 +1217,25 @@ export class EquipmentSystem extends SystemBase {
     return false;
   }
 
+  /**
+   * Check if a player can equip a specific item.
+   *
+   * Validates:
+   * - Item exists in manifest
+   * - Item is equippable (has equipment slot)
+   * - Player meets all skill level requirements
+   *
+   * Does NOT check inventory space for unequipping current item.
+   *
+   * @param playerId - The player ID to check
+   * @param itemId - The item ID to validate
+   * @returns true if player meets all requirements to equip the item
+   *
+   * @example
+   * if (!equipmentSystem.canEquipItem(playerId, mithrilSwordId)) {
+   *   showMessage("You don't meet the level requirements for this item.");
+   * }
+   */
   canEquipItem(playerId: string, itemId: number): boolean {
     const itemData = this.getItemData(itemId);
     if (!itemData) return false;
@@ -1197,6 +1246,21 @@ export class EquipmentSystem extends SystemBase {
     return this.meetsLevelRequirements(playerId, itemData);
   }
 
+  /**
+   * Get the quantity of arrows currently equipped.
+   *
+   * Queries the inventory system for the arrow stack quantity.
+   * Used by ranged combat to determine available ammunition.
+   *
+   * @param playerId - The player ID to check
+   * @returns Number of arrows equipped (0 if none)
+   *
+   * @example
+   * const arrows = equipmentSystem.getArrowCount(playerId);
+   * if (arrows === 0) {
+   *   showMessage("You're out of arrows!");
+   * }
+   */
   getArrowCount(playerId: string): number {
     const equipment = this.playerEquipment.get(playerId);
     if (!equipment || !equipment.arrows?.item) return 0;
@@ -1216,7 +1280,22 @@ export class EquipmentSystem extends SystemBase {
     return (equipment.arrows as { quantity?: number }).quantity || 0;
   }
 
-  public consumeArrow(playerId: string): boolean {
+  /**
+   * Consume one arrow from the equipped arrow slot.
+   *
+   * Removes one arrow from inventory and updates equipment state.
+   * Auto-unequips arrows when the last one is consumed.
+   * Used by ranged combat after each attack.
+   *
+   * @param playerId - The player ID consuming the arrow
+   * @returns true if an arrow was consumed, false if none available
+   *
+   * @example
+   * if (!await equipmentSystem.consumeArrow(playerId)) {
+   *   // Switch to melee combat or show out of ammo message
+   * }
+   */
+  public async consumeArrow(playerId: string): Promise<boolean> {
     const equipment = this.playerEquipment.get(playerId);
     if (!equipment || !equipment.arrows?.item) {
       return false;
@@ -1242,7 +1321,7 @@ export class EquipmentSystem extends SystemBase {
 
         // If no arrows left, unequip the arrow slot
         if (this.getArrowCount(playerId) === 0) {
-          this.unequipItem({ playerId, slot: "arrows" });
+          await this.unequipItem({ playerId, slot: "arrows" });
         }
 
         return true;
@@ -1433,17 +1512,32 @@ export class EquipmentSystem extends SystemBase {
     }
   }
 
-  destroy(): void {
-    // Stop auto-save interval
+  /**
+   * Async destroy - properly awaits all database saves before cleanup.
+   * Call this for graceful shutdown to prevent data loss.
+   */
+  async destroyAsync(): Promise<void> {
+    // Stop auto-save interval first
     if (this.saveInterval) {
       clearInterval(this.saveInterval);
       this.saveInterval = undefined;
     }
 
-    // Final save before shutdown
+    // Await all final saves before shutdown
     if (this.world.isServer && this.databaseSystem) {
+      const savePromises: Promise<void>[] = [];
       for (const playerId of this.playerEquipment.keys()) {
-        this.saveEquipmentToDatabase(playerId);
+        savePromises.push(this.saveEquipmentToDatabase(playerId));
+      }
+      // Wait for all saves to complete (with error handling)
+      const results = await Promise.allSettled(savePromises);
+      const failures = results.filter((r) => r.status === "rejected");
+      if (failures.length > 0) {
+        Logger.systemError(
+          "EquipmentSystem",
+          `${failures.length} equipment saves failed during shutdown`,
+          new Error("Partial save failure on shutdown"),
+        );
       }
     }
 
@@ -1452,5 +1546,16 @@ export class EquipmentSystem extends SystemBase {
 
     // Call parent cleanup
     super.destroy();
+  }
+
+  destroy(): void {
+    // Fire-and-forget async cleanup (best effort for non-async callers)
+    this.destroyAsync().catch((err) => {
+      Logger.systemError(
+        "EquipmentSystem",
+        "Error during async destroy",
+        err instanceof Error ? err : new Error(String(err)),
+      );
+    });
   }
 }
