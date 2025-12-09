@@ -104,7 +104,7 @@ export default defineConfig(({ mode }) => {
     envPrefix: "PUBLIC_",
 
     root: path.resolve(__dirname, "src"),
-    publicDir: "public",
+    publicDir: path.resolve(__dirname, "public"),
 
     build: {
       outDir: path.resolve(__dirname, "dist"),

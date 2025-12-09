@@ -1,4 +1,4 @@
-import THREE from "../extras/three";
+import THREE from "../extras/three/three";
 
 export class TriplanarTerrainMaterial extends THREE.ShaderMaterial {
   constructor(

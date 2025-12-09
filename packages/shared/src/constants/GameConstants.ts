@@ -5,6 +5,9 @@
  * and ensure consistency across the system.
  */
 
+// Import COMBAT_CONSTANTS from dedicated file
+import { COMBAT_CONSTANTS } from "./CombatConstants";
+
 // === INVENTORY AND ITEMS ===
 export const INVENTORY_CONSTANTS = {
   MAX_INVENTORY_SLOTS: 28,
@@ -24,19 +27,6 @@ export const PLAYER_CONSTANTS = {
   HEALTH_REGEN_RATE: 1.0,
   STAMINA_REGEN_RATE: 2.0,
   STAMINA_DRAIN_RATE: 5.0,
-} as const;
-
-// === COMBAT SYSTEM ===
-export const COMBAT_CONSTANTS = {
-  ATTACK_COOLDOWN: 2000, // milliseconds
-  DEFAULT_DAMAGE: 10,
-  MELEE_RANGE: 2.0,
-  RANGED_RANGE: 10.0,
-  AGGRO_RANGE: 5.0,
-  PURSUIT_RANGE: 8.0,
-  COMBAT_TIMEOUT: 10000, // 10 seconds without combat = exit combat
-  DEATH_RESPAWN_TIME: 30000, // 30 seconds
-  CORPSE_DESPAWN_TIME: 300000, // 5 minutes
 } as const;
 
 // === EXPERIENCE AND LEVELING ===

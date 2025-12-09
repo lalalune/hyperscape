@@ -9,8 +9,8 @@ import type * as YogaTypes from "yoga-layout";
 import { every, isArray, isBoolean, isNumber, isString } from "lodash-es";
 
 import { Node } from "./Node";
-import { Display, isDisplay } from "../extras/yoga";
-import { fillRoundRect } from "../extras/roundRect";
+import { Display, isDisplay } from "../extras/ui/yoga";
+import { fillRoundRect } from "../extras/ui/roundRect";
 import type {
   UITextData,
   DisplayType,
@@ -19,7 +19,7 @@ import type {
   FlexBasis,
   EdgeValue,
   UIContext,
-} from "../types/nodes";
+} from "../types/rendering/nodes";
 
 const textAligns = ["left", "center", "right"];
 

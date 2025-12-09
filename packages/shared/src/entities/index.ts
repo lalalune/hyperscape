@@ -1,6 +1,6 @@
 /**
  * Entity System - Server-authoritative entities
- * Replaces the .hyp app system with full server control
+ * Organized by domain: player, npc, world entities, and managers
  */
 
 // Re-export types from shared types
@@ -23,17 +23,19 @@ export type {
   Component,
 } from "../types/entities";
 
-// Export entity classes
+// Base entity classes (at root)
 export { Entity } from "./Entity";
-
-// Specialized base classes
 export { CombatantEntity } from "./CombatantEntity";
 export { InteractableEntity } from "./InteractableEntity";
 
-// Concrete entity classes
-export { ItemEntity } from "./ItemEntity";
-export { HeadstoneEntity } from "./HeadstoneEntity";
-export { MobEntity } from "./MobEntity";
-export { ResourceEntity } from "./ResourceEntity";
-export { NPCEntity } from "./NPCEntity";
-export { PlayerEntity } from "./PlayerEntity";
+// Player entities
+export * from "./player";
+
+// NPC entities
+export * from "./npc";
+
+// World entities (items, resources, headstones)
+export * from "./world";
+
+// Entity managers (AI, aggro, combat state, death, respawn)
+export * from "./managers";

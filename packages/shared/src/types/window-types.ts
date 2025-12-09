@@ -5,7 +5,7 @@
  * Eliminates `unknown` from window property access.
  */
 
-import type { World } from "../World";
+import type { World } from "../core/World";
 import type THREE from "three";
 
 /**

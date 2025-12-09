@@ -1,5 +1,5 @@
-import THREE from "../extras/three";
-import type { TerrainSystem } from "./TerrainSystem";
+import THREE from "../extras/three/three";
+import type { TerrainSystem } from "./shared/world/TerrainSystem";
 
 interface Chunk {
   key: string;

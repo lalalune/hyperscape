@@ -4,9 +4,9 @@
  * Base class for all nodes in Hyperscape's scene graph system. Provides transform hierarchy, lifecycle hooks, and dirty tracking.
  */
 
-import THREE from "../extras/three";
+import THREE from "../extras/three/three";
 import type { NodeData } from "../types/index";
-import type { World } from "../World";
+import type { World } from "../core/World";
 
 export interface NodeStats {
   triangles?: number;

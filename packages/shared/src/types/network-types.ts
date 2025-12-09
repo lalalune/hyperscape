@@ -5,7 +5,7 @@
  * Eliminates `unknown` and `any` from network handlers.
  */
 
-import type { EntityData } from "./base-types";
+import type { EntityData } from "./core/base-types";
 
 /**
  * Base network packet structure

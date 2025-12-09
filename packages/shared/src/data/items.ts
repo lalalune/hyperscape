@@ -16,7 +16,7 @@ import {
   ItemRequirement,
   ItemType,
   WeaponType,
-} from "../types/core";
+} from "../types/core/core";
 
 /**
  * Item Database

@@ -12,11 +12,11 @@
  * ```
  */
 
-import { World } from "../World";
-import { Physics } from "../systems/Physics";
-import { Stage } from "../systems/Stage";
-import { ClientLoader } from "../systems/ClientLoader";
-import type { PhysicsHandle } from "../types/physics";
+import { World } from "../core/World";
+import { Physics } from "../systems/shared";
+import { Stage } from "../systems/shared";
+import { ClientLoader } from "../systems/client/ClientLoader";
+import type { PhysicsHandle } from "../types/systems/physics";
 
 export interface TestWorldOptions {
   isClient?: boolean;

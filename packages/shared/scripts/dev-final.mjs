@@ -100,7 +100,7 @@ async function main() {
   // Build server-specific modules separately
   console.log('Setting up server-specific modules watch...')
   const ctxServerPhysX = await esbuild.context({
-    entryPoints: ['src/PhysXManager.server.ts'],
+    entryPoints: ['src/physics/PhysXManager.server.ts'],
     outfile: 'build/PhysXManager.server.js',
     platform: 'node',
     format: 'esm',
@@ -109,9 +109,9 @@ async function main() {
     target: 'esnext',
   })
   contexts.push(ctxServerPhysX)
-  
+
   const ctxServerStorage = await esbuild.context({
-    entryPoints: ['src/storage.server.ts'],
+    entryPoints: ['src/platform/server/storage.server.ts'],
     outfile: 'build/storage.server.js',
     platform: 'node',
     format: 'esm',

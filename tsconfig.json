@@ -25,7 +25,9 @@
     "jsxImportSource": "react"
   },
   "include": [
-    "packages/*/src/**/*"
+    "packages/client/src/**/*",
+    "packages/server/src/**/*",
+    "packages/asset-forge/src/**/*"
   ],
   "exclude": [
     "node_modules",

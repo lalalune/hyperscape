@@ -3,11 +3,11 @@
  * These types are specific to the game systems
  */
 
-import THREE from "../extras/three";
-import type { System, SystemDependencies } from "../systems/System";
-import type { World } from "../World";
-import type { EntityData as BaseEntityData, Position3D } from "./base-types";
-import type { PlayerRow } from "./database";
+import THREE from "../extras/three/three";
+import type { System, SystemDependencies } from "../systems/shared";
+import type { World } from "../core/World";
+import type { EntityData as BaseEntityData, Position3D } from "./core/base-types";
+import type { PlayerRow } from "./network/database";
 import type { HeadstoneData, ItemRarity } from "./entities";
 
 // Re-export types for components

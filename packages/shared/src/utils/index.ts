@@ -1,43 +1,19 @@
 /**
- * Shared Utilities
- * Central export point for all utility modules
+ * Utility functions
+ * Helper functions organized by domain
  */
 
-// Renderer utilities
-export {
-  createRenderer,
-  configureRenderer,
-  configureShadowMaps,
-  configureXR,
-  getMaxAnisotropy,
-  isXRPresenting,
-  isWebGPURenderer,
-  isWebGLRenderer,
-  getRendererBackend,
-  detectRenderingCapabilities,
-  type UniversalRenderer,
-  type RendererOptions,
-  type RendererCapabilities,
-} from "./RendererFactory";
+// Core utilities (flat)
+export * from "./IdGenerator";
+export * from "./RoleManager";
+export * from "./Logger";
+export * from "./SystemUtils";
+export * from "./IdentifierUtils";
+export * from "./PlayerIdMapper";
+export * from "./ExternalAssetUtils";
+export * from "./downloadFile";
 
-// Post-processing utilities
-export {
-  createPostProcessing,
-  setBloomEnabled,
-  disposePostProcessing,
-  type PostProcessingComposer,
-  type PostProcessingOptions,
-} from "./PostProcessingFactory";
-
-// Material and mesh optimizations
-export {
-  createOptimizedInstancedMesh,
-  optimizeMaterialForWebGPU,
-  getWebGPUCapabilities,
-  logWebGPUInfo,
-} from "./RendererFactory";
-
-// Validation utilities
+// Export ValidationUtils without calculateDistance* (they re-export from MathUtils)
 export {
   isNumber,
   isBoolean,
@@ -47,32 +23,13 @@ export {
   isValidColor,
   isValidUrl,
   validatePosition,
-  calculateDistance,
-  calculateDistance2D,
 } from "./ValidationUtils";
 
-// System utilities
-export {
-  getSystem,
-  requireSystem,
-  hasSystem,
-  getWorldNetwork,
-  isServer,
-  isClient,
-  getNetworkSystem,
-  getEntitiesSystem,
-  getChatSystem,
-  getLoaderSystem,
-  getGraphicsSystem,
-  getStageSystem,
-  getCameraSystem,
-  getTerrainSystem,
-  type NetworkSystem,
-  type EntitiesSystem,
-  type ChatSystem,
-  type LoaderSystem,
-  type GraphicsSystem,
-  type StageSystem,
-  type CameraSystem,
-  type TerrainSystem,
-} from "./SystemUtils";
+// Math utilities (flat) - canonical source for calculateDistance*
+export * from "./MathUtils";
+export * from "./NoiseGenerator";
+
+// Organized subdirectories
+export * from "./game"; // Combat, entity, component utils
+export * from "./physics"; // Physics, movement, spawning
+export * from "./rendering"; // Rendering, mesh, model cache, UI
