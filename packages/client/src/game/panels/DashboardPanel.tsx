@@ -199,7 +199,14 @@ export function DashboardPanel({
               <SkillsPanel world={world} stats={stats} />
             )}
             {activeTab === "inventory" && (
-              <InventoryPanel items={inventory} coins={coins} world={world} />
+              <InventoryPanel
+                items={inventory}
+                coins={coins}
+                world={world}
+                onItemMove={(fromSlot, toSlot) => {
+                  world?.network?.send?.("moveItem", { fromSlot, toSlot });
+                }}
+              />
             )}
             {activeTab === "equipment" && (
               <EquipmentPanel
@@ -224,7 +231,14 @@ export function DashboardPanel({
             <SkillsPanel world={world} stats={stats} />
           )}
           {activeTab === "inventory" && (
-            <InventoryPanel items={inventory} coins={coins} world={world} />
+            <InventoryPanel
+              items={inventory}
+              coins={coins}
+              world={world}
+              onItemMove={(fromSlot, toSlot) => {
+                world?.network?.send?.("moveItem", { fromSlot, toSlot });
+              }}
+            />
           )}
           {activeTab === "equipment" && (
             <EquipmentPanel equipment={equipment} stats={stats} world={world} />

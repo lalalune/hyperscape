@@ -20,7 +20,7 @@ import {
   isValidSlotIndex,
 } from "../systems/ServerNetwork/services/InputValidation";
 
-import { RateLimitService } from "../systems/ServerNetwork/services/RateLimitService";
+import { IntervalRateLimiter } from "../systems/ServerNetwork/services/IntervalRateLimiter";
 
 console.log("=== Security Smoke Test ===\n");
 
@@ -103,7 +103,7 @@ test(
 
 // Rate limiting tests
 console.log("\n--- Rate Limiting ---");
-const rateLimiter = new RateLimitService(50);
+const rateLimiter = new IntervalRateLimiter(50);
 test("First operation allowed", rateLimiter.tryOperation("player1"));
 test(
   "Immediate second operation blocked",

@@ -88,6 +88,7 @@ import {
   handleDropItem,
   handleEquipItem,
   handleUnequipItem,
+  handleMoveItem,
 } from "./handlers/inventory";
 import { handleResourceGather } from "./handlers/resources";
 import {
@@ -95,6 +96,8 @@ import {
   handleBankDeposit,
   handleBankWithdraw,
   handleBankDepositAll,
+  handleBankDepositCoins,
+  handleBankWithdrawCoins,
   handleBankClose,
 } from "./handlers/bank";
 import {
@@ -590,6 +593,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["onUnequipItem"] = (socket, data) =>
       handleUnequipItem(socket, data, this.world);
 
+    this.handlers["onMoveItem"] = (socket, data) =>
+      handleMoveItem(socket, data, this.world);
+
     // Death/respawn handlers
     this.handlers["onRequestRespawn"] = (socket, data) => {
       const playerEntity = socket.player;
@@ -688,6 +694,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onBankDepositAll"] = (socket, data) =>
       handleBankDepositAll(socket, data, this.world);
+
+    this.handlers["onBankDepositCoins"] = (socket, data) =>
+      handleBankDepositCoins(socket, data as { amount: number }, this.world);
+
+    this.handlers["onBankWithdrawCoins"] = (socket, data) =>
+      handleBankWithdrawCoins(socket, data as { amount: number }, this.world);
 
     this.handlers["onBankClose"] = (socket, data) =>
       handleBankClose(socket, data, this.world);
