@@ -254,9 +254,10 @@ export function emitInventorySyncEvents(
     }
   }
 
-  // Emit coin balance update
+  // Emit coin balance update - use INVENTORY_UPDATE_COINS (command) not INVENTORY_COINS_UPDATED (notification)
+  // CoinPouchSystem listens to UPDATE_COINS and will emit COINS_UPDATED to notify client
   if (syncData.newCoinBalance !== undefined) {
-    world.emit(EventType.INVENTORY_COINS_UPDATED, {
+    world.emit(EventType.INVENTORY_UPDATE_COINS, {
       playerId,
       coins: syncData.newCoinBalance,
     });

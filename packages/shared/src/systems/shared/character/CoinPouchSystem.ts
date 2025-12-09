@@ -57,8 +57,14 @@ export class CoinPouchSystem extends SystemBase {
   /** Auto-save interval handle */
   private autoSaveInterval?: NodeJS.Timeout;
 
+  /** Balance verification interval handle */
+  private verificationInterval?: NodeJS.Timeout;
+
   /** Auto-save interval in ms */
   private readonly AUTO_SAVE_INTERVAL = 30000; // 30 seconds
+
+  /** Balance verification interval in ms (5 minutes) */
+  private readonly VERIFICATION_INTERVAL = 300000;
 
   constructor(world: World) {
     super(world, {
@@ -108,9 +114,10 @@ export class CoinPouchSystem extends SystemBase {
   }
 
   start(): void {
-    // Start periodic auto-save on server only
+    // Start periodic auto-save and verification on server only
     if (this.world.isServer) {
       this.startAutoSave();
+      this.startVerification();
     }
   }
 
@@ -433,13 +440,83 @@ export class CoinPouchSystem extends SystemBase {
     }
   }
 
+  // === Balance Verification ===
+
+  /**
+   * Start periodic balance verification to detect and correct drift
+   */
+  private startVerification(): void {
+    this.verificationInterval = setInterval(() => {
+      this.verifyAllBalances();
+    }, this.VERIFICATION_INTERVAL);
+  }
+
+  /**
+   * Verify all player coin balances against database.
+   * Auto-corrects any mismatches using database as source of truth.
+   */
+  private async verifyAllBalances(): Promise<void> {
+    const db = this.getDatabase();
+    if (!db) return;
+
+    let verified = 0;
+    let corrected = 0;
+
+    for (const [playerIdKey, memoryBalance] of this.coinBalances) {
+      try {
+        const playerId = playerIdKey as string;
+        const playerRow = await db.getPlayerAsync(playerId);
+        if (!playerRow) continue;
+
+        const dbBalance = playerRow.coins ?? 0;
+
+        if (memoryBalance !== dbBalance) {
+          Logger.system(
+            "CoinPouchSystem",
+            `Balance mismatch for ${playerId}: memory=${memoryBalance}, db=${dbBalance}. Using DB value.`,
+          );
+
+          // Correct memory balance to match database
+          this.coinBalances.set(playerIdKey, dbBalance);
+          corrected++;
+
+          // Notify player of correction
+          this.emitTypedEvent(EventType.INVENTORY_COINS_UPDATED, {
+            playerId,
+            coins: dbBalance,
+          });
+        }
+        verified++;
+      } catch {
+        // Continue with other players
+      }
+    }
+
+    if (corrected > 0) {
+      Logger.system(
+        "CoinPouchSystem",
+        `Verification complete: ${verified} verified, ${corrected} corrected`,
+      );
+    }
+  }
+
   // === Cleanup ===
 
-  destroy(): void {
-    // Stop auto-save
+  /**
+   * Async destroy - properly awaits all database saves before cleanup.
+   * Call this for graceful shutdown to prevent data loss.
+   */
+  async destroyAsync(): Promise<void> {
+    // Stop auto-save first
     if (this.autoSaveInterval) {
       clearInterval(this.autoSaveInterval);
       this.autoSaveInterval = undefined;
+    }
+
+    // Stop verification interval
+    if (this.verificationInterval) {
+      clearInterval(this.verificationInterval);
+      this.verificationInterval = undefined;
     }
 
     // Clear pending persist timers
@@ -448,19 +525,33 @@ export class CoinPouchSystem extends SystemBase {
     }
     this.persistTimers.clear();
 
-    // Final save before shutdown
+    // Await all final saves before shutdown
     if (this.world.isServer) {
       const db = this.getDatabase();
       if (db) {
+        const savePromises: Promise<void>[] = [];
+
         for (const playerId of this.coinBalances.keys()) {
-          db.getPlayerAsync(playerId)
-            .then((row) => {
-              if (row) {
-                const coins = this.getCoins(playerId);
-                db.savePlayer(playerId, { coins });
-              }
-            })
-            .catch(() => {});
+          const savePromise = (async () => {
+            const row = await db.getPlayerAsync(playerId);
+            if (row) {
+              const coins = this.getCoins(playerId);
+              db.savePlayer(playerId, { coins });
+            }
+          })();
+
+          savePromises.push(savePromise);
+        }
+
+        // Wait for all saves to complete (with error handling)
+        const results = await Promise.allSettled(savePromises);
+        const failures = results.filter((r) => r.status === "rejected");
+        if (failures.length > 0) {
+          Logger.systemError(
+            "CoinPouchSystem",
+            `${failures.length} coin saves failed during shutdown`,
+            new Error("Partial save failure on shutdown"),
+          );
         }
       }
     }
@@ -470,5 +561,16 @@ export class CoinPouchSystem extends SystemBase {
     this.initializedPlayers.clear();
 
     super.destroy();
+  }
+
+  destroy(): void {
+    // Fire-and-forget async cleanup (best effort for non-async callers)
+    this.destroyAsync().catch((err) => {
+      Logger.systemError(
+        "CoinPouchSystem",
+        "Error during async destroy",
+        err instanceof Error ? err : new Error(String(err)),
+      );
+    });
   }
 }
