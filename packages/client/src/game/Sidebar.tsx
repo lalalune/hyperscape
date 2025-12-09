@@ -591,7 +591,14 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             onFocus={() => bringToFront("inventory")}
             fitContent
           >
-            <InventoryPanel items={inventory} coins={coins} world={world} />
+            <InventoryPanel
+              items={inventory}
+              coins={coins}
+              world={world}
+              onItemMove={(fromSlot, toSlot) => {
+                world?.network?.send?.("moveItem", { fromSlot, toSlot });
+              }}
+            />
           </GameWindow>
         )}
 

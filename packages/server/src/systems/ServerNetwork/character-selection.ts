@@ -746,7 +746,8 @@ export async function handleEnterWorld(
         const items = sorted.map((r, index) => {
           const def = getItem(r.itemId);
           return {
-            slot: Math.min(index, 27),
+            // Use actual DB slot if valid (0-27), fallback to index for invalid/missing slots
+            slot: r.rawSlot < 28 ? r.rawSlot : Math.min(index, 27),
             itemId: r.itemId,
             quantity: r.quantity,
             item: def

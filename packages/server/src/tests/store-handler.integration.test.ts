@@ -12,7 +12,7 @@ import {
   TRANSACTION_RATE_LIMIT_MS,
   INPUT_LIMITS,
 } from "@hyperscape/shared";
-import { RateLimitService } from "../systems/ServerNetwork/services/RateLimitService";
+import { IntervalRateLimiter } from "../systems/ServerNetwork/services/IntervalRateLimiter";
 import {
   isValidItemId,
   isValidQuantity,
@@ -163,10 +163,10 @@ describe("Store Handler Integration - Distance Validation", () => {
 });
 
 describe("Store Handler Integration - Rate Limiting", () => {
-  let rateLimiter: RateLimitService;
+  let rateLimiter: IntervalRateLimiter;
 
   beforeEach(() => {
-    rateLimiter = new RateLimitService(TRANSACTION_RATE_LIMIT_MS);
+    rateLimiter = new IntervalRateLimiter(TRANSACTION_RATE_LIMIT_MS);
   });
 
   it("allows first operation", () => {
