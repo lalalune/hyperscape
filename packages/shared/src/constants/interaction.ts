@@ -66,4 +66,8 @@ export const INPUT_LIMITS = {
   MAX_QUANTITY: 2_147_483_647, // Max signed 32-bit int
   MAX_INVENTORY_SLOTS: 28,
   MAX_BANK_SLOTS: 480,
+  /** Max age for request timestamps (5 seconds) - prevents replay attacks */
+  MAX_REQUEST_AGE_MS: 5000,
+  /** Max clock skew tolerance (1 second into future) */
+  MAX_CLOCK_SKEW_MS: 1000,
 } as const;

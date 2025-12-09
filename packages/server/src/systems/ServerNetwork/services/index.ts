@@ -5,6 +5,7 @@
  * These services are shared between store and bank handlers.
  */
 
-export { RateLimitService } from "./RateLimitService";
+export { IntervalRateLimiter, RateLimitService } from "./IntervalRateLimiter";
 export { ValidationService } from "./ValidationService";
 export * from "./InputValidation";
+export * from "./SlidingWindowRateLimiter";

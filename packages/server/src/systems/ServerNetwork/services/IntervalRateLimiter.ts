@@ -1,11 +1,17 @@
 /**
- * Rate Limit Service
+ * Interval Rate Limiter
+ *
+ * Enforces a minimum time interval between operations.
+ * Use for transaction-like operations (bank, store) where you want
+ * to prevent rapid consecutive actions.
+ *
+ * Algorithm: Each operation resets a timer. Next operation must wait
+ * until timer expires (default 50ms = ~20 ops/sec max).
+ *
+ * For burst-tolerant rate limiting (N ops/sec), use SlidingWindowRateLimiter.
  *
  * SRP: Only handles rate limiting logic.
  * DIP: Implements IRateLimiter interface from shared.
- *
- * Prevents rapid-fire exploit attempts while allowing normal gameplay.
- * Uses 50ms rate limit (~20 ops/sec) which is sufficient for human clicking.
  */
 
 import {
@@ -13,7 +19,10 @@ import {
   type IRateLimiter,
 } from "@hyperscape/shared";
 
-export class RateLimitService implements IRateLimiter {
+/** @deprecated Use IntervalRateLimiter - kept for backwards compatibility */
+export { IntervalRateLimiter as RateLimitService };
+
+export class IntervalRateLimiter implements IRateLimiter {
   private lastOperation = new Map<string, number>();
 
   constructor(private readonly limitMs = TRANSACTION_RATE_LIMIT_MS) {}
