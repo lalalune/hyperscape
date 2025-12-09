@@ -28,6 +28,10 @@ export const BANKING_CONSTANTS = {
     INVALID_SLOT: "Invalid slot number",
     NO_BANK_DATA: "No bank data found",
     BANK_NOT_OPEN: "Bank is not open",
+    // Coin-specific errors
+    INSUFFICIENT_POUCH_COINS: "Not enough coins in money pouch",
+    INSUFFICIENT_BANK_COINS: "Not enough coins in bank",
+    COIN_OVERFLOW: "Cannot carry that many coins",
   },
 
   // Success messages
@@ -36,6 +40,9 @@ export const BANKING_CONSTANTS = {
     ITEM_WITHDRAWN: "Item withdrawn successfully",
     BANK_OPENED: "Bank opened",
     BANK_CLOSED: "Bank closed",
+    // Coin-specific messages
+    COINS_DEPOSITED: "Coins deposited to bank",
+    COINS_WITHDRAWN: "Coins withdrawn from bank",
   },
 } as const;
 

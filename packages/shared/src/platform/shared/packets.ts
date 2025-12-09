@@ -168,6 +168,8 @@ const names = [
   'bankDeposit',
   'bankDepositAll',
   'bankWithdraw',
+  'bankDepositCoins',
+  'bankWithdrawCoins',
   'bankClose',
   // Store packets
   'storeOpen',

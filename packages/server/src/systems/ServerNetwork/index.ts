@@ -96,6 +96,8 @@ import {
   handleBankDeposit,
   handleBankWithdraw,
   handleBankDepositAll,
+  handleBankDepositCoins,
+  handleBankWithdrawCoins,
   handleBankClose,
 } from "./handlers/bank";
 import {
@@ -692,6 +694,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onBankDepositAll"] = (socket, data) =>
       handleBankDepositAll(socket, data, this.world);
+
+    this.handlers["onBankDepositCoins"] = (socket, data) =>
+      handleBankDepositCoins(socket, data as { amount: number }, this.world);
+
+    this.handlers["onBankWithdrawCoins"] = (socket, data) =>
+      handleBankWithdrawCoins(socket, data as { amount: number }, this.world);
 
     this.handlers["onBankClose"] = (socket, data) =>
       handleBankClose(socket, data, this.world);
