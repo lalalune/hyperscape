@@ -206,7 +206,6 @@ export enum EventType {
   INVENTORY_CONSUME_ITEM = "inventory:consume_item",
   INVENTORY_CHECK = "inventory:check",
   INVENTORY_CAN_ADD = "inventory:can_add",
-  INVENTORY_HAS_ITEM = "inventory:has_item",
   INVENTORY_HAS_EQUIPPED = "inventory:has_equipped",
   INVENTORY_ITEM_RIGHT_CLICK = "inventory:item_right_click",
   INVENTORY_UPDATE_COINS = "inventory:update_coins",

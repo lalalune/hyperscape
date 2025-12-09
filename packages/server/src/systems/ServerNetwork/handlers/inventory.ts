@@ -36,6 +36,7 @@ import {
   getDropRateLimiter,
   getEquipRateLimiter,
 } from "../services/SlidingWindowRateLimiter";
+import { getIdempotencyService } from "../services/IdempotencyService";
 
 // Regex to detect control characters (security)
 // eslint-disable-next-line no-control-regex
@@ -164,6 +165,17 @@ export function handlePickupItem(
 
   const payload = data as Record<string, unknown>;
 
+  // Idempotency check - prevent duplicate pickup requests
+  const idempotencyKey = getIdempotencyService().generateKey(
+    playerEntity.id,
+    "pickup",
+    { entityId: payload.itemId },
+  );
+  if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+    // Duplicate request within 5 second window - silently ignore
+    return;
+  }
+
   // Timestamp validation - prevents replay attacks
   // Client should send { itemId, timestamp: Date.now() }
   const timestampResult = validateRequestTimestamp(payload.timestamp);
@@ -258,6 +270,17 @@ export function handleDropItem(
   }
 
   const payload = data as Record<string, unknown>;
+
+  // Idempotency check - prevent duplicate drop requests
+  const idempotencyKey = getIdempotencyService().generateKey(
+    playerEntity.id,
+    "drop",
+    { itemId: payload.itemId, slot: payload.slot },
+  );
+  if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+    // Duplicate request within 5 second window - silently ignore
+    return;
+  }
 
   // Validate itemId
   if (!isValidItemId(payload.itemId)) {

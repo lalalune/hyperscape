@@ -90,6 +90,7 @@ function isTruthy(value: string | undefined): boolean {
 // Import systems
 import { AggroSystem } from "..";
 import { BankingSystem } from "..";
+import { CoinPouchSystem } from "..";
 import { CombatSystem } from "..";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
 import { PlayerDeathSystem, MobDeathSystem } from "..";
@@ -270,7 +271,12 @@ export async function registerSystems(world: World): Promise<void> {
   // 8. Combat system - Core combat mechanics (depends on player & mob systems)
   world.register("combat", CombatSystem);
 
-  // 9. Inventory system - Item management (depends on player system)
+  // 9. Coin pouch system - Currency management (depends on player system)
+  // CRITICAL: Must be registered BEFORE InventorySystem so coins are initialized
+  // before getInventoryData() tries to read them during PLAYER_REGISTERED handling
+  world.register("coin-pouch", CoinPouchSystem);
+
+  // 10. Inventory system - Item management (depends on player, coin-pouch systems)
   world.register("inventory", InventorySystem);
 
   // 11. Equipment system - Item equipping (depends on inventory system)
