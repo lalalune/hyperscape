@@ -152,7 +152,7 @@ export class InventorySystem extends SystemBase {
           metadata: null as null,
         }));
         db.savePlayerInventory(playerId, saveItems);
-        db.savePlayer(playerId, { coins: inv.coins });
+        // NOTE: Coins are now persisted by CoinPouchSystem
         savedCount++;
         totalItems += saveItems.length;
       } catch {
@@ -259,7 +259,7 @@ export class InventorySystem extends SystemBase {
                   metadata: null as null,
                 }));
                 db.savePlayerInventory(playerId, saveItems);
-                db.savePlayer(playerId, { coins: inv.coins });
+                // NOTE: Coins are now persisted by CoinPouchSystem
               }
             })
             .catch(() => {});
@@ -1401,7 +1401,7 @@ export class InventorySystem extends SystemBase {
             metadata: null as null,
           }));
           db.savePlayerInventory(playerId, saveItems);
-          db.savePlayer(playerId, { coins: inv.coins });
+          // NOTE: Coins are now persisted by CoinPouchSystem
         })
         .catch(() => {});
     }, 300);
@@ -1447,7 +1447,7 @@ export class InventorySystem extends SystemBase {
 
     // Save immediately (synchronous/atomic)
     db.savePlayerInventory(playerId, saveItems);
-    db.savePlayer(playerId, { coins: inv.coins });
+    // NOTE: Coins are now persisted by CoinPouchSystem
   }
 
   /**
@@ -1675,7 +1675,7 @@ export class InventorySystem extends SystemBase {
                 metadata: null as null,
               }));
               db.savePlayerInventory(playerId, saveItems);
-              db.savePlayer(playerId, { coins: inv.coins });
+              // NOTE: Coins are now persisted by CoinPouchSystem
             })
             .catch(() => {});
         }
