@@ -65,4 +65,5 @@ export type { TransactionConfig } from "./transaction";
 export {
   executeSecureTransaction,
   emitInventorySyncEvents,
+  executeInventoryTransaction,
 } from "./transaction";

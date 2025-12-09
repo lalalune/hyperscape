@@ -33,7 +33,6 @@ import {
 } from "@hyperscape/shared";
 import type { ServerSocket } from "../../../shared/types";
 import { BankRepository } from "../../../database/repositories/BankRepository";
-import { InventoryRepository } from "../../../database/repositories/InventoryRepository";
 import * as schema from "../../../database/schema";
 import { eq, sql } from "drizzle-orm";
 
@@ -49,6 +48,7 @@ import {
 import {
   validateTransactionRequest,
   executeSecureTransaction,
+  executeInventoryTransaction,
   emitInventorySyncEvents,
   sendToSocket,
   sendErrorToast,
@@ -182,139 +182,140 @@ export async function handleBankDeposit(
     return;
   }
 
-  // Step 3: Execute transaction with automatic retry
-  const result = await executeSecureTransaction(ctx, {
-    execute: async (tx) => {
-      // Lock inventory rows for this item
-      const inventoryItems = await tx.execute(
-        sql`SELECT * FROM inventory
-            WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${data.itemId}
-            ORDER BY "slotIndex"
-            FOR UPDATE`,
-      );
-
-      const invRows = inventoryItems.rows as Array<{
-        id: number;
-        playerId: string;
-        itemId: string;
-        quantity: number | null;
-        slotIndex: number | null;
-      }>;
-
-      if (invRows.length === 0) {
-        throw new Error("ITEM_NOT_FOUND");
-      }
-
-      // Calculate total available quantity
-      let totalAvailable = 0;
-      for (const item of invRows) {
-        totalAvailable += item.quantity ?? 1;
-      }
-
-      if (totalAvailable < data.quantity) {
-        throw new Error("INSUFFICIENT_QUANTITY");
-      }
-
-      // Check bank item and verify no overflow
-      const bankItems = await tx.execute(
-        sql`SELECT * FROM bank_storage
-            WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${data.itemId}
-            FOR UPDATE`,
-      );
-
-      const bankRows = bankItems.rows as Array<{
-        id: number;
-        quantity: number | null;
-        slot: number | null;
-      }>;
-
-      if (bankRows.length > 0) {
-        const currentBankQty = bankRows[0].quantity ?? 0;
-        if (wouldOverflow(currentBankQty, data.quantity)) {
-          throw new Error("QUANTITY_OVERFLOW");
-        }
-      }
-
-      // Remove items from inventory
-      const removedSlots: Array<{
-        slot: number;
-        quantity: number;
-        itemId: string;
-      }> = [];
-      let remaining = data.quantity;
-
-      for (const item of invRows) {
-        if (remaining <= 0) break;
-
-        const itemQty = item.quantity ?? 1;
-        const itemSlot = item.slotIndex ?? -1;
-
-        if (itemQty <= remaining) {
-          await tx
-            .delete(schema.inventory)
-            .where(eq(schema.inventory.id, item.id));
-          removedSlots.push({
-            slot: itemSlot,
-            quantity: itemQty,
-            itemId: data.itemId,
-          });
-          remaining -= itemQty;
-        } else {
-          await tx
-            .update(schema.inventory)
-            .set({ quantity: itemQty - remaining })
-            .where(eq(schema.inventory.id, item.id));
-          removedSlots.push({
-            slot: itemSlot,
-            quantity: remaining,
-            itemId: data.itemId,
-          });
-          remaining = 0;
-        }
-      }
-
-      // Add to bank (stacking)
-      if (bankRows.length > 0) {
-        await tx.execute(
-          sql`UPDATE bank_storage
-              SET quantity = quantity + ${data.quantity}
-              WHERE id = ${bankRows[0].id}`,
+  // Step 3: Execute transaction with inventory lock (prevents race conditions)
+  const result = await executeInventoryTransaction(ctx, async () => {
+    return executeSecureTransaction(ctx, {
+      execute: async (tx) => {
+        // Lock inventory rows for this item
+        const inventoryItems = await tx.execute(
+          sql`SELECT * FROM inventory
+              WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${data.itemId}
+              ORDER BY "slotIndex"
+              FOR UPDATE`,
         );
-      } else {
-        // Find next available bank slot
-        const allBankItems = await tx
-          .select()
-          .from(schema.bankStorage)
-          .where(eq(schema.bankStorage.playerId, ctx.playerId));
 
-        const usedSlots = new Set(allBankItems.map((i) => i.slot ?? 0));
-        let nextSlot = 0;
-        while (usedSlots.has(nextSlot) && nextSlot < MAX_BANK_SLOTS) {
-          nextSlot++;
+        const invRows = inventoryItems.rows as Array<{
+          id: number;
+          playerId: string;
+          itemId: string;
+          quantity: number | null;
+          slotIndex: number | null;
+        }>;
+
+        if (invRows.length === 0) {
+          throw new Error("ITEM_NOT_FOUND");
         }
 
-        if (nextSlot >= MAX_BANK_SLOTS) {
-          throw new Error("BANK_FULL");
+        // Calculate total available quantity
+        let totalAvailable = 0;
+        for (const item of invRows) {
+          totalAvailable += item.quantity ?? 1;
         }
 
-        await tx.insert(schema.bankStorage).values({
-          playerId: ctx.playerId,
-          itemId: data.itemId,
-          quantity: data.quantity,
-          slot: nextSlot,
-        });
-      }
+        if (totalAvailable < data.quantity) {
+          throw new Error("INSUFFICIENT_QUANTITY");
+        }
 
-      return { removedSlots };
-    },
+        // Check bank item and verify no overflow
+        const bankItems = await tx.execute(
+          sql`SELECT * FROM bank_storage
+              WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${data.itemId}
+              FOR UPDATE`,
+        );
+
+        const bankRows = bankItems.rows as Array<{
+          id: number;
+          quantity: number | null;
+          slot: number | null;
+        }>;
+
+        if (bankRows.length > 0) {
+          const currentBankQty = bankRows[0].quantity ?? 0;
+          if (wouldOverflow(currentBankQty, data.quantity)) {
+            throw new Error("QUANTITY_OVERFLOW");
+          }
+        }
+
+        // Remove items from inventory
+        const removedSlots: Array<{
+          slot: number;
+          quantity: number;
+          itemId: string;
+        }> = [];
+        let remaining = data.quantity;
+
+        for (const item of invRows) {
+          if (remaining <= 0) break;
+
+          const itemQty = item.quantity ?? 1;
+          const itemSlot = item.slotIndex ?? -1;
+
+          if (itemQty <= remaining) {
+            await tx
+              .delete(schema.inventory)
+              .where(eq(schema.inventory.id, item.id));
+            removedSlots.push({
+              slot: itemSlot,
+              quantity: itemQty,
+              itemId: data.itemId,
+            });
+            remaining -= itemQty;
+          } else {
+            await tx
+              .update(schema.inventory)
+              .set({ quantity: itemQty - remaining })
+              .where(eq(schema.inventory.id, item.id));
+            removedSlots.push({
+              slot: itemSlot,
+              quantity: remaining,
+              itemId: data.itemId,
+            });
+            remaining = 0;
+          }
+        }
+
+        // Add to bank (stacking)
+        if (bankRows.length > 0) {
+          await tx.execute(
+            sql`UPDATE bank_storage
+                SET quantity = quantity + ${data.quantity}
+                WHERE id = ${bankRows[0].id}`,
+          );
+        } else {
+          // Find next available bank slot
+          const allBankItems = await tx
+            .select()
+            .from(schema.bankStorage)
+            .where(eq(schema.bankStorage.playerId, ctx.playerId));
+
+          const usedSlots = new Set(allBankItems.map((i) => i.slot ?? 0));
+          let nextSlot = 0;
+          while (usedSlots.has(nextSlot) && nextSlot < MAX_BANK_SLOTS) {
+            nextSlot++;
+          }
+
+          if (nextSlot >= MAX_BANK_SLOTS) {
+            throw new Error("BANK_FULL");
+          }
+
+          await tx.insert(schema.bankStorage).values({
+            playerId: ctx.playerId,
+            itemId: data.itemId,
+            quantity: data.quantity,
+            slot: nextSlot,
+          });
+        }
+
+        return { removedSlots };
+      },
+    });
   });
 
-  if (!result) return; // Error already handled by executeSecureTransaction
+  if (!result) return; // Error already handled
 
-  // Step 4: Send updated states to client
+  // Step 4: Send updated bank state to client
+  // NOTE: Inventory update is handled by reloadFromDatabase() which emits INVENTORY_UPDATED
   const bankRepo = new BankRepository(ctx.db.drizzle, ctx.db.pool);
-  const inventoryRepo = new InventoryRepository(ctx.db.drizzle, ctx.db.pool);
-
   const bankItems = await bankRepo.getPlayerBank(ctx.playerId);
   sendToSocket(socket, "bankState", {
     playerId: ctx.playerId,
@@ -322,23 +323,7 @@ export async function handleBankDeposit(
     maxSlots: MAX_BANK_SLOTS,
   });
 
-  const updatedInventory = await inventoryRepo.getPlayerInventoryAsync(
-    ctx.playerId,
-  );
-  sendToSocket(socket, "inventoryUpdated", {
-    playerId: ctx.playerId,
-    items: updatedInventory.map((i) => ({
-      slot: i.slotIndex ?? -1,
-      itemId: i.itemId,
-      quantity: i.quantity ?? 1,
-    })),
-    coins: 0,
-  });
-
-  // Step 5: Sync in-memory cache (using common utility)
-  emitInventorySyncEvents(ctx, {
-    removedSlots: result.removedSlots,
-  });
+  // NOTE: emitInventorySyncEvents removed - reloadFromDatabase() handles in-memory sync
 }
 
 /**
@@ -402,140 +387,129 @@ export async function handleBankWithdraw(
   // Limit single withdrawal to max inventory size
   const withdrawQty = Math.min(data.quantity, MAX_INVENTORY_SLOTS);
 
-  // Step 3: Execute transaction with automatic retry
-  const result = await executeSecureTransaction(ctx, {
-    errorMessages: {
-      SLOT_CONFLICT: "Inventory changed, please try again",
-    },
-    execute: async (tx) => {
-      // Lock and get current inventory to find used slots
-      const inventoryResult = await tx.execute(
-        sql`SELECT * FROM inventory
-            WHERE "playerId" = ${ctx.playerId}
-            FOR UPDATE`,
-      );
+  // Step 3: Execute transaction with inventory lock (prevents race conditions)
+  // The executeInventoryTransaction wrapper handles:
+  // - Lock acquisition (blocks pickups, auto-save)
+  // - Flush pending in-memory changes to DB
+  // - Execute the transaction
+  // - Reload from DB (in-memory now matches DB exactly)
+  // - Unlock (in finally block)
+  const result = await executeInventoryTransaction(ctx, async () => {
+    return executeSecureTransaction(ctx, {
+      execute: async (tx) => {
+        // Lock and get current inventory to find used slots
+        const inventoryResult = await tx.execute(
+          sql`SELECT * FROM inventory
+              WHERE "playerId" = ${ctx.playerId}
+              FOR UPDATE`,
+        );
 
-      const inventoryItems = inventoryResult.rows as Array<{
-        id: number;
-        slotIndex: number | null;
-      }>;
+        const inventoryItems = inventoryResult.rows as Array<{
+          id: number;
+          slotIndex: number | null;
+        }>;
 
-      // Calculate free slots
-      const usedSlots = new Set<number>();
-      for (const item of inventoryItems) {
-        if (item.slotIndex !== null && item.slotIndex >= 0) {
-          usedSlots.add(item.slotIndex);
+        // Calculate free slots
+        const usedSlots = new Set<number>();
+        for (const item of inventoryItems) {
+          if (item.slotIndex !== null && item.slotIndex >= 0) {
+            usedSlots.add(item.slotIndex);
+          }
         }
-      }
 
-      const freeSlots: number[] = [];
-      for (let i = 0; i < MAX_INVENTORY_SLOTS; i++) {
-        if (!usedSlots.has(i)) {
-          freeSlots.push(i);
+        const freeSlots: number[] = [];
+        for (let i = 0; i < MAX_INVENTORY_SLOTS; i++) {
+          if (!usedSlots.has(i)) {
+            freeSlots.push(i);
+          }
         }
-      }
 
-      if (freeSlots.length === 0) {
-        throw new Error("INVENTORY_FULL");
-      }
+        if (freeSlots.length === 0) {
+          throw new Error("INVENTORY_FULL");
+        }
 
-      const actualWithdrawQty = Math.min(withdrawQty, freeSlots.length);
+        const actualWithdrawQty = Math.min(withdrawQty, freeSlots.length);
 
-      // Lock and find bank item
-      const bankResult = await tx.execute(
-        sql`SELECT * FROM bank_storage
-            WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${data.itemId}
-            FOR UPDATE`,
-      );
-
-      const bankRows = bankResult.rows as Array<{
-        id: number;
-        quantity: number | null;
-      }>;
-
-      if (bankRows.length === 0) {
-        throw new Error("ITEM_NOT_IN_BANK");
-      }
-
-      const bankRow = bankRows[0];
-      const availableQty = bankRow.quantity ?? 0;
-
-      if (availableQty === 0) {
-        throw new Error("ITEM_NOT_IN_BANK");
-      }
-
-      const finalWithdrawQty = Math.min(actualWithdrawQty, availableQty);
-
-      if (finalWithdrawQty === 0) {
-        throw new Error("INSUFFICIENT_QUANTITY");
-      }
-
-      // Remove from bank
-      const newBankQty = availableQty - finalWithdrawQty;
-      if (newBankQty <= 0) {
-        await tx.execute(
-          sql`DELETE FROM bank_storage WHERE id = ${bankRow.id}`,
-        );
-      } else {
-        await tx.execute(
-          sql`UPDATE bank_storage
-              SET quantity = quantity - ${finalWithdrawQty}
-              WHERE id = ${bankRow.id}
-              AND quantity >= ${finalWithdrawQty}`,
-        );
-      }
-
-      // Create inventory items (one per withdrawn item, qty=1)
-      // Use ON CONFLICT DO NOTHING to handle race conditions with auto-save
-      // If a slot is taken by concurrent auto-save, we detect it and retry
-      const addedSlots: Array<{
-        slot: number;
-        quantity: number;
-        itemId: string;
-      }> = [];
-
-      for (let i = 0; i < finalWithdrawQty; i++) {
-        const targetSlot = freeSlots[i];
-
-        // Use ON CONFLICT DO NOTHING with RETURNING to detect slot conflicts
-        // This handles the race condition where InventorySystem auto-save
-        // inserts into a slot between our SELECT FOR UPDATE and INSERT
-        const insertResult = await tx.execute(
-          sql`INSERT INTO inventory ("playerId", "itemId", "quantity", "slotIndex", "metadata")
-              VALUES (${ctx.playerId}, ${data.itemId}, ${1}, ${targetSlot}, ${null})
-              ON CONFLICT ("playerId", "slotIndex") DO NOTHING
-              RETURNING id`,
+        // Lock and find bank item
+        const bankResult = await tx.execute(
+          sql`SELECT * FROM bank_storage
+              WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${data.itemId}
+              FOR UPDATE`,
         );
 
-        // If insert succeeded (row returned), track the slot
-        if (insertResult.rows.length > 0) {
+        const bankRows = bankResult.rows as Array<{
+          id: number;
+          quantity: number | null;
+        }>;
+
+        if (bankRows.length === 0) {
+          throw new Error("ITEM_NOT_IN_BANK");
+        }
+
+        const bankRow = bankRows[0];
+        const availableQty = bankRow.quantity ?? 0;
+
+        if (availableQty === 0) {
+          throw new Error("ITEM_NOT_IN_BANK");
+        }
+
+        const finalWithdrawQty = Math.min(actualWithdrawQty, availableQty);
+
+        if (finalWithdrawQty === 0) {
+          throw new Error("INSUFFICIENT_QUANTITY");
+        }
+
+        // Remove from bank
+        const newBankQty = availableQty - finalWithdrawQty;
+        if (newBankQty <= 0) {
+          await tx.execute(
+            sql`DELETE FROM bank_storage WHERE id = ${bankRow.id}`,
+          );
+        } else {
+          await tx.execute(
+            sql`UPDATE bank_storage
+                SET quantity = quantity - ${finalWithdrawQty}
+                WHERE id = ${bankRow.id}
+                AND quantity >= ${finalWithdrawQty}`,
+          );
+        }
+
+        // Create inventory items (one per withdrawn item, qty=1)
+        // With lock+flush+reload pattern, races are impossible - simple inserts work
+        const addedSlots: Array<{
+          slot: number;
+          quantity: number;
+          itemId: string;
+        }> = [];
+
+        for (let i = 0; i < finalWithdrawQty; i++) {
+          const targetSlot = freeSlots[i];
+
+          await tx.insert(schema.inventory).values({
+            playerId: ctx.playerId,
+            itemId: data.itemId,
+            quantity: 1,
+            slotIndex: targetSlot,
+            metadata: null,
+          });
+
           addedSlots.push({
             slot: targetSlot,
             quantity: 1,
             itemId: data.itemId,
           });
         }
-        // If conflict occurred (no row returned), the slot was taken by auto-save
-        // We continue to try other slots rather than failing immediately
-      }
 
-      // Check if we inserted all items we were supposed to
-      if (addedSlots.length < finalWithdrawQty) {
-        // Some slots were taken by concurrent auto-save, trigger retry
-        // The executeSecureTransaction wrapper will retry up to 3 times
-        throw new Error("SLOT_CONFLICT");
-      }
-
-      return { addedSlots };
-    },
+        return { addedSlots };
+      },
+    });
   });
 
-  if (!result) return; // Error already handled by executeSecureTransaction
+  if (!result) return; // Error already handled
 
-  // Step 4: Send updated states to client
+  // Step 4: Send updated bank state to client
+  // NOTE: Inventory update is handled by reloadFromDatabase() which emits INVENTORY_UPDATED
   const bankRepo = new BankRepository(ctx.db.drizzle, ctx.db.pool);
-  const inventoryRepo = new InventoryRepository(ctx.db.drizzle, ctx.db.pool);
-
   const bankItems = await bankRepo.getPlayerBank(ctx.playerId);
   sendToSocket(socket, "bankState", {
     playerId: ctx.playerId,
@@ -543,23 +517,7 @@ export async function handleBankWithdraw(
     maxSlots: MAX_BANK_SLOTS,
   });
 
-  const updatedInventory = await inventoryRepo.getPlayerInventoryAsync(
-    ctx.playerId,
-  );
-  sendToSocket(socket, "inventoryUpdated", {
-    playerId: ctx.playerId,
-    items: updatedInventory.map((i) => ({
-      slot: i.slotIndex ?? -1,
-      itemId: i.itemId,
-      quantity: i.quantity ?? 1,
-    })),
-    coins: 0,
-  });
-
-  // Step 5: Sync in-memory cache (using common utility)
-  emitInventorySyncEvents(ctx, {
-    addedSlots: result.addedSlots,
-  });
+  // NOTE: emitInventorySyncEvents removed - reloadFromDatabase() handles in-memory sync
 }
 
 /**
@@ -591,150 +549,154 @@ export async function handleBankDepositAll(
 
   const ctx = baseResult.context;
 
-  // Step 2: Execute transaction with automatic retry
-  const result = await executeSecureTransaction(ctx, {
-    errorMessages: {
-      INVENTORY_EMPTY: "Inventory is empty",
-    },
-    execute: async (tx) => {
-      // Get ALL inventory items with row lock
-      const inventoryResult = await tx.execute(
-        sql`SELECT * FROM inventory
-            WHERE "playerId" = ${ctx.playerId}
-            ORDER BY "slotIndex"
-            FOR UPDATE`,
-      );
+  // Step 2: Execute transaction with inventory lock (prevents race conditions)
+  const result = await executeInventoryTransaction(ctx, async () => {
+    return executeSecureTransaction(ctx, {
+      errorMessages: {
+        INVENTORY_EMPTY: "Inventory is empty",
+      },
+      execute: async (tx) => {
+        // Get ALL inventory items with row lock
+        const inventoryResult = await tx.execute(
+          sql`SELECT * FROM inventory
+              WHERE "playerId" = ${ctx.playerId}
+              ORDER BY "slotIndex"
+              FOR UPDATE`,
+        );
 
-      const invRows = inventoryResult.rows as Array<{
-        id: number;
-        playerId: string;
-        itemId: string;
-        quantity: number | null;
-        slotIndex: number | null;
-      }>;
+        const invRows = inventoryResult.rows as Array<{
+          id: number;
+          playerId: string;
+          itemId: string;
+          quantity: number | null;
+          slotIndex: number | null;
+        }>;
 
-      if (invRows.length === 0) {
-        throw new Error("INVENTORY_EMPTY");
-      }
-
-      // Group items by itemId and calculate totals
-      const itemGroups = new Map<
-        string,
-        { total: number; rows: typeof invRows }
-      >();
-      for (const row of invRows) {
-        const existing = itemGroups.get(row.itemId) || { total: 0, rows: [] };
-        existing.total += row.quantity ?? 1;
-        existing.rows.push(row);
-        itemGroups.set(row.itemId, existing);
-      }
-
-      // Lock ALL bank items for this player
-      const bankResult = await tx.execute(
-        sql`SELECT * FROM bank_storage
-            WHERE "playerId" = ${ctx.playerId}
-            FOR UPDATE`,
-      );
-
-      const bankRows = bankResult.rows as Array<{
-        id: number;
-        itemId: string;
-        quantity: number | null;
-        slot: number | null;
-      }>;
-
-      // Create lookup map for existing bank items
-      const bankByItemId = new Map<
-        string,
-        { id: number; quantity: number; slot: number }
-      >();
-      const usedBankSlots = new Set<number>();
-      for (const row of bankRows) {
-        bankByItemId.set(row.itemId, {
-          id: row.id,
-          quantity: row.quantity ?? 0,
-          slot: row.slot ?? 0,
-        });
-        usedBankSlots.add(row.slot ?? 0);
-      }
-
-      // Check for overflow on any item type
-      for (const [itemId, group] of itemGroups) {
-        const existingBank = bankByItemId.get(itemId);
-        if (existingBank && wouldOverflow(existingBank.quantity, group.total)) {
-          throw new Error("QUANTITY_OVERFLOW");
+        if (invRows.length === 0) {
+          throw new Error("INVENTORY_EMPTY");
         }
-      }
 
-      // Check bank has enough slots for new item types
-      let newItemTypes = 0;
-      for (const itemId of itemGroups.keys()) {
-        if (!bankByItemId.has(itemId)) {
-          newItemTypes++;
+        // Group items by itemId and calculate totals
+        const itemGroups = new Map<
+          string,
+          { total: number; rows: typeof invRows }
+        >();
+        for (const row of invRows) {
+          const existing = itemGroups.get(row.itemId) || { total: 0, rows: [] };
+          existing.total += row.quantity ?? 1;
+          existing.rows.push(row);
+          itemGroups.set(row.itemId, existing);
         }
-      }
-      const freeSlots = MAX_BANK_SLOTS - usedBankSlots.size;
-      if (newItemTypes > freeSlots) {
-        throw new Error("BANK_FULL");
-      }
 
-      // Delete ALL inventory items
-      await tx
-        .delete(schema.inventory)
-        .where(eq(schema.inventory.playerId, ctx.playerId));
+        // Lock ALL bank items for this player
+        const bankResult = await tx.execute(
+          sql`SELECT * FROM bank_storage
+              WHERE "playerId" = ${ctx.playerId}
+              FOR UPDATE`,
+        );
 
-      // Track removed slots for sync
-      const removedSlots: Array<{
-        slot: number;
-        quantity: number;
-        itemId: string;
-      }> = [];
-      for (const row of invRows) {
-        removedSlots.push({
-          itemId: row.itemId,
-          slot: row.slotIndex ?? -1,
-          quantity: row.quantity ?? 1,
-        });
-      }
+        const bankRows = bankResult.rows as Array<{
+          id: number;
+          itemId: string;
+          quantity: number | null;
+          slot: number | null;
+        }>;
 
-      // Update/insert bank items
-      let nextFreeSlot = 0;
-      for (const [itemId, group] of itemGroups) {
-        const existingBank = bankByItemId.get(itemId);
+        // Create lookup map for existing bank items
+        const bankByItemId = new Map<
+          string,
+          { id: number; quantity: number; slot: number }
+        >();
+        const usedBankSlots = new Set<number>();
+        for (const row of bankRows) {
+          bankByItemId.set(row.itemId, {
+            id: row.id,
+            quantity: row.quantity ?? 0,
+            slot: row.slot ?? 0,
+          });
+          usedBankSlots.add(row.slot ?? 0);
+        }
 
-        if (existingBank) {
-          await tx.execute(
-            sql`UPDATE bank_storage
-                SET quantity = quantity + ${group.total}
-                WHERE id = ${existingBank.id}`,
-          );
-        } else {
-          while (usedBankSlots.has(nextFreeSlot)) {
+        // Check for overflow on any item type
+        for (const [itemId, group] of itemGroups) {
+          const existingBank = bankByItemId.get(itemId);
+          if (
+            existingBank &&
+            wouldOverflow(existingBank.quantity, group.total)
+          ) {
+            throw new Error("QUANTITY_OVERFLOW");
+          }
+        }
+
+        // Check bank has enough slots for new item types
+        let newItemTypes = 0;
+        for (const itemId of itemGroups.keys()) {
+          if (!bankByItemId.has(itemId)) {
+            newItemTypes++;
+          }
+        }
+        const freeSlots = MAX_BANK_SLOTS - usedBankSlots.size;
+        if (newItemTypes > freeSlots) {
+          throw new Error("BANK_FULL");
+        }
+
+        // Delete ALL inventory items
+        await tx
+          .delete(schema.inventory)
+          .where(eq(schema.inventory.playerId, ctx.playerId));
+
+        // Track removed slots for sync
+        const removedSlots: Array<{
+          slot: number;
+          quantity: number;
+          itemId: string;
+        }> = [];
+        for (const row of invRows) {
+          removedSlots.push({
+            itemId: row.itemId,
+            slot: row.slotIndex ?? -1,
+            quantity: row.quantity ?? 1,
+          });
+        }
+
+        // Update/insert bank items
+        let nextFreeSlot = 0;
+        for (const [itemId, group] of itemGroups) {
+          const existingBank = bankByItemId.get(itemId);
+
+          if (existingBank) {
+            await tx.execute(
+              sql`UPDATE bank_storage
+                  SET quantity = quantity + ${group.total}
+                  WHERE id = ${existingBank.id}`,
+            );
+          } else {
+            while (usedBankSlots.has(nextFreeSlot)) {
+              nextFreeSlot++;
+            }
+
+            await tx.insert(schema.bankStorage).values({
+              playerId: ctx.playerId,
+              itemId,
+              quantity: group.total,
+              slot: nextFreeSlot,
+            });
+
+            usedBankSlots.add(nextFreeSlot);
             nextFreeSlot++;
           }
-
-          await tx.insert(schema.bankStorage).values({
-            playerId: ctx.playerId,
-            itemId,
-            quantity: group.total,
-            slot: nextFreeSlot,
-          });
-
-          usedBankSlots.add(nextFreeSlot);
-          nextFreeSlot++;
         }
-      }
 
-      return { removedSlots };
-    },
+        return { removedSlots };
+      },
+    });
   });
 
-  if (!result) return; // Error already handled by executeSecureTransaction
+  if (!result) return; // Error already handled
 
-  // Step 3: Send updated states to client
+  // Step 3: Send updated bank state to client
+  // NOTE: Inventory update is handled by reloadFromDatabase() which emits INVENTORY_UPDATED
   const bankRepo = new BankRepository(ctx.db.drizzle, ctx.db.pool);
-  const inventoryRepo = new InventoryRepository(ctx.db.drizzle, ctx.db.pool);
-
   const bankItems = await bankRepo.getPlayerBank(ctx.playerId);
   sendToSocket(socket, "bankState", {
     playerId: ctx.playerId,
@@ -742,23 +704,7 @@ export async function handleBankDepositAll(
     maxSlots: MAX_BANK_SLOTS,
   });
 
-  const updatedInventory = await inventoryRepo.getPlayerInventoryAsync(
-    ctx.playerId,
-  );
-  sendToSocket(socket, "inventoryUpdated", {
-    playerId: ctx.playerId,
-    items: updatedInventory.map((i) => ({
-      slot: i.slotIndex ?? -1,
-      itemId: i.itemId,
-      quantity: i.quantity ?? 1,
-    })),
-    coins: 0,
-  });
-
-  // Step 4: Sync in-memory cache (using common utility)
-  emitInventorySyncEvents(ctx, {
-    removedSlots: result.removedSlots,
-  });
+  // NOTE: emitInventorySyncEvents removed - reloadFromDatabase() handles in-memory sync
 }
 
 // ============================================================================
