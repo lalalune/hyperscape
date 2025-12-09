@@ -118,6 +118,7 @@ export {
 } from "./entities/entities";
 export * from "./events"; // Re-exports event-types.ts and event-payloads.ts
 export * from "./core/identifiers";
+export * from "./results"; // Operation result types for explicit error handling
 export * from "./network/networking";
 export * from "./rendering/nodes";
 

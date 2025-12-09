@@ -9,3 +9,4 @@ export { IntervalRateLimiter, RateLimitService } from "./IntervalRateLimiter";
 export { ValidationService } from "./ValidationService";
 export * from "./InputValidation";
 export * from "./SlidingWindowRateLimiter";
+export * from "./IdempotencyService";
