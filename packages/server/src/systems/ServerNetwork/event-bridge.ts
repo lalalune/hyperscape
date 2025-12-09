@@ -172,8 +172,20 @@ export class EventBridge {
                   coins: number;
                   maxSlots: number;
                 };
+                isInventoryReady?: (id: string) => boolean;
               }
             | undefined;
+
+          // CRITICAL: Don't respond if inventory is currently being loaded from DB
+          // The INVENTORY_INITIALIZED event will send the complete inventory when ready
+          if (
+            invSystem?.isInventoryReady &&
+            !invSystem.isInventoryReady(data.playerId)
+          ) {
+            // Inventory is being loaded - don't send potentially stale/empty data
+            // The INVENTORY_INITIALIZED event will be emitted when loading completes
+            return;
+          }
 
           const inv = invSystem?.getInventoryData
             ? invSystem.getInventoryData(data.playerId)
