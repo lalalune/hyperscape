@@ -8,7 +8,7 @@ import type { InventoryItemAddedPayload } from "../../../types/events";
 import { EventType } from "../../../types/events";
 import { getItem, ITEMS } from "../../../data/items";
 import { dataManager } from "../../../data/DataManager";
-import type { PlayerInventory } from "../../../types/core/core";
+import type { PlayerInventory, Item } from "../../../types/core/core";
 import type {
   InventoryCanAddEvent,
   InventoryRemoveCoinsEvent,
@@ -165,8 +165,12 @@ export class InventorySystem extends SystemBase {
         db.savePlayer(playerId, { coins: inv.coins });
         savedCount++;
         totalItems += saveItems.length;
-      } catch {
-        // Skip on DB errors during autosave
+      } catch (error) {
+        // Log DB errors during autosave but continue with other players
+        this.logger.error(
+          `Failed to autosave inventory for ${playerId}`,
+          error instanceof Error ? error : new Error(String(error)),
+        );
       }
     }
   }
@@ -200,21 +204,39 @@ export class InventorySystem extends SystemBase {
     if (enableStarter) this.addStarterEquipment(playerId);
 
     const inventoryData = this.getInventoryData(playerData.id);
+    // Optimize: build items array efficiently instead of using map
+    const eventItems: Array<{
+      slot: number;
+      itemId: string;
+      quantity: number;
+      item: {
+        id: string;
+        name: string;
+        type: string;
+        stackable: boolean;
+        weight: number;
+      };
+    }> = [];
+    const sourceItems = inventoryData.items;
+    for (let i = 0; i < sourceItems.length; i++) {
+      const item = sourceItems[i];
+      eventItems.push({
+        slot: item.slot,
+        itemId: item.itemId,
+        quantity: item.quantity,
+        item: {
+          id: item.item.id,
+          name: item.item.name,
+          type: item.item.type,
+          stackable: item.item.stackable,
+          weight: item.item.weight,
+        },
+      });
+    }
     this.emitTypedEvent(EventType.INVENTORY_INITIALIZED, {
       playerId: playerData.id, // Keep original for compatibility
       inventory: {
-        items: inventoryData.items.map((item) => ({
-          slot: item.slot,
-          itemId: item.itemId,
-          quantity: item.quantity,
-          item: {
-            id: item.item.id,
-            name: item.item.name,
-            type: item.item.type,
-            stackable: item.item.stackable,
-            weight: item.item.weight,
-          },
-        })),
+        items: eventItems,
         coins: inventoryData.coins,
         maxSlots: inventoryData.maxSlots,
       },
@@ -720,21 +742,23 @@ export class InventorySystem extends SystemBase {
     }
 
     // Emit item used event for other systems to react to (different from INVENTORY_USE to avoid recursion)
+    // Type assertion: item.item is Item type from InventorySlotItem interface
+    const itemData = item.item as Item;
     this.emitTypedEvent(EventType.ITEM_USED, {
       playerId: data.playerId,
       itemId: data.itemId,
       slot: data.slot,
       itemData: {
-        id: item.item.id,
-        name: item.item.name,
-        type: item.item.type,
-        stackable: item.item.stackable,
-        weight: item.item.weight,
+        id: itemData.id,
+        name: itemData.name,
+        type: itemData.type,
+        stackable: itemData.stackable,
+        weight: itemData.weight,
       },
     });
 
     // Remove consumables after use
-    if (item.item?.type === "consumable") {
+    if (itemData.type === "consumable") {
       this.removeItem({
         playerId: data.playerId,
         itemId: data.itemId,
@@ -978,8 +1002,14 @@ export class InventorySystem extends SystemBase {
   }
 
   private findEmptySlot(inventory: PlayerInventory): number {
-    const usedSlots = new Set(inventory.items.map((item) => item.slot));
+    // Create Set of used slots to avoid allocation in loop
+    const usedSlots = new Set<number>();
+    const items = inventory.items;
+    for (let i = 0; i < items.length; i++) {
+      usedSlots.add(items[i]!.slot);
+    }
 
+    // Find first empty slot
     for (let i = 0; i < this.MAX_INVENTORY_SLOTS; i++) {
       if (!usedSlots.has(i)) {
         return i;
@@ -1057,8 +1087,23 @@ export class InventorySystem extends SystemBase {
       return { items: [], coins: 0, maxSlots: this.MAX_INVENTORY_SLOTS };
     }
 
-    return {
-      items: inventory.items.map((item) => ({
+    // Optimize: build items array efficiently instead of using map
+    const resultItems: Array<{
+      slot: number;
+      itemId: string;
+      quantity: number;
+      item: {
+        id: string;
+        name: string;
+        type: string;
+        stackable: boolean;
+        weight: number;
+      };
+    }> = [];
+    const sourceItems = inventory.items;
+    for (let i = 0; i < sourceItems.length; i++) {
+      const item = sourceItems[i];
+      resultItems.push({
         slot: item.slot,
         itemId: item.itemId,
         quantity: item.quantity,
@@ -1069,7 +1114,11 @@ export class InventorySystem extends SystemBase {
           stackable: item.item.stackable ?? false,
           weight: item.item.weight ?? 0.1,
         },
-      })),
+      });
+    }
+
+    return {
+      items: resultItems,
       coins: inventory.coins,
       maxSlots: this.MAX_INVENTORY_SLOTS,
     };
@@ -1090,9 +1139,14 @@ export class InventorySystem extends SystemBase {
       return inventory.coins >= quantity;
     }
 
-    const totalQuantity = inventory.items
-      .filter((item) => item.itemId === itemId)
-      .reduce((sum, item) => sum + item.quantity, 0);
+    // Optimize: avoid filter/reduce allocations - use simple loop
+    let totalQuantity = 0;
+    const items = inventory.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].itemId === itemId) {
+        totalQuantity += items[i].quantity;
+      }
+    }
 
     return totalQuantity >= quantity;
   }
@@ -1111,9 +1165,15 @@ export class InventorySystem extends SystemBase {
       return inventory.coins;
     }
 
-    return inventory.items
-      .filter((item) => item.itemId === itemId)
-      .reduce((sum, item) => sum + item.quantity, 0);
+    // Optimize: avoid filter/reduce allocations - use simple loop
+    let totalQuantity = 0;
+    const items = inventory.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].itemId === itemId) {
+        totalQuantity += items[i].quantity;
+      }
+    }
+    return totalQuantity;
   }
 
   getCoins(playerId: string): number {
@@ -1129,10 +1189,15 @@ export class InventorySystem extends SystemBase {
     const inventory = this.playerInventories.get(playerIdKey);
     if (!inventory) return 0;
 
-    return inventory.items.reduce((total, item) => {
+    // Optimize: avoid reduce allocation - use simple loop
+    let total = 0;
+    const items = inventory.items;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       const itemData = getItem(item.itemId);
-      return total + (itemData?.weight || 0) * item.quantity;
-    }, 0);
+      total += (itemData?.weight || 0) * item.quantity;
+    }
+    return total;
   }
 
   isFull(playerId: string): boolean {
@@ -1239,18 +1304,38 @@ export class InventorySystem extends SystemBase {
     this.emitTypedEvent(EventType.INVENTORY_INITIALIZED, {
       playerId,
       inventory: {
-        items: data.items.map((item) => ({
-          slot: item.slot,
-          itemId: item.itemId,
-          quantity: item.quantity,
-          item: {
-            id: item.item.id,
-            name: item.item.name,
-            type: item.item.type,
-            stackable: item.item.stackable,
-            weight: item.item.weight,
-          },
-        })),
+        items: (() => {
+          // Optimize: build items array efficiently instead of using map
+          const eventItems: Array<{
+            slot: number;
+            itemId: string;
+            quantity: number;
+            item: {
+              id: string;
+              name: string;
+              type: string;
+              stackable: boolean;
+              weight: number;
+            };
+          }> = [];
+          const sourceItems = data.items;
+          for (let i = 0; i < sourceItems.length; i++) {
+            const item = sourceItems[i];
+            eventItems.push({
+              slot: item.slot,
+              itemId: item.itemId,
+              quantity: item.quantity,
+              item: {
+                id: item.item.id,
+                name: item.item.name,
+                type: item.item.type,
+                stackable: item.item.stackable,
+                weight: item.item.weight,
+              },
+            });
+          }
+          return eventItems;
+        })(),
         coins: data.coins,
         maxSlots: data.maxSlots,
       },
@@ -1367,9 +1452,17 @@ export class InventorySystem extends SystemBase {
 
     // If stackable, check if we can stack with existing item
     if (data.item.stackable) {
-      const existingItem = inventory.items.find(
-        (item) => item.itemId === data.item.id,
-      );
+      // Optimize: avoid find() allocation - use direct loop
+      let existingItem:
+        | { slot: number; itemId: string; quantity: number; item: Item }
+        | undefined;
+      const items = inventory.items;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].itemId === data.item.id) {
+          existingItem = items[i];
+          break;
+        }
+      }
       if (existingItem) {
         Logger.system(
           "InventorySystem",
@@ -1434,7 +1527,17 @@ export class InventorySystem extends SystemBase {
 
     // Find the inventory item
     const inventory = this.getOrCreateInventory(data.playerId);
-    const inventoryItem = inventory.items.find((i) => i.itemId === itemId);
+    // Optimize: avoid find() allocation - use direct loop
+    let inventoryItem:
+      | { slot: number; itemId: string; quantity: number; item: Item }
+      | undefined;
+    const items = inventory.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i]!.itemId === itemId) {
+        inventoryItem = items[i];
+        break;
+      }
+    }
 
     const inventorySlot: InventoryItemInfo | null = inventoryItem
       ? {

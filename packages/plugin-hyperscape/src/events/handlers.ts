@@ -38,15 +38,19 @@ export function registerEventHandlers(
   // NOTE: COMBAT_KILL is an internal server event that is NOT sent over WebSocket.
   // We keep this handler in case we add the packet in the future.
   service.onGameEvent("COMBAT_KILL", async (data: unknown) => {
-    const eventData = data as { targetName: string; xpGained: number };
-    await storeCombatMemory(
-      runtime,
-      `Defeated ${eventData.targetName}`,
-      eventData,
-      ["combat", "victory", "kill"],
-    );
+    const eventData = data as { targetName?: string; xpGained?: number };
+    const targetName = eventData.targetName;
+    if (!targetName) {
+      logger.warn("[EventHandlers] Invalid COMBAT_KILL data:", data);
+      return;
+    }
+    await storeCombatMemory(runtime, `Defeated ${targetName}`, eventData, [
+      "combat",
+      "victory",
+      "kill",
+    ]);
     logger.info(
-      `[HyperscapePlugin] Defeated ${eventData.targetName}, gained ${eventData.xpGained} XP`,
+      `[HyperscapePlugin] Defeated ${targetName}, gained ${eventData.xpGained || 0} XP`,
     );
 
     // Update goal progress if we have a combat_training goal
@@ -54,16 +58,15 @@ export function registerEventHandlers(
     const goal = behaviorManager?.getGoal();
     if (goal?.type === "combat_training") {
       // Check if the killed target matches our goal target (if specified)
+      const targetEntity = goal.targetEntity as string | undefined;
       const targetMatches =
-        !goal.targetEntity ||
-        eventData.targetName
-          .toLowerCase()
-          .includes(goal.targetEntity.toLowerCase());
+        !targetEntity ||
+        targetName.toLowerCase().includes(targetEntity.toLowerCase());
 
       if (targetMatches) {
         behaviorManager?.updateGoalProgress(1);
         logger.info(
-          `[HyperscapePlugin] Goal progress updated: ${goal.progress + 1}/${goal.target} (killed ${eventData.targetName})`,
+          `[HyperscapePlugin] Goal progress updated: ${goal.progress + 1}/${goal.target} (killed ${targetName})`,
         );
       }
     }

@@ -19,6 +19,13 @@ import { GENERAL_STORES } from "../../../data/banks-stores";
 export class StoreSystem extends SystemBase {
   private stores = new Map<StoreID, Store>();
 
+  private readonly storesArrayBuffer: Store[] = [];
+  private readonly storeLocationsBuffer: Array<{
+    id: string;
+    name: string;
+    position?: { x: number; y: number; z: number };
+  }> = [];
+
   constructor(world: World) {
     super(world, {
       name: "store",
@@ -31,8 +38,8 @@ export class StoreSystem extends SystemBase {
   }
 
   async init(): Promise<void> {
-    // Initialize all stores from loaded JSON data
-    for (const storeData of Object.values(GENERAL_STORES)) {
+    for (const storeId in GENERAL_STORES) {
+      const storeData = GENERAL_STORES[storeId];
       // Convert StoreData to Store format
       // Note: position is optional - it will be set when NPC registers via STORE_REGISTER_NPC
       const store: Store = {
@@ -147,9 +154,12 @@ export class StoreSystem extends SystemBase {
     super.destroy();
   }
 
-  // Public API methods for integration tests
   public getAllStores(): Store[] {
-    return Array.from(this.stores.values());
+    this.storesArrayBuffer.length = 0;
+    for (const store of this.stores.values()) {
+      this.storesArrayBuffer.push(store);
+    }
+    return this.storesArrayBuffer.slice();
   }
 
   public getStore(storeId: string): Store | undefined {
@@ -161,11 +171,15 @@ export class StoreSystem extends SystemBase {
     name: string;
     position?: { x: number; y: number; z: number };
   }> {
-    return Array.from(this.stores.values()).map((store) => ({
-      id: store.id,
-      name: store.name,
-      position: store.position,
-    }));
+    this.storeLocationsBuffer.length = 0;
+    for (const store of this.stores.values()) {
+      this.storeLocationsBuffer.push({
+        id: store.id,
+        name: store.name,
+        position: store.position,
+      });
+    }
+    return this.storeLocationsBuffer.slice();
   }
 
   // NOTE: purchaseItem method has been removed - use network.send("storeBuy") instead

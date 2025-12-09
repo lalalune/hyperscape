@@ -317,7 +317,7 @@ export class DialogueSystem extends SystemBase {
       case "startQuest":
         // Future: implement quest system integration
         this.logger.info(
-          `TODO: Start quest ${params[0]} for player ${playerId}`,
+          `Quest system not yet implemented - quest ${params[0]} requested for player ${playerId}`,
         );
         break;
 

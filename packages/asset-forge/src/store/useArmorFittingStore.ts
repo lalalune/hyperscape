@@ -97,7 +97,7 @@ interface ArmorFittingActions {
   setEnableWeightTransfer: (enabled: boolean) => void;
   setEquipmentSlot: (
     slot: string,
-    viewerRef?: React.RefObject<ArmorFittingViewerRef>,
+    viewerRef?: React.RefObject<ArmorFittingViewerRef | null>,
   ) => void;
 
   // Visualization
@@ -136,28 +136,30 @@ interface ArmorFittingActions {
 
   // Complex actions
   performFitting: (
-    viewerRef: React.RefObject<ArmorFittingViewerRef>,
+    viewerRef: React.RefObject<ArmorFittingViewerRef | null>,
   ) => Promise<void>;
   bindArmorToSkeleton: (
-    viewerRef: React.RefObject<ArmorFittingViewerRef>,
+    viewerRef: React.RefObject<ArmorFittingViewerRef | null>,
   ) => Promise<void>;
   resetFitting: () => void;
   performHelmetFitting: (
-    viewerRef: React.RefObject<ArmorFittingViewerRef>,
+    viewerRef: React.RefObject<ArmorFittingViewerRef | null>,
   ) => Promise<void>;
   attachHelmetToHead: (
-    viewerRef: React.RefObject<ArmorFittingViewerRef>,
+    viewerRef: React.RefObject<ArmorFittingViewerRef | null>,
   ) => Promise<void>;
   detachHelmetFromHead: (
-    viewerRef: React.RefObject<ArmorFittingViewerRef>,
+    viewerRef: React.RefObject<ArmorFittingViewerRef | null>,
   ) => Promise<void>;
   exportFittedArmor: (
-    viewerRef: React.RefObject<ArmorFittingViewerRef>,
+    viewerRef: React.RefObject<ArmorFittingViewerRef | null>,
   ) => Promise<void>;
   exportEquippedAvatar: (
-    viewerRef: React.RefObject<ArmorFittingViewerRef>,
+    viewerRef: React.RefObject<ArmorFittingViewerRef | null>,
   ) => Promise<void>;
-  resetScene: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => void;
+  resetScene: (
+    viewerRef: React.RefObject<ArmorFittingViewerRef | null>,
+  ) => void;
   saveConfiguration: () => Promise<void>;
   loadConfiguration: (file: File) => Promise<void>;
 

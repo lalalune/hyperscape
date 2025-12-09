@@ -5,7 +5,7 @@
  * - In-memory cache for fast access (client & server)
  * - Database persistence for durability (server only)
  *
- * CRITICAL FOR SECURITY:
+ * Security note:
  * Database persistence prevents item duplication on server restart/crash.
  * If server restarts mid-death, the death lock in DB prevents re-spawning items.
  *
@@ -15,7 +15,9 @@
 
 import type { World } from "../../../core/World";
 import type { DeathLock, ZoneType } from "../../../types/death";
+import type { DatabaseTransaction } from "../../../types/network/database";
 import type { EntityManager } from "..";
+import { Logger } from "../../../utils/Logger";
 
 // Type for DatabaseSystem (only available on server)
 type DatabaseSystem = {
@@ -29,7 +31,7 @@ type DatabaseSystem = {
       zoneType: string;
       itemCount: number;
     },
-    tx?: any, // Optional transaction context
+    tx?: DatabaseTransaction,
   ) => Promise<void>;
   getDeathLockAsync: (playerId: string) => Promise<{
     playerId: string;
@@ -54,6 +56,36 @@ export class DeathStateManager {
   // In-memory cache for fast access (both client and server)
   private activeDeaths = new Map<string, DeathLock>();
 
+  // Reusable buffer objects for database operations (avoid allocation per call)
+  private readonly dbSaveBuffer: {
+    playerId: string;
+    gravestoneId: string | null;
+    groundItemIds: string[];
+    position: { x: number; y: number; z: number };
+    timestamp: number;
+    zoneType: string;
+    itemCount: number;
+  } = {
+    playerId: "",
+    gravestoneId: null,
+    groundItemIds: [],
+    position: { x: 0, y: 0, z: 0 },
+    timestamp: 0,
+    zoneType: "",
+    itemCount: 0,
+  };
+
+  // Reusable buffer for DeathLock reconstruction from database
+  private readonly deathLockBuffer: DeathLock = {
+    playerId: "",
+    gravestoneId: undefined,
+    groundItemIds: [],
+    position: { x: 0, y: 0, z: 0 },
+    timestamp: 0,
+    zoneType: "" as ZoneType,
+    itemCount: 0,
+  };
+
   constructor(private world: World) {}
 
   /**
@@ -70,16 +102,21 @@ export class DeathStateManager {
         "database",
       ) as unknown as DatabaseSystem | null;
       if (this.databaseSystem) {
-        console.log(
-          "[DeathStateManager] ✓ Initialized with database persistence (server)",
+        Logger.system(
+          "DeathStateManager",
+          "✓ Initialized with database persistence (server)",
         );
       } else {
-        console.warn(
-          "[DeathStateManager] ⚠️ DatabaseSystem not available - running without persistence!",
+        Logger.systemWarn(
+          "DeathStateManager",
+          "⚠️ DatabaseSystem not available - running without persistence!",
         );
       }
     } else {
-      console.log("[DeathStateManager] ✓ Initialized (client, in-memory only)");
+      Logger.system(
+        "DeathStateManager",
+        "✓ Initialized (client, in-memory only)",
+      );
     }
   }
 
@@ -100,12 +137,13 @@ export class DeathStateManager {
       zoneType: ZoneType;
       itemCount: number;
     },
-    tx?: any, // Transaction context (server only, passed through to DatabaseSystem)
+    tx?: DatabaseTransaction,
   ): Promise<void> {
-    // CRITICAL: Server authority check - prevent client from creating fake death locks
     if (!this.world.isServer) {
-      console.error(
-        `[DeathStateManager] ⚠️  Client attempted server-only death lock creation for ${playerId} - BLOCKED`,
+      Logger.systemError(
+        "DeathStateManager",
+        `Client attempted server-only death lock creation for ${playerId} - BLOCKED`,
+        new Error("Client attempted server operation"),
       );
       return;
     }
@@ -123,28 +161,34 @@ export class DeathStateManager {
     // Always store in-memory cache
     this.activeDeaths.set(playerId, deathData);
 
-    // Persist to database (server only) - CRITICAL for preventing item duplication!
-    if (this.world.isServer && this.databaseSystem) {
+    // Persist to database (server only) - prevents item duplication
+    if (this.databaseSystem) {
       try {
-        await this.databaseSystem.saveDeathLockAsync(
-          {
-            playerId,
-            gravestoneId: options.gravestoneId || null,
-            groundItemIds: options.groundItemIds || [],
-            position: options.position,
-            timestamp: deathData.timestamp,
-            zoneType: options.zoneType,
-            itemCount: options.itemCount,
-          },
-          tx, // Pass transaction context if provided
-        );
-        console.log(
-          `[DeathStateManager] ✓ Persisted death lock to database for ${playerId}${tx ? " (in transaction)" : ""}`,
+        this.dbSaveBuffer.playerId = playerId;
+        this.dbSaveBuffer.gravestoneId = options.gravestoneId ?? null;
+        if (options.groundItemIds) {
+          this.dbSaveBuffer.groundItemIds.length = 0;
+          for (const id of options.groundItemIds) {
+            this.dbSaveBuffer.groundItemIds.push(id);
+          }
+        } else {
+          this.dbSaveBuffer.groundItemIds.length = 0;
+        }
+        this.dbSaveBuffer.position = options.position;
+        this.dbSaveBuffer.timestamp = deathData.timestamp;
+        this.dbSaveBuffer.zoneType = options.zoneType;
+        this.dbSaveBuffer.itemCount = options.itemCount;
+
+        await this.databaseSystem.saveDeathLockAsync(this.dbSaveBuffer, tx);
+        Logger.system(
+          "DeathStateManager",
+          `✓ Persisted death lock to database for ${playerId}${tx ? " (in transaction)" : ""}`,
         );
       } catch (error) {
-        console.error(
-          `[DeathStateManager] ❌ Failed to persist death lock for ${playerId}:`,
-          error,
+        Logger.systemError(
+          "DeathStateManager",
+          `Failed to persist death lock for ${playerId}`,
+          error instanceof Error ? error : new Error(String(error)),
         );
         // If in transaction, re-throw to trigger rollback
         if (tx) {
@@ -154,8 +198,9 @@ export class DeathStateManager {
       }
     }
 
-    console.log(
-      `[DeathStateManager] ✓ Tracking death for ${playerId}: ${options.itemCount} items, zone: ${options.zoneType}`,
+    Logger.system(
+      "DeathStateManager",
+      `✓ Tracking death for ${playerId}: ${options.itemCount} items, zone: ${options.zoneType}`,
     );
   }
 
@@ -167,23 +212,26 @@ export class DeathStateManager {
     // Remove from in-memory cache
     this.activeDeaths.delete(playerId);
 
-    // Remove from database (server only)
-    if (this.world.isServer && this.databaseSystem) {
+    if (this.databaseSystem) {
       try {
         await this.databaseSystem.deleteDeathLockAsync(playerId);
-        console.log(
-          `[DeathStateManager] ✓ Deleted death lock from database for ${playerId}`,
+        Logger.system(
+          "DeathStateManager",
+          `✓ Deleted death lock from database for ${playerId}`,
         );
       } catch (error) {
-        console.error(
-          `[DeathStateManager] ❌ Failed to delete death lock for ${playerId}:`,
-          error,
+        Logger.systemError(
+          "DeathStateManager",
+          `Failed to delete death lock for ${playerId}`,
+          error instanceof Error ? error : new Error(String(error)),
         );
-        // Continue anyway - in-memory tracking cleared
       }
     }
 
-    console.log(`[DeathStateManager] ✓ Cleared death tracking for ${playerId}`);
+    Logger.system(
+      "DeathStateManager",
+      `✓ Cleared death tracking for ${playerId}`,
+    );
   }
 
   /**
@@ -203,27 +251,20 @@ export class DeathStateManager {
         const dbData = await this.databaseSystem.getDeathLockAsync(playerId);
         if (dbData) {
           // Reconstruct DeathLock from database data
-          const deathLock: DeathLock = {
-            playerId: dbData.playerId,
-            gravestoneId: dbData.gravestoneId || undefined,
-            groundItemIds: dbData.groundItemIds,
-            position: dbData.position,
-            timestamp: dbData.timestamp,
-            zoneType: dbData.zoneType as ZoneType,
-            itemCount: dbData.itemCount,
-          };
+          const deathLock = this.reconstructDeathLock(dbData);
 
-          // Restore to in-memory cache
           this.activeDeaths.set(playerId, deathLock);
-          console.log(
-            `[DeathStateManager] ✓ Restored death lock from database for ${playerId}`,
+          Logger.system(
+            "DeathStateManager",
+            `✓ Restored death lock from database for ${playerId}`,
           );
           return deathLock;
         }
       } catch (error) {
-        console.error(
-          `[DeathStateManager] ❌ Failed to fetch death lock from database for ${playerId}:`,
-          error,
+        Logger.systemError(
+          "DeathStateManager",
+          `Failed to fetch death lock from database for ${playerId}`,
+          error instanceof Error ? error : new Error(String(error)),
         );
         // Fall through to return null
       }
@@ -242,32 +283,26 @@ export class DeathStateManager {
       return true;
     }
 
-    // Fallback to database (server only) - CRITICAL for reconnect validation
+    // Fallback to database (server only) - used for reconnect validation
     // Prevents duplicate deaths when player reconnects after server restart
     if (this.world.isServer && this.databaseSystem) {
       try {
         const dbData = await this.databaseSystem.getDeathLockAsync(playerId);
         if (dbData) {
           // Death lock exists in database - restore to memory
-          const deathLock: DeathLock = {
-            playerId: dbData.playerId,
-            gravestoneId: dbData.gravestoneId || undefined,
-            groundItemIds: dbData.groundItemIds,
-            position: dbData.position,
-            timestamp: dbData.timestamp,
-            zoneType: dbData.zoneType as ZoneType,
-            itemCount: dbData.itemCount,
-          };
+          const deathLock = this.reconstructDeathLock(dbData);
           this.activeDeaths.set(playerId, deathLock);
-          console.log(
-            `[DeathStateManager] ✓ Restored death lock from database for ${playerId} (hasActiveDeathLock check)`,
+          Logger.system(
+            "DeathStateManager",
+            `✓ Restored death lock from database for ${playerId} (hasActiveDeathLock check)`,
           );
           return true;
         }
       } catch (error) {
-        console.error(
-          `[DeathStateManager] ❌ Failed to check death lock in database for ${playerId}:`,
-          error,
+        Logger.systemError(
+          "DeathStateManager",
+          `Failed to check death lock in database for ${playerId}`,
+          error instanceof Error ? error : new Error(String(error)),
         );
         // Fall through to return false
       }
@@ -285,42 +320,42 @@ export class DeathStateManager {
     if (!deathData) return;
 
     // Remove item from ground item list
-    if (deathData.groundItemIds) {
-      const index = deathData.groundItemIds.indexOf(itemId);
-      if (index !== -1) {
-        deathData.groundItemIds.splice(index, 1);
-      }
+    const index = deathData.groundItemIds.indexOf(itemId);
+    if (index !== -1) {
+      deathData.groundItemIds.splice(index, 1);
     }
 
     // Decrement item count
-    deathData.itemCount = Math.max(0, deathData.itemCount - 1);
+    deathData.itemCount--;
 
-    // If all items looted, clear death tracking
     if (deathData.itemCount === 0) {
       await this.clearDeathLock(playerId);
-      console.log(
-        `[DeathStateManager] ✓ All items looted for ${playerId}, cleared tracking`,
+      Logger.system(
+        "DeathStateManager",
+        `✓ All items looted for ${playerId}, cleared tracking`,
       );
     } else {
-      // Update in-memory record
       this.activeDeaths.set(playerId, deathData);
 
-      // Update database (server only)
-      if (this.world.isServer && this.databaseSystem) {
+      if (this.databaseSystem) {
         try {
-          await this.databaseSystem.saveDeathLockAsync({
-            playerId,
-            gravestoneId: deathData.gravestoneId || null,
-            groundItemIds: deathData.groundItemIds || [],
-            position: deathData.position,
-            timestamp: deathData.timestamp,
-            zoneType: deathData.zoneType,
-            itemCount: deathData.itemCount,
-          });
+          this.dbSaveBuffer.playerId = playerId;
+          this.dbSaveBuffer.gravestoneId = deathData.gravestoneId ?? null;
+          this.dbSaveBuffer.groundItemIds.length = 0;
+          for (const id of deathData.groundItemIds) {
+            this.dbSaveBuffer.groundItemIds.push(id);
+          }
+          this.dbSaveBuffer.position = deathData.position;
+          this.dbSaveBuffer.timestamp = deathData.timestamp;
+          this.dbSaveBuffer.zoneType = deathData.zoneType;
+          this.dbSaveBuffer.itemCount = deathData.itemCount;
+
+          await this.databaseSystem.saveDeathLockAsync(this.dbSaveBuffer);
         } catch (error) {
-          console.error(
-            `[DeathStateManager] ❌ Failed to update death lock after item looted:`,
-            error,
+          Logger.systemError(
+            "DeathStateManager",
+            "Failed to update death lock after item looted",
+            error instanceof Error ? error : new Error(String(error)),
           );
         }
       }
@@ -343,26 +378,53 @@ export class DeathStateManager {
     deathData.groundItemIds = groundItemIds;
     this.activeDeaths.set(playerId, deathData);
 
-    // Update database (server only)
-    if (this.world.isServer && this.databaseSystem) {
+    if (this.databaseSystem) {
       try {
         await this.databaseSystem.updateGroundItemsAsync(
           playerId,
           groundItemIds,
         );
-        console.log(
-          `[DeathStateManager] ✓ Updated database: gravestone → ground items for ${playerId}`,
+        Logger.system(
+          "DeathStateManager",
+          `✓ Updated database: gravestone → ground items for ${playerId}`,
         );
       } catch (error) {
-        console.error(
-          `[DeathStateManager] ❌ Failed to update database after gravestone expired:`,
-          error,
+        Logger.systemError(
+          "DeathStateManager",
+          "Failed to update database after gravestone expired",
+          error instanceof Error ? error : new Error(String(error)),
         );
       }
     }
 
-    console.log(
-      `[DeathStateManager] ✓ Gravestone expired for ${playerId}, transitioned to ${groundItemIds.length} ground items`,
+    Logger.system(
+      "DeathStateManager",
+      `✓ Gravestone expired for ${playerId}, transitioned to ${groundItemIds.length} ground items`,
     );
+  }
+
+  /**
+   * Reconstruct DeathLock from database data (helper to avoid duplication)
+   */
+  private reconstructDeathLock(dbData: {
+    playerId: string;
+    gravestoneId: string | null;
+    groundItemIds: string[];
+    position: { x: number; y: number; z: number };
+    timestamp: number;
+    zoneType: string;
+    itemCount: number;
+  }): DeathLock {
+    this.deathLockBuffer.playerId = dbData.playerId;
+    this.deathLockBuffer.gravestoneId =
+      dbData.gravestoneId === null ? undefined : dbData.gravestoneId;
+    this.deathLockBuffer.groundItemIds = dbData.groundItemIds;
+    this.deathLockBuffer.position = dbData.position;
+    this.deathLockBuffer.timestamp = dbData.timestamp;
+    this.deathLockBuffer.zoneType = dbData.zoneType as ZoneType;
+    this.deathLockBuffer.itemCount = dbData.itemCount;
+
+    // Create new object for storage (Map stores reference, so we need a copy)
+    return { ...this.deathLockBuffer };
   }
 }

@@ -45,7 +45,7 @@ function disablePlayerControls(world: World) {
 /**
  * Setup spectator camera to follow agent's character
  *
- * CRITICAL: For camera following to work, we must pass the ACTUAL entity instance
+ * For camera following to work, we must pass the actual entity instance
  * (not a copy) as the camera target. The camera reads target.position every frame,
  * and TileInterpolator updates entity.position as a THREE.Vector3. If we pass a copy,
  * the camera won't see position updates.
@@ -108,7 +108,7 @@ function setupSpectatorCamera(
 
   /**
    * Set camera to follow the target entity
-   * CRITICAL: Pass the actual entity instance, not a wrapper object!
+   * Pass the actual entity instance, not a wrapper object
    */
   const setCameraTarget = (entity: unknown) => {
     if (!entity || isCleanedUp) return;
@@ -121,7 +121,7 @@ function setupSpectatorCamera(
       return;
     }
 
-    // CRITICAL: Pass the FULL ENTITY as target, not just { position: entity.position }
+    // Pass the full entity as target, not just { position: entity.position }
     // The camera system reads target.position every frame, and we need
     // TileInterpolator's position updates to be reflected automatically
     world.emit(EventType.CAMERA_SET_TARGET, {

@@ -16,6 +16,7 @@
 
 import type { World } from "../../../core/World";
 import type { InventoryItem } from "../../../types/core/core";
+import type { DatabaseTransaction } from "../../../types/network/database";
 import type { GroundItemSystem } from "../economy/GroundItemSystem";
 import type { DeathStateManager } from "./DeathStateManager";
 import type { EntityManager } from "..";
@@ -24,6 +25,7 @@ import { EntityType, InteractionType } from "../../../types/entities";
 import type { HeadstoneEntityConfig } from "../../../types/entities";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import { ticksToMs } from "../../../utils/game/CombatCalculations";
+import { Logger } from "../../../utils/Logger";
 
 /** Gravestone data tracked for tick-based expiration */
 interface GravestoneData {
@@ -38,10 +40,25 @@ export class SafeAreaDeathHandler {
   // TICK-BASED gravestone tracking (no more setTimeout)
   private gravestones = new Map<string, GravestoneData>();
 
-  // Keep ms values for backwards compatibility with GroundItemOptions
   private readonly GROUND_ITEM_DURATION_MS = ticksToMs(
     COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS,
   );
+
+  private readonly expiredGravestonesBuffer: GravestoneData[] = [];
+  private readonly itemLogBuffer: string[] = [];
+  private readonly groundItemOptionsBuffer: {
+    despawnTime: number;
+    droppedBy: string;
+    lootProtection: number;
+    scatter: boolean;
+    scatterRadius: number;
+  } = {
+    despawnTime: 0,
+    droppedBy: "",
+    lootProtection: 0,
+    scatter: true,
+    scatterRadius: 2.0,
+  };
 
   constructor(
     private world: World,
@@ -63,28 +80,36 @@ export class SafeAreaDeathHandler {
     position: { x: number; y: number; z: number },
     items: InventoryItem[],
     killedBy: string,
-    tx?: any, // Transaction context for atomic death processing
+    tx?: DatabaseTransaction,
   ): Promise<void> {
-    // CRITICAL: Server authority check - prevent client from spawning fake gravestones
+    // Server authority check - prevent client from spawning fake gravestones
     if (!this.world.isServer) {
-      console.error(
-        `[SafeAreaDeathHandler] ⚠️  Client attempted server-only death handling for ${playerId} - BLOCKED`,
+      Logger.systemError(
+        "SafeAreaDeathHandler",
+        `Client attempted server-only death handling for ${playerId} - BLOCKED`,
+        new Error("Client attempted server operation"),
       );
       return;
     }
 
-    console.log(
-      `[SafeAreaDeathHandler] Handling safe area death for ${playerId} at (${position.x}, ${position.y}, ${position.z})${tx ? " (in transaction)" : ""}`,
+    Logger.system(
+      "SafeAreaDeathHandler",
+      `Handling safe area death for ${playerId} at (${position.x}, ${position.y}, ${position.z})${tx ? " (in transaction)" : ""}`,
     );
-    console.log(
-      `[SafeAreaDeathHandler] Received ${items.length} items to put in gravestone:`,
-      items.map((item) => `${item.itemId} x${item.quantity}`).join(", ") ||
-        "(none)",
+
+    this.itemLogBuffer.length = 0;
+    for (const item of items) {
+      this.itemLogBuffer.push(`${item.itemId} x${item.quantity}`);
+    }
+    Logger.system(
+      "SafeAreaDeathHandler",
+      `Received ${items.length} items to put in gravestone: ${this.itemLogBuffer.join(", ") || "(none)"}`,
     );
 
     if (items.length === 0) {
-      console.log(
-        `[SafeAreaDeathHandler] No items to drop for ${playerId}, skipping gravestone`,
+      Logger.system(
+        "SafeAreaDeathHandler",
+        `No items to drop for ${playerId}, skipping gravestone`,
       );
       return;
     }
@@ -99,7 +124,11 @@ export class SafeAreaDeathHandler {
 
     if (!gravestoneId) {
       const errorMsg = `Failed to spawn gravestone for ${playerId}`;
-      console.error(`[SafeAreaDeathHandler] ${errorMsg}`);
+      Logger.systemError(
+        "SafeAreaDeathHandler",
+        errorMsg,
+        new Error("Gravestone spawn failed"),
+      );
       // If in transaction, throw to trigger rollback
       if (tx) {
         throw new Error(errorMsg);
@@ -131,8 +160,9 @@ export class SafeAreaDeathHandler {
       expirationTick,
     });
 
-    console.log(
-      `[SafeAreaDeathHandler] Gravestone ${gravestoneId} will expire at tick ${expirationTick} (${COMBAT_CONSTANTS.GRAVESTONE_TICKS} ticks = ${(ticksToMs(COMBAT_CONSTANTS.GRAVESTONE_TICKS) / 1000).toFixed(1)}s)`,
+    Logger.system(
+      "SafeAreaDeathHandler",
+      `Gravestone ${gravestoneId} will expire at tick ${expirationTick} (${COMBAT_CONSTANTS.GRAVESTONE_TICKS} ticks = ${(ticksToMs(COMBAT_CONSTANTS.GRAVESTONE_TICKS) / 1000).toFixed(1)}s)`,
     );
   }
 
@@ -149,7 +179,11 @@ export class SafeAreaDeathHandler {
       "entity-manager",
     ) as EntityManager | null;
     if (!entityManager) {
-      console.error("[SafeAreaDeathHandler] EntityManager not available");
+      Logger.systemError(
+        "SafeAreaDeathHandler",
+        "EntityManager not available",
+        new Error("EntityManager missing"),
+      );
       return "";
     }
 
@@ -174,7 +208,7 @@ export class SafeAreaDeathHandler {
       model: "models/environment/gravestone.glb",
       headstoneData: {
         playerId: playerId,
-        playerName: playerId, // TODO: Get actual player name
+        playerName: playerId, // Note: Using playerId as name - can be enhanced with PlayerSystem lookup if needed
         deathTime: Date.now(),
         deathMessage: `Slain by ${killedBy}`,
         position: position,
@@ -198,14 +232,17 @@ export class SafeAreaDeathHandler {
     const gravestoneEntity = await entityManager.spawnEntity(gravestoneConfig);
 
     if (!gravestoneEntity) {
-      console.error(
-        `[SafeAreaDeathHandler] Failed to spawn gravestone entity: ${gravestoneId}`,
+      Logger.systemError(
+        "SafeAreaDeathHandler",
+        `Failed to spawn gravestone entity: ${gravestoneId}`,
+        new Error("Gravestone spawn failed"),
       );
       return "";
     }
 
-    console.log(
-      `[SafeAreaDeathHandler] Spawned gravestone ${gravestoneId} with ${items.length} items`,
+    Logger.system(
+      "SafeAreaDeathHandler",
+      `Spawned gravestone ${gravestoneId} with ${items.length} items`,
     );
 
     return gravestoneId;
@@ -218,16 +255,15 @@ export class SafeAreaDeathHandler {
    * @param currentTick - Current server tick number
    */
   processTick(currentTick: number): void {
-    const expiredGravestones: GravestoneData[] = [];
+    this.expiredGravestonesBuffer.length = 0;
 
     for (const gravestoneData of this.gravestones.values()) {
       if (currentTick >= gravestoneData.expirationTick) {
-        expiredGravestones.push(gravestoneData);
+        this.expiredGravestonesBuffer.push(gravestoneData);
       }
     }
 
-    // Process expired gravestones
-    for (const gravestoneData of expiredGravestones) {
+    for (const gravestoneData of this.expiredGravestonesBuffer) {
       this.handleGravestoneExpire(gravestoneData, currentTick);
     }
   }
@@ -244,8 +280,9 @@ export class SafeAreaDeathHandler {
     const ticksExisted =
       currentTick -
       (gravestoneData.expirationTick - COMBAT_CONSTANTS.GRAVESTONE_TICKS);
-    console.log(
-      `[SafeAreaDeathHandler] Gravestone ${gravestoneId} expired after ${ticksExisted} ticks (${(ticksToMs(ticksExisted) / 1000).toFixed(1)}s), transitioning to ground items`,
+    Logger.system(
+      "SafeAreaDeathHandler",
+      `Gravestone ${gravestoneId} expired after ${ticksExisted} ticks (${(ticksToMs(ticksExisted) / 1000).toFixed(1)}s), transitioning to ground items`,
     );
 
     // Remove from tracking
@@ -259,24 +296,23 @@ export class SafeAreaDeathHandler {
       entityManager.destroyEntity(gravestoneId);
     }
 
-    // Spawn ground items (using ms for GroundItemOptions backwards compatibility)
+    this.groundItemOptionsBuffer.despawnTime = this.GROUND_ITEM_DURATION_MS;
+    this.groundItemOptionsBuffer.droppedBy = playerId;
+    this.groundItemOptionsBuffer.lootProtection = 0;
+    this.groundItemOptionsBuffer.scatter = true;
+    this.groundItemOptionsBuffer.scatterRadius = 2.0;
+
     const groundItemIds = await this.groundItemManager.spawnGroundItems(
       items,
       position,
-      {
-        despawnTime: this.GROUND_ITEM_DURATION_MS,
-        droppedBy: playerId,
-        lootProtection: 0, // No loot protection after gravestone expires
-        scatter: true,
-        scatterRadius: 2.0,
-      },
+      this.groundItemOptionsBuffer,
     );
 
-    // Update death lock
     await this.deathStateManager.onGravestoneExpired(playerId, groundItemIds);
 
-    console.log(
-      `[SafeAreaDeathHandler] Transitioned gravestone ${gravestoneId} to ${groundItemIds.length} ground items`,
+    Logger.system(
+      "SafeAreaDeathHandler",
+      `Transitioned gravestone ${gravestoneId} to ${groundItemIds.length} ground items`,
     );
   }
 
@@ -292,10 +328,11 @@ export class SafeAreaDeathHandler {
    * Cancel gravestone tracking (e.g., all items looted)
    */
   cancelGravestoneTimer(gravestoneId: string): void {
-    if (this.gravestones.has(gravestoneId)) {
-      this.gravestones.delete(gravestoneId);
-      console.log(
-        `[SafeAreaDeathHandler] Cancelled gravestone tracking for ${gravestoneId}`,
+    const deleted = this.gravestones.delete(gravestoneId);
+    if (deleted) {
+      Logger.system(
+        "SafeAreaDeathHandler",
+        `Cancelled gravestone tracking for ${gravestoneId}`,
       );
     }
   }

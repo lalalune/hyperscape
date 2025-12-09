@@ -33,14 +33,24 @@ import { SystemBase } from "..";
  * - Drag items to store/retrieve
  */
 export class BankingSystem extends SystemBase {
-  private playerBanks = new Map<PlayerID, Map<BankID, BankData>>(); // playerId -> bankId -> bankData
-  private openBanks = new Map<PlayerID, BankID>(); // playerId -> currently open bankId
+  private playerBanks = new Map<PlayerID, Map<BankID, BankData>>();
+  private openBanks = new Map<PlayerID, BankID>();
   private playerInventories = new Map<
     PlayerID,
     { items: InventoryItem[]; coins: number }
-  >(); // Cache for reactive pattern
-  // Logger is inherited from SystemBase, no need to override
+  >();
   private readonly MAX_BANK_SLOTS = BANKING_CONSTANTS.MAX_BANK_SLOTS;
+  private readonly playerBanksBuffer = new Map<BankID, BankData>();
+  private readonly inventoryUpdateBuffer: {
+    items: Array<{
+      id: string;
+      itemId: string;
+      quantity: number;
+      slot: number;
+      metadata: null;
+    }>;
+    coins: number;
+  } = { items: [], coins: 0 };
   private readonly STARTER_TOWN_BANKS = [
     { id: "bank_town_0", name: "Central Bank", position: { x: 0, y: 0, z: 5 } }, // Y will be grounded to terrain
     {
@@ -128,23 +138,29 @@ export class BankingSystem extends SystemBase {
       );
     }
 
-    // Listen to inventory updates for reactive pattern
     this.subscribe<InventoryUpdatedEvent>(
       EventType.INVENTORY_UPDATED,
       (data) => {
         const playerId = createPlayerID(data.playerId);
-        const inventory = this.playerInventories.get(playerId) || {
-          items: [],
-          coins: 0,
-        };
-        inventory.items = data.items.map((item) => ({
-          id: `${playerId}_${item.itemId}_${item.slot}`,
-          itemId: item.itemId,
-          quantity: item.quantity,
-          slot: item.slot,
-          metadata: null,
-        }));
-        this.playerInventories.set(playerId, inventory);
+        let inventory = this.playerInventories.get(playerId);
+
+        if (!inventory) {
+          inventory = { items: [], coins: 0 };
+          this.playerInventories.set(playerId, inventory);
+        }
+
+        this.inventoryUpdateBuffer.items.length = 0;
+        for (const item of data.items) {
+          this.inventoryUpdateBuffer.items.push({
+            id: `${playerId}_${item.itemId}_${item.slot}`,
+            itemId: item.itemId,
+            quantity: item.quantity,
+            slot: item.slot,
+            metadata: null,
+          });
+        }
+
+        inventory.items = this.inventoryUpdateBuffer.items.slice();
       },
     );
 
@@ -152,30 +168,32 @@ export class BankingSystem extends SystemBase {
       EventType.INVENTORY_COINS_UPDATED,
       (data) => {
         const playerId = createPlayerID(data.playerId);
-        const inventory = this.playerInventories.get(playerId) || {
-          items: [],
-          coins: 0,
-        };
+        let inventory = this.playerInventories.get(playerId);
+
+        if (!inventory) {
+          inventory = { items: [], coins: 0 };
+          this.playerInventories.set(playerId, inventory);
+        }
+
         inventory.coins = data.newAmount;
-        this.playerInventories.set(playerId, inventory);
       },
     );
   }
 
   private initializePlayerBanks(playerData: { id: string }): void {
     const playerId = createPlayerID(playerData.id);
-    const playerBanks = new Map<BankID, BankData>();
 
-    // Initialize empty banks for each starter town per GDD
+    this.playerBanksBuffer.clear();
+
     for (const bankInfo of this.STARTER_TOWN_BANKS) {
       const bankData: BankData = {
         items: [],
         maxSlots: this.MAX_BANK_SLOTS,
       };
-      playerBanks.set(createBankID(bankInfo.id), bankData);
+      this.playerBanksBuffer.set(createBankID(bankInfo.id), bankData);
     }
 
-    this.playerBanks.set(playerId, playerBanks);
+    this.playerBanks.set(playerId, new Map(this.playerBanksBuffer));
   }
 
   private cleanupPlayerBanks(playerId: string): void {
@@ -201,10 +219,7 @@ export class BankingSystem extends SystemBase {
 
     const playerBanks = this.playerBanks.get(playerId);
     if (!playerBanks) {
-      console.warn(
-        "[BankingSystem] No banks initialized for player:",
-        playerId,
-      );
+      this.logger.warn("No banks initialized for player:", { playerId });
       return;
     }
 
@@ -269,11 +284,9 @@ export class BankingSystem extends SystemBase {
   private depositItem(data: BankDepositEvent): void {
     const playerId = createPlayerID(data.playerId);
 
-    // Get the currently open bank for this player
     const bankId = this.openBanks.get(playerId);
     if (!bankId) {
-      console.warn("[BankingSystem] No bank open for player:", playerId);
-
+      this.logger.warn("No bank open for player:", { playerId });
       return;
     }
 
@@ -356,7 +369,7 @@ export class BankingSystem extends SystemBase {
     // Get the currently open bank for this player
     const bankId = this.openBanks.get(playerId);
     if (!bankId) {
-      console.warn("[BankingSystem] No bank open for player:", playerId);
+      this.logger.warn("No bank open for player:", { playerId });
       return;
     }
     const itemId = createItemID(String(data.itemId));
@@ -414,16 +427,14 @@ export class BankingSystem extends SystemBase {
   private depositAllItems(data: { playerId: string; bankId: string }): void {
     const playerId = createPlayerID(data.playerId);
 
-    // Get the currently open bank for this player
     const bankId = this.openBanks.get(playerId);
     if (!bankId) {
-      console.warn("[BankingSystem] No bank open for player:", playerId);
+      this.logger.warn("No bank open for player:", { playerId });
       return;
     }
 
-    // Get cached inventory items (reactive pattern)
     const inventory = this.playerInventories.get(playerId);
-    if (!inventory || !inventory.items || inventory.items.length === 0) {
+    if (!inventory || inventory.items.length === 0) {
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId: data.playerId,
         message: "You have no items to deposit.",
@@ -432,28 +443,19 @@ export class BankingSystem extends SystemBase {
       return;
     }
 
-    // Get the bank for this player
     const playerBanks = this.playerBanks.get(playerId);
     const bank = playerBanks?.get(bankId);
     if (!bank) {
-      console.error(
-        "[BankingSystem] Bank not found:",
+      this.logger.error("Bank not found", new Error("Bank not found"), {
         bankId,
-        "for player:",
         playerId,
-      );
+      });
       return;
     }
 
-    // Deposit each item from inventory
     let itemsDeposited = 0;
-    const itemsToDeposit = [...inventory.items] as Array<{
-      itemId: string;
-      quantity: number;
-      slot?: number;
-    }>;
 
-    for (const item of itemsToDeposit) {
+    for (const item of inventory.items) {
       // Check if bank is full
       if (bank.items.length >= this.MAX_BANK_SLOTS) {
         this.emitTypedEvent(EventType.UI_MESSAGE, {

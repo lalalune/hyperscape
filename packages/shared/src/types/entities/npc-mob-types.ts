@@ -201,7 +201,7 @@ export interface DefaultDropConfig {
   enabled: boolean; // Flag to disable default drop if needed
 }
 
-// ============== UNIFIED NPC DATA STRUCTURE ==============
+// ============== NPC DATA STRUCTURE ==============
 
 /**
  * NPCDataInput - Used for JSON input where most fields are optional
@@ -232,7 +232,7 @@ export interface NPCDataInput {
 }
 
 /**
- * NPC Stats - Unified across all NPCs
+ * NPC Stats - shared across all NPCs
  * Note: In OSRS, monster "hitpoints" IS the max HP directly (no multiplication).
  * The `health` field is the hitpoints level AND max HP (1:1 ratio).
  */
@@ -352,9 +352,9 @@ export interface NPCAppearanceConfig {
 }
 
 /**
- * NPC Data - UNIFIED STRUCTURE FOR ALL NPCs
+ * NPC Data - standard structure for all NPCs
  *
- * This is the single, standardized interface for ALL non-player characters.
+ * This is the single, standardized interface for all non-player characters.
  * Every NPC uses the same structure with flags to enable/disable features.
  *
  * Key Design Principles:

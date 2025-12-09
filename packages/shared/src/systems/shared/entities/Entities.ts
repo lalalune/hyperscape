@@ -137,6 +137,8 @@ export class Entities extends SystemBase implements IEntities {
   private hot: Set<Entity>;
   private removed: string[];
   private componentRegistry = new Map<string, ComponentDefinition>();
+  // Reusable array for hot entities to avoid Array.from allocations in update loops
+  private readonly _reusableHotEntities: Entity[] = [];
 
   constructor(world: World) {
     super(world, {
@@ -161,13 +163,7 @@ export class Entities extends SystemBase implements IEntities {
   }
 
   getPlayer(entityId: string): Player | null {
-    const player = this.players.get(entityId);
-    if (!player) {
-      // Don't throw - return null for disconnected players
-      // This allows systems to gracefully handle missing players
-      return null;
-    }
-    return player;
+    return this.players.get(entityId) || null;
   }
 
   registerComponentType(definition: ComponentDefinition): void {
@@ -204,30 +200,22 @@ export class Entities extends SystemBase implements IEntities {
   }
 
   add(data: EntityData, local?: boolean): Entity {
-    // Check if entity already exists to prevent duplicates
     const existingEntity = this.items.get(data.id);
-    if (existingEntity) {
-      // Duplicate add detected; return existing without logging per-frame
-      return existingEntity;
-    }
+    if (existingEntity) return existingEntity;
 
     let EntityClass: EntityConstructor;
 
     if (data.type === "player") {
-      // Check if we're on the server
       const network = this.world.network || this.world.getSystem("network");
       const isServer = network?.isServer === true;
 
       if (isServer) {
-        // On server, always use the base player entity type
         EntityClass = EntityTypes.player;
       } else {
-        // On client, determine if local or remote based on ownership
         const isLocal = data.owner === network?.id;
         EntityClass = EntityTypes[isLocal ? "playerLocal" : "playerRemote"];
       }
     } else if (data.type === "mob") {
-      // Client-side: build a real MobEntity from snapshot data so models load
       const positionArray = (data.position || [0, 0, 0]) as [
         number,
         number,
@@ -239,7 +227,6 @@ export class Entities extends SystemBase implements IEntities {
         number,
         number,
       ];
-      // Derive mobType from name: "Mob: goblin (Lv1)" -> goblin
       const name = data.name || "Mob";
       const mobTypeMatch = name.match(/Mob:\s*([^()]+)/i);
       const derivedMobType = (mobTypeMatch ? mobTypeMatch[1].trim() : name)
@@ -247,8 +234,6 @@ export class Entities extends SystemBase implements IEntities {
         .replace(/\s+/g, "_");
       const npcData = getNPCById(derivedMobType);
       const fallbackModelPath = npcData?.appearance.modelPath || null;
-
-      // CRITICAL: Use server's model path if provided, only derive from NPC data as fallback
       const networkModel = (data as { model?: string }).model;
       const finalModelPath = networkModel || fallbackModelPath;
 
@@ -292,8 +277,7 @@ export class Entities extends SystemBase implements IEntities {
         interactionDistance: 5,
         description: name,
         model: finalModelPath,
-        // Minimal required MobEntity fields with sensible defaults
-        mobType: derivedMobType, // Mob ID from mobs.json
+        mobType: derivedMobType,
         level: 1,
         currentHealth: 100,
         maxHealth: 100,
@@ -331,8 +315,6 @@ export class Entities extends SystemBase implements IEntities {
         deathTime: null,
       };
 
-      // Construct specialized mob entity so it can load its 3D model on the client
-      // MobEntityConfig is compatible with MobEntity constructor
       const entity = new MobEntity(this.world, mobConfig);
       this.items.set(entity.id, entity);
 
@@ -345,7 +327,6 @@ export class Entities extends SystemBase implements IEntities {
 
       return entity;
     } else if (data.type === "item") {
-      // Client-side: build a real ItemEntity from snapshot data so models load
       const positionArray = (data.position || [0, 0, 0]) as [
         number,
         number,
@@ -358,8 +339,6 @@ export class Entities extends SystemBase implements IEntities {
         number,
       ];
       const name = data.name || "Item";
-
-      // Extract itemId from network data (ItemEntity.getNetworkData() puts it at top level)
       const networkData = data as Record<string, unknown>;
       const itemId = (networkData.itemId as string) || data.id;
       const itemType = (networkData.itemType as string) || "misc";
@@ -392,7 +371,6 @@ export class Entities extends SystemBase implements IEntities {
         interactionDistance: 2,
         description: name,
         model: modelPath,
-        // ItemEntityConfig required fields
         itemId: itemId,
         itemType: itemType,
         quantity: quantity,
@@ -438,7 +416,6 @@ export class Entities extends SystemBase implements IEntities {
 
       return entity;
     } else if (data.type === "npc") {
-      // Client-side: build a real NPCEntity from snapshot data so models load
       const positionArray = (data.position || [0, 0, 0]) as [
         number,
         number,
@@ -451,7 +428,6 @@ export class Entities extends SystemBase implements IEntities {
         number,
       ];
 
-      // Use network data if available, otherwise derive from name
       const name = data.name || "NPC";
       const networkData = data as {
         npcType?: string;
@@ -459,10 +435,8 @@ export class Entities extends SystemBase implements IEntities {
         services?: string[];
       };
 
-      // Use npcType from network data, otherwise derive from name prefix
       let derivedNPCType: NPCType = NPCType.QUEST_GIVER;
       if (networkData.npcType) {
-        // Map string to NPCType enum
         if (networkData.npcType === "bank") derivedNPCType = NPCType.BANK;
         else if (networkData.npcType === "store")
           derivedNPCType = NPCType.STORE;
@@ -471,7 +445,6 @@ export class Entities extends SystemBase implements IEntities {
         else if (networkData.npcType === "quest_giver")
           derivedNPCType = NPCType.QUEST_GIVER;
       } else {
-        // Fallback: derive from name prefix
         const npcTypeMatch = name.match(/^(Bank|Store|Trainer|Quest):/i);
         if (npcTypeMatch) {
           const prefix = npcTypeMatch[1].toLowerCase();
@@ -509,8 +482,7 @@ export class Entities extends SystemBase implements IEntities {
         interactionType: InteractionType.TALK,
         interactionDistance: 3,
         description: name,
-        model: modelPath, // Use model path from network data
-        // Use network data for NPCEntity fields
+        model: modelPath,
         npcType: derivedNPCType,
         npcId: npcId,
         dialogueLines: ["Hello there!"],
@@ -541,7 +513,7 @@ export class Entities extends SystemBase implements IEntities {
             aggressionLevel: 0,
             dialogueLines: ["Hello there!"],
             dialogue: null,
-            services: services, // Use services from network data
+            services: services,
           },
           dialogue: [],
           shopInventory: [],
@@ -549,8 +521,6 @@ export class Entities extends SystemBase implements IEntities {
         },
       };
 
-      // Construct specialized NPC entity so it can load its 3D model on the client when available
-      // NPCEntityConfig is compatible with NPCEntity constructor
       const entity = new NPCEntity(this.world, npcConfig);
       this.items.set(entity.id, entity);
 
@@ -563,7 +533,6 @@ export class Entities extends SystemBase implements IEntities {
 
       return entity;
     } else if (data.type === "resource") {
-      // Client-side: build a real ResourceEntity from snapshot data
       const positionArray = (data.position || [0, 0, 0]) as [
         number,
         number,
@@ -657,7 +626,6 @@ export class Entities extends SystemBase implements IEntities {
 
       return entity;
     } else if (data.type === "headstone") {
-      // Client-side: build a real HeadstoneEntity from snapshot data
       const positionArray = (data.position || [0, 0, 0]) as [
         number,
         number,
@@ -670,8 +638,6 @@ export class Entities extends SystemBase implements IEntities {
         number,
       ];
       const name = data.name || "Corpse";
-
-      // Extract headstone data from network data
       const networkData = data as { headstoneData?: HeadstoneData };
       const headstoneData: HeadstoneData = networkData.headstoneData || {
         playerId: data.id,
@@ -733,7 +699,6 @@ export class Entities extends SystemBase implements IEntities {
 
       return entity;
     } else if (data.type === "bank") {
-      // Build BankEntity from network data (similar to HeadstoneEntity handling)
       const positionArray = (data.position || [0, 40, -25]) as [
         number,
         number,
@@ -804,10 +769,8 @@ export class Entities extends SystemBase implements IEntities {
 
     if (data.type === "player") {
       this.players.set(entity.id, entity as Player);
-
       const network = this.world.network || this.world.getSystem("network");
 
-      // On client, emit enter events for remote players
       if (network?.isClient && data.owner !== network.id) {
         this.emitTypedEvent("PLAYER_JOINED", {
           playerId: entity.id,
@@ -815,17 +778,15 @@ export class Entities extends SystemBase implements IEntities {
         });
       }
 
-      // On server, emit PLAYER_REGISTERED for all player entities
       if (network?.isServer) {
         this.emitTypedEvent("PLAYER_REGISTERED", { playerId: entity.id });
         this.world.emit(EventType.PLAYER_REGISTERED, { playerId: entity.id });
       }
 
-      // Set local player if this entity is owned by us
       if (data.owner === network?.id) {
         if (this.player) {
-          console.warn(
-            `[Entities] WARNING: Replacing existing local player ${this.player.id} with ${entity.id}!`,
+          this.logger.warn(
+            `Replacing existing local player ${this.player.id} with ${entity.id}`,
           );
         }
         this.player = entity as Player;
@@ -833,20 +794,15 @@ export class Entities extends SystemBase implements IEntities {
       }
     }
 
-    // Initialize the entity
     const initPromise = entity.init() as Promise<void>;
     if (initPromise) {
-      initPromise
-        .then(() => {})
-        .catch((err) => {
-          this.logger.error(
-            `Entity ${entity.id} (type: ${data.type}) async init failed:`,
-            err,
-          );
-          console.error(`[Entities] Entity ${entity.id} init() failed:`, err);
-        });
+      initPromise.catch((err) => {
+        this.logger.error(
+          `Entity ${entity.id} (type: ${data.type}) async init failed:`,
+          err instanceof Error ? err : new Error(String(err)),
+        );
+      });
     }
-    // No else needed - init happens in spawn() if it exists
 
     return entity;
   }
@@ -869,7 +825,9 @@ export class Entities extends SystemBase implements IEntities {
       try {
         network.send("entityRemoved", id);
       } catch (error) {
-        console.warn(`[Entities] Failed to send entityRemoved packet:`, error);
+        this.logger.warn(`Failed to send entityRemoved packet for ${id}`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -898,31 +856,23 @@ export class Entities extends SystemBase implements IEntities {
   }
 
   override fixedUpdate(delta: number): void {
-    const hotEntities = Array.from(this.hot);
-    for (const entity of hotEntities) {
-      entity.fixedUpdate?.(delta);
-    }
+    for (const entity of this.hot) entity.fixedUpdate?.(delta);
   }
 
   override update(delta: number): void {
-    const hotEntities = Array.from(this.hot);
-    for (const entity of hotEntities) {
-      entity.update(delta);
-    }
+    for (const entity of this.hot) entity.update(delta);
   }
 
   override lateUpdate(delta: number): void {
-    const hotEntities = Array.from(this.hot);
-    for (const entity of hotEntities) {
-      entity.lateUpdate?.(delta);
-    }
+    for (const entity of this.hot) entity.lateUpdate?.(delta);
   }
 
   serialize(): EntityData[] {
+    // Optimize: avoid forEach allocation - use direct iteration
     const data: EntityData[] = [];
-    this.items.forEach((entity) => {
+    for (const entity of this.items.values()) {
       data.push(entity.serialize());
-    });
+    }
     return data;
   }
 
@@ -933,16 +883,12 @@ export class Entities extends SystemBase implements IEntities {
   }
 
   override destroy(): void {
-    // Create array of IDs to avoid modifying map while iterating
-    const entityIds = Array.from(this.items.keys());
-    for (const id of entityIds) {
-      this.remove(id);
-    }
-
+    const ids = [...this.items.keys()];
+    for (const id of ids) this.remove(id);
     this.items.clear();
     this.players.clear();
     this.hot.clear();
-    this.removed = [];
+    this.removed.length = 0;
   }
 
   // TypeScript interface compliance methods
@@ -951,11 +897,21 @@ export class Entities extends SystemBase implements IEntities {
   }
 
   getAll(): Entity[] {
-    return Array.from(this.items.values());
+    // Optimize: build array manually instead of Array.from
+    const result: Entity[] = [];
+    for (const entity of this.items.values()) {
+      result.push(entity);
+    }
+    return result;
   }
 
   getAllPlayers(): Player[] {
-    return Array.from(this.players.values());
+    // Optimize: build array manually instead of Array.from
+    const result: Player[] = [];
+    for (const player of this.players.values()) {
+      result.push(player);
+    }
+    return result;
   }
 
   // Alias for World.ts compatibility
@@ -964,16 +920,26 @@ export class Entities extends SystemBase implements IEntities {
   }
 
   getRemovedIds(): string[] {
-    const ids = [...new Set(this.removed)]; // Remove duplicates
-    this.removed = [];
-    return ids;
+    if (this.removed.length === 0) {
+      return [];
+    }
+
+    const uniqueIds = new Set(this.removed);
+    const result: string[] = [];
+    for (const id of uniqueIds) {
+      result.push(id);
+    }
+    this.removed.length = 0;
+    return result;
   }
 
-  // Missing lifecycle methods
   postFixedUpdate(): void {
-    // Add postLateUpdate calls for entities
-    const hotEntities = Array.from(this.hot);
-    for (const entity of hotEntities) {
+    this._reusableHotEntities.length = 0;
+    for (const entity of this.hot) {
+      this._reusableHotEntities.push(entity);
+    }
+    for (let i = 0; i < this._reusableHotEntities.length; i++) {
+      const entity = this._reusableHotEntities[i];
       entity.postLateUpdate?.(0);
     }
   }

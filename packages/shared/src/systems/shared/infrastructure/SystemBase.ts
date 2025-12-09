@@ -85,7 +85,6 @@ import type { World } from "../../../types/index";
 import { SystemConfig } from "../../../types/core/core";
 import { SystemLogger } from "../../../utils/Logger";
 import type { EventMap } from "../../../types/events";
-import { EventType } from "../../../types/events";
 
 /**
  * SystemBase - Enhanced system base class with automatic resource management
@@ -208,20 +207,6 @@ export abstract class SystemBase extends System {
       | ((data: EventMap[K]) => void | Promise<void>)
       | ((data: T) => void | Promise<void>),
   ): EventSubscription {
-    const isTypedEvent = Object.values(EventType).includes(
-      eventType as EventType,
-    );
-    if (isTypedEvent) {
-      // For known events, deliver handler the payload directly
-      const subscription = this.eventBus.subscribe(
-        eventType as string,
-        (event: SystemEvent<AnyEvent>) => {
-          (handler as (data: AnyEvent) => void | Promise<void>)(event.data);
-        },
-      );
-      this.eventSubscriptions.add(subscription);
-      return subscription;
-    }
     const subscription = this.eventBus.subscribe(
       eventType as string,
       (event: SystemEvent<AnyEvent>) => {
@@ -249,19 +234,6 @@ export abstract class SystemBase extends System {
       | ((data: EventMap[K]) => void | Promise<void>)
       | ((data: T) => void | Promise<void>),
   ): EventSubscription {
-    const isTypedEvent = Object.values(EventType).includes(
-      eventType as EventType,
-    );
-    if (isTypedEvent) {
-      const subscription = this.eventBus.subscribeOnce(
-        eventType as string,
-        (event: SystemEvent<AnyEvent>) => {
-          (handler as (data: AnyEvent) => void | Promise<void>)(event.data);
-        },
-      );
-      this.eventSubscriptions.add(subscription);
-      return subscription;
-    }
     const subscription = this.eventBus.subscribeOnce(
       eventType as string,
       (event: SystemEvent<AnyEvent>) => {
@@ -332,48 +304,15 @@ export abstract class SystemBase extends System {
     super.destroy();
   }
 
-  // Default implementations - systems only override what they need
-  preTick(): void {
-    // Default: do nothing
-  }
-
-  preFixedUpdate(_willFixedStep: boolean): void {
-    // Default: do nothing
-  }
-
-  fixedUpdate(_dt: number): void {
-    // Default: do nothing
-  }
-
-  postFixedUpdate(_dt: number): void {
-    // Default: do nothing
-  }
-
-  preUpdate(_alpha: number): void {
-    // Default: do nothing
-  }
-
-  update(_dt: number): void {
-    // Default: do nothing
-  }
-
-  postUpdate(_dt: number): void {
-    // Default: do nothing
-  }
-
-  lateUpdate(_dt: number): void {
-    // Default: do nothing
-  }
-
-  postLateUpdate(_dt: number): void {
-    // Default: do nothing
-  }
-
-  commit(): void {
-    // Default: do nothing
-  }
-
-  postTick(): void {
-    // Default: do nothing
-  }
+  preTick(): void {}
+  preFixedUpdate(_willFixedStep: boolean): void {}
+  fixedUpdate(_dt: number): void {}
+  postFixedUpdate(_dt: number): void {}
+  preUpdate(_alpha: number): void {}
+  update(_dt: number): void {}
+  postUpdate(_dt: number): void {}
+  lateUpdate(_dt: number): void {}
+  postLateUpdate(_dt: number): void {}
+  commit(): void {}
+  postTick(): void {}
 }

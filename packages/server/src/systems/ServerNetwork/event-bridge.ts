@@ -211,21 +211,15 @@ export class EventBridge {
    * @private
    */
   private setupSkillEvents(): void {
-    try {
-      this.world.on(EventType.SKILLS_UPDATED, (payload: unknown) => {
-        const data = payload as { playerId?: string; skills?: unknown };
-
-        if (data?.playerId) {
-          // Send to specific player
-          this.broadcast.sendToPlayer(data.playerId, "skillsUpdated", data);
-        } else {
-          // Broadcast to all
-          this.broadcast.sendToAll("skillsUpdated", payload);
-        }
-      });
-    } catch (_err) {
-      console.error("[EventBridge] Error setting up skill events:", _err);
-    }
+    this.world.on(EventType.SKILLS_UPDATED, (payload: SkillsUpdatedPayload) => {
+      if (payload.playerId) {
+        // Send to specific player
+        this.broadcast.sendToPlayer(payload.playerId, "skillsUpdated", payload);
+      } else {
+        // Broadcast to all
+        this.broadcast.sendToAll("skillsUpdated", payload);
+      }
+    });
   }
 
   /**
@@ -238,111 +232,108 @@ export class EventBridge {
   private setupUIEvents(): void {
     try {
       // Forward UI_MESSAGE events to chat (system messages, warnings, etc.)
-      this.world.on(EventType.UI_MESSAGE, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          message: string;
-          type: "info" | "warning" | "error" | "damage" | "system";
-        };
-
-        if (data.playerId && data.message) {
-          this.broadcast.sendToPlayer(data.playerId, "systemMessage", {
-            message: data.message,
-            type: data.type || "info",
+      this.world.on(EventType.UI_MESSAGE, (payload: UIMessagePayload) => {
+        if (payload.playerId && payload.message) {
+          this.broadcast.sendToPlayer(payload.playerId, "systemMessage", {
+            message: payload.message,
+            type: payload.type || "info",
           });
         }
       });
 
-      this.world.on(EventType.UI_UPDATE, (payload: unknown) => {
-        const data = payload as
-          | { component?: string; data?: { playerId?: string } }
-          | undefined;
-
-        if (data?.component === "player" && data.data?.playerId) {
+      this.world.on(EventType.UI_UPDATE, (payload: UIUpdatePayload) => {
+        if (payload.component === "player" && payload.data?.playerId) {
           this.broadcast.sendToPlayer(
-            data.data.playerId,
+            payload.data.playerId,
             "playerState",
-            data.data,
+            payload.data,
           );
         }
       });
 
       // Forward death screen events to specific player
-      this.world.on(EventType.UI_DEATH_SCREEN, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          message: string;
-          killedBy: string;
-          respawnTime: number;
-        };
-
-        if (data.playerId) {
-          this.broadcast.sendToPlayer(data.playerId, "deathScreen", data);
-        }
-      });
+      this.world.on(
+        EventType.UI_DEATH_SCREEN,
+        (payload: UIDeathScreenPayload) => {
+          if (payload.playerId) {
+            this.broadcast.sendToPlayer(
+              payload.playerId,
+              "deathScreen",
+              payload,
+            );
+          }
+        },
+      );
 
       // Forward death screen close events to specific player
-      this.world.on(EventType.UI_DEATH_SCREEN_CLOSE, (payload: unknown) => {
-        const data = payload as { playerId: string };
-
-        if (data.playerId) {
-          this.broadcast.sendToPlayer(data.playerId, "deathScreenClose", data);
-        }
-      });
+      this.world.on(
+        EventType.UI_DEATH_SCREEN_CLOSE,
+        (payload: UIDeathScreenClosePayload) => {
+          if (payload.playerId) {
+            this.broadcast.sendToPlayer(
+              payload.playerId,
+              "deathScreenClose",
+              payload,
+            );
+          }
+        },
+      );
 
       // Forward player death state changes to clients
-      this.world.on(EventType.PLAYER_SET_DEAD, (payload: unknown) => {
-        const data = payload as { playerId: string; isDead: boolean };
-
-        if (data.playerId) {
-          this.broadcast.sendToPlayer(data.playerId, "playerSetDead", data);
-        }
-      });
+      this.world.on(
+        EventType.PLAYER_SET_DEAD,
+        (payload: PlayerSetDeadPayload) => {
+          if (payload.playerId) {
+            this.broadcast.sendToPlayer(
+              payload.playerId,
+              "playerSetDead",
+              payload,
+            );
+          }
+        },
+      );
 
       // Forward player respawn events to clients
-      this.world.on(EventType.PLAYER_RESPAWNED, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          spawnPosition: { x: number; y: number; z: number };
-        };
-
-        if (data.playerId) {
-          this.broadcast.sendToPlayer(data.playerId, "playerRespawned", data);
-        }
-      });
+      this.world.on(
+        EventType.PLAYER_RESPAWNED,
+        (payload: PlayerRespawnedPayload) => {
+          if (payload.playerId) {
+            this.broadcast.sendToPlayer(
+              payload.playerId,
+              "playerRespawned",
+              payload,
+            );
+          }
+        },
+      );
 
       // Forward attack style change events to specific player
-      this.world.on(EventType.UI_ATTACK_STYLE_CHANGED, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          currentStyle: unknown;
-          availableStyles: unknown;
-          canChange: boolean;
-          cooldownRemaining?: number;
-        };
-
-        if (data.playerId) {
-          this.broadcast.sendToPlayer(
-            data.playerId,
-            "attackStyleChanged",
-            data,
-          );
-        }
-      });
+      this.world.on(
+        EventType.UI_ATTACK_STYLE_CHANGED,
+        (payload: UIAttackStyleChangedPayload) => {
+          if (payload.playerId) {
+            this.broadcast.sendToPlayer(
+              payload.playerId,
+              "attackStyleChanged",
+              payload,
+            );
+          }
+        },
+      );
 
       // Forward attack style update events to specific player
-      this.world.on(EventType.UI_ATTACK_STYLE_UPDATE, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          currentStyle: unknown;
-          availableStyles: unknown;
-          canChange: boolean;
-        };
-
-        if (data.playerId) {
-          this.broadcast.sendToPlayer(data.playerId, "attackStyleUpdate", data);
-        }
-      });
+      this.world.on(
+        EventType.UI_ATTACK_STYLE_UPDATE,
+        (payload: UIAttackStyleUpdatePayload) => {
+          if (payload.playerId) {
+            this.broadcast.sendToPlayer(
+              payload.playerId,
+              "attackStyleUpdate",
+              payload,
+            );
+          }
+        },
+      );
     } catch (_err) {
       console.error("[EventBridge] Error setting up UI events:", _err);
     }
@@ -359,18 +350,22 @@ export class EventBridge {
   private setupCombatEvents(): void {
     try {
       // Forward damage dealt events to all clients for visual effects
-      this.world.on(EventType.COMBAT_DAMAGE_DEALT, (payload: unknown) => {
-        const data = payload as {
-          attackerId: string;
-          targetId: string;
-          damage: number;
-          targetType: "player" | "mob";
-          position: { x: number; y: number; z: number };
-        };
-
-        // Broadcast to all clients so everyone sees the damage splat
-        this.broadcast.sendToAll("combatDamageDealt", data);
-      });
+      this.world.on(
+        EventType.COMBAT_DAMAGE_DEALT,
+        (payload: CombatDamageDealtPayload) => {
+          // Use AOI-aware broadcast if available for spatial events
+          if (this.optimizedBroadcast && payload.targetId) {
+            this.optimizedBroadcast.broadcastToEntitySubscribers(
+              payload.targetId,
+              "combatDamageDealt",
+              payload,
+            );
+          } else {
+            // Fallback to broadcast to all
+            this.broadcast.sendToAll("combatDamageDealt", payload);
+          }
+        },
+      );
     } catch (_err) {
       console.error("[EventBridge] Error setting up combat events:", _err);
     }
@@ -384,37 +379,19 @@ export class EventBridge {
    * @private
    */
   private setupPlayerEvents(): void {
-    try {
-      // Forward player updates to specific player (health, stats, etc.)
-      // Note: emitPlayerUpdate() sends { playerId, component, data: playerData }
-      // where data.health is { current, max } object
-      this.world.on(EventType.PLAYER_UPDATED, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          component?: string;
-          data?: {
-            id: string;
-            name: string;
-            level: number;
-            health: { current: number; max: number };
-            alive: boolean;
-          };
-        };
-
-        if (data.playerId && data.data) {
-          const playerData = data.data;
-
-          // Send to specific player with flat health values for client
-          this.broadcast.sendToPlayer(data.playerId, "playerUpdated", {
-            health: playerData.health.current,
-            maxHealth: playerData.health.max,
-            alive: playerData.alive,
-          });
-        }
-      });
-    } catch (_err) {
-      console.error("[EventBridge] Error setting up player events:", _err);
-    }
+    // Forward player updates to specific player (health, stats, etc.)
+    // Note: emitPlayerUpdate() sends { playerId, component, data: playerData }
+    // where data.health is { current, max } object
+    this.world.on(EventType.PLAYER_UPDATED, (payload: PlayerUpdatedPayload) => {
+      if (payload.playerId && payload.data) {
+        // Send to specific player with flat health values for client
+        this.broadcast.sendToPlayer(payload.playerId, "playerUpdated", {
+          health: payload.data.health.current,
+          maxHealth: payload.data.health.max,
+          alive: payload.data.alive,
+        });
+      }
+    });
   }
 
   /**
@@ -426,76 +403,44 @@ export class EventBridge {
    * @private
    */
   private setupDialogueEvents(): void {
-    try {
-      // Forward dialogue start events to specific player
-      this.world.on(EventType.DIALOGUE_START, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          npcId: string;
-          npcName: string;
-          nodeId: string;
-          text: string;
-          responses: Array<{
-            text: string;
-            nextNodeId: string;
-            effect?: string;
-          }>;
-          npcEntityId?: string;
-        };
+    // Forward dialogue start events to specific player
+    this.world.on(EventType.DIALOGUE_START, (payload: DialogueStartPayload) => {
+      if (payload.playerId) {
+        // Pass npcEntityId for live position lookup on client (like bank does)
+        this.broadcast.sendToPlayer(payload.playerId, "dialogueStart", {
+          npcId: payload.npcId,
+          npcName: payload.npcName,
+          nodeId: payload.nodeId,
+          text: payload.text,
+          responses: payload.responses,
+          npcEntityId: payload.npcEntityId,
+        });
+      }
+    });
 
-        if (data.playerId) {
-          // Pass npcEntityId for live position lookup on client (like bank does)
-          this.broadcast.sendToPlayer(data.playerId, "dialogueStart", {
-            npcId: data.npcId,
-            npcName: data.npcName,
-            nodeId: data.nodeId,
-            text: data.text,
-            responses: data.responses,
-            npcEntityId: data.npcEntityId,
+    // Forward dialogue node change events to specific player
+    this.world.on(
+      EventType.DIALOGUE_NODE_CHANGE,
+      (payload: DialogueNodeChangePayload) => {
+        if (payload.playerId) {
+          this.broadcast.sendToPlayer(payload.playerId, "dialogueNodeChange", {
+            npcId: payload.npcId,
+            nodeId: payload.nodeId,
+            text: payload.text,
+            responses: payload.responses,
           });
         }
-      });
+      },
+    );
 
-      // Forward dialogue node change events to specific player
-      this.world.on(EventType.DIALOGUE_NODE_CHANGE, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          npcId: string;
-          nodeId: string;
-          text: string;
-          responses: Array<{
-            text: string;
-            nextNodeId: string;
-            effect?: string;
-          }>;
-        };
-
-        if (data.playerId) {
-          this.broadcast.sendToPlayer(data.playerId, "dialogueNodeChange", {
-            npcId: data.npcId,
-            nodeId: data.nodeId,
-            text: data.text,
-            responses: data.responses,
-          });
-        }
-      });
-
-      // Forward dialogue end events to specific player
-      this.world.on(EventType.DIALOGUE_END, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          npcId: string;
-        };
-
-        if (data.playerId) {
-          this.broadcast.sendToPlayer(data.playerId, "dialogueEnd", {
-            npcId: data.npcId,
-          });
-        }
-      });
-    } catch (_err) {
-      console.error("[EventBridge] Error setting up dialogue events:", _err);
-    }
+    // Forward dialogue end events to specific player
+    this.world.on(EventType.DIALOGUE_END, (payload: DialogueEndPayload) => {
+      if (payload.playerId) {
+        this.broadcast.sendToPlayer(payload.playerId, "dialogueEnd", {
+          npcId: payload.npcId,
+        });
+      }
+    });
   }
 
   /**
@@ -560,30 +505,24 @@ export class EventBridge {
    * @private
    */
   private setupStoreEvents(): void {
-    try {
-      this.world.on(EventType.STORE_OPEN_REQUEST, async (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          npcId: string;
-          storeId?: string;
-          npcEntityId?: string;
-        };
-
-        if (!data.playerId) {
+    this.world.on(
+      EventType.STORE_OPEN_REQUEST,
+      async (payload: StoreOpenRequestPayload) => {
+        if (!payload.playerId) {
           console.warn("[EventBridge] STORE_OPEN_REQUEST missing playerId");
           return;
         }
 
         // Get storeId - either from event or look up from NPC
-        let storeId = data.storeId;
+        let storeId = payload.storeId;
         if (!storeId) {
           // First try with the npcId directly (might be manifest ID)
-          storeId = this.getStoreIdForNpc(data.npcId);
+          storeId = this.getStoreIdForNpc(payload.npcId);
 
           // If not found and we have npcEntityId, look up the entity to get manifest npcId
-          if (!storeId && data.npcEntityId) {
+          if (!storeId && payload.npcEntityId) {
             const manifestNpcId = this.getManifestNpcIdFromEntity(
-              data.npcEntityId,
+              payload.npcEntityId,
             );
             if (manifestNpcId) {
               storeId = this.getStoreIdForNpc(manifestNpcId);
@@ -593,7 +532,7 @@ export class EventBridge {
 
         if (!storeId) {
           console.warn(
-            `[EventBridge] No store linked to NPC ${data.npcId} (entityId: ${data.npcEntityId})`,
+            `[EventBridge] No store linked to NPC ${payload.npcId} (entityId: ${payload.npcEntityId})`,
           );
           return;
         }
@@ -614,18 +553,16 @@ export class EventBridge {
         // (It listens to STORE_OPEN_REQUEST and creates session with targetEntityId = npcEntityId)
 
         // Send storeState packet to player (include npcEntityId for distance checking)
-        this.broadcast.sendToPlayer(data.playerId, "storeState", {
+        this.broadcast.sendToPlayer(payload.playerId, "storeState", {
           storeId: store.id,
           storeName: store.name,
           buybackRate: store.buybackRate,
           items: store.items,
           isOpen: true,
-          npcEntityId: data.npcEntityId,
+          npcEntityId: payload.npcEntityId,
         });
-      });
-    } catch (_err) {
-      console.error("[EventBridge] Error setting up store events:", _err);
-    }
+      },
+    );
   }
 
   /**

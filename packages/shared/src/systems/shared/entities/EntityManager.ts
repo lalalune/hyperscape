@@ -64,12 +64,6 @@ export class EntityManager extends SystemBase {
   }
 
   async init(): Promise<void> {
-    // The World.register method already registers this system on the world object
-    // No need for manual registration
-
-    // Set up type-safe event subscriptions for entity management (16+ listeners!)
-    // NOTE: We don't subscribe to ENTITY_SPAWNED here as that would create a circular loop
-    // ENTITY_SPAWNED is emitted BY this system after spawning, not TO request spawning
     this.subscribe(EventType.ENTITY_DEATH, (data) =>
       this.handleEntityDestroy(
         data as { entityId: string; killedBy?: string; entityType?: string },
@@ -98,11 +92,6 @@ export class EntityManager extends SystemBase {
       }),
     );
 
-    // Listen for specific entity type spawn requests
-    // NOTE: Don't subscribe to ITEM_SPAWNED - that's an event we emit AFTER spawning, not a spawn request
-    // Subscribing to it would cause duplicate spawns!
-    // NOTE: Don't subscribe to ITEM_PICKUP - InventorySystem handles that and destroys the entity
-    // Subscribe to ITEM_SPAWN for dropped/spawned items
     this.subscribe(EventType.ITEM_SPAWN, (data) => {
       const typedData = data as {
         itemId?: string;
@@ -120,7 +109,6 @@ export class EntityManager extends SystemBase {
         quantity: typedData.quantity || 1,
       });
     });
-    // EntityManager should handle spawn REQUESTS, not completed spawns
     this.subscribe(EventType.MOB_NPC_SPAWN_REQUEST, (data) => {
       const typedData = data as {
         mobType: string;
@@ -164,8 +152,6 @@ export class EntityManager extends SystemBase {
         damage: 0,
       });
     });
-    // RESOURCE_GATHERED has different structure in EventMap
-    // Map the string resourceType to the enum value
     this.subscribe(EventType.RESOURCE_GATHERED, (data) => {
       const typedData = data as { resourceType: string };
       const resourceTypeMap: Record<string, ResourceType> = {
@@ -193,7 +179,6 @@ export class EntityManager extends SystemBase {
         amount: typedData.success ? 1 : 0,
       });
     });
-    // NPC_INTERACTION has different structure in EventMap
     this.subscribe(EventType.NPC_INTERACTION, (data) => {
       const typedData = data as { npcId: string };
       this.handleNPCSpawn({
@@ -234,34 +219,23 @@ export class EntityManager extends SystemBase {
     }
   }
 
-  /**
-   * Start method - called after init, spawns world objects
-   */
   async start(): Promise<void> {
-    // Server spawns static world objects (banks, etc.)
     if (this.world.isServer) {
       await this.spawnWorldObjects();
     }
   }
 
-  /**
-   * Spawn static world objects (banks, etc.)
-   * These are permanent fixtures in the world, not mobs or NPCs
-   */
   private async spawnWorldObjects(): Promise<void> {
-    // Get terrain system for height lookup
     const terrain = this.world.getSystem<TerrainSystem>("terrain");
 
-    // Get terrain height at bank location
-    let bankY = 40; // Default height
+    let bankY = 40;
     if (terrain?.getHeightAt) {
       const height = terrain.getHeightAt(0, -25);
       if (height !== null && height !== undefined && Number.isFinite(height)) {
-        bankY = (height as number) + 1; // +1 to sit on ground
+        bankY = (height as number) + 1;
       }
     }
 
-    // Spawn bank at (0, y, -25) - behind player spawn, safe from goblin
     const bankConfig: BankEntityConfig = {
       id: "bank_spawn_bank",
       name: "Bank",
@@ -286,53 +260,36 @@ export class EntityManager extends SystemBase {
       },
     };
 
-    try {
-      await this.spawnEntity(bankConfig);
-      console.log(`[EntityManager] Spawned bank at (0, ${bankY}, -25)`);
-    } catch (err) {
-      console.error("[EntityManager] Error spawning bank:", err);
-    }
+    await this.spawnEntity(bankConfig);
   }
 
   update(deltaTime: number): void {
-    // Update all entities that need updates
-    this.entitiesNeedingUpdate.forEach((entityId) => {
+    for (const entityId of this.entitiesNeedingUpdate) {
       const entity = this.entities.get(entityId);
-      if (entity) {
-        entity.update(deltaTime);
-
-        // Check if entity marked itself as dirty and needs network sync
-        if (this.world.isServer && entity.networkDirty) {
-          this.networkDirtyEntities.add(entityId);
-          entity.networkDirty = false; // Reset flag after adding to set
-        }
+      if (!entity) continue;
+      entity.update(deltaTime);
+      if (this.world.isServer && entity.networkDirty) {
+        this.networkDirtyEntities.add(entityId);
+        entity.networkDirty = false;
       }
-    });
-
-    // Send network updates
+    }
     if (this.world.isServer && this.networkDirtyEntities.size > 0) {
       this.sendNetworkUpdates();
     }
   }
 
   fixedUpdate(deltaTime: number): void {
-    // Fixed update for physics
-    this.entities.forEach((entity) => {
-      entity.fixedUpdate(deltaTime);
-    });
+    for (const entity of this.entities.values()) entity.fixedUpdate(deltaTime);
   }
 
   async spawnEntity(config: EntityConfig): Promise<Entity | null> {
-    // CRITICAL: Only server should spawn entities
-    // Clients receive entities via snapshot/network sync
     if (!this.world.isServer) {
-      console.warn(
-        `[EntityManager] Client attempted to spawn entity ${config.id || "unknown"} - blocked (entities come from server)`,
+      this.logger.warn(
+        `Client attempted to spawn entity ${config.id || "unknown"} - blocked`,
       );
       return null;
     }
 
-    // Generate entity ID if not provided
     if (!config.id) {
       config.id = `entity_${this.nextEntityId++}`;
     }
@@ -342,7 +299,6 @@ export class EntityManager extends SystemBase {
       return this.entities.get(config.id) || null;
     }
 
-    // VALIDATE config before creating entity
     if (
       !config.position ||
       !Number.isFinite(config.position.x) ||
@@ -390,17 +346,11 @@ export class EntityManager extends SystemBase {
         throw new Error(`[EntityManager] Unknown entity type: ${config.type}`);
     }
 
-    // Initialize entity (this will throw if it fails)
     await entity.init();
-
-    // Store entity
     this.entities.set(config.id, entity);
     this.entitiesNeedingUpdate.add(config.id);
-
-    // Register with world entities system so other systems can find it
     this.world.entities.set(config.id, entity);
 
-    // Broadcast entityAdded to all clients (server-only)
     if (this.world.isServer) {
       const network = this.world.network as {
         send?: (method: string, data: unknown, excludeId?: string) => void;
@@ -418,17 +368,16 @@ export class EntityManager extends SystemBase {
       entityData: entity.getNetworkData(),
     });
 
-    // CRITICAL FIX: Broadcast new entity to all connected clients
+    // Broadcast new entity to all connected clients
     if (this.world.isServer) {
       const network = this.world.network;
       if (network && typeof network.send === "function") {
         try {
           network.send("entityAdded", entity.serialize());
         } catch (error) {
-          console.warn(
-            `[EntityManager] Failed to broadcast entity ${config.id}:`,
-            error,
-          );
+          this.logger.warn(`Failed to broadcast entity ${config.id}`, {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
     }
@@ -442,18 +391,8 @@ export class EntityManager extends SystemBase {
       return false;
     }
 
-    // Send entityRemoved packet to all clients before destroying
     const network = this.world.network;
-    if (network && network.isServer) {
-      try {
-        network.send("entityRemoved", entityId);
-      } catch (error) {
-        console.warn(
-          `[EntityManager] Failed to send entityRemoved packet for ${entityId}:`,
-          error,
-        );
-      }
-    }
+    if (network?.isServer) network.send("entityRemoved", entityId);
 
     // Call entity destroy method
     entity.destroy();
@@ -462,11 +401,8 @@ export class EntityManager extends SystemBase {
     this.entities.delete(entityId);
     this.entitiesNeedingUpdate.delete(entityId);
     this.networkDirtyEntities.delete(entityId);
-
-    // Remove from world entities system
     this.world.entities.remove(entityId);
 
-    // Emit destroy event
     this.emitTypedEvent(EventType.ENTITY_DEATH, {
       entityId,
       entityType: entity.type,
@@ -476,47 +412,32 @@ export class EntityManager extends SystemBase {
   }
 
   getEntity(entityId: string): Entity | undefined {
-    const entity = this.entities.get(entityId);
-    if (entity) {
-      return entity;
-    }
-    for (const e of this.entities.values()) {
-      //console.log(`[EntityManager] Entity: ${e.id} - ${e.type} - ${entityId}, is same: ${e.id === entityId}`);
-      if (e.id === entityId) {
-        return e;
-      }
-    }
+    return this.entities.get(entityId);
   }
 
-  /**
-   * Get all entities (for debugging and iteration)
-   */
   getAllEntities(): Map<string, Entity> {
     return this.entities;
   }
 
-  /**
-   * Get all entities of a specific type
-   */
   getEntitiesByType(type: string): Entity[] {
-    return Array.from(this.entities.values()).filter(
-      (entity) => entity.type === type,
-    );
+    const result: Entity[] = [];
+    for (const entity of this.entities.values()) {
+      if (entity.type === type) result.push(entity);
+    }
+    return result;
   }
 
-  /**
-   * Get entities within range of a position
-   */
   getEntitiesInRange(
     center: { x: number; y: number; z: number },
     range: number,
     type?: string,
   ): Entity[] {
-    return Array.from(this.entities.values()).filter((entity) => {
-      if (type && entity.type !== type) return false;
-      const distance = entity.getDistanceTo(center);
-      return distance <= range;
-    });
+    const result: Entity[] = [];
+    for (const entity of this.entities.values()) {
+      if (type && entity.type !== type) continue;
+      if (entity.getDistanceTo(center) <= range) result.push(entity);
+    }
+    return result;
   }
 
   private handleEntityDestroy(data: { entityId: string }): void {
@@ -548,7 +469,6 @@ export class EntityManager extends SystemBase {
     if (!entity) {
       return;
     }
-    // Do not override local player physics-driven movement. Let PlayerLocal handle motion.
     const isLocalPlayer =
       entity.isPlayer &&
       this.world.entities.player &&
@@ -573,11 +493,8 @@ export class EntityManager extends SystemBase {
 
   private async handleItemSpawn(data: ItemSpawnData): Promise<void> {
     const itemIdToUse = data.itemId || data.id || "unknown_item";
-
-    // Get item data from items database to get model path and other properties
     const itemData = getItem(itemIdToUse);
 
-    // Create proper ItemEntityConfig (not generic EntityConfig)
     const config: ItemEntityConfig = {
       id: data.customId || `item_${this.nextEntityId++}`,
       name: data.name || itemData?.name || itemIdToUse,
@@ -592,7 +509,6 @@ export class EntityManager extends SystemBase {
       description: itemData?.description || data.name || itemIdToUse,
       model: itemData?.modelPath || data.model || null,
       modelPath: itemData?.modelPath || data.model || undefined,
-      // ItemEntityConfig required fields at top level
       itemType: String(itemData?.type || "misc"),
       itemId: itemIdToUse,
       quantity: data.quantity || 1,
@@ -611,7 +527,6 @@ export class EntityManager extends SystemBase {
       examine: itemData?.examine || "",
       iconPath: itemData?.iconPath || "",
       healAmount: itemData?.healAmount || 0,
-      // Properties field for Entity base class (must include ItemEntityProperties)
       properties: {
         movementComponent: null,
         combatComponent: null,
@@ -636,11 +551,8 @@ export class EntityManager extends SystemBase {
 
   private handleItemPickup(data: { entityId: string; playerId: string }): void {
     const entity = this.getEntity(data.entityId);
-    if (!entity) {
-      return;
-    }
+    if (!entity) return;
 
-    // Get properties before destroying
     const itemId = entity.getProperty("itemId");
     const quantity = entity.getProperty("quantity");
 
@@ -654,8 +566,6 @@ export class EntityManager extends SystemBase {
   }
 
   async handleMobSpawn(data: MobSpawnData): Promise<void> {
-    // Strong type assumption - MobSpawnData.position is always Position3D with valid coordinates
-    // If invalid coordinates are passed, that's a bug in the calling code
     let position = data.position;
     if (!position) {
       throw new Error("[EntityManager] Mob spawn position is required");
@@ -667,8 +577,6 @@ export class EntityManager extends SystemBase {
     }
 
     const level = data.level || 1;
-
-    // Ground to terrain height map explicitly for server/client authoritative spawn
     const terrain = this.world.getSystem<TerrainSystem>("terrain");
     if (terrain) {
       const th = terrain.getHeightAt(position.x, position.z);
@@ -677,7 +585,6 @@ export class EntityManager extends SystemBase {
       }
     }
 
-    // Get NPC data to access modelPath
     const npcDataFromDB = getNPCById(mobType);
     const modelPath = npcDataFromDB?.appearance.modelPath;
 
@@ -685,11 +592,7 @@ export class EntityManager extends SystemBase {
       throw new Error(`[EntityManager] Mob ${mobType} has no model path`);
     }
 
-    // CRITICAL FIX: Always use the provided customId to ensure client/server ID consistency
-    // Only generate a new ID if customId is not provided (fallback case)
     const mobId = data.customId || `mob_${this.nextEntityId++}`;
-
-    // Get scale from manifest (default to 1.0 if not specified)
     const manifestScale = npcDataFromDB?.appearance?.scale ?? 1;
 
     const config: MobEntityConfig = {
@@ -705,8 +608,7 @@ export class EntityManager extends SystemBase {
       interactionDistance: 5,
       description: `${mobType} (Level ${level})`,
       model: modelPath,
-      // MobEntity specific fields
-      mobType: mobType, // Mob ID from mobs.json
+      mobType: mobType,
       level: level,
       currentHealth: this.getMobMaxHealth(mobType, level),
       maxHealth: this.getMobMaxHealth(mobType, level),
@@ -715,10 +617,10 @@ export class EntityManager extends SystemBase {
       defense: this.getMobDefense(mobType, level),
       attackSpeedTicks: this.getMobAttackSpeedTicks(mobType),
       moveSpeed: this.getMobMoveSpeed(mobType),
-      aggressive: npcDataFromDB?.combat.aggressive ?? true, // Default to aggressive if not specified
-      retaliates: npcDataFromDB?.combat.retaliates ?? true, // Default to retaliating if not specified
-      attackable: npcDataFromDB?.combat.attackable ?? true, // Default to attackable if not specified
-      movementType: npcDataFromDB?.movement.type ?? "wander", // Default to wander if not specified
+      aggressive: npcDataFromDB?.combat.aggressive ?? true,
+      retaliates: npcDataFromDB?.combat.retaliates ?? true,
+      attackable: npcDataFromDB?.combat.attackable ?? true,
+      movementType: npcDataFromDB?.movement.type ?? "wander",
       aggroRange: this.getMobAggroRange(mobType),
       combatRange: this.getMobCombatRange(mobType),
       wanderRadius: this.getMobWanderRadius(mobType),
@@ -745,8 +647,6 @@ export class EntityManager extends SystemBase {
 
     const entity = await this.spawnEntity(config);
 
-    // Emit MOB_NPC_SPAWNED event to notify other systems (like AggroSystem)
-    // that a mob has been successfully spawned
     if (entity) {
       this.emitTypedEvent(EventType.MOB_NPC_SPAWNED, {
         mobId: config.id,
@@ -760,11 +660,7 @@ export class EntityManager extends SystemBase {
     entityId: string;
     damage: number;
     attackerId: string;
-  }): void {
-    // NO-OP: MobEntity.takeDamage() now calls die() directly when health reaches 0
-    // This event handler is kept for backward compatibility but does nothing
-    // Event chain: CombatSystem → takeDamage() → die() (no EntityManager involved)
-  }
+  }): void {}
 
   private handleMobAttack(data: {
     mobId: string;
@@ -787,12 +683,10 @@ export class EntityManager extends SystemBase {
   }
 
   private handleClientConnect(data: { playerId: string }): void {
-    // Send all current entities to new client
-    const entityData = Array.from(this.entities.values()).map((entity) => ({
-      type: entity.type,
-      data: entity.getNetworkData(),
-    }));
-
+    const entityData: Array<{ type: string; data: unknown }> = [];
+    for (const entity of this.entities.values()) {
+      entityData.push({ type: entity.type, data: entity.getNetworkData() });
+    }
     this.emitTypedEvent(EventType.CLIENT_ENTITY_SYNC, {
       playerId: data.playerId,
       entities: entityData,
@@ -800,87 +694,49 @@ export class EntityManager extends SystemBase {
   }
 
   private handleClientDisconnect(data: { playerId: string }): void {
-    // Clean up any player-specific entity data
-    this.entities.forEach((entity, entityId) => {
-      if (entity.getProperty("ownerId") === data.playerId) {
-        this.destroyEntity(entityId);
-      }
-    });
+    const toDestroy: string[] = [];
+    for (const [entityId, entity] of this.entities) {
+      if (entity.getProperty("ownerId") === data.playerId)
+        toDestroy.push(entityId);
+    }
+    for (const id of toDestroy) this.destroyEntity(id);
   }
 
   private sendNetworkUpdates(): void {
-    // Only send network updates on the server
     if (!this.world.isServer) {
       this.networkDirtyEntities.clear();
       return;
     }
 
-    // Disabled - too spammy
-    // if (this.networkDirtyEntities.size > 0) {
-    //   console.log(`[EntityManager.sendNetworkUpdates] Syncing ${this.networkDirtyEntities.size} dirty entities:`, Array.from(this.networkDirtyEntities));
-    // }
-
     const network = this.world.network as {
       send?: (method: string, data: unknown, excludeId?: string) => void;
     };
-
-    if (!network || !network.send) {
-      // No network system, clear dirty entities and return
+    if (!network?.send) {
       this.networkDirtyEntities.clear();
       return;
     }
 
-    this.networkDirtyEntities.forEach((entityId) => {
-      // CRITICAL FIX: Players are in world.players, not EntityManager.entities
-      // Check both locations to find the entity
+    for (const entityId of this.networkDirtyEntities) {
       let entity = this.entities.get(entityId);
       if (!entity && this.world.getPlayer) {
-        const playerEntity = this.world.getPlayer(entityId);
-        if (playerEntity) {
-          entity = playerEntity;
-          console.log(
-            `[EntityManager] 📍 Found player ${entityId} in world.players (not in EntityManager.entities)`,
-          );
-        }
+        entity = this.world.getPlayer(entityId) ?? undefined;
       }
+      if (!entity) continue;
 
-      if (entity) {
-        // Get current position from entity
-        const pos = entity.position;
-        const rot = entity.node?.quaternion;
+      const pos = entity.position;
+      const rot = entity.node?.quaternion;
+      const networkData = entity.getNetworkData();
 
-        // Get network data from entity (includes health and other properties)
-        const networkData = entity.getNetworkData();
+      network.send("entityModified", {
+        id: entityId,
+        changes: {
+          p: [pos.x, pos.y, pos.z],
+          q: rot ? [rot.x, rot.y, rot.z, rot.w] : undefined,
+          ...networkData,
+        },
+      });
+    }
 
-        // Debug logging disabled (too spammy)
-        // if (entity.type === 'player') {
-        //   console.log(`[EntityManager] 📤 Syncing player ${entityId}`);
-        //   console.log(`[EntityManager] 📤 networkData keys:`, Object.keys(networkData));
-        //   console.log(`[EntityManager] 📤 networkData.c (inCombat):`, (networkData as { c?: boolean }).c);
-        //   console.log(`[EntityManager] 📤 networkData.e (emote):`, (networkData as { e?: string }).e);
-        //   console.log(`[EntityManager] 📤 Full networkData:`, JSON.stringify(networkData, null, 2));
-        // }
-
-        // Send entityModified packet with position/rotation changes
-        // Call directly on network object to preserve 'this' context
-        // Non-null assertion safe because we checked network.send exists above
-        network.send!("entityModified", {
-          id: entityId,
-          changes: {
-            p: [pos.x, pos.y, pos.z],
-            q: rot ? [rot.x, rot.y, rot.z, rot.w] : undefined,
-            ...networkData, // Include all entity-specific data (health, aiState, etc.)
-          },
-        });
-      }
-      // Entity not found - this is expected when:
-      // - Items are picked up between marking dirty and sync
-      // - Mobs die between marking dirty and sync
-      // - Any entity is removed during the frame
-      // Silently skip - not an error condition
-    });
-
-    // Clear dirty entities
     this.networkDirtyEntities.clear();
   }
 
@@ -967,9 +823,6 @@ export class EntityManager extends SystemBase {
     return this.spawnEntity(itemConfig);
   }
 
-  // Helper methods for mob stats calculation - NOW DATA-DRIVEN!
-  // All values loaded from mobs.json instead of hardcoded
-
   private getMobMaxHealth(mobType: string, level: number): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
@@ -981,7 +834,7 @@ export class EntityManager extends SystemBase {
   private getMobAttack(mobType: string, level: number): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
-      return 1 + (level - 1); // Default attack scaling
+      return 1 + (level - 1);
     }
     return npcData.stats.attack + (level - npcData.stats.level);
   }
@@ -991,7 +844,6 @@ export class EntityManager extends SystemBase {
     if (!npcData) {
       return 5 + (level - 1) * 2;
     }
-    // FIX: Use strength for attackPower (max hit), not attack (accuracy)
     return npcData.stats.strength + (level - npcData.stats.level) * 2;
   }
 
@@ -1006,7 +858,7 @@ export class EntityManager extends SystemBase {
   private getMobAttackSpeedTicks(mobType: string): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
-      return 4; // Default: 4 ticks (2.4 seconds, standard sword speed)
+      return 4;
     }
     return npcData.combat.attackSpeedTicks;
   }
@@ -1014,7 +866,7 @@ export class EntityManager extends SystemBase {
   private getMobMoveSpeed(mobType: string): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
-      return 3.0; // Default: 3 units/sec (walking speed, matches player walk)
+      return 3.0;
     }
     return npcData.movement.speed;
   }
@@ -1022,7 +874,7 @@ export class EntityManager extends SystemBase {
   private getMobWanderRadius(mobType: string): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
-      return 10; // Default: 10 meter wander radius from spawn
+      return 10;
     }
     return npcData.movement.wanderRadius;
   }
@@ -1030,7 +882,7 @@ export class EntityManager extends SystemBase {
   private getMobAggroRange(mobType: string): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
-      return 15.0; // Default: 15 meters detection range (increased from 10)
+      return 15.0;
     }
     return npcData.combat.aggroRange;
   }
@@ -1038,7 +890,7 @@ export class EntityManager extends SystemBase {
   private getMobCombatRange(mobType: string): number {
     const npcData = getNPCById(mobType);
     if (!npcData) {
-      return 1.5; // Default: 1.5 meters melee range
+      return 1.5;
     }
     return npcData.combat.combatRange;
   }
@@ -1063,7 +915,6 @@ export class EntityManager extends SystemBase {
       return [{ itemId: "coins", chance: 0.5, minQuantity: 1, maxQuantity: 5 }];
     }
 
-    // Convert unified NPCData drops to expected format
     const allDrops: Array<{
       itemId: string;
       chance: number;
@@ -1081,7 +932,6 @@ export class EntityManager extends SystemBase {
       });
     }
 
-    // Add all drop tiers
     for (const drop of npcData.drops.always) {
       allDrops.push({
         itemId: drop.itemId,
@@ -1133,7 +983,6 @@ export class EntityManager extends SystemBase {
   }
 
   private getItemWeight(_itemId: string): number {
-    // Default weight for items - could be expanded with item data
     return 1;
   }
 
@@ -1142,7 +991,6 @@ export class EntityManager extends SystemBase {
     position: { x: number; y: number; z: number };
     resourceType: string;
   }): void {
-    // Resource spawn logic
     this.spawnResource(data.resourceId, data.position, data.resourceType);
   }
 
@@ -1151,7 +999,6 @@ export class EntityManager extends SystemBase {
     position: { x: number; y: number; z: number },
     resourceType: string,
   ): Promise<Entity | null> {
-    // Create readable resource name
     const resourceName = resourceType
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
@@ -1173,7 +1020,7 @@ export class EntityManager extends SystemBase {
       resourceId: resourceId,
       harvestSkill: "woodcutting",
       requiredLevel: 1,
-      harvestTime: 3000, // 3 seconds to harvest
+      harvestTime: 3000,
       respawnTime: 60000,
       harvestYield: [{ itemId: "wood", quantity: 1, chance: 1.0 }],
       depleted: false,
@@ -1204,10 +1051,7 @@ export class EntityManager extends SystemBase {
     entityId: string;
     playerId: string;
     amount: number;
-  }): Promise<void> {
-    // Resource harvest logic would go here
-    // For now, just log it
-  }
+  }): Promise<void> {}
 
   private async handleNPCSpawnRequest(data: {
     npcId: string;
@@ -1217,7 +1061,6 @@ export class EntityManager extends SystemBase {
     services?: string[];
     modelPath?: string;
   }): Promise<void> {
-    // Determine NPC type prefix based on services/type
     let typePrefix = "NPC";
     if (data.type === "bank" || data.services?.includes("banking")) {
       typePrefix = "Bank";
@@ -1232,7 +1075,6 @@ export class EntityManager extends SystemBase {
       typePrefix = "Quest";
     }
 
-    // Try to get model path from external NPCs if not provided
     let modelPath: string | null = null;
     if (data.modelPath) {
       modelPath = data.modelPath;
@@ -1292,11 +1134,8 @@ export class EntityManager extends SystemBase {
 
     await this.spawnEntity(config);
 
-    // If it's a store, register it with the store system
     if (data.type === "general_store" || data.services?.includes("buy_items")) {
-      // Map NPC ID to store ID based on position
-      // NPCs are named like "central_haven_shopkeeper", stores are like "store_town_0"
-      let storeId = "store_town_0"; // Default to central
+      let storeId = "store_town_0";
       if (
         data.npcId.includes("central_haven") ||
         (data.position.x < 50 &&
@@ -1304,15 +1143,15 @@ export class EntityManager extends SystemBase {
           data.position.z < 50 &&
           data.position.z > -50)
       ) {
-        storeId = "store_town_0"; // Central Haven
+        storeId = "store_town_0";
       } else if (data.position.x > 50) {
-        storeId = "store_town_1"; // Eastern
+        storeId = "store_town_1";
       } else if (data.position.x < -50) {
-        storeId = "store_town_2"; // Western
+        storeId = "store_town_2";
       } else if (data.position.z > 50) {
-        storeId = "store_town_3"; // Northern
+        storeId = "store_town_3";
       } else if (data.position.z < -50) {
-        storeId = "store_town_4"; // Southern
+        storeId = "store_town_4";
       }
 
       this.emitTypedEvent(EventType.STORE_REGISTER_NPC, {
@@ -1350,39 +1189,22 @@ export class EntityManager extends SystemBase {
     questGiver: boolean;
     shopkeeper: boolean;
     bankTeller: boolean;
-  }): void {
-    // NPC spawn logic
-  }
+  }): void {}
 
   private handleNPCDialogue(_data: {
     entityId: string;
     playerId: string;
     dialogueId: string;
-  }): void {
-    // NPC dialogue logic
-  }
+  }): void {}
 
-  /**
-   * Cleanup when system is destroyed
-   */
   destroy(): void {
-    // Clean up all entities
     for (const entity of this.entities.values()) {
-      if (entity) {
-        // Assume destroy method exists on entities
-        entity.destroy();
-      }
+      entity.destroy();
     }
     this.entities.clear();
-
-    // Clear tracking sets
     this.entitiesNeedingUpdate.clear();
     this.networkDirtyEntities.clear();
-
-    // Reset entity ID counter
     this.nextEntityId = 1;
-
-    // Call parent cleanup
     super.destroy();
   }
 }

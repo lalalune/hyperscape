@@ -84,21 +84,12 @@ export class NPCSystem extends SystemBase {
       ),
     );
 
-    // Generate towns immediately as they are static placements
     this.generateTowns();
   }
 
-  async start(): Promise<void> {
-    // NPCs are now spawned by MobNPCSpawnerSystem from world-areas manifest
-    // No need to spawn here - avoids duplicates
-  }
+  async start(): Promise<void> {}
 
-  /**
-   * Spawn a default bank clerk for initial world content
-   * Position matches bank_clerk in world-areas.json/world-areas.ts
-   */
   private async spawnDefaultNPC(): Promise<void> {
-    // Wait for EntityManager to be ready
     let entityManager = this.world.getSystem("entity-manager") as {
       spawnEntity?: (config: unknown) => Promise<unknown>;
     } | null;
@@ -110,7 +101,6 @@ export class NPCSystem extends SystemBase {
         spawnEntity?: (config: unknown) => Promise<unknown>;
       } | null;
       attempts++;
-      // Wait for entity manager to become available
     }
 
     if (!entityManager?.spawnEntity) {
@@ -120,7 +110,6 @@ export class NPCSystem extends SystemBase {
       return;
     }
 
-    // Use terrain height at spawn position, fallback to 43
     const terrainSystem = this.world.getSystem("terrain") as {
       getHeightAt?: (x: number, z: number) => number | null;
     } | null;
@@ -130,9 +119,9 @@ export class NPCSystem extends SystemBase {
       id: "bank_clerk_1",
       type: "npc" as const,
       name: "Bank Clerk",
-      position: { x: 5, y: groundY + 1.0, z: -5 }, // Match world-areas.json position
+      position: { x: 5, y: groundY + 1.0, z: -5 },
       rotation: { x: 0, y: 0, z: 0, w: 1 },
-      scale: { x: 100, y: 100, z: 100 }, // Scale up rigged model
+      scale: { x: 100, y: 100, z: 100 },
       visible: true,
       interactable: true,
       interactionType: "talk",
@@ -140,10 +129,9 @@ export class NPCSystem extends SystemBase {
       description: "A helpful bank clerk who manages deposits and withdrawals",
       model: "asset://models/human/human_rigged.glb",
       properties: {},
-      // NPCEntity specific
       npcType: "bank",
       npcId: "bank_clerk",
-      dialogueLines: [], // Dialogue handled by DialogueSystem from npcs.json
+      dialogueLines: [],
       services: ["bank"],
       inventory: [],
       skillsOffered: [],
@@ -162,19 +150,12 @@ export class NPCSystem extends SystemBase {
     }
   }
 
-  /**
-   * Initialize store inventory with shop items
-   */
   private initializeStoreInventory(): void {
     for (const itemId of SHOP_ITEMS) {
-      // Stores have unlimited stock of basic items
       this.storeInventory.set(itemId, 999999);
     }
   }
 
-  /**
-   * Handle general NPC interaction
-   */
   private handleNPCInteraction(data: {
     playerId: string;
     npcId: string;
@@ -182,7 +163,6 @@ export class NPCSystem extends SystemBase {
   }): void {
     const { playerId, npcId: _npcId, npc } = data;
 
-    // Send interaction response based on NPC type
     switch (npc.type) {
       case "bank":
         this.sendBankInterface(playerId, npc);
@@ -201,13 +181,8 @@ export class NPCSystem extends SystemBase {
     }
   }
 
-  /**
-   * Send bank interface to player
-   */
   private sendBankInterface(playerId: string, npc: NPCLocation): void {
     const bankData = this.getPlayerBankStorage(playerId);
-
-    // Convert Map to object for transmission
     const bankItems: { [key: string]: number } = {};
     for (const [itemId, quantity] of bankData.items) {
       bankItems[itemId] = quantity;
@@ -221,9 +196,6 @@ export class NPCSystem extends SystemBase {
     });
   }
 
-  /**
-   * Send store interface to player
-   */
   private sendStoreInterface(playerId: string, npc: NPCLocation): void {
     const storeItems: {
       [key: string]: { quantity: number; buyPrice: number; sellPrice: number };
@@ -248,9 +220,6 @@ export class NPCSystem extends SystemBase {
     });
   }
 
-  /**
-   * Send trainer interface to player
-   */
   private sendTrainerInterface(playerId: string, npc: NPCLocation): void {
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,
@@ -259,9 +228,6 @@ export class NPCSystem extends SystemBase {
     });
   }
 
-  /**
-   * Send quest interface to player
-   */
   private sendQuestInterface(playerId: string, npc: NPCLocation): void {
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,
@@ -270,9 +236,6 @@ export class NPCSystem extends SystemBase {
     });
   }
 
-  /**
-   * Send generic dialog to player
-   */
   private sendGenericDialog(playerId: string, npc: NPCLocation): void {
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,
@@ -281,9 +244,6 @@ export class NPCSystem extends SystemBase {
     });
   }
 
-  /**
-   * Handle bank deposit
-   */
   private handleBankDeposit(data: {
     playerId: string;
     itemId: string;
@@ -308,7 +268,6 @@ export class NPCSystem extends SystemBase {
     bankData.items.set(itemId, currentAmount + quantity);
     bankData.lastAccessed = Date.now();
 
-    // Record transaction
     const transaction: BankTransaction = {
       type: "bank_deposit",
       itemId,
@@ -318,7 +277,6 @@ export class NPCSystem extends SystemBase {
     };
     this.transactionHistory.push(transaction);
 
-    // Emit success event
     this.emitTypedEvent(EventType.BANK_DEPOSIT_SUCCESS, {
       playerId,
       itemId,
@@ -327,9 +285,6 @@ export class NPCSystem extends SystemBase {
     });
   }
 
-  /**
-   * Handle bank withdrawal
-   */
   private handleBankWithdraw(data: {
     playerId: string;
     itemId: string;
@@ -350,7 +305,6 @@ export class NPCSystem extends SystemBase {
       return;
     }
 
-    // Check if player has inventory space
     const inventorySystem = getSystem<InventorySystem>(this.world, "inventory");
     if (inventorySystem?.isFull(playerId)) {
       this.emitTypedEvent(EventType.UI_MESSAGE, {
@@ -367,7 +321,6 @@ export class NPCSystem extends SystemBase {
     }
     bankData.lastAccessed = Date.now();
 
-    // Record transaction
     const transaction: BankTransaction = {
       type: "bank_withdraw",
       itemId,
@@ -377,7 +330,6 @@ export class NPCSystem extends SystemBase {
     };
     this.transactionHistory.push(transaction);
 
-    // Emit success event
     this.emitTypedEvent(EventType.BANK_WITHDRAW_SUCCESS, {
       playerId,
       itemId,
@@ -386,14 +338,6 @@ export class NPCSystem extends SystemBase {
     });
   }
 
-  // NOTE: handleStoreBuy and handleStoreSell have been removed.
-  // Store transactions are now handled securely by the server handler
-  // (packages/server/src/systems/ServerNetwork/handlers/store.ts)
-  // with database transactions, input validation, and rate limiting.
-
-  /**
-   * Get or create player bank storage
-   */
   private getPlayerBankStorage(playerId: string): PlayerBankStorage {
     let bankData = this.bankStorage.get(playerId);
 
@@ -409,9 +353,6 @@ export class NPCSystem extends SystemBase {
     return bankData;
   }
 
-  /**
-   * Send error message to player
-   */
   private sendError(playerId: string, message: string): void {
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,
@@ -434,9 +375,6 @@ export class NPCSystem extends SystemBase {
     return result;
   }
 
-  /**
-   * Get store inventory
-   */
   public getStoreInventory(): { [key: string]: number } {
     const result: { [key: string]: number } = {};
 
@@ -447,9 +385,6 @@ export class NPCSystem extends SystemBase {
     return result;
   }
 
-  /**
-   * Get transaction history
-   */
   public getTransactionHistory(
     playerId?: string,
   ): Array<BankTransaction | StoreTransaction> {
@@ -459,10 +394,6 @@ export class NPCSystem extends SystemBase {
     return [...this.transactionHistory];
   }
 
-  /**
-   * Spawn an NPC entity
-   * Returns the spawned NPC entity or undefined if spawn failed
-   */
   public spawnNPC(data: {
     npcId: string;
     name: string;
@@ -471,11 +402,9 @@ export class NPCSystem extends SystemBase {
     services?: string[];
     modelPath?: string;
   }): Entity | undefined {
-    // Get the entities system to spawn the actual entity
     const entitiesSystem = getEntitiesSystem(this.world);
     if (!entitiesSystem) return undefined;
 
-    // Create the NPC entity with proper components
     const entity = (
       entitiesSystem as { spawn?: (config: unknown) => unknown }
     ).spawn?.({
@@ -484,7 +413,7 @@ export class NPCSystem extends SystemBase {
       position: data.position,
       type: "npc",
       data: {
-        npcId: data.npcId, // Store manifest ID for store/bank lookups
+        npcId: data.npcId,
         npcType: data.type,
         services: data.services || [],
         modelPath: data.modelPath || "asset://models/npcs/default.glb",
@@ -494,9 +423,6 @@ export class NPCSystem extends SystemBase {
     return entity as Entity | undefined;
   }
 
-  /**
-   * Get system info for debugging
-   */
   getSystemInfo(): SystemInfo {
     return {
       bankAccounts: this.bankStorage.size,
@@ -515,9 +441,6 @@ export class NPCSystem extends SystemBase {
     };
   }
 
-  /**
-   * Handle terrain tile generation - spawn NPCs and towns for new tiles
-   */
   private onTileGenerated(tileData: {
     tileX: number;
     tileZ: number;
@@ -531,13 +454,11 @@ export class NPCSystem extends SystemBase {
       maxZ: (tileData.tileZ + 1) * TILE_SIZE,
     };
 
-    // Find which world areas overlap with this new tile
     const overlappingAreas: Array<
       (typeof ALL_WORLD_AREAS)[keyof typeof ALL_WORLD_AREAS]
     > = [];
     for (const area of Object.values(ALL_WORLD_AREAS)) {
       const areaBounds = area.bounds;
-      // Simple bounding box overlap check
       if (
         tileBounds.minX < areaBounds.maxX &&
         tileBounds.maxX > areaBounds.minX &&
@@ -553,22 +474,15 @@ export class NPCSystem extends SystemBase {
     }
   }
 
-  /**
-   * Generate NPCs for overlapping world areas
-   */
   private generateContentForTile(
     tileData: { tileX: number; tileZ: number },
     areas: Array<(typeof ALL_WORLD_AREAS)[keyof typeof ALL_WORLD_AREAS]>,
   ): void {
     for (const area of areas) {
-      // Spawn NPCs from world-areas.ts data if they fall within this tile
       this.generateNPCsForArea(area, tileData);
     }
   }
 
-  /**
-   * Spawn NPCs from a world area when its tile generates
-   */
   private generateNPCsForArea(
     area: (typeof ALL_WORLD_AREAS)[keyof typeof ALL_WORLD_AREAS],
     tileData: { tileX: number; tileZ: number },
@@ -579,7 +493,6 @@ export class NPCSystem extends SystemBase {
       const npcTileZ = Math.floor(npc.position.z / TILE_SIZE);
 
       if (npcTileX === tileData.tileX && npcTileZ === tileData.tileZ) {
-        // Ground NPC to terrain
         const groundedPosition = groundToTerrain(
           this.world,
           npc.position,
@@ -599,16 +512,13 @@ export class NPCSystem extends SystemBase {
     }
   }
 
-  /**
-   * Get starter town configurations from world areas
-   */
   private getStarterTownConfigs(): Town[] {
     return Object.values(STARTER_TOWNS).map((area) => ({
       id: area.id,
       name: area.name,
       position: {
         x: (area.bounds.minX + area.bounds.maxX) / 2,
-        y: 0, // Y will be grounded to terrain
+        y: 0,
         z: (area.bounds.minZ + area.bounds.maxZ) / 2,
       },
       safeZoneRadius: Math.max(
@@ -621,9 +531,6 @@ export class NPCSystem extends SystemBase {
     }));
   }
 
-  /**
-   * Generate all starter towns
-   */
   private generateTowns(): void {
     const townConfigs = this.getStarterTownConfigs();
     for (const townConfig of townConfigs) {
@@ -631,13 +538,9 @@ export class NPCSystem extends SystemBase {
     }
   }
 
-  /**
-   * Generate a single town with safe zone
-   */
   private generateTown(config: Town): void {
     this.towns.set(config.id, config);
 
-    // Create a safe zone using custom event (not ENTITY_SPAWNED which expects entity data)
     this.world.emit("safezone:created", {
       safeZoneId: `safezone_${config.id}`,
       townId: config.id,
@@ -645,7 +548,6 @@ export class NPCSystem extends SystemBase {
       radius: config.safeZoneRadius,
     });
 
-    // Emit bank registration event (not BANK_OPEN which expects player interaction)
     if (config.hasBank) {
       this.world.emit("bank:registered", {
         bankId: `bank_${config.id}`,
@@ -659,16 +561,10 @@ export class NPCSystem extends SystemBase {
     }
   }
 
-  /**
-   * Get all towns
-   */
   public getTowns(): Town[] {
     return [...this.towns.values()];
   }
 
-  /**
-   * Get nearest town to a position
-   */
   public getNearestTown(position: { x: number; z: number }): Town | null {
     let nearestTown: Town | null = null;
     let minDistance = Infinity;

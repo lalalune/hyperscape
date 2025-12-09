@@ -22,15 +22,33 @@ import {
 } from "../../systems/shared/movement/TileSystem";
 
 export interface AggroConfig {
-  /** Range at which mob detects and chases players */
   aggroRange: number;
-  /** Range at which mob can attack target (in meters, 1 tile = 1 meter) */
   combatRange: number;
 }
 
 export interface PlayerTarget {
   id: string;
   position: Position3D;
+}
+
+/** Player entity shape for aggro checks */
+interface AggroablePlayer {
+  id: string;
+  position?: Position3D;
+  node?: { position?: Position3D };
+  isDead?: () => boolean;
+  health?: number | { current?: number };
+  alive?: boolean;
+}
+
+/** Check if player is dead using multiple indicators */
+function isPlayerDead(player: AggroablePlayer): boolean {
+  if (player.isDead?.()) return true;
+  if (typeof player.health === "number" && player.health <= 0) return true;
+  if (typeof player.health === "object" && (player.health?.current ?? 1) <= 0)
+    return true;
+  if (player.alive === false) return true;
+  return false;
 }
 
 export class AggroManager {
@@ -56,39 +74,16 @@ export class AggroManager {
     // Early exit if no players
     if (players.length === 0) return null;
 
+    const aggroRangeSq = this.config.aggroRange * this.config.aggroRange;
+
     for (const player of players) {
-      // Check both direct position AND node.position for compatibility
-      // Server-side players may have position directly, client-side may use node.position
       const playerPos = player.position || player.node?.position;
       if (!playerPos) continue;
+      if (isPlayerDead(player as AggroablePlayer)) continue;
 
-      // CRITICAL: Skip dead players (RuneScape-style: mobs don't aggro on corpses)
-      // PlayerEntity has isDead() method and health as a number (not { current, max })
-      const playerObj = player as any;
-      if (typeof playerObj.isDead === "function" && playerObj.isDead()) {
-        continue; // Dead player (has isDead method), skip
-      }
-      if (typeof playerObj.health === "number" && playerObj.health <= 0) {
-        continue; // Dead player (health is 0), skip
-      }
-      // Also check health.current for legacy/network data formats
-      if (
-        playerObj.health?.current !== undefined &&
-        playerObj.health.current <= 0
-      ) {
-        continue; // Dead player (health.current is 0), skip
-      }
-      if (playerObj.alive === false) {
-        continue; // Dead player (alive flag), skip
-      }
-
-      // Quick distance check (RuneScape-style: first player in range)
       const dx = playerPos.x - currentPos.x;
       const dz = playerPos.z - currentPos.z;
-      const distSquared = dx * dx + dz * dz;
-      const aggroRangeSquared = this.config.aggroRange * this.config.aggroRange;
-
-      if (distSquared <= aggroRangeSquared) {
+      if (dx * dx + dz * dz <= aggroRangeSq) {
         return {
           id: player.id,
           position: {
@@ -116,38 +111,13 @@ export class AggroManager {
     const player = getPlayerFn(playerId);
     if (!player) return null;
 
-    // Check both direct position AND node.position for compatibility
-    // Server-side players may have position directly, client-side may use node.position
     const playerPos = player.position || player.node?.position;
     if (!playerPos) return null;
-
-    // CRITICAL: Return null if player is dead (RuneScape-style: clear target when player dies)
-    // PlayerEntity has isDead() method and health as a number (not { current, max })
-    const playerObj = player as any;
-    if (typeof playerObj.isDead === "function" && playerObj.isDead()) {
-      return null; // Dead player (has isDead method)
-    }
-    if (typeof playerObj.health === "number" && playerObj.health <= 0) {
-      return null; // Dead player (health is 0)
-    }
-    // Also check health.current for legacy/network data formats
-    if (
-      playerObj.health?.current !== undefined &&
-      playerObj.health.current <= 0
-    ) {
-      return null; // Dead player (health.current is 0)
-    }
-    if (playerObj.alive === false) {
-      return null; // Dead player (alive flag)
-    }
+    if (isPlayerDead(player as AggroablePlayer)) return null;
 
     return {
       id: player.id,
-      position: {
-        x: playerPos.x,
-        y: playerPos.y,
-        z: playerPos.z,
-      },
+      position: { x: playerPos.x, y: playerPos.y, z: playerPos.z },
     };
   }
 

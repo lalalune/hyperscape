@@ -119,6 +119,9 @@ export function createVRMFactory(
     version !== "0" &&
     (!version || (typeof version === "string" && !version.startsWith("0.")));
 
+  // Track whether we've logged missing update pipeline warning
+  let hasLoggedUpdatePipeline = false;
+
   // Setup skinned meshes with NORMAL bind mode (for normalized bone compatibility)
   // DetachedBindMode is incompatible with normalized bones in scene graph
   const skinnedMeshes: THREE.SkinnedMesh[] = [];
@@ -395,15 +398,14 @@ export function createVRMFactory(
           mixer.update(elapsed);
         }
 
-        // Step 2: CRITICAL - Propagate normalized bone transforms to raw bones
-        // This is where the VRM library's automatic A-pose handling happens
-        // Without this, normalized bone changes never reach the visible skeleton
+        // Propagate normalized bone transforms to raw bones (VRM library handles A-pose)
         if (_tvrm?.humanoid?.update) {
           _tvrm.humanoid.update(elapsed);
         } else if (!hasLoggedUpdatePipeline) {
           console.warn(
-            `[VRM] ⚠️ humanoid.update NOT available - animations may not propagate to visible skeleton!`,
+            `[VRM] humanoid.update NOT available - animations may not propagate`,
           );
+          hasLoggedUpdatePipeline = true;
         }
 
         // Step 3: Update skeleton matrices for skinning

@@ -22,7 +22,7 @@ interface ModelViewerProps {
   leftHandData: { bonesAdded: number } | null;
   rightHandData: { bonesAdded: number } | null;
   processingStage: string;
-  viewerRef: React.RefObject<ThreeViewerRef>;
+  viewerRef: React.RefObject<ThreeViewerRef | null>;
   onToggleSkeleton: () => void;
   onExport: () => void;
   onModelLoad: (info: {

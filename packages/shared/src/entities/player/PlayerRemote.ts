@@ -160,7 +160,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
     // Position and rotation are now handled by Entity base class
     // Use entity's position/rotation properties instead of data
 
-    // CRITICAL: Set userData for right-click interaction detection
+    // Set userData for right-click interaction detection
     const playerUserData = {
       type: "player",
       entityId: this.id,
@@ -325,7 +325,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
         }
       }
 
-      // CRITICAL: Pass VRM hooks to toNodes() so VRMFactory applies normalization and rotation
+      // Pass VRM hooks to toNodes() so VRMFactory applies normalization and rotation
       // This must happen DURING toNodes() call, not after
       const vrmHooks: VRMHooks = {
         scene: this.world.stage.scene,
@@ -367,11 +367,13 @@ export class PlayerRemote extends Entity implements HotReloadable {
       nodeObj.hooks = vrmHooks;
 
       // Set the parent so the node knows where it belongs in the hierarchy
-      (nodeObj as Avatar & AvatarNodeInternal & { parent: unknown }).parent = {
-        matrixWorld: this.base.matrixWorld,
-      };
+      // Using Object.assign to bypass type checking for internal parent property
+      // Type assertion needed because parent property structure doesn't match full Node type
+      Object.assign(nodeObj, {
+        parent: { matrixWorld: this.base.matrixWorld } as THREE.Object3D,
+      });
 
-      // CRITICAL: Avatar node position should be at origin (0,0,0) (matches PlayerLocal)
+      // Avatar node position should be at origin (0,0,0) (matches PlayerLocal)
       // The instance.move() method will position it at the base's world position
       nodeObj.position.set(0, 0, 0);
 
@@ -402,7 +404,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
         this.nametag.active = true;
       }
 
-      // CRITICAL: Make avatar visible and ensure proper positioning (matches PlayerLocal)
+      // Make avatar visible and ensure proper positioning (matches PlayerLocal)
       (this.avatar as unknown as { visible: boolean }).visible = true;
       nodeObj.position.set(0, 0, 0);
 
@@ -419,7 +421,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
       loadSuccess = true;
       this.avatarUrl = avatarUrl;
 
-      // SPECTATOR FIX: Emit PLAYER_AVATAR_READY so camera system can set proper offset
+      // Emit PLAYER_AVATAR_READY so camera system can set proper offset
       // This is critical for spectator mode to work correctly
       this.world.emit(EventType.PLAYER_AVATAR_READY, {
         playerId: this.id,
@@ -474,7 +476,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
             this.base.position.copy(targetPos);
             this.node.position.copy(targetPos);
             this.position.copy(targetPos);
-            // CRITICAL: Update base transform for instance.move()
+            // Update base transform for instance.move()
             this.base.updateTransform();
             // Position applied directly without interpolation
           }
@@ -489,7 +491,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
           this.node.position.copy(this.lerpPosition.value);
           this.position.copy(this.lerpPosition.value);
           this.node.quaternion.copy(this.lerpQuaternion.value);
-          // CRITICAL: Update base transform for instance.move()
+          // Update base transform for instance.move()
           this.base.updateTransform();
         }
       } else {
@@ -524,24 +526,22 @@ export class PlayerRemote extends Entity implements HotReloadable {
       }
     }
 
-    // If no target from our combat state, check for mobs attacking us
+    // If no target, check CombatSystem for entities attacking us
     if (!combatTarget) {
-      for (const entity of this.world.entities.items.values()) {
-        if (entity.type === "mob" && entity.position) {
-          const mobEntity = entity as any;
-          // Check if mob is in ATTACK state and targeting this player
-          if (
-            mobEntity.config?.aiState === "attack" &&
-            mobEntity.config?.targetPlayerId === this.id
-          ) {
-            const dx = entity.position.x - this.position.x;
-            const dz = entity.position.z - this.position.z;
-            const distance2D = Math.sqrt(dx * dx + dz * dz);
-
-            // Only rotate if mob is within reasonable combat range
-            if (distance2D <= 3) {
-              combatTarget = { position: entity.position, id: entity.id };
-              break; // Only face one mob at a time
+      const combatSystem = this.world.getSystem?.("combat") as {
+        getAttackersOf?: (targetId: string) => string[];
+      } | null;
+      const attackerIds = combatSystem?.getAttackersOf?.(this.id);
+      if (attackerIds && attackerIds.length > 0) {
+        // Find closest attacker within combat range (squared distance 9 = 3^2)
+        for (const attackerId of attackerIds) {
+          const attacker = this.world.entities.items.get(attackerId);
+          if (attacker?.position) {
+            const dx = attacker.position.x - this.position.x;
+            const dz = attacker.position.z - this.position.z;
+            if (dx * dx + dz * dz <= 9) {
+              combatTarget = { position: attacker.position, id: attacker.id };
+              break;
             }
           }
         }
@@ -611,7 +611,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
         // }
       }
 
-      // CRITICAL: Update avatar position/rotation every frame (matches PlayerLocal)
+      // Update avatar position/rotation every frame (matches PlayerLocal)
       // The move() method applies the transform matrix with normalization and rotation
       if (instance && instance.move && this.base) {
         instance.move(this.base.matrixWorld);
@@ -748,12 +748,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
         this.base.position.set(pos[0], pos[1], pos[2]);
         this.node.position.set(pos[0], pos[1], pos[2]);
         this.position.set(pos[0], pos[1], pos[2]);
-        // CRITICAL: Force base to update its matrix so instance.move() gets correct transform
+        // Force base to update its matrix so instance.move() gets correct transform
         this.base.updateTransform();
       }
     }
     if (data.q !== undefined) {
-      // CRITICAL: Skip quaternion updates when TileInterpolator is controlling rotation
+      // Skip quaternion updates when TileInterpolator is controlling rotation
       // TileInterpolator handles rotation smoothly for tile-based movement
       const tileControlled = this.data.tileInterpolatorControlled === true;
       if (!tileControlled) {

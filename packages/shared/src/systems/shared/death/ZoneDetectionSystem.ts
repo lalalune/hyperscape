@@ -94,8 +94,8 @@ export class ZoneDetectionSystem extends SystemBase {
     x: number;
     z: number;
   }): ZoneProperties {
-    // Check world areas first (from data/world-areas.ts)
-    for (const area of Object.values(ALL_WORLD_AREAS) as WorldArea[]) {
+    for (const areaId in ALL_WORLD_AREAS) {
+      const area = ALL_WORLD_AREAS[areaId];
       if (area.bounds) {
         const { minX, maxX, minZ, maxZ } = area.bounds;
         if (
@@ -104,9 +104,8 @@ export class ZoneDetectionSystem extends SystemBase {
           position.z >= minZ &&
           position.z <= maxZ
         ) {
-          // Found matching area
           const isSafe = area.safeZone === true;
-          const isPvP = (area as any).pvpEnabled === true;
+          const isPvP = (area as { pvpEnabled?: boolean }).pvpEnabled === true;
           const isWild = !isSafe || isPvP;
 
           let type: ZoneType;
@@ -130,11 +129,11 @@ export class ZoneDetectionSystem extends SystemBase {
       }
     }
 
-    // Check zones (from data/world-structure.ts)
     const zone = getZoneByPosition(position);
     if (zone) {
-      const isSafe = (zone as any).safeZone === true || zone.isTown === true;
-      const isPvP = (zone as any).pvpEnabled === true;
+      const zoneData = zone as { safeZone?: boolean; pvpEnabled?: boolean };
+      const isSafe = zoneData.safeZone === true || zone.isTown === true;
+      const isPvP = zoneData.pvpEnabled === true;
       const isWild = !isSafe || isPvP;
 
       let type: ZoneType;
@@ -180,8 +179,8 @@ export class ZoneDetectionSystem extends SystemBase {
    * Pre-warm cache for known safe zones
    */
   private prewarmCache(): void {
-    // Cache starter area and known towns
-    for (const area of Object.values(ALL_WORLD_AREAS) as WorldArea[]) {
+    for (const areaId in ALL_WORLD_AREAS) {
+      const area = ALL_WORLD_AREAS[areaId];
       if (area.safeZone && area.bounds) {
         const centerX = (area.bounds.minX + area.bounds.maxX) / 2;
         const centerZ = (area.bounds.minZ + area.bounds.maxZ) / 2;

@@ -23,6 +23,7 @@ import { SafeAreaDeathHandler } from "../death/SafeAreaDeathHandler";
 import { WildernessDeathHandler } from "../death/WildernessDeathHandler";
 import { ZoneType } from "../../../types/death";
 import type { InventorySystem } from "../character/InventorySystem";
+import type { DatabaseTransaction } from "../../../types/network/database";
 
 /**
  * Player Death and Respawn System - Orchestrator Pattern
@@ -66,6 +67,31 @@ export class PlayerDeathSystem extends SystemBase {
   private lastDeathTime = new Map<string, number>();
   private readonly DEATH_COOLDOWN = 10000; // 10 seconds
 
+  // PERFORMANCE: Cached system references and reusable position object
+  private cachedPlayerSystem?: {
+    players?: Map<string, { position?: { x: number; y: number; z: number } }>;
+  };
+  private cachedDatabaseSystem?: {
+    executeInTransaction: <T>(
+      callback: (tx: DatabaseTransaction) => Promise<T>,
+    ) => Promise<T>;
+  };
+  private cachedInventorySystem?: InventorySystem;
+  private cachedEquipmentSystem?: {
+    getPlayerEquipment?: (
+      playerId: string,
+    ) =>
+      | { [key: string]: { item?: { id: string; quantity?: number } } }
+      | undefined;
+    clearEquipmentImmediate?: (playerId: string) => Promise<void>;
+  };
+  private cachedEntityManager?: EntityManager;
+  private cachedTerrainSystem?: {
+    isReady?: () => boolean;
+    getHeightAt?: (x: number, z: number) => number;
+  };
+  private readonly reusablePosition = { x: 0, y: 0, z: 0 };
+
   // Modular death system components
   private zoneDetection!: ZoneDetectionSystem;
   private groundItemSystem!: GroundItemSystem;
@@ -89,13 +115,48 @@ export class PlayerDeathSystem extends SystemBase {
     this.zoneDetection = new ZoneDetectionSystem(this.world);
     await this.zoneDetection.init();
 
+    // Cache system references for performance
+    this.cachedPlayerSystem = this.world.getSystem("player") as
+      | {
+          players?: Map<
+            string,
+            { position?: { x: number; y: number; z: number } }
+          >;
+        }
+      | undefined;
+    this.cachedDatabaseSystem = this.world.getSystem("database") as unknown as
+      | {
+          executeInTransaction: <T>(
+            callback: (tx: DatabaseTransaction) => Promise<T>,
+          ) => Promise<T>;
+        }
+      | undefined;
+    this.cachedInventorySystem =
+      this.world.getSystem<InventorySystem>("inventory") || undefined;
+    this.cachedEquipmentSystem = this.world.getSystem("equipment") as
+      | {
+          getPlayerEquipment?: (
+            playerId: string,
+          ) =>
+            | { [key: string]: { item?: { id: string; quantity?: number } } }
+            | undefined;
+          clearEquipmentImmediate?: (playerId: string) => Promise<void>;
+        }
+      | undefined;
+    this.cachedEntityManager =
+      this.world.getSystem<EntityManager>("entity-manager") || undefined;
+    this.cachedTerrainSystem = this.world.getSystem("terrain") as
+      | {
+          isReady?: () => boolean;
+          getHeightAt?: (x: number, z: number) => number;
+        }
+      | undefined;
+
     // Get shared GroundItemSystem (registered as world system)
     this.groundItemSystem =
       this.world.getSystem<GroundItemSystem>("ground-items")!;
     if (!this.groundItemSystem) {
-      console.error(
-        "[PlayerDeathSystem] GroundItemSystem not found - death drops disabled",
-      );
+      this.logger.error("GroundItemSystem not found - death drops disabled");
     }
 
     this.deathStateManager = new DeathStateManager(this.world);
@@ -138,18 +199,20 @@ export class PlayerDeathSystem extends SystemBase {
       (data: { headstoneId: string; playerId: string }) =>
         this.handleHeadstoneExpired(data),
     );
-    // CRITICAL: Clean up death lock when gravestone is fully looted
+    // Clean up death lock when gravestone is fully looted
     // Prevents database memory leak and ensures proper respawn state
     this.subscribe(
       EventType.CORPSE_EMPTY,
       (data: { corpseId: string; playerId: string }) =>
         this.handleCorpseEmpty(data),
     );
-    // CRITICAL: Validate death state on player reconnect
+    // Validate death state on player reconnect
     // Prevents item duplication when player disconnects during death
     this.subscribe(EventType.PLAYER_JOINED, (data: { playerId: string }) =>
       this.handlePlayerReconnect(data),
     );
+
+    // PERFORMANCE: Cache system references to avoid repeated lookups (already initialized in init())
 
     // Listen to position updates for reactive patterns
     this.subscribe(
@@ -250,19 +313,24 @@ export class PlayerDeathSystem extends SystemBase {
 
     if (!position) {
       // Fallback 2: Try to get from player system
-      const playerSystem = this.world.getSystem?.("player") as any;
+      // PERFORMANCE: Use cached player system reference
+      const playerSystem = this.cachedPlayerSystem;
       if (playerSystem) {
         const player = playerSystem.players?.get?.(playerId);
         if (player?.position) {
-          position = { ...player.position };
+          this.reusablePosition.x = player.position.x;
+          this.reusablePosition.y = player.position.y;
+          this.reusablePosition.z = player.position.z;
+          position = this.reusablePosition;
         }
       }
     }
 
     if (!position) {
       // Ultimate fallback: Use spawn location
-      console.warn(
-        `[PlayerDeathSystem] Could not find position for player ${playerId}, using default spawn`,
+      // This should rarely happen - if it does, it indicates a deeper issue
+      this.logger.warn(
+        `Could not find position for player ${playerId}, using default spawn`,
       );
       position = { x: 0, y: 10, z: 0 };
     }
@@ -274,7 +342,7 @@ export class PlayerDeathSystem extends SystemBase {
    * Convert equipped items to InventoryItem format for death drops
    */
   private convertEquipmentToInventoryItems(
-    equipment: any,
+    equipment: { [key: string]: { item?: { id: string; quantity?: number } } },
     playerId: string,
   ): InventoryItem[] {
     const items: InventoryItem[] = [];
@@ -302,34 +370,33 @@ export class PlayerDeathSystem extends SystemBase {
     deathPosition: { x: number; y: number; z: number },
     killedBy: string,
   ): Promise<void> {
-    // CRITICAL: Server authority check - prevent client from triggering death events
+    // Server authority check - prevent client from triggering death events
     if (!this.world.isServer) {
-      console.error(
-        `[PlayerDeathSystem] ⚠️  Client attempted server-only death processing for ${playerId} - BLOCKED`,
+      this.logger.error(
+        `Client attempted server-only death processing for ${playerId} - BLOCKED`,
+        new Error("Client attempted server operation"),
       );
       return;
     }
 
-    // CRITICAL: Rate limiter - prevent death spam exploits
+    // Rate limiter - prevent death spam exploits
     const lastDeath = this.lastDeathTime.get(playerId) || 0;
     const timeSinceDeath = Date.now() - lastDeath;
 
     if (timeSinceDeath < this.DEATH_COOLDOWN) {
-      console.warn(
-        `[PlayerDeathSystem] ⚠️  Death spam detected for ${playerId} - ` +
-          `${timeSinceDeath}ms since last death (cooldown: ${this.DEATH_COOLDOWN}ms) - BLOCKED`,
+      this.logger.warn(
+        `Death spam detected for ${playerId} - ${timeSinceDeath}ms since last death (cooldown: ${this.DEATH_COOLDOWN}ms) - BLOCKED`,
       );
       return;
     }
 
-    // CRITICAL: Check for active death lock - prevents duplicate deaths
+    // Check for active death lock - prevents duplicate deaths
     // This checks both in-memory AND database (for reconnect scenarios)
     const hasActiveDeathLock =
       await this.deathStateManager.hasActiveDeathLock(playerId);
     if (hasActiveDeathLock) {
-      console.warn(
-        `[PlayerDeathSystem] ⚠️  Player ${playerId} already has active death lock - ` +
-          `cannot die again until resolved - BLOCKED`,
+      this.logger.warn(
+        `Player ${playerId} already has active death lock - cannot die again until resolved - BLOCKED`,
       );
       return;
     }
@@ -337,121 +404,125 @@ export class PlayerDeathSystem extends SystemBase {
     // Update last death time
     this.lastDeathTime.set(playerId, Date.now());
 
-    // Get database system for transaction support
-    const databaseSystem = this.world.getSystem("database") as any;
+    // PERFORMANCE: Use cached system references
+    const databaseSystem = this.cachedDatabaseSystem;
     if (!databaseSystem || !databaseSystem.executeInTransaction) {
-      console.error(
-        "[PlayerDeathSystem] DatabaseSystem not available - cannot use transaction!",
+      this.logger.error(
+        "DatabaseSystem not available - cannot use transaction!",
       );
       return;
     }
 
     // Get inventory system
-    const inventorySystem = this.world.getSystem<InventorySystem>("inventory");
+    const inventorySystem = this.cachedInventorySystem;
     if (!inventorySystem) {
-      console.error("[PlayerDeathSystem] InventorySystem not available");
+      this.logger.error("InventorySystem not available");
       return;
     }
 
     // Get equipment system
-    const equipmentSystem = this.world.getSystem("equipment") as any;
+    const equipmentSystem = this.cachedEquipmentSystem;
 
     let itemsToDrop: InventoryItem[] = [];
 
     try {
-      // CRITICAL: Wrap entire death flow in transaction for atomicity
-      await databaseSystem.executeInTransaction(async (tx: any) => {
-        // Step 1: Get inventory items (read-only, non-destructive)
-        const inventory = inventorySystem.getInventory(playerId);
-        if (!inventory) {
-          console.warn(
-            `[PlayerDeathSystem] No inventory found for ${playerId}, cannot drop items`,
-          );
-          // Continue with empty items - still need to process death
-        }
+      // Wrap entire death flow in transaction for atomicity
+      await databaseSystem.executeInTransaction(
+        async (tx: DatabaseTransaction) => {
+          // Step 1: Get inventory items (read-only, non-destructive)
+          const inventory = inventorySystem.getInventory(playerId);
+          if (!inventory) {
+            this.logger.warn(
+              `No inventory found for ${playerId}, cannot drop items`,
+            );
+            // Continue with empty items - still need to process death
+          }
 
-        const inventoryItems =
-          inventory?.items.map((item, index) => ({
-            id: `death_${playerId}_${Date.now()}_${index}`,
-            itemId: item.itemId,
-            quantity: item.quantity,
-            slot: item.slot,
-            metadata: null,
-          })) || [];
+          const inventoryItems =
+            inventory?.items.map((item, index) => ({
+              id: `death_${playerId}_${Date.now()}_${index}`,
+              itemId: item.itemId,
+              quantity: item.quantity,
+              slot: item.slot,
+              metadata: null,
+            })) || [];
 
-        // Step 1b: Get equipped items (read-only, non-destructive)
-        let equipmentItems: InventoryItem[] = [];
-        if (equipmentSystem) {
-          const equipment = equipmentSystem.getPlayerEquipment(playerId);
-          if (equipment) {
-            equipmentItems = this.convertEquipmentToInventoryItems(
-              equipment,
-              playerId,
+          // Step 1b: Get equipped items (read-only, non-destructive)
+          let equipmentItems: InventoryItem[] = [];
+          if (equipmentSystem && equipmentSystem.getPlayerEquipment) {
+            const equipment = equipmentSystem.getPlayerEquipment(playerId) as
+              | { [key: string]: { item?: { id: string; quantity?: number } } }
+              | undefined;
+            if (equipment) {
+              equipmentItems = this.convertEquipmentToInventoryItems(
+                equipment,
+                playerId,
+              );
+            }
+          } else {
+            this.logger.warn(
+              "EquipmentSystem not available, only inventory items will drop",
             );
           }
-        } else {
-          console.warn(
-            "[PlayerDeathSystem] EquipmentSystem not available, only inventory items will drop",
-          );
-        }
 
-        // Merge inventory + equipment items
-        itemsToDrop = [...inventoryItems, ...equipmentItems];
+          // Merge inventory + equipment items
+          itemsToDrop = [...inventoryItems, ...equipmentItems];
 
-        // Step 2: Detect zone type (safe vs wilderness)
-        const zoneType = this.zoneDetection.getZoneType(deathPosition);
+          // Step 2: Detect zone type (safe vs wilderness)
+          const zoneType = this.zoneDetection.getZoneType(deathPosition);
 
-        // Step 3: Handle death based on zone type
-        if (zoneType === ZoneType.SAFE_AREA) {
-          // Safe area: Store gravestone data for AFTER respawn (RuneScape-style)
-          this.pendingGravestones.set(playerId, {
-            position: deathPosition,
-            items: itemsToDrop,
-            killedBy,
-            zoneType,
-          });
-
-          // Create death lock without gravestone (will spawn after respawn)
-          await this.deathStateManager.createDeathLock(
-            playerId,
-            {
-              gravestoneId: "", // No gravestone yet
+          // Step 3: Handle death based on zone type
+          if (zoneType === ZoneType.SAFE_AREA) {
+            // Safe area: Store gravestone data for AFTER respawn (RuneScape-style)
+            this.pendingGravestones.set(playerId, {
               position: deathPosition,
-              zoneType: ZoneType.SAFE_AREA,
-              itemCount: itemsToDrop.length,
-            },
-            tx,
-          );
-        } else {
-          // Wilderness: Immediate ground item spawn (existing behavior)
-          await this.wildernessHandler.handleDeath(
-            playerId,
-            deathPosition,
-            itemsToDrop,
-            killedBy,
-            zoneType,
-            tx, // Pass transaction context
-          );
-        }
+              items: itemsToDrop,
+              killedBy,
+              zoneType,
+            });
 
-        // Step 4: CRITICAL - Clear inventory AND equipment LAST (safest point for destructive operation)
-        // If we crash before this point, transaction rolls back and nothing is cleared
-        await inventorySystem.clearInventoryImmediate(playerId);
+            // Create death lock without gravestone (will spawn after respawn)
+            await this.deathStateManager.createDeathLock(
+              playerId,
+              {
+                gravestoneId: "", // No gravestone yet
+                position: deathPosition,
+                zoneType: ZoneType.SAFE_AREA,
+                itemCount: itemsToDrop.length,
+              },
+              tx as DatabaseTransaction,
+            );
+          } else {
+            // Wilderness: Immediate ground item spawn (existing behavior)
+            await this.wildernessHandler.handleDeath(
+              playerId,
+              deathPosition,
+              itemsToDrop,
+              killedBy,
+              zoneType,
+              tx as DatabaseTransaction, // Pass transaction context
+            );
+          }
 
-        // Also clear equipment
-        if (equipmentSystem && equipmentSystem.clearEquipmentImmediate) {
-          await equipmentSystem.clearEquipmentImmediate(playerId);
-        }
+          // Step 4: Clear inventory and equipment last (safest point for destructive operation)
+          // If we crash before this point, transaction rolls back and nothing is cleared
+          await inventorySystem.clearInventoryImmediate(playerId);
 
-        // Transaction will auto-commit here if all succeeded
-      });
+          // Also clear equipment
+          if (equipmentSystem && equipmentSystem.clearEquipmentImmediate) {
+            await equipmentSystem.clearEquipmentImmediate(playerId);
+          }
+
+          // Transaction will auto-commit here if all succeeded
+        },
+      );
 
       // Post-transaction cleanup (memory-only operations, not part of transaction)
       this.postDeathCleanup(playerId, deathPosition, itemsToDrop, killedBy);
     } catch (error) {
-      console.error(
-        `[PlayerDeathSystem] ❌ Death transaction failed for ${playerId}, rolled back:`,
-        error,
+      this.logger.error(
+        `Death transaction failed for ${playerId}, rolled back`,
+        error instanceof Error ? error : new Error(String(error)),
       );
       // Transaction automatically rolled back
       // Inventory NOT cleared - player keeps items
@@ -551,12 +622,10 @@ export class PlayerDeathSystem extends SystemBase {
         (playerEntity.data as any).name) ||
       playerId;
 
-    // Get EntityManager to spawn headstone
-    const entityManager = this.world.getSystem<EntityManager>("entity-manager");
+    // PERFORMANCE: Use cached entity manager reference
+    const entityManager = this.cachedEntityManager;
     if (!entityManager) {
-      console.error(
-        "[PlayerDeathSystem] EntityManager not found, cannot spawn headstone",
-      );
+      this.logger.error("EntityManager not found, cannot spawn headstone");
       return;
     }
 
@@ -606,9 +675,8 @@ export class PlayerDeathSystem extends SystemBase {
     // Spawn the headstone entity
     const headstoneEntity = await entityManager.spawnEntity(headstoneConfig);
     if (!headstoneEntity) {
-      console.error(
-        "[PlayerDeathSystem] Failed to spawn headstone entity for player",
-        playerId,
+      this.logger.error(
+        `Failed to spawn headstone entity for player ${playerId}`,
       );
       return;
     }
@@ -683,8 +751,8 @@ export class PlayerDeathSystem extends SystemBase {
       }
     }
 
-    // Ground to terrain (use same logic as initial player spawn)
-    const terrainSystem = this.world.getSystem("terrain") as any;
+    // PERFORMANCE: Use cached terrain system reference
+    const terrainSystem = this.cachedTerrainSystem;
     let groundedY = spawnPosition.y;
 
     if (terrainSystem && terrainSystem.isReady && terrainSystem.isReady()) {
@@ -781,7 +849,7 @@ export class PlayerDeathSystem extends SystemBase {
       type: "info",
     });
 
-    // CRITICAL: Clear death lock after successful respawn
+    // Clear death lock after successful respawn
     // This prevents stale death locks from blocking future logins
     this.deathStateManager.clearDeathLock(playerId);
   }
@@ -799,9 +867,7 @@ export class PlayerDeathSystem extends SystemBase {
       "entity-manager",
     ) as EntityManager | null;
     if (!entityManager) {
-      console.error(
-        "[PlayerDeathSystem] EntityManager not available, cannot spawn gravestone",
-      );
+      this.logger.error("EntityManager not available, cannot spawn gravestone");
       return;
     }
 
@@ -856,9 +922,7 @@ export class PlayerDeathSystem extends SystemBase {
     const gravestoneEntity = await entityManager.spawnEntity(gravestoneConfig);
 
     if (!gravestoneEntity) {
-      console.error(
-        `[PlayerDeathSystem] Failed to spawn gravestone entity: ${gravestoneId}`,
-      );
+      this.logger.error(`Failed to spawn gravestone entity: ${gravestoneId}`);
       return;
     }
 
@@ -927,7 +991,7 @@ export class PlayerDeathSystem extends SystemBase {
 
   /**
    * Handle player reconnect - validate death state
-   * CRITICAL: Prevents item duplication when player disconnects during death
+   * Prevents item duplication when player disconnects during death
    *
    * Called when player reconnects to server
    * - Checks for active death lock in database
@@ -967,7 +1031,7 @@ export class PlayerDeathSystem extends SystemBase {
         this.initiateRespawn(playerId);
       }, 500); // 0.5 second delay
 
-      // CRITICAL: Block inventory load until respawn
+      // Block inventory load until respawn
       // This prevents inventory items from appearing when player is dead
       return { blockInventoryLoad: true };
     }
@@ -1092,7 +1156,7 @@ export class PlayerDeathSystem extends SystemBase {
 
   /**
    * Handle CORPSE_EMPTY event - called when all items are looted from gravestone
-   * CRITICAL: Clears death lock from database to prevent memory leak
+   * Clears death lock from database to prevent memory leak
    */
   private async handleCorpseEmpty(data: {
     corpseId: string;

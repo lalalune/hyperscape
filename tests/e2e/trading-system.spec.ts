@@ -21,7 +21,7 @@ test.describe("Hyperscape Trading System E2E", () => {
     try {
       // Connect Player 1
       console.log("📡 Connecting Player 1...");
-      await player1Page.goto("http://localhost:5555");
+      await player1Page.goto("http://localhost:3333");
       await player1Page.waitForLoadState("networkidle");
       await player1Page.waitForTimeout(8000); // Extra time for 3D world to load
 
@@ -42,7 +42,7 @@ test.describe("Hyperscape Trading System E2E", () => {
 
       // Connect Player 2
       console.log("📡 Connecting Player 2...");
-      await player2Page.goto("http://localhost:5555");
+      await player2Page.goto("http://localhost:3333");
       await player2Page.waitForLoadState("networkidle");
       await player2Page.waitForTimeout(8000);
 
@@ -139,7 +139,7 @@ test.describe("Hyperscape Trading System E2E", () => {
     const page = await context.newPage();
 
     try {
-      await page.goto("http://localhost:5555");
+      await page.goto("http://localhost:3333");
       await page.waitForLoadState("networkidle");
       await page.waitForTimeout(6000);
 
@@ -220,7 +220,7 @@ test.describe("Hyperscape Trading System E2E", () => {
     const page = await context.newPage();
 
     try {
-      await page.goto("http://localhost:5555");
+      await page.goto("http://localhost:3333");
       await page.waitForLoadState("networkidle");
       await page.waitForTimeout(5000);
 
@@ -267,4 +267,3 @@ test.describe("Hyperscape Trading System E2E", () => {
     }
   });
 });
-
