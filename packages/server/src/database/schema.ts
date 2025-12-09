@@ -112,6 +112,7 @@ export const config = pgTable("config", {
  * - `privyUserId` - Privy authentication ID (unique, indexed)
  * - `farcasterFid` - Farcaster Frame ID if linked (indexed)
  * - `roles` - Comma-separated roles (e.g., "admin,builder")
+ * - `wallet` - Main Privy embedded wallet address (HD index 0)
  */
 export const users = pgTable(
   "users",
@@ -121,6 +122,7 @@ export const users = pgTable(
     roles: text("roles").notNull(),
     createdAt: text("createdAt").notNull(),
     avatar: text("avatar"),
+    wallet: text("wallet"),
     privyUserId: text("privyUserId").unique(),
     farcasterFid: text("farcasterFid"),
   },
@@ -182,7 +184,7 @@ export const characters = pgTable(
     ),
 
     // Combat stats
-    combatLevel: integer("combatLevel").default(1),
+    combatLevel: integer("combatLevel").default(3),
     attackLevel: integer("attackLevel").default(1),
     strengthLevel: integer("strengthLevel").default(1),
     defenseLevel: integer("defenseLevel").default(1),
@@ -216,10 +218,61 @@ export const characters = pgTable(
     positionY: real("positionY").default(10),
     positionZ: real("positionZ").default(0),
 
+    // Combat preferences
+    attackStyle: text("attackStyle").default("accurate"),
+
     lastLogin: bigint("lastLogin", { mode: "number" }).default(0),
+
+    // Avatar and wallet
+    avatar: text("avatar"),
+    wallet: text("wallet"),
+
+    // Agent flag - true if this character is controlled by an AI agent (ElizaOS)
+    isAgent: integer("isAgent").default(0).notNull(), // SQLite: 0=false, 1=true
   },
   (table) => ({
     accountIdx: index("idx_characters_account").on(table.accountId),
+    walletIdx: index("idx_characters_wallet").on(table.wallet),
+    isAgentIdx: index("idx_characters_is_agent").on(table.isAgent),
+  }),
+);
+
+/**
+ * Agent Mappings Table - Tracks ElizaOS agent ownership
+ *
+ * Maps ElizaOS agent UUIDs to Hyperscape users and characters.
+ * This allows the dashboard to filter agents by user since ElizaOS doesn't expose this.
+ *
+ * Key columns:
+ * - `agentId` - ElizaOS agent UUID (primary key)
+ * - `accountId` - References users.id (CASCADE DELETE)
+ * - `characterId` - References characters.id (CASCADE DELETE)
+ * - `agentName` - Agent name (denormalized for performance)
+ * - `createdAt` - When mapping was created
+ * - `updatedAt` - Last sync timestamp
+ *
+ * Design notes:
+ * - Created when user creates an AI agent through Character Editor
+ * - Deleted automatically when user/character is deleted (CASCADE)
+ * - Used by Dashboard to filter "My Agents" without relying on ElizaOS API
+ */
+export const agentMappings = pgTable(
+  "agent_mappings",
+  {
+    agentId: text("agent_id").primaryKey().notNull(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    characterId: text("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    agentName: text("agent_name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    accountIdx: index("idx_agent_mappings_account").on(table.accountId),
+    characterIdx: index("idx_agent_mappings_character").on(table.characterId),
   }),
 );
 
@@ -322,6 +375,40 @@ export const equipment = pgTable(
   },
   (table) => ({
     uniquePlayerSlot: unique().on(table.playerId, table.slotType),
+  }),
+);
+
+/**
+ * Bank Storage Table - Player bank item storage
+ *
+ * Stores items deposited in banks. All items stack in bank (MVP simplification).
+ * Shared storage - same items accessible from any bank location.
+ *
+ * Key columns:
+ * - `playerId` - References characters.id (CASCADE DELETE)
+ * - `itemId` - Item identifier (matches inventory itemId format)
+ * - `quantity` - Stack size (all items stack in bank)
+ * - `slot` - Bank slot index (0-479, 480 max slots)
+ *
+ * Design notes:
+ * - All items stack in bank for simplicity
+ * - Unique constraint on (playerId, slot) ensures one item per slot
+ * - CASCADE DELETE ensures cleanup when character is deleted
+ */
+export const bankStorage = pgTable(
+  "bank_storage",
+  {
+    id: serial("id").primaryKey(),
+    playerId: text("playerId")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    itemId: text("itemId").notNull(),
+    quantity: integer("quantity").default(1).notNull(),
+    slot: integer("slot").default(0).notNull(),
+  },
+  (table) => ({
+    uniquePlayerSlot: unique().on(table.playerId, table.slot),
+    playerIdx: index("idx_bank_storage_player").on(table.playerId),
   }),
 );
 
@@ -480,6 +567,89 @@ export const npcKills = pgTable(
 );
 
 /**
+ * Player Deaths Table - Active death lock tracking
+ *
+ * Stores death locks for players who have died and need to retrieve their items.
+ * CRITICAL: This table prevents item duplication exploits on server restart.
+ *
+ * Key columns:
+ * - `playerId` - References characters.id (CASCADE DELETE)
+ * - `gravestoneId` - ID of gravestone entity (nullable if wilderness death)
+ * - `groundItemIds` - JSON array of ground item entity IDs
+ * - `position` - JSON object {x, y, z} of death location
+ * - `timestamp` - When player died (Unix milliseconds)
+ * - `zoneType` - "safe_area" | "wilderness" | "pvp_zone"
+ * - `itemCount` - Number of items dropped (for cleanup validation)
+ *
+ * **Security**: Server restart loads these records to restore death state.
+ * Without this table, server restart = item duplication exploit.
+ *
+ * **Lifecycle**: Row created on death, deleted when player respawns or loots all items.
+ */
+export const playerDeaths = pgTable(
+  "player_deaths",
+  {
+    playerId: text("playerId")
+      .primaryKey()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    gravestoneId: text("gravestoneId"),
+    groundItemIds: text("groundItemIds"), // JSON array: ["item1", "item2", ...]
+    position: text("position").notNull(), // JSON: {"x": 0, "y": 0, "z": 0}
+    timestamp: bigint("timestamp", { mode: "number" }).notNull(),
+    zoneType: text("zoneType").notNull(), // "safe_area" | "wilderness" | "pvp_zone"
+    itemCount: integer("itemCount").default(0).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+    updatedAt: bigint("updatedAt", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+  },
+  (table) => ({
+    timestampIdx: index("idx_player_deaths_timestamp").on(table.timestamp),
+  }),
+);
+
+/**
+ * Character Templates Table - Pre-configured character archetypes
+ *
+ * Stores template configurations for character creation (Skiller, Ironman, etc.).
+ * Players can choose from these templates when creating a new character.
+ *
+ * Key columns:
+ * - `id` - Auto-incrementing primary key
+ * - `name` - Template name (e.g., "The Skiller", "PvM Slayer")
+ * - `description` - Template description shown in character select
+ * - `emoji` - Icon emoji for the template
+ * - `templateUrl` - URL to ElizaOS character config JSON (unique)
+ * - `createdAt` - When template was created
+ *
+ * Design notes:
+ * - Templates are seeded during initial setup
+ * - templateUrl must be unique (constraint enforced)
+ * - Used by CharacterSelectScreen to show available archetypes
+ */
+export const characterTemplates = pgTable(
+  "character_templates",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    emoji: text("emoji").notNull(),
+    templateUrl: text("templateUrl").notNull(),
+    // Full ElizaOS character configuration stored as JSON string
+    // This contains the complete character template that gets merged with user-specific data
+    templateConfig: text("templateConfig"),
+    createdAt: bigint("createdAt", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+  },
+  (table) => ({
+    uniqueTemplateUrl: unique().on(table.templateUrl),
+  }),
+);
+
+/**
  * ============================================================================
  * TABLE RELATIONS
  * ============================================================================
@@ -499,9 +669,23 @@ export const npcKills = pgTable(
 export const charactersRelations = relations(characters, ({ many }) => ({
   inventory: many(inventory),
   equipment: many(equipment),
+  bankStorage: many(bankStorage),
   sessions: many(playerSessions),
   chunkActivities: many(chunkActivity),
   npcKills: many(npcKills),
+  deaths: many(playerDeaths),
+  agentMappings: many(agentMappings),
+}));
+
+export const agentMappingsRelations = relations(agentMappings, ({ one }) => ({
+  user: one(users, {
+    fields: [agentMappings.accountId],
+    references: [users.id],
+  }),
+  character: one(characters, {
+    fields: [agentMappings.characterId],
+    references: [characters.id],
+  }),
 }));
 
 export const inventoryRelations = relations(inventory, ({ one }) => ({
@@ -514,6 +698,13 @@ export const inventoryRelations = relations(inventory, ({ one }) => ({
 export const equipmentRelations = relations(equipment, ({ one }) => ({
   character: one(characters, {
     fields: [equipment.playerId],
+    references: [characters.id],
+  }),
+}));
+
+export const bankStorageRelations = relations(bankStorage, ({ one }) => ({
+  character: one(characters, {
+    fields: [bankStorage.playerId],
     references: [characters.id],
   }),
 }));
@@ -535,6 +726,13 @@ export const chunkActivityRelations = relations(chunkActivity, ({ one }) => ({
 export const npcKillsRelations = relations(npcKills, ({ one }) => ({
   character: one(characters, {
     fields: [npcKills.playerId],
+    references: [characters.id],
+  }),
+}));
+
+export const playerDeathsRelations = relations(playerDeaths, ({ one }) => ({
+  character: one(characters, {
+    fields: [playerDeaths.playerId],
     references: [characters.id],
   }),
 }));

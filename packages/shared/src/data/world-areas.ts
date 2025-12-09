@@ -51,48 +51,20 @@ export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
     safeZone: true,
     npcs: [
       {
-        id: "banker_starter",
-        name: "Banker Bob",
+        id: "bank_clerk",
         type: "bank",
-        position: { x: 15, y: 43, z: 5 },
-        services: ["bank"],
-        description: "A friendly banker",
+        position: { x: 5, y: 0, z: -5 },
+        // All other NPC data (name, services, model, description) comes from npcs.json
       },
     ],
     resources: [
-      {
-        type: "tree",
-        position: { x: 10, y: 43, z: 10 },
-        resourceId: "tree_starter_1",
-        respawnTime: 60000,
-        level: 1,
-      },
-      {
-        type: "tree",
-        position: { x: -15, y: 43, z: 8 },
-        resourceId: "tree_starter_2",
-        respawnTime: 60000,
-        level: 1,
-      },
+      // Resources are now defined in world-areas.json manifest only
+      // Do not add hardcoded resources here
     ],
     mobSpawns: [
-      {
-        mobId: "goblin",
-        position: { x: 25, y: 43, z: 25 },
-        spawnRadius: 10,
-        maxCount: 3,
-        respawnTime: 60000,
-      },
-      {
-        mobId: "goblin",
-        position: { x: -25, y: 43, z: 25 },
-        spawnRadius: 10,
-        maxCount: 2,
-        respawnTime: 60000,
-      },
+      // Starter area is a safe zone - no mob spawns
+      // The default test goblin is spawned by MobNPCSpawnerSystem near origin
     ],
-    connections: [],
-    specialFeatures: [],
   },
 };
 
@@ -118,15 +90,6 @@ export function getAreasByDifficulty(level: 0 | 1 | 2 | 3): WorldArea[] {
 
 export function getSafeZones(): WorldArea[] {
   return Object.values(ALL_WORLD_AREAS).filter((area) => area.safeZone);
-}
-
-export function getConnectedAreas(areaId: string): WorldArea[] {
-  const area = getAreaById(areaId);
-  if (!area) return [];
-
-  return area.connections
-    .map((id) => getAreaById(id))
-    .filter((area) => area !== null) as WorldArea[];
 }
 
 export function getNPCsInArea(areaId: string): NPCLocation[] {

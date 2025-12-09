@@ -212,6 +212,15 @@ export {
 // Export item helpers used by server network snapshot
 export { getItem } from "./data/items";
 
+// Export store helpers used by server store handler
+export { getStoreById } from "./data/banks-stores";
+
+// Export avatar options for character creation
+export { AVATAR_OPTIONS } from "./data/avatars";
+
+// Export world area data for server use
+export { ALL_WORLD_AREAS } from "./data/world-areas";
+
 // Export systems (organized by platform for tree-shaking)
 export { Entities } from "./systems/shared";
 export { Physics } from "./systems/shared";
@@ -233,6 +242,10 @@ export { XR } from "./systems/client/XR";
 export { EventBus } from "./systems/shared";
 export { System as SystemClass } from "./systems/shared";
 export { SystemBase } from "./systems/shared";
+export { CombatSystem } from "./systems/shared/combat";
+export { LootSystem } from "./systems/shared/economy/LootSystem";
+export { StoreSystem } from "./systems/shared/economy/StoreSystem";
+export { ResourceSystem } from "./systems/shared/entities/ResourceSystem";
 
 // Export node client components
 export { ServerLoader } from "./systems/server/ServerLoader";
@@ -693,3 +706,76 @@ export { CircularSpawnArea } from "./utils/physics/CircularSpawnArea";
 
 // Export terrain system
 export { TerrainSystem } from "./systems/shared";
+
+// Export tile movement system (RuneScape-style)
+export {
+  // Constants
+  TILE_SIZE,
+  TICK_DURATION_MS,
+  TILES_PER_TICK_WALK,
+  TILES_PER_TICK_RUN,
+  MAX_PATH_LENGTH,
+  PATHFIND_RADIUS,
+  TILE_DIRECTIONS,
+  // Utility functions
+  worldToTile,
+  tileToWorld,
+  tileManhattanDistance,
+  tileChebyshevDistance,
+  tilesEqual,
+  tilesAdjacent,
+  tilesWithinRange,
+  tilesCardinallyAdjacent,
+  getBestAdjacentTile,
+  getBestCombatRangeTile,
+  getAdjacentTiles,
+  isDiagonal,
+  tileKey,
+  parseTileKey,
+  clampTile,
+  createTileMovementState,
+} from "./systems/shared/movement/TileSystem";
+export type {
+  TileCoord,
+  TileMovementState,
+  TileFlags,
+} from "./systems/shared/movement/TileSystem";
+export { BFSPathfinder } from "./systems/shared/movement/BFSPathfinder";
+export { chaseStep } from "./systems/shared/movement/ChasePathfinding";
+export type { WalkabilityChecker } from "./systems/shared/movement/BFSPathfinder";
+
+// ============================================================================
+// Interaction System (Store, Bank, Dialogue)
+// Single source of truth for session management, validation, and distance
+// ============================================================================
+
+// Constants
+export {
+  SessionType,
+  INTERACTION_DISTANCE,
+  TRANSACTION_RATE_LIMIT_MS,
+  SESSION_CONFIG,
+  INPUT_LIMITS,
+} from "./constants/interaction";
+
+// Combat constants (tick-based timing, ranges, etc.)
+export { COMBAT_CONSTANTS } from "./constants/CombatConstants";
+
+// Distance utilities (OSRS-style Chebyshev)
+export {
+  chebyshevDistance,
+  isWithinDistance,
+  type Position2D,
+} from "./utils/distance";
+
+// Types and interfaces
+export type {
+  InteractionSession,
+  ISessionReader,
+  ISessionWriter,
+  ISessionManager,
+  ITransactionValidator,
+  IRateLimiter,
+  ValidationResult,
+  SessionCloseReason,
+} from "./types/interaction";

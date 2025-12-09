@@ -343,10 +343,6 @@ export interface MovementSystem extends System {
   movePlayer(playerId: string, destination: unknown, options?: unknown): void;
 }
 
-export interface PathfindingSystem extends System {
-  findPath(start: unknown, end: unknown): unknown[];
-}
-
 export interface EntityManager extends System {
   getEntity(entityId: string): Entity | undefined;
   getEntityCounts(): Record<string, number>;

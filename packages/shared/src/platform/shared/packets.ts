@@ -8,7 +8,7 @@
  * **Protocol Design**:
  * - All packets are binary ArrayBuffers (no JSON overhead)
  * - Packet format: [packet_id, data] where packet_id is a small integer
- * - Packet IDs map to method names on the receiving end (e.g., id 0 → 'onSnapshot')
+ * - Packet IDs map to method names with "on" prefix (e.g., 'snapshot' → 'onSnapshot')
  * - msgpackr provides efficient binary serialization with structured clone support
  *
  * **Packet Types**:
@@ -72,7 +72,7 @@
  * **Adding New Packets**:
  * 1. Add packet name to the `names` array (order matters!)
  * 2. Packet ID is automatically assigned based on array index
- * 3. Handler method name is auto-generated as `on${Name}` (e.g., 'snapshot' → 'onSnapshot')
+ * 3. Handler method name gets "on" prefix (e.g., 'snapshot' → 'onSnapshot')
  * 4. Implement handler in ServerNetwork or ClientNetwork
  *
  * **Referenced by**: Socket (send/receive), ServerNetwork, ClientNetwork
@@ -129,16 +129,39 @@ const names = [
   'gatheringComplete',
   // Combat packets
   'attackMob',
+  'changeAttackStyle',
   // Item pickup packets
   'pickupItem',
   // Inventory action packets
   'dropItem',
+  // Equipment packets
+  'equipItem',
+  'unequipItem',
   // Inventory sync packets
   'inventoryUpdated',
+  'coinsUpdated',
+  // Equipment sync packets
+  'equipmentUpdated',
   // Skills sync packets
   'skillsUpdated',
   // UI feedback packets
   'showToast',
+  // Death screen packets
+  'deathScreen',
+  'deathScreenClose',
+  'requestRespawn',
+  // Death state packets
+  'playerSetDead',
+  'playerRespawned',
+  // Loot packets
+  'corpseLoot',
+  // Attack style packets
+  'attackStyleChanged',
+  'attackStyleUpdate',
+  // Combat visual feedback packets
+  'combatDamageDealt',
+  // Player state packets
+  'playerUpdated',
   // Character selection packets (feature-flagged usage)
   'characterListRequest',
   'characterCreate',
@@ -157,6 +180,37 @@ const names = [
   'tradeCompleted',
   'tradeCancelled',
   'tradeError',
+  // Agent goal sync packet (for dashboard display)
+  'syncGoal',
+  // Agent goal override packet (dashboard -> plugin)
+  'goalOverride',
+  // Bank packets
+  'bankOpen',
+  'bankState',
+  'bankDeposit',
+  'bankDepositAll',
+  'bankWithdraw',
+  'bankClose',
+  // Store packets
+  'storeOpen',
+  'storeState',
+  'storeBuy',
+  'storeSell',
+  'storeClose',
+  // NPC interaction packets
+  'npcInteract',
+  // Dialogue packets
+  'dialogueStart',
+  'dialogueNodeChange',
+  'dialogueResponse',
+  'dialogueEnd',
+  'dialogueClose',
+  // Tile movement packets (RuneScape-style)
+  'entityTileUpdate',    // Server -> Client: entity moved to new tile position
+  'tileMovementStart',   // Server -> Client: movement path started
+  'tileMovementEnd',     // Server -> Client: arrived at destination
+  // System message packets (UI_MESSAGE events -> chat)
+  'systemMessage',       // Server -> Client: system/game messages for chat
 ]
 
 const byName: Record<string, PacketInfo> = {};

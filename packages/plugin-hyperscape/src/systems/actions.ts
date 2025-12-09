@@ -15,14 +15,7 @@ interface ActionNode extends THREE.Object3D {
   _duration?: number;
   _onTrigger?: (event: { playerId: string }) => void;
   _onCancel?: () => void;
-  [key: string]:
-    | string
-    | number
-    | boolean
-    | ((event: { playerId: string }) => void)
-    | (() => void)
-    | Record<string, unknown>
-    | undefined;
+  [key: string]: unknown;
 }
 
 export class AgentActions extends System {
@@ -36,7 +29,7 @@ export class AgentActions extends System {
   }
 
   // Implement required System interface methods
-  async init(options?: Record<string, unknown>): Promise<void> {
+  async init(options?: unknown): Promise<void> {
     // Initialize the actions system
   }
 
@@ -81,6 +74,7 @@ export class AgentActions extends System {
 
   performAction(entityID?: string) {
     if (this.currentNode) {
+      console.log("Already interacting with an entity. Release it first.");
       return;
     }
     const nearby = this.getNearby();
@@ -93,6 +87,7 @@ export class AgentActions extends System {
     if (entityID) {
       target = nearby.find((node) => node.ctx.entity?.data?.id === entityID);
       if (!target) {
+        console.log(`No nearby action node found with entity ID: ${entityID}`);
         return;
       }
     } else {
@@ -101,6 +96,7 @@ export class AgentActions extends System {
 
     const control = this.world.controls;
     if (!control) {
+      console.log("Controls not available");
       return;
     }
 
@@ -113,6 +109,7 @@ export class AgentActions extends System {
 
     const player = this.world.entities.player;
     if (!player) {
+      console.log("Player not available");
       return;
     }
 
@@ -130,9 +127,11 @@ export class AgentActions extends System {
 
   releaseAction() {
     if (!this.currentNode) {
+      console.log("No current action to release.");
       return;
     }
 
+    console.log("Releasing current action.");
     interface KeyState {
       pressed?: boolean;
       released?: boolean;
@@ -147,6 +146,7 @@ export class AgentActions extends System {
 
     const control = this.world.controls as ControlsWithKeys | undefined;
     if (!control) {
+      console.log("Controls not available");
       return;
     }
 

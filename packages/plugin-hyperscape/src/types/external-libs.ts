@@ -127,6 +127,20 @@ export interface GLTFResult {
   userData: Record<string, unknown>;
 }
 
+// DOM event types for GLTF loader
+interface ProgressEvent extends Event {
+  loaded: number;
+  total: number;
+}
+
+interface ErrorEvent extends Event {
+  message: string;
+  filename?: string;
+  lineno?: number;
+  colno?: number;
+  error?: Error;
+}
+
 export interface GLTFLoader {
   load(
     url: string,
@@ -144,8 +158,10 @@ export interface GLTFLoader {
 }
 
 // Animation Mixer types
-export interface AnimationMixer
-  extends Omit<THREE.AnimationMixer, "existingAction"> {
+export interface AnimationMixer extends Omit<
+  THREE.AnimationMixer,
+  "existingAction"
+> {
   existingAction?:
     | THREE.AnimationAction
     | ((
@@ -155,8 +171,10 @@ export interface AnimationMixer
 }
 
 // Material shader compilation types
-export interface ShaderMaterial
-  extends Omit<THREE.ShaderMaterial, "onBeforeCompile"> {
+export interface ShaderMaterial extends Omit<
+  THREE.ShaderMaterial,
+  "onBeforeCompile"
+> {
   onBeforeCompile?:
     | ((shader: ShaderCompileParameters) => void)
     | ((

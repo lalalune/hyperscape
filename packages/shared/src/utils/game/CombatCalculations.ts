@@ -11,6 +11,10 @@ import {
   calculateDistance as mathCalculateDistance,
   calculateDistance2D as mathCalculateDistance2D,
 } from "../MathUtils";
+import {
+  worldToTile,
+  tilesAdjacent,
+} from "../../systems/shared/movement/TileSystem";
 
 export interface CombatStats {
   attack?: number;
@@ -24,6 +28,48 @@ export interface DamageResult {
   damage: number;
   isCritical: boolean;
   damageType: AttackType;
+  didHit: boolean; // OSRS accuracy: did the attack hit or miss?
+}
+
+/**
+ * Calculate OSRS-style accuracy (hit chance)
+ * Returns true if the attack successfully hits
+ */
+function calculateAccuracy(
+  attackerAttackLevel: number,
+  attackerAttackBonus: number,
+  targetDefenseLevel: number,
+  targetDefenseBonus: number,
+): boolean {
+  // OSRS formula for attack roll
+  const effectiveAttack = attackerAttackLevel + 8; // +8 is base, +3 would be for style (not implemented yet)
+  const attackRoll = effectiveAttack * (attackerAttackBonus + 64);
+
+  // OSRS formula for defence roll
+  const effectiveDefence = targetDefenseLevel + 9;
+  const defenceRoll = effectiveDefence * (targetDefenseBonus + 64);
+
+  // Calculate hit chance based on OSRS formula
+  let hitChance: number;
+  if (attackRoll > defenceRoll) {
+    hitChance = 1 - (defenceRoll + 2) / (2 * (attackRoll + 1));
+  } else {
+    hitChance = attackRoll / (2 * (defenceRoll + 1));
+  }
+
+  // Roll to see if attack hits
+  const roll = Math.random();
+  const didHit = roll < hitChance;
+
+  // Debug logging
+  if (Math.random() < 0.1) {
+    // Log 10% of attacks to avoid spam
+    console.log(
+      `[Accuracy] Attack: ${attackerAttackLevel}+${attackerAttackBonus} vs Defence: ${targetDefenseLevel}+${targetDefenseBonus} | Hit chance: ${(hitChance * 100).toFixed(1)}% | Roll: ${(roll * 100).toFixed(1)}% | ${didHit ? "HIT" : "MISS"}`,
+    );
+  }
+
+  return didHit;
 }
 
 /**
@@ -33,74 +79,122 @@ export function calculateDamage(
   attacker: { stats?: CombatStats; config?: { attackPower?: number } },
   target: { stats?: CombatStats; config?: { defense?: number } },
   attackType: AttackType,
+  equipmentStats?: {
+    attack: number;
+    strength: number;
+    defense: number;
+    ranged: number;
+  },
 ): DamageResult {
-  // Get base damage based on attack type
-  let baseDamage = 1;
+  // OSRS-accurate combat calculation with accuracy system
+
+  let maxHit = 1;
+  let attackStat = 0;
+  let attackBonus = 0;
 
   if (attackType === AttackType.MELEE) {
-    const attackStat = attacker.stats?.attack || 0;
+    // Use STRENGTH stat for damage calculation (OSRS-correct)
+    const strengthStat = attacker.stats?.strength || 0;
+    attackStat = attacker.stats?.attack || 1; // Attack level for accuracy
     const attackPower = attacker.config?.attackPower || 0;
 
-    if (attackStat > 0) {
-      baseDamage =
-        Math.floor(
-          attackStat * COMBAT_CONSTANTS.DAMAGE_MULTIPLIERS.MELEE_ATTACK,
-        ) + 1;
-    } else if (attackPower > 0) {
-      baseDamage = attackPower;
+    // ALWAYS use OSRS formula for consistency (even for mobs with attackPower)
+    if (strengthStat > 0 || attackPower > 0) {
+      // Use strength stat if available, otherwise derive from attackPower
+      const effectiveStrengthLevel =
+        strengthStat > 0
+          ? strengthStat
+          : Math.max(1, Math.floor(attackPower / 2));
+      const effectiveAttackLevel =
+        attackStat > 0 ? attackStat : effectiveStrengthLevel;
+
+      attackStat = effectiveAttackLevel;
+
+      // OSRS formula: effective strength determines max hit
+      const effectiveStrength = effectiveStrengthLevel + 8;
+      // Get strength bonus from equipment (players have equipment, mobs typically don't)
+      const strengthBonus = equipmentStats?.strength || 0;
+      attackBonus = equipmentStats?.attack || 0;
+
+      maxHit = Math.floor(
+        0.5 + (effectiveStrength * (strengthBonus + 64)) / 640,
+      );
+
+      // Ensure reasonable minimum (at least 1 damage for attackPower >= 10)
+      if (maxHit < 1 && attackPower >= 10) {
+        maxHit = 1;
+      } else if (maxHit < 1 && strengthStat >= 10) {
+        maxHit = 1;
+      }
     } else {
-      baseDamage = 5; // Default melee damage
+      maxHit = 1; // Minimum damage
     }
   } else if (attackType === AttackType.RANGED) {
     const rangedStat = attacker.stats?.ranged || 0;
+    attackStat = rangedStat; // Ranged level for accuracy
     const attackPower = attacker.config?.attackPower || 0;
 
     if (rangedStat > 0) {
-      baseDamage =
-        Math.floor(
-          rangedStat * COMBAT_CONSTANTS.DAMAGE_MULTIPLIERS.RANGED_ATTACK,
-        ) + 1;
+      // Use ranged stat for max hit calculation
+      const effectiveRanged = rangedStat + 8;
+      // Get ranged bonus from equipment (e.g., bow)
+      const rangedBonus = equipmentStats?.ranged || 0;
+      attackBonus = rangedBonus; // Ranged bonus for accuracy
+      maxHit = Math.floor(0.5 + (effectiveRanged * (rangedBonus + 64)) / 640);
+
+      if (maxHit < 1) maxHit = Math.max(1, Math.floor(rangedStat / 10));
     } else if (attackPower > 0) {
-      baseDamage = attackPower;
+      maxHit = attackPower;
     } else {
-      baseDamage = 3; // Default ranged damage
+      maxHit = 3; // Default ranged damage
     }
   }
 
-  // Ensure baseDamage is valid
-  if (!Number.isFinite(baseDamage) || baseDamage < 1) {
-    baseDamage = 5;
+  // Ensure maxHit is valid
+  if (!Number.isFinite(maxHit) || maxHit < 1) {
+    maxHit = 5;
   }
 
-  // Apply defense reduction
-  const defense = getDefenseValue(target);
-  const damageReduction = Math.floor(
-    defense * COMBAT_CONSTANTS.DAMAGE_MULTIPLIERS.DEFENSE_REDUCTION,
+  // OSRS accuracy system: attack roll vs defence roll
+  const targetDefense = target.stats?.defense || 1;
+  const targetDefenseBonus = 0; // Most NPCs have 0 defense bonus (would come from their equipment)
+
+  const didHit = calculateAccuracy(
+    attackStat,
+    attackBonus,
+    targetDefense,
+    targetDefenseBonus,
   );
 
-  // Calculate final damage with randomization
-  const finalDamage = Math.max(
-    COMBAT_CONSTANTS.MIN_DAMAGE,
-    baseDamage - damageReduction,
-  );
-  const damage = Math.floor(Math.random() * finalDamage) + 1;
-
-  // Ensure damage is valid
-  if (!Number.isFinite(damage) || damage < 1) {
+  // If attack missed, return 0 damage
+  if (!didHit) {
     return {
-      damage: 1,
+      damage: 0,
       isCritical: false,
       damageType: attackType,
+      didHit: false,
     };
   }
 
-  // Simple critical hit chance (10%)
-  const isCritical = Math.random() < 0.1;
+  // Attack hit - roll damage from 0 to maxHit (can still hit 0)
+  const damage = Math.floor(Math.random() * (maxHit + 1));
 
+  // Ensure damage is valid
+  if (!Number.isFinite(damage) || damage < 0) {
+    return {
+      damage: 0,
+      isCritical: false,
+      damageType: attackType,
+      didHit: true, // It hit but rolled 0 damage
+    };
+  }
+
+  // OSRS: No critical hit system
   return {
-    damage: isCritical ? damage * 2 : damage,
-    isCritical,
+    damage,
+    isCritical: false,
     damageType: attackType,
+    didHit: true,
   };
 }
 
@@ -121,19 +215,26 @@ function getDefenseValue(entity: {
 
 /**
  * Check if entity is within attack range
+ *
+ * OSRS-STYLE:
+ * - MELEE: Must be on adjacent tile (Chebyshev distance = 1)
+ * - RANGED: Uses world distance (10 units)
  */
 export function isInAttackRange(
   attackerPos: { x: number; y: number; z: number },
   targetPos: { x: number; y: number; z: number },
   attackType: AttackType,
 ): boolean {
-  const distance = calculateDistance3D(attackerPos, targetPos);
-  const maxRange =
-    attackType === AttackType.MELEE
-      ? COMBAT_CONSTANTS.MELEE_RANGE
-      : COMBAT_CONSTANTS.RANGED_RANGE;
-
-  return distance <= maxRange;
+  if (attackType === AttackType.MELEE) {
+    // OSRS-STYLE: Melee requires adjacent tile
+    const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
+    const targetTile = worldToTile(targetPos.x, targetPos.z);
+    return tilesAdjacent(attackerTile, targetTile);
+  } else {
+    // Ranged uses world distance
+    const distance = calculateDistance3D(attackerPos, targetPos);
+    return distance <= COMBAT_CONSTANTS.RANGED_RANGE;
+  }
 }
 
 /**
@@ -171,4 +272,94 @@ export function shouldCombatTimeout(
   currentTime: number,
 ): boolean {
   return currentTime - combatStartTime > COMBAT_CONSTANTS.COMBAT_TIMEOUT_MS;
+}
+
+// =============================================================================
+// TICK-BASED COMBAT FUNCTIONS (OSRS-accurate)
+// =============================================================================
+
+/**
+ * Check if attack is on cooldown (tick-based, OSRS-accurate)
+ * @param currentTick - Current server tick number
+ * @param nextAttackTick - Tick when next attack is allowed
+ * @returns true if still on cooldown
+ */
+export function isAttackOnCooldownTicks(
+  currentTick: number,
+  nextAttackTick: number,
+): boolean {
+  return currentTick < nextAttackTick;
+}
+
+/**
+ * Calculate OSRS-style retaliation delay
+ * When attacked, defender retaliates after ceil(attack_speed / 2) + 1 ticks
+ * @see https://oldschool.runescape.wiki/w/Auto_Retaliate
+ *
+ * @param attackSpeedTicks - Defender's weapon attack speed in ticks
+ * @returns Number of ticks until retaliation
+ */
+export function calculateRetaliationDelay(attackSpeedTicks: number): number {
+  return Math.ceil(attackSpeedTicks / 2) + 1;
+}
+
+/**
+ * Convert attack speed from seconds to ticks
+ * Used for mob config which stores attackSpeed in seconds (e.g., 2.4)
+ *
+ * @param seconds - Attack speed in seconds
+ * @returns Attack speed in ticks (minimum 1)
+ */
+export function attackSpeedSecondsToTicks(seconds: number): number {
+  return Math.max(
+    1,
+    Math.round((seconds * 1000) / COMBAT_CONSTANTS.TICK_DURATION_MS),
+  );
+}
+
+/**
+ * Convert attack speed from milliseconds to ticks
+ * Used for weapon config which stores attackSpeed in ms (e.g., 2400)
+ *
+ * @param ms - Attack speed in milliseconds
+ * @returns Attack speed in ticks (minimum 1)
+ */
+export function attackSpeedMsToTicks(ms: number): number {
+  return Math.max(1, Math.round(ms / COMBAT_CONSTANTS.TICK_DURATION_MS));
+}
+
+/**
+ * Check if combat should timeout (tick-based)
+ * @param currentTick - Current server tick
+ * @param combatEndTick - Tick when combat times out
+ * @returns true if combat should end
+ */
+export function shouldCombatTimeoutTicks(
+  currentTick: number,
+  combatEndTick: number,
+): boolean {
+  return currentTick >= combatEndTick;
+}
+
+/**
+ * Convert milliseconds to ticks (general purpose)
+ * Used for any time-based value that needs tick conversion (respawn, timers, etc.)
+ *
+ * @param ms - Time in milliseconds
+ * @param minTicks - Minimum ticks to return (default 1)
+ * @returns Time in ticks
+ */
+export function msToTicks(ms: number, minTicks: number = 1): number {
+  return Math.max(minTicks, Math.round(ms / COMBAT_CONSTANTS.TICK_DURATION_MS));
+}
+
+/**
+ * Convert ticks to milliseconds
+ * Used for displaying tick-based values to users in human-readable format
+ *
+ * @param ticks - Time in ticks
+ * @returns Time in milliseconds
+ */
+export function ticksToMs(ticks: number): number {
+  return ticks * COMBAT_CONSTANTS.TICK_DURATION_MS;
 }

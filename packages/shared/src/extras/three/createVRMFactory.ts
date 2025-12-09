@@ -118,11 +118,6 @@ export function createVRMFactory(
   const isVRM1OrHigher =
     version !== "0" &&
     (!version || (typeof version === "string" && !version.startsWith("0.")));
-  console.log(
-    "[VRMFactory] VRM version detected:",
-    { version, isVRM1OrHigher },
-    "(will apply 180° rotation for VRM 1.0+)",
-  );
 
   // Setup skinned meshes with NORMAL bind mode (for normalized bone compatibility)
   // DetachedBindMode is incompatible with normalized bones in scene graph
@@ -186,10 +181,6 @@ export function createVRMFactory(
 
   const height = targetHeight;
 
-  console.log(
-    `[VRMFactory] Normalized avatar from ${originalHeight.toFixed(3)}m to ${height.toFixed(3)}m (scale: ${scaleFactor.toFixed(3)})`,
-  );
-
   // Calculate head to height for camera positioning
   const headPos = normBones.head?.node?.getWorldPosition(v1) || v1.set(0, 0, 0);
   const headToHeight = height - headPos.y;
@@ -251,35 +242,35 @@ export function createVRMFactory(
     // HYBRID APPROACH: Use NORMALIZED bone names (Asset Forge method)
     // This allows VRM library's automatic bind pose handling to work
     // Normalized bones are cloned with the scene, so each instance has its own
+    // CRITICAL: Use the CLONED humanoid (_tvrm?.humanoid) for bone lookups, not the original
+    const clonedHumanoid = _tvrm?.humanoid;
     const getBoneName = (vrmBoneName: string): string | undefined => {
-      if (!humanoid) return undefined;
+      // Guard against undefined/null bone names
+      if (!vrmBoneName || !clonedHumanoid) return undefined;
 
-      // Get normalized bone node - this handles A-pose automatically
-      const normalizedNode = humanoid.getNormalizedBoneNode?.(
+      // Get normalized bone node from CLONED humanoid - this handles A-pose automatically
+      const normalizedNode = clonedHumanoid.getNormalizedBoneNode?.(
         vrmBoneName as string,
       );
       if (!normalizedNode) {
-        console.warn(
-          "[VRMFactory.getBoneName] Normalized bone not found:",
-          vrmBoneName,
-        );
+        // Don't warn for finger bones - many VRMs don't have them
+        const isFingerBone =
+          vrmBoneName.includes("Thumb") ||
+          vrmBoneName.includes("Index") ||
+          vrmBoneName.includes("Middle") ||
+          vrmBoneName.includes("Ring") ||
+          vrmBoneName.includes("Little");
+        if (!isFingerBone) {
+          console.warn(
+            "[VRMFactory.getBoneName] Normalized bone not found:",
+            vrmBoneName,
+          );
+        }
         return undefined;
       }
 
-      // The normalized node name (e.g., "Normalized_Hips")
-      const normalizedName = normalizedNode.name;
-
-      // Find this normalized node in the CLONED scene
-      const clonedNormalizedNode = vrm.scene.getObjectByName(normalizedName);
-      if (!clonedNormalizedNode) {
-        console.warn(
-          "[VRMFactory.getBoneName] Cloned normalized bone not found:",
-          normalizedName,
-        );
-        return undefined;
-      }
-
-      return clonedNormalizedNode.name; // Returns normalized bone name
+      // Return the normalized bone name directly - it's already in the cloned scene
+      return normalizedNode.name;
     };
 
     // VRM 1.0+ models face +Z by default, but game expects -Z forward
@@ -287,7 +278,6 @@ export function createVRMFactory(
     // VRM 0.x models already face the correct direction
     let finalMatrix = matrix;
     if (isVRM1OrHigher) {
-      console.log("[VRMFactory] Applying 180° rotation for VRM 1.0+ model");
       const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI);
       finalMatrix = new THREE.Matrix4().multiplyMatrices(
         matrix,
@@ -410,6 +400,10 @@ export function createVRMFactory(
         // Without this, normalized bone changes never reach the visible skeleton
         if (_tvrm?.humanoid?.update) {
           _tvrm.humanoid.update(elapsed);
+        } else if (!hasLoggedUpdatePipeline) {
+          console.warn(
+            `[VRM] ⚠️ humanoid.update NOT available - animations may not propagate to visible skeleton!`,
+          );
         }
 
         // Step 3: Update skeleton matrices for skinning
@@ -437,15 +431,8 @@ export function createVRMFactory(
     let setEmoteCallCount = 0;
     const setEmote = (url) => {
       setEmoteCallCount++;
-      console.log("[VRMFactory.setEmote] Called:", {
-        url,
-        callCount: setEmoteCallCount,
-      });
 
       if (currentEmote?.url === url) {
-        console.log(
-          "[VRMFactory.setEmote] Already playing this emote, skipping",
-        );
         return;
       }
       if (currentEmote) {
@@ -515,10 +502,11 @@ export function createVRMFactory(
     const findBone = (name) => {
       // name is the official vrm bone name eg 'leftHand'
       // actualName is the actual bone name used in the skeleton which may different across vrms
+      // CRITICAL: Use clonedHumanoid (not original humanoid) for bone lookups
       if (!bonesByName[name]) {
         let actualName = "";
-        if (humanoid) {
-          const node = humanoid.getRawBoneNode?.(name);
+        if (clonedHumanoid) {
+          const node = clonedHumanoid.getRawBoneNode?.(name);
           actualName = node?.name || "";
         }
         bonesByName[name] = skeleton.getBoneByName(actualName);
@@ -652,8 +640,15 @@ function cloneGLB(glb: GLBData): GLBData {
  * Remap VRM humanoid bone references to cloned scene
  *
  * After SkeletonUtils.clone(), bones are cloned but VRM humanoid still references
- * original bones. This function updates the humanoid's internal bone references
- * to point to the cloned bones instead.
+ * original bones. VRMHumanoid.clone() does a SHALLOW clone - the humanBones object
+ * is SHARED between all clones!
+ *
+ * This function:
+ * 1. Creates NEW humanBones objects (not shared)
+ * 2. Updates bone node references to point to cloned scene's bones
+ *
+ * CRITICAL: We replace the `humanBones` PROPERTY on the rigs, not the rigs themselves.
+ * This preserves the VRMHumanoidRig class methods (getBoneNode, update, etc.)
  */
 function remapHumanoidBonesToClonedScene(
   humanoid: {
@@ -680,46 +675,52 @@ function remapHumanoidBonesToClonedScene(
     }
   });
 
-  // Remap raw human bones (actual skeleton bones)
-  const rawBones = humanoid._rawHumanBones;
-  if (rawBones?.humanBones) {
-    Object.values(rawBones.humanBones).forEach(
-      (boneData: { node?: { name: string } }) => {
-        if (boneData?.node) {
-          const boneName = boneData.node.name;
-          const clonedBone = clonedBonesByName.get(boneName);
-          if (clonedBone) {
-            boneData.node = clonedBone;
-          } else {
-            console.warn(
-              "[remapHumanoid] Raw bone not found in cloned scene:",
-              boneName,
-            );
-          }
+  // Create NEW humanBones object for raw bones (don't mutate shared reference!)
+  const rawRig = humanoid._rawHumanBones;
+  if (rawRig?.humanBones) {
+    const newHumanBones: Record<string, unknown> = {};
+    for (const [boneName, boneData] of Object.entries(rawRig.humanBones)) {
+      const typedBoneData = boneData as { node?: THREE.Object3D };
+      if (typedBoneData?.node) {
+        const clonedBone = clonedBonesByName.get(typedBoneData.node.name);
+        if (clonedBone) {
+          // Create NEW bone data object with cloned bone reference
+          newHumanBones[boneName] = { ...typedBoneData, node: clonedBone };
+        } else {
+          console.warn(
+            "[remapHumanoid] Raw bone not found in cloned scene:",
+            typedBoneData.node.name,
+          );
+          newHumanBones[boneName] = { ...typedBoneData };
         }
-      },
-    );
+      }
+    }
+    // Replace the humanBones property (keeps VRMRig methods intact)
+    rawRig.humanBones = newHumanBones;
   }
 
-  // Remap normalized human bones (VRMHumanoidRig nodes)
-  const normBones = humanoid._normalizedHumanBones;
-  if (normBones?.humanBones) {
-    Object.values(normBones.humanBones).forEach(
-      (boneData: { node?: { name: string } }) => {
-        if (boneData?.node) {
-          const nodeName = boneData.node.name;
-          const clonedNode = clonedObjectsByName.get(nodeName);
-          if (clonedNode) {
-            boneData.node = clonedNode;
-          } else {
-            console.warn(
-              "[remapHumanoid] Normalized bone not found in cloned scene:",
-              nodeName,
-            );
-          }
+  // Create NEW humanBones object for normalized bones (don't mutate shared reference!)
+  const normRig = humanoid._normalizedHumanBones;
+  if (normRig?.humanBones) {
+    const newHumanBones: Record<string, unknown> = {};
+    for (const [boneName, boneData] of Object.entries(normRig.humanBones)) {
+      const typedBoneData = boneData as { node?: THREE.Object3D };
+      if (typedBoneData?.node) {
+        const clonedNode = clonedObjectsByName.get(typedBoneData.node.name);
+        if (clonedNode) {
+          // Create NEW bone data object with cloned node reference
+          newHumanBones[boneName] = { ...typedBoneData, node: clonedNode };
+        } else {
+          console.warn(
+            "[remapHumanoid] Normalized bone not found in cloned scene:",
+            typedBoneData.node.name,
+          );
+          newHumanBones[boneName] = { ...typedBoneData };
         }
-      },
-    );
+      }
+    }
+    // Replace the humanBones property (keeps VRMHumanoidRig methods intact)
+    normRig.humanBones = newHumanBones;
   }
 }
 

@@ -97,19 +97,19 @@ export async function loadConfig(): Promise<ServerConfig> {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
 
-  // Resolve paths correctly for both dev (src/server/) and build (build/)
-  // When built: __dirname is .../hyperscape/build/startup
-  // When dev: __dirname is .../hyperscape/packages/server/src/startup
+  // Resolve paths correctly for both dev and build
+  // Built: __dirname is .../packages/server/build (single bundled file) → go up 1 level
+  // Dev: __dirname is .../packages/server/src/startup → go up 2 levels
   let hyperscapeRoot: string;
-  if (__dirname.includes("/build/")) {
-    // Built version: go up from build/startup/ to root
+  if (__dirname.endsWith("/build") || __dirname.includes("/build/")) {
+    // Built version: bundled to build/index.js, go up 1 level to packages/server/
+    hyperscapeRoot = path.join(__dirname, "..");
+  } else if (__dirname.includes("/server/src/")) {
+    // Dev version: go up from server/src/startup/ to packages/server/
     hyperscapeRoot = path.join(__dirname, "../..");
-  } else if (__dirname.includes("/src/server/")) {
-    // Dev version: go up from src/server/startup/ to packages/server/
-    hyperscapeRoot = path.join(__dirname, "../../..");
   } else {
-    // Fallback: assume we're in startup directory
-    hyperscapeRoot = path.join(__dirname, "../../..");
+    // Fallback: assume we're 1 level deep (like build/)
+    hyperscapeRoot = path.join(__dirname, "..");
   }
 
   // Environment variables with defaults

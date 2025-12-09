@@ -50,7 +50,7 @@ export function getStoreById(storeId: string): StoreData | null {
 
 export function getStoresByZone(zoneId: string): StoreData[] {
   return Object.values(GENERAL_STORES).filter(
-    (store) => store.location.zone === zoneId,
+    (store) => store.location?.zone === zoneId,
   );
 }
 
@@ -118,10 +118,12 @@ export function getBankLocations() {
 }
 
 export function getStoreLocations() {
-  return Object.values(GENERAL_STORES).map((store) => ({
-    id: store.id,
-    name: store.name,
-    zone: store.location.zone,
-    position: store.location.position,
-  }));
+  return Object.values(GENERAL_STORES)
+    .filter((store) => store.location) // Only include stores with location
+    .map((store) => ({
+      id: store.id,
+      name: store.name,
+      zone: store.location!.zone,
+      position: store.location!.position,
+    }));
 }

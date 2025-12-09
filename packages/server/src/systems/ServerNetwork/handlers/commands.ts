@@ -138,11 +138,6 @@ export async function handleCommand(
     });
   }
 
-  if (cmd === "spawn") {
-    const _op = arg1;
-    // TODO: Parse spawn operation properly
-  }
-
   if (cmd === "chat") {
     const op = arg1;
     if (op === "clear" && socket.player && isBuilder(socket.player)) {

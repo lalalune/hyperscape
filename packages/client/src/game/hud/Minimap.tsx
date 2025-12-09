@@ -37,6 +37,7 @@ export function Minimap({
   onCompassClick,
   isVisible = true,
 }: MinimapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<UniversalRenderer | null>(null);
@@ -50,13 +51,21 @@ export function Minimap({
 
   // Minimap zoom state (orthographic half-extent in world units)
   const [extent, setExtent] = useState<number>(zoom);
+  const extentRef = useRef<number>(extent); // Ref for synchronous access in render loop
   const MIN_EXTENT = 20;
   const MAX_EXTENT = 200;
   const STEP_EXTENT = 10;
 
   // Rotation: follow main camera yaw (RS3-like) with North toggle
   const [rotateWithCamera] = useState<boolean>(true);
+  const rotateWithCameraRef = useRef<boolean>(rotateWithCamera);
   const [yawDeg, setYawDeg] = useState<number>(0);
+
+  // Refs for destination state - allows RAF loop to access without restarting
+  const lastDestinationWorldRef = useRef<{ x: number; z: number } | null>(null);
+  const lastMinimapClickScreenRef = useRef<{ x: number; y: number } | null>(
+    null,
+  );
   // Persistent destination (stays until reached or new click)
   const [lastDestinationWorld, setLastDestinationWorld] = useState<{
     x: number;
@@ -228,68 +237,23 @@ export function Minimap({
     };
   }, []);
 
-  // Update camera position based on player position
+  // Keep refs in sync with state for render loop access
+  // This allows the single RAF loop to read current values without restarting
   useEffect(() => {
-    let rafId: number | null = null;
-    const loop = () => {
-      const cam = cameraRef.current;
-      const player = world.entities?.player as Entity | undefined;
-      if (cam && player) {
-        // Keep centered on player
-        cam.position.x = player.node.position.x;
-        cam.position.z = player.node.position.z;
-        cam.lookAt(player.node.position.x, 0, player.node.position.z);
-
-        // Rotate minimap with main camera yaw if enabled
-        if (rotateWithCamera && world.camera) {
-          const worldCam = world.camera;
-          const forward = new THREE.Vector3();
-          worldCam.getWorldDirection(forward);
-          forward.y = 0;
-          if (forward.lengthSq() > 1e-6) {
-            forward.normalize();
-            // Compute yaw so that up vector rotates the minimap
-            const yaw = Math.atan2(forward.x, -forward.z); // yaw=0 when facing -Z
-            const upX = Math.sin(yaw);
-            const upZ = -Math.cos(yaw);
-            cam.up.set(upX, 0, upZ);
-            setYawDeg(THREE.MathUtils.radToDeg(yaw));
-          }
-        } else {
-          cam.up.set(0, 0, -1);
-          setYawDeg(0);
-        }
-
-        // Do not sync world clicks into minimap dot; minimap dot should stay fixed where clicked
-
-        // Clear destination when reached
-        if (lastDestinationWorld) {
-          const dx = lastDestinationWorld.x - player.node.position.x;
-          const dz = lastDestinationWorld.z - player.node.position.z;
-          if (Math.hypot(dx, dz) < 0.6) {
-            setLastDestinationWorld(null);
-            setLastMinimapClickScreen(null);
-          }
-        }
-      }
-      rafId = requestAnimationFrame(loop);
-    };
-    rafId = requestAnimationFrame(loop);
-    return () => {
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
-    };
-  }, [world, rotateWithCamera, lastDestinationWorld, lastMinimapClickScreen]);
-
-  // Update camera frustum when extent changes
-  useEffect(() => {
-    if (!cameraRef.current) return;
-    const cam = cameraRef.current;
-    cam.left = -extent;
-    cam.right = extent;
-    cam.top = extent;
-    cam.bottom = -extent;
-    cam.updateProjectionMatrix();
+    extentRef.current = extent;
   }, [extent]);
+
+  useEffect(() => {
+    rotateWithCameraRef.current = rotateWithCamera;
+  }, [rotateWithCamera]);
+
+  useEffect(() => {
+    lastDestinationWorldRef.current = lastDestinationWorld;
+  }, [lastDestinationWorld]);
+
+  useEffect(() => {
+    lastMinimapClickScreenRef.current = lastMinimapClickScreen;
+  }, [lastMinimapClickScreen]);
 
   // Collect entity data for pips (update at a moderate cadence, only when visible)
   useEffect(() => {
@@ -302,7 +266,10 @@ export function Minimap({
       const newCache = new Map<string, EntityPip>();
 
       const player = world.entities?.player as Entity | undefined;
+      let playerPipId: string | null = null;
+
       if (player?.node?.position) {
+        // Normal mode: local player is the green pip
         const playerPip: EntityPip = {
           id: "local-player",
           type: "player",
@@ -311,85 +278,67 @@ export function Minimap({
         };
         pips.push(playerPip);
         newCache.set("local-player", playerPip);
+        playerPipId = player.id;
+      } else {
+        // Spectator mode: get spectated entity from camera system as green pip
+        const config = (
+          window as {
+            __HYPERSCAPE_CONFIG__?: { mode?: string; followEntity?: string };
+          }
+        ).__HYPERSCAPE_CONFIG__;
+        if (config?.mode === "spectator") {
+          const cameraSystem = world.getSystem("client-camera-system") as {
+            getCameraInfo?: () => {
+              target?: { id?: string; node?: { position?: THREE.Vector3 } };
+            };
+          } | null;
+          const cameraInfo = cameraSystem?.getCameraInfo?.();
+          if (cameraInfo?.target?.node?.position) {
+            const spectatedPip: EntityPip = {
+              id: "spectated-player",
+              type: "player",
+              position: cameraInfo.target.node.position,
+              color: "#00ff00",
+            };
+            pips.push(spectatedPip);
+            newCache.set("spectated-player", spectatedPip);
+            playerPipId = cameraInfo.target.id ?? null;
+          }
+        }
       }
 
       // Add other players using entities system for reliable positions
       if (world.entities) {
         const players = world.entities.getAllPlayers();
         players.forEach((otherPlayer) => {
-          if (!player || otherPlayer.id !== player.id) {
-            const otherEntity = world.entities.get(otherPlayer.id);
-            if (otherEntity && otherEntity.node && otherEntity.node.position) {
-              const playerPip: EntityPip = {
-                id: otherPlayer.id,
-                type: "player",
-                position: new THREE.Vector3(
-                  otherEntity.node.position.x,
-                  0,
-                  otherEntity.node.position.z,
-                ),
-                color: "#0088ff",
-              };
-              pips.push(playerPip);
-              newCache.set(otherPlayer.id, playerPip);
-            }
-          }
-        });
-      }
-
-      // Add enemies - check entities or stage entities (cached)
-      if (world.stage.scene) {
-        world.stage.scene.traverse((object) => {
-          // Look for mob entities with certain naming patterns
+          // Skip local player or spectated entity (already shown as green pip)
           if (
-            object.name &&
-            (object.name.includes("Goblin") ||
-              object.name.includes("Bandit") ||
-              object.name.includes("Barbarian") ||
-              object.name.includes("Guard") ||
-              object.name.includes("Knight") ||
-              object.name.includes("Warrior") ||
-              object.name.includes("Ranger"))
+            (player && otherPlayer.id === player.id) ||
+            (playerPipId && otherPlayer.id === playerPipId)
           ) {
-            const worldPos = new THREE.Vector3();
-            object.getWorldPosition(worldPos);
-
-            const enemyPip: EntityPip = {
-              id: object.uuid,
-              type: "enemy",
-              position: new THREE.Vector3(worldPos.x, 0, worldPos.z),
-              color: "#ff4444", // Red for enemies
-            };
-            pips.push(enemyPip);
-            newCache.set(object.uuid, enemyPip);
+            return;
           }
-
-          // Look for building/structure entities
-          if (
-            object.name &&
-            (object.name.includes("Bank") ||
-              object.name.includes("Store") ||
-              object.name.includes("Building") ||
-              object.name.includes("Structure") ||
-              object.name.includes("House") ||
-              object.name.includes("Shop"))
-          ) {
-            const worldPos = new THREE.Vector3();
-            object.getWorldPosition(worldPos);
-
-            const buildingPip: EntityPip = {
-              id: object.uuid,
-              type: "building",
-              position: new THREE.Vector3(worldPos.x, 0, worldPos.z),
-              color: "#ffaa00", // Orange for buildings
+          const otherEntity = world.entities.get(otherPlayer.id);
+          if (otherEntity && otherEntity.node && otherEntity.node.position) {
+            const playerPip: EntityPip = {
+              id: otherPlayer.id,
+              type: "player",
+              position: new THREE.Vector3(
+                otherEntity.node.position.x,
+                0,
+                otherEntity.node.position.z,
+              ),
+              color: "#0088ff",
             };
-            pips.push(buildingPip);
-            newCache.set(object.uuid, buildingPip);
+            pips.push(playerPip);
+            newCache.set(otherPlayer.id, playerPip);
           }
         });
       }
 
       // Add pips for all known entities safely (cached)
+      // Note: We use the entity system exclusively for detecting mobs/buildings.
+      // Scene traversal was removed as it caused stale dots (matched static objects by name)
       if (world.entities) {
         const allEntities = world.entities.getAll();
         allEntities.forEach((entity) => {
@@ -455,13 +404,17 @@ export function Minimap({
     };
   }, [world, isVisible]);
 
-  // Render pips on canvas (only when visible)
+  // Single unified render loop - handles camera position, frustum, and rendering
+  // Uses refs for all state access to avoid restarting the RAF loop
   useEffect(() => {
     const overlayCanvas = overlayCanvasRef.current;
     if (!overlayCanvas || !isVisible) return;
 
     let rafId: number | null = null;
     let _frameCount = 0;
+
+    // Reusable vector to avoid allocations
+    const forwardVec = new THREE.Vector3();
 
     const render = () => {
       // Only render if visible
@@ -471,10 +424,108 @@ export function Minimap({
       }
 
       _frameCount++;
+      const cam = cameraRef.current;
 
-      // Render WebGL if available
-      if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      // --- Camera Position Update (follow player or spectated entity) ---
+      const player = world.entities?.player as Entity | undefined;
+      let targetPosition: { x: number; z: number } | null = null;
+
+      if (player) {
+        // Normal mode: follow local player
+        targetPosition = {
+          x: player.node.position.x,
+          z: player.node.position.z,
+        };
+      } else {
+        // Spectator mode: get camera target from camera system
+        const config = (
+          window as {
+            __HYPERSCAPE_CONFIG__?: { mode?: string; followEntity?: string };
+          }
+        ).__HYPERSCAPE_CONFIG__;
+        if (config?.mode === "spectator") {
+          const cameraSystem = world.getSystem("client-camera-system") as {
+            getCameraInfo?: () => {
+              target?: { position?: { x: number; z: number } };
+            };
+          } | null;
+          const cameraInfo = cameraSystem?.getCameraInfo?.();
+          if (cameraInfo?.target?.position) {
+            targetPosition = {
+              x: cameraInfo.target.position.x,
+              z: cameraInfo.target.position.z,
+            };
+          }
+        }
+      }
+
+      if (cam && targetPosition) {
+        // Keep centered on target (player or spectated entity)
+        cam.position.x = targetPosition.x;
+        cam.position.z = targetPosition.z;
+        cam.lookAt(targetPosition.x, 0, targetPosition.z);
+
+        // Rotate minimap with main camera yaw if enabled
+        if (rotateWithCameraRef.current && world.camera) {
+          const worldCam = world.camera;
+          worldCam.getWorldDirection(forwardVec);
+          forwardVec.y = 0;
+          if (forwardVec.lengthSq() > 1e-6) {
+            forwardVec.normalize();
+            // Compute yaw so that up vector rotates the minimap
+            const yaw = Math.atan2(forwardVec.x, -forwardVec.z);
+            const upX = Math.sin(yaw);
+            const upZ = -Math.cos(yaw);
+            cam.up.set(upX, 0, upZ);
+            // Update yaw display (used by compass)
+            const newYawDeg = THREE.MathUtils.radToDeg(yaw);
+            setYawDeg((prev) =>
+              Math.abs(prev - newYawDeg) > 0.1 ? newYawDeg : prev,
+            );
+          }
+        } else {
+          cam.up.set(0, 0, -1);
+        }
+
+        // Clear destination when reached (using refs for sync access)
+        const destWorld = lastDestinationWorldRef.current;
+        if (destWorld) {
+          const dx = destWorld.x - targetPosition.x;
+          const dz = destWorld.z - targetPosition.z;
+          if (Math.hypot(dx, dz) < 0.6) {
+            setLastDestinationWorld(null);
+            setLastMinimapClickScreen(null);
+          }
+        }
+
+        // Also clear global raycast target when player reaches it
+        const windowWithTarget = window as {
+          __lastRaycastTarget?: { x: number; z: number };
+        };
+        if (windowWithTarget.__lastRaycastTarget) {
+          const dx = windowWithTarget.__lastRaycastTarget.x - targetPosition.x;
+          const dz = windowWithTarget.__lastRaycastTarget.z - targetPosition.z;
+          if (Math.hypot(dx, dz) < 0.6) {
+            delete windowWithTarget.__lastRaycastTarget;
+          }
+        }
+      }
+
+      // --- Camera Frustum Update (for zoom) ---
+      if (cam) {
+        const currentExtent = extentRef.current;
+        if (cam.right !== currentExtent) {
+          cam.left = -currentExtent;
+          cam.right = currentExtent;
+          cam.top = currentExtent;
+          cam.bottom = -currentExtent;
+          cam.updateProjectionMatrix();
+        }
+      }
+
+      // --- WebGL Render ---
+      if (rendererRef.current && sceneRef.current && cam) {
+        rendererRef.current.render(sceneRef.current, cam);
       }
 
       // Always draw 2D pips on overlay canvas
@@ -579,13 +630,14 @@ export function Minimap({
           };
         };
         const lastTarget = windowWithTarget.__lastRaycastTarget;
+        const destWorldRef = lastDestinationWorldRef.current;
         const target =
           lastTarget &&
           Number.isFinite(lastTarget.x) &&
           Number.isFinite(lastTarget.z)
             ? { x: lastTarget.x, z: lastTarget.z }
-            : lastDestinationWorld
-              ? { x: lastDestinationWorld.x, z: lastDestinationWorld.z }
+            : destWorldRef
+              ? { x: destWorldRef.x, z: destWorldRef.z }
               : null;
         if (target && cameraRef.current) {
           const v = new THREE.Vector3(target.x, 0, target.z);
@@ -612,7 +664,7 @@ export function Minimap({
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [isVisible]);
+  }, [isVisible, world]);
 
   // Keep latest pips in a ref so the render loop doesn't restart
   useEffect(() => {
@@ -707,49 +759,48 @@ export function Minimap({
     [handleMinimapClick],
   );
 
-  const onMinimapWheel = useCallback(
-    (e: React.WheelEvent<HTMLDivElement>) => {
+  // Wheel handler for minimap zoom - uses native WheelEvent for passive: false support
+  // Uses functional update to ensure correct extent value during rapid scrolling
+  // No dependencies - handler is stable and listener doesn't need to be re-attached
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
       const sign = Math.sign(e.deltaY);
       if (sign === 0) return;
-      // Notched steps
+      // Notched steps for smooth zoom
       const steps = Math.max(
         1,
         Math.min(5, Math.round(Math.abs(e.deltaY) / 100)),
       );
-      const next = THREE.MathUtils.clamp(
-        extent + sign * steps * STEP_EXTENT,
-        MIN_EXTENT,
-        MAX_EXTENT,
+      // Use functional update to always have the latest extent value
+      setExtent((prev) =>
+        THREE.MathUtils.clamp(
+          prev + sign * steps * STEP_EXTENT,
+          MIN_EXTENT,
+          MAX_EXTENT,
+        ),
       );
-      setExtent(next);
     },
-    [extent],
+    [], // No dependencies - uses functional update
   );
 
-  const onOverlayWheel = useCallback(
-    (e: React.WheelEvent<HTMLCanvasElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const sign = Math.sign(e.deltaY);
-      if (sign === 0) return;
-      const steps = Math.max(
-        1,
-        Math.min(5, Math.round(Math.abs(e.deltaY) / 100)),
-      );
-      const next = THREE.MathUtils.clamp(
-        extent + sign * steps * STEP_EXTENT,
-        MIN_EXTENT,
-        MAX_EXTENT,
-      );
-      setExtent(next);
-    },
-    [extent],
-  );
+  // Attach wheel listener with { passive: false } to allow preventDefault()
+  // React's onWheel is passive by default, causing "Unable to preventDefault" errors
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, [handleWheel]);
 
   return (
     <div
+      ref={containerRef}
       className={`minimap border-2 border-white/30 rounded-full overflow-visible bg-black/80 relative touch-none select-none ${className}`}
       style={{
         width,
@@ -758,7 +809,6 @@ export function Minimap({
         WebkitTouchCallout: "none",
         ...style,
       }}
-      onWheel={onMinimapWheel}
       onMouseDown={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -782,7 +832,6 @@ export function Minimap({
         height={height}
         className="absolute inset-0 block w-full h-full pointer-events-auto cursor-crosshair z-[1] rounded-full overflow-hidden"
         onClick={onOverlayClick}
-        onWheel={onOverlayWheel}
         onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation();

@@ -90,9 +90,6 @@ export class ItemSpawnerSystem extends SystemBase {
   start(): void {
     // Only spawn items on server - clients receive entities via network sync
     if (!this.world.isServer) {
-      console.log(
-        "[ItemSpawnerSystem] Client mode - skipping item spawning (entities come from server)",
-      );
       return;
     }
 
@@ -185,6 +182,11 @@ export class ItemSpawnerSystem extends SystemBase {
 
   private async spawnShopItems(): Promise<void> {
     for (const store of Object.values(GENERAL_STORES)) {
+      // Skip stores without location (position comes from NPC entity now)
+      if (!store.location?.position) {
+        continue;
+      }
+
       const shopItemInstances: string[] = [];
 
       for (let itemIndex = 0; itemIndex < store.items.length; itemIndex++) {
@@ -371,7 +373,6 @@ export class ItemSpawnerSystem extends SystemBase {
       value: itemData.value || 0,
       weight: itemData.weight || 0,
       rarity: itemData.rarity || ItemRarity.COMMON,
-      stats: (itemData.stats as Record<string, number>) || {},
       requirements: {
         level: itemData.requirements?.level || 1,
       },

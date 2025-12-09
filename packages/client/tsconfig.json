@@ -9,7 +9,9 @@
     "strict": true,
     "downlevelIteration": true,
     "baseUrl": ".",
-    "paths": {},
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,

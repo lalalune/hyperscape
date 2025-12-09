@@ -132,6 +132,12 @@ export async function authenticateUser(
         console.warn(
           "[Authentication] Privy token expired - user needs to re-authenticate",
         );
+      } else if (
+        err instanceof Error &&
+        (err.message.includes("alg") || err.name === "JOSEAlgNotAllowed")
+      ) {
+        // Algorithm mismatch is expected when a Hyperscape JWT is passed to Privy
+        // This happens with agent tokens - silently fall through to Hyperscape JWT verification
       } else {
         console.error("[Authentication] Privy authentication error:", err);
       }
@@ -139,14 +145,49 @@ export async function authenticateUser(
     }
   }
 
-  // Fall back to legacy JWT authentication if Privy didn't work
+  // Fall back to Hyperscape JWT authentication if Privy didn't work
   if (!user && authToken) {
     try {
       const jwtPayload = await verifyJWT(authToken);
       if (jwtPayload && jwtPayload.userId) {
-        const dbResult = await db("users")
+        // Check if this is an agent token
+        const isAgent = jwtPayload.isAgent === true;
+
+        // Look up user account
+        let dbResult = await db("users")
           .where("id", jwtPayload.userId as string)
           .first();
+
+        // If user doesn't exist and this is a Privy ID, create the user record
+        if (
+          !dbResult &&
+          (jwtPayload.userId as string).startsWith("did:privy:")
+        ) {
+          const timestamp = new Date().toISOString();
+          const newUser = {
+            id: jwtPayload.userId as string,
+            name: name || "Agent",
+            avatar: avatar || null,
+            roles: "",
+            createdAt: timestamp,
+            privyUserId: jwtPayload.userId as string,
+          };
+
+          try {
+            await db("users").insert(newUser);
+            dbResult = newUser as User;
+          } catch (insertErr) {
+            console.error(
+              "[Authentication] Failed to create user record:",
+              insertErr,
+            );
+            // Try fetching again in case of race condition
+            dbResult = await db("users")
+              .where("id", jwtPayload.userId as string)
+              .first();
+          }
+        }
+
         if (dbResult) {
           user = dbResult as User;
         }

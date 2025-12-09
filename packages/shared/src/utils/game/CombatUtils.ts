@@ -8,6 +8,10 @@
 import type { World } from "../../types";
 import { EventType } from "../../types/events";
 import { calculateDistance, getEntityWithComponent } from "../game/EntityUtils";
+import {
+  worldToTile,
+  tilesAdjacent,
+} from "../../systems/shared/movement/TileSystem";
 
 // Import proper health and skill structures
 import type {
@@ -42,6 +46,9 @@ export function isEntityAlive(world: World, entityId: string): boolean {
 
 /**
  * Check if entity is in combat range
+ *
+ * OSRS-STYLE MELEE: Must be on adjacent tile (Chebyshev distance = 1)
+ * RANGED: Uses world unit distance (10 units)
  */
 export function isInCombatRange(
   world: World,
@@ -62,17 +69,26 @@ export function isInCombatRange(
     return false;
   }
 
-  const distance = calculateDistance(
-    attackerResult.entity.position,
-    targetResult.entity.position,
-  );
-
-  // Default combat ranges
-  const meleeRange = 1.5;
-  const rangedRange = 10.0;
-  const maxRange = combatType === "melee" ? meleeRange : rangedRange;
-
-  return distance <= maxRange;
+  if (combatType === "melee") {
+    // OSRS-STYLE: Melee requires adjacent tile (Chebyshev distance = 1)
+    const attackerTile = worldToTile(
+      attackerResult.entity.position.x,
+      attackerResult.entity.position.z,
+    );
+    const targetTile = worldToTile(
+      targetResult.entity.position.x,
+      targetResult.entity.position.z,
+    );
+    return tilesAdjacent(attackerTile, targetTile);
+  } else {
+    // Ranged uses world distance
+    const distance = calculateDistance(
+      attackerResult.entity.position,
+      targetResult.entity.position,
+    );
+    const rangedRange = 10.0;
+    return distance <= rangedRange;
+  }
 }
 
 /**
@@ -113,7 +129,10 @@ export function applyDamage(
   if (!stats || damage <= 0) return false;
 
   if (stats.health) {
-    stats.health.current = Math.max(0, stats.health.current - damage);
+    // Floor to ensure health is always an integer
+    stats.health.current = Math.floor(
+      Math.max(0, stats.health.current - damage),
+    );
   }
 
   // Emit damage event for systems to handle
@@ -143,9 +162,9 @@ export function healEntity(
 
   const oldHealth = stats.health?.current || 0;
   if (stats.health) {
-    stats.health.current = Math.min(
-      stats.health.max,
-      stats.health.current + healAmount,
+    // Floor to ensure health is always an integer
+    stats.health.current = Math.floor(
+      Math.min(stats.health.max, stats.health.current + healAmount),
     );
   }
   const actualHeal = (stats.health?.current || 0) - oldHealth;
@@ -311,6 +330,18 @@ export function executeCombatAttack(
 
 export function hasEquippedWeapon(player: Player): boolean {
   return !!player.equipment?.weapon;
+}
+
+/**
+ * Get player's weapon attack range in tiles
+ * Returns the attackRange from the equipped weapon, or 1 if no weapon (punching)
+ */
+export function getPlayerWeaponRange(player: Player): number {
+  const weapon = player.equipment?.weapon;
+  if (!weapon) return 1; // No weapon = punching = 1 tile
+
+  // Get attackRange from item data, default to 1 for melee
+  return weapon.attackRange ?? 1;
 }
 
 export function canUseRanged(player: Player): boolean {

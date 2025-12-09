@@ -314,6 +314,10 @@ export class Entity implements IEntity {
 
     this.velocity = new THREE.Vector3(0, 0, 0);
 
+    // Check health from multiple sources (in priority order):
+    // 1. config.properties.health (if EntityConfig was passed)
+    // 2. entityData.health and entityData.maxHealth (if EntityData was passed)
+    // 3. Default to 100/100
     const healthData = config?.properties?.health as
       | { current: number; max: number }
       | undefined;
@@ -321,10 +325,34 @@ export class Entity implements IEntity {
       this.health = healthData.current;
       this.maxHealth = healthData.max;
     } else {
-      this.health = GAME_CONSTANTS.PLAYER.DEFAULT_HEALTH;
-      this.maxHealth = GAME_CONSTANTS.PLAYER.DEFAULT_MAX_HEALTH;
+      // Check if EntityData has health property (e.g., from server spawn)
+      const entityDataWithHealth = entityData as unknown as {
+        health?: number;
+        maxHealth?: number;
+      };
+      if (entityDataWithHealth.health !== undefined) {
+        const entityHealth = entityDataWithHealth.health;
+        const entityMaxHealth = entityDataWithHealth.maxHealth;
+        this.health =
+          Number.isFinite(entityHealth) && entityHealth > 0
+            ? entityHealth
+            : GAME_CONSTANTS.PLAYER.DEFAULT_HEALTH;
+        this.maxHealth =
+          Number.isFinite(entityMaxHealth) &&
+          entityMaxHealth !== undefined &&
+          entityMaxHealth > 0
+            ? entityMaxHealth
+            : this.health;
+      } else {
+        this.health = GAME_CONSTANTS.PLAYER.DEFAULT_HEALTH;
+        this.maxHealth = GAME_CONSTANTS.PLAYER.DEFAULT_MAX_HEALTH;
+      }
     }
     this.level = (config?.properties?.level as number) || 1;
+
+    // Initialize health in entity data for network sync
+    this.data.health = this.health;
+    (this.data as { maxHealth?: number }).maxHealth = this.maxHealth;
 
     // Add to world scene
     if (this.world.stage.scene) {
@@ -773,7 +801,9 @@ export class Entity implements IEntity {
     // Note: createMesh is async in Entity, so this will be called from init()
 
     // Create name tag if entity has a name
-    if (this.name) {
+    // Skip mobs and items - RuneScape pattern: names shown in right-click menu only
+    const shouldShowNametag = this.type !== "mob" && this.type !== "item";
+    if (this.name && shouldShowNametag) {
       this.createNameTag();
     }
 
@@ -827,6 +857,7 @@ export class Entity implements IEntity {
       {
         width: GAME_CONSTANTS.UI.HEALTH_BAR_WIDTH,
         height: GAME_CONSTANTS.UI.HEALTH_BAR_HEIGHT,
+        borderWidth: GAME_CONSTANTS.UI.HEALTH_BAR_BORDER,
       },
     );
 
@@ -847,7 +878,9 @@ export class Entity implements IEntity {
    * Update health bar sprite - from BaseEntity
    */
   protected updateHealthBar(): void {
-    if (!this.healthSprite) return;
+    if (!this.healthSprite) {
+      return;
+    }
 
     const healthCanvas = UIRenderer.createHealthBar(
       this.health,
@@ -855,6 +888,7 @@ export class Entity implements IEntity {
       {
         width: GAME_CONSTANTS.UI.HEALTH_BAR_WIDTH,
         height: GAME_CONSTANTS.UI.HEALTH_BAR_HEIGHT,
+        borderWidth: GAME_CONSTANTS.UI.HEALTH_BAR_BORDER,
       },
     );
 
@@ -867,6 +901,10 @@ export class Entity implements IEntity {
   public setHealth(newHealth: number): void {
     this.health = Math.max(0, Math.min(this.maxHealth, newHealth));
 
+    // Update health in entity data for network sync
+    this.data.health = this.health;
+    (this.data as { maxHealth?: number }).maxHealth = this.maxHealth;
+
     // Update health component
     const healthComponent = this.getComponent("health");
     if (healthComponent && healthComponent.data) {
@@ -876,6 +914,9 @@ export class Entity implements IEntity {
 
     // Update health bar visual
     this.updateHealthBar();
+
+    // Mark entity as dirty for network sync
+    this.markNetworkDirty();
 
     // Emit health change event
     this.world.emit(EventType.ENTITY_HEALTH_CHANGED, {
@@ -1387,16 +1428,6 @@ export class Entity implements IEntity {
       ) {
         dataFields[key] = value;
       }
-    }
-
-    // Debug logging for players only
-    if (this.type === "player") {
-      console.log(`[Entity.getNetworkData] Player ${this.id}`);
-      console.log(`  this.data keys:`, Object.keys(this.data));
-      console.log(`  dataFields:`, dataFields);
-      console.log(`  inCombat:`, dataFields.inCombat);
-      console.log(`  combatTarget:`, dataFields.combatTarget);
-      console.log(`  emote (e):`, dataFields.e);
     }
 
     return {

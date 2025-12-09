@@ -198,8 +198,7 @@ export class DockerManager {
           return;
         }
       } catch {
-        // pg_isready returns non-zero exit code when not ready, this is expected
-        // Continue waiting
+        // pg_isready returns non-zero when not ready - this is expected, retry
       }
 
       await new Promise((resolve) => setTimeout(resolve, 1000));

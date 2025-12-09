@@ -159,13 +159,14 @@ export async function initializeDatabase(connectionString: string) {
       message?: string;
     };
     const isExistsError =
-      (hasCode && errorWithCause.cause?.code === "42P07") ||
+      (hasCode && errorWithCause.cause?.code === "42P07") || // Table already exists
+      (hasCode && errorWithCause.cause?.code === "42701") || // Column already exists
       (hasMessage &&
         typeof errorWithCause.message === "string" &&
         errorWithCause.message.includes("already exists"));
 
     if (isExistsError) {
-      // Table already exists, this is fine
+      // Table already exists, this is fine - safe to ignore
     } else {
       console.error("[DB] ❌ Migration failed:", error);
       throw error;

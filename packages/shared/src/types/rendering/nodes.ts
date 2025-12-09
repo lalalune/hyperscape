@@ -78,8 +78,9 @@ export interface AvatarHooks {
   onFrame?: (delta: number) => void;
 }
 
-export interface AvatarInstance<T = Record<string, unknown>>
-  extends HotReloadable {
+export interface AvatarInstance<
+  T = Record<string, unknown>,
+> extends HotReloadable {
   hooks?: AvatarHooks;
   destroy: () => void;
   set?: <K extends keyof T>(key: K, value: T[K]) => void;
@@ -125,6 +126,10 @@ export interface NametagHandle {
   subtextColor?: string;
   visible: boolean;
   offset: number;
+  move: (newMatrix: THREE.Matrix4) => void;
+  setName: (name: string) => void;
+  setHealth: (health: number) => void;
+  setInCombat: (inCombat: boolean) => void;
   destroy: () => void;
 }
 

@@ -25,11 +25,140 @@ import {
   World,
 } from "@hyperscape/shared";
 
-const HEALTH_MAX = 100;
+/**
+ * Create an ElizaOS agent record for a character
+ * This allows the character to appear in the dashboard and be managed as an agent
+ */
+async function createElizaOSAgent(
+  characterId: string,
+  accountId: string,
+  name: string,
+  avatar?: string,
+  wallet?: string,
+  isAgent?: boolean,
+): Promise<void> {
+  try {
+    const elizaOSApiUrl =
+      process.env.ELIZAOS_API_URL || "http://localhost:4001";
+
+    console.log(
+      `[CharacterSelection] 🤖 Creating ElizaOS agent for character: ${name} (${characterId})`,
+    );
+
+    // Generate ElizaOS character template
+    const username = name.toLowerCase().replace(/\s+/g, "_");
+    const characterTemplate = {
+      id: characterId, // Use same ID as Hyperscape character
+      name,
+      username,
+      system: `You are ${name}, ${isAgent ? "an AI agent" : "a character"} in Hyperscape, a 3D multiplayer RPG. ${isAgent ? "You can autonomously move around the world, fight enemies, gather resources, manage your inventory, and interact with other players." : "You are controlled by a human player but can also operate autonomously when needed."} You are adventurous, strategic, and always ready for new challenges.`,
+
+      bio: [
+        `I am ${name}, ${isAgent ? "an AI agent" : "a character"} in the world of Hyperscape.`,
+        isAgent
+          ? "I autonomously navigate 3D environments, engage in combat, and interact with other players."
+          : "I can be controlled by my human player or operate autonomously when needed.",
+        "I'm always learning and adapting to new situations in the game.",
+        "My goal is to become a skilled adventurer and help others along the way.",
+      ],
+
+      topics: [
+        "hyperscape",
+        "gaming",
+        "rpg",
+        "combat strategies",
+        "resource gathering",
+        "inventory management",
+        "multiplayer cooperation",
+      ],
+
+      adjectives: [
+        "adventurous",
+        "strategic",
+        "helpful",
+        "determined",
+        "resourceful",
+        "brave",
+      ],
+
+      plugins: [
+        "@hyperscape/plugin-hyperscape", // Hyperscape game integration
+        "@elizaos/plugin-sql", // Database operations
+        "@elizaos/plugin-bootstrap", // Bootstrap functionality
+      ],
+
+      settings: {
+        secrets: {
+          HYPERSCAPE_CHARACTER_ID: characterId,
+          HYPERSCAPE_SERVER_URL:
+            process.env.PUBLIC_WS_URL || "ws://localhost:5555/ws",
+          HYPERSCAPE_ACCOUNT_ID: accountId, // Link to user's account
+          wallet,
+        },
+        avatar,
+        characterType: isAgent ? "ai-agent" : "human-player",
+        accountId, // Store in settings for dashboard filtering
+      },
+
+      style: {
+        all: [
+          "Be conversational and natural",
+          "Show enthusiasm for the game",
+          "Be helpful and collaborative",
+        ],
+        chat: [
+          "Be friendly and approachable",
+          "Respond to questions directly",
+          "Use game-appropriate language",
+        ],
+        post: [
+          "Keep posts concise and engaging",
+          "Share tips and discoveries",
+          "Celebrate achievements",
+        ],
+      },
+    };
+
+    // Call ElizaOS API to create agent
+    const response = await fetch(`${elizaOSApiUrl}/api/agents`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        characterJson: characterTemplate,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        `[CharacterSelection] ❌ Failed to create ElizaOS agent: ${response.status} ${errorText}`,
+      );
+      return;
+    }
+
+    const result = await response.json();
+    console.log(
+      `[CharacterSelection] ✅ ElizaOS agent created successfully:`,
+      result,
+    );
+  } catch (error) {
+    console.error(
+      "[CharacterSelection] ❌ Error creating ElizaOS agent:",
+      error instanceof Error ? error.message : String(error),
+    );
+    // Don't fail character creation if ElizaOS agent creation fails
+    // The character is already in Hyperscape DB
+  }
+}
 
 interface CharacterData {
   id: string;
   name: string;
+  avatar?: string | null;
+  wallet?: string | null;
+  isAgent?: boolean;
   level?: number;
   lastLocation?: { x: number; y: number; z: number };
 }
@@ -47,7 +176,13 @@ export async function loadCharacterList(
       | undefined;
     if (!databaseSystem) return [];
     const chars = await databaseSystem.getCharactersAsync(accountId);
-    return chars.map((c) => ({ id: c.id, name: c.name }));
+    return chars.map((c) => ({
+      id: c.id,
+      name: c.name,
+      avatar: c.avatar || null,
+      wallet: c.wallet || null,
+      isAgent: c.isAgent || false, // CRITICAL: Include isAgent flag for routing
+    }));
   } catch {
     return [];
   }
@@ -68,6 +203,10 @@ export async function handleCharacterListRequest(
     socket.send("characterList", { characters: [] });
     return;
   }
+  console.log(
+    "[CharacterSelection] 📋 Loading characters for accountId:",
+    accountId,
+  );
   try {
     const characters = await loadCharacterList(accountId, world);
     socket.send("characterList", { characters });
@@ -91,13 +230,32 @@ export async function handleCharacterCreate(
     data,
   );
 
-  const payload = (data as { name?: string }) || {};
-  const name = (payload.name || "").trim().slice(0, 20) || "Adventurer";
+  const payload =
+    (data as {
+      name?: string;
+      avatar?: string;
+      wallet?: string;
+      isAgent?: boolean;
+    }) || {};
+  const name = (payload.name || "").trim().slice(0, 50) || "Adventurer";
+  const avatar = payload.avatar || undefined;
+  const wallet = payload.wallet || undefined;
+  const isAgent = payload.isAgent || false;
 
-  console.log("[CharacterSelection] Raw name from payload:", payload.name);
-  console.log("[CharacterSelection] Processed name:", name);
+  console.log("[CharacterSelection] Raw data from payload:", {
+    name: payload.name,
+    avatar: payload.avatar,
+    wallet: payload.wallet,
+    isAgent: payload.isAgent,
+  });
+  console.log("[CharacterSelection] Processed values:", {
+    name,
+    avatar,
+    wallet,
+    isAgent,
+  });
 
-  // Basic validation: alphanumeric plus spaces, 3-20 chars
+  // Basic validation: alphanumeric plus spaces, 3-50 chars
   const safeName = name.replace(/[^a-zA-Z0-9 ]/g, "").trim();
   const finalName = safeName.length >= 3 ? safeName : "Adventurer";
 
@@ -110,6 +268,9 @@ export async function handleCharacterCreate(
     characterId: id,
     accountId,
     finalName,
+    avatar,
+    wallet,
+    isAgent,
   });
 
   if (!accountId) {
@@ -141,6 +302,9 @@ export async function handleCharacterCreate(
       accountId,
       id,
       finalName,
+      avatar,
+      wallet,
+      isAgent,
     );
 
     if (!result) {
@@ -157,6 +321,10 @@ export async function handleCharacterCreate(
     console.log(
       "[CharacterSelection] ✅ Character creation successful, sending response",
     );
+
+    // NOTE: AI agent creation is handled by CharacterEditorScreen
+    // User will configure the agent personality before it's created in ElizaOS
+    // This ensures proper accountId linkage and user customization
   } catch (err) {
     console.error("[CharacterSelection] ❌ EXCEPTION in createCharacter:", err);
     sendToFn(socket.id, "showToast", {
@@ -166,7 +334,12 @@ export async function handleCharacterCreate(
     return;
   }
 
-  const responseData = { id, name: finalName };
+  const responseData = {
+    id,
+    name: finalName,
+    wallet: wallet || undefined,
+    avatar: avatar || undefined,
+  };
 
   console.log(
     "[CharacterSelection] Sending characterCreated response:",
@@ -210,51 +383,159 @@ export async function handleEnterWorld(
   sendFn: (name: string, data: unknown, ignoreSocketId?: string) => void,
   sendToFn: (socketId: string, name: string, data: unknown) => void,
 ): Promise<void> {
-  console.log(
-    "[CharacterSelection] 🚪 handleEnterWorld called with data:",
-    data,
-  );
-
   // Spawn the entity now, preserving legacy spawn shape
   if (socket.player) {
-    console.log("[CharacterSelection] Player already spawned, skipping");
     return; // Already spawned
   }
   const accountId = socket.accountId || undefined;
   const payload = (data as { characterId?: string }) || {};
   const characterId = payload.characterId || null;
 
-  console.log("[CharacterSelection] Enter world params:", {
-    accountId,
-    characterId,
-    hasSocket: !!socket,
-  });
+  // Set socket.characterId IMMEDIATELY for synchronous duplicate detection
+  // This must happen BEFORE any async operations (DB queries, entity creation)
+  if (characterId) {
+    socket.characterId = characterId;
+  }
+
+  // DUPLICATE PROTECTION: Check if this characterId already has an active entity
+  if (characterId) {
+    // First check: Look for active socket with this character
+    const networkSystem = world.getSystem("network") as
+      | { sockets: Map<string, ServerSocket> }
+      | undefined;
+    let existingActiveSocket: ServerSocket | undefined = undefined;
+
+    if (networkSystem?.sockets) {
+      for (const [, sock] of networkSystem.sockets.entries()) {
+        // Check if this socket has claimed this characterId (set immediately on enterWorld)
+        // This works even before the player entity is created, preventing race conditions
+        if (
+          sock.characterId === characterId &&
+          sock.alive &&
+          sock.id !== socket.id
+        ) {
+          existingActiveSocket = sock;
+          break;
+        }
+      }
+    }
+
+    // If we found an active socket with this character, reject immediately
+    if (existingActiveSocket) {
+      console.warn(
+        `[CharacterSelection] ⚠️ Character ${characterId} is already connected with alive socket ${existingActiveSocket.id}! Rejecting duplicate spawn from socket ${socket.id}.`,
+      );
+      sendToFn(socket.id, "showToast", {
+        message:
+          "This character is already logged in. Please disconnect the other session first.",
+        type: "error",
+      });
+      return; // Reject duplicate connection
+    }
+
+    // Second check: Look for stale entities (entity exists but socket is dead)
+    let existingEntity: Entity | null = null;
+    for (const [, entity] of world.entities.items.entries()) {
+      // Check if this entity was spawned with the same characterId
+      // (stored as entity ID for persistent characters)
+      if (entity.id === characterId) {
+        existingEntity = entity;
+        break;
+      }
+    }
+
+    if (existingEntity) {
+      // Entity exists but no active socket - this is a stale entity from a crashed connection
+      console.log(
+        `[CharacterSelection] 🔄 Character ${characterId} has stale entity. Removing stale entity and allowing reconnection.`,
+      );
+
+      // Remove the stale entity
+      if (world.entities?.remove) {
+        world.entities.remove(existingEntity.id);
+        console.log(
+          `[CharacterSelection] ✅ Removed stale entity ${existingEntity.id}`,
+        );
+      }
+
+      // Broadcast entity removal to all clients
+      sendFn("entityRemoved", existingEntity.id);
+      console.log(
+        `[CharacterSelection] 📤 Broadcasted entity removal for ${existingEntity.id}`,
+      );
+    }
+  }
 
   // Load character data from DB if characterId provided
   let name = "Adventurer";
-  let characterData: { id: string; name: string } | null = null;
-  if (characterId && accountId) {
+  let avatar: string | undefined = undefined;
+  let walletAddress: string | undefined = undefined;
+  let characterData: {
+    id: string;
+    name: string;
+    avatar?: string | null;
+    wallet?: string | null;
+  } | null = null;
+  if (characterId) {
     try {
       const databaseSystem = world.getSystem("database") as
         | import("../DatabaseSystem").DatabaseSystem
         | undefined;
       if (databaseSystem) {
-        const characters = await databaseSystem.getCharactersAsync(accountId);
-        console.log(
-          "[CharacterSelection] Loaded characters for account:",
-          characters,
-        );
-        characterData = characters.find((c) => c.id === characterId) || null;
+        // First try: Look up characters by accountId (normal flow)
+        if (accountId) {
+          const characters = await databaseSystem.getCharactersAsync(accountId);
+          characterData = characters.find((c) => c.id === characterId) || null;
+        }
+
+        // Second try: If not found by accountId, look up character directly
+        // This handles agents where JWT verification may fail and create anonymous accountId
+        if (!characterData) {
+          console.log(
+            `[CharacterSelection] Character ${characterId} not found for account ${accountId}, trying direct lookup...`,
+          );
+
+          // Try to find the character directly by ID (any account)
+          // This is safe because the agent already has the characterId in its settings
+          const db = databaseSystem.getDb ? databaseSystem.getDb() : null;
+          if (db) {
+            // Use Drizzle query to find character by ID
+            const directLookup = await db.query.characters.findFirst({
+              where: (characters, { eq }) => eq(characters.id, characterId),
+            });
+            if (directLookup) {
+              characterData = directLookup as {
+                id: string;
+                name: string;
+                avatar?: string | null;
+                wallet?: string | null;
+              };
+              console.log(
+                `[CharacterSelection] ✅ Found character via direct lookup: ${characterData.name} (${characterId})`,
+              );
+            }
+          }
+        }
+
         if (characterData) {
           name = characterData.name;
-          console.log(
-            "[CharacterSelection] ✅ Found character:",
-            characterData,
-          );
+          avatar = characterData.avatar || undefined;
+          walletAddress = characterData.wallet || undefined;
         } else {
-          console.warn(
-            `[CharacterSelection] ❌ Character ${characterId} not found for account ${accountId}`,
+          // Character not found - fail fast instead of auto-creating with wrong data
+          console.error(
+            `[CharacterSelection] ❌ CRITICAL: Character ${characterId} not found in database. Refusing to spawn with incorrect data.`,
           );
+          sendToFn(socket.id, "showToast", {
+            message:
+              "Character not found. Please select a valid character or create a new one.",
+            type: "error",
+          });
+          // Disconnect socket to force user to return to character selection
+          if (socket.ws && socket.ws.close) {
+            socket.ws.close(4004, "Character not found");
+          }
+          return; // Exit early - do not spawn
         }
       }
     } catch (err) {
@@ -263,15 +544,8 @@ export async function handleEnterWorld(
         err,
       );
     }
-  } else {
-    console.warn(
-      "[CharacterSelection] ⚠️ Missing characterId or accountId for enterWorld",
-    );
   }
 
-  console.log("[CharacterSelection] Will spawn player with name:", name);
-
-  const avatar = undefined;
   const roles: string[] = [];
 
   // Require a characterId to ensure persistence uses stable IDs
@@ -367,6 +641,13 @@ export async function handleEnterWorld(
     // Terrain not ready; use safe height
     position = [position[0], 10, position[2]];
   }
+  // Health should equal constitution level (per user requirement)
+  const constitutionLevel = savedSkills?.constitution?.level || 10;
+  const playerHealth =
+    Number.isFinite(constitutionLevel) && constitutionLevel > 0
+      ? constitutionLevel
+      : 10;
+
   const addedEntity = world.entities.add
     ? world.entities.add({
         id: entityId,
@@ -376,15 +657,21 @@ export async function handleEnterWorld(
         owner: socket.id,
         userId: accountId || undefined,
         name,
-        health: HEALTH_MAX,
-        avatar: world.settings.avatar?.url || "asset://avatar.vrm",
-        sessionAvatar: avatar || undefined,
+        health: playerHealth, // Use constitution level instead of HEALTH_MAX
+        maxHealth: playerHealth, // Also set maxHealth
+        avatar:
+          avatar ||
+          world.settings.avatar?.url ||
+          "asset://avatars/avatar-male-01.vrm",
+        sessionAvatar: avatar || undefined, // ✅ Also set sessionAvatar for runtime override
+        wallet: walletAddress, // ✅ Character's HD wallet address
         roles,
         // CRITICAL: Pass loaded skills so PlayerEntity constructor uses them instead of defaults
         skills: savedSkills,
       })
     : undefined;
   socket.player = (addedEntity as Entity) || undefined;
+
   if (socket.player) {
     world.emit(EventType.PLAYER_JOINED, {
       playerId: socket.player.data.id as string,
@@ -408,9 +695,6 @@ export async function handleEnterWorld(
             entityCount++;
           }
         }
-        console.log(
-          `[CharacterSelection] 📤 Sent ${entityCount} existing entities to new player ${socket.player.id}`,
-        );
       }
 
       // Immediately reinforce authoritative transform to avoid initial client-side default pose
@@ -426,6 +710,13 @@ export async function handleEnterWorld(
       // Send initial skills to client immediately after spawn
       if (savedSkills) {
         sendToFn(socket.id, "skillsUpdated", {
+          playerId: socket.player.id,
+          skills: savedSkills,
+        });
+
+        // CRITICAL: Also emit server-side event so EquipmentSystem cache gets populated
+        // Without this, equipment validation fails because EquipmentSystem.playerSkills is empty
+        world.emit(EventType.SKILLS_UPDATED, {
           playerId: socket.player.id,
           skills: savedSkills,
         });
@@ -482,6 +773,41 @@ export async function handleEnterWorld(
           maxSlots: 28,
         });
       } catch {}
+
+      // CRITICAL: Send equipment snapshot immediately from persistence to avoid races
+      // Load equipment BEFORE PLAYER_JOINED event fires to prevent bronze sword bug
+      try {
+        const dbSys = world.getSystem?.("database") as
+          | DatabaseSystemOperations
+          | undefined;
+        const persistenceId = characterId || socket.player.id;
+        const equipmentRows = dbSys?.getPlayerEquipmentAsync
+          ? await dbSys.getPlayerEquipmentAsync(persistenceId)
+          : [];
+
+        if (equipmentRows.length > 0) {
+          const equipmentData: Record<string, unknown> = {};
+          for (const row of equipmentRows) {
+            if (row.itemId && row.slotType) {
+              const itemDef = getItem(String(row.itemId));
+              if (itemDef) {
+                equipmentData[row.slotType] = {
+                  item: itemDef,
+                  itemId: String(row.itemId),
+                };
+              }
+            }
+          }
+
+          // Send equipment to client immediately
+          sendToFn(socket.id, "equipmentUpdated", {
+            playerId: socket.player.id,
+            equipment: equipmentData,
+          });
+        }
+      } catch (err) {
+        console.error("[CharacterSelection] ❌ Failed to load equipment:", err);
+      }
     } catch (_err) {}
   }
 }

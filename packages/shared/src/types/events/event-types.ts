@@ -83,6 +83,8 @@ export enum EventType {
   UI_UPDATE = "ui",
   UI_COMBAT_TARGET_CHANGED = "ui:combat_target:changed",
   UI_COMBAT_TARGET_HEALTH = "ui:combat_target:health",
+  UI_HIDE_ELEMENTS = "ui:hide_elements",
+  UI_SHOW_ELEMENTS = "ui:show_elements",
 
   // Network Communication
   NETWORK_CONNECTED = "network:connected",
@@ -316,6 +318,12 @@ export enum EventType {
   STORE_TRANSACTION = "store:transaction",
   STORE_PLAYER_COINS = "store:player_coins",
 
+  // Dialogue System
+  DIALOGUE_START = "dialogue:start",
+  DIALOGUE_NODE_CHANGE = "dialogue:node_change",
+  DIALOGUE_RESPONSE = "dialogue:response",
+  DIALOGUE_END = "dialogue:end",
+
   // Resource System
   RESOURCE_SPAWNED = "resource:spawned",
   RESOURCE_GATHER = "resource:gather",
@@ -400,9 +408,6 @@ export enum EventType {
   // Chunk System
   CHUNK_LOADED = "chunk:loaded",
   CHUNK_UNLOADED = "chunk:unloaded",
-
-  // Pathfinding System
-  PATHFINDING_REQUEST = "pathfinding:request",
 
   // Physics Test Events
   PHYSICS_TEST_RUN_ALL = "physics:test:run_all",

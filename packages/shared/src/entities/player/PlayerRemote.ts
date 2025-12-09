@@ -65,6 +65,10 @@ import { Entity } from "../Entity";
 import { Avatar, Nametag, Group, Mesh, UI, UIView, UIText } from "../../nodes";
 import { EventType } from "../../types/events";
 import type { PlayerEffect, VRMHooks } from "../../types/systems/physics";
+import type {
+  HealthBars as HealthBarsSystem,
+  HealthBarHandle,
+} from "../../systems/client/HealthBars";
 
 interface AvatarWithInstance {
   instance: {
@@ -98,6 +102,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
   collider!: Mesh;
   aura!: Group;
   nametag!: Nametag;
+  private _healthBarHandle: HealthBarHandle | null = null; // Separate health bar (HealthBars system)
   bubble!: UI;
   bubbleBox!: UIView;
   bubbleText!: UIText;
@@ -111,6 +116,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
   chatTimer?: NodeJS.Timeout;
   destroyed: boolean = false;
   private lastEmote?: string;
+  private isLoadingAvatar: boolean = false;
   private prevPosition: THREE.Vector3 = new THREE.Vector3();
   public velocity = new THREE.Vector3();
   public enableInterpolation: boolean = false; // Disabled - ensure basic movement works first
@@ -122,6 +128,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
     inCombat: false,
     combatTarget: null as string | null,
   };
+
+  // Guard to prevent double initialization
+  private _initialized: boolean = false;
 
   constructor(world: World, data: EntityData, local?: boolean) {
     super(world, data, local);
@@ -141,6 +150,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
   }
 
   async init(): Promise<void> {
+    // Prevent double initialization (constructor calls init(), then Entities.add() calls it again)
+    if (this._initialized) {
+      return;
+    }
+    this._initialized = true;
+
     this.base = createNode("group") as Group;
     // Position and rotation are now handled by Entity base class
     // Use entity's position/rotation properties instead of data
@@ -193,12 +208,32 @@ export class PlayerRemote extends Entity implements HotReloadable {
     // this.base.add(this.caps)
 
     this.aura = createNode("group") as Group;
+
+    // Create nametag for name display only (no health - that's now in HealthBars system)
     this.nametag = createNode("nametag", {
       label: this.data.name || "",
-      health: this.data.health,
-      active: false,
+      active: true,
     }) as Nametag;
-    this.aura?.add(this.nametag);
+    // Set world context for nametag (needed for mounting to Nametags system)
+    this.nametag.ctx = this.world;
+    // Mount nametag directly (PlayerRemote.lateUpdate() handles positioning via handle.move())
+    if (this.nametag.mount) {
+      this.nametag.mount();
+    }
+
+    // Register with HealthBars system (separate from nametags)
+    const healthbars = this.world.systems.find(
+      (s) =>
+        (s as { systemName?: string }).systemName === "healthbars" ||
+        s.constructor.name === "HealthBars",
+    ) as HealthBarsSystem | undefined;
+
+    if (healthbars) {
+      const currentHealth = (this.data.health as number) || 100;
+      const maxHealth = (this.data.maxHealth as number) || 100;
+      this._healthBarHandle = healthbars.add(this.id, currentHealth, maxHealth);
+      // Health bar starts hidden (RuneScape pattern: only show during combat)
+    }
 
     this.bubble = createNode("ui", {
       width: 300,
@@ -253,167 +288,156 @@ export class PlayerRemote extends Entity implements HotReloadable {
     const avatarUrl =
       (this.data.sessionAvatar as string) ||
       (this.data.avatar as string) ||
-      "asset://avatar.vrm";
-    if (this.avatarUrl === avatarUrl) return;
+      "asset://avatars/avatar-male-01.vrm";
+
+    // Skip if already loading ANY avatar (prevent race conditions)
+    if (this.isLoadingAvatar) {
+      return;
+    }
+
+    // Skip if avatar already loaded
+    if (this.avatarUrl === avatarUrl && this.avatar) {
+      return;
+    }
 
     // Skip avatar loading on server (no loader system)
     if (!this.world.loader) {
       return;
     }
 
-    const src = (await this.world.loader.load(
-      "avatar",
-      avatarUrl,
-    )) as LoadedAvatar;
+    // Set loading flag to prevent duplicate loads
+    this.isLoadingAvatar = true;
 
-    // Clean up previous avatar
-    if (this.avatar) {
-      this.avatar.deactivate();
-      // If avatar has an instance, destroy it to clean up VRM scene
-      const avatarWithInstance = this.avatar as AvatarWithInstance;
-      if (avatarWithInstance.instance && avatarWithInstance.instance.destroy) {
-        avatarWithInstance.instance.destroy();
-      }
-    }
+    let loadSuccess = false;
+    try {
+      const src = (await this.world.loader.load(
+        "avatar",
+        avatarUrl,
+      )) as LoadedAvatar;
 
-    // Note: VRM hooks will be set on the avatar node before mounting
-    const nodeMap = src.toNodes();
-
-    const rootNode = nodeMap.get("root");
-    if (!rootNode) {
-      throw new Error(
-        `[PlayerRemote] No root node found in loaded avatar. Available keys: ${Array.from(nodeMap.keys())}`,
-      );
-    }
-
-    // The avatar node is a child of the root node or in the map directly
-    const avatarNode =
-      nodeMap.get("avatar") || (rootNode as Group).get("avatar");
-
-    // Use the avatar node
-    const nodeToUse = avatarNode || rootNode;
-
-    this.avatar = nodeToUse as Avatar;
-
-    // Set up the avatar node properly - cast to access internal properties
-    interface AvatarNodeInternal {
-      ctx: World;
-      parent: { matrixWorld: THREE.Matrix4 } | null;
-      activate: (world: World) => void;
-      mount: () => Promise<void>;
-      hooks: VRMHooks;
-    }
-    const nodeObj = nodeToUse as Avatar & AvatarNodeInternal;
-    nodeObj.ctx = this.world;
-
-    // Use world.stage.scene and manually update position
-    const vrmHooks: VRMHooks = {
-      scene: this.world.stage.scene,
-      octree: this.world.stage.octree as VRMHooks["octree"],
-      camera: this.world.camera,
-      loader: this.world.loader,
-    };
-    nodeObj.hooks = vrmHooks;
-
-    // Set the parent to base's matrix so it follows the remote player
-    Object.assign(nodeObj, { parent: { matrixWorld: this.base.matrixWorld } });
-
-    // Activate and mount the avatar node
-    nodeObj.activate(this.world);
-    await nodeObj.mount();
-
-    // The avatar instance will be managed by the VRM factory
-    // Don't add anything to base - the VRM scene is added to world.stage.scene
-
-    // CRITICAL: Set userData on the VRM model for right-click detection
-    // The VRM is added to world.stage.scene, so raycasts hit it directly
-    const avatarWithInstance = nodeToUse as unknown as AvatarWithInstance;
-    console.log(
-      `[PlayerRemote] 🔍 Checking VRM instance for player ${this.id}:`,
-      {
-        hasInstance: !!avatarWithInstance.instance,
-        hasRaw: !!(avatarWithInstance.instance as { raw?: unknown })?.raw,
-        hasScene: !!(
-          avatarWithInstance.instance as { raw?: { scene?: unknown } }
-        )?.raw?.scene,
-      },
-    );
-
-    if (
-      (avatarWithInstance.instance as { raw?: { scene?: THREE.Object3D } })?.raw
-        ?.scene
-    ) {
-      const vrmScene = (
-        avatarWithInstance.instance as unknown as {
-          raw: { scene: THREE.Object3D };
+      // Clean up previous avatar
+      if (this.avatar) {
+        this.avatar.deactivate();
+        // If avatar has an instance, destroy it to clean up VRM scene
+        const avatarWithInstance = this.avatar as AvatarWithInstance;
+        if (avatarWithInstance.instance) {
+          avatarWithInstance.instance.destroy();
         }
-      ).raw.scene;
+      }
 
-      const userData = {
-        type: "player",
-        entityId: this.id,
-        name: this.data.name || "Player",
-        interactable: true,
-        entity: this,
-        playerId: this.id,
+      // CRITICAL: Pass VRM hooks to toNodes() so VRMFactory applies normalization and rotation
+      // This must happen DURING toNodes() call, not after
+      const vrmHooks: VRMHooks = {
+        scene: this.world.stage.scene,
+        octree: this.world.stage.octree as VRMHooks["octree"],
+        camera: this.world.camera,
+        loader: this.world.loader,
+      };
+      const nodeMap = src.toNodes(vrmHooks);
+
+      const rootNode = nodeMap.get("root");
+      if (!rootNode) {
+        throw new Error(
+          `[PlayerRemote] No root node found in loaded avatar. Available keys: ${Array.from(nodeMap.keys())}`,
+        );
+      }
+
+      // The avatar node is a child of the root node or in the map directly
+      // MATCH PlayerLocal: Simple fallback logic
+      const avatarNode = nodeMap.get("avatar") || rootNode;
+
+      // Use the avatar node
+      const nodeToUse = avatarNode;
+
+      this.avatar = nodeToUse as Avatar;
+
+      // Set up the avatar node properly - cast to access internal properties
+      interface AvatarNodeInternal {
+        ctx: World;
+        parent: { matrixWorld: THREE.Matrix4 } | null;
+        activate: (world: World) => void;
+        mount: () => Promise<void>;
+        hooks: VRMHooks;
+        position: THREE.Vector3;
+      }
+      const nodeObj = nodeToUse as Avatar & AvatarNodeInternal;
+      nodeObj.ctx = this.world;
+
+      // Assign the VRM hooks to the node (already passed to toNodes above)
+      nodeObj.hooks = vrmHooks;
+
+      // Set the parent so the node knows where it belongs in the hierarchy
+      (nodeObj as Avatar & AvatarNodeInternal & { parent: unknown }).parent = {
+        matrixWorld: this.base.matrixWorld,
       };
 
-      console.log(
-        `[PlayerRemote] 📝 Setting userData on VRM scene root for player ${this.id}`,
-      );
-      vrmScene.userData = { ...userData };
+      // CRITICAL: Avatar node position should be at origin (0,0,0) (matches PlayerLocal)
+      // The instance.move() method will position it at the base's world position
+      nodeObj.position.set(0, 0, 0);
 
-      // CRITICAL: Set userData on ALL VRM children (includes CombinedMesh_standard)
-      let childCount = 0;
-      vrmScene.traverse((child: THREE.Object3D) => {
-        // Merge with existing userData to preserve other properties
-        child.userData = {
-          ...child.userData,
-          ...userData,
-        };
-        childCount++;
+      // Activate and mount the avatar node
+      nodeObj.activate(this.world);
+      await nodeObj.mount();
+
+      // The avatar instance will be managed by the VRM factory
+      // Don't add anything to base - the VRM scene is added to world.stage.scene
+
+      // Disable distance-based LOD throttling for smooth animations
+      const avatarWithInstance = nodeToUse as unknown as AvatarWithInstance;
+      if (
+        avatarWithInstance.instance &&
+        avatarWithInstance.instance.disableRateCheck
+      ) {
+        avatarWithInstance.instance.disableRateCheck();
+      }
+
+      // Set up positioning
+      const headHeight = this.avatar.getHeadToHeight()!;
+      // Position nametag at fixed Y=2.0 like mob health bars
+      this.nametag.position.y = 2.0;
+      // Bubble still goes at head height for chat
+      this.bubble.position.y = headHeight + 0.2;
+
+      if (!this.bubble.active) {
+        this.nametag.active = true;
+      }
+
+      // CRITICAL: Make avatar visible and ensure proper positioning (matches PlayerLocal)
+      (this.avatar as unknown as { visible: boolean }).visible = true;
+      nodeObj.position.set(0, 0, 0);
+
+      // Ensure a default idle emote after mount so avatar isn't frozen
+      (this.avatar as Avatar).setEmote(Emotes.IDLE);
+      this.lastEmote = Emotes.IDLE;
+
+      // Calculate camera height for spectator mode (same as PlayerLocal)
+      const avatarHeight = (this.avatar as unknown as { height: number })
+        .height;
+      const camHeight = Math.max(1.2, avatarHeight * 0.9);
+
+      // Avatar loaded successfully
+      loadSuccess = true;
+      this.avatarUrl = avatarUrl;
+
+      // SPECTATOR FIX: Emit PLAYER_AVATAR_READY so camera system can set proper offset
+      // This is critical for spectator mode to work correctly
+      this.world.emit(EventType.PLAYER_AVATAR_READY, {
+        playerId: this.id,
+        avatar: this.avatar,
+        camHeight: camHeight,
       });
-
-      console.log(
-        `[PlayerRemote] ✅ Set userData on ${childCount} VRM objects for player ${this.id} (${this.data.name})`,
-      );
-      console.log(
-        `[PlayerRemote] Sample userData from first child:`,
-        vrmScene.children[0]?.userData,
-      );
-    } else {
-      console.error(
-        `[PlayerRemote] ❌ VRM scene not accessible for player ${this.id}`,
-      );
-      console.error(
-        `[PlayerRemote] Available instance properties:`,
-        Object.keys(avatarWithInstance.instance || {}),
-      );
+    } catch (error) {
+      console.error("[PlayerRemote] Avatar load failed:", error);
+      loadSuccess = false;
+    } finally {
+      // Clear loading flag
+      this.isLoadingAvatar = false;
+      // Emit event so spectators and loading screens can track avatar completion
+      this.world.emit(EventType.AVATAR_LOAD_COMPLETE, {
+        playerId: this.id,
+        success: loadSuccess,
+      });
     }
-
-    // Disable distance-based LOD throttling for smooth animations
-    if (
-      avatarWithInstance.instance &&
-      avatarWithInstance.instance.disableRateCheck
-    ) {
-      avatarWithInstance.instance.disableRateCheck();
-    }
-
-    // Set up positioning
-    const headHeight = this.avatar.getHeadToHeight()!;
-    this.nametag.position.y = headHeight + 0.2;
-    this.bubble.position.y = headHeight + 0.2;
-
-    if (!this.bubble.active) {
-      this.nametag.active = true;
-    }
-    this.avatarUrl = avatarUrl;
-
-    // Ensure a default idle emote after mount so avatar isn't frozen
-    console.log("[PlayerRemote.applyAvatar] Setting idle emote:", Emotes.IDLE);
-    (this.avatar as Avatar).setEmote(Emotes.IDLE);
-    this.lastEmote = Emotes.IDLE;
-    console.log("[PlayerRemote.applyAvatar] Idle emote set");
   }
 
   getAnchorMatrix() {
@@ -433,64 +457,102 @@ export class PlayerRemote extends Entity implements HotReloadable {
   update(delta: number): void {
     const anchor = this.getAnchorMatrix();
     if (!anchor) {
-      // Update lerp values
-      this.lerpPosition.update(delta);
-      this.lerpQuaternion.update(delta);
+      // Check if TileInterpolator is controlling this entity's position
+      // If so, skip our position interpolation to avoid fighting
+      const tileControlled = this.data.tileInterpolatorControlled === true;
 
-      // FORCE APPLY POSITION - no interpolation bullshit
-      if (!this.enableInterpolation) {
-        // Get the target position directly from lerp.current and apply it
-        const targetPos = this.lerpPosition.current;
-        if (targetPos) {
-          this.node.position.copy(targetPos);
-          this.position.copy(targetPos);
-          // Position applied directly without interpolation
-        }
+      if (!tileControlled) {
+        // Update lerp values
+        this.lerpPosition.update(delta);
+        this.lerpQuaternion.update(delta);
 
-        const targetRot = this.lerpQuaternion.current;
-        if (targetRot) {
-          this.node.quaternion.copy(targetRot);
+        // FORCE APPLY POSITION - no interpolation bullshit
+        if (!this.enableInterpolation) {
+          // Get the target position directly from lerp.current and apply it
+          const targetPos = this.lerpPosition.current;
+          if (targetPos) {
+            this.base.position.copy(targetPos);
+            this.node.position.copy(targetPos);
+            this.position.copy(targetPos);
+            // CRITICAL: Update base transform for instance.move()
+            this.base.updateTransform();
+            // Position applied directly without interpolation
+          }
+
+          const targetRot = this.lerpQuaternion.current;
+          if (targetRot) {
+            this.node.quaternion.copy(targetRot);
+          }
+        } else {
+          // Use interpolated values
+          this.base.position.copy(this.lerpPosition.value);
+          this.node.position.copy(this.lerpPosition.value);
+          this.position.copy(this.lerpPosition.value);
+          this.node.quaternion.copy(this.lerpQuaternion.value);
+          // CRITICAL: Update base transform for instance.move()
+          this.base.updateTransform();
         }
       } else {
-        // Use interpolated values
-        this.node.position.copy(this.lerpPosition.value);
-        this.position.copy(this.lerpPosition.value);
-        this.node.quaternion.copy(this.lerpQuaternion.value);
+        // TileInterpolator is controlling position - just update base transform
+        this.base.updateTransform();
       }
     }
 
     // COMBAT ROTATION: Rotate to face target when in combat (RuneScape-style)
-    // Check if any nearby mobs are targeting us (since combat state isn't synced from server)
+    // Priority: 1) Our combat target (from server), 2) Mob attacking us
     let combatTarget: {
       position: { x: number; z: number };
       id: string;
     } | null = null;
 
-    // Look for mobs that are attacking us
-    for (const entity of this.world.entities.items.values()) {
-      if (entity.type === "mob" && entity.position) {
-        const mobEntity = entity as unknown as {
-          config?: { aiState?: string; targetPlayerId?: string };
-        };
-        // Check if mob is in ATTACK state and targeting this player
-        if (
-          mobEntity.config?.aiState === "attack" &&
-          mobEntity.config?.targetPlayerId === this.id
-        ) {
-          const dx = entity.position.x - this.position.x;
-          const dz = entity.position.z - this.position.z;
-          const distance2D = Math.sqrt(dx * dx + dz * dz);
+    // First check if WE have a combat target (player attacking mob)
+    if (this.combat.combatTarget) {
+      const targetEntity = this.world.entities.items.get(
+        this.combat.combatTarget,
+      );
+      if (targetEntity?.position) {
+        const dx = targetEntity.position.x - this.position.x;
+        const dz = targetEntity.position.z - this.position.z;
+        const distance2D = Math.sqrt(dx * dx + dz * dz);
+        // Only rotate if target is within reasonable combat range
+        if (distance2D <= 10) {
+          combatTarget = {
+            position: targetEntity.position,
+            id: targetEntity.id,
+          };
+        }
+      }
+    }
 
-          // Only rotate if mob is within reasonable combat range
-          if (distance2D <= 3) {
-            combatTarget = { position: entity.position, id: entity.id };
-            break; // Only face one mob at a time
+    // If no target from our combat state, check for mobs attacking us
+    if (!combatTarget) {
+      for (const entity of this.world.entities.items.values()) {
+        if (entity.type === "mob" && entity.position) {
+          const mobEntity = entity as any;
+          // Check if mob is in ATTACK state and targeting this player
+          if (
+            mobEntity.config?.aiState === "attack" &&
+            mobEntity.config?.targetPlayerId === this.id
+          ) {
+            const dx = entity.position.x - this.position.x;
+            const dz = entity.position.z - this.position.z;
+            const distance2D = Math.sqrt(dx * dx + dz * dz);
+
+            // Only rotate if mob is within reasonable combat range
+            if (distance2D <= 3) {
+              combatTarget = { position: entity.position, id: entity.id };
+              break; // Only face one mob at a time
+            }
           }
         }
       }
     }
 
-    if (combatTarget) {
+    // OSRS behavior: Only face combat target when STANDING STILL
+    // When moving, face movement direction (handled by TileInterpolator)
+    const isMoving = this.data.tileMovementActive === true;
+
+    if (combatTarget && !isMoving) {
       // Calculate angle to target (XZ plane only, like RuneScape)
       const dx = combatTarget.position.x - this.position.x;
       const dz = combatTarget.position.z - this.position.z;
@@ -549,6 +611,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
         // }
       }
 
+      // CRITICAL: Update avatar position/rotation every frame (matches PlayerLocal)
+      // The move() method applies the transform matrix with normalization and rotation
+      if (instance && instance.move && this.base) {
+        instance.move(this.base.matrixWorld);
+      }
+
       // Update avatar animations
       if (instance && instance.update) {
         instance.update(delta);
@@ -575,6 +643,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
             flip: Emotes.FLIP,
             talk: Emotes.TALK,
             combat: Emotes.COMBAT,
+            sword_swing: Emotes.SWORD_SWING,
+            chopping: Emotes.CHOPPING,
+            death: Emotes.DEATH,
           };
           desiredUrl = emoteMap[serverEmote] || Emotes.IDLE;
         }
@@ -612,6 +683,24 @@ export class PlayerRemote extends Entity implements HotReloadable {
       const matrix = this.avatar.getBoneTransform("head");
       if (matrix) this.aura.position.setFromMatrixPosition(matrix);
     }
+
+    // Update nametag position in Nametags system (name only - no health)
+    // This matches PlayerLocal behavior - without this, the nametag renders at origin
+    if (this.nametag && this.nametag.handle && this.base) {
+      // Position nametag slightly higher than health bar
+      const nametagMatrix = new THREE.Matrix4();
+      nametagMatrix.copy(this.base.matrixWorld);
+      nametagMatrix.elements[13] += 2.2; // Name slightly higher
+      this.nametag.handle.move(nametagMatrix);
+    }
+
+    // Update health bar position in HealthBars system (separate from nametag)
+    if (this._healthBarHandle && this.base) {
+      const healthBarMatrix = new THREE.Matrix4();
+      healthBarMatrix.copy(this.base.matrixWorld);
+      healthBarMatrix.elements[13] += 2.0; // Health bar at Y=2.0
+      this._healthBarHandle.move(healthBarMatrix);
+    }
   }
 
   postLateUpdate(_delta: number): void {
@@ -641,24 +730,37 @@ export class PlayerRemote extends Entity implements HotReloadable {
   }
 
   override modify(data: Partial<NetworkData>) {
-    let avatarChanged;
+    let avatarChanged: boolean = false;
     // Strong type assumptions - check properties directly
     if ("t" in data) {
       this.teleport++;
     }
     if (data.p !== undefined) {
-      // Position is no longer stored in EntityData, apply directly to entity transform
-      this.lerpPosition.pushArray(data.p, this.teleport || null);
-      // Apply position immediately for responsiveness - assume it's a 3-element array
-      const pos = data.p as number[];
-      // Update both base and node positions IMMEDIATELY
-      this.node.position.set(pos[0], pos[1], pos[2]);
-      this.position.set(pos[0], pos[1], pos[2]);
+      // Check if TileInterpolator is controlling position - if so, skip position updates
+      // TileInterpolator handles position smoothly, we don't want to fight it
+      const tileControlled = this.data.tileInterpolatorControlled === true;
+      if (!tileControlled) {
+        // Position is no longer stored in EntityData, apply directly to entity transform
+        this.lerpPosition.pushArray(data.p, this.teleport || null);
+        // Apply position immediately for responsiveness - assume it's a 3-element array
+        const pos = data.p as number[];
+        // Update base, node, and position IMMEDIATELY
+        this.base.position.set(pos[0], pos[1], pos[2]);
+        this.node.position.set(pos[0], pos[1], pos[2]);
+        this.position.set(pos[0], pos[1], pos[2]);
+        // CRITICAL: Force base to update its matrix so instance.move() gets correct transform
+        this.base.updateTransform();
+      }
     }
     if (data.q !== undefined) {
-      // Rotation is no longer stored in EntityData, apply directly to entity transform
-      this.lerpQuaternion.pushArray(data.q, this.teleport || null);
-      // When explicit rotation update arrives, clear any movement-facing override to avoid fighting network
+      // CRITICAL: Skip quaternion updates when TileInterpolator is controlling rotation
+      // TileInterpolator handles rotation smoothly for tile-based movement
+      const tileControlled = this.data.tileInterpolatorControlled === true;
+      if (!tileControlled) {
+        // Rotation is no longer stored in EntityData, apply directly to entity transform
+        this.lerpQuaternion.pushArray(data.q, this.teleport || null);
+        // When explicit rotation update arrives, clear any movement-facing override to avoid fighting network
+      }
     }
     if (data.e !== undefined) {
       this.data.emote = data.e;
@@ -671,12 +773,20 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.nametag.label = (data.name as string) || "";
     }
     if (data.health !== undefined) {
-      this.data.health = data.health as number;
-      this.nametag.health = data.health as number;
+      const currentHealth = data.health as number;
+      const maxHealth = (this.data.maxHealth as number) || 100;
+
+      this.data.health = currentHealth;
+
+      // Update health bar via HealthBars system (separate from nametag)
+      if (this._healthBarHandle) {
+        this._healthBarHandle.setHealth(currentHealth, maxHealth);
+      }
+
       this.world.emit(EventType.PLAYER_HEALTH_UPDATED, {
         playerId: this.data.id,
-        health: data.health as number,
-        maxHealth: (this.data.maxHealth as number) || 100,
+        health: currentHealth,
+        maxHealth: maxHealth,
       });
     }
     if (data.avatar !== undefined) {
@@ -696,17 +806,22 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.velocity.set(vel[0], vel[1], vel[2]);
     }
     // Handle combat state updates for RuneScape-style auto-retaliate rotation
-    if ("inCombat" in data) {
-      this.combat.inCombat = data.inCombat as boolean;
-      console.log(
-        `[PlayerRemote.modify] ${this.id} combat state: ${this.combat.inCombat}`,
-      );
+    // Using abbreviated key 'c' for inCombat (network efficiency)
+    if ("c" in data) {
+      const newInCombat = data.c as boolean;
+      this.combat.inCombat = newInCombat;
+      // Show/hide health bar via HealthBars system (RuneScape pattern)
+      if (this._healthBarHandle) {
+        if (newInCombat) {
+          this._healthBarHandle.show();
+        } else {
+          this._healthBarHandle.hide();
+        }
+      }
     }
-    if ("combatTarget" in data) {
-      this.combat.combatTarget = data.combatTarget as string | null;
-      console.log(
-        `[PlayerRemote.modify] ${this.id} combat target: ${this.combat.combatTarget}`,
-      );
+    // Using abbreviated key 'ct' for combatTarget (network efficiency)
+    if ("ct" in data) {
+      this.combat.combatTarget = data.ct as string | null;
     }
     if (avatarChanged) {
       this.applyAvatar();
@@ -734,6 +849,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
     this.world.setHot(this, false);
     this.world.emit(EventType.PLAYER_LEFT, { playerId: this.data.id });
     this.aura.deactivate();
+
+    // Clean up health bar from HealthBars system
+    if (this._healthBarHandle) {
+      this._healthBarHandle.destroy();
+      this._healthBarHandle = null;
+    }
 
     this.world.entities.remove(this.data.id);
     // if removed locally we need to broadcast to server/clients

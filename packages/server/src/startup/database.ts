@@ -70,7 +70,21 @@ export async function initializeDatabase(
   // Initialize Docker and PostgreSQL (optional based on config)
   if (config.useLocalPostgres && !config.databaseUrl) {
     dockerManager = createDefaultDockerManager();
-    await dockerManager.checkDockerRunning();
+
+    // Check if Docker daemon is accessible (non-fatal if container already running)
+    try {
+      await dockerManager.checkDockerRunning();
+    } catch (dockerCheckError) {
+      console.warn(
+        "[Database] Docker check failed, attempting to continue anyway...",
+      );
+      console.warn(
+        "[Database] Error:",
+        dockerCheckError instanceof Error
+          ? dockerCheckError.message
+          : String(dockerCheckError),
+      );
+    }
 
     const isPostgresRunning = await dockerManager.checkPostgresRunning();
     if (!isPostgresRunning) {
@@ -93,9 +107,8 @@ export async function initializeDatabase(
 
   // Initialize Drizzle database
   console.log("[Database] Initializing Drizzle ORM...");
-  const { initializeDatabase: initDrizzle } = await import(
-    "../database/client.js"
-  );
+  const { initializeDatabase: initDrizzle } =
+    await import("../database/client.js");
   const { db: drizzleDb, pool: pgPool } = await initDrizzle(connectionString);
   console.log("[Database] ✅ Drizzle ORM initialized");
 
@@ -123,9 +136,8 @@ export async function initializeDatabase(
  */
 export async function closeDatabase(): Promise<void> {
   console.log("[Database] Closing database connections...");
-  const { closeDatabase: closeDatabaseUtil } = await import(
-    "../database/client.js"
-  );
+  const { closeDatabase: closeDatabaseUtil } =
+    await import("../database/client.js");
   await closeDatabaseUtil();
   console.log("[Database] ✅ Database connections closed");
 }

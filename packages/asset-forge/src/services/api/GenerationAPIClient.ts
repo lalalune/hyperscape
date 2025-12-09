@@ -82,10 +82,11 @@ export class GenerationAPIClient extends TypedEventEmitter<GenerationAPIEvents> 
 
   constructor(apiUrl?: string) {
     super();
-    // Use environment variable if available, otherwise default to localhost
+    // Use environment variable if available, otherwise default to relative URL
+    // (Vite proxy handles routing to the backend in development)
     const envApiUrl = (import.meta as ExtendedImportMeta).env
       ?.VITE_GENERATION_API_URL;
-    this.apiUrl = apiUrl || envApiUrl || "http://localhost:3001/api";
+    this.apiUrl = apiUrl || envApiUrl || "/api";
   }
 
   /**

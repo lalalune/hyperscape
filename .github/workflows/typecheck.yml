@@ -22,6 +22,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Build physx-js-webidl package (required dependency)
+        run: cd packages/physx-js-webidl && bun run build
+
       - name: Build shared package (required for types)
         run: cd packages/shared && bun run build
 

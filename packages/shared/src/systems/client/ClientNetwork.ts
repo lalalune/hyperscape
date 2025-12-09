@@ -125,6 +125,8 @@ import { EventType } from "../../types/events";
 import { uuid } from "../../utils";
 import { SystemBase } from "../shared";
 import { PlayerLocal } from "../../entities/player/PlayerLocal";
+import { TileInterpolator } from "./TileInterpolator";
+import { type TileCoord } from "../shared/movement/TileSystem"; // Internal import within shared package
 
 const _v3_1 = new THREE.Vector3();
 const _quat_1 = new THREE.Quaternion();
@@ -203,12 +205,22 @@ export class ClientNetwork extends SystemBase {
     string,
     Record<string, { level: number; xp: number }>
   > = {};
+  // Cache latest equipment per player so UI can hydrate even if it mounted late
+  lastEquipmentByPlayerId: Record<string, any> = {};
 
   // Entity interpolation for smooth remote entity movement
   private interpolationStates: Map<string, InterpolationState> = new Map();
   private interpolationDelay: number = 100; // ms
   private maxSnapshots: number = 10;
   private extrapolationLimit: number = 500; // ms
+
+  // Tile-based interpolation for RuneScape-style movement
+  // Public to allow position sync on respawn/teleport
+  public tileInterpolator: TileInterpolator = new TileInterpolator();
+
+  // Embedded viewport configuration (read once at init)
+  private embeddedCharacterId: string | null = null;
+  private isEmbeddedSpectator: boolean = false;
 
   constructor(world: World) {
     super(world, {
@@ -280,11 +292,15 @@ export class ClientNetwork extends SystemBase {
       this.id = null;
     }
 
-    // Try to get Privy token first, fall back to legacy auth token
+    // Check if wsUrl already contains an authToken (e.g., from embedded viewport)
+    // If so, use it as-is instead of overwriting with localStorage
+    const urlHasAuthToken = wsUrl.includes("authToken=");
+
     let authToken = "";
     let privyUserId = "";
 
-    if (typeof localStorage !== "undefined") {
+    if (!urlHasAuthToken && typeof localStorage !== "undefined") {
+      // Only get from localStorage if URL doesn't already have authToken
       const privyToken = localStorage.getItem("privy_auth_token");
       const privyId = localStorage.getItem("privy_user_id");
 
@@ -299,10 +315,40 @@ export class ClientNetwork extends SystemBase {
       }
     }
 
-    let url = `${wsUrl}?authToken=${authToken}`;
-    if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
+    // Build WebSocket URL - preserve existing params if authToken already present
+    let url: string;
+    if (urlHasAuthToken) {
+      // URL already has authToken (embedded mode) - use as-is
+      url = wsUrl;
+      this.logger.debug("Using authToken from URL (embedded mode)");
+    } else {
+      // Normal mode - add authToken from localStorage
+      url = `${wsUrl}?authToken=${authToken}`;
+      if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
+    }
     if (name) url += `&name=${encodeURIComponent(name)}`;
     if (avatar) url += `&avatar=${encodeURIComponent(avatar)}`;
+
+    // Read embedded configuration once at initialization
+    if (typeof window !== "undefined") {
+      const isEmbedded = (window as { __HYPERSCAPE_EMBEDDED__?: boolean })
+        .__HYPERSCAPE_EMBEDDED__;
+      const embeddedConfig = (
+        window as {
+          __HYPERSCAPE_CONFIG__?: { mode?: string; characterId?: string };
+        }
+      ).__HYPERSCAPE_CONFIG__;
+
+      if (isEmbedded && embeddedConfig) {
+        this.isEmbeddedSpectator = embeddedConfig.mode === "spectator";
+        this.embeddedCharacterId = embeddedConfig.characterId || null;
+
+        this.logger.debug("[ClientNetwork] Embedded config loaded", {
+          isSpectator: this.isEmbeddedSpectator,
+          hasCharacterId: !!this.embeddedCharacterId,
+        } as unknown as Record<string, unknown>);
+      }
+    }
 
     // console.debug('[ClientNetwork] Connecting to WebSocket:', url)
 
@@ -413,12 +459,21 @@ export class ClientNetwork extends SystemBase {
         handler = (this as Record<string, unknown>)[onName];
       }
       if (!handler) {
-        throw new Error(`No handler for packet '${method}'`);
+        console.error(`[ClientNetwork] No handler for packet '${method}'`);
+        continue; // Skip unknown packets instead of throwing to avoid breaking queue
       }
-      // Strong type assumption - handler is a function
-      const result = (handler as Function).call(this, data);
-      if (result instanceof Promise) {
-        await result;
+      try {
+        // Strong type assumption - handler is a function
+        const result = (handler as Function).call(this, data);
+        if (result instanceof Promise) {
+          await result;
+        }
+      } catch (err) {
+        console.error(
+          `[ClientNetwork] Error handling packet '${method}':`,
+          err,
+        );
+        // Continue processing remaining packets even if one fails
       }
     }
   }
@@ -447,26 +502,62 @@ export class ClientNetwork extends SystemBase {
       (this.world as { network?: unknown }).network = this;
     }
 
-    // Auto-enter world if in character-select mode and we have a selected character
-    const isCharacterSelectMode =
-      Array.isArray(data.entities) &&
-      data.entities.length === 0 &&
-      Array.isArray((data as { characters?: unknown[] }).characters);
+    // Check if this is a spectator connection (from server snapshot)
+    const isSpectatorMode =
+      (data as { spectatorMode?: boolean }).spectatorMode === true;
+    const followEntityId = (data as { followEntity?: string }).followEntity;
 
-    this.logger.debug("Snapshot received - checking character select mode");
+    if (isSpectatorMode) {
+      this.logger.info(
+        "👁️ Spectator mode detected - skipping character selection and enterWorld",
+      );
+      this.logger.info(
+        `👁️ Spectator snapshot contains ${data.entities?.length || 0} entities`,
+      );
+      // Spectators don't spawn player entities - they just receive broadcasts
+      // Store followEntity for camera setup after entities are loaded
+      if (followEntityId) {
+        this.logger.info(`👁️ Spectator will follow entity: ${followEntityId}`);
+        (this as any).spectatorFollowEntity = followEntityId;
+      }
+      // Continue to entity processing below
+    } else {
+      // Auto-enter world if in character-select mode and we have a selected character
+      const isCharacterSelectMode =
+        Array.isArray(data.entities) &&
+        data.entities.length === 0 &&
+        Array.isArray((data as { characters?: unknown[] }).characters);
 
-    if (isCharacterSelectMode && typeof localStorage !== "undefined") {
-      const selectedCharacterId = localStorage.getItem("selectedCharacterId");
-      this.logger.debug("Selected character ID found in localStorage");
+      this.logger.debug("Snapshot received - checking character select mode");
 
-      if (selectedCharacterId) {
-        // Send enterWorld immediately so server spawns the selected character
-        this.logger.debug("Sending enterWorld with selected characterId");
-        this.send("enterWorld", { characterId: selectedCharacterId });
-      } else {
-        this.logger.debug(
-          "No selectedCharacterId in localStorage, cannot auto-enter world",
-        );
+      // Handle character selection and world entry (non-spectators only)
+      if (isCharacterSelectMode) {
+        // Get characterId from embedded config (read at init) OR localStorage
+        const characterId =
+          this.embeddedCharacterId ||
+          (typeof localStorage !== "undefined"
+            ? localStorage.getItem("selectedCharacterId")
+            : null);
+
+        if (characterId) {
+          this.logger.debug(`Auto-selecting character: ${characterId}`, {
+            isEmbedded: this.isEmbeddedSpectator,
+          } as unknown as Record<string, unknown>);
+
+          // Embedded spectator mode needs characterSelected packet first
+          if (this.isEmbeddedSpectator) {
+            this.send("characterSelected", { characterId });
+          }
+
+          // Both modes need enterWorld to spawn the character
+          this.send("enterWorld", { characterId });
+
+          this.logger.debug("Character selection packets sent");
+        } else {
+          this.logger.debug(
+            "No characterId available, skipping auto-enter world",
+          );
+        }
       }
     }
     // Ensure Physics is fully initialized before processing entities
@@ -619,6 +710,90 @@ export class ClientNetwork extends SystemBase {
       this.world.emit(EventType.CHARACTER_LIST, { characters: list });
     }
 
+    // Spectator mode: Auto-follow the target entity after entities are loaded
+    const spectatorFollowId = (this as any).spectatorFollowEntity;
+    if (isSpectatorMode && spectatorFollowId) {
+      // Mark that we're waiting for spectator target
+      (this as any).spectatorTargetPending = true;
+
+      const MAX_RETRY_SECONDS = 15;
+      let retryCount = 0;
+
+      // Helper to set camera target
+      const setCameraTarget = (entity: unknown) => {
+        const camera = this.world.getSystem("camera") as {
+          setTarget?: (target: unknown) => void;
+        };
+        if (camera?.setTarget) {
+          this.logger.info(
+            `👁️ Setting camera target to entity ${spectatorFollowId}`,
+          );
+          camera.setTarget(entity);
+        } else {
+          this.logger.warn(
+            "👁️ Camera system not found or missing setTarget method",
+          );
+        }
+      };
+
+      // Helper to attempt following the entity
+      const attemptFollow = (): boolean => {
+        const targetEntity =
+          this.world.entities.items.get(spectatorFollowId) ||
+          this.world.entities.players.get(spectatorFollowId);
+
+        if (targetEntity) {
+          // Found the entity - clear pending state and interval
+          (this as any).spectatorTargetPending = false;
+          if ((this as any).spectatorRetryInterval) {
+            clearInterval((this as any).spectatorRetryInterval);
+            (this as any).spectatorRetryInterval = null;
+          }
+          this.logger.info(
+            `👁️ Spectator following entity ${spectatorFollowId}`,
+          );
+          setCameraTarget(targetEntity);
+          return true;
+        }
+        return false;
+      };
+
+      // Try immediately after a short delay for entity initialization
+      setTimeout(() => {
+        if (!attemptFollow()) {
+          this.logger.info(
+            `👁️ Spectator target entity ${spectatorFollowId} not found - starting retry loop`,
+          );
+
+          // Start retry interval - check every 1 second for up to 15 seconds
+          (this as any).spectatorRetryInterval = setInterval(() => {
+            retryCount++;
+
+            if (attemptFollow()) {
+              this.logger.info(
+                `👁️ Found spectator target after ${retryCount}s`,
+              );
+              return;
+            }
+
+            if (retryCount >= MAX_RETRY_SECONDS) {
+              clearInterval((this as any).spectatorRetryInterval);
+              (this as any).spectatorRetryInterval = null;
+              (this as any).spectatorTargetPending = false;
+              this.logger.error(
+                `👁️ Agent entity ${spectatorFollowId} not found after ${MAX_RETRY_SECONDS}s`,
+              );
+            } else if (retryCount % 5 === 0) {
+              // Log progress every 5 seconds to avoid spam
+              this.logger.info(
+                `👁️ Still waiting for agent entity (${retryCount}/${MAX_RETRY_SECONDS}s)...`,
+              );
+            }
+          }, 1000);
+        }
+      }, 100);
+    }
+
     if (data.livekit) {
       this.world.livekit?.deserialize(data.livekit);
     }
@@ -641,6 +816,20 @@ export class ClientNetwork extends SystemBase {
   onChatCleared = () => {
     // Clear chat if method exists
     this.world.chat.clear();
+  };
+
+  onSystemMessage = (data: { message: string; type: string }) => {
+    // Add system message to chat (from UI_MESSAGE events)
+    // These are server-generated messages like equipment requirements, combat info, etc.
+    const chatMessage: ChatMessage = {
+      id: `sys_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      from: "", // Empty from = system message (no [PlayerName] prefix)
+      body: data.message,
+      text: data.message,
+      timestamp: Date.now(),
+      createdAt: new Date().toISOString(),
+    };
+    this.world.chat.add(chatMessage, false);
   };
 
   onEntityAdded = (data: EntityData) => {
@@ -671,6 +860,34 @@ export class ClientNetwork extends SystemBase {
         if (newEntity instanceof PlayerLocal) {
           newEntity.position.set(pos[0], pos[1], pos[2]);
           newEntity.updateServerPosition(pos[0], pos[1], pos[2]);
+        }
+      }
+
+      // Check if this is the spectator target entity we're waiting for
+      const spectatorFollowId = (this as any).spectatorFollowEntity;
+      const isWaitingForTarget = (this as any).spectatorTargetPending;
+
+      if (isWaitingForTarget && data.id === spectatorFollowId) {
+        this.logger.info(
+          `👁️ Spectator target entity ${spectatorFollowId} just spawned!`,
+        );
+
+        // Clear retry interval if running
+        if ((this as any).spectatorRetryInterval) {
+          clearInterval((this as any).spectatorRetryInterval);
+          (this as any).spectatorRetryInterval = null;
+        }
+        (this as any).spectatorTargetPending = false;
+
+        // Set camera to follow this entity
+        const camera = this.world.getSystem("camera") as {
+          setTarget?: (target: unknown) => void;
+        };
+        if (camera?.setTarget) {
+          this.logger.info(
+            `👁️ Setting camera target to newly spawned entity ${spectatorFollowId}`,
+          );
+          camera.setTarget(newEntity);
         }
       }
     }
@@ -742,7 +959,15 @@ export class ClientNetwork extends SystemBase {
 
     if (isLocal && (hasP || hasV || hasQ)) {
       // Local player - apply directly through entity.modify()
-      entity.modify(changes);
+      // BUT: Skip position AND rotation updates if tile movement is active
+      // (let tile interpolator handle them smoothly - server values cause twitching)
+      if (this.tileInterpolator.hasState(id)) {
+        // Tile movement active - strip position and rotation
+        const { p, q, ...restChanges } = changes as Record<string, unknown>;
+        entity.modify(restChanges);
+      } else {
+        entity.modify(changes);
+      }
     } else {
       // Remote entities - use interpolation for smooth movement
       // CRITICAL: If mob is DEAD (or entering DEAD state), clear interpolation buffer
@@ -755,23 +980,23 @@ export class ClientNetwork extends SystemBase {
       const newState = changes.aiState || entityData.aiState;
       const isDead = newState === "dead";
 
-      // DEBUG: Log all mob state changes
-      if (entityData.type === "mob" && changes.aiState) {
-        console.log(
-          `[ClientNetwork] 🔍 Mob ${id}: changes.aiState=${changes.aiState}, current=${entityData.aiState}, isDead=${isDead}, hasP=${hasP}`,
-        );
-      }
+      // Mob AI state tracking (no logging needed in production)
 
       // Clear interpolation buffer for ANY dead mob (defense in depth)
       if (isDead && this.interpolationStates.has(id)) {
         this.interpolationStates.delete(id);
-        console.log(
-          `[ClientNetwork] ✅ Cleared interpolation buffer for dead mob ${id}`,
-        );
+      }
+
+      // CRITICAL: Clear tile state when mob dies - they need death/respawn positions
+      // Without this, position is stripped and mob can't receive death position or respawn position
+      if (isDead && this.tileInterpolator.hasState(id)) {
+        this.tileInterpolator.removeEntity(id);
       }
 
       // Skip adding new interpolation snapshots for dead mobs
-      if (hasP && !isDead) {
+      // Also skip for entities using tile movement (tile interpolator handles them)
+      const hasTileState = this.tileInterpolator.hasState(id);
+      if (hasP && !isDead && !hasTileState) {
         this.addInterpolationSnapshot(
           id,
           changes as {
@@ -783,11 +1008,19 @@ export class ClientNetwork extends SystemBase {
       }
 
       // Still apply non-transform changes immediately
-      const changesCopy: Record<string, unknown> = {};
-      for (const key in changes) {
-        changesCopy[key] = (changes as Record<string, unknown>)[key];
+      // But strip position AND rotation for tile-moving entities
+      // EXCEPTION: Dead entities need position for death/respawn (don't strip)
+      // (let tile interpolator handle them smoothly - server values cause twitching)
+      if (hasTileState && !isDead) {
+        const {
+          p: _p,
+          q: _q,
+          ...restChanges
+        } = changes as Record<string, unknown>;
+        entity.modify(restChanges);
+      } else {
+        entity.modify(changes);
       }
-      entity.modify(changesCopy);
 
       // Re-emit normalized change event so other systems can react
       this.world.emit(EventType.ENTITY_MODIFIED, { id, changes });
@@ -881,9 +1114,16 @@ export class ClientNetwork extends SystemBase {
     const renderTime = now - this.interpolationDelay;
 
     for (const [entityId, state] of this.interpolationStates) {
-      // Skip local player
+      // Skip local player - tile interpolation handles local player movement
       if (entityId === this.world.entities.player?.id) {
         this.interpolationStates.delete(entityId);
+        continue;
+      }
+
+      // Skip entities that have ANY tile interpolation state
+      // Once an entity uses tile movement, ALL position updates should come from tile packets
+      // Using hasState() instead of isInterpolating() prevents position conflicts when entity is stationary
+      if (this.tileInterpolator.hasState(entityId)) {
         continue;
       }
 
@@ -893,14 +1133,17 @@ export class ClientNetwork extends SystemBase {
         continue;
       }
 
+      // CRITICAL: Skip interpolation for entities controlled by TileInterpolator
+      // TileInterpolator handles position and rotation for tile-based movement
+      if (entity.data?.tileInterpolatorControlled === true) {
+        continue; // Don't interpolate - TileInterpolator handles this entity
+      }
+
       // CRITICAL: Skip interpolation for dead mobs to prevent death animation sliding
       // Dead mobs lock their position client-side for RuneScape-style stationary death
       // Check if entity has aiState property (indicates it's a MobEntity)
       const mobData = entity.serialize();
       if (mobData.aiState === "dead") {
-        console.log(
-          `[ClientNetwork] ⏭️ Skipping interpolation for dead mob ${entityId}`,
-        );
         continue; // Don't interpolate - let MobEntity maintain locked death position
       }
 
@@ -1097,8 +1340,6 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.RESOURCE_SPAWNED, data);
   };
   onResourceDepleted = (data: ResourceStatePacket) => {
-    console.log("[ClientNetwork] 🪵 Resource depleted:", data.resourceId);
-
     // Update the ResourceEntity visual
     const entity = this.world.entities.get(data.resourceId);
     if (
@@ -1121,8 +1362,6 @@ export class ClientNetwork extends SystemBase {
   };
 
   onResourceRespawned = (data: ResourceStatePacket) => {
-    console.log("[ClientNetwork] 🌳 Resource respawned:", data.resourceId);
-
     // Update the ResourceEntity visual
     const entity = this.world.entities.get(data.resourceId);
     if (
@@ -1158,12 +1397,229 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.INVENTORY_UPDATED, data);
   };
 
+  onCoinsUpdated = (data: { playerId: string; coins: number }) => {
+    // Update cached inventory coins
+    if (this.lastInventoryByPlayerId[data.playerId]) {
+      this.lastInventoryByPlayerId[data.playerId].coins = data.coins;
+    }
+    // Emit event for UI to update coin display
+    this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+      playerId: data.playerId,
+      coins: data.coins,
+    });
+  };
+
+  onEquipmentUpdated = (data: {
+    playerId: string;
+    equipment: Record<string, unknown>;
+  }) => {
+    // Cache latest equipment for late-mounting UI
+    this.lastEquipmentByPlayerId = this.lastEquipmentByPlayerId || {};
+    this.lastEquipmentByPlayerId[data.playerId] = data.equipment;
+
+    // CRITICAL: Update local player's equipment so systems can access it
+    // Equipment format from server: { weapon: { item: Item, itemId: string }, ... }
+    // Local player format: { weapon: Item | null, ... }
+    const localPlayer = this.world.getPlayer?.();
+    if (localPlayer && data.playerId === localPlayer.id) {
+      const rawEq = data.equipment;
+      if (rawEq && "equipment" in localPlayer) {
+        const playerWithEquipment = localPlayer as unknown as {
+          equipment: {
+            weapon: unknown;
+            shield: unknown;
+            helmet: unknown;
+            body: unknown;
+            legs: unknown;
+            arrows: unknown;
+          };
+        };
+        const getItem = (key: string) =>
+          (rawEq[key] as { item?: unknown })?.item || null;
+        playerWithEquipment.equipment = {
+          weapon: getItem("weapon"),
+          shield: getItem("shield"),
+          helmet: getItem("helmet"),
+          body: getItem("body"),
+          legs: getItem("legs"),
+          arrows: getItem("arrows"),
+        };
+      }
+    }
+
+    // Re-emit as UI update event for Sidebar to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "equipment",
+      data: {
+        equipment: data.equipment,
+      },
+    });
+
+    // CRITICAL: Also emit PLAYER_EQUIPMENT_CHANGED for each slot
+    // so EquipmentVisualSystem can attach/remove 3D models to the avatar
+    if (data.equipment) {
+      const equipment = data.equipment;
+      const slots = ["weapon", "shield", "helmet", "body", "legs", "arrows"];
+
+      for (const slot of slots) {
+        const slotData = equipment[slot] as
+          | { itemId?: string; item?: { id?: string } }
+          | undefined;
+        // Emit for ALL slots, including null (to remove items on death)
+        const itemId = slotData?.itemId || slotData?.item?.id || null;
+        this.world.emit(EventType.PLAYER_EQUIPMENT_CHANGED, {
+          playerId: data.playerId,
+          slot: slot,
+          itemId: itemId,
+        });
+      }
+    }
+  };
+
   onSkillsUpdated = (data: SkillsUpdatePacket) => {
     // Cache latest snapshot for late-mounting UI
     this.lastSkillsByPlayerId = this.lastSkillsByPlayerId || {};
     this.lastSkillsByPlayerId[data.playerId] = data.skills;
     // Re-emit with typed event so UI updates
     this.world.emit(EventType.SKILLS_UPDATED, data);
+  };
+
+  // --- Bank state handler ---
+  onBankState = (data: {
+    playerId: string;
+    bankId?: string;
+    items: Array<{ itemId: string; quantity: number; slot: number }>;
+    maxSlots: number;
+  }) => {
+    // Emit as UI update for BankPanel to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      playerId: data.playerId,
+      component: "bank",
+      data: {
+        bankId: data.bankId,
+        items: data.items,
+        maxSlots: data.maxSlots,
+        isOpen: true,
+      },
+    });
+  };
+
+  // --- Bank close handler (server-authoritative) ---
+  // Server sends this when player moves too far from bank
+  onBankClose = (data: { reason: string; sessionType: string }) => {
+    // Emit UI update to close the bank
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "bank",
+      data: {
+        isOpen: false,
+        reason: data.reason,
+      },
+    });
+  };
+
+  // --- Store state handler ---
+  onStoreState = (data: {
+    storeId: string;
+    storeName: string;
+    buybackRate: number;
+    items: Array<{
+      id: string;
+      itemId: string;
+      name: string;
+      price: number;
+      stockQuantity: number;
+      description?: string;
+      category?: string;
+    }>;
+    isOpen: boolean;
+    npcEntityId?: string;
+  }) => {
+    // Emit as UI update for StorePanel to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "store",
+      data: {
+        storeId: data.storeId,
+        storeName: data.storeName,
+        buybackRate: data.buybackRate,
+        items: data.items,
+        isOpen: data.isOpen,
+        npcEntityId: data.npcEntityId,
+      },
+    });
+  };
+
+  // --- Store close handler (server-authoritative) ---
+  // Server sends this when player moves too far from shopkeeper
+  onStoreClose = (data: { reason: string; sessionType: string }) => {
+    // Emit UI update to close the store
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "store",
+      data: {
+        isOpen: false,
+        reason: data.reason,
+      },
+    });
+  };
+
+  // --- Dialogue handlers ---
+  onDialogueStart = (data: {
+    npcId: string;
+    npcName: string;
+    nodeId: string;
+    text: string;
+    responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+    npcEntityId?: string;
+  }) => {
+    // Emit as UI update for DialoguePanel to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogue",
+      data: {
+        npcId: data.npcId,
+        npcName: data.npcName,
+        text: data.text,
+        responses: data.responses,
+        npcEntityId: data.npcEntityId,
+      },
+    });
+  };
+
+  onDialogueNodeChange = (data: {
+    npcId: string;
+    nodeId: string;
+    text: string;
+    responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+  }) => {
+    // Emit as UI update for DialoguePanel to handle - preserve npcName from previous state
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogue",
+      data: {
+        npcId: data.npcId,
+        npcName: "", // Will be preserved by UI from existing state
+        text: data.text,
+        responses: data.responses,
+      },
+    });
+  };
+
+  onDialogueEnd = (data: { npcId: string }) => {
+    // Emit UI update to close dialogue panel
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogueEnd",
+      data: { npcId: data.npcId },
+    });
+  };
+
+  // --- Dialogue close handler (server-authoritative) ---
+  // Server sends this when player moves too far from NPC during dialogue
+  onDialogueClose = (data: { reason: string; sessionType: string }) => {
+    // Emit UI update to close the dialogue
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "dialogueEnd",
+      data: {
+        reason: data.reason,
+        serverClose: true,
+      },
+    });
   };
 
   // --- Character selection (flag-gated by server) ---
@@ -1215,7 +1671,8 @@ export class ClientNetwork extends SystemBase {
 
     // Remove from interpolation tracking
     this.interpolationStates.delete(id);
-
+    // Remove from tile interpolation tracking (RuneScape-style movement)
+    this.tileInterpolator.removeEntity(id);
     // Clean up pending modifications tracking
     this.pendingModifications.delete(id);
     this.pendingModificationTimestamps.delete(id);
@@ -1242,6 +1699,47 @@ export class ClientNetwork extends SystemBase {
    */
   lateUpdate(delta: number): void {
     this.updateInterpolation(delta);
+
+    // Get terrain system for height lookups
+    const terrain = this.world.getSystem("terrain") as {
+      getHeightAt?: (x: number, z: number) => number | null;
+    } | null;
+
+    // Update tile-based interpolation (RuneScape-style)
+    this.tileInterpolator.update(
+      delta,
+      (id: string) => {
+        const entity = this.world.entities.get(id);
+        if (!entity) return undefined;
+        // Cast to access base (players have VRM on base, rotation should be set there)
+        const entityWithBase = entity as typeof entity & {
+          base?: THREE.Object3D;
+        };
+        return {
+          position: entity.position as THREE.Vector3,
+          node: entity.node as THREE.Object3D | undefined,
+          base: entityWithBase.base,
+          data: entity.data as Record<string, unknown>,
+          // modify() triggers PlayerLocal's emote handling (avatar animation updates)
+          modify: (data: Record<string, unknown>) => entity.modify(data),
+        };
+      },
+      // Pass terrain height function for smooth Y updates
+      terrain?.getHeightAt
+        ? (x: number, z: number) => terrain.getHeightAt!(x, z)
+        : undefined,
+      // Callback when entity finishes moving - emit ENTITY_MODIFIED for InteractionSystem
+      // This enables event-based pending interactions (NPC trade, bank open, etc.)
+      (entityId: string, position: { x: number; y: number; z: number }) => {
+        this.world.emit(EventType.ENTITY_MODIFIED, {
+          id: entityId,
+          changes: {
+            e: "idle",
+            p: [position.x, position.y, position.z],
+          },
+        });
+      },
+    );
   }
 
   onGatheringComplete = (data: {
@@ -1357,6 +1855,155 @@ export class ClientNetwork extends SystemBase {
 
   // ======================== END TRADING HANDLERS ========================
 
+  // ======================== DEATH/RESPAWN HANDLERS ========================
+
+  onDeathScreen = (data: {
+    playerId: string;
+    message: string;
+    killedBy: string;
+    respawnTime: number;
+  }) => {
+    // Only show death screen for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      // Forward to local event system for death screen display
+      this.world.emit(EventType.UI_DEATH_SCREEN, {
+        message: data.message,
+        killedBy: data.killedBy,
+        respawnTime: data.respawnTime,
+      });
+    }
+  };
+
+  onDeathScreenClose = (data: { playerId: string }) => {
+    // Only close death screen for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      // Forward to local event system to close death screen
+      this.world.emit(EventType.UI_DEATH_SCREEN_CLOSE, {
+        playerId: data.playerId,
+      });
+    }
+  };
+
+  onPlayerSetDead = (data: {
+    playerId: string;
+    isDead: boolean;
+    deathPosition?: number[];
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      // Forward to local event system so PlayerLocal can handle it
+      this.world.emit(EventType.PLAYER_SET_DEAD, {
+        playerId: data.playerId,
+        isDead: data.isDead,
+        deathPosition: data.deathPosition,
+      });
+    }
+  };
+
+  onPlayerRespawned = (data: {
+    playerId: string;
+    spawnPosition: number[];
+    townName?: string;
+    deathLocation?: number[];
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      // Forward to local event system so PlayerLocal can handle it
+      this.world.emit(EventType.PLAYER_RESPAWNED, {
+        playerId: data.playerId,
+        spawnPosition: data.spawnPosition,
+        townName: data.townName,
+        deathLocation: data.deathLocation,
+      });
+    }
+  };
+
+  onAttackStyleChanged = (data: {
+    playerId: string;
+    currentStyle: unknown;
+    availableStyles: unknown;
+    canChange: boolean;
+    cooldownRemaining?: number;
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      // Forward to local event system so UI can update
+      this.world.emit(EventType.UI_ATTACK_STYLE_CHANGED, data);
+    }
+  };
+
+  onAttackStyleUpdate = (data: {
+    playerId: string;
+    currentStyle: unknown;
+    availableStyles: unknown;
+    canChange: boolean;
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      // Forward to local event system so UI can update
+      this.world.emit(EventType.UI_ATTACK_STYLE_UPDATE, data);
+    }
+  };
+
+  onCombatDamageDealt = (data: {
+    attackerId: string;
+    targetId: string;
+    damage: number;
+    targetType: "player" | "mob";
+    position: { x: number; y: number; z: number };
+  }) => {
+    // Forward to local event system so DamageSplatSystem can show visual feedback
+    this.world.emit(EventType.COMBAT_DAMAGE_DEALT, data);
+  };
+
+  onPlayerUpdated = (data: {
+    health: number;
+    maxHealth: number;
+    alive: boolean;
+  }) => {
+    const localPlayer = this.world.getPlayer();
+    if (!localPlayer) {
+      return;
+    }
+
+    // Use modify() to update entity - this triggers PlayerLocal.modify()
+    // which updates _playerHealth (the field the UI reads)
+    localPlayer.modify({
+      health: data.health,
+      maxHealth: data.maxHealth,
+    });
+
+    // Update alive status
+    if ("alive" in localPlayer) {
+      (localPlayer as { alive: boolean }).alive = data.alive;
+    }
+
+    // Emit health update event for UI
+    this.world.emit(EventType.PLAYER_HEALTH_UPDATED, {
+      playerId: localPlayer.id,
+      health: data.health,
+      maxHealth: data.maxHealth,
+    });
+  };
+
+  onCorpseLoot = (data: {
+    corpseId: string;
+    playerId: string;
+    lootItems: Array<{ itemId: string; quantity: number }>;
+    position: { x: number; y: number; z: number };
+  }) => {
+    // Forward to local event system so UI can open loot window
+    this.world.emit(EventType.CORPSE_CLICK, data);
+  };
+
+  // ======================== END DEATH/RESPAWN HANDLERS ========================
+
   applyPendingModifications = (entityId: string) => {
     const pending = this.pendingModifications.get(entityId);
     if (pending && pending.length > 0) {
@@ -1423,6 +2070,161 @@ export class ClientNetwork extends SystemBase {
     });
   };
 
+  // ==== Tile Movement Handlers (RuneScape-style) ====
+
+  /**
+   * Handle tile position update from server
+   * Server sends this every tick (600ms) when an entity moves
+   */
+  onEntityTileUpdate = (data: {
+    id: string;
+    tile: TileCoord;
+    worldPos: [number, number, number];
+    quaternion?: [number, number, number, number];
+    emote: string;
+    tickNumber: number;
+    moveSeq?: number;
+  }) => {
+    const worldPos = new THREE.Vector3(
+      data.worldPos[0],
+      data.worldPos[1],
+      data.worldPos[2],
+    );
+
+    // Get entity's current position as fallback for smooth interpolation
+    // (in case tileMovementStart was missed due to packet loss)
+    const entity = this.world.entities.get(data.id);
+    const entityCurrentPos = entity?.position
+      ? (entity.position as THREE.Vector3).clone()
+      : undefined;
+
+    // Update tile interpolator with tick number and moveSeq for proper sequencing
+    this.tileInterpolator.onTileUpdate(
+      data.id,
+      data.tile,
+      worldPos,
+      data.emote,
+      data.quaternion,
+      entityCurrentPos,
+      data.tickNumber,
+      data.moveSeq,
+    );
+
+    // CRITICAL: Set the flag IMMEDIATELY after tile update
+    // This prevents race conditions where entityModified packets arrive after this
+    // and apply stale server rotation, causing flickering
+    if (entity?.data) {
+      entity.data.tileInterpolatorControlled = true;
+    }
+
+    // Also update the entity data for consistency
+    if (entity) {
+      entity.data.emote = data.emote;
+      // DON'T update quaternion here - TileInterpolator handles rotation smoothly
+      // Storing server quaternion in entity.data could cause other code to read and apply it
+      // if (data.quaternion) {
+      //   entity.data.quaternion = data.quaternion;
+      // }
+    }
+  };
+
+  /**
+   * Handle movement path started
+   *
+   * OSRS Model: Client receives FULL PATH and walks through it at fixed speed.
+   * Server tick updates are for sync/verification only.
+   */
+  onTileMovementStart = (data: {
+    id: string;
+    startTile?: TileCoord;
+    path: TileCoord[];
+    running: boolean;
+    destinationTile?: TileCoord;
+    moveSeq?: number;
+    emote?: string;
+    tilesPerTick?: number; // Mob-specific speed (optional, defaults to walk/run speed)
+  }) => {
+    // Get entity's current position for smooth start (fallback if startTile not provided)
+    const entity = this.world.entities.get(data.id);
+    const currentPosition = entity?.position
+      ? (entity.position as THREE.Vector3).clone()
+      : undefined;
+
+    // Pass server's authoritative path to interpolator
+    // startTile: where server knows entity IS (authoritative)
+    // path: complete path from server (no client recalculation)
+    // destinationTile: final target for verification
+    // moveSeq: packet ordering to ignore stale packets
+    // emote: bundled animation (OSRS-style)
+    // tilesPerTick: mob-specific speed (for faster/slower mobs)
+    this.tileInterpolator.onMovementStart(
+      data.id,
+      data.path,
+      data.running,
+      currentPosition,
+      data.startTile,
+      data.destinationTile,
+      data.moveSeq,
+      data.emote,
+      data.tilesPerTick,
+    );
+
+    // CRITICAL: Set the flag IMMEDIATELY when movement starts
+    // This prevents race conditions where entityModified packets arrive before update() runs
+    // and apply stale server rotation, causing flickering between north/south
+    if (entity?.data) {
+      entity.data.tileInterpolatorControlled = true;
+      // Apply emote immediately - don't wait for interpolator update() cycle
+      // This ensures animation matches movement from the very first frame
+      // Use modify() to trigger PlayerLocal's emote handling (avatar animation update)
+      if (data.emote) {
+        entity.modify({ e: data.emote });
+      }
+    }
+  };
+
+  /**
+   * Handle entity arrived at destination
+   */
+  onTileMovementEnd = (data: {
+    id: string;
+    tile: TileCoord;
+    worldPos: [number, number, number];
+    moveSeq?: number;
+  }) => {
+    const worldPos = new THREE.Vector3(
+      data.worldPos[0],
+      data.worldPos[1],
+      data.worldPos[2],
+    );
+    // Let TileInterpolator handle the arrival smoothly
+    // It will snap only if already at destination, otherwise let interpolation finish
+    // moveSeq ensures stale end packets are ignored
+    this.tileInterpolator.onMovementEnd(
+      data.id,
+      data.tile,
+      worldPos,
+      data.moveSeq,
+    );
+
+    // Get entity for flag and emote updates
+    const entity = this.world.entities.get(data.id);
+
+    // CRITICAL: Keep the flag set - TileInterpolator might still be finishing interpolation
+    // The flag will be managed by TileInterpolator during its update cycle
+    if (entity?.data) {
+      entity.data.tileInterpolatorControlled = true;
+    }
+
+    // DON'T snap entity position here - TileInterpolator handles smooth arrival
+    // Only update emote if interpolator says we're not moving
+    if (!this.tileInterpolator.isInterpolating(data.id)) {
+      if (entity) {
+        entity.data.emote = "idle";
+      }
+    }
+  };
+
   onClose = (code: CloseEvent) => {
     console.error("[ClientNetwork] 🔌 WebSocket CLOSED:", {
       code: code.code,
@@ -1468,6 +2270,8 @@ export class ClientNetwork extends SystemBase {
     this.connected = false;
     // Clear interpolation states
     this.interpolationStates.clear();
+    // Clear tile interpolation states
+    this.tileInterpolator.clear();
     // Clear pending modifications tracking
     this.pendingModifications.clear();
     this.pendingModificationTimestamps.clear();

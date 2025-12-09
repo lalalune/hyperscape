@@ -116,22 +116,44 @@ export const EquipmentPage: React.FC = () => {
     }
   };
 
-  const handleSaveConfiguration = () => {
+  const handleSaveConfiguration = async () => {
     if (!selectedEquipment || !selectedAvatar) return;
 
     const config = {
-      equipmentId: selectedEquipment.id,
-      avatarId: selectedAvatar.id,
-      slot: equipmentSlot,
-      attachmentBone: equipmentSlot,
-      avatarHeight,
-      autoScale: autoScaleWeapon,
-      scaleOverride: weaponScaleOverride,
-      handleDetectionResult,
+      hyperscapeAttachment: {
+        vrmBoneName:
+          equipmentSlot === "Hand_R"
+            ? "rightHand"
+            : equipmentSlot === "Hand_L"
+              ? "leftHand"
+              : "rightHand",
+        position: manualPosition,
+        rotation: manualRotation,
+        scale: autoScaleWeapon ? weaponScaleOverride : weaponScaleOverride,
+        gripPoint: handleDetectionResult?.gripPoint || { x: 0, y: 0, z: 0 },
+        avatarHeight,
+        weaponType: selectedEquipment.type || "weapon",
+        testedWithAvatar: selectedAvatar.id,
+        lastUpdated: new Date().toISOString(),
+      },
     };
 
-    // TODO: Save to equipment metadata
-    console.log("Saving attachment configuration:", config);
+    try {
+      // Save attachment config to equipment metadata
+      const response = await fetch(`/api/assets/${selectedEquipment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata: config }),
+      });
+
+      if (!response.ok) throw new Error("Failed to save configuration");
+
+      notify.success("Attachment configuration saved!");
+      console.log("Saved attachment configuration:", config);
+    } catch (error) {
+      console.error("Failed to save configuration:", error);
+      notify.error("Failed to save configuration");
+    }
   };
 
   const handleExportAlignedModel = async () => {

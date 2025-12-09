@@ -14,8 +14,8 @@ export class PlaywrightManager {
   private static instance: PlaywrightManager | null = null;
 
   private runtime: IAgentRuntime;
-  private browser: Browser;
-  private page: Page;
+  private browser!: Browser;
+  private page!: Page;
   private initPromise: Promise<void> | null = null;
   private readonly STRIP_SLOTS = [
     "map",
@@ -126,14 +126,18 @@ export class PlaywrightManager {
     }
 
     const service = this.getService();
+    if (!service) return "";
     const world = service.getWorld();
+    if (!world) return "";
     const player = world.entities.player;
 
     if (!player) {
       throw new Error("Player entity not yet available");
     }
 
-    // Note: Rotation control implementation deferred - current player rotation is sufficient
+    // TODO: Implement rotation control
+    // await world.controls.rotateTo(direction, 500)
+    // world.controls.stopRotation()
 
     await this.rehydrateSceneAssets();
 
@@ -158,7 +162,9 @@ export class PlaywrightManager {
     await this.init();
 
     const service = this.getService();
+    if (!service) return "";
     const world = service.getWorld();
+    if (!world) return "";
     const player = world.entities.player;
 
     if (!player) {
@@ -188,7 +194,9 @@ export class PlaywrightManager {
     await this.init();
 
     const service = this.getService();
+    if (!service) return "";
     const world = service.getWorld();
+    if (!world) return "";
     const player = world.entities.player;
 
     if (!player) {
@@ -257,7 +265,7 @@ export class PlaywrightManager {
             STRIP_SLOTS.forEach((slot) => {
               const tex = mat[slot] as THREE.Texture;
               if (tex && tex.isTexture) {
-                window.texturesMap.set(`${id}:${slot}`, tex);
+                window.texturesMap?.set(`${id}:${slot}`, tex);
                 mat[slot] = null;
               }
             });
@@ -332,7 +340,9 @@ export class PlaywrightManager {
   public async loadEnvironmentHDR(url: string): Promise<void> {
     await this.init();
     const service = this.getService();
+    if (!service) return;
     const world = service.getWorld();
+    if (!world) return;
 
     url = await resolveUrl(url, world);
 
@@ -352,7 +362,9 @@ export class PlaywrightManager {
 
   private async rehydrateSceneAssets() {
     const service = this.getService();
+    if (!service) return;
     const world = service.getWorld();
+    if (!world) return;
     const sceneJson = world.stage.scene.toJSON();
 
     const players = world.entities.players;
@@ -449,7 +461,9 @@ export class PlaywrightManager {
           matrix.compose(position, rotation, scale);
           instance.move(matrix);
 
-          window.activeVRMInstances.push(instance);
+          if (window.activeVRMInstances) {
+            window.activeVRMInstances.push(instance);
+          }
         });
 
         // Rehydrate environment
