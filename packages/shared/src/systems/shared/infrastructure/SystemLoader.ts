@@ -17,7 +17,8 @@
  *
  * **Combat Systems:**
  * - CombatSystem: Melee, ranged, and magic combat mechanics
- * - DeathSystem: Handles player/mob death and respawning
+ * - PlayerDeathSystem: Handles player death and respawning
+ * - MobDeathSystem: Handles mob death and despawning
  * - AggroSystem: Enemy threat and aggression management
  *
  * **World Systems:**
@@ -26,7 +27,6 @@
  * - MobNPCSpawnerSystem: Dynamic mob NPC population control
  * - ResourceSystem: Gathering nodes (trees, rocks, ore)
  * - ItemSpawnerSystem: Ground item management
- * - PathfindingSystem: A* pathfinding for AI movement
  *
  * **Interaction Systems:**
  * - InteractionSystem: Player-entity interaction handling
@@ -80,6 +80,7 @@ import { EventType } from "../../../types/events";
 import type { AppConfig, TerrainConfig } from "../../../types/core/settings";
 import { getSystem } from "../../../utils/SystemUtils";
 import type { World } from "../../../core/World";
+import { System } from "./System";
 
 // Helper function to check truthy values
 function isTruthy(value: string | undefined): boolean {
@@ -91,7 +92,7 @@ import { AggroSystem } from "..";
 import { BankingSystem } from "..";
 import { CombatSystem } from "..";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
-import { DeathSystem } from "..";
+import { PlayerDeathSystem, MobDeathSystem } from "..";
 import { EntityManager } from "..";
 import { EquipmentSystem } from "..";
 import { InventoryInteractionSystem } from "..";
@@ -99,7 +100,6 @@ import { InventorySystem } from "..";
 import { ItemSpawnerSystem } from "..";
 import { MobNPCSpawnerSystem } from "..";
 import { MobNPCSystem } from "..";
-import { PathfindingSystem } from "..";
 import { PersistenceSystem } from "../../server/PersistenceSystem";
 import { PlayerSystem } from "..";
 import { ProcessingSystem } from "..";
@@ -107,18 +107,24 @@ import { ResourceSystem } from "..";
 import { StoreSystem } from "..";
 
 // New MMO-style Systems
-import { InteractionSystem } from "..";
+import { InteractionRouter } from "../../client";
 import { LootSystem } from "..";
+import { GroundItemSystem } from "../economy/GroundItemSystem";
 // Movement now handled by physics in PlayerLocal
 // CameraSystem is ClientCameraSystem
 // UI components are React-based in the client package
 
 // World Content Systems
 import { NPCSystem } from "..";
+import { DialogueSystem } from "..";
+
+// Client-only visual systems
+import { DamageSplatSystem } from "../../client";
 
 import type { CameraSystem as CameraSystemInterface } from "../../../types/systems/physics";
 import { ActionRegistry } from "..";
 import { SkillsSystem } from "..";
+import { HealthRegenSystem } from "..";
 
 // Interface for the systems collection
 export interface Systems {
@@ -129,23 +135,25 @@ export interface Systems {
   combat?: CombatSystem;
   skills?: SkillsSystem;
   banking?: BankingSystem;
-  interaction?: InteractionSystem;
+  interaction?: InteractionRouter;
   mobNpc?: MobNPCSystem;
   store?: StoreSystem;
   resource?: ResourceSystem;
-  pathfinding?: PathfindingSystem;
   aggro?: AggroSystem;
   equipment?: EquipmentSystem;
   processing?: ProcessingSystem;
   entityManager?: EntityManager;
-  death?: DeathSystem;
+  playerDeath?: PlayerDeathSystem;
+  mobDeath?: MobDeathSystem;
   inventoryInteraction?: InventoryInteractionSystem;
+  groundItems?: GroundItemSystem;
   loot?: LootSystem;
   cameraSystem?: CameraSystemInterface;
   movementSystem?: unknown;
   npc?: NPCSystem;
   mobNpcSpawner?: MobNPCSpawnerSystem;
   itemSpawner?: ItemSpawnerSystem;
+  healthRegen?: HealthRegenSystem;
 }
 
 /**
@@ -234,20 +242,15 @@ export async function registerSystems(world: World): Promise<void> {
   // 5. Player system - Core player management (depends on database & persistence)
   world.register("player", PlayerSystem);
 
-  // 22. Pathfinding system - AI movement (depends on mob system)
-  world.register("pathfinding", PathfindingSystem);
-
-  // 23. Player spawn system - Player spawning logic (depends on player & world systems)
-
   systems.player = getSystem(world, "player") as PlayerSystem;
-  systems.pathfinding = getSystem(world, "pathfinding") as PathfindingSystem;
   systems.entityManager = getSystem(world, "entity-manager") as EntityManager;
 
   if (world.isClient) {
-    world.register("interaction", InteractionSystem);
+    // Register new modular interaction system (replaces legacy InteractionSystem)
+    world.register("interaction", InteractionRouter);
     // CameraSystem is ClientCameraSystem
     // UI components are React-based in the client package
-    systems.interaction = getSystem(world, "interaction") as InteractionSystem;
+    systems.interaction = getSystem(world, "interaction") as InteractionRouter;
     // Camera system API is accessed through world events, not direct system reference
     systems.cameraSystem = undefined;
     systems.movementSystem = getSystem(world, "client-movement-system");
@@ -276,8 +279,19 @@ export async function registerSystems(world: World): Promise<void> {
   // 12. XP system - Experience and leveling (depends on player system)
   world.register("skills", SkillsSystem);
 
-  // 12a. XP system alias for backward compatibility with test framework
-  world.register("xp", SkillsSystem);
+  // 12a. Health regeneration system - Passive health regen (depends on combat system)
+  // Server-only: handles RuneScape-style out-of-combat health regeneration
+  // Note: world.isServer isn't reliable here because ServerNetwork registers later
+  // Use Node.js environment check instead
+  const isServerEnvironment =
+    typeof process !== "undefined" &&
+    process.versions &&
+    typeof process.versions.node === "string";
+
+  if (isServerEnvironment) {
+    world.register("health-regen", HealthRegenSystem);
+    console.log("[SystemLoader] ✅ HealthRegenSystem registered (server-only)");
+  }
 
   // === SPECIALIZED SYSTEMS ===
   // These systems provide specific game features
@@ -297,16 +311,35 @@ export async function registerSystems(world: World): Promise<void> {
   // === GAMEPLAY SYSTEMS ===
   // These systems provide advanced gameplay mechanics
 
-  // 19. Death system - Death and respawn mechanics (depends on player system)
-  world.register("death", DeathSystem);
+  // 19. Player death system - Player death and respawn mechanics (depends on player system)
+  world.register("player-death", PlayerDeathSystem);
 
-  // 20. Aggro system - AI aggression management (depends on mob & combat systems)
+  // 20. Mob death system - Mob death handling (depends on mob system)
+  world.register("mob-death", MobDeathSystem);
+
+  // 21. Aggro system - AI aggression management (depends on mob & combat systems)
   world.register("aggro", AggroSystem);
 
   // Client-only inventory drag & drop
   if (world.isClient) {
     world.register("inventory-interaction", InventoryInteractionSystem);
   }
+
+  // Client-only visual effects
+  if (world.isClient) {
+    try {
+      world.register("damage-splat", DamageSplatSystem);
+    } catch (err) {
+      console.error(
+        "[SystemLoader] Failed to register DamageSplatSystem:",
+        err,
+      );
+    }
+  }
+
+  // Ground Item System - shared across loot and death systems
+  // Must be registered before systems that depend on it
+  world.register("ground-items", GroundItemSystem);
 
   // New MMO-style Systems
   world.register("loot", LootSystem);
@@ -315,6 +348,9 @@ export async function registerSystems(world: World): Promise<void> {
   if (world.isServer) {
     world.register("npc", NPCSystem);
   }
+
+  // Dialogue system - handles NPC dialogue trees
+  world.register("dialogue", DialogueSystem);
 
   // DYNAMIC WORLD CONTENT SYSTEMS - FULL THREE.JS ACCESS, NO SANDBOX
   world.register("mob-npc-spawner", MobNPCSpawnerSystem);
@@ -339,7 +375,9 @@ export async function registerSystems(world: World): Promise<void> {
   systems.aggro = getSystem(world, "aggro") as AggroSystem;
   systems.equipment = getSystem(world, "equipment") as EquipmentSystem;
   systems.processing = getSystem(world, "processing") as ProcessingSystem;
-  systems.death = getSystem(world, "death") as DeathSystem;
+  systems.healthRegen = getSystem(world, "health-regen") as HealthRegenSystem;
+  systems.playerDeath = getSystem(world, "player-death") as PlayerDeathSystem;
+  systems.mobDeath = getSystem(world, "mob-death") as MobDeathSystem;
 
   // Client-only systems
   if (world.isClient) {
@@ -348,6 +386,9 @@ export async function registerSystems(world: World): Promise<void> {
       "inventory-interaction",
     ) as InventoryInteractionSystem;
   }
+
+  // Ground Item System
+  systems.groundItems = getSystem(world, "ground-items") as GroundItemSystem;
 
   // New MMO-style Systems
   systems.loot = getSystem(world, "loot") as LootSystem;
@@ -618,16 +659,18 @@ function setupAPI(world: World, systems: Systems): void {
         }
       )?.movePlayer?.(playerId, targetPosition),
 
-    // Death API
+    // Player Death API
     getDeathLocation: (playerId: string) =>
-      systems.death?.getDeathLocation(playerId),
-    getAllDeathLocations: () => systems.death?.getAllDeathLocations(),
-    isPlayerDead: (playerId: string) => systems.death?.isPlayerDead(playerId),
+      systems.playerDeath?.getDeathLocation(playerId),
+    getAllDeathLocations: () => systems.playerDeath?.getAllDeathLocations(),
+    isPlayerDead: (playerId: string) =>
+      systems.playerDeath?.isPlayerDead(playerId),
     getRemainingRespawnTime: (playerId: string) =>
-      systems.death?.getRemainingRespawnTime(playerId),
+      systems.playerDeath?.getRemainingRespawnTime(playerId),
     getRemainingDespawnTime: (playerId: string) =>
-      systems.death?.getRemainingDespawnTime(playerId),
-    forceRespawn: (playerId: string) => systems.death?.forceRespawn(playerId),
+      systems.playerDeath?.getRemainingDespawnTime(playerId),
+    forceRespawn: (playerId: string) =>
+      systems.playerDeath?.forceRespawn(playerId),
 
     // Terrain API (Terrain System)
     getHeightAtPosition: (_worldX: number, _worldZ: number) => 0, // Terrain system doesn't expose this method
@@ -836,7 +879,7 @@ function setupAPI(world: World, systems: Systems): void {
         const inventoryItem = {
           id: `${playerId}_${"itemId" in item ? item.itemId : item.id}_${Date.now()}`,
           itemId: "itemId" in item ? item.itemId : item.id,
-          quantity: "quantity" in item ? item.quantity : 1,
+          quantity: ("quantity" in item ? item.quantity : 1) ?? 1,
           slot: -1, // Let inventory system assign slot
           metadata: null,
         };
@@ -949,10 +992,33 @@ function setupAPI(world: World, systems: Systems): void {
 
       // Attack style actions
       changeAttackStyle: (playerId: string, newStyle: string) => {
-        world.emit(EventType.COMBAT_ATTACK_STYLE_CHANGE, {
-          playerId,
-          newStyle,
-        });
+        console.log(
+          `[SystemLoader] changeAttackStyle called: ${playerId} -> ${newStyle}, isServer: ${world.isServer}`,
+        );
+
+        // On client, send packet to server
+        if (world.isClient && world.network) {
+          console.log(
+            `[SystemLoader] Sending changeAttackStyle packet to server`,
+          );
+          (
+            world.network as {
+              send?: (method: string, data: unknown) => void;
+            }
+          ).send?.("changeAttackStyle", {
+            playerId,
+            newStyle,
+          });
+        }
+
+        // On server, emit the event locally
+        if (world.isServer) {
+          console.log(`[SystemLoader] Emitting ATTACK_STYLE_CHANGED on server`);
+          world.emit(EventType.ATTACK_STYLE_CHANGED, {
+            playerId,
+            newStyle,
+          });
+        }
       },
 
       getAttackStyleInfo: (
@@ -1066,19 +1132,7 @@ function setupAPI(world: World, systems: Systems): void {
         world.emit(EventType.STORE_OPEN, { playerId, storeId, playerPosition });
       },
 
-      buyItem: (
-        playerId: string,
-        storeId: string,
-        itemId: number,
-        quantity: number,
-      ) => {
-        world.emit(EventType.STORE_BUY, {
-          playerId,
-          storeId,
-          itemId,
-          quantity,
-        });
-      },
+      // NOTE: buyItem removed - use network.send("storeBuy") for secure transactions
 
       // Resource actions
       startGathering: (
@@ -1173,13 +1227,7 @@ function setupAPI(world: World, systems: Systems): void {
         world.emit(EventType.BANK_WITHDRAW, { playerId, itemId, quantity });
       },
 
-      storeBuy: (playerId: string, itemId: string, quantity: number) => {
-        world.emit(EventType.STORE_BUY, { playerId, itemId, quantity });
-      },
-
-      storeSell: (playerId: string, itemId: string, quantity: number) => {
-        world.emit(EventType.STORE_SELL, { playerId, itemId, quantity });
-      },
+      // NOTE: storeBuy and storeSell removed - use network.send() for secure transactions
 
       // Mob AI actions
       attackMob: (playerId: string, mobId: string, damage: number) => {
@@ -1359,4 +1407,25 @@ function setupAPI(world: World, systems: Systems): void {
 
   // Attach all RPG API methods directly to the world object
   Object.assign(world, rpgAPI);
+
+  // Create a simple Actions system wrapper so it can be accessed via getSystem("actions")
+  class ActionsSystem extends System {
+    name = "actions";
+    actionMethods = rpgAPI.actionMethods;
+
+    constructor(world: World) {
+      super(world);
+    }
+
+    async init(_options: unknown): Promise<void> {
+      // No initialization needed
+    }
+
+    update(_dt: number): void {
+      // No update needed
+    }
+  }
+
+  // Register the actions system
+  world.register("actions", ActionsSystem);
 }

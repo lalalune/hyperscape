@@ -33,18 +33,37 @@ export function CoreUI({ world }: { world: ClientWorld }) {
   // Track system and asset progress separately to gate presentation on assets
   const [_systemsComplete, setSystemsComplete] = useState(false);
   const [_assetsProgress, setAssetsProgress] = useState(0);
+
+  // Check if this is spectator mode (from embedded config)
+  const isSpectatorMode = (() => {
+    const config = (window as any).__HYPERSCAPE_CONFIG__;
+    return config?.mode === "spectator";
+  })();
+
   // Presentation gating flags
   const [playerReady, setPlayerReady] = useState(() => !!world.entities.player);
   const [_physReady, setPhysReady] = useState(false);
-  const [_terrainReady, setTerrainReady] = useState(false);
+  const [terrainReady, setTerrainReady] = useState(false);
   const [_player, setPlayer] = useState(() => world.entities.player);
+  const [targetAvatarLoaded, setTargetAvatarLoaded] = useState(false);
   const [ui, setUI] = useState(world.ui?.state);
   const [_menu, setMenu] = useState(null);
   const [_settings, _setSettings] = useState(false);
   const [disconnected, setDisconnected] = useState(false);
   const [kicked, setKicked] = useState<string | null>(null);
   const [characterFlowActive, setCharacterFlowActive] = useState(false);
+  const [deathScreen, setDeathScreen] = useState<{
+    message: string;
+    killedBy: string;
+    respawnTime: number;
+  } | null>(null);
   useEffect(() => {
+    // Get the target entity ID for spectators
+    const getSpectatorTargetId = () => {
+      const config = (window as any).__HYPERSCAPE_CONFIG__;
+      return config?.followEntity || config?.characterId;
+    };
+
     // Create handlers with proper types
     const handleReady = () => {
       // A READY signal indicates a major subsystem finished; mark loading as potentially complete
@@ -60,24 +79,39 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       };
       // Prefer system-stage events when present
       if (progressData.stage) {
-        if (progressData.progress >= 100) setSystemsComplete(true);
+        if (progressData.progress >= 100) {
+          setSystemsComplete(true);
+        }
       } else if (typeof progressData.total === "number") {
         setAssetsProgress(progressData.progress);
       }
     };
+
     const handlePlayerSpawned = () => {
-      const player = world.entities?.player;
-      if (player) {
-        setPlayer(player);
-        setPlayerReady(true);
+      // Only handle for non-spectators (spectators don't spawn local players)
+      if (!isSpectatorMode) {
+        const player = world.entities?.player;
+        if (player) {
+          setPlayer(player);
+          setPlayerReady(true);
+        }
       }
     };
-    const handleAvatarComplete = (_data: {
+
+    const handleAvatarComplete = (data: {
       playerId: string;
       success: boolean;
     }) => {
-      // Avatar loaded for a player — consider local player ready for presentation
-      setPlayerReady(true);
+      if (isSpectatorMode) {
+        // For spectators: check if this is the entity we're following
+        const targetId = getSpectatorTargetId();
+        if (data.playerId === targetId && data.success) {
+          setTargetAvatarLoaded(true);
+        }
+      } else {
+        // For normal players: any avatar complete means player is ready
+        setPlayerReady(true);
+      }
     };
     const handleUIToggle = (data: { visible: boolean }) => {
       setUI((prev) => (prev ? { ...prev, visible: data.visible } : undefined));
@@ -87,6 +121,17 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       setKicked(data.reason || "Kicked from server");
     };
     const handleDisconnected = () => setDisconnected(true);
+    const handleDeathScreen = (...args: unknown[]) => {
+      const data = args[0] as {
+        message: string;
+        killedBy: string;
+        respawnTime: number;
+      };
+      setDeathScreen(data);
+    };
+    const handleDeathScreenClose = (...args: unknown[]) => {
+      setDeathScreen(null);
+    };
 
     // Add listeners
     world.on(EventType.READY, handleReady);
@@ -100,6 +145,8 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     world.on(EventType.UI_MENU, handleUIMenu);
     world.on(EventType.UI_KICK, handleUIKick);
     world.on(EventType.NETWORK_DISCONNECTED, handleDisconnected);
+    world.on(EventType.UI_DEATH_SCREEN, handleDeathScreen);
+    world.on(EventType.UI_DEATH_SCREEN_CLOSE, handleDeathScreenClose);
     // Character selection flow (server-flagged)
     world.on("character:list", () => setCharacterFlowActive(true));
     world.on("character:selected", () => setCharacterFlowActive(false));
@@ -122,17 +169,35 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       world.off(EventType.UI_MENU, handleUIMenu);
       world.off(EventType.UI_KICK, handleUIKick);
       world.off(EventType.NETWORK_DISCONNECTED, handleDisconnected);
+      world.off(EventType.UI_DEATH_SCREEN, handleDeathScreen);
+      world.off(EventType.UI_DEATH_SCREEN_CLOSE, handleDeathScreenClose);
       world.off("character:list", () => setCharacterFlowActive(true));
       world.off("character:selected", () => setCharacterFlowActive(false));
     };
   }, []);
 
-  // Poll terrain readiness at the player's tile until ready
+  // Poll terrain readiness until ready
   useEffect(() => {
     let terrainInterval: NodeJS.Timeout | null = null;
     function startPolling() {
       if (terrainInterval) return;
       terrainInterval = setInterval(() => {
+        // CRITICAL: For spectators, check terrain directly without requiring local player
+        if (isSpectatorMode) {
+          const terrain = world.getSystem?.("terrain") as
+            | { isReady?: () => boolean }
+            | undefined;
+          if (terrain && terrain.isReady && terrain.isReady()) {
+            setTerrainReady(true);
+            if (terrainInterval) {
+              clearInterval(terrainInterval);
+              terrainInterval = null;
+            }
+          }
+          return;
+        }
+
+        // For normal players: require player entity before checking terrain
         const player = world.entities?.player as
           | { position?: { x: number; z: number } }
           | undefined;
@@ -155,7 +220,15 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     return () => {
       if (terrainInterval) clearInterval(terrainInterval);
     };
-  }, [world]);
+  }, [world, isSpectatorMode]);
+
+  // For spectators: set playerReady when target avatar AND terrain are loaded
+  // This mimics the normal player flow: wait for avatar + terrain before presenting
+  useEffect(() => {
+    if (isSpectatorMode && targetAvatarLoaded && terrainReady && !playerReady) {
+      setPlayerReady(true);
+    }
+  }, [isSpectatorMode, targetAvatarLoaded, terrainReady, playerReady]);
 
   // Start the 300ms delay once all presentable conditions are met
   useEffect(() => {
@@ -221,6 +294,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
           />
         )}
         {kicked && <KickedOverlay code={kicked} />}
+        {deathScreen && <DeathScreen data={deathScreen} world={world} />}
         {ready && isTouch && <TouchBtns world={world} />}
         {ready && <EntityContextMenu world={world} />}
         <div id="core-ui-portal" />
@@ -260,6 +334,69 @@ function KickedOverlay({ code }: { code: string }) {
     <div className="absolute inset-0 bg-black flex items-center justify-center pointer-events-auto">
       <div className="text-white text-lg">
         {kickMessages[code] || kickMessages.unknown}
+      </div>
+    </div>
+  );
+}
+
+function DeathScreen({
+  data,
+  world,
+}: {
+  data: { message: string; killedBy: string; respawnTime: number };
+  world: ClientWorld;
+}) {
+  const handleRespawn = () => {
+    // Send respawn request to server via network
+    const network = world.network as {
+      send?: (packet: string, data: unknown) => void;
+    };
+
+    if (!network) {
+      console.error("[DeathScreen] Network object is null/undefined!");
+      return;
+    }
+
+    if (!network.send) {
+      console.error("[DeathScreen] Network.send method doesn't exist!");
+      return;
+    }
+
+    try {
+      network.send("requestRespawn", {
+        playerId: world.entities?.player?.id,
+      });
+    } catch (err) {
+      console.error("[DeathScreen] Error sending packet:", err);
+    }
+  };
+
+  return (
+    <div className="absolute inset-0 bg-black/80 flex items-center justify-center pointer-events-auto z-[10000]">
+      <div className="flex flex-col items-center gap-6 max-w-md p-8 bg-dark-bg border-2 border-red-600 rounded-2xl backdrop-blur-md">
+        <div className="text-4xl font-bold text-red-500">
+          Oh dear, you are dead!
+        </div>
+        <div className="text-white text-center space-y-2">
+          <p className="text-lg">
+            Killed by: <span className="text-red-400">{data.killedBy}</span>
+          </p>
+          <p className="text-base opacity-90">
+            You have lost your items at the death location.
+          </p>
+        </div>
+        <div className="flex flex-col items-center gap-4 mt-4">
+          <button
+            onClick={handleRespawn}
+            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold rounded-lg transition-colors cursor-pointer border-2 border-blue-400"
+          >
+            Click here to respawn
+          </button>
+          <div className="text-sm text-gray-400 text-center max-w-sm">
+            Your items have been dropped at your death location. You have 5
+            minutes to retrieve them before they despawn!
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -366,11 +503,15 @@ function ActionIcon({ icon }: { icon: IconComponent }) {
 }
 
 function Toast({ world }: { world: ClientWorld }) {
-  const [msg, setMsg] = useState<{ text: string; id: number } | null>(null);
+  const [msg, setMsg] = useState<{
+    text: string;
+    id: number;
+    position?: { x: number; y: number };
+  } | null>(null);
   useEffect(() => {
     let ids = 0;
     const onToast = (data: EventMap[EventType.UI_TOAST]) => {
-      setMsg({ text: data.message, id: ++ids });
+      setMsg({ text: data.message, id: ++ids, position: data.position });
     };
     world.on(EventType.UI_TOAST, onToast);
     return () => {
@@ -378,6 +519,29 @@ function Toast({ world }: { world: ClientWorld }) {
     };
   }, []);
   if (!msg) return null;
+
+  // RS3-style: If position is provided, render positioned tooltip
+  if (msg.position) {
+    return (
+      <>
+        <style>{`
+          @keyframes examineTooltipIn {
+            from {
+              opacity: 0;
+              transform: scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+        `}</style>
+        <PositionedToast key={msg.id} text={msg.text} position={msg.position} />
+      </>
+    );
+  }
+
+  // Default: Centered toast (for system messages)
   return (
     <div
       className="absolute left-0 right-0 flex justify-center"
@@ -398,6 +562,77 @@ function Toast({ world }: { world: ClientWorld }) {
         }
       `}</style>
       {msg && <ToastMsg key={msg.id} text={msg.text} />}
+    </div>
+  );
+}
+
+/** RS3-style positioned tooltip that appears near cursor */
+function PositionedToast({
+  text,
+  position,
+}: {
+  text: string;
+  position: { x: number; y: number };
+}) {
+  const [visible, setVisible] = useState(true);
+  const [coords, setCoords] = useState({ x: 0, y: 0 });
+  const tooltipRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Calculate position with edge detection
+    const tooltipWidth = 250; // Estimated max width
+    const tooltipHeight = 40; // Estimated height
+    const offset = 15; // Offset from cursor
+    const padding = 10; // Padding from viewport edge
+
+    let x = position.x + offset;
+    let y = position.y + offset;
+
+    // Flip horizontally if too close to right edge
+    if (x + tooltipWidth + padding > window.innerWidth) {
+      x = position.x - tooltipWidth - offset;
+    }
+
+    // Flip vertically if too close to bottom edge
+    if (y + tooltipHeight + padding > window.innerHeight) {
+      y = position.y - tooltipHeight - offset;
+    }
+
+    // Clamp to viewport
+    x = Math.max(
+      padding,
+      Math.min(x, window.innerWidth - tooltipWidth - padding),
+    );
+    y = Math.max(
+      padding,
+      Math.min(y, window.innerHeight - tooltipHeight - padding),
+    );
+
+    setCoords({ x, y });
+
+    // RS3-style: Display for 2.5 seconds then fade out
+    const timer = setTimeout(() => setVisible(false), 2500);
+    return () => clearTimeout(timer);
+  }, [position]);
+
+  return (
+    <div
+      ref={tooltipRef}
+      className={cls(
+        "fixed px-3 py-2 bg-[rgba(11,10,21,0.92)] border border-[#3a3b49] backdrop-blur-[8px] rounded-lg text-white text-sm font-medium shadow-lg pointer-events-none z-[99999] max-w-[250px]",
+        {
+          "opacity-100 scale-100 animate-[examineTooltipIn_0.15s_ease-out]":
+            visible,
+          "opacity-0 scale-95 transition-all duration-300 ease-in-out":
+            !visible,
+        },
+      )}
+      style={{
+        left: `${coords.x}px`,
+        top: `${coords.y}px`,
+      }}
+    >
+      {text}
     </div>
   );
 }

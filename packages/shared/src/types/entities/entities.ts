@@ -27,6 +27,7 @@ export enum EntityType {
   RESOURCE = "resource",
   HEADSTONE = "headstone",
   STATIC = "static",
+  BANK = "bank",
 }
 
 export enum InteractionType {
@@ -157,7 +158,6 @@ export interface ItemEntityConfig extends EntityConfig<ItemEntityProperties> {
   value: number;
   weight: number;
   rarity: ItemRarity;
-  stats: Record<string, number>;
   requirements: Record<string, number>;
   effects: Array<{ type: string; value: number; duration: number }>;
   armorSlot: string | null;
@@ -175,10 +175,15 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   level: number;
   maxHealth: number;
   currentHealth: number;
-  attackPower: number;
+  attack: number; // Attack level for accuracy calculations (OSRS-style)
+  attackPower: number; // Strength-based, determines max hit
   defense: number;
-  attackSpeed: number;
+  attackSpeedTicks: number;
   moveSpeed: number;
+  aggressive: boolean; // If true, mob attacks players on sight; if false, only retaliates
+  retaliates: boolean; // If true, mob fights back when attacked; if false, mob is peaceful
+  attackable: boolean; // If true, players can attack this mob; if false, mob cannot be targeted
+  movementType: "stationary" | "wander" | "patrol"; // Controls idle movement behavior
   aggroRange: number;
   combatRange: number;
   wanderRadius: number; // Fixed distance from spawn point (RuneScape-style)
@@ -213,8 +218,7 @@ export interface NPCEntityConfig extends EntityConfig<NPCEntityProperties> {
 }
 
 // Resource entity config
-export interface ResourceEntityConfig
-  extends EntityConfig<ResourceEntityProperties> {
+export interface ResourceEntityConfig extends EntityConfig<ResourceEntityProperties> {
   resourceType: ResourceType;
   resourceId: string;
   harvestSkill: string;
@@ -228,6 +232,9 @@ export interface ResourceEntityConfig
   }>;
   depleted: boolean;
   lastHarvestTime: number;
+  depletedModelPath?: string | null;
+  modelScale?: number;
+  depletedModelScale?: number;
 }
 
 // Component interfaces
@@ -346,6 +353,9 @@ export interface HeadstoneData {
   items: InventoryItem[];
   itemCount: number;
   despawnTime: number;
+  // Loot protection (for wilderness/PvP deaths)
+  lootProtectionUntil?: number; // Timestamp when loot protection expires
+  protectedFor?: string; // Player ID who has loot protection (killer in PvP)
 }
 
 export interface LocalHeadstoneData extends Omit<HeadstoneData, "deathTime"> {
@@ -354,9 +364,15 @@ export interface LocalHeadstoneData extends Omit<HeadstoneData, "deathTime"> {
 }
 
 // Headstone entity config
-export interface HeadstoneEntityConfig
-  extends EntityConfig<BaseEntityProperties> {
+export interface HeadstoneEntityConfig extends EntityConfig<BaseEntityProperties> {
   headstoneData: HeadstoneData;
+}
+
+// Bank entity config
+export interface BankEntityConfig extends EntityConfig<BaseEntityProperties> {
+  properties: BaseEntityProperties & {
+    bankId: string;
+  };
 }
 
 // Spawn data interfaces for entity creation

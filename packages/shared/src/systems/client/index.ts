@@ -17,3 +17,8 @@ export { Nametags } from "./Nametags";
 export { XR } from "./XR";
 export { NodeClient } from "./NodeClient";
 export { ControlPriorities } from "./ControlPriorities";
+export { EquipmentVisualSystem } from "./EquipmentVisualSystem";
+export { DamageSplatSystem } from "./DamageSplatSystem";
+
+// New interaction system (replaces legacy InteractionSystem)
+export { InteractionRouter } from "./interaction";

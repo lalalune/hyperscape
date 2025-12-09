@@ -131,6 +131,7 @@ export const AssetResponse = t.Object({
   metadata: t.Any(), // Full metadata.json content (dynamic structure with many optional fields)
   hasModel: t.Boolean(),
   modelFile: t.Optional(t.String()),
+  modelFormat: t.Optional(t.Union([t.Literal("glb"), t.Literal("vrm")])), // Model file format
   generatedAt: t.Optional(t.String()),
 });
 

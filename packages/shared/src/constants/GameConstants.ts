@@ -24,7 +24,9 @@ export const PLAYER_CONSTANTS = {
   DEFAULT_MAX_STAMINA: 100,
   BASE_MOVEMENT_SPEED: 1.0,
   RUNNING_SPEED_MULTIPLIER: 1.5,
-  HEALTH_REGEN_RATE: 1.0,
+  HEALTH_REGEN_RATE: 1, // 1 HP per regen tick (RuneScape-style)
+  HEALTH_REGEN_COOLDOWN: 10000, // 10 seconds after combat/damage before regen starts
+  HEALTH_REGEN_INTERVAL: 60000, // Regen 1 HP every 60 seconds (RuneScape-style)
   STAMINA_REGEN_RATE: 2.0,
   STAMINA_DRAIN_RATE: 5.0,
 } as const;
@@ -71,18 +73,23 @@ export const MOB_CONSTANTS = {
   MAX_MOBS_PER_AREA: 10,
   MOB_RESPAWN_TIME: 30000, // 30 seconds
   AI_UPDATE_INTERVAL: 1000, // 1 second
-  PATHFINDING_UPDATE_RATE: 500, // 0.5 seconds
 } as const;
+
+// Import health bar dimensions from single source of truth
+import { HEALTH_BAR_DIMENSIONS } from "../utils/rendering/HealthBarRenderer";
 
 // === UI AND VISUAL ===
 export const UI_CONSTANTS = {
-  HEALTH_BAR_WIDTH: 50,
-  HEALTH_BAR_HEIGHT: 5,
+  // Health bar dimensions - from HealthBarRenderer (single source of truth)
+  HEALTH_BAR_WIDTH: HEALTH_BAR_DIMENSIONS.WIDTH,
+  HEALTH_BAR_HEIGHT: HEALTH_BAR_DIMENSIONS.HEIGHT,
+  HEALTH_BAR_BORDER: HEALTH_BAR_DIMENSIONS.BORDER_WIDTH,
+  HEALTH_SPRITE_SCALE: HEALTH_BAR_DIMENSIONS.SPRITE_SCALE,
+  // Other UI constants
   NAME_TAG_WIDTH: 200,
   NAME_TAG_HEIGHT: 25,
   UI_SCALE: 0.1, // Canvas to world scale
   SPRITE_SCALE: 0.1,
-  HEALTH_SPRITE_SCALE: 0.05,
   HUD_UPDATE_RATE: 100, // 10 FPS for UI updates
   CHAT_MESSAGE_TIMEOUT: 5000, // 5 seconds
 } as const;
@@ -263,7 +270,8 @@ export const ATTACK_STYLES = {
 
 // === WORLD AREAS (for content loading) ===
 export const WORLD_AREAS = {
-  LUMBRIDGE: "lumbridge",
+  CENTRAL_HAVEN: "central_haven",
+  // TODO: Rename these to original Hyperscape names
   VARROCK: "varrock",
   FALADOR: "falador",
   WILDERNESS: "wilderness",

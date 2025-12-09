@@ -64,6 +64,7 @@ import type {
   EntityInteractionData,
   NPCEntityConfig,
 } from "../../types/entities";
+import type { EntityData } from "../../types/index";
 import { modelCache } from "../../utils/rendering/ModelCache";
 import { EventType } from "../../types/events";
 
@@ -122,13 +123,15 @@ export class NPCEntity extends Entity {
   }
 
   private handleTalk(playerId: string): void {
-    // Send dialogue to UI system
-    this.world.emit(EventType.NPC_DIALOGUE, {
+    // Emit NPC_INTERACTION so DialogueSystem can look up dialogue tree from npcs.json
+    this.world.emit(EventType.NPC_INTERACTION, {
       playerId,
-      npcId: this.config.npcId,
-      npcType: this.config.npcType,
-      dialogueLines: this.config.dialogueLines,
-      services: this.config.services,
+      npcId: this.id,
+      npc: {
+        id: this.config.npcId,
+        name: this.config.name,
+        type: this.config.npcType,
+      },
     });
   }
 
@@ -281,14 +284,21 @@ export class NPCEntity extends Entity {
         });
 
         // Set up userData for interaction detection (raycasting)
-        this.mesh.userData = {
+        // CRITICAL: Set on root AND all children so raycast hits work
+        // npcId is the manifest ID (e.g., "bank_clerk"), entityId is the instance ID
+        const userData = {
           type: "npc",
           entityId: this.id,
+          npcId: this.config.npcId, // Manifest ID for dialogue lookup
           name: this.config.name,
           interactable: true,
           npcType: this.config.npcType,
           services: this.config.services,
         };
+        this.mesh.userData = userData;
+        this.mesh.traverse((child) => {
+          child.userData = { ...userData };
+        });
 
         // Add as child of node (standard approach with correct scale)
         // Position is relative to node, so keep it at origin
@@ -319,9 +329,11 @@ export class NPCEntity extends Entity {
     this.mesh.name = `NPC_${this.config.npcType}_${this.id}`;
 
     // CRITICAL: Set userData for interaction detection (raycasting)
+    // npcId is the manifest ID (e.g., "bank_clerk"), entityId is the instance ID
     this.mesh.userData = {
       type: "npc",
       entityId: this.id,
+      npcId: this.config.npcId, // Manifest ID for dialogue lookup
       name: this.config.name,
       interactable: true,
       npcType: this.config.npcType,
@@ -373,6 +385,19 @@ export class NPCEntity extends Entity {
   public getNetworkData(): Record<string, unknown> {
     return {
       ...super.getNetworkData(),
+      model: this.config.model,
+      npcType: this.config.npcType,
+      npcId: this.config.npcId,
+      services: this.config.services,
+    };
+  }
+
+  // Override serialize to include NPC-specific fields for network transmission
+  public override serialize(): EntityData {
+    const base = super.serialize();
+    return {
+      ...base,
+      model: this.config.model,
       npcType: this.config.npcType,
       npcId: this.config.npcId,
       services: this.config.services,

@@ -91,6 +91,7 @@ import type {
   LoadedAvatar,
 } from "../../types/rendering/nodes";
 import { Emotes } from "../../data/playerEmotes";
+// NOTE: Loot drops are handled by LootSystem, not MobEntity directly
 import { DeathStateManager } from "../managers/DeathStateManager";
 import { CombatStateManager } from "../managers/CombatStateManager";
 import {
@@ -98,7 +99,19 @@ import {
   type AIStateContext,
 } from "../managers/AIStateMachine";
 import { RespawnManager } from "../managers/RespawnManager";
+import { UIRenderer } from "../../utils/rendering/UIRenderer";
+import { GAME_CONSTANTS } from "../../constants";
+import type {
+  HealthBars as HealthBarsSystem,
+  HealthBarHandle,
+} from "../../systems/client/HealthBars";
+import { COMBAT_CONSTANTS } from "../../constants/CombatConstants";
 import { AggroManager } from "../managers/AggroManager";
+import {
+  worldToTile,
+  TICK_DURATION_MS,
+} from "../../systems/shared/movement/TileSystem";
+import { attackSpeedSecondsToTicks } from "../../utils/game/CombatCalculations";
 
 // Polyfill ProgressEvent for Node.js server environment
 if (typeof ProgressEvent === "undefined") {
@@ -140,6 +153,8 @@ export class MobEntity extends CombatantEntity {
   private _tempScale = new THREE.Vector3(1, 1, 1);
   private _terrainWarningLogged = false;
   private _hasValidTerrainHeight = false;
+  // Placeholder hitbox for click detection before VRM loads (RuneScape-style: entity is functional immediately)
+  private _placeholderHitbox: THREE.Mesh | null = null;
 
   // ===== PATROL SYSTEM (Can be componentized later) =====
   private patrolPoints: Array<{ x: number; z: number }> = [];
@@ -152,6 +167,10 @@ export class MobEntity extends CombatantEntity {
   private readonly WANDER_MIN_DISTANCE = 1; // Minimum wander distance
   private readonly WANDER_MAX_DISTANCE = 5; // Maximum wander distance
   private readonly STUCK_TIMEOUT = 3000; // Give up after 3 seconds stuck
+  // Tile movement throttling - prevent emitting duplicate move requests
+  // Uses tick-based throttling (aligned with 600ms server ticks) instead of time-based
+  private _lastRequestedTargetTile: { x: number; z: number } | null = null;
+  private _lastMoveRequestTick: number = -1;
 
   // ===== SPAWN TRACKING =====
   // Track the mob's CURRENT spawn location (changes on respawn)
@@ -161,20 +180,68 @@ export class MobEntity extends CombatantEntity {
   // ===== DEBUG TRACKING =====
   private _justRespawned = false; // Track if we just respawned (for one-time logging)
 
+  // ===== TICK-ALIGNED AI =====
+  // AI runs once per server tick (600ms), not every frame (~16ms)
+  // This prevents excessive movement requests and aligns with OSRS tick system
+  private _lastAITick: number = -1;
+
+  // ===== HEALTH BAR (HealthBars system - atlas-based instanced mesh) =====
+  private _healthBarHandle: HealthBarHandle | null = null; // Handle to HealthBars system
+  private _healthBarVisibleUntil: number = 0; // Timestamp when health bar should hide
+  private _lastKnownHealth: number = 0; // Track previous health to detect damage
+
   async init(): Promise<void> {
     await super.init();
-    // Entity init handles mesh creation, visuals, and interaction setup
+
+    // Register for update loop (both client and server)
+    // Client: VRM animations via clientUpdate()
+    // Server: AI behavior via serverUpdate()
+    this.world.setHot(this, true);
+
+    // Register with HealthBars system (client-side only)
+    // Uses atlas-based instanced mesh for performance instead of sprite per mob
+    if (!this.world.isServer) {
+      const healthbars = this.world.systems.find(
+        (s) =>
+          (s as { systemName?: string }).systemName === "healthbars" ||
+          s.constructor.name === "HealthBars",
+      ) as HealthBarsSystem | undefined;
+
+      if (healthbars) {
+        this._healthBarHandle = healthbars.add(
+          this.id,
+          this.config.currentHealth,
+          this.config.maxHealth,
+        );
+        // Health bar starts hidden (RuneScape pattern: only show during combat)
+      }
+    }
+
+    this._lastKnownHealth = this.config.currentHealth;
+  }
+
+  /**
+   * Override initializeVisuals to skip sprite health bar creation
+   * MobEntity uses HealthBars system (atlas + instanced mesh) instead
+   */
+  protected override initializeVisuals(): void {
+    // Call parent but it won't create health bar for mobs because we override createHealthBar
+    // Note: We still want name tags from Entity.ts if applicable
+    // But mobs don't show nametags (RS pattern: names in right-click menu only)
+    // So just create the mesh without UI elements
   }
 
   constructor(world: World, config: MobEntityConfig) {
     // Convert MobEntityConfig to CombatantConfig format with proper type assertion
+    // attackSpeedTicks is in game ticks (600ms each), convert to attacks/second for legacy field
+    const attacksPerSecond = 1.0 / (config.attackSpeedTicks * 0.6);
     const combatConfig = {
       ...config,
       rotation: config.rotation || { x: 0, y: 0, z: 0, w: 1 },
       combat: {
         attack: Math.floor(config.attackPower / 10),
         defense: Math.floor(config.defense / 10),
-        attackSpeed: 1.0 / config.attackSpeed,
+        attackSpeed: attacksPerSecond,
         criticalChance: 0.05,
         combatLevel: config.level,
         respawnTime: config.respawnTime,
@@ -186,12 +253,9 @@ export class MobEntity extends CombatantEntity {
     super(world, combatConfig);
     this.config = config;
 
-    // Ensure respawnTime is at least 15 seconds (RuneScape-style)
-    if (!this.config.respawnTime || this.config.respawnTime < 15000) {
-      console.warn(
-        `[MobEntity] respawnTime was ${this.config.respawnTime}, setting to 15000ms (15 seconds)`,
-      );
-      this.config.respawnTime = 15000; // 15 seconds minimum
+    // Manifest is source of truth for respawnTime - no minimum enforcement
+    if (!this.config.respawnTime) {
+      this.config.respawnTime = 15000; // Default 15s if not specified
     }
 
     // ===== INITIALIZE COMPONENTS =====
@@ -212,10 +276,11 @@ export class MobEntity extends CombatantEntity {
 
     // NOTE: Respawn callback is now handled by RespawnManager, not DeathStateManager
 
-    // Combat State Manager
+    // Combat State Manager (TICK-BASED)
+    // attackSpeedTicks from manifest is already in ticks
     this.combatManager = new CombatStateManager({
       attackPower: this.config.attackPower,
-      attackSpeed: this.config.attackSpeed,
+      attackSpeedTicks: this.config.attackSpeedTicks,
       attackRange: this.config.combatRange,
     });
 
@@ -244,6 +309,17 @@ export class MobEntity extends CombatantEntity {
     // Wire up respawn manager callback
     this.respawnManager.onRespawn((spawnPoint) => {
       this.handleRespawn(spawnPoint);
+    });
+
+    // Listen for player deaths - disengage if we were targeting them
+    this.world.on(EventType.PLAYER_SET_DEAD, (data: unknown) => {
+      const deathData = data as { playerId: string; isDead: boolean };
+      if (
+        deathData.isDead &&
+        this.config.targetPlayerId === deathData.playerId
+      ) {
+        this.clearTargetAndExitCombat();
+      }
     });
 
     // CRITICAL: Use RespawnManager for INITIAL spawn too (not just respawn)
@@ -382,22 +458,19 @@ export class MobEntity extends CombatantEntity {
    * Load VRM model and create avatar instance
    */
   private async loadVRMModel(): Promise<void> {
+    // LOGGING: No more silent failures - log all early returns
     if (!this.world.loader) {
-      console.error(
-        `[MobEntity] ❌ No loader available for ${this.config.mobType}`,
+      console.warn(
+        `[MobEntity] ${this.id}: No world.loader available for VRM loading`,
       );
       return;
     }
-
     if (!this.config.model) {
-      console.error(`[MobEntity] ❌ No model path for ${this.config.mobType}`);
+      console.warn(`[MobEntity] ${this.id}: No model path configured`);
       return;
     }
-
     if (!this.world.stage?.scene) {
-      console.error(
-        `[MobEntity] ❌ No world.stage.scene available for ${this.config.mobType}`,
-      );
+      console.warn(`[MobEntity] ${this.id}: No world.stage.scene available`);
       return;
     }
 
@@ -420,7 +493,9 @@ export class MobEntity extends CombatantEntity {
     const avatarNode = nodeMap.get("avatar") || nodeMap.get("root");
 
     if (!avatarNode) {
-      console.error(`[MobEntity] ❌ No avatar node found in nodeMap`);
+      console.warn(
+        `[MobEntity] ${this.id}: No avatar/root node found in VRM for ${this.config.model}`,
+      );
       return;
     }
 
@@ -432,8 +507,8 @@ export class MobEntity extends CombatantEntity {
     };
 
     if (!avatarNodeWithFactory?.factory) {
-      console.error(
-        `[MobEntity] ❌ No factory found on avatar node for ${this.config.mobType}`,
+      console.warn(
+        `[MobEntity] ${this.id}: No VRM factory found on avatar node for ${this.config.model}`,
       );
       return;
     }
@@ -463,6 +538,20 @@ export class MobEntity extends CombatantEntity {
       this.mesh = instanceWithRaw.raw.scene;
       this.mesh.name = `Mob_VRM_${this.config.mobType}_${this.id}`;
 
+      // Apply manifest scale on top of VRM's height normalization
+      // VRM is auto-normalized to 1.6m, so scale 2.0 = 3.2m tall
+      const configScale = this.config.scale;
+      const beforeScale = {
+        x: this.mesh.scale.x,
+        y: this.mesh.scale.y,
+        z: this.mesh.scale.z,
+      };
+      this.mesh.scale.set(
+        this.mesh.scale.x * configScale.x,
+        this.mesh.scale.y * configScale.y,
+        this.mesh.scale.z * configScale.z,
+      );
+
       // Set up userData for interaction detection
       const userData: MeshUserData = {
         type: "mob",
@@ -487,6 +576,27 @@ export class MobEntity extends CombatantEntity {
       console.error(
         `[MobEntity] ❌ No scene in VRM instance for ${this.config.mobType}`,
       );
+    }
+  }
+
+  /**
+   * Load VRM model asynchronously (background loading).
+   * Replaces placeholder hitbox when complete.
+   * This is the non-blocking wrapper for loadVRMModel() used by createMesh().
+   */
+  private async loadVRMModelAsync(): Promise<void> {
+    try {
+      await this.loadVRMModel();
+
+      // On success, remove placeholder (VRM scene is now the mesh)
+      // Only remove if VRM actually loaded (this.mesh was updated)
+      if (this.mesh && this.mesh !== this._placeholderHitbox) {
+        this.removePlaceholderHitbox();
+      }
+    } catch (err) {
+      // Log and re-throw so caller's catch block fires
+      console.error(`[MobEntity] VRM load error for ${this.id}:`, err);
+      throw err;
     }
   }
 
@@ -574,18 +684,102 @@ export class MobEntity extends CombatantEntity {
     }
   }
 
+  /**
+   * Create an invisible but clickable placeholder hitbox for the mob.
+   * This ensures the mob is interactive BEFORE VRM model loads.
+   * RuneScape-style: entity is functional immediately, visuals are secondary.
+   *
+   * The placeholder is an invisible capsule that matches the mob's expected size.
+   * It has full userData setup so click detection works immediately.
+   */
+  private createPlaceholderHitbox(): void {
+    // Skip on server - no visuals needed
+    if (this.world.isServer) return;
+
+    // Create invisible capsule geometry matching mob's expected size
+    // Use manifest scale to size placeholder appropriately
+    const configScale = this.config.scale;
+    const baseRadius = 0.4 * configScale.x;
+    const baseHeight = 1.6 * configScale.y;
+
+    const geometry = new THREE.CapsuleGeometry(baseRadius, baseHeight, 4, 8);
+    const material = new THREE.MeshBasicMaterial({
+      visible: false, // Invisible - only for click detection
+      transparent: true,
+      opacity: 0,
+    });
+
+    const hitbox = new THREE.Mesh(geometry, material);
+    hitbox.name = `Mob_Hitbox_${this.config.mobType}_${this.id}`;
+
+    // CRITICAL: Set up userData for click detection (same as VRM/GLB mesh)
+    const userData: MeshUserData = {
+      type: "mob",
+      entityId: this.id,
+      name: this.config.name,
+      interactable: true,
+      mobData: {
+        id: this.id,
+        name: this.config.name,
+        type: this.config.mobType,
+        level: this.config.level,
+        health: this.config.currentHealth,
+        maxHealth: this.config.maxHealth,
+      },
+    };
+    hitbox.userData = { ...userData };
+
+    // Store reference for later removal when VRM loads
+    this._placeholderHitbox = hitbox;
+
+    // Add to node so it's in the scene and raycastable
+    this.node.add(hitbox);
+
+    // CRITICAL: Set as this.mesh so existing systems work immediately
+    // When VRM loads, this.mesh will be replaced with the VRM scene
+    this.mesh = hitbox;
+  }
+
+  /**
+   * Remove placeholder hitbox after VRM model loads successfully.
+   * Cleans up geometry and material to prevent memory leaks.
+   */
+  private removePlaceholderHitbox(): void {
+    if (this._placeholderHitbox) {
+      this.node.remove(this._placeholderHitbox);
+      this._placeholderHitbox.geometry.dispose();
+      (this._placeholderHitbox.material as THREE.Material).dispose();
+      this._placeholderHitbox = null;
+    }
+  }
+
   protected async createMesh(): Promise<void> {
     if (this.world.isServer) {
       return;
     }
 
+    // ===== PHASE 1: CREATE PLACEHOLDER HITBOX IMMEDIATELY =====
+    // RuneScape-style: Entity is functional (clickable, attackable) before visuals load
+    // This fixes the race condition where mobs spawned before VRM loads are "glitched"
+    this.createPlaceholderHitbox();
+
+    // ===== PHASE 2: LOAD VRM MODEL IN BACKGROUND (NON-BLOCKING) =====
     // Try to load 3D model if available
     if (this.config.model && this.world.loader) {
       try {
         // Check if this is a VRM file
         if (this.config.model.endsWith(".vrm")) {
-          await this.loadVRMModel();
-          return;
+          // Fire-and-forget VRM loading - placeholder is already functional
+          // If VRM loads successfully, it will replace the placeholder
+          // If VRM fails, the placeholder remains functional (invisible but clickable)
+          this.loadVRMModelAsync().catch((err) => {
+            console.warn(
+              `[MobEntity] VRM loading failed for ${this.config.mobType}, using placeholder:`,
+              err instanceof Error ? err.message : err,
+            );
+            // Placeholder is already in place - mob remains functional
+          });
+          return; // Mesh is set (placeholder), VRM loading continues in background
         }
 
         // Otherwise load as GLB (existing code path)
@@ -594,12 +788,20 @@ export class MobEntity extends CombatantEntity {
           this.world,
         );
 
+        // GLB loaded successfully - remove placeholder and use GLB scene
+        this.removePlaceholderHitbox();
         this.mesh = scene;
         this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
 
         // CRITICAL: Scale the root mesh transform, then bind skeleton
+        // Apply cm→m conversion (100x) multiplied by manifest scale
         const modelScale = 100; // cm to meters
-        this.mesh.scale.set(modelScale, modelScale, modelScale);
+        const configScale = this.config.scale;
+        this.mesh.scale.set(
+          modelScale * configScale.x,
+          modelScale * configScale.y,
+          modelScale * configScale.z,
+        );
         this.mesh.updateMatrix();
         this.mesh.updateMatrixWorld(true);
 
@@ -657,9 +859,20 @@ export class MobEntity extends CombatantEntity {
           `[MobEntity] Failed to load model for ${this.config.mobType}, using placeholder:`,
           error,
         );
-        // Fall through to placeholder
+        // Fall through to visible placeholder
       }
     }
+
+    // ===== PHASE 3: UPGRADE TO VISIBLE PLACEHOLDER =====
+    // No model or model loading failed - make placeholder visible for debugging
+    // The invisible placeholder is already functional (clickable/attackable)
+    // This replaces it with a visible colored capsule for mobs without models
+
+    // Remove invisible placeholder (if it's still the current mesh)
+    if (this.mesh === this._placeholderHitbox) {
+      this.removePlaceholderHitbox();
+    }
+
     const mobName = String(this.config.mobType).toLowerCase();
     const colorHash = mobName
       .split("")
@@ -667,7 +880,13 @@ export class MobEntity extends CombatantEntity {
     const hue = (colorHash % 360) / 360;
     const color = new THREE.Color().setHSL(hue, 0.6, 0.4);
 
-    const geometry = new THREE.CapsuleGeometry(0.4, 1.6, 4, 8);
+    const configScale = this.config.scale;
+    const geometry = new THREE.CapsuleGeometry(
+      0.4 * configScale.x,
+      1.6 * configScale.y,
+      4,
+      8,
+    );
     const material = new THREE.MeshLambertMaterial({ color: color.getHex() });
 
     this.mesh = new THREE.Mesh(geometry, material);
@@ -690,15 +909,10 @@ export class MobEntity extends CombatantEntity {
         maxHealth: this.config.maxHealth,
       },
     };
-    if (this.mesh) {
-      // Spread userData to match THREE.js userData type
-      this.mesh.userData = { ...userData };
-    }
+    this.mesh.userData = { ...userData };
 
     // Add mesh to node so it appears in the scene
-    if (this.mesh) {
-      this.node.add(this.mesh);
-    }
+    this.node.add(this.mesh);
 
     // Health bar is created by Entity base class
   }
@@ -732,8 +946,53 @@ export class MobEntity extends CombatantEntity {
     return {
       // Position & Movement
       getPosition: () => this.getPosition(),
-      moveTowards: (target, deltaTime) =>
-        this.moveTowardsTarget(target, deltaTime),
+      moveTowards: (target, _deltaTime) => {
+        // Emit tile movement request instead of continuous movement
+        // Server's MobTileMovementManager will handle the actual movement on ticks
+        // The deltaTime parameter is ignored - movement is now tick-based
+
+        // Convert positions to tiles for comparison
+        const currentPos = this.getPosition();
+        const currentTile = worldToTile(currentPos.x, currentPos.z);
+        const targetTile = worldToTile(target.x, target.z);
+
+        // CRITICAL: Skip if already at target tile (defense-in-depth)
+        // This prevents spam when AI states call moveTowards to same tile
+        // The AI states should also check this, but this is a safety net
+        if (currentTile.x === targetTile.x && currentTile.z === targetTile.z) {
+          return; // Already at destination tile - nothing to do
+        }
+
+        // TICK-BASED THROTTLING: Only emit one move request per tick per target
+        // This aligns with the 600ms server tick system instead of arbitrary time cooldowns
+        const currentTick = this.world.currentTick;
+        const targetTileChanged =
+          !this._lastRequestedTargetTile ||
+          this._lastRequestedTargetTile.x !== targetTile.x ||
+          this._lastRequestedTargetTile.z !== targetTile.z;
+
+        if (!targetTileChanged && currentTick === this._lastMoveRequestTick) {
+          return; // Same tick, same target - already requested this movement
+        }
+
+        // Update tracking
+        this._lastRequestedTargetTile = { x: targetTile.x, z: targetTile.z };
+        this._lastMoveRequestTick = currentTick;
+
+        // Note: Debug logging removed for production. Enable if needed:
+        // console.log(`[MobEntity] moveTowards: ${this.id} from tile (${currentTile.x}, ${currentTile.z}) to tile (${targetTile.x}, ${targetTile.z}), emitting MOB_NPC_MOVE_REQUEST`);
+
+        this.world.emit(EventType.MOB_NPC_MOVE_REQUEST, {
+          mobId: this.id,
+          targetPos: target,
+          // If chasing a player, include targetEntityId for dynamic repathing
+          targetEntityId: this.config.targetPlayerId || undefined,
+          tilesPerTick: Math.max(
+            1,
+            Math.round((this.config.moveSpeed * TICK_DURATION_MS) / 1000),
+          ),
+        });
+      },
       teleportTo: (position) => {
         this.setPosition(position.x, position.y, position.z);
         this.config.aiState = MobAIState.IDLE;
@@ -760,12 +1019,13 @@ export class MobEntity extends CombatantEntity {
         }
       },
 
-      // Combat
-      canAttack: (currentTime) => this.combatManager.canAttack(currentTime),
-      performAttack: (targetId, currentTime) => {
-        this.combatManager.performAttack(targetId, currentTime);
+      // Combat (TICK-BASED, OSRS-accurate)
+      canAttack: (currentTick) => this.combatManager.canAttack(currentTick),
+      performAttack: (targetId, currentTick) => {
+        this.combatManager.performAttack(targetId, currentTick);
       },
       isInCombat: () => this.combatManager.isInCombat(),
+      exitCombat: () => this.combatManager.exitCombat(),
 
       // Spawn & Leashing (use CURRENT spawn location, not area center)
       // CRITICAL: Return mob's current spawn point (changes on respawn)
@@ -785,8 +1045,12 @@ export class MobEntity extends CombatantEntity {
       },
       generateWanderTarget: () => this.generateWanderTarget(),
 
-      // Timing (CRITICAL: Use Date.now() for consistent milliseconds, NOT world.getTime())
-      getTime: () => Date.now(),
+      // Movement type (from manifest)
+      getMovementType: () => this.config.movementType,
+
+      // Timing
+      getCurrentTick: () => this.world.currentTick, // Server tick number for combat timing
+      getTime: () => Date.now(), // Date.now() for non-combat timing (idle duration, etc.)
 
       // State management
       markNetworkDirty: () => this.markNetworkDirty(),
@@ -960,15 +1224,40 @@ export class MobEntity extends CombatantEntity {
       // Update death manager (handles death animation timing only, not respawn)
       this.deathManager.update(deltaTime, currentTime);
 
-      // Update respawn manager (handles respawn timer and location)
+      // Update respawn manager (TICK-BASED - handles respawn timer and location)
+      // Uses server tick for OSRS-accurate timing instead of Date.now()
       if (this.respawnManager.isRespawnTimerActive()) {
-        this.respawnManager.update(currentTime);
+        this.respawnManager.update(this.world.currentTick);
       }
 
       return; // Don't run AI when dead
     }
 
-    // Update AI state machine
+    // Validate target is still alive before running AI (RuneScape-style: instant disengage on target death)
+    if (this.config.targetPlayerId) {
+      const targetPlayer = this.world.getPlayer(this.config.targetPlayerId);
+
+      // Target is dead or gone - immediately disengage
+      if (!targetPlayer || targetPlayer.health.current <= 0) {
+        this.clearTargetAndExitCombat();
+      }
+    }
+
+    // ===== TICK-ALIGNED AI UPDATE =====
+    // Only run AI once per server tick (600ms), not every frame (~16ms)
+    // This aligns with OSRS tick system and prevents excessive movement requests
+    //
+    // world.currentTick is set by ServerNetwork's TickSystem at the start of each tick
+    // On client, currentTick is always 0, so AI won't run (client mobs are visual only)
+    const currentTick = this.world.currentTick;
+    if (currentTick === this._lastAITick) {
+      // Same tick as last AI update - skip AI processing
+      // This saves ~59 out of 60 AI updates per second
+      return;
+    }
+    this._lastAITick = currentTick;
+
+    // Update AI state machine (now runs once per tick instead of every frame)
     this.aiStateMachine.update(this.createAIContext(), deltaTime);
 
     // Sync config.aiState with AI state machine current state
@@ -1066,9 +1355,43 @@ export class MobEntity extends CombatantEntity {
   // Track when death animation started on client (in Date.now() milliseconds)
   private clientDeathStartTime: number | null = null;
 
+  /**
+   * Override health bar rendering to use HealthBars system (atlas + instanced mesh)
+   * Shows 0 during death animation regardless of actual health value
+   */
+  protected override updateHealthBar(): void {
+    if (!this._healthBarHandle) {
+      return;
+    }
+
+    // CRITICAL: Show 0 health during death animation regardless of actual health value
+    // This prevents health bar from showing server respawn health during client-side death animation
+    const displayHealth = this.deathManager.isCurrentlyDead() ? 0 : this.health;
+
+    this._healthBarHandle.setHealth(displayHealth, this.maxHealth);
+  }
+
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
     this.clientUpdateCalls++;
+
+    // Update health bar position (HealthBars system uses atlas + instanced mesh)
+    if (this._healthBarHandle) {
+      // Position health bar above mob's head
+      const healthBarMatrix = new THREE.Matrix4();
+      healthBarMatrix.copyPosition(this.node.matrixWorld);
+      // Offset Y to position above the mob (2.0 units up)
+      healthBarMatrix.elements[13] += 2.0;
+      this._healthBarHandle.move(healthBarMatrix);
+    }
+
+    // Hide health bar after combat timeout (RuneScape pattern: 4.8 seconds)
+    if (this._healthBarHandle && this._healthBarVisibleUntil > 0) {
+      if (Date.now() >= this._healthBarVisibleUntil) {
+        this._healthBarHandle.hide();
+        this._healthBarVisibleUntil = 0;
+      }
+    }
 
     // Handle dead state on client (hide mesh and stop VRM animation after death animation)
     if (this.config.aiState === MobAIState.DEAD) {
@@ -1124,7 +1447,11 @@ export class MobEntity extends CombatantEntity {
       }
 
       // COMBAT ROTATION: Rotate to face target when in ATTACK state (RuneScape-style)
+      // BUT: Only apply combat rotation when NOT moving via tile movement
+      // TileInterpolator handles rotation when entity is walking/running
+      const isTileMoving = this.data.tileMovementActive === true;
       if (
+        !isTileMoving &&
         this.config.aiState === MobAIState.ATTACK &&
         this.config.targetPlayerId
       ) {
@@ -1233,6 +1560,28 @@ export class MobEntity extends CombatantEntity {
       return;
     }
 
+    // ===== PLACEHOLDER MODE: VRM still loading in background =====
+    // If mesh is the placeholder hitbox, VRM is still loading asynchronously
+    // Skip animation updates - placeholder doesn't animate
+    if (this.mesh === this._placeholderHitbox) {
+      // Just update position from terrain while waiting for VRM to load
+      const terrain = this.world.getSystem("terrain");
+      if (terrain && "getHeightAt" in terrain) {
+        try {
+          const terrainHeight = (
+            terrain as { getHeightAt: (x: number, z: number) => number }
+          ).getHeightAt(this.node.position.x, this.node.position.z);
+          if (Number.isFinite(terrainHeight)) {
+            this.node.position.y = terrainHeight + 0.1;
+            this.position.y = terrainHeight + 0.1;
+          }
+        } catch {
+          // Terrain tile not generated yet
+        }
+      }
+      return; // No animation updates while in placeholder mode
+    }
+
     // GLB path: Existing animation code for non-VRM mobs
     // Update animations based on AI state
     this.updateAnimation();
@@ -1240,12 +1589,8 @@ export class MobEntity extends CombatantEntity {
     // Update animation mixer
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
 
-    // EXPECT: Mixer should exist after animations loaded
-    if (this.clientUpdateCalls === 10 && !mixer) {
-      throw new Error(
-        `[MobEntity] NO MIXER on update #10: ${this.config.mobType}`,
-      );
-    }
+    // Note: Mixer may not exist for mobs with no animations - that's OK
+    // The visible placeholder fallback doesn't have a mixer
 
     if (mixer) {
       mixer.update(deltaTime);
@@ -1326,6 +1671,9 @@ export class MobEntity extends CombatantEntity {
       max: this.config.maxHealth,
     });
 
+    // Update health bar visual (setHealth already does this, but ensure it's called)
+    this.updateHealthBar();
+
     // Update userData for mesh
     if (this.mesh?.userData) {
       const userData = this.mesh.userData as MeshUserData;
@@ -1334,12 +1682,8 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    // Show damage numbers
-    this.world.emit(EventType.COMBAT_DAMAGE_DEALT, {
-      targetId: this.id,
-      damage,
-      position: this.getPosition(),
-    });
+    // COMBAT_DAMAGE_DEALT is emitted by CombatSystem - no need to emit here
+    // to avoid duplicate damage splats
 
     // Check if mob died
     if (this.config.currentHealth <= 0) {
@@ -1347,7 +1691,8 @@ export class MobEntity extends CombatantEntity {
       return true; // Mob died
     } else {
       // Become aggressive towards attacker (use AggroManager for target management)
-      if (attackerId && !this.config.targetPlayerId) {
+      // BUT only if mob retaliates - peaceful mobs (retaliates: false) don't fight back
+      if (attackerId && !this.config.targetPlayerId && this.config.retaliates) {
         this.config.targetPlayerId = attackerId;
         this.aggroManager.setTargetIfNone(attackerId);
         this.aiStateMachine.forceState(
@@ -1371,8 +1716,12 @@ export class MobEntity extends CombatantEntity {
     // Delegate death logic to DeathStateManager (position locking, death animation timing)
     this.deathManager.die(deathPosition, currentTime);
 
-    // Start respawn timer with RespawnManager (generates NEW random spawn point - NOT death location!)
-    this.respawnManager.startRespawnTimer(currentTime, deathPosition);
+    // Start respawn timer with RespawnManager (TICK-BASED - generates NEW random spawn point - NOT death location!)
+    // Uses server tick for OSRS-accurate timing
+    this.respawnManager.startRespawnTimer(
+      this.world.currentTick,
+      deathPosition,
+    );
 
     // Update config state for network sync
     this.config.aiState = MobAIState.DEAD;
@@ -1386,13 +1735,11 @@ export class MobEntity extends CombatantEntity {
     // Update base health property for isDead() check
     this.setHealth(0);
 
-    // End combat
-    const combatSystem = this.world.getSystem("combat") as {
-      forceEndCombat?: (entityId: string) => void;
-    } | null;
-    if (combatSystem && typeof combatSystem.forceEndCombat === "function") {
-      combatSystem.forceEndCombat(this.id);
-    }
+    // CRITICAL FIX FOR ISSUE #269: Don't end combat immediately when mob dies
+    // Let combat timeout naturally after 4.8 seconds (8 ticks) to keep health bars visible
+    // This matches RuneScape behavior where combat state persists briefly after death
+    // CombatSystem.handleEntityDied() already removes the dead mob's combat state
+    // The attacker's combat will timeout naturally via the 4.8 second timer
 
     // Play death animation via server emote broadcast
     this.setServerEmote(Emotes.DEATH);
@@ -1412,37 +1759,25 @@ export class MobEntity extends CombatantEntity {
       });
 
       // Emit COMBAT_KILL event for SkillsSystem to grant combat XP
+      // Get the player's actual attack style from PlayerSystem
+      const playerSystem = this.world.getSystem("player") as {
+        getPlayerAttackStyle?: (playerId: string) => { id: string } | null;
+      } | null;
+      const attackStyleData =
+        playerSystem?.getPlayerAttackStyle?.(lastAttackerId);
+      const attackStyle = attackStyleData?.id || "aggressive"; // Default to aggressive if not found
+
       this.world.emit(EventType.COMBAT_KILL, {
         attackerId: lastAttackerId,
         targetId: this.id,
         damageDealt: this.config.maxHealth,
-        attackStyle: "aggressive",
+        attackStyle: attackStyle,
       });
 
-      // CRITICAL FIX: Don't drop loot here - LootSystem handles it via NPC_DIED event
-      // this.dropLoot(lastAttackerId);
+      // NOTE: Loot is handled by LootSystem via NPC_DIED event (emitted above)
+      // Do NOT call dropLoot() here - it would cause duplicate drops
     } else {
       console.warn(`[MobEntity] ${this.id} died but no lastAttackerId found`);
-    }
-  }
-
-  private dropLoot(killerId: string): void {
-    if (!this.config.lootTable.length) return;
-
-    for (const lootItem of this.config.lootTable) {
-      if (Math.random() < lootItem.chance) {
-        const quantity =
-          Math.floor(
-            Math.random() * (lootItem.maxQuantity - lootItem.minQuantity + 1),
-          ) + lootItem.minQuantity;
-
-        this.world.emit(EventType.ITEM_SPAWN, {
-          itemId: lootItem.itemId,
-          quantity,
-          position: this.getPosition(),
-          droppedBy: killerId,
-        });
-      }
     }
   }
 
@@ -1562,8 +1897,17 @@ export class MobEntity extends CombatantEntity {
   /**
    * Find nearby player within aggro range (RuneScape-style)
    * Delegates to AggroManager component
+   *
+   * IMPORTANT: Only scans for players if mob is aggressive.
+   * Non-aggressive mobs won't attack on sight.
+   * Retaliation when attacked is controlled by the separate `retaliates` flag.
    */
   private findNearbyPlayer(): { id: string; position: Position3D } | null {
+    // Non-aggressive mobs don't scan for players
+    if (!this.config.aggressive) {
+      return null;
+    }
+
     const currentPos = this.getPosition();
     const players = this.world.getPlayers();
     return this.aggroManager.findNearbyPlayer(currentPos, players);
@@ -1578,6 +1922,41 @@ export class MobEntity extends CombatantEntity {
     return this.aggroManager.getPlayer(playerId, (id) =>
       this.world.getPlayer(id),
     );
+  }
+
+  /**
+   * Clear current target and exit combat (called when target dies or becomes invalid)
+   * RuneScape-style: Mob immediately disengages and returns to spawn area
+   */
+  private clearTargetAndExitCombat(): void {
+    // Clear target
+    this.config.targetPlayerId = null;
+    this.aggroManager.clearTarget();
+
+    // Exit combat state
+    this.combatManager.exitCombat();
+
+    // Force AI state based on movement type
+    const context = this.createAIContext();
+    if (this.config.movementType === "stationary") {
+      // Stationary mobs go directly to IDLE
+      this.aiStateMachine.forceState(MobAIState.IDLE, context);
+    } else {
+      // Wandering mobs go to RETURN to walk back to spawn area
+      this.aiStateMachine.forceState(MobAIState.RETURN, context);
+    }
+  }
+
+  /**
+   * Called by CombatSystem when this mob's current target dies
+   * Resets combat state so mob can immediately attack new targets (e.g., respawned player)
+   * @param targetId - ID of the target that died (for validation)
+   */
+  onTargetDied(targetId: string): void {
+    // Only reset if this was actually our target
+    if (this.config.targetPlayerId === targetId) {
+      this.clearTargetAndExitCombat();
+    }
   }
 
   // Map internal AI states to interface expected states (RuneScape-style)
@@ -1630,14 +2009,33 @@ export class MobEntity extends CombatantEntity {
       level: this.config.level,
       health: this.config.currentHealth,
       maxHealth: this.config.maxHealth,
+      attack: this.config.attack,
       attackPower: this.config.attackPower,
       defense: this.config.defense,
+      attackSpeedTicks: this.config.attackSpeedTicks,
       xpReward: this.config.xpReward,
       aiState: this.mapAIStateToInterface(this.config.aiState),
       targetPlayerId: this.config.targetPlayerId || null,
       spawnPoint: this.config.spawnPoint,
       position: this.getPosition(),
     };
+  }
+
+  /**
+   * Check if this mob can be attacked by players
+   * Controlled by combat.attackable in the manifest
+   */
+  isAttackable(): boolean {
+    return this.config.attackable;
+  }
+
+  /**
+   * Get this mob's combat range in tiles
+   * Controlled by combat.combatRange in the manifest (meters, 1 tile = 1 meter)
+   * @returns Combat range in tiles (minimum 1)
+   */
+  getCombatRange(): number {
+    return Math.max(1, Math.floor(this.config.combatRange));
   }
 
   // Override serialize to include model path for client
@@ -1652,6 +2050,11 @@ export class MobEntity extends CombatantEntity {
       maxHealth: this.config.maxHealth,
       aiState: this.config.aiState,
       targetPlayerId: this.config.targetPlayerId,
+      scale: [
+        this.config.scale.x,
+        this.config.scale.y,
+        this.config.scale.z,
+      ] as [number, number, number], // CRITICAL: Include scale for client model sizing
     };
   }
 
@@ -1680,6 +2083,7 @@ export class MobEntity extends CombatantEntity {
         aiState: this.config.aiState,
         targetPlayerId: this.config.targetPlayerId,
         deathTime: this.deathManager.getDeathTime(),
+        scale: this.config.scale, // Include scale for client
       };
 
       // Send death emote once
@@ -1688,9 +2092,10 @@ export class MobEntity extends CombatantEntity {
         this._serverEmote = null;
       }
 
-      // Send locked death position on first update only
+      // ALWAYS send death position when dead (handles packet loss, late-joining clients)
+      // Previously only sent once, but clients would miss it and use wrong position
       const deathPos = this.deathManager.getDeathPosition();
-      if (!this.deathManager.hasSentDeathState() && deathPos) {
+      if (deathPos) {
         networkData.p = [deathPos.x, deathPos.y, deathPos.z];
         this.deathManager.markDeathStateSent();
       }
@@ -1699,6 +2104,12 @@ export class MobEntity extends CombatantEntity {
     }
 
     // Normal path for living mobs
+    // Query CombatSystem for combat state (like players send 'c')
+    const combatSystem = this.world.getSystem("combat") as {
+      isInCombat?: (entityId: string) => boolean;
+    } | null;
+    const inCombat = combatSystem?.isInCombat?.(this.id) ?? false;
+
     const networkData: Record<string, unknown> = {
       ...baseData,
       model: this.config.model,
@@ -1708,6 +2119,8 @@ export class MobEntity extends CombatantEntity {
       maxHealth: this.config.maxHealth,
       aiState: this.config.aiState,
       targetPlayerId: this.config.targetPlayerId,
+      c: inCombat, // Combat state for health bar visibility (like players)
+      scale: this.config.scale, // Include scale for client model sizing
     };
 
     // CRITICAL: Force position to be included if not present
@@ -1750,53 +2163,106 @@ export class MobEntity extends CombatantEntity {
     if ("aiState" in data) {
       const newState = data.aiState as MobAIState;
 
-      // If entering DEAD state on client, apply death position from server
+      // If entering DEAD state on client, lock position to CURRENT VISUAL position
       if (
         newState === MobAIState.DEAD &&
         !this.deathManager.isCurrentlyDead()
       ) {
-        if ("p" in data && Array.isArray(data.p) && data.p.length === 3) {
-          // Use server's authoritative death position
-          const deathPos = new THREE.Vector3(data.p[0], data.p[1], data.p[2]);
-          this.deathManager.applyDeathPositionFromServer(deathPos);
+        // CRITICAL: Clear the death timer so clientUpdate() can set a fresh timestamp
+        // Without this, stale timestamps from previous deaths cause immediate reset
+        this.clientDeathStartTime = null;
 
-          // Position VRM scene ONCE at death position
-          if (this._avatarInstance) {
-            this.node.position.copy(deathPos);
-            this.node.updateMatrix();
-            this.node.updateMatrixWorld(true);
-            this._avatarInstance.move(this.node.matrixWorld);
-          }
-        } else {
-          console.warn(
-            `[MobEntity] [CLIENT] ⚠️ No server death position in death state update`,
-          );
+        // CRITICAL: Use current VISUAL position (this.position), NOT server position (data.p)
+        // TileInterpolator may be mid-interpolation, showing the mob at a different location
+        // than the server's authoritative position. The mob should die WHERE THE PLAYER SEES IT,
+        // not teleport to the server position. This matches RS3's smooth movement philosophy.
+        const visualDeathPos = new THREE.Vector3(
+          this.position.x,
+          this.position.y,
+          this.position.z,
+        );
+        this.deathManager.applyDeathPositionFromServer(visualDeathPos);
+
+        // Clear TileInterpolator control flag so it stops updating this entity
+        this.data.tileInterpolatorControlled = false;
+
+        // Position VRM scene at current visual position for death animation
+        if (this._avatarInstance) {
+          this.node.updateMatrix();
+          this.node.updateMatrixWorld(true);
+          this._avatarInstance.move(this.node.matrixWorld);
         }
       }
 
       // CRITICAL: ALWAYS check if death manager should be reset (not just on state change!)
       // Server might send multiple updates with same state (aiState=idle, idle, idle...)
       // We need to reset death manager on ANY update where server says NOT DEAD
-      if (newState !== MobAIState.DEAD && this.deathManager.isCurrentlyDead()) {
-        this.clientDeathStartTime = null;
-        this.deathManager.reset();
+      // BUT: Don't reset until death animation is complete (4.5 seconds)
+      const deathManagerDead = this.deathManager.isCurrentlyDead();
 
-        // Mark that we need to restore visibility AFTER position update
-        (this as { _pendingRespawnRestore?: boolean })._pendingRespawnRestore =
-          true;
+      if (newState !== MobAIState.DEAD && deathManagerDead) {
+        // Check if death animation has finished (4.5 seconds)
+        const deathAnimationDuration = 4500;
+
+        // CRITICAL: If clientDeathStartTime is null, death just happened but
+        // clientUpdate() hasn't run yet to set the timestamp. DON'T reset in this case!
+        if (this.clientDeathStartTime) {
+          const timeSinceDeath = Date.now() - this.clientDeathStartTime;
+
+          if (timeSinceDeath >= deathAnimationDuration) {
+            // Death animation is complete, safe to reset
+            this.clientDeathStartTime = null;
+            this.deathManager.reset();
+
+            // CRITICAL: Snap position immediately to server's new spawn point
+            // This prevents interpolation from starting at death location
+            if ("p" in data && Array.isArray(data.p) && data.p.length === 3) {
+              const spawnPos = data.p as [number, number, number];
+              this.position.set(spawnPos[0], spawnPos[1], spawnPos[2]);
+              this.node.position.set(spawnPos[0], spawnPos[1], spawnPos[2]);
+            }
+
+            // Mark that we need to restore visibility AFTER position update
+            (
+              this as { _pendingRespawnRestore?: boolean }
+            )._pendingRespawnRestore = true;
+          }
+        }
       }
 
       this.config.aiState = newState;
     }
 
+    // Handle combat state for health bar visibility (like players)
+    // Show health bar when in combat (including 0 damage hits), hide after timeout
+    if ("c" in data) {
+      const inCombat = data.c as boolean;
+      if (inCombat && this._healthBarHandle) {
+        // In combat - show health bar and set/extend timeout
+        this._healthBarHandle.show();
+        this._healthBarVisibleUntil =
+          Date.now() + COMBAT_CONSTANTS.COMBAT_TIMEOUT_MS;
+      }
+      // Note: Hiding is handled by clientUpdate() when timeout expires
+    }
+
     // Update health from server
     if ("currentHealth" in data) {
-      this.config.currentHealth = data.currentHealth as number;
+      const newHealth = data.currentHealth as number;
+      this._lastKnownHealth = newHealth;
+      this.config.currentHealth = newHealth;
+      this.setHealth(newHealth);
     }
 
     // Update max health from server
     if ("maxHealth" in data) {
-      this.config.maxHealth = data.maxHealth as number;
+      const newMaxHealth = data.maxHealth as number;
+      this.config.maxHealth = newMaxHealth;
+      this.maxHealth = newMaxHealth;
+      // Update entity data for consistency
+      (this.data as { maxHealth?: number }).maxHealth = newMaxHealth;
+      // Refresh health bar to show updated max health
+      this.updateHealthBar();
     }
 
     // Update target from server
@@ -1812,7 +2278,23 @@ export class MobEntity extends CombatantEntity {
 
     // Handle emote from server (like PlayerRemote does)
     if ("e" in data && data.e !== undefined && this._avatarInstance) {
-      const emoteUrl = data.e as string;
+      const serverEmote = data.e as string;
+
+      // Map symbolic emote names to asset URLs (same as PlayerRemote)
+      let emoteUrl: string;
+      if (serverEmote.startsWith("asset://")) {
+        emoteUrl = serverEmote;
+      } else {
+        const emoteMap: Record<string, string> = {
+          idle: Emotes.IDLE,
+          walk: Emotes.WALK,
+          run: Emotes.RUN,
+          combat: Emotes.COMBAT,
+          death: Emotes.DEATH,
+        };
+        emoteUrl = emoteMap[serverEmote] || Emotes.IDLE;
+      }
+
       if (this._currentEmote !== emoteUrl) {
         this._currentEmote = emoteUrl;
         this._avatarInstance.setEmote(emoteUrl);
@@ -1828,29 +2310,41 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    // Call parent modify for standard properties (position, rotation, etc.)
-    // But if dead, don't let server position updates override our locked death position
-    if (this.deathManager.shouldLockPosition()) {
-      const lockedPos = this.deathManager.getLockedPosition();
-      if (lockedPos) {
-        // Remove position data to prevent parent from overriding
-        const dataWithoutPosition = { ...data };
-        delete dataWithoutPosition.p;
-        delete dataWithoutPosition.x;
-        delete dataWithoutPosition.y;
-        delete dataWithoutPosition.z;
-        delete dataWithoutPosition.position;
-        super.modify(dataWithoutPosition);
-        // Restore locked death position (defense in depth)
-        this.node.position.copy(lockedPos);
-        this.position.copy(lockedPos);
-      } else {
-        super.modify(data);
+    // ===== POSITION HANDLING =====
+    // The base Entity.modify() does NOT handle position - we must do it here
+    // Handle position for living mobs (non-death, non-respawn cases)
+    // Death/respawn position is handled above in the aiState logic
+    if (!this.deathManager.shouldLockPosition()) {
+      // Check if TileInterpolator is controlling position - if so, skip position updates
+      // TileInterpolator handles position smoothly for tile-based movement
+      // This prevents entityModified packets from overriding smooth interpolation
+      const tileControlled = this.data.tileInterpolatorControlled === true;
+      if (!tileControlled) {
+        // Not dead and not tile-controlled - apply position updates from server
+        if ("p" in data && Array.isArray(data.p) && data.p.length === 3) {
+          const pos = data.p as [number, number, number];
+          this.position.set(pos[0], pos[1], pos[2]);
+          this.node.position.set(pos[0], pos[1], pos[2]);
+        }
       }
     } else {
-      // Position NOT locked - process normally
-      super.modify(data);
+      // Dead - enforce locked position (defense in depth)
+      const lockedPos = this.deathManager.getLockedPosition();
+      if (lockedPos) {
+        this.node.position.copy(lockedPos);
+        this.position.copy(lockedPos);
+      }
     }
+
+    // Call parent modify for standard properties (non-transform data like entity data)
+    // Strip position from data since we handled it above
+    const dataWithoutPosition = { ...data };
+    delete dataWithoutPosition.p;
+    delete dataWithoutPosition.x;
+    delete dataWithoutPosition.y;
+    delete dataWithoutPosition.z;
+    delete dataWithoutPosition.position;
+    super.modify(dataWithoutPosition);
 
     // CRITICAL: Restore visibility AFTER position has been updated from server
     // This ensures VRM is moved to the correct spawn location, not death location
@@ -1876,14 +2370,18 @@ export class MobEntity extends CombatantEntity {
         this.mesh.visible = true;
       }
 
+      // Update health bar now that mesh is visible again
+      // This ensures the health bar shows the correct health after respawn
+      this.setHealth(this.config.currentHealth);
+
       // Reset VRM animation and move to UPDATED position (from server)
       if (this._avatarInstance) {
         this._currentEmote = Emotes.IDLE;
         this._avatarInstance.setEmote(Emotes.IDLE);
         this._manualEmoteOverrideUntil = 0;
 
-        // CRITICAL: Position has NOW been updated by super.modify() above
-        // So this.node.position is the NEW spawn point from server, not death location!
+        // Position has been updated above in the position handling section
+        // So this.node.position is the NEW spawn point from server, not death location
         this.node.updateMatrix();
         this.node.updateMatrixWorld(true);
         this._avatarInstance.move(this.node.matrixWorld);
@@ -1892,11 +2390,20 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
-   * Override destroy to clean up animations
+   * Override destroy to clean up animations, health bar, and placeholder
    */
   override destroy(): void {
     // Unregister entity from hot updates
     this.world.setHot(this, false);
+
+    // Clean up placeholder hitbox (if VRM never loaded)
+    this.removePlaceholderHitbox();
+
+    // Clean up health bar handle (HealthBars system)
+    if (this._healthBarHandle) {
+      this._healthBarHandle.destroy();
+      this._healthBarHandle = null;
+    }
 
     // Clean up VRM instance
     if (this._avatarInstance) {

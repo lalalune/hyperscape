@@ -288,6 +288,8 @@ export class ClientGraphics extends System {
 
   override start() {
     this.world.on(EventType.XR_SESSION, this.onXRSession);
+
+    // Damage splatters now handled by DamageSplatSystem (OSRS-style hit splats)
   }
 
   resize(width: number, height: number) {
@@ -446,6 +448,7 @@ export class ClientGraphics extends System {
     this.world.prefs?.off("change", this.onPrefsChange);
     // Remove XR session listener
     this.world.off(EventType.XR_SESSION, this.onXRSession);
+    // Damage splatters now handled by DamageSplatSystem
     // Ensure animation loop is stopped
     if (this.renderer) {
       this.renderer.setAnimationLoop?.(null as unknown as () => void);

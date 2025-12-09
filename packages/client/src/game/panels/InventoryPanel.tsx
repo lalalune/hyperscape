@@ -15,7 +15,7 @@ import {
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { EventType } from "@hyperscape/shared";
+import { EventType, getItem, uuid } from "@hyperscape/shared";
 import type { ClientWorld, InventorySlotItem } from "../../types";
 
 type InventorySlotViewItem = Pick<
@@ -133,7 +133,23 @@ function DraggableInventorySlot({ item, index }: DraggableItemProps) {
         e.preventDefault();
         e.stopPropagation();
         if (!item) return;
+
+        // Determine if item is equippable based on itemId
+        const isEquippable =
+          item.itemId.includes("sword") ||
+          item.itemId.includes("bow") ||
+          item.itemId.includes("shield") ||
+          item.itemId.includes("helmet") ||
+          item.itemId.includes("body") ||
+          item.itemId.includes("legs") ||
+          item.itemId.includes("arrows") ||
+          item.itemId.includes("chainbody") ||
+          item.itemId.includes("platebody");
+
         const items = [
+          ...(isEquippable
+            ? [{ id: "equip", label: `Equip ${item.itemId}`, enabled: true }]
+            : []),
           { id: "drop", label: `Drop ${item.itemId}`, enabled: true },
           { id: "examine", label: "Examine", enabled: true },
         ];
@@ -255,13 +271,40 @@ export function InventoryPanel({
 
   useEffect(() => {
     const onCtxSelect = (evt: Event) => {
-      const ce = evt as CustomEvent<{ actionId: string; targetId: string }>;
+      const ce = evt as CustomEvent<{
+        actionId: string;
+        targetId: string;
+        position?: { x: number; y: number };
+      }>;
       const target = ce.detail?.targetId || "";
       if (!target.startsWith("inventory_slot_")) return;
       const slotIndex = parseInt(target.replace("inventory_slot_", ""), 10);
       if (Number.isNaN(slotIndex)) return;
       const it = slotItems[slotIndex];
       if (!it) return;
+      if (ce.detail.actionId === "equip") {
+        // Send equip request to server - EquipmentSystem listens to this
+        const localPlayer = world?.getPlayer();
+        console.log("[InventoryPanel] ⚡ Equip clicked:", {
+          itemId: it.itemId,
+          slot: slotIndex,
+          hasPlayer: !!localPlayer,
+        });
+        if (localPlayer && world?.network?.send) {
+          console.log("[InventoryPanel] 📤 Sending equipItem to server:", {
+            playerId: localPlayer.id,
+            itemId: it.itemId,
+            slot: slotIndex,
+          });
+          world.network.send("equipItem", {
+            playerId: localPlayer.id,
+            itemId: it.itemId,
+            inventorySlot: slotIndex,
+          });
+        } else {
+          console.error("[InventoryPanel] ❌ No local player or network.send!");
+        }
+      }
       if (ce.detail.actionId === "drop") {
         if (world?.network?.dropItem) {
           world.network.dropItem(it.itemId, slotIndex, it.quantity || 1);
@@ -274,10 +317,23 @@ export function InventoryPanel({
         }
       }
       if (ce.detail.actionId === "examine") {
+        const itemData = getItem(it.itemId);
+        const examineText = itemData?.examine || `It's a ${it.itemId}.`;
         world?.emit(EventType.UI_TOAST, {
-          message: `It's a ${it.itemId}.`,
+          message: examineText,
           type: "info",
+          position: ce.detail.position,
         });
+        // Also add to chat (OSRS-style game message)
+        if (world?.chat?.add) {
+          world.chat.add({
+            id: uuid(),
+            from: "",
+            body: examineText,
+            createdAt: new Date().toISOString(),
+            timestamp: Date.now(),
+          });
+        }
       }
     };
     window.addEventListener("contextmenu:select", onCtxSelect as EventListener);
@@ -327,12 +383,12 @@ export function InventoryPanel({
     ? slotItems[parseInt(activeId.split("-")[1])]
     : null;
 
-  // Calculate stats
+  // Calculate stats using actual item weights from manifest
   const totalWeight = items.reduce((sum, item) => {
-    // Estimate weight based on item type (since we don't have full item data)
-    const baseWeight = 0.5;
+    const itemData = getItem(item.itemId);
+    const weight = itemData?.weight ?? 0.1; // Default matches DataManager
     const quantity = item.quantity || 1;
-    return sum + baseWeight * quantity;
+    return sum + weight * quantity;
   }, 0);
 
   const itemCount = items.filter((item) => item !== null).length;

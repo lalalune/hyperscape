@@ -75,6 +75,7 @@ import { NPCEntity } from "../../../entities/npc/NPCEntity";
 import { ItemEntity } from "../../../entities/world/ItemEntity";
 import { ResourceEntity } from "../../../entities/world/ResourceEntity";
 import { HeadstoneEntity } from "../../../entities/world/HeadstoneEntity";
+import { BankEntity } from "../../../entities/world/BankEntity";
 import type {
   MobEntityConfig,
   NPCEntityConfig,
@@ -82,6 +83,7 @@ import type {
   ResourceEntityConfig,
   HeadstoneData,
   HeadstoneEntityConfig,
+  BankEntityConfig,
 } from "../../../types/entities";
 import {
   EntityType,
@@ -118,6 +120,7 @@ const EntityTypes: Record<string, EntityConstructor> = {
   npc: NPCEntity as unknown as EntityConstructor, // NPC entities
   resource: ResourceEntity as unknown as EntityConstructor, // Resource entities (trees, rocks, etc)
   headstone: HeadstoneEntity as unknown as EntityConstructor, // Death markers
+  bank: BankEntity as unknown as EntityConstructor, // Bank booths
 };
 
 /**
@@ -249,12 +252,23 @@ export class Entities extends SystemBase implements IEntities {
       const networkModel = (data as { model?: string }).model;
       const finalModelPath = networkModel || fallbackModelPath;
 
-      console.log(`[Entities] Creating mob entity:`, {
-        mobType: derivedMobType,
-        networkModel,
-        fallbackModelPath,
-        finalModelPath,
-      });
+      // Get scale from network data (sent by server from manifest)
+      // Handle both object format {x,y,z} from getNetworkData and array [x,y,z] from serialize
+      const rawScale = (
+        data as {
+          scale?:
+            | { x: number; y: number; z: number }
+            | [number, number, number];
+        }
+      ).scale;
+      let finalScale = { x: 1, y: 1, z: 1 };
+      if (rawScale) {
+        if (Array.isArray(rawScale)) {
+          finalScale = { x: rawScale[0], y: rawScale[1], z: rawScale[2] };
+        } else {
+          finalScale = rawScale;
+        }
+      }
 
       const mobConfig: MobEntityConfig = {
         id: data.id,
@@ -271,7 +285,7 @@ export class Entities extends SystemBase implements IEntities {
           z: quaternionArray[2],
           w: quaternionArray[3],
         },
-        scale: { x: 1, y: 1, z: 1 },
+        scale: finalScale,
         visible: true,
         interactable: true,
         interactionType: InteractionType.ATTACK,
@@ -283,10 +297,15 @@ export class Entities extends SystemBase implements IEntities {
         level: 1,
         currentHealth: 100,
         maxHealth: 100,
+        attack: 1, // Default attack level for accuracy
         attackPower: 10,
         defense: 2,
-        attackSpeed: 1.5,
+        attackSpeedTicks: 4,
         moveSpeed: 3.0, // Walking speed (matches player walk)
+        aggressive: true, // Default to aggressive for backwards compatibility
+        retaliates: true, // Default to retaliating for backwards compatibility
+        attackable: true, // Default to attackable for backwards compatibility
+        movementType: "wander", // Default to wander for backwards compatibility
         aggroRange: 15.0, // 15 meters detection range
         combatRange: 1.5, // 1.5 meters melee range
         wanderRadius: 10, // 10 meter wander radius from spawn (RuneScape-style)
@@ -381,7 +400,6 @@ export class Entities extends SystemBase implements IEntities {
         value: value,
         weight: weight,
         rarity: (rarity as ItemRarity) || ItemRarity.COMMON,
-        stats: {},
         requirements: { level: 1 },
         effects: [],
         armorSlot: null,
@@ -432,16 +450,43 @@ export class Entities extends SystemBase implements IEntities {
         number,
         number,
       ];
-      // Derive npcType from name: "Bank: Bank Clerk Niles" -> bank, "Store: General Store Owner Mara" -> store
+
+      // Use network data if available, otherwise derive from name
       const name = data.name || "NPC";
-      const npcTypeMatch = name.match(/^(Bank|Store|Trainer|Quest):/i);
+      const networkData = data as {
+        npcType?: string;
+        npcId?: string;
+        services?: string[];
+      };
+
+      // Use npcType from network data, otherwise derive from name prefix
       let derivedNPCType: NPCType = NPCType.QUEST_GIVER;
-      if (npcTypeMatch) {
-        const prefix = npcTypeMatch[1].toLowerCase();
-        if (prefix === "bank") derivedNPCType = NPCType.BANK;
-        else if (prefix === "store") derivedNPCType = NPCType.STORE;
-        else if (prefix === "trainer") derivedNPCType = NPCType.TRAINER;
+      if (networkData.npcType) {
+        // Map string to NPCType enum
+        if (networkData.npcType === "bank") derivedNPCType = NPCType.BANK;
+        else if (networkData.npcType === "store")
+          derivedNPCType = NPCType.STORE;
+        else if (networkData.npcType === "trainer")
+          derivedNPCType = NPCType.TRAINER;
+        else if (networkData.npcType === "quest_giver")
+          derivedNPCType = NPCType.QUEST_GIVER;
+      } else {
+        // Fallback: derive from name prefix
+        const npcTypeMatch = name.match(/^(Bank|Store|Trainer|Quest):/i);
+        if (npcTypeMatch) {
+          const prefix = npcTypeMatch[1].toLowerCase();
+          if (prefix === "bank") derivedNPCType = NPCType.BANK;
+          else if (prefix === "store") derivedNPCType = NPCType.STORE;
+          else if (prefix === "trainer") derivedNPCType = NPCType.TRAINER;
+        }
       }
+
+      // CRITICAL: Use npcId from network data (manifest ID like "bank_clerk")
+      // NOT data.id (entity instance ID like "npc_bank_clerk_123")
+      const npcId = networkData.npcId || data.id;
+      const services = networkData.services || [];
+      // CRITICAL: Use model from network data for NPC model loading
+      const modelPath = (networkData as { model?: string }).model || null;
 
       const npcConfig: NPCEntityConfig = {
         id: data.id,
@@ -464,12 +509,12 @@ export class Entities extends SystemBase implements IEntities {
         interactionType: InteractionType.TALK,
         interactionDistance: 3,
         description: name,
-        model: null, // NPCs don't have models generated yet
-        // Minimal required NPCEntity fields
+        model: modelPath, // Use model path from network data
+        // Use network data for NPCEntity fields
         npcType: derivedNPCType,
-        npcId: data.id,
+        npcId: npcId,
         dialogueLines: ["Hello there!"],
-        services: [],
+        services: services,
         inventory: [],
         skillsOffered: [],
         questsAvailable: [],
@@ -496,7 +541,7 @@ export class Entities extends SystemBase implements IEntities {
             aggressionLevel: 0,
             dialogueLines: ["Hello there!"],
             dialogue: null,
-            services: [],
+            services: services, // Use services from network data
           },
           dialogue: [],
           shopInventory: [],
@@ -580,7 +625,7 @@ export class Entities extends SystemBase implements IEntities {
                 ? ResourceType.MINING_ROCK
                 : ResourceType.TREE,
         resourceId:
-          (data as { resourceId?: string }).resourceId || "normal_tree",
+          (data as { resourceId?: string }).resourceId || "tree_normal",
         harvestSkill:
           (data as { harvestSkill?: string }).harvestSkill || "woodcutting",
         requiredLevel: (data as { requiredLevel?: number }).requiredLevel || 1,
@@ -687,6 +732,66 @@ export class Entities extends SystemBase implements IEntities {
       }
 
       return entity;
+    } else if (data.type === "bank") {
+      // Build BankEntity from network data (similar to HeadstoneEntity handling)
+      const positionArray = (data.position || [0, 40, -25]) as [
+        number,
+        number,
+        number,
+      ];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [
+        number,
+        number,
+        number,
+        number,
+      ];
+      const name = data.name || "Bank";
+      const networkData = data as { properties?: { bankId?: string } };
+
+      const bankConfig: BankEntityConfig = {
+        id: data.id,
+        name: name,
+        type: EntityType.BANK,
+        position: {
+          x: positionArray[0],
+          y: positionArray[1],
+          z: positionArray[2],
+        },
+        rotation: {
+          x: quaternionArray[0],
+          y: quaternionArray[1],
+          z: quaternionArray[2],
+          w: quaternionArray[3],
+        },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.BANK,
+        interactionDistance: 3,
+        description: "A secure place to store your items.",
+        model: null,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 1, max: 1 },
+          level: 1,
+          bankId: networkData.properties?.bankId || "spawn_bank",
+        },
+      };
+
+      const entity = new BankEntity(this.world, bankConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity if it has an init method
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch((err) =>
+          this.logger.error(`Entity ${entity.id} async init failed`, err),
+        );
+      }
+
+      return entity;
     } else if (data.type in EntityTypes) {
       EntityClass = EntityTypes[data.type];
     } else {
@@ -749,8 +854,23 @@ export class Entities extends SystemBase implements IEntities {
   remove(id: string): boolean {
     const entity = this.items.get(id);
     if (!entity) {
-      this.logger.warn(`Tried to remove entity that did not exist: ${id}`);
+      // Entity already removed - this is expected during:
+      // - Duplicate removal calls (race condition)
+      // - Client receiving entityRemoved for already-removed entity
+      // - Cleanup during rapid interactions (spam clicking)
+      // Silently return false - not an error condition
       return false;
+    }
+
+    // Broadcast entityRemoved to all clients BEFORE destroying (server-only)
+    // This notifies clients to remove the entity from their local cache
+    const network = this.world.network;
+    if (network && network.isServer) {
+      try {
+        network.send("entityRemoved", id);
+      } catch (error) {
+        console.warn(`[Entities] Failed to send entityRemoved packet:`, error);
+      }
     }
 
     if (entity.isPlayer) {

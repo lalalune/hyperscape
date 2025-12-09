@@ -175,12 +175,14 @@ export interface BankDepositAllData {
 // Note: StoreItem and Store are defined in item-types.ts and re-exported above
 
 /**
- * Store data - represents a store in the world
+ * Store data - represents a store definition (abstract, no position)
+ * Position comes from the shopkeeper NPC that references this store via storeId
  */
 export interface StoreData {
   id: string;
   name: string;
-  location: {
+  /** @deprecated Stores are abstract - position comes from the NPC entity */
+  location?: {
     zone: string;
     position: { x: number; y: number; z: number };
   };

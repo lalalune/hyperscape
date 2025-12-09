@@ -363,25 +363,15 @@ export class InstancedMeshManager {
     // If no player exists yet, use origin (0, 0, 0) as default position
     // This ensures instances near spawn are visible even before player spawns
     if (!playerPos) {
-      console.log(
-        "[InstancedMeshManager] No player yet, using origin for visibility update",
-      );
+      // Player not loaded yet - use origin for visibility update
       playerPos = this._tempVec3.set(0, 0, 0);
     }
 
     // Force one full update the first time we have a player position
     if (!this.didInitialVisibility) {
       this.didInitialVisibility = true;
-      console.log(
-        "[InstancedMeshManager] First visibility update with player at",
-        playerPos,
-      );
       for (const type of this.instancedMeshes.keys()) {
         this.updateInstanceVisibility(type, playerPos);
-        const data = this.instancedMeshes.get(type);
-        console.log(
-          `[InstancedMeshManager] ${type}: ${data?.mesh.count}/${data?.allInstances.size} visible`,
-        );
       }
       return;
     }

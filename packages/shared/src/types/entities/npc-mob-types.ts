@@ -111,8 +111,10 @@ export interface MobEntityData {
   level: number;
   health: number;
   maxHealth: number;
-  attackPower: number;
+  attack: number; // Attack level for accuracy
+  attackPower: number; // Strength-based, for max hit
   defense: number;
+  attackSpeedTicks: number; // Game ticks between attacks (1 tick = 600ms)
   xpReward: number;
   aiState: "idle" | "wander" | "chase" | "attack" | "return" | "dead";
   targetPlayerId: string | null;
@@ -202,15 +204,44 @@ export interface DefaultDropConfig {
 // ============== UNIFIED NPC DATA STRUCTURE ==============
 
 /**
+ * NPCDataInput - Used for JSON input where most fields are optional
+ * DataManager.normalizeNPC() converts this to full NPCData with all defaults filled in
+ *
+ * Only core identity fields (id, name, description, category) are required.
+ * All other fields will be filled with sensible defaults by normalizeNPC().
+ */
+export interface NPCDataInput {
+  // REQUIRED - Core identity
+  id: string;
+  name: string;
+  description: string;
+  category: NPCCategory;
+
+  // OPTIONAL - Will be filled with defaults by normalizeNPC()
+  faction?: string;
+  stats?: Partial<NPCStats>;
+  combat?: Partial<NPCCombatConfig>;
+  movement?: Partial<NPCMovementConfig>;
+  drops?: Partial<NPCDrops>;
+  services?: Partial<NPCServicesConfig>;
+  behavior?: Partial<NPCBehaviorConfig>;
+  appearance?: Partial<NPCAppearanceConfig>;
+  position?: Position3D;
+  spawnBiomes?: string[];
+  dialogue?: NPCDialogueTree;
+}
+
+/**
  * NPC Stats - Unified across all NPCs
+ * Note: In OSRS, monster "hitpoints" IS the max HP directly (no multiplication).
+ * The `health` field is the hitpoints level AND max HP (1:1 ratio).
  */
 export interface NPCStats {
   level: number;
-  health: number;
+  health: number; // This IS the hitpoints level AND max HP (OSRS style)
   attack: number;
   strength: number;
   defense: number;
-  constitution: number;
   ranged: number;
   magic: number;
 }
@@ -224,8 +255,9 @@ export interface NPCCombatConfig {
   retaliates: boolean; // Fights back when attacked?
   aggroRange: number; // Detection range (0 = non-aggressive)
   combatRange: number; // Attack range
-  attackSpeed: number; // Seconds between attacks
-  respawnTime: number; // Milliseconds to respawn
+  attackSpeedTicks: number; // Game ticks between attacks (4 = standard sword, 600ms/tick)
+  respawnTicks?: number; // Game ticks to respawn (manifest input, converted to ms internally)
+  respawnTime: number; // Milliseconds to respawn (computed from respawnTicks)
   xpReward: number; // XP rewarded on kill
   poisonous: boolean; // Can poison players?
   immuneToPoison: boolean; // Immune to poison damage?
@@ -269,8 +301,36 @@ export interface NPCServicesConfig {
     price: number;
     stockRefreshTime?: number;
   }>;
-  dialogue?: unknown; // Dialogue tree structure
   questIds?: string[]; // Quest IDs this NPC is involved in
+}
+
+/**
+ * NPC Dialogue Response - A single response option in a dialogue node
+ * Note: Uses string-based conditions/effects for JSON serialization (vs function-based DialogueOption)
+ */
+export interface NPCDialogueResponse {
+  text: string; // Display text for this response option
+  nextNodeId: string; // ID of the next dialogue node
+  condition?: string; // Optional condition (e.g., "hasItem:coins:100")
+  effect?: string; // Optional effect when selected (e.g., "openBank", "startQuest:goblin_slayer")
+}
+
+/**
+ * NPC Dialogue Node - A single node in a dialogue tree
+ * Note: Data-only for JSON serialization (vs function-based DialogueNode in animation-dialogue-types)
+ */
+export interface NPCDialogueNode {
+  id: string; // Unique identifier for this node
+  text: string; // NPC's dialogue text
+  responses?: NPCDialogueResponse[]; // Player response options (if empty, dialogue ends)
+}
+
+/**
+ * NPC Dialogue Tree - Full conversation tree for an NPC
+ */
+export interface NPCDialogueTree {
+  entryNodeId: string; // Starting node ID
+  nodes: NPCDialogueNode[]; // All dialogue nodes
 }
 
 /**
@@ -330,6 +390,9 @@ export interface NPCData {
   // ========== BEHAVIOR AI (Optional - for complex behaviors) ==========
   behavior: NPCBehaviorConfig;
 
+  // ========== DIALOGUE (Optional - for NPC conversations) ==========
+  dialogue?: NPCDialogueTree;
+
   // ========== APPEARANCE ==========
   appearance: NPCAppearanceConfig;
 
@@ -343,15 +406,15 @@ export interface NPCData {
 /**
  * Mob Stats
  * Used by MobData for backward compatibility with existing mob systems
+ * Note: health IS the max HP (OSRS style)
  */
 export interface MobStats {
   level: number;
-  health: number;
+  health: number; // This IS max HP (OSRS style)
   attack: number;
   strength: number;
   defense: number;
   ranged: number;
-  constitution: number;
 }
 
 /**
@@ -411,7 +474,7 @@ export interface MobData {
   };
   spawnBiomes: string[];
   modelPath: string;
-  attackSpeed?: number; // Seconds between attacks
+  attackSpeedTicks?: number; // Game ticks between attacks (4 = standard sword, 600ms/tick)
   moveSpeed?: number; // Units per second
   combatRange?: number; // Distance in units
   animationSet?: {
@@ -466,7 +529,6 @@ export interface MobInstance {
     attack: number;
     strength: number;
     defense: number;
-    constitution: number;
     ranged: number;
   };
 
@@ -503,13 +565,13 @@ export interface MobSpawnConfig {
   type: string; // Mob ID from mobs.json
   name: string;
   level: number;
+  health: number; // OSRS: hitpoints = max HP directly
   description?: string;
   difficultyLevel?: 1 | 2 | 3;
   stats?: {
     attack: number;
     strength: number;
     defense: number;
-    constitution: number;
     ranged: number;
   };
   behavior?: MobBehavior;

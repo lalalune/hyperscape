@@ -24,12 +24,18 @@ export function AccountPanel({ world }: AccountPanelProps) {
     return unsubscribe;
   }, []);
 
-  // Get player name from world
+  // Get player name and wallet from world
+  const [characterWallet, setCharacterWallet] = useState<string | undefined>();
+
   useEffect(() => {
     const player = world.entities?.player;
     if (player?.name) {
       setPlayerName(player.name);
       setTempName(player.name);
+    }
+    // Get wallet from player entity data
+    if (player?.data?.wallet) {
+      setCharacterWallet(player.data.wallet as string);
     }
   }, [world]);
 
@@ -72,8 +78,11 @@ export function AccountPanel({ world }: AccountPanelProps) {
   // Get user info from authState (works with or without Privy)
   const authenticated = authState.isAuthenticated;
   const userId = authState.privyUserId;
-  const walletAddress = (authState.user as { wallet?: { address?: string } })
-    ?.wallet?.address;
+  // Use character's HD wallet if available, otherwise fall back to Privy main wallet
+  const mainWalletAddress = (
+    authState.user as { wallet?: { address?: string } }
+  )?.wallet?.address;
+  const displayWallet = characterWallet || mainWalletAddress;
   const farcasterFid = authState.farcasterFid;
   const email = (authState.user as { email?: { address?: string } })?.email
     ?.address;
@@ -255,7 +264,7 @@ export function AccountPanel({ world }: AccountPanelProps) {
           </div>
         )}
 
-        {authenticated && walletAddress && (
+        {authenticated && displayWallet && (
           <div
             className="rounded-lg p-1.5"
             style={{
@@ -269,14 +278,15 @@ export function AccountPanel({ world }: AccountPanelProps) {
               className="text-[7px] uppercase tracking-wide mb-0.5"
               style={{ color: "rgba(34, 197, 94, 0.5)" }}
             >
-              💎 Wallet
+              💎 {characterWallet ? "Character Wallet" : "Wallet"}
             </div>
             <div
               className="font-mono text-[9px]"
               style={{ color: "rgba(34, 197, 94, 0.9)" }}
+              title={displayWallet}
             >
-              {walletAddress.substring(0, 8)}...
-              {walletAddress.substring(walletAddress.length - 6)}
+              {displayWallet.substring(0, 8)}...
+              {displayWallet.substring(displayWallet.length - 6)}
             </div>
           </div>
         )}

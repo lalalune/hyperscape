@@ -78,6 +78,8 @@ import { modelCache } from "../utils/rendering/ModelCache";
 import type { StageSystem } from "../types/systems/system-interfaces";
 import { LODs } from "../systems/shared";
 import { Nametags } from "../systems/client/Nametags";
+import { HealthBars } from "../systems/client/HealthBars";
+import { EquipmentVisualSystem } from "../systems/client/EquipmentVisualSystem";
 import { Particles } from "../systems/shared";
 import { Wind } from "../systems/shared";
 import { XR } from "../systems/client/XR";
@@ -174,6 +176,8 @@ export function createClientWorld() {
 
   world.register("lods", LODs); // Level-of-detail mesh management
   world.register("nametags", Nametags); // Player/NPC name labels
+  world.register("healthbars", HealthBars); // Entity health bars (separate from nametags)
+  world.register("equipment-visual", EquipmentVisualSystem); // Visual weapon/equipment attachment
   world.register("particles", Particles); // Particle effects system
   world.register("wind", Wind); // Environmental wind effects
   world.register("xr", XR); // VR/AR support
@@ -200,6 +204,23 @@ export function createClientWorld() {
 
   (async () => {
     await registerSystems(world);
+
+    // CRITICAL: Initialize newly registered systems
+    const worldOptions = {
+      storage: world.storage,
+      assetsUrl: world.assetsUrl,
+      assetsDir: world.assetsDir,
+    };
+
+    const equipmentSystem = world.getSystem("equipment");
+    if (equipmentSystem && !equipmentSystem.isInitialized()) {
+      await equipmentSystem.init(worldOptions);
+    }
+
+    const damageSplatSystem = world.getSystem("damage-splat");
+    if (damageSplatSystem && !damageSplatSystem.isInitialized()) {
+      await damageSplatSystem.init(worldOptions);
+    }
 
     // Re-expose utilities after RPG systems load (in case they were cleared)
     const anyWin = window as unknown as {

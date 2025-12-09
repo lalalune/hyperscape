@@ -105,7 +105,7 @@ export abstract class CombatantEntity extends Entity {
   protected defense: number = 5;
   protected attackSpeed: number = 1.0;
   protected criticalChance: number = 0.05;
-  protected combatLevel: number = 1;
+  protected combatLevel: number = 3;
 
   // Combat state
   protected deathTime: number = 0;

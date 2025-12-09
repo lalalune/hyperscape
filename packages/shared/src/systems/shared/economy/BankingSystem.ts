@@ -90,33 +90,43 @@ export class BankingSystem extends SystemBase {
   }
 
   async init(): Promise<void> {
-    // Subscribe to banking events with proper type casting
-    // Listen to PLAYER_REGISTERED for all players (real and test)
-    this.subscribe<PlayerRegisteredEvent>(EventType.PLAYER_REGISTERED, (data) =>
-      this.initializePlayerBanks({ id: data.playerId }),
-    );
-    this.subscribe<PlayerUnregisteredEvent>(
-      EventType.PLAYER_UNREGISTERED,
-      (data) => {
-        this.cleanupPlayerBanks(data.playerId);
-      },
-    );
-    this.subscribe<BankOpenEvent>(EventType.BANK_OPEN, (data) =>
-      this.openBank(data),
-    );
-    this.subscribe<BankCloseEvent>(EventType.BANK_CLOSE, (data) =>
-      this.closeBank(data),
-    );
-    this.subscribe<BankDepositEvent>(EventType.BANK_DEPOSIT, (data) =>
-      this.depositItem(data),
-    );
-    this.subscribe<BankWithdrawEvent>(EventType.BANK_WITHDRAW, (data) =>
-      this.withdrawItem(data),
-    );
-    this.subscribe<{ playerId: string; bankId: string }>(
-      EventType.BANK_DEPOSIT_ALL,
-      (data) => this.depositAllItems(data),
-    );
+    // NOTE: Banking is now handled server-side via network packets (bankOpen, bankDeposit, bankWithdraw)
+    // and persisted to database via BankRepository.
+    // The client sends packets directly via world.network.send() from InteractionSystem.
+    // This in-memory system is kept for backwards compatibility but server packet handlers
+    // have priority for actual bank operations.
+
+    // Only subscribe to events on server (client uses network packets directly)
+    if (!this.world.isClient) {
+      // Subscribe to banking events with proper type casting
+      // Listen to PLAYER_REGISTERED for all players (real and test)
+      this.subscribe<PlayerRegisteredEvent>(
+        EventType.PLAYER_REGISTERED,
+        (data) => this.initializePlayerBanks({ id: data.playerId }),
+      );
+      this.subscribe<PlayerUnregisteredEvent>(
+        EventType.PLAYER_UNREGISTERED,
+        (data) => {
+          this.cleanupPlayerBanks(data.playerId);
+        },
+      );
+      this.subscribe<BankOpenEvent>(EventType.BANK_OPEN, (data) =>
+        this.openBank(data),
+      );
+      this.subscribe<BankCloseEvent>(EventType.BANK_CLOSE, (data) =>
+        this.closeBank(data),
+      );
+      this.subscribe<BankDepositEvent>(EventType.BANK_DEPOSIT, (data) =>
+        this.depositItem(data),
+      );
+      this.subscribe<BankWithdrawEvent>(EventType.BANK_WITHDRAW, (data) =>
+        this.withdrawItem(data),
+      );
+      this.subscribe<{ playerId: string; bankId: string }>(
+        EventType.BANK_DEPOSIT_ALL,
+        (data) => this.depositAllItems(data),
+      );
+    }
 
     // Listen to inventory updates for reactive pattern
     this.subscribe<InventoryUpdatedEvent>(

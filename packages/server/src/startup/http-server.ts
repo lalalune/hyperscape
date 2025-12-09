@@ -61,9 +61,9 @@ export async function createHttpServer(
   // Configure CORS for development and production
   await fastify.register(cors, {
     origin: [
-      "http://localhost:3000",
-      "http://localhost:3333",
-      "http://localhost:5555",
+      "http://localhost:4001", // ElizaOS API
+      "http://localhost:3333", // Game Client
+      "http://localhost:5555", // Game Server
       "http://localhost:7777",
       /^https?:\/\/localhost:\d+$/,
       /^https:\/\/.+\.farcaster\.xyz$/,
@@ -322,13 +322,18 @@ function registerMusicRoute(
       if (!/^\w+\.mp3$/.test(filename)) {
         return reply.code(400).send({ error: "Invalid filename" });
       }
-      if (category !== "normal" && category !== "combat") {
+      if (
+        category !== "normal" &&
+        category !== "combat" &&
+        category !== "intro"
+      ) {
         return reply.code(400).send({ error: "Invalid category" });
       }
 
       // Try primary path
       const primaryPath = path.join(
         config.assetsDir,
+        "audio",
         "music",
         category,
         filename,
@@ -358,8 +363,14 @@ function registerMusicRoute(
 
       // Try alternates
       for (const pubRoot of pubCandidates) {
-        const altPath = path.join(pubRoot, "music", category, filename);
-        // eslint-disable-next-line no-await-in-loop
+        const altPath = path.join(
+          pubRoot,
+          "audio",
+          "music",
+          category,
+          filename,
+        );
+
         if (await fs.pathExists(altPath)) {
           reply.type("audio/mpeg");
           reply.header("Accept-Ranges", "bytes");

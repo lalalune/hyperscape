@@ -36,6 +36,7 @@
 
 import { getItem } from "../../../data/items";
 import type { PlayerLocal } from "../../../entities/player/PlayerLocal";
+import type { PlayerEntity } from "../../../entities/player/PlayerEntity";
 import { Position3D } from "../../../types";
 import {
   AttackStyle,
@@ -61,7 +62,6 @@ import { SystemBase } from "..";
 import type { TerrainSystem } from "..";
 import { PlayerIdMapper } from "../../../utils/PlayerIdMapper";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
-import equipmentRequirementsData from "../../../data/equipment-requirements.json";
 import * as THREE from "three";
 
 /**
@@ -87,26 +87,30 @@ export class PlayerSystem extends SystemBase {
   private _tempVec3_1 = new THREE.Vector3();
   private _tempVec3_2 = new THREE.Vector3();
   private _tempVec3_3 = new THREE.Vector3();
-  private readonly STARTER_EQUIPMENT =
-    equipmentRequirementsData.starterEquipment || [];
+  /** Starter equipment for new players */
+  private readonly STARTER_EQUIPMENT: Array<{
+    itemId: string;
+    slot: string;
+    autoEquip: boolean;
+  }> = [{ itemId: "bronze_sword", slot: "weapon", autoEquip: true }];
 
   // Attack style tracking (merged from AttackStyleSystem)
   private playerAttackStyles = new Map<string, PlayerAttackStyleState>();
   private styleChangeTimers = new Map<string, NodeJS.Timeout>();
-  private readonly STYLE_CHANGE_COOLDOWN = 5000; // 5 seconds between style changes
+  private readonly STYLE_CHANGE_COOLDOWN = 0; // No cooldown - instant style switching like RuneScape
   private skillSaveTimers = new Map<string, NodeJS.Timeout>();
 
-  // Attack styles per GDD - XP percentages must total 100%
+  // Attack styles per GDD - Train one skill exclusively
   private readonly ATTACK_STYLES: Record<string, AttackStyle> = {
     accurate: {
       id: "accurate",
       name: "Accurate",
-      description: "Gain more Attack XP. Higher accuracy but normal damage.",
+      description: "Train Attack only. (Hitpoints always trained separately)",
       xpDistribution: {
-        attack: 40, // 40% Attack XP
-        strength: 10, // 10% Strength XP
-        defense: 10, // 10% Defense XP
-        constitution: 40, // 40% Constitution XP (always gained)
+        attack: 100, // 100% Attack XP
+        strength: 0,
+        defense: 0,
+        constitution: 0, // Constitution always trained separately at 1.33 XP per damage
       },
       damageModifier: 1.0, // Normal damage
       accuracyModifier: 1.15, // +15% accuracy
@@ -116,12 +120,12 @@ export class PlayerSystem extends SystemBase {
     aggressive: {
       id: "aggressive",
       name: "Aggressive",
-      description: "Gain more Strength XP. Higher damage but normal accuracy.",
+      description: "Train Strength only. (Hitpoints always trained separately)",
       xpDistribution: {
-        attack: 10, // 10% Attack XP
-        strength: 40, // 40% Strength XP
-        defense: 10, // 10% Defense XP
-        constitution: 40, // 40% Constitution XP (always gained)
+        attack: 0,
+        strength: 100, // 100% Strength XP
+        defense: 0,
+        constitution: 0, // Constitution always trained separately at 1.33 XP per damage
       },
       damageModifier: 1.15, // +15% damage
       accuracyModifier: 1.0, // Normal accuracy
@@ -131,13 +135,12 @@ export class PlayerSystem extends SystemBase {
     defensive: {
       id: "defensive",
       name: "Defensive",
-      description:
-        "Gain more Defense XP. Reduced damage taken but lower damage dealt.",
+      description: "Train Defense only. (Hitpoints always trained separately)",
       xpDistribution: {
-        attack: 10, // 10% Attack XP
-        strength: 10, // 10% Strength XP
-        defense: 40, // 40% Defense XP
-        constitution: 40, // 40% Constitution XP (always gained)
+        attack: 0,
+        strength: 0,
+        defense: 100, // 100% Defense XP
+        constitution: 0, // Constitution always trained separately at 1.33 XP per damage
       },
       damageModifier: 0.85, // -15% damage dealt
       accuracyModifier: 1.0, // Normal accuracy
@@ -147,12 +150,13 @@ export class PlayerSystem extends SystemBase {
     controlled: {
       id: "controlled",
       name: "Controlled",
-      description: "Balanced XP gain across all combat skills.",
+      description:
+        "Train Attack, Strength, and Defense equally. (Hitpoints always trained separately)",
       xpDistribution: {
-        attack: 20, // 20% Attack XP
-        strength: 20, // 20% Strength XP
-        defense: 20, // 20% Defense XP
-        constitution: 40, // 40% Constitution XP (always gained)
+        attack: 33, // 33% of combat XP to Attack
+        strength: 33, // 33% of combat XP to Strength
+        defense: 34, // 34% of combat XP to Defense
+        constitution: 0, // Constitution always trained separately at 1.33 XP per damage
       },
       damageModifier: 1.0, // Normal damage
       accuracyModifier: 1.0, // Normal accuracy
@@ -186,6 +190,14 @@ export class PlayerSystem extends SystemBase {
     this.subscribe(EventType.PLAYER_REGISTERED, (data) => {
       this.onPlayerRegister(data as { playerId: string });
     });
+    this.subscribe(EventType.COMBAT_LEVEL_CHANGED, (data) => {
+      const combatData = data as {
+        entityId: string;
+        oldLevel: number;
+        newLevel: number;
+      };
+      this.onCombatLevelChanged(combatData);
+    });
     this.subscribe(EventType.PLAYER_DAMAGE, (data) => {
       const damageData = data as {
         playerId: string;
@@ -198,15 +210,22 @@ export class PlayerSystem extends SystemBase {
         damageData.source,
       );
     });
+    this.subscribe(EventType.PLAYER_DAMAGE_TAKEN, (data) => {
+      this.takeDamage(data as { playerId: string; damage: number });
+    });
     this.subscribe<PlayerDeathEvent>(EventType.PLAYER_DIED, (data) => {
       this.handleDeath(data);
     });
-    this.subscribe<{ playerId: string }>(
-      EventType.PLAYER_RESPAWN_REQUEST,
-      (data) => {
-        this.respawnPlayer(data.playerId);
-      },
-    );
+    // Subscribe to PLAYER_RESPAWNED from DeathSystem to update our player data
+    this.subscribe(EventType.PLAYER_RESPAWNED, (data) => {
+      this.handlePlayerRespawn(
+        data as {
+          playerId: string;
+          spawnPosition: { x: number; y: number; z: number };
+          townName?: string;
+        },
+      );
+    });
     this.subscribe<PlayerLevelUpEvent>(EventType.PLAYER_LEVEL_UP, (data) => {
       this.updateCombatLevel(data);
     });
@@ -393,7 +412,7 @@ export class PlayerSystem extends SystemBase {
     });
   }
 
-  private onPlayerRegister(data: { playerId: string }): void {
+  private async onPlayerRegister(data: { playerId: string }): Promise<void> {
     if (!data?.playerId) {
       console.error(
         "[PlayerSystem] ERROR: playerId is undefined in registration data!",
@@ -404,7 +423,53 @@ export class PlayerSystem extends SystemBase {
 
     // Note: Skills are already loaded by ServerNetwork and passed to entity spawn
     // No need to load again - just initialize attack style
-    this.initializePlayerAttackStyle(data.playerId);
+    // Load saved attack style from database if available
+    let savedAttackStyle: string | undefined;
+    if (this.databaseSystem) {
+      const databaseId = PlayerIdMapper.getDatabaseId(data.playerId);
+      const dbData = await this.databaseSystem.getPlayerAsync(databaseId);
+      savedAttackStyle = (dbData as { attackStyle?: string })?.attackStyle;
+    }
+    this.initializePlayerAttackStyle(data.playerId, savedAttackStyle);
+
+    // CRITICAL: Send health data to client NOW (after client is connected and ready)
+    // This matches the inventory initialization pattern - send data in PLAYER_REGISTERED
+    const player = this.players.get(data.playerId);
+    if (player) {
+      // Emit PLAYER_UPDATED so EventBridge forwards to client
+      this.emitTypedEvent(EventType.PLAYER_UPDATED, {
+        playerId: data.playerId,
+        playerData: {
+          id: player.id,
+          name: player.name,
+          level: player.combat.combatLevel,
+          health: player.health.current,
+          maxHealth: player.health.max,
+          alive: player.alive,
+        },
+      });
+    }
+  }
+
+  private onCombatLevelChanged(data: {
+    entityId: string;
+    oldLevel: number;
+    newLevel: number;
+  }): void {
+    // Only save on server
+    if (!this.world.isServer || !this.databaseSystem) return;
+
+    const player = this.players.get(data.entityId);
+    if (!player) return;
+
+    // Update combat level in player data (SkillsSystem already updated StatsComponent)
+    player.combat.combatLevel = data.newLevel;
+
+    // Save to database immediately
+    const databaseId = PlayerIdMapper.getDatabaseId(data.entityId);
+    this.databaseSystem.savePlayer(databaseId, {
+      combatLevel: data.newLevel,
+    });
   }
 
   async onPlayerEnter(data: PlayerEnterEvent): Promise<void> {
@@ -451,13 +516,6 @@ export class PlayerSystem extends SystemBase {
       // Never auto-generate names - they must come from the character creation system
       const playerName = playerLocal?.name || "Adventurer";
 
-      console.log("[PlayerSystem] 🎭 Creating new player data:", {
-        playerId: data.playerId,
-        databaseId,
-        playerLocalName: playerLocal?.name,
-        finalPlayerName: playerName,
-      });
-
       playerData = PlayerMigration.createNewPlayer(
         data.playerId,
         data.playerId,
@@ -499,6 +557,32 @@ export class PlayerSystem extends SystemBase {
     if (data.userId) {
       PlayerIdMapper.register(data.playerId, data.userId);
       (playerData as Player & { userId?: string }).userId = data.userId;
+    }
+
+    // Ensure health equals constitution level (per user requirement)
+    const constitutionLevel =
+      Number.isFinite(playerData.skills.constitution.level) &&
+      playerData.skills.constitution.level > 0
+        ? playerData.skills.constitution.level
+        : 10;
+
+    // Always set maxHealth to constitution level
+    playerData.health.max = constitutionLevel;
+
+    // Validate and fix health values
+    if (
+      !Number.isFinite(playerData.health.current) ||
+      playerData.health.current <= 0 // FIX: Changed < to <= (0 health means dead!)
+    ) {
+      // Player is dead or has invalid health - restore to full
+      playerData.health.current = playerData.health.max;
+      playerData.alive = true; // Ensure player is alive
+    } else {
+      // Clamp current health to maxHealth
+      playerData.health.current = Math.min(
+        playerData.health.current,
+        playerData.health.max,
+      );
     }
 
     // Add to our system using entity ID for runtime lookups
@@ -592,9 +676,9 @@ export class PlayerSystem extends SystemBase {
       );
       player.health.current = player.health.max;
     } else {
-      player.health.current = Math.max(
-        0,
-        Math.min(validCurrentHealth, player.health.max),
+      // Floor to ensure health is always an integer (RuneScape-style)
+      player.health.current = Math.floor(
+        Math.max(0, Math.min(validCurrentHealth, player.health.max)),
       );
     }
 
@@ -611,90 +695,118 @@ export class PlayerSystem extends SystemBase {
   }
 
   private handleDeath(data: PlayerDeathEvent): void {
-    const player = this.players.get(data.playerId)!;
+    const player = this.players.get(data.playerId);
+    if (!player) {
+      return; // Player not found, ignore
+    }
 
+    // Prevent infinite recursion: if player is already dead, don't process again
+    if (!player.alive) {
+      return; // Already dead, ignore duplicate death events
+    }
+
+    // Mark player as dead in PlayerSystem data
     player.alive = false;
     player.death.deathLocation = { ...player.position };
     player.death.respawnTime = Date.now() + this.RESPAWN_TIME;
 
-    // Start respawn timer
-    const timer = this.createTimer(() => {
-      this.respawnPlayer(data.playerId);
-      this.respawnTimers.delete(data.playerId);
-    }, this.RESPAWN_TIME);
-
-    this.respawnTimers.set(data.playerId, timer!);
-
-    // Emit death event
-    this.emitTypedEvent(EventType.PLAYER_DIED, {
-      playerId: data.playerId,
-      deathLocation: {
-        x: player.death.deathLocation?.x ?? 0,
-        y: player.death.deathLocation?.y ?? 2,
-        z: player.death.deathLocation?.z ?? 0,
-      },
-    });
-
-    // Also emit ENTITY_DEATH for the death system
+    // Emit ENTITY_DEATH for DeathSystem to handle (headstones, loot, respawn)
+    // DeathSystem will handle the full death flow including respawn
     this.emitTypedEvent(EventType.ENTITY_DEATH, {
       entityId: data.playerId,
-      killedBy: "unknown", // Could be passed in if we track the source
+      killedBy: data.cause || "unknown",
       entityType: "player" as const,
     });
 
     this.emitPlayerUpdate(data.playerId);
   }
 
-  private respawnPlayer(playerId: string): void {
-    const player = this.players.get(playerId)!;
-
-    // Get spawn position - default to origin then ground to terrain
-    const spawnPosition = { x: 0, y: 0.1, z: 0 };
-    const terrain = this.world.getSystem<TerrainSystem>("terrain");
-    if (terrain) {
-      const h = terrain.getHeightAt(spawnPosition.x, spawnPosition.z);
-      if (Number.isFinite(h)) {
-        spawnPosition.y = h + 0.1;
-      }
+  /**
+   * Apply damage to a player and update health
+   */
+  private takeDamage(data: { playerId: string; damage: number }): void {
+    const player = this.players.get(data.playerId);
+    if (!player) {
+      return;
     }
 
-    // Reset player state
+    // Apply damage - floor to ensure health is always an integer (RuneScape-style)
+    const newHealth = Math.floor(
+      Math.max(0, player.health.current - data.damage),
+    );
+    player.health.current = newHealth;
+
+    // Update player entity if it exists
+    const playerEntity = this.world.entities.get(
+      data.playerId,
+    ) as PlayerEntity | null;
+    if (playerEntity && "setHealth" in playerEntity) {
+      playerEntity.setHealth(newHealth);
+
+      // Set lastDamageTick for health regen cooldown (17 ticks = 10.2s after damage)
+      (playerEntity as unknown as { lastDamageTick: number }).lastDamageTick =
+        this.world.currentTick;
+    }
+
+    // Check for death
+    if (newHealth <= 0) {
+      this.handleDeath({
+        playerId: data.playerId,
+        deathLocation: player.position,
+        cause: "combat",
+      });
+    }
+
+    // Emit health update
+    this.emitTypedEvent(EventType.ENTITY_HEALTH_CHANGED, {
+      entityId: data.playerId,
+      health: newHealth,
+      maxHealth: player.health.max,
+    });
+
+    this.emitPlayerUpdate(data.playerId);
+  }
+
+  /**
+   * Handle player respawn (called by DeathSystem via PLAYER_RESPAWNED event)
+   * DeathSystem handles the full respawn logic, we just update PlayerSystem data
+   */
+  private handlePlayerRespawn(data: {
+    playerId: string;
+    spawnPosition: { x: number; y: number; z: number };
+    townName?: string;
+  }): void {
+    const player = this.players.get(data.playerId);
+    if (!player) {
+      return;
+    }
+
+    // Reset player state to alive
     player.alive = true;
     player.health.current = player.health.max;
-    player.position = spawnPosition;
+    player.position = data.spawnPosition;
     player.death.respawnTime = 0;
+    player.death.deathLocation = null;
 
-    // Clear respawn timer
-    const timer = this.respawnTimers.get(playerId);
-    if (timer) {
-      clearTimeout(timer);
-      this.respawnTimers.delete(playerId);
+    // Update PlayerEntity health if it exists
+    const playerEntity = this.world.getPlayer?.(
+      data.playerId,
+    ) as PlayerEntity | null;
+    if (playerEntity) {
+      playerEntity.setHealth(player.health.max);
     }
 
     // Update PlayerLocal position if available
-    const playerLocal = this.playerLocalRefs.get(playerId);
+    const playerLocal = this.playerLocalRefs.get(data.playerId);
     if (playerLocal) {
       playerLocal.position.set(
-        spawnPosition.x,
-        spawnPosition.y,
-        spawnPosition.z,
+        data.spawnPosition.x,
+        data.spawnPosition.y,
+        data.spawnPosition.z,
       );
     }
 
-    // Force client snap to server-grounded respawn
-    this.emitTypedEvent(EventType.PLAYER_TELEPORT_REQUEST, {
-      playerId,
-      position: spawnPosition,
-    });
-
-    // Emit respawn event
-    this.emitTypedEvent(EventType.PLAYER_RESPAWNED, {
-      playerId,
-      spawnPosition,
-      townName: "Lumbridge", // Default town
-    });
-
-    this.emitPlayerUpdate(playerId);
+    this.emitPlayerUpdate(data.playerId);
   }
 
   private updateCombatLevel(data: PlayerLevelUpEvent): void {
@@ -713,6 +825,7 @@ export class PlayerSystem extends SystemBase {
       playerId: playerId,
       name: player.name,
       level: player.combat.combatLevel,
+      combatLevel: player.combat.combatLevel, // Add explicit combatLevel field
       health: {
         current: player.health.current,
         max: player.health.max,
@@ -775,9 +888,9 @@ export class PlayerSystem extends SystemBase {
     if (!player || !player.alive) return false;
 
     const oldHealth = player.health.current;
-    player.health.current = Math.min(
-      player.health.max,
-      player.health.current + amount,
+    // Floor to ensure health is always an integer (RuneScape-style)
+    player.health.current = Math.floor(
+      Math.min(player.health.max, player.health.current + amount),
     );
 
     if (player.health.current !== oldHealth) {
@@ -933,7 +1046,56 @@ export class PlayerSystem extends SystemBase {
     const player = this.players.get(playerId);
     if (!player || !player.alive) return false;
 
-    player.health.current = Math.max(0, player.health.current - amount);
+    // Validate amount to prevent NaN
+    const validAmount = Number.isFinite(amount) && amount > 0 ? amount : 0;
+    if (validAmount <= 0) return false;
+
+    // Validate current health before applying damage
+    const currentHealth =
+      Number.isFinite(player.health.current) && player.health.current > 0
+        ? player.health.current
+        : player.health.max;
+
+    // Floor to ensure health is always an integer (RuneScape-style)
+    player.health.current = Math.floor(
+      Math.max(0, currentHealth - validAmount),
+    );
+
+    // Sync damage to PlayerEntity if it exists
+    const playerEntity = this.world.getPlayer?.(
+      playerId,
+    ) as PlayerEntity | null;
+    if (playerEntity) {
+      // Update Entity's health using setHealth method (which updates health bar)
+      playerEntity.setHealth(player.health.current);
+
+      // Update health component
+      const healthComponent = playerEntity.getComponent("health");
+      if (healthComponent && healthComponent.data) {
+        (
+          healthComponent.data as { current?: number; isDead?: boolean }
+        ).current = player.health.current;
+        (healthComponent.data as { isDead?: boolean }).isDead =
+          player.health.current <= 0;
+      }
+
+      // Update stats component health
+      const statsComponent = playerEntity.getComponent("stats");
+      if (statsComponent && statsComponent.data && statsComponent.data.health) {
+        const healthData = statsComponent.data.health as {
+          current: number;
+          max: number;
+        };
+        healthData.current = player.health.current;
+      }
+
+      // COMBAT_DAMAGE_DEALT is emitted by CombatSystem - no need to emit here
+      // to avoid duplicate damage splats
+
+      // Set lastDamageTick for health regen cooldown (17 ticks = 10.2s after damage)
+      (playerEntity as unknown as { lastDamageTick: number }).lastDamageTick =
+        this.world.currentTick;
+    }
 
     this.emitTypedEvent(EventType.PLAYER_HEALTH_UPDATED, {
       playerId,
@@ -1208,6 +1370,10 @@ export class PlayerSystem extends SystemBase {
     }
     safeHealth = Math.min(safeHealth, safeMaxHealth); // Ensure current <= max
 
+    // Get player's current attack style (if set)
+    const playerAttackState = this.playerAttackStyles.get(playerId);
+    const attackStyle = playerAttackState?.selectedStyle || "accurate";
+
     this.databaseSystem.savePlayer(databaseId, {
       name: player.name,
       combatLevel: player.combat.combatLevel,
@@ -1221,31 +1387,48 @@ export class PlayerSystem extends SystemBase {
       positionX: player.position.x,
       positionY: safeY,
       positionZ: player.position.z,
+      attackStyle: attackStyle, // Save player's preferred attack style
     });
   }
 
   private calculateCombatLevel(skills: Skills): number {
-    // Formula from GDD: (Attack + Strength + Defense + Constitution + Ranged) / 4
-    const totalLevel =
-      skills.attack.level +
-      skills.strength.level +
-      skills.defense.level +
-      skills.constitution.level +
-      skills.ranged.level;
-    return Math.floor(totalLevel / 4);
+    // OSRS Combat Level Formula:
+    // base = 0.25 × (Defence + Hitpoints + floor(Prayer / 2))
+    // melee = 0.325 × (Attack + Strength)
+    // ranged = 0.325 × floor(Ranged × 1.5)
+    // magic = 0.325 × floor(Magic × 1.5)
+    // combat = base + max(melee, ranged, magic)
+
+    // Since we don't have Prayer or Magic yet, simplified formula:
+    const base = 0.25 * (skills.defense.level + skills.constitution.level);
+
+    const melee = 0.325 * (skills.attack.level + skills.strength.level);
+    const ranged = 0.325 * Math.floor(skills.ranged.level * 1.5);
+
+    const combatLevel = base + Math.max(melee, ranged);
+
+    return Math.floor(combatLevel);
   }
 
   // === ATTACK STYLE METHODS (merged from AttackStyleSystem) ===
 
   /**
    * Initialize attack style for a new player
+   * @param playerId - The player's ID
+   * @param savedStyle - The saved attack style from database (if any)
    */
-  private initializePlayerAttackStyle(playerId: string): void {
-    // Initialize player with default attack style (accurate)
+  private initializePlayerAttackStyle(
+    playerId: string,
+    savedStyle?: string,
+  ): void {
+    // Use saved style from database, or default to "accurate"
+    const initialStyle =
+      savedStyle && this.ATTACK_STYLES[savedStyle] ? savedStyle : "accurate";
+
     const playerState: PlayerAttackStyleState = {
       playerId,
-      selectedStyle: "accurate",
-      lastStyleChange: Date.now(),
+      selectedStyle: initialStyle,
+      lastStyleChange: 0, // Start at 0 so player can change style immediately
       combatStyleHistory: [],
     };
 
@@ -1254,7 +1437,7 @@ export class PlayerSystem extends SystemBase {
     // Notify UI of initial attack style
     this.emitTypedEvent(EventType.UI_ATTACK_STYLE_CHANGED, {
       playerId,
-      currentStyle: this.ATTACK_STYLES.accurate,
+      currentStyle: this.ATTACK_STYLES[initialStyle],
       availableStyles: Object.values(this.ATTACK_STYLES),
       canChange: true,
     });
@@ -1271,9 +1454,6 @@ export class PlayerSystem extends SystemBase {
 
     const playerState = this.playerAttackStyles.get(playerId);
     if (!playerState) {
-      console.error(
-        `[PlayerSystem] No attack style state found for player ${playerId}`,
-      );
       return;
     }
 
@@ -1290,7 +1470,9 @@ export class PlayerSystem extends SystemBase {
 
     // Check cooldown
     const now = Date.now();
-    if (now - playerState.lastStyleChange < this.STYLE_CHANGE_COOLDOWN) {
+    const timeSinceLastChange = now - playerState.lastStyleChange;
+
+    if (timeSinceLastChange < this.STYLE_CHANGE_COOLDOWN) {
       const remainingCooldown = Math.ceil(
         (this.STYLE_CHANGE_COOLDOWN - (now - playerState.lastStyleChange)) /
           1000,
@@ -1351,6 +1533,14 @@ export class PlayerSystem extends SystemBase {
       message: `Attack style changed from ${this.ATTACK_STYLES[oldStyle].name} to ${style.name}. ${style.description}`,
       type: "info",
     });
+
+    // Persist attack style to database immediately (server-side only)
+    if (this.world.isServer && this.databaseSystem) {
+      const databaseId = PlayerIdMapper.getDatabaseId(playerId);
+      this.databaseSystem.savePlayer(databaseId, {
+        attackStyle: newStyle,
+      });
+    }
   }
 
   /**
@@ -1491,10 +1681,11 @@ export class PlayerSystem extends SystemBase {
     }
 
     const styleInfo = {
+      style: playerState.selectedStyle, // Return the string ID that UI expects
+      cooldown: cooldownRemaining, // Use 'cooldown' not 'cooldownRemaining'
       currentStyle,
       availableStyles: Object.values(this.ATTACK_STYLES),
       canChange,
-      cooldownRemaining,
       styleHistory: playerState.combatStyleHistory.slice(-10),
     };
 
@@ -1604,6 +1795,24 @@ export class PlayerSystem extends SystemBase {
 
     // Recalculate combat level
     player.combat.combatLevel = this.calculateCombatLevel(data.skills);
+
+    // Update stats component with new skill data for SkillsSystem and combat calculations
+    const playerEntity = this.world.entities.get(data.playerId);
+    if (playerEntity) {
+      const statsComponent = playerEntity.getComponent("stats");
+      if (statsComponent) {
+        // Update skill data (full SkillData objects with level + xp) in stats component
+        statsComponent.data.attack = data.skills.attack;
+        statsComponent.data.strength = data.skills.strength;
+        statsComponent.data.defense = data.skills.defense;
+        statsComponent.data.constitution = data.skills.constitution;
+        statsComponent.data.ranged = data.skills.ranged;
+        statsComponent.data.woodcutting = data.skills.woodcutting;
+        statsComponent.data.fishing = data.skills.fishing;
+        statsComponent.data.firemaking = data.skills.firemaking;
+        statsComponent.data.cooking = data.skills.cooking;
+      }
+    }
 
     // Trigger UI update to reflect skill changes
     this.emitPlayerUpdate(data.playerId);

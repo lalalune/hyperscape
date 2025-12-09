@@ -27,7 +27,7 @@ async function build() {
 
   console.log(`✅ Built ${result.outputs.length} files`);
 
-  // Generate TypeScript declarations (continue on error for test files)
+  // Generate TypeScript declarations
   console.log("📝 Generating TypeScript declarations...");
   try {
     await $`tsc --project tsconfig.json --emitDeclarationOnly --skipLibCheck`;

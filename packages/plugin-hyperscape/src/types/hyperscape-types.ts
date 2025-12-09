@@ -10,6 +10,89 @@ import type {
 
 import type { UUID } from "@elizaos/core";
 
+// Mock world configuration for testing
+export interface MockWorldConfig {
+  worldId: string;
+  name: string;
+  description?: string;
+  maxPlayers?: number;
+  physics?: boolean;
+  persistence?: boolean;
+  assets?: string[];
+  environment?: {
+    lighting?: any;
+    skybox?: string;
+    terrain?: any;
+  };
+}
+
+// Hyperscape world manager interface
+export interface WorldManager {
+  createWorld(config: MockWorldConfig): Promise<World>;
+  destroyWorld(worldId: string): Promise<void>;
+  getWorld(worldId: string): World | null;
+  listWorlds(): MockWorldConfig[];
+
+  // World state management
+  saveWorldState(worldId: string): Promise<void>;
+  loadWorldState(worldId: string): Promise<void>;
+  resetWorld(worldId: string): Promise<void>;
+}
+
+// Agent spawn configuration
+export interface AgentSpawnConfig {
+  agentId: UUID;
+  worldId: string;
+  position?: Vector3;
+  rotation?: Quaternion;
+  avatar?: string;
+  permissions?: string[];
+  metadata?: Record<string, any>;
+}
+
+// World event types
+export interface WorldEvent {
+  type:
+    | "entity_spawn"
+    | "entity_despawn"
+    | "entity_update"
+    | "player_join"
+    | "player_leave"
+    | "world_update";
+  worldId: string;
+  entityId?: string;
+  playerId?: UUID;
+  data?: any;
+  timestamp: number;
+}
+
+// Hyperscape asset types
+export interface AssetReference {
+  type: "model" | "texture" | "audio" | "script" | "data";
+  url: string;
+  name: string;
+  version?: string;
+  checksum?: string;
+}
+
+// World persistence configuration
+export interface PersistenceConfig {
+  enabled: boolean;
+  saveInterval?: number;
+  backupCount?: number;
+  compressionEnabled?: boolean;
+  encryptionEnabled?: boolean;
+}
+
+// Physics configuration for worlds
+export interface PhysicsConfig {
+  enabled: boolean;
+  gravity?: Vector3;
+  timestep?: number;
+  maxSubsteps?: number;
+  collisionLayers?: Record<string, number>;
+}
+
 // Lighting configuration
 export interface LightingConfig {
   ambientLight?: {
@@ -52,89 +135,6 @@ export interface EnvironmentConfig {
   };
 }
 
-// Mock world configuration for testing
-export interface MockWorldConfig {
-  worldId: string;
-  name: string;
-  description?: string;
-  maxPlayers?: number;
-  physics?: boolean;
-  persistence?: boolean;
-  assets?: string[];
-  environment?: {
-    lighting?: LightingConfig;
-    skybox?: string;
-    terrain?: EnvironmentConfig["terrain"];
-  };
-}
-
-// Hyperscape world manager interface
-export interface WorldManager {
-  createWorld(config: MockWorldConfig): Promise<World>;
-  destroyWorld(worldId: string): Promise<void>;
-  getWorld(worldId: string): World | null;
-  listWorlds(): MockWorldConfig[];
-
-  // World state management
-  saveWorldState(worldId: string): Promise<void>;
-  loadWorldState(worldId: string): Promise<void>;
-  resetWorld(worldId: string): Promise<void>;
-}
-
-// Agent spawn configuration
-export interface AgentSpawnConfig {
-  agentId: UUID;
-  worldId: string;
-  position?: Vector3;
-  rotation?: Quaternion;
-  avatar?: string;
-  permissions?: string[];
-  metadata?: Record<string, string | number | boolean>;
-}
-
-// World event types
-export interface WorldEvent {
-  type:
-    | "entity_spawn"
-    | "entity_despawn"
-    | "entity_update"
-    | "player_join"
-    | "player_leave"
-    | "world_update";
-  worldId: string;
-  entityId?: string;
-  playerId?: UUID;
-  data?: Record<string, string | number | boolean>;
-  timestamp: number;
-}
-
-// Hyperscape asset types
-export interface AssetReference {
-  type: "model" | "texture" | "audio" | "script" | "data";
-  url: string;
-  name: string;
-  version?: string;
-  checksum?: string;
-}
-
-// World persistence configuration
-export interface PersistenceConfig {
-  enabled: boolean;
-  saveInterval?: number;
-  backupCount?: number;
-  compressionEnabled?: boolean;
-  encryptionEnabled?: boolean;
-}
-
-// Physics configuration for worlds
-export interface PhysicsConfig {
-  enabled: boolean;
-  gravity?: Vector3;
-  timestep?: number;
-  maxSubsteps?: number;
-  collisionLayers?: Record<string, number>;
-}
-
 // Complete world configuration
 export interface CompleteWorldConfig {
   worldId: string;
@@ -161,13 +161,13 @@ export interface EntityTemplate {
   position?: Vector3;
   rotation?: Quaternion;
   scale?: Vector3;
-  metadata?: Record<string, string | number | boolean>;
+  metadata?: Record<string, any>;
 }
 
 // Component template
 export interface ComponentTemplate {
   type: string;
-  data: Record<string, string | number | boolean>;
+  data: Record<string, any>;
 }
 
 // Agent behavior configuration
@@ -175,14 +175,14 @@ export interface AgentBehaviorConfig {
   agentId: UUID;
   behaviors: BehaviorTemplate[];
   priorities: Record<string, number>;
-  conditions: Record<string, string | number | boolean>;
+  conditions: Record<string, any>;
 }
 
 // Behavior template
 export interface BehaviorTemplate {
   name: string;
   type: "movement" | "interaction" | "communication" | "combat" | "idle";
-  config: Record<string, string | number | boolean>;
+  config: Record<string, any>;
   triggers: string[];
   cooldown?: number;
 }

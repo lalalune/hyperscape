@@ -5,6 +5,7 @@ import type {
   PlayerEquipmentItems,
   PlayerStats,
   InventorySlotItem,
+  InventoryItem,
 } from "../types";
 import { useChatContext } from "./chat/ChatContext";
 import { HintProvider } from "../components/Hint";
@@ -19,6 +20,10 @@ import { EquipmentPanel } from "./panels/EquipmentPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
 import { AccountPanel } from "./panels/AccountPanel";
 import { DashboardPanel } from "./panels/DashboardPanel";
+import { LootWindow } from "./panels/LootWindow";
+import { BankPanel } from "./panels/BankPanel";
+import { StorePanel } from "./panels/StorePanel";
+import { DialoguePanel } from "./panels/DialoguePanel";
 
 type InventorySlotViewItem = Pick<
   InventorySlotItem,
@@ -51,6 +56,50 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     new Map(),
   );
   const [nextZIndex, setNextZIndex] = useState(1000);
+
+  // Loot window state
+  const [lootWindowData, setLootWindowData] = useState<{
+    visible: boolean;
+    corpseId: string;
+    corpseName: string;
+    lootItems: InventoryItem[];
+  } | null>(null);
+
+  // Bank panel state
+  const [bankData, setBankData] = useState<{
+    visible: boolean;
+    items: Array<{ itemId: string; quantity: number; slot: number }>;
+    maxSlots: number;
+    bankId: string;
+  } | null>(null);
+
+  // Store panel state
+  const [storeData, setStoreData] = useState<{
+    visible: boolean;
+    storeId: string;
+    storeName: string;
+    buybackRate: number;
+    npcEntityId?: string;
+    items: Array<{
+      id: string;
+      itemId: string;
+      name: string;
+      price: number;
+      stockQuantity: number;
+      description?: string;
+      category?: string;
+    }>;
+  } | null>(null);
+
+  // Dialogue panel state
+  const [dialogueData, setDialogueData] = useState<{
+    visible: boolean;
+    npcId: string;
+    npcName: string;
+    text: string;
+    responses: Array<{ text: string; nextNodeId: string; effect?: string }>;
+    npcEntityId?: string;
+  } | null>(null);
 
   // Update chat context whenever windows open/close
   useEffect(() => {
@@ -112,8 +161,101 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       if (update.component === "player")
         setPlayerStats(update.data as PlayerStats);
       if (update.component === "equipment") {
-        const data = update.data as { equipment: PlayerEquipmentItems };
-        setEquipment(data.equipment);
+        // The backend sends PlayerEquipment (with slots containing items),
+        // but the UI expects PlayerEquipmentItems (just the items).
+        const data = update.data as { equipment: any };
+        const rawEq = data.equipment;
+
+        const mappedEquipment: PlayerEquipmentItems = {
+          weapon: rawEq.weapon?.item || null,
+          shield: rawEq.shield?.item || null,
+          helmet: rawEq.helmet?.item || null,
+          body: rawEq.body?.item || null,
+          legs: rawEq.legs?.item || null,
+          arrows: rawEq.arrows?.item || null,
+        };
+        setEquipment(mappedEquipment);
+      }
+      // Handle bank state updates
+      if (update.component === "bank") {
+        const data = update.data as {
+          items?: Array<{ itemId: string; quantity: number; slot: number }>;
+          maxSlots?: number;
+          bankId?: string;
+          isOpen?: boolean;
+        };
+        if (data.isOpen === false) {
+          // Server-authoritative close (player walked too far)
+          setBankData(null);
+        } else if (data.isOpen || data.items) {
+          // Open or update bank state
+          // Preserve existing bankId if new one not provided (deposit/withdraw responses)
+          setBankData((prev) => ({
+            visible: true,
+            items: data.items || prev?.items || [],
+            maxSlots: data.maxSlots || prev?.maxSlots || 480,
+            bankId: data.bankId || prev?.bankId || "spawn_bank",
+          }));
+        }
+      }
+      // Handle store state updates
+      if (update.component === "store") {
+        const data = update.data as {
+          storeId: string;
+          storeName: string;
+          buybackRate: number;
+          npcEntityId?: string;
+          items: Array<{
+            id: string;
+            itemId: string;
+            name: string;
+            price: number;
+            stockQuantity: number;
+            description?: string;
+            category?: string;
+          }>;
+          isOpen?: boolean;
+        };
+        if (data.isOpen) {
+          setStoreData({
+            visible: true,
+            storeId: data.storeId,
+            storeName: data.storeName,
+            buybackRate: data.buybackRate || 0.5,
+            npcEntityId: data.npcEntityId,
+            items: data.items || [],
+          });
+        } else {
+          setStoreData(null);
+        }
+      }
+      // Handle dialogue state updates
+      if (update.component === "dialogue") {
+        const data = update.data as {
+          npcId: string;
+          npcName: string;
+          text: string;
+          responses: Array<{
+            text: string;
+            nextNodeId: string;
+            effect?: string;
+          }>;
+          npcEntityId?: string;
+        };
+        setDialogueData((prev) => ({
+          visible: true,
+          npcId: data.npcId,
+          // Preserve npcName from previous state if not provided (nodeChange packets)
+          npcName: data.npcName || prev?.npcName || "NPC",
+          text: data.text,
+          responses: data.responses || [],
+          // Preserve npcEntityId from previous state if not provided
+          npcEntityId: data.npcEntityId || prev?.npcEntityId,
+        }));
+      }
+      // Handle dialogue end
+      if (update.component === "dialogueEnd") {
+        setDialogueData(null);
       }
     };
     const onInventory = (raw: unknown) => {
@@ -133,18 +275,45 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     const onSkillsUpdate = (raw: unknown) => {
       const data = raw as { playerId: string; skills: PlayerStats["skills"] };
       const localId = world.entities?.player?.id;
-      if (!localId || data.playerId === localId)
+      if (!localId || data.playerId === localId) {
+        // Just update skills - combat level will come from server via PLAYER_UPDATED event
         setPlayerStats((prev) =>
           prev
             ? { ...prev, skills: data.skills }
             : ({ skills: data.skills } as PlayerStats),
         );
+      }
+    };
+
+    const onCorpseClick = (raw: unknown) => {
+      const data = raw as {
+        corpseId: string;
+        playerId: string;
+        lootItems?: Array<{ itemId: string; quantity: number }>;
+        position: { x: number; y: number; z: number };
+      };
+
+      // Open loot window with corpse items
+      setLootWindowData({
+        visible: true,
+        corpseId: data.corpseId,
+        corpseName: `Gravestone`, // TODO: Get actual corpse name
+        lootItems:
+          data.lootItems?.map((item, index) => ({
+            id: `${data.corpseId}-${index}`,
+            slot: index,
+            itemId: item.itemId,
+            quantity: item.quantity,
+            metadata: null,
+          })) || [],
+      });
     };
 
     world.on(EventType.UI_UPDATE, onUIUpdate);
     world.on(EventType.INVENTORY_UPDATED, onInventory);
     world.on(EventType.INVENTORY_UPDATE_COINS, onCoins);
     world.on(EventType.SKILLS_UPDATED, onSkillsUpdate);
+    world.on(EventType.CORPSE_CLICK, onCorpseClick);
 
     const requestInitial = () => {
       const lp = world.entities?.player?.id;
@@ -155,17 +324,34 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           setCoins(cached.coins);
         }
         const cachedSkills = world.network?.lastSkillsByPlayerId?.[lp];
-        if (cachedSkills)
+        if (cachedSkills) {
+          const skills = cachedSkills as unknown as PlayerStats["skills"];
+          // Just update skills - combat level will come from server
           setPlayerStats((prev) =>
             prev
               ? {
                   ...prev,
-                  skills: cachedSkills as unknown as PlayerStats["skills"],
+                  skills,
                 }
               : ({
-                  skills: cachedSkills as unknown as PlayerStats["skills"],
+                  skills,
                 } as PlayerStats),
           );
+        }
+        const cachedEquipment = world.network?.lastEquipmentByPlayerId?.[lp];
+        if (cachedEquipment) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rawEq = cachedEquipment as any;
+          const mappedEquipment: PlayerEquipmentItems = {
+            weapon: rawEq.weapon?.item || null,
+            shield: rawEq.shield?.item || null,
+            helmet: rawEq.helmet?.item || null,
+            body: rawEq.body?.item || null,
+            legs: rawEq.legs?.item || null,
+            arrows: rawEq.arrows?.item || null,
+          };
+          setEquipment(mappedEquipment);
+        }
         world.emit(EventType.INVENTORY_REQUEST, { playerId: lp });
         return true;
       }
@@ -181,6 +367,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       world.off(EventType.INVENTORY_UPDATED, onInventory);
       world.off(EventType.INVENTORY_UPDATE_COINS, onCoins);
       world.off(EventType.SKILLS_UPDATED, onSkillsUpdate);
+      world.off(EventType.CORPSE_CLICK, onCorpseClick);
     };
   }, []);
 
@@ -416,7 +603,11 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             zIndex={windowZIndices.get("equipment") || 1000}
             onFocus={() => bringToFront("equipment")}
           >
-            <EquipmentPanel equipment={equipment} stats={playerStats} />
+            <EquipmentPanel
+              equipment={equipment}
+              stats={playerStats}
+              world={world}
+            />
           </GameWindow>
         )}
 
@@ -430,6 +621,87 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           >
             <SettingsPanel world={world} />
           </GameWindow>
+        )}
+
+        {/* Loot Window */}
+        {lootWindowData && (
+          <LootWindow
+            visible={lootWindowData.visible}
+            corpseId={lootWindowData.corpseId}
+            corpseName={lootWindowData.corpseName}
+            lootItems={lootWindowData.lootItems}
+            onClose={() => setLootWindowData(null)}
+            world={world}
+          />
+        )}
+
+        {/* Bank Panel (includes integrated inventory) */}
+        {bankData?.visible && (
+          <BankPanel
+            items={bankData.items}
+            maxSlots={bankData.maxSlots}
+            world={world}
+            inventory={inventory}
+            coins={coins}
+            bankId={bankData.bankId}
+            onClose={() => {
+              setBankData(null);
+              if (world.network?.send) {
+                world.network.send("bankClose", {});
+              }
+            }}
+          />
+        )}
+
+        {/* Store Panel (includes integrated inventory) */}
+        {storeData?.visible && (
+          <StorePanel
+            storeId={storeData.storeId}
+            storeName={storeData.storeName}
+            buybackRate={storeData.buybackRate}
+            items={storeData.items}
+            world={world}
+            inventory={inventory}
+            coins={coins}
+            npcEntityId={storeData.npcEntityId}
+            onClose={() => {
+              setStoreData(null);
+              if (world.network?.send) {
+                world.network.send("storeClose", {
+                  storeId: storeData.storeId,
+                });
+              }
+            }}
+          />
+        )}
+
+        {/* Dialogue Panel */}
+        {dialogueData?.visible && (
+          <DialoguePanel
+            visible={dialogueData.visible}
+            npcName={dialogueData.npcName}
+            npcId={dialogueData.npcId}
+            text={dialogueData.text}
+            responses={dialogueData.responses}
+            npcEntityId={dialogueData.npcEntityId}
+            world={world}
+            onSelectResponse={(index, response) => {
+              // Response handling is done in DialoguePanel via network.send
+              // If response has no nextNodeId, dialogue ends
+              if (!response.nextNodeId) {
+                setDialogueData(null);
+              }
+            }}
+            onClose={() => {
+              setDialogueData(null);
+              // Notify server that dialogue is closed
+              if (world.network?.send) {
+                world.network.send("dialogueClose", {
+                  npcId: dialogueData.npcId,
+                });
+              }
+            }}
+          />
         )}
       </div>
     </HintProvider>

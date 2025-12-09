@@ -8,20 +8,20 @@ import {
   ModelType,
   Content,
 } from "@elizaos/core";
-import { hyperscapeShouldRespondTemplate } from "../templates";
+import { hyperscapeShouldRespondTemplate } from "../templates/index.js";
 
 // Type definitions
 export interface ActionResult {
   text: string;
   success: boolean;
-  data?: Record<string, string | number | boolean>;
+  data?: any;
 }
 
 export interface ComposeContextOptions {
   state: State;
   template?: string;
   runtime?: IAgentRuntime;
-  additionalContext?: Record<string, string | number | boolean>;
+  additionalContext?: Record<string, any>;
 }
 
 export interface GenerateMessageOptions {
@@ -46,29 +46,19 @@ export function composeContext(options: ComposeContextOptions): string {
     additionalContext = {},
   } = options;
 
-  const characterBioRaw = runtime?.character?.bio || "An AI assistant";
-  const agentNameRaw = runtime?.character?.name || "Assistant";
-
-  // Convert arrays to strings (bio and name can be string | string[])
-  const characterBio = Array.isArray(characterBioRaw)
-    ? characterBioRaw.join(", ")
-    : characterBioRaw;
-  const agentName = Array.isArray(agentNameRaw)
-    ? agentNameRaw[0] || "Assistant"
-    : agentNameRaw;
+  const characterBio = runtime?.character?.bio || "An AI assistant";
+  const agentName = runtime?.character?.name || "Assistant";
 
   let context = template || "";
 
   // Replace placeholders with actual values
-  const replacements: Record<string, string | number | boolean> = {
+  const replacements: Record<string, any> = {
     agentName,
     characterBio,
-    currentLocation: String(
+    currentLocation:
       state?.values?.get("currentLocation") || "Unknown Location",
-    ),
-    recentMessages: String(
+    recentMessages:
       state?.values?.get("recentMessages") || "No recent messages",
-    ),
     ...additionalContext,
   };
 
@@ -148,7 +138,7 @@ export async function generateDetailedResponse(
     runtime,
     additionalContext: {
       messageText: message.content?.text || "",
-      userName: String((message as { username?: string }).username || "User"),
+      userName: (message as any).username || "User",
     },
   });
 
@@ -175,9 +165,7 @@ export function getChannelContext(channelId?: string): string {
 }
 
 // Export helper functions
-export function formatContext(
-  data: Record<string, string | number | boolean>,
-): string {
+export function formatContext(data: Record<string, any>): string {
   const entries = Object.entries(data).filter(([_, value]) => value != null);
   return entries
     .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)

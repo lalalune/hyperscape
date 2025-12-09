@@ -13,10 +13,9 @@
 
 import type { ServerSocket } from "../../shared/types";
 import { THREE, TerrainSystem, World } from "@hyperscape/shared";
-import type { Vector3 } from "three";
 
 interface MoveTarget {
-  target: Vector3;
+  target: THREE.Vector3;
   maxSpeed: number;
   lastUpdate: number;
 }
@@ -159,7 +158,12 @@ export class MovementManager {
    */
   handleMoveRequest(socket: ServerSocket, data: unknown): void {
     const playerEntity = socket.player;
-    if (!playerEntity) return;
+    if (!playerEntity) {
+      console.warn(
+        `[MovementManager] ⚠️ moveRequest ignored - socket ${socket.id} has no player entity attached`,
+      );
+      return;
+    }
 
     const payload = data as {
       target?: number[] | null;

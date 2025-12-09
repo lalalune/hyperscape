@@ -1,14 +1,9 @@
 import type { World } from "../../../types";
 import { Store } from "../../../types/core/core";
-import type {
-  StoreBuyEvent,
-  StoreCloseEvent,
-  StoreOpenEvent,
-} from "../../../types/events";
+import type { StoreCloseEvent, StoreOpenEvent } from "../../../types/events";
 import { EventType } from "../../../types/events";
 import { StoreID } from "../../../types/core/identifiers";
-import { calculateDistance } from "../../../utils/game/EntityUtils";
-import { createItemID, createStoreID } from "../../../utils/IdentifierUtils";
+import { createStoreID } from "../../../utils/IdentifierUtils";
 import { SystemBase } from "..";
 import { GENERAL_STORES } from "../../../data/banks-stores";
 
@@ -39,10 +34,13 @@ export class StoreSystem extends SystemBase {
     // Initialize all stores from loaded JSON data
     for (const storeData of Object.values(GENERAL_STORES)) {
       // Convert StoreData to Store format
+      // Note: position is optional - it will be set when NPC registers via STORE_REGISTER_NPC
       const store: Store = {
         id: storeData.id,
         name: storeData.name,
-        position: storeData.location.position,
+        // Position comes from the NPC entity, not the store definition
+        // It gets set when the shopkeeper NPC registers via STORE_REGISTER_NPC
+        position: storeData.location?.position,
         items: storeData.items,
         npcName:
           storeData.name.replace("General Store", "").trim() || "Shopkeeper",
@@ -59,15 +57,11 @@ export class StoreSystem extends SystemBase {
     this.subscribe<StoreCloseEvent>(EventType.STORE_CLOSE, (data) => {
       this.closeStore(data);
     });
-    this.subscribe<StoreBuyEvent>(EventType.STORE_BUY, (data) => {
-      this.buyItem(data);
-    });
-    this.subscribe<{ playerId: string; itemId: string; quantity: number }>(
-      EventType.STORE_SELL,
-      (data) => {
-        this.sellItem(data.playerId, data.itemId, data.quantity);
-      },
-    );
+
+    // NOTE: STORE_BUY and STORE_SELL are now handled by the server handler
+    // (packages/server/src/systems/ServerNetwork/handlers/store.ts)
+    // with proper database transactions, input validation, and security measures.
+    // The buyItem and sellItem methods below are deprecated but kept for backwards compatibility.
 
     // Listen for NPC registrations from world content system
     this.subscribe<{
@@ -103,17 +97,22 @@ export class StoreSystem extends SystemBase {
 
   private openStore(data: StoreOpenEvent): void {
     const storeId = createStoreID(data.storeId);
-    const store = this.stores.get(storeId)!; // Store must exist
+    const store = this.stores.get(storeId);
 
-    const distance = calculateDistance(data.playerPosition, store.position);
-    if (distance > 3) {
+    if (!store) {
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId: data.playerId,
-        message: "You need to be closer to the shopkeeper to trade.",
+        message: "Store not found.",
         type: "error",
       });
       return;
     }
+
+    // NOTE (Phase 8): Distance check removed - now handled by:
+    // 1. Server handler (per-operation validation using Chebyshev distance)
+    // 2. InteractionSessionManager (periodic validation, auto-close on walk away)
+    // This eliminates the inconsistency between Euclidean 3D (old) vs Chebyshev 2D (new)
+    // and the hardcoded distance 3 vs shared constant INTERACTION_DISTANCE[store] = 5
 
     // Send store interface data to player
     this.emitTypedEvent(EventType.STORE_OPEN, {
@@ -126,129 +125,16 @@ export class StoreSystem extends SystemBase {
     });
   }
 
-  private closeStore(data: StoreCloseEvent): void {
-    this.emitTypedEvent(EventType.STORE_CLOSE, {
-      playerId: data.playerId,
-      storeId: data.storeId,
-    });
+  private closeStore(_data: StoreCloseEvent): void {
+    // Store close is handled by the client UI
+    // No server-side cleanup needed for now
   }
 
-  private buyItem(data: StoreBuyEvent): void {
-    const storeId = createStoreID(data.storeId);
-    const store = this.stores.get(storeId)!; // Store must exist
-    const itemId = createItemID(String(data.itemId));
-
-    const item = store.items.find((item) => item.id === itemId);
-    if (!item) {
-      throw new Error(`Item ${itemId} not found in store ${storeId}`);
-    }
-
-    const totalCost = item.price * data.quantity;
-
-    // Check stock (if not unlimited)
-    if (
-      item.stockQuantity !== undefined &&
-      item.stockQuantity !== -1 &&
-      item.stockQuantity < data.quantity
-    ) {
-      this.emitTypedEvent(EventType.UI_MESSAGE, {
-        playerId: data.playerId,
-        message: "Not enough stock available.",
-        type: "error",
-      });
-      return;
-    }
-
-    // Process the purchase immediately
-    // Remove coins from player
-    this.emitTypedEvent(EventType.INVENTORY_REMOVE_COINS, {
-      playerId: data.playerId,
-      amount: totalCost,
-    });
-
-    // Add item to player inventory
-    this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
-      playerId: data.playerId,
-      item: {
-        id: `inv_${data.playerId}_${Date.now()}`,
-        itemId: item.id,
-        quantity: data.quantity,
-        slot: -1, // Let system find empty slot
-        metadata: null,
-      },
-    });
-
-    // Update store stock (if not unlimited)
-    if (item.stockQuantity !== undefined && item.stockQuantity !== -1) {
-      item.stockQuantity -= data.quantity;
-    }
-
-    // Send success message
-    this.emitTypedEvent(EventType.UI_MESSAGE, {
-      playerId: data.playerId,
-      message: `Purchased ${data.quantity}x ${item.name} for ${totalCost} coins.`,
-      type: "success",
-    });
-  }
-
-  /**
-   * Public API method for selling items (used by tests and internal events)
-   * Compatible with test system signature: sellItem(playerId, itemId, quantity, expectedPrice)
-   */
-  public sellItem(
-    playerId: string,
-    itemId: string,
-    quantity: number,
-    _expectedPrice?: number,
-  ): boolean {
-    const validItemId = createItemID(itemId);
-
-    // Find a store that buys the item
-    let targetStore: Store | undefined;
-    for (const store of this.stores.values()) {
-      if (
-        store.buyback &&
-        store.items.find((item) => item.id === validItemId)
-      ) {
-        targetStore = store;
-        break;
-      }
-    }
-
-    if (!targetStore) {
-      throw new Error(`No store buys item: ${itemId}`);
-    }
-
-    const storeItem = targetStore.items.find(
-      (item) => item.id === validItemId,
-    )!;
-    const buybackRate = targetStore.buybackRate ?? 0.5;
-    const sellPrice = Math.floor(storeItem.price * buybackRate);
-    const totalValue = sellPrice * quantity;
-
-    // Process the sale immediately
-    // Remove item from player inventory
-    this.emitTypedEvent(EventType.INVENTORY_REMOVE_ITEM, {
-      playerId: playerId,
-      itemId: itemId,
-      quantity: quantity,
-    });
-
-    // Add coins to player
-    this.emitTypedEvent(EventType.INVENTORY_ADD_COINS, {
-      playerId: playerId,
-      amount: totalValue,
-    });
-
-    // Send success message
-    this.emitTypedEvent(EventType.UI_MESSAGE, {
-      playerId: playerId,
-      message: `Sold ${quantity}x ${storeItem.name} for ${totalValue} coins.`,
-      type: "success",
-    });
-
-    return true;
-  }
+  // NOTE: buyItem and sellItem methods have been removed.
+  // All store transactions now go through the secure server handler
+  // (packages/server/src/systems/ServerNetwork/handlers/store.ts)
+  // which provides database transactions, input validation, distance checks,
+  // overflow protection, and rate limiting.
 
   /**
    * Cleanup when system is destroyed
@@ -273,7 +159,7 @@ export class StoreSystem extends SystemBase {
   public getStoreLocations(): Array<{
     id: string;
     name: string;
-    position: { x: number; y: number; z: number };
+    position?: { x: number; y: number; z: number };
   }> {
     return Array.from(this.stores.values()).map((store) => ({
       id: store.id,
@@ -282,26 +168,5 @@ export class StoreSystem extends SystemBase {
     }));
   }
 
-  /**
-   * Public API method for purchasing items (used by tests)
-   * Compatible with test system signature: purchaseItem(playerId, itemId, quantity, expectedPrice)
-   */
-  public purchaseItem(
-    playerId: string,
-    itemId: string,
-    quantity: number = 1,
-    _expectedPrice?: number,
-  ): boolean {
-    // Use default store for tests
-    const storeId = "store_town_0";
-
-    this.buyItem({
-      playerId,
-      storeId,
-      itemId: createItemID(itemId),
-      quantity,
-    });
-
-    return true;
-  }
+  // NOTE: purchaseItem method has been removed - use network.send("storeBuy") instead
 }

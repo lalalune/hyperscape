@@ -59,6 +59,7 @@ export interface PlayerRow {
   positionX: number;
   positionY: number;
   positionZ: number;
+  attackStyle?: string; // Combat style preference (accurate, aggressive, defensive)
   createdAt: number;
   lastLogin: number;
 }
@@ -152,5 +153,6 @@ export interface DatabaseSystemOperations {
       slotIndex: number | null;
     }>
   >;
+  getPlayerEquipmentAsync?: (playerId: string) => Promise<EquipmentRow[]>;
   getPlayerAsync?: (playerId: string) => Promise<{ coins?: number } | null>;
 }

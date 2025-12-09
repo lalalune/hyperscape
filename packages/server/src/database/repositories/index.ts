@@ -18,3 +18,6 @@ export { EquipmentRepository } from "./EquipmentRepository";
 export { SessionRepository } from "./SessionRepository";
 export { WorldChunkRepository } from "./WorldChunkRepository";
 export { NPCKillRepository } from "./NPCKillRepository";
+export { DeathRepository } from "./DeathRepository";
+export { TemplateRepository } from "./TemplateRepository";
+export type { TemplateRow } from "./TemplateRepository";

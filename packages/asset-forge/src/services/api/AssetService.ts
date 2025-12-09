@@ -17,6 +17,7 @@ export interface Asset {
   metadata: AssetMetadata;
   hasModel: boolean;
   modelFile?: string;
+  modelFormat?: "glb" | "vrm"; // Model file format
   generatedAt: string;
 }
 
