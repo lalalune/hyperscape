@@ -404,6 +404,9 @@ export async function handleBankWithdraw(
 
   // Step 3: Execute transaction with automatic retry
   const result = await executeSecureTransaction(ctx, {
+    errorMessages: {
+      SLOT_CONFLICT: "Inventory changed, please try again",
+    },
     execute: async (tx) => {
       // Lock and get current inventory to find used slots
       const inventoryResult = await tx.execute(
@@ -483,33 +486,44 @@ export async function handleBankWithdraw(
       }
 
       // Create inventory items (one per withdrawn item, qty=1)
+      // Use ON CONFLICT DO NOTHING to handle race conditions with auto-save
+      // If a slot is taken by concurrent auto-save, we detect it and retry
       const addedSlots: Array<{
         slot: number;
         quantity: number;
         itemId: string;
       }> = [];
-      const insertValues: Array<{
-        playerId: string;
-        itemId: string;
-        quantity: number;
-        slotIndex: number;
-        metadata: null;
-      }> = [];
 
       for (let i = 0; i < finalWithdrawQty; i++) {
         const targetSlot = freeSlots[i];
-        insertValues.push({
-          playerId: ctx.playerId,
-          itemId: data.itemId,
-          quantity: 1,
-          slotIndex: targetSlot,
-          metadata: null,
-        });
-        addedSlots.push({ slot: targetSlot, quantity: 1, itemId: data.itemId });
+
+        // Use ON CONFLICT DO NOTHING with RETURNING to detect slot conflicts
+        // This handles the race condition where InventorySystem auto-save
+        // inserts into a slot between our SELECT FOR UPDATE and INSERT
+        const insertResult = await tx.execute(
+          sql`INSERT INTO inventory ("playerId", "itemId", "quantity", "slotIndex", "metadata")
+              VALUES (${ctx.playerId}, ${data.itemId}, ${1}, ${targetSlot}, ${null})
+              ON CONFLICT ("playerId", "slotIndex") DO NOTHING
+              RETURNING id`,
+        );
+
+        // If insert succeeded (row returned), track the slot
+        if (insertResult.rows.length > 0) {
+          addedSlots.push({
+            slot: targetSlot,
+            quantity: 1,
+            itemId: data.itemId,
+          });
+        }
+        // If conflict occurred (no row returned), the slot was taken by auto-save
+        // We continue to try other slots rather than failing immediately
       }
 
-      if (insertValues.length > 0) {
-        await tx.insert(schema.inventory).values(insertValues);
+      // Check if we inserted all items we were supposed to
+      if (addedSlots.length < finalWithdrawQty) {
+        // Some slots were taken by concurrent auto-save, trigger retry
+        // The executeSecureTransaction wrapper will retry up to 3 times
+        throw new Error("SLOT_CONFLICT");
       }
 
       return { addedSlots };
