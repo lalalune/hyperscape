@@ -4,7 +4,10 @@
  * Handles all bank-related network packets:
  * - bankOpen: Player opens bank interface
  * - bankDeposit: Player deposits item from inventory
+ * - bankDepositAll: Player deposits all items from inventory
  * - bankWithdraw: Player withdraws item to inventory
+ * - bankDepositCoins: Player deposits coins from money pouch to bank
+ * - bankWithdrawCoins: Player withdraws coins from bank to money pouch
  * - bankClose: Player closes bank interface
  *
  * SECURITY MEASURES:
@@ -13,9 +16,12 @@
  * - Input validation prevents injection and overflow
  * - Quantity bounds checking prevents integer overflow
  * - DISTANCE VALIDATION using Chebyshev distance (OSRS-style)
+ * - Consistent lock order (characters → bank_storage) prevents deadlocks
+ * - Audit logging for large coin transactions (≥1M)
  *
  * Bank items STACK by itemId (all logs in one slot).
  * Inventory items do NOT stack (each item gets its own slot).
+ * Coins are stored as special stackable item with itemId='coins'.
  */
 
 import {
@@ -145,6 +151,12 @@ export async function handleBankDeposit(
   data: { itemId: string; quantity: number; slot?: number },
   world: World,
 ): Promise<void> {
+  // SPECIAL CASE: Coins should come from money pouch (CoinPouchSystem), not inventory
+  // This handles clicking on coins in inventory while bank is open
+  if (data.itemId === "coins") {
+    return handleBankDepositCoins(socket, { amount: data.quantity }, world);
+  }
+
   // Step 1: Common validation (player, rate limit, distance, db)
   const baseResult = validateTransactionRequest(
     socket,
@@ -347,6 +359,12 @@ export async function handleBankWithdraw(
   data: { itemId: string; quantity: number },
   world: World,
 ): Promise<void> {
+  // SPECIAL CASE: Coins should go to money pouch (CoinPouchSystem), not inventory
+  // This handles clicking on coins in the bank grid
+  if (data.itemId === "coins") {
+    return handleBankWithdrawCoins(socket, { amount: data.quantity }, world);
+  }
+
   // Step 1: Common validation (player, rate limit, distance, db)
   const baseResult = validateTransactionRequest(
     socket,
@@ -726,6 +744,322 @@ export async function handleBankDepositAll(
   // Step 4: Sync in-memory cache (using common utility)
   emitInventorySyncEvents(ctx, {
     removedSlots: result.removedSlots,
+  });
+}
+
+// ============================================================================
+// COIN DEPOSIT/WITHDRAW HANDLERS
+// ============================================================================
+
+/**
+ * Handle bank deposit coins request
+ *
+ * Deposits coins from the player's money pouch (CoinPouchSystem) into bank storage.
+ * Coins are stored in bank_storage as a stackable item with itemId='coins'.
+ *
+ * SECURITY MEASURES:
+ * - validateTransactionRequest: player, rate limit, distance, db
+ * - Input validation (amount must be positive integer within bounds)
+ * - Lock order: characters → bank_storage (prevents deadlocks)
+ * - Atomic transaction with row-level locking and retry
+ * - Audit logging for large transactions (≥1M coins)
+ *
+ * @param socket - Client socket connection
+ * @param data - Contains amount to deposit
+ * @param world - Game world instance
+ */
+export async function handleBankDepositCoins(
+  socket: ServerSocket,
+  data: { amount: number },
+  world: World,
+): Promise<void> {
+  // Step 1: Common validation (player, rate limit, distance, db)
+  const baseResult = validateTransactionRequest(
+    socket,
+    world,
+    SessionType.BANK,
+    rateLimiter,
+  );
+
+  if (!baseResult.success) {
+    return; // Error already sent to client
+  }
+
+  const ctx = baseResult.context;
+
+  // Step 2: Input validation - BEFORE transaction to fail fast
+  if (!isValidQuantity(data.amount)) {
+    sendErrorToast(socket, "Invalid amount");
+    return;
+  }
+
+  // Step 3: Execute atomic transaction
+  const result = await executeSecureTransaction(ctx, {
+    errorMessages: {
+      INSUFFICIENT_POUCH_COINS: "Not enough coins in money pouch",
+      BANK_FULL: "Bank is full",
+      QUANTITY_OVERFLOW: "Bank cannot hold that many coins",
+    },
+    execute: async (tx) => {
+      // Lock character row FIRST (consistent lock order prevents deadlocks)
+      const characterResult = await tx.execute(
+        sql`SELECT coins FROM characters WHERE id = ${ctx.playerId} FOR UPDATE`,
+      );
+
+      const characterRow = characterResult.rows[0] as
+        | { coins: number }
+        | undefined;
+      if (!characterRow) {
+        throw new Error("PLAYER_NOT_FOUND");
+      }
+
+      const currentPouchCoins = characterRow.coins ?? 0;
+
+      // Verify sufficient coins in money pouch
+      if (currentPouchCoins < data.amount) {
+        throw new Error("INSUFFICIENT_POUCH_COINS");
+      }
+
+      // Lock bank coins row (if exists)
+      const bankCoinsResult = await tx.execute(
+        sql`SELECT * FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId} AND "itemId" = 'coins'
+            FOR UPDATE`,
+      );
+
+      const bankCoinsRow = bankCoinsResult.rows[0] as
+        | { id: number; quantity: number; slot: number }
+        | undefined;
+
+      // Check for overflow if adding to existing bank coins
+      if (bankCoinsRow) {
+        const currentBankCoins = bankCoinsRow.quantity ?? 0;
+        if (wouldOverflow(currentBankCoins, data.amount)) {
+          throw new Error("QUANTITY_OVERFLOW");
+        }
+      }
+
+      // Deduct from money pouch
+      await tx.execute(
+        sql`UPDATE characters SET coins = coins - ${data.amount} WHERE id = ${ctx.playerId}`,
+      );
+
+      // Add to bank (upsert pattern)
+      if (bankCoinsRow) {
+        // Increment existing coins
+        await tx.execute(
+          sql`UPDATE bank_storage SET quantity = quantity + ${data.amount}
+              WHERE id = ${bankCoinsRow.id}`,
+        );
+      } else {
+        // Find next available bank slot
+        const allBankItems = await tx
+          .select()
+          .from(schema.bankStorage)
+          .where(eq(schema.bankStorage.playerId, ctx.playerId));
+
+        const usedSlots = new Set(allBankItems.map((i) => i.slot ?? 0));
+        let nextSlot = 0;
+        while (usedSlots.has(nextSlot) && nextSlot < MAX_BANK_SLOTS) {
+          nextSlot++;
+        }
+
+        if (nextSlot >= MAX_BANK_SLOTS) {
+          throw new Error("BANK_FULL");
+        }
+
+        // Insert new coins row
+        await tx.insert(schema.bankStorage).values({
+          playerId: ctx.playerId,
+          itemId: "coins",
+          quantity: data.amount,
+          slot: nextSlot,
+        });
+      }
+
+      return {
+        newPouchBalance: currentPouchCoins - data.amount,
+      };
+    },
+  });
+
+  if (!result) return; // Error already handled by executeSecureTransaction
+
+  // Step 4: Send updated bank state to client
+  const bankRepo = new BankRepository(ctx.db.drizzle, ctx.db.pool);
+  const bankItems = await bankRepo.getPlayerBank(ctx.playerId);
+
+  sendToSocket(socket, "bankState", {
+    playerId: ctx.playerId,
+    items: bankItems,
+    maxSlots: MAX_BANK_SLOTS,
+  });
+
+  // Step 5: Sync CoinPouchSystem in-memory cache
+  emitInventorySyncEvents(ctx, {
+    newCoinBalance: result.newPouchBalance,
+  });
+
+  // Step 6: Audit logging for large transactions
+  if (data.amount >= 1_000_000) {
+    console.log(
+      `[BankCoins] AUDIT: ${ctx.playerId} deposited ${data.amount.toLocaleString()} coins`,
+    );
+  }
+
+  // Step 7: Success feedback
+  sendToSocket(socket, "showToast", {
+    message: `Deposited ${data.amount.toLocaleString()} coins`,
+    type: "success",
+  });
+}
+
+/**
+ * Handle bank withdraw coins request
+ *
+ * Withdraws coins from bank storage into the player's money pouch (CoinPouchSystem).
+ *
+ * SECURITY MEASURES:
+ * - validateTransactionRequest: player, rate limit, distance, db
+ * - Input validation (amount must be positive integer within bounds)
+ * - Lock order: characters → bank_storage (same as deposit, prevents deadlocks)
+ * - Overflow check for money pouch (max 2,147,483,647 coins)
+ * - Atomic transaction with row-level locking and retry
+ * - Audit logging for large transactions (≥1M coins)
+ *
+ * @param socket - Client socket connection
+ * @param data - Contains amount to withdraw
+ * @param world - Game world instance
+ */
+export async function handleBankWithdrawCoins(
+  socket: ServerSocket,
+  data: { amount: number },
+  world: World,
+): Promise<void> {
+  // Step 1: Common validation (player, rate limit, distance, db)
+  const baseResult = validateTransactionRequest(
+    socket,
+    world,
+    SessionType.BANK,
+    rateLimiter,
+  );
+
+  if (!baseResult.success) {
+    return; // Error already sent to client
+  }
+
+  const ctx = baseResult.context;
+
+  // Step 2: Input validation - BEFORE transaction to fail fast
+  if (!isValidQuantity(data.amount)) {
+    sendErrorToast(socket, "Invalid amount");
+    return;
+  }
+
+  // Step 3: Execute atomic transaction
+  const result = await executeSecureTransaction(ctx, {
+    errorMessages: {
+      INSUFFICIENT_BANK_COINS: "Not enough coins in bank",
+      COIN_OVERFLOW: "Cannot carry that many coins",
+      NO_COINS_IN_BANK: "No coins in bank",
+    },
+    execute: async (tx) => {
+      // Lock character row FIRST (consistent lock order prevents deadlocks)
+      const characterResult = await tx.execute(
+        sql`SELECT coins FROM characters WHERE id = ${ctx.playerId} FOR UPDATE`,
+      );
+
+      const characterRow = characterResult.rows[0] as
+        | { coins: number }
+        | undefined;
+      if (!characterRow) {
+        throw new Error("PLAYER_NOT_FOUND");
+      }
+
+      const currentPouchCoins = characterRow.coins ?? 0;
+
+      // Check for overflow in money pouch
+      if (wouldOverflow(currentPouchCoins, data.amount)) {
+        throw new Error("COIN_OVERFLOW");
+      }
+
+      // Lock bank coins row
+      const bankCoinsResult = await tx.execute(
+        sql`SELECT * FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId} AND "itemId" = 'coins'
+            FOR UPDATE`,
+      );
+
+      const bankCoinsRow = bankCoinsResult.rows[0] as
+        | { id: number; quantity: number; slot: number }
+        | undefined;
+
+      if (!bankCoinsRow) {
+        throw new Error("NO_COINS_IN_BANK");
+      }
+
+      const currentBankCoins = bankCoinsRow.quantity ?? 0;
+
+      // Verify sufficient coins in bank
+      if (currentBankCoins < data.amount) {
+        throw new Error("INSUFFICIENT_BANK_COINS");
+      }
+
+      // Deduct from bank
+      const newBankBalance = currentBankCoins - data.amount;
+
+      if (newBankBalance === 0) {
+        // Delete the bank row if no coins left
+        await tx
+          .delete(schema.bankStorage)
+          .where(eq(schema.bankStorage.id, bankCoinsRow.id));
+      } else {
+        // Decrement quantity
+        await tx.execute(
+          sql`UPDATE bank_storage SET quantity = ${newBankBalance}
+              WHERE id = ${bankCoinsRow.id}`,
+        );
+      }
+
+      // Add to money pouch
+      await tx.execute(
+        sql`UPDATE characters SET coins = coins + ${data.amount} WHERE id = ${ctx.playerId}`,
+      );
+
+      return {
+        newPouchBalance: currentPouchCoins + data.amount,
+      };
+    },
+  });
+
+  if (!result) return; // Error already handled by executeSecureTransaction
+
+  // Step 4: Send updated bank state to client
+  const bankRepo = new BankRepository(ctx.db.drizzle, ctx.db.pool);
+  const bankItems = await bankRepo.getPlayerBank(ctx.playerId);
+
+  sendToSocket(socket, "bankState", {
+    playerId: ctx.playerId,
+    items: bankItems,
+    maxSlots: MAX_BANK_SLOTS,
+  });
+
+  // Step 5: Sync CoinPouchSystem in-memory cache
+  emitInventorySyncEvents(ctx, {
+    newCoinBalance: result.newPouchBalance,
+  });
+
+  // Step 6: Audit logging for large transactions
+  if (data.amount >= 1_000_000) {
+    console.log(
+      `[BankCoins] AUDIT: ${ctx.playerId} withdrew ${data.amount.toLocaleString()} coins`,
+    );
+  }
+
+  // Step 7: Success feedback
+  sendToSocket(socket, "showToast", {
+    message: `Withdrew ${data.amount.toLocaleString()} coins`,
+    type: "success",
   });
 }
 

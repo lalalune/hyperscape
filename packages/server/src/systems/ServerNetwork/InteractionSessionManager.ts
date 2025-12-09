@@ -271,8 +271,11 @@ export class InteractionSessionManager implements ISessionReader {
 
     this.sessions.delete(playerId);
 
-    // Send close packet to client (unless closing due to disconnect)
-    if (sendPacket && reason !== "disconnect") {
+    // Send close packet to client (unless closing due to disconnect or new_session)
+    // When reason is "new_session", we're replacing the session with a new one,
+    // so we don't want to close the UI - the new UI will just replace it.
+    // This fixes the bug where reopening bank without moving would immediately close.
+    if (sendPacket && reason !== "disconnect" && reason !== "new_session") {
       const packetName = this.getClosePacketName(session.sessionType);
       this.broadcast.sendToPlayer(playerId, packetName, {
         reason,
