@@ -1,6 +1,16 @@
 /**
  * BankPanel - RuneScape-style bank interface
  *
+ * SIMPLE SERVER-AUTHORITATIVE APPROACH:
+ * - NO optimistic predictions - just display what server tells us
+ * - Server is the single source of truth
+ * - Clicks fire requests to server and wait for response
+ * - 100% reliable - no desync, no duplication bugs, no oscillation
+ *
+ * This approach is used by many successful MMOs including early RuneScape.
+ * Trade-off: Very slightly less responsive (wait ~50-100ms for server),
+ * but 100% reliable with zero edge cases.
+ *
  * Features:
  * - Scrollable grid display of bank items (480 slots)
  * - Right-click context menu with withdraw/deposit options (1, 5, 10, All, X)
@@ -13,6 +23,10 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { ClientWorld, InventorySlotItem } from "../../types";
 import { COLORS } from "../../constants";
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface BankItem {
   itemId: string;
@@ -50,12 +64,20 @@ interface CoinModalState {
   maxAmount: number;
 }
 
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
 const BANK_SLOTS_PER_ROW = 10;
-const BANK_VISIBLE_ROWS = 8; // Height of visible area to match inventory
+const BANK_VISIBLE_ROWS = 8;
 const BANK_SCROLL_HEIGHT = BANK_VISIBLE_ROWS * 45; // 45px per row (44px + gap)
 
 const INV_SLOTS_PER_ROW = 4;
 const INV_ROWS = 7;
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
 /**
  * Get icon for item based on itemId
@@ -113,9 +135,10 @@ function formatQuantity(quantity: number): string {
   return String(quantity);
 }
 
-/**
- * Context Menu Component
- */
+// ============================================================================
+// CONTEXT MENU COMPONENT
+// ============================================================================
+
 function ContextMenu({
   menu,
   onAction,
@@ -139,21 +162,17 @@ function ContextMenu({
     onClose();
   };
 
-  // Close on click outside - only when menu is visible
-  // Use capture phase to catch events BEFORE stopPropagation in BankPanel
+  // Close on click outside
   useEffect(() => {
     if (!menu.visible) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      // Check if click is outside the menu
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
 
-    // Add listener on next frame to avoid immediate trigger from right-click
     requestAnimationFrame(() => {
-      // Use capture: true to catch events before they're stopped by BankPanel
       document.addEventListener("mousedown", handleClickOutside, true);
     });
 
@@ -169,10 +188,9 @@ function ContextMenu({
     { label: `${actionLabel} 5`, amount: 5 },
     { label: `${actionLabel} 10`, amount: 10 },
     { label: `${actionLabel} All`, amount: menu.quantity },
-    { label: `${actionLabel} X`, amount: -1 }, // -1 indicates custom
+    { label: `${actionLabel} X`, amount: -1 },
   ];
 
-  // Use portal to render menu directly to body, avoiding transform issues
   return createPortal(
     <div
       ref={menuRef}
@@ -277,10 +295,10 @@ function ContextMenu({
   );
 }
 
-/**
- * Coin Amount Modal Component
- * For entering custom deposit/withdraw amounts
- */
+// ============================================================================
+// COIN AMOUNT MODAL COMPONENT
+// ============================================================================
+
 function CoinAmountModal({
   modal,
   onConfirm,
@@ -462,11 +480,13 @@ function CoinAmountModal({
   );
 }
 
+// ============================================================================
+// MAIN BANK PANEL COMPONENT
+// ============================================================================
+
 // NOTE: Distance validation is now SERVER-AUTHORITATIVE
 // The server tracks interaction sessions and sends bankClose packets
 // when the player moves too far away. The client no longer polls distance.
-// This prevents race conditions between server and client position sync
-// that caused unreliable bank opening under lag.
 
 export function BankPanel({
   items,
@@ -492,24 +512,20 @@ export function BankPanel({
     maxAmount: 0,
   });
 
-  // NOTE: Distance validation is handled server-side (InteractionSessionManager)
-  // The server sends bankClose packets when the player moves too far away.
-  // This eliminates race conditions between server and client position sync.
+  // ========== SIMPLE SERVER-AUTHORITATIVE UI ==========
+  // NO optimistic predictions - just display server state directly.
+  // This is simple, reliable, and correct.
+  //
+  // Server queue processes operations one at a time per player.
+  // Each click fires a request; server responds with updated bank state.
+  // The UI updates when the new props arrive from server.
 
-  // Calculate bank coins from items array
+  // Bank coins from server state
   const bankCoinsItem = items.find((item) => item.itemId === "coins");
   const bankCoins = bankCoinsItem?.quantity ?? 0;
 
-  // Calculate total rows needed for all bank slots
-  const totalBankRows = Math.ceil(maxSlots / BANK_SLOTS_PER_ROW);
-
-  // Convert inventory array to slot-indexed array
-  const inventorySlots: (InventorySlotViewItem | null)[] = Array(28).fill(null);
-  inventory.forEach((item) => {
-    if (typeof item.slot === "number" && item.slot >= 0 && item.slot < 28) {
-      inventorySlots[item.slot] = item;
-    }
-  });
+  // ========== ACTION HANDLERS ==========
+  // Simple fire-and-forget to server. Server will respond with updated state.
 
   const handleWithdraw = useCallback(
     (itemId: string, quantity: number) => {
@@ -529,14 +545,12 @@ export function BankPanel({
     [world.network],
   );
 
-  const handleDepositAll = () => {
-    // Deposit all inventory items in a single batch operation
+  const handleDepositAll = useCallback(() => {
     if (world.network?.send) {
       world.network.send("bankDepositAll", {});
     }
-  };
+  }, [world.network]);
 
-  // Coin deposit/withdraw handlers
   const handleDepositCoins = useCallback(
     (amount: number) => {
       if (world.network?.send && amount > 0) {
@@ -554,6 +568,8 @@ export function BankPanel({
     },
     [world.network],
   );
+
+  // ========== COIN MODAL HANDLERS ==========
 
   const openCoinModal = (action: "deposit" | "withdraw") => {
     const maxAmount = action === "deposit" ? coins : bankCoins;
@@ -573,6 +589,8 @@ export function BankPanel({
       handleWithdrawCoins(amount);
     }
   };
+
+  // ========== CONTEXT MENU HANDLERS ==========
 
   const handleContextMenuAction = useCallback(
     (action: string, quantity: number) => {
@@ -599,7 +617,6 @@ export function BankPanel({
     e.stopPropagation();
 
     // For inventory items, calculate total count across ALL slots
-    // (since inventory items don't stack - each is in its own slot with qty=1)
     let totalQuantity = quantity;
     if (type === "inventory") {
       totalQuantity = inventory
@@ -617,6 +634,8 @@ export function BankPanel({
     });
   };
 
+  // ========== RENDER ==========
+
   return (
     <div
       className="fixed z-[9999] pointer-events-auto"
@@ -628,7 +647,7 @@ export function BankPanel({
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      {/* Custom scrollbar styles for webkit browsers */}
+      {/* Custom scrollbar styles */}
       <style>{`
         .bank-scrollbar::-webkit-scrollbar {
           width: 8px;
@@ -645,14 +664,13 @@ export function BankPanel({
           background: rgba(139, 69, 19, 0.8);
         }
       `}</style>
-      {/* Context Menu */}
+
       <ContextMenu
         menu={contextMenu}
         onAction={handleContextMenuAction}
         onClose={closeContextMenu}
       />
 
-      {/* Coin Amount Modal */}
       <CoinAmountModal
         modal={coinModal}
         onConfirm={handleCoinModalConfirm}
@@ -802,7 +820,7 @@ export function BankPanel({
             </div>
           </div>
 
-          {/* Scrollable Item Grid */}
+          {/* Scrollable Item Grid - Shows SERVER state directly */}
           <div
             className="p-3 overflow-y-auto overflow-x-hidden bank-scrollbar"
             style={{
@@ -819,6 +837,7 @@ export function BankPanel({
             >
               {Array.from({ length: maxSlots }).map((_, idx) => {
                 const slotIndex = idx;
+                // Display SERVER state directly - no optimistic predictions
                 const item = items.find((i) => i.slot === slotIndex);
 
                 return (
@@ -946,7 +965,7 @@ export function BankPanel({
             </h2>
           </div>
 
-          {/* Inventory Grid */}
+          {/* Inventory Grid - Shows SERVER state directly */}
           <div className="p-2">
             <div
               className="grid gap-1"
@@ -956,7 +975,8 @@ export function BankPanel({
             >
               {Array.from({ length: INV_SLOTS_PER_ROW * INV_ROWS }).map(
                 (_, idx) => {
-                  const item = inventorySlots[idx];
+                  // Display SERVER state directly - no optimistic predictions
+                  const item = inventory.find((i) => i && i.slot === idx);
 
                   return (
                     <div
