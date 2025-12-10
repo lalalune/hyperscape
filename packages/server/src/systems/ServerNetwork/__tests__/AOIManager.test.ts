@@ -7,7 +7,7 @@
  * NO MOCKS - Tests actual AOI logic
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { AOIManager } from "../AOIManager";
 
 describe("AOIManager", () => {

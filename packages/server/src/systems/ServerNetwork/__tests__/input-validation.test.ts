@@ -22,7 +22,7 @@
  * Note: These tests may skip if @hyperscape/shared module resolution fails
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 
 // Dynamic import to handle module resolution in isolated test environment
 let validators: {
@@ -179,7 +179,7 @@ describe.skipIf(!canRunTests)("isValidBankSlot", () => {
   it("should accept valid bank slot indices", () => {
     expect(validators.isValidBankSlot(0)).toBe(true);
     expect(validators.isValidBankSlot(100)).toBe(true);
-    expect(validators.isValidBankSlot(500)).toBe(true);
+    expect(validators.isValidBankSlot(479)).toBe(true); // Max valid slot (480 total slots, 0-indexed)
   });
 
   it("should reject negative indices", () => {

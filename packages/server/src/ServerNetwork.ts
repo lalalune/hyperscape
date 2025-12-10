@@ -155,9 +155,14 @@ import {
   ITEM_ID_TO_KEY,
 } from "@hyperscape/shared";
 import type { Vector3 } from "three";
-import { isPrivyEnabled, verifyPrivyToken } from "./privy-auth";
-import { createJWT, verifyJWT } from "./utils";
+import { isPrivyEnabled, verifyPrivyToken } from "./infrastructure/auth/privy-auth";
+import { createJWT, verifyJWT } from "./shared/utils";
 import { checkPlayerBan } from "./blockchain/BanCheckService";
+import {
+  OptimizedBroadcastManager,
+  type EntityUpdateData,
+} from "./systems/ServerNetwork/OptimizedBroadcastManager";
+import { UpdatePriority } from "./systems/ServerNetwork/UpdateThrottler";
 
 // SocketInterface is the extended ServerSocket type
 type SocketInterface = ServerSocket;
@@ -255,6 +260,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   /** Maximum upload file size in bytes */
   maxUploadSize: number;
+
+  /** Optimized broadcast manager for AOI, throttling, and batching */
+  private broadcastManager: OptimizedBroadcastManager | null = null;
+
+  /** Tick counter for update throttling */
+  private tickCount = 0;
 
   // Position validation
   private lastValidationTime = 0;
@@ -434,27 +445,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     socket: SocketInterface,
     data: CharacterCreatePacket,
   ): Promise<void> {
-    console.log("[ServerNetwork] 🎭 onCharacterCreate called with data:", data);
-
     const name = (data.name || "").trim().slice(0, 20) || "Adventurer";
-
-    console.log("[ServerNetwork] Raw name from payload:", data.name);
-    console.log("[ServerNetwork] Processed name:", name);
 
     // Basic validation: alphanumeric plus spaces, 3-20 chars
     const safeName = name.replace(/[^a-zA-Z0-9 ]/g, "").trim();
     const finalName = safeName.length >= 3 ? safeName : "Adventurer";
 
-    console.log("[ServerNetwork] Final validated name:", finalName);
-
     const id = uuid();
     const accountId = socket.accountId || "";
-
-    console.log("[ServerNetwork] Character creation params:", {
-      characterId: id,
-      accountId,
-      finalName,
-    });
 
     if (!accountId) {
       console.error(
@@ -498,9 +496,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         return;
       }
 
-      console.log(
-        "[ServerNetwork] ✅ Character creation successful, sending response",
-      );
     } catch (err) {
       console.error("[ServerNetwork] ❌ EXCEPTION in createCharacter:", err);
       this.sendTo(socket.id, "showToast", {
@@ -511,30 +506,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
 
     const responseData = { id, name: finalName };
+    this.sendTo(socket.id, "characterCreated", responseData);
 
-    console.log(
-      "[ServerNetwork] Sending characterCreated response:",
-      responseData,
-    );
-
-    try {
-      this.sendTo(socket.id, "characterCreated", responseData);
-
-      // CRITICAL: Send updated character list so client can see the new character
-      const updatedCharacters = await this.loadCharacterList(accountId);
-      console.log(
-        "[ServerNetwork] Sending updated character list after creation:",
-        updatedCharacters,
-      );
-      this.sendTo(socket.id, "characterList", {
-        characters: updatedCharacters,
-      });
-    } catch (err) {
-      console.error(
-        "[ServerNetwork] ❌ ERROR sending characterCreated packet:",
-        err,
-      );
-    }
+    // CRITICAL: Send updated character list so client can see the new character
+    const updatedCharacters = await this.loadCharacterList(accountId);
+    this.sendTo(socket.id, "characterList", {
+      characters: updatedCharacters,
+    });
   }
 
   private onCharacterSelected(
@@ -552,67 +530,38 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     socket: SocketInterface,
     data: EnterWorldPacket,
   ): Promise<void> {
-    console.log("[ServerNetwork] 🚪 onEnterWorld called with data:", data);
-
     // Spawn the entity now, preserving legacy spawn shape
     if (socket.player) {
-      console.log("[ServerNetwork] Player already spawned, skipping");
       return; // Already spawned
     }
     const accountId = socket.accountId || undefined;
     const characterId = data.characterId || null;
 
-    console.log("[ServerNetwork] Enter world params:", {
-      accountId,
-      characterId,
-      hasSocket: !!socket,
-    });
-
     // Load character data from DB if characterId provided
     let name = "Adventurer";
     let characterData: { id: string; name: string } | null = null;
     if (characterId && accountId) {
-      try {
-        const databaseSystem = this.world.getSystem("database") as
-          | import("./DatabaseSystem").DatabaseSystem
-          | undefined;
-        if (databaseSystem) {
-          const characters = await databaseSystem.getCharactersAsync(accountId);
-          console.log(
-            "[ServerNetwork] Loaded characters for account:",
-            characters,
+      const databaseSystem = this.world.getSystem("database") as
+        | import("./DatabaseSystem").DatabaseSystem
+        | undefined;
+      if (databaseSystem) {
+        const characters = await databaseSystem.getCharactersAsync(accountId);
+        characterData = characters.find((c) => c.id === characterId) || null;
+        if (characterData) {
+          name = characterData.name;
+        } else {
+          console.warn(
+            `[ServerNetwork] Character ${characterId} not found for account ${accountId}`,
           );
-          characterData = characters.find((c) => c.id === characterId) || null;
-          if (characterData) {
-            name = characterData.name;
-            console.log("[ServerNetwork] ✅ Found character:", characterData);
-          } else {
-            console.warn(
-              `[ServerNetwork] ❌ Character ${characterId} not found for account ${accountId}`,
-            );
-          }
         }
-      } catch (err) {
-        console.error("[ServerNetwork] ❌ Failed to load character data:", err);
       }
-    } else {
-      console.warn(
-        "[ServerNetwork] ⚠️ Missing characterId or accountId for enterWorld",
-      );
     }
-
-    console.log("[ServerNetwork] Will spawn player with name:", name);
 
     const avatar = undefined;
     const roles: string[] = [];
 
     // Require a characterId to ensure persistence uses stable IDs
     const entityId = characterId || socket.id;
-    if (!characterId) {
-      console.warn(
-        `[ServerNetwork] No characterId provided to enterWorld, using socketId`,
-      );
-    }
 
     // Load saved position from character data if available
     let position = Array.isArray(this.spawn.position)
@@ -625,64 +574,62 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Load full character data from DB (position AND skills)
     let savedSkills: Record<string, { level: number; xp: number }> | undefined;
     if (characterId && accountId) {
-      try {
-        const databaseSystem = this.world.getSystem("database") as
-          | import("./DatabaseSystem").DatabaseSystem
-          | undefined;
-        if (databaseSystem) {
-          const savedData = await databaseSystem.getPlayerAsync(characterId);
-          if (savedData) {
-            // Load position
-            if (savedData.positionX !== undefined) {
-              const savedY =
-                savedData.positionY !== undefined &&
-                savedData.positionY !== null
-                  ? Number(savedData.positionY)
-                  : 10;
-              if (savedY >= 5 && savedY <= 200) {
-                position = [
-                  Number(savedData.positionX) || 0,
-                  savedY,
-                  Number(savedData.positionZ) || 0,
-                ];
-              }
+      const databaseSystem = this.world.getSystem("database") as
+        | import("./DatabaseSystem").DatabaseSystem
+        | undefined;
+      if (databaseSystem) {
+        const savedData = await databaseSystem.getPlayerAsync(characterId);
+        if (savedData) {
+          // Load position
+          if (savedData.positionX !== undefined) {
+            const savedY =
+              savedData.positionY !== undefined &&
+              savedData.positionY !== null
+                ? Number(savedData.positionY)
+                : 10;
+            if (savedY >= 5 && savedY <= 200) {
+              position = [
+                Number(savedData.positionX) || 0,
+                savedY,
+                Number(savedData.positionZ) || 0,
+              ];
             }
-            // Load skills
-            savedSkills = {
-              attack: { level: savedData.attackLevel, xp: savedData.attackXp },
-              strength: {
-                level: savedData.strengthLevel,
-                xp: savedData.strengthXp,
-              },
-              defense: {
-                level: savedData.defenseLevel,
-                xp: savedData.defenseXp,
-              },
-              constitution: {
-                level: savedData.constitutionLevel,
-                xp: savedData.constitutionXp,
-              },
-              ranged: { level: savedData.rangedLevel, xp: savedData.rangedXp },
-              woodcutting: {
-                level: savedData.woodcuttingLevel || 1,
-                xp: savedData.woodcuttingXp || 0,
-              },
-              fishing: {
-                level: savedData.fishingLevel || 1,
-                xp: savedData.fishingXp || 0,
-              },
-              firemaking: {
-                level: savedData.firemakingLevel || 1,
-                xp: savedData.firemakingXp || 0,
-              },
-              cooking: {
-                level: savedData.cookingLevel || 1,
-                xp: savedData.cookingXp || 0,
-              },
-            };
           }
+          // Load skills
+          savedSkills = {
+            attack: { level: savedData.attackLevel, xp: savedData.attackXp },
+            strength: {
+              level: savedData.strengthLevel,
+              xp: savedData.strengthXp,
+            },
+            defense: {
+              level: savedData.defenseLevel,
+              xp: savedData.defenseXp,
+            },
+            constitution: {
+              level: savedData.constitutionLevel,
+              xp: savedData.constitutionXp,
+            },
+            ranged: { level: savedData.rangedLevel, xp: savedData.rangedXp },
+            woodcutting: {
+              level: savedData.woodcuttingLevel || 1,
+              xp: savedData.woodcuttingXp || 0,
+            },
+            fishing: {
+              level: savedData.fishingLevel || 1,
+              xp: savedData.fishingXp || 0,
+            },
+            firemaking: {
+              level: savedData.firemakingLevel || 1,
+              xp: savedData.firemakingXp || 0,
+            },
+            cooking: {
+              level: savedData.cookingLevel || 1,
+              xp: savedData.cookingXp || 0,
+            },
+          };
         }
-      } catch {}
+      }
     }
 
     // Ground to terrain
@@ -719,131 +666,120 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       : undefined;
     socket.player = (addedEntity as Entity) || undefined;
     if (socket.player) {
+      // Register player with AOI system for optimized broadcasts
+      this.registerPlayerAOI(
+        socket.player.id,
+        position[0],
+        position[2],
+        socket.id,
+      );
+
       this.world.emit(EventType.PLAYER_JOINED, {
         playerId: socket.player.data.id as string,
         player:
           socket.player as unknown as import("@hyperscape/shared").PlayerLocal,
       });
-      try {
-        // CRITICAL: Send ALL existing entities to the joining player FIRST
-        // They need to see other players and world entities
-        console.log(
-          "[ServerNetwork] 📤 Sending all existing entities to joining player",
-        );
-        for (const entity of this.world.entities.values()) {
-          // Don't send their own entity yet (we'll send it with special handling below)
-          if (entity.id !== socket.player.id) {
-            this.sendTo(socket.id, "entityAdded", entity.serialize());
-          }
+      // CRITICAL: Send ALL existing entities to the joining player FIRST
+      // They need to see other players and world entities
+      for (const entity of this.world.entities.values()) {
+        // Don't send their own entity yet (we'll send it with special handling below)
+        if (entity.id !== socket.player.id) {
+          this.sendTo(socket.id, "entityAdded", entity.serialize());
         }
+      }
 
-        // Then send to everyone else about the new player
-        this.send("entityAdded", socket.player.serialize(), socket.id);
+      // Then send to everyone else about the new player
+      this.send("entityAdded", socket.player.serialize(), socket.id);
 
-        // And also to the originating socket so their client receives their own entity
-        this.sendTo(socket.id, "entityAdded", socket.player.serialize());
+      // And also to the originating socket so their client receives their own entity
+      this.sendTo(socket.id, "entityAdded", socket.player.serialize());
 
-        // Immediately reinforce authoritative transform to avoid initial client-side default pose
-        this.sendTo(socket.id, "entityModified", {
-          id: socket.player.id,
-          changes: {
-            p: position,
-            q: quaternion,
-            v: [0, 0, 0],
-            e: "idle",
-          },
+      // Immediately reinforce authoritative transform to avoid initial client-side default pose
+      this.sendTo(socket.id, "entityModified", {
+        id: socket.player.id,
+        changes: {
+          p: position,
+          q: quaternion,
+          v: [0, 0, 0],
+          e: "idle",
+        },
+      });
+      // Send initial skills to client immediately after spawn
+      if (savedSkills) {
+        this.sendTo(socket.id, "skillsUpdated", {
+          playerId: socket.player.id,
+          skills: savedSkills,
         });
-        // Send initial skills to client immediately after spawn
-        if (savedSkills) {
-          this.sendTo(socket.id, "skillsUpdated", {
-            playerId: socket.player.id,
-            skills: savedSkills,
-          });
-        }
-        // Send inventory snapshot immediately from persistence to avoid races
-        try {
-          const dbSys = this.world.getSystem?.("database") as
-            | DatabaseSystemOperations
-            | undefined;
-          const persistenceId = characterId || socket.player.id;
-          const rows = dbSys?.getPlayerInventoryAsync
-            ? await dbSys.getPlayerInventoryAsync(persistenceId)
-            : [];
-          const coinsRow = dbSys?.getPlayerAsync
-            ? await dbSys.getPlayerAsync(persistenceId)
-            : null;
-          const sorted = rows
-            .map((r) => ({
-              rawSlot:
-                Number.isFinite(r.slotIndex) && (r.slotIndex as number) >= 0
-                  ? (r.slotIndex as number)
-                  : Number.MAX_SAFE_INTEGER,
-              itemId: String(r.itemId),
-              quantity: r.quantity || 1,
-            }))
-            .sort((a, b) => a.rawSlot - b.rawSlot);
-          const items = sorted.map((r, index) => {
-            const def = getItem(r.itemId);
-            return {
-              slot: Math.min(index, 27),
-              itemId: r.itemId,
-              quantity: r.quantity,
-              item: def
-                ? {
-                    id: def.id,
-                    name: def.name,
-                    type: def.type,
-                    stackable: !!def.stackable,
-                    weight: def.weight || 0,
-                  }
-                : {
-                    id: r.itemId,
-                    name: r.itemId,
-                    type: "misc",
-                    stackable: false,
-                    weight: 0,
-                  },
-            };
-          });
-          this.sendTo(socket.id, "inventoryUpdated", {
-            playerId: socket.player.id,
-            items,
-            coins: coinsRow?.coins ?? 0,
-            maxSlots: 28,
-          });
-        } catch {}
+      }
+      // Send inventory snapshot immediately from persistence to avoid races
+      const dbSys = this.world.getSystem?.("database") as
+        | DatabaseSystemOperations
+        | undefined;
+      const persistenceId = characterId || socket.player.id;
+      const rows = dbSys?.getPlayerInventoryAsync
+        ? await dbSys.getPlayerInventoryAsync(persistenceId)
+        : [];
+      const coinsRow = dbSys?.getPlayerAsync
+        ? await dbSys.getPlayerAsync(persistenceId)
+        : null;
+      const sorted = rows
+        .map((r) => ({
+          rawSlot:
+            Number.isFinite(r.slotIndex) && (r.slotIndex as number) >= 0
+              ? (r.slotIndex as number)
+              : Number.MAX_SAFE_INTEGER,
+          itemId: String(r.itemId),
+          quantity: r.quantity || 1,
+        }))
+        .sort((a, b) => a.rawSlot - b.rawSlot);
+      const items = sorted.map((r, index) => {
+        const def = getItem(r.itemId);
+        return {
+          slot: Math.min(index, 27),
+          itemId: r.itemId,
+          quantity: r.quantity,
+          item: def
+            ? {
+                id: def.id,
+                name: def.name,
+                type: def.type,
+                stackable: !!def.stackable,
+                weight: def.weight || 0,
+              }
+            : {
+                id: r.itemId,
+                name: r.itemId,
+                type: "misc",
+                stackable: false,
+                weight: 0,
+              },
+        };
+      });
+      this.sendTo(socket.id, "inventoryUpdated", {
+        playerId: socket.player.id,
+        items,
+        coins: coinsRow?.coins ?? 0,
+        maxSlots: 28,
+      });
 
-        // CRITICAL: Send resource snapshot so player can see gatherable resources
-        try {
-          const resourceSystem = this.world.getSystem?.("resource") as
-            | ResourceSystem
-            | undefined;
-          const resources = resourceSystem?.getAllResources?.() || [];
-          const payload = {
-            resources: resources.map((r) => ({
-              id: r.id,
-              type: r.type,
-              position: r.position,
-              isAvailable: r.isAvailable,
-              respawnAt:
-                !r.isAvailable && r.lastDepleted && r.respawnTime
-                  ? r.lastDepleted + r.respawnTime
-                  : undefined,
-            })),
-          };
-          this.sendTo(socket.id, "resourceSnapshot", payload);
-          console.log(
-            "[ServerNetwork] 📤 Sent resource snapshot with",
-            resources.length,
-            "resources",
-          );
-        } catch (_err) {
-          console.error(
-            "[ServerNetwork] Failed to send resource snapshot:",
-            _err,
-          );
-        }
-      } catch (_err) {}
+      // CRITICAL: Send resource snapshot so player can see gatherable resources
+      const resourceSystem = this.world.getSystem?.("resource") as
+        | ResourceSystem
+        | undefined;
+      const resources = resourceSystem?.getAllResources?.() || [];
+      const payload = {
+        resources: resources.map((r) => ({
+          id: r.id,
+          type: r.type,
+          position: r.position,
+          isAvailable: r.isAvailable,
+          respawnAt:
+            !r.isAvailable && r.lastDepleted && r.respawnTime
+              ? r.lastDepleted + r.respawnTime
+              : undefined,
+        })),
+      };
+      this.sendTo(socket.id, "resourceSnapshot", payload);
     }
   }
 
@@ -871,8 +807,18 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     if (!this.db) {
       throw new Error("[ServerNetwork] Database not available in start method");
     }
+
+    // Initialize optimized broadcast manager for AOI + throttling + batching
+    this.broadcastManager = new OptimizedBroadcastManager(this.sockets, {
+      cellSize: 50, // 50m cells
+      viewDistance: 2, // 2 cells = 250m view distance
+      enableAOI: true,
+      enableThrottling: true,
+      enableBatching: true,
+    });
+
     // Attempt to ensure auth columns exist to prevent 'no such column: privyUserId'
-    await this.ensureUsersAuthColumns().catch(() => {});
+    await this.ensureUsersAuthColumns();
     // get spawn
     const spawnRow = (await this.db("config").where("key", "spawn").first()) as
       | { value?: string }
@@ -901,14 +847,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     const settingsRow = (await this.db("config")
       .where("key", "settings")
       .first()) as { value?: string } | undefined;
-    try {
-      const settings = JSON.parse(settingsRow?.value || "{}");
-      // Deserialize settings if the method exists
-      if (this.world.settings.deserialize) {
-        this.world.settings.deserialize(settings);
-      }
-    } catch (_err) {
-      console.error(_err);
+    const settings = JSON.parse(settingsRow?.value || "{}");
+    // Deserialize settings if the method exists
+    if (this.world.settings.deserialize) {
+      this.world.settings.deserialize(settings);
     }
 
     // watch settings changes
@@ -925,91 +867,87 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Environment model loading is handled by ServerEnvironment.start()
 
     // Bridge important resource events to all clients using dedicated packets and snapshot on connect
-    try {
-      this.world.on(EventType.RESOURCE_DEPLETED, (...args: unknown[]) =>
-        this.send("resourceDepleted", args[0]),
-      );
-      this.world.on(EventType.RESOURCE_RESPAWNED, (...args: unknown[]) =>
-        this.send("resourceRespawned", args[0]),
-      );
-      this.world.on(EventType.RESOURCE_SPAWNED, (...args: unknown[]) =>
-        this.send("resourceSpawned", args[0]),
-      );
-      this.world.on(
-        EventType.RESOURCE_SPAWN_POINTS_REGISTERED,
-        (...args: unknown[]) => this.send("resourceSpawnPoints", args[0]),
-      );
-      this.world.on(EventType.INVENTORY_UPDATED, (...args: unknown[]) => {
-        if (process.env.DEBUG_RPG === "1") {
-          // Debug logging disabled, enable if needed for RPG debugging
-        }
-        this.send("inventoryUpdated", args[0]);
-      });
-      // Bridge SKILLS_UPDATED to clients using skillsUpdated packet
-      this.world.on(EventType.SKILLS_UPDATED, (payload: unknown) => {
-        const data = payload as { playerId?: string; skills?: unknown };
-        if (data?.playerId) {
-          this.sendToPlayerId(data.playerId, "skillsUpdated", data);
-        } else {
-          this.send("skillsUpdated", payload);
-        }
-      });
-      // Also bridge UI_UPDATE for general player stats using playerState packet
-      this.world.on(EventType.UI_UPDATE, (payload: unknown) => {
-        const data = payload as
-          | { component?: string; data?: { playerId?: string } }
-          | undefined;
-        if (data?.component === "player" && data.data?.playerId) {
-          // Send updated player state to the owning player
-          this.sendToPlayerId(data.data.playerId, "playerState", data.data);
-        }
-      });
-      // Send initial inventory to the correct player as soon as it's initialized
-      this.world.on(EventType.INVENTORY_INITIALIZED, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          inventory: { items: unknown[]; coins: number; maxSlots: number };
-        };
-        const packet = {
-          playerId: data.playerId,
-          items: data.inventory.items,
-          coins: data.inventory.coins,
-          maxSlots: data.inventory.maxSlots,
-        };
-        this.sendToPlayerId(data.playerId, "inventoryUpdated", packet);
-      });
-      // Serve on-demand inventory requests from the client UI
-      this.world.on(EventType.INVENTORY_REQUEST, (payload: unknown) => {
-        const data = payload as { playerId: string };
-        try {
-          const invSystem = this.world.getSystem?.("inventory") as
-            | InventorySystemData
-            | undefined;
-          const inv = invSystem?.getInventoryData
-            ? invSystem.getInventoryData(data.playerId)
-            : { items: [], coins: 0, maxSlots: 28 };
-          const packet = {
-            playerId: data.playerId,
-            items: inv.items,
-            coins: inv.coins,
-            maxSlots: inv.maxSlots,
-          };
-          this.sendToPlayerId(data.playerId, "inventoryUpdated", packet);
-        } catch {}
-      });
+    this.world.on(EventType.RESOURCE_DEPLETED, (...args: unknown[]) =>
+      this.send("resourceDepleted", args[0]),
+    );
+    this.world.on(EventType.RESOURCE_RESPAWNED, (...args: unknown[]) =>
+      this.send("resourceRespawned", args[0]),
+    );
+    this.world.on(EventType.RESOURCE_SPAWNED, (...args: unknown[]) =>
+      this.send("resourceSpawned", args[0]),
+    );
+    this.world.on(
+      EventType.RESOURCE_SPAWN_POINTS_REGISTERED,
+      (...args: unknown[]) => this.send("resourceSpawnPoints", args[0]),
+    );
+    this.world.on(EventType.INVENTORY_UPDATED, (...args: unknown[]) => {
+      if (process.env.DEBUG_RPG === "1") {
+        // Debug logging disabled, enable if needed for RPG debugging
+      }
+      this.send("inventoryUpdated", args[0]);
+    });
+    // Bridge SKILLS_UPDATED to clients using skillsUpdated packet
+    this.world.on(EventType.SKILLS_UPDATED, (payload: unknown) => {
+      const data = payload as { playerId?: string; skills?: unknown };
+      if (data?.playerId) {
+        this.sendToPlayerId(data.playerId, "skillsUpdated", data);
+      } else {
+        this.send("skillsUpdated", payload);
+      }
+    });
+    // Also bridge UI_UPDATE for general player stats using playerState packet
+    this.world.on(EventType.UI_UPDATE, (payload: unknown) => {
+      const data = payload as
+        | { component?: string; data?: { playerId?: string } }
+        | undefined;
+      if (data?.component === "player" && data.data?.playerId) {
+        // Send updated player state to the owning player
+        this.sendToPlayerId(data.data.playerId, "playerState", data.data);
+      }
+    });
+    // Send initial inventory to the correct player as soon as it's initialized
+    this.world.on(EventType.INVENTORY_INITIALIZED, (payload: unknown) => {
+      const data = payload as {
+        playerId: string;
+        inventory: { items: unknown[]; coins: number; maxSlots: number };
+      };
+      const packet = {
+        playerId: data.playerId,
+        items: data.inventory.items,
+        coins: data.inventory.coins,
+        maxSlots: data.inventory.maxSlots,
+      };
+      this.sendToPlayerId(data.playerId, "inventoryUpdated", packet);
+    });
+    // Serve on-demand inventory requests from the client UI
+    this.world.on(EventType.INVENTORY_REQUEST, (payload: unknown) => {
+      const data = payload as { playerId: string };
+      const invSystem = this.world.getSystem?.("inventory") as
+        | InventorySystemData
+        | undefined;
+      const inv = invSystem?.getInventoryData
+        ? invSystem.getInventoryData(data.playerId)
+        : { items: [], coins: 0, maxSlots: 28 };
+      const packet = {
+        playerId: data.playerId,
+        items: inv.items,
+        coins: inv.coins,
+        maxSlots: inv.maxSlots,
+      };
+      this.sendToPlayerId(data.playerId, "inventoryUpdated", packet);
+    });
 
-      // Send skills updates to client
-      this.world.on(EventType.SKILLS_UPDATED, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          skills: Record<string, { level: number; xp: number }>;
-        };
-        this.sendToPlayerId(data.playerId, "skillsUpdated", {
-          playerId: data.playerId,
-          skills: data.skills,
-        });
+    // Send skills updates to client
+    this.world.on(EventType.SKILLS_UPDATED, (payload: unknown) => {
+      const data = payload as {
+        playerId: string;
+        skills: Record<string, { level: number; xp: number }>;
+      };
+      this.sendToPlayerId(data.playerId, "skillsUpdated", {
+        playerId: data.playerId,
+        skills: data.skills,
       });
-    } catch (_err) {}
+    });
   }
 
   override destroy(): void {
@@ -1089,14 +1027,16 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         entity.data.velocity = [0, 0, 0];
         toDelete.push(playerId);
 
-        // Broadcast final idle state
-        this.send("entityModified", {
-          id: playerId,
-          changes: {
-            p: [target.x, finalY, target.z],
-            v: [0, 0, 0],
-            e: "idle",
-          },
+        // Update AOI position for newly arrived player
+        const socket = this.getSocketForPlayer(playerId);
+        if (socket) {
+          this.updatePlayerAOI(playerId, target.x, target.z, socket.id);
+        }
+
+        // Broadcast final idle state using AOI-aware queue
+        this.queueEntityUpdate(playerId, {
+          position: { x: target.x, y: finalY, z: target.z },
+          priority: UpdatePriority.NORMAL,
         });
         return;
       }
@@ -1145,26 +1085,30 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         ];
       }
 
-      // Broadcast update at ~30fps
+      // Update AOI position and broadcast at ~30fps
       if (!info.lastUpdate || now - info.lastUpdate >= 33) {
         info.lastUpdate = now;
 
-        const speed = Math.sqrt(velocity * velocity + velZ * velZ);
-        const emote = speed > 4 ? "run" : "walk";
+        // Update AOI position for this player
+        const socket = this.getSocketForPlayer(playerId);
+        if (socket) {
+          this.updatePlayerAOI(playerId, nx, nz, socket.id);
+        }
 
-        this.send("entityModified", {
-          id: playerId,
-          changes: {
-            p: [nx, ny, nz],
-            q: entity.data.quaternion,
-            v: [velocity, 0, velZ],
-            e: emote,
-          },
+        // Queue position update using AOI-aware system
+        const q = entity.data.quaternion;
+        this.queueEntityUpdate(playerId, {
+          position: { x: nx, y: ny, z: nz },
+          quaternion: q ? { x: q[0], y: q[1], z: q[2], w: q[3] } : undefined,
+          priority: UpdatePriority.NORMAL,
         });
       }
     });
 
     toDelete.forEach((id) => this.moveTargets.delete(id));
+
+    // Flush all queued entity updates at end of tick
+    this.flushEntityUpdates();
   }
 
   send<T = unknown>(name: string, data: T, ignoreSocketId?: string): void {
@@ -1199,6 +1143,127 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
     }
     return false;
+  }
+
+  /**
+   * Get socket for a given player ID
+   */
+  private getSocketForPlayer(playerId: string): SocketInterface | undefined {
+    for (const socket of this.sockets.values()) {
+      if (socket.player && socket.player.id === playerId) {
+        return socket;
+      }
+    }
+    return undefined;
+  }
+
+  // =====================================================================
+  // AOI-AWARE ENTITY UPDATES
+  // These methods use the OptimizedBroadcastManager for efficient updates
+  // =====================================================================
+
+  /**
+   * Queue an entity update using AOI + throttling + batching
+   * Only sends to players who can see the entity
+   */
+  queueEntityUpdate(
+    entityId: string,
+    data: EntityUpdateData,
+  ): void {
+    if (!this.broadcastManager) {
+      // Fallback to legacy send if not initialized
+      this.send("entityModified", { id: entityId, changes: data });
+      return;
+    }
+    this.broadcastManager.queueEntityUpdate(entityId, data);
+  }
+
+  /**
+   * Register a player with the AOI system
+   */
+  private registerPlayerAOI(
+    playerId: string,
+    x: number,
+    z: number,
+    socketId: string,
+  ): void {
+    if (!this.broadcastManager) return;
+    this.broadcastManager.registerPlayer(playerId, x, z, socketId);
+    this.broadcastManager.updateEntityPosition(playerId, x, z);
+  }
+
+  /**
+   * Update player position in AOI system
+   */
+  private updatePlayerAOI(
+    playerId: string,
+    x: number,
+    z: number,
+    socketId: string,
+  ): void {
+    if (!this.broadcastManager) return;
+    const changes = this.broadcastManager.updatePlayerPosition(playerId, x, z, socketId);
+
+    // Handle AOI subscription changes - send enter/exit events
+    if (changes.entered.length > 0 || changes.exited.length > 0) {
+      // Get entities that just became visible/invisible
+      const enteredEntities = this.broadcastManager.getEntitiesInCells(changes.entered);
+      const exitedEntities = this.broadcastManager.getEntitiesInCells(changes.exited);
+
+      const socket = this.sockets.get(socketId);
+      if (socket) {
+        // Send entityAdded for newly visible entities
+        for (const entityId of enteredEntities) {
+          if (entityId === playerId) continue; // Skip self
+          const entity = this.world.entities.get(entityId);
+          if (entity) {
+            socket.send("entityAdded", entity.serialize());
+          }
+        }
+
+        // Send entityRemoved for entities that went out of view
+        for (const entityId of exitedEntities) {
+          if (entityId === playerId) continue; // Skip self
+          socket.send("entityRemoved", { id: entityId });
+        }
+      }
+    }
+  }
+
+  /**
+   * Update entity position in AOI system (for non-player entities like mobs)
+   * Public so EntityManager can call it for mob position updates
+   */
+  updateEntityAOI(entityId: string, x: number, z: number): void {
+    if (!this.broadcastManager) return;
+    this.broadcastManager.updateEntityPosition(entityId, x, z);
+  }
+
+  /**
+   * Remove player from AOI system
+   */
+  private removePlayerAOI(playerId: string): void {
+    if (!this.broadcastManager) return;
+    this.broadcastManager.removePlayer(playerId);
+    this.broadcastManager.removeEntity(playerId);
+  }
+
+  /**
+   * Remove entity from AOI system
+   */
+  private removeEntityAOI(entityId: string): void {
+    if (!this.broadcastManager) return;
+    this.broadcastManager.removeEntity(entityId);
+  }
+
+  /**
+   * Flush all queued updates to clients
+   * Call this at the end of each server tick
+   */
+  flushEntityUpdates(): void {
+    if (!this.broadcastManager) return;
+    this.tickCount++;
+    this.broadcastManager.flushUpdates(this.tickCount);
   }
 
   /**
@@ -1251,13 +1316,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     });
 
     toDisconnect.forEach(({ socket, reason }) => {
-      try {
-        console.warn(
-          `[ServerNetwork] Disconnecting socket ${socket.id} due to ${reason}`,
-        );
-      } catch {
-        // Ignore errors during disconnect logging
-      }
+      console.warn(
+        `[ServerNetwork] Disconnecting socket ${socket.id} due to ${reason}`,
+      );
       socket.disconnect?.();
       this.socketFirstSeenAt.delete(socket.id);
       this.socketMissedPongs.delete(socket.id);
@@ -1348,6 +1409,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           this.activeTrades.delete(tradeId);
         }
       }
+
+      // Remove from AOI system
+      this.removePlayerAOI(serverSocket.player.id);
 
       // Emit typed player left event
       this.world.emit(EventType.PLAYER_LEFT, {
@@ -1473,8 +1537,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     ws: NodeWebSocket,
     params: ConnectionParams,
   ): Promise<void> {
-    try {
-      // Validate websocket parameter
+    // Validate websocket parameter
       if (!ws || typeof ws.close !== "function") {
         console.error(
           "[ServerNetwork] Invalid websocket provided to onConnection",
@@ -1594,23 +1657,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
       // Fall back to legacy JWT authentication if Privy didn't work
       if (!user && authToken) {
-        try {
-          const jwtPayload = await verifyJWT(authToken);
-          if (jwtPayload && jwtPayload.userId) {
-            const dbResult = await this.db("users")
-              .where("id", jwtPayload.userId as string)
-              .first();
-            if (dbResult) {
-              // Strong type assumption - dbResult has user properties
-              user = dbResult as User;
-            }
+        const jwtPayload = await verifyJWT(authToken);
+        if (jwtPayload && jwtPayload.userId) {
+          const dbResult = await this.db("users")
+            .where("id", jwtPayload.userId as string)
+            .first();
+          if (dbResult) {
+            // Strong type assumption - dbResult has user properties
+            user = dbResult as User;
           }
-        } catch (err) {
-          console.error(
-            "[ServerNetwork] Failed to read authToken:",
-            authToken,
-            err,
-          );
         }
       }
 
@@ -1851,7 +1906,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         lastLocation?: { x: number; y: number; z: number };
       }> = [];
       characters = await this.loadCharacterList(user.id);
-      console.log("[ServerNetwork] 📋 Character list loaded:", characters);
 
       // Check if character selection is enabled via environment variable
       // Support both ENABLE_CHARACTER_SELECT and ENABLE_CHARACTER_SYSTEM for backward compatibility
@@ -1861,41 +1915,20 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
       // Auto-spawn player if character selection is disabled (legacy mode)
       if (!enableCharacterSelect) {
-        console.log(
-          `[ServerNetwork] 🎮 AUTO-SPAWN MODE - Character selection disabled`,
-        );
-        console.log(
-          `[ServerNetwork] Creating player entity for ${user.name} (socketId: ${socketId})`,
-        );
-
         // CRITICAL: Create character in database FIRST to satisfy foreign key constraint
         // The player_sessions table has a foreign key to characters table
         const databaseSystem = this.world.getSystem("database") as
           | import("./DatabaseSystem").DatabaseSystem
           | undefined;
         if (databaseSystem) {
-          try {
-            // Check if character already exists
-            const existing = await databaseSystem.getPlayerAsync(socketId);
-            if (!existing) {
-              // Create character entry in database
-              await databaseSystem.createCharacter(
-                user.id,
-                socketId,
-                name || user.name,
-              );
-              console.log(
-                `[ServerNetwork] ✅ Created character entry in database: ${socketId}`,
-              );
-            } else {
-              console.log(
-                `[ServerNetwork] ℹ️  Character already exists in database: ${socketId}`,
-              );
-            }
-          } catch (err) {
-            console.error(
-              "[ServerNetwork] ❌ Failed to create character entry:",
-              err,
+          // Check if character already exists
+          const existing = await databaseSystem.getPlayerAsync(socketId);
+          if (!existing) {
+            // Create character entry in database
+            await databaseSystem.createCharacter(
+              user.id,
+              socketId,
+              name || user.name,
             );
           }
         }
@@ -1925,24 +1958,18 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           : undefined;
 
         socket.player = (addedEntity as Entity) || undefined;
-        console.log(
-          `[ServerNetwork] ✅ Player entity created: ${socket.player?.id} at position [${spawnPosition}]`,
-        );
-      } else {
-        // Character select mode enabled
-        if (characters.length === 0) {
-          // No characters → Show character creation screen, DON'T auto-spawn
-          console.log(
-            `[ServerNetwork] No characters found for ${user.name}, showing character select`,
-          );
-          // Don't create player entity yet - wait for character creation
-        } else {
-          // Character select mode - don't spawn player yet, wait for enterWorld
-          console.log(
-            `[ServerNetwork] ${characters.length} characters found, waiting for enterWorld`,
+
+        // Register player with AOI system (legacy mode)
+        if (socket.player) {
+          this.registerPlayerAOI(
+            socket.player.id,
+            spawnPosition[0],
+            spawnPosition[2],
+            socket.id,
           );
         }
       }
+      // Character select mode: player entity created via enterWorld
 
       const baseSnapshot: {
         id: string;
@@ -1996,27 +2023,23 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       // Character list embedded in snapshot when enableCharacterSelect is true
 
       // After snapshot, send authoritative resource snapshot
-      try {
-        const resourceSystem = this.world.getSystem?.("resource") as
-          | ResourceSystem
-          | undefined;
-        const resources = resourceSystem?.getAllResources?.() || [];
-        const payload = {
-          resources: resources.map((r) => ({
-            id: r.id,
-            type: r.type,
-            position: r.position,
-            isAvailable: r.isAvailable,
-            respawnAt:
-              !r.isAvailable && r.lastDepleted && r.respawnTime
-                ? r.lastDepleted + r.respawnTime
-                : undefined,
-          })),
-        };
-        this.sendTo(socket.id, "resourceSnapshot", payload);
-      } catch {
-        // Resource snapshot is optional, continue without it
-      }
+      const resourceSystem = this.world.getSystem?.("resource") as
+        | ResourceSystem
+        | undefined;
+      const resources = resourceSystem?.getAllResources?.() || [];
+      const payload = {
+        resources: resources.map((r) => ({
+          id: r.id,
+          type: r.type,
+          position: r.position,
+          isAvailable: r.isAvailable,
+          respawnAt:
+            !r.isAvailable && r.lastDepleted && r.respawnTime
+              ? r.lastDepleted + r.respawnTime
+              : undefined,
+        })),
+      };
+      this.sendTo(socket.id, "resourceSnapshot", payload);
 
       this.sockets.set(socket.id, socket);
 
@@ -2030,22 +2053,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         });
 
         // Broadcast new player entity to all existing clients except the new connection
-        try {
-          this.send("entityAdded", socket.player.serialize(), socket.id);
-          // Also send to the new player so they render themselves
-          this.sendTo(socket.id, "entityAdded", socket.player.serialize());
-        } catch (err) {
-          console.error(
-            "[ServerNetwork] Failed to broadcast entityAdded for new player:",
-            err,
-          );
-        }
-      } else {
-        // Player not created yet (character select mode), no entity to broadcast
+        this.send("entityAdded", socket.player.serialize(), socket.id);
+        // Also send to the new player so they render themselves
+        this.sendTo(socket.id, "entityAdded", socket.player.serialize());
       }
-    } catch (_err) {
-      console.error(_err);
-    }
   }
 
   onChatAdded = (socket: SocketInterface, data: unknown): void => {
@@ -2165,11 +2176,17 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
       const gy = th + 0.1;
       entity.position.set(nx, gy, nz);
-      // Broadcast to all clients, including the origin, using normalized shape
-      this.send("entityModified", {
-        id: entity.id,
-        changes: { p: [nx, gy, nz] },
+
+      // Update AOI position
+      this.updateEntityAOI(entity.id, nx, nz);
+
+      // Broadcast using AOI-aware system
+      this.queueEntityUpdate(entity.id, {
+        position: { x: nx, y: gy, z: nz },
+        priority: UpdatePriority.HIGH,
+        force: true, // Force update for teleports
       });
+      this.flushEntityUpdates(); // Immediate flush for teleports
     }
 
     if (cmd === "spawn") {
@@ -2247,8 +2264,20 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
     }
 
-    // Broadcast normalized shape
-    this.send("entityModified", { id, changes }, socket.id);
+    // Broadcast using AOI-aware system (if position-related, otherwise global)
+    if (this.broadcastManager && (changes as { p?: unknown }).p) {
+      const pos = (changes as { p: number[] }).p;
+      this.updateEntityAOI(id, pos[0], pos[2]);
+      this.broadcastManager.broadcastToEntitySubscribers(
+        id,
+        "entityModified",
+        { id, changes },
+        socket.id,
+      );
+    } else {
+      // Non-position changes go to all clients
+      this.send("entityModified", { id, changes }, socket.id);
+    }
   }
 
   private onMoveRequest(
@@ -2262,14 +2291,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     if (data.cancel || data.target === null) {
       this.moveTargets.delete(playerEntity.id);
       const curr = playerEntity.position;
-      this.send("entityModified", {
-        id: playerEntity.id,
-        changes: {
-          p: [curr.x, curr.y, curr.z],
-          v: [0, 0, 0],
-          e: "idle",
-        },
+      this.queueEntityUpdate(playerEntity.id, {
+        position: { x: curr.x, y: curr.y, z: curr.z },
+        priority: UpdatePriority.NORMAL,
       });
+      this.flushEntityUpdates(); // Immediate flush for stop
       return;
     }
 
@@ -2282,11 +2308,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         const info = this.moveTargets.get(playerEntity.id);
         if (info) {
           info.maxSpeed = data.runMode ? 8 : 4;
-          // Update emote immediately
-          this.send("entityModified", {
-            id: playerEntity.id,
-            changes: { e: data.runMode ? "run" : "walk" },
+          // Update emote immediately - emote changes need to go to all nearby clients
+          this.queueEntityUpdate(playerEntity.id, {
+            state: data.runMode ? 1 : 0, // Encode run/walk as state
+            priority: UpdatePriority.NORMAL,
           });
+          this.flushEntityUpdates();
         }
       }
       return;
@@ -2321,15 +2348,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this._tempQuat.w,
       ];
     }
-    this.send("entityModified", {
-      id: playerEntity.id,
-      changes: {
-        p: [curr.x, curr.y, curr.z],
-        q: playerEntity.data.quaternion,
-        v: [0, 0, 0],
-        e: data.runMode ? "run" : "walk",
-      },
+    // Initial move broadcast using AOI-aware system
+    const q = playerEntity.data.quaternion;
+    this.queueEntityUpdate(playerEntity.id, {
+      position: { x: curr.x, y: curr.y, z: curr.z },
+      quaternion: q ? { x: q[0], y: q[1], z: q[2], w: q[3] } : undefined,
+      priority: UpdatePriority.HIGH,
     });
+    this.flushEntityUpdates();
   }
 
   private onInput(
@@ -2533,10 +2559,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       fromPlayerId: initiator.id,
       fromPlayerName: initiator.data.name || "Unknown",
     });
-
-    console.log(
-      `[ServerNetwork] Trade request ${pendingTradeId} sent from ${initiator.id} to ${recipient.id}`,
-    );
   }
 
   /**
@@ -2578,7 +2600,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         reason: "Trade request declined",
         byPlayerId: recipient.id,
       });
-      console.log(`[ServerNetwork] Trade rejected by ${recipient.id}`);
       return;
     }
 
@@ -2625,10 +2646,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.sendTo(initiatorSocket.id, "tradeStarted", tradeData);
     this.sendTo(socket.id, "tradeStarted", tradeData);
-
-    console.log(
-      `[ServerNetwork] Trade ${tradeId} started between ${initiator.id} and ${recipient.id}`,
-    );
   }
 
   /**
@@ -2721,26 +2738,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Update offer
     if (isInitiator) {
-      console.log(
-        `[ServerNetwork] ➕ INITIATOR (${player.id}) updating their offer:`,
-        {
-          items: data.items?.length || 0,
-          coins: data.coins || 0,
-        },
-      );
       trade.initiatorOffer = {
         items: data.items || [],
         coins: data.coins || 0,
       };
       trade.initiatorConfirmed = false; // Reset confirmation
     } else {
-      console.log(
-        `[ServerNetwork] ➕ RECIPIENT (${player.id}) updating their offer:`,
-        {
-          items: data.items?.length || 0,
-          coins: data.coins || 0,
-        },
-      );
       trade.recipientOffer = {
         items: data.items || [],
         coins: data.coins || 0,
@@ -2762,27 +2765,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       recipientConfirmed: trade.recipientConfirmed,
     };
 
-    console.log(`[ServerNetwork] 📡 Broadcasting trade update:`, {
-      tradeId: trade.tradeId,
-      initiatorOffer: {
-        items: trade.initiatorOffer.items.length,
-        coins: trade.initiatorOffer.coins,
-      },
-      recipientOffer: {
-        items: trade.recipientOffer.items.length,
-        coins: trade.recipientOffer.coins,
-      },
-      toSockets: [socket.id, otherSocket?.id || "none"],
-    });
-
     this.sendTo(socket.id, "tradeUpdated", updateData);
     if (otherSocket) {
       this.sendTo(otherSocket.id, "tradeUpdated", updateData);
     }
-
-    console.log(
-      `[ServerNetwork] ✅ Trade ${trade.tradeId} offer updated by ${player.id} (${isInitiator ? "initiator" : "recipient"})`,
-    );
   }
 
   /**
@@ -2848,10 +2834,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.sendTo(otherSocket.id, "tradeUpdated", updateData);
     }
 
-    console.log(
-      `[ServerNetwork] Trade ${trade.tradeId} confirmed by ${player.id}`,
-    );
-
     // Execute trade if both confirmed
     if (trade.initiatorConfirmed && trade.recipientConfirmed) {
       this.executeTrade(trade.tradeId);
@@ -2911,10 +2893,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Remove trade session
     this.activeTrades.delete(data.tradeId);
-
-    console.log(
-      `[ServerNetwork] Trade ${trade.tradeId} cancelled by ${player.id}`,
-    );
   }
 
   /**
@@ -2926,8 +2904,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       console.error("[ServerNetwork] executeTrade: trade not found");
       return;
     }
-
-    console.log(`[ServerNetwork] ⚡ Executing trade ${tradeId}`);
 
     // Find both player entities to check distance
     const initiatorEntity = Array.from(this.sockets.values()).find(
@@ -3044,31 +3020,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // If any step fails, it will throw and we catch it, cancelling the trade
     // The InventorySystem should handle these operations safely
     try {
-      console.log(
-        `[ServerNetwork] 🔄 Executing atomic swap for trade ${tradeId}`,
-      );
-      console.log(`[ServerNetwork]   Initiator ${trade.initiator} offers:`, {
-        items: trade.initiatorOffer.items.map(
-          (i) => `${i.itemId} x${i.quantity}`,
-        ),
-        coins: trade.initiatorOffer.coins,
-      });
-      console.log(`[ServerNetwork]   Recipient ${trade.recipient} offers:`, {
-        items: trade.recipientOffer.items.map(
-          (i) => `${i.itemId} x${i.quantity}`,
-        ),
-        coins: trade.recipientOffer.coins,
-      });
-
       // PHASE 1: Remove items from both players
-      console.log(
-        `[ServerNetwork] 📤 Phase 1: Removing items from both players`,
-      );
-
       for (const item of trade.initiatorOffer.items) {
-        console.log(
-          `[ServerNetwork]   Removing ${item.itemId} x${item.quantity} from initiator (slot ${item.slot})`,
-        );
         this.world.emit(EventType.INVENTORY_ITEM_REMOVED, {
           playerId: trade.initiator,
           itemId: item.itemId,
@@ -3078,9 +3031,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
 
       for (const item of trade.recipientOffer.items) {
-        console.log(
-          `[ServerNetwork]   Removing ${item.itemId} x${item.quantity} from recipient (slot ${item.slot})`,
-        );
         this.world.emit(EventType.INVENTORY_ITEM_REMOVED, {
           playerId: trade.recipient,
           itemId: item.itemId,
@@ -3090,14 +3040,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
 
       // PHASE 2: Add items to opposite players
-      console.log(
-        `[ServerNetwork] 📥 Phase 2: Adding items to opposite players`,
-      );
-
       for (const item of trade.recipientOffer.items) {
-        console.log(
-          `[ServerNetwork]   Adding ${item.itemId} x${item.quantity} to initiator`,
-        );
         this.world.emit(EventType.INVENTORY_ITEM_ADDED, {
           playerId: trade.initiator,
           item: {
@@ -3111,9 +3054,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
 
       for (const item of trade.initiatorOffer.items) {
-        console.log(
-          `[ServerNetwork]   Adding ${item.itemId} x${item.quantity} to recipient`,
-        );
         this.world.emit(EventType.INVENTORY_ITEM_ADDED, {
           playerId: trade.recipient,
           item: {
@@ -3127,12 +3067,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
 
       // PHASE 3: Swap coins
-      console.log(`[ServerNetwork] 💰 Phase 3: Swapping coins`);
-
       if (trade.initiatorOffer.coins > 0) {
-        console.log(
-          `[ServerNetwork]   Transferring ${trade.initiatorOffer.coins} gold: initiator → recipient`,
-        );
         this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
           playerId: trade.initiator,
           coins: -trade.initiatorOffer.coins,
@@ -3146,9 +3081,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
 
       if (trade.recipientOffer.coins > 0) {
-        console.log(
-          `[ServerNetwork]   Transferring ${trade.recipientOffer.coins} gold: recipient → initiator`,
-        );
         this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
           playerId: trade.recipient,
           coins: -trade.recipientOffer.coins,
@@ -3180,10 +3112,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       if (recipientSocket) {
         this.sendTo(recipientSocket.id, "tradeCompleted", successData);
       }
-
-      console.log(
-        `[ServerNetwork] ✅✅✅ Trade ${tradeId} executed successfully - all phases complete`,
-      );
     } catch (err) {
       console.error("[ServerNetwork] ❌ executeTrade FAILED:", err);
       console.error(
@@ -3215,9 +3143,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Clean up trade session
     this.activeTrades.delete(tradeId);
-    console.log(
-      `[ServerNetwork] 🧹 Trade session ${tradeId} cleaned up from active trades`,
-    );
   }
 
   /**
@@ -3283,11 +3208,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         ? { ...payload, playerId: socket.player.id }
         : payload;
     // Emit on server world so server-side systems handle it (e.g., ResourceSystem)
-    try {
-      this.world.emit(name, enriched);
-    } catch (err) {
-      console.error("[ServerNetwork] Failed to re-emit entityEvent", name, err);
-    }
+    this.world.emit(name, enriched);
   }
 
   /**
@@ -3304,82 +3225,78 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     const player = socket.player;
     if (!payload) return;
 
-    try {
-      switch (name) {
-        case "debug:spawn-item": {
-          const numericItemId = (payload.itemId || 1) as number;
-          // Convert numeric ID to string ID (e.g., 1 → 'bronze_sword')
-          const itemKey = ITEM_ID_TO_KEY[numericItemId];
-          if (!itemKey) {
-            console.error(
-              `[DEBUG] Invalid item ID: ${numericItemId}. Available IDs:`,
-              Object.keys(ITEM_ID_TO_KEY),
-            );
-            break;
-          }
-          console.log(
-            `[DEBUG] Spawning item ${itemKey} (ID: ${numericItemId}) for player ${player.id}`,
+    switch (name) {
+      case "debug:spawn-item": {
+        const numericItemId = (payload.itemId || 1) as number;
+        // Convert numeric ID to string ID (e.g., 1 → 'bronze_sword')
+        const itemKey = ITEM_ID_TO_KEY[numericItemId];
+        if (!itemKey) {
+          console.error(
+            `[DEBUG] Invalid item ID: ${numericItemId}. Available IDs:`,
+            Object.keys(ITEM_ID_TO_KEY),
           );
-          // Add item to player inventory using correct event format
-          this.world.emit(EventType.INVENTORY_ITEM_ADDED, {
-            playerId: player.id,
-            item: {
-              id: `${player.id}_${itemKey}_${Date.now()}`,
-              itemId: itemKey,
-              quantity: 1,
-              slot: -1, // Let inventory system assign slot
-              metadata: null,
-            },
-          });
           break;
         }
-
-        case "debug:trigger-death": {
-          console.log(`[DEBUG] Triggering death for player ${player.id}`);
-          // Trigger player death using correct event
-          this.world.emit(EventType.ENTITY_DEATH, {
-            entityId: player.id,
-            entityType: "player" as const,
-          });
-          break;
-        }
-
-        case "debug:add-gold": {
-          const amount = (payload.amount || 500) as number;
-          console.log(`[DEBUG] Adding ${amount} gold for player ${player.id}`);
-          // Add coins to player inventory using correct event
-          this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
-            playerId: player.id,
-            coins: amount,
-            isClaimed: false, // Mark as unclaimed for on-chain minting
-          });
-          break;
-        }
-
-        case "debug:initiate-trade": {
-          // Find any other online player to trade with
-          const otherPlayer = Array.from(this.sockets.values()).find(
-            (s) => s.player && s.player.id !== player.id,
-          );
-
-          if (!otherPlayer || !otherPlayer.player) {
-            console.log("[DEBUG] No other players online to trade with");
-            break;
-          }
-
-          console.log(
-            `[DEBUG] Initiating trade between ${player.id} and ${otherPlayer.player.id}`,
-          );
-
-          // Send trade request
-          this.onTradeRequest(socket, {
-            targetPlayerId: otherPlayer.player.id,
-          });
-          break;
-        }
+        console.log(
+          `[DEBUG] Spawning item ${itemKey} (ID: ${numericItemId}) for player ${player.id}`,
+        );
+        // Add item to player inventory using correct event format
+        this.world.emit(EventType.INVENTORY_ITEM_ADDED, {
+          playerId: player.id,
+          item: {
+            id: `${player.id}_${itemKey}_${Date.now()}`,
+            itemId: itemKey,
+            quantity: 1,
+            slot: -1, // Let inventory system assign slot
+            metadata: null,
+          },
+        });
+        break;
       }
-    } catch (err) {
-      console.error("[DEBUG] Failed to handle debug event:", name, err);
+
+      case "debug:trigger-death": {
+        console.log(`[DEBUG] Triggering death for player ${player.id}`);
+        // Trigger player death using correct event
+        this.world.emit(EventType.ENTITY_DEATH, {
+          entityId: player.id,
+          entityType: "player" as const,
+        });
+        break;
+      }
+
+      case "debug:add-gold": {
+        const amount = (payload.amount || 500) as number;
+        console.log(`[DEBUG] Adding ${amount} gold for player ${player.id}`);
+        // Add coins to player inventory using correct event
+        this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+          playerId: player.id,
+          coins: amount,
+          isClaimed: false, // Mark as unclaimed for on-chain minting
+        });
+        break;
+      }
+
+      case "debug:initiate-trade": {
+        // Find any other online player to trade with
+        const otherPlayer = Array.from(this.sockets.values()).find(
+          (s) => s.player && s.player.id !== player.id,
+        );
+
+        if (!otherPlayer || !otherPlayer.player) {
+          console.log("[DEBUG] No other players online to trade with");
+          break;
+        }
+
+        console.log(
+          `[DEBUG] Initiating trade between ${player.id} and ${otherPlayer.player.id}`,
+        );
+
+        // Send trade request
+        this.onTradeRequest(socket, {
+          targetPlayerId: otherPlayer.player.id,
+        });
+        break;
+      }
     }
   }
 
@@ -3460,9 +3377,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
             player.position.z,
           ];
         }
-        this.send("entityModified", {
-          id: player.id,
-          changes: { p: [player.position.x, correctedY, player.position.z] },
+        this.queueEntityUpdate(player.id, {
+          position: { x: player.position.x, y: correctedY, z: player.position.z },
+          priority: UpdatePriority.CRITICAL, // Emergency corrections are critical
+          force: true,
         });
       } else if (Number.isFinite(terrainHeight)) {
         // Check if player drifted too far from terrain
@@ -3478,12 +3396,16 @@ export class ServerNetwork extends System implements NetworkWithSocket {
               player.position.z,
             ];
           }
-          this.send("entityModified", {
-            id: player.id,
-            changes: { p: [player.position.x, expectedY, player.position.z] },
+          this.queueEntityUpdate(player.id, {
+            position: { x: player.position.x, y: expectedY, z: player.position.z },
+            priority: UpdatePriority.HIGH,
+            force: true,
           });
         }
       }
     }
+
+    // Flush any position corrections
+    this.flushEntityUpdates();
   }
 }

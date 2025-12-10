@@ -14,7 +14,7 @@
  * @see {@link COMBAT_CONSTANTS.HEALTH_REGEN_INTERVAL_TICKS} for regen interval (100 ticks)
  */
 
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import type { World } from "../../../core/World";
 import { GAME_CONSTANTS } from "../../../constants/GameConstants";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
@@ -85,12 +85,6 @@ export class HealthRegenSystem extends SystemBase {
         "[HealthRegenSystem] PlayerSystem not found - regen will be disabled",
       );
     }
-
-    console.log(
-      `[HealthRegenSystem] Started - Rate: ${this.regenRate} HP, ` +
-        `Cooldown: ${COMBAT_CONSTANTS.HEALTH_REGEN_COOLDOWN_TICKS} ticks, ` +
-        `Interval: ${COMBAT_CONSTANTS.HEALTH_REGEN_INTERVAL_TICKS} ticks`,
-    );
   }
 
   /**

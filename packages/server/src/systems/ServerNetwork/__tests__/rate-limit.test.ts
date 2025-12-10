@@ -5,7 +5,7 @@
  * These tests may skip if @hyperscape/shared module resolution fails.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 
 // Dynamic import to handle module resolution
 let RateLimitService: new (limitMs?: number) => {

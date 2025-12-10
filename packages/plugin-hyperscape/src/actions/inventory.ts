@@ -1,5 +1,5 @@
 /**
- * Inventory actions - EQUIP_ITEM, USE_ITEM, DROP_ITEM
+ * Inventory actions - EQUIP_ITEM, UNEQUIP_ITEM, USE_ITEM, DROP_ITEM
  */
 
 import type {
@@ -9,8 +9,12 @@ import type {
   State,
   HandlerCallback,
 } from "@elizaos/core";
+import { logger } from "@elizaos/core";
 import type { HyperscapeService } from "../services/HyperscapeService.js";
-import type { EquipItemCommand, UseItemCommand, Equipment } from "../types.js";
+import type { EquipItemCommand, UseItemCommand, DropItemCommand, Equipment } from "../types.js";
+
+/** Equipment slot type */
+type EquipSlot = keyof Equipment;
 
 export const equipItemAction: Action = {
   name: "EQUIP_ITEM",
@@ -86,6 +90,88 @@ export const equipItemAction: Action = {
       {
         name: "agent",
         content: { text: "Equipped Bronze Sword", action: "EQUIP_ITEM" },
+      },
+    ],
+  ],
+};
+
+export const unequipItemAction: Action = {
+  name: "UNEQUIP_ITEM",
+  similes: ["UNEQUIP", "REMOVE_EQUIPMENT", "UNWIELD", "TAKE_OFF"],
+  description: "Unequip a currently equipped item (weapon, armor, etc.).",
+
+  validate: async (runtime: IAgentRuntime) => {
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service) return false;
+    const playerEntity = service.getPlayerEntity();
+    if (!service.isConnected()) return false;
+
+    // Check if player has any equipped items
+    const equipment = playerEntity?.equipment;
+    if (!equipment) return false;
+
+    const hasEquipped = Object.values(equipment).some((v) => v !== null);
+    return hasEquipped;
+  },
+
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    _state?: State,
+    options?: { slot?: EquipSlot },
+    callback?: HandlerCallback,
+  ) => {
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service) {
+      return { success: false, error: new Error("Hyperscape service not available") };
+    }
+    const playerEntity = service.getPlayerEntity();
+    const content = message.content.text || "";
+
+    // Determine which slot to unequip
+    let slot: EquipSlot | undefined = options?.slot;
+
+    if (!slot) {
+      const contentLower = content.toLowerCase();
+      if (contentLower.includes("weapon") || contentLower.includes("sword") || contentLower.includes("axe")) {
+        slot = "weapon";
+      } else if (contentLower.includes("shield")) {
+        slot = "shield";
+      } else if (contentLower.includes("helmet") || contentLower.includes("helm")) {
+        slot = "helmet";
+      } else if (contentLower.includes("body") || contentLower.includes("chest") || contentLower.includes("armor")) {
+        slot = "body";
+      } else if (contentLower.includes("legs") || contentLower.includes("pants")) {
+        slot = "legs";
+      } else if (contentLower.includes("boots") || contentLower.includes("feet")) {
+        slot = "boots";
+      }
+    }
+
+    if (!slot) {
+      await callback?.({ text: "Could not determine which slot to unequip. Specify: weapon, shield, helmet, body, legs, or boots.", error: true });
+      return { success: false, error: new Error("Slot not specified") };
+    }
+
+    const equipped = playerEntity?.equipment[slot];
+    if (!equipped) {
+      await callback?.({ text: `No item equipped in ${slot} slot.`, error: true });
+      return { success: false, error: new Error(`Nothing equipped in ${slot}`) };
+    }
+
+    logger.info(`[UNEQUIP_ITEM] Unequipping ${slot}: ${equipped}`);
+    await service.executeUnequipItem(slot);
+
+    await callback?.({ text: `Unequipped ${equipped} from ${slot}`, action: "UNEQUIP_ITEM" });
+    return { success: true, text: `Unequipped ${equipped}` };
+  },
+
+  examples: [
+    [
+      { name: "user", content: { text: "Unequip weapon" } },
+      {
+        name: "agent",
+        content: { text: "Unequipped Bronze Sword from weapon", action: "UNEQUIP_ITEM" },
       },
     ],
   ],
@@ -196,8 +282,8 @@ export const dropItemAction: Action = {
         return { success: false };
       }
 
-      const command: UseItemCommand = { itemId: item.id };
-      await service.executeUseItem(command); // Assumes dropping uses similar command
+      const command: DropItemCommand = { itemId: item.id, quantity: item.quantity };
+      await service.executeDropItem(command);
 
       await callback?.({ text: `Dropped ${item.name}`, action: "DROP_ITEM" });
 

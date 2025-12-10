@@ -12,7 +12,7 @@ import { EventType } from "../../../types/events";
 import { AGGRO_CONSTANTS } from "../../../constants/CombatConstants";
 import { AggroTarget, Position3D, MobAIStateData } from "../../../types";
 import { calculateDistance } from "../../../utils/game/EntityUtils";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 
 /**
  * Aggression System - GDD Compliant

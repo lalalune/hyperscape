@@ -126,8 +126,8 @@ export class AssetCache {
       const cdnUrl =
         typeof window !== "undefined"
           ? (window as unknown as { __CDN_URL?: string }).__CDN_URL ||
-            "http://localhost:8088"
-          : "http://localhost:8088";
+            "http://localhost:8080"
+          : "http://localhost:8080";
       return url.replace("asset://", `${cdnUrl}/`);
     }
 
@@ -259,7 +259,6 @@ export class AssetCache {
       const { url, entry } = entries[i];
       entry.data.dispose();
       this.textureCache.delete(url);
-      console.log(`[AssetCache] Evicted texture: ${url}`);
     }
   }
 
@@ -396,7 +395,6 @@ export class AssetCache {
     for (let i = 0; i < toEvict && i < entries.length; i++) {
       const { url } = entries[i];
       this.audioCache.delete(url);
-      console.log(`[AssetCache] Evicted audio: ${url}`);
     }
   }
 
@@ -591,8 +589,6 @@ export class AssetCache {
     // Reset stats
     this.textureHits = 0;
     this.textureMisses = 0;
-
-    console.log("[AssetCache] All caches cleared");
   }
 
   /**

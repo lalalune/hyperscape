@@ -7,7 +7,7 @@
  */
 
 import THREE from "../../extras/three/three";
-import { SystemBase } from "../shared";
+import { SystemBase } from "../shared/infrastructure/SystemBase";
 
 import type { CameraTarget, System, World } from "../../types";
 import { EventType } from "../../types/events";

@@ -35,9 +35,9 @@ if (!globalThis.Buffer) {
 
 // setImmediate polyfill for Privy/Viem
 if (!globalThis.setImmediate) {
-  (globalThis as any).setImmediate = (
-    cb: (...args: any[]) => void,
-    ...args: any[]
+  (globalThis as { setImmediate?: (cb: (...args: unknown[]) => void, ...args: unknown[]) => NodeJS.Timeout }).setImmediate = (
+    cb: (...args: unknown[]) => void,
+    ...args: unknown[]
   ) => setTimeout(cb, 0, ...args);
 }
 
@@ -46,7 +46,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const isEmbedded = urlParams.get("embedded") === "true";
 
 if (isEmbedded) {
-  (window as any).__HYPERSCAPE_EMBEDDED__ = true;
+  (window as { __HYPERSCAPE_EMBEDDED__?: boolean }).__HYPERSCAPE_EMBEDDED__ = true;
 
   // Construct config from URL params
   const config = {
@@ -54,17 +54,17 @@ if (isEmbedded) {
     authToken: urlParams.get("authToken") || "",
     characterId: urlParams.get("characterId") || undefined,
     wsUrl: urlParams.get("wsUrl") || "ws://localhost:5555/ws",
-    mode: (urlParams.get("mode") as any) || "spectator",
+    mode: (urlParams.get("mode") as "spectator" | "play") || "spectator",
     followEntity: urlParams.get("followEntity") || undefined,
     hiddenUI: urlParams.get("hiddenUI")
       ? urlParams.get("hiddenUI")?.split(",")
       : undefined,
-    quality: (urlParams.get("quality") as any) || "medium",
+    quality: (urlParams.get("quality") as "low" | "medium" | "high") || "medium",
     sessionToken: urlParams.get("sessionToken") || "",
     privyUserId: urlParams.get("privyUserId") || undefined,
   };
 
-  (window as any).__HYPERSCAPE_CONFIG__ = config;
+  (window as { __HYPERSCAPE_CONFIG__?: typeof config }).__HYPERSCAPE_CONFIG__ = config;
   console.log("[Hyperscape] Configured from URL params:", config);
 }
 

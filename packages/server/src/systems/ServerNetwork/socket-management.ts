@@ -93,11 +93,9 @@ export class SocketManager {
     });
 
     toDisconnect.forEach(({ socket, reason }) => {
-      try {
-        console.warn(
-          `[SocketManager] Disconnecting socket ${socket.id} due to ${reason}`,
-        );
-      } catch {}
+      console.warn(
+        `[SocketManager] Disconnecting socket ${socket.id} due to ${reason}`,
+      );
       socket.disconnect?.();
       this.socketFirstSeenAt.delete(socket.id);
       this.socketMissedPongs.delete(socket.id);

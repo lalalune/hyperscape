@@ -211,6 +211,7 @@ export {
 
 // Export item helpers used by server network snapshot
 export { getItem } from "./data/items";
+export { ITEM_ID_TO_KEY, ITEM_IDS } from "./constants/GameConstants";
 
 // Export store helpers used by server store handler
 export { getStoreById } from "./data/banks-stores";
@@ -239,6 +240,15 @@ export { ClientInput } from "./systems/client/ClientInput"; // Keyboard, mouse, 
 export { ServerRuntime } from "./systems/server/ServerRuntime"; // Server lifecycle and monitoring
 export { ClientActions } from "./systems/client/ClientActions";
 export { XR } from "./systems/client/XR";
+export { PerformanceMonitor } from "./systems/client/PerformanceMonitor";
+export type {
+  PerformanceSnapshot,
+  PhaseTiming,
+  SystemTiming,
+  EntityStats,
+  MemoryStats,
+  TerrainStats,
+} from "./systems/client/PerformanceMonitor";
 export { EventBus } from "./systems/shared";
 export { System as SystemClass } from "./systems/shared";
 export { SystemBase } from "./systems/shared";
@@ -698,11 +708,62 @@ export type {
 } from "./systems/shared";
 export { writePacket, readPacket } from "./platform/shared/packets";
 
+// Export network compression utilities
+export {
+  packPosition,
+  unpackPosition,
+  packPositionInto,
+  unpackPositionFrom,
+  packQuaternion,
+  unpackQuaternion,
+  packQuaternionInto,
+  unpackQuaternionFrom,
+  packTransform,
+  unpackTransform,
+  parseBatchUpdate,
+  hashEntityId,
+  COMPRESSED_POSITION_SIZE,
+  COMPRESSED_QUATERNION_SIZE,
+  COMPRESSED_TRANSFORM_SIZE,
+  UpdateFlags,
+} from "./utils/network/compression";
+export type { CompressedTransform, ParsedUpdate } from "./utils/network/compression";
+
 // Export physics utilities
 export { installThreeJSExtensions } from "./utils/physics/PhysicsUtils";
 
 // Export spawn utilities
 export { CircularSpawnArea } from "./utils/physics/CircularSpawnArea";
+
+// Export asset batching system
+export {
+  AssetBatcher,
+  ModelBatcher,
+  BatchedAssetCacheManager,
+  BatchedAssetLoader,
+  getBatchedAssetLoader,
+} from "./utils/assets";
+export type {
+  TextureAtlasEntry,
+  TextureAtlasConfig,
+  TextureAtlasResult,
+  MaterialBatchEntry,
+  MaterialBatchResult,
+  GeometryStats,
+  MergedMeshResult,
+  InstancedBatchResult,
+  BufferOptimizeOptions,
+  CacheManifest,
+  CacheEntry,
+  LoadProgress,
+  ProgressCallback,
+  AssetCacheConfig,
+  BatchedLoadConfig,
+  LoadResult,
+  TextureLoadResult,
+  ModelLoadResult,
+  InstancedLoadResult,
+} from "./utils/assets";
 
 // Export terrain system
 export { TerrainSystem } from "./systems/shared";
@@ -779,3 +840,52 @@ export type {
   ValidationResult,
   SessionCloseReason,
 } from "./types/interaction";
+
+// ============================================================================
+// Blockchain Integration (Server-side only)
+// On-chain economy, identity, payments, and game state synchronization
+// ============================================================================
+
+// Re-export blockchain namespace for server-side use
+// Note: These are heavy imports and should only be used on the server
+export * as Blockchain from "./blockchain";
+
+// Export commonly used blockchain types and functions directly
+export type {
+  JejuNetwork,
+  ContractAddresses,
+} from "./blockchain/chain";
+
+export type {
+  AccessCheckResult,
+  AgentRegistration,
+  BanRecord,
+  MarketplaceInfo,
+} from "./blockchain/erc8004";
+
+export type {
+  PaymentRequirements,
+  PaymentPayload,
+  PaymentVerification,
+  SettlementResult,
+} from "./blockchain/x402";
+
+export type {
+  PaymasterInfo,
+  PaymasterData,
+  GasEstimate,
+} from "./blockchain/paymaster";
+
+export type {
+  ItemMetadata,
+  MintedItemInfo,
+  GoldClaimParams,
+  ItemMintParams,
+} from "./blockchain/game-economy";
+
+export type {
+  MudClient,
+  TxReceipt,
+  MudEventType,
+  MudGameEvent,
+} from "./blockchain/mud-client";

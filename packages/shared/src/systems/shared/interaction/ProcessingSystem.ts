@@ -20,7 +20,7 @@ import { EventType } from "../../../types/events";
  * - Grants cooking XP
  * - Can burn food at low levels
  */
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import type { World } from "../../../types/index";
 
 export class ProcessingSystem extends SystemBase {

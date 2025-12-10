@@ -18,7 +18,7 @@
 import type { World } from "../../../types/index";
 import { EventType } from "../../../types/events";
 import type { InventoryItem } from "../../../types/core/core";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { groundToTerrain } from "../../../utils/game/EntityUtils";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import { ticksToMs } from "../../../utils/game/CombatCalculations";

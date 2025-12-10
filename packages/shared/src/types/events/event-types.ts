@@ -8,10 +8,7 @@
  * - Event mapping (type-safe emit/on/off)
  */
 
-import { Entity } from "../../entities/Entity";
-import { PlayerLocal } from "../../entities/player/PlayerLocal";
-import { Skills, InventoryItem, Position3D } from "../core/core";
-import type { Item } from "../core/core";
+import { Position3D } from "../core/core";
 import type { EntitySpawnedEvent } from "../systems/system-interfaces";
 
 // ============================================================================
@@ -544,6 +541,14 @@ export enum EventType {
   ENTITY_MODIFIED = "entityModified",
   ENTITY_INTERACT_REQUEST = "entity:interact_request",
   AGGRO_FORCE_TRIGGER = "aggro:force-trigger",
+
+  // Blockchain Integration Events
+  PLAYER_KICK = "player:kick",
+  GOLD_WITHDRAW_REQUEST = "gold:withdraw_request",
+  GOLD_WITHDRAW_SUCCESS = "gold:withdraw_success",
+  GOLD_DEPOSIT_CONFIRMED = "gold:deposit_confirmed",
+  ITEM_MINT_REQUEST = "item:mint_request",
+  ITEM_MINT_SUCCESS = "item:mint_success",
 }
 
 // ============================================================================
@@ -887,6 +892,37 @@ export interface EventMap {
     byPlayerId?: string;
   };
   [EventType.TRADE_ERROR]: { message: string };
+
+  // Blockchain Integration Events
+  [EventType.PLAYER_KICK]: { playerId: string; reason: string };
+  [EventType.GOLD_WITHDRAW_REQUEST]: {
+    playerId: string;
+    amount: number;
+    walletAddress: string;
+  };
+  [EventType.GOLD_WITHDRAW_SUCCESS]: {
+    playerId: string;
+    amount: number;
+    txHash?: string;
+  };
+  [EventType.GOLD_DEPOSIT_CONFIRMED]: {
+    playerId: string;
+    amount: bigint;
+    txHash: string;
+  };
+  [EventType.ITEM_MINT_REQUEST]: {
+    playerId: string;
+    itemId: string;
+    quantity: number;
+    walletAddress: string;
+  };
+  [EventType.ITEM_MINT_SUCCESS]: {
+    playerId: string;
+    itemId: string;
+    quantity: number;
+    tokenId?: string;
+    txHash?: string;
+  };
 }
 
 /**

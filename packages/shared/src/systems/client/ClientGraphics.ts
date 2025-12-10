@@ -87,7 +87,7 @@ import THREE from "../../extras/three/three";
 import type { World } from "../../core/World";
 import type { WorldOptions } from "../../types";
 import { EventType } from "../../types/events";
-import { System } from "../shared";
+import { System } from "../shared/infrastructure/System";
 import {
   createRenderer,
   configureRenderer,
@@ -97,8 +97,6 @@ import {
   isXRPresenting,
   type UniversalRenderer,
   isWebGLRenderer,
-  logWebGPUInfo,
-  getWebGPUCapabilities,
 } from "../../utils/rendering/RendererFactory";
 import {
   createPostProcessing,

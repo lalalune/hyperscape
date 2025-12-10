@@ -26,6 +26,7 @@ import { skillsProvider } from "./providers/skills.js";
 import { equipmentProvider } from "./providers/equipment.js";
 import { availableActionsProvider } from "./providers/availableActions.js";
 import { goalProvider } from "./providers/goalProvider.js";
+import { worldContextProvider } from "./providers/worldContext.js";
 
 // Actions
 import {
@@ -45,11 +46,29 @@ import {
 } from "./actions/skills.js";
 import {
   equipItemAction,
+  unequipItemAction,
   useItemAction,
   dropItemAction,
 } from "./actions/inventory.js";
-import { chatMessageAction } from "./actions/social.js";
-import { bankDepositAction, bankWithdrawAction } from "./actions/banking.js";
+import { chatMessageAction, localChatAction, whisperAction } from "./actions/social.js";
+import {
+  bankDepositAction,
+  bankWithdrawAction,
+  bankDepositAllAction,
+  bankDepositCoinsAction,
+  bankWithdrawCoinsAction,
+} from "./actions/banking.js";
+import { buyItemAction, sellItemAction } from "./actions/store.js";
+import { dialogueRespondAction, closeDialogueAction } from "./actions/dialogue.js";
+import { examineEntityAction, examineInventoryItemAction } from "./actions/examine.js";
+import {
+  interactNpcAction,
+  lootCorpseAction,
+  pickupItemAction,
+  respawnAction,
+  emoteAction,
+  eatFoodAction,
+} from "./actions/interactions.js";
 import {
   exploreAction,
   fleeAction,
@@ -167,6 +186,7 @@ export const hyperscapePlugin: Plugin = {
   // Providers supply game context to the agent
   providers: [
     goalProvider, // Current goal and progress (runs first for goal-aware decisions)
+    worldContextProvider, // Rich semantic world description (for A2A/MCP agents)
     gameStateProvider, // Player health, stamina, position, combat status
     inventoryProvider, // Inventory items, coins, free slots
     nearbyEntitiesProvider, // Players, NPCs, resources nearby
@@ -224,15 +244,41 @@ export const hyperscapePlugin: Plugin = {
 
     // Inventory
     equipItemAction,
+    unequipItemAction,
     useItemAction,
     dropItemAction,
 
     // Social
     chatMessageAction,
+    localChatAction,
+    whisperAction,
 
     // Banking
     bankDepositAction,
     bankWithdrawAction,
+    bankDepositAllAction,
+    bankDepositCoinsAction,
+    bankWithdrawCoinsAction,
+
+    // Store/Shop
+    buyItemAction,
+    sellItemAction,
+
+    // Dialogue
+    dialogueRespondAction,
+    closeDialogueAction,
+
+    // Examine/Inspect
+    examineEntityAction,
+    examineInventoryItemAction,
+
+    // World Interactions
+    interactNpcAction,
+    lootCorpseAction,
+    pickupItemAction,
+    respawnAction,
+    emoteAction,
+    eatFoodAction,
   ],
 
   // Event handlers for storing game events as memories
@@ -276,3 +322,15 @@ export { HyperscapeService };
 
 // Export content packs
 export * from "./content-packs/index.js";
+
+// Export MCP server for Model Context Protocol integration
+export * from "./mcp/index.js";
+
+// Export A2A client for Agent-to-Agent communication
+export * from "./a2a/index.js";
+
+// Export shared game helpers for custom integrations
+export * from "./shared/index.js";
+
+// Export worldContext provider for semantic world descriptions
+export { worldContextProvider } from "./providers/worldContext.js";

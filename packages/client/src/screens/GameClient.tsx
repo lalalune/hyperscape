@@ -162,12 +162,12 @@ export function GameClient({ wsUrl, onSetup }: GameClientProps) {
       };
 
       // Direct connection - no Vite proxy
-      // Default to game server on 5555, CDN on 8088
+      // Default to game server on 5555, CDN on 8080
       const finalWsUrl =
         wsUrl || import.meta.env.PUBLIC_WS_URL || "ws://localhost:5555/ws";
 
       // Always use absolute CDN URL for all assets
-      const cdnUrl = import.meta.env.PUBLIC_CDN_URL || "http://localhost:8088";
+      const cdnUrl = import.meta.env.PUBLIC_CDN_URL || "http://localhost:8080";
       const assetsUrl = `${cdnUrl}/`;
 
       // Make CDN URL available globally for PhysX loading

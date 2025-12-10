@@ -15,14 +15,12 @@
 
 import THREE, { toTHREEVector3 } from "../../extras/three/three";
 import CustomShaderMaterial from "../../libs/three-custom-shader-material";
-import { SystemBase } from "../shared";
+import { SystemBase } from "../shared/infrastructure/SystemBase";
 import type { World } from "../../types";
 import { EventType } from "../../types/events";
 import {
   drawHealthBar,
-  clearHealthBar,
   HEALTH_BAR_DIMENSIONS,
-  HEALTH_BAR_COLORS,
 } from "../../utils/rendering/HealthBarRenderer";
 
 const _v3_1 = new THREE.Vector3();

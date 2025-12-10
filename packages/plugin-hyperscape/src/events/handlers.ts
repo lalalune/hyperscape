@@ -41,7 +41,7 @@ export function registerEventHandlers(
     const eventData = data as { targetName?: string; xpGained?: number };
     const targetName = eventData.targetName;
     if (!targetName) {
-      logger.warn("[EventHandlers] Invalid COMBAT_KILL data:", data);
+      logger.warn("[EventHandlers] Invalid COMBAT_KILL data: " + JSON.stringify(data));
       return;
     }
     await storeCombatMemory(runtime, `Defeated ${targetName}`, eventData, [

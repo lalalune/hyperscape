@@ -42,7 +42,7 @@ export interface CharacterTemplate {
 /**
  * Generate a UUID v4 (simplified version for client-side)
  */
-function generateUUID(): string {
+function _generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
@@ -63,7 +63,7 @@ export function generateCharacterTemplate(
   name: string,
   wallet?: string,
   avatar?: string,
-  characterId?: string,
+  _characterId?: string,
 ): CharacterTemplate {
   const username = name.toLowerCase().replace(/\s+/g, "_");
 

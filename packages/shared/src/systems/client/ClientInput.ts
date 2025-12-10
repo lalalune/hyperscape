@@ -103,7 +103,7 @@
  */
 
 import THREE from "../../extras/three/three";
-import { SystemBase } from "../shared";
+import { SystemBase } from "../shared/infrastructure/SystemBase";
 import { EventType } from "../../types/events";
 import { MovementConfig } from "../../utils/physics/MovementUtils";
 import { buttons, codeToProp } from "../../extras/ui/buttons";
@@ -524,9 +524,6 @@ export class ClientInput extends SystemBase {
     // Block all input during death
     const player = (this.world as any).player;
     if (player && ((player as any).isDying || (player.data as any)?.isDying)) {
-      console.log(
-        "[ClientInput] Blocked keydown during death - player is dying",
-      );
       return;
     }
 
@@ -587,9 +584,6 @@ export class ClientInput extends SystemBase {
     // Block all pointer input during death
     const player = (this.world as any).player;
     if (player && ((player as any).isDying || (player.data as any)?.isDying)) {
-      console.log(
-        "[ClientInput] Blocked pointer click during death - player is dying",
-      );
       return;
     }
 
@@ -962,13 +956,14 @@ export class ClientInput extends SystemBase {
   private captureAndSendInput(deltaTime: number): void {
     const now = performance.now();
 
+    // PERFORMANCE: Create input object (required for buffering - must be unique per frame)
     const input: InputCommand = {
       sequence: this.sequenceNumber++,
       timestamp: now,
       deltaTime: deltaTime,
-      moveVector: this.moveVector.clone(),
+      moveVector: this.moveVector.clone(), // Must clone - gets modified between frames
       buttons: this.buttons,
-      viewAngles: this.viewAngles.clone(),
+      viewAngles: this.viewAngles.clone(), // Must clone - gets modified between frames
       checksum: this.calculateChecksum(),
     };
 
@@ -1391,7 +1386,6 @@ export class ClientInput extends SystemBase {
     this.lmbDown = false;
     this.rmbDown = false;
     this.moveVector.set(0, 0, 0);
-    console.log("[ClientInput] Controls disabled");
   }
 
   /**
@@ -1399,7 +1393,6 @@ export class ClientInput extends SystemBase {
    */
   enable(): void {
     this._controlsEnabled = true;
-    console.log("[ClientInput] Controls enabled");
   }
 
   /**

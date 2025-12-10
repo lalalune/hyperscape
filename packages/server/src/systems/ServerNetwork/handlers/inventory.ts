@@ -28,6 +28,7 @@ import {
 import {
   isValidItemId,
   isValidInventorySlot,
+  isValidEntityId,
   validateRequestTimestamp,
 } from "../services/InputValidation";
 import {
@@ -37,26 +38,6 @@ import {
   getEquipRateLimiter,
 } from "../services/SlidingWindowRateLimiter";
 import { getIdempotencyService } from "../services/IdempotencyService";
-
-// Regex to detect control characters (security)
-// eslint-disable-next-line no-control-regex
-const CONTROL_CHAR_REGEX = /[\x00-\x1f]/;
-
-/**
- * Validate entity ID for ground items
- * Similar to itemId validation but allows longer IDs for world entities
- *
- * @param value - Value to validate
- * @returns Type guard indicating if value is valid entity ID
- */
-function isValidEntityId(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 128 &&
-    !CONTROL_CHAR_REGEX.test(value)
-  );
-}
 
 /**
  * Valid equipment slot names for unequip operations

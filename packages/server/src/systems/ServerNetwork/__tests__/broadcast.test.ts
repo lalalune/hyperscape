@@ -10,7 +10,7 @@
  * NO MOCKS for packet serialization - uses real writePacket
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { BroadcastManager } from "../broadcast";
 import type { ServerSocket } from "../../../shared/types";
 
@@ -26,10 +26,10 @@ function createMockSocket(
     player: playerId
       ? { id: playerId, position: { x: 0, y: 0, z: 0 }, data: {} }
       : undefined,
-    send: vi.fn((name: string, data: unknown) => {
+    send: mock((_name: string, _data: unknown) => {
       // Track what was sent
     }),
-    sendPacket: vi.fn((packet: ArrayBuffer) => {
+    sendPacket: mock((packet: ArrayBuffer) => {
       packets.push(packet);
     }),
   } as unknown as ServerSocket;
@@ -110,8 +110,8 @@ describe("BroadcastManager", () => {
 
   describe("sendToSocket", () => {
     it("should send to specific socket by ID", () => {
-      const { socket: socket1, packets: packets1 } = createMockSocket("s1");
-      const { socket: socket2, packets: packets2 } = createMockSocket("s2");
+      const { socket: socket1, packets: _packets1 } = createMockSocket("s1");
+      const { socket: socket2, packets: _packets2 } = createMockSocket("s2");
 
       sockets.set("s1", socket1);
       sockets.set("s2", socket2);
@@ -220,7 +220,7 @@ describe("BroadcastManager Scaling", () => {
     // Total packets sent: 10 * 100 = 1,000
     let totalPackets = 0;
     for (const socket of sockets.values()) {
-      totalPackets += (socket.sendPacket as ReturnType<typeof vi.fn>).mock.calls
+      totalPackets += (socket.sendPacket as ReturnType<typeof mock>).mock.calls
         .length;
     }
     expect(totalPackets).toBe(1000);
@@ -250,7 +250,7 @@ describe("BroadcastManager with Real Packets", () => {
 
     const receivedPackets: ArrayBuffer[] = [];
     const { socket } = createMockSocket("s1");
-    socket.sendPacket = vi.fn((packet: ArrayBuffer) => {
+    socket.sendPacket = mock((packet: ArrayBuffer) => {
       receivedPackets.push(packet);
     });
 

@@ -10,12 +10,11 @@
 
 import type { World } from "../../../core/World";
 import { EventType } from "../../../types/events";
-import { SystemBase } from "..";
-import { ALL_NPCS, getNPCById } from "../../../data/npcs";
+import { SystemBase } from "../infrastructure/SystemBase";
+import { getNPCById } from "../../../data/npcs";
 import type {
   NPCDialogueTree,
   NPCDialogueNode,
-  NPCDialogueResponse,
 } from "../../../types/entities/npc-mob-types";
 
 interface DialogueState {

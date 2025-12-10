@@ -120,8 +120,13 @@ export class PlayerRemote extends Entity implements HotReloadable {
   private prevPosition: THREE.Vector3 = new THREE.Vector3();
   public velocity = new THREE.Vector3();
   public enableInterpolation: boolean = false; // Disabled - ensure basic movement works first
+  // PERFORMANCE: Cached objects for hot path updates
   private _tempMatrix1 = new THREE.Matrix4();
+  private _tempMatrix2 = new THREE.Matrix4();
+  private _tempMatrix3 = new THREE.Matrix4();
   private _tempVector3_1 = new THREE.Vector3();
+  private _tempQuat1 = new THREE.Quaternion();
+  private static readonly _UP = new THREE.Vector3(0, 1, 0);
 
   // Combat state for RuneScape-style auto-retaliate
   combat = {
@@ -563,9 +568,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
       angle += Math.PI;
 
       // Apply rotation to node quaternion
-      const tempQuat = new THREE.Quaternion();
-      tempQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-      this.node.quaternion.copy(tempQuat);
+      // PERFORMANCE: Use cached quaternion and static UP vector
+      this._tempQuat1.setFromAxisAngle(PlayerRemote._UP, angle);
+      this.node.quaternion.copy(this._tempQuat1);
     }
 
     // Update node matrices for rendering
@@ -687,19 +692,18 @@ export class PlayerRemote extends Entity implements HotReloadable {
     // Update nametag position in Nametags system (name only - no health)
     // This matches PlayerLocal behavior - without this, the nametag renders at origin
     if (this.nametag && this.nametag.handle && this.base) {
-      // Position nametag slightly higher than health bar
-      const nametagMatrix = new THREE.Matrix4();
-      nametagMatrix.copy(this.base.matrixWorld);
-      nametagMatrix.elements[13] += 2.2; // Name slightly higher
-      this.nametag.handle.move(nametagMatrix);
+      // PERFORMANCE: Use cached matrix instead of allocating new one
+      this._tempMatrix2.copy(this.base.matrixWorld);
+      this._tempMatrix2.elements[13] += 2.2; // Name slightly higher
+      this.nametag.handle.move(this._tempMatrix2);
     }
 
     // Update health bar position in HealthBars system (separate from nametag)
     if (this._healthBarHandle && this.base) {
-      const healthBarMatrix = new THREE.Matrix4();
-      healthBarMatrix.copy(this.base.matrixWorld);
-      healthBarMatrix.elements[13] += 2.0; // Health bar at Y=2.0
-      this._healthBarHandle.move(healthBarMatrix);
+      // PERFORMANCE: Use cached matrix instead of allocating new one
+      this._tempMatrix3.copy(this.base.matrixWorld);
+      this._tempMatrix3.elements[13] += 2.0; // Health bar at Y=2.0
+      this._healthBarHandle.move(this._tempMatrix3);
     }
   }
 

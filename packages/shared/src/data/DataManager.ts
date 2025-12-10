@@ -42,10 +42,8 @@ import type {
   NPCDataInput,
   NPCCategory,
   TreasureLocation,
-  BankEntityData,
   StoreData,
   BiomeData,
-  ZoneData,
 } from "../types/core/core";
 import type { DataValidationResult } from "../types/core/validation-types";
 import type { MobSpawnPoint, NPCLocation, WorldArea } from "./world-areas";
@@ -106,9 +104,9 @@ export class DataManager {
    * Load manifests from CDN (both client and server)
    */
   private async loadManifestsFromCDN(): Promise<void> {
-    // Load directly from CDN (localhost:8088 in dev, R2/S3 in prod)
+    // Load directly from CDN (localhost:8080 in dev, R2/S3 in prod)
     // Server uses process.env, client will use hardcoded default
-    let cdnUrl = "http://localhost:8088";
+    let cdnUrl = "http://localhost:8080";
     if (
       typeof process !== "undefined" &&
       typeof process.env !== "undefined" &&

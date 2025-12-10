@@ -3,12 +3,9 @@
  * All inventory, equipment, banking, and item storage related type definitions
  */
 
-import THREE from "../../extras/three/three";
 import type { Position3D } from "../core/base-types";
 import type {
   Item,
-  EquipmentSlotName,
-  StoreItemCategory,
   EquipmentSlot,
   Equipment,
   InventorySlotItem,

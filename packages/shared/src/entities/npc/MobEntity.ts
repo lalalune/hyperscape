@@ -99,8 +99,6 @@ import {
   type AIStateContext,
 } from "../managers/AIStateMachine";
 import { RespawnManager } from "../managers/RespawnManager";
-import { UIRenderer } from "../../utils/rendering/UIRenderer";
-import { GAME_CONSTANTS } from "../../constants";
 import type {
   HealthBars as HealthBarsSystem,
   HealthBarHandle,
@@ -111,7 +109,6 @@ import {
   worldToTile,
   TICK_DURATION_MS,
 } from "../../systems/shared/movement/TileSystem";
-import { attackSpeedSecondsToTicks } from "../../utils/game/CombatCalculations";
 
 // Polyfill ProgressEvent for Node.js server environment
 if (typeof ProgressEvent === "undefined") {
@@ -150,7 +147,10 @@ export class MobEntity extends CombatantEntity {
   private _serverEmote: string | null = null; // Server-forced one-shot emote (e.g., combat)
   private _manualEmoteOverrideUntil: number = 0; // Timestamp until which manual emote override is active
   private _tempMatrix = new THREE.Matrix4();
+  private _tempMatrix2 = new THREE.Matrix4();
   private _tempScale = new THREE.Vector3(1, 1, 1);
+  private _tempQuat = new THREE.Quaternion();
+  private static readonly _UP = new THREE.Vector3(0, 1, 0);
   private _terrainWarningLogged = false;
   private _hasValidTerrainHeight = false;
   // Placeholder hitbox for click detection before VRM loads (RuneScape-style: entity is functional immediately)
@@ -162,7 +162,8 @@ export class MobEntity extends CombatantEntity {
 
   // ===== MOVEMENT (Can be componentized later) =====
   private _wanderTarget: { x: number; z: number } | null = null;
-  private _lastPosition: THREE.Vector3 | null = null;
+  private _cachedLastPosition = new THREE.Vector3(); // PERFORMANCE: Reusable position vector
+  private _hasLastPosition: boolean = false; // PERFORMANCE: Flag instead of nullable object
   private _stuckTimer = 0;
   private readonly WANDER_MIN_DISTANCE = 1; // Minimum wander distance
   private readonly WANDER_MAX_DISTANCE = 5; // Maximum wander distance
@@ -189,6 +190,24 @@ export class MobEntity extends CombatantEntity {
   private _healthBarHandle: HealthBarHandle | null = null; // Handle to HealthBars system
   private _healthBarVisibleUntil: number = 0; // Timestamp when health bar should hide
   private _lastKnownHealth: number = 0; // Track previous health to detect damage
+
+  // ===== PERFORMANCE: CACHED SYSTEM REFERENCES =====
+  // Avoid repeated getSystem() calls per frame (50+ calls → 1 lookup)
+  private _cachedTerrainSystem: {
+    getHeightAt: (x: number, z: number) => number;
+    getWaterThreshold?: () => number;
+  } | null = null;
+  private _terrainSystemLookupAttempted = false;
+
+  // ===== PERFORMANCE: DISTANCE-BASED UPDATE THROTTLING =====
+  // Mobs far from camera don't need 60fps animation updates
+  private _lastAnimationUpdate = 0;
+  private _animationUpdateInterval = 16; // Default: every frame (~60fps)
+  private _distanceToCamera = 0;
+  private static readonly ANIM_THROTTLE_NEAR = 16;    // < 30m: 60fps
+  private static readonly ANIM_THROTTLE_MED = 50;     // 30-80m: 20fps
+  private static readonly ANIM_THROTTLE_FAR = 100;    // 80-150m: 10fps
+  private static readonly ANIM_THROTTLE_CULL = 200;   // > 150m: 5fps (or skip)
 
   async init(): Promise<void> {
     await super.init();
@@ -218,6 +237,73 @@ export class MobEntity extends CombatantEntity {
     }
 
     this._lastKnownHealth = this.config.currentHealth;
+  }
+
+  /**
+   * PERFORMANCE: Get cached terrain system reference
+   * Avoids repeated getSystem("terrain") calls every frame
+   */
+  private getTerrainSystem(): {
+    getHeightAt: (x: number, z: number) => number;
+    getWaterThreshold?: () => number;
+  } | null {
+    // Return cached if available
+    if (this._cachedTerrainSystem) {
+      return this._cachedTerrainSystem;
+    }
+
+    // Only try to look up once per entity lifecycle
+    if (this._terrainSystemLookupAttempted) {
+      return null;
+    }
+
+    this._terrainSystemLookupAttempted = true;
+    const terrain = this.world.getSystem("terrain");
+    if (terrain && "getHeightAt" in terrain) {
+      this._cachedTerrainSystem = terrain as {
+        getHeightAt: (x: number, z: number) => number;
+        getWaterThreshold?: () => number;
+      };
+      return this._cachedTerrainSystem;
+    }
+
+    return null;
+  }
+
+  /**
+   * PERFORMANCE: Calculate distance to camera for update throttling
+   * Far mobs don't need 60fps animation updates
+   */
+  private updateDistanceToCamera(): void {
+    if (!this.world.camera) return;
+
+    const cameraPos = this.world.camera.position;
+    const dx = this.position.x - cameraPos.x;
+    const dz = this.position.z - cameraPos.z;
+    this._distanceToCamera = Math.sqrt(dx * dx + dz * dz);
+
+    // Adjust animation update interval based on distance
+    if (this._distanceToCamera < 30) {
+      this._animationUpdateInterval = MobEntity.ANIM_THROTTLE_NEAR; // 60fps
+    } else if (this._distanceToCamera < 80) {
+      this._animationUpdateInterval = MobEntity.ANIM_THROTTLE_MED; // 20fps
+    } else if (this._distanceToCamera < 150) {
+      this._animationUpdateInterval = MobEntity.ANIM_THROTTLE_FAR; // 10fps
+    } else {
+      this._animationUpdateInterval = MobEntity.ANIM_THROTTLE_CULL; // 5fps
+    }
+  }
+
+  /**
+   * PERFORMANCE: Check if we should skip animation update this frame
+   * Based on distance-based throttling
+   */
+  private shouldSkipAnimationUpdate(currentTime: number): boolean {
+    if (currentTime - this._lastAnimationUpdate < this._animationUpdateInterval) {
+      return true;
+    }
+    this._lastAnimationUpdate = currentTime;
+    return false;
   }
 
   /**
@@ -541,11 +627,6 @@ export class MobEntity extends CombatantEntity {
       // Apply manifest scale on top of VRM's height normalization
       // VRM is auto-normalized to 1.6m, so scale 2.0 = 3.2m tall
       const configScale = this.config.scale;
-      const beforeScale = {
-        x: this.mesh.scale.x,
-        y: this.mesh.scale.y,
-        z: this.mesh.scale.z,
-      };
       this.mesh.scale.set(
         this.mesh.scale.x * configScale.x,
         this.mesh.scale.y * configScale.y,
@@ -1375,14 +1456,22 @@ export class MobEntity extends CombatantEntity {
     super.clientUpdate(deltaTime);
     this.clientUpdateCalls++;
 
+    // PERFORMANCE: Update distance to camera periodically (not every frame)
+    // Used for animation throttling - far mobs don't need 60fps updates
+    if (this.clientUpdateCalls % 10 === 0) {
+      this.updateDistanceToCamera();
+    }
+
+    // PERFORMANCE: Get current time once per frame (avoid multiple Date.now() calls)
+    const currentTime = Date.now();
+
     // Update health bar position (HealthBars system uses atlas + instanced mesh)
     if (this._healthBarHandle) {
-      // Position health bar above mob's head
-      const healthBarMatrix = new THREE.Matrix4();
-      healthBarMatrix.copyPosition(this.node.matrixWorld);
+      // Position health bar above mob's head (reuse cached matrix)
+      this._tempMatrix2.copyPosition(this.node.matrixWorld);
       // Offset Y to position above the mob (2.0 units up)
-      healthBarMatrix.elements[13] += 2.0;
-      this._healthBarHandle.move(healthBarMatrix);
+      this._tempMatrix2.elements[13] += 2.0;
+      this._healthBarHandle.move(this._tempMatrix2);
     }
 
     // Hide health bar after combat timeout (RuneScape pattern: 4.8 seconds)
@@ -1465,10 +1554,9 @@ export class MobEntity extends CombatantEntity {
           // Otherwise entities face AWAY from each other instead of towards
           angle += Math.PI;
 
-          // Apply rotation to node quaternion
-          const tempQuat = new THREE.Quaternion();
-          tempQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-          this.node.quaternion.copy(tempQuat);
+          // Apply rotation to node quaternion (reuse cached objects)
+          this._tempQuat.setFromAxisAngle(MobEntity._UP, angle);
+          this.node.quaternion.copy(this._tempQuat);
         }
       }
 
@@ -1481,17 +1569,18 @@ export class MobEntity extends CombatantEntity {
         // CRITICAL: Snap to terrain EVERY frame (server doesn't have terrain system)
         // Keep trying until terrain tile is generated, then snap every frame
         // This also counteracts VRM animation root motion that would push character into ground
-        const terrain = this.world.getSystem("terrain");
-        if (terrain && "getHeightAt" in terrain) {
+        // PERFORMANCE: Use cached terrain reference instead of getSystem() every frame
+        const typedTerrain = this.getTerrainSystem();
+        if (typedTerrain) {
           try {
-            // CRITICAL: Must call method on terrain object to preserve 'this' context
-            const terrainHeight = (
-              terrain as { getHeightAt: (x: number, z: number) => number }
-            ).getHeightAt(this.node.position.x, this.node.position.z);
+            const terrainHeight = typedTerrain.getHeightAt(this.node.position.x, this.node.position.z);
             if (Number.isFinite(terrainHeight)) {
+              // Clamp to water level to prevent sinking
+              const waterThreshold = typedTerrain.getWaterThreshold?.() ?? 5.4;
+              const effectiveHeight = Math.max(terrainHeight, waterThreshold);
               this._hasValidTerrainHeight = true;
-              this.node.position.y = terrainHeight + 0.1;
-              this.position.y = terrainHeight + 0.1;
+              this.node.position.y = effectiveHeight + 0.1;
+              this.position.y = effectiveHeight + 0.1;
             }
           } catch {
             // Terrain tile not generated yet - keep current Y and retry next frame
@@ -1521,29 +1610,37 @@ export class MobEntity extends CombatantEntity {
         // DON'T call move() - it causes sliding due to internal interpolation
         // VRM scene was positioned once in modify() when entering death state
         // Just update the animation, VRM scene stays locked
-        this._avatarInstance.update(deltaTime);
+        // PERFORMANCE: Skip animation updates for distant mobs (death anim still plays at reduced rate)
+        if (!this.shouldSkipAnimationUpdate(currentTime)) {
+          this._avatarInstance.update(deltaTime);
+        }
       } else {
         // NORMAL PATH: Use move() to sync VRM - it preserves the VRM's internal scale
         // move() applies vrm.scene.scale to maintain height normalization
         this._avatarInstance.move(this.node.matrixWorld);
 
-        // Update VRM animations (mixer + humanoid + skeleton)
-        this._avatarInstance.update(deltaTime);
+        // PERFORMANCE: Skip animation updates for distant mobs based on throttle interval
+        if (!this.shouldSkipAnimationUpdate(currentTime)) {
+          // Update VRM animations (mixer + humanoid + skeleton)
+          this._avatarInstance.update(deltaTime);
+        }
       }
 
       // Post-animation position locking for non-death states
       if (this.config.aiState !== MobAIState.DEAD) {
         // CRITICAL: Re-snap to terrain AFTER animation update to counteract root motion
         // Animation root motion can push character down/back, so we fix position after it applies
-        const terrain = this.world.getSystem("terrain");
-        if (terrain && "getHeightAt" in terrain) {
+        // PERFORMANCE: Use cached terrain reference
+        const typedTerrain = this.getTerrainSystem();
+        if (typedTerrain) {
           try {
-            const terrainHeight = (
-              terrain as { getHeightAt: (x: number, z: number) => number }
-            ).getHeightAt(this.node.position.x, this.node.position.z);
+            const terrainHeight = typedTerrain.getHeightAt(this.node.position.x, this.node.position.z);
             if (Number.isFinite(terrainHeight)) {
-              this.node.position.y = terrainHeight + 0.1;
-              this.position.y = terrainHeight + 0.1;
+              // Clamp to water level to prevent sinking
+              const waterThreshold = typedTerrain.getWaterThreshold?.() ?? 5.4;
+              const effectiveHeight = Math.max(terrainHeight, waterThreshold);
+              this.node.position.y = effectiveHeight + 0.1;
+              this.position.y = effectiveHeight + 0.1;
 
               // CRITICAL: Update matrices and call move() again to apply corrected Y position to VRM
               this.node.updateMatrix();
@@ -1565,15 +1662,17 @@ export class MobEntity extends CombatantEntity {
     // Skip animation updates - placeholder doesn't animate
     if (this.mesh === this._placeholderHitbox) {
       // Just update position from terrain while waiting for VRM to load
-      const terrain = this.world.getSystem("terrain");
-      if (terrain && "getHeightAt" in terrain) {
+      // PERFORMANCE: Use cached terrain reference
+      const typedTerrain = this.getTerrainSystem();
+      if (typedTerrain) {
         try {
-          const terrainHeight = (
-            terrain as { getHeightAt: (x: number, z: number) => number }
-          ).getHeightAt(this.node.position.x, this.node.position.z);
+          const terrainHeight = typedTerrain.getHeightAt(this.node.position.x, this.node.position.z);
           if (Number.isFinite(terrainHeight)) {
-            this.node.position.y = terrainHeight + 0.1;
-            this.position.y = terrainHeight + 0.1;
+            // Clamp to water level to prevent sinking
+            const waterThreshold = typedTerrain.getWaterThreshold?.() ?? 5.4;
+            const effectiveHeight = Math.max(terrainHeight, waterThreshold);
+            this.node.position.y = effectiveHeight + 0.1;
+            this.position.y = effectiveHeight + 0.1;
           }
         } catch {
           // Terrain tile not generated yet
@@ -1592,7 +1691,8 @@ export class MobEntity extends CombatantEntity {
     // Note: Mixer may not exist for mobs with no animations - that's OK
     // The visible placeholder fallback doesn't have a mixer
 
-    if (mixer) {
+    // PERFORMANCE: Skip animation updates for distant mobs based on throttle interval
+    if (mixer && !this.shouldSkipAnimationUpdate(currentTime)) {
       mixer.update(deltaTime);
 
       // Update skeleton bones
@@ -1605,31 +1705,33 @@ export class MobEntity extends CombatantEntity {
             skeleton.bones.forEach((bone) => bone.updateMatrixWorld());
             skeleton.update();
 
-            // VALIDATION: Check if bones are actually transforming
-            if (this.clientUpdateCalls === 1) {
-              const hipsBone = skeleton.bones.find((b) =>
-                b.name.toLowerCase().includes("hips"),
-              );
-              if (hipsBone) {
-                this.initialBonePosition = hipsBone.position.clone();
-              }
-            } else if (this.clientUpdateCalls === 60) {
-              const hipsBone = skeleton.bones.find((b) =>
-                b.name.toLowerCase().includes("hips"),
-              );
-              if (hipsBone && this.initialBonePosition) {
-                const distance = hipsBone.position.distanceTo(
-                  this.initialBonePosition,
+            // VALIDATION: Check if bones are actually transforming (only for nearby mobs)
+            if (this._distanceToCamera < 30) {
+              if (this.clientUpdateCalls === 1) {
+                const hipsBone = skeleton.bones.find((b) =>
+                  b.name.toLowerCase().includes("hips"),
                 );
-                if (distance < 0.001) {
-                  throw new Error(
-                    `[MobEntity] BONES NOT MOVING: ${this.config.mobType}\n` +
-                      `  Start: [${this.initialBonePosition.toArray().map((v) => v.toFixed(4))}]\n` +
-                      `  Now: [${hipsBone.position.toArray().map((v) => v.toFixed(4))}]\n` +
-                      `  Distance: ${distance.toFixed(6)} (need > 0.001)\n` +
-                      `  Mixer time: ${mixer.time.toFixed(2)}s\n` +
-                      `  Animation runs but doesn't affect bones!`,
+                if (hipsBone) {
+                  this.initialBonePosition = hipsBone.position.clone();
+                }
+              } else if (this.clientUpdateCalls === 60) {
+                const hipsBone = skeleton.bones.find((b) =>
+                  b.name.toLowerCase().includes("hips"),
+                );
+                if (hipsBone && this.initialBonePosition) {
+                  const distance = hipsBone.position.distanceTo(
+                    this.initialBonePosition,
                   );
+                  if (distance < 0.001) {
+                    throw new Error(
+                      `[MobEntity] BONES NOT MOVING: ${this.config.mobType}\n` +
+                        `  Start: [${this.initialBonePosition.toArray().map((v) => v.toFixed(4))}]\n` +
+                        `  Now: [${hipsBone.position.toArray().map((v) => v.toFixed(4))}]\n` +
+                        `  Distance: ${distance.toFixed(6)} (need > 0.001)\n` +
+                        `  Mixer time: ${mixer.time.toFixed(2)}s\n` +
+                        `  Animation runs but doesn't affect bones!`,
+                    );
+                  }
                 }
               }
             }
@@ -1817,15 +1919,16 @@ export class MobEntity extends CombatantEntity {
       };
 
       // Snap to terrain height (only if terrain system is ready)
-      const terrain = this.world.getSystem("terrain");
-      if (terrain && "getHeightAt" in terrain) {
+      // PERFORMANCE: Use cached terrain reference
+      const typedTerrain = this.getTerrainSystem();
+      if (typedTerrain) {
         try {
-          // CRITICAL: Must call method on terrain object to preserve 'this' context
-          const terrainHeight = (
-            terrain as { getHeightAt: (x: number, z: number) => number }
-          ).getHeightAt(newPos.x, newPos.z);
+          const terrainHeight = typedTerrain.getHeightAt(newPos.x, newPos.z);
           if (Number.isFinite(terrainHeight)) {
-            newPos.y = terrainHeight + 0.1;
+            // Clamp to water level to prevent sinking
+            const waterThreshold = typedTerrain.getWaterThreshold?.() ?? 5.4;
+            const effectiveHeight = Math.max(terrainHeight, waterThreshold);
+            newPos.y = effectiveHeight + 0.1;
           } else if (!this._terrainWarningLogged) {
             console.warn(
               `[MobEntity] Server terrain height not finite at (${newPos.x.toFixed(1)}, ${newPos.z.toFixed(1)})`,
@@ -1847,11 +1950,10 @@ export class MobEntity extends CombatantEntity {
       // VRM 1.0+ models are rotated 180° by the factory (see createVRMFactory.ts:264)
       // so we need to add PI to compensate and face the correct direction
       const angle = Math.atan2(direction.x, direction.z) + Math.PI;
-      const targetQuaternion = new THREE.Quaternion();
-      targetQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+      this._tempQuat.setFromAxisAngle(MobEntity._UP, angle);
 
       // Smoothly rotate towards target direction
-      this.node.quaternion.slerp(targetQuaternion, 0.1);
+      this.node.quaternion.slerp(this._tempQuat, 0.1);
 
       // Stuck detection: Only check when actively moving (RuneScape-style: give up if stuck)
       // This prevents false positives during IDLE and ATTACK states
@@ -1861,8 +1963,9 @@ export class MobEntity extends CombatantEntity {
         this.config.aiState === MobAIState.RETURN;
 
       if (isMovingState) {
-        if (this._lastPosition) {
-          const moved = this.position.distanceTo(this._lastPosition);
+        // PERFORMANCE: Use cached position and flag instead of allocating new Vector3
+        if (this._hasLastPosition) {
+          const moved = this.position.distanceTo(this._cachedLastPosition);
           if (moved < 0.01) {
             // Barely moved - increment stuck timer
             this._stuckTimer += deltaTime;
@@ -1876,7 +1979,7 @@ export class MobEntity extends CombatantEntity {
               this.aggroManager.clearTarget();
               this._wanderTarget = null;
               this._stuckTimer = 0;
-              this._lastPosition = null;
+              this._hasLastPosition = false;
               this.markNetworkDirty();
               return;
             }
@@ -1885,7 +1988,8 @@ export class MobEntity extends CombatantEntity {
             this._stuckTimer = 0;
           }
         }
-        this._lastPosition = this.position.clone();
+        this._cachedLastPosition.copy(this.position);
+        this._hasLastPosition = true;
       }
 
       // Update position (will be synced to clients via network)

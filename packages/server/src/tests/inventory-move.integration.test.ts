@@ -5,7 +5,7 @@
  * Verifies OSRS-style SWAP behavior (not INSERT), validation, and rate limiting.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { INPUT_LIMITS, EventType } from "@hyperscape/shared";
 
 // Mock types matching the handler expectations
@@ -31,7 +31,7 @@ interface MockPlayer {
 interface MockSocket {
   id: string;
   player: MockPlayer;
-  emit: ReturnType<typeof vi.fn>;
+  emit: ReturnType<typeof mock>;
 }
 
 interface MockInventory {
@@ -41,7 +41,7 @@ interface MockInventory {
 }
 
 interface MockWorld {
-  emit: ReturnType<typeof vi.fn>;
+  emit: ReturnType<typeof mock>;
   getSystem: (name: string) => MockInventorySystem | undefined;
 }
 
@@ -68,7 +68,7 @@ function createMockSocket(player: MockPlayer): MockSocket {
   return {
     id: "socket-123",
     player,
-    emit: vi.fn(),
+    emit: mock(() => {}),
   };
 }
 
@@ -237,8 +237,8 @@ describe("Inventory Move Integration - OSRS-style SWAP", () => {
     player = createMockPlayer();
     socket = createMockSocket(player);
     world = {
-      emit: vi.fn(),
-      getSystem: vi.fn(),
+      emit: mock(() => {}),
+      getSystem: mock(() => {}),
     };
   });
 
@@ -413,7 +413,7 @@ describe("Inventory Move Integration - Input Validation", () => {
     moveRateLimiter.clear();
     player = createMockPlayer();
     socket = createMockSocket(player);
-    world = { emit: vi.fn(), getSystem: vi.fn() };
+    world = { emit: mock(() => {}), getSystem: mock(() => {}) };
     inventory = createMockInventory(player.id, [
       createMockItem("bronze_sword", 0),
     ]);
@@ -595,7 +595,7 @@ describe("Inventory Move Integration - Rate Limiting", () => {
     moveRateLimiter.clear();
     player = createMockPlayer();
     socket = createMockSocket(player);
-    world = { emit: vi.fn(), getSystem: vi.fn() };
+    world = { emit: mock(() => {}), getSystem: mock(() => {}) };
   });
 
   it("allows up to 10 moves per second", () => {
@@ -685,7 +685,7 @@ describe("Inventory Move Integration - Concurrent Moves", () => {
     moveRateLimiter.clear();
     player = createMockPlayer();
     socket = createMockSocket(player);
-    world = { emit: vi.fn(), getSystem: vi.fn() };
+    world = { emit: mock(() => {}), getSystem: mock(() => {}) };
   });
 
   it("handles rapid sequential moves without corruption", () => {
@@ -794,7 +794,7 @@ describe("Inventory Move Integration - Stackable Items", () => {
     moveRateLimiter.clear();
     player = createMockPlayer();
     socket = createMockSocket(player);
-    world = { emit: vi.fn(), getSystem: vi.fn() };
+    world = { emit: mock(() => {}), getSystem: mock(() => {}) };
   });
 
   it("swaps stackable items without merging stacks", () => {

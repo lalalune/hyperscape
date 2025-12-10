@@ -1,4 +1,5 @@
-import { SystemBase, TerrainSystem } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
+import { TerrainSystem } from "../world/TerrainSystem";
 import { uuid } from "../../../utils";
 import type { World } from "../../../types";
 import { EventType } from "../../../types/events";
@@ -12,7 +13,6 @@ import {
 import type { TerrainResourceSpawnPoint } from "../../../types/world/terrain";
 import { TICK_DURATION_MS } from "../movement/TileSystem";
 import { getExternalResource } from "../../../utils/ExternalAssetUtils";
-import type { ExternalResourceData } from "../../../data/DataManager";
 import { ALL_WORLD_AREAS } from "../../../data/world-areas";
 
 /**
@@ -177,7 +177,6 @@ export class ResourceSystem extends SystemBase {
   private setGatheringEmote(playerId: string, emote: string): void {
     const playerEntity = this.world.getPlayer?.(playerId);
     if (playerEntity) {
-      console.log(`[ResourceSystem] 🪓 Setting ${emote} emote for ${playerId}`);
 
       // Set emote STRING KEY (players use emote strings which get mapped to URLs)
       if ((playerEntity as any).emote !== undefined) {
@@ -206,9 +205,6 @@ export class ResourceSystem extends SystemBase {
   private resetGatheringEmote(playerId: string): void {
     const playerEntity = this.world.getPlayer?.(playerId);
     if (playerEntity) {
-      console.log(
-        `[ResourceSystem] 🪓 Resetting emote to idle for ${playerId}`,
-      );
 
       // Reset to idle
       if ((playerEntity as any).emote !== undefined) {
@@ -264,7 +260,7 @@ export class ResourceSystem extends SystemBase {
       ore: "ore",
     };
 
-    for (const [areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
+    for (const [_areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
       if (!area.resources || area.resources.length === 0) continue;
 
       const spawnPoints: TerrainResourceSpawnPoint[] = [];
@@ -362,9 +358,6 @@ export class ResourceSystem extends SystemBase {
         this.manifestResourceIds.add(rid);
       }
 
-      console.log(
-        `[ResourceSystem] Stored resource in map: id="${resource.id}", rid="${rid}", map size=${this.resources.size}${isManifest ? " (manifest)" : ""}`,
-      );
       // Track variant/subtype for tuning (e.g., 'tree_oak')
       if (resource.type === "tree") {
         // Build full key: if subType is "normal", key is "tree_normal"

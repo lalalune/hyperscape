@@ -5,9 +5,8 @@
 
 import THREE from "../../extras/three/three";
 import type { PlayerRow } from "../network/database";
-import type { Position3D } from "../core/base-types";
 import type { Item, EquipmentSlot } from "../game/item-types";
-import type { Skills, SkillData, InventoryItem } from "./entity-types";
+import type { Skills, InventoryItem } from "./entity-types";
 import type { PlayerEffect } from "../systems/physics";
 
 // Core position and health structures

@@ -106,11 +106,8 @@ export const CharacterEditorScreen: React.FC = () => {
   React.useEffect(() => {
     const accountId = localStorage.getItem("privy_user_id");
     if (!accountId) {
-      console.warn(
+      console.error(
         "[CharacterEditor] No authentication found, redirecting to login",
-      );
-      alert(
-        "You must be logged in to access the character editor. Please log in first.",
       );
       window.location.href = "/";
       return;
@@ -130,13 +127,13 @@ export const CharacterEditorScreen: React.FC = () => {
     const avatar = params.get("avatar");
 
     if (!characterIdParam) {
-      alert("No character ID provided");
+      console.error("[CharacterEditor] No character ID provided");
       window.location.href = "/";
       return;
     }
 
     if (!name) {
-      alert("No character name provided");
+      console.error("[CharacterEditor] No character name provided");
       window.location.href = "/";
       return;
     }
@@ -230,7 +227,7 @@ export const CharacterEditorScreen: React.FC = () => {
               messageExamples: ensureArray(
                 existingAgent.messageExamples,
                 baseTemplate.messageExamples || [],
-              ) as any[],
+              ) as Array<Array<{ user: string; content: { text: string } }>>,
               postExamples: ensureArray(
                 existingAgent.postExamples,
                 baseTemplate.postExamples || [],

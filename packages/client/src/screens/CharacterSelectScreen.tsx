@@ -277,11 +277,7 @@ export function CharacterSelectScreen({
         // ElizaOS is running - assume Hyperscape plugin is available
         // (Plugin availability is verified during agent creation)
         setElizaOSAvailable(true);
-        console.log("[CharacterSelect] ✅ ElizaOS detected and available");
-      } catch (error) {
-        console.log(
-          "[CharacterSelect] ℹ️ ElizaOS not detected (AI agents disabled)",
-        );
+      } catch {
         setElizaOSAvailable(false);
       } finally {
         setCheckingElizaOS(false);
@@ -329,10 +325,6 @@ export function CharacterSelectScreen({
             if (data.templates.length > 0) {
               setSelectedTemplate(data.templates[0]);
             }
-            console.log(
-              "[CharacterSelect] ✅ Loaded character templates:",
-              data.templates,
-            );
           }
         }
       } catch (error) {
@@ -399,9 +391,6 @@ export function CharacterSelectScreen({
   React.useEffect(() => {
     // Wait for Privy to finish initializing and authenticating
     if (!ready || !authenticated) {
-      console.log(
-        `[CharacterSelect] ⏳ Waiting for Privy: ready=${ready}, authenticated=${authenticated}`,
-      );
       setWsReady(false);
       return; // Don't create websocket until Privy is ready
     }
@@ -410,18 +399,12 @@ export function CharacterSelectScreen({
     // This prevents race conditions where `authenticated=true` but user data isn't loaded yet
     const currentUser = userRef.current;
     if (!currentUser || !currentUser.id) {
-      console.log(
-        "[CharacterSelect] ⏳ Waiting for Privy user data to load...",
-      );
       setWsReady(false);
       return;
     }
 
     // Wait until Privy auth values are present in localStorage
     if (!authToken || !privyUserId) {
-      console.log(
-        "[CharacterSelect] ⏳ Waiting for localStorage auth tokens...",
-      );
       setWsReady(false);
       return; // Don't create websocket without auth
     }
@@ -430,9 +413,8 @@ export function CharacterSelectScreen({
     // This catches cases where stale tokens are in localStorage
     if (currentUser.id !== privyUserId) {
       console.warn(
-        `[CharacterSelect] ⚠️ Privy user ID mismatch! Hook: ${currentUser.id}, localStorage: ${privyUserId}`,
+        `[CharacterSelect] Privy user ID mismatch. Clearing stale auth tokens.`,
       );
-      console.log("[CharacterSelect] 🔄 Clearing stale auth tokens...");
       localStorage.removeItem("privy_auth_token");
       localStorage.removeItem("privy_user_id");
       setAuthToken("");
@@ -441,24 +423,14 @@ export function CharacterSelectScreen({
       return;
     }
 
-    console.log(
-      "[CharacterSelect] ✅ Privy ready and authenticated, connecting...",
-      { userId: currentUser.id, privyUserId },
-    );
-
     let url = `${wsUrl}?authToken=${encodeURIComponent(authToken)}`;
     if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
 
-    console.log("[CharacterSelect] 🔌 Creating WebSocket connection to:", url);
     const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";
     preWsRef.current = ws;
     setWsReady(false);
     ws.addEventListener("open", () => {
-      console.log(
-        "[CharacterSelect] ✅ WebSocket opened with authenticated user:",
-        currentUser.id,
-      );
       setWsReady(true);
       // Request character list from server
       const packet = writePacket("characterListRequest", {});
@@ -509,10 +481,6 @@ export function CharacterSelectScreen({
         // AGENT FLOW: Generate JWT, create ElizaOS agent, redirect to character editor
         // HUMAN FLOW: Show "Enter World" confirmation screen
         if (currentCharacterType === "agent") {
-          console.log(
-            "[CharacterSelect] 🤖 Agent character created, generating JWT and creating ElizaOS agent...",
-          );
-
           // Generate JWT and create ElizaOS agent immediately
           const createAgentAndRedirect = async () => {
             try {
@@ -523,7 +491,6 @@ export function CharacterSelectScreen({
               }
 
               // Step 1: Generate JWT
-              console.log("[CharacterSelect] 🔑 Generating JWT for agent...");
               const credentialsResponse = await fetch(
                 "http://localhost:5555/api/agents/credentials",
                 {
@@ -543,16 +510,11 @@ export function CharacterSelectScreen({
               }
 
               const credentials = await credentialsResponse.json();
-              console.log("[CharacterSelect] ✅ JWT generated successfully");
 
               // Step 2: Get template config and create ElizaOS agent
               if (!currentSelectedTemplate) {
                 throw new Error("No character template selected");
               }
-
-              console.log(
-                `[CharacterSelect] 📥 Using template: ${currentSelectedTemplate.name}`,
-              );
 
               // Parse template config from database (stored as JSON string)
               // This avoids a separate fetch - config is already in the templates response
@@ -561,9 +523,6 @@ export function CharacterSelectScreen({
                 try {
                   templateJson = JSON.parse(
                     currentSelectedTemplate.templateConfig,
-                  );
-                  console.log(
-                    "[CharacterSelect] ✅ Template config parsed from database",
                   );
                 } catch (parseError) {
                   console.error(
@@ -574,9 +533,6 @@ export function CharacterSelectScreen({
                 }
               } else {
                 // Fallback: Fetch from templateUrl (legacy support)
-                console.log(
-                  "[CharacterSelect] ⚠️ No templateConfig in database, fetching from URL...",
-                );
                 const templateResponse = await fetch(
                   currentSelectedTemplate.templateUrl,
                 );
@@ -586,7 +542,6 @@ export function CharacterSelectScreen({
                   );
                 }
                 templateJson = await templateResponse.json();
-                console.log("[CharacterSelect] ✅ Template fetched from URL");
               }
 
               // Remove fields that ElizaOS validation doesn't accept
@@ -624,10 +579,6 @@ export function CharacterSelectScreen({
                 },
               };
 
-              console.log(
-                `[CharacterSelect] 🤖 Creating ${currentSelectedTemplate.name} agent with character-specific data...`,
-              );
-
               // Create agent in ElizaOS
               const createAgentResponse = await fetch(`${ELIZAOS_API}/agents`, {
                 method: "POST",
@@ -645,17 +596,13 @@ export function CharacterSelectScreen({
               }
 
               const agentResult = await createAgentResponse.json();
-              console.log(
-                "[CharacterSelect] ✅ ElizaOS agent creation response:",
-                agentResult,
-              );
 
               // Extract agent ID from response - ElizaOS returns UUID in data.character.id
               const agentId = agentResult.data?.character?.id;
 
               if (!agentId) {
                 console.error(
-                  "[CharacterSelect] ❌ No agent ID in response! Full response:",
+                  "[CharacterSelect] No agent ID in response:",
                   agentResult,
                 );
                 throw new Error(
@@ -663,16 +610,11 @@ export function CharacterSelectScreen({
                 );
               }
 
-              console.log("[CharacterSelect] ✅ Agent ID extracted:", agentId);
-
               // Store agent ID for dashboard
               localStorage.setItem("last_created_agent_id", agentId);
 
               // Step 3: Create agent mapping in Hyperscape database (CRITICAL for dashboard)
               // This must happen BEFORE redirect so agent shows in dashboard even if user cancels editor
-              console.log(
-                "[CharacterSelect] 📝 Creating agent mapping in Hyperscape database...",
-              );
               try {
                 const mappingResponse = await fetch(
                   "http://localhost:5555/api/agents/mappings",
@@ -690,19 +632,15 @@ export function CharacterSelectScreen({
 
                 if (!mappingResponse.ok) {
                   console.error(
-                    "[CharacterSelect] ⚠️ Failed to create agent mapping:",
+                    "[CharacterSelect] Failed to create agent mapping:",
                     mappingResponse.status,
                   );
                   // Don't throw - agent was created, mapping is for dashboard filtering
                   // User can still use the agent, it just won't show in dashboard
-                } else {
-                  console.log(
-                    "[CharacterSelect] ✅ Agent mapping created successfully",
-                  );
                 }
               } catch (mappingError) {
                 console.error(
-                  "[CharacterSelect] ⚠️ Error creating agent mapping:",
+                  "[CharacterSelect] Error creating agent mapping:",
                   mappingError,
                 );
                 // Don't throw - continue to editor even if mapping fails
@@ -784,10 +722,6 @@ export function CharacterSelectScreen({
 
       if (character?.isAgent) {
         // AI AGENT: Check if agent exists in ElizaOS
-        console.log(
-          "[CharacterSelect] 🤖 AI agent selected, checking if agent exists in ElizaOS...",
-        );
-
         try {
           // Try to fetch agent from ElizaOS by character ID
           const response = await fetch(`${ELIZAOS_API}/agents`);
@@ -807,16 +741,9 @@ export function CharacterSelectScreen({
 
             if (agentExists) {
               // Agent exists - go to dashboard
-              console.log(
-                "[CharacterSelect] ✅ Agent exists, redirecting to dashboard...",
-              );
               window.location.href = `/?page=dashboard`;
             } else {
               // Agent doesn't exist - go to character editor to create it
-              console.log(
-                "[CharacterSelect] ⚠️ Agent doesn't exist, redirecting to editor...",
-              );
-
               // Fetch full character data from Hyperscape DB to get avatar
               const accountId = user?.id;
               if (!accountId) {
@@ -833,10 +760,6 @@ export function CharacterSelectScreen({
                   (c: { id: string }) => c.id === id,
                 );
                 avatarUrl = hyperscapeChar?.avatar || "";
-                console.log(
-                  "[CharacterSelect] Loaded avatar from Hyperscape DB:",
-                  avatarUrl,
-                );
               }
 
               window.location.href = `/?page=character-editor&characterId=${id}&name=${character.name}&wallet=${character.wallet || ""}&avatar=${encodeURIComponent(avatarUrl)}`;
@@ -858,9 +781,6 @@ export function CharacterSelectScreen({
       }
 
       // HUMAN PLAYER: Show confirmation screen to enter world
-      console.log(
-        "[CharacterSelect] 🎮 Human character selected, showing confirmation...",
-      );
       setSelectedCharacterId(id);
       setView("confirm");
 
@@ -905,9 +825,6 @@ export function CharacterSelectScreen({
 
         // Helper to clear corrupted Privy state from localStorage
         const clearPrivyState = () => {
-          console.log(
-            "[CharacterSelect] 🧹 Clearing potentially corrupted Privy wallet state...",
-          );
           const keysToRemove: string[] = [];
 
           // Find all Privy wallet-related keys
@@ -925,13 +842,8 @@ export function CharacterSelectScreen({
 
           // Remove them
           keysToRemove.forEach((key) => {
-            console.log(`[CharacterSelect] Removing corrupted key: ${key}`);
             localStorage.removeItem(key);
           });
-
-          console.log(
-            `[CharacterSelect] ✅ Cleared ${keysToRemove.length} corrupted Privy keys`,
-          );
         };
 
         // Attempt wallet creation with retry logic
@@ -941,10 +853,6 @@ export function CharacterSelectScreen({
 
         while (!walletAddress && retryCount < MAX_RETRIES) {
           try {
-            console.log(
-              `[CharacterSelect] 🔑 Attempt ${retryCount + 1}/${MAX_RETRIES}: Creating HD wallet for character "${name}"`,
-            );
-
             // Create an additional HD wallet in the sequence
             // Privy manages the index internally - we just request a new wallet
             const characterWallet = await createWallet({
@@ -952,10 +860,6 @@ export function CharacterSelectScreen({
             });
 
             walletAddress = characterWallet.address;
-            console.log(
-              `[CharacterSelect] ✅ HD wallet created:`,
-              walletAddress,
-            );
             break; // Success! Exit retry loop
           } catch (walletError) {
             lastError = walletError as Error;
@@ -963,7 +867,7 @@ export function CharacterSelectScreen({
             const errorMsg = lastError.message || errorStr;
 
             console.error(
-              `[CharacterSelect] ❌ Wallet creation attempt ${retryCount + 1} failed:`,
+              `[CharacterSelect] Wallet creation attempt ${retryCount + 1} failed:`,
               walletError,
             );
 
@@ -976,9 +880,6 @@ export function CharacterSelectScreen({
               errorMsg.includes("parse");
 
             if (isCorruptionError && retryCount < MAX_RETRIES - 1) {
-              console.log(
-                "[CharacterSelect] 🔧 Detected Privy state corruption, clearing and retrying...",
-              );
               clearPrivyState();
               retryCount++;
 

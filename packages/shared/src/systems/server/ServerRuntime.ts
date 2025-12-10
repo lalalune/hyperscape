@@ -1,5 +1,5 @@
 import os from "os";
-import { System } from "../shared";
+import { System } from "../shared/infrastructure/System";
 import type { World } from "../../types";
 
 // 30Hz tick rate for smooth, consistent gameplay

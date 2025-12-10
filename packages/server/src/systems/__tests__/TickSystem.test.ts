@@ -10,7 +10,7 @@
  * These tests focus on the synchronous API behavior
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, mock } from "bun:test";
 import { TickPriority } from "../TickSystem";
 
 // Skip TickSystem tests if TICK_DURATION_MS can't be resolved
@@ -68,7 +68,7 @@ describe.skipIf(!canRunTickTests)("TickSystem", () => {
   describe("onTick", () => {
     it("should register listener and return unsubscribe function", () => {
       const tickSystem = new TickSystem();
-      const callback = vi.fn();
+      const callback = mock(() => {});
       const unsubscribe = tickSystem.onTick(callback);
       expect(typeof unsubscribe).toBe("function");
       expect(tickSystem.getListenerCount()).toBe(1);
@@ -77,7 +77,7 @@ describe.skipIf(!canRunTickTests)("TickSystem", () => {
 
     it("should unsubscribe when called", () => {
       const tickSystem = new TickSystem();
-      const callback = vi.fn();
+      const callback = mock(() => {});
       const unsubscribe = tickSystem.onTick(callback);
       unsubscribe();
       expect(tickSystem.getListenerCount()).toBe(0);
@@ -85,7 +85,7 @@ describe.skipIf(!canRunTickTests)("TickSystem", () => {
 
     it("should call listeners on each tick", async () => {
       const tickSystem = new TickSystem();
-      const callback = vi.fn();
+      const callback = mock(() => {});
 
       tickSystem.onTick(callback);
       tickSystem.start();

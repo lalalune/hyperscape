@@ -66,6 +66,7 @@ import { createHttpServer } from "./startup/http-server.js";
 import { registerApiRoutes } from "./startup/api-routes.js";
 import { registerWebSocket } from "./startup/websocket.js";
 import { registerShutdownHandlers } from "./startup/shutdown.js";
+import { spawnDefaultAgents } from "./startup/default-agents.js";
 
 /**
  * Starts the Hyperscape server
@@ -136,6 +137,16 @@ async function startServer() {
 
   // Register shutdown handlers
   registerShutdownHandlers(fastify, world, dbContext);
+
+  // Spawn default AI agents
+  console.log("[Server] Spawning default AI agents...");
+  try {
+    await spawnDefaultAgents(world);
+    console.log("[Server] ✅ Default agents spawned");
+  } catch (error) {
+    console.warn("[Server] ⚠️ Failed to spawn default agents:", error);
+    // Non-fatal - server can run without default agents
+  }
 
   console.log("=".repeat(60));
   console.log("✅ Hyperscape Server Ready");

@@ -16,7 +16,6 @@ import { World } from "../core/World";
 import { Physics } from "../systems/shared";
 import { Stage } from "../systems/shared";
 import { ClientLoader } from "../systems/client/ClientLoader";
-import type { PhysicsHandle } from "../types/systems/physics";
 
 export interface TestWorldOptions {
   isClient?: boolean;
@@ -30,7 +29,7 @@ export interface TestWorldOptions {
 export async function createTestWorld(
   options: TestWorldOptions = {},
 ): Promise<World> {
-  const { isClient = true, isServer = false, headless = true } = options;
+  const { isClient = true, isServer = false, headless: _headless = true } = options;
 
   const world = new World();
 
@@ -49,7 +48,7 @@ export async function createTestWorld(
 
   // Initialize physics
   await world.init({
-    assetsUrl: "http://localhost:8088",
+    assetsUrl: "http://localhost:8080",
   });
 
   return world;

@@ -4,7 +4,7 @@ import { pack, unpack } from "msgpackr";
 
 const WS_URL = "ws://localhost:5555/ws";
 
-function uuid() {
+function _uuid() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0,
       v = c == "x" ? r : (r & 0x3) | 0x8;
@@ -45,7 +45,7 @@ socket.on("message", (data) => {
         process.exit(0);
       }
     }
-  } catch (e) {
+  } catch (_e) {
     console.log("Received (raw):", data.toString());
   }
 });

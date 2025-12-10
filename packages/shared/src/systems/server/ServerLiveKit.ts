@@ -31,7 +31,7 @@
 
 import { AccessToken, TrackSource } from "livekit-server-sdk";
 
-import { System } from "../shared";
+import { System } from "../shared/infrastructure/System";
 import { uuid } from "../../utils";
 import { World } from "../../core/World";
 

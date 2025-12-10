@@ -47,6 +47,16 @@ type DatabaseSystem = {
     playerId: string,
     groundItemIds: string[],
   ) => Promise<void>;
+  // SECURITY: Added for pre-loading death locks on startup
+  getAllDeathLocksAsync?: () => Promise<Array<{
+    playerId: string;
+    gravestoneId: string | null;
+    groundItemIds: string[];
+    position: { x: number; y: number; z: number };
+    timestamp: number;
+    zoneType: string;
+    itemCount: number;
+  }>>;
 };
 
 export class DeathStateManager {
@@ -90,6 +100,15 @@ export class DeathStateManager {
 
   /**
    * Initialize - get entity manager and database system references
+   *
+   * SECURITY: Pre-loads all death locks from database on server startup.
+   * This prevents item duplication exploits where a player could:
+   * 1. Die and have items dropped
+   * 2. Server restarts before death lock is checked
+   * 3. Player reconnects and items are re-dropped (duplication!)
+   *
+   * By pre-loading death locks, we ensure the server knows about all
+   * active deaths immediately after restart.
    */
   async init(): Promise<void> {
     this.entityManager = this.world.getSystem(
@@ -106,6 +125,10 @@ export class DeathStateManager {
           "DeathStateManager",
           "✓ Initialized with database persistence (server)",
         );
+
+        // SECURITY: Pre-load all death locks from database
+        // This prevents item duplication on server restart
+        await this.preloadDeathLocks();
       } else {
         Logger.systemWarn(
           "DeathStateManager",
@@ -116,6 +139,47 @@ export class DeathStateManager {
       Logger.system(
         "DeathStateManager",
         "✓ Initialized (client, in-memory only)",
+      );
+    }
+  }
+
+  /**
+   * Pre-load all death locks from database on server startup
+   *
+   * SECURITY: Critical for preventing item duplication after server restart.
+   * Must be called during init() before any player connections are accepted.
+   */
+  private async preloadDeathLocks(): Promise<void> {
+    if (!this.databaseSystem) return;
+
+    // Check if the database system supports bulk loading
+    if (!this.databaseSystem.getAllDeathLocksAsync) {
+      Logger.systemWarn(
+        "DeathStateManager",
+        "⚠️ Database doesn't support bulk death lock loading - individual lookups will be used",
+      );
+      return;
+    }
+
+    try {
+      const startTime = Date.now();
+      const deathLocks = await this.databaseSystem.getAllDeathLocksAsync();
+
+      for (const dbData of deathLocks) {
+        const deathLock = this.reconstructDeathLock(dbData);
+        this.activeDeaths.set(dbData.playerId, deathLock);
+      }
+
+      const duration = Date.now() - startTime;
+      Logger.system(
+        "DeathStateManager",
+        `✓ Pre-loaded ${deathLocks.length} death locks from database (${duration}ms)`,
+      );
+    } catch (error) {
+      Logger.systemError(
+        "DeathStateManager",
+        "Failed to pre-load death locks from database - using on-demand loading",
+        error instanceof Error ? error : new Error(String(error)),
       );
     }
   }

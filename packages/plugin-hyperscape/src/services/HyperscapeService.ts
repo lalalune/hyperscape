@@ -32,6 +32,12 @@ import type {
   ChatMessageCommand,
   GatherResourceCommand,
   BankCommand,
+  DropItemCommand,
+  PickupItemCommand,
+  EmoteCommand,
+  InteractNpcCommand,
+  LootCorpseCommand,
+  ChangeAttackStyleCommand,
   HyperscapeServiceInterface,
 } from "../types.js";
 import { AutonomousBehaviorManager } from "../managers/autonomous-behavior-manager.js";
@@ -1862,9 +1868,44 @@ export class HyperscapeService
 
   /**
    * Execute chat message command
+   * Automatically adds agent identification and position
    */
   async executeChatMessage(command: ChatMessageCommand): Promise<void> {
-    this.sendCommand("chatMessage", command);
+    const player = this.getPlayerEntity();
+    
+    // Build full chat message with agent metadata
+    const chatMessage = {
+      id: crypto.randomUUID(),
+      from: player?.playerName || "Agent",
+      fromId: player?.id || this.runtime.agentId,
+      body: command.message,
+      text: command.message,
+      timestamp: Date.now(),
+      createdAt: new Date().toISOString(),
+      chatType: command.chatType || "global",
+      targetId: command.targetId,
+      isFromAgent: true,
+      agentId: this.runtime.agentId,
+      senderPosition: this.getPlayerPosition(),
+    };
+    
+    this.sendCommand("chatAdded", chatMessage);
+  }
+  
+  /**
+   * Get player position as object
+   */
+  private getPlayerPosition(): { x: number; y: number; z: number } | undefined {
+    const player = this.getPlayerEntity();
+    const rawPos = player?.position as unknown;
+    
+    if (Array.isArray(rawPos) && rawPos.length >= 3) {
+      return { x: rawPos[0], y: rawPos[1], z: rawPos[2] };
+    }
+    if (rawPos && typeof rawPos === "object" && "x" in rawPos) {
+      return rawPos as { x: number; y: number; z: number };
+    }
+    return undefined;
   }
 
   /**
@@ -1895,10 +1936,123 @@ export class HyperscapeService
   }
 
   /**
-   * Execute bank action command
+   * Execute bank action command (legacy - prefer specific methods)
    */
   async executeBankAction(command: BankCommand): Promise<void> {
-    this.sendCommand("bankAction", command);
+    if (command.action === "deposit") {
+      this.sendCommand("bankDeposit", { itemId: command.itemId, quantity: command.amount });
+    } else {
+      this.sendCommand("bankWithdraw", { itemId: command.itemId, quantity: command.amount });
+    }
+  }
+
+  /** Deposit specific item to bank */
+  async executeBankDeposit(itemId: string, quantity: number = 1): Promise<void> {
+    this.sendCommand("bankDeposit", { itemId, quantity });
+  }
+
+  /** Withdraw specific item from bank */
+  async executeBankWithdraw(itemId: string, quantity: number = 1): Promise<void> {
+    this.sendCommand("bankWithdraw", { itemId, quantity });
+  }
+
+  /** Deposit all items from inventory to bank */
+  async executeBankDepositAll(): Promise<void> {
+    this.sendCommand("bankDepositAll", {});
+  }
+
+  /** Deposit coins to bank */
+  async executeBankDepositCoins(amount: number): Promise<void> {
+    this.sendCommand("bankDepositCoins", { amount });
+  }
+
+  /** Withdraw coins from bank */
+  async executeBankWithdrawCoins(amount: number): Promise<void> {
+    this.sendCommand("bankWithdrawCoins", { amount });
+  }
+
+  /**
+   * Execute drop item command
+   */
+  async executeDropItem(command: DropItemCommand): Promise<void> {
+    this.sendCommand("dropItem", command);
+  }
+
+  /**
+   * Execute pickup item command
+   */
+  async executePickupItem(command: PickupItemCommand): Promise<void> {
+    this.sendCommand("pickupItem", command);
+  }
+
+  /**
+   * Execute emote command
+   */
+  async executeEmote(command: EmoteCommand): Promise<void> {
+    this.sendCommand("emote", command);
+  }
+
+  /**
+   * Execute NPC interaction command
+   */
+  async executeInteractNpc(command: InteractNpcCommand): Promise<void> {
+    this.sendCommand("interactNpc", command);
+  }
+
+  /**
+   * Execute loot corpse command
+   */
+  async executeLootCorpse(command: LootCorpseCommand): Promise<void> {
+    this.sendCommand("lootCorpse", command);
+  }
+
+  /**
+   * Execute respawn command
+   */
+  async executeRespawn(): Promise<void> {
+    this.sendCommand("respawn", {});
+  }
+
+  /**
+   * Execute change attack style command
+   */
+  async executeChangeAttackStyle(command: ChangeAttackStyleCommand): Promise<void> {
+    this.sendCommand("changeAttackStyle", command);
+  }
+
+  /**
+   * Execute unequip item command
+   */
+  async executeUnequipItem(slot: string): Promise<void> {
+    this.sendCommand("unequipItem", { slot });
+  }
+
+  /**
+   * Execute store buy command
+   */
+  async executeStoreBuy(itemId: string, quantity: number = 1): Promise<void> {
+    this.sendCommand("storeBuy", { itemId, quantity });
+  }
+
+  /**
+   * Execute store sell command
+   */
+  async executeStoreSell(itemId: string, quantity: number = 1): Promise<void> {
+    this.sendCommand("storeSell", { itemId, quantity });
+  }
+
+  /**
+   * Execute dialogue response command
+   */
+  async executeDialogueResponse(responseIndex: number): Promise<void> {
+    this.sendCommand("dialogueResponse", { responseIndex });
+  }
+
+  /**
+   * Execute close dialogue command
+   */
+  async executeCloseDialogue(): Promise<void> {
+    this.sendCommand("closeDialogue", {});
   }
 
   /**

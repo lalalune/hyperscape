@@ -636,6 +636,33 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
                     </button>
                   )}
 
+                  {/* Moderation Panel Button (for mods/admins) */}
+                  {(player?.isModerator || player?.isAdmin) && (
+                    <button
+                      onClick={() => {
+                        window.dispatchEvent(
+                          new CustomEvent("ui:openModerationPanel", {
+                            detail: {
+                              isAdmin: player?.isAdmin || false,
+                              isModerator: player?.isModerator || false,
+                            },
+                          }),
+                        );
+                      }}
+                      className="w-full text-[8px] rounded py-0.5 px-1.5 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] border"
+                      style={{
+                        backgroundColor: "rgba(168, 85, 247, 0.2)",
+                        borderColor: "rgba(168, 85, 247, 0.4)",
+                        color: "#a855f7",
+                      }}
+                    >
+                      <span className="flex items-center justify-center gap-1">
+                        <span>🛡️</span>
+                        <span>Moderation Panel</span>
+                      </span>
+                    </button>
+                  )}
+
                   {/* Back to Lobby Button */}
                   <button
                     onClick={() => {

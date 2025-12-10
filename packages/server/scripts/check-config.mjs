@@ -87,7 +87,7 @@ console.log('📋 Current Configuration:\n');
 console.log(`  Backend Port:        ${port}`);
 console.log(`  Vite Dev Port:       ${vitePort}`);
 console.log(`  WebSocket URL:       ${wsUrl || '(not set - will use relative URL)'}`);
-console.log(`  CDN URL:             ${cdnUrl || '(not set - defaults to http://localhost:8088)'}`);
+console.log(`  CDN URL:             ${cdnUrl || '(not set - defaults to http://localhost:8080)'}`);
 console.log(`  Mobile Dev URL:      ${capServerUrl || '(not set)'}`);
 console.log('');
 
@@ -173,7 +173,7 @@ if (mobileMode) {
   console.log('1. Update your .env file:');
   console.log(`   PORT=${port}`);
   console.log(`   PUBLIC_WS_URL=ws://${primaryIP}:${port}/ws`);
-  console.log(`   PUBLIC_CDN_URL=http://${primaryIP}:8088`);
+  console.log(`   PUBLIC_CDN_URL=http://${primaryIP}:8080`);
   console.log(`   VITE_PORT=${vitePort}\n`);
 
   console.log('2. Set mobile dev server URL:');

@@ -16,7 +16,6 @@ import type {
 } from "../systems/client/Nametags";
 import type { NametagData } from "../types/rendering/nodes";
 import { Node } from "./Node";
-import THREE from "../extras/three/three";
 
 const defaults = {
   label: "...",

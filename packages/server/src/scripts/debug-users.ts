@@ -1,6 +1,4 @@
 import pg from "pg";
-import * as schema from "../database/schema.js";
-import { desc } from "drizzle-orm";
 
 async function main() {
   console.log("Connecting to database...");

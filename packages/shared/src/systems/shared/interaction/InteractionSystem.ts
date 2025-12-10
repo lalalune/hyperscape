@@ -1,4 +1,4 @@
-import { System } from "..";
+import { System } from "../infrastructure/System";
 import type { World } from "../../../core/World";
 import type { Position3D } from "../../../types/core/base-types";
 import { AttackType } from "../../../types/core/core";
@@ -51,6 +51,10 @@ export class InteractionSystem extends System {
   // Context menu state
   private raycaster = new THREE.Raycaster();
   private _tempVec2 = new THREE.Vector2();
+  // PERFORMANCE: Cached objects for click handling
+  private _tempVec3_flatDir = new THREE.Vector3();
+  private _tempVec3_target = new THREE.Vector3();
+  private _groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private touchStart: { x: number; y: number; time: number } | null = null;
   private longPressTimer: NodeJS.Timeout | null = null;
   private readonly LONG_PRESS_DURATION = 500;
@@ -369,7 +373,8 @@ export class InteractionSystem extends System {
         if (clickedObject.userData && clickedObject.userData.entityId) {
           clickedOnEntity = true;
         } else {
-          target = intersects[0].point.clone();
+          // PERFORMANCE: Copy to cached vector instead of cloning
+          target = this._tempVec3_target.copy(intersects[0].point);
         }
       }
     }
@@ -380,9 +385,9 @@ export class InteractionSystem extends System {
     }
 
     if (!target) {
-      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-      target = new THREE.Vector3();
-      _raycaster.ray.intersectPlane(plane, target);
+      // PERFORMANCE: Use cached plane and vector
+      target = this._tempVec3_target;
+      _raycaster.ray.intersectPlane(this._groundPlane, target);
     }
 
     if (target) {
@@ -397,11 +402,12 @@ export class InteractionSystem extends System {
       const player = (this.world as any).entities?.player;
       if (player && player.position) {
         const p = player.position as THREE.Vector3;
-        const flatDir = new THREE.Vector3(target.x - p.x, 0, target.z - p.z);
+        // PERFORMANCE: Use cached vector instead of allocating new one
+        const flatDir = this._tempVec3_flatDir.set(target.x - p.x, 0, target.z - p.z);
         const dist = flatDir.length();
         if (dist > this.maxClickDistance) {
           flatDir.normalize().multiplyScalar(this.maxClickDistance);
-          target = new THREE.Vector3(
+          target.set(
             p.x + flatDir.x,
             target.y,
             p.z + flatDir.z,
@@ -410,7 +416,11 @@ export class InteractionSystem extends System {
       }
 
       // Update target position and show NEW marker
-      this.targetPosition = target.clone();
+      // Note: We need to keep targetPosition as a separate instance for tracking
+      if (!this.targetPosition) {
+        this.targetPosition = new THREE.Vector3();
+      }
+      this.targetPosition.copy(target);
       if (this.targetMarker) {
         this.targetMarker.position.set(target.x, 0, target.z);
         // Project the marker onto terrain to follow contours
@@ -977,10 +987,6 @@ export class InteractionSystem extends System {
 
     if (distance > interactionDistance) {
       // Too far - walk to resource first (RuneScape behavior)
-      console.log(
-        `[InteractionSystem] 🚶 Walking to ${action} (distance: ${distance.toFixed(1)}m)`,
-      );
-
       // Walk to just outside interaction range
       const targetDistance = interactionDistance - 0.5; // Stop 0.5m before max range
       const direction = {

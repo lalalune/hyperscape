@@ -17,7 +17,7 @@
  * The actual GroundItemSystem uses this same logic internally.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 
 // ============================================================================
 // Types and Interfaces

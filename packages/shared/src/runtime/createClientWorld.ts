@@ -83,6 +83,7 @@ import { EquipmentVisualSystem } from "../systems/client/EquipmentVisualSystem";
 import { Particles } from "../systems/shared";
 import { Wind } from "../systems/shared";
 import { XR } from "../systems/client/XR";
+import { PerformanceMonitor } from "../systems/client/PerformanceMonitor";
 
 /**
  * Window extension for browser testing and debugging.
@@ -133,6 +134,11 @@ export function createClientWorld() {
   // ============================================================================
   // Order matters! Systems are initialized in registration order.
   // Dependencies must be registered before systems that depend on them.
+
+  // Performance monitoring (first so it can track all other systems)
+  world.register("performance-monitor", PerformanceMonitor); // Dev performance panel
+  // Wire up the performanceMonitor property for tick loop integration
+  world.performanceMonitor = world.getSystem("performance-monitor") as unknown as typeof world.performanceMonitor;
 
   // Lifecycle and networking
   world.register("client-runtime", ClientRuntime); // Client lifecycle, diagnostics

@@ -4,7 +4,7 @@ import type { NPCData, MobSpawnStats } from "../../../types/core/core";
 import { EventType } from "../../../types/events";
 import type { World } from "../../../types/index";
 import type { EntitySpawnedEvent } from "../../../types/systems/system-interfaces";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { TerrainSystem } from "..";
 
 // Types are now imported from shared type files

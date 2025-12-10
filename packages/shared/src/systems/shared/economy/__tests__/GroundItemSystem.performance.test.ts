@@ -9,7 +9,7 @@
  * NOTE: Uses mocked system internals to avoid circular dependency issues.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 
 // ============================================================================
 // Types

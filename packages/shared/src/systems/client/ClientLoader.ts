@@ -23,7 +23,7 @@ import type {
 } from "../../types";
 import type { AvatarFactory } from "../../types/rendering/nodes";
 import { EventType } from "../../types/events";
-import { SystemBase } from "../shared";
+import { SystemBase } from "../shared/infrastructure/SystemBase";
 
 // THREE.Cache.enabled = true
 
@@ -523,19 +523,14 @@ export class ClientLoader extends SystemBase {
     }
     if (type === "avatar") {
       this.logger.info(`Loading avatar from: ${localUrl}`);
-      console.log("[ClientLoader] Loading VRM from:", localUrl);
       promise = this.gltfLoader
         .loadAsync(localUrl)
         .then((glb) => {
           this.logger.info("Avatar GLB loaded");
-          console.log("[ClientLoader] VRM GLB loaded, checking userData...", {
-            hasVRM: !!glb.userData?.vrm,
-          });
           const factoryBase = createVRMFactory(
             glb as GLBData,
             this.world.setupMaterial,
           );
-          console.log("[ClientLoader] VRM factory created");
           const factory = {
             ...factoryBase,
             uid: file.name || `avatar_${Date.now()}`,

@@ -1,7 +1,7 @@
 import { AttackType } from "../../../types/core/core";
 import { EventType } from "../../../types/events";
 import type { World } from "../../../types/index";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 // World eliminated - using base World instead
 import { ALL_NPCS, NPC_SPAWN_CONSTANTS } from "../../../data/npcs";
 import { ALL_WORLD_AREAS } from "../../../data/world-areas";
@@ -329,9 +329,6 @@ export class MobNPCSystem extends SystemBase {
     damageSource: string;
     entityType: "player" | "mob";
   }): void {
-    console.log(
-      `[MobNPCSystem] handleMobDamage called for ${data.entityId}: ${data.damage} damage from ${data.damageSource}`,
-    );
     if (data.entityType !== "mob") return;
 
     // Validate entityId is defined

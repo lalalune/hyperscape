@@ -256,7 +256,7 @@ function setupSpectatorCamera(
 /**
  * Apply quality presets based on embedded config
  */
-function applyQualityPresets(world: World, config: EmbeddedViewportConfig) {
+function applyQualityPresets(world: World, _config: EmbeddedViewportConfig) {
   const quality = getQualityPreset();
 
   // Apply render scale

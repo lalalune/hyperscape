@@ -6,8 +6,7 @@ import { getSystem } from "../../../utils/SystemUtils";
 import type { World } from "../../../types";
 import type { InventoryItemAddedPayload } from "../../../types/events";
 import { EventType } from "../../../types/events";
-import { getItem, ITEMS } from "../../../data/items";
-import { dataManager } from "../../../data/DataManager";
+import { getItem } from "../../../data/items";
 import type { PlayerInventory, Item } from "../../../types/core/core";
 import type {
   InventoryCanAddEvent,
@@ -24,7 +23,7 @@ import {
   toPlayerID,
 } from "../../../utils/IdentifierUtils";
 import { EntityManager } from "..";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { Logger } from "../../../utils/Logger";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
 import type { GroundItemSystem } from "../economy/GroundItemSystem";
@@ -134,8 +133,8 @@ export class InventorySystem extends SystemBase {
     const db = this.getDatabase();
     if (!db) return;
 
-    let savedCount = 0;
-    let totalItems = 0;
+    let _savedCount = 0;
+    let _totalItems = 0;
 
     for (const playerId of this.playerInventories.keys()) {
       // Only persist inventories for real characters that exist in DB
@@ -153,8 +152,8 @@ export class InventorySystem extends SystemBase {
         }));
         db.savePlayerInventory(playerId, saveItems);
         // NOTE: Coins are now persisted by CoinPouchSystem
-        savedCount++;
-        totalItems += saveItems.length;
+        _savedCount++;
+        _totalItems += saveItems.length;
       } catch (error) {
         // Log DB errors during autosave but continue with other players
         this.logger.error(
@@ -271,20 +270,18 @@ export class InventorySystem extends SystemBase {
       if (db) {
         const inv = this.playerInventories.get(playerId);
         if (inv) {
-          db.getPlayerAsync(playerId)
-            .then((row) => {
-              if (row) {
-                const saveItems = inv.items.map((i) => ({
-                  itemId: i.itemId,
-                  quantity: i.quantity,
-                  slotIndex: i.slot,
-                  metadata: null as null,
-                }));
-                db.savePlayerInventory(playerId, saveItems);
-                // NOTE: Coins are now persisted by CoinPouchSystem
-              }
-            })
-            .catch(() => {});
+          db.getPlayerAsync(playerId).then((row) => {
+            if (row) {
+              const saveItems = inv.items.map((i) => ({
+                itemId: i.itemId,
+                quantity: i.quantity,
+                slotIndex: i.slot,
+                metadata: null as null,
+              }));
+              db.savePlayerInventory(playerId, saveItems);
+              // NOTE: Coins are now persisted by CoinPouchSystem
+            }
+          });
         }
       }
     }
@@ -1575,20 +1572,18 @@ export class InventorySystem extends SystemBase {
     if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
       // Only persist if player is a real character in DB
-      db.getPlayerAsync(playerId)
-        .then((row) => {
-          if (!row) return;
-          const inv = this.getOrCreateInventory(playerId);
-          const saveItems = inv.items.map((i) => ({
-            itemId: i.itemId,
-            quantity: i.quantity,
-            slotIndex: i.slot,
-            metadata: null as null,
-          }));
-          db.savePlayerInventory(playerId, saveItems);
-          // NOTE: Coins are now persisted by CoinPouchSystem
-        })
-        .catch(() => {});
+      db.getPlayerAsync(playerId).then((row) => {
+        if (!row) return;
+        const inv = this.getOrCreateInventory(playerId);
+        const saveItems = inv.items.map((i) => ({
+          itemId: i.itemId,
+          quantity: i.quantity,
+          slotIndex: i.slot,
+          metadata: null as null,
+        }));
+        db.savePlayerInventory(playerId, saveItems);
+        // NOTE: Coins are now persisted by CoinPouchSystem
+      });
     }, 300);
     this.persistTimers.set(playerId, timer);
   }

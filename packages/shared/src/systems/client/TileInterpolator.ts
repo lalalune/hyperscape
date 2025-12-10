@@ -124,9 +124,11 @@ export class TileInterpolator {
   private entityStates: Map<string, EntityMovementState> = new Map();
   private debugMode = false;
 
-  // Reusable vectors
+  // PERFORMANCE: Reusable vectors/quaternions for hot path operations
   private _tempDir = new THREE.Vector3();
   private _tempQuat = new THREE.Quaternion();
+  private _tempNextPos = new THREE.Vector3();
+  private _tempRotationTarget = new THREE.Vector3();
   // Y-axis for yaw rotation
   private _up = new THREE.Vector3(0, 1, 0);
 
@@ -262,15 +264,16 @@ export class TileInterpolator {
     const rotationTargetTile =
       destinationTile || finalPath[finalPath.length - 1];
     const rotationTargetWorld = tileToWorld(rotationTargetTile);
+    // PERFORMANCE: Use cached vector instead of allocating new one
     const initialRotation =
       this.calculateFacingRotation(
         startPos,
-        new THREE.Vector3(
+        this._tempRotationTarget.set(
           rotationTargetWorld.x,
           startPos.y,
           rotationTargetWorld.z,
         ),
-      ) ?? new THREE.Quaternion(); // Default to identity if too close
+      ) ?? this._tempQuat.identity(); // Default to identity if too close
 
     // Use server's startTile for confirmed position tracking
     const serverConfirmed = startTile ?? worldToTile(startPos.x, startPos.z);
@@ -865,7 +868,8 @@ export class TileInterpolator {
             // Calculate rotation to face next tile (only update if distance is sufficient)
             const nextTile = state.fullPath[state.targetTileIndex];
             const nextWorld = tileToWorld(nextTile);
-            const nextPos = new THREE.Vector3(
+            // PERFORMANCE: Use cached vector instead of allocating new one
+            const nextPos = this._tempNextPos.set(
               nextWorld.x,
               state.visualPosition.y,
               nextWorld.z,

@@ -1,4 +1,4 @@
-import { System } from "../shared";
+import { System } from "../shared/infrastructure/System";
 import THREE from "../../extras/three/three";
 import { initYoga } from "../../extras/ui/yoga";
 import type { World, WorldOptions } from "../../types";

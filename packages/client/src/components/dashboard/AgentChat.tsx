@@ -6,7 +6,6 @@ import {
   MoreVertical,
   Paperclip,
   Mic,
-  Monitor,
 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
 
@@ -50,10 +49,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ agent }) => {
     setIsTyping(true);
 
     try {
-      // Generate UUIDs for the message
-      const messageId = crypto.randomUUID();
       const userId = localStorage.getItem("privy_user_id") || "anonymous-user";
-      const channelId = `dashboard-chat-${agent.id}`; // Use agent-specific channel
 
       const response = await fetch(
         `http://localhost:5555/api/agents/${agent.id}/message`,
@@ -77,7 +73,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ agent }) => {
       // ElizaOS returns an array of messages
       const responses = Array.isArray(data) ? data : [data];
 
-      responses.forEach((resp: any, index: number) => {
+      responses.forEach((resp: { text?: string; content?: string }, index: number) => {
         const agentMessage: Message = {
           id: (Date.now() + index).toString(),
           sender: "agent",

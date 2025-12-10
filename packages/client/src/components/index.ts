@@ -16,3 +16,7 @@ export { MouseRightIcon } from "./MouseRightIcon";
 export { MouseWheelIcon } from "./MouseWheelIcon";
 export { CurvePane } from "./CurvePane";
 export { CurvePreview } from "./CurvePreview";
+
+// Debug components
+export { DebugEconomyPanel } from "./debug/DebugEconomyPanel";
+export { PerformancePanel } from "./debug/PerformancePanel";

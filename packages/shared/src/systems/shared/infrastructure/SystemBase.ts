@@ -78,13 +78,12 @@
  * @public
  */
 
-import { EventBus, EventSubscription, SystemEvent } from "..";
-import { System } from "..";
-import type { AnyEvent } from "../../../types/events";
+import { EventBus, EventSubscription, SystemEvent } from "./EventBus";
+import { System } from "./System";
+import type { AnyEvent, EventMap } from "../../../types/events";
 import type { World } from "../../../types/index";
 import { SystemConfig } from "../../../types/core/core";
 import { SystemLogger } from "../../../utils/Logger";
-import type { EventMap } from "../../../types/events";
 
 /**
  * SystemBase - Enhanced system base class with automatic resource management

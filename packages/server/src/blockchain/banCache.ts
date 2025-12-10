@@ -17,19 +17,26 @@ const BAN_MANAGER_ABI = [
 ];
 
 export class BanCache {
-  private contract: ethers.Contract;
+  private contract: ethers.Contract | null = null;
   private banned = new Set<number>();
   private initialized = false;
 
   constructor(provider: ethers.Provider) {
-    this.contract = new ethers.Contract(
-      BAN_MANAGER_ADDRESS,
-      BAN_MANAGER_ABI,
-      provider,
-    );
+    if (BAN_MANAGER_ADDRESS && BAN_MANAGER_ADDRESS !== "0x0000000000000000000000000000000000000000") {
+      this.contract = new ethers.Contract(
+        BAN_MANAGER_ADDRESS,
+        BAN_MANAGER_ABI,
+        provider,
+      );
+    }
   }
 
   async initialize(): Promise<void> {
+    if (!this.contract) {
+      this.initialized = true;
+      return;
+    }
+
     const currentBlock = await this.contract.runner!.provider!.getBlockNumber();
     const fromBlock = Math.max(0, currentBlock - 100000);
 
@@ -54,6 +61,8 @@ export class BanCache {
   }
 
   startListening(): void {
+    if (!this.contract) return;
+
     this.contract.on("NetworkBanApplied", (agentId: bigint) => {
       this.banned.add(Number(agentId));
       console.log(`[BAN-CACHE] Network ban applied: Agent #${agentId}`);

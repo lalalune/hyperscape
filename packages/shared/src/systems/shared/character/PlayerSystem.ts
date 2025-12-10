@@ -58,7 +58,7 @@ import { EventType } from "../../../types/events";
 import type { World } from "../../../types/index";
 import { Logger } from "../../../utils/Logger";
 import { EntityManager } from "..";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import type { TerrainSystem } from "..";
 import { PlayerIdMapper } from "../../../utils/PlayerIdMapper";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";

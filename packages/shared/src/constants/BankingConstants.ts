@@ -3,6 +3,9 @@
  */
 
 export const BANKING_CONSTANTS = {
+  // Interaction distance (tiles)
+  MAX_DISTANCE: 3,
+
   // Bank sizes
   MAX_BANK_SLOTS: 480, // 12 tabs * 40 slots per tab
   SLOTS_PER_TAB: 40,

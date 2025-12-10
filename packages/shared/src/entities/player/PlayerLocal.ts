@@ -563,7 +563,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
   private positionValidationInterval?: NodeJS.Timeout;
   // Add pendingMoves array
   private pendingMoves: { seq: number; pos: THREE.Vector3 }[] = [];
+  // PERFORMANCE: Cached objects for hot path updates
   private _tempVec3 = new THREE.Vector3();
+  private _tempQuat = new THREE.Quaternion();
+  private _tempMatrix4_nametag = new THREE.Matrix4();
+  private _tempMatrix4_healthbar = new THREE.Matrix4();
 
   // Avatar retry mechanism
   private avatarRetryInterval: NodeJS.Timeout | null = null;
@@ -778,12 +782,18 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
 
     const terrainHeight = terrain.getHeightAt(this.position.x, this.position.z);
-    const targetY = terrainHeight + 0.1; // Small offset above terrain
+    
+    // Get water threshold from terrain system (default 5.4m)
+    const waterThreshold = terrain.getWaterThreshold?.() ?? 5.4;
+    
+    // Clamp terrain height to water level - players shouldn't sink below water
+    const effectiveHeight = Math.max(terrainHeight, waterThreshold);
+    const targetY = effectiveHeight + 0.1; // Small offset above terrain/water
     const diff = targetY - this.position.y;
 
-    // Snap up if below terrain, lerp down if above
+    // Snap up if below terrain/water, lerp down if above
     if (diff > 0.1) {
-      // Below terrain - snap up
+      // Below terrain/water - snap up
       this.position.y = targetY;
     } else if (diff < -0.5) {
       // Above terrain - interpolate down
@@ -1809,11 +1819,15 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
       const terrain = this.world.getSystem<TerrainSystem>("terrain") as {
         getHeightAt?: (x: number, z: number) => number;
+        getWaterThreshold?: () => number;
       } | null;
       if (terrain?.getHeightAt) {
         const terrainHeight = terrain.getHeightAt(x, z);
+        const waterThreshold = terrain.getWaterThreshold?.() ?? 5.4;
         if (Number.isFinite(terrainHeight)) {
-          const safeY = (terrainHeight as number) + 0.1;
+          // Clamp to water level to prevent sinking
+          const effectiveHeight = Math.max(terrainHeight as number, waterThreshold);
+          const safeY = effectiveHeight + 0.1;
           console.warn(
             `[PlayerLocal] Correcting to safe height: Y=${safeY} (terrain=${terrainHeight})`,
           );
@@ -2030,10 +2044,10 @@ export class PlayerLocal extends Entity implements HotReloadable {
       angle += Math.PI;
 
       // Apply instant rotation (RuneScape doesn't lerp combat rotation)
+      // PERFORMANCE: Use cached quaternion and module-level UP vector
       if (this.base) {
-        const tempQuat = new THREE.Quaternion();
-        tempQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-        this.base.quaternion.copy(tempQuat);
+        this._tempQuat.setFromAxisAngle(_UP, angle);
+        this.base.quaternion.copy(this._tempQuat);
       }
     }
 
@@ -2159,19 +2173,18 @@ export class PlayerLocal extends Entity implements HotReloadable {
       }
       // Update nametag position above head
       if (this.nametag && this.nametag.handle && this.base) {
-        // Position at fixed Y offset from player base
-        const nametagMatrix = new THREE.Matrix4();
-        nametagMatrix.copy(this.base.matrixWorld);
-        nametagMatrix.elements[13] += 2.2; // Nametag slightly higher (above health bar)
-        this.nametag.handle.move(nametagMatrix);
+        // PERFORMANCE: Use cached matrix instead of allocating new one
+        this._tempMatrix4_nametag.copy(this.base.matrixWorld);
+        this._tempMatrix4_nametag.elements[13] += 2.2; // Nametag slightly higher (above health bar)
+        this.nametag.handle.move(this._tempMatrix4_nametag);
       }
 
       // Update health bar position (separate from nametag, slightly lower)
       if (this._healthBarHandle && this.base) {
-        const healthBarMatrix = new THREE.Matrix4();
-        healthBarMatrix.copy(this.base.matrixWorld);
-        healthBarMatrix.elements[13] += 2.0; // Health bar at Y=2.0
-        this._healthBarHandle.move(healthBarMatrix);
+        // PERFORMANCE: Use cached matrix instead of allocating new one
+        this._tempMatrix4_healthbar.copy(this.base.matrixWorld);
+        this._tempMatrix4_healthbar.elements[13] += 2.0; // Health bar at Y=2.0
+        this._healthBarHandle.move(this._tempMatrix4_healthbar);
       }
     }
   }
@@ -2430,10 +2443,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
       this.capsule.setLinearVelocity(zeroVec);
       this.capsule.setAngularVelocity(zeroVec);
     }
-
-    console.log(
-      "[PlayerLocal] ✅ Respawn complete - player can move and act normally",
-    );
   }
 
   // Required System lifecycle methods

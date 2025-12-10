@@ -48,6 +48,16 @@ export interface ChatListener {
 
 // Remove duplicate definitions - these are defined in other type files
 
+/**
+ * Chat type for message routing
+ * - global: Broadcast to all players
+ * - local: Only players within proximity range
+ * - whisper: Direct message to specific player
+ * - party: Only party members
+ * - system: System announcements
+ */
+export type ChatType = "global" | "local" | "whisper" | "party" | "system";
+
 // Define ChatMessage interface locally since it's not exported from the built package
 export interface ChatMessage {
   id: string;
@@ -65,6 +75,17 @@ export interface ChatMessage {
   entityId?: string;
   playerId?: string;
   playerName?: string;
+  
+  // Chat routing
+  chatType?: ChatType; // Default: "global"
+  targetId?: string; // For whisper messages
+  
+  // Agent identification
+  isFromAgent?: boolean; // True if sender is an AI agent
+  agentId?: string; // ElizaOS agent ID if applicable
+  
+  // Proximity data (for local chat)
+  senderPosition?: { x: number; y: number; z: number };
 }
 
 // Re-export hyperscape classes and types for plugin use

@@ -33,7 +33,7 @@
 
 import { ParticipantEvent, RemoteTrack, Room, RoomEvent } from "livekit-client";
 import type { World } from "../../types/index";
-import { System } from "../shared";
+import { System } from "../shared/infrastructure/System";
 
 /**
  * ClientLiveKit - Voice Chat Client

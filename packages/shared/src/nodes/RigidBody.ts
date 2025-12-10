@@ -57,6 +57,13 @@ const _m1 = new THREE.Matrix4();
 const _m2 = new THREE.Matrix4();
 const _m3 = new THREE.Matrix4();
 const _defaultScale = new THREE.Vector3(1, 1, 1);
+// PERFORMANCE: Cached objects for onInterpolate hot path
+const _composePos = new THREE.Vector3();
+const _composeQuat = new THREE.Quaternion();
+const _composeScale = new THREE.Vector3();
+const _decomposePos = new THREE.Vector3();
+const _decomposeQuat = new THREE.Quaternion();
+const _decomposeScale = new THREE.Vector3();
 
 const types = ["static", "kinematic", "dynamic"];
 
@@ -151,15 +158,9 @@ export class RigidBody extends Node {
       ) as PxTransform;
     }
 
-    // Force decompose using temporary plain vectors
-    const plainPos = new THREE.Vector3();
-    const plainQuat = new THREE.Quaternion();
-    const plainScale = new THREE.Vector3();
-    const plainMatrix = new THREE.Matrix4().copy(this.matrixWorld);
-    plainMatrix.decompose(plainPos, plainQuat, plainScale);
-    _v1.copy(plainPos);
-    _q1.copy(plainQuat);
-    _v2.copy(plainScale);
+    // PERFORMANCE: Use cached vectors for decompose to avoid allocations
+    _m1.copy(this.matrixWorld);
+    _m1.decompose(_v1, _q1, _v2);
 
     // Create transform and set position/rotation
     this.transform = new PHYSX.PxTransform(
@@ -280,19 +281,17 @@ export class RigidBody extends Node {
 
   onInterpolate = (position, quaternion) => {
     if (this.parent) {
-      const composePos = new THREE.Vector3().copy(position);
-      const composeQuat = new THREE.Quaternion().copy(quaternion);
-      const composeScale = new THREE.Vector3().copy(_defaultScale);
-      _m1.compose(composePos, composeQuat, composeScale);
+      // PERFORMANCE: Use cached objects instead of allocating new ones every frame
+      _composePos.copy(position);
+      _composeQuat.copy(quaternion);
+      _composeScale.copy(_defaultScale);
+      _m1.compose(_composePos, _composeQuat, _composeScale);
       _m2.copy(this.parent.matrixWorld).invert();
       _m3.multiplyMatrices(_m2, _m1);
-      const decomposePos = new THREE.Vector3();
-      const decomposeQuat = new THREE.Quaternion();
-      const decomposeScale = new THREE.Vector3();
-      _m3.decompose(decomposePos, decomposeQuat, decomposeScale);
-      this.position.copy(decomposePos);
-      this.quaternion.copy(decomposeQuat);
-      _v1.copy(decomposeScale);
+      _m3.decompose(_decomposePos, _decomposeQuat, _decomposeScale);
+      this.position.copy(_decomposePos);
+      this.quaternion.copy(_decomposeQuat);
+      _v1.copy(_decomposeScale);
       // this.matrix.copy(_m3)
       // this.matrixWorld.copy(_m1)
     } else {

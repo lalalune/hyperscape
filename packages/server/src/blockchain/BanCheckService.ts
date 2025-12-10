@@ -4,10 +4,28 @@
  */
 
 import { ethers } from "ethers";
-import {
-  NetworkBanCache,
-  BanCacheConfig,
-} from "../../../../../../scripts/shared/NetworkBanCache";
+
+// BanCache interface - dynamically loaded if available
+interface BanCache {
+  initialize(): Promise<void>;
+  startListening(): void;
+  isAllowed(agentId: number): boolean;
+  getStatus(agentId: number): {
+    networkBanned: boolean;
+    appBanned: boolean;
+    labels: string[];
+    banReason?: string;
+  };
+  getLabels(agentId: number): string[];
+  hasLabelType(agentId: number, label: string): boolean;
+}
+
+interface BanCacheConfig {
+  banManagerAddress: string;
+  labelManagerAddress: string;
+  rpcUrl: string;
+  appId: string;
+}
 
 const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS || "";
 const LABEL_MANAGER_ADDRESS = process.env.LABEL_MANAGER_ADDRESS || "";
@@ -19,13 +37,25 @@ const HYPERSCAPE_APP_ID = ethers.keccak256(ethers.toUtf8Bytes("hyperscape"));
  * Singleton ban cache for Hyperscape
  */
 class HyperscapeBanCheckService {
-  private cache: NetworkBanCache | null = null;
+  private cache: BanCache | null = null;
   private initialized = false;
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
     try {
+      // Try to dynamically import NetworkBanCache if it exists
+      const banCacheModule = await import(
+        /* @vite-ignore */
+        "../../../../../../scripts/shared/NetworkBanCache"
+      ).catch(() => null);
+
+      if (!banCacheModule?.NetworkBanCache) {
+        console.warn("[BanCheck] NetworkBanCache module not available, ban checking disabled");
+        this.initialized = true;
+        return;
+      }
+
       const config: BanCacheConfig = {
         banManagerAddress: BAN_MANAGER_ADDRESS,
         labelManagerAddress: LABEL_MANAGER_ADDRESS,
@@ -33,7 +63,7 @@ class HyperscapeBanCheckService {
         appId: HYPERSCAPE_APP_ID,
       };
 
-      this.cache = new NetworkBanCache(config);
+      this.cache = new banCacheModule.NetworkBanCache(config);
       await this.cache.initialize();
       this.cache.startListening();
 

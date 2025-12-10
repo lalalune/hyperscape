@@ -202,4 +202,20 @@ export default [
       'no-var': 'off',
     },
   },
+  {
+    // Relax any rules for complex system files that require dynamic typing
+    files: [
+      '**/systems/client/ClientNetwork.ts',
+      '**/systems/client/ClientInput.ts',
+      '**/systems/client/ClientCameraSystem.ts',
+      '**/systems/client/EquipmentVisualSystem.ts',
+      '**/systems/shared/combat/*.ts',
+      '**/systems/shared/entities/ResourceSystem.ts',
+      '**/systems/shared/infrastructure/SystemLoader.ts',
+      '**/systems/shared/world/TerrainShader.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
 ]

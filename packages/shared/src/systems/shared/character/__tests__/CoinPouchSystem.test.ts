@@ -11,7 +11,7 @@
  * NOTE: Uses mocked system logic to avoid circular dependency issues.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 
 // ============================================================================
 // Constants (mirror actual constants)

@@ -1,6 +1,6 @@
 import type { ActionContext, ActionDefinition, World } from "../../../types";
 import { EventType } from "../../../types/events";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 
 /**
  * Base ActionRegistry class for managing action definitions

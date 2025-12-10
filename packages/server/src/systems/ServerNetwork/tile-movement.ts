@@ -21,7 +21,6 @@ import {
   TILES_PER_TICK_RUN,
   worldToTile,
   tileToWorld,
-  tilesEqual,
   createTileMovementState,
   BFSPathfinder,
 } from "@hyperscape/shared";

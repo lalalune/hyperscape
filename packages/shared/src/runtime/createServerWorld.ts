@@ -39,6 +39,7 @@ import { ServerRuntime } from "../systems/server/ServerRuntime";
 import { Environment } from "../systems/shared";
 import { ServerLiveKit } from "../systems/server/ServerLiveKit";
 import { ServerLoader } from "../systems/server/ServerLoader";
+import { Chain } from "../systems/server/Chain";
 // ServerNetwork is server-only, will be imported from server package
 // import { ServerNetwork } from './systems/ServerNetwork'
 
@@ -75,6 +76,10 @@ export async function createServerWorld(): Promise<World> {
   world.register("loader", ServerLoader);
   world.register("environment", Environment);
   world.register("monitor", ServerRuntime); // ServerRuntime provides monitoring capabilities
+
+  // Chain system - bridges game state with on-chain contracts
+  // Ban checking, gold deposits/withdrawals, item minting
+  world.register("blockchain", Chain);
 
   // ============================================================================
   // TERRAIN SYSTEM

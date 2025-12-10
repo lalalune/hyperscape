@@ -40,7 +40,7 @@ import { EventType } from "../../../types/events";
 import type { World } from "../../../core/World";
 import THREE from "../../../extras/three/three";
 import { uuid } from "../../../utils";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import type {
   ParticleEmitter,
   ParticleMessageData,

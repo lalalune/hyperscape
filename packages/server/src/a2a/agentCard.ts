@@ -274,6 +274,128 @@ export function generateAgentCard(serverUrl: string): A2AAgentCard {
           "Change to controlled",
         ],
       },
+      // New skills for complete agent gameplay
+      {
+        id: "look-around",
+        name: "Look Around",
+        description:
+          "Get a rich semantic description of your surroundings including location, nearby threats, resources, and opportunities.",
+        tags: ["perception", "awareness", "exploration"],
+        examples: [
+          "Look around",
+          "What do I see?",
+          "Describe my surroundings",
+          "What's happening around me?",
+        ],
+      },
+      {
+        id: "interact-npc",
+        name: "Interact with NPC",
+        description:
+          "Talk to an NPC for quests, trading, or information. NPCs include bankers, shopkeepers, and quest givers.",
+        tags: ["npc", "interaction", "quest", "dialogue"],
+        examples: [
+          "Talk to the banker",
+          "Speak with the shopkeeper",
+          "Interact with the guard",
+        ],
+      },
+      {
+        id: "loot-corpse",
+        name: "Loot Corpse",
+        description:
+          "Loot items and coins from a defeated mob's corpse. Must be near the corpse.",
+        tags: ["loot", "items", "combat"],
+        examples: [
+          "Loot the corpse",
+          "Pick up the drops",
+          "Collect loot from the goblin",
+        ],
+      },
+      {
+        id: "eat-food",
+        name: "Eat Food",
+        description:
+          "Consume food from inventory to restore health. Cooked fish and other food items heal HP.",
+        tags: ["healing", "food", "survival"],
+        examples: [
+          "Eat food",
+          "Consume cooked fish",
+          "Heal myself",
+        ],
+      },
+      {
+        id: "emote",
+        name: "Perform Emote",
+        description:
+          "Perform an animation/emote for social interaction: wave, dance, bow, cheer, cry, laugh, sit.",
+        tags: ["social", "emote", "animation"],
+        examples: [
+          "Wave at everyone",
+          "Do a dance",
+          "Bow respectfully",
+        ],
+      },
+      {
+        id: "respawn",
+        name: "Respawn",
+        description:
+          "Respawn at the nearest safe town after dying. Only available when dead.",
+        tags: ["death", "respawn", "revival"],
+        examples: [
+          "Respawn",
+          "Come back to life",
+          "Return to town",
+        ],
+      },
+      {
+        id: "set-goal",
+        name: "Set Goal",
+        description:
+          "Set your current gameplay goal for focused decision making: combat_training, woodcutting, fishing, exploration.",
+        tags: ["goal", "planning", "strategy"],
+        examples: [
+          "Set goal to train combat",
+          "Focus on woodcutting",
+          "Goal: explore the world",
+        ],
+      },
+      {
+        id: "get-world-context",
+        name: "Get World Context",
+        description:
+          "Get a comprehensive narrative of your current situation including location, threats, opportunities, and suggested actions.",
+        tags: ["context", "awareness", "planning"],
+        examples: [
+          "What should I do?",
+          "Give me context",
+          "Describe my situation",
+        ],
+      },
+      {
+        id: "move-direction",
+        name: "Move Direction",
+        description:
+          "Move in a cardinal direction (north, south, east, west, northeast, etc.) for a specified distance.",
+        tags: ["movement", "navigation", "direction"],
+        examples: [
+          "Go north",
+          "Move east for 10 tiles",
+          "Walk southwest",
+        ],
+      },
+      {
+        id: "examine",
+        name: "Examine Entity",
+        description:
+          "Examine a specific entity (mob, player, item, resource) to get detailed information about it.",
+        tags: ["examine", "inspect", "query"],
+        examples: [
+          "Examine the goblin",
+          "Inspect the tree",
+          "Look at the sword",
+        ],
+      },
     ],
   };
 }

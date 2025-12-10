@@ -151,6 +151,9 @@ export class World extends EventEmitter {
   /** Set of entities/objects that need update() called every frame */
   hot = new Set<HotReloadable>();
 
+  /** PERFORMANCE: Reusable array to avoid Array.from() allocations in hot path */
+  private readonly _reusableHotItems: HotReloadable[] = [];
+
   /** Prevents duplicate initialization */
   private _initialized = false;
 
@@ -350,6 +353,18 @@ export class World extends EventEmitter {
 
   /** Statistics display system */
   stats?: ClientInterface;
+
+  /** Performance monitoring system (client-only, dev mode) */
+  performanceMonitor?: {
+    isEnabled(): boolean;
+    setEnabled(enabled: boolean): void;
+    startPhase(name: string): void;
+    endPhase(): void;
+    startSystem(name: string): void;
+    endSystem(): void;
+    onUpdate(callback: (snapshot: unknown) => void): () => void;
+    getSnapshot(): unknown;
+  };
 
   // ============================================================================
   // SERVER-ONLY SYSTEMS (Only present in Node.js environments)
@@ -1013,6 +1028,8 @@ export class World extends EventEmitter {
    * @param time - Current time in milliseconds (from requestAnimationFrame)
    */
   tick = (time: number): void => {
+    const perf = this.performanceMonitor;
+
     // Begin performance monitoring
     this.preTick();
 
@@ -1033,10 +1050,13 @@ export class World extends EventEmitter {
 
     // Prepare physics (notify systems if fixed step will occur)
     const willFixedStep = this.accumulator >= this.fixedDeltaTime;
+    perf?.startPhase("preFixedUpdate");
     this.preFixedUpdate(willFixedStep);
+    perf?.endPhase();
 
     // Run fixed-timestep physics updates
     // May run 0, 1, or multiple times depending on accumulated time
+    perf?.startPhase("fixedUpdate");
     while (this.accumulator >= this.fixedDeltaTime) {
       // Update game state at fixed intervals
       this.fixedUpdate(this.fixedDeltaTime);
@@ -1045,26 +1065,39 @@ export class World extends EventEmitter {
       // Consume fixed timestep from accumulator
       this.accumulator -= this.fixedDeltaTime;
     }
+    perf?.endPhase();
 
     // Calculate interpolation alpha for smooth rendering
     // Alpha = 0 means use previous physics state, 1 means use current state
     const alpha = this.accumulator / this.fixedDeltaTime;
+    perf?.startPhase("preUpdate");
     this.preUpdate(alpha);
+    perf?.endPhase();
 
     // Run frame-rate dependent updates (rendering, input, animations)
+    perf?.startPhase("update");
     this.update(delta, alpha);
+    perf?.endPhase();
 
     // Clean up transforms after updates
+    perf?.startPhase("postUpdate");
     this.postUpdate(delta);
+    perf?.endPhase();
 
     // Run late updates (camera, UI that depends on transforms)
+    perf?.startPhase("lateUpdate");
     this.lateUpdate(delta, alpha);
+    perf?.endPhase();
 
     // Final transform cleanup before rendering
+    perf?.startPhase("postLateUpdate");
     this.postLateUpdate(delta);
+    perf?.endPhase();
 
     // Commit changes (render on client, send network updates on server)
+    perf?.startPhase("commit");
     this.commit();
+    perf?.endPhase();
 
     // End performance monitoring
     this.postTick();
@@ -1072,8 +1105,11 @@ export class World extends EventEmitter {
 
   /** Pre-tick phase: Initialize performance monitoring */
   private preTick(): void {
+    const perf = this.performanceMonitor;
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.preTick();
+      perf?.endSystem();
     }
   }
 
@@ -1082,8 +1118,11 @@ export class World extends EventEmitter {
    * @param willFixedStep - Whether a fixed update will occur this frame
    */
   private preFixedUpdate(willFixedStep: boolean): void {
+    const perf = this.performanceMonitor;
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.preFixedUpdate(willFixedStep);
+      perf?.endSystem();
     }
   }
 
@@ -1092,13 +1131,23 @@ export class World extends EventEmitter {
    * @param delta - Fixed timestep delta (always fixedDeltaTime)
    */
   private fixedUpdate(delta: number): void {
-    for (const item of Array.from(this.hot)) {
+    const perf = this.performanceMonitor;
+    // PERFORMANCE: Reuse array to avoid allocation every frame
+    this._reusableHotItems.length = 0;
+    for (const item of this.hot) {
+      this._reusableHotItems.push(item);
+    }
+    perf?.startSystem("hot:fixedUpdate");
+    for (const item of this._reusableHotItems) {
       if (item.fixedUpdate) {
         item.fixedUpdate(delta);
       }
     }
+    perf?.endSystem();
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.fixedUpdate(delta);
+      perf?.endSystem();
     }
   }
 
@@ -1107,8 +1156,11 @@ export class World extends EventEmitter {
    * @param delta - Fixed timestep delta
    */
   private postFixedUpdate(delta: number): void {
+    const perf = this.performanceMonitor;
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.postFixedUpdate(delta);
+      perf?.endSystem();
     }
   }
 
@@ -1117,8 +1169,11 @@ export class World extends EventEmitter {
    * @param alpha - Interpolation factor between physics steps
    */
   private preUpdate(alpha: number): void {
+    const perf = this.performanceMonitor;
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.preUpdate(alpha);
+      perf?.endSystem();
     }
   }
 
@@ -1128,11 +1183,21 @@ export class World extends EventEmitter {
    * @param _alpha - Interpolation factor (unused but provided for consistency)
    */
   private update(delta: number, _alpha: number): void {
-    for (const item of Array.from(this.hot)) {
+    const perf = this.performanceMonitor;
+    // PERFORMANCE: Reuse array to avoid allocation every frame
+    this._reusableHotItems.length = 0;
+    for (const item of this.hot) {
+      this._reusableHotItems.push(item);
+    }
+    perf?.startSystem("hot:update");
+    for (const item of this._reusableHotItems) {
       item.update(delta);
     }
+    perf?.endSystem();
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.update(delta);
+      perf?.endSystem();
     }
   }
 
@@ -1141,8 +1206,11 @@ export class World extends EventEmitter {
    * @param delta - Time since last frame in seconds
    */
   private postUpdate(delta: number): void {
+    const perf = this.performanceMonitor;
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.postUpdate(delta);
+      perf?.endSystem();
     }
   }
 
@@ -1152,13 +1220,23 @@ export class World extends EventEmitter {
    * @param _alpha - Interpolation factor (unused)
    */
   private lateUpdate(delta: number, _alpha: number): void {
-    for (const item of Array.from(this.hot)) {
+    const perf = this.performanceMonitor;
+    // PERFORMANCE: Reuse array to avoid allocation every frame
+    this._reusableHotItems.length = 0;
+    for (const item of this.hot) {
+      this._reusableHotItems.push(item);
+    }
+    perf?.startSystem("hot:lateUpdate");
+    for (const item of this._reusableHotItems) {
       if (item.lateUpdate) {
         item.lateUpdate(delta);
       }
     }
+    perf?.endSystem();
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.lateUpdate(delta);
+      perf?.endSystem();
     }
   }
 
@@ -1167,28 +1245,67 @@ export class World extends EventEmitter {
    * @param delta - Time since last frame in seconds
    */
   private postLateUpdate(delta: number): void {
-    for (const item of Array.from(this.hot)) {
+    const perf = this.performanceMonitor;
+    // PERFORMANCE: Reuse array to avoid allocation every frame
+    this._reusableHotItems.length = 0;
+    for (const item of this.hot) {
+      this._reusableHotItems.push(item);
+    }
+    perf?.startSystem("hot:postLateUpdate");
+    for (const item of this._reusableHotItems) {
       if (item.postLateUpdate) {
         item.postLateUpdate(delta);
       }
     }
+    perf?.endSystem();
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.postLateUpdate(delta);
+      perf?.endSystem();
     }
   }
 
   /** Commit phase: Render on client, send network updates on server */
   private commit(): void {
+    const perf = this.performanceMonitor;
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.commit();
+      perf?.endSystem();
     }
   }
 
   /** Post-tick phase: Finalize performance monitoring */
   private postTick(): void {
+    const perf = this.performanceMonitor;
     for (const system of this.systems) {
+      perf?.startSystem(this._getSystemName(system));
       system.postTick();
+      perf?.endSystem();
     }
+  }
+
+  /** Cache for system name lookup to avoid allocation in hot path */
+  private _systemNameCache = new Map<System, string>();
+
+  /** Get system name for performance tracking (cached) */
+  private _getSystemName(system: System): string {
+    let name = this._systemNameCache.get(system);
+    if (!name) {
+      // Look up registered name from systemsByName
+      for (const [key, sys] of this.systemsByName) {
+        if (sys === system) {
+          name = key;
+          break;
+        }
+      }
+      // Fallback to constructor name
+      if (!name) {
+        name = system.constructor.name;
+      }
+      this._systemNameCache.set(system, name);
+    }
+    return name;
   }
 
   // ============================================================================

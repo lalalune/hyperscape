@@ -404,6 +404,16 @@ export interface Entities extends System {
   getAllPlayers(): PlayerEntity[];
 }
 
+/**
+ * Chat type for message routing
+ * - global: Broadcast to all players
+ * - local: Only players within proximity range
+ * - whisper: Direct message to specific player
+ * - party: Only party members
+ * - system: System announcements
+ */
+export type ChatType = "global" | "local" | "whisper" | "party" | "system";
+
 // Chat message interface with all required properties
 export interface ChatMessage {
   id: string;
@@ -421,6 +431,17 @@ export interface ChatMessage {
   entityId?: string;
   playerId?: string;
   playerName?: string;
+  
+  // Chat routing
+  chatType?: ChatType; // Default: "global"
+  targetId?: string; // For whisper messages
+  
+  // Agent identification
+  isFromAgent?: boolean; // True if sender is an AI agent
+  agentId?: string; // ElizaOS agent ID if applicable
+  
+  // Proximity data (for local chat)
+  senderPosition?: { x: number; y: number; z: number };
 }
 
 // Alias for backward compatibility

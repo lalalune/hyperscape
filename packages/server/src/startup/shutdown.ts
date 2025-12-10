@@ -216,7 +216,7 @@ async function destroyWorld(context: ShutdownContext): Promise<void> {
  * @private
  */
 async function closeDatabaseConnections(
-  context: ShutdownContext,
+  _context: ShutdownContext,
 ): Promise<void> {
   try {
     console.log("[Shutdown] Closing database connections...");

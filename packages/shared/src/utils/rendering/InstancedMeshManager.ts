@@ -42,11 +42,24 @@ import THREE from "../../extras/three/three";
 import type { World } from "../../core/World";
 
 /**
+ * LOD level configuration
+ */
+interface LODLevel {
+  distance: number;
+  mesh: THREE.InstancedMesh;
+  maxInstances: number;
+}
+
+/**
  * InstanceData - Internal tracking for a single instanced mesh type
  */
 interface InstanceData {
   /** The Three.js InstancedMesh being managed */
   mesh: THREE.InstancedMesh;
+  /** LOD levels for this mesh type (optional) */
+  lodLevels?: LODLevel[];
+  /** Current LOD assignments */
+  lodAssignments?: Map<number, number>; // instanceId -> lodLevel
   /** Map from instance ID to matrix array index */
   instanceMap: Map<number, number>;
   /** Reverse map from matrix index to instance ID */
@@ -57,6 +70,10 @@ interface InstanceData {
   nextInstanceId: number;
   /** Maximum number of visible instances */
   maxVisibleInstances: number;
+  /** Per-type cull distance override */
+  cullDistance: number;
+  /** Fade start distance (percentage of cull distance) */
+  fadeStartRatio: number;
   /** All instances (both visible and culled) */
   allInstances: Map<
     number,
@@ -66,8 +83,11 @@ interface InstanceData {
       rotation?: THREE.Euler;
       scale?: THREE.Vector3;
       matrix: THREE.Matrix4;
+      baseScale: THREE.Vector3;
       visible: boolean;
       distance: number;
+      fadeScale: number;
+      currentLOD: number;
     }
   >;
 }
@@ -91,6 +111,16 @@ export class InstancedMeshManager {
   private _tempMatrix = new THREE.Matrix4();
   private _tempVec3 = new THREE.Vector3();
   private didInitialVisibility = false;
+  // PERFORMANCE: Cached array for visibility sorting to avoid allocation per update
+  private _instancesWithDistanceCache: Array<[number, {
+    entityId: string;
+    position: THREE.Vector3;
+    rotation?: THREE.Euler;
+    scale?: THREE.Vector3;
+    matrix: THREE.Matrix4;
+    visible: boolean;
+    distance: number;
+  }]> = [];
 
   /**
    * Create a new InstancedMeshManager
@@ -110,12 +140,14 @@ export class InstancedMeshManager {
    * @param geometry - Shared geometry for all instances
    * @param material - Shared material for all instances
    * @param count - Optional max visible instances (default: maxInstancesPerType)
+   * @param typeCullDistance - Optional per-type cull distance (default: global cullDistance)
    */
   registerMesh(
     type: string,
     geometry: THREE.BufferGeometry,
     material: THREE.Material,
     count?: number,
+    typeCullDistance?: number,
   ): void {
     if (this.instancedMeshes.has(type)) {
       console.warn(
@@ -138,13 +170,75 @@ export class InstancedMeshManager {
 
     this.instancedMeshes.set(type, {
       mesh,
+      lodLevels: undefined,
+      lodAssignments: undefined,
       instanceMap: new Map(),
       reverseInstanceMap: new Map(),
       entityIdMap: new Map(),
       nextInstanceId: 0,
       maxVisibleInstances: visibleCount,
+      cullDistance: typeCullDistance ?? this.cullDistance,
+      fadeStartRatio: 0.8, // Start fading at 80% of cull distance
       allInstances: new Map(),
     });
+  }
+
+  /**
+   * Register LOD levels for a mesh type.
+   * Allows automatic switching between detail levels based on distance.
+   *
+   * @param type - Mesh type (must be registered first)
+   * @param lodConfigs - Array of LOD configurations, sorted by distance
+   */
+  registerLODLevels(
+    type: string,
+    lodConfigs: Array<{
+      distance: number;
+      geometry: THREE.BufferGeometry;
+      material: THREE.Material;
+      maxInstances?: number;
+    }>,
+  ): void {
+    const data = this.instancedMeshes.get(type);
+    if (!data) return;
+
+    // Sort by distance
+    const sorted = [...lodConfigs].sort((a, b) => a.distance - b.distance);
+
+    data.lodLevels = sorted.map((config) => {
+      const lodMesh = new THREE.InstancedMesh(
+        config.geometry,
+        config.material,
+        config.maxInstances || this.maxInstancesPerType,
+      );
+      lodMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      lodMesh.count = 0;
+      lodMesh.frustumCulled = false;
+      this.scene.add(lodMesh);
+
+      return {
+        distance: config.distance,
+        mesh: lodMesh,
+        maxInstances: config.maxInstances || this.maxInstancesPerType,
+      };
+    });
+
+    data.lodAssignments = new Map();
+  }
+
+  /**
+   * Get the appropriate LOD level for a distance
+   */
+  private getLODLevelForDistance(
+    lodLevels: LODLevel[],
+    distance: number,
+  ): number {
+    for (let i = lodLevels.length - 1; i >= 0; i--) {
+      if (distance >= lodLevels[i].distance) {
+        return i;
+      }
+    }
+    return 0; // Default to highest detail
   }
 
   /**
@@ -182,15 +276,24 @@ export class InstancedMeshManager {
     else this.dummy.scale.set(1, 1, 1);
     this.dummy.updateMatrix();
 
-    // Store the instance data (always store, even if not immediately visible)
+    // Store the instance data using primitive values to reduce GC pressure
+    const baseScale = scale
+      ? new THREE.Vector3(scale.x, scale.y, scale.z)
+      : new THREE.Vector3(1, 1, 1);
+
     data.allInstances.set(instanceId, {
       entityId,
-      position: position.clone(),
-      rotation: rotation?.clone(),
-      scale: scale?.clone(),
+      position: new THREE.Vector3(position.x, position.y, position.z),
+      rotation: rotation
+        ? new THREE.Euler(rotation.x, rotation.y, rotation.z, rotation.order)
+        : undefined,
+      scale: scale ? new THREE.Vector3(scale.x, scale.y, scale.z) : undefined,
       matrix: this.dummy.matrix.clone(),
+      baseScale,
       visible: false,
       distance: Infinity,
+      fadeScale: 1.0,
+      currentLOD: 0,
     });
 
     return instanceId;
@@ -279,33 +382,37 @@ export class InstancedMeshManager {
     if (!playerPos) {
       playerPos = this.getPlayerPosition() || undefined;
       if (!playerPos) {
-        // Use origin as fallback
-        playerPos = new THREE.Vector3(0, 0, 0);
+        // Use temp vector at origin as fallback (avoid allocation)
+        playerPos = this._tempVec3.set(0, 0, 0);
       }
     }
 
-    // Calculate distances for all instances and filter by cull distance
-    const instancesWithDistance: Array<
-      [
-        number,
-        {
-          entityId: string;
-          position: THREE.Vector3;
-          rotation?: THREE.Euler;
-          scale?: THREE.Vector3;
-          matrix: THREE.Matrix4;
-          visible: boolean;
-          distance: number;
-        },
-      ]
-    > = [];
+    // Calculate distances and fade values for all instances
+    // PERFORMANCE: Reuse cached array to avoid allocation per update
+    const typeCullDistance = data.cullDistance;
+    const fadeStartDist = typeCullDistance * data.fadeStartRatio;
+    this._instancesWithDistanceCache.length = 0;
+
     for (const [id, instance] of data.allInstances) {
       instance.distance = instance.position.distanceTo(playerPos);
-      // Only consider instances within the cull distance
-      if (instance.distance <= this.cullDistance) {
-        instancesWithDistance.push([id, instance]);
+
+      // Only consider instances within the per-type cull distance
+      if (instance.distance <= typeCullDistance) {
+        // Calculate fade scale based on distance
+        if (instance.distance > fadeStartDist) {
+          // Fade out from fadeStartDist to cullDistance
+          const fadeProgress =
+            (instance.distance - fadeStartDist) /
+            (typeCullDistance - fadeStartDist);
+          instance.fadeScale = 1.0 - fadeProgress; // 1 -> 0
+        } else {
+          instance.fadeScale = 1.0;
+        }
+
+        this._instancesWithDistanceCache.push([id, instance]);
       }
     }
+    const instancesWithDistance = this._instancesWithDistanceCache;
 
     // Sort by distance
     instancesWithDistance.sort((a, b) => a[1].distance - b[1].distance);
@@ -325,8 +432,26 @@ export class InstancedMeshManager {
     ) {
       const [instanceId, instance] = instancesWithDistance[i];
 
-      // Set the matrix for this visible instance
-      data.mesh.setMatrixAt(visibleCount, instance.matrix);
+      // Apply fade scale to the matrix
+      if (instance.fadeScale < 1.0) {
+        // Rebuild matrix with faded scale
+        this.dummy.position.copy(instance.position);
+        if (instance.rotation) this.dummy.rotation.copy(instance.rotation);
+        else this.dummy.rotation.set(0, 0, 0);
+
+        // Apply fade to scale
+        const fadedScale = instance.fadeScale;
+        this.dummy.scale.set(
+          instance.baseScale.x * fadedScale,
+          instance.baseScale.y * fadedScale,
+          instance.baseScale.z * fadedScale,
+        );
+        this.dummy.updateMatrix();
+        data.mesh.setMatrixAt(visibleCount, this.dummy.matrix);
+      } else {
+        // Use cached matrix for full-scale instances
+        data.mesh.setMatrixAt(visibleCount, instance.matrix);
+      }
 
       // Update mappings
       data.instanceMap.set(instanceId, visibleCount);
@@ -434,6 +559,12 @@ export class InstancedMeshManager {
     }
     if (config.cullDistance !== undefined) {
       this.cullDistance = config.cullDistance;
+      // Update per-type cull distances for types that haven't been customized
+      for (const data of this.instancedMeshes.values()) {
+        if (data.cullDistance === this.cullDistance) {
+          data.cullDistance = config.cullDistance;
+        }
+      }
     }
     if (config.updateInterval !== undefined) {
       this.updateInterval = config.updateInterval;
@@ -442,6 +573,20 @@ export class InstancedMeshManager {
     // Force an immediate update after config change
     this.lastUpdateTime = 0;
     this.updateAllInstanceVisibility();
+  }
+
+  /**
+   * Set cull distance for a specific mesh type.
+   *
+   * @param type - Mesh type
+   * @param distance - Cull distance in world units
+   */
+  setTypeCullDistance(type: string, distance: number): void {
+    const data = this.instancedMeshes.get(type);
+    if (data) {
+      data.cullDistance = distance;
+      this.updateInstanceVisibility(type);
+    }
   }
 
   /**
@@ -474,8 +619,17 @@ export class InstancedMeshManager {
   dispose(): void {
     for (const data of this.instancedMeshes.values()) {
       this.scene.remove(data.mesh);
+      data.mesh.geometry.dispose();
+      if (data.mesh.material instanceof THREE.Material) {
+        data.mesh.material.dispose();
+      } else if (Array.isArray(data.mesh.material)) {
+        for (const mat of data.mesh.material) {
+          mat.dispose();
+        }
+      }
       data.mesh.dispose();
     }
     this.instancedMeshes.clear();
+    this._instancesWithDistanceCache.length = 0;
   }
 }

@@ -59,14 +59,19 @@
     "@types/react-dom": "^19.0.0",
     "@types/ws": "^8.5.10",
     "playwright": "^1.54.2",
-    "typescript": "^5.9.2",
-    "vitest": "^4.0.6"
+    "typescript": "^5.9.2"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest",
+    "test": "bun test src/",
+    "test:unit": "bun test src/",
+    "test:mcp": "bun run scripts/test-mcp.ts",
+    "test:eliza": "bun run scripts/test-eliza-agent.ts",
+    "test:a2a": "bun run scripts/test-a2a.ts",
+    "test:production": "bun run scripts/test-production.ts",
+    "test:e2e": "bun run scripts/test-mcp.ts && bun run scripts/test-eliza-agent.ts",
+    "test:all": "bun run test:unit && bun run test:e2e && bun run test:production",
     "lint": "eslint src --fix"
   }
 }

@@ -10,7 +10,7 @@
 import { INPUT_LIMITS } from "@hyperscape/shared";
 
 // eslint-disable-next-line no-control-regex
-const CONTROL_CHAR_REGEX = /[\x00-\x1f]/;
+export const CONTROL_CHAR_REGEX = /[\x00-\x1f]/;
 
 /**
  * Validate itemId - must be non-empty string within length limits
@@ -90,6 +90,19 @@ export function isValidNpcId(value: unknown): value is string {
     typeof value === "string" &&
     value.length > 0 &&
     value.length <= INPUT_LIMITS.MAX_ITEM_ID_LENGTH &&
+    !CONTROL_CHAR_REGEX.test(value)
+  );
+}
+
+/**
+ * Validate entity ID for ground items
+ * Similar to itemId validation but allows longer IDs for world entities
+ */
+export function isValidEntityId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 128 &&
     !CONTROL_CHAR_REGEX.test(value)
   );
 }

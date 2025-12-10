@@ -33,6 +33,16 @@
       "types": "./build/blockchain/mud-client.d.ts",
       "import": "./build/blockchain/mud-client.js",
       "default": "./build/blockchain/mud-client.js"
+    },
+    "./blockchain": {
+      "types": "./build/blockchain/index.d.ts",
+      "import": "./build/blockchain/index.js",
+      "default": "./build/blockchain/index.js"
+    },
+    "./blockchain/*": {
+      "types": "./build/blockchain/*.d.ts",
+      "import": "./build/blockchain/*.js",
+      "default": "./build/blockchain/*.js"
     }
   },
   "homepage": "https://github.com/HyperscapeAI/hyperscape#readme",
@@ -58,7 +68,7 @@
     "build:client": "vite build",
     "build:server": "bun scripts/build.mjs --server-only",
     "start": "bun run build && bun build/index.js start --world ./world",
-    "test": "vitest run --passWithNoTests",
+    "test": "bun test src/",
     "test:e2e": "playwright test",
     "test:client": "node test-client.mjs",
     "lint": "eslint src --max-warnings 22100",
@@ -129,7 +139,8 @@
     "three-custom-shader-material": "^6.3.7",
     "three-mesh-bvh": "^0.8.3",
     "viem": "^2.38.3",
-    "yoga-layout": "^3.2.1"
+    "yoga-layout": "^3.2.1",
+    "permissionless": "^0.2.0"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.23.10",
@@ -152,8 +163,6 @@
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
     "@vitejs/plugin-react": "^5.0.4",
-    "@vitest/coverage-v8": "^4.0.6",
-    "@vitest/ui": "^4.0.6",
     "ajv": "^8.17.1",
     "ajv-draft-04": "^1.0.0",
     "autoprefixer": "^10.4.21",
@@ -176,8 +185,7 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2",
-    "vite": "^6.3.5",
-    "vitest": "^4.0.6"
+    "vite": "^6.3.5"
   },
   "peerDependencies": {
     "@types/react": "^19.0.0",

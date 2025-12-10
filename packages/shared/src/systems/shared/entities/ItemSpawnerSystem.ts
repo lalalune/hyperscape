@@ -1,4 +1,4 @@
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { getSystem } from "../../../utils/SystemUtils";
 import { EventType } from "../../../types/events";
 import { Logger } from "../../../utils/Logger";

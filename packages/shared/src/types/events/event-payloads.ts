@@ -8,7 +8,6 @@ import { Entity } from "../../entities/Entity";
 import { PlayerLocal } from "../../entities/player/PlayerLocal";
 import { Skills, InventoryItem, Position3D } from "../core/core";
 import type { Item } from "../core/core";
-import type { EntitySpawnedEvent } from "../systems/system-interfaces";
 import { EventType } from "./event-types";
 import THREE from "../../extras/three/three";
 

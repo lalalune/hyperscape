@@ -26,6 +26,99 @@ import type pg from "pg";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../../database/schema";
 
+// Payload types for event handlers
+interface SkillsUpdatedPayload {
+  playerId?: string;
+  skills?: Record<string, { level: number; xp: number }>;
+}
+
+interface UIMessagePayload {
+  playerId?: string;
+  message?: string;
+  type?: string;
+}
+
+interface UIUpdatePayload {
+  component?: string;
+  data?: { playerId?: string };
+}
+
+interface UIDeathScreenPayload {
+  playerId?: string;
+  message?: string;
+  killedBy?: string;
+  respawnTime?: number;
+}
+
+interface UIDeathScreenClosePayload {
+  playerId?: string;
+}
+
+interface PlayerSetDeadPayload {
+  playerId?: string;
+  isDead?: boolean;
+}
+
+interface PlayerRespawnedPayload {
+  playerId?: string;
+  position?: { x: number; y: number; z: number };
+}
+
+interface UIAttackStyleChangedPayload {
+  playerId?: string;
+  style?: string;
+}
+
+interface UIAttackStyleUpdatePayload {
+  playerId?: string;
+  style?: string;
+  options?: unknown[];
+}
+
+interface CombatDamageDealtPayload {
+  targetId?: string;
+  attackerId?: string;
+  damage?: number;
+  damageType?: string;
+}
+
+interface PlayerUpdatedPayload {
+  playerId?: string;
+  data?: {
+    health: { current: number; max: number };
+    alive?: boolean;
+  };
+}
+
+interface DialogueStartPayload {
+  playerId?: string;
+  npcId?: string;
+  npcName?: string;
+  nodeId?: string;
+  text?: string;
+  responses?: Array<{ text: string; nextNodeId: string; effect?: string }>;
+  npcEntityId?: string;
+}
+
+interface DialogueNodeChangePayload {
+  playerId?: string;
+  npcId?: string;
+  nodeId?: string;
+  text?: string;
+  responses?: Array<{ text: string; nextNodeId: string; effect?: string }>;
+}
+
+interface DialogueEndPayload {
+  playerId?: string;
+  npcId?: string;
+}
+
+interface StoreOpenRequestPayload {
+  playerId?: string;
+  storeId?: string;
+  npcEntityId?: string;
+}
+
 /**
  * EventBridge - Bridges world events to network messages
  *

@@ -1,4 +1,4 @@
-import { System } from "../shared";
+import { System } from "../shared/infrastructure/System";
 import { Logger } from "../../utils/Logger";
 import * as THREE from "three";
 import type { Entity } from "../../entities/Entity";

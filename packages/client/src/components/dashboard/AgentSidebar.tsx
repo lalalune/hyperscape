@@ -1,13 +1,5 @@
 import React from "react";
-import {
-  Plus,
-  Users,
-  Settings,
-  LogOut,
-  Play,
-  Square,
-  Server,
-} from "lucide-react";
+import { Plus, Settings, LogOut, Play, Square } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
 import { AgentGoalPanel } from "./AgentGoalPanel";
 import { AgentSkillsPanel } from "./AgentSkillsPanel";
@@ -32,7 +24,7 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   onCreateAgent,
   onStartAgent,
   onStopAgent,
-  onDeleteAgent,
+  onDeleteAgent: _onDeleteAgent,
 }) => {
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
   return (

@@ -93,10 +93,14 @@ import { emoteUrls } from "../../data/playerEmotes";
 import THREE from "../../extras/three/three";
 import { readPacket, writePacket } from "../../platform/shared/packets";
 import { storage } from "../../platform/shared/storage";
+import {
+  hashEntityId,
+  parseBatchUpdate,
+  UpdateFlags,
+} from "../../utils/network/compression";
 import type {
   ChatMessage,
   EntityData,
-  SnapshotData,
   World,
   WorldOptions,
 } from "../../types";
@@ -123,12 +127,15 @@ import type {
 import type { Entity } from "../../entities/Entity";
 import { EventType } from "../../types/events";
 import { uuid } from "../../utils";
-import { SystemBase } from "../shared";
+import { SystemBase } from "../shared/infrastructure/SystemBase";
 import { PlayerLocal } from "../../entities/player/PlayerLocal";
 import { TileInterpolator } from "./TileInterpolator";
 import { type TileCoord } from "../shared/movement/TileSystem"; // Internal import within shared package
 
+// PERFORMANCE: Reusable objects for hot path packet handling
 const _v3_1 = new THREE.Vector3();
+const _v3_2 = new THREE.Vector3();
+const _v3_3 = new THREE.Vector3();
 const _quat_1 = new THREE.Quaternion();
 
 /**
@@ -183,6 +190,10 @@ export class ClientNetwork extends SystemBase {
   pendingModificationTimestamps: Map<string, number> = new Map(); // Track when modifications were first queued
   pendingModificationLimitReached: Set<string> = new Set(); // Track entities that hit the limit (to avoid log spam)
   destroyedEntities: Set<string> = new Set(); // Track entities that have been destroyed
+
+  // Entity ID hash lookup for compressed updates (hash → entityId)
+  private entityHashToId: Map<number, string> = new Map();
+
   // Cache character list so UI can render even if it mounts after the packet arrives
   lastCharacterList: Array<{
     id: string;
@@ -836,6 +847,10 @@ export class ClientNetwork extends SystemBase {
     // Add entity if method exists
     const newEntity = this.world.entities.add(data);
     if (newEntity) {
+      // Register entity ID hash for compressed updates
+      const hash = hashEntityId(newEntity.id);
+      this.entityHashToId.set(hash, newEntity.id);
+
       this.applyPendingModifications(newEntity.id);
       // If this is the local player added after character select, force-set initial position
       const isLocalPlayer =
@@ -1669,6 +1684,10 @@ export class ClientNetwork extends SystemBase {
     // Mark entity as destroyed to prevent future modifications
     this.destroyedEntities.add(id);
 
+    // Remove from entity hash lookup
+    const hash = hashEntityId(id);
+    this.entityHashToId.delete(hash);
+
     // Remove from interpolation tracking
     this.interpolationStates.delete(id);
     // Remove from tile interpolation tracking (RuneScape-style movement)
@@ -1787,11 +1806,6 @@ export class ClientNetwork extends SystemBase {
   // ======================== TRADING SYSTEM HANDLERS ========================
 
   onTradeRequest = (data: TradeRequestReceivedPacket) => {
-    console.log(
-      "[ClientNetwork] 📨 Received trade request from:",
-      data.fromPlayerName,
-    );
-
     // Emit event for UI to show trade request modal
     this.world.emit(EventType.TRADE_REQUEST_RECEIVED, {
       tradeId: data.tradeId,
@@ -1801,23 +1815,14 @@ export class ClientNetwork extends SystemBase {
   };
 
   onTradeStarted = (data: TradeStartedPacket) => {
-    console.log("[ClientNetwork] 🤝 Trade started:", data.tradeId);
-
-    // Emit event for UI to open trade window
     this.world.emit(EventType.TRADE_STARTED, data);
   };
 
   onTradeUpdated = (data: TradeUpdatedPacket) => {
-    console.log("[ClientNetwork] 🔄 Trade updated:", data.tradeId);
-
-    // Emit event for UI to update trade window
     this.world.emit(EventType.TRADE_UPDATED, data);
   };
 
   onTradeCompleted = (data: TradeCompletedPacket) => {
-    console.log("[ClientNetwork] ✅ Trade completed:", data.tradeId);
-
-    // Emit event for UI to show success and close trade window
     this.world.emit(EventType.TRADE_COMPLETED, data);
 
     // Show success toast
@@ -1828,9 +1833,6 @@ export class ClientNetwork extends SystemBase {
   };
 
   onTradeCancelled = (data: TradeCancelledPacket) => {
-    console.log("[ClientNetwork] ❌ Trade cancelled:", data.reason);
-
-    // Emit event for UI to close trade window
     this.world.emit(EventType.TRADE_CANCELLED, data);
 
     // Show cancellation toast
@@ -2051,9 +2053,62 @@ export class ClientNetwork extends SystemBase {
     }
   };
 
-  // Handle compressed updates (deprecated - compression disabled)
-  onCompressedUpdate = (_packet: unknown) => {
-    // Compression disabled - this handler is a no-op
+  /**
+   * Handle compressed batch updates from server
+   * These are AOI-aware, throttled, and batched entity updates
+   */
+  onCompressedUpdate = (packet: Uint8Array | ArrayBuffer) => {
+    // Convert to Uint8Array if needed
+    const buffer =
+      packet instanceof Uint8Array ? packet : new Uint8Array(packet);
+
+    const updates = parseBatchUpdate(buffer);
+
+    for (const update of updates) {
+      // Look up entity ID from hash
+      const entityId = this.entityHashToId.get(update.entityIdHash);
+      if (!entityId) continue; // Entity not known to client
+
+      const entity = this.world.entities.get(entityId);
+      if (!entity) continue;
+
+      // Apply position update
+      if (update.flags & UpdateFlags.POSITION && update.position) {
+        const pos = update.position;
+        if (entity.position) {
+          entity.position.set(pos.x, pos.y, pos.z);
+        }
+        if (entity.data) {
+          entity.data.position = [pos.x, pos.y, pos.z];
+        }
+      }
+
+      // Apply rotation update
+      if (update.flags & UpdateFlags.ROTATION && update.quaternion) {
+        const q = update.quaternion;
+        if (entity.node?.quaternion) {
+          entity.node.quaternion.set(q.x, q.y, q.z, q.w);
+        }
+        if (entity.data) {
+          entity.data.quaternion = [q.x, q.y, q.z, q.w];
+        }
+      }
+
+      // Apply health update
+      if (update.flags & UpdateFlags.HEALTH && update.health) {
+        if (entity.data) {
+          entity.data.health = update.health.current;
+          entity.data.maxHealth = update.health.max;
+        }
+      }
+
+      // Apply state update
+      if (update.flags & UpdateFlags.STATE && update.state !== undefined) {
+        if (entity.data) {
+          entity.data.state = update.state;
+        }
+      }
+    }
   };
 
   onPong = (time: number) => {
@@ -2085,7 +2140,8 @@ export class ClientNetwork extends SystemBase {
     tickNumber: number;
     moveSeq?: number;
   }) => {
-    const worldPos = new THREE.Vector3(
+    // PERFORMANCE: Use cached vector instead of allocating new one
+    const worldPos = _v3_2.set(
       data.worldPos[0],
       data.worldPos[1],
       data.worldPos[2],
@@ -2094,8 +2150,9 @@ export class ClientNetwork extends SystemBase {
     // Get entity's current position as fallback for smooth interpolation
     // (in case tileMovementStart was missed due to packet loss)
     const entity = this.world.entities.get(data.id);
+    // PERFORMANCE: Use cached vector for clone, TileInterpolator will copy if needed
     const entityCurrentPos = entity?.position
-      ? (entity.position as THREE.Vector3).clone()
+      ? _v3_3.copy(entity.position as THREE.Vector3)
       : undefined;
 
     // Update tile interpolator with tick number and moveSeq for proper sequencing
@@ -2145,9 +2202,10 @@ export class ClientNetwork extends SystemBase {
     tilesPerTick?: number; // Mob-specific speed (optional, defaults to walk/run speed)
   }) => {
     // Get entity's current position for smooth start (fallback if startTile not provided)
+    // PERFORMANCE: Don't clone here - TileInterpolator.onMovementStart() clones internally
     const entity = this.world.entities.get(data.id);
     const currentPosition = entity?.position
-      ? (entity.position as THREE.Vector3).clone()
+      ? (entity.position as THREE.Vector3)
       : undefined;
 
     // Pass server's authoritative path to interpolator
@@ -2192,7 +2250,8 @@ export class ClientNetwork extends SystemBase {
     worldPos: [number, number, number];
     moveSeq?: number;
   }) => {
-    const worldPos = new THREE.Vector3(
+    // PERFORMANCE: Use cached vector instead of allocating new one
+    const worldPos = _v3_2.set(
       data.worldPos[0],
       data.worldPos[1],
       data.worldPos[2],

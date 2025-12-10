@@ -8,7 +8,6 @@ import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import { AttackType } from "../../../types/core/core";
 import { EntityID } from "../../../types/core/identifiers";
 import { MobEntity } from "../../../entities/npc/MobEntity";
-import { MobAIState } from "../../../types/entities";
 import { Entity } from "../../../entities/Entity";
 import { PlayerSystem } from "..";
 import {
@@ -16,16 +15,13 @@ import {
   calculateDistance2D,
   calculateDistance3D,
   CombatStats,
-  isAttackOnCooldown,
   isAttackOnCooldownTicks,
   calculateRetaliationDelay,
-  attackSpeedSecondsToTicks,
-  attackSpeedMsToTicks,
 } from "../../../utils/game/CombatCalculations";
 import { createEntityID } from "../../../utils/IdentifierUtils";
 import { EntityManager } from "..";
 import { MobNPCSystem } from "..";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { Emotes } from "../../../data/playerEmotes";
 import { getItem } from "../../../data/items";
 import { worldToTile, tilesWithinRange } from "../movement/TileSystem";
@@ -1755,7 +1751,7 @@ export class CombatSystem extends SystemBase {
     try {
       const health = entity.getHealth();
       return Math.max(0, health);
-    } catch (err) {
+    } catch (_err) {
       return 0;
     }
   }

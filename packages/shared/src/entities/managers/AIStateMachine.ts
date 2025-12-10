@@ -23,7 +23,6 @@ import {
   tilesWithinRange,
   getBestCombatRangeTile,
   tileToWorld,
-  type TileCoord,
 } from "../../systems/shared/movement/TileSystem";
 
 export interface AIStateContext {
@@ -418,22 +417,41 @@ export class ReturnState implements AIState {
 
 /**
  * AI State Machine - Manages state transitions
+ *
+ * PERFORMANCE: Uses shared static state instances across all mobs.
+ * States are stateless (use context for all data) so they can be shared.
+ * This saves memory: 1000 mobs = 1 set of state instances, not 5000.
  */
 export class AIStateMachine {
   private currentState: AIState;
+
+  // PERFORMANCE: Shared state instances (singleton pattern)
+  // States are stateless - all data is in the context
+  // IdleState uses instance data for idle duration, so it gets its own instance per mob
+  private static readonly SHARED_WANDER = new WanderState();
+  private static readonly SHARED_CHASE = new ChaseState();
+  private static readonly SHARED_ATTACK = new AttackState();
+  private static readonly SHARED_RETURN = new ReturnState();
+
+  // Per-mob state instances (only for states with instance data)
+  private idleState: IdleState;
+
   private states: Map<MobAIState, AIState>;
 
   constructor() {
-    // Create all state instances
+    // Create per-mob IdleState (has instance data for idle duration)
+    this.idleState = new IdleState();
+
+    // Map states - use shared instances where possible
     this.states = new Map<MobAIState, AIState>();
-    this.states.set(MobAIState.IDLE, new IdleState());
-    this.states.set(MobAIState.WANDER, new WanderState());
-    this.states.set(MobAIState.CHASE, new ChaseState());
-    this.states.set(MobAIState.ATTACK, new AttackState());
-    this.states.set(MobAIState.RETURN, new ReturnState());
+    this.states.set(MobAIState.IDLE, this.idleState);
+    this.states.set(MobAIState.WANDER, AIStateMachine.SHARED_WANDER);
+    this.states.set(MobAIState.CHASE, AIStateMachine.SHARED_CHASE);
+    this.states.set(MobAIState.ATTACK, AIStateMachine.SHARED_ATTACK);
+    this.states.set(MobAIState.RETURN, AIStateMachine.SHARED_RETURN);
 
     // Start in IDLE state
-    this.currentState = this.states.get(MobAIState.IDLE)!;
+    this.currentState = this.idleState;
   }
 
   /**

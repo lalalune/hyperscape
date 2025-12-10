@@ -57,31 +57,67 @@ export interface TileFlags {
   blockedWest: boolean; // Is west edge blocked?
 }
 
+/** PERFORMANCE: Reusable tile coord for hot path operations */
+const _reusableTileCoord: TileCoord = { x: 0, z: 0 };
+
+/** PERFORMANCE: Reusable world position for hot path operations */
+const _reusableWorldPos: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 };
+
 /**
  * Convert world coordinates to tile coordinates
  * Uses floor to ensure consistent tile boundaries
+ * 
+ * @param worldX - World X coordinate
+ * @param worldZ - World Z coordinate
+ * @param out - Optional output object to avoid allocation (for hot paths)
+ * @returns TileCoord (either the out object or a new one if not provided)
  */
-export function worldToTile(worldX: number, worldZ: number): TileCoord {
-  return {
-    x: Math.floor(worldX / TILE_SIZE),
-    z: Math.floor(worldZ / TILE_SIZE),
-  };
+export function worldToTile(worldX: number, worldZ: number, out?: TileCoord): TileCoord {
+  const result = out ?? { x: 0, z: 0 };
+  result.x = Math.floor(worldX / TILE_SIZE);
+  result.z = Math.floor(worldZ / TILE_SIZE);
+  return result;
+}
+
+/**
+ * Convert world coordinates to tile coordinates (zero-allocation version)
+ * WARNING: Returns shared object - copy values immediately if needed beyond current frame
+ */
+export function worldToTileUnsafe(worldX: number, worldZ: number): TileCoord {
+  _reusableTileCoord.x = Math.floor(worldX / TILE_SIZE);
+  _reusableTileCoord.z = Math.floor(worldZ / TILE_SIZE);
+  return _reusableTileCoord;
 }
 
 /**
  * Convert tile coordinates to world coordinates (tile center)
  * Returns the center of the tile, not the corner
+ * 
+ * @param tile - Tile coordinates
+ * @param out - Optional output object to avoid allocation (for hot paths)
+ * @returns World position (either the out object or a new one if not provided)
  */
-export function tileToWorld(tile: TileCoord): {
+export function tileToWorld(tile: TileCoord, out?: { x: number; y: number; z: number }): {
   x: number;
   y: number;
   z: number;
 } {
-  return {
-    x: (tile.x + 0.5) * TILE_SIZE,
-    y: 0, // Y will be set from terrain height
-    z: (tile.z + 0.5) * TILE_SIZE,
-  };
+  const result = out ?? { x: 0, y: 0, z: 0 };
+  result.x = (tile.x + 0.5) * TILE_SIZE;
+  result.y = 0; // Y will be set from terrain height
+  result.z = (tile.z + 0.5) * TILE_SIZE;
+  return result;
+}
+
+/**
+ * Convert tile coordinates to world coordinates (zero-allocation version)
+ * WARNING: Returns shared object - copy values immediately if needed beyond current frame
+ */
+export function tileToWorldUnsafe(tile: TileCoord): { x: number; y: number; z: number } {
+  _reusableWorldPos.x = (tile.x + 0.5) * TILE_SIZE;
+  _reusableWorldPos.y = 0;
+  _reusableWorldPos.z = (tile.z + 0.5) * TILE_SIZE;
+  return _reusableWorldPos;
 }
 
 /**
@@ -298,6 +334,12 @@ export function getBestCombatRangeTile(
   return validCombatTiles[0].tile;
 }
 
+/** PERFORMANCE: Reusable adjacent tiles array for hot path operations */
+const _reusableAdjacentTiles: TileCoord[] = [
+  { x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 },
+  { x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 },
+];
+
 /**
  * Get adjacent tiles (8 directions - RuneScape order)
  * Order: W, E, S, N, SW, SE, NW, NE
@@ -313,6 +355,23 @@ export function getAdjacentTiles(tile: TileCoord): TileCoord[] {
     { x: tile.x - 1, z: tile.z + 1 }, // Northwest
     { x: tile.x + 1, z: tile.z + 1 }, // Northeast
   ];
+}
+
+/**
+ * Get adjacent tiles (zero-allocation version)
+ * WARNING: Returns shared array - copy values immediately if needed beyond current frame
+ * Order: W, E, S, N, SW, SE, NW, NE
+ */
+export function getAdjacentTilesUnsafe(tile: TileCoord): TileCoord[] {
+  _reusableAdjacentTiles[0].x = tile.x - 1; _reusableAdjacentTiles[0].z = tile.z; // West
+  _reusableAdjacentTiles[1].x = tile.x + 1; _reusableAdjacentTiles[1].z = tile.z; // East
+  _reusableAdjacentTiles[2].x = tile.x; _reusableAdjacentTiles[2].z = tile.z - 1; // South
+  _reusableAdjacentTiles[3].x = tile.x; _reusableAdjacentTiles[3].z = tile.z + 1; // North
+  _reusableAdjacentTiles[4].x = tile.x - 1; _reusableAdjacentTiles[4].z = tile.z - 1; // SW
+  _reusableAdjacentTiles[5].x = tile.x + 1; _reusableAdjacentTiles[5].z = tile.z - 1; // SE
+  _reusableAdjacentTiles[6].x = tile.x - 1; _reusableAdjacentTiles[6].z = tile.z + 1; // NW
+  _reusableAdjacentTiles[7].x = tile.x + 1; _reusableAdjacentTiles[7].z = tile.z + 1; // NE
+  return _reusableAdjacentTiles;
 }
 
 /**

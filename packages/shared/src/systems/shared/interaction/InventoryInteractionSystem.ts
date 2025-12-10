@@ -24,7 +24,7 @@ export type { DragData, DropTarget };
 
 import { EventType } from "../../../types/events";
 import type { World } from "../../../types/index";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { Logger } from "../../../utils/Logger";
 
 /**

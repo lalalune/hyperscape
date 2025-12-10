@@ -11,7 +11,7 @@
  * These tests verify the service logic, not specific mob drops.
  */
 
-import { describe, it, expect, beforeEach, beforeAll } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll } from "bun:test";
 import { LootTableService } from "../LootTableService";
 import { dataManager } from "../../../../data/DataManager";
 
@@ -167,7 +167,7 @@ describe("LootTableService", () => {
           "skeleton",
           "zombie",
         ];
-        const foundOne = testMobs.some((mob) => service.hasLootTable(mob));
+        const _foundOne = testMobs.some((mob) => service.hasLootTable(mob));
         // This might still be false if mobs have different names in JSON
         // So we just verify the count is positive
         expect(count).toBeGreaterThan(0);

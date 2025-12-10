@@ -1,5 +1,5 @@
 import THREE from "../../extras/three/three";
-import { SystemBase } from "../shared";
+import { SystemBase } from "../shared/infrastructure/SystemBase";
 import type { World } from "../../types";
 import { EventType } from "../../types/events";
 

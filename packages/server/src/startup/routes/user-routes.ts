@@ -7,6 +7,8 @@
 import type { FastifyInstance } from "fastify";
 import type { World } from "@hyperscape/shared";
 import type { DatabaseSystem } from "../../systems/DatabaseSystem/index.js";
+import { eq } from "drizzle-orm";
+import { users } from "../../database/schema.js";
 
 /**
  * Register user-related API routes
@@ -56,13 +58,8 @@ export function registerUserRoutes(
 
       const user = await db
         .select()
-        .from(require("../../database/schema").users)
-        .where(
-          require("drizzle-orm").eq(
-            require("../../database/schema").users.id,
-            accountId,
-          ),
-        )
+        .from(users)
+        .where(eq(users.id, accountId))
         .limit(1);
 
       return reply.send({
@@ -142,13 +139,8 @@ export function registerUserRoutes(
 
       const existingUser = await db
         .select()
-        .from(require("../../database/schema").users)
-        .where(
-          require("drizzle-orm").eq(
-            require("../../database/schema").users.id,
-            accountId,
-          ),
-        )
+        .from(users)
+        .where(eq(users.id, accountId))
         .limit(1);
 
       if (existingUser.length > 0) {
@@ -161,13 +153,8 @@ export function registerUserRoutes(
       // Check if username is taken
       const existingUsername = await db
         .select()
-        .from(require("../../database/schema").users)
-        .where(
-          require("drizzle-orm").eq(
-            require("../../database/schema").users.name,
-            trimmedUsername,
-          ),
-        )
+        .from(users)
+        .where(eq(users.name, trimmedUsername))
         .limit(1);
 
       if (existingUsername.length > 0) {
@@ -179,7 +166,7 @@ export function registerUserRoutes(
 
       // Create user account
       const timestamp = new Date().toISOString();
-      await db.insert(require("../../database/schema").users).values({
+      await db.insert(users).values({
         id: accountId,
         name: trimmedUsername,
         wallet,

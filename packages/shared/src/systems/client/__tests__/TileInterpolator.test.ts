@@ -13,7 +13,7 @@
  * NO MOCKS - Uses real TileInterpolator logic
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 import * as THREE from "three";
 import { TileInterpolator } from "../TileInterpolator";
 import type { TileCoord } from "../../shared/movement/TileSystem";
@@ -292,9 +292,9 @@ describe("TileInterpolator", () => {
         return undefined;
       };
 
-      let completedId: string | null = null;
+      let _completedId: string | null = null;
       const onComplete = (entityId: string) => {
-        completedId = entityId;
+        _completedId = entityId;
       };
 
       // Simulate enough time to complete 1 tile of movement

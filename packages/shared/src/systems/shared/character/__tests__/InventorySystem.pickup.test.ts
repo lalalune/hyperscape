@@ -11,7 +11,7 @@
  * NOTE: Uses mocked system logic to avoid circular dependency issues.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
 
 // ============================================================================
 // Types
@@ -21,11 +21,6 @@ interface InventoryItem {
   itemId: string;
   quantity: number;
   slot: number;
-}
-
-interface ItemPickupEvent {
-  playerId: string;
-  entityId: string;
 }
 
 // ============================================================================

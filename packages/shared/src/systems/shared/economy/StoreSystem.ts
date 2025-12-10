@@ -4,7 +4,7 @@ import type { StoreCloseEvent, StoreOpenEvent } from "../../../types/events";
 import { EventType } from "../../../types/events";
 import { StoreID } from "../../../types/core/identifiers";
 import { createStoreID } from "../../../utils/IdentifierUtils";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { GENERAL_STORES } from "../../../data/banks-stores";
 
 /**

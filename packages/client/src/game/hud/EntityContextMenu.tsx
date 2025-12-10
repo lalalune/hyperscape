@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import type { World } from "@hyperscape/shared";
+import ReportPlayer from "../../components/moderation/ReportPlayer";
 
 export interface ContextMenuAction {
   id: string;
@@ -22,8 +23,10 @@ export interface ContextMenuState {
       | "npc"
       | "bank"
       | "store"
-      | "headstone";
+      | "headstone"
+      | "player";
     name: string;
+    agentId?: number;
   } | null;
   actions: ContextMenuAction[];
 }
@@ -40,6 +43,13 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
     actions: [],
   });
 
+  // Report modal state
+  const [reportTarget, setReportTarget] = useState<{
+    id: string;
+    name: string;
+    agentId?: number;
+  } | null>(null);
+
   useEffect(() => {
     // Listen for context menu requests from any system
     const handleContextMenu = (event: Event) => {
@@ -53,9 +63,11 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
             | "corpse"
             | "npc"
             | "bank"
-            | "store";
+            | "store"
+            | "player";
           name: string;
           position?: { x: number; y: number; z: number };
+          agentId?: number;
           [key: string]: unknown;
         };
         mousePosition: { x: number; y: number };
@@ -83,6 +95,23 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
         },
       }));
 
+      // Add "Report Player" action for player targets
+      if (target.type === "player") {
+        actions.push({
+          id: "report",
+          label: "🚩 Report Player",
+          enabled: true,
+          onClick: () => {
+            setReportTarget({
+              id: target.id,
+              name: target.name,
+              agentId: target.agentId,
+            });
+            setMenu((prev) => ({ ...prev, visible: false }));
+          },
+        });
+      }
+
       setMenu({
         visible: true,
         position: mousePosition,
@@ -90,6 +119,7 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
           id: target.id,
           type: target.type,
           name: target.name,
+          agentId: target.agentId,
         },
         actions,
       });
@@ -128,6 +158,18 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
       document.removeEventListener("click", handleClickOutside);
     };
   }, []);
+
+  // Render report modal
+  if (reportTarget) {
+    return (
+      <ReportPlayer
+        targetPlayerId={reportTarget.id}
+        targetPlayerName={reportTarget.name}
+        targetAgentId={reportTarget.agentId}
+        onClose={() => setReportTarget(null)}
+      />
+    );
+  }
 
   if (!menu.visible || !menu.target) return null;
 
