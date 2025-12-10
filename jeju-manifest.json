@@ -11,9 +11,10 @@
     "start": "bun run start"
   },
   "ports": {
-    "main": 3333,
-    "game": 3333,
-    "api": 5555
+    "main": 5009,
+    "game": 5009,
+    "api": 5010,
+    "storage": 8080
   },
   "dependencies": [],
   "optional": true,

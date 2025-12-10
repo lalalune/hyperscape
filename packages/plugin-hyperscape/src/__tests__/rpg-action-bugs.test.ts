@@ -403,7 +403,7 @@ async function createTestRuntime(worldUrl: string): Promise<IAgentRuntime> {
   await service.initialize(runtime);
 
   // Parse world URL to get wsUrl and worldId
-  // Format: https://hyperscape.io/world-id or ws://localhost:3000/world-id
+  // Format: https://hyperscape.io/world-id or ws://localhost:5009/world-id
   let wsUrl: string;
   let worldId: string;
 
