@@ -129,8 +129,8 @@ export function retargetAnimationToVRM(
   clip.optimize();
 
   // Retarget tracks to VRM skeleton
-  const height = rootToHips;
-  const scaler = height * scale;
+  const _height = rootToHips;
+  const _scaler = _height * scale;
   const retargetedTracks: THREE.KeyframeTrack[] = [];
 
   clip.tracks.forEach((track) => {

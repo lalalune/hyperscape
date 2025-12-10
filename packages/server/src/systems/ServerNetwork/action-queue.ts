@@ -244,7 +244,7 @@ export class ActionQueue {
   processTick(tickNumber: number): void {
     const now = Date.now();
 
-    for (const [playerId, state] of this.playerQueues) {
+    for (const [_playerId, state] of this.playerQueues) {
       // Skip if already processed this tick
       if (state.lastProcessedTick >= tickNumber) {
         continue;

@@ -8,7 +8,7 @@ import { createEmoteFactory } from "../../extras/three/createEmoteFactory";
 import { createNode } from "../../extras/three/createNode";
 import { glbToNodes } from "../../extras/three/glbToNodes";
 import type { GLBData, HSNode as INode, World } from "../../types";
-import { System } from "../shared";
+import { System } from "../shared/infrastructure/System";
 
 /**
  * Node.js Filesystem-Based Asset Loader

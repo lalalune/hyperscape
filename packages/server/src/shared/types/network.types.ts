@@ -43,7 +43,7 @@ export type NodeWebSocket = WebSocket & {
  * Handlers now query the session manager for targetEntityId instead of socket properties.
  */
 export interface ServerSocket extends Socket {
-  player: any;
+  player: unknown;
   // Base Socket properties from Socket class
   ws: NodeWebSocket;
   network: NetworkWithSocket;
@@ -105,7 +105,7 @@ export interface ServerNetworkWithSockets {
   sockets: Map<
     string,
     ServerSocket & {
-      player: any; // PlayerEntity from game.types.ts - avoid circular dependency
+      player: unknown; // PlayerEntity from game.types.ts - avoid circular dependency
     }
   >;
 }

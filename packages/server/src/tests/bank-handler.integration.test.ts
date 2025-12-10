@@ -5,7 +5,7 @@
  * Verifies the CRITICAL security fix: per-operation distance validation.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, mock } from "bun:test";
 import {
   INTERACTION_DISTANCE,
   SessionType,
@@ -29,7 +29,7 @@ interface MockSocket {
   id: string;
   player: MockPlayer;
   bankSessionEntityId?: string;
-  emit: ReturnType<typeof vi.fn>;
+  emit: ReturnType<typeof mock>;
 }
 
 interface MockBankEntity {
@@ -68,7 +68,7 @@ function createMockSocket(
     id: "socket-123",
     player,
     bankSessionEntityId: bankEntityId,
-    emit: vi.fn(),
+    emit: mock(() => {}),
   };
 }
 

@@ -14,7 +14,6 @@ import {
   updateHealthBarCanvas,
   drawHealthBar,
   HEALTH_BAR_COLORS,
-  type HealthBarStyle,
 } from "./HealthBarRenderer";
 
 export interface BarOptions {

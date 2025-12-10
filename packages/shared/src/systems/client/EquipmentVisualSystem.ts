@@ -142,7 +142,7 @@ export class EquipmentVisualSystem extends SystemBase {
     playerId: string,
     slot: string,
     equipment: PlayerEquipmentVisuals,
-    vrm: VRM,
+    _vrm: VRM,
   ): void {
     // Remove existing visual for this slot
     const slotKey = slot.toLowerCase() as keyof PlayerEquipmentVisuals;

@@ -17,35 +17,35 @@ export class TextureAtlasManager {
     // Get CDN URL from window or default to localhost CDN
     const cdnUrl =
       typeof window !== "undefined"
-        ? (window as any).__CDN_URL || "http://localhost:8088"
-        : "http://localhost:8088";
+        ? ((window as { __CDN_URL?: string }).__CDN_URL ?? "http://localhost:8080")
+        : "http://localhost:8080";
 
-    console.log("[TextureAtlasManager] Using CDN URL:", cdnUrl);
-
+    // Scale values: higher = smaller texture (more tiled), lower = larger texture
+    // With TEXTURE_SCALE=40 in shader, a scale of 4.0 gives ~10m per tile repeat
     this.materials = [
       {
         name: "grass",
         diffuse: `${cdnUrl}/terrain/textures/stylized_grass/stylized_grass_d.png`,
         normal: `${cdnUrl}/terrain/textures/stylized_grass/stylized_grass_n.png`,
-        scale: 0.1,
+        scale: 4.0, // ~10m per repeat - good detail for grass
       },
       {
         name: "dirt",
         diffuse: `${cdnUrl}/terrain/textures/dirt_ground/dirt_ground_d.png`,
         normal: `${cdnUrl}/terrain/textures/dirt_ground/dirt_ground_n.png`,
-        scale: 0.1,
+        scale: 4.0, // ~10m per repeat
       },
       {
         name: "rock",
         diffuse: `${cdnUrl}/terrain/textures/stylized_stone/stylized_stone_d.png`,
         normal: `${cdnUrl}/terrain/textures/stylized_stone/stylized_stone_n.png`,
-        scale: 6.0,
+        scale: 6.0, // ~6.7m per repeat - tighter detail for rock
       },
       {
         name: "snow",
         diffuse: `${cdnUrl}/terrain/textures/stylized_snow/stylized_snow_d.png`,
         normal: `${cdnUrl}/terrain/textures/stylized_snow/stylized_snow_n.png`,
-        scale: 6.0,
+        scale: 6.0, // ~6.7m per repeat
       },
     ];
 
@@ -56,19 +56,9 @@ export class TextureAtlasManager {
   }
 
   private async buildAtlas(textureUrls: string[]): Promise<THREE.Texture> {
-    console.log("[TextureAtlasManager] Loading textures:", textureUrls);
+    // Load all textures in parallel - fail fast if any texture fails
     const images = await Promise.all(
-      textureUrls.map(async (url) => {
-        try {
-          console.log("[TextureAtlasManager] Loading:", url);
-          const texture = await this.textureLoader.loadAsync(url);
-          console.log("[TextureAtlasManager] Loaded successfully:", url);
-          return texture;
-        } catch (error) {
-          console.error("[TextureAtlasManager] Failed to load:", url, error);
-          throw error;
-        }
-      }),
+      textureUrls.map((url) => this.textureLoader.loadAsync(url)),
     );
 
     if (images.length === 0 || !images[0]) {
@@ -110,5 +100,20 @@ export class TextureAtlasManager {
 
   public getMaterialScales(): number[] {
     return this.materials.map((m) => m.scale);
+  }
+
+  /**
+   * Dispose of all textures to free GPU memory
+   */
+  public dispose(): void {
+    if (this.atlas) {
+      this.atlas.dispose();
+      this.atlas = null;
+    }
+    if (this.normalAtlas) {
+      this.normalAtlas.dispose();
+      this.normalAtlas = null;
+    }
+    this.materials = [];
   }
 }

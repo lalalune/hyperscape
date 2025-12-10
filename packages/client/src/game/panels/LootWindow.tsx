@@ -47,10 +47,11 @@ export function LootWindow({
       }
 
       // Check if entity has lootItems in its data
-      const entityData = (gravestoneEntity as any).data;
-      if (entityData?.lootItems || (gravestoneEntity as any).lootItems) {
+      const entityData = (gravestoneEntity as { data?: { lootItems?: InventoryItem[]; lootItemCount?: number } }).data;
+      const gravestoneLootItems = (gravestoneEntity as { lootItems?: InventoryItem[] }).lootItems;
+      if (entityData?.lootItems || gravestoneLootItems) {
         const serverItems =
-          entityData?.lootItems || (gravestoneEntity as any).lootItems || [];
+          entityData?.lootItems || gravestoneLootItems || [];
 
         // Update local state with server data
         setItems([...serverItems]);
@@ -58,7 +59,7 @@ export function LootWindow({
 
       // If gravestone is empty, close the window
       if (
-        ((gravestoneEntity as any).lootItems?.length === 0 ||
+        (gravestoneLootItems?.length === 0 ||
           entityData?.lootItems?.length === 0 ||
           entityData?.lootItemCount === 0) &&
         items.length > 0

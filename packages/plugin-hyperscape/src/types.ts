@@ -185,9 +185,14 @@ export interface EquipItemCommand {
   equipSlot: keyof Equipment;
 }
 
+/** Chat type for message routing */
+export type ChatType = "global" | "local" | "whisper" | "party" | "system";
+
 export interface ChatMessageCommand {
   message: string;
   roomId?: string;
+  chatType?: ChatType; // Default: "global"
+  targetId?: string; // For whisper messages
 }
 
 export interface GatherResourceCommand {
@@ -199,6 +204,31 @@ export interface BankCommand {
   action: "deposit" | "withdraw";
   itemId?: string;
   amount?: number;
+}
+
+export interface DropItemCommand {
+  itemId: string;
+  quantity?: number;
+}
+
+export interface PickupItemCommand {
+  entityId: string;
+}
+
+export interface EmoteCommand {
+  emote: string;
+}
+
+export interface InteractNpcCommand {
+  npcId: string;
+}
+
+export interface LootCorpseCommand {
+  corpseId: string;
+}
+
+export interface ChangeAttackStyleCommand {
+  style: CombatStyle;
 }
 
 /**
@@ -320,9 +350,21 @@ export interface HyperscapeServiceInterface {
   executeAttack(command: AttackEntityCommand): Promise<void>;
   executeUseItem(command: UseItemCommand): Promise<void>;
   executeEquipItem(command: EquipItemCommand): Promise<void>;
+  executeUnequipItem(slot: string): Promise<void>;
   executeChatMessage(command: ChatMessageCommand): Promise<void>;
   executeGatherResource(command: GatherResourceCommand): Promise<void>;
   executeBankAction(command: BankCommand): Promise<void>;
+  executeDropItem(command: DropItemCommand): Promise<void>;
+  executePickupItem(command: PickupItemCommand): Promise<void>;
+  executeEmote(command: EmoteCommand): Promise<void>;
+  executeInteractNpc(command: InteractNpcCommand): Promise<void>;
+  executeLootCorpse(command: LootCorpseCommand): Promise<void>;
+  executeRespawn(): Promise<void>;
+  executeChangeAttackStyle(command: ChangeAttackStyleCommand): Promise<void>;
+  executeStoreBuy(itemId: string, quantity?: number): Promise<void>;
+  executeStoreSell(itemId: string, quantity?: number): Promise<void>;
+  executeDialogueResponse(responseIndex: number): Promise<void>;
+  executeCloseDialogue(): Promise<void>;
 
   // Event registration
   onGameEvent(eventType: EventType, handler: (data: unknown) => void): void;

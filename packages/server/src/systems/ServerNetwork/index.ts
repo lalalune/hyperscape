@@ -82,7 +82,7 @@ import { InitializationManager } from "./initialization";
 import { ConnectionHandler } from "./connection-handler";
 import { InteractionSessionManager } from "./InteractionSessionManager";
 import { handleChatAdded } from "./handlers/chat";
-import { handleAttackMob, handleChangeAttackStyle } from "./handlers/combat";
+import { handleChangeAttackStyle } from "./handlers/combat";
 import {
   handlePickupItem,
   handleDropItem,
@@ -520,6 +520,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         data,
         this.world,
         this.broadcastManager.sendToAll.bind(this.broadcastManager),
+        this.sockets,
       );
 
     this.handlers["onCommand"] = (socket, data) =>
@@ -597,7 +598,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       handleMoveItem(socket, data, this.world);
 
     // Death/respawn handlers
-    this.handlers["onRequestRespawn"] = (socket, data) => {
+    this.handlers["onRequestRespawn"] = (socket, _data) => {
       const playerEntity = socket.player;
       if (playerEntity) {
         console.log(

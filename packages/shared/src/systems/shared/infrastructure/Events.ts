@@ -1,4 +1,4 @@
-import { System } from "..";
+import { System } from "./System";
 import type { World } from "../../../types/index";
 import { EventBus, type EventSubscription } from "..";
 

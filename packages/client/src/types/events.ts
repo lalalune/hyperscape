@@ -2,7 +2,7 @@ import type {
   InventorySlotItem,
   InventoryUpdatedEvent,
 } from "@hyperscape/shared";
-import type { PlayerStats, PlayerEquipmentItems, Item } from "./index";
+import type { PlayerStats, Item } from "./index";
 
 // Re-export InventoryUpdatedEvent from shared
 export type { InventoryUpdatedEvent };

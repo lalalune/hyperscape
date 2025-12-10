@@ -12,7 +12,7 @@
  * NO MOCKS for queue logic - tests real ActionQueue behavior
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { ActionQueue, ActionType, ActionPriority } from "../action-queue";
 import type { ServerSocket } from "../../../shared/types";
 
@@ -25,22 +25,22 @@ function createMockSocket(playerId: string): ServerSocket {
       position: { x: 0, y: 0, z: 0 },
       data: {},
     },
-    send: vi.fn(),
-    sendPacket: vi.fn(),
+    send: mock(() => {}),
+    sendPacket: mock(() => {}),
   } as unknown as ServerSocket;
 }
 
 describe("ActionQueue", () => {
   let queue: ActionQueue;
-  let mockMoveHandler: ReturnType<typeof vi.fn>;
-  let mockCombatHandler: ReturnType<typeof vi.fn>;
-  let mockInteractionHandler: ReturnType<typeof vi.fn>;
+  let mockMoveHandler: ReturnType<typeof mock>;
+  let mockCombatHandler: ReturnType<typeof mock>;
+  let mockInteractionHandler: ReturnType<typeof mock>;
 
   beforeEach(() => {
     queue = new ActionQueue();
-    mockMoveHandler = vi.fn();
-    mockCombatHandler = vi.fn();
-    mockInteractionHandler = vi.fn();
+    mockMoveHandler = mock(() => {});
+    mockCombatHandler = mock(() => {});
+    mockInteractionHandler = mock(() => {});
 
     queue.setHandlers({
       movement: mockMoveHandler,

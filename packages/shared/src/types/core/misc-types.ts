@@ -6,10 +6,6 @@
 import THREE from "../../extras/three/three";
 import type { Position3D } from "./base-types";
 import type { World } from "../../core/World";
-import type { System, SystemDependencies } from "../../systems/shared";
-import type { Item, AttackType } from "../game/item-types";
-import type { Skills, InventoryItem } from "../entities/entity-types";
-import type { HeadstoneData } from "../entities";
 
 // Export core re-exports
 export type { World, Position3D };

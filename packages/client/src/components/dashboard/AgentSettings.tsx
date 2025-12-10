@@ -3,6 +3,16 @@ import { Save, RefreshCw, Trash2 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
 import { ELIZAOS_URL, ELIZAOS_API } from "@/lib/api-config";
 
+interface AgentSettingsData {
+  name?: string;
+  username?: string;
+  bio?: string;
+  lore?: string;
+  topics?: string[];
+  style?: { all?: string[]; chat?: string[]; post?: string[] };
+  adjectives?: string[];
+}
+
 interface AgentSettingsProps {
   agent: Agent;
   onDelete?: (agentId: string) => Promise<void>;
@@ -12,11 +22,12 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
   agent,
   onDelete,
 }) => {
-  const [settings, setSettings] = React.useState<any>(null);
+  const [settings, setSettings] = React.useState<AgentSettingsData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [statusMessage, setStatusMessage] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
 
   React.useEffect(() => {
     const fetchSettings = async () => {
@@ -59,17 +70,18 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
       });
       if (response.ok) {
         console.log("[AgentSettings] ✅ Settings updated successfully");
-        alert("Settings saved successfully!");
+        setStatusMessage({ type: "success", text: "Settings saved successfully!" });
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error("[AgentSettings] ❌ Failed to save settings:", errorData);
-        alert(
-          `Failed to save settings: ${errorData.error || response.statusText}`,
-        );
+        setStatusMessage({ 
+          type: "error", 
+          text: `Failed to save settings: ${errorData.error || response.statusText}` 
+        });
       }
     } catch (error) {
       console.error("[AgentSettings] ❌ Error saving settings:", error);
-      alert("Error saving settings.");
+      setStatusMessage({ type: "error", text: "Error saving settings." });
     } finally {
       setSaving(false);
     }
@@ -84,7 +96,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
       // Navigation will happen automatically when agent is removed from list
     } catch (error) {
       console.error("[AgentSettings] ❌ Error deleting agent:", error);
-      alert("Failed to delete agent. Please try again.");
+      setStatusMessage({ type: "error", text: "Failed to delete agent. Please try again." });
       setDeleting(false);
       setShowDeleteConfirm(false);
     }
@@ -106,6 +118,25 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
           Configure your AI agent's behaviour and capabilities.
         </p>
       </div>
+
+      {/* Status Message */}
+      {statusMessage && (
+        <div 
+          className={`mx-6 mt-4 p-3 rounded-lg flex items-center justify-between ${
+            statusMessage.type === "success" 
+              ? "bg-green-900/50 border border-green-500/30 text-green-300" 
+              : "bg-red-900/50 border border-red-500/30 text-red-300"
+          }`}
+        >
+          <span>{statusMessage.text}</span>
+          <button 
+            onClick={() => setStatusMessage(null)}
+            className="ml-4 text-current opacity-60 hover:opacity-100"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">

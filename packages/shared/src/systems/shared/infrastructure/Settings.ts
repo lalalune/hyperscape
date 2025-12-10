@@ -9,7 +9,7 @@ import type {
   SettingsChanges,
   SettingsData,
 } from "../../../types/core/settings";
-import { System } from "..";
+import { System } from "./System";
 import { hasRole } from "../../../utils";
 
 export class Settings extends System implements ISettings {

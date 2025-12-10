@@ -42,7 +42,7 @@ export function DialoguePanel({
   npcId,
   text,
   responses,
-  npcEntityId,
+  npcEntityId: _npcEntityId,
   onSelectResponse,
   onClose,
   world,

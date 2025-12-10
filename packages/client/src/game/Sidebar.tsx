@@ -24,6 +24,7 @@ import { LootWindow } from "./panels/LootWindow";
 import { BankPanel } from "./panels/BankPanel";
 import { StorePanel } from "./panels/StorePanel";
 import { DialoguePanel } from "./panels/DialoguePanel";
+import ModerationPanel from "../components/moderation/ModerationPanel";
 
 type InventorySlotViewItem = Pick<
   InventorySlotItem,
@@ -101,6 +102,13 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     npcEntityId?: string;
   } | null>(null);
 
+  // Moderation panel state
+  const [moderationData, setModerationData] = useState<{
+    visible: boolean;
+    isAdmin: boolean;
+    isModerator: boolean;
+  } | null>(null);
+
   // Update chat context whenever windows open/close
   useEffect(() => {
     setHasOpenWindows(openWindows.size > 0);
@@ -163,7 +171,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       if (update.component === "equipment") {
         // The backend sends PlayerEquipment (with slots containing items),
         // but the UI expects PlayerEquipmentItems (just the items).
-        const data = update.data as { equipment: any };
+        const data = update.data as { equipment: Record<string, { item?: unknown }> };
         const rawEq = data.equipment;
 
         const mappedEquipment: PlayerEquipmentItems = {
@@ -315,6 +323,20 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     world.on(EventType.SKILLS_UPDATED, onSkillsUpdate);
     world.on(EventType.CORPSE_CLICK, onCorpseClick);
 
+    // Listen for moderation panel open event
+    const onOpenModeration = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        isAdmin?: boolean;
+        isModerator?: boolean;
+      }>;
+      setModerationData({
+        visible: true,
+        isAdmin: customEvent.detail?.isAdmin || false,
+        isModerator: customEvent.detail?.isModerator || false,
+      });
+    };
+    window.addEventListener("ui:openModerationPanel", onOpenModeration);
+
     const requestInitial = () => {
       const lp = world.entities?.player?.id;
       if (lp) {
@@ -368,6 +390,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       world.off(EventType.INVENTORY_UPDATE_COINS, onCoins);
       world.off(EventType.SKILLS_UPDATED, onSkillsUpdate);
       world.off(EventType.CORPSE_CLICK, onCorpseClick);
+      window.removeEventListener("ui:openModerationPanel", onOpenModeration);
     };
   }, []);
 
@@ -709,6 +732,25 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
               }
             }}
           />
+        )}
+
+        {/* Moderation Panel */}
+        {moderationData?.visible && (
+          <GameWindow
+            title="Moderation Panel"
+            windowId="moderation"
+            onClose={() => setModerationData(null)}
+            zIndex={windowZIndices.get("moderation") || 2000}
+            onFocus={() => bringToFront("moderation")}
+            defaultX={isMobile ? 10 : 100}
+            defaultY={isMobile ? 10 : 50}
+          >
+            <ModerationPanel
+              isAdmin={moderationData.isAdmin}
+              isModerator={moderationData.isModerator}
+              onClose={() => setModerationData(null)}
+            />
+          </GameWindow>
         )}
       </div>
     </HintProvider>

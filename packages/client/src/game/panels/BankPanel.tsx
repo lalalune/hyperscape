@@ -474,7 +474,7 @@ export function BankPanel({
   world,
   inventory,
   coins,
-  bankId,
+  bankId: _bankId,
   onClose,
 }: BankPanelProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
@@ -501,7 +501,7 @@ export function BankPanel({
   const bankCoins = bankCoinsItem?.quantity ?? 0;
 
   // Calculate total rows needed for all bank slots
-  const totalBankRows = Math.ceil(maxSlots / BANK_SLOTS_PER_ROW);
+  const _totalBankRows = Math.ceil(maxSlots / BANK_SLOTS_PER_ROW);
 
   // Convert inventory array to slot-indexed array
   const inventorySlots: (InventorySlotViewItem | null)[] = Array(28).fill(null);

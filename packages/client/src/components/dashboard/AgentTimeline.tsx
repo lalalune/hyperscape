@@ -45,7 +45,7 @@ export const AgentTimeline: React.FC<AgentTimelineProps> = ({ agent }) => {
       // Transform logs to timeline events
       const timelineEvents: TimelineEvent[] = (
         Array.isArray(logs) ? logs : []
-      ).map((log: any) => ({
+      ).map((log: { id?: string; level?: string; type?: string; message?: string; body?: string; source?: string; timestamp?: string; createdAt?: string }) => ({
         id: log.id || `${Date.now()}-${Math.random()}`,
         type: log.level === "error" ? "error" : log.type || "system",
         title: log.message || log.body || "Activity",

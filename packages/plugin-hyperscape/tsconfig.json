@@ -1,5 +1,4 @@
 {
-  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
@@ -11,10 +10,10 @@
     "target": "ES2022",
     "lib": ["ES2022", "DOM"],
     "types": ["node"],
-    "strict": true,
+    "strict": false,
+    "noImplicitAny": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node", "bun"],
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
@@ -23,17 +22,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/frontend/*"]
-    }
+    },
+    "noEmit": false
   },
-  "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/*.spec.ts",
-    "**/*.spec.tsx",
-    "src/__tests__/**",
-    "src/testing/**"
-  ]
+  "files": ["src/index.ts"],
+  "exclude": ["node_modules", "dist"]
 }

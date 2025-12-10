@@ -34,7 +34,6 @@ import type {
   HealthBarHandle,
 } from "../systems/client/HealthBars";
 import { Node } from "./Node";
-import THREE from "../extras/three/three";
 
 interface HealthBarData {
   entityId?: string;

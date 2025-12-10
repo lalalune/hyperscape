@@ -820,33 +820,8 @@ export interface WorldInitConfig {
   };
 }
 
-// Resource node data interface for world systems
-export interface ResourceNodeData {
-  type: "tree" | "fishing_spot" | "ore_vein";
-  position: Position3D;
-  resourceType: string;
-  id: string;
-}
-
-// Type for THREE.Mesh with properly typed userData
-export interface ResourceMesh extends THREE.Mesh {
-  userData: {
-    entityId: string;
-    type: "mob" | "npc" | "resource" | "item" | "player" | "static";
-    name: string;
-    interactable: boolean;
-    mobData: {
-      id: string;
-      name: string;
-      type: string;
-      level: number;
-      health: number;
-      maxHealth: number;
-    } | null;
-    entityType: string;
-    resourceType: string;
-  };
-}
+// ResourceNodeData and ResourceMesh are defined in world/world-types.ts
+// They are re-exported from core/core.ts
 
 // System configuration interface
 export interface SystemConfig {
@@ -1788,42 +1763,7 @@ export interface InteractionSystem extends System {
 // ============== END SYSTEM-SPECIFIC INTERFACES ==============
 
 // ============== WORLD STRUCTURE INTERFACES ==============
-
-export interface BiomeData {
-  [key: string]: unknown;
-  id: string;
-  name: string;
-  description: string;
-  difficultyLevel: 0 | 1 | 2 | 3; // 0 = safe zones, 1-3 = mob levels
-  terrain:
-    | "forest"
-    | "wastes"
-    | "plains"
-    | "frozen"
-    | "corrupted"
-    | "lake"
-    | "mountain";
-  resources: string[]; // Available resource types
-  mobs: string[]; // Mob types that spawn here
-  fogIntensity: number; // 0-1 for visual atmosphere
-  ambientSound: string;
-  colorScheme: {
-    primary: string;
-    secondary: string;
-    fog: string;
-  };
-  color: number; // Hex color for terrain rendering
-  heightRange: [number, number]; // Min and max height multipliers
-  terrainMultiplier: number; // Terrain height multiplier
-  waterLevel: number; // Water level threshold
-  maxSlope: number; // Maximum walkable slope
-  mobTypes: string[]; // Mob types that spawn here
-  difficulty: number; // Difficulty level (0-3)
-  baseHeight: number; // Base terrain height
-  heightVariation: number; // Height variation factor
-  resourceDensity: number; // Resource spawn density
-  resourceTypes: string[]; // Types of resources that can spawn
-}
+// BiomeData is defined in world/world-types.ts and re-exported from core/core.ts
 
 // Type for spawn point data based on spawn type
 export interface PlayerSpawnPointData {

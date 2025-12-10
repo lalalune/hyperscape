@@ -14,7 +14,7 @@
  * - Async operations complete before state is sent to client
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 
 // ============================================================================
 // Types
@@ -520,7 +520,7 @@ describe("Equipment Persistence (Issue #273)", () => {
 
       // Check immediately - save may not have completed
       // Note: In real scenario, process might exit before save completes
-      const equipmentImmediately = database.getStoredEquipmentSync("player-1");
+      const _equipmentImmediately = database.getStoredEquipmentSync("player-1");
 
       // May or may not be saved depending on timing
       // This demonstrates the race condition risk

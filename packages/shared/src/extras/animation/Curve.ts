@@ -37,9 +37,6 @@ import { clamp } from "../../utils";
 /** Global keyframe ID counter */
 let ids = 0;
 
-/** Reused array for binary search results (avoids allocations) */
-const arr1: number[] = [];
-
 /**
  * Curve - Hermite Spline Curve for Animation
  *
@@ -106,25 +103,6 @@ export class Curve {
     if (idx !== -1) this.keyframes.splice(idx, 1);
   }
 
-  getClosest(t: number) {
-    t = Math.max(0, Math.min(1, t));
-    let lo = -1;
-    let hi = this.keyframes.length;
-    while (hi - lo > 1) {
-      const mid = Math.round((lo + hi) / 2);
-      if (this.keyframes[mid].time <= t) lo = mid;
-      else hi = mid;
-    }
-    if (this.keyframes[lo].time === t) hi = lo;
-    if (lo === hi) {
-      if (lo === 0) hi++;
-      else lo--;
-    }
-    arr1[0] = lo;
-    arr1[1] = hi;
-    return arr1;
-  }
-
   evaluate(time: number) {
     if (time <= this.keyframes[0].time) {
       return this.keyframes[0].value;
@@ -154,117 +132,6 @@ export class Curve {
       }
     }
     return 0;
-  }
-
-  // evaluate(time) {
-  //   if (time <= this.keyframes[0].time) {
-  //     return this.keyframes[0].value
-  //   }
-
-  //   if (time >= this.keyframes[this.keyframes.length - 1].time) {
-  //     return this.keyframes[this.keyframes.length - 1].value
-  //   }
-
-  //   for (let i = 0; i < this.keyframes.length - 1; i++) {
-  //     // prettier-ignore
-  //     if (time >= this.keyframes[i].time && time <= this.keyframes[i + 1].time) {
-  //       const t = (time - this.keyframes[i].time) / (this.keyframes[i + 1].time - this.keyframes[i].time) // prettier-ignore
-  //       const p0 = this.keyframes[i].value
-  //       const p1 = this.keyframes[i + 1].value
-  //       const m0 = this.keyframes[i].outMagnitude * (this.keyframes[i + 1].time - this.keyframes[i].time) // prettier-ignore
-  //       const m1 = this.keyframes[i + 1].inMagnitude * (this.keyframes[i + 1].time - this.keyframes[i].time) // prettier-ignore
-  //       const t2 = t * t
-  //       const t3 = t2 * t
-
-  //       const a = 2 * t3 - 3 * t2 + 1
-  //       const b = t3 - 2 * t2 + t
-  //       const c = -2 * t3 + 3 * t2
-  //       const d = t3 - t2
-
-  //       return a * p0 + b * m0 + c * p1 + d * m1
-  //     }
-  //   }
-  // }
-
-  //   evaluate(t) {
-  //     const keyframes = this.keyframes
-  //     const n = keyframes.length
-  //     const lo = this.getClosest(t)[0]
-  //     let i0 = lo
-  //     let i1 = i0 + 1
-
-  //     if (i0 > n - 1) throw new Error('Out of bounds')
-  //     if (i0 === n - 1) i1 = i0
-
-  //     let scale = keyframes[i1].time - keyframes[i0].time
-
-  //     t = (t - keyframes[i0].time) / scale
-
-  //     let t2 = t * t
-  //     let it = 1 - t
-  //     let it2 = it * it
-  //     let tt = 2 * t
-  //     let h00 = (1 + tt) * it2
-  //     let h10 = t * it2
-  //     let h01 = t2 * (3 - tt)
-  //     let h11 = t2 * (t - 1)
-
-  //     const x =
-  //       h00 * keyframes[i0].time +
-  //       h10 * keyframes[i0].outTangent * scale +
-  //       h01 * keyframes[i1].time +
-  //       h11 * keyframes[i1].inTangent * scale
-
-  //     const y =
-  //       h00 * keyframes[i0].value +
-  //       h10 * keyframes[i0].outTangent * scale +
-  //       h01 * keyframes[i1].value +
-  //       h11 * keyframes[i1].inTangent * scale
-
-  //     return y
-  //   }
-
-  ogEvaluate(t: number) {
-    return this.hermite(t, this.keyframes).y;
-  }
-
-  hermite(t: number, keyframes: Keyframe[]) {
-    const n = keyframes.length;
-
-    const [lo, _hi] = this.getClosest(t);
-
-    const i0 = lo;
-    let i1 = i0 + 1;
-
-    if (i0 > n - 1) throw new Error("Out of bounds");
-    if (i0 === n - 1) i1 = i0;
-
-    const scale = keyframes[i1].time - keyframes[i0].time;
-
-    t = (t - keyframes[i0].time) / scale;
-
-    const t2 = t * t;
-    const it = 1 - t;
-    const it2 = it * it;
-    const tt = 2 * t;
-    const h00 = (1 + tt) * it2;
-    const h10 = t * it2;
-    const h01 = t2 * (3 - tt);
-    const h11 = t2 * (t - 1);
-
-    const x =
-      h00 * keyframes[i0].time +
-      h10 * keyframes[i0].outTangent * scale +
-      h01 * keyframes[i1].time +
-      h11 * keyframes[i1].inTangent * scale;
-
-    const y =
-      h00 * keyframes[i0].value +
-      h10 * keyframes[i0].outTangent * scale +
-      h01 * keyframes[i1].value +
-      h11 * keyframes[i1].inTangent * scale;
-
-    return { x, y };
   }
 
   sort() {

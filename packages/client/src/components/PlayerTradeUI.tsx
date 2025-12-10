@@ -70,7 +70,6 @@ export function TradeRequestModal({
       fromPlayerId: string;
       fromPlayerName: string;
     }) => {
-      console.log("[TradeRequestModal] Received trade request:", data);
       setRequest(data);
     };
 
@@ -80,10 +79,6 @@ export function TradeRequestModal({
 
   const handleAccept = useCallback(() => {
     if (!request) return;
-    console.log(
-      "[TradeRequestModal] Accepting trade request:",
-      request.tradeId,
-    );
 
     if (!world?.network?.send) {
       console.error("[TradeRequestModal] Network not available");
@@ -105,10 +100,6 @@ export function TradeRequestModal({
 
   const handleDecline = useCallback(() => {
     if (!request) return;
-    console.log(
-      "[TradeRequestModal] Declining trade request:",
-      request.tradeId,
-    );
 
     if (!world?.network?.send) {
       console.error("[TradeRequestModal] Network not available");
@@ -484,7 +475,6 @@ export function TradeWindow({
         (i) => i.slot === item.slot,
       );
       if (alreadyInOffer) {
-        console.log("[TradeWindow] Item already in offer");
         world.emit(EventType.UI_TOAST, {
           message: `${item.item.name} is already in your offer`,
           type: "warning",
@@ -502,26 +492,6 @@ export function TradeWindow({
           name: item.item.name,
         },
       ];
-
-      console.log("═══════════════════════════════════════════════════════");
-      console.log("[TradeWindow] ➕ ADDING ITEM TO MY OFFER");
-      console.log("═══════════════════════════════════════════════════════");
-      console.log("Item:", item.item.name, "x", item.quantity);
-      console.log(
-        "My current offer before add:",
-        tradeState.yourOffer.items.length,
-        "items",
-      );
-      console.log("New offer will have:", newItems.length, "items");
-      console.log(
-        "I am:",
-        tradeState.isInitiator ? "🔵 INITIATOR" : "🔴 RECIPIENT",
-      );
-      console.log(
-        "Sending to server:",
-        newItems.map((i) => i.itemId).join(", "),
-      );
-      console.log("═══════════════════════════════════════════════════════");
 
       // Send update to server
       (world.network.send as (method: string, data: unknown) => void)(
@@ -634,7 +604,6 @@ export function TradeWindow({
       return;
     }
 
-    console.log("[TradeWindow] Confirming trade");
     (world.network.send as (method: string, data: unknown) => void)(
       "tradeConfirm",
       {
@@ -651,7 +620,6 @@ export function TradeWindow({
       return;
     }
 
-    console.log("[TradeWindow] Cancelling trade");
     (world.network.send as (method: string, data: unknown) => void)(
       "tradeCancel",
       {
@@ -674,7 +642,6 @@ export function TradeWindow({
       | undefined;
     if (itemData?.item) {
       setDraggedItem(itemData.item);
-      console.log("[TradeWindow] Started dragging:", itemData.item.itemId);
     }
   }, []);
 
@@ -683,10 +650,6 @@ export function TradeWindow({
       const { over } = event;
 
       if (over && over.id === "trade-offer-area" && draggedItem) {
-        console.log(
-          "[TradeWindow] Dropped item into trade offer:",
-          draggedItem.itemId,
-        );
         handleAddItem(draggedItem);
       }
 
@@ -715,43 +678,6 @@ export function TradeWindow({
       const otherPlayerName = isInitiator
         ? data.recipientName
         : data.initiatorName;
-
-      console.log("═══════════════════════════════════════════════════════");
-      console.log("[TradeWindow] 🎬 TRADE STARTED - WHO AM I?");
-      console.log("═══════════════════════════════════════════════════════");
-      console.log("Tried player IDs:");
-      console.log(
-        "  world.network.socket.player.id:",
-        world.network?.socket?.player?.id,
-      );
-      console.log("  world.entities.player.id:", world.entities?.player?.id);
-      console.log("  world.network.id:", world.network?.id);
-      console.log("Using myPlayerId:", myPlayerId);
-      console.log("");
-      console.log("Trade data:");
-      console.log(
-        "  Initiator ID:",
-        data.initiatorId,
-        "(",
-        data.initiatorName,
-        ")",
-      );
-      console.log(
-        "  Recipient ID:",
-        data.recipientId,
-        "(",
-        data.recipientName,
-        ")",
-      );
-      console.log("");
-      console.log(
-        ">>> I AM:",
-        isInitiator
-          ? "🔵 INITIATOR (I sent the request)"
-          : "🔴 RECIPIENT (I accepted)",
-      );
-      console.log(">>> OTHER:", otherPlayerName, "(", otherPlayerId, ")");
-      console.log("═══════════════════════════════════════════════════════");
 
       setTradeState({
         tradeId: data.tradeId,
@@ -814,49 +740,8 @@ export function TradeWindow({
       initiatorConfirmed: boolean;
       recipientConfirmed: boolean;
     }) => {
-      console.log("[TradeWindow] 🔄 Trade updated received:", {
-        tradeId: data.tradeId,
-        initiatorOffer: data.initiatorOffer,
-        recipientOffer: data.recipientOffer,
-      });
-
       setTradeState((prev) => {
         if (!prev || prev.tradeId !== data.tradeId) return prev;
-
-        console.log("─────────────────────────────────────────────────────");
-        console.log("[TradeWindow] 📊 MAPPING TRADE UPDATE");
-        console.log("─────────────────────────────────────────────────────");
-        console.log(
-          "I am:",
-          prev.isInitiator ? "🔵 INITIATOR" : "🔴 RECIPIENT",
-        );
-        console.log("");
-        console.log("Server sent:");
-        console.log(
-          "  initiatorOffer (Player 1):",
-          data.initiatorOffer.items.length,
-          "items,",
-          data.initiatorOffer.coins,
-          "gold",
-        );
-        console.log(
-          "  recipientOffer (Player 2):",
-          data.recipientOffer.items.length,
-          "items,",
-          data.recipientOffer.coins,
-          "gold",
-        );
-        console.log("");
-        console.log("Mapping logic:");
-        if (prev.isInitiator) {
-          console.log("  ✅ I am INITIATOR, so:");
-          console.log("     yourOffer = initiatorOffer (Player 1 = ME)");
-          console.log("     theirOffer = recipientOffer (Player 2 = THEM)");
-        } else {
-          console.log("  ✅ I am RECIPIENT, so:");
-          console.log("     yourOffer = recipientOffer (Player 2 = ME)");
-          console.log("     theirOffer = initiatorOffer (Player 1 = THEM)");
-        }
 
         // Enrich offers with item names
         const enrichedYourOffer = enrichOfferWithNames(
@@ -868,20 +753,6 @@ export function TradeWindow({
         const newTheirConfirmed = prev.isInitiator
           ? data.recipientConfirmed
           : data.initiatorConfirmed;
-
-        console.log("");
-        console.log("Result:");
-        console.log(
-          "  👤 MY offer (will show in GREEN on left):",
-          enrichedYourOffer.items.length,
-          "items",
-        );
-        console.log(
-          "  👥 THEIR offer (will show in BLUE on right):",
-          enrichedTheirOffer.items.length,
-          "items",
-        );
-        console.log("─────────────────────────────────────────────────────");
 
         // Check if other player updated their offer
         const theirItemsChanged =
@@ -938,8 +809,6 @@ export function TradeWindow({
   // Listen for trade completed/cancelled
   useEffect(() => {
     const handleTradeCompleted = () => {
-      console.log("[TradeWindow] Trade completed, closing window");
-
       // Request fresh inventory from server
       const myPlayerId = world.entities?.player?.id;
       if (myPlayerId) {
@@ -950,7 +819,6 @@ export function TradeWindow({
     };
 
     const handleTradeCancelled = () => {
-      console.log("[TradeWindow] Trade cancelled, closing window");
       setTradeState(null);
     };
 
@@ -980,11 +848,6 @@ export function TradeWindow({
       const myPlayerId =
         world.network?.socket?.player?.id || world.entities?.player?.id;
       if (data.playerId === myPlayerId) {
-        console.log("[TradeWindow] Inventory updated:", {
-          items: data.items.length,
-          coins: data.coins,
-        });
-
         // Convert to full inventory slots with names
         const fullItems = data.items.map((item) => ({
           slot: item.slot,

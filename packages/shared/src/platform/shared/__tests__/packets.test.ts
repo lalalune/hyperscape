@@ -11,7 +11,7 @@
  * NO MOCKS - Tests actual msgpackr serialization
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { writePacket, readPacket } from "../packets";
 
 describe("Packet Serialization", () => {

@@ -10,6 +10,51 @@ This plugin enables ElizaOS AI agents to play Hyperscape as real players with fu
 - **Full action repertoire**: movement, combat, gathering, inventory management, social interactions
 - **Event-driven memory storage** for learning from gameplay experiences
 - **Automatic reconnection** and robust error handling
+- **A2A Protocol** - Agent-to-Agent communication for external agents
+- **MCP Integration** - Model Context Protocol support for Claude and other LLMs
+
+## Protocol Support
+
+### A2A (Agent-to-Agent)
+Any AI agent can discover and play Hyperscape via A2A protocol:
+
+```typescript
+import { createA2AClient } from "@hyperscape/plugin-hyperscape";
+
+const client = createA2AClient({ 
+  serverUrl: "http://localhost:5555",
+  agentId: "my-agent"
+});
+
+// Discover skills
+const agentCard = await client.discover();
+console.log(`${agentCard.skills.length} skills available`);
+
+// Play the game
+await client.moveTo(10, 0, 20);
+await client.attack("goblin-123");
+const context = await client.getWorldContext();
+```
+
+### MCP (Model Context Protocol)
+Use with Claude or any MCP-compatible LLM:
+
+```typescript
+import { HyperscapeMCPServer } from "@hyperscape/plugin-hyperscape";
+
+const mcpServer = new HyperscapeMCPServer(hyperscapeService);
+
+// Get available tools
+const tools = mcpServer.listTools();  // 20+ game actions
+
+// Execute actions
+const result = await mcpServer.callTool("hyperscape_attack", {
+  targetName: "goblin"
+});
+
+// Read game state as resources
+const scene = await mcpServer.readResource("hyperscape://world/scene");
+```
 
 ## Architecture
 
@@ -26,11 +71,13 @@ This plugin enables ElizaOS AI agents to play Hyperscape as real players with fu
 
 ### Actions (Executable Game Commands)
 - **Movement**: MOVE_TO, FOLLOW_ENTITY, STOP_MOVEMENT
-- **Combat**: ATTACK_ENTITY, CHANGE_COMBAT_STYLE
+- **Combat**: ATTACK_ENTITY, CHANGE_COMBAT_STYLE, FLEE
 - **Skills**: CHOP_TREE, CATCH_FISH, LIGHT_FIRE, COOK_FOOD
-- **Inventory**: EQUIP_ITEM, USE_ITEM, DROP_ITEM
-- **Social**: CHAT_MESSAGE
+- **Inventory**: EQUIP_ITEM, USE_ITEM, DROP_ITEM, PICKUP_ITEM
+- **Social**: CHAT_MESSAGE, EMOTE
 - **Banking**: BANK_DEPOSIT, BANK_WITHDRAW
+- **Interactions**: INTERACT_NPC, LOOT_CORPSE, RESPAWN
+- **Goals**: SET_GOAL, NAVIGATE_TO, EXPLORE, IDLE
 
 ### Event Handlers
 Automatically store significant game events as memories:
@@ -143,9 +190,10 @@ src/
 ├── services/
 │   └── HyperscapeService.ts
 ├── providers/
-│   ├── gameState.ts
-│   ├── inventory.ts
-│   ├── nearbyEntities.ts
+│   ├── gameState.ts      # Health, stamina, position
+│   ├── inventory.ts      # Items, coins, slots
+│   ├── nearbyEntities.ts # Mobs, players, resources
+│   ├── worldContext.ts   # Semantic scene description (for A2A/MCP)
 │   ├── availableActions.ts
 │   ├── skills.ts
 │   └── equipment.ts
@@ -155,7 +203,20 @@ src/
 │   ├── skills.ts         # CHOP, FISH, COOK, LIGHT_FIRE
 │   ├── inventory.ts      # EQUIP, USE_ITEM, DROP
 │   ├── social.ts         # CHAT
-│   └── banking.ts        # DEPOSIT, WITHDRAW
+│   ├── banking.ts        # DEPOSIT, WITHDRAW
+│   ├── interactions.ts   # NPC, LOOT, RESPAWN, EMOTE
+│   ├── autonomous.ts     # EXPLORE, FLEE, IDLE
+│   └── goals.ts          # SET_GOAL, NAVIGATE_TO
+├── mcp/
+│   ├── index.ts          # MCP exports
+│   └── server.ts         # MCP server implementation
+├── a2a/
+│   ├── index.ts          # A2A exports  
+│   └── client.ts         # A2A client adapter
+├── managers/
+│   └── autonomous-behavior-manager.ts  # LLM decision loop
+├── evaluators/
+│   └── goalEvaluator.ts  # Goal progress assessment
 └── events/
     └── handlers.ts       # Event → Memory mappings
 ```
@@ -180,6 +241,68 @@ The previous `@elizaos/plugin-hyperscape` was broken. This new implementation:
 ✅ Provides complete game context via providers
 ✅ Handles reconnection and errors gracefully
 ✅ Fully typed with TypeScript
+
+---
+
+## A2A and MCP Integration
+
+### Agent-to-Agent (A2A) Protocol
+
+Any AI agent can discover and play Hyperscape via A2A JSON-RPC:
+
+```bash
+# Discover available skills
+curl http://localhost:3000/agent.json
+
+# Example: Move to position
+curl -X POST http://localhost:3000/a2a/execute \
+  -H "Content-Type: application/json" \
+  -d '{"skill": "move-to", "params": {"x": 100, "z": 200}}'
+```
+
+**Available A2A Skills:**
+- `move-to` - Navigate to coordinates `{x, z}`
+- `attack` - Attack entity `{entityId, style?}`
+- `chop-tree` - Harvest nearby tree
+- `npc-interact` - Talk to NPC `{entityId}`
+- `loot-corpse` - Loot nearby corpse `{entityId}`
+- `request-respawn` - Respawn after death
+- `perform-emote` - Express emote `{emoteType}`
+- `set-goal` - Set autonomous goal `{goal}`
+- `get-world-context` - Get semantic world description
+
+### Multi-Agent Communication Protocol (MCP)
+
+The MCP server exposes Hyperscape capabilities to MCP-compatible agents:
+
+```typescript
+import { McpServer } from "@hyperscape/plugin-hyperscape/mcp";
+
+const mcp = new McpServer({ service: hyperscapeService });
+await mcp.start(3001);
+```
+
+**MCP Tools:**
+- `hyperscape.move` - Move agent to location
+- `hyperscape.attack` - Initiate combat
+- `hyperscape.interact` - Interact with world object
+- `hyperscape.getContext` - Get world state
+
+### External Agent Integration Example
+
+```typescript
+import { A2AClient } from "@hyperscape/plugin-hyperscape/a2a";
+
+const client = new A2AClient("http://localhost:3000");
+
+// Full gameplay loop
+const context = await client.getWorldContext();
+if (context.threats.length > 0) {
+  await client.execute("attack", { entityId: context.threats[0].id });
+} else if (context.resources.length > 0) {
+  await client.execute("chop-tree");
+}
+```
 
 ## License
 

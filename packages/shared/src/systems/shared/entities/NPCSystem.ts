@@ -16,7 +16,7 @@ import {
   Town,
 } from "../../../types/core/core";
 import { NPCSystemInfo as SystemInfo } from "../../../types/systems/system-interfaces";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { InventorySystem } from "..";
 import { EventType } from "../../../types/events";
 import { TerrainSystem } from "..";

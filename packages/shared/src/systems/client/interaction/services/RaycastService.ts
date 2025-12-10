@@ -21,6 +21,9 @@ import { INPUT } from "../constants";
 // Pre-allocated objects to avoid per-call allocations
 const _raycaster = new THREE.Raycaster();
 const _mouse = new THREE.Vector2();
+const _worldPos = new THREE.Vector3();
+const _groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const _planeTarget = new THREE.Vector3();
 
 export class RaycastService {
   constructor(private world: World) {}
@@ -76,9 +79,8 @@ export class RaycastService {
         if (entityId) {
           const entity = this.world.entities.get(entityId);
           if (entity) {
-            // Get entity world position
-            const worldPos = new THREE.Vector3();
-            obj.getWorldPosition(worldPos);
+            // Get entity world position (reuse cached vector)
+            obj.getWorldPosition(_worldPos);
 
             // Determine entity type
             const rawType = entity.type || userData.type || "unknown";
@@ -90,9 +92,9 @@ export class RaycastService {
               entity,
               name: entity.name || userData.name || "Entity",
               position: {
-                x: worldPos.x,
-                y: worldPos.y,
-                z: worldPos.z,
+                x: _worldPos.x,
+                y: _worldPos.y,
+                z: _worldPos.z,
               },
               hitPoint: {
                 x: intersect.point.x,
@@ -184,11 +186,9 @@ export class RaycastService {
       return intersect.point.clone();
     }
 
-    // Fallback: intersect with Y=0 plane
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    const target = new THREE.Vector3();
-    if (_raycaster.ray.intersectPlane(plane, target)) {
-      return target;
+    // Fallback: intersect with Y=0 plane (reuse cached plane and target)
+    if (_raycaster.ray.intersectPlane(_groundPlane, _planeTarget)) {
+      return _planeTarget.clone();
     }
 
     return null;

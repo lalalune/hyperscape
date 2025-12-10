@@ -1,4 +1,4 @@
-import { System } from "..";
+import { System } from "../infrastructure/System";
 import type { World } from "../../../types";
 import type { LODNode } from "../../../types/rendering/nodes";
 

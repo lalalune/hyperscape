@@ -306,3 +306,81 @@ export function hashEntityId(entityId: string): number {
   }
   return hash >>> 0;
 }
+
+// =====================================================================
+// BATCH UPDATE PARSING (Client-side parsing of server batch updates)
+// =====================================================================
+
+export enum UpdateFlags {
+  NONE = 0,
+  POSITION = 1 << 0,
+  ROTATION = 1 << 1,
+  HEALTH = 1 << 2,
+  STATE = 1 << 3,
+  VELOCITY = 1 << 4,
+}
+
+export interface ParsedUpdate {
+  entityIdHash: number;
+  flags: UpdateFlags;
+  position?: { x: number; y: number; z: number };
+  quaternion?: { x: number; y: number; z: number; w: number };
+  health?: { current: number; max: number };
+  state?: number;
+}
+
+const BATCH_HEADER_SIZE = 2;
+const ENTITY_HEADER_SIZE = 5;
+
+/**
+ * Parse a batch update from the server
+ * Format: [count:u16] [updates...]
+ * Each update: [entityIdHash:u32] [flags:u8] [position?:8B] [quaternion?:4B] [health?:4B] [state?:1B]
+ */
+export function parseBatchUpdate(buffer: Uint8Array): ParsedUpdate[] {
+  const view = new DataView(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength,
+  );
+  const count = view.getUint16(0, true);
+  const results: ParsedUpdate[] = [];
+
+  let offset = BATCH_HEADER_SIZE;
+
+  for (let i = 0; i < count; i++) {
+    if (offset + ENTITY_HEADER_SIZE > buffer.length) break;
+
+    const entityIdHash = view.getUint32(offset, true);
+    offset += 4;
+
+    const flags = buffer[offset++] as UpdateFlags;
+    const update: ParsedUpdate = { entityIdHash, flags };
+
+    if (flags & UpdateFlags.POSITION) {
+      update.position = unpackPositionFrom(buffer, offset);
+      offset += COMPRESSED_POSITION_SIZE;
+    }
+
+    if (flags & UpdateFlags.ROTATION) {
+      update.quaternion = unpackQuaternionFrom(buffer, offset);
+      offset += COMPRESSED_QUATERNION_SIZE;
+    }
+
+    if (flags & UpdateFlags.HEALTH) {
+      update.health = {
+        current: view.getUint16(offset, true),
+        max: view.getUint16(offset + 2, true),
+      };
+      offset += 4;
+    }
+
+    if (flags & UpdateFlags.STATE) {
+      update.state = buffer[offset++];
+    }
+
+    results.push(update);
+  }
+
+  return results;
+}

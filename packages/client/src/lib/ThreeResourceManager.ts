@@ -304,30 +304,32 @@ export class ThreeResourceManager {
   }
 
   /**
-   * Gets current Three.js memory usage statistics
+   * Gets current Three.js memory usage statistics from an existing renderer.
    *
    * Returns counts of active geometries, textures, and shader programs.
    * Useful for debugging memory leaks and monitoring resource usage.
    *
+   * @param renderer - Optional WebGLRenderer to get stats from
    * @returns Object containing memory statistics
    *
    * @example
    * ```typescript
-   * const stats = ThreeResourceManager.getMemoryInfo();
+   * const stats = ThreeResourceManager.getMemoryInfo(world.graphics.renderer);
    * console.log(`Geometries: ${stats.geometries}, Textures: ${stats.textures}`);
    * ```
    *
    * @public
    */
-  static getMemoryInfo(): {
+  static getMemoryInfo(renderer?: THREE.WebGLRenderer): {
     geometries: number;
     textures: number;
     programs: number;
   } {
-    const renderer = new THREE.WebGLRenderer();
-    const info = renderer.info;
-    renderer.dispose();
+    if (!renderer) {
+      return { geometries: 0, textures: 0, programs: 0 };
+    }
 
+    const info = renderer.info;
     return {
       geometries: info.memory.geometries,
       textures: info.memory.textures,

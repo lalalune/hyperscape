@@ -85,7 +85,7 @@
 
 import THREE from "../../extras/three/three";
 
-import { System } from "../shared";
+import { System } from "../shared/infrastructure/System";
 import type { World, AudioGroupGains } from "../../types";
 
 const up = new THREE.Vector3(0, 1, 0);

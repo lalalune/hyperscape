@@ -83,6 +83,7 @@ async function buildLibrary() {
       './PhysXManager.server.js',
       './storage.server',
       './storage.server.js',
+      '@hyperscape/physx-js-webidl',
     ],
     plugins: [typescriptPlugin],
   })
@@ -209,8 +210,41 @@ async function main() {
   console.log('Build completed successfully!')
 }
 
+/**
+ * Setup PhysX module for runtime resolution
+ * This creates a node_modules symlink in the build folder so dynamic imports work
+ */
+async function setupPhysXModule() {
+  console.log('Setting up PhysX module for runtime resolution...')
+  
+  const physxSrc = path.join(rootDir, '../physx-js-webidl')
+  const nodeModulesDir = path.join(buildDir, 'node_modules/@hyperscape')
+  const physxDest = path.join(nodeModulesDir, 'physx-js-webidl')
+  
+  // Create node_modules/@hyperscape directory
+  await fs.ensureDir(nodeModulesDir)
+  
+  // Remove existing symlink/directory if it exists
+  try {
+    const stats = await fs.lstat(physxDest).catch(() => null)
+    if (stats) {
+      await fs.remove(physxDest)
+    }
+  } catch (e) {
+    // Ignore if doesn't exist
+  }
+  
+  // Copy the physx package instead of symlinking (more reliable for bundled code)
+  await fs.copy(physxSrc, physxDest, { 
+    filter: (src) => !src.includes('node_modules') && !src.includes('.git')
+  })
+  console.log('✓ PhysX module copied to build/node_modules/')
+}
+
 // Run the build
-main().catch(error => {
+main().then(async () => {
+  await setupPhysXModule()
+}).catch(error => {
   console.error('Build failed:', error)
   process.exit(1)
 })

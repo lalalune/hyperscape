@@ -85,9 +85,7 @@
 
 import EventEmitter from "eventemitter3";
 
-import type { WorldOptions } from "../../../types/index";
-
-import { World } from "../../../core/World";
+import type { WorldOptions, World } from "../../../types/index";
 
 /**
  * System constructor signature

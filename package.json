@@ -25,6 +25,7 @@
   "scripts": {
     "postinstall": "node scripts/ensure-assets.mjs",
     "assets:sync": "cd packages/server/world/assets && git pull origin main",
+    "assets:precompute": "bun scripts/precompute-assets.ts",
     "build": "bun run docs:generate && turbo run build --filter='!3d-asset-forge'",
     "build:shared": "cd packages/shared && bun run build",
     "build:client": "cd packages/client && bun run build",
@@ -120,6 +121,7 @@
   },
   "dependencies": {
     "@hyperscape/plugin-hyperscape": "workspace:*",
+    "@jejunetwork/contracts": "workspace:*",
     "@rollup/rollup-darwin-x64": "^4.52.4",
     "@types/pg": "^8.15.5",
     "better-sqlite3": "^12.2.0",

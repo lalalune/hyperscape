@@ -118,7 +118,7 @@ import type {
   TriggerEvent,
 } from "../../../types/systems/physics";
 import type { SystemDependencies } from "..";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 
 const _v3_1 = new THREE.Vector3();
 const _v3_2 = new THREE.Vector3();

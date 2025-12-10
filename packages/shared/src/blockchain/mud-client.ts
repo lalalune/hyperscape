@@ -9,6 +9,13 @@
  * - Writes: Game actions → Blockchain transactions
  * - Reads: MUD Indexer GraphQL → Game UI
  * - Hybrid: Critical state on-chain, performance state off-chain
+ *
+ * Integration with Jeju Contracts:
+ * - ERC-8004: Player identity via IdentityRegistry
+ * - BanManager: Access control checks
+ * - Gold.sol: Token economy
+ * - Items.sol: NFT items
+ * - GameIntegration.sol: Central hub
  */
 
 import {
@@ -19,15 +26,24 @@ import {
   type Address,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { getChain, getOptionalAddress, isBlockchainConfigured, type JejuNetwork } from "./chain";
 
 /**
  * Create chain configuration dynamically based on detected chain info
+ * Now uses the unified chain module for consistency
  */
 function createChainConfig(
   chainId: number,
   chainName: string,
   rpcUrl: string,
 ): Chain {
+  // Try to use the standard chain config first
+  const network = detectNetworkFromChainId(chainId);
+  if (network) {
+    return getChain(network);
+  }
+  
+  // Fallback for unknown chains
   return {
     id: chainId,
     name: chainName,
@@ -38,6 +54,19 @@ function createChainConfig(
     },
     testnet: true,
   };
+}
+
+/**
+ * Detect network from chain ID
+ */
+function detectNetworkFromChainId(chainId: number): JejuNetwork | null {
+  const mapping: Record<number, JejuNetwork> = {
+    420691: "jeju",
+    420690: "jeju-testnet",
+    420692: "jeju-mainnet",
+    31337: "anvil",
+  };
+  return mapping[chainId] || null;
 }
 
 /**
@@ -191,6 +220,24 @@ export async function setupMudClient(config?: {
         { name: "found", type: "bool" },
         { name: "quantity", type: "uint32" },
       ],
+    },
+    {
+      name: "hyperscape__moveItem",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [
+        { name: "player", type: "address" },
+        { name: "fromSlot", type: "uint8" },
+        { name: "toSlot", type: "uint8" },
+      ],
+      outputs: [],
+    },
+    {
+      name: "hyperscape__getFreeSlots",
+      type: "function",
+      stateMutability: "view",
+      inputs: [{ name: "player", type: "address" }],
+      outputs: [{ name: "freeSlots", type: "uint8" }],
     },
     // EquipmentSystem
     {
@@ -515,70 +562,162 @@ export async function setupMudClient(config?: {
 }
 
 /**
- * Batch multiple inventory operations into single transaction
- * Reduces gas costs and improves UX
+ * Inventory operation for batching
+ */
+export type InventoryOperation = {
+  type: "add" | "remove" | "move";
+  playerAddress: Address;
+  itemId?: number;
+  slot?: number;
+  fromSlot?: number;
+  toSlot?: number;
+  quantity?: number;
+};
+
+/**
+ * Batch multiple inventory operations into single multicall transaction
+ * Reduces gas costs and improves UX by combining multiple operations atomically
  *
+ * @param mudClient - MUD client instance
  * @param operations - Array of inventory operations
- * @returns Single transaction receipt
+ * @returns Single transaction receipt for all operations
  */
 export async function batchInventoryOperations(
   mudClient: MudClient,
-  operations: Array<{
-    type: "add" | "remove" | "move";
-    playerAddress: Address;
-    itemId?: number;
-    slot?: number;
-    fromSlot?: number;
-    toSlot?: number;
-    quantity?: number;
-  }>,
+  operations: InventoryOperation[],
 ): Promise<TxReceipt> {
-  // TODO: Implement batched multicall
-  // For now, execute sequentially
-  const receipts: TxReceipt[] = [];
-
-  for (const op of operations) {
-    let receipt: TxReceipt;
-
-    if (
-      op.type === "add" &&
-      op.itemId !== undefined &&
-      op.quantity !== undefined
-    ) {
-      receipt = await mudClient.InventorySystem.addItem(
-        op.playerAddress,
-        op.itemId,
-        op.quantity,
-      );
-    } else if (
-      op.type === "remove" &&
-      op.slot !== undefined &&
-      op.quantity !== undefined
-    ) {
-      receipt = await mudClient.InventorySystem.removeItem(
-        op.playerAddress,
-        op.slot,
-        op.quantity,
-      );
-    } else if (
-      op.type === "move" &&
-      op.fromSlot !== undefined &&
-      op.toSlot !== undefined
-    ) {
-      receipt = await mudClient.InventorySystem.moveItem(
-        op.playerAddress,
-        op.fromSlot,
-        op.toSlot,
-      );
-    } else {
-      throw new Error("Invalid operation parameters");
-    }
-
-    receipts.push(receipt);
+  if (operations.length === 0) {
+    throw new Error("No operations to batch");
   }
 
-  // Return last receipt (TODO: return combined receipt)
-  return receipts[receipts.length - 1];
+  // Single operation - no need for multicall
+  if (operations.length === 1) {
+    return executeSingleOperation(mudClient, operations[0]);
+  }
+
+  // Build multicall data for each operation
+  const { encodeFunctionData } = await import("viem");
+
+  const IWorldAbi = [
+    {
+      name: "hyperscape__addItem",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [
+        { name: "player", type: "address" },
+        { name: "itemId", type: "uint16" },
+        { name: "quantity", type: "uint32" },
+      ],
+      outputs: [],
+    },
+    {
+      name: "hyperscape__removeItem",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [
+        { name: "player", type: "address" },
+        { name: "slot", type: "uint8" },
+        { name: "quantity", type: "uint32" },
+      ],
+      outputs: [],
+    },
+    {
+      name: "hyperscape__moveItem",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [
+        { name: "player", type: "address" },
+        { name: "fromSlot", type: "uint8" },
+        { name: "toSlot", type: "uint8" },
+      ],
+      outputs: [],
+    },
+  ] as const;
+
+  const calls: `0x${string}`[] = [];
+
+  for (const op of operations) {
+    if (op.type === "add" && op.itemId !== undefined && op.quantity !== undefined) {
+      calls.push(
+        encodeFunctionData({
+          abi: IWorldAbi,
+          functionName: "hyperscape__addItem",
+          args: [op.playerAddress, op.itemId, op.quantity],
+        }),
+      );
+    } else if (op.type === "remove" && op.slot !== undefined && op.quantity !== undefined) {
+      calls.push(
+        encodeFunctionData({
+          abi: IWorldAbi,
+          functionName: "hyperscape__removeItem",
+          args: [op.playerAddress, op.slot, op.quantity],
+        }),
+      );
+    } else if (op.type === "move" && op.fromSlot !== undefined && op.toSlot !== undefined) {
+      calls.push(
+        encodeFunctionData({
+          abi: IWorldAbi,
+          functionName: "hyperscape__moveItem",
+          args: [op.playerAddress, op.fromSlot, op.toSlot],
+        }),
+      );
+    } else {
+      throw new Error(`Invalid operation parameters for type: ${op.type}`);
+    }
+  }
+
+  // Execute via multicall on World contract
+  const multicallAbi = [
+    {
+      name: "batchCall",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [{ name: "data", type: "bytes[]" }],
+      outputs: [{ name: "results", type: "bytes[]" }],
+    },
+  ] as const;
+
+  const hash = await mudClient.walletClient.writeContract({
+    address: mudClient.worldAddress,
+    abi: multicallAbi,
+    functionName: "batchCall",
+    args: [calls],
+    chain: mudClient.chain,
+    account: mudClient.account,
+  });
+
+  const receipt = await mudClient.publicClient.waitForTransactionReceipt({ hash });
+
+  return {
+    transactionHash: receipt.transactionHash,
+    blockNumber: receipt.blockNumber,
+    status: receipt.status,
+    gasUsed: receipt.gasUsed,
+    logs: receipt.logs.map((log: { address: Address; topics?: readonly string[]; data: string }) => ({
+      address: log.address,
+      topics: log.topics || [],
+      data: log.data,
+    })),
+  };
+}
+
+/**
+ * Execute a single inventory operation
+ */
+async function executeSingleOperation(
+  mudClient: MudClient,
+  op: InventoryOperation,
+): Promise<TxReceipt> {
+  if (op.type === "add" && op.itemId !== undefined && op.quantity !== undefined) {
+    return mudClient.InventorySystem.addItem(op.playerAddress, op.itemId, op.quantity);
+  }
+  if (op.type === "remove" && op.slot !== undefined && op.quantity !== undefined) {
+    return mudClient.InventorySystem.removeItem(op.playerAddress, op.slot, op.quantity);
+  }
+  if (op.type === "move" && op.fromSlot !== undefined && op.toSlot !== undefined) {
+    return mudClient.InventorySystem.moveItem(op.playerAddress, op.fromSlot, op.toSlot);
+  }
+  throw new Error(`Invalid operation parameters for type: ${op.type}`);
 }
 
 /**
@@ -608,4 +747,87 @@ export async function getMudClientOrThrow(
   }
 
   return setupMudClient();
+}
+
+// ============ Game System Integration ============
+
+/**
+ * Event types for game system integration
+ */
+export type MudEventType = 
+  | "player_registered"
+  | "item_added"
+  | "item_removed"
+  | "item_equipped"
+  | "item_unequipped"
+  | "mob_killed"
+  | "resource_gathered"
+  | "gold_claimed"
+  | "item_minted";
+
+export interface MudGameEvent {
+  type: MudEventType;
+  playerAddress: Address;
+  txHash: string;
+  blockNumber: bigint;
+  data: Record<string, unknown>;
+}
+
+type MudEventHandler = (event: MudGameEvent) => void | Promise<void>;
+
+const eventHandlers = new Map<MudEventType, Set<MudEventHandler>>();
+
+/**
+ * Subscribe to MUD game events
+ * Allows game systems to react to on-chain state changes
+ */
+export function onMudEvent(eventType: MudEventType, handler: MudEventHandler): () => void {
+  if (!eventHandlers.has(eventType)) {
+    eventHandlers.set(eventType, new Set());
+  }
+  eventHandlers.get(eventType)!.add(handler);
+  
+  // Return unsubscribe function
+  return () => {
+    eventHandlers.get(eventType)?.delete(handler);
+  };
+}
+
+/**
+ * Emit a MUD game event (internal use)
+ */
+export async function emitMudEvent(event: MudGameEvent): Promise<void> {
+  const handlers = eventHandlers.get(event.type);
+  if (!handlers) return;
+  
+  for (const handler of handlers) {
+    await handler(event);
+  }
+}
+
+/**
+ * Check if full blockchain integration is available
+ * (MUD + ERC-8004 + BanManager + Economy contracts)
+ */
+export function isFullIntegrationAvailable(): boolean {
+  return isMudClientAvailable() && isBlockchainConfigured();
+}
+
+/**
+ * Get integration status for diagnostics
+ */
+export function getIntegrationStatus(): {
+  mud: boolean;
+  erc8004: boolean;
+  banManager: boolean;
+  economy: boolean;
+  full: boolean;
+} {
+  return {
+    mud: isMudClientAvailable(),
+    erc8004: !!getOptionalAddress("IDENTITY_REGISTRY_ADDRESS"),
+    banManager: !!getOptionalAddress("BAN_MANAGER_ADDRESS"),
+    economy: !!getOptionalAddress("GOLD_ADDRESS") && !!getOptionalAddress("ITEMS_ADDRESS"),
+    full: isFullIntegrationAvailable(),
+  };
 }

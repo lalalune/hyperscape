@@ -1,6 +1,6 @@
 import type { World } from "../../../core/World";
 import THREE from "../../../extras/three/three";
-import { System } from "..";
+import { System } from "../infrastructure/System";
 
 /**
  * Anchor System

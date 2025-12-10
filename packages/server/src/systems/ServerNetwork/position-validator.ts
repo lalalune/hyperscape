@@ -5,11 +5,12 @@
  * client-side prediction errors. Uses terrain system to ensure players stay
  * grounded and within valid world bounds.
  *
- * Responsibilities:
+ * Security measures:
  * - Validate player Y positions against terrain height
+ * - Detect speed hacking via cumulative movement tracking
+ * - Detect teleportation attempts
  * - Correct positions that fall out of bounds
  * - Broadcast corrections to all clients
- * - Adaptive validation frequency (aggressive at startup, slower after stabilization)
  *
  * Usage:
  * ```typescript
@@ -23,11 +24,180 @@ import { TerrainSystem } from "@hyperscape/shared";
 import type { ServerSocket } from "../../shared/types";
 import type { BroadcastManager } from "./broadcast";
 
+// ============================================================================
+// SPEED HACK DETECTION
+// ============================================================================
+
+/**
+ * Tracks player movement history for speed hack detection
+ */
+interface MovementHistory {
+  positions: Array<{ x: number; z: number; timestamp: number }>;
+  cumulativeDistance: number;
+  windowStartTime: number;
+  violations: number;
+  lastWarningTime: number;
+}
+
+/**
+ * SpeedHackDetector - Detects speed manipulation cheats
+ *
+ * Tracks cumulative movement over time windows to detect:
+ * - Speed hacking (moving faster than allowed)
+ * - Teleportation (instant position changes)
+ * - Accumulated small movements that bypass per-tick validation
+ */
+class SpeedHackDetector {
+  private history = new Map<string, MovementHistory>();
+
+  // Configuration
+  private readonly WINDOW_MS = 5000; // 5 second tracking window
+  private readonly MAX_SPEED_TILES_PER_SEC = 7; // Max run speed + tolerance
+  private readonly TELEPORT_THRESHOLD = 10; // Tiles - instant movement detection
+  private readonly MAX_VIOLATIONS = 3; // Before kicking
+  private readonly VIOLATION_DECAY_MS = 30000; // Reset violations after 30s clean
+
+  /**
+   * Record player position and check for violations
+   * @returns true if position is valid, false if suspicious
+   */
+  checkPosition(
+    playerId: string,
+    x: number,
+    z: number,
+    timestamp: number,
+  ): { valid: boolean; reason?: string; shouldKick?: boolean } {
+    let history = this.history.get(playerId);
+
+    // Initialize history for new player
+    if (!history) {
+      history = {
+        positions: [],
+        cumulativeDistance: 0,
+        windowStartTime: timestamp,
+        violations: 0,
+        lastWarningTime: 0,
+      };
+      this.history.set(playerId, history);
+    }
+
+    // Check for teleportation (instant large movement)
+    if (history.positions.length > 0) {
+      const lastPos = history.positions[history.positions.length - 1];
+      const dx = x - lastPos.x;
+      const dz = z - lastPos.z;
+      const instantDistance = Math.sqrt(dx * dx + dz * dz);
+      const timeDelta = timestamp - lastPos.timestamp;
+
+      // Teleport detection: large movement in small time
+      if (instantDistance > this.TELEPORT_THRESHOLD && timeDelta < 500) {
+        history.violations++;
+        console.warn(
+          `[SpeedHack] Teleport detected for ${playerId}: ${instantDistance.toFixed(1)} tiles in ${timeDelta}ms`,
+        );
+        return {
+          valid: false,
+          reason: "teleport_detected",
+          shouldKick: history.violations >= this.MAX_VIOLATIONS,
+        };
+      }
+    }
+
+    // Add position to history
+    history.positions.push({ x, z, timestamp });
+
+    // Clean old positions outside window
+    const windowStart = timestamp - this.WINDOW_MS;
+    while (
+      history.positions.length > 1 &&
+      history.positions[0].timestamp < windowStart
+    ) {
+      history.positions.shift();
+    }
+
+    // Calculate cumulative distance in window
+    let totalDistance = 0;
+    for (let i = 1; i < history.positions.length; i++) {
+      const prev = history.positions[i - 1];
+      const curr = history.positions[i];
+      const dx = curr.x - prev.x;
+      const dz = curr.z - prev.z;
+      totalDistance += Math.sqrt(dx * dx + dz * dz);
+    }
+
+    // Calculate time span in window
+    const firstPos = history.positions[0];
+    const lastPos = history.positions[history.positions.length - 1];
+    const timeSpanSec = Math.max(0.1, (lastPos.timestamp - firstPos.timestamp) / 1000);
+
+    // Calculate average speed
+    const averageSpeed = totalDistance / timeSpanSec;
+    const maxAllowedDistance = this.MAX_SPEED_TILES_PER_SEC * timeSpanSec * 1.2; // 20% tolerance
+
+    // Check for speed violation
+    if (totalDistance > maxAllowedDistance && history.positions.length > 3) {
+      history.violations++;
+      history.lastWarningTime = timestamp;
+
+      console.warn(
+        `[SpeedHack] Speed violation for ${playerId}: ${averageSpeed.toFixed(1)} tiles/sec (max: ${this.MAX_SPEED_TILES_PER_SEC}), violations: ${history.violations}`,
+      );
+
+      return {
+        valid: false,
+        reason: "speed_violation",
+        shouldKick: history.violations >= this.MAX_VIOLATIONS,
+      };
+    }
+
+    // Decay violations over time (player behaving normally)
+    if (
+      history.violations > 0 &&
+      timestamp - history.lastWarningTime > this.VIOLATION_DECAY_MS
+    ) {
+      history.violations = Math.max(0, history.violations - 1);
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Remove player from tracking
+   */
+  removePlayer(playerId: string): void {
+    this.history.delete(playerId);
+  }
+
+  /**
+   * Get player violation count
+   */
+  getViolationCount(playerId: string): number {
+    return this.history.get(playerId)?.violations ?? 0;
+  }
+
+  /**
+   * Clear all tracking data
+   */
+  clear(): void {
+    this.history.clear();
+  }
+}
+
+// Singleton speed hack detector
+const speedHackDetector = new SpeedHackDetector();
+
 /**
  * PositionValidator - Validates and corrects player positions
  *
  * Runs periodic validation checks to ensure player positions are valid
- * according to terrain height and world bounds.
+ * according to terrain height, world bounds, and movement speed limits.
+ *
+ * Security measures:
+ * - Terrain height validation (prevents flying/clipping)
+ * - Speed hack detection (tracks cumulative movement)
+ * - Teleportation detection (instant large movements)
+ * - Automatic position correction
+ * - Kick players with repeated violations
  */
 export class PositionValidator {
   /** Accumulated time since last validation (milliseconds) */
@@ -38,6 +208,9 @@ export class PositionValidator {
 
   /** Accumulated system uptime (seconds) */
   private systemUptime = 0;
+
+  /** Callback for kicking cheaters */
+  private onKickPlayer?: (playerId: string, reason: string) => void;
 
   /**
    * Create a PositionValidator
@@ -51,6 +224,14 @@ export class PositionValidator {
     private sockets: Map<string, ServerSocket>,
     private broadcast: BroadcastManager,
   ) {}
+
+  /**
+   * Set callback for kicking players
+   * @param callback - Function to call when a player should be kicked
+   */
+  setKickCallback(callback: (playerId: string, reason: string) => void): void {
+    this.onKickPlayer = callback;
+  }
 
   /**
    * Update validation state and run checks if needed
@@ -77,7 +258,7 @@ export class PositionValidator {
   }
 
   /**
-   * Validate all player positions against terrain
+   * Validate all player positions against terrain and speed limits
    *
    * Iterates through all connected players and corrects positions that
    * are significantly wrong (falling through terrain, flying too high, etc.)
@@ -91,15 +272,61 @@ export class PositionValidator {
 
     if (!terrain) return;
 
+    const now = Date.now();
+
     for (const socket of this.sockets.values()) {
       if (!socket.player) continue;
 
+      // Validate terrain position
       this.validatePlayerPosition(socket, terrain);
+
+      // SECURITY: Check for speed hacking
+      this.validatePlayerSpeed(socket, now);
     }
   }
 
   /**
-   * Validate a single player's position
+   * Validate player movement speed (anti-cheat)
+   *
+   * @param socket - Player socket to validate
+   * @param timestamp - Current timestamp
+   * @private
+   */
+  private validatePlayerSpeed(socket: ServerSocket, timestamp: number): void {
+    const player = socket.player!;
+
+    const result = speedHackDetector.checkPosition(
+      player.id,
+      player.position.x,
+      player.position.z,
+      timestamp,
+    );
+
+    if (!result.valid) {
+      if (result.shouldKick) {
+        console.error(
+          `[PositionValidator] KICKING player ${player.id} for speed hacking (${result.reason})`,
+        );
+
+        // Kick the player
+        if (this.onKickPlayer) {
+          this.onKickPlayer(player.id, `Kicked for ${result.reason}`);
+        } else {
+          // Fallback: close the socket directly
+          socket.close?.();
+        }
+
+        // Clean up tracking
+        speedHackDetector.removePlayer(player.id);
+      } else {
+        // Warning only - don't correct position for minor violations
+        // The player will naturally slow down or the accumulation will catch up
+      }
+    }
+  }
+
+  /**
+   * Validate a single player's position against terrain
    *
    * Checks the player's Y position against terrain height and corrects
    * if out of bounds or significantly different from expected.
@@ -176,5 +403,20 @@ export class PositionValidator {
         `[PositionValidator] Emergency correction for player ${player.id}: Y=${correctedY}`,
       );
     }
+  }
+
+  /**
+   * Clean up when player disconnects
+   * @param playerId - ID of disconnecting player
+   */
+  onPlayerDisconnect(playerId: string): void {
+    speedHackDetector.removePlayer(playerId);
+  }
+
+  /**
+   * Clear all tracking data
+   */
+  clear(): void {
+    speedHackDetector.clear();
   }
 }

@@ -8,3 +8,5 @@ export { ServerLiveKit } from "./ServerLiveKit";
 export { ServerLoader } from "./ServerLoader";
 export { ServerRuntime } from "./ServerRuntime";
 export { PersistenceSystem } from "./PersistenceSystem";
+export { Chain, BlockchainIntegration } from "./Chain";
+export type { ChainConfig, BlockchainConfig } from "./Chain";

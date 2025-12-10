@@ -3,7 +3,6 @@
  * All spawn point, respawn, and spawner related type definitions
  */
 
-import THREE from "../../extras/three/three";
 import type { Position3D } from "../core/base-types";
 import type { World } from "../../core/World";
 

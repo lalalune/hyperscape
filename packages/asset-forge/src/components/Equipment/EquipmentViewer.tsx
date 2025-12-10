@@ -1890,7 +1890,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
         // TWEAK FACTOR: User requested to make it bigger.
         // 1.0 = Normalized to 1.6m human height.
         // 1.5 = 50% bigger.
-        const EXPORT_SCALE_MULTIPLIER = 1.5;
+        const _EXPORT_SCALE_MULTIPLIER = 1.5;
 
         const totalScaleFactor = boneScale * heightRatio;
 

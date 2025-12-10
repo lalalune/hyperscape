@@ -1,8 +1,8 @@
-import { SystemBase } from "../shared";
+import { SystemBase } from "../shared/infrastructure/SystemBase";
 import { EventType } from "../../types/events";
 import { getSystem } from "../../utils/SystemUtils";
 import type { World } from "../../types/index";
-import { TerrainSystem } from "../shared";
+import { TerrainSystem } from "../shared/world/TerrainSystem";
 import { IPlayerSystemForPersistence } from "../../types/core/core";
 import type { WorldChunk } from "../../types/core/core";
 import type {
@@ -331,7 +331,7 @@ export class PersistenceSystem extends SystemBase {
       }
     }
 
-    const duration = Date.now() - startTime;
+    const _duration = Date.now() - startTime;
     this.stats.totalSaves += saveCount;
     this.stats.lastSaveTime = Date.now();
   }

@@ -35,6 +35,7 @@ import {
   EventType,
   TerrainSystem,
   writePacket,
+  uuid,
 } from "@hyperscape/shared";
 import type {
   ConnectionParams,
@@ -108,11 +109,22 @@ export class ConnectionHandler {
         return;
       }
 
-      // Authenticate user
-      const { user, authToken, userWithPrivy } = await authenticateUser(
-        params,
-        this.db,
-      );
+      // Get client IP from params (passed from websocket layer)
+      const clientIP = (params as { clientIP?: string }).clientIP || "unknown";
+
+      // Authenticate user (may return null if rate limited)
+      const authResult = await authenticateUser(params, this.db, clientIP);
+
+      // Handle rate limiting - close connection gracefully
+      if (!authResult) {
+        console.warn(
+          `[ConnectionHandler] Account creation rate limited for IP: ${clientIP}`,
+        );
+        ws.close(4029, "Account creation rate limited");
+        return;
+      }
+
+      const { user, authToken, userWithPrivy } = authResult;
 
       // Get LiveKit options if available
       const livekit = await this.world.livekit?.getPlayerOpts?.(user.id);
@@ -229,7 +241,7 @@ export class ConnectionHandler {
    * @private
    */
   private createSocket(ws: NodeWebSocket, accountId: string): ServerSocket {
-    const socketId = require("@hyperscape/shared").uuid();
+    const socketId = uuid();
 
     const socket = new Socket({
       id: socketId,
@@ -420,12 +432,12 @@ export class ConnectionHandler {
    */
   private serializeEntities(socket: ServerSocket): unknown[] {
     const allEntities: unknown[] = [];
-    const isSpectator = (socket as any).isSpectator === true;
+    const isSpectator = (socket as ServerSocket & { isSpectator?: boolean }).isSpectator === true;
 
     if (isSpectator) {
       // Spectators don't have a player entity - serialize all world entities
       if (this.world.entities?.items) {
-        for (const [entityId, entity] of this.world.entities.items.entries()) {
+        for (const [_entityId, entity] of this.world.entities.items.entries()) {
           const serialized = entity.serialize();
           allEntities.push(serialized);
         }
@@ -612,7 +624,7 @@ export class ConnectionHandler {
       );
 
       // Create socket with verified accountId
-      const socketId = require("@hyperscape/shared").uuid();
+      const socketId = uuid();
 
       const socket = new Socket({
         id: socketId,
@@ -624,8 +636,8 @@ export class ConnectionHandler {
       // Mark as spectator with VERIFIED accountId (not client-provided)
       socket.accountId = verifiedUserId;
       socket.createdAt = Date.now();
-      (socket as any).isSpectator = true;
-      (socket as any).spectatingCharacterId = characterId;
+      (socket as ServerSocket & { isSpectator?: boolean; spectatingCharacterId?: string }).isSpectator = true;
+      (socket as ServerSocket & { isSpectator?: boolean; spectatingCharacterId?: string }).spectatingCharacterId = characterId;
 
       // Wait for terrain system
       if (!(await this.waitForTerrain(ws))) {

@@ -1,8 +1,15 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
+import { VRM, VRMLoaderPlugin, VRMUtils, VRMHumanBoneName } from "@pixiv/three-vrm";
 import { retargetAnimationToVRM } from "../utils/vrmAnimationRetarget";
+
+interface AnimationState {
+  waveAction: THREE.AnimationAction;
+  idleAction: THREE.AnimationAction;
+  isWaving: boolean;
+  idleTimer: number;
+}
 
 interface CharacterPreviewProps {
   vrmUrl: string;
@@ -19,6 +26,7 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const vrmRef = useRef<VRM | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const animStateRef = useRef<AnimationState | null>(null);
   const clockRef = useRef<THREE.Clock>(new THREE.Clock());
   const frameIdRef = useRef<number>(0);
 
@@ -115,18 +123,13 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
         console.log("[CharacterPreview] VRM loaded, waiting for animations...");
 
         // --- Animation Setup ---
-        // Calculate rootToHips
+        // Calculate rootToHips from hips bone position
         let rootToHips = 1;
-        const humanoid = vrm.humanoid;
-        if (humanoid && (humanoid as any).normalizedRestPose?.hips) {
-          rootToHips = (humanoid as any).normalizedRestPose.hips.position[1];
-        } else {
-          const hipsNode = humanoid?.getRawBoneNode("hips");
-          if (hipsNode) {
-            const v = new THREE.Vector3();
-            hipsNode.getWorldPosition(v);
-            rootToHips = v.y;
-          }
+        const hipsNode = vrm.humanoid?.getRawBoneNode("hips");
+        if (hipsNode) {
+          const v = new THREE.Vector3();
+          hipsNode.getWorldPosition(v);
+          rootToHips = v.y;
         }
 
         const waveUrl =
@@ -149,7 +152,7 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
         // Retargeting
         const getBoneName = (vrmBoneName: string) => {
           const normalizedNode = vrm.humanoid.getNormalizedBoneNode(
-            vrmBoneName as any,
+            vrmBoneName as VRMHumanBoneName,
           );
           return normalizedNode?.name;
         };
@@ -182,9 +185,13 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
         waveAction.clampWhenFinished = true;
         idleAction.setLoop(THREE.LoopRepeat, Infinity);
 
-        let isWaving = true;
-        let idleTimer = 0;
-        const IDLE_DURATION = 7;
+        // Initialize animation state
+        animStateRef.current = {
+          waveAction,
+          idleAction,
+          isWaving: true,
+          idleTimer: 0,
+        };
 
         // Start Sequence - wave first, then show the model
         waveAction.reset().play();
@@ -194,31 +201,17 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
         console.log("[CharacterPreview] Animations ready, model visible");
 
         mixer.addEventListener("finished", (e) => {
-          if (e.action === waveAction) {
-            waveAction.fadeOut(0.5);
-            idleAction.reset().fadeIn(0.5).play();
-            isWaving = false;
-            idleTimer = 0;
+          const animState = animStateRef.current;
+          if (!animState) return;
+          
+          if (e.action === animState.waveAction) {
+            animState.waveAction.fadeOut(0.5);
+            animState.idleAction.reset().fadeIn(0.5).play();
+            animState.isWaving = false;
+            animState.idleTimer = 0;
           }
         });
 
-        // Animation State - manages the wave -> idle -> wave loop
-        (mixerRef.current as any).animState = {
-          waveAction,
-          idleAction,
-          updateIdleTimer: (delta: number) => {
-            if (!isWaving) {
-              idleTimer += delta;
-              if (idleTimer >= IDLE_DURATION) {
-                // Transition from idle back to wave
-                idleAction.fadeOut(0.5);
-                waveAction.reset().fadeIn(0.5).play();
-                isWaving = true;
-                idleTimer = 0; // Reset timer for next cycle
-              }
-            }
-          },
-        };
         console.log(
           "[CharacterPreview] Animation loop: wave -> idle (7s) -> wave",
         );
@@ -242,9 +235,17 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
 
         if (mixerRef.current) {
           mixerRef.current.update(delta);
-          const animState = (mixerRef.current as any).animState;
-          if (animState?.updateIdleTimer) {
-            animState.updateIdleTimer(delta);
+          
+          // Update idle timer for wave -> idle -> wave loop
+          const animState = animStateRef.current;
+          if (animState && !animState.isWaving) {
+            animState.idleTimer += delta;
+            if (animState.idleTimer >= 7) { // IDLE_DURATION
+              animState.idleAction.fadeOut(0.5);
+              animState.waveAction.reset().fadeIn(0.5).play();
+              animState.isWaving = true;
+              animState.idleTimer = 0;
+            }
           }
         }
 
@@ -307,7 +308,7 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
       isMounted = false;
       window.removeEventListener("resize", handleResize);
       resizeObserver.disconnect();
-      cancelAnimationFrame(frameIdRef.current);
+      window.cancelAnimationFrame(frameIdRef.current);
       if (rendererRef.current && containerRef.current) {
         containerRef.current.removeChild(rendererRef.current.domElement);
         rendererRef.current.dispose();
@@ -317,9 +318,9 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
       }
       if (mixerRef.current) {
         mixerRef.current.stopAllAction();
-        // mixerRef.current.uncacheRoot(vrmRef.current.scene); // This might fail if vrmRef.current is already null
         mixerRef.current = null;
       }
+      animStateRef.current = null;
     };
   }, [vrmUrl]); // Re-run everything when vrmUrl changes
 

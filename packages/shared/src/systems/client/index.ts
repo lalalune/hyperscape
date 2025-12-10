@@ -19,6 +19,19 @@ export { NodeClient } from "./NodeClient";
 export { ControlPriorities } from "./ControlPriorities";
 export { EquipmentVisualSystem } from "./EquipmentVisualSystem";
 export { DamageSplatSystem } from "./DamageSplatSystem";
+export { PerformanceMonitor } from "./PerformanceMonitor";
+export type {
+  PerformanceSnapshot,
+  PhaseTiming,
+  SystemTiming,
+  EntityStats,
+  MemoryStats,
+  TerrainStats,
+} from "./PerformanceMonitor";
+
+// Mob instanced rendering for performance
+export { MobInstancedRenderer } from "./MobInstancedRenderer";
+export type { MobInstanceHandle } from "./MobInstancedRenderer";
 
 // New interaction system (replaces legacy InteractionSystem)
 export { InteractionRouter } from "./interaction";

@@ -31,6 +31,14 @@ export interface DamageResult {
   didHit: boolean; // OSRS accuracy: did the attack hit or miss?
 }
 
+// PERFORMANCE: Reusable result object for hot path operations
+const _reusableDamageResult: DamageResult = {
+  damage: 0,
+  isCritical: false,
+  damageType: AttackType.MELEE,
+  didHit: false,
+};
+
 /**
  * Calculate OSRS-style accuracy (hit chance)
  * Returns true if the attack successfully hits
@@ -61,19 +69,12 @@ function calculateAccuracy(
   const roll = Math.random();
   const didHit = roll < hitChance;
 
-  // Debug logging
-  if (Math.random() < 0.1) {
-    // Log 10% of attacks to avoid spam
-    console.log(
-      `[Accuracy] Attack: ${attackerAttackLevel}+${attackerAttackBonus} vs Defence: ${targetDefenseLevel}+${targetDefenseBonus} | Hit chance: ${(hitChance * 100).toFixed(1)}% | Roll: ${(roll * 100).toFixed(1)}% | ${didHit ? "HIT" : "MISS"}`,
-    );
-  }
-
   return didHit;
 }
 
 /**
  * Calculate damage for any attack type (melee, ranged, or magic)
+ * @param out Optional output object to avoid allocation (for hot paths)
  */
 export function calculateDamage(
   attacker: { stats?: CombatStats; config?: { attackPower?: number } },
@@ -85,9 +86,17 @@ export function calculateDamage(
     defense: number;
     ranged: number;
   },
+  out?: DamageResult,
 ): DamageResult {
-  // OSRS-accurate combat calculation with accuracy system
+  // PERFORMANCE: Use provided output object or create new one
+  const result = out ?? {
+    damage: 0,
+    isCritical: false,
+    damageType: attackType,
+    didHit: false,
+  };
 
+  // OSRS-accurate combat calculation with accuracy system
   let maxHit = 1;
   let attackStat = 0;
   let attackBonus = 0;
@@ -168,12 +177,11 @@ export function calculateDamage(
 
   // If attack missed, return 0 damage
   if (!didHit) {
-    return {
-      damage: 0,
-      isCritical: false,
-      damageType: attackType,
-      didHit: false,
-    };
+    result.damage = 0;
+    result.isCritical = false;
+    result.damageType = attackType;
+    result.didHit = false;
+    return result;
   }
 
   // Attack hit - roll damage from 0 to maxHit (can still hit 0)
@@ -181,27 +189,25 @@ export function calculateDamage(
 
   // Ensure damage is valid
   if (!Number.isFinite(damage) || damage < 0) {
-    return {
-      damage: 0,
-      isCritical: false,
-      damageType: attackType,
-      didHit: true, // It hit but rolled 0 damage
-    };
+    result.damage = 0;
+    result.isCritical = false;
+    result.damageType = attackType;
+    result.didHit = true; // It hit but rolled 0 damage
+    return result;
   }
 
   // OSRS: No critical hit system
-  return {
-    damage,
-    isCritical: false,
-    damageType: attackType,
-    didHit: true,
-  };
+  result.damage = damage;
+  result.isCritical = false;
+  result.damageType = attackType;
+  result.didHit = true;
+  return result;
 }
 
 /**
  * Get defense value from entity
  */
-function getDefenseValue(entity: {
+function _getDefenseValue(entity: {
   stats?: CombatStats;
   config?: { defense?: number };
 }): number {

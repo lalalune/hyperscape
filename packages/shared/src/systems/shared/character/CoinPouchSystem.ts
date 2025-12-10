@@ -17,7 +17,7 @@
  * @see {@link BankingSystem} for deposits
  */
 
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import type { World } from "../../../core/World";
 import { EventType } from "../../../types/events";
 import { Logger } from "../../../utils/Logger";
@@ -407,14 +407,12 @@ export class CoinPouchSystem extends SystemBase {
     }
 
     // Sync persist
-    db.getPlayerAsync(playerId)
-      .then((row) => {
-        if (row) {
-          const coins = this.getCoins(playerId);
-          db.savePlayer(playerId, { coins });
-        }
-      })
-      .catch(() => {});
+    db.getPlayerAsync(playerId).then((row) => {
+      if (row) {
+        const coins = this.getCoins(playerId);
+        db.savePlayer(playerId, { coins });
+      }
+    });
   }
 
   private startAutoSave(): void {

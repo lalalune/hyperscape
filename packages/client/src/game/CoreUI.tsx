@@ -19,6 +19,7 @@ import { LoadingScreen } from "../screens/LoadingScreen";
 import { MouseLeftIcon } from "../components/MouseLeftIcon";
 import { MouseRightIcon } from "../components/MouseRightIcon";
 import { MouseWheelIcon } from "../components/MouseWheelIcon";
+import { PerformancePanel } from "../components/debug/PerformancePanel";
 import { Sidebar } from "./Sidebar";
 import { StatusBars } from "./hud/StatusBars";
 
@@ -36,7 +37,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
 
   // Check if this is spectator mode (from embedded config)
   const isSpectatorMode = (() => {
-    const config = (window as any).__HYPERSCAPE_CONFIG__;
+    const config = (window as { __HYPERSCAPE_CONFIG__?: { mode?: string } }).__HYPERSCAPE_CONFIG__;
     return config?.mode === "spectator";
   })();
 
@@ -60,7 +61,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
   useEffect(() => {
     // Get the target entity ID for spectators
     const getSpectatorTargetId = () => {
-      const config = (window as any).__HYPERSCAPE_CONFIG__;
+      const config = (window as { __HYPERSCAPE_CONFIG__?: { followEntity?: string; characterId?: string } }).__HYPERSCAPE_CONFIG__;
       return config?.followEntity || config?.characterId;
     };
 
@@ -129,7 +130,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       };
       setDeathScreen(data);
     };
-    const handleDeathScreenClose = (...args: unknown[]) => {
+    const handleDeathScreenClose = () => {
       setDeathScreen(null);
     };
 
@@ -276,6 +277,8 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         ref={ref}
         className="coreui absolute inset-0 overflow-hidden pointer-events-none"
       >
+        {/* Performance monitor - dev only */}
+        <PerformancePanel monitor={world.performanceMonitor} />
         {disconnected && <Disconnected />}
         {<Toast world={world} />}
         {ready && <ActionsBlock world={world} />}

@@ -10,7 +10,7 @@ interface AgentDynamicPanelProps {
 
 export const AgentDynamicPanel: React.FC<AgentDynamicPanelProps> = ({
   panel,
-  agentId,
+  agentId: _agentId,
 }) => {
   // Construct full URL for the panel
   const panelUrl = panel.url.startsWith("http")

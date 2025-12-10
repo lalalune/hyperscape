@@ -430,9 +430,9 @@ export function createVRMFactory(
       // }
     };
     let currentEmote: EmoteData | null;
-    let setEmoteCallCount = 0;
+    let _setEmoteCallCount = 0;
     const setEmote = (url) => {
-      setEmoteCallCount++;
+      _setEmoteCallCount++;
 
       if (currentEmote?.url === url) {
         return;

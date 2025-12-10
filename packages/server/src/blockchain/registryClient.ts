@@ -15,7 +15,7 @@ const REGISTRY_ABI = [
 ];
 
 export class RegistryClient {
-  private contract: ethers.Contract;
+  private contract: ethers.Contract | null = null;
   private signer: ethers.Wallet;
   private provider: ethers.Provider;
 
@@ -25,14 +25,19 @@ export class RegistryClient {
   constructor(provider: ethers.Provider, privateKey: string) {
     this.provider = provider;
     this.signer = new ethers.Wallet(privateKey, provider);
-    this.contract = new ethers.Contract(
-      IDENTITY_REGISTRY_ADDRESS,
-      REGISTRY_ABI,
-      this.signer,
-    );
+    if (IDENTITY_REGISTRY_ADDRESS && IDENTITY_REGISTRY_ADDRESS !== "0x0000000000000000000000000000000000000000") {
+      this.contract = new ethers.Contract(
+        IDENTITY_REGISTRY_ADDRESS,
+        REGISTRY_ABI,
+        this.signer,
+      );
+    }
   }
 
   async registerPlayer(playerAddress: string): Promise<number> {
+    if (!this.contract) {
+      throw new Error("RegistryClient: IDENTITY_REGISTRY_ADDRESS not configured");
+    }
     const tx = await this.contract.register(
       playerAddress,
       `Hyperscape Player`,
@@ -66,6 +71,9 @@ export class RegistryClient {
     playerAgentId: number,
     characterData?: { class?: string; level?: number; race?: string },
   ): Promise<number> {
+    if (!this.contract) {
+      throw new Error("RegistryClient: IDENTITY_REGISTRY_ADDRESS not configured");
+    }
     console.log(
       `[RegistryClient] Registering character "${characterName}" for player agent #${playerAgentId}`,
     );
@@ -135,6 +143,7 @@ export class RegistryClient {
    * @returns Array of character agent IDs
    */
   async getPlayerCharacters(playerAgentId: number): Promise<number[]> {
+    if (!this.contract) return [];
     try {
       const metadata = await this.contract.getMetadata(
         playerAgentId,
@@ -160,6 +169,7 @@ export class RegistryClient {
     playerAgentId: number,
     characterAgentId: number,
   ): Promise<void> {
+    if (!this.contract) return;
     const existingCharacters = await this.getPlayerCharacters(playerAgentId);
     const updatedCharacters = [...existingCharacters, characterAgentId];
 
@@ -174,11 +184,13 @@ export class RegistryClient {
   }
 
   async isPlayerBanned(agentId: number): Promise<boolean> {
+    if (!this.contract) return false;
     const agent = await this.contract.agents(agentId);
     return agent[7]; // isBanned field
   }
 
   async getPlayerTier(agentId: number): Promise<number> {
+    if (!this.contract) return 0;
     const agent = await this.contract.agents(agentId);
     return agent[2]; // tier field
   }
@@ -192,6 +204,8 @@ export class RegistryClient {
     if (this.registeredAgents.has(playerAddress.toLowerCase())) {
       return this.registeredAgents.get(playerAddress.toLowerCase())!;
     }
+
+    if (!this.contract) return 0;
 
     try {
       // Query registry for existing agent
@@ -244,6 +258,7 @@ export class RegistryClient {
     characterAgentId: number,
     playerAgentId: number,
   ): Promise<void> {
+    if (!this.contract) return;
     await this.contract.setMetadata(
       characterAgentId,
       "parentPlayer",
@@ -255,6 +270,7 @@ export class RegistryClient {
    * Get parent player ID for a character
    */
   async getParentPlayer(characterAgentId: number): Promise<number> {
+    if (!this.contract) return 0;
     try {
       const metadata = await this.contract.getMetadata(
         characterAgentId,

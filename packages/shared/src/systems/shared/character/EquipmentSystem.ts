@@ -87,13 +87,12 @@ const equipmentRequirements = {
     return defaults[itemType] || "#808080";
   },
 };
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { Logger } from "../../../utils/Logger";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
 
 import { World } from "../../../core/World";
 import {
-  AttackType,
   ItemType,
   EquipmentSlot,
   EquipmentSlotName,
@@ -101,7 +100,6 @@ import {
   Item,
   WeaponType,
 } from "../../../types/core/core";
-import { ItemRarity } from "../../../types/entities";
 import type { PlayerWithEquipmentSupport } from "../../../types/rendering/ui";
 
 const attachmentPoints = {

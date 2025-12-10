@@ -19,7 +19,7 @@ import type {
 export const attackEntityAction: Action = {
   name: "ATTACK_ENTITY",
   similes: ["ATTACK", "FIGHT", "COMBAT"],
-  description: "Attack an NPC or player. Specify target by name or ID.",
+  description: "Attack a mob or NPC. Must have attackable targets nearby.",
 
   validate: async (runtime: IAgentRuntime, _message: Memory) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
@@ -34,7 +34,14 @@ export const attackEntityAction: Action = {
       return false;
     }
 
-    return true;
+    // Check for attackable mobs nearby
+    const entities = service.getNearbyEntities();
+    const attackableMobs = entities.filter((e) => {
+      const ea = e as unknown as Record<string, unknown>;
+      return "mobType" in e && ea.alive !== false;
+    });
+
+    return attackableMobs.length > 0;
   },
 
   handler: async (

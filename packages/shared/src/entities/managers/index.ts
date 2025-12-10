@@ -8,3 +8,4 @@ export * from "./AggroManager";
 export * from "./CombatStateManager";
 export * from "./DeathStateManager";
 export * from "./RespawnManager";
+export * from "./MobPool";

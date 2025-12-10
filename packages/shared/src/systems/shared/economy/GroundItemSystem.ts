@@ -38,8 +38,7 @@ import { getItem } from "../../../data/items";
 import { msToTicks, ticksToMs } from "../../../utils/game/CombatCalculations";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import { worldToTile, tileToWorld } from "../movement/TileSystem";
-import { SystemBase } from "..";
-import { Logger } from "../../../utils/Logger";
+import { SystemBase } from "../infrastructure/SystemBase";
 
 export class GroundItemSystem extends SystemBase {
   private groundItems = new Map<string, GroundItemData>();

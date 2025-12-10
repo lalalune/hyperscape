@@ -54,6 +54,8 @@ function isPlayerDead(player: AggroablePlayer): boolean {
 export class AggroManager {
   private currentTarget: string | null = null;
   private config: AggroConfig;
+  // PERFORMANCE: Cached target object to avoid allocation per findNearbyPlayer call
+  private readonly _cachedTarget: PlayerTarget = { id: "", position: { x: 0, y: 0, z: 0 } };
 
   constructor(config: AggroConfig) {
     this.config = config;
@@ -62,6 +64,7 @@ export class AggroManager {
   /**
    * Find nearby player within aggro range (RuneScape-style)
    * Returns first player found within range for simplicity
+   * PERFORMANCE: Reuses cached target object to avoid allocation
    */
   findNearbyPlayer(
     currentPos: Position3D,
@@ -84,14 +87,12 @@ export class AggroManager {
       const dx = playerPos.x - currentPos.x;
       const dz = playerPos.z - currentPos.z;
       if (dx * dx + dz * dz <= aggroRangeSq) {
-        return {
-          id: player.id,
-          position: {
-            x: playerPos.x,
-            y: playerPos.y,
-            z: playerPos.z,
-          },
-        };
+        // PERFORMANCE: Reuse cached object instead of allocating new one
+        this._cachedTarget.id = player.id;
+        this._cachedTarget.position.x = playerPos.x;
+        this._cachedTarget.position.y = playerPos.y;
+        this._cachedTarget.position.z = playerPos.z;
+        return this._cachedTarget;
       }
     }
     return null;
@@ -99,6 +100,7 @@ export class AggroManager {
 
   /**
    * Get specific player by ID and return their position
+   * PERFORMANCE: Reuses cached target object to avoid allocation
    */
   getPlayer(
     playerId: string,
@@ -115,10 +117,12 @@ export class AggroManager {
     if (!playerPos) return null;
     if (isPlayerDead(player as AggroablePlayer)) return null;
 
-    return {
-      id: player.id,
-      position: { x: playerPos.x, y: playerPos.y, z: playerPos.z },
-    };
+    // PERFORMANCE: Reuse cached object instead of allocating new one
+    this._cachedTarget.id = player.id;
+    this._cachedTarget.position.x = playerPos.x;
+    this._cachedTarget.position.y = playerPos.y;
+    this._cachedTarget.position.z = playerPos.z;
+    return this._cachedTarget;
   }
 
   /**

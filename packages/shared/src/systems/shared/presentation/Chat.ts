@@ -1,6 +1,6 @@
 import type { ChatMessage, World } from "../../../types/index";
 import { uuid } from "../../../utils";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { EventType } from "../../../types/events";
 import type { AnyEvent } from "../../../types/events";
 import type { EventMap } from "../../../types/events";

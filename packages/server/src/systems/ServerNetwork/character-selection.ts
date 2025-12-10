@@ -29,7 +29,7 @@ import {
  * Create an ElizaOS agent record for a character
  * This allows the character to appear in the dashboard and be managed as an agent
  */
-async function createElizaOSAgent(
+async function _createElizaOSAgent(
   characterId: string,
   accountId: string,
   name: string,
@@ -203,10 +203,6 @@ export async function handleCharacterListRequest(
     socket.send("characterList", { characters: [] });
     return;
   }
-  console.log(
-    "[CharacterSelection] 📋 Loading characters for accountId:",
-    accountId,
-  );
   try {
     const characters = await loadCharacterList(accountId, world);
     socket.send("characterList", { characters });
@@ -225,11 +221,6 @@ export async function handleCharacterCreate(
   world: World,
   sendToFn: (socketId: string, name: string, data: unknown) => void,
 ): Promise<void> {
-  console.log(
-    "[CharacterSelection] 🎭 handleCharacterCreate called with data:",
-    data,
-  );
-
   const payload =
     (data as {
       name?: string;
@@ -242,36 +233,12 @@ export async function handleCharacterCreate(
   const wallet = payload.wallet || undefined;
   const isAgent = payload.isAgent || false;
 
-  console.log("[CharacterSelection] Raw data from payload:", {
-    name: payload.name,
-    avatar: payload.avatar,
-    wallet: payload.wallet,
-    isAgent: payload.isAgent,
-  });
-  console.log("[CharacterSelection] Processed values:", {
-    name,
-    avatar,
-    wallet,
-    isAgent,
-  });
-
   // Basic validation: alphanumeric plus spaces, 3-50 chars
   const safeName = name.replace(/[^a-zA-Z0-9 ]/g, "").trim();
   const finalName = safeName.length >= 3 ? safeName : "Adventurer";
 
-  console.log("[CharacterSelection] Final validated name:", finalName);
-
   const id = uuid();
   const accountId = socket.accountId || "";
-
-  console.log("[CharacterSelection] Character creation params:", {
-    characterId: id,
-    accountId,
-    finalName,
-    avatar,
-    wallet,
-    isAgent,
-  });
 
   if (!accountId) {
     console.error(
@@ -318,10 +285,6 @@ export async function handleCharacterCreate(
       return;
     }
 
-    console.log(
-      "[CharacterSelection] ✅ Character creation successful, sending response",
-    );
-
     // NOTE: AI agent creation is handled by CharacterEditorScreen
     // User will configure the agent personality before it's created in ElizaOS
     // This ensures proper accountId linkage and user customization
@@ -341,19 +304,7 @@ export async function handleCharacterCreate(
     avatar: avatar || undefined,
   };
 
-  console.log(
-    "[CharacterSelection] Sending characterCreated response:",
-    responseData,
-  );
-
-  try {
-    sendToFn(socket.id, "characterCreated", responseData);
-  } catch (err) {
-    console.error(
-      "[CharacterSelection] ❌ ERROR sending characterCreated packet:",
-      err,
-    );
-  }
+  sendToFn(socket.id, "characterCreated", responseData);
 }
 
 /**
@@ -446,23 +397,13 @@ export async function handleEnterWorld(
 
     if (existingEntity) {
       // Entity exists but no active socket - this is a stale entity from a crashed connection
-      console.log(
-        `[CharacterSelection] 🔄 Character ${characterId} has stale entity. Removing stale entity and allowing reconnection.`,
-      );
-
       // Remove the stale entity
       if (world.entities?.remove) {
         world.entities.remove(existingEntity.id);
-        console.log(
-          `[CharacterSelection] ✅ Removed stale entity ${existingEntity.id}`,
-        );
       }
 
       // Broadcast entity removal to all clients
       sendFn("entityRemoved", existingEntity.id);
-      console.log(
-        `[CharacterSelection] 📤 Broadcasted entity removal for ${existingEntity.id}`,
-      );
     }
   }
 
@@ -477,72 +418,58 @@ export async function handleEnterWorld(
     wallet?: string | null;
   } | null = null;
   if (characterId) {
-    try {
-      const databaseSystem = world.getSystem("database") as
-        | import("../DatabaseSystem").DatabaseSystem
-        | undefined;
-      if (databaseSystem) {
-        // First try: Look up characters by accountId (normal flow)
-        if (accountId) {
-          const characters = await databaseSystem.getCharactersAsync(accountId);
-          characterData = characters.find((c) => c.id === characterId) || null;
-        }
+    const databaseSystem = world.getSystem("database") as
+      | import("../DatabaseSystem").DatabaseSystem
+      | undefined;
+    if (databaseSystem) {
+      // First try: Look up characters by accountId (normal flow)
+      if (accountId) {
+        const characters = await databaseSystem.getCharactersAsync(accountId);
+        characterData = characters.find((c) => c.id === characterId) || null;
+      }
 
-        // Second try: If not found by accountId, look up character directly
-        // This handles agents where JWT verification may fail and create anonymous accountId
-        if (!characterData) {
-          console.log(
-            `[CharacterSelection] Character ${characterId} not found for account ${accountId}, trying direct lookup...`,
-          );
-
-          // Try to find the character directly by ID (any account)
-          // This is safe because the agent already has the characterId in its settings
-          const db = databaseSystem.getDb ? databaseSystem.getDb() : null;
-          if (db) {
-            // Use Drizzle query to find character by ID
-            const directLookup = await db.query.characters.findFirst({
-              where: (characters, { eq }) => eq(characters.id, characterId),
-            });
-            if (directLookup) {
-              characterData = directLookup as {
-                id: string;
-                name: string;
-                avatar?: string | null;
-                wallet?: string | null;
-              };
-              console.log(
-                `[CharacterSelection] ✅ Found character via direct lookup: ${characterData.name} (${characterId})`,
-              );
-            }
-          }
-        }
-
-        if (characterData) {
-          name = characterData.name;
-          avatar = characterData.avatar || undefined;
-          walletAddress = characterData.wallet || undefined;
-        } else {
-          // Character not found - fail fast instead of auto-creating with wrong data
-          console.error(
-            `[CharacterSelection] ❌ CRITICAL: Character ${characterId} not found in database. Refusing to spawn with incorrect data.`,
-          );
-          sendToFn(socket.id, "showToast", {
-            message:
-              "Character not found. Please select a valid character or create a new one.",
-            type: "error",
+      // Second try: If not found by accountId, look up character directly
+      // This handles agents where JWT verification may fail and create anonymous accountId
+      if (!characterData) {
+        // Try to find the character directly by ID (any account)
+        // This is safe because the agent already has the characterId in its settings
+        const db = databaseSystem.getDb ? databaseSystem.getDb() : null;
+        if (db) {
+          // Use Drizzle query to find character by ID
+          const directLookup = await db.query.characters.findFirst({
+            where: (characters, { eq }) => eq(characters.id, characterId),
           });
-          // Disconnect socket to force user to return to character selection
-          if (socket.ws && socket.ws.close) {
-            socket.ws.close(4004, "Character not found");
+          if (directLookup) {
+            characterData = directLookup as {
+              id: string;
+              name: string;
+              avatar?: string | null;
+              wallet?: string | null;
+            };
           }
-          return; // Exit early - do not spawn
         }
       }
-    } catch (err) {
-      console.error(
-        "[CharacterSelection] ❌ Failed to load character data:",
-        err,
-      );
+
+      if (characterData) {
+        name = characterData.name;
+        avatar = characterData.avatar || undefined;
+        walletAddress = characterData.wallet || undefined;
+      } else {
+        // Character not found - fail fast instead of auto-creating with wrong data
+        console.error(
+          `[CharacterSelection] ❌ CRITICAL: Character ${characterId} not found in database. Refusing to spawn with incorrect data.`,
+        );
+        sendToFn(socket.id, "showToast", {
+          message:
+            "Character not found. Please select a valid character or create a new one.",
+          type: "error",
+        });
+        // Disconnect socket to force user to return to character selection
+        if (socket.ws && socket.ws.close) {
+          socket.ws.close(4004, "Character not found");
+        }
+        return; // Exit early - do not spawn
+      }
     }
   }
 
@@ -567,63 +494,61 @@ export async function handleEnterWorld(
   // Load full character data from DB (position AND skills)
   let savedSkills: Record<string, { level: number; xp: number }> | undefined;
   if (characterId && accountId) {
-    try {
-      const databaseSystem = world.getSystem("database") as
-        | import("../DatabaseSystem").DatabaseSystem
-        | undefined;
-      if (databaseSystem) {
-        const savedData = await databaseSystem.getPlayerAsync(characterId);
-        if (savedData) {
-          // Load position
-          if (savedData.positionX !== undefined) {
-            const savedY =
-              savedData.positionY !== undefined && savedData.positionY !== null
-                ? Number(savedData.positionY)
-                : 10;
-            if (savedY >= 5 && savedY <= 200) {
-              position = [
-                Number(savedData.positionX) || 0,
-                savedY,
-                Number(savedData.positionZ) || 0,
-              ];
-            }
+    const databaseSystem = world.getSystem("database") as
+      | import("../DatabaseSystem").DatabaseSystem
+      | undefined;
+    if (databaseSystem) {
+      const savedData = await databaseSystem.getPlayerAsync(characterId);
+      if (savedData) {
+        // Load position
+        if (savedData.positionX !== undefined) {
+          const savedY =
+            savedData.positionY !== undefined && savedData.positionY !== null
+              ? Number(savedData.positionY)
+              : 10;
+          if (savedY >= 5 && savedY <= 200) {
+            position = [
+              Number(savedData.positionX) || 0,
+              savedY,
+              Number(savedData.positionZ) || 0,
+            ];
           }
-          // Load skills
-          savedSkills = {
-            attack: { level: savedData.attackLevel, xp: savedData.attackXp },
-            strength: {
-              level: savedData.strengthLevel,
-              xp: savedData.strengthXp,
-            },
-            defense: {
-              level: savedData.defenseLevel,
-              xp: savedData.defenseXp,
-            },
-            constitution: {
-              level: savedData.constitutionLevel,
-              xp: savedData.constitutionXp,
-            },
-            ranged: { level: savedData.rangedLevel, xp: savedData.rangedXp },
-            woodcutting: {
-              level: savedData.woodcuttingLevel || 1,
-              xp: savedData.woodcuttingXp || 0,
-            },
-            fishing: {
-              level: savedData.fishingLevel || 1,
-              xp: savedData.fishingXp || 0,
-            },
-            firemaking: {
-              level: savedData.firemakingLevel || 1,
-              xp: savedData.firemakingXp || 0,
-            },
-            cooking: {
-              level: savedData.cookingLevel || 1,
-              xp: savedData.cookingXp || 0,
-            },
-          };
         }
+        // Load skills
+        savedSkills = {
+          attack: { level: savedData.attackLevel, xp: savedData.attackXp },
+          strength: {
+            level: savedData.strengthLevel,
+            xp: savedData.strengthXp,
+          },
+          defense: {
+            level: savedData.defenseLevel,
+            xp: savedData.defenseXp,
+          },
+          constitution: {
+            level: savedData.constitutionLevel,
+            xp: savedData.constitutionXp,
+          },
+          ranged: { level: savedData.rangedLevel, xp: savedData.rangedXp },
+          woodcutting: {
+            level: savedData.woodcuttingLevel || 1,
+            xp: savedData.woodcuttingXp || 0,
+          },
+          fishing: {
+            level: savedData.fishingLevel || 1,
+            xp: savedData.fishingXp || 0,
+          },
+          firemaking: {
+            level: savedData.firemakingLevel || 1,
+            xp: savedData.firemakingXp || 0,
+          },
+          cooking: {
+            level: savedData.cookingLevel || 1,
+            xp: savedData.cookingXp || 0,
+          },
+        };
       }
-    } catch {}
+    }
   }
 
   // Ground to terrain
@@ -678,137 +603,123 @@ export async function handleEnterWorld(
       player:
         socket.player as unknown as import("@hyperscape/shared").PlayerLocal,
     });
-    try {
-      // Send to everyone else
-      sendFn("entityAdded", socket.player.serialize(), socket.id);
-      // And also to the originating socket so their client receives their own entity
-      sendToFn(socket.id, "entityAdded", socket.player.serialize());
+    // Send to everyone else
+    sendFn("entityAdded", socket.player.serialize(), socket.id);
+    // And also to the originating socket so their client receives their own entity
+    sendToFn(socket.id, "entityAdded", socket.player.serialize());
 
-      // CRITICAL: Send all existing entities (mobs, items, NPCs) to new client
-      // These entities were spawned before this player connected
-      if (world.entities?.items) {
-        let entityCount = 0;
-        for (const [entityId, entity] of world.entities.items.entries()) {
-          // Skip the player we just added
-          if (entityId !== socket.player.id) {
-            sendToFn(socket.id, "entityAdded", entity.serialize());
-            entityCount++;
-          }
+    // CRITICAL: Send all existing entities (mobs, items, NPCs) to new client
+    // These entities were spawned before this player connected
+    if (world.entities?.items) {
+      for (const [entityId, entity] of world.entities.items.entries()) {
+        // Skip the player we just added
+        if (entityId !== socket.player.id) {
+          sendToFn(socket.id, "entityAdded", entity.serialize());
         }
       }
+    }
 
-      // Immediately reinforce authoritative transform to avoid initial client-side default pose
-      sendToFn(socket.id, "entityModified", {
-        id: socket.player.id,
-        changes: {
-          p: position,
-          q: quaternion,
-          v: [0, 0, 0],
-          e: "idle",
-        },
+    // Immediately reinforce authoritative transform to avoid initial client-side default pose
+    sendToFn(socket.id, "entityModified", {
+      id: socket.player.id,
+      changes: {
+        p: position,
+        q: quaternion,
+        v: [0, 0, 0],
+        e: "idle",
+      },
+    });
+    // Send initial skills to client immediately after spawn
+    if (savedSkills) {
+      sendToFn(socket.id, "skillsUpdated", {
+        playerId: socket.player.id,
+        skills: savedSkills,
       });
-      // Send initial skills to client immediately after spawn
-      if (savedSkills) {
-        sendToFn(socket.id, "skillsUpdated", {
-          playerId: socket.player.id,
-          skills: savedSkills,
-        });
 
-        // CRITICAL: Also emit server-side event so EquipmentSystem cache gets populated
-        // Without this, equipment validation fails because EquipmentSystem.playerSkills is empty
-        world.emit(EventType.SKILLS_UPDATED, {
-          playerId: socket.player.id,
-          skills: savedSkills,
-        });
-      }
-      // Send inventory snapshot immediately from persistence to avoid races
-      try {
-        const dbSys = world.getSystem?.("database") as
-          | DatabaseSystemOperations
-          | undefined;
-        const persistenceId = characterId || socket.player.id;
-        const rows = dbSys?.getPlayerInventoryAsync
-          ? await dbSys.getPlayerInventoryAsync(persistenceId)
-          : [];
-        const coinsRow = dbSys?.getPlayerAsync
-          ? await dbSys.getPlayerAsync(persistenceId)
-          : null;
-        const sorted = rows
-          .map((r) => ({
-            rawSlot:
-              Number.isFinite(r.slotIndex) && (r.slotIndex as number) >= 0
-                ? (r.slotIndex as number)
-                : Number.MAX_SAFE_INTEGER,
-            itemId: String(r.itemId),
-            quantity: r.quantity || 1,
-          }))
-          .sort((a, b) => a.rawSlot - b.rawSlot);
-        const items = sorted.map((r, index) => {
-          const def = getItem(r.itemId);
-          return {
-            // Use actual DB slot if valid (0-27), fallback to index for invalid/missing slots
-            slot: r.rawSlot < 28 ? r.rawSlot : Math.min(index, 27),
-            itemId: r.itemId,
-            quantity: r.quantity,
-            item: def
-              ? {
-                  id: def.id,
-                  name: def.name,
-                  type: def.type,
-                  stackable: !!def.stackable,
-                  weight: def.weight || 0,
-                }
-              : {
-                  id: r.itemId,
-                  name: r.itemId,
-                  type: "misc",
-                  stackable: false,
-                  weight: 0,
-                },
-          };
-        });
-        sendToFn(socket.id, "inventoryUpdated", {
-          playerId: socket.player.id,
-          items,
-          coins: coinsRow?.coins ?? 0,
-          maxSlots: 28,
-        });
-      } catch {}
-
-      // CRITICAL: Send equipment snapshot immediately from persistence to avoid races
-      // Load equipment BEFORE PLAYER_JOINED event fires to prevent bronze sword bug
-      try {
-        const dbSys = world.getSystem?.("database") as
-          | DatabaseSystemOperations
-          | undefined;
-        const persistenceId = characterId || socket.player.id;
-        const equipmentRows = dbSys?.getPlayerEquipmentAsync
-          ? await dbSys.getPlayerEquipmentAsync(persistenceId)
-          : [];
-
-        if (equipmentRows.length > 0) {
-          const equipmentData: Record<string, unknown> = {};
-          for (const row of equipmentRows) {
-            if (row.itemId && row.slotType) {
-              const itemDef = getItem(String(row.itemId));
-              if (itemDef) {
-                equipmentData[row.slotType] = {
-                  item: itemDef,
-                  itemId: String(row.itemId),
-                };
-              }
+      // CRITICAL: Also emit server-side event so EquipmentSystem cache gets populated
+      // Without this, equipment validation fails because EquipmentSystem.playerSkills is empty
+      world.emit(EventType.SKILLS_UPDATED, {
+        playerId: socket.player.id,
+        skills: savedSkills,
+      });
+    }
+    // Send inventory snapshot immediately from persistence to avoid races
+    const dbSys = world.getSystem?.("database") as
+      | DatabaseSystemOperations
+      | undefined;
+    const persistenceId = characterId || socket.player.id;
+    const rows = dbSys?.getPlayerInventoryAsync
+      ? await dbSys.getPlayerInventoryAsync(persistenceId)
+      : [];
+    const coinsRow = dbSys?.getPlayerAsync
+      ? await dbSys.getPlayerAsync(persistenceId)
+      : null;
+    const sorted = rows
+      .map((r) => ({
+        rawSlot:
+          Number.isFinite(r.slotIndex) && (r.slotIndex as number) >= 0
+            ? (r.slotIndex as number)
+            : Number.MAX_SAFE_INTEGER,
+        itemId: String(r.itemId),
+        quantity: r.quantity || 1,
+      }))
+      .sort((a, b) => a.rawSlot - b.rawSlot);
+    const items = sorted.map((r, index) => {
+      const def = getItem(r.itemId);
+      return {
+        // Use actual DB slot if valid (0-27), fallback to index for invalid/missing slots
+        slot: r.rawSlot < 28 ? r.rawSlot : Math.min(index, 27),
+        itemId: r.itemId,
+        quantity: r.quantity,
+        item: def
+          ? {
+              id: def.id,
+              name: def.name,
+              type: def.type,
+              stackable: !!def.stackable,
+              weight: def.weight || 0,
             }
-          }
+          : {
+              id: r.itemId,
+              name: r.itemId,
+              type: "misc",
+              stackable: false,
+              weight: 0,
+            },
+      };
+    });
+    sendToFn(socket.id, "inventoryUpdated", {
+      playerId: socket.player.id,
+      items,
+      coins: coinsRow?.coins ?? 0,
+      maxSlots: 28,
+    });
 
-          // Send equipment to client immediately
-          sendToFn(socket.id, "equipmentUpdated", {
-            playerId: socket.player.id,
-            equipment: equipmentData,
-          });
+    // CRITICAL: Send equipment snapshot immediately from persistence to avoid races
+    // Load equipment BEFORE PLAYER_JOINED event fires to prevent bronze sword bug
+    const equipmentRows = dbSys?.getPlayerEquipmentAsync
+      ? await dbSys.getPlayerEquipmentAsync(persistenceId)
+      : [];
+
+    if (equipmentRows.length > 0) {
+      const equipmentData: Record<string, unknown> = {};
+      for (const row of equipmentRows) {
+        if (row.itemId && row.slotType) {
+          const itemDef = getItem(String(row.itemId));
+          if (itemDef) {
+            equipmentData[row.slotType] = {
+              item: itemDef,
+              itemId: String(row.itemId),
+            };
+          }
         }
-      } catch (err) {
-        console.error("[CharacterSelection] ❌ Failed to load equipment:", err);
       }
-    } catch (_err) {}
+
+      // Send equipment to client immediately
+      sendToFn(socket.id, "equipmentUpdated", {
+        playerId: socket.player.id,
+        equipment: equipmentData,
+      });
+    }
   }
 }

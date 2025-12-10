@@ -16,7 +16,7 @@
  * NO MOCKS - Tests actual compression/decompression logic
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import {
   packPosition,
   unpackPosition,

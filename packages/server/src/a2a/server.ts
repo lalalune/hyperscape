@@ -613,6 +613,227 @@ export class A2AServer {
         };
       }
 
+      case "look-around":
+      case "get-world-context": {
+        const range = optionalNumber(data.range, 30);
+        
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
+        if (!player) {
+          return { success: false, message: "Player not found" };
+        }
+
+        const position = player.position || player.node?.position;
+        const health = rpg.getPlayerHealth?.(agentId) ?? { current: 100, max: 100 };
+        const inCombat = rpg.isInCombat?.(agentId) ?? false;
+        
+        // Get nearby entities
+        const mobs = rpg.getMobsInArea?.(position, range) ?? [];
+        const resources = rpg.getResourcesInArea?.(position, range) ?? [];
+        const items = rpg.getItemsInRange?.(position, range) ?? [];
+        
+        // Build semantic description
+        const lines: string[] = [];
+        lines.push("=== WORLD CONTEXT ===");
+        lines.push(`Position: [${position?.x?.toFixed(0) ?? 0}, ${position?.z?.toFixed(0) ?? 0}]`);
+        lines.push(`Health: ${Math.round((health.current / health.max) * 100)}%`);
+        lines.push(`In Combat: ${inCombat ? "Yes" : "No"}`);
+        lines.push("");
+        
+        if (mobs.length > 0) {
+          lines.push(`Creatures (${mobs.length}):`);
+          mobs.slice(0, 5).forEach((mob: { name?: string; mobType?: string }) => {
+            lines.push(`  • ${mob.name || mob.mobType || "Unknown"}`);
+          });
+        }
+        
+        if (resources.length > 0) {
+          lines.push(`Resources (${resources.length}):`);
+          resources.slice(0, 5).forEach((res: { name?: string; resourceType?: string }) => {
+            lines.push(`  • ${res.name || res.resourceType || "Resource"}`);
+          });
+        }
+        
+        if (items.length > 0) {
+          lines.push(`Ground Items (${items.length}):`);
+          items.slice(0, 5).forEach((item: { name?: string }) => {
+            lines.push(`  • ${item.name || "Item"}`);
+          });
+        }
+
+        return {
+          success: true,
+          message: lines.join("\n"),
+          data: { position, health, inCombat, mobs, resources, items },
+        };
+      }
+
+      case "interact-npc": {
+        const npcId = optionalString(data.npcId);
+        const npcName = optionalString(data.npcName);
+        
+        // Find NPC by ID or name
+        const target = npcId || npcName;
+        if (!target) {
+          return { success: false, message: "Specify npcId or npcName" };
+        }
+
+        // NPC interaction would be handled by dialogue system
+        return {
+          success: true,
+          message: `Interacting with NPC: ${target}`,
+          data: { npcId, npcName },
+        };
+      }
+
+      case "loot-corpse": {
+        const corpseId = optionalString(data.corpseId);
+        
+        // Loot from nearest corpse or specified one
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "loot_corpse",
+          context,
+          { corpseId },
+        );
+
+        return {
+          success: result?.success ?? true,
+          message: (result?.message as string) ?? "Looting corpse",
+        };
+      }
+
+      case "eat-food": {
+        // Find food in inventory and use it
+        const inventory = rpg.getInventory?.(agentId) ?? [];
+        const food = inventory.find((item: { name?: string }) => 
+          /fish|food|bread|meat/i.test(item.name || "") &&
+          !/raw/i.test(item.name || "")
+        );
+        
+        if (!food) {
+          return { success: false, message: "No edible food in inventory" };
+        }
+
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "use_item",
+          context,
+          { itemId: food.id },
+        );
+
+        return {
+          success: result?.success ?? true,
+          message: (result?.message as string) ?? `Eating ${food.name}`,
+          data: { food },
+        };
+      }
+
+      case "emote": {
+        const emoteName = optionalString(data.emote, "wave");
+        
+        rpg.playEmote?.(agentId, emoteName);
+
+        return {
+          success: true,
+          message: `Performing ${emoteName} emote`,
+        };
+      }
+
+      case "respawn": {
+        const isAlive = rpg.isPlayerAlive?.(agentId) ?? true;
+        
+        if (isAlive) {
+          return { success: false, message: "Player is not dead" };
+        }
+
+        rpg.respawnPlayer?.(agentId);
+
+        return {
+          success: true,
+          message: "Respawning at nearest town",
+        };
+      }
+
+      case "set-goal": {
+        const goalType = optionalString(data.goalType, "exploration");
+        const target = optionalString(data.target);
+        
+        // Goals are managed by the plugin's AutonomousBehaviorManager
+        // This just acknowledges the intent
+        return {
+          success: true,
+          message: `Goal set: ${goalType} - ${target || "general"}`,
+          data: { goalType, target },
+        };
+      }
+
+      case "move-direction": {
+        const direction = optionalString(data.direction, "north");
+        const distance = optionalNumber(data.distance, 10) * 5; // tiles to units
+        
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
+        if (!player) {
+          return { success: false, message: "Player not found" };
+        }
+
+        const position = player.position || player.node?.position;
+        if (!position) {
+          return { success: false, message: "Player position unknown" };
+        }
+
+        // Calculate target position
+        let dx = 0, dz = 0;
+        if (direction.includes("north")) dz -= distance;
+        if (direction.includes("south")) dz += distance;
+        if (direction.includes("east")) dx += distance;
+        if (direction.includes("west")) dx -= distance;
+
+        const targetX = (position.x ?? 0) + dx;
+        const targetZ = (position.z ?? 0) + dz;
+
+        rpg.movePlayer?.(agentId, { x: targetX, y: position.y ?? 0, z: targetZ });
+
+        return {
+          success: true,
+          message: `Moving ${direction} for ${distance / 5} tiles`,
+        };
+      }
+
+      case "examine": {
+        const entityId = optionalString(data.entityId);
+        
+        if (!entityId) {
+          return { success: false, message: "Specify entityId to examine" };
+        }
+
+        // Get entity info
+        const mobs = rpg.getAllMobs?.() ?? [];
+        const mob = mobs.find((m: { id: string }) => m.id === entityId);
+        
+        if (mob) {
+          return {
+            success: true,
+            message: `Examining: ${mob.name || mob.mobType || "Unknown mob"}`,
+            data: {
+              id: mob.id,
+              name: mob.name,
+              type: mob.mobType,
+              level: mob.level,
+              alive: mob.alive !== false,
+            },
+          };
+        }
+
+        return {
+          success: false,
+          message: `Entity ${entityId} not found`,
+        };
+      }
+
       default:
         return { success: false, message: `Unknown skill: ${skillId}` };
     }

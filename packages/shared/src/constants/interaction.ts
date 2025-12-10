@@ -65,7 +65,7 @@ export const INPUT_LIMITS = {
   MAX_STORE_ID_LENGTH: 64,
   MAX_QUANTITY: 2_147_483_647, // Max signed 32-bit int
   MAX_INVENTORY_SLOTS: 28,
-  MAX_BANK_SLOTS: 480,
+  MAX_BANK_SLOTS: 480, // 12 tabs * 40 slots per tab
   /** Max age for request timestamps (5 seconds) - prevents replay attacks */
   MAX_REQUEST_AGE_MS: 5000,
   /** Max clock skew tolerance (1 second into future) */

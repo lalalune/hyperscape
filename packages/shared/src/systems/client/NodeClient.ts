@@ -1,4 +1,4 @@
-import { System } from "../shared";
+import { System } from "../shared/infrastructure/System";
 import type { World } from "../../types";
 
 const TICK_RATE = 1 / 30;

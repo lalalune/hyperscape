@@ -9,7 +9,7 @@
  * - Returns to previous track after combat with crossfade
  */
 
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import type { World } from "../../../core/World";
 import { EventType } from "../../../types/events";
 import type { ClientAudio } from "../../client/ClientAudio";
@@ -107,10 +107,10 @@ export class MusicSystem extends SystemBase {
   }
 
   private async loadMusicManifest(): Promise<void> {
-    // Load directly from CDN (localhost:8088 in dev, R2/S3 in prod)
+    // Load directly from CDN (localhost:8080 in dev, R2/S3 in prod)
     // Use world.assetsUrl which is set by the server snapshot
     const cdnUrl =
-      this.world.assetsUrl?.replace(/\/$/, "") || "http://localhost:8088";
+      this.world.assetsUrl?.replace(/\/$/, "") || "http://localhost:8080";
     const manifestPath = `${cdnUrl}/manifests/music.json`;
 
     const response = await fetch(manifestPath);

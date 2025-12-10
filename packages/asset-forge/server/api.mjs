@@ -60,7 +60,7 @@ app.use('/assets', express.static(path.join(ROOT_DIR, 'public/assets'), {
 const assetService = new AssetService(path.join(ROOT_DIR, 'gdd-assets'))
 const retextureService = new RetextureService({
   meshyApiKey: process.env.MESHY_API_KEY || '',
-  imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8088'
+  imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8080'
 })
 const generationService = new GenerationService()
 

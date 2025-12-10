@@ -54,21 +54,21 @@ export interface ViewportSettings {
  * Check if running in embedded viewport mode
  */
 export function isEmbeddedMode(): boolean {
-  return !!(window as any).__HYPERSCAPE_EMBEDDED__;
+  return !!(window as { __HYPERSCAPE_EMBEDDED__?: boolean }).__HYPERSCAPE_EMBEDDED__;
 }
 
 /**
  * Get embedded viewport configuration
  */
 export function getEmbeddedConfig(): EmbeddedViewportConfig | null {
-  return (window as any).__HYPERSCAPE_CONFIG__ || null;
+  return (window as { __HYPERSCAPE_CONFIG__?: EmbeddedViewportConfig }).__HYPERSCAPE_CONFIG__ || null;
 }
 
 /**
  * Get viewport performance settings
  */
 export function getViewportSettings(): ViewportSettings | null {
-  return (window as any).__HYPERSCAPE_VIEWPORT_SETTINGS__ || null;
+  return (window as { __HYPERSCAPE_VIEWPORT_SETTINGS__?: ViewportSettings }).__HYPERSCAPE_VIEWPORT_SETTINGS__ || null;
 }
 
 /**

@@ -6,13 +6,12 @@
  * Caches results for performance.
  */
 
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import type { World } from "../../../core/World";
 import { getZoneByPosition } from "../../../data/world-structure";
 import { ALL_WORLD_AREAS } from "../../../data/world-areas";
 import type { ZoneType, ZoneProperties } from "../../../types/death";
 import { ZoneType as ZoneTypeEnum } from "../../../types/death";
-import type { WorldArea } from "../../../types/core/core";
 
 export class ZoneDetectionSystem extends SystemBase {
   // Cache zone lookups (key: "x,z", value: ZoneProperties)

@@ -21,7 +21,7 @@ import {
   createItemID,
   createPlayerID,
 } from "../../../utils/IdentifierUtils";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 
 /**
  * Banking System

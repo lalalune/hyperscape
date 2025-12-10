@@ -6,7 +6,7 @@
  * NO MOCKS - Tests actual throttling logic
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 import {
   UpdateThrottler,
   UpdatePriority,
@@ -45,67 +45,70 @@ describe("UpdateThrottler", () => {
     it("should throttle based on distance tiers", () => {
       throttler.setCurrentTick(0);
 
-      // Near entity (0-25m) - every tick
-      throttler.shouldUpdate("near", "player1", 10);
+      // Near entity (0-25m, <625 squared) - every tick
+      // Using 100 = 10m squared
+      throttler.shouldUpdate("near", "player1", 100);
       throttler.setCurrentTick(1);
-      expect(throttler.shouldUpdate("near", "player1", 10)).toBe(true);
+      expect(throttler.shouldUpdate("near", "player1", 100)).toBe(true);
 
-      // Medium entity (25-50m) - every 2nd tick
+      // Medium entity (25-50m, 625-2500 squared) - every 2nd tick
+      // Using 1225 = 35m squared
       throttler.setCurrentTick(0);
-      throttler.shouldUpdate("medium", "player1", 35);
+      throttler.shouldUpdate("medium", "player1", 1225);
       throttler.setCurrentTick(1);
-      expect(throttler.shouldUpdate("medium", "player1", 35)).toBe(false);
+      expect(throttler.shouldUpdate("medium", "player1", 1225)).toBe(false);
       throttler.setCurrentTick(2);
-      expect(throttler.shouldUpdate("medium", "player1", 35)).toBe(true);
+      expect(throttler.shouldUpdate("medium", "player1", 1225)).toBe(true);
 
-      // Far entity (50-100m) - every 4th tick
+      // Far entity (50-100m, 2500-10000 squared) - every 4th tick
+      // Using 5625 = 75m squared
       throttler.setCurrentTick(0);
-      throttler.shouldUpdate("far", "player1", 75);
+      throttler.shouldUpdate("far", "player1", 5625);
       throttler.setCurrentTick(1);
-      expect(throttler.shouldUpdate("far", "player1", 75)).toBe(false);
+      expect(throttler.shouldUpdate("far", "player1", 5625)).toBe(false);
       throttler.setCurrentTick(2);
-      expect(throttler.shouldUpdate("far", "player1", 75)).toBe(false);
+      expect(throttler.shouldUpdate("far", "player1", 5625)).toBe(false);
       throttler.setCurrentTick(3);
-      expect(throttler.shouldUpdate("far", "player1", 75)).toBe(false);
+      expect(throttler.shouldUpdate("far", "player1", 5625)).toBe(false);
       throttler.setCurrentTick(4);
-      expect(throttler.shouldUpdate("far", "player1", 75)).toBe(true);
+      expect(throttler.shouldUpdate("far", "player1", 5625)).toBe(true);
     });
 
     it("should respect HIGH priority for faster updates", () => {
       throttler.setCurrentTick(0);
 
-      // Far entity with HIGH priority should update every 2nd tick instead of 4th
-      throttler.shouldUpdate("entity1", "player1", 75, UpdatePriority.HIGH);
+      // Far entity (75m = 5625 squared) with HIGH priority should update every 2nd tick instead of 4th
+      throttler.shouldUpdate("entity1", "player1", 5625, UpdatePriority.HIGH);
       throttler.setCurrentTick(1);
       expect(
-        throttler.shouldUpdate("entity1", "player1", 75, UpdatePriority.HIGH),
+        throttler.shouldUpdate("entity1", "player1", 5625, UpdatePriority.HIGH),
       ).toBe(false);
       throttler.setCurrentTick(2);
       expect(
-        throttler.shouldUpdate("entity1", "player1", 75, UpdatePriority.HIGH),
+        throttler.shouldUpdate("entity1", "player1", 5625, UpdatePriority.HIGH),
       ).toBe(true);
     });
 
     it("should respect LOW priority for slower updates", () => {
       throttler.setCurrentTick(0);
 
-      // Medium entity with LOW priority should update every 4th tick instead of 2nd
-      throttler.shouldUpdate("entity1", "player1", 35, UpdatePriority.LOW);
+      // Medium entity (35m = 1225 squared) with LOW priority should update every 4th tick instead of 2nd
+      throttler.shouldUpdate("entity1", "player1", 1225, UpdatePriority.LOW);
       throttler.setCurrentTick(1);
       expect(
-        throttler.shouldUpdate("entity1", "player1", 35, UpdatePriority.LOW),
+        throttler.shouldUpdate("entity1", "player1", 1225, UpdatePriority.LOW),
       ).toBe(false);
       throttler.setCurrentTick(2);
       expect(
-        throttler.shouldUpdate("entity1", "player1", 35, UpdatePriority.LOW),
+        throttler.shouldUpdate("entity1", "player1", 1225, UpdatePriority.LOW),
       ).toBe(false);
       throttler.setCurrentTick(3);
       expect(
-        throttler.shouldUpdate("entity1", "player1", 35, UpdatePriority.LOW),
+        throttler.shouldUpdate("entity1", "player1", 1225, UpdatePriority.LOW),
       ).toBe(false);
       throttler.setCurrentTick(4);
       expect(
-        throttler.shouldUpdate("entity1", "player1", 35, UpdatePriority.LOW),
+        throttler.shouldUpdate("entity1", "player1", 1225, UpdatePriority.LOW),
       ).toBe(true);
     });
 
@@ -130,11 +133,11 @@ describe("UpdateThrottler", () => {
 
       // Next tick should check from tick 10
       throttler.setCurrentTick(11);
-      // Medium distance (every 2 ticks) should not update yet
-      expect(throttler.shouldUpdate("entity1", "player1", 35)).toBe(false);
+      // Medium distance (35m = 1225 squared, every 2 ticks) should not update yet
+      expect(throttler.shouldUpdate("entity1", "player1", 1225)).toBe(false);
 
       throttler.setCurrentTick(12);
-      expect(throttler.shouldUpdate("entity1", "player1", 35)).toBe(true);
+      expect(throttler.shouldUpdate("entity1", "player1", 1225)).toBe(true);
     });
   });
 

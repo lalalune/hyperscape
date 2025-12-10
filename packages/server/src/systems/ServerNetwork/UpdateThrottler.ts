@@ -1,17 +1,19 @@
 /**
  * Distance-based update throttling. Reduces traffic by 50-70%.
+ * Uses squared distances internally to avoid expensive sqrt calls.
  */
 
 interface ThrottleTier {
-  maxDistance: number;
+  maxDistanceSquared: number;
   updateInterval: number;
 }
 
+// Precomputed squared distances for tier thresholds
 const DEFAULT_TIERS: ThrottleTier[] = [
-  { maxDistance: 25, updateInterval: 1 },
-  { maxDistance: 50, updateInterval: 2 },
-  { maxDistance: 100, updateInterval: 4 },
-  { maxDistance: Infinity, updateInterval: 8 },
+  { maxDistanceSquared: 625, updateInterval: 1 },     // 25^2
+  { maxDistanceSquared: 2500, updateInterval: 2 },    // 50^2
+  { maxDistanceSquared: 10000, updateInterval: 4 },   // 100^2
+  { maxDistanceSquared: Infinity, updateInterval: 8 },
 ];
 
 export enum UpdatePriority {
@@ -41,10 +43,10 @@ export class UpdateThrottler {
     this.currentTick = tick;
   }
 
-  private getTier(distance: number): number {
+  private getTier(distanceSquared: number): number {
     const tiers = this.tiers;
     for (let i = 0; i < tiers.length; i++) {
-      if (distance <= tiers[i].maxDistance) {
+      if (distanceSquared <= tiers[i].maxDistanceSquared) {
         return i;
       }
     }
@@ -55,16 +57,23 @@ export class UpdateThrottler {
     return `${playerId}\0${entityId}`;
   }
 
+  /**
+   * Check if an entity update should be sent to a player.
+   * @param entityId - Entity being updated
+   * @param playerId - Player receiving the update
+   * @param distanceSquared - Squared distance between player and entity (avoids sqrt)
+   * @param priority - Update priority level
+   */
   shouldUpdate(
     entityId: string,
     playerId: string,
-    distance: number,
+    distanceSquared: number,
     priority: UpdatePriority = UpdatePriority.NORMAL,
   ): boolean {
     if (priority === UpdatePriority.CRITICAL) return true;
 
     const key = this.makeKey(playerId, entityId);
-    const tier = this.getTier(distance);
+    const tier = this.getTier(distanceSquared);
 
     let interval = this.tiers[tier].updateInterval;
     if (priority === UpdatePriority.HIGH) {
@@ -167,6 +176,9 @@ export class UpdateThrottler {
   }
 }
 
+/**
+ * Calculate 2D distance.
+ */
 export function distance2D(
   x1: number,
   z1: number,
@@ -178,6 +190,10 @@ export function distance2D(
   return Math.sqrt(dx * dx + dz * dz);
 }
 
+/**
+ * Calculate squared 2D distance (avoids expensive sqrt).
+ * Use this for distance comparisons.
+ */
 export function distance2DSquared(
   x1: number,
   z1: number,

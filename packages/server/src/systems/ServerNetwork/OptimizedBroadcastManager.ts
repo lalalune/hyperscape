@@ -5,7 +5,7 @@
 import type { ServerSocket } from "../../shared/types";
 import { writePacket } from "@hyperscape/shared";
 import { AOIManager, AOISubscriptionChanges } from "./AOIManager";
-import { UpdateThrottler, UpdatePriority, distance2D } from "./UpdateThrottler";
+import { UpdateThrottler, UpdatePriority, distance2DSquared } from "./UpdateThrottler";
 import { BatchUpdater } from "./BatchUpdater";
 
 export interface OptimizedBroadcastConfig {
@@ -132,15 +132,13 @@ export class OptimizedBroadcastManager {
       if (!playerState) continue;
 
       if (checkThrottle && entityPos) {
-        const distance = distance2D(
+        const distSq = distance2DSquared(
           playerState.x,
           playerState.z,
           entityPos.x,
           entityPos.z,
         );
-        if (
-          !this.throttler.shouldUpdate(entityId, playerId, distance, priority)
-        ) {
+        if (!this.throttler.shouldUpdate(entityId, playerId, distSq, priority)) {
           continue;
         }
       }

@@ -15,7 +15,7 @@
  * actual interaction logic to focused handler classes.
  */
 
-import { System } from "../..";
+import { System } from "../../shared/infrastructure/System";
 import type { World } from "../../../core/World";
 import type { InteractableEntityType } from "./types";
 import type { Position3D } from "../../../types/core/base-types";

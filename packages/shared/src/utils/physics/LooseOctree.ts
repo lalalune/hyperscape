@@ -561,15 +561,6 @@ function sortAscending(a: THREE.Intersection, b: THREE.Intersection) {
   return a.distance - b.distance;
 }
 
-// function getRandomHexColor() {
-//   // Generate a random integer between 0 and 0xFFFFFF (16777215 in decimal)
-//   const randomInt = Math.floor(Math.random() * 16777216);
-//   // Convert the integer to a hexadecimal string and pad with leading zeros if necessary
-//   const hexColor = randomInt.toString(16).padStart(6, '0');
-//   // Prefix with '#' to form a valid hex color code
-//   return '#' + hexColor;
-// }
-
 function createHelper(octree: LooseOctree) {
   const boxes = new THREE.BoxGeometry(1, 1, 1);
   const edges = new THREE.EdgesGeometry(boxes);

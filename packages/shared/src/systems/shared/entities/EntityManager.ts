@@ -41,7 +41,7 @@ import {
 import { NPCBehavior, NPCState } from "../../../types/core/core";
 import { EventType } from "../../../types/events";
 import { TerrainSystem } from "..";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { getItem } from "../../../data/items";
 import { getNPCById } from "../../../data/npcs";
 import { getExternalNPC } from "../../../utils/ExternalAssetUtils";
@@ -708,13 +708,30 @@ export class EntityManager extends SystemBase {
       return;
     }
 
+    // Try to use AOI-aware queueEntityUpdate if available (ServerNetwork)
     const network = this.world.network as {
       send?: (method: string, data: unknown, excludeId?: string) => void;
+      queueEntityUpdate?: (
+        entityId: string,
+        data: {
+          position?: { x: number; y: number; z: number };
+          quaternion?: { x: number; y: number; z: number; w: number };
+          health?: { current: number; max: number };
+          state?: number;
+          priority?: number;
+          force?: boolean;
+        },
+      ) => void;
+      updateEntityAOI?: (entityId: string, x: number, z: number) => void;
+      flushEntityUpdates?: () => void;
     };
-    if (!network?.send) {
+
+    if (!network) {
       this.networkDirtyEntities.clear();
       return;
     }
+
+    const useAOI = !!network.queueEntityUpdate;
 
     for (const entityId of this.networkDirtyEntities) {
       let entity = this.entities.get(entityId);
@@ -725,16 +742,33 @@ export class EntityManager extends SystemBase {
 
       const pos = entity.position;
       const rot = entity.node?.quaternion;
-      const networkData = entity.getNetworkData();
 
-      network.send("entityModified", {
-        id: entityId,
-        changes: {
-          p: [pos.x, pos.y, pos.z],
-          q: rot ? [rot.x, rot.y, rot.z, rot.w] : undefined,
-          ...networkData,
-        },
-      });
+      if (useAOI) {
+        // Use AOI-aware system for entity position updates
+        network.updateEntityAOI?.(entityId, pos.x, pos.z);
+        network.queueEntityUpdate?.(entityId, {
+          position: { x: pos.x, y: pos.y, z: pos.z },
+          quaternion: rot
+            ? { x: rot.x, y: rot.y, z: rot.z, w: rot.w }
+            : undefined,
+        });
+      } else if (network.send) {
+        // Fallback to legacy broadcast
+        const networkData = entity.getNetworkData();
+        network.send("entityModified", {
+          id: entityId,
+          changes: {
+            p: [pos.x, pos.y, pos.z],
+            q: rot ? [rot.x, rot.y, rot.z, rot.w] : undefined,
+            ...networkData,
+          },
+        });
+      }
+    }
+
+    // Flush AOI updates if using the optimized system
+    if (useAOI) {
+      network.flushEntityUpdates?.();
     }
 
     this.networkDirtyEntities.clear();

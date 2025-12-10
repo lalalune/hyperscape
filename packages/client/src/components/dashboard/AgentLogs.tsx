@@ -1,13 +1,5 @@
-import React, { useState, useEffect } from "react";
-import {
-  Terminal,
-  Clock,
-  Filter,
-  Download,
-  Pause,
-  Play,
-  Trash2,
-} from "lucide-react";
+import React from "react";
+import { Terminal, Download, Pause, Play, Trash2 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
 import { ELIZAOS_API } from "@/lib/api-config";
 
@@ -95,7 +87,7 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
           console.log("[AgentLogs] First log sample:", logs[0]);
 
           // Extract log level from type (e.g., "useModel:TEXT_EMBEDDING" -> "info")
-          const extractLevel = (log: any): string => {
+          const extractLevel = (log: { type?: string }): string => {
             const type = log.type || "";
             if (type.includes("error") || type.includes("Error"))
               return "error";
@@ -106,7 +98,7 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
           };
 
           // Extract message from log body and type
-          const extractMessage = (log: any): string => {
+          const extractMessage = (log: { type?: string; body?: { modelType?: string; executionTime?: number } }): string => {
             const type = log.type || "unknown";
             const body = log.body || {};
 
@@ -124,7 +116,7 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
             return type;
           };
 
-          const formattedLogs = logs.map((log: any) => ({
+          const formattedLogs = logs.map((log: { id: string; type?: string; body?: { modelType?: string; executionTime?: number }; createdAt: string }) => ({
             id: log.id,
             timestamp: new Date(log.createdAt),
             level: extractLevel(log),
@@ -159,7 +151,7 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
-  const filteredLogs = logs.filter((log) => {
+  const _filteredLogs = logs.filter((log) => {
     if (filter === "all") return true;
     if (filter === "error") return log.level === "error";
     if (filter === "warning")

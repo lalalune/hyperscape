@@ -136,7 +136,7 @@ function DraggableInventorySlot({
   });
 
   // Combine refs for both draggable and droppable on same element
-  const setNodeRef = (node: HTMLButtonElement | null) => {
+  const setNodeRef = (node: globalThis.HTMLButtonElement | null) => {
     setDraggableRef(node);
     setDroppableRef(node);
   };

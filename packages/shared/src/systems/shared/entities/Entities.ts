@@ -69,7 +69,7 @@ import type {
   World,
 } from "../../../types/index";
 import { EventType } from "../../../types/events";
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import { MobEntity } from "../../../entities/npc/MobEntity";
 import { NPCEntity } from "../../../entities/npc/NPCEntity";
 import { ItemEntity } from "../../../entities/world/ItemEntity";

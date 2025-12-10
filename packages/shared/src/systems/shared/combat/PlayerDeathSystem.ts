@@ -1,12 +1,9 @@
-import { SystemBase } from "..";
+import { SystemBase } from "../infrastructure/SystemBase";
 import type { World } from "../../../core/World";
 import { EventType } from "../../../types/events";
 import { WORLD_STRUCTURE_CONSTANTS } from "../../../data/world-structure";
-import type { HeadstoneData } from "../../../types/entities";
 import type {
-  ZoneData,
   InventoryItem,
-  HeadstoneApp,
   DeathLocationData,
 } from "../../../types/core/core";
 import {
@@ -540,7 +537,7 @@ export class PlayerDeathSystem extends SystemBase {
     playerId: string,
     deathPosition: { x: number; y: number; z: number },
     itemsToDrop: InventoryItem[],
-    killedBy: string,
+    _killedBy: string,
   ): void {
     // Store death location for tracking (memory only)
     const deathData: DeathLocationData = {

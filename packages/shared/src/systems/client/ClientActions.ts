@@ -39,7 +39,7 @@ import type { Action } from "../../nodes/Action";
 import type { ControlBinding, World } from "../../types";
 import { clamp } from "../../utils";
 import { ClientGraphics as GraphicsSystem } from "../client/ClientGraphics";
-import { SystemBase } from "../shared";
+import { SystemBase } from "../shared/infrastructure/SystemBase";
 import { XR as XRSystem } from "../client/XR";
 
 /** Max vertices per canvas batch draw */

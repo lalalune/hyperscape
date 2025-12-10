@@ -1,12 +1,27 @@
 /**
  * Combat Handler
  *
- * Handles combat-related actions from clients
+ * Handles combat-related actions from clients.
+ *
+ * Security measures:
+ * - Validates player entity exists on socket
+ * - Validates mob exists in world before forwarding
+ * - Validates mob is attackable
+ * - Input validation on mobId format
  */
 
 import type { ServerSocket } from "../../../shared/types";
 import { EventType, World } from "@hyperscape/shared";
+import { isValidEntityId } from "../services/InputValidation";
 
+/**
+ * Handle player attack on mob
+ *
+ * Security:
+ * - Validates mobId is valid string format
+ * - Validates mob entity exists in world
+ * - Validates mob is attackable (not dead, not protected)
+ */
 export function handleAttackMob(
   socket: ServerSocket,
   data: unknown,
@@ -24,7 +39,36 @@ export function handleAttackMob(
     return;
   }
 
-  // Forward to CombatSystem
+  // Validate mobId format (prevent injection attacks)
+  if (!isValidEntityId(payload.mobId)) {
+    console.warn(
+      `[Combat] handleAttackMob: invalid mobId format: ${payload.mobId}`,
+    );
+    return;
+  }
+
+  // SECURITY: Validate mob exists in world before forwarding to CombatSystem
+  // This prevents event spam with fake mob IDs
+  const targetMob = world.entities.get(payload.mobId);
+  if (!targetMob) {
+    console.warn(
+      `[Combat] handleAttackMob: mob not found: ${payload.mobId} (player: ${playerEntity.id})`,
+    );
+    return;
+  }
+
+  // SECURITY: Check if mob is already dead (prevents attacks on corpses)
+  if (targetMob.type === "mob") {
+    const mobEntity = targetMob as { isDead?: () => boolean; getHealth?: () => number };
+    if (mobEntity.isDead?.() || (mobEntity.getHealth?.() ?? 1) <= 0) {
+      console.warn(
+        `[Combat] handleAttackMob: attempted attack on dead mob: ${payload.mobId}`,
+      );
+      return;
+    }
+  }
+
+  // Forward to CombatSystem (which does additional range/cooldown validation)
   world.emit(EventType.COMBAT_ATTACK_REQUEST, {
     playerId: playerEntity.id,
     targetId: payload.mobId,

@@ -92,7 +92,6 @@ import type { MeshUserData } from "../types/core/core";
 import type { Position3D } from "../types/index";
 import type { EntityInteractionData, EntityConfig } from "../types/entities";
 import { EntityType } from "../types/entities";
-import { toPosition3D } from "../types/core/utilities";
 import { UIRenderer } from "../utils/rendering/UIRenderer";
 import { modelCache } from "../utils/rendering/ModelCache";
 
@@ -162,6 +161,11 @@ export class Entity implements IEntity {
   protected networkPos?: Position3D;
   protected networkQuat?: THREE.Quaternion;
   protected networkSca?: Position3D;
+
+  // PERFORMANCE: Cached objects for hot path methods
+  private readonly _cachedPosition: Position3D = { x: 0, y: 0, z: 0 };
+  private readonly _cachedScale: Position3D = { x: 0, y: 0, z: 0 };
+  private readonly _cachedNetworkData: Record<string, unknown> = {};
 
   constructor(
     world: World,
@@ -1024,6 +1028,17 @@ export class Entity implements IEntity {
     };
   }
 
+  /**
+   * Get position without allocation (zero-allocation version)
+   * WARNING: Returns cached object - copy values immediately if needed beyond current frame
+   */
+  public getPositionUnsafe(): Position3D {
+    this._cachedPosition.x = this.position.x;
+    this._cachedPosition.y = this.position.y;
+    this._cachedPosition.z = this.position.z;
+    return this._cachedPosition;
+  }
+
   public setPosition(
     posOrX: Position3D | number,
     y?: number,
@@ -1033,22 +1048,28 @@ export class Entity implements IEntity {
     if (y !== undefined && z !== undefined) {
       const x = posOrX as number;
       this.position.set(x, y, z);
-      this.config.position = { x, y, z };
+      // PERFORMANCE: Reuse config.position object instead of allocating new one
+      this.config.position.x = x;
+      this.config.position.y = y;
+      this.config.position.z = z;
     } else {
       // Strong type assumption - posOrX is Position3D
       const pos = posOrX as Position3D;
       this.position.set(pos.x, pos.y, pos.z);
-      this.config.position = { x: pos.x, y: pos.y, z: pos.z };
+      // PERFORMANCE: Reuse config.position object instead of allocating new one
+      this.config.position.x = pos.x;
+      this.config.position.y = pos.y;
+      this.config.position.z = pos.z;
     }
     // Position is already set via this.position, no sync needed
     this.markNetworkDirty();
   }
 
   getDistanceTo(point: Position3D): number {
-    const pos = this.getPosition();
-    const dx = pos.x - point.x;
-    const dy = pos.y - point.y;
-    const dz = pos.z - point.z;
+    // PERFORMANCE: Use inline calculation to avoid allocation
+    const dx = this.position.x - point.x;
+    const dy = this.position.y - point.y;
+    const dz = this.position.z - point.z;
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
   }
 
@@ -1404,21 +1425,38 @@ export class Entity implements IEntity {
   }
 
   // Get data for network synchronization
+  // PERFORMANCE: Reuses cached objects to avoid allocations on every call
   getNetworkData(): Record<string, unknown> {
-    const position = toPosition3D(this.node.position);
-    const rotation = this.node.quaternion;
-    const scale = {
-      x: this.node.scale.x,
-      y: this.node.scale.y,
-      z: this.node.scale.z,
-    };
+    // Reuse cached position/scale objects
+    this._cachedPosition.x = this.node.position.x;
+    this._cachedPosition.y = this.node.position.y;
+    this._cachedPosition.z = this.node.position.z;
+    
+    this._cachedScale.x = this.node.scale.x;
+    this._cachedScale.y = this.node.scale.y;
+    this._cachedScale.z = this.node.scale.z;
 
-    // Include all data fields (e.g., emote 'e') for network sync
+    // PERFORMANCE: Directly set fields instead of clearing and repopulating
+    // The cached object is reused - we just overwrite fields
+    const result = this._cachedNetworkData;
+    
+    // Set base fields (always present)
+    result.id = this.id;
+    result.type = this.type;
+    result.name = this.name;
+    result.position = this._cachedPosition;
+    result.rotation = this.node.quaternion;
+    result.scale = this._cachedScale;
+    result.visible = this.node.visible;
+    result.networkVersion = this.networkVersion;
+    result.properties = this.config.properties || {};
+
+    // Include data fields (e.g., emote 'e') for network sync
     // Filter out position/quaternion/scale since EntityManager handles those separately as p/q
-    const dataFields: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(this.data)) {
-      // Skip position/quaternion/scale arrays - EntityManager sends them as p/q
+    // PERFORMANCE: Use for...in instead of Object.entries() to avoid array allocation
+    for (const key in this.data) {
       if (
+        Object.prototype.hasOwnProperty.call(this.data, key) &&
         key !== "position" &&
         key !== "quaternion" &&
         key !== "scale" &&
@@ -1426,32 +1464,27 @@ export class Entity implements IEntity {
         key !== "type" &&
         key !== "name"
       ) {
-        dataFields[key] = value;
+        result[key] = this.data[key];
       }
     }
 
-    return {
-      id: this.id,
-      type: this.type,
-      name: this.name,
-      position,
-      rotation,
-      scale,
-      visible: this.node.visible,
-      networkVersion: this.networkVersion,
-      properties: this.config.properties || {},
-      ...dataFields, // Include emote ('e'), inCombat, combatTarget, health, and other data fields
-    };
+    return result;
   }
 
   // Apply network data (client-side)
+  // PERFORMANCE: Update properties in-place instead of creating new objects with spread
   applyNetworkData(data: Record<string, unknown>): void {
     this.networkVersion = data.networkVersion as number;
     this.node.visible = data.visible as boolean;
-    this.config.properties = {
-      ...this.config.properties,
-      ...(data.properties as Record<string, unknown>),
-    };
+    // Merge properties in-place to avoid object allocation
+    const newProps = data.properties as Record<string, unknown> | undefined;
+    if (newProps) {
+      for (const key in newProps) {
+        if (Object.prototype.hasOwnProperty.call(newProps, key)) {
+          this.config.properties[key] = newProps[key];
+        }
+      }
+    }
   }
 
   // Handle interaction request

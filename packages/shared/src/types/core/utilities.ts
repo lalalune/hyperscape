@@ -21,6 +21,20 @@ export function toPosition3D(pos: Position3D | THREE.Vector3): Position3D {
   return { x: pos.x, y: pos.y, z: pos.z };
 }
 
+/**
+ * Convert to Position3D with zero allocation by writing to target object
+ * Use this in hot paths where you don't need a new object
+ */
+export function toPosition3DInto(
+  pos: Position3D | THREE.Vector3,
+  target: Position3D,
+): Position3D {
+  target.x = pos.x;
+  target.y = pos.y;
+  target.z = pos.z;
+  return target;
+}
+
 // Position comparison
 export function positionsEqual(
   a: Position3D,
