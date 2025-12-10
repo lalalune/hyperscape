@@ -1,7 +1,7 @@
 /**
  * LoadingScreenTest.tsx - Test component to view the loading screen
  *
- * Access this at: http://localhost:3000/loading-test
+ * Access this at: http://localhost:5009/loading-test
  */
 
 import React from "react";

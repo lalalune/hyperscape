@@ -18,7 +18,7 @@
     "real-time"
   ],
   "scripts": {
-    "dev": "vite --host --port 3333",
+    "dev": "vite --host --port 5009",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
