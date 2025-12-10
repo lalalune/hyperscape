@@ -1476,8 +1476,16 @@ export class ClientNetwork extends SystemBase {
   onBankState = (data: {
     playerId: string;
     bankId?: string;
-    items: Array<{ itemId: string; quantity: number; slot: number }>;
+    items: Array<{
+      itemId: string;
+      quantity: number;
+      slot: number;
+      tabIndex?: number;
+    }>;
+    tabs?: Array<{ tabIndex: number; iconItemId: string | null }>;
+    alwaysSetPlaceholder?: boolean;
     maxSlots: number;
+    isOpen?: boolean;
   }) => {
     // Emit as UI update for BankPanel to handle
     this.world.emit(EventType.UI_UPDATE, {
@@ -1486,8 +1494,10 @@ export class ClientNetwork extends SystemBase {
       data: {
         bankId: data.bankId,
         items: data.items,
+        tabs: data.tabs,
+        alwaysSetPlaceholder: data.alwaysSetPlaceholder,
         maxSlots: data.maxSlots,
-        isOpen: true,
+        isOpen: data.isOpen ?? true,
       },
     });
   };

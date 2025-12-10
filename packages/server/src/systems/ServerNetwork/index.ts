@@ -99,6 +99,14 @@ import {
   handleBankDepositCoins,
   handleBankWithdrawCoins,
   handleBankClose,
+  handleBankMove,
+  handleBankCreateTab,
+  handleBankDeleteTab,
+  handleBankMoveToTab,
+  handleBankWithdrawPlaceholder,
+  handleBankReleasePlaceholder,
+  handleBankReleaseAllPlaceholders,
+  handleBankToggleAlwaysPlaceholder,
 } from "./handlers/bank";
 import {
   handleEntityModified,
@@ -703,6 +711,52 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onBankClose"] = (socket, data) =>
       handleBankClose(socket, data, this.world);
+
+    this.handlers["onBankMove"] = (socket, data) =>
+      handleBankMove(
+        socket,
+        data as { fromSlot: number; toSlot: number; mode: "swap" | "insert" },
+        this.world,
+      );
+
+    // Bank tab handlers (Phase 2)
+    this.handlers["onBankCreateTab"] = (socket, data) =>
+      handleBankCreateTab(
+        socket,
+        data as { fromSlot: number; fromTabIndex: number; newTabIndex: number },
+        this.world,
+      );
+
+    this.handlers["onBankDeleteTab"] = (socket, data) =>
+      handleBankDeleteTab(socket, data as { tabIndex: number }, this.world);
+
+    this.handlers["onBankMoveToTab"] = (socket, data) =>
+      handleBankMoveToTab(
+        socket,
+        data as { fromSlot: number; fromTabIndex: number; toTabIndex: number },
+        this.world,
+      );
+
+    // Bank placeholder handlers (Phase 3 - RS3 style: qty=0 in bank_storage)
+    this.handlers["onBankWithdrawPlaceholder"] = (socket, data) =>
+      handleBankWithdrawPlaceholder(
+        socket,
+        data as { itemId: string },
+        this.world,
+      );
+
+    this.handlers["onBankReleasePlaceholder"] = (socket, data) =>
+      handleBankReleasePlaceholder(
+        socket,
+        data as { tabIndex: number; slot: number },
+        this.world,
+      );
+
+    this.handlers["onBankReleaseAllPlaceholders"] = (socket, data) =>
+      handleBankReleaseAllPlaceholders(socket, data, this.world);
+
+    this.handlers["onBankToggleAlwaysPlaceholder"] = (socket, data) =>
+      handleBankToggleAlwaysPlaceholder(socket, data, this.world);
 
     // NPC interaction handler - client clicked on NPC
     this.handlers["onNpcInteract"] = (socket, data) => {

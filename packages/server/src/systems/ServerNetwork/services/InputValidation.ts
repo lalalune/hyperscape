@@ -82,6 +82,41 @@ export function isValidBankSlot(value: unknown): value is number {
 }
 
 /**
+ * Validate bank move mode - must be 'swap' or 'insert'
+ */
+export function isValidBankMoveMode(
+  value: unknown,
+): value is "swap" | "insert" {
+  return value === "swap" || value === "insert";
+}
+
+/**
+ * Validate bank tab index - 0 (main) or 1-9 (custom tabs)
+ * OSRS allows up to 9 custom tabs plus the main tab
+ */
+export function isValidBankTabIndex(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= 9
+  );
+}
+
+/**
+ * Validate custom bank tab index - 1-9 (excludes main tab 0)
+ * Used when creating/deleting tabs (main tab can't be created/deleted)
+ */
+export function isValidCustomBankTabIndex(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= 9
+  );
+}
+
+/**
  * Validate npcId - must be non-empty string within length limits
  * Uses same limits as itemId since NPC IDs follow similar patterns
  */
