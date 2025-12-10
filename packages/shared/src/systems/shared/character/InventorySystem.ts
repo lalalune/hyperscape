@@ -1331,11 +1331,6 @@ export class InventorySystem extends SystemBase {
 
     // Emit update to refresh client UI
     this.emitInventoryUpdate(playerIdKey);
-
-    Logger.system(
-      "InventorySystem",
-      `Reloaded inventory for ${playerId}: ${inventory.items.length} items`,
-    );
   }
 
   // ========== Public API ==========
