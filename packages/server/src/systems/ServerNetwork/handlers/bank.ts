@@ -85,7 +85,9 @@ function isValidGameItem(itemId: string): boolean {
  * shift left to fill the gap. No empty slots in the middle of the bank.
  *
  * NOTE: This compacts within the CURRENT tab only (tab 0 by default for backwards compatibility).
- * Updates one slot at a time from LOWEST to HIGHEST to avoid unique constraint violations.
+ * Uses two-phase approach to avoid unique constraint violations:
+ * 1. Add +1000 offset to slots > deletedSlot
+ * 2. Subtract 1001 to get final values (shifted down by 1)
  *
  * @param tx - Database transaction
  * @param playerId - Player whose bank to compact
@@ -98,23 +100,29 @@ async function compactBankSlots(
   deletedSlot: number,
   tabIndex: number = 0,
 ): Promise<void> {
-  // Get all items with slots greater than the deleted slot
-  const itemsToShift = await tx.execute(
-    sql`SELECT id, slot FROM bank_storage
+  // TWO-PHASE SLOT COMPACTION to avoid unique constraint violations.
+  // PostgreSQL doesn't guarantee UPDATE order, so if slot 4 tries to become slot 3
+  // before slot 3 becomes slot 2, they collide on the same (playerId, tabIndex, slot) key.
+  //
+  // Solution: First add +1000 to move them far away, then subtract 1001 to get final values.
+
+  // Phase 1: Add large offset to avoid conflicts during shift
+  await tx.execute(
+    sql`UPDATE bank_storage
+        SET slot = slot + 1000
         WHERE "playerId" = ${playerId}
           AND "tabIndex" = ${tabIndex}
-          AND slot > ${deletedSlot}
-        ORDER BY slot ASC
-        FOR UPDATE`,
+          AND slot > ${deletedSlot}`,
   );
 
-  // Shift each slot down by 1, starting from the lowest
-  // This avoids unique constraint violations because we move into the just-vacated slot
-  for (const row of itemsToShift.rows as Array<{ id: number; slot: number }>) {
-    await tx.execute(
-      sql`UPDATE bank_storage SET slot = ${row.slot - 1} WHERE id = ${row.id}`,
-    );
-  }
+  // Phase 2: Subtract offset + 1 to get final values (shifted down by 1)
+  await tx.execute(
+    sql`UPDATE bank_storage
+        SET slot = slot - 1001
+        WHERE "playerId" = ${playerId}
+          AND "tabIndex" = ${tabIndex}
+          AND slot > 1000`,
+  );
 }
 
 /**
@@ -1459,6 +1467,11 @@ export async function handleBankCreateTab(
 
   if (!result) return;
 
+  // Audit log: Tab creation
+  console.log(
+    `[Bank:TabCreate] playerId=${ctx.playerId} newTabIndex=${data.newTabIndex} fromSlot=${data.fromSlot}`,
+  );
+
   // Step 4: Send updated state
   await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
 }
@@ -1555,40 +1568,45 @@ export async function handleBankDeleteTab(
 
       // RS3-STYLE: Shift all higher tabs down by 1 to fill the gap
       // This ensures tabs are always sequential (1, 2, 3...) with no gaps
+      //
+      // NOTE: Cannot use single batched UPDATE due to unique constraint on (playerId, tabIndex, slot).
+      // PostgreSQL doesn't guarantee update order, so concurrent updates can cause conflicts.
+      // Using two-phase approach: first offset by +1000, then subtract 1001.
 
-      // Get all tabs with higher indexes
-      const higherTabs = await tx.execute(
-        sql`SELECT "tabIndex" FROM bank_tabs
-            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > ${data.tabIndex}
-            ORDER BY "tabIndex" ASC
-            FOR UPDATE`,
+      // Phase 1: Add large offset to avoid conflicts during shift
+      await tx.execute(
+        sql`UPDATE bank_tabs
+            SET "tabIndex" = "tabIndex" + 1000
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > ${data.tabIndex}`,
+      );
+      await tx.execute(
+        sql`UPDATE bank_storage
+            SET "tabIndex" = "tabIndex" + 1000
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > ${data.tabIndex}`,
       );
 
-      // Shift each higher tab down by 1 (must go in order to avoid constraint violations)
-      for (const row of higherTabs.rows as Array<{ tabIndex: number }>) {
-        const oldIndex = row.tabIndex;
-        const newIndex = oldIndex - 1;
-
-        // Update tab index in bank_tabs
-        await tx.execute(
-          sql`UPDATE bank_tabs
-              SET "tabIndex" = ${newIndex}
-              WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${oldIndex}`,
-        );
-
-        // Update tab index for all items in that tab
-        await tx.execute(
-          sql`UPDATE bank_storage
-              SET "tabIndex" = ${newIndex}
-              WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${oldIndex}`,
-        );
-      }
+      // Phase 2: Subtract offset + 1 to get final values (shifted down by 1)
+      await tx.execute(
+        sql`UPDATE bank_tabs
+            SET "tabIndex" = "tabIndex" - 1001
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > 1000`,
+      );
+      await tx.execute(
+        sql`UPDATE bank_storage
+            SET "tabIndex" = "tabIndex" - 1001
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > 1000`,
+      );
 
       return { success: true };
     },
   });
 
   if (!result) return;
+
+  // Audit log: Tab deletion
+  console.log(
+    `[Bank:TabDelete] playerId=${ctx.playerId} tabIndex=${data.tabIndex}`,
+  );
 
   // Step 4: Send updated state
   await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
@@ -2102,8 +2120,6 @@ export async function handleBankToggleAlwaysPlaceholder(
     return;
   }
 
-  console.log(`[BankToggle] Player ${playerId} toggling placeholder setting`);
-
   try {
     // Use drizzle ORM for database operations
     const drizzle = db.drizzle;
@@ -2115,9 +2131,7 @@ export async function handleBankToggleAlwaysPlaceholder(
       .where(eq(schema.characters.id, playerId));
 
     if (currentResult.length === 0) {
-      console.error(
-        `[BankToggle] Player ${playerId} not found in characters table`,
-      );
+      console.error(`[Bank:TogglePlaceholder] Player ${playerId} not found`);
       sendErrorToast(socket, "Player not found");
       return;
     }
@@ -2125,17 +2139,16 @@ export async function handleBankToggleAlwaysPlaceholder(
     const current = currentResult[0].alwaysSetPlaceholder;
     const newValue = current === 1 ? 0 : 1;
 
-    console.log(
-      `[BankToggle] Current value: ${current}, new value: ${newValue}`,
-    );
-
     // Toggle setting
     await drizzle
       .update(schema.characters)
       .set({ alwaysSetPlaceholder: newValue })
       .where(eq(schema.characters.id, playerId));
 
-    console.log(`[BankToggle] Updated successfully, sending bank state`);
+    // Audit log: Placeholder toggle
+    console.log(
+      `[Bank:TogglePlaceholder] playerId=${playerId} newValue=${newValue === 1 ? "enabled" : "disabled"}`,
+    );
 
     // Send updated state
     await sendBankStateWithTabs(socket, playerId, db);
