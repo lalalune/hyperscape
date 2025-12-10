@@ -32,6 +32,12 @@ interface BankItem {
   itemId: string;
   quantity: number;
   slot: number;
+  tabIndex: number;
+}
+
+interface BankTab {
+  tabIndex: number;
+  iconItemId: string | null;
 }
 
 type InventorySlotViewItem = Pick<
@@ -39,8 +45,16 @@ type InventorySlotViewItem = Pick<
   "slot" | "itemId" | "quantity"
 >;
 
+/**
+ * RS3-STYLE PLACEHOLDERS:
+ * - Placeholders are items with quantity = 0 (no separate data structure)
+ * - Items with qty=0 are rendered with greyed-out style
+ * - Context menu shows "Release" for qty=0 items, "Withdraw-Placeholder" for qty>0
+ */
 interface BankPanelProps {
-  items: BankItem[];
+  items: BankItem[]; // Includes items with qty=0 (placeholders)
+  tabs?: BankTab[];
+  alwaysSetPlaceholder?: boolean;
   maxSlots: number;
   world: ClientWorld;
   inventory: InventorySlotViewItem[];
@@ -56,6 +70,8 @@ interface ContextMenuState {
   itemId: string;
   quantity: number;
   type: "bank" | "inventory";
+  tabIndex?: number;
+  slot?: number;
 }
 
 interface CoinModalState {
@@ -64,16 +80,57 @@ interface CoinModalState {
   maxAmount: number;
 }
 
+interface ConfirmModalState {
+  visible: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
 const BANK_SLOTS_PER_ROW = 10;
 const BANK_VISIBLE_ROWS = 8;
-const BANK_SCROLL_HEIGHT = BANK_VISIBLE_ROWS * 45; // 45px per row (44px + gap)
+const BANK_SLOT_SIZE = 42; // Comfortable slot size
+const BANK_GAP = 8; // gap-2 = 0.5rem = 8px
+const BANK_SCROLL_HEIGHT = BANK_VISIBLE_ROWS * (BANK_SLOT_SIZE + BANK_GAP); // slot + gap
 
 const INV_SLOTS_PER_ROW = 4;
 const INV_ROWS = 7;
+const INV_SLOT_SIZE = 40;
+
+// Hyperscape Black & Gold Theme
+const BANK_THEME = {
+  // Panel backgrounds - deep black with slight warmth
+  PANEL_BG: "rgba(15, 12, 8, 0.98)",
+  PANEL_BG_DARK: "rgba(10, 8, 5, 0.98)",
+  PANEL_BORDER: "rgba(139, 69, 19, 0.7)",
+  PANEL_BORDER_LIGHT: "rgba(242, 208, 138, 0.3)",
+
+  // Item slot colors - dark with gold accents
+  SLOT_BG: "rgba(20, 15, 10, 0.9)",
+  SLOT_BG_HOVER: "rgba(40, 30, 20, 0.9)",
+  SLOT_BORDER: "rgba(242, 208, 138, 0.25)",
+  SLOT_BORDER_HIGHLIGHT: "rgba(242, 208, 138, 0.5)",
+
+  // Tab colors
+  TAB_BG: "rgba(30, 25, 18, 0.9)",
+  TAB_BG_SELECTED: "rgba(139, 69, 19, 0.6)",
+  TAB_BORDER: "rgba(139, 69, 19, 0.5)",
+
+  // Text colors - gold theme with OSRS quantity colors
+  TEXT_GOLD: "#f2d08a", // Primary gold
+  TEXT_GOLD_DIM: "rgba(242, 208, 138, 0.7)",
+  TEXT_YELLOW: "#ffff00", // Quantity < 100K
+  TEXT_WHITE: "#ffffff", // Quantity 100K - 9.99M
+  TEXT_GREEN: "#00ff80", // Quantity 10M+
+
+  // Button colors
+  BUTTON_BG: "rgba(139, 69, 19, 0.5)",
+  BUTTON_BG_HOVER: "rgba(139, 69, 19, 0.7)",
+};
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -152,6 +209,8 @@ function ContextMenu({
   const [customAmount, setCustomAmount] = useState("");
   const menuRef = React.useRef<HTMLDivElement>(null);
 
+  // RS3-style: Items with qty=0 are placeholders
+  const isPlaceholder = menu.type === "bank" && menu.quantity === 0;
   const actionLabel = menu.type === "bank" ? "Withdraw" : "Deposit";
 
   const handleCustomSubmit = () => {
@@ -162,7 +221,7 @@ function ContextMenu({
     onClose();
   };
 
-  // Close on click outside
+  // Close on click outside - MUST be before any conditional returns (Rules of Hooks)
   useEffect(() => {
     if (!menu.visible) return;
 
@@ -181,15 +240,91 @@ function ContextMenu({
     };
   }, [menu.visible, onClose]);
 
+  // IMPORTANT: Check visibility FIRST before any rendering
   if (!menu.visible) return null;
 
+  // RS3-style: Handle placeholder-only context menu (qty=0 bank items)
+  if (isPlaceholder) {
+    return createPortal(
+      <div
+        ref={menuRef}
+        className="fixed z-[10000] pointer-events-auto"
+        style={{ left: menu.x, top: menu.y, width: "auto" }}
+      >
+        <div
+          className="rounded shadow-xl py-1 inline-block"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(30, 25, 20, 0.98) 0%, rgba(20, 15, 10, 0.98) 100%)",
+            border: "1px solid rgba(139, 69, 19, 0.8)",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.8)",
+          }}
+        >
+          <button
+            className="block px-3 py-1 text-left text-xs transition-colors whitespace-nowrap"
+            style={{
+              color: "rgba(242, 208, 138, 0.9)",
+              background: "transparent",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(139, 69, 19, 0.4)";
+              e.currentTarget.style.color = "#fff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "rgba(242, 208, 138, 0.9)";
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAction("releasePlaceholder", 0);
+              onClose();
+            }}
+          >
+            Release
+          </button>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
   const menuOptions = [
-    { label: `${actionLabel} 1`, amount: 1 },
-    { label: `${actionLabel} 5`, amount: 5 },
-    { label: `${actionLabel} 10`, amount: 10 },
-    { label: `${actionLabel} All`, amount: menu.quantity },
-    { label: `${actionLabel} X`, amount: -1 },
+    {
+      label: `${actionLabel} 1`,
+      amount: 1,
+      action: menu.type === "bank" ? "withdraw" : "deposit",
+    },
+    {
+      label: `${actionLabel} 5`,
+      amount: 5,
+      action: menu.type === "bank" ? "withdraw" : "deposit",
+    },
+    {
+      label: `${actionLabel} 10`,
+      amount: 10,
+      action: menu.type === "bank" ? "withdraw" : "deposit",
+    },
+    {
+      label: `${actionLabel} All`,
+      amount: menu.quantity,
+      action: menu.type === "bank" ? "withdraw" : "deposit",
+    },
+    {
+      label: `${actionLabel} X`,
+      amount: -1,
+      action: menu.type === "bank" ? "withdraw" : "deposit",
+    },
   ];
+
+  // RS3-style: Add "Withdraw-Placeholder" option for bank items with qty > 0
+  // This withdraws all and leaves a qty=0 placeholder regardless of toggle
+  if (menu.type === "bank" && menu.quantity > 0) {
+    menuOptions.push({
+      label: "Withdraw-Placeholder",
+      amount: menu.quantity,
+      action: "withdrawPlaceholder",
+    });
+  }
 
   return createPortal(
     <div
@@ -276,9 +411,15 @@ function ContextMenu({
                 e.stopPropagation();
                 if (option.amount === -1) {
                   setShowCustomInput(true);
+                } else if (
+                  option.action === "setPlaceholder" ||
+                  option.action === "releasePlaceholder"
+                ) {
+                  onAction(option.action, 0);
+                  onClose();
                 } else {
                   onAction(
-                    menu.type === "bank" ? "withdraw" : "deposit",
+                    option.action,
                     Math.min(option.amount, menu.quantity),
                   );
                   onClose();
@@ -481,6 +622,95 @@ function CoinAmountModal({
 }
 
 // ============================================================================
+// CONFIRM MODAL COMPONENT
+// ============================================================================
+
+function ConfirmModal({
+  modal,
+  onClose,
+}: {
+  modal: ConfirmModalState;
+  onClose: () => void;
+}) {
+  if (!modal.visible) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[10001] flex items-center justify-center"
+      style={{ background: "rgba(0, 0, 0, 0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-lg p-4 shadow-xl"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(30, 25, 20, 0.98) 0%, rgba(20, 15, 10, 0.98) 100%)",
+          border: "2px solid rgba(139, 69, 19, 0.8)",
+          minWidth: "280px",
+          maxWidth: "360px",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3
+          className="text-lg font-bold mb-3 text-center"
+          style={{ color: "rgba(242, 208, 138, 0.9)" }}
+        >
+          {modal.title}
+        </h3>
+
+        <p
+          className="text-sm mb-4 text-center"
+          style={{ color: "rgba(255, 255, 255, 0.8)" }}
+        >
+          {modal.message}
+        </p>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              modal.onConfirm();
+              onClose();
+            }}
+            className="flex-1 py-2 rounded text-sm font-bold transition-colors"
+            style={{
+              background: "rgba(180, 100, 100, 0.7)",
+              color: "#fff",
+              border: "1px solid rgba(180, 100, 100, 0.8)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(200, 80, 80, 0.9)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(180, 100, 100, 0.7)";
+            }}
+          >
+            Delete
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded text-sm font-bold transition-colors"
+            style={{
+              background: "rgba(100, 100, 100, 0.5)",
+              color: "#fff",
+              border: "1px solid rgba(139, 69, 19, 0.6)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(120, 120, 120, 0.6)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(100, 100, 100, 0.5)";
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ============================================================================
 // MAIN BANK PANEL COMPONENT
 // ============================================================================
 
@@ -489,7 +719,9 @@ function CoinAmountModal({
 // when the player moves too far away. The client no longer polls distance.
 
 export function BankPanel({
-  items,
+  items, // RS3-style: includes qty=0 items (placeholders)
+  tabs = [],
+  alwaysSetPlaceholder = false,
   maxSlots,
   world,
   inventory,
@@ -511,6 +743,29 @@ export function BankPanel({
     action: "deposit",
     maxAmount: 0,
   });
+
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    visible: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+
+  // ========== TAB STATE ==========
+  // -1 = "All" view (shows all items across all tabs)
+  // 0 = Main tab
+  // 1-9 = Custom tabs
+  const [selectedTab, setSelectedTab] = useState<number>(-1);
+
+  // ========== DRAG-DROP STATE (OSRS-style bank reorganization) ==========
+  const [draggedSlot, setDraggedSlot] = useState<number | null>(null);
+  const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null);
+  const [dropMode, setDropMode] = useState<"swap" | "insert" | null>(null);
+  const [insertPosition, setInsertPosition] = useState<
+    "before" | "after" | null
+  >(null);
+  const [hoveredSlot, setHoveredSlot] = useState<number | null>(null);
+  const [hoveredTabIndex, setHoveredTabIndex] = useState<number | null>(null);
 
   // ========== SIMPLE SERVER-AUTHORITATIVE UI ==========
   // NO optimistic predictions - just display server state directly.
@@ -539,17 +794,25 @@ export function BankPanel({
   const handleDeposit = useCallback(
     (itemId: string, quantity: number) => {
       if (world.network?.send) {
-        world.network.send("bankDeposit", { itemId, quantity });
+        // RS3-style: New items go to currently viewed tab (or tab 0 if viewing All)
+        const targetTab = selectedTab === -1 ? 0 : selectedTab;
+        world.network.send("bankDeposit", {
+          itemId,
+          quantity,
+          targetTabIndex: targetTab,
+        });
       }
     },
-    [world.network],
+    [world.network, selectedTab],
   );
 
   const handleDepositAll = useCallback(() => {
     if (world.network?.send) {
-      world.network.send("bankDepositAll", {});
+      // RS3-style: New items go to currently viewed tab (or tab 0 if viewing All)
+      const targetTab = selectedTab === -1 ? 0 : selectedTab;
+      world.network.send("bankDepositAll", { targetTabIndex: targetTab });
     }
-  }, [world.network]);
+  }, [world.network, selectedTab]);
 
   const handleDepositCoins = useCallback(
     (amount: number) => {
@@ -568,6 +831,116 @@ export function BankPanel({
     },
     [world.network],
   );
+
+  // ========== BANK MOVE HANDLER (OSRS-style drag-drop) ==========
+
+  const handleBankMove = useCallback(
+    (
+      fromSlot: number,
+      toSlot: number,
+      mode: "swap" | "insert",
+      tabIndex: number,
+    ) => {
+      if (world.network?.send && fromSlot !== toSlot) {
+        world.network.send("bankMove", { fromSlot, toSlot, mode, tabIndex });
+      }
+    },
+    [world.network],
+  );
+
+  // ========== TAB HANDLERS ==========
+
+  const handleCreateTab = useCallback(
+    (fromSlot: number, fromTabIndex: number, newTabIndex: number) => {
+      if (world.network?.send) {
+        world.network.send("bankCreateTab", {
+          fromSlot,
+          fromTabIndex,
+          newTabIndex,
+        });
+      }
+    },
+    [world.network],
+  );
+
+  const handleDeleteTab = useCallback(
+    (tabIndex: number) => {
+      if (world.network?.send && tabIndex > 0) {
+        world.network.send("bankDeleteTab", { tabIndex });
+      }
+    },
+    [world.network],
+  );
+
+  const handleMoveToTab = useCallback(
+    (
+      fromSlot: number,
+      fromTabIndex: number,
+      toTabIndex: number,
+      toSlot?: number,
+    ) => {
+      if (world.network?.send && fromTabIndex !== toTabIndex) {
+        world.network.send("bankMoveToTab", {
+          fromSlot,
+          fromTabIndex,
+          toTabIndex,
+          toSlot,
+        });
+      }
+    },
+    [world.network],
+  );
+
+  // ========== PLACEHOLDER HANDLERS (RS3-style) ==========
+
+  // RS3-style: Withdraw all and leave qty=0 placeholder (ignores toggle)
+  const handleWithdrawPlaceholder = useCallback(
+    (itemId: string) => {
+      if (world.network?.send) {
+        world.network.send("bankWithdrawPlaceholder", { itemId });
+      }
+    },
+    [world.network],
+  );
+
+  // RS3-style: Release = delete the qty=0 row
+  const handleReleasePlaceholder = useCallback(
+    (tabIndex: number, slot: number) => {
+      if (world.network?.send) {
+        world.network.send("bankReleasePlaceholder", { tabIndex, slot });
+      }
+    },
+    [world.network],
+  );
+
+  const handleReleaseAllPlaceholders = useCallback(() => {
+    if (world.network?.send) {
+      world.network.send("bankReleaseAllPlaceholders", {});
+    }
+  }, [world.network]);
+
+  const handleToggleAlwaysPlaceholder = useCallback(() => {
+    if (world.network?.send) {
+      world.network.send("bankToggleAlwaysPlaceholder", {});
+    }
+  }, [world.network]);
+
+  // ========== FILTERED ITEMS BY TAB ==========
+  // When "All" is selected (-1), show all items
+  // Otherwise filter by the selected tab
+  const filteredItems =
+    selectedTab === -1
+      ? items
+      : items.filter((item) => item.tabIndex === selectedTab);
+
+  // Get the next available tab index for creating new tabs
+  // RS3-STYLE: Always append at end (max + 1), never fill gaps
+  const nextAvailableTabIndex = (() => {
+    if (tabs.length === 0) return 1; // No custom tabs yet, start at 1
+    const maxTabIndex = Math.max(...tabs.map((t) => t.tabIndex));
+    if (maxTabIndex >= 9) return null; // All tabs used (max is 9)
+    return maxTabIndex + 1;
+  })();
 
   // ========== COIN MODAL HANDLERS ==========
 
@@ -598,9 +971,27 @@ export function BankPanel({
         handleWithdraw(contextMenu.itemId, quantity);
       } else if (action === "deposit") {
         handleDeposit(contextMenu.itemId, quantity);
+      } else if (action === "withdrawPlaceholder") {
+        // RS3-style: Withdraw all and leave qty=0 placeholder
+        handleWithdrawPlaceholder(contextMenu.itemId);
+      } else if (
+        action === "releasePlaceholder" &&
+        contextMenu.tabIndex !== undefined &&
+        contextMenu.slot !== undefined
+      ) {
+        // RS3-style: Delete the qty=0 row
+        handleReleasePlaceholder(contextMenu.tabIndex, contextMenu.slot);
       }
     },
-    [contextMenu.itemId, handleWithdraw, handleDeposit],
+    [
+      contextMenu.itemId,
+      contextMenu.tabIndex,
+      contextMenu.slot,
+      handleWithdraw,
+      handleDeposit,
+      handleWithdrawPlaceholder,
+      handleReleasePlaceholder,
+    ],
   );
 
   const closeContextMenu = useCallback(() => {
@@ -612,6 +1003,8 @@ export function BankPanel({
     itemId: string,
     quantity: number,
     type: "bank" | "inventory",
+    tabIndex?: number,
+    slot?: number,
   ) => {
     e.preventDefault();
     e.stopPropagation();
@@ -624,6 +1017,8 @@ export function BankPanel({
         .reduce((sum, item) => sum + (item.quantity || 1), 0);
     }
 
+    // RS3-style: No separate hasPlaceholder check needed
+    // Items with qty=0 ARE placeholders (handled by context menu component)
     setContextMenu({
       visible: true,
       x: e.clientX,
@@ -631,6 +1026,8 @@ export function BankPanel({
       itemId,
       quantity: totalQuantity,
       type,
+      tabIndex,
+      slot,
     });
   };
 
@@ -677,16 +1074,22 @@ export function BankPanel({
         onClose={closeCoinModal}
       />
 
+      <ConfirmModal
+        modal={confirmModal}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}
+      />
+
       <div className="flex gap-2">
         {/* Bank Panel - Left Side */}
         <div
-          className="rounded-lg shadow-xl"
+          className="flex flex-col rounded-lg"
           style={{
             background:
               "linear-gradient(135deg, rgba(20, 15, 10, 0.98) 0%, rgba(15, 10, 5, 0.98) 100%)",
-            border: "2px solid rgba(139, 69, 19, 0.7)",
-            boxShadow:
-              "0 10px 30px rgba(0, 0, 0, 0.8), inset 0 2px 4px rgba(242, 208, 138, 0.1)",
+            border: `2px solid ${BANK_THEME.PANEL_BORDER}`,
+            boxShadow: `0 10px 30px rgba(0, 0, 0, 0.8), inset 0 2px 4px ${BANK_THEME.PANEL_BORDER_LIGHT}`,
+            minHeight: `${BANK_SCROLL_HEIGHT + 180}px`,
+            width: `${BANK_SLOTS_PER_ROW * (BANK_SLOT_SIZE + BANK_GAP) + 32}px`,
           }}
         >
           {/* Header */}
@@ -695,12 +1098,12 @@ export function BankPanel({
             style={{
               background:
                 "linear-gradient(180deg, rgba(139, 69, 19, 0.4) 0%, rgba(139, 69, 19, 0.2) 100%)",
-              borderBottom: "1px solid rgba(139, 69, 19, 0.5)",
+              borderBottom: `1px solid ${BANK_THEME.PANEL_BORDER}`,
             }}
           >
             <h2
               className="text-lg font-bold flex items-center gap-2"
-              style={{ color: COLORS.ACCENT }}
+              style={{ color: BANK_THEME.TEXT_GOLD }}
             >
               <span>🏦</span>
               <span>Bank</span>
@@ -723,277 +1126,1033 @@ export function BankPanel({
             </button>
           </div>
 
-          {/* Coin Section */}
+          {/* Tab Bar */}
           <div
-            className="mx-3 mt-2 p-2 rounded"
+            className="mx-3 mt-2 mb-0 flex gap-1 overflow-x-auto pb-0"
             style={{
-              background: "rgba(0, 0, 0, 0.3)",
-              border: "1px solid rgba(139, 69, 19, 0.4)",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+              position: "relative",
+              zIndex: 10,
             }}
           >
-            <div className="flex items-center justify-between gap-3">
-              {/* Bank Coins */}
-              <div className="flex items-center gap-2 flex-1">
-                <span className="text-lg">🏦</span>
-                <div className="flex flex-col">
-                  <span
-                    className="text-[10px]"
-                    style={{ color: "rgba(242, 208, 138, 0.6)" }}
-                  >
-                    Bank
-                  </span>
-                  <span
-                    className="text-sm font-bold"
-                    style={{ color: "#fbbf24" }}
-                  >
-                    {bankCoins.toLocaleString()}
-                  </span>
-                </div>
-                <button
-                  onClick={() => openCoinModal("withdraw")}
-                  disabled={bankCoins <= 0}
-                  className="ml-auto px-2 py-1 rounded text-xs font-bold transition-colors disabled:opacity-30"
-                  style={{
-                    background: "rgba(180, 150, 100, 0.6)",
-                    color: "#fff",
-                    border: "1px solid rgba(139, 69, 19, 0.5)",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (bankCoins > 0)
-                      e.currentTarget.style.background =
-                        "rgba(180, 150, 100, 0.8)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background =
-                      "rgba(180, 150, 100, 0.6)";
-                  }}
-                >
-                  Withdraw
-                </button>
-              </div>
+            {/* All Tab (∞) - RS3 style */}
+            <button
+              onClick={() => setSelectedTab(-1)}
+              className="px-3 py-1.5 rounded-t text-xs font-bold transition-colors flex-shrink-0"
+              style={{
+                background:
+                  selectedTab === -1
+                    ? "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(100, 50, 10, 0.7) 100%)"
+                    : "rgba(50, 40, 30, 0.6)",
+                color: selectedTab === -1 ? "#fff" : BANK_THEME.TEXT_GOLD_DIM,
+                borderTop:
+                  selectedTab === -1
+                    ? `1px solid ${BANK_THEME.PANEL_BORDER_LIGHT}`
+                    : `1px solid ${BANK_THEME.TAB_BORDER}`,
+                borderLeft:
+                  selectedTab === -1
+                    ? `1px solid ${BANK_THEME.PANEL_BORDER_LIGHT}`
+                    : `1px solid ${BANK_THEME.TAB_BORDER}`,
+                borderRight:
+                  selectedTab === -1
+                    ? `1px solid ${BANK_THEME.PANEL_BORDER_LIGHT}`
+                    : `1px solid ${BANK_THEME.TAB_BORDER}`,
+                borderBottom: "none",
+              }}
+              title="View all items across all tabs"
+            >
+              ∞
+            </button>
 
-              {/* Divider */}
-              <div
-                className="h-8 w-px"
-                style={{ background: "rgba(139, 69, 19, 0.4)" }}
-              />
+            {/* All Tabs (0-9) - RS3 style: Tab 0 is just another tab, icon = first item */}
+            {(() => {
+              // Create array of all tabs including tab 0 (which always exists implicitly)
+              const allTabIndexes = [0, ...tabs.map((t) => t.tabIndex)].sort(
+                (a, b) => a - b,
+              );
+              // Remove duplicates (in case tab 0 is somehow in tabs array)
+              const uniqueTabIndexes = [...new Set(allTabIndexes)];
 
-              {/* Money Pouch */}
-              <div className="flex items-center gap-2 flex-1">
-                <span className="text-lg">💰</span>
-                <div className="flex flex-col">
-                  <span
-                    className="text-[10px]"
-                    style={{ color: "rgba(242, 208, 138, 0.6)" }}
+              return uniqueTabIndexes.map((tabIndex) => {
+                const isSelected = selectedTab === tabIndex;
+                const isHovered = hoveredTabIndex === tabIndex;
+                const borderColor = isHovered
+                  ? "1px solid rgba(100, 200, 255, 0.8)"
+                  : isSelected
+                    ? `1px solid ${BANK_THEME.PANEL_BORDER_LIGHT}`
+                    : `1px solid ${BANK_THEME.TAB_BORDER}`;
+                // RS3-style: Tab icon = first item by slot order
+                // Prefer real items (qty > 0), but fall back to placeholders if tab only has placeholders
+                const tabItemsSorted = items
+                  .filter((i) => i.tabIndex === tabIndex)
+                  .sort((a, b) => a.slot - b.slot);
+                const firstRealItem = tabItemsSorted.find(
+                  (i) => i.quantity > 0,
+                );
+                const firstAnyItem = tabItemsSorted[0];
+                const iconItem = firstRealItem || firstAnyItem;
+                const tabIcon = iconItem
+                  ? getItemIcon(iconItem.itemId)
+                  : `${tabIndex}`;
+                const isPlaceholderIcon = iconItem && iconItem.quantity === 0;
+                // Tab 0 can't be deleted, only custom tabs (1-9)
+                const canDelete = tabIndex > 0;
+                return (
+                  <button
+                    key={tabIndex}
+                    onClick={() => setSelectedTab(tabIndex)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (canDelete) {
+                        setConfirmModal({
+                          visible: true,
+                          title: "Delete Tab",
+                          message: `Delete tab ${tabIndex}? All items will be moved to tab 0.`,
+                          onConfirm: () => {
+                            handleDeleteTab(tabIndex);
+                            if (selectedTab === tabIndex) {
+                              setSelectedTab(0);
+                            }
+                          },
+                        });
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      setHoveredTabIndex(tabIndex);
+                    }}
+                    onDragLeave={() => setHoveredTabIndex(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (
+                        draggedSlot !== null &&
+                        draggedTabIndex !== null &&
+                        draggedTabIndex !== tabIndex
+                      ) {
+                        handleMoveToTab(draggedSlot, draggedTabIndex, tabIndex);
+                      }
+                      setDraggedSlot(null);
+                      setDraggedTabIndex(null);
+                      setHoveredTabIndex(null);
+                    }}
+                    className="px-3 py-1.5 rounded-t text-xs font-bold transition-colors flex-shrink-0"
+                    style={{
+                      background: isHovered
+                        ? "rgba(100, 200, 255, 0.3)"
+                        : isSelected
+                          ? "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(100, 50, 10, 0.7) 100%)"
+                          : isPlaceholderIcon
+                            ? "rgba(40, 35, 28, 0.6)"
+                            : "rgba(50, 40, 30, 0.6)",
+                      color: isSelected ? "#fff" : BANK_THEME.TEXT_GOLD_DIM,
+                      borderTop: borderColor,
+                      borderLeft: borderColor,
+                      borderRight: borderColor,
+                      borderBottom: "none",
+                      opacity: isPlaceholderIcon && !isSelected ? 0.6 : 1,
+                    }}
+                    title={
+                      iconItem
+                        ? `${formatItemName(iconItem.itemId)}${isPlaceholderIcon ? " (empty)" : ""}${canDelete ? " - Right-click to delete" : ""}`
+                        : `Tab ${tabIndex}${canDelete ? " - Right-click to delete" : ""}`
+                    }
                   >
-                    Pouch
-                  </span>
-                  <span
-                    className="text-sm font-bold"
-                    style={{ color: "#fbbf24" }}
-                  >
-                    {coins.toLocaleString()}
-                  </span>
-                </div>
-                <button
-                  onClick={() => openCoinModal("deposit")}
-                  disabled={coins <= 0}
-                  className="ml-auto px-2 py-1 rounded text-xs font-bold transition-colors disabled:opacity-30"
-                  style={{
-                    background: "rgba(100, 180, 100, 0.6)",
-                    color: "#fff",
-                    border: "1px solid rgba(139, 69, 19, 0.5)",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (coins > 0)
-                      e.currentTarget.style.background =
-                        "rgba(100, 180, 100, 0.8)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background =
-                      "rgba(100, 180, 100, 0.6)";
-                  }}
-                >
-                  Deposit
-                </button>
-              </div>
-            </div>
+                    {tabIcon}
+                  </button>
+                );
+              });
+            })()}
+
+            {/* Add Tab Button (+) */}
+            {nextAvailableTabIndex !== null && (
+              <button
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setHoveredTabIndex(-2);
+                }}
+                onDragLeave={() => setHoveredTabIndex(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (
+                    draggedSlot !== null &&
+                    draggedTabIndex !== null &&
+                    nextAvailableTabIndex !== null
+                  ) {
+                    handleCreateTab(
+                      draggedSlot,
+                      draggedTabIndex,
+                      nextAvailableTabIndex,
+                    );
+                  }
+                  setDraggedSlot(null);
+                  setDraggedTabIndex(null);
+                  setHoveredTabIndex(null);
+                }}
+                className="px-3 py-1.5 rounded-t text-xs font-bold transition-colors flex-shrink-0"
+                style={{
+                  background:
+                    hoveredTabIndex === -2
+                      ? "rgba(100, 255, 100, 0.3)"
+                      : "rgba(50, 50, 50, 0.4)",
+                  color: "rgba(100, 200, 100, 0.8)",
+                  borderTop:
+                    hoveredTabIndex === -2
+                      ? "1px solid rgba(100, 255, 100, 0.8)"
+                      : "1px dashed rgba(100, 200, 100, 0.4)",
+                  borderLeft:
+                    hoveredTabIndex === -2
+                      ? "1px solid rgba(100, 255, 100, 0.8)"
+                      : "1px dashed rgba(100, 200, 100, 0.4)",
+                  borderRight:
+                    hoveredTabIndex === -2
+                      ? "1px solid rgba(100, 255, 100, 0.8)"
+                      : "1px dashed rgba(100, 200, 100, 0.4)",
+                  borderBottom: "none",
+                }}
+                title="Drag an item here to create a new tab"
+              >
+                +
+              </button>
+            )}
           </div>
 
-          {/* Scrollable Item Grid - Shows SERVER state directly */}
+          {/* Scrollable Item Grid */}
           <div
-            className="p-3 overflow-y-auto overflow-x-hidden bank-scrollbar"
+            className="mx-3 mt-1 p-3 overflow-y-auto overflow-x-hidden bank-scrollbar flex-1 rounded"
             style={{
               maxHeight: `${BANK_SCROLL_HEIGHT}px`,
               scrollbarWidth: "thin",
-              scrollbarColor: "rgba(139, 69, 19, 0.6) rgba(0, 0, 0, 0.3)",
+              scrollbarColor: `${BANK_THEME.PANEL_BORDER} rgba(0, 0, 0, 0.3)`,
+              background: "rgba(0, 0, 0, 0.2)",
+              border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
             }}
           >
-            <div
-              className="grid gap-1"
-              style={{
-                gridTemplateColumns: `repeat(${BANK_SLOTS_PER_ROW}, 44px)`,
-              }}
-            >
-              {Array.from({ length: maxSlots }).map((_, idx) => {
-                const slotIndex = idx;
-                // Display SERVER state directly - no optimistic predictions
-                const item = items.find((i) => i.slot === slotIndex);
+            {/* "All" tab view with grouped headers */}
+            {selectedTab === -1 ? (
+              <div className="space-y-2">
+                {/* Group items by tabIndex and render with headers */}
+                {(() => {
+                  // Get unique tab indexes from items, sorted
+                  const tabIndexes = [
+                    ...new Set(items.map((i) => i.tabIndex)),
+                  ].sort((a, b) => a - b);
 
-                return (
-                  <div
-                    key={slotIndex}
-                    className={`
-                      w-11 h-11 rounded
-                      flex items-center justify-center relative
-                      transition-colors duration-150
-                      ${item ? "cursor-pointer" : ""}
-                    `}
-                    style={{
-                      background: item
-                        ? "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)"
-                        : "rgba(0, 0, 0, 0.4)",
-                      border: item
-                        ? "1px solid rgba(242, 208, 138, 0.3)"
-                        : "1px solid rgba(242, 208, 138, 0.1)",
-                    }}
-                    title={
-                      item
-                        ? `${formatItemName(item.itemId)} x${item.quantity}`
-                        : "Empty slot"
-                    }
-                    onClick={() => item && handleWithdraw(item.itemId, 1)}
-                    onContextMenu={(e) => {
-                      if (item) {
-                        openContextMenu(e, item.itemId, item.quantity, "bank");
-                      }
-                    }}
-                    onMouseEnter={(e) => {
-                      if (item) {
-                        e.currentTarget.style.background =
-                          "linear-gradient(135deg, rgba(242, 208, 138, 0.2) 0%, rgba(242, 208, 138, 0.1) 100%)";
-                        e.currentTarget.style.borderColor =
-                          "rgba(242, 208, 138, 0.5)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (item) {
-                        e.currentTarget.style.background =
-                          "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)";
-                        e.currentTarget.style.borderColor =
-                          "rgba(242, 208, 138, 0.3)";
-                      }
-                    }}
-                  >
-                    {item && (
-                      <>
-                        <span className="text-xl select-none">
-                          {getItemIcon(item.itemId)}
-                        </span>
-                        {item.quantity > 1 && (
+                  return tabIndexes.map((tabIdx) => {
+                    const tabItems = items
+                      .filter((i) => i.tabIndex === tabIdx)
+                      .sort((a, b) => a.slot - b.slot);
+                    if (tabItems.length === 0) return null;
+
+                    // RS3-style: Prefer real items, but show placeholder icon if tab only has placeholders
+                    const firstRealItem = tabItems.find((i) => i.quantity > 0);
+                    const firstAnyItem = tabItems[0];
+                    const iconItem = firstRealItem || firstAnyItem;
+                    const isPlaceholderIcon =
+                      iconItem && iconItem.quantity === 0;
+                    // RS3-style: All tabs treated equally, icon derived from first item
+                    const tabLabel = iconItem
+                      ? `${getItemIcon(iconItem.itemId)} Tab ${tabIdx}${isPlaceholderIcon ? " (empty)" : ""}`
+                      : `📦 Tab ${tabIdx}`;
+
+                    // Check if this tab header is being hovered for drop
+                    const isHeaderDropTarget =
+                      hoveredTabIndex === tabIdx &&
+                      draggedSlot !== null &&
+                      draggedTabIndex !== tabIdx;
+
+                    return (
+                      <div key={tabIdx}>
+                        {/* Tab Header - OSRS style separator - DROPPABLE to move items to this tab */}
+                        <div
+                          className="flex items-center gap-2 mb-1 pb-0.5 transition-colors"
+                          style={{
+                            background: isHeaderDropTarget
+                              ? "rgba(100, 200, 255, 0.15)"
+                              : "transparent",
+                            padding: "1px 2px",
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            if (
+                              draggedSlot !== null &&
+                              draggedTabIndex !== tabIdx
+                            ) {
+                              setHoveredTabIndex(tabIdx);
+                            }
+                          }}
+                          onDragLeave={() => {
+                            setHoveredTabIndex(null);
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (
+                              draggedSlot !== null &&
+                              draggedTabIndex !== null &&
+                              draggedTabIndex !== tabIdx
+                            ) {
+                              handleMoveToTab(
+                                draggedSlot,
+                                draggedTabIndex,
+                                tabIdx,
+                              );
+                            }
+                            setDraggedSlot(null);
+                            setDraggedTabIndex(null);
+                            setHoveredTabIndex(null);
+                            setDropMode(null);
+                            setInsertPosition(null);
+                            setHoveredSlot(null);
+                          }}
+                        >
                           <span
-                            className="absolute bottom-0 right-0.5 text-[10px] font-bold"
+                            className="text-[10px] font-bold"
                             style={{
-                              color:
-                                item.quantity >= 10000000
-                                  ? "#00ff00"
-                                  : item.quantity >= 100000
-                                    ? "#ffffff"
-                                    : "#ffff00",
-                              textShadow:
-                                "1px 1px 1px black, -1px -1px 1px black",
+                              color: isHeaderDropTarget
+                                ? "#fff"
+                                : BANK_THEME.TEXT_GOLD,
                             }}
                           >
-                            {formatQuantity(item.quantity)}
+                            {tabLabel}
                           </span>
-                        )}
-                      </>
-                    )}
+                          <div
+                            className="flex-1"
+                            style={{
+                              height: isHeaderDropTarget ? "2px" : "1px",
+                              background: isHeaderDropTarget
+                                ? "rgba(100, 200, 255, 0.8)"
+                                : BANK_THEME.PANEL_BORDER_LIGHT,
+                              transition: "all 0.15s ease",
+                            }}
+                          />
+                          <span
+                            className="text-[9px]"
+                            style={{
+                              color: isHeaderDropTarget
+                                ? "rgba(255,255,255,0.7)"
+                                : `${BANK_THEME.TEXT_GOLD}88`,
+                            }}
+                          >
+                            {isHeaderDropTarget
+                              ? "Drop here"
+                              : `${tabItems.length}`}
+                          </span>
+                        </div>
+
+                        {/* Items grid for this tab */}
+                        <div
+                          className="grid gap-2"
+                          style={{
+                            gridTemplateColumns: `repeat(${BANK_SLOTS_PER_ROW}, ${BANK_SLOT_SIZE}px)`,
+                          }}
+                        >
+                          {tabItems.map((item, itemIndex) => {
+                            const slotIndex = item.slot;
+                            const itemTabIndex = item.tabIndex;
+
+                            // Determine visual states
+                            const isDragging =
+                              draggedSlot === slotIndex &&
+                              draggedTabIndex === itemTabIndex;
+                            const isDropTarget =
+                              hoveredSlot === slotIndex &&
+                              hoveredTabIndex === itemTabIndex &&
+                              draggedSlot !== null &&
+                              !(
+                                draggedSlot === slotIndex &&
+                                draggedTabIndex === itemTabIndex
+                              );
+                            const isCrossTabDrop =
+                              isDropTarget &&
+                              draggedTabIndex !== null &&
+                              draggedTabIndex !== itemTabIndex;
+                            const canReceiveDrop =
+                              draggedSlot !== null && !isDragging;
+
+                            // Visual states for different drop modes
+                            const showInsertLine =
+                              isDropTarget && dropMode === "insert";
+                            const showSwapHighlight =
+                              isDropTarget && dropMode === "swap";
+
+                            // Show faint insert guides on ALL items while dragging (except the item being dragged)
+                            const showFaintGuide =
+                              canReceiveDrop && !isDropTarget;
+
+                            // Color based on cross-tab vs same-tab
+                            const dropColor = isCrossTabDrop
+                              ? "100, 255, 150"
+                              : "100, 200, 255";
+                            const guideColor =
+                              draggedTabIndex !== itemTabIndex
+                                ? "100, 255, 150"
+                                : "100, 200, 255";
+
+                            // RS3-style: Items with qty=0 are placeholders
+                            const isPlaceholder = item.quantity === 0;
+
+                            return (
+                              <div
+                                key={`${itemTabIndex}-${slotIndex}`}
+                                className="rounded flex items-center justify-center relative cursor-grab active:cursor-grabbing"
+                                style={{
+                                  width: BANK_SLOT_SIZE,
+                                  height: BANK_SLOT_SIZE,
+                                  background: showSwapHighlight
+                                    ? `linear-gradient(135deg, rgba(${dropColor}, 0.35) 0%, rgba(${dropColor}, 0.2) 100%)`
+                                    : isPlaceholder
+                                      ? "linear-gradient(135deg, rgba(50, 45, 40, 0.4) 0%, rgba(40, 35, 30, 0.4) 100%)"
+                                      : "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)",
+                                  border: showSwapHighlight
+                                    ? `2px solid rgba(${dropColor}, 0.9)`
+                                    : isPlaceholder
+                                      ? "1px dashed rgba(242, 208, 138, 0.2)"
+                                      : `1px solid ${BANK_THEME.SLOT_BORDER_HIGHLIGHT}`,
+                                  transform: isDragging
+                                    ? "scale(0.9)"
+                                    : "scale(1)",
+                                  opacity: isDragging
+                                    ? 0.4
+                                    : isPlaceholder
+                                      ? 0.6
+                                      : 1,
+                                  transition:
+                                    "transform 0.15s ease, opacity 0.15s ease, background 0.1s ease, border 0.1s ease",
+                                  boxShadow: showSwapHighlight
+                                    ? `0 0 12px rgba(${dropColor}, 0.5)`
+                                    : "none",
+                                }}
+                                title={
+                                  isPlaceholder
+                                    ? `${formatItemName(item.itemId)} (placeholder)`
+                                    : `${formatItemName(item.itemId)} x${item.quantity} (Tab ${itemTabIndex})`
+                                }
+                                draggable={true}
+                                onDragStart={(e) => {
+                                  setDraggedSlot(slotIndex);
+                                  setDraggedTabIndex(itemTabIndex);
+                                  e.dataTransfer.effectAllowed = "move";
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  if (draggedSlot === null) return;
+                                  if (
+                                    draggedSlot === slotIndex &&
+                                    draggedTabIndex === itemTabIndex
+                                  )
+                                    return;
+
+                                  setHoveredSlot(slotIndex);
+                                  setHoveredTabIndex(itemTabIndex);
+
+                                  // SIMPLE: Left 40% = insert before, Right 60% = swap
+                                  const rect =
+                                    e.currentTarget.getBoundingClientRect();
+                                  const x = e.clientX - rect.left;
+                                  const width = rect.width;
+
+                                  if (x < width * 0.4) {
+                                    setDropMode("insert");
+                                    setInsertPosition("before");
+                                  } else {
+                                    setDropMode("swap");
+                                    setInsertPosition(null);
+                                  }
+                                }}
+                                onDragLeave={() => {
+                                  setHoveredSlot(null);
+                                  setHoveredTabIndex(null);
+                                  setDropMode(null);
+                                  setInsertPosition(null);
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  if (
+                                    draggedSlot !== null &&
+                                    draggedTabIndex !== null
+                                  ) {
+                                    // Insert = drop at this slot (shifts others right)
+                                    // Swap = exchange positions
+                                    const targetSlot = slotIndex;
+
+                                    if (draggedTabIndex === itemTabIndex) {
+                                      handleBankMove(
+                                        draggedSlot,
+                                        targetSlot,
+                                        dropMode || "swap",
+                                        draggedTabIndex,
+                                      );
+                                    } else {
+                                      handleMoveToTab(
+                                        draggedSlot,
+                                        draggedTabIndex,
+                                        itemTabIndex,
+                                        targetSlot,
+                                      );
+                                    }
+                                  }
+                                  setDraggedSlot(null);
+                                  setDraggedTabIndex(null);
+                                  setDropMode(null);
+                                  setInsertPosition(null);
+                                  setHoveredSlot(null);
+                                  setHoveredTabIndex(null);
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedSlot(null);
+                                  setDraggedTabIndex(null);
+                                  setDropMode(null);
+                                  setInsertPosition(null);
+                                  setHoveredSlot(null);
+                                  setHoveredTabIndex(null);
+                                }}
+                                onClick={() => handleWithdraw(item.itemId, 1)}
+                                onContextMenu={(e) => {
+                                  openContextMenu(
+                                    e,
+                                    item.itemId,
+                                    item.quantity,
+                                    "bank",
+                                    itemTabIndex,
+                                    slotIndex,
+                                  );
+                                }}
+                              >
+                                {/* Single INSERT LINE on left edge - shows on ALL items while dragging */}
+                                {(showInsertLine || showFaintGuide) && (
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      left: -4,
+                                      top: 0,
+                                      bottom: 0,
+                                      width: showInsertLine ? 6 : 3,
+                                      background: showInsertLine
+                                        ? `rgba(${dropColor}, 1)`
+                                        : `rgba(${guideColor}, 0.2)`,
+                                      borderRadius: 3,
+                                      zIndex: 20,
+                                      boxShadow: showInsertLine
+                                        ? `0 0 10px rgba(${dropColor}, 0.9), 0 0 20px rgba(${dropColor}, 0.5)`
+                                        : "none",
+                                      transition: "all 0.1s ease",
+                                    }}
+                                  />
+                                )}
+                                <span className="text-xl select-none pointer-events-none">
+                                  {getItemIcon(item.itemId)}
+                                </span>
+                                {item.quantity > 1 && (
+                                  <span
+                                    className="absolute bottom-0 right-0.5 text-[10px] font-bold pointer-events-none"
+                                    style={{
+                                      color:
+                                        item.quantity >= 10000000
+                                          ? "#00ff00"
+                                          : item.quantity >= 100000
+                                            ? "#ffffff"
+                                            : "#ffff00",
+                                      textShadow:
+                                        "1px 1px 1px black, -1px -1px 1px black",
+                                    }}
+                                  >
+                                    {formatQuantity(item.quantity)}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {/* RS3-STYLE: Placeholders are items with qty=0, already rendered above with greyed style */}
+
+                          {/* APPEND ZONE - Empty slot at end for dropping items to append */}
+                          {draggedSlot !== null && (
+                            <div
+                              className="rounded flex items-center justify-center relative"
+                              style={{
+                                width: BANK_SLOT_SIZE,
+                                height: BANK_SLOT_SIZE,
+                                background:
+                                  hoveredSlot === -100 &&
+                                  hoveredTabIndex === tabIdx
+                                    ? `linear-gradient(135deg, rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.35) 0%, rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.2) 100%)`
+                                    : "linear-gradient(135deg, rgba(242, 208, 138, 0.05) 0%, rgba(242, 208, 138, 0.02) 100%)",
+                                border:
+                                  hoveredSlot === -100 &&
+                                  hoveredTabIndex === tabIdx
+                                    ? `2px dashed rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.9)`
+                                    : "2px dashed rgba(242, 208, 138, 0.2)",
+                                transition: "all 0.15s ease",
+                                boxShadow:
+                                  hoveredSlot === -100 &&
+                                  hoveredTabIndex === tabIdx
+                                    ? `0 0 12px rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.5)`
+                                    : "none",
+                              }}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                setHoveredSlot(-100); // Special marker for "append"
+                                setHoveredTabIndex(tabIdx);
+                                setDropMode("insert");
+                                setInsertPosition("after");
+                              }}
+                              onDragLeave={() => {
+                                setHoveredSlot(null);
+                                setHoveredTabIndex(null);
+                                setDropMode(null);
+                                setInsertPosition(null);
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                if (
+                                  draggedSlot !== null &&
+                                  draggedTabIndex !== null
+                                ) {
+                                  const lastSlot =
+                                    tabItems.length > 0
+                                      ? tabItems[tabItems.length - 1].slot
+                                      : -1;
+                                  if (draggedTabIndex === tabIdx) {
+                                    // Same tab - move to end
+                                    handleBankMove(
+                                      draggedSlot,
+                                      lastSlot + 1,
+                                      "insert",
+                                      draggedTabIndex,
+                                    );
+                                  } else {
+                                    // Cross-tab - append to this tab (no toSlot = append)
+                                    handleMoveToTab(
+                                      draggedSlot,
+                                      draggedTabIndex,
+                                      tabIdx,
+                                    );
+                                  }
+                                }
+                                setDraggedSlot(null);
+                                setDraggedTabIndex(null);
+                                setDropMode(null);
+                                setInsertPosition(null);
+                                setHoveredSlot(null);
+                                setHoveredTabIndex(null);
+                              }}
+                            >
+                              <span
+                                className="text-xs font-medium"
+                                style={{
+                                  color:
+                                    hoveredSlot === -100 &&
+                                    hoveredTabIndex === tabIdx
+                                      ? `rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 1)`
+                                      : "rgba(242, 208, 138, 0.3)",
+                                }}
+                              >
+                                +
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            ) : (
+              /* Single tab view - flat grid with improved UX */
+              <div
+                className="grid gap-2"
+                style={{
+                  gridTemplateColumns: `repeat(${BANK_SLOTS_PER_ROW}, ${BANK_SLOT_SIZE}px)`,
+                }}
+              >
+                {filteredItems.map((item, itemIndex) => {
+                  const slotIndex = item.slot;
+                  const itemTabIndex = item.tabIndex;
+
+                  // Determine visual states
+                  const isDragging =
+                    draggedSlot === slotIndex &&
+                    draggedTabIndex === itemTabIndex;
+                  const isDropTarget =
+                    hoveredSlot === slotIndex &&
+                    draggedSlot !== null &&
+                    !(
+                      draggedSlot === slotIndex &&
+                      draggedTabIndex === itemTabIndex
+                    );
+                  const canReceiveDrop = draggedSlot !== null && !isDragging;
+                  const showSwapHighlight = isDropTarget && dropMode === "swap";
+                  const showInsertLine = isDropTarget && dropMode === "insert";
+
+                  // Show faint insert guides on ALL items while dragging
+                  const showFaintGuide = canReceiveDrop && !isDropTarget;
+
+                  // RS3-style: Items with qty=0 are placeholders
+                  const isPlaceholder = item.quantity === 0;
+
+                  return (
+                    <div
+                      key={`${itemTabIndex}-${slotIndex}`}
+                      className="rounded flex items-center justify-center relative cursor-grab active:cursor-grabbing"
+                      style={{
+                        width: BANK_SLOT_SIZE,
+                        height: BANK_SLOT_SIZE,
+                        background: showSwapHighlight
+                          ? "linear-gradient(135deg, rgba(100, 200, 255, 0.35) 0%, rgba(100, 200, 255, 0.2) 100%)"
+                          : isPlaceholder
+                            ? "linear-gradient(135deg, rgba(50, 45, 40, 0.4) 0%, rgba(40, 35, 30, 0.4) 100%)"
+                            : "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)",
+                        border: showSwapHighlight
+                          ? "2px solid rgba(100, 200, 255, 0.9)"
+                          : isPlaceholder
+                            ? "1px dashed rgba(242, 208, 138, 0.2)"
+                            : `1px solid ${BANK_THEME.SLOT_BORDER_HIGHLIGHT}`,
+                        transform: isDragging ? "scale(0.9)" : "scale(1)",
+                        opacity: isDragging ? 0.4 : isPlaceholder ? 0.6 : 1,
+                        transition:
+                          "transform 0.15s ease, opacity 0.15s ease, background 0.1s ease, border 0.1s ease",
+                        boxShadow: showSwapHighlight
+                          ? "0 0 12px rgba(100, 200, 255, 0.5)"
+                          : "none",
+                      }}
+                      title={
+                        isPlaceholder
+                          ? `${formatItemName(item.itemId)} (placeholder)`
+                          : `${formatItemName(item.itemId)} x${item.quantity}`
+                      }
+                      draggable={true}
+                      onDragStart={(e) => {
+                        setDraggedSlot(slotIndex);
+                        setDraggedTabIndex(itemTabIndex);
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (draggedSlot === null) return;
+                        if (
+                          draggedSlot === slotIndex &&
+                          draggedTabIndex === itemTabIndex
+                        )
+                          return;
+
+                        setHoveredSlot(slotIndex);
+
+                        // SIMPLE: Left 40% = insert before, Right 60% = swap
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const width = rect.width;
+
+                        if (x < width * 0.4) {
+                          setDropMode("insert");
+                          setInsertPosition("before");
+                        } else {
+                          setDropMode("swap");
+                          setInsertPosition(null);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        setHoveredSlot(null);
+                        setDropMode(null);
+                        setInsertPosition(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedSlot !== null && draggedTabIndex !== null) {
+                          if (draggedTabIndex === itemTabIndex) {
+                            // Insert = drop at this slot, Swap = exchange positions
+                            handleBankMove(
+                              draggedSlot,
+                              slotIndex,
+                              dropMode || "swap",
+                              draggedTabIndex,
+                            );
+                          }
+                        }
+                        setDraggedSlot(null);
+                        setDraggedTabIndex(null);
+                        setDropMode(null);
+                        setInsertPosition(null);
+                        setHoveredSlot(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedSlot(null);
+                        setDraggedTabIndex(null);
+                        setDropMode(null);
+                        setInsertPosition(null);
+                        setHoveredSlot(null);
+                      }}
+                      onClick={() => handleWithdraw(item.itemId, 1)}
+                      onContextMenu={(e) => {
+                        openContextMenu(
+                          e,
+                          item.itemId,
+                          item.quantity,
+                          "bank",
+                          itemTabIndex,
+                          slotIndex,
+                        );
+                      }}
+                    >
+                      {/* Single INSERT LINE on left edge - shows on ALL items while dragging */}
+                      {(showInsertLine || showFaintGuide) && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: -4,
+                            top: 0,
+                            bottom: 0,
+                            width: showInsertLine ? 6 : 3,
+                            background: showInsertLine
+                              ? "rgba(100, 200, 255, 1)"
+                              : "rgba(100, 200, 255, 0.2)",
+                            borderRadius: 3,
+                            zIndex: 20,
+                            boxShadow: showInsertLine
+                              ? "0 0 10px rgba(100, 200, 255, 0.9), 0 0 20px rgba(100, 200, 255, 0.5)"
+                              : "none",
+                            transition: "all 0.1s ease",
+                          }}
+                        />
+                      )}
+                      <span className="text-xl select-none pointer-events-none">
+                        {getItemIcon(item.itemId)}
+                      </span>
+                      {item.quantity > 1 && (
+                        <span
+                          className="absolute bottom-0 right-0.5 text-[10px] font-bold pointer-events-none"
+                          style={{
+                            color:
+                              item.quantity >= 10000000
+                                ? "#00ff00"
+                                : item.quantity >= 100000
+                                  ? "#ffffff"
+                                  : "#ffff00",
+                            textShadow:
+                              "1px 1px 1px black, -1px -1px 1px black",
+                          }}
+                        >
+                          {formatQuantity(item.quantity)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* RS3-STYLE: Placeholders are items with qty=0, already rendered above with greyed style */}
+
+                {/* APPEND ZONE - Empty slot at end for dropping items to append */}
+                {draggedSlot !== null && selectedTab >= 0 && (
+                  <div
+                    className="rounded flex items-center justify-center relative"
+                    style={{
+                      width: BANK_SLOT_SIZE,
+                      height: BANK_SLOT_SIZE,
+                      background:
+                        hoveredSlot === -100
+                          ? "linear-gradient(135deg, rgba(100, 200, 255, 0.35) 0%, rgba(100, 200, 255, 0.2) 100%)"
+                          : "linear-gradient(135deg, rgba(242, 208, 138, 0.05) 0%, rgba(242, 208, 138, 0.02) 100%)",
+                      border:
+                        hoveredSlot === -100
+                          ? "2px dashed rgba(100, 200, 255, 0.9)"
+                          : "2px dashed rgba(242, 208, 138, 0.2)",
+                      transition: "all 0.15s ease",
+                      boxShadow:
+                        hoveredSlot === -100
+                          ? "0 0 12px rgba(100, 200, 255, 0.5)"
+                          : "none",
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setHoveredSlot(-100); // Special marker for "append"
+                      setDropMode("insert");
+                      setInsertPosition("after");
+                    }}
+                    onDragLeave={() => {
+                      setHoveredSlot(null);
+                      setDropMode(null);
+                      setInsertPosition(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (
+                        draggedSlot !== null &&
+                        draggedTabIndex !== null &&
+                        draggedTabIndex === selectedTab
+                      ) {
+                        const lastSlot =
+                          filteredItems.length > 0
+                            ? filteredItems[filteredItems.length - 1].slot
+                            : -1;
+                        handleBankMove(
+                          draggedSlot,
+                          lastSlot + 1,
+                          "insert",
+                          draggedTabIndex,
+                        );
+                      }
+                      setDraggedSlot(null);
+                      setDraggedTabIndex(null);
+                      setDropMode(null);
+                      setInsertPosition(null);
+                      setHoveredSlot(null);
+                    }}
+                  >
+                    <span
+                      className="text-xs font-medium"
+                      style={{
+                        color:
+                          hoveredSlot === -100
+                            ? "rgba(100, 200, 255, 1)"
+                            : "rgba(242, 208, 138, 0.3)",
+                      }}
+                    >
+                      +
+                    </span>
                   </div>
-                );
-              })}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Footer */}
+          {/* Footer - Status bar with placeholder controls */}
           <div
-            className="px-4 py-2 rounded-b-lg"
+            className="mx-3 mb-2 mt-1 px-3 py-1.5 flex justify-between items-center text-xs rounded"
             style={{
-              background: "rgba(0, 0, 0, 0.3)",
-              borderTop: "1px solid rgba(139, 69, 19, 0.3)",
+              background: BANK_THEME.PANEL_BG_DARK,
+              border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
+              color: BANK_THEME.TEXT_GOLD_DIM,
             }}
           >
-            <div
-              className="flex justify-between items-center text-xs"
-              style={{ color: "rgba(242, 208, 138, 0.6)" }}
-            >
+            <div className="flex items-center gap-3">
               <span>
-                {items.length} / {maxSlots} slots
+                {selectedTab === -1
+                  ? `${items.length} items`
+                  : `${filteredItems.length} in tab`}{" "}
+                • {items.length}/{maxSlots} slots
               </span>
-              <span>Left: -1 | Right: Options</span>
+              {/* RS3-style: Count items with qty=0 as placeholders */}
+              {items.filter((i) => i.quantity === 0).length > 0 && (
+                <span style={{ opacity: 0.6 }}>
+                  ({items.filter((i) => i.quantity === 0).length} placeholder
+                  {items.filter((i) => i.quantity === 0).length !== 1
+                    ? "s"
+                    : ""}
+                  )
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              {/* Always Set Placeholder Checkbox */}
+              <label
+                className="flex items-center gap-1.5 cursor-pointer select-none"
+                title={
+                  alwaysSetPlaceholder
+                    ? "Placeholders ON: Withdrawing all creates placeholder"
+                    : "Placeholders OFF: Withdrawing all removes slot"
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={alwaysSetPlaceholder}
+                  onChange={handleToggleAlwaysPlaceholder}
+                  className="w-3.5 h-3.5 rounded cursor-pointer accent-amber-600"
+                  style={{
+                    accentColor: "#d97706",
+                  }}
+                />
+                <span
+                  className="text-[10px] font-medium"
+                  style={{
+                    color: alwaysSetPlaceholder
+                      ? "#f2d08a"
+                      : "rgba(255,255,255,0.5)",
+                  }}
+                >
+                  Always placeholder
+                </span>
+              </label>
+              {/* Release All Placeholders (RS3-style: items with qty=0) */}
+              {items.filter((i) => i.quantity === 0).length > 0 && (
+                <button
+                  onClick={handleReleaseAllPlaceholders}
+                  className="px-2 py-0.5 rounded text-[10px] font-medium transition-all"
+                  style={{
+                    background: "rgba(180, 100, 100, 0.5)",
+                    color: "rgba(255,255,255,0.8)",
+                    border: "1px solid rgba(180, 100, 100, 0.6)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "rgba(180, 100, 100, 0.7)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "rgba(180, 100, 100, 0.5)";
+                  }}
+                  title="Release all placeholders"
+                >
+                  Clear All
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Inventory Panel - Right Side (Bank Mode) */}
+        {/* Inventory Panel - Right Side */}
         <div
-          className="rounded-lg shadow-xl"
+          className="flex flex-col rounded-lg"
           style={{
-            background:
-              "linear-gradient(135deg, rgba(20, 15, 10, 0.98) 0%, rgba(15, 10, 5, 0.98) 100%)",
-            border: "2px solid rgba(139, 69, 19, 0.7)",
-            boxShadow:
-              "0 10px 30px rgba(0, 0, 0, 0.8), inset 0 2px 4px rgba(242, 208, 138, 0.1)",
-            width: "200px",
+            background: BANK_THEME.PANEL_BG,
+            border: `2px solid ${BANK_THEME.PANEL_BORDER}`,
+            boxShadow: `0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 ${BANK_THEME.PANEL_BORDER_LIGHT}`,
+            width: `${INV_SLOTS_PER_ROW * (INV_SLOT_SIZE + 4) + 24}px`,
           }}
         >
           {/* Header */}
           <div
-            className="flex justify-between items-center px-3 py-2 rounded-t-lg"
+            className="flex justify-center items-center px-3 py-2 rounded-t-lg"
             style={{
               background:
                 "linear-gradient(180deg, rgba(139, 69, 19, 0.4) 0%, rgba(139, 69, 19, 0.2) 100%)",
-              borderBottom: "1px solid rgba(139, 69, 19, 0.5)",
+              borderBottom: `1px solid ${BANK_THEME.PANEL_BORDER}`,
             }}
           >
             <h2
               className="text-sm font-bold flex items-center gap-2"
-              style={{ color: COLORS.ACCENT }}
+              style={{ color: BANK_THEME.TEXT_GOLD }}
             >
               <span>🎒</span>
               <span>Inventory</span>
             </h2>
           </div>
 
-          {/* Inventory Grid - Shows SERVER state directly */}
-          <div className="p-2">
+          {/* Inventory Grid */}
+          <div className="p-2 flex-1">
             <div
               className="grid gap-1"
               style={{
-                gridTemplateColumns: `repeat(${INV_SLOTS_PER_ROW}, 42px)`,
+                gridTemplateColumns: `repeat(${INV_SLOTS_PER_ROW}, ${INV_SLOT_SIZE}px)`,
               }}
             >
               {Array.from({ length: INV_SLOTS_PER_ROW * INV_ROWS }).map(
                 (_, idx) => {
-                  // Display SERVER state directly - no optimistic predictions
                   const item = inventory.find((i) => i && i.slot === idx);
 
                   return (
                     <div
                       key={idx}
-                      className={`
-                      w-[42px] h-[42px] rounded
-                      flex items-center justify-center relative
-                      transition-colors duration-150
-                      ${item ? "cursor-pointer" : ""}
-                    `}
+                      className={`flex items-center justify-center relative rounded ${item ? "cursor-pointer" : ""}`}
                       style={{
+                        width: INV_SLOT_SIZE,
+                        height: INV_SLOT_SIZE,
                         background: item
                           ? "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)"
                           : "rgba(0, 0, 0, 0.4)",
                         border: item
-                          ? "1px solid rgba(242, 208, 138, 0.3)"
-                          : "1px solid rgba(242, 208, 138, 0.1)",
+                          ? `1px solid ${BANK_THEME.SLOT_BORDER_HIGHLIGHT}`
+                          : `1px solid ${BANK_THEME.SLOT_BORDER}`,
                       }}
                       title={
                         item
@@ -1024,7 +2183,7 @@ export function BankPanel({
                           e.currentTarget.style.background =
                             "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)";
                           e.currentTarget.style.borderColor =
-                            "rgba(242, 208, 138, 0.3)";
+                            BANK_THEME.SLOT_BORDER_HIGHLIGHT;
                         }
                       }}
                     >
@@ -1037,9 +2196,9 @@ export function BankPanel({
                             <span
                               className="absolute bottom-0 right-0.5 text-[9px] font-bold"
                               style={{
-                                color: "#ffff00",
+                                color: BANK_THEME.TEXT_YELLOW,
                                 textShadow:
-                                  "1px 1px 1px black, -1px -1px 1px black",
+                                  "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
                               }}
                             >
                               {item.quantity}
@@ -1054,6 +2213,41 @@ export function BankPanel({
             </div>
           </div>
 
+          {/* Coin Pouch Section */}
+          <div
+            className="mx-2 mb-2 p-2 rounded flex items-center justify-between"
+            style={{
+              background: "rgba(0, 0, 0, 0.3)",
+              border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-base">💰</span>
+              <span className="text-sm font-bold" style={{ color: "#fbbf24" }}>
+                {coins.toLocaleString()}
+              </span>
+            </div>
+            <button
+              onClick={() => openCoinModal("deposit")}
+              disabled={coins <= 0}
+              className="px-2 py-1 rounded text-xs font-bold transition-colors disabled:opacity-30"
+              style={{
+                background: "rgba(100, 180, 100, 0.6)",
+                color: "#fff",
+                border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
+              }}
+              onMouseEnter={(e) => {
+                if (coins > 0)
+                  e.currentTarget.style.background = "rgba(100, 180, 100, 0.8)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(100, 180, 100, 0.6)";
+              }}
+            >
+              Deposit
+            </button>
+          </div>
+
           {/* Deposit All Button */}
           <div className="px-2 pb-2">
             <button
@@ -1062,8 +2256,8 @@ export function BankPanel({
               style={{
                 background:
                   "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(139, 69, 19, 0.5) 100%)",
-                color: COLORS.ACCENT,
-                border: "1px solid rgba(139, 69, 19, 0.8)",
+                color: BANK_THEME.TEXT_GOLD,
+                border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background =
@@ -1076,36 +2270,6 @@ export function BankPanel({
             >
               Deposit All
             </button>
-          </div>
-
-          {/* Coins */}
-          <div
-            className="px-3 py-2 rounded-b-lg flex items-center justify-between"
-            style={{
-              background: "rgba(0, 0, 0, 0.3)",
-              borderTop: "1px solid rgba(139, 69, 19, 0.3)",
-            }}
-          >
-            <span className="text-sm">💰</span>
-            <span className="text-sm font-bold" style={{ color: "#fbbf24" }}>
-              {coins.toLocaleString()}
-            </span>
-          </div>
-
-          {/* Footer hint */}
-          <div
-            className="px-2 py-1 text-center"
-            style={{
-              background: "rgba(0, 0, 0, 0.2)",
-              borderTop: "1px solid rgba(139, 69, 19, 0.2)",
-            }}
-          >
-            <span
-              className="text-[10px]"
-              style={{ color: "rgba(242, 208, 138, 0.5)" }}
-            >
-              Left: +1 | Right: Options
-            </span>
           </div>
         </div>
       </div>

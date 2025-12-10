@@ -41,6 +41,10 @@ import {
   RateLimitService,
   isValidItemId,
   isValidQuantity,
+  isValidBankSlot,
+  isValidBankMoveMode,
+  isValidBankTabIndex,
+  isValidCustomBankTabIndex,
   wouldOverflow,
 } from "../services";
 
@@ -55,6 +59,7 @@ import {
   getPlayerId,
   getDatabase,
   getSessionManager,
+  type DrizzleTransaction,
 } from "./common";
 
 // Single rate limiter instance for bank operations
@@ -71,6 +76,77 @@ const MAX_BANK_SLOTS = INPUT_LIMITS.MAX_BANK_SLOTS;
 function isValidGameItem(itemId: string): boolean {
   const item = getItem(itemId);
   return item !== null;
+}
+
+/**
+ * Compact bank slots after an item is deleted.
+ *
+ * OSRS-style behavior: When an item is fully withdrawn, remaining items
+ * shift left to fill the gap. No empty slots in the middle of the bank.
+ *
+ * NOTE: This compacts within the CURRENT tab only (tab 0 by default for backwards compatibility).
+ * Updates one slot at a time from LOWEST to HIGHEST to avoid unique constraint violations.
+ *
+ * @param tx - Database transaction
+ * @param playerId - Player whose bank to compact
+ * @param deletedSlot - The slot that was just deleted
+ * @param tabIndex - Tab to compact (default 0 for backwards compatibility)
+ */
+async function compactBankSlots(
+  tx: DrizzleTransaction,
+  playerId: string,
+  deletedSlot: number,
+  tabIndex: number = 0,
+): Promise<void> {
+  // Get all items with slots greater than the deleted slot
+  const itemsToShift = await tx.execute(
+    sql`SELECT id, slot FROM bank_storage
+        WHERE "playerId" = ${playerId}
+          AND "tabIndex" = ${tabIndex}
+          AND slot > ${deletedSlot}
+        ORDER BY slot ASC
+        FOR UPDATE`,
+  );
+
+  // Shift each slot down by 1, starting from the lowest
+  // This avoids unique constraint violations because we move into the just-vacated slot
+  for (const row of itemsToShift.rows as Array<{ id: number; slot: number }>) {
+    await tx.execute(
+      sql`UPDATE bank_storage SET slot = ${row.slot - 1} WHERE id = ${row.id}`,
+    );
+  }
+}
+
+/**
+ * Send full bank state including tabs to client
+ * Helper function for all bank handlers to send consistent state
+ *
+ * RS3-STYLE PLACEHOLDERS:
+ * - Placeholders are just bank_storage rows with quantity = 0
+ * - No separate placeholders array needed - items with qty=0 ARE placeholders
+ * - Client renders qty=0 items with greyed-out style
+ */
+async function sendBankStateWithTabs(
+  socket: ServerSocket,
+  playerId: string,
+  db: { drizzle: unknown; pool: unknown },
+): Promise<void> {
+  const bankRepo = new BankRepository(
+    db.drizzle as Parameters<typeof BankRepository.prototype.getPlayerBank>[0],
+    db.pool as Parameters<typeof BankRepository.prototype.getPlayerBank>[1],
+  );
+  // RS3-style: getPlayerBank now includes qty=0 items (placeholders)
+  const bankItems = await bankRepo.getPlayerBank(playerId);
+  const bankTabs = await bankRepo.getPlayerTabs(playerId);
+  const alwaysSetPlaceholder = await bankRepo.getAlwaysSetPlaceholder(playerId);
+
+  sendToSocket(socket, "bankState", {
+    playerId,
+    items: bankItems, // Includes qty=0 items (placeholders)
+    tabs: bankTabs,
+    alwaysSetPlaceholder,
+    maxSlots: MAX_BANK_SLOTS,
+  });
 }
 
 /**
@@ -99,17 +175,24 @@ export async function handleBankOpen(
 
   try {
     const bankRepo = new BankRepository(db.drizzle, db.pool);
+    // RS3-style: items includes qty=0 rows (placeholders)
     const items = await bankRepo.getPlayerBank(playerId);
+    const tabs = await bankRepo.getPlayerTabs(playerId);
+    const alwaysSetPlaceholder =
+      await bankRepo.getAlwaysSetPlaceholder(playerId);
 
     // Phase 6: Removed socket.activeBankEntityId assignment
     // InteractionSessionManager now tracks targetEntityId as single source of truth
 
-    // Send bank state to client (include isOpen for consistency with store)
+    // Send bank state to client (include isOpen and bankId for initial open)
+    // RS3-style: no separate placeholders array - items with qty=0 ARE placeholders
     sendToSocket(socket, "bankState", {
       playerId,
       bankId: data.bankId,
-      items,
-      maxSlots: 480,
+      items, // Includes qty=0 items (placeholders)
+      tabs,
+      alwaysSetPlaceholder,
+      maxSlots: MAX_BANK_SLOTS,
       isOpen: true,
     });
 
@@ -148,7 +231,12 @@ export async function handleBankOpen(
  */
 export async function handleBankDeposit(
   socket: ServerSocket,
-  data: { itemId: string; quantity: number; slot?: number },
+  data: {
+    itemId: string;
+    quantity: number;
+    slot?: number;
+    targetTabIndex?: number;
+  },
   world: World,
 ): Promise<void> {
   // SPECIAL CASE: Coins should come from money pouch (CoinPouchSystem), not inventory
@@ -275,20 +363,30 @@ export async function handleBankDeposit(
         }
 
         // Add to bank (stacking)
+        // RS3-STYLE: If item exists (even with qty=0 placeholder), add to that slot
         if (bankRows.length > 0) {
+          // Works for both normal items and qty=0 placeholders
+          // qty=0 + newQty = newQty (placeholder becomes real item)
           await tx.execute(
             sql`UPDATE bank_storage
                 SET quantity = quantity + ${data.quantity}
                 WHERE id = ${bankRows[0].id}`,
           );
         } else {
-          // Find next available bank slot
-          const allBankItems = await tx
-            .select()
-            .from(schema.bankStorage)
-            .where(eq(schema.bankStorage.playerId, ctx.playerId));
+          // No existing item - find next available bank slot IN TARGET TAB
+          // RS3-style: New items go to the currently viewed tab
+          const targetTab = data.targetTabIndex ?? 0;
 
-          const usedSlots = new Set(allBankItems.map((i) => i.slot ?? 0));
+          // Get items in the target tab to find next available slot
+          const tabItems = await tx.execute(
+            sql`SELECT slot FROM bank_storage
+                WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${targetTab}
+                FOR UPDATE`,
+          );
+
+          const usedSlots = new Set(
+            (tabItems.rows as Array<{ slot: number }>).map((i) => i.slot),
+          );
           let nextSlot = 0;
           while (usedSlots.has(nextSlot) && nextSlot < MAX_BANK_SLOTS) {
             nextSlot++;
@@ -303,6 +401,7 @@ export async function handleBankDeposit(
             itemId: data.itemId,
             quantity: data.quantity,
             slot: nextSlot,
+            tabIndex: targetTab,
           });
         }
 
@@ -313,15 +412,9 @@ export async function handleBankDeposit(
 
   if (!result) return; // Error already handled
 
-  // Step 4: Send updated bank state to client
+  // Step 4: Send updated bank state to client (with tabs for consistency)
   // NOTE: Inventory update is handled by reloadFromDatabase() which emits INVENTORY_UPDATED
-  const bankRepo = new BankRepository(ctx.db.drizzle, ctx.db.pool);
-  const bankItems = await bankRepo.getPlayerBank(ctx.playerId);
-  sendToSocket(socket, "bankState", {
-    playerId: ctx.playerId,
-    items: bankItems,
-    maxSlots: MAX_BANK_SLOTS,
-  });
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
 
   // NOTE: emitInventorySyncEvents removed - reloadFromDatabase() handles in-memory sync
 }
@@ -440,6 +533,8 @@ export async function handleBankWithdraw(
         const bankRows = bankResult.rows as Array<{
           id: number;
           quantity: number | null;
+          slot: number;
+          tabIndex: number;
         }>;
 
         if (bankRows.length === 0) {
@@ -448,6 +543,8 @@ export async function handleBankWithdraw(
 
         const bankRow = bankRows[0];
         const availableQty = bankRow.quantity ?? 0;
+        const deletedSlot = bankRow.slot;
+        const tabIndex = bankRow.tabIndex ?? 0;
 
         if (availableQty === 0) {
           throw new Error("ITEM_NOT_IN_BANK");
@@ -459,12 +556,36 @@ export async function handleBankWithdraw(
           throw new Error("INSUFFICIENT_QUANTITY");
         }
 
+        // Check if alwaysSetPlaceholder is enabled
+        const settingResult = await tx.execute(
+          sql`SELECT "alwaysSetPlaceholder" FROM characters WHERE id = ${ctx.playerId}`,
+        );
+        const alwaysSetPlaceholder =
+          (
+            settingResult.rows[0] as
+              | { alwaysSetPlaceholder: number }
+              | undefined
+          )?.alwaysSetPlaceholder === 1;
+
         // Remove from bank
         const newBankQty = availableQty - finalWithdrawQty;
         if (newBankQty <= 0) {
-          await tx.execute(
-            sql`DELETE FROM bank_storage WHERE id = ${bankRow.id}`,
-          );
+          // RS3-STYLE PLACEHOLDER BEHAVIOR:
+          // If alwaysSetPlaceholder is ON, set qty=0 (item stays as placeholder)
+          // If alwaysSetPlaceholder is OFF, delete row and compact slots
+          if (alwaysSetPlaceholder) {
+            // RS3-style: Keep row with qty=0 as placeholder
+            await tx.execute(
+              sql`UPDATE bank_storage SET quantity = 0 WHERE id = ${bankRow.id}`,
+            );
+            // Don't compact - placeholder holds the slot
+          } else {
+            // Delete row and compact slots to fill the gap
+            await tx.execute(
+              sql`DELETE FROM bank_storage WHERE id = ${bankRow.id}`,
+            );
+            await compactBankSlots(tx, ctx.playerId, deletedSlot, tabIndex);
+          }
         } else {
           await tx.execute(
             sql`UPDATE bank_storage
@@ -507,15 +628,9 @@ export async function handleBankWithdraw(
 
   if (!result) return; // Error already handled
 
-  // Step 4: Send updated bank state to client
+  // Step 4: Send updated bank state to client (with tabs for consistency)
   // NOTE: Inventory update is handled by reloadFromDatabase() which emits INVENTORY_UPDATED
-  const bankRepo = new BankRepository(ctx.db.drizzle, ctx.db.pool);
-  const bankItems = await bankRepo.getPlayerBank(ctx.playerId);
-  sendToSocket(socket, "bankState", {
-    playerId: ctx.playerId,
-    items: bankItems,
-    maxSlots: MAX_BANK_SLOTS,
-  });
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
 
   // NOTE: emitInventorySyncEvents removed - reloadFromDatabase() handles in-memory sync
 }
@@ -532,7 +647,7 @@ export async function handleBankWithdraw(
  */
 export async function handleBankDepositAll(
   socket: ServerSocket,
-  _data: unknown,
+  data: { targetTabIndex?: number },
   world: World,
 ): Promise<void> {
   // Step 1: Common validation (player, rate limit, distance, db)
@@ -660,30 +775,45 @@ export async function handleBankDepositAll(
         }
 
         // Update/insert bank items
-        let nextFreeSlot = 0;
+        // RS3-style: New items go to the currently viewed tab
+        const targetTab = data.targetTabIndex ?? 0;
+
+        // Get slots used in target tab for new item placement
+        const targetTabItems = await tx.execute(
+          sql`SELECT slot FROM bank_storage
+              WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${targetTab}`,
+        );
+        const usedTargetTabSlots = new Set(
+          (targetTabItems.rows as Array<{ slot: number }>).map((r) => r.slot),
+        );
+        let nextFreeSlotInTab = 0;
+
         for (const [itemId, group] of itemGroups) {
           const existingBank = bankByItemId.get(itemId);
 
           if (existingBank) {
+            // Existing item: add to it where it already is (any tab)
             await tx.execute(
               sql`UPDATE bank_storage
                   SET quantity = quantity + ${group.total}
                   WHERE id = ${existingBank.id}`,
             );
           } else {
-            while (usedBankSlots.has(nextFreeSlot)) {
-              nextFreeSlot++;
+            // New item: insert into target tab
+            while (usedTargetTabSlots.has(nextFreeSlotInTab)) {
+              nextFreeSlotInTab++;
             }
 
             await tx.insert(schema.bankStorage).values({
               playerId: ctx.playerId,
               itemId,
               quantity: group.total,
-              slot: nextFreeSlot,
+              slot: nextFreeSlotInTab,
+              tabIndex: targetTab,
             });
 
-            usedBankSlots.add(nextFreeSlot);
-            nextFreeSlot++;
+            usedTargetTabSlots.add(nextFreeSlotInTab);
+            nextFreeSlotInTab++;
           }
         }
 
@@ -694,15 +824,9 @@ export async function handleBankDepositAll(
 
   if (!result) return; // Error already handled
 
-  // Step 3: Send updated bank state to client
+  // Step 3: Send updated bank state to client (with tabs for consistency)
   // NOTE: Inventory update is handled by reloadFromDatabase() which emits INVENTORY_UPDATED
-  const bankRepo = new BankRepository(ctx.db.drizzle, ctx.db.pool);
-  const bankItems = await bankRepo.getPlayerBank(ctx.playerId);
-  sendToSocket(socket, "bankState", {
-    playerId: ctx.playerId,
-    items: bankItems,
-    maxSlots: MAX_BANK_SLOTS,
-  });
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
 
   // NOTE: emitInventorySyncEvents removed - reloadFromDatabase() handles in-memory sync
 }
@@ -845,15 +969,8 @@ export async function handleBankDepositCoins(
 
   if (!result) return; // Error already handled by executeSecureTransaction
 
-  // Step 4: Send updated bank state to client
-  const bankRepo = new BankRepository(ctx.db.drizzle, ctx.db.pool);
-  const bankItems = await bankRepo.getPlayerBank(ctx.playerId);
-
-  sendToSocket(socket, "bankState", {
-    playerId: ctx.playerId,
-    items: bankItems,
-    maxSlots: MAX_BANK_SLOTS,
-  });
+  // Step 4: Send updated bank state to client (with tabs for consistency)
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
 
   // Step 5: Sync CoinPouchSystem in-memory cache
   emitInventorySyncEvents(ctx, {
@@ -973,6 +1090,8 @@ export async function handleBankWithdrawCoins(
         await tx
           .delete(schema.bankStorage)
           .where(eq(schema.bankStorage.id, bankCoinsRow.id));
+        // OSRS-style: compact slots to fill the gap
+        await compactBankSlots(tx, ctx.playerId, bankCoinsRow.slot);
       } else {
         // Decrement quantity
         await tx.execute(
@@ -994,15 +1113,8 @@ export async function handleBankWithdrawCoins(
 
   if (!result) return; // Error already handled by executeSecureTransaction
 
-  // Step 4: Send updated bank state to client
-  const bankRepo = new BankRepository(ctx.db.drizzle, ctx.db.pool);
-  const bankItems = await bankRepo.getPlayerBank(ctx.playerId);
-
-  sendToSocket(socket, "bankState", {
-    playerId: ctx.playerId,
-    items: bankItems,
-    maxSlots: MAX_BANK_SLOTS,
-  });
+  // Step 4: Send updated bank state to client (with tabs for consistency)
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
 
   // Step 5: Sync CoinPouchSystem in-memory cache
   emitInventorySyncEvents(ctx, {
@@ -1047,4 +1159,998 @@ export function handleBankClose(
     playerId,
     bankId: bankEntityId,
   });
+}
+
+/**
+ * Handle bank move/rearrange request
+ *
+ * OSRS-style bank organization:
+ * - Swap mode: Drop on item center → exchange positions
+ * - Insert mode: Drop on item edge → insert at position, shift others
+ *
+ * SECURITY MEASURES:
+ * - validateTransactionRequest: player, rate limit, distance, db
+ * - isValidBankSlot: slot bounds checking
+ * - isValidBankMoveMode: mode validation
+ * - executeSecureTransaction: atomic with row-level locking
+ */
+export async function handleBankMove(
+  socket: ServerSocket,
+  data: {
+    fromSlot: number;
+    toSlot: number;
+    mode: "swap" | "insert";
+    tabIndex: number;
+  },
+  world: World,
+): Promise<void> {
+  // Step 1: Common validation (player, rate limit, distance, db)
+  const baseResult = validateTransactionRequest(
+    socket,
+    world,
+    SessionType.BANK,
+    rateLimiter,
+  );
+  if (!baseResult.success) return;
+
+  const ctx = baseResult.context;
+
+  // Step 2: Input validation
+  if (!isValidBankSlot(data.fromSlot)) {
+    sendErrorToast(socket, "Invalid source slot");
+    return;
+  }
+
+  if (!isValidBankSlot(data.toSlot)) {
+    sendErrorToast(socket, "Invalid destination slot");
+    return;
+  }
+
+  if (!isValidBankMoveMode(data.mode)) {
+    sendErrorToast(socket, "Invalid move mode");
+    return;
+  }
+
+  if (!isValidBankTabIndex(data.tabIndex)) {
+    sendErrorToast(socket, "Invalid tab");
+    return;
+  }
+
+  // No-op if same slot
+  if (data.fromSlot === data.toSlot) {
+    return;
+  }
+
+  // Step 3: Execute move transaction
+  const result = await executeSecureTransaction(ctx, {
+    errorMessages: {
+      SLOT_EMPTY: "No item in that slot",
+    },
+    execute: async (tx) => {
+      // Lock ALL bank items for this player IN THIS TAB to prevent race conditions during shift
+      // CRITICAL: Must filter by tabIndex to avoid unique constraint violations
+      const allItemsResult = await tx.execute(
+        sql`SELECT * FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.tabIndex}
+            ORDER BY slot
+            FOR UPDATE`,
+      );
+
+      const allItems = allItemsResult.rows as Array<{
+        id: number;
+        slot: number;
+        itemId: string;
+        quantity: number;
+        tabIndex: number;
+      }>;
+
+      // Find source item
+      const fromItem = allItems.find((i) => i.slot === data.fromSlot);
+      if (!fromItem) {
+        throw new Error("SLOT_EMPTY");
+      }
+
+      // Find destination item (may not exist for insert into empty slot)
+      const toItem = allItems.find((i) => i.slot === data.toSlot);
+
+      // Use a temporary slot far outside normal range to avoid unique constraint conflicts
+      const TEMP_SLOT = -1000;
+
+      if (data.mode === "swap") {
+        // SWAP MODE: Exchange positions using temp slot to avoid constraint violation
+        if (toItem) {
+          // Both slots have items - swap them via temp slot
+          await tx.execute(
+            sql`UPDATE bank_storage SET slot = ${TEMP_SLOT} WHERE id = ${fromItem.id}`,
+          );
+          await tx.execute(
+            sql`UPDATE bank_storage SET slot = ${data.fromSlot} WHERE id = ${toItem.id}`,
+          );
+          await tx.execute(
+            sql`UPDATE bank_storage SET slot = ${data.toSlot} WHERE id = ${fromItem.id}`,
+          );
+        } else {
+          // Destination empty - just move
+          await tx.execute(
+            sql`UPDATE bank_storage SET slot = ${data.toSlot} WHERE id = ${fromItem.id}`,
+          );
+        }
+      } else {
+        // INSERT MODE: Insert at position, shift others
+        // First move source to temp slot to free up its position
+        await tx.execute(
+          sql`UPDATE bank_storage SET slot = ${TEMP_SLOT} WHERE id = ${fromItem.id}`,
+        );
+
+        if (data.fromSlot < data.toSlot) {
+          // Moving right: shift items in range left by 1 (filling the gap)
+          // Must shift from LOWEST to HIGHEST to avoid constraint violations
+          // CRITICAL: Filter by tabIndex to only shift items in this tab
+          for (let s = data.fromSlot + 1; s <= data.toSlot; s++) {
+            await tx.execute(
+              sql`UPDATE bank_storage
+                  SET slot = slot - 1
+                  WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.tabIndex} AND slot = ${s}`,
+            );
+          }
+        } else {
+          // Moving left: shift items in range right by 1 (making room)
+          // Must shift from HIGHEST to LOWEST to avoid constraint violations
+          // CRITICAL: Filter by tabIndex to only shift items in this tab
+          for (let s = data.fromSlot - 1; s >= data.toSlot; s--) {
+            await tx.execute(
+              sql`UPDATE bank_storage
+                  SET slot = slot + 1
+                  WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.tabIndex} AND slot = ${s}`,
+            );
+          }
+        }
+
+        // Place the dragged item at destination
+        await tx.execute(
+          sql`UPDATE bank_storage SET slot = ${data.toSlot} WHERE id = ${fromItem.id}`,
+        );
+      }
+
+      return { success: true };
+    },
+  });
+
+  if (!result) return; // Error already handled
+
+  // Step 4: Send updated bank state to client (with tabs for consistency)
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
+}
+
+// ============================================================================
+// BANK TAB HANDLERS (Phase 2)
+// ============================================================================
+
+/**
+ * Handle create bank tab request
+ *
+ * Creates a new custom tab (1-9) with an item from main tab (or another tab).
+ * The item becomes the first item in the new tab and its icon.
+ *
+ * OSRS Behavior:
+ * - Drag item to "+" button or empty tab slot to create
+ * - First item becomes the tab icon
+ * - Max 9 custom tabs (1-9)
+ *
+ * SECURITY: Uses existing validation patterns from bank handlers
+ */
+export async function handleBankCreateTab(
+  socket: ServerSocket,
+  data: { fromSlot: number; fromTabIndex: number; newTabIndex: number },
+  world: World,
+): Promise<void> {
+  // Step 1: Common validation
+  const baseResult = validateTransactionRequest(
+    socket,
+    world,
+    SessionType.BANK,
+    rateLimiter,
+  );
+  if (!baseResult.success) return;
+
+  const ctx = baseResult.context;
+
+  // Step 2: Input validation
+  if (!isValidBankSlot(data.fromSlot)) {
+    sendErrorToast(socket, "Invalid slot");
+    return;
+  }
+
+  if (!isValidBankTabIndex(data.fromTabIndex)) {
+    sendErrorToast(socket, "Invalid source tab");
+    return;
+  }
+
+  if (!isValidCustomBankTabIndex(data.newTabIndex)) {
+    sendErrorToast(socket, "Invalid new tab index");
+    return;
+  }
+
+  // Step 3: Execute create tab transaction
+  const result = await executeSecureTransaction(ctx, {
+    errorMessages: {
+      SLOT_EMPTY: "No item in that slot",
+      TAB_EXISTS: "Tab already exists",
+      MAX_TABS_REACHED: "Maximum tabs reached",
+    },
+    execute: async (tx) => {
+      // Check tab doesn't already exist
+      const existingTab = await tx.execute(
+        sql`SELECT id FROM bank_tabs
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.newTabIndex}
+            FOR UPDATE`,
+      );
+
+      if (existingTab.rows.length > 0) {
+        throw new Error("TAB_EXISTS");
+      }
+
+      // Check total tabs count (max 9)
+      const tabCount = await tx.execute(
+        sql`SELECT COUNT(*) as count FROM bank_tabs WHERE "playerId" = ${ctx.playerId}`,
+      );
+      const count = Number(
+        (tabCount.rows[0] as { count: string | number }).count,
+      );
+      if (count >= 9) {
+        throw new Error("MAX_TABS_REACHED");
+      }
+
+      // Find the item to move
+      const itemResult = await tx.execute(
+        sql`SELECT * FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId}
+              AND "tabIndex" = ${data.fromTabIndex}
+              AND slot = ${data.fromSlot}
+            FOR UPDATE`,
+      );
+
+      if (itemResult.rows.length === 0) {
+        throw new Error("SLOT_EMPTY");
+      }
+
+      const item = itemResult.rows[0] as {
+        id: number;
+        itemId: string;
+        quantity: number;
+      };
+
+      // Create the new tab with item as icon
+      await tx.execute(
+        sql`INSERT INTO bank_tabs ("playerId", "tabIndex", "iconItemId")
+            VALUES (${ctx.playerId}, ${data.newTabIndex}, ${item.itemId})`,
+      );
+
+      // Find next available slot in the new tab (in case of orphaned data)
+      const destMax = await tx.execute(
+        sql`SELECT COALESCE(MAX(slot), -1) as "maxSlot"
+            FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.newTabIndex}`,
+      );
+      const rawMaxSlot = (
+        destMax.rows[0] as { maxSlot: string | number | null }
+      ).maxSlot;
+      const maxSlot = rawMaxSlot === null ? -1 : Number(rawMaxSlot);
+      const nextSlot = maxSlot + 1;
+
+      // Move item to new tab
+      await tx.execute(
+        sql`UPDATE bank_storage
+            SET "tabIndex" = ${data.newTabIndex}, slot = ${nextSlot}
+            WHERE id = ${item.id}`,
+      );
+
+      // Compact the source tab to fill the gap
+      await compactBankSlots(
+        tx,
+        ctx.playerId,
+        data.fromSlot,
+        data.fromTabIndex,
+      );
+
+      return { success: true };
+    },
+  });
+
+  if (!result) return;
+
+  // Step 4: Send updated state
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
+}
+
+/**
+ * Handle delete bank tab request
+ *
+ * Deletes a custom tab and moves all items to main tab (index 0).
+ * Tab 0 (main) cannot be deleted.
+ *
+ * OSRS Behavior:
+ * - Items from deleted tab are appended to main tab
+ * - Tab numbers above the deleted tab shift down
+ *
+ * SECURITY: Uses existing validation patterns from bank handlers
+ */
+export async function handleBankDeleteTab(
+  socket: ServerSocket,
+  data: { tabIndex: number },
+  world: World,
+): Promise<void> {
+  // Step 1: Common validation
+  const baseResult = validateTransactionRequest(
+    socket,
+    world,
+    SessionType.BANK,
+    rateLimiter,
+  );
+  if (!baseResult.success) return;
+
+  const ctx = baseResult.context;
+
+  // Step 2: Input validation - must be custom tab (1-9), not main (0)
+  if (!isValidCustomBankTabIndex(data.tabIndex)) {
+    sendErrorToast(socket, "Cannot delete main tab");
+    return;
+  }
+
+  // Step 3: Execute delete tab transaction
+  const result = await executeSecureTransaction(ctx, {
+    errorMessages: {
+      TAB_NOT_FOUND: "Tab not found",
+    },
+    execute: async (tx) => {
+      // Check tab exists
+      const tabResult = await tx.execute(
+        sql`SELECT id FROM bank_tabs
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.tabIndex}
+            FOR UPDATE`,
+      );
+
+      if (tabResult.rows.length === 0) {
+        throw new Error("TAB_NOT_FOUND");
+      }
+
+      // Get all items in the tab being deleted
+      const itemsInTab = await tx.execute(
+        sql`SELECT id, slot FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.tabIndex}
+            ORDER BY slot
+            FOR UPDATE`,
+      );
+
+      // Get max slot in main tab to append items
+      const mainTabMax = await tx.execute(
+        sql`SELECT COALESCE(MAX(slot), -1) as "maxSlot"
+            FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = 0`,
+      );
+      const rawMaxSlot = (
+        mainTabMax.rows[0] as { maxSlot: string | number | null }
+      ).maxSlot;
+      const maxSlot = rawMaxSlot === null ? -1 : Number(rawMaxSlot);
+      let nextSlot = maxSlot + 1;
+
+      // Move all items to main tab
+      for (const row of itemsInTab.rows as Array<{
+        id: number;
+        slot: number;
+      }>) {
+        await tx.execute(
+          sql`UPDATE bank_storage
+              SET "tabIndex" = 0, slot = ${nextSlot}
+              WHERE id = ${row.id}`,
+        );
+        nextSlot++;
+      }
+
+      // Delete the tab
+      await tx.execute(
+        sql`DELETE FROM bank_tabs
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.tabIndex}`,
+      );
+
+      // RS3-STYLE: Shift all higher tabs down by 1 to fill the gap
+      // This ensures tabs are always sequential (1, 2, 3...) with no gaps
+
+      // Get all tabs with higher indexes
+      const higherTabs = await tx.execute(
+        sql`SELECT "tabIndex" FROM bank_tabs
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > ${data.tabIndex}
+            ORDER BY "tabIndex" ASC
+            FOR UPDATE`,
+      );
+
+      // Shift each higher tab down by 1 (must go in order to avoid constraint violations)
+      for (const row of higherTabs.rows as Array<{ tabIndex: number }>) {
+        const oldIndex = row.tabIndex;
+        const newIndex = oldIndex - 1;
+
+        // Update tab index in bank_tabs
+        await tx.execute(
+          sql`UPDATE bank_tabs
+              SET "tabIndex" = ${newIndex}
+              WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${oldIndex}`,
+        );
+
+        // Update tab index for all items in that tab
+        await tx.execute(
+          sql`UPDATE bank_storage
+              SET "tabIndex" = ${newIndex}
+              WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${oldIndex}`,
+        );
+      }
+
+      return { success: true };
+    },
+  });
+
+  if (!result) return;
+
+  // Step 4: Send updated state
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
+}
+
+/**
+ * Handle move item to different tab
+ *
+ * Moves an item from one tab to another (including main tab 0).
+ * If toSlot is provided, inserts at that position (shifting others right).
+ * If toSlot is -1 or omitted, appends to the end of the destination tab.
+ *
+ * SECURITY: Uses existing validation patterns from bank handlers
+ */
+export async function handleBankMoveToTab(
+  socket: ServerSocket,
+  data: {
+    fromSlot: number;
+    fromTabIndex: number;
+    toTabIndex: number;
+    toSlot?: number;
+  },
+  world: World,
+): Promise<void> {
+  // Step 1: Common validation
+  const baseResult = validateTransactionRequest(
+    socket,
+    world,
+    SessionType.BANK,
+    rateLimiter,
+  );
+  if (!baseResult.success) return;
+
+  const ctx = baseResult.context;
+
+  // Step 2: Input validation
+  if (!isValidBankSlot(data.fromSlot)) {
+    sendErrorToast(socket, "Invalid slot");
+    return;
+  }
+
+  if (!isValidBankTabIndex(data.fromTabIndex)) {
+    sendErrorToast(socket, "Invalid source tab");
+    return;
+  }
+
+  if (!isValidBankTabIndex(data.toTabIndex)) {
+    sendErrorToast(socket, "Invalid destination tab");
+    return;
+  }
+
+  // Validate toSlot if provided (allow -1 for "append to end")
+  const insertAtSlot = data.toSlot ?? -1;
+  if (insertAtSlot !== -1 && !isValidBankSlot(insertAtSlot)) {
+    sendErrorToast(socket, "Invalid destination slot");
+    return;
+  }
+
+  // No-op if same tab
+  if (data.fromTabIndex === data.toTabIndex) {
+    return;
+  }
+
+  // Step 3: Execute move transaction
+  const result = await executeSecureTransaction(ctx, {
+    errorMessages: {
+      SLOT_EMPTY: "No item in that slot",
+      TAB_NOT_FOUND: "Destination tab not found",
+    },
+    execute: async (tx) => {
+      // Check destination tab exists (unless it's main tab 0)
+      if (data.toTabIndex !== 0) {
+        const tabResult = await tx.execute(
+          sql`SELECT id FROM bank_tabs
+              WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.toTabIndex}
+              FOR UPDATE`,
+        );
+
+        if (tabResult.rows.length === 0) {
+          throw new Error("TAB_NOT_FOUND");
+        }
+      }
+
+      // Find the item to move
+      const itemResult = await tx.execute(
+        sql`SELECT * FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId}
+              AND "tabIndex" = ${data.fromTabIndex}
+              AND slot = ${data.fromSlot}
+            FOR UPDATE`,
+      );
+
+      if (itemResult.rows.length === 0) {
+        throw new Error("SLOT_EMPTY");
+      }
+
+      const item = itemResult.rows[0] as { id: number; itemId: string };
+
+      // Get max slot in destination tab
+      const destMax = await tx.execute(
+        sql`SELECT COALESCE(MAX(slot), -1) as "maxSlot"
+            FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.toTabIndex}`,
+      );
+      const rawMaxSlot = (
+        destMax.rows[0] as { maxSlot: string | number | null }
+      ).maxSlot;
+      const maxSlot = rawMaxSlot === null ? -1 : Number(rawMaxSlot);
+
+      // Determine target slot
+      let targetSlot: number;
+      if (insertAtSlot === -1) {
+        // Append to end
+        targetSlot = maxSlot + 1;
+      } else {
+        // Insert at specific position - need to shift items to make room
+        targetSlot = insertAtSlot;
+
+        // Lock all items in destination tab
+        await tx.execute(
+          sql`SELECT id FROM bank_storage
+              WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.toTabIndex}
+              FOR UPDATE`,
+        );
+
+        // Shift items at targetSlot and above to the right by 1
+        // Must shift from HIGHEST to LOWEST to avoid unique constraint violations
+        for (let s = maxSlot; s >= targetSlot; s--) {
+          await tx.execute(
+            sql`UPDATE bank_storage
+                SET slot = slot + 1
+                WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.toTabIndex} AND slot = ${s}`,
+          );
+        }
+      }
+
+      // Move item to destination tab at target slot
+      await tx.execute(
+        sql`UPDATE bank_storage
+            SET "tabIndex" = ${data.toTabIndex}, slot = ${targetSlot}
+            WHERE id = ${item.id}`,
+      );
+
+      // Compact source tab to fill the gap
+      await compactBankSlots(
+        tx,
+        ctx.playerId,
+        data.fromSlot,
+        data.fromTabIndex,
+      );
+
+      // If source tab is now empty (custom tab), delete it
+      if (data.fromTabIndex !== 0) {
+        const remainingItems = await tx.execute(
+          sql`SELECT COUNT(*) as count FROM bank_storage
+              WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.fromTabIndex}`,
+        );
+        const count = (remainingItems.rows[0] as { count: number }).count;
+
+        if (count === 0) {
+          await tx.execute(
+            sql`DELETE FROM bank_tabs
+                WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.fromTabIndex}`,
+          );
+        }
+      }
+
+      // Update tab icon if first item moved to a custom tab (slot 0)
+      if (data.toTabIndex !== 0 && targetSlot === 0) {
+        await tx.execute(
+          sql`UPDATE bank_tabs
+              SET "iconItemId" = ${item.itemId}
+              WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.toTabIndex}`,
+        );
+      }
+
+      return { success: true };
+    },
+  });
+
+  if (!result) return;
+
+  // Step 4: Send updated state
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
+}
+
+// ============================================================================
+// BANK PLACEHOLDER HANDLERS (Phase 3 - RS3 Style)
+// RS3-style: Placeholders are bank_storage rows with qty=0
+// ============================================================================
+
+/**
+ * Handle withdraw-placeholder request (RS3-style)
+ *
+ * Withdraws ALL of an item to inventory and leaves a qty=0 placeholder.
+ * This is the RS3 "Withdraw-Placeholder" context menu option.
+ *
+ * RS3 Behavior:
+ * - Right-click item in bank → "Withdraw-Placeholder"
+ * - ALL of that item withdrawn to inventory
+ * - Bank row stays with qty=0 (placeholder)
+ * - Works regardless of "Always set placeholder" toggle
+ */
+export async function handleBankWithdrawPlaceholder(
+  socket: ServerSocket,
+  data: { itemId: string },
+  world: World,
+): Promise<void> {
+  // Step 1: Common validation
+  const baseResult = validateTransactionRequest(
+    socket,
+    world,
+    SessionType.BANK,
+    rateLimiter,
+  );
+  if (!baseResult.success) return;
+
+  const ctx = baseResult.context;
+
+  // Step 2: Input validation
+  if (!isValidItemId(data.itemId)) {
+    sendErrorToast(socket, "Invalid item");
+    return;
+  }
+
+  // Validate item exists in game database
+  if (!isValidGameItem(data.itemId)) {
+    sendErrorToast(socket, "This item no longer exists");
+    return;
+  }
+
+  // Step 3: Execute transaction with inventory lock
+  const result = await executeInventoryTransaction(ctx, async () => {
+    return executeSecureTransaction(ctx, {
+      errorMessages: {
+        ITEM_NOT_IN_BANK: "Item not found in bank",
+        ALREADY_PLACEHOLDER: "Already a placeholder",
+        INVENTORY_FULL: "Inventory is full",
+      },
+      execute: async (tx) => {
+        // Lock and find bank item
+        const bankResult = await tx.execute(
+          sql`SELECT * FROM bank_storage
+              WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${data.itemId}
+              FOR UPDATE`,
+        );
+
+        const bankRows = bankResult.rows as Array<{
+          id: number;
+          quantity: number | null;
+          slot: number;
+          tabIndex: number;
+        }>;
+
+        if (bankRows.length === 0) {
+          throw new Error("ITEM_NOT_IN_BANK");
+        }
+
+        const bankRow = bankRows[0];
+        const availableQty = bankRow.quantity ?? 0;
+
+        // RS3-style: Can't withdraw-placeholder if already qty=0
+        if (availableQty === 0) {
+          throw new Error("ALREADY_PLACEHOLDER");
+        }
+
+        // Lock and get current inventory to find free slots
+        const inventoryResult = await tx.execute(
+          sql`SELECT * FROM inventory
+              WHERE "playerId" = ${ctx.playerId}
+              FOR UPDATE`,
+        );
+
+        const inventoryItems = inventoryResult.rows as Array<{
+          id: number;
+          slotIndex: number | null;
+        }>;
+
+        // Calculate free slots
+        const usedSlots = new Set<number>();
+        for (const item of inventoryItems) {
+          if (item.slotIndex !== null && item.slotIndex >= 0) {
+            usedSlots.add(item.slotIndex);
+          }
+        }
+
+        const freeSlots: number[] = [];
+        for (let i = 0; i < MAX_INVENTORY_SLOTS; i++) {
+          if (!usedSlots.has(i)) {
+            freeSlots.push(i);
+          }
+        }
+
+        if (freeSlots.length === 0) {
+          throw new Error("INVENTORY_FULL");
+        }
+
+        // Withdraw as many as we can fit (up to all)
+        const withdrawQty = Math.min(availableQty, freeSlots.length);
+
+        // RS3-STYLE: Set qty=0 (leave placeholder) - ALWAYS for this action
+        await tx.execute(
+          sql`UPDATE bank_storage SET quantity = 0 WHERE id = ${bankRow.id}`,
+        );
+
+        // Create inventory items (one per withdrawn item, qty=1)
+        for (let i = 0; i < withdrawQty; i++) {
+          const targetSlot = freeSlots[i];
+          await tx.insert(schema.inventory).values({
+            playerId: ctx.playerId,
+            itemId: data.itemId,
+            quantity: 1,
+            slotIndex: targetSlot,
+            metadata: null,
+          });
+        }
+
+        return { withdrawnQty: withdrawQty };
+      },
+    });
+  });
+
+  if (!result) return;
+
+  // Step 4: Send updated bank state
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
+}
+
+/**
+ * Handle release single placeholder (RS3-style)
+ *
+ * Deletes a bank_storage row with qty=0 at the specified slot.
+ * Then compacts slots to fill the gap.
+ */
+export async function handleBankReleasePlaceholder(
+  socket: ServerSocket,
+  data: { tabIndex: number; slot: number },
+  world: World,
+): Promise<void> {
+  // Step 1: Common validation
+  const baseResult = validateTransactionRequest(
+    socket,
+    world,
+    SessionType.BANK,
+    rateLimiter,
+  );
+  if (!baseResult.success) return;
+
+  const ctx = baseResult.context;
+
+  // Step 2: Input validation
+  if (!isValidBankTabIndex(data.tabIndex)) {
+    sendErrorToast(socket, "Invalid tab");
+    return;
+  }
+
+  if (!isValidBankSlot(data.slot)) {
+    sendErrorToast(socket, "Invalid slot");
+    return;
+  }
+
+  // Step 3: Execute transaction
+  const result = await executeSecureTransaction(ctx, {
+    errorMessages: {
+      NOT_A_PLACEHOLDER: "Not a placeholder (has items)",
+      SLOT_EMPTY: "No item at that slot",
+    },
+    execute: async (tx) => {
+      // RS3-style: Find bank_storage row with qty=0 at this slot
+      const placeholderResult = await tx.execute(
+        sql`SELECT id, quantity FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId}
+              AND "tabIndex" = ${data.tabIndex}
+              AND slot = ${data.slot}
+            FOR UPDATE`,
+      );
+
+      if (placeholderResult.rows.length === 0) {
+        throw new Error("SLOT_EMPTY");
+      }
+
+      const row = placeholderResult.rows[0] as {
+        id: number;
+        quantity: number | null;
+      };
+
+      // RS3-style: Can only release if qty=0 (is a placeholder)
+      if ((row.quantity ?? 0) > 0) {
+        throw new Error("NOT_A_PLACEHOLDER");
+      }
+
+      // Delete the placeholder (qty=0 row)
+      await tx.execute(sql`DELETE FROM bank_storage WHERE id = ${row.id}`);
+
+      // Compact slots to fill the gap
+      await compactBankSlots(tx, ctx.playerId, data.slot, data.tabIndex);
+
+      return { success: true };
+    },
+  });
+
+  if (!result) return;
+
+  // Step 4: Send updated state
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
+}
+
+/**
+ * Handle release all placeholders (RS3-style)
+ *
+ * Deletes all bank_storage rows with qty=0 for the player.
+ * Then compacts slots in each tab.
+ */
+export async function handleBankReleaseAllPlaceholders(
+  socket: ServerSocket,
+  _data: unknown,
+  world: World,
+): Promise<void> {
+  // Step 1: Common validation
+  const baseResult = validateTransactionRequest(
+    socket,
+    world,
+    SessionType.BANK,
+    rateLimiter,
+  );
+  if (!baseResult.success) return;
+
+  const ctx = baseResult.context;
+
+  // Step 2: Execute transaction
+  const result = await executeSecureTransaction(ctx, {
+    execute: async (tx) => {
+      // RS3-style: Find all qty=0 placeholders grouped by tab
+      const placeholders = await tx.execute(
+        sql`SELECT id, slot, "tabIndex" FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId} AND quantity = 0
+            ORDER BY "tabIndex", slot DESC
+            FOR UPDATE`,
+      );
+
+      const rows = placeholders.rows as Array<{
+        id: number;
+        slot: number;
+        tabIndex: number;
+      }>;
+
+      if (rows.length === 0) {
+        return { success: true, count: 0 };
+      }
+
+      // Group by tab for compaction
+      const byTab = new Map<number, number[]>();
+      for (const row of rows) {
+        const slots = byTab.get(row.tabIndex) || [];
+        slots.push(row.slot);
+        byTab.set(row.tabIndex, slots);
+      }
+
+      // Delete all qty=0 rows
+      await tx.execute(
+        sql`DELETE FROM bank_storage
+            WHERE "playerId" = ${ctx.playerId} AND quantity = 0`,
+      );
+
+      // Compact each tab (process highest slot first to avoid conflicts)
+      for (const [tabIndex, slots] of byTab) {
+        // Slots are already sorted DESC, so compact from highest to lowest
+        for (const slot of slots) {
+          await compactBankSlots(tx, ctx.playerId, slot, tabIndex);
+        }
+      }
+
+      return { success: true, count: rows.length };
+    },
+  });
+
+  if (!result) return;
+
+  // Step 3: Send updated state
+  await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
+
+  sendToSocket(socket, "showToast", {
+    message: "All placeholders released",
+    type: "success",
+  });
+}
+
+/**
+ * Handle toggle always set placeholder setting
+ *
+ * Toggles whether placeholders are automatically created when
+ * withdrawing all of an item.
+ */
+export async function handleBankToggleAlwaysPlaceholder(
+  socket: ServerSocket,
+  _data: unknown,
+  world: World,
+): Promise<void> {
+  // This is a player preference toggle - doesn't require full bank session validation
+  // Just need player ID and database access
+  const playerId = getPlayerId(socket);
+  if (!playerId) {
+    console.warn("[BankToggle] No player on socket");
+    return;
+  }
+
+  const db = getDatabase(world);
+  if (!db) {
+    console.error("[BankToggle] Database not available");
+    sendErrorToast(socket, "Server error - please try again");
+    return;
+  }
+
+  console.log(`[BankToggle] Player ${playerId} toggling placeholder setting`);
+
+  try {
+    // Use drizzle ORM for database operations
+    const drizzle = db.drizzle;
+
+    // Get current setting
+    const currentResult = await drizzle
+      .select({ alwaysSetPlaceholder: schema.characters.alwaysSetPlaceholder })
+      .from(schema.characters)
+      .where(eq(schema.characters.id, playerId));
+
+    if (currentResult.length === 0) {
+      console.error(
+        `[BankToggle] Player ${playerId} not found in characters table`,
+      );
+      sendErrorToast(socket, "Player not found");
+      return;
+    }
+
+    const current = currentResult[0].alwaysSetPlaceholder;
+    const newValue = current === 1 ? 0 : 1;
+
+    console.log(
+      `[BankToggle] Current value: ${current}, new value: ${newValue}`,
+    );
+
+    // Toggle setting
+    await drizzle
+      .update(schema.characters)
+      .set({ alwaysSetPlaceholder: newValue })
+      .where(eq(schema.characters.id, playerId));
+
+    console.log(`[BankToggle] Updated successfully, sending bank state`);
+
+    // Send updated state
+    await sendBankStateWithTabs(socket, playerId, db);
+
+    sendToSocket(socket, "showToast", {
+      message:
+        newValue === 1
+          ? "Always set placeholders: ON"
+          : "Always set placeholders: OFF",
+      type: "info",
+    });
+
+    console.log(`[BankToggle] Completed for player ${playerId}`);
+  } catch (error) {
+    console.error(`[BankToggle] Error:`, error);
+    sendErrorToast(socket, "Failed to toggle placeholder setting");
+  }
 }

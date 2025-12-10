@@ -85,7 +85,7 @@ function getRetryDelay(attempt: number): number {
  * Drizzle transaction type (extracted for readability).
  * This is the type of `tx` passed to transaction callbacks.
  */
-type DrizzleTransaction = Parameters<
+export type DrizzleTransaction = Parameters<
   Parameters<BaseHandlerContext["db"]["drizzle"]["transaction"]>[0]
 >[0];
 
