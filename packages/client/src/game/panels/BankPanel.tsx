@@ -30,6 +30,7 @@ import React, {
 import { createPortal } from "react-dom";
 import type { ClientWorld, InventorySlotItem } from "../../types";
 import { COLORS } from "../../constants";
+import { getItem, type PlayerEquipmentItems } from "@hyperscape/shared";
 
 // ============================================================================
 // TYPES
@@ -58,6 +59,14 @@ type InventorySlotViewItem = Pick<
  * - Items with qty=0 are rendered with greyed-out style
  * - Context menu shows "Release" for qty=0 items, "Withdraw-Placeholder" for qty>0
  */
+
+/**
+ * RS3-STYLE EQUIPMENT VIEW:
+ * - Right panel can switch between Inventory and Equipment views
+ * - Equipment view shows all equipped items with deposit buttons
+ * - "Deposit Worn Items" button deposits all equipment at once
+ */
+
 interface BankPanelProps {
   items: BankItem[]; // Includes items with qty=0 (placeholders)
   tabs?: BankTab[];
@@ -65,6 +74,7 @@ interface BankPanelProps {
   maxSlots: number;
   world: ClientWorld;
   inventory: InventorySlotViewItem[];
+  equipment?: PlayerEquipmentItems | null; // Player's equipped items (RS3-style)
   coins: number;
   bankId: string;
   onClose: () => void;
@@ -228,10 +238,12 @@ function ContextMenu({
   menu,
   onAction,
   onClose,
+  rightPanelMode,
 }: {
   menu: ContextMenuState;
   onAction: (action: string, quantity: number) => void;
   onClose: () => void;
+  rightPanelMode: "inventory" | "equipment";
 }) {
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customAmount, setCustomAmount] = useState("");
@@ -240,6 +252,10 @@ function ContextMenu({
   // RS3-style: Items with qty=0 are placeholders
   const isPlaceholder = menu.type === "bank" && menu.quantity === 0;
   const actionLabel = menu.type === "bank" ? "Withdraw" : "Deposit";
+
+  // RS3-style: Check if item is equipable for "Equip" option
+  const itemData = menu.itemId ? getItem(menu.itemId) : null;
+  const isEquipable = itemData?.equipSlot || itemData?.equipable;
 
   const handleCustomSubmit = () => {
     const amount = parseInt(customAmount, 10);
@@ -316,7 +332,25 @@ function ContextMenu({
     );
   }
 
-  const menuOptions = [
+  const menuOptions: Array<{ label: string; amount: number; action: string }> =
+    [];
+
+  // RS3-style: "Equip" option position depends on rightPanelMode
+  // Equipment tab open: Equip at TOP (left-click equips)
+  // Inventory tab open: Equip at BOTTOM (left-click withdraws to inventory)
+  const canEquip = menu.type === "bank" && isEquipable && menu.quantity > 0;
+
+  // Add "Equip" at TOP only if equipment tab is open
+  if (canEquip && rightPanelMode === "equipment") {
+    menuOptions.push({
+      label: "Equip",
+      amount: 1,
+      action: "equip",
+    });
+  }
+
+  // Standard withdraw/deposit options
+  menuOptions.push(
     {
       label: `${actionLabel} 1`,
       amount: 1,
@@ -342,7 +376,16 @@ function ContextMenu({
       amount: -1,
       action: menu.type === "bank" ? "withdraw" : "deposit",
     },
-  ];
+  );
+
+  // Add "Equip" at BOTTOM if inventory tab is open (still available, just not default)
+  if (canEquip && rightPanelMode === "inventory") {
+    menuOptions.push({
+      label: "Equip",
+      amount: 1,
+      action: "equip",
+    });
+  }
 
   // RS3-style: Add "Withdraw-Placeholder" option for bank items with qty > 0
   // This withdraws all and leaves a qty=0 placeholder regardless of toggle
@@ -672,7 +715,7 @@ interface BankSlotItemProps {
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent, slotIndex: number, tabIndex: number) => void;
   onDragEnd: () => void;
-  onClick: (itemId: string) => void;
+  onClick: (itemId: string, tabIndex: number, slot: number) => void;
   onContextMenu: (e: React.MouseEvent, item: BankItem) => void;
 }
 
@@ -744,7 +787,7 @@ const BankSlotItem = memo(function BankSlotItem({
       onDragLeave={onDragLeave}
       onDrop={(e) => onDrop(e, slotIndex, itemTabIndex)}
       onDragEnd={onDragEnd}
-      onClick={() => onClick(item.itemId)}
+      onClick={() => onClick(item.itemId, itemTabIndex, slotIndex)}
       onContextMenu={(e) => onContextMenu(e, item)}
     >
       {/* Single INSERT LINE on left edge */}
@@ -895,10 +938,15 @@ export function BankPanel({
   maxSlots,
   world,
   inventory,
+  equipment, // RS3-style equipment view
   coins,
   bankId,
   onClose,
 }: BankPanelProps) {
+  // RS3-style right panel view mode (inventory vs equipment)
+  type RightPanelMode = "inventory" | "equipment";
+  const [rightPanelMode, setRightPanelMode] =
+    useState<RightPanelMode>("inventory");
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     visible: false,
     x: 0,
@@ -1138,6 +1186,152 @@ export function BankPanel({
     }
   }, [world.network]);
 
+  // ========== BANK EQUIPMENT TAB HANDLERS (RS3-style) ==========
+
+  /**
+   * Withdraw item from bank directly to equipment slot
+   * Used when equipment view is active and clicking an equipable item
+   */
+  const handleWithdrawToEquipment = useCallback(
+    (itemId: string, tabIndex: number, slot: number) => {
+      if (world.network?.send) {
+        world.network.send("bankWithdrawToEquipment", {
+          itemId,
+          tabIndex,
+          slot,
+        });
+      }
+    },
+    [world.network],
+  );
+
+  /**
+   * Deposit a single equipment slot directly to bank
+   * Used when clicking an equipment slot in the equipment view
+   */
+  const handleDepositEquipment = useCallback(
+    (slot: string) => {
+      if (world.network?.send) {
+        world.network.send("bankDepositEquipment", { slot });
+      }
+    },
+    [world.network],
+  );
+
+  /**
+   * Deposit all worn equipment to bank (RS3 "Deposit Worn Items" button)
+   */
+  const handleDepositAllEquipment = useCallback(() => {
+    if (world.network?.send) {
+      world.network.send("bankDepositAllEquipment", {});
+    }
+  }, [world.network]);
+
+  /**
+   * Render a single equipment slot for the paperdoll layout
+   * equipment?.[key] returns Item | null (from PlayerEquipmentItems)
+   */
+  const renderEquipmentSlot = useCallback(
+    (key: string, label: string, icon: string) => {
+      // Cast to access equipment by key - PlayerEquipmentItems uses specific slot names
+      const item = equipment?.[key as keyof PlayerEquipmentItems] ?? null;
+      const hasItem = !!item;
+
+      return (
+        <button
+          key={key}
+          onClick={() => hasItem && handleDepositEquipment(key)}
+          className="w-full h-full rounded transition-all duration-200 cursor-pointer group relative"
+          style={{
+            background: hasItem
+              ? "linear-gradient(135deg, rgba(40, 35, 50, 0.8) 0%, rgba(30, 25, 40, 0.9) 100%)"
+              : "rgba(0, 0, 0, 0.35)",
+            borderWidth: "2px",
+            borderStyle: "solid",
+            borderColor: hasItem
+              ? "rgba(242, 208, 138, 0.5)"
+              : "rgba(242, 208, 138, 0.25)",
+            boxShadow: hasItem
+              ? "0 2px 8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(242, 208, 138, 0.1)"
+              : "inset 0 2px 4px rgba(0, 0, 0, 0.3)",
+          }}
+          onMouseEnter={(e) => {
+            if (hasItem) {
+              e.currentTarget.style.borderColor = "rgba(100, 200, 100, 0.6)";
+              e.currentTarget.style.background =
+                "linear-gradient(135deg, rgba(100, 200, 100, 0.2) 0%, rgba(100, 200, 100, 0.1) 100%)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (hasItem) {
+              e.currentTarget.style.borderColor = "rgba(242, 208, 138, 0.5)";
+              e.currentTarget.style.background =
+                "linear-gradient(135deg, rgba(40, 35, 50, 0.8) 0%, rgba(30, 25, 40, 0.9) 100%)";
+            }
+          }}
+          title={
+            hasItem
+              ? `${formatItemName(item.id)} - Click to deposit`
+              : `${label} (empty)`
+          }
+        >
+          {/* Slot Label */}
+          <div
+            className="absolute top-0.5 left-1 text-[8px] font-medium uppercase tracking-wider"
+            style={{
+              color: "rgba(242, 208, 138, 0.6)",
+              textShadow: "0 1px 2px rgba(0, 0, 0, 0.8)",
+            }}
+          >
+            {label}
+          </div>
+
+          {/* Slot Content */}
+          <div className="flex flex-col items-center justify-center h-full pt-2">
+            {!hasItem ? (
+              <span
+                className="transition-transform duration-200 group-hover:scale-110"
+                style={{
+                  fontSize: "1.25rem",
+                  filter: "grayscale(100%) opacity(0.3)",
+                }}
+              >
+                {icon}
+              </span>
+            ) : (
+              <>
+                <span
+                  className="transition-transform duration-200 group-hover:scale-110"
+                  style={{
+                    fontSize: "1.25rem",
+                    filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8))",
+                  }}
+                >
+                  {getItemIcon(item.id)}
+                </span>
+                <div
+                  className="text-center px-0.5 mt-0.5"
+                  style={{
+                    fontSize: "8px",
+                    color: "rgba(242, 208, 138, 0.9)",
+                    lineHeight: "1.1",
+                    maxWidth: "100%",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {formatItemName(item.id).slice(0, 10)}
+                </div>
+              </>
+            )}
+          </div>
+        </button>
+      );
+    },
+    [equipment, handleDepositEquipment],
+  );
+
   // Get the next available tab index for creating new tabs
   // RS3-STYLE: Always append at end (max + 1), never fill gaps
   const nextAvailableTabIndex = (() => {
@@ -1186,6 +1380,17 @@ export function BankPanel({
       ) {
         // RS3-style: Delete the qty=0 row
         handleReleasePlaceholder(contextMenu.tabIndex, contextMenu.slot);
+      } else if (
+        action === "equip" &&
+        contextMenu.tabIndex !== undefined &&
+        contextMenu.slot !== undefined
+      ) {
+        // RS3-style: Equip directly from bank
+        handleWithdrawToEquipment(
+          contextMenu.itemId,
+          contextMenu.tabIndex,
+          contextMenu.slot,
+        );
       }
     },
     [
@@ -1196,6 +1401,7 @@ export function BankPanel({
       handleDeposit,
       handleWithdrawPlaceholder,
       handleReleasePlaceholder,
+      handleWithdrawToEquipment,
     ],
   );
 
@@ -1325,10 +1531,20 @@ export function BankPanel({
   }, []);
 
   const handleSlotClick = useCallback(
-    (itemId: string) => {
+    (itemId: string, tabIndex: number, slot: number) => {
+      // RS3-style: When in equipment mode, try to withdraw directly to equipment
+      if (rightPanelMode === "equipment") {
+        const itemData = getItem(itemId);
+        // Check if item is equipable (has an equipSlot)
+        if (itemData?.equipSlot || itemData?.equipable) {
+          handleWithdrawToEquipment(itemId, tabIndex, slot);
+          return;
+        }
+        // Non-equipable items still go to inventory even in equipment mode
+      }
       handleWithdraw(itemId, 1);
     },
-    [handleWithdraw],
+    [handleWithdraw, handleWithdrawToEquipment, rightPanelMode],
   );
 
   const handleSlotContextMenu = useCallback(
@@ -1380,6 +1596,7 @@ export function BankPanel({
         menu={contextMenu}
         onAction={handleContextMenuAction}
         onClose={closeContextMenu}
+        rightPanelMode={rightPanelMode}
       />
 
       <CoinAmountModal
@@ -2180,7 +2397,7 @@ export function BankPanel({
           </div>
         </div>
 
-        {/* Inventory Panel - Right Side */}
+        {/* Right Panel - Inventory / Equipment (RS3-style tab switcher) */}
         <div
           className="flex flex-col rounded-lg"
           style={{
@@ -2190,180 +2407,304 @@ export function BankPanel({
             width: `${INV_SLOTS_PER_ROW * (INV_SLOT_SIZE + 4) + 24}px`,
           }}
         >
-          {/* Header */}
+          {/* RS3-style Tab Header with view switcher */}
           <div
-            className="flex justify-center items-center px-3 py-2 rounded-t-lg"
+            className="flex justify-between items-center px-2 py-1.5 rounded-t-lg"
             style={{
               background:
                 "linear-gradient(180deg, rgba(139, 69, 19, 0.4) 0%, rgba(139, 69, 19, 0.2) 100%)",
               borderBottom: `1px solid ${BANK_THEME.PANEL_BORDER}`,
             }}
           >
-            <h2
-              className="text-sm font-bold flex items-center gap-2"
+            {/* Tab Buttons */}
+            <div className="flex gap-1">
+              <button
+                onClick={() => setRightPanelMode("inventory")}
+                className="px-2 py-1 rounded text-xs font-bold transition-all"
+                style={{
+                  background:
+                    rightPanelMode === "inventory"
+                      ? "rgba(139, 69, 19, 0.7)"
+                      : "rgba(0, 0, 0, 0.3)",
+                  color:
+                    rightPanelMode === "inventory"
+                      ? BANK_THEME.TEXT_GOLD
+                      : "rgba(255,255,255,0.5)",
+                  border:
+                    rightPanelMode === "inventory"
+                      ? `1px solid ${BANK_THEME.PANEL_BORDER_LIGHT}`
+                      : "1px solid transparent",
+                }}
+                title="View Backpack"
+              >
+                🎒
+              </button>
+              <button
+                onClick={() => setRightPanelMode("equipment")}
+                className="px-2 py-1 rounded text-xs font-bold transition-all"
+                style={{
+                  background:
+                    rightPanelMode === "equipment"
+                      ? "rgba(139, 69, 19, 0.7)"
+                      : "rgba(0, 0, 0, 0.3)",
+                  color:
+                    rightPanelMode === "equipment"
+                      ? BANK_THEME.TEXT_GOLD
+                      : "rgba(255,255,255,0.5)",
+                  border:
+                    rightPanelMode === "equipment"
+                      ? `1px solid ${BANK_THEME.PANEL_BORDER_LIGHT}`
+                      : "1px solid transparent",
+                }}
+                title="View Worn Equipment"
+              >
+                ⚔️
+              </button>
+            </div>
+            <span
+              className="text-xs font-bold"
               style={{ color: BANK_THEME.TEXT_GOLD }}
             >
-              <span>🎒</span>
-              <span>Inventory</span>
-            </h2>
+              {rightPanelMode === "inventory" ? "Inventory" : "Equipment"}
+            </span>
           </div>
 
-          {/* Inventory Grid */}
-          <div className="p-2 flex-1">
-            <div
-              className="grid gap-1"
-              style={{
-                gridTemplateColumns: `repeat(${INV_SLOTS_PER_ROW}, ${INV_SLOT_SIZE}px)`,
-              }}
-            >
-              {Array.from({ length: INV_SLOTS_PER_ROW * INV_ROWS }).map(
-                (_, idx) => {
-                  const item = inventory.find((i) => i && i.slot === idx);
+          {/* Content Area - switches between inventory and equipment */}
+          {rightPanelMode === "inventory" ? (
+            <>
+              {/* Inventory Grid */}
+              <div className="p-2 flex-1">
+                <div
+                  className="grid gap-1"
+                  style={{
+                    gridTemplateColumns: `repeat(${INV_SLOTS_PER_ROW}, ${INV_SLOT_SIZE}px)`,
+                  }}
+                >
+                  {Array.from({ length: INV_SLOTS_PER_ROW * INV_ROWS }).map(
+                    (_, idx) => {
+                      const item = inventory.find((i) => i && i.slot === idx);
 
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex items-center justify-center relative rounded ${item ? "cursor-pointer" : ""}`}
-                      style={{
-                        width: INV_SLOT_SIZE,
-                        height: INV_SLOT_SIZE,
-                        background: item
-                          ? "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)"
-                          : "rgba(0, 0, 0, 0.4)",
-                        border: item
-                          ? `1px solid ${BANK_THEME.SLOT_BORDER_HIGHLIGHT}`
-                          : `1px solid ${BANK_THEME.SLOT_BORDER}`,
-                      }}
-                      title={
-                        item
-                          ? `${formatItemName(item.itemId)} x${item.quantity} - Click to deposit`
-                          : "Empty slot"
-                      }
-                      onClick={() => item && handleDeposit(item.itemId, 1)}
-                      onContextMenu={(e) => {
-                        if (item) {
-                          openContextMenu(
-                            e,
-                            item.itemId,
-                            item.quantity || 1,
-                            "inventory",
-                          );
-                        }
-                      }}
-                      onMouseEnter={(e) => {
-                        if (item) {
-                          e.currentTarget.style.background =
-                            "linear-gradient(135deg, rgba(100, 200, 100, 0.2) 0%, rgba(100, 200, 100, 0.1) 100%)";
-                          e.currentTarget.style.borderColor =
-                            "rgba(100, 200, 100, 0.5)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (item) {
-                          e.currentTarget.style.background =
-                            "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)";
-                          e.currentTarget.style.borderColor =
-                            BANK_THEME.SLOT_BORDER_HIGHLIGHT;
-                        }
-                      }}
-                    >
-                      {item && (
-                        <>
-                          <span className="text-lg select-none">
-                            {getItemIcon(item.itemId)}
-                          </span>
-                          {/* BANK NOTE SYSTEM: "N" badge for noted items */}
-                          {isNotedItem(item.itemId) && (
-                            <span
-                              className="absolute top-0 left-0.5 text-[8px] font-bold px-0.5 rounded"
-                              style={{
-                                color: "#fff",
-                                background: "rgba(139, 69, 19, 0.9)",
-                                textShadow: "0 0 2px #000",
-                              }}
-                            >
-                              N
-                            </span>
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-center justify-center relative rounded ${item ? "cursor-pointer" : ""}`}
+                          style={{
+                            width: INV_SLOT_SIZE,
+                            height: INV_SLOT_SIZE,
+                            background: item
+                              ? "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)"
+                              : "rgba(0, 0, 0, 0.4)",
+                            border: item
+                              ? `1px solid ${BANK_THEME.SLOT_BORDER_HIGHLIGHT}`
+                              : `1px solid ${BANK_THEME.SLOT_BORDER}`,
+                          }}
+                          title={
+                            item
+                              ? `${formatItemName(item.itemId)} x${item.quantity} - Click to deposit`
+                              : "Empty slot"
+                          }
+                          onClick={() => item && handleDeposit(item.itemId, 1)}
+                          onContextMenu={(e) => {
+                            if (item) {
+                              openContextMenu(
+                                e,
+                                item.itemId,
+                                item.quantity || 1,
+                                "inventory",
+                              );
+                            }
+                          }}
+                          onMouseEnter={(e) => {
+                            if (item) {
+                              e.currentTarget.style.background =
+                                "linear-gradient(135deg, rgba(100, 200, 100, 0.2) 0%, rgba(100, 200, 100, 0.1) 100%)";
+                              e.currentTarget.style.borderColor =
+                                "rgba(100, 200, 100, 0.5)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (item) {
+                              e.currentTarget.style.background =
+                                "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)";
+                              e.currentTarget.style.borderColor =
+                                BANK_THEME.SLOT_BORDER_HIGHLIGHT;
+                            }
+                          }}
+                        >
+                          {item && (
+                            <>
+                              <span className="text-lg select-none">
+                                {getItemIcon(item.itemId)}
+                              </span>
+                              {/* BANK NOTE SYSTEM: "N" badge for noted items */}
+                              {isNotedItem(item.itemId) && (
+                                <span
+                                  className="absolute top-0 left-0.5 text-[8px] font-bold px-0.5 rounded"
+                                  style={{
+                                    color: "#fff",
+                                    background: "rgba(139, 69, 19, 0.9)",
+                                    textShadow: "0 0 2px #000",
+                                  }}
+                                >
+                                  N
+                                </span>
+                              )}
+                              {(item.quantity || 1) > 1 && (
+                                <span
+                                  className="absolute bottom-0 right-0.5 text-[9px] font-bold"
+                                  style={{
+                                    color: BANK_THEME.TEXT_YELLOW,
+                                    textShadow:
+                                      "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
+                                  }}
+                                >
+                                  {item.quantity}
+                                </span>
+                              )}
+                            </>
                           )}
-                          {(item.quantity || 1) > 1 && (
-                            <span
-                              className="absolute bottom-0 right-0.5 text-[9px] font-bold"
-                              style={{
-                                color: BANK_THEME.TEXT_YELLOW,
-                                textShadow:
-                                  "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
-                              }}
-                            >
-                              {item.quantity}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                },
-              )}
-            </div>
-          </div>
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              </div>
 
-          {/* Coin Pouch Section */}
-          <div
-            className="mx-2 mb-2 p-2 rounded flex items-center justify-between"
-            style={{
-              background: "rgba(0, 0, 0, 0.3)",
-              border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-base">💰</span>
-              <span className="text-sm font-bold" style={{ color: "#fbbf24" }}>
-                {coins.toLocaleString()}
-              </span>
-            </div>
-            <button
-              onClick={() => openCoinModal("deposit")}
-              disabled={coins <= 0}
-              className="px-2 py-1 rounded text-xs font-bold transition-colors disabled:opacity-30"
-              style={{
-                background: "rgba(100, 180, 100, 0.6)",
-                color: "#fff",
-                border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
-              }}
-              onMouseEnter={(e) => {
-                if (coins > 0)
-                  e.currentTarget.style.background = "rgba(100, 180, 100, 0.8)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(100, 180, 100, 0.6)";
-              }}
-            >
-              Deposit
-            </button>
-          </div>
+              {/* Coin Pouch Section */}
+              <div
+                className="mx-2 mb-2 p-2 rounded flex items-center justify-between"
+                style={{
+                  background: "rgba(0, 0, 0, 0.3)",
+                  border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-base">💰</span>
+                  <span
+                    className="text-sm font-bold"
+                    style={{ color: "#fbbf24" }}
+                  >
+                    {coins.toLocaleString()}
+                  </span>
+                </div>
+                <button
+                  onClick={() => openCoinModal("deposit")}
+                  disabled={coins <= 0}
+                  className="px-2 py-1 rounded text-xs font-bold transition-colors disabled:opacity-30"
+                  style={{
+                    background: "rgba(100, 180, 100, 0.6)",
+                    color: "#fff",
+                    border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (coins > 0)
+                      e.currentTarget.style.background =
+                        "rgba(100, 180, 100, 0.8)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "rgba(100, 180, 100, 0.6)";
+                  }}
+                >
+                  Deposit
+                </button>
+              </div>
 
-          {/* Deposit All Button */}
-          <div className="px-2 pb-2">
-            <button
-              onClick={handleDepositAll}
-              className="w-full py-2 rounded text-sm font-bold transition-colors"
-              style={{
-                background:
-                  "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(139, 69, 19, 0.5) 100%)",
-                color: BANK_THEME.TEXT_GOLD,
-                border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background =
-                  "linear-gradient(180deg, rgba(139, 69, 19, 0.9) 0%, rgba(139, 69, 19, 0.7) 100%)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background =
-                  "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(139, 69, 19, 0.5) 100%)";
-              }}
-            >
-              Deposit All
-            </button>
-          </div>
+              {/* Deposit All Button */}
+              <div className="px-2 pb-2">
+                <button
+                  onClick={handleDepositAll}
+                  className="w-full py-2 rounded text-sm font-bold transition-colors"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(139, 69, 19, 0.5) 100%)",
+                    color: BANK_THEME.TEXT_GOLD,
+                    border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(180deg, rgba(139, 69, 19, 0.9) 0%, rgba(139, 69, 19, 0.7) 100%)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(139, 69, 19, 0.5) 100%)";
+                  }}
+                >
+                  Deposit Inventory
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Equipment View - Paperdoll layout matching EquipmentPanel */}
+              <div
+                className="p-2 flex-1"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(20, 20, 30, 0.95) 0%, rgba(25, 20, 35, 0.92) 100%)",
+                  borderRadius: "4px",
+                  margin: "4px",
+                }}
+              >
+                {/* Paperdoll Grid: 3 columns x 4 rows */}
+                <div
+                  className="grid gap-1 h-full"
+                  style={{
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gridTemplateRows: "repeat(4, 1fr)",
+                  }}
+                >
+                  {/* Row 1: empty, helmet, empty */}
+                  <div />
+                  {renderEquipmentSlot("helmet", "Head", "⛑️")}
+                  <div />
+
+                  {/* Row 2: weapon, body, shield */}
+                  {renderEquipmentSlot("weapon", "Weapon", "⚔️")}
+                  {renderEquipmentSlot("body", "Body", "🎽")}
+                  {renderEquipmentSlot("shield", "Shield", "🛡️")}
+
+                  {/* Row 3: empty, legs, empty */}
+                  <div />
+                  {renderEquipmentSlot("legs", "Legs", "👖")}
+                  <div />
+
+                  {/* Row 4: empty, arrows, empty */}
+                  <div />
+                  {renderEquipmentSlot("arrows", "Ammo", "🏹")}
+                  <div />
+                </div>
+              </div>
+
+              {/* Deposit All Equipment Button */}
+              <div className="px-2 pb-2">
+                <button
+                  onClick={handleDepositAllEquipment}
+                  disabled={
+                    !equipment ||
+                    Object.values(equipment).every((item) => !item)
+                  }
+                  className="w-full py-2 rounded text-sm font-bold transition-colors disabled:opacity-30"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(139, 69, 19, 0.5) 100%)",
+                    color: BANK_THEME.TEXT_GOLD,
+                    border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(180deg, rgba(139, 69, 19, 0.9) 0%, rgba(139, 69, 19, 0.7) 100%)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(139, 69, 19, 0.5) 100%)";
+                  }}
+                >
+                  Deposit Worn Items
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

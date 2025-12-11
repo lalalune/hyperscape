@@ -1185,6 +1185,310 @@ export class EquipmentSystem extends SystemBase {
     return this.meetsLevelRequirements(playerId, itemData);
   }
 
+  // ========== Bank Equipment Tab API ==========
+  // These methods support direct equip/unequip from bank without using inventory
+
+  /**
+   * Get the equipment slot name for an item.
+   *
+   * Used by bank equipment tab to determine if item can be withdrawn to equipment
+   * and which slot it would go to.
+   *
+   * @param itemId - The item ID to check
+   * @returns Slot name (weapon, shield, etc.) or null if not equipable
+   *
+   * @example
+   * const slot = equipmentSystem.getEquipmentSlotForItem("bronze_sword");
+   * // Returns: "weapon"
+   */
+  getEquipmentSlotForItem(itemId: string | number): string | null {
+    const itemData = this.getItemData(itemId);
+    if (!itemData) return null;
+    return this.getEquipmentSlot(itemData);
+  }
+
+  /**
+   * Check if a player meets level requirements to equip an item.
+   *
+   * Used by bank equipment tab to validate before attempting equip.
+   *
+   * @param playerId - The player ID
+   * @param itemId - The item ID to check
+   * @returns true if player meets requirements
+   */
+  canPlayerEquipItem(playerId: string, itemId: string | number): boolean {
+    const itemData = this.getItemData(itemId);
+    if (!itemData) return false;
+
+    const equipSlot = this.getEquipmentSlot(itemData);
+    if (!equipSlot) return false;
+
+    return this.meetsLevelRequirements(playerId, itemData);
+  }
+
+  /**
+   * Equip item directly (bypassing inventory).
+   *
+   * Used by bank equipment tab to equip items directly from bank.
+   * Does NOT remove from inventory - caller is responsible for bank item removal.
+   * Handles 2h weapon/shield conflicts and returns displaced items.
+   *
+   * @param playerId - The player ID
+   * @param itemId - The item ID to equip
+   * @returns Result with success status and any displaced items
+   *
+   * @example
+   * const result = await equipmentSystem.equipItemDirect(playerId, "bronze_sword");
+   * if (result.success) {
+   *   // Item equipped, handle result.displacedItems if any
+   * }
+   */
+  async equipItemDirect(
+    playerId: string,
+    itemId: string | number,
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    equippedSlot?: string;
+    displacedItems: Array<{ itemId: string; slot: string; quantity: number }>;
+  }> {
+    const displacedItems: Array<{
+      itemId: string;
+      slot: string;
+      quantity: number;
+    }> = [];
+
+    const equipment = this.playerEquipment.get(playerId);
+    if (!equipment) {
+      return {
+        success: false,
+        error: "Equipment not initialized",
+        displacedItems,
+      };
+    }
+
+    const itemData = this.getItemData(itemId);
+    if (!itemData) {
+      return { success: false, error: "Item not found", displacedItems };
+    }
+
+    const slotName = this.getEquipmentSlot(itemData);
+    if (!slotName) {
+      return { success: false, error: "Item is not equipable", displacedItems };
+    }
+
+    if (!this.meetsLevelRequirements(playerId, itemData)) {
+      return {
+        success: false,
+        error: "Level requirements not met",
+        displacedItems,
+      };
+    }
+
+    // Handle 2h weapon logic
+    const is2hWeapon = this.is2hWeapon(itemData);
+    const currentWeapon = equipment.weapon?.item;
+    const currentWeaponIs2h = currentWeapon
+      ? this.is2hWeapon(currentWeapon)
+      : false;
+
+    // If equipping a 2h weapon, collect shield for displacement
+    if (is2hWeapon && slotName === "weapon" && equipment.shield?.itemId) {
+      const shieldItemId = equipment.shield.itemId?.toString() || "";
+      displacedItems.push({
+        itemId: shieldItemId,
+        slot: "shield",
+        quantity: 1,
+      });
+
+      // Clear shield slot
+      this.removeEquipmentVisual(equipment.shield);
+      equipment.shield.itemId = null;
+      equipment.shield.item = null;
+
+      // Emit change event for shield
+      this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
+        playerId,
+        slot: "shield" as EquipmentSlotName,
+        itemId: null,
+      });
+    }
+
+    // If equipping a shield and 2h weapon equipped, reject
+    if (slotName === "shield" && currentWeaponIs2h) {
+      return {
+        success: false,
+        error: "Cannot equip shield with 2h weapon",
+        displacedItems,
+      };
+    }
+
+    // Collect current item in target slot for displacement
+    if (!this.isValidEquipmentSlot(slotName)) {
+      return {
+        success: false,
+        error: "Invalid equipment slot",
+        displacedItems,
+      };
+    }
+
+    const targetSlot = equipment[slotName] as EquipmentSlot | undefined;
+    if (targetSlot?.itemId) {
+      const currentItemId = targetSlot.itemId?.toString() || "";
+      displacedItems.push({
+        itemId: currentItemId,
+        slot: slotName,
+        quantity: 1,
+      });
+
+      // Clear the slot
+      this.removeEquipmentVisual(targetSlot);
+      targetSlot.itemId = null;
+      targetSlot.item = null;
+    }
+
+    // Equip the new item
+    if (targetSlot) {
+      targetSlot.itemId = itemId;
+      targetSlot.item = itemData;
+      this.createEquipmentVisual(playerId, targetSlot);
+    }
+
+    // Update stats
+    this.recalculateStats(playerId);
+
+    // Emit change event
+    this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
+      playerId,
+      slot: slotName as EquipmentSlotName,
+      itemId: itemId?.toString() || null,
+    });
+
+    // Send equipment state to client
+    if (this.world.isServer && this.world.network?.send) {
+      const equipmentData = this.getPlayerEquipment(playerId);
+      this.world.network.send("equipmentUpdated", {
+        playerId,
+        equipment: equipmentData,
+      });
+    }
+
+    // Save to database
+    await this.saveEquipmentToDatabase(playerId);
+
+    return { success: true, equippedSlot: slotName, displacedItems };
+  }
+
+  /**
+   * Unequip item directly (bypassing inventory).
+   *
+   * Used by bank equipment tab to deposit worn equipment directly to bank.
+   * Does NOT add to inventory - caller is responsible for bank item addition.
+   *
+   * @param playerId - The player ID
+   * @param slotName - The slot to unequip (weapon, shield, etc.)
+   * @returns Result with success status and the unequipped item
+   *
+   * @example
+   * const result = await equipmentSystem.unequipItemDirect(playerId, "weapon");
+   * if (result.success && result.itemId) {
+   *   // Add result.itemId to bank
+   * }
+   */
+  async unequipItemDirect(
+    playerId: string,
+    slotName: string,
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    itemId?: string;
+    quantity: number;
+  }> {
+    const equipment = this.playerEquipment.get(playerId);
+    if (!equipment) {
+      return {
+        success: false,
+        error: "Equipment not initialized",
+        quantity: 0,
+      };
+    }
+
+    if (!this.isValidEquipmentSlot(slotName)) {
+      return { success: false, error: "Invalid slot", quantity: 0 };
+    }
+
+    const slot = equipment[slotName] as EquipmentSlot | undefined;
+    if (!slot || !slot.itemId) {
+      return { success: false, error: "Slot is empty", quantity: 0 };
+    }
+
+    const itemId = slot.itemId?.toString() || "";
+
+    // Remove visual
+    this.removeEquipmentVisual(slot);
+
+    // Clear slot
+    slot.itemId = null;
+    slot.item = null;
+
+    // Update stats
+    this.recalculateStats(playerId);
+
+    // Emit change event
+    this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
+      playerId,
+      slot: slotName as EquipmentSlotName,
+      itemId: null,
+    });
+
+    // Send equipment state to client
+    if (this.world.isServer && this.world.network?.send) {
+      const equipmentData = this.getPlayerEquipment(playerId);
+      this.world.network.send("equipmentUpdated", {
+        playerId,
+        equipment: equipmentData,
+      });
+    }
+
+    // Save to database
+    await this.saveEquipmentToDatabase(playerId);
+
+    return { success: true, itemId, quantity: 1 };
+  }
+
+  /**
+   * Get all equipped items for deposit-all operation.
+   *
+   * Used by bank equipment tab "Deposit Worn Items" button.
+   *
+   * @param playerId - The player ID
+   * @returns Array of all equipped item info
+   */
+  getAllEquippedItems(
+    playerId: string,
+  ): Array<{ slot: string; itemId: string; quantity: number }> {
+    const equipment = this.playerEquipment.get(playerId);
+    if (!equipment) return [];
+
+    const result: Array<{ slot: string; itemId: string; quantity: number }> =
+      [];
+    const slotNames = ["weapon", "shield", "helmet", "body", "legs", "arrows"];
+
+    for (const slotName of slotNames) {
+      if (!this.isValidEquipmentSlot(slotName)) continue;
+      const slot = equipment[slotName] as EquipmentSlot | undefined;
+      if (slot?.itemId) {
+        result.push({
+          slot: slotName,
+          itemId: slot.itemId.toString(),
+          quantity: 1,
+        });
+      }
+    }
+
+    return result;
+  }
+
   /**
    * Get the quantity of arrows currently equipped.
    *
