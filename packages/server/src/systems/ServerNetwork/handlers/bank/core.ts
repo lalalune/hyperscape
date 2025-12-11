@@ -595,22 +595,26 @@ export async function handleBankWithdraw(
           }
         } else {
           // BASE ITEM WITHDRAWAL: One item per slot (qty=1 each)
+          // BULK INSERT: Batch all items into single query for performance
+          const inventoryItems = [];
           for (let i = 0; i < finalWithdrawQty; i++) {
             const targetSlot = freeSlots[i];
-
-            await tx.insert(schema.inventory).values({
+            inventoryItems.push({
               playerId: ctx.playerId,
               itemId: data.itemId,
               quantity: 1,
               slotIndex: targetSlot,
               metadata: null,
             });
-
             addedSlots.push({
               slot: targetSlot,
               quantity: 1,
               itemId: data.itemId,
             });
+          }
+
+          if (inventoryItems.length > 0) {
+            await tx.insert(schema.inventory).values(inventoryItems);
           }
         }
 
@@ -786,6 +790,15 @@ export async function handleBankDepositAll(
         );
         let nextFreeSlotInTab = 0;
 
+        // Separate existing items (updates) from new items (inserts) for bulk optimization
+        const newBankItems: Array<{
+          playerId: string;
+          itemId: string;
+          quantity: number;
+          slot: number;
+          tabIndex: number;
+        }> = [];
+
         for (const [itemId, group] of itemGroups) {
           const existingBank = bankByItemId.get(itemId);
 
@@ -797,12 +810,12 @@ export async function handleBankDepositAll(
                   WHERE id = ${existingBank.id}`,
             );
           } else {
-            // New item: insert into target tab
+            // New item: collect for bulk insert
             while (usedTargetTabSlots.has(nextFreeSlotInTab)) {
               nextFreeSlotInTab++;
             }
 
-            await tx.insert(schema.bankStorage).values({
+            newBankItems.push({
               playerId: ctx.playerId,
               itemId,
               quantity: group.total,
@@ -813,6 +826,11 @@ export async function handleBankDepositAll(
             usedTargetTabSlots.add(nextFreeSlotInTab);
             nextFreeSlotInTab++;
           }
+        }
+
+        // BULK INSERT: Insert all new items in single query
+        if (newBankItems.length > 0) {
+          await tx.insert(schema.bankStorage).values(newBankItems);
         }
 
         return { removedSlots };

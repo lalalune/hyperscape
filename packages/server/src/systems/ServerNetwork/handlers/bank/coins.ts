@@ -25,6 +25,7 @@ import {
   compactBankSlots,
   sendBankStateWithTabs,
   MAX_BANK_SLOTS,
+  AUDIT_COIN_THRESHOLD,
 } from "./utils";
 
 /**
@@ -170,7 +171,7 @@ export async function handleBankDepositCoins(
   });
 
   // Step 6: Audit logging for large transactions
-  if (data.amount >= 1_000_000) {
+  if (data.amount >= AUDIT_COIN_THRESHOLD) {
     console.log(
       `[BankCoins] AUDIT: ${ctx.playerId} deposited ${data.amount.toLocaleString()} coins`,
     );
@@ -314,7 +315,7 @@ export async function handleBankWithdrawCoins(
   });
 
   // Step 6: Audit logging for large transactions
-  if (data.amount >= 1_000_000) {
+  if (data.amount >= AUDIT_COIN_THRESHOLD) {
     console.log(
       `[BankCoins] AUDIT: ${ctx.playerId} withdrew ${data.amount.toLocaleString()} coins`,
     );

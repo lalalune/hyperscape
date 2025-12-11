@@ -20,7 +20,7 @@ import {
   sendErrorToast,
 } from "../common";
 
-import { rateLimiter, sendBankStateWithTabs } from "./utils";
+import { rateLimiter, sendBankStateWithTabs, TEMP_SWAP_SLOT } from "./utils";
 
 /**
  * Handle bank move/rearrange request
@@ -114,15 +114,12 @@ export async function handleBankMove(
       // Find destination item (may not exist for insert into empty slot)
       const toItem = allItems.find((i) => i.slot === data.toSlot);
 
-      // Use a temporary slot far outside normal range to avoid unique constraint conflicts
-      const TEMP_SLOT = -1000;
-
       if (data.mode === "swap") {
         // SWAP MODE: Exchange positions using temp slot to avoid constraint violation
         if (toItem) {
-          // Both slots have items - swap them via temp slot
+          // Both slots have items - swap them via TEMP_SWAP_SLOT
           await tx.execute(
-            sql`UPDATE bank_storage SET slot = ${TEMP_SLOT} WHERE id = ${fromItem.id}`,
+            sql`UPDATE bank_storage SET slot = ${TEMP_SWAP_SLOT} WHERE id = ${fromItem.id}`,
           );
           await tx.execute(
             sql`UPDATE bank_storage SET slot = ${data.fromSlot} WHERE id = ${toItem.id}`,
@@ -138,9 +135,9 @@ export async function handleBankMove(
         }
       } else {
         // INSERT MODE: Insert at position, shift others
-        // First move source to temp slot to free up its position
+        // First move source to TEMP_SWAP_SLOT to free up its position
         await tx.execute(
-          sql`UPDATE bank_storage SET slot = ${TEMP_SLOT} WHERE id = ${fromItem.id}`,
+          sql`UPDATE bank_storage SET slot = ${TEMP_SWAP_SLOT} WHERE id = ${fromItem.id}`,
         );
 
         if (data.fromSlot < data.toSlot) {

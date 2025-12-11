@@ -149,15 +149,20 @@ export async function handleBankWithdrawPlaceholder(
         );
 
         // Create inventory items (one per withdrawn item, qty=1)
+        // BULK INSERT: Batch all items into single query for performance
+        const newItems = [];
         for (let i = 0; i < withdrawQty; i++) {
-          const targetSlot = freeSlots[i];
-          await tx.insert(schema.inventory).values({
+          newItems.push({
             playerId: ctx.playerId,
             itemId: data.itemId,
             quantity: 1,
-            slotIndex: targetSlot,
+            slotIndex: freeSlots[i],
             metadata: null,
           });
+        }
+
+        if (newItems.length > 0) {
+          await tx.insert(schema.inventory).values(newItems);
         }
 
         return { withdrawnQty: withdrawQty };
@@ -381,11 +386,6 @@ export async function handleBankToggleAlwaysPlaceholder(
       .set({ alwaysSetPlaceholder: newValue })
       .where(eq(schema.characters.id, playerId));
 
-    // Audit log: Placeholder toggle
-    console.log(
-      `[Bank:TogglePlaceholder] playerId=${playerId} newValue=${newValue === 1 ? "enabled" : "disabled"}`,
-    );
-
     // Send updated state
     await sendBankStateWithTabs(socket, playerId, db);
 
@@ -396,8 +396,6 @@ export async function handleBankToggleAlwaysPlaceholder(
           : "Always set placeholders: OFF",
       type: "info",
     });
-
-    console.log(`[BankToggle] Completed for player ${playerId}`);
   } catch (error) {
     console.error(`[BankToggle] Error:`, error);
     sendErrorToast(socket, "Failed to toggle placeholder setting");
