@@ -142,6 +142,54 @@ export interface HyperscapePluginConfig {
 }
 
 /**
+ * Bank item structure
+ */
+export interface BankItem {
+  itemId: string;
+  quantity: number;
+  slot: number;
+  tabIndex: number;
+}
+
+/**
+ * Bank state structure
+ */
+export interface BankState {
+  items: BankItem[];
+  tabs: Array<{ tabIndex: number; iconItemId: string | null }>;
+  alwaysSetPlaceholder: boolean;
+  maxSlots: number;
+  bankId: string;
+  coins: number;
+  isOpen: boolean;
+}
+
+/**
+ * Store item structure
+ */
+export interface StoreItem {
+  id: string;
+  itemId: string;
+  name: string;
+  price: number;
+  stockQuantity: number;
+  description?: string;
+  category?: string;
+}
+
+/**
+ * Store state structure
+ */
+export interface StoreState {
+  storeId: string;
+  storeName: string;
+  buybackRate: number;
+  items: StoreItem[];
+  npcEntityId?: string;
+  isOpen: boolean;
+}
+
+/**
  * Cached game state maintained by HyperscapeService
  */
 export interface GameStateCache {
@@ -150,6 +198,8 @@ export interface GameStateCache {
   currentRoomId: string | null;
   worldId: string | null;
   lastUpdate: number;
+  bankState: BankState | null;
+  storeState: StoreState | null;
 }
 
 /**
@@ -197,7 +247,7 @@ export interface ChatMessageCommand {
 
 export interface GatherResourceCommand {
   resourceEntityId: string;
-  skill: "woodcutting" | "fishing" | "firemaking" | "cooking";
+  skill: "woodcutting" | "fishing" | "firemaking" | "cooking" | "mining";
 }
 
 export interface BankCommand {
@@ -229,6 +279,17 @@ export interface LootCorpseCommand {
 
 export interface ChangeAttackStyleCommand {
   style: CombatStyle;
+}
+
+// Trading command types
+export interface TradeOfferItem {
+  itemId: string;
+  quantity: number;
+}
+
+export interface TradeOffer {
+  items: TradeOfferItem[];
+  coins: number;
 }
 
 /**
@@ -365,6 +426,13 @@ export interface HyperscapeServiceInterface {
   executeStoreSell(itemId: string, quantity?: number): Promise<void>;
   executeDialogueResponse(responseIndex: number): Promise<void>;
   executeCloseDialogue(): Promise<void>;
+
+  // Trading
+  executeTradeRequest(targetPlayerId: string): Promise<void>;
+  executeTradeResponse(accept: boolean, requesterId?: string): Promise<void>;
+  executeTradeOffer(items: TradeOfferItem[], coins: number): Promise<void>;
+  executeTradeConfirm(): Promise<void>;
+  executeTradeCancel(): Promise<void>;
 
   // Event registration
   onGameEvent(eventType: EventType, handler: (data: unknown) => void): void;

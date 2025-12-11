@@ -1,6 +1,6 @@
 /**
  * MCP Server for Hyperscape RPG
- * 
+ *
  * Implements Model Context Protocol to expose Hyperscape game capabilities
  * to any MCP-compatible AI agent (Claude, GPT, etc).
  */
@@ -15,7 +15,7 @@ import {
   calculateCombatLevel,
   categorizeEntities,
   getPlayerStatus,
-  generateSceneDescription
+  generateSceneDescription,
 } from "../shared/game-helpers.js";
 
 // ============================================
@@ -85,10 +85,10 @@ const MOVEMENT_TOOLS: MCPTool[] = [
         x: { type: "number", description: "X coordinate" },
         y: { type: "number", description: "Y coordinate (height)" },
         z: { type: "number", description: "Z coordinate" },
-        run: { type: "boolean", description: "Run instead of walk" }
+        run: { type: "boolean", description: "Run instead of walk" },
       },
-      required: ["x", "z"]
-    }
+      required: ["x", "z"],
+    },
   },
   {
     name: "hyperscape_move_direction",
@@ -96,12 +96,25 @@ const MOVEMENT_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        direction: { type: "string", enum: ["north", "south", "east", "west", "northeast", "northwest", "southeast", "southwest"], description: "Direction" },
-        distance: { type: "number", description: "Distance in tiles" }
+        direction: {
+          type: "string",
+          enum: [
+            "north",
+            "south",
+            "east",
+            "west",
+            "northeast",
+            "northwest",
+            "southeast",
+            "southwest",
+          ],
+          description: "Direction",
+        },
+        distance: { type: "number", description: "Distance in tiles" },
       },
-      required: ["direction"]
-    }
-  }
+      required: ["direction"],
+    },
+  },
 ];
 
 const COMBAT_TOOLS: MCPTool[] = [
@@ -113,14 +126,18 @@ const COMBAT_TOOLS: MCPTool[] = [
       properties: {
         targetId: { type: "string", description: "Entity ID" },
         targetName: { type: "string", description: "Or target name" },
-        style: { type: "string", enum: ["accurate", "aggressive", "defensive", "controlled"], description: "Combat style" }
-      }
-    }
+        style: {
+          type: "string",
+          enum: ["accurate", "aggressive", "defensive", "controlled"],
+          description: "Combat style",
+        },
+      },
+    },
   },
   {
     name: "hyperscape_stop_combat",
     description: "Stop attacking",
-    inputSchema: { type: "object", properties: {} }
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "hyperscape_change_attack_style",
@@ -128,41 +145,57 @@ const COMBAT_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        style: { type: "string", enum: ["attack", "strength", "defense", "ranged"], description: "Style" }
+        style: {
+          type: "string",
+          enum: ["attack", "strength", "defense", "ranged"],
+          description: "Style",
+        },
       },
-      required: ["style"]
-    }
-  }
+      required: ["style"],
+    },
+  },
 ];
 
 const GATHERING_TOOLS: MCPTool[] = [
   {
     name: "hyperscape_gather",
-    description: "Gather from resource (tree, fish)",
+    description: "Gather from resource (tree, fish, rock)",
     inputSchema: {
       type: "object",
       properties: {
         resourceId: { type: "string", description: "Resource ID" },
-        resourceType: { type: "string", enum: ["tree", "fish"], description: "Type" }
-      }
-    }
+        resourceType: {
+          type: "string",
+          enum: ["tree", "fish", "rock"],
+          description: "Type",
+        },
+      },
+    },
   },
   {
     name: "hyperscape_chop_tree",
     description: "Chop a tree",
     inputSchema: {
       type: "object",
-      properties: { treeId: { type: "string", description: "Tree ID" } }
-    }
+      properties: { treeId: { type: "string", description: "Tree ID" } },
+    },
   },
   {
     name: "hyperscape_fish",
     description: "Fish at a spot",
     inputSchema: {
       type: "object",
-      properties: { spotId: { type: "string", description: "Spot ID" } }
-    }
-  }
+      properties: { spotId: { type: "string", description: "Spot ID" } },
+    },
+  },
+  {
+    name: "hyperscape_mine",
+    description: "Mine a rock for ore",
+    inputSchema: {
+      type: "object",
+      properties: { rockId: { type: "string", description: "Rock ID" } },
+    },
+  },
 ];
 
 const ITEM_TOOLS: MCPTool[] = [
@@ -173,10 +206,26 @@ const ITEM_TOOLS: MCPTool[] = [
       type: "object",
       properties: {
         itemId: { type: "string", description: "Item ID" },
-        slot: { type: "string", enum: ["weapon", "shield", "helmet", "body", "legs", "boots", "gloves", "cape", "amulet", "ring", "arrows"], description: "Slot" }
+        slot: {
+          type: "string",
+          enum: [
+            "weapon",
+            "shield",
+            "helmet",
+            "body",
+            "legs",
+            "boots",
+            "gloves",
+            "cape",
+            "amulet",
+            "ring",
+            "arrows",
+          ],
+          description: "Slot",
+        },
       },
-      required: ["itemId"]
-    }
+      required: ["itemId"],
+    },
   },
   {
     name: "hyperscape_unequip_item",
@@ -184,10 +233,26 @@ const ITEM_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        slot: { type: "string", enum: ["weapon", "shield", "helmet", "body", "legs", "boots", "gloves", "cape", "amulet", "ring", "arrows"], description: "Equipment slot to unequip" }
+        slot: {
+          type: "string",
+          enum: [
+            "weapon",
+            "shield",
+            "helmet",
+            "body",
+            "legs",
+            "boots",
+            "gloves",
+            "cape",
+            "amulet",
+            "ring",
+            "arrows",
+          ],
+          description: "Equipment slot to unequip",
+        },
       },
-      required: ["slot"]
-    }
+      required: ["slot"],
+    },
   },
   {
     name: "hyperscape_use_item",
@@ -196,10 +261,10 @@ const ITEM_TOOLS: MCPTool[] = [
       type: "object",
       properties: {
         itemId: { type: "string", description: "Item ID" },
-        targetItemId: { type: "string", description: "Target item" }
+        targetItemId: { type: "string", description: "Target item" },
       },
-      required: ["itemId"]
-    }
+      required: ["itemId"],
+    },
   },
   {
     name: "hyperscape_drop_item",
@@ -208,10 +273,10 @@ const ITEM_TOOLS: MCPTool[] = [
       type: "object",
       properties: {
         itemId: { type: "string", description: "Item ID" },
-        quantity: { type: "number", description: "Amount", minimum: 1 }
+        quantity: { type: "number", description: "Amount", minimum: 1 },
       },
-      required: ["itemId"]
-    }
+      required: ["itemId"],
+    },
   },
   {
     name: "hyperscape_pickup_item",
@@ -219,8 +284,8 @@ const ITEM_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: { itemId: { type: "string", description: "Item ID" } },
-      required: ["itemId"]
-    }
+      required: ["itemId"],
+    },
   },
   {
     name: "hyperscape_loot_corpse",
@@ -228,16 +293,16 @@ const ITEM_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: { corpseId: { type: "string", description: "Corpse ID" } },
-      required: ["corpseId"]
-    }
-  }
+      required: ["corpseId"],
+    },
+  },
 ];
 
 const BANKING_TOOLS: MCPTool[] = [
   {
     name: "hyperscape_open_bank",
     description: "Open bank",
-    inputSchema: { type: "object", properties: {} }
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "hyperscape_deposit",
@@ -246,10 +311,10 @@ const BANKING_TOOLS: MCPTool[] = [
       type: "object",
       properties: {
         itemId: { type: "string", description: "Item ID" },
-        quantity: { type: "number", description: "Amount", minimum: 1 }
+        quantity: { type: "number", description: "Amount", minimum: 1 },
       },
-      required: ["itemId"]
-    }
+      required: ["itemId"],
+    },
   },
   {
     name: "hyperscape_withdraw",
@@ -258,15 +323,15 @@ const BANKING_TOOLS: MCPTool[] = [
       type: "object",
       properties: {
         itemId: { type: "string", description: "Item ID" },
-        quantity: { type: "number", description: "Amount", minimum: 1 }
+        quantity: { type: "number", description: "Amount", minimum: 1 },
       },
-      required: ["itemId"]
-    }
+      required: ["itemId"],
+    },
   },
   {
     name: "hyperscape_deposit_all",
     description: "Deposit all items from inventory to bank",
-    inputSchema: { type: "object", properties: {} }
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "hyperscape_deposit_coins",
@@ -274,10 +339,10 @@ const BANKING_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        amount: { type: "number", description: "Amount of coins", minimum: 1 }
+        amount: { type: "number", description: "Amount of coins", minimum: 1 },
       },
-      required: ["amount"]
-    }
+      required: ["amount"],
+    },
   },
   {
     name: "hyperscape_withdraw_coins",
@@ -285,11 +350,11 @@ const BANKING_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        amount: { type: "number", description: "Amount of coins", minimum: 1 }
+        amount: { type: "number", description: "Amount of coins", minimum: 1 },
       },
-      required: ["amount"]
-    }
-  }
+      required: ["amount"],
+    },
+  },
 ];
 
 const SOCIAL_TOOLS: MCPTool[] = [
@@ -299,8 +364,8 @@ const SOCIAL_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: { message: { type: "string", description: "Message" } },
-      required: ["message"]
-    }
+      required: ["message"],
+    },
   },
   {
     name: "hyperscape_local_chat",
@@ -308,8 +373,8 @@ const SOCIAL_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: { message: { type: "string", description: "Message" } },
-      required: ["message"]
-    }
+      required: ["message"],
+    },
   },
   {
     name: "hyperscape_whisper",
@@ -318,10 +383,10 @@ const SOCIAL_TOOLS: MCPTool[] = [
       type: "object",
       properties: {
         targetId: { type: "string", description: "Target player ID or name" },
-        message: { type: "string", description: "Message" }
+        message: { type: "string", description: "Message" },
       },
-      required: ["targetId", "message"]
-    }
+      required: ["targetId", "message"],
+    },
   },
   {
     name: "hyperscape_emote",
@@ -329,10 +394,14 @@ const SOCIAL_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        emote: { type: "string", enum: ["wave", "dance", "bow", "cheer", "cry", "laugh", "sit"], description: "Emote" }
+        emote: {
+          type: "string",
+          enum: ["wave", "dance", "bow", "cheer", "cry", "laugh", "sit"],
+          description: "Emote",
+        },
       },
-      required: ["emote"]
-    }
+      required: ["emote"],
+    },
   },
   {
     name: "hyperscape_interact_npc",
@@ -341,9 +410,9 @@ const SOCIAL_TOOLS: MCPTool[] = [
       type: "object",
       properties: {
         npcId: { type: "string", description: "NPC ID" },
-        npcName: { type: "string", description: "Or NPC name" }
-      }
-    }
+        npcName: { type: "string", description: "Or NPC name" },
+      },
+    },
   },
   {
     name: "hyperscape_dialogue_respond",
@@ -351,11 +420,15 @@ const SOCIAL_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        responseIndex: { type: "number", description: "Response option index (0-based)", minimum: 0 }
+        responseIndex: {
+          type: "number",
+          description: "Response option index (0-based)",
+          minimum: 0,
+        },
       },
-      required: ["responseIndex"]
-    }
-  }
+      required: ["responseIndex"],
+    },
+  },
 ];
 
 const STORE_TOOLS: MCPTool[] = [
@@ -366,10 +439,14 @@ const STORE_TOOLS: MCPTool[] = [
       type: "object",
       properties: {
         itemId: { type: "string", description: "Item ID to buy" },
-        quantity: { type: "number", description: "Quantity to buy", minimum: 1 }
+        quantity: {
+          type: "number",
+          description: "Quantity to buy",
+          minimum: 1,
+        },
       },
-      required: ["itemId"]
-    }
+      required: ["itemId"],
+    },
   },
   {
     name: "hyperscape_store_sell",
@@ -378,42 +455,109 @@ const STORE_TOOLS: MCPTool[] = [
       type: "object",
       properties: {
         itemId: { type: "string", description: "Item ID to sell" },
-        quantity: { type: "number", description: "Quantity to sell", minimum: 1 }
+        quantity: {
+          type: "number",
+          description: "Quantity to sell",
+          minimum: 1,
+        },
       },
-      required: ["itemId"]
-    }
-  }
+      required: ["itemId"],
+    },
+  },
+];
+
+const TRADING_TOOLS: MCPTool[] = [
+  {
+    name: "hyperscape_trade_request",
+    description: "Request to trade with another player",
+    inputSchema: {
+      type: "object",
+      properties: {
+        targetId: { type: "string", description: "Target player ID" },
+        targetName: { type: "string", description: "Or target player name" },
+      },
+    },
+  },
+  {
+    name: "hyperscape_trade_respond",
+    description: "Accept or decline a trade request",
+    inputSchema: {
+      type: "object",
+      properties: {
+        accept: {
+          type: "boolean",
+          description: "True to accept, false to decline",
+        },
+        requesterId: { type: "string", description: "Optional requester ID" },
+      },
+      required: ["accept"],
+    },
+  },
+  {
+    name: "hyperscape_trade_offer",
+    description: "Offer items and/or coins in the trade window",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "Item ID to offer" },
+        quantity: {
+          type: "number",
+          description: "Quantity to offer",
+          minimum: 1,
+        },
+        coins: { type: "number", description: "Coins to offer", minimum: 0 },
+      },
+    },
+  },
+  {
+    name: "hyperscape_trade_confirm",
+    description:
+      "Confirm your trade offer. Both players must confirm for trade to complete.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "hyperscape_trade_cancel",
+    description: "Cancel the current trade",
+    inputSchema: { type: "object", properties: {} },
+  },
 ];
 
 const QUERY_TOOLS: MCPTool[] = [
   {
     name: "hyperscape_get_status",
     description: "Get player status (health, position, combat state)",
-    inputSchema: { type: "object", properties: {} }
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "hyperscape_get_inventory",
     description: "Get player inventory contents",
-    inputSchema: { type: "object", properties: {} }
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "hyperscape_get_nearby",
     description: "Get nearby entities (mobs, resources, items, players)",
     inputSchema: {
       type: "object",
-      properties: { range: { type: "number", description: "Search range", minimum: 5, maximum: 100 } }
-    }
+      properties: {
+        range: {
+          type: "number",
+          description: "Search range",
+          minimum: 5,
+          maximum: 100,
+        },
+      },
+    },
   },
   {
     name: "hyperscape_get_skills",
     description: "Get player skill levels",
-    inputSchema: { type: "object", properties: {} }
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "hyperscape_get_equipment",
     description: "Get equipped items",
-    inputSchema: { type: "object", properties: {} }
-  }
+    inputSchema: { type: "object", properties: {} },
+  },
 ];
 
 const WORLD_TOOLS: MCPTool[] = [
@@ -422,8 +566,15 @@ const WORLD_TOOLS: MCPTool[] = [
     description: "Get description of surroundings",
     inputSchema: {
       type: "object",
-      properties: { range: { type: "number", description: "Range", minimum: 5, maximum: 100 } }
-    }
+      properties: {
+        range: {
+          type: "number",
+          description: "Range",
+          minimum: 5,
+          maximum: 100,
+        },
+      },
+    },
   },
   {
     name: "hyperscape_examine",
@@ -431,13 +582,13 @@ const WORLD_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: { entityId: { type: "string", description: "Entity ID" } },
-      required: ["entityId"]
-    }
+      required: ["entityId"],
+    },
   },
   {
     name: "hyperscape_respawn",
     description: "Respawn after death",
-    inputSchema: { type: "object", properties: {} }
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "hyperscape_set_goal",
@@ -445,12 +596,16 @@ const WORLD_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        goalType: { type: "string", enum: ["combat_training", "woodcutting", "fishing", "exploration"], description: "Goal type" },
-        target: { type: "string", description: "Target" }
+        goalType: {
+          type: "string",
+          enum: ["combat_training", "woodcutting", "fishing", "exploration"],
+          description: "Goal type",
+        },
+        target: { type: "string", description: "Target" },
       },
-      required: ["goalType"]
-    }
-  }
+      required: ["goalType"],
+    },
+  },
 ];
 
 const ALL_TOOLS = [
@@ -460,9 +615,10 @@ const ALL_TOOLS = [
   ...ITEM_TOOLS,
   ...BANKING_TOOLS,
   ...STORE_TOOLS,
+  ...TRADING_TOOLS,
   ...SOCIAL_TOOLS,
   ...QUERY_TOOLS,
-  ...WORLD_TOOLS
+  ...WORLD_TOOLS,
 ];
 
 // ============================================
@@ -485,25 +641,85 @@ export class HyperscapeMCPServer {
   listResources(): MCPResource[] {
     const playerId = this.service.getPlayerEntity()?.id ?? "unknown";
     return [
-      { uri: `hyperscape://player/${playerId}/status`, name: "Player Status", description: "Health, stamina, position, combat", mimeType: "application/json" },
-      { uri: `hyperscape://player/${playerId}/inventory`, name: "Inventory", description: "28-slot inventory", mimeType: "application/json" },
-      { uri: `hyperscape://player/${playerId}/equipment`, name: "Equipment", description: "Equipped items", mimeType: "application/json" },
-      { uri: `hyperscape://player/${playerId}/skills`, name: "Skills", description: "Skill levels and XP", mimeType: "application/json" },
-      { uri: `hyperscape://world/nearby`, name: "Nearby Entities", description: "Mobs, resources, items, players", mimeType: "application/json" },
-      { uri: `hyperscape://world/scene`, name: "World Scene", description: "Semantic surroundings", mimeType: "text/plain" },
-      { uri: `hyperscape://player/${playerId}/goal`, name: "Current Goal", description: "Gameplay goal", mimeType: "application/json" }
+      {
+        uri: `hyperscape://player/${playerId}/status`,
+        name: "Player Status",
+        description: "Health, stamina, position, combat",
+        mimeType: "application/json",
+      },
+      {
+        uri: `hyperscape://player/${playerId}/inventory`,
+        name: "Inventory",
+        description: "28-slot inventory",
+        mimeType: "application/json",
+      },
+      {
+        uri: `hyperscape://player/${playerId}/equipment`,
+        name: "Equipment",
+        description: "Equipped items",
+        mimeType: "application/json",
+      },
+      {
+        uri: `hyperscape://player/${playerId}/skills`,
+        name: "Skills",
+        description: "Skill levels and XP",
+        mimeType: "application/json",
+      },
+      {
+        uri: `hyperscape://world/nearby`,
+        name: "Nearby Entities",
+        description: "Mobs, resources, items, players",
+        mimeType: "application/json",
+      },
+      {
+        uri: `hyperscape://world/scene`,
+        name: "World Scene",
+        description: "Semantic surroundings",
+        mimeType: "text/plain",
+      },
+      {
+        uri: `hyperscape://player/${playerId}/goal`,
+        name: "Current Goal",
+        description: "Gameplay goal",
+        mimeType: "application/json",
+      },
     ];
   }
 
   listPrompts(): MCPPrompt[] {
     return [
-      { name: "gameplay_decision", description: "Get gameplay decision prompt", arguments: [{ name: "situation", description: "Current situation", required: false }] },
-      { name: "combat_strategy", description: "Get combat strategy", arguments: [{ name: "enemy", description: "Enemy type", required: false }] },
-      { name: "exploration_guide", description: "Get exploration guidance", arguments: [{ name: "destination", description: "Destination", required: false }] }
+      {
+        name: "gameplay_decision",
+        description: "Get gameplay decision prompt",
+        arguments: [
+          {
+            name: "situation",
+            description: "Current situation",
+            required: false,
+          },
+        ],
+      },
+      {
+        name: "combat_strategy",
+        description: "Get combat strategy",
+        arguments: [
+          { name: "enemy", description: "Enemy type", required: false },
+        ],
+      },
+      {
+        name: "exploration_guide",
+        description: "Get exploration guidance",
+        arguments: [
+          { name: "destination", description: "Destination", required: false },
+        ],
+      },
     ];
   }
 
-  async callTool(name: string, args: Record<string, unknown>): Promise<MCPToolResult> {
+  async callTool(
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     if (!this.service.isConnected()) {
       return this.error("Not connected to game server");
     }
@@ -523,9 +739,11 @@ export class HyperscapeMCPServer {
       hyperscape_stop_combat: () => this.handleStopCombat(),
       hyperscape_change_attack_style: () => this.handleChangeStyle(args),
       // Gathering
-      hyperscape_gather: () => this.handleGather(args, "tree"),
+      hyperscape_gather: () =>
+        this.handleGather(args, String(args.resourceType ?? "tree")),
       hyperscape_chop_tree: () => this.handleGather(args, "tree"),
       hyperscape_fish: () => this.handleGather(args, "fish"),
+      hyperscape_mine: () => this.handleGather(args, "rock"),
       // Items
       hyperscape_equip_item: () => this.handleEquip(args),
       hyperscape_unequip_item: () => this.handleUnequip(args),
@@ -543,6 +761,12 @@ export class HyperscapeMCPServer {
       // Store
       hyperscape_store_buy: () => this.handleStoreBuy(args),
       hyperscape_store_sell: () => this.handleStoreSell(args),
+      // Trading
+      hyperscape_trade_request: () => this.handleTradeRequest(args),
+      hyperscape_trade_respond: () => this.handleTradeRespond(args),
+      hyperscape_trade_offer: () => this.handleTradeOffer(args),
+      hyperscape_trade_confirm: () => this.handleTradeConfirm(),
+      hyperscape_trade_cancel: () => this.handleTradeCancel(),
       // Social
       hyperscape_chat: () => this.handleChat(args),
       hyperscape_local_chat: () => this.handleLocalChat(args),
@@ -560,7 +784,7 @@ export class HyperscapeMCPServer {
       hyperscape_get_inventory: () => this.handleGetInventory(),
       hyperscape_get_nearby: () => this.handleGetNearby(args),
       hyperscape_get_skills: () => this.handleGetSkills(),
-      hyperscape_get_equipment: () => this.handleGetEquipment()
+      hyperscape_get_equipment: () => this.handleGetEquipment(),
     };
 
     const handler = handlers[name];
@@ -579,7 +803,14 @@ export class HyperscapeMCPServer {
       const category = parts[2];
       switch (category) {
         case "status":
-          return { contents: [this.json(uri, player ? getPlayerStatus(player) : { status: "not_in_game" })] };
+          return {
+            contents: [
+              this.json(
+                uri,
+                player ? getPlayerStatus(player) : { status: "not_in_game" },
+              ),
+            ],
+          };
         case "inventory":
           return { contents: [this.json(uri, player?.items ?? [])] };
         case "equipment":
@@ -587,7 +818,14 @@ export class HyperscapeMCPServer {
         case "skills":
           return { contents: [this.json(uri, this.getSkillsSummary())] };
         case "goal":
-          return { contents: [this.json(uri, this.service.getBehaviorManager()?.getGoal() ?? null)] };
+          return {
+            contents: [
+              this.json(
+                uri,
+                this.service.getBehaviorManager()?.getGoal() ?? null,
+              ),
+            ],
+          };
       }
     }
 
@@ -607,17 +845,23 @@ export class HyperscapeMCPServer {
   // Tool Handlers
   // ============================================
 
-  private async handleMoveTo(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleMoveTo(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const x = Number(args.x ?? 0);
     const y = Number(args.y ?? 0);
     const z = Number(args.z ?? 0);
     const runMode = Boolean(args.run);
 
     await this.service.executeMove({ target: [x, y, z], runMode });
-    return this.success(`Moving to [${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)}]${runMode ? " (running)" : ""}`);
+    return this.success(
+      `Moving to [${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)}]${runMode ? " (running)" : ""}`,
+    );
   }
 
-  private async handleMoveDirection(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleMoveDirection(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const direction = String(args.direction ?? "north");
     const tiles = Number(args.distance ?? 10);
     const distance = tiles * 5; // 1 tile = ~5 units
@@ -634,21 +878,25 @@ export class HyperscapeMCPServer {
     return this.success(`Moving ${direction} for ${tiles} tiles`);
   }
 
-  private async handleAttack(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleAttack(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     let entityId = String(args.targetId ?? "");
     const targetName = String(args.targetName ?? "");
 
     // Find by name if no ID
     if (!entityId && targetName) {
-      const target = this.service.getNearbyEntities().find(e =>
-        e.name?.toLowerCase().includes(targetName.toLowerCase())
-      );
+      const target = this.service
+        .getNearbyEntities()
+        .find((e) => e.name?.toLowerCase().includes(targetName.toLowerCase()));
       if (target) entityId = target.id;
     }
 
     // Find closest mob if still no target
     if (!entityId) {
-      const mobs = this.service.getNearbyEntities().filter(e => "mobType" in e);
+      const mobs = this.service
+        .getNearbyEntities()
+        .filter((e) => "mobType" in e);
       if (mobs.length > 0) entityId = mobs[0].id;
     }
 
@@ -671,19 +919,33 @@ export class HyperscapeMCPServer {
     return this.error("Cannot stop combat - player position unknown");
   }
 
-  private async handleChangeStyle(args: Record<string, unknown>): Promise<MCPToolResult> {
-    const style = String(args.style ?? "attack") as "attack" | "strength" | "defense" | "ranged";
+  private async handleChangeStyle(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
+    const style = String(args.style ?? "attack") as
+      | "attack"
+      | "strength"
+      | "defense"
+      | "ranged";
     await this.service.executeChangeAttackStyle({ style });
     return this.success(`Attack style set to ${style}`);
   }
 
-  private async handleGather(args: Record<string, unknown>, type: string): Promise<MCPToolResult> {
-    let entityId = String(args.resourceId ?? args.treeId ?? args.spotId ?? "");
+  private async handleGather(
+    args: Record<string, unknown>,
+    type: string,
+  ): Promise<MCPToolResult> {
+    let entityId = String(
+      args.resourceId ?? args.treeId ?? args.spotId ?? args.rockId ?? "",
+    );
 
     if (!entityId) {
-      const resources = this.service.getNearbyEntities().filter(e => {
+      const resources = this.service.getNearbyEntities().filter((e) => {
         const ea = e as unknown as Record<string, unknown>;
-        return ea.resourceType === type || (e.name && e.name.toLowerCase().includes(type));
+        return (
+          ea.resourceType === type ||
+          (e.name && e.name.toLowerCase().includes(type))
+        );
       });
       if (resources.length > 0) entityId = resources[0].id;
     }
@@ -692,48 +954,72 @@ export class HyperscapeMCPServer {
       return this.error(`No ${type} found nearby`);
     }
 
+    // Map resource type to skill
+    const skillMap: Record<string, "woodcutting" | "fishing" | "mining"> = {
+      tree: "woodcutting",
+      fish: "fishing",
+      fishing_spot: "fishing",
+      rock: "mining",
+      ore: "mining",
+    };
+    const skill = skillMap[type] ?? "woodcutting";
+
     await this.service.executeGatherResource({
       resourceEntityId: entityId,
-      skill: type === "tree" ? "woodcutting" : "fishing"
+      skill,
     });
     return this.success(`Gathering ${type}`);
   }
 
-  private async handleEquip(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleEquip(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const itemId = String(args.itemId ?? "");
     const slot = String(args.slot ?? "weapon");
 
-    await this.service.executeEquipItem({ itemId, equipSlot: slot as keyof Equipment });
+    await this.service.executeEquipItem({
+      itemId,
+      equipSlot: slot as keyof Equipment,
+    });
     return this.success(`Equipped ${itemId}`);
   }
 
-  private async handleUnequip(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleUnequip(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const slot = String(args.slot ?? "weapon");
     const player = this.service.getPlayerEntity();
     const equipped = player?.equipment?.[slot as keyof Equipment];
-    
+
     if (!equipped) {
       return this.error(`Nothing equipped in ${slot} slot`);
     }
-    
+
     await this.service.executeUnequipItem(slot);
     return this.success(`Unequipped ${equipped} from ${slot}`);
   }
 
-  private async handleUseItem(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleUseItem(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const itemId = String(args.itemId ?? "");
     await this.service.executeUseItem({ itemId });
     return this.success(`Used ${itemId}`);
   }
 
-  private async handleDropItem(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleDropItem(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const itemId = String(args.itemId ?? "");
     if (!itemId) {
       return this.error("Item ID required");
     }
     // Check if item exists in inventory
     const player = this.service.getPlayerEntity();
-    const item = player?.items?.find(i => i.id === itemId || i.name?.toLowerCase().includes(itemId.toLowerCase()));
+    const item = player?.items?.find(
+      (i) =>
+        i.id === itemId || i.name?.toLowerCase().includes(itemId.toLowerCase()),
+    );
     if (!item) {
       return this.error(`Item '${itemId}' not found in inventory`);
     }
@@ -741,15 +1027,21 @@ export class HyperscapeMCPServer {
     return this.success(`Dropped ${item.name}`);
   }
 
-  private async handlePickupItem(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handlePickupItem(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const itemId = String(args.itemId ?? "");
     if (!itemId) {
       return this.error("Item ID required");
     }
     // Check if item exists nearby
-    const entity = this.service.getNearbyEntities().find(e => 
-      e.id === itemId || e.name?.toLowerCase().includes(itemId.toLowerCase())
-    );
+    const entity = this.service
+      .getNearbyEntities()
+      .find(
+        (e) =>
+          e.id === itemId ||
+          e.name?.toLowerCase().includes(itemId.toLowerCase()),
+      );
     if (!entity) {
       return this.error(`Item '${itemId}' not found nearby`);
     }
@@ -757,15 +1049,21 @@ export class HyperscapeMCPServer {
     return this.success(`Picked up ${entity.name}`);
   }
 
-  private async handleLootCorpse(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleLootCorpse(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const corpseId = String(args.corpseId ?? "");
     if (!corpseId) {
       return this.error("Corpse ID required");
     }
     // Find corpse nearby
-    const corpse = this.service.getNearbyEntities().find(e =>
-      e.id === corpseId || (e.name?.toLowerCase().includes("corpse") && e.id.includes(corpseId))
-    );
+    const corpse = this.service
+      .getNearbyEntities()
+      .find(
+        (e) =>
+          e.id === corpseId ||
+          (e.name?.toLowerCase().includes("corpse") && e.id.includes(corpseId)),
+      );
     if (!corpse) {
       return this.error(`Corpse '${corpseId}' not found nearby`);
     }
@@ -775,9 +1073,9 @@ export class HyperscapeMCPServer {
 
   private async handleOpenBank(): Promise<MCPToolResult> {
     // Player must be near a bank booth/banker NPC
-    const banker = this.service.getNearbyEntities().find(e =>
-      e.name?.toLowerCase().includes("bank")
-    );
+    const banker = this.service
+      .getNearbyEntities()
+      .find((e) => e.name?.toLowerCase().includes("bank"));
     if (!banker) {
       return this.error("No bank nearby - move closer to a bank first");
     }
@@ -785,7 +1083,9 @@ export class HyperscapeMCPServer {
     return this.success("Bank is accessible - use deposit/withdraw commands");
   }
 
-  private async handleBankDeposit(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleBankDeposit(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const itemId = String(args.itemId ?? "");
     const amount = Number(args.quantity ?? 1);
     if (!itemId) {
@@ -795,7 +1095,9 @@ export class HyperscapeMCPServer {
     return this.success(`Deposited ${amount}x ${itemId}`);
   }
 
-  private async handleBankWithdraw(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleBankWithdraw(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const itemId = String(args.itemId ?? "");
     const amount = Number(args.quantity ?? 1);
     if (!itemId) {
@@ -815,7 +1117,9 @@ export class HyperscapeMCPServer {
     return this.success(`Deposited all ${itemCount} items`);
   }
 
-  private async handleBankDepositCoins(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleBankDepositCoins(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const amount = Number(args.amount ?? 0);
     if (amount <= 0) {
       return this.error("Amount must be positive");
@@ -829,7 +1133,9 @@ export class HyperscapeMCPServer {
     return this.success(`Deposited ${amount} coins`);
   }
 
-  private async handleBankWithdrawCoins(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleBankWithdrawCoins(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const amount = Number(args.amount ?? 0);
     if (amount <= 0) {
       return this.error("Amount must be positive");
@@ -838,16 +1144,22 @@ export class HyperscapeMCPServer {
     return this.success(`Withdrew ${amount} coins`);
   }
 
-  private async handleStoreBuy(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleStoreBuy(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const itemId = String(args.itemId ?? "");
     const quantity = Number(args.quantity ?? 1);
     if (!itemId) {
       return this.error("Item ID required");
     }
     // Check for store NPCs nearby
-    const storeNpc = this.service.getNearbyEntities().find(e => {
+    const storeNpc = this.service.getNearbyEntities().find((e) => {
       const name = e.name?.toLowerCase() ?? "";
-      return name.includes("shop") || name.includes("store") || name.includes("merchant");
+      return (
+        name.includes("shop") ||
+        name.includes("store") ||
+        name.includes("merchant")
+      );
     });
     if (!storeNpc) {
       return this.error("No store nearby - move closer to a shop");
@@ -856,7 +1168,9 @@ export class HyperscapeMCPServer {
     return this.success(`Buying ${quantity}x ${itemId}`);
   }
 
-  private async handleStoreSell(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleStoreSell(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const itemId = String(args.itemId ?? "");
     const quantity = Number(args.quantity ?? 1);
     if (!itemId) {
@@ -864,7 +1178,10 @@ export class HyperscapeMCPServer {
     }
     // Check item exists in inventory
     const player = this.service.getPlayerEntity();
-    const item = player?.items?.find(i => i.id === itemId || i.name?.toLowerCase().includes(itemId.toLowerCase()));
+    const item = player?.items?.find(
+      (i) =>
+        i.id === itemId || i.name?.toLowerCase().includes(itemId.toLowerCase()),
+    );
     if (!item) {
       return this.error(`Item '${itemId}' not found in inventory`);
     }
@@ -872,45 +1189,157 @@ export class HyperscapeMCPServer {
     return this.success(`Selling ${quantity}x ${item.name}`);
   }
 
-  private async handleLocalChat(args: Record<string, unknown>): Promise<MCPToolResult> {
+  // Trading Handlers
+  private async handleTradeRequest(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
+    let targetId = String(args.targetId ?? "");
+    const targetName = String(args.targetName ?? "");
+
+    // Find by name if no ID
+    if (!targetId && targetName) {
+      const target = this.service
+        .getNearbyEntities()
+        .find(
+          (e) =>
+            e.name?.toLowerCase().includes(targetName.toLowerCase()) &&
+            ("playerName" in e || "playerId" in e),
+        );
+      if (target) targetId = target.id;
+    }
+
+    // Find any nearby player if still no target
+    if (!targetId) {
+      const players = this.service
+        .getNearbyEntities()
+        .filter((e) => "playerName" in e || "playerId" in e);
+      if (players.length > 0) targetId = players[0].id;
+    }
+
+    if (!targetId) {
+      return this.error("No player found nearby to trade with");
+    }
+
+    await this.service.executeTradeRequest(targetId);
+    return this.success(`Requested trade with ${targetName || targetId}`);
+  }
+
+  private async handleTradeRespond(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
+    const accept = Boolean(args.accept ?? true);
+    const requesterId = String(args.requesterId ?? "");
+
+    await this.service.executeTradeResponse(accept, requesterId);
+    return this.success(
+      accept ? "Accepted trade request" : "Declined trade request",
+    );
+  }
+
+  private async handleTradeOffer(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
+    const player = this.service.getPlayerEntity();
+    const items: Array<{ itemId: string; quantity: number }> = [];
+    const coins = Number(args.coins ?? 0);
+
+    const itemId = String(args.itemId ?? "");
+    const quantity = Number(args.quantity ?? 1);
+
+    if (itemId) {
+      // Verify item exists in inventory
+      const item = player?.items?.find(
+        (i) =>
+          i.id === itemId ||
+          i.name?.toLowerCase().includes(itemId.toLowerCase()),
+      );
+      if (item) {
+        items.push({
+          itemId: item.id,
+          quantity: Math.min(quantity, item.quantity),
+        });
+      }
+    }
+
+    if (items.length === 0 && coins === 0) {
+      return this.error("Specify item or coins to offer");
+    }
+
+    await this.service.executeTradeOffer(items, coins);
+
+    const desc = [
+      items.length > 0 ? `${items[0].quantity}x item` : "",
+      coins > 0 ? `${coins} coins` : "",
+    ]
+      .filter(Boolean)
+      .join(" and ");
+
+    return this.success(`Offered ${desc}`);
+  }
+
+  private async handleTradeConfirm(): Promise<MCPToolResult> {
+    await this.service.executeTradeConfirm();
+    return this.success("Confirmed trade offer");
+  }
+
+  private async handleTradeCancel(): Promise<MCPToolResult> {
+    await this.service.executeTradeCancel();
+    return this.success("Cancelled trade");
+  }
+
+  private async handleLocalChat(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const message = String(args.message ?? "");
     await this.service.executeChatMessage({ message, chatType: "local" });
     return this.success(`Local: "${message}"`);
   }
 
-  private async handleWhisper(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleWhisper(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const targetId = String(args.targetId ?? "");
     const message = String(args.message ?? "");
     if (!targetId || !message) {
       return this.error("Target and message required");
     }
-    await this.service.executeChatMessage({ message, chatType: "whisper", targetId });
+    await this.service.executeChatMessage({
+      message,
+      chatType: "whisper",
+      targetId,
+    });
     return this.success(`Whispered to ${targetId}: "${message}"`);
   }
 
-  private async handleDialogueRespond(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleDialogueRespond(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const responseIndex = Number(args.responseIndex ?? 0);
     await this.service.executeDialogueResponse(responseIndex);
     return this.success(`Selected dialogue option ${responseIndex + 1}`);
   }
 
-  private async handleEmote(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleEmote(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const emote = String(args.emote ?? "wave");
     await this.service.executeEmote({ emote });
     return this.success(`Performed ${emote} emote`);
   }
 
-  private async handleInteractNpc(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleInteractNpc(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     let npcId = String(args.npcId ?? "");
     const npcName = String(args.npcName ?? "");
-    
+
     if (!npcId && npcName) {
-      const npc = this.service.getNearbyEntities().find(e =>
-        e.name?.toLowerCase().includes(npcName.toLowerCase())
-      );
+      const npc = this.service
+        .getNearbyEntities()
+        .find((e) => e.name?.toLowerCase().includes(npcName.toLowerCase()));
       if (npc) npcId = npc.id;
     }
-    
+
     if (!npcId) {
       return this.error("NPC not found nearby");
     }
@@ -927,7 +1356,9 @@ export class HyperscapeMCPServer {
     return this.success("Respawning at nearest town");
   }
 
-  private async handleChat(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleChat(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const message = String(args.message ?? "");
     await this.service.executeChatMessage({ message });
     return this.success(`Sent: "${message}"`);
@@ -937,9 +1368,13 @@ export class HyperscapeMCPServer {
     return this.success(this.getSceneDescription());
   }
 
-  private async handleExamine(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleExamine(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const entityId = String(args.entityId ?? "");
-    const entity = this.service.getNearbyEntities().find(e => e.id === entityId);
+    const entity = this.service
+      .getNearbyEntities()
+      .find((e) => e.id === entityId);
 
     if (!entity) {
       return this.error("Entity not found");
@@ -948,7 +1383,9 @@ export class HyperscapeMCPServer {
     return this.success(this.describeEntity(entity));
   }
 
-  private async handleSetGoal(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleSetGoal(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const goalType = String(args.goalType ?? "exploration");
     const target = String(args.target ?? "");
 
@@ -958,11 +1395,15 @@ export class HyperscapeMCPServer {
     }
 
     behaviorManager.setGoal({
-      type: goalType as "combat_training" | "woodcutting" | "exploration" | "idle",
+      type: goalType as
+        | "combat_training"
+        | "woodcutting"
+        | "exploration"
+        | "idle",
       description: `${goalType}: ${target || "general"}`,
       target: 10,
       progress: 0,
-      startedAt: Date.now()
+      startedAt: Date.now(),
     });
 
     return this.success(`Goal set: ${goalType}${target ? ` - ${target}` : ""}`);
@@ -980,7 +1421,7 @@ export class HyperscapeMCPServer {
       `Health: ${status.health.current}/${status.health.max}`,
       `Position: [${x.toFixed(0)}, ${z.toFixed(0)}]`,
       `Alive: ${status.alive ? "Yes" : "No"}`,
-      `In Combat: ${status.inCombat ? "Yes" : "No"}`
+      `In Combat: ${status.inCombat ? "Yes" : "No"}`,
     ];
 
     return this.success(lines.join("\n"));
@@ -997,7 +1438,7 @@ export class HyperscapeMCPServer {
       return this.success("Inventory is empty");
     }
 
-    const lines = items.map(item => {
+    const lines = items.map((item) => {
       const qty = (item as { quantity?: number }).quantity ?? 1;
       return `• ${item.name}${qty > 1 ? ` x${qty}` : ""}`;
     });
@@ -1005,23 +1446,29 @@ export class HyperscapeMCPServer {
     return this.success(`Inventory (${items.length}/28):\n${lines.join("\n")}`);
   }
 
-  private async handleGetNearby(args: Record<string, unknown>): Promise<MCPToolResult> {
+  private async handleGetNearby(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const range = Number(args.range ?? 30);
     const data = this.getNearbyData();
 
     const lines: string[] = [];
-    
+
     if (data.mobs.length > 0) {
       lines.push(`Mobs (${data.mobs.length}):`);
-      data.mobs.slice(0, 10).forEach(m => {
-        const mob = m as { name?: string; distance?: number; direction?: string };
+      data.mobs.slice(0, 10).forEach((m) => {
+        const mob = m as {
+          name?: string;
+          distance?: number;
+          direction?: string;
+        };
         lines.push(`  • ${mob.name} - ${mob.distance}m ${mob.direction ?? ""}`);
       });
     }
 
     if (data.resources.length > 0) {
       lines.push(`Resources (${data.resources.length}):`);
-      data.resources.slice(0, 10).forEach(r => {
+      data.resources.slice(0, 10).forEach((r) => {
         const res = r as { name?: string; distance?: number };
         lines.push(`  • ${res.name} - ${res.distance}m`);
       });
@@ -1029,7 +1476,7 @@ export class HyperscapeMCPServer {
 
     if (data.items.length > 0) {
       lines.push(`Ground Items (${data.items.length}):`);
-      data.items.slice(0, 10).forEach(i => {
+      data.items.slice(0, 10).forEach((i) => {
         const item = i as { name?: string; distance?: number };
         lines.push(`  • ${item.name} - ${item.distance}m`);
       });
@@ -1037,7 +1484,7 @@ export class HyperscapeMCPServer {
 
     if (data.players.length > 0) {
       lines.push(`Players (${data.players.length}):`);
-      data.players.slice(0, 10).forEach(p => {
+      data.players.slice(0, 10).forEach((p) => {
         const player = p as { name?: string; distance?: number };
         lines.push(`  • ${player.name} - ${player.distance}m`);
       });
@@ -1052,7 +1499,9 @@ export class HyperscapeMCPServer {
 
   private async handleGetSkills(): Promise<MCPToolResult> {
     const skillsData = this.getSkillsSummary();
-    const skills = skillsData.skills as Record<string, { level: number; xp: number }> | undefined;
+    const skills = skillsData.skills as
+      | Record<string, { level: number; xp: number }>
+      | undefined;
 
     if (!skills || Object.keys(skills).length === 0) {
       return this.success("No skills data available");
@@ -1062,7 +1511,7 @@ export class HyperscapeMCPServer {
       `Combat Level: ${skillsData.combatLevel}`,
       `Total Level: ${skillsData.totalLevel}`,
       "",
-      "Skills:"
+      "Skills:",
     ];
 
     for (const [name, data] of Object.entries(skills)) {
@@ -1111,7 +1560,11 @@ export class HyperscapeMCPServer {
   }
 
   private json(uri: string, data: unknown): MCPResourceContent {
-    return { uri, mimeType: "application/json", text: JSON.stringify(data, null, 2) };
+    return {
+      uri,
+      mimeType: "application/json",
+      text: JSON.stringify(data, null, 2),
+    };
   }
 
   private text(uri: string, content: string): MCPResourceContent {
@@ -1135,7 +1588,7 @@ export class HyperscapeMCPServer {
     return {
       skills: skillData,
       totalLevel,
-      combatLevel: calculateCombatLevel(player.skills)
+      combatLevel: calculateCombatLevel(player.skills),
     };
   }
 
@@ -1145,22 +1598,32 @@ export class HyperscapeMCPServer {
     const categorized = categorizeEntities(
       this.service.getNearbyEntities(),
       playerPos,
-      player?.id
+      player?.id,
     );
 
     return {
-      mobs: categorized.mobs.map(m => ({
-        id: m.id, name: m.name, distance: Math.round(m.distance), direction: m.direction
+      mobs: categorized.mobs.map((m) => ({
+        id: m.id,
+        name: m.name,
+        distance: Math.round(m.distance),
+        direction: m.direction,
       })),
-      resources: categorized.resources.map(r => ({
-        id: r.id, name: r.name, distance: Math.round(r.distance), direction: r.direction
+      resources: categorized.resources.map((r) => ({
+        id: r.id,
+        name: r.name,
+        distance: Math.round(r.distance),
+        direction: r.direction,
       })),
-      items: categorized.items.map(i => ({
-        id: i.id, name: i.name?.replace("item:", ""), distance: Math.round(i.distance)
+      items: categorized.items.map((i) => ({
+        id: i.id,
+        name: i.name?.replace("item:", ""),
+        distance: Math.round(i.distance),
       })),
-      players: categorized.players.map(p => ({
-        id: p.id, name: p.name, distance: Math.round(p.distance)
-      }))
+      players: categorized.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        distance: Math.round(p.distance),
+      })),
     };
   }
 
@@ -1186,7 +1649,9 @@ export class HyperscapeMCPServer {
     }
 
     if (entity.position) {
-      lines.push(`Position: [${entity.position.map(n => n.toFixed(1)).join(", ")}]`);
+      lines.push(
+        `Position: [${entity.position.map((n) => n.toFixed(1)).join(", ")}]`,
+      );
     }
 
     return lines.join("\n");

@@ -70,6 +70,7 @@ import {
   catchFishAction,
   lightFireAction,
   cookFoodAction,
+  mineRockAction,
 } from "../../actions/skills.js";
 import { buyItemAction, sellItemAction } from "../../actions/store.js";
 import {
@@ -80,6 +81,13 @@ import {
   examineEntityAction,
   examineInventoryItemAction,
 } from "../../actions/examine.js";
+import {
+  tradeRequestAction,
+  tradeRespondAction,
+  tradeOfferAction,
+  tradeConfirmAction,
+  tradeCancelAction,
+} from "../../actions/trading.js";
 
 // Mock helpers
 function generateUUID(): UUID {
@@ -1504,6 +1512,206 @@ describe("Unequip Action", () => {
 });
 
 // ============================================================================
+// TRADING ACTIONS TESTS
+// ============================================================================
+
+describe("Trading Actions", () => {
+  const otherPlayerNearby = {
+    id: "player-2",
+    name: "OtherPlayer",
+    playerName: "OtherPlayer",
+    position: [5, 0, 5] as [number, number, number],
+  };
+
+  describe("tradeRequestAction", () => {
+    it("should have correct metadata", () => {
+      expect(tradeRequestAction.name).toBe("TRADE_REQUEST");
+      expect(tradeRequestAction.similes).toContain("TRADE");
+      expect(tradeRequestAction.similes).toContain("START_TRADE");
+    });
+
+    it("should validate when players nearby", async () => {
+      const service = createMockService({
+        nearbyEntities: [otherPlayerNearby],
+      });
+      const runtime = createMockRuntime(service);
+      const result = await tradeRequestAction.validate(
+        runtime,
+        createMockMemory(),
+      );
+      expect(result).toBe(true);
+    });
+
+    it("should fail validation when no players nearby", async () => {
+      const service = createMockService({
+        nearbyEntities: [],
+      });
+      const runtime = createMockRuntime(service);
+      const result = await tradeRequestAction.validate(
+        runtime,
+        createMockMemory(),
+      );
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("tradeRespondAction", () => {
+    it("should have correct metadata", () => {
+      expect(tradeRespondAction.name).toBe("TRADE_RESPOND");
+      expect(tradeRespondAction.similes).toContain("ACCEPT_TRADE");
+      expect(tradeRespondAction.similes).toContain("DECLINE_TRADE");
+    });
+
+    it("should validate when connected and alive", async () => {
+      const service = createMockService({});
+      const runtime = createMockRuntime(service);
+      const result = await tradeRespondAction.validate(
+        runtime,
+        createMockMemory(),
+      );
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("tradeOfferAction", () => {
+    it("should have correct metadata", () => {
+      expect(tradeOfferAction.name).toBe("TRADE_OFFER");
+      expect(tradeOfferAction.similes).toContain("OFFER_ITEM");
+    });
+
+    it("should validate when items or coins available", async () => {
+      const service = createMockService({
+        playerItems: [{ id: "item-1", name: "Logs", quantity: 5 }],
+      });
+      const runtime = createMockRuntime(service);
+      const result = await tradeOfferAction.validate(
+        runtime,
+        createMockMemory(),
+      );
+      expect(result).toBe(true);
+    });
+
+    it("should validate when coins available", async () => {
+      const service = createMockService({
+        playerItems: [],
+        playerCoins: 100,
+      });
+      const runtime = createMockRuntime(service);
+      const result = await tradeOfferAction.validate(
+        runtime,
+        createMockMemory(),
+      );
+      expect(result).toBe(true);
+    });
+
+    it("should fail validation when no items or coins", async () => {
+      const service = createMockService({
+        playerItems: [],
+        playerCoins: 0,
+      });
+      const runtime = createMockRuntime(service);
+      const result = await tradeOfferAction.validate(
+        runtime,
+        createMockMemory(),
+      );
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("tradeConfirmAction", () => {
+    it("should have correct metadata", () => {
+      expect(tradeConfirmAction.name).toBe("TRADE_CONFIRM");
+      expect(tradeConfirmAction.similes).toContain("CONFIRM_TRADE");
+    });
+
+    it("should validate when connected and alive", async () => {
+      const service = createMockService({});
+      const runtime = createMockRuntime(service);
+      const result = await tradeConfirmAction.validate(
+        runtime,
+        createMockMemory(),
+      );
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("tradeCancelAction", () => {
+    it("should have correct metadata", () => {
+      expect(tradeCancelAction.name).toBe("TRADE_CANCEL");
+      expect(tradeCancelAction.similes).toContain("CANCEL_TRADE");
+    });
+
+    it("should validate when connected and alive", async () => {
+      const service = createMockService({});
+      const runtime = createMockRuntime(service);
+      const result = await tradeCancelAction.validate(
+        runtime,
+        createMockMemory(),
+      );
+      expect(result).toBe(true);
+    });
+  });
+});
+
+// ============================================================================
+// MINING ACTION TESTS
+// ============================================================================
+
+describe("Mining Action", () => {
+  describe("mineRockAction", () => {
+    it("should have correct metadata", () => {
+      expect(mineRockAction.name).toBe("MINE_ROCK");
+      expect(mineRockAction.similes).toContain("MINE");
+      expect(mineRockAction.similes).toContain("MINING");
+    });
+
+    it("should validate when pickaxe and rocks nearby", async () => {
+      const service = createMockService({
+        playerItems: [{ id: "pick-1", name: "Bronze Pickaxe", quantity: 1 }],
+        nearbyEntities: [
+          {
+            id: "rock-1",
+            name: "Copper Rock",
+            resourceType: "rock",
+            position: [5, 0, 5],
+          },
+        ],
+      });
+      const runtime = createMockRuntime(service);
+      const result = await mineRockAction.validate(runtime, createMockMemory());
+      expect(result).toBe(true);
+    });
+
+    it("should fail validation without pickaxe", async () => {
+      const service = createMockService({
+        playerItems: [],
+        nearbyEntities: [
+          {
+            id: "rock-1",
+            name: "Copper Rock",
+            resourceType: "rock",
+            position: [5, 0, 5],
+          },
+        ],
+      });
+      const runtime = createMockRuntime(service);
+      const result = await mineRockAction.validate(runtime, createMockMemory());
+      expect(result).toBe(false);
+    });
+
+    it("should fail validation without rocks", async () => {
+      const service = createMockService({
+        playerItems: [{ id: "pick-1", name: "Bronze Pickaxe", quantity: 1 }],
+        nearbyEntities: [],
+      });
+      const runtime = createMockRuntime(service);
+      const result = await mineRockAction.validate(runtime, createMockMemory());
+      expect(result).toBe(false);
+    });
+  });
+});
+
+// ============================================================================
 // ACTION COVERAGE SUMMARY
 // ============================================================================
 
@@ -1536,6 +1744,12 @@ describe("Action Coverage Summary", () => {
     // Examine
     examineEntityAction,
     examineInventoryItemAction,
+    // Trading
+    tradeRequestAction,
+    tradeRespondAction,
+    tradeOfferAction,
+    tradeConfirmAction,
+    tradeCancelAction,
     // Interactions
     interactNpcAction,
     lootCorpseAction,
@@ -1561,6 +1775,7 @@ describe("Action Coverage Summary", () => {
     catchFishAction,
     lightFireAction,
     cookFoodAction,
+    mineRockAction,
   ];
 
   it("should have all required action properties", () => {
@@ -1590,7 +1805,7 @@ describe("Action Coverage Summary", () => {
     }
   });
 
-  it("should cover all 40 expected actions", () => {
-    expect(allActions.length).toBe(40);
+  it("should cover all 46 expected actions", () => {
+    expect(allActions.length).toBe(46);
   });
 });

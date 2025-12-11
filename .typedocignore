@@ -1,15 +1,7 @@
-# TypeDoc Ignore Patterns
-# Files and directories to exclude from API documentation
-
-# Node modules
 **/node_modules/**
-
-# Build outputs
 **/dist/**
 **/build/**
 **/.next/**
-
-# Tests
 **/*.test.ts
 **/*.spec.ts
 **/*.test.tsx
@@ -18,47 +10,17 @@
 **/test-*.mjs
 **/__tests__/**
 **/cypress/**
-**/test-results/**
-
-# Scripts and tools
 **/scripts/**
-**/tools/**
-
-# Configuration files
 **/*.config.ts
 **/*.config.js
-**/vite.config.*
-**/vitest.config.*
-**/playwright.config.*
-**/tailwind.config.*
-**/postcss.config.*
-
-# Development files
-**/*.md
 **/.cursor/**
 **/.git/**
 **/.github/**
-
-# Temp and logs
 **/temp/**
 **/tmp/**
-**/*.log
 **/logs/**
-
-# Asset files
 **/assets/**
 **/public/**
 **/static/**
-
-# Mock files
 **/*.mock.ts
-**/*.mock.tsx
-**/mock-*.ts
 **/mocks/**
-
-# Internal development
-**/dev-*.ts
-**/dev-*.mjs
-**/check-*.ts
-**/fix-*.ts
-

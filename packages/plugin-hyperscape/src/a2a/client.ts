@@ -1,6 +1,6 @@
 /**
  * A2A Client for Hyperscape
- * 
+ *
  * HTTP client that communicates with Hyperscape A2A server,
  * enabling agents to play the game via JSON-RPC.
  */
@@ -39,7 +39,7 @@ export interface A2ATaskResult {
 }
 
 // ============================================
-// A2A Client Implementation  
+// A2A Client Implementation
 // ============================================
 
 export class HyperscapeA2AClient {
@@ -57,11 +57,13 @@ export class HyperscapeA2AClient {
    * Discover agent capabilities by fetching agent card
    */
   async discover(): Promise<A2AAgentCard> {
-    const response = await fetch(`${this.serverUrl}/.well-known/agent-card.json`);
+    const response = await fetch(
+      `${this.serverUrl}/.well-known/agent-card.json`,
+    );
     if (!response.ok) {
       throw new Error(`Failed to fetch agent card: ${response.statusText}`);
     }
-    this.agentCard = await response.json() as A2AAgentCard;
+    this.agentCard = (await response.json()) as A2AAgentCard;
     return this.agentCard;
   }
 
@@ -75,7 +77,10 @@ export class HyperscapeA2AClient {
   /**
    * Execute a skill via JSON-RPC
    */
-  async executeSkill(skillId: string, params: Record<string, unknown> = {}): Promise<A2ATaskResult> {
+  async executeSkill(
+    skillId: string,
+    params: Record<string, unknown> = {},
+  ): Promise<A2ATaskResult> {
     const messageId = `${this.agentId}-${Date.now()}-${++this.messageCounter}`;
 
     const response = await fetch(`${this.serverUrl}/a2a`, {
@@ -87,20 +92,25 @@ export class HyperscapeA2AClient {
         params: {
           message: {
             role: "user",
-            parts: [{ kind: "data", data: { skillId, agentId: this.agentId, ...params } }],
+            parts: [
+              {
+                kind: "data",
+                data: { skillId, agentId: this.agentId, ...params },
+              },
+            ],
             messageId,
-            kind: "message"
-          }
+            kind: "message",
+          },
         },
-        id: messageId
-      })
+        id: messageId,
+      }),
     });
 
     if (!response.ok) {
       throw new Error(`A2A request failed: ${response.statusText}`);
     }
 
-    const result = await response.json() as {
+    const result = (await response.json()) as {
       result?: A2AMessage;
       error?: { message: string };
     };
@@ -109,13 +119,13 @@ export class HyperscapeA2AClient {
       return { success: false, message: result.error.message };
     }
 
-    const textPart = result.result?.parts?.find(p => p.kind === "text");
-    const dataPart = result.result?.parts?.find(p => p.kind === "data");
+    const textPart = result.result?.parts?.find((p) => p.kind === "text");
+    const dataPart = result.result?.parts?.find((p) => p.kind === "data");
 
     return {
       success: true,
       message: textPart?.text ?? "Action completed",
-      data: dataPart?.data
+      data: dataPart?.data,
     };
   }
 
@@ -145,6 +155,10 @@ export class HyperscapeA2AClient {
 
   async gatherResource(resourceId: string): Promise<A2ATaskResult> {
     return this.executeSkill("gather-resource", { resourceId });
+  }
+
+  async mineRock(rockId?: string): Promise<A2ATaskResult> {
+    return this.executeSkill("mine-rock", { rockId });
   }
 
   async getInventory(): Promise<A2ATaskResult> {
@@ -191,19 +205,35 @@ export class HyperscapeA2AClient {
     return this.executeSkill("open-bank", { bankId });
   }
 
-  async depositItem(itemId: string, quantity?: number, bankId?: string): Promise<A2ATaskResult> {
+  async depositItem(
+    itemId: string,
+    quantity?: number,
+    bankId?: string,
+  ): Promise<A2ATaskResult> {
     return this.executeSkill("deposit-item", { itemId, quantity, bankId });
   }
 
-  async withdrawItem(itemId: string, quantity?: number, bankId?: string): Promise<A2ATaskResult> {
+  async withdrawItem(
+    itemId: string,
+    quantity?: number,
+    bankId?: string,
+  ): Promise<A2ATaskResult> {
     return this.executeSkill("withdraw-item", { itemId, quantity, bankId });
   }
 
-  async buyItem(itemId: string, quantity?: number, storeId?: string): Promise<A2ATaskResult> {
+  async buyItem(
+    itemId: string,
+    quantity?: number,
+    storeId?: string,
+  ): Promise<A2ATaskResult> {
     return this.executeSkill("buy-item", { itemId, quantity, storeId });
   }
 
-  async sellItem(itemId: string, quantity?: number, storeId?: string): Promise<A2ATaskResult> {
+  async sellItem(
+    itemId: string,
+    quantity?: number,
+    storeId?: string,
+  ): Promise<A2ATaskResult> {
     return this.executeSkill("sell-item", { itemId, quantity, storeId });
   }
 
@@ -235,7 +265,10 @@ export class HyperscapeA2AClient {
     return this.executeSkill("set-goal", { goalType, target });
   }
 
-  async moveDirection(direction: string, distance?: number): Promise<A2ATaskResult> {
+  async moveDirection(
+    direction: string,
+    distance?: number,
+  ): Promise<A2ATaskResult> {
     return this.executeSkill("move-direction", { direction, distance });
   }
 
@@ -267,6 +300,40 @@ export class HyperscapeA2AClient {
     return this.executeSkill("examine-inventory-item", { itemId });
   }
 
+  // ============================================
+  // Trading Actions
+  // ============================================
+
+  async tradeRequest(
+    targetId?: string,
+    targetName?: string,
+  ): Promise<A2ATaskResult> {
+    return this.executeSkill("trade-request", { targetId, targetName });
+  }
+
+  async tradeRespond(
+    accept: boolean,
+    requesterId?: string,
+  ): Promise<A2ATaskResult> {
+    return this.executeSkill("trade-respond", { accept, requesterId });
+  }
+
+  async tradeOffer(
+    itemId?: string,
+    quantity?: number,
+    coins?: number,
+  ): Promise<A2ATaskResult> {
+    return this.executeSkill("trade-offer", { itemId, quantity, coins });
+  }
+
+  async tradeConfirm(): Promise<A2ATaskResult> {
+    return this.executeSkill("trade-confirm", {});
+  }
+
+  async tradeCancel(): Promise<A2ATaskResult> {
+    return this.executeSkill("trade-cancel", {});
+  }
+
   /**
    * Get semantic world context for agent decision making
    */
@@ -276,9 +343,13 @@ export class HyperscapeA2AClient {
     const status = await this.getStatus();
     if (status.success && status.data) {
       lines.push("=== STATUS ===");
-      const health = status.data.health as { current?: number; max?: number } | undefined;
+      const health = status.data.health as
+        | { current?: number; max?: number }
+        | undefined;
       if (health?.max) {
-        lines.push(`Health: ${Math.round((health.current ?? 0) / health.max * 100)}%`);
+        lines.push(
+          `Health: ${Math.round(((health.current ?? 0) / health.max) * 100)}%`,
+        );
       }
       if (status.data.inCombat) {
         lines.push("** IN COMBAT **");
@@ -289,21 +360,36 @@ export class HyperscapeA2AClient {
     const nearby = await this.getNearbyEntities(30);
     if (nearby.success && nearby.data) {
       lines.push("=== NEARBY ===");
-      const mobs = (nearby.data.mobs ?? []) as Array<{ name?: string; distance?: number }>;
-      const resources = (nearby.data.resources ?? []) as Array<{ name?: string; distance?: number }>;
-      const items = (nearby.data.items ?? []) as Array<{ name?: string; distance?: number }>;
+      const mobs = (nearby.data.mobs ?? []) as Array<{
+        name?: string;
+        distance?: number;
+      }>;
+      const resources = (nearby.data.resources ?? []) as Array<{
+        name?: string;
+        distance?: number;
+      }>;
+      const items = (nearby.data.items ?? []) as Array<{
+        name?: string;
+        distance?: number;
+      }>;
 
       if (mobs.length > 0) {
         lines.push("Creatures:");
-        mobs.slice(0, 5).forEach(m => lines.push(`  • ${m.name} (${m.distance}m)`));
+        mobs
+          .slice(0, 5)
+          .forEach((m) => lines.push(`  • ${m.name} (${m.distance}m)`));
       }
       if (resources.length > 0) {
         lines.push("Resources:");
-        resources.slice(0, 5).forEach(r => lines.push(`  • ${r.name} (${r.distance}m)`));
+        resources
+          .slice(0, 5)
+          .forEach((r) => lines.push(`  • ${r.name} (${r.distance}m)`));
       }
       if (items.length > 0) {
         lines.push("Ground Items:");
-        items.slice(0, 5).forEach(i => lines.push(`  • ${i.name} (${i.distance}m)`));
+        items
+          .slice(0, 5)
+          .forEach((i) => lines.push(`  • ${i.name} (${i.distance}m)`));
       }
       lines.push("");
     }
@@ -322,11 +408,17 @@ export class HyperscapeA2AClient {
 /**
  * Create A2A client from environment or config
  */
-export function createA2AClient(options: {
-  serverUrl?: string;
-  agentId?: string;
-} = {}): HyperscapeA2AClient {
-  const serverUrl = options.serverUrl ?? process.env.HYPERSCAPE_A2A_URL ?? "http://localhost:5555";
-  const agentId = options.agentId ?? process.env.HYPERSCAPE_AGENT_ID ?? `agent-${Date.now()}`;
+export function createA2AClient(
+  options: {
+    serverUrl?: string;
+    agentId?: string;
+  } = {},
+): HyperscapeA2AClient {
+  const serverUrl =
+    options.serverUrl ??
+    process.env.HYPERSCAPE_A2A_URL ??
+    "http://localhost:5555";
+  const agentId =
+    options.agentId ?? process.env.HYPERSCAPE_AGENT_ID ?? `agent-${Date.now()}`;
   return new HyperscapeA2AClient(serverUrl, agentId);
 }

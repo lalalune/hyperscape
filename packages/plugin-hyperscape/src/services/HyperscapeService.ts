@@ -86,6 +86,8 @@ export class HyperscapeService
       currentRoomId: null,
       worldId: null,
       lastUpdate: Date.now(),
+      bankState: null,
+      storeState: null,
     };
 
     this.connectionState = {
@@ -856,6 +858,7 @@ export class HyperscapeService
       "kick",
       "ping",
       "pong",
+      // Multiplayer movement
       "input",
       "inputAck",
       "correction",
@@ -863,6 +866,7 @@ export class HyperscapeService
       "serverStateUpdate",
       "deltaUpdate",
       "compressedUpdate",
+      // Resource system
       "resourceSnapshot",
       "resourceSpawnPoints",
       "resourceSpawned",
@@ -870,49 +874,90 @@ export class HyperscapeService
       "resourceRespawned",
       "resourceGather",
       "gatheringComplete",
+      // Combat
       "attackMob",
-      "changeAttackStyle", // ✅ ADDED - was missing!
+      "changeAttackStyle",
+      // Item pickup
       "pickupItem",
+      // Inventory actions
       "dropItem",
+      "moveItem",
+      // Equipment
       "equipItem",
       "unequipItem",
+      // Inventory sync
       "inventoryUpdated",
-      "coinsUpdated", // Must match server packets.ts order
+      "coinsUpdated",
+      // Equipment sync
       "equipmentUpdated",
+      // Skills sync
       "skillsUpdated",
+      // UI feedback
       "showToast",
+      // Death screen
       "deathScreen",
       "deathScreenClose",
       "requestRespawn",
+      // Death state
       "playerSetDead",
       "playerRespawned",
+      // Loot
       "corpseLoot",
-      "attackStyleChanged", // ✅ ADDED - was missing!
-      "attackStyleUpdate", // ✅ ADDED - was missing!
-      "combatDamageDealt", // ✅ ADDED - was missing!
-      "playerUpdated", // ✅ ADDED - was missing!
+      // Attack style
+      "attackStyleChanged",
+      "attackStyleUpdate",
+      // Combat visual feedback
+      "combatDamageDealt",
+      // Player state
+      "playerUpdated",
+      // Character selection
       "characterListRequest",
       "characterCreate",
       "characterList",
       "characterCreated",
       "characterSelected",
       "enterWorld",
-      "syncGoal", // Agent goal sync packet (for dashboard display)
-      "goalOverride", // Agent goal override packet (dashboard -> plugin)
+      // Trading system
+      "tradeRequest",
+      "tradeResponse",
+      "tradeOffer",
+      "tradeConfirm",
+      "tradeCancel",
+      "tradeStarted",
+      "tradeUpdated",
+      "tradeCompleted",
+      "tradeCancelled",
+      "tradeError",
+      // Agent goal sync
+      "syncGoal",
+      "goalOverride",
       // Bank packets
       "bankOpen",
       "bankState",
       "bankDeposit",
       "bankDepositAll",
       "bankWithdraw",
+      "bankDepositCoins",
+      "bankWithdrawCoins",
       "bankClose",
+      "bankMove",
+      // Bank tab packets
+      "bankCreateTab",
+      "bankDeleteTab",
+      "bankMoveToTab",
+      "bankSelectTab",
+      // Bank placeholder packets
+      "bankWithdrawPlaceholder",
+      "bankReleasePlaceholder",
+      "bankReleaseAllPlaceholders",
+      "bankToggleAlwaysPlaceholder",
       // Store packets
       "storeOpen",
       "storeState",
       "storeBuy",
       "storeSell",
       "storeClose",
-      // NPC interaction packets
+      // NPC interaction
       "npcInteract",
       // Dialogue packets
       "dialogueStart",
@@ -920,10 +965,12 @@ export class HyperscapeService
       "dialogueResponse",
       "dialogueEnd",
       "dialogueClose",
-      // Tile movement packets (RuneScape-style)
-      "entityTileUpdate", // Server -> Client: entity moved to new tile position
-      "tileMovementStart", // Server -> Client: movement path started
-      "tileMovementEnd", // Server -> Client: arrived at destination
+      // Tile movement (RuneScape-style)
+      "entityTileUpdate",
+      "tileMovementStart",
+      "tileMovementEnd",
+      // System messages
+      "systemMessage",
     ];
     return packetNames[id] || null;
   }
@@ -1297,6 +1344,76 @@ export class HyperscapeService
         this.handleGoalOverride(data);
         break;
 
+      case "bankState": {
+        // Update cached bank state
+        const bankData = data as {
+          items?: Array<{
+            itemId: string;
+            quantity: number;
+            slot: number;
+            tabIndex?: number;
+          }>;
+          tabs?: Array<{ tabIndex: number; iconItemId: string | null }>;
+          alwaysSetPlaceholder?: boolean;
+          maxSlots?: number;
+          bankId?: string;
+          coins?: number;
+          isOpen?: boolean;
+        };
+
+        if (bankData.isOpen === false) {
+          this.gameState.bankState = null;
+        } else {
+          this.gameState.bankState = {
+            items: (bankData.items || []).map((item) => ({
+              ...item,
+              tabIndex: item.tabIndex ?? 0,
+            })),
+            tabs: bankData.tabs || [],
+            alwaysSetPlaceholder: bankData.alwaysSetPlaceholder ?? false,
+            maxSlots: bankData.maxSlots ?? 480,
+            bankId: bankData.bankId ?? "spawn_bank",
+            coins: bankData.coins ?? 0,
+            isOpen: true,
+          };
+        }
+        break;
+      }
+
+      case "storeState": {
+        // Update cached store state
+        const storeData = data as {
+          storeId: string;
+          storeName: string;
+          buybackRate?: number;
+          items?: Array<{
+            id: string;
+            itemId: string;
+            name: string;
+            price: number;
+            stockQuantity: number;
+            description?: string;
+            category?: string;
+          }>;
+          npcEntityId?: string;
+          isOpen?: boolean;
+        };
+
+        if (storeData.isOpen === false) {
+          this.gameState.storeState = null;
+        } else if (storeData.isOpen || storeData.storeId) {
+          this.gameState.storeState = {
+            storeId: storeData.storeId,
+            storeName: storeData.storeName,
+            buybackRate: storeData.buybackRate ?? 0.5,
+            items: storeData.items || [],
+            npcEntityId: storeData.npcEntityId,
+            isOpen: true,
+          };
+        }
+        break;
+      }
+
       // Tile movement packets (RuneScape-style 600ms tick movement)
       case "tileMovementStart": {
         // Movement started - update position tracking
@@ -1579,6 +1696,20 @@ export class HyperscapeService
   }
 
   /**
+   * Get current bank state (null if bank not open)
+   */
+  getBankState() {
+    return this.gameState.bankState;
+  }
+
+  /**
+   * Get current store state (null if store not open)
+   */
+  getStoreState() {
+    return this.gameState.storeState;
+  }
+
+  /**
    * Get the autonomous behavior manager
    * Used by actions to access/update goals
    */
@@ -1754,6 +1885,7 @@ export class HyperscapeService
       "kick",
       "ping",
       "pong",
+      // Multiplayer movement
       "input",
       "inputAck",
       "correction",
@@ -1761,6 +1893,7 @@ export class HyperscapeService
       "serverStateUpdate",
       "deltaUpdate",
       "compressedUpdate",
+      // Resource system
       "resourceSnapshot",
       "resourceSpawnPoints",
       "resourceSpawned",
@@ -1768,49 +1901,90 @@ export class HyperscapeService
       "resourceRespawned",
       "resourceGather",
       "gatheringComplete",
+      // Combat
       "attackMob",
-      "changeAttackStyle", // ✅ ADDED - was missing!
+      "changeAttackStyle",
+      // Item pickup
       "pickupItem",
+      // Inventory actions
       "dropItem",
+      "moveItem",
+      // Equipment
       "equipItem",
       "unequipItem",
+      // Inventory sync
       "inventoryUpdated",
-      "coinsUpdated", // Must match server packets.ts order
+      "coinsUpdated",
+      // Equipment sync
       "equipmentUpdated",
+      // Skills sync
       "skillsUpdated",
+      // UI feedback
       "showToast",
+      // Death screen
       "deathScreen",
       "deathScreenClose",
       "requestRespawn",
+      // Death state
       "playerSetDead",
       "playerRespawned",
+      // Loot
       "corpseLoot",
-      "attackStyleChanged", // ✅ ADDED - was missing!
-      "attackStyleUpdate", // ✅ ADDED - was missing!
-      "combatDamageDealt", // ✅ ADDED - was missing!
-      "playerUpdated", // ✅ ADDED - was missing!
+      // Attack style
+      "attackStyleChanged",
+      "attackStyleUpdate",
+      // Combat visual feedback
+      "combatDamageDealt",
+      // Player state
+      "playerUpdated",
+      // Character selection
       "characterListRequest",
       "characterCreate",
       "characterList",
       "characterCreated",
       "characterSelected",
       "enterWorld",
-      "syncGoal", // Agent goal sync packet (for dashboard display)
-      "goalOverride", // Agent goal override packet (dashboard -> plugin)
+      // Trading system
+      "tradeRequest",
+      "tradeResponse",
+      "tradeOffer",
+      "tradeConfirm",
+      "tradeCancel",
+      "tradeStarted",
+      "tradeUpdated",
+      "tradeCompleted",
+      "tradeCancelled",
+      "tradeError",
+      // Agent goal sync
+      "syncGoal",
+      "goalOverride",
       // Bank packets
       "bankOpen",
       "bankState",
       "bankDeposit",
       "bankDepositAll",
       "bankWithdraw",
+      "bankDepositCoins",
+      "bankWithdrawCoins",
       "bankClose",
+      "bankMove",
+      // Bank tab packets
+      "bankCreateTab",
+      "bankDeleteTab",
+      "bankMoveToTab",
+      "bankSelectTab",
+      // Bank placeholder packets
+      "bankWithdrawPlaceholder",
+      "bankReleasePlaceholder",
+      "bankReleaseAllPlaceholders",
+      "bankToggleAlwaysPlaceholder",
       // Store packets
       "storeOpen",
       "storeState",
       "storeBuy",
       "storeSell",
       "storeClose",
-      // NPC interaction packets
+      // NPC interaction
       "npcInteract",
       // Dialogue packets
       "dialogueStart",
@@ -1818,10 +1992,12 @@ export class HyperscapeService
       "dialogueResponse",
       "dialogueEnd",
       "dialogueClose",
-      // Tile movement packets (RuneScape-style)
-      "entityTileUpdate", // Server -> Client: entity moved to new tile position
-      "tileMovementStart", // Server -> Client: movement path started
-      "tileMovementEnd", // Server -> Client: arrived at destination
+      // Tile movement (RuneScape-style)
+      "entityTileUpdate",
+      "tileMovementStart",
+      "tileMovementEnd",
+      // System messages
+      "systemMessage",
     ];
     const index = packetNames.indexOf(name);
     return index >= 0 ? index : null;
@@ -1872,7 +2048,7 @@ export class HyperscapeService
    */
   async executeChatMessage(command: ChatMessageCommand): Promise<void> {
     const player = this.getPlayerEntity();
-    
+
     // Build full chat message with agent metadata
     const chatMessage = {
       id: crypto.randomUUID(),
@@ -1888,17 +2064,17 @@ export class HyperscapeService
       agentId: this.runtime.agentId,
       senderPosition: this.getPlayerPosition(),
     };
-    
+
     this.sendCommand("chatAdded", chatMessage);
   }
-  
+
   /**
    * Get player position as object
    */
   private getPlayerPosition(): { x: number; y: number; z: number } | undefined {
     const player = this.getPlayerEntity();
     const rawPos = player?.position as unknown;
-    
+
     if (Array.isArray(rawPos) && rawPos.length >= 3) {
       return { x: rawPos[0], y: rawPos[1], z: rawPos[2] };
     }
@@ -1940,19 +2116,31 @@ export class HyperscapeService
    */
   async executeBankAction(command: BankCommand): Promise<void> {
     if (command.action === "deposit") {
-      this.sendCommand("bankDeposit", { itemId: command.itemId, quantity: command.amount });
+      this.sendCommand("bankDeposit", {
+        itemId: command.itemId,
+        quantity: command.amount,
+      });
     } else {
-      this.sendCommand("bankWithdraw", { itemId: command.itemId, quantity: command.amount });
+      this.sendCommand("bankWithdraw", {
+        itemId: command.itemId,
+        quantity: command.amount,
+      });
     }
   }
 
   /** Deposit specific item to bank */
-  async executeBankDeposit(itemId: string, quantity: number = 1): Promise<void> {
+  async executeBankDeposit(
+    itemId: string,
+    quantity: number = 1,
+  ): Promise<void> {
     this.sendCommand("bankDeposit", { itemId, quantity });
   }
 
   /** Withdraw specific item from bank */
-  async executeBankWithdraw(itemId: string, quantity: number = 1): Promise<void> {
+  async executeBankWithdraw(
+    itemId: string,
+    quantity: number = 1,
+  ): Promise<void> {
     this.sendCommand("bankWithdraw", { itemId, quantity });
   }
 
@@ -2016,7 +2204,9 @@ export class HyperscapeService
   /**
    * Execute change attack style command
    */
-  async executeChangeAttackStyle(command: ChangeAttackStyleCommand): Promise<void> {
+  async executeChangeAttackStyle(
+    command: ChangeAttackStyleCommand,
+  ): Promise<void> {
     this.sendCommand("changeAttackStyle", command);
   }
 
@@ -2053,6 +2243,51 @@ export class HyperscapeService
    */
   async executeCloseDialogue(): Promise<void> {
     this.sendCommand("closeDialogue", {});
+  }
+
+  // ============================================
+  // Trading Methods
+  // ============================================
+
+  /**
+   * Execute trade request - request to trade with another player
+   */
+  async executeTradeRequest(targetPlayerId: string): Promise<void> {
+    this.sendCommand("tradeRequest", { targetId: targetPlayerId });
+  }
+
+  /**
+   * Execute trade response - accept or decline a trade request
+   */
+  async executeTradeResponse(
+    accept: boolean,
+    requesterId?: string,
+  ): Promise<void> {
+    this.sendCommand("tradeResponse", { accept, requesterId });
+  }
+
+  /**
+   * Execute trade offer - offer items and/or coins in trade
+   */
+  async executeTradeOffer(
+    items: Array<{ itemId: string; quantity: number }>,
+    coins: number,
+  ): Promise<void> {
+    this.sendCommand("tradeOffer", { items, coins });
+  }
+
+  /**
+   * Execute trade confirm - confirm current trade offer
+   */
+  async executeTradeConfirm(): Promise<void> {
+    this.sendCommand("tradeConfirm", {});
+  }
+
+  /**
+   * Execute trade cancel - cancel the current trade
+   */
+  async executeTradeCancel(): Promise<void> {
+    this.sendCommand("tradeCancel", {});
   }
 
   /**

@@ -1,5 +1,5 @@
 /**
- * Skill actions - CHOP_TREE, CATCH_FISH, LIGHT_FIRE, COOK_FOOD
+ * Skill actions - CHOP_TREE, CATCH_FISH, LIGHT_FIRE, COOK_FOOD, MINE_ROCK
  */
 
 import type {
@@ -595,6 +595,269 @@ export const cookFoodAction: Action = {
       {
         name: "agent",
         content: { text: "Cooking Raw Fish...", action: "COOK_FOOD" },
+      },
+    ],
+  ],
+};
+
+/**
+ * Check if an entity is a mineable rock
+ */
+function isRock(e: Entity): boolean {
+  const entityAny = e as unknown as Record<string, unknown>;
+  const name = e.name?.toLowerCase() || "";
+  const id = (e.id || "").toLowerCase();
+
+  // Exclude ground items
+  if (name.startsWith("item:")) {
+    return false;
+  }
+
+  // Check for explicit rock/ore types
+  if (
+    entityAny.resourceType === "rock" ||
+    entityAny.resourceType === "ore" ||
+    entityAny.type === "rock"
+  ) {
+    return true;
+  }
+
+  // Check for rock/ore-like names
+  if (name.includes("rock") || name.includes("ore") || name.includes("vein")) {
+    return true;
+  }
+
+  // Check for specific ore types
+  if (/copper|tin|iron|coal|gold|mithril|adamant|rune/i.test(name)) {
+    return true;
+  }
+
+  return false;
+}
+
+export const mineRockAction: Action = {
+  name: "MINE_ROCK",
+  similes: ["MINE", "MINING", "MINE_ORE"],
+  description: "Mine a rock to gather ore. Requires a pickaxe.",
+
+  validate: async (runtime: IAgentRuntime) => {
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service) {
+      logger.info("[MINE_ROCK] Validation failed: no service");
+      return false;
+    }
+    const playerEntity = service.getPlayerEntity();
+    const entities = service.getNearbyEntities() || [];
+
+    // Check player entity exists and is alive
+    if (!playerEntity) {
+      logger.info("[MINE_ROCK] Validation failed: no player entity");
+      return false;
+    }
+
+    const isAlive = playerEntity.alive !== false;
+    if (!service.isConnected() || !isAlive) {
+      logger.info(
+        `[MINE_ROCK] Validation failed: connected=${service.isConnected()}, alive=${playerEntity.alive}`,
+      );
+      return false;
+    }
+
+    // Check for pickaxe in inventory
+    const hasPickaxe =
+      playerEntity.items?.some((i) => {
+        const itemAny = i as unknown as Record<string, unknown>;
+        const name = (
+          i.name ||
+          (itemAny.item as { name?: string } | undefined)?.name ||
+          itemAny.itemId ||
+          ""
+        )
+          .toString()
+          .toLowerCase();
+        return name.includes("pickaxe") || name.includes("pick");
+      }) ?? false;
+
+    // Check for rocks within approach range (20m)
+    const playerPos = playerEntity.position;
+    const allRocks = entities.filter(isRock);
+    const approachableRocks = allRocks.filter((e) => {
+      const entityAny = e as unknown as Record<string, unknown>;
+      const entityPos = entityAny.position;
+      if (!entityPos) return false;
+      const dist = getEntityDistance(playerPos, entityPos);
+      return dist !== null && dist <= 20;
+    });
+
+    logger.info(
+      `[MINE_ROCK] Validation: hasPickaxe=${hasPickaxe}, rocks=${approachableRocks.length}, ` +
+        `totalEntities=${entities.length}`,
+    );
+
+    return hasPickaxe && approachableRocks.length > 0;
+  },
+
+  handler: async (
+    runtime: IAgentRuntime,
+    _message: Memory,
+    _state?: State,
+    _options?: unknown,
+    callback?: HandlerCallback,
+  ) => {
+    try {
+      const service =
+        runtime.getService<HyperscapeService>("hyperscapeService");
+      if (!service) {
+        return {
+          success: false,
+          error: new Error("Hyperscape service not available"),
+        };
+      }
+      const entities = service.getNearbyEntities();
+
+      // Find rocks and sort by distance
+      const player = service.getPlayerEntity();
+      const playerPos = player?.position;
+      const allRocks = entities.filter(isRock);
+
+      // Get all rocks with distance, sorted by nearest
+      const rocksWithDistance = allRocks
+        .map((e) => {
+          const entityAny = e as unknown as Record<string, unknown>;
+          const entityPos = entityAny.position;
+          const dist = entityPos
+            ? getEntityDistance(playerPos, entityPos)
+            : null;
+          return { entity: e, distance: dist, position: entityPos };
+        })
+        .filter((r) => r.distance !== null)
+        .sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
+
+      // Rocks within gathering range (4m)
+      const nearbyRocks = rocksWithDistance.filter(
+        (r) => r.distance !== null && r.distance <= MAX_GATHER_DISTANCE,
+      );
+
+      // Rocks within approach range (20m)
+      const approachableRocks = rocksWithDistance.filter(
+        (r) => r.distance !== null && r.distance <= 20,
+      );
+
+      logger.info(
+        `[MINE_ROCK] Handler: Found ${nearbyRocks.length} rocks within ${MAX_GATHER_DISTANCE}m, ` +
+          `${approachableRocks.length} within 20m`,
+      );
+
+      // If no rocks within gathering range but some within approach range, walk to nearest first
+      if (nearbyRocks.length === 0 && approachableRocks.length > 0) {
+        const nearest = approachableRocks[0];
+        const rockPos = nearest.position as
+          | [number, number, number]
+          | { x: number; y: number; z: number };
+
+        // Convert rock position to array format
+        let rockX: number, rockY: number, rockZ: number;
+        if (Array.isArray(rockPos)) {
+          [rockX, rockY, rockZ] = rockPos;
+        } else if (rockPos && typeof rockPos === "object" && "x" in rockPos) {
+          rockX = rockPos.x;
+          rockY = rockPos.y;
+          rockZ = rockPos.z;
+        } else {
+          await callback?.({ text: "Could not locate rock.", error: true });
+          return { success: false };
+        }
+
+        // Get player position to calculate approach direction
+        let px = 0,
+          pz = 0;
+        if (Array.isArray(playerPos)) {
+          px = playerPos[0];
+          pz = playerPos[2];
+        } else if (
+          playerPos &&
+          typeof playerPos === "object" &&
+          "x" in playerPos
+        ) {
+          const pos = playerPos as { x: number; z: number };
+          px = pos.x;
+          pz = pos.z;
+        }
+
+        // Calculate direction from rock to player
+        const dx = px - rockX;
+        const dz = pz - rockZ;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const STOP_DISTANCE = 2.5;
+
+        let targetPos: [number, number, number];
+        if (dist > 0.1) {
+          const nx = dx / dist;
+          const nz = dz / dist;
+          targetPos = [
+            rockX + nx * STOP_DISTANCE,
+            rockY,
+            rockZ + nz * STOP_DISTANCE,
+          ];
+        } else {
+          targetPos = [rockX + STOP_DISTANCE, rockY, rockZ];
+        }
+
+        logger.info(
+          `[MINE_ROCK] Handler: Walking to rock ${nearest.entity.name}`,
+        );
+
+        await service.executeMove({ target: targetPos, runMode: false });
+        await callback?.({
+          text: `Walking to ${nearest.entity.name}...`,
+          action: "MINE_ROCK",
+        });
+        return { success: true, text: `Walking to ${nearest.entity.name}` };
+      }
+
+      const rock = nearbyRocks[0]?.entity;
+
+      if (!rock) {
+        await callback?.({ text: "No rock found nearby.", error: true });
+        return { success: false };
+      }
+
+      logger.info(`[MINE_ROCK] Handler: Mining rock ${rock.id} (${rock.name})`);
+
+      const command: GatherResourceCommand = {
+        resourceEntityId: rock.id,
+        skill: "mining" as "woodcutting" | "fishing" | "firemaking" | "cooking",
+      };
+      await service.executeGatherResource(command);
+
+      await callback?.({ text: `Mining ${rock.name}`, action: "MINE_ROCK" });
+
+      return { success: true, text: `Started mining ${rock.name}` };
+    } catch (error) {
+      logger.error(
+        `[MINE_ROCK] Handler error: ${error instanceof Error ? error.message : error}`,
+      );
+      await callback?.({
+        text: `Failed to mine: ${error instanceof Error ? error.message : ""}`,
+        error: true,
+      });
+      return { success: false, error: error as Error };
+    }
+  },
+
+  examples: [
+    [
+      { name: "user", content: { text: "Mine that rock" } },
+      {
+        name: "agent",
+        content: { text: "Mining Iron Rock", action: "MINE_ROCK" },
+      },
+    ],
+    [
+      { name: "user", content: { text: "Mine some ore" } },
+      {
+        name: "agent",
+        content: { text: "Mining Copper Rock", action: "MINE_ROCK" },
       },
     ],
   ],
