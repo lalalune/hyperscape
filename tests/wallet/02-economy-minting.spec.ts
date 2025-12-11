@@ -8,7 +8,8 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 test.describe("Hyperscape Economy - Complete Testing", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to game with debug mode
-    await page.goto("http://localhost:3333?debug=true");
+    const GAME_URL = process.env.HYPERSCAPE_URL || "http://localhost:3333";
+    await page.goto(`${GAME_URL}?debug=true`);
     await page.waitForLoadState("networkidle", { timeout: 30000 });
 
     // Wait for auto-login (2 seconds as per DebugAutoLogin)

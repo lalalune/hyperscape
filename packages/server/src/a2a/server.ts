@@ -616,7 +616,7 @@ export class A2AServer {
       case "look-around":
       case "get-world-context": {
         const range = optionalNumber(data.range, 30);
-        
+
         const player = rpg
           .getAllPlayers?.()
           ?.find((p: { id: string }) => p.id === agentId);
@@ -625,36 +625,47 @@ export class A2AServer {
         }
 
         const position = player.position || player.node?.position;
-        const health = rpg.getPlayerHealth?.(agentId) ?? { current: 100, max: 100 };
+        const health = rpg.getPlayerHealth?.(agentId) ?? {
+          current: 100,
+          max: 100,
+        };
         const inCombat = rpg.isInCombat?.(agentId) ?? false;
-        
+
         // Get nearby entities
         const mobs = rpg.getMobsInArea?.(position, range) ?? [];
         const resources = rpg.getResourcesInArea?.(position, range) ?? [];
         const items = rpg.getItemsInRange?.(position, range) ?? [];
-        
+
         // Build semantic description
         const lines: string[] = [];
         lines.push("=== WORLD CONTEXT ===");
-        lines.push(`Position: [${position?.x?.toFixed(0) ?? 0}, ${position?.z?.toFixed(0) ?? 0}]`);
-        lines.push(`Health: ${Math.round((health.current / health.max) * 100)}%`);
+        lines.push(
+          `Position: [${position?.x?.toFixed(0) ?? 0}, ${position?.z?.toFixed(0) ?? 0}]`,
+        );
+        lines.push(
+          `Health: ${Math.round((health.current / health.max) * 100)}%`,
+        );
         lines.push(`In Combat: ${inCombat ? "Yes" : "No"}`);
         lines.push("");
-        
+
         if (mobs.length > 0) {
           lines.push(`Creatures (${mobs.length}):`);
-          mobs.slice(0, 5).forEach((mob: { name?: string; mobType?: string }) => {
-            lines.push(`  • ${mob.name || mob.mobType || "Unknown"}`);
-          });
+          mobs
+            .slice(0, 5)
+            .forEach((mob: { name?: string; mobType?: string }) => {
+              lines.push(`  • ${mob.name || mob.mobType || "Unknown"}`);
+            });
         }
-        
+
         if (resources.length > 0) {
           lines.push(`Resources (${resources.length}):`);
-          resources.slice(0, 5).forEach((res: { name?: string; resourceType?: string }) => {
-            lines.push(`  • ${res.name || res.resourceType || "Resource"}`);
-          });
+          resources
+            .slice(0, 5)
+            .forEach((res: { name?: string; resourceType?: string }) => {
+              lines.push(`  • ${res.name || res.resourceType || "Resource"}`);
+            });
         }
-        
+
         if (items.length > 0) {
           lines.push(`Ground Items (${items.length}):`);
           items.slice(0, 5).forEach((item: { name?: string }) => {
@@ -672,24 +683,47 @@ export class A2AServer {
       case "interact-npc": {
         const npcId = optionalString(data.npcId);
         const npcName = optionalString(data.npcName);
-        
+
         // Find NPC by ID or name
-        const target = npcId || npcName;
-        if (!target) {
-          return { success: false, message: "Specify npcId or npcName" };
+        let targetNpcId = npcId;
+        if (!targetNpcId && npcName) {
+          // Find NPC by name
+          const player = rpg
+            .getAllPlayers?.()
+            ?.find((p: { id: string }) => p.id === agentId);
+          const position = player?.position || player?.node?.position;
+
+          if (position) {
+            const npcs = rpg.getNpcsInArea?.(position, 10) ?? [];
+            const npc = npcs.find((n: { name?: string }) =>
+              n.name?.toLowerCase().includes(npcName.toLowerCase()),
+            );
+            targetNpcId = npc?.id;
+          }
         }
 
-        // NPC interaction would be handled by dialogue system
+        if (!targetNpcId) {
+          return { success: false, message: "NPC not found nearby" };
+        }
+
+        // Execute NPC interaction through action registry
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "interact_npc",
+          context,
+          { npcId: targetNpcId },
+        );
+
         return {
-          success: true,
-          message: `Interacting with NPC: ${target}`,
-          data: { npcId, npcName },
+          success: result?.success ?? true,
+          message: (result?.message as string) ?? `Interacting with NPC`,
+          data: { npcId: targetNpcId },
         };
       }
 
       case "loot-corpse": {
         const corpseId = optionalString(data.corpseId);
-        
+
         // Loot from nearest corpse or specified one
         const context = { world: this.world, playerId: agentId };
         const result = await this.world.actionRegistry?.execute(
@@ -707,11 +741,12 @@ export class A2AServer {
       case "eat-food": {
         // Find food in inventory and use it
         const inventory = rpg.getInventory?.(agentId) ?? [];
-        const food = inventory.find((item: { name?: string }) => 
-          /fish|food|bread|meat/i.test(item.name || "") &&
-          !/raw/i.test(item.name || "")
+        const food = inventory.find(
+          (item: { name?: string }) =>
+            /fish|food|bread|meat/i.test(item.name || "") &&
+            !/raw/i.test(item.name || ""),
         );
-        
+
         if (!food) {
           return { success: false, message: "No edible food in inventory" };
         }
@@ -732,7 +767,7 @@ export class A2AServer {
 
       case "emote": {
         const emoteName = optionalString(data.emote, "wave");
-        
+
         rpg.playEmote?.(agentId, emoteName);
 
         return {
@@ -743,7 +778,7 @@ export class A2AServer {
 
       case "respawn": {
         const isAlive = rpg.isPlayerAlive?.(agentId) ?? true;
-        
+
         if (isAlive) {
           return { success: false, message: "Player is not dead" };
         }
@@ -759,12 +794,22 @@ export class A2AServer {
       case "set-goal": {
         const goalType = optionalString(data.goalType, "exploration");
         const target = optionalString(data.target);
-        
-        // Goals are managed by the plugin's AutonomousBehaviorManager
-        // This just acknowledges the intent
+
+        // Send goal sync packet to the world
+        // This updates the player's current goal for autonomous behavior
+        const goalData = {
+          playerId: agentId,
+          goalType,
+          target,
+          timestamp: Date.now(),
+        };
+
+        // Broadcast goal sync to the world
+        this.world.network?.broadcast?.("syncGoal", goalData);
+
         return {
           success: true,
-          message: `Goal set: ${goalType} - ${target || "general"}`,
+          message: `Goal set: ${goalType}${target ? ` - ${target}` : ""}`,
           data: { goalType, target },
         };
       }
@@ -772,7 +817,7 @@ export class A2AServer {
       case "move-direction": {
         const direction = optionalString(data.direction, "north");
         const distance = optionalNumber(data.distance, 10) * 5; // tiles to units
-        
+
         const player = rpg
           .getAllPlayers?.()
           ?.find((p: { id: string }) => p.id === agentId);
@@ -786,7 +831,8 @@ export class A2AServer {
         }
 
         // Calculate target position
-        let dx = 0, dz = 0;
+        let dx = 0,
+          dz = 0;
         if (direction.includes("north")) dz -= distance;
         if (direction.includes("south")) dz += distance;
         if (direction.includes("east")) dx += distance;
@@ -795,7 +841,11 @@ export class A2AServer {
         const targetX = (position.x ?? 0) + dx;
         const targetZ = (position.z ?? 0) + dz;
 
-        rpg.movePlayer?.(agentId, { x: targetX, y: position.y ?? 0, z: targetZ });
+        rpg.movePlayer?.(agentId, {
+          x: targetX,
+          y: position.y ?? 0,
+          z: targetZ,
+        });
 
         return {
           success: true,
@@ -805,7 +855,7 @@ export class A2AServer {
 
       case "examine": {
         const entityId = optionalString(data.entityId);
-        
+
         if (!entityId) {
           return { success: false, message: "Specify entityId to examine" };
         }
@@ -813,7 +863,7 @@ export class A2AServer {
         // Get entity info
         const mobs = rpg.getAllMobs?.() ?? [];
         const mob = mobs.find((m: { id: string }) => m.id === entityId);
-        
+
         if (mob) {
           return {
             success: true,
@@ -831,6 +881,220 @@ export class A2AServer {
         return {
           success: false,
           message: `Entity ${entityId} not found`,
+        };
+      }
+
+      case "mine-rock": {
+        const rockId = optionalString(data.rockId);
+
+        // If no specific rock, find nearest rock resource
+        let targetId = rockId;
+        if (!targetId) {
+          const player = rpg
+            .getAllPlayers?.()
+            ?.find((p: { id: string }) => p.id === agentId);
+          const position = player?.position || player?.node?.position;
+
+          if (position) {
+            const resources = rpg.getResourcesInArea?.(position, 20) ?? [];
+            const rock = resources.find(
+              (r: { resourceType?: string; name?: string }) =>
+                r.resourceType === "rock" ||
+                r.resourceType === "ore" ||
+                /rock|ore|vein/i.test(r.name || ""),
+            );
+            targetId = rock?.id;
+          }
+        }
+
+        if (!targetId) {
+          return { success: false, message: "No rock found nearby" };
+        }
+
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "start_gathering",
+          context,
+          { resourceId: targetId, skill: "mining" },
+        );
+
+        return {
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Mining failed",
+        };
+      }
+
+      case "send-chat": {
+        const message = requireString(data.message, "message");
+
+        rpg.sendChatMessage?.(agentId, message, "global");
+
+        return {
+          success: true,
+          message: `Sent chat: ${message.substring(0, 50)}${message.length > 50 ? "..." : ""}`,
+        };
+      }
+
+      case "send-local-chat": {
+        const message = requireString(data.message, "message");
+
+        rpg.sendChatMessage?.(agentId, message, "local");
+
+        return {
+          success: true,
+          message: `Sent local chat: ${message.substring(0, 50)}${message.length > 50 ? "..." : ""}`,
+        };
+      }
+
+      case "send-whisper": {
+        const targetId = requireString(data.targetId, "targetId");
+        const message = requireString(data.message, "message");
+
+        rpg.sendWhisper?.(agentId, targetId, message);
+
+        return {
+          success: true,
+          message: `Whispered to ${targetId}`,
+        };
+      }
+
+      case "dialogue-respond": {
+        const responseIndex = requireNumber(
+          data.responseIndex,
+          "responseIndex",
+        );
+
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "dialogue_respond",
+          context,
+          { responseIndex },
+        );
+
+        return {
+          success: result?.success ?? true,
+          message:
+            (result?.message as string) ??
+            `Selected dialogue option ${responseIndex}`,
+        };
+      }
+
+      case "close-dialogue": {
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "close_dialogue",
+          context,
+          {},
+        );
+
+        return {
+          success: result?.success ?? true,
+          message: (result?.message as string) ?? "Closed dialogue",
+        };
+      }
+
+      case "examine-inventory-item": {
+        const itemId = requireString(data.itemId, "itemId");
+
+        const inventory = rpg.getInventory?.(agentId) ?? [];
+        const item = inventory.find((i: { id: string }) => i.id === itemId);
+
+        if (!item) {
+          return { success: false, message: `Item ${itemId} not in inventory` };
+        }
+
+        return {
+          success: true,
+          message: `Examining: ${item.name || "Unknown item"}`,
+          data: {
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity ?? 1,
+            stackable: item.stackable ?? false,
+            description: item.description ?? "",
+          },
+        };
+      }
+
+      case "trade-request": {
+        const targetId = optionalString(data.targetId);
+        const targetName = optionalString(data.targetName);
+
+        // Find target player
+        let finalTargetId = targetId;
+        if (!finalTargetId && targetName) {
+          const players = rpg.getAllPlayers?.() ?? [];
+          const target = players.find(
+            (p: { name?: string; playerName?: string }) =>
+              (
+                p.name?.toLowerCase() ||
+                p.playerName?.toLowerCase() ||
+                ""
+              ).includes(targetName.toLowerCase()),
+          );
+          finalTargetId = target?.id;
+        }
+
+        if (!finalTargetId) {
+          return { success: false, message: "Target player not found" };
+        }
+
+        rpg.requestTrade?.(agentId, finalTargetId);
+
+        return {
+          success: true,
+          message: `Requested trade with ${targetName || finalTargetId}`,
+        };
+      }
+
+      case "trade-respond": {
+        const accept = data.accept === true;
+        const requesterId = optionalString(data.requesterId);
+
+        rpg.respondToTrade?.(agentId, accept, requesterId);
+
+        return {
+          success: true,
+          message: accept ? "Accepted trade request" : "Declined trade request",
+        };
+      }
+
+      case "trade-offer": {
+        const itemId = optionalString(data.itemId);
+        const quantity = optionalNumber(data.quantity, 1);
+        const coins = optionalNumber(data.coins, 0);
+
+        const items: Array<{ itemId: string; quantity: number }> = [];
+        if (itemId) {
+          items.push({ itemId, quantity });
+        }
+
+        rpg.setTradeOffer?.(agentId, items, coins);
+
+        return {
+          success: true,
+          message:
+            items.length > 0
+              ? `Offered ${quantity}x item and ${coins} coins`
+              : `Offered ${coins} coins`,
+        };
+      }
+
+      case "trade-confirm": {
+        rpg.confirmTrade?.(agentId);
+
+        return {
+          success: true,
+          message: "Confirmed trade offer",
+        };
+      }
+
+      case "trade-cancel": {
+        rpg.cancelTrade?.(agentId);
+
+        return {
+          success: true,
+          message: "Cancelled trade",
         };
       }
 

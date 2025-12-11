@@ -48,7 +48,8 @@ async function setupPlayer(
   });
 
   // Navigate to game
-  await page.goto("http://localhost:3333");
+  const GAME_URL = process.env.HYPERSCAPE_URL || "http://localhost:3333";
+  await page.goto(GAME_URL);
 
   // Wait for game to load
   await page.waitForLoadState("networkidle");

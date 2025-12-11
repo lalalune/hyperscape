@@ -12,7 +12,8 @@ import { test, expect } from "@playwright/test";
 test.describe("Debug Economy Panel", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to game with debug mode
-    await page.goto("http://localhost:3333");
+    const GAME_URL = process.env.HYPERSCAPE_URL || "http://localhost:3333";
+    await page.goto(GAME_URL);
     await page.waitForLoadState("networkidle");
 
     // Wait for world to be ready
