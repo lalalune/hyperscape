@@ -18,6 +18,17 @@ import {
   WeaponType,
 } from "../types/core/core";
 
+// Re-export NoteGenerator utilities for convenience
+export {
+  NOTE_SUFFIX,
+  shouldGenerateNote,
+  generateNotedItem,
+  generateAllNotedItems,
+  getBaseItemId,
+  getNotedItemId,
+  isNotedItemId,
+} from "./NoteGenerator";
+
 /**
  * Item Database
  * Populated by DataManager from world/assets/manifests/items.json
@@ -125,3 +136,56 @@ export const items: Record<string, Item> = new Proxy(
 
 // Re-export types for convenience
 export type { Item, ItemType, WeaponType, AttackType };
+
+// === BANK NOTE HELPER FUNCTIONS ===
+
+/**
+ * Get item or its base item if noted.
+ * Useful for bank deposits where notes auto-convert to base items.
+ *
+ * @param itemId - Item ID (possibly noted)
+ * @returns Base item, or null if not found
+ */
+export function getBaseItem(itemId: string): Item | null {
+  const item = ITEMS.get(itemId);
+  if (!item) return null;
+
+  // If it's a noted item, return the base item
+  if (item.isNoted && item.baseItemId) {
+    return ITEMS.get(item.baseItemId) || null;
+  }
+
+  return item;
+}
+
+/**
+ * Get the noted variant of an item.
+ *
+ * @param itemId - Base item ID
+ * @returns Noted item, or null if item cannot be noted
+ */
+export function getNotedItem(itemId: string): Item | null {
+  const item = ITEMS.get(itemId);
+  if (!item) return null;
+
+  // Already noted? Return as-is
+  if (item.isNoted) return item;
+
+  // Has noted variant? Return it
+  if (item.notedItemId) {
+    return ITEMS.get(item.notedItemId) || null;
+  }
+
+  return null;
+}
+
+/**
+ * Check if an item can be noted (has a noted variant).
+ *
+ * @param itemId - Item ID to check
+ * @returns true if item can be noted
+ */
+export function canBeNoted(itemId: string): boolean {
+  const item = ITEMS.get(itemId);
+  return item?.noteable === true && !!item.notedItemId;
+}

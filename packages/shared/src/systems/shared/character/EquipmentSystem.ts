@@ -917,6 +917,13 @@ export class EquipmentSystem extends SystemBase {
   }
 
   private getEquipmentSlot(itemData: Item): string | null {
+    // BANK NOTE SYSTEM: Explicitly non-equipable items cannot be equipped
+    // This catches noted items (e.g., "bronze_sword_noted") which inherit
+    // type from base but are marked equipable: false
+    if (itemData.equipable === false) {
+      return null;
+    }
+
     // Handle 2-handed weapons (they go in weapon slot)
     if (this.is2hWeapon(itemData)) {
       return "weapon";

@@ -165,6 +165,33 @@ export interface Item {
     level: number;
     skills: Partial<Record<keyof Skills, number>>;
   };
+
+  // === BANK NOTE SYSTEM ===
+  /**
+   * Can this item be converted to a bank note?
+   * Auto-derived if not specified: tradeable && !stackable && type !== currency
+   */
+  noteable?: boolean;
+
+  /**
+   * ID of the noted version of this item.
+   * Only present on BASE items (e.g., "logs" has notedItemId: "logs_noted")
+   * Set automatically by NoteGenerator at runtime.
+   */
+  notedItemId?: string;
+
+  /**
+   * ID of the base (unnoted) version of this item.
+   * Only present on NOTED items (e.g., "logs_noted" has baseItemId: "logs")
+   * Set automatically by NoteGenerator at runtime.
+   */
+  baseItemId?: string;
+
+  /**
+   * True if this item IS a bank note.
+   * Noted items are always stackable and cannot be equipped/consumed.
+   */
+  isNoted?: boolean;
 }
 
 export interface EquipmentSlot {
@@ -302,4 +329,24 @@ export interface GroundItem {
   droppedBy: string | null;
   droppedAt: number;
   despawnTime: number;
+}
+
+// === BANK NOTE TYPE GUARDS ===
+
+/**
+ * Type guard: Check if item can be noted (has noted variant)
+ */
+export function isNoteableItem(
+  item: Item,
+): item is Item & { noteable: true; notedItemId: string } {
+  return item.noteable === true && typeof item.notedItemId === "string";
+}
+
+/**
+ * Type guard: Check if item IS a note (has base item reference)
+ */
+export function isNotedItem(
+  item: Item,
+): item is Item & { isNoted: true; baseItemId: string } {
+  return item.isNoted === true && typeof item.baseItemId === "string";
 }
