@@ -7,12 +7,9 @@
 
 import {
   ValidationError,
-  assertPlayerId,
   assertNonEmptyString,
-  assertNonNegativeInteger,
-  assertPositiveInteger,
   assertNumber,
-  assertDefined,
+  assertNonNegativeInteger,
 } from "../../../validation";
 
 // =============================================================================
@@ -103,7 +100,7 @@ export const PLAYER_CONSTANTS = {
  */
 export function validatePlayerName(
   name: unknown,
-  field: string = "name"
+  field: string = "name",
 ): string {
   assertNonEmptyString(name, field);
 
@@ -113,7 +110,7 @@ export function validatePlayerName(
     throw new ValidationError(
       `must be at least ${PLAYER_CONSTANTS.MIN_NAME_LENGTH} character`,
       field,
-      name
+      name,
     );
   }
 
@@ -121,7 +118,7 @@ export function validatePlayerName(
     throw new ValidationError(
       `must be at most ${PLAYER_CONSTANTS.MAX_NAME_LENGTH} characters`,
       field,
-      name
+      name,
     );
   }
 
@@ -129,7 +126,7 @@ export function validatePlayerName(
     throw new ValidationError(
       "can only contain letters, numbers, underscores and hyphens",
       field,
-      name
+      name,
     );
   }
 
@@ -142,7 +139,7 @@ export function validatePlayerName(
  */
 export function validatePlayerStats(
   stats: unknown,
-  field: string = "stats"
+  field: string = "stats",
 ): PlayerStats {
   if (typeof stats !== "object" || stats === null) {
     throw new ValidationError("must be an object", field, stats);
@@ -179,14 +176,14 @@ export function validatePlayerStats(
       throw new ValidationError(
         `must be at least ${PLAYER_CONSTANTS.MIN_LEVEL}`,
         `${field}.${stat}`,
-        level
+        level,
       );
     }
     if (level > PLAYER_CONSTANTS.MAX_LEVEL) {
       throw new ValidationError(
         `cannot exceed ${PLAYER_CONSTANTS.MAX_LEVEL}`,
         `${field}.${stat}`,
-        level
+        level,
       );
     }
 
@@ -202,7 +199,7 @@ export function validatePlayerStats(
  */
 export function validatePosition(
   position: unknown,
-  field: string = "position"
+  field: string = "position",
 ): Position3D {
   if (typeof position !== "object" || position === null) {
     throw new ValidationError("must be an object", field, position);
@@ -216,10 +213,18 @@ export function validatePosition(
 
   const MAX_COORD = 10000;
   if (Math.abs(pos.x as number) > MAX_COORD) {
-    throw new ValidationError(`x exceeds world bounds ±${MAX_COORD}`, `${field}.x`, pos.x);
+    throw new ValidationError(
+      `x exceeds world bounds ±${MAX_COORD}`,
+      `${field}.x`,
+      pos.x,
+    );
   }
   if (Math.abs(pos.z as number) > MAX_COORD) {
-    throw new ValidationError(`z exceeds world bounds ±${MAX_COORD}`, `${field}.z`, pos.z);
+    throw new ValidationError(
+      `z exceeds world bounds ±${MAX_COORD}`,
+      `${field}.z`,
+      pos.z,
+    );
   }
 
   return {
@@ -236,13 +241,17 @@ export function validatePosition(
 export function validateHealth(
   health: unknown,
   maxHealth: number,
-  field: string = "health"
+  field: string = "health",
 ): number {
   assertNonNegativeInteger(health, field);
 
   const h = health as number;
   if (h > maxHealth) {
-    throw new ValidationError(`cannot exceed max health ${maxHealth}`, field, health);
+    throw new ValidationError(
+      `cannot exceed max health ${maxHealth}`,
+      field,
+      health,
+    );
   }
 
   return h;
@@ -263,11 +272,17 @@ export function validateHealth(
  * combatLevel = base + max(melee, ranged, magic)
  */
 export function calculateCombatLevel(stats: PlayerStats): number {
-  const base = 0.25 * (stats.defense + stats.hitpoints + Math.floor(stats.prayer / 2));
+  const base =
+    0.25 * (stats.defense + stats.hitpoints + Math.floor(stats.prayer / 2));
 
-  const melee = PLAYER_CONSTANTS.COMBAT_MELEE_WEIGHT * (stats.attack + stats.strength);
-  const ranged = PLAYER_CONSTANTS.COMBAT_MELEE_WEIGHT * Math.floor(PLAYER_CONSTANTS.COMBAT_RANGED_WEIGHT * stats.ranged);
-  const magic = PLAYER_CONSTANTS.COMBAT_MELEE_WEIGHT * Math.floor(PLAYER_CONSTANTS.COMBAT_MAGIC_WEIGHT * stats.magic);
+  const melee =
+    PLAYER_CONSTANTS.COMBAT_MELEE_WEIGHT * (stats.attack + stats.strength);
+  const ranged =
+    PLAYER_CONSTANTS.COMBAT_MELEE_WEIGHT *
+    Math.floor(PLAYER_CONSTANTS.COMBAT_RANGED_WEIGHT * stats.ranged);
+  const magic =
+    PLAYER_CONSTANTS.COMBAT_MELEE_WEIGHT *
+    Math.floor(PLAYER_CONSTANTS.COMBAT_MAGIC_WEIGHT * stats.magic);
 
   const combatType = Math.max(melee, ranged, magic);
 
@@ -285,7 +300,10 @@ export function calculateTotalLevel(stats: PlayerStats): number {
  * Calculate max health based on hitpoints level
  */
 export function calculateMaxHealth(hitpointsLevel: number): number {
-  return PLAYER_CONSTANTS.BASE_HITPOINTS + (hitpointsLevel - 1) * PLAYER_CONSTANTS.HP_PER_LEVEL;
+  return (
+    PLAYER_CONSTANTS.BASE_HITPOINTS +
+    (hitpointsLevel - 1) * PLAYER_CONSTANTS.HP_PER_LEVEL
+  );
 }
 
 // =============================================================================
@@ -299,7 +317,7 @@ export function calculateMaxHealth(hitpointsLevel: number): number {
  */
 export function applyDamage(
   currentHealth: number,
-  damage: number
+  damage: number,
 ): HealthChange {
   const newHealth = Math.max(0, currentHealth - damage);
 
@@ -318,7 +336,7 @@ export function applyDamage(
 export function applyHealing(
   currentHealth: number,
   maxHealth: number,
-  healing: number
+  healing: number,
 ): HealthChange {
   const newHealth = Math.min(maxHealth, currentHealth + healing);
 
@@ -336,7 +354,7 @@ export function applyHealing(
  */
 export function calculateFoodHealing(
   foodId: string,
-  hitpointsLevel: number
+  hitpointsLevel: number,
 ): number {
   // Food healing values (simplified - would normally use item database)
   const FOOD_HEALING: Record<string, number> = {
@@ -366,7 +384,10 @@ export function calculateFoodHealing(
 /**
  * Check if player is at full health
  */
-export function isFullHealth(currentHealth: number, maxHealth: number): boolean {
+export function isFullHealth(
+  currentHealth: number,
+  maxHealth: number,
+): boolean {
   return currentHealth >= maxHealth;
 }
 
@@ -451,7 +472,7 @@ export function getXpProgress(currentXp: number): number {
  */
 export function isPlayerAfk(
   lastActivityTick: number,
-  currentTick: number
+  currentTick: number,
 ): boolean {
   return currentTick - lastActivityTick >= PLAYER_CONSTANTS.AFK_TIMEOUT_TICKS;
 }
@@ -461,9 +482,11 @@ export function isPlayerAfk(
  */
 export function shouldLogoutPlayer(
   lastActivityTick: number,
-  currentTick: number
+  currentTick: number,
 ): boolean {
-  return currentTick - lastActivityTick >= PLAYER_CONSTANTS.LOGOUT_TIMEOUT_TICKS;
+  return (
+    currentTick - lastActivityTick >= PLAYER_CONSTANTS.LOGOUT_TIMEOUT_TICKS
+  );
 }
 
 /**
@@ -471,7 +494,7 @@ export function shouldLogoutPlayer(
  */
 export function calculatePlayerDistance(
   pos1: Position3D,
-  pos2: Position3D
+  pos2: Position3D,
 ): number {
   const dx = pos2.x - pos1.x;
   const dy = pos2.y - pos1.y;
@@ -485,7 +508,7 @@ export function calculatePlayerDistance(
 export function arePlayersInRange(
   pos1: Position3D,
   pos2: Position3D,
-  range: number
+  range: number,
 ): boolean {
   return calculatePlayerDistance(pos1, pos2) <= range;
 }
@@ -524,7 +547,7 @@ export function createPlayerState(
   id: string,
   name: string,
   position: Position3D,
-  stats?: Partial<PlayerStats>
+  stats?: Partial<PlayerStats>,
 ): PlayerState {
   const fullStats: PlayerStats = {
     ...createDefaultStats(),
@@ -555,7 +578,7 @@ export function createPlayerState(
  */
 export function updatePlayerStats(
   player: PlayerState,
-  newStats: Partial<PlayerStats>
+  newStats: Partial<PlayerStats>,
 ): PlayerState {
   const updatedStats: PlayerStats = {
     ...player.stats,
@@ -582,7 +605,7 @@ export function updatePlayerStats(
 export function updatePlayerPosition(
   player: PlayerState,
   newPosition: Position3D,
-  currentTick: number
+  currentTick: number,
 ): PlayerState {
   return {
     ...player,
@@ -613,7 +636,7 @@ export function setPlayerDead(player: PlayerState): PlayerState {
 export function respawnPlayer(
   player: PlayerState,
   spawnPosition: Position3D,
-  currentTick: number
+  currentTick: number,
 ): PlayerState {
   return {
     ...player,

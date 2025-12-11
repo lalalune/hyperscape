@@ -32,7 +32,7 @@ export function patchTextureLoader() {
       };
 
       const handleLoad = () => {
-        texture.image = image;
+        (texture as { image: HTMLImageElement }).image = image;
         texture.needsUpdate = true;
         if (onLoad) onLoad(texture);
         cleanup();

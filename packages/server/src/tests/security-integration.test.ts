@@ -133,11 +133,15 @@ describe.skipIf(!canRunTests)("Combat Security - Server Handler", () => {
       const world = createMockWorld(entities);
 
       // Make world.entities.get return the mob
-      (world.entities as { get: (id: string) => MockEntity | undefined }).get = (id: string) =>
-        entities.get(id);
+      (world.entities as { get: (id: string) => MockEntity | undefined }).get =
+        (id: string) => entities.get(id);
 
       // Handler should forward to CombatSystem when mob exists
-      combatHandlers.handleAttackMob(socket as never, { mobId: "mob-123" }, world as never);
+      combatHandlers.handleAttackMob(
+        socket as never,
+        { mobId: "mob-123" },
+        world as never,
+      );
 
       // Handler should emit the attack request event
       expect(world.emit).toHaveBeenCalledWith(
@@ -155,10 +159,15 @@ describe.skipIf(!canRunTests)("Combat Security - Server Handler", () => {
       const world = createMockWorld();
 
       // Make world.entities.get return undefined (mob doesn't exist)
-      (world.entities as { get: (id: string) => MockEntity | undefined }).get = () => undefined;
+      (world.entities as { get: (id: string) => MockEntity | undefined }).get =
+        () => undefined;
 
       // Handler should NOT forward to CombatSystem when mob doesn't exist
-      combatHandlers.handleAttackMob(socket as never, { mobId: "fake-mob" }, world as never);
+      combatHandlers.handleAttackMob(
+        socket as never,
+        { mobId: "fake-mob" },
+        world as never,
+      );
 
       // Event should NOT be emitted - this is the security fix
       expect(world.emit).not.toHaveBeenCalled();
@@ -169,7 +178,11 @@ describe.skipIf(!canRunTests)("Combat Security - Server Handler", () => {
       const world = createMockWorld();
 
       // This should return early without emitting
-      combatHandlers.handleAttackMob(socket as never, { mobId: "mob-1" }, world as never);
+      combatHandlers.handleAttackMob(
+        socket as never,
+        { mobId: "mob-1" },
+        world as never,
+      );
 
       expect(world.emit).not.toHaveBeenCalled();
     });
@@ -180,8 +193,16 @@ describe.skipIf(!canRunTests)("Combat Security - Server Handler", () => {
       const world = createMockWorld();
 
       combatHandlers.handleAttackMob(socket as never, {}, world as never);
-      combatHandlers.handleAttackMob(socket as never, { mobId: null }, world as never);
-      combatHandlers.handleAttackMob(socket as never, { mobId: undefined }, world as never);
+      combatHandlers.handleAttackMob(
+        socket as never,
+        { mobId: null },
+        world as never,
+      );
+      combatHandlers.handleAttackMob(
+        socket as never,
+        { mobId: undefined },
+        world as never,
+      );
 
       expect(world.emit).not.toHaveBeenCalled();
     });
@@ -203,21 +224,26 @@ describe.skipIf(!canRunTests)("Combat Security - Server Handler", () => {
       const world = createMockWorld(entities);
 
       // Make world.entities.get return the dead mob
-      (world.entities as { get: (id: string) => MockEntity | undefined }).get = (id: string) => {
-        const entity = entities.get(id);
-        if (entity) {
-          // Add isDead method for mobs
-          return {
-            ...entity,
-            isDead: () => entity.isDead ?? false,
-            getHealth: () => entity.health ?? 0,
-          } as MockEntity;
-        }
-        return undefined;
-      };
+      (world.entities as { get: (id: string) => MockEntity | undefined }).get =
+        (id: string) => {
+          const entity = entities.get(id);
+          if (entity) {
+            // Add isDead method for mobs
+            return {
+              ...entity,
+              isDead: () => entity.isDead ?? false,
+              getHealth: () => entity.health ?? 0,
+            } as MockEntity;
+          }
+          return undefined;
+        };
 
       // Handler should NOT forward attack on dead mob
-      combatHandlers.handleAttackMob(socket as never, { mobId: "dead-mob" }, world as never);
+      combatHandlers.handleAttackMob(
+        socket as never,
+        { mobId: "dead-mob" },
+        world as never,
+      );
 
       // Event should NOT be emitted for dead mobs
       expect(world.emit).not.toHaveBeenCalled();
@@ -242,10 +268,14 @@ describe.skipIf(!canRunTests)("Combat Security - Server Handler", () => {
       const world = createMockWorld(entities);
 
       // Make world.entities.get return the mob
-      (world.entities as { get: (id: string) => MockEntity | undefined }).get = (id: string) =>
-        entities.get(id);
+      (world.entities as { get: (id: string) => MockEntity | undefined }).get =
+        (id: string) => entities.get(id);
 
-      combatHandlers.handleAttackMob(socket as never, { mobId: "mob-1" }, world as never);
+      combatHandlers.handleAttackMob(
+        socket as never,
+        { mobId: "mob-1" },
+        world as never,
+      );
 
       // Should emit with default melee attack type
       expect(world.emit).toHaveBeenCalledWith(
@@ -266,7 +296,11 @@ describe.skipIf(!canRunTests)("Inventory Security - Server Handler", () => {
       const socket = { id: "socket-1", player: null, send: mock(() => {}) };
       const world = createMockWorld();
 
-      handlers.handlePickupItem(socket as never, { itemId: "item-123" }, world as never);
+      handlers.handlePickupItem(
+        socket as never,
+        { itemId: "item-123" },
+        world as never,
+      );
 
       expect(world.emit).not.toHaveBeenCalled();
     });
@@ -277,7 +311,11 @@ describe.skipIf(!canRunTests)("Inventory Security - Server Handler", () => {
       const world = createMockWorld();
 
       handlers.handlePickupItem(socket as never, null, world as never);
-      handlers.handlePickupItem(socket as never, "not-an-object", world as never);
+      handlers.handlePickupItem(
+        socket as never,
+        "not-an-object",
+        world as never,
+      );
 
       expect(world.emit).not.toHaveBeenCalled();
     });
@@ -317,7 +355,11 @@ describe.skipIf(!canRunTests)("Inventory Security - Server Handler", () => {
       const socket = { id: "socket-1", player: null, send: mock(() => {}) };
       const world = createMockWorld();
 
-      handlers.handleDropItem(socket as never, { itemId: "bronze_sword" }, world as never);
+      handlers.handleDropItem(
+        socket as never,
+        { itemId: "bronze_sword" },
+        world as never,
+      );
 
       expect(world.emit).not.toHaveBeenCalled();
     });
@@ -362,7 +404,9 @@ describe.skipIf(!canRunTests)("Inventory Security - Server Handler", () => {
           const data = call[1] as { quantity?: number };
           if (data.quantity !== undefined) {
             expect(data.quantity).toBeGreaterThanOrEqual(1);
-            expect(data.quantity).toBeLessThanOrEqual(sharedConstants.INPUT_LIMITS.MAX_QUANTITY);
+            expect(data.quantity).toBeLessThanOrEqual(
+              sharedConstants.INPUT_LIMITS.MAX_QUANTITY,
+            );
           }
         }
       }
@@ -491,8 +535,16 @@ describe.skipIf(!canRunTests)("Inventory Security - Server Handler", () => {
         world as never,
       );
       handlers.handleUnequipItem(socket as never, { slot: "" }, world as never);
-      handlers.handleUnequipItem(socket as never, { slot: null }, world as never);
-      handlers.handleUnequipItem(socket as never, { slot: 123 }, world as never);
+      handlers.handleUnequipItem(
+        socket as never,
+        { slot: null },
+        world as never,
+      );
+      handlers.handleUnequipItem(
+        socket as never,
+        { slot: 123 },
+        world as never,
+      );
 
       expect(world.emit).not.toHaveBeenCalled();
     });
@@ -542,7 +594,9 @@ describe.skipIf(!canRunTests)("Input Injection Prevention", () => {
   describe("Length Overflow", () => {
     it("should reject excessively long IDs", () => {
       const longId = "a".repeat(1000);
-      expect(longId.length > sharedConstants.INPUT_LIMITS.MAX_ITEM_ID_LENGTH).toBe(true);
+      expect(
+        longId.length > sharedConstants.INPUT_LIMITS.MAX_ITEM_ID_LENGTH,
+      ).toBe(true);
     });
   });
 });
@@ -718,7 +772,8 @@ describe.skipIf(!canRunTests)("Distance Validation", () => {
 // ============================================================================
 
 describe.skipIf(!canRunTests)("Integer Overflow Prevention", () => {
-  const MAX_QUANTITY = sharedConstants?.INPUT_LIMITS?.MAX_QUANTITY ?? 2147483647;
+  const MAX_QUANTITY =
+    sharedConstants?.INPUT_LIMITS?.MAX_QUANTITY ?? 2147483647;
 
   it("should detect overflow when adding quantities", () => {
     function wouldOverflow(current: number, add: number): boolean {

@@ -5,7 +5,7 @@
  * No mocks, no system dependencies - just pure logic.
  */
 
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect } from "bun:test";
 import { ValidationError } from "../../../../validation";
 import {
   type InventorySlot,
@@ -36,7 +36,7 @@ function createTestItem(
   slot: number,
   itemId: string,
   quantity: number = 1,
-  stackable: boolean = false
+  stackable: boolean = false,
 ): InventorySlot {
   return {
     slot,
@@ -50,10 +50,6 @@ function createTestItem(
       weight: 1.0,
     },
   };
-}
-
-function createEmptyInventory(): InventorySlot[] {
-  return [];
 }
 
 function createPartialInventory(): InventorySlot[] {
@@ -89,21 +85,37 @@ describe("validateMoveRequest", () => {
   });
 
   it("throws for invalid fromSlot", () => {
-    expect(() => validateMoveRequest("player-1", -1, 5)).toThrow(ValidationError);
-    expect(() => validateMoveRequest("player-1", 28, 5)).toThrow(ValidationError);
-    expect(() => validateMoveRequest("player-1", 0.5, 5)).toThrow(ValidationError);
-    expect(() => validateMoveRequest("player-1", NaN, 5)).toThrow(ValidationError);
+    expect(() => validateMoveRequest("player-1", -1, 5)).toThrow(
+      ValidationError,
+    );
+    expect(() => validateMoveRequest("player-1", 28, 5)).toThrow(
+      ValidationError,
+    );
+    expect(() => validateMoveRequest("player-1", 0.5, 5)).toThrow(
+      ValidationError,
+    );
+    expect(() => validateMoveRequest("player-1", NaN, 5)).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for invalid toSlot", () => {
-    expect(() => validateMoveRequest("player-1", 0, -1)).toThrow(ValidationError);
-    expect(() => validateMoveRequest("player-1", 0, 28)).toThrow(ValidationError);
-    expect(() => validateMoveRequest("player-1", 0, 1.5)).toThrow(ValidationError);
+    expect(() => validateMoveRequest("player-1", 0, -1)).toThrow(
+      ValidationError,
+    );
+    expect(() => validateMoveRequest("player-1", 0, 28)).toThrow(
+      ValidationError,
+    );
+    expect(() => validateMoveRequest("player-1", 0, 1.5)).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for null/undefined", () => {
     expect(() => validateMoveRequest(null, 0, 5)).toThrow(ValidationError);
-    expect(() => validateMoveRequest("player-1", undefined, 5)).toThrow(ValidationError);
+    expect(() => validateMoveRequest("player-1", undefined, 5)).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -121,15 +133,25 @@ describe("validateAddRequest", () => {
   });
 
   it("throws for invalid quantity", () => {
-    expect(() => validateAddRequest("player-1", "bronze_sword", 0)).toThrow(ValidationError);
-    expect(() => validateAddRequest("player-1", "bronze_sword", -1)).toThrow(ValidationError);
+    expect(() => validateAddRequest("player-1", "bronze_sword", 0)).toThrow(
+      ValidationError,
+    );
+    expect(() => validateAddRequest("player-1", "bronze_sword", -1)).toThrow(
+      ValidationError,
+    );
     expect(() =>
-      validateAddRequest("player-1", "bronze_sword", INPUT_LIMITS.MAX_QUANTITY + 1)
+      validateAddRequest(
+        "player-1",
+        "bronze_sword",
+        INPUT_LIMITS.MAX_QUANTITY + 1,
+      ),
     ).toThrow(ValidationError);
   });
 
   it("throws for control characters in itemId", () => {
-    expect(() => validateAddRequest("player-1", "item\x00id", 1)).toThrow(ValidationError);
+    expect(() => validateAddRequest("player-1", "item\x00id", 1)).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -261,7 +283,9 @@ describe("canAddItem", () => {
     });
 
     it("rejects if would exceed max stack", () => {
-      const items = [createTestItem(0, "coins", INPUT_LIMITS.MAX_QUANTITY - 10, true)];
+      const items = [
+        createTestItem(0, "coins", INPUT_LIMITS.MAX_QUANTITY - 10, true),
+      ];
       const result = canAddItem(items, "coins", 20, true);
       expect(result.canAdd).toBe(false);
       expect(result.reason).toContain("max stack");
@@ -509,10 +533,7 @@ describe("validateSlotIndices", () => {
 
 describe("edge cases", () => {
   it("handles boundary slot values", () => {
-    const items = [
-      createTestItem(0, "first"),
-      createTestItem(27, "last"),
-    ];
+    const items = [createTestItem(0, "first"), createTestItem(27, "last")];
 
     const result = applyMove(items, 0, 27);
     expect(getItemAtSlot(result, 0)?.itemId).toBe("last");

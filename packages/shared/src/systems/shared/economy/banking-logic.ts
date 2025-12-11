@@ -11,8 +11,6 @@ import {
   assertEntityId,
   assertItemId,
   assertQuantity,
-  assertNonNegativeInteger,
-  assertDefined,
 } from "../../../validation";
 import { INPUT_LIMITS } from "../../../constants";
 import { BANKING_CONSTANTS } from "../../../constants/BankingConstants";
@@ -65,7 +63,7 @@ export function validateBankOpenRequest(
   playerId: unknown,
   bankId: unknown,
   playerPosition?: unknown,
-  bankPosition?: unknown
+  bankPosition?: unknown,
 ): { playerId: string; bankId: string } {
   assertPlayerId(playerId, "playerId");
   assertEntityId(bankId, "bankId");
@@ -74,13 +72,13 @@ export function validateBankOpenRequest(
   if (playerPosition && bankPosition) {
     const dist = calculateDistance(
       playerPosition as Position3D,
-      bankPosition as Position3D
+      bankPosition as Position3D,
     );
     if (dist > BANKING_CONSTANTS.MAX_DISTANCE) {
       throw new ValidationError(
         `must be within ${BANKING_CONSTANTS.MAX_DISTANCE} tiles of bank`,
         "distance",
-        dist
+        dist,
       );
     }
   }
@@ -98,7 +96,7 @@ export function validateBankOpenRequest(
 export function validateDepositRequest(
   playerId: unknown,
   itemId: unknown,
-  quantity: unknown
+  quantity: unknown,
 ): { playerId: string; itemId: string; quantity: number } {
   assertPlayerId(playerId, "playerId");
   assertItemId(itemId, "itemId");
@@ -118,7 +116,7 @@ export function validateDepositRequest(
 export function validateWithdrawRequest(
   playerId: unknown,
   itemId: unknown,
-  quantity: unknown
+  quantity: unknown,
 ): { playerId: string; itemId: string; quantity: number } {
   assertPlayerId(playerId, "playerId");
   assertItemId(itemId, "itemId");
@@ -150,9 +148,12 @@ export function calculateDistance(pos1: Position3D, pos2: Position3D): number {
  */
 export function isWithinBankDistance(
   playerPosition: Position3D,
-  bankPosition: Position3D
+  bankPosition: Position3D,
 ): boolean {
-  return calculateDistance(playerPosition, bankPosition) <= BANKING_CONSTANTS.MAX_DISTANCE;
+  return (
+    calculateDistance(playerPosition, bankPosition) <=
+    BANKING_CONSTANTS.MAX_DISTANCE
+  );
 }
 
 // =============================================================================
@@ -171,7 +172,7 @@ export function countBankSlots(items: ReadonlyArray<BankItem>): number {
  */
 export function isBankFull(
   items: ReadonlyArray<BankItem>,
-  maxSlots: number = BANKING_CONSTANTS.MAX_BANK_SLOTS
+  maxSlots: number = BANKING_CONSTANTS.MAX_BANK_SLOTS,
 ): boolean {
   return items.length >= maxSlots;
 }
@@ -181,7 +182,7 @@ export function isBankFull(
  */
 export function getRemainingSlots(
   items: ReadonlyArray<BankItem>,
-  maxSlots: number = BANKING_CONSTANTS.MAX_BANK_SLOTS
+  maxSlots: number = BANKING_CONSTANTS.MAX_BANK_SLOTS,
 ): number {
   return Math.max(0, maxSlots - items.length);
 }
@@ -191,7 +192,7 @@ export function getRemainingSlots(
  */
 export function findBankItem(
   items: ReadonlyArray<BankItem>,
-  itemId: string
+  itemId: string,
 ): BankItem | undefined {
   return items.find((item) => item.id === itemId);
 }
@@ -201,7 +202,7 @@ export function findBankItem(
  */
 export function findBankItemIndex(
   items: ReadonlyArray<BankItem>,
-  itemId: string
+  itemId: string,
 ): number {
   return items.findIndex((item) => item.id === itemId);
 }
@@ -212,7 +213,7 @@ export function findBankItemIndex(
 export function bankHasItem(
   items: ReadonlyArray<BankItem>,
   itemId: string,
-  quantity: number = 1
+  quantity: number = 1,
 ): boolean {
   const item = findBankItem(items, itemId);
   return item !== undefined && item.quantity >= quantity;
@@ -223,7 +224,7 @@ export function bankHasItem(
  */
 export function getBankItemQuantity(
   items: ReadonlyArray<BankItem>,
-  itemId: string
+  itemId: string,
 ): number {
   const item = findBankItem(items, itemId);
   return item?.quantity ?? 0;
@@ -239,7 +240,7 @@ export function canDeposit(
   itemId: string,
   quantity: number,
   isStackable: boolean,
-  maxSlots: number = BANKING_CONSTANTS.MAX_BANK_SLOTS
+  maxSlots: number = BANKING_CONSTANTS.MAX_BANK_SLOTS,
 ): { canDeposit: boolean; reason?: string } {
   // Check if item already exists in bank (for stackable items)
   const existingItem = findBankItem(bankItems, itemId);
@@ -275,9 +276,15 @@ export function calculateDeposit(
   itemName: string,
   quantity: number,
   isStackable: boolean,
-  maxSlots: number = BANKING_CONSTANTS.MAX_BANK_SLOTS
+  maxSlots: number = BANKING_CONSTANTS.MAX_BANK_SLOTS,
 ): DepositResult {
-  const validation = canDeposit(bankItems, itemId, quantity, isStackable, maxSlots);
+  const validation = canDeposit(
+    bankItems,
+    itemId,
+    quantity,
+    isStackable,
+    maxSlots,
+  );
   if (!validation.canDeposit) {
     return {
       success: false,
@@ -300,7 +307,12 @@ export function calculateDeposit(
 
     return {
       success: true,
-      itemDeposited: { id: itemId, name: itemName, quantity, stackable: isStackable },
+      itemDeposited: {
+        id: itemId,
+        name: itemName,
+        quantity,
+        stackable: isStackable,
+      },
       newBankItems: newItems,
     };
   }
@@ -328,7 +340,7 @@ export function calculateDeposit(
 export function canWithdraw(
   bankItems: ReadonlyArray<BankItem>,
   itemId: string,
-  quantity: number
+  quantity: number,
 ): { canWithdraw: boolean; reason?: string } {
   const item = findBankItem(bankItems, itemId);
 
@@ -354,7 +366,7 @@ export function canWithdraw(
 export function calculateWithdraw(
   bankItems: ReadonlyArray<BankItem>,
   itemId: string,
-  quantity: number
+  quantity: number,
 ): WithdrawResult {
   const validation = canWithdraw(bankItems, itemId, quantity);
   if (!validation.canWithdraw) {
@@ -396,8 +408,13 @@ export function calculateWithdraw(
  */
 export function calculateDepositAll(
   bankItems: ReadonlyArray<BankItem>,
-  inventoryItems: ReadonlyArray<{ itemId: string; name: string; quantity: number; stackable: boolean }>,
-  maxSlots: number = BANKING_CONSTANTS.MAX_BANK_SLOTS
+  inventoryItems: ReadonlyArray<{
+    itemId: string;
+    name: string;
+    quantity: number;
+    stackable: boolean;
+  }>,
+  maxSlots: number = BANKING_CONSTANTS.MAX_BANK_SLOTS,
 ): { newBankItems: BankItem[]; depositedCount: number; failedItems: string[] } {
   let currentBank = [...bankItems];
   let depositedCount = 0;
@@ -410,7 +427,7 @@ export function calculateDepositAll(
       invItem.name,
       invItem.quantity,
       invItem.stackable,
-      maxSlots
+      maxSlots,
     );
 
     if (result.success) {
@@ -433,12 +450,10 @@ export function calculateDepositAll(
  */
 export function searchBankItems(
   items: ReadonlyArray<BankItem>,
-  searchTerm: string
+  searchTerm: string,
 ): BankItem[] {
   const lowerSearch = searchTerm.toLowerCase();
-  return items.filter((item) =>
-    item.name.toLowerCase().includes(lowerSearch)
-  );
+  return items.filter((item) => item.name.toLowerCase().includes(lowerSearch));
 }
 
 /**
@@ -446,7 +461,7 @@ export function searchBankItems(
  */
 export function sortBankItemsByName(
   items: ReadonlyArray<BankItem>,
-  ascending: boolean = true
+  ascending: boolean = true,
 ): BankItem[] {
   const sorted = [...items].sort((a, b) => a.name.localeCompare(b.name));
   return ascending ? sorted : sorted.reverse();
@@ -457,7 +472,7 @@ export function sortBankItemsByName(
  */
 export function sortBankItemsByQuantity(
   items: ReadonlyArray<BankItem>,
-  ascending: boolean = true
+  ascending: boolean = true,
 ): BankItem[] {
   const sorted = [...items].sort((a, b) => a.quantity - b.quantity);
   return ascending ? sorted : sorted.reverse();

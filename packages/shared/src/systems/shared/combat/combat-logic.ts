@@ -17,8 +17,6 @@ import {
   assertPlayerId,
   assertEntityId,
   assertNonNegativeInteger,
-  assertNumber,
-  assertPosition,
 } from "../../../validation";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 
@@ -82,7 +80,7 @@ export interface CombatState {
 export function validateAttackRequest(
   attackerId: unknown,
   targetId: unknown,
-  attackType?: unknown
+  attackType?: unknown,
 ): { attackerId: string; targetId: string; attackType: AttackTypeName } {
   assertPlayerId(attackerId, "attackerId");
   assertEntityId(targetId, "targetId");
@@ -97,7 +95,7 @@ export function validateAttackRequest(
       throw new ValidationError(
         "must be melee, ranged, or magic",
         "attackType",
-        attackType
+        attackType,
       );
     }
     validatedAttackType = attackType as AttackTypeName;
@@ -116,7 +114,7 @@ export function validateAttackRequest(
  */
 export function validateCombatStats(
   stats: unknown,
-  field: string = "stats"
+  field: string = "stats",
 ): CombatStats {
   if (typeof stats !== "object" || stats === null) {
     throw new ValidationError("must be an object", field, stats);
@@ -166,7 +164,7 @@ export function validateCombatStats(
 export function calculateAttackRoll(
   attackLevel: number,
   equipmentBonus: number,
-  styleBonus: number = 0
+  styleBonus: number = 0,
 ): number {
   const effectiveLevel = attackLevel + 8 + styleBonus;
   return effectiveLevel * (equipmentBonus + 64);
@@ -182,7 +180,7 @@ export function calculateAttackRoll(
 export function calculateDefenseRoll(
   defenseLevel: number,
   equipmentBonus: number,
-  styleBonus: number = 0
+  styleBonus: number = 0,
 ): number {
   const effectiveLevel = defenseLevel + 9 + styleBonus;
   return effectiveLevel * (equipmentBonus + 64);
@@ -199,7 +197,7 @@ export function calculateDefenseRoll(
  */
 export function calculateHitChance(
   attackRoll: number,
-  defenseRoll: number
+  defenseRoll: number,
 ): number {
   if (attackRoll > defenseRoll) {
     return 1 - (defenseRoll + 2) / (2 * (attackRoll + 1));
@@ -236,11 +234,11 @@ export function doesAttackHit(hitChance: number, randomValue: number): boolean {
 export function calculateMeleeMaxHit(
   strengthLevel: number,
   strengthBonus: number,
-  styleBonus: number = 0
+  styleBonus: number = 0,
 ): number {
   const effectiveStrength = strengthLevel + 8 + styleBonus;
   const maxHit = Math.floor(
-    0.5 + (effectiveStrength * (strengthBonus + 64)) / 640
+    0.5 + (effectiveStrength * (strengthBonus + 64)) / 640,
   );
   return Math.max(1, maxHit);
 }
@@ -255,12 +253,10 @@ export function calculateMeleeMaxHit(
 export function calculateRangedMaxHit(
   rangedLevel: number,
   rangedBonus: number,
-  styleBonus: number = 0
+  styleBonus: number = 0,
 ): number {
   const effectiveRanged = rangedLevel + 8 + styleBonus;
-  const maxHit = Math.floor(
-    0.5 + (effectiveRanged * (rangedBonus + 64)) / 640
-  );
+  const maxHit = Math.floor(0.5 + (effectiveRanged * (rangedBonus + 64)) / 640);
   return Math.max(1, maxHit);
 }
 
@@ -300,7 +296,7 @@ export function calculateDamage(
   attackerBonuses: EquipmentBonuses,
   targetBonuses: EquipmentBonuses,
   accuracyRoll: number,
-  damageRoll: number
+  damageRoll: number,
 ): DamageResult {
   let attackStat: number;
   let attackBonus: number;
@@ -309,11 +305,17 @@ export function calculateDamage(
   if (attackType === "melee") {
     attackStat = attacker.attack;
     attackBonus = attackerBonuses.attackBonus;
-    maxHit = calculateMeleeMaxHit(attacker.strength, attackerBonuses.strengthBonus);
+    maxHit = calculateMeleeMaxHit(
+      attacker.strength,
+      attackerBonuses.strengthBonus,
+    );
   } else if (attackType === "ranged") {
     attackStat = attacker.ranged;
     attackBonus = attackerBonuses.rangedBonus;
-    maxHit = calculateRangedMaxHit(attacker.ranged, attackerBonuses.rangedBonus);
+    maxHit = calculateRangedMaxHit(
+      attacker.ranged,
+      attackerBonuses.rangedBonus,
+    );
   } else {
     attackStat = attacker.magic;
     attackBonus = attackerBonuses.magicBonus;
@@ -323,7 +325,7 @@ export function calculateDamage(
   const attackRollValue = calculateAttackRoll(attackStat, attackBonus);
   const defenseRollValue = calculateDefenseRoll(
     target.defense,
-    targetBonuses.defenseBonus
+    targetBonuses.defenseBonus,
   );
   const hitChance = calculateHitChance(attackRollValue, defenseRollValue);
 
@@ -356,7 +358,7 @@ export function calculateDamage(
 export function worldToTile(
   worldX: number,
   worldZ: number,
-  tileSize: number = 1
+  tileSize: number = 1,
 ): { tileX: number; tileZ: number } {
   return {
     tileX: Math.floor(worldX / tileSize),
@@ -372,7 +374,7 @@ export function worldToTile(
  */
 export function tilesAdjacent(
   tile1: { tileX: number; tileZ: number },
-  tile2: { tileX: number; tileZ: number }
+  tile2: { tileX: number; tileZ: number },
 ): boolean {
   const dx = Math.abs(tile1.tileX - tile2.tileX);
   const dz = Math.abs(tile1.tileZ - tile2.tileZ);
@@ -394,7 +396,7 @@ export function distance3D(pos1: Position3D, pos2: Position3D): number {
  */
 export function distance2D(
   pos1: { x: number; z: number },
-  pos2: { x: number; z: number }
+  pos2: { x: number; z: number },
 ): number {
   const dx = pos2.x - pos1.x;
   const dz = pos2.z - pos1.z;
@@ -409,7 +411,7 @@ export function distance2D(
 export function isInMeleeRange(
   attackerPos: Position3D,
   targetPos: Position3D,
-  tileSize: number = 1
+  tileSize: number = 1,
 ): boolean {
   const attackerTile = worldToTile(attackerPos.x, attackerPos.z, tileSize);
   const targetTile = worldToTile(targetPos.x, targetPos.z, tileSize);
@@ -422,7 +424,7 @@ export function isInMeleeRange(
 export function isInRangedRange(
   attackerPos: Position3D,
   targetPos: Position3D,
-  maxRange: number = COMBAT_CONSTANTS.RANGED_RANGE
+  maxRange: number = COMBAT_CONSTANTS.RANGED_RANGE,
 ): boolean {
   return distance3D(attackerPos, targetPos) <= maxRange;
 }
@@ -434,7 +436,7 @@ export function isInAttackRange(
   attackerPos: Position3D,
   targetPos: Position3D,
   attackType: AttackTypeName,
-  tileSize: number = 1
+  tileSize: number = 1,
 ): boolean {
   if (attackType === "melee") {
     return isInMeleeRange(attackerPos, targetPos, tileSize);
@@ -454,7 +456,7 @@ export function isInAttackRange(
  */
 export function isOnCooldown(
   currentTick: number,
-  nextAttackTick: number
+  nextAttackTick: number,
 ): boolean {
   return currentTick < nextAttackTick;
 }
@@ -467,7 +469,7 @@ export function isOnCooldown(
  */
 export function calculateNextAttackTick(
   currentTick: number,
-  attackSpeedTicks: number
+  attackSpeedTicks: number,
 ): number {
   return currentTick + attackSpeedTicks;
 }
@@ -488,7 +490,7 @@ export function calculateRetaliationDelay(attackSpeedTicks: number): number {
  */
 export function msToTicks(
   ms: number,
-  tickDuration: number = COMBAT_CONSTANTS.TICK_DURATION_MS
+  tickDuration: number = COMBAT_CONSTANTS.TICK_DURATION_MS,
 ): number {
   return Math.max(1, Math.round(ms / tickDuration));
 }
@@ -498,7 +500,7 @@ export function msToTicks(
  */
 export function ticksToMs(
   ticks: number,
-  tickDuration: number = COMBAT_CONSTANTS.TICK_DURATION_MS
+  tickDuration: number = COMBAT_CONSTANTS.TICK_DURATION_MS,
 ): number {
   return ticks * tickDuration;
 }
@@ -517,7 +519,7 @@ export function createCombatState(
   targetType: "player" | "mob",
   attackType: AttackTypeName,
   currentTick: number,
-  attackSpeedTicks: number
+  attackSpeedTicks: number,
 ): CombatState {
   return {
     attackerId,
@@ -538,7 +540,7 @@ export function createCombatState(
  */
 export function updateCombatStateAfterAttack(
   state: CombatState,
-  currentTick: number
+  currentTick: number,
 ): CombatState {
   return {
     ...state,
@@ -553,7 +555,7 @@ export function updateCombatStateAfterAttack(
  */
 export function hasCombatTimedOut(
   state: CombatState,
-  currentTick: number
+  currentTick: number,
 ): boolean {
   return currentTick >= state.combatEndTick;
 }

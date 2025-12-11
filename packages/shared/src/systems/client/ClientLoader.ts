@@ -1,7 +1,6 @@
 import { VRMLoaderPlugin } from "@pixiv/three-vrm";
 import Hls from "hls.js/dist/hls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import type { GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { createEmoteFactory } from "../../extras/three/createEmoteFactory";
 import { createNode } from "../../extras/three/createNode";
@@ -96,7 +95,8 @@ export class ClientLoader extends SystemBase {
     this.gltfLoader = new GLTFLoader();
     // Register VRM loader plugin with proper parser typing
     this.gltfLoader.register(
-      (parser: GLTFParser) => new VRMLoaderPlugin(parser),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (parser) => new VRMLoaderPlugin(parser as any),
     );
 
     // Apply texture loader patch to handle blob URL errors

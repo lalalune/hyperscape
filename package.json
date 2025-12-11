@@ -26,7 +26,7 @@
     "postinstall": "node scripts/ensure-assets.mjs",
     "assets:sync": "cd packages/server/world/assets && git pull origin main",
     "assets:precompute": "bun scripts/precompute-assets.ts",
-    "build": "bun run docs:generate && turbo run build --filter='!3d-asset-forge'",
+    "build": "turbo run build --filter='!3d-asset-forge'",
     "build:shared": "cd packages/shared && bun run build",
     "build:client": "cd packages/client && bun run build",
     "build:server": "cd packages/server && bun run build",
@@ -112,7 +112,8 @@
     "react-dom": "^19.2.0",
     "three": "0.180.0",
     "@types/three": "0.180.0",
-    "@pixiv/three-vrm": "3.4.3"
+    "@pixiv/three-vrm": "3.4.3",
+    "string-width": "^4.2.3"
   },
   "packageManager": "bun@1.1.38",
   "lint-staged": {

@@ -212,7 +212,7 @@ export class Nametags extends SystemBase {
     );
     this.mesh = new THREE.InstancedMesh(
       this.geometry,
-      this.material,
+      this.material as unknown as THREE.Material,
       MAX_INSTANCES,
     );
     this.mesh.renderOrder = 9999;

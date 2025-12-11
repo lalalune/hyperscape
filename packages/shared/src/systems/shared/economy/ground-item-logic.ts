@@ -11,9 +11,7 @@ import {
   assertEntityId,
   assertItemId,
   assertQuantity,
-  assertNonNegativeInteger,
 } from "../../../validation";
-import { INPUT_LIMITS } from "../../../constants";
 
 // =============================================================================
 // TYPES
@@ -84,7 +82,7 @@ export function validateDropRequest(
   playerId: unknown,
   itemId: unknown,
   quantity: unknown,
-  position?: unknown
+  position?: unknown,
 ): { playerId: string; itemId: string; quantity: number } {
   assertPlayerId(playerId, "playerId");
   assertItemId(itemId, "itemId");
@@ -108,7 +106,7 @@ export function validateDropRequest(
 export function validatePickupRequest(
   playerId: unknown,
   groundItemId: unknown,
-  playerPosition?: unknown
+  _playerPosition?: unknown,
 ): { playerId: string; groundItemId: string } {
   assertPlayerId(playerId, "playerId");
   assertEntityId(groundItemId, "groundItemId");
@@ -129,21 +127,41 @@ export function validatePosition(position: Position3D): void {
   }
 
   if (typeof position.x !== "number" || !Number.isFinite(position.x)) {
-    throw new ValidationError("x must be a finite number", "position.x", position.x);
+    throw new ValidationError(
+      "x must be a finite number",
+      "position.x",
+      position.x,
+    );
   }
   if (typeof position.y !== "number" || !Number.isFinite(position.y)) {
-    throw new ValidationError("y must be a finite number", "position.y", position.y);
+    throw new ValidationError(
+      "y must be a finite number",
+      "position.y",
+      position.y,
+    );
   }
   if (typeof position.z !== "number" || !Number.isFinite(position.z)) {
-    throw new ValidationError("z must be a finite number", "position.z", position.z);
+    throw new ValidationError(
+      "z must be a finite number",
+      "position.z",
+      position.z,
+    );
   }
 
   const MAX_COORD = 10000;
   if (Math.abs(position.x) > MAX_COORD) {
-    throw new ValidationError(`x exceeds world bounds ±${MAX_COORD}`, "position.x", position.x);
+    throw new ValidationError(
+      `x exceeds world bounds ±${MAX_COORD}`,
+      "position.x",
+      position.x,
+    );
   }
   if (Math.abs(position.z) > MAX_COORD) {
-    throw new ValidationError(`z exceeds world bounds ±${MAX_COORD}`, "position.z", position.z);
+    throw new ValidationError(
+      `z exceeds world bounds ±${MAX_COORD}`,
+      "position.z",
+      position.z,
+    );
   }
 }
 
@@ -157,7 +175,7 @@ export function validatePosition(position: Position3D): void {
 export function generateGroundItemId(
   itemId: string,
   position: Position3D,
-  tick: number
+  tick: number,
 ): string {
   return `ground_${itemId}_${Math.floor(position.x)}_${Math.floor(position.z)}_${tick}`;
 }
@@ -177,7 +195,7 @@ export function calculateDistance(pos1: Position3D, pos2: Position3D): number {
  */
 export function calculateDistance2D(
   pos1: { x: number; z: number },
-  pos2: { x: number; z: number }
+  pos2: { x: number; z: number },
 ): number {
   const dx = pos2.x - pos1.x;
   const dz = pos2.z - pos1.z;
@@ -190,7 +208,7 @@ export function calculateDistance2D(
 export function isInPickupRange(
   playerPosition: Position3D,
   itemPosition: Position3D,
-  range: number = GROUND_ITEM_CONSTANTS.PICKUP_RANGE
+  range: number = GROUND_ITEM_CONSTANTS.PICKUP_RANGE,
 ): boolean {
   return calculateDistance2D(playerPosition, itemPosition) <= range;
 }
@@ -210,7 +228,7 @@ export function createGroundItem(
   droppedBy: string | undefined,
   currentTick: number,
   isStackable: boolean = true,
-  despawnTicks: number = GROUND_ITEM_CONSTANTS.DEFAULT_DESPAWN_TICKS
+  despawnTicks: number = GROUND_ITEM_CONSTANTS.DEFAULT_DESPAWN_TICKS,
 ): GroundItem {
   const id = generateGroundItemId(itemId, position, currentTick);
 
@@ -231,7 +249,10 @@ export function createGroundItem(
 /**
  * Check if ground item has despawned
  */
-export function hasItemDespawned(item: GroundItem, currentTick: number): boolean {
+export function hasItemDespawned(
+  item: GroundItem,
+  currentTick: number,
+): boolean {
   return currentTick >= item.despawnAt;
 }
 
@@ -254,7 +275,7 @@ export function canPickupItem(
   item: GroundItem,
   playerId: string,
   playerPosition: Position3D,
-  currentTick: number
+  currentTick: number,
 ): { canPickup: boolean; reason?: string } {
   // Check if item has despawned
   if (hasItemDespawned(item, currentTick)) {
@@ -280,7 +301,7 @@ export function canPickupItem(
 export function canDropItem(
   groundItems: ReadonlyArray<GroundItem>,
   position: Position3D,
-  maxItemsPerTile: number = GROUND_ITEM_CONSTANTS.MAX_ITEMS_PER_TILE
+  maxItemsPerTile: number = GROUND_ITEM_CONSTANTS.MAX_ITEMS_PER_TILE,
 ): { canDrop: boolean; reason?: string } {
   // Count items at this tile
   const itemsAtTile = countItemsAtTile(groundItems, position);
@@ -298,7 +319,7 @@ export function canDropItem(
 export function countItemsAtTile(
   groundItems: ReadonlyArray<GroundItem>,
   position: Position3D,
-  tileSize: number = 1
+  tileSize: number = 1,
 ): number {
   const tileX = Math.floor(position.x / tileSize);
   const tileZ = Math.floor(position.z / tileSize);
@@ -316,10 +337,10 @@ export function countItemsAtTile(
 export function getItemsAtPosition(
   groundItems: ReadonlyArray<GroundItem>,
   position: Position3D,
-  range: number = 0.5
+  range: number = 0.5,
 ): GroundItem[] {
-  return groundItems.filter((item) =>
-    calculateDistance2D(item.position, position) <= range
+  return groundItems.filter(
+    (item) => calculateDistance2D(item.position, position) <= range,
   );
 }
 
@@ -328,7 +349,7 @@ export function getItemsAtPosition(
  */
 export function findGroundItem(
   groundItems: ReadonlyArray<GroundItem>,
-  itemId: string
+  itemId: string,
 ): GroundItem | undefined {
   return groundItems.find((item) => item.id === itemId);
 }
@@ -339,12 +360,12 @@ export function findGroundItem(
 export function getVisibleItems(
   groundItems: ReadonlyArray<GroundItem>,
   playerId: string,
-  currentTick: number
+  currentTick: number,
 ): GroundItem[] {
   return groundItems.filter(
     (item) =>
       !hasItemDespawned(item, currentTick) &&
-      (isItemPublic(item, currentTick) || item.droppedBy === playerId)
+      (isItemPublic(item, currentTick) || item.droppedBy === playerId),
   );
 }
 
@@ -354,10 +375,10 @@ export function getVisibleItems(
 export function getItemsInRange(
   groundItems: ReadonlyArray<GroundItem>,
   position: Position3D,
-  range: number
+  range: number,
 ): GroundItem[] {
   return groundItems.filter(
-    (item) => calculateDistance2D(item.position, position) <= range
+    (item) => calculateDistance2D(item.position, position) <= range,
   );
 }
 
@@ -374,7 +395,7 @@ export function calculateDrop(
   position: Position3D,
   droppedBy: string | undefined,
   currentTick: number,
-  isStackable: boolean = true
+  isStackable: boolean = true,
 ): DropResult {
   // Check if drop is allowed
   const validation = canDropItem(groundItems, position);
@@ -390,7 +411,7 @@ export function calculateDrop(
     position,
     droppedBy,
     currentTick,
-    isStackable
+    isStackable,
   );
 
   return { success: true, groundItem };
@@ -406,7 +427,7 @@ export function calculatePickup(
   groundItemId: string,
   playerId: string,
   playerPosition: Position3D,
-  currentTick: number
+  currentTick: number,
 ): PickupResult {
   const item = findGroundItem(groundItems, groundItemId);
 
@@ -433,7 +454,7 @@ export function calculatePickup(
  */
 export function removeExpiredItems(
   groundItems: ReadonlyArray<GroundItem>,
-  currentTick: number
+  currentTick: number,
 ): GroundItem[] {
   return groundItems.filter((item) => !hasItemDespawned(item, currentTick));
 }
@@ -445,7 +466,7 @@ export function removeExpiredItems(
  */
 export function updateItemVisibility(
   groundItems: ReadonlyArray<GroundItem>,
-  currentTick: number
+  currentTick: number,
 ): GroundItem[] {
   return groundItems.map((item) => {
     if (item.isPublic) return item;
@@ -466,7 +487,7 @@ export function updateItemVisibility(
  */
 export function addGroundItem(
   groundItems: ReadonlyArray<GroundItem>,
-  item: GroundItem
+  item: GroundItem,
 ): GroundItem[] {
   return [...groundItems, item];
 }
@@ -478,7 +499,7 @@ export function addGroundItem(
  */
 export function removeGroundItem(
   groundItems: ReadonlyArray<GroundItem>,
-  itemId: string
+  itemId: string,
 ): GroundItem[] {
   return groundItems.filter((item) => item.id !== itemId);
 }
@@ -488,7 +509,7 @@ export function removeGroundItem(
  */
 export function getClosestItem(
   groundItems: ReadonlyArray<GroundItem>,
-  position: Position3D
+  position: Position3D,
 ): GroundItem | undefined {
   if (groundItems.length === 0) return undefined;
 
@@ -511,7 +532,7 @@ export function getClosestItem(
  */
 export function sortByDistance(
   groundItems: ReadonlyArray<GroundItem>,
-  position: Position3D
+  position: Position3D,
 ): GroundItem[] {
   return [...groundItems].sort((a, b) => {
     const distA = calculateDistance2D(a.position, position);
@@ -524,7 +545,7 @@ export function sortByDistance(
  * Sort ground items by despawn time (soonest first)
  */
 export function sortByDespawnTime(
-  groundItems: ReadonlyArray<GroundItem>
+  groundItems: ReadonlyArray<GroundItem>,
 ): GroundItem[] {
   return [...groundItems].sort((a, b) => a.despawnAt - b.despawnAt);
 }

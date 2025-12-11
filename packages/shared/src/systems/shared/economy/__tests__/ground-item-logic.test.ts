@@ -23,10 +23,8 @@ import {
   canPickupItem,
   canDropItem,
   countItemsAtTile,
-  getItemsAtPosition,
   findGroundItem,
   getVisibleItems,
-  getItemsInRange,
   calculateDrop,
   calculatePickup,
   removeExpiredItems,
@@ -47,7 +45,7 @@ function createTestGroundItem(
   itemId: string = "coins",
   position: Position3D = { x: 10, y: 0, z: 10 },
   droppedAt: number = 1000,
-  droppedBy?: string
+  droppedBy?: string,
 ): GroundItem {
   return {
     id,
@@ -63,7 +61,11 @@ function createTestGroundItem(
   };
 }
 
-function createTestPosition(x: number = 10, y: number = 0, z: number = 10): Position3D {
+function createTestPosition(
+  x: number = 10,
+  y: number = 0,
+  z: number = 10,
+): Position3D {
   return { x, y, z };
 }
 
@@ -80,17 +82,25 @@ describe("validateDropRequest", () => {
   });
 
   it("throws for empty playerId", () => {
-    expect(() => validateDropRequest("", "coins", 100)).toThrow(ValidationError);
+    expect(() => validateDropRequest("", "coins", 100)).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for invalid quantity", () => {
-    expect(() => validateDropRequest("player-1", "coins", 0)).toThrow(ValidationError);
-    expect(() => validateDropRequest("player-1", "coins", -1)).toThrow(ValidationError);
+    expect(() => validateDropRequest("player-1", "coins", 0)).toThrow(
+      ValidationError,
+    );
+    expect(() => validateDropRequest("player-1", "coins", -1)).toThrow(
+      ValidationError,
+    );
   });
 
   it("validates position when provided", () => {
     const position = { x: 10, y: 0, z: 10 };
-    expect(() => validateDropRequest("player-1", "coins", 100, position)).not.toThrow();
+    expect(() =>
+      validateDropRequest("player-1", "coins", 100, position),
+    ).not.toThrow();
   });
 });
 
@@ -102,11 +112,15 @@ describe("validatePickupRequest", () => {
   });
 
   it("throws for empty playerId", () => {
-    expect(() => validatePickupRequest("", "ground_item_1")).toThrow(ValidationError);
+    expect(() => validatePickupRequest("", "ground_item_1")).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for empty groundItemId", () => {
-    expect(() => validatePickupRequest("player-1", "")).toThrow(ValidationError);
+    expect(() => validatePickupRequest("player-1", "")).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -116,17 +130,27 @@ describe("validatePosition", () => {
   });
 
   it("throws for non-object", () => {
-    expect(() => validatePosition(null as unknown as Position3D)).toThrow(ValidationError);
+    expect(() => validatePosition(null as unknown as Position3D)).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for invalid x coordinate", () => {
-    expect(() => validatePosition({ x: NaN, y: 0, z: 0 })).toThrow(ValidationError);
-    expect(() => validatePosition({ x: Infinity, y: 0, z: 0 })).toThrow(ValidationError);
+    expect(() => validatePosition({ x: NaN, y: 0, z: 0 })).toThrow(
+      ValidationError,
+    );
+    expect(() => validatePosition({ x: Infinity, y: 0, z: 0 })).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for position outside world bounds", () => {
-    expect(() => validatePosition({ x: 20000, y: 0, z: 0 })).toThrow(ValidationError);
-    expect(() => validatePosition({ x: 0, y: 0, z: -20000 })).toThrow(ValidationError);
+    expect(() => validatePosition({ x: 20000, y: 0, z: 0 })).toThrow(
+      ValidationError,
+    );
+    expect(() => validatePosition({ x: 0, y: 0, z: -20000 })).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -201,7 +225,7 @@ describe("createGroundItem", () => {
       1000,
       { x: 10, y: 0, z: 10 },
       "player-1",
-      5000
+      5000,
     );
 
     expect(item.itemId).toBe("coins");
@@ -219,7 +243,7 @@ describe("createGroundItem", () => {
       100,
       { x: 10, y: 0, z: 10 },
       undefined,
-      5000
+      5000,
     );
 
     expect(item.isPublic).toBe(true);
@@ -227,8 +251,22 @@ describe("createGroundItem", () => {
   });
 
   it("generates unique ID", () => {
-    const item1 = createGroundItem("coins", "Coins", 100, { x: 10, y: 0, z: 10 }, "p1", 1000);
-    const item2 = createGroundItem("coins", "Coins", 100, { x: 10, y: 0, z: 10 }, "p1", 1001);
+    const item1 = createGroundItem(
+      "coins",
+      "Coins",
+      100,
+      { x: 10, y: 0, z: 10 },
+      "p1",
+      1000,
+    );
+    const item2 = createGroundItem(
+      "coins",
+      "Coins",
+      100,
+      { x: 10, y: 0, z: 10 },
+      "p1",
+      1001,
+    );
     expect(item1.id).not.toBe(item2.id);
   });
 
@@ -247,35 +285,68 @@ describe("createGroundItem", () => {
 
 describe("hasItemDespawned", () => {
   it("returns false before despawn time", () => {
-    const item = createTestGroundItem("test", "coins", createTestPosition(), 1000);
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      createTestPosition(),
+      1000,
+    );
     expect(hasItemDespawned(item, 1100)).toBe(false);
   });
 
   it("returns true at despawn time", () => {
-    const item = createTestGroundItem("test", "coins", createTestPosition(), 1000);
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      createTestPosition(),
+      1000,
+    );
     expect(hasItemDespawned(item, item.despawnAt)).toBe(true);
   });
 
   it("returns true after despawn time", () => {
-    const item = createTestGroundItem("test", "coins", createTestPosition(), 1000);
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      createTestPosition(),
+      1000,
+    );
     expect(hasItemDespawned(item, item.despawnAt + 100)).toBe(true);
   });
 });
 
 describe("isItemPublic", () => {
   it("returns true for items dropped without owner", () => {
-    const item = createTestGroundItem("test", "coins", createTestPosition(), 1000, undefined);
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      createTestPosition(),
+      1000,
+      undefined,
+    );
     expect(isItemPublic(item, 1000)).toBe(true);
   });
 
   it("returns false for owned items before public delay", () => {
-    const item = createTestGroundItem("test", "coins", createTestPosition(), 1000, "player-1");
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      createTestPosition(),
+      1000,
+      "player-1",
+    );
     item.isPublic = false;
     expect(isItemPublic(item, 1050)).toBe(false);
   });
 
   it("returns true for owned items after public delay", () => {
-    const item = createTestGroundItem("test", "coins", createTestPosition(), 1000, "player-1");
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      createTestPosition(),
+      1000,
+      "player-1",
+    );
     item.isPublic = false;
     const publicTick = 1000 + GROUND_ITEM_CONSTANTS.PUBLIC_DELAY_TICKS;
     expect(isItemPublic(item, publicTick)).toBe(true);
@@ -288,37 +359,90 @@ describe("isItemPublic", () => {
 
 describe("canPickupItem", () => {
   it("allows pickup when in range and visible", () => {
-    const item = createTestGroundItem("test", "coins", { x: 10, y: 0, z: 10 }, 1000, "player-1");
-    const result = canPickupItem(item, "player-1", { x: 10, y: 0, z: 10 }, 1050);
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      { x: 10, y: 0, z: 10 },
+      1000,
+      "player-1",
+    );
+    const result = canPickupItem(
+      item,
+      "player-1",
+      { x: 10, y: 0, z: 10 },
+      1050,
+    );
     expect(result.canPickup).toBe(true);
   });
 
   it("rejects pickup for despawned items", () => {
-    const item = createTestGroundItem("test", "coins", { x: 10, y: 0, z: 10 }, 1000);
-    const result = canPickupItem(item, "player-1", { x: 10, y: 0, z: 10 }, item.despawnAt + 1);
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      { x: 10, y: 0, z: 10 },
+      1000,
+    );
+    const result = canPickupItem(
+      item,
+      "player-1",
+      { x: 10, y: 0, z: 10 },
+      item.despawnAt + 1,
+    );
     expect(result.canPickup).toBe(false);
     expect(result.reason).toBe("Item has despawned");
   });
 
   it("rejects pickup when out of range", () => {
-    const item = createTestGroundItem("test", "coins", { x: 10, y: 0, z: 10 }, 1000);
-    const result = canPickupItem(item, "player-1", { x: 100, y: 0, z: 100 }, 1050);
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      { x: 10, y: 0, z: 10 },
+      1000,
+    );
+    const result = canPickupItem(
+      item,
+      "player-1",
+      { x: 100, y: 0, z: 100 },
+      1050,
+    );
     expect(result.canPickup).toBe(false);
     expect(result.reason).toBe("Too far away");
   });
 
   it("rejects pickup for non-public items by non-owner", () => {
-    const item = createTestGroundItem("test", "coins", { x: 10, y: 0, z: 10 }, 1000, "player-1");
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      { x: 10, y: 0, z: 10 },
+      1000,
+      "player-1",
+    );
     item.isPublic = false;
-    const result = canPickupItem(item, "player-2", { x: 10, y: 0, z: 10 }, 1010);
+    const result = canPickupItem(
+      item,
+      "player-2",
+      { x: 10, y: 0, z: 10 },
+      1010,
+    );
     expect(result.canPickup).toBe(false);
     expect(result.reason).toBe("Item belongs to another player");
   });
 
   it("allows owner to pickup their item", () => {
-    const item = createTestGroundItem("test", "coins", { x: 10, y: 0, z: 10 }, 1000, "player-1");
+    const item = createTestGroundItem(
+      "test",
+      "coins",
+      { x: 10, y: 0, z: 10 },
+      1000,
+      "player-1",
+    );
     item.isPublic = false;
-    const result = canPickupItem(item, "player-1", { x: 10, y: 0, z: 10 }, 1010);
+    const result = canPickupItem(
+      item,
+      "player-1",
+      { x: 10, y: 0, z: 10 },
+      1010,
+    );
     expect(result.canPickup).toBe(true);
   });
 });
@@ -336,7 +460,9 @@ describe("canDropItem", () => {
   it("rejects drop when tile is full", () => {
     const items: GroundItem[] = [];
     for (let i = 0; i < GROUND_ITEM_CONSTANTS.MAX_ITEMS_PER_TILE; i++) {
-      items.push(createTestGroundItem(`item_${i}`, "coins", { x: 10.5, y: 0, z: 10.5 }));
+      items.push(
+        createTestGroundItem(`item_${i}`, "coins", { x: 10.5, y: 0, z: 10.5 }),
+      );
     }
     const result = canDropItem(items, { x: 10.5, y: 0, z: 10.5 });
     expect(result.canDrop).toBe(false);
@@ -346,7 +472,15 @@ describe("canDropItem", () => {
 
 describe("calculateDrop", () => {
   it("creates ground item on successful drop", () => {
-    const result = calculateDrop([], "coins", "Gold Coins", 100, { x: 10, y: 0, z: 10 }, "player-1", 1000);
+    const result = calculateDrop(
+      [],
+      "coins",
+      "Gold Coins",
+      100,
+      { x: 10, y: 0, z: 10 },
+      "player-1",
+      1000,
+    );
 
     expect(result.success).toBe(true);
     expect(result.groundItem).toBeDefined();
@@ -357,9 +491,19 @@ describe("calculateDrop", () => {
   it("returns error when tile is full", () => {
     const items: GroundItem[] = [];
     for (let i = 0; i < GROUND_ITEM_CONSTANTS.MAX_ITEMS_PER_TILE; i++) {
-      items.push(createTestGroundItem(`item_${i}`, "coins", { x: 10, y: 0, z: 10 }));
+      items.push(
+        createTestGroundItem(`item_${i}`, "coins", { x: 10, y: 0, z: 10 }),
+      );
     }
-    const result = calculateDrop(items, "coins", "Coins", 100, { x: 10, y: 0, z: 10 }, "player-1", 1000);
+    const result = calculateDrop(
+      items,
+      "coins",
+      "Coins",
+      100,
+      { x: 10, y: 0, z: 10 },
+      "player-1",
+      1000,
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Too many items");
@@ -372,8 +516,16 @@ describe("calculateDrop", () => {
 
 describe("calculatePickup", () => {
   it("returns success for valid pickup", () => {
-    const items = [createTestGroundItem("item_1", "coins", { x: 10, y: 0, z: 10 }, 1000)];
-    const result = calculatePickup(items, "item_1", "player-1", { x: 10, y: 0, z: 10 }, 1050);
+    const items = [
+      createTestGroundItem("item_1", "coins", { x: 10, y: 0, z: 10 }, 1000),
+    ];
+    const result = calculatePickup(
+      items,
+      "item_1",
+      "player-1",
+      { x: 10, y: 0, z: 10 },
+      1050,
+    );
 
     expect(result.success).toBe(true);
     expect(result.itemId).toBe("coins");
@@ -381,15 +533,29 @@ describe("calculatePickup", () => {
   });
 
   it("returns error for missing item", () => {
-    const result = calculatePickup([], "nonexistent", "player-1", { x: 10, y: 0, z: 10 }, 1000);
+    const result = calculatePickup(
+      [],
+      "nonexistent",
+      "player-1",
+      { x: 10, y: 0, z: 10 },
+      1000,
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("Item not found");
   });
 
   it("returns error for out-of-range pickup", () => {
-    const items = [createTestGroundItem("item_1", "coins", { x: 10, y: 0, z: 10 }, 1000)];
-    const result = calculatePickup(items, "item_1", "player-1", { x: 100, y: 0, z: 100 }, 1050);
+    const items = [
+      createTestGroundItem("item_1", "coins", { x: 10, y: 0, z: 10 }, 1000),
+    ];
+    const result = calculatePickup(
+      items,
+      "item_1",
+      "player-1",
+      { x: 100, y: 0, z: 100 },
+      1050,
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("Too far away");
@@ -440,27 +606,52 @@ describe("findGroundItem", () => {
 
 describe("getVisibleItems", () => {
   it("returns public items", () => {
-    const items = [createTestGroundItem("item_1", "coins", createTestPosition(), 1000, undefined)];
+    const items = [
+      createTestGroundItem(
+        "item_1",
+        "coins",
+        createTestPosition(),
+        1000,
+        undefined,
+      ),
+    ];
     const visible = getVisibleItems(items, "player-1", 1050);
     expect(visible.length).toBe(1);
   });
 
   it("returns owned items", () => {
-    const item = createTestGroundItem("item_1", "coins", createTestPosition(), 1000, "player-1");
+    const item = createTestGroundItem(
+      "item_1",
+      "coins",
+      createTestPosition(),
+      1000,
+      "player-1",
+    );
     item.isPublic = false;
     const visible = getVisibleItems([item], "player-1", 1010);
     expect(visible.length).toBe(1);
   });
 
   it("excludes other players private items", () => {
-    const item = createTestGroundItem("item_1", "coins", createTestPosition(), 1000, "player-1");
+    const item = createTestGroundItem(
+      "item_1",
+      "coins",
+      createTestPosition(),
+      1000,
+      "player-1",
+    );
     item.isPublic = false;
     const visible = getVisibleItems([item], "player-2", 1010);
     expect(visible.length).toBe(0);
   });
 
   it("excludes despawned items", () => {
-    const item = createTestGroundItem("item_1", "coins", createTestPosition(), 1000);
+    const item = createTestGroundItem(
+      "item_1",
+      "coins",
+      createTestPosition(),
+      1000,
+    );
     const visible = getVisibleItems([item], "player-1", item.despawnAt + 100);
     expect(visible.length).toBe(0);
   });
@@ -481,7 +672,9 @@ describe("removeExpiredItems", () => {
   });
 
   it("does not mutate original array", () => {
-    const items = [createTestGroundItem("item_1", "coins", createTestPosition(), 1000)];
+    const items = [
+      createTestGroundItem("item_1", "coins", createTestPosition(), 1000),
+    ];
     removeExpiredItems(items, items[0].despawnAt + 100);
     expect(items.length).toBe(1);
   });
@@ -489,7 +682,13 @@ describe("removeExpiredItems", () => {
 
 describe("updateItemVisibility", () => {
   it("updates non-public items after delay", () => {
-    const item = createTestGroundItem("item_1", "coins", createTestPosition(), 1000, "player-1");
+    const item = createTestGroundItem(
+      "item_1",
+      "coins",
+      createTestPosition(),
+      1000,
+      "player-1",
+    );
     item.isPublic = false;
 
     const publicTick = 1000 + GROUND_ITEM_CONSTANTS.PUBLIC_DELAY_TICKS;
@@ -499,13 +698,25 @@ describe("updateItemVisibility", () => {
   });
 
   it("does not affect already public items", () => {
-    const item = createTestGroundItem("item_1", "coins", createTestPosition(), 1000, undefined);
+    const item = createTestGroundItem(
+      "item_1",
+      "coins",
+      createTestPosition(),
+      1000,
+      undefined,
+    );
     const updated = updateItemVisibility([item], 1050);
     expect(updated[0].isPublic).toBe(true);
   });
 
   it("does not mutate original array", () => {
-    const item = createTestGroundItem("item_1", "coins", createTestPosition(), 1000, "player-1");
+    const item = createTestGroundItem(
+      "item_1",
+      "coins",
+      createTestPosition(),
+      1000,
+      "player-1",
+    );
     item.isPublic = false;
 
     const publicTick = 1000 + GROUND_ITEM_CONSTANTS.PUBLIC_DELAY_TICKS;
@@ -619,15 +830,34 @@ describe("sortByDespawnTime", () => {
 
 describe("edge cases", () => {
   it("handles items at position (0, 0, 0)", () => {
-    const item = createGroundItem("coins", "Coins", 100, { x: 0, y: 0, z: 0 }, "player-1", 1000);
+    const item = createGroundItem(
+      "coins",
+      "Coins",
+      100,
+      { x: 0, y: 0, z: 0 },
+      "player-1",
+      1000,
+    );
     expect(item.position.x).toBe(0);
   });
 
   it("handles negative coordinates", () => {
-    const item = createGroundItem("coins", "Coins", 100, { x: -50, y: 0, z: -50 }, "player-1", 1000);
+    const item = createGroundItem(
+      "coins",
+      "Coins",
+      100,
+      { x: -50, y: 0, z: -50 },
+      "player-1",
+      1000,
+    );
     expect(item.position.x).toBe(-50);
 
-    const result = canPickupItem(item, "player-1", { x: -50, y: 0, z: -50 }, 1050);
+    const result = canPickupItem(
+      item,
+      "player-1",
+      { x: -50, y: 0, z: -50 },
+      1050,
+    );
     expect(result.canPickup).toBe(true);
   });
 

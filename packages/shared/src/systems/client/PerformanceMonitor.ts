@@ -158,7 +158,9 @@ export class PerformanceMonitor extends System {
   private _checkIsDev(): boolean {
     // Vite injects import.meta.env at build time
     if (typeof import.meta !== "undefined" && import.meta.env) {
-      return import.meta.env.DEV === true || import.meta.env.MODE === "development";
+      return (
+        Boolean(import.meta.env.DEV) || import.meta.env.MODE === "development"
+      );
     }
     // Node.js / fallback
     if (typeof process !== "undefined" && process.env) {
@@ -316,7 +318,8 @@ export class PerformanceMonitor extends System {
     if (this._frameTimeHistory.length > 0) {
       const sorted = [...this._frameTimeHistory].sort((a, b) => b - a);
       const worstCount = Math.max(1, Math.floor(sorted.length * 0.01));
-      const worstAvg = sorted.slice(0, worstCount).reduce((a, b) => a + b, 0) / worstCount;
+      const worstAvg =
+        sorted.slice(0, worstCount).reduce((a, b) => a + b, 0) / worstCount;
       onePercentLow = Math.round(1000 / worstAvg);
     }
 
@@ -327,7 +330,9 @@ export class PerformanceMonitor extends System {
         name,
         duration,
         percentage:
-          this._totalFrameTime > 0 ? (duration / this._totalFrameTime) * 100 : 0,
+          this._totalFrameTime > 0
+            ? (duration / this._totalFrameTime) * 100
+            : 0,
       });
     }
 
@@ -462,7 +467,15 @@ export class PerformanceMonitor extends System {
     if (!graphics?.renderer) return null;
 
     const renderer = graphics.renderer;
-    const info = (renderer as { info?: { render?: { calls: number; triangles: number }; memory?: { textures: number; geometries: number }; programs?: unknown[] } }).info;
+    const info = (
+      renderer as {
+        info?: {
+          render?: { calls: number; triangles: number };
+          memory?: { textures: number; geometries: number };
+          programs?: unknown[];
+        };
+      }
+    ).info;
     if (!info) return null;
 
     return {
@@ -475,7 +488,7 @@ export class PerformanceMonitor extends System {
   }
 
   private _getPhysicsStats(): PerformanceSnapshot["physics"] {
-    const physics = this.world.physics as {
+    const physics = this.world.physics as unknown as {
       scene?: {
         getNbActors?: (type: number) => number;
         getNbShapes?: () => number;
@@ -483,7 +496,7 @@ export class PerformanceMonitor extends System {
       };
       controllers?: Map<string, unknown>;
     } | null;
-    
+
     if (!physics) return null;
 
     // Try to get PhysX scene statistics
@@ -515,12 +528,18 @@ export class PerformanceMonitor extends System {
   }
 
   private _getTerrainStats(): PerformanceSnapshot["terrain"] {
-    const terrain = this.world.getSystem?.("terrain") as {
-      terrainTiles?: Map<string, unknown>;
-      pendingTileKeys?: unknown[];
-      activeChunks?: Set<string>;
-      getStats?: () => { activeTiles: number; pendingTiles: number; visibleChunks: number };
-    } | undefined;
+    const terrain = this.world.getSystem?.("terrain") as
+      | {
+          terrainTiles?: Map<string, unknown>;
+          pendingTileKeys?: unknown[];
+          activeChunks?: Set<string>;
+          getStats?: () => {
+            activeTiles: number;
+            pendingTiles: number;
+            visibleChunks: number;
+          };
+        }
+      | undefined;
 
     if (!terrain) return null;
 
@@ -534,7 +553,9 @@ export class PerformanceMonitor extends System {
     const pendingTiles = terrain.pendingTileKeys?.length || 0;
     const visibleChunks = terrain.activeChunks?.size || 0;
 
-    return activeTiles > 0 || pendingTiles > 0 ? { activeTiles, pendingTiles, visibleChunks } : null;
+    return activeTiles > 0 || pendingTiles > 0
+      ? { activeTiles, pendingTiles, visibleChunks }
+      : null;
   }
 
   private _reset(): void {

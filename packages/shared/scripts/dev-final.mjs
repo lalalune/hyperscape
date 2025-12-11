@@ -9,6 +9,31 @@ const dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.join(dirname, '../')
 const buildDir = path.join(rootDir, 'build')
 
+const RECOMMENDED_INOTIFY_WATCHES = 524288
+
+/**
+ * Check inotify watcher limit on Linux
+ */
+function checkInotifyLimit() {
+  if (process.platform !== 'linux') return
+  
+  const inotifyPath = '/proc/sys/fs/inotify/max_user_watches'
+  if (!fs.existsSync(inotifyPath)) return
+  
+  const limit = parseInt(fs.readFileSync(inotifyPath, 'utf8').trim(), 10)
+  if (limit < RECOMMENDED_INOTIFY_WATCHES) {
+    console.warn('\n⚠️  Low inotify watcher limit detected!')
+    console.warn(`   Current: ${limit.toLocaleString()}`)
+    console.warn(`   Recommended: ${RECOMMENDED_INOTIFY_WATCHES.toLocaleString()}`)
+    console.warn('\n   This may cause "ENOSPC: System limit for number of file watchers reached" errors.')
+    console.warn('\n   To fix, run:')
+    console.warn('   sudo sysctl fs.inotify.max_user_watches=524288')
+    console.warn('\n   To make permanent:')
+    console.warn('   echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p')
+    console.warn('')
+  }
+}
+
 // Ensure build directory exists
 await fs.ensureDir(buildDir)
 
@@ -65,6 +90,7 @@ async function buildAll(contexts) {
  * Main Dev Process with Watch Mode
  */
 async function main() {
+  checkInotifyLimit()
   console.log('Starting @hyperscape/shared in watch mode...')
   
   // Create esbuild contexts for watch mode
@@ -165,11 +191,14 @@ async function main() {
   await Promise.all(contexts.map(ctx => ctx.watch()))
   
   // Also watch TypeScript files for type checking
+  // Use polling on Linux to avoid EINVAL errors with chokidar 4.x on newer kernels
   const watcher = chokidar.watch('src/**/*.{ts,tsx}', {
     ignored: /(^|[\/\\])\../,
     persistent: true,
     ignoreInitial: true,
-    cwd: rootDir
+    cwd: rootDir,
+    usePolling: process.platform === 'linux',
+    interval: 300,
   })
   
   let typecheckTimeout

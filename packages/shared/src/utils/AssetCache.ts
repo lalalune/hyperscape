@@ -178,7 +178,9 @@ export class AssetCache {
         // Apply options
         if (options?.wrapS) texture.wrapS = options.wrapS;
         if (options?.wrapT) texture.wrapT = options.wrapT;
-        if (options?.magFilter) texture.magFilter = options.magFilter;
+        if (options?.magFilter)
+          texture.magFilter =
+            options.magFilter as THREE.MagnificationTextureFilter;
         if (options?.minFilter) texture.minFilter = options.minFilter;
         if (options?.colorSpace) texture.colorSpace = options.colorSpace;
         if (options?.flipY !== undefined) texture.flipY = options.flipY;

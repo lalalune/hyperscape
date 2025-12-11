@@ -25,7 +25,7 @@ export class ValidationError extends Error {
   constructor(
     message: string,
     public readonly field: string,
-    public readonly value: unknown
+    public readonly value: unknown,
   ) {
     super(`${field}: ${message}`);
     this.name = "ValidationError";
@@ -48,7 +48,7 @@ function fail(field: string, message: string, value: unknown): never {
  */
 export function assertString(
   value: unknown,
-  field: string
+  field: string,
 ): asserts value is string {
   if (typeof value !== "string") {
     fail(field, `expected string, got ${typeof value}`, value);
@@ -60,7 +60,7 @@ export function assertString(
  */
 export function assertNonEmptyString(
   value: unknown,
-  field: string
+  field: string,
 ): asserts value is string {
   assertString(value, field);
   if (value.length === 0) {
@@ -73,7 +73,7 @@ export function assertNonEmptyString(
  */
 export function assertNumber(
   value: unknown,
-  field: string
+  field: string,
 ): asserts value is number {
   if (typeof value !== "number") {
     fail(field, `expected number, got ${typeof value}`, value);
@@ -88,7 +88,7 @@ export function assertNumber(
  */
 export function assertInteger(
   value: unknown,
-  field: string
+  field: string,
 ): asserts value is number {
   assertNumber(value, field);
   if (!Number.isInteger(value)) {
@@ -101,7 +101,7 @@ export function assertInteger(
  */
 export function assertPositiveInteger(
   value: unknown,
-  field: string
+  field: string,
 ): asserts value is number {
   assertInteger(value, field);
   if (value <= 0) {
@@ -114,7 +114,7 @@ export function assertPositiveInteger(
  */
 export function assertNonNegativeInteger(
   value: unknown,
-  field: string
+  field: string,
 ): asserts value is number {
   assertInteger(value, field);
   if (value < 0) {
@@ -127,7 +127,7 @@ export function assertNonNegativeInteger(
  */
 export function assertBoolean(
   value: unknown,
-  field: string
+  field: string,
 ): asserts value is boolean {
   if (typeof value !== "boolean") {
     fail(field, `expected boolean, got ${typeof value}`, value);
@@ -139,7 +139,7 @@ export function assertBoolean(
  */
 export function assertDefined<T>(
   value: T | null | undefined,
-  field: string
+  field: string,
 ): asserts value is T {
   if (value === null || value === undefined) {
     fail(field, `is required, got ${value}`, value);
@@ -151,10 +151,14 @@ export function assertDefined<T>(
  */
 export function assertObject(
   value: unknown,
-  field: string
+  field: string,
 ): asserts value is Record<string, unknown> {
   if (typeof value !== "object" || value === null) {
-    fail(field, `expected object, got ${value === null ? "null" : typeof value}`, value);
+    fail(
+      field,
+      `expected object, got ${value === null ? "null" : typeof value}`,
+      value,
+    );
   }
 }
 
@@ -163,7 +167,7 @@ export function assertObject(
  */
 export function assertArray(
   value: unknown,
-  field: string
+  field: string,
 ): asserts value is unknown[] {
   if (!Array.isArray(value)) {
     fail(field, `expected array, got ${typeof value}`, value);
@@ -182,7 +186,7 @@ export function assertArray(
  */
 export function assertPlayerId(
   value: unknown,
-  field: string = "playerId"
+  field: string = "playerId",
 ): asserts value is string {
   assertNonEmptyString(value, field);
 
@@ -204,7 +208,7 @@ export function assertPlayerId(
  */
 export function assertItemId(
   value: unknown,
-  field: string = "itemId"
+  field: string = "itemId",
 ): asserts value is string {
   assertNonEmptyString(value, field);
 
@@ -223,7 +227,7 @@ export function assertItemId(
  */
 export function assertEntityId(
   value: unknown,
-  field: string = "entityId"
+  field: string = "entityId",
 ): asserts value is string {
   assertNonEmptyString(value, field);
 
@@ -242,7 +246,7 @@ export function assertEntityId(
  */
 export function assertSlotIndex(
   value: unknown,
-  field: string = "slot"
+  field: string = "slot",
 ): asserts value is number {
   assertInteger(value, field);
 
@@ -250,7 +254,7 @@ export function assertSlotIndex(
     fail(
       field,
       `must be in range [0, ${INPUT_LIMITS.MAX_INVENTORY_SLOTS})`,
-      value
+      value,
     );
   }
 }
@@ -260,7 +264,7 @@ export function assertSlotIndex(
  */
 export function assertQuantity(
   value: unknown,
-  field: string = "quantity"
+  field: string = "quantity",
 ): asserts value is number {
   assertInteger(value, field);
 
@@ -278,7 +282,7 @@ export function assertQuantity(
  */
 export function assertPosition(
   value: unknown,
-  field: string = "position"
+  field: string = "position",
 ): asserts value is { x: number; y: number; z: number } {
   assertObject(value, field);
 
@@ -301,7 +305,7 @@ export function assertPosition(
  */
 export function assertPosition2D(
   value: unknown,
-  field: string = "position"
+  field: string = "position",
 ): asserts value is { x: number; z: number } {
   assertObject(value, field);
 
@@ -317,7 +321,7 @@ export type AttackTypeName = "melee" | "ranged" | "magic";
 
 export function assertAttackType(
   value: unknown,
-  field: string = "attackType"
+  field: string = "attackType",
 ): asserts value is AttackTypeName {
   assertString(value, field);
 
@@ -345,7 +349,7 @@ export type EquipmentSlotName =
 
 export function assertEquipmentSlot(
   value: unknown,
-  field: string = "slot"
+  field: string = "slot",
 ): asserts value is EquipmentSlotName {
   assertString(value, field);
 
@@ -375,7 +379,7 @@ export type SessionTypeName = "store" | "bank" | "dialogue";
 
 export function assertSessionType(
   value: unknown,
-  field: string = "sessionType"
+  field: string = "sessionType",
 ): asserts value is SessionTypeName {
   assertString(value, field);
 
@@ -390,7 +394,7 @@ export function assertSessionType(
  */
 export function assertTick(
   value: unknown,
-  field: string = "tick"
+  field: string = "tick",
 ): asserts value is number {
   assertNonNegativeInteger(value, field);
 }
@@ -401,7 +405,7 @@ export function assertTick(
 export function assertHealth(
   value: unknown,
   maxHealth: number,
-  field: string = "health"
+  field: string = "health",
 ): asserts value is number {
   assertNonNegativeInteger(value, field);
 
@@ -415,7 +419,7 @@ export function assertHealth(
  */
 export function assertDamage(
   value: unknown,
-  field: string = "damage"
+  field: string = "damage",
 ): asserts value is number {
   assertNonNegativeInteger(value, field);
 }
@@ -435,7 +439,7 @@ export interface MoveItemInput {
 
 export function assertMoveItemInput(
   value: unknown,
-  field: string = "moveItem"
+  field: string = "moveItem",
 ): asserts value is MoveItemInput {
   assertObject(value, field);
 
@@ -450,8 +454,8 @@ export function assertMoveItemInput(
   assertSlotIndex(toSlot, `${field}.toSlot`);
 
   // Normalize to standard property names
-  (input as MoveItemInput).fromSlot = fromSlot as number;
-  (input as MoveItemInput).toSlot = toSlot as number;
+  (input as unknown as MoveItemInput).fromSlot = fromSlot as number;
+  (input as unknown as MoveItemInput).toSlot = toSlot as number;
 }
 
 /**
@@ -465,7 +469,7 @@ export interface PickupItemInput {
 
 export function assertPickupItemInput(
   value: unknown,
-  field: string = "pickupItem"
+  field: string = "pickupItem",
 ): asserts value is PickupItemInput {
   assertObject(value, field);
 
@@ -490,7 +494,7 @@ export interface DropItemInput {
 
 export function assertDropItemInput(
   value: unknown,
-  field: string = "dropItem"
+  field: string = "dropItem",
 ): asserts value is DropItemInput {
   assertObject(value, field);
 
@@ -515,7 +519,7 @@ export interface AttackInput {
 
 export function assertAttackInput(
   value: unknown,
-  field: string = "attack"
+  field: string = "attack",
 ): asserts value is AttackInput {
   assertObject(value, field);
 
@@ -540,7 +544,7 @@ export interface BankOperationInput {
 
 export function assertBankOperationInput(
   value: unknown,
-  field: string = "bankOperation"
+  field: string = "bankOperation",
 ): asserts value is BankOperationInput {
   assertObject(value, field);
 
@@ -566,7 +570,7 @@ export interface TradeInput {
 
 export function assertTradeInput(
   value: unknown,
-  field: string = "trade"
+  field: string = "trade",
 ): asserts value is TradeInput {
   assertObject(value, field);
 

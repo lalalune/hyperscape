@@ -25,12 +25,18 @@ let validators: {
   isValidBankSlot: (value: unknown) => value is number;
   isValidEntityId: (value: unknown) => value is string;
   wouldOverflow: (current: number, add: number) => boolean;
-  validateRequestTimestamp: (timestamp: unknown, serverTime?: number) => { valid: boolean; reason?: string };
+  validateRequestTimestamp: (
+    timestamp: unknown,
+    serverTime?: number,
+  ) => { valid: boolean; reason?: string };
   CONTROL_CHAR_REGEX: RegExp;
 };
 
 let rateLimitModule: {
-  createRateLimiter: (config: { maxPerSecond: number; name: string }) => RateLimiter;
+  createRateLimiter: (config: {
+    maxPerSecond: number;
+    name: string;
+  }) => RateLimiter;
 };
 
 let intervalRateLimitModule: {
@@ -54,9 +60,12 @@ interface RateLimiter {
 let canRunTests = true;
 
 try {
-  validators = await import("../systems/ServerNetwork/services/InputValidation");
-  rateLimitModule = await import("../systems/ServerNetwork/services/SlidingWindowRateLimiter");
-  intervalRateLimitModule = await import("../systems/ServerNetwork/services/IntervalRateLimiter");
+  validators =
+    await import("../systems/ServerNetwork/services/InputValidation");
+  rateLimitModule =
+    await import("../systems/ServerNetwork/services/SlidingWindowRateLimiter");
+  intervalRateLimitModule =
+    await import("../systems/ServerNetwork/services/IntervalRateLimiter");
   // Quick sanity check
   validators.isValidItemId("test");
 } catch {
@@ -76,15 +85,22 @@ describe.skipIf(!canRunTests)("Speed Hacking Prevention", () => {
       const TICK_DURATION_MS = 600;
 
       // Calculate max movement per second
-      const maxWalkTilesPerSecond = (TILES_PER_TICK_WALK * 1000) / TICK_DURATION_MS;
-      const maxRunTilesPerSecond = (TILES_PER_TICK_RUN * 1000) / TICK_DURATION_MS;
+      const maxWalkTilesPerSecond =
+        (TILES_PER_TICK_WALK * 1000) / TICK_DURATION_MS;
+      const maxRunTilesPerSecond =
+        (TILES_PER_TICK_RUN * 1000) / TICK_DURATION_MS;
 
       // Attempted hack: 10x normal speed
       const hackedSpeed = maxRunTilesPerSecond * 10;
 
       // Validation function
-      function validateMovementSpeed(tilesPerSecond: number, isRunning: boolean): boolean {
-        const maxSpeed = isRunning ? maxRunTilesPerSecond : maxWalkTilesPerSecond;
+      function validateMovementSpeed(
+        tilesPerSecond: number,
+        isRunning: boolean,
+      ): boolean {
+        const maxSpeed = isRunning
+          ? maxRunTilesPerSecond
+          : maxWalkTilesPerSecond;
         // Allow 10% tolerance for network jitter
         return tilesPerSecond <= maxSpeed * 1.1;
       }
@@ -133,7 +149,11 @@ describe.skipIf(!canRunTests)("Speed Hacking Prevention", () => {
       ).toEqual({ valid: true });
 
       // Speed hack attempt (50 tiles in 600ms)
-      const result = validatePositionChange({ x: 0, z: 0 }, { x: 50, z: 0 }, 600);
+      const result = validatePositionChange(
+        { x: 0, z: 0 },
+        { x: 50, z: 0 },
+        600,
+      );
       expect(result.valid).toBe(false);
       expect(result.reason).toContain("Moved 50.00 tiles");
     });
@@ -205,24 +225,37 @@ describe.skipIf(!canRunTests)("Combat Exploit Prevention", () => {
     }
 
     it("should reject melee attacks beyond 2 tiles", () => {
-      expect(isInAttackRange({ x: 0, z: 0 }, { x: 1, z: 0 }, "melee")).toBe(true);
-      expect(isInAttackRange({ x: 0, z: 0 }, { x: 2, z: 0 }, "melee")).toBe(true);
-      expect(isInAttackRange({ x: 0, z: 0 }, { x: 5, z: 0 }, "melee")).toBe(false);
-      expect(isInAttackRange({ x: 0, z: 0 }, { x: 100, z: 0 }, "melee")).toBe(false);
+      expect(isInAttackRange({ x: 0, z: 0 }, { x: 1, z: 0 }, "melee")).toBe(
+        true,
+      );
+      expect(isInAttackRange({ x: 0, z: 0 }, { x: 2, z: 0 }, "melee")).toBe(
+        true,
+      );
+      expect(isInAttackRange({ x: 0, z: 0 }, { x: 5, z: 0 }, "melee")).toBe(
+        false,
+      );
+      expect(isInAttackRange({ x: 0, z: 0 }, { x: 100, z: 0 }, "melee")).toBe(
+        false,
+      );
     });
 
     it("should reject ranged attacks beyond 10 tiles", () => {
-      expect(isInAttackRange({ x: 0, z: 0 }, { x: 5, z: 0 }, "ranged")).toBe(true);
-      expect(isInAttackRange({ x: 0, z: 0 }, { x: 10, z: 0 }, "ranged")).toBe(true);
-      expect(isInAttackRange({ x: 0, z: 0 }, { x: 15, z: 0 }, "ranged")).toBe(false);
-      expect(isInAttackRange({ x: 0, z: 0 }, { x: 100, z: 0 }, "ranged")).toBe(false);
+      expect(isInAttackRange({ x: 0, z: 0 }, { x: 5, z: 0 }, "ranged")).toBe(
+        true,
+      );
+      expect(isInAttackRange({ x: 0, z: 0 }, { x: 10, z: 0 }, "ranged")).toBe(
+        true,
+      );
+      expect(isInAttackRange({ x: 0, z: 0 }, { x: 15, z: 0 }, "ranged")).toBe(
+        false,
+      );
+      expect(isInAttackRange({ x: 0, z: 0 }, { x: 100, z: 0 }, "ranged")).toBe(
+        false,
+      );
     });
   });
 
   describe("Attack cooldown bypass prevention", () => {
-    const DEFAULT_ATTACK_SPEED_TICKS = 4;
-    const TICK_DURATION_MS = 600;
-
     it("should enforce tick-based attack cooldowns", () => {
       function isAttackOnCooldown(
         currentTick: number,
@@ -296,7 +329,9 @@ describe.skipIf(!canRunTests)("Combat Exploit Prevention", () => {
         valid: false,
         reason: "Target is already dead",
       });
-      expect(canAttackTarget({ id: "mob1", health: 50, isDead: false })).toEqual({
+      expect(
+        canAttackTarget({ id: "mob1", health: 50, isDead: false }),
+      ).toEqual({
         valid: true,
       });
     });
@@ -330,7 +365,6 @@ describe.skipIf(!canRunTests)("Item Duplication Prevention", () => {
     it("should prevent simultaneous pickup of same item", async () => {
       const pickupLocks = new Set<string>();
       const pickedUpItems = new Set<string>();
-      const results: boolean[] = [];
 
       async function attemptPickup(
         playerId: string,
@@ -379,7 +413,10 @@ describe.skipIf(!canRunTests)("Item Duplication Prevention", () => {
         const now = Date.now();
         const existingTimestamp = processedRequests.get(key);
 
-        if (existingTimestamp && now - existingTimestamp < IDEMPOTENCY_WINDOW_MS) {
+        if (
+          existingTimestamp &&
+          now - existingTimestamp < IDEMPOTENCY_WINDOW_MS
+        ) {
           return false; // Duplicate within window
         }
 
@@ -513,9 +550,9 @@ describe.skipIf(!canRunTests)("Banking Distance Validation", () => {
     });
 
     // Server-known position correctly rejects (the fix)
-    expect(
-      validateBankDistance(actualServerPosition, bankPosition).valid,
-    ).toBe(false);
+    expect(validateBankDistance(actualServerPosition, bankPosition).valid).toBe(
+      false,
+    );
   });
 });
 
@@ -719,10 +756,14 @@ describe.skipIf(!canRunTests)("Replay Attack Prevention", () => {
     expect(validators.validateRequestTimestamp(now).valid).toBe(true);
 
     // 1 second ago - valid (within 5 second window)
-    expect(validators.validateRequestTimestamp(now - 1000, now).valid).toBe(true);
+    expect(validators.validateRequestTimestamp(now - 1000, now).valid).toBe(
+      true,
+    );
 
     // 4 seconds ago - still valid (within 5 second window)
-    expect(validators.validateRequestTimestamp(now - 4000, now).valid).toBe(true);
+    expect(validators.validateRequestTimestamp(now - 4000, now).valid).toBe(
+      true,
+    );
 
     // 10 seconds ago - invalid (exceeds 5 second MAX_REQUEST_AGE_MS)
     const tenSecondsAgo = now - 10000;
@@ -876,19 +917,28 @@ describe.skipIf(!canRunTests)("Equipment Validation", () => {
 
     // Check level requirements
     if (item.requirements) {
-      if (item.requirements.attack && playerStats.attack < item.requirements.attack) {
+      if (
+        item.requirements.attack &&
+        playerStats.attack < item.requirements.attack
+      ) {
         return {
           valid: false,
           reason: `Requires ${item.requirements.attack} Attack`,
         };
       }
-      if (item.requirements.strength && playerStats.strength < item.requirements.strength) {
+      if (
+        item.requirements.strength &&
+        playerStats.strength < item.requirements.strength
+      ) {
         return {
           valid: false,
           reason: `Requires ${item.requirements.strength} Strength`,
         };
       }
-      if (item.requirements.defense && playerStats.defense < item.requirements.defense) {
+      if (
+        item.requirements.defense &&
+        playerStats.defense < item.requirements.defense
+      ) {
         return {
           valid: false,
           reason: `Requires ${item.requirements.defense} Defense`,

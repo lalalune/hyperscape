@@ -5,7 +5,7 @@
  * Eliminates `unknown` from event handlers.
  */
 
-import type THREE from "three";
+import type * as THREE from "three";
 import type { Skills, Position3D, Item } from "./core";
 import type { Entity } from "../entities/Entity";
 import type { Player } from "./core";

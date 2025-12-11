@@ -35,10 +35,17 @@ const INTERACTION_TIMEOUT = 30000;
 async function waitForWorldReady(page: Page): Promise<void> {
   await page.waitForFunction(
     () => {
-      const w = (window as unknown as { world?: { entities?: { player?: { id?: string } }; network?: { connected?: boolean } } }).world;
+      const w = (
+        window as unknown as {
+          world?: {
+            entities?: { player?: { id?: string } };
+            network?: { connected?: boolean };
+          };
+        }
+      ).world;
       return w?.entities?.player?.id && w?.network?.connected !== false;
     },
-    { timeout: LOAD_TIMEOUT }
+    { timeout: LOAD_TIMEOUT },
   );
 }
 
@@ -54,21 +61,23 @@ async function getPlayerState(page: Page): Promise<{
   inventoryCount: number;
 }> {
   return page.evaluate(() => {
-    const w = (window as unknown as {
-      world?: {
-        entities?: {
-          player?: {
-            id?: string;
-            position?: { x: number; y: number; z: number };
+    const w = (
+      window as unknown as {
+        world?: {
+          entities?: {
+            player?: {
+              id?: string;
+              position?: { x: number; y: number; z: number };
+            };
           };
+          getSystem?: (name: string) => {
+            getPlayerHealth?: (id: string) => { current: number; max: number };
+            getCoins?: (id: string) => number;
+            getItemCount?: (id: string) => number;
+          } | null;
         };
-        getSystem?: (name: string) => {
-          getPlayerHealth?: (id: string) => { current: number; max: number };
-          getCoins?: (id: string) => number;
-          getItemCount?: (id: string) => number;
-        } | null;
-      };
-    }).world;
+      }
+    ).world;
 
     const player = w?.entities?.player;
     if (!player?.id) {
@@ -86,7 +95,10 @@ async function getPlayerState(page: Page): Promise<{
     const inventorySystem = w?.getSystem?.("inventory");
     const coinSystem = w?.getSystem?.("coin-pouch");
 
-    const health = healthSystem?.getPlayerHealth?.(player.id) ?? { current: 100, max: 100 };
+    const health = healthSystem?.getPlayerHealth?.(player.id) ?? {
+      current: 100,
+      max: 100,
+    };
 
     return {
       id: player.id,
@@ -105,16 +117,20 @@ async function getPlayerState(page: Page): Promise<{
 async function sendGameCommand(
   page: Page,
   command: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): Promise<void> {
   await page.evaluate(
     ({ cmd, payload }) => {
-      const w = (window as unknown as {
-        world?: { network?: { send?: (name: string, data: unknown) => void } };
-      }).world;
+      const w = (
+        window as unknown as {
+          world?: {
+            network?: { send?: (name: string, data: unknown) => void };
+          };
+        }
+      ).world;
       w?.network?.send?.(cmd, payload);
     },
-    { cmd: command, payload: data }
+    { cmd: command, payload: data },
   );
 }
 
@@ -124,7 +140,7 @@ async function sendGameCommand(
 async function waitForTestId(
   page: Page,
   testId: string,
-  timeout: number = INTERACTION_TIMEOUT
+  timeout: number = INTERACTION_TIMEOUT,
 ): Promise<void> {
   await page.locator(`[data-testid="${testId}"]`).waitFor({ timeout });
 }
@@ -142,7 +158,7 @@ async function clickTestId(page: Page, testId: string): Promise<void> {
 async function typeInTestId(
   page: Page,
   testId: string,
-  text: string
+  text: string,
 ): Promise<void> {
   await page.locator(`[data-testid="${testId}"]`).fill(text);
 }
@@ -157,7 +173,9 @@ test.describe("Authentication & Login", () => {
     await page.waitForLoadState("networkidle");
 
     // Check for main game container
-    const gameContainer = page.locator("#root, #app, [data-testid='game-container']").first();
+    const gameContainer = page
+      .locator("#root, #app, [data-testid='game-container']")
+      .first();
     await expect(gameContainer).toBeVisible({ timeout: LOAD_TIMEOUT });
   });
 
@@ -167,11 +185,22 @@ test.describe("Authentication & Login", () => {
     await page.waitForTimeout(3000);
 
     // Check for connect wallet button OR character selection (if already logged in)
-    const connectBtn = page.locator("button").filter({ hasText: /connect|wallet|login/i }).first();
-    const characterSelect = page.locator('[data-testid="character-select"], [data-testid="character-list"]').first();
+    const connectBtn = page
+      .locator("button")
+      .filter({ hasText: /connect|wallet|login/i })
+      .first();
+    const characterSelect = page
+      .locator(
+        '[data-testid="character-select"], [data-testid="character-list"]',
+      )
+      .first();
 
-    const hasConnect = await connectBtn.isVisible({ timeout: 5000 }).catch(() => false);
-    const hasCharacterSelect = await characterSelect.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasConnect = await connectBtn
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+    const hasCharacterSelect = await characterSelect
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     expect(hasConnect || hasCharacterSelect).toBe(true);
   });
@@ -200,14 +229,23 @@ test.describe("Character Management", () => {
     await page.waitForTimeout(3000);
 
     // Look for character creation elements
-    const createBtn = page.locator("button").filter({ hasText: /create|new character/i }).first();
-    const hasCreate = await createBtn.isVisible({ timeout: 5000 }).catch(() => false);
+    const createBtn = page
+      .locator("button")
+      .filter({ hasText: /create|new character/i })
+      .first();
+    const hasCreate = await createBtn
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     if (hasCreate) {
       await createBtn.click();
 
       // Should show name input
-      const nameInput = page.locator('input[placeholder*="name" i], [data-testid="character-name-input"]').first();
+      const nameInput = page
+        .locator(
+          'input[placeholder*="name" i], [data-testid="character-name-input"]',
+        )
+        .first();
       await expect(nameInput).toBeVisible({ timeout: 5000 });
     }
   });
@@ -239,14 +277,18 @@ test.describe("Combat System", () => {
 
     expect(playerState.health.max).toBeGreaterThan(0);
     expect(playerState.health.current).toBeGreaterThanOrEqual(0);
-    expect(playerState.health.current).toBeLessThanOrEqual(playerState.health.max);
+    expect(playerState.health.current).toBeLessThanOrEqual(
+      playerState.health.max,
+    );
   });
 
   test("should have combat system available", async ({ page }) => {
     const hasCombatSystem = await page.evaluate(() => {
-      const w = (window as unknown as {
-        world?: { getSystem?: (name: string) => unknown };
-      }).world;
+      const w = (
+        window as unknown as {
+          world?: { getSystem?: (name: string) => unknown };
+        }
+      ).world;
       return !!w?.getSystem?.("combat");
     });
 
@@ -255,8 +297,12 @@ test.describe("Combat System", () => {
 
   test("should show health bar UI", async ({ page }) => {
     // Health bar should be visible
-    const healthBar = page.locator('[data-testid="health-bar"], .health-bar, [class*="health"]').first();
-    const hasHealthUI = await healthBar.isVisible({ timeout: 5000 }).catch(() => false);
+    const healthBar = page
+      .locator('[data-testid="health-bar"], .health-bar, [class*="health"]')
+      .first();
+    const hasHealthUI = await healthBar
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     // Either health bar exists or we're in a minimal UI mode
     expect(hasHealthUI || true).toBe(true); // Soft check - UI may vary
@@ -265,9 +311,15 @@ test.describe("Combat System", () => {
   test("should allow attack input", async ({ page }) => {
     // Find a mob to attack (if any exist)
     const mobs = await page.evaluate(() => {
-      const w = (window as unknown as {
-        world?: { getSystem?: (name: string) => { getAllMobs?: () => Array<{ id: string }> } | null };
-      }).world;
+      const w = (
+        window as unknown as {
+          world?: {
+            getSystem?: (
+              name: string,
+            ) => { getAllMobs?: () => Array<{ id: string }> } | null;
+          };
+        }
+      ).world;
       const mobSystem = w?.getSystem?.("mob-npc");
       return mobSystem?.getAllMobs?.() ?? [];
     });
@@ -297,9 +349,11 @@ test.describe("Resource Collection", () => {
 
   test("should have resource system available", async ({ page }) => {
     const hasResourceSystem = await page.evaluate(() => {
-      const w = (window as unknown as {
-        world?: { getSystem?: (name: string) => unknown };
-      }).world;
+      const w = (
+        window as unknown as {
+          world?: { getSystem?: (name: string) => unknown };
+        }
+      ).world;
       return !!w?.getSystem?.("resource");
     });
 
@@ -309,9 +363,13 @@ test.describe("Resource Collection", () => {
 
   test("should be able to send gather request", async ({ page }) => {
     const canSendGather = await page.evaluate(() => {
-      const w = (window as unknown as {
-        world?: { network?: { send?: (name: string, data: unknown) => void } };
-      }).world;
+      const w = (
+        window as unknown as {
+          world?: {
+            network?: { send?: (name: string, data: unknown) => void };
+          };
+        }
+      ).world;
       return typeof w?.network?.send === "function";
     });
 
@@ -343,9 +401,11 @@ test.describe("Banking & Economy", () => {
 
   test("should have inventory system", async ({ page }) => {
     const hasInventory = await page.evaluate(() => {
-      const w = (window as unknown as {
-        world?: { getSystem?: (name: string) => unknown };
-      }).world;
+      const w = (
+        window as unknown as {
+          world?: { getSystem?: (name: string) => unknown };
+        }
+      ).world;
       return !!w?.getSystem?.("inventory");
     });
 
@@ -357,15 +417,19 @@ test.describe("Banking & Economy", () => {
     await page.waitForTimeout(1000);
 
     // Look for inventory slots
-    const inventorySlots = await page.locator('[data-testid^="inventory-slot"]').count();
+    const inventorySlots = await page
+      .locator('[data-testid^="inventory-slot"]')
+      .count();
     expect(inventorySlots).toBeGreaterThanOrEqual(0);
   });
 
   test("should have banking system", async ({ page }) => {
     const hasBanking = await page.evaluate(() => {
-      const w = (window as unknown as {
-        world?: { getSystem?: (name: string) => unknown };
-      }).world;
+      const w = (
+        window as unknown as {
+          world?: { getSystem?: (name: string) => unknown };
+        }
+      ).world;
       return !!w?.getSystem?.("banking");
     });
 
@@ -375,12 +439,16 @@ test.describe("Banking & Economy", () => {
 
   test("should track coins properly", async ({ page }) => {
     const initialCoins = await page.evaluate(() => {
-      const w = (window as unknown as {
-        world?: {
-          entities?: { player?: { id?: string } };
-          getSystem?: (name: string) => { getCoins?: (id: string) => number } | null;
-        };
-      }).world;
+      const w = (
+        window as unknown as {
+          world?: {
+            entities?: { player?: { id?: string } };
+            getSystem?: (
+              name: string,
+            ) => { getCoins?: (id: string) => number } | null;
+          };
+        }
+      ).world;
       const playerId = w?.entities?.player?.id;
       if (!playerId) return 0;
       return w?.getSystem?.("coin-pouch")?.getCoins?.(playerId) ?? 0;
@@ -404,9 +472,11 @@ test.describe("Trading System", () => {
 
   test("should have trade system available", async ({ page }) => {
     const hasTradeSystem = await page.evaluate(() => {
-      const w = (window as unknown as {
-        world?: { getSystem?: (name: string) => unknown };
-      }).world;
+      const w = (
+        window as unknown as {
+          world?: { getSystem?: (name: string) => unknown };
+        }
+      ).world;
       return !!w?.getSystem?.("trade");
     });
 
@@ -416,7 +486,9 @@ test.describe("Trading System", () => {
 
   test("should be able to send trade request", async ({ page }) => {
     // Try sending trade request (will fail without valid target, but shouldn't crash)
-    await sendGameCommand(page, "tradeRequest", { targetPlayerId: "nonexistent" });
+    await sendGameCommand(page, "tradeRequest", {
+      targetPlayerId: "nonexistent",
+    });
     await page.waitForTimeout(500);
 
     const playerState = await getPlayerState(page);
@@ -437,9 +509,11 @@ test.describe("Death & Respawn", () => {
 
   test("should have death system", async ({ page }) => {
     const hasDeathSystem = await page.evaluate(() => {
-      const w = (window as unknown as {
-        world?: { getSystem?: (name: string) => unknown };
-      }).world;
+      const w = (
+        window as unknown as {
+          world?: { getSystem?: (name: string) => unknown };
+        }
+      ).world;
       return !!w?.getSystem?.("death") || !!w?.getSystem?.("player-death");
     });
 
@@ -452,11 +526,15 @@ test.describe("Death & Respawn", () => {
     await page.waitForTimeout(500);
 
     const debugPanel = page.locator('[data-testid="debug-economy-panel"]');
-    const hasDebug = await debugPanel.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasDebug = await debugPanel
+      .isVisible({ timeout: 2000 })
+      .catch(() => false);
 
     if (hasDebug) {
       const deathBtn = page.locator('[data-testid="debug-trigger-death"]');
-      const hasDeathBtn = await deathBtn.isVisible({ timeout: 2000 }).catch(() => false);
+      const hasDeathBtn = await deathBtn
+        .isVisible({ timeout: 2000 })
+        .catch(() => false);
 
       if (hasDeathBtn) {
         const stateBefore = await getPlayerState(page);
@@ -464,8 +542,12 @@ test.describe("Death & Respawn", () => {
         await page.waitForTimeout(3000);
 
         // After death, player should respawn or show death screen
-        const deathScreen = page.locator('[data-testid="death-screen"]').first();
-        const hasDeathScreen = await deathScreen.isVisible({ timeout: 5000 }).catch(() => false);
+        const deathScreen = page
+          .locator('[data-testid="death-screen"]')
+          .first();
+        const hasDeathScreen = await deathScreen
+          .isVisible({ timeout: 5000 })
+          .catch(() => false);
 
         // Either death screen shows or player auto-respawned
         expect(hasDeathScreen || true).toBe(true);
@@ -491,7 +573,9 @@ test.describe("UI Interactions", () => {
     await page.waitForTimeout(500);
 
     const chatInput = page.locator('input[type="text"]').first();
-    const hasChatInput = await chatInput.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasChatInput = await chatInput
+      .isVisible({ timeout: 2000 })
+      .catch(() => false);
 
     if (hasChatInput) {
       await chatInput.fill("Hello World!");
@@ -506,14 +590,18 @@ test.describe("UI Interactions", () => {
     await page.waitForTimeout(500);
 
     let debugPanel = page.locator('[data-testid="debug-economy-panel"]');
-    const isVisibleAfterToggle = await debugPanel.isVisible({ timeout: 2000 }).catch(() => false);
+    const isVisibleAfterToggle = await debugPanel
+      .isVisible({ timeout: 2000 })
+      .catch(() => false);
 
     if (isVisibleAfterToggle) {
       // Toggle off
       await page.keyboard.press("F9");
       await page.waitForTimeout(500);
 
-      const isHiddenAfterToggle = !(await debugPanel.isVisible({ timeout: 1000 }).catch(() => true));
+      const isHiddenAfterToggle = !(await debugPanel
+        .isVisible({ timeout: 1000 })
+        .catch(() => true));
       expect(isHiddenAfterToggle || isVisibleAfterToggle).toBe(true);
     }
   });
@@ -548,27 +636,30 @@ test.describe("Performance", () => {
     await waitForWorldReady(page);
 
     const frameStats = await page.evaluate(() => {
-      return new Promise<{ frameCount: number; avgFrameTime: number }>((resolve) => {
-        const frameTimes: number[] = [];
-        let lastTime = performance.now();
-        let count = 0;
+      return new Promise<{ frameCount: number; avgFrameTime: number }>(
+        (resolve) => {
+          const frameTimes: number[] = [];
+          let lastTime = performance.now();
+          let count = 0;
 
-        const measure = () => {
-          const now = performance.now();
-          frameTimes.push(now - lastTime);
-          lastTime = now;
-          count++;
+          const measure = () => {
+            const now = performance.now();
+            frameTimes.push(now - lastTime);
+            lastTime = now;
+            count++;
 
-          if (count < 60) {
-            requestAnimationFrame(measure);
-          } else {
-            const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-            resolve({ frameCount: count, avgFrameTime: avg });
-          }
-        };
+            if (count < 60) {
+              requestAnimationFrame(measure);
+            } else {
+              const avg =
+                frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+              resolve({ frameCount: count, avgFrameTime: avg });
+            }
+          };
 
-        requestAnimationFrame(measure);
-      });
+          requestAnimationFrame(measure);
+        },
+      );
     });
 
     const fps = 1000 / frameStats.avgFrameTime;
@@ -610,14 +701,16 @@ test.describe("Network Resilience", () => {
     await waitForWorldReady(page);
 
     const networkStatus = await page.evaluate(() => {
-      const w = (window as unknown as {
-        world?: {
-          network?: {
-            connected?: boolean;
-            socket?: { readyState?: number };
+      const w = (
+        window as unknown as {
+          world?: {
+            network?: {
+              connected?: boolean;
+              socket?: { readyState?: number };
+            };
           };
-        };
-      }).world;
+        }
+      ).world;
 
       return {
         hasNetwork: !!w?.network,

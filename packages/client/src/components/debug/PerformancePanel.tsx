@@ -55,7 +55,11 @@ function loadState(): PanelState {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) return defaultState;
   const parsed = JSON.parse(stored) as Partial<PanelState>;
-  return { ...defaultState, ...parsed, sections: { ...defaultState.sections, ...parsed.sections } };
+  return {
+    ...defaultState,
+    ...parsed,
+    sections: { ...defaultState.sections, ...parsed.sections },
+  };
 }
 
 function saveState(state: PanelState): void {
@@ -140,7 +144,7 @@ export function PerformancePanel({ monitor, visible }: PerformancePanelProps) {
       setSnapshot(snap);
       setIsEnabled(true); // If we're getting updates, we're enabled
     });
-    
+
     // Get initial snapshot
     const initial = monitor.getSnapshot();
     if (initial) setSnapshot(initial);
@@ -173,7 +177,9 @@ export function PerformancePanel({ monitor, visible }: PerformancePanelProps) {
     // @ts-expect-error - import.meta.env is injected by Vite at build time
     if (typeof import.meta !== "undefined" && import.meta.env) {
       // @ts-expect-error - Vite injects this
-      return import.meta.env.DEV === true || import.meta.env.MODE === "development";
+      return (
+        import.meta.env.DEV === true || import.meta.env.MODE === "development"
+      );
     }
     if (typeof process !== "undefined" && process.env) {
       return process.env.NODE_ENV === "development";
@@ -203,7 +209,9 @@ export function PerformancePanel({ monitor, visible }: PerformancePanelProps) {
             {snapshot?.fps.current || "--"} FPS
           </span>
           <span className="text-gray-500 ml-2">
-            {snapshot?.fps.frameTime ? `${formatMs(snapshot.fps.frameTime)}ms` : "--"}
+            {snapshot?.fps.frameTime
+              ? `${formatMs(snapshot.fps.frameTime)}ms`
+              : "--"}
           </span>
         </span>
       </div>
@@ -266,8 +274,8 @@ export function PerformancePanel({ monitor, visible }: PerformancePanelProps) {
                   snapshot.fps.frameTime < 16.67
                     ? "bg-green-500"
                     : snapshot.fps.frameTime < 33.33
-                    ? "bg-yellow-500"
-                    : "bg-red-500"
+                      ? "bg-yellow-500"
+                      : "bg-red-500"
                 }`}
                 style={{
                   width: `${Math.min(100, (snapshot.fps.frameTime / 50) * 100)}%`,
@@ -482,7 +490,11 @@ export function PerformancePanel({ monitor, visible }: PerformancePanelProps) {
             </div>
             <div className="flex justify-between">
               <span>Pending Tiles:</span>
-              <span className={snapshot.terrain.pendingTiles > 0 ? "text-yellow-400" : ""}>
+              <span
+                className={
+                  snapshot.terrain.pendingTiles > 0 ? "text-yellow-400" : ""
+                }
+              >
                 {snapshot.terrain.pendingTiles}
               </span>
             </div>

@@ -798,7 +798,7 @@ export class World extends EventEmitter {
     // - far (10000): Large enough to render 8000-unit sky sphere
     // This prevents z-fighting without needing expensive logarithmic depth buffers
     this.camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.2, 10000);
-    this.rig.add(this.camera);
+    this.rig.add(this.camera as unknown as THREE.Object3D);
 
     // Register core systems in dependency order
     // These systems are required for both client and server

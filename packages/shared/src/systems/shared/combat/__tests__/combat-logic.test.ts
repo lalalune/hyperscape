@@ -37,7 +37,6 @@ import {
   type CombatStats,
   type EquipmentBonuses,
 } from "../combat-logic";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
 
 // =============================================================================
 // TEST FIXTURES
@@ -104,12 +103,16 @@ describe("validateAttackRequest", () => {
   });
 
   it("accepts ranged and magic attack types", () => {
-    expect(validateAttackRequest("p1", "m1", "ranged").attackType).toBe("ranged");
+    expect(validateAttackRequest("p1", "m1", "ranged").attackType).toBe(
+      "ranged",
+    );
     expect(validateAttackRequest("p1", "m1", "magic").attackType).toBe("magic");
   });
 
   it("throws for invalid attack type", () => {
-    expect(() => validateAttackRequest("p1", "m1", "invalid")).toThrow(ValidationError);
+    expect(() => validateAttackRequest("p1", "m1", "invalid")).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for empty attackerId", () => {
@@ -117,13 +120,19 @@ describe("validateAttackRequest", () => {
   });
 
   it("throws for empty targetId", () => {
-    expect(() => validateAttackRequest("player-1", "")).toThrow(ValidationError);
+    expect(() => validateAttackRequest("player-1", "")).toThrow(
+      ValidationError,
+    );
   });
 });
 
 describe("validateCombatStats", () => {
   it("validates correct stats", () => {
-    const stats = validateCombatStats({ attack: 50, strength: 50, defense: 50 });
+    const stats = validateCombatStats({
+      attack: 50,
+      strength: 50,
+      defense: 50,
+    });
     expect(stats.attack).toBe(50);
     expect(stats.strength).toBe(50);
     expect(stats.defense).toBe(50);
@@ -326,7 +335,7 @@ describe("calculateDamage", () => {
       DEFAULT_BONUSES,
       DEFAULT_BONUSES,
       0.1, // Guaranteed hit
-      0.5 // Mid-range damage
+      0.5, // Mid-range damage
     );
 
     expect(result.didHit).toBe(true);
@@ -344,7 +353,7 @@ describe("calculateDamage", () => {
       DEFAULT_BONUSES,
       DEFAULT_BONUSES,
       0.1,
-      0.5
+      0.5,
     );
 
     expect(result.didHit).toBe(true);
@@ -359,7 +368,7 @@ describe("calculateDamage", () => {
       DEFAULT_BONUSES,
       DEFAULT_BONUSES,
       0.1,
-      0.5
+      0.5,
     );
 
     expect(result.didHit).toBe(true);
@@ -374,7 +383,7 @@ describe("calculateDamage", () => {
       NO_BONUSES,
       DEFAULT_BONUSES,
       0.99, // Miss
-      0.5
+      0.5,
     );
 
     expect(result.didHit).toBe(false);
@@ -389,7 +398,7 @@ describe("calculateDamage", () => {
       DEFAULT_BONUSES,
       NO_BONUSES,
       0.5,
-      0.5
+      0.5,
     );
 
     const badResult = calculateDamage(
@@ -399,7 +408,7 @@ describe("calculateDamage", () => {
       NO_BONUSES,
       DEFAULT_BONUSES,
       0.5,
-      0.5
+      0.5,
     );
 
     expect(goodResult.hitChance).toBeGreaterThan(badResult.hitChance);
@@ -432,29 +441,51 @@ describe("worldToTile", () => {
 
 describe("tilesAdjacent", () => {
   it("returns true for same tile", () => {
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 5, tileZ: 5 })).toBe(true);
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 5, tileZ: 5 })).toBe(
+      true,
+    );
   });
 
   it("returns true for horizontally adjacent tiles", () => {
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 6, tileZ: 5 })).toBe(true);
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 4, tileZ: 5 })).toBe(true);
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 6, tileZ: 5 })).toBe(
+      true,
+    );
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 4, tileZ: 5 })).toBe(
+      true,
+    );
   });
 
   it("returns true for vertically adjacent tiles", () => {
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 5, tileZ: 6 })).toBe(true);
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 5, tileZ: 4 })).toBe(true);
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 5, tileZ: 6 })).toBe(
+      true,
+    );
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 5, tileZ: 4 })).toBe(
+      true,
+    );
   });
 
   it("returns true for diagonally adjacent tiles", () => {
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 6, tileZ: 6 })).toBe(true);
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 4, tileZ: 4 })).toBe(true);
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 6, tileZ: 4 })).toBe(true);
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 6, tileZ: 6 })).toBe(
+      true,
+    );
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 4, tileZ: 4 })).toBe(
+      true,
+    );
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 6, tileZ: 4 })).toBe(
+      true,
+    );
   });
 
   it("returns false for non-adjacent tiles", () => {
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 7, tileZ: 5 })).toBe(false);
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 5, tileZ: 7 })).toBe(false);
-    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 7, tileZ: 7 })).toBe(false);
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 7, tileZ: 5 })).toBe(
+      false,
+    );
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 5, tileZ: 7 })).toBe(
+      false,
+    );
+    expect(tilesAdjacent({ tileX: 5, tileZ: 5 }, { tileX: 7, tileZ: 7 })).toBe(
+      false,
+    );
   });
 });
 
@@ -616,7 +647,7 @@ describe("createCombatState", () => {
       "mob",
       "melee",
       100,
-      4
+      4,
     );
 
     expect(state.attackerId).toBe("player-1");
@@ -634,7 +665,13 @@ describe("createCombatState", () => {
 describe("updateCombatStateAfterAttack", () => {
   it("updates ticks correctly", () => {
     const initialState = createCombatState(
-      "p1", "m1", "player", "mob", "melee", 100, 4
+      "p1",
+      "m1",
+      "player",
+      "mob",
+      "melee",
+      100,
+      4,
     );
 
     const updatedState = updateCombatStateAfterAttack(initialState, 104);
@@ -645,7 +682,13 @@ describe("updateCombatStateAfterAttack", () => {
 
   it("preserves other state properties", () => {
     const initialState = createCombatState(
-      "p1", "m1", "player", "mob", "melee", 100, 4
+      "p1",
+      "m1",
+      "player",
+      "mob",
+      "melee",
+      100,
+      4,
     );
 
     const updatedState = updateCombatStateAfterAttack(initialState, 104);
@@ -658,7 +701,13 @@ describe("updateCombatStateAfterAttack", () => {
 describe("hasCombatTimedOut", () => {
   it("returns false when combat is active", () => {
     const state = createCombatState(
-      "p1", "m1", "player", "mob", "melee", 100, 4
+      "p1",
+      "m1",
+      "player",
+      "mob",
+      "melee",
+      100,
+      4,
     );
 
     expect(hasCombatTimedOut(state, 100)).toBe(false);
@@ -666,9 +715,7 @@ describe("hasCombatTimedOut", () => {
   });
 
   it("returns true when combat has timed out", () => {
-    const state = createCombatState(
-      "p1", "m1", "player", "mob", "melee", 0, 4
-    );
+    const state = createCombatState("p1", "m1", "player", "mob", "melee", 0, 4);
 
     expect(hasCombatTimedOut(state, state.combatEndTick)).toBe(true);
     expect(hasCombatTimedOut(state, state.combatEndTick + 100)).toBe(true);
@@ -678,7 +725,13 @@ describe("hasCombatTimedOut", () => {
 describe("canAttack", () => {
   it("returns false during cooldown", () => {
     const state = createCombatState(
-      "p1", "m1", "player", "mob", "melee", 100, 4
+      "p1",
+      "m1",
+      "player",
+      "mob",
+      "melee",
+      100,
+      4,
     );
 
     expect(canAttack(state, 100)).toBe(false);
@@ -687,7 +740,13 @@ describe("canAttack", () => {
 
   it("returns true when cooldown is over", () => {
     const state = createCombatState(
-      "p1", "m1", "player", "mob", "melee", 100, 4
+      "p1",
+      "m1",
+      "player",
+      "mob",
+      "melee",
+      100,
+      4,
     );
 
     expect(canAttack(state, 104)).toBe(true);
@@ -717,7 +776,7 @@ describe("edge cases", () => {
       NO_BONUSES,
       NO_BONUSES,
       0.1,
-      0.5
+      0.5,
     );
 
     expect(result.maxHit).toBeGreaterThanOrEqual(1);
@@ -728,10 +787,22 @@ describe("edge cases", () => {
       HIGH_STATS,
       HIGH_STATS,
       "melee",
-      { attackBonus: 100, strengthBonus: 100, defenseBonus: 100, rangedBonus: 100, magicBonus: 100 },
-      { attackBonus: 100, strengthBonus: 100, defenseBonus: 100, rangedBonus: 100, magicBonus: 100 },
+      {
+        attackBonus: 100,
+        strengthBonus: 100,
+        defenseBonus: 100,
+        rangedBonus: 100,
+        magicBonus: 100,
+      },
+      {
+        attackBonus: 100,
+        strengthBonus: 100,
+        defenseBonus: 100,
+        rangedBonus: 100,
+        magicBonus: 100,
+      },
       0.1,
-      0.5
+      0.5,
     );
 
     expect(result.maxHit).toBeGreaterThan(10);

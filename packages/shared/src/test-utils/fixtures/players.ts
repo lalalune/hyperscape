@@ -131,7 +131,10 @@ export const WILDERNESS_PLAYER_CONFIG: CreateMockPlayerOptions = {
 /**
  * Two players for trading test
  */
-export const TRADING_PLAYERS: [CreateMockPlayerOptions, CreateMockPlayerOptions] = [
+export const TRADING_PLAYERS: [
+  CreateMockPlayerOptions,
+  CreateMockPlayerOptions,
+] = [
   {
     ...MID_LEVEL_PLAYER_CONFIG,
     id: "trader-1",
@@ -180,7 +183,9 @@ export const PVP_PLAYERS: [CreateMockPlayerOptions, CreateMockPlayerOptions] = [
 /**
  * Multiple players for stress testing
  */
-export function createStressTestPlayers(count: number): CreateMockPlayerOptions[] {
+export function createStressTestPlayers(
+  count: number,
+): CreateMockPlayerOptions[] {
   const players: CreateMockPlayerOptions[] = [];
   for (let i = 0; i < count; i++) {
     players.push({

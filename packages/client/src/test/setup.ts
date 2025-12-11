@@ -1,7 +1,7 @@
 /**
  * Vitest setup file for React component testing
  */
-import { afterEach, vi, beforeAll } from "bun:test";
+import { afterEach, beforeAll, mock } from "bun:test";
 import { cleanup } from "@testing-library/react";
 import "@testing-library/jest-dom";
 

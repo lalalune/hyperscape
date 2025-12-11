@@ -142,7 +142,7 @@ export function calculateFoodHealing(foodId: string): number {
  */
 export function calculateGatheringChance(
   skillLevel: number,
-  resourceLevel: number
+  resourceLevel: number,
 ): number {
   if (skillLevel < resourceLevel) {
     return 0;
@@ -165,7 +165,7 @@ export function calculateGatheringChance(
  */
 export function calculateRespawnTicks(
   baseRespawnMs: number,
-  tickDuration: number = 600
+  tickDuration: number = 600,
 ): number {
   return Math.max(1, Math.round(baseRespawnMs / tickDuration));
 }
@@ -189,7 +189,7 @@ export function calculateSellPrice(storePrice: number): number {
 export function calculateBuyPrice(
   basePrice: number,
   currentStock: number,
-  maxStock: number
+  maxStock: number,
 ): number {
   // Price increases as stock decreases
   const stockRatio = currentStock / maxStock;

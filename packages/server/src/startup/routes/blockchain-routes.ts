@@ -82,10 +82,10 @@ export function registerBlockchainRoutes(
 
       const requirements = getPaymentRequirements(
         service as ServiceName,
-        recipientAddress
+        recipientAddress,
       );
       return reply.send(requirements);
-    }
+    },
   );
 
   /**
@@ -96,7 +96,10 @@ export function registerBlockchainRoutes(
   fastify.post<{ Body: { slot: number; itemId: number } }>(
     "/api/blockchain/mint-item",
     {
-      preHandler: async (request: AuthenticatedRequest, reply: FastifyReply) => {
+      preHandler: async (
+        request: AuthenticatedRequest,
+        reply: FastifyReply,
+      ) => {
         // Check blockchain availability first
         if (!blockchainEnabled) {
           return reply.status(503).send({ error: "Blockchain not configured" });
@@ -108,16 +111,16 @@ export function registerBlockchainRoutes(
         const result = await verifyServicePayment(
           paymentHeader as string | null,
           "item-mint",
-          recipientAddress
+          recipientAddress,
         );
 
         if (!result.paid) {
-          const requirements = getPaymentRequirements("item-mint", recipientAddress);
-          reply.header("WWW-Authenticate", "x402");
-          reply.header(
-            "X-Payment-Requirement",
-            JSON.stringify(requirements)
+          const requirements = getPaymentRequirements(
+            "item-mint",
+            recipientAddress,
           );
+          reply.header("WWW-Authenticate", "x402");
+          reply.header("X-Payment-Requirement", JSON.stringify(requirements));
           return reply.status(402).send(requirements);
         }
       },
@@ -142,7 +145,11 @@ export function registerBlockchainRoutes(
       const amount = 1;
 
       const gameSigner = getGameSigner();
-      const instanceId = gameSigner.calculateInstanceId(playerAddress, itemId, slot);
+      const instanceId = gameSigner.calculateInstanceId(
+        playerAddress,
+        itemId,
+        slot,
+      );
 
       const signatureData = await gameSigner.signItemMint({
         playerAddress,
@@ -158,7 +165,7 @@ export function registerBlockchainRoutes(
         itemId: signatureData.itemId,
         amount: signatureData.amount,
       });
-    }
+    },
   );
 
   /**
@@ -169,7 +176,10 @@ export function registerBlockchainRoutes(
   fastify.post(
     "/api/blockchain/claim-gold",
     {
-      preHandler: async (request: AuthenticatedRequest, reply: FastifyReply) => {
+      preHandler: async (
+        request: AuthenticatedRequest,
+        reply: FastifyReply,
+      ) => {
         if (!blockchainEnabled) {
           return reply.status(503).send({ error: "Blockchain not configured" });
         }
@@ -179,11 +189,14 @@ export function registerBlockchainRoutes(
         const result = await verifyServicePayment(
           paymentHeader as string | null,
           "gold-claim",
-          recipientAddress
+          recipientAddress,
         );
 
         if (!result.paid) {
-          const requirements = getPaymentRequirements("gold-claim", recipientAddress);
+          const requirements = getPaymentRequirements(
+            "gold-claim",
+            recipientAddress,
+          );
           reply.header("WWW-Authenticate", "x402");
           reply.header("X-Payment-Requirement", JSON.stringify(requirements));
           return reply.status(402).send(requirements);
@@ -215,7 +228,7 @@ export function registerBlockchainRoutes(
         amount: signatureData.amount.toString(),
         nonce: signatureData.nonce.toString(),
       });
-    }
+    },
   );
 
   /**
@@ -237,7 +250,7 @@ export function registerBlockchainRoutes(
         isMinted: false,
         originalMinter: null,
       });
-    }
+    },
   );
 
   /**
@@ -263,7 +276,7 @@ export function registerBlockchainRoutes(
         balance: "0",
         formatted: "0 GOLD",
       });
-    }
+    },
   );
 
   console.log("[API] ✅ Blockchain routes registered");

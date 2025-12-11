@@ -69,18 +69,26 @@ async function createWebGLPostProcessing(
     ? context.getParameter(context.MAX_SAMPLES)
     : 8;
 
-  const composer = new EffectComposer(renderer, {
+  // Cast to avoid type conflicts from duplicate @types/three versions
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const typedRenderer = renderer as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const typedScene = scene as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const typedCamera = camera as any;
+
+  const composer = new EffectComposer(typedRenderer, {
     frameBufferType,
     multisampling: Math.min(multisampling, maxMultisampling),
   }) as PostProcessingComposer;
 
   // Render pass
-  const renderPass = new RenderPass(scene, camera);
+  const renderPass = new RenderPass(typedScene, typedCamera);
   composer.addPass(renderPass);
 
   // Bloom effect
   if (bloom.enabled) {
-    const bloomEffect = new SelectiveBloomEffect(scene, camera, {
+    const bloomEffect = new SelectiveBloomEffect(typedScene, typedCamera, {
       intensity: bloom.intensity ?? 0.3,
       luminanceThreshold: bloom.threshold ?? 1.0,
       luminanceSmoothing: 0.05,
@@ -92,7 +100,7 @@ async function createWebGLPostProcessing(
     bloomEffect.inverted = false;
     bloomEffect.selection.layer = 14; // NO_BLOOM layer
 
-    const bloomPass = new EffectPass(camera, bloomEffect);
+    const bloomPass = new EffectPass(typedCamera, bloomEffect);
     composer.addPass(bloomPass);
     // Store bloom pass reference for enabling/disabling
     composer.bloomPass = bloomPass;

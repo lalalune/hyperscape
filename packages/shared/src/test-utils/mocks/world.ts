@@ -215,7 +215,7 @@ export function createMockWorld(
     isServer?: boolean;
     isClient?: boolean;
     withPlayer?: boolean;
-  } = {}
+  } = {},
 ): MockWorld {
   const world = new MockWorld({
     isServer: options.isServer ?? true,

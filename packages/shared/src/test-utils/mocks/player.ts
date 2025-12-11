@@ -28,7 +28,11 @@ export interface MockPlayer {
   };
   // Methods that match production interface
   getPosition(): TestPosition;
-  getInventoryItems(): Array<{ itemId: string; quantity: number; slot: number }>;
+  getInventoryItems(): Array<{
+    itemId: string;
+    quantity: number;
+    slot: number;
+  }>;
   isInCombat(): boolean;
 }
 
@@ -76,7 +80,7 @@ const DEFAULT_PLAYER: Required<
  * });
  */
 export function createMockPlayer(
-  options: CreateMockPlayerOptions = {}
+  options: CreateMockPlayerOptions = {},
 ): MockPlayer {
   const id = options.id ?? DEFAULT_PLAYER.id;
   expectValidPlayerId(id, "MockPlayer.id");
@@ -93,15 +97,21 @@ export function createMockPlayer(
     max: options.health?.max ?? DEFAULT_PLAYER.health.max,
   };
 
-  const stats = {
-    ...DEFAULT_PLAYER.stats,
-    ...options.stats,
+  const stats: MockPlayer["stats"] = {
+    attack: options.stats?.attack ?? DEFAULT_PLAYER.stats.attack,
+    strength: options.stats?.strength ?? DEFAULT_PLAYER.stats.strength,
+    defense: options.stats?.defense ?? DEFAULT_PLAYER.stats.defense,
+    ranged: options.stats?.ranged ?? DEFAULT_PLAYER.stats.ranged,
+    hitpoints: options.stats?.hitpoints ?? DEFAULT_PLAYER.stats.hitpoints,
   };
 
   const inventory = new Map<number, { itemId: string; quantity: number }>();
   if (options.inventory) {
     for (const item of options.inventory) {
-      inventory.set(item.slot, { itemId: item.itemId, quantity: item.quantity });
+      inventory.set(item.slot, {
+        itemId: item.itemId,
+        quantity: item.quantity,
+      });
     }
   }
 
@@ -134,10 +144,11 @@ export function createMockPlayer(
   };
 
   // Add method to set combat state (for testing)
-  (player as MockPlayer & { setInCombat: (value: boolean) => void }).setInCombat =
-    (value: boolean) => {
-      inCombat = value;
-    };
+  (
+    player as MockPlayer & { setInCombat: (value: boolean) => void }
+  ).setInCombat = (value: boolean) => {
+    inCombat = value;
+  };
 
   return player;
 }
@@ -148,7 +159,7 @@ export function createMockPlayer(
 export function createMockPlayerAt(
   x: number,
   z: number,
-  options: Omit<CreateMockPlayerOptions, "position"> = {}
+  options: Omit<CreateMockPlayerOptions, "position"> = {},
 ): MockPlayer {
   return createMockPlayer({
     ...options,
@@ -162,7 +173,7 @@ export function createMockPlayerAt(
 export function createMockPlayerWithHealth(
   current: number,
   max: number = 100,
-  options: Omit<CreateMockPlayerOptions, "health"> = {}
+  options: Omit<CreateMockPlayerOptions, "health"> = {},
 ): MockPlayer {
   return createMockPlayer({
     ...options,
@@ -175,7 +186,7 @@ export function createMockPlayerWithHealth(
  */
 export function createMockPlayers(
   count: number,
-  baseOptions: CreateMockPlayerOptions = {}
+  baseOptions: CreateMockPlayerOptions = {},
 ): MockPlayer[] {
   const players: MockPlayer[] = [];
   for (let i = 0; i < count; i++) {
@@ -189,7 +200,7 @@ export function createMockPlayers(
           y: 0,
           z: 10 + i * 5,
         },
-      })
+      }),
     );
   }
   return players;

@@ -65,12 +65,20 @@ async function ensureCDNRunning() {
       console.log(`${colors.green}✓ PhysX assets copied${colors.reset}`)
     }
 
-    // Start CDN
+    // Start CDN (try docker compose v2, fallback to docker-compose)
     console.log(`${colors.blue}Starting CDN container...${colors.reset}`)
-    execSync('docker-compose up -d cdn', { 
-      stdio: 'inherit',
-      cwd: serverDir
-    })
+    try {
+      execSync('docker compose up -d cdn', { 
+        stdio: 'inherit',
+        cwd: serverDir
+      })
+    } catch {
+      // Fallback to legacy docker-compose
+      execSync('docker-compose up -d cdn', { 
+        stdio: 'inherit',
+        cwd: serverDir
+      })
+    }
 
     // Wait for health check
     console.log(`${colors.dim}Waiting for CDN to be healthy...${colors.reset}`)

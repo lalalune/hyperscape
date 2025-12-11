@@ -403,15 +403,15 @@ export class InteractionSystem extends System {
       if (player && player.position) {
         const p = player.position as THREE.Vector3;
         // PERFORMANCE: Use cached vector instead of allocating new one
-        const flatDir = this._tempVec3_flatDir.set(target.x - p.x, 0, target.z - p.z);
+        const flatDir = this._tempVec3_flatDir.set(
+          target.x - p.x,
+          0,
+          target.z - p.z,
+        );
         const dist = flatDir.length();
         if (dist > this.maxClickDistance) {
           flatDir.normalize().multiplyScalar(this.maxClickDistance);
-          target.set(
-            p.x + flatDir.x,
-            target.y,
-            p.z + flatDir.z,
-          );
+          target.set(p.x + flatDir.x, target.y, p.z + flatDir.z);
         }
       }
 
@@ -584,7 +584,8 @@ export class InteractionSystem extends System {
     for (const intersect of intersects) {
       if (intersect.distance > 200) continue;
 
-      let obj: THREE.Object3D | null = intersect.object;
+      let obj: THREE.Object3D | null =
+        intersect.object as unknown as THREE.Object3D;
       while (obj) {
         const userData = obj.userData;
         // Look for any entity identifier - entityId, mobId, resourceId, or itemId

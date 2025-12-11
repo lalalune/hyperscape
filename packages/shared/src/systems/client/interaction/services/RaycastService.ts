@@ -65,7 +65,8 @@ export class RaycastService {
       if (intersect.distance > INPUT.MAX_RAYCAST_DISTANCE) continue;
 
       // Traverse up the object hierarchy to find entity root
-      let obj: THREE.Object3D | null = intersect.object;
+      let obj: THREE.Object3D | null =
+        intersect.object as unknown as THREE.Object3D;
       while (obj) {
         const userData = obj.userData;
 

@@ -131,14 +131,45 @@ async function registerIndexHtmlRoute(
   const indexHtmlPath = path.join(config.__dirname, "public", "index.html");
 
   const serveIndexHtml = async (_req: FastifyRequest, reply: FastifyReply) => {
-    const html = await fs.promises.readFile(indexHtmlPath, "utf-8");
+    // Check at request time, not registration time
+    const indexHtmlExists = await fs.pathExists(indexHtmlPath);
 
-    return reply
-      .type("text/html; charset=utf-8")
-      .header("Cache-Control", "no-cache, no-store, must-revalidate")
-      .header("Pragma", "no-cache")
-      .header("Expires", "0")
-      .send(html);
+    // In production, serve the built index.html
+    if (indexHtmlExists) {
+      const html = await fs.promises.readFile(indexHtmlPath, "utf-8");
+      return reply
+        .type("text/html; charset=utf-8")
+        .header("Cache-Control", "no-cache, no-store, must-revalidate")
+        .header("Pragma", "no-cache")
+        .header("Expires", "0")
+        .send(html);
+    }
+
+    // In development, redirect to Vite dev server or show helpful message
+    if (config.nodeEnv === "development") {
+      const devHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0;url=http://localhost:3333">
+  <title>Hyperscape - Development</title>
+</head>
+<body>
+  <p>Redirecting to <a href="http://localhost:3333">development client</a>...</p>
+  <p>This server (port 5555) handles API and WebSocket connections.</p>
+</body>
+</html>`;
+      return reply
+        .type("text/html; charset=utf-8")
+        .header("Cache-Control", "no-store")
+        .send(devHtml);
+    }
+
+    // Production without index.html - error
+    return reply.code(503).send({
+      error: "Client not built",
+      message: "Run 'bun run build' to build the client for production",
+    });
   };
 
   fastify.get("/", serveIndexHtml);

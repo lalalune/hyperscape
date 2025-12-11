@@ -49,7 +49,8 @@ console.log(`${colors.green}✓ Build directories ready${colors.reset}`)
 
 // 2. Copy PhysX assets
 console.log(`${colors.blue}Copying PhysX assets...${colors.reset}`)
-const physxSrc = path.join(rootDir, 'node_modules/@hyperscape/physx-js-webidl/dist')
+// PhysX is a local workspace package, not in node_modules
+const physxSrc = path.join(rootDir, 'packages/physx-js-webidl/dist')
 const physxDest = path.join(rootDir, 'packages/server/world/assets/web')
 
 if (fs.existsSync(physxSrc)) {

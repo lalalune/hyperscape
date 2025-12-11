@@ -544,6 +544,7 @@ export enum EventType {
 
   // Blockchain Integration Events
   PLAYER_KICK = "player:kick",
+  PLAYER_KILL = "player:kill",
   GOLD_WITHDRAW_REQUEST = "gold:withdraw_request",
   GOLD_WITHDRAW_SUCCESS = "gold:withdraw_success",
   GOLD_DEPOSIT_CONFIRMED = "gold:deposit_confirmed",

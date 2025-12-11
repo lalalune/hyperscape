@@ -84,7 +84,7 @@ function generateEntityId(prefix: string = "entity"): string {
 export function createMockEntity(
   type: string,
   position: Partial<TestPosition> = {},
-  id?: string
+  id?: string,
 ): MockEntity {
   const pos: TestPosition = {
     x: position.x ?? 0,
@@ -120,7 +120,7 @@ export function createMockMob(
     health?: { current?: number; max?: number };
     level?: number;
     isAggressive?: boolean;
-  } = {}
+  } = {},
 ): MockMobEntity {
   const base = createMockEntity("mob", options.position, options.id);
 
@@ -145,7 +145,7 @@ export function createMockMob(
 export function createMockResource(
   resourceType: "tree" | "rock" | "fishing_spot",
   position: Partial<TestPosition> = {},
-  id?: string
+  id?: string,
 ): MockResourceEntity {
   const base = createMockEntity("resource", position, id);
 
@@ -170,7 +170,7 @@ export function createMockGroundItem(
     droppedBy?: string;
     despawnTick?: number;
     lootProtectionExpires?: number;
-  } = {}
+  } = {},
 ): MockGroundItemEntity {
   const base = createMockEntity("ground_item", position, options.id);
 
@@ -196,7 +196,7 @@ export function createMockNPC(
     dialogue?: string;
     shopId?: string;
     bankAccess?: boolean;
-  } = {}
+  } = {},
 ): MockNPCEntity {
   const base = createMockEntity("npc", position, options.id);
 

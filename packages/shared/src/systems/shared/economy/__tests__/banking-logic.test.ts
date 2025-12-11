@@ -40,13 +40,9 @@ function createBankItem(
   id: string,
   name: string = id,
   quantity: number = 1,
-  stackable: boolean = true
+  stackable: boolean = true,
 ): BankItem {
   return { id, name, quantity, stackable };
-}
-
-function createEmptyBank(): BankItem[] {
-  return [];
 }
 
 function createPartialBank(): BankItem[] {
@@ -78,11 +74,15 @@ describe("validateBankOpenRequest", () => {
   });
 
   it("throws for empty playerId", () => {
-    expect(() => validateBankOpenRequest("", "bank-1")).toThrow(ValidationError);
+    expect(() => validateBankOpenRequest("", "bank-1")).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for empty bankId", () => {
-    expect(() => validateBankOpenRequest("player-1", "")).toThrow(ValidationError);
+    expect(() => validateBankOpenRequest("player-1", "")).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws when player is too far from bank", () => {
@@ -90,7 +90,7 @@ describe("validateBankOpenRequest", () => {
     const bankPos = { x: 100, y: 0, z: 0 };
 
     expect(() =>
-      validateBankOpenRequest("player-1", "bank-1", playerPos, bankPos)
+      validateBankOpenRequest("player-1", "bank-1", playerPos, bankPos),
     ).toThrow(ValidationError);
   });
 
@@ -99,7 +99,7 @@ describe("validateBankOpenRequest", () => {
     const bankPos = { x: 2, y: 0, z: 0 };
 
     expect(() =>
-      validateBankOpenRequest("player-1", "bank-1", playerPos, bankPos)
+      validateBankOpenRequest("player-1", "bank-1", playerPos, bankPos),
     ).not.toThrow();
   });
 });
@@ -113,13 +113,21 @@ describe("validateDepositRequest", () => {
   });
 
   it("throws for invalid quantity", () => {
-    expect(() => validateDepositRequest("player-1", "coins", 0)).toThrow(ValidationError);
-    expect(() => validateDepositRequest("player-1", "coins", -1)).toThrow(ValidationError);
+    expect(() => validateDepositRequest("player-1", "coins", 0)).toThrow(
+      ValidationError,
+    );
+    expect(() => validateDepositRequest("player-1", "coins", -1)).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for quantity exceeding max", () => {
     expect(() =>
-      validateDepositRequest("player-1", "coins", INPUT_LIMITS.MAX_QUANTITY + 1)
+      validateDepositRequest(
+        "player-1",
+        "coins",
+        INPUT_LIMITS.MAX_QUANTITY + 1,
+      ),
     ).toThrow(ValidationError);
   });
 });
@@ -133,7 +141,9 @@ describe("validateWithdrawRequest", () => {
   });
 
   it("throws for invalid quantity", () => {
-    expect(() => validateWithdrawRequest("player-1", "coins", 0)).toThrow(ValidationError);
+    expect(() => validateWithdrawRequest("player-1", "coins", 0)).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -293,7 +303,9 @@ describe("canDeposit", () => {
   });
 
   it("rejects if would exceed max stack", () => {
-    const items = [createBankItem("coins", "Coins", INPUT_LIMITS.MAX_QUANTITY - 10)];
+    const items = [
+      createBankItem("coins", "Coins", INPUT_LIMITS.MAX_QUANTITY - 10),
+    ];
     const result = canDeposit(items, "coins", 20, true);
     expect(result.canDeposit).toBe(false);
     expect(result.reason).toContain("max stack");
@@ -570,7 +582,7 @@ describe("edge cases", () => {
       "coins",
       "Coins",
       INPUT_LIMITS.MAX_QUANTITY,
-      true
+      true,
     );
 
     expect(result.success).toBe(true);
@@ -588,7 +600,13 @@ describe("edge cases", () => {
   it("handles single item bank operations", () => {
     const items = [createBankItem("single", "Single Item", 1)];
 
-    const depositResult = calculateDeposit(items, "single", "Single Item", 1, true);
+    const depositResult = calculateDeposit(
+      items,
+      "single",
+      "Single Item",
+      1,
+      true,
+    );
     expect(depositResult.success).toBe(true);
     expect(depositResult.newBankItems[0].quantity).toBe(2);
 

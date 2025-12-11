@@ -143,6 +143,7 @@
     "permissionless": "^0.2.0"
   },
   "devDependencies": {
+    "@types/three": "0.180.0",
     "@babel/eslint-parser": "^7.23.10",
     "@babel/preset-react": "^7.23.10",
     "@capacitor/android": "^7.4.3",

@@ -136,7 +136,9 @@ describe("validatePlayerStats", () => {
   });
 
   it("throws for non-integer stats", () => {
-    expect(() => validatePlayerStats({ attack: 50.5 })).toThrow(ValidationError);
+    expect(() => validatePlayerStats({ attack: 50.5 })).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for non-object input", () => {
@@ -158,13 +160,21 @@ describe("validatePosition", () => {
   });
 
   it("throws for invalid coordinates", () => {
-    expect(() => validatePosition({ x: NaN, y: 0, z: 0 })).toThrow(ValidationError);
-    expect(() => validatePosition({ x: Infinity, y: 0, z: 0 })).toThrow(ValidationError);
+    expect(() => validatePosition({ x: NaN, y: 0, z: 0 })).toThrow(
+      ValidationError,
+    );
+    expect(() => validatePosition({ x: Infinity, y: 0, z: 0 })).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for positions outside world bounds", () => {
-    expect(() => validatePosition({ x: 20000, y: 0, z: 0 })).toThrow(ValidationError);
-    expect(() => validatePosition({ x: 0, y: 0, z: -20000 })).toThrow(ValidationError);
+    expect(() => validatePosition({ x: 20000, y: 0, z: 0 })).toThrow(
+      ValidationError,
+    );
+    expect(() => validatePosition({ x: 0, y: 0, z: -20000 })).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -542,7 +552,11 @@ describe("createDefaultStats", () => {
 
 describe("createPlayerState", () => {
   it("creates player with given properties", () => {
-    const player = createPlayerState("player-123", "TestPlayer", { x: 10, y: 0, z: 20 });
+    const player = createPlayerState("player-123", "TestPlayer", {
+      x: 10,
+      y: 0,
+      z: 20,
+    });
 
     expect(player.id).toBe("player-123");
     expect(player.name).toBe("TestPlayer");
@@ -557,7 +571,12 @@ describe("createPlayerState", () => {
   });
 
   it("allows custom stats", () => {
-    const player = createPlayerState("p1", "Test", { x: 0, y: 0, z: 0 }, { attack: 50, strength: 50 });
+    const player = createPlayerState(
+      "p1",
+      "Test",
+      { x: 0, y: 0, z: 0 },
+      { attack: 50, strength: 50 },
+    );
     expect(player.stats.attack).toBe(50);
     expect(player.stats.strength).toBe(50);
   });
@@ -569,7 +588,12 @@ describe("createPlayerState", () => {
   });
 
   it("sets health to max health", () => {
-    const player = createPlayerState("p1", "Test", { x: 0, y: 0, z: 0 }, { hitpoints: 50 });
+    const player = createPlayerState(
+      "p1",
+      "Test",
+      { x: 0, y: 0, z: 0 },
+      { hitpoints: 50 },
+    );
     expect(player.health).toBe(player.maxHealth);
   });
 });
@@ -617,7 +641,11 @@ describe("updatePlayerStats", () => {
 describe("updatePlayerPosition", () => {
   it("updates position", () => {
     const player = createTestPlayer();
-    const updated = updatePlayerPosition(player, { x: 100, y: 50, z: 200 }, 1000);
+    const updated = updatePlayerPosition(
+      player,
+      { x: 100, y: 50, z: 200 },
+      1000,
+    );
 
     expect(updated.position.x).toBe(100);
     expect(updated.position.y).toBe(50);
@@ -724,7 +752,12 @@ describe("edge cases", () => {
       prayer: 99,
     };
 
-    const player = createPlayerState("p1", "Maxed", { x: 0, y: 0, z: 0 }, maxStats);
+    const player = createPlayerState(
+      "p1",
+      "Maxed",
+      { x: 0, y: 0, z: 0 },
+      maxStats,
+    );
 
     expect(player.combatLevel).toBeLessThanOrEqual(126);
     expect(player.maxHealth).toBe(PLAYER_CONSTANTS.BASE_HITPOINTS + 98);

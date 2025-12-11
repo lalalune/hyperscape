@@ -23,7 +23,6 @@ import {
   assertSlotIndex,
   assertQuantity,
   assertPosition,
-  assertPosition2D,
   assertAttackType,
   assertEquipmentSlot,
   assertSessionType,
@@ -212,9 +211,15 @@ describe("assertPlayerId", () => {
   });
 
   it("throws for strings with control characters", () => {
-    expect(() => assertPlayerId("player\x00id", "playerId")).toThrow(ValidationError);
-    expect(() => assertPlayerId("player\nid", "playerId")).toThrow(ValidationError);
-    expect(() => assertPlayerId("player\tid", "playerId")).toThrow(ValidationError);
+    expect(() => assertPlayerId("player\x00id", "playerId")).toThrow(
+      ValidationError,
+    );
+    expect(() => assertPlayerId("player\nid", "playerId")).toThrow(
+      ValidationError,
+    );
+    expect(() => assertPlayerId("player\tid", "playerId")).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for strings exceeding max length", () => {
@@ -270,7 +275,9 @@ describe("assertQuantity", () => {
   it("passes for valid quantities", () => {
     expect(() => assertQuantity(1, "quantity")).not.toThrow();
     expect(() => assertQuantity(100, "quantity")).not.toThrow();
-    expect(() => assertQuantity(INPUT_LIMITS.MAX_QUANTITY, "quantity")).not.toThrow();
+    expect(() =>
+      assertQuantity(INPUT_LIMITS.MAX_QUANTITY, "quantity"),
+    ).not.toThrow();
   });
 
   it("throws for zero", () => {
@@ -282,26 +289,36 @@ describe("assertQuantity", () => {
   });
 
   it("throws for quantities exceeding max", () => {
-    expect(() => assertQuantity(INPUT_LIMITS.MAX_QUANTITY + 1, "quantity")).toThrow(
-      ValidationError
-    );
+    expect(() =>
+      assertQuantity(INPUT_LIMITS.MAX_QUANTITY + 1, "quantity"),
+    ).toThrow(ValidationError);
   });
 });
 
 describe("assertPosition", () => {
   it("passes for valid positions", () => {
     expect(() => assertPosition({ x: 0, y: 0, z: 0 }, "pos")).not.toThrow();
-    expect(() => assertPosition({ x: 100, y: 50, z: -100 }, "pos")).not.toThrow();
+    expect(() =>
+      assertPosition({ x: 100, y: 50, z: -100 }, "pos"),
+    ).not.toThrow();
   });
 
   it("throws for missing coordinates", () => {
-    expect(() => assertPosition({ x: 0, y: 0 }, "pos")).toThrow(ValidationError);
-    expect(() => assertPosition({ x: 0, z: 0 }, "pos")).toThrow(ValidationError);
+    expect(() => assertPosition({ x: 0, y: 0 }, "pos")).toThrow(
+      ValidationError,
+    );
+    expect(() => assertPosition({ x: 0, z: 0 }, "pos")).toThrow(
+      ValidationError,
+    );
   });
 
   it("throws for positions exceeding world bounds", () => {
-    expect(() => assertPosition({ x: 20000, y: 0, z: 0 }, "pos")).toThrow(ValidationError);
-    expect(() => assertPosition({ x: 0, y: 0, z: -20000 }, "pos")).toThrow(ValidationError);
+    expect(() => assertPosition({ x: 20000, y: 0, z: 0 }, "pos")).toThrow(
+      ValidationError,
+    );
+    expect(() => assertPosition({ x: 0, y: 0, z: -20000 }, "pos")).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -321,8 +338,17 @@ describe("assertAttackType", () => {
 describe("assertEquipmentSlot", () => {
   it("passes for valid slots", () => {
     const validSlots = [
-      "weapon", "shield", "head", "body", "legs",
-      "feet", "hands", "cape", "neck", "ring", "ammo"
+      "weapon",
+      "shield",
+      "head",
+      "body",
+      "legs",
+      "feet",
+      "hands",
+      "cape",
+      "neck",
+      "ring",
+      "ammo",
     ];
     for (const slot of validSlots) {
       expect(() => assertEquipmentSlot(slot, "slot")).not.toThrow();
@@ -330,8 +356,12 @@ describe("assertEquipmentSlot", () => {
   });
 
   it("throws for invalid slots", () => {
-    expect(() => assertEquipmentSlot("invalid", "slot")).toThrow(ValidationError);
-    expect(() => assertEquipmentSlot("WEAPON", "slot")).toThrow(ValidationError);
+    expect(() => assertEquipmentSlot("invalid", "slot")).toThrow(
+      ValidationError,
+    );
+    expect(() => assertEquipmentSlot("WEAPON", "slot")).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -396,7 +426,7 @@ describe("assertMoveItemInput", () => {
         playerId: "player-1",
         fromSlot: 0,
         toSlot: 5,
-      })
+      }),
     ).not.toThrow();
   });
 
@@ -417,7 +447,7 @@ describe("assertMoveItemInput", () => {
         playerId: "player-1",
         fromSlot: -1,
         toSlot: 5,
-      })
+      }),
     ).toThrow(ValidationError);
 
     expect(() =>
@@ -425,7 +455,7 @@ describe("assertMoveItemInput", () => {
         playerId: "player-1",
         fromSlot: 0,
         toSlot: 28,
-      })
+      }),
     ).toThrow(ValidationError);
   });
 
@@ -434,7 +464,7 @@ describe("assertMoveItemInput", () => {
       assertMoveItemInput({
         fromSlot: 0,
         toSlot: 5,
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -445,7 +475,7 @@ describe("assertPickupItemInput", () => {
       assertPickupItemInput({
         playerId: "player-1",
         entityId: "entity-123",
-      })
+      }),
     ).not.toThrow();
 
     expect(() =>
@@ -453,7 +483,7 @@ describe("assertPickupItemInput", () => {
         playerId: "player-1",
         entityId: "entity-123",
         itemId: "bronze_sword",
-      })
+      }),
     ).not.toThrow();
   });
 
@@ -461,7 +491,7 @@ describe("assertPickupItemInput", () => {
     expect(() =>
       assertPickupItemInput({
         playerId: "player-1",
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -473,7 +503,7 @@ describe("assertDropItemInput", () => {
         playerId: "player-1",
         itemId: "bronze_sword",
         quantity: 1,
-      })
+      }),
     ).not.toThrow();
 
     expect(() =>
@@ -482,7 +512,7 @@ describe("assertDropItemInput", () => {
         itemId: "bronze_sword",
         quantity: 5,
         slot: 3,
-      })
+      }),
     ).not.toThrow();
   });
 
@@ -492,7 +522,7 @@ describe("assertDropItemInput", () => {
         playerId: "player-1",
         itemId: "bronze_sword",
         quantity: 0,
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -503,7 +533,7 @@ describe("assertAttackInput", () => {
       assertAttackInput({
         playerId: "player-1",
         targetId: "mob-123",
-      })
+      }),
     ).not.toThrow();
 
     expect(() =>
@@ -511,7 +541,7 @@ describe("assertAttackInput", () => {
         playerId: "player-1",
         targetId: "mob-123",
         attackType: "ranged",
-      })
+      }),
     ).not.toThrow();
   });
 
@@ -521,7 +551,7 @@ describe("assertAttackInput", () => {
         playerId: "player-1",
         targetId: "mob-123",
         attackType: "invalid" as "melee",
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -532,7 +562,7 @@ describe("assertBankOperationInput", () => {
       assertBankOperationInput({
         playerId: "player-1",
         bankId: "bank-123",
-      })
+      }),
     ).not.toThrow();
 
     expect(() =>
@@ -541,7 +571,7 @@ describe("assertBankOperationInput", () => {
         bankId: "bank-123",
         itemId: "bronze_sword",
         quantity: 10,
-      })
+      }),
     ).not.toThrow();
   });
 });
@@ -552,7 +582,7 @@ describe("assertTradeInput", () => {
       assertTradeInput({
         playerId: "player-1",
         targetPlayerId: "player-2",
-      })
+      }),
     ).not.toThrow();
   });
 
@@ -561,7 +591,7 @@ describe("assertTradeInput", () => {
       assertTradeInput({
         playerId: "player-1",
         targetPlayerId: "player-1",
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -577,7 +607,9 @@ describe("clampQuantity", () => {
   });
 
   it("clamps to maximum", () => {
-    expect(clampQuantity(INPUT_LIMITS.MAX_QUANTITY + 1000)).toBe(INPUT_LIMITS.MAX_QUANTITY);
+    expect(clampQuantity(INPUT_LIMITS.MAX_QUANTITY + 1000)).toBe(
+      INPUT_LIMITS.MAX_QUANTITY,
+    );
   });
 
   it("floors floating point values", () => {

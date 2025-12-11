@@ -5,7 +5,7 @@
  * Use these instead of casting to unknown.
  */
 
-import type THREE from "three";
+import type * as THREE from "three";
 import type { System } from "../systems/shared";
 import type { Entity } from "../entities/Entity";
 

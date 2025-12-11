@@ -16,9 +16,6 @@ import {
   assertItemId,
   assertSlotIndex,
   assertQuantity,
-  assertNonNegativeInteger,
-  assertDefined,
-  assertObject,
 } from "../../../validation";
 import { INPUT_LIMITS } from "../../../constants";
 
@@ -85,7 +82,7 @@ export interface RemoveResult {
 export function validateMoveRequest(
   playerId: unknown,
   fromSlot: unknown,
-  toSlot: unknown
+  toSlot: unknown,
 ): { playerId: string; fromSlot: number; toSlot: number } {
   assertPlayerId(playerId, "playerId");
   assertSlotIndex(fromSlot, "fromSlot");
@@ -106,7 +103,7 @@ export function validateAddRequest(
   playerId: unknown,
   itemId: unknown,
   quantity: unknown,
-  slot?: unknown
+  slot?: unknown,
 ): { playerId: string; itemId: string; quantity: number; slot?: number } {
   assertPlayerId(playerId, "playerId");
   assertItemId(itemId, "itemId");
@@ -132,7 +129,7 @@ export function validateRemoveRequest(
   playerId: unknown,
   itemId: unknown,
   quantity: unknown,
-  slot?: unknown
+  slot?: unknown,
 ): { playerId: string; itemId: string; quantity: number; slot?: number } {
   assertPlayerId(playerId, "playerId");
   assertItemId(itemId, "itemId");
@@ -163,7 +160,7 @@ export function validateRemoveRequest(
  */
 export function findEmptySlot(
   items: ReadonlyArray<{ slot: number }>,
-  maxSlots: number = INPUT_LIMITS.MAX_INVENTORY_SLOTS
+  maxSlots: number = INPUT_LIMITS.MAX_INVENTORY_SLOTS,
 ): number {
   const usedSlots = new Set<number>();
   for (const item of items) {
@@ -184,7 +181,7 @@ export function findEmptySlot(
  */
 export function countEmptySlots(
   items: ReadonlyArray<{ slot: number }>,
-  maxSlots: number = INPUT_LIMITS.MAX_INVENTORY_SLOTS
+  maxSlots: number = INPUT_LIMITS.MAX_INVENTORY_SLOTS,
 ): number {
   return maxSlots - items.length;
 }
@@ -194,7 +191,7 @@ export function countEmptySlots(
  */
 export function isInventoryFull(
   items: ReadonlyArray<{ slot: number }>,
-  maxSlots: number = INPUT_LIMITS.MAX_INVENTORY_SLOTS
+  maxSlots: number = INPUT_LIMITS.MAX_INVENTORY_SLOTS,
 ): boolean {
   return items.length >= maxSlots;
 }
@@ -208,7 +205,7 @@ export function isInventoryFull(
  */
 export function findExistingStack(
   items: ReadonlyArray<InventorySlot>,
-  itemId: string
+  itemId: string,
 ): InventorySlot | undefined {
   return items.find((item) => item.itemId === itemId);
 }
@@ -218,7 +215,7 @@ export function findExistingStack(
  */
 export function getItemAtSlot(
   items: ReadonlyArray<InventorySlot>,
-  slot: number
+  slot: number,
 ): InventorySlot | undefined {
   return items.find((item) => item.slot === slot);
 }
@@ -240,7 +237,7 @@ export function canAddItem(
   itemId: string,
   quantity: number,
   isStackable: boolean,
-  maxSlots: number = INPUT_LIMITS.MAX_INVENTORY_SLOTS
+  maxSlots: number = INPUT_LIMITS.MAX_INVENTORY_SLOTS,
 ): { canAdd: boolean; reason?: string; slotsNeeded: number } {
   // Stackable: check if existing stack or need one slot
   if (isStackable) {
@@ -291,7 +288,7 @@ export function canAddItem(
 export function calculateMoveResult(
   items: ReadonlyArray<InventorySlot>,
   fromSlot: number,
-  toSlot: number
+  toSlot: number,
 ): MoveResult {
   // Same slot - no-op
   if (fromSlot === toSlot) {
@@ -341,7 +338,7 @@ export function calculateMoveResult(
 export function applyMove(
   items: ReadonlyArray<InventorySlot>,
   fromSlot: number,
-  toSlot: number
+  toSlot: number,
 ): InventorySlot[] {
   // Same slot - no-op, return copy unchanged
   if (fromSlot === toSlot) {
@@ -355,7 +352,7 @@ export function applyMove(
 
   // Create new array without the moved items
   const newItems = items.filter(
-    (item) => item.slot !== fromSlot && item.slot !== toSlot
+    (item) => item.slot !== fromSlot && item.slot !== toSlot,
   );
 
   // Add the new positions
@@ -374,7 +371,7 @@ export function applyMove(
  */
 export function getTotalQuantity(
   items: ReadonlyArray<InventorySlot>,
-  itemId: string
+  itemId: string,
 ): number {
   let total = 0;
   for (const item of items) {
@@ -389,7 +386,7 @@ export function getTotalQuantity(
  * Calculate total weight of inventory
  */
 export function calculateTotalWeight(
-  items: ReadonlyArray<InventorySlot>
+  items: ReadonlyArray<InventorySlot>,
 ): number {
   let total = 0;
   for (const item of items) {
@@ -404,7 +401,7 @@ export function calculateTotalWeight(
 export function hasItem(
   items: ReadonlyArray<InventorySlot>,
   itemId: string,
-  quantity: number = 1
+  quantity: number = 1,
 ): boolean {
   return getTotalQuantity(items, itemId) >= quantity;
 }
@@ -414,7 +411,7 @@ export function hasItem(
  */
 export function getItemsByType(
   items: ReadonlyArray<InventorySlot>,
-  type: string
+  type: string,
 ): InventorySlot[] {
   return items.filter((item) => item.item.type === type);
 }
@@ -426,29 +423,21 @@ export function getItemsByType(
 export function validateSlotIndices(
   fromSlot: number,
   toSlot: number,
-  maxSlots: number = INPUT_LIMITS.MAX_INVENTORY_SLOTS
+  maxSlots: number = INPUT_LIMITS.MAX_INVENTORY_SLOTS,
 ): void {
-  if (
-    !Number.isInteger(fromSlot) ||
-    fromSlot < 0 ||
-    fromSlot >= maxSlots
-  ) {
+  if (!Number.isInteger(fromSlot) || fromSlot < 0 || fromSlot >= maxSlots) {
     throw new ValidationError(
       `must be in range [0, ${maxSlots})`,
       "fromSlot",
-      fromSlot
+      fromSlot,
     );
   }
 
-  if (
-    !Number.isInteger(toSlot) ||
-    toSlot < 0 ||
-    toSlot >= maxSlots
-  ) {
+  if (!Number.isInteger(toSlot) || toSlot < 0 || toSlot >= maxSlots) {
     throw new ValidationError(
       `must be in range [0, ${maxSlots})`,
       "toSlot",
-      toSlot
+      toSlot,
     );
   }
 }

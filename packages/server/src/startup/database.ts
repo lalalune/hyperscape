@@ -71,12 +71,14 @@ export async function initializeDatabase(
   if (config.useLocalPostgres && !config.databaseUrl) {
     dockerManager = createDefaultDockerManager();
 
-    // Check if Docker daemon is accessible (non-fatal if container already running)
+    // Check if Docker daemon is accessible
+    let dockerAccessible = false;
     try {
       await dockerManager.checkDockerRunning();
+      dockerAccessible = true;
     } catch (dockerCheckError) {
       console.warn(
-        "[Database] Docker check failed, attempting to continue anyway...",
+        "[Database] Docker not accessible - will use default connection string",
       );
       console.warn(
         "[Database] Error:",
@@ -84,18 +86,33 @@ export async function initializeDatabase(
           ? dockerCheckError.message
           : String(dockerCheckError),
       );
+      console.warn(
+        "[Database] Tip: Set DATABASE_URL env var or add your user to docker group",
+      );
     }
 
-    const isPostgresRunning = await dockerManager.checkPostgresRunning();
-    if (!isPostgresRunning) {
-      console.log("[Database] Starting Docker PostgreSQL...");
-      await dockerManager.startPostgres();
-      console.log("[Database] ✅ PostgreSQL started");
+    if (dockerAccessible) {
+      const isPostgresRunning = await dockerManager.checkPostgresRunning();
+      if (!isPostgresRunning) {
+        console.log("[Database] Starting Docker PostgreSQL...");
+        await dockerManager.startPostgres();
+        console.log("[Database] ✅ PostgreSQL started");
+      } else {
+        console.log("[Database] ✅ PostgreSQL already running");
+      }
+
+      connectionString = await dockerManager.getConnectionString();
     } else {
-      console.log("[Database] ✅ PostgreSQL already running");
+      // Docker not accessible - use default connection string assuming PostgreSQL is already running
+      const defaultUser = process.env.POSTGRES_USER || "hyperscape";
+      const defaultPassword = process.env.POSTGRES_PASSWORD || "hyperscape_dev";
+      const defaultPort = process.env.POSTGRES_PORT || "5432";
+      const defaultDb = process.env.POSTGRES_DB || "hyperscape";
+      connectionString = `postgresql://${defaultUser}:${defaultPassword}@localhost:${defaultPort}/${defaultDb}`;
+      console.log(
+        "[Database] Using default connection string (Docker unavailable)",
+      );
     }
-
-    connectionString = await dockerManager.getConnectionString();
   } else if (config.databaseUrl) {
     console.log("[Database] Using explicit DATABASE_URL");
     connectionString = config.databaseUrl;

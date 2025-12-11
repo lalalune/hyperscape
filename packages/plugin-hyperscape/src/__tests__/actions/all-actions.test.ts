@@ -15,10 +15,28 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
 import type { IAgentRuntime, Memory, State, UUID } from "@elizaos/core";
 
+// Vitest compatibility shim
+const vi = {
+  fn: <T extends (...args: unknown[]) => unknown>(impl?: T) =>
+    mock(impl ?? (() => {})),
+};
+
 // Import all actions
-import { moveToAction, followEntityAction, stopMovementAction } from "../../actions/movement.js";
-import { attackEntityAction as combatAttackAction, changeCombatStyleAction } from "../../actions/combat.js";
-import { equipItemAction, unequipItemAction, useItemAction, dropItemAction } from "../../actions/inventory.js";
+import {
+  moveToAction,
+  followEntityAction,
+  stopMovementAction,
+} from "../../actions/movement.js";
+import {
+  attackEntityAction as combatAttackAction,
+  changeCombatStyleAction,
+} from "../../actions/combat.js";
+import {
+  equipItemAction,
+  unequipItemAction,
+  useItemAction,
+  dropItemAction,
+} from "../../actions/inventory.js";
 import {
   bankDepositAction,
   bankWithdrawAction,
@@ -26,14 +44,42 @@ import {
   bankDepositCoinsAction,
   bankWithdrawCoinsAction,
 } from "../../actions/banking.js";
-import { interactNpcAction, lootCorpseAction, pickupItemAction, respawnAction, emoteAction, eatFoodAction } from "../../actions/interactions.js";
-import { chatMessageAction, localChatAction, whisperAction } from "../../actions/social.js";
+import {
+  interactNpcAction,
+  lootCorpseAction,
+  pickupItemAction,
+  respawnAction,
+  emoteAction,
+  eatFoodAction,
+} from "../../actions/interactions.js";
+import {
+  chatMessageAction,
+  localChatAction,
+  whisperAction,
+} from "../../actions/social.js";
 import { setGoalAction, navigateToAction } from "../../actions/goals.js";
-import { exploreAction, fleeAction, idleAction, approachEntityAction, attackEntityAction as autonomousAttackAction } from "../../actions/autonomous.js";
-import { chopTreeAction, catchFishAction, lightFireAction, cookFoodAction } from "../../actions/skills.js";
+import {
+  exploreAction,
+  fleeAction,
+  idleAction,
+  approachEntityAction,
+  attackEntityAction as autonomousAttackAction,
+} from "../../actions/autonomous.js";
+import {
+  chopTreeAction,
+  catchFishAction,
+  lightFireAction,
+  cookFoodAction,
+} from "../../actions/skills.js";
 import { buyItemAction, sellItemAction } from "../../actions/store.js";
-import { dialogueRespondAction, closeDialogueAction } from "../../actions/dialogue.js";
-import { examineEntityAction, examineInventoryItemAction } from "../../actions/examine.js";
+import {
+  dialogueRespondAction,
+  closeDialogueAction,
+} from "../../actions/dialogue.js";
+import {
+  examineEntityAction,
+  examineInventoryItemAction,
+} from "../../actions/examine.js";
 
 // Mock helpers
 function generateUUID(): UUID {
@@ -107,7 +153,14 @@ function createMockService(options: MockServiceOptions = {}) {
     playerInCombat = false,
     playerItems = [],
     playerCoins = 0,
-    playerEquipment = { weapon: null, shield: null, helmet: null, body: null, legs: null, boots: null },
+    playerEquipment = {
+      weapon: null,
+      shield: null,
+      helmet: null,
+      body: null,
+      legs: null,
+      boots: null,
+    },
     nearbyEntities = [],
     hasBehaviorManager = false,
     hasGoal = false,
@@ -184,7 +237,9 @@ function createMockService(options: MockServiceOptions = {}) {
   };
 }
 
-function createMockRuntime(service: ReturnType<typeof createMockService>): IAgentRuntime {
+function createMockRuntime(
+  service: ReturnType<typeof createMockService>,
+): IAgentRuntime {
   return {
     agentId: generateUUID(),
     character: { name: "TestAgent" },
@@ -247,7 +302,7 @@ describe("Movement Actions", () => {
         createMockMemory("Move to coordinates [10, 0, 20]"),
         createMockState(),
         undefined,
-        callback
+        callback,
       );
 
       expect(service.executeMove).toHaveBeenCalledWith({
@@ -255,7 +310,7 @@ describe("Movement Actions", () => {
         runMode: false,
       });
     });
-    
+
     it("should fail gracefully with invalid coordinates", async () => {
       const service = createMockService();
       const runtime = createMockRuntime(service);
@@ -266,7 +321,7 @@ describe("Movement Actions", () => {
         createMockMemory("move to somewhere"),
         createMockState(),
         undefined,
-        callback
+        callback,
       );
 
       expect(result.success).toBe(false);
@@ -282,10 +337,15 @@ describe("Movement Actions", () => {
 
     it("should validate when entity is nearby", async () => {
       const service = createMockService({
-        nearbyEntities: [{ id: "player-2", name: "OtherPlayer", position: [5, 0, 5] }],
+        nearbyEntities: [
+          { id: "player-2", name: "OtherPlayer", position: [5, 0, 5] },
+        ],
       });
       const runtime = createMockRuntime(service);
-      const result = await followEntityAction.validate(runtime, createMockMemory("follow OtherPlayer"));
+      const result = await followEntityAction.validate(
+        runtime,
+        createMockMemory("follow OtherPlayer"),
+      );
       expect(result).toBe(true);
     });
   });
@@ -299,7 +359,10 @@ describe("Movement Actions", () => {
     it("should validate when connected", async () => {
       const service = createMockService();
       const runtime = createMockRuntime(service);
-      const result = await stopMovementAction.validate(runtime, createMockMemory());
+      const result = await stopMovementAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
   });
@@ -322,11 +385,20 @@ describe("Combat Actions", () => {
         playerHealth: 80,
         playerInCombat: false,
         nearbyEntities: [
-          { id: "mob-1", name: "Goblin", mobType: "goblin", position: [5, 0, 5], alive: true },
+          {
+            id: "mob-1",
+            name: "Goblin",
+            mobType: "goblin",
+            position: [5, 0, 5],
+            alive: true,
+          },
         ],
       });
       const runtime = createMockRuntime(service);
-      const result = await combatAttackAction.validate(runtime, createMockMemory());
+      const result = await combatAttackAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
 
@@ -335,7 +407,10 @@ describe("Combat Actions", () => {
         nearbyEntities: [],
       });
       const runtime = createMockRuntime(service);
-      const result = await combatAttackAction.validate(runtime, createMockMemory());
+      const result = await combatAttackAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
 
@@ -344,18 +419,33 @@ describe("Combat Actions", () => {
         playerHealth: 80,
         playerInCombat: true, // Already fighting
         nearbyEntities: [
-          { id: "mob-1", name: "Goblin", mobType: "goblin", position: [5, 0, 5], alive: true },
+          {
+            id: "mob-1",
+            name: "Goblin",
+            mobType: "goblin",
+            position: [5, 0, 5],
+            alive: true,
+          },
         ],
       });
       const runtime = createMockRuntime(service);
-      const result = await combatAttackAction.validate(runtime, createMockMemory());
+      const result = await combatAttackAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
 
     it("should execute attack on named mob", async () => {
       const service = createMockService({
         nearbyEntities: [
-          { id: "mob-1", name: "Goblin", mobType: "goblin", position: [2, 0, 2], alive: true },
+          {
+            id: "mob-1",
+            name: "Goblin",
+            mobType: "goblin",
+            position: [2, 0, 2],
+            alive: true,
+          },
         ],
       });
       const runtime = createMockRuntime(service);
@@ -364,14 +454,16 @@ describe("Combat Actions", () => {
       // Combat action finds mob by checking if message content is contained in mob name (lowercase)
       // e.g., "goblin" in "Goblin".toLowerCase() = true
       await combatAttackAction.handler(
-        runtime, 
+        runtime,
         createMockMemory("Goblin"), // Message content must be findable in entity names
-        createMockState(), 
-        undefined, 
-        callback
+        createMockState(),
+        undefined,
+        callback,
       );
 
-      expect(service.executeAttack).toHaveBeenCalledWith({ targetEntityId: "mob-1" });
+      expect(service.executeAttack).toHaveBeenCalledWith({
+        targetEntityId: "mob-1",
+      });
     });
   });
 
@@ -383,7 +475,10 @@ describe("Combat Actions", () => {
     it("should validate when connected and not dead", async () => {
       const service = createMockService({ playerAlive: true });
       const runtime = createMockRuntime(service);
-      const result = await changeCombatStyleAction.validate(runtime, createMockMemory());
+      const result = await changeCombatStyleAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
   });
@@ -406,14 +501,20 @@ describe("Inventory Actions", () => {
         playerItems: [{ id: "item-1", name: "Bronze Sword", quantity: 1 }],
       });
       const runtime = createMockRuntime(service);
-      const result = await equipItemAction.validate(runtime, createMockMemory("equip bronze sword"));
+      const result = await equipItemAction.validate(
+        runtime,
+        createMockMemory("equip bronze sword"),
+      );
       expect(result).toBe(true);
     });
 
     it("should fail validation when inventory empty", async () => {
       const service = createMockService({ playerItems: [] });
       const runtime = createMockRuntime(service);
-      const result = await equipItemAction.validate(runtime, createMockMemory());
+      const result = await equipItemAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
   });
@@ -457,7 +558,12 @@ describe("Inventory Actions", () => {
 // ============================================================================
 
 describe("Banking Actions", () => {
-  const bankNearby = { id: "bank-1", name: "Bank Booth", type: "npc", position: [2, 0, 2] as [number, number, number] };
+  const bankNearby = {
+    id: "bank-1",
+    name: "Bank Booth",
+    type: "npc",
+    position: [2, 0, 2] as [number, number, number],
+  };
 
   describe("bankDepositAction", () => {
     it("should have correct metadata", () => {
@@ -470,7 +576,10 @@ describe("Banking Actions", () => {
         nearbyEntities: [bankNearby],
       });
       const runtime = createMockRuntime(service);
-      const result = await bankDepositAction.validate(runtime, createMockMemory());
+      const result = await bankDepositAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
 
@@ -480,7 +589,10 @@ describe("Banking Actions", () => {
         nearbyEntities: [],
       });
       const runtime = createMockRuntime(service);
-      const result = await bankDepositAction.validate(runtime, createMockMemory());
+      const result = await bankDepositAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
   });
@@ -495,14 +607,20 @@ describe("Banking Actions", () => {
         nearbyEntities: [bankNearby],
       });
       const runtime = createMockRuntime(service);
-      const result = await bankWithdrawAction.validate(runtime, createMockMemory());
+      const result = await bankWithdrawAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
 
     it("should fail validation when no bank nearby", async () => {
       const service = createMockService({ nearbyEntities: [] });
       const runtime = createMockRuntime(service);
-      const result = await bankWithdrawAction.validate(runtime, createMockMemory());
+      const result = await bankWithdrawAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
   });
@@ -518,14 +636,23 @@ describe("Banking Actions", () => {
         nearbyEntities: [bankNearby],
       });
       const runtime = createMockRuntime(service);
-      const result = await bankDepositAllAction.validate(runtime, createMockMemory());
+      const result = await bankDepositAllAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
 
     it("should fail validation with empty inventory", async () => {
-      const service = createMockService({ playerItems: [], nearbyEntities: [bankNearby] });
+      const service = createMockService({
+        playerItems: [],
+        nearbyEntities: [bankNearby],
+      });
       const runtime = createMockRuntime(service);
-      const result = await bankDepositAllAction.validate(runtime, createMockMemory());
+      const result = await bankDepositAllAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
   });
@@ -536,16 +663,28 @@ describe("Banking Actions", () => {
     });
 
     it("should validate when near bank with coins", async () => {
-      const service = createMockService({ playerCoins: 100, nearbyEntities: [bankNearby] });
+      const service = createMockService({
+        playerCoins: 100,
+        nearbyEntities: [bankNearby],
+      });
       const runtime = createMockRuntime(service);
-      const result = await bankDepositCoinsAction.validate(runtime, createMockMemory());
+      const result = await bankDepositCoinsAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
 
     it("should fail validation with no coins", async () => {
-      const service = createMockService({ playerCoins: 0, nearbyEntities: [bankNearby] });
+      const service = createMockService({
+        playerCoins: 0,
+        nearbyEntities: [bankNearby],
+      });
       const runtime = createMockRuntime(service);
-      const result = await bankDepositCoinsAction.validate(runtime, createMockMemory());
+      const result = await bankDepositCoinsAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
   });
@@ -558,14 +697,20 @@ describe("Banking Actions", () => {
     it("should validate when near bank", async () => {
       const service = createMockService({ nearbyEntities: [bankNearby] });
       const runtime = createMockRuntime(service);
-      const result = await bankWithdrawCoinsAction.validate(runtime, createMockMemory());
+      const result = await bankWithdrawCoinsAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
 
     it("should fail validation when no bank nearby", async () => {
       const service = createMockService({ nearbyEntities: [] });
       const runtime = createMockRuntime(service);
-      const result = await bankWithdrawCoinsAction.validate(runtime, createMockMemory());
+      const result = await bankWithdrawCoinsAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
   });
@@ -584,10 +729,15 @@ describe("Interaction Actions", () => {
 
     it("should validate when NPC nearby", async () => {
       const service = createMockService({
-        nearbyEntities: [{ id: "npc-1", name: "Shopkeeper", type: "npc", position: [3, 0, 3] }],
+        nearbyEntities: [
+          { id: "npc-1", name: "Shopkeeper", type: "npc", position: [3, 0, 3] },
+        ],
       });
       const runtime = createMockRuntime(service);
-      const result = await interactNpcAction.validate(runtime, createMockMemory());
+      const result = await interactNpcAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
   });
@@ -600,10 +750,20 @@ describe("Interaction Actions", () => {
 
     it("should validate when corpse nearby", async () => {
       const service = createMockService({
-        nearbyEntities: [{ id: "corpse-1", name: "Goblin Corpse", type: "corpse", position: [2, 0, 2] }],
+        nearbyEntities: [
+          {
+            id: "corpse-1",
+            name: "Goblin Corpse",
+            type: "corpse",
+            position: [2, 0, 2],
+          },
+        ],
       });
       const runtime = createMockRuntime(service);
-      const result = await lootCorpseAction.validate(runtime, createMockMemory());
+      const result = await lootCorpseAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
   });
@@ -618,10 +778,20 @@ describe("Interaction Actions", () => {
     it("should validate when ground items nearby", async () => {
       const service = createMockService({
         // Ground items have names starting with "item:" prefix
-        nearbyEntities: [{ id: "item-1", name: "item:Gold Coins", type: "ground_item", position: [1, 0, 1] }],
+        nearbyEntities: [
+          {
+            id: "item-1",
+            name: "item:Gold Coins",
+            type: "ground_item",
+            position: [1, 0, 1],
+          },
+        ],
       });
       const runtime = createMockRuntime(service);
-      const result = await pickupItemAction.validate(runtime, createMockMemory());
+      const result = await pickupItemAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
   });
@@ -694,7 +864,10 @@ describe("Social Actions", () => {
     it("should validate when connected", async () => {
       const service = createMockService();
       const runtime = createMockRuntime(service);
-      const result = await chatMessageAction.validate(runtime, createMockMemory());
+      const result = await chatMessageAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
 
@@ -708,11 +881,14 @@ describe("Social Actions", () => {
         createMockMemory("Hello everyone!"),
         createMockState(),
         undefined,
-        callback
+        callback,
       );
 
       expect(service.executeChatMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ message: "Hello everyone!", chatType: "global" })
+        expect.objectContaining({
+          message: "Hello everyone!",
+          chatType: "global",
+        }),
       );
     });
   });
@@ -732,11 +908,11 @@ describe("Social Actions", () => {
         createMockMemory("Hello nearby!"),
         createMockState(),
         undefined,
-        callback
+        callback,
       );
 
       expect(service.executeChatMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ chatType: "local" })
+        expect.objectContaining({ chatType: "local" }),
       );
     });
   });
@@ -758,7 +934,7 @@ describe("Social Actions", () => {
         createMockMemory("secret message"),
         createMockState(),
         undefined,
-        callback
+        callback,
       );
 
       expect(result.success).toBe(false);
@@ -774,11 +950,11 @@ describe("Social Actions", () => {
         createMockMemory("secret message"),
         createMockState(),
         { targetId: "player-2" },
-        callback
+        callback,
       );
 
       expect(service.executeChatMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ chatType: "whisper", targetId: "player-2" })
+        expect.objectContaining({ chatType: "whisper", targetId: "player-2" }),
       );
     });
   });
@@ -830,7 +1006,10 @@ describe("Goal Actions", () => {
         playerPosition: [0, 0, 0], // Far from forest at [-130, 30, 400]
       });
       const runtime = createMockRuntime(service);
-      const result = await navigateToAction.validate(runtime, createMockMemory());
+      const result = await navigateToAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
 
@@ -841,7 +1020,10 @@ describe("Goal Actions", () => {
         goalLocation: undefined,
       });
       const runtime = createMockRuntime(service);
-      const result = await navigateToAction.validate(runtime, createMockMemory());
+      const result = await navigateToAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
   });
@@ -904,7 +1086,11 @@ describe("Autonomous Actions", () => {
       const state = createMockState({
         survivalAssessment: { urgency: "critical", threats: ["Goblin"] },
       });
-      const result = await fleeAction.validate(runtime, createMockMemory(), state);
+      const result = await fleeAction.validate(
+        runtime,
+        createMockMemory(),
+        state,
+      );
       expect(result).toBe(true);
     });
 
@@ -950,13 +1136,25 @@ describe("Autonomous Actions", () => {
       const service = createMockService({
         playerPosition: [0, 0, 0],
         nearbyEntities: [
-          { id: "mob-1", name: "Goblin", mobType: "goblin", position: [10, 0, 10], alive: true },
+          {
+            id: "mob-1",
+            name: "Goblin",
+            mobType: "goblin",
+            position: [10, 0, 10],
+            alive: true,
+          },
         ],
       });
       const runtime = createMockRuntime(service);
       const callback = vi.fn();
 
-      await autonomousAttackAction.handler(runtime, createMockMemory(), createMockState(), undefined, callback);
+      await autonomousAttackAction.handler(
+        runtime,
+        createMockMemory(),
+        createMockState(),
+        undefined,
+        callback,
+      );
 
       // Should move towards mob since distance > 3
       expect(service.executeMove).toHaveBeenCalled();
@@ -980,7 +1178,12 @@ describe("Skill Actions", () => {
       const service = createMockService({
         playerItems: [{ id: "axe-1", name: "Bronze Hatchet", quantity: 1 }],
         nearbyEntities: [
-          { id: "tree-1", name: "Oak Tree", resourceType: "tree", position: [5, 0, 5] },
+          {
+            id: "tree-1",
+            name: "Oak Tree",
+            resourceType: "tree",
+            position: [5, 0, 5],
+          },
         ],
       });
       const runtime = createMockRuntime(service);
@@ -992,7 +1195,12 @@ describe("Skill Actions", () => {
       const service = createMockService({
         playerItems: [],
         nearbyEntities: [
-          { id: "tree-1", name: "Oak Tree", resourceType: "tree", position: [5, 0, 5] },
+          {
+            id: "tree-1",
+            name: "Oak Tree",
+            resourceType: "tree",
+            position: [5, 0, 5],
+          },
         ],
       });
       const runtime = createMockRuntime(service);
@@ -1021,11 +1229,19 @@ describe("Skill Actions", () => {
       const service = createMockService({
         playerItems: [{ id: "rod-1", name: "Fishing Rod", quantity: 1 }],
         nearbyEntities: [
-          { id: "spot-1", name: "Fishing Spot", resourceType: "fishing_spot", position: [3, 0, 3] },
+          {
+            id: "spot-1",
+            name: "Fishing Spot",
+            resourceType: "fishing_spot",
+            position: [3, 0, 3],
+          },
         ],
       });
       const runtime = createMockRuntime(service);
-      const result = await catchFishAction.validate(runtime, createMockMemory());
+      const result = await catchFishAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
   });
@@ -1044,7 +1260,10 @@ describe("Skill Actions", () => {
         ],
       });
       const runtime = createMockRuntime(service);
-      const result = await lightFireAction.validate(runtime, createMockMemory());
+      const result = await lightFireAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
   });
@@ -1081,7 +1300,12 @@ describe("Store Actions", () => {
     it("should validate when store NPC nearby", async () => {
       const service = createMockService({
         nearbyEntities: [
-          { id: "npc-1", name: "General Store", type: "npc", position: [5, 0, 5] },
+          {
+            id: "npc-1",
+            name: "General Store",
+            type: "npc",
+            position: [5, 0, 5],
+          },
         ],
       });
       const runtime = createMockRuntime(service);
@@ -1111,7 +1335,12 @@ describe("Store Actions", () => {
       const service = createMockService({
         playerItems: [{ id: "item-1", name: "Logs", quantity: 5 }],
         nearbyEntities: [
-          { id: "npc-1", name: "Shop Keeper", type: "npc", position: [5, 0, 5] },
+          {
+            id: "npc-1",
+            name: "Shop Keeper",
+            type: "npc",
+            position: [5, 0, 5],
+          },
         ],
       });
       const runtime = createMockRuntime(service);
@@ -1123,7 +1352,12 @@ describe("Store Actions", () => {
       const service = createMockService({
         playerItems: [],
         nearbyEntities: [
-          { id: "npc-1", name: "Shop Keeper", type: "npc", position: [5, 0, 5] },
+          {
+            id: "npc-1",
+            name: "Shop Keeper",
+            type: "npc",
+            position: [5, 0, 5],
+          },
         ],
       });
       const runtime = createMockRuntime(service);
@@ -1144,7 +1378,10 @@ describe("Dialogue Actions", () => {
     it("should validate when connected and alive", async () => {
       const service = createMockService({});
       const runtime = createMockRuntime(service);
-      const result = await dialogueRespondAction.validate(runtime, createMockMemory());
+      const result = await dialogueRespondAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
   });
@@ -1158,7 +1395,10 @@ describe("Dialogue Actions", () => {
     it("should validate when connected and alive", async () => {
       const service = createMockService({});
       const runtime = createMockRuntime(service);
-      const result = await closeDialogueAction.validate(runtime, createMockMemory());
+      const result = await closeDialogueAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
   });
@@ -1175,7 +1415,10 @@ describe("Examine Actions", () => {
     it("should validate when connected and alive", async () => {
       const service = createMockService({});
       const runtime = createMockRuntime(service);
-      const result = await examineEntityAction.validate(runtime, createMockMemory());
+      const result = await examineEntityAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
   });
@@ -1191,7 +1434,10 @@ describe("Examine Actions", () => {
         playerItems: [{ id: "item-1", name: "Bronze Sword", quantity: 1 }],
       });
       const runtime = createMockRuntime(service);
-      const result = await examineInventoryItemAction.validate(runtime, createMockMemory());
+      const result = await examineInventoryItemAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
 
@@ -1200,7 +1446,10 @@ describe("Examine Actions", () => {
         playerItems: [],
       });
       const runtime = createMockRuntime(service);
-      const result = await examineInventoryItemAction.validate(runtime, createMockMemory());
+      const result = await examineInventoryItemAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
   });
@@ -1216,19 +1465,39 @@ describe("Unequip Action", () => {
 
     it("should validate when item equipped", async () => {
       const service = createMockService({
-        playerEquipment: { weapon: "Bronze Sword", shield: null, helmet: null, body: null, legs: null, boots: null },
+        playerEquipment: {
+          weapon: "Bronze Sword",
+          shield: null,
+          helmet: null,
+          body: null,
+          legs: null,
+          boots: null,
+        },
       });
       const runtime = createMockRuntime(service);
-      const result = await unequipItemAction.validate(runtime, createMockMemory());
+      const result = await unequipItemAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(true);
     });
 
     it("should fail validation when nothing equipped", async () => {
       const service = createMockService({
-        playerEquipment: { weapon: null, shield: null, helmet: null, body: null, legs: null, boots: null },
+        playerEquipment: {
+          weapon: null,
+          shield: null,
+          helmet: null,
+          body: null,
+          legs: null,
+          boots: null,
+        },
       });
       const runtime = createMockRuntime(service);
-      const result = await unequipItemAction.validate(runtime, createMockMemory());
+      const result = await unequipItemAction.validate(
+        runtime,
+        createMockMemory(),
+      );
       expect(result).toBe(false);
     });
   });
@@ -1325,4 +1594,3 @@ describe("Action Coverage Summary", () => {
     expect(allActions.length).toBe(40);
   });
 });
-

@@ -233,9 +233,21 @@ export class MobInstancedRenderer extends SystemBase {
 
     // Setup LOD levels
     const lodLevels: MobLODLevel[] = [
-      { distance: this.rendererConfig.lod1Distance, mesh: highDetailMesh, isBillboard: false },
-      { distance: this.rendererConfig.lod2Distance, mesh: lowDetailMesh, isBillboard: false },
-      { distance: this.rendererConfig.lod3Distance, mesh: billboardMesh, isBillboard: true },
+      {
+        distance: this.rendererConfig.lod1Distance,
+        mesh: highDetailMesh,
+        isBillboard: false,
+      },
+      {
+        distance: this.rendererConfig.lod2Distance,
+        mesh: lowDetailMesh,
+        isBillboard: false,
+      },
+      {
+        distance: this.rendererConfig.lod3Distance,
+        mesh: billboardMesh,
+        isBillboard: true,
+      },
       { distance: Infinity, mesh: null, isBillboard: false }, // Culled
     ];
 
@@ -260,7 +272,7 @@ export class MobInstancedRenderer extends SystemBase {
    * Create a simplified low-detail geometry for LOD
    */
   private createLowDetailGeometry(
-    highDetailGeometry: THREE.BufferGeometry,
+    _highDetailGeometry: THREE.BufferGeometry,
   ): THREE.BufferGeometry {
     // For now, use a simple capsule as low-detail
     // In production, use mesh simplification or pre-authored LODs
@@ -547,7 +559,11 @@ export class MobInstancedRenderer extends SystemBase {
     // Assign visible mobs to instance slots by LOD
     const lodCounts: number[] = new Array(typeData.lodLevels.length).fill(0);
 
-    for (let i = 0; i < Math.min(this._sortedMobs.length, typeData.maxVisibleInstances); i++) {
+    for (
+      let i = 0;
+      i < Math.min(this._sortedMobs.length, typeData.maxVisibleInstances);
+      i++
+    ) {
       const [mobId, mobData] = this._sortedMobs[i];
 
       // Determine LOD level based on distance
@@ -570,7 +586,11 @@ export class MobInstancedRenderer extends SystemBase {
         // Set transform for this LOD mesh
         if (lodData.isBillboard) {
           // Billboard needs special matrix that faces camera
-          this.setBillboardMatrix(lodData.mesh, instanceIndex, mobData.position);
+          this.setBillboardMatrix(
+            lodData.mesh,
+            instanceIndex,
+            mobData.position,
+          );
         } else {
           lodData.mesh.setMatrixAt(instanceIndex, mobData.matrix);
         }
@@ -607,7 +627,11 @@ export class MobInstancedRenderer extends SystemBase {
       this._tempMatrix.setPosition(position);
     } else {
       // Create matrix that positions at mob location but rotates to face camera
-      this._tempMatrix.lookAt(position, camera.position, THREE.Object3D.DEFAULT_UP);
+      this._tempMatrix.lookAt(
+        position,
+        camera.position,
+        THREE.Object3D.DEFAULT_UP,
+      );
       this._tempMatrix.setPosition(position);
     }
 
@@ -639,12 +663,18 @@ export class MobInstancedRenderer extends SystemBase {
    */
   getStats(): {
     totalMobTypes: number;
-    perType: Record<string, { total: number; visible: number; byLOD: number[] }>;
+    perType: Record<
+      string,
+      { total: number; visible: number; byLOD: number[] }
+    >;
     totalDrawCalls: number;
   } {
     const stats = {
       totalMobTypes: this.mobTypes.size,
-      perType: {} as Record<string, { total: number; visible: number; byLOD: number[] }>,
+      perType: {} as Record<
+        string,
+        { total: number; visible: number; byLOD: number[] }
+      >,
       totalDrawCalls: 0,
     };
 

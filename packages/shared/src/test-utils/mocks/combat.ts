@@ -8,7 +8,7 @@
 import { COMBAT_CONSTANTS } from "../../constants/CombatConstants";
 import { AttackType } from "../../types/core/core";
 import type { TestPosition } from "../validation";
-import { expectValidPosition, expectValidDamage, expectValidTick } from "../validation";
+import { expectValidPosition, expectValidTick } from "../validation";
 
 /**
  * Combat stats structure matching production CombatStats
@@ -88,7 +88,7 @@ export function calculateAccuracy(
   attackerAttackBonus: number,
   targetDefenseLevel: number,
   targetDefenseBonus: number,
-  randomRoll: number
+  randomRoll: number,
 ): boolean {
   // OSRS formula for attack roll
   const effectiveAttack = attackerAttackLevel + 8;
@@ -118,11 +118,11 @@ export function calculateAccuracy(
  */
 export function calculateMeleeMaxHit(
   strengthLevel: number,
-  strengthBonus: number
+  strengthBonus: number,
 ): number {
   const effectiveStrength = strengthLevel + 8;
   const maxHit = Math.floor(
-    0.5 + (effectiveStrength * (strengthBonus + 64)) / 640
+    0.5 + (effectiveStrength * (strengthBonus + 64)) / 640,
   );
   return Math.max(1, maxHit);
 }
@@ -136,12 +136,10 @@ export function calculateMeleeMaxHit(
  */
 export function calculateRangedMaxHit(
   rangedLevel: number,
-  rangedBonus: number
+  rangedBonus: number,
 ): number {
   const effectiveRanged = rangedLevel + 8;
-  const maxHit = Math.floor(
-    0.5 + (effectiveRanged * (rangedBonus + 64)) / 640
-  );
+  const maxHit = Math.floor(0.5 + (effectiveRanged * (rangedBonus + 64)) / 640);
   return Math.max(1, maxHit);
 }
 
@@ -160,9 +158,14 @@ export function calculateDamageDeterministic(
   attacker: { stats: MockCombatStats },
   target: { stats: MockCombatStats },
   attackType: AttackType,
-  equipmentBonus: { attack: number; strength: number; defense: number; ranged: number },
+  equipmentBonus: {
+    attack: number;
+    strength: number;
+    defense: number;
+    ranged: number;
+  },
   accuracyRoll: number,
-  damageRoll: number
+  damageRoll: number,
 ): MockDamageResult {
   let maxHit: number;
   let attackStat: number;
@@ -171,11 +174,17 @@ export function calculateDamageDeterministic(
   if (attackType === AttackType.MELEE) {
     attackStat = attacker.stats.attack;
     attackBonus = equipmentBonus.attack;
-    maxHit = calculateMeleeMaxHit(attacker.stats.strength, equipmentBonus.strength);
+    maxHit = calculateMeleeMaxHit(
+      attacker.stats.strength,
+      equipmentBonus.strength,
+    );
   } else {
     attackStat = attacker.stats.ranged;
     attackBonus = equipmentBonus.ranged;
-    maxHit = calculateRangedMaxHit(attacker.stats.ranged, equipmentBonus.ranged);
+    maxHit = calculateRangedMaxHit(
+      attacker.stats.ranged,
+      equipmentBonus.ranged,
+    );
   }
 
   // Check accuracy
@@ -184,7 +193,7 @@ export function calculateDamageDeterministic(
     attackBonus,
     target.stats.defense,
     0, // Target defense bonus (equipment)
-    accuracyRoll
+    accuracyRoll,
   );
 
   if (!didHit) {
@@ -216,7 +225,7 @@ export function calculateDamageDeterministic(
  */
 export function isAttackOnCooldown(
   currentTick: number,
-  nextAttackTick: number
+  nextAttackTick: number,
 ): boolean {
   expectValidTick(currentTick, "currentTick");
   expectValidTick(nextAttackTick, "nextAttackTick");
@@ -232,7 +241,7 @@ export function isAttackOnCooldown(
 export function isInMeleeRange(
   attackerPos: TestPosition,
   targetPos: TestPosition,
-  tileSize: number = 1
+  tileSize: number = 1,
 ): boolean {
   expectValidPosition(attackerPos, "attackerPos");
   expectValidPosition(targetPos, "targetPos");
@@ -258,7 +267,7 @@ export function isInMeleeRange(
 export function isInRangedRange(
   attackerPos: TestPosition,
   targetPos: TestPosition,
-  range: number = COMBAT_CONSTANTS.RANGED_RANGE
+  range: number = COMBAT_CONSTANTS.RANGED_RANGE,
 ): boolean {
   expectValidPosition(attackerPos, "attackerPos");
   expectValidPosition(targetPos, "targetPos");
@@ -336,7 +345,7 @@ export class MockCombatManager {
     attackerType: "player" | "mob" = "player",
     targetType: "player" | "mob" = "mob",
     weaponType: AttackType = AttackType.MELEE,
-    attackSpeedTicks: number = 4
+    attackSpeedTicks: number = 4,
   ): MockCombatState {
     const state: MockCombatState = {
       attackerId,
@@ -377,7 +386,7 @@ export class MockCombatManager {
    */
   processAttack(
     attackerId: string,
-    attackSpeedTicks: number = 4
+    attackSpeedTicks: number = 4,
   ): { success: boolean; nextAttackTick: number } {
     const state = this.combatStates.get(attackerId);
     if (!state) {
@@ -437,11 +446,16 @@ export class MockCombatManager {
  */
 export function createCombatScenario(
   attackerStats: Partial<MockCombatStats> = {},
-  targetStats: Partial<MockCombatStats> = {}
+  targetStats: Partial<MockCombatStats> = {},
 ): {
   attacker: { stats: MockCombatStats };
   target: { stats: MockCombatStats };
-  equipment: { attack: number; strength: number; defense: number; ranged: number };
+  equipment: {
+    attack: number;
+    strength: number;
+    defense: number;
+    ranged: number;
+  };
 } {
   return {
     attacker: {

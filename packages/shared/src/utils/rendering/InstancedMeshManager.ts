@@ -112,15 +112,23 @@ export class InstancedMeshManager {
   private _tempVec3 = new THREE.Vector3();
   private didInitialVisibility = false;
   // PERFORMANCE: Cached array for visibility sorting to avoid allocation per update
-  private _instancesWithDistanceCache: Array<[number, {
-    entityId: string;
-    position: THREE.Vector3;
-    rotation?: THREE.Euler;
-    scale?: THREE.Vector3;
-    matrix: THREE.Matrix4;
-    visible: boolean;
-    distance: number;
-  }]> = [];
+  private _instancesWithDistanceCache: Array<
+    [
+      number,
+      {
+        entityId: string;
+        position: THREE.Vector3;
+        rotation?: THREE.Euler;
+        scale?: THREE.Vector3;
+        matrix: THREE.Matrix4;
+        baseScale: THREE.Vector3;
+        visible: boolean;
+        distance: number;
+        fadeScale: number;
+        currentLOD: number;
+      },
+    ]
+  > = [];
 
   /**
    * Create a new InstancedMeshManager

@@ -135,7 +135,9 @@ export class ObjectPool<T> {
     for (const entry of this.pool) {
       if (entry.object === obj) {
         if (!entry.inUse) {
-          console.warn("[ObjectPool] Attempted to release already-released object");
+          console.warn(
+            "[ObjectPool] Attempted to release already-released object",
+          );
           return;
         }
         entry.inUse = false;
@@ -149,7 +151,13 @@ export class ObjectPool<T> {
   /**
    * Get pool statistics
    */
-  getStats(): { total: number; inUse: number; available: number; growthCount: number; peakUsage: number } {
+  getStats(): {
+    total: number;
+    inUse: number;
+    available: number;
+    growthCount: number;
+    peakUsage: number;
+  } {
     let inUse = 0;
     for (const entry of this.pool) {
       if (entry.inUse) inUse++;
@@ -411,4 +419,3 @@ export class MobPoolManager {
     this.configPool.clear();
   }
 }
-

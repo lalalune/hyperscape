@@ -204,7 +204,7 @@ export function offsetPosition(
   base: TestPosition,
   dx: number,
   dy: number = 0,
-  dz: number
+  dz: number,
 ): TestPosition {
   return {
     x: base.x + dx,
@@ -220,7 +220,7 @@ export function createPositionLine(
   start: TestPosition,
   direction: { dx: number; dz: number },
   count: number,
-  spacing: number = 1
+  spacing: number = 1,
 ): TestPosition[] {
   const positions: TestPosition[] = [];
   for (let i = 0; i < count; i++) {
@@ -240,7 +240,7 @@ export function createPositionGrid(
   origin: TestPosition,
   width: number,
   height: number,
-  spacing: number = 1
+  spacing: number = 1,
 ): TestPosition[] {
   const positions: TestPosition[] = [];
   for (let z = 0; z < height; z++) {
@@ -280,7 +280,7 @@ export function distance3D(a: TestPosition, b: TestPosition): number {
 export function chebyshevDistance(
   a: TestPosition,
   b: TestPosition,
-  tileSize: number = 1
+  tileSize: number = 1,
 ): number {
   const tileAX = Math.floor(a.x / tileSize);
   const tileAZ = Math.floor(a.z / tileSize);

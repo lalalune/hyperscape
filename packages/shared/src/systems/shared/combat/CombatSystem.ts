@@ -1066,10 +1066,12 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
-    const entityPos =
-      entityWithPos.position || entityWithPos.getPosition?.() || entityWithPos;
-    const targetPos =
-      targetWithPos.position || targetWithPos.getPosition?.() || targetWithPos;
+    const entityPos = entityWithPos.position || entityWithPos.getPosition?.();
+    const targetPos = targetWithPos.position || targetWithPos.getPosition?.();
+
+    if (!entityPos || !targetPos) {
+      return;
+    }
 
     // Calculate angle to target (XZ plane only)
     const dx = targetPos.x - entityPos.x;

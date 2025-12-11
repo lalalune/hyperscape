@@ -10,7 +10,6 @@ import {
   expectValidSlot,
   expectValidQuantity,
   expectValidItemId,
-  expectValidPlayerId,
 } from "../validation";
 
 /**
@@ -92,11 +91,7 @@ export class MockInventoryManager {
   /**
    * Setup a stackable item
    */
-  setupStackableItem(
-    slot: number,
-    itemId: string,
-    quantity: number
-  ): this {
+  setupStackableItem(slot: number, itemId: string, quantity: number): this {
     expectValidSlot(slot, "setupStackableItem.slot");
     expectValidItemId(itemId, "setupStackableItem.itemId");
     expectValidQuantity(quantity, "setupStackableItem.quantity");
@@ -312,7 +307,7 @@ export class MockInventoryManager {
  * Create a pre-configured inventory manager for common test scenarios
  */
 export function createMockInventoryWithItems(
-  items: Array<{ slot: number; itemId: string; quantity?: number }>
+  items: Array<{ slot: number; itemId: string; quantity?: number }>,
 ): MockInventoryManager {
   const manager = new MockInventoryManager();
   for (const item of items) {

@@ -23,7 +23,7 @@ export interface TestPosition {
  */
 export function expectValidPosition(
   pos: TestPosition,
-  context: string = "position"
+  context: string = "position",
 ): asserts pos is TestPosition {
   if (typeof pos.x !== "number" || !Number.isFinite(pos.x)) {
     throw new Error(`${context}.x must be a finite number, got: ${pos.x}`);
@@ -39,12 +39,12 @@ export function expectValidPosition(
   const MAX_WORLD_COORD = 10000;
   if (Math.abs(pos.x) > MAX_WORLD_COORD) {
     throw new Error(
-      `${context}.x exceeds world bounds: ${pos.x} (max: ±${MAX_WORLD_COORD})`
+      `${context}.x exceeds world bounds: ${pos.x} (max: ±${MAX_WORLD_COORD})`,
     );
   }
   if (Math.abs(pos.z) > MAX_WORLD_COORD) {
     throw new Error(
-      `${context}.z exceeds world bounds: ${pos.z} (max: ±${MAX_WORLD_COORD})`
+      `${context}.z exceeds world bounds: ${pos.z} (max: ±${MAX_WORLD_COORD})`,
     );
   }
 }
@@ -55,14 +55,14 @@ export function expectValidPosition(
  */
 export function expectValidSlot(
   slot: number,
-  context: string = "slot"
+  context: string = "slot",
 ): asserts slot is number {
   if (!Number.isInteger(slot)) {
     throw new Error(`${context} must be an integer, got: ${slot}`);
   }
   if (slot < 0 || slot >= INPUT_LIMITS.MAX_INVENTORY_SLOTS) {
     throw new Error(
-      `${context} out of bounds: ${slot} (valid: 0-${INPUT_LIMITS.MAX_INVENTORY_SLOTS - 1})`
+      `${context} out of bounds: ${slot} (valid: 0-${INPUT_LIMITS.MAX_INVENTORY_SLOTS - 1})`,
     );
   }
 }
@@ -73,7 +73,7 @@ export function expectValidSlot(
  */
 export function expectValidQuantity(
   quantity: number,
-  context: string = "quantity"
+  context: string = "quantity",
 ): asserts quantity is number {
   if (!Number.isInteger(quantity)) {
     throw new Error(`${context} must be an integer, got: ${quantity}`);
@@ -83,7 +83,7 @@ export function expectValidQuantity(
   }
   if (quantity > INPUT_LIMITS.MAX_QUANTITY) {
     throw new Error(
-      `${context} exceeds maximum: ${quantity} (max: ${INPUT_LIMITS.MAX_QUANTITY})`
+      `${context} exceeds maximum: ${quantity} (max: ${INPUT_LIMITS.MAX_QUANTITY})`,
     );
   }
 }
@@ -94,7 +94,7 @@ export function expectValidQuantity(
  */
 export function expectValidPlayerId(
   playerId: string,
-  context: string = "playerId"
+  context: string = "playerId",
 ): asserts playerId is string {
   if (typeof playerId !== "string") {
     throw new Error(`${context} must be a string, got: ${typeof playerId}`);
@@ -104,7 +104,7 @@ export function expectValidPlayerId(
   }
   if (playerId.length > INPUT_LIMITS.MAX_ITEM_ID_LENGTH) {
     throw new Error(
-      `${context} exceeds maximum length: ${playerId.length} (max: ${INPUT_LIMITS.MAX_ITEM_ID_LENGTH})`
+      `${context} exceeds maximum length: ${playerId.length} (max: ${INPUT_LIMITS.MAX_ITEM_ID_LENGTH})`,
     );
   }
   // Check for control characters (security)
@@ -120,7 +120,7 @@ export function expectValidPlayerId(
  */
 export function expectValidItemId(
   itemId: string,
-  context: string = "itemId"
+  context: string = "itemId",
 ): asserts itemId is string {
   if (typeof itemId !== "string") {
     throw new Error(`${context} must be a string, got: ${typeof itemId}`);
@@ -130,7 +130,7 @@ export function expectValidItemId(
   }
   if (itemId.length > INPUT_LIMITS.MAX_ITEM_ID_LENGTH) {
     throw new Error(
-      `${context} exceeds maximum length: ${itemId.length} (max: ${INPUT_LIMITS.MAX_ITEM_ID_LENGTH})`
+      `${context} exceeds maximum length: ${itemId.length} (max: ${INPUT_LIMITS.MAX_ITEM_ID_LENGTH})`,
     );
   }
   // Check for control characters (security)
@@ -148,12 +148,12 @@ export type ValidAttackType = "melee" | "ranged" | "magic";
 
 export function expectValidAttackType(
   attackType: string,
-  context: string = "attackType"
+  context: string = "attackType",
 ): asserts attackType is ValidAttackType {
   const validTypes: ValidAttackType[] = ["melee", "ranged", "magic"];
   if (!validTypes.includes(attackType as ValidAttackType)) {
     throw new Error(
-      `${context} must be one of [${validTypes.join(", ")}], got: "${attackType}"`
+      `${context} must be one of [${validTypes.join(", ")}], got: "${attackType}"`,
     );
   }
 }
@@ -177,7 +177,7 @@ export type ValidEquipmentSlot =
 
 export function expectValidEquipmentSlot(
   slot: string,
-  context: string = "equipmentSlot"
+  context: string = "equipmentSlot",
 ): asserts slot is ValidEquipmentSlot {
   const validSlots: ValidEquipmentSlot[] = [
     "weapon",
@@ -194,7 +194,7 @@ export function expectValidEquipmentSlot(
   ];
   if (!validSlots.includes(slot as ValidEquipmentSlot)) {
     throw new Error(
-      `${context} must be one of [${validSlots.join(", ")}], got: "${slot}"`
+      `${context} must be one of [${validSlots.join(", ")}], got: "${slot}"`,
     );
   }
 }
@@ -205,7 +205,7 @@ export function expectValidEquipmentSlot(
  */
 export function expectValidDistance(
   distance: number,
-  context: string = "distance"
+  context: string = "distance",
 ): asserts distance is number {
   if (typeof distance !== "number" || !Number.isFinite(distance)) {
     throw new Error(`${context} must be a finite number, got: ${distance}`);
@@ -222,7 +222,7 @@ export function expectValidDistance(
 export function expectValidHealth(
   health: number,
   maxHealth: number,
-  context: string = "health"
+  context: string = "health",
 ): void {
   if (!Number.isInteger(health)) {
     throw new Error(`${context} must be an integer, got: ${health}`);
@@ -231,9 +231,7 @@ export function expectValidHealth(
     throw new Error(`${context} cannot be negative, got: ${health}`);
   }
   if (health > maxHealth) {
-    throw new Error(
-      `${context} exceeds maxHealth: ${health} > ${maxHealth}`
-    );
+    throw new Error(`${context} exceeds maxHealth: ${health} > ${maxHealth}`);
   }
 }
 
@@ -243,7 +241,7 @@ export function expectValidHealth(
  */
 export function expectValidDamage(
   damage: number,
-  context: string = "damage"
+  context: string = "damage",
 ): asserts damage is number {
   if (!Number.isInteger(damage)) {
     throw new Error(`${context} must be an integer, got: ${damage}`);
@@ -259,7 +257,7 @@ export function expectValidDamage(
  */
 export function expectValidTick(
   tick: number,
-  context: string = "tick"
+  context: string = "tick",
 ): asserts tick is number {
   if (!Number.isInteger(tick)) {
     throw new Error(`${context} must be an integer, got: ${tick}`);

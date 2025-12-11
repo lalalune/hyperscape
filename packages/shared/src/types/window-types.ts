@@ -6,7 +6,7 @@
  */
 
 import type { World } from "../core/World";
-import type THREE from "three";
+import type * as THREE from "three";
 
 /**
  * Window with world instance for debugging
