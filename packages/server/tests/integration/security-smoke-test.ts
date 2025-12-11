@@ -18,9 +18,9 @@ import {
   isValidQuantity,
   wouldOverflow,
   isValidSlotIndex,
-} from "../systems/ServerNetwork/services/InputValidation";
+} from "@/systems/ServerNetwork/services/InputValidation";
 
-import { IntervalRateLimiter } from "../systems/ServerNetwork/services/IntervalRateLimiter";
+import { IntervalRateLimiter } from "@/systems/ServerNetwork/services/IntervalRateLimiter";
 
 console.log("=== Security Smoke Test ===\n");
 
