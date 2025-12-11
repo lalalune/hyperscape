@@ -472,7 +472,10 @@ export type { Entities as EntitiesInterface } from "./types/index";
 export type { SystemLogger } from "./utils/Logger";
 
 // Export network/system interface types
-export type { NetworkSystem } from "./types/systems/system-interfaces";
+export type {
+  NetworkSystem,
+  EquipmentSystem,
+} from "./types/systems/system-interfaces";
 export type { IEventsInterface } from "./systems/shared";
 
 // Export Client Interface types
