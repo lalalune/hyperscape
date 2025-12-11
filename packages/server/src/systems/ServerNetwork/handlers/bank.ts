@@ -30,6 +30,10 @@ import {
   getItem,
   SessionType,
   INPUT_LIMITS,
+  getNotedItem,
+  canBeNoted,
+  isNotedItemId,
+  getBaseItemId,
 } from "@hyperscape/shared";
 import type { ServerSocket } from "../../../shared/types";
 import { BankRepository } from "../../../database/repositories/BankRepository";
@@ -236,6 +240,10 @@ export async function handleBankOpen(
  * BANK MODEL (Stacking):
  * - One row per itemId (all swords in one slot)
  * - quantity field tracks total count
+ *
+ * BANK NOTE SYSTEM:
+ * - Depositing a noted item (e.g., "logs_noted") auto-converts to base item ("logs")
+ * - Bank always stores base items, never notes
  */
 export async function handleBankDeposit(
   socket: ServerSocket,
@@ -278,14 +286,22 @@ export async function handleBankDeposit(
     return;
   }
 
+  // BANK NOTE SYSTEM: Auto-unnote deposited notes
+  // Inventory uses the actual itemId (could be noted)
+  // Bank stores the base item (auto-convert notes)
+  const inventoryItemId = data.itemId;
+  const bankItemId = isNotedItemId(data.itemId)
+    ? getBaseItemId(data.itemId)
+    : data.itemId;
+
   // Step 3: Execute transaction with inventory lock (prevents race conditions)
   const result = await executeInventoryTransaction(ctx, async () => {
     return executeSecureTransaction(ctx, {
       execute: async (tx) => {
-        // Lock inventory rows for this item
+        // Lock inventory rows for this item (use inventory item ID - could be noted)
         const inventoryItems = await tx.execute(
           sql`SELECT * FROM inventory
-              WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${data.itemId}
+              WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${inventoryItemId}
               ORDER BY "slotIndex"
               FOR UPDATE`,
         );
@@ -312,10 +328,10 @@ export async function handleBankDeposit(
           throw new Error("INSUFFICIENT_QUANTITY");
         }
 
-        // Check bank item and verify no overflow
+        // Check bank item and verify no overflow (use bank item ID - always base item)
         const bankItems = await tx.execute(
           sql`SELECT * FROM bank_storage
-              WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${data.itemId}
+              WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${bankItemId}
               FOR UPDATE`,
         );
 
@@ -353,7 +369,7 @@ export async function handleBankDeposit(
             removedSlots.push({
               slot: itemSlot,
               quantity: itemQty,
-              itemId: data.itemId,
+              itemId: inventoryItemId,
             });
             remaining -= itemQty;
           } else {
@@ -364,7 +380,7 @@ export async function handleBankDeposit(
             removedSlots.push({
               slot: itemSlot,
               quantity: remaining,
-              itemId: data.itemId,
+              itemId: inventoryItemId,
             });
             remaining = 0;
           }
@@ -404,9 +420,10 @@ export async function handleBankDeposit(
             throw new Error("BANK_FULL");
           }
 
+          // BANK NOTE SYSTEM: Always store base item (bankItemId), never notes
           await tx.insert(schema.bankStorage).values({
             playerId: ctx.playerId,
-            itemId: data.itemId,
+            itemId: bankItemId,
             quantity: data.quantity,
             slot: nextSlot,
             tabIndex: targetTab,
@@ -436,13 +453,18 @@ export async function handleBankDeposit(
  * - executeSecureTransaction: atomic transaction with row-level locking and retry
  * - emitInventorySyncEvents: in-memory cache sync
  *
- * WITHDRAW FLOW (Non-stacking inventory):
- * - Each withdrawn item gets its own inventory slot (qty=1)
- * - Limits withdrawal to available free slots
+ * WITHDRAW FLOW:
+ * - asNote=false (default): Each item gets its own inventory slot (qty=1)
+ * - asNote=true: All items stack in one slot as noted variant
+ *
+ * BANK NOTE SYSTEM:
+ * - When asNote=true and item is noteable, gives "{itemId}_noted" variant
+ * - Noted items are stackable, so 1000 logs_noted = 1 inventory slot
+ * - Only tradeable, non-stackable items can be noted
  */
 export async function handleBankWithdraw(
   socket: ServerSocket,
-  data: { itemId: string; quantity: number },
+  data: { itemId: string; quantity: number; asNote?: boolean },
   world: World,
 ): Promise<void> {
   // SPECIAL CASE: Coins should go to money pouch (CoinPouchSystem), not inventory
@@ -485,8 +507,22 @@ export async function handleBankWithdraw(
     return;
   }
 
-  // Limit single withdrawal to max inventory size
-  const withdrawQty = Math.min(data.quantity, MAX_INVENTORY_SLOTS);
+  // BANK NOTE SYSTEM: Determine if withdrawing as note
+  const wantAsNote = data.asNote === true;
+  const itemIsNoteable = canBeNoted(data.itemId);
+  const withdrawAsNote = wantAsNote && itemIsNoteable;
+
+  // If user requested note but item can't be noted, warn but continue with base item
+  if (wantAsNote && !itemIsNoteable) {
+    console.log(
+      `[BankHandler] Note requested for non-noteable item ${data.itemId}, withdrawing as base item`,
+    );
+  }
+
+  // Limit single withdrawal to max inventory size (unless withdrawing as note - all fit in 1 slot)
+  const withdrawQty = withdrawAsNote
+    ? data.quantity // Notes stack, so no slot limit
+    : Math.min(data.quantity, MAX_INVENTORY_SLOTS);
 
   // Step 3: Execute transaction with inventory lock (prevents race conditions)
   // The executeInventoryTransaction wrapper handles:
@@ -525,11 +561,21 @@ export async function handleBankWithdraw(
           }
         }
 
+        // BANK NOTE SYSTEM: Notes only need 1 slot (stackable)
+        // Base items need 1 slot per item
+        const slotsNeeded = withdrawAsNote ? 1 : withdrawQty;
+
         if (freeSlots.length === 0) {
           throw new Error("INVENTORY_FULL");
         }
 
-        const actualWithdrawQty = Math.min(withdrawQty, freeSlots.length);
+        if (freeSlots.length < slotsNeeded && !withdrawAsNote) {
+          // For base items, limit to available slots
+        }
+
+        const actualWithdrawQty = withdrawAsNote
+          ? withdrawQty // Notes can withdraw any amount (1 slot)
+          : Math.min(withdrawQty, freeSlots.length);
 
         // Lock and find bank item
         const bankResult = await tx.execute(
@@ -603,30 +649,82 @@ export async function handleBankWithdraw(
           );
         }
 
-        // Create inventory items (one per withdrawn item, qty=1)
-        // With lock+flush+reload pattern, races are impossible - simple inserts work
+        // BANK NOTE SYSTEM: Different inventory handling for notes vs base items
+        // - Notes: Single stackable item (qty=finalWithdrawQty) in one slot
+        // - Base items: One item per slot (qty=1 each)
         const addedSlots: Array<{
           slot: number;
           quantity: number;
           itemId: string;
         }> = [];
 
-        for (let i = 0; i < finalWithdrawQty; i++) {
-          const targetSlot = freeSlots[i];
+        if (withdrawAsNote) {
+          // NOTED WITHDRAWAL: Single stackable item
+          const notedItem = getNotedItem(data.itemId);
+          if (!notedItem) {
+            // Should never happen if canBeNoted() returned true, but safety check
+            throw new Error("ITEM_NOT_NOTEABLE");
+          }
 
-          await tx.insert(schema.inventory).values({
-            playerId: ctx.playerId,
-            itemId: data.itemId,
-            quantity: 1,
-            slotIndex: targetSlot,
-            metadata: null,
-          });
+          const targetSlot = freeSlots[0];
 
-          addedSlots.push({
-            slot: targetSlot,
-            quantity: 1,
-            itemId: data.itemId,
-          });
+          // Check if player already has this noted item in inventory (stack with it)
+          const existingNoted = await tx.execute(
+            sql`SELECT id, quantity, "slotIndex" FROM inventory
+                WHERE "playerId" = ${ctx.playerId} AND "itemId" = ${notedItem.id}
+                FOR UPDATE`,
+          );
+
+          if (existingNoted.rows.length > 0) {
+            // Stack with existing noted item
+            const existingRow = existingNoted.rows[0] as {
+              id: number;
+              quantity: number;
+              slotIndex: number;
+            };
+            await tx.execute(
+              sql`UPDATE inventory SET quantity = quantity + ${finalWithdrawQty}
+                  WHERE id = ${existingRow.id}`,
+            );
+            addedSlots.push({
+              slot: existingRow.slotIndex,
+              quantity: finalWithdrawQty,
+              itemId: notedItem.id,
+            });
+          } else {
+            // Create new noted item stack
+            await tx.insert(schema.inventory).values({
+              playerId: ctx.playerId,
+              itemId: notedItem.id,
+              quantity: finalWithdrawQty,
+              slotIndex: targetSlot,
+              metadata: null,
+            });
+            addedSlots.push({
+              slot: targetSlot,
+              quantity: finalWithdrawQty,
+              itemId: notedItem.id,
+            });
+          }
+        } else {
+          // BASE ITEM WITHDRAWAL: One item per slot (qty=1 each)
+          for (let i = 0; i < finalWithdrawQty; i++) {
+            const targetSlot = freeSlots[i];
+
+            await tx.insert(schema.inventory).values({
+              playerId: ctx.playerId,
+              itemId: data.itemId,
+              quantity: 1,
+              slotIndex: targetSlot,
+              metadata: null,
+            });
+
+            addedSlots.push({
+              slot: targetSlot,
+              quantity: 1,
+              itemId: data.itemId,
+            });
+          }
         }
 
         return { addedSlots };
@@ -699,16 +797,21 @@ export async function handleBankDepositAll(
           throw new Error("INVENTORY_EMPTY");
         }
 
-        // Group items by itemId and calculate totals
+        // BANK NOTE SYSTEM: Group items by BASE itemId (auto-unnote)
+        // This ensures noted items get converted to their base form in bank
         const itemGroups = new Map<
           string,
           { total: number; rows: typeof invRows }
         >();
         for (const row of invRows) {
-          const existing = itemGroups.get(row.itemId) || { total: 0, rows: [] };
+          // Convert noted items to base item ID for bank storage
+          const bankItemId = isNotedItemId(row.itemId)
+            ? getBaseItemId(row.itemId)
+            : row.itemId;
+          const existing = itemGroups.get(bankItemId) || { total: 0, rows: [] };
           existing.total += row.quantity ?? 1;
           existing.rows.push(row);
-          itemGroups.set(row.itemId, existing);
+          itemGroups.set(bankItemId, existing);
         }
 
         // Lock ALL bank items for this player

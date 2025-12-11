@@ -46,6 +46,9 @@ export class GroundItemSystem extends SystemBase {
   private nextItemId = 1;
   private entityManager: EntityManager | null = null;
 
+  /** Pre-allocated buffer for tick processing (zero-allocation hot path) */
+  private readonly _expiredItemsBuffer: string[] = [];
+
   /** OSRS: Maximum items per tile */
   private readonly MAX_PILE_SIZE = 128;
 
@@ -82,10 +85,29 @@ export class GroundItemSystem extends SystemBase {
 
   /**
    * Get all items at a specific tile (O(1) lookup)
+   * @param tile - Tile coordinates
+   * @param outArray - Optional pre-allocated array to populate (avoids allocation)
+   * @returns Array of ground items at tile
    */
-  getItemsAtTile(tile: { x: number; z: number }): GroundItemData[] {
+  getItemsAtTile(
+    tile: { x: number; z: number },
+    outArray?: GroundItemData[],
+  ): GroundItemData[] {
     const tileKey = this.getTileKey(tile);
     const pile = this.groundItemPiles.get(tileKey);
+
+    if (outArray) {
+      // Zero-allocation path: populate provided array
+      outArray.length = 0;
+      if (pile) {
+        for (let i = 0; i < pile.items.length; i++) {
+          outArray.push(pile.items[i]);
+        }
+      }
+      return outArray;
+    }
+
+    // Allocation path: create new array (backwards compatible)
     return pile ? [...pile.items] : [];
   }
 
@@ -391,17 +413,18 @@ export class GroundItemSystem extends SystemBase {
    * @param currentTick - Current server tick number
    */
   processTick(currentTick: number): void {
-    const expiredItems: string[] = [];
+    // ZERO-ALLOCATION: Reuse buffer, clear via length instead of new array
+    this._expiredItemsBuffer.length = 0;
 
     for (const [itemId, itemData] of this.groundItems) {
       if (currentTick >= itemData.despawnTick) {
-        expiredItems.push(itemId);
+        this._expiredItemsBuffer.push(itemId);
       }
     }
 
-    // Despawn expired items
-    for (const itemId of expiredItems) {
-      this.handleItemExpire(itemId, currentTick);
+    // Process from buffer (use indexed loop for performance)
+    for (let i = 0; i < this._expiredItemsBuffer.length; i++) {
+      this.handleItemExpire(this._expiredItemsBuffer[i], currentTick);
     }
   }
 

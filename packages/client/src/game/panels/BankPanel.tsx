@@ -152,6 +152,19 @@ const DRAG_THROTTLE_MS = 16;
 // ============================================================================
 
 /**
+ * Check if an item is a bank note (itemId ends with "_noted")
+ *
+ * Mirrors: @hyperscape/shared isNotedItemId() from NoteGenerator.ts
+ * Keep in sync with NOTE_SUFFIX = "_noted" constant
+ *
+ * Note: Client-side duplicate to avoid bundle bloat from importing shared.
+ * The canonical implementation lives in packages/shared/src/data/NoteGenerator.ts
+ */
+function isNotedItem(itemId: string): boolean {
+  return itemId.endsWith("_noted");
+}
+
+/**
  * Get icon for item based on itemId
  */
 function getItemIcon(itemId: string): string {
@@ -924,6 +937,27 @@ export function BankPanel({
   const [hoveredSlot, setHoveredSlot] = useState<number | null>(null);
   const [hoveredTabIndex, setHoveredTabIndex] = useState<number | null>(null);
 
+  // ========== BANK NOTE SYSTEM STATE ==========
+  // OSRS-style: Toggle between withdrawing as base items or bank notes
+  // Notes are stackable, so 1000 noted logs = 1 inventory slot
+  // Persisted to localStorage for convenience
+  const [withdrawAsNote, setWithdrawAsNote] = useState<boolean>(() => {
+    if (typeof localStorage !== "undefined") {
+      return localStorage.getItem("bank_withdrawAsNote") === "true";
+    }
+    return false;
+  });
+
+  // Persist withdrawAsNote to localStorage
+  useEffect(() => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(
+        "bank_withdrawAsNote",
+        withdrawAsNote ? "true" : "false",
+      );
+    }
+  }, [withdrawAsNote]);
+
   // ========== PERFORMANCE: Throttle drag state updates ==========
   const lastDragUpdateTime = useRef(0);
 
@@ -959,10 +993,15 @@ export function BankPanel({
   const handleWithdraw = useCallback(
     (itemId: string, quantity: number) => {
       if (world.network?.send) {
-        world.network.send("bankWithdraw", { itemId, quantity });
+        // BANK NOTE SYSTEM: Include asNote flag for noted withdrawal
+        world.network.send("bankWithdraw", {
+          itemId,
+          quantity,
+          asNote: withdrawAsNote,
+        });
       }
     },
-    [world.network],
+    [world.network, withdrawAsNote],
   );
 
   const handleDeposit = useCallback(
@@ -2048,6 +2087,43 @@ export function BankPanel({
               )}
             </div>
             <div className="flex items-center gap-3">
+              {/* BANK NOTE SYSTEM: Item/Note Toggle Buttons */}
+              <div
+                className="flex rounded overflow-hidden"
+                style={{
+                  border: `1px solid ${BANK_THEME.PANEL_BORDER}`,
+                }}
+              >
+                <button
+                  onClick={() => setWithdrawAsNote(false)}
+                  className="px-2 py-0.5 text-[10px] font-bold transition-all"
+                  style={{
+                    background: !withdrawAsNote
+                      ? "rgba(139, 69, 19, 0.7)"
+                      : "rgba(0, 0, 0, 0.3)",
+                    color: !withdrawAsNote
+                      ? "#f2d08a"
+                      : "rgba(255,255,255,0.4)",
+                    borderRight: `1px solid ${BANK_THEME.PANEL_BORDER}`,
+                  }}
+                  title="Withdraw items as-is (1 slot per item)"
+                >
+                  Item
+                </button>
+                <button
+                  onClick={() => setWithdrawAsNote(true)}
+                  className="px-2 py-0.5 text-[10px] font-bold transition-all"
+                  style={{
+                    background: withdrawAsNote
+                      ? "rgba(139, 69, 19, 0.7)"
+                      : "rgba(0, 0, 0, 0.3)",
+                    color: withdrawAsNote ? "#f2d08a" : "rgba(255,255,255,0.4)",
+                  }}
+                  title="Withdraw items as bank notes (stackable, all fit in 1 slot)"
+                >
+                  Note
+                </button>
+              </div>
               {/* Always Set Placeholder Checkbox */}
               <label
                 className="flex items-center gap-1.5 cursor-pointer select-none"
@@ -2196,6 +2272,19 @@ export function BankPanel({
                           <span className="text-lg select-none">
                             {getItemIcon(item.itemId)}
                           </span>
+                          {/* BANK NOTE SYSTEM: "N" badge for noted items */}
+                          {isNotedItem(item.itemId) && (
+                            <span
+                              className="absolute top-0 left-0.5 text-[8px] font-bold px-0.5 rounded"
+                              style={{
+                                color: "#fff",
+                                background: "rgba(139, 69, 19, 0.9)",
+                                textShadow: "0 0 2px #000",
+                              }}
+                            >
+                              N
+                            </span>
+                          )}
                           {(item.quantity || 1) > 1 && (
                             <span
                               className="absolute bottom-0 right-0.5 text-[9px] font-bold"

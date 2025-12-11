@@ -21,6 +21,7 @@
 import { BANKS, GENERAL_STORES } from "./banks-stores";
 import { ITEMS } from "./items";
 import { ALL_NPCS } from "./npcs";
+import { generateAllNotedItems } from "./NoteGenerator";
 import {
   ALL_WORLD_AREAS,
   STARTER_TOWNS,
@@ -131,6 +132,15 @@ export class DataManager {
       for (const it of list) {
         const normalized = this.normalizeItem(it);
         (ITEMS as Map<string, Item>).set(normalized.id, normalized);
+      }
+
+      // Generate noted variants for all eligible items
+      // This auto-creates "{itemId}_noted" variants for tradeable, non-stackable items
+      const itemsWithNotes = generateAllNotedItems(ITEMS);
+      // Clear and repopulate ITEMS map with noted variants included
+      (ITEMS as Map<string, Item>).clear();
+      for (const [id, item] of itemsWithNotes) {
+        (ITEMS as Map<string, Item>).set(id, item);
       }
 
       // Load NPCs (unified standardized structure with categories: mob, boss, neutral, quest)

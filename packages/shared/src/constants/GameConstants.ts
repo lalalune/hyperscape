@@ -7,11 +7,13 @@
 
 // Import COMBAT_CONSTANTS from dedicated file
 import { COMBAT_CONSTANTS } from "./CombatConstants";
+// Import banking constants - single source of truth for MAX_BANK_SLOTS
+import { BANKING_CONSTANTS } from "./BankingConstants";
 
 // === INVENTORY AND ITEMS ===
 export const INVENTORY_CONSTANTS = {
   MAX_INVENTORY_SLOTS: 28,
-  MAX_BANK_SLOTS: 100,
+  MAX_BANK_SLOTS: BANKING_CONSTANTS.MAX_BANK_SLOTS, // Single source: BankingConstants.ts
   MAX_STACK_SIZE: 1000,
   DEFAULT_ITEM_VALUE: 1,
 } as const;

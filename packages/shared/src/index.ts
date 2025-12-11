@@ -144,7 +144,16 @@ export {
 } from "./utils/index";
 
 // Export item helpers used by server network snapshot
-export { getItem } from "./data/items";
+export {
+  getItem,
+  getBaseItem,
+  getNotedItem,
+  canBeNoted,
+  isNotedItemId,
+  getBaseItemId,
+  getNotedItemId,
+  NOTE_SUFFIX,
+} from "./data/items";
 
 // Export store helpers used by server store handler
 export { getStoreById } from "./data/banks-stores";

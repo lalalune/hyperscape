@@ -126,6 +126,12 @@ function DraggableInventorySlot({
   // Slots stay fixed - no transform! Only the DragOverlay moves.
   const isEmpty = !item;
 
+  // BANK NOTE SYSTEM: Check if item is a bank note (ends with "_noted")
+  // Used for visual styling (parchment background) and context menu filtering
+  // Mirrors: @hyperscape/shared isNotedItemId() from NoteGenerator.ts
+  // Keep in sync with NOTE_SUFFIX = "_noted" constant
+  const isNotedItem = item?.itemId?.endsWith("_noted") ?? false;
+
   // Get icon for item
   const getItemIcon = (itemId: string) => {
     if (
@@ -188,16 +194,18 @@ function DraggableInventorySlot({
         if (!item) return;
 
         // Determine if item is equippable based on itemId
+        // BANK NOTE SYSTEM: Noted items are NEVER equippable (must be un-noted first)
         const isEquippable =
-          item.itemId.includes("sword") ||
-          item.itemId.includes("bow") ||
-          item.itemId.includes("shield") ||
-          item.itemId.includes("helmet") ||
-          item.itemId.includes("body") ||
-          item.itemId.includes("legs") ||
-          item.itemId.includes("arrows") ||
-          item.itemId.includes("chainbody") ||
-          item.itemId.includes("platebody");
+          !isNotedItem &&
+          (item.itemId.includes("sword") ||
+            item.itemId.includes("bow") ||
+            item.itemId.includes("shield") ||
+            item.itemId.includes("helmet") ||
+            item.itemId.includes("body") ||
+            item.itemId.includes("legs") ||
+            item.itemId.includes("arrows") ||
+            item.itemId.includes("chainbody") ||
+            item.itemId.includes("platebody"));
 
         const items = [
           ...(isEquippable
@@ -223,33 +231,45 @@ function DraggableInventorySlot({
       style={{
         opacity: isDragging ? 0.3 : 1,
         // RS3-style modern slot colors
+        // BANK NOTE SYSTEM: Noted items get a distinctive paper/parchment background
         borderColor: isOver
           ? "rgba(180, 160, 100, 0.9)" // Gold highlight when dragging over
           : isEmpty
             ? "rgba(50, 45, 40, 0.6)"
-            : "rgba(70, 60, 50, 0.7)",
+            : isNotedItem
+              ? "rgba(180, 160, 120, 0.7)" // Tan border for notes
+              : "rgba(70, 60, 50, 0.7)",
         borderStyle: "solid",
         borderWidth: "1px",
         background: isOver
           ? "rgba(180, 160, 100, 0.25)" // Gold tint when dragging over
           : isEmpty
             ? "rgba(25, 22, 20, 0.85)" // Very dark for empty
-            : "linear-gradient(180deg, rgba(55, 48, 42, 0.95) 0%, rgba(40, 35, 30, 0.95) 100%)", // Subtle gradient for items
+            : isNotedItem
+              ? "linear-gradient(135deg, rgba(245, 235, 210, 0.95) 0%, rgba(225, 210, 175, 0.95) 100%)" // Parchment/paper for notes
+              : "linear-gradient(180deg, rgba(55, 48, 42, 0.95) 0%, rgba(40, 35, 30, 0.95) 100%)", // Subtle gradient for items
         boxShadow: isOver
           ? "inset 0 0 8px rgba(180, 160, 100, 0.4), 0 0 4px rgba(180, 160, 100, 0.3)"
           : isEmpty
             ? "inset 0 1px 2px rgba(0, 0, 0, 0.4)"
-            : "inset 0 1px 0 rgba(80, 70, 55, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.2)",
+            : isNotedItem
+              ? "inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.1), 1px 1px 2px rgba(0, 0, 0, 0.2)" // Paper shadow
+              : "inset 0 1px 0 rgba(80, 70, 55, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.2)",
         cursor: isEmpty ? "default" : isDragging ? "grabbing" : "grab",
       }}
     >
       {/* Item Icon - Centered */}
+      {/* BANK NOTE SYSTEM: Darker icon for noted items (light background) */}
       {!isEmpty && (
         <div
           className="flex items-center justify-center h-full transition-transform duration-150 group-hover:scale-105 text-sm md:text-base"
           style={{
-            color: "rgba(220, 200, 160, 0.95)",
-            filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5))",
+            color: isNotedItem
+              ? "rgba(80, 60, 40, 0.95)" // Dark brown for notes (on parchment)
+              : "rgba(220, 200, 160, 0.95)", // Light gold for normal items
+            filter: isNotedItem
+              ? "drop-shadow(0 1px 1px rgba(255, 255, 255, 0.3))"
+              : "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5))",
           }}
         >
           {getItemIcon(item.itemId)}
@@ -257,6 +277,7 @@ function DraggableInventorySlot({
       )}
 
       {/* Quantity Badge - RS3 style: top-left, yellow for stacks */}
+      {/* BANK NOTE SYSTEM: Darker text with light shadow for noted items */}
       {item &&
         item.quantity > 1 &&
         (() => {
@@ -265,10 +286,11 @@ function DraggableInventorySlot({
             <div
               className="absolute top-0 left-0.5 font-bold leading-none"
               style={{
-                color: color,
+                color: isNotedItem ? "#4a3520" : color, // Dark brown for notes
                 fontSize: "clamp(0.5rem, 1.2vw, 0.625rem)",
-                textShadow:
-                  "1px 1px 1px rgba(0, 0, 0, 0.9), -1px -1px 1px rgba(0, 0, 0, 0.5)",
+                textShadow: isNotedItem
+                  ? "0 0 2px rgba(255, 255, 255, 0.8), 1px 1px 1px rgba(255, 255, 255, 0.5)"
+                  : "1px 1px 1px rgba(0, 0, 0, 0.9), -1px -1px 1px rgba(0, 0, 0, 0.5)",
               }}
             >
               {text}
