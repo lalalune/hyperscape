@@ -678,6 +678,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             maxSlots={bankData.maxSlots}
             world={world}
             inventory={inventory}
+            equipment={equipment}
             coins={coins}
             bankId={bankData.bankId}
             onClose={() => {

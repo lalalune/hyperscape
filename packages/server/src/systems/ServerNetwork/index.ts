@@ -107,6 +107,9 @@ import {
   handleBankReleasePlaceholder,
   handleBankReleaseAllPlaceholders,
   handleBankToggleAlwaysPlaceholder,
+  handleBankWithdrawToEquipment,
+  handleBankDepositEquipment,
+  handleBankDepositAllEquipment,
 } from "./handlers/bank";
 import {
   handleEntityModified,
@@ -757,6 +760,20 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onBankToggleAlwaysPlaceholder"] = (socket, data) =>
       handleBankToggleAlwaysPlaceholder(socket, data, this.world);
+
+    // Bank equipment tab handlers (RS3-style equipment view)
+    this.handlers["onBankWithdrawToEquipment"] = (socket, data) =>
+      handleBankWithdrawToEquipment(
+        socket,
+        data as { itemId: string; tabIndex: number; slot: number },
+        this.world,
+      );
+
+    this.handlers["onBankDepositEquipment"] = (socket, data) =>
+      handleBankDepositEquipment(socket, data as { slot: string }, this.world);
+
+    this.handlers["onBankDepositAllEquipment"] = (socket, data) =>
+      handleBankDepositAllEquipment(socket, data, this.world);
 
     // NPC interaction handler - client clicked on NPC
     this.handlers["onNpcInteract"] = (socket, data) => {

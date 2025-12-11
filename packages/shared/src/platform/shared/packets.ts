@@ -182,6 +182,10 @@ const names = [
   'bankReleasePlaceholder',       // Release single placeholder (delete qty=0 row)
   'bankReleaseAllPlaceholders',   // Clear all placeholders (delete all qty=0 rows)
   'bankToggleAlwaysPlaceholder',  // Toggle auto-placeholder setting
+  // Bank equipment tab packets (RS3-style equipment view in bank)
+  'bankWithdrawToEquipment',      // Withdraw item directly to equipment slot
+  'bankDepositEquipment',         // Deposit single equipment slot to bank
+  'bankDepositAllEquipment',      // Deposit all worn equipment to bank
   // Store packets
   'storeOpen',
   'storeState',
