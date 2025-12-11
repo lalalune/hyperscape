@@ -27,6 +27,41 @@ export const MAX_INVENTORY_SLOTS = INPUT_LIMITS.MAX_INVENTORY_SLOTS;
 export const MAX_BANK_SLOTS = INPUT_LIMITS.MAX_BANK_SLOTS;
 
 // ============================================================================
+// BANK OPERATION CONSTANTS
+// ============================================================================
+
+/**
+ * Maximum number of custom tabs (tabs 1-9).
+ * Tab 0 is the main tab and always exists.
+ */
+export const MAX_CUSTOM_TABS = 9;
+
+/**
+ * Temporary slot offset used in two-phase updates to avoid unique constraint violations.
+ * PostgreSQL doesn't guarantee UPDATE order, so we use a large offset to move slots
+ * far away from normal range, then adjust to final values in a second pass.
+ */
+export const SLOT_OFFSET_TEMP = 1000;
+
+/**
+ * Recovery offset for two-phase updates: SLOT_OFFSET_TEMP + 1.
+ * Subtracting this from offset slots gives the final value (shifted down by 1).
+ */
+export const SLOT_OFFSET_RECOVER = 1001;
+
+/**
+ * Temporary slot value used during swap operations.
+ * Must be outside valid slot range to avoid conflicts.
+ */
+export const TEMP_SWAP_SLOT = -1000;
+
+/**
+ * Coin threshold for audit logging.
+ * Transactions >= this amount are logged for security monitoring.
+ */
+export const AUDIT_COIN_THRESHOLD = 1_000_000;
+
+// ============================================================================
 // VALIDATION UTILITIES
 // ============================================================================
 
@@ -69,12 +104,12 @@ export async function compactBankSlots(
   // PostgreSQL doesn't guarantee UPDATE order, so if slot 4 tries to become slot 3
   // before slot 3 becomes slot 2, they collide on the same (playerId, tabIndex, slot) key.
   //
-  // Solution: First add +1000 to move them far away, then subtract 1001 to get final values.
+  // Solution: First add SLOT_OFFSET_TEMP to move them far away, then subtract SLOT_OFFSET_RECOVER.
 
   // Phase 1: Add large offset to avoid conflicts during shift
   await tx.execute(
     sql`UPDATE bank_storage
-        SET slot = slot + 1000
+        SET slot = slot + ${SLOT_OFFSET_TEMP}
         WHERE "playerId" = ${playerId}
           AND "tabIndex" = ${tabIndex}
           AND slot > ${deletedSlot}`,
@@ -83,10 +118,10 @@ export async function compactBankSlots(
   // Phase 2: Subtract offset + 1 to get final values (shifted down by 1)
   await tx.execute(
     sql`UPDATE bank_storage
-        SET slot = slot - 1001
+        SET slot = slot - ${SLOT_OFFSET_RECOVER}
         WHERE "playerId" = ${playerId}
           AND "tabIndex" = ${tabIndex}
-          AND slot > 1000`,
+          AND slot > ${SLOT_OFFSET_TEMP}`,
   );
 }
 

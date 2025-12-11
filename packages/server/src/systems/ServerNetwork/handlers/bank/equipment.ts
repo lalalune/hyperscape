@@ -35,6 +35,23 @@ import {
   MAX_BANK_SLOTS,
 } from "./utils";
 
+// ============================================================================
+// STATIC CONSTANTS (module-level to avoid recreation on each call)
+// ============================================================================
+
+/**
+ * Valid equipment slot names for deposit operations.
+ * Static Set to avoid re-creation on every function call.
+ */
+const VALID_EQUIPMENT_SLOTS = new Set([
+  "weapon",
+  "shield",
+  "helmet",
+  "body",
+  "legs",
+  "arrows",
+]);
+
 /**
  * Handle withdraw item directly to equipment
  *
@@ -304,15 +321,7 @@ export async function handleBankDepositEquipment(
   const ctx = baseResult.context;
 
   // Step 2: Input validation
-  const validSlots = new Set([
-    "weapon",
-    "shield",
-    "helmet",
-    "body",
-    "legs",
-    "arrows",
-  ]);
-  if (!validSlots.has(data.slot)) {
+  if (!VALID_EQUIPMENT_SLOTS.has(data.slot)) {
     sendErrorToast(socket, "Invalid equipment slot");
     return;
   }

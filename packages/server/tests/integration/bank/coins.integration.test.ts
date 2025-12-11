@@ -23,6 +23,7 @@ vi.mock("../../../src/systems/ServerNetwork/handlers/bank/utils", () => ({
   compactBankSlots: vi.fn(),
   sendBankStateWithTabs: vi.fn(),
   MAX_BANK_SLOTS: 800,
+  AUDIT_COIN_THRESHOLD: 1_000_000,
 }));
 
 // Mock the services

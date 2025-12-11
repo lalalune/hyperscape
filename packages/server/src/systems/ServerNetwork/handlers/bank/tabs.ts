@@ -21,7 +21,14 @@ import {
   sendErrorToast,
 } from "../common";
 
-import { rateLimiter, compactBankSlots, sendBankStateWithTabs } from "./utils";
+import {
+  rateLimiter,
+  compactBankSlots,
+  sendBankStateWithTabs,
+  MAX_CUSTOM_TABS,
+  SLOT_OFFSET_TEMP,
+  SLOT_OFFSET_RECOVER,
+} from "./utils";
 
 /**
  * Handle create bank tab request
@@ -87,14 +94,14 @@ export async function handleBankCreateTab(
         throw new Error("TAB_EXISTS");
       }
 
-      // Check total tabs count (max 9)
+      // Check total tabs count
       const tabCount = await tx.execute(
         sql`SELECT COUNT(*) as count FROM bank_tabs WHERE "playerId" = ${ctx.playerId}`,
       );
       const count = Number(
         (tabCount.rows[0] as { count: string | number }).count,
       );
-      if (count >= 9) {
+      if (count >= MAX_CUSTOM_TABS) {
         throw new Error("MAX_TABS_REACHED");
       }
 
@@ -155,11 +162,6 @@ export async function handleBankCreateTab(
   });
 
   if (!result) return;
-
-  // Audit log: Tab creation
-  console.log(
-    `[Bank:TabCreate] playerId=${ctx.playerId} newTabIndex=${data.newTabIndex} fromSlot=${data.fromSlot}`,
-  );
 
   // Step 4: Send updated state
   await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
@@ -260,30 +262,30 @@ export async function handleBankDeleteTab(
       //
       // NOTE: Cannot use single batched UPDATE due to unique constraint on (playerId, tabIndex, slot).
       // PostgreSQL doesn't guarantee update order, so concurrent updates can cause conflicts.
-      // Using two-phase approach: first offset by +1000, then subtract 1001.
+      // Using two-phase approach with SLOT_OFFSET_TEMP and SLOT_OFFSET_RECOVER.
 
       // Phase 1: Add large offset to avoid conflicts during shift
       await tx.execute(
         sql`UPDATE bank_tabs
-            SET "tabIndex" = "tabIndex" + 1000
+            SET "tabIndex" = "tabIndex" + ${SLOT_OFFSET_TEMP}
             WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > ${data.tabIndex}`,
       );
       await tx.execute(
         sql`UPDATE bank_storage
-            SET "tabIndex" = "tabIndex" + 1000
+            SET "tabIndex" = "tabIndex" + ${SLOT_OFFSET_TEMP}
             WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > ${data.tabIndex}`,
       );
 
       // Phase 2: Subtract offset + 1 to get final values (shifted down by 1)
       await tx.execute(
         sql`UPDATE bank_tabs
-            SET "tabIndex" = "tabIndex" - 1001
-            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > 1000`,
+            SET "tabIndex" = "tabIndex" - ${SLOT_OFFSET_RECOVER}
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > ${SLOT_OFFSET_TEMP}`,
       );
       await tx.execute(
         sql`UPDATE bank_storage
-            SET "tabIndex" = "tabIndex" - 1001
-            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > 1000`,
+            SET "tabIndex" = "tabIndex" - ${SLOT_OFFSET_RECOVER}
+            WHERE "playerId" = ${ctx.playerId} AND "tabIndex" > ${SLOT_OFFSET_TEMP}`,
       );
 
       return { success: true };
@@ -291,11 +293,6 @@ export async function handleBankDeleteTab(
   });
 
   if (!result) return;
-
-  // Audit log: Tab deletion
-  console.log(
-    `[Bank:TabDelete] playerId=${ctx.playerId} tabIndex=${data.tabIndex}`,
-  );
 
   // Step 4: Send updated state
   await sendBankStateWithTabs(socket, ctx.playerId, ctx.db);
