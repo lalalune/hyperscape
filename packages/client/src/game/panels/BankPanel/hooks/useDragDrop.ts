@@ -9,7 +9,7 @@
  * DO NOT remove the throttling logic.
  */
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
 import { DRAG_THROTTLE_MS } from "../constants";
 
 interface UseDragDropConfig {
@@ -178,15 +178,28 @@ export function useDragDrop({
     resetDrag();
   }, [resetDrag]);
 
-  return {
-    dragState: {
+  // Memoize dragState to prevent unnecessary child re-renders during drag
+  const dragState = useMemo<DragState>(
+    () => ({
       draggedSlot,
       draggedTabIndex,
       dropMode,
       insertPosition,
       hoveredSlot,
       hoveredTabIndex,
-    },
+    }),
+    [
+      draggedSlot,
+      draggedTabIndex,
+      dropMode,
+      insertPosition,
+      hoveredSlot,
+      hoveredTabIndex,
+    ],
+  );
+
+  return {
+    dragState,
     handleSlotDragStart,
     handleSlotDragOver,
     handleSlotDragLeave,

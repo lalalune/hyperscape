@@ -143,6 +143,30 @@ export function BankPanel({
     return items.filter((i) => i.tabIndex === selectedTab);
   }, [items, selectedTab]);
 
+  // ========== PERFORMANCE: Pre-group items by tab for "All" view ==========
+  // Only rebuilt when items change, not on every render
+  const itemsByTab = useMemo(() => {
+    const grouped = new Map<number, BankItem[]>();
+    for (const item of items) {
+      const list = grouped.get(item.tabIndex);
+      if (list) {
+        list.push(item);
+      } else {
+        grouped.set(item.tabIndex, [item]);
+      }
+    }
+    // Sort each group by slot
+    for (const list of grouped.values()) {
+      list.sort((a, b) => a.slot - b.slot);
+    }
+    return grouped;
+  }, [items]);
+
+  // Sorted tab indexes (only when items change)
+  const sortedTabIndexes = useMemo(() => {
+    return Array.from(itemsByTab.keys()).sort((a, b) => a - b);
+  }, [itemsByTab]);
+
   // ========== SIMPLE SERVER-AUTHORITATIVE UI ==========
   // NO optimistic predictions - just display server state directly.
   // This is simple, reliable, and correct.
@@ -459,280 +483,270 @@ export function BankPanel({
             {/* "All" tab view with grouped headers */}
             {selectedTab === TAB_INDEX_ALL ? (
               <div className="space-y-2">
-                {/* Group items by tabIndex and render with headers */}
-                {(() => {
-                  // Get unique tab indexes from items, sorted
-                  const tabIndexes = [
-                    ...new Set(items.map((i) => i.tabIndex)),
-                  ].sort((a, b) => a - b);
+                {/* Group items by tabIndex and render with headers (using memoized grouping) */}
+                {sortedTabIndexes.map((tabIdx) => {
+                  const tabItems = itemsByTab.get(tabIdx) ?? [];
+                  if (tabItems.length === 0) return null;
 
-                  return tabIndexes.map((tabIdx) => {
-                    const tabItems = items
-                      .filter((i) => i.tabIndex === tabIdx)
-                      .sort((a, b) => a.slot - b.slot);
-                    if (tabItems.length === 0) return null;
+                  // RS3-style: Prefer real items, but show placeholder icon if tab only has placeholders
+                  const firstRealItem = tabItems.find((i) => i.quantity > 0);
+                  const firstAnyItem = tabItems[0];
+                  const iconItem = firstRealItem || firstAnyItem;
+                  const isPlaceholderIcon = iconItem && iconItem.quantity === 0;
+                  // RS3-style: All tabs treated equally, icon derived from first item
+                  const tabLabel = iconItem
+                    ? `${getItemIcon(iconItem.itemId)} Tab ${tabIdx}${isPlaceholderIcon ? " (empty)" : ""}`
+                    : `📦 Tab ${tabIdx}`;
 
-                    // RS3-style: Prefer real items, but show placeholder icon if tab only has placeholders
-                    const firstRealItem = tabItems.find((i) => i.quantity > 0);
-                    const firstAnyItem = tabItems[0];
-                    const iconItem = firstRealItem || firstAnyItem;
-                    const isPlaceholderIcon =
-                      iconItem && iconItem.quantity === 0;
-                    // RS3-style: All tabs treated equally, icon derived from first item
-                    const tabLabel = iconItem
-                      ? `${getItemIcon(iconItem.itemId)} Tab ${tabIdx}${isPlaceholderIcon ? " (empty)" : ""}`
-                      : `📦 Tab ${tabIdx}`;
+                  // Check if this tab header is being hovered for drop
+                  const isHeaderDropTarget =
+                    hoveredTabIndex === tabIdx &&
+                    draggedSlot !== null &&
+                    draggedTabIndex !== tabIdx;
 
-                    // Check if this tab header is being hovered for drop
-                    const isHeaderDropTarget =
-                      hoveredTabIndex === tabIdx &&
-                      draggedSlot !== null &&
-                      draggedTabIndex !== tabIdx;
-
-                    return (
-                      <div key={tabIdx}>
-                        {/* Tab Header - OSRS style separator - DROPPABLE to move items to this tab */}
-                        <div
-                          className="flex items-center gap-2 mb-1 pb-0.5 transition-colors"
+                  return (
+                    <div key={tabIdx}>
+                      {/* Tab Header - OSRS style separator - DROPPABLE to move items to this tab */}
+                      <div
+                        className="flex items-center gap-2 mb-1 pb-0.5 transition-colors"
+                        style={{
+                          background: isHeaderDropTarget
+                            ? "rgba(100, 200, 255, 0.15)"
+                            : "transparent",
+                          padding: "1px 2px",
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (
+                            draggedSlot !== null &&
+                            draggedTabIndex !== tabIdx
+                          ) {
+                            setHoveredTabIndex(tabIdx);
+                          }
+                        }}
+                        onDragLeave={() => {
+                          setHoveredTabIndex(null);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (
+                            draggedSlot !== null &&
+                            draggedTabIndex !== null &&
+                            draggedTabIndex !== tabIdx
+                          ) {
+                            handleMoveToTab(
+                              draggedSlot,
+                              draggedTabIndex,
+                              tabIdx,
+                            );
+                          }
+                          setDraggedSlot(null);
+                          setDraggedTabIndex(null);
+                          setHoveredTabIndex(null);
+                          setDropMode(null);
+                          setInsertPosition(null);
+                          setHoveredSlot(null);
+                        }}
+                      >
+                        <span
+                          className="text-[10px] font-bold"
                           style={{
+                            color: isHeaderDropTarget
+                              ? "#fff"
+                              : BANK_THEME.TEXT_GOLD,
+                          }}
+                        >
+                          {tabLabel}
+                        </span>
+                        <div
+                          className="flex-1"
+                          style={{
+                            height: isHeaderDropTarget ? "2px" : "1px",
                             background: isHeaderDropTarget
-                              ? "rgba(100, 200, 255, 0.15)"
-                              : "transparent",
-                            padding: "1px 2px",
+                              ? "rgba(100, 200, 255, 0.8)"
+                              : BANK_THEME.PANEL_BORDER_LIGHT,
+                            transition: "all 0.15s ease",
                           }}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            if (
-                              draggedSlot !== null &&
-                              draggedTabIndex !== tabIdx
-                            ) {
-                              setHoveredTabIndex(tabIdx);
-                            }
-                          }}
-                          onDragLeave={() => {
-                            setHoveredTabIndex(null);
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            if (
-                              draggedSlot !== null &&
-                              draggedTabIndex !== null &&
-                              draggedTabIndex !== tabIdx
-                            ) {
-                              handleMoveToTab(
-                                draggedSlot,
-                                draggedTabIndex,
-                                tabIdx,
-                              );
-                            }
-                            setDraggedSlot(null);
-                            setDraggedTabIndex(null);
-                            setHoveredTabIndex(null);
-                            setDropMode(null);
-                            setInsertPosition(null);
-                            setHoveredSlot(null);
-                          }}
-                        >
-                          <span
-                            className="text-[10px] font-bold"
-                            style={{
-                              color: isHeaderDropTarget
-                                ? "#fff"
-                                : BANK_THEME.TEXT_GOLD,
-                            }}
-                          >
-                            {tabLabel}
-                          </span>
-                          <div
-                            className="flex-1"
-                            style={{
-                              height: isHeaderDropTarget ? "2px" : "1px",
-                              background: isHeaderDropTarget
-                                ? "rgba(100, 200, 255, 0.8)"
-                                : BANK_THEME.PANEL_BORDER_LIGHT,
-                              transition: "all 0.15s ease",
-                            }}
-                          />
-                          <span
-                            className="text-[9px]"
-                            style={{
-                              color: isHeaderDropTarget
-                                ? "rgba(255,255,255,0.7)"
-                                : `${BANK_THEME.TEXT_GOLD}88`,
-                            }}
-                          >
-                            {isHeaderDropTarget
-                              ? "Drop here"
-                              : `${tabItems.length}`}
-                          </span>
-                        </div>
-
-                        {/* Items grid for this tab */}
-                        <div
-                          className="grid gap-2"
+                        />
+                        <span
+                          className="text-[9px]"
                           style={{
-                            gridTemplateColumns: `repeat(${BANK_SLOTS_PER_ROW}, ${BANK_SLOT_SIZE}px)`,
+                            color: isHeaderDropTarget
+                              ? "rgba(255,255,255,0.7)"
+                              : `${BANK_THEME.TEXT_GOLD}88`,
                           }}
                         >
-                          {tabItems.map((item) => {
-                            const slotIndex = item.slot;
-                            const itemTabIndex = item.tabIndex;
+                          {isHeaderDropTarget
+                            ? "Drop here"
+                            : `${tabItems.length}`}
+                        </span>
+                      </div>
 
-                            // Determine visual states
-                            const isDragging =
+                      {/* Items grid for this tab */}
+                      <div
+                        className="grid gap-2"
+                        style={{
+                          gridTemplateColumns: `repeat(${BANK_SLOTS_PER_ROW}, ${BANK_SLOT_SIZE}px)`,
+                        }}
+                      >
+                        {tabItems.map((item) => {
+                          const slotIndex = item.slot;
+                          const itemTabIndex = item.tabIndex;
+
+                          // Determine visual states
+                          const isDragging =
+                            draggedSlot === slotIndex &&
+                            draggedTabIndex === itemTabIndex;
+                          const isDropTarget =
+                            hoveredSlot === slotIndex &&
+                            hoveredTabIndex === itemTabIndex &&
+                            draggedSlot !== null &&
+                            !(
                               draggedSlot === slotIndex &&
-                              draggedTabIndex === itemTabIndex;
-                            const isDropTarget =
-                              hoveredSlot === slotIndex &&
-                              hoveredTabIndex === itemTabIndex &&
-                              draggedSlot !== null &&
-                              !(
-                                draggedSlot === slotIndex &&
-                                draggedTabIndex === itemTabIndex
-                              );
-                            const isCrossTabDrop =
-                              isDropTarget &&
-                              draggedTabIndex !== null &&
-                              draggedTabIndex !== itemTabIndex;
-                            const canReceiveDrop =
-                              draggedSlot !== null && !isDragging;
+                              draggedTabIndex === itemTabIndex
+                            );
+                          const isCrossTabDrop =
+                            isDropTarget &&
+                            draggedTabIndex !== null &&
+                            draggedTabIndex !== itemTabIndex;
+                          const canReceiveDrop =
+                            draggedSlot !== null && !isDragging;
 
-                            // Visual states for different drop modes
-                            const showInsertLine =
-                              isDropTarget && dropMode === "insert";
-                            const showSwapHighlight =
-                              isDropTarget && dropMode === "swap";
+                          // Visual states for different drop modes
+                          const showInsertLine =
+                            isDropTarget && dropMode === "insert";
+                          const showSwapHighlight =
+                            isDropTarget && dropMode === "swap";
 
-                            // Show faint insert guides on ALL items while dragging
-                            const showFaintGuide =
-                              canReceiveDrop && !isDropTarget;
+                          // Show faint insert guides on ALL items while dragging
+                          const showFaintGuide =
+                            canReceiveDrop && !isDropTarget;
 
-                            // Color based on cross-tab vs same-tab
-                            const dropColor = isCrossTabDrop
+                          // Color based on cross-tab vs same-tab
+                          const dropColor = isCrossTabDrop
+                            ? "100, 255, 150"
+                            : "100, 200, 255";
+                          const guideColor =
+                            draggedTabIndex !== itemTabIndex
                               ? "100, 255, 150"
                               : "100, 200, 255";
-                            const guideColor =
-                              draggedTabIndex !== itemTabIndex
-                                ? "100, 255, 150"
-                                : "100, 200, 255";
 
-                            return (
-                              <BankSlotItem
-                                key={`${itemTabIndex}-${slotIndex}`}
-                                item={item}
-                                slotIndex={slotIndex}
-                                itemTabIndex={itemTabIndex}
-                                isDragging={isDragging}
-                                isDropTarget={isDropTarget}
-                                showSwapHighlight={showSwapHighlight}
-                                showInsertLine={showInsertLine}
-                                showFaintGuide={showFaintGuide}
-                                dropColor={dropColor}
-                                guideColor={guideColor}
-                                onDragStart={handleSlotDragStart}
-                                onDragOver={handleSlotDragOver}
-                                onDragLeave={handleSlotDragLeave}
-                                onDrop={handleSlotDrop}
-                                onDragEnd={handleSlotDragEnd}
-                                onClick={handleSlotClick}
-                                onContextMenu={handleSlotContextMenu}
-                              />
-                            );
-                          })}
+                          return (
+                            <BankSlotItem
+                              key={`${itemTabIndex}-${slotIndex}`}
+                              item={item}
+                              slotIndex={slotIndex}
+                              itemTabIndex={itemTabIndex}
+                              isDragging={isDragging}
+                              isDropTarget={isDropTarget}
+                              showSwapHighlight={showSwapHighlight}
+                              showInsertLine={showInsertLine}
+                              showFaintGuide={showFaintGuide}
+                              dropColor={dropColor}
+                              guideColor={guideColor}
+                              onDragStart={handleSlotDragStart}
+                              onDragOver={handleSlotDragOver}
+                              onDragLeave={handleSlotDragLeave}
+                              onDrop={handleSlotDrop}
+                              onDragEnd={handleSlotDragEnd}
+                              onClick={handleSlotClick}
+                              onContextMenu={handleSlotContextMenu}
+                            />
+                          );
+                        })}
 
-                          {/* RS3-STYLE: Placeholders are items with qty=0, already rendered above with greyed style */}
+                        {/* RS3-STYLE: Placeholders are items with qty=0, already rendered above with greyed style */}
 
-                          {/* APPEND ZONE - Empty slot at end for dropping items to append */}
-                          {draggedSlot !== null && (
-                            <div
-                              className="rounded flex items-center justify-center relative"
-                              style={{
-                                width: BANK_SLOT_SIZE,
-                                height: BANK_SLOT_SIZE,
-                                background:
-                                  hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
-                                  hoveredTabIndex === tabIdx
-                                    ? `linear-gradient(135deg, rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.35) 0%, rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.2) 100%)`
-                                    : "linear-gradient(135deg, rgba(242, 208, 138, 0.05) 0%, rgba(242, 208, 138, 0.02) 100%)",
-                                border:
-                                  hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
-                                  hoveredTabIndex === tabIdx
-                                    ? `2px dashed rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.9)`
-                                    : "2px dashed rgba(242, 208, 138, 0.2)",
-                                transition: "all 0.15s ease",
-                                boxShadow:
-                                  hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
-                                  hoveredTabIndex === tabIdx
-                                    ? `0 0 12px rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.5)`
-                                    : "none",
-                              }}
-                              onDragOver={(e) => {
-                                e.preventDefault();
-                                setHoveredSlot(SLOT_INDEX_APPEND_ZONE); // Special marker for "append"
-                                setHoveredTabIndex(tabIdx);
-                                setDropMode("insert");
-                                setInsertPosition("after");
-                              }}
-                              onDragLeave={() => {
-                                setHoveredSlot(null);
-                                setHoveredTabIndex(null);
-                                setDropMode(null);
-                                setInsertPosition(null);
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                if (
-                                  draggedSlot !== null &&
-                                  draggedTabIndex !== null
-                                ) {
-                                  const lastSlot =
-                                    tabItems.length > 0
-                                      ? tabItems[tabItems.length - 1].slot
-                                      : -1;
-                                  if (draggedTabIndex === tabIdx) {
-                                    // Same tab - move to end
-                                    handleBankMove(
-                                      draggedSlot,
-                                      lastSlot + 1,
-                                      "insert",
-                                      draggedTabIndex,
-                                    );
-                                  } else {
-                                    // Cross-tab - append to this tab (no toSlot = append)
-                                    handleMoveToTab(
-                                      draggedSlot,
-                                      draggedTabIndex,
-                                      tabIdx,
-                                    );
-                                  }
+                        {/* APPEND ZONE - Empty slot at end for dropping items to append */}
+                        {draggedSlot !== null && (
+                          <div
+                            className="rounded flex items-center justify-center relative"
+                            style={{
+                              width: BANK_SLOT_SIZE,
+                              height: BANK_SLOT_SIZE,
+                              background:
+                                hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
+                                hoveredTabIndex === tabIdx
+                                  ? `linear-gradient(135deg, rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.35) 0%, rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.2) 100%)`
+                                  : "linear-gradient(135deg, rgba(242, 208, 138, 0.05) 0%, rgba(242, 208, 138, 0.02) 100%)",
+                              border:
+                                hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
+                                hoveredTabIndex === tabIdx
+                                  ? `2px dashed rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.9)`
+                                  : "2px dashed rgba(242, 208, 138, 0.2)",
+                              transition: "all 0.15s ease",
+                              boxShadow:
+                                hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
+                                hoveredTabIndex === tabIdx
+                                  ? `0 0 12px rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.5)`
+                                  : "none",
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              setHoveredSlot(SLOT_INDEX_APPEND_ZONE); // Special marker for "append"
+                              setHoveredTabIndex(tabIdx);
+                              setDropMode("insert");
+                              setInsertPosition("after");
+                            }}
+                            onDragLeave={() => {
+                              setHoveredSlot(null);
+                              setHoveredTabIndex(null);
+                              setDropMode(null);
+                              setInsertPosition(null);
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              if (
+                                draggedSlot !== null &&
+                                draggedTabIndex !== null
+                              ) {
+                                const lastSlot =
+                                  tabItems.length > 0
+                                    ? tabItems[tabItems.length - 1].slot
+                                    : -1;
+                                if (draggedTabIndex === tabIdx) {
+                                  // Same tab - move to end
+                                  handleBankMove(
+                                    draggedSlot,
+                                    lastSlot + 1,
+                                    "insert",
+                                    draggedTabIndex,
+                                  );
+                                } else {
+                                  // Cross-tab - append to this tab (no toSlot = append)
+                                  handleMoveToTab(
+                                    draggedSlot,
+                                    draggedTabIndex,
+                                    tabIdx,
+                                  );
                                 }
-                                setDraggedSlot(null);
-                                setDraggedTabIndex(null);
-                                setDropMode(null);
-                                setInsertPosition(null);
-                                setHoveredSlot(null);
-                                setHoveredTabIndex(null);
+                              }
+                              setDraggedSlot(null);
+                              setDraggedTabIndex(null);
+                              setDropMode(null);
+                              setInsertPosition(null);
+                              setHoveredSlot(null);
+                              setHoveredTabIndex(null);
+                            }}
+                          >
+                            <span
+                              className="text-xs font-medium"
+                              style={{
+                                color:
+                                  hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
+                                  hoveredTabIndex === tabIdx
+                                    ? `rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 1)`
+                                    : "rgba(242, 208, 138, 0.3)",
                               }}
                             >
-                              <span
-                                className="text-xs font-medium"
-                                style={{
-                                  color:
-                                    hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
-                                    hoveredTabIndex === tabIdx
-                                      ? `rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 1)`
-                                      : "rgba(242, 208, 138, 0.3)",
-                                }}
-                              >
-                                +
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                              +
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    );
-                  });
-                })()}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               /* Single tab view - flat grid with improved UX */

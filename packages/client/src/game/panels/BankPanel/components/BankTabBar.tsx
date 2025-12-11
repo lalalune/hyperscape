@@ -10,7 +10,8 @@
  * - Delete tabs via right-click
  */
 
-import type { BankItem, BankTab, ConfirmModalState, DragState } from "../types";
+import type { BankItem, BankTab, ConfirmModalState } from "../types";
+import type { DragState } from "../hooks";
 import {
   TAB_INDEX_ALL,
   TAB_INDEX_NEW_TAB_HOVER,

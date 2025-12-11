@@ -5,7 +5,7 @@
  * RS3-style tab switcher between backpack and worn equipment.
  */
 
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import type { PlayerEquipmentItems } from "@hyperscape/shared";
 import {
   INV_SLOTS_PER_ROW,
@@ -14,9 +14,13 @@ import {
   BANK_THEME,
 } from "../constants";
 import { isNotedItem, getItemIcon, formatItemName } from "../utils";
-import type { InventorySlotViewItem } from "../types";
+import type { InventorySlotViewItem, RightPanelMode } from "../types";
 
-type RightPanelMode = "inventory" | "equipment";
+// Pre-allocated slot indices array - created once at module load, never recreated
+const INVENTORY_SLOT_INDICES = Array.from(
+  { length: INV_SLOTS_PER_ROW * INV_ROWS },
+  (_, i) => i,
+);
 
 export interface RightPanelProps {
   mode: RightPanelMode;
@@ -60,6 +64,17 @@ export function RightPanel({
   onDepositEquipment,
   onDepositAllEquipment,
 }: RightPanelProps) {
+  // O(1) lookup map - only rebuilt when inventory changes
+  const inventoryBySlot = useMemo(() => {
+    const map = new Map<number, InventorySlotViewItem>();
+    for (const item of inventory) {
+      if (item) {
+        map.set(item.slot, item);
+      }
+    }
+    return map;
+  }, [inventory]);
+
   /**
    * Render a single equipment slot for the paperdoll layout
    */
@@ -246,93 +261,91 @@ export function RightPanel({
                 gridTemplateColumns: `repeat(${INV_SLOTS_PER_ROW}, ${INV_SLOT_SIZE}px)`,
               }}
             >
-              {Array.from({ length: INV_SLOTS_PER_ROW * INV_ROWS }).map(
-                (_, idx) => {
-                  const item = inventory.find((i) => i && i.slot === idx);
+              {INVENTORY_SLOT_INDICES.map((idx) => {
+                const item = inventoryBySlot.get(idx);
 
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex items-center justify-center relative rounded ${item ? "cursor-pointer" : ""}`}
-                      style={{
-                        width: INV_SLOT_SIZE,
-                        height: INV_SLOT_SIZE,
-                        background: item
-                          ? "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)"
-                          : "rgba(0, 0, 0, 0.4)",
-                        border: item
-                          ? `1px solid ${BANK_THEME.SLOT_BORDER_HIGHLIGHT}`
-                          : `1px solid ${BANK_THEME.SLOT_BORDER}`,
-                      }}
-                      title={
-                        item
-                          ? `${formatItemName(item.itemId)} x${item.quantity} - Click to deposit`
-                          : "Empty slot"
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-center justify-center relative rounded ${item ? "cursor-pointer" : ""}`}
+                    style={{
+                      width: INV_SLOT_SIZE,
+                      height: INV_SLOT_SIZE,
+                      background: item
+                        ? "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)"
+                        : "rgba(0, 0, 0, 0.4)",
+                      border: item
+                        ? `1px solid ${BANK_THEME.SLOT_BORDER_HIGHLIGHT}`
+                        : `1px solid ${BANK_THEME.SLOT_BORDER}`,
+                    }}
+                    title={
+                      item
+                        ? `${formatItemName(item.itemId)} x${item.quantity} - Click to deposit`
+                        : "Empty slot"
+                    }
+                    onClick={() => item && onDeposit(item.itemId, 1)}
+                    onContextMenu={(e) => {
+                      if (item) {
+                        onContextMenu(
+                          e,
+                          item.itemId,
+                          item.quantity || 1,
+                          "inventory",
+                        );
                       }
-                      onClick={() => item && onDeposit(item.itemId, 1)}
-                      onContextMenu={(e) => {
-                        if (item) {
-                          onContextMenu(
-                            e,
-                            item.itemId,
-                            item.quantity || 1,
-                            "inventory",
-                          );
-                        }
-                      }}
-                      onMouseEnter={(e) => {
-                        if (item) {
-                          e.currentTarget.style.background =
-                            "linear-gradient(135deg, rgba(100, 200, 100, 0.2) 0%, rgba(100, 200, 100, 0.1) 100%)";
-                          e.currentTarget.style.borderColor =
-                            "rgba(100, 200, 100, 0.5)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (item) {
-                          e.currentTarget.style.background =
-                            "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)";
-                          e.currentTarget.style.borderColor =
-                            BANK_THEME.SLOT_BORDER_HIGHLIGHT;
-                        }
-                      }}
-                    >
-                      {item && (
-                        <>
-                          <span className="text-lg select-none">
-                            {getItemIcon(item.itemId)}
+                    }}
+                    onMouseEnter={(e) => {
+                      if (item) {
+                        e.currentTarget.style.background =
+                          "linear-gradient(135deg, rgba(100, 200, 100, 0.2) 0%, rgba(100, 200, 100, 0.1) 100%)";
+                        e.currentTarget.style.borderColor =
+                          "rgba(100, 200, 100, 0.5)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (item) {
+                        e.currentTarget.style.background =
+                          "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)";
+                        e.currentTarget.style.borderColor =
+                          BANK_THEME.SLOT_BORDER_HIGHLIGHT;
+                      }
+                    }}
+                  >
+                    {item && (
+                      <>
+                        <span className="text-lg select-none">
+                          {getItemIcon(item.itemId)}
+                        </span>
+                        {/* BANK NOTE SYSTEM: "N" badge for noted items */}
+                        {isNotedItem(item.itemId) && (
+                          <span
+                            className="absolute top-0 left-0.5 text-[8px] font-bold px-0.5 rounded"
+                            style={{
+                              color: "#fff",
+                              background: "rgba(139, 69, 19, 0.9)",
+                              textShadow: "0 0 2px #000",
+                            }}
+                          >
+                            N
                           </span>
-                          {/* BANK NOTE SYSTEM: "N" badge for noted items */}
-                          {isNotedItem(item.itemId) && (
-                            <span
-                              className="absolute top-0 left-0.5 text-[8px] font-bold px-0.5 rounded"
-                              style={{
-                                color: "#fff",
-                                background: "rgba(139, 69, 19, 0.9)",
-                                textShadow: "0 0 2px #000",
-                              }}
-                            >
-                              N
-                            </span>
-                          )}
-                          {(item.quantity || 1) > 1 && (
-                            <span
-                              className="absolute bottom-0 right-0.5 text-[9px] font-bold"
-                              style={{
-                                color: BANK_THEME.TEXT_YELLOW,
-                                textShadow:
-                                  "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
-                              }}
-                            >
-                              {item.quantity}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                },
-              )}
+                        )}
+                        {(item.quantity || 1) > 1 && (
+                          <span
+                            className="absolute bottom-0 right-0.5 text-[9px] font-bold"
+                            style={{
+                              color: BANK_THEME.TEXT_YELLOW,
+                              textShadow:
+                                "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
+                            }}
+                          >
+                            {item.quantity}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

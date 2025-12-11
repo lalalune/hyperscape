@@ -56,13 +56,8 @@ export interface ConfirmModalState {
   onConfirm: () => void;
 }
 
-export interface DragState {
-  draggedSlot: number | null;
-  draggedTabIndex: number | null;
-  dropMode: "swap" | "insert" | null;
-  hoveredSlot: number | null;
-  hoveredTabIndex: number | null;
-}
+// NOTE: DragState is exported from hooks/useDragDrop.ts (has all 6 fields including insertPosition)
+// Import it from "./hooks" rather than here
 
 export type RightPanelMode = "inventory" | "equipment";
 
@@ -90,6 +85,5 @@ export interface BankPanelProps {
   inventory: InventorySlotViewItem[];
   equipment?: PlayerEquipmentItems | null; // Player's equipped items (RS3-style)
   coins: number;
-  bankId: string;
   onClose: () => void;
 }
