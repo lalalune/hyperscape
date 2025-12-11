@@ -2253,7 +2253,7 @@ export class HyperscapeService
    * Execute trade request - request to trade with another player
    */
   async executeTradeRequest(targetPlayerId: string): Promise<void> {
-    this.sendCommand("tradeRequest", { targetId: targetPlayerId });
+    this.sendCommand("tradeRequest", { targetPlayerId });
   }
 
   /**

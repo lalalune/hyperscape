@@ -241,9 +241,38 @@ async function setupPhysXModule() {
   console.log('✓ PhysX module copied to build/node_modules/')
 }
 
+/**
+ * Post-process client build to add Vite-ignore comments
+ * ESBuild strips comments, but Vite needs @vite-ignore for dynamic imports
+ */
+async function addViteIgnoreComments() {
+  const clientBundle = path.join(buildDir, 'framework.client.js')
+  
+  if (await fs.pathExists(clientBundle)) {
+    let content = await fs.readFile(clientBundle, 'utf-8')
+    
+    // Add @vite-ignore to dynamic imports that Vite can't analyze
+    // Match both inline and multiline import() calls with variable paths
+    const dynamicImportPatterns = [
+      // Multiline: await import(\n  varName\n)
+      /await import\(\s*\n\s*(?!\/\*\s*@vite-ignore)(\w+)\s*\n\s*\)/g,
+      // Inline: await import(varName)  
+      /await import\(\s*(?!\/\*\s*@vite-ignore)(\w+)\s*\)/g,
+    ]
+    
+    for (const pattern of dynamicImportPatterns) {
+      content = content.replace(pattern, 'await import(\n        /* @vite-ignore */\n        $1\n      )')
+    }
+    
+    await fs.writeFile(clientBundle, content, 'utf-8')
+    console.log('✓ Added @vite-ignore comments to framework.client.js')
+  }
+}
+
 // Run the build
 main().then(async () => {
   await setupPhysXModule()
+  await addViteIgnoreComments()
 }).catch(error => {
   console.error('Build failed:', error)
   process.exit(1)

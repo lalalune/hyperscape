@@ -261,22 +261,17 @@ export class A2AServer {
 
     switch (skillId) {
       case "join-game": {
-        const playerName = optionalString(
-          data.playerName,
-          `Agent_${agentId.slice(0, 8)}`,
-        );
-
-        // Create a character for this agent if they don't have one
-        // This would normally go through the WebSocket connection flow
-        // For A2A, we'll create a simplified registration
-
+        // A2A agents must connect via WebSocket to actually join the game world
+        // The A2A protocol is for querying/commanding an already-connected agent
         return {
-          success: true,
-          message: `Agent ${playerName} ready to join. Connect via WebSocket to spawn in-world.`,
+          success: false,
+          message:
+            "A2A agents must connect via WebSocket first. Use the Hyperscape plugin for ElizaOS or connect directly to the WebSocket server.",
           data: {
             agentId,
-            playerName,
-            instructions: "Use WebSocket connection for full gameplay",
+            instructions:
+              "Connect via WebSocket with your agentId to spawn in-world, then use A2A for commands",
+            websocketUrl: this.serverUrl.replace("/a2a", ""),
           },
         };
       }
@@ -380,13 +375,26 @@ export class A2AServer {
 
       case "use-item": {
         const itemId = requireString(data.itemId, "itemId");
-        const slot = requireNumber(data.slot, "slot");
+        // Slot is optional - find it from inventory if not provided
+        let slot = typeof data.slot === "number" ? data.slot : undefined;
+
+        if (slot === undefined) {
+          // Find item in inventory
+          const inventory = rpg.getInventory?.(agentId) ?? [];
+          const itemIndex = inventory.findIndex(
+            (i: { id?: string; itemId?: string }) =>
+              i.id === itemId || i.itemId === itemId,
+          );
+          if (itemIndex >= 0) {
+            slot = itemIndex;
+          }
+        }
 
         const context = { world: this.world, playerId: agentId };
         const result = await this.world.actionRegistry?.execute(
           "use_item",
           context,
-          { itemId, slot },
+          { itemId, slot: slot ?? 0 },
         );
 
         return {
@@ -457,7 +465,8 @@ export class A2AServer {
       }
 
       case "open-bank": {
-        const bankId = requireString(data.bankId, "bankId");
+        // Bank ID is optional - default to spawn_bank or nearest bank
+        const bankId = optionalString(data.bankId, "spawn_bank");
 
         const context = { world: this.world, playerId: agentId };
         const result = await this.world.actionRegistry?.execute(
@@ -473,7 +482,7 @@ export class A2AServer {
       }
 
       case "deposit-item": {
-        const bankId = requireString(data.bankId, "bankId");
+        const bankId = optionalString(data.bankId, "spawn_bank");
         const itemId = requireString(data.itemId, "itemId");
         const quantity = optionalNumber(data.quantity, 1);
 
@@ -491,7 +500,7 @@ export class A2AServer {
       }
 
       case "withdraw-item": {
-        const bankId = requireString(data.bankId, "bankId");
+        const bankId = optionalString(data.bankId, "spawn_bank");
         const itemId = requireString(data.itemId, "itemId");
         const quantity = optionalNumber(data.quantity, 1);
 
@@ -509,7 +518,8 @@ export class A2AServer {
       }
 
       case "buy-item": {
-        const storeId = requireString(data.storeId, "storeId");
+        // Store ID is optional - default to general_store or nearest store
+        const storeId = optionalString(data.storeId, "general_store");
         const itemId = requireString(data.itemId, "itemId");
         const quantity = optionalNumber(data.quantity, 1);
 
@@ -528,7 +538,7 @@ export class A2AServer {
       }
 
       case "sell-item": {
-        const storeId = requireString(data.storeId, "storeId");
+        const storeId = optionalString(data.storeId, "general_store");
         const itemId = requireString(data.itemId, "itemId");
         const quantity = optionalNumber(data.quantity, 1);
 
@@ -768,7 +778,18 @@ export class A2AServer {
       case "emote": {
         const emoteName = optionalString(data.emote, "wave");
 
-        rpg.playEmote?.(agentId, emoteName);
+        // Try action registry first, fall back to rpg method
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "play_emote",
+          context,
+          { emote: emoteName },
+        );
+
+        // If action registry doesn't have it, try direct method
+        if (!result?.success && rpg.playEmote) {
+          rpg.playEmote(agentId, emoteName);
+        }
 
         return {
           success: true,
@@ -927,7 +948,25 @@ export class A2AServer {
       case "send-chat": {
         const message = requireString(data.message, "message");
 
-        rpg.sendChatMessage?.(agentId, message, "global");
+        // Get player name for the chat message
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
+        const playerName =
+          player?.data?.name || player?.name || `Agent_${agentId.slice(0, 8)}`;
+
+        // Broadcast chat message to all players
+        const chatMsg = {
+          id: uuidv4(),
+          from: playerName,
+          fromId: agentId,
+          body: message,
+          text: message,
+          chatType: "global",
+          createdAt: new Date().toISOString(),
+        };
+
+        this.world.network?.broadcast?.("chatAdded", chatMsg);
 
         return {
           success: true,
@@ -938,7 +977,25 @@ export class A2AServer {
       case "send-local-chat": {
         const message = requireString(data.message, "message");
 
-        rpg.sendChatMessage?.(agentId, message, "local");
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
+        const playerName =
+          player?.data?.name || player?.name || `Agent_${agentId.slice(0, 8)}`;
+        const position = player?.position || player?.node?.position;
+
+        const chatMsg = {
+          id: uuidv4(),
+          from: playerName,
+          fromId: agentId,
+          body: message,
+          text: message,
+          chatType: "local",
+          position,
+          createdAt: new Date().toISOString(),
+        };
+
+        this.world.network?.broadcast?.("chatAdded", chatMsg);
 
         return {
           success: true,
@@ -950,7 +1007,28 @@ export class A2AServer {
         const targetId = requireString(data.targetId, "targetId");
         const message = requireString(data.message, "message");
 
-        rpg.sendWhisper?.(agentId, targetId, message);
+        // Whispers require finding the target's socket, which A2A doesn't have access to
+        // For now, we can only send via broadcast with targetId filter
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
+        const playerName =
+          player?.data?.name || player?.name || `Agent_${agentId.slice(0, 8)}`;
+
+        const chatMsg = {
+          id: uuidv4(),
+          from: playerName,
+          fromId: agentId,
+          targetId,
+          body: message,
+          text: message,
+          chatType: "whisper",
+          createdAt: new Date().toISOString(),
+        };
+
+        // Note: This broadcasts to all but only the target should display it
+        // The client should filter based on targetId
+        this.world.network?.broadcast?.("chatAdded", chatMsg);
 
         return {
           success: true,
@@ -1016,85 +1094,24 @@ export class A2AServer {
         };
       }
 
-      case "trade-request": {
-        const targetId = optionalString(data.targetId);
-        const targetName = optionalString(data.targetName);
-
-        // Find target player
-        let finalTargetId = targetId;
-        if (!finalTargetId && targetName) {
-          const players = rpg.getAllPlayers?.() ?? [];
-          const target = players.find(
-            (p: { name?: string; playerName?: string }) =>
-              (
-                p.name?.toLowerCase() ||
-                p.playerName?.toLowerCase() ||
-                ""
-              ).includes(targetName.toLowerCase()),
-          );
-          finalTargetId = target?.id;
-        }
-
-        if (!finalTargetId) {
-          return { success: false, message: "Target player not found" };
-        }
-
-        rpg.requestTrade?.(agentId, finalTargetId);
-
-        return {
-          success: true,
-          message: `Requested trade with ${targetName || finalTargetId}`,
-        };
-      }
-
-      case "trade-respond": {
-        const accept = data.accept === true;
-        const requesterId = optionalString(data.requesterId);
-
-        rpg.respondToTrade?.(agentId, accept, requesterId);
-
-        return {
-          success: true,
-          message: accept ? "Accepted trade request" : "Declined trade request",
-        };
-      }
-
-      case "trade-offer": {
-        const itemId = optionalString(data.itemId);
-        const quantity = optionalNumber(data.quantity, 1);
-        const coins = optionalNumber(data.coins, 0);
-
-        const items: Array<{ itemId: string; quantity: number }> = [];
-        if (itemId) {
-          items.push({ itemId, quantity });
-        }
-
-        rpg.setTradeOffer?.(agentId, items, coins);
-
-        return {
-          success: true,
-          message:
-            items.length > 0
-              ? `Offered ${quantity}x item and ${coins} coins`
-              : `Offered ${coins} coins`,
-        };
-      }
-
-      case "trade-confirm": {
-        rpg.confirmTrade?.(agentId);
-
-        return {
-          success: true,
-          message: "Confirmed trade offer",
-        };
-      }
-
+      case "trade-request":
+      case "trade-respond":
+      case "trade-offer":
+      case "trade-confirm":
       case "trade-cancel": {
-        rpg.cancelTrade?.(agentId);
-
+        // Trading requires WebSocket connection for real-time bidirectional communication
+        // A2A protocol is request-response only, which doesn't support the interactive trade flow
+        // Use the Hyperscape ElizaOS plugin for trading, which connects via WebSocket
         return {
-          success: true,
-          message: "Cancelled trade",
+          success: false,
+          message:
+            "Trading requires WebSocket connection. Use the Hyperscape plugin for ElizaOS or connect directly via WebSocket to trade.",
+          data: {
+            reason:
+              "A2A is request-response only; trading needs real-time bidirectional communication",
+            alternative:
+              "Connect via WebSocket using plugin-hyperscape for trading support",
+          },
         };
       }
 

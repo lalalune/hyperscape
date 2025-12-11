@@ -55,16 +55,11 @@ export function generateAgentCard(serverUrl: string): A2AAgentCard {
     skills: [
       {
         id: "join-game",
-        name: "Join Game World",
+        name: "Check Join Status",
         description:
-          "Join the Hyperscape RPG world as a player. Creates a character and spawns in a random starter town.",
-        tags: ["game", "join", "character"],
-        examples: [
-          "Join the RPG world",
-          "Start playing Hyperscape",
-          "Create my character",
-          "Enter the game",
-        ],
+          "Check if you can join the game. Note: Actually joining requires WebSocket connection. A2A is for querying/commanding already-connected agents.",
+        tags: ["game", "status", "connection"],
+        examples: ["Can I join?", "Check game connection", "How do I join?"],
       },
       {
         id: "get-status",
@@ -464,58 +459,8 @@ export function generateAgentCard(serverUrl: string): A2AAgentCard {
           "Stop talking to NPC",
         ],
       },
-      // Trading skills
-      {
-        id: "trade-request",
-        name: "Request Trade",
-        description:
-          "Request to trade with another player. Must be near the target player.",
-        tags: ["trading", "economy", "multiplayer"],
-        examples: [
-          "Trade with Bob",
-          "Request trade with player-123",
-          "Start trading with that player",
-        ],
-      },
-      {
-        id: "trade-respond",
-        name: "Respond to Trade",
-        description:
-          "Accept or decline an incoming trade request from another player.",
-        tags: ["trading", "economy", "multiplayer"],
-        examples: [
-          "Accept the trade",
-          "Decline trade request",
-          "Say yes to trading",
-        ],
-      },
-      {
-        id: "trade-offer",
-        name: "Set Trade Offer",
-        description:
-          "Add items or coins to your trade offer. Both players must confirm for trade to complete.",
-        tags: ["trading", "economy", "multiplayer"],
-        examples: [
-          "Offer 5 logs",
-          "Add 100 coins to trade",
-          "Put bronze sword in trade",
-        ],
-      },
-      {
-        id: "trade-confirm",
-        name: "Confirm Trade",
-        description:
-          "Confirm your trade offer. Both players must confirm for the trade to complete.",
-        tags: ["trading", "economy", "multiplayer"],
-        examples: ["Confirm the trade", "Accept the offer", "Finalize trade"],
-      },
-      {
-        id: "trade-cancel",
-        name: "Cancel Trade",
-        description: "Cancel the current trade session.",
-        tags: ["trading", "economy", "multiplayer"],
-        examples: ["Cancel trade", "Abort trading", "Stop the trade"],
-      },
+      // Note: Trading requires WebSocket connection and is NOT available via A2A protocol
+      // Use the Hyperscape plugin for ElizaOS to enable trading via WebSocket
     ],
   };
 }

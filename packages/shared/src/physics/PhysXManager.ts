@@ -371,24 +371,32 @@ class PhysXManager extends EventEmitter {
       // Resolve path relative to this module's location in the workspace
       const pathModule = await import("node:path");
       const urlModule = await import("node:url");
-      
+
       // Get the directory containing this file (works in both source and bundled contexts)
       const currentFileUrl = import.meta.url;
-      const currentDir = pathModule.dirname(urlModule.fileURLToPath(currentFileUrl));
-      
+      const currentDir = pathModule.dirname(
+        urlModule.fileURLToPath(currentFileUrl),
+      );
+
       // Navigate up to find the packages directory and then to physx-js-webidl
       // From: packages/shared/build/framework.js or packages/shared/src/physics/PhysXManager.ts
       // To: packages/physx-js-webidl/dist/physx-js-webidl.js
       let physxPath: string;
-      if (currentDir.includes('/build')) {
+      if (currentDir.includes("/build")) {
         // Running from bundled framework.js
-        physxPath = pathModule.resolve(currentDir, '../../physx-js-webidl/dist/physx-js-webidl.js');
+        physxPath = pathModule.resolve(
+          currentDir,
+          "../../physx-js-webidl/dist/physx-js-webidl.js",
+        );
       } else {
         // Running from source
-        physxPath = pathModule.resolve(currentDir, '../../../physx-js-webidl/dist/physx-js-webidl.js');
+        physxPath = pathModule.resolve(
+          currentDir,
+          "../../../physx-js-webidl/dist/physx-js-webidl.js",
+        );
       }
-      
-      const physxModule = await import(physxPath);
+
+      const physxModule = await import(/* @vite-ignore */ physxPath);
       const PhysXLoader = physxModule.default || physxModule;
 
       // Strong type assumption - PhysXLoader is a function that returns PhysXModule

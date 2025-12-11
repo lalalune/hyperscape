@@ -260,26 +260,35 @@ export class ClientLoader extends SystemBase {
           return texture;
         }
         if (type === "image") {
-          return new Promise<LoaderResult>((resolve) => {
+          return new Promise<LoaderResult>((resolve, reject) => {
             const img = new Image();
+            const blobUrl = URL.createObjectURL(file);
             img.onload = () => {
               this.results.set(key, img);
               resolve(img);
-              // URL.revokeObjectURL(img.src)
             };
-            img.src = URL.createObjectURL(file);
+            img.onerror = () => {
+              URL.revokeObjectURL(blobUrl);
+              reject(new Error(`Failed to load image: ${url}`));
+            };
+            img.src = blobUrl;
           });
         }
         if (type === "texture") {
-          return new Promise<LoaderResult>((resolve) => {
+          return new Promise<LoaderResult>((resolve, reject) => {
             const img = new Image();
+            const blobUrl = URL.createObjectURL(file);
             img.onload = () => {
               const texture = this.texLoader.load(img.src);
               this.results.set(key, texture);
               resolve(texture);
-              URL.revokeObjectURL(img.src);
+              URL.revokeObjectURL(blobUrl);
             };
-            img.src = URL.createObjectURL(file);
+            img.onerror = () => {
+              URL.revokeObjectURL(blobUrl);
+              reject(new Error(`Failed to load texture: ${url}`));
+            };
+            img.src = blobUrl;
           });
         }
         if (type === "model") {
@@ -433,7 +442,7 @@ export class ClientLoader extends SystemBase {
         });
     }
     if (type === "image") {
-      promise = new Promise((resolve) => {
+      promise = new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
           this.results.set(key, img);
@@ -442,6 +451,7 @@ export class ClientLoader extends SystemBase {
         };
         img.onerror = () => {
           URL.revokeObjectURL(localUrl);
+          reject(new Error(`Failed to load image: ${url}`));
         };
         img.src = localUrl;
       });

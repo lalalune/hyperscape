@@ -83,7 +83,7 @@ class ErrorReportingService {
       const errorData: ErrorReport = {
         message: event.error?.message || event.message || "Unknown error",
         stack: event.error?.stack || "No stack trace available",
-        url: event.filename,
+        url: event.filename || window.location.href,
         userAgent: navigator.userAgent,
         timestamp: new Date().toISOString(),
         context: {
@@ -96,29 +96,57 @@ class ErrorReportingService {
         sessionId: this.sessionId,
       };
 
-      this.reportError(errorData);
+      // Don't await - fire and forget to avoid blocking
+      // Use catch to prevent cascading unhandled rejections
+      this.reportError(errorData).catch((reportErr) => {
+        console.warn("[ErrorReporting] Failed to report error:", reportErr);
+      });
     });
 
     window.addEventListener("unhandledrejection", (event) => {
+      // Extract meaningful error information from the rejection reason
+      let message = "Unhandled promise rejection";
+      let stack = "No stack trace available";
+
+      const reason = event.reason;
+      if (reason instanceof Error) {
+        message = reason.message;
+        stack = reason.stack || stack;
+      } else if (reason instanceof Event) {
+        // Handle Event objects (common from WebSocket errors, script load failures, etc.)
+        const eventType = reason.type || "unknown";
+        const target = reason.target;
+        let targetInfo = "";
+        if (target instanceof HTMLElement) {
+          targetInfo = ` on <${target.tagName.toLowerCase()}>`;
+        } else if (target && typeof target === "object" && "url" in target) {
+          targetInfo = ` for ${(target as { url: string }).url}`;
+        }
+        message = `Event error: ${eventType}${targetInfo}`;
+      } else if (reason !== null && reason !== undefined) {
+        message = String(reason);
+      }
+
       const errorData: ErrorReport = {
-        message:
-          event.reason?.toString() ||
-          String(event.reason) ||
-          "Unhandled promise rejection",
-        stack: event.reason?.stack || "No stack trace available",
+        message,
+        stack,
         url: window.location.href,
         userAgent: navigator.userAgent,
         timestamp: new Date().toISOString(),
         context: {
           type: "unhandled-rejection",
-          promise: event.promise,
+          reasonType: reason?.constructor?.name || typeof reason,
         },
         componentStack: "",
         userId: this.userId,
         sessionId: this.sessionId,
       };
 
-      this.reportError(errorData);
+      // Don't await - fire and forget to avoid blocking
+      // Use catch to prevent cascading unhandled rejections
+      this.reportError(errorData).catch((reportErr) => {
+        console.warn("[ErrorReporting] Failed to report error:", reportErr);
+      });
     });
   }
 
