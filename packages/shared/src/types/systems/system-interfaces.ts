@@ -309,6 +309,31 @@ export interface EquipmentSystem extends System {
   unequipItem(data: { playerId: string; slot: string }): void;
   consumeArrow(playerId: string): boolean;
   playerEquipment: Map<string, unknown>;
+
+  // Direct equipment methods (used by bank equipment handlers)
+  getEquipmentSlotForItem(itemId: string | number): string | null;
+  canPlayerEquipItem(playerId: string, itemId: string | number): boolean;
+  equipItemDirect(
+    playerId: string,
+    itemId: string,
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    equippedSlot?: string;
+    displacedItems: Array<{ itemId: string; slot: string; quantity: number }>;
+  }>;
+  unequipItemDirect(
+    playerId: string,
+    slot: string,
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    itemId?: string;
+    quantity: number;
+  }>;
+  getAllEquippedItems(
+    playerId: string,
+  ): Array<{ slot: string; itemId: string; quantity: number }>;
 }
 
 export interface StoreSystem extends System {

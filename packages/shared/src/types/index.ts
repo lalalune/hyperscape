@@ -134,6 +134,7 @@ export type Player = PlayerEntity;
 export type {
   ClientInterfaceSystem,
   ItemRegistrySystem,
+  EquipmentSystem,
 } from "./systems/system-interfaces";
 
 // Re-export data types (specific exports to avoid conflicts)
