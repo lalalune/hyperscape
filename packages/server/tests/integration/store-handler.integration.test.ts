@@ -12,13 +12,13 @@ import {
   TRANSACTION_RATE_LIMIT_MS,
   INPUT_LIMITS,
 } from "@hyperscape/shared";
-import { IntervalRateLimiter } from "../systems/ServerNetwork/services/IntervalRateLimiter";
+import { IntervalRateLimiter } from "@/systems/ServerNetwork/services/IntervalRateLimiter";
 import {
   isValidItemId,
   isValidQuantity,
   isValidStoreId,
   wouldOverflow,
-} from "../systems/ServerNetwork/services/InputValidation";
+} from "@/systems/ServerNetwork/services/InputValidation";
 
 // Mock types
 interface MockPlayer {

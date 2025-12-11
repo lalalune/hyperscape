@@ -14,7 +14,7 @@ import { describe, it, expect } from "vitest";
 import {
   isValidNpcId,
   isValidResponseIndex,
-} from "../systems/ServerNetwork/services";
+} from "@/systems/ServerNetwork/services";
 
 describe("Dialogue Handler Security - Input Validation", () => {
   describe("isValidNpcId", () => {
