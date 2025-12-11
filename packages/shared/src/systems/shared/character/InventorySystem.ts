@@ -44,6 +44,32 @@ export class InventorySystem extends SystemBase {
   // Track players whose inventories have been fully initialized from DB
   private initializedInventories = new Set<string>();
 
+  /**
+   * Transaction locks for critical operations (bank, store, trade).
+   * While locked:
+   * - addItem() rejects new items (pickups blocked)
+   * - performAutoSave() skips this player
+   * - Only the lock holder can modify inventory
+   *
+   * This prevents race conditions between in-memory InventorySystem and
+   * direct database operations in transaction handlers.
+   */
+  private transactionLocks = new Set<string>();
+
+  /**
+   * Async operation queue for serialized execution.
+   * Each player has their own queue - operations execute in order.
+   * This allows optimistic UI on client while server processes sequentially.
+   */
+  private operationQueues = new Map<
+    string,
+    Array<{
+      execute: () => Promise<void>;
+      resolve: (value: boolean) => void;
+    }>
+  >();
+  private processingQueues = new Set<string>();
+
   constructor(world: World) {
     super(world, {
       name: "inventory",
@@ -137,6 +163,12 @@ export class InventorySystem extends SystemBase {
     let _totalItems = 0;
 
     for (const playerId of this.playerInventories.keys()) {
+      // Skip players locked for transaction - their inventory is being
+      // modified by bank/store/trade and will be reloaded after
+      if (this.transactionLocks.has(playerId)) {
+        continue;
+      }
+
       // Only persist inventories for real characters that exist in DB
       try {
         const playerRow = await db.getPlayerAsync(playerId);
@@ -304,6 +336,22 @@ export class InventorySystem extends SystemBase {
         "Cannot add item: playerId is undefined",
         new Error("Cannot add item: playerId is undefined"),
       );
+      return false;
+    }
+
+    // CRITICAL: Reject adds during transaction lock (prevents race conditions)
+    // This blocks pickups while bank/store/trade operations are in progress
+    if (this.transactionLocks.has(data.playerId)) {
+      Logger.system(
+        "InventorySystem",
+        `Cannot add item during transaction lock: ${data.playerId}`,
+      );
+      // Emit toast so player understands why pickup failed
+      this.emitTypedEvent(EventType.UI_TOAST, {
+        playerId: data.playerId,
+        message: "Close bank/store first to pick up items",
+        type: "warning",
+      });
       return false;
     }
 
@@ -1126,6 +1174,196 @@ export class InventorySystem extends SystemBase {
     }
   }
 
+  // ========== Transaction Lock API ==========
+
+  /**
+   * Acquire a transaction lock for critical inventory operations.
+   *
+   * While locked:
+   * - addItem() will reject new items (pickups blocked)
+   * - performAutoSave() will skip this player
+   * - Pending debounced saves are cancelled
+   *
+   * CRITICAL: Always release with unlockTransaction() in a finally block!
+   *
+   * @param playerId - Player to lock
+   * @returns true if lock acquired, false if already locked
+   */
+  public lockForTransaction(playerId: string): boolean {
+    if (this.transactionLocks.has(playerId)) {
+      Logger.system(
+        "InventorySystem",
+        `Transaction lock already held for player: ${playerId}`,
+      );
+      return false;
+    }
+
+    this.transactionLocks.add(playerId);
+
+    // Cancel any pending debounced save (we'll flush explicitly)
+    const existing = this.persistTimers.get(playerId);
+    if (existing) {
+      clearTimeout(existing);
+      this.persistTimers.delete(playerId);
+    }
+
+    return true;
+  }
+
+  /**
+   * Release a transaction lock.
+   * Always call this in a finally block after lockForTransaction().
+   *
+   * @param playerId - Player to unlock
+   */
+  public unlockTransaction(playerId: string): void {
+    this.transactionLocks.delete(playerId);
+  }
+
+  /**
+   * Check if a player is locked for a transaction.
+   *
+   * @param playerId - Player to check
+   * @returns true if locked
+   */
+  public isLockedForTransaction(playerId: string): boolean {
+    return this.transactionLocks.has(playerId);
+  }
+
+  // ============================================================================
+  // ASYNC OPERATION QUEUE
+  // ============================================================================
+
+  /**
+   * Queue an operation for serialized execution.
+   *
+   * Unlike lockForTransaction() which REJECTS if busy, this method WAITS.
+   * Operations are queued per-player and executed in order.
+   *
+   * This enables optimistic UI on client:
+   * - Client sends all 5 clicks immediately (shows optimistic state)
+   * - Server queues and processes all 5 in order
+   * - No requests rejected, no data lost
+   *
+   * @param playerId - Player ID
+   * @param operation - Async operation to execute (should acquire lock internally)
+   * @returns Promise that resolves when operation completes (true=success, false=failed)
+   */
+  public async queueOperation(
+    playerId: string,
+    operation: () => Promise<boolean>,
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      // Get or create queue for this player
+      if (!this.operationQueues.has(playerId)) {
+        this.operationQueues.set(playerId, []);
+      }
+
+      const queue = this.operationQueues.get(playerId)!;
+
+      // Add operation to queue
+      queue.push({
+        execute: async () => {
+          try {
+            const success = await operation();
+            resolve(success);
+          } catch (error) {
+            console.error(
+              `[InventorySystem] Queued operation failed for ${playerId}:`,
+              error,
+            );
+            resolve(false);
+          }
+        },
+        resolve,
+      });
+
+      // Start processing if not already processing
+      this.processQueue(playerId);
+    });
+  }
+
+  /**
+   * Process the operation queue for a player.
+   * Executes operations one at a time in order.
+   */
+  private async processQueue(playerId: string): Promise<void> {
+    // Already processing this player's queue
+    if (this.processingQueues.has(playerId)) {
+      return;
+    }
+
+    this.processingQueues.add(playerId);
+
+    const queue = this.operationQueues.get(playerId);
+    if (!queue) {
+      this.processingQueues.delete(playerId);
+      return;
+    }
+
+    // Process operations one at a time
+    while (queue.length > 0) {
+      const op = queue.shift()!;
+      await op.execute();
+    }
+
+    // Cleanup
+    this.processingQueues.delete(playerId);
+    if (queue.length === 0) {
+      this.operationQueues.delete(playerId);
+    }
+  }
+
+  /**
+   * Reload inventory from database, REPLACING in-memory state.
+   *
+   * CRITICAL: Only call while holding transaction lock!
+   * This makes DB authoritative - in-memory becomes exact mirror.
+   *
+   * Used after bank/store/trade transactions to ensure in-memory
+   * state matches what the transaction wrote to the database.
+   *
+   * @param playerId - Player whose inventory to reload
+   */
+  public async reloadFromDatabase(playerId: string): Promise<void> {
+    const db = this.getDatabase();
+    if (!db) {
+      Logger.system(
+        "InventorySystem",
+        `Cannot reload inventory for ${playerId}: no database`,
+      );
+      return;
+    }
+
+    const rows = await db.getPlayerInventoryAsync(playerId);
+    const playerIdKey = createPlayerID(playerId);
+
+    // REPLACE entire in-memory inventory with DB state
+    const inventory: PlayerInventory = {
+      playerId: playerIdKey,
+      items: [],
+      coins: 0, // Coins managed by CoinPouchSystem, not stored here
+    };
+
+    for (const row of rows) {
+      const itemData = getItem(row.itemId);
+      if (itemData) {
+        inventory.items.push({
+          slot: row.slotIndex ?? 0,
+          itemId: row.itemId,
+          quantity: row.quantity ?? 1,
+          item: itemData,
+        });
+      }
+    }
+
+    this.playerInventories.set(playerIdKey, inventory);
+    this.initializedInventories.add(playerId);
+
+    // Emit update to refresh client UI
+    this.emitInventoryUpdate(playerIdKey);
+  }
+
   // ========== Public API ==========
 
   /**
@@ -1625,8 +1863,9 @@ export class InventorySystem extends SystemBase {
       metadata: null as null,
     }));
 
-    // Save immediately (synchronous/atomic)
-    db.savePlayerInventory(playerId, saveItems);
+    // Save immediately and AWAIT to prevent race conditions with transactions
+    // CRITICAL: Must await to ensure DB is updated before transaction starts
+    await db.savePlayerInventoryAsync(playerId, saveItems);
     // NOTE: Coins are now persisted by CoinPouchSystem
   }
 

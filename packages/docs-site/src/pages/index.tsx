@@ -3,7 +3,6 @@ import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Layout from "@theme/Layout";
 import Heading from "@theme/Heading";
-
 import styles from "./index.module.css";
 
 function HomepageHeader() {
@@ -20,7 +19,7 @@ function HomepageHeader() {
             className="button button--secondary button--lg"
             to="/docs/intro"
           >
-            View API Documentation
+            API Documentation
           </Link>
         </div>
       </div>
@@ -29,35 +28,23 @@ function HomepageHeader() {
 }
 
 export default function Home(): JSX.Element {
-  const { siteConfig } = useDocusaurusContext();
   return (
-    <Layout
-      title={`Hello from ${siteConfig.title}`}
-      description="Hyperscape - AI-powered virtual world with RPG elements"
-    >
+    <Layout description="Hyperscape - 3D multiplayer game engine">
       <HomepageHeader />
       <main>
         <div className="container" style={{ padding: "2rem 0" }}>
           <div className="row">
             <div className="col col--4">
-              <h3>📦 Shared Package</h3>
-              <p>
-                Core shared utilities, entities, and systems used across client
-                and server.
-              </p>
+              <h3>📦 Shared</h3>
+              <p>Core engine: ECS, networking, physics, React components</p>
             </div>
             <div className="col col--4">
-              <h3>🖥️ Client Package</h3>
-              <p>
-                Frontend application code including React components and 3D
-                rendering.
-              </p>
+              <h3>🖥️ Client</h3>
+              <p>Web client: 3D rendering, player controls, UI</p>
             </div>
             <div className="col col--4">
-              <h3>⚙️ Server Package</h3>
-              <p>
-                Backend server code for networking, database, and game logic.
-              </p>
+              <h3>⚙️ Server</h3>
+              <p>Game server: world management, persistence, handlers</p>
             </div>
           </div>
         </div>

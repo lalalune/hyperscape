@@ -66,10 +66,17 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     lootItems: InventoryItem[];
   } | null>(null);
 
-  // Bank panel state
+  // Bank panel state (RS3-style: placeholders are items with qty=0 in items array)
   const [bankData, setBankData] = useState<{
     visible: boolean;
-    items: Array<{ itemId: string; quantity: number; slot: number }>;
+    items: Array<{
+      itemId: string;
+      quantity: number;
+      slot: number;
+      tabIndex: number;
+    }>;
+    tabs: Array<{ tabIndex: number; iconItemId: string | null }>;
+    alwaysSetPlaceholder: boolean;
     maxSlots: number;
     bankId: string;
   } | null>(null);
@@ -171,7 +178,9 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       if (update.component === "equipment") {
         // The backend sends PlayerEquipment (with slots containing items),
         // but the UI expects PlayerEquipmentItems (just the items).
-        const data = update.data as { equipment: Record<string, { item?: unknown }> };
+        const data = update.data as {
+          equipment: Record<string, { item?: unknown }>;
+        };
         const rawEq = data.equipment;
 
         const mappedEquipment: PlayerEquipmentItems = {
@@ -184,10 +193,17 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         };
         setEquipment(mappedEquipment);
       }
-      // Handle bank state updates
+      // Handle bank state updates (RS3-style: placeholders are items with qty=0)
       if (update.component === "bank") {
         const data = update.data as {
-          items?: Array<{ itemId: string; quantity: number; slot: number }>;
+          items?: Array<{
+            itemId: string;
+            quantity: number;
+            slot: number;
+            tabIndex?: number;
+          }>;
+          tabs?: Array<{ tabIndex: number; iconItemId: string | null }>;
+          alwaysSetPlaceholder?: boolean;
           maxSlots?: number;
           bankId?: string;
           isOpen?: boolean;
@@ -195,14 +211,27 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         if (data.isOpen === false) {
           // Server-authoritative close (player walked too far)
           setBankData(null);
-        } else if (data.isOpen || data.items) {
-          // Open or update bank state
+        } else if (
+          data.isOpen ||
+          data.items !== undefined ||
+          data.alwaysSetPlaceholder !== undefined
+        ) {
+          // Open or update bank state (includes toggle updates)
           // Preserve existing bankId if new one not provided (deposit/withdraw responses)
+          // Ensure items have tabIndex (default to 0 for backwards compatibility)
+          const itemsWithTabIndex = (data.items || []).map((item) => ({
+            ...item,
+            tabIndex: item.tabIndex ?? 0,
+          }));
           setBankData((prev) => ({
             visible: true,
-            items: data.items || prev?.items || [],
-            maxSlots: data.maxSlots || prev?.maxSlots || 480,
-            bankId: data.bankId || prev?.bankId || "spawn_bank",
+            items:
+              data.items !== undefined ? itemsWithTabIndex : prev?.items || [],
+            tabs: data.tabs !== undefined ? data.tabs : prev?.tabs || [],
+            alwaysSetPlaceholder:
+              data.alwaysSetPlaceholder ?? prev?.alwaysSetPlaceholder ?? false,
+            maxSlots: data.maxSlots ?? prev?.maxSlots ?? 480,
+            bankId: data.bankId ?? prev?.bankId ?? "spawn_bank",
           }));
         }
       }
@@ -665,10 +694,12 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           />
         )}
 
-        {/* Bank Panel (includes integrated inventory) */}
+        {/* Bank Panel (includes integrated inventory) - RS3-style: placeholders are items with qty=0 */}
         {bankData?.visible && (
           <BankPanel
             items={bankData.items}
+            tabs={bankData.tabs}
+            alwaysSetPlaceholder={bankData.alwaysSetPlaceholder}
             maxSlots={bankData.maxSlots}
             world={world}
             inventory={inventory}

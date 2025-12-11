@@ -60,9 +60,10 @@ export { validateTransactionRequest } from "./validation";
 // TRANSACTION
 // ============================================================================
 
-export type { TransactionConfig } from "./transaction";
+export type { TransactionConfig, DrizzleTransaction } from "./transaction";
 
 export {
   executeSecureTransaction,
   emitInventorySyncEvents,
+  executeInventoryTransaction,
 } from "./transaction";

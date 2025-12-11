@@ -5,6 +5,7 @@
  * - Retry logic for database conflicts (serialization, deadlock)
  * - Consistent error handling and user-friendly messages
  * - In-memory sync event emission
+ * - Inventory lock/flush/reload pattern for race condition prevention
  *
  * This consolidates ~40-50 lines of retry/error handling that was
  * duplicated across every transaction handler.
@@ -13,7 +14,7 @@
  * to ensure consistent retry and error handling.
  */
 
-import { EventType } from "@hyperscape/shared";
+import { EventType, type InventorySystem } from "@hyperscape/shared";
 import type { BaseHandlerContext, TransactionSyncData } from "./types";
 import { sendErrorToast } from "./helpers";
 
@@ -84,7 +85,7 @@ function getRetryDelay(attempt: number): number {
  * Drizzle transaction type (extracted for readability).
  * This is the type of `tx` passed to transaction callbacks.
  */
-type DrizzleTransaction = Parameters<
+export type DrizzleTransaction = Parameters<
   Parameters<BaseHandlerContext["db"]["drizzle"]["transaction"]>[0]
 >[0];
 
@@ -262,4 +263,124 @@ export function emitInventorySyncEvents(
       coins: syncData.newCoinBalance,
     });
   }
+}
+
+// ============================================================================
+// INVENTORY TRANSACTION WRAPPER
+// ============================================================================
+
+/**
+ * Execute an inventory-modifying transaction with proper locking.
+ *
+ * This wrapper implements the Queue + Lock + Flush + Transaction + Reload pattern
+ * to eliminate race conditions while supporting optimistic UI.
+ *
+ * KEY CHANGE: Instead of REJECTING concurrent requests, we QUEUE them.
+ * This enables optimistic UI on client - all clicks are processed, just in order.
+ *
+ * Sequence:
+ * 1. QUEUE - Wait for any prior operations to complete
+ * 2. LOCK - Acquire transaction lock (blocks pickups, auto-save)
+ * 3. FLUSH - Save pending in-memory changes to DB
+ * 4. EXECUTE - Run the transaction (DB is now source of truth)
+ * 5. RELOAD - Replace in-memory with DB state
+ * 6. UNLOCK - Resume normal operations (in finally block)
+ *
+ * This ensures:
+ * - Zero data loss (pending items flushed before transaction)
+ * - No race conditions (lock serializes access)
+ * - No divergence (reload ensures in-memory == DB)
+ * - ALL requests processed (queue, not reject)
+ * - Optimistic UI works (client shows all, server processes all)
+ *
+ * Usage:
+ * ```typescript
+ * const result = await executeInventoryTransaction(ctx, async () => {
+ *   return executeSecureTransaction(ctx, {
+ *     execute: async (tx) => {
+ *       // ... DB operations (safe, no races possible)
+ *       return { addedSlots: [...] };
+ *     }
+ *   });
+ * });
+ *
+ * if (!result) return; // Error already sent to client
+ * // Use result...
+ * ```
+ *
+ * @param context - Handler context with world for system access
+ * @param operation - The transaction operation to execute
+ * @returns Operation result on success, null on failure
+ */
+export async function executeInventoryTransaction<T>(
+  context: BaseHandlerContext,
+  operation: () => Promise<T | null>,
+): Promise<T | null> {
+  const inventorySystem = context.world.getSystem("inventory") as
+    | InventorySystem
+    | undefined;
+
+  if (!inventorySystem) {
+    console.error("[InventoryTransaction] InventorySystem not available");
+    sendErrorToast(context.socket, "System error - please try again");
+    return null;
+  }
+
+  // Use the async queue to serialize operations
+  // This WAITS instead of rejecting - key for optimistic UI
+  let result: T | null = null;
+
+  const success = await inventorySystem.queueOperation(
+    context.playerId,
+    async () => {
+      // Step 1: LOCK - Acquire transaction lock (should always succeed since we're queued)
+      const locked = inventorySystem.lockForTransaction(context.playerId);
+      if (!locked) {
+        // This should never happen since queue serializes, but handle gracefully
+        console.error(
+          "[InventoryTransaction] Failed to acquire lock after queue",
+        );
+        sendErrorToast(context.socket, "System busy - please try again");
+        return false;
+      }
+
+      try {
+        // Step 2: FLUSH - Save pending in-memory changes to DB
+        // This ensures DB has all items before we query it
+        await inventorySystem.persistInventoryImmediate(context.playerId);
+
+        // Step 3: EXECUTE - Run the actual transaction
+        result = await operation();
+
+        // Step 4: RELOAD - Replace in-memory with DB state
+        // This ensures in-memory matches exactly what the transaction wrote
+        await inventorySystem.reloadFromDatabase(context.playerId);
+
+        return result !== null;
+      } catch (error) {
+        // On error, still try to reload to maintain consistency
+        try {
+          await inventorySystem.reloadFromDatabase(context.playerId);
+        } catch (reloadError) {
+          console.error(
+            "[InventoryTransaction] Failed to reload after error:",
+            reloadError,
+          );
+        }
+        // Log but don't throw - queue expects boolean return
+        console.error("[InventoryTransaction] Operation failed:", error);
+        return false;
+      } finally {
+        // Step 5: UNLOCK - Always release lock, even on error
+        inventorySystem.unlockTransaction(context.playerId);
+      }
+    },
+  );
+
+  if (!success && result === null) {
+    // Operation failed without setting result - generic error already logged
+    // Don't send another toast if operation already sent one
+  }
+
+  return result;
 }

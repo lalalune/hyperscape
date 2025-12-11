@@ -229,6 +229,9 @@ export const characters = pgTable(
 
     // Agent flag - true if this character is controlled by an AI agent (ElizaOS)
     isAgent: integer("isAgent").default(0).notNull(), // SQLite: 0=false, 1=true
+
+    // Bank settings
+    alwaysSetPlaceholder: integer("alwaysSetPlaceholder").default(0).notNull(), // SQLite: 0=false, 1=true
   },
   (table) => ({
     accountIdx: index("idx_characters_account").on(table.accountId),
@@ -389,10 +392,11 @@ export const equipment = pgTable(
  * - `itemId` - Item identifier (matches inventory itemId format)
  * - `quantity` - Stack size (all items stack in bank)
  * - `slot` - Bank slot index (0-479, 480 max slots)
+ * - `tabIndex` - Which tab the item belongs to (0 = main tab, 1-9 = custom tabs)
  *
  * Design notes:
  * - All items stack in bank for simplicity
- * - Unique constraint on (playerId, slot) ensures one item per slot
+ * - Unique constraint on (playerId, tabIndex, slot) ensures one item per slot per tab
  * - CASCADE DELETE ensures cleanup when character is deleted
  */
 export const bankStorage = pgTable(
@@ -405,10 +409,102 @@ export const bankStorage = pgTable(
     itemId: text("itemId").notNull(),
     quantity: integer("quantity").default(1).notNull(),
     slot: integer("slot").default(0).notNull(),
+    tabIndex: integer("tabIndex").default(0).notNull(),
   },
   (table) => ({
-    uniquePlayerSlot: unique().on(table.playerId, table.slot),
+    uniquePlayerTabSlot: unique().on(
+      table.playerId,
+      table.tabIndex,
+      table.slot,
+    ),
     playerIdx: index("idx_bank_storage_player").on(table.playerId),
+    playerTabIdx: index("idx_bank_storage_player_tab").on(
+      table.playerId,
+      table.tabIndex,
+    ),
+  }),
+);
+
+/**
+ * Bank Tabs Table - Custom bank tab configuration
+ *
+ * Stores custom bank tabs created by players (OSRS-style).
+ * Tab 0 (main tab) is implicit and not stored here.
+ *
+ * Key columns:
+ * - `playerId` - References characters.id (CASCADE DELETE)
+ * - `tabIndex` - Tab position (1-9, main tab 0 is implicit)
+ * - `iconItemId` - Item ID used for tab icon (first item deposited)
+ *
+ * Design notes:
+ * - Max 9 custom tabs per player (1-9)
+ * - Unique constraint on (playerId, tabIndex)
+ * - Tab icon defaults to first item in tab
+ * - Empty tabs auto-delete (handled in application logic)
+ */
+export const bankTabs = pgTable(
+  "bank_tabs",
+  {
+    id: serial("id").primaryKey(),
+    playerId: text("playerId")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    tabIndex: integer("tabIndex").notNull(),
+    iconItemId: text("iconItemId"),
+    createdAt: bigint("createdAt", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+  },
+  (table) => ({
+    uniquePlayerTab: unique().on(table.playerId, table.tabIndex),
+    playerIdx: index("idx_bank_tabs_player").on(table.playerId),
+  }),
+);
+
+/**
+ * Bank Placeholders Table - Reserved item slots (OSRS-style)
+ *
+ * Stores placeholders for items that have been withdrawn.
+ * When a player withdraws all of an item with placeholders enabled,
+ * a placeholder is created to reserve that slot for the item.
+ *
+ * Key columns:
+ * - `playerId` - References characters.id (CASCADE DELETE)
+ * - `tabIndex` - Which tab the placeholder is in (0-9)
+ * - `slot` - Bank slot index where item was
+ * - `itemId` - The item that was withdrawn
+ *
+ * Design notes:
+ * - Created when withdrawing ALL of an item (with setting enabled)
+ * - Deleted when depositing that item type (uses placeholder slot)
+ * - Can be manually released by player
+ * - Unique constraint on (playerId, tabIndex, slot)
+ */
+export const bankPlaceholders = pgTable(
+  "bank_placeholders",
+  {
+    id: serial("id").primaryKey(),
+    playerId: text("playerId")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    tabIndex: integer("tabIndex").default(0).notNull(),
+    slot: integer("slot").notNull(),
+    itemId: text("itemId").notNull(),
+    createdAt: bigint("createdAt", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+  },
+  (table) => ({
+    uniquePlayerTabSlot: unique().on(
+      table.playerId,
+      table.tabIndex,
+      table.slot,
+    ),
+    playerIdx: index("idx_bank_placeholders_player").on(table.playerId),
+    playerItemIdx: index("idx_bank_placeholders_player_item").on(
+      table.playerId,
+      table.itemId,
+    ),
   }),
 );
 
@@ -670,6 +766,8 @@ export const charactersRelations = relations(characters, ({ many }) => ({
   inventory: many(inventory),
   equipment: many(equipment),
   bankStorage: many(bankStorage),
+  bankTabs: many(bankTabs),
+  bankPlaceholders: many(bankPlaceholders),
   sessions: many(playerSessions),
   chunkActivities: many(chunkActivity),
   npcKills: many(npcKills),
@@ -708,6 +806,23 @@ export const bankStorageRelations = relations(bankStorage, ({ one }) => ({
     references: [characters.id],
   }),
 }));
+
+export const bankTabsRelations = relations(bankTabs, ({ one }) => ({
+  character: one(characters, {
+    fields: [bankTabs.playerId],
+    references: [characters.id],
+  }),
+}));
+
+export const bankPlaceholdersRelations = relations(
+  bankPlaceholders,
+  ({ one }) => ({
+    character: one(characters, {
+      fields: [bankPlaceholders.playerId],
+      references: [characters.id],
+    }),
+  }),
+);
 
 export const playerSessionsRelations = relations(playerSessions, ({ one }) => ({
   character: one(characters, {

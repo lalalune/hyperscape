@@ -98,12 +98,7 @@ import {
   parseBatchUpdate,
   UpdateFlags,
 } from "../../utils/network/compression";
-import type {
-  ChatMessage,
-  EntityData,
-  World,
-  WorldOptions,
-} from "../../types";
+import type { ChatMessage, EntityData, World, WorldOptions } from "../../types";
 import type {
   EntityModificationPacket,
   InventoryUpdatePacket,
@@ -389,14 +384,10 @@ export class ClientNetwork extends SystemBase {
           this.ws?.readyState === WebSocket.CLOSED ||
           this.ws?.readyState === WebSocket.CLOSING;
         if (!isExpectedDisconnect) {
-          this.logger.error(
-            "WebSocket error",
-            e instanceof Error ? e : undefined,
-          );
-          this.logger.error(
-            `WebSocket error: ${e instanceof ErrorEvent ? e.message : String(e)}`,
-          );
-          reject(e);
+          const errorMessage =
+            e instanceof ErrorEvent ? e.message : "WebSocket connection failed";
+          this.logger.error("WebSocket error", new Error(errorMessage));
+          reject(new Error(errorMessage));
         }
       });
     });
@@ -1503,8 +1494,16 @@ export class ClientNetwork extends SystemBase {
   onBankState = (data: {
     playerId: string;
     bankId?: string;
-    items: Array<{ itemId: string; quantity: number; slot: number }>;
+    items: Array<{
+      itemId: string;
+      quantity: number;
+      slot: number;
+      tabIndex?: number;
+    }>;
+    tabs?: Array<{ tabIndex: number; iconItemId: string | null }>;
+    alwaysSetPlaceholder?: boolean;
     maxSlots: number;
+    isOpen?: boolean;
   }) => {
     // Emit as UI update for BankPanel to handle
     this.world.emit(EventType.UI_UPDATE, {
@@ -1513,8 +1512,10 @@ export class ClientNetwork extends SystemBase {
       data: {
         bankId: data.bankId,
         items: data.items,
+        tabs: data.tabs,
+        alwaysSetPlaceholder: data.alwaysSetPlaceholder,
         maxSlots: data.maxSlots,
-        isOpen: true,
+        isOpen: data.isOpen ?? true,
       },
     });
   };

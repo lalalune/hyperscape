@@ -1,35 +1,24 @@
-# Introduction
+# Hyperscape API
 
-Welcome to the **Hyperscape** API documentation!
+API documentation for the Hyperscape 3D multiplayer game engine.
 
-Hyperscape is an AI-powered virtual world with RPG elements, built on a robust 3D multiplayer game engine using three.js, React, and ElizaOS.
+## Packages
 
-## Documentation Structure
-
-This documentation is automatically generated from TypeScript source code and includes:
-
-- **Shared Package** - Core shared utilities, entities, and systems used across client and server
-- **Client Package** - Frontend application code including React components and 3D rendering  
-- **Server Package** - Backend server code for networking, database, and game logic
+| Package | Description |
+|---------|-------------|
+| **shared** | Core engine: ECS, networking, physics, React components |
+| **client** | Web client: 3D rendering, player controls, UI |
+| **server** | Game server: world management, persistence, WebSocket handlers |
 
 ## Tech Stack
 
-- **Hyperscape** - 3D multiplayer game engine built on three.js
-- **React** - UI and frontend framework
-- **ElizaOS** - AI agent framework
-- **Three.js** - 3D graphics library
-- **SQLite** - Persistence and database
-- **Playwright** - Browser engine for testing
+- **Three.js** - 3D graphics
+- **PhysX** - Physics simulation (WASM)
+- **React** - UI components
+- **SQLite/PostgreSQL** - Persistence
+- **WebSockets** - Real-time networking
+- **ElizaOS** - AI agent integration
 
-## Getting Started
+## Navigation
 
-Browse the API documentation for each package using the sidebar navigation.
-
-Each package contains detailed documentation for:
-- Classes and interfaces
-- Functions and methods
-- Type definitions
-- Enums and constants
-
-The documentation is generated from TSDoc comments in the source code and is kept up-to-date automatically.
-
+Use the sidebar to browse the auto-generated API documentation for each package.
