@@ -236,20 +236,21 @@ export async function handleBankDeleteTab(
         mainTabMax.rows[0] as { maxSlot: string | number | null }
       ).maxSlot;
       const maxSlot = rawMaxSlot === null ? -1 : Number(rawMaxSlot);
-      let nextSlot = maxSlot + 1;
+      const nextSlotBase = maxSlot + 1;
 
-      // Move all items to main tab
-      for (const row of itemsInTab.rows as Array<{
-        id: number;
-        slot: number;
-      }>) {
-        await tx.execute(
-          sql`UPDATE bank_storage
-              SET "tabIndex" = 0, slot = ${nextSlot}
-              WHERE id = ${row.id}`,
-        );
-        nextSlot++;
-      }
+      // Move all items to main tab with batch UPDATE using window function
+      // ROW_NUMBER assigns sequential numbers starting from 0, add to nextSlotBase
+      await tx.execute(
+        sql`UPDATE bank_storage
+            SET "tabIndex" = 0,
+                slot = subq.new_slot
+            FROM (
+              SELECT id, ${nextSlotBase} + ROW_NUMBER() OVER (ORDER BY slot) - 1 as new_slot
+              FROM bank_storage
+              WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.tabIndex}
+            ) as subq
+            WHERE bank_storage.id = subq.id`,
+      );
 
       // Delete the tab
       await tx.execute(
@@ -419,14 +420,15 @@ export async function handleBankMoveToTab(
         );
 
         // Shift items at targetSlot and above to the right by 1
-        // Must shift from HIGHEST to LOWEST to avoid unique constraint violations
-        for (let s = maxSlot; s >= targetSlot; s--) {
-          await tx.execute(
-            sql`UPDATE bank_storage
-                SET slot = slot + 1
-                WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.toTabIndex} AND slot = ${s}`,
-          );
-        }
+        // Single batch UPDATE - PostgreSQL checks constraints after all updates complete,
+        // so no conflicts occur when incrementing slots atomically
+        await tx.execute(
+          sql`UPDATE bank_storage
+              SET slot = slot + 1
+              WHERE "playerId" = ${ctx.playerId}
+                AND "tabIndex" = ${data.toTabIndex}
+                AND slot >= ${targetSlot}`,
+        );
       }
 
       // Move item to destination tab at target slot

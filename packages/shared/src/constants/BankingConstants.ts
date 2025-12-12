@@ -2,7 +2,7 @@
  * Banking system constants
  */
 
-export const BANKING_CONSTANTS = {
+export const BANKING_CONSTANTS = Object.freeze({
   // Bank sizes
   MAX_BANK_SLOTS: 480, // 12 tabs * 40 slots per tab
   SLOTS_PER_TAB: 40,
@@ -20,7 +20,7 @@ export const BANKING_CONSTANTS = {
   MIN_ITEM_QUANTITY: 1,
 
   // Error messages
-  ERRORS: {
+  ERRORS: Object.freeze({
     BANK_FULL: "Bank is full",
     INVALID_QUANTITY: "Invalid quantity",
     ITEM_NOT_FOUND: "Item not found",
@@ -32,10 +32,10 @@ export const BANKING_CONSTANTS = {
     INSUFFICIENT_POUCH_COINS: "Not enough coins in money pouch",
     INSUFFICIENT_BANK_COINS: "Not enough coins in bank",
     COIN_OVERFLOW: "Cannot carry that many coins",
-  },
+  }),
 
   // Success messages
-  MESSAGES: {
+  MESSAGES: Object.freeze({
     ITEM_DEPOSITED: "Item deposited successfully",
     ITEM_WITHDRAWN: "Item withdrawn successfully",
     BANK_OPENED: "Bank opened",
@@ -43,8 +43,8 @@ export const BANKING_CONSTANTS = {
     // Coin-specific messages
     COINS_DEPOSITED: "Coins deposited to bank",
     COINS_WITHDRAWN: "Coins withdrawn from bank",
-  },
-} as const;
+  }),
+});
 
 export type BankingError =
   (typeof BANKING_CONSTANTS.ERRORS)[keyof typeof BANKING_CONSTANTS.ERRORS];

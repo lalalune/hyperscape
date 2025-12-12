@@ -1360,3 +1360,4 @@ export * from "./game";
 export * from "./systems";
 export * from "./entities";
 export * from "./bank-equipment";
+export * from "./bank-operations";

@@ -9,6 +9,8 @@ import {
   type World,
   type EquipmentSystem,
   SessionType,
+  isValidPlayerEquipmentStructure,
+  VALID_EQUIPMENT_SLOT_KEYS,
 } from "@hyperscape/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import * as schema from "../../../../database/schema";
@@ -36,21 +38,8 @@ import {
 } from "./utils";
 
 // ============================================================================
-// STATIC CONSTANTS (module-level to avoid recreation on each call)
+// VALID_EQUIPMENT_SLOT_KEYS imported from @hyperscape/shared to maintain DRY
 // ============================================================================
-
-/**
- * Valid equipment slot names for deposit operations.
- * Static Set to avoid re-creation on every function call.
- */
-const VALID_EQUIPMENT_SLOTS = new Set([
-  "weapon",
-  "shield",
-  "helmet",
-  "body",
-  "legs",
-  "arrows",
-]);
 
 /**
  * Handle withdraw item directly to equipment
@@ -275,11 +264,16 @@ export async function handleBankWithdrawToEquipment(
   ).getPlayerEquipment;
   if (getEquipFn) {
     const equipmentData = getEquipFn.call(equipmentSystem, ctx.playerId);
-    if (equipmentData) {
+    if (equipmentData && isValidPlayerEquipmentStructure(equipmentData)) {
       sendToSocket(socket, "equipmentUpdated", {
         playerId: ctx.playerId,
         equipment: equipmentData,
       });
+    } else if (equipmentData) {
+      console.error(
+        "[BankEquipment] Invalid equipment data structure for player:",
+        ctx.playerId,
+      );
     }
   }
 
@@ -321,7 +315,7 @@ export async function handleBankDepositEquipment(
   const ctx = baseResult.context;
 
   // Step 2: Input validation
-  if (!VALID_EQUIPMENT_SLOTS.has(data.slot)) {
+  if (!VALID_EQUIPMENT_SLOT_KEYS.has(data.slot)) {
     sendErrorToast(socket, "Invalid equipment slot");
     return;
   }
@@ -418,11 +412,16 @@ export async function handleBankDepositEquipment(
   ).getPlayerEquipment;
   if (getEquipFn) {
     const equipmentData = getEquipFn.call(equipmentSystem, ctx.playerId);
-    if (equipmentData) {
+    if (equipmentData && isValidPlayerEquipmentStructure(equipmentData)) {
       sendToSocket(socket, "equipmentUpdated", {
         playerId: ctx.playerId,
         equipment: equipmentData,
       });
+    } else if (equipmentData) {
+      console.error(
+        "[BankEquipment] Invalid equipment data structure for player:",
+        ctx.playerId,
+      );
     }
   }
 
@@ -567,11 +566,16 @@ export async function handleBankDepositAllEquipment(
   ).getPlayerEquipment;
   if (getEquipFn) {
     const equipmentData = getEquipFn.call(equipmentSystem, ctx.playerId);
-    if (equipmentData) {
+    if (equipmentData && isValidPlayerEquipmentStructure(equipmentData)) {
       sendToSocket(socket, "equipmentUpdated", {
         playerId: ctx.playerId,
         equipment: equipmentData,
       });
+    } else if (equipmentData) {
+      console.error(
+        "[BankEquipment] Invalid equipment data structure for player:",
+        ctx.playerId,
+      );
     }
   }
 

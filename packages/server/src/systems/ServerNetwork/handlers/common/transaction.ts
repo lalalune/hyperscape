@@ -14,7 +14,22 @@
  * to ensure consistent retry and error handling.
  */
 
-import { EventType, type InventorySystem } from "@hyperscape/shared";
+import { EventType } from "@hyperscape/shared";
+
+/**
+ * InventorySystem interface for transaction locking operations.
+ * Defines the contract for inventory system operations used by the transaction wrapper.
+ */
+interface InventorySystem {
+  queueOperation(
+    playerId: string,
+    operation: () => Promise<boolean>,
+  ): Promise<boolean>;
+  lockForTransaction(playerId: string): boolean;
+  unlockTransaction(playerId: string): void;
+  persistInventoryImmediate(playerId: string): Promise<void>;
+  reloadFromDatabase(playerId: string): Promise<void>;
+}
 import type { BaseHandlerContext, TransactionSyncData } from "./types";
 import { sendErrorToast } from "./helpers";
 
@@ -233,7 +248,7 @@ export function emitInventorySyncEvents(
       world.emit(EventType.INVENTORY_ITEM_ADDED, {
         playerId,
         item: {
-          id: 0, // Database ID not needed for sync
+          id: "sync", // Placeholder ID - not used for sync operations
           itemId: added.itemId,
           quantity: added.quantity,
           slot: added.slot,

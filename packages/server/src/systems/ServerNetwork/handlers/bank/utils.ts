@@ -75,6 +75,159 @@ export function isValidGameItem(itemId: string): boolean {
 }
 
 // ============================================================================
+// SQL ROW TYPE DEFINITIONS
+// ============================================================================
+
+/**
+ * Inventory row data from database
+ */
+export interface InventoryRowData {
+  id: number;
+  playerId: string;
+  itemId: string;
+  quantity: number | null;
+  slotIndex: number | null;
+}
+
+/**
+ * Bank storage row data from database
+ */
+export interface BankRowData {
+  id: number;
+  playerId: string;
+  itemId: string;
+  quantity: number;
+  slot: number;
+  tabIndex: number;
+}
+
+/**
+ * Bank tab row data from database
+ */
+export interface BankTabRowData {
+  id: number;
+  playerId: string;
+  tabIndex: number;
+  iconItemId: string | null;
+}
+
+// ============================================================================
+// SQL ROW VALIDATORS
+// ============================================================================
+
+/**
+ * Validate and cast inventory rows from SQL result
+ * Throws on invalid data to prevent silent failures
+ */
+export function validateInventoryRows(rows: unknown[]): InventoryRowData[] {
+  return rows.map((row, index) => {
+    if (typeof row !== "object" || row === null) {
+      throw new Error(`INVALID_INVENTORY_ROW_${index}: not an object`);
+    }
+    const r = row as Record<string, unknown>;
+
+    if (typeof r.id !== "number") {
+      throw new Error(`INVALID_INVENTORY_ROW_${index}: invalid id`);
+    }
+    if (typeof r.playerId !== "string") {
+      throw new Error(`INVALID_INVENTORY_ROW_${index}: invalid playerId`);
+    }
+    if (typeof r.itemId !== "string") {
+      throw new Error(`INVALID_INVENTORY_ROW_${index}: invalid itemId`);
+    }
+    // quantity and slotIndex can be null
+    if (r.quantity !== null && typeof r.quantity !== "number") {
+      throw new Error(`INVALID_INVENTORY_ROW_${index}: invalid quantity`);
+    }
+    if (r.slotIndex !== null && typeof r.slotIndex !== "number") {
+      throw new Error(`INVALID_INVENTORY_ROW_${index}: invalid slotIndex`);
+    }
+
+    return {
+      id: r.id,
+      playerId: r.playerId,
+      itemId: r.itemId,
+      quantity: r.quantity as number | null,
+      slotIndex: r.slotIndex as number | null,
+    };
+  });
+}
+
+/**
+ * Validate and cast bank storage rows from SQL result
+ * Throws on invalid data to prevent silent failures
+ */
+export function validateBankRows(rows: unknown[]): BankRowData[] {
+  return rows.map((row, index) => {
+    if (typeof row !== "object" || row === null) {
+      throw new Error(`INVALID_BANK_ROW_${index}: not an object`);
+    }
+    const r = row as Record<string, unknown>;
+
+    if (typeof r.id !== "number") {
+      throw new Error(`INVALID_BANK_ROW_${index}: invalid id`);
+    }
+    if (typeof r.playerId !== "string") {
+      throw new Error(`INVALID_BANK_ROW_${index}: invalid playerId`);
+    }
+    if (typeof r.itemId !== "string") {
+      throw new Error(`INVALID_BANK_ROW_${index}: invalid itemId`);
+    }
+    if (typeof r.quantity !== "number") {
+      throw new Error(`INVALID_BANK_ROW_${index}: invalid quantity`);
+    }
+    if (typeof r.slot !== "number") {
+      throw new Error(`INVALID_BANK_ROW_${index}: invalid slot`);
+    }
+    if (typeof r.tabIndex !== "number") {
+      throw new Error(`INVALID_BANK_ROW_${index}: invalid tabIndex`);
+    }
+
+    return {
+      id: r.id,
+      playerId: r.playerId,
+      itemId: r.itemId,
+      quantity: r.quantity,
+      slot: r.slot,
+      tabIndex: r.tabIndex,
+    };
+  });
+}
+
+/**
+ * Validate and cast bank tab rows from SQL result
+ */
+export function validateBankTabRows(rows: unknown[]): BankTabRowData[] {
+  return rows.map((row, index) => {
+    if (typeof row !== "object" || row === null) {
+      throw new Error(`INVALID_BANK_TAB_ROW_${index}: not an object`);
+    }
+    const r = row as Record<string, unknown>;
+
+    if (typeof r.id !== "number") {
+      throw new Error(`INVALID_BANK_TAB_ROW_${index}: invalid id`);
+    }
+    if (typeof r.playerId !== "string") {
+      throw new Error(`INVALID_BANK_TAB_ROW_${index}: invalid playerId`);
+    }
+    if (typeof r.tabIndex !== "number") {
+      throw new Error(`INVALID_BANK_TAB_ROW_${index}: invalid tabIndex`);
+    }
+    // iconItemId can be null
+    if (r.iconItemId !== null && typeof r.iconItemId !== "string") {
+      throw new Error(`INVALID_BANK_TAB_ROW_${index}: invalid iconItemId`);
+    }
+
+    return {
+      id: r.id,
+      playerId: r.playerId,
+      tabIndex: r.tabIndex,
+      iconItemId: r.iconItemId as string | null,
+    };
+  });
+}
+
+// ============================================================================
 // DATABASE OPERATIONS
 // ============================================================================
 

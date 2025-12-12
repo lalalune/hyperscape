@@ -145,12 +145,13 @@ export async function handleBankDepositCoins(
           throw new Error("BANK_FULL");
         }
 
-        // Insert new coins row
+        // Insert new coins row in main tab (tabIndex 0)
         await tx.insert(schema.bankStorage).values({
           playerId: ctx.playerId,
           itemId: "coins",
           quantity: data.amount,
           slot: nextSlot,
+          tabIndex: 0,
         });
       }
 

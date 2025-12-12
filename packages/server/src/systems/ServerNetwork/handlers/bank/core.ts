@@ -168,6 +168,15 @@ export async function handleBankDeposit(
     return;
   }
 
+  // Validate item exists in game database (security: prevent depositing removed/invalid items)
+  if (!isValidGameItem(data.itemId)) {
+    console.warn(
+      `[BankHandler] SECURITY: Player ${ctx.playerId} attempted to deposit unknown item: ${data.itemId}`,
+    );
+    sendErrorToast(socket, "This item does not exist");
+    return;
+  }
+
   if (!isValidQuantity(data.quantity)) {
     sendErrorToast(socket, "Invalid quantity");
     return;
@@ -596,7 +605,13 @@ export async function handleBankWithdraw(
         } else {
           // BASE ITEM WITHDRAWAL: One item per slot (qty=1 each)
           // BULK INSERT: Batch all items into single query for performance
-          const inventoryItems = [];
+          const inventoryItems: Array<{
+            playerId: string;
+            itemId: string;
+            quantity: number;
+            slotIndex: number;
+            metadata: null;
+          }> = [];
           for (let i = 0; i < finalWithdrawQty; i++) {
             const targetSlot = freeSlots[i];
             inventoryItems.push({
