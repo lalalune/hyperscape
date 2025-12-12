@@ -214,6 +214,12 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
+    // CRITICAL: Check if target player is still loading (Issue #356)
+    // Players are immune to combat until their client finishes loading assets
+    if (targetType === "player" && target.data?.isLoading) {
+      return;
+    }
+
     // Check if target is attackable (for mobs that have attackable: false in manifest)
     if (targetType === "mob") {
       const mobEntity = target as MobEntity;
@@ -347,6 +353,12 @@ export class CombatSystem extends SystemBase {
     // CRITICAL: Check if target is already dead BEFORE processing attack (Issue #265)
     // This prevents attacks from being processed on dead entities
     if (!this.isEntityAlive(target, targetType)) {
+      return;
+    }
+
+    // CRITICAL: Check if target player is still loading (Issue #356)
+    // Players are immune to combat until their client finishes loading assets
+    if (targetType === "player" && target.data?.isLoading) {
       return;
     }
 

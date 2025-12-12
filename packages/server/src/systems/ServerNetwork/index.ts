@@ -653,6 +653,57 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this.broadcastManager.sendToSocket.bind(this.broadcastManager),
       );
 
+    // Client ready handler - player is now active and can be targeted
+    // Sent by client when all assets have finished loading
+    this.handlers["onClientReady"] = (socket) => {
+      if (!socket.player) {
+        console.warn(
+          "[PlayerLoading] clientReady received but no player on socket",
+        );
+        return;
+      }
+
+      const player = socket.player;
+
+      // Validate ownership - only the owning socket can mark player as ready
+      if (player.data.owner !== socket.id) {
+        console.warn(
+          `[PlayerLoading] clientReady rejected: socket ${socket.id} doesn't own player ${player.id}`,
+        );
+        return;
+      }
+
+      // Ignore duplicate clientReady packets (idempotent)
+      if (!player.data.isLoading) {
+        return;
+      }
+
+      console.log(
+        `[PlayerLoading] Received clientReady from player ${player.id}`,
+      );
+      console.log(
+        `[PlayerLoading] Player ${player.id} isLoading: ${player.data.isLoading} -> false`,
+      );
+
+      // Mark player as no longer loading
+      player.data.isLoading = false;
+
+      // Broadcast state change to all clients
+      this.broadcastManager.sendToAll("entityModified", {
+        id: player.id,
+        changes: { isLoading: false },
+      });
+
+      console.log(
+        `[PlayerLoading] Player ${player.id} now active and targetable`,
+      );
+
+      // Emit event for other systems
+      this.world.emit(EventType.PLAYER_READY, {
+        playerId: player.id,
+      });
+    };
+
     // Agent goal sync handler - stores goal and available goals for dashboard display
     this.handlers["onSyncGoal"] = (socket, data) => {
       const goalData = data as {

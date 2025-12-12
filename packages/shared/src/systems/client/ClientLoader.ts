@@ -182,6 +182,19 @@ export class ClientLoader extends SystemBase {
         total: totalItems,
       });
       this.world.emit(EventType.READY);
+
+      // Notify server that client is ready - player can now be targeted
+      // This completes the client-ready handshake for spawn protection
+      const network = this.world.network as
+        | { send?: (name: string, data: unknown) => void }
+        | undefined;
+      if (network?.send) {
+        console.log(
+          `[PlayerLoading] Assets loaded, sending clientReady to server`,
+        );
+        console.log(`[PlayerLoading] Total assets loaded: ${totalItems}`);
+        network.send("clientReady", {});
+      }
     });
   }
 

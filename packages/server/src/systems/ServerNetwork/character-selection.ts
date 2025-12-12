@@ -668,9 +668,41 @@ export async function handleEnterWorld(
         roles,
         // CRITICAL: Pass loaded skills so PlayerEntity constructor uses them instead of defaults
         skills: savedSkills,
+        // Player loading state - immune to aggro/combat until client sends clientReady
+        isLoading: true,
       })
     : undefined;
+
   socket.player = (addedEntity as Entity) || undefined;
+
+  // CRITICAL: Set isLoading on entity.data AFTER entity is created
+  // The entity constructor may not copy all properties to data
+  if (socket.player) {
+    socket.player.data.isLoading = true;
+  }
+
+  // Log player spawn with loading state
+  console.log(
+    `[PlayerLoading] Player ${entityId} spawned with isLoading=true (data.isLoading: ${socket.player?.data?.isLoading})`,
+  );
+
+  // Anti-exploit: Force player active after 30 seconds if clientReady never received
+  // Capture entityId to avoid stale socket.player reference if player reconnects
+  const spawnedEntityId = entityId;
+  setTimeout(() => {
+    const entity = world.entities.get(spawnedEntityId);
+    if (entity?.data?.isLoading) {
+      console.warn(
+        `[PlayerLoading] TIMEOUT: Player ${spawnedEntityId} never sent clientReady after 30s, forcing active`,
+      );
+      entity.data.isLoading = false;
+      // Broadcast the state change to all clients
+      sendFn("entityModified", {
+        id: spawnedEntityId,
+        changes: { isLoading: false },
+      });
+    }
+  }, 30000);
 
   if (socket.player) {
     world.emit(EventType.PLAYER_JOINED, {
