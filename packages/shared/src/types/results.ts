@@ -7,10 +7,10 @@
  * @example
  * function addItem(data: ItemData): OperationResult<Item> {
  *   if (!data.id) {
- *     return OperationResult.failure("Item ID is required", InventoryErrorCode.INVALID_INPUT);
+ *     return Result.failure("Item ID is required", InventoryErrorCode.INVALID_INPUT);
  *   }
  *   const item = createItem(data);
- *   return OperationResult.success(item);
+ *   return Result.success(item);
  * }
  *
  * const result = addItem({ id: "sword" });
@@ -39,7 +39,7 @@ export interface OperationResult<T = void> {
 /**
  * Factory functions for creating OperationResult instances
  */
-export const OperationResult = {
+export const Result = {
   /**
    * Create a successful result
    * @param data - Optional data to return
