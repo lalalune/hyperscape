@@ -17,7 +17,12 @@ const mockWorld = {
   resolveURL: (url: string) => url,
   on: () => {},
   off: () => {},
-} as any;
+} as {
+  settings: { title: null; description: null; image: null };
+  resolveURL: (url: string) => string;
+  on: () => void;
+  off: () => void;
+};
 
 export function LoadingScreenTest() {
   const [progress, setProgress] = React.useState(0);
@@ -82,7 +87,9 @@ export function LoadingScreenTest() {
           fontFamily: "monospace",
         }}
       >
-        <div style={{ marginBottom: "10px", fontSize: "14px", fontWeight: "bold" }}>
+        <div
+          style={{ marginBottom: "10px", fontSize: "14px", fontWeight: "bold" }}
+        >
           Loading Screen Test
         </div>
         <div style={{ fontSize: "12px" }}>

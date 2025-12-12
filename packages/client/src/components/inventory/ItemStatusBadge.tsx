@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
-import { type Address, parseAbi } from 'viem';
-import { useReadContract } from 'wagmi';
+import { type Address, parseAbi } from "viem";
+import { useReadContract } from "wagmi";
 
 const ITEMS_ABI = parseAbi([
-  'function checkInstance(bytes32 instanceId) view returns (bool isMinted, address originalMinter)',
+  "function checkInstance(bytes32 instanceId) view returns (bool isMinted, address originalMinter)",
 ]);
 
 interface ItemStatusBadgeProps {
@@ -11,11 +10,14 @@ interface ItemStatusBadgeProps {
   itemsContract: Address;
 }
 
-export function ItemStatusBadge({ instanceId, itemsContract }: ItemStatusBadgeProps) {
+export function ItemStatusBadge({
+  instanceId,
+  itemsContract,
+}: ItemStatusBadgeProps) {
   const { data, isLoading } = useReadContract({
     address: itemsContract,
     abi: ITEMS_ABI,
-    functionName: 'checkInstance',
+    functionName: "checkInstance",
     args: [instanceId],
   });
 
@@ -46,7 +48,7 @@ export function ItemStatusBadge({ instanceId, itemsContract }: ItemStatusBadgePr
   }
 
   return (
-    <span 
+    <span
       className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-900/50 text-yellow-300 rounded text-xs font-medium"
       data-testid="item-status"
     >
@@ -55,4 +57,3 @@ export function ItemStatusBadge({ instanceId, itemsContract }: ItemStatusBadgePr
     </span>
   );
 }
-

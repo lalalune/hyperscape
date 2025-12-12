@@ -1,100 +1,68 @@
 /**
- * Blockchain Integration for Hyperscape
- * 
- * Connects Hyperscape events to HyperscapeOracle contract
- * Enables prediction markets on player performance
+ * Blockchain services for Hyperscape server
+ *
+ * Main blockchain integration is handled by Chain system in @hyperscape/shared.
+ * This module exports server-specific services for direct use.
+ *
+ * ## Gasless Transaction Architecture
+ *
+ * All game transactions are sponsored by the server using GameTransactionService:
+ * 1. Client sends game action request via WebSocket or REST API
+ * 2. Server validates action and creates UserOperation
+ * 3. Server submits to bundler with paymaster sponsorship
+ * 4. Transaction executes on-chain, user never pays gas
+ *
+ * @see GameTransactionService for the core implementation
  */
 
-import { OraclePublisher } from './oraclePublisher';
-import type { World } from '@hyperscape/shared/types';
-import { EventType } from '@hyperscape/shared/types';
-import { ethers } from 'ethers';
+// Server-specific services
+export { BanCheckService } from "./BanCheckService";
+export { GoldClaimingService } from "./GoldClaimingService";
+export { ItemMintingService } from "./ItemMintingService";
+export { NFTDropSystem, NFTDropIntegration } from "./NFTDropSystem";
+export { OraclePublisher } from "./oraclePublisher";
+export { GameSigner } from "./GameSigner";
 
-export function initializeBlockchainIntegration(world: World): OraclePublisher | null {
-    if (process.env.ENABLE_BLOCKCHAIN !== 'true') {
-        console.log('[Blockchain] Disabled - set ENABLE_BLOCKCHAIN=true to enable');
-        return null;
-    }
+// Gasless transaction service
+export {
+  GameTransactionService,
+  initializeGameTransactionService,
+  initializeGameTransactionServiceFromEnv,
+  getGameTransactionService,
+  type GameTransaction,
+  type TransactionResult,
+  type GameTransactionConfig,
+} from "./GameTransactionService";
 
-    const hyperscapeOracleAddress = process.env.HYPERSCAPE_ORACLE_ADDRESS;
-    if (!hyperscapeOracleAddress) {
-        console.warn('[Blockchain] HYPERSCAPE_ORACLE_ADDRESS not set - disabling blockchain integration');
-        return null;
-    }
+// Re-export shared blockchain utilities
+export {
+  checkPlayerAccess,
+  isBlockchainConfigured,
+  getGoldBalance,
+  signGoldClaim,
+  signItemMint,
+  getGoldClaimNonce,
+  generateInstanceId,
+  watchItemBurns,
+  watchGoldClaims,
+  watchItemMints,
+  getOptionalAddress,
+  getChain,
+  getRpcUrl,
+  type JejuNetwork,
+  type AccessCheckResult,
+  type GoldClaimParams,
+  type ItemMintParams,
+} from "@hyperscape/shared/blockchain";
 
-    const publisher = new OraclePublisher({
-        rpcUrl: process.env.RPC_URL || 'http://localhost:8545',
-        hyperscapeOracleAddress,
-        privateKey: process.env.GAME_SERVER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-        enabled: true
-    });
-
-    console.log('[Blockchain] 🔗 Wiring up event listeners...');
-
-    // Listen to skill level-up events
-    world.eventManager?.on(EventType.SKILL_LEVEL_UP, (data: unknown) => {
-        const eventData = data as { player?: { address?: string; id?: string }; skill?: string; newLevel?: number; totalXp?: number };
-        
-        if (eventData.player && eventData.skill && eventData.newLevel) {
-            const playerAddress = eventData.player.address || eventData.player.id;
-            
-            // Only publish if player has valid address
-            if (playerAddress && playerAddress.startsWith('0x')) {
-                publisher.publishSkillLevelUp({
-                    player: playerAddress,
-                    skillName: eventData.skill,
-                    newLevel: eventData.newLevel,
-                    totalXp: eventData.totalXp || 0
-                }).catch(err => {
-                    console.error('[Blockchain] Failed to publish skill level-up:', err);
-                });
-            }
-        }
-    });
-
-    // Listen to death events
-    world.eventManager?.on(EventType.ENTITY_DEATH, (data: unknown) => {
-        const eventData = data as { entityId?: string; entityType?: string; sourceId?: string; location?: string; playerAddress?: string; killerAddress?: string };
-        
-        if (eventData.entityType === 'player' && eventData.entityId) {
-            const playerAddress = eventData.playerAddress || eventData.entityId;
-            
-            if (playerAddress && playerAddress.startsWith('0x')) {
-                publisher.publishPlayerDeath({
-                    player: playerAddress,
-                    killer: eventData.killerAddress || ethers.ZeroAddress,
-                    location: eventData.location || 'Unknown'
-                }).catch(err => {
-                    console.error('[Blockchain] Failed to publish death:', err);
-                });
-            }
-        }
-    });
-
-    // Listen to kill events (if they exist separately)
-    if (EventType.PLAYER_KILL) {
-        world.eventManager?.on(EventType.PLAYER_KILL, (data: unknown) => {
-            const eventData = data as { killer?: string; victim?: string; method?: string };
-            
-            if (eventData.killer && eventData.victim) {
-                if (eventData.killer.startsWith('0x') && eventData.victim.startsWith('0x')) {
-                    publisher.publishPlayerKill({
-                        killer: eventData.killer,
-                        victim: eventData.victim,
-                        method: eventData.method || 'combat'
-                    }).catch(err => {
-                        console.error('[Blockchain] Failed to publish kill:', err);
-                    });
-                }
-            }
-        });
-    }
-
-    console.log('[Blockchain] ✅ Event listeners active');
-    console.log('[Blockchain]    Listening for: SKILL_LEVEL_UP, ENTITY_DEATH');
-    
-    return publisher;
+/**
+ * @deprecated Use Chain system instead. Configure oracle via ChainConfig.enableOracle
+ */
+export function initializeBlockchainIntegration(): null {
+  console.warn(
+    "[Blockchain] initializeBlockchainIntegration is deprecated. " +
+      "Oracle publishing is now handled by Chain system. " +
+      "Set enableOracle: true and oracleAddress in ChainConfig.",
+  );
+  return null;
 }
-
-export { OraclePublisher };
-

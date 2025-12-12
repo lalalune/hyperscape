@@ -4,7 +4,7 @@
  * Tests that the Docker CDN is properly serving all asset types
  */
 
-const CDN_URL = process.env.PUBLIC_CDN_URL || 'http://localhost:8088'
+const CDN_URL = process.env.PUBLIC_CDN_URL || 'http://localhost:8080'
 
 const tests = [
   { name: 'Health Check', url: `${CDN_URL}/health`, expect: '200' },

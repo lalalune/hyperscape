@@ -1,9 +1,9 @@
 /**
  * @fileoverview Item Minting UI Component
  * @module hyperscape/client/components/ItemMintingUI
- * 
+ *
  * Right-click context menu for inventory items with minting option.
- * 
+ *
  * Features:
  * - Right-click inventory item → "Mint as NFT"
  * - Shows item stats and rarity
@@ -13,9 +13,9 @@
  * - Display minted NFT status
  */
 
-import React, { useState } from 'react';
-import { useAccount, useContractWrite } from 'wagmi';
-import { keccak256, solidityPacked, randomBytes } from 'ethers';
+import React, { useState } from "react";
+import { useAccount } from "wagmi";
+import { keccak256, solidityPacked, randomBytes } from "ethers";
 
 interface ItemMintingUIProps {
   item: {
@@ -48,29 +48,29 @@ interface MintSignatureResponse {
 
 export function ItemMintingUI({
   item,
-  hyperscapeItemsAddress,
+  hyperscapeItemsAddress: _hyperscapeItemsAddress,
   gameServerUrl,
   onMintSuccess,
-  onClose
-}: ItemMintingUIProps): JSX.Element {
+  onClose,
+}: ItemMintingUIProps): React.ReactElement {
   const { address } = useAccount();
   const [isMinting, setIsMinting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
   const [instanceId, setInstanceId] = useState<string | null>(null);
 
   const getRarityColor = (rarity: number): string => {
-    const colors = ['gray', 'green', 'blue', 'purple', 'yellow'];
-    return colors[rarity] || 'gray';
+    const colors = ["gray", "green", "blue", "purple", "yellow"];
+    return colors[rarity] || "gray";
   };
 
   const getRarityName = (rarity: number): string => {
-    const names = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
-    return names[rarity] || 'Common';
+    const names = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];
+    return names[rarity] || "Common";
   };
 
   const handleMint = async (): Promise<void> => {
     if (!address) {
-      setMintError('Please connect wallet');
+      setMintError("Please connect wallet");
       return;
     }
 
@@ -80,17 +80,17 @@ export function ItemMintingUI({
     // Generate unique instance ID
     const newInstanceId = keccak256(
       solidityPacked(
-        ['address', 'uint256', 'string', 'bytes32'],
-        [address, Date.now(), item.itemId, randomBytes(32)]
-      )
+        ["address", "uint256", "string", "bytes32"],
+        [address, Date.now(), item.itemId, randomBytes(32)],
+      ),
     );
 
     setInstanceId(newInstanceId);
 
     // Request signature from game server
     const signatureResponse = await fetch(`${gameServerUrl}/api/mint-item`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         playerAddress: address,
         itemId: item.itemId,
@@ -98,13 +98,13 @@ export function ItemMintingUI({
         attack: item.stats.attack,
         defense: item.stats.defense,
         strength: item.stats.strength,
-        rarity: item.rarity
-      })
+        rarity: item.rarity,
+      }),
     });
 
     if (!signatureResponse.ok) {
       const error = await signatureResponse.json();
-      setMintError(error.message || 'Failed to get mint signature');
+      setMintError(error.message || "Failed to get mint signature");
       setIsMinting(false);
       return;
     }
@@ -114,9 +114,9 @@ export function ItemMintingUI({
     // Submit mint transaction
     const tokenURI = `ipfs://hyperscape-items/${item.itemId}`;
 
-    const mintTx = await fetch('/api/mint-nft', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const mintTx = await fetch("/api/mint-nft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         itemId: signatureData.itemId,
         instanceId: signatureData.instanceId,
@@ -125,19 +125,19 @@ export function ItemMintingUI({
         strength: signatureData.strength,
         rarity: signatureData.rarity,
         tokenURI,
-        signature: signatureData.signature
-      })
+        signature: signatureData.signature,
+      }),
     });
 
     if (!mintTx.ok) {
       const error = await mintTx.json();
-      setMintError(error.message || 'Minting failed');
+      setMintError(error.message || "Minting failed");
       setIsMinting(false);
       return;
     }
 
     const mintData = await mintTx.json();
-    console.log('[ItemMintingUI] NFT minted! Token ID:', mintData.tokenId);
+    console.log("[ItemMintingUI] NFT minted! Token ID:", mintData.tokenId);
 
     setIsMinting(false);
 
@@ -154,9 +154,7 @@ export function ItemMintingUI({
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-gray-900 border-2 border-yellow-600 rounded-lg p-6 max-w-lg w-full">
         <div className="flex justify-between items-start mb-4">
-          <h2 className="text-2xl font-bold text-yellow-400">
-            ⚔️ Mint as NFT
-          </h2>
+          <h2 className="text-2xl font-bold text-yellow-400">⚔️ Mint as NFT</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white text-2xl"
@@ -168,7 +166,9 @@ export function ItemMintingUI({
         <div className="mb-6">
           <div className="flex items-center mb-3">
             <h3 className="text-xl font-semibold text-white">{item.name}</h3>
-            <span className={`ml-3 px-2 py-1 rounded text-xs font-bold bg-${getRarityColor(item.rarity)}-900 text-${getRarityColor(item.rarity)}-300`}>
+            <span
+              className={`ml-3 px-2 py-1 rounded text-xs font-bold bg-${getRarityColor(item.rarity)}-900 text-${getRarityColor(item.rarity)}-300`}
+            >
               {getRarityName(item.rarity)}
             </span>
           </div>
@@ -176,15 +176,21 @@ export function ItemMintingUI({
           <div className="grid grid-cols-3 gap-3 bg-gray-800 p-4 rounded">
             <div className="text-center">
               <div className="text-gray-400 text-sm">Attack</div>
-              <div className="text-red-400 text-xl font-bold">{item.stats.attack}</div>
+              <div className="text-red-400 text-xl font-bold">
+                {item.stats.attack}
+              </div>
             </div>
             <div className="text-center">
               <div className="text-gray-400 text-sm">Defense</div>
-              <div className="text-blue-400 text-xl font-bold">{item.stats.defense}</div>
+              <div className="text-blue-400 text-xl font-bold">
+                {item.stats.defense}
+              </div>
             </div>
             <div className="text-center">
               <div className="text-gray-400 text-sm">Strength</div>
-              <div className="text-green-400 text-xl font-bold">{item.stats.strength}</div>
+              <div className="text-green-400 text-xl font-bold">
+                {item.stats.strength}
+              </div>
             </div>
           </div>
         </div>
@@ -207,11 +213,11 @@ export function ItemMintingUI({
           disabled={isMinting}
           className={`w-full py-4 px-6 rounded-lg font-bold text-lg transition-all ${
             isMinting
-              ? 'bg-gray-700 text-gray-400 cursor-wait'
-              : 'bg-yellow-600 hover:bg-yellow-500 text-black'
+              ? "bg-gray-700 text-gray-400 cursor-wait"
+              : "bg-yellow-600 hover:bg-yellow-500 text-black"
           }`}
         >
-          {isMinting ? '⏳ Minting NFT...' : '✨ Mint as NFT'}
+          {isMinting ? "⏳ Minting NFT..." : "✨ Mint as NFT"}
         </button>
 
         {mintError && (
@@ -229,4 +235,3 @@ export function ItemMintingUI({
     </div>
   );
 }
-

@@ -21,7 +21,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 
-const GAME_URL = process.env.HYPERSCAPE_URL || "http://localhost:5009";
+const GAME_URL = process.env.HYPERSCAPE_URL || "http://localhost:3333";
 const SCREENSHOT_DIR = "./test-results/terrain-showcase";
 
 // ============================================

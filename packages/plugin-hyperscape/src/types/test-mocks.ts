@@ -1,17 +1,4 @@
-/**
- * CLAUDE.md Exception: Test mock utilities
- *
- * This file uses `unknown` types for test mocks to provide flexibility
- * in test scenarios while maintaining type safety where possible.
- *
- * Rationale: Test mocks need flexibility to accommodate various test scenarios
- * and runtime behaviors. Using `unknown` instead of `any` where possible maintains
- * some type safety while allowing test configuration.
- *
- * Note: These mocks should ONLY be used in lightweight test utilities,
- * NOT in actual test assertions. Real integration tests should be preferred.
- */
-import { vi } from "vitest";
+import { mock } from "bun:test";
 import {
   IAgentRuntime,
   Service,
@@ -86,47 +73,47 @@ export function createMockWorld(overrides: Partial<World> = {}): World {
 
     // Core systems that all Hyperscape worlds have
     entities: {
-      add: vi.fn((data: { id?: string; [key: string]: unknown }) => ({
+      add: mock((data: { id?: string; [key: string]: unknown }) => ({
         id: data.id || "mock-entity",
         data,
         position: { x: 0, y: 0, z: 0 },
         rotation: { x: 0, y: 0, z: 0, w: 1 },
       })),
-      get: vi.fn(),
-      remove: vi.fn(),
-      has: vi.fn(),
-      values: vi.fn(() => []),
+      get: mock(() => {}),
+      remove: mock(() => {}),
+      has: mock(() => {}),
+      values: mock(() => []),
       player: null,
       items: new Map(),
       players: new Map(),
-      getPlayer: vi.fn(),
-      getLocalPlayer: vi.fn(),
-      getPlayers: vi.fn(() => []),
+      getPlayer: mock(() => {}),
+      getLocalPlayer: mock(() => {}),
+      getPlayers: mock(() => []),
     },
 
     events: {
-      emit: vi.fn(),
-      on: vi.fn(),
-      off: vi.fn(),
-      once: vi.fn(),
+      emit: mock(() => {}),
+      on: mock(() => {}),
+      off: mock(() => {}),
+      once: mock(() => {}),
       listeners: new Map(),
     },
 
     chat: {
-      add: vi.fn(),
-      subscribe: vi.fn(() => () => {}),
+      add: mock(() => {}),
+      subscribe: mock(() => () => {}),
       listeners: [],
     },
 
     network: {
       isServer: false,
       isClient: true,
-      send: vi.fn(),
+      send: mock(() => {}),
       id: "mock-network",
     },
 
     // Mock system access methods
-    getSystem: vi.fn((systemKey: string) => {
+    getSystem: mock((systemKey: string) => {
       return (
         mockWorld.systemsByName.get(systemKey) ||
         mockWorld[systemKey as keyof typeof mockWorld] ||
@@ -143,10 +130,10 @@ export function createMockWorld(overrides: Partial<World> = {}): World {
     },
 
     // EventEmitter methods
-    emit: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-    once: vi.fn(),
+    emit: mock(() => {}),
+    on: mock(() => {}),
+    off: mock(() => {}),
+    once: mock(() => {}),
 
     ...overrides,
   } as World;
@@ -246,10 +233,10 @@ export function createMockRuntime(config?: TestRuntimeConfig): IAgentRuntime {
     registerService: () => {},
     unregisterService: () => {},
     getMemories: async () => [],
-    emitEvent: vi.fn(),
-    ensureConnection: vi.fn(),
-    getService: vi.fn().mockReturnValue({
-      getWorld: vi.fn().mockReturnValue(createMockWorld()),
+    emitEvent: mock(() => {}),
+    ensureConnection: mock(() => {}),
+    getService: mock(() => {}).mockReturnValue({
+      getWorld: mock(() => {}).mockReturnValue(createMockWorld()),
     }),
     // Add other required properties as needed
     routes: [],

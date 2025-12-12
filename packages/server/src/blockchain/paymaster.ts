@@ -2,19 +2,21 @@
  * Multicoin Paymaster Integration
  */
 
-import { ethers } from 'ethers';
+import { ethers } from "ethers";
 
 const TOKENS = {
-  ELIZAOS: process.env.ELIZAOS_TOKEN_ADDRESS || '',
-  CLANKER: process.env.CLANKER_TOKEN_ADDRESS || '',
-  VIRTUAL: process.env.VIRTUAL_TOKEN_ADDRESS || '',
-  CLANKERMON: process.env.CLANKERMON_TOKEN_ADDRESS || ''
+  ELIZAOS: process.env.ELIZAOS_TOKEN_ADDRESS || "",
+  CLANKER: process.env.CLANKER_TOKEN_ADDRESS || "",
+  VIRTUAL: process.env.VIRTUAL_TOKEN_ADDRESS || "",
+  CLANKERMON: process.env.CLANKERMON_TOKEN_ADDRESS || "",
 };
 
 export class PaymasterService {
-  async getAvailablePaymasters(minETH: bigint = BigInt(10 ** 19)): Promise<string[]> {
+  async getAvailablePaymasters(
+    _minETH: bigint = BigInt(10 ** 19),
+  ): Promise<string[]> {
     // Query PaymasterFactory for deployed paymasters
-    // Filter by ETH stake threshold
+    // TODO: Filter by ETH stake threshold when implemented
     return Object.values(TOKENS).filter(Boolean);
   }
 

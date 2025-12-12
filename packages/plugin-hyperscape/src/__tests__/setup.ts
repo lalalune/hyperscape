@@ -1,6 +1,7 @@
-import { beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
-import * as matchers from "@testing-library/jest-dom/matchers";
-import { expect } from "vitest";
+import { beforeAll, afterAll, beforeEach, afterEach, vi } from "bun:test";
+// @testing-library/jest-dom/matchers not available - using vitest matchers instead
+// import * as matchers from "@testing-library/jest-dom/matchers";
+import { expect } from "bun:test";
 import {
   createMockRuntime,
   createMockWorld,
@@ -13,10 +14,14 @@ import { IAgentRuntime, Memory } from "@elizaos/core";
 
 type MockWebSocket = Partial<WebSocket>;
 type MockFetch = typeof fetch;
-type MockIntersectionObserver = Partial<IntersectionObserver>;
+type MockIntersectionObserver = Partial<
+  typeof IntersectionObserver extends new (...args: any[]) => infer T
+    ? T
+    : never
+>;
 
 // Extend Vitest's expect with jest-dom matchers
-expect.extend(matchers);
+// expect.extend(matchers); // Commented out - matchers not available
 
 // Global test setup
 beforeAll(async () => {
@@ -26,9 +31,9 @@ beforeAll(async () => {
     lastModified: number;
 
     constructor(
-      chunks: BlobPart[],
+      chunks: (Blob | BufferSource | string)[],
       filename: string,
-      options?: FilePropertyBag & { lastModified?: number },
+      options?: { type?: string; lastModified?: number },
     ) {
       super(chunks, options);
       this.name = filename;
@@ -38,11 +43,16 @@ beforeAll(async () => {
 
   // Use Object.defineProperty to override read-only crypto property
   Object.defineProperty(global, "crypto", {
+    writable: true,
+    configurable: true,
     value: {
       randomUUID: () =>
         `test-uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       subtle: {
-        digest: async (_algorithm: string, data: BufferSource) => {
+        digest: async (
+          _algorithm: string,
+          _data: ArrayBuffer | ArrayBufferView,
+        ) => {
           // Mock implementation for testing
           return new ArrayBuffer(32); // Mock hash
         },
@@ -54,8 +64,6 @@ beforeAll(async () => {
         return array;
       },
     } as Crypto,
-    writable: true,
-    configurable: true,
   });
 });
 
@@ -72,18 +80,18 @@ afterEach(async () => {
 });
 
 // Mock WebSocket
-global.WebSocket = vi.fn(
+global.WebSocket = mock(
   () =>
     ({
-      send: vi.fn(),
-      close: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
+      send: mock(() => {}),
+      close: mock(() => {}),
+      addEventListener: mock(() => {}),
+      removeEventListener: mock(() => {}),
     }) as MockWebSocket,
 );
 
 // Mock fetch
-global.fetch = vi.fn(() =>
+global.fetch = mock(() =>
   Promise.resolve({
     ok: true,
     json: () => Promise.resolve({}),
@@ -95,42 +103,42 @@ global.fetch = vi.fn(() =>
 // Mock console methods to reduce noise during tests
 global.console = {
   ...console,
-  log: vi.fn(),
-  debug: vi.fn(),
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
+  log: mock(() => {}),
+  debug: mock(() => {}),
+  info: mock(() => {}),
+  warn: mock(() => {}),
+  error: mock(() => {}),
 };
 
 // Mock window.matchMedia
 Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: vi.fn().mockImplementation((query) => ({
+  value: mock(() => {}).mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
+    addListener: mock(() => {}),
+    removeListener: mock(() => {}),
+    addEventListener: mock(() => {}),
+    removeEventListener: mock(() => {}),
+    dispatchEvent: mock(() => {}),
   })),
 });
 
 // Mock IntersectionObserver
-global.IntersectionObserver = vi.fn(
+global.IntersectionObserver = mock(
   () =>
     ({
-      disconnect: vi.fn(),
-      observe: vi.fn(),
-      unobserve: vi.fn(),
-      takeRecords: vi.fn(),
+      disconnect: mock(() => {}),
+      observe: mock(() => {}),
+      unobserve: mock(() => {}),
+      takeRecords: mock(() => {}),
     }) as MockIntersectionObserver,
 );
 
 // Mock performance.now for consistent timing in tests
 let mockTime = 0;
-global.performance.now = vi.fn(() => {
+global.performance.now = mock(() => {
   mockTime += 16; // Simulate 60fps
   return mockTime;
 });
@@ -204,12 +212,12 @@ export const mockFetch = (
     ? (response as string)
     : JSON.stringify(response);
 
-  const mockFn = vi.fn().mockResolvedValue({
+  const mockFn = mock(() => {}).mockResolvedValue({
     ok,
     status,
     json: async () => response,
     text: async () => textResponse,
-    blob: async () => new Blob(),
+    blob: async () => new Blob([]),
     arrayBuffer: async () => new ArrayBuffer(0),
   });
 
@@ -222,11 +230,11 @@ export const mockFetch = (
 export const mockConsole = () => {
   const originalConsole = { ...console };
 
-  console.log = vi.fn();
-  console.warn = vi.fn();
-  console.error = vi.fn();
-  console.info = vi.fn();
-  console.debug = vi.fn();
+  console.log = mock(() => {});
+  console.warn = mock(() => {});
+  console.error = mock(() => {});
+  console.info = mock(() => {});
+  console.debug = mock(() => {});
 
   return {
     restore: () => {

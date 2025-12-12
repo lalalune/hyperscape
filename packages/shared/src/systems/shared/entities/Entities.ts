@@ -1,0 +1,946 @@
+/**
+ * Entities.ts - Entity Management System
+ *
+ * Central registry and lifecycle manager for all entities in the game world.
+ * Manages players, mobs, NPCs, and generic entities with component-based architecture.
+ *
+ * Key Responsibilities:
+ * - Entity creation and destruction (add/remove)
+ * - Entity type registration and instantiation
+ * - Component registration and management
+ * - Player tracking (both local and remote)
+ * - Entity lookup and iteration
+ * - Entity lifecycle events (add/remove/modify)
+ * - Hot update tracking (entities that need update() called each frame)
+ *
+ * Entity Types:
+ * - GenericEntity: Base entity for props, items, etc.
+ * - PlayerEntity: Base player (server-side)
+ * - PlayerLocal: Local player with input handling (client-side)
+ * - PlayerRemote: Remote networked players (client-side)
+ * - MobEntity: Enemy creatures with AI
+ * - NPCEntity: Non-hostile characters with dialogue
+ *
+ * Component System:
+ * Entities can have components attached for modular functionality:
+ * - CombatComponent: Health, attack, defense
+ * - DataComponent: Custom entity data storage
+ * - InteractionComponent: Player interaction handlers
+ * - StatsComponent: Numeric stats (level, XP, etc.)
+ * - UsageComponent: Item usage/consumption logic
+ * - VisualComponent: 3D model, materials, animations
+ *
+ * Network Synchronization:
+ * - Server creates entities and broadcasts to clients
+ * - Clients receive entityAdded/entityModified/entityRemoved packets
+ * - Entity state is serialized and replicated across network
+ *
+ * Usage:
+ * ```typescript
+ * // Create entity
+ * const entity = world.entities.add({
+ *   id: 'tree1',
+ *   type: 'entity',
+ *   position: { x: 10, y: 0, z: 5 }
+ * });
+ *
+ * // Get entity
+ * const tree = world.entities.get('tree1');
+ *
+ * // Remove entity
+ * world.entities.remove('tree1');
+ * ```
+ *
+ * Runs on: Both client and server
+ * Used by: All systems that deal with entities
+ * References: Entity.ts, PlayerEntity.ts, MobEntity.ts, NPCEntity.ts
+ */
+
+import { Entity } from "../../../entities/Entity";
+import { PlayerLocal } from "../../../entities/player/PlayerLocal";
+import { PlayerRemote } from "../../../entities/player/PlayerRemote";
+import { PlayerEntity } from "../../../entities/player/PlayerEntity";
+import type {
+  ComponentDefinition,
+  EntityConstructor,
+  EntityData,
+  Entities as IEntities,
+  Player,
+  World,
+} from "../../../types/index";
+import { EventType } from "../../../types/events";
+import { SystemBase } from "../infrastructure/SystemBase";
+import { MobEntity } from "../../../entities/npc/MobEntity";
+import { NPCEntity } from "../../../entities/npc/NPCEntity";
+import { ItemEntity } from "../../../entities/world/ItemEntity";
+import { ResourceEntity } from "../../../entities/world/ResourceEntity";
+import { HeadstoneEntity } from "../../../entities/world/HeadstoneEntity";
+import { BankEntity } from "../../../entities/world/BankEntity";
+import type {
+  MobEntityConfig,
+  NPCEntityConfig,
+  ItemEntityConfig,
+  ResourceEntityConfig,
+  HeadstoneData,
+  HeadstoneEntityConfig,
+  BankEntityConfig,
+} from "../../../types/entities";
+import {
+  EntityType,
+  InteractionType,
+  MobAIState,
+  NPCType,
+  ItemRarity,
+  ResourceType,
+} from "../../../types/entities";
+import { getNPCById } from "../../../data/npcs";
+import { NPCBehavior, NPCState } from "../../../types/core/core";
+
+/**
+ * GenericEntity - Simple entity implementation for non-specialized entities.
+ * Used for props, decorations, ground items, and other basic world objects.
+ */
+class GenericEntity extends Entity {
+  constructor(world: World, data: EntityData, local?: boolean) {
+    super(world, data, local);
+  }
+}
+
+/**
+ * Entity type registry - maps type strings to entity constructors.
+ * New entity types can be registered at runtime via registerEntityType().
+ */
+const EntityTypes: Record<string, EntityConstructor> = {
+  entity: GenericEntity,
+  player: PlayerEntity, // Server-side player entity
+  playerLocal: PlayerLocal, // Client-side local player
+  playerRemote: PlayerRemote, // Client-side remote players
+  item: ItemEntity as unknown as EntityConstructor, // Ground items
+  mob: MobEntity as unknown as EntityConstructor, // Enemy entities
+  npc: NPCEntity as unknown as EntityConstructor, // NPC entities
+  resource: ResourceEntity as unknown as EntityConstructor, // Resource entities (trees, rocks, etc)
+  headstone: HeadstoneEntity as unknown as EntityConstructor, // Death markers
+  bank: BankEntity as unknown as EntityConstructor, // Bank booths
+};
+
+/**
+ * Entities System - Central entity registry and lifecycle manager.
+ *
+ * Manages all entities in the world including players, mobs, NPCs, and props.
+ * Provides component-based architecture for modular entity functionality.
+ */
+export class Entities extends SystemBase implements IEntities {
+  items: Map<string, Entity>;
+  players: Map<string, Player>;
+  player?: Player;
+  apps: Map<string, Entity>;
+  private hot: Set<Entity>;
+  private removed: string[];
+  private componentRegistry = new Map<string, ComponentDefinition>();
+  // Reusable array for hot entities to avoid Array.from allocations in update loops
+  private readonly _reusableHotEntities: Entity[] = [];
+
+  constructor(world: World) {
+    super(world, {
+      name: "entities",
+      dependencies: { required: [], optional: [] },
+      autoCleanup: true,
+    });
+    this.items = new Map();
+    this.players = new Map();
+    this.player = undefined;
+    this.apps = new Map();
+    this.hot = new Set();
+    this.removed = [];
+  }
+
+  get(id: string): Entity | null {
+    return this.items.get(id) || null;
+  }
+
+  values(): IterableIterator<Entity> {
+    return this.items.values();
+  }
+
+  getPlayer(entityId: string): Player | null {
+    return this.players.get(entityId) || null;
+  }
+
+  registerComponentType(definition: ComponentDefinition): void {
+    this.componentRegistry.set(definition.type, definition);
+  }
+
+  getComponentDefinition(type: string): ComponentDefinition | undefined {
+    return this.componentRegistry.get(type);
+  }
+
+  // TypeScript-specific methods for interface compliance
+  has(entityId: string): boolean {
+    return this.items.has(entityId);
+  }
+
+  set(entityId: string, entity: Entity): void {
+    this.items.set(entityId, entity);
+    if (entity.isPlayer) {
+      this.players.set(entityId, entity as Player);
+    }
+  }
+
+  create(
+    name: string,
+    options?: Partial<EntityData> & { type?: string },
+  ): Entity {
+    const data: EntityData = {
+      id: `entity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: options?.type || "entity",
+      name,
+      ...options,
+    };
+    return this.add(data, true);
+  }
+
+  add(data: EntityData, local?: boolean): Entity {
+    const existingEntity = this.items.get(data.id);
+    if (existingEntity) return existingEntity;
+
+    let EntityClass: EntityConstructor;
+
+    if (data.type === "player") {
+      const network = this.world.network || this.world.getSystem("network");
+      const isServer = network?.isServer === true;
+
+      if (isServer) {
+        EntityClass = EntityTypes.player;
+      } else {
+        const isLocal = data.owner === network?.id;
+        EntityClass = EntityTypes[isLocal ? "playerLocal" : "playerRemote"];
+      }
+    } else if (data.type === "mob") {
+      const positionArray = (data.position || [0, 0, 0]) as [
+        number,
+        number,
+        number,
+      ];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [
+        number,
+        number,
+        number,
+        number,
+      ];
+      const name = data.name || "Mob";
+      const mobTypeMatch = name.match(/Mob:\s*([^()]+)/i);
+      const derivedMobType = (mobTypeMatch ? mobTypeMatch[1].trim() : name)
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+      const npcData = getNPCById(derivedMobType);
+      const fallbackModelPath = npcData?.appearance.modelPath || null;
+      const networkModel = (data as { model?: string }).model;
+      const finalModelPath = networkModel || fallbackModelPath;
+
+      // Get scale from network data (sent by server from manifest)
+      // Handle both object format {x,y,z} from getNetworkData and array [x,y,z] from serialize
+      const rawScale = (
+        data as {
+          scale?:
+            | { x: number; y: number; z: number }
+            | [number, number, number];
+        }
+      ).scale;
+      let finalScale = { x: 1, y: 1, z: 1 };
+      if (rawScale) {
+        if (Array.isArray(rawScale)) {
+          finalScale = { x: rawScale[0], y: rawScale[1], z: rawScale[2] };
+        } else {
+          finalScale = rawScale;
+        }
+      }
+
+      const mobConfig: MobEntityConfig = {
+        id: data.id,
+        name: name,
+        type: EntityType.MOB,
+        position: {
+          x: positionArray[0],
+          y: positionArray[1],
+          z: positionArray[2],
+        },
+        rotation: {
+          x: quaternionArray[0],
+          y: quaternionArray[1],
+          z: quaternionArray[2],
+          w: quaternionArray[3],
+        },
+        scale: finalScale,
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.ATTACK,
+        interactionDistance: 5,
+        description: name,
+        model: finalModelPath,
+        mobType: derivedMobType,
+        level: 1,
+        currentHealth: 100,
+        maxHealth: 100,
+        attack: 1, // Default attack level for accuracy
+        attackPower: 10,
+        defense: 2,
+        attackSpeedTicks: 4,
+        moveSpeed: 3.0, // Walking speed (matches player walk)
+        aggressive: true, // Default to aggressive for backwards compatibility
+        retaliates: true, // Default to retaliating for backwards compatibility
+        attackable: true, // Default to attackable for backwards compatibility
+        movementType: "wander", // Default to wander for backwards compatibility
+        aggroRange: 15.0, // 15 meters detection range
+        combatRange: 1.5, // 1.5 meters melee range
+        wanderRadius: 10, // 10 meter wander radius from spawn (RuneScape-style)
+        xpReward: 10,
+        lootTable: [],
+        respawnTime: 300000,
+        spawnPoint: {
+          x: positionArray[0],
+          y: positionArray[1],
+          z: positionArray[2],
+        },
+        aiState: MobAIState.IDLE,
+        lastAttackTime: 0,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 100, max: 100 },
+          level: 1,
+        },
+        targetPlayerId: null,
+        deathTime: null,
+      };
+
+      const entity = new MobEntity(this.world, mobConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity if it has an init method
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch((err) =>
+          this.logger.error(`Entity ${entity.id} async init failed`, err),
+        );
+      }
+
+      return entity;
+    } else if (data.type === "item") {
+      const positionArray = (data.position || [0, 0, 0]) as [
+        number,
+        number,
+        number,
+      ];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [
+        number,
+        number,
+        number,
+        number,
+      ];
+      const name = data.name || "Item";
+      const networkData = data as Record<string, unknown>;
+      const itemId = (networkData.itemId as string) || data.id;
+      const itemType = (networkData.itemType as string) || "misc";
+      const quantity = (networkData.quantity as number) || 1;
+      const stackable = (networkData.stackable as boolean) || false;
+      const value = (networkData.value as number) || 0;
+      const weight = (networkData.weight as number) || 0;
+      const rarity = (networkData.rarity as string) || "common";
+      const modelPath = (networkData.model as string) || null;
+
+      const itemConfig: ItemEntityConfig = {
+        id: data.id,
+        name: name,
+        type: EntityType.ITEM,
+        position: {
+          x: positionArray[0],
+          y: positionArray[1],
+          z: positionArray[2],
+        },
+        rotation: {
+          x: quaternionArray[0],
+          y: quaternionArray[1],
+          z: quaternionArray[2],
+          w: quaternionArray[3],
+        },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.PICKUP,
+        interactionDistance: 2,
+        description: name,
+        model: modelPath,
+        itemId: itemId,
+        itemType: itemType,
+        quantity: quantity,
+        stackable: stackable,
+        value: value,
+        weight: weight,
+        rarity: (rarity as ItemRarity) || ItemRarity.COMMON,
+        requirements: { level: 1 },
+        effects: [],
+        armorSlot: null,
+        examine: "",
+        modelPath: modelPath || "",
+        iconPath: "",
+        healAmount: 0,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 1, max: 1 },
+          level: 1,
+          // ItemEntityProperties required fields
+          itemId: itemId,
+          harvestable: false,
+          dialogue: [],
+          quantity: quantity,
+          stackable: stackable,
+          value: value,
+          weight: weight,
+          rarity: (rarity as ItemRarity) || ItemRarity.COMMON,
+        },
+      };
+
+      const entity = new ItemEntity(this.world, itemConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity if it has an init method
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch((err) =>
+          this.logger.error(`Entity ${entity.id} async init failed`, err),
+        );
+      }
+
+      return entity;
+    } else if (data.type === "npc") {
+      const positionArray = (data.position || [0, 0, 0]) as [
+        number,
+        number,
+        number,
+      ];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [
+        number,
+        number,
+        number,
+        number,
+      ];
+
+      const name = data.name || "NPC";
+      const networkData = data as {
+        npcType?: string;
+        npcId?: string;
+        services?: string[];
+      };
+
+      let derivedNPCType: NPCType = NPCType.QUEST_GIVER;
+      if (networkData.npcType) {
+        if (networkData.npcType === "bank") derivedNPCType = NPCType.BANK;
+        else if (networkData.npcType === "store")
+          derivedNPCType = NPCType.STORE;
+        else if (networkData.npcType === "trainer")
+          derivedNPCType = NPCType.TRAINER;
+        else if (networkData.npcType === "quest_giver")
+          derivedNPCType = NPCType.QUEST_GIVER;
+      } else {
+        const npcTypeMatch = name.match(/^(Bank|Store|Trainer|Quest):/i);
+        if (npcTypeMatch) {
+          const prefix = npcTypeMatch[1].toLowerCase();
+          if (prefix === "bank") derivedNPCType = NPCType.BANK;
+          else if (prefix === "store") derivedNPCType = NPCType.STORE;
+          else if (prefix === "trainer") derivedNPCType = NPCType.TRAINER;
+        }
+      }
+
+      // CRITICAL: Use npcId from network data (manifest ID like "bank_clerk")
+      // NOT data.id (entity instance ID like "npc_bank_clerk_123")
+      const npcId = networkData.npcId || data.id;
+      const services = networkData.services || [];
+      // CRITICAL: Use model from network data for NPC model loading
+      const modelPath = (networkData as { model?: string }).model || null;
+
+      const npcConfig: NPCEntityConfig = {
+        id: data.id,
+        name: name,
+        type: EntityType.NPC,
+        position: {
+          x: positionArray[0],
+          y: positionArray[1],
+          z: positionArray[2],
+        },
+        rotation: {
+          x: quaternionArray[0],
+          y: quaternionArray[1],
+          z: quaternionArray[2],
+          w: quaternionArray[3],
+        },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.TALK,
+        interactionDistance: 3,
+        description: name,
+        model: modelPath,
+        npcType: derivedNPCType,
+        npcId: npcId,
+        dialogueLines: ["Hello there!"],
+        services: services,
+        inventory: [],
+        skillsOffered: [],
+        questsAvailable: [],
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 100, max: 100 },
+          level: 1,
+          npcComponent: {
+            behavior: NPCBehavior.FRIENDLY,
+            state: NPCState.IDLE,
+            currentTarget: null,
+            spawnPoint: {
+              x: positionArray[0],
+              y: positionArray[1],
+              z: positionArray[2],
+            },
+            wanderRadius: 0,
+            aggroRange: 0,
+            isHostile: false,
+            combatLevel: 1,
+            aggressionLevel: 0,
+            dialogueLines: ["Hello there!"],
+            dialogue: null,
+            services: services,
+          },
+          dialogue: [],
+          shopInventory: [],
+          questGiver: false,
+        },
+      };
+
+      const entity = new NPCEntity(this.world, npcConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity if it has an init method
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch((err) =>
+          this.logger.error(`Entity ${entity.id} async init failed`, err),
+        );
+      }
+
+      return entity;
+    } else if (data.type === "resource") {
+      const positionArray = (data.position || [0, 0, 0]) as [
+        number,
+        number,
+        number,
+      ];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [
+        number,
+        number,
+        number,
+        number,
+      ];
+
+      const resourceConfig: ResourceEntityConfig = {
+        id: data.id,
+        name: data.name || "Resource",
+        type: EntityType.RESOURCE,
+        position: {
+          x: positionArray[0],
+          y: positionArray[1],
+          z: positionArray[2],
+        },
+        rotation: {
+          x: quaternionArray[0],
+          y: quaternionArray[1],
+          z: quaternionArray[2],
+          w: quaternionArray[3],
+        },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.GATHER,
+        interactionDistance:
+          (data as { interactionDistance?: number }).interactionDistance || 3,
+        description:
+          (data as { description?: string }).description || "A resource",
+        model: (data as { model?: string }).model || null,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 1, max: 1 },
+          level: 1,
+          resourceType: ResourceType.TREE,
+          harvestable: true,
+          respawnTime: 60000,
+          toolRequired: "none",
+          skillRequired: "none",
+          xpReward: 10,
+        },
+        resourceType:
+          (data as { resourceType?: string }).resourceType === "tree"
+            ? ResourceType.TREE
+            : (data as { resourceType?: string }).resourceType ===
+                "fishing_spot"
+              ? ResourceType.FISHING_SPOT
+              : (data as { resourceType?: string }).resourceType ===
+                  "mining_rock"
+                ? ResourceType.MINING_ROCK
+                : ResourceType.TREE,
+        resourceId:
+          (data as { resourceId?: string }).resourceId || "tree_normal",
+        harvestSkill:
+          (data as { harvestSkill?: string }).harvestSkill || "woodcutting",
+        requiredLevel: (data as { requiredLevel?: number }).requiredLevel || 1,
+        harvestTime: (data as { harvestTime?: number }).harvestTime || 3000,
+        harvestYield:
+          (
+            data as {
+              harvestYield?: Array<{
+                itemId: string;
+                quantity: number;
+                chance: number;
+              }>;
+            }
+          ).harvestYield || [],
+        respawnTime: (data as { respawnTime?: number }).respawnTime || 60000,
+        depleted: (data as { depleted?: boolean }).depleted || false,
+        lastHarvestTime: 0,
+      };
+
+      const entity = new ResourceEntity(this.world, resourceConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch((err) =>
+          this.logger.error(`Entity ${entity.id} async init failed`, err),
+        );
+      }
+
+      return entity;
+    } else if (data.type === "headstone") {
+      const positionArray = (data.position || [0, 0, 0]) as [
+        number,
+        number,
+        number,
+      ];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [
+        number,
+        number,
+        number,
+        number,
+      ];
+      const name = data.name || "Corpse";
+      const networkData = data as { headstoneData?: HeadstoneData };
+      const headstoneData: HeadstoneData = networkData.headstoneData || {
+        playerId: data.id,
+        playerName: name,
+        position: {
+          x: positionArray[0],
+          y: positionArray[1],
+          z: positionArray[2],
+        },
+        deathTime: Date.now(),
+        deathMessage: "Unknown cause of death",
+        itemCount: 0,
+        items: [],
+        despawnTime: Date.now() + 900000, // 15 minutes default
+      };
+
+      const headstoneConfig: HeadstoneEntityConfig = {
+        id: data.id,
+        name: name,
+        type: EntityType.HEADSTONE,
+        position: {
+          x: positionArray[0],
+          y: positionArray[1],
+          z: positionArray[2],
+        },
+        rotation: {
+          x: quaternionArray[0],
+          y: quaternionArray[1],
+          z: quaternionArray[2],
+          w: quaternionArray[3],
+        },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.LOOT,
+        interactionDistance: 2,
+        description: headstoneData.deathMessage || "A corpse",
+        model: null,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 1, max: 1 },
+          level: 1,
+        },
+        headstoneData: headstoneData,
+      };
+
+      const entity = new HeadstoneEntity(this.world, headstoneConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity if it has an init method
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch((err) =>
+          this.logger.error(`Entity ${entity.id} async init failed`, err),
+        );
+      }
+
+      return entity;
+    } else if (data.type === "bank") {
+      const positionArray = (data.position || [0, 40, -25]) as [
+        number,
+        number,
+        number,
+      ];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [
+        number,
+        number,
+        number,
+        number,
+      ];
+      const name = data.name || "Bank";
+      const networkData = data as { properties?: { bankId?: string } };
+
+      const bankConfig: BankEntityConfig = {
+        id: data.id,
+        name: name,
+        type: EntityType.BANK,
+        position: {
+          x: positionArray[0],
+          y: positionArray[1],
+          z: positionArray[2],
+        },
+        rotation: {
+          x: quaternionArray[0],
+          y: quaternionArray[1],
+          z: quaternionArray[2],
+          w: quaternionArray[3],
+        },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.BANK,
+        interactionDistance: 3,
+        description: "A secure place to store your items.",
+        model: null,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 1, max: 1 },
+          level: 1,
+          bankId: networkData.properties?.bankId || "spawn_bank",
+        },
+      };
+
+      const entity = new BankEntity(this.world, bankConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity if it has an init method
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch((err) =>
+          this.logger.error(`Entity ${entity.id} async init failed`, err),
+        );
+      }
+
+      return entity;
+    } else if (data.type in EntityTypes) {
+      EntityClass = EntityTypes[data.type];
+    } else {
+      EntityClass = EntityTypes.entity;
+    }
+
+    // All entity constructors now accept EntityData
+    const entity = new EntityClass(this.world, data, local);
+    this.items.set(entity.id, entity);
+
+    if (data.type === "player") {
+      this.players.set(entity.id, entity as Player);
+      const network = this.world.network || this.world.getSystem("network");
+
+      if (network?.isClient && data.owner !== network.id) {
+        this.emitTypedEvent("PLAYER_JOINED", {
+          playerId: entity.id,
+          player: entity as PlayerLocal,
+        });
+      }
+
+      if (network?.isServer) {
+        this.emitTypedEvent("PLAYER_REGISTERED", { playerId: entity.id });
+        this.world.emit(EventType.PLAYER_REGISTERED, { playerId: entity.id });
+      }
+
+      if (data.owner === network?.id) {
+        if (this.player) {
+          this.logger.warn(
+            `Replacing existing local player ${this.player.id} with ${entity.id}`,
+          );
+        }
+        this.player = entity as Player;
+        this.emitTypedEvent("PLAYER_REGISTERED", { playerId: entity.id });
+      }
+    }
+
+    const initPromise = entity.init() as Promise<void>;
+    if (initPromise) {
+      initPromise.catch((err) => {
+        this.logger.error(
+          `Entity ${entity.id} (type: ${data.type}) async init failed:`,
+          err instanceof Error ? err : new Error(String(err)),
+        );
+      });
+    }
+
+    return entity;
+  }
+
+  remove(id: string): boolean {
+    const entity = this.items.get(id);
+    if (!entity) {
+      // Entity already removed - this is expected during:
+      // - Duplicate removal calls (race condition)
+      // - Client receiving entityRemoved for already-removed entity
+      // - Cleanup during rapid interactions (spam clicking)
+      // Silently return false - not an error condition
+      return false;
+    }
+
+    // Broadcast entityRemoved to all clients BEFORE destroying (server-only)
+    // This notifies clients to remove the entity from their local cache
+    const network = this.world.network;
+    if (network && network.isServer) {
+      try {
+        network.send("entityRemoved", id);
+      } catch (error) {
+        this.logger.warn(`Failed to send entityRemoved packet for ${id}`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    if (entity.isPlayer) {
+      this.players.delete(entity.id);
+      this.emitTypedEvent("PLAYER_LEFT", { playerId: entity.id });
+    }
+
+    entity.destroy(true);
+    this.items.delete(id);
+    this.removed.push(id);
+    return true;
+  }
+
+  // TypeScript interface compliance method
+  destroyEntity(entityId: string): boolean {
+    return this.remove(entityId);
+  }
+
+  setHot(entity: Entity, hot: boolean): void {
+    if (hot) {
+      this.hot.add(entity);
+    } else {
+      this.hot.delete(entity);
+    }
+  }
+
+  override fixedUpdate(delta: number): void {
+    for (const entity of this.hot) entity.fixedUpdate?.(delta);
+  }
+
+  override update(delta: number): void {
+    for (const entity of this.hot) entity.update(delta);
+  }
+
+  override lateUpdate(delta: number): void {
+    for (const entity of this.hot) entity.lateUpdate?.(delta);
+  }
+
+  serialize(): EntityData[] {
+    // Optimize: avoid forEach allocation - use direct iteration
+    const data: EntityData[] = [];
+    for (const entity of this.items.values()) {
+      data.push(entity.serialize());
+    }
+    return data;
+  }
+
+  async deserialize(datas: EntityData[]): Promise<void> {
+    for (const data of datas) {
+      this.add(data);
+    }
+  }
+
+  override destroy(): void {
+    const ids = [...this.items.keys()];
+    for (const id of ids) this.remove(id);
+    this.items.clear();
+    this.players.clear();
+    this.hot.clear();
+    this.removed.length = 0;
+  }
+
+  // TypeScript interface compliance methods
+  getLocalPlayer(): Player | null {
+    return this.player || null;
+  }
+
+  getAll(): Entity[] {
+    // Optimize: build array manually instead of Array.from
+    const result: Entity[] = [];
+    for (const entity of this.items.values()) {
+      result.push(entity);
+    }
+    return result;
+  }
+
+  getAllPlayers(): Player[] {
+    // Optimize: build array manually instead of Array.from
+    const result: Player[] = [];
+    for (const player of this.players.values()) {
+      result.push(player);
+    }
+    return result;
+  }
+
+  // Alias for World.ts compatibility
+  getPlayers(): Player[] {
+    return this.getAllPlayers();
+  }
+
+  getRemovedIds(): string[] {
+    if (this.removed.length === 0) {
+      return [];
+    }
+
+    const uniqueIds = new Set(this.removed);
+    const result: string[] = [];
+    for (const id of uniqueIds) {
+      result.push(id);
+    }
+    this.removed.length = 0;
+    return result;
+  }
+
+  postFixedUpdate(): void {
+    this._reusableHotEntities.length = 0;
+    for (const entity of this.hot) {
+      this._reusableHotEntities.push(entity);
+    }
+    for (let i = 0; i < this._reusableHotEntities.length; i++) {
+      const entity = this._reusableHotEntities[i];
+      entity.postLateUpdate?.(0);
+    }
+  }
+}

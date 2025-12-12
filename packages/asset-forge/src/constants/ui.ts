@@ -5,8 +5,8 @@ export const BREAKPOINTS = {
   md: 768,
   lg: 1024,
   xl: 1280,
-  '2xl': 1536,
-} as const
+  "2xl": 1536,
+} as const;
 
 // Animation durations (in ms)
 export const ANIMATION_DURATION = {
@@ -15,7 +15,7 @@ export const ANIMATION_DURATION = {
   normal: 300,
   slow: 500,
   verySlow: 1000,
-} as const
+} as const;
 
 // Z-index layers
 export const Z_INDEX = {
@@ -29,21 +29,21 @@ export const Z_INDEX = {
   tooltip: 70,
   notification: 80,
   critical: 90,
-} as const
+} as const;
 
 // Common spacing values (matching Tailwind)
 export const SPACING = {
-  xs: '0.5rem',   // 8px
-  sm: '1rem',     // 16px
-  md: '1.5rem',   // 24px
-  lg: '2rem',     // 32px
-  xl: '3rem',     // 48px
-  '2xl': '4rem',  // 64px
-} as const
+  xs: "0.5rem", // 8px
+  sm: "1rem", // 16px
+  md: "1.5rem", // 24px
+  lg: "2rem", // 32px
+  xl: "3rem", // 48px
+  "2xl": "4rem", // 64px
+} as const;
 
 // Max content widths
 export const MAX_WIDTH = {
-  content: '1200px',
-  narrow: '800px',
-  wide: '1600px',
-} as const 
+  content: "1200px",
+  narrow: "800px",
+  wide: "1600px",
+} as const;

@@ -16,7 +16,7 @@ Make sure you have:
 - ✅ Completed [Installation](installation.md)
 - ✅ Configured API keys in `.env`
 - ✅ Started the development server (`npm run dev`)
-- ✅ Opened [http://localhost:3000](http://localhost:3000)
+- ✅ Opened [http://localhost:3003](http://localhost:3003)
 
 ---
 

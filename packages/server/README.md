@@ -79,7 +79,7 @@ USE_LOCAL_POSTGRES=false
 bun run dev
 ```
 This automatically starts:
-- CDN Server (nginx on port 8088) - via Docker
+- CDN Server (nginx on port 8080) - via Docker
 - Game Server (Fastify on port 5555)
 - Client (Vite on port 3333)
 - 3D Asset Forge API (port 3001) & UI (port 3003)
@@ -97,8 +97,8 @@ The development script automatically manages a local CDN server via Docker:
 **Automatic Management:**
 - Starts when you run `bun run dev`
 - Stops when you exit the dev server (Ctrl+C)
-- Serves game assets from `../../assets/` on port 8088
-- Health check at `http://localhost:8088/health`
+- Serves game assets from `../../assets/` on port 8080
+- Health check at `http://localhost:8080/health`
 
 **Manual CDN Management:**
 ```bash
@@ -120,7 +120,7 @@ bun run cdn:verify
 - If Docker is not available, the dev script will skip CDN startup and warn you
 
 **Asset Access:**
-- All assets served directly from CDN: `http://localhost:8088/assets/world/music/normal/1.mp3`
+- All assets served directly from CDN: `http://localhost:8080/assets/world/music/normal/1.mp3`
 - No proxying - client fetches directly from CDN
 
 ## Database
@@ -254,7 +254,7 @@ DATABASE_URL=postgresql://user:pass@host:5432/dbname
 ### Assets
 
 ```env
-PUBLIC_CDN_URL=http://localhost:8088    # CDN URL for static assets
+PUBLIC_CDN_URL=http://localhost:8080    # CDN URL for static assets
 PUBLIC_WS_URL=ws://localhost:5555/ws # WebSocket URL
 ```
 

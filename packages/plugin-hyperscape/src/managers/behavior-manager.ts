@@ -33,7 +33,7 @@ interface ResponseContent {
   action?: string;
   coordinates?: string;
   message?: string;
-  [key: string]: string | number | boolean | undefined;
+  [key: string]: unknown;
 }
 
 interface BehaviorResponse {
@@ -44,14 +44,14 @@ interface BehaviorResponse {
 export class BehaviorManager {
   private isRunning: boolean = false;
   public runtime: IAgentRuntime;
-  private service: HyperscapeService;
+  private service: HyperscapeService | null = null;
   private world: World | null = null;
   private maxIterations: number = -1; // -1 for infinite, set to limit for testing
 
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
     this.service = this.getService();
-    this.world = this.service?.getWorld();
+    this.world = this.service?.getWorld() ?? null;
   }
 
   /**
@@ -272,8 +272,10 @@ Or for chat:
     const [x, y, z] = coords;
     console.info(`[BehaviorManager] Moving to coordinates: ${x}, ${y}, ${z}`);
 
-    const controls = this.world!.systems.find(isClientInputSystem)!;
-    await controls.goto(x, z); // Hyperscape typically uses x,z for ground movement
+    const controls = this.world?.systems.find(isClientInputSystem);
+    if (controls?.goto) {
+      await controls.goto(x, z); // Hyperscape typically uses x,z for ground movement
+    }
     console.info("[BehaviorManager] Movement command executed");
   }
 

@@ -3,10 +3,10 @@
  * Stores visual-related data for entities including mesh and UI elements
  */
 
-import { Component } from './Component';
-import type { Entity } from '../entities/Entity';
-import type THREE from '../extras/three';
-import type { VisualComponentData } from '../types/components'
+import { Component } from "./Component";
+import type { Entity } from "../entities/Entity";
+import type THREE from "../extras/three/three";
+import type { VisualComponentData } from "../types/entities/components";
 
 // Type moved to shared types/components.ts
 
@@ -17,12 +17,13 @@ export class VisualComponent extends Component {
   public isVisible: boolean = true;
 
   constructor(entity: Entity, data?: VisualComponentData) {
-    super('visual', entity, data as Record<string, unknown>);
-    
+    super("visual", entity, data as Record<string, unknown>);
+
     if (data) {
       if (data.mesh !== undefined) this.mesh = data.mesh;
       if (data.nameSprite !== undefined) this.nameSprite = data.nameSprite;
-      if (data.healthSprite !== undefined) this.healthSprite = data.healthSprite;
+      if (data.healthSprite !== undefined)
+        this.healthSprite = data.healthSprite;
       if (data.isVisible !== undefined) this.isVisible = data.isVisible;
     }
   }
@@ -38,7 +39,7 @@ export class VisualComponent extends Component {
       mesh: null,
       nameSprite: null,
       healthSprite: null,
-      isVisible: this.isVisible
+      isVisible: this.isVisible,
     };
   }
 }

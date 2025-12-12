@@ -111,7 +111,7 @@ Frontend Architecture:
    └─ useDebuggerStore
 ```
 
-**Port**: 3000 (development)
+**Port**: 3003 (development)
 
 ### 2. Backend Layer (Express.js)
 
@@ -536,7 +536,7 @@ MESHY_API_KEY=...
 app.use((req, res, next) => {
   const origin = process.env.NODE_ENV === 'production'
     ? process.env.FRONTEND_URL
-    : 'http://localhost:3000'
+    : 'http://localhost:3003'
 
   res.header('Access-Control-Allow-Origin', origin)
   res.header('Access-Control-Allow-Credentials', 'true')
@@ -629,7 +629,7 @@ useEffect(() => {
 ### Development
 
 ```
-├─ Frontend: Vite dev server (port 3000)
+├─ Frontend: Vite dev server (port 3003)
 ├─ Backend API: Node.js (port 3004)
 ├─ Image Server: Express static (port 8081)
 └─ Storage: Local file system (gdd-assets/)

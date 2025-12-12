@@ -29,7 +29,7 @@ interface TestClient {
   socketId: string | null;
 }
 
-const SERVER_URL = process.env.HYPERSCAPE_URL || "http://localhost:5009";
+const SERVER_URL = process.env.HYPERSCAPE_URL || "http://localhost:3333";
 
 /**
  * Create a new game client

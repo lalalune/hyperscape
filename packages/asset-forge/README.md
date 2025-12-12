@@ -23,13 +23,6 @@ A comprehensive React/Vite application for AI-powered 3D asset generation, riggi
 - Weight transfer and mesh deformation
 - Bone mapping and skeleton alignment
 
-### 🎙️ **AI Voice Generation**
-- **ElevenLabs Integration**: Professional text-to-speech for NPC dialogue
-- **3,000+ Voices**: Browse extensive voice library with 32 languages
-- **Batch Generation**: Generate voice clips for entire dialogue trees
-- **Voice Customization**: Adjust stability, similarity, and style settings
-- **Export Ready**: Voice clips included in content pack exports
-
 ### 🔧 **Processing Tools**
 - Sprite generation from 3D models
 - Vertex color extraction
@@ -41,7 +34,7 @@ A comprehensive React/Vite application for AI-powered 3D asset generation, riggi
 - **Frontend**: React 18, TypeScript, Vite
 - **3D Graphics**: Three.js, React Three Fiber, Drei
 - **State Management**: Zustand, Immer
-- **AI Integration**: OpenAI API, Meshy.ai API, ElevenLabs API
+- **AI Integration**: OpenAI API, Meshy.ai API
 - **ML/Computer Vision**: TensorFlow.js, MediaPipe (hand detection)
 - **Backend**: Express.js, Node.js
 - **Styling**: Tailwind CSS
@@ -51,7 +44,9 @@ A comprehensive React/Vite application for AI-powered 3D asset generation, riggi
 
 ### Prerequisites
 - Node.js 18+ or Bun runtime
-- API keys for OpenAI, Meshy.ai, and ElevenLabs (optional for voice generation)
+- API keys for OpenAI and Meshy.ai
+- PostgreSQL database (or use existing hyperscape-postgres container)
+- Docker (if using containerized database)
 
 ### Installation
 
@@ -66,16 +61,41 @@ cd packages/generation
 bun install
 ```
 
-3. Create a `.env` file from the example
+3. Set up the database
+
+If using the existing hyperscape-postgres container:
+```bash
+# Create the database
+docker exec hyperscape-postgres psql -U hyperscape -c "CREATE DATABASE asset_forge_dev;"
+
+# Run migrations
+bun run db:push
+```
+
+Or start a new PostgreSQL instance:
+```bash
+docker run -d \
+  --name asset-forge-postgres \
+  -e POSTGRES_USER=hyperscape \
+  -e POSTGRES_PASSWORD=hyperscape_dev \
+  -e POSTGRES_DB=asset_forge_dev \
+  -p 5432:5432 \
+  postgres:16-alpine
+```
+
+4. Create a `.env` file from the example
 ```bash
 cp env.example .env
 ```
 
-4. Add your API keys to `.env`
+5. Add your API keys and database connection to `.env`
 ```
+# API Keys
 VITE_OPENAI_API_KEY=your-openai-api-key
 VITE_MESHY_API_KEY=your-meshy-api-key
-ELEVENLABS_API_KEY=your-elevenlabs-api-key  # Optional: for voice generation
+
+# Database (defaults to hyperscape-postgres container)
+DATABASE_URL=postgresql://hyperscape:hyperscape_dev@localhost:5432/asset_forge_dev
 ```
 
 ### Running the Application
@@ -153,9 +173,6 @@ generation/
 - `POST /api/retexture/start` - Generate material variants
 - `POST /api/fitting/preview` - Preview armor fitting
 - `POST /api/hand-rigging/process` - Process hand rigging
-- `GET /api/voice/library` - List available ElevenLabs voices
-- `POST /api/voice/generate` - Generate single voice clip
-- `POST /api/voice/batch` - Generate voice clips for dialogue tree
 
 ## Scripts
 
@@ -190,17 +207,5 @@ This project is licensed under the MIT License.
 ## Acknowledgments
 
 - Built for the Hyperscape RPG project
-- Powered by OpenAI, Meshy.ai, and ElevenLabs APIs
+- Powered by OpenAI and Meshy.ai APIs
 - Uses Three.js for 3D visualization
-
-## Voice Generation
-
-Asset Forge now supports AI-powered voice generation for NPC dialogue using ElevenLabs. Features include:
-
-- **3,000+ Professional Voices**: Choose from a vast library of voices in 32 languages
-- **Customizable Settings**: Adjust stability, similarity boost, and style for perfect delivery
-- **Batch Processing**: Generate voices for entire dialogue trees with one click
-- **Cost Estimation**: See estimated costs before generation
-- **Export Integration**: Voice clips are automatically included in content pack exports
-
-See the [Voice Generation Guide](dev-book/03-user-guides/voice-generation.md) for detailed instructions.

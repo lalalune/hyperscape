@@ -293,7 +293,7 @@ Error: Rate limit exceeded
 You exceeded your current quota
 ```
 
-**Cause:** Too many API requests or service unavailable.
+**Cause:** Too many API requests or insufficient credits.
 
 **Solutions:**
 
@@ -427,16 +427,16 @@ curl http://localhost:3004/api/health
 **Symptoms:**
 ```
 Error: Failed to start server
-EADDRINUSE: address already in use :::3000
+EADDRINUSE: address already in use :::3003
 ```
 
-**Cause:** Port 3000 in use or Vite configuration issue.
+**Cause:** Port 3003 in use or Vite configuration issue.
 
 **Solution:**
 
 **Step 1: Check port**
 ```bash
-lsof -i :3000
+lsof -i :3003
 kill -9 <PID>
 ```
 
@@ -464,7 +464,7 @@ server: {
 **Symptoms:**
 ```
 Access to fetch at 'http://localhost:3004/api/assets'
-from origin 'http://localhost:3000' has been blocked by CORS policy
+from origin 'http://localhost:3003' has been blocked by CORS policy
 ```
 
 **Cause:** CORS headers not properly configured.
@@ -480,7 +480,7 @@ curl http://localhost:3004/api/health
 ```bash
 # In vite.config.ts, verify:
 server: {
-  port: 3000,
+  port: 3003,
   proxy: {
     '/api': {
       target: 'http://localhost:3004',

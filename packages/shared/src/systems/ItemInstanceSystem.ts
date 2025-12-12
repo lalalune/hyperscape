@@ -1,18 +1,18 @@
 /**
  * @fileoverview Item Instance Tracking System
  * @module hyperscape/shared/systems/ItemInstanceSystem
- * 
+ *
  * Prevents item duplication by tracking unique instance IDs for every spawned item.
  * Implements pessimistic locking to handle race conditions when multiple players
  * attempt to pick up the same item simultaneously.
- * 
+ *
  * Security Features:
  * - Unique instance ID per spawned item (keccak256 hash)
  * - Pessimistic locking on pickup attempts
  * - First-pickup-wins semantics
  * - Integration with MUD ItemInstance table
  * - Integration with on-chain NFT minting
- * 
+ *
  * Architecture:
  * - Server authoritative (all decisions made server-side)
  * - In-memory lock registry for performance
@@ -20,11 +20,11 @@
  * - Event-based communication
  */
 
-import { SystemBase } from './SystemBase';
-import { EventType } from '../types/events';
-import { Logger } from '../utils/Logger';
-import type { World } from '../World';
-import { keccak256, solidityPacked, randomBytes } from 'ethers';
+import { SystemBase } from "./shared";
+import { EventType } from "../types/events";
+import { Logger } from "../utils/Logger";
+import type { World } from "../core/World";
+import { keccak256, solidityPacked, randomBytes } from "ethers";
 
 export interface ItemInstance {
   instanceId: string; // Unique keccak256 hash
@@ -56,50 +56,58 @@ export class ItemInstanceSystem extends SystemBase {
 
   constructor(world: World) {
     super(world, {
-      name: 'item-instance',
+      name: "item-instance",
       dependencies: {
         required: [],
-        optional: ['entity-manager', 'inventory', 'database']
+        optional: ["entity-manager", "inventory", "database"],
       },
-      autoCleanup: true
+      autoCleanup: true,
     });
   }
 
   async init(): Promise<void> {
     // Subscribe to item spawn events
     this.subscribe(EventType.ITEM_SPAWNED, (data) => {
-      this.handleItemSpawn(data as { 
-        entityId: string; 
-        itemId: string; 
-        position: { x: number; y: number; z: number };
-        spawnedBy?: string;
-      });
+      this.handleItemSpawn(
+        data as {
+          entityId: string;
+          itemId: string;
+          position: { x: number; y: number; z: number };
+          spawnedBy?: string;
+        },
+      );
     });
 
     // Subscribe to item pickup attempts
     this.subscribe(EventType.ITEM_PICKUP_ATTEMPT, (data) => {
-      this.handlePickupAttempt(data as {
-        playerId: string;
-        instanceId: string;
-        entityId: string;
-      });
+      this.handlePickupAttempt(
+        data as {
+          playerId: string;
+          instanceId: string;
+          entityId: string;
+        },
+      );
     });
 
     // Subscribe to NFT mint events
     this.subscribe(EventType.ITEM_MINTED_AS_NFT, (data) => {
-      this.handleItemMinted(data as {
-        instanceId: string;
-        tokenId: bigint;
-        owner: string;
-      });
+      this.handleItemMinted(
+        data as {
+          instanceId: string;
+          tokenId: bigint;
+          owner: string;
+        },
+      );
     });
 
     // Subscribe to NFT burn events (drop back in game)
     this.subscribe(EventType.ITEM_NFT_BURNED, (data) => {
-      this.handleNFTBurned(data as {
-        instanceId: string;
-        position: { x: number; y: number; z: number };
-      });
+      this.handleNFTBurned(
+        data as {
+          instanceId: string;
+          position: { x: number; y: number; z: number };
+        },
+      );
     });
 
     // Start cleanup timer for expired locks
@@ -107,7 +115,10 @@ export class ItemInstanceSystem extends SystemBase {
       this.cleanupExpiredLocks();
     }, this.CLEANUP_INTERVAL_MS);
 
-    Logger.system('ItemInstanceSystem', 'Initialized - preventing item duplication');
+    Logger.system(
+      "ItemInstanceSystem",
+      "Initialized - preventing item duplication",
+    );
   }
 
   /**
@@ -116,14 +127,14 @@ export class ItemInstanceSystem extends SystemBase {
   generateInstanceId(itemId: string, playerId: string): string {
     const timestamp = Date.now();
     const random = randomBytes(32);
-    
+
     const hash = keccak256(
       solidityPacked(
-        ['string', 'string', 'uint256', 'bytes32'],
-        [itemId, playerId, timestamp, random]
-      )
+        ["string", "string", "uint256", "bytes32"],
+        [itemId, playerId, timestamp, random],
+      ),
     );
-    
+
     return hash;
   }
 
@@ -139,7 +150,7 @@ export class ItemInstanceSystem extends SystemBase {
     // Generate unique instance ID
     const instanceId = this.generateInstanceId(
       data.itemId,
-      data.spawnedBy || 'system'
+      data.spawnedBy || "system",
     );
 
     // Create instance record
@@ -151,7 +162,7 @@ export class ItemInstanceSystem extends SystemBase {
       mintedTokenId: null,
       createdAt: Date.now(),
       position: data.position,
-      isOnGround: true
+      isOnGround: true,
     };
 
     this.instances.set(instanceId, instance);
@@ -159,13 +170,16 @@ export class ItemInstanceSystem extends SystemBase {
     // TODO: Persist to MUD ItemInstance table
     // ItemInstance.set(instanceId, { ... });
 
-    Logger.system('ItemInstanceSystem', `Created instance ${instanceId.substring(0, 10)}... for ${data.itemId}`);
+    Logger.system(
+      "ItemInstanceSystem",
+      `Created instance ${instanceId.substring(0, 10)}... for ${data.itemId}`,
+    );
 
     // Emit event with instance ID so entity can store it
     this.emitTypedEvent(EventType.ITEM_INSTANCE_CREATED, {
       entityId: data.entityId,
       instanceId,
-      itemId: data.itemId
+      itemId: data.itemId,
     });
   }
 
@@ -182,22 +196,29 @@ export class ItemInstanceSystem extends SystemBase {
     // Get instance
     const instance = this.instances.get(instanceId);
     if (!instance) {
-      Logger.systemError('ItemInstanceSystem', `Instance not found: ${instanceId}`, new Error('Instance not found'));
+      Logger.systemError(
+        "ItemInstanceSystem",
+        `Instance not found: ${instanceId}`,
+        new Error("Instance not found"),
+      );
       this.emitTypedEvent(EventType.ITEM_PICKUP_FAILED, {
         playerId,
         instanceId,
-        reason: 'Instance not found'
+        reason: "Instance not found",
       });
       return;
     }
 
     // Check if already owned
     if (instance.owner !== null) {
-      Logger.system('ItemInstanceSystem', `Item already owned by ${instance.owner}`);
+      Logger.system(
+        "ItemInstanceSystem",
+        `Item already owned by ${instance.owner}`,
+      );
       this.emitTypedEvent(EventType.ITEM_PICKUP_FAILED, {
         playerId,
         instanceId,
-        reason: 'Already picked up'
+        reason: "Already picked up",
       });
       return;
     }
@@ -205,11 +226,14 @@ export class ItemInstanceSystem extends SystemBase {
     // Try to acquire lock
     const lockAcquired = this.tryAcquireLock(instanceId, playerId);
     if (!lockAcquired) {
-      Logger.system('ItemInstanceSystem', `Failed to acquire lock for ${instanceId.substring(0, 10)}...`);
+      Logger.system(
+        "ItemInstanceSystem",
+        `Failed to acquire lock for ${instanceId.substring(0, 10)}...`,
+      );
       this.emitTypedEvent(EventType.ITEM_PICKUP_FAILED, {
         playerId,
         instanceId,
-        reason: 'Lock contention'
+        reason: "Lock contention",
       });
       return;
     }
@@ -222,7 +246,7 @@ export class ItemInstanceSystem extends SystemBase {
         this.emitTypedEvent(EventType.ITEM_PICKUP_FAILED, {
           playerId,
           instanceId,
-          reason: 'Already picked up (race condition)'
+          reason: "Already picked up (race condition)",
         });
         return;
       }
@@ -237,16 +261,18 @@ export class ItemInstanceSystem extends SystemBase {
       // ItemInstance.setOwner(instanceId, playerId);
       // ItemInstance.setIsOnGround(instanceId, false);
 
-      Logger.system('ItemInstanceSystem', `Player ${playerId} picked up ${instance.itemId} (${instanceId.substring(0, 10)}...)`);
+      Logger.system(
+        "ItemInstanceSystem",
+        `Player ${playerId} picked up ${instance.itemId} (${instanceId.substring(0, 10)}...)`,
+      );
 
       // Emit success event
       this.emitTypedEvent(EventType.ITEM_PICKUP_SUCCESS, {
         playerId,
         instanceId,
         itemId: instance.itemId,
-        entityId
+        entityId,
       });
-
     } finally {
       // Always release lock
       this.releaseLock(instanceId);
@@ -275,7 +301,7 @@ export class ItemInstanceSystem extends SystemBase {
       instanceId,
       playerId,
       acquiredAt: now,
-      expiresAt: now + this.LOCK_TIMEOUT_MS
+      expiresAt: now + this.LOCK_TIMEOUT_MS,
     };
 
     this.locks.set(instanceId, lock);
@@ -304,7 +330,10 @@ export class ItemInstanceSystem extends SystemBase {
     }
 
     if (cleaned > 0) {
-      Logger.system('ItemInstanceSystem', `Cleaned up ${cleaned} expired locks`);
+      Logger.system(
+        "ItemInstanceSystem",
+        `Cleaned up ${cleaned} expired locks`,
+      );
     }
   }
 
@@ -318,12 +347,20 @@ export class ItemInstanceSystem extends SystemBase {
   }): void {
     const instance = this.instances.get(data.instanceId);
     if (!instance) {
-      Logger.systemError('ItemInstanceSystem', `Cannot mint - instance not found: ${data.instanceId}`, new Error('Instance not found'));
+      Logger.systemError(
+        "ItemInstanceSystem",
+        `Cannot mint - instance not found: ${data.instanceId}`,
+        new Error("Instance not found"),
+      );
       return;
     }
 
     if (instance.isMinted) {
-      Logger.systemError('ItemInstanceSystem', `Instance already minted: ${data.instanceId}`, new Error('Already minted'));
+      Logger.systemError(
+        "ItemInstanceSystem",
+        `Instance already minted: ${data.instanceId}`,
+        new Error("Already minted"),
+      );
       return;
     }
 
@@ -336,7 +373,10 @@ export class ItemInstanceSystem extends SystemBase {
     // ItemInstance.setIsMinted(data.instanceId, true);
     // ItemInstance.setMintedTokenId(data.instanceId, data.tokenId);
 
-    Logger.system('ItemInstanceSystem', `Item ${instance.itemId} minted as NFT #${data.tokenId} (instance: ${data.instanceId.substring(0, 10)}...)`);
+    Logger.system(
+      "ItemInstanceSystem",
+      `Item ${instance.itemId} minted as NFT #${data.tokenId} (instance: ${data.instanceId.substring(0, 10)}...)`,
+    );
   }
 
   /**
@@ -348,7 +388,11 @@ export class ItemInstanceSystem extends SystemBase {
   }): void {
     const instance = this.instances.get(data.instanceId);
     if (!instance) {
-      Logger.systemError('ItemInstanceSystem', `Cannot burn - instance not found: ${data.instanceId}`, new Error('Instance not found'));
+      Logger.systemError(
+        "ItemInstanceSystem",
+        `Cannot burn - instance not found: ${data.instanceId}`,
+        new Error("Instance not found"),
+      );
       return;
     }
 
@@ -365,13 +409,16 @@ export class ItemInstanceSystem extends SystemBase {
     // ItemInstance.setOwner(data.instanceId, null);
     // ItemInstance.setIsOnGround(data.instanceId, true);
 
-    Logger.system('ItemInstanceSystem', `NFT burned, item ${instance.itemId} dropped at (${data.position.x}, ${data.position.y}, ${data.position.z})`);
+    Logger.system(
+      "ItemInstanceSystem",
+      `NFT burned, item ${instance.itemId} dropped at (${data.position.x}, ${data.position.y}, ${data.position.z})`,
+    );
 
     // Spawn item entity in world
     this.emitTypedEvent(EventType.ITEM_RESPAWN, {
       instanceId: data.instanceId,
       itemId: instance.itemId,
-      position: data.position
+      position: data.position,
     });
   }
 
@@ -380,26 +427,26 @@ export class ItemInstanceSystem extends SystemBase {
    */
   canPickup(instanceId: string): { canPickup: boolean; reason?: string } {
     const instance = this.instances.get(instanceId);
-    
+
     if (!instance) {
-      return { canPickup: false, reason: 'Instance not found' };
+      return { canPickup: false, reason: "Instance not found" };
     }
 
     if (instance.owner !== null) {
-      return { canPickup: false, reason: 'Already owned' };
+      return { canPickup: false, reason: "Already owned" };
     }
 
     if (instance.isMinted) {
-      return { canPickup: false, reason: 'Minted as NFT' };
+      return { canPickup: false, reason: "Minted as NFT" };
     }
 
     if (!instance.isOnGround) {
-      return { canPickup: false, reason: 'Not on ground' };
+      return { canPickup: false, reason: "Not on ground" };
     }
 
     const lock = this.locks.get(instanceId);
     if (lock && Date.now() < lock.expiresAt) {
-      return { canPickup: false, reason: 'Locked by another player' };
+      return { canPickup: false, reason: "Locked by another player" };
     }
 
     return { canPickup: true };
@@ -417,7 +464,7 @@ export class ItemInstanceSystem extends SystemBase {
    */
   getInstancesByOwner(owner: string): ItemInstance[] {
     return Array.from(this.instances.values()).filter(
-      instance => instance.owner === owner
+      (instance) => instance.owner === owner,
     );
   }
 
@@ -426,7 +473,7 @@ export class ItemInstanceSystem extends SystemBase {
    */
   getMintableInstances(owner: string): ItemInstance[] {
     return Array.from(this.instances.values()).filter(
-      instance => instance.owner === owner && !instance.isMinted
+      (instance) => instance.owner === owner && !instance.isMinted,
     );
   }
 
@@ -441,14 +488,13 @@ export class ItemInstanceSystem extends SystemBase {
     activeLocks: number;
   } {
     const instances = Array.from(this.instances.values());
-    
+
     return {
       totalInstances: instances.length,
-      ownedInstances: instances.filter(i => i.owner !== null).length,
-      mintedInstances: instances.filter(i => i.isMinted).length,
-      groundInstances: instances.filter(i => i.isOnGround).length,
-      activeLocks: this.locks.size
+      ownedInstances: instances.filter((i) => i.owner !== null).length,
+      mintedInstances: instances.filter((i) => i.isMinted).length,
+      groundInstances: instances.filter((i) => i.isOnGround).length,
+      activeLocks: this.locks.size,
     };
   }
 }
-

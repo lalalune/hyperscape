@@ -1,18 +1,18 @@
-import { Grid3X3, Camera } from 'lucide-react'
-import React from 'react'
+import { Grid3X3, Camera } from "lucide-react";
+import React from "react";
 
-import { cn } from '../../styles'
+import { cn } from "../../styles";
 
 interface ViewportControlsProps {
-  showWireframe: boolean
-  onToggleWireframe: () => void
-  onResetCamera: () => void
+  showWireframe: boolean;
+  onToggleWireframe: () => void;
+  onResetCamera: () => void;
 }
 
 export const ViewportControls: React.FC<ViewportControlsProps> = ({
   showWireframe,
   onToggleWireframe,
-  onResetCamera
+  onResetCamera,
 }) => {
   return (
     <div className="absolute top-4 right-4 flex flex-col gap-2">
@@ -22,7 +22,7 @@ export const ViewportControls: React.FC<ViewportControlsProps> = ({
           "p-2 rounded-lg backdrop-blur-sm transition-all",
           showWireframe
             ? "bg-primary/20 text-primary"
-            : "bg-bg-tertiary/50 text-text-secondary hover:text-text-primary"
+            : "bg-bg-tertiary/50 text-text-secondary hover:text-text-primary",
         )}
         title="Toggle wireframe"
       >
@@ -36,7 +36,7 @@ export const ViewportControls: React.FC<ViewportControlsProps> = ({
         <Camera size={18} />
       </button>
     </div>
-  )
-}
+  );
+};
 
-export default ViewportControls 
+export default ViewportControls;

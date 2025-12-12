@@ -1,45 +1,48 @@
-import React from 'react'
+import React from "react";
 
-import { cn } from '../../styles'
+import { cn } from "../../styles";
 
 // Linear Progress Component
 export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
-  value: number
-  max?: number
-  variant?: 'primary' | 'success' | 'warning' | 'error'
-  size?: 'sm' | 'md' | 'lg'
-  showLabel?: boolean
-  animated?: boolean
+  value: number;
+  max?: number;
+  variant?: "primary" | "success" | "warning" | "error";
+  size?: "sm" | "md" | "lg";
+  showLabel?: boolean;
+  animated?: boolean;
 }
 
 const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
-  ({ 
-    className, 
-    value, 
-    max = 100, 
-    variant = 'primary',
-    size = 'md',
-    showLabel = false,
-    animated = false,
-    ...props 
-  }, ref) => {
-    const percentage = Math.min(Math.max((value / max) * 100, 0), 100)
-    
+  (
+    {
+      className,
+      value,
+      max = 100,
+      variant = "primary",
+      size = "md",
+      showLabel = false,
+      animated = false,
+      ...props
+    },
+    ref,
+  ) => {
+    const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
+
     const variants = {
-      primary: 'bg-gradient-to-r from-primary to-primary-light',
-      success: 'bg-gradient-to-r from-success to-success-light',
-      warning: 'bg-gradient-to-r from-warning to-warning-light',
-      error: 'bg-gradient-to-r from-error to-error-light'
-    }
-    
+      primary: "bg-gradient-to-r from-primary to-primary-light",
+      success: "bg-gradient-to-r from-success to-success-light",
+      warning: "bg-gradient-to-r from-warning to-warning-light",
+      error: "bg-gradient-to-r from-error to-error-light",
+    };
+
     const sizes = {
-      sm: 'h-1',
-      md: 'h-2',
-      lg: 'h-3'
-    }
-    
+      sm: "h-1",
+      md: "h-2",
+      lg: "h-3",
+    };
+
     return (
-      <div className={cn('space-y-1', className)} {...props}>
+      <div className={cn("space-y-1", className)} {...props}>
         {showLabel && (
           <div className="flex justify-between text-xs text-text-secondary">
             <span>Progress</span>
@@ -49,8 +52,8 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
         <div
           ref={ref}
           className={cn(
-            'w-full bg-bg-tertiary rounded-full overflow-hidden',
-            sizes[size]
+            "w-full bg-bg-tertiary rounded-full overflow-hidden",
+            sizes[size],
           )}
           role="progressbar"
           aria-valuenow={value}
@@ -59,62 +62,62 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
         >
           <div
             className={cn(
-              'h-full transition-all duration-300 ease-out',
+              "h-full transition-all duration-300 ease-out",
               variants[variant],
-              animated && 'animate-pulse'
+              animated && "animate-pulse",
             )}
             style={{ width: `${percentage}%` }}
           />
         </div>
       </div>
-    )
-  }
-)
+    );
+  },
+);
 
-Progress.displayName = 'Progress'
+Progress.displayName = "Progress";
 
 // Circular Progress Component
 export interface CircularProgressProps extends React.SVGAttributes<SVGSVGElement> {
-  value?: number
-  size?: number
-  strokeWidth?: number
-  variant?: 'primary' | 'success' | 'warning' | 'error'
-  showLabel?: boolean
-  indeterminate?: boolean
+  value?: number;
+  size?: number;
+  strokeWidth?: number;
+  variant?: "primary" | "success" | "warning" | "error";
+  showLabel?: boolean;
+  indeterminate?: boolean;
 }
 
 const CircularProgress = React.forwardRef<SVGSVGElement, CircularProgressProps>(
-  ({ 
-    className,
-    value = 0,
-    size = 48,
-    strokeWidth = 4,
-    variant = 'primary',
-    showLabel = false,
-    indeterminate = false,
-    ...props 
-  }, ref) => {
-    const radius = (size - strokeWidth) / 2
-    const circumference = radius * 2 * Math.PI
-    const strokeDashoffset = indeterminate 
-      ? circumference * 0.75 
-      : circumference - (value / 100) * circumference
-    
+  (
+    {
+      className,
+      value = 0,
+      size = 48,
+      strokeWidth = 4,
+      variant = "primary",
+      showLabel = false,
+      indeterminate = false,
+      ...props
+    },
+    ref,
+  ) => {
+    const radius = (size - strokeWidth) / 2;
+    const circumference = radius * 2 * Math.PI;
+    const strokeDashoffset = indeterminate
+      ? circumference * 0.75
+      : circumference - (value / 100) * circumference;
+
     const colors = {
-      primary: 'text-primary',
-      success: 'text-success',
-      warning: 'text-warning',
-      error: 'text-error'
-    }
-    
+      primary: "text-primary",
+      success: "text-success",
+      warning: "text-warning",
+      error: "text-error",
+    };
+
     return (
-      <div className={cn('relative inline-flex', className)}>
+      <div className={cn("relative inline-flex", className)}>
         <svg
           ref={ref}
-          className={cn(
-            colors[variant],
-            indeterminate && 'animate-spin'
-          )}
+          className={cn(colors[variant], indeterminate && "animate-spin")}
           width={size}
           height={size}
           viewBox={`0 0 ${size} ${size}`}
@@ -131,8 +134,8 @@ const CircularProgress = React.forwardRef<SVGSVGElement, CircularProgressProps>(
           />
           <circle
             className={cn(
-              'transition-all duration-300 ease-out',
-              indeterminate && 'animate-[dash_1.5s_ease-in-out_infinite]'
+              "transition-all duration-300 ease-out",
+              indeterminate && "animate-[dash_1.5s_ease-in-out_infinite]",
             )}
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
@@ -154,46 +157,46 @@ const CircularProgress = React.forwardRef<SVGSVGElement, CircularProgressProps>(
           </div>
         )}
       </div>
-    )
-  }
-)
+    );
+  },
+);
 
-CircularProgress.displayName = 'CircularProgress'
+CircularProgress.displayName = "CircularProgress";
 
 // Loading Spinner Component
 export interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
-  size?: 'sm' | 'md' | 'lg'
-  variant?: 'primary' | 'white'
+  size?: "sm" | "md" | "lg";
+  variant?: "primary" | "white";
 }
 
 const Spinner = React.forwardRef<HTMLDivElement, SpinnerProps>(
-  ({ className, size = 'md', variant = 'primary', ...props }, ref) => {
+  ({ className, size = "md", variant = "primary", ...props }, ref) => {
     const sizes = {
-      sm: 'w-4 h-4 border-2',
-      md: 'w-6 h-6 border-2',
-      lg: 'w-8 h-8 border-3'
-    }
-    
+      sm: "w-4 h-4 border-2",
+      md: "w-6 h-6 border-2",
+      lg: "w-8 h-8 border-3",
+    };
+
     const variants = {
-      primary: 'border-primary border-t-transparent',
-      white: 'border-white border-t-transparent'
-    }
-    
+      primary: "border-primary border-t-transparent",
+      white: "border-white border-t-transparent",
+    };
+
     return (
       <div
         ref={ref}
         className={cn(
-          'rounded-full animate-spin',
+          "rounded-full animate-spin",
           sizes[size],
           variants[variant],
-          className
+          className,
         )}
         {...props}
       />
-    )
-  }
-)
+    );
+  },
+);
 
-Spinner.displayName = 'Spinner'
+Spinner.displayName = "Spinner";
 
-export { Progress, CircularProgress, Spinner }
+export { Progress, CircularProgress, Spinner };

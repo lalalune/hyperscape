@@ -6,7 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 
-const GAME_URL = process.env.HYPERSCAPE_URL || "http://localhost:5009";
+const GAME_URL = process.env.HYPERSCAPE_URL || "http://localhost:3333";
 
 test.describe("Hyperscape Trading System E2E", () => {
   test("should connect two players and verify server-side trading system", async () => {

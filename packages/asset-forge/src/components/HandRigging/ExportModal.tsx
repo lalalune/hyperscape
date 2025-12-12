@@ -1,17 +1,17 @@
-import { Download } from 'lucide-react'
-import React from 'react'
+import { Download } from "lucide-react";
+import React from "react";
 
-import type { HandRiggingResult } from '../../services/hand-rigging/HandRiggingService'
-import type { SimpleHandRiggingResult } from '../../services/hand-rigging/SimpleHandRiggingService'
-import type { Asset } from '../../types'
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from '../common'
+import type { HandRiggingResult } from "../../services/hand-rigging/HandRiggingService";
+import type { SimpleHandRiggingResult } from "../../services/hand-rigging/SimpleHandRiggingService";
+import type { Asset } from "../../types";
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from "../common";
 
 interface ExportModalProps {
-  showModal: boolean
-  selectedAvatar: Asset | null
-  riggingResult: HandRiggingResult | SimpleHandRiggingResult | null
-  onClose: () => void
-  onExport: () => void
+  showModal: boolean;
+  selectedAvatar: Asset | null;
+  riggingResult: HandRiggingResult | SimpleHandRiggingResult | null;
+  onClose: () => void;
+  onExport: () => void;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -19,7 +19,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   selectedAvatar,
   riggingResult,
   onClose,
-  onExport
+  onExport,
 }) => {
   return (
     <Modal open={showModal} onClose={onClose}>
@@ -36,14 +36,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               Your model is ready for export!
             </p>
             <p className="text-xs text-text-secondary">
-              The exported model includes all original bones plus the newly added hand bones,
-              ready for use in game engines or animation software.
+              The exported model includes all original bones plus the newly
+              added hand bones, ready for use in game engines or animation
+              software.
             </p>
           </div>
-          
+
           {selectedAvatar && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-text-primary">Export Details:</p>
+              <p className="text-sm font-medium text-text-primary">
+                Export Details:
+              </p>
               <div className="space-y-1 text-xs text-text-secondary">
                 <div className="flex justify-between">
                   <span>Original Avatar:</span>
@@ -56,7 +59,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <div className="flex justify-between">
                   <span>Total Bones:</span>
                   <span className="font-mono">
-                    {riggingResult ? riggingResult.metadata.originalBoneCount + riggingResult.metadata.addedBoneCount : 0}
+                    {riggingResult
+                      ? riggingResult.metadata.originalBoneCount +
+                        riggingResult.metadata.addedBoneCount
+                      : 0}
                   </span>
                 </div>
               </div>
@@ -74,5 +80,5 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         </Button>
       </ModalFooter>
     </Modal>
-  )
-} 
+  );
+};

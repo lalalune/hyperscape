@@ -1,4 +1,4 @@
-import THREE from '../../extras/three';
+import THREE from "../../extras/three/three";
 
 export interface GLTF {
   animations: THREE.AnimationClip[];
@@ -35,30 +35,35 @@ export interface GLTFParser {
   getDependencies(type: string): Promise<any[]>;
   loadBuffer(bufferIndex: number): Promise<ArrayBuffer>;
   loadBufferView(bufferViewIndex: number): Promise<ArrayBuffer>;
-  loadAccessor(accessorIndex: number): Promise<THREE.BufferAttribute | THREE.InterleavedBufferAttribute>;
+  loadAccessor(
+    accessorIndex: number,
+  ): Promise<THREE.BufferAttribute | THREE.InterleavedBufferAttribute>;
 }
 
 export class GLTFLoader extends THREE.Loader {
   constructor(manager?: THREE.LoadingManager);
-  
+
   load(
     url: string,
     onLoad: (gltf: GLTF) => void,
     onProgress?: (event: ProgressEvent) => void,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
   ): void;
-  
-  loadAsync(url: string, onProgress?: (event: ProgressEvent) => void): Promise<GLTF>;
-  
+
+  loadAsync(
+    url: string,
+    onProgress?: (event: ProgressEvent) => void,
+  ): Promise<GLTF>;
+
   parse(
     data: ArrayBuffer | string,
     path: string,
     onLoad: (gltf: GLTF) => void,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
   ): void;
-  
+
   parseAsync(data: ArrayBuffer | string, path: string): Promise<GLTF>;
-  
+
   setDRACOLoader(loader: any): GLTFLoader;
   setKTX2Loader(loader: any): GLTFLoader;
   setMeshoptDecoder(decoder: any): GLTFLoader;

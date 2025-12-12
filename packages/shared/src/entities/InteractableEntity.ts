@@ -1,21 +1,21 @@
 /**
  * InteractableEntity - Base Interactable Entity
- * 
+ *
  * Abstract base class for entities that players can interact with.
  * Provides standardized interaction mechanics including prompts, cooldowns,
  * and usage tracking.
- * 
+ *
  * **Extends**: Entity (adds interaction functionality)
- * 
+ *
  * **Key Features**:
- * 
+ *
  * **Interaction System**:
  * - Interaction prompts ("Take", "Harvest", "Talk", etc.)
  * - Range checking (player must be within distance)
  * - Cooldown system (prevents spam)
  * - Usage tracking (limited use items)
  * - Required items (tools, keys, etc.)
- * 
+ *
  * **Interaction Component**:
  * - Interactable flag
  * - Interaction distance
@@ -23,52 +23,52 @@
  * - Description for tooltip
  * - Last interaction time
  * - Uses remaining counter
- * 
+ *
  * **Usage Mechanics**:
  * - Infinite uses (usesRemaining = -1)
  * - Limited uses (doors, chests, consumables)
  * - Single use (ground items)
  * - Cooldown period between uses
- * 
+ *
  * **Requirements**:
  * - Level requirements
  * - Skill requirements
  * - Item requirements (tools)
  * - Item consumption on use
- * 
+ *
  * **Interaction Effects**:
  * - Custom effect strings ('harvest', 'pickup', 'open', etc.)
  * - Particle effects on interaction
  * - Sound effects
  * - Animation triggers
- * 
+ *
  * **Visual Feedback**:
  * - Highlight when in range
  * - Interaction prompt above entity
  * - Progress bar for timed interactions
  * - Disabled appearance when on cooldown
- * 
+ *
  * **Network Sync**:
  * - Interaction state broadcasted
  * - Uses remaining synced
  * - Cooldown state updated
- * 
+ *
  * **Subclasses**:
  * - ItemEntity: Pickup items from ground
  * - ResourceEntity: Harvest trees, rocks, fish
  * - HeadstoneEntity: Loot corpses
  * - NPCEntity: Talk to NPCs, open shops
- * 
+ *
  * **Runs on**: Server (authoritative), Client (visual + UI)
  * **Referenced by**: InteractionSystem, all interactable entities
- * 
+ *
  * @public
  */
 
-import { Entity } from './Entity';
-import type { World } from '../World';
-import type { EntityConfig, EntityInteractionData } from '../types/entities';
-import type { Position3D } from '../types/core';
+import { Entity } from "./Entity";
+import type { World } from "../core/World";
+import type { EntityConfig, EntityInteractionData } from "../types/entities";
+import type { Position3D } from "../types/core/core";
 
 export interface InteractableConfig extends EntityConfig {
   interaction?: {
@@ -86,12 +86,12 @@ export interface InteractableConfig extends EntityConfig {
 
 export abstract class InteractableEntity extends Entity {
   // Interaction properties
-  protected interactionPrompt: string = 'Interact';
-  protected interactionDescription: string = '';
+  protected interactionPrompt: string = "Interact";
+  protected interactionDescription: string = "";
   protected interactionRange: number = 2.0;
   protected interactionCooldown: number = 0;
   protected lastInteractionTime: number = 0;
-  
+
   // Usage tracking
   protected usesRemaining: number = -1; // -1 = infinite uses
   protected maxUses: number = -1;
@@ -101,26 +101,30 @@ export abstract class InteractableEntity extends Entity {
 
   constructor(world: World, config: InteractableConfig) {
     super(world, config);
-    
+
     // Initialize interaction properties from config
     if (config.interaction) {
-      this.interactionPrompt = config.interaction.prompt || this.interactionPrompt;
-      this.interactionDescription = config.interaction.description || this.interactionDescription;
+      this.interactionPrompt =
+        config.interaction.prompt || this.interactionPrompt;
+      this.interactionDescription =
+        config.interaction.description || this.interactionDescription;
       this.interactionRange = config.interaction.range || this.interactionRange;
-      this.interactionCooldown = config.interaction.cooldown || this.interactionCooldown;
-      this.usesRemaining = config.interaction.usesRemaining ?? this.usesRemaining;
+      this.interactionCooldown =
+        config.interaction.cooldown || this.interactionCooldown;
+      this.usesRemaining =
+        config.interaction.usesRemaining ?? this.usesRemaining;
       this.maxUses = config.interaction.maxUses ?? this.maxUses;
       this.requiredItem = config.interaction.requiresItem || null;
       this.consumesItem = config.interaction.consumesItem || false;
       this.interactionEffect = config.interaction.effect || null;
     }
-    
+
     this.initializeInteraction();
   }
 
   protected initializeInteraction(): void {
     // Override interaction component with enhanced data
-    this.addComponent('interaction', {
+    this.addComponent("interaction", {
       type: this.type,
       interactable: true,
       distance: this.interactionRange,
@@ -132,16 +136,16 @@ export abstract class InteractableEntity extends Entity {
       maxUses: this.maxUses,
       requiredItem: this.requiredItem,
       consumesItem: this.consumesItem,
-      effect: this.interactionEffect
+      effect: this.interactionEffect,
     });
-    
+
     // Add usage tracking component if there are limited uses
     if (this.maxUses > 0) {
-      this.addComponent('usage', {
+      this.addComponent("usage", {
         usesRemaining: this.usesRemaining,
         maxUses: this.maxUses,
         isExhausted: this.usesRemaining <= 0,
-        resetTime: null // Can be set for items that regenerate uses
+        resetTime: null, // Can be set for items that regenerate uses
       });
     }
   }
@@ -156,30 +160,32 @@ export abstract class InteractableEntity extends Entity {
     if (this.destroyed) {
       return false;
     }
-    
+
     // Check usage limits
     if (this.maxUses > 0 && this.usesRemaining <= 0) {
       return false;
     }
-    
+
     // Check cooldown
     const now = Date.now();
-    if (this.interactionCooldown > 0 && 
-        (now - this.lastInteractionTime) < this.interactionCooldown) {
+    if (
+      this.interactionCooldown > 0 &&
+      now - this.lastInteractionTime < this.interactionCooldown
+    ) {
       return false;
     }
-    
+
     // Check distance
     const entityPos = this.getPosition();
     const distance = Math.sqrt(
       Math.pow(playerPosition.x - entityPos.x, 2) +
-      Math.pow(playerPosition.z - entityPos.z, 2)
+        Math.pow(playerPosition.z - entityPos.z, 2),
     );
-    
+
     if (distance > this.interactionRange) {
       return false;
     }
-    
+
     // Additional checks can be overridden by subclasses
     return this.canInteractCustom(playerId, playerPosition);
   }
@@ -187,7 +193,10 @@ export abstract class InteractableEntity extends Entity {
   /**
    * Custom interaction validation - can be overridden by subclasses
    */
-  protected canInteractCustom(_playerId: string, _playerPosition: Position3D): boolean {
+  protected canInteractCustom(
+    _playerId: string,
+    _playerPosition: Position3D,
+  ): boolean {
     return true;
   }
 
@@ -196,52 +205,52 @@ export abstract class InteractableEntity extends Entity {
    */
   protected async onInteract(data: EntityInteractionData): Promise<void> {
     const playerPos = data.playerPosition || data.position;
-    
+
     // Validate interaction
     if (!this.canInteract(data.playerId, playerPos)) {
       this.handleInteractionDenied(data);
       return;
     }
-    
+
     // Update interaction tracking
     this.lastInteractionTime = Date.now();
-    
+
     // Consume use if limited
     if (this.maxUses > 0) {
       this.usesRemaining--;
-      
+
       // Update usage component
-      const usageComponent = this.getComponent('usage');
+      const usageComponent = this.getComponent("usage");
       if (usageComponent) {
         usageComponent.data.usesRemaining = this.usesRemaining;
         usageComponent.data.isExhausted = this.usesRemaining <= 0;
       }
     }
-    
+
     // Update interaction component
-    const interactionComponent = this.getComponent('interaction');
+    const interactionComponent = this.getComponent("interaction");
     if (interactionComponent) {
       interactionComponent.data.lastInteractionTime = this.lastInteractionTime;
       interactionComponent.data.usesRemaining = this.usesRemaining;
     }
-    
+
     // Emit interaction event
-    this.emit('interaction', {
+    this.emit("interaction", {
       entityId: this.id,
       playerId: data.playerId,
       interactionType: data.interactionType,
       position: this.getPosition(),
-      usesRemaining: this.usesRemaining
+      usesRemaining: this.usesRemaining,
     });
-    
+
     // Trigger interaction effect if specified
     if (this.interactionEffect) {
       this.triggerEffect(this.interactionEffect, data);
     }
-    
+
     // Call custom interaction logic
     await this.handleInteraction(data);
-    
+
     // Handle exhaustion if no uses remaining
     if (this.maxUses > 0 && this.usesRemaining <= 0) {
       await this.handleExhaustion(data);
@@ -252,34 +261,39 @@ export abstract class InteractableEntity extends Entity {
    * Handle when interaction is denied
    */
   protected handleInteractionDenied(data: EntityInteractionData): void {
-    let reason = 'Cannot interact';
-    
+    let reason = "Cannot interact";
+
     if (this.maxUses > 0 && this.usesRemaining <= 0) {
-      reason = 'No uses remaining';
-    } else if (this.interactionCooldown > 0 && 
-               (Date.now() - this.lastInteractionTime) < this.interactionCooldown) {
-      reason = 'On cooldown';
+      reason = "No uses remaining";
+    } else if (
+      this.interactionCooldown > 0 &&
+      Date.now() - this.lastInteractionTime < this.interactionCooldown
+    ) {
+      reason = "On cooldown";
     } else {
-      reason = 'Too far away';
+      reason = "Too far away";
     }
-    
-    this.emit('interaction-denied', {
+
+    this.emit("interaction-denied", {
       entityId: this.id,
       playerId: data.playerId,
       reason,
-      position: this.getPosition()
+      position: this.getPosition(),
     });
   }
 
   /**
    * Trigger a visual or audio effect
    */
-  protected triggerEffect(effectName: string, data: EntityInteractionData): void {
-    this.emit('effect', {
+  protected triggerEffect(
+    effectName: string,
+    data: EntityInteractionData,
+  ): void {
+    this.emit("effect", {
       entityId: this.id,
       playerId: data.playerId,
       effect: effectName,
-      position: this.getPosition()
+      position: this.getPosition(),
     });
   }
 
@@ -287,14 +301,14 @@ export abstract class InteractableEntity extends Entity {
    * Handle when entity is exhausted (no uses remaining)
    */
   protected async handleExhaustion(data: EntityInteractionData): Promise<void> {
-    this.emit('exhausted', {
+    this.emit("exhausted", {
       entityId: this.id,
       playerId: data.playerId,
-      position: this.getPosition()
+      position: this.getPosition(),
     });
-    
+
     // Default behavior: make entity non-interactable
-    const interactionComponent = this.getComponent('interaction');
+    const interactionComponent = this.getComponent("interaction");
     if (interactionComponent) {
       interactionComponent.data.interactable = false;
     }
@@ -306,22 +320,22 @@ export abstract class InteractableEntity extends Entity {
   public resetUses(): void {
     if (this.maxUses > 0) {
       this.usesRemaining = this.maxUses;
-      
-      const usageComponent = this.getComponent('usage');
+
+      const usageComponent = this.getComponent("usage");
       if (usageComponent) {
         usageComponent.data.usesRemaining = this.usesRemaining;
         usageComponent.data.isExhausted = false;
       }
-      
-      const interactionComponent = this.getComponent('interaction');
+
+      const interactionComponent = this.getComponent("interaction");
       if (interactionComponent) {
         interactionComponent.data.usesRemaining = this.usesRemaining;
         interactionComponent.data.interactable = true;
       }
-      
-      this.emit('uses-reset', {
+
+      this.emit("uses-reset", {
         entityId: this.id,
-        usesRemaining: this.usesRemaining
+        usesRemaining: this.usesRemaining,
       });
     }
   }
@@ -343,7 +357,7 @@ export abstract class InteractableEntity extends Entity {
       range: this.interactionRange,
       usesRemaining: this.usesRemaining,
       maxUses: this.maxUses,
-      canInteract: this.usesRemaining !== 0 && !this.destroyed
+      canInteract: this.usesRemaining !== 0 && !this.destroyed,
     };
   }
 
@@ -361,11 +375,25 @@ export abstract class InteractableEntity extends Entity {
 
   // === Getters ===
 
-  public getInteractionPrompt(): string { return this.interactionPrompt; }
-  public getInteractionDescription(): string { return this.interactionDescription; }
-  public getInteractionRange(): number { return this.interactionRange; }
-  public getUsesRemaining(): number { return this.usesRemaining; }
-  public getMaxUses(): number { return this.maxUses; }
-  public getRequiredItem(): string | null { return this.requiredItem; }
-  public getConsumesItem(): boolean { return this.consumesItem; }
+  public getInteractionPrompt(): string {
+    return this.interactionPrompt;
+  }
+  public getInteractionDescription(): string {
+    return this.interactionDescription;
+  }
+  public getInteractionRange(): number {
+    return this.interactionRange;
+  }
+  public getUsesRemaining(): number {
+    return this.usesRemaining;
+  }
+  public getMaxUses(): number {
+    return this.maxUses;
+  }
+  public getRequiredItem(): string | null {
+    return this.requiredItem;
+  }
+  public getConsumesItem(): boolean {
+    return this.consumesItem;
+  }
 }

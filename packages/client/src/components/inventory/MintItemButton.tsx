@@ -1,10 +1,14 @@
-import { useState } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseAbi } from 'viem';
+import { useState } from "react";
+import {
+  useAccount,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
+import { parseAbi } from "viem";
 
 const ITEMS_ABI = parseAbi([
-  'function mintItem(uint256 itemId, uint256 amount, bytes32 instanceId, bytes signature) external',
-  'function checkInstance(bytes32 instanceId) view returns (bool isMinted, address originalMinter)',
+  "function mintItem(uint256 itemId, uint256 amount, bytes32 instanceId, bytes signature) external",
+  "function checkInstance(bytes32 instanceId) view returns (bool isMinted, address originalMinter)",
 ]);
 
 interface MintItemButtonProps {
@@ -14,44 +18,62 @@ interface MintItemButtonProps {
   onMintSuccess?: () => void;
 }
 
-export function MintItemButton({ itemId, amount, slot, onMintSuccess }: MintItemButtonProps) {
+export function MintItemButton({
+  itemId,
+  amount: _amount,
+  slot,
+  onMintSuccess,
+}: MintItemButtonProps) {
   const { address } = useAccount();
   const [isMinting, setIsMinting] = useState(false);
   const [error, setError] = useState<string>();
 
   const { writeContract, data: hash } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
 
   const handleMint = async () => {
     if (!address) return;
-    
+
     setIsMinting(true);
     setError(undefined);
 
     // 1. Get signature from server
-    const response = await fetch('/api/mint-item', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const response = await fetch("/api/mint-item", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slot, itemId }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      setError(errorData.error || 'Failed to get mint signature');
+      setError(errorData.error || "Failed to get mint signature");
       setIsMinting(false);
       return;
     }
 
-    const { signature, instanceId, itemId: responseItemId, amount: responseAmount } = await response.json();
+    const {
+      signature,
+      instanceId,
+      itemId: responseItemId,
+      amount: responseAmount,
+    } = await response.json();
 
     // 2. Call Items.mintItem()
-    const itemsContract = (process.env.NEXT_PUBLIC_ITEMS_CONTRACT || '0x5FbDB2315678afecb367f032d93F642f64180aa3') as `0x${string}`;
-    
+    const itemsContract = (process.env.NEXT_PUBLIC_ITEMS_CONTRACT ||
+      "0x5FbDB2315678afecb367f032d93F642f64180aa3") as `0x${string}`;
+
     writeContract({
       address: itemsContract,
       abi: ITEMS_ABI,
-      functionName: 'mintItem',
-      args: [BigInt(responseItemId), BigInt(responseAmount), instanceId as `0x${string}`, signature as `0x${string}`],
+      functionName: "mintItem",
+      args: [
+        BigInt(responseItemId),
+        BigInt(responseAmount),
+        instanceId as `0x${string}`,
+        signature as `0x${string}`,
+      ],
     });
   };
 
@@ -92,4 +114,3 @@ export function MintItemButton({ itemId, amount, slot, onMintSuccess }: MintItem
     </button>
   );
 }
-

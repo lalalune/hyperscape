@@ -6,13 +6,13 @@ services:
       dockerfile: Dockerfile
     container_name: hyperscape-cdn
     ports:
-      - "8088:8088"
+      - "8080:8080"
     volumes:
       # Mount world assets directly into nginx html directory
-      - ${HYPERSCAPE_ASSETS_DIR:-../../assets}:/usr/share/nginx/html/assets:ro
+      - ${HYPERSCAPE_ASSETS_DIR:-./world/assets}:/usr/share/nginx/html/assets:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 3s
       retries: 3

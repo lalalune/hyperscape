@@ -3,9 +3,9 @@
  * Stores combat-related data for entities that can participate in combat
  */
 
-import type { Entity } from '../entities/Entity';
-import type { CombatComponentData } from '../types/components';
-import { Component } from './Component';
+import type { Entity } from "../entities/Entity";
+import type { CombatComponentData } from "../types/entities/components";
+import { Component } from "./Component";
 
 // Type moved to shared types/components.ts
 
@@ -18,13 +18,15 @@ export class CombatComponent extends Component {
   public range: number = 2;
 
   constructor(entity: Entity, data?: CombatComponentData) {
-    super('combat', entity, data as Record<string, unknown>);
-    
+    super("combat", entity, data as Record<string, unknown>);
+
     if (data) {
       if (data.isInCombat !== undefined) this.isInCombat = data.isInCombat;
       if (data.target !== undefined) this.target = data.target;
-      if (data.lastAttackTime !== undefined) this.lastAttackTime = data.lastAttackTime;
-      if (data.attackCooldown !== undefined) this.attackCooldown = data.attackCooldown;
+      if (data.lastAttackTime !== undefined)
+        this.lastAttackTime = data.lastAttackTime;
+      if (data.attackCooldown !== undefined)
+        this.attackCooldown = data.attackCooldown;
       if (data.damage !== undefined) this.damage = data.damage;
       if (data.range !== undefined) this.range = data.range;
     }
@@ -42,7 +44,7 @@ export class CombatComponent extends Component {
       lastAttackTime: this.lastAttackTime,
       attackCooldown: this.attackCooldown,
       damage: this.damage,
-      range: this.range
+      range: this.range,
     };
   }
 }

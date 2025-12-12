@@ -1,6 +1,6 @@
 /**
  * Logging System
- * 
+ *
  * Provides consistent logging across all systems with context, formatting, and filtering.
  * Supports multiple log levels, system-specific logging, and player action tracking.
  */
@@ -11,7 +11,7 @@ export enum LogLevel {
   WARN = 2,
   ERROR = 3,
   SYSTEM = 4,
-  TEST = 5
+  TEST = 5,
 }
 
 export interface LogEntry {
@@ -38,8 +38,14 @@ export interface LoggerConfig {
 class LoggerImpl {
   private config: LoggerConfig;
   private logs: LogEntry[] = [];
-  private systemStats = new Map<string, { errors: number; warnings: number; messages: number }>();
-  private playerStats = new Map<string, { actions: number; errors: number; warnings: number }>();
+  private systemStats = new Map<
+    string,
+    { errors: number; warnings: number; messages: number }
+  >();
+  private playerStats = new Map<
+    string,
+    { actions: number; errors: number; warnings: number }
+  >();
 
   constructor(config?: Partial<LoggerConfig>) {
     this.config = {
@@ -50,7 +56,7 @@ class LoggerImpl {
       enablePlayerLogs: true,
       enableTestLogs: true,
       maxLogEntries: 10000,
-      ...config
+      ...config,
     };
 
     // Set up periodic log cleanup
@@ -73,89 +79,191 @@ class LoggerImpl {
     this.log(LogLevel.WARN, message, context);
   }
 
-  public error(message: string, error?: Error, context?: Record<string, unknown>): void {
+  public error(
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ): void {
     this.log(LogLevel.ERROR, message, { ...context }, error);
   }
 
-  public system(systemName: string, message: string, context?: Record<string, unknown>): void {
+  public system(
+    systemName: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
     if (!this.config.enableSystemLogs) return;
 
     // Update system stats
-    const stats = this.systemStats.get(systemName) || { errors: 0, warnings: 0, messages: 0 };
+    const stats = this.systemStats.get(systemName) || {
+      errors: 0,
+      warnings: 0,
+      messages: 0,
+    };
     stats.messages++;
     this.systemStats.set(systemName, stats);
 
-    this.log(LogLevel.SYSTEM, `[${systemName}] ${message}`, context, undefined, systemName);
+    this.log(
+      LogLevel.SYSTEM,
+      `[${systemName}] ${message}`,
+      context,
+      undefined,
+      systemName,
+    );
   }
 
-  public systemError(systemName: string, message: string, error?: Error, context?: Record<string, unknown>): void {
+  public systemError(
+    systemName: string,
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ): void {
     if (!this.config.enableSystemLogs) return;
 
     // Update system stats
-    const stats = this.systemStats.get(systemName) || { errors: 0, warnings: 0, messages: 0 };
+    const stats = this.systemStats.get(systemName) || {
+      errors: 0,
+      warnings: 0,
+      messages: 0,
+    };
     stats.errors++;
     this.systemStats.set(systemName, stats);
 
-    this.log(LogLevel.ERROR, `[${systemName}] ${message}`, context, error, systemName);
+    this.log(
+      LogLevel.ERROR,
+      `[${systemName}] ${message}`,
+      context,
+      error,
+      systemName,
+    );
   }
 
-  public systemWarn(systemName: string, message: string, context?: Record<string, unknown>): void {
+  public systemWarn(
+    systemName: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
     if (!this.config.enableSystemLogs) return;
 
     // Update system stats
-    const stats = this.systemStats.get(systemName) || { errors: 0, warnings: 0, messages: 0 };
+    const stats = this.systemStats.get(systemName) || {
+      errors: 0,
+      warnings: 0,
+      messages: 0,
+    };
     stats.warnings++;
     this.systemStats.set(systemName, stats);
 
-    this.log(LogLevel.WARN, `[${systemName}] ${message}`, context, undefined, systemName);
+    this.log(
+      LogLevel.WARN,
+      `[${systemName}] ${message}`,
+      context,
+      undefined,
+      systemName,
+    );
   }
 
-  public player(playerId: string, message: string, context?: Record<string, unknown>): void {
+  public player(
+    playerId: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
     if (!this.config.enablePlayerLogs) return;
 
     // Update player stats
-    const stats = this.playerStats.get(playerId) || { actions: 0, errors: 0, warnings: 0 };
+    const stats = this.playerStats.get(playerId) || {
+      actions: 0,
+      errors: 0,
+      warnings: 0,
+    };
     stats.actions++;
     this.playerStats.set(playerId, stats);
 
-    this.log(LogLevel.INFO, `[Player:${playerId}] ${message}`, context, undefined, undefined, playerId);
+    this.log(
+      LogLevel.INFO,
+      `[Player:${playerId}] ${message}`,
+      context,
+      undefined,
+      undefined,
+      playerId,
+    );
   }
 
-  public playerError(playerId: string, message: string, error?: Error, context?: Record<string, unknown>): void {
+  public playerError(
+    playerId: string,
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ): void {
     if (!this.config.enablePlayerLogs) return;
 
     // Update player stats
-    const stats = this.playerStats.get(playerId) || { actions: 0, errors: 0, warnings: 0 };
+    const stats = this.playerStats.get(playerId) || {
+      actions: 0,
+      errors: 0,
+      warnings: 0,
+    };
     stats.errors++;
     this.playerStats.set(playerId, stats);
 
-    this.log(LogLevel.ERROR, `[Player:${playerId}] ${message}`, context, error, undefined, playerId);
+    this.log(
+      LogLevel.ERROR,
+      `[Player:${playerId}] ${message}`,
+      context,
+      error,
+      undefined,
+      playerId,
+    );
   }
 
-  public playerWarn(playerId: string, message: string, context?: Record<string, unknown>): void {
+  public playerWarn(
+    playerId: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
     if (!this.config.enablePlayerLogs) return;
 
     // Update player stats
-    const stats = this.playerStats.get(playerId) || { actions: 0, errors: 0, warnings: 0 };
+    const stats = this.playerStats.get(playerId) || {
+      actions: 0,
+      errors: 0,
+      warnings: 0,
+    };
     stats.warnings++;
     this.playerStats.set(playerId, stats);
 
-    this.log(LogLevel.WARN, `[Player:${playerId}] ${message}`, context, undefined, undefined, playerId);
+    this.log(
+      LogLevel.WARN,
+      `[Player:${playerId}] ${message}`,
+      context,
+      undefined,
+      undefined,
+      playerId,
+    );
   }
 
-  public test(testName: string, message: string, context?: Record<string, unknown>): void {
+  public test(
+    testName: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
     if (!this.config.enableTestLogs) return;
     this.log(LogLevel.TEST, `[TEST:${testName}] ${message}`, context);
   }
 
-  public testError(testName: string, message: string, error?: Error, context?: Record<string, unknown>): void {
+  public testError(
+    testName: string,
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ): void {
     if (!this.config.enableTestLogs) return;
     this.log(LogLevel.ERROR, `[TEST:${testName}] ${message}`, context, error);
   }
 
   public testResult(testName: string, passed: boolean, details?: string): void {
     if (!this.config.enableTestLogs) return;
-    const status = passed ? '✅ PASSED' : '❌ FAILED';
+    const status = passed ? "✅ PASSED" : "❌ FAILED";
     const message = details ? `${status} - ${details}` : status;
     this.log(LogLevel.TEST, `[TEST:${testName}] ${message}`);
   }
@@ -166,7 +274,7 @@ class LoggerImpl {
     context?: Record<string, unknown>,
     error?: Error,
     system?: string,
-    playerId?: string
+    playerId?: string,
   ): void {
     if (level < this.config.minLevel) return;
 
@@ -177,7 +285,7 @@ class LoggerImpl {
       context,
       error,
       system,
-      playerId
+      playerId,
     };
 
     // Add to log buffer
@@ -196,7 +304,7 @@ class LoggerImpl {
 
   private outputToConsole(entry: LogEntry): void {
     const timestamp = new Date(entry.timestamp).toISOString();
-    const contextStr = entry.context ? ` ${JSON.stringify(entry.context)}` : '';
+    const contextStr = entry.context ? ` ${JSON.stringify(entry.context)}` : "";
     const logMessage = `[${timestamp}] ${entry.message}${contextStr}`;
 
     switch (entry.level) {
@@ -234,11 +342,17 @@ class LoggerImpl {
   }
 
   // Analytics and reporting methods
-  public getSystemStats(): Map<string, { errors: number; warnings: number; messages: number }> {
+  public getSystemStats(): Map<
+    string,
+    { errors: number; warnings: number; messages: number }
+  > {
     return new Map(this.systemStats);
   }
 
-  public getPlayerStats(): Map<string, { actions: number; errors: number; warnings: number }> {
+  public getPlayerStats(): Map<
+    string,
+    { actions: number; errors: number; warnings: number }
+  > {
     return new Map(this.playerStats);
   }
 
@@ -248,37 +362,37 @@ class LoggerImpl {
 
   public getErrorLogs(count: number = 50): LogEntry[] {
     return this.logs
-      .filter(log => log.level === LogLevel.ERROR)
+      .filter((log) => log.level === LogLevel.ERROR)
       .slice(-count);
   }
 
   public getSystemLogs(systemName: string, count: number = 100): LogEntry[] {
-    return this.logs
-      .filter(log => log.system === systemName)
-      .slice(-count);
+    return this.logs.filter((log) => log.system === systemName).slice(-count);
   }
 
   public getPlayerLogs(playerId: string, count: number = 100): LogEntry[] {
-    return this.logs
-      .filter(log => log.playerId === playerId)
-      .slice(-count);
+    return this.logs.filter((log) => log.playerId === playerId).slice(-count);
   }
 
   public getTestLogs(count: number = 100): LogEntry[] {
-    return this.logs
-      .filter(log => log.level === LogLevel.TEST)
-      .slice(-count);
+    return this.logs.filter((log) => log.level === LogLevel.TEST).slice(-count);
   }
 
   public generateReport(): {
     totalLogs: number;
     logsByLevel: Record<string, number>;
-    systemStats: Record<string, { errors: number; warnings: number; messages: number }>;
-    playerStats: Record<string, { actions: number; errors: number; warnings: number }>;
+    systemStats: Record<
+      string,
+      { errors: number; warnings: number; messages: number }
+    >;
+    playerStats: Record<
+      string,
+      { actions: number; errors: number; warnings: number }
+    >;
     recentErrors: LogEntry[];
   } {
     const logsByLevel: Record<string, number> = {};
-    
+
     for (const log of this.logs) {
       const levelName = LogLevel[log.level];
       logsByLevel[levelName] = (logsByLevel[levelName] || 0) + 1;
@@ -289,7 +403,7 @@ class LoggerImpl {
       logsByLevel,
       systemStats: Object.fromEntries(this.systemStats),
       playerStats: Object.fromEntries(this.playerStats),
-      recentErrors: this.getErrorLogs(10)
+      recentErrors: this.getErrorLogs(10),
     };
   }
 
@@ -316,15 +430,54 @@ export interface ILogger {
   debug(message: string, context?: Record<string, unknown>): void;
   info(message: string, context?: Record<string, unknown>): void;
   warn(message: string, context?: Record<string, unknown>): void;
-  error(message: string, error?: Error, context?: Record<string, unknown>): void;
-  system(systemName: string, message: string, context?: Record<string, unknown>): void;
-  systemError(systemName: string, message: string, error?: Error, context?: Record<string, unknown>): void;
-  systemWarn(systemName: string, message: string, context?: Record<string, unknown>): void;
-  player(playerId: string, message: string, context?: Record<string, unknown>): void;
-  playerError(playerId: string, message: string, error?: Error, context?: Record<string, unknown>): void;
-  playerWarn(playerId: string, message: string, context?: Record<string, unknown>): void;
-  test(testName: string, message: string, context?: Record<string, unknown>): void;
-  testError(testName: string, message: string, error?: Error, context?: Record<string, unknown>): void;
+  error(
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ): void;
+  system(
+    systemName: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void;
+  systemError(
+    systemName: string,
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ): void;
+  systemWarn(
+    systemName: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void;
+  player(
+    playerId: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void;
+  playerError(
+    playerId: string,
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ): void;
+  playerWarn(
+    playerId: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void;
+  test(
+    testName: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void;
+  testError(
+    testName: string,
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ): void;
   testResult(testName: string, passed: boolean, details?: string): void;
 }
 
@@ -344,25 +497,47 @@ export class SystemLogger {
     Logger.systemWarn(this.systemName, message, context);
   }
 
-  error(message: string, error?: Error, context?: Record<string, unknown>): void {
+  error(
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ): void {
     Logger.systemError(this.systemName, message, error, context);
   }
 
-  player(playerId: string, message: string, context?: Record<string, unknown>): void {
+  player(
+    playerId: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
     Logger.player(playerId, `[${this.systemName}] ${message}`, context);
   }
 
-  playerError(playerId: string, message: string, error?: Error, context?: Record<string, unknown>): void {
-    Logger.playerError(playerId, `[${this.systemName}] ${message}`, error, context);
+  playerError(
+    playerId: string,
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ): void {
+    Logger.playerError(
+      playerId,
+      `[${this.systemName}] ${message}`,
+      error,
+      context,
+    );
   }
 
-  playerWarn(playerId: string, message: string, context?: Record<string, unknown>): void {
+  playerWarn(
+    playerId: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
     Logger.playerWarn(playerId, `[${this.systemName}] ${message}`, context);
   }
 }
 
 // Environment-based configuration
-if (typeof process !== 'undefined' && process.env) {
+if (typeof process !== "undefined" && process.env) {
   const logLevel = process.env.LOG_LEVEL;
   if (logLevel) {
     const level = LogLevel[logLevel as keyof typeof LogLevel];
@@ -372,17 +547,17 @@ if (typeof process !== 'undefined' && process.env) {
   }
 
   // Configure based on environment
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === "production") {
     Logger.configure({
       minLevel: LogLevel.WARN,
       enableFile: true,
-      enableConsole: false
+      enableConsole: false,
     });
-  } else if (process.env.NODE_ENV === 'test') {
+  } else if (process.env.NODE_ENV === "test") {
     Logger.configure({
       minLevel: LogLevel.ERROR,
       enableConsole: false,
-      enableTestLogs: true
+      enableTestLogs: true,
     });
   } else {
     // Development environment
@@ -391,7 +566,7 @@ if (typeof process !== 'undefined' && process.env) {
       enableConsole: true,
       enableSystemLogs: true,
       enablePlayerLogs: true,
-      enableTestLogs: true
+      enableTestLogs: true,
     });
   }
 }

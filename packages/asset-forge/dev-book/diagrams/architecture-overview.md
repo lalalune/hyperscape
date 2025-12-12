@@ -533,7 +533,7 @@ graph TB
 ```mermaid
 graph TB
     subgraph "Development Environment"
-        DevFrontend[Vite Dev Server<br/>Port 3000]
+        DevFrontend[Vite Dev Server<br/>Port 3003]
         DevBackend[Express API<br/>Port 3001]
         DevImages[Image Server<br/>Port 3004]
     end

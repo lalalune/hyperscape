@@ -4,56 +4,6 @@ All notable changes to the Asset Forge project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2025-10-22
-
-### Added
-
-#### Voice Generation Improvements
-- **VoiceStandalonePage**: New dedicated page for voice generation experimentation without creating NPCs
-- **Voice Library Browser**: Browse 3,000+ voices from ElevenLabs with advanced filtering
-- **Settings Presets**: Quick configuration presets for narrator, character, and professional voice styles
-- **Real-time Cost Estimation**: Live cost calculation with debounced updates (100ms)
-- **Subscription Tracking**: View quota usage and subscription limits
-- **Voice Favorites**: Save and manage frequently used voices
-- **Download Support**: Download generated voice clips as MP3 files
-
-### Improved
-
-#### Performance Optimizations
-- **Debounced Text Input**: 100ms debounce on text state updates
-  - 100x fewer re-renders (~45 vs. ~4,500 for 5,000 character input)
-  - 30x faster text input performance (<2s vs. 60s timeout)
-  - Smooth typing even with maximum 5,000 character inputs
-  - Efficient cost calculations without blocking UI
-
-#### Testing Infrastructure
-- **fillLargeTextarea Helper**: Direct DOM manipulation for testing large text inputs
-  - Sets 5,000 characters instantly vs. 60+ seconds character-by-character
-  - Properly triggers React events (input, change)
-  - Waits for debounce to settle (500ms)
-  - 30x faster test execution for large text scenarios
-- **data-testid Attributes**: Stable test selectors for all interactive elements
-  - Language-independent selectors
-  - CSS class independent
-  - Resilient to UI changes
-  - Easier debugging and test maintenance
-
-#### User Experience
-- **Character Counter**: Real-time character count with color-coded warnings
-  - Green: 0-4,499 characters (safe)
-  - Yellow: 4,500-4,999 characters (warning at 90%)
-  - Red: 5,000+ characters (at limit)
-- **Voice Browser**: Enhanced voice selection with search and category filters
-- **Error Handling**: Clear feedback for generation failures and validation errors
-
-### Fixed
-- Test timeouts on large text input (5,000 characters)
-- Excessive re-renders during typing in voice input fields
-- Cost calculation blocking UI during fast typing
-- Fragile test selectors breaking with text or CSS changes
-
----
-
 ## [1.0.0] - 2024-10-21
 
 ### Initial Release
@@ -397,7 +347,7 @@ This is the first release, so no migration is necessary. For new installations:
 1. Install dependencies using Bun or npm
 2. Create `.env` file with required API keys
 3. Start development servers: `bun run dev`
-4. Access application at `http://localhost:3000`
+4. Access application at `http://localhost:3003`
 
 See the main README.md for detailed installation instructions.
 

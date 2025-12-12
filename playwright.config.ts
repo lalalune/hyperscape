@@ -16,7 +16,7 @@ export default defineConfig({
   },
 
   use: {
-    baseURL: process.env.HYPERSCAPE_URL || "http://localhost:5009",
+    baseURL: process.env.HYPERSCAPE_URL || "http://localhost:3333",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

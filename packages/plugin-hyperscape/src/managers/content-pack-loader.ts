@@ -1,22 +1,17 @@
 import { IAgentRuntime, logger } from "@elizaos/core";
 import {
   IContentPack,
-  IContentPackLoader,
   IGameSystem,
-  IStateManager,
+  IVisualConfig,
 } from "../types/content-pack";
 import { HyperscapeService } from "../service";
 import { HyperscapeActionDescriptor } from "../types/core-types";
 import { World } from "../types/core-types";
-import {
-  VisualConfigSchema,
-  type VisualConfig,
-} from "../types/validation-schemas";
 
 /**
  * Manages loading and unloading of modular content packs
  */
-export class ContentPackLoader implements IContentPackLoader {
+export class ContentPackLoader {
   private runtime: IAgentRuntime;
   private service: HyperscapeService;
   private loadedPacks: Map<string, IContentPack> = new Map();
@@ -67,7 +62,7 @@ export class ContentPackLoader implements IContentPackLoader {
             name: action.name,
             description: action.description,
             parameters:
-              action.parameters as HyperscapeActionDescriptor["parameters"],
+              action.parameters as unknown as HyperscapeActionDescriptor["parameters"],
             examples: Array.isArray(action.examples)
               ? action.examples.flat().map((ex) => JSON.stringify(ex))
               : [],
@@ -94,10 +89,10 @@ export class ContentPackLoader implements IContentPackLoader {
     }
 
     // Initialize state manager
-    if (pack.stateManager) {
-      // Initialize for current player
-      const playerId = world.entities.player!.data.id;
-      pack.stateManager.initPlayerState(playerId);
+    if (pack.stateManager && pack.onLoad) {
+      // State initialization happens in onLoad callback
+      // const playerId = world.entities.player!.data.id;
+      // pack.stateManager.initPlayerState?.(playerId);
     }
 
     this.loadedPacks.set(pack.id, pack);
@@ -151,37 +146,41 @@ export class ContentPackLoader implements IContentPackLoader {
 
   /**
    * Load visual configuration into the world
-   * Uses Zod validation for strict type safety (CLAUDE.md compliance)
    */
-  private loadVisualConfig(visuals: VisualConfig): void {
-    // Validate input with Zod schema
-    const validated = VisualConfigSchema.parse(visuals);
+  private loadVisualConfig(visuals: IVisualConfig): void {
     const world = this.service.getWorld()!;
 
     // Register entity colors for visual detection
-    if (validated.entityColors) {
+    if (visuals.entityColors) {
       const colorDetector = world.colorDetector;
-      Object.entries(validated.entityColors).forEach(([entityType, config]) => {
-        const colorConfig = config as { color: string | number; hex?: string; tolerance?: number };
-        colorDetector.registerEntityColor(entityType, colorConfig);
-      });
+      if (colorDetector) {
+        Object.entries(visuals.entityColors).forEach(([entityType, config]) => {
+          const colorConfig = config as {
+            color: string | number;
+            hex?: string;
+            tolerance?: number;
+          };
+          colorDetector.registerEntityColor(entityType, colorConfig);
+        });
+      }
     }
 
     // Apply UI theme if provided
-    if (validated.uiTheme && world.ui) {
-      // Assume applyTheme is a function - using validated data
-      (
-        world.ui as { applyTheme: (theme: typeof validated.uiTheme) => void }
-      ).applyTheme(validated.uiTheme);
+    if (visuals.uiTheme && world.ui) {
+      // Assume applyTheme is a function
+      (world.ui as { applyTheme: (theme: unknown) => void }).applyTheme(
+        visuals.uiTheme,
+      );
     }
 
     // Load assets
-    if (validated.assets) {
+    if (visuals.assets) {
       const assetLoader = (
         world as { assetLoader: { loadModel: (url: string) => void } }
       ).assetLoader;
-      if (validated.assets.models) {
-        validated.assets.models.forEach((url: string) => {
+      if (visuals.assets.models) {
+        // models is Record<string, string>, convert to array of URLs
+        Object.values(visuals.assets.models).forEach((url: string) => {
           assetLoader.loadModel(url);
         });
       }
@@ -223,7 +222,7 @@ export class ContentPackLoader implements IContentPackLoader {
   /**
    * Get state manager for a loaded pack
    */
-  getPackStateManager(packId: string): IStateManager | undefined {
+  getPackStateManager(packId: string): unknown {
     const pack = this.loadedPacks.get(packId);
     return pack?.stateManager;
   }

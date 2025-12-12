@@ -92,7 +92,7 @@ cp packages/asset-forge/.env.example packages/asset-forge/.env
    bun run dev:ai       # Game + AI agents (ElizaOS)
    ```
 
-5. Open **http://localhost:5009** in your browser.
+5. Open **http://localhost:3333** in your browser.
 
 > PostgreSQL starts automatically via Docker when the server starts.
 

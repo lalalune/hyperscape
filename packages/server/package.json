@@ -22,8 +22,13 @@
     "dev": "bun scripts/dev.mjs",
     "build": "bun scripts/build-server.mjs",
     "start": "bun dist/index.js",
-    "test": "vitest run",
+    "test": "bun test src/",
+    "test:e2e": "playwright test",
     "lint": "eslint src --max-warnings 22100",
+    "db:generate": "bunx drizzle-kit generate",
+    "db:push": "bunx drizzle-kit push",
+    "db:migrate": "bunx drizzle-kit migrate",
+    "db:studio": "bunx drizzle-kit studio",
     "cdn:up": "docker-compose up -d cdn",
     "cdn:down": "docker-compose down cdn",
     "cdn:logs": "docker-compose logs -f cdn",
@@ -46,10 +51,13 @@
     "@fastify/compress": "^8.0.1",
     "@fastify/cors": "^10.0.1",
     "@fastify/multipart": "^9.0.1",
+    "@fastify/rate-limit": "^10.1.1",
     "@fastify/static": "^8.0.1",
     "@fastify/swagger": "^9.5.2",
     "@fastify/swagger-ui": "^5.2.3",
     "@fastify/websocket": "^11.0.1",
+    "@hyperscape/physx-js-webidl": "workspace:*",
+    "@hyperscape/plugin-hyperscape": "workspace:*",
     "@hyperscape/shared": "workspace:*",
     "@latticexyz/common": "^2.2.23",
     "@latticexyz/store-sync": "^2.2.23",
@@ -62,10 +70,12 @@
     "jsonwebtoken": "^9.0.2",
     "livekit-server-sdk": "^2.11.0",
     "moment": "^2.30.1",
+    "msgpackr": "^1.11.5",
     "pg": "^8.13.1",
+    "socket.io-client": "^4.8.1",
     "source-map-support": "^0.5.21",
     "uuid": "^9.0.1",
-    "viem": "^2.38.3"
+    "viem": "^2.39.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.1",
@@ -77,20 +87,17 @@
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
-    "@vitest/coverage-v8": "^3.2.4",
-    "@vitest/ui": "^1.6.0",
     "chokidar": "^4.0.3",
-    "esbuild": "^0.25.5",
+    "esbuild": "^0.27.0",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^9.1.0",
     "playwright": "^1.54.2",
     "prettier": "^3.6.2",
-    "typescript": "^5.9.2",
-    "vitest": "^1.6.0"
+    "typescript": "^5.9.2"
   },
   "engines": {
-    "npm": ">=10.0.0",
-    "node": ">=22.11.0"
+    "node": ">=22.11.0",
+    "bun": ">=1.1.38"
   },
   "overrides": {
     "three": "^0.180.0"

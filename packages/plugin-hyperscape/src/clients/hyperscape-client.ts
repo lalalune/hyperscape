@@ -52,12 +52,12 @@
  */
 
 import { IAgentRuntime, Memory, UUID } from "@elizaos/core";
-
-const generateUUID = () => crypto.randomUUID() as UUID;
-interface Client {}
 import WebSocket from "ws";
 import { EventEmitter } from "events";
-import { EventType } from "@hyperscape/shared";
+
+const generateUUID = (): UUID => crypto.randomUUID() as UUID;
+
+interface Client {}
 
 /**
  * HyperscapeClientInterface - ElizaOS Agent Game Client
@@ -87,6 +87,7 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
   }
 
   async start(): Promise<void> {
+    console.log(`[HyperscapeClient] Starting connection to ${this.url}`);
     await this.connect();
   }
 
@@ -164,42 +165,33 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
     });
   }
 
-  private async handleMessage(message: {
-    type: string;
-    data: {
-      playerId?: string;
-      text?: string;
-      playerName?: string;
-      playerEmoji?: string;
-      timestamp?: number;
-      [key: string]: string | number | boolean | undefined;
-    };
-  }): Promise<void> {
+  private async handleMessage(message: any): Promise<void> {
     switch (message.type) {
       case "chat_message":
         // Process incoming chat message
-        if (message.data.playerId && message.data.playerId !== this.agentId) {
+        if (message.data.playerId !== this.agentId) {
           const memory: Memory = {
             id: generateUUID(),
             entityId: this.agentId as UUID,
             agentId: this.agentId as UUID,
             roomId: generateUUID(),
             content: {
-              text: (message.data.text as string) || "",
-              playerName: (message.data.playerName as string) || "Unknown",
-              playerEmoji: (message.data.playerEmoji as string) || "",
+              text: message.data.text,
+              playerName: message.data.playerName,
+              playerEmoji: message.data.playerEmoji,
             },
-            createdAt: message.data.timestamp
-              ? new Date(message.data.timestamp).getTime()
-              : Date.now(),
+            createdAt: new Date(message.data.timestamp).getTime(),
           };
+
+          // Emit event for runtime to process
+          this.emit("message", memory);
         }
         break;
     }
   }
 
-  private getAvailableActions(context: Record<string, unknown>): string[] {
-    const actions = [];
+  private getAvailableActions(context: any): string[] {
+    const actions: string[] = [];
 
     actions.push("HYPERSCAPE_GOTO_ENTITY"); // Move to tasks
 
@@ -209,10 +201,7 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
     return actions;
   }
 
-  private sendAction(
-    action: string,
-    data?: Record<string, string | number | boolean>,
-  ): void {
+  private sendAction(action: string, data?: any): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     this.ws.send(
@@ -236,9 +225,14 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
 
     // Emit message event for monitoring if runtime supports it
     if ("emit" in this.runtime && typeof this.runtime.emit === "function") {
-      this.runtime.emit(EventType.NETWORK_MESSAGE_RECEIVED, {
-        content: { text },
-      });
+      // Use EventType from @hyperscape/shared if available, otherwise use string
+      const eventType = "NETWORK_MESSAGE_RECEIVED";
+      (this.runtime as { emit: (type: string, data: unknown) => void }).emit(
+        eventType,
+        {
+          content: { text },
+        },
+      );
     }
   }
 

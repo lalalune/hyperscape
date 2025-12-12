@@ -53,7 +53,7 @@ async function ensureCDNRunning() {
 
     // Copy PhysX assets to CDN directory
     console.log(`${colors.dim}Copying PhysX assets...${colors.reset}`)
-    const assetsWebDir = path.join(rootDir, 'assets/web')
+    const assetsWebDir = path.join(rootDir, 'packages/server/world/assets/web')
     await fs.promises.mkdir(assetsWebDir, { recursive: true })
     
     const physxWasm = path.join(rootDir, 'node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.wasm')
@@ -78,7 +78,7 @@ async function ensureCDNRunning() {
     const maxAttempts = 30
     while (attempts < maxAttempts) {
       try {
-        const healthRes = await fetch('http://localhost:8088/health')
+        const healthRes = await fetch('http://localhost:8080/health')
         if (healthRes.ok) {
           console.log(`${colors.green}✓ CDN is healthy and ready${colors.reset}`)
           return true

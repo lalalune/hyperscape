@@ -1,277 +1,515 @@
 /**
  * index.tsx - Hyperscape Client Entry Point
- * 
+ *
  * Main entry point for the Hyperscape browser client. Initializes the React application,
  * authentication, and 3D game world. Handles the complete client lifecycle from login
  * to world connection.
- * 
- * Application Flow:
- * 1. **Authentication** (if enabled):
- *    - Privy authentication (crypto wallet or email/social login)
- *    - Character selection screen
- *    - Pre-world WebSocket connection for character list
- * 
- * 2. **World Initialization**:
- *    - Create Hyperscape World instance
- *    - Connect to server via WebSocket
- *    - Load game assets (models, textures, audio)
- *    - Initialize physics, graphics, audio systems
- * 
- * 3. **Gameplay**:
- *    - Render 3D world with Three.js
- *    - Handle player input (keyboard, mouse, touch)
- *    - Receive server updates (player positions, combat, etc.)
- *    - Render React UI overlay (inventory, chat, settings)
- * 
- * Key Features:
- * - **Privy Authentication**: Optional crypto wallet or social login
- * - **Farcaster Frame v2**: Social media embeds with play button
- * - **Player Token System**: Persistent player ID across sessions
- * - **Character System**: Multiple characters per account
- * - **Error Reporting**: Automatic crash reporting and error boundaries
- * - **Hot Module Replacement**: Fast development iteration
- * 
- * Environment Variables:
- * - PUBLIC_PRIVY_APP_ID: Privy application ID (optional)
- * - PUBLIC_WS_URL: WebSocket server URL (default: ws://localhost:5555/ws)
- * - PUBLIC_CDN_URL: CDN URL for assets (default: /assets/)
- * - PUBLIC_ENABLE_FARCASTER: Enable Farcaster frame support
- * - PUBLIC_APP_URL: Public app URL for Farcaster
- * - PUBLIC_API_URL: API server URL
- * 
- * Architecture:
- * - React for UI rendering
- * - Hyperscape World for game logic
- * - Three.js for 3D graphics
- * - PhysX (WASM) for physics simulation
- * - WebSocket for real-time networking
- * 
- * Usage:
- * This file is automatically loaded by Vite as the application entry point.
- * See vite.config.ts for build configuration.
- * 
- * References: world-client.tsx (World setup), PrivyAuthProvider.tsx, CharacterSelectPage.tsx
  */
 
-import { CircularSpawnArea, installThreeJSExtensions, THREE, World } from '@hyperscape/shared'
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { ErrorBoundary } from './ErrorBoundary'
-import './index.css'
-import { playerTokenManager } from './PlayerTokenManager'
-import { Client } from './world-client'
-
-// Privy Authentication
-import { CharacterSelectPage } from './components/CharacterSelectPage'
-import { LoginScreen } from './components/LoginScreen'
-import { PrivyAuthProvider } from './components/PrivyAuthProvider'
-import { privyAuthManager } from './PrivyAuthManager'
-
-// Farcaster Frame v2
-import { injectFarcasterMetaTags } from './farcaster-frame-config'
+import {
+  CircularSpawnArea,
+  installThreeJSExtensions,
+  THREE,
+  World,
+} from "@hyperscape/shared";
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { ErrorBoundary } from "./lib/ErrorBoundary";
+import "./index.css";
+import { PrivyAuthProvider } from "./auth/PrivyAuthProvider";
+import { playerTokenManager } from "./auth/PlayerTokenManager";
+import { privyAuthManager } from "./auth/PrivyAuthManager";
+import { injectFarcasterMetaTags } from "./lib/farcaster-frame-config";
+import { GameClient } from "./screens/GameClient";
+import { LoginScreen } from "./screens/LoginScreen";
+import { CharacterSelectScreen } from "./screens/CharacterSelectScreen";
+import { UsernameSelectionScreen } from "./screens/UsernameSelectionScreen";
+import { EmbeddedGameClient } from "./components/EmbeddedGameClient";
+import { isEmbeddedMode } from "./types/embeddedConfig";
 
 // Buffer polyfill for Privy (required for crypto operations in browser)
-import { Buffer } from 'buffer'
+import { Buffer } from "buffer";
 if (!globalThis.Buffer) {
-  (globalThis as { Buffer?: typeof Buffer }).Buffer = Buffer
+  (globalThis as { Buffer?: typeof Buffer }).Buffer = Buffer;
+}
+
+// setImmediate polyfill for Privy/Viem
+if (!globalThis.setImmediate) {
+  (
+    globalThis as {
+      setImmediate?: (
+        cb: (...args: unknown[]) => void,
+        ...args: unknown[]
+      ) => NodeJS.Timeout;
+    }
+  ).setImmediate = (cb: (...args: unknown[]) => void, ...args: unknown[]) =>
+    setTimeout(cb, 0, ...args);
+}
+
+// Parse URL parameters for embedded configuration
+const urlParams = new URLSearchParams(window.location.search);
+const isEmbedded = urlParams.get("embedded") === "true";
+
+if (isEmbedded) {
+  (window as { __HYPERSCAPE_EMBEDDED__?: boolean }).__HYPERSCAPE_EMBEDDED__ =
+    true;
+
+  // Construct config from URL params
+  const config = {
+    agentId: urlParams.get("agentId") || "",
+    authToken: urlParams.get("authToken") || "",
+    characterId: urlParams.get("characterId") || undefined,
+    wsUrl: urlParams.get("wsUrl") || "ws://localhost:5555/ws",
+    mode: (urlParams.get("mode") as "spectator" | "play") || "spectator",
+    followEntity: urlParams.get("followEntity") || undefined,
+    hiddenUI: urlParams.get("hiddenUI")
+      ? urlParams.get("hiddenUI")?.split(",")
+      : undefined,
+    quality:
+      (urlParams.get("quality") as "low" | "medium" | "high") || "medium",
+    sessionToken: urlParams.get("sessionToken") || "",
+    privyUserId: urlParams.get("privyUserId") || undefined,
+  };
+
+  (window as { __HYPERSCAPE_CONFIG__?: typeof config }).__HYPERSCAPE_CONFIG__ =
+    config;
+  console.log("[Hyperscape] Configured from URL params:", config);
 }
 
 // Set global environment flags
-(globalThis as typeof globalThis & { isBrowser?: boolean; isServer?: boolean }).isBrowser = true;
-(globalThis as typeof globalThis & { isBrowser?: boolean; isServer?: boolean }).isServer = false;
+(
+  globalThis as typeof globalThis & { isBrowser?: boolean; isServer?: boolean }
+).isBrowser = true;
+(
+  globalThis as typeof globalThis & { isBrowser?: boolean; isServer?: boolean }
+).isServer = false;
 
-// Declare global types
+// Global window extensions
 declare global {
   interface Window {
-    THREE?: typeof THREE
-    world?: InstanceType<typeof World>
+    THREE?: typeof THREE;
+    world?: InstanceType<typeof World>;
+    testChat?: () => void;
+    Hyperscape?: {
+      CircularSpawnArea: typeof CircularSpawnArea;
+    };
+    privyLogout?: () => Promise<void> | void;
   }
 }
 
-// Vite environment variables (PUBLIC_ prefix is configured in vite.config.ts)
+// Vite environment variables
 interface ImportMetaEnv {
-  readonly PUBLIC_PRIVY_APP_ID?: string
-  readonly PUBLIC_WS_URL?: string
-  readonly PUBLIC_CDN_URL?: string
-  readonly PUBLIC_ENABLE_FARCASTER?: string
-  readonly PUBLIC_APP_URL?: string
-  readonly PUBLIC_API_URL?: string
+  readonly PUBLIC_PRIVY_APP_ID?: string;
+  readonly PUBLIC_WS_URL?: string;
+  readonly PUBLIC_CDN_URL?: string;
+  readonly PUBLIC_ENABLE_FARCASTER?: string;
+  readonly PUBLIC_APP_URL?: string;
+  readonly PUBLIC_API_URL?: string;
+  readonly PUBLIC_ELIZAOS_URL?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface ImportMeta {
-  readonly env: ImportMetaEnv
+  readonly env: ImportMetaEnv;
 }
 
-installThreeJSExtensions()
+// Install Three.js extensions
+installThreeJSExtensions();
 
+/**
+ * Clean up corrupted Privy localStorage data
+ * Prevents JSON parse errors from malformed data
+ */
+function cleanupCorruptedPrivyData(): void {
+  try {
+    const corruptedKeys: string[] = [];
 
-// Initialize error reporting as early as possible
+    // Our custom keys that store plain strings (not JSON)
+    const plainStringKeys = new Set([
+      "privy_user_id",
+      "privy_auth_token",
+      "farcaster_fid",
+    ]);
+
+    // Check each localStorage key for corruption
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+
+      // Only check Privy SDK keys (not our custom plain string keys)
+      if (key.startsWith("privy:") && !plainStringKeys.has(key)) {
+        try {
+          const value = localStorage.getItem(key);
+          if (value) {
+            // Try to parse as JSON - if it fails, it's corrupted
+            JSON.parse(value);
+          }
+        } catch (parseError) {
+          // Found corrupted data
+          const errorStr =
+            parseError instanceof Error
+              ? parseError.message
+              : String(parseError);
+          if (
+            errorStr.includes("setImmedia") ||
+            errorStr.includes("Unexpected token")
+          ) {
+            console.warn(`[App] 🧹 Found corrupted localStorage key: ${key}`);
+            corruptedKeys.push(key);
+          }
+        }
+      }
+    }
+
+    // Remove corrupted keys
+    if (corruptedKeys.length > 0) {
+      console.log(
+        `[App] 🧹 Cleaning up ${corruptedKeys.length} corrupted Privy keys`,
+      );
+      corruptedKeys.forEach((key) => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.warn(`[App] Failed to remove corrupted key ${key}:`, e);
+        }
+      });
+    }
+  } catch (error) {
+    console.error("[App] Error during localStorage cleanup:", error);
+  }
+}
+
+// Run cleanup on app load
+cleanupCorruptedPrivyData();
 
 function App() {
-  // Determine Privy availability early so we can gate initial render
-  const appId = import.meta.env.PUBLIC_PRIVY_APP_ID || ''
-  const privyEnabled = appId.length > 0 && !appId.includes('your-privy-app-id')
+  // Determine Privy availability
+  const appId = import.meta.env.PUBLIC_PRIVY_APP_ID || "";
+  const privyEnabled = appId.length > 0 && !appId.includes("your-privy-app-id");
 
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false)
-  const [authState, setAuthState] = React.useState(privyAuthManager.getState())
-  // Default to showing character page first when Privy is enabled to avoid racing the world mount
-  const [showCharacterPage, setShowCharacterPage] = React.useState<boolean>(privyEnabled)
-    
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [authState, setAuthState] = React.useState(privyAuthManager.getState());
+  const [showCharacterPage, setShowCharacterPage] =
+    React.useState<boolean>(privyEnabled);
+  const [hasUsername, setHasUsername] = React.useState<boolean | null>(null); // null = checking, true/false = result
+  const [isCheckingUsername, setIsCheckingUsername] = React.useState(false);
+
   // Subscribe to auth state changes
   React.useEffect(() => {
-    const unsubscribe = privyAuthManager.subscribe(setAuthState)
-    // Restore auth from storage on mount
-    privyAuthManager.restoreFromStorage()
-    // Inject Farcaster meta tags if enabled
-    injectFarcasterMetaTags()
-    return unsubscribe
-  }, [])
+    const unsubscribe = privyAuthManager.subscribe(setAuthState);
+    privyAuthManager.restoreFromStorage();
+    injectFarcasterMetaTags();
+    return unsubscribe;
+  }, []);
 
-  // When auth becomes available (including restored), show pre-world character page first
+  // Check if user has a username when authenticated
   React.useEffect(() => {
-    if (authState.isAuthenticated) setShowCharacterPage(true)
-  }, [authState.isAuthenticated])
+    const checkUsername = async () => {
+      if (!authState.isAuthenticated) {
+        setHasUsername(null);
+        return;
+      }
 
-  // Pre-world WebSocket is handled inside CharacterSelectPage to avoid duplication
+      const accountId = localStorage.getItem("privy_user_id");
+      if (!accountId) {
+        console.warn("[App] No privy_user_id found in localStorage");
+        setHasUsername(false);
+        return;
+      }
 
+      setIsCheckingUsername(true);
+
+      try {
+        // Check if user exists in database
+        const response = await fetch(
+          `http://localhost:5555/api/users/check?accountId=${encodeURIComponent(accountId)}`,
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setHasUsername(data.exists);
+          console.log(
+            `[App] User ${accountId} ${data.exists ? "has" : "does not have"} username`,
+          );
+        } else {
+          console.error("[App] Failed to check username:", response.statusText);
+          setHasUsername(false);
+        }
+      } catch (error) {
+        console.error("[App] Error checking username:", error);
+        setHasUsername(false);
+      } finally {
+        setIsCheckingUsername(false);
+      }
+    };
+
+    checkUsername();
+  }, [authState.isAuthenticated]);
+
+  // Show character page when authenticated and has username
   React.useEffect(() => {
-    const token = playerTokenManager.getOrCreatePlayerToken('Player');
-    const session = playerTokenManager.startSession();
+    if (authState.isAuthenticated && hasUsername === true) {
+      setShowCharacterPage(true);
+    }
+  }, [authState.isAuthenticated, hasUsername]);
+
+  // Initialize player token
+  React.useEffect(() => {
+    playerTokenManager.getOrCreatePlayerToken("Player");
+    playerTokenManager.startSession();
 
     return () => {
       playerTokenManager.endSession();
     };
   }, []);
 
-  // Direct connection to game server (no Vite proxy)
-  const wsUrl = 
-    import.meta.env.PUBLIC_WS_URL || 
-    'ws://localhost:5555/ws'
-  
-    
-  // Add a ref to verify the component is mounting
-  const appRef = React.useRef<HTMLDivElement>(null)
+  const wsUrl = import.meta.env.PUBLIC_WS_URL || "ws://localhost:5555/ws";
+  const appRef = React.useRef<HTMLDivElement>(null);
 
-  // Handle authentication callback
   const handleAuthenticated = React.useCallback(() => {
-    setIsAuthenticated(true)
-    setShowCharacterPage(true)
-  }, [])
+    setIsAuthenticated(true);
+  }, []);
+
+  const handleUsernameSelected = React.useCallback((username: string) => {
+    console.log(`[App] Username selected: ${username}`);
+    setHasUsername(true);
+    setShowCharacterPage(true);
+  }, []);
 
   const handleLogout = React.useCallback(() => {
-    // Immediately clear local auth so UI updates without a second click
-    privyAuthManager.clearAuth()
-    setIsAuthenticated(false)
-    setShowCharacterPage(false)
-    // Fire and forget provider logout to invalidate Privy session
-    const debugWindow = window as Window & { privyLogout?: () => Promise<void> | void }
-    debugWindow.privyLogout?.()
-  }, [])
+    console.log("[App] 🚪 Logging out...");
 
-  // Pre-world actions are managed by CharacterSelectPage
+    try {
+      // Clear Privy auth manager first
+      privyAuthManager.clearAuth();
 
-  // Memoize the onSetup callback to prevent re-initialization
-  const handleSetup = React.useCallback((world: InstanceType<typeof World>, _config: unknown) => {
-    // Make world accessible globally for debugging
-    const globalWindow = window as Window & { 
-      world?: InstanceType<typeof World>
-      THREE?: typeof THREE
-      testChat?: () => void
-      Hyperscape?: Record<string, unknown>
-    };
-    globalWindow.world = world;
-    globalWindow.THREE = THREE;
-    globalWindow.Hyperscape = {};
-    globalWindow.Hyperscape.CircularSpawnArea = CircularSpawnArea;
-    
-    // Add chat test function
-    globalWindow.testChat = () => {
-      const chat = world.getSystem('chat') as { send?: (msg: string) => void } | null
-      const network = world.getSystem('network') as { id?: string; isClient?: boolean; send?: unknown } | null
-      
-      
-      const testMsg = 'Test message from console at ' + new Date().toLocaleTimeString();
-      chat?.send?.(testMsg);
-    };
-  }, [])
+      // Clear potentially corrupted Privy localStorage keys
+      // This prevents JSON parse errors from corrupted data
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key.startsWith("privy:") ||
+            key.startsWith("privy_") ||
+            key.includes("privy") ||
+            key.includes("wallet"))
+        ) {
+          keysToRemove.push(key);
+        }
+      }
 
-  // privyEnabled computed above
+      console.log(
+        `[App] 🧹 Clearing ${keysToRemove.length} Privy localStorage keys`,
+      );
+      keysToRemove.forEach((key) => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.warn(`[App] Failed to remove key ${key}:`, e);
+        }
+      });
 
-  // Show login screen if Privy is enabled and user is not authenticated
+      // Update React state
+      setIsAuthenticated(false);
+      setShowCharacterPage(false);
+      setHasUsername(null);
+
+      // Attempt Privy logout (wrapped in try-catch to handle errors gracefully)
+      try {
+        window.privyLogout?.();
+      } catch (privyError) {
+        console.warn(
+          "[App] ⚠️ Privy logout error (safe to ignore):",
+          privyError,
+        );
+      }
+
+      console.log("[App] ✅ Logout complete - reloading page for clean state");
+
+      // Force reload to ensure completely clean state
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
+    } catch (error) {
+      console.error("[App] ❌ Error during logout:", error);
+      // Even if logout fails, force reload for clean state
+      window.location.href = "/";
+    }
+  }, []);
+
+  const handleSetup = React.useCallback(
+    (world: InstanceType<typeof World>, _config: unknown) => {
+      // Extend window with debug utilities
+      window.world = world;
+      window.THREE = THREE;
+      window.Hyperscape = {
+        CircularSpawnArea,
+      };
+
+      window.testChat = () => {
+        const chat = world.getSystem("chat") as {
+          send?: (msg: string) => void;
+        } | null;
+        chat?.send?.(
+          "Test message from console at " + new Date().toLocaleTimeString(),
+        );
+      };
+    },
+    [],
+  );
+
+  // Show login screen if Privy enabled and not authenticated
   if (privyEnabled && !isAuthenticated && !authState.isAuthenticated) {
     return (
       <div ref={appRef} data-component="app-root">
         <LoginScreen onAuthenticated={handleAuthenticated} />
       </div>
-    )
+    );
   }
-  
-  // RuneScape-style pre-world character page: always show first when toggled
-  if (showCharacterPage) {
+
+  // Show username selection for new users (authenticated but no username yet)
+  if (
+    privyEnabled &&
+    authState.isAuthenticated &&
+    hasUsername === false &&
+    !isCheckingUsername
+  ) {
     return (
       <div ref={appRef} data-component="app-root">
-        <CharacterSelectPage
+        <UsernameSelectionScreen onUsernameSelected={handleUsernameSelected} />
+      </div>
+    );
+  }
+
+  // Show character selection (only if Privy enabled and user has username)
+  if (showCharacterPage && privyEnabled && hasUsername === true) {
+    return (
+      <div ref={appRef} data-component="app-root">
+        <CharacterSelectScreen
           wsUrl={wsUrl}
-          onPlay={(id) => { 
+          onPlay={(id) => {
             if (id) {
-              localStorage.setItem('selectedCharacterId', id)
+              localStorage.setItem("selectedCharacterId", id);
             }
-            setShowCharacterPage(false)
+            setShowCharacterPage(false);
           }}
           onLogout={handleLogout}
         />
       </div>
-    )
+    );
   }
 
+  // Show loading screen while checking auth status (prevent GameClient from loading prematurely)
+  if (privyEnabled && (hasUsername === null || isCheckingUsername)) {
+    return (
+      <div
+        ref={appRef}
+        data-component="app-root"
+        className="flex items-center justify-center h-screen bg-black"
+      >
+        <div className="text-[#f2d08a] text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show game (when Privy disabled, skip character selection and go straight to game)
+  // The client will automatically send enterWorld without characterId for dev mode
   return (
     <div ref={appRef} data-component="app-root">
-      <ErrorBoundary>
-        <Client wsUrl={wsUrl} onSetup={handleSetup} />
-      </ErrorBoundary>
+      <GameClient wsUrl={wsUrl} onSetup={handleSetup} />
     </div>
-  )
+  );
 }
 
+import { DashboardScreen } from "./screens/DashboardScreen";
+import { CharacterEditorScreen } from "./screens/CharacterEditorScreen";
+
 function mountApp() {
-  const rootElement = document.getElementById('root')!
-  
-  const root = ReactDOM.createRoot(rootElement)
-  
-  root.render(
-    <PrivyAuthProvider>
-      <App />
-    </PrivyAuthProvider>
-  )
-  
+  const rootElement = document.getElementById("root")!;
+  const root = ReactDOM.createRoot(rootElement);
+
+  // Check if running in embedded viewport mode
+  if (isEmbeddedMode()) {
+    console.log(
+      "[Hyperscape] Embedded mode detected - rendering EmbeddedGameClient",
+    );
+
+    // Render embedded game client directly (no auth screens)
+    root.render(
+      <ErrorBoundary>
+        <EmbeddedGameClient />
+      </ErrorBoundary>,
+    );
+  } else {
+    // Check for special page modes
+    const urlParams = new URLSearchParams(window.location.search);
+    const page = urlParams.get("page");
+
+    if (page === "dashboard") {
+      console.log(
+        "[Hyperscape] Dashboard mode detected - rendering DashboardScreen",
+      );
+      root.render(
+        <ErrorBoundary>
+          <PrivyAuthProvider>
+            <DashboardScreen />
+          </PrivyAuthProvider>
+        </ErrorBoundary>,
+      );
+    } else if (page === "character-editor") {
+      console.log(
+        "[Hyperscape] Character editor mode detected - rendering CharacterEditorScreen",
+      );
+      root.render(
+        <ErrorBoundary>
+          <PrivyAuthProvider>
+            <CharacterEditorScreen />
+          </PrivyAuthProvider>
+        </ErrorBoundary>,
+      );
+    } else {
+      // Normal mode - render full app with auth
+      root.render(
+        <ErrorBoundary>
+          <PrivyAuthProvider>
+            <App />
+          </PrivyAuthProvider>
+        </ErrorBoundary>,
+      );
+    }
+  }
+
   // Verify render completion
   const verifyRender = (attempts = 0) => {
-    const maxAttempts = 10
-    const hasContent = rootElement.innerHTML.length > 0
-    
+    const maxAttempts = 10;
+    const hasContent = rootElement.innerHTML.length > 0;
+
     if (hasContent) {
-      return
+      return;
     }
-    
+
     if (attempts < maxAttempts) {
-      requestAnimationFrame(() => verifyRender(attempts + 1))
-      return
+      requestAnimationFrame(() => verifyRender(attempts + 1));
+      return;
     }
-    
+
     // Should never reach here - React render failed
-    throw new Error('React app mounted but no content rendered after multiple attempts')
-  }
-  
+    throw new Error(
+      "React app mounted but no content rendered after multiple attempts",
+    );
+  };
+
   setTimeout(() => {
-    requestAnimationFrame(() => verifyRender(0))
-  }, 0)
+    requestAnimationFrame(() => verifyRender(0));
+  }, 0);
 }
 
 // Ensure DOM is ready before mounting
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        mountApp()
-  })
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    mountApp();
+  });
 } else {
-    mountApp()
+  mountApp();
 }

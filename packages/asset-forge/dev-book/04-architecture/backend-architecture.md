@@ -785,7 +785,7 @@ export class RetextureService {
 app.use((req, res, next) => {
   const origin = process.env.NODE_ENV === 'production'
     ? process.env.FRONTEND_URL || '*'
-    : req.headers.origin || 'http://localhost:3000'
+    : req.headers.origin || 'http://localhost:3003'
 
   res.header('Access-Control-Allow-Origin', origin)
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')

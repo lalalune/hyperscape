@@ -199,6 +199,7 @@ export class MultiAgentManager extends EventEmitter {
     // Set up message routing between agents
     for (const agent of this.agents.values()) {
       const messageManager = agent.service.getMessageManager();
+      if (!messageManager) continue;
 
       // Override message handler to broadcast to other agents
       const originalHandler = messageManager.handleMessage.bind(messageManager);
@@ -219,27 +220,79 @@ export class MultiAgentManager extends EventEmitter {
    * Broadcast a message from one agent to others
    */
   private broadcastMessage(fromAgentId: UUID, message: ChatMessage): void {
+    const senderAgent = this.agents.get(fromAgentId);
+
     for (const [agentId, agent] of this.agents) {
       if (agentId !== fromAgentId && agent.status === "connected") {
-        // Simulate receiving message from another agent
-        const messageManager = agent.service.getMessageManager();
-        const agentMessage = {
+        // Create agent-to-agent message with full metadata
+        const agentMessage: ChatMessage = {
           ...message,
           fromId: fromAgentId,
-          from: this.agents.get(fromAgentId)?.name || "Unknown Agent",
+          from: senderAgent?.name || "Unknown Agent",
           isFromAgent: true,
+          agentId: fromAgentId,
+          chatType: (message as { chatType?: string }).chatType || "global",
         };
 
-        messageManager
-          .handleMessage(agentMessage)
-          .catch((error) =>
-            logger.error(
-              `Error broadcasting message to agent ${agent.name}:`,
-              error,
-            ),
-          );
+        const targetMessageManager = agent.service.getMessageManager();
+        if (targetMessageManager) {
+          targetMessageManager
+            .handleMessage(agentMessage)
+            .catch((error) =>
+              logger.error(
+                `Error broadcasting message to agent ${agent.name}:`,
+                error,
+              ),
+            );
+        }
       }
     }
+  }
+
+  /**
+   * Send a direct message between agents
+   */
+  async sendDirectMessage(
+    fromAgentId: UUID,
+    toAgentId: UUID,
+    text: string,
+  ): Promise<boolean> {
+    const fromAgent = this.agents.get(fromAgentId);
+    const toAgent = this.agents.get(toAgentId);
+
+    if (!fromAgent || !toAgent) {
+      logger.warn(`[MultiAgentManager] Agent not found for direct message`);
+      return false;
+    }
+
+    if (toAgent.status !== "connected") {
+      logger.warn(
+        `[MultiAgentManager] Target agent ${toAgent.name} not connected`,
+      );
+      return false;
+    }
+
+    const message: ChatMessage = {
+      id: crypto.randomUUID(),
+      from: fromAgent.name,
+      fromId: fromAgentId,
+      body: text,
+      text: text,
+      timestamp: Date.now(),
+      createdAt: new Date().toISOString(),
+      isFromAgent: true,
+      agentId: fromAgentId,
+      chatType: "whisper",
+      targetId: toAgentId,
+    };
+
+    const targetMessageManager = toAgent.service.getMessageManager();
+    if (targetMessageManager) {
+      await targetMessageManager.handleMessage(message);
+      return true;
+    }
+
+    return false;
   }
 
   /**

@@ -1,43 +1,72 @@
-import { Brain, ChevronRight, Plus, Trash2, Sparkles, Save, Edit2, Palette, Wand2, Check, FileText, Layers, X } from 'lucide-react'
-import React, { useState } from 'react'
+import {
+  Brain,
+  ChevronRight,
+  Plus,
+  Trash2,
+  Sparkles,
+  Save,
+  Edit2,
+  Palette,
+  Wand2,
+  Check,
+  FileText,
+  Layers,
+  X,
+} from "lucide-react";
+import React, { useState } from "react";
 
-import { cn } from '../../styles'
-import { CustomAssetType } from '../../types/generation'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input, Textarea } from '../common'
+import { cn } from "../../styles";
+import { CustomAssetType } from "../../types/generation";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Button,
+  Input,
+  Textarea,
+} from "../common";
 
 interface AdvancedPromptsCardProps {
-  showAdvancedPrompts: boolean
-  showAssetTypeEditor: boolean
-  generationType: 'item' | 'avatar' | undefined
-  defaultAssetTypes?: string[]
-  assetType?: string
-  customGamePrompt: string
-  customAssetTypePrompt: string
-  assetTypePrompts?: Record<string, string>
-  customAssetTypes?: CustomAssetType[]
+  showAdvancedPrompts: boolean;
+  showAssetTypeEditor: boolean;
+  generationType: "item" | "avatar" | undefined;
+  defaultAssetTypes?: string[];
+  assetType?: string;
+  customGamePrompt: string;
+  customAssetTypePrompt: string;
+  assetTypePrompts?: Record<string, string>;
+  customAssetTypes?: CustomAssetType[];
   loadedPrompts?: {
-    avatar?: string
-    item?: string
-  }
-  gameStyle?: string
-  customStyle?: string | null
-  currentStylePrompt?: string
-  gameStylePrompts?: any // Add proper type later
-  onToggleAdvancedPrompts: () => void
-  onToggleAssetTypeEditor: () => void
-  onCustomGamePromptChange: (value: string) => void
-  onCustomAssetTypePromptChange: (value: string) => void
-  onAssetTypePromptsChange?: (prompts: Record<string, string>) => void
-  onCustomAssetTypesChange?: (types: CustomAssetType[]) => void
-  onAddCustomAssetType?: (type: CustomAssetType) => void
-  onSaveCustomAssetTypes?: () => void
-  onSaveCustomGameStyle?: (id: string, style: {
-    name: string
-    base: string
-    enhanced?: string
-  }) => Promise<boolean>
-  onDeleteCustomGameStyle?: (id: string) => Promise<boolean>
-  onDeleteCustomAssetType?: (id: string, generationType: 'avatar' | 'item') => Promise<boolean>
+    avatar?: string;
+    item?: string;
+  };
+  gameStyle?: string;
+  customStyle?: string | null;
+  currentStylePrompt?: string;
+  gameStylePrompts?: any; // Add proper type later
+  onToggleAdvancedPrompts: () => void;
+  onToggleAssetTypeEditor: () => void;
+  onCustomGamePromptChange: (value: string) => void;
+  onCustomAssetTypePromptChange: (value: string) => void;
+  onAssetTypePromptsChange?: (prompts: Record<string, string>) => void;
+  onCustomAssetTypesChange?: (types: CustomAssetType[]) => void;
+  onAddCustomAssetType?: (type: CustomAssetType) => void;
+  onSaveCustomAssetTypes?: () => void;
+  onSaveCustomGameStyle?: (
+    id: string,
+    style: {
+      name: string;
+      base: string;
+      enhanced?: string;
+    },
+  ) => Promise<boolean>;
+  onDeleteCustomGameStyle?: (id: string) => Promise<boolean>;
+  onDeleteCustomAssetType?: (
+    id: string,
+    generationType: "avatar" | "item",
+  ) => Promise<boolean>;
 }
 
 export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
@@ -64,22 +93,25 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
   onSaveCustomAssetTypes,
   onSaveCustomGameStyle,
   onDeleteCustomGameStyle,
-  onDeleteCustomAssetType
+  onDeleteCustomAssetType,
 }) => {
-  const defaultAssetTypes = generationType === 'avatar' 
-    ? ['character', 'humanoid', 'npc', 'creature'] 
-    : ['weapon', 'armor', 'tool', 'building', 'consumable', 'resource']
-  
-  const [activeTab, setActiveTab] = useState<'quick' | 'styles' | 'types'>('quick')
-  const [showStyleCreator, setShowStyleCreator] = useState(false)
-  const [newStyleName, setNewStyleName] = useState('')
-  const [newStyleBase, setNewStyleBase] = useState('')
-  const [newStyleEnhanced, setNewStyleEnhanced] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
+  const defaultAssetTypes =
+    generationType === "avatar"
+      ? ["character", "humanoid", "npc", "creature"]
+      : ["weapon", "armor", "tool", "building", "consumable", "resource"];
+
+  const [activeTab, setActiveTab] = useState<"quick" | "styles" | "types">(
+    "quick",
+  );
+  const [showStyleCreator, setShowStyleCreator] = useState(false);
+  const [newStyleName, setNewStyleName] = useState("");
+  const [newStyleBase, setNewStyleBase] = useState("");
+  const [newStyleEnhanced, setNewStyleEnhanced] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   return (
     <Card className="overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-primary/5 border-border-primary shadow-lg">
-      <CardHeader 
+      <CardHeader
         className="cursor-pointer select-none hover:bg-bg-secondary/30 transition-all duration-200"
         onClick={onToggleAdvancedPrompts}
       >
@@ -89,44 +121,50 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
               <Brain className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">Prompt Studio</CardTitle>
-              <CardDescription className="text-xs mt-0.5">Customize generation prompts</CardDescription>
+              <CardTitle className="text-lg font-semibold">
+                Prompt Studio
+              </CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Customize generation prompts
+              </CardDescription>
             </div>
           </div>
-          <ChevronRight className={cn(
-            "w-5 h-5 text-text-secondary transition-transform duration-200",
-            showAdvancedPrompts && "rotate-90"
-          )} />
+          <ChevronRight
+            className={cn(
+              "w-5 h-5 text-text-secondary transition-transform duration-200",
+              showAdvancedPrompts && "rotate-90",
+            )}
+          />
         </div>
       </CardHeader>
-      
+
       {showAdvancedPrompts && (
         <CardContent className="p-0">
           {/* Sleek Tab Navigation */}
           <div className="flex bg-bg-secondary/20 backdrop-blur-sm">
             <TabButton
-              active={activeTab === 'quick'}
-              onClick={() => setActiveTab('quick')}
+              active={activeTab === "quick"}
+              onClick={() => setActiveTab("quick")}
               icon={<FileText className="w-4 h-4" />}
               label="Quick Edit"
             />
             <TabButton
-              active={activeTab === 'styles'}
-              onClick={() => setActiveTab('styles')}
+              active={activeTab === "styles"}
+              onClick={() => setActiveTab("styles")}
               icon={<Palette className="w-4 h-4" />}
               label="Styles"
             />
             <TabButton
-              active={activeTab === 'types'}
-              onClick={() => setActiveTab('types')}
+              active={activeTab === "types"}
+              onClick={() => setActiveTab("types")}
               icon={<Layers className="w-4 h-4" />}
-              label={generationType === 'avatar' ? 'Characters' : 'Assets'}
+              label={generationType === "avatar" ? "Characters" : "Assets"}
             />
           </div>
 
           <div className="animate-fade-in">
             {/* Quick Edit Tab */}
-            {activeTab === 'quick' && (
+            {activeTab === "quick" && (
               <div className="p-6 space-y-5">
                 {/* Current Style Info */}
                 {currentStylePrompt && (
@@ -152,13 +190,14 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
                 {/* Asset Type Details */}
                 <PromptSection
                   icon={<Wand2 className="w-4 h-4" />}
-                  title={`${generationType === 'avatar' ? 'Character' : 'Asset'} Details`}
+                  title={`${generationType === "avatar" ? "Character" : "Asset"} Details`}
                   description="Add type-specific details"
                   value={customAssetTypePrompt}
                   onChange={onCustomAssetTypePromptChange}
-                  placeholder={generationType === 'avatar' 
-                    ? loadedPrompts?.avatar || "Character-specific details..."
-                    : loadedPrompts?.item || "Asset-specific details..."
+                  placeholder={
+                    generationType === "avatar"
+                      ? loadedPrompts?.avatar || "Character-specific details..."
+                      : loadedPrompts?.item || "Asset-specific details..."
                   }
                   rows={2}
                   variant="secondary"
@@ -167,25 +206,30 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
             )}
 
             {/* Styles Tab */}
-            {activeTab === 'styles' && (
+            {activeTab === "styles" && (
               <div className="p-6 space-y-6">
                 {/* Custom Styles List */}
-                {gameStylePrompts?.custom && Object.keys(gameStylePrompts.custom).length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-text-secondary">Your Custom Styles</h3>
-                    <div className="grid grid-cols-1 gap-3">
-                      {Object.entries(gameStylePrompts.custom).map(([id, style]) => (
-                        <CustomStyleCard
-                          key={id}
-                          id={id}
-                          style={style}
-                          onDelete={onDeleteCustomGameStyle}
-                        />
-                      ))}
+                {gameStylePrompts?.custom &&
+                  Object.keys(gameStylePrompts.custom).length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium text-text-secondary">
+                        Your Custom Styles
+                      </h3>
+                      <div className="grid grid-cols-1 gap-3">
+                        {Object.entries(gameStylePrompts.custom).map(
+                          ([id, style]) => (
+                            <CustomStyleCard
+                              key={id}
+                              id={id}
+                              style={style}
+                              onDelete={onDeleteCustomGameStyle}
+                            />
+                          ),
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-                
+                  )}
+
                 {!showStyleCreator ? (
                   <div className="text-center py-8">
                     <Button
@@ -207,29 +251,36 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
                     onBaseChange={setNewStyleBase}
                     onEnhancedChange={setNewStyleEnhanced}
                     onSave={async () => {
-                      if (!newStyleName || !newStyleBase || !onSaveCustomGameStyle) return
-                      
-                      setIsSaving(true)
-                      const styleId = newStyleName.toLowerCase().replace(/\s+/g, '-')
+                      if (
+                        !newStyleName ||
+                        !newStyleBase ||
+                        !onSaveCustomGameStyle
+                      )
+                        return;
+
+                      setIsSaving(true);
+                      const styleId = newStyleName
+                        .toLowerCase()
+                        .replace(/\s+/g, "-");
                       const success = await onSaveCustomGameStyle(styleId, {
                         name: newStyleName,
                         base: newStyleBase,
-                        enhanced: newStyleEnhanced || newStyleBase
-                      })
-                      
+                        enhanced: newStyleEnhanced || newStyleBase,
+                      });
+
                       if (success) {
-                        setNewStyleName('')
-                        setNewStyleBase('')
-                        setNewStyleEnhanced('')
-                        setShowStyleCreator(false)
+                        setNewStyleName("");
+                        setNewStyleBase("");
+                        setNewStyleEnhanced("");
+                        setShowStyleCreator(false);
                       }
-                      setIsSaving(false)
+                      setIsSaving(false);
                     }}
                     onCancel={() => {
-                      setShowStyleCreator(false)
-                      setNewStyleName('')
-                      setNewStyleBase('')
-                      setNewStyleEnhanced('')
+                      setShowStyleCreator(false);
+                      setNewStyleName("");
+                      setNewStyleBase("");
+                      setNewStyleEnhanced("");
                     }}
                   />
                 )}
@@ -237,7 +288,7 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
             )}
 
             {/* Types Tab */}
-            {activeTab === 'types' && (
+            {activeTab === "types" && (
               <div className="p-6">
                 <TypesEditor
                   generationType={generationType}
@@ -256,15 +307,15 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
         </CardContent>
       )}
     </Card>
-  )
-}
+  );
+};
 
 // Tab Button Component
 const TabButton: React.FC<{
-  active: boolean
-  onClick: () => void
-  icon: React.ReactNode
-  label: string
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
 }> = ({ active, onClick, icon, label }) => (
   <button
     onClick={onClick}
@@ -273,7 +324,7 @@ const TabButton: React.FC<{
       "hover:bg-bg-secondary/50 focus:outline-none relative group",
       active
         ? "text-primary bg-bg-primary/50"
-        : "text-text-secondary hover:text-text-primary"
+        : "text-text-secondary hover:text-text-primary",
     )}
   >
     <div className="flex items-center justify-center gap-2">
@@ -284,26 +335,30 @@ const TabButton: React.FC<{
       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
     )}
   </button>
-)
+);
 
 // Info Card Component
 const InfoCard: React.FC<{
-  icon: React.ReactNode
-  title: string
-  content: string
-  variant?: 'primary' | 'secondary'
-}> = ({ icon, title, content, variant = 'primary' }) => (
-  <div className={cn(
-    "p-4 rounded-xl border backdrop-blur-sm",
-    variant === 'primary' 
-      ? "bg-primary/5 border-primary/20" 
-      : "bg-secondary/5 border-secondary/20"
-  )}>
+  icon: React.ReactNode;
+  title: string;
+  content: string;
+  variant?: "primary" | "secondary";
+}> = ({ icon, title, content, variant = "primary" }) => (
+  <div
+    className={cn(
+      "p-4 rounded-xl border backdrop-blur-sm",
+      variant === "primary"
+        ? "bg-primary/5 border-primary/20"
+        : "bg-secondary/5 border-secondary/20",
+    )}
+  >
     <div className="flex items-start gap-3">
-      <div className={cn(
-        "p-2 rounded-lg",
-        variant === 'primary' ? "bg-primary/10" : "bg-secondary/10"
-      )}>
+      <div
+        className={cn(
+          "p-2 rounded-lg",
+          variant === "primary" ? "bg-primary/10" : "bg-secondary/10",
+        )}
+      >
         {icon}
       </div>
       <div className="flex-1">
@@ -314,25 +369,36 @@ const InfoCard: React.FC<{
       </div>
     </div>
   </div>
-)
+);
 
 // Prompt Section Component
 const PromptSection: React.FC<{
-  icon: React.ReactNode
-  title: string
-  description: string
-  value: string
-  onChange: (value: string) => void
-  placeholder: string
-  rows?: number
-  variant?: 'primary' | 'secondary'
-}> = ({ icon, title, description, value, onChange, placeholder, rows = 3, variant = 'primary' }) => (
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  rows?: number;
+  variant?: "primary" | "secondary";
+}> = ({
+  icon,
+  title,
+  description,
+  value,
+  onChange,
+  placeholder,
+  rows = 3,
+  variant = "primary",
+}) => (
   <div className="space-y-3">
     <div className="flex items-center gap-2">
-      <div className={cn(
-        "p-1.5 rounded-lg",
-        variant === 'primary' ? "bg-primary/10" : "bg-secondary/10"
-      )}>
+      <div
+        className={cn(
+          "p-1.5 rounded-lg",
+          variant === "primary" ? "bg-primary/10" : "bg-secondary/10",
+        )}
+      >
         {icon}
       </div>
       <div>
@@ -348,50 +414,48 @@ const PromptSection: React.FC<{
       className={cn(
         "w-full resize-none bg-bg-secondary/50 border-border-primary",
         "focus:ring-2 transition-all",
-        variant === 'primary' 
-          ? "focus:border-primary focus:ring-primary/20" 
-          : "focus:border-secondary focus:ring-secondary/20"
+        variant === "primary"
+          ? "focus:border-primary focus:ring-primary/20"
+          : "focus:border-secondary focus:ring-secondary/20",
       )}
     />
   </div>
-)
+);
 
 // Empty State Component
 const _EmptyState: React.FC<{
-  icon: React.ReactNode
-  title: string
-  description: string
-  actionLabel: string
-  onAction: () => void
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  actionLabel: string;
+  onAction: () => void;
 }> = ({ icon, title, description, actionLabel, onAction }) => (
   <div className="text-center py-12">
     <div className="inline-flex p-4 bg-bg-secondary rounded-full text-text-tertiary mb-4">
       {icon}
     </div>
     <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
-    <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto">{description}</p>
-    <Button
-      variant="primary"
-      onClick={onAction}
-      className="gap-2"
-    >
+    <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto">
+      {description}
+    </p>
+    <Button variant="primary" onClick={onAction} className="gap-2">
       <Plus className="w-4 h-4" />
       {actionLabel}
     </Button>
   </div>
-)
+);
 
 // Style Creator Component
 const StyleCreator: React.FC<{
-  newStyleName: string
-  newStyleBase: string
-  newStyleEnhanced: string
-  isSaving: boolean
-  onNameChange: (value: string) => void
-  onBaseChange: (value: string) => void
-  onEnhancedChange: (value: string) => void
-  onSave: () => void
-  onCancel: () => void
+  newStyleName: string;
+  newStyleBase: string;
+  newStyleEnhanced: string;
+  isSaving: boolean;
+  onNameChange: (value: string) => void;
+  onBaseChange: (value: string) => void;
+  onEnhancedChange: (value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
 }> = ({
   newStyleName,
   newStyleBase,
@@ -401,7 +465,7 @@ const StyleCreator: React.FC<{
   onBaseChange,
   onEnhancedChange,
   onSave,
-  onCancel
+  onCancel,
 }) => (
   <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
     <CardHeader className="pb-4">
@@ -422,7 +486,9 @@ const StyleCreator: React.FC<{
     </CardHeader>
     <CardContent className="space-y-4">
       <div>
-        <label className="text-sm font-medium text-text-primary mb-2 block">Name</label>
+        <label className="text-sm font-medium text-text-primary mb-2 block">
+          Name
+        </label>
         <Input
           value={newStyleName}
           onChange={(e) => onNameChange(e.target.value)}
@@ -430,9 +496,11 @@ const StyleCreator: React.FC<{
           className="bg-bg-primary"
         />
       </div>
-      
+
       <div>
-        <label className="text-sm font-medium text-text-primary mb-2 block">Base Prompt</label>
+        <label className="text-sm font-medium text-text-primary mb-2 block">
+          Base Prompt
+        </label>
         <Textarea
           value={newStyleBase}
           onChange={(e) => onBaseChange(e.target.value)}
@@ -441,10 +509,11 @@ const StyleCreator: React.FC<{
           className="bg-bg-primary resize-none"
         />
       </div>
-      
+
       <div>
         <label className="text-sm font-medium text-text-primary mb-2 block">
-          Enhanced <span className="text-xs text-text-secondary">(Optional)</span>
+          Enhanced{" "}
+          <span className="text-xs text-text-secondary">(Optional)</span>
         </label>
         <Textarea
           value={newStyleEnhanced}
@@ -454,7 +523,7 @@ const StyleCreator: React.FC<{
           className="bg-bg-primary resize-none"
         />
       </div>
-      
+
       <Button
         variant="primary"
         onClick={onSave}
@@ -475,19 +544,22 @@ const StyleCreator: React.FC<{
       </Button>
     </CardContent>
   </Card>
-)
+);
 
 // Types Editor Component
 const TypesEditor: React.FC<{
-  generationType: 'item' | 'avatar' | undefined
-  defaultAssetTypes: string[]
-  assetTypePrompts: Record<string, string>
-  customAssetTypes: CustomAssetType[]
-  onAssetTypePromptsChange?: (prompts: Record<string, string>) => void
-  onCustomAssetTypesChange?: (types: CustomAssetType[]) => void
-  onAddCustomAssetType?: (type: CustomAssetType) => void
-  onSaveCustomAssetTypes?: () => void
-  onDeleteCustomAssetType?: (id: string, generationType: 'avatar' | 'item') => Promise<boolean>
+  generationType: "item" | "avatar" | undefined;
+  defaultAssetTypes: string[];
+  assetTypePrompts: Record<string, string>;
+  customAssetTypes: CustomAssetType[];
+  onAssetTypePromptsChange?: (prompts: Record<string, string>) => void;
+  onCustomAssetTypesChange?: (types: CustomAssetType[]) => void;
+  onAddCustomAssetType?: (type: CustomAssetType) => void;
+  onSaveCustomAssetTypes?: () => void;
+  onDeleteCustomAssetType?: (
+    id: string,
+    generationType: "avatar" | "item",
+  ) => Promise<boolean>;
 }> = ({
   generationType,
   defaultAssetTypes,
@@ -497,29 +569,42 @@ const TypesEditor: React.FC<{
   onCustomAssetTypesChange,
   onAddCustomAssetType,
   onSaveCustomAssetTypes,
-  onDeleteCustomAssetType
+  onDeleteCustomAssetType,
 }) => {
-  const allDefaultTypes = ['character', 'humanoid', 'npc', 'creature', 'weapon', 'armor', 'tool', 'building', 'consumable', 'resource']
-  const savedCustomTypes = Object.entries(assetTypePrompts).filter(([key]) => !allDefaultTypes.includes(key))
+  const allDefaultTypes = [
+    "character",
+    "humanoid",
+    "npc",
+    "creature",
+    "weapon",
+    "armor",
+    "tool",
+    "building",
+    "consumable",
+    "resource",
+  ];
+  const savedCustomTypes = Object.entries(assetTypePrompts).filter(
+    ([key]) => !allDefaultTypes.includes(key),
+  );
 
   return (
     <div className="space-y-6">
       {/* Default Types Grid */}
       <div>
         <h3 className="text-sm font-medium text-text-secondary mb-3">
-          Default {generationType === 'avatar' ? 'Characters' : 'Assets'}
+          Default {generationType === "avatar" ? "Characters" : "Assets"}
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {defaultAssetTypes.map(type => (
+          {defaultAssetTypes.map((type) => (
             <TypeCard
               key={type}
               type={type}
-              value={assetTypePrompts[type] || ''}
+              value={assetTypePrompts[type] || ""}
               onChange={(value) => {
                 onAssetTypePromptsChange?.({
                   ...assetTypePrompts,
-                  [type]: value
-                })
+                  [type]: value,
+                });
               }}
               isDefault
             />
@@ -543,13 +628,18 @@ const TypesEditor: React.FC<{
                 onChange={(value) => {
                   onAssetTypePromptsChange?.({
                     ...assetTypePrompts,
-                    [key]: value
-                  })
+                    [key]: value,
+                  });
                 }}
                 isCustom
-                onDelete={generationType && onDeleteCustomAssetType ? 
-                  () => onDeleteCustomAssetType(key, generationType as 'avatar' | 'item') 
-                  : undefined
+                onDelete={
+                  generationType && onDeleteCustomAssetType
+                    ? () =>
+                        onDeleteCustomAssetType(
+                          key,
+                          generationType as "avatar" | "item",
+                        )
+                    : undefined
                 }
               />
             ))}
@@ -561,7 +651,7 @@ const TypesEditor: React.FC<{
       {customAssetTypes.length === 0 ? (
         <Button
           variant="secondary"
-          onClick={() => onAddCustomAssetType?.({ name: '', prompt: '' })}
+          onClick={() => onAddCustomAssetType?.({ name: "", prompt: "" })}
           className="w-full gap-2 border-2 border-dashed hover:border-primary"
         >
           <Plus className="w-4 h-4" />
@@ -576,10 +666,10 @@ const TypesEditor: React.FC<{
                 placeholder="Name"
                 value={type.name}
                 onChange={(e) => {
-                  const updated = customAssetTypes.map((t, i) => 
-                    i === index ? { ...t, name: e.target.value } : t
-                  )
-                  onCustomAssetTypesChange?.(updated)
+                  const updated = customAssetTypes.map((t, i) =>
+                    i === index ? { ...t, name: e.target.value } : t,
+                  );
+                  onCustomAssetTypesChange?.(updated);
                 }}
                 className="w-32"
               />
@@ -587,10 +677,10 @@ const TypesEditor: React.FC<{
                 placeholder="Prompt"
                 value={type.prompt}
                 onChange={(e) => {
-                  const updated = customAssetTypes.map((t, i) => 
-                    i === index ? { ...t, prompt: e.target.value } : t
-                  )
-                  onCustomAssetTypesChange?.(updated)
+                  const updated = customAssetTypes.map((t, i) =>
+                    i === index ? { ...t, prompt: e.target.value } : t,
+                  );
+                  onCustomAssetTypesChange?.(updated);
                 }}
                 className="flex-1"
               />
@@ -598,7 +688,9 @@ const TypesEditor: React.FC<{
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  onCustomAssetTypesChange?.(customAssetTypes.filter((_, i) => i !== index))
+                  onCustomAssetTypesChange?.(
+                    customAssetTypes.filter((_, i) => i !== index),
+                  );
                 }}
                 className="text-error hover:bg-error/10"
               >
@@ -606,19 +698,19 @@ const TypesEditor: React.FC<{
               </Button>
             </div>
           ))}
-          
+
           <div className="flex gap-2">
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => onAddCustomAssetType?.({ name: '', prompt: '' })}
+              onClick={() => onAddCustomAssetType?.({ name: "", prompt: "" })}
               className="flex-1"
             >
               <Plus className="w-3 h-3 mr-1" />
               Add More
             </Button>
-            
-            {customAssetTypes.filter(t => t.name && t.prompt).length > 0 && (
+
+            {customAssetTypes.filter((t) => t.name && t.prompt).length > 0 && (
               <Button
                 variant="primary"
                 size="sm"
@@ -633,31 +725,31 @@ const TypesEditor: React.FC<{
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
 // Custom Style Card Component
 const CustomStyleCard: React.FC<{
-  id: string
-  style: any
-  onDelete?: (id: string) => Promise<boolean>
+  id: string;
+  style: any;
+  onDelete?: (id: string) => Promise<boolean>;
 }> = ({ id, style, onDelete }) => {
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleDelete = async () => {
-    if (!onDelete) return
-    
-    setIsDeleting(true)
+    if (!onDelete) return;
+
+    setIsDeleting(true);
     try {
-      const success = await onDelete(id)
+      const success = await onDelete(id);
       if (success) {
-        setShowConfirm(false)
+        setShowConfirm(false);
       }
     } finally {
-      setIsDeleting(false)
+      setIsDeleting(false);
     }
-  }
+  };
 
   return (
     <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
@@ -670,7 +762,9 @@ const CustomStyleCard: React.FC<{
             </h4>
             <p className="text-xs text-text-secondary mt-1">{style.base}</p>
             {style.enhanced && style.enhanced !== style.base && (
-              <p className="text-xs text-text-tertiary mt-1 italic">Enhanced: {style.enhanced}</p>
+              <p className="text-xs text-text-tertiary mt-1 italic">
+                Enhanced: {style.enhanced}
+              </p>
             )}
           </div>
           {onDelete && (
@@ -714,46 +808,48 @@ const CustomStyleCard: React.FC<{
         </div>
       </CardContent>
     </Card>
-  )
-}
+  );
+};
 
 // Type Card Component
 const TypeCard: React.FC<{
-  type: string
-  value: string
-  onChange: (value: string) => void
-  isDefault?: boolean
-  isCustom?: boolean
-  onDelete?: () => Promise<boolean>
+  type: string;
+  value: string;
+  onChange: (value: string) => void;
+  isDefault?: boolean;
+  isCustom?: boolean;
+  onDelete?: () => Promise<boolean>;
 }> = ({ type, value, onChange, isDefault: _isDefault, isCustom, onDelete }) => {
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleDelete = async () => {
-    if (!onDelete) return
-    
-    setIsDeleting(true)
+    if (!onDelete) return;
+
+    setIsDeleting(true);
     try {
-      const success = await onDelete()
+      const success = await onDelete();
       if (success) {
-        setShowConfirm(false)
+        setShowConfirm(false);
       }
     } finally {
-      setIsDeleting(false)
+      setIsDeleting(false);
     }
-  }
+  };
 
   return (
-    <div className={cn(
-      "p-3 rounded-lg border transition-all",
-      isCustom 
-        ? "bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20"
-        : "bg-bg-secondary/50 border-border-primary hover:border-border-secondary"
-    )}>
+    <div
+      className={cn(
+        "p-3 rounded-lg border transition-all",
+        isCustom
+          ? "bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20"
+          : "bg-bg-secondary/50 border-border-primary hover:border-border-secondary",
+      )}
+    >
       <div className="flex items-start justify-between gap-2 mb-2">
         <label className="text-sm font-medium text-text-primary capitalize flex items-center gap-2">
           {isCustom && <Sparkles className="w-3 h-3 text-primary" />}
-          {type.replace(/-/g, ' ')}
+          {type.replace(/-/g, " ")}
         </label>
         {isCustom && onDelete && (
           <div>
@@ -801,7 +897,7 @@ const TypeCard: React.FC<{
         className="bg-bg-primary text-sm"
       />
     </div>
-  )
-}
+  );
+};
 
-export default AdvancedPromptsCard
+export default AdvancedPromptsCard;

@@ -1,14 +1,14 @@
 /**
  * @fileoverview NFT Drop System
  * @module hyperscape/server/blockchain/NFTDropSystem
- * 
+ *
  * Handles burning NFTs to drop items back into the game world.
  * When a player burns an NFT, this system:
  * 1. Listens for burn events from HyperscapeItems contract
  * 2. Spawns the item entity in the game world
  * 3. Other players can pick up the dropped item
  * 4. Item can be re-minted by new owner
- * 
+ *
  * Security:
  * - Only reacts to verified on-chain burn events
  * - Instance ID is unmarked as minted
@@ -16,8 +16,8 @@
  * - Re-minting requires new signature
  */
 
-import { ethers, Contract, EventLog } from 'ethers';
-import type { Log } from 'ethers';
+import { ethers, Contract, EventLog } from "ethers";
+import type { Log } from "ethers";
 
 export interface NFTBurnEvent {
   player: string;
@@ -52,16 +52,17 @@ export class NFTDropSystem {
 
   // HyperscapeItems ABI (minimal, just what we need)
   private static readonly ABI = [
-    'event ItemBurned(address indexed player, uint256 indexed tokenId, bytes32 instanceId)',
-    'function getItemMetadata(uint256 tokenId) view returns (tuple(string itemId, bytes32 instanceId, uint16 attack, uint16 defense, uint16 strength, uint8 rarity, uint64 mintedAt))'
+    "event ItemBurned(address indexed player, uint256 indexed tokenId, bytes32 instanceId)",
+    "function getItemMetadata(uint256 tokenId) view returns (tuple(string itemId, bytes32 instanceId, uint16 attack, uint16 defense, uint16 strength, uint8 rarity, uint64 mintedAt))",
   ];
 
-  constructor(
-    rpcUrl: string,
-    contractAddress: string
-  ) {
+  constructor(rpcUrl: string, contractAddress: string) {
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
-    this.contract = new Contract(contractAddress, NFTDropSystem.ABI, this.provider);
+    this.contract = new Contract(
+      contractAddress,
+      NFTDropSystem.ABI,
+      this.provider,
+    );
   }
 
   /**
@@ -69,7 +70,7 @@ export class NFTDropSystem {
    */
   async startListening(onDrop: (drop: ItemDropConfig) => void): Promise<void> {
     if (this.isListening) {
-      console.warn('[NFTDropSystem] Already listening');
+      console.warn("[NFTDropSystem] Already listening");
       return;
     }
 
@@ -77,28 +78,36 @@ export class NFTDropSystem {
     this.isListening = true;
 
     // Listen for new burn events
-    this.contract.on('ItemBurned', async (player: string, tokenId: bigint, instanceId: string, event: Log) => {
-      console.log('[NFTDropSystem] NFT burned:', {
-        player,
-        tokenId: tokenId.toString(),
-        instanceId: instanceId.substring(0, 20) + '...',
-        block: event.blockNumber
-      });
+    this.contract.on(
+      "ItemBurned",
+      async (
+        player: string,
+        tokenId: bigint,
+        instanceId: string,
+        event: Log,
+      ) => {
+        console.log("[NFTDropSystem] NFT burned:", {
+          player,
+          tokenId: tokenId.toString(),
+          instanceId: instanceId.substring(0, 20) + "...",
+          block: event.blockNumber,
+        });
 
-      await this.handleBurnEvent({
-        player,
-        tokenId,
-        instanceId,
-        timestamp: Date.now(),
-        blockNumber: event.blockNumber || 0,
-        transactionHash: event.transactionHash || ''
-      });
-    });
+        await this.handleBurnEvent({
+          player,
+          tokenId,
+          instanceId,
+          timestamp: Date.now(),
+          blockNumber: event.blockNumber || 0,
+          transactionHash: event.transactionHash || "",
+        });
+      },
+    );
 
     // Also check for recent burns we might have missed
     await this.syncRecentBurns();
 
-    console.log('[NFTDropSystem] Started listening for NFT burns');
+    console.log("[NFTDropSystem] Started listening for NFT burns");
   }
 
   /**
@@ -107,11 +116,11 @@ export class NFTDropSystem {
   stopListening(): void {
     if (!this.isListening) return;
 
-    this.contract.removeAllListeners('ItemBurned');
+    this.contract.removeAllListeners("ItemBurned");
     this.isListening = false;
     this.onDropCallback = undefined;
 
-    console.log('[NFTDropSystem] Stopped listening');
+    console.log("[NFTDropSystem] Stopped listening");
   }
 
   /**
@@ -119,7 +128,7 @@ export class NFTDropSystem {
    */
   private async handleBurnEvent(event: NFTBurnEvent): Promise<void> {
     if (!this.onDropCallback) {
-      console.warn('[NFTDropSystem] No callback registered');
+      console.warn("[NFTDropSystem] No callback registered");
       return;
     }
 
@@ -127,36 +136,35 @@ export class NFTDropSystem {
       // Get metadata about the burned item
       // Note: This will fail for already-burned tokens, which is expected
       // We'll need to store metadata before burn or get it from events
-      
+
       // For now, we'll create a drop with default position (player's last known position)
       // In production, burn transaction should include position data
-      
+
       const drop: ItemDropConfig = {
         instanceId: event.instanceId,
-        itemId: 'unknown', // Should be retrieved from game state or event data
+        itemId: "unknown", // Should be retrieved from game state or event data
         position: {
           x: 0, // Should be from burn transaction or player position
           y: 0,
-          z: 0
+          z: 0,
         },
         stats: {
           attack: 0, // Should be from stored metadata
           defense: 0,
-          strength: 0
+          strength: 0,
         },
-        rarity: 0
+        rarity: 0,
       };
 
       // Call the callback to spawn the item in-game
       this.onDropCallback(drop);
 
-      console.log('[NFTDropSystem] Item dropped in world:', {
-        instanceId: event.instanceId.substring(0, 20) + '...',
-        player: event.player.substring(0, 10) + '...'
+      console.log("[NFTDropSystem] Item dropped in world:", {
+        instanceId: event.instanceId.substring(0, 20) + "...",
+        player: event.player.substring(0, 10) + "...",
       });
-
     } catch (error) {
-      console.error('[NFTDropSystem] Error handling burn event:', error);
+      console.error("[NFTDropSystem] Error handling burn event:", error);
     }
   }
 
@@ -168,30 +176,38 @@ export class NFTDropSystem {
       const currentBlock = await this.provider.getBlockNumber();
       const fromBlock = Math.max(0, currentBlock - 1000);
 
-      console.log('[NFTDropSystem] Syncing burns from block', fromBlock, 'to', currentBlock);
+      console.log(
+        "[NFTDropSystem] Syncing burns from block",
+        fromBlock,
+        "to",
+        currentBlock,
+      );
 
       const filter = this.contract.filters.ItemBurned();
-      const events = await this.contract.queryFilter(filter, fromBlock, currentBlock);
+      const events = await this.contract.queryFilter(
+        filter,
+        fromBlock,
+        currentBlock,
+      );
 
-      console.log('[NFTDropSystem] Found', events.length, 'recent burn events');
+      console.log("[NFTDropSystem] Found", events.length, "recent burn events");
 
       for (const event of events) {
         if (event instanceof EventLog) {
           const { player, tokenId, instanceId } = event.args;
-          
+
           await this.handleBurnEvent({
             player: player as string,
             tokenId: tokenId as bigint,
             instanceId: instanceId as string,
             timestamp: Date.now(),
             blockNumber: event.blockNumber,
-            transactionHash: event.transactionHash
+            transactionHash: event.transactionHash,
           });
         }
       }
-
     } catch (error) {
-      console.error('[NFTDropSystem] Error syncing recent burns:', error);
+      console.error("[NFTDropSystem] Error syncing recent burns:", error);
     }
   }
 
@@ -201,7 +217,7 @@ export class NFTDropSystem {
   async testDrop(drop: ItemDropConfig): Promise<void> {
     if (this.onDropCallback) {
       this.onDropCallback(drop);
-      console.log('[NFTDropSystem] Test drop triggered');
+      console.log("[NFTDropSystem] Test drop triggered");
     }
   }
 
@@ -233,7 +249,7 @@ export class NFTDropIntegration {
   async initialize(
     rpcUrl: string,
     contractAddress: string,
-    onItemSpawn: (drop: ItemDropConfig) => void
+    onItemSpawn: (drop: ItemDropConfig) => void,
   ): Promise<void> {
     this.itemSpawnCallback = onItemSpawn;
     this.dropSystem = new NFTDropSystem(rpcUrl, contractAddress);
@@ -242,7 +258,7 @@ export class NFTDropIntegration {
       this.handleDrop(drop);
     });
 
-    console.log('[NFTDropIntegration] Initialized and listening for NFT drops');
+    console.log("[NFTDropIntegration] Initialized and listening for NFT drops");
   }
 
   /**
@@ -250,14 +266,14 @@ export class NFTDropIntegration {
    */
   private handleDrop(drop: ItemDropConfig): void {
     if (!this.itemSpawnCallback) {
-      console.warn('[NFTDropIntegration] No spawn callback registered');
+      console.warn("[NFTDropIntegration] No spawn callback registered");
       return;
     }
 
-    console.log('[NFTDropIntegration] Processing NFT drop:', {
-      instanceId: drop.instanceId.substring(0, 20) + '...',
+    console.log("[NFTDropIntegration] Processing NFT drop:", {
+      instanceId: drop.instanceId.substring(0, 20) + "...",
       itemId: drop.itemId,
-      position: drop.position
+      position: drop.position,
     });
 
     // Spawn the item in the game world
@@ -276,7 +292,7 @@ export class NFTDropIntegration {
       this.dropSystem.stopListening();
       this.dropSystem = undefined;
     }
-    console.log('[NFTDropIntegration] Shutdown complete');
+    console.log("[NFTDropIntegration] Shutdown complete");
   }
 
   /**
@@ -289,12 +305,12 @@ export class NFTDropIntegration {
 
 /**
  * Example usage in game server:
- * 
+ *
  * ```typescript
  * import { NFTDropIntegration } from './blockchain/NFTDropSystem';
- * 
+ *
  * const nftDrops = new NFTDropIntegration();
- * 
+ *
  * await nftDrops.initialize(
  *   'http://localhost:8545',
  *   '0xHyperscapeItemsAddress',
@@ -313,4 +329,3 @@ export class NFTDropIntegration {
  * );
  * ```
  */
-

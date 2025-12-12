@@ -1,9 +1,9 @@
-import { type Address, type Hex, encodePacked, keccak256 } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { type Address, type Hex, encodePacked, keccak256 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 
 /**
  * ItemMintingService
- * 
+ *
  * Handles item minting from MUD game state to ERC-1155 NFTs.
  * Generates signatures for Items.mintItem() and syncs minted status.
  */
@@ -18,7 +18,7 @@ export class ItemMintingService {
 
   /**
    * Generate signature for player to mint item to ERC-1155
-   * 
+   *
    * Flow:
    * 1. Player has item in MUD inventory
    * 2. Player requests mint signature from server
@@ -45,9 +45,9 @@ export class ItemMintingService {
     // sign(keccak256(abi.encodePacked(msg.sender, itemId, amount, instanceId)))
     const messageHash = keccak256(
       encodePacked(
-        ['address', 'uint256', 'uint256', 'bytes32'],
-        [player, BigInt(itemId), BigInt(amount), instanceId]
-      )
+        ["address", "uint256", "uint256", "bytes32"],
+        [player, BigInt(itemId), BigInt(amount), instanceId],
+      ),
     );
 
     const account = privateKeyToAccount(this.gameSignerKey);
@@ -71,15 +71,15 @@ export class ItemMintingService {
     // keccak256(abi.encodePacked(player, itemId, slot, "hyperscape"))
     return keccak256(
       encodePacked(
-        ['address', 'uint16', 'uint8', 'string'],
-        [player, itemId, slot, 'hyperscape']
-      )
+        ["address", "uint16", "uint8", "string"],
+        [player, itemId, slot, "hyperscape"],
+      ),
     );
   }
 
   /**
    * Sync minted item status to MUD after ItemMinted event
-   * 
+   *
    * Called by event listener when Items.ItemMinted fires.
    */
   async syncMintedItem(event: {
@@ -90,7 +90,7 @@ export class ItemMintingService {
   }): Promise<void> {
     // This should call MUD World's NFTIntegrationSystem.markItemAsMinted
     // Implementation depends on MUD client setup
-    console.log('[ItemMinting] Syncing minted item:', {
+    console.log("[ItemMinting] Syncing minted item:", {
       minter: event.minter,
       itemId: event.itemId,
       instanceId: event.instanceId,
@@ -101,4 +101,3 @@ export class ItemMintingService {
     // await mudWorld.write.hyperscape__markItemAsMinted([event.instanceId, event.itemId]);
   }
 }
-

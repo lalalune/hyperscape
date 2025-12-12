@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-bun.lock
 package-lock.json
 yarn.lock
 
@@ -62,10 +61,27 @@ assets/
 logs/
 .cache-synpress
 
-# 3D Models from hyperscape/assets repository
+# 3D Models and Avatars - downloaded from separate assets repo
+packages/server/world/assets/
 packages/client/src/public/models/
 packages/client/dist/models/
 
+# Claude Code and Cursor IDE development files (keep locally, not in git)
+# Allow .claude/settings.json and .claude/README.md for marketplace configuration
 
-.cursor/rules/kluster-code-verify.mdc
+
+# Development documentation (temporary notes, not main docs)
+# Keep: README.md, CLAUDE.md, LORE.md
+CHARACTER_DASHBOARD_SYNC.md
+CHARACTER_SELECTION_ROUTING.md
+DASHBOARD_SETUP.md
+WALLET_JWT_FIX_SUMMARY.md
+clear-users.sql
+
+# Symlinks
+/world
+
+# Kluster
 .kluster
+
+logs/

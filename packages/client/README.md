@@ -420,7 +420,7 @@ The RPG is built using Hyperscape's Entity Component System:
 - **CombatSystem**: Battle mechanics and damage
 - **InventorySystem**: Item management
 - **XPSystem**: Skill progression
-- **MobSystem**: Monster AI and spawning
+- **MobNPCSystem**: Monster AI and spawning
 - **BankingSystem**: Storage and transactions
 - **StoreSystem**: Shop functionality
 - **ResourceSystem**: Gathering mechanics

@@ -7,13 +7,12 @@ import {
 } from "@elizaos/core";
 import type { HyperscapeService } from "../service";
 import { World, Entity } from "../types/core-types";
-import { ChatMessage } from "../types";
+import { ChatMessage } from "../types/core-types";
 import {
   composeContext,
   generateMessageResponse,
   shouldRespond,
 } from "../utils/ai-helpers";
-import { handleMessage } from "../handlers/native-message-handler";
 
 type HyperscapePlayerData = Entity & {
   metadata?: {
@@ -25,12 +24,7 @@ type HyperscapePlayerData = Entity & {
     appearance?: {
       avatar?: string;
     };
-    [key: string]:
-      | string
-      | number
-      | boolean
-      | Record<string, unknown>
-      | undefined;
+    [key: string]: any;
   };
 };
 
@@ -42,12 +36,7 @@ type ElizaEntityWithHyperscape = ElizaEntity & {
     hyperscape?: {
       name?: string;
     };
-    [key: string]:
-      | string
-      | number
-      | boolean
-      | Record<string, unknown>
-      | undefined;
+    [key: string]: any;
   };
 };
 
@@ -78,10 +67,16 @@ export class MessageManager {
   }
 
   async handleMessage(msg: ChatMessage): Promise<void> {
+    const chatType = (msg as { chatType?: string }).chatType || "global";
+    const isFromAgent = (msg as { isFromAgent?: boolean }).isFromAgent || false;
+    const senderAgentId = (msg as { agentId?: string }).agentId;
+
     console.info("[MessageManager] Processing message:", {
       id: msg.id,
       userId: msg.userId,
       username: msg.username,
+      chatType,
+      isFromAgent,
       text: msg.text?.substring(0, 100) + (msg.text?.length > 100 ? "..." : ""),
     });
 
@@ -89,9 +84,26 @@ export class MessageManager {
     const world = service.getWorld()!;
 
     // Skip messages from this agent
-    if (msg.userId === this.runtime.agentId) {
+    if (
+      msg.userId === this.runtime.agentId ||
+      senderAgentId === this.runtime.agentId
+    ) {
       console.debug("[MessageManager] Skipping own message");
       return;
+    }
+
+    // Handle whisper messages - only respond if we're the target
+    if (chatType === "whisper") {
+      const targetId = (msg as { targetId?: string }).targetId;
+      const playerEntity = service.getPlayerEntity();
+      if (
+        targetId &&
+        targetId !== playerEntity?.id &&
+        targetId !== this.runtime.agentId
+      ) {
+        console.debug("[MessageManager] Whisper not for us, ignoring");
+        return;
+      }
     }
 
     // Convert chat message to Memory format
@@ -101,7 +113,7 @@ export class MessageManager {
       agentId: this.runtime.agentId,
       content: {
         text: msg.text,
-        source: "hyperscape_chat",
+        source: isFromAgent ? "agent_message" : "hyperscape_chat",
       },
       roomId: world.entities.player!.data.id as UUID,
       createdAt: new Date(msg.createdAt).getTime(),
@@ -111,37 +123,95 @@ export class MessageManager {
           username: msg.username,
           name: msg.username,
           worldId: service.currentWorldId!,
+          chatType,
+          isFromAgent,
+          senderAgentId,
         },
         username: msg.username,
         avatar: msg.avatar,
         userId: msg.userId,
+        isFromAgent,
       },
     };
 
-    // Save message to memory first
-    await this.runtime.createMemory(memory, "messages");
+    // Compose state for response generation
+    const state = await this.runtime.composeState(memory);
 
-    // Process through native message handler (decoupled from bootstrap)
-    // This handles message processing internally within plugin-hyperscape
-    await handleMessage({
+    // Check if we should respond to this message
+    const shouldRespondToMessage = await shouldRespond(
+      this.runtime,
+      memory,
+      state,
+    );
+
+    if (!shouldRespondToMessage) {
+      console.debug("[MessageManager] Determined not to respond to message");
+      // Still save the message to memory even if not responding
+      await this.runtime.createMemory(memory, "messages");
+      return;
+    }
+
+    console.info("[MessageManager] Generating response to message");
+
+    // Generate response using enhanced context
+    const context = await composeContext({
+      state,
+      template: `
+# Hyperscape Chat Response Instructions
+
+You are an AI agent in a 3D virtual world called Hyperscape. You're chatting with other players in real-time.
+
+## Current Context
+Sender: {{senderEntity.name}} ({{senderEntity.id}})
+Message: "{{content.text}}"
+World State: {{worldContext}}
+Recent Chat History: {{recentMessages}}
+
+## Response Guidelines
+- Be conversational and engaging
+- Reference the virtual world context when relevant
+- Keep responses concise but meaningful
+- Show interest in other players and their activities
+- Ask follow-up questions to encourage conversation
+- Be helpful and friendly
+
+Generate a natural chat response that fits the conversation flow.
+        `,
+    });
+
+    const response = await generateMessageResponse({
       runtime: this.runtime,
-      message: memory,
-      callback: async (response) => {
-        if (response && response.text) {
-          // Send response back to Hyperscape world
-          await this.sendMessage(response.text);
+      context,
+      modelType: ModelType.TEXT_LARGE,
+    });
 
-          console.info("[MessageManager] Response sent:", {
-            originalMessage: msg.text?.substring(0, 50) + "...",
-            response: response.text?.substring(0, 50) + "...",
-            action: response.action || "none",
-          });
-        }
-        return [];
+    // Create response memory
+    const responseMemory: Memory = {
+      id: crypto.randomUUID() as UUID,
+      entityId: this.runtime.agentId,
+      agentId: this.runtime.agentId,
+      content: {
+        text: response.text,
+        source: "agent_response",
       },
-      onComplete: () => {
-        console.debug("[MessageManager] Message processing complete");
+      roomId: memory.roomId,
+      createdAt: Date.now(),
+      metadata: {
+        type: "message",
+        inReplyTo: memory.id,
       },
+    };
+
+    // Save both original message and response to memory
+    await this.runtime.createMemory(memory, "messages");
+    await this.runtime.createMemory(responseMemory, "messages");
+
+    // Send the response via chat
+    await this.sendMessage(response.text);
+
+    console.info("[MessageManager] Response sent:", {
+      originalMessage: msg.text?.substring(0, 50) + "...",
+      response: response.text?.substring(0, 50) + "...",
     });
   }
 

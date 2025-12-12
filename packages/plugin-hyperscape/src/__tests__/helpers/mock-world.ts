@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { mock } from "bun:test";
 
 // Re-export from test-mocks for consistency
 export { createMockWorld } from "../../types/test-mocks";
@@ -28,45 +28,45 @@ export function createMockHyperscapeService(
       "Manages connection and interaction with a Hyperscape world.",
 
     // Connection state
-    isConnected: vi.fn().mockReturnValue(true),
-    connect: vi.fn().mockResolvedValue(true),
-    disconnect: vi.fn().mockResolvedValue(true),
+    isConnected: mock(() => {}).mockReturnValue(true),
+    connect: mock(() => {}).mockResolvedValue(true),
+    disconnect: mock(() => {}).mockResolvedValue(true),
 
     // World access
-    getWorld: vi.fn().mockReturnValue(mockWorld),
+    getWorld: mock(() => {}).mockReturnValue(mockWorld),
     currentWorldId: "test-world-id",
 
     // Entity methods
-    getEntityById: vi.fn((id) => mockWorld.entities.items.get(id)),
-    getEntityName: vi.fn((id) => {
+    getEntityById: mock((id) => mockWorld.entities.items.get(id)),
+    getEntityName: mock((id) => {
       const entity = mockWorld.entities.items.get(id);
       return entity?.data?.name || "Unnamed";
     }),
 
     // Manager access
-    getEmoteManager: vi.fn().mockReturnValue({
-      playEmote: vi.fn(),
-      uploadEmotes: vi.fn().mockResolvedValue(true),
+    getEmoteManager: mock(() => {}).mockReturnValue({
+      playEmote: mock(() => {}),
+      uploadEmotes: mock(() => {}).mockResolvedValue(true),
     }),
-    getBehaviorManager: vi.fn().mockReturnValue({
-      start: vi.fn(),
-      stop: vi.fn(),
+    getBehaviorManager: mock(() => {}).mockReturnValue({
+      start: mock(() => {}),
+      stop: mock(() => {}),
     }),
-    getMessageManager: vi.fn().mockReturnValue({
-      sendMessage: vi.fn(),
-      handleMessage: vi.fn().mockResolvedValue(true),
-      getRecentMessages: vi.fn().mockResolvedValue({
+    getMessageManager: mock(() => {}).mockReturnValue({
+      sendMessage: mock(() => {}),
+      handleMessage: mock(() => {}).mockResolvedValue(true),
+      getRecentMessages: mock(() => {}).mockResolvedValue({
         formattedHistory: "",
         lastResponseText: null,
         lastActions: [],
       }),
     }),
-    getVoiceManager: vi.fn().mockReturnValue({
-      start: vi.fn(),
-      handleUserBuffer: vi.fn(),
-      playAudio: vi.fn().mockResolvedValue(true),
+    getVoiceManager: mock(() => {}).mockReturnValue({
+      start: mock(() => {}),
+      handleUserBuffer: mock(() => {}),
+      playAudio: mock(() => {}).mockResolvedValue(true),
     }),
-    getPlaywrightManager: vi.fn().mockReturnValue({
+    getPlaywrightManager: mock(() => {}).mockReturnValue({
       snapshotEquirectangular: vi
         .fn()
         .mockResolvedValue("data:image/jpeg;base64,mock"),
@@ -77,17 +77,17 @@ export function createMockHyperscapeService(
         .fn()
         .mockResolvedValue("data:image/jpeg;base64,mock"),
     }),
-    getBuildManager: vi.fn().mockReturnValue({
-      translate: vi.fn().mockResolvedValue(true),
-      rotate: vi.fn().mockResolvedValue(true),
-      scale: vi.fn().mockResolvedValue(true),
-      duplicate: vi.fn().mockResolvedValue(true),
-      delete: vi.fn().mockResolvedValue(true),
-      importEntity: vi.fn().mockResolvedValue(true),
+    getBuildManager: mock(() => {}).mockReturnValue({
+      translate: mock(() => {}).mockResolvedValue(true),
+      rotate: mock(() => {}).mockResolvedValue(true),
+      scale: mock(() => {}).mockResolvedValue(true),
+      duplicate: mock(() => {}).mockResolvedValue(true),
+      delete: mock(() => {}).mockResolvedValue(true),
+      importEntity: mock(() => {}).mockResolvedValue(true),
     }),
 
     // Name/appearance
-    changeName: vi.fn().mockResolvedValue(true),
+    changeName: mock(() => {}).mockResolvedValue(true),
 
     // Apply overrides
     ...overrides,
@@ -146,17 +146,22 @@ export function createMockPlaywrightManager() {
     snapshotViewToTarget: vi
       .fn()
       .mockResolvedValue("data:image/png;base64,test"),
-    start: vi.fn(),
-    stop: vi.fn(),
+    start: mock(() => {}),
+    stop: mock(() => {}),
   };
 }
 
-export function createMockEmoteManager() {
+export function createMockEmoteManager(): {
+  playEmote: ReturnType<typeof mock>;
+  stopEmote: ReturnType<typeof mock>;
+  uploadEmotes: ReturnType<typeof mock>;
+  getEmoteList: ReturnType<typeof mock>;
+} {
   return {
-    playEmote: vi.fn(),
-    stopEmote: vi.fn(),
-    uploadEmotes: vi.fn().mockResolvedValue(true),
-    getEmoteList: vi.fn().mockReturnValue([
+    playEmote: mock(() => {}),
+    stopEmote: mock(() => {}),
+    uploadEmotes: mock(() => {}).mockResolvedValue(true),
+    getEmoteList: mock(() => {}).mockReturnValue([
       {
         name: "wave",
         path: "/emotes/wave.glb",
@@ -173,42 +178,65 @@ export function createMockEmoteManager() {
   };
 }
 
-export function createMockMessageManager() {
+export function createMockMessageManager(): {
+  sendMessage: ReturnType<typeof mock>;
+  processMessage: ReturnType<typeof mock>;
+  getHistory: ReturnType<typeof mock>;
+} {
   return {
-    sendMessage: vi.fn(),
-    processMessage: vi.fn(),
-    getHistory: vi.fn().mockReturnValue([]),
+    sendMessage: mock(() => {}),
+    processMessage: mock(() => {}),
+    getHistory: mock(() => {}).mockReturnValue([]),
   };
 }
 
-export function createMockVoiceManager() {
+export function createMockVoiceManager(): {
+  start: ReturnType<typeof mock>;
+  stop: ReturnType<typeof mock>;
+  joinChannel: ReturnType<typeof mock>;
+  leaveChannel: ReturnType<typeof mock>;
+  mute: ReturnType<typeof mock>;
+  unmute: ReturnType<typeof mock>;
+} {
   return {
-    start: vi.fn(),
-    stop: vi.fn(),
-    joinChannel: vi.fn(),
-    leaveChannel: vi.fn(),
-    mute: vi.fn(),
-    unmute: vi.fn(),
+    start: mock(() => {}),
+    stop: mock(() => {}),
+    joinChannel: mock(() => {}),
+    leaveChannel: mock(() => {}),
+    mute: mock(() => {}),
+    unmute: mock(() => {}),
   };
 }
 
-export function createMockBehaviorManager() {
+export function createMockBehaviorManager(): {
+  start: ReturnType<typeof mock>;
+  stop: ReturnType<typeof mock>;
+  isRunning: boolean;
+} {
   return {
-    start: vi.fn(),
-    stop: vi.fn(),
+    start: mock(() => {}),
+    stop: mock(() => {}),
     isRunning: false,
   };
 }
 
-export function createMockBuildManager() {
+export function createMockBuildManager(): {
+  duplicate: ReturnType<typeof mock>;
+  translate: ReturnType<typeof mock>;
+  rotate: ReturnType<typeof mock>;
+  scale: ReturnType<typeof mock>;
+  delete: ReturnType<typeof mock>;
+  importEntity: ReturnType<typeof mock>;
+  findNearbyEntities: ReturnType<typeof mock>;
+} {
   return {
-    duplicate: vi.fn(),
-    translate: vi.fn(),
-    rotate: vi.fn(),
-    scale: vi.fn(),
-    delete: vi.fn(),
-    importEntity: vi.fn(),
-    findNearbyEntities: vi.fn().mockReturnValue([]),
-    getEntityInfo: vi.fn(),
+    duplicate: mock(() => {}),
+    translate: mock(() => {}),
+    rotate: mock(() => {}),
+    scale: mock(() => {}),
+    delete: mock(() => {}),
+    importEntity: mock(() => {}),
+    findNearbyEntities: mock(() => {}).mockReturnValue([]),
+    getEntityInfo: mock(() => {}),
   };
 }

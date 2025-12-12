@@ -1,8 +1,8 @@
-import { Bug, Download, Upload, Package, RotateCcw } from 'lucide-react'
-import React, { useRef } from 'react'
+import { Bug, Download, Upload, Package, RotateCcw } from "lucide-react";
+import React, { useRef } from "react";
 
-import { useArmorFittingStore } from '../store/useArmorFittingStore'
-import { cn } from '../styles'
+import { useArmorFittingStore } from "../store/useArmorFittingStore";
+import { cn } from "../styles";
 
 import {
   ArmorFittingViewer,
@@ -12,17 +12,15 @@ import {
   ViewportControls,
   UndoRedoControls,
   FittingProgress,
-  MeshFittingDebugger
-} from '@/components/ArmorFitting'
-import { ErrorNotification, EmptyState } from '@/components/common'
-import { useAssets } from '@/hooks'
-
-
+  MeshFittingDebugger,
+} from "@/components/ArmorFitting";
+import { ErrorNotification, EmptyState } from "@/components/common";
+import { useAssets } from "@/hooks";
 
 export const ArmorFittingPage: React.FC = () => {
-  const { assets, loading } = useAssets()
-  const viewerRef = useRef<ArmorFittingViewerRef>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { assets, loading } = useAssets();
+  const viewerRef = useRef<ArmorFittingViewerRef>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get state and actions from Zustand store
   const {
@@ -96,17 +94,17 @@ export const ArmorFittingPage: React.FC = () => {
     isAnimationPlaying,
     setCurrentAnimation,
     setIsAnimationPlaying,
-    toggleAnimation
-  } = useArmorFittingStore()
+    toggleAnimation,
+  } = useArmorFittingStore();
 
   const handleLoadConfig = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      await loadConfiguration(file)
+      await loadConfiguration(file);
       // Clear the input value so the same file can be selected again
-      e.target.value = ''
+      e.target.value = "";
     }
-  }
+  };
 
   // Don't auto-update asset type filter - let user choose between avatar and equipment
 
@@ -114,23 +112,23 @@ export const ArmorFittingPage: React.FC = () => {
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Undo: Ctrl+Z or Cmd+Z
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        if (canUndo()) undo()
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        if (canUndo()) undo();
       }
       // Redo: Ctrl+Shift+Z, Cmd+Shift+Z, or Ctrl+Y
       else if (
-        ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) ||
-        ((e.ctrlKey || e.metaKey) && e.key === 'y')
+        ((e.ctrlKey || e.metaKey) && e.key === "z" && e.shiftKey) ||
+        ((e.ctrlKey || e.metaKey) && e.key === "y")
       ) {
-        e.preventDefault()
-        if (canRedo()) redo()
+        e.preventDefault();
+        if (canRedo()) redo();
       }
-    }
+    };
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undo, redo, canUndo, canRedo])
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [undo, redo, canUndo, canRedo]);
 
   return (
     <div className="page-container">
@@ -146,9 +144,9 @@ export const ArmorFittingPage: React.FC = () => {
           loading={loading}
           assetType={assetTypeFilter}
           selectedAsset={
-            assetTypeFilter === 'avatar' 
-              ? selectedAvatar 
-              : assetTypeFilter === 'armor'
+            assetTypeFilter === "avatar"
+              ? selectedAvatar
+              : assetTypeFilter === "armor"
                 ? selectedArmor
                 : selectedHelmet
           }
@@ -158,7 +156,7 @@ export const ArmorFittingPage: React.FC = () => {
           onAssetSelect={handleAssetSelect}
           onAssetTypeChange={setAssetTypeFilter}
           hideTypeToggle={true} // NEW - hide toggle since equipment slot determines type
-          equipmentSlot={equipmentSlot as 'Head' | 'Spine2' | 'Pelvis'} // NEW - pass equipment slot for filtering
+          equipmentSlot={equipmentSlot as "Head" | "Spine2" | "Pelvis"} // NEW - pass equipment slot for filtering
         />
       </div>
 
@@ -169,17 +167,31 @@ export const ArmorFittingPage: React.FC = () => {
             <>
               <ArmorFittingViewer
                 ref={viewerRef}
-                avatarUrl={selectedAvatar?.hasModel ? `/api/assets/${selectedAvatar.id}/model` : undefined}
-                armorUrl={selectedArmor?.hasModel ? `/api/assets/${selectedArmor.id}/model` : undefined}
-                helmetUrl={selectedHelmet?.hasModel ? `/api/assets/${selectedHelmet.id}/model` : undefined}
+                avatarUrl={
+                  selectedAvatar?.hasModel
+                    ? `/api/assets/${selectedAvatar.id}/model`
+                    : undefined
+                }
+                armorUrl={
+                  selectedArmor?.hasModel
+                    ? `/api/assets/${selectedArmor.id}/model`
+                    : undefined
+                }
+                helmetUrl={
+                  selectedHelmet?.hasModel
+                    ? `/api/assets/${selectedHelmet.id}/model`
+                    : undefined
+                }
                 showWireframe={showWireframe}
-                equipmentSlot={equipmentSlot as 'Head' | 'Spine2' | 'Pelvis'}
+                equipmentSlot={equipmentSlot as "Head" | "Spine2" | "Pelvis"}
                 selectedAvatar={selectedAvatar}
                 currentAnimation={currentAnimation}
                 isAnimationPlaying={isAnimationPlaying}
-                visualizationMode={visualizationMode === 'hull' ? 'none' : visualizationMode}
+                visualizationMode={
+                  visualizationMode === "hull" ? "none" : visualizationMode
+                }
                 selectedBone={selectedBone}
-                onModelsLoaded={() => console.log('Models loaded in page')}
+                onModelsLoaded={() => console.log("Models loaded in page")}
                 onBodyRegionsDetected={setBodyRegions}
                 onCollisionsDetected={setCollisions}
               />
@@ -199,7 +211,9 @@ export const ArmorFittingPage: React.FC = () => {
               <ViewportControls
                 showWireframe={showWireframe}
                 onToggleWireframe={() => setShowWireframe(!showWireframe)}
-                onResetCamera={() => {/* Camera reset not implemented */}}
+                onResetCamera={() => {
+                  /* Camera reset not implemented */
+                }}
               />
 
               {/* Undo/Redo Controls */}
@@ -233,7 +247,9 @@ export const ArmorFittingPage: React.FC = () => {
       {/* Right Panel - Fitting Controls */}
       <div className="card overflow-hidden w-96 flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary">
         <div className="p-4 border-b border-border-primary bg-bg-primary bg-opacity-30">
-          <h2 className="text-lg font-semibold text-text-primary">Fitting Controls</h2>
+          <h2 className="text-lg font-semibold text-text-primary">
+            Fitting Controls
+          </h2>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -245,17 +261,19 @@ export const ArmorFittingPage: React.FC = () => {
               onEnableWeightTransferChange={setEnableWeightTransfer}
               showWireframe={showWireframe}
               onShowWireframeChange={setShowWireframe}
-                          equipmentSlot={equipmentSlot as 'Head' | 'Spine2' | 'Pelvis'}
-            onEquipmentSlotChange={(slot) => setEquipmentSlot(slot, viewerRef)}
-            visualizationMode={visualizationMode}
-            onVisualizationModeChange={setVisualizationMode}
-            onPerformFitting={() => performFitting(viewerRef)}
-            onResetFitting={resetFitting}
-            onExportArmor={() => exportFittedArmor(viewerRef)}
-            onSaveConfiguration={saveConfiguration}
-            isFitting={isFitting}
-            fittingProgress={fittingProgress}
-            canFit={isReadyToFit()}
+              equipmentSlot={equipmentSlot as "Head" | "Spine2" | "Pelvis"}
+              onEquipmentSlotChange={(slot) =>
+                setEquipmentSlot(slot, viewerRef)
+              }
+              visualizationMode={visualizationMode}
+              onVisualizationModeChange={setVisualizationMode}
+              onPerformFitting={() => performFitting(viewerRef)}
+              onResetFitting={resetFitting}
+              onExportArmor={() => exportFittedArmor(viewerRef)}
+              onSaveConfiguration={saveConfiguration}
+              isFitting={isFitting}
+              fittingProgress={fittingProgress}
+              canFit={isReadyToFit()}
               isArmorFitted={isArmorFitted}
               isArmorBound={isArmorBound}
               onBindArmorToSkeleton={() => bindArmorToSkeleton(viewerRef)}
@@ -324,7 +342,8 @@ export const ArmorFittingPage: React.FC = () => {
                 "w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2",
                 "bg-bg-secondary/50 border border-white/10 text-text-primary",
                 "hover:bg-bg-secondary/70 hover:border-white/20",
-                (!selectedAvatar || !selectedArmor || isExporting) && "opacity-50 cursor-not-allowed"
+                (!selectedAvatar || !selectedArmor || isExporting) &&
+                  "opacity-50 cursor-not-allowed",
               )}
             >
               {isExporting ? (
@@ -348,7 +367,7 @@ export const ArmorFittingPage: React.FC = () => {
         <MeshFittingDebugger onClose={() => setShowDebugger(false)} />
       )}
     </div>
-  )
-}
+  );
+};
 
-export default ArmorFittingPage
+export default ArmorFittingPage;

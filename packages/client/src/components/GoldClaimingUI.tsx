@@ -1,9 +1,9 @@
 /**
  * @fileoverview Gold Claiming UI Component
  * @module hyperscape/client/components/GoldClaimingUI
- * 
+ *
  * Displays claimed vs unclaimed gold and allows players to claim (mint HG tokens).
- * 
+ *
  * Features:
  * - Shows unclaimed gold balance
  * - Shows claimed gold balance (on-chain ERC-20)
@@ -12,9 +12,9 @@
  * - Rate limiting display
  */
 
-import React, { useState, useEffect } from 'react';
-import { useAccount, useContractWrite, useContractRead } from 'wagmi';
-import { parseEther, formatEther } from 'viem';
+import React, { useState, useEffect } from "react";
+import { useAccount, useContractRead } from "wagmi";
+import { parseEther } from "viem";
 
 interface GoldClaimingUIProps {
   unclaimedGold: number;
@@ -36,8 +36,8 @@ export function GoldClaimingUI({
   claimedGold,
   hyperscapeGoldAddress,
   gameServerUrl,
-  onClaimSuccess
-}: GoldClaimingUIProps): JSX.Element {
+  onClaimSuccess,
+}: GoldClaimingUIProps): React.ReactElement {
   const { address } = useAccount();
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
@@ -49,10 +49,10 @@ export function GoldClaimingUI({
   // Read on-chain nonce
   const { data: currentNonce } = useContractRead({
     address: hyperscapeGoldAddress as `0x${string}`,
-    abi: ['function nonces(address) view returns (uint256)'],
-    functionName: 'nonces',
+    abi: ["function nonces(address) view returns (uint256)"],
+    functionName: "nonces",
     args: address ? [address] : undefined,
-    enabled: !!address
+    enabled: !!address,
   });
 
   // Cooldown timer
@@ -80,44 +80,45 @@ export function GoldClaimingUI({
 
     // 1. Request signature from game server
     const signatureResponse = await fetch(`${gameServerUrl}/api/claim-gold`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         playerAddress: address,
-        amount: amountWei.toString()
-      })
+        amount: amountWei.toString(),
+      }),
     });
 
     if (!signatureResponse.ok) {
       const error = await signatureResponse.json();
-      setClaimError(error.message || 'Failed to get signature');
+      setClaimError(error.message || "Failed to get signature");
       setIsClaiming(false);
       return;
     }
 
-    const signatureData: ClaimSignatureResponse = await signatureResponse.json();
+    const signatureData: ClaimSignatureResponse =
+      await signatureResponse.json();
 
     // 2. Submit transaction to HyperscapeGold contract
-    const tx = await fetch('/api/submit-claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const tx = await fetch("/api/submit-claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         amount: signatureData.amount,
         nonce: signatureData.nonce,
-        signature: signatureData.signature
-      })
+        signature: signatureData.signature,
+      }),
     });
 
     if (!tx.ok) {
       const error = await tx.json();
-      setClaimError(error.message || 'Transaction failed');
+      setClaimError(error.message || "Transaction failed");
       setIsClaiming(false);
       return;
     }
 
     // 3. Success!
     const txData = await tx.json();
-    console.log('[GoldClaimingUI] Claim successful:', txData.txHash);
+    console.log("[GoldClaimingUI] Claim successful:", txData.txHash);
 
     setLastClaimTime(Date.now());
     setIsClaiming(false);
@@ -133,22 +134,24 @@ export function GoldClaimingUI({
     <div className="gold-claiming-ui">
       <div className="gold-display">
         <h3>Hyperscape Gold (HG)</h3>
-        
+
         <div className="gold-balance unclaimed">
           <span className="label">Unclaimed:</span>
           <span className="amount">{unclaimedGold.toLocaleString()}</span>
           <span className="hint">Available to claim</span>
         </div>
-        
+
         <div className="gold-balance claimed">
           <span className="label">Claimed (ERC-20):</span>
           <span className="amount">{claimedGold.toLocaleString()}</span>
           <span className="hint">In your wallet</span>
         </div>
-        
+
         <div className="gold-balance total">
           <span className="label">Total:</span>
-          <span className="amount">{(unclaimedGold + claimedGold).toLocaleString()}</span>
+          <span className="amount">
+            {(unclaimedGold + claimedGold).toLocaleString()}
+          </span>
         </div>
       </div>
 
@@ -157,9 +160,9 @@ export function GoldClaimingUI({
           <button
             onClick={handleClaim}
             disabled={!canClaim}
-            className={`claim-button ${canClaim ? 'active' : 'disabled'}`}
+            className={`claim-button ${canClaim ? "active" : "disabled"}`}
           >
-            {isClaiming ? 'Claiming...' : 'Claim Gold'}
+            {isClaiming ? "Claiming..." : "Claim Gold"}
           </button>
 
           {cooldownRemaining > 0 && (
@@ -168,16 +171,18 @@ export function GoldClaimingUI({
             </div>
           )}
 
-          {claimError && (
-            <div className="error">
-              {claimError}
-            </div>
-          )}
+          {claimError && <div className="error">{claimError}</div>}
 
           <div className="claim-info">
-            <p>Claiming converts unclaimed gold into HG ERC-20 tokens in your wallet.</p>
-            <p>Claimed gold can be traded, sold on marketplace, or used for purchases.</p>
-            <p>Current nonce: {currentNonce?.toString() || '0'}</p>
+            <p>
+              Claiming converts unclaimed gold into HG ERC-20 tokens in your
+              wallet.
+            </p>
+            <p>
+              Claimed gold can be traded, sold on marketplace, or used for
+              purchases.
+            </p>
+            <p>Current nonce: {currentNonce?.toString() || "0"}</p>
           </div>
         </div>
       )}
@@ -197,10 +202,10 @@ export function GoldClaimingUI({
 export function GoldClaimingUIStyled({
   unclaimedGold,
   claimedGold,
-  hyperscapeGoldAddress,
+  hyperscapeGoldAddress: _hyperscapeGoldAddress,
   gameServerUrl,
-  onClaimSuccess
-}: GoldClaimingUIProps): JSX.Element {
+  onClaimSuccess,
+}: GoldClaimingUIProps): React.ReactElement {
   const { address } = useAccount();
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
@@ -232,36 +237,37 @@ export function GoldClaimingUIStyled({
     const amountWei = parseEther(unclaimedGold.toString());
 
     const signatureResponse = await fetch(`${gameServerUrl}/api/claim-gold`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         playerAddress: address,
-        amount: amountWei.toString()
-      })
+        amount: amountWei.toString(),
+      }),
     });
 
     if (!signatureResponse.ok) {
       const error = await signatureResponse.json();
-      setClaimError(error.message || 'Failed to get signature');
+      setClaimError(error.message || "Failed to get signature");
       setIsClaiming(false);
       return;
     }
 
-    const signatureData: ClaimSignatureResponse = await signatureResponse.json();
+    const signatureData: ClaimSignatureResponse =
+      await signatureResponse.json();
 
-    const tx = await fetch('/api/submit-claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const tx = await fetch("/api/submit-claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         amount: signatureData.amount,
         nonce: signatureData.nonce,
-        signature: signatureData.signature
-      })
+        signature: signatureData.signature,
+      }),
     });
 
     if (!tx.ok) {
       const error = await tx.json();
-      setClaimError(error.message || 'Transaction failed');
+      setClaimError(error.message || "Transaction failed");
       setIsClaiming(false);
       return;
     }
@@ -279,7 +285,9 @@ export function GoldClaimingUIStyled({
   return (
     <div className="bg-gray-900 border border-yellow-600 rounded-lg p-6 max-w-md">
       <div className="flex items-center mb-4">
-        <h3 className="text-xl font-bold text-yellow-400">⚜️ Hyperscape Gold</h3>
+        <h3 className="text-xl font-bold text-yellow-400">
+          ⚜️ Hyperscape Gold
+        </h3>
       </div>
 
       <div className="space-y-3 mb-6">
@@ -312,11 +320,11 @@ export function GoldClaimingUIStyled({
             disabled={!canClaim}
             className={`w-full py-3 px-4 rounded-lg font-bold text-lg transition-all ${
               canClaim
-                ? 'bg-yellow-600 hover:bg-yellow-500 text-black'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                ? "bg-yellow-600 hover:bg-yellow-500 text-black"
+                : "bg-gray-700 text-gray-500 cursor-not-allowed"
             }`}
           >
-            {isClaiming ? '⏳ Claiming...' : '✨ Claim Gold'}
+            {isClaiming ? "⏳ Claiming..." : "✨ Claim Gold"}
           </button>
 
           {cooldownRemaining > 0 && (
@@ -340,10 +348,11 @@ export function GoldClaimingUIStyled({
       ) : (
         <div className="text-center text-gray-500 py-4">
           <p>🎮 No unclaimed gold.</p>
-          <p className="text-sm mt-2">Kill mobs and gather resources to earn more!</p>
+          <p className="text-sm mt-2">
+            Kill mobs and gather resources to earn more!
+          </p>
         </div>
       )}
     </div>
   );
 }
-

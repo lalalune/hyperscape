@@ -23,7 +23,7 @@ test.describe("Hyperscape - Multiplayer Visibility", () => {
 
     // Setup Player 1
     console.log("[Player 1] Navigating to game...");
-    await page.goto("http://localhost:5009");
+    await page.goto("http://localhost:3333");
     await page.waitForLoadState("networkidle");
 
     console.log("[Player 1] Waiting for world to be ready...");
@@ -65,7 +65,7 @@ test.describe("Hyperscape - Multiplayer Visibility", () => {
     });
 
     console.log("[Player 2] Navigating to game...");
-    await player2Page.goto("http://localhost:5009");
+    await player2Page.goto("http://localhost:3333");
     await player2Page.waitForLoadState("networkidle");
 
     console.log("[Player 2] Waiting for world to be ready...");

@@ -33,7 +33,7 @@ const CONFIG = {
   FORGE_API_PORT: process.env.FORGE_API_PORT || '3001',   // Asset Forge API port
   FORGE_VITE_PORT: process.env.FORGE_VITE_PORT || '3003', // Asset Forge UI port
   PUBLIC_WS_URL: process.env.PUBLIC_WS_URL || `ws://localhost:${process.env.PORT || '5555'}/ws`,
-  PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8088',
+  PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8080',
 }
 
 // Colors
@@ -344,7 +344,7 @@ async function ensureCDNRunning() {
     const maxAttempts = 30
     while (attempts < maxAttempts) {
       try {
-        const healthRes = await fetch('http://localhost:8088/health')
+        const healthRes = await fetch('http://localhost:8080/health')
         if (healthRes.ok) {
           console.log(`${colors.green}✓ CDN is healthy and ready${colors.reset}`)
           return true
@@ -632,14 +632,10 @@ ${colors.reset}`)
     }
   })
   
-  // Start 3D Asset Forge (API + Vite) with ASSET_OUTPUT_DIR pointing to Hyperscape world assets
+  // Start 3D Asset Forge (API + Vite)
   const assetForgeDir = path.join(rootDir, '../asset-forge')
   if (fs.existsSync(assetForgeDir)) {
-    const worldAssetsDir = path.join(rootDir, 'world/assets')
-    // Ensure assets directory exists
-    await fs.promises.mkdir(worldAssetsDir, { recursive: true }).catch(() => {})
-
-    console.log(`${colors.dim}Starting 3D Asset Forge (output: ${worldAssetsDir})...${colors.reset}`)
+    console.log(`${colors.dim}Starting 3D Asset Forge...${colors.reset}`)
 
     // Start Forge API
     spawnChild('Forge-API', 'node', ['server/api.mjs'], {
@@ -649,7 +645,6 @@ ${colors.reset}`)
         HOME: process.env.HOME,
         USER: process.env.USER,
         API_PORT: CONFIG.FORGE_API_PORT,
-        ASSET_OUTPUT_DIR: worldAssetsDir,
         MESHY_API_KEY: process.env.MESHY_API_KEY,
         OPENAI_API_KEY: process.env.OPENAI_API_KEY,
         IMAGE_SERVER_URL: process.env.IMAGE_SERVER_URL,
@@ -721,7 +716,7 @@ ${colors.reset}`)
 
     if (!assetsPresent) {
       if (!meshyKeyPresent) {
-        console.warn(`${colors.yellow}No assets found in world/assets and MESHY_API_KEY not set. Skipping default generation.${colors.reset}`)
+        console.warn(`${colors.yellow}No assets found and MESHY_API_KEY not set. Skipping default generation.${colors.reset}`)
       } else {
         console.log(`${colors.cyan}No assets found. Bootstrapping default assets using Meshy...${colors.reset}`)
         // Simple seed list (MVP): a few representative items; Forge can be expanded to a richer set
@@ -799,7 +794,7 @@ ${colors.reset}`)
     console.log(`  ${colors.blue}Game Server:${colors.reset}    ws://localhost:${CONFIG.PORT}/ws`)
     console.log(`  ${colors.magenta}Asset Forge UI:${colors.reset} http://localhost:${CONFIG.FORGE_VITE_PORT}`)
     console.log(`  ${colors.dim}Forge API:${colors.reset}      http://localhost:${CONFIG.FORGE_API_PORT}`)
-    console.log(`  ${colors.dim}CDN Server:${colors.reset}     http://localhost:8088`)
+    console.log(`  ${colors.dim}CDN Server:${colors.reset}     http://localhost:8080`)
     console.log(`\n${colors.dim}Press Ctrl+C to stop all servers${colors.reset}\n`)
   }, 3000)
   

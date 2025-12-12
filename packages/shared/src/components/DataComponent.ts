@@ -3,13 +3,13 @@
  * Used for components that are primarily data containers without complex behavior
  */
 
-import { Component } from './Component';
-import type { Entity } from '../entities/Entity';
+import { Component } from "./Component";
+import type { Entity } from "../entities/Entity";
 
 export class DataComponent extends Component {
   constructor(entity: Entity, data?: Record<string, unknown>) {
-    super('data', entity, {
-      ...data
+    super("data", entity, {
+      ...data,
     });
   }
 

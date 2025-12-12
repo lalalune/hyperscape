@@ -2,8 +2,8 @@
  * Node context utilities and strong typing for mounted nodes
  */
 
-import type { World } from '../World';
-import type { Node } from './Node';
+import type { World } from "../core/World";
+import type { Node } from "./Node";
 
 /**
  * Interface for nodes that are guaranteed to have a valid context
@@ -18,19 +18,18 @@ export interface MountedNode extends Node {
  */
 export interface MountedNodeContext extends World {
   world: World;
-  physics: NonNullable<World['physics']>;
-  stage: NonNullable<World['stage']>;
-  graphics: NonNullable<World['graphics']>;
-  loader: NonNullable<World['loader']>;
-  network: NonNullable<World['network']>;
+  physics: NonNullable<World["physics"]>;
+  stage: NonNullable<World["stage"]>;
+  graphics: NonNullable<World["graphics"]>;
+  loader: NonNullable<World["loader"]>;
+  network: NonNullable<World["network"]>;
 }
 
 /**
  * Type guard to check if a node has a valid mounted context
  */
 export function isMountedNode(node: Node): node is MountedNode {
-  return node.ctx !== null && 
-         node.ctx.stage !== undefined;
+  return node.ctx !== null && node.ctx.stage !== undefined;
 }
 
 /**
@@ -46,7 +45,9 @@ export function isMountedContext(ctx: World | null): ctx is MountedNodeContext {
  */
 export function getMountedContext(node: Node): MountedNodeContext {
   if (!node.ctx || !isMountedContext(node.ctx)) {
-    throw new Error(`Node ${node.name || 'unnamed'} does not have a valid mounted context`);
+    throw new Error(
+      `Node ${node.name || "unnamed"} does not have a valid mounted context`,
+    );
   }
   return node.ctx;
 }

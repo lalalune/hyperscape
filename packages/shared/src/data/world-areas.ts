@@ -1,15 +1,15 @@
 /**
  * World Areas - Data-Driven Implementation
- * 
+ *
  * ALL world area data is loaded from JSON manifests at runtime by DataManager.
  * This keeps world definitions data-driven and separate from code.
- * 
+ *
  * Data loaded from: assets/manifests/world-areas.json
- * 
+ *
  * To modify world areas:
  * 1. Edit assets/manifests/world-areas.json
  * 2. Restart server to reload manifests
- * 
+ *
  * DO NOT add world area data here - keep it in JSON!
  */
 
@@ -18,84 +18,61 @@ import type {
   BiomeResource,
   NPCLocation,
   MobSpawnPoint,
-  WorldArea
-} from '../types/core';
+  WorldArea,
+} from "../types/core/core";
 
 // Re-export types from core
-export type { WorldArea, BiomeResource, NPCLocation, MobSpawnPoint } from '../types/core';
+export type {
+  WorldArea,
+  BiomeResource,
+  NPCLocation,
+  MobSpawnPoint,
+} from "../types/core/core";
 
 /**
  * World Areas Database - Populated at runtime from JSON manifests
  * DataManager loads from assets/manifests/world-areas.json
- * 
+ *
  * DEFAULT: If JSON is empty, use this hardcoded starter area
  */
 export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
-  'starter_area': {
-    id: 'starter_area',
-    name: 'Starter Area',
-    description: 'A peaceful area for new adventurers',
+  starter_area: {
+    id: "starter_area",
+    name: "Starter Area",
+    description: "A peaceful area for new adventurers",
     difficultyLevel: 0,
     bounds: {
       minX: -50,
       maxX: 50,
       minZ: -50,
-      maxZ: 50
+      maxZ: 50,
     },
-    biomeType: 'plains',
+    biomeType: "plains",
     safeZone: true,
     npcs: [
       {
-        id: 'banker_starter',
-        name: 'Banker Bob',
-        type: 'bank',
-        position: { x: 15, y: 43, z: 5 },
-        services: ['bank'],
-        description: 'A friendly banker'
-      }
+        id: "bank_clerk",
+        type: "bank",
+        position: { x: 5, y: 0, z: -5 },
+        // All other NPC data (name, services, model, description) comes from npcs.json
+      },
     ],
     resources: [
-      {
-        type: 'tree',
-        position: { x: 10, y: 43, z: 10 },
-        resourceId: 'tree_starter_1',
-        respawnTime: 60000,
-        level: 1
-      },
-      {
-        type: 'tree',
-        position: { x: -15, y: 43, z: 8 },
-        resourceId: 'tree_starter_2',
-        respawnTime: 60000,
-        level: 1
-      }
+      // Resources are now defined in world-areas.json manifest only
+      // Do not add hardcoded resources here
     ],
     mobSpawns: [
-      {
-        mobId: 'goblin',
-        position: { x: 25, y: 43, z: 25 },
-        spawnRadius: 10,
-        maxCount: 3,
-        respawnTime: 60000
-      },
-      {
-        mobId: 'goblin',
-        position: { x: -25, y: 43, z: 25 },
-        spawnRadius: 10,
-        maxCount: 2,
-        respawnTime: 60000
-      }
+      // Starter area is a safe zone - no mob spawns
+      // The default test goblin is spawned by MobNPCSpawnerSystem near origin
     ],
-    connections: [],
-    specialFeatures: []
-  }
+  },
 };
 
 /**
  * Starter Towns - Populated by DataManager from world-areas.json
  */
 export const STARTER_TOWNS: Record<string, WorldArea> = {
-  'starter_area': ALL_WORLD_AREAS['starter_area']
+  starter_area: ALL_WORLD_AREAS["starter_area"],
 };
 
 /**
@@ -106,20 +83,13 @@ export function getAreaById(areaId: string): WorldArea | null {
 }
 
 export function getAreasByDifficulty(level: 0 | 1 | 2 | 3): WorldArea[] {
-  return Object.values(ALL_WORLD_AREAS).filter(area => area.difficultyLevel === level);
+  return Object.values(ALL_WORLD_AREAS).filter(
+    (area) => area.difficultyLevel === level,
+  );
 }
 
 export function getSafeZones(): WorldArea[] {
-  return Object.values(ALL_WORLD_AREAS).filter(area => area.safeZone);
-}
-
-export function getConnectedAreas(areaId: string): WorldArea[] {
-  const area = getAreaById(areaId);
-  if (!area) return [];
-  
-  return area.connections
-    .map(id => getAreaById(id))
-    .filter(area => area !== null) as WorldArea[];
+  return Object.values(ALL_WORLD_AREAS).filter((area) => area.safeZone);
 }
 
 export function getNPCsInArea(areaId: string): NPCLocation[] {
@@ -163,11 +133,12 @@ export function getRandomSpawnPoint(): WorldPosition {
 }
 
 /**
- * World Generation Constants
+ * World Generation Constants (areas, spawning, resources)
+ * Note: Different from WORLD_STRUCTURE_CONSTANTS in world-structure.ts
  */
-export const WORLD_CONSTANTS = {
+export const WORLD_GENERATION_CONSTANTS = {
   TOTAL_WORLD_SIZE: 500, // 500x500 meter world
-  SAFE_ZONE_RADIUS: 25,  // 25 meter radius around spawn points
+  SAFE_ZONE_RADIUS: 25, // 25 meter radius around spawn points
   RESOURCE_RESPAWN_VARIANCE: 0.2, // ±20% respawn time variance
   MOB_SPAWN_CHECK_RADIUS: 5, // Don't spawn mobs within 5m of players
   AREA_TRANSITION_OVERLAP: 5, // 5 meter overlap between adjacent areas

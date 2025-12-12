@@ -71,16 +71,26 @@ await esbuild.build({
 console.log('✅ Server build complete')
 `
 
-// Initial build
-console.log(`${colors.blue}Building server...${colors.reset}`)
-await new Promise((resolve, reject) => {
-  const proc = spawn('bun', ['-e', buildScript], {
-    stdio: 'inherit',
-    cwd: rootDir
+// Check if build exists - skip rebuild by default for faster startup
+// Use FORCE_BUILD=1 to trigger a rebuild
+const buildIndexPath = path.join(rootDir, 'build/index.js')
+const hasBuild = fs.existsSync(buildIndexPath)
+const forceBuild = process.env.FORCE_BUILD === '1'
+
+if (hasBuild && !forceBuild) {
+  console.log(`${colors.dim}Using existing build (run with FORCE_BUILD=1 to rebuild)${colors.reset}`)
+} else {
+  // Initial build
+  console.log(`${colors.blue}Building server...${colors.reset}`)
+  await new Promise((resolve, reject) => {
+    const proc = spawn('bun', ['-e', buildScript], {
+      stdio: 'inherit',
+      cwd: rootDir
+    })
+    proc.on('exit', code => code === 0 ? resolve() : reject(new Error(`Build failed with code ${code}`)))
+    proc.on('error', reject)
   })
-  proc.on('exit', code => code === 0 ? resolve() : reject(new Error(`Build failed with code ${code}`)))
-  proc.on('error', reject)
-})
+}
 
 // Track server process
 let serverProcess = null
@@ -94,31 +104,59 @@ function startServer() {
   }
 
   console.log(`${colors.green}Starting server...${colors.reset}`)
-  serverProcess = spawn('bun', ['build/index.js'], {
-    stdio: 'inherit',
-    cwd: rootDir,
-    env: {
-      ...process.env,
-      NODE_ENV: 'development',
-      PORT: process.env.PORT || '5555',
-      PUBLIC_WS_URL: process.env.PUBLIC_WS_URL || 'ws://localhost:5555/ws',
-      PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8088',
-    }
-  })
-
-  serverProcess.on('exit', (code, signal) => {
-    console.log(`${colors.yellow}Server exited (code: ${code}, signal: ${signal})${colors.reset}`)
-    serverProcess = null
+  
+  // Use Bun.spawn for better compatibility (spawns using current bun runtime)
+  const Bun = globalThis.Bun
+  if (Bun && Bun.spawn) {
+    serverProcess = Bun.spawn(['bun', 'build/index.js'], {
+      cwd: rootDir,
+      stdout: 'inherit',
+      stderr: 'inherit',
+      env: {
+        ...process.env,
+        NODE_ENV: 'development',
+        PORT: process.env.PORT || '5555',
+        PUBLIC_WS_URL: process.env.PUBLIC_WS_URL || 'ws://localhost:5555/ws',
+        PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8088',
+      }
+    })
     
-    // Don't auto-restart on intentional shutdown
-    if (signal !== 'SIGTERM' && signal !== 'SIGINT' && !isRestarting) {
-      console.log(`${colors.red}Server crashed. Fix the error and save a file to rebuild.${colors.reset}`)
-    }
-  })
+    // Handle process events via exited promise
+    serverProcess.exited.then((code) => {
+      console.log(`${colors.yellow}Server exited (code: ${code})${colors.reset}`)
+      serverProcess = null
+      if (code !== 0 && !isRestarting) {
+        console.log(`${colors.red}Server crashed. Fix the error and save a file to rebuild.${colors.reset}`)
+      }
+    })
+  } else {
+    // Fallback to Node.js spawn
+    serverProcess = spawn('bun', ['build/index.js'], {
+      stdio: 'inherit',
+      cwd: rootDir,
+      env: {
+        ...process.env,
+        NODE_ENV: 'development',
+        PORT: process.env.PORT || '5555',
+        PUBLIC_WS_URL: process.env.PUBLIC_WS_URL || 'ws://localhost:5555/ws',
+        PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8088',
+      }
+    })
 
-  serverProcess.on('error', (err) => {
-    console.error(`${colors.red}Server error:${colors.reset}`, err)
-  })
+    serverProcess.on('exit', (code, signal) => {
+      console.log(`${colors.yellow}Server exited (code: ${code}, signal: ${signal})${colors.reset}`)
+      serverProcess = null
+      
+      // Don't auto-restart on intentional shutdown
+      if (signal !== 'SIGTERM' && signal !== 'SIGINT' && !isRestarting) {
+        console.log(`${colors.red}Server crashed. Fix the error and save a file to rebuild.${colors.reset}`)
+      }
+    })
+    
+    serverProcess.on('error', (err) => {
+      console.error(`${colors.red}Server error:${colors.reset}`, err)
+    })
+  }
 }
 
 // Start initial server

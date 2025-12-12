@@ -1,23 +1,35 @@
-import { Box, Eye, Download, Hand, Package } from 'lucide-react'
-import React from 'react'
+import { Box, Eye, Download, Hand, Package } from "lucide-react";
+import React from "react";
 
-import { cn } from '../../styles'
-import type { Asset } from '../../types'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Badge } from '../common'
-import ThreeViewer, { ThreeViewerRef } from '../shared/ThreeViewer'
+import { cn } from "../../styles";
+import type { Asset } from "../../types";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Button,
+  Badge,
+} from "../common";
+import ThreeViewer, { ThreeViewerRef } from "../shared/ThreeViewer";
 
 interface ModelViewerProps {
-  modelUrl: string | null
-  selectedAvatar: Asset | null
-  showSkeleton: boolean
-  canExport: boolean
-  leftHandData: { bonesAdded: number } | null
-  rightHandData: { bonesAdded: number } | null
-  processingStage: string
-  viewerRef: React.RefObject<ThreeViewerRef>
-  onToggleSkeleton: () => void
-  onExport: () => void
-  onModelLoad: (info: { vertices: number; faces: number; materials: number }) => void
+  modelUrl: string | null;
+  selectedAvatar: Asset | null;
+  showSkeleton: boolean;
+  canExport: boolean;
+  leftHandData: { bonesAdded: number } | null;
+  rightHandData: { bonesAdded: number } | null;
+  processingStage: string;
+  viewerRef: React.RefObject<ThreeViewerRef | null>;
+  onToggleSkeleton: () => void;
+  onExport: () => void;
+  onModelLoad: (info: {
+    vertices: number;
+    faces: number;
+    materials: number;
+  }) => void;
 }
 
 export const ModelViewer: React.FC<ModelViewerProps> = ({
@@ -31,7 +43,7 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
   viewerRef,
   onToggleSkeleton,
   onExport,
-  onModelLoad
+  onModelLoad,
 }) => {
   return (
     <Card className={cn("h-[700px] overflow-hidden", "animate-scale-in")}>
@@ -54,11 +66,11 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
                 onClick={onToggleSkeleton}
                 className={cn(
                   "transition-all duration-200",
-                  showSkeleton && "bg-primary text-white shadow-lg"
+                  showSkeleton && "bg-primary text-white shadow-lg",
                 )}
               >
                 <Eye className="w-4 h-4 mr-2" />
-                {showSkeleton ? 'Hide' : 'Show'} Skeleton
+                {showSkeleton ? "Hide" : "Show"} Skeleton
               </Button>
               {canExport && (
                 <Button
@@ -84,9 +96,9 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
               showGroundPlane={true}
               onModelLoad={onModelLoad}
               assetInfo={{
-                name: selectedAvatar?.name || 'Model',
-                type: 'character',
-                format: 'GLB'
+                name: selectedAvatar?.name || "Model",
+                type: "character",
+                format: "GLB",
               }}
             />
           </div>
@@ -95,27 +107,47 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
             <div className="text-center p-8 animate-fade-in">
               <div className="relative">
                 <div className="absolute inset-0 bg-primary opacity-20 blur-3xl animate-pulse" />
-                <Package size={80} className="text-text-muted mb-6 mx-auto relative z-10 animate-float" />
+                <Package
+                  size={80}
+                  className="text-text-muted mb-6 mx-auto relative z-10 animate-float"
+                />
               </div>
-              <h3 className="text-2xl font-semibold text-text-primary mb-2">No model loaded</h3>
+              <h3 className="text-2xl font-semibold text-text-primary mb-2">
+                No model loaded
+              </h3>
               <p className="text-text-tertiary text-lg max-w-md mx-auto">
                 Upload a file to begin
               </p>
             </div>
           </div>
         )}
-        
+
         {/* Overlay Results */}
-        {processingStage === 'complete' && (leftHandData || rightHandData) && (
+        {processingStage === "complete" && (leftHandData || rightHandData) && (
           <div className="absolute top-4 left-4 space-y-2">
             {leftHandData && leftHandData.bonesAdded > 0 && (
-              <Badge variant="success" className={cn("shadow-lg", "animate-slide-in-left", "text-white")}>
+              <Badge
+                variant="success"
+                className={cn(
+                  "shadow-lg",
+                  "animate-slide-in-left",
+                  "text-white",
+                )}
+              >
                 <Hand className="w-3.5 h-3.5 mr-2" />
                 Left Hand: {leftHandData.bonesAdded} bones added
               </Badge>
             )}
             {rightHandData && rightHandData.bonesAdded > 0 && (
-              <Badge variant="success" className={cn("shadow-lg", "animate-slide-in-left", "text-white")} style={{ animationDelay: '0.1s' }}>
+              <Badge
+                variant="success"
+                className={cn(
+                  "shadow-lg",
+                  "animate-slide-in-left",
+                  "text-white",
+                )}
+                style={{ animationDelay: "0.1s" }}
+              >
                 <Hand className="w-3.5 h-3.5 mr-2" />
                 Right Hand: {rightHandData.bonesAdded} bones added
               </Badge>
@@ -124,5 +156,5 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
         )}
       </CardContent>
     </Card>
-  )
-} 
+  );
+};

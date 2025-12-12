@@ -1,16 +1,8 @@
 import { IAgentRuntime, logger, UUID } from "@elizaos/core";
 import { Entity, World } from "../types/core-types";
-import type { Vector3, Quaternion, Component } from "@hyperscape/shared";
-import type {
-  BuildManager as IBuildManager,
-  EntityCreationData,
-  EntityUpdateData,
-} from "../types/core-interfaces";
+import type { Vector3 } from "@hyperscape/shared";
+import type { BuildManager as IBuildManager } from "../types/core-interfaces";
 import { THREE } from "@hyperscape/shared";
-import {
-  EntityCreationDataSchema,
-  EntityUpdateDataSchema,
-} from "../types/validation-schemas";
 
 /**
  * BuildManager handles entity creation, modification, and build system operations
@@ -35,18 +27,12 @@ export class BuildManager implements IBuildManager {
 
   /**
    * Create a new entity in the world
-   * Uses Zod validation for strict type safety (CLAUDE.md compliance)
    */
   createEntity(
     type: string,
     position: Vector3,
-    data?: EntityCreationData,
-  ): Entity | null {
-    // Validate input data if provided
-    if (data) {
-      EntityCreationDataSchema.parse(data);
-    }
-
+    data?: Record<string, unknown>,
+  ): Entity {
     // Get the entities system from the world
     const entities = this.world!.entities;
 
@@ -87,12 +73,8 @@ export class BuildManager implements IBuildManager {
 
   /**
    * Update an entity with new data
-   * Uses Zod validation for strict type safety (CLAUDE.md compliance)
    */
-  updateEntity(entityId: string, data: EntityUpdateData): boolean {
-    // Validate input data
-    EntityUpdateDataSchema.parse(data);
-
+  updateEntity(entityId: string, data: Record<string, unknown>): boolean {
     const entities = this.world!.entities;
     const entity = entities.get(entityId)!;
 
@@ -276,36 +258,15 @@ export class BuildManager implements IBuildManager {
     // Use provided position or default
     const importPosition = position || this._tempVec3.set(0, 0, 0);
 
-    // Create entity from imported data with proper typing
-    const posData = entityData.position as [number, number, number] | { x: number; y: number; z: number } | undefined;
-    const posObj = posData ? (Array.isArray(posData) ? { x: posData[0], y: posData[1], z: posData[2] } : posData) : undefined;
-    
-    const comps = entityData.components as Array<{ type?: string; data?: Record<string, unknown> }> | undefined;
-    const compsTyped = comps?.map(c => ({
-      type: c.type,
-      data: c.data as Record<string, string | number | boolean>
-    }));
-
-    const creationData: EntityCreationData = {
-      type: (entityData.type as string) || "group",
-      name: entityData.name as string | undefined,
-      position: posObj,
-      rotation: entityData.rotation as Quaternion | undefined,
-      scale: entityData.scale as Vector3 | undefined,
-      components: compsTyped,
-      metadata: entityData.metadata as
-        | Record<string, string | number | boolean>
-        | undefined,
-    };
-
+    // Create entity from imported data
     const entity = this.createEntity(
-      creationData.type,
+      (entityData.type as string) || "group",
       importPosition,
-      creationData,
+      entityData,
     );
 
-    logger.info(`BuildManager: Imported entity as ${entity!.id}`);
+    logger.info(`BuildManager: Imported entity as ${entity.id}`);
 
-    return entity!;
+    return entity;
   }
 }

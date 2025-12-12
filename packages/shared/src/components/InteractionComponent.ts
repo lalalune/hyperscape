@@ -3,9 +3,9 @@
  * Stores interaction-related data for entities that can be interacted with
  */
 
-import { Component } from './Component';
-import type { InteractionComponentData } from '../types/components'
-import type { Entity } from '../entities/Entity';
+import { Component } from "./Component";
+import type { InteractionComponentData } from "../types/entities/components";
+import type { Entity } from "../entities/Entity";
 
 // Type moved to shared types/components.ts
 
@@ -13,24 +13,24 @@ export class InteractionComponent extends Component {
   constructor(entity: Entity, data?: InteractionComponentData) {
     // Initialize default values
     const defaultData: InteractionComponentData = {
-      type: '',
+      type: "",
       interactable: true,
       distance: 2.0,
-      prompt: 'Interact',
-      description: '',
+      prompt: "Interact",
+      description: "",
       cooldown: 0,
       lastInteractionTime: 0,
       usesRemaining: -1, // -1 = infinite uses
       maxUses: -1,
       requiredItem: null,
       consumesItem: false,
-      effect: null
+      effect: null,
     };
-    
+
     // Merge provided data with defaults
     const componentData = { ...defaultData, ...data };
-    
-    super('interaction', entity, componentData as Record<string, unknown>);
+
+    super("interaction", entity, componentData as Record<string, unknown>);
   }
 
   update(_deltaTime: number): void {
@@ -40,7 +40,7 @@ export class InteractionComponent extends Component {
   serialize(): Record<string, unknown> {
     return {
       type: this.type,
-      ...this.data
+      ...this.data,
     };
   }
 }

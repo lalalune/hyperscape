@@ -1,18 +1,26 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef } from "react";
 
-import { useGenerationStore } from '../store'
-import { GeneratedAsset, AssetType, BaseAssetMetadata, GenerationAssetMetadata } from '../types'
+import { useGenerationStore } from "../store";
+import {
+  GeneratedAsset,
+  AssetType,
+  BaseAssetMetadata,
+  GenerationAssetMetadata,
+} from "../types";
 
-import { GenerationAPIClient } from '@/services/api/GenerationAPIClient'
+import { GenerationAPIClient } from "@/services/api/GenerationAPIClient";
 
 interface UsePipelineStatusOptions {
-  apiClient: GenerationAPIClient
-  onComplete?: (asset: GeneratedAsset) => void
+  apiClient: GenerationAPIClient;
+  onComplete?: (asset: GeneratedAsset) => void;
 }
 
-export function usePipelineStatus({ apiClient, onComplete }: UsePipelineStatusOptions) {
-  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  
+export function usePipelineStatus({
+  apiClient,
+  onComplete,
+}: UsePipelineStatusOptions) {
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const {
     currentPipelineId,
     useGPT4Enhancement,
@@ -27,79 +35,104 @@ export function usePipelineStatus({ apiClient, onComplete }: UsePipelineStatusOp
     updatePipelineStage,
     setGeneratedAssets,
     setSelectedAsset,
-    setActiveView
-  } = useGenerationStore()
+    setActiveView,
+  } = useGenerationStore();
 
   useEffect(() => {
-    const DEBUG = (import.meta as any).env?.VITE_DEBUG_PIPELINE === 'true'
-    const POLL_MS = parseInt((import.meta as any).env?.VITE_PIPELINE_POLL_INTERVAL_MS || '1500', 10)
-    if (DEBUG) console.log('Pipeline status effect triggered. currentPipelineId:', currentPipelineId)
-    if (!currentPipelineId) return
-    
+    const DEBUG = (import.meta as any).env?.VITE_DEBUG_PIPELINE === "true";
+    const POLL_MS = parseInt(
+      (import.meta as any).env?.VITE_PIPELINE_POLL_INTERVAL_MS || "1500",
+      10,
+    );
+    if (DEBUG)
+      console.log(
+        "Pipeline status effect triggered. currentPipelineId:",
+        currentPipelineId,
+      );
+    if (!currentPipelineId) return;
+
     const stageMapping: Record<string, string> = {
-      'textInput': 'text-input',
-      'promptOptimization': 'gpt4-enhancement',
-      'imageGeneration': 'image-generation',
-      'image3D': 'image-to-3d',
-      'baseModel': 'image-to-3d',
-      'textureGeneration': 'retexturing',
-      'spriteGeneration': 'sprites',
-      'rigging': 'rigging'
-    }
-    
+      textInput: "text-input",
+      promptOptimization: "gpt4-enhancement",
+      imageGeneration: "image-generation",
+      image3D: "image-to-3d",
+      baseModel: "image-to-3d",
+      textureGeneration: "retexturing",
+      spriteGeneration: "sprites",
+      rigging: "rigging",
+    };
+
     intervalRef.current = setInterval(async () => {
       try {
-        if (DEBUG) console.log('Fetching pipeline status for:', currentPipelineId)
-        const status = await apiClient.fetchPipelineStatus(currentPipelineId)
-        if (DEBUG) console.log('Received status:', status)
-        
+        if (DEBUG)
+          console.log("Fetching pipeline status for:", currentPipelineId);
+        const status = await apiClient.fetchPipelineStatus(currentPipelineId);
+        if (DEBUG) console.log("Received status:", status);
+
         if (status) {
           // Update pipeline stages
-          Object.entries(status.stages || {}).forEach(([stageName, stageData]) => {
-            if (DEBUG) console.log('Processing stage:', stageName, stageData)
-            const uiStageId = stageMapping[stageName]
-            if (uiStageId) {
-              let uiStatus = stageData.status === 'processing' ? 'active' : stageData.status
-              
-              // Check configuration overrides
-              if (uiStageId === 'gpt4-enhancement' && !useGPT4Enhancement) uiStatus = 'skipped'
-              if (uiStageId === 'retexturing' && !enableRetexturing) uiStatus = 'skipped'
-              if (uiStageId === 'sprites' && !enableSprites) uiStatus = 'skipped'
-              
-              // Use updatePipelineStage to update individual stage
-              updatePipelineStage(uiStageId, uiStatus)
-            }
-          })
-          
+          Object.entries(status.stages || {}).forEach(
+            ([stageName, stageData]) => {
+              if (DEBUG) console.log("Processing stage:", stageName, stageData);
+              const uiStageId = stageMapping[stageName];
+              if (uiStageId) {
+                let uiStatus =
+                  stageData.status === "processing"
+                    ? "active"
+                    : stageData.status;
+
+                // Check configuration overrides
+                if (uiStageId === "gpt4-enhancement" && !useGPT4Enhancement)
+                  uiStatus = "skipped";
+                if (uiStageId === "retexturing" && !enableRetexturing)
+                  uiStatus = "skipped";
+                if (uiStageId === "sprites" && !enableSprites)
+                  uiStatus = "skipped";
+
+                // Use updatePipelineStage to update individual stage
+                updatePipelineStage(uiStageId, uiStatus);
+              }
+            },
+          );
+
           // Handle completion
-          if (status.status === 'completed') {
-            setIsGenerating(false)
-            const results = status.results
-            const config = status.config
-            const baseAssetId = config.assetId || assetName.toLowerCase().replace(/\s+/g, '-')
-            
+          if (status.status === "completed") {
+            setIsGenerating(false);
+            const results = status.results;
+            const config = status.config;
+            const baseAssetId =
+              config.assetId || assetName.toLowerCase().replace(/\s+/g, "-");
+
             // Debug logging
             if (DEBUG) {
-              console.log('Pipeline completed with results:', results)
-              console.log('Rigging results:', results.rigging)
+              console.log("Pipeline completed with results:", results);
+              console.log("Rigging results:", results.rigging);
             }
-            
+
             const finalAsset: GeneratedAsset = {
               id: baseAssetId,
               name: config.name || assetName,
-              description: config.description || `${config.type || assetType} asset`,
+              description:
+                config.description || `${config.type || assetType} asset`,
               type: config.type || assetType,
               pipelineId: currentPipelineId,
-              status: 'completed',
-              modelUrl: (results.image3D?.localPath || results.rigging?.localPath) ? `/api/assets/${baseAssetId}/model` : undefined,
+              status: "completed",
+              modelUrl:
+                results.image3D?.localPath || results.rigging?.localPath
+                  ? `/api/assets/${baseAssetId}/model`
+                  : undefined,
               conceptArtUrl: `/api/assets/${baseAssetId}/concept-art.png`,
               variants: results.textureGeneration?.variants || [],
-              hasSpriteMetadata: results.spriteGeneration?.status === 'metadata_created' || 
-                                 Boolean(config.enableSprites && results.image3D?.localPath),
+              hasSpriteMetadata:
+                results.spriteGeneration?.status === "metadata_created" ||
+                Boolean(config.enableSprites && results.image3D?.localPath),
               hasSprites: false,
               sprites: null,
-              hasModel: !!(results.image3D?.localPath || results.rigging?.localPath),
-              modelFile: results.rigging?.localPath || results.image3D?.localPath,
+              hasModel: !!(
+                results.image3D?.localPath || results.rigging?.localPath
+              ),
+              modelFile:
+                results.rigging?.localPath || results.image3D?.localPath,
               createdAt: new Date().toISOString(),
               generatedAt: new Date().toISOString(),
               metadata: {
@@ -108,16 +141,21 @@ export function usePipelineStatus({ apiClient, onComplete }: UsePipelineStatusOp
                 name: config.name,
                 description: config.description,
                 type: config.type as AssetType,
-                subtype: config.subtype || '',
+                subtype: config.subtype || "",
                 isBaseModel: true,
-                meshyTaskId: '', // Not available from pipeline results
-                generationMethod: 'gpt-image-meshy' as const,
+                meshyTaskId: "", // Not available from pipeline results
+                generationMethod: "gpt-image-meshy" as const,
                 variants: [],
                 variantCount: 0,
-                modelPath: results.rigging?.localPath || results.image3D?.localPath || '',
-                hasModel: !!(results.image3D?.localPath || results.rigging?.localPath),
+                modelPath:
+                  results.rigging?.localPath ||
+                  results.image3D?.localPath ||
+                  "",
+                hasModel: !!(
+                  results.image3D?.localPath || results.rigging?.localPath
+                ),
                 hasConceptArt: true,
-                workflow: 'ai-generation',
+                workflow: "ai-generation",
                 gddCompliant: true,
                 isPlaceholder: false,
                 createdAt: new Date().toISOString(),
@@ -127,47 +165,50 @@ export function usePipelineStatus({ apiClient, onComplete }: UsePipelineStatusOp
                 isRigged: !!results.rigging && !!results.rigging?.localPath,
                 animations: results.rigging?.localPath ? {} : undefined,
                 riggedModelPath: results.rigging?.localPath,
-                characterHeight: generationType === 'avatar' ? characterHeight : undefined
-              } as BaseAssetMetadata & GenerationAssetMetadata
-            }
-            
+                characterHeight:
+                  generationType === "avatar" ? characterHeight : undefined,
+              } as BaseAssetMetadata & GenerationAssetMetadata,
+            };
+
             // Only add if not already exists
-            const exists = generatedAssets.some(asset => asset.id === baseAssetId)
+            const exists = generatedAssets.some(
+              (asset) => asset.id === baseAssetId,
+            );
             if (!exists) {
-              setGeneratedAssets([...generatedAssets, finalAsset])
+              setGeneratedAssets([...generatedAssets, finalAsset]);
             }
-            setSelectedAsset(finalAsset)
-            setActiveView('results')
-            
+            setSelectedAsset(finalAsset);
+            setActiveView("results");
+
             // Call onComplete callback if provided
             if (onComplete) {
-              onComplete(finalAsset)
+              onComplete(finalAsset);
             }
-            
+
             // Clear the interval
             if (intervalRef.current) {
-              clearInterval(intervalRef.current)
-              intervalRef.current = null
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
             }
-          } else if (status.status === 'failed') {
-            setIsGenerating(false)
+          } else if (status.status === "failed") {
+            setIsGenerating(false);
             if (intervalRef.current) {
-              clearInterval(intervalRef.current)
-              intervalRef.current = null
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
             }
           }
         }
       } catch (error) {
-        if (DEBUG) console.error('Failed to get pipeline status:', error)
+        if (DEBUG) console.error("Failed to get pipeline status:", error);
       }
-    }, POLL_MS)
-    
+    }, POLL_MS);
+
     return () => {
       if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
-    }
+    };
   }, [
     currentPipelineId,
     apiClient,
@@ -184,8 +225,8 @@ export function usePipelineStatus({ apiClient, onComplete }: UsePipelineStatusOp
     setGeneratedAssets,
     setSelectedAsset,
     setActiveView,
-    onComplete
-  ])
-  
-  return { intervalRef }
-} 
+    onComplete,
+  ]);
+
+  return { intervalRef };
+}

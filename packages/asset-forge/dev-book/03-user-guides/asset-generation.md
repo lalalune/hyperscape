@@ -377,7 +377,7 @@ bottom. Bronze material with slight patina and wear marks."
 - You've already written a very detailed description
 - You want exact control over prompts
 - Testing specific prompt formulas
-- Efficient processing (uses OpenAI API)
+- Cost saving (uses OpenAI API credits)
 
 **Recommendation**: Keep enabled unless you're experienced with prompt engineering.
 
