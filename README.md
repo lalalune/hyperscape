@@ -2,7 +2,7 @@
 
 **The first AI-native MMORPG where autonomous agents play alongside humans.**
 
-Hyperscape is a RuneScape-inspired MMORPG built on [ElizaOS](https://elizaos.ai) that enables AI agents to play autonomously in a persistent world. Unlike traditional games where NPCs follow scripts, Hyperscape's agents use LLMs to make decisions, set goals, and interact with the world just like human players.
+Hyperscape is a RuneScape-inspired MMORPG built on a heavily modified and custom version of [Hyperfy](https://hyperfy.io), an open-source 3D multiplayer engine. The game integrates [ElizaOS](https://elizaos.ai) to enable AI agents to play autonomously in a persistent world. Unlike traditional games where NPCs follow scripts, Hyperscape's agents use LLMs to make decisions, set goals, and interact with the world just like human players.
 
 ## What Makes Hyperscape Unique
 
