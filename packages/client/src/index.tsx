@@ -186,17 +186,29 @@ function App() {
   const [hasUsername, setHasUsername] = React.useState<boolean | null>(null); // null = checking, true/false = result
   const [isCheckingUsername, setIsCheckingUsername] = React.useState(false);
 
-  // Subscribe to auth state changes
+  // Subscribe to auth state changes (runs immediately)
   React.useEffect(() => {
     const unsubscribe = privyAuthManager.subscribe(setAuthState);
-    privyAuthManager.restoreFromStorage();
     injectFarcasterMetaTags();
     return unsubscribe;
   }, []);
 
+  // Restore auth from localStorage ONLY after Privy SDK is ready
+  // This prevents race conditions where we read stale/incomplete data
+  React.useEffect(() => {
+    if (!authState.privySdkReady) return;
+    privyAuthManager.restoreFromStorage();
+  }, [authState.privySdkReady]);
+
   // Check if user has a username when authenticated
+  // Gate on privySdkReady to ensure Privy has finished initializing
   React.useEffect(() => {
     const checkUsername = async () => {
+      // Wait for Privy SDK to be ready before checking
+      if (!authState.privySdkReady) {
+        return;
+      }
+
       if (!authState.isAuthenticated) {
         setHasUsername(null);
         return;
@@ -205,38 +217,65 @@ function App() {
       const accountId = localStorage.getItem("privy_user_id");
       if (!accountId) {
         console.warn("[App] No privy_user_id found in localStorage");
-        setHasUsername(false);
+        // Don't immediately assume no username - Privy may still be writing
+        // Stay in loading state briefly, then check again
+        setHasUsername(null);
         return;
       }
 
       setIsCheckingUsername(true);
 
-      try {
-        // Check if user exists in database
-        const response = await fetch(
-          `http://localhost:5555/api/users/check?accountId=${encodeURIComponent(accountId)}`,
-        );
+      // Retry logic for API call - server may not be ready on fresh start
+      const apiBaseUrl =
+        import.meta.env.PUBLIC_API_URL || "http://localhost:5555";
+      const maxRetries = 3;
+      const retryDelayMs = 500;
 
-        if (response.ok) {
-          const data = await response.json();
-          setHasUsername(data.exists);
-          console.log(
-            `[App] User ${accountId} ${data.exists ? "has" : "does not have"} username`,
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const response = await fetch(
+            `${apiBaseUrl}/api/users/check?accountId=${encodeURIComponent(accountId)}`,
           );
-        } else {
-          console.error("[App] Failed to check username:", response.statusText);
-          setHasUsername(false);
+
+          if (response.ok) {
+            const data = await response.json();
+            setHasUsername(data.exists);
+            console.log(
+              `[App] User ${accountId} ${data.exists ? "has" : "does not have"} username`,
+            );
+            setIsCheckingUsername(false);
+            return;
+          } else {
+            console.warn(
+              `[App] Username check failed (attempt ${attempt + 1}/${maxRetries}):`,
+              response.statusText,
+            );
+          }
+        } catch (error) {
+          console.warn(
+            `[App] Username check error (attempt ${attempt + 1}/${maxRetries}):`,
+            error,
+          );
         }
-      } catch (error) {
-        console.error("[App] Error checking username:", error);
-        setHasUsername(false);
-      } finally {
-        setIsCheckingUsername(false);
+
+        // Wait before retry (unless last attempt)
+        if (attempt < maxRetries - 1) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, retryDelayMs * (attempt + 1)),
+          );
+        }
       }
+
+      // All retries failed - stay in loading state rather than showing wrong screen
+      console.error(
+        "[App] Username check failed after all retries, staying in loading state",
+      );
+      setHasUsername(null);
+      setIsCheckingUsername(false);
     };
 
     checkUsername();
-  }, [authState.isAuthenticated]);
+  }, [authState.isAuthenticated, authState.privySdkReady]);
 
   // Show character page when authenticated and has username
   React.useEffect(() => {
@@ -349,6 +388,20 @@ function App() {
     },
     [],
   );
+
+  // Show initializing screen while Privy SDK loads
+  // This prevents race conditions where we show the wrong screen
+  if (privyEnabled && !authState.privySdkReady) {
+    return (
+      <div
+        ref={appRef}
+        data-component="app-root"
+        className="flex items-center justify-center h-screen bg-black"
+      >
+        <div className="text-[#f2d08a] text-xl">Initializing...</div>
+      </div>
+    );
+  }
 
   // Show login screen if Privy enabled and not authenticated
   if (privyEnabled && !isAuthenticated && !authState.isAuthenticated) {

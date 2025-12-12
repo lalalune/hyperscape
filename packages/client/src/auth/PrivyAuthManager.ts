@@ -14,6 +14,9 @@ import type { User } from "@privy-io/react-auth";
  * @public
  */
 export interface PrivyAuthState {
+  /** Whether the Privy SDK has finished initializing */
+  privySdkReady: boolean;
+
   /** Whether the user is currently authenticated */
   isAuthenticated: boolean;
 
@@ -45,6 +48,7 @@ export interface PrivyAuthState {
 export class PrivyAuthManager {
   private static instance: PrivyAuthManager;
   private state: PrivyAuthState = {
+    privySdkReady: false,
     isAuthenticated: false,
     privyUserId: null,
     privyToken: null,
@@ -139,6 +143,23 @@ export class PrivyAuthManager {
     localStorage.removeItem("privy_auth_token");
     localStorage.removeItem("privy_user_id");
     localStorage.removeItem("farcaster_fid");
+  }
+
+  /**
+   * Sets the Privy SDK ready state
+   *
+   * Called by PrivyAuthHandler when Privy SDK finishes initializing.
+   * This gates auth-dependent logic in the App component to prevent
+   * race conditions during initial page load.
+   *
+   * @param ready - Whether Privy SDK is ready
+   *
+   * @public
+   */
+  setPrivySdkReady(ready: boolean): void {
+    if (this.state.privySdkReady !== ready) {
+      this.updateState({ privySdkReady: ready });
+    }
   }
 
   /**

@@ -17,6 +17,14 @@ interface PrivyAuthProviderProps {
 function PrivyAuthHandler({ children }: { children: React.ReactNode }) {
   const { ready, authenticated, user, getAccessToken, logout } = usePrivy();
 
+  // Set privySdkReady when Privy SDK finishes initializing
+  // This gates auth-dependent logic in App to prevent race conditions
+  useEffect(() => {
+    if (ready) {
+      privyAuthManager.setPrivySdkReady(true);
+    }
+  }, [ready]);
+
   useEffect(() => {
     const updateAuth = async () => {
       if (ready && authenticated && user) {
