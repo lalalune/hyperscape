@@ -117,12 +117,45 @@ class ErrorReportingService {
         const eventType = reason.type || "unknown";
         const target = reason.target;
         let targetInfo = "";
+
         if (target instanceof HTMLElement) {
           targetInfo = ` on <${target.tagName.toLowerCase()}>`;
-        } else if (target && typeof target === "object" && "url" in target) {
-          targetInfo = ` for ${(target as { url: string }).url}`;
+          // Add src attribute if available (useful for img, script, audio, video)
+          const srcAttr = (target as HTMLElement & { src?: string }).src;
+          if (srcAttr) {
+            targetInfo += ` src="${srcAttr}"`;
+          }
+        } else if (target instanceof WebSocket) {
+          targetInfo = ` for WebSocket ${target.url} (state: ${target.readyState})`;
+        } else if (target && typeof target === "object") {
+          // Try to extract any useful identifying info from the target
+          const targetObj = target as Record<string, unknown>;
+          if ("url" in targetObj) {
+            targetInfo = ` for ${String(targetObj.url)}`;
+          } else if ("constructor" in targetObj) {
+            targetInfo = ` on ${targetObj.constructor.name}`;
+          }
         }
-        message = `Event error: ${eventType}${targetInfo}`;
+
+        // Check for ErrorEvent which has more info
+        if (reason instanceof ErrorEvent) {
+          message = `ErrorEvent: ${reason.message || eventType}${targetInfo}`;
+          if (reason.filename) {
+            message += ` in ${reason.filename}:${reason.lineno}:${reason.colno}`;
+          }
+        } else {
+          message = `Event error: ${eventType}${targetInfo}`;
+        }
+
+        // For third-party SDK events with no target info, mark as low-priority
+        if (!targetInfo && eventType === "error") {
+          // This is likely a third-party SDK error (Privy, etc.) - log but don't report to server
+          console.debug(
+            "[ErrorReporting] Third-party Event error (suppressed):",
+            reason,
+          );
+          return; // Skip reporting to server
+        }
       } else if (reason !== null && reason !== undefined) {
         message = String(reason);
       }

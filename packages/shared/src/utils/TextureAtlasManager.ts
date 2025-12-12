@@ -17,8 +17,9 @@ export class TextureAtlasManager {
     // Get CDN URL from window or default to localhost CDN
     const cdnUrl =
       typeof window !== "undefined"
-        ? ((window as { __CDN_URL?: string }).__CDN_URL ?? "http://localhost:8080")
-        : "http://localhost:8080";
+        ? ((window as { __CDN_URL?: string }).__CDN_URL ??
+          "http://localhost:5555/assets")
+        : "http://localhost:5555/assets";
 
     // Scale values: higher = smaller texture (more tiled), lower = larger texture
     // With TEXTURE_SCALE=40 in shader, a scale of 4.0 gives ~10m per tile repeat

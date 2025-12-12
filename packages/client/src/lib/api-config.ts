@@ -37,6 +37,8 @@ export const GAME_WS_URL =
 // =============================================================================
 // CDN for Static Assets
 // =============================================================================
+// Defaults to server's /assets endpoint for reliability
+// Set PUBLIC_CDN_URL to http://localhost:8080 if using Docker CDN
 
 export const CDN_URL =
-  import.meta.env.PUBLIC_CDN_URL || "http://localhost:8080";
+  import.meta.env.PUBLIC_CDN_URL || "http://localhost:5555/assets";

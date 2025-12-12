@@ -126,8 +126,8 @@ export class AssetCache {
       const cdnUrl =
         typeof window !== "undefined"
           ? (window as unknown as { __CDN_URL?: string }).__CDN_URL ||
-            "http://localhost:8080"
-          : "http://localhost:8080";
+            "http://localhost:5555/assets"
+          : "http://localhost:5555/assets";
       return url.replace("asset://", `${cdnUrl}/`);
     }
 

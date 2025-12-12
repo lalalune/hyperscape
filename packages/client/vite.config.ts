@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -11,6 +12,12 @@ export default defineConfig(({ mode }) => {
   const workspaceRoot = path.resolve(__dirname, "../..");
   const clientDir = __dirname;
 
+  // Detect if we're running in the jeju monorepo context
+  const isJejuContext = fs.existsSync(
+    path.join(workspaceRoot, "jeju-manifest.json"),
+  );
+  const defaultPort = isJejuContext ? 5009 : 3333;
+
   // Load from both locations - client dir takes precedence
   const workspaceEnv = loadEnv(mode, workspaceRoot, ["PUBLIC_", "VITE_"]);
   const clientEnv = loadEnv(mode, clientDir, ["PUBLIC_", "VITE_"]);
@@ -18,6 +25,10 @@ export default defineConfig(({ mode }) => {
 
   console.log("[Vite Config] Loaded env from workspace:", workspaceRoot);
   console.log("[Vite Config] Loaded env from client:", clientDir);
+  console.log(
+    "[Vite Config] Context:",
+    isJejuContext ? "jeju monorepo (port 5009)" : "standalone (port 3333)",
+  );
   console.log(
     "[Vite Config] PUBLIC_PRIVY_APP_ID:",
     env.PUBLIC_PRIVY_APP_ID
@@ -175,7 +186,7 @@ export default defineConfig(({ mode }) => {
       "process.env.NODE_ENV": JSON.stringify(mode),
       "process.env.DEBUG_RPG": JSON.stringify(env.DEBUG_RPG || ""),
       "process.env.PUBLIC_CDN_URL": JSON.stringify(
-        env.PUBLIC_CDN_URL || "http://localhost:8080",
+        env.PUBLIC_CDN_URL || "http://localhost:5555/assets",
       ),
       "process.env.PUBLIC_STARTER_ITEMS": JSON.stringify(
         env.PUBLIC_STARTER_ITEMS || "",
@@ -187,7 +198,7 @@ export default defineConfig(({ mode }) => {
       // We don't need to manually define them here - Vite handles it automatically
     },
     server: {
-      port: Number(env.VITE_PORT) || 3333,
+      port: Number(env.VITE_PORT) || defaultPort,
       open: false,
       host: true,
       // Silence noisy missing source map warnings for vendored libs

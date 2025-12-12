@@ -312,9 +312,12 @@ class PhysXManager extends EventEmitter {
       (process.env.NODE_ENV === "test" || process.env.VITEST);
 
     // Add a timeout to detect if WASM loading is stuck
-    const timeoutId = setTimeout(() => {
-      throw new Error("PhysX WASM loading timeout after 30 seconds");
-    }, 30000);
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<never>((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error("PhysX WASM loading timeout after 30 seconds"));
+      }, 30000);
+    });
 
     // Configure WASM loading
     const moduleOptions: Record<string, unknown> = {
@@ -332,25 +335,15 @@ class PhysXManager extends EventEmitter {
       },
     };
 
-    // In Node.js environments, we need to handle WASM loading differently
-    if (isServer || isTest) {
-      // Dynamically import server-specific loading utilities
-      // This keeps Node.js modules out of the client bundle
-      // Use dynamic path construction to prevent bundler from trying to resolve this
-
-      const importPath = new Function('return "./PhysXManager.server"')();
-      const serverModule = await import(/* @vite-ignore */ importPath);
-      const wasmBuffer = await serverModule.loadPhysXWasmForNode();
-
-      // Provide the WASM module directly
-      moduleOptions.wasmBinary = wasmBuffer;
-    } else if (isBrowser) {
+    // In browser, configure locateFile to find WASM from CDN
+    if (isBrowser) {
       // For browser, always use absolute CDN URL (no Vite proxy)
       moduleOptions.locateFile = (wasmFileName: string) => {
         if (wasmFileName.endsWith(".wasm")) {
           // Use window.__CDN_URL if set by the application
           const windowWithCdn = window as Window & { __CDN_URL?: string };
-          const cdnBaseUrl = windowWithCdn.__CDN_URL || "http://localhost:8080";
+          const cdnBaseUrl =
+            windowWithCdn.__CDN_URL || "http://localhost:5555/assets";
           // Add cache-busting parameter to force reload of correct UMD version
           const cacheBust = Date.now();
           const url = `${cdnBaseUrl}/web/${wasmFileName}?v=${cacheBust}`;
@@ -360,52 +353,27 @@ class PhysXManager extends EventEmitter {
       };
     }
 
-    // Use appropriate loader based on environment (use isBrowser defined at the top of function)
+    // Use appropriate loader based on environment
     let PHYSX: PhysXModule;
 
-    if (isBrowser) {
-      // Browser environment - use script loader
-      PHYSX = await loadPhysXScript(moduleOptions);
-    } else {
-      // Node.js/server environment - use dynamic import for ESM compatibility
-      // Resolve path relative to this module's location in the workspace
-      const pathModule = await import("node:path");
-      const urlModule = await import("node:url");
-
-      // Get the directory containing this file (works in both source and bundled contexts)
-      const currentFileUrl = import.meta.url;
-      const currentDir = pathModule.dirname(
-        urlModule.fileURLToPath(currentFileUrl),
-      );
-
-      // Navigate up to find the packages directory and then to physx-js-webidl
-      // From: packages/shared/build/framework.js or packages/shared/src/physics/PhysXManager.ts
-      // To: packages/physx-js-webidl/dist/physx-js-webidl.js
-      let physxPath: string;
-      if (currentDir.includes("/build")) {
-        // Running from bundled framework.js
-        physxPath = pathModule.resolve(
-          currentDir,
-          "../../physx-js-webidl/dist/physx-js-webidl.js",
-        );
+    // Race loading against timeout
+    const loadPromise: Promise<PhysXModule> = (async () => {
+      if (isBrowser) {
+        // Browser environment - use script loader
+        return loadPhysXScript(moduleOptions);
       } else {
-        // Running from source
-        physxPath = pathModule.resolve(
-          currentDir,
-          "../../../physx-js-webidl/dist/physx-js-webidl.js",
+        // Node.js/server environment - dynamically import server module
+        // This code path only executes on server, never in browser
+        // @vite-ignore tells Vite to skip analyzing this dynamic import
+        const serverModule = await import(
+          /* @vite-ignore */ "./PhysXManager.server.js"
         );
+        return serverModule.loadPhysXModuleForNode(moduleOptions);
       }
+    })();
 
-      const physxModule = await import(/* @vite-ignore */ physxPath);
-      const PhysXLoader = physxModule.default || physxModule;
-
-      // Strong type assumption - PhysXLoader is a function that returns PhysXModule
-      PHYSX = await (
-        PhysXLoader as (
-          options: Record<string, unknown>,
-        ) => Promise<PhysXModule>
-      )(moduleOptions);
-    }
+    PHYSX = await Promise.race([loadPromise, timeoutPromise]);
+    clearTimeout(timeoutId!);
 
     // Set global PHYSX for compatibility
     Object.defineProperty(globalThis, "PHYSX", {
@@ -413,8 +381,6 @@ class PhysXManager extends EventEmitter {
       writable: true,
       configurable: true,
     });
-
-    clearTimeout(timeoutId);
 
     // Create PhysX foundation objects - PHYSX already has the correct type
     const physxWithConstants = PHYSX as PhysXModule & {

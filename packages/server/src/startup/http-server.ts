@@ -63,6 +63,8 @@ export async function createHttpServer(
     origin: [
       "http://localhost:4001", // ElizaOS API
       "http://localhost:3333", // Game Client
+      "http://localhost:5009", // Vite Dev Server
+      "http://localhost:5010", // Vite Dev Server (alternate)
       "http://localhost:5555", // Game Server
       "http://localhost:7777",
       /^https?:\/\/localhost:\d+$/,
@@ -72,7 +74,7 @@ export async function createHttpServer(
       true,
     ],
     credentials: true,
-    methods: ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
+    methods: ["GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD"],
   });
   console.log("[HTTP] ✅ CORS configured");
 
@@ -80,10 +82,12 @@ export async function createHttpServer(
   if (isRateLimitEnabled()) {
     await fastify.register(rateLimit, getGlobalRateLimit());
     console.log(
-      "[HTTP] ✅ Rate limiting enabled (100 requests/min per IP globally)",
+      "[HTTP] ✅ Rate limiting enabled (1000 requests/min per IP globally)",
     );
   } else {
-    console.log("[HTTP] ⚠️  Rate limiting disabled (development mode)");
+    console.log(
+      "[HTTP] ℹ️  Rate limiting disabled (set ENABLE_RATE_LIMIT=true to enable)",
+    );
   }
 
   // Serve index.html for root path (SPA routing)
@@ -208,21 +212,10 @@ async function registerStaticFiles(
   });
   console.log("[HTTP] ✅ Public directory registered");
 
-  // Register world assets at /assets/world/
-  await fastify.register(statics, {
-    root: config.assetsDir,
-    prefix: "/assets/world/",
-    decorateReply: false,
-    setHeaders: (res, filePath) => {
-      setAssetHeaders(res, filePath);
-    },
-  });
-  console.log(`[HTTP] ✅ Registered /assets/world/ → ${config.assetsDir}`);
-
   // Manual music route (workaround for static file issues)
   registerMusicRoute(fastify, config);
 
-  // ALSO register as /assets/ for backward compatibility
+  // Register assets directory (serves all assets including world/, noise/, etc.)
   await fastify.register(statics, {
     root: config.assetsDir,
     prefix: "/assets/",
@@ -290,9 +283,10 @@ function setStaticHeaders(
     res.setHeader("Cache-Control", "public, max-age=300");
   }
 
-  // Security headers for SharedArrayBuffer support
-  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  // CORS headers for development
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
 }
 
 /**
@@ -325,6 +319,10 @@ function setAssetHeaders(
   // Aggressive caching for assets (immutable, 1 year)
   res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
   res.setHeader("Expires", new Date(Date.now() + 31536000000).toUTCString());
+
+  // CORS headers for static assets (allow cross-origin requests from dev server)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
 }
 
 /**

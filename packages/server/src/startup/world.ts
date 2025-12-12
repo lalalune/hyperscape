@@ -66,6 +66,9 @@ export async function initializeWorld(
   config: ServerConfig,
   dbContext: DatabaseContext,
 ): Promise<World> {
+  // Set ASSETS_DIR env var for DataManager to load manifests from filesystem
+  process.env.ASSETS_DIR = config.assetsDir;
+
   console.log("[World] Installing Three.js extensions...");
   installThreeJSExtensions();
 
@@ -74,12 +77,10 @@ export async function initializeWorld(
 
   // Register server-specific systems
   console.log("[World] Registering server systems...");
-  const { DatabaseSystem: ServerDatabaseSystem } = await import(
-    "../systems/DatabaseSystem/index.js"
-  );
-  const { KillTrackerSystem } = await import(
-    "../systems/KillTrackerSystem/index.js"
-  );
+  const { DatabaseSystem: ServerDatabaseSystem } =
+    await import("../systems/DatabaseSystem/index.js");
+  const { KillTrackerSystem } =
+    await import("../systems/KillTrackerSystem/index.js");
 
   world.register("database", ServerDatabaseSystem);
   world.register("kill-tracker", KillTrackerSystem);

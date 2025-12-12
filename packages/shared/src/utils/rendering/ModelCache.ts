@@ -137,7 +137,7 @@ export class ModelCache {
         (typeof window !== "undefined" &&
           (window as Window & { __CDN_URL?: string }).__CDN_URL) ||
         world?.assetsUrl?.replace(/\/$/, "") ||
-        "http://localhost:8080";
+        "http://localhost:5555/assets";
       resolvedPath = resolvedPath.replace("asset://", `${cdnUrl}/`);
     }
 

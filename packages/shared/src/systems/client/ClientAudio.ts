@@ -187,13 +187,15 @@ export class ClientAudio extends System {
         await this.ctx.resume();
         if (this.ctx.state !== "running")
           throw new Error("Audio still suspended");
-        const video = document.createElement("video");
-        video.playsInline = true;
-        video.muted = true;
-        video.src = "/tiny.mp4";
-        await video.play();
-        video.pause();
-        video.remove();
+        // Create and play a silent oscillator to unlock audio context
+        const oscillator = this.ctx.createOscillator();
+        const gainNode = this.ctx.createGain();
+        gainNode.gain.value = 0; // Silent
+        oscillator.connect(gainNode);
+        gainNode.connect(this.ctx.destination);
+        oscillator.start();
+        oscillator.stop(this.ctx.currentTime + 0.001);
+        oscillator.disconnect();
         complete();
       } catch (error) {
         console.error("Failed to unlock audio context:", error);

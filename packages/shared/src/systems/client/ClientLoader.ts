@@ -1,7 +1,7 @@
 import { VRMLoaderPlugin } from "@pixiv/three-vrm";
 import Hls from "hls.js/dist/hls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
+import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 import { createEmoteFactory } from "../../extras/three/createEmoteFactory";
 import { createNode } from "../../extras/three/createNode";
 import { createVRMFactory } from "../../extras/three/createVRMFactory";
@@ -60,7 +60,7 @@ function nodeToINode(node: Node): INode {
  * - **Avatars**: .vrm (VRM humanoid avatars with VRMLoaderPlugin)
  * - **Emotes**: .glb animations (retargetable to VRM skeletons)
  * - **Textures**: .jpg, .png, .webp (via TextureLoader)
- * - **HDR**: .hdr (RGBE environment maps via RGBELoader)
+ * - **HDR**: .hdr (RGBE environment maps via HDRLoader)
  * - **Images**: Raw image elements
  * - **Video**: .mp4, .webm, .m3u8 (HLS with hls.js polyfill)
  * - **Audio**: .mp3, .ogg, .wav (decoded via Web Audio API)
@@ -69,7 +69,7 @@ export class ClientLoader extends SystemBase {
   files: Map<string, File>;
   promises: Map<string, Promise<LoaderResult>>;
   results: Map<string, LoaderResult>;
-  hdrLoader: RGBELoader;
+  hdrLoader: HDRLoader;
   texLoader: THREE.TextureLoader;
   gltfLoader: GLTFLoader;
   preloadItems: Array<{ type: string; url: string }> = [];
@@ -90,7 +90,7 @@ export class ClientLoader extends SystemBase {
     this.files = new Map();
     this.promises = new Map();
     this.results = new Map();
-    this.hdrLoader = new RGBELoader();
+    this.hdrLoader = new HDRLoader();
     this.texLoader = new THREE.TextureLoader();
     this.gltfLoader = new GLTFLoader();
     // Register VRM loader plugin with proper parser typing
@@ -213,6 +213,18 @@ export class ClientLoader extends SystemBase {
       throw new Error(`HTTP error! status: ${resp.status}`);
     }
     const blob = await resp.blob();
+
+    // Check if this is a Git LFS pointer file (text file starting with "version https://git-lfs")
+    // LFS pointers are ~130-140 bytes text files with specific format
+    if (blob.type === "text/plain" && blob.size < 200) {
+      const text = await blob.text();
+      if (text.startsWith("version https://git-lfs")) {
+        throw new Error(
+          `Asset is a Git LFS pointer (not actual file). Run 'git lfs pull' to download: ${url}`,
+        );
+      }
+    }
+
     const file = new File([blob], url.split("/").pop() as string, {
       type: blob.type,
     });

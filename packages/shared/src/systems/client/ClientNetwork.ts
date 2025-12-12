@@ -361,29 +361,52 @@ export class ClientNetwork extends SystemBase {
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(url);
       this.ws.binaryType = "arraybuffer";
+      let settled = false;
 
       const timeout = setTimeout(() => {
-        this.logger.warn("WebSocket connection timeout");
-        reject(new Error("WebSocket connection timeout"));
+        if (!settled) {
+          settled = true;
+          this.logger.warn("WebSocket connection timeout");
+          reject(new Error("WebSocket connection timeout"));
+        }
       }, 10000);
 
       this.ws.addEventListener("open", () => {
-        this.logger.debug("WebSocket connected successfully");
-        this.connected = true;
-        this.initialized = true;
-        clearTimeout(timeout);
-        resolve();
+        if (!settled) {
+          settled = true;
+          this.logger.debug("WebSocket connected successfully");
+          this.connected = true;
+          this.initialized = true;
+          clearTimeout(timeout);
+          resolve();
+        }
       });
 
       this.ws.addEventListener("message", this.onPacket);
       this.ws.addEventListener("close", this.onClose);
 
+      // Handle close during connection (before open fires)
+      this.ws.addEventListener("close", (e) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          const reason = e.reason || "Connection closed before establishing";
+          this.logger.error(
+            "WebSocket closed during connection",
+            new Error(reason),
+          );
+          reject(
+            new Error(
+              `WebSocket connection failed: ${reason} (code: ${e.code})`,
+            ),
+          );
+        }
+      });
+
       this.ws.addEventListener("error", (e) => {
-        clearTimeout(timeout);
-        const isExpectedDisconnect =
-          this.ws?.readyState === WebSocket.CLOSED ||
-          this.ws?.readyState === WebSocket.CLOSING;
-        if (!isExpectedDisconnect) {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
           const errorMessage =
             e instanceof ErrorEvent ? e.message : "WebSocket connection failed";
           this.logger.error("WebSocket error", new Error(errorMessage));
@@ -556,9 +579,23 @@ export class ClientNetwork extends SystemBase {
 
           this.logger.debug("Character selection packets sent");
         } else {
-          this.logger.debug(
-            "No characterId available, skipping auto-enter world",
-          );
+          // Check if we're in dev mode (no character selection required)
+          // In dev mode, auto-enter world without a character ID
+          const isDevMode =
+            typeof window !== "undefined" &&
+            (import.meta as { env?: { DEV?: boolean; MODE?: string } }).env
+              ?.DEV === true;
+
+          if (isDevMode) {
+            this.logger.info(
+              "Dev mode: Auto-entering world without character ID",
+            );
+            this.send("enterWorld", {});
+          } else {
+            this.logger.debug(
+              "No characterId available, skipping auto-enter world",
+            );
+          }
         }
       }
     }

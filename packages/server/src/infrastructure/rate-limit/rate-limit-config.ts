@@ -36,7 +36,7 @@ import type { RateLimitOptions } from "@fastify/rate-limit";
  * Prevents general API abuse across all endpoints.
  *
  * Limits:
- * - 100 requests per minute per IP
+ * - 1000 requests per minute per IP (games need high throughput)
  * - 429 status code on limit exceeded
  * - Standard error response format
  *
@@ -44,7 +44,7 @@ import type { RateLimitOptions } from "@fastify/rate-limit";
  */
 export function getGlobalRateLimit(): RateLimitOptions {
   return {
-    max: 100,
+    max: 1000,
     timeWindow: "1 minute",
     errorResponseBuilder: (_request, context) => ({
       statusCode: 429,
@@ -65,7 +65,7 @@ export function getGlobalRateLimit(): RateLimitOptions {
  * - Potential for large file attacks
  *
  * Limits:
- * - 10 requests per minute per IP
+ * - 30 requests per minute per IP
  * - 429 status code on limit exceeded
  * - Detailed error message with retry-after
  *
@@ -73,12 +73,12 @@ export function getGlobalRateLimit(): RateLimitOptions {
  */
 export function getUploadRateLimit(): RateLimitOptions {
   return {
-    max: 10,
+    max: 30,
     timeWindow: "1 minute",
     errorResponseBuilder: (_request, context) => ({
       statusCode: 429,
       error: "Too Many Requests",
-      message: `Upload rate limit exceeded. Maximum 10 uploads per minute. Try again in ${Math.ceil((context.ttl || 60000) / 1000)} seconds.`,
+      message: `Upload rate limit exceeded. Maximum 30 uploads per minute. Try again in ${Math.ceil((context.ttl || 60000) / 1000)} seconds.`,
       retryAfter: Math.ceil((context.ttl || 60000) / 1000),
     }),
   };
@@ -93,7 +93,7 @@ export function getUploadRateLimit(): RateLimitOptions {
  * - Protects database from excessive writes
  *
  * Limits:
- * - 60 requests per minute per IP
+ * - 300 requests per minute per IP (5/sec - reasonable for games)
  * - 429 status code on limit exceeded
  * - Game-specific error message
  *
@@ -101,12 +101,12 @@ export function getUploadRateLimit(): RateLimitOptions {
  */
 export function getActionRateLimit(): RateLimitOptions {
   return {
-    max: 60,
+    max: 300,
     timeWindow: "1 minute",
     errorResponseBuilder: (_request, context) => ({
       statusCode: 429,
       error: "Too Many Requests",
-      message: `Action rate limit exceeded. Maximum 60 actions per minute. Try again in ${Math.ceil((context.ttl || 60000) / 1000)} seconds.`,
+      message: `Action rate limit exceeded. Maximum 300 actions per minute. Try again in ${Math.ceil((context.ttl || 60000) / 1000)} seconds.`,
       retryAfter: Math.ceil((context.ttl || 60000) / 1000),
     }),
   };
@@ -115,13 +115,13 @@ export function getActionRateLimit(): RateLimitOptions {
 /**
  * Authentication endpoint rate limit configuration
  *
- * Very strict limits for authentication to prevent:
+ * Limits for authentication to prevent:
  * - Brute force attacks
  * - Credential stuffing
  * - Account enumeration
  *
  * Limits:
- * - 5 requests per minute per IP
+ * - 20 requests per minute per IP
  * - 429 status code on limit exceeded
  * - Security-focused error message
  *
@@ -129,12 +129,12 @@ export function getActionRateLimit(): RateLimitOptions {
  */
 export function getAuthRateLimit(): RateLimitOptions {
   return {
-    max: 5,
+    max: 20,
     timeWindow: "1 minute",
     errorResponseBuilder: (_request, context) => ({
       statusCode: 429,
       error: "Too Many Requests",
-      message: `Authentication rate limit exceeded. Maximum 5 attempts per minute. Try again in ${Math.ceil((context.ttl || 60000) / 1000)} seconds.`,
+      message: `Authentication rate limit exceeded. Maximum 20 attempts per minute. Try again in ${Math.ceil((context.ttl || 60000) / 1000)} seconds.`,
       retryAfter: Math.ceil((context.ttl || 60000) / 1000),
     }),
   };
@@ -143,10 +143,10 @@ export function getAuthRateLimit(): RateLimitOptions {
 /**
  * Check if rate limiting should be enabled
  *
- * In development, rate limiting can be disabled for easier testing.
+ * In development, rate limiting is disabled by default for easier testing.
  * In production, it should always be enabled for security.
  *
- * Controlled by DISABLE_RATE_LIMIT environment variable.
+ * Controlled by ENABLE_RATE_LIMIT environment variable in development.
  *
  * @returns true if rate limiting should be enabled
  */
@@ -156,6 +156,6 @@ export function isRateLimitEnabled(): boolean {
     return true;
   }
 
-  // In development, allow disabling via env var
-  return process.env.DISABLE_RATE_LIMIT !== "true";
+  // In development, rate limiting is disabled by default (opt-in)
+  return process.env.ENABLE_RATE_LIMIT === "true";
 }

@@ -7,6 +7,14 @@ import type { EntitySpawnedEvent } from "../../../types/systems/system-interface
 import { SystemBase } from "../infrastructure/SystemBase";
 import { TerrainSystem } from "..";
 
+/**
+ * Map service types from world-areas.json to base NPC IDs in npcs.json
+ */
+const SERVICE_TYPE_TO_NPC_ID: Record<string, string> = {
+  bank: "bank_clerk",
+  general_store: "shopkeeper",
+};
+
 // Types are now imported from shared type files
 
 /**
@@ -112,10 +120,12 @@ export class MobNPCSpawnerSystem extends SystemBase {
         const spawnY = groundY + 1.0;
 
         // ALL NPC data comes from npcs.json manifest - world-areas only provides position/type
-        const npcManifestData = getNPCById(npc.id);
+        // Map service type (bank, general_store) to base NPC ID (bank_clerk, shopkeeper)
+        const baseNpcId = SERVICE_TYPE_TO_NPC_ID[npc.type] || npc.type;
+        const npcManifestData = getNPCById(baseNpcId);
         if (!npcManifestData) {
           console.warn(
-            `[MobNPCSpawnerSystem] ⚠️ NPC ${npc.id} not found in npcs.json manifest!`,
+            `[MobNPCSpawnerSystem] ⚠️ NPC type ${npc.type} (mapped to ${baseNpcId}) not found in npcs.json manifest!`,
           );
           continue; // Skip NPCs not in manifest
         }

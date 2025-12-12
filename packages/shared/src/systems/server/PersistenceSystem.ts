@@ -227,10 +227,16 @@ export class PersistenceSystem extends SystemBase {
     // userId is the persistent account/character ID that exists in the database
     const characterId = event.userId || event.playerId;
 
-    // NOTE: Don't call savePlayerAsync here - it would overwrite the character name!
-    // Character must already exist (created via createCharacter) before a session starts.
-    // If character doesn't exist, the session creation will fail due to foreign key constraint,
-    // which is the correct behavior - you shouldn't be able to create a session without a character.
+    // Check if character exists in database before creating session
+    // This prevents foreign key constraint errors for anonymous/dev mode players
+    const characterExists =
+      await this.databaseSystem.getPlayerAsync(characterId);
+    if (!characterExists) {
+      this.logger.debug(
+        `Skipping session creation for anonymous player: ${characterId}`,
+      );
+      return;
+    }
 
     const sessionData: Omit<PlayerSessionRow, "id" | "sessionId"> = {
       playerId: characterId, // Use character ID for foreign key
