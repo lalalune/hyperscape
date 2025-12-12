@@ -236,6 +236,12 @@ export class AggroSystem extends SystemBase {
     playerId: string,
     playerPosition: Position3D,
   ): void {
+    // Skip players still loading - they're immune to aggro until clientReady
+    const playerEntity = this.world.entities.get(playerId);
+    if (playerEntity?.data?.isLoading) {
+      return;
+    }
+
     const distance = calculateDistance(
       mobState.currentPosition,
       playerPosition,

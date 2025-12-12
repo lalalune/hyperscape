@@ -206,6 +206,8 @@ const names = [
   'tileMovementEnd',     // Server -> Client: arrived at destination
   // System message packets (UI_MESSAGE events -> chat)
   'systemMessage',       // Server -> Client: system/game messages for chat
+  // Player loading state packets (Issue #356)
+  'clientReady',         // Client -> Server: client finished loading, player now targetable
 ]
 
 const byName: Record<string, PacketInfo> = {};

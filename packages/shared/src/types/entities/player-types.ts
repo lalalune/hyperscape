@@ -122,6 +122,9 @@ export interface Player {
   // Player methods for Hyperscape compatibility
   setPosition?: (x: number, y: number, z: number) => void;
   setRotation?: (x: number, y: number, z: number, w: number) => void;
+
+  // Loading state - true while client is loading assets, player immune to aggro/combat
+  isLoading?: boolean;
 }
 
 /**
