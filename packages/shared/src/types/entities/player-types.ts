@@ -28,6 +28,11 @@ export interface PlayerEquipmentItems {
   helmet: Item | null;
   body: Item | null;
   legs: Item | null;
+  boots: Item | null;
+  gloves: Item | null;
+  cape: Item | null;
+  amulet: Item | null;
+  ring: Item | null;
   arrows: Item | null;
 }
 
@@ -165,6 +170,11 @@ export class PlayerMigration {
         helmet: null,
         body: null,
         legs: null,
+        boots: null,
+        gloves: null,
+        cape: null,
+        amulet: null,
+        ring: null,
         arrows: null,
       },
       coins: old.coins,
@@ -214,6 +224,11 @@ export class PlayerMigration {
             helmet: null,
             body: null,
             legs: null,
+            boots: null,
+            gloves: null,
+            cape: null,
+            amulet: null,
+            ring: null,
             arrows: null,
           }
         : undefined,
@@ -292,6 +307,11 @@ export class PlayerMigration {
         helmet: null,
         body: null,
         legs: null,
+        boots: null,
+        gloves: null,
+        cape: null,
+        amulet: null,
+        ring: null,
         arrows: null,
       },
       coins: 0,
@@ -411,11 +431,36 @@ export interface PlayerSpawnData {
   aggroTriggered: boolean;
 }
 
-// Player bank storage
+// Player bank storage - in-memory model (used by NPCSystem and legacy code)
 export interface PlayerBankStorage {
   playerId: string;
   items: Map<string, number>; // itemId -> quantity
   lastAccessed: number;
+}
+
+/**
+ * Player bank storage - full model matching database schema
+ * Single source of truth for bank data structure in DB-backed systems
+ */
+export interface PlayerBankItemDB {
+  readonly itemId: string;
+  readonly quantity: number;
+  readonly slot: number;
+  readonly tabIndex: number;
+}
+
+export interface PlayerBankTabDB {
+  readonly tabIndex: number;
+  readonly iconItemId: string | null;
+}
+
+export interface PlayerBankStorageDB {
+  readonly playerId: string;
+  readonly items: ReadonlyArray<PlayerBankItemDB>;
+  readonly tabs: ReadonlyArray<PlayerBankTabDB>;
+  readonly alwaysSetPlaceholder: boolean;
+  readonly maxSlots: number;
+  readonly lastAccessed?: number;
 }
 
 // Player inventory with full item data (used by InventorySystem)
@@ -438,6 +483,11 @@ export interface PlayerEquipment {
   helmet: EquipmentSlot | null;
   body: EquipmentSlot | null;
   legs: EquipmentSlot | null;
+  boots: EquipmentSlot | null;
+  gloves: EquipmentSlot | null;
+  cape: EquipmentSlot | null;
+  amulet: EquipmentSlot | null;
+  ring: EquipmentSlot | null;
   arrows: EquipmentSlot | null;
   totalStats: {
     attack: number;

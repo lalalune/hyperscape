@@ -354,6 +354,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
     helmet: null,
     body: null,
     legs: null,
+    boots: null,
+    gloves: null,
+    cape: null,
+    amulet: null,
+    ring: null,
     arrows: null,
   };
   inventory?: { items?: unknown[] } = { items: [] };

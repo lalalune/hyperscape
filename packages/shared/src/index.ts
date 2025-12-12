@@ -725,3 +725,22 @@ export type {
   ValidationResult,
   SessionCloseReason,
 } from "./types/interaction";
+
+// Bank equipment type guards, types, and constants
+export {
+  isValidPlayerEquipmentData,
+  isValidPlayerEquipmentStructure,
+  MVP_EQUIPMENT_SLOTS,
+} from "./types/bank-equipment";
+export { VALID_EQUIPMENT_SLOT_KEYS } from "./constants/BankEquipmentConstants";
+export type {
+  PlayerEquipmentData,
+  EquipmentSlotItem,
+  BankEquipmentError,
+  BankRightPanelMode,
+  WithdrawTarget,
+  BankWithdrawToEquipmentRequest,
+  BankWithdrawToEquipmentResponse,
+  BankDepositEquipmentRequest,
+  BankDepositEquipmentResponse,
+} from "./types/bank-equipment";

@@ -209,6 +209,11 @@ export interface Equipment {
   helmet: EquipmentSlot | null;
   body: EquipmentSlot | null;
   legs: EquipmentSlot | null;
+  boots: EquipmentSlot | null;
+  gloves: EquipmentSlot | null;
+  cape: EquipmentSlot | null;
+  amulet: EquipmentSlot | null;
+  ring: EquipmentSlot | null;
   arrows: EquipmentSlot | null;
 }
 

@@ -150,7 +150,13 @@ export async function handleBankWithdrawPlaceholder(
 
         // Create inventory items (one per withdrawn item, qty=1)
         // BULK INSERT: Batch all items into single query for performance
-        const newItems = [];
+        const newItems: Array<{
+          playerId: string;
+          itemId: string;
+          quantity: number;
+          slotIndex: number;
+          metadata: null;
+        }> = [];
         for (let i = 0; i < withdrawQty; i++) {
           newItems.push({
             playerId: ctx.playerId,
@@ -298,12 +304,10 @@ export async function handleBankReleaseAllPlaceholders(
         return { success: true, count: 0 };
       }
 
-      // Group by tab for compaction
-      const byTab = new Map<number, number[]>();
+      // Collect affected tabs for batch compaction
+      const affectedTabs = new Set<number>();
       for (const row of rows) {
-        const slots = byTab.get(row.tabIndex) || [];
-        slots.push(row.slot);
-        byTab.set(row.tabIndex, slots);
+        affectedTabs.add(row.tabIndex);
       }
 
       // Delete all qty=0 rows
@@ -312,12 +316,19 @@ export async function handleBankReleaseAllPlaceholders(
             WHERE "playerId" = ${ctx.playerId} AND quantity = 0`,
       );
 
-      // Compact each tab (process highest slot first to avoid conflicts)
-      for (const [tabIndex, slots] of byTab) {
-        // Slots are already sorted DESC, so compact from highest to lowest
-        for (const slot of slots) {
-          await compactBankSlots(tx, ctx.playerId, slot, tabIndex);
-        }
+      // Batch compact each affected tab - renumber all slots sequentially
+      // Uses window function to assign new slot numbers in one query per tab
+      for (const tabIndex of affectedTabs) {
+        await tx.execute(
+          sql`UPDATE bank_storage
+              SET slot = subq.new_slot
+              FROM (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY slot) - 1 as new_slot
+                FROM bank_storage
+                WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${tabIndex}
+              ) as subq
+              WHERE bank_storage.id = subq.id`,
+        );
       }
 
       return { success: true, count: rows.length };

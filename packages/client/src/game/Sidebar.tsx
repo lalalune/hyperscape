@@ -179,6 +179,11 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           helmet: rawEq.helmet?.item || null,
           body: rawEq.body?.item || null,
           legs: rawEq.legs?.item || null,
+          boots: rawEq.boots?.item || null,
+          gloves: rawEq.gloves?.item || null,
+          cape: rawEq.cape?.item || null,
+          amulet: rawEq.amulet?.item || null,
+          ring: rawEq.ring?.item || null,
           arrows: rawEq.arrows?.item || null,
         };
         setEquipment(mappedEquipment);
@@ -375,6 +380,11 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             helmet: rawEq.helmet?.item || null,
             body: rawEq.body?.item || null,
             legs: rawEq.legs?.item || null,
+            boots: rawEq.boots?.item || null,
+            gloves: rawEq.gloves?.item || null,
+            cape: rawEq.cape?.item || null,
+            amulet: rawEq.amulet?.item || null,
+            ring: rawEq.ring?.item || null,
             arrows: rawEq.arrows?.item || null,
           };
           setEquipment(mappedEquipment);
