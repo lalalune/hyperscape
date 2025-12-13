@@ -29,22 +29,12 @@ import { SystemBase } from "..";
 import { Emotes } from "../../../data/playerEmotes";
 import { getItem } from "../../../data/items";
 import { worldToTile, tilesWithinRange } from "../movement/TileSystem";
-import { quaternionPool } from "../../../utils/pools/QuaternionPool";
+import { CombatAnimationManager } from "./CombatAnimationManager";
+import { CombatRotationManager } from "./CombatRotationManager";
+import { CombatStateService, CombatData } from "./CombatStateService";
 
-export interface CombatData {
-  attackerId: EntityID;
-  targetId: EntityID;
-  attackerType: "player" | "mob";
-  targetType: "player" | "mob";
-  weaponType: AttackType;
-  inCombat: boolean;
-
-  // TICK-BASED timing (OSRS-accurate)
-  lastAttackTick: number; // Tick when last attack occurred
-  nextAttackTick: number; // Tick when next attack is allowed
-  combatEndTick: number; // Tick when combat times out (8 ticks after last hit)
-  attackSpeedTicks: number; // Weapon attack speed in ticks
-}
+// Re-export CombatData from CombatStateService for backwards compatibility
+export type { CombatData } from "./CombatStateService";
 
 /**
  * Interface for player entity properties accessed by CombatSystem
@@ -89,28 +79,20 @@ interface MobWithServerEmote {
 }
 
 export class CombatSystem extends SystemBase {
-  private combatStates = new Map<EntityID, CombatData>();
   private nextAttackTicks = new Map<EntityID, number>(); // Tick when entity can next attack
   private mobSystem?: MobNPCSystem;
   private entityManager?: EntityManager;
+
+  // Modular services (Phase 5 extraction)
+  private stateService: CombatStateService;
+  private animationManager: CombatAnimationManager;
+  private rotationManager: CombatRotationManager;
 
   // Equipment stats cache per player for damage calculations
   private playerEquipmentStats = new Map<
     string,
     { attack: number; strength: number; defense: number; ranged: number }
   >();
-
-  // Tick-based animation reset scheduling (instead of setTimeout)
-  // Maps entity ID to the tick when their emote should reset to idle
-  private emoteResetTicks = new Map<
-    string,
-    { tick: number; entityType: "player" | "mob" }
-  >();
-
-  // Reusable buffer for combat state iteration (avoids allocation every tick)
-  private combatStateBuffer: Array<[EntityID, CombatData]> = [];
-
-  // Combat constants
 
   constructor(world: World) {
     super(world, {
@@ -121,6 +103,11 @@ export class CombatSystem extends SystemBase {
       },
       autoCleanup: true,
     });
+
+    // Initialize modular services
+    this.stateService = new CombatStateService(world);
+    this.animationManager = new CombatAnimationManager(world);
+    this.rotationManager = new CombatRotationManager(world);
   }
 
   async init(): Promise<void> {
@@ -306,18 +293,16 @@ export class CombatSystem extends SystemBase {
     );
 
     // OSRS-STYLE: Face target before attacking
-    this.rotateTowardsTarget(attackerId, targetId, attackerType, targetType);
+    this.rotationManager.rotateTowardsTarget(
+      attackerId,
+      targetId,
+      attackerType,
+      targetType,
+    );
 
     // Play attack animation once (will reset to idle after 2 ticks = 1.2 seconds)
-    this.setCombatEmote(attackerId, attackerType);
-
-    // Schedule tick-based emote reset (2 ticks for animation to complete)
-    // OSRS-style: animations are synchronized to game ticks
-    const resetTick = currentTick + 2; // 2 ticks = 1200ms for animation
-    this.emoteResetTicks.set(attackerId, {
-      tick: resetTick,
-      entityType: attackerType,
-    });
+    // AnimationManager handles scheduling the reset internally
+    this.animationManager.setCombatEmote(attackerId, attackerType, currentTick);
 
     // Calculate damage
     const rawDamage = this.calculateMeleeDamage(attacker, target);
@@ -605,269 +590,9 @@ export class CombatSystem extends SystemBase {
     // (handleMeleeAttack, processAutoAttack) to ensure they're emitted even for 0 damage hits
   }
 
-  /**
-   * Sync combat state to player entity for client-side awareness
-   */
-  private syncCombatStateToEntity(
-    entityId: string,
-    targetId: string,
-    entityType: "player" | "mob",
-  ): void {
-    if (entityType === "player") {
-      const playerEntity = this.world.getPlayer?.(
-        entityId,
-      ) as CombatPlayerEntity | null;
-      if (playerEntity) {
-        // Set combat property if it exists (legacy support)
-        if (playerEntity.combat) {
-          playerEntity.combat.inCombat = true;
-          playerEntity.combat.combatTarget = targetId;
-        }
-
-        // ALWAYS set in data for network sync (using abbreviated keys for efficiency)
-        if (playerEntity.data) {
-          playerEntity.data.c = true; // c = inCombat
-          playerEntity.data.ct = targetId; // ct = combatTarget
-
-          // CRITICAL FIX FOR ISSUE #269: Send immediate network update when combat starts
-          // This ensures health bar appears immediately, not just when emote changes
-          if (this.world.isServer && this.world.network?.send) {
-            this.world.network.send("entityModified", {
-              id: entityId,
-              c: true, // Combat started
-              ct: targetId, // Combat target
-            });
-          }
-        }
-
-        playerEntity.markNetworkDirty?.();
-      }
-    }
-  }
-
-  /**
-   * Clear combat state from player entity when combat ends
-   */
-  private clearCombatStateFromEntity(
-    entityId: string,
-    entityType: "player" | "mob",
-  ): void {
-    if (entityType === "player") {
-      const playerEntity = this.world.getPlayer?.(
-        entityId,
-      ) as CombatPlayerEntity | null;
-      if (playerEntity) {
-        // Clear combat property if it exists (legacy support)
-        if (playerEntity.combat) {
-          playerEntity.combat.inCombat = false;
-          playerEntity.combat.combatTarget = null;
-        }
-
-        // ALWAYS clear in data for network sync (using abbreviated keys)
-        if (playerEntity.data) {
-          playerEntity.data.c = false; // c = inCombat
-          playerEntity.data.ct = null; // ct = combatTarget
-
-          // CRITICAL FIX FOR ISSUE #269: Send immediate network update when combat ends
-          // This ensures health bar disappears 4.8 seconds after last hit (RuneScape pattern)
-          if (this.world.isServer && this.world.network?.send) {
-            this.world.network.send("entityModified", {
-              id: entityId,
-              c: false, // Clear inCombat state when combat truly ends
-              ct: null, // Clear combat target
-            });
-          }
-        }
-
-        playerEntity.markNetworkDirty?.();
-      } else {
-        console.warn(
-          `[CombatSystem] Cannot clear combat state - player entity not found`,
-        );
-      }
-    }
-  }
-
-  /**
-   * Set combat emote for an entity
-   */
-  private setCombatEmote(entityId: string, entityType: "player" | "mob"): void {
-    if (entityType === "player") {
-      // For players, use the player entity from PlayerSystem
-      const playerEntity = this.world.getPlayer?.(
-        entityId,
-      ) as CombatPlayerEntity | null;
-      if (playerEntity) {
-        // Check if player has a sword equipped - get from EquipmentSystem (source of truth)
-        let combatEmote = "combat"; // Default to punching
-
-        // Get equipment from EquipmentSystem (source of truth)
-        const equipmentSystem = this.world.getSystem("equipment") as
-          | {
-              getPlayerEquipment?: (playerId: string) => {
-                weapon?: { item?: { weaponType?: string; id?: string } };
-              };
-            }
-          | undefined;
-
-        if (equipmentSystem?.getPlayerEquipment) {
-          const equipment = equipmentSystem.getPlayerEquipment(entityId);
-
-          if (equipment?.weapon?.item) {
-            const weaponItem = equipment.weapon.item;
-
-            // Check if the weapon is a sword
-            if (weaponItem.weaponType === "SWORD") {
-              combatEmote = "sword_swing";
-            }
-          }
-        }
-
-        // Set emote STRING KEY (players use 'combat' or 'sword_swing' string which gets mapped to URL)
-        if (playerEntity.emote !== undefined) {
-          playerEntity.emote = combatEmote;
-        }
-        if (playerEntity.data) {
-          playerEntity.data.e = combatEmote;
-        }
-        // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
-
-        // CRITICAL FIX FOR ISSUE #275: Send immediate network update BEFORE damage is applied
-        // This ensures the emote update arrives at clients BEFORE any death events
-        // Without this, the batched network update arrives too late (after death event)
-        if (this.world.isServer && this.world.network?.send) {
-          this.world.network.send("entityModified", {
-            id: entityId,
-            e: combatEmote,
-            c: true, // Send inCombat state immediately (for health bar display)
-            ct: playerEntity.combat?.combatTarget || null, // Send combat target
-          });
-        }
-
-        playerEntity.markNetworkDirty?.();
-      }
-    } else if (entityType === "mob") {
-      // For mobs, send one-shot combat animation via setServerEmote()
-      // This will be broadcast once, then client returns to AI-state-based animation
-      const mobEntity = this.world.entities.get(entityId) as
-        | MobWithServerEmote
-        | undefined;
-      if (mobEntity?.setServerEmote) {
-        mobEntity.setServerEmote(Emotes.COMBAT);
-      }
-    }
-  }
-
-  /**
-   * Reset entity emote to idle
-   */
-  private resetEmote(entityId: string, entityType: "player" | "mob"): void {
-    if (entityType === "player") {
-      const playerEntity = this.world.getPlayer?.(
-        entityId,
-      ) as CombatPlayerEntity | null;
-      if (playerEntity) {
-        // Reset to idle STRING KEY (players use 'idle' string which gets mapped to URL)
-        if (playerEntity.emote !== undefined) {
-          playerEntity.emote = "idle";
-        }
-        if (playerEntity.data) {
-          playerEntity.data.e = "idle";
-        }
-        // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
-
-        // Send immediate network update for emote reset (same as setCombatEmote)
-        // NOTE: Don't send c: false here - combat may still be active, just resetting animation
-        if (this.world.isServer && this.world.network?.send) {
-          this.world.network.send("entityModified", {
-            id: entityId,
-            e: "idle",
-          });
-        }
-
-        playerEntity.markNetworkDirty?.();
-      }
-    }
-    // DON'T reset mob emotes - let client's AI-state-based animation handle it
-    // Mobs use AI state (IDLE, WANDER, CHASE, ATTACK) to determine animations
-  }
-
-  /**
-   * Rotate an entity to face a target (RuneScape-style instant rotation)
-   */
-  private rotateTowardsTarget(
-    entityId: string,
-    targetId: string,
-    entityType: "player" | "mob",
-    targetType: "player" | "mob",
-  ): void {
-    // Get entities properly based on type
-    const entity = (
-      entityType === "player"
-        ? this.world.getPlayer?.(entityId)
-        : this.world.entities.get(entityId)
-    ) as CombatPlayerEntity | null;
-    const target = (
-      targetType === "player"
-        ? this.world.getPlayer?.(targetId)
-        : this.world.entities.get(targetId)
-    ) as CombatPlayerEntity | null;
-
-    if (!entity || !target) {
-      return;
-    }
-
-    // Get positions, with fallbacks for different entity types
-    const entityPos = entity.position || entity.getPosition?.();
-    const targetPos = target.position || target.getPosition?.();
-
-    if (!entityPos || !targetPos) {
-      return;
-    }
-
-    // Calculate angle to target (XZ plane only)
-    const dx = targetPos.x - entityPos.x;
-    const dz = targetPos.z - entityPos.z;
-    let angle = Math.atan2(dx, dz);
-
-    // VRM 1.0+ models have 180° base rotation, so we need to compensate
-    // Otherwise entities face AWAY from each other instead of towards
-    angle += Math.PI;
-
-    // Set rotation differently based on entity type
-    // Use pooled quaternion to avoid allocations in hot path
-    const tempQuat = quaternionPool.acquire();
-    quaternionPool.setYRotation(tempQuat, angle);
-
-    try {
-      if (entityType === "player" && entity.base?.quaternion) {
-        // For players, set on base and node
-        entity.base.quaternion.set(
-          tempQuat.x,
-          tempQuat.y,
-          tempQuat.z,
-          tempQuat.w,
-        );
-        if (entity.node?.quaternion) {
-          entity.node.quaternion.copy(tempQuat);
-        }
-      } else if (entity?.node?.quaternion) {
-        // For mobs and other entities, set on node
-        entity.node.quaternion.set(
-          tempQuat.x,
-          tempQuat.y,
-          tempQuat.z,
-          tempQuat.w,
-        );
-      }
-    } finally {
-      // Always release back to pool
-      quaternionPool.release(tempQuat);
-    }
-
-    // Mark network dirty
-    entity.markNetworkDirty?.();
-  }
+  // Note: syncCombatStateToEntity, clearCombatStateFromEntity moved to CombatStateService
+  // Note: setCombatEmote, resetEmote moved to CombatAnimationManager
+  // Note: rotateTowardsTarget moved to CombatRotationManager
 
   private enterCombat(
     attackerId: EntityID,
@@ -875,7 +600,6 @@ export class CombatSystem extends SystemBase {
     attackerSpeedTicks?: number,
   ): void {
     const currentTick = this.world.currentTick;
-    const combatEndTick = currentTick + COMBAT_CONSTANTS.COMBAT_TIMEOUT_TICKS;
 
     // Detect entity types (don't assume attacker is always player!)
     const attackerEntity = this.world.entities.get(String(attackerId));
@@ -915,18 +639,14 @@ export class CombatSystem extends SystemBase {
     );
 
     // Set combat state for attacker (just attacked, so next attack is after cooldown)
-    this.combatStates.set(attackerId, {
+    this.stateService.createAttackerState(
       attackerId,
       targetId,
       attackerType,
       targetType,
-      weaponType: AttackType.MELEE,
-      inCombat: true,
-      lastAttackTick: currentTick,
-      nextAttackTick: currentTick + attackerAttackSpeedTicks,
-      combatEndTick,
-      attackSpeedTicks: attackerAttackSpeedTicks,
-    });
+      currentTick,
+      attackerAttackSpeedTicks,
+    );
 
     // OSRS Retaliation: Target retaliates after ceil(speed/2) + 1 ticks
     // @see https://oldschool.runescape.wiki/w/Auto_Retaliate
@@ -947,28 +667,25 @@ export class CombatSystem extends SystemBase {
         targetAttackSpeedTicks,
       );
 
-      this.combatStates.set(targetId, {
-        attackerId: targetId,
-        targetId: attackerId,
-        attackerType: targetType,
-        targetType: attackerType,
-        weaponType: AttackType.MELEE,
-        inCombat: true,
-        lastAttackTick: currentTick,
-        nextAttackTick: currentTick + retaliationDelay,
-        combatEndTick,
-        attackSpeedTicks: targetAttackSpeedTicks,
-      });
+      this.stateService.createRetaliatorState(
+        targetId,
+        attackerId,
+        targetType,
+        attackerType,
+        currentTick,
+        retaliationDelay,
+        targetAttackSpeedTicks,
+      );
     }
 
     // Rotate both entities to face each other (RuneScape-style)
-    this.rotateTowardsTarget(
+    this.rotationManager.rotateTowardsTarget(
       String(attackerId),
       String(targetId),
       attackerType,
       targetType,
     );
-    this.rotateTowardsTarget(
+    this.rotationManager.rotateTowardsTarget(
       String(targetId),
       String(attackerId),
       targetType,
@@ -976,12 +693,12 @@ export class CombatSystem extends SystemBase {
     );
 
     // Sync combat state to player entities for client-side combat awareness
-    this.syncCombatStateToEntity(
+    this.stateService.syncCombatStateToEntity(
       String(attackerId),
       String(targetId),
       attackerType,
     );
-    this.syncCombatStateToEntity(
+    this.stateService.syncCombatStateToEntity(
       String(targetId),
       String(attackerId),
       targetType,
@@ -1027,29 +744,35 @@ export class CombatSystem extends SystemBase {
     }
 
     const typedEntityId = createEntityID(data.entityId);
-    const combatState = this.combatStates.get(typedEntityId);
+    const combatState = this.stateService.getCombatData(data.entityId);
     if (!combatState) return;
 
-    // Reset emotes for both entities
+    // Reset emotes for both entities via AnimationManager
     // Skip attacker emote reset if requested (e.g., when target died during attack animation)
     if (!data.skipAttackerEmoteReset) {
-      this.resetEmote(data.entityId, combatState.attackerType);
+      this.animationManager.resetEmote(data.entityId, combatState.attackerType);
     }
     // Skip target emote reset if requested (e.g., when dead entity ends combat, don't reset their attacker)
     if (!data.skipTargetEmoteReset) {
-      this.resetEmote(String(combatState.targetId), combatState.targetType);
+      this.animationManager.resetEmote(
+        String(combatState.targetId),
+        combatState.targetType,
+      );
     }
 
-    // Clear combat state from player entities
-    this.clearCombatStateFromEntity(data.entityId, combatState.attackerType);
-    this.clearCombatStateFromEntity(
+    // Clear combat state from player entities via StateService
+    this.stateService.clearCombatStateFromEntity(
+      data.entityId,
+      combatState.attackerType,
+    );
+    this.stateService.clearCombatStateFromEntity(
       String(combatState.targetId),
       combatState.targetType,
     );
 
-    // Remove combat states
-    this.combatStates.delete(typedEntityId);
-    this.combatStates.delete(combatState.targetId);
+    // Remove combat states via StateService
+    this.stateService.removeCombatState(typedEntityId);
+    this.stateService.removeCombatState(combatState.targetId);
 
     // Emit combat ended event
     this.emitTypedEvent(EventType.COMBAT_ENDED, {
@@ -1078,18 +801,19 @@ export class CombatSystem extends SystemBase {
 
     // Simply remove the dead entity's combat state - they're no longer in combat
     // But DON'T call endCombat() for attackers - let their combat timer expire naturally
-    this.combatStates.delete(typedEntityId);
+    this.stateService.removeCombatState(typedEntityId);
 
     // Also clear the dead entity's attack cooldown so they can attack immediately after respawn
     this.nextAttackTicks.delete(typedEntityId);
 
     // Clear any scheduled emote resets for the dead entity
-    this.emoteResetTicks.delete(entityId);
+    this.animationManager.cancelEmoteReset(entityId);
 
     // Find all attackers targeting this dead entity
     // Their combat will naturally timeout after 4.8 seconds (8 ticks) since they got the last hit
     // This matches RuneScape behavior where health bars stay visible briefly after combat ends
-    for (const [attackerId, state] of this.combatStates) {
+    const combatStatesMap = this.stateService.getCombatStatesMap();
+    for (const [attackerId, state] of combatStatesMap) {
       if (String(state.targetId) === entityId) {
         // CRITICAL: Clear the attacker's attack cooldown so they can attack new targets immediately
         // Without this, mobs would be stuck waiting for cooldown after their target dies and respawns
@@ -1109,7 +833,7 @@ export class CombatSystem extends SystemBase {
     }
 
     // Reset dead entity's emote if they were mid-animation
-    this.resetEmote(entityId, entityType as "player" | "mob");
+    this.animationManager.resetEmote(entityId, entityType as "player" | "mob");
   }
 
   // Public API methods
@@ -1169,11 +893,11 @@ export class CombatSystem extends SystemBase {
   }
 
   public isInCombat(entityId: string): boolean {
-    return this.combatStates.has(createEntityID(entityId));
+    return this.stateService.isInCombat(entityId);
   }
 
   public getCombatData(entityId: string): CombatData | null {
-    return this.combatStates.get(createEntityID(entityId)) || null;
+    return this.stateService.getCombatData(entityId);
   }
 
   public forceEndCombat(
@@ -1199,19 +923,20 @@ export class CombatSystem extends SystemBase {
     const typedPlayerId = createEntityID(playerId);
 
     // Remove player's own combat state
-    this.combatStates.delete(typedPlayerId);
+    this.stateService.removeCombatState(typedPlayerId);
 
     // Clear player's attack cooldowns
     this.nextAttackTicks.delete(typedPlayerId);
 
     // Clear any scheduled emote resets
-    this.emoteResetTicks.delete(playerId);
+    this.animationManager.cancelEmoteReset(playerId);
 
     // Clear player's equipment stats cache
     this.playerEquipmentStats.delete(playerId);
 
     // Find all entities that were targeting this disconnected player
-    for (const [attackerId, state] of this.combatStates) {
+    const combatStatesMap = this.stateService.getCombatStatesMap();
+    for (const [attackerId, state] of combatStatesMap) {
       if (String(state.targetId) === playerId) {
         // Clear the attacker's cooldown so they can immediately retarget
         this.nextAttackTicks.delete(attackerId);
@@ -1228,11 +953,14 @@ export class CombatSystem extends SystemBase {
         }
 
         // Remove the attacker's combat state (don't let them keep attacking empty air)
-        this.combatStates.delete(attackerId);
+        this.stateService.removeCombatState(attackerId);
 
         // Clear combat state from entity if it's a player
         if (state.attackerType === "player") {
-          this.clearCombatStateFromEntity(String(attackerId), "player");
+          this.stateService.clearCombatStateFromEntity(
+            String(attackerId),
+            "player",
+          );
         }
       }
     }
@@ -1289,25 +1017,17 @@ export class CombatSystem extends SystemBase {
    */
   public processCombatTick(tickNumber: number): void {
     // Process scheduled emote resets (tick-aligned animation timing)
-    // This replaces setTimeout for more accurate OSRS-style animation synchronization
-    for (const [entityId, resetData] of this.emoteResetTicks.entries()) {
-      if (tickNumber >= resetData.tick) {
-        this.resetEmote(entityId, resetData.entityType);
-        this.emoteResetTicks.delete(entityId);
-      }
-    }
+    // Delegated to AnimationManager for better separation of concerns
+    this.animationManager.processEmoteResets(tickNumber);
 
-    // CRITICAL: Convert to array first to avoid iterator issues when deleting during iteration
-    // Use reusable buffer to avoid allocation every tick
-    this.combatStateBuffer.length = 0;
-    for (const entry of this.combatStates.entries()) {
-      this.combatStateBuffer.push(entry);
-    }
+    // Get all combat states via StateService (returns reusable buffer to avoid allocations)
+    const combatStates = this.stateService.getAllCombatStates();
+    const combatStatesMap = this.stateService.getCombatStatesMap();
 
     // Process all active combat sessions
-    for (const [entityId, combatState] of this.combatStateBuffer) {
+    for (const [entityId, combatState] of combatStates) {
       // CRITICAL: Re-check if this combat state still exists
-      if (!this.combatStates.has(entityId)) {
+      if (!combatStatesMap.has(entityId)) {
         continue;
       }
 
@@ -1378,7 +1098,7 @@ export class CombatSystem extends SystemBase {
     }
 
     // OSRS-STYLE: Update entity facing to face target (RuneScape entities always face combat target)
-    this.rotateTowardsTarget(
+    this.rotationManager.rotateTowardsTarget(
       attackerId,
       targetId,
       combatState.attackerType,
@@ -1386,15 +1106,12 @@ export class CombatSystem extends SystemBase {
     );
 
     // Play attack animation once (will reset to idle after 2 ticks = 1.2 seconds)
-    this.setCombatEmote(attackerId, combatState.attackerType);
-
-    // Schedule tick-based emote reset (2 ticks for animation to complete)
-    // OSRS-style: animations are synchronized to game ticks
-    const resetTick = tickNumber + 2; // 2 ticks = 1200ms for animation
-    this.emoteResetTicks.set(attackerId, {
-      tick: resetTick,
-      entityType: combatState.attackerType,
-    });
+    // AnimationManager handles scheduling the reset internally
+    this.animationManager.setCombatEmote(
+      attackerId,
+      combatState.attackerType,
+      tickNumber,
+    );
 
     // MVP: Melee-only damage calculation
     const rawDamage = this.calculateMeleeDamage(attacker, target);
@@ -1417,7 +1134,7 @@ export class CombatSystem extends SystemBase {
     });
 
     // Check if combat state still exists (target may have died)
-    if (!this.combatStates.has(typedAttackerId)) {
+    if (!this.stateService.getCombatStatesMap().has(typedAttackerId)) {
       return;
     }
 
@@ -1632,14 +1349,12 @@ export class CombatSystem extends SystemBase {
   }
 
   destroy(): void {
-    // Clear all combat states
-    this.combatStates.clear();
+    // Clean up modular services
+    this.stateService.destroy();
+    this.animationManager.destroy();
 
     // Clear all attack cooldowns (tick-based)
     this.nextAttackTicks.clear();
-
-    // Clear scheduled emote resets
-    this.emoteResetTicks.clear();
 
     // Call parent cleanup (handles autoCleanup)
     super.destroy();

@@ -7,3 +7,8 @@ export * from "./CombatSystem";
 export * from "./AggroSystem";
 export * from "./PlayerDeathSystem";
 export * from "./MobDeathSystem";
+
+// Modular combat services (extracted from CombatSystem)
+export * from "./CombatStateService";
+export * from "./CombatAnimationManager";
+export * from "./CombatRotationManager";
