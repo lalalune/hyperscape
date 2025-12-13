@@ -39,8 +39,6 @@ type Character = {
   name: string;
   wallet?: string;
   isAgent?: boolean;
-  combatLevel?: number;
-  constitutionLevel?: number;
 };
 
 type CharacterTemplate = {
@@ -221,6 +219,11 @@ export function CharacterSelectScreen({
   onLogout: () => void;
 }) {
   const [characters, setCharacters] = React.useState<Character[]>([]);
+  // Sort characters alphabetically by name for display
+  const sortedCharacters = React.useMemo(
+    () => [...characters].sort((a, b) => a.name.localeCompare(b.name)),
+    [characters],
+  );
   const [selectedCharacterId, setSelectedCharacterId] = React.useState<
     string | null
   >(null);
@@ -1101,7 +1104,7 @@ export function CharacterSelectScreen({
           {view === "select" && (
             <div className="mt-8">
               <div className="space-y-3 max-h-[360px] overflow-y-auto pr-2 scrollbar-thin">
-                {characters.map((c) => (
+                {sortedCharacters.map((c) => (
                   <div
                     key={c.id}
                     className="relative w-full overflow-hidden h-24"
@@ -1132,37 +1135,23 @@ export function CharacterSelectScreen({
                           color: "#f2d08a",
                         }}
                       >
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex items-center gap-2">
-                            {c.isAgent && <span className="text-lg">🤖</span>}
-                            <span className="font-semibold text-xl">
-                              {c.name}
+                        <div className="flex items-center gap-2">
+                          {c.isAgent && <span className="text-lg">🤖</span>}
+                          <span className="font-semibold text-xl">
+                            {c.name}
+                          </span>
+                          {c.isAgent && (
+                            <span className="text-[#60a5fa] text-xs font-medium">
+                              AI Agent
                             </span>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs">
-                            {c.isAgent ? (
-                              <span className="text-[#60a5fa] font-medium">
-                                AI Agent
-                              </span>
-                            ) : (
-                              <>
-                                <span className="text-[#f2d08a]/80 font-medium">
-                                  Lvl {c.combatLevel ?? 3}
-                                </span>
-                                <span className="text-[#f2d08a]/60">•</span>
-                                <span className="text-[#4ade80] font-medium">
-                                  HP {c.constitutionLevel ?? 10}
-                                </span>
-                              </>
-                            )}
-                          </div>
+                          )}
                         </div>
                       </button>
                       <GoldRule thick className="pointer-events-none" />
                     </div>
                   </div>
                 ))}
-                {characters.length === 0 && (
+                {sortedCharacters.length === 0 && (
                   <div className="text-sm opacity-70">No characters yet.</div>
                 )}
               </div>
@@ -1461,31 +1450,12 @@ export function CharacterSelectScreen({
                   <div className="absolute inset-x-0 bottom-0">
                     <GoldRule />
                     <div className="flex items-center justify-between px-5 py-4 bg-black/50 backdrop-blur">
-                      <div className="flex flex-col gap-1">
-                        <div
-                          className="font-semibold text-xl"
-                          style={{ color: "#f2d08a" }}
-                        >
-                          {characters.find((c) => c.id === selectedCharacterId)
-                            ?.name || "Unnamed"}
-                        </div>
-                        {(() => {
-                          const char = characters.find(
-                            (c) => c.id === selectedCharacterId,
-                          );
-                          if (!char) return null;
-                          return (
-                            <div className="flex items-center gap-3 text-xs">
-                              <span className="text-[#f2d08a]/80 font-medium">
-                                Lvl {char.combatLevel ?? 3}
-                              </span>
-                              <span className="text-[#f2d08a]/60">•</span>
-                              <span className="text-[#4ade80] font-medium">
-                                HP {char.constitutionLevel ?? 10}
-                              </span>
-                            </div>
-                          );
-                        })()}
+                      <div
+                        className="font-semibold text-xl"
+                        style={{ color: "#f2d08a" }}
+                      >
+                        {characters.find((c) => c.id === selectedCharacterId)
+                          ?.name || "Unnamed"}
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="text-xl" style={{ color: "#f2d08a" }}>
