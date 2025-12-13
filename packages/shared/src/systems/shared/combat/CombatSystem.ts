@@ -29,6 +29,7 @@ import { SystemBase } from "..";
 import { Emotes } from "../../../data/playerEmotes";
 import { getItem } from "../../../data/items";
 import { worldToTile, tilesWithinRange } from "../movement/TileSystem";
+import { quaternionPool } from "../../../utils/pools/QuaternionPool";
 
 export interface CombatData {
   attackerId: EntityID;
@@ -105,6 +106,9 @@ export class CombatSystem extends SystemBase {
     string,
     { tick: number; entityType: "player" | "mob" }
   >();
+
+  // Reusable buffer for combat state iteration (avoids allocation every tick)
+  private combatStateBuffer: Array<[EntityID, CombatData]> = [];
 
   // Combat constants
 
@@ -831,37 +835,34 @@ export class CombatSystem extends SystemBase {
     angle += Math.PI;
 
     // Set rotation differently based on entity type
-    if (entityType === "player" && entity.base?.quaternion) {
-      // For players, set on base and node
-      const tempQuat = {
-        x: 0,
-        y: Math.sin(angle / 2),
-        z: 0,
-        w: Math.cos(angle / 2),
-      };
-      entity.base.quaternion.set(
-        tempQuat.x,
-        tempQuat.y,
-        tempQuat.z,
-        tempQuat.w,
-      );
-      if (entity.node?.quaternion) {
-        entity.node.quaternion.copy(tempQuat);
+    // Use pooled quaternion to avoid allocations in hot path
+    const tempQuat = quaternionPool.acquire();
+    quaternionPool.setYRotation(tempQuat, angle);
+
+    try {
+      if (entityType === "player" && entity.base?.quaternion) {
+        // For players, set on base and node
+        entity.base.quaternion.set(
+          tempQuat.x,
+          tempQuat.y,
+          tempQuat.z,
+          tempQuat.w,
+        );
+        if (entity.node?.quaternion) {
+          entity.node.quaternion.copy(tempQuat);
+        }
+      } else if (entity?.node?.quaternion) {
+        // For mobs and other entities, set on node
+        entity.node.quaternion.set(
+          tempQuat.x,
+          tempQuat.y,
+          tempQuat.z,
+          tempQuat.w,
+        );
       }
-    } else if (entity?.node?.quaternion) {
-      // For mobs and other entities, set on node
-      const tempQuat = {
-        x: 0,
-        y: Math.sin(angle / 2),
-        z: 0,
-        w: Math.cos(angle / 2),
-      };
-      entity.node.quaternion.set(
-        tempQuat.x,
-        tempQuat.y,
-        tempQuat.z,
-        tempQuat.w,
-      );
+    } finally {
+      // Always release back to pool
+      quaternionPool.release(tempQuat);
     }
 
     // Mark network dirty
@@ -1297,10 +1298,14 @@ export class CombatSystem extends SystemBase {
     }
 
     // CRITICAL: Convert to array first to avoid iterator issues when deleting during iteration
-    const statesToProcess = Array.from(this.combatStates.entries());
+    // Use reusable buffer to avoid allocation every tick
+    this.combatStateBuffer.length = 0;
+    for (const entry of this.combatStates.entries()) {
+      this.combatStateBuffer.push(entry);
+    }
 
     // Process all active combat sessions
-    for (const [entityId, combatState] of statesToProcess) {
+    for (const [entityId, combatState] of this.combatStateBuffer) {
       // CRITICAL: Re-check if this combat state still exists
       if (!this.combatStates.has(entityId)) {
         continue;
