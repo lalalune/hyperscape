@@ -45,6 +45,48 @@ export interface CombatData {
   attackSpeedTicks: number; // Weapon attack speed in ticks
 }
 
+/**
+ * Interface for player entity properties accessed by CombatSystem
+ * Uses abbreviated keys for network bandwidth efficiency:
+ * - c = inCombat, ct = combatTarget, e = emote
+ */
+interface CombatPlayerEntity {
+  id: string;
+  combat?: {
+    inCombat: boolean;
+    combatTarget: string | null;
+  };
+  data?: {
+    c?: boolean; // inCombat (abbreviated)
+    ct?: string | null; // combatTarget (abbreviated)
+    e?: string; // emote (abbreviated)
+    isLoading?: boolean;
+  };
+  emote?: string;
+  base?: {
+    quaternion: { set(x: number, y: number, z: number, w: number): void };
+  };
+  node?: {
+    quaternion: {
+      set(x: number, y: number, z: number, w: number): void;
+      copy(q: { x: number; y: number; z: number; w: number }): void;
+    };
+  };
+  position?: { x: number; y: number; z: number };
+  getPosition?: () => { x: number; y: number; z: number };
+  markNetworkDirty?: () => void;
+  health?: number;
+  name?: string;
+}
+
+/**
+ * Interface for mob entity with optional setServerEmote method
+ * Used for type-safe emote setting in combat
+ */
+interface MobWithServerEmote {
+  setServerEmote?: (emote: string) => void;
+}
+
 export class CombatSystem extends SystemBase {
   private combatStates = new Map<EntityID, CombatData>();
   private nextAttackTicks = new Map<EntityID, number>(); // Tick when entity can next attack
@@ -568,18 +610,20 @@ export class CombatSystem extends SystemBase {
     entityType: "player" | "mob",
   ): void {
     if (entityType === "player") {
-      const playerEntity = this.world.getPlayer?.(entityId);
+      const playerEntity = this.world.getPlayer?.(
+        entityId,
+      ) as CombatPlayerEntity | null;
       if (playerEntity) {
         // Set combat property if it exists (legacy support)
-        if ((playerEntity as any).combat) {
-          (playerEntity as any).combat.inCombat = true;
-          (playerEntity as any).combat.combatTarget = targetId;
+        if (playerEntity.combat) {
+          playerEntity.combat.inCombat = true;
+          playerEntity.combat.combatTarget = targetId;
         }
 
         // ALWAYS set in data for network sync (using abbreviated keys for efficiency)
-        if ((playerEntity as any).data) {
-          (playerEntity as any).data.c = true; // c = inCombat
-          (playerEntity as any).data.ct = targetId; // ct = combatTarget
+        if (playerEntity.data) {
+          playerEntity.data.c = true; // c = inCombat
+          playerEntity.data.ct = targetId; // ct = combatTarget
 
           // CRITICAL FIX FOR ISSUE #269: Send immediate network update when combat starts
           // This ensures health bar appears immediately, not just when emote changes
@@ -592,7 +636,7 @@ export class CombatSystem extends SystemBase {
           }
         }
 
-        (playerEntity as any).markNetworkDirty?.();
+        playerEntity.markNetworkDirty?.();
       }
     }
   }
@@ -605,18 +649,20 @@ export class CombatSystem extends SystemBase {
     entityType: "player" | "mob",
   ): void {
     if (entityType === "player") {
-      const playerEntity = this.world.getPlayer?.(entityId);
+      const playerEntity = this.world.getPlayer?.(
+        entityId,
+      ) as CombatPlayerEntity | null;
       if (playerEntity) {
         // Clear combat property if it exists (legacy support)
-        if ((playerEntity as any).combat) {
-          (playerEntity as any).combat.inCombat = false;
-          (playerEntity as any).combat.combatTarget = null;
+        if (playerEntity.combat) {
+          playerEntity.combat.inCombat = false;
+          playerEntity.combat.combatTarget = null;
         }
 
         // ALWAYS clear in data for network sync (using abbreviated keys)
-        if ((playerEntity as any).data) {
-          (playerEntity as any).data.c = false; // c = inCombat
-          (playerEntity as any).data.ct = null; // ct = combatTarget
+        if (playerEntity.data) {
+          playerEntity.data.c = false; // c = inCombat
+          playerEntity.data.ct = null; // ct = combatTarget
 
           // CRITICAL FIX FOR ISSUE #269: Send immediate network update when combat ends
           // This ensures health bar disappears 4.8 seconds after last hit (RuneScape pattern)
@@ -629,7 +675,7 @@ export class CombatSystem extends SystemBase {
           }
         }
 
-        (playerEntity as any).markNetworkDirty?.();
+        playerEntity.markNetworkDirty?.();
       } else {
         console.warn(
           `[CombatSystem] Cannot clear combat state - player entity not found`,
@@ -644,7 +690,9 @@ export class CombatSystem extends SystemBase {
   private setCombatEmote(entityId: string, entityType: "player" | "mob"): void {
     if (entityType === "player") {
       // For players, use the player entity from PlayerSystem
-      const playerEntity = this.world.getPlayer?.(entityId);
+      const playerEntity = this.world.getPlayer?.(
+        entityId,
+      ) as CombatPlayerEntity | null;
       if (playerEntity) {
         // Check if player has a sword equipped - get from EquipmentSystem (source of truth)
         let combatEmote = "combat"; // Default to punching
@@ -672,11 +720,11 @@ export class CombatSystem extends SystemBase {
         }
 
         // Set emote STRING KEY (players use 'combat' or 'sword_swing' string which gets mapped to URL)
-        if ((playerEntity as any).emote !== undefined) {
-          (playerEntity as any).emote = combatEmote;
+        if (playerEntity.emote !== undefined) {
+          playerEntity.emote = combatEmote;
         }
-        if ((playerEntity as any).data) {
-          (playerEntity as any).data.e = combatEmote;
+        if (playerEntity.data) {
+          playerEntity.data.e = combatEmote;
         }
         // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
 
@@ -688,21 +736,20 @@ export class CombatSystem extends SystemBase {
             id: entityId,
             e: combatEmote,
             c: true, // Send inCombat state immediately (for health bar display)
-            ct: (playerEntity as any).combat?.combatTarget || null, // Send combat target
+            ct: playerEntity.combat?.combatTarget || null, // Send combat target
           });
         }
 
-        (playerEntity as any).markNetworkDirty?.();
+        playerEntity.markNetworkDirty?.();
       }
     } else if (entityType === "mob") {
       // For mobs, send one-shot combat animation via setServerEmote()
       // This will be broadcast once, then client returns to AI-state-based animation
-      const mobEntity = this.world.entities.get(entityId);
-      if (
-        mobEntity &&
-        typeof (mobEntity as any).setServerEmote === "function"
-      ) {
-        (mobEntity as any).setServerEmote(Emotes.COMBAT);
+      const mobEntity = this.world.entities.get(entityId) as
+        | MobWithServerEmote
+        | undefined;
+      if (mobEntity?.setServerEmote) {
+        mobEntity.setServerEmote(Emotes.COMBAT);
       }
     }
   }
@@ -712,14 +759,16 @@ export class CombatSystem extends SystemBase {
    */
   private resetEmote(entityId: string, entityType: "player" | "mob"): void {
     if (entityType === "player") {
-      const playerEntity = this.world.getPlayer?.(entityId);
+      const playerEntity = this.world.getPlayer?.(
+        entityId,
+      ) as CombatPlayerEntity | null;
       if (playerEntity) {
         // Reset to idle STRING KEY (players use 'idle' string which gets mapped to URL)
-        if ((playerEntity as any).emote !== undefined) {
-          (playerEntity as any).emote = "idle";
+        if (playerEntity.emote !== undefined) {
+          playerEntity.emote = "idle";
         }
-        if ((playerEntity as any).data) {
-          (playerEntity as any).data.e = "idle";
+        if (playerEntity.data) {
+          playerEntity.data.e = "idle";
         }
         // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
 
@@ -732,7 +781,7 @@ export class CombatSystem extends SystemBase {
           });
         }
 
-        (playerEntity as any).markNetworkDirty?.();
+        playerEntity.markNetworkDirty?.();
       }
     }
     // DON'T reset mob emotes - let client's AI-state-based animation handle it
@@ -749,23 +798,28 @@ export class CombatSystem extends SystemBase {
     targetType: "player" | "mob",
   ): void {
     // Get entities properly based on type
-    const entity =
+    const entity = (
       entityType === "player"
         ? this.world.getPlayer?.(entityId)
-        : this.world.entities.get(entityId);
-    const target =
+        : this.world.entities.get(entityId)
+    ) as CombatPlayerEntity | null;
+    const target = (
       targetType === "player"
         ? this.world.getPlayer?.(targetId)
-        : this.world.entities.get(targetId);
+        : this.world.entities.get(targetId)
+    ) as CombatPlayerEntity | null;
 
     if (!entity || !target) {
       return;
     }
 
-    const entityPos =
-      entity.position || (entity as any).getPosition?.() || entity;
-    const targetPos =
-      target.position || (target as any).getPosition?.() || target;
+    // Get positions, with fallbacks for different entity types
+    const entityPos = entity.position || entity.getPosition?.();
+    const targetPos = target.position || target.getPosition?.();
+
+    if (!entityPos || !targetPos) {
+      return;
+    }
 
     // Calculate angle to target (XZ plane only)
     const dx = targetPos.x - entityPos.x;
@@ -777,7 +831,7 @@ export class CombatSystem extends SystemBase {
     angle += Math.PI;
 
     // Set rotation differently based on entity type
-    if (entityType === "player" && (entity as any).base?.quaternion) {
+    if (entityType === "player" && entity.base?.quaternion) {
       // For players, set on base and node
       const tempQuat = {
         x: 0,
@@ -785,16 +839,16 @@ export class CombatSystem extends SystemBase {
         z: 0,
         w: Math.cos(angle / 2),
       };
-      (entity as any).base.quaternion.set(
+      entity.base.quaternion.set(
         tempQuat.x,
         tempQuat.y,
         tempQuat.z,
         tempQuat.w,
       );
-      if ((entity as any).node?.quaternion) {
-        (entity as any).node.quaternion.copy((entity as any).base.quaternion);
+      if (entity.node?.quaternion) {
+        entity.node.quaternion.copy(tempQuat);
       }
-    } else if (entity && (entity as any).node?.quaternion) {
+    } else if (entity?.node?.quaternion) {
       // For mobs and other entities, set on node
       const tempQuat = {
         x: 0,
@@ -802,7 +856,7 @@ export class CombatSystem extends SystemBase {
         z: 0,
         w: Math.cos(angle / 2),
       };
-      (entity as any).node.quaternion.set(
+      entity.node.quaternion.set(
         tempQuat.x,
         tempQuat.y,
         tempQuat.z,
@@ -811,7 +865,7 @@ export class CombatSystem extends SystemBase {
     }
 
     // Mark network dirty
-    (entity as any).markNetworkDirty?.();
+    entity.markNetworkDirty?.();
   }
 
   private enterCombat(
@@ -827,18 +881,20 @@ export class CombatSystem extends SystemBase {
     const targetEntity = this.world.entities.get(String(targetId));
 
     // Don't enter combat if target is dead
-    if (
-      targetEntity &&
-      "health" in targetEntity &&
-      (targetEntity as any).health <= 0
-    ) {
-      return;
+    if (targetEntity && "health" in targetEntity) {
+      const targetWithHealth = targetEntity as unknown as CombatPlayerEntity;
+      if (
+        targetWithHealth.health !== undefined &&
+        targetWithHealth.health <= 0
+      ) {
+        return;
+      }
     }
 
     // Also check if target is a player marked as dead
-    const playerSystem = this.world.getSystem?.("player") as any;
-    if (playerSystem?.players) {
-      const targetPlayer = playerSystem.players.get(String(targetId));
+    const playerSystem = this.world.getSystem<PlayerSystem>("player");
+    if (playerSystem?.getPlayer) {
+      const targetPlayer = playerSystem.getPlayer(String(targetId));
       if (targetPlayer && !targetPlayer.alive) {
         return;
       }
@@ -1438,9 +1494,6 @@ export class CombatSystem extends SystemBase {
 
           // First check if Item has attackSpeed directly
           if (weaponItem.attackSpeed) {
-            console.log(
-              `[CombatSystem] Player ${entityId} weapon attackSpeed: ${weaponItem.attackSpeed} ticks`,
-            );
             return weaponItem.attackSpeed;
           }
 
@@ -1448,9 +1501,6 @@ export class CombatSystem extends SystemBase {
           if (weaponItem.id) {
             const itemData = getItem(weaponItem.id);
             if (itemData?.attackSpeed) {
-              console.log(
-                `[CombatSystem] Player ${entityId} ITEMS lookup "${weaponItem.id}": ${itemData.attackSpeed} ticks`,
-              );
               return itemData.attackSpeed;
             }
           }
@@ -1458,9 +1508,6 @@ export class CombatSystem extends SystemBase {
       }
 
       // Player with no weapon - use default
-      console.log(
-        `[CombatSystem] Player ${entityId} - no weapon or attackSpeed, using default`,
-      );
       return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
     }
 
@@ -1473,18 +1520,12 @@ export class CombatSystem extends SystemBase {
         const mobAttackSpeedTicks = (mobData as { attackSpeedTicks?: number })
           .attackSpeedTicks;
         if (mobAttackSpeedTicks) {
-          console.log(
-            `[CombatSystem] Mob ${entityId} attackSpeedTicks: ${mobAttackSpeedTicks}`,
-          );
           return mobAttackSpeedTicks;
         }
       }
     }
 
     // Default attack speed (4 ticks = 2.4 seconds)
-    console.log(
-      `[CombatSystem] ${entityType} ${entityId} using DEFAULT: ${COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS} ticks`,
-    );
     return COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS;
   }
 

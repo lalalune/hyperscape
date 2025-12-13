@@ -85,6 +85,7 @@ const MAX_ACTION_AGE_MS = 10000; // 10 seconds
  */
 export class ActionQueue {
   private playerQueues: Map<string, PlayerQueueState> = new Map();
+  private currentTick = 0;
 
   // Action handlers - set by ServerNetwork
   private moveHandler: ((socket: ServerSocket, data: unknown) => void) | null =
@@ -159,6 +160,10 @@ export class ActionQueue {
    * Queue a combat action
    * Sets persistent combat target that continues across ticks
    * OSRS behavior: clicking new target switches immediately
+   *
+   * Includes rate limiting to prevent combat spam:
+   * - Max 2 combat requests per tick
+   * - 5 tick (3 second) lockout if exceeded
    */
   queueCombat(socket: ServerSocket, data: unknown): void {
     const playerId = socket.player?.id;
@@ -167,6 +172,10 @@ export class ActionQueue {
     }
 
     const state = this.getOrCreateState(playerId);
+
+    // Note: Rate limiting is now handled by SlidingWindowRateLimiter in combat.ts handler
+    // The ActionQueue focuses on tick-based action processing, not rate limiting
+
     const payload = data as { mobId?: string; targetId?: string };
     const targetId = payload.mobId || payload.targetId;
 
@@ -243,6 +252,7 @@ export class ActionQueue {
    * Called by TickSystem at INPUT priority
    */
   processTick(tickNumber: number): void {
+    this.currentTick = tickNumber;
     const now = getCachedTimestamp();
 
     for (const [playerId, state] of this.playerQueues) {

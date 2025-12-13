@@ -420,12 +420,12 @@ export function RightPanel({
               margin: "4px",
             }}
           >
-            {/* Paperdoll Grid: 3 columns x 4 rows */}
+            {/* Paperdoll Grid: 3 columns x 3 rows (melee-only MVP) */}
             <div
               className="grid gap-1 h-full"
               style={{
                 gridTemplateColumns: "repeat(3, 1fr)",
-                gridTemplateRows: "repeat(4, 1fr)",
+                gridTemplateRows: "repeat(3, 1fr)",
               }}
             >
               {/* Row 1: empty, helmet, empty */}
@@ -442,11 +442,7 @@ export function RightPanel({
               <div />
               {renderEquipmentSlot("legs", "Legs", "👖")}
               <div />
-
-              {/* Row 4: empty, arrows, empty */}
-              <div />
-              {renderEquipmentSlot("arrows", "Ammo", "🏹")}
-              <div />
+              {/* Row 4: Arrows slot hidden for melee-only MVP */}
             </div>
           </div>
 

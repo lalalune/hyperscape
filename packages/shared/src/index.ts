@@ -252,6 +252,18 @@ export {
   calculateDistance2D,
 } from "./utils/ValidationUtils";
 
+// Combat validation utilities
+export {
+  validateEntityId,
+  validateUUID,
+  validateAttackType,
+  validateCombatRequest,
+  validateAttackStyleRequest,
+  sanitizeDisplayName,
+  type CombatRequestValidation,
+  type AttackStyleValidation,
+} from "./utils/game/CombatValidation";
+
 export { isTouch, cls, hashFile } from "./platform/client/utils-client";
 export { ReactiveVector3 } from "./extras/animation/ReactiveVector3";
 export { createEmoteFactory } from "./extras/three/createEmoteFactory";

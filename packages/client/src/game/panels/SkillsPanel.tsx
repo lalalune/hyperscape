@@ -301,13 +301,7 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
       level: s?.defense?.level || 1,
       xp: s?.defense?.xp || 0,
     },
-    {
-      key: "ranged",
-      label: "Ranged",
-      icon: "🏹",
-      level: s?.ranged?.level || 1,
-      xp: s?.ranged?.xp || 0,
-    },
+    // Ranged skill hidden for melee-only MVP
     {
       key: "woodcutting",
       label: "Woodcutting",
@@ -588,12 +582,11 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
                     const base =
                       0.25 *
                       ((s.defense?.level || 1) + (s.constitution?.level || 10));
+                    // Melee-only MVP: Combat level based on melee stats only
                     const melee =
                       0.325 *
                       ((s.attack?.level || 1) + (s.strength?.level || 1));
-                    const ranged =
-                      0.325 * Math.floor((s.ranged?.level || 1) * 1.5);
-                    return Math.floor(base + Math.max(melee, ranged));
+                    return Math.floor(base + melee);
                   })()}
                 </span>
               </div>

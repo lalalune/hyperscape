@@ -206,15 +206,10 @@ export function EquipmentPanel({
       icon: "🛡️",
       item: equipment?.shield || null,
     },
-    {
-      key: EquipmentSlotName.ARROWS,
-      label: "Ammo",
-      icon: "🏹",
-      item: equipment?.arrows || null,
-    },
+    // Arrows slot hidden for melee-only MVP
   ];
 
-  // Calculate total bonuses from equipped items
+  // Calculate total bonuses from equipped items (melee-only MVP)
   const totalStats = slots.reduce(
     (acc, slot) => {
       if (slot.item) {
@@ -222,11 +217,10 @@ export function EquipmentPanel({
         acc.attack += slot.item.bonuses?.attack || 0;
         acc.defense += slot.item.bonuses?.defense || 0;
         acc.strength += slot.item.bonuses?.strength || 0;
-        acc.ranged += slot.item.bonuses?.ranged || 0;
       }
       return acc;
     },
-    { attack: 0, defense: 0, strength: 0, ranged: 0 },
+    { attack: 0, defense: 0, strength: 0 },
   );
 
   const handleSlotClick = (slot: EquipmentSlot) => {
@@ -237,7 +231,7 @@ export function EquipmentPanel({
 
   // Get player stats with proper defaults
   const playerLevel = stats?.level || 1;
-  // Calculate combat level using OSRS formula (same as SkillsPanel and CombatPanel)
+  // Calculate combat level using OSRS formula (melee-only MVP)
   const combatLevel = stats?.skills
     ? (() => {
         const s = stats.skills;
@@ -245,8 +239,7 @@ export function EquipmentPanel({
           0.25 * ((s.defense?.level || 1) + (s.constitution?.level || 10));
         const melee =
           0.325 * ((s.attack?.level || 1) + (s.strength?.level || 1));
-        const ranged = 0.325 * Math.floor((s.ranged?.level || 1) * 1.5);
-        return Math.floor(base + Math.max(melee, ranged));
+        return Math.floor(base + melee);
       })()
     : 1;
   const health = {
@@ -336,10 +329,10 @@ export function EquipmentPanel({
                 boxShadow: "0 2px 4px rgba(0, 0, 0, 0.5)",
               }}
             >
-              {/* Paperdoll Grid Layout */}
+              {/* Paperdoll Grid Layout - 3 rows for melee-only MVP */}
               <div
                 className="grid grid-cols-3 gap-1 h-full"
-                style={{ gridTemplateRows: "repeat(4, 1fr)" }}
+                style={{ gridTemplateRows: "repeat(3, 1fr)" }}
               >
                 {/* Row 1: Head slot centered */}
                 <div />
@@ -380,16 +373,7 @@ export function EquipmentPanel({
                   />
                 </div>
                 <div />
-
-                {/* Row 4: Arrows centered */}
-                <div />
-                <div className="w-full h-full">
-                  <DroppableEquipmentSlot
-                    slot={getSlot(EquipmentSlotName.ARROWS)!}
-                    onSlotClick={handleSlotClick}
-                  />
-                </div>
-                <div />
+                {/* Row 4: Arrows slot hidden for melee-only MVP */}
               </div>
             </div>
           </div>
@@ -658,25 +642,7 @@ export function EquipmentPanel({
                       +{totalStats.strength}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span
-                      style={{
-                        fontSize: "clamp(0.563rem, 1vw, 0.625rem)",
-                        color: "rgba(242, 208, 138, 0.8)",
-                      }}
-                    >
-                      🏹 Ranged Bonus
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "clamp(0.563rem, 1vw, 0.625rem)",
-                        color: "#22c55e",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      +{totalStats.ranged}
-                    </span>
-                  </div>
+                  {/* Ranged bonus hidden for melee-only MVP */}
                 </div>
               </div>
 

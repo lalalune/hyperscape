@@ -61,14 +61,6 @@ function calculateAccuracy(
   const roll = Math.random();
   const didHit = roll < hitChance;
 
-  // Debug logging
-  if (Math.random() < 0.1) {
-    // Log 10% of attacks to avoid spam
-    console.log(
-      `[Accuracy] Attack: ${attackerAttackLevel}+${attackerAttackBonus} vs Defence: ${targetDefenseLevel}+${targetDefenseBonus} | Hit chance: ${(hitChance * 100).toFixed(1)}% | Roll: ${(roll * 100).toFixed(1)}% | ${didHit ? "HIT" : "MISS"}`,
-    );
-  }
-
   return didHit;
 }
 
