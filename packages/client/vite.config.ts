@@ -40,24 +40,21 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       // Watch shared package for changes and trigger full reload
+      // OPTIMIZED: Only watch build output (not source - esbuild handles that)
       {
         name: "watch-shared-package",
         configureServer(server) {
           const sharedBuildPath = path.resolve(__dirname, "../shared/build");
-          const sharedSrcPath = path.resolve(__dirname, "../shared/src");
 
-          // Watch both build output AND source files
-          server.watcher.add(path.join(sharedBuildPath, "**/*.js"));
-          server.watcher.add(path.join(sharedSrcPath, "**/*.ts"));
-          server.watcher.add(path.join(sharedSrcPath, "**/*.tsx"));
+          // Only watch the main build outputs, not source files
+          // The shared package's own watcher handles source → build
+          // We just need to know when the build output changes
+          server.watcher.add(path.join(sharedBuildPath, "framework.client.js"));
 
           server.watcher.on("change", (file) => {
-            if (
-              file.includes("packages/shared/build/") ||
-              file.includes("packages/shared/src/")
-            ) {
+            if (file.includes("packages/shared/build/framework.client.js")) {
               console.log(
-                `\n[Vite] 🔄 Shared package file changed: ${path.basename(file)}`,
+                `\n[Vite] 🔄 Shared package rebuilt: ${path.basename(file)}`,
               );
               console.log("[Vite] ⚡ Triggering full reload...\n");
 
@@ -79,7 +76,10 @@ export default defineConfig(({ mode }) => {
             }
           });
 
-          console.log("[Vite] 👀 Watching shared package:", sharedBuildPath);
+          console.log(
+            "[Vite] 👀 Watching shared package build:",
+            sharedBuildPath,
+          );
         },
       },
       // Plugin to handle Node.js modules in browser

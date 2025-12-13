@@ -192,13 +192,22 @@ async function main() {
   
   // Also watch TypeScript files for type checking
   // Use polling on Linux to avoid EINVAL errors with chokidar 4.x on newer kernels
+  // and to reduce inotify usage when turbo runs multiple watchers simultaneously
+  const isLinux = process.platform === 'linux'
   const watcher = chokidar.watch('src/**/*.{ts,tsx}', {
-    ignored: /(^|[\/\\])\../,
+    ignored: [
+      /(^|[\/\\])\../,
+      '**/__tests__/**',
+      '**/*.test.ts',
+      '**/*.spec.ts',
+    ],
     persistent: true,
     ignoreInitial: true,
     cwd: rootDir,
-    usePolling: process.platform === 'linux',
-    interval: 300,
+    usePolling: isLinux,
+    interval: isLinux ? 500 : 300,  // Slower polling when using polling mode
+    binaryInterval: 1000,
+    depth: 8,  // Limit traversal depth
   })
   
   let typecheckTimeout

@@ -150,6 +150,11 @@ export class ClientGraphics extends System {
   worldToScreenFactor: number = 0;
   isWebGPU: boolean = false;
 
+  // WebGL context loss handling
+  private contextLost: boolean = false;
+  private contextLostHandler: ((e: Event) => void) | null = null;
+  private contextRestoredHandler: ((e: Event) => void) | null = null;
+
   constructor(world: World) {
     // Reuse System since ClientGraphics doesn't use SystemBase helpers heavily; but keep name for logs
     super(world);
@@ -270,6 +275,9 @@ export class ClientGraphics extends System {
     this.renderer.domElement.style.height = "100%";
     this.renderer.domElement.style.display = "block";
 
+    // Setup WebGL context loss handling (critical for GPU stability)
+    this.setupContextLossHandlers();
+
     // Avoid appending twice
     if (this.renderer.domElement.parentElement !== this.viewport) {
       // Detach from any previous parent to avoid duplicate canvases
@@ -342,6 +350,11 @@ export class ClientGraphics extends System {
   }
 
   render() {
+    // Don't render if WebGL context is lost
+    if (this.contextLost) {
+      return;
+    }
+
     const isPresenting = isXRPresenting(this.renderer);
 
     if (isPresenting || !this.usePostprocessing || !this.composer) {
@@ -388,6 +401,84 @@ export class ClientGraphics extends System {
       setBloomEnabled(this.composer, changes.bloom.value);
     }
   };
+
+  /**
+   * Setup WebGL Context Loss Handlers
+   *
+   * Handles GPU crashes/driver timeouts gracefully. When the WebGL context is lost
+   * (common with NVIDIA drivers on Linux), we:
+   * 1. Prevent the default browser behavior (which would show a broken canvas)
+   * 2. Stop rendering to avoid errors
+   * 3. Attempt to restore the context when the GPU recovers
+   *
+   * This is critical for:
+   * - NVIDIA GPU driver TDR (Timeout Detection and Recovery)
+   * - Memory pressure causing context eviction
+   * - GPU switching (laptop hybrid graphics)
+   * - Browser tab backgrounding (mobile/tablets)
+   */
+  private setupContextLossHandlers(): void {
+    const canvas = this.renderer.domElement;
+
+    this.contextLostHandler = (event: Event) => {
+      // Prevent default browser behavior (blank canvas)
+      event.preventDefault();
+
+      this.contextLost = true;
+      console.warn("[ClientGraphics] WebGL context lost - GPU may have reset");
+      console.warn("[ClientGraphics] This is often caused by:");
+      console.warn(
+        "  - GPU driver timeout (TDR) - try updating NVIDIA drivers",
+      );
+      console.warn("  - Memory pressure - close other GPU-intensive apps");
+      console.warn("  - Browser tab backgrounding - keep game tab focused");
+
+      // Stop the render loop to prevent errors
+      this.renderer.setAnimationLoop?.(null as unknown as () => void);
+
+      // Emit event for UI to show "reconnecting" message
+      this.emit(EventType.GRAPHICS_CONTEXT_LOST, { timestamp: Date.now() });
+    };
+
+    this.contextRestoredHandler = (_event: Event) => {
+      console.log(
+        "[ClientGraphics] WebGL context restored - reinitializing renderer",
+      );
+
+      this.contextLost = false;
+
+      // Reconfigure renderer after context restore
+      configureRenderer(this.renderer, {
+        clearColor: 0x000000,
+        clearAlpha: 1,
+        pixelRatio: this.world.prefs?.dpr || 1,
+        width: this.width,
+        height: this.height,
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 0.85,
+        outputColorSpace: THREE.SRGBColorSpace,
+      });
+
+      // Reconfigure shadows
+      configureShadowMaps(this.renderer, {
+        enabled: true,
+        type: THREE.PCFSoftShadowMap,
+      });
+
+      // Emit event for UI to hide "reconnecting" message
+      this.emit(EventType.GRAPHICS_CONTEXT_RESTORED, { timestamp: Date.now() });
+
+      // Force a render to show the restored state
+      this.render();
+    };
+
+    canvas.addEventListener("webglcontextlost", this.contextLostHandler, false);
+    canvas.addEventListener(
+      "webglcontextrestored",
+      this.contextRestoredHandler,
+      false,
+    );
+  }
 
   onXRSession = (session: XRSession | null) => {
     if (session) {
@@ -450,6 +541,19 @@ export class ClientGraphics extends System {
     // Ensure animation loop is stopped
     if (this.renderer) {
       this.renderer.setAnimationLoop?.(null as unknown as () => void);
+    }
+    // Remove WebGL context loss handlers
+    if (this.renderer?.domElement) {
+      const canvas = this.renderer.domElement;
+      if (this.contextLostHandler) {
+        canvas.removeEventListener("webglcontextlost", this.contextLostHandler);
+      }
+      if (this.contextRestoredHandler) {
+        canvas.removeEventListener(
+          "webglcontextrestored",
+          this.contextRestoredHandler,
+        );
+      }
     }
     // Dispose postprocessing
     if (this.composer) {

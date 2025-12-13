@@ -106,6 +106,8 @@ export enum EventType {
 
   // Graphics System
   GRAPHICS_RESIZE = "graphics:resize",
+  GRAPHICS_CONTEXT_LOST = "graphics:context_lost",
+  GRAPHICS_CONTEXT_RESTORED = "graphics:context_restored",
 
   // XR System
   XR_SESSION = "xr:session",

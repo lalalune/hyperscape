@@ -203,23 +203,35 @@ console.log(`${colors.blue}Setting up file watcher...${colors.reset}`)
 
 const { default: chokidar } = await import('chokidar')
 
+// Optimized watcher configuration to reduce system resource usage
+// Uses polling on Linux to avoid inotify exhaustion with many watchers
+const isLinux = process.platform === 'linux'
 const watcher = chokidar.watch([
-  'src/**/*.{ts,tsx,js,mjs}',
-  '../shared/build/**/*.{js,d.ts}'
+  'src/**/*.{ts,tsx}',  // Only watch TypeScript source (not .js/.mjs which are usually build artifacts)
+  '../shared/build/framework.js',  // Only watch main output, not all files
+  '../shared/build/framework.client.js',
 ], {
   cwd: rootDir,
   ignored: [
     '**/node_modules/**',
     '**/*.test.*',
     '**/*.spec.*',
+    '**/__tests__/**',
     '**/build/**',
     '**/dist/**',
+    '**/coverage/**',
   ],
   ignoreInitial: true,
+  // Use polling on Linux to avoid inotify exhaustion when turbo runs multiple watchers
+  usePolling: isLinux,
+  interval: isLinux ? 500 : 100,  // Slower polling to reduce CPU
+  binaryInterval: 1000,
   awaitWriteFinish: {
     stabilityThreshold: 300,
     pollInterval: 100
-  }
+  },
+  // Limit depth to avoid watching deep node_modules accidentally
+  depth: 10,
 })
 
 let rebuildTimeout = null
