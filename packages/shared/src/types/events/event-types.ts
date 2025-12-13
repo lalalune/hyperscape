@@ -176,7 +176,7 @@ export enum EventType {
   COMBAT_ATTACK_STYLE_CHANGE = "combat:attack_style:change",
   COMBAT_ATTACK_FAILED = "combat:attack_failed",
   COMBAT_MELEE_ATTACK = "combat:melee_attack",
-  COMBAT_RANGED_ATTACK = "combat:ranged_attack",
+  // COMBAT_RANGED_ATTACK = "combat:ranged_attack",  // Deferred: MVP is melee-only
   COMBAT_MOB_NPC_ATTACK = "combat:mob_npc_attack",
   COMBAT_DAMAGE_DEALT = "combat:damage_dealt",
   COMBAT_DAMAGE_CALCULATE = "combat:damage_calculate",

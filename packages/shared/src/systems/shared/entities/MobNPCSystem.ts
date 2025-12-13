@@ -258,10 +258,7 @@ export class MobNPCSystem extends SystemBase {
           ? {
               id: 1,
               name: config.equipment.weapon.name || "Basic Weapon",
-              type:
-                config.equipment.weapon.type === "ranged"
-                  ? AttackType.RANGED
-                  : AttackType.MELEE,
+              type: AttackType.MELEE, // MVP: melee-only
             }
           : null,
         armor: config.equipment?.armor

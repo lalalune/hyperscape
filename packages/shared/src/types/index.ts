@@ -177,7 +177,7 @@ export interface CombatEventData extends BaseEventData {
   attackerId: string;
   targetId: string;
   damage: number;
-  attackType: "melee" | "ranged" | "magic";
+  attackType: "melee"; // MVP: melee-only (expand to "ranged" | "magic" when implemented)
 }
 
 // System state interfaces

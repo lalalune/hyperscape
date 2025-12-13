@@ -37,10 +37,11 @@ export enum ItemType {
 }
 
 // Combat related enums
+// MVP: Melee-only combat. Ranged/Magic deferred for future expansion.
 export enum AttackType {
   MELEE = "melee",
-  RANGED = "ranged",
-  MAGIC = "magic",
+  // RANGED = "ranged",  // Deferred: Re-add when implementing ranged combat
+  // MAGIC = "magic",    // Deferred: Re-add when implementing magic combat
 }
 
 // Equipment slot type enum - use this consistently

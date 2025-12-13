@@ -1033,13 +1033,9 @@ export class PlayerSystem extends SystemBase {
     return !!equipment?.weapon;
   }
 
-  canPlayerUseRanged(playerId: string): boolean {
-    const equipment = this.getPlayerEquipment(playerId);
-    return (
-      !!equipment?.weapon &&
-      equipment.weapon.attackType === AttackType.RANGED &&
-      !!equipment.arrows
-    );
+  canPlayerUseRanged(_playerId: string): boolean {
+    // MVP: Melee-only combat - ranged weapons not supported
+    return false;
   }
 
   damagePlayer(playerId: string, amount: number, _source?: string): boolean {
