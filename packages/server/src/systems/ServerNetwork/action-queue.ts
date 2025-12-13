@@ -19,6 +19,7 @@
  */
 
 import type { ServerSocket } from "../../shared/types";
+import { getCachedTimestamp } from "@hyperscape/shared";
 
 /**
  * Types of actions that can be queued
@@ -142,7 +143,7 @@ export class ActionQueue {
       playerId,
       socket,
       data,
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
       priority: ActionPriority.MOVEMENT,
     };
 
@@ -182,7 +183,7 @@ export class ActionQueue {
       playerId,
       socket,
       data,
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
       priority: ActionPriority.COMBAT,
     };
 
@@ -218,7 +219,7 @@ export class ActionQueue {
       playerId,
       socket,
       data,
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
       priority: ActionPriority.INTERACTION,
     };
 
@@ -242,7 +243,7 @@ export class ActionQueue {
    * Called by TickSystem at INPUT priority
    */
   processTick(tickNumber: number): void {
-    const now = Date.now();
+    const now = getCachedTimestamp();
 
     for (const [playerId, state] of this.playerQueues) {
       // Skip if already processed this tick

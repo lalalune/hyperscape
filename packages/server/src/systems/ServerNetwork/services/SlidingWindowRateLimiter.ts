@@ -176,6 +176,8 @@ let pickupLimiter: RateLimiter | null = null;
 let moveLimiter: RateLimiter | null = null;
 let dropLimiter: RateLimiter | null = null;
 let equipLimiter: RateLimiter | null = null;
+let tileMovementLimiter: RateLimiter | null = null;
+let pathfindLimiter: RateLimiter | null = null;
 
 /**
  * Get the pickup rate limiter (5/sec)
@@ -234,6 +236,36 @@ export function getEquipRateLimiter(): RateLimiter {
 }
 
 /**
+ * Get the tile movement rate limiter (15/sec)
+ * Limits tile movement requests - allows burst clicking (OSRS allows rapid clicks)
+ * but prevents spam attacks that could overwhelm the server
+ */
+export function getTileMovementRateLimiter(): RateLimiter {
+  if (!tileMovementLimiter) {
+    tileMovementLimiter = createRateLimiter({
+      maxPerSecond: 15,
+      name: "tile-movement",
+    });
+  }
+  return tileMovementLimiter;
+}
+
+/**
+ * Get the pathfinding rate limiter (5/sec)
+ * Limits BFS pathfinding operations which are CPU-expensive
+ * Separate from movement to allow position updates without pathfinding
+ */
+export function getPathfindRateLimiter(): RateLimiter {
+  if (!pathfindLimiter) {
+    pathfindLimiter = createRateLimiter({
+      maxPerSecond: 5,
+      name: "pathfinding",
+    });
+  }
+  return pathfindLimiter;
+}
+
+/**
  * Destroy all singleton rate limiters
  * Call this during server shutdown
  */
@@ -242,9 +274,13 @@ export function destroyAllRateLimiters(): void {
   moveLimiter?.destroy();
   dropLimiter?.destroy();
   equipLimiter?.destroy();
+  tileMovementLimiter?.destroy();
+  pathfindLimiter?.destroy();
 
   pickupLimiter = null;
   moveLimiter = null;
   dropLimiter = null;
   equipLimiter = null;
+  tileMovementLimiter = null;
+  pathfindLimiter = null;
 }

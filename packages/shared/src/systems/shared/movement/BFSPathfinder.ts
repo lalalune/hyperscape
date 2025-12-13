@@ -24,6 +24,7 @@ import {
   tilesEqual,
   isDiagonal,
 } from "./TileSystem";
+import { bfsPool } from "./ObjectPools";
 
 /**
  * Walkability check function type
@@ -170,73 +171,79 @@ export class BFSPathfinder {
 
   /**
    * BFS pathfinding - used when naive diagonal path is blocked by obstacles
+   *
+   * Uses object pool to minimize allocations in this hot path.
    */
   private findBFSPath(
     start: TileCoord,
     end: TileCoord,
     isWalkable: WalkabilityChecker,
   ): TileCoord[] {
-    // BFS setup
-    const visited = new Set<string>();
-    const parent = new Map<string, TileCoord>();
-    const queue: TileCoord[] = [];
+    // Acquire pooled data structures to avoid per-call allocations
+    const pooledData = bfsPool.acquire();
+    const { visited, parent, queue } = pooledData;
 
-    // Start BFS from start tile
-    queue.push(start);
-    visited.add(tileKey(start));
+    try {
+      // Start BFS from start tile
+      queue.push(start);
+      visited.add(tileKey(start));
 
-    // Track bounds for 128x128 limit
-    const minX = start.x - PATHFIND_RADIUS;
-    const maxX = start.x + PATHFIND_RADIUS;
-    const minZ = start.z - PATHFIND_RADIUS;
-    const maxZ = start.z + PATHFIND_RADIUS;
+      // Track bounds for 128x128 limit
+      const minX = start.x - PATHFIND_RADIUS;
+      const maxX = start.x + PATHFIND_RADIUS;
+      const minZ = start.z - PATHFIND_RADIUS;
+      const maxZ = start.z + PATHFIND_RADIUS;
 
-    while (queue.length > 0) {
-      const current = queue.shift()!;
+      while (queue.length > 0) {
+        const current = queue.shift()!;
 
-      // Found the destination
-      if (tilesEqual(current, end)) {
-        return this.reconstructPath(start, end, parent);
+        // Found the destination
+        if (tilesEqual(current, end)) {
+          return this.reconstructPath(start, end, parent);
+        }
+
+        // Check all 8 directions in OSRS order: W, E, S, N, SW, SE, NW, NE
+        for (const dir of TILE_DIRECTIONS) {
+          const neighbor: TileCoord = {
+            x: current.x + dir.x,
+            z: current.z + dir.z,
+          };
+
+          // Skip if out of search bounds
+          if (
+            neighbor.x < minX ||
+            neighbor.x > maxX ||
+            neighbor.z < minZ ||
+            neighbor.z > maxZ
+          ) {
+            continue;
+          }
+
+          const neighborKey = tileKey(neighbor);
+
+          // Skip if already visited
+          if (visited.has(neighborKey)) {
+            continue;
+          }
+
+          // Check walkability (including diagonal corner checks)
+          if (!this.canMoveTo(current, neighbor, isWalkable)) {
+            continue;
+          }
+
+          // Add to queue
+          visited.add(neighborKey);
+          parent.set(neighborKey, current);
+          queue.push(neighbor);
+        }
       }
 
-      // Check all 8 directions in OSRS order: W, E, S, N, SW, SE, NW, NE
-      for (const dir of TILE_DIRECTIONS) {
-        const neighbor: TileCoord = {
-          x: current.x + dir.x,
-          z: current.z + dir.z,
-        };
-
-        // Skip if out of search bounds
-        if (
-          neighbor.x < minX ||
-          neighbor.x > maxX ||
-          neighbor.z < minZ ||
-          neighbor.z > maxZ
-        ) {
-          continue;
-        }
-
-        const neighborKey = tileKey(neighbor);
-
-        // Skip if already visited
-        if (visited.has(neighborKey)) {
-          continue;
-        }
-
-        // Check walkability (including diagonal corner checks)
-        if (!this.canMoveTo(current, neighbor, isWalkable)) {
-          continue;
-        }
-
-        // Add to queue
-        visited.add(neighborKey);
-        parent.set(neighborKey, current);
-        queue.push(neighbor);
-      }
+      // No path found - return partial path to closest point
+      return this.findPartialPath(start, end, visited, parent);
+    } finally {
+      // Always release back to pool
+      bfsPool.release(pooledData);
     }
-
-    // No path found - return partial path to closest point
-    return this.findPartialPath(start, end, visited, parent);
   }
 
   /**

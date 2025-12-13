@@ -6,3 +6,4 @@
 
 export * from "./TileSystem";
 export * from "./BFSPathfinder";
+export * from "./ObjectPools";

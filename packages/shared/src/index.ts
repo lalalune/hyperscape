@@ -689,6 +689,10 @@ export type {
 export { BFSPathfinder } from "./systems/shared/movement/BFSPathfinder";
 export { chaseStep } from "./systems/shared/movement/ChasePathfinding";
 export type { WalkabilityChecker } from "./systems/shared/movement/BFSPathfinder";
+export {
+  getCachedTimestamp,
+  updateCachedTimestamp,
+} from "./systems/shared/movement/ObjectPools";
 
 // ============================================================================
 // Interaction System (Store, Bank, Dialogue)
