@@ -16,7 +16,7 @@
  * 5. State broadcast to clients
  */
 
-import { TICK_DURATION_MS } from "@hyperscape/shared";
+import { TICK_DURATION_MS, updateCachedTimestamp } from "@hyperscape/shared";
 
 /**
  * Tick callback priority levels
@@ -117,6 +117,10 @@ export class TickSystem {
    * Process a single tick
    */
   private processTick(): void {
+    // Update cached timestamp once per tick for use throughout tick processing
+    // This avoids Date.now() calls in hot paths
+    updateCachedTimestamp();
+
     const now = Date.now();
     const deltaMs = now - this.lastTickTime;
     this.lastTickTime = now;

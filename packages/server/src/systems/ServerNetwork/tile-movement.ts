@@ -27,6 +27,17 @@ import {
 } from "@hyperscape/shared";
 import type { TileCoord, TileMovementState } from "@hyperscape/shared";
 
+// Security: Input validation and anti-cheat
+import {
+  MovementInputValidator,
+  MovementViolationSeverity,
+} from "./movement/MovementInputValidator";
+import { MovementAntiCheat } from "./movement/MovementAntiCheat";
+import {
+  getTileMovementRateLimiter,
+  getPathfindRateLimiter,
+} from "./services/SlidingWindowRateLimiter";
+
 /**
  * Tile-based movement manager for RuneScape-style movement
  */
@@ -36,6 +47,12 @@ export class TileMovementManager {
   // Y-axis for stable yaw rotation calculation
   private _up = new THREE.Vector3(0, 1, 0);
   private _tempQuat = new THREE.Quaternion();
+
+  // Security: Input validation and anti-cheat monitoring
+  private readonly inputValidator = new MovementInputValidator();
+  private readonly antiCheat = new MovementAntiCheat();
+  private readonly movementRateLimiter = getTileMovementRateLimiter();
+  private readonly pathfindRateLimiter = getPathfindRateLimiter();
 
   constructor(
     private world: World,
@@ -96,6 +113,10 @@ export class TileMovementManager {
 
   /**
    * Handle move request from client
+   *
+   * Security: All input is validated before processing.
+   * Rate limiting prevents spam attacks.
+   * Anti-cheat monitors for suspicious patterns.
    */
   handleMoveRequest(socket: ServerSocket, data: unknown): void {
     const playerEntity = socket.player;
@@ -103,25 +124,45 @@ export class TileMovementManager {
       return;
     }
 
-    const payload = data as {
-      target?: number[] | null;
-      targetTile?: TileCoord;
-      runMode?: boolean;
-      cancel?: boolean;
-    };
+    const playerId = playerEntity.id;
 
-    const state = this.getOrCreateState(playerEntity.id);
+    // Rate limit: prevent spam attacks
+    if (!this.movementRateLimiter.check(playerId)) {
+      return; // Silently drop - rate limiting is expected during fast clicking
+    }
 
-    // Handle cancellation - but ignore if it's immediately followed by a move
-    if (payload?.cancel && !payload?.target && !payload?.targetTile) {
+    // Get current state for validation context
+    const state = this.getOrCreateState(playerId);
+
+    // Validate input using MovementInputValidator
+    const validation = this.inputValidator.validateMoveRequest(
+      data,
+      state.currentTile,
+    );
+
+    if (!validation.valid) {
+      // Log violation to anti-cheat system
+      this.antiCheat.recordViolation(
+        playerId,
+        "invalid_move_request",
+        validation.severity ?? MovementViolationSeverity.MINOR,
+        validation.error ?? "Unknown validation error",
+        state.currentTile,
+      );
+      return;
+    }
+
+    const payload = validation.payload!;
+
+    // Handle cancellation
+    if (payload.cancel) {
       state.path = [];
       state.pathIndex = 0;
-      // Movement cancelled
 
       // Broadcast idle state
       const curr = playerEntity.position;
       this.sendFn("entityModified", {
-        id: playerEntity.id,
+        id: playerId,
         changes: {
           p: [curr.x, curr.y, curr.z],
           v: [0, 0, 0],
@@ -131,39 +172,32 @@ export class TileMovementManager {
       return;
     }
 
-    // Only runMode change (no new target)
-    if (!payload?.target && !payload?.targetTile) {
-      if (payload?.runMode !== undefined) {
-        state.isRunning = payload.runMode;
-        this.sendFn("entityModified", {
-          id: playerEntity.id,
-          changes: { e: payload.runMode ? "run" : "walk" },
-        });
-      }
+    // Check if this is just a runMode toggle (target equals current tile)
+    if (tilesEqual(payload.targetTile, state.currentTile)) {
+      state.isRunning = payload.runMode;
+      this.sendFn("entityModified", {
+        id: playerId,
+        changes: { e: payload.runMode ? "run" : "walk" },
+      });
       return;
     }
 
-    // Get target tile (from explicit tile or world coords)
-    let targetTile: TileCoord;
-    if (payload.targetTile) {
-      targetTile = payload.targetTile;
-    } else if (payload.target) {
-      targetTile = worldToTile(payload.target[0], payload.target[2]);
-    } else {
-      return;
+    // Rate limit pathfinding separately (CPU-expensive operation)
+    if (!this.pathfindRateLimiter.check(playerId)) {
+      return; // Too many pathfind requests
     }
 
     // Calculate BFS path from current tile to target
     const path = this.pathfinder.findPath(
       state.currentTile,
-      targetTile,
+      payload.targetTile,
       (tile) => this.isTileWalkable(tile),
     );
 
     // Store path and update state
     state.path = path;
     state.pathIndex = 0;
-    state.isRunning = payload?.runMode ?? false;
+    state.isRunning = payload.runMode;
     // Increment movement sequence for packet ordering
     // Client uses this to ignore stale packets from previous movements
     state.moveSeq = (state.moveSeq || 0) + 1;
@@ -203,36 +237,40 @@ export class TileMovementManager {
       // moveSeq: packet ordering to ignore stale packets
       // emote: bundled animation (OSRS-style, no separate packet)
       this.sendFn("tileMovementStart", {
-        id: playerEntity.id,
+        id: playerId,
         startTile: { x: state.currentTile.x, z: state.currentTile.z },
         path: path.map((t) => ({ x: t.x, z: t.z })),
         running: state.isRunning,
-        destinationTile: { x: targetTile.x, z: targetTile.z },
+        destinationTile: { x: payload.targetTile.x, z: payload.targetTile.z },
         moveSeq: state.moveSeq,
         emote: state.isRunning ? "run" : "walk",
       });
     } else {
       // No path found or already at destination
       console.warn(
-        `[TileMovement] ⚠️ No path found from (${state.currentTile.x},${state.currentTile.z}) to (${targetTile.x},${targetTile.z})`,
+        `[TileMovement] ⚠️ No path found from (${state.currentTile.x},${state.currentTile.z}) to (${payload.targetTile.x},${payload.targetTile.z})`,
       );
     }
   }
 
   /**
    * Handle legacy input packet (routes to move request)
+   *
+   * Security: Basic type validation before routing to validated handler.
    */
   handleInput(socket: ServerSocket, data: unknown): void {
-    const payload = data as {
-      type?: string;
-      target?: number[];
-      runMode?: boolean;
-    };
+    // Type guard: must be non-null object
+    if (data === null || typeof data !== "object") {
+      return;
+    }
 
+    const payload = data as Record<string, unknown>;
+
+    // Route click events to validated move request handler
     if (payload.type === "click" && Array.isArray(payload.target)) {
       this.handleMoveRequest(socket, {
         target: payload.target,
-        runMode: payload.runMode,
+        runMode: typeof payload.runMode === "boolean" ? payload.runMode : false,
       });
     }
   }
@@ -241,6 +279,12 @@ export class TileMovementManager {
    * Called every server tick (600ms) - advance all players along their paths
    */
   onTick(tickNumber: number): void {
+    // Decay anti-cheat scores every 100 ticks (~60 seconds)
+    // This rewards good behavior over time
+    if (tickNumber % 100 === 0) {
+      this.antiCheat.decayScores();
+    }
+
     const terrain = this.getTerrain();
 
     for (const [playerId, state] of this.playerStates) {
@@ -362,6 +406,9 @@ export class TileMovementManager {
    */
   cleanup(playerId: string): void {
     this.playerStates.delete(playerId);
+    this.antiCheat.cleanup(playerId);
+    this.movementRateLimiter.reset(playerId);
+    this.pathfindRateLimiter.reset(playerId);
   }
 
   /**
