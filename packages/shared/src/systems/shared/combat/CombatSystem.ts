@@ -32,6 +32,11 @@ import { worldToTile, tilesWithinRange } from "../movement/TileSystem";
 import { CombatAnimationManager } from "./CombatAnimationManager";
 import { CombatRotationManager } from "./CombatRotationManager";
 import { CombatStateService, CombatData } from "./CombatStateService";
+import {
+  CombatAntiCheat,
+  CombatViolationType,
+  CombatViolationSeverity,
+} from "./CombatAntiCheat";
 
 // Re-export CombatData from CombatStateService for backwards compatibility
 export type { CombatData } from "./CombatStateService";
@@ -88,6 +93,9 @@ export class CombatSystem extends SystemBase {
   private animationManager: CombatAnimationManager;
   private rotationManager: CombatRotationManager;
 
+  // Anti-cheat monitoring (Phase 6 - Game Studio Hardening)
+  private antiCheat: CombatAntiCheat;
+
   // Equipment stats cache per player for damage calculations
   private playerEquipmentStats = new Map<
     string,
@@ -108,6 +116,9 @@ export class CombatSystem extends SystemBase {
     this.stateService = new CombatStateService(world);
     this.animationManager = new CombatAnimationManager(world);
     this.rotationManager = new CombatRotationManager(world);
+
+    // Initialize anti-cheat monitoring (Phase 6 - Game Studio Hardening)
+    this.antiCheat = new CombatAntiCheat();
   }
 
   async init(): Promise<void> {
@@ -211,6 +222,15 @@ export class CombatSystem extends SystemBase {
     targetType: "player" | "mob";
   }): void {
     const { attackerId, targetId, attackerType, targetType } = data;
+    const currentTick = this.world.currentTick;
+
+    // Anti-cheat: Track attack rate for players (Phase 6)
+    if (attackerType === "player") {
+      const isSuspicious = this.antiCheat.trackAttack(attackerId, currentTick);
+      if (isSuspicious) {
+        // Don't block, just log - anti-cheat is monitoring only
+      }
+    }
 
     // Convert IDs to typed IDs
     const typedAttackerId = createEntityID(attackerId);
@@ -222,6 +242,14 @@ export class CombatSystem extends SystemBase {
 
     // Check entities exist
     if (!attacker || !target) {
+      // Anti-cheat: Record nonexistent target attack (Phase 6)
+      if (attackerType === "player" && !target) {
+        this.antiCheat.recordNonexistentTargetAttack(
+          attackerId,
+          targetId,
+          currentTick,
+        );
+      }
       return;
     }
 
@@ -233,12 +261,31 @@ export class CombatSystem extends SystemBase {
     // CRITICAL: Check if target is already dead BEFORE processing attack (Issue #265)
     // This prevents attacks from being processed on dead entities
     if (!this.isEntityAlive(target, targetType)) {
+      // Anti-cheat: Record dead target attack (Phase 6)
+      if (attackerType === "player") {
+        this.antiCheat.recordDeadTargetAttack(
+          attackerId,
+          targetId,
+          currentTick,
+        );
+      }
       return;
     }
 
     // CRITICAL: Check if target player is still loading (Issue #356)
     // Players are immune to combat until their client finishes loading assets
     if (targetType === "player" && target.data?.isLoading) {
+      // Anti-cheat: Record attack during protection (Phase 6)
+      if (attackerType === "player") {
+        this.antiCheat.recordViolation(
+          attackerId,
+          CombatViolationType.ATTACK_DURING_PROTECTION,
+          CombatViolationSeverity.MODERATE,
+          `Attacked player ${targetId} during loading protection`,
+          targetId,
+          currentTick,
+        );
+      }
       return;
     }
 
@@ -257,6 +304,10 @@ export class CombatSystem extends SystemBase {
 
     // CRITICAL: Can't attack yourself
     if (attackerId === targetId) {
+      // Anti-cheat: Record self-attack attempt (Phase 6)
+      if (attackerType === "player") {
+        this.antiCheat.recordSelfAttack(attackerId, currentTick);
+      }
       return;
     }
 
@@ -269,6 +320,20 @@ export class CombatSystem extends SystemBase {
     const combatRangeTiles = this.getEntityCombatRange(attacker, attackerType);
 
     if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
+      // Anti-cheat: Record out-of-range attack (Phase 6)
+      if (attackerType === "player") {
+        // Calculate actual tile distance for logging
+        const dx = Math.abs(attackerTile.x - targetTile.x);
+        const dz = Math.abs(attackerTile.z - targetTile.z);
+        const actualDistance = Math.max(dx, dz); // Chebyshev distance
+        this.antiCheat.recordOutOfRangeAttack(
+          attackerId,
+          targetId,
+          actualDistance,
+          combatRangeTiles,
+          currentTick,
+        );
+      }
       this.emitTypedEvent(EventType.COMBAT_ATTACK_FAILED, {
         attackerId,
         targetId,
@@ -278,7 +343,6 @@ export class CombatSystem extends SystemBase {
     }
 
     // Check attack cooldown (TICK-BASED, OSRS-accurate)
-    const currentTick = this.world.currentTick;
     const nextAllowedTick = this.nextAttackTicks.get(typedAttackerId) ?? 0;
 
     if (isAttackOnCooldownTicks(currentTick, nextAllowedTick)) {
@@ -934,6 +998,9 @@ export class CombatSystem extends SystemBase {
     // Clear player's equipment stats cache
     this.playerEquipmentStats.delete(playerId);
 
+    // Clean up anti-cheat tracking for disconnected player (Phase 6)
+    this.antiCheat.cleanup(playerId);
+
     // Find all entities that were targeting this disconnected player
     const combatStatesMap = this.stateService.getCombatStatesMap();
     for (const [attackerId, state] of combatStatesMap) {
@@ -1353,10 +1420,56 @@ export class CombatSystem extends SystemBase {
     this.stateService.destroy();
     this.animationManager.destroy();
 
+    // Clean up anti-cheat monitoring (Phase 6)
+    this.antiCheat.destroy();
+
     // Clear all attack cooldowns (tick-based)
     this.nextAttackTicks.clear();
 
     // Call parent cleanup (handles autoCleanup)
     super.destroy();
+  }
+
+  /**
+   * Get anti-cheat stats for monitoring dashboard (Phase 6)
+   */
+  public getAntiCheatStats(): {
+    trackedPlayers: number;
+    playersAboveWarning: number;
+    playersAboveAlert: number;
+    totalViolationsLast5Min: number;
+  } {
+    return this.antiCheat.getStats();
+  }
+
+  /**
+   * Get anti-cheat report for a specific player (Phase 6)
+   */
+  public getAntiCheatPlayerReport(playerId: string): {
+    score: number;
+    recentViolations: Array<{
+      playerId: string;
+      type: string;
+      severity: number;
+      details: string;
+      timestamp: number;
+    }>;
+    attacksThisTick: number;
+  } {
+    return this.antiCheat.getPlayerReport(playerId);
+  }
+
+  /**
+   * Get players requiring admin attention (Phase 6)
+   */
+  public getPlayersRequiringReview(): string[] {
+    return this.antiCheat.getPlayersRequiringReview();
+  }
+
+  /**
+   * Decay anti-cheat scores (call periodically, e.g., every minute)
+   */
+  public decayAntiCheatScores(): void {
+    this.antiCheat.decayScores();
   }
 }
