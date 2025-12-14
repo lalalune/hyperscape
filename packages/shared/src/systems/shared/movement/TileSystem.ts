@@ -12,6 +12,8 @@
  * - Client interpolates visually between tile positions
  */
 
+import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
+
 /**
  * Core tile system constants
  *
@@ -169,7 +171,7 @@ export function tilesWithinMeleeRange(
 
   // Range 1 (standard melee): CARDINAL ONLY - no diagonal attacks
   // This is the core OSRS melee mechanic that makes positioning matter
-  if (meleeRange === 1) {
+  if (meleeRange === COMBAT_CONSTANTS.MELEE_RANGE_STANDARD) {
     return (dx === 1 && dz === 0) || (dx === 0 && dz === 1);
   }
 
@@ -355,7 +357,7 @@ export function getBestMeleeTile(
   }
 
   // For range 1: CARDINAL ONLY (OSRS melee behavior)
-  if (effectiveRange === 1) {
+  if (effectiveRange === COMBAT_CONSTANTS.MELEE_RANGE_STANDARD) {
     const cardinalTiles = [
       { x: target.x - 1, z: target.z }, // West
       { x: target.x + 1, z: target.z }, // East

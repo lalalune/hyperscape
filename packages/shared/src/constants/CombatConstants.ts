@@ -4,9 +4,14 @@
  */
 
 export const COMBAT_CONSTANTS = {
-  // Attack ranges
+  // Attack ranges (general)
   MELEE_RANGE: 2,
   RANGED_RANGE: 10,
+
+  // OSRS-accurate melee range constants
+  // @see https://oldschool.runescape.wiki/w/Attack_range
+  MELEE_RANGE_STANDARD: 1, // Unarmed, swords, daggers - CARDINAL ONLY
+  MELEE_RANGE_HALBERD: 2, // Halberds, spears - allows diagonal
 
   // Pickup range (server-side validation, slightly larger than client to account for movement)
   PICKUP_RANGE: 2.5,
