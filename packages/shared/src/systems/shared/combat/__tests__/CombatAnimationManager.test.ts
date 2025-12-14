@@ -8,21 +8,68 @@
  * - Weapon-based emote selection
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { CombatAnimationManager } from "../CombatAnimationManager";
+
+/**
+ * Mock player entity interface
+ */
+interface MockPlayer {
+  id: string;
+  emote: string;
+  data: { e: string };
+  combat: { combatTarget: string | null };
+  markNetworkDirty: Mock;
+}
+
+/**
+ * Mock mob entity interface
+ */
+interface MockMob {
+  id: string;
+  setServerEmote: Mock;
+}
+
+/**
+ * Mock equipment system interface
+ */
+interface MockEquipmentSystem {
+  getPlayerEquipment: Mock<
+    [string],
+    { weapon?: { item?: { weaponType?: string; id?: string } } }
+  >;
+}
+
+/**
+ * Mock network interface
+ */
+interface MockNetwork {
+  send: Mock;
+}
+
+/**
+ * Mock world interface
+ */
+interface MockWorld {
+  isServer: boolean;
+  entities: Map<string, MockMob>;
+  network: MockNetwork;
+  getPlayer: (id: string) => MockPlayer | undefined;
+  getSystem: (name: string) => MockEquipmentSystem | undefined;
+}
 
 // Mock World
 function createMockWorld(
   options: {
-    players?: Map<string, any>;
-    entities?: Map<string, any>;
+    players?: Map<string, MockPlayer>;
+    entities?: Map<string, MockMob>;
     isServer?: boolean;
-    network?: any;
-    equipmentSystem?: any;
+    network?: MockNetwork;
+    equipmentSystem?: MockEquipmentSystem;
   } = {},
-) {
-  const players = options.players || new Map();
-  const entities = options.entities || new Map();
+): MockWorld {
+  const players = options.players || new Map<string, MockPlayer>();
+  const entities = options.entities || new Map<string, MockMob>();
 
   return {
     isServer: options.isServer ?? true,
@@ -41,7 +88,10 @@ function createMockWorld(
 }
 
 // Mock player entity
-function createMockPlayer(id: string, overrides: any = {}) {
+function createMockPlayer(
+  id: string,
+  overrides: Partial<MockPlayer> = {},
+): MockPlayer {
   return {
     id,
     emote: "idle",
@@ -53,7 +103,7 @@ function createMockPlayer(id: string, overrides: any = {}) {
 }
 
 // Mock mob entity
-function createMockMob(id: string, overrides: any = {}) {
+function createMockMob(id: string, overrides: Partial<MockMob> = {}): MockMob {
   return {
     id,
     setServerEmote: vi.fn(),
@@ -63,9 +113,9 @@ function createMockMob(id: string, overrides: any = {}) {
 
 describe("CombatAnimationManager", () => {
   let animationManager: CombatAnimationManager;
-  let mockWorld: any;
-  let mockPlayers: Map<string, any>;
-  let mockEntities: Map<string, any>;
+  let mockWorld: MockWorld;
+  let mockPlayers: Map<string, MockPlayer>;
+  let mockEntities: Map<string, MockMob>;
 
   beforeEach(() => {
     mockPlayers = new Map();

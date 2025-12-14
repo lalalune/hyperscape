@@ -40,6 +40,8 @@ import {
 } from "./CombatAntiCheat";
 import { getEntityPosition } from "../../../utils/game/EntityPositionUtils";
 import { quaternionPool } from "../../../utils/pools/QuaternionPool";
+import { EntityIdValidator } from "./EntityIdValidator";
+import { CombatRateLimiter } from "./CombatRateLimiter";
 
 // Re-export CombatData from CombatStateService for backwards compatibility
 export type { CombatData } from "./CombatStateService";
@@ -121,6 +123,10 @@ export class CombatSystem extends SystemBase {
   // Anti-cheat monitoring (Phase 6 - Game Studio Hardening)
   private antiCheat: CombatAntiCheat;
 
+  // Input validation and rate limiting (Phase 6.5 - Security Hardening)
+  private entityIdValidator: EntityIdValidator;
+  private rateLimiter: CombatRateLimiter;
+
   // Equipment stats cache per player for damage calculations
   private playerEquipmentStats = new Map<
     string,
@@ -148,6 +154,10 @@ export class CombatSystem extends SystemBase {
 
     // Initialize anti-cheat monitoring (Phase 6 - Game Studio Hardening)
     this.antiCheat = new CombatAntiCheat();
+
+    // Initialize input validation and rate limiting (Phase 6.5 - Security Hardening)
+    this.entityIdValidator = new EntityIdValidator();
+    this.rateLimiter = new CombatRateLimiter();
   }
 
   async init(): Promise<void> {
@@ -221,11 +231,9 @@ export class CombatSystem extends SystemBase {
       EventType.COMBAT_STOP_ATTACK,
       (data: { attackerId: string }) => {
         if (this.stateService.isInCombat(data.attackerId)) {
-          console.log(
-            "[CombatSystem] Stopping combat for",
-            data.attackerId,
-            "(target switch)",
-          );
+          this.logger.info("Stopping combat for target switch", {
+            attackerId: data.attackerId,
+          });
           this.forceEndCombat(data.attackerId);
         }
       },
@@ -277,12 +285,50 @@ export class CombatSystem extends SystemBase {
    * execution logic extracted to executeMeleeAttack()
    */
   private handleMeleeAttack(data: MeleeAttackData): void {
-    const { attackerType } = data;
+    const { attackerId, targetId, attackerType } = data;
     const currentTick = this.world.currentTick;
+
+    // Phase 6.5: Input validation - reject malformed entity IDs
+    if (!this.entityIdValidator.isValid(attackerId)) {
+      const sanitized = this.entityIdValidator.sanitizeForLogging(attackerId);
+      this.logger.warn("Invalid attacker ID rejected", {
+        attackerId: sanitized,
+        reason: "invalid_format",
+      });
+      this.antiCheat.recordInvalidEntityId(
+        String(attackerId).slice(0, 64),
+        String(attackerId),
+      );
+      return;
+    }
+
+    if (!this.entityIdValidator.isValid(targetId)) {
+      const sanitized = this.entityIdValidator.sanitizeForLogging(targetId);
+      this.logger.warn("Invalid target ID rejected", {
+        attackerId,
+        targetId: sanitized,
+        reason: "invalid_format",
+      });
+      this.antiCheat.recordInvalidEntityId(attackerId, String(targetId));
+      return;
+    }
+
+    // Phase 6.5: Rate limiting - prevent request flooding
+    if (attackerType === "player") {
+      const rateResult = this.rateLimiter.checkLimit(attackerId, currentTick);
+      if (!rateResult.allowed) {
+        this.logger.warn("Attack rate limited", {
+          attackerId,
+          reason: rateResult.reason,
+          cooldownUntil: rateResult.cooldownUntil,
+        });
+        return;
+      }
+    }
 
     // Anti-cheat: Track attack rate for players (Phase 6)
     if (attackerType === "player") {
-      this.antiCheat.trackAttack(data.attackerId, currentTick);
+      this.antiCheat.trackAttack(attackerId, currentTick);
     }
 
     // Validate the attack (entities exist, alive, in range, etc.)
@@ -706,13 +752,15 @@ export class CombatSystem extends SystemBase {
       // Get player system and use its damage method
       const playerSystem = this.world.getSystem<PlayerSystem>("player");
       if (!playerSystem) {
-        console.error("[CombatSystem] PlayerSystem not found!");
+        this.logger.error("PlayerSystem not found");
         return;
       }
 
       const entity = this.getEntity(targetId, "player");
       if (!entity) {
-        console.error(`[CombatSystem] Player entity not found for ${targetId}`);
+        this.logger.error("Player entity not found for damage", undefined, {
+          targetId,
+        });
         return;
       }
 
@@ -729,7 +777,7 @@ export class CombatSystem extends SystemBase {
           return;
         }
         // Player not dead but damage still failed - log and continue
-        console.error(`[CombatSystem] Failed to damage player ${targetId}`);
+        this.logger.error("Failed to damage player", undefined, { targetId });
         return;
       }
 
@@ -753,15 +801,15 @@ export class CombatSystem extends SystemBase {
       // For mobs, get the entity from EntityManager and use its takeDamage method
       const mobEntity = this.world.entities.get(targetId) as MobEntity;
       if (!mobEntity) {
-        console.warn(
-          `[CombatSystem] Mob entity not found for ${targetId} - may have been destroyed`,
-        );
+        this.logger.warn("Mob entity not found - may have been destroyed", {
+          targetId,
+        });
         return;
       }
 
       // Check if mob is already dead
       if (mobEntity.isDead()) {
-        console.warn(`[CombatSystem] Cannot damage dead mob ${targetId}`);
+        this.logger.warn("Cannot damage dead mob", { targetId });
         return;
       }
 
@@ -1174,6 +1222,9 @@ export class CombatSystem extends SystemBase {
     // Clean up anti-cheat tracking for disconnected player (Phase 6)
     this.antiCheat.cleanup(playerId);
 
+    // Clean up rate limiter state (Phase 6.5)
+    this.rateLimiter.cleanup(playerId);
+
     // Find all entities that were targeting this disconnected player
     const combatStatesMap = this.stateService.getCombatStatesMap();
     for (const [attackerId, state] of combatStatesMap) {
@@ -1224,21 +1275,22 @@ export class CombatSystem extends SystemBase {
       // Look up players from world.entities.players (includes fake test players)
       const player = this.world.entities.players.get(entityId);
       if (!player) {
-        console.warn(
-          `[CombatSystem] Player entity not found: ${entityId} (probably disconnected)`,
-        );
+        // Debug level - player disconnects are common and expected
+        this.logger.debug("Player entity not found (probably disconnected)", {
+          entityId,
+        });
         return null;
       }
       return player;
     }
 
     if (!this.entityManager) {
-      console.warn("[CombatSystem] Entity manager not available");
+      this.logger.warn("Entity manager not available");
       return null;
     }
     const entity = this.entityManager.getEntity(entityId);
     if (!entity) {
-      console.warn(`[CombatSystem] Entity not found: ${entityId}`);
+      this.logger.debug("Entity not found", { entityId });
       return null;
     }
     return entity;
@@ -1666,6 +1718,9 @@ export class CombatSystem extends SystemBase {
 
     // Clean up anti-cheat monitoring (Phase 6)
     this.antiCheat.destroy();
+
+    // Clean up rate limiter (Phase 6.5)
+    this.rateLimiter.destroy();
 
     // Release pooled tiles back to pool
     tilePool.release(this._attackerTile);

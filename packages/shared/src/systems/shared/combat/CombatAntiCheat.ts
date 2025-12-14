@@ -119,6 +119,26 @@ export interface AntiCheatConfig {
 }
 
 /**
+ * Metrics data emitted by anti-cheat system
+ */
+export interface AntiCheatMetric {
+  /** Metric name (e.g., "anticheat.violation", "anticheat.alert") */
+  name: string;
+  /** Metric value (count, score, etc.) */
+  value: number;
+  /** Additional context */
+  tags: Record<string, string | number>;
+  /** Timestamp when metric was recorded */
+  timestamp: number;
+}
+
+/**
+ * Callback type for metrics emission
+ * Can be connected to monitoring systems like Prometheus, Datadog, etc.
+ */
+export type MetricsCallback = (metric: AntiCheatMetric) => void;
+
+/**
  * Default anti-cheat configuration
  * Can be overridden per-instance for different environments
  */
@@ -158,6 +178,7 @@ const DEFAULT_CONFIG: AntiCheatConfig = {
 export class CombatAntiCheat {
   private playerStates: Map<string, PlayerViolationState> = new Map();
   private readonly config: AntiCheatConfig;
+  private metricsCallback: MetricsCallback | null = null;
 
   /**
    * Create a new CombatAntiCheat instance
@@ -165,6 +186,39 @@ export class CombatAntiCheat {
    */
   constructor(config?: Partial<AntiCheatConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  /**
+   * Set callback for metrics emission
+   * Connect to monitoring systems like Prometheus, Datadog, etc.
+   *
+   * @example
+   * ```typescript
+   * antiCheat.setMetricsCallback((metric) => {
+   *   prometheus.counter(metric.name).inc(metric.value, metric.tags);
+   * });
+   * ```
+   */
+  setMetricsCallback(callback: MetricsCallback | null): void {
+    this.metricsCallback = callback;
+  }
+
+  /**
+   * Emit a metric to the configured callback
+   */
+  private emitMetric(
+    name: string,
+    value: number,
+    tags: Record<string, string | number>,
+  ): void {
+    if (this.metricsCallback) {
+      this.metricsCallback({
+        name,
+        value,
+        tags,
+        timestamp: Date.now(),
+      });
+    }
   }
 
   /**
@@ -214,6 +268,15 @@ export class CombatAntiCheat {
 
     // Update score
     state.score += VIOLATION_WEIGHTS[severity];
+
+    // Emit metric for every violation
+    this.emitMetric("anticheat.violation", 1, {
+      player_id: playerId,
+      violation_type: type,
+      severity: CombatViolationSeverity[severity],
+      severity_weight: VIOLATION_WEIGHTS[severity],
+      current_score: state.score,
+    });
 
     // Log major/critical violations immediately
     if (severity >= CombatViolationSeverity.MAJOR) {
@@ -488,11 +551,30 @@ export class CombatAntiCheat {
       console.error(
         `[CombatAntiCheat] ALERT: player=${playerId} score=${state.score} - requires admin review`,
       );
+
+      // Emit alert metric for monitoring dashboard
+      this.emitMetric("anticheat.alert", 1, {
+        player_id: playerId,
+        score: state.score,
+        threshold: this.config.alertThreshold,
+        level: "alert",
+        recent_violation_count: state.violations.length,
+      });
+
       state.lastWarningTime = now;
     } else if (state.score >= this.config.warningThreshold) {
       console.warn(
         `[CombatAntiCheat] WARNING: player=${playerId} score=${state.score}`,
       );
+
+      // Emit warning metric for monitoring dashboard
+      this.emitMetric("anticheat.warning", 1, {
+        player_id: playerId,
+        score: state.score,
+        threshold: this.config.warningThreshold,
+        level: "warning",
+      });
+
       state.lastWarningTime = now;
     }
   }

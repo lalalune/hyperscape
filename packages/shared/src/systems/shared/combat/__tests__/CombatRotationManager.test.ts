@@ -8,19 +8,65 @@
  * - Handling missing entities gracefully
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { CombatRotationManager } from "../CombatRotationManager";
 import { quaternionPool } from "../../../../utils/pools/QuaternionPool";
+
+/**
+ * Position interface
+ */
+interface Position3D {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * Quaternion-like interface
+ */
+interface MockQuaternion {
+  set: Mock;
+  copy: Mock;
+}
+
+/**
+ * Mock player entity interface
+ */
+interface MockPlayer {
+  id: string;
+  position: Position3D;
+  base: { quaternion: MockQuaternion };
+  node: { quaternion: MockQuaternion };
+  markNetworkDirty: Mock;
+}
+
+/**
+ * Mock mob entity interface
+ */
+interface MockMob {
+  id: string;
+  position: Position3D;
+  node: { quaternion: MockQuaternion };
+  markNetworkDirty: Mock;
+}
+
+/**
+ * Mock world interface
+ */
+interface MockWorld {
+  entities: Map<string, MockMob>;
+  getPlayer: (id: string) => MockPlayer | undefined;
+}
 
 // Mock World
 function createMockWorld(
   options: {
-    players?: Map<string, any>;
-    entities?: Map<string, any>;
+    players?: Map<string, MockPlayer>;
+    entities?: Map<string, MockMob>;
   } = {},
-) {
-  const players = options.players || new Map();
-  const entities = options.entities || new Map();
+): MockWorld {
+  const players = options.players || new Map<string, MockPlayer>();
+  const entities = options.entities || new Map<string, MockMob>();
 
   return {
     entities,
@@ -31,9 +77,9 @@ function createMockWorld(
 // Mock player entity with position and quaternion
 function createMockPlayer(
   id: string,
-  position: { x: number; y: number; z: number },
-  overrides: any = {},
-) {
+  position: Position3D,
+  overrides: Partial<MockPlayer> = {},
+): MockPlayer {
   return {
     id,
     position,
@@ -57,9 +103,9 @@ function createMockPlayer(
 // Mock mob entity
 function createMockMob(
   id: string,
-  position: { x: number; y: number; z: number },
-  overrides: any = {},
-) {
+  position: Position3D,
+  overrides: Partial<MockMob> = {},
+): MockMob {
   return {
     id,
     position,
@@ -76,9 +122,9 @@ function createMockMob(
 
 describe("CombatRotationManager", () => {
   let rotationManager: CombatRotationManager;
-  let mockWorld: any;
-  let mockPlayers: Map<string, any>;
-  let mockEntities: Map<string, any>;
+  let mockWorld: MockWorld;
+  let mockPlayers: Map<string, MockPlayer>;
+  let mockEntities: Map<string, MockMob>;
 
   beforeEach(() => {
     mockPlayers = new Map();
