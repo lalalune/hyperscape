@@ -7,6 +7,7 @@
 
 import type { World } from "../../../core/World";
 import { quaternionPool } from "../../../utils/pools/QuaternionPool";
+import { getEntityPosition } from "../../../utils/game/EntityPositionUtils";
 
 /**
  * Position interface for entities
@@ -36,6 +37,11 @@ interface RotatableEntity {
     quaternion?: QuaternionLike;
   };
   node?: {
+    position?: {
+      x: number;
+      y: number;
+      z: number;
+    };
     quaternion?: QuaternionLike;
   };
   markNetworkDirty?: () => void;
@@ -69,9 +75,9 @@ export class CombatRotationManager {
       return;
     }
 
-    // Get positions, with fallbacks for different entity types
-    const entityPos = entity.position || entity.getPosition?.();
-    const targetPos = target.position || target.getPosition?.();
+    // Get positions using centralized utility
+    const entityPos = getEntityPosition(entity);
+    const targetPos = getEntityPosition(target);
 
     if (!entityPos || !targetPos) {
       return;

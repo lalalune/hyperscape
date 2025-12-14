@@ -8,7 +8,13 @@
  * - Deposit worn equipment to bank
  */
 
-import { VALID_EQUIPMENT_SLOT_KEYS } from "../constants/BankEquipmentConstants";
+import {
+  VALID_EQUIPMENT_SLOT_KEYS,
+  BankEquipmentError,
+} from "../constants/BankEquipmentConstants";
+
+// Re-export for backwards compatibility
+export { BankEquipmentError };
 
 // ============================================================================
 // MVP EQUIPMENT SLOTS
@@ -37,25 +43,7 @@ export type BankRightPanelMode = "inventory" | "equipment";
  */
 export type WithdrawTarget = "inventory" | "equipment";
 
-// ============================================================================
-// ERROR CODES
-// ============================================================================
-
-/**
- * Bank equipment operation errors
- */
-export enum BankEquipmentError {
-  NOT_EQUIPABLE = "NOT_EQUIPABLE",
-  REQUIREMENTS_NOT_MET = "REQUIREMENTS_NOT_MET",
-  SLOT_OCCUPIED = "SLOT_OCCUPIED",
-  INVENTORY_FULL = "INVENTORY_FULL",
-  ITEM_NOT_FOUND = "ITEM_NOT_FOUND",
-  TWO_HANDED_CONFLICT = "TWO_HANDED_CONFLICT",
-  BANK_SESSION_INVALID = "BANK_SESSION_INVALID",
-  RATE_LIMITED = "RATE_LIMITED",
-  INVALID_REQUEST = "INVALID_REQUEST",
-  BANK_FULL = "BANK_FULL",
-}
+// BankEquipmentError is imported from BankEquipmentConstants and re-exported above
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES

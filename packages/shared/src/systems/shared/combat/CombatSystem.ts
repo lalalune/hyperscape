@@ -37,6 +37,8 @@ import {
   CombatViolationType,
   CombatViolationSeverity,
 } from "./CombatAntiCheat";
+import { getEntityPosition } from "../../../utils/game/EntityPositionUtils";
+import { quaternionPool } from "../../../utils/pools/QuaternionPool";
 
 // Re-export CombatData from CombatStateService for backwards compatibility
 export type { CombatData } from "./CombatStateService";
@@ -81,6 +83,28 @@ interface CombatPlayerEntity {
  */
 interface MobWithServerEmote {
   setServerEmote?: (emote: string) => void;
+}
+
+/**
+ * Attack data structure for validation and execution
+ */
+interface MeleeAttackData {
+  attackerId: string;
+  targetId: string;
+  attackerType: "player" | "mob";
+  targetType: "player" | "mob";
+}
+
+/**
+ * Result of attack validation
+ * Contains validated entities if successful, or null if validation failed
+ */
+interface AttackValidationResult {
+  valid: boolean;
+  attacker: Entity | MobEntity | null;
+  target: Entity | MobEntity | null;
+  typedAttackerId: EntityID | null;
+  typedTargetId: EntityID | null;
 }
 
 export class CombatSystem extends SystemBase {
@@ -215,34 +239,62 @@ export class CombatSystem extends SystemBase {
     this.handleMeleeAttack(data);
   }
 
-  private handleMeleeAttack(data: {
-    attackerId: string;
-    targetId: string;
-    attackerType: "player" | "mob";
-    targetType: "player" | "mob";
-  }): void {
-    const { attackerId, targetId, attackerType, targetType } = data;
+  /**
+   * Main melee attack handler - orchestrates validation and execution
+   * Refactored for clarity: validation logic extracted to validateMeleeAttack(),
+   * execution logic extracted to executeMeleeAttack()
+   */
+  private handleMeleeAttack(data: MeleeAttackData): void {
+    const { attackerType } = data;
     const currentTick = this.world.currentTick;
 
     // Anti-cheat: Track attack rate for players (Phase 6)
     if (attackerType === "player") {
-      const isSuspicious = this.antiCheat.trackAttack(attackerId, currentTick);
-      if (isSuspicious) {
-        // Don't block, just log - anti-cheat is monitoring only
-      }
+      this.antiCheat.trackAttack(data.attackerId, currentTick);
     }
+
+    // Validate the attack (entities exist, alive, in range, etc.)
+    const validation = this.validateMeleeAttack(data, currentTick);
+    if (!validation.valid) {
+      return;
+    }
+
+    // Check cooldown before executing
+    if (!this.checkAttackCooldown(validation.typedAttackerId!, currentTick)) {
+      return;
+    }
+
+    // Execute the attack
+    this.executeMeleeAttack(data, validation, currentTick);
+  }
+
+  /**
+   * Validate all preconditions for a melee attack
+   * Returns validation result with entities if valid
+   */
+  private validateMeleeAttack(
+    data: MeleeAttackData,
+    currentTick: number,
+  ): AttackValidationResult {
+    const { attackerId, targetId, attackerType, targetType } = data;
+    const invalidResult: AttackValidationResult = {
+      valid: false,
+      attacker: null,
+      target: null,
+      typedAttackerId: null,
+      typedTargetId: null,
+    };
 
     // Convert IDs to typed IDs
     const typedAttackerId = createEntityID(attackerId);
     const typedTargetId = createEntityID(targetId);
 
-    // Get attacker and target positions for range check
+    // Get attacker and target entities
     const attacker = this.getEntity(attackerId, attackerType);
     const target = this.getEntity(targetId, targetType);
 
     // Check entities exist
     if (!attacker || !target) {
-      // Anti-cheat: Record nonexistent target attack (Phase 6)
       if (attackerType === "player" && !target) {
         this.antiCheat.recordNonexistentTargetAttack(
           attackerId,
@@ -250,18 +302,16 @@ export class CombatSystem extends SystemBase {
           currentTick,
         );
       }
-      return;
+      return invalidResult;
     }
 
-    // CRITICAL: Check if ATTACKER is alive (dead entities can't attack)
+    // Check attacker is alive
     if (!this.isEntityAlive(attacker, attackerType)) {
-      return;
+      return invalidResult;
     }
 
-    // CRITICAL: Check if target is already dead BEFORE processing attack (Issue #265)
-    // This prevents attacks from being processed on dead entities
+    // Check target is alive (Issue #265)
     if (!this.isEntityAlive(target, targetType)) {
-      // Anti-cheat: Record dead target attack (Phase 6)
       if (attackerType === "player") {
         this.antiCheat.recordDeadTargetAttack(
           attackerId,
@@ -269,13 +319,11 @@ export class CombatSystem extends SystemBase {
           currentTick,
         );
       }
-      return;
+      return invalidResult;
     }
 
-    // CRITICAL: Check if target player is still loading (Issue #356)
-    // Players are immune to combat until their client finishes loading assets
+    // Check target not in loading protection (Issue #356)
     if (targetType === "player" && target.data?.isLoading) {
-      // Anti-cheat: Record attack during protection (Phase 6)
       if (attackerType === "player") {
         this.antiCheat.recordViolation(
           attackerId,
@@ -286,10 +334,10 @@ export class CombatSystem extends SystemBase {
           currentTick,
         );
       }
-      return;
+      return invalidResult;
     }
 
-    // Check if target is attackable (for mobs that have attackable: false in manifest)
+    // Check target is attackable (for mobs)
     if (targetType === "mob") {
       const mobEntity = target as MobEntity;
       if (mobEntity.isAttackable && !mobEntity.isAttackable()) {
@@ -298,65 +346,114 @@ export class CombatSystem extends SystemBase {
           targetId,
           reason: "target_not_attackable",
         });
-        return;
+        return invalidResult;
       }
     }
 
-    // CRITICAL: Can't attack yourself
+    // Check not self-attack
     if (attackerId === targetId) {
-      // Anti-cheat: Record self-attack attempt (Phase 6)
       if (attackerType === "player") {
         this.antiCheat.recordSelfAttack(attackerId, currentTick);
       }
-      return;
+      return invalidResult;
     }
 
-    // OSRS-STYLE: Check if attacker is within combat range of target
-    // Uses combatRange from mob manifest (default 1 tile for players)
-    const attackerPos = attacker.position || attacker.getPosition();
-    const targetPos = target.position || target.getPosition();
+    // Check range
+    if (
+      !this.isWithinCombatRange(
+        attacker,
+        target,
+        attackerType,
+        data,
+        currentTick,
+      )
+    ) {
+      return invalidResult;
+    }
+
+    return {
+      valid: true,
+      attacker,
+      target,
+      typedAttackerId,
+      typedTargetId,
+    };
+  }
+
+  /**
+   * Check if attacker is within combat range of target
+   */
+  private isWithinCombatRange(
+    attacker: Entity | MobEntity,
+    target: Entity | MobEntity,
+    attackerType: "player" | "mob",
+    data: MeleeAttackData,
+    currentTick: number,
+  ): boolean {
+    const attackerPos = getEntityPosition(attacker);
+    const targetPos = getEntityPosition(target);
+    if (!attackerPos || !targetPos) return false;
+
     const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
     const targetTile = worldToTile(targetPos.x, targetPos.z);
     const combatRangeTiles = this.getEntityCombatRange(attacker, attackerType);
 
     if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
-      // Anti-cheat: Record out-of-range attack (Phase 6)
       if (attackerType === "player") {
-        // Calculate actual tile distance for logging
         const dx = Math.abs(attackerTile.x - targetTile.x);
         const dz = Math.abs(attackerTile.z - targetTile.z);
-        const actualDistance = Math.max(dx, dz); // Chebyshev distance
+        const actualDistance = Math.max(dx, dz);
         this.antiCheat.recordOutOfRangeAttack(
-          attackerId,
-          targetId,
+          data.attackerId,
+          data.targetId,
           actualDistance,
           combatRangeTiles,
           currentTick,
         );
       }
       this.emitTypedEvent(EventType.COMBAT_ATTACK_FAILED, {
-        attackerId,
-        targetId,
+        attackerId: data.attackerId,
+        targetId: data.targetId,
         reason: "out_of_range",
       });
-      return;
+      return false;
     }
+    return true;
+  }
 
-    // Check attack cooldown (TICK-BASED, OSRS-accurate)
+  /**
+   * Check if attack is on cooldown
+   */
+  private checkAttackCooldown(
+    typedAttackerId: EntityID,
+    currentTick: number,
+  ): boolean {
     const nextAllowedTick = this.nextAttackTicks.get(typedAttackerId) ?? 0;
+    return !isAttackOnCooldownTicks(currentTick, nextAllowedTick);
+  }
 
-    if (isAttackOnCooldownTicks(currentTick, nextAllowedTick)) {
-      return; // Still on cooldown
-    }
+  /**
+   * Execute a validated melee attack
+   * Handles rotation, animation, damage, and combat state
+   */
+  private executeMeleeAttack(
+    data: MeleeAttackData,
+    validation: AttackValidationResult,
+    currentTick: number,
+  ): void {
+    const { attackerId, targetId, attackerType, targetType } = data;
+    const { attacker, target, typedAttackerId, typedTargetId } = validation;
 
-    // Get attack speed in ticks for later use
+    if (!attacker || !target || !typedAttackerId || !typedTargetId) return;
+
+    // Get attack speed
     const entityType = attacker.type === "mob" ? "mob" : "player";
     const attackSpeedTicks = this.getAttackSpeedTicks(
       typedAttackerId,
       entityType,
     );
 
-    // OSRS-STYLE: Face target before attacking
+    // Face target
     this.rotationManager.rotateTowardsTarget(
       attackerId,
       targetId,
@@ -364,42 +461,33 @@ export class CombatSystem extends SystemBase {
       targetType,
     );
 
-    // Play attack animation once (will reset to idle after 2 ticks = 1.2 seconds)
-    // AnimationManager handles scheduling the reset internally
+    // Play attack animation
     this.animationManager.setCombatEmote(attackerId, attackerType, currentTick);
 
-    // Calculate damage
+    // Calculate and apply damage
     const rawDamage = this.calculateMeleeDamage(attacker, target);
-
-    // OSRS-STYLE: Cap damage at target's current health (no overkill)
-    // This ensures health never goes negative and damage display matches actual damage
     const currentHealth = this.getEntityHealth(target);
     const damage = Math.min(rawDamage, currentHealth);
 
-    // Apply capped damage
     this.applyDamage(targetId, targetType, damage, attackerId);
 
-    // CRITICAL: ALWAYS emit damage splatter event (including for killing blow - RuneScape shows final damage)
-    const targetPosition = target.position || target.getPosition();
+    // Emit damage event
+    const targetPosition = getEntityPosition(target);
     this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
       attackerId,
       targetId,
-      damage, // Capped damage - matches actual damage applied
+      damage,
       targetType,
       position: targetPosition,
     });
 
-    // CRITICAL: Check if target died from this attack - if so, skip remaining combat logic (Issue #265)
-    // We already emitted the damage event above so player sees the killing blow
-    const targetStillAlive = this.isEntityAlive(target, targetType);
-    if (!targetStillAlive) {
-      return; // Target died, don't update cooldowns or combat state
+    // Check if target died - skip remaining logic if so (Issue #265)
+    if (!this.isEntityAlive(target, targetType)) {
+      return;
     }
 
-    // Set attack cooldown (TICK-BASED)
+    // Set cooldown and enter combat state
     this.nextAttackTicks.set(typedAttackerId, currentTick + attackSpeedTicks);
-
-    // Enter combat state
     this.enterCombat(typedAttackerId, typedTargetId, attackSpeedTicks);
   }
 
@@ -938,8 +1026,9 @@ export class CombatSystem extends SystemBase {
     }
 
     // MVP: Melee-only range check (tile-based)
-    const attackerPos = attacker.position || attacker.getPosition();
-    const targetPos = target.position || target.getPosition();
+    const attackerPos = getEntityPosition(attacker);
+    const targetPos = getEntityPosition(target);
+    if (!attackerPos || !targetPos) return false; // Missing position
 
     const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
     const targetTile = worldToTile(targetPos.x, targetPos.z);
@@ -1148,8 +1237,9 @@ export class CombatSystem extends SystemBase {
     }
 
     // MVP: Melee-only range check (tile-based, OSRS-style)
-    const attackerPos = attacker.position || attacker.getPosition();
-    const targetPos = target.position || target.getPosition();
+    const attackerPos = getEntityPosition(attacker);
+    const targetPos = getEntityPosition(target);
+    if (!attackerPos || !targetPos) return; // Missing position
 
     // MELEE: Must be within attacker's combat range (configurable per mob, minimum 1 tile)
     // OSRS-style: most mobs have 1 tile range, halberds have 2 tiles
@@ -1191,7 +1281,7 @@ export class CombatSystem extends SystemBase {
     this.applyDamage(targetId, combatState.targetType, damage, attackerId);
 
     // Emit damage splatter event
-    const targetPosition = target.position || target.getPosition();
+    const targetPosition = getEntityPosition(target);
     this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
       attackerId,
       targetId,
@@ -1471,5 +1561,33 @@ export class CombatSystem extends SystemBase {
    */
   public decayAntiCheatScores(): void {
     this.antiCheat.decayScores();
+  }
+
+  /**
+   * Get pool statistics for monitoring dashboard
+   * Useful for detecting memory leaks or pool exhaustion
+   *
+   * @see COMBAT_SYSTEM_IMPROVEMENTS.md Section 3.2
+   */
+  public getPoolStats(): {
+    quaternions: { total: number; available: number; inUse: number };
+  } {
+    return {
+      quaternions: quaternionPool.getStats(),
+    };
+  }
+
+  /**
+   * Get anti-cheat configuration (for admin tools)
+   */
+  public getAntiCheatConfig(): {
+    warningThreshold: number;
+    alertThreshold: number;
+    scoreDecayPerMinute: number;
+    maxAttacksPerTick: number;
+    maxViolationsPerPlayer: number;
+    warningCooldownMs: number;
+  } {
+    return this.antiCheat.getConfig();
   }
 }

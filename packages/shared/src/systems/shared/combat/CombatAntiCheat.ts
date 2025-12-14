@@ -97,31 +97,82 @@ const VIOLATION_WEIGHTS: Record<CombatViolationSeverity, number> = {
   [CombatViolationSeverity.CRITICAL]: 50,
 };
 
-/** Score decay per minute (rewards good behavior) */
-const SCORE_DECAY_PER_MINUTE = 10;
+/**
+ * Configuration for anti-cheat thresholds
+ * All values can be tuned at runtime without code changes
+ *
+ * @see COMBAT_SYSTEM_IMPROVEMENTS.md Section 4.2
+ */
+export interface AntiCheatConfig {
+  /** Score threshold for logging a warning (default: 25) */
+  warningThreshold: number;
+  /** Score threshold for logging an alert requiring admin review (default: 75) */
+  alertThreshold: number;
+  /** Points to decay from score per minute (default: 10) */
+  scoreDecayPerMinute: number;
+  /** Maximum attacks allowed per tick before flagging (default: 3) */
+  maxAttacksPerTick: number;
+  /** Maximum violations to keep in history per player (default: 100) */
+  maxViolationsPerPlayer: number;
+  /** Minimum time between warnings for same player in ms (default: 60000) */
+  warningCooldownMs: number;
+}
 
-/** Score threshold for logging a warning */
-const WARNING_THRESHOLD = 25;
-
-/** Score threshold for logging an alert (requires admin review) */
-const ALERT_THRESHOLD = 75;
-
-/** Minimum time between warnings for same player (ms) */
-const WARNING_COOLDOWN_MS = 60000;
-
-/** Maximum violations to keep per player */
-const MAX_VIOLATIONS_PER_PLAYER = 100;
-
-/** Maximum attacks per tick before flagging (accounting for lag) */
-const MAX_ATTACKS_PER_TICK = 3;
+/**
+ * Default anti-cheat configuration
+ * Can be overridden per-instance for different environments
+ */
+const DEFAULT_CONFIG: AntiCheatConfig = {
+  warningThreshold: 25,
+  alertThreshold: 75,
+  scoreDecayPerMinute: 10,
+  maxAttacksPerTick: 3,
+  maxViolationsPerPlayer: 100,
+  warningCooldownMs: 60000,
+};
 
 /**
  * Combat Anti-Cheat Monitor
  *
  * Tracks player combat violations over time and logs patterns for admin review.
+ *
+ * @example
+ * ```typescript
+ * // Default configuration
+ * const antiCheat = new CombatAntiCheat();
+ *
+ * // Custom thresholds for development (more lenient)
+ * const devAntiCheat = new CombatAntiCheat({
+ *   warningThreshold: 50,
+ *   alertThreshold: 150,
+ * });
+ *
+ * // Stricter thresholds for production
+ * const prodAntiCheat = new CombatAntiCheat({
+ *   warningThreshold: 15,
+ *   alertThreshold: 50,
+ *   maxAttacksPerTick: 2,
+ * });
+ * ```
  */
 export class CombatAntiCheat {
   private playerStates: Map<string, PlayerViolationState> = new Map();
+  private readonly config: AntiCheatConfig;
+
+  /**
+   * Create a new CombatAntiCheat instance
+   * @param config - Optional partial configuration to override defaults
+   */
+  constructor(config?: Partial<AntiCheatConfig>) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  /**
+   * Get current configuration (for debugging/monitoring)
+   */
+  getConfig(): Readonly<AntiCheatConfig> {
+    return this.config;
+  }
 
   /**
    * Record a combat violation
@@ -157,7 +208,7 @@ export class CombatAntiCheat {
     state.violations.push(violation);
 
     // Keep only recent violations
-    if (state.violations.length > MAX_VIOLATIONS_PER_PLAYER) {
+    if (state.violations.length > this.config.maxViolationsPerPlayer) {
       state.violations.shift();
     }
 
@@ -194,12 +245,12 @@ export class CombatAntiCheat {
     state.attacksThisTick++;
 
     // Check if exceeding rate
-    if (state.attacksThisTick > MAX_ATTACKS_PER_TICK) {
+    if (state.attacksThisTick > this.config.maxAttacksPerTick) {
       this.recordViolation(
         playerId,
         CombatViolationType.ATTACK_RATE_EXCEEDED,
         CombatViolationSeverity.MAJOR,
-        `${state.attacksThisTick} attacks in tick ${currentTick} (max ${MAX_ATTACKS_PER_TICK})`,
+        `${state.attacksThisTick} attacks in tick ${currentTick} (max ${this.config.maxAttacksPerTick})`,
         undefined,
         currentTick,
       );
@@ -300,7 +351,7 @@ export class CombatAntiCheat {
    */
   decayScores(): void {
     for (const [playerId, state] of this.playerStates) {
-      state.score = Math.max(0, state.score - SCORE_DECAY_PER_MINUTE);
+      state.score = Math.max(0, state.score - this.config.scoreDecayPerMinute);
 
       // Clean up players with no recent violations and zero score
       if (state.score === 0 && state.violations.length === 0) {
@@ -356,9 +407,9 @@ export class CombatAntiCheat {
     const fiveMinutesAgo = now - 300000;
 
     for (const state of this.playerStates.values()) {
-      if (state.score >= ALERT_THRESHOLD) {
+      if (state.score >= this.config.alertThreshold) {
         playersAboveAlert++;
-      } else if (state.score >= WARNING_THRESHOLD) {
+      } else if (state.score >= this.config.warningThreshold) {
         playersAboveWarning++;
       }
 
@@ -381,7 +432,7 @@ export class CombatAntiCheat {
   getPlayersRequiringReview(): string[] {
     const players: string[] = [];
     for (const [playerId, state] of this.playerStates) {
-      if (state.score >= ALERT_THRESHOLD) {
+      if (state.score >= this.config.alertThreshold) {
         players.push(playerId);
       }
     }
@@ -429,16 +480,16 @@ export class CombatAntiCheat {
     const now = Date.now();
 
     // Throttle warnings to prevent log spam
-    if (now - state.lastWarningTime < WARNING_COOLDOWN_MS) {
+    if (now - state.lastWarningTime < this.config.warningCooldownMs) {
       return;
     }
 
-    if (state.score >= ALERT_THRESHOLD) {
+    if (state.score >= this.config.alertThreshold) {
       console.error(
         `[CombatAntiCheat] ALERT: player=${playerId} score=${state.score} - requires admin review`,
       );
       state.lastWarningTime = now;
-    } else if (state.score >= WARNING_THRESHOLD) {
+    } else if (state.score >= this.config.warningThreshold) {
       console.warn(
         `[CombatAntiCheat] WARNING: player=${playerId} score=${state.score}`,
       );

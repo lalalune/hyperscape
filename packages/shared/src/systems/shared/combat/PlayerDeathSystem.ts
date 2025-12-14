@@ -23,6 +23,7 @@ import { SafeAreaDeathHandler } from "../death/SafeAreaDeathHandler";
 import { WildernessDeathHandler } from "../death/WildernessDeathHandler";
 import { ZoneType } from "../../../types/death";
 import type { InventorySystem } from "../character/InventorySystem";
+import { getEntityPosition } from "../../../utils/game/EntityPositionUtils";
 
 /**
  * Player Death and Respawn System - Orchestrator Pattern
@@ -241,7 +242,7 @@ export class PlayerDeathSystem extends SystemBase {
       // Fallback 1: Try to get position from player entity
       const playerEntity = this.world.entities?.get?.(playerId);
       if (playerEntity) {
-        const entityPos = playerEntity.position || playerEntity.getPosition?.();
+        const entityPos = getEntityPosition(playerEntity);
         if (entityPos) {
           position = { x: entityPos.x, y: entityPos.y, z: entityPos.z };
         }

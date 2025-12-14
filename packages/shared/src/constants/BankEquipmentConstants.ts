@@ -6,7 +6,25 @@
  * declared once to avoid repeated allocations.
  */
 
-import { BankEquipmentError } from "../types/bank-equipment";
+// ============================================================================
+// ERROR CODES (defined here to avoid circular dependency with bank-equipment.ts)
+// ============================================================================
+
+/**
+ * Bank equipment operation errors
+ */
+export enum BankEquipmentError {
+  NOT_EQUIPABLE = "NOT_EQUIPABLE",
+  REQUIREMENTS_NOT_MET = "REQUIREMENTS_NOT_MET",
+  SLOT_OCCUPIED = "SLOT_OCCUPIED",
+  INVENTORY_FULL = "INVENTORY_FULL",
+  ITEM_NOT_FOUND = "ITEM_NOT_FOUND",
+  TWO_HANDED_CONFLICT = "TWO_HANDED_CONFLICT",
+  BANK_SESSION_INVALID = "BANK_SESSION_INVALID",
+  RATE_LIMITED = "RATE_LIMITED",
+  INVALID_REQUEST = "INVALID_REQUEST",
+  BANK_FULL = "BANK_FULL",
+}
 
 // ============================================================================
 // SLOT DEFINITIONS
