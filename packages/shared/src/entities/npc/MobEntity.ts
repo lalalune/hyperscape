@@ -155,6 +155,12 @@ export class MobEntity extends CombatantEntity {
   private _tempScale = new THREE.Vector3(1, 1, 1);
   private _terrainWarningLogged = false;
   private _hasValidTerrainHeight = false;
+  // Track if we've received authoritative position from server (Issue #416 fix)
+  // Ensures all clients start with same XZ before terrain snapping
+  private _hasReceivedServerPosition = false;
+  // Track if death position has been terrain-snapped (Issue #244 fix)
+  // Ensures death animation plays at ground level, not floating
+  private _deathPositionTerrainSnapped = false;
   // Placeholder hitbox for click detection before VRM loads (RuneScape-style: entity is functional immediately)
   private _placeholderHitbox: THREE.Mesh | null = null;
 
@@ -1123,6 +1129,8 @@ export class MobEntity extends CombatantEntity {
     // CRITICAL: Reset DeathStateManager BEFORE network sync
     // Without this, getNetworkData() thinks mob is still dead and strips position from network packet!
     this.deathManager.reset();
+    // Reset death terrain snap flag for next death (Issue #244)
+    this._deathPositionTerrainSnapped = false;
 
     // CRITICAL: Force AI state machine to IDLE state after respawn
     this.aiStateMachine.forceState(MobAIState.IDLE, this.createAIContext());
@@ -1483,24 +1491,33 @@ export class MobEntity extends CombatantEntity {
         // CRITICAL: Snap to terrain EVERY frame (server doesn't have terrain system)
         // Keep trying until terrain tile is generated, then snap every frame
         // This also counteracts VRM animation root motion that would push character into ground
-        const terrain = this.world.getSystem("terrain");
-        if (terrain && "getHeightAt" in terrain) {
-          try {
-            // CRITICAL: Must call method on terrain object to preserve 'this' context
-            const terrainHeight = (
-              terrain as { getHeightAt: (x: number, z: number) => number }
-            ).getHeightAt(this.node.position.x, this.node.position.z);
-            if (Number.isFinite(terrainHeight)) {
-              this._hasValidTerrainHeight = true;
-              this.node.position.y = terrainHeight + 0.1;
-              this.position.y = terrainHeight + 0.1;
-            }
-          } catch (err) {
-            // Terrain tile not generated yet - keep current Y and retry next frame
-            if (this.clientUpdateCalls === 10 && !this._hasValidTerrainHeight) {
-              console.warn(
-                `[MobEntity] Waiting for terrain tile to generate at (${this.node.position.x.toFixed(1)}, ${this.node.position.z.toFixed(1)})`,
-              );
+        //
+        // Issue #416 fix: Only snap to terrain AFTER receiving server position
+        // This ensures all clients use same XZ coordinates for terrain lookup,
+        // preventing Y desync between clients with different terrain load times
+        if (this._hasReceivedServerPosition) {
+          const terrain = this.world.getSystem("terrain");
+          if (terrain && "getHeightAt" in terrain) {
+            try {
+              // CRITICAL: Must call method on terrain object to preserve 'this' context
+              const terrainHeight = (
+                terrain as { getHeightAt: (x: number, z: number) => number }
+              ).getHeightAt(this.node.position.x, this.node.position.z);
+              if (Number.isFinite(terrainHeight)) {
+                this._hasValidTerrainHeight = true;
+                this.node.position.y = terrainHeight + 0.1;
+                this.position.y = terrainHeight + 0.1;
+              }
+            } catch (err) {
+              // Terrain tile not generated yet - keep current Y and retry next frame
+              if (
+                this.clientUpdateCalls === 10 &&
+                !this._hasValidTerrainHeight
+              ) {
+                console.warn(
+                  `[MobEntity] Waiting for terrain tile to generate at (${this.node.position.x.toFixed(1)}, ${this.node.position.z.toFixed(1)})`,
+                );
+              }
             }
           }
         }
@@ -1514,6 +1531,26 @@ export class MobEntity extends CombatantEntity {
       // SPECIAL HANDLING FOR DEATH: Lock position, let animation play
       const deathLockedPos = this.deathManager.getLockedPosition();
       if (deathLockedPos) {
+        // Issue #244 fix: Terrain-snap death position ONCE to prevent floating death animation
+        // Server doesn't have terrain, so death position Y may be stale/incorrect
+        if (!this._deathPositionTerrainSnapped) {
+          const terrain = this.world.getSystem("terrain");
+          if (terrain && "getHeightAt" in terrain) {
+            try {
+              const terrainHeight = (
+                terrain as { getHeightAt: (x: number, z: number) => number }
+              ).getHeightAt(deathLockedPos.x, deathLockedPos.z);
+              if (Number.isFinite(terrainHeight)) {
+                // Snap death position to ground level
+                deathLockedPos.y = terrainHeight;
+                this._deathPositionTerrainSnapped = true;
+              }
+            } catch (err) {
+              // Terrain not ready yet, will retry next frame
+            }
+          }
+        }
+
         // Lock the node position to death position (prevents teleporting)
         this.node.position.copy(deathLockedPos);
         this.position.copy(deathLockedPos);
@@ -2193,6 +2230,8 @@ export class MobEntity extends CombatantEntity {
             // Death animation is complete, safe to reset
             this.clientDeathStartTime = null;
             this.deathManager.reset();
+            // Reset death terrain snap flag for next death (Issue #244)
+            this._deathPositionTerrainSnapped = false;
 
             // CRITICAL: Snap position immediately to server's new spawn point
             // This prevents interpolation from starting at death location
@@ -2303,6 +2342,9 @@ export class MobEntity extends CombatantEntity {
           const pos = data.p as [number, number, number];
           this.position.set(pos[0], pos[1], pos[2]);
           this.node.position.set(pos[0], pos[1], pos[2]);
+          // Mark that we've received authoritative server position (Issue #416 fix)
+          // This ensures all clients have consistent XZ before terrain snapping Y
+          this._hasReceivedServerPosition = true;
         }
       }
     } else {
