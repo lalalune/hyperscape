@@ -178,6 +178,7 @@ let dropLimiter: RateLimiter | null = null;
 let equipLimiter: RateLimiter | null = null;
 let tileMovementLimiter: RateLimiter | null = null;
 let pathfindLimiter: RateLimiter | null = null;
+let combatLimiter: RateLimiter | null = null;
 
 /**
  * Get the pickup rate limiter (5/sec)
@@ -266,6 +267,21 @@ export function getPathfindRateLimiter(): RateLimiter {
 }
 
 /**
+ * Get the combat rate limiter (3/sec)
+ * Limits attack requests - OSRS tick is 600ms, so ~1.67 attacks/sec max
+ * We allow 3/sec to be generous with client click behavior
+ */
+export function getCombatRateLimiter(): RateLimiter {
+  if (!combatLimiter) {
+    combatLimiter = createRateLimiter({
+      maxPerSecond: 3,
+      name: "combat-attack",
+    });
+  }
+  return combatLimiter;
+}
+
+/**
  * Destroy all singleton rate limiters
  * Call this during server shutdown
  */
@@ -276,6 +292,7 @@ export function destroyAllRateLimiters(): void {
   equipLimiter?.destroy();
   tileMovementLimiter?.destroy();
   pathfindLimiter?.destroy();
+  combatLimiter?.destroy();
 
   pickupLimiter = null;
   moveLimiter = null;
@@ -283,4 +300,5 @@ export function destroyAllRateLimiters(): void {
   equipLimiter = null;
   tileMovementLimiter = null;
   pathfindLimiter = null;
+  combatLimiter = null;
 }

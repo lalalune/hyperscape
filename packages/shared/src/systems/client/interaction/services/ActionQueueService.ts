@@ -31,6 +31,7 @@ import type { QueuedAction, QueueActionParams } from "../types";
 import type { Position3D } from "../../../../types/core/base-types";
 import {
   worldToTile,
+  tileToWorld,
   tilesWithinRange,
   TILE_SIZE,
 } from "../../../shared/movement/TileSystem";
@@ -60,6 +61,12 @@ export class ActionQueueService {
     // Cancel any existing action
     this.cancelCurrentAction();
 
+    // For range 1+ actions (combat), track the initial target tile for follow behavior
+    const initialTargetTile =
+      params.requiredRange > 0
+        ? worldToTile(params.targetPosition.x, params.targetPosition.z)
+        : undefined;
+
     const action: QueuedAction = {
       id: uuid(),
       targetId: params.targetId,
@@ -70,6 +77,10 @@ export class ActionQueueService {
       queuedAtFrame: this.frameCount,
       maxWaitFrames:
         params.maxWaitFrames ?? ACTION_QUEUE.DEFAULT_TIMEOUT_FRAMES,
+      // OSRS-style: Track target tile to detect movement for following
+      lastWalkTargetTile: initialTargetTile
+        ? { x: initialTargetTile.x, z: initialTargetTile.z }
+        : undefined,
     };
 
     this.currentAction = action;
@@ -290,6 +301,24 @@ export class ActionQueueService {
       action.targetPosition.x,
       action.targetPosition.z,
     );
+
+    // OSRS-style: If target moved to a different tile, re-pathfind to follow
+    // "if the clicked entity is an NPC or player, a new pathfinding attempt
+    // will be started every tick, until a target tile can be found"
+    if (
+      action.lastWalkTargetTile &&
+      (action.lastWalkTargetTile.x !== targetTile.x ||
+        action.lastWalkTargetTile.z !== targetTile.z)
+    ) {
+      // Target moved - send new walk request to follow
+      this.sendFollowWalkRequest(
+        playerPos,
+        action.targetPosition,
+        action.requiredRange,
+      );
+      action.lastWalkTargetTile = { x: targetTile.x, z: targetTile.z };
+    }
+
     const inRange = tilesWithinRange(
       playerTile,
       targetTile,
@@ -307,6 +336,89 @@ export class ActionQueueService {
         console.error(`[ActionQueue] onExecute error for ${actionId}:`, error);
       }
     }
+  }
+
+  /**
+   * Send walk request to follow a moving target (OSRS-style)
+   * Calculates adjacent tile position for combat range
+   */
+  private sendFollowWalkRequest(
+    playerPos: Position3D,
+    targetPos: Position3D,
+    requiredRange: number,
+  ): void {
+    if (!this.world.network?.send) return;
+
+    // Calculate walk destination based on required range
+    const walkTarget = this.getAdjacentPosition(
+      playerPos,
+      targetPos,
+      requiredRange,
+    );
+
+    this.world.network.send("moveRequest", {
+      target: [walkTarget.x, walkTarget.y, walkTarget.z],
+      runMode: true,
+      cancel: false,
+    });
+  }
+
+  /**
+   * Calculate adjacent position for combat (same logic as BaseInteractionHandler)
+   * Returns a position that is within range but not on the same tile
+   */
+  private getAdjacentPosition(
+    playerPos: Position3D,
+    targetPos: Position3D,
+    requiredRange: number,
+  ): Position3D {
+    const playerTile = worldToTile(playerPos.x, playerPos.z);
+    const targetTile = worldToTile(targetPos.x, targetPos.z);
+
+    // Direction from target to player
+    const dx = playerTile.x - targetTile.x;
+    const dz = playerTile.z - targetTile.z;
+
+    // Normalize to get direction (-1, 0, or 1 for each axis)
+    const dirX = dx === 0 ? 0 : dx > 0 ? 1 : -1;
+    const dirZ = dz === 0 ? 0 : dz > 0 ? 1 : -1;
+
+    // Calculate adjacent tile (within range, approaching from player's direction)
+    let adjacentTile = {
+      x: targetTile.x + dirX * requiredRange,
+      z: targetTile.z + dirZ * requiredRange,
+    };
+
+    // If player is diagonal, prefer the axis with greater distance
+    if (dirX !== 0 && dirZ !== 0) {
+      if (Math.abs(dx) > Math.abs(dz)) {
+        adjacentTile = {
+          x: targetTile.x + dirX * requiredRange,
+          z: targetTile.z,
+        };
+      } else {
+        adjacentTile = {
+          x: targetTile.x,
+          z: targetTile.z + dirZ * requiredRange,
+        };
+      }
+    }
+
+    // If direction is (0,0) - player is on same tile, pick arbitrary adjacent
+    if (dirX === 0 && dirZ === 0) {
+      adjacentTile = {
+        x: targetTile.x + requiredRange,
+        z: targetTile.z,
+      };
+    }
+
+    // Convert tile to world position
+    const worldPos = tileToWorld(adjacentTile);
+    return {
+      x: worldPos.x,
+      y: targetPos.y,
+      z: worldPos.z,
+    };
   }
 
   /**

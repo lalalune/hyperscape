@@ -23,6 +23,69 @@ import { SafeAreaDeathHandler } from "../death/SafeAreaDeathHandler";
 import { WildernessDeathHandler } from "../death/WildernessDeathHandler";
 import { ZoneType } from "../../../types/death";
 import type { InventorySystem } from "../character/InventorySystem";
+import { getEntityPosition } from "../../../utils/game/EntityPositionUtils";
+
+/**
+ * Internal types for system integrations
+ * These are minimal interfaces for duck-typing external systems
+ */
+interface PlayerSystemLike {
+  players?: Map<string, { position?: { x: number; y: number; z: number } }>;
+}
+
+interface DatabaseSystemLike {
+  executeInTransaction: (fn: (tx: unknown) => Promise<void>) => Promise<void>;
+}
+
+interface EquipmentSystemLike {
+  getPlayerEquipment: (playerId: string) => EquipmentData | null;
+  clearEquipmentImmediate?: (playerId: string) => Promise<void>;
+}
+
+interface EquipmentData {
+  weapon?: { item?: { id: string; quantity?: number } };
+  shield?: { item?: { id: string; quantity?: number } };
+  helmet?: { item?: { id: string; quantity?: number } };
+  body?: { item?: { id: string; quantity?: number } };
+  legs?: { item?: { id: string; quantity?: number } };
+  arrows?: { item?: { id: string; quantity?: number } };
+  [key: string]: { item?: { id: string; quantity?: number } } | undefined;
+}
+
+interface TerrainSystemLike {
+  isReady: () => boolean;
+  getHeightAt: (x: number, z: number) => number;
+}
+
+interface NetworkLike {
+  sendTo: (
+    playerId: string,
+    eventName: string,
+    data: Record<string, unknown>,
+  ) => void;
+}
+
+interface PlayerEntityLike {
+  emote?: string;
+  data?: {
+    e?: string;
+    visible?: boolean;
+    name?: string;
+    position?: number[];
+  };
+  node?: {
+    position: { set: (x: number, y: number, z: number) => void };
+  };
+  position?: { x: number; y: number; z: number };
+  setHealth?: (health: number) => void;
+  getMaxHealth?: () => number;
+  markNetworkDirty?: () => void;
+}
+
+/** Extended death location data with headstone tracking */
+interface DeathLocationDataWithHeadstone extends DeathLocationData {
+  headstoneId?: string;
+}
 
 /**
  * Player Death and Respawn System - Orchestrator Pattern
@@ -241,7 +304,7 @@ export class PlayerDeathSystem extends SystemBase {
       // Fallback 1: Try to get position from player entity
       const playerEntity = this.world.entities?.get?.(playerId);
       if (playerEntity) {
-        const entityPos = playerEntity.position || playerEntity.getPosition?.();
+        const entityPos = getEntityPosition(playerEntity);
         if (entityPos) {
           position = { x: entityPos.x, y: entityPos.y, z: entityPos.z };
         }
@@ -250,7 +313,9 @@ export class PlayerDeathSystem extends SystemBase {
 
     if (!position) {
       // Fallback 2: Try to get from player system
-      const playerSystem = this.world.getSystem?.("player") as any;
+      const playerSystem = this.world.getSystem?.(
+        "player",
+      ) as PlayerSystemLike | null;
       if (playerSystem) {
         const player = playerSystem.players?.get?.(playerId);
         if (player?.position) {
@@ -274,7 +339,7 @@ export class PlayerDeathSystem extends SystemBase {
    * Convert equipped items to InventoryItem format for death drops
    */
   private convertEquipmentToInventoryItems(
-    equipment: any,
+    equipment: EquipmentData,
     playerId: string,
   ): InventoryItem[] {
     const items: InventoryItem[] = [];
@@ -338,7 +403,9 @@ export class PlayerDeathSystem extends SystemBase {
     this.lastDeathTime.set(playerId, Date.now());
 
     // Get database system for transaction support
-    const databaseSystem = this.world.getSystem("database") as any;
+    const databaseSystem = this.world.getSystem(
+      "database",
+    ) as unknown as DatabaseSystemLike | null;
     if (!databaseSystem || !databaseSystem.executeInTransaction) {
       console.error(
         "[PlayerDeathSystem] DatabaseSystem not available - cannot use transaction!",
@@ -354,13 +421,15 @@ export class PlayerDeathSystem extends SystemBase {
     }
 
     // Get equipment system
-    const equipmentSystem = this.world.getSystem("equipment") as any;
+    const equipmentSystem = this.world.getSystem(
+      "equipment",
+    ) as unknown as EquipmentSystemLike | null;
 
     let itemsToDrop: InventoryItem[] = [];
 
     try {
       // CRITICAL: Wrap entire death flow in transaction for atomicity
-      await databaseSystem.executeInTransaction(async (tx: any) => {
+      await databaseSystem.executeInTransaction(async (tx: unknown) => {
         // Step 1: Get inventory items (read-only, non-destructive)
         const inventory = inventorySystem.getInventory(playerId);
         if (!inventory) {
@@ -496,11 +565,12 @@ export class PlayerDeathSystem extends SystemBase {
 
       // Set emote STRING KEY (players use 'death' string which gets mapped to URL)
       // This matches how CombatSystem sets 'combat' emote
-      if ((playerEntity as any).emote !== undefined) {
-        (playerEntity as any).emote = "death";
+      const typedPlayerEntity = playerEntity as PlayerEntityLike;
+      if (typedPlayerEntity.emote !== undefined) {
+        typedPlayerEntity.emote = "death";
       }
-      if ((playerEntity as any).data) {
-        (playerEntity as any).data.e = "death";
+      if (typedPlayerEntity.data) {
+        typedPlayerEntity.data.e = "death";
       }
 
       if ("markNetworkDirty" in playerEntity) {
@@ -545,11 +615,8 @@ export class PlayerDeathSystem extends SystemBase {
 
     // Get player's name from entity or use playerId
     const playerEntity = this.world.entities?.get?.(playerId);
-    const playerName =
-      (playerEntity &&
-        "data" in playerEntity &&
-        (playerEntity.data as any).name) ||
-      playerId;
+    const typedEntity = playerEntity as PlayerEntityLike | undefined;
+    const playerName = typedEntity?.data?.name || playerId;
 
     // Get EntityManager to spawn headstone
     const entityManager = this.world.getSystem<EntityManager>("entity-manager");
@@ -614,9 +681,11 @@ export class PlayerDeathSystem extends SystemBase {
     }
 
     // Store headstone entity ID for tracking
-    const deathData = this.deathLocations.get(playerId);
+    const deathData = this.deathLocations.get(playerId) as
+      | DeathLocationDataWithHeadstone
+      | undefined;
     if (deathData) {
-      (deathData as any).headstoneId = headstoneId;
+      deathData.headstoneId = headstoneId;
     }
   }
 
@@ -663,8 +732,9 @@ export class PlayerDeathSystem extends SystemBase {
     if (playerEntity) {
       // Restore health
       if ("setHealth" in playerEntity && "getMaxHealth" in playerEntity) {
-        const maxHealth = (playerEntity as any).getMaxHealth();
-        (playerEntity as any).setHealth(maxHealth);
+        const typedEntity = playerEntity as PlayerEntityLike;
+        const maxHealth = typedEntity.getMaxHealth?.() ?? 100;
+        typedEntity.setHealth?.(maxHealth);
       }
 
       // Make visible and reset emote
@@ -684,7 +754,9 @@ export class PlayerDeathSystem extends SystemBase {
     }
 
     // Ground to terrain (use same logic as initial player spawn)
-    const terrainSystem = this.world.getSystem("terrain") as any;
+    const terrainSystem = this.world.getSystem(
+      "terrain",
+    ) as unknown as TerrainSystemLike | null;
     let groundedY = spawnPosition.y;
 
     if (terrainSystem && terrainSystem.isReady && terrainSystem.isReady()) {
@@ -715,7 +787,8 @@ export class PlayerDeathSystem extends SystemBase {
     if (playerEntity) {
       // Update Three.js node position (server-side authoritative position)
       if ("node" in playerEntity && playerEntity.node) {
-        (playerEntity.node as any).position.set(
+        const typedEntity = playerEntity as PlayerEntityLike;
+        typedEntity.node?.position.set(
           groundedPosition.x,
           groundedPosition.y,
           groundedPosition.z,
@@ -754,7 +827,7 @@ export class PlayerDeathSystem extends SystemBase {
 
     // Send teleport packet to client
     if (this.world.network && "sendTo" in this.world.network) {
-      (this.world.network as any).sendTo(playerId, "playerTeleport", {
+      (this.world.network as NetworkLike).sendTo(playerId, "playerTeleport", {
         playerId,
         position: [groundedPosition.x, groundedPosition.y, groundedPosition.z],
       });
@@ -1038,11 +1111,13 @@ export class PlayerDeathSystem extends SystemBase {
    * Destroys the headstone entity using EntityManager
    */
   private despawnDeathItems(playerId: string): void {
-    const deathData = this.deathLocations.get(playerId);
+    const deathData = this.deathLocations.get(playerId) as
+      | DeathLocationDataWithHeadstone
+      | undefined;
     if (!deathData) return;
 
     // Get headstone ID from death data
-    const headstoneId = (deathData as any).headstoneId;
+    const headstoneId = deathData.headstoneId;
     if (headstoneId) {
       // Destroy headstone entity via EntityManager
       const entityManager =
@@ -1140,9 +1215,11 @@ export class PlayerDeathSystem extends SystemBase {
 
   // Headstone API (now uses EntityManager instead of HeadstoneApp objects)
   getPlayerHeadstoneId(playerId: string): string | undefined {
-    const deathData = this.deathLocations.get(playerId);
+    const deathData = this.deathLocations.get(playerId) as
+      | DeathLocationDataWithHeadstone
+      | undefined;
     if (!deathData) return undefined;
-    return (deathData as any).headstoneId;
+    return deathData.headstoneId;
   }
 
   // Required System lifecycle methods

@@ -12,7 +12,7 @@ interface AgentSkills {
   strength?: SkillData;
   defense?: SkillData;
   constitution?: SkillData;
-  ranged?: SkillData;
+  // ranged?: SkillData; // Hidden for melee-only MVP
   woodcutting?: SkillData;
   fishing?: SkillData;
   firemaking?: SkillData;
@@ -24,13 +24,13 @@ interface AgentSkillsPanelProps {
   isViewportActive: boolean;
 }
 
-// Skill definitions with icons
+// Skill definitions with icons (melee-only MVP - ranged hidden)
 const SKILL_CONFIG = [
   { key: "attack", label: "Attack", icon: "⚔️" },
   { key: "strength", label: "Strength", icon: "💪" },
   { key: "defense", label: "Defense", icon: "🛡️" },
   { key: "constitution", label: "HP", icon: "❤️" },
-  { key: "ranged", label: "Ranged", icon: "🏹" },
+  // { key: "ranged", label: "Ranged", icon: "🏹" }, // Hidden for melee-only MVP
   { key: "woodcutting", label: "Woodcut", icon: "🪓" },
   { key: "fishing", label: "Fishing", icon: "🎣" },
   { key: "firemaking", label: "Fire", icon: "🔥" },
@@ -55,18 +55,16 @@ function getXPProgress(xp: number, level: number): number {
   return Math.min(100, Math.max(0, (xpIntoLevel / xpForThisLevel) * 100));
 }
 
-// Calculate combat level from skills
+// Calculate combat level from skills (melee-only MVP)
 function calculateCombatLevel(skills: AgentSkills): number {
   const defense = skills.defense?.level || 1;
   const constitution = skills.constitution?.level || 10;
   const attack = skills.attack?.level || 1;
   const strength = skills.strength?.level || 1;
-  const ranged = skills.ranged?.level || 1;
 
   const base = 0.25 * (defense + constitution);
   const melee = 0.325 * (attack + strength);
-  const rangedCalc = 0.325 * Math.floor(ranged * 1.5);
-  return Math.floor(base + Math.max(melee, rangedCalc));
+  return Math.floor(base + melee);
 }
 
 function SkillRow({
@@ -202,7 +200,6 @@ export const AgentSkillsPanel: React.FC<AgentSkillsPanelProps> = ({
             strength: { level: 1, xp: 0 },
             defense: { level: 1, xp: 0 },
             constitution: { level: 10, xp: 0 },
-            ranged: { level: 1, xp: 0 },
             woodcutting: { level: 1, xp: 0 },
             fishing: { level: 1, xp: 0 },
             firemaking: { level: 1, xp: 0 },
@@ -225,7 +222,6 @@ export const AgentSkillsPanel: React.FC<AgentSkillsPanelProps> = ({
           strength: { level: 1, xp: 0 },
           defense: { level: 1, xp: 0 },
           constitution: { level: 10, xp: 0 },
-          ranged: { level: 1, xp: 0 },
           woodcutting: { level: 1, xp: 0 },
           fishing: { level: 1, xp: 0 },
           firemaking: { level: 1, xp: 0 },
@@ -287,9 +283,9 @@ export const AgentSkillsPanel: React.FC<AgentSkillsPanelProps> = ({
             </div>
           ) : skills ? (
             <div className="space-y-0.5">
-              {/* Combat Skills */}
+              {/* Combat Skills (melee-only MVP: 4 skills) */}
               <div className="grid grid-cols-2 gap-x-2">
-                {SKILL_CONFIG.slice(0, 5).map((skillConfig) => {
+                {SKILL_CONFIG.slice(0, 4).map((skillConfig) => {
                   const skill = skills[skillConfig.key as keyof AgentSkills];
                   return (
                     <SkillRow
@@ -309,7 +305,7 @@ export const AgentSkillsPanel: React.FC<AgentSkillsPanelProps> = ({
 
               {/* Gathering Skills */}
               <div className="grid grid-cols-2 gap-x-2">
-                {SKILL_CONFIG.slice(5).map((skillConfig) => {
+                {SKILL_CONFIG.slice(4).map((skillConfig) => {
                   const skill = skills[skillConfig.key as keyof AgentSkills];
                   return (
                     <SkillRow

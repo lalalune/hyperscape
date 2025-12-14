@@ -45,16 +45,15 @@ export function isEntityAlive(world: World, entityId: string): boolean {
 }
 
 /**
- * Check if entity is in combat range
+ * Check if entity is in melee combat range (MVP: melee-only)
  *
- * OSRS-STYLE MELEE: Must be on adjacent tile (Chebyshev distance = 1)
- * RANGED: Uses world unit distance (10 units)
+ * OSRS-STYLE: Must be on adjacent tile (Chebyshev distance = 1)
  */
 export function isInCombatRange(
   world: World,
   attackerId: string,
   targetId: string,
-  combatType: "melee" | "ranged" = "melee",
+  _combatType?: "melee" | "ranged", // Kept for API compatibility, ignored (melee-only MVP)
 ): boolean {
   const attackerResult = getEntityWithComponent(world, attackerId, "stats");
   const targetResult = getEntityWithComponent(world, targetId, "stats");
@@ -69,26 +68,16 @@ export function isInCombatRange(
     return false;
   }
 
-  if (combatType === "melee") {
-    // OSRS-STYLE: Melee requires adjacent tile (Chebyshev distance = 1)
-    const attackerTile = worldToTile(
-      attackerResult.entity.position.x,
-      attackerResult.entity.position.z,
-    );
-    const targetTile = worldToTile(
-      targetResult.entity.position.x,
-      targetResult.entity.position.z,
-    );
-    return tilesAdjacent(attackerTile, targetTile);
-  } else {
-    // Ranged uses world distance
-    const distance = calculateDistance(
-      attackerResult.entity.position,
-      targetResult.entity.position,
-    );
-    const rangedRange = 10.0;
-    return distance <= rangedRange;
-  }
+  // MVP: Melee-only - requires adjacent tile (Chebyshev distance = 1)
+  const attackerTile = worldToTile(
+    attackerResult.entity.position.x,
+    attackerResult.entity.position.z,
+  );
+  const targetTile = worldToTile(
+    targetResult.entity.position.x,
+    targetResult.entity.position.z,
+  );
+  return tilesAdjacent(attackerTile, targetTile);
 }
 
 /**
@@ -334,23 +323,20 @@ export function hasEquippedWeapon(player: Player): boolean {
 
 /**
  * Get player's weapon attack range in tiles
- * Returns the attackRange from the equipped weapon, or 1 if no weapon (punching)
+ * Returns weapon's attackRange from manifest, or 1 for unarmed (punching)
+ *
+ * OSRS-style ranges:
+ * - 1 = melee (sword, dagger, mace) or unarmed
+ * - 2 = halberd, spear (extended melee)
+ * - 7+ = ranged weapons (bow, crossbow, magic)
  */
 export function getPlayerWeaponRange(player: Player): number {
   const weapon = player.equipment?.weapon;
-  if (!weapon) return 1; // No weapon = punching = 1 tile
-
-  // Get attackRange from item data, default to 1 for melee
+  if (!weapon) {
+    return 1; // No weapon = unarmed/punching, range 1
+  }
+  // Get attackRange from weapon manifest, default to 1 for melee weapons without explicit range
   return weapon.attackRange ?? 1;
-}
-
-export function canUseRanged(player: Player): boolean {
-  return (
-    hasEquippedWeapon(player) &&
-    (player.equipment?.weapon?.name?.includes("bow") || false) &&
-    !!player.equipment?.arrows
-    // Note: Arrow count should be checked in inventory, not on the item itself
-  );
 }
 
 // Helper functions for common operations

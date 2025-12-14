@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { COLORS } from "../../constants";
-import { WeaponType, EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperscape/shared";
 import type {
   ClientWorld,
   PlayerStats,
@@ -36,7 +36,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
     console.log(`[CombatPanel] Current style state: ${style}`);
   }, [style]);
 
-  // Calculate combat level using OSRS formula (same as SkillsPanel)
+  // Calculate combat level using OSRS formula (melee-only MVP)
   const combatLevel = stats?.skills
     ? (() => {
         const s = stats.skills;
@@ -44,8 +44,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
           0.25 * ((s.defense?.level || 1) + (s.constitution?.level || 10));
         const melee =
           0.325 * ((s.attack?.level || 1) + (s.strength?.level || 1));
-        const ranged = 0.325 * Math.floor((s.ranged?.level || 1) * 1.5);
-        return Math.floor(base + Math.max(melee, ranged));
+        return Math.floor(base + melee);
       })()
     : 1;
   const inCombat = stats?.inCombat || false;
@@ -202,23 +201,12 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
     actions.actionMethods.changeAttackStyle(playerId, next);
   };
 
-  // Determine if ranged weapon equipped; if so, limit to ranged/defense like RS
-  const isRanged = !!(
-    equipment?.arrows ||
-    (equipment?.weapon &&
-      (equipment.weapon.weaponType === WeaponType.BOW ||
-        equipment.weapon.weaponType === WeaponType.CROSSBOW))
-  );
-  const styles: Array<{ id: string; label: string }> = isRanged
-    ? [
-        { id: "accurate", label: "Ranged" },
-        { id: "defensive", label: "Defensive" },
-      ]
-    : [
-        { id: "accurate", label: "Accurate" },
-        { id: "aggressive", label: "Aggressive" },
-        { id: "defensive", label: "Defensive" },
-      ];
+  // Melee-only MVP: Always show melee attack styles
+  const styles: Array<{ id: string; label: string }> = [
+    { id: "accurate", label: "Accurate" },
+    { id: "aggressive", label: "Aggressive" },
+    { id: "defensive", label: "Defensive" },
+  ];
 
   const healthPercent = Math.round((health.current / health.max) * 100);
   const targetHealthPercent = targetHealth

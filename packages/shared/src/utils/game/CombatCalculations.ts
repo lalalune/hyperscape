@@ -61,14 +61,6 @@ function calculateAccuracy(
   const roll = Math.random();
   const didHit = roll < hitChance;
 
-  // Debug logging
-  if (Math.random() < 0.1) {
-    // Log 10% of attacks to avoid spam
-    console.log(
-      `[Accuracy] Attack: ${attackerAttackLevel}+${attackerAttackBonus} vs Defence: ${targetDefenseLevel}+${targetDefenseBonus} | Hit chance: ${(hitChance * 100).toFixed(1)}% | Roll: ${(roll * 100).toFixed(1)}% | ${didHit ? "HIT" : "MISS"}`,
-    );
-  }
-
   return didHit;
 }
 
@@ -129,26 +121,8 @@ export function calculateDamage(
     } else {
       maxHit = 1; // Minimum damage
     }
-  } else if (attackType === AttackType.RANGED) {
-    const rangedStat = attacker.stats?.ranged || 0;
-    attackStat = rangedStat; // Ranged level for accuracy
-    const attackPower = attacker.config?.attackPower || 0;
-
-    if (rangedStat > 0) {
-      // Use ranged stat for max hit calculation
-      const effectiveRanged = rangedStat + 8;
-      // Get ranged bonus from equipment (e.g., bow)
-      const rangedBonus = equipmentStats?.ranged || 0;
-      attackBonus = rangedBonus; // Ranged bonus for accuracy
-      maxHit = Math.floor(0.5 + (effectiveRanged * (rangedBonus + 64)) / 640);
-
-      if (maxHit < 1) maxHit = Math.max(1, Math.floor(rangedStat / 10));
-    } else if (attackPower > 0) {
-      maxHit = attackPower;
-    } else {
-      maxHit = 3; // Default ranged damage
-    }
   }
+  // MVP: Ranged damage calculation removed - melee only
 
   // Ensure maxHit is valid
   if (!Number.isFinite(maxHit) || maxHit < 1) {

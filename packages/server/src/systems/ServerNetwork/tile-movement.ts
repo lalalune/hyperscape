@@ -22,6 +22,8 @@ import {
   worldToTile,
   tileToWorld,
   tilesEqual,
+  tilesWithinMeleeRange,
+  getBestMeleeTile,
   createTileMovementState,
   BFSPathfinder,
 } from "@hyperscape/shared";
@@ -463,5 +465,131 @@ export class TileMovementManager {
     return state
       ? state.path.length > 0 && state.pathIndex < state.path.length
       : false;
+  }
+
+  /**
+   * Server-initiated movement toward a target position
+   * Used for combat follow when target moves out of range
+   *
+   * OSRS-style pathfinding (from wiki):
+   * - When clicking on an NPC, the requested tiles are all tiles within melee range
+   * - BFS finds the CLOSEST valid tile among those options
+   * - For range 1 melee: only cardinal tiles (N/S/E/W) are valid destinations
+   * - Pathfinding recalculates every tick until target tile is found
+   *
+   * @param playerId - The player to move
+   * @param targetPosition - Target position in world coordinates
+   * @param running - Whether to run (default: true for combat following)
+   * @param meleeRange - Weapon's melee range (1 = standard, 2 = halberd, 0 = non-combat)
+   *
+   * @see https://oldschool.runescape.wiki/w/Pathfinding
+   */
+  movePlayerToward(
+    playerId: string,
+    targetPosition: { x: number; y: number; z: number },
+    running: boolean = true,
+    meleeRange: number = 0, // 0 = non-combat, 1+ = melee combat range
+  ): void {
+    const entity = this.world.entities.get(playerId);
+    if (!entity) {
+      return;
+    }
+
+    const state = this.getOrCreateState(playerId);
+
+    // CRITICAL: Sync state.currentTile with entity's actual position
+    // The state might be stale if the player has been moving
+    const actualEntityTile = worldToTile(entity.position.x, entity.position.z);
+    if (!tilesEqual(state.currentTile, actualEntityTile)) {
+      state.currentTile = actualEntityTile;
+    }
+
+    // Convert target to tile
+    const targetTile = worldToTile(targetPosition.x, targetPosition.z);
+
+    // Determine destination tile based on combat or non-combat movement
+    let destinationTile: TileCoord;
+
+    if (meleeRange > 0) {
+      // COMBAT MOVEMENT: Use OSRS-accurate melee positioning
+      // Check if already in valid melee range (cardinal-only for range 1)
+      if (tilesWithinMeleeRange(state.currentTile, targetTile, meleeRange)) {
+        return; // Already in position, no movement needed
+      }
+
+      // Find best melee tile (cardinal-only for range 1, diagonal allowed for range 2+)
+      const meleeTile = getBestMeleeTile(
+        targetTile,
+        state.currentTile,
+        meleeRange,
+        (tile) => this.isTileWalkable(tile),
+      );
+
+      if (!meleeTile) {
+        return; // No valid melee position found
+      }
+
+      destinationTile = meleeTile;
+    } else {
+      // NON-COMBAT MOVEMENT: Go directly to target tile
+      if (tilesEqual(targetTile, state.currentTile)) {
+        return; // Already at target
+      }
+      destinationTile = targetTile;
+    }
+
+    // Calculate BFS path to the destination tile (NOT to target, then truncate!)
+    const path = this.pathfinder.findPath(
+      state.currentTile,
+      destinationTile,
+      (tile) => this.isTileWalkable(tile),
+    );
+
+    if (path.length === 0) {
+      return; // No path found
+    }
+
+    // Update state
+    state.path = path;
+    state.pathIndex = 0;
+    state.isRunning = running;
+    state.moveSeq = (state.moveSeq || 0) + 1;
+
+    // Broadcast movement start
+    const nextTile = path[0];
+    const nextWorld = tileToWorld(nextTile);
+    const curr = entity.position;
+    const dx = nextWorld.x - curr.x;
+    const dz = nextWorld.z - curr.z;
+
+    // Calculate rotation to face movement direction
+    if (Math.abs(dx) + Math.abs(dz) > 0.01) {
+      const yaw = Math.atan2(-dx, -dz);
+      this._tempQuat.setFromAxisAngle(this._up, yaw);
+
+      if ((entity as { node?: THREE.Object3D }).node) {
+        (entity as { node: THREE.Object3D }).node.quaternion.copy(
+          this._tempQuat,
+        );
+      }
+      (entity as { data: { quaternion?: number[] } }).data.quaternion = [
+        this._tempQuat.x,
+        this._tempQuat.y,
+        this._tempQuat.z,
+        this._tempQuat.w,
+      ];
+    }
+
+    // Send movement start packet
+    const actualDestination = path[path.length - 1];
+    this.sendFn("tileMovementStart", {
+      id: playerId,
+      startTile: { x: state.currentTile.x, z: state.currentTile.z },
+      path: path.map((t) => ({ x: t.x, z: t.z })),
+      running: state.isRunning,
+      destinationTile: { x: actualDestination.x, z: actualDestination.z },
+      moveSeq: state.moveSeq,
+      emote: state.isRunning ? "run" : "walk",
+    });
   }
 }

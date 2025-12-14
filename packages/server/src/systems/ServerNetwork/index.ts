@@ -54,6 +54,9 @@ import {
   CombatSystem,
   LootSystem,
   ResourceSystem,
+  worldToTile,
+  tilesWithinMeleeRange,
+  getItem,
 } from "@hyperscape/shared";
 
 // PlayerDeathSystem type for tick processing (not exported from main index)
@@ -128,6 +131,7 @@ import {
   handleDialogueResponse,
   handleDialogueClose,
 } from "./handlers/dialogue";
+import { PendingAttackManager } from "./PendingAttackManager";
 
 const defaultSpawn = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }';
 
@@ -192,6 +196,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   private movementManager!: MovementManager;
   private tileMovementManager!: TileMovementManager;
   private mobTileMovementManager!: MobTileMovementManager;
+  private pendingAttackManager!: PendingAttackManager;
   private actionQueue!: ActionQueue;
   private tickSystem!: TickSystem;
   private socketManager!: SocketManager;
@@ -302,6 +307,32 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.tickSystem.onTick((tickNumber) => {
       this.mobTileMovementManager.onTick(tickNumber);
     }, TickPriority.MOVEMENT);
+
+    // Pending attack manager - server-authoritative tracking of "walk to mob and attack" actions
+    // This replaces unreliable client-side tracking with 100% reliable server-side logic
+    this.pendingAttackManager = new PendingAttackManager(
+      this.world,
+      this.tileMovementManager,
+      // getMobPosition helper - get from world entity (mobs spawned via MobNPCSpawnerSystem with gdd_* IDs)
+      (mobId: string) => {
+        const mobEntity = this.world.entities.get(mobId) as {
+          position?: { x: number; y: number; z: number };
+        } | null;
+        return mobEntity?.position ?? null;
+      },
+      // isMobAlive helper - get from world entity config
+      (mobId: string) => {
+        const mobEntity = this.world.entities.get(mobId) as {
+          config?: { currentHealth?: number };
+        } | null;
+        return mobEntity ? (mobEntity.config?.currentHealth ?? 0) > 0 : false;
+      },
+    );
+
+    // Register pending attack processing BEFORE combat (so attacks can initiate combat this tick)
+    this.tickSystem.onTick((tickNumber) => {
+      this.pendingAttackManager.processTick(tickNumber);
+    }, TickPriority.MOVEMENT); // Same priority as movement, runs after player moves
 
     // Register combat system to process on each tick (after movement, before AI)
     // This is OSRS-accurate: combat runs on the game tick, not per-frame
@@ -454,6 +485,25 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       );
     });
 
+    // Combat follow: When player is in combat but out of range, move toward target
+    // OSRS-style: "if the clicked entity is an NPC or player, a new pathfinding attempt
+    // will be started every tick, until a target tile can be found"
+    this.world.on(EventType.COMBAT_FOLLOW_TARGET, (event) => {
+      const followEvent = event as {
+        playerId: string;
+        targetId: string;
+        targetPosition: { x: number; y: number; z: number };
+        meleeRange?: number;
+      };
+      // Use OSRS-style melee pathfinding (cardinal-only for range 1)
+      this.tileMovementManager.movePlayerToward(
+        followEvent.playerId,
+        followEvent.targetPosition,
+        true, // Run toward target
+        followEvent.meleeRange ?? 1, // Default to standard melee range
+      );
+    });
+
     // Save manager
     this.saveManager = new SaveManager(this.world, this.db);
 
@@ -480,9 +530,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.world as { interactionSessionManager?: InteractionSessionManager }
     ).interactionSessionManager = this.interactionSessionManager;
 
-    // Clean up interaction sessions when player disconnects
+    // Clean up interaction sessions and pending attacks when player disconnects
     this.world.on(EventType.PLAYER_LEFT, (event: { playerId: string }) => {
       this.interactionSessionManager.onPlayerDisconnect(event.playerId);
+      this.pendingAttackManager.onPlayerDisconnect(event.playerId);
     });
 
     // Initialization manager
@@ -566,6 +617,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Route movement and combat through action queue for OSRS-style tick processing
     // Actions are queued and processed on tick boundaries, not immediately
     this.handlers["onMoveRequest"] = (socket, data) => {
+      // Cancel any pending attack when player moves elsewhere (OSRS behavior)
+      if (socket.player) {
+        this.pendingAttackManager.cancelPendingAttack(socket.player.id);
+      }
       this.actionQueue.queueMovement(socket, data);
     };
 
@@ -577,6 +632,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         runMode?: boolean;
       };
       if (payload.type === "click" && Array.isArray(payload.target)) {
+        // Cancel any pending attack when player moves elsewhere (OSRS behavior)
+        if (socket.player) {
+          this.pendingAttackManager.cancelPendingAttack(socket.player.id);
+        }
         this.actionQueue.queueMovement(socket, {
           target: payload.target,
           runMode: payload.runMode,
@@ -584,9 +643,57 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
     };
 
-    // Combat is queued - OSRS style: clicking enemy queues attack action
+    // Combat - server-authoritative "walk to and attack" system
+    // OSRS-style: If in melee range, start combat immediately; otherwise queue pending attack
+    // Melee range is CARDINAL ONLY for range 1 (standard melee)
     this.handlers["onAttackMob"] = (socket, data) => {
-      this.actionQueue.queueCombat(socket, data);
+      const playerEntity = socket.player;
+      if (!playerEntity) return;
+
+      const payload = data as { mobId?: string; targetId?: string };
+      const targetId = payload.mobId || payload.targetId;
+      if (!targetId) return;
+
+      // Cancel any existing combat and pending attacks when switching targets
+      this.world.emit(EventType.COMBAT_STOP_ATTACK, {
+        attackerId: playerEntity.id,
+      });
+      this.pendingAttackManager.cancelPendingAttack(playerEntity.id);
+
+      // Get mob entity directly from world entities
+      const mobEntity = this.world.entities.get(targetId) as {
+        position?: { x: number; y: number; z: number };
+        config?: { currentHealth?: number; maxHealth?: number };
+        type?: string;
+      } | null;
+
+      if (!mobEntity || !mobEntity.position) return;
+      if (mobEntity.type !== "mob") return;
+      if ((mobEntity.config?.currentHealth ?? 0) <= 0) return;
+
+      // Get player's weapon melee range from equipment system
+      const meleeRange = this.getPlayerWeaponRange(playerEntity.id);
+
+      // OSRS-accurate melee range check (cardinal-only for range 1)
+      const playerPos = playerEntity.position;
+      const playerTile = worldToTile(playerPos.x, playerPos.z);
+      const targetTile = worldToTile(
+        mobEntity.position.x,
+        mobEntity.position.z,
+      );
+
+      if (tilesWithinMeleeRange(playerTile, targetTile, meleeRange)) {
+        // In melee range - start combat immediately via action queue
+        this.actionQueue.queueCombat(socket, data);
+      } else {
+        // Not in range - queue pending attack (server handles OSRS-style pathfinding)
+        this.pendingAttackManager.queuePendingAttack(
+          playerEntity.id,
+          targetId,
+          this.world.currentTick,
+          meleeRange,
+        );
+      }
     };
 
     this.handlers["onChangeAttackStyle"] = (socket, data) =>
@@ -1019,6 +1126,45 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   isBuilder(player: { data?: { roles?: string[] } }): boolean {
     return this.world.settings.public || this.isAdmin(player);
+  }
+
+  /**
+   * Get player's weapon attack range in tiles
+   * Uses equipment system to get equipped weapon's attackRange from manifest
+   * Returns 1 for unarmed (punching)
+   */
+  getPlayerWeaponRange(playerId: string): number {
+    const equipmentSystem = this.world.getSystem("equipment") as
+      | {
+          getPlayerEquipment?: (id: string) => {
+            weapon?: { item?: { attackRange?: number; id?: string } };
+          } | null;
+        }
+      | undefined;
+
+    if (equipmentSystem?.getPlayerEquipment) {
+      const equipment = equipmentSystem.getPlayerEquipment(playerId);
+
+      if (equipment?.weapon?.item) {
+        const weaponItem = equipment.weapon.item;
+
+        // Check if weapon has attackRange directly
+        if (weaponItem.attackRange) {
+          return weaponItem.attackRange;
+        }
+
+        // Fallback: look up from items manifest
+        if (weaponItem.id) {
+          const itemData = getItem(weaponItem.id);
+          if (itemData?.attackRange) {
+            return itemData.attackRange;
+          }
+        }
+      }
+    }
+
+    // Default to 1 tile (unarmed/punching)
+    return 1;
   }
 
   /**

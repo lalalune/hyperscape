@@ -46,9 +46,6 @@ export class MobDeathSystem extends SystemBase {
     }
 
     const mobId = data.entityId;
-    console.log(
-      `[MobDeathSystem] Processing mob death for ${mobId}, killed by ${data.killedBy}`,
-    );
 
     // Handle mob death (despawn, drops, etc.)
     this.despawnMob(mobId);
@@ -58,14 +55,12 @@ export class MobDeathSystem extends SystemBase {
     // Remove mob entity from world
     const mobEntity = this.world.entities?.get?.(mobId);
     if (mobEntity) {
-      console.log(`[MobDeathSystem] Despawning mob ${mobId}`);
-
       // Emit despawn event for other systems
       this.emitTypedEvent(EventType.MOB_NPC_DESPAWN, { mobId });
 
       // Remove from entity manager
       if (this.world.entities && "remove" in this.world.entities) {
-        (this.world.entities as any).remove(mobId);
+        (this.world.entities as { remove: (id: string) => void }).remove(mobId);
       }
     }
   }

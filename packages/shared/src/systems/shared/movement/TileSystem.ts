@@ -12,6 +12,8 @@
  * - Client interpolates visually between tile positions
  */
 
+import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
+
 /**
  * Core tile system constants
  *
@@ -123,15 +125,13 @@ export function tilesAdjacent(a: TileCoord, b: TileCoord): boolean {
 
 /**
  * Check if two tiles are within a given range (Chebyshev distance)
- * Used for combat range checks where mobs may have extended melee range.
+ * Used for ranged/magic combat and general distance checks.
+ * NOTE: For melee combat, use tilesWithinMeleeRange() instead!
  *
  * @param a - First tile
  * @param b - Second tile
  * @param rangeTiles - Maximum range in tiles (minimum 1)
  * @returns true if tiles are within range but NOT the same tile
- *
- * OSRS Reference: Most melee is 1 tile, halberds are 2 tiles.
- * Combat requires adjacent tiles - you cannot attack from the same tile.
  */
 export function tilesWithinRange(
   a: TileCoord,
@@ -141,8 +141,44 @@ export function tilesWithinRange(
   const dx = Math.abs(a.x - b.x);
   const dz = Math.abs(a.z - b.z);
   const chebyshevDistance = Math.max(dx, dz);
-  // OSRS-style: Combat requires being on different tiles (adjacent, not overlapping)
+  // Combat requires being on different tiles (adjacent, not overlapping)
   const effectiveRange = Math.max(1, Math.floor(rangeTiles));
+  return chebyshevDistance <= effectiveRange && chebyshevDistance > 0;
+}
+
+/**
+ * OSRS-accurate melee range check
+ *
+ * OSRS melee attack rules (from wiki):
+ * - Range 1 (standard melee): CARDINAL ONLY (N/S/E/W) - cannot attack diagonally
+ * - Range 2+ (halberd, spear): Can attack diagonally (uses Chebyshev distance)
+ * - Salamanders are special: range 1 but CAN attack diagonally (not implemented here)
+ *
+ * @param attacker - Attacker's tile position
+ * @param target - Target's tile position
+ * @param meleeRange - Weapon's melee range (1 = standard, 2 = halberd)
+ * @returns true if target is within melee attack range
+ *
+ * @see https://oldschool.runescape.wiki/w/Attack_range
+ */
+export function tilesWithinMeleeRange(
+  attacker: TileCoord,
+  target: TileCoord,
+  meleeRange: number,
+): boolean {
+  const dx = Math.abs(attacker.x - target.x);
+  const dz = Math.abs(attacker.z - target.z);
+
+  // Range 1 (standard melee): CARDINAL ONLY - no diagonal attacks
+  // This is the core OSRS melee mechanic that makes positioning matter
+  if (meleeRange === COMBAT_CONSTANTS.MELEE_RANGE_STANDARD) {
+    return (dx === 1 && dz === 0) || (dx === 0 && dz === 1);
+  }
+
+  // Range 2+ (halberd, spear): Allow diagonal attacks
+  // Uses Chebyshev distance, must be within range but not on same tile
+  const chebyshevDistance = Math.max(dx, dz);
+  const effectiveRange = Math.max(1, Math.floor(meleeRange));
   return chebyshevDistance <= effectiveRange && chebyshevDistance > 0;
 }
 
@@ -222,10 +258,7 @@ export function getBestAdjacentTile(
 
 /**
  * Get the best tile to stand on when attacking a target, respecting combat range.
- * OSRS-style: Mobs/players want to get within their combat range ASAP.
- *
- * For mobs: Walk to the CLOSEST tile that's within combatRange (get in range fast to attack)
- * This is different from players who want to stay at MAX range for kiting.
+ * Used for ranged/magic combat. For melee, use getBestMeleeTile() instead!
  *
  * @param target - The tile the target is standing on
  * @param attacker - The tile the attacker is currently on
@@ -247,7 +280,6 @@ export function getBestCombatRangeTile(
   }
 
   // Generate all valid combat tiles around the target
-  // These are tiles at distance 1 to effectiveRange (not 0)
   const validCombatTiles: Array<{
     tile: TileCoord;
     distToTarget: number;
@@ -264,14 +296,12 @@ export function getBestCombatRangeTile(
       // Distance from candidate to target (Chebyshev)
       const distToTarget = Math.max(Math.abs(dx), Math.abs(dz));
 
-      // Must be within range AND not on same tile (distance 1 to effectiveRange)
+      // Must be within range AND not on same tile
       if (distToTarget >= 1 && distToTarget <= effectiveRange) {
-        // Check walkability if function provided
         if (isWalkable && !isWalkable(candidateTile)) {
           continue;
         }
 
-        // Distance from attacker to this candidate tile
         const attackerDx = candidateTile.x - attacker.x;
         const attackerDz = candidateTile.z - attacker.z;
         const distToAttacker = Math.max(
@@ -292,10 +322,95 @@ export function getBestCombatRangeTile(
     return null;
   }
 
-  // Mobs want to get in range ASAP: sort by closest to attacker (minimize walking)
   validCombatTiles.sort((a, b) => a.distToAttacker - b.distToAttacker);
-
   return validCombatTiles[0].tile;
+}
+
+/**
+ * OSRS-accurate melee destination tile selection
+ *
+ * When clicking an NPC for melee combat, OSRS:
+ * 1. Finds all tiles within melee range of the target
+ * 2. For range 1: only cardinal tiles (N/S/E/W) - NO diagonal
+ * 3. For range 2+: all tiles within Chebyshev distance
+ * 4. Paths to the CLOSEST valid tile using BFS
+ *
+ * @param target - The tile the target is standing on
+ * @param attacker - The tile the attacker is currently on
+ * @param meleeRange - Weapon's melee range (1 = standard, 2 = halberd)
+ * @param isWalkable - Optional function to check if a tile is walkable
+ * @returns The best tile to path to for melee combat, or null if none available
+ *
+ * @see https://oldschool.runescape.wiki/w/Pathfinding
+ */
+export function getBestMeleeTile(
+  target: TileCoord,
+  attacker: TileCoord,
+  meleeRange: number = 1,
+  isWalkable?: (tile: TileCoord) => boolean,
+): TileCoord | null {
+  const effectiveRange = Math.max(1, Math.floor(meleeRange));
+
+  // Check if already in valid melee range
+  if (tilesWithinMeleeRange(attacker, target, effectiveRange)) {
+    return attacker;
+  }
+
+  // For range 1: CARDINAL ONLY (OSRS melee behavior)
+  if (effectiveRange === COMBAT_CONSTANTS.MELEE_RANGE_STANDARD) {
+    const cardinalTiles = [
+      { x: target.x - 1, z: target.z }, // West
+      { x: target.x + 1, z: target.z }, // East
+      { x: target.x, z: target.z - 1 }, // South
+      { x: target.x, z: target.z + 1 }, // North
+    ];
+
+    // Filter walkable and find closest to attacker
+    const validTiles = cardinalTiles
+      .filter((tile) => !isWalkable || isWalkable(tile))
+      .map((tile) => ({
+        tile,
+        dist: tileChebyshevDistance(tile, attacker),
+      }))
+      .sort((a, b) => a.dist - b.dist);
+
+    return validTiles.length > 0 ? validTiles[0].tile : null;
+  }
+
+  // For range 2+ (halberd): Allow diagonal positions
+  const validTiles: Array<{ tile: TileCoord; dist: number }> = [];
+
+  for (let dx = -effectiveRange; dx <= effectiveRange; dx++) {
+    for (let dz = -effectiveRange; dz <= effectiveRange; dz++) {
+      const candidateTile: TileCoord = {
+        x: target.x + dx,
+        z: target.z + dz,
+      };
+
+      // Chebyshev distance to target
+      const distToTarget = Math.max(Math.abs(dx), Math.abs(dz));
+
+      // Must be within range but not on same tile
+      if (distToTarget >= 1 && distToTarget <= effectiveRange) {
+        if (isWalkable && !isWalkable(candidateTile)) {
+          continue;
+        }
+
+        validTiles.push({
+          tile: candidateTile,
+          dist: tileChebyshevDistance(candidateTile, attacker),
+        });
+      }
+    }
+  }
+
+  if (validTiles.length === 0) {
+    return null;
+  }
+
+  // Sort by distance to attacker (closest first)
+  validTiles.sort((a, b) => a.dist - b.dist);
+  return validTiles[0].tile;
 }
 
 /**
