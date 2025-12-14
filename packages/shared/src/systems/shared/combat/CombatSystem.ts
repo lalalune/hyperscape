@@ -28,7 +28,8 @@ import { MobNPCSystem } from "..";
 import { SystemBase } from "..";
 import { Emotes } from "../../../data/playerEmotes";
 import { getItem } from "../../../data/items";
-import { worldToTile, tilesWithinMeleeRange } from "../movement/TileSystem";
+import { tilesWithinMeleeRange } from "../movement/TileSystem";
+import { tilePool, PooledTile } from "../../../utils/pools/TilePool";
 import { CombatAnimationManager } from "./CombatAnimationManager";
 import { CombatRotationManager } from "./CombatRotationManager";
 import { CombatStateService, CombatData } from "./CombatStateService";
@@ -125,6 +126,10 @@ export class CombatSystem extends SystemBase {
     string,
     { attack: number; strength: number; defense: number; ranged: number }
   >();
+
+  // Pre-allocated pooled tiles for hot path calculations (zero GC)
+  private readonly _attackerTile: PooledTile = tilePool.acquire();
+  private readonly _targetTile: PooledTile = tilePool.acquire();
 
   constructor(world: World) {
     super(world, {
@@ -427,17 +432,24 @@ export class CombatSystem extends SystemBase {
     const targetPos = getEntityPosition(target);
     if (!attackerPos || !targetPos) return false;
 
-    const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
-    const targetTile = worldToTile(targetPos.x, targetPos.z);
+    // Use pre-allocated pooled tiles (zero GC)
+    tilePool.setFromPosition(this._attackerTile, attackerPos);
+    tilePool.setFromPosition(this._targetTile, targetPos);
     const combatRangeTiles = this.getEntityCombatRange(attacker, attackerType);
 
     // OSRS-accurate melee range check:
     // - Range 1: Cardinal only (N/S/E/W)
     // - Range 2+: Allows diagonal (Chebyshev distance)
-    if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
+    if (
+      !tilesWithinMeleeRange(
+        this._attackerTile,
+        this._targetTile,
+        combatRangeTiles,
+      )
+    ) {
       if (attackerType === "player") {
-        const dx = Math.abs(attackerTile.x - targetTile.x);
-        const dz = Math.abs(attackerTile.z - targetTile.z);
+        const dx = Math.abs(this._attackerTile.x - this._targetTile.x);
+        const dz = Math.abs(this._attackerTile.z - this._targetTile.z);
         const actualDistance = Math.max(dx, dz);
         this.antiCheat.recordOutOfRangeAttack(
           data.attackerId,
@@ -1094,14 +1106,21 @@ export class CombatSystem extends SystemBase {
     const targetPos = getEntityPosition(target);
     if (!attackerPos || !targetPos) return false; // Missing position
 
-    const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
-    const targetTile = worldToTile(targetPos.x, targetPos.z);
+    // Use pre-allocated pooled tiles (zero GC)
+    tilePool.setFromPosition(this._attackerTile, attackerPos);
+    tilePool.setFromPosition(this._targetTile, targetPos);
     const combatRangeTiles = this.getEntityCombatRange(
       attacker,
       opts.attackerType,
     );
     // OSRS-accurate melee range check (cardinal-only for range 1)
-    if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
+    if (
+      !tilesWithinMeleeRange(
+        this._attackerTile,
+        this._targetTile,
+        combatRangeTiles,
+      )
+    ) {
       return false;
     }
 
@@ -1301,15 +1320,22 @@ export class CombatSystem extends SystemBase {
     const targetPos = getEntityPosition(target);
     if (!attackerPos || !targetPos) return;
 
-    const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
-    const targetTile = worldToTile(targetPos.x, targetPos.z);
+    // Use pre-allocated pooled tiles (zero GC)
+    tilePool.setFromPosition(this._attackerTile, attackerPos);
+    tilePool.setFromPosition(this._targetTile, targetPos);
     const combatRangeTiles = this.getEntityCombatRange(
       attacker,
       combatState.attackerType,
     );
 
     // OSRS-accurate melee range check (cardinal-only for range 1)
-    if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
+    if (
+      !tilesWithinMeleeRange(
+        this._attackerTile,
+        this._targetTile,
+        combatRangeTiles,
+      )
+    ) {
       // Out of range - emit follow event to move player toward target
       // Extend combat timeout while pursuing
       combatState.combatEndTick =
@@ -1363,14 +1389,21 @@ export class CombatSystem extends SystemBase {
 
     // MELEE: Must be within attacker's combat range (configurable per mob, minimum 1 tile)
     // OSRS-style: range 1 = cardinal only (N/S/E/W), range 2+ = diagonal allowed
-    const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
-    const targetTile = worldToTile(targetPos.x, targetPos.z);
+    // Use pre-allocated pooled tiles (zero GC)
+    tilePool.setFromPosition(this._attackerTile, attackerPos);
+    tilePool.setFromPosition(this._targetTile, targetPos);
     const combatRangeTiles = this.getEntityCombatRange(
       attacker,
       combatState.attackerType,
     );
     // OSRS-accurate melee range check (cardinal-only for range 1)
-    if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
+    if (
+      !tilesWithinMeleeRange(
+        this._attackerTile,
+        this._targetTile,
+        combatRangeTiles,
+      )
+    ) {
       // Out of melee range - skip this attack (follow is handled by checkRangeAndFollow every tick)
       return;
     }
@@ -1633,6 +1666,10 @@ export class CombatSystem extends SystemBase {
 
     // Clean up anti-cheat monitoring (Phase 6)
     this.antiCheat.destroy();
+
+    // Release pooled tiles back to pool
+    tilePool.release(this._attackerTile);
+    tilePool.release(this._targetTile);
 
     // Clear all attack cooldowns (tick-based)
     this.nextAttackTicks.clear();

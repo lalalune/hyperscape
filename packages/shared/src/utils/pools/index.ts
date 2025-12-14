@@ -5,3 +5,4 @@
  */
 
 export { quaternionPool, type PooledQuaternion } from "./QuaternionPool";
+export { tilePool, type PooledTile } from "./TilePool";
