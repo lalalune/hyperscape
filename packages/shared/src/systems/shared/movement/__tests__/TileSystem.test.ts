@@ -20,6 +20,10 @@ import {
   tilesEqual,
   tilesAdjacent,
   tilesWithinRange,
+  tilesWithinMeleeRange,
+  tilesCardinallyAdjacent,
+  getBestMeleeTile,
+  getBestAdjacentTile,
   tileKey,
   tileChebyshevDistance,
   TILE_SIZE,
@@ -321,6 +325,298 @@ describe("TileSystem", () => {
   describe("TILE_SIZE constant", () => {
     it("equals 1 (1 world unit = 1 tile)", () => {
       expect(TILE_SIZE).toBe(1);
+    });
+  });
+
+  describe("tilesWithinMeleeRange", () => {
+    const center = { x: 5, z: 5 };
+
+    describe("range 1 (OSRS cardinal-only)", () => {
+      it("returns true for cardinal north neighbor", () => {
+        expect(tilesWithinMeleeRange(center, { x: 5, z: 6 }, 1)).toBe(true);
+      });
+
+      it("returns true for cardinal south neighbor", () => {
+        expect(tilesWithinMeleeRange(center, { x: 5, z: 4 }, 1)).toBe(true);
+      });
+
+      it("returns true for cardinal east neighbor", () => {
+        expect(tilesWithinMeleeRange(center, { x: 6, z: 5 }, 1)).toBe(true);
+      });
+
+      it("returns true for cardinal west neighbor", () => {
+        expect(tilesWithinMeleeRange(center, { x: 4, z: 5 }, 1)).toBe(true);
+      });
+
+      it("returns false for diagonal northeast (OSRS rule)", () => {
+        expect(tilesWithinMeleeRange(center, { x: 6, z: 6 }, 1)).toBe(false);
+      });
+
+      it("returns false for diagonal southeast (OSRS rule)", () => {
+        expect(tilesWithinMeleeRange(center, { x: 6, z: 4 }, 1)).toBe(false);
+      });
+
+      it("returns false for diagonal southwest (OSRS rule)", () => {
+        expect(tilesWithinMeleeRange(center, { x: 4, z: 4 }, 1)).toBe(false);
+      });
+
+      it("returns false for diagonal northwest (OSRS rule)", () => {
+        expect(tilesWithinMeleeRange(center, { x: 4, z: 6 }, 1)).toBe(false);
+      });
+
+      it("returns false for same tile", () => {
+        expect(tilesWithinMeleeRange(center, center, 1)).toBe(false);
+      });
+
+      it("returns false for 2 tiles away cardinally", () => {
+        expect(tilesWithinMeleeRange(center, { x: 7, z: 5 }, 1)).toBe(false);
+      });
+    });
+
+    describe("range 2 (allows diagonal)", () => {
+      it("returns true for cardinal neighbors", () => {
+        expect(tilesWithinMeleeRange(center, { x: 6, z: 5 }, 2)).toBe(true);
+        expect(tilesWithinMeleeRange(center, { x: 5, z: 6 }, 2)).toBe(true);
+      });
+
+      it("returns true for diagonal neighbors (unlike range 1)", () => {
+        expect(tilesWithinMeleeRange(center, { x: 6, z: 6 }, 2)).toBe(true);
+        expect(tilesWithinMeleeRange(center, { x: 4, z: 4 }, 2)).toBe(true);
+      });
+
+      it("returns true for 2 tiles away cardinally", () => {
+        expect(tilesWithinMeleeRange(center, { x: 7, z: 5 }, 2)).toBe(true);
+      });
+
+      it("returns true for 2 tiles away diagonally", () => {
+        expect(tilesWithinMeleeRange(center, { x: 7, z: 7 }, 2)).toBe(true);
+      });
+
+      it("returns false for 3 tiles away", () => {
+        expect(tilesWithinMeleeRange(center, { x: 8, z: 5 }, 2)).toBe(false);
+      });
+
+      it("returns false for same tile", () => {
+        expect(tilesWithinMeleeRange(center, center, 2)).toBe(false);
+      });
+    });
+
+    describe("range 3+ (halberd-like)", () => {
+      it("returns true up to 3 tiles away", () => {
+        expect(tilesWithinMeleeRange(center, { x: 8, z: 5 }, 3)).toBe(true);
+        expect(tilesWithinMeleeRange(center, { x: 8, z: 8 }, 3)).toBe(true);
+      });
+
+      it("returns false for 4 tiles away with range 3", () => {
+        expect(tilesWithinMeleeRange(center, { x: 9, z: 5 }, 3)).toBe(false);
+      });
+    });
+  });
+
+  describe("tilesCardinallyAdjacent", () => {
+    const center = { x: 5, z: 5 };
+
+    it("returns true for north neighbor", () => {
+      expect(tilesCardinallyAdjacent(center, { x: 5, z: 6 })).toBe(true);
+    });
+
+    it("returns true for south neighbor", () => {
+      expect(tilesCardinallyAdjacent(center, { x: 5, z: 4 })).toBe(true);
+    });
+
+    it("returns true for east neighbor", () => {
+      expect(tilesCardinallyAdjacent(center, { x: 6, z: 5 })).toBe(true);
+    });
+
+    it("returns true for west neighbor", () => {
+      expect(tilesCardinallyAdjacent(center, { x: 4, z: 5 })).toBe(true);
+    });
+
+    it("returns false for diagonal northeast", () => {
+      expect(tilesCardinallyAdjacent(center, { x: 6, z: 6 })).toBe(false);
+    });
+
+    it("returns false for diagonal southwest", () => {
+      expect(tilesCardinallyAdjacent(center, { x: 4, z: 4 })).toBe(false);
+    });
+
+    it("returns false for same tile", () => {
+      expect(tilesCardinallyAdjacent(center, center)).toBe(false);
+    });
+
+    it("returns false for 2 tiles away cardinally", () => {
+      expect(tilesCardinallyAdjacent(center, { x: 7, z: 5 })).toBe(false);
+    });
+  });
+
+  describe("getBestMeleeTile", () => {
+    const target = { x: 5, z: 5 };
+
+    it("returns cardinal tile when attacker is cardinally aligned (north)", () => {
+      const attacker = { x: 5, z: 8 };
+      // getBestMeleeTile(target, attacker, meleeRange, isWalkable)
+      const result = getBestMeleeTile(target, attacker);
+      // Should pick tile north of target (5, 6) as closest to attacker
+      expect(result).toEqual({ x: 5, z: 6 });
+    });
+
+    it("returns cardinal tile when attacker is cardinally aligned (east)", () => {
+      const attacker = { x: 8, z: 5 };
+      const result = getBestMeleeTile(target, attacker);
+      // Should pick tile east of target (6, 5)
+      expect(result).toEqual({ x: 6, z: 5 });
+    });
+
+    it("returns cardinal tile when attacker is cardinally aligned (south)", () => {
+      const attacker = { x: 5, z: 2 };
+      const result = getBestMeleeTile(target, attacker);
+      // Should pick tile south of target (5, 4)
+      expect(result).toEqual({ x: 5, z: 4 });
+    });
+
+    it("returns cardinal tile when attacker is cardinally aligned (west)", () => {
+      const attacker = { x: 2, z: 5 };
+      const result = getBestMeleeTile(target, attacker);
+      // Should pick tile west of target (4, 5)
+      expect(result).toEqual({ x: 4, z: 5 });
+    });
+
+    it("returns closest cardinal tile for diagonal approach", () => {
+      // Coming from northeast diagonally
+      const attacker = { x: 8, z: 8 };
+      const result = getBestMeleeTile(target, attacker);
+      // Should pick one of the cardinal tiles closest to attacker (both at dist 3)
+      const validCardinals = [
+        { x: 6, z: 5 }, // east
+        { x: 5, z: 6 }, // north
+      ];
+      expect(validCardinals).toContainEqual(result);
+    });
+
+    it("excludes unwalkable tiles via isWalkable callback", () => {
+      const attacker = { x: 5, z: 8 };
+      // Block the north tile (5, 6)
+      const isWalkable = (tile: TileCoord) => !(tile.x === 5 && tile.z === 6);
+      const result = getBestMeleeTile(target, attacker, 1, isWalkable);
+      // Should pick a different cardinal tile
+      expect(result).not.toEqual({ x: 5, z: 6 });
+      // Should still be a cardinal neighbor
+      const validCardinals = [
+        { x: 6, z: 5 }, // east
+        { x: 4, z: 5 }, // west
+        { x: 5, z: 4 }, // south
+      ];
+      expect(validCardinals).toContainEqual(result);
+    });
+
+    it("returns null when all cardinal tiles are unwalkable", () => {
+      const attacker = { x: 5, z: 8 };
+      // Block all cardinal tiles around target
+      const blockedTiles = new Set(["5,6", "6,5", "4,5", "5,4"]);
+      const isWalkable = (tile: TileCoord) =>
+        !blockedTiles.has(`${tile.x},${tile.z}`);
+      const result = getBestMeleeTile(target, attacker, 1, isWalkable);
+      expect(result).toBeNull();
+    });
+
+    it("returns attacker position when already in melee range", () => {
+      const attacker = { x: 5, z: 6 }; // Already cardinally adjacent to target
+      const result = getBestMeleeTile(target, attacker);
+      // Should return attacker position (already in melee range)
+      expect(result).toEqual(attacker);
+    });
+
+    it("uses range 2 for halberd-like weapons (allows diagonal)", () => {
+      const attacker = { x: 8, z: 8 };
+      // With range 2, diagonal tiles within Chebyshev distance 2 are valid
+      const result = getBestMeleeTile(target, attacker, 2);
+      // (7,7) is at Chebyshev distance 2 from target (5,5) and dist 1 from attacker
+      // It's the closest valid melee position to the attacker
+      expect(result).toEqual({ x: 7, z: 7 });
+    });
+  });
+
+  describe("getBestAdjacentTile", () => {
+    const target = { x: 5, z: 5 };
+
+    it("returns closest adjacent tile for distant attacker", () => {
+      const attacker = { x: 8, z: 5 };
+      // getBestAdjacentTile(target, attacker, cardinalOnly, isWalkable)
+      const result = getBestAdjacentTile(target, attacker);
+      // Should pick tile east of target (6, 5) as closest
+      expect(result).toEqual({ x: 6, z: 5 });
+    });
+
+    it("returns diagonal tile when that is closest", () => {
+      const attacker = { x: 8, z: 8 };
+      const result = getBestAdjacentTile(target, attacker);
+      // Should pick northeast tile (6, 6) as closest
+      expect(result).toEqual({ x: 6, z: 6 });
+    });
+
+    it("excludes unwalkable tiles via isWalkable callback", () => {
+      const attacker = { x: 8, z: 5 };
+      // Block the east tile (6, 5)
+      const isWalkable = (tile: TileCoord) => !(tile.x === 6 && tile.z === 5);
+      const result = getBestAdjacentTile(target, attacker, false, isWalkable);
+      // Should pick a different adjacent tile
+      expect(result).not.toEqual({ x: 6, z: 5 });
+    });
+
+    it("returns null when all adjacent tiles are unwalkable", () => {
+      const attacker = { x: 8, z: 5 };
+      // Block all 8 adjacent tiles
+      const blockedTiles = new Set([
+        "6,5",
+        "4,5",
+        "5,6",
+        "5,4", // cardinal
+        "6,6",
+        "6,4",
+        "4,6",
+        "4,4", // diagonal
+      ]);
+      const isWalkable = (tile: TileCoord) =>
+        !blockedTiles.has(`${tile.x},${tile.z}`);
+      const result = getBestAdjacentTile(target, attacker, false, isWalkable);
+      expect(result).toBeNull();
+    });
+
+    it("returns attacker position when already adjacent", () => {
+      const attacker = { x: 6, z: 5 }; // Already adjacent (east of target)
+      const result = getBestAdjacentTile(target, attacker);
+      // Should return attacker position
+      expect(result).toEqual(attacker);
+    });
+
+    it("considers all 8 directions by default unlike cardinal-only mode", () => {
+      const attacker = { x: 8, z: 8 };
+      // Default (cardinalOnly = false) - allows diagonal
+      const result = getBestAdjacentTile(target, attacker, false);
+      // Should be diagonal (6, 6) since it's closest
+      expect(result).toEqual({ x: 6, z: 6 });
+
+      // With cardinalOnly = true - only N/S/E/W
+      const cardinalResult = getBestAdjacentTile(target, attacker, true);
+      // Should pick a cardinal tile
+      const cardinals = [
+        { x: 6, z: 5 },
+        { x: 4, z: 5 },
+        { x: 5, z: 6 },
+        { x: 5, z: 4 },
+      ];
+      expect(cardinals).toContainEqual(cardinalResult);
+    });
+
+    it("cardinalOnly mode restricts to N/S/E/W tiles", () => {
+      const attacker = { x: 6, z: 6 }; // Diagonal from target
+      const result = getBestAdjacentTile(target, attacker, true);
+      // With cardinalOnly, should pick east (6,5) or north (5,6) - both at dist 1
+      const validCardinals = [
+        { x: 6, z: 5 }, // east
+        { x: 5, z: 6 }, // north
+      ];
+      expect(validCardinals).toContainEqual(result);
     });
   });
 });
