@@ -52,6 +52,12 @@ export interface CombatStartedPayload {
   targetId: string;
 }
 
+export interface CombatFollowTargetPayload {
+  playerId: string;
+  targetId: string;
+  targetPosition: { x: number; y: number; z: number };
+}
+
 export interface InventoryItemAddedPayload {
   playerId: string;
   item: InventoryItem;
@@ -676,6 +682,7 @@ export type EventPayloads = {
   [EventType.PLAYER_LEVEL_UP]: PlayerLevelUpPayload;
   [EventType.PLAYER_XP_GAINED]: PlayerXPGainedPayload;
   [EventType.COMBAT_STARTED]: CombatStartedPayload;
+  [EventType.COMBAT_FOLLOW_TARGET]: CombatFollowTargetPayload;
   [EventType.INVENTORY_ITEM_ADDED]: InventoryItemAddedPayload;
   [EventType.NPC_DIED]: NPCDiedPayload;
 };

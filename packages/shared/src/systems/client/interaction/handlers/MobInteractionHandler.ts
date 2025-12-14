@@ -96,18 +96,12 @@ export class MobInteractionHandler extends BaseInteractionHandler {
       return;
     }
 
-    const combatRange = this.getPlayerCombatRange(player);
-
-    this.queueInteraction({
-      target,
-      actionId: "attack",
-      range: combatRange,
-      onExecute: () => {
-        this.send(MESSAGE_TYPES.ATTACK_MOB, {
-          mobId: target.entityId,
-          attackType: "melee",
-        });
-      },
+    // Server-authoritative attack system:
+    // Send attack request immediately - server handles OSRS-style pathfinding
+    // (cardinal-only melee range, path-to-adjacent tile)
+    this.send(MESSAGE_TYPES.ATTACK_MOB, {
+      mobId: target.entityId,
+      attackType: "melee",
     });
   }
 

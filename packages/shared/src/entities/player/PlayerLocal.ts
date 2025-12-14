@@ -369,6 +369,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
     inCombat: false,
     combatTarget: null,
   };
+  // Issue #322: Store last combat-facing rotation to preserve facing direction after combat ends
+  private _lastCombatRotation: THREE.Quaternion | null = null;
   stats?: {
     attack: number;
     strength: number;
@@ -1982,6 +1984,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // When moving, face movement direction (handled by TileInterpolator)
     const isMoving = this.data?.tileMovementActive === true;
 
+    // Issue #322: Clear stored combat rotation when player starts moving
+    // This ensures they face movement direction, not old combat direction
+    if (isMoving && this._lastCombatRotation) {
+      this._lastCombatRotation = null;
+    }
+
     if (combatTarget && !isMoving) {
       // Calculate angle to target (XZ plane only, like RuneScape)
       const dx = combatTarget.position.x - this.position.x;
@@ -1997,7 +2005,21 @@ export class PlayerLocal extends Entity implements HotReloadable {
         const tempQuat = new THREE.Quaternion();
         tempQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
         this.base.quaternion.copy(tempQuat);
+
+        // Issue #322: Store this rotation to preserve facing after combat ends
+        if (!this._lastCombatRotation) {
+          this._lastCombatRotation = new THREE.Quaternion();
+        }
+        this._lastCombatRotation.copy(tempQuat);
       }
+    } else if (
+      !combatTarget &&
+      !isMoving &&
+      this._lastCombatRotation &&
+      this.base
+    ) {
+      // Issue #322: When combat ends but player isn't moving, preserve combat facing direction
+      this.base.quaternion.copy(this._lastCombatRotation);
     }
 
     // Server-authoritative movement: minimal updates only

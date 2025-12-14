@@ -322,15 +322,22 @@ export function hasEquippedWeapon(player: Player): boolean {
 }
 
 /**
- * Get player's weapon attack range in tiles (MVP: melee-only)
- * Returns 1 for all weapons in MVP since we only support melee
+ * Get player's weapon attack range in tiles
+ * Returns weapon's attackRange from manifest, or 1 for unarmed (punching)
+ *
+ * OSRS-style ranges:
+ * - 1 = melee (sword, dagger, mace) or unarmed
+ * - 2 = halberd, spear (extended melee)
+ * - 7+ = ranged weapons (bow, crossbow, magic)
  */
-export function getPlayerWeaponRange(_player: Player): number {
-  return 1; // MVP: All weapons are melee, range = 1 tile
+export function getPlayerWeaponRange(player: Player): number {
+  const weapon = player.equipment?.weapon;
+  if (!weapon) {
+    return 1; // No weapon = unarmed/punching, range 1
+  }
+  // Get attackRange from weapon manifest, default to 1 for melee weapons without explicit range
+  return weapon.attackRange ?? 1;
 }
-
-// MVP: canUseRanged removed - melee only
-// export function canUseRanged(player: Player): boolean { ... }
 
 // Helper functions for common operations
 export function getHealthPercentage(player: Player): number {

@@ -45,11 +45,11 @@ export const Emotes = {
   /** Talking/gesturing animation */
   TALK: "asset://emotes/emote-talk.glb",
 
-  /** Combat/attack animation (punching) */
-  COMBAT: "asset://emotes/emote-punching.glb",
+  /** Combat/attack animation (punching) - plays once per attack, no loop */
+  COMBAT: "asset://emotes/emote-punching.glb?l=0",
 
-  /** Sword swing attack animation (used when sword is equipped) */
-  SWORD_SWING: "asset://emotes/emote_sword_swing.glb",
+  /** Sword swing attack animation (used when sword is equipped) - plays once per attack, no loop */
+  SWORD_SWING: "asset://emotes/emote_sword_swing.glb?l=0",
 
   /** Chopping/woodcutting animation (used when cutting trees) */
   CHOPPING: "asset://emotes/emote_chopping.glb",

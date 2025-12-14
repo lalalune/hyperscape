@@ -26,7 +26,7 @@ import {
   worldToTile,
   tileToWorld,
   tilesEqual,
-  tilesWithinRange,
+  tilesWithinMeleeRange,
   chaseStep,
 } from "@hyperscape/shared";
 import type {
@@ -207,9 +207,10 @@ export class MobTileMovementManager {
 
     // If chasing an entity and already within combat range - stop moving
     // (Only for combat - when returning to spawn, we want the exact tile)
+    // OSRS-accurate: Range 1 = cardinal only (N/S/E/W), range 2+ = diagonal allowed
     if (
       targetEntityId !== null &&
-      tilesWithinRange(state.currentTile, targetTile, combatRange)
+      tilesWithinMeleeRange(state.currentTile, targetTile, combatRange)
     ) {
       if (this.DEBUG_MODE)
         console.log(
@@ -260,8 +261,8 @@ export class MobTileMovementManager {
       chasePath.push(nextTile);
       currentPos = nextTile;
 
-      // Stop if we'll be in combat range after this step
-      if (tilesWithinRange(nextTile, targetTile, combatRange)) break;
+      // Stop if we'll be in combat range after this step (OSRS melee rules)
+      if (tilesWithinMeleeRange(nextTile, targetTile, combatRange)) break;
     }
 
     if (chasePath.length === 0) {
@@ -400,9 +401,14 @@ export class MobTileMovementManager {
 
           // OSRS COMBAT POSITIONING: Check if we're already in combat range
           // If so, we're in attack range - no need to move closer!
+          // OSRS-accurate: Range 1 = cardinal only (N/S/E/W), range 2+ = diagonal allowed
           const combatRange = state.combatRange || 1;
           if (
-            tilesWithinRange(state.currentTile, currentTargetTile, combatRange)
+            tilesWithinMeleeRange(
+              state.currentTile,
+              currentTargetTile,
+              combatRange,
+            )
           ) {
             // Already in combat range - stop moving and clear path
             if (state.path.length > 0 || state.hasDestination) {
@@ -449,8 +455,10 @@ export class MobTileMovementManager {
             chasePath.push(nextTile);
             currentPos = nextTile;
 
-            // Stop early if we'll be in combat range after this step
-            if (tilesWithinRange(nextTile, currentTargetTile, combatRange)) {
+            // Stop early if we'll be in combat range after this step (OSRS melee rules)
+            if (
+              tilesWithinMeleeRange(nextTile, currentTargetTile, combatRange)
+            ) {
               break;
             }
           }

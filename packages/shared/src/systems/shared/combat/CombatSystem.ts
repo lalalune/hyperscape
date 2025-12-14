@@ -28,7 +28,7 @@ import { MobNPCSystem } from "..";
 import { SystemBase } from "..";
 import { Emotes } from "../../../data/playerEmotes";
 import { getItem } from "../../../data/items";
-import { worldToTile, tilesWithinRange } from "../movement/TileSystem";
+import { worldToTile, tilesWithinMeleeRange } from "../movement/TileSystem";
 import { CombatAnimationManager } from "./CombatAnimationManager";
 import { CombatRotationManager } from "./CombatRotationManager";
 import { CombatStateService, CombatData } from "./CombatStateService";
@@ -211,6 +211,33 @@ export class CombatSystem extends SystemBase {
       this.cleanupPlayerDisconnect(data.playerId);
     });
 
+    // Listen for explicit combat stop requests (e.g., player clicking new target)
+    this.subscribe(
+      EventType.COMBAT_STOP_ATTACK,
+      (data: { attackerId: string }) => {
+        if (this.stateService.isInCombat(data.attackerId)) {
+          console.log(
+            "[CombatSystem] Stopping combat for",
+            data.attackerId,
+            "(target switch)",
+          );
+          this.forceEndCombat(data.attackerId);
+        }
+      },
+    );
+
+    // Issue #342: Listen for combat follow events to initiate player movement toward target
+    this.subscribe(
+      EventType.COMBAT_FOLLOW_TARGET,
+      (data: {
+        playerId: string;
+        targetId: string;
+        targetPosition: { x: number; y: number; z: number };
+      }) => {
+        this.handleCombatFollow(data);
+      },
+    );
+
     // Listen for equipment stats updates to use bonuses in damage calculation
     this.subscribe(
       EventType.PLAYER_STATS_EQUIPMENT_UPDATED,
@@ -382,6 +409,12 @@ export class CombatSystem extends SystemBase {
 
   /**
    * Check if attacker is within combat range of target
+   *
+   * OSRS melee rules (from wiki):
+   * - Range 1 (standard melee): Cardinal only (N/S/E/W) - NO diagonal attacks
+   * - Range 2+ (halberd): Allows diagonal attacks
+   *
+   * @see https://oldschool.runescape.wiki/w/Attack_range
    */
   private isWithinCombatRange(
     attacker: Entity | MobEntity,
@@ -398,7 +431,10 @@ export class CombatSystem extends SystemBase {
     const targetTile = worldToTile(targetPos.x, targetPos.z);
     const combatRangeTiles = this.getEntityCombatRange(attacker, attackerType);
 
-    if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
+    // OSRS-accurate melee range check:
+    // - Range 1: Cardinal only (N/S/E/W)
+    // - Range 2+: Allows diagonal (Chebyshev distance)
+    if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
       if (attackerType === "player") {
         const dx = Math.abs(attackerTile.x - targetTile.x);
         const dz = Math.abs(attackerTile.z - targetTile.z);
@@ -461,8 +497,13 @@ export class CombatSystem extends SystemBase {
       targetType,
     );
 
-    // Play attack animation
-    this.animationManager.setCombatEmote(attackerId, attackerType, currentTick);
+    // Play attack animation (Issue #340: pass attack speed for proper animation duration)
+    this.animationManager.setCombatEmote(
+      attackerId,
+      attackerType,
+      currentTick,
+      attackSpeedTicks,
+    );
 
     // Calculate and apply damage
     const rawDamage = this.calculateMeleeDamage(attacker, target);
@@ -501,6 +542,29 @@ export class CombatSystem extends SystemBase {
       attackerType: "mob",
       targetType: "player",
     });
+  }
+
+  /**
+   * Issue #342: Handle combat follow - move player toward target when out of melee range
+   * This allows combat to continue when the target moves instead of timing out
+   *
+   * NOTE: Actual movement is handled by ServerNetwork listening for COMBAT_FOLLOW_TARGET event.
+   * This handler validates that combat is still active before the server initiates movement.
+   */
+  private handleCombatFollow(data: {
+    playerId: string;
+    targetId: string;
+    targetPosition: { x: number; y: number; z: number };
+  }): void {
+    // Verify player is still in combat with this target
+    const combatState = this.stateService
+      .getCombatStatesMap()
+      .get(data.playerId as EntityID);
+    if (!combatState || combatState.targetId !== data.targetId) {
+      return; // Combat ended or target changed, don't follow
+    }
+    // Movement is handled by ServerNetwork's COMBAT_FOLLOW_TARGET listener
+    // which calls TileMovementManager.movePlayerToward()
   }
 
   private calculateMeleeDamage(
@@ -1036,7 +1100,8 @@ export class CombatSystem extends SystemBase {
       attacker,
       opts.attackerType,
     );
-    if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
+    // OSRS-accurate melee range check (cardinal-only for range 1)
+    if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
       return false;
     }
 
@@ -1197,10 +1262,65 @@ export class CombatSystem extends SystemBase {
       // Skip if not in combat or doesn't have valid target
       if (!combatState.inCombat || !combatState.targetId) continue;
 
+      // OSRS-style: Check range EVERY tick and follow if needed (not just on attack ticks)
+      // In OSRS, you continuously pursue your target while in combat
+      if (combatState.attackerType === "player") {
+        this.checkRangeAndFollow(combatState, tickNumber);
+      }
+
       // Check if this entity can attack on this tick
       if (tickNumber >= combatState.nextAttackTick) {
         this.processAutoAttackOnTick(combatState, tickNumber);
       }
+    }
+  }
+
+  /**
+   * OSRS-style: Check if player is in range of target, emit follow event if not
+   * Called EVERY tick to ensure continuous pursuit of moving targets
+   */
+  private checkRangeAndFollow(
+    combatState: CombatData,
+    tickNumber: number,
+  ): void {
+    const attackerId = String(combatState.attackerId);
+    const targetId = String(combatState.targetId);
+
+    const attacker = this.getEntity(attackerId, combatState.attackerType);
+    const target = this.getEntity(targetId, combatState.targetType);
+
+    if (!attacker || !target) return;
+
+    // Don't follow dead targets - let combat timeout naturally
+    // This prevents player getting stuck after killing a mob
+    if (!this.isEntityAlive(target, combatState.targetType)) {
+      return;
+    }
+
+    const attackerPos = getEntityPosition(attacker);
+    const targetPos = getEntityPosition(target);
+    if (!attackerPos || !targetPos) return;
+
+    const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
+    const targetTile = worldToTile(targetPos.x, targetPos.z);
+    const combatRangeTiles = this.getEntityCombatRange(
+      attacker,
+      combatState.attackerType,
+    );
+
+    // OSRS-accurate melee range check (cardinal-only for range 1)
+    if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
+      // Out of range - emit follow event to move player toward target
+      // Extend combat timeout while pursuing
+      combatState.combatEndTick =
+        tickNumber + COMBAT_CONSTANTS.COMBAT_TIMEOUT_TICKS;
+
+      this.emitTypedEvent(EventType.COMBAT_FOLLOW_TARGET, {
+        playerId: attackerId,
+        targetId: targetId,
+        targetPosition: { x: targetPos.x, y: targetPos.y, z: targetPos.z },
+        meleeRange: combatRangeTiles, // Pass range for OSRS-accurate pathfinding
+      });
     }
   }
 
@@ -1242,15 +1362,16 @@ export class CombatSystem extends SystemBase {
     if (!attackerPos || !targetPos) return; // Missing position
 
     // MELEE: Must be within attacker's combat range (configurable per mob, minimum 1 tile)
-    // OSRS-style: most mobs have 1 tile range, halberds have 2 tiles
+    // OSRS-style: range 1 = cardinal only (N/S/E/W), range 2+ = diagonal allowed
     const attackerTile = worldToTile(attackerPos.x, attackerPos.z);
     const targetTile = worldToTile(targetPos.x, targetPos.z);
     const combatRangeTiles = this.getEntityCombatRange(
       attacker,
       combatState.attackerType,
     );
-    if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
-      // Out of melee range - don't end combat, just skip this attack
+    // OSRS-accurate melee range check (cardinal-only for range 1)
+    if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
+      // Out of melee range - skip this attack (follow is handled by checkRangeAndFollow every tick)
       return;
     }
 
@@ -1262,12 +1383,12 @@ export class CombatSystem extends SystemBase {
       combatState.targetType,
     );
 
-    // Play attack animation once (will reset to idle after 2 ticks = 1.2 seconds)
-    // AnimationManager handles scheduling the reset internally
+    // Play attack animation (Issue #340: pass attack speed for proper animation duration)
     this.animationManager.setCombatEmote(
       attackerId,
       combatState.attackerType,
       tickNumber,
+      combatState.attackSpeedTicks,
     );
 
     // MVP: Melee-only damage calculation

@@ -123,16 +123,40 @@ describe("CombatAnimationManager", () => {
       );
     });
 
-    it("schedules emote reset 2 ticks after combat emote", () => {
+    it("schedules emote reset based on attack speed (default 4 ticks)", () => {
       const player = createMockPlayer("player1");
       mockPlayers.set("player1", player);
 
+      // Default attack speed is 4 ticks, reset at Math.max(2, 4-1) = 3 ticks after
       animationManager.setCombatEmote("player1", "player", 100);
 
       const resetTicks = animationManager.getEmoteResetTicks();
       expect(resetTicks.has("player1")).toBe(true);
-      expect(resetTicks.get("player1")?.tick).toBe(102); // currentTick + 2
+      expect(resetTicks.get("player1")?.tick).toBe(103); // currentTick + max(2, 4-1) = 103
       expect(resetTicks.get("player1")?.entityType).toBe("player");
+    });
+
+    it("schedules emote reset with custom attack speed", () => {
+      const player = createMockPlayer("player1");
+      mockPlayers.set("player1", player);
+
+      // With 5-tick attack speed, reset at Math.max(2, 5-1) = 4 ticks after
+      animationManager.setCombatEmote("player1", "player", 100, 5);
+
+      const resetTicks = animationManager.getEmoteResetTicks();
+      expect(resetTicks.has("player1")).toBe(true);
+      expect(resetTicks.get("player1")?.tick).toBe(104); // currentTick + max(2, 5-1) = 104
+    });
+
+    it("enforces minimum 2 tick reset for very fast attacks", () => {
+      const player = createMockPlayer("player1");
+      mockPlayers.set("player1", player);
+
+      // With 2-tick attack speed, reset at Math.max(2, 2-1) = 2 ticks after
+      animationManager.setCombatEmote("player1", "player", 100, 2);
+
+      const resetTicks = animationManager.getEmoteResetTicks();
+      expect(resetTicks.get("player1")?.tick).toBe(102); // Minimum 2 ticks
     });
 
     it("handles missing player gracefully", () => {

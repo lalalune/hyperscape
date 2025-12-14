@@ -59,11 +59,13 @@ export class CombatAnimationManager {
    * @param entityId - Entity to animate
    * @param entityType - Whether entity is player or mob
    * @param currentTick - Current game tick for scheduling reset
+   * @param attackSpeedTicks - Attack speed in ticks (default 4 = 2.4s)
    */
   setCombatEmote(
     entityId: string,
     entityType: "player" | "mob",
     currentTick: number,
+    attackSpeedTicks: number = 4,
   ): void {
     if (entityType === "player") {
       this.setPlayerCombatEmote(entityId);
@@ -71,9 +73,11 @@ export class CombatAnimationManager {
       this.setMobCombatEmote(entityId);
     }
 
-    // Schedule emote reset (2 ticks = 1200ms for animation to complete)
+    // Issue #340: Hold combat pose until 1 tick before next attack
+    // Minimum 2 ticks to ensure animation plays, but scale with attack speed
+    const resetTick = currentTick + Math.max(2, attackSpeedTicks - 1);
     this.emoteResetTicks.set(entityId, {
-      tick: currentTick + 2,
+      tick: resetTick,
       entityType,
     });
   }

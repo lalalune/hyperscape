@@ -65,6 +65,8 @@ export interface QueuedAction {
   queuedAtFrame: number;
   /** Max frames to wait before auto-cancel (default: 600 = ~10 seconds at 60fps) */
   maxWaitFrames: number;
+  /** Last tile we sent a walk request toward (for following moving targets) */
+  lastWalkTargetTile?: { x: number; z: number };
 }
 
 /**
