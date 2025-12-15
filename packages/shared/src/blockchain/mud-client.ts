@@ -259,6 +259,24 @@ export async function setupMudClient(config?: {
       inputs: [{ name: "equipSlot", type: "uint8" }],
       outputs: [],
     },
+    // NFTIntegrationSystem - Bridge between MUD and ERC-1155 NFTs
+    {
+      name: "hyperscape__markItemAsMinted",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [
+        { name: "instanceId", type: "bytes32" },
+        { name: "itemId", type: "uint16" },
+      ],
+      outputs: [],
+    },
+    {
+      name: "hyperscape__recordGoldClaim",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [{ name: "amount", type: "uint256" }],
+      outputs: [],
+    },
   ] as const;
 
   // Helper to get IWorld ABI
@@ -522,6 +540,40 @@ export async function setupMudClient(config?: {
     SkillSystem: {
       // Skills are updated automatically via combat/gathering events
       // No direct calls needed - read-only from MUD indexer
+    },
+
+    /**
+     * NFTIntegrationSystem - Bridge between MUD and ERC-1155 NFTs
+     * Tracks which items have been minted as NFTs and gold claims
+     */
+    NFTIntegrationSystem: {
+      /**
+       * Mark an item as minted to ERC-1155 NFT
+       * Called after Items.ItemMinted event fires
+       * Updates MUD state to reflect NFT minting
+       */
+      markItemAsMinted: async (instanceId: Hex, itemId: number) => {
+        const abi = getSystemAbi("NFTIntegrationSystem");
+        return sendTransaction(
+          "hyperscape__markItemAsMinted",
+          [instanceId, itemId],
+          abi,
+        );
+      },
+
+      /**
+       * Record a Gold claim in MUD
+       * Called after Gold.GoldClaimed event fires
+       * Updates MUD Coins table to mark amount as claimed
+       */
+      recordGoldClaim: async (amount: bigint) => {
+        const abi = getSystemAbi("NFTIntegrationSystem");
+        return sendTransaction(
+          "hyperscape__recordGoldClaim",
+          [amount],
+          abi,
+        );
+      },
     },
 
     /**

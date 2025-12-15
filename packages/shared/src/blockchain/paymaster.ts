@@ -16,9 +16,6 @@ import {
   parseAbi,
   encodePacked,
   type Address,
-  type PublicClient,
-  type Transport,
-  type Chain,
 } from "viem";
 import { getChain, getOptionalAddress, type JejuNetwork } from "./chain";
 
@@ -68,15 +65,25 @@ const DEFAULT_POST_OP_GAS = BigInt(50000);
 
 // ============ Client ============
 
-let publicClient: PublicClient<Transport, Chain> | null = null;
+// Simple client interface to avoid viem 2.x deep type instantiation
+interface SimplePublicClient {
+  readContract(params: {
+    address: Address;
+    abi: readonly { name: string; type: string; inputs?: readonly { type: string; name: string }[]; outputs?: readonly { type: string }[]; stateMutability?: string }[];
+    functionName: string;
+    args?: readonly (bigint | string | Address)[];
+  }): Promise<unknown>;
+}
 
-function getClient(network?: JejuNetwork): PublicClient<Transport, Chain> {
+let publicClient: SimplePublicClient | null = null;
+
+function getClient(network?: JejuNetwork): SimplePublicClient {
   if (!publicClient) {
     const chain = getChain(network);
     publicClient = createPublicClient({
       chain,
       transport: http(),
-    });
+    }) as SimplePublicClient;
   }
   return publicClient;
 }
@@ -102,6 +109,7 @@ export async function getAvailablePaymasters(
   const client = getClient();
   const factoryAddress = getPaymasterFactoryAddress();
 
+  
   const paymasters = (await client.readContract({
     address: factoryAddress,
     abi: PAYMASTER_FACTORY_ABI,
@@ -110,26 +118,30 @@ export async function getAvailablePaymasters(
 
   const paymasterDetails = await Promise.all(
     paymasters.map(async (paymasterAddr): Promise<PaymasterInfo | null> => {
+      
+      const tokenPromise = client.readContract({
+        address: paymasterAddr,
+        abi: LIQUIDITY_PAYMASTER_ABI,
+        functionName: "token",
+      }) as Promise<Address>;
+      
+      const stakePromise = client.readContract({
+        address: factoryAddress,
+        abi: PAYMASTER_FACTORY_ABI,
+        functionName: "paymasterStake",
+        args: [paymasterAddr],
+      }) as Promise<bigint>;
+      
+      const activePromise = client.readContract({
+        address: factoryAddress,
+        abi: PAYMASTER_FACTORY_ABI,
+        functionName: "isPaymasterActive",
+        args: [paymasterAddr],
+      }).catch(() => true) as Promise<boolean>;
       const [token, stake, active] = await Promise.all([
-        client.readContract({
-          address: paymasterAddr,
-          abi: LIQUIDITY_PAYMASTER_ABI,
-          functionName: "token",
-        }) as Promise<Address>,
-        client.readContract({
-          address: factoryAddress,
-          abi: PAYMASTER_FACTORY_ABI,
-          functionName: "paymasterStake",
-          args: [paymasterAddr],
-        }) as Promise<bigint>,
-        client
-          .readContract({
-            address: factoryAddress,
-            abi: PAYMASTER_FACTORY_ABI,
-            functionName: "isPaymasterActive",
-            args: [paymasterAddr],
-          })
-          .catch(() => true) as Promise<boolean>,
+        tokenPromise,
+        stakePromise,
+        activePromise,
       ]);
 
       if (stake < minStake || !active) {
@@ -157,6 +169,7 @@ export async function getPaymasterForToken(
   const client = getClient();
   const factoryAddress = getPaymasterFactoryAddress();
 
+  
   const paymaster = (await client.readContract({
     address: factoryAddress,
     abi: PAYMASTER_FACTORY_ABI,
@@ -168,22 +181,21 @@ export async function getPaymasterForToken(
     return null;
   }
 
-  const [stake, active] = await Promise.all([
-    client.readContract({
-      address: factoryAddress,
-      abi: PAYMASTER_FACTORY_ABI,
-      functionName: "paymasterStake",
-      args: [paymaster],
-    }) as Promise<bigint>,
-    client
-      .readContract({
-        address: factoryAddress,
-        abi: PAYMASTER_FACTORY_ABI,
-        functionName: "isPaymasterActive",
-        args: [paymaster],
-      })
-      .catch(() => true) as Promise<boolean>,
-  ]);
+  
+  const stakePromise = client.readContract({
+    address: factoryAddress,
+    abi: PAYMASTER_FACTORY_ABI,
+    functionName: "paymasterStake",
+    args: [paymaster],
+  }) as Promise<bigint>;
+  
+  const activePromise = client.readContract({
+    address: factoryAddress,
+    abi: PAYMASTER_FACTORY_ABI,
+    functionName: "isPaymasterActive",
+    args: [paymaster],
+  }).catch(() => true) as Promise<boolean>;
+  const [stake, active] = await Promise.all([stakePromise, activePromise]);
 
   if (stake < MIN_STAKE_THRESHOLD || !active) {
     return null;
@@ -218,6 +230,7 @@ export async function findBestPaymaster(
         (pm) => pm.token.toLowerCase() === token.toLowerCase(),
       );
       if (match) {
+        
         const balance = (await client.readContract({
           address: match.address,
           abi: LIQUIDITY_PAYMASTER_ABI,
@@ -234,14 +247,14 @@ export async function findBestPaymaster(
 
   // Otherwise find any paymaster where user has balance
   for (const pm of available) {
-    const balance = (await client
-      .readContract({
-        address: pm.address,
-        abi: LIQUIDITY_PAYMASTER_ABI,
-        functionName: "getTokenBalance",
-        args: [userAddress],
-      })
-      .catch(() => BigInt(0))) as bigint;
+    
+    const balanceResult = client.readContract({
+      address: pm.address,
+      abi: LIQUIDITY_PAYMASTER_ABI,
+      functionName: "getTokenBalance",
+      args: [userAddress],
+    });
+    const balance = (await balanceResult.catch(() => BigInt(0))) as bigint;
 
     if (balance > 0) {
       return pm;
@@ -262,19 +275,20 @@ export async function estimateGasCost(
 ): Promise<GasEstimate> {
   const client = getClient();
 
-  const [tokenCost, token] = await Promise.all([
-    client.readContract({
-      address: paymasterAddress,
-      abi: LIQUIDITY_PAYMASTER_ABI,
-      functionName: "estimateGasCost",
-      args: [gasLimit],
-    }) as Promise<bigint>,
-    client.readContract({
-      address: paymasterAddress,
-      abi: LIQUIDITY_PAYMASTER_ABI,
-      functionName: "token",
-    }) as Promise<Address>,
-  ]);
+  
+  const tokenCostPromise = client.readContract({
+    address: paymasterAddress,
+    abi: LIQUIDITY_PAYMASTER_ABI,
+    functionName: "estimateGasCost",
+    args: [gasLimit],
+  }) as Promise<bigint>;
+  
+  const tokenPromise = client.readContract({
+    address: paymasterAddress,
+    abi: LIQUIDITY_PAYMASTER_ABI,
+    functionName: "token",
+  }) as Promise<Address>;
+  const [tokenCost, token] = await Promise.all([tokenCostPromise, tokenPromise]);
 
   return {
     gasLimit,
@@ -339,6 +353,7 @@ export async function getPaymasterVersion(
 ): Promise<string> {
   const client = getClient();
 
+  
   const version = await client.readContract({
     address: paymasterAddress,
     abi: LIQUIDITY_PAYMASTER_ABI,

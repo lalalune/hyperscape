@@ -16,7 +16,7 @@
  */
 
 // Server-specific services
-export { BanCheckService } from "./BanCheckService";
+export { banCheckService } from "./BanCheckService";
 export { GoldClaimingService } from "./GoldClaimingService";
 export { ItemMintingService } from "./ItemMintingService";
 export { NFTDropSystem, NFTDropIntegration } from "./NFTDropSystem";

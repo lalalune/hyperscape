@@ -98,7 +98,7 @@ export class CoinPouchSystem extends SystemBase {
       },
     );
 
-    this.subscribe(EventType.INVENTORY_REMOVE_COINS, (data) => {
+    this.subscribe<{ playerId: string; amount: number }>(EventType.INVENTORY_REMOVE_COINS, (data) => {
       this.removeCoins(data.playerId, data.amount);
     });
 

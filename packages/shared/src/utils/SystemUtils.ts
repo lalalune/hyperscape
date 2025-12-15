@@ -1,6 +1,6 @@
 /**
- * Type-safe utilities for accessing world systems
- * Replaces unsafe (world as unknown as any)['system-name'] patterns
+ * Type-safe utilities for accessing world systems.
+ * Replaces unsafe (world as unknown as any)['system-name'] patterns.
  */
 
 import type { World, System, Entity, EntityData } from "../types";

@@ -7,14 +7,20 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { World } from "@hyperscape/shared";
-import type { Address } from "viem";
+import type { Address, Hex } from "viem";
 import {
   verifyServicePayment,
   getPaymentRequirements,
   type ServiceName,
 } from "../../services/x402";
 import { getGameSigner } from "../../blockchain/GameSigner";
-import { isBlockchainConfigured } from "@hyperscape/shared/blockchain";
+import {
+  isBlockchainConfigured,
+  getGoldBalance,
+  getGoldClaimNonce,
+  checkItemInstance,
+} from "@hyperscape/shared/blockchain";
+import type { DatabaseSystem } from "../../systems/DatabaseSystem";
 
 // Extend FastifyRequest to include user
 interface AuthenticatedRequest extends FastifyRequest {
@@ -26,7 +32,7 @@ interface AuthenticatedRequest extends FastifyRequest {
  */
 export function registerBlockchainRoutes(
   fastify: FastifyInstance,
-  _world: World,
+  world: World,
 ): void {
   console.log("[API] Registering blockchain routes...");
 
@@ -35,6 +41,11 @@ export function registerBlockchainRoutes(
   if (!blockchainEnabled) {
     console.log("[API] ⚠️ Blockchain not configured - routes will return 503");
   }
+
+  // Get database system for inventory queries
+  const getDatabaseSystem = (): DatabaseSystem | null => {
+    return world.getSystem("database") as DatabaseSystem | null;
+  };
 
   // Get recipient address from env
   const recipientAddress = (process.env.GAME_TREASURY_ADDRESS ||
@@ -143,8 +154,30 @@ export function registerBlockchainRoutes(
         return reply.status(400).send({ error: "Invalid itemId" });
       }
 
-      // TODO: Verify player owns item in MUD inventory via world.getPlayerInventory
-      const amount = 1;
+      // Verify player owns item in inventory
+      const dbSystem = getDatabaseSystem();
+      if (!dbSystem) {
+        return reply
+          .status(503)
+          .send({ error: "Database system not available" });
+      }
+
+      const inventory = await dbSystem.getPlayerInventoryAsync(playerAddress);
+      const itemInSlot = inventory.find((item) => item.slotIndex === slot);
+
+      if (!itemInSlot) {
+        return reply.status(400).send({ error: "No item in specified slot" });
+      }
+
+      // Item IDs in inventory are strings, need to match
+      const itemIdFromInventory = parseInt(itemInSlot.itemId, 10);
+      if (isNaN(itemIdFromInventory) || itemIdFromInventory !== itemId) {
+        return reply
+          .status(400)
+          .send({ error: "Item ID mismatch - item not found in slot" });
+      }
+
+      const amount = itemInSlot.quantity || 1;
 
       const gameSigner = getGameSigner();
       const instanceId = gameSigner.calculateInstanceId(
@@ -211,17 +244,35 @@ export function registerBlockchainRoutes(
         return reply.status(401).send({ error: "Unauthorized" });
       }
 
-      // TODO: Query MUD Coins table for real unclaimed amount
-      const mockUnclaimedAmount = 1000n;
+      // Query player's coin pouch from database
+      const dbSystem = getDatabaseSystem();
+      if (!dbSystem) {
+        return reply
+          .status(503)
+          .send({ error: "Database system not available" });
+      }
 
-      if (mockUnclaimedAmount <= 0n) {
+      // Get player's coins from characters table
+      const playerData = await dbSystem.getPlayerAsync(playerAddress);
+      const dbCoins = BigInt(playerData?.coins ?? 0);
+
+      // Get already-claimed amount from blockchain nonce
+      // Each claim increments nonce, so nonce * avg_claim = total claimed
+      // For simplicity, we track unclaimed in DB - claimed on-chain = claimable
+      const _onChainNonce = await getGoldClaimNonce(playerAddress);
+
+      // The unclaimed amount is what's in DB minus what's been claimed on-chain
+      // For now, treat DB coins as the claimable amount (they represent unclaimed gold)
+      const unclaimedAmount = dbCoins;
+
+      if (unclaimedAmount <= 0n) {
         return reply.status(400).send({ error: "No unclaimed Gold" });
       }
 
       const gameSigner = getGameSigner();
       const signatureData = await gameSigner.signGoldClaim({
         playerAddress,
-        amount: mockUnclaimedAmount,
+        amount: unclaimedAmount,
       });
 
       return reply.send({
@@ -246,11 +297,17 @@ export function registerBlockchainRoutes(
         return reply.status(400).send({ error: "Invalid instanceId" });
       }
 
-      // TODO: Query Items.sol checkInstance
+      if (!blockchainEnabled) {
+        return reply.status(503).send({ error: "Blockchain not configured" });
+      }
+
+      // Query Items.sol checkInstance
+      const result = await checkItemInstance(instanceId as Hex);
+
       return reply.send({
         instanceId,
-        isMinted: false,
-        originalMinter: null,
+        isMinted: result.minted,
+        originalMinter: result.originalMinter,
       });
     },
   );
@@ -272,11 +329,14 @@ export function registerBlockchainRoutes(
         return reply.status(503).send({ error: "Blockchain not configured" });
       }
 
-      // TODO: Query Gold.sol balanceOf
+      // Query Gold.sol balanceOf
+      const balance = await getGoldBalance(address as Address);
+      const formatted = `${(Number(balance) / 1e18).toLocaleString()} GOLD`;
+
       return reply.send({
         address,
-        balance: "0",
-        formatted: "0 GOLD",
+        balance: balance.toString(),
+        formatted,
       });
     },
   );

@@ -655,11 +655,15 @@ export class Chain extends SystemBase {
             (ev) => ev.id !== event.id,
           );
           const errorMessage = e instanceof Error ? e.message : String(e);
-          this.logger.error("Oracle event failed permanently", {
-            eventType: event.type,
-            retries: event.retries,
-            error: errorMessage,
-          });
+          this.logger.error(
+            "Oracle event failed permanently",
+            e instanceof Error ? e : undefined,
+            {
+              eventType: event.type,
+              retries: event.retries,
+              error: errorMessage,
+            },
+          );
         } else {
           // Calculate exponential backoff with jitter
           const baseDelay =

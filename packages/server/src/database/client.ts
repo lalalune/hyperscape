@@ -110,9 +110,8 @@ export async function initializeDatabase(connectionString: string) {
   }
 
   // Create Drizzle instance
-  const db = drizzle(pool as unknown as Parameters<typeof drizzle>[0], {
-    schema,
-  });
+  // @ts-expect-error Drizzle's type narrowing doesn't handle pool instance correctly
+  const db = drizzle(pool, { schema });
 
   // Run migrations
   try {

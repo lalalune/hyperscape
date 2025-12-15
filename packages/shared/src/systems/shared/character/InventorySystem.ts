@@ -67,10 +67,10 @@ export class InventorySystem extends SystemBase {
         }
       },
     );
-    this.subscribe(EventType.PLAYER_CLEANUP, (data) => {
+    this.subscribe<{ playerId: string }>(EventType.PLAYER_CLEANUP, (data) => {
       this.cleanupInventory({ id: data.playerId });
     });
-    this.subscribe(EventType.INVENTORY_ITEM_REMOVED, (data) => {
+    this.subscribe<{ playerId: string; itemId: string; quantity: number; slot?: number }>(EventType.INVENTORY_ITEM_REMOVED, (data) => {
       this.removeItem(data);
     });
     // Handle remove item requests (e.g., from store sell)
@@ -80,13 +80,13 @@ export class InventorySystem extends SystemBase {
         this.removeItem(data);
       },
     );
-    this.subscribe(EventType.ITEM_DROP, (data) => {
+    this.subscribe<{ playerId: string; itemId: string; quantity: number; slot?: number }>(EventType.ITEM_DROP, (data) => {
       this.dropItem(data);
     });
-    this.subscribe(EventType.INVENTORY_USE, (data) => {
+    this.subscribe<{ playerId: string; itemId: string; slot: number }>(EventType.INVENTORY_USE, (data) => {
       this.useItem(data);
     });
-    this.subscribe(EventType.ITEM_PICKUP, (data) => {
+    this.subscribe<{ playerId: string; entityId: string; itemId: string }>(EventType.ITEM_PICKUP, (data) => {
       this.pickupItem({
         playerId: data.playerId,
         entityId: data.entityId,
@@ -94,19 +94,19 @@ export class InventorySystem extends SystemBase {
       });
     });
     // NOTE: Coin events now handled by CoinPouchSystem
-    this.subscribe(EventType.INVENTORY_MOVE, (data) => {
+    this.subscribe<{ playerId: string; fromSlot?: number; toSlot?: number; sourceSlot?: number; targetSlot?: number }>(EventType.INVENTORY_MOVE, (data) => {
       this.moveItem(data);
     });
-    this.subscribe(EventType.INVENTORY_DROP_ALL, (data) => {
+    this.subscribe<{ playerId: string; position?: { x: number; y: number; z: number } }>(EventType.INVENTORY_DROP_ALL, (data) => {
       this.dropAllItems({ playerId: data.playerId, position: data.position });
     });
 
     // Subscribe to store system events
-    this.subscribe(EventType.INVENTORY_CAN_ADD, (data) => {
+    this.subscribe<InventoryCanAddEvent>(EventType.INVENTORY_CAN_ADD, (data) => {
       this.handleCanAdd(data);
     });
     // NOTE: INVENTORY_REMOVE_COINS and INVENTORY_ADD_COINS now handled by CoinPouchSystem
-    this.subscribe(EventType.INVENTORY_ITEM_ADDED, (data) => {
+    this.subscribe<InventoryItemAddedPayload>(EventType.INVENTORY_ITEM_ADDED, (data) => {
       this.handleInventoryAdd(data);
     });
 

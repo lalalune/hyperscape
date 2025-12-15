@@ -212,6 +212,78 @@ export function tilesCardinallyAdjacent(a: TileCoord, b: TileCoord): boolean {
 }
 
 /**
+ * Check if two tiles are within melee range with OSRS-style rules.
+ * - Range 1: Cardinal only (N/S/E/W) - standard melee
+ * - Range 2+: Allows diagonal (Chebyshev distance) - halberds, salamanders
+ *
+ * OSRS Reference: Standard melee is cardinal-adjacent only.
+ * Extended melee (halberds) can hit at Chebyshev distance 2 including diagonals.
+ *
+ * @param a - First tile (attacker)
+ * @param b - Second tile (target)
+ * @param meleeRange - Melee range in tiles (1 = standard, 2 = halberd)
+ * @returns true if tiles are within melee range
+ */
+export function tilesWithinMeleeRange(
+  a: TileCoord,
+  b: TileCoord,
+  meleeRange: number = 1,
+): boolean {
+  const dx = Math.abs(a.x - b.x);
+  const dz = Math.abs(a.z - b.z);
+  const chebyshevDistance = Math.max(dx, dz);
+
+  // Cannot attack from same tile
+  if (chebyshevDistance === 0) {
+    return false;
+  }
+
+  const effectiveRange = Math.max(1, Math.floor(meleeRange));
+
+  if (effectiveRange === 1) {
+    // Standard melee: cardinal only (N/S/E/W)
+    return tilesCardinallyAdjacent(a, b);
+  }
+
+  // Extended melee (halberd): Chebyshev distance up to range
+  return chebyshevDistance <= effectiveRange;
+}
+
+/**
+ * Get the best tile to stand on for melee combat.
+ * OSRS-style melee combat positioning:
+ * - Range 1 (standard melee): Cardinal-adjacent only (N/S/E/W)
+ * - Range 2+ (halberd/extended): Any tile within Chebyshev distance
+ *
+ * @param target - The tile the target is standing on
+ * @param attacker - The tile the attacker is currently on
+ * @param meleeRange - Melee range in tiles (1 = standard, 2 = halberd)
+ * @param isWalkable - Optional function to check if a tile is walkable
+ * @returns The best tile to stand on for melee, or null if none available
+ */
+export function getBestMeleeTile(
+  target: TileCoord,
+  attacker: TileCoord,
+  meleeRange: number = 1,
+  isWalkable?: (tile: TileCoord) => boolean,
+): TileCoord | null {
+  const effectiveRange = Math.max(1, Math.floor(meleeRange));
+
+  // If already in melee range, stay where we are
+  if (tilesWithinMeleeRange(attacker, target, effectiveRange)) {
+    return attacker;
+  }
+
+  // For range 1: only cardinal tiles (N/S/E/W)
+  if (effectiveRange === 1) {
+    return getBestAdjacentTile(target, attacker, true, isWalkable);
+  }
+
+  // For range 2+: use combat range tile (allows diagonal)
+  return getBestCombatRangeTile(target, attacker, effectiveRange, isWalkable);
+}
+
+/**
  * Get the best adjacent tile to stand on when attacking a target.
  * Returns the adjacent tile to `target` that is closest to `attacker`.
  * This is used for melee combat positioning - stand next to target, not on it.

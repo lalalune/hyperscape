@@ -201,8 +201,7 @@ export interface DefaultDropConfig {
   enabled: boolean; // Flag to disable default drop if needed
 }
 
-// ============== NPC DATA STRUCTURE ==============
-
+// ============== NPC DATA STRUCTURE =======
 /**
  * NPCDataInput - Used for JSON input where most fields are optional
  * DataManager.normalizeNPC() converts this to full NPCData with all defaults filled in

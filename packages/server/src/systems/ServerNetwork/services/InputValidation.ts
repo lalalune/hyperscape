@@ -82,6 +82,45 @@ export function isValidBankSlot(value: unknown): value is number {
 }
 
 /**
+ * Validate bank move mode - must be 'swap' or 'insert'
+ * OSRS-style bank supports two move modes:
+ * - 'swap': Exchange positions of two items
+ * - 'insert': Insert item at position, shifting others
+ */
+export function isValidBankMoveMode(
+  value: unknown,
+): value is "swap" | "insert" {
+  return value === "swap" || value === "insert";
+}
+
+/**
+ * Validate bank tab index (0-9)
+ * - 0 = Main tab (all items)
+ * - 1-9 = Custom tabs
+ */
+export function isValidBankTabIndex(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= 9
+  );
+}
+
+/**
+ * Validate custom bank tab index (1-9)
+ * Custom tabs only - excludes main tab (0)
+ */
+export function isValidCustomBankTabIndex(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= 9
+  );
+}
+
+/**
  * Validate npcId - must be non-empty string within length limits
  * Uses same limits as itemId since NPC IDs follow similar patterns
  */

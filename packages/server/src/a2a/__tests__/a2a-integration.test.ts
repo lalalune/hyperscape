@@ -29,8 +29,8 @@ describe.skipIf(!canRunIntegrationTests)(
       // Create real game world
       world = await createServerWorld();
       await world.init({
-        db: null as unknown as import("@hyperscape/shared").Database,
-        storage: null as unknown as import("@hyperscape/shared").Storage,
+        db: null as unknown as import("@hyperscape/shared").SystemDatabase,
+        storage: null,
         assetsUrl: "http://localhost:8080/",
         assetsDir: undefined,
       });

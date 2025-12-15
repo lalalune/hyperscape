@@ -29,10 +29,15 @@ import {
 } from "./world-areas";
 import { BIOMES } from "./world-structure";
 
-// Define constants from JSON data
-const STARTING_ITEMS: Array<{ id: string }> = []; // Stub - data removed
-const TREASURE_LOCATIONS: TreasureLocation[] = []; // Stub - data removed
+// ============ Deprecated Features ============
+// Starting items and treasure locations have been removed from the game.
+// These stubs remain for API compatibility but return empty arrays.
+// TODO: Remove these deprecated methods in next major version.
+const STARTING_ITEMS: Array<{ id: string }> = [];
+const TREASURE_LOCATIONS: TreasureLocation[] = [];
+/** @deprecated Treasure locations feature removed */
 const getAllTreasureLocations = () => TREASURE_LOCATIONS;
+/** @deprecated Treasure locations feature removed */
 const getTreasureLocationsByDifficulty = (_difficulty: number) =>
   TREASURE_LOCATIONS;
 
@@ -402,11 +407,8 @@ export class DataManager {
       errors.push("No world areas found in ALL_WORLD_AREAS");
     }
 
-    // Validate treasure locations
+    // Treasure locations feature deprecated - count for summary only
     const treasureCount = Object.keys(TREASURE_LOCATIONS).length;
-    if (treasureCount === 0) {
-      warnings.push("No treasure locations found in TREASURE_LOCATIONS");
-    }
 
     // Validate cross-references (only if we have data)
     if (itemCount > 0 && npcCount > 0) {

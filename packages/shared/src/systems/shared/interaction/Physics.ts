@@ -1211,16 +1211,12 @@ export class Physics extends SystemBase implements IPhysics {
     }
 
     // Try to use enhanced Vector3 methods first
-    type Vector3WithPxVec3 = THREE.Vector3 & {
-      toPxVec3?: (v?: PxVec3) => PxVec3;
-    };
-
+    // THREE.Vector3 is extended with toPxVec3 in three-extensions.d.ts
     let pxOrigin: PxVec3 | null =
-      (origin as Vector3WithPxVec3).toPxVec3?.(this._pv1 || undefined) || null;
+      origin.toPxVec3?.(this._pv1 || undefined) || null;
 
     let pxDirection: PxVec3 | null =
-      (dirNormalized as Vector3WithPxVec3).toPxVec3?.(this._pv2 || undefined) ||
-      null;
+      dirNormalized.toPxVec3?.(this._pv2 || undefined) || null;
 
     // If the enhanced method didn't work, create PxVec3 manually
     if (!pxOrigin) {
@@ -1452,8 +1448,10 @@ export class Physics extends SystemBase implements IPhysics {
     layerMask: number = 0xffffffff,
   ): OverlapHit[] {
     // Use the enhanced Vector3 method if available, otherwise set position manually
-    if (origin.toPxVec3 && this.overlapPose.p) {
-      origin.toPxVec3(this.overlapPose.p);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((origin as any).toPxVec3 && this.overlapPose.p) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (origin as any).toPxVec3(this.overlapPose.p);
     } else if (this.overlapPose.p) {
       this.overlapPose.p.x = origin.x;
       this.overlapPose.p.y = origin.y;

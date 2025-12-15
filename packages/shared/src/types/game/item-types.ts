@@ -165,6 +165,12 @@ export interface Item {
     level: number;
     skills: Partial<Record<keyof Skills, number>>;
   };
+
+  // Note system properties - for bank note variants
+  isNoted?: boolean; // True if this is a noted variant
+  notedItemId?: string; // Reference to noted variant of this item
+  noteable?: boolean; // Whether this item can be noted
+  baseItemId?: string; // For noted items, reference to original item
 }
 
 export interface EquipmentSlot {

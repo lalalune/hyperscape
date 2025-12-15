@@ -1,5 +1,6 @@
 import { type Address, type Hex, encodePacked, keccak256 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import type { MudClient } from "@hyperscape/shared/blockchain/mud-client";
 
 /**
  * ItemMintingService
@@ -10,10 +11,16 @@ import { privateKeyToAccount } from "viem/accounts";
 export class ItemMintingService {
   private gameSignerKey: Hex;
   private itemsContractAddress: Address;
+  private mudClient?: MudClient;
 
-  constructor(gameSignerKey: Hex, itemsContractAddress: Address) {
+  constructor(
+    gameSignerKey: Hex,
+    itemsContractAddress: Address,
+    mudClient?: MudClient,
+  ) {
     this.gameSignerKey = gameSignerKey;
     this.itemsContractAddress = itemsContractAddress;
+    this.mudClient = mudClient;
   }
 
   /**
@@ -81,6 +88,7 @@ export class ItemMintingService {
    * Sync minted item status to MUD after ItemMinted event
    *
    * Called by event listener when Items.ItemMinted fires.
+   * Updates MUD's NFTIntegrationSystem to mark the item as minted.
    */
   async syncMintedItem(event: {
     minter: Address;
@@ -88,8 +96,6 @@ export class ItemMintingService {
     instanceId: Hex;
     amount: bigint;
   }): Promise<void> {
-    // This should call MUD World's NFTIntegrationSystem.markItemAsMinted
-    // Implementation depends on MUD client setup
     console.log("[ItemMinting] Syncing minted item:", {
       minter: event.minter,
       itemId: event.itemId,
@@ -97,7 +103,37 @@ export class ItemMintingService {
       amount: event.amount,
     });
 
-    // TODO: Call MUD transaction
-    // await mudWorld.write.hyperscape__markItemAsMinted([event.instanceId, event.itemId]);
+    if (!this.mudClient) {
+      console.warn(
+        "[ItemMinting] MUD client not available - skipping sync to MUD",
+      );
+      return;
+    }
+
+    try {
+      // Call MUD NFTIntegrationSystem.markItemAsMinted
+      // This updates the on-chain state to reflect that the item has been minted as an NFT
+      if (
+        this.mudClient.NFTIntegrationSystem?.markItemAsMinted
+      ) {
+        await this.mudClient.NFTIntegrationSystem.markItemAsMinted(
+          event.instanceId,
+          Number(event.itemId),
+        );
+        console.log(
+          `[ItemMinting] ✅ Successfully synced minted item ${event.itemId} to MUD`,
+        );
+      } else {
+        console.warn(
+          `[ItemMinting] NFTIntegrationSystem not available in MUD World - item ${event.itemId} minted but not synced`,
+        );
+        console.log(
+          `[ItemMinting] Instance ID: ${event.instanceId}, Minter: ${event.minter}, Amount: ${event.amount}`,
+        );
+      }
+    } catch (err) {
+      console.error("[ItemMinting] Failed to sync minted item to MUD:", err);
+      // Don't throw - this is a sync operation, failure shouldn't break the flow
+    }
   }
 }

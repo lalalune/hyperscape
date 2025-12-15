@@ -1139,7 +1139,7 @@ export class MobEntity extends CombatantEntity {
       // State management
       markNetworkDirty: () => this.markNetworkDirty(),
       emitEvent: (eventType, data) => {
-        this.world.emit(eventType as EventType, data);
+        this.world.emit(eventType as EventType, data as Record<string, unknown>);
       },
     };
   }

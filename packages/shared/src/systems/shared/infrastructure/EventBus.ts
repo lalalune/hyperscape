@@ -44,7 +44,6 @@ export class EventBus extends EventEmitter {
       data,
       source,
       timestamp: Date.now(),
-      id: `${source}-${type}-${++this.subscriptionCounter}`,
     };
 
     // Ring buffer for O(1) history insertion
@@ -80,26 +79,24 @@ export class EventBus extends EventEmitter {
       event: SystemEvent<AnyEvent | EventPayloads[keyof EventPayloads]>,
     ) => {
       if (!active) return;
-      handler(event);
+      handler(event.data);
       if (once) subscription.unsubscribe();
     };
 
     // Register the handler
+    const eventType = type as string | symbol;
     if (once) {
-      this.once(type, wrappedHandler);
+      this.once(eventType, wrappedHandler);
     } else {
-      this.on(type, wrappedHandler);
+      this.on(eventType, wrappedHandler);
     }
 
     const subscription: EventSubscription = {
       unsubscribe: () => {
         if (!active) return;
         active = false;
-        this.off(type, wrappedHandler);
+        this.off(eventType, wrappedHandler);
         this.activeSubscriptions.delete(subscriptionId);
-      },
-      get active() {
-        return active;
       },
     };
 
@@ -154,9 +151,9 @@ export class EventBus extends EventEmitter {
 
       const subscription = this.subscribeOnce<TResponse>(
         responseType,
-        (event) => {
+        (data) => {
           clearTimeout(timeoutHandle);
-          resolve(event.data);
+          resolve(data as TResponse);
         },
       );
 

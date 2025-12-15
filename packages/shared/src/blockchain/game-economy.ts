@@ -16,10 +16,6 @@ import {
   keccak256,
   encodePacked,
   type Address,
-  type PublicClient,
-  type WalletClient,
-  type Transport,
-  type Chain,
 } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { getChain, getOptionalAddress, type JejuNetwork } from "./chain";
@@ -100,35 +96,44 @@ export interface GameSignerConfig {
 
 // ============ Client Management ============
 
-let publicClient: PublicClient<Transport, Chain> | null = null;
-let walletClient: WalletClient<Transport, Chain, PrivateKeyAccount> | null =
-  null;
+// Simple client interfaces to avoid viem 2.x deep type instantiation
+interface SimplePublicClient {
+  readContract(params: Record<string, unknown>): Promise<unknown>;
+  waitForTransactionReceipt(params: { hash: `0x${string}` }): Promise<{
+    status: "success" | "reverted";
+    logs: readonly { topics?: readonly string[] }[];
+    blockNumber: bigint;
+  }>;
+  watchContractEvent(params: Record<string, unknown>): () => void;
+}
+
+interface SimpleWalletClient {
+  writeContract(params: Record<string, unknown>): Promise<`0x${string}`>;
+}
+
+let publicClient: SimplePublicClient | null = null;
+let walletClient: SimpleWalletClient | null = null;
 let signerAccount: PrivateKeyAccount | null = null;
 
-function getClient(
-  network?: JejuNetwork,
-): PublicClient<Transport, Chain> {
+function getClient(network?: JejuNetwork): SimplePublicClient {
   if (!publicClient) {
     const chain = getChain(network);
     publicClient = createPublicClient({
       chain,
       transport: http(),
-    });
+    }) as SimplePublicClient;
   }
   return publicClient;
 }
 
-function getWalletClient(
-  privateKey: `0x${string}`,
-  network?: JejuNetwork,
-): WalletClient<Transport, Chain, PrivateKeyAccount> {
+function getWalletClient(privateKey: `0x${string}`, network?: JejuNetwork): SimpleWalletClient {
   const chain = getChain(network);
   signerAccount = privateKeyToAccount(privateKey);
   walletClient = createWalletClient({
     account: signerAccount,
     chain,
     transport: http(),
-  });
+  }) as SimpleWalletClient;
   return walletClient;
 }
 
@@ -161,6 +166,7 @@ export async function getGoldBalance(playerAddress: Address): Promise<bigint> {
   const client = getClient();
   const goldAddress = getGoldAddress();
 
+  
   const balance = await client.readContract({
     address: goldAddress,
     abi: GOLD_ABI,
@@ -180,6 +186,7 @@ export async function getGoldClaimNonce(
   const client = getClient();
   const goldAddress = getGoldAddress();
 
+  
   const nonce = await client.readContract({
     address: goldAddress,
     abi: GOLD_ABI,
@@ -202,6 +209,7 @@ export async function verifyGoldClaim(
   const client = getClient();
   const goldAddress = getGoldAddress();
 
+  
   const valid = await client.readContract({
     address: goldAddress,
     abi: GOLD_ABI,
@@ -299,6 +307,7 @@ export async function getItemBalance(
   const client = getClient();
   const itemsAddress = getItemsAddress();
 
+  
   const balance = await client.readContract({
     address: itemsAddress,
     abi: ITEMS_ABI,
@@ -321,6 +330,7 @@ export async function getItemBalances(
 
   const accounts = itemIds.map(() => playerAddress);
 
+  
   const balances = await client.readContract({
     address: itemsAddress,
     abi: ITEMS_ABI,
@@ -338,6 +348,7 @@ export async function getItemMetadata(itemId: bigint): Promise<ItemMetadata> {
   const client = getClient();
   const itemsAddress = getItemsAddress();
 
+  
   const result = await client.readContract({
     address: itemsAddress,
     abi: ITEMS_ABI,
@@ -345,17 +356,26 @@ export async function getItemMetadata(itemId: bigint): Promise<ItemMetadata> {
     args: [itemId],
   });
 
-  const [id, name, stackable, attack, defense, strength, rarity] = result as [
-    bigint,
-    string,
-    boolean,
-    number,
-    number,
-    number,
-    number,
-  ];
+  // viem 2.x returns objects
+  const data = result as {
+    itemId: bigint;
+    name: string;
+    stackable: boolean;
+    attack: number;
+    defense: number;
+    strength: number;
+    rarity: number;
+  };
 
-  return { itemId: id, name, stackable, attack, defense, strength, rarity };
+  return {
+    itemId: data.itemId,
+    name: data.name,
+    stackable: data.stackable,
+    attack: data.attack,
+    defense: data.defense,
+    strength: data.strength,
+    rarity: data.rarity,
+  };
 }
 
 /**
@@ -368,6 +388,7 @@ export async function getMintedItemInfo(
   const client = getClient();
   const itemsAddress = getItemsAddress();
 
+  
   const result = await client.readContract({
     address: itemsAddress,
     abi: ITEMS_ABI,
@@ -375,13 +396,14 @@ export async function getMintedItemInfo(
     args: [ownerAddress, itemId],
   });
 
-  const [originalMinter, mintedAt, instanceId] = result as [
-    Address,
-    bigint,
-    `0x${string}`,
-  ];
+  // viem 2.x returns objects
+  const data = result as {
+    originalMinter: Address;
+    mintedAt: bigint;
+    instanceId: `0x${string}`;
+  };
 
-  return { originalMinter, mintedAt, instanceId };
+  return data;
 }
 
 /**
@@ -393,6 +415,7 @@ export async function checkItemInstance(
   const client = getClient();
   const itemsAddress = getItemsAddress();
 
+  
   const result = await client.readContract({
     address: itemsAddress,
     abi: ITEMS_ABI,
@@ -400,7 +423,8 @@ export async function checkItemInstance(
     args: [instanceId],
   });
 
-  const [minted, originalMinter] = result as [boolean, Address];
+  // viem 2.x returns tuples, convert via unknown
+  const [minted, originalMinter] = result as unknown as [boolean, Address];
 
   return { minted, originalMinter };
 }
@@ -418,6 +442,7 @@ export async function verifyItemMint(
   const client = getClient();
   const itemsAddress = getItemsAddress();
 
+  
   const valid = await client.readContract({
     address: itemsAddress,
     abi: ITEMS_ABI,
@@ -536,6 +561,7 @@ export async function getGameSigner(): Promise<Address> {
   const client = getClient();
   const goldAddress = getGoldAddress();
 
+  
   const signer = await client.readContract({
     address: goldAddress,
     abi: GOLD_ABI,
@@ -552,6 +578,7 @@ export async function getGameAgentId(): Promise<bigint> {
   const client = getClient();
   const goldAddress = getGoldAddress();
 
+  
   const agentId = await client.readContract({
     address: goldAddress,
     abi: GOLD_ABI,

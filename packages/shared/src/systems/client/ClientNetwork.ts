@@ -110,12 +110,6 @@ import type {
   CharacterSelectedPacket,
   PlayerStatePacket,
   ShowToastPacket,
-  TradeRequestReceivedPacket,
-  TradeStartedPacket,
-  TradeUpdatedPacket,
-  TradeCompletedPacket,
-  TradeCancelledPacket,
-  TradeErrorPacket,
   SnapshotPacket,
   EntityEventPacket,
 } from "../../types/network-types";
@@ -1351,7 +1345,7 @@ export class ClientNetwork extends SystemBase {
     type: string;
     position: { x: number; y: number; z: number };
   }) => {
-    this.world.emit(EventType.RESOURCE_SPAWNED, data);
+    this.world.emit(EventType.RESOURCE_SPAWNED, { ...data });
   };
   onResourceDepleted = (data: ResourceStatePacket) => {
     // Update the ResourceEntity visual
@@ -1372,7 +1366,7 @@ export class ClientNetwork extends SystemBase {
     }
 
     // Also emit the event for other systems
-    this.world.emit(EventType.RESOURCE_DEPLETED, data);
+    this.world.emit(EventType.RESOURCE_DEPLETED, { ...data });
   };
 
   onResourceRespawned = (data: ResourceStatePacket) => {
@@ -1394,7 +1388,7 @@ export class ClientNetwork extends SystemBase {
     }
 
     // Also emit the event for other systems
-    this.world.emit(EventType.RESOURCE_RESPAWNED, data);
+    this.world.emit(EventType.RESOURCE_RESPAWNED, { ...data });
   };
 
   onInventoryUpdated = (data: InventoryUpdatePacket) => {
@@ -1408,7 +1402,7 @@ export class ClientNetwork extends SystemBase {
     // Cache latest snapshot for late-mounting UI
     this.lastInventoryByPlayerId[data.playerId] = data;
     // Re-emit with typed event so UI updates without waiting for local add
-    this.world.emit(EventType.INVENTORY_UPDATED, data);
+    this.world.emit(EventType.INVENTORY_UPDATED, { ...data });
   };
 
   onCoinsUpdated = (data: { playerId: string; coins: number }) => {
@@ -1495,7 +1489,7 @@ export class ClientNetwork extends SystemBase {
     this.lastSkillsByPlayerId = this.lastSkillsByPlayerId || {};
     this.lastSkillsByPlayerId[data.playerId] = data.skills;
     // Re-emit with typed event so UI updates
-    this.world.emit(EventType.SKILLS_UPDATED, data);
+    this.world.emit(EventType.SKILLS_UPDATED, { ...data });
   };
 
   // --- Bank state handler ---
@@ -1640,7 +1634,7 @@ export class ClientNetwork extends SystemBase {
   onCharacterList = (data: CharacterListPacket) => {
     // Cache and re-emit so UI can show the modal
     this.lastCharacterList = data.characters || [];
-    this.world.emit(EventType.CHARACTER_LIST, data);
+    this.world.emit(EventType.CHARACTER_LIST, { ...data });
     // Auto-select previously chosen character if available
     const storedId =
       typeof localStorage !== "undefined"
@@ -1656,10 +1650,10 @@ export class ClientNetwork extends SystemBase {
   };
   onCharacterCreated = (data: CharacterCreatedPacket) => {
     // Re-emit for UI to update lists
-    this.world.emit(EventType.CHARACTER_CREATED, data);
+    this.world.emit(EventType.CHARACTER_CREATED, { ...data });
   };
   onCharacterSelected = (data: CharacterSelectedPacket) => {
-    this.world.emit(EventType.CHARACTER_SELECTED, data);
+    this.world.emit(EventType.CHARACTER_SELECTED, { ...data });
   };
 
   // Convenience methods
@@ -1802,61 +1796,7 @@ export class ClientNetwork extends SystemBase {
     }
   };
 
-  // ======================== TRADING SYSTEM HANDLERS ========================
-
-  onTradeRequest = (data: TradeRequestReceivedPacket) => {
-    // Emit event for UI to show trade request modal
-    this.world.emit(EventType.TRADE_REQUEST_RECEIVED, {
-      tradeId: data.tradeId,
-      fromPlayerId: data.fromPlayerId,
-      fromPlayerName: data.fromPlayerName,
-    });
-  };
-
-  onTradeStarted = (data: TradeStartedPacket) => {
-    this.world.emit(EventType.TRADE_STARTED, data);
-  };
-
-  onTradeUpdated = (data: TradeUpdatedPacket) => {
-    this.world.emit(EventType.TRADE_UPDATED, data);
-  };
-
-  onTradeCompleted = (data: TradeCompletedPacket) => {
-    this.world.emit(EventType.TRADE_COMPLETED, data);
-
-    // Show success toast
-    this.world.emit(EventType.UI_TOAST, {
-      message: "Trade completed successfully!",
-      type: "success",
-    });
-  };
-
-  onTradeCancelled = (data: TradeCancelledPacket) => {
-    this.world.emit(EventType.TRADE_CANCELLED, data);
-
-    // Show cancellation toast
-    this.world.emit(EventType.UI_TOAST, {
-      message: `Trade cancelled: ${data.reason}`,
-      type: "warning",
-    });
-  };
-
-  onTradeError = (data: TradeErrorPacket) => {
-    console.error("[ClientNetwork] ⚠️ Trade error:", data.message);
-
-    // Emit event for UI to show error
-    this.world.emit(EventType.TRADE_ERROR, data);
-
-    // Show error toast
-    this.world.emit(EventType.UI_TOAST, {
-      message: data.message,
-      type: "error",
-    });
-  };
-
-  // ======================== END TRADING HANDLERS ========================
-
-  // ======================== DEATH/RESPAWN HANDLERS ========================
+  // ======================== TRADING SYSTEM HANDLERS =================
 
   onDeathScreen = (data: {
     playerId: string;
@@ -1934,7 +1874,7 @@ export class ClientNetwork extends SystemBase {
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
       // Forward to local event system so UI can update
-      this.world.emit(EventType.UI_ATTACK_STYLE_CHANGED, data);
+      this.world.emit(EventType.UI_ATTACK_STYLE_CHANGED, { ...data });
     }
   };
 
@@ -1948,7 +1888,7 @@ export class ClientNetwork extends SystemBase {
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
       // Forward to local event system so UI can update
-      this.world.emit(EventType.UI_ATTACK_STYLE_UPDATE, data);
+      this.world.emit(EventType.UI_ATTACK_STYLE_UPDATE, { ...data });
     }
   };
 
@@ -1960,7 +1900,7 @@ export class ClientNetwork extends SystemBase {
     position: { x: number; y: number; z: number };
   }) => {
     // Forward to local event system so DamageSplatSystem can show visual feedback
-    this.world.emit(EventType.COMBAT_DAMAGE_DEALT, data);
+    this.world.emit(EventType.COMBAT_DAMAGE_DEALT, { ...data });
   };
 
   onPlayerUpdated = (data: {
@@ -2000,10 +1940,10 @@ export class ClientNetwork extends SystemBase {
     position: { x: number; y: number; z: number };
   }) => {
     // Forward to local event system so UI can open loot window
-    this.world.emit(EventType.CORPSE_CLICK, data);
+    this.world.emit(EventType.CORPSE_CLICK, { ...data });
   };
 
-  // ======================== END DEATH/RESPAWN HANDLERS ========================
+  // ======================== END DEATH/RESPAWN HANDLERS =================
 
   applyPendingModifications = (entityId: string) => {
     const pending = this.pendingModifications.get(entityId);

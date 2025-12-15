@@ -3,7 +3,7 @@
  * Event-driven ban list with zero-latency checks
  */
 
-import { ethers } from "ethers";
+import { ethers, type EventLog } from "ethers";
 
 const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS || "";
 const HYPERSCAPE_APP_ID = ethers.keccak256(ethers.toUtf8Bytes("hyperscape"));
@@ -51,12 +51,19 @@ export class BanCache {
     const appBans = await this.contract.queryFilter("AppBanApplied", fromBlock);
 
     for (const event of networkBans) {
-      this.banned.add(Number(event.args!.agentId));
+      const eventLog = event as EventLog;
+      if (eventLog.args) {
+        this.banned.add(Number(eventLog.args[0])); // agentId is first indexed arg
+      }
     }
 
     for (const event of appBans) {
-      if (event.args!.appId === HYPERSCAPE_APP_ID) {
-        this.banned.add(Number(event.args!.agentId));
+      const eventLog = event as EventLog;
+      if (eventLog.args) {
+        const appId = eventLog.args[1]; // appId is second indexed arg
+        if (appId === HYPERSCAPE_APP_ID) {
+          this.banned.add(Number(eventLog.args[0])); // agentId is first indexed arg
+        }
       }
     }
 

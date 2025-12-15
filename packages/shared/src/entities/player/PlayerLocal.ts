@@ -1290,7 +1290,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     );
 
     // Signal to UI that the world is ready
-    this.world.emit(EventType.READY);
+    this.world.emit(EventType.READY, {});
   }
 
   getAvatarUrl(): string {

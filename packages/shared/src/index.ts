@@ -759,7 +759,9 @@ export {
   tilesEqual,
   tilesAdjacent,
   tilesWithinRange,
+  tilesWithinMeleeRange,
   tilesCardinallyAdjacent,
+  getBestMeleeTile,
   getBestAdjacentTile,
   getBestCombatRangeTile,
   getAdjacentTiles,
@@ -814,48 +816,4 @@ export type {
   SessionCloseReason,
 } from "./types/interaction";
 
-// ============================================================================
-// Blockchain Integration (Server-side only)
-// On-chain economy, identity, payments, and game state synchronization
-// ============================================================================
-
-// Re-export blockchain namespace for server-side use
-// Note: These are heavy imports and should only be used on the server
-export * as Blockchain from "./blockchain";
-
-// Export commonly used blockchain types and functions directly
-export type { JejuNetwork, ContractAddresses } from "./blockchain/chain";
-
-export type {
-  AccessCheckResult,
-  AgentRegistration,
-  BanRecord,
-  MarketplaceInfo,
-} from "./blockchain/erc8004";
-
-export type {
-  PaymentRequirements,
-  PaymentPayload,
-  PaymentVerification,
-  SettlementResult,
-} from "./blockchain/x402";
-
-export type {
-  PaymasterInfo,
-  PaymasterData,
-  GasEstimate,
-} from "./blockchain/paymaster";
-
-export type {
-  ItemMetadata,
-  MintedItemInfo,
-  GoldClaimParams,
-  ItemMintParams,
-} from "./blockchain/game-economy";
-
-export type {
-  MudClient,
-  TxReceipt,
-  MudEventType,
-  MudGameEvent,
-} from "./blockchain/mud-client";
+// =====================================================================

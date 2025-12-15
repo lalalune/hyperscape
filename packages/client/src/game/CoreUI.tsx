@@ -3,7 +3,6 @@ import React, { useEffect, useRef, useState } from "react";
 
 import type {
   ControlAction,
-  EventMap,
   PerformanceSnapshot,
 } from "@hyperscape/shared";
 import {
@@ -112,10 +111,8 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       }
     };
 
-    const handleAvatarComplete = (data: {
-      playerId: string;
-      success: boolean;
-    }) => {
+    const handleAvatarComplete = (rawData: Record<string, unknown>) => {
+      const data = rawData as { playerId: string; success: boolean };
       if (isSpectatorMode) {
         // For spectators: check if this is the entity we're following
         const targetId = getSpectatorTargetId();
@@ -127,11 +124,13 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         setPlayerReady(true);
       }
     };
-    const handleUIToggle = (data: { visible: boolean }) => {
+    const handleUIToggle = (rawData: Record<string, unknown>) => {
+      const data = rawData as { visible: boolean };
       setUI((prev) => (prev ? { ...prev, visible: data.visible } : undefined));
     };
     const handleUIMenu = () => setMenu(null);
-    const handleUIKick = (data: { playerId: string; reason: string }) => {
+    const handleUIKick = (rawData: Record<string, unknown>) => {
+      const data = rawData as { playerId: string; reason: string };
       setKicked(data.reason || "Kicked from server");
     };
     const handleDisconnected = () => setDisconnected(true);
@@ -542,7 +541,8 @@ function Toast({ world }: { world: ClientWorld }) {
   } | null>(null);
   useEffect(() => {
     let ids = 0;
-    const onToast = (data: EventMap[EventType.UI_TOAST] & { position?: { x: number; y: number } }) => {
+    const onToast = (rawData: Record<string, unknown>) => {
+      const data = rawData as { message: string; position?: { x: number; y: number } };
       setMsg({ text: data.message, id: ++ids, position: data.position });
     };
     world.on(EventType.UI_TOAST, onToast);

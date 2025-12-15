@@ -8,6 +8,65 @@ import { randomUUID } from "crypto";
 import type { World } from "@hyperscape/shared";
 import { generateAgentCard } from "./agentCard.js";
 
+// Type for position data
+interface Position3D {
+  x: number;
+  y: number;
+  z: number;
+}
+
+// Type for player entity with expected properties
+interface PlayerEntity {
+  id: string;
+  position?: Position3D;
+  node?: { position?: Position3D };
+}
+
+// Type for inventory item
+interface InventoryItem {
+  itemId: string;
+  quantity: number;
+  name?: string;
+}
+
+// Type for mob entity
+interface MobEntity {
+  id: string;
+  name?: string;
+  mobType?: string;
+  level?: number;
+  alive?: boolean;
+}
+
+// Type for action registry interface
+interface ActionRegistryInterface {
+  execute: (actionName: string, context: unknown, data: unknown) => Promise<unknown>;
+}
+
+// Extended World type with optional RPG methods (added dynamically by systems)
+// Use Omit to avoid conflicts with base World methods
+type RPGWorld = Omit<World, 'getSkills'> & {
+  getAllPlayers?: () => PlayerEntity[];
+  getPlayerHealth?: (id: string) => { current: number; max: number };
+  getInventory?: (id: string) => InventoryItem[];
+  getEquipment?: (id: string) => Record<string, unknown>;
+  getSkills?: (id: string) => Record<string, unknown>;
+  isInCombat?: (id: string) => boolean;
+  isPlayerAlive?: (id: string) => boolean;
+  movePlayer?: (id: string, x: number, y: number, z: number) => void;
+  actionMethods?: Record<string, (context: unknown, data: unknown) => Promise<unknown>>;
+  getCombatLevel?: (id: string) => number;
+  getArrowCount?: (id: string) => number;
+  getMobsInArea?: (pos: Position3D, range: number) => Array<{ name?: string; mobType?: string }>;
+  getResourcesInArea?: (pos: Position3D, range: number) => Array<{ name?: string; resourceType?: string }>;
+  getItemsInRange?: (pos: Position3D, range: number) => Array<{ name?: string }>;
+  forceChangeAttackStyle?: (id: string, style: string) => void;
+  getAllMobs?: () => MobEntity[];
+  playEmote?: (id: string, emote: string) => void;
+  respawnPlayer?: (id: string) => void;
+  actionRegistry?: ActionRegistryInterface;
+};
+
 const uuidv4 = randomUUID;
 
 export interface JSONRPCRequest {
@@ -87,12 +146,12 @@ function isActionResult(
 }
 
 export class A2AServer {
-  private world: World;
+  private world: RPGWorld;
   private serverUrl: string;
   private seenMessageIds: Set<string> = new Set();
 
   constructor(world: World, serverUrl: string) {
-    this.world = world;
+    this.world = world as RPGWorld;
     this.serverUrl = serverUrl;
   }
 
@@ -265,7 +324,14 @@ export class A2AServer {
     data?: Record<string, unknown>;
   }> {
     // Access RPG methods directly from world (they're flattened by SystemLoader)
-    const rpg = {
+    // Type assertion needed because these methods are dynamically added by RPG systems
+    const rpg: Pick<RPGWorld, 
+      'getAllPlayers' | 'getPlayerHealth' | 'getInventory' | 'getEquipment' | 
+      'getSkills' | 'isInCombat' | 'isPlayerAlive' | 'movePlayer' | 'actionMethods' |
+      'getCombatLevel' | 'getArrowCount' | 'getMobsInArea' | 'getResourcesInArea' |
+      'getItemsInRange' | 'forceChangeAttackStyle' | 'getAllMobs' | 'playEmote' |
+      'respawnPlayer' | 'actionRegistry'
+    > = {
       getAllPlayers: this.world.getAllPlayers,
       getPlayerHealth: this.world.getPlayerHealth,
       getInventory: this.world.getInventory,
@@ -310,9 +376,8 @@ export class A2AServer {
       }
 
       case "get-status": {
-        const player = rpg
-          .getAllPlayers?.()
-          ?.find((p: { id: string }) => p.id === agentId);
+        const statusPlayers = rpg.getAllPlayers?.() as PlayerEntity[] | undefined;
+        const player = statusPlayers?.find((p) => p.id === agentId);
 
         if (!player) {
           return {
@@ -661,9 +726,8 @@ export class A2AServer {
         const range = optionalNumber(data.range, 20);
 
         // Get player position
-        const player = rpg
-          .getAllPlayers?.()
-          ?.find((p: { id: string }) => p.id === agentId);
+        const players = rpg.getAllPlayers?.() as PlayerEntity[] | undefined;
+        const player = players?.find((p) => p.id === agentId);
         if (!player) {
           return { success: false, message: "Player not found" };
         }
@@ -705,9 +769,8 @@ export class A2AServer {
       case "get-world-context": {
         const range = optionalNumber(data.range, 30);
 
-        const player = rpg
-          .getAllPlayers?.()
-          ?.find((p: { id: string }) => p.id === agentId);
+        const allPlayers = rpg.getAllPlayers?.() as PlayerEntity[] | undefined;
+        const player = allPlayers?.find((p) => p.id === agentId);
         if (!player) {
           return { success: false, message: "Player not found" };
         }
@@ -719,10 +782,13 @@ export class A2AServer {
         };
         const inCombat = rpg.isInCombat?.(agentId) ?? false;
 
-        // Get nearby entities
-        const mobs = rpg.getMobsInArea?.(position, range) ?? [];
-        const resources = rpg.getResourcesInArea?.(position, range) ?? [];
-        const items = rpg.getItemsInRange?.(position, range) ?? [];
+        // Get nearby entities (only if position is known)
+        type MobInfo = { name?: string; mobType?: string };
+        type ResourceInfo = { name?: string; resourceType?: string };
+        type ItemInfo = { name?: string };
+        const mobs: MobInfo[] = position ? (rpg.getMobsInArea?.(position, range) as MobInfo[] ?? []) : [];
+        const resources: ResourceInfo[] = position ? (rpg.getResourcesInArea?.(position, range) as ResourceInfo[] ?? []) : [];
+        const items: ItemInfo[] = position ? (rpg.getItemsInRange?.(position, range) as ItemInfo[] ?? []) : [];
 
         // Build semantic description
         const lines: string[] = [];
@@ -740,7 +806,7 @@ export class A2AServer {
           lines.push(`Creatures (${mobs.length}):`);
           mobs
             .slice(0, 5)
-            .forEach((mob: { name?: string; mobType?: string }) => {
+            .forEach((mob) => {
               lines.push(`  • ${mob.name || mob.mobType || "Unknown"}`);
             });
         }
@@ -749,14 +815,14 @@ export class A2AServer {
           lines.push(`Resources (${resources.length}):`);
           resources
             .slice(0, 5)
-            .forEach((res: { name?: string; resourceType?: string }) => {
+            .forEach((res) => {
               lines.push(`  • ${res.name || res.resourceType || "Resource"}`);
             });
         }
 
         if (items.length > 0) {
           lines.push(`Ground Items (${items.length}):`);
-          items.slice(0, 5).forEach((item: { name?: string }) => {
+          items.slice(0, 5).forEach((item) => {
             lines.push(`  • ${item.name || "Item"}`);
           });
         }
@@ -811,11 +877,11 @@ export class A2AServer {
 
       case "eat-food": {
         // Find food in inventory and use it
-        const inventory = rpg.getInventory?.(agentId) ?? [];
+        const inventory = rpg.getInventory?.(agentId) as InventoryItem[] ?? [];
         const food = inventory.find(
-          (item: { name?: string }) =>
-            /fish|food|bread|meat/i.test(item.name || "") &&
-            !/raw/i.test(item.name || ""),
+          (item) =>
+            /fish|food|bread|meat/i.test(item.name ?? "") &&
+            !/raw/i.test(item.name ?? ""),
         );
 
         if (!food) {
@@ -826,19 +892,19 @@ export class A2AServer {
         const result = await this.world.actionRegistry?.execute(
           "use_item",
           context,
-          { itemId: food.id },
+          { itemId: food.itemId },
         );
 
         if (isActionResult(result)) {
           return {
             success: result.success,
-            message: result.message ?? `Eating ${food.name}`,
+            message: result.message ?? `Eating ${food.name || food.itemId}`,
             data: { food },
           };
         }
         return {
           success: true,
-          message: `Eating ${food.name}`,
+          message: `Eating ${food.name || food.itemId}`,
           data: { food },
         };
       }
@@ -886,9 +952,8 @@ export class A2AServer {
         const direction = optionalString(data.direction, "north");
         const distance = optionalNumber(data.distance, 10) * 5; // tiles to units
 
-        const player = rpg
-          .getAllPlayers?.()
-          ?.find((p: { id: string }) => p.id === agentId);
+        const dirPlayers = rpg.getAllPlayers?.() as PlayerEntity[] | undefined;
+        const player = dirPlayers?.find((p) => p.id === agentId);
         if (!player) {
           return { success: false, message: "Player not found" };
         }
@@ -929,8 +994,8 @@ export class A2AServer {
         }
 
         // Get entity info
-        const mobs = rpg.getAllMobs?.() ?? [];
-        const mob = mobs.find((m: { id: string }) => m.id === entityId);
+        const allMobs = rpg.getAllMobs?.() as MobEntity[] | undefined ?? [];
+        const mob = allMobs.find((m) => m.id === entityId);
 
         if (mob) {
           return {

@@ -389,7 +389,8 @@ export class ClientGraphics extends System {
     }
   };
 
-  onXRSession = (session: XRSession | null) => {
+  onXRSession = (data: Record<string, unknown>) => {
+    const session = data.session as XRSession | null;
     if (session) {
       this.xrSession = session;
       this.xrWidth = null;

@@ -67,7 +67,7 @@ describe("Trading System", () => {
 
     // Initialize network with mock world - cast through unknown for test mocking
     network = new ServerNetwork(
-      mockWorld as unknown as Parameters<typeof ServerNetwork>[0],
+      mockWorld as unknown as ConstructorParameters<typeof ServerNetwork>[0],
     );
 
     // Create mock player entities with proper types

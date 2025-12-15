@@ -45,10 +45,19 @@ class HyperscapeBanCheckService {
 
     try {
       // Try to dynamically import NetworkBanCache if it exists
-      const banCacheModule = await import(
-        /* @vite-ignore */
-        "../../../../../../scripts/shared/NetworkBanCache"
-      ).catch(() => null);
+      const banCacheModule = await (async () => {
+        try {
+          // Dynamic import with path that may not exist at build time
+          const mod = await import(
+            /* @vite-ignore */
+            // @ts-ignore - Optional external module path
+            "../../../../../../scripts/shared/NetworkBanCache"
+          );
+          return mod;
+        } catch {
+          return null;
+        }
+      })();
 
       if (!banCacheModule?.NetworkBanCache) {
         console.warn(
@@ -66,8 +75,8 @@ class HyperscapeBanCheckService {
       };
 
       this.cache = new banCacheModule.NetworkBanCache(config);
-      await this.cache.initialize();
-      this.cache.startListening();
+      await this.cache!.initialize();
+      this.cache!.startListening();
 
       this.initialized = true;
       console.log("[BanCheck] Hyperscape ban checking initialized");

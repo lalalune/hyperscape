@@ -210,7 +210,7 @@ export class MobInstancedRenderer extends SystemBase {
     }
 
     // Create low-detail mesh (simplified geometry)
-    const lowDetailGeometry = this.createLowDetailGeometry(geometry);
+    const lowDetailGeometry = this.createLowDetailGeometry();
     const lowDetailMesh = new THREE.InstancedMesh(
       lowDetailGeometry,
       material,

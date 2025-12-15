@@ -304,11 +304,35 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         position: { x: number; y: number; z: number };
       };
 
+      // Get actual player name from world entities
+      let corpseName = "Gravestone";
+      if (data.playerId && world.entities) {
+        // Try to get player entity to extract name
+        const playerEntity = world.entities.players?.get(data.playerId);
+        if (playerEntity) {
+          const playerData = playerEntity.data as { name?: string };
+          if (playerData?.name) {
+            corpseName = `${playerData.name}'s Gravestone`;
+          } else {
+            corpseName = "Player's Gravestone";
+          }
+        } else {
+          // Try to get from general entities
+          const entity = world.entities.get(data.playerId);
+          if (entity) {
+            const entityData = entity.data as { name?: string };
+            if (entityData?.name) {
+              corpseName = `${entityData.name}'s Gravestone`;
+            }
+          }
+        }
+      }
+
       // Open loot window with corpse items
       setLootWindowData({
         visible: true,
         corpseId: data.corpseId,
-        corpseName: `Gravestone`, // TODO: Get actual corpse name
+        corpseName,
         lootItems:
           data.lootItems?.map((item, index) => ({
             id: `${data.corpseId}-${index}`,
@@ -351,7 +375,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         const cachedSkills = world.network?.lastSkillsByPlayerId?.[lp];
         if (cachedSkills) {
           // Backend sends Record<string, { level: number; xp: number }> which matches Skills structure
-          const skills = cachedSkills as PlayerStats["skills"];
+          const skills = cachedSkills as unknown as PlayerStats["skills"];
           // Just update skills - combat level will come from server
           setPlayerStats((prev) =>
             prev
@@ -368,13 +392,15 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         if (cachedEquipment) {
           // Backend format: { weapon: { item: Item, itemId: string }, ... }
           // UI format: { weapon: Item | null, ... }
+          type EquipmentSlot = { item?: Item | null; itemId?: string };
+          const eq = cachedEquipment as Record<string, EquipmentSlot>;
           const mappedEquipment: PlayerEquipmentItems = {
-            weapon: cachedEquipment.weapon?.item ?? null,
-            shield: cachedEquipment.shield?.item ?? null,
-            helmet: cachedEquipment.helmet?.item ?? null,
-            body: cachedEquipment.body?.item ?? null,
-            legs: cachedEquipment.legs?.item ?? null,
-            arrows: cachedEquipment.arrows?.item ?? null,
+            weapon: eq.weapon?.item ?? null,
+            shield: eq.shield?.item ?? null,
+            helmet: eq.helmet?.item ?? null,
+            body: eq.body?.item ?? null,
+            legs: eq.legs?.item ?? null,
+            arrows: eq.arrows?.item ?? null,
           };
           setEquipment(mappedEquipment);
         }

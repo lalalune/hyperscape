@@ -806,3 +806,6 @@ export interface UIBoxNode {
   height: number;
   color: string;
 }
+
+// Re-export EmitterNode from particles
+export type { EmitterNode } from "./particles";

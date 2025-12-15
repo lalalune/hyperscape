@@ -176,6 +176,9 @@ let pickupLimiter: RateLimiter | null = null;
 let moveLimiter: RateLimiter | null = null;
 let dropLimiter: RateLimiter | null = null;
 let equipLimiter: RateLimiter | null = null;
+let tileMovementLimiter: RateLimiter | null = null;
+let pathfindLimiter: RateLimiter | null = null;
+let combatLimiter: RateLimiter | null = null;
 
 /**
  * Get the pickup rate limiter (5/sec)
@@ -234,6 +237,48 @@ export function getEquipRateLimiter(): RateLimiter {
 }
 
 /**
+ * Get the tile movement rate limiter (15/sec)
+ * Limits tile-based movement requests
+ */
+export function getTileMovementRateLimiter(): RateLimiter {
+  if (!tileMovementLimiter) {
+    tileMovementLimiter = createRateLimiter({
+      maxPerSecond: 15,
+      name: "tile-movement",
+    });
+  }
+  return tileMovementLimiter;
+}
+
+/**
+ * Get the pathfind rate limiter (5/sec)
+ * Limits pathfinding requests to prevent expensive computation spam
+ */
+export function getPathfindRateLimiter(): RateLimiter {
+  if (!pathfindLimiter) {
+    pathfindLimiter = createRateLimiter({
+      maxPerSecond: 5,
+      name: "pathfinding",
+    });
+  }
+  return pathfindLimiter;
+}
+
+/**
+ * Get the combat rate limiter (3/sec)
+ * Limits combat action requests
+ */
+export function getCombatRateLimiter(): RateLimiter {
+  if (!combatLimiter) {
+    combatLimiter = createRateLimiter({
+      maxPerSecond: 3,
+      name: "combat-attack",
+    });
+  }
+  return combatLimiter;
+}
+
+/**
  * Destroy all singleton rate limiters
  * Call this during server shutdown
  */
@@ -242,9 +287,15 @@ export function destroyAllRateLimiters(): void {
   moveLimiter?.destroy();
   dropLimiter?.destroy();
   equipLimiter?.destroy();
+  tileMovementLimiter?.destroy();
+  pathfindLimiter?.destroy();
+  combatLimiter?.destroy();
 
   pickupLimiter = null;
   moveLimiter = null;
   dropLimiter = null;
   equipLimiter = null;
+  tileMovementLimiter = null;
+  pathfindLimiter = null;
+  combatLimiter = null;
 }

@@ -181,7 +181,7 @@ export class ClientLoader extends SystemBase {
         progress: 100,
         total: totalItems,
       });
-      this.world.emit(EventType.READY);
+      this.world.emit(EventType.READY, {});
     });
   }
 

@@ -8,8 +8,6 @@
  * - Event mapping (type-safe emit/on/off)
  */
 
-import { Position3D } from "../core/core";
-import type { EntitySpawnedEvent } from "../systems/system-interfaces";
 
 // ============================================================================
 // EVENT TYPE ENUM
@@ -551,428 +549,47 @@ export enum EventType {
   ITEM_MINT_SUCCESS = "item:mint_success",
 }
 
-// ============================================================================
-// EVENT SYSTEM INTERFACES
-// ============================================================================
+// =====================================================================
+// EVENT SYSTEM TYPES
+// =====================================================================
 
-// Generic event base type
+/**
+ * Generic event payload type - allows any event data
+ * The type property is optional to allow passing simple data objects
+ */
 export type AnyEvent = Record<string, unknown>;
 
 /**
- * Shared event system types
+ * Event payloads map - maps event types to their payload types
+ * This is a simplified version that allows any payload
  */
-export interface SystemEvent<T = AnyEvent> {
-  readonly type: EventType;
-  readonly data: T;
-  readonly source: string;
-  readonly timestamp: number;
-  readonly id: string;
-}
-
-export interface EventHandler<T = AnyEvent> {
-  (event: SystemEvent<T>): void | Promise<void>;
-}
-
-export interface EventSubscription {
-  unsubscribe(): void;
-  readonly active: boolean;
-}
-
-// =========================================================================
-// TYPE-SAFE EVENT MAPPING
-// =========================================================================
-
-// Import payload types from event-payloads.ts
-import type {
-  PlayerJoinedPayload,
-  PlayerLeavePayload,
-  EntityCreatedPayload,
-  PlayerLevelUpPayload,
-  PlayerXPGainedPayload,
-  CombatStartedPayload,
-  InventoryItemAddedPayload,
-  NPCDiedPayload,
-  InventoryCanAddEvent,
-  InventoryRemoveCoinsEvent,
-  InventoryCheckEvent,
-} from "./event-payloads";
+export type EventPayloads = Record<EventType, Record<string, unknown>>;
 
 /**
- * Complete mapping of all events to their payload types
- * This ensures type safety when emitting and listening to events
+ * Event map for type-safe event handling
  */
-export interface EventMap {
-  // Core Events
-  [EventType.READY]: void;
-  [EventType.ERROR]: { error: Error; message: string };
-  [EventType.TICK]: { deltaTime: number };
-  [EventType.PLAYER_JOINED]: PlayerJoinedPayload;
-  [EventType.PLAYER_LEFT]: PlayerLeavePayload;
-  [EventType.PLAYER_CLEANUP]: { playerId: string };
-
-  [EventType.ENTITY_CREATED]: EntityCreatedPayload;
-  [EventType.ENTITY_DEATH]: {
-    entityId: string;
-    killedBy?: string;
-    entityType: "player" | "mob" | "npc";
-    sourceId?: string;
-    lastDamageTime?: number;
-  };
-  [EventType.ENTITY_REVIVED]: { entityId: string; newHealth?: number };
-  [EventType.ENTITY_UPDATED]: {
-    entityId: string;
-    changes: Record<string, string | number | boolean>;
-  };
-  [EventType.ASSET_LOADED]: { assetId: string; assetType: string };
-  [EventType.ASSETS_LOADING_PROGRESS]: {
-    progress: number;
-    total: number;
-    stage?: string;
-    current?: number;
-  };
-  [EventType.UI_TOGGLE]: { visible: boolean };
-  [EventType.UI_OPEN_PANE]: { pane: string };
-  [EventType.UI_CLOSE_PANE]: { pane: string };
-  [EventType.UI_MENU]: { action: "open" | "close" | "toggle" | "navigate" };
-  [EventType.UI_AVATAR]: {
-    avatarData: {
-      vrm: string;
-      scale: number;
-      position: { x: number; y: number; z: number };
-    };
-  };
-  [EventType.UI_KICK]: { playerId: string; reason: string };
-  [EventType.UI_TOAST]: {
-    message: string;
-    type: "info" | "success" | "warning" | "error" | string;
-  };
-  [EventType.UI_SIDEBAR_CHAT_TOGGLE]: void;
-  [EventType.UI_ACTIONS_UPDATE]: Array<{
-    id: string;
-    name: string;
-    enabled: boolean;
-    hotkey: string | null;
-  }>;
-  [EventType.UI_COMBAT_TARGET_CHANGED]: {
-    targetId: string | null;
-    targetName?: string;
-    targetHealth?: { current: number; max: number };
-  };
-  [EventType.UI_COMBAT_TARGET_HEALTH]: {
-    targetId: string;
-    health: { current: number; max: number };
-  };
-
-  // Camera Events
-  [EventType.CAMERA_SET_MODE]: {
-    mode: "first_person" | "third_person" | "top_down";
-  };
-  [EventType.CAMERA_SET_TARGET]: {
-    target: { position: { x: number; y: number; z: number } };
-  };
-  [EventType.CAMERA_CLICK_WORLD]: {
-    screenPosition: { x: number; y: number };
-    normalizedPosition: { x: number; y: number };
-    target: { position?: Position3D };
-  };
-  [EventType.CAMERA_FOLLOW_PLAYER]: {
-    playerId: string;
-    entity: { id: string; mesh: object | null };
-    camHeight: number;
-  };
-
-  // Inventory Events
-  [EventType.INVENTORY_ITEM_REMOVED]: {
-    playerId: string;
-    itemId: string | number;
-    quantity: number;
-    slot?: number;
-  };
-  [EventType.ITEM_DROP]: {
-    playerId: string;
-    itemId: string;
-    quantity: number;
-    slot?: number;
-  };
-  [EventType.INVENTORY_USE]: { playerId: string; itemId: string; slot: number };
-  [EventType.ITEM_PICKUP]: {
-    playerId: string;
-    itemId?: string;
-    entityId: string;
-    position?: Position3D;
-  };
-  [EventType.INVENTORY_UPDATE_COINS]: {
-    playerId: string;
-    coins: number;
-    isClaimed?: boolean;
-  };
-  [EventType.INVENTORY_MOVE]: {
-    playerId: string;
-    fromSlot?: number;
-    toSlot?: number;
-    sourceSlot?: number;
-    targetSlot?: number;
-  };
-  [EventType.INVENTORY_DROP_ALL]: {
-    playerId: string;
-    position: { x: number; y: number; z: number };
-  };
-  [EventType.INVENTORY_CAN_ADD]: InventoryCanAddEvent;
-  [EventType.INVENTORY_REMOVE_COINS]: InventoryRemoveCoinsEvent;
-  [EventType.INVENTORY_ITEM_ADDED]: InventoryItemAddedPayload;
-  [EventType.INVENTORY_CHECK]: InventoryCheckEvent;
-
-  // Player Health & Position Events
-  [EventType.PLAYER_HEALTH_UPDATED]: {
-    playerId: string;
-    health: number;
-    maxHealth: number;
-  };
-  [EventType.PLAYER_TELEPORT_REQUEST]: {
-    playerId: string;
-    position: { x: number; y: number; z: number };
-    rotationY?: number;
-  };
-
-  // Camera Events (continued)
-  [EventType.CAMERA_TAP]: { x: number; y: number };
-
-  // XR Events
-  [EventType.XR_SESSION]: XRSession | null;
-
-  // Avatar Events
-  [EventType.AVATAR_LOAD_COMPLETE]: { playerId: string; success: boolean };
-
-  // Input Events
-  inputAck: { sequence: number; corrections?: unknown };
-
-  // All other events
-  [EventType.ENTITY_SPAWNED]: EntitySpawnedEvent;
-  [EventType.RESOURCE_SPAWNED]: {
-    id: string;
-    type: string;
-    position: { x: number; y: number; z: number };
-  };
-  [EventType.RESOURCE_DEPLETED]: {
-    resourceId: string;
-    position?: { x: number; y: number; z: number };
-  };
-  [EventType.RESOURCE_RESPAWNED]: {
-    resourceId: string;
-    position?: { x: number; y: number; z: number };
-  };
-  [EventType.RESOURCE_SPAWN_POINTS_REGISTERED]: {
-    spawnPoints: Array<{
-      id: string;
-      type: string;
-      position: { x: number; y: number; z: number };
-    }>;
-  };
-  [EventType.RESOURCE_MESH_CREATED]: {
-    mesh: unknown;
-    instanceId: number | null;
-    resourceId: string;
-    resourceType: string;
-    worldPosition: { x: number; y: number; z: number };
-  };
-  [EventType.RESOURCE_HARVEST_REQUEST]: {
-    playerId: string;
-    entityId: string;
-    resourceType: string;
-    resourceId: string;
-    harvestSkill: string;
-    requiredLevel: number;
-    harvestTime: number;
-    harvestYield: Array<{ itemId: string; quantity: number; chance: number }>;
-  };
-  [EventType.ENTITY_HEALTH_CHANGED]: {
-    entityId: string;
-    health: number;
-    maxHealth: number;
-    isDead: boolean;
-  };
-  [EventType.ENTITY_DAMAGED]: {
-    entityId: string;
-    damage: number;
-    sourceId?: string;
-    remainingHealth: number;
-    isDead: boolean;
-  };
-  [EventType.ENTITY_HEALED]: {
-    entityId: string;
-    healAmount: number;
-    newHealth: number;
-  };
-  [EventType.ENTITY_LEVEL_CHANGED]: { entityId: string; newLevel: number };
-  [EventType.ENTITY_INTERACTED]: {
-    entityId: string;
-    playerId: string;
-    position: { x: number; y: number; z: number };
-  };
-  [EventType.MOB_NPC_EXAMINE]: {
-    playerId: string;
-    mobId: string;
-    mobData: unknown;
-  };
-  [EventType.MOB_NPC_AGGRO]: { mobId: string; targetId: string };
-  [EventType.MOB_NPC_RESPAWNED]: { mobId: string; position: Position3D };
-  [EventType.NPC_TRAINER_OPEN]: {
-    playerId: string;
-    npcId: string;
-    skillsOffered: string[];
-  };
-  [EventType.NPC_QUEST_OPEN]: {
-    playerId: string;
-    npcId: string;
-    questsAvailable: string[];
-  };
-  [EventType.BANK_OPEN_REQUEST]: { playerId: string; npcId: string };
-  [EventType.STORE_OPEN_REQUEST]: {
-    playerId: string;
-    npcId: string;
-    inventory: unknown[];
-  };
-  [EventType.CORPSE_EMPTY]: { corpseId: string; playerId?: string };
-  [EventType.CHARACTER_LIST]: {
-    characters: Array<{
-      id: string;
-      name: string;
-      level?: number;
-      lastLocation?: { x: number; y: number; z: number };
-    }>;
-  };
-  [EventType.CHARACTER_CREATED]: { id: string; name: string };
-  [EventType.CHARACTER_SELECTED]: { characterId: string | null };
-  [EventType.ENTITY_MODIFIED]: { id: string; changes: Record<string, unknown> };
-  [EventType.SERVER_CORRECTION]: { sequence: number; corrections: unknown };
-  [EventType.TERRAIN_TILE_UNLOADED]: { tileId: string };
-  [EventType.TERRAIN_GENERATE_INITIAL]: {
-    centerX: number;
-    centerZ: number;
-    radius: number;
-  };
-  [EventType.ENTITY_INTERACT_REQUEST]: {
-    playerId: string;
-    entityId: string;
-    interactionType: string;
-    playerPosition?: Position3D;
-  };
-  [EventType.AGGRO_FORCE_TRIGGER]: { playerId: string };
-
-  // Trading Events
-  [EventType.TRADE_REQUEST_RECEIVED]: {
-    tradeId: string;
-    fromPlayerId: string;
-    fromPlayerName: string;
-  };
-  [EventType.TRADE_STARTED]: {
-    tradeId: string;
-    initiatorId: string;
-    initiatorName: string;
-    recipientId: string;
-    recipientName: string;
-  };
-  [EventType.TRADE_UPDATED]: {
-    tradeId: string;
-    initiatorOffer: {
-      items: Array<{ itemId: string; quantity: number; slot: number }>;
-      coins: number;
-    };
-    recipientOffer: {
-      items: Array<{ itemId: string; quantity: number; slot: number }>;
-      coins: number;
-    };
-    initiatorConfirmed: boolean;
-    recipientConfirmed: boolean;
-  };
-  [EventType.TRADE_COMPLETED]: { tradeId: string; message: string };
-  [EventType.TRADE_CANCELLED]: {
-    tradeId: string;
-    reason: string;
-    byPlayerId?: string;
-  };
-  [EventType.TRADE_ERROR]: { message: string };
-
-  // Blockchain Integration Events
-  [EventType.PLAYER_KICK]: { playerId: string; reason: string };
-  [EventType.GOLD_WITHDRAW_REQUEST]: {
-    playerId: string;
-    amount: number;
-    walletAddress: string;
-  };
-  [EventType.GOLD_WITHDRAW_SUCCESS]: {
-    playerId: string;
-    amount: number;
-    txHash?: string;
-  };
-  [EventType.GOLD_DEPOSIT_CONFIRMED]: {
-    playerId: string;
-    amount: bigint;
-    txHash: string;
-  };
-  [EventType.ITEM_MINT_REQUEST]: {
-    playerId: string;
-    itemId: string;
-    quantity: number;
-    walletAddress: string;
-  };
-  [EventType.ITEM_MINT_SUCCESS]: {
-    playerId: string;
-    itemId: string;
-    quantity: number;
-    tokenId?: string;
-    txHash?: string;
-  };
-}
-
-/**
- * Type-safe event emitter interface
- */
-export interface TypedEventEmitter {
-  emit<K extends keyof EventMap>(event: K, data: EventMap[K]): void;
-  on<K extends keyof EventMap>(
-    event: K,
-    listener: (data: EventMap[K]) => void,
-  ): void;
-  off<K extends keyof EventMap>(
-    event: K,
-    listener: (data: EventMap[K]) => void,
-  ): void;
-  once<K extends keyof EventMap>(
-    event: K,
-    listener: (data: EventMap[K]) => void,
-  ): void;
-}
-
-/**
- * Event payloads type map
- */
-export type EventPayloads = {
-  [EventType.PLAYER_JOINED]: PlayerJoinedPayload;
-  [EventType.ENTITY_CREATED]: EntityCreatedPayload;
-  [EventType.PLAYER_LEVEL_UP]: PlayerLevelUpPayload;
-  [EventType.PLAYER_XP_GAINED]: PlayerXPGainedPayload;
-  [EventType.COMBAT_STARTED]: CombatStartedPayload;
-  [EventType.INVENTORY_ITEM_ADDED]: InventoryItemAddedPayload;
-  [EventType.NPC_DIED]: NPCDiedPayload;
+export type EventMap = {
+  [K in EventType]: Record<string, unknown>;
 };
 
 /**
- * Helper type to extract event payload type
+ * System event wrapper
  */
-export type EventPayload<K extends keyof EventMap> = EventMap[K];
+export interface SystemEvent<T = unknown> {
+  type: EventType;
+  data: T;
+  timestamp: number;
+  source?: string;
+}
 
 /**
- * Helper type to ensure event name is valid
+ * Event handler function type
  */
-export type ValidEventName = keyof EventMap;
+export type EventHandler<T = unknown> = (data: T) => void;
 
 /**
- * Helper function to create a typed event payload
+ * Event subscription for cleanup
  */
-export function createEventPayload<K extends keyof EventMap>(
-  event: K,
-  data: EventMap[K],
-): { event: K; data: EventMap[K] } {
-  return { event, data };
+export interface EventSubscription {
+  unsubscribe: () => void;
 }

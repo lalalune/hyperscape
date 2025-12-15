@@ -14,38 +14,174 @@
 import {
   createPublicClient,
   http,
-  parseAbi,
   keccak256,
   toBytes,
   type Address,
-  type PublicClient,
-  type Transport,
-  type Chain,
+  type Abi,
 } from "viem";
 import { getChain, getOptionalAddress, type JejuNetwork } from "./chain";
 
 // ============ Contract ABIs ============
+// Declared without as const to avoid viem 2.x type inference issues
 
-const IDENTITY_REGISTRY_ABI = parseAbi([
-  "function ownerOf(uint256 agentId) view returns (address)",
-  "function getAgent(uint256 agentId) view returns ((uint256 agentId, address owner, uint8 tier, address stakedToken, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, bool isSlashed))",
-  "function getA2AEndpoint(uint256 agentId) view returns (string)",
-  "function getMCPEndpoint(uint256 agentId) view returns (string)",
-  "function getMarketplaceInfo(uint256 agentId) view returns (string a2aEndpoint, string mcpEndpoint, string serviceType, string category, bool x402Supported, uint8 tier, bool banned)",
-  "function agentExists(uint256 agentId) view returns (bool)",
-  "function totalAgents() view returns (uint256)",
-  "function getMetadata(uint256 agentId, string key) view returns (bytes)",
-]);
+const IDENTITY_REGISTRY_ABI: Abi = [
+  {
+    name: "ownerOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "uint256", name: "agentId" }],
+    outputs: [{ type: "address" }],
+  },
+  {
+    name: "getAgent",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "uint256", name: "agentId" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { type: "uint256", name: "agentId" },
+          { type: "address", name: "owner" },
+          { type: "uint8", name: "tier" },
+          { type: "address", name: "stakedToken" },
+          { type: "uint256", name: "stakedAmount" },
+          { type: "uint256", name: "registeredAt" },
+          { type: "uint256", name: "lastActivityAt" },
+          { type: "bool", name: "isBanned" },
+          { type: "bool", name: "isSlashed" },
+        ],
+      },
+    ],
+  },
+  {
+    name: "getA2AEndpoint",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "uint256", name: "agentId" }],
+    outputs: [{ type: "string" }],
+  },
+  {
+    name: "getMCPEndpoint",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "uint256", name: "agentId" }],
+    outputs: [{ type: "string" }],
+  },
+  {
+    name: "getMarketplaceInfo",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "uint256", name: "agentId" }],
+    outputs: [
+      { type: "string", name: "a2aEndpoint" },
+      { type: "string", name: "mcpEndpoint" },
+      { type: "string", name: "serviceType" },
+      { type: "string", name: "category" },
+      { type: "bool", name: "x402Supported" },
+      { type: "uint8", name: "tier" },
+      { type: "bool", name: "banned" },
+    ],
+  },
+  {
+    name: "agentExists",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "uint256", name: "agentId" }],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    name: "totalAgents",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    name: "getMetadata",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { type: "uint256", name: "agentId" },
+      { type: "string", name: "key" },
+    ],
+    outputs: [{ type: "bytes" }],
+  },
+];
 
-const BAN_MANAGER_ABI = parseAbi([
-  "function isNetworkBanned(uint256 agentId) view returns (bool)",
-  "function isAppBanned(uint256 agentId, bytes32 appId) view returns (bool)",
-  "function isAccessAllowed(uint256 agentId, bytes32 appId) view returns (bool)",
-  "function getNetworkBan(uint256 agentId) view returns ((bool isBanned, uint256 bannedAt, string reason, bytes32 proposalId))",
-  "function getBanReason(uint256 agentId, bytes32 appId) view returns (string)",
-  "function isAddressBanned(address target) view returns (bool)",
-  "function isAddressAccessAllowed(address target, bytes32 appId) view returns (bool)",
-]);
+const BAN_MANAGER_ABI: Abi = [
+  {
+    name: "isNetworkBanned",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "uint256", name: "agentId" }],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    name: "isAppBanned",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { type: "uint256", name: "agentId" },
+      { type: "bytes32", name: "appId" },
+    ],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    name: "isAccessAllowed",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { type: "uint256", name: "agentId" },
+      { type: "bytes32", name: "appId" },
+    ],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    name: "getNetworkBan",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "uint256", name: "agentId" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { type: "bool", name: "isBanned" },
+          { type: "uint256", name: "bannedAt" },
+          { type: "string", name: "reason" },
+          { type: "bytes32", name: "proposalId" },
+        ],
+      },
+    ],
+  },
+  {
+    name: "getBanReason",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { type: "uint256", name: "agentId" },
+      { type: "bytes32", name: "appId" },
+    ],
+    outputs: [{ type: "string" }],
+  },
+  {
+    name: "isAddressBanned",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "address", name: "target" }],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    name: "isAddressAccessAllowed",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { type: "address", name: "target" },
+      { type: "bytes32", name: "appId" },
+    ],
+    outputs: [{ type: "bool" }],
+  },
+];
 
 // ============ Types ============
 
@@ -93,15 +229,25 @@ export interface AccessCheckResult {
 
 // ============ Client Singleton ============
 
-let publicClient: PublicClient<Transport, Chain> | null = null;
+// Simple client interface to avoid viem 2.x deep type instantiation
+interface SimplePublicClient {
+  readContract(params: {
+    address: Address;
+    abi: Abi;
+    functionName: string;
+    args?: readonly (bigint | string | `0x${string}`)[];
+  }): Promise<unknown>;
+}
 
-function getClient(network?: JejuNetwork): PublicClient<Transport, Chain> {
+let publicClient: SimplePublicClient | null = null;
+
+function getClient(network?: JejuNetwork): SimplePublicClient {
   if (!publicClient) {
     const chain = getChain(network);
     publicClient = createPublicClient({
       chain,
       transport: http(),
-    });
+    }) as SimplePublicClient;
   }
   return publicClient;
 }
@@ -135,71 +281,91 @@ function getBanManagerAddress(): Address {
   return address;
 }
 
+// ============ Contract Read Helper ============
+// Wraps readContract to handle type assertions
+
+async function readIdentityRegistry<T>(
+  functionName: string,
+  args: readonly (bigint | string)[],
+): Promise<T> {
+  const client = getClient();
+  const address = getIdentityRegistryAddress();
+  const result = await client.readContract({
+    address,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName,
+    args: args as readonly (bigint | string | `0x${string}`)[],
+  });
+  return result as T;
+}
+
+async function readBanManager<T>(
+  functionName: string,
+  args: readonly (bigint | string | `0x${string}`)[],
+): Promise<T> {
+  const client = getClient();
+  const address = getBanManagerAddress();
+  const result = await client.readContract({
+    address,
+    abi: BAN_MANAGER_ABI,
+    functionName,
+    args,
+  });
+  return result as T;
+}
+
+async function readBanManagerWithAddress<T>(
+  contractAddress: Address,
+  functionName: string,
+  args: readonly (bigint | string | `0x${string}`)[],
+): Promise<T> {
+  const client = getClient();
+  const result = await client.readContract({
+    address: contractAddress,
+    abi: BAN_MANAGER_ABI,
+    functionName,
+    args,
+  });
+  return result as T;
+}
+
 // ============ Agent Queries ============
 
 /**
  * Check if an agent exists in the registry
  */
 export async function agentExists(agentId: bigint): Promise<boolean> {
-  const client = getClient();
-  const address = getIdentityRegistryAddress();
-
-  const exists = await client.readContract({
-    address,
-    abi: IDENTITY_REGISTRY_ABI,
-    functionName: "agentExists",
-    args: [agentId],
-  });
-
-  return exists as boolean;
+  return readIdentityRegistry<boolean>("agentExists", [agentId]);
 }
 
 /**
  * Get agent registration details
  */
 export async function getAgent(agentId: bigint): Promise<AgentRegistration> {
-  const client = getClient();
-  const address = getIdentityRegistryAddress();
+  type AgentTuple = {
+    agentId: bigint;
+    owner: Address;
+    tier: number;
+    stakedToken: Address;
+    stakedAmount: bigint;
+    registeredAt: bigint;
+    lastActivityAt: bigint;
+    isBanned: boolean;
+    isSlashed: boolean;
+  };
 
-  const result = await client.readContract({
-    address,
-    abi: IDENTITY_REGISTRY_ABI,
-    functionName: "getAgent",
-    args: [agentId],
-  });
-
-  const [
-    id,
-    owner,
-    tier,
-    stakedToken,
-    stakedAmount,
-    registeredAt,
-    lastActivityAt,
-    isBanned,
-    isSlashed,
-  ] = result as [
-    bigint,
-    Address,
-    number,
-    Address,
-    bigint,
-    bigint,
-    bigint,
-    boolean,
-    boolean,
-  ];
+  const result = await readIdentityRegistry<AgentTuple>("getAgent", [agentId]);
 
   return {
-    agentId: id,
-    owner,
-    tier: tier as StakeTier,
-    stakedToken,
-    stakedAmount,
-    registeredAt,
-    lastActivityAt,
-    isBanned,
-    isSlashed,
+    agentId: result.agentId,
+    owner: result.owner,
+    tier: result.tier as StakeTier,
+    stakedToken: result.stakedToken,
+    stakedAmount: result.stakedAmount,
+    registeredAt: result.registeredAt,
+    lastActivityAt: result.lastActivityAt,
+    isBanned: result.isBanned,
+    isSlashed: result.isSlashed,
   };
 }
 
@@ -207,17 +373,7 @@ export async function getAgent(agentId: bigint): Promise<AgentRegistration> {
  * Get agent owner address
  */
 export async function getAgentOwner(agentId: bigint): Promise<Address> {
-  const client = getClient();
-  const address = getIdentityRegistryAddress();
-
-  const owner = await client.readContract({
-    address,
-    abi: IDENTITY_REGISTRY_ABI,
-    functionName: "ownerOf",
-    args: [agentId],
-  });
-
-  return owner as Address;
+  return readIdentityRegistry<Address>("ownerOf", [agentId]);
 }
 
 /**
@@ -226,34 +382,19 @@ export async function getAgentOwner(agentId: bigint): Promise<Address> {
 export async function getMarketplaceInfo(
   agentId: bigint,
 ): Promise<MarketplaceInfo> {
-  const client = getClient();
-  const address = getIdentityRegistryAddress();
-
-  const result = await client.readContract({
-    address,
-    abi: IDENTITY_REGISTRY_ABI,
-    functionName: "getMarketplaceInfo",
-    args: [agentId],
-  });
-
-  const [
-    a2aEndpoint,
-    mcpEndpoint,
-    serviceType,
-    category,
-    x402Supported,
-    tier,
-    banned,
-  ] = result as [string, string, string, string, boolean, number, boolean];
+  type InfoTuple = [string, string, string, string, boolean, number, boolean];
+  const result = await readIdentityRegistry<InfoTuple>("getMarketplaceInfo", [
+    agentId,
+  ]);
 
   return {
-    a2aEndpoint,
-    mcpEndpoint,
-    serviceType,
-    category,
-    x402Supported,
-    tier: tier as StakeTier,
-    banned,
+    a2aEndpoint: result[0],
+    mcpEndpoint: result[1],
+    serviceType: result[2],
+    category: result[3],
+    x402Supported: result[4],
+    tier: result[5] as StakeTier,
+    banned: result[6],
   };
 }
 
@@ -263,18 +404,8 @@ export async function getMarketplaceInfo(
 export async function getAgentMetadata(
   agentId: bigint,
   key: string,
-): Promise<Uint8Array> {
-  const client = getClient();
-  const address = getIdentityRegistryAddress();
-
-  const result = await client.readContract({
-    address,
-    abi: IDENTITY_REGISTRY_ABI,
-    functionName: "getMetadata",
-    args: [agentId, key],
-  });
-
-  return result as Uint8Array;
+): Promise<`0x${string}`> {
+  return readIdentityRegistry<`0x${string}`>("getMetadata", [agentId, key]);
 }
 
 // ============ Ban Checking ============
@@ -283,17 +414,7 @@ export async function getAgentMetadata(
  * Check if agent is banned from the entire network
  */
 export async function isNetworkBanned(agentId: bigint): Promise<boolean> {
-  const client = getClient();
-  const address = getBanManagerAddress();
-
-  const banned = await client.readContract({
-    address,
-    abi: BAN_MANAGER_ABI,
-    functionName: "isNetworkBanned",
-    args: [agentId],
-  });
-
-  return banned as boolean;
+  return readBanManager<boolean>("isNetworkBanned", [agentId]);
 }
 
 /**
@@ -303,17 +424,7 @@ export async function isAppBanned(
   agentId: bigint,
   appId: `0x${string}`,
 ): Promise<boolean> {
-  const client = getClient();
-  const address = getBanManagerAddress();
-
-  const banned = await client.readContract({
-    address,
-    abi: BAN_MANAGER_ABI,
-    functionName: "isAppBanned",
-    args: [agentId, appId],
-  });
-
-  return banned as boolean;
+  return readBanManager<boolean>("isAppBanned", [agentId, appId]);
 }
 
 /**
@@ -323,41 +434,28 @@ export async function isAccessAllowed(
   agentId: bigint,
   appId: `0x${string}`,
 ): Promise<boolean> {
-  const client = getClient();
-  const address = getBanManagerAddress();
-
-  const allowed = await client.readContract({
-    address,
-    abi: BAN_MANAGER_ABI,
-    functionName: "isAccessAllowed",
-    args: [agentId, appId],
-  });
-
-  return allowed as boolean;
+  return readBanManager<boolean>("isAccessAllowed", [agentId, appId]);
 }
 
 /**
  * Get network ban details
  */
 export async function getNetworkBan(agentId: bigint): Promise<BanRecord> {
-  const client = getClient();
-  const address = getBanManagerAddress();
+  type BanTuple = {
+    isBanned: boolean;
+    bannedAt: bigint;
+    reason: string;
+    proposalId: `0x${string}`;
+  };
 
-  const result = await client.readContract({
-    address,
-    abi: BAN_MANAGER_ABI,
-    functionName: "getNetworkBan",
-    args: [agentId],
-  });
+  const result = await readBanManager<BanTuple>("getNetworkBan", [agentId]);
 
-  const [isBanned, bannedAt, reason, proposalId] = result as [
-    boolean,
-    bigint,
-    string,
-    `0x${string}`,
-  ];
-
-  return { isBanned, bannedAt, reason, proposalId };
+  return {
+    isBanned: result.isBanned,
+    bannedAt: result.bannedAt,
+    reason: result.reason,
+    proposalId: result.proposalId,
+  };
 }
 
 /**
@@ -367,34 +465,14 @@ export async function getBanReason(
   agentId: bigint,
   appId: `0x${string}` = "0x0000000000000000000000000000000000000000000000000000000000000000",
 ): Promise<string> {
-  const client = getClient();
-  const address = getBanManagerAddress();
-
-  const reason = await client.readContract({
-    address,
-    abi: BAN_MANAGER_ABI,
-    functionName: "getBanReason",
-    args: [agentId, appId],
-  });
-
-  return reason as string;
+  return readBanManager<string>("getBanReason", [agentId, appId]);
 }
 
 /**
  * Check if an address is banned (direct address ban)
  */
 export async function isAddressBanned(target: Address): Promise<boolean> {
-  const client = getClient();
-  const address = getBanManagerAddress();
-
-  const banned = await client.readContract({
-    address,
-    abi: BAN_MANAGER_ABI,
-    functionName: "isAddressBanned",
-    args: [target],
-  });
-
-  return banned as boolean;
+  return readBanManager<boolean>("isAddressBanned", [target]);
 }
 
 // ============ High-Level Access Control ============
@@ -422,15 +500,12 @@ export async function checkPlayerAccess(
     return { allowed: true };
   }
 
-  const client = getClient();
-
   // Check direct address ban
-  const addressBanned = (await client.readContract({
-    address: banManagerAddress,
-    abi: BAN_MANAGER_ABI,
-    functionName: "isAddressBanned",
-    args: [playerAddress],
-  })) as boolean;
+  const addressBanned = await readBanManagerWithAddress<boolean>(
+    banManagerAddress,
+    "isAddressBanned",
+    [playerAddress],
+  );
 
   if (addressBanned) {
     return {
@@ -446,12 +521,11 @@ export async function checkPlayerAccess(
   }
 
   // Check network ban
-  const networkBanned = (await client.readContract({
-    address: banManagerAddress,
-    abi: BAN_MANAGER_ABI,
-    functionName: "isNetworkBanned",
-    args: [playerAgentId],
-  })) as boolean;
+  const networkBanned = await readBanManagerWithAddress<boolean>(
+    banManagerAddress,
+    "isNetworkBanned",
+    [playerAgentId],
+  );
 
   if (networkBanned) {
     const ban = await getNetworkBan(playerAgentId);
@@ -463,12 +537,11 @@ export async function checkPlayerAccess(
   }
 
   // Check app-specific ban
-  const appAllowed = (await client.readContract({
-    address: banManagerAddress,
-    abi: BAN_MANAGER_ABI,
-    functionName: "isAccessAllowed",
-    args: [playerAgentId, appId],
-  })) as boolean;
+  const appAllowed = await readBanManagerWithAddress<boolean>(
+    banManagerAddress,
+    "isAccessAllowed",
+    [playerAgentId, appId],
+  );
 
   if (!appAllowed) {
     const reason = await getBanReason(playerAgentId, appId);

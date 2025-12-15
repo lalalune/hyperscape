@@ -30,6 +30,17 @@ export interface EntityData {
   position?: [number, number, number];
   quaternion?: [number, number, number, number];
   scale?: [number, number, number];
+
+  /** Entity owner socket ID for permission checks */
+  owner?: string;
+
+  /**
+   * Loading state flag (Issue #356)
+   * True while client is loading assets - entity is immune to aggro/combat
+   * Used for spawn protection to prevent damage before player is ready
+   */
+  isLoading?: boolean;
+
   [key: string]: unknown;
 }
 

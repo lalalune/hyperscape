@@ -18,10 +18,8 @@ import {
   parseEther,
   formatEther,
   type Address,
-  type PublicClient,
-  type Transport,
-  type Chain,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import {
   getChain,
   getOptionalAddress,
@@ -124,15 +122,30 @@ const EIP712_TYPES = {
 
 // ============ Client ============
 
-let publicClient: PublicClient<Transport, Chain> | null = null;
+// Simple client interface to avoid viem 2.x deep type instantiation
+interface SimplePublicClient {
+  readContract(params: {
+    address: Address;
+    abi: readonly { name: string; type: string; inputs?: readonly { type: string; name: string }[]; outputs?: readonly { type: string }[]; stateMutability?: string }[];
+    functionName: string;
+    args?: readonly (bigint | string | Address)[];
+  }): Promise<unknown>;
+  waitForTransactionReceipt(params: { hash: `0x${string}` }): Promise<{
+    status: "success" | "reverted";
+    logs: readonly { topics?: readonly string[] }[];
+    blockNumber: bigint;
+  }>;
+}
 
-function getClient(network?: JejuNetwork): PublicClient<Transport, Chain> {
+let publicClient: SimplePublicClient | null = null;
+
+function getClient(network?: JejuNetwork): SimplePublicClient {
   if (!publicClient) {
     const chain = getChain(network);
     publicClient = createPublicClient({
       chain,
       transport: http(),
-    });
+    }) as SimplePublicClient;
   }
   return publicClient;
 }
@@ -406,6 +419,7 @@ export async function settlePayment(
   }
 
   // Submit settlement transaction
+  // @ts-expect-error - viem 2.x has stricter writeContract types
   const hash = await walletClient.writeContract({
     address: facilitatorAddress,
     abi: X402_FACILITATOR_ABI,
@@ -480,19 +494,15 @@ export async function getFacilitatorStats(): Promise<{
     functionName: "getStats",
   });
 
-  const [settlements, volumeUSD, feeBps, feeAddr] = result as [
+  // viem 2.x returns tuples, convert via unknown
+  const [settlements, volumeUSD, feeBps, feeRecipient] = result as unknown as [
     bigint,
     bigint,
     bigint,
     Address,
   ];
 
-  return {
-    settlements,
-    volumeUSD,
-    feeBps,
-    feeRecipient: feeAddr,
-  };
+  return { settlements, volumeUSD, feeBps, feeRecipient };
 }
 
 // ============ High-Level Payment Functions ============

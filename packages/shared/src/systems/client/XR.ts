@@ -93,7 +93,7 @@ export class XR extends SystemBase {
       }
     ).addEventListener("end", this.onSessionEnd);
     this.session = session;
-    this.emitTypedEvent(EventType.XR_SESSION, session as XRSession);
+    this.emitTypedEvent(EventType.XR_SESSION, { session: session as XRSession });
   }
 
   onSessionEnd = () => {
@@ -113,6 +113,6 @@ export class XR extends SystemBase {
     this.camera = null;
     this.controller1Model = null;
     this.controller2Model = null;
-    this.emitTypedEvent(EventType.XR_SESSION, null);
+    this.emitTypedEvent(EventType.XR_SESSION, { session: null });
   };
 }

@@ -992,7 +992,12 @@ export class DatabaseSystem extends SystemBase {
                       batch: true,
                     },
                   ) // Enable batching
-                  .catch(() => {}); // Non-blocking
+                  .catch((err) => {
+                    console.error(
+                      `[DatabaseSystem] Blockchain addItem failed for player ${playerId}, item ${item.itemId}:`,
+                      err,
+                    );
+                  }); // Non-blocking but logged
               }
             }
           }

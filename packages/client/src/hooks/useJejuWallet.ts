@@ -136,9 +136,12 @@ export function useJejuWallet(): UseJejuWalletResult {
       isReady: !!walletAddress,
       isAuthenticated: true,
       address: walletAddress as Address | null,
-      smartAccountAddress: null, // TODO: Compute smart account address
+      // Smart accounts not yet implemented - will be null until AA infrastructure is ready
+      smartAccountAddress: null,
       isEmbedded: activeWallet?.walletClientType === "privy",
-      hasActiveSession: false, // TODO: Check session status
+      // Session key status requires server-side session manager - defaults to false
+      // Call requestSessionKey() to create a session, which updates this to true
+      hasActiveSession: false,
       isLoading: false,
       error: null,
     });

@@ -340,20 +340,23 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.maxUploadSize = 50; // Default 50MB upload limit
 
     // Register handler methods with proper signatures (packet system adds 'on' prefix)
-    this.handlers["onChatAdded"] = this.onChatAdded.bind(this);
-    this.handlers["onCommand"] = this.onCommand.bind(this);
-    this.handlers["onEntityModified"] = this.onEntityModified.bind(this);
-    this.handlers["onEntityEvent"] = this.onEntityEvent.bind(this);
+    // Type assertions through unknown needed because handlers expect specific packet types
+    // but the handler map uses Record<string, unknown> for runtime flexibility
+    this.handlers["onChatAdded"] = this.onChatAdded.bind(this) as unknown as NetworkHandler;
+    this.handlers["onCommand"] = this.onCommand.bind(this) as unknown as NetworkHandler;
+    this.handlers["onEntityModified"] = this.onEntityModified.bind(this) as unknown as NetworkHandler;
+    this.handlers["onEntityEvent"] = this.onEntityEvent.bind(this) as unknown as NetworkHandler;
     this.handlers["onEntityRemoved"] = (socket, data) =>
       this.onEntityRemoved(socket, data as { id: string });
     this.handlers["onSettings"] = (socket, data) =>
       this.onSettings(socket, data);
     // Dedicated resource packet handler
-    this.handlers["onResourceGather"] = (
+    this.handlers["onResourceGather"] = ((
       socket: SocketInterface,
-      data: ResourceGatherPacket,
+      data: Record<string, unknown>,
     ) => {
-      const playerEntity = socket.player;
+      const resourceData = data as unknown as ResourceGatherPacket;
+      const playerEntity = socket.player as { id: string; position: { x: number; y: number; z: number } } | undefined;
       if (!playerEntity) {
         console.warn(
           "[ServerNetwork] onResourceGather: no player entity for socket",
@@ -361,14 +364,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         return;
       }
 
-      if (!data.resourceId) {
+      if (!resourceData.resourceId) {
         console.warn(
           "[ServerNetwork] onResourceGather: no resourceId in payload",
         );
         return;
       }
 
-      const playerPosition = data.playerPosition || {
+      const playerPosition = resourceData.playerPosition || {
         x: playerEntity.position.x,
         y: playerEntity.position.y,
         z: playerEntity.position.z,
@@ -377,29 +380,29 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       // Forward to ResourceSystem - emit RESOURCE_GATHER which ResourceSystem subscribes to
       this.world.emit(EventType.RESOURCE_GATHER, {
         playerId: playerEntity.id,
-        resourceId: data.resourceId,
+        resourceId: resourceData.resourceId,
         playerPosition: playerPosition,
       });
-    };
-    this.handlers["onMoveRequest"] = this.onMoveRequest.bind(this);
-    this.handlers["onInput"] = this.onInput.bind(this);
+    }) as NetworkHandler;
+    this.handlers["onMoveRequest"] = this.onMoveRequest.bind(this) as unknown as NetworkHandler;
+    this.handlers["onInput"] = this.onInput.bind(this) as unknown as NetworkHandler;
     // Combat/Item handlers
-    this.handlers["onAttackMob"] = this.onAttackMob.bind(this);
-    this.handlers["onPickupItem"] = this.onPickupItem.bind(this);
+    this.handlers["onAttackMob"] = this.onAttackMob.bind(this) as unknown as NetworkHandler;
+    this.handlers["onPickupItem"] = this.onPickupItem.bind(this) as unknown as NetworkHandler;
     // Inventory drop handler
-    this.handlers["onDropItem"] = this.onDropItem.bind(this);
+    this.handlers["onDropItem"] = this.onDropItem.bind(this) as unknown as NetworkHandler;
     // Trading system handlers
-    this.handlers["onTradeRequest"] = this.onTradeRequest.bind(this);
-    this.handlers["onTradeResponse"] = this.onTradeResponse.bind(this);
-    this.handlers["onTradeOffer"] = this.onTradeOffer.bind(this);
-    this.handlers["onTradeConfirm"] = this.onTradeConfirm.bind(this);
-    this.handlers["onTradeCancel"] = this.onTradeCancel.bind(this);
+    this.handlers["onTradeRequest"] = this.onTradeRequest.bind(this) as unknown as NetworkHandler;
+    this.handlers["onTradeResponse"] = this.onTradeResponse.bind(this) as unknown as NetworkHandler;
+    this.handlers["onTradeOffer"] = this.onTradeOffer.bind(this) as unknown as NetworkHandler;
+    this.handlers["onTradeConfirm"] = this.onTradeConfirm.bind(this) as unknown as NetworkHandler;
+    this.handlers["onTradeCancel"] = this.onTradeCancel.bind(this) as unknown as NetworkHandler;
     // Character selection handlers (feature-flagged usage)
     this.handlers["onCharacterListRequest"] = (socket, data) =>
       this.onCharacterListRequest(socket, data as Record<string, never>);
-    this.handlers["onCharacterCreate"] = this.onCharacterCreate.bind(this);
-    this.handlers["onCharacterSelected"] = this.onCharacterSelected.bind(this);
-    this.handlers["onEnterWorld"] = this.onEnterWorld.bind(this);
+    this.handlers["onCharacterCreate"] = this.onCharacterCreate.bind(this) as unknown as NetworkHandler;
+    this.handlers["onCharacterSelected"] = this.onCharacterSelected.bind(this) as unknown as NetworkHandler;
+    this.handlers["onEnterWorld"] = this.onEnterWorld.bind(this) as unknown as NetworkHandler;
   }
 
   // --- Character selection infrastructure (feature-flag guarded) ---
@@ -2720,9 +2723,38 @@ export class ServerNetwork extends System implements NetworkWithSocket {
             return;
           }
 
-          // Validate item is not currently equipped (would need equipment system check)
-          // For now, we assume inventory items are safe to trade
-          // TODO: Add equipment system check to prevent trading equipped items
+          // Validate item is not currently equipped
+          const equipmentSystem = this.world.getSystem("equipment");
+          if (equipmentSystem) {
+            const equipment = equipmentSystem.getPlayerEquipment(player.id);
+            if (equipment) {
+              // Check all equipment slots for this item
+              const slots = [
+                equipment.weapon,
+                equipment.shield,
+                equipment.helmet,
+                equipment.body,
+                equipment.legs,
+                equipment.arrows,
+              ];
+              for (const slot of slots) {
+                if (
+                  slot &&
+                  slot.itemId !== null &&
+                  (slot.itemId === offeredItem.itemId ||
+                    String(slot.itemId) === String(offeredItem.itemId))
+                ) {
+                  console.warn(
+                    `[ServerNetwork] onTradeOffer: cannot trade equipped item ${offeredItem.itemId}`,
+                  );
+                  this.sendTo(socket.id, "tradeError", {
+                    message: "Cannot trade equipped items",
+                  });
+                  return;
+                }
+              }
+            }
+          }
         }
 
         // Validate coins
@@ -3017,10 +3049,17 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
 
-    // Execute atomic swap via inventory system events
-    // NOTE: This is a "soft atomic" swap - we validate everything first, then execute
-    // If any step fails, it will throw and we catch it, cancelling the trade
-    // The InventorySystem should handle these operations safely
+    // Execute atomic swap via inventory system events with rollback support
+    // Track operations for rollback in case of failure
+    const rollbackOperations: Array<{
+      type: "add_item" | "remove_item" | "update_coins";
+      playerId: string;
+      itemId?: string;
+      quantity?: number;
+      slot?: number;
+      coins?: number;
+    }> = [];
+
     try {
       // PHASE 1: Remove items from both players
       for (const item of trade.initiatorOffer.items) {
@@ -3030,10 +3069,24 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           quantity: item.quantity,
           slot: item.slot,
         });
+        rollbackOperations.push({
+          type: "remove_item",
+          playerId: trade.initiator,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          slot: item.slot,
+        });
       }
 
       for (const item of trade.recipientOffer.items) {
         this.world.emit(EventType.INVENTORY_ITEM_REMOVED, {
+          playerId: trade.recipient,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          slot: item.slot,
+        });
+        rollbackOperations.push({
+          type: "remove_item",
           playerId: trade.recipient,
           itemId: item.itemId,
           quantity: item.quantity,
@@ -3053,6 +3106,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
             metadata: null,
           },
         });
+        rollbackOperations.push({
+          type: "add_item",
+          playerId: trade.initiator,
+          itemId: item.itemId,
+          quantity: item.quantity,
+        });
       }
 
       for (const item of trade.initiatorOffer.items) {
@@ -3066,6 +3125,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
             metadata: null,
           },
         });
+        rollbackOperations.push({
+          type: "add_item",
+          playerId: trade.recipient,
+          itemId: item.itemId,
+          quantity: item.quantity,
+        });
       }
 
       // PHASE 3: Swap coins
@@ -3075,10 +3140,20 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           coins: -trade.initiatorOffer.coins,
           isClaimed: false,
         });
+        rollbackOperations.push({
+          type: "update_coins",
+          playerId: trade.initiator,
+          coins: trade.initiatorOffer.coins,
+        });
         this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
           playerId: trade.recipient,
           coins: trade.initiatorOffer.coins,
           isClaimed: false,
+        });
+        rollbackOperations.push({
+          type: "update_coins",
+          playerId: trade.recipient,
+          coins: -trade.initiatorOffer.coins,
         });
       }
 
@@ -3088,10 +3163,20 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           coins: -trade.recipientOffer.coins,
           isClaimed: false,
         });
+        rollbackOperations.push({
+          type: "update_coins",
+          playerId: trade.recipient,
+          coins: trade.recipientOffer.coins,
+        });
         this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
           playerId: trade.initiator,
           coins: trade.recipientOffer.coins,
           isClaimed: false,
+        });
+        rollbackOperations.push({
+          type: "update_coins",
+          playerId: trade.initiator,
+          coins: -trade.recipientOffer.coins,
         });
       }
 
@@ -3117,11 +3202,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     } catch (err) {
       console.error("[ServerNetwork] ❌ executeTrade FAILED:", err);
       console.error(
-        "[ServerNetwork] ⚠️  CRITICAL: Items may have been partially transferred",
-      );
-      console.error(
-        "[ServerNetwork] ⚠️  Manual intervention may be required for trade:",
-        tradeId,
+        "[ServerNetwork] ⚠️  Rolling back trade operations due to error",
       );
 
       // Log the exact state for debugging
@@ -3129,7 +3210,50 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         initiatorOffer: trade.initiatorOffer,
         recipientOffer: trade.recipientOffer,
         error: err instanceof Error ? err.message : String(err),
+        operationsToRollback: rollbackOperations.length,
       });
+
+      // ROLLBACK: Reverse all operations in reverse order
+      // Process rollback operations in reverse to undo changes
+      for (let i = rollbackOperations.length - 1; i >= 0; i--) {
+        const op = rollbackOperations[i];
+        try {
+          if (op.type === "add_item" && op.itemId && op.quantity) {
+            // Rollback: Remove item that was added
+            this.world.emit(EventType.INVENTORY_ITEM_REMOVED, {
+              playerId: op.playerId,
+              itemId: op.itemId,
+              quantity: op.quantity,
+              slot: -1, // Find any slot with this item
+            });
+          } else if (op.type === "remove_item" && op.itemId && op.quantity) {
+            // Rollback: Restore item that was removed
+            this.world.emit(EventType.INVENTORY_ITEM_ADDED, {
+              playerId: op.playerId,
+              item: {
+                id: `${op.playerId}_${op.itemId}_rollback_${Date.now()}`,
+                itemId: op.itemId,
+                quantity: op.quantity,
+                slot: op.slot ?? -1,
+                metadata: null,
+              },
+            });
+          } else if (op.type === "update_coins" && op.coins !== undefined) {
+            // Rollback: Reverse coin change
+            this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+              playerId: op.playerId,
+              coins: -op.coins, // Reverse the change
+              isClaimed: false,
+            });
+          }
+        } catch (rollbackErr) {
+          console.error(
+            `[ServerNetwork] ⚠️  Rollback operation failed for ${op.type} on player ${op.playerId}:`,
+            rollbackErr,
+          );
+          // Continue with other rollback operations even if one fails
+        }
+      }
 
       // Cancel and notify players
       this.cancelTradeWithError(
@@ -3137,9 +3261,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         "Trade failed: server error during execution",
       );
 
-      // TODO: Implement proper rollback mechanism
-      // For now, we rely on validation preventing most failures
-      // InventorySystem should be fault-tolerant
       return;
     }
 

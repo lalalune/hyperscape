@@ -184,7 +184,7 @@ export class PlayerSystem extends SystemBase {
   async init(): Promise<void> {
     // Subscribe to player events using strongly typed event system
     this.subscribe(EventType.PLAYER_JOINED, (data) => {
-      this.onPlayerEnter(data as PlayerEnterEvent);
+      this.onPlayerEnter(data as unknown as PlayerEnterEvent);
     });
     this.subscribe(EventType.PLAYER_SPAWN_REQUEST, (data) =>
       this.onPlayerSpawnRequest(
@@ -192,7 +192,7 @@ export class PlayerSystem extends SystemBase {
       ),
     );
     this.subscribe(EventType.PLAYER_LEFT, (data) => {
-      this.onPlayerLeave(data as PlayerLeaveEvent);
+      this.onPlayerLeave(data as unknown as PlayerLeaveEvent);
     });
     this.subscribe(EventType.PLAYER_REGISTERED, (data) => {
       this.onPlayerRegister(data as { playerId: string });

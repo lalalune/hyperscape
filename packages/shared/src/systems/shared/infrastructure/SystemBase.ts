@@ -80,7 +80,7 @@
 
 import { EventBus, EventSubscription, SystemEvent } from "./EventBus";
 import { System } from "./System";
-import type { AnyEvent, EventMap } from "../../../types/events";
+import type { AnyEvent, EventMap, EventHandler } from "../../../types/events";
 import type { World } from "../../../types/index";
 import { SystemConfig } from "../../../types/core/core";
 import { SystemLogger } from "../../../utils/Logger";
@@ -208,9 +208,7 @@ export abstract class SystemBase extends System {
   ): EventSubscription {
     const subscription = this.eventBus.subscribe(
       eventType as string,
-      (event: SystemEvent<AnyEvent>) => {
-        (handler as (data: AnyEvent) => void | Promise<void>)(event.data);
-      },
+      handler as EventHandler<AnyEvent>,
     );
     this.eventSubscriptions.add(subscription);
     return subscription;
@@ -235,9 +233,7 @@ export abstract class SystemBase extends System {
   ): EventSubscription {
     const subscription = this.eventBus.subscribeOnce(
       eventType as string,
-      (event: SystemEvent<AnyEvent>) => {
-        (handler as (data: AnyEvent) => void | Promise<void>)(event.data);
-      },
+      handler as EventHandler<AnyEvent>,
     );
     this.eventSubscriptions.add(subscription);
     return subscription;

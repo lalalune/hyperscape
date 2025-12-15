@@ -1047,11 +1047,11 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       despawnMob: (mobId: string) => {
-        world.emit(EventType.MOB_NPC_DESPAWN, mobId);
+        world.emit(EventType.MOB_NPC_DESPAWN, { mobId });
       },
 
       respawnAllMobs: () => {
-        world.emit(EventType.MOB_NPC_RESPAWN_ALL);
+        world.emit(EventType.MOB_NPC_RESPAWN_ALL, {});
       },
 
       // Item actions
@@ -1072,11 +1072,11 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       despawnItem: (itemId: string) => {
-        world.emit(EventType.ITEM_DESPAWN, itemId);
+        world.emit(EventType.ITEM_DESPAWN, { itemId });
       },
 
       respawnShopItems: () => {
-        world.emit(EventType.ITEM_RESPAWN_SHOPS);
+        world.emit(EventType.ITEM_RESPAWN_SHOPS, {});
       },
 
       spawnLootItems: (position: Position3D, lootTable: string[]) => {

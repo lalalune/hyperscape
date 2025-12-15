@@ -24,7 +24,10 @@ import { MobNPCSystem } from "..";
 import { SystemBase } from "../infrastructure/SystemBase";
 import { Emotes } from "../../../data/playerEmotes";
 import { getItem } from "../../../data/items";
-import { worldToTile, tilesWithinRange } from "../movement/TileSystem";
+import {
+  worldToTile,
+  tilesWithinMeleeRange,
+} from "../movement/TileSystem";
 
 // Runtime entity types with dynamic properties
 type EntityWithCombat = Entity & {
@@ -66,6 +69,23 @@ export class CombatSystem extends SystemBase {
   private nextAttackTicks = new Map<EntityID, number>(); // Tick when entity can next attack
   private mobSystem?: MobNPCSystem;
   private entityManager?: EntityManager;
+
+  /**
+   * State service accessor for combat state queries
+   * Provides a read-only interface to combat states
+   */
+  public readonly stateService = {
+    getAllCombatStates: (): CombatData[] => {
+      return Array.from(this.combatStates.values());
+    },
+    getCombatData: (entityId: string): CombatData | null => {
+      return this.combatStates.get(entityId as EntityID) ?? null;
+    },
+    isInCombat: (entityId: string): boolean => {
+      const state = this.combatStates.get(entityId as EntityID);
+      return state?.inCombat ?? false;
+    },
+  };
 
   // Equipment stats cache per player for damage calculations
   private playerEquipmentStats = new Map<
@@ -303,7 +323,8 @@ export class CombatSystem extends SystemBase {
     const targetTile = worldToTile(targetPos.x, targetPos.z);
     const combatRangeTiles = this.getEntityCombatRange(attacker, attackerType);
 
-    if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
+    // OSRS-STYLE: Range 1 (standard melee) is cardinal-only, range 2+ allows diagonal
+    if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
       this.emitTypedEvent(EventType.COMBAT_ATTACK_FAILED, {
         attackerId,
         targetId,
@@ -1415,7 +1436,8 @@ export class CombatSystem extends SystemBase {
         attacker,
         opts.attackerType,
       );
-      if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
+      // OSRS-STYLE: Range 1 is cardinal-only, range 2+ allows diagonal
+      if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
         return false;
       }
     }
@@ -1643,7 +1665,8 @@ export class CombatSystem extends SystemBase {
         attacker,
         combatState.attackerType,
       );
-      if (!tilesWithinRange(attackerTile, targetTile, combatRangeTiles)) {
+      // OSRS-STYLE: Range 1 is cardinal-only, range 2+ allows diagonal
+      if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
         // Out of melee range - don't end combat, just skip this attack
         return;
       }

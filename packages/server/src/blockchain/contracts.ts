@@ -193,7 +193,7 @@ export class HyperscapeContracts {
       ) => Promise<{ hash: string; wait: () => Promise<{ hash: string }> }>;
     };
     const tx = await bazaar.buyListing(listingId, {
-      value: paymentAmount || 0,
+      value: paymentAmount ?? 0n,
     });
     const receipt = await tx.wait();
 
@@ -217,8 +217,10 @@ export class HyperscapeContracts {
     const receipt = await tx.wait();
 
     // Extract tradeId from event
-    const event = receipt.logs.find(
-      (log: { topics: readonly string[] }) =>
+    type LogWithTopics = { topics: readonly string[] };
+    const logs = receipt.logs as unknown as LogWithTopics[];
+    const event = logs.find(
+      (log) =>
         log.topics[0] === ethers.id("TradeCreated(uint256,address,address)"),
     );
     if (!event) throw new Error("TradeCreated event not found");
@@ -252,7 +254,7 @@ export class HyperscapeContracts {
   async getActiveListings(limit: number = 20): Promise<unknown[]> {
     if (!this.bazaarContract) return [];
 
-    const listings = [];
+    const listings: unknown[] = [];
     for (let i = 1; i <= limit; i++) {
       try {
         const listing = await this.bazaarContract.getListing(i);
