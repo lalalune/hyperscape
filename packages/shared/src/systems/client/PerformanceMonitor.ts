@@ -158,8 +158,13 @@ export class PerformanceMonitor extends System {
   private _checkIsDev(): boolean {
     // Vite injects import.meta.env at build time
     if (typeof import.meta !== "undefined" && import.meta.env) {
+      const dev = import.meta.env.DEV;
+      const mode = import.meta.env.MODE;
+      // Handle both boolean and string types for DEV
       return (
-        import.meta.env.DEV === true || import.meta.env.MODE === "development"
+        (typeof dev === "boolean" && dev) ||
+        (typeof dev === "string" && dev === "true") ||
+        mode === "development"
       );
     }
     // Node.js / fallback
@@ -445,7 +450,7 @@ export class PerformanceMonitor extends System {
 
   private _getMemoryStats(): MemoryStats | null {
     // Memory API is only available in some browsers
-    const perf = performance as Performance & {
+    const perf = performance as typeof performance & {
       memory?: {
         usedJSHeapSize: number;
         totalJSHeapSize: number;
@@ -488,7 +493,7 @@ export class PerformanceMonitor extends System {
   }
 
   private _getPhysicsStats(): PerformanceSnapshot["physics"] {
-    const physics = this.world.physics as {
+    const physics = this.world.physics as unknown as {
       scene?: {
         getNbActors?: (type: number) => number;
         getNbShapes?: () => number;
@@ -513,7 +518,8 @@ export class PerformanceMonitor extends System {
     if (physics.scene) {
       // PxActorTypeFlag::eRIGID_DYNAMIC = 1
       if (physics.scene.getNbActors) {
-        bodies += physics.scene.getNbActors(1) || 0;
+        // Cast number to match PxActorTypeFlags (which is essentially a number)
+        bodies += (physics.scene.getNbActors as (type: number) => number)(1) || 0;
       }
       if (physics.scene.getNbShapes) {
         shapes = physics.scene.getNbShapes() || 0;

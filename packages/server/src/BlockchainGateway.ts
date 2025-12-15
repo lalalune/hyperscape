@@ -13,7 +13,7 @@
  * - Performance state (movement, combat ticks) → Local/WebSocket
  */
 
-import { SystemBase } from "@hyperscape/shared";
+import { SystemBase, World } from "@hyperscape/shared";
 import {
   setupMudClient,
   type MudClient,
@@ -45,7 +45,7 @@ export class BlockchainGateway extends SystemBase {
     process.env.BATCH_INTERVAL_MS || "10000",
   );
 
-  constructor(world: unknown) {
+  constructor(world: World) {
     super(world, {
       name: "blockchain-gateway",
       dependencies: {

@@ -256,8 +256,6 @@ describe.skipIf(!canRunTests)("Combat Exploit Prevention", () => {
   });
 
   describe("Attack cooldown bypass prevention", () => {
-    const DEFAULT_ATTACK_SPEED_TICKS = 4;
-    const TICK_DURATION_MS = 600;
 
     it("should enforce tick-based attack cooldowns", () => {
       function isAttackOnCooldown(
@@ -368,7 +366,6 @@ describe.skipIf(!canRunTests)("Item Duplication Prevention", () => {
     it("should prevent simultaneous pickup of same item", async () => {
       const pickupLocks = new Set<string>();
       const pickedUpItems = new Set<string>();
-      const results: boolean[] = [];
 
       async function attemptPickup(
         playerId: string,

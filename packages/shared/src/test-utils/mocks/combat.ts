@@ -10,7 +10,6 @@ import { AttackType } from "../../types/core/core";
 import type { TestPosition } from "../validation";
 import {
   expectValidPosition,
-  expectValidDamage,
   expectValidTick,
 } from "../validation";
 

@@ -294,7 +294,6 @@ export function EquipmentPanel({
         world?.emit(EventType.UI_TOAST, {
           message: examineText,
           type: "info",
-          position: ce.detail.position,
         });
         // Also add to chat (OSRS-style game message)
         if (world?.chat?.add) {

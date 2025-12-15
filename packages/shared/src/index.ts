@@ -738,36 +738,6 @@ export { installThreeJSExtensions } from "./utils/physics/PhysicsUtils";
 // Export spawn utilities
 export { CircularSpawnArea } from "./utils/physics/CircularSpawnArea";
 
-// Export asset batching system
-export {
-  AssetBatcher,
-  ModelBatcher,
-  BatchedAssetCacheManager,
-  BatchedAssetLoader,
-  getBatchedAssetLoader,
-} from "./utils/assets";
-export type {
-  TextureAtlasEntry,
-  TextureAtlasConfig,
-  TextureAtlasResult,
-  MaterialBatchEntry,
-  MaterialBatchResult,
-  GeometryStats,
-  MergedMeshResult,
-  InstancedBatchResult,
-  BufferOptimizeOptions,
-  CacheManifest,
-  CacheEntry,
-  LoadProgress,
-  ProgressCallback,
-  AssetCacheConfig,
-  BatchedLoadConfig,
-  LoadResult,
-  TextureLoadResult,
-  ModelLoadResult,
-  InstancedLoadResult,
-} from "./utils/assets";
-
 // Export terrain system
 export { TerrainSystem } from "./systems/shared";
 

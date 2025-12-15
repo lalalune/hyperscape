@@ -2941,7 +2941,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
 
     // Get inventory system
-    const invSystem = this.world.getSystem("inventory") as
+    const invSystem = this.world.getSystem("inventory") as unknown as
       | InventorySystemData
       | undefined;
     if (!invSystem?.getInventoryData) {

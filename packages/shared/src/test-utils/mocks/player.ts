@@ -98,9 +98,12 @@ export function createMockPlayer(
   };
 
   const stats = {
-    ...DEFAULT_PLAYER.stats,
-    ...options.stats,
-  };
+    attack: options.stats?.attack ?? DEFAULT_PLAYER.stats.attack,
+    strength: options.stats?.strength ?? DEFAULT_PLAYER.stats.strength,
+    defense: options.stats?.defense ?? DEFAULT_PLAYER.stats.defense,
+    ranged: options.stats?.ranged ?? DEFAULT_PLAYER.stats.ranged,
+    hitpoints: options.stats?.hitpoints ?? DEFAULT_PLAYER.stats.hitpoints,
+  } as MockPlayer["stats"];
 
   const inventory = new Map<number, { itemId: string; quantity: number }>();
   if (options.inventory) {

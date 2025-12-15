@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Brain, Plus, Search, Trash2, Edit2 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
-import { ELIZAOS_API } from "@/lib/api-config";
+import { ELIZAOS_API } from "../../lib/api-config";
 
 interface Memory {
   id: string;

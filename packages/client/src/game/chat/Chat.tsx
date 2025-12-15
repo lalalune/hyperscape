@@ -30,7 +30,7 @@ interface ControlBinding {
 }
 
 // Extended client world type for Chat component
-type ChatWorld = ClientWorld & {
+export type ChatWorld = ClientWorld & {
   prefs?: ClientWorld["prefs"] & {
     chatVisible?: boolean;
   };

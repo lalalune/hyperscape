@@ -11,8 +11,6 @@ import {
   assertEntityId,
   assertItemId,
   assertQuantity,
-  assertNonNegativeInteger,
-  assertDefined,
 } from "../../../validation";
 import { INPUT_LIMITS } from "../../../constants";
 import { BANKING_CONSTANTS } from "../../../constants/BankingConstants";

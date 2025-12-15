@@ -113,10 +113,13 @@ function setupSpectatorCamera(
   const setCameraTarget = (entity: unknown) => {
     if (!entity || isCleanedUp) return;
 
-    const e = entity as { id?: string; position?: unknown };
-    if (!e.position) {
+    const entityWithPosition = entity as {
+      id?: string;
+      position?: { x: number; y: number; z: number };
+    };
+    if (!entityWithPosition.position) {
       console.warn(
-        `[EmbeddedGameClient] Entity ${e.id} has no position - cannot follow`,
+        `[EmbeddedGameClient] Entity ${entityWithPosition.id} has no position - cannot follow`,
       );
       return;
     }
@@ -125,7 +128,7 @@ function setupSpectatorCamera(
     // The camera system reads target.position every frame, and we need
     // TileInterpolator's position updates to be reflected automatically
     world.emit(EventType.CAMERA_SET_TARGET, {
-      target: entity,
+      target: entity as { position: { x: number; y: number; z: number } },
     });
 
     // Ensure controls are still disabled (belt and suspenders)
@@ -178,8 +181,8 @@ function setupSpectatorCamera(
     // If not found by ID, search all entities for matching characterId
     if (!targetEntity && world.entities?.items) {
       for (const [, entity] of world.entities.items) {
-        const e = entity as { characterId?: string };
-        if (e.characterId === targetEntityId) {
+        const entityWithCharId = entity as { characterId?: string };
+        if (entityWithCharId.characterId === targetEntityId) {
           targetEntity = entity;
           break;
         }

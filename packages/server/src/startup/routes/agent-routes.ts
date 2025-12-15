@@ -76,7 +76,7 @@ export function registerAgentRoutes(
       });
 
       // Verify character exists and belongs to this account
-      const databaseSystem = world.getSystem("database") as
+      const databaseSystem = world.getSystem("database") as unknown as
         | {
             getCharactersAsync: (
               accountId: string,
@@ -171,7 +171,7 @@ export function registerAgentRoutes(
       console.log("[AgentRoutes] Fetching agent mappings for:", accountId);
 
       // Get database system
-      const databaseSystem = world.getSystem("database") as
+      const databaseSystem = world.getSystem("database") as unknown as
         | {
             db: {
               select: (fields?: unknown) => {
@@ -280,7 +280,7 @@ export function registerAgentRoutes(
       });
 
       // Get database system
-      const databaseSystem = world.getSystem("database") as
+      const databaseSystem = world.getSystem("database") as unknown as
         | {
             db: {
               insert: (table: unknown) => {
@@ -375,7 +375,7 @@ export function registerAgentRoutes(
       console.log("[AgentRoutes] Fetching mapping for agent:", agentId);
 
       // Get database system
-      const databaseSystem = world.getSystem("database") as
+      const databaseSystem = world.getSystem("database") as unknown as
         | {
             db: {
               select: (fields?: unknown) => {
@@ -471,7 +471,7 @@ export function registerAgentRoutes(
       console.log("[AgentRoutes] Deleting agent mapping for:", agentId);
 
       // Get database system
-      const databaseSystem = world.getSystem("database") as
+      const databaseSystem = world.getSystem("database") as unknown as
         | {
             db: {
               delete: (table: unknown) => {
@@ -619,7 +619,7 @@ export function registerAgentRoutes(
       }
 
       // Get database system
-      const databaseSystem = world.getSystem("database") as
+      const databaseSystem = world.getSystem("database") as unknown as
         | {
             db: {
               select: (fields?: unknown) => {
@@ -685,7 +685,7 @@ export function registerAgentRoutes(
 
       // Send message via in-game chat system
       // The agent receives this through the game's WebSocket and processes it via ElizaOS
-      const chatSystem = world.getSystem("chat") as
+      const chatSystem = world.getSystem("chat") as unknown as
         | {
             add: (
               message: {
@@ -817,7 +817,7 @@ export function registerAgentRoutes(
       }
 
       // Get database system to check agent ownership
-      const databaseSystem = world.getSystem("database") as
+      const databaseSystem = world.getSystem("database") as unknown as
         | {
             db: {
               select: (fields?: unknown) => {
@@ -962,7 +962,7 @@ export function registerAgentRoutes(
       }
 
       // Get database system
-      const databaseSystem = world.getSystem("database") as
+      const databaseSystem = world.getSystem("database") as unknown as
         | {
             db: {
               select: (fields?: unknown) => {
@@ -1093,7 +1093,7 @@ export function registerAgentRoutes(
       }
 
       // Get database system to find character ID
-      const databaseSystem = world.getSystem("database") as
+      const databaseSystem = world.getSystem("database") as unknown as
         | {
             db: {
               select: (fields?: unknown) => {
@@ -1188,7 +1188,7 @@ export function registerAgentRoutes(
       }
 
       // Get database system to find character ID
-      const databaseSystem = world.getSystem("database") as
+      const databaseSystem = world.getSystem("database") as unknown as
         | {
             db: {
               select: (fields?: unknown) => {

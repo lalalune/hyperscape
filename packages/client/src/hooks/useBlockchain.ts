@@ -130,18 +130,4 @@ export function useBlockchain() {
   };
 }
 
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: {
-        method: string;
-        params?: unknown[];
-      }) => Promise<unknown>;
-      on: (event: string, handler: (...args: unknown[]) => void) => void;
-      removeListener: (
-        event: string,
-        handler: (...args: unknown[]) => void,
-      ) => void;
-    };
-  }
-}
+// Note: window.ethereum type is provided by @types/web or ethers

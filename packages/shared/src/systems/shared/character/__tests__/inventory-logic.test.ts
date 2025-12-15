@@ -5,7 +5,7 @@
  * No mocks, no system dependencies - just pure logic.
  */
 
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect } from "bun:test";
 import { ValidationError } from "../../../../validation";
 import {
   type InventorySlot,
@@ -52,9 +52,6 @@ function createTestItem(
   };
 }
 
-function createEmptyInventory(): InventorySlot[] {
-  return [];
-}
 
 function createPartialInventory(): InventorySlot[] {
   return [

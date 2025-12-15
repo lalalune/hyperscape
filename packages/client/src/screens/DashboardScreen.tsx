@@ -21,7 +21,7 @@ import {
   Activity,
   Server,
 } from "lucide-react";
-import { ELIZAOS_API } from "@/lib/api-config";
+import { ELIZAOS_API } from "../lib/api-config";
 import "./DashboardScreen.css";
 
 export interface Agent {

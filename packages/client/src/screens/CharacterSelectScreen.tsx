@@ -32,7 +32,7 @@ import {
 import React from "react";
 import { CharacterPreview } from "../components/CharacterPreview";
 import { usePrivy, useCreateWallet } from "@privy-io/react-auth";
-import { ELIZAOS_API } from "@/lib/api-config";
+import { ELIZAOS_API } from "../lib/api-config";
 
 type Character = {
   id: string;

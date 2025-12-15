@@ -95,11 +95,17 @@ export class HyperscapeContracts {
   ): Promise<string> {
     if (!this.goldContract) throw new Error("Gold contract not configured");
 
-    const gold = this.goldContract.connect(signer);
+    const gold = this.goldContract.connect(signer) as unknown as {
+      claimGold: (
+        amount: bigint,
+        nonce: bigint,
+        signature: string,
+      ) => Promise<{ hash: string; wait: () => Promise<{ hash: string }> }>;
+    };
     const tx = await gold.claimGold(amount, nonce, signature);
-    await tx.wait();
+    const receipt = await tx.wait();
 
-    return tx.hash;
+    return receipt.hash || tx.hash;
   }
 
   /**
@@ -114,11 +120,18 @@ export class HyperscapeContracts {
   ): Promise<string> {
     if (!this.itemsContract) throw new Error("Items contract not configured");
 
-    const items = this.itemsContract.connect(signer);
+    const items = this.itemsContract.connect(signer) as unknown as {
+      mintItem: (
+        itemId: number,
+        amount: number,
+        instanceId: string,
+        signature: string,
+      ) => Promise<{ hash: string; wait: () => Promise<{ hash: string }> }>;
+    };
     const tx = await items.mintItem(itemId, amount, instanceId, signature);
-    await tx.wait();
+    const receipt = await tx.wait();
 
-    return tx.hash;
+    return receipt.hash || tx.hash;
   }
 
   /**
@@ -136,7 +149,18 @@ export class HyperscapeContracts {
   ): Promise<string> {
     if (!this.bazaarContract) throw new Error("Bazaar contract not configured");
 
-    const bazaar = this.bazaarContract.connect(signer);
+    const bazaar = this.bazaarContract.connect(signer) as unknown as {
+      createListing: (
+        assetType: number,
+        assetContract: string,
+        tokenId: number,
+        amount: number,
+        currency: number,
+        customCurrencyAddress: string,
+        price: bigint,
+        duration: number,
+      ) => Promise<{ hash: string; wait: () => Promise<{ hash: string }> }>;
+    };
     const tx = await bazaar.createListing(
       assetType,
       assetContract,
@@ -147,9 +171,9 @@ export class HyperscapeContracts {
       price,
       duration,
     );
-    await tx.wait();
+    const receipt = await tx.wait();
 
-    return tx.hash;
+    return receipt.hash || tx.hash;
   }
 
   /**
@@ -162,13 +186,18 @@ export class HyperscapeContracts {
   ): Promise<string> {
     if (!this.bazaarContract) throw new Error("Bazaar contract not configured");
 
-    const bazaar = this.bazaarContract.connect(signer);
+    const bazaar = this.bazaarContract.connect(signer) as unknown as {
+      buyListing: (
+        listingId: number,
+        options?: { value?: bigint },
+      ) => Promise<{ hash: string; wait: () => Promise<{ hash: string }> }>;
+    };
     const tx = await bazaar.buyListing(listingId, {
       value: paymentAmount || 0,
     });
-    await tx.wait();
+    const receipt = await tx.wait();
 
-    return tx.hash;
+    return receipt.hash || tx.hash;
   }
 
   /**
@@ -177,7 +206,13 @@ export class HyperscapeContracts {
   async createTrade(signer: ethers.Signer, playerB: string): Promise<number> {
     if (!this.escrowContract) throw new Error("Trade escrow not configured");
 
-    const escrow = this.escrowContract.connect(signer);
+    const escrow = this.escrowContract.connect(signer) as unknown as {
+      createTrade: (
+        playerB: string,
+      ) => Promise<{
+        wait: () => Promise<{ logs: Array<{ args?: { tradeId?: bigint } }> }>;
+      }>;
+    };
     const tx = await escrow.createTrade(playerB);
     const receipt = await tx.wait();
 

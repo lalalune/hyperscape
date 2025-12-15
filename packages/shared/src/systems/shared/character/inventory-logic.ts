@@ -16,9 +16,6 @@ import {
   assertItemId,
   assertSlotIndex,
   assertQuantity,
-  assertNonNegativeInteger,
-  assertDefined,
-  assertObject,
 } from "../../../validation";
 import { INPUT_LIMITS } from "../../../constants";
 

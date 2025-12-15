@@ -6,6 +6,11 @@ import { EventType } from "../../../types/events";
 import type { Entity } from "../../../entities/Entity";
 import * as THREE from "three";
 
+// Extended MouseEvent with camera system property
+interface CameraHandledMouseEvent extends MouseEvent {
+  cameraHandled?: boolean;
+}
+
 interface InteractionAction {
   id: string;
   label: string;
@@ -261,8 +266,7 @@ export class InteractionSystem extends System {
     }
 
     // If the event was already marked as handled by camera system, don't cancel movement
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((event as any).cameraHandled) {
+    if ((event as CameraHandledMouseEvent).cameraHandled) {
       return;
     }
 

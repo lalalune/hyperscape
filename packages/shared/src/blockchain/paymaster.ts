@@ -16,6 +16,9 @@ import {
   parseAbi,
   encodePacked,
   type Address,
+  type PublicClient,
+  type Transport,
+  type Chain,
 } from "viem";
 import { getChain, getOptionalAddress, type JejuNetwork } from "./chain";
 
@@ -65,10 +68,9 @@ const DEFAULT_POST_OP_GAS = BigInt(50000);
 
 // ============ Client ============
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let publicClient: any = null;
+let publicClient: PublicClient<Transport, Chain> | null = null;
 
-function getClient(network?: JejuNetwork) {
+function getClient(network?: JejuNetwork): PublicClient<Transport, Chain> {
   if (!publicClient) {
     const chain = getChain(network);
     publicClient = createPublicClient({

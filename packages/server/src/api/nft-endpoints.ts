@@ -1,6 +1,11 @@
-import type { Request, Response } from "express";
+import type { FastifyRequest, FastifyReply } from "fastify";
 import { getGameSigner } from "../blockchain/GameSigner";
 import type { Address } from "viem";
+
+// Extended request type with user data
+interface AuthenticatedRequest extends FastifyRequest {
+  user?: { address: string };
+}
 
 /**
  * POST /api/mint-item
@@ -10,26 +15,27 @@ import type { Address } from "viem";
  * Body: { slot: number, itemId: number }
  * Returns: { signature, instanceId, itemId, amount }
  */
-export async function mintItemEndpoint(req: Request, res: Response) {
+export async function mintItemEndpoint(req: AuthenticatedRequest, reply: FastifyReply) {
   const playerAddress = req.user?.address as Address;
   if (!playerAddress) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return reply.status(401).send({ error: "Unauthorized" });
   }
 
-  const { slot, itemId } = req.body;
+  const body = req.body as { slot?: number; itemId?: number };
+  const { slot, itemId } = body;
 
   if (typeof slot !== "number" || slot < 0 || slot >= 28) {
-    return res.status(400).json({ error: "Invalid slot (must be 0-27)" });
+    return reply.status(400).send({ error: "Invalid slot (must be 0-27)" });
   }
 
   if (typeof itemId !== "number" || itemId <= 0) {
-    return res.status(400).json({ error: "Invalid itemId" });
+    return reply.status(400).send({ error: "Invalid itemId" });
   }
 
   // TODO: Verify player owns item in MUD inventory
   // const mudItem = await getMudInventorySlot(playerAddress, slot);
   // if (!mudItem || mudItem.itemId !== itemId) {
-  //   return res.status(400).json({ error: 'Item not found in inventory' });
+  //   return reply.status(400).send({ error: 'Item not found in inventory' });
   // }
 
   // For now, assume amount = 1 (will be queried from MUD in real implementation)
@@ -51,7 +57,7 @@ export async function mintItemEndpoint(req: Request, res: Response) {
     instanceId,
   });
 
-  return res.json({
+  return reply.send({
     success: true,
     signature: signatureData.signature,
     instanceId: signatureData.instanceId,
@@ -67,10 +73,10 @@ export async function mintItemEndpoint(req: Request, res: Response) {
  *
  * Returns: { signature, amount, nonce }
  */
-export async function claimGoldEndpoint(req: Request, res: Response) {
+export async function claimGoldEndpoint(req: AuthenticatedRequest, reply: FastifyReply) {
   const playerAddress = req.user?.address as Address;
   if (!playerAddress) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return reply.status(401).send({ error: "Unauthorized" });
   }
 
   // TODO: Query MUD Coins table
@@ -83,8 +89,8 @@ export async function claimGoldEndpoint(req: Request, res: Response) {
   // TODO: Query Gold.sol nonce
   // const nonce = await goldContract.read.getNonce([playerAddress]);
 
-  if (mockUnclaimedAmount === 0n) {
-    return res.status(400).json({ error: "No unclaimed Gold" });
+  if (mockUnclaimedAmount <= 0n) {
+    return reply.status(400).send({ error: "No unclaimed Gold" });
   }
 
   // Generate signature
@@ -94,7 +100,7 @@ export async function claimGoldEndpoint(req: Request, res: Response) {
     amount: mockUnclaimedAmount,
   });
 
-  return res.json({
+  return reply.send({
     success: true,
     signature: signatureData.signature,
     amount: signatureData.amount,
@@ -109,17 +115,17 @@ export async function claimGoldEndpoint(req: Request, res: Response) {
  *
  * Returns: { isMinted, originalMinter }
  */
-export async function itemStatusEndpoint(req: Request, res: Response) {
+export async function itemStatusEndpoint(req: FastifyRequest<{ Params: { instanceId: string } }>, reply: FastifyReply) {
   const { instanceId } = req.params;
 
   if (!instanceId || !instanceId.startsWith("0x")) {
-    return res.status(400).json({ error: "Invalid instanceId" });
+    return reply.status(400).send({ error: "Invalid instanceId" });
   }
 
   // TODO: Query Items.sol
   // const [isMinted, originalMinter] = await itemsContract.read.checkInstance([instanceId]);
 
-  return res.json({
+  return reply.send({
     instanceId,
     isMinted: false, // TODO: from contract
     originalMinter: null, // TODO: from contract

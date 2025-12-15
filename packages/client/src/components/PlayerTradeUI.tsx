@@ -65,12 +65,13 @@ export function TradeRequestModal({
   } | null>(null);
 
   useEffect(() => {
-    const handler = (data: {
-      tradeId: string;
-      fromPlayerId: string;
-      fromPlayerName: string;
-    }) => {
-      setRequest(data);
+    const handler = (data: unknown) => {
+      const tradeData = data as {
+        tradeId: string;
+        fromPlayerId: string;
+        fromPlayerName: string;
+      };
+      setRequest(tradeData);
     };
 
     world.on(EventType.TRADE_REQUEST_RECEIVED, handler);
@@ -660,27 +661,28 @@ export function TradeWindow({
 
   // Listen for trade started
   useEffect(() => {
-    const handleTradeStarted = (data: {
-      tradeId: string;
-      initiatorId: string;
-      initiatorName: string;
-      recipientId: string;
-      recipientName: string;
-    }) => {
+    const handleTradeStarted = (data: unknown) => {
+      const tradeData = data as {
+        tradeId: string;
+        initiatorId: string;
+        initiatorName: string;
+        recipientId: string;
+        recipientName: string;
+      };
       // Try multiple ways to get my player ID (different systems use different paths)
       const myPlayerId =
         world.network?.socket?.player?.id ||
         world.entities?.player?.id ||
         world.network?.id;
 
-      const isInitiator = myPlayerId === data.initiatorId;
-      const otherPlayerId = isInitiator ? data.recipientId : data.initiatorId;
+      const isInitiator = myPlayerId === tradeData.initiatorId;
+      const otherPlayerId = isInitiator ? tradeData.recipientId : tradeData.initiatorId;
       const otherPlayerName = isInitiator
-        ? data.recipientName
-        : data.initiatorName;
+        ? tradeData.recipientName
+        : tradeData.initiatorName;
 
       setTradeState({
-        tradeId: data.tradeId,
+        tradeId: tradeData.tradeId,
         isInitiator,
         otherPlayerId,
         otherPlayerName,
@@ -697,7 +699,7 @@ export function TradeWindow({
       });
     };
 
-    world.on(EventType.TRADE_STARTED, handleTradeStarted);
+    world.on(EventType.TRADE_STARTED, handleTradeStarted as (data: unknown) => void);
     return () => world.off(EventType.TRADE_STARTED, handleTradeStarted);
   }, [world]);
 
@@ -717,42 +719,43 @@ export function TradeWindow({
 
   // Listen for trade updates
   useEffect(() => {
-    const handleTradeUpdated = (data: {
-      tradeId: string;
-      initiatorOffer: {
-        items: Array<{
-          itemId: string;
-          quantity: number;
-          slot: number;
-          name?: string;
-        }>;
-        coins: number;
+    const handleTradeUpdated = (data: unknown) => {
+      const tradeData = data as {
+        tradeId: string;
+        initiatorOffer: {
+          items: Array<{
+            itemId: string;
+            quantity: number;
+            slot: number;
+            name?: string;
+          }>;
+          coins: number;
+        };
+        recipientOffer: {
+          items: Array<{
+            itemId: string;
+            quantity: number;
+            slot: number;
+            name?: string;
+          }>;
+          coins: number;
+        };
+        initiatorConfirmed: boolean;
+        recipientConfirmed: boolean;
       };
-      recipientOffer: {
-        items: Array<{
-          itemId: string;
-          quantity: number;
-          slot: number;
-          name?: string;
-        }>;
-        coins: number;
-      };
-      initiatorConfirmed: boolean;
-      recipientConfirmed: boolean;
-    }) => {
       setTradeState((prev) => {
-        if (!prev || prev.tradeId !== data.tradeId) return prev;
+        if (!prev || prev.tradeId !== tradeData.tradeId) return prev;
 
         // Enrich offers with item names
         const enrichedYourOffer = enrichOfferWithNames(
-          prev.isInitiator ? data.initiatorOffer : data.recipientOffer,
+          prev.isInitiator ? tradeData.initiatorOffer : tradeData.recipientOffer,
         );
         const enrichedTheirOffer = enrichOfferWithNames(
-          prev.isInitiator ? data.recipientOffer : data.initiatorOffer,
+          prev.isInitiator ? tradeData.recipientOffer : tradeData.initiatorOffer,
         );
         const newTheirConfirmed = prev.isInitiator
-          ? data.recipientConfirmed
-          : data.initiatorConfirmed;
+          ? tradeData.recipientConfirmed
+          : tradeData.initiatorConfirmed;
 
         // Check if other player updated their offer
         const theirItemsChanged =
@@ -762,7 +765,7 @@ export function TradeWindow({
           prev.theirOffer.coins !== enrichedTheirOffer.coins;
 
         if (theirItemsChanged || theirCoinsChanged) {
-          const changes = [];
+          const changes: string[] = [];
           if (theirItemsChanged) {
             const itemNames = enrichedTheirOffer.items
               .map((i) => `${i.name} x${i.quantity}`)
@@ -795,14 +798,14 @@ export function TradeWindow({
           yourOffer: enrichedYourOffer,
           theirOffer: enrichedTheirOffer,
           yourConfirmed: prev.isInitiator
-            ? data.initiatorConfirmed
-            : data.recipientConfirmed,
+            ? tradeData.initiatorConfirmed
+            : tradeData.recipientConfirmed,
           theirConfirmed: newTheirConfirmed,
         };
       });
     };
 
-    world.on(EventType.TRADE_UPDATED, handleTradeUpdated);
+    world.on(EventType.TRADE_UPDATED, handleTradeUpdated as (data: unknown) => void);
     return () => world.off(EventType.TRADE_UPDATED, handleTradeUpdated);
   }, [world, enrichOfferWithNames]);
 
@@ -877,7 +880,15 @@ export function TradeWindow({
     const requestInitial = () => {
       const lp = world.entities?.player?.id;
       if (lp) {
-        const cached = world.network?.lastInventoryByPlayerId?.[lp];
+        const cached = world.network?.lastInventoryByPlayerId?.[lp] as {
+          items?: Array<{
+            slot: number;
+            itemId: string;
+            quantity: number;
+            item?: { name?: string };
+          }>;
+          coins?: number;
+        } | undefined;
         if (cached && Array.isArray(cached.items)) {
           const fullItems = cached.items.map(
             (item: {
@@ -893,7 +904,9 @@ export function TradeWindow({
             }),
           );
           setInventory(fullItems);
-          setCoins(cached.coins);
+          if (typeof cached.coins === "number") {
+            setCoins(cached.coins);
+          }
         }
         world.emit(EventType.INVENTORY_REQUEST, { playerId: lp });
         return true;

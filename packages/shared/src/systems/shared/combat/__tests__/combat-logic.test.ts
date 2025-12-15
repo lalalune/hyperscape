@@ -37,7 +37,6 @@ import {
   type CombatStats,
   type EquipmentBonuses,
 } from "../combat-logic";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
 
 // =============================================================================
 // TEST FIXTURES

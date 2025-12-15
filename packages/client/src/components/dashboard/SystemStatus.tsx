@@ -8,7 +8,7 @@ import {
   XCircle,
   RefreshCw,
 } from "lucide-react";
-import { ELIZAOS_URL, ELIZAOS_API } from "@/lib/api-config";
+import { ELIZAOS_URL, ELIZAOS_API } from "../../lib/api-config";
 
 interface ServerStatus {
   status: "healthy" | "unhealthy" | "unknown";

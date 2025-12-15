@@ -36,14 +36,14 @@ if (!globalThis.Buffer) {
 // setImmediate polyfill for Privy/Viem
 if (!globalThis.setImmediate) {
   (
-    globalThis as {
+    globalThis as unknown as {
       setImmediate?: (
         cb: (...args: unknown[]) => void,
         ...args: unknown[]
       ) => NodeJS.Timeout;
     }
   ).setImmediate = (cb: (...args: unknown[]) => void, ...args: unknown[]) =>
-    setTimeout(cb, 0, ...args);
+    setTimeout(cb, 0, ...args) as NodeJS.Timeout;
 }
 
 // Parse URL parameters for embedded configuration
@@ -90,7 +90,7 @@ declare global {
     THREE?: typeof THREE;
     world?: InstanceType<typeof World>;
     testChat?: () => void;
-    Hyperscape?: {
+    Hyperscape?: Record<string, unknown> & {
       CircularSpawnArea: typeof CircularSpawnArea;
     };
     privyLogout?: () => Promise<void> | void;

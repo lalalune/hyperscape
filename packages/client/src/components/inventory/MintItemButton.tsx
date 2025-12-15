@@ -64,6 +64,7 @@ export function MintItemButton({
     const itemsContract = (process.env.NEXT_PUBLIC_ITEMS_CONTRACT ||
       "0x5FbDB2315678afecb367f032d93F642f64180aa3") as `0x${string}`;
 
+    // wagmi v2 types require chain/account but these come from WagmiConfig context
     writeContract({
       address: itemsContract,
       abi: ITEMS_ABI,
@@ -74,7 +75,7 @@ export function MintItemButton({
         instanceId as `0x${string}`,
         signature as `0x${string}`,
       ],
-    });
+    } as Parameters<typeof writeContract>[0]);
   };
 
   // Handle success

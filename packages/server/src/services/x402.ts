@@ -72,7 +72,7 @@ export function createPaymentMiddleware(
       );
       const headers = generate402Headers(requirements);
       res.set(headers);
-      res.status(402).json(requirements);
+      res.status(402).json(requirements as Record<string, unknown>);
       return;
     }
 

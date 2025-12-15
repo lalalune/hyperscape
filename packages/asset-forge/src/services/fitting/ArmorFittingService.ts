@@ -64,21 +64,6 @@ export interface FittingConfig {
   pushInteriorVertices?: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface FittingParameters {
-  iterations?: number;
-  stepSize?: number;
-  smoothingRadius?: number;
-  smoothingStrength?: number;
-  targetOffset?: number;
-  useBodyHull?: boolean;
-  deformationMethod?: "shrinkwrap" | "rbf" | "cage";
-  rbfRadius?: number;
-  preserveFeatures?: boolean;
-  featureAngleThreshold?: number;
-  preserveOpenings?: boolean;
-}
-
 export class ArmorFittingService {
   private genericFittingService: MeshFittingService;
   private weightTransferService: WeightTransferService;

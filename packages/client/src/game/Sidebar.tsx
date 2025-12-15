@@ -6,6 +6,7 @@ import type {
   PlayerStats,
   InventorySlotItem,
   InventoryItem,
+  Item,
 } from "../types";
 import { useChatContext } from "./chat/ChatContext";
 import { HintProvider } from "../components/Hint";
@@ -172,17 +173,17 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         // The backend sends PlayerEquipment (with slots containing items),
         // but the UI expects PlayerEquipmentItems (just the items).
         const data = update.data as {
-          equipment: Record<string, { item?: unknown }>;
+          equipment: Record<string, { item?: Item | null }>;
         };
         const rawEq = data.equipment;
 
         const mappedEquipment: PlayerEquipmentItems = {
-          weapon: rawEq.weapon?.item || null,
-          shield: rawEq.shield?.item || null,
-          helmet: rawEq.helmet?.item || null,
-          body: rawEq.body?.item || null,
-          legs: rawEq.legs?.item || null,
-          arrows: rawEq.arrows?.item || null,
+          weapon: rawEq.weapon?.item ?? null,
+          shield: rawEq.shield?.item ?? null,
+          helmet: rawEq.helmet?.item ?? null,
+          body: rawEq.body?.item ?? null,
+          legs: rawEq.legs?.item ?? null,
+          arrows: rawEq.arrows?.item ?? null,
         };
         setEquipment(mappedEquipment);
       }
@@ -349,7 +350,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         }
         const cachedSkills = world.network?.lastSkillsByPlayerId?.[lp];
         if (cachedSkills) {
-          const skills = cachedSkills as unknown as PlayerStats["skills"];
+          // Backend sends Record<string, { level: number; xp: number }> which matches Skills structure
+          const skills = cachedSkills as PlayerStats["skills"];
           // Just update skills - combat level will come from server
           setPlayerStats((prev) =>
             prev
@@ -364,15 +366,15 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         }
         const cachedEquipment = world.network?.lastEquipmentByPlayerId?.[lp];
         if (cachedEquipment) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const rawEq = cachedEquipment as any;
+          // Backend format: { weapon: { item: Item, itemId: string }, ... }
+          // UI format: { weapon: Item | null, ... }
           const mappedEquipment: PlayerEquipmentItems = {
-            weapon: rawEq.weapon?.item || null,
-            shield: rawEq.shield?.item || null,
-            helmet: rawEq.helmet?.item || null,
-            body: rawEq.body?.item || null,
-            legs: rawEq.legs?.item || null,
-            arrows: rawEq.arrows?.item || null,
+            weapon: cachedEquipment.weapon?.item ?? null,
+            shield: cachedEquipment.shield?.item ?? null,
+            helmet: cachedEquipment.helmet?.item ?? null,
+            body: cachedEquipment.body?.item ?? null,
+            legs: cachedEquipment.legs?.item ?? null,
+            arrows: cachedEquipment.arrows?.item ?? null,
           };
           setEquipment(mappedEquipment);
         }

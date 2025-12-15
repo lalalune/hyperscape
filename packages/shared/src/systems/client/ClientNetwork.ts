@@ -98,7 +98,7 @@ import {
   parseBatchUpdate,
   UpdateFlags,
 } from "../../utils/network/compression";
-import type { ChatMessage, EntityData, World, WorldOptions } from "../../types";
+import type { ChatMessage, EntityData, Item, World, WorldOptions } from "../../types";
 import type {
   EntityModificationPacket,
   InventoryUpdatePacket,
@@ -212,7 +212,11 @@ export class ClientNetwork extends SystemBase {
     Record<string, { level: number; xp: number }>
   > = {};
   // Cache latest equipment per player so UI can hydrate even if it mounted late
-  lastEquipmentByPlayerId: Record<string, any> = {};
+  // Backend format: { weapon: { item: Item, itemId: string }, ... }
+  lastEquipmentByPlayerId: Record<
+    string,
+    Record<string, { item?: Item | null; itemId?: string }>
+  > = {};
 
   // Entity interpolation for smooth remote entity movement
   private interpolationStates: Map<string, InterpolationState> = new Map();

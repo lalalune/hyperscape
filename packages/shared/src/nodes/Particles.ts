@@ -7,7 +7,11 @@
 import { every, isArray, isNumber, isString } from "lodash-es";
 import { Node } from "./Node";
 import { World } from "../core/World";
-import type { ParticlesData, ParticleEmitter } from "../types/rendering/nodes";
+import type {
+  ParticlesData,
+  ParticleEmitter,
+  EmitterNode,
+} from "../types/rendering/nodes";
 
 const shapeTypes = [
   "point",
@@ -177,8 +181,8 @@ export class Particles extends Node {
     this.needsRebuild = false;
     const world = this.ctx as World;
     if (world.particles) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.emitter = world.particles.register(this as any);
+      // Particles class implements EmitterNode interface
+      this.emitter = world.particles.register(this as EmitterNode);
     }
   }
 

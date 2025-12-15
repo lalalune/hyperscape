@@ -1,5 +1,5 @@
 import React from "react";
-import { GoldClaimButton } from "../economy/GoldClaimButton";
+import { GoldClaimButton } from "../../components/economy/GoldClaimButton";
 
 interface GoldPanelProps {
   coins: number;

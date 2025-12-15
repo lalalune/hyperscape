@@ -75,6 +75,17 @@ function firstDefined<T>(...values: (T | undefined | null)[]): T {
   throw new Error("No defined value found");
 }
 
+function isActionResult(
+  result: unknown,
+): result is { success: boolean; message?: string } {
+  return (
+    typeof result === "object" &&
+    result !== null &&
+    "success" in result &&
+    typeof (result as { success: unknown }).success === "boolean"
+  );
+}
+
 export class A2AServer {
   private world: World;
   private serverUrl: string;
@@ -253,11 +264,28 @@ export class A2AServer {
     message: string;
     data?: Record<string, unknown>;
   }> {
-    const rpg = this.world.rpg;
-
-    if (!rpg) {
-      return { success: false, message: "RPG system not initialized" };
-    }
+    // Access RPG methods directly from world (they're flattened by SystemLoader)
+    const rpg = {
+      getAllPlayers: this.world.getAllPlayers,
+      getPlayerHealth: this.world.getPlayerHealth,
+      getInventory: this.world.getInventory,
+      getEquipment: this.world.getEquipment,
+      getSkills: this.world.getSkills,
+      isInCombat: this.world.isInCombat,
+      isPlayerAlive: this.world.isPlayerAlive,
+      movePlayer: this.world.movePlayer,
+      actionMethods: this.world.actionMethods,
+      getCombatLevel: this.world.getCombatLevel,
+      getArrowCount: this.world.getArrowCount,
+      getMobsInArea: this.world.getMobsInArea,
+      getResourcesInArea: this.world.getResourcesInArea,
+      getItemsInRange: this.world.getItemsInRange,
+      forceChangeAttackStyle: this.world.forceChangeAttackStyle,
+      getAllMobs: this.world.getAllMobs,
+      playEmote: this.world.playEmote,
+      respawnPlayer: this.world.respawnPlayer,
+      actionRegistry: this.world.actionRegistry,
+    };
 
     switch (skillId) {
       case "join-game": {
@@ -372,9 +400,15 @@ export class A2AServer {
           { resourceId },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Gathering failed",
+          };
+        }
         return {
-          success: result?.success ?? false,
-          message: (result?.message as string) ?? "Gathering failed",
+          success: false,
+          message: "Gathering failed",
         };
       }
 
@@ -389,9 +423,15 @@ export class A2AServer {
           { itemId, slot },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Item use failed",
+          };
+        }
         return {
-          success: result?.success ?? false,
-          message: (result?.message as string) ?? "Item use failed",
+          success: false,
+          message: "Item use failed",
         };
       }
 
@@ -406,9 +446,15 @@ export class A2AServer {
           { itemId, slot },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Equip failed",
+          };
+        }
         return {
-          success: result?.success ?? false,
-          message: (result?.message as string) ?? "Equip failed",
+          success: false,
+          message: "Equip failed",
         };
       }
 
@@ -433,9 +479,15 @@ export class A2AServer {
           { itemId },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Pickup failed",
+          };
+        }
         return {
-          success: result?.success ?? false,
-          message: (result?.message as string) ?? "Pickup failed",
+          success: false,
+          message: "Pickup failed",
         };
       }
 
@@ -450,9 +502,15 @@ export class A2AServer {
           { itemId, quantity },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Drop failed",
+          };
+        }
         return {
-          success: result?.success ?? false,
-          message: (result?.message as string) ?? "Drop failed",
+          success: false,
+          message: "Drop failed",
         };
       }
 
@@ -466,9 +524,15 @@ export class A2AServer {
           { bankId },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Bank open failed",
+          };
+        }
         return {
-          success: result?.success ?? false,
-          message: (result?.message as string) ?? "Bank open failed",
+          success: false,
+          message: "Bank open failed",
         };
       }
 
@@ -484,9 +548,15 @@ export class A2AServer {
           { bankId, itemId, quantity },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Deposit failed",
+          };
+        }
         return {
-          success: result?.success ?? false,
-          message: (result?.message as string) ?? "Deposit failed",
+          success: false,
+          message: "Deposit failed",
         };
       }
 
@@ -502,9 +572,15 @@ export class A2AServer {
           { bankId, itemId, quantity },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Withdrawal failed",
+          };
+        }
         return {
-          success: result?.success ?? false,
-          message: (result?.message as string) ?? "Withdrawal failed",
+          success: false,
+          message: "Withdrawal failed",
         };
       }
 
@@ -520,10 +596,16 @@ export class A2AServer {
           { storeId, itemId, quantity },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Purchase failed",
+            data: result as Record<string, unknown>,
+          };
+        }
         return {
-          success: result?.success ?? false,
-          message: (result?.message as string) ?? "Purchase failed",
-          data: result as Record<string, unknown>,
+          success: false,
+          message: "Purchase failed",
         };
       }
 
@@ -539,10 +621,16 @@ export class A2AServer {
           { storeId, itemId, quantity },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Sale failed",
+            data: result as Record<string, unknown>,
+          };
+        }
         return {
-          success: result?.success ?? false,
-          message: (result?.message as string) ?? "Sale failed",
-          data: result as Record<string, unknown>,
+          success: false,
+          message: "Sale failed",
         };
       }
 
@@ -709,9 +797,15 @@ export class A2AServer {
           { corpseId },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? "Looting corpse",
+          };
+        }
         return {
-          success: result?.success ?? true,
-          message: (result?.message as string) ?? "Looting corpse",
+          success: true,
+          message: "Looting corpse",
         };
       }
 
@@ -735,9 +829,16 @@ export class A2AServer {
           { itemId: food.id },
         );
 
+        if (isActionResult(result)) {
+          return {
+            success: result.success,
+            message: result.message ?? `Eating ${food.name}`,
+            data: { food },
+          };
+        }
         return {
-          success: result?.success ?? true,
-          message: (result?.message as string) ?? `Eating ${food.name}`,
+          success: true,
+          message: `Eating ${food.name}`,
           data: { food },
         };
       }

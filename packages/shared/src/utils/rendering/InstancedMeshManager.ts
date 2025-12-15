@@ -123,6 +123,8 @@ export class InstancedMeshManager {
         matrix: THREE.Matrix4;
         visible: boolean;
         distance: number;
+        baseScale: THREE.Vector3;
+        fadeScale: number;
       },
     ]
   > = [];

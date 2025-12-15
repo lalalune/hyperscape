@@ -1,7 +1,8 @@
 /**
  * Vitest setup file for React component testing
  */
-import { afterEach, vi, beforeAll } from "bun:test";
+/// <reference types="bun-types" />
+import { afterEach, beforeAll, mock } from "bun:test";
 import { cleanup } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
@@ -43,12 +44,12 @@ beforeAll(() => {
       } as unknown;
     }
     return null;
-  });
+  }) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
   // Mock window.matchMedia
   Object.defineProperty(window, "matchMedia", {
     writable: true,
-    value: mock(() => {}).mockImplementation((query) => ({
+    value: mock(() => {}).mockImplementation((query: string) => ({
       matches: false,
       media: query,
       onchange: null,
@@ -57,15 +58,22 @@ beforeAll(() => {
       addEventListener: mock(() => {}),
       removeEventListener: mock(() => {}),
       dispatchEvent: mock(() => {}),
-    })),
+    })) as unknown as typeof window.matchMedia,
   });
 
   // Mock IntersectionObserver
-  global.IntersectionObserver = mock(() => {}).mockImplementation(() => ({
+  const MockIntersectionObserver = mock((_callback: globalThis.IntersectionObserverCallback) => ({
     observe: mock(() => {}),
     unobserve: mock(() => {}),
     disconnect: mock(() => {}),
-  })) as unknown;
+  }));
+  // Add prototype to satisfy TypeScript
+  Object.defineProperty(MockIntersectionObserver, "prototype", {
+    value: {},
+    writable: true,
+    configurable: true,
+  });
+  global.IntersectionObserver = MockIntersectionObserver as unknown as typeof globalThis.IntersectionObserver;
 
   // Mock ResizeObserver
   global.ResizeObserver = mock(() => {}).mockImplementation(() => ({

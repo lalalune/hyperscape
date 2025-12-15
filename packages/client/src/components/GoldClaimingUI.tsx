@@ -52,7 +52,7 @@ export function GoldClaimingUI({
     abi: ["function nonces(address) view returns (uint256)"],
     functionName: "nonces",
     args: address ? [address] : undefined,
-    enabled: !!address,
+    query: { enabled: !!address },
   });
 
   // Cooldown timer

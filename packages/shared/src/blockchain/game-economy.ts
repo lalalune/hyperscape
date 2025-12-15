@@ -16,6 +16,10 @@ import {
   keccak256,
   encodePacked,
   type Address,
+  type PublicClient,
+  type WalletClient,
+  type Transport,
+  type Chain,
 } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { getChain, getOptionalAddress, type JejuNetwork } from "./chain";
@@ -96,13 +100,14 @@ export interface GameSignerConfig {
 
 // ============ Client Management ============
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let publicClient: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let walletClient: any = null;
+let publicClient: PublicClient<Transport, Chain> | null = null;
+let walletClient: WalletClient<Transport, Chain, PrivateKeyAccount> | null =
+  null;
 let signerAccount: PrivateKeyAccount | null = null;
 
-function getClient(network?: JejuNetwork) {
+function getClient(
+  network?: JejuNetwork,
+): PublicClient<Transport, Chain> {
   if (!publicClient) {
     const chain = getChain(network);
     publicClient = createPublicClient({
@@ -113,7 +118,10 @@ function getClient(network?: JejuNetwork) {
   return publicClient;
 }
 
-function getWalletClient(privateKey: `0x${string}`, network?: JejuNetwork) {
+function getWalletClient(
+  privateKey: `0x${string}`,
+  network?: JejuNetwork,
+): WalletClient<Transport, Chain, PrivateKeyAccount> {
   const chain = getChain(network);
   signerAccount = privateKeyToAccount(privateKey);
   walletClient = createWalletClient({

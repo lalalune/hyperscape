@@ -271,9 +271,7 @@ export class MobInstancedRenderer extends SystemBase {
   /**
    * Create a simplified low-detail geometry for LOD
    */
-  private createLowDetailGeometry(
-    highDetailGeometry: THREE.BufferGeometry,
-  ): THREE.BufferGeometry {
+  private createLowDetailGeometry(): THREE.BufferGeometry {
     // For now, use a simple capsule as low-detail
     // In production, use mesh simplification or pre-authored LODs
     const capsule = new THREE.CapsuleGeometry(0.3, 1.2, 4, 8);

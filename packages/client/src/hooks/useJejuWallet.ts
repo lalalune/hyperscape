@@ -155,7 +155,7 @@ export function useJejuWallet(): UseJejuWalletResult {
 
     return createWalletClient({
       account: activeWallet.address as Address,
-      chain: JEJU_CHAIN,
+      chain: JEJU_CHAIN as Parameters<typeof createWalletClient>[0]["chain"],
       transport: custom(provider),
     });
   }, [activeWallet]);

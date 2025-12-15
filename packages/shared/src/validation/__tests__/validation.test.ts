@@ -23,7 +23,6 @@ import {
   assertSlotIndex,
   assertQuantity,
   assertPosition,
-  assertPosition2D,
   assertAttackType,
   assertEquipmentSlot,
   assertSessionType,

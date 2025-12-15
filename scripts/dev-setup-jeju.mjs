@@ -105,7 +105,7 @@ for (const dir of dirs) {
 }
 
 // 3. Copy PhysX assets if available
-const physxSrc = path.join(rootDir, 'node_modules/@hyperscape/physx-js-webidl/dist')
+const physxSrc = path.join(rootDir, 'packages/physx-js-webidl/dist')
 const physxDest = path.join(rootDir, 'assets/web')
 
 if (fs.existsSync(physxSrc)) {

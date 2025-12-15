@@ -131,7 +131,9 @@ export function registerBlockchainRoutes(
         return reply.status(401).send({ error: "Unauthorized" });
       }
 
-      const { slot, itemId } = request.body;
+      const body = (request.body as { slot?: number; itemId?: number }) || {};
+      const slot = body.slot;
+      const itemId = body.itemId;
 
       if (typeof slot !== "number" || slot < 0 || slot >= 28) {
         return reply.status(400).send({ error: "Invalid slot (must be 0-27)" });
@@ -212,7 +214,7 @@ export function registerBlockchainRoutes(
       // TODO: Query MUD Coins table for real unclaimed amount
       const mockUnclaimedAmount = 1000n;
 
-      if (mockUnclaimedAmount === 0n) {
+      if (mockUnclaimedAmount <= 0n) {
         return reply.status(400).send({ error: "No unclaimed Gold" });
       }
 

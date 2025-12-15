@@ -174,12 +174,9 @@ export function PerformancePanel({ monitor, visible }: PerformancePanelProps) {
   // Check if we should show the panel
   // Use Vite's import.meta.env for browser, fallback to process.env for Node
   const isDev = (() => {
-    // @ts-expect-error - import.meta.env is injected by Vite at build time
     if (typeof import.meta !== "undefined" && import.meta.env) {
-      // @ts-expect-error - Vite injects this
-      return (
-        import.meta.env.DEV === true || import.meta.env.MODE === "development"
-      );
+      const env = import.meta.env as { DEV?: boolean; MODE?: string };
+      return env.DEV === true || env.MODE === "development";
     }
     if (typeof process !== "undefined" && process.env) {
       return process.env.NODE_ENV === "development";

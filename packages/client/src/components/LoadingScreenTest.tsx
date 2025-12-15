@@ -5,7 +5,8 @@
  */
 
 import React from "react";
-import { LoadingScreen } from "./LoadingScreen";
+import { LoadingScreen } from "../screens/LoadingScreen";
+import type { ClientWorld } from "../types";
 
 // Mock World object with minimal required properties
 const mockWorld = {
@@ -17,12 +18,7 @@ const mockWorld = {
   resolveURL: (url: string) => url,
   on: () => {},
   off: () => {},
-} as {
-  settings: { title: null; description: null; image: null };
-  resolveURL: (url: string) => string;
-  on: () => void;
-  off: () => void;
-};
+} as unknown as ClientWorld;
 
 export function LoadingScreenTest() {
   const [progress, setProgress] = React.useState(0);

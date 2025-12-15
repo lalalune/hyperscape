@@ -86,7 +86,7 @@ interface QueuedOracleEvent {
  * Chain - unified blockchain system with production-grade reliability
  */
 export class Chain extends SystemBase {
-  private config: ChainConfig;
+  private chainConfig: ChainConfig;
   private isConfigured = false;
   private oracle: OracleClient | null = null;
   private unwatchBurns: (() => void) | null = null;
@@ -112,7 +112,7 @@ export class Chain extends SystemBase {
       autoCleanup: true,
     });
 
-    this.config = {
+    this.chainConfig = {
       enforceBans: true,
       enableGoldBridge: true,
       enableItemBridge: true,
@@ -131,7 +131,7 @@ export class Chain extends SystemBase {
     this.isConfigured = isBlockchainConfigured();
 
     // Strict mode: fail if blockchain is required but not configured
-    if (this.config.strictMode && !this.isConfigured) {
+    if (this.chainConfig.strictMode && !this.isConfigured) {
       throw new Error(
         "Chain: strictMode enabled but blockchain not configured. " +
           "Set RPC_URL and contract addresses, or disable strictMode.",
@@ -149,31 +149,31 @@ export class Chain extends SystemBase {
     const goldAddr = getOptionalAddress("GOLD_ADDRESS");
     const itemsAddr = getOptionalAddress("ITEMS_ADDRESS");
     this.logger.info("Chain initialized", {
-      network: this.config.network || "localnet",
+      network: this.chainConfig.network || "localnet",
       gold: goldAddr ? "✓" : "✗",
       items: itemsAddr ? "✓" : "✗",
-      bans: this.config.enforceBans,
-      strictMode: this.config.strictMode,
+      bans: this.chainConfig.enforceBans,
+      strictMode: this.chainConfig.strictMode,
     });
 
     // On-chain event watchers with proper error propagation in strict mode
     try {
       await this.startEventWatchers();
     } catch (e) {
-      if (this.config.strictMode) {
+      if (this.chainConfig.strictMode) {
         throw new Error(`Chain: Event watchers failed in strictMode: ${e}`);
       }
       this.logger.warn("Event watchers failed to start", { error: String(e) });
     }
 
     // Oracle for prediction markets (optional)
-    if (this.config.enableOracle && this.config.oracleAddress) {
+    if (this.chainConfig.enableOracle && this.chainConfig.oracleAddress) {
       try {
         await this.initOracle();
         // Start the oracle queue processor
         this.startOracleQueueProcessor();
       } catch (e) {
-        if (this.config.strictMode) {
+        if (this.chainConfig.strictMode) {
           throw new Error(`Chain: Oracle init failed in strictMode: ${e}`);
         }
         this.logger.warn("Oracle failed to initialize", { error: String(e) });
@@ -210,13 +210,13 @@ export class Chain extends SystemBase {
     });
 
     // Oracle events (skill/death/kill)
-    if (this.config.enableOracle) {
+    if (this.chainConfig.enableOracle) {
       this.subscribeToOracleEvents();
     }
   }
 
   private subscribeToOracleEvents(): void {
-    this.subscribe(EventType.SKILL_LEVEL_UP, (data) => {
+    this.subscribe(EventType.SKILLS_LEVEL_UP, (data) => {
       const event = data as {
         player?: Player;
         skill?: string;
@@ -250,7 +250,7 @@ export class Chain extends SystemBase {
       }
     });
 
-    this.subscribe(EventType.PLAYER_KILL, (data) => {
+    this.subscribe(EventType.COMBAT_KILL, (data) => {
       const event = data as {
         killer?: string;
         victim?: string;
@@ -270,7 +270,7 @@ export class Chain extends SystemBase {
     const errors: Error[] = [];
 
     // Watch for NFT burns → spawn items in world
-    if (this.config.enableItemBridge) {
+    if (this.chainConfig.enableItemBridge) {
       try {
         this.unwatchBurns = await watchItemBurns(
           (player, itemId, amount, txHash) => {
@@ -288,7 +288,7 @@ export class Chain extends SystemBase {
               txHash,
             });
           },
-          this.config.network,
+          this.chainConfig.network,
         );
         this.logger.info("Item burn watcher started");
       } catch (e) {
@@ -299,7 +299,7 @@ export class Chain extends SystemBase {
     }
 
     // Watch for gold claims → verify withdrawals completed
-    if (this.config.enableGoldBridge) {
+    if (this.chainConfig.enableGoldBridge) {
       try {
         this.unwatchClaims = await watchGoldClaims(
           (player, amount, nonce, txHash) => {
@@ -310,7 +310,7 @@ export class Chain extends SystemBase {
               tx: txHash.slice(0, 10),
             });
           },
-          this.config.network,
+          this.chainConfig.network,
         );
         this.logger.info("Gold claim watcher started");
       } catch (e) {
@@ -321,7 +321,7 @@ export class Chain extends SystemBase {
     }
 
     // In strict mode, throw if any watcher failed
-    if (this.config.strictMode && errors.length > 0) {
+    if (this.chainConfig.strictMode && errors.length > 0) {
       throw new Error(
         `Event watchers failed: ${errors.map((e) => e.message).join("; ")}`,
       );
@@ -329,7 +329,7 @@ export class Chain extends SystemBase {
   }
 
   private async initOracle(): Promise<void> {
-    if (!this.config.oracleAddress || !this.config.serverPrivateKey) {
+    if (!this.chainConfig.oracleAddress || !this.chainConfig.serverPrivateKey) {
       this.logger.warn("Oracle disabled - missing address or private key");
       return;
     }
@@ -340,8 +340,8 @@ export class Chain extends SystemBase {
     const { privateKeyToAccount } = await import("viem/accounts");
     const { getChain } = await import("../../blockchain/chain");
 
-    const chain = getChain(this.config.network);
-    const account = privateKeyToAccount(this.config.serverPrivateKey);
+    const chain = getChain(this.chainConfig.network);
+    const account = privateKeyToAccount(this.chainConfig.serverPrivateKey);
 
     const walletClient = createWalletClient({
       account,
@@ -363,7 +363,9 @@ export class Chain extends SystemBase {
     this.oracle = {
       publishSkillLevelUp: async (player, skill, level, xp) => {
         const hash = await walletClient.writeContract({
-          address: this.config.oracleAddress!,
+          account,
+          chain,
+          address: this.chainConfig.oracleAddress!,
           abi: oracleAbi,
           functionName: "publishSkillLevelUp",
           args: [player, skill, level, BigInt(xp)],
@@ -372,7 +374,9 @@ export class Chain extends SystemBase {
       },
       publishPlayerDeath: async (player, killer, location) => {
         const hash = await walletClient.writeContract({
-          address: this.config.oracleAddress!,
+          account,
+          chain,
+          address: this.chainConfig.oracleAddress!,
           abi: oracleAbi,
           functionName: "publishPlayerDeath",
           args: [player, killer, location],
@@ -381,7 +385,9 @@ export class Chain extends SystemBase {
       },
       publishPlayerKill: async (killer, victim, method) => {
         const hash = await walletClient.writeContract({
-          address: this.config.oracleAddress!,
+          account,
+          chain,
+          address: this.chainConfig.oracleAddress!,
           abi: oracleAbi,
           functionName: "publishPlayerKill",
           args: [killer, victim, method],
@@ -391,7 +397,7 @@ export class Chain extends SystemBase {
     };
 
     this.logger.info("Oracle initialized", {
-      address: this.config.oracleAddress,
+      address: this.chainConfig.oracleAddress,
     });
   }
 
@@ -411,7 +417,7 @@ export class Chain extends SystemBase {
         reason: result.reason,
       });
 
-      if (this.config.enforceBans) {
+      if (this.chainConfig.enforceBans) {
         this.emitTypedEvent(EventType.PLAYER_KICK, {
           playerId: data.playerId,
           reason: result.reason || "Banned",
@@ -441,12 +447,12 @@ export class Chain extends SystemBase {
       return;
     }
 
-    if (!this.config.enableGoldBridge) {
+    if (!this.chainConfig.enableGoldBridge) {
       this.notify(data.playerId, "Gold withdrawals disabled", "error");
       return;
     }
 
-    if (!this.config.serverPrivateKey) {
+    if (!this.chainConfig.serverPrivateKey) {
       this.logger.error("No server key for withdrawal");
       return;
     }
@@ -472,7 +478,7 @@ export class Chain extends SystemBase {
       wallet,
       amount,
       nonce,
-      this.config.serverPrivateKey,
+      this.chainConfig.serverPrivateKey,
     );
 
     this.emitTypedEvent(EventType.GOLD_WITHDRAW_SUCCESS, {
@@ -527,12 +533,12 @@ export class Chain extends SystemBase {
       return;
     }
 
-    if (!this.config.enableItemBridge) {
+    if (!this.chainConfig.enableItemBridge) {
       this.notify(data.playerId, "Item minting disabled", "error");
       return;
     }
 
-    if (!this.config.serverPrivateKey) {
+    if (!this.chainConfig.serverPrivateKey) {
       this.logger.error("No server key for minting");
       return;
     }
@@ -570,7 +576,7 @@ export class Chain extends SystemBase {
           itemId,
           amount,
           instanceId,
-          this.config.serverPrivateKey!,
+          this.chainConfig.serverPrivateKey!,
         );
 
         this.emitTypedEvent(EventType.ITEM_MINT_SUCCESS, {
@@ -641,25 +647,25 @@ export class Chain extends SystemBase {
       } catch (e) {
         event.retries++;
         const maxRetries =
-          this.config.oracleRetry?.maxRetries ?? this.DEFAULT_MAX_RETRIES;
+          this.chainConfig.oracleRetry?.maxRetries ?? this.DEFAULT_MAX_RETRIES;
 
         if (event.retries >= maxRetries) {
           // Max retries exceeded - drop event and log
           this.oracleQueue = this.oracleQueue.filter(
             (ev) => ev.id !== event.id,
           );
+          const errorMessage = e instanceof Error ? e.message : String(e);
           this.logger.error("Oracle event failed permanently", {
-            id: event.id,
-            type: event.type,
+            eventType: event.type,
             retries: event.retries,
-            error: String(e),
+            error: errorMessage,
           });
         } else {
           // Calculate exponential backoff with jitter
           const baseDelay =
-            this.config.oracleRetry?.baseDelayMs ?? this.DEFAULT_BASE_DELAY_MS;
+            this.chainConfig.oracleRetry?.baseDelayMs ?? this.DEFAULT_BASE_DELAY_MS;
           const maxDelay =
-            this.config.oracleRetry?.maxDelayMs ?? this.DEFAULT_MAX_DELAY_MS;
+            this.chainConfig.oracleRetry?.maxDelayMs ?? this.DEFAULT_MAX_DELAY_MS;
           const delay = Math.min(
             baseDelay * Math.pow(2, event.retries) + Math.random() * 500,
             maxDelay,
@@ -782,11 +788,11 @@ export class Chain extends SystemBase {
   } {
     return {
       configured: this.isConfigured,
-      network: this.config.network,
+      network: this.chainConfig.network,
       features: {
-        bans: this.config.enforceBans ?? false,
-        goldBridge: this.config.enableGoldBridge ?? false,
-        itemBridge: this.config.enableItemBridge ?? false,
+        bans: this.chainConfig.enforceBans ?? false,
+        goldBridge: this.chainConfig.enableGoldBridge ?? false,
+        itemBridge: this.chainConfig.enableItemBridge ?? false,
         oracle: !!this.oracle,
       },
     };

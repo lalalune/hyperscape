@@ -11,9 +11,7 @@ import {
   assertEntityId,
   assertItemId,
   assertQuantity,
-  assertNonNegativeInteger,
 } from "../../../validation";
-import { INPUT_LIMITS } from "../../../constants";
 
 // =============================================================================
 // TYPES
@@ -108,7 +106,6 @@ export function validateDropRequest(
 export function validatePickupRequest(
   playerId: unknown,
   groundItemId: unknown,
-  playerPosition?: unknown,
 ): { playerId: string; groundItemId: string } {
   assertPlayerId(playerId, "playerId");
   assertEntityId(groundItemId, "groundItemId");

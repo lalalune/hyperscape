@@ -1,7 +1,7 @@
 import React from "react";
 import { Save, RefreshCw, Trash2 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
-import { ELIZAOS_URL, ELIZAOS_API } from "@/lib/api-config";
+import { ELIZAOS_URL, ELIZAOS_API } from "../../lib/api-config";
 
 interface AgentSettingsData {
   name?: string;

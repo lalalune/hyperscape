@@ -18,8 +18,10 @@ import {
   parseEther,
   formatEther,
   type Address,
+  type PublicClient,
+  type Transport,
+  type Chain,
 } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import {
   getChain,
   getOptionalAddress,
@@ -122,10 +124,9 @@ const EIP712_TYPES = {
 
 // ============ Client ============
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let publicClient: any = null;
+let publicClient: PublicClient<Transport, Chain> | null = null;
 
-function getClient(network?: JejuNetwork) {
+function getClient(network?: JejuNetwork): PublicClient<Transport, Chain> {
   if (!publicClient) {
     const chain = getChain(network);
     publicClient = createPublicClient({
@@ -373,8 +374,7 @@ export async function settlePayment(
   const chain = getChain(network);
 
   const account = privateKeyToAccount(settlerPrivateKey);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const walletClient: any = createWalletClient({
+  const walletClient = createWalletClient({
     account,
     chain,
     transport: http(),
@@ -429,9 +429,11 @@ export async function settlePayment(
   }
 
   // Extract paymentId from logs
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const log = receipt.logs[0] as any;
-  const paymentId = log?.topics?.[1] as `0x${string}` | undefined;
+  const log = receipt.logs[0];
+  const paymentId =
+    log && "topics" in log && Array.isArray(log.topics) && log.topics[1]
+      ? (log.topics[1] as `0x${string}`)
+      : undefined;
 
   return {
     settled: true,

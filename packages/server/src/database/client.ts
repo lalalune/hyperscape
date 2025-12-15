@@ -110,7 +110,9 @@ export async function initializeDatabase(connectionString: string) {
   }
 
   // Create Drizzle instance
-  const db = drizzle(pool, { schema });
+  const db = drizzle(pool as unknown as Parameters<typeof drizzle>[0], {
+    schema,
+  });
 
   // Run migrations
   try {

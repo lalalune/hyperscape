@@ -71,7 +71,7 @@ export function GoldClaimButton({
       abi: GOLD_ABI,
       functionName: "claimGold",
       args: [BigInt(amount), BigInt(nonce), signature as `0x${string}`],
-    });
+    } as Parameters<typeof writeContract>[0]);
   };
 
   // Handle success

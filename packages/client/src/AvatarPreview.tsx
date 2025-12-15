@@ -125,7 +125,8 @@ export class AvatarPreview {
     // Initialize renderer asynchronously
     this.initPromise = this.initRenderer();
 
-    window.preview = this;
+    // Expose for debugging
+    (window as unknown as { preview?: AvatarPreview }).preview = this;
   }
 
   private async initRenderer(): Promise<void> {

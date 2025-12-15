@@ -36,6 +36,10 @@
     "dist",
     "build",
     "../shared/src",
-    "../shared/build"
+    "../shared/build",
+    "**/test/**",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

@@ -1452,10 +1452,8 @@ export class Physics extends SystemBase implements IPhysics {
     layerMask: number = 0xffffffff,
   ): OverlapHit[] {
     // Use the enhanced Vector3 method if available, otherwise set position manually
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((origin as any).toPxVec3 && this.overlapPose.p) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (origin as any).toPxVec3(this.overlapPose.p);
+    if (origin.toPxVec3 && this.overlapPose.p) {
+      origin.toPxVec3(this.overlapPose.p);
     } else if (this.overlapPose.p) {
       this.overlapPose.p.x = origin.x;
       this.overlapPose.p.y = origin.y;

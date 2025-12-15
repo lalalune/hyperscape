@@ -13,7 +13,7 @@ import {
   validateCharacter,
   type CharacterTemplate,
 } from "../utils/characterTemplate";
-import { ELIZAOS_API } from "@/lib/api-config";
+import { ELIZAOS_API } from "../lib/api-config";
 
 /**
  * Helper function to generate JWT with retry logic
@@ -227,7 +227,7 @@ export const CharacterEditorScreen: React.FC = () => {
               messageExamples: ensureArray(
                 existingAgent.messageExamples,
                 baseTemplate.messageExamples || [],
-              ) as Array<Array<{ user: string; content: { text: string } }>>,
+              ) as Array<Array<{ name: string; content: { text: string } }>>,
               postExamples: ensureArray(
                 existingAgent.postExamples,
                 baseTemplate.postExamples || [],

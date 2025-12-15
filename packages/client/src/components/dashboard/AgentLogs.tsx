@@ -1,7 +1,7 @@
 import React from "react";
 import { Terminal, Download, Pause, Play, Trash2 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
-import { ELIZAOS_API } from "@/lib/api-config";
+import { ELIZAOS_API } from "../../lib/api-config";
 
 interface LogEntry {
   id: string;

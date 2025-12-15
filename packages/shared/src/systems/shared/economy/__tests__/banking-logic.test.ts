@@ -45,9 +45,6 @@ function createBankItem(
   return { id, name, quantity, stackable };
 }
 
-function createEmptyBank(): BankItem[] {
-  return [];
-}
 
 function createPartialBank(): BankItem[] {
   return [

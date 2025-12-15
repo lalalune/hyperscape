@@ -11,6 +11,17 @@ import THREE from "../extras/three/three";
  * - Planar XZ projection (optimized for terrain)
  */
 export class TriplanarTerrainMaterial extends THREE.ShaderMaterial {
+  declare uniforms: {
+    uDiffMap: { value: THREE.Texture };
+    uNormalMap: { value: THREE.Texture };
+    uNoiseTexture: { value: THREE.Texture };
+    uTextureScales: { value: number[] };
+    uSunDirection: { value: THREE.Vector3 };
+    uSunColor: { value: THREE.Color };
+    uAmbientColor: { value: THREE.Color };
+    uNormalStrength: { value: number };
+  };
+
   constructor(
     diffuseAtlas: THREE.Texture,
     normalAtlas: THREE.Texture,
@@ -181,32 +192,27 @@ export class TriplanarTerrainMaterial extends THREE.ShaderMaterial {
    * Update sun direction for lighting
    */
   setSunDirection(direction: THREE.Vector3): void {
-    (this.uniforms.uSunDirection as { value: THREE.Vector3 }).value.copy(
-      direction.normalize(),
-    );
+    this.uniforms.uSunDirection.value.copy(direction.normalize());
   }
 
   /**
    * Update sun color
    */
   setSunColor(color: THREE.Color): void {
-    (this.uniforms.uSunColor as { value: THREE.Color }).value.copy(color);
+    this.uniforms.uSunColor.value.copy(color);
   }
 
   /**
    * Update ambient light color
    */
   setAmbientColor(color: THREE.Color): void {
-    (this.uniforms.uAmbientColor as { value: THREE.Color }).value.copy(color);
+    this.uniforms.uAmbientColor.value.copy(color);
   }
 
   /**
    * Set normal map strength (0-1)
    */
   setNormalStrength(strength: number): void {
-    (this.uniforms.uNormalStrength as { value: number }).value = Math.max(
-      0,
-      Math.min(1, strength),
-    );
+    this.uniforms.uNormalStrength.value = Math.max(0, Math.min(1, strength));
   }
 }

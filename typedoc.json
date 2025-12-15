@@ -1,11 +1,11 @@
 {
   "$schema": "https://typedoc.org/schema.json",
   "name": "Hyperscape API Documentation",
-  "entryPointStrategy": "packages",
+  "entryPointStrategy": "expand",
   "entryPoints": [
-    "packages/shared",
-    "packages/client",
-    "packages/server"
+    "packages/shared/src/index.ts",
+    "packages/client/src/index.tsx",
+    "packages/server/src/index.ts"
   ],
   "out": "packages/docs-site/docs/api",
   "plugin": ["typedoc-plugin-markdown"],

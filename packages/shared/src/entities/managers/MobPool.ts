@@ -33,7 +33,7 @@
 
 import type { World } from "../../core/World";
 import type { MobEntityConfig } from "../../types/entities";
-import { Matrix4, Vector3 } from "../../extras/three/three";
+import { Matrix4, Vector3 } from "three";
 
 /**
  * Pool entry tracking a mob's state

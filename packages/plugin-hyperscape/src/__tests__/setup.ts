@@ -1,4 +1,4 @@
-import { beforeAll, afterAll, beforeEach, afterEach, vi } from "bun:test";
+import { beforeAll, afterAll, beforeEach, afterEach, mock } from "bun:test";
 // @testing-library/jest-dom/matchers not available - using vitest matchers instead
 // import * as matchers from "@testing-library/jest-dom/matchers";
 import { expect } from "bun:test";

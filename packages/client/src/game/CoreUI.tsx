@@ -1,7 +1,11 @@
 import { RefreshCwIcon } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 
-import type { ControlAction, EventMap } from "@hyperscape/shared";
+import type {
+  ControlAction,
+  EventMap,
+  PerformanceSnapshot,
+} from "@hyperscape/shared";
 import {
   buttons,
   cls,
@@ -12,6 +16,7 @@ import {
 import type { ClientWorld } from "../types";
 import { ActionProgressBar } from "./hud/ActionProgressBar";
 import { Chat } from "./chat/Chat";
+import type { ChatWorld } from "./chat/Chat";
 import { ChatProvider } from "./chat/ChatContext";
 import { EntityContextMenu } from "./hud/EntityContextMenu";
 import { HandIcon } from "../components/Icons";
@@ -286,7 +291,23 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         className="coreui absolute inset-0 overflow-hidden pointer-events-none"
       >
         {/* Performance monitor - dev only */}
-        <PerformancePanel monitor={world.performanceMonitor} />
+        <PerformancePanel
+          monitor={
+            world.performanceMonitor
+              ? {
+                  isEnabled: () => world.performanceMonitor?.isEnabled() ?? false,
+                  setEnabled: (enabled: boolean) =>
+                    world.performanceMonitor?.setEnabled(enabled),
+                  onUpdate: (callback: (snapshot: PerformanceSnapshot) => void) =>
+                    world.performanceMonitor?.onUpdate((snapshot: unknown) =>
+                      callback(snapshot as PerformanceSnapshot),
+                    ) ?? (() => {}),
+                  getSnapshot: () =>
+                    (world.performanceMonitor?.getSnapshot() as PerformanceSnapshot) ?? null,
+                }
+              : undefined
+          }
+        />
         {disconnected && <Disconnected />}
         {<Toast world={world} />}
         {ready && <ActionsBlock world={world} />}
@@ -294,7 +315,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         {ready && (
           <Sidebar world={world} ui={ui || { active: false, pane: null }} />
         )}
-        {ready && <Chat world={world} />}
+        {ready && <Chat world={world as ChatWorld} />}
         {ready && <ActionProgressBar world={world} />}
         {!ready && (
           <LoadingScreen
@@ -521,7 +542,7 @@ function Toast({ world }: { world: ClientWorld }) {
   } | null>(null);
   useEffect(() => {
     let ids = 0;
-    const onToast = (data: EventMap[EventType.UI_TOAST]) => {
+    const onToast = (data: EventMap[EventType.UI_TOAST] & { position?: { x: number; y: number } }) => {
       setMsg({ text: data.message, id: ++ids, position: data.position });
     };
     world.on(EventType.UI_TOAST, onToast);

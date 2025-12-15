@@ -84,7 +84,7 @@ interface GlobalWithPolyfills {
   };
   path: typeof path;
   nodePath: typeof path;
-  require: (id: string) => any;
+  require: (id: string) => unknown;
   __dirname: string;
   __filename: string;
 }
@@ -219,7 +219,7 @@ globalWithPolyfills.document = {
               },
 
               // Other properties
-              canvas: null as any,
+              canvas: null as HTMLCanvasElement | null,
             };
           }
           return null;

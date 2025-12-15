@@ -312,7 +312,7 @@ export class GameTransactionService {
       to: tx.target,
       data: tx.callData,
       value: tx.value ?? 0n,
-    } as Parameters<typeof this.walletClient.sendTransaction>[0]);
+    } as unknown as Parameters<typeof this.walletClient.sendTransaction>[0]);
 
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
 
@@ -331,12 +331,12 @@ export class GameTransactionService {
     const cacheKey = sender.toLowerCase();
     const pendingNonce = this.pendingNonces.get(cacheKey);
 
-    const onChainNonce = await this.publicClient.readContract({
+    const onChainNonce = (await this.publicClient.readContract({
       address: ENTRYPOINT_V07,
       abi: ENTRYPOINT_ABI,
       functionName: "getNonce",
       args: [sender, 0n],
-    });
+    } as Parameters<typeof this.publicClient.readContract>[0])) as bigint;
 
     // Use max of on-chain and pending
     const nonce =
@@ -458,7 +458,7 @@ export class GameTransactionService {
    * Check paymaster balance
    */
   async getPaymasterBalance(): Promise<bigint> {
-    const balance = await this.publicClient.readContract({
+    const balance = (await this.publicClient.readContract({
       address: ENTRYPOINT_V07,
       abi: [
         {
@@ -468,10 +468,10 @@ export class GameTransactionService {
           inputs: [{ name: "account", type: "address" }],
           outputs: [{ name: "", type: "uint256" }],
         },
-      ],
+      ] as const,
       functionName: "balanceOf",
       args: [this.config.paymasterAddress],
-    });
+    } as Parameters<typeof this.publicClient.readContract>[0])) as bigint;
 
     return balance;
   }

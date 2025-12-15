@@ -17,8 +17,6 @@ import {
   assertPlayerId,
   assertEntityId,
   assertNonNegativeInteger,
-  assertNumber,
-  assertPosition,
 } from "../../../validation";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 

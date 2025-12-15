@@ -557,8 +557,8 @@ ${colors.reset}`)
   // Copy PhysX assets to CDN directory
   console.log(`${colors.dim}Copying PhysX assets to CDN...${colors.reset}`)
   try {
-    const physxWasm = 'node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.wasm'
-    const physxJs = 'node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.js'
+    const physxWasm = '../physx-js-webidl/dist/physx-js-webidl.wasm'
+    const physxJs = '../physx-js-webidl/dist/physx-js-webidl.js'
     if (fs.existsSync(physxWasm)) {
       // Copy to assets/web/ for CDN serving
       fs.copyFileSync(physxWasm, '../../assets/web/physx-js-webidl.wasm')

@@ -454,8 +454,8 @@ export function assertMoveItemInput(
   assertSlotIndex(toSlot, `${field}.toSlot`);
 
   // Normalize to standard property names
-  (input as MoveItemInput).fromSlot = fromSlot as number;
-  (input as MoveItemInput).toSlot = toSlot as number;
+  (input as unknown as MoveItemInput).fromSlot = fromSlot as number;
+  (input as unknown as MoveItemInput).toSlot = toSlot as number;
 }
 
 /**

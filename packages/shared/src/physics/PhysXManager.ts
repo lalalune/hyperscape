@@ -396,7 +396,7 @@ class PhysXManager extends EventEmitter {
         );
       }
 
-      const physxModule = await import(physxPath);
+      const physxModule = await import(/* @vite-ignore */ physxPath);
       const PhysXLoader = physxModule.default || physxModule;
 
       // Strong type assumption - PhysXLoader is a function that returns PhysXModule

@@ -9,7 +9,7 @@ import {
   Filter,
 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
-import { ELIZAOS_API } from "@/lib/api-config";
+import { ELIZAOS_API } from "../../lib/api-config";
 
 interface AgentRun {
   id: string;

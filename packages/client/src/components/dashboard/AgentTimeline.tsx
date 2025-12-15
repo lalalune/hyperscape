@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Clock, Activity, MessageSquare, Zap, AlertCircle } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
-import { ELIZAOS_API } from "@/lib/api-config";
+import { ELIZAOS_API } from "../../lib/api-config";
 
 interface TimelineEvent {
   id: string;
@@ -55,15 +55,15 @@ export const AgentTimeline: React.FC<AgentTimelineProps> = ({ agent }) => {
           source?: string;
           timestamp?: string;
           createdAt?: string;
-        }) => ({
+        }): TimelineEvent => ({
           id: log.id || `${Date.now()}-${Math.random()}`,
-          type: log.level === "error" ? "error" : log.type || "system",
+          type: (log.level === "error" ? "error" : log.type || "system") as TimelineEvent["type"],
           title: log.message || log.body || "Activity",
           description: log.source || agent.name,
           timestamp: new Date(
             log.timestamp || log.createdAt || Date.now(),
           ).getTime(),
-          metadata: log,
+          metadata: log as Record<string, unknown>,
         }),
       );
 

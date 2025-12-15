@@ -10,7 +10,6 @@ import {
   expectValidSlot,
   expectValidQuantity,
   expectValidItemId,
-  expectValidPlayerId,
 } from "../validation";
 
 /**
