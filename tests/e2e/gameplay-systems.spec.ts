@@ -14,7 +14,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 
-const GAME_URL = process.env.HYPERSCAPE_URL || "http://localhost:3333";
+const GAME_URL = process.env.HYPERSCAPE_URL || `http://localhost:${process.env.VITE_PORT || "3333"}`;
 const LOAD_TIMEOUT = 60000;
 
 // ============================================
@@ -969,3 +969,4 @@ test.describe("Integration Tests", () => {
     expect(fps).toBeGreaterThan(10); // At least 10 FPS
   });
 });
+

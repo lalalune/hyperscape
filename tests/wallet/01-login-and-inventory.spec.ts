@@ -1,13 +1,14 @@
 import { testWithSynpress } from "@synthetixio/synpress";
 import { MetaMask, metaMaskFixtures } from "@synthetixio/synpress/playwright";
 import { basicSetup } from "../../synpress.config";
+import { CLIENT_URL } from "./test-utils";
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe("Hyperscape - Login and Inventory", () => {
   test("should load Hyperscape client", async ({ page }) => {
-    await page.goto("http://localhost:3333");
+    await page.goto(CLIENT_URL);
     await page.waitForLoadState("networkidle");
 
     // Page should load
@@ -30,7 +31,7 @@ test.describe("Hyperscape - Login and Inventory", () => {
       extensionId,
     );
 
-    await page.goto("http://localhost:3333");
+    await page.goto(CLIENT_URL);
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(3000);
 
@@ -57,7 +58,7 @@ test.describe("Hyperscape - Login and Inventory", () => {
   test("should access inventory with data-testid attributes", async ({
     page,
   }) => {
-    await page.goto("http://localhost:3333");
+    await page.goto(CLIENT_URL);
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(5000);
 

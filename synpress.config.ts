@@ -1,9 +1,10 @@
 import { defineWalletSetup } from "@synthetixio/synpress";
 import { defineConfig, devices } from "@playwright/test";
 
-const HYPERSCAPE_PORT = parseInt(process.env.HYPERSCAPE_PORT || "5555");
+// Client port: VITE_PORT > default 3333
+const CLIENT_PORT = parseInt(process.env.VITE_PORT || "3333");
+const BASE_URL = process.env.HYPERSCAPE_URL || `http://localhost:${CLIENT_PORT}`;
 
-// Standalone config for Synpress
 export default defineConfig({
   testDir: "./tests/wallet",
   fullyParallel: false,
@@ -22,12 +23,12 @@ export default defineConfig({
   },
 
   use: {
-    baseURL: `http://localhost:${HYPERSCAPE_PORT}`,
+    baseURL: BASE_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     viewport: { width: 1920, height: 1080 },
-    headless: false, // Show browser for debugging
+    headless: false,
   },
 
   projects: [
@@ -38,8 +39,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'echo "Hyperscape server should already be running on 5555"',
-    url: `http://localhost:${HYPERSCAPE_PORT}`,
+    command: 'echo "Hyperscape client should be running"',
+    url: BASE_URL,
     reuseExistingServer: true,
     timeout: 120000,
   },

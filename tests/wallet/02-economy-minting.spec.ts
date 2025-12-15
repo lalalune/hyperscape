@@ -2,13 +2,14 @@ import { testWithSynpress } from "@synthetixio/synpress";
 import { MetaMask, metaMaskFixtures } from "@synthetixio/synpress/playwright";
 import { expect } from "@playwright/test";
 import { basicSetup } from "../../synpress.config";
+import { CLIENT_URL } from "./test-utils";
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 
 test.describe("Hyperscape Economy - Complete Testing", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to game with debug mode
-    await page.goto("http://localhost:3333?debug=true");
+    await page.goto(`${CLIENT_URL}?debug=true`);
     await page.waitForLoadState("networkidle", { timeout: 30000 });
 
     // Wait for auto-login (2 seconds as per DebugAutoLogin)

@@ -47,8 +47,8 @@ async function setupPlayer(
     }
   });
 
-  // Navigate to game
-  const GAME_URL = process.env.HYPERSCAPE_URL || "http://localhost:3333";
+  // Navigate to game - uses HYPERSCAPE_URL or VITE_PORT for jeju mode
+  const GAME_URL = process.env.HYPERSCAPE_URL || `http://localhost:${process.env.VITE_PORT || "3333"}`;
   await page.goto(GAME_URL);
 
   // Wait for game to load

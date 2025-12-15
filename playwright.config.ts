@@ -16,7 +16,8 @@ export default defineConfig({
   },
 
   use: {
-    baseURL: process.env.HYPERSCAPE_URL || "http://localhost:3333",
+    // Client URL - defaults to 3333 standalone, respects VITE_PORT for jeju mode (5013)
+    baseURL: process.env.HYPERSCAPE_URL || `http://localhost:${process.env.VITE_PORT || "3333"}`,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

@@ -6,6 +6,9 @@ import { test, expect } from "@playwright/test";
 import { dappwright, MetaMask } from "@tenkeylabs/dappwright";
 import { takeAndVerifyScreenshot, waitForPageLoad } from "./utils/screenshot";
 
+// Client URL - defaults to 3333 standalone, can be overridden for jeju mode (5013)
+const CLIENT_URL = process.env.HYPERSCAPE_URL || `http://localhost:${process.env.VITE_PORT || "3333"}`;
+
 test.describe("Wallet Connection Flow", () => {
   test("should connect MetaMask and take screenshots at each step", async () => {
     let browser, metamask, page;
@@ -38,8 +41,8 @@ test.describe("Wallet Connection Flow", () => {
       });
 
       // Step 3: Navigate to Hyperscape
-      await page.goto("http://localhost:3333");
-      await waitForPageLoad(page, "localhost:3333");
+      await page.goto(CLIENT_URL);
+      await waitForPageLoad(page, new URL(CLIENT_URL).host);
 
       await takeAndVerifyScreenshot(page, {
         name: "03-hyperscape-home",

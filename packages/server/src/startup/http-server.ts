@@ -59,11 +59,15 @@ export async function createHttpServer(
   const fastify = Fastify({ logger: { level: "error" } });
 
   // Configure CORS for development and production
+  // Standalone: Client 3333, Server 5555
+  // Jeju mode: Client 5013, Server 5014
   await fastify.register(cors, {
     origin: [
       "http://localhost:4001", // ElizaOS API
-      "http://localhost:3333", // Game Client
-      "http://localhost:5555", // Game Server
+      "http://localhost:3333", // Game Client (standalone)
+      "http://localhost:5013", // Game Client (jeju mode)
+      "http://localhost:5555", // Game Server (standalone)
+      "http://localhost:5014", // Game Server (jeju mode)
       "http://localhost:7777",
       /^https?:\/\/localhost:\d+$/,
       /^https:\/\/.+\.farcaster\.xyz$/,

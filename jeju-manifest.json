@@ -1,25 +1,26 @@
 {
-  "$schema": "../../jeju-manifest.schema.json",
   "name": "hyperscape",
-  "displayName": "Hyperscape 3D Engine",
+  "displayName": "Hyperscape MMORPG",
   "version": "1.0.0",
   "type": "vendor",
-  "description": "3D game engine with ElizaOS integration and procedural world generation",
+  "description": "Hyperscape MMORPG integration with on-chain items, gold, and game events",
   "commands": {
-    "dev": "bun run dev",
-    "build": "bun run build",
-    "start": "bun run start"
+    "dev": "bun run --watch app/",
+    "build": "bun build app/ --outdir=dist",
+    "test": "bun test tests/"
   },
   "ports": {
-    "main": 5009,
-    "game": 5009,
-    "api": 5010,
-    "storage": 8080
+    "main": 8030
   },
-  "dependencies": [],
+  "dependencies": ["contracts", "config", "bazaar"],
   "optional": true,
   "enabled": true,
-  "autoStart": true,
-  "tags": ["game", "3d", "engine", "elizaos"]
+  "autoStart": false,
+  "contracts": {
+    "mmo/": "contracts/mmo/"
+  },
+  "ui": {
+    "pages": ["app/games/hyperscape/"],
+    "components": ["components/"]
+  }
 }
-

@@ -21,7 +21,7 @@ import { test, expect, type Page, type BrowserContext } from "@playwright/test";
 // CONFIGURATION
 // =============================================================================
 
-const GAME_URL = process.env.GAME_URL || "http://localhost:3333";
+const GAME_URL = process.env.HYPERSCAPE_URL || process.env.GAME_URL || `http://localhost:${process.env.VITE_PORT || "3333"}`;
 const LOAD_TIMEOUT = 60000;
 const INTERACTION_TIMEOUT = 30000;
 
