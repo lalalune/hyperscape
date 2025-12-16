@@ -5,6 +5,7 @@ import { AttackType } from "../../../types/core/core";
 import { EventType } from "../../../types/events";
 import type { Entity } from "../../../entities/Entity";
 import * as THREE from "three";
+import { getCachedTimestamp } from "../movement/ObjectPools";
 
 // Extended MouseEvent with camera system property
 interface CameraHandledMouseEvent extends MouseEvent {
@@ -546,7 +547,7 @@ export class InteractionSystem extends System {
   override update(): void {
     // Animate target marker
     if (this.targetMarker && this.targetMarker.visible) {
-      const time = Date.now() * 0.001;
+      const time = getCachedTimestamp() * 0.001;
       // Pulse effect (scale animation)
       const scale = 1 + Math.sin(time * 4) * 0.1;
       this.targetMarker.scale.set(scale, 1, scale);

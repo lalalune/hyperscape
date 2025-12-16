@@ -297,21 +297,16 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       >
         {/* Performance monitor - dev only */}
         <PerformancePanel
-          monitor={
-            world.performanceMonitor
-              ? {
-                  isEnabled: () => world.performanceMonitor?.isEnabled() ?? false,
-                  setEnabled: (enabled: boolean) =>
-                    world.performanceMonitor?.setEnabled(enabled),
-                  onUpdate: (callback: (snapshot: PerformanceSnapshot) => void) =>
-                    world.performanceMonitor?.onUpdate((snapshot: unknown) =>
-                      callback(snapshot as PerformanceSnapshot),
-                    ) ?? (() => {}),
-                  getSnapshot: () =>
-                    (world.performanceMonitor?.getSnapshot() as PerformanceSnapshot) ?? null,
-                }
-              : undefined
-          }
+          monitor={world.performanceMonitor ? {
+            isEnabled: () => world.performanceMonitor?.isEnabled() ?? false,
+            setEnabled: (enabled: boolean) => world.performanceMonitor?.setEnabled(enabled),
+            onUpdate: (callback: (snapshot: PerformanceSnapshot) => void) =>
+              world.performanceMonitor?.onUpdate((snapshot: unknown) =>
+                callback(snapshot as PerformanceSnapshot),
+              ) ?? (() => {}),
+            getSnapshot: () =>
+              (world.performanceMonitor?.getSnapshot() as PerformanceSnapshot) ?? null,
+          } : undefined}
         />
         {disconnected && <Disconnected />}
         {<Toast world={world} />}

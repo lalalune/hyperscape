@@ -182,17 +182,19 @@ export function handlePickupItem(
     return;
   }
 
-  // Server-side distance validation
+  // Server-side distance validation (use squared distance to avoid sqrt)
   const itemEntity = world.entities.get(entityId);
   if (itemEntity) {
-    const distance = Math.sqrt(
-      Math.pow(playerEntity.position.x - itemEntity.position.x, 2) +
-        Math.pow(playerEntity.position.z - itemEntity.position.z, 2),
-    );
+    const dx = playerEntity.position.x - itemEntity.position.x;
+    const dz = playerEntity.position.z - itemEntity.position.z;
+    const distanceSq = dx * dx + dz * dz;
 
     // Use constant for pickup range (slightly larger than client to account for movement)
     const pickupRange = COMBAT_CONSTANTS.PICKUP_RANGE ?? 2.5;
-    if (distance > pickupRange) {
+    const pickupRangeSq = pickupRange * pickupRange;
+    if (distanceSq > pickupRangeSq) {
+      // Only compute sqrt for the log message
+      const distance = Math.sqrt(distanceSq);
       console.warn(
         `[Inventory] Player ${playerEntity.id} tried to pickup item ${entityId} from too far away (${distance.toFixed(2)}m > ${pickupRange}m)`,
       );

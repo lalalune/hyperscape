@@ -37,6 +37,7 @@
 import THREE from "../../extras/three/three";
 import type { World } from "../../core/World";
 import { SystemBase } from "../shared/infrastructure/SystemBase";
+import { getCachedTimestamp } from "../shared/movement/ObjectPools";
 
 /**
  * LOD level configuration for mobs
@@ -479,7 +480,7 @@ export class MobInstancedRenderer extends SystemBase {
    * Main update loop - handles visibility culling and LOD switching
    */
   override update(_deltaTime: number): void {
-    const now = Date.now();
+    const now = getCachedTimestamp();
     if (now - this.lastUpdateTime < this.rendererConfig.updateInterval) {
       return; // Throttle updates
     }

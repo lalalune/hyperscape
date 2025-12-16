@@ -570,12 +570,12 @@ export class ProcessingSystem extends SystemBase {
       playerId: fire.playerId,
     };
 
-    // Add flickering animation
+    // Add flickering animation using performance.now() for better perf than Date.now()
     const animate = () => {
       if (fire.isActive) {
         (
           fireMesh as unknown as { material: THREE.MeshBasicMaterial }
-        ).material.opacity = 0.6 + Math.sin(Date.now() * 0.01) * 0.2;
+        ).material.opacity = 0.6 + Math.sin(performance.now() * 0.01) * 0.2;
         requestAnimationFrame(animate);
       }
     };

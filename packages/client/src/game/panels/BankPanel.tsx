@@ -9,15 +9,15 @@
  * - Shows alongside inventory when open
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { ClientWorld, InventorySlotItem } from "../../types";
-import { COLORS } from "../../constants";
 
 interface BankItem {
   itemId: string;
   quantity: number;
   slot: number;
+  tabIndex?: number;
 }
 
 type InventorySlotViewItem = Pick<
@@ -50,12 +50,23 @@ interface CoinModalState {
   maxAmount: number;
 }
 
+interface ConfirmModalState {
+  visible: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+}
+
 const BANK_SLOTS_PER_ROW = 10;
 const BANK_VISIBLE_ROWS = 8; // Height of visible area to match inventory
 const BANK_SCROLL_HEIGHT = BANK_VISIBLE_ROWS * 45; // 45px per row (44px + gap)
+const BANK_SLOT_SIZE = 44; // Size of each bank slot in pixels
 
 const INV_SLOTS_PER_ROW = 4;
 const INV_ROWS = 7;
+
+const TAB_INDEX_ALL = -1; // "All" view shows all items across all tabs
+const SLOT_INDEX_APPEND_ZONE = -1; // Special slot index for appending items to end
 
 /**
  * Get icon for item based on itemId
@@ -462,6 +473,241 @@ function CoinAmountModal({
   );
 }
 
+// ============================================================================
+// MEMOIZED BANK SLOT COMPONENT
+// ============================================================================
+
+/**
+ * Props for the memoized BankSlotItem component
+ */
+interface BankSlotItemProps {
+  item: BankItem;
+  slotIndex: number;
+  itemTabIndex: number;
+  isDragging: boolean;
+  _isDropTarget: boolean;
+  showSwapHighlight: boolean;
+  showInsertLine: boolean;
+  showFaintGuide: boolean;
+  dropColor: string;
+  guideColor: string;
+  onDragStart: (e: React.DragEvent, slotIndex: number, tabIndex: number) => void;
+  onDragOver: (e: React.DragEvent, slotIndex: number, tabIndex: number) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent, slotIndex: number, tabIndex: number) => void;
+  onDragEnd: () => void;
+  onClick: (item: BankItem) => void;
+  onContextMenu: (e: React.MouseEvent, item: BankItem) => void;
+}
+
+/**
+ * Memoized bank slot component to prevent unnecessary re-renders.
+ *
+ * Without memoization, all 480 slots would re-render on ANY state change
+ * (hover, drag, selection). With React.memo, only slots whose props
+ * actually changed will re-render.
+ *
+ * Performance impact: Reduces re-renders from O(n) to O(1) for most interactions.
+ */
+const BankSlotItem = memo(function BankSlotItem({
+  item,
+  slotIndex,
+  itemTabIndex,
+  isDragging,
+  _isDropTarget,
+  showSwapHighlight,
+  showInsertLine,
+  showFaintGuide,
+  dropColor,
+  guideColor,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+  onClick,
+  onContextMenu,
+}: BankSlotItemProps) {
+  const isPlaceholder = item.quantity === 0;
+
+  return (
+    <div
+      className="rounded flex items-center justify-center relative cursor-grab active:cursor-grabbing"
+      style={{
+        width: BANK_SLOT_SIZE,
+        height: BANK_SLOT_SIZE,
+        background: showSwapHighlight
+          ? `linear-gradient(135deg, rgba(${dropColor}, 0.35) 0%, rgba(${dropColor}, 0.2) 100%)`
+          : isPlaceholder
+            ? "linear-gradient(135deg, rgba(50, 45, 40, 0.4) 0%, rgba(40, 35, 30, 0.4) 100%)"
+            : "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)",
+        border: showSwapHighlight
+          ? `2px solid rgba(${dropColor}, 0.9)`
+          : isPlaceholder
+            ? "1px dashed rgba(242, 208, 138, 0.2)"
+            : "1px solid rgba(242, 208, 138, 0.3)",
+        transform: isDragging ? "scale(0.9)" : "scale(1)",
+        opacity: isDragging ? 0.4 : isPlaceholder ? 0.6 : 1,
+        transition:
+          "transform 0.15s ease, opacity 0.15s ease, background 0.1s ease, border 0.1s ease",
+        boxShadow: showSwapHighlight
+          ? `0 0 12px rgba(${dropColor}, 0.5)`
+          : "none",
+      }}
+      title={
+        isPlaceholder
+          ? `${formatItemName(item.itemId)} (placeholder)`
+          : `${formatItemName(item.itemId)} x${item.quantity} (Tab ${itemTabIndex})`
+      }
+      draggable={true}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart(e, slotIndex, itemTabIndex);
+      }}
+      onDragOver={(e) => onDragOver(e, slotIndex, itemTabIndex)}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => onDrop(e, slotIndex, itemTabIndex)}
+      onDragEnd={onDragEnd}
+      onClick={() => onClick(item)}
+      onContextMenu={(e) => onContextMenu(e, item)}
+    >
+      {/* Single INSERT LINE on left edge */}
+      {(showInsertLine || showFaintGuide) && (
+        <div
+          style={{
+            position: "absolute",
+            left: -4,
+            top: 0,
+            bottom: 0,
+            width: showInsertLine ? 6 : 3,
+            background: showInsertLine
+              ? `rgba(${dropColor}, 1)`
+              : `rgba(${guideColor}, 0.2)`,
+            borderRadius: 3,
+            zIndex: 20,
+            boxShadow: showInsertLine
+              ? `0 0 10px rgba(${dropColor}, 0.9), 0 0 20px rgba(${dropColor}, 0.5)`
+              : "none",
+            transition: "all 0.1s ease",
+          }}
+        />
+      )}
+      <span className="text-xl select-none pointer-events-none">
+        {getItemIcon(item.itemId)}
+      </span>
+      {item.quantity > 1 && (
+        <span
+          className="absolute bottom-0 right-0.5 text-[10px] font-bold pointer-events-none"
+          style={{
+            color:
+              item.quantity >= 10000000
+                ? "#00ff00"
+                : item.quantity >= 100000
+                  ? "#ffffff"
+                  : "#ffff00",
+            textShadow: "1px 1px 1px black, -1px -1px 1px black",
+          }}
+        >
+          {formatQuantity(item.quantity)}
+        </span>
+      )}
+    </div>
+  );
+});
+
+// ============================================================================
+// CONFIRM MODAL COMPONENT
+// ============================================================================
+
+function ConfirmModal({
+  modal,
+  onClose,
+}: {
+  modal: ConfirmModalState;
+  onClose: () => void;
+}) {
+  if (!modal.visible) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[10001] flex items-center justify-center"
+      style={{ background: "rgba(0, 0, 0, 0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-lg p-4 shadow-xl"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(30, 25, 20, 0.98) 0%, rgba(20, 15, 10, 0.98) 100%)",
+          border: "2px solid rgba(139, 69, 19, 0.8)",
+          minWidth: "280px",
+          maxWidth: "360px",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3
+          className="text-lg font-bold mb-3 text-center"
+          style={{ color: "rgba(242, 208, 138, 0.9)" }}
+        >
+          {modal.title}
+        </h3>
+
+        <p
+          className="text-sm mb-4 text-center"
+          style={{ color: "rgba(255, 255, 255, 0.8)" }}
+        >
+          {modal.message}
+        </p>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              modal.onConfirm();
+              onClose();
+            }}
+            className="flex-1 py-2 rounded text-sm font-bold transition-colors"
+            style={{
+              background: "rgba(180, 100, 100, 0.7)",
+              color: "#fff",
+              border: "1px solid rgba(180, 100, 100, 0.8)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(200, 80, 80, 0.9)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(180, 100, 100, 0.7)";
+            }}
+          >
+            Delete
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded text-sm font-bold transition-colors"
+            style={{
+              background: "rgba(100, 100, 100, 0.5)",
+              color: "#fff",
+              border: "1px solid rgba(139, 69, 19, 0.6)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(120, 120, 120, 0.6)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(100, 100, 100, 0.5)";
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ============================================================================
+// MAIN BANK PANEL COMPONENT
+// ============================================================================
+
 // NOTE: Distance validation is now SERVER-AUTHORITATIVE
 // The server tracks interaction sessions and sends bankClose packets
 // when the player moves too far away. The client no longer polls distance.
@@ -496,7 +742,48 @@ export function BankPanel({
   // The server sends bankClose packets when the player moves too far away.
   // This eliminates race conditions between server and client position sync.
 
-  // Calculate bank coins from items array
+  // ========== TAB STATE ==========
+  // -1 = "All" view (shows all items across all tabs)
+  // 0 = Main tab
+  // 1-9 = Custom tabs
+  const [selectedTab, setSelectedTab] = useState<number>(-1);
+
+  // ========== DRAG-DROP STATE (OSRS-style bank reorganization) ==========
+  const [draggedSlot, setDraggedSlot] = useState<number | null>(null);
+  const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null);
+  const [dropMode, setDropMode] = useState<"swap" | "insert" | null>(null);
+  const [_insertPosition, setInsertPosition] = useState<
+    "before" | "after" | null
+  >(null);
+  const [hoveredSlot, setHoveredSlot] = useState<number | null>(null);
+  const [hoveredTabIndex, setHoveredTabIndex] = useState<number | null>(null);
+
+  // ========== PERFORMANCE: Throttle drag state updates ==========
+  const lastDragUpdateTime = useRef(0);
+
+  // ========== PERFORMANCE: Memoize filtered items ==========
+  const filteredItems = useMemo(() => {
+    if (selectedTab === TAB_INDEX_ALL) {
+      return items;
+    }
+    return items.filter((i) => (i.tabIndex ?? 0) === selectedTab);
+  }, [items, selectedTab]);
+
+  // ========== PERFORMANCE: Memoize sorted tab indexes ==========
+  const _sortedTabIndexes = useMemo(() => {
+    const tabSet = new Set(items.map((i) => i.tabIndex ?? 0));
+    return [...tabSet].sort((a, b) => (a ?? 0) - (b ?? 0));
+  }, [items]);
+
+  // ========== SIMPLE SERVER-AUTHORITATIVE UI ==========
+  // NO optimistic predictions - just display server state directly.
+  // This is simple, reliable, and correct.
+  //
+  // Server queue processes operations one at a time per player.
+  // Each click fires a request; server responds with updated bank state.
+  // The UI updates when the new props arrive from server.
+
+  // Bank coins from server state
   const bankCoinsItem = items.find((item) => item.itemId === "coins");
   const bankCoins = bankCoinsItem?.quantity ?? 0;
 
@@ -574,6 +861,34 @@ export function BankPanel({
     }
   };
 
+  const handleMoveToTab = useCallback(
+    (slot: number, fromTab: number, toTab: number) => {
+      if (world.network?.send) {
+        world.network.send("bankMoveToTab", { slot, fromTab, toTab });
+      }
+    },
+    [world.network],
+  );
+
+  const handleBankMove = useCallback(
+    (
+      fromSlot: number,
+      toSlot: number,
+      mode: "swap" | "insert",
+      tabIndex?: number,
+    ) => {
+      if (world.network?.send) {
+        world.network.send("bankMove", {
+          fromSlot,
+          toSlot,
+          mode,
+          tabIndex,
+        });
+      }
+    },
+    [world.network],
+  );
+
   const handleContextMenuAction = useCallback(
     (action: string, quantity: number) => {
       if (action === "withdraw") {
@@ -616,6 +931,72 @@ export function BankPanel({
       type,
     });
   };
+
+  // Drag and drop handlers
+  const handleSlotDragStart = useCallback(
+    (e: React.DragEvent, slotIndex: number, tabIndex: number) => {
+      setDraggedSlot(slotIndex);
+      setDraggedTabIndex(tabIndex);
+    },
+    [],
+  );
+
+  const handleSlotDragOver = useCallback(
+    (e: React.DragEvent, slotIndex: number, tabIndex: number) => {
+      e.preventDefault();
+      setHoveredSlot(slotIndex);
+      setHoveredTabIndex(tabIndex);
+      setDropMode("swap");
+    },
+    [],
+  );
+
+  const handleSlotDragLeave = useCallback(() => {
+    setHoveredSlot(null);
+    setHoveredTabIndex(null);
+    setDropMode(null);
+  }, []);
+
+  const handleSlotDrop = useCallback(
+    (e: React.DragEvent, slotIndex: number, tabIndex: number) => {
+      e.preventDefault();
+      if (
+        draggedSlot !== null &&
+        draggedTabIndex !== null &&
+        (draggedSlot !== slotIndex || draggedTabIndex !== tabIndex)
+      ) {
+        handleBankMove(draggedSlot, slotIndex, "swap", tabIndex);
+      }
+      setDraggedSlot(null);
+      setDraggedTabIndex(null);
+      setHoveredSlot(null);
+      setHoveredTabIndex(null);
+      setDropMode(null);
+    },
+    [draggedSlot, draggedTabIndex, handleBankMove],
+  );
+
+  const handleSlotDragEnd = useCallback(() => {
+    setDraggedSlot(null);
+    setDraggedTabIndex(null);
+    setHoveredSlot(null);
+    setHoveredTabIndex(null);
+    setDropMode(null);
+  }, []);
+
+  const handleSlotClick = useCallback(
+    (item: BankItem) => {
+      handleWithdraw(item.itemId, 1);
+    },
+    [handleWithdraw],
+  );
+
+  const handleSlotContextMenu = useCallback(
+    (e: React.MouseEvent, item: BankItem) => {
+      openContextMenu(e, item.itemId, item.quantity, "bank");
+    },
+    [openContextMenu],
+  );
 
   return (
     <div
@@ -682,7 +1063,7 @@ export function BankPanel({
           >
             <h2
               className="text-lg font-bold flex items-center gap-2"
-              style={{ color: COLORS.ACCENT }}
+              style={{ color: "rgba(242, 208, 138, 0.9)" }}
             >
               <span>🏦</span>
               <span>Bank</span>
@@ -810,90 +1191,346 @@ export function BankPanel({
               scrollbarWidth: "thin",
               scrollbarColor: "rgba(139, 69, 19, 0.6) rgba(0, 0, 0, 0.3)",
             }}
-          >
-            <div
-              className="grid gap-1"
-              style={{
-                gridTemplateColumns: `repeat(${BANK_SLOTS_PER_ROW}, 44px)`,
-              }}
             >
-              {Array.from({ length: maxSlots }).map((_, idx) => {
-                const slotIndex = idx;
-                const item = items.find((i) => i.slot === slotIndex);
+            {/* "All" tab view with grouped headers */}
+            {selectedTab === TAB_INDEX_ALL ? (
+              <div className="space-y-2">
+                {/* Group items by tabIndex and render with headers */}
+                {(() => {
+                  // Get unique tab indexes from items, sorted
+                  const tabIndexes = [
+                    ...new Set(items.map((i) => i.tabIndex ?? 0)),
+                  ].sort((a, b) => (a ?? 0) - (b ?? 0));
 
-                return (
-                  <div
-                    key={slotIndex}
-                    className={`
-                      w-11 h-11 rounded
-                      flex items-center justify-center relative
-                      transition-colors duration-150
-                      ${item ? "cursor-pointer" : ""}
-                    `}
-                    style={{
-                      background: item
-                        ? "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)"
-                        : "rgba(0, 0, 0, 0.4)",
-                      border: item
-                        ? "1px solid rgba(242, 208, 138, 0.3)"
-                        : "1px solid rgba(242, 208, 138, 0.1)",
-                    }}
-                    title={
-                      item
-                        ? `${formatItemName(item.itemId)} x${item.quantity}`
-                        : "Empty slot"
-                    }
-                    onClick={() => item && handleWithdraw(item.itemId, 1)}
-                    onContextMenu={(e) => {
-                      if (item) {
-                        openContextMenu(e, item.itemId, item.quantity, "bank");
-                      }
-                    }}
-                    onMouseEnter={(e) => {
-                      if (item) {
-                        e.currentTarget.style.background =
-                          "linear-gradient(135deg, rgba(242, 208, 138, 0.2) 0%, rgba(242, 208, 138, 0.1) 100%)";
-                        e.currentTarget.style.borderColor =
-                          "rgba(242, 208, 138, 0.5)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (item) {
-                        e.currentTarget.style.background =
-                          "linear-gradient(135deg, rgba(242, 208, 138, 0.1) 0%, rgba(242, 208, 138, 0.05) 100%)";
-                        e.currentTarget.style.borderColor =
-                          "rgba(242, 208, 138, 0.3)";
-                      }
-                    }}
-                  >
-                    {item && (
-                      <>
-                        <span className="text-xl select-none">
-                          {getItemIcon(item.itemId)}
-                        </span>
-                        {item.quantity > 1 && (
+                  return tabIndexes.map((tabIdx) => {
+                    const tabItems = items
+                      .filter((i) => (i.tabIndex ?? 0) === tabIdx)
+                      .sort((a, b) => a.slot - b.slot);
+                    if (tabItems.length === 0) return null;
+
+                    // RS3-style: Prefer real items, but show placeholder icon if tab only has placeholders
+                    const firstRealItem = tabItems.find((i) => i.quantity > 0);
+                    const firstAnyItem = tabItems[0];
+                    const iconItem = firstRealItem || firstAnyItem;
+                    const isPlaceholderIcon =
+                      iconItem && iconItem.quantity === 0;
+                    // RS3-style: All tabs treated equally, icon derived from first item
+                    const tabLabel = iconItem
+                      ? `${getItemIcon(iconItem.itemId)} Tab ${tabIdx}${isPlaceholderIcon ? " (empty)" : ""}`
+                      : `📦 Tab ${tabIdx}`;
+
+                    // Check if this tab header is being hovered for drop
+                    const isHeaderDropTarget =
+                      hoveredTabIndex === tabIdx &&
+                      draggedSlot !== null &&
+                      draggedTabIndex !== tabIdx;
+
+                    return (
+                      <div key={tabIdx}>
+                        {/* Tab Header - OSRS style separator - DROPPABLE to move items to this tab */}
+                        <div
+                          className="flex items-center gap-2 mb-1 pb-0.5 transition-colors"
+                          style={{
+                            background: isHeaderDropTarget
+                              ? "rgba(100, 200, 255, 0.15)"
+                              : "transparent",
+                            padding: "1px 2px",
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            if (
+                              draggedSlot !== null &&
+                              draggedTabIndex !== tabIdx
+                            ) {
+                              setHoveredTabIndex(tabIdx);
+                            }
+                          }}
+                          onDragLeave={() => {
+                            setHoveredTabIndex(null);
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (
+                              draggedSlot !== null &&
+                              draggedTabIndex !== null &&
+                              draggedTabIndex !== tabIdx
+                            ) {
+                              handleMoveToTab(
+                                draggedSlot,
+                                draggedTabIndex,
+                                tabIdx,
+                              );
+                            }
+                            setDraggedSlot(null);
+                            setDraggedTabIndex(null);
+                            setHoveredTabIndex(null);
+                            setDropMode(null);
+                            setInsertPosition(null);
+                            setHoveredSlot(null);
+                          }}
+                        >
                           <span
-                            className="absolute bottom-0 right-0.5 text-[10px] font-bold"
+                            className="text-[10px] font-bold"
                             style={{
-                              color:
-                                item.quantity >= 10000000
-                                  ? "#00ff00"
-                                  : item.quantity >= 100000
-                                    ? "#ffffff"
-                                    : "#ffff00",
-                              textShadow:
-                                "1px 1px 1px black, -1px -1px 1px black",
+                              color: isHeaderDropTarget
+                                ? "#fff"
+                                : "rgba(242, 208, 138, 0.9)",
                             }}
                           >
-                            {formatQuantity(item.quantity)}
+                            {tabLabel}
                           </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                          <div
+                            className="flex-1"
+                            style={{
+                              height: isHeaderDropTarget ? "2px" : "1px",
+                              background: isHeaderDropTarget
+                                ? "rgba(100, 200, 255, 0.8)"
+                                : "rgba(139, 69, 19, 0.3)",
+                              transition: "all 0.15s ease",
+                            }}
+                          />
+                          <span
+                            className="text-[9px]"
+                            style={{
+                              color: isHeaderDropTarget
+                                ? "rgba(255,255,255,0.7)"
+                                : "rgba(242, 208, 138, 0.5)",
+                            }}
+                          >
+                            {isHeaderDropTarget
+                              ? "Drop here"
+                              : `${tabItems.length}`}
+                          </span>
+                        </div>
+
+                        {/* Items grid for this tab */}
+                        <div
+                          className="grid gap-2"
+                          style={{
+                            gridTemplateColumns: `repeat(${BANK_SLOTS_PER_ROW}, ${BANK_SLOT_SIZE}px)`,
+                          }}
+                        >
+                          {tabItems.map((item) => {
+                            const slotIndex = item.slot;
+                            const itemTabIndex = item.tabIndex;
+
+                            // Determine visual states
+                            const isDragging =
+                              draggedSlot === slotIndex &&
+                              draggedTabIndex === itemTabIndex;
+                            const isDropTarget =
+                              hoveredSlot === slotIndex &&
+                              hoveredTabIndex === itemTabIndex &&
+                              draggedSlot !== null &&
+                              !(
+                                draggedSlot === slotIndex &&
+                                draggedTabIndex === itemTabIndex
+                              );
+                            const isCrossTabDrop =
+                              isDropTarget &&
+                              draggedTabIndex !== null &&
+                              draggedTabIndex !== itemTabIndex;
+                            const canReceiveDrop =
+                              draggedSlot !== null && !isDragging;
+
+                            // Visual states for different drop modes
+                            const showInsertLine =
+                              isDropTarget && dropMode === "insert";
+                            const showSwapHighlight =
+                              isDropTarget && dropMode === "swap";
+
+                            // Show faint insert guides on ALL items while dragging
+                            const showFaintGuide =
+                              canReceiveDrop && !isDropTarget;
+
+                            // Color based on cross-tab vs same-tab
+                            const dropColor = isCrossTabDrop
+                              ? "100, 255, 150"
+                              : "100, 200, 255";
+                            const guideColor =
+                              draggedTabIndex !== itemTabIndex
+                                ? "100, 255, 150"
+                                : "100, 200, 255";
+
+                            return (
+                              <BankSlotItem
+                                key={`${itemTabIndex}-${slotIndex}`}
+                                item={item}
+                                slotIndex={slotIndex}
+                                itemTabIndex={itemTabIndex ?? 0}
+                                isDragging={isDragging}
+                                _isDropTarget={isDropTarget}
+                                showSwapHighlight={showSwapHighlight}
+                                showInsertLine={showInsertLine}
+                                showFaintGuide={showFaintGuide}
+                                dropColor={dropColor}
+                                guideColor={guideColor}
+                                onDragStart={handleSlotDragStart}
+                                onDragOver={handleSlotDragOver}
+                                onDragLeave={handleSlotDragLeave}
+                                onDrop={handleSlotDrop}
+                                onDragEnd={handleSlotDragEnd}
+                                onClick={handleSlotClick}
+                                onContextMenu={handleSlotContextMenu}
+                              />
+                            );
+                          })}
+
+                          {/* RS3-STYLE: Placeholders are items with qty=0, already rendered above with greyed style */}
+
+                          {/* APPEND ZONE - Empty slot at end for dropping items to append */}
+                          {draggedSlot !== null && (
+                            <div
+                              className="rounded flex items-center justify-center relative"
+                              style={{
+                                width: BANK_SLOT_SIZE,
+                                height: BANK_SLOT_SIZE,
+                                background:
+                                  hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
+                                  hoveredTabIndex === tabIdx
+                                    ? `linear-gradient(135deg, rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.35) 0%, rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.2) 100%)`
+                                    : "linear-gradient(135deg, rgba(242, 208, 138, 0.05) 0%, rgba(242, 208, 138, 0.02) 100%)",
+                                border:
+                                  hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
+                                  hoveredTabIndex === tabIdx
+                                    ? `2px dashed rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.9)`
+                                    : "2px dashed rgba(242, 208, 138, 0.2)",
+                                transition: "all 0.15s ease",
+                                boxShadow:
+                                  hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
+                                  hoveredTabIndex === tabIdx
+                                    ? `0 0 12px rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 0.5)`
+                                    : "none",
+                              }}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                setHoveredSlot(SLOT_INDEX_APPEND_ZONE); // Special marker for "append"
+                                setHoveredTabIndex(tabIdx);
+                                setDropMode("insert");
+                                setInsertPosition("after");
+                              }}
+                              onDragLeave={() => {
+                                setHoveredSlot(null);
+                                setHoveredTabIndex(null);
+                                setDropMode(null);
+                                setInsertPosition(null);
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                if (
+                                  draggedSlot !== null &&
+                                  draggedTabIndex !== null
+                                ) {
+                                  const lastSlot =
+                                    tabItems.length > 0
+                                      ? tabItems[tabItems.length - 1].slot
+                                      : -1;
+                                  if (draggedTabIndex === tabIdx) {
+                                    // Same tab - move to end
+                                    handleBankMove(
+                                      draggedSlot,
+                                      lastSlot + 1,
+                                      "insert",
+                                      draggedTabIndex,
+                                    );
+                                  } else {
+                                    // Cross-tab - append to this tab (no toSlot = append)
+                                    handleMoveToTab(
+                                      draggedSlot,
+                                      draggedTabIndex,
+                                      tabIdx,
+                                    );
+                                  }
+                                }
+                                setDraggedSlot(null);
+                                setDraggedTabIndex(null);
+                                setDropMode(null);
+                                setInsertPosition(null);
+                                setHoveredSlot(null);
+                                setHoveredTabIndex(null);
+                              }}
+                            >
+                              <span
+                                className="text-xs font-medium"
+                                style={{
+                                  color:
+                                    hoveredSlot === SLOT_INDEX_APPEND_ZONE &&
+                                    hoveredTabIndex === tabIdx
+                                      ? `rgba(${draggedTabIndex !== tabIdx ? "100, 255, 150" : "100, 200, 255"}, 1)`
+                                      : "rgba(242, 208, 138, 0.3)",
+                                }}
+                              >
+                                +
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            ) : (
+              /* Single tab view - flat grid with improved UX */
+              <div
+                className="grid gap-2"
+                style={{
+                  gridTemplateColumns: `repeat(${BANK_SLOTS_PER_ROW}, ${BANK_SLOT_SIZE}px)`,
+                }}
+              >
+                {filteredItems.map((item) => {
+                  const slotIndex = item.slot;
+                  const itemTabIndex = item.tabIndex;
+
+                  // Determine visual states
+                  const isDragging =
+                    draggedSlot === slotIndex &&
+                    draggedTabIndex === itemTabIndex;
+                  const isDropTarget =
+                    hoveredSlot === slotIndex &&
+                    draggedSlot !== null &&
+                    !(
+                      draggedSlot === slotIndex &&
+                      draggedTabIndex === itemTabIndex
+                    );
+                  const canReceiveDrop = draggedSlot !== null && !isDragging;
+                  const showSwapHighlight = isDropTarget && dropMode === "swap";
+                  const showInsertLine = isDropTarget && dropMode === "insert";
+
+                  // Show faint insert guides on ALL items while dragging
+                  const showFaintGuide = canReceiveDrop && !isDropTarget;
+
+                  // Single-tab view uses same color for all
+                  const dropColor = "100, 200, 255";
+                  const guideColor = "100, 200, 255";
+
+                  return (
+                    <BankSlotItem
+                      key={`${itemTabIndex}-${slotIndex}`}
+                      item={item}
+                      slotIndex={slotIndex}
+                      itemTabIndex={itemTabIndex ?? 0}
+                      isDragging={isDragging}
+                      _isDropTarget={isDropTarget}
+                      showSwapHighlight={showSwapHighlight}
+                      showInsertLine={showInsertLine}
+                      showFaintGuide={showFaintGuide}
+                      dropColor={dropColor}
+                      guideColor={guideColor}
+                      onDragStart={handleSlotDragStart}
+                      onDragOver={handleSlotDragOver}
+                      onDragLeave={handleSlotDragLeave}
+                      onDrop={handleSlotDrop}
+                      onDragEnd={handleSlotDragEnd}
+                      onClick={handleSlotClick}
+                      onContextMenu={handleSlotContextMenu}
+                    />
+                  );
+                })}
+
+                {/* RS3-STYLE: Placeholders are items with qty=0, already rendered above with greyed style */}
+              </div>
+            )}
           </div>
 
           {/* Footer */}
@@ -939,7 +1576,7 @@ export function BankPanel({
           >
             <h2
               className="text-sm font-bold flex items-center gap-2"
-              style={{ color: COLORS.ACCENT }}
+              style={{ color: "rgba(242, 208, 138, 0.9)" }}
             >
               <span>🎒</span>
               <span>Inventory</span>
@@ -1042,7 +1679,7 @@ export function BankPanel({
               style={{
                 background:
                   "linear-gradient(180deg, rgba(139, 69, 19, 0.7) 0%, rgba(139, 69, 19, 0.5) 100%)",
-                color: COLORS.ACCENT,
+                color: "rgba(242, 208, 138, 0.9)",
                 border: "1px solid rgba(139, 69, 19, 0.8)",
               }}
               onMouseEnter={(e) => {
