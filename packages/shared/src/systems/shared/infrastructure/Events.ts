@@ -7,22 +7,16 @@ type EventCallback<T = Record<string, unknown>> = (
   extra?: Record<string, unknown>,
 ) => void;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type EventHandler = (data: any, extra?: Record<string, unknown>) => void;
+
 export interface IEventsInterface extends System {
   emit<T extends string | symbol>(
     event: T,
     ...args: Record<string, unknown>[]
   ): boolean;
-  on<T extends string | symbol>(
-    event: T,
-    fn: (...args: Record<string, unknown>[]) => void,
-    context?: Record<string, unknown>,
-  ): this;
-  off<T extends string | symbol>(
-    event: T,
-    fn?: (...args: Record<string, unknown>[]) => void,
-    context?: Record<string, unknown>,
-    once?: boolean,
-  ): this;
+  on<T extends string | symbol>(event: T, fn: EventHandler, context?: Record<string, unknown>): this;
+  off<T extends string | symbol>(event: T, fn?: EventHandler, context?: Record<string, unknown>, once?: boolean): this;
 
   // Plugin-specific array-like methods
   push?: (callback: (data: Record<string, unknown>) => void) => void;
@@ -80,11 +74,7 @@ export class Events extends System implements IEventsInterface {
     return true;
   }
 
-  on<T extends string | symbol>(
-    event: T,
-    fn: (...args: Record<string, unknown>[]) => void,
-    _context?: Record<string, unknown>,
-  ): this {
+  on<T extends string | symbol>(event: T, fn: EventHandler, _context?: Record<string, unknown>): this {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
@@ -108,12 +98,7 @@ export class Events extends System implements IEventsInterface {
     return this;
   }
 
-  off<T extends string | symbol>(
-    event: T,
-    fn?: (...args: Record<string, unknown>[]) => void,
-    _context?: Record<string, unknown>,
-    _once?: boolean,
-  ): this {
+  off<T extends string | symbol>(event: T, fn?: EventHandler, _context?: Record<string, unknown>, _once?: boolean): this {
     if (!fn) {
       // Remove all listeners for this event
       this.eventListeners.delete(event);

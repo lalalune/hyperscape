@@ -403,8 +403,7 @@ export class InteractionSystem extends System {
       }
 
       // Clamp target distance from player on XZ plane (server will also validate)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const player = (this.world as any).entities?.player;
+      const player = this.world.entities?.player;
       if (player && player.position) {
         const p = player.position as THREE.Vector3;
         // PERFORMANCE: Use cached vector instead of allocating new one
@@ -440,10 +439,7 @@ export class InteractionSystem extends System {
         this.world.network.send("moveRequest", { target: null, cancel: true });
         // Read player's runMode toggle if available; otherwise, use shift key status
         let runMode = isShiftDown;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const player = (this.world as any).entities?.player as {
-          runMode?: boolean;
-        };
+        const player = this.world.entities?.player;
         if (player && typeof player.runMode === "boolean") {
           runMode = player.runMode;
         }

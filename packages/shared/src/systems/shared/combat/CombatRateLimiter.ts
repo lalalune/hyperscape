@@ -12,6 +12,8 @@
  * @see COMBAT_SYSTEM_HARDENING_PLAN.md Phase 6: Game Studio Hardening
  */
 
+import { getCachedTimestamp } from "../movement/ObjectPools";
+
 /**
  * Rate limiter configuration
  */
@@ -109,7 +111,7 @@ export class CombatRateLimiter {
    */
   checkLimit(playerId: string, currentTick: number): RateLimitResult {
     const state = this.getOrCreateState(playerId);
-    const currentSecond = Math.floor(Date.now() / 1000);
+    const currentSecond = Math.floor(getCachedTimestamp() / 1000);
 
     // Check if in cooldown
     if (state.cooldownUntilTick > currentTick) {

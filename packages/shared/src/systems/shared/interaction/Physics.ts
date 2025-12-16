@@ -1448,12 +1448,7 @@ export class Physics extends SystemBase implements IPhysics {
     origin: THREE.Vector3,
     layerMask: number = 0xffffffff,
   ): OverlapHit[] {
-    // Use the enhanced Vector3 method if available, otherwise set position manually
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((origin as any).toPxVec3 && this.overlapPose.p) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (origin as any).toPxVec3(this.overlapPose.p);
-    } else if (this.overlapPose.p) {
+    if (this.overlapPose.p) {
       this.overlapPose.p.x = origin.x;
       this.overlapPose.p.y = origin.y;
       this.overlapPose.p.z = origin.z;
@@ -1703,6 +1698,9 @@ export class Physics extends SystemBase implements IPhysics {
       : this.defaultMaterial;
 
     // Create shape from geometry
+    if (!pxMaterial) {
+      return null;
+    }
     const shape = this.physics.createShape(geometry, pxMaterial, true);
 
     if (!shape) {

@@ -94,7 +94,9 @@ export class InventorySystem extends SystemBase {
       this.moveItem(data);
     });
     this.subscribe<{ playerId: string; position?: { x: number; y: number; z: number } }>(EventType.INVENTORY_DROP_ALL, (data) => {
-      this.dropAllItems({ playerId: data.playerId, position: data.position });
+      if (data.position) {
+        this.dropAllItems({ playerId: data.playerId, position: data.position });
+      }
     });
 
     // Subscribe to store system events

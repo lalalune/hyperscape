@@ -239,13 +239,19 @@ export class TileInterpolator {
     // SERVER PATH IS AUTHORITATIVE - no client path calculation
     // Server sends complete path from its known position. Client follows exactly.
     // If client visual position differs from server's startTile, catch-up multiplier handles sync.
-    const finalPath = path.map((t) => ({ ...t }));
+    // Use for loop instead of .map() to avoid iterator overhead
+    const pathLen = path.length;
+    const finalPath: TileCoord[] = new Array(pathLen);
+    for (let i = 0; i < pathLen; i++) {
+      const t = path[i];
+      finalPath[i] = { x: t.x, z: t.z };
+    }
 
     // Ensure destination is included (authoritative from server)
     if (destinationTile) {
-      const lastTileInPath = finalPath[finalPath.length - 1];
+      const lastTileInPath = finalPath[pathLen - 1];
       if (!lastTileInPath || !tilesEqual(lastTileInPath, destinationTile)) {
-        finalPath.push({ ...destinationTile });
+        finalPath.push({ x: destinationTile.x, z: destinationTile.z });
         if (this.debugMode) {
           console.log(
             `[TileInterpolator] Appended destination tile (${destinationTile.x},${destinationTile.z}) to path`,

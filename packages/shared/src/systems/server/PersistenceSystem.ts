@@ -407,7 +407,7 @@ export class PersistenceSystem extends SystemBase {
         dbStats,
       });
     } catch (err) {
-      this.logger.error("❌ Maintenance failed", { message: err instanceof Error ? err.message : String(err) });
+      this.logger.error("❌ Maintenance failed", err instanceof Error ? err : new Error(String(err)));
     }
   }
 

@@ -43,6 +43,13 @@ const A2A_ERROR_CODES = {
   SIGNATURE_FAILED: -32001,
 };
 
+/** Action execution result type */
+interface ActionResult {
+  success?: boolean;
+  message?: string;
+  [key: string]: unknown;
+}
+
 // Validation helpers - fail-fast pattern
 function requireString(value: unknown, fieldName: string): string {
   if (typeof value !== "string" || value.trim() === "") {
@@ -361,15 +368,15 @@ export class A2AServer {
 
         // Execute gather action through action registry
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "start_gathering",
           context,
           { resourceId },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Gathering failed",
+          message: result?.message ?? "Gathering failed",
         };
       }
 
@@ -391,15 +398,15 @@ export class A2AServer {
         }
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "use_item",
           context,
           { itemId, slot: slot ?? 0 },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Item use failed",
+          message: result?.message ?? "Item use failed",
         };
       }
 
@@ -408,15 +415,15 @@ export class A2AServer {
         const slot = optionalString(data.slot);
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "equip_item",
           context,
           { itemId, slot },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Equip failed",
+          message: result?.message ?? "Equip failed",
         };
       }
 
@@ -435,15 +442,15 @@ export class A2AServer {
         const itemId = requireString(data.itemId, "itemId");
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "pickup_item",
           context,
           { itemId },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Pickup failed",
+          message: result?.message ?? "Pickup failed",
         };
       }
 
@@ -452,15 +459,15 @@ export class A2AServer {
         const quantity = optionalNumber(data.quantity, 1);
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "drop_item",
           context,
           { itemId, quantity },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Drop failed",
+          message: result?.message ?? "Drop failed",
         };
       }
 
@@ -469,15 +476,15 @@ export class A2AServer {
         const bankId = optionalString(data.bankId, "spawn_bank");
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "open_bank",
           context,
           { bankId },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Bank open failed",
+          message: result?.message ?? "Bank open failed",
         };
       }
 
@@ -487,15 +494,15 @@ export class A2AServer {
         const quantity = optionalNumber(data.quantity, 1);
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "deposit_item",
           context,
           { bankId, itemId, quantity },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Deposit failed",
+          message: result?.message ?? "Deposit failed",
         };
       }
 
@@ -505,15 +512,15 @@ export class A2AServer {
         const quantity = optionalNumber(data.quantity, 1);
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "withdraw_item",
           context,
           { bankId, itemId, quantity },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Withdrawal failed",
+          message: result?.message ?? "Withdrawal failed",
         };
       }
 
@@ -524,15 +531,15 @@ export class A2AServer {
         const quantity = optionalNumber(data.quantity, 1);
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "buy_item",
           context,
           { storeId, itemId, quantity },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Purchase failed",
+          message: result?.message ?? "Purchase failed",
           data: result as Record<string, unknown>,
         };
       }
@@ -543,15 +550,15 @@ export class A2AServer {
         const quantity = optionalNumber(data.quantity, 1);
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "sell_item",
           context,
           { storeId, itemId, quantity },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Sale failed",
+          message: result?.message ?? "Sale failed",
           data: result as Record<string, unknown>,
         };
       }
@@ -634,7 +641,11 @@ export class A2AServer {
           return { success: false, message: "Player not found" };
         }
 
-        const position = player.position || player.node?.position;
+        const position = player.position || player.node?.position || {
+          x: 0,
+          y: 0,
+          z: 0,
+        };
         const health = rpg.getPlayerHealth?.(agentId) ?? {
           current: 100,
           max: 100,
@@ -660,26 +671,30 @@ export class A2AServer {
 
         if (mobs.length > 0) {
           lines.push(`Creatures (${mobs.length}):`);
-          mobs
-            .slice(0, 5)
-            .forEach((mob: { name?: string; mobType?: string }) => {
-              lines.push(`  • ${mob.name || mob.mobType || "Unknown"}`);
-            });
+          mobs.slice(0, 5).forEach((mob) => {
+            const name =
+              (mob as { name?: string }).name ||
+              (mob as { mobType?: string }).mobType ||
+              "Unknown";
+            lines.push(`  • ${name}`);
+          });
         }
 
         if (resources.length > 0) {
           lines.push(`Resources (${resources.length}):`);
-          resources
-            .slice(0, 5)
-            .forEach((res: { name?: string; resourceType?: string }) => {
-              lines.push(`  • ${res.name || res.resourceType || "Resource"}`);
-            });
+          resources.slice(0, 5).forEach((res) => {
+            const name =
+              (res as { name?: string }).name ||
+              (res as { resourceType?: string }).resourceType ||
+              "Resource";
+            lines.push(`  • ${name}`);
+          });
         }
 
         if (items.length > 0) {
           lines.push(`Ground Items (${items.length}):`);
-          items.slice(0, 5).forEach((item: { name?: string }) => {
-            lines.push(`  • ${item.name || "Item"}`);
+          items.slice(0, 5).forEach((item) => {
+            lines.push(`  • ${(item as { name?: string }).name || "Item"}`);
           });
         }
 
@@ -695,7 +710,7 @@ export class A2AServer {
         const npcName = optionalString(data.npcName);
 
         // Find NPC by ID or name
-        let targetNpcId = npcId;
+        let targetNpcId: string | undefined = npcId;
         if (!targetNpcId && npcName) {
           // Find NPC by name
           const player = rpg
@@ -705,8 +720,10 @@ export class A2AServer {
 
           if (position) {
             const npcs = rpg.getNpcsInArea?.(position, 10) ?? [];
-            const npc = npcs.find((n: { name?: string }) =>
-              n.name?.toLowerCase().includes(npcName.toLowerCase()),
+            const npc = npcs.find((n) =>
+              (n as { name?: string }).name
+                ?.toLowerCase()
+                .includes(npcName.toLowerCase()),
             );
             targetNpcId = npc?.id;
           }
@@ -718,15 +735,15 @@ export class A2AServer {
 
         // Execute NPC interaction through action registry
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "interact_npc",
           context,
           { npcId: targetNpcId },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? true,
-          message: (result?.message as string) ?? `Interacting with NPC`,
+          message: result?.message ?? `Interacting with NPC`,
           data: { npcId: targetNpcId },
         };
       }
@@ -736,15 +753,15 @@ export class A2AServer {
 
         // Loot from nearest corpse or specified one
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "loot_corpse",
           context,
           { corpseId },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? true,
-          message: (result?.message as string) ?? "Looting corpse",
+          message: result?.message ?? "Looting corpse",
         };
       }
 
@@ -762,15 +779,15 @@ export class A2AServer {
         }
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "use_item",
           context,
           { itemId: food.id },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? true,
-          message: (result?.message as string) ?? `Eating ${food.name}`,
+          message: result?.message ?? `Eating ${food.name}`,
           data: { food },
         };
       }
@@ -780,11 +797,11 @@ export class A2AServer {
 
         // Try action registry first, fall back to rpg method
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "play_emote",
           context,
           { emote: emoteName },
-        );
+        )) as ActionResult | undefined;
 
         // If action registry doesn't have it, try direct method
         if (!result?.success && rpg.playEmote) {
@@ -909,7 +926,7 @@ export class A2AServer {
         const rockId = optionalString(data.rockId);
 
         // If no specific rock, find nearest rock resource
-        let targetId = rockId;
+        let targetId: string | undefined = rockId;
         if (!targetId) {
           const player = rpg
             .getAllPlayers?.()
@@ -918,12 +935,14 @@ export class A2AServer {
 
           if (position) {
             const resources = rpg.getResourcesInArea?.(position, 20) ?? [];
-            const rock = resources.find(
-              (r: { resourceType?: string; name?: string }) =>
-                r.resourceType === "rock" ||
-                r.resourceType === "ore" ||
-                /rock|ore|vein/i.test(r.name || ""),
-            );
+            const rock = resources.find((r) => {
+              const res = r as { resourceType?: string; name?: string };
+              return (
+                res.resourceType === "rock" ||
+                res.resourceType === "ore" ||
+                /rock|ore|vein/i.test(res.name || "")
+              );
+            });
             targetId = rock?.id;
           }
         }
@@ -933,15 +952,15 @@ export class A2AServer {
         }
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "start_gathering",
           context,
           { resourceId: targetId, skill: "mining" },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? false,
-          message: (result?.message as string) ?? "Mining failed",
+          message: result?.message ?? "Mining failed",
         };
       }
 
@@ -1043,31 +1062,29 @@ export class A2AServer {
         );
 
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "dialogue_respond",
           context,
           { responseIndex },
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? true,
-          message:
-            (result?.message as string) ??
-            `Selected dialogue option ${responseIndex}`,
+          message: result?.message ?? `Selected dialogue option ${responseIndex}`,
         };
       }
 
       case "close-dialogue": {
         const context = { world: this.world, playerId: agentId };
-        const result = await this.world.actionRegistry?.execute(
+        const result = (await this.world.actionRegistry?.execute(
           "close_dialogue",
           context,
           {},
-        );
+        )) as ActionResult | undefined;
 
         return {
           success: result?.success ?? true,
-          message: (result?.message as string) ?? "Closed dialogue",
+          message: result?.message ?? "Closed dialogue",
         };
       }
 

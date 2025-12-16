@@ -205,7 +205,7 @@ export function hashSessionAuthorization(
         permissions.map((p) => [
           p.target,
           p.selector === "*" ? "0x00000000" : p.selector,
-        ]),
+        ] as const),
       ],
     ),
   );

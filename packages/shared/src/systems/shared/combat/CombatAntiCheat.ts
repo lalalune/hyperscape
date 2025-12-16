@@ -11,6 +11,8 @@
  * @see COMBAT_SYSTEM_HARDENING_PLAN.md Phase 6: Game Studio Hardening
  */
 
+import { getCachedTimestamp } from "../movement/ObjectPools";
+
 /**
  * Combat violation severity levels
  * Higher severity = more points toward threshold
@@ -216,7 +218,7 @@ export class CombatAntiCheat {
         name,
         value,
         tags,
-        timestamp: Date.now(),
+        timestamp: getCachedTimestamp(),
       });
     }
   }
@@ -253,7 +255,7 @@ export class CombatAntiCheat {
       type,
       severity,
       details,
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
       targetId,
       gameTick,
     };
@@ -440,7 +442,7 @@ export class CombatAntiCheat {
     }
 
     // Get violations from last 5 minutes
-    const now = Date.now();
+    const now = getCachedTimestamp();
     const fiveMinutesAgo = now - 300000;
     const recentViolations = state.violations.filter(
       (v) => v.timestamp > fiveMinutesAgo,
@@ -466,7 +468,7 @@ export class CombatAntiCheat {
     let playersAboveAlert = 0;
     let totalViolationsLast5Min = 0;
 
-    const now = Date.now();
+    const now = getCachedTimestamp();
     const fiveMinutesAgo = now - 300000;
 
     for (const state of this.playerStates.values()) {
@@ -540,7 +542,7 @@ export class CombatAntiCheat {
    * Check if player has exceeded thresholds and log alerts
    */
   private checkThresholds(playerId: string, state: PlayerViolationState): void {
-    const now = Date.now();
+    const now = getCachedTimestamp();
 
     // Throttle warnings to prevent log spam
     if (now - state.lastWarningTime < this.config.warningCooldownMs) {

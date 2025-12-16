@@ -364,7 +364,7 @@ export class ClientInput extends SystemBase {
     );
 
     // Listen for input acknowledgments
-    this.world.on("inputAck", this.handleInputAck.bind(this));
+    this.world.on(EventType.INPUT_ACK, this.handleInputAck.bind(this));
 
     // Setup keyboard input monitoring for movement
     this.setupMovementInput();
@@ -525,8 +525,8 @@ export class ClientInput extends SystemBase {
     if (!this._controlsEnabled) return;
 
     // Block all input during death
-    const player = (this.world as any).player;
-    if (player && ((player as any).isDying || (player.data as any)?.isDying)) {
+    const player = this.world.entities?.player;
+    if (player && player.isDying) {
       return;
     }
 
@@ -585,8 +585,8 @@ export class ClientInput extends SystemBase {
     if (!this._controlsEnabled) return;
 
     // Block all pointer input during death
-    const player = (this.world as any).player;
-    if (player && ((player as any).isDying || (player.data as any)?.isDying)) {
+    const player = this.world.entities?.player;
+    if (player && player.isDying) {
       return;
     }
 

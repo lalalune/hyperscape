@@ -31,7 +31,7 @@ const InventorySlot = ({
     {item ? (
       <>
         <span>{item.name}</span>
-        {item.quantity > 1 && <span>x{item.quantity}</span>}
+        {(item.quantity ?? 1) > 1 && <span>x{item.quantity}</span>}
         {item.isMinted && <span data-testid="minted-badge">🔒 Minted</span>}
       </>
     ) : (
@@ -43,8 +43,8 @@ const InventorySlot = ({
 describe.skipIf(!canRunTests)("InventorySlot", () => {
   it("renders empty slot", () => {
     render(<InventorySlot slot={0} item={null} />);
-    expect(screen.getByTestId("inventory-slot-0")).toBeInTheDocument();
-    expect(screen.getByText("Empty")).toBeInTheDocument();
+    expect(screen.getByTestId("inventory-slot-0")).toBeTruthy();
+    expect(screen.getByText("Empty")).toBeTruthy();
   });
 
   it("displays item correctly", () => {
@@ -55,7 +55,7 @@ describe.skipIf(!canRunTests)("InventorySlot", () => {
       stackable: false,
     };
     render(<InventorySlot slot={0} item={item} />);
-    expect(screen.getByText("Bronze Sword")).toBeInTheDocument();
+    expect(screen.getByText("Bronze Sword")).toBeTruthy();
   });
 
   it("shows quantity for stackable items", () => {
@@ -66,8 +66,8 @@ describe.skipIf(!canRunTests)("InventorySlot", () => {
       stackable: true,
     };
     render(<InventorySlot slot={1} item={item} />);
-    expect(screen.getByText("Arrows")).toBeInTheDocument();
-    expect(screen.getByText("x100")).toBeInTheDocument();
+    expect(screen.getByText("Arrows")).toBeTruthy();
+    expect(screen.getByText("x100")).toBeTruthy();
   });
 
   it("shows minted badge for NFTs", () => {
@@ -80,8 +80,8 @@ describe.skipIf(!canRunTests)("InventorySlot", () => {
       originalMinter: "0x123...",
     };
     render(<InventorySlot slot={2} item={mintedItem} />);
-    expect(screen.getByTestId("minted-badge")).toBeInTheDocument();
-    expect(screen.getByText(/minted/i)).toBeInTheDocument();
+    expect(screen.getByTestId("minted-badge")).toBeTruthy();
+    expect(screen.getByText(/minted/i)).toBeTruthy();
   });
 
   it("handles click events", () => {

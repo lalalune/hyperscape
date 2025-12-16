@@ -39,6 +39,7 @@ import { msToTicks, ticksToMs } from "../../../utils/game/CombatCalculations";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
 import { worldToTile, tileToWorld } from "../movement/TileSystem";
 import { SystemBase } from "../infrastructure/SystemBase";
+import { getCachedTimestamp } from "../movement/ObjectPools";
 
 export class GroundItemSystem extends SystemBase {
   private groundItems = new Map<string, GroundItemData>();
@@ -328,7 +329,7 @@ export class GroundItemSystem extends SystemBase {
       droppedBy: options.droppedBy,
       lootProtectionTick:
         lootProtectionTicks > 0 ? currentTick + lootProtectionTicks : undefined,
-      spawnedAt: Date.now(),
+      spawnedAt: getCachedTimestamp(),
     };
 
     this.groundItems.set(dropId, groundItemData);

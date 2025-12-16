@@ -11,7 +11,7 @@ import type THREE from "three";
 /**
  * Window with world instance for debugging
  */
-export interface WindowWithWorld extends Window {
+export type WindowWithWorld = Window & {
   world?: World;
   THREE?: typeof THREE;
   Hyperscape?: Record<string, unknown>;
@@ -23,17 +23,17 @@ export interface WindowWithWorld extends Window {
     z: number;
     method: string;
   };
-}
+};
 
 /**
  * Window with Hyperscape utilities
  */
-export interface WindowWithHyperscape extends Window {
+export type WindowWithHyperscape = Window & {
   Hyperscape?: {
     CircularSpawnArea?: new (...args: unknown[]) => unknown;
     [key: string]: unknown;
   };
-}
+};
 
 /**
  * Global this with server flags

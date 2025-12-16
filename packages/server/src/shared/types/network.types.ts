@@ -42,8 +42,21 @@ export type NodeWebSocket = WebSocket & {
  * has been moved to InteractionSessionManager as the single source of truth.
  * Handlers now query the session manager for targetEntityId instead of socket properties.
  */
+/** Player entity attached to socket */
+export interface SocketPlayerEntity {
+  id: string;
+  position: { x: number; y: number; z: number; set?: (x: number, y: number, z: number) => void };
+  node?: {
+    position?: { x: number; y: number; z: number; set?: (x: number, y: number, z: number) => void };
+    quaternion?: { x: number; y: number; z: number; w: number; copy?: (q: unknown) => void };
+  };
+  data?: Record<string, unknown>;
+  serialize?: () => Record<string, unknown>;
+  modify?: (changes: Record<string, unknown>) => void;
+}
+
 export interface ServerSocket extends Socket {
-  player: unknown;
+  player: SocketPlayerEntity | undefined;
   // Base Socket properties from Socket class
   ws: NodeWebSocket;
   network: NetworkWithSocket;

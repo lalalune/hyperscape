@@ -129,7 +129,7 @@ class ErrorReportingService {
           targetInfo = ` for WebSocket ${target.url} (state: ${target.readyState})`;
         } else if (target && typeof target === "object") {
           // Try to extract any useful identifying info from the target
-          const targetObj = target as Record<string, unknown>;
+          const targetObj = target as unknown as Record<string, unknown>;
           if ("url" in targetObj) {
             targetInfo = ` for ${String(targetObj.url)}`;
           } else if ("constructor" in targetObj) {

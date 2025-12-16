@@ -12,6 +12,8 @@
  * - Debug combat system behavior
  */
 
+import { getCachedTimestamp } from "../movement/ObjectPools";
+
 /**
  * Position interface for combat events
  */
@@ -92,7 +94,7 @@ export class CombatAuditLog {
     metadata?: Record<string, unknown>;
   }): void {
     const entry: CombatAuditEntry = {
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
       tick: data.tick,
       eventType: CombatAuditEventType.ATTACK,
       attackerId: data.attackerId,
@@ -120,7 +122,7 @@ export class CombatAuditLog {
     metadata?: Record<string, unknown>;
   }): void {
     const entry: CombatAuditEntry = {
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
       tick: data.tick,
       eventType: CombatAuditEventType.COMBAT_START,
       attackerId: data.attackerId,
@@ -146,7 +148,7 @@ export class CombatAuditLog {
     metadata?: Record<string, unknown>;
   }): void {
     const entry: CombatAuditEntry = {
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
       tick: data.tick,
       eventType: CombatAuditEventType.COMBAT_END,
       attackerId: data.attackerId,
@@ -172,7 +174,7 @@ export class CombatAuditLog {
     metadata?: Record<string, unknown>;
   }): void {
     const entry: CombatAuditEntry = {
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
       tick: data.tick,
       eventType: CombatAuditEventType.DEATH,
       attackerId: data.attackerId,
@@ -198,7 +200,7 @@ export class CombatAuditLog {
     metadata?: Record<string, unknown>;
   }): void {
     const entry: CombatAuditEntry = {
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
       tick: data.tick,
       eventType: CombatAuditEventType.VIOLATION,
       attackerId: data.playerId,
@@ -254,7 +256,7 @@ export class CombatAuditLog {
    * Remove old entries based on retention policy
    */
   private pruneOldEntries(): void {
-    const cutoffTime = Date.now() - this.config.retentionMs;
+    const cutoffTime = getCachedTimestamp() - this.config.retentionMs;
 
     // Prune global log by time and size
     while (

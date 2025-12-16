@@ -52,20 +52,22 @@ export interface CreateMockPlayerOptions {
 /**
  * Default player configuration
  */
-const DEFAULT_PLAYER: Required<
-  Omit<CreateMockPlayerOptions, "inventory" | "equipment">
-> = {
+const DEFAULT_POSITION: TestPosition = { x: 10, y: 0, z: 10 };
+const DEFAULT_HEALTH: { current: number; max: number } = { current: 100, max: 100 };
+const DEFAULT_STATS = {
+  attack: 1,
+  strength: 1,
+  defense: 1,
+  ranged: 1,
+  hitpoints: 10,
+};
+
+const DEFAULT_PLAYER = {
   id: "player-test-001",
   visibleName: "TestPlayer",
-  position: { x: 10, y: 0, z: 10 },
-  health: { current: 100, max: 100 },
-  stats: {
-    attack: 1,
-    strength: 1,
-    defense: 1,
-    ranged: 1,
-    hitpoints: 10,
-  },
+  position: DEFAULT_POSITION,
+  health: DEFAULT_HEALTH,
+  stats: DEFAULT_STATS,
 };
 
 /**
@@ -85,17 +87,15 @@ export function createMockPlayer(
   const id = options.id ?? DEFAULT_PLAYER.id;
   expectValidPlayerId(id, "MockPlayer.id");
 
-  const position: TestPosition = {
-    x: options.position?.x ?? DEFAULT_PLAYER.position.x,
-    y: options.position?.y ?? DEFAULT_PLAYER.position.y,
-    z: options.position?.z ?? DEFAULT_PLAYER.position.z,
-  };
+  const posX = options.position?.x ?? DEFAULT_PLAYER.position.x;
+  const posY = options.position?.y ?? DEFAULT_PLAYER.position.y;
+  const posZ = options.position?.z ?? DEFAULT_PLAYER.position.z;
+  const position: TestPosition = { x: posX, y: posY, z: posZ };
   expectValidPosition(position, "MockPlayer.position");
 
-  const health = {
-    current: options.health?.current ?? DEFAULT_PLAYER.health.current,
-    max: options.health?.max ?? DEFAULT_PLAYER.health.max,
-  };
+  const healthCurrent = options.health?.current ?? DEFAULT_PLAYER.health.current;
+  const healthMax = options.health?.max ?? DEFAULT_PLAYER.health.max;
+  const health: { current: number; max: number } = { current: healthCurrent, max: healthMax };
 
   const stats = {
     attack: options.stats?.attack ?? DEFAULT_PLAYER.stats.attack,

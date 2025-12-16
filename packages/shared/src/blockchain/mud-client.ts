@@ -137,9 +137,18 @@ export async function setupMudClient(config?: {
 
   const worldAddress = (config?.worldAddress ||
     process.env.WORLD_ADDRESS) as Address;
-  const privateKey = (config?.privateKey ||
-    process.env.PRIVATE_KEY ||
-    "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as Address;
+  const privateKeyRaw = config?.privateKey || process.env.PRIVATE_KEY;
+  if (!privateKeyRaw) {
+    throw new Error(
+      "PRIVATE_KEY environment variable not set. " +
+        "Required for signing transactions. Do not use test keys in production.",
+    );
+  }
+
+  // Ensure privateKey is properly formatted as Hex
+  const privateKey: Hex = privateKeyRaw.startsWith("0x")
+    ? (privateKeyRaw as Hex)
+    : (`0x${privateKeyRaw}` as Hex);
 
   if (!worldAddress) {
     throw new Error(

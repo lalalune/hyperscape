@@ -386,9 +386,11 @@ export class DeathStateManager {
     if (!deathData) return;
 
     // Remove item from ground item list
-    const index = deathData.groundItemIds.indexOf(itemId);
+    const groundItemIds = deathData.groundItemIds ?? [];
+    const index = groundItemIds.indexOf(itemId);
     if (index !== -1) {
-      deathData.groundItemIds.splice(index, 1);
+      groundItemIds.splice(index, 1);
+      deathData.groundItemIds = groundItemIds;
     }
 
     // Decrement item count
@@ -408,7 +410,7 @@ export class DeathStateManager {
           this.dbSaveBuffer.playerId = playerId;
           this.dbSaveBuffer.gravestoneId = deathData.gravestoneId ?? null;
           this.dbSaveBuffer.groundItemIds.length = 0;
-          for (const id of deathData.groundItemIds) {
+          for (const id of deathData.groundItemIds ?? []) {
             this.dbSaveBuffer.groundItemIds.push(id);
           }
           this.dbSaveBuffer.position = deathData.position;

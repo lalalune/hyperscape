@@ -28,6 +28,7 @@ import {
   worldToTile,
   tilesWithinMeleeRange,
 } from "../movement/TileSystem";
+import { getCachedTimestamp } from "../movement/ObjectPools";
 
 // Runtime entity types with dynamic properties
 type EntityWithCombat = Entity & {
@@ -901,9 +902,10 @@ export class CombatSystem extends SystemBase {
       const playerEntity = this.world.getPlayer?.(entityId);
       if (playerEntity) {
         // Set combat property if it exists (legacy support)
-        if ((playerEntity as EntityWithCombat).combat) {
-          (playerEntity as EntityWithCombat).combat.inCombat = true;
-          (playerEntity as EntityWithCombat).combat.combatTarget = targetId;
+        const combat = (playerEntity as EntityWithCombat).combat;
+        if (combat) {
+          combat.inCombat = true;
+          combat.combatTarget = targetId;
         }
 
         // ALWAYS set in data for network sync (using abbreviated keys for efficiency)
@@ -938,9 +940,10 @@ export class CombatSystem extends SystemBase {
       const playerEntity = this.world.getPlayer?.(entityId);
       if (playerEntity) {
         // Clear combat property if it exists (legacy support)
-        if ((playerEntity as EntityWithCombat).combat) {
-          (playerEntity as EntityWithCombat).combat.inCombat = false;
-          (playerEntity as EntityWithCombat).combat.combatTarget = null;
+        const combat = (playerEntity as EntityWithCombat).combat;
+        if (combat) {
+          combat.inCombat = false;
+          combat.combatTarget = null;
         }
 
         // ALWAYS clear in data for network sync (using abbreviated keys)
@@ -1943,7 +1946,7 @@ export class CombatSystem extends SystemBase {
     playersAboveAlert: number;
     totalViolationsLast5Min: number;
   } {
-    const now = Date.now();
+    const now = getCachedTimestamp();
     const fiveMinutesAgo = now - 5 * 60 * 1000;
 
     let playersAboveWarning = 0;

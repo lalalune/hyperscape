@@ -89,6 +89,7 @@ import type {
   PlayerHealth,
   Skills,
 } from "../../types/core/core";
+import type { PlayerEffect } from "../../types/systems/physics";
 import type { InventoryItem } from "../../types/entities/entity-types";
 import { EventType } from "../../types/events";
 import {
@@ -387,6 +388,10 @@ export class PlayerLocal extends Entity implements HotReloadable {
   // Death state tracking - blocks input during death animation
   private _isDying: boolean = false;
 
+  get isDying(): boolean {
+    return this._isDying;
+  }
+
   combat: PlayerCombatData = {
     combatLevel: 1,
     combatStyle: "attack",
@@ -439,7 +444,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
         health: this.health,
         roles: this.data.roles as string[] | undefined,
         owner: this.data.owner as string | undefined,
-        effect: this.data.effect,
+        effect: this.data.effect as PlayerEffect | undefined,
       },
       avatar: this.avatar,
       setPosition: this.setPosition.bind(this),

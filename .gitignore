@@ -7,9 +7,13 @@ yarn.lock
 dist/
 build/
 *.tsbuildinfo
+.next/
 
 # Serena
 .serena/
+
+# Synpress/MetaMask cache
+.cache-synpress/
 
 # Documentation
 packages/docs-site/build/
@@ -50,12 +54,26 @@ tmp/
 *.sqlite-shm
 *.sqlite-wal
 
+# Large binary files that should never be committed
+*.vrm
+*.glb
+*.fbx
+*.a
+*.so
+*.dll
+*.node
+*.wasm.map
+
+# Exception: keep specific required assets
+!packages/client/public/physx-js-webidl.wasm
+!packages/plugin-hyperscape/src/public/**/*.glb
+!packages/asset-forge/public/**/*.glb
+
 # Build and cache directories
 .turbo/
 .claude-plugin/
 
-# Assets (generated/temporary)
-assets/
+# Assets - now a git submodule (don't ignore)
 
 # Logs and cache
 logs/
@@ -85,3 +103,6 @@ clear-users.sql
 .kluster
 
 logs/
+
+# Nested git repos (use git submodules or separate clones instead)
+packages/physx-js-webidl/PhysX/.git/

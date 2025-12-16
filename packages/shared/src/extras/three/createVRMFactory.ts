@@ -682,7 +682,7 @@ function remapHumanoidBonesToClonedScene(
   // Create NEW humanBones object for raw bones (don't mutate shared reference!)
   const rawRig = humanoid._rawHumanBones;
   if (rawRig?.humanBones) {
-    const newHumanBones: Record<string, unknown> = {};
+    const newHumanBones: Record<string, { node?: { name: string } }> = {};
     for (const [boneName, boneData] of Object.entries(rawRig.humanBones)) {
       const typedBoneData = boneData as { node?: THREE.Object3D };
       if (typedBoneData?.node) {
@@ -706,7 +706,7 @@ function remapHumanoidBonesToClonedScene(
   // Create NEW humanBones object for normalized bones (don't mutate shared reference!)
   const normRig = humanoid._normalizedHumanBones;
   if (normRig?.humanBones) {
-    const newHumanBones: Record<string, unknown> = {};
+    const newHumanBones: Record<string, { node?: { name: string } }> = {};
     for (const [boneName, boneData] of Object.entries(normRig.humanBones)) {
       const typedBoneData = boneData as { node?: THREE.Object3D };
       if (typedBoneData?.node) {

@@ -750,7 +750,7 @@ export class PlayerDeathSystem extends SystemBase {
     const terrainSystem = this.cachedTerrainSystem;
     let groundedY = spawnPosition.y;
 
-    if (terrainSystem && terrainSystem.isReady && terrainSystem.isReady()) {
+    if (terrainSystem?.isReady?.() && terrainSystem.getHeightAt) {
       // Get terrain height at respawn position
       const terrainHeight = terrainSystem.getHeightAt(
         spawnPosition.x,

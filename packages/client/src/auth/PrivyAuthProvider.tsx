@@ -160,8 +160,7 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
     appId && appId.length > 0 && !appId.includes("your-privy-app-id");
 
   if (!isValidAppId) {
-    const isDev =
-      import.meta.env.DEV === true || import.meta.env.MODE === "development";
+    const isDev = import.meta.env.DEV || import.meta.env.MODE === "development";
 
     if (isDev) {
       console.log(

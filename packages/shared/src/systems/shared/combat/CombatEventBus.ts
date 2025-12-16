@@ -31,6 +31,8 @@
  *   unsub();
  */
 
+import { getCachedTimestamp } from "../movement/ObjectPools";
+
 /**
  * Position in 3D space
  */
@@ -189,7 +191,7 @@ export class CombatEventBus {
     this.emit({
       ...data,
       type: "combat_started",
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
     } as CombatStartedEvent);
   }
 
@@ -202,7 +204,7 @@ export class CombatEventBus {
     this.emit({
       ...data,
       type: "attack_started",
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
     } as AttackStartedEvent);
   }
 
@@ -213,7 +215,7 @@ export class CombatEventBus {
     this.emit({
       ...data,
       type: "damage_dealt",
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
     } as DamageDealtEvent);
   }
 
@@ -224,7 +226,7 @@ export class CombatEventBus {
     this.emit({
       ...data,
       type: "combat_ended",
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
     } as CombatEndedEvent);
   }
 
@@ -235,7 +237,7 @@ export class CombatEventBus {
     this.emit({
       ...data,
       type: "entity_died",
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
     } as EntityDiedEvent);
   }
 
@@ -246,7 +248,7 @@ export class CombatEventBus {
     this.emit({
       ...data,
       type: "retaliation",
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
     } as RetaliationEvent);
   }
 

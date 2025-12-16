@@ -272,8 +272,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   private validationInterval = 100; // Start aggressive, then slow to 1000ms
   private systemUptime = 0;
 
-  // Handler method registry - using NetworkHandler type for flexibility
-  private handlers: Record<string, NetworkHandler> = {};
+  // Handler method registry - handlers with various packet types stored in unified record
+  private handlers: Record<
+    string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (socket: SocketInterface, data: any) => void | Promise<void>
+  > = {};
   // Simple movement state - no complex physics simulation
   private moveTargets: Map<
     string,
@@ -675,7 +679,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       );
 
       this.world.emit(EventType.PLAYER_JOINED, {
-        playerId: socket.player.data.id as string,
+        playerId: (socket.player.data?.id as string) ?? socket.player.id,
         player:
           socket.player as unknown as import("@hyperscape/shared").PlayerLocal,
       });
@@ -689,10 +693,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
 
       // Then send to everyone else about the new player
-      this.send("entityAdded", socket.player.serialize(), socket.id);
+      const serialized = socket.player.serialize?.() ?? { id: socket.player.id };
+      this.send("entityAdded", serialized, socket.id);
 
       // And also to the originating socket so their client receives their own entity
-      this.sendTo(socket.id, "entityAdded", socket.player.serialize());
+      this.sendTo(socket.id, "entityAdded", serialized);
 
       // Immediately reinforce authoritative transform to avoid initial client-side default pose
       this.sendTo(socket.id, "entityModified", {
@@ -1008,10 +1013,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       const target = info.target;
       const dx = target.x - current.x;
       const dz = target.z - current.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
+      const distSq = dx * dx + dz * dz;
+      const ARRIVAL_THRESHOLD_SQ = 0.09; // 0.3^2
 
-      // Check if arrived
-      if (dist < 0.3) {
+      // Check if arrived (use squared distance to avoid sqrt)
+      if (distSq < ARRIVAL_THRESHOLD_SQ) {
         // Arrived at target
         // Clamp final Y to terrain
         let finalY = target.y;
@@ -1040,6 +1046,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         });
         return;
       }
+
+      // Only compute sqrt when actually needed for movement calculations
+      const dist = Math.sqrt(distSq);
 
       // Simple linear interpolation toward target
       const speed = info.maxSpeed;
@@ -1338,14 +1347,18 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    * @public
    */
   enqueue(
-    socket: SocketInterface | Socket,
+    socket: Socket | ServerSocket,
     method: string,
-    data: Record<string, unknown>,
+    data: unknown,
   ): void {
     if (method === "onChatAdded") {
       // Chat packets handled normally, debug logging disabled
     }
-    this.queue.push([socket as SocketInterface, method, data]);
+    this.queue.push([
+      socket as SocketInterface,
+      method,
+      data as Record<string, unknown>,
+    ]);
   }
 
   /**
@@ -1745,10 +1758,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
       // create unique socket id per connection
       const socketId = uuid();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const socket = new Socket({
         id: socketId,
         ws,
-        network: this,
+        network: this as never,
         player: undefined,
       }) as SocketInterface;
       // Store account linkage for later character flows
@@ -2045,7 +2059,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
       // Emit typed player joined and broadcast ONLY if player was created (not in character select)
       if (socket.player) {
-        const playerId = socket.player.data.id as string;
+        const playerId = (socket.player.data?.id as string) ?? socket.player.id;
         this.world.emit(EventType.PLAYER_JOINED, {
           playerId,
           player:
@@ -2053,9 +2067,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         });
 
         // Broadcast new player entity to all existing clients except the new connection
-        this.send("entityAdded", socket.player.serialize(), socket.id);
+        const playerSerialized =
+          socket.player.serialize?.() ?? { id: socket.player.id };
+        this.send("entityAdded", playerSerialized, socket.id);
         // Also send to the new player so they render themselves
-        this.sendTo(socket.id, "entityAdded", socket.player.serialize());
+        this.sendTo(socket.id, "entityAdded", playerSerialized);
       }
   }
 
@@ -2077,11 +2093,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // become admin command
     if (cmd === "admin") {
       const code = arg1;
-      if (process.env.ADMIN_CODE && process.env.ADMIN_CODE === code) {
-        const id = player.data.id;
+      if (process.env.ADMIN_CODE && process.env.ADMIN_CODE === code && player.data) {
+        const id = player.data.id ?? player.id;
         const userId = player.data.userId;
         const roles: string[] = Array.isArray(player.data.roles)
-          ? player.data.roles
+          ? (player.data.roles as string[])
           : [];
         const granting = !hasRole(roles, "admin");
         if (granting) {
@@ -2089,7 +2105,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         } else {
           removeRole(roles, "admin");
         }
-        player.modify({ roles });
+        player.modify?.({ roles });
         this.send("entityModified", { id, changes: { roles } });
         socket.send("chatAdded", {
           id: uuid(),
@@ -2109,11 +2125,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     if (cmd === "name") {
       const name = arg1;
-      if (name) {
-        const id = player.data.id;
+      if (name && player.data) {
+        const id = player.data.id ?? player.id;
         const userId = player.data.userId;
         player.data.name = name;
-        player.modify({ name });
+        player.modify?.({ name });
         this.send("entityModified", { id, changes: { name } });
         socket.send("chatAdded", {
           id: uuid(),
@@ -2175,7 +2191,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         );
       }
       const gy = th + 0.1;
-      entity.position.set(nx, gy, nz);
+      if (entity.position.set) {
+        entity.position.set(nx, gy, nz);
+      } else {
+        entity.position.x = nx;
+        entity.position.y = gy;
+        entity.position.z = nz;
+      }
 
       // Update AOI position
       this.updateEntityAOI(entity.id, nx, nz);
@@ -2338,18 +2360,20 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       const dir = this._tempVec3.set(dx, 0, dz).normalize();
       this._tempVec3Fwd.set(0, 0, -1);
       this._tempQuat.setFromUnitVectors(this._tempVec3Fwd, dir);
-      if (playerEntity.node) {
+      if (playerEntity.node?.quaternion?.copy) {
         playerEntity.node.quaternion.copy(this._tempQuat);
       }
-      playerEntity.data.quaternion = [
-        this._tempQuat.x,
-        this._tempQuat.y,
-        this._tempQuat.z,
-        this._tempQuat.w,
-      ];
+      if (playerEntity.data) {
+        playerEntity.data.quaternion = [
+          this._tempQuat.x,
+          this._tempQuat.y,
+          this._tempQuat.z,
+          this._tempQuat.w,
+        ];
+      }
     }
     // Initial move broadcast using AOI-aware system
-    const q = playerEntity.data.quaternion;
+    const q = playerEntity.data?.quaternion as number[] | undefined;
     this.queueEntityUpdate(playerEntity.id, {
       position: { x: curr.x, y: curr.y, z: curr.z },
       quaternion: q ? { x: q[0], y: q[1], z: q[2], w: q[3] } : undefined,
@@ -2429,13 +2453,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     if (entityManager && entityManager.getEntity) {
       const itemEntity = entityManager.getEntity(entityId);
       if (itemEntity) {
-        const distance = Math.sqrt(
-          Math.pow(playerEntity.position.x - itemEntity.position.x, 2) +
-            Math.pow(playerEntity.position.z - itemEntity.position.z, 2),
-        );
+        const dx = playerEntity.position.x - itemEntity.position.x;
+        const dz = playerEntity.position.z - itemEntity.position.z;
+        const distanceSq = dx * dx + dz * dz;
 
         const pickupRange = 2.5; // Slightly larger than client range to account for movement
-        if (distance > pickupRange) {
+        const pickupRangeSq = pickupRange * pickupRange;
+        if (distanceSq > pickupRangeSq) {
+          // Only compute sqrt for the log message
+          const distance = Math.sqrt(distanceSq);
           console.warn(
             `[ServerNetwork] Player ${playerEntity.id} tried to pickup item ${entityId} from too far away (${distance.toFixed(2)}m > ${pickupRange}m)`,
           );
@@ -2515,13 +2541,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     const recipient = recipientSocket.player;
 
-    // Validate distance (max 5 units)
-    const distance = Math.sqrt(
-      Math.pow(initiator.position.x - recipient.position.x, 2) +
-        Math.pow(initiator.position.z - recipient.position.z, 2),
-    );
+    // Validate distance (max 5 units) using squared distance
+    const tdx = initiator.position.x - recipient.position.x;
+    const tdz = initiator.position.z - recipient.position.z;
+    const tradeDistSq = tdx * tdx + tdz * tdz;
+    const tradeRangeSq = 25; // 5^2
 
-    if (distance > 5) {
+    if (tradeDistSq > tradeRangeSq) {
+      // Only compute sqrt for the log message
+      const distance = Math.sqrt(tradeDistSq);
       console.warn(
         `[ServerNetwork] Trade request rejected: players too far apart (${distance.toFixed(2)}m)`,
       );
@@ -2557,7 +2585,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.sendTo(recipientSocket.id, "tradeRequest", {
       tradeId: pendingTradeId,
       fromPlayerId: initiator.id,
-      fromPlayerName: initiator.data.name || "Unknown",
+      fromPlayerName: (initiator.data?.name as string) || "Unknown",
     });
   }
 
@@ -2607,13 +2635,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     const tradeId = data.tradeId || uuid();
     const initiator = initiatorSocket.player;
 
-    // Validate distance again
-    const distance = Math.sqrt(
-      Math.pow(initiator.position.x - recipient.position.x, 2) +
-        Math.pow(initiator.position.z - recipient.position.z, 2),
-    );
+    // Validate distance again using squared distance
+    const tdx2 = initiator.position.x - recipient.position.x;
+    const tdz2 = initiator.position.z - recipient.position.z;
+    const tradeDistSq2 = tdx2 * tdx2 + tdz2 * tdz2;
+    const tradeRangeSq2 = 25; // 5^2
 
-    if (distance > 5) {
+    if (tradeDistSq2 > tradeRangeSq2) {
       this.sendTo(socket.id, "tradeError", {
         message: "Players too far apart",
       });
@@ -2639,9 +2667,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     const tradeData = {
       tradeId,
       initiatorId: initiator.id,
-      initiatorName: initiator.data.name || "Unknown",
+      initiatorName: (initiator.data?.name as string) || "Unknown",
       recipientId: recipient.id,
-      recipientName: recipient.data.name || "Unknown",
+      recipientName: (recipient.data?.name as string) || "Unknown",
     };
 
     this.sendTo(initiatorSocket.id, "tradeStarted", tradeData);
@@ -2921,13 +2949,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
 
-    // Re-validate distance (players may have moved)
-    const distance = Math.sqrt(
-      Math.pow(initiatorEntity.position.x - recipientEntity.position.x, 2) +
-        Math.pow(initiatorEntity.position.z - recipientEntity.position.z, 2),
-    );
+    // Re-validate distance (players may have moved) using squared distance
+    const tdx3 = initiatorEntity.position.x - recipientEntity.position.x;
+    const tdz3 = initiatorEntity.position.z - recipientEntity.position.z;
+    const tradeDistSq3 = tdx3 * tdx3 + tdz3 * tdz3;
+    const tradeRangeSq3 = 25; // 5^2
 
-    if (distance > 5) {
+    if (tradeDistSq3 > tradeRangeSq3) {
+      // Only compute sqrt for the log message
+      const distance = Math.sqrt(tradeDistSq3);
       console.warn(
         `[ServerNetwork] executeTrade: players too far apart (${distance.toFixed(2)}m)`,
       );

@@ -49,7 +49,7 @@ beforeAll(() => {
   // Mock window.matchMedia
   Object.defineProperty(window, "matchMedia", {
     writable: true,
-    value: mock(() => {}).mockImplementation((query: string) => ({
+    value: ((query: string) => ({
       matches: false,
       media: query,
       onchange: null,
@@ -57,8 +57,8 @@ beforeAll(() => {
       removeListener: mock(() => {}),
       addEventListener: mock(() => {}),
       removeEventListener: mock(() => {}),
-      dispatchEvent: mock(() => {}),
-    })) as unknown as typeof window.matchMedia,
+      dispatchEvent: mock(() => false),
+    })) as typeof window.matchMedia,
   });
 
   // Mock IntersectionObserver

@@ -218,6 +218,11 @@ export class ClientNetwork extends SystemBase {
   private maxSnapshots: number = 10;
   private extrapolationLimit: number = 500; // ms
 
+  // Spectator mode state
+  private spectatorFollowEntity: string | null = null;
+  private spectatorTargetPending: boolean = false;
+  private spectatorRetryInterval: ReturnType<typeof setInterval> | null = null;
+
   // Tile-based interpolation for RuneScape-style movement
   // Public to allow position sync on respawn/teleport
   public tileInterpolator: TileInterpolator = new TileInterpolator();
@@ -522,7 +527,7 @@ export class ClientNetwork extends SystemBase {
       // Store followEntity for camera setup after entities are loaded
       if (followEntityId) {
         this.logger.info(`👁️ Spectator will follow entity: ${followEntityId}`);
-        (this as any).spectatorFollowEntity = followEntityId;
+        this.spectatorFollowEntity = followEntityId;
       }
       // Continue to entity processing below
     } else {
@@ -715,10 +720,10 @@ export class ClientNetwork extends SystemBase {
     }
 
     // Spectator mode: Auto-follow the target entity after entities are loaded
-    const spectatorFollowId = (this as any).spectatorFollowEntity;
+    const spectatorFollowId = this.spectatorFollowEntity;
     if (isSpectatorMode && spectatorFollowId) {
       // Mark that we're waiting for spectator target
-      (this as any).spectatorTargetPending = true;
+      this.spectatorTargetPending = true;
 
       const MAX_RETRY_SECONDS = 15;
       let retryCount = 0;
@@ -748,10 +753,10 @@ export class ClientNetwork extends SystemBase {
 
         if (targetEntity) {
           // Found the entity - clear pending state and interval
-          (this as any).spectatorTargetPending = false;
-          if ((this as any).spectatorRetryInterval) {
-            clearInterval((this as any).spectatorRetryInterval);
-            (this as any).spectatorRetryInterval = null;
+          this.spectatorTargetPending = false;
+          if (this.spectatorRetryInterval) {
+            clearInterval(this.spectatorRetryInterval);
+            this.spectatorRetryInterval = null;
           }
           this.logger.info(
             `👁️ Spectator following entity ${spectatorFollowId}`,
@@ -770,7 +775,7 @@ export class ClientNetwork extends SystemBase {
           );
 
           // Start retry interval - check every 1 second for up to 15 seconds
-          (this as any).spectatorRetryInterval = setInterval(() => {
+          this.spectatorRetryInterval = setInterval(() => {
             retryCount++;
 
             if (attemptFollow()) {
@@ -781,9 +786,11 @@ export class ClientNetwork extends SystemBase {
             }
 
             if (retryCount >= MAX_RETRY_SECONDS) {
-              clearInterval((this as any).spectatorRetryInterval);
-              (this as any).spectatorRetryInterval = null;
-              (this as any).spectatorTargetPending = false;
+              if (this.spectatorRetryInterval) {
+                clearInterval(this.spectatorRetryInterval);
+              }
+              this.spectatorRetryInterval = null;
+              this.spectatorTargetPending = false;
               this.logger.error(
                 `👁️ Agent entity ${spectatorFollowId} not found after ${MAX_RETRY_SECONDS}s`,
               );
@@ -872,8 +879,8 @@ export class ClientNetwork extends SystemBase {
       }
 
       // Check if this is the spectator target entity we're waiting for
-      const spectatorFollowId = (this as any).spectatorFollowEntity;
-      const isWaitingForTarget = (this as any).spectatorTargetPending;
+      const spectatorFollowId = this.spectatorFollowEntity;
+      const isWaitingForTarget = this.spectatorTargetPending;
 
       if (isWaitingForTarget && data.id === spectatorFollowId) {
         this.logger.info(
@@ -881,11 +888,11 @@ export class ClientNetwork extends SystemBase {
         );
 
         // Clear retry interval if running
-        if ((this as any).spectatorRetryInterval) {
-          clearInterval((this as any).spectatorRetryInterval);
-          (this as any).spectatorRetryInterval = null;
+        if (this.spectatorRetryInterval) {
+          clearInterval(this.spectatorRetryInterval);
+          this.spectatorRetryInterval = null;
         }
-        (this as any).spectatorTargetPending = false;
+        this.spectatorTargetPending = false;
 
         // Set camera to follow this entity
         const camera = this.world.getSystem("camera") as {
@@ -1419,7 +1426,7 @@ export class ClientNetwork extends SystemBase {
 
   onEquipmentUpdated = (data: {
     playerId: string;
-    equipment: Record<string, unknown>;
+    equipment: Record<string, { item?: Item | null; itemId?: string }>;
   }) => {
     // Cache latest equipment for late-mounting UI
     this.lastEquipmentByPlayerId = this.lastEquipmentByPlayerId || {};
@@ -1835,11 +1842,15 @@ export class ClientNetwork extends SystemBase {
     // Only handle for local player
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
+      // Convert array position to object format for event type compatibility
+      const deathPos = data.deathPosition
+        ? { x: data.deathPosition[0], y: data.deathPosition[1], z: data.deathPosition[2] }
+        : undefined;
       // Forward to local event system so PlayerLocal can handle it
       this.world.emit(EventType.PLAYER_SET_DEAD, {
         playerId: data.playerId,
         isDead: data.isDead,
-        deathPosition: data.deathPosition,
+        deathPosition: deathPos,
       });
     }
   };
@@ -1853,12 +1864,19 @@ export class ClientNetwork extends SystemBase {
     // Only handle for local player
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
+      // Convert array positions to object format for event type compatibility
+      const spawnPos = data.spawnPosition
+        ? { x: data.spawnPosition[0], y: data.spawnPosition[1], z: data.spawnPosition[2] }
+        : undefined;
+      const deathLoc = data.deathLocation
+        ? { x: data.deathLocation[0], y: data.deathLocation[1], z: data.deathLocation[2] }
+        : undefined;
       // Forward to local event system so PlayerLocal can handle it
       this.world.emit(EventType.PLAYER_RESPAWNED, {
         playerId: data.playerId,
-        spawnPosition: data.spawnPosition,
+        spawnPosition: spawnPos,
         townName: data.townName,
-        deathLocation: data.deathLocation,
+        deathLocation: deathLoc,
       });
     }
   };
@@ -1951,7 +1969,16 @@ export class ClientNetwork extends SystemBase {
       this.logger.info(
         `Applying ${pending.length} pending modifications for entity ${entityId}`,
       );
-      pending.forEach((mod) => this.onEntityModified({ ...mod, id: entityId }));
+      // Use for loop instead of forEach to avoid function call overhead
+      for (let i = 0; i < pending.length; i++) {
+        const mod = pending[i];
+        // The mod already has an id from when it was stored, just ensure it matches
+        // Avoid spread by mutating temporarily (we're about to delete the array anyway)
+        const originalId = mod.id;
+        mod.id = entityId;
+        this.onEntityModified(mod);
+        mod.id = originalId; // Restore in case something else references it
+      }
 
       // Clean up tracking structures
       this.pendingModifications.delete(entityId);

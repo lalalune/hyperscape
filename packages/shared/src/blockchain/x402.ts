@@ -419,8 +419,9 @@ export async function settlePayment(
   }
 
   // Submit settlement transaction
-  // @ts-expect-error - viem 2.x has stricter writeContract types
   const hash = await walletClient.writeContract({
+    account,
+    chain,
     address: facilitatorAddress,
     abi: X402_FACILITATOR_ABI,
     functionName: "settle",

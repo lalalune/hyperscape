@@ -221,6 +221,7 @@ export class World extends EventEmitter {
       name?: string;
       runMode?: boolean;
       stamina?: number;
+      isDying?: boolean;
       toggleRunMode?: () => void;
       position?: { x: number; y: number; z: number };
       playerData?: {
@@ -270,6 +271,7 @@ export class World extends EventEmitter {
   network!: NetworkSystem & {
     id?: string;
     send?: (event: string, data?: unknown) => void;
+    broadcast?: (event: string, data?: unknown) => void;
     dropItem?: (itemId: string, slot?: number, quantity?: number) => void;
     lastInventoryByPlayerId?: Record<
       string,
@@ -464,6 +466,62 @@ export class World extends EventEmitter {
 
   /** Reference to all registered RPG systems (PlayerSystem, CombatSystem, etc.) */
   rpgSystems?: Record<string, { name: string; [key: string]: unknown }>;
+
+  /** RPG interface for agent/A2A access to game methods */
+  rpg?: {
+    getPlayerHealth?: (
+      playerId: string,
+    ) => { current: number; max: number } | undefined;
+    getInventory?: (
+      playerId: string,
+    ) => Array<{ id: string; name?: string; [key: string]: unknown }>;
+    getEquipment?: (playerId: string) => Record<string, unknown>;
+    getSkills?: (playerId: string) => Record<string, unknown>;
+    isInCombat?: (playerId: string) => boolean;
+    isPlayerAlive?: (playerId: string) => boolean;
+    movePlayer?: (
+      playerId: string,
+      position: { x: number; y: number; z: number },
+    ) => void;
+    getCombatLevel?: (playerId: string) => number;
+    getAllPlayers?: () => Array<{
+      id: string;
+      data?: { name?: string };
+      name?: string;
+      position?: { x: number; y: number; z: number };
+      node?: { position?: { x: number; y: number; z: number } };
+    }>;
+    playEmote?: (playerId: string, emote: string) => void;
+    getArrowCount?: (playerId: string) => number;
+    getMobsInArea?: (
+      position: { x: number; y: number; z: number },
+      radius: number,
+    ) => Array<{ id: string; [key: string]: unknown }>;
+    getResourcesInArea?: (
+      position: { x: number; y: number; z: number },
+      radius: number,
+    ) => Array<{ id: string; [key: string]: unknown }>;
+    getItemsInRange?: (
+      position: { x: number; y: number; z: number },
+      radius: number,
+    ) => Array<{ id: string; [key: string]: unknown }>;
+    getNpcsInArea?: (
+      position: { x: number; y: number; z: number },
+      radius: number,
+    ) => Array<{ id: string; [key: string]: unknown }>;
+    getAllMobs?: () => Array<{ id: string; [key: string]: unknown }>;
+    respawnPlayer?: (playerId: string) => void;
+    forceChangeAttackStyle?: (playerId: string, style: string) => void;
+    actionMethods?: {
+      startAttack: (
+        playerId: string,
+        targetId: string,
+        attackStyle?: string,
+      ) => void;
+      stopAttack: (playerId: string) => void;
+      unequipItem: (playerId: string, slot: string) => void;
+    } & Record<string, ((...args: unknown[]) => unknown) | undefined>;
+  };
 
   /** All available RPG actions that can be executed */
   rpgActions?: Record<

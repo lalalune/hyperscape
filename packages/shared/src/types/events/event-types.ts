@@ -98,6 +98,7 @@ export enum EventType {
   INPUT_POINTER_DOWN = "input:pointer:down",
   INPUT_POINTER_UP = "input:pointer:up",
   INPUT_POINTER_MOVE = "input:pointer:move",
+  INPUT_ACK = "inputAck",
 
   // System Settings
   SETTINGS_CHANGED = "settings:changed",
@@ -567,10 +568,31 @@ export type AnyEvent = Record<string, unknown>;
 export type EventPayloads = Record<EventType, Record<string, unknown>>;
 
 /**
- * Event map for type-safe event handling
+ * Event map for type-safe event handling.
+ * Maps EventType values to their payload types from EventDataMap.
  */
 export type EventMap = {
-  [K in EventType]: Record<string, unknown>;
+  [EventType.PLAYER_HEALTH_UPDATED]: { playerId: string; health: number; maxHealth: number };
+  [EventType.PLAYER_TELEPORT_REQUEST]: { playerId: string; position: { x: number; y: number; z: number }; rotationY?: number };
+  [EventType.PLAYER_SET_DEAD]: { playerId: string; isDead: boolean; deathPosition?: { x: number; y: number; z: number } };
+  [EventType.PLAYER_RESPAWNED]: { playerId: string; spawnPosition?: { x: number; y: number; z: number }; townName?: string; deathLocation?: { x: number; y: number; z: number } };
+  [EventType.READY]: Record<string, never>;
+  [EventType.CAMERA_TAP]: { x: number; y: number };
+  [EventType.ENTITY_MODIFIED]: { id: string; changes: { e?: string; p?: number[] } };
+  [EventType.AVATAR_LOAD_COMPLETE]: { playerId: string; success: boolean };
+  [EventType.INPUT_ACK]: { sequence: number; corrections?: unknown };
+} & {
+  [K in Exclude<EventType,
+    | EventType.PLAYER_HEALTH_UPDATED
+    | EventType.PLAYER_TELEPORT_REQUEST
+    | EventType.PLAYER_SET_DEAD
+    | EventType.PLAYER_RESPAWNED
+    | EventType.READY
+    | EventType.CAMERA_TAP
+    | EventType.ENTITY_MODIFIED
+    | EventType.AVATAR_LOAD_COMPLETE
+    | EventType.INPUT_ACK
+  >]: Record<string, unknown>;
 };
 
 /**

@@ -151,7 +151,7 @@ describe("CombatAuditLog", () => {
     });
 
     it("filters by timestamp", () => {
-      // Log 3 attacks at different times
+      // Log 3 attacks
       auditLog.logAttack({
         tick: 100,
         attackerId: "player1",
@@ -160,8 +160,6 @@ describe("CombatAuditLog", () => {
         targetType: "mob",
         damage: 10,
       });
-
-      const firstTimestamp = Date.now();
 
       auditLog.logAttack({
         tick: 101,
@@ -181,9 +179,20 @@ describe("CombatAuditLog", () => {
         damage: 8,
       });
 
-      // Get entries since first timestamp (should exclude first entry at the boundary)
-      const entries = auditLog.getAttacksByPlayer("player1", firstTimestamp);
-      expect(entries.length).toBeGreaterThanOrEqual(2);
+      // Get all entries (no timestamp filter)
+      const allEntries = auditLog.getAttacksByPlayer("player1");
+      expect(allEntries.length).toBe(3);
+
+      // Get entries with very old timestamp (should get all)
+      const entriesSinceOld = auditLog.getAttacksByPlayer("player1", 0);
+      expect(entriesSinceOld.length).toBe(3);
+
+      // Get entries with far future timestamp (should get none)
+      const entriesSinceFuture = auditLog.getAttacksByPlayer(
+        "player1",
+        Date.now() + 1000000,
+      );
+      expect(entriesSinceFuture.length).toBe(0);
     });
 
     it("tracks both attacker and target player", () => {
