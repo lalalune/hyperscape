@@ -28,6 +28,7 @@
 
 import type { World } from "../../../../core/World";
 import type { QueuedAction, QueueActionParams } from "../types";
+import { getCachedTimestamp } from "../../../shared/movement/ObjectPools";
 import type { Position3D } from "../../../../types/core/base-types";
 import {
   worldToTile,
@@ -87,7 +88,7 @@ export class ActionQueueService {
    * @returns true if the action should be skipped (still in debounce window)
    */
   isDebounced(key: string, debounceMs: number): boolean {
-    const now = Date.now();
+    const now = getCachedTimestamp();
     const lastTime = this.debounceMap.get(key);
 
     if (lastTime && now - lastTime < debounceMs) {
@@ -235,7 +236,7 @@ export class ActionQueueService {
 
     // Periodic cleanup of old debounce entries
     if (this.frameCount % ACTION_QUEUE.DEBOUNCE_CLEANUP_INTERVAL === 0) {
-      const now = Date.now();
+      const now = getCachedTimestamp();
       for (const [key, timestamp] of this.debounceMap.entries()) {
         if (now - timestamp > ACTION_QUEUE.DEBOUNCE_EXPIRY_MS) {
           this.debounceMap.delete(key);

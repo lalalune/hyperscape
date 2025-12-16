@@ -13,7 +13,7 @@
  * mock entities that simulate actual game behavior.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
 import { CombatSystem } from "../CombatSystem";
 import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
 import type { World } from "../../../../core/World";
@@ -71,14 +71,14 @@ function createTestPlayer(
       inCombat: false,
     },
     emote: "idle",
-    base: { quaternion: { set: vi.fn(), copy: vi.fn() } },
+    base: { quaternion: { set: mock(), copy: mock() } },
     node: {
       position,
-      quaternion: { set: vi.fn(), copy: vi.fn() },
+      quaternion: { set: mock(), copy: mock() },
     },
     getPosition: () => position,
-    markNetworkDirty: vi.fn(),
-    takeDamage: vi.fn((amount: number) => {
+    markNetworkDirty: mock(),
+    takeDamage: mock((amount: number) => {
       healthTracker.damageHistory.push(amount);
       healthTracker.current = Math.max(0, healthTracker.current - amount);
       return healthTracker.current;
@@ -149,7 +149,7 @@ function createTestMob(
     },
     node: {
       position,
-      quaternion: { set: vi.fn(), copy: vi.fn() },
+      quaternion: { set: mock(), copy: mock() },
     },
     getPosition: () => position,
     getMobData: () => ({
@@ -165,15 +165,15 @@ function createTestMob(
       attackSpeedTicks,
     }),
     getHealth: () => healthTracker.current,
-    takeDamage: vi.fn((amount: number) => {
+    takeDamage: mock((amount: number) => {
       healthTracker.damageHistory.push(amount);
       healthTracker.current = Math.max(0, healthTracker.current - amount);
       return healthTracker.current;
     }),
     isAttackable: () => healthTracker.current > 0,
     isDead: () => healthTracker.current <= 0,
-    setServerEmote: vi.fn(),
-    markNetworkDirty: vi.fn(),
+    setServerEmote: mock(),
+    markNetworkDirty: mock(),
     // CombatSystem.applyDamage gets mobs from world.entities.get()
     // and checks for existence with world.entities.get(targetId) as MobEntity
   };
@@ -227,7 +227,7 @@ function createTestWorld(options: { currentTick?: number } = {}) {
 
   // Mock PlayerSystem with damagePlayer method
   const mockPlayerSystem = {
-    damagePlayer: vi.fn(
+    damagePlayer: mock(
       (playerId: string, damage: number, _attackerId: string) => {
         const player = players.get(playerId);
         if (!player) return false;
@@ -262,7 +262,7 @@ function createTestWorld(options: { currentTick?: number } = {}) {
     syncMobsToEntities, // Call after adding mobs
     emittedEvents, // For event verification
     network: {
-      send: vi.fn(),
+      send: mock(),
     },
     getPlayer: (id: string) => players.get(id),
     getSystem: (name: string) => {
@@ -281,7 +281,7 @@ function createTestWorld(options: { currentTick?: number } = {}) {
       }
       if (name === "ground-item") {
         return {
-          spawnGroundItem: vi.fn(),
+          spawnGroundItem: mock(),
         };
       }
       return undefined;
@@ -292,8 +292,8 @@ function createTestWorld(options: { currentTick?: number } = {}) {
       }
       eventHandlers.get(event)!.push(handler);
     },
-    off: vi.fn(),
-    emit: vi.fn((event: string, data: unknown) => {
+    off: mock(),
+    emit: mock((event: string, data: unknown) => {
       emittedEvents.push({ event, data });
       const handlers = eventHandlers.get(event) || [];
       handlers.forEach((h) => h(data));

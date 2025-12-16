@@ -24,6 +24,7 @@ const _mouse = new THREE.Vector2();
 const _worldPos = new THREE.Vector3();
 const _groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const _planeTarget = new THREE.Vector3();
+const _terrainResult = new THREE.Vector3();
 
 export class RaycastService {
   constructor(private world: World) {}
@@ -148,12 +149,14 @@ export class RaycastService {
    * @param screenX - Screen X coordinate
    * @param screenY - Screen Y coordinate
    * @param canvas - The canvas element
+   * @param target - Optional target vector to copy result into (avoids allocation)
    * @returns World position if terrain hit, null otherwise
    */
   getTerrainPosition(
     screenX: number,
     screenY: number,
     canvas: HTMLCanvasElement,
+    target?: THREE.Vector3,
   ): THREE.Vector3 | null {
     const camera = this.world.camera;
     const scene = this.world.stage?.scene;
@@ -182,13 +185,17 @@ export class RaycastService {
         continue;
       }
 
-      // Found terrain
-      return intersect.point.clone();
+      // Found terrain - copy to target or cached result
+      const result = target || _terrainResult;
+      result.copy(intersect.point);
+      return result;
     }
 
     // Fallback: intersect with Y=0 plane (reuse cached plane and target)
     if (_raycaster.ray.intersectPlane(_groundPlane, _planeTarget)) {
-      return _planeTarget.clone();
+      const result = target || _terrainResult;
+      result.copy(_planeTarget);
+      return result;
     }
 
     return null;

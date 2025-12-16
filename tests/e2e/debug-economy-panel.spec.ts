@@ -9,6 +9,26 @@
 
 import { test, expect } from "@playwright/test";
 
+// Type for window with world object used in page.evaluate()
+// These are non-optional because we verify world exists in beforeEach
+type InventorySystem = {
+  getPlayerInventory: (id: string) => {
+    items: Array<{ itemId: string }>;
+    coins: number;
+  };
+};
+type PlayerEntity = {
+  id: string;
+  node?: { position: { x: number; y: number; z: number } };
+  getHealth?: () => number;
+};
+type WindowWithWorld = Window & {
+  world: {
+    entities: { player: PlayerEntity };
+    getSystem: (name: string) => InventorySystem;
+  };
+};
+
 test.describe("Debug Economy Panel", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to game with debug mode - uses HYPERSCAPE_URL or VITE_PORT for jeju mode
@@ -19,7 +39,7 @@ test.describe("Debug Economy Panel", () => {
     // Wait for world to be ready
     await page.waitForFunction(
       () => {
-        return (window as any).world?.entities?.player !== undefined;
+        return (window as unknown as WindowWithWorld).world?.entities?.player !== undefined;
       },
       { timeout: 30000 },
     );
@@ -52,7 +72,7 @@ test.describe("Debug Economy Panel", () => {
   test("spawn item button should add item to inventory", async ({ page }) => {
     // Get initial inventory count
     const initialCount = await page.evaluate(() => {
-      const world = (window as any).world;
+      const world = (window as unknown as WindowWithWorld).world;
       const inventorySystem = world?.getSystem("inventory");
       if (!inventorySystem) return -1;
 
@@ -75,7 +95,7 @@ test.describe("Debug Economy Panel", () => {
 
     // Verify item was added
     const newCount = await page.evaluate(() => {
-      const world = (window as any).world;
+      const world = (window as unknown as WindowWithWorld).world;
       const inventorySystem = world?.getSystem("inventory");
       const player = world.entities?.player;
       const inventory = inventorySystem.getPlayerInventory?.(player.id);
@@ -87,7 +107,7 @@ test.describe("Debug Economy Panel", () => {
 
     // Verify the item is bronze_sword (ID 1 maps to 'bronze_sword')
     const lastItem = await page.evaluate(() => {
-      const world = (window as any).world;
+      const world = (window as unknown as WindowWithWorld).world;
       const inventorySystem = world?.getSystem("inventory");
       const player = world.entities?.player;
       const inventory = inventorySystem.getPlayerInventory?.(player.id);
@@ -102,7 +122,7 @@ test.describe("Debug Economy Panel", () => {
   test("add gold button should increase player coins", async ({ page }) => {
     // Get initial coins
     const initialCoins = await page.evaluate(() => {
-      const world = (window as any).world;
+      const world = (window as unknown as WindowWithWorld).world;
       const inventorySystem = world?.getSystem("inventory");
       const player = world.entities?.player;
       const inventory = inventorySystem.getPlayerInventory?.(player.id);
@@ -120,7 +140,7 @@ test.describe("Debug Economy Panel", () => {
 
     // Verify coins increased by 500
     const newCoins = await page.evaluate(() => {
-      const world = (window as any).world;
+      const world = (window as unknown as WindowWithWorld).world;
       const inventorySystem = world?.getSystem("inventory");
       const player = world.entities?.player;
       const inventory = inventorySystem.getPlayerInventory?.(player.id);
@@ -143,7 +163,7 @@ test.describe("Debug Economy Panel", () => {
 
     // Get initial player health
     const initialHealth = await page.evaluate(() => {
-      const world = (window as any).world;
+      const world = (window as unknown as WindowWithWorld).world;
       const player = world.entities?.player;
       return player?.getHealth?.() || 0;
     });
@@ -160,7 +180,7 @@ test.describe("Debug Economy Panel", () => {
 
     // Verify player died (health should be 0 or player respawned)
     const afterDeathState = await page.evaluate(() => {
-      const world = (window as any).world;
+      const world = (window as unknown as WindowWithWorld).world;
       const player = world.entities?.player;
 
       return {
@@ -209,7 +229,7 @@ test.describe("Debug Economy Panel", () => {
 
     // Verify final state
     const finalState = await page.evaluate(() => {
-      const world = (window as any).world;
+      const world = (window as unknown as WindowWithWorld).world;
       const inventorySystem = world?.getSystem("inventory");
       const player = world.entities?.player;
       const inventory = inventorySystem.getPlayerInventory?.(player.id);
@@ -217,7 +237,7 @@ test.describe("Debug Economy Panel", () => {
       return {
         coins: inventory?.coins || 0,
         itemCount: inventory?.items?.length || 0,
-        items: inventory?.items?.map((i: any) => i.itemId) || [],
+        items: inventory?.items?.map((i: { itemId: string }) => i.itemId) || [],
       };
     });
 

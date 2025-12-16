@@ -10,7 +10,7 @@
  * @see https://oldschool.runescape.wiki/w/Attack_range
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
 import { CombatSystem } from "../CombatSystem";
 import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
 import { EventType } from "../../../../types/events";
@@ -41,15 +41,15 @@ function createTestPlayer(
       stats: { attack: 50, strength: 50, defence: 50, hitpoints: 100 },
     },
     emote: "idle",
-    base: { quaternion: { set: vi.fn(), copy: vi.fn() } },
+    base: { quaternion: { set: mock(), copy: mock() } },
     node: {
       position: position, // Same object reference
-      quaternion: { set: vi.fn(), copy: vi.fn() },
+      quaternion: { set: mock(), copy: mock() },
     },
     weaponRange, // For equipment system mock
     getPosition: () => position,
-    markNetworkDirty: vi.fn(),
-    takeDamage: vi.fn((amount: number) => Math.max(0, health - amount)),
+    markNetworkDirty: mock(),
+    takeDamage: mock((amount: number) => Math.max(0, health - amount)),
     getHealth: () => health,
     getComponent: (name: string) => {
       if (name === "health") {
@@ -89,7 +89,7 @@ function createTestMob(
     health: health.current,
     node: {
       position: position, // Same object reference
-      quaternion: { set: vi.fn(), copy: vi.fn() },
+      quaternion: { set: mock(), copy: mock() },
     },
     getPosition: () => position,
     getMobData: () => ({
@@ -102,15 +102,15 @@ function createTestMob(
       attackSpeedTicks: COMBAT_CONSTANTS.DEFAULT_ATTACK_SPEED_TICKS,
     }),
     getHealth: () => health.current,
-    takeDamage: vi.fn((amount: number) => {
+    takeDamage: mock((amount: number) => {
       health.current = Math.max(0, health.current - amount);
       return health.current;
     }),
     getCombatRange: () => combatRange,
     isAttackable: () => health.current > 0,
     isDead: () => health.current <= 0,
-    setServerEmote: vi.fn(),
-    markNetworkDirty: vi.fn(),
+    setServerEmote: mock(),
+    markNetworkDirty: mock(),
   };
 }
 
@@ -131,14 +131,14 @@ function createTestWorld(options: { currentTick?: number } = {}) {
 
   // Mock EventBus for SystemBase.emitTypedEvent()
   const mockEventBus = {
-    emitEvent: vi.fn((type: string, data: unknown, _source?: string) => {
+    emitEvent: mock((type: string, data: unknown, _source?: string) => {
       emittedEvents.push({ event: type, data });
       // Also trigger handlers registered via world.on()
       const handlers = eventHandlers.get(type) || [];
       handlers.forEach((h) => h(data));
     }),
-    subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
-    subscribeOnce: vi.fn(() => ({ unsubscribe: vi.fn() })),
+    subscribe: mock(() => ({ unsubscribe: mock() })),
+    subscribeOnce: mock(() => ({ unsubscribe: mock() })),
   };
 
   const mobsMap = new Map<string, ReturnType<typeof createTestMob>>();
@@ -176,7 +176,7 @@ function createTestWorld(options: { currentTick?: number } = {}) {
     mobs,
     playerWeaponRanges,
     emittedEvents,
-    network: { send: vi.fn() },
+    network: { send: mock() },
     getPlayer: (id: string) => players.get(id),
     getSystem: (name: string) => {
       if (name === "entity-manager") {
@@ -206,7 +206,7 @@ function createTestWorld(options: { currentTick?: number } = {}) {
       }
       if (name === "player") {
         return {
-          damagePlayer: vi.fn(),
+          damagePlayer: mock(),
           getPlayer: (id: string) => players.get(id),
         };
       }
@@ -214,7 +214,7 @@ function createTestWorld(options: { currentTick?: number } = {}) {
         return { getMob: (id: string) => mobs.get(id) };
       }
       if (name === "ground-item") {
-        return { spawnGroundItem: vi.fn() };
+        return { spawnGroundItem: mock() };
       }
       return undefined;
     },
@@ -224,8 +224,8 @@ function createTestWorld(options: { currentTick?: number } = {}) {
       }
       eventHandlers.get(event)!.push(handler);
     },
-    off: vi.fn(),
-    emit: vi.fn((event: string, data: unknown) => {
+    off: mock(),
+    emit: mock((event: string, data: unknown) => {
       emittedEvents.push({ event, data });
       const handlers = eventHandlers.get(event) || [];
       handlers.forEach((h) => h(data));
@@ -635,8 +635,7 @@ describe("OSRS Melee Range Integration", () => {
     });
   });
 
-  // SKIPPED: COMBAT_FOLLOW_TARGET events not yet implemented in CombatSystem
-  describe.skip("combat follow events when out of range", () => {
+  describe("combat follow events when out of range", () => {
     it("emits COMBAT_FOLLOW_TARGET when player out of melee range", () => {
       const player = createTestPlayer("player1", {
         position: { x: 5.5, y: 0, z: 5.5 },
@@ -869,8 +868,7 @@ describe("OSRS Melee Range Integration", () => {
     });
   });
 
-  // SKIPPED: COMBAT_FOLLOW_TARGET events not yet implemented in CombatSystem
-  describe.skip("combat timeout behavior (OSRS-style)", () => {
+  describe("combat timeout behavior (OSRS-style)", () => {
     it("combat timeout is extended when follow events are emitted", () => {
       const player = createTestPlayer("player1", {
         position: { x: 5.5, y: 0, z: 5.5 },

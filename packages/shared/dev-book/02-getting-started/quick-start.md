@@ -64,7 +64,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   server: {
-    port: 3000
+    port: 3333
   },
   optimizeDeps: {
     exclude: ['@hyperscape/shared']
@@ -185,7 +185,7 @@ console.log('Game started!');
 # Start dev server
 npm run dev
 
-# Open browser to http://localhost:3000
+# Open browser to http://localhost:3333
 ```
 
 You should see a blank 3D scene with FPS counter!
@@ -572,7 +572,7 @@ player.addComponent('collider', {
 const world = await createClientWorld({
   assetsUrl: '/assets/',
   renderer: canvas,
-  serverUrl: 'ws://localhost:3000' // Connect to server
+  serverUrl: 'ws://localhost:3333' // Connect to server
 });
 
 // Players automatically sync across clients!

@@ -3,6 +3,7 @@ import { ITEM_IDS } from "../../../constants/GameConstants";
 import { Fire, ProcessingAction } from "../../../types/core/core";
 import { calculateDistance2D } from "../../../utils/game/EntityUtils";
 import { EventType } from "../../../types/events";
+import { getCachedTimestamp } from "../movement/ObjectPools";
 
 /**
  * Processing System
@@ -241,13 +242,12 @@ export class ProcessingSystem extends SystemBase {
     // Get player position
     const player = this.world.getPlayer(playerId)!;
 
-    // Start firemaking process
     const processingAction: ProcessingAction = {
       playerId,
       actionType: "firemaking",
       primaryItem: { id: 300, slot: tinderboxSlot },
       targetItem: { id: 200, slot: logsSlot },
-      startTime: Date.now(),
+      startTime: getCachedTimestamp(),
       duration: this.FIREMAKING_TIME,
       xpReward: this.XP_REWARDS.firemaking.normal_logs,
       skillRequired: "firemaking",
@@ -312,13 +312,13 @@ export class ProcessingSystem extends SystemBase {
       slot: action.targetItem!.slot,
     });
 
-    // Create fire
-    const fireId = `fire_${playerId}_${Date.now()}`;
+    const timestamp = getCachedTimestamp();
+    const fireId = `fire_${playerId}_${timestamp}`;
     const fire: Fire = {
       id: fireId,
       position,
       playerId,
-      createdAt: Date.now(),
+      createdAt: timestamp,
       duration: this.FIRE_DURATION,
       isActive: true,
     };
@@ -409,13 +409,12 @@ export class ProcessingSystem extends SystemBase {
     fishSlot: number,
     fireId: string,
   ): void {
-    // Start cooking process
     const processingAction: ProcessingAction = {
       playerId,
       actionType: "cooking",
       primaryItem: { id: 500, slot: fishSlot },
       targetFire: fireId,
-      startTime: Date.now(),
+      startTime: getCachedTimestamp(),
       duration: this.COOKING_TIME,
       xpReward: this.XP_REWARDS.cooking.raw_shrimps,
       skillRequired: "cooking",
@@ -495,7 +494,7 @@ export class ProcessingSystem extends SystemBase {
     this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
       playerId,
       item: {
-        id: `inv_${playerId}_${Date.now()}`,
+        id: `inv_${playerId}_${getCachedTimestamp()}`,
         itemId: resultItemId.toString(), // Convert item ID to string for itemId reference
         quantity: 1,
         slot: -1, // Let system find empty slot
@@ -669,8 +668,7 @@ export class ProcessingSystem extends SystemBase {
 
   // Required System lifecycle methods
   update(_dt: number): void {
-    // Check for expired processing actions
-    const now = Date.now();
+    const now = getCachedTimestamp();
     for (const [playerId, action] of this.activeProcessing.entries()) {
       if (now - action.startTime > action.duration + 1000) {
         // 1 second grace period

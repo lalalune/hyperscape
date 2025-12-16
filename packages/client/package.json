@@ -18,7 +18,7 @@
     "real-time"
   ],
   "scripts": {
-    "dev": "vite --host --port 5009",
+    "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
     "test": "bun test src/",

@@ -74,6 +74,10 @@ export type { NPCEntityConfig } from "../../types/entities";
 export class NPCEntity extends Entity {
   public config: NPCEntityConfig;
 
+  // Cached skinned mesh reference to avoid traverse() per frame
+  private _cachedSkinnedMesh: THREE.SkinnedMesh | null = null;
+  private _skinnedMeshCached = false;
+
   async init(): Promise<void> {
     await super.init();
 
@@ -234,15 +238,22 @@ export class NPCEntity extends Entity {
       // Update the mixer (advances animation time)
       mixer.update(deltaTime);
 
-      // CRITICAL: Update skeleton (exactly like VRM does!)
-      // This actually moves the bones to match the animation
-      if (this.mesh) {
+      // CRITICAL: Update skeleton using cached reference (avoids traverse() per frame)
+      if (this.mesh && !this._skinnedMeshCached) {
         this.mesh.traverse((child) => {
           if (child instanceof THREE.SkinnedMesh && child.skeleton) {
-            // Update each bone matrix WITHOUT forcing parent recalc
-            child.skeleton.bones.forEach((bone) => bone.updateMatrixWorld());
+            this._cachedSkinnedMesh = child;
           }
         });
+        this._skinnedMeshCached = true;
+      }
+
+      const skinnedMesh = this._cachedSkinnedMesh;
+      if (skinnedMesh && skinnedMesh.skeleton) {
+        const bones = skinnedMesh.skeleton.bones;
+        for (let i = 0; i < bones.length; i++) {
+          bones[i].updateMatrixWorld();
+        }
       }
     }
   }

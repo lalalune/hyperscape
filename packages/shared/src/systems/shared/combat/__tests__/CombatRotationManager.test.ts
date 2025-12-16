@@ -8,7 +8,7 @@
  * - Handling missing entities gracefully
  */
 
-import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
+import { describe, it, expect, beforeEach, mock, type Mock } from "bun:test";
 import { CombatRotationManager } from "../CombatRotationManager";
 import { quaternionPool } from "../../../../utils/pools/QuaternionPool";
 
@@ -85,17 +85,17 @@ function createMockPlayer(
     position,
     base: {
       quaternion: {
-        set: vi.fn(),
-        copy: vi.fn(),
+        set: mock(),
+        copy: mock(),
       },
     },
     node: {
       quaternion: {
-        set: vi.fn(),
-        copy: vi.fn(),
+        set: mock(),
+        copy: mock(),
       },
     },
-    markNetworkDirty: vi.fn(),
+    markNetworkDirty: mock(),
     ...overrides,
   };
 }
@@ -111,11 +111,11 @@ function createMockMob(
     position,
     node: {
       quaternion: {
-        set: vi.fn(),
-        copy: vi.fn(),
+        set: mock(),
+        copy: mock(),
       },
     },
-    markNetworkDirty: vi.fn(),
+    markNetworkDirty: mock(),
     ...overrides,
   };
 }
@@ -211,9 +211,9 @@ describe("CombatRotationManager", () => {
       const player = {
         id: "player1",
         getPosition: () => ({ x: 0, y: 0, z: 0 }),
-        base: { quaternion: { set: vi.fn(), copy: vi.fn() } },
-        node: { quaternion: { set: vi.fn(), copy: vi.fn() } },
-        markNetworkDirty: vi.fn(),
+        base: { quaternion: { set: mock(), copy: mock() } },
+        node: { quaternion: { set: mock(), copy: mock() } },
+        markNetworkDirty: mock(),
       };
       const mob = createMockMob("mob1", { x: 5, y: 0, z: 0 });
       mockPlayers.set("player1", player);
@@ -245,7 +245,7 @@ describe("CombatRotationManager", () => {
     it("releases quaternion even if rotation fails", () => {
       const player = createMockPlayer("player1", { x: 0, y: 0, z: 0 });
       // Create a player with quaternion that throws
-      player.base.quaternion.set = vi.fn().mockImplementation(() => {
+      player.base.quaternion.set = mock().mockImplementation(() => {
         throw new Error("Quaternion error");
       });
       const mob = createMockMob("mob1", { x: 5, y: 0, z: 0 });

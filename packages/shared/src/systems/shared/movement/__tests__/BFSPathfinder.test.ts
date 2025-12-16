@@ -13,7 +13,7 @@
  * - Edge cases (same tile, unreachable destinations)
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { BFSPathfinder } from "../BFSPathfinder";
 import { TileCoord, tilesEqual } from "../TileSystem";
 

@@ -124,19 +124,24 @@ export function DraggableWindow({
     }
   }, [validatePosition, savePosition]);
 
-  // Re-validate on window resize
+  // Re-validate on window resize - use ref to avoid position in dependencies
   useEffect(() => {
     const handleResize = () => {
       if (windowRef.current) {
-        const validatedPos = validatePosition(position, windowRef.current);
-        setPosition(validatedPos);
-        savePosition(validatedPos);
+        // Use positionRef to get current position without adding to dependencies
+        const currentPos = positionRef.current;
+        const validatedPos = validatePosition(currentPos, windowRef.current);
+        // Only update if position actually changed
+        if (validatedPos.x !== currentPos.x || validatedPos.y !== currentPos.y) {
+          setPosition(validatedPos);
+          savePosition(validatedPos);
+        }
       }
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [position, validatePosition, savePosition]);
+  }, [validatePosition, savePosition]);
 
   // Handle dragging
   useEffect(() => {
@@ -226,7 +231,6 @@ export function DraggableWindow({
   }, [
     isDragging,
     dragOffset,
-    position,
     enabled,
     onPositionChange,
     savePosition,

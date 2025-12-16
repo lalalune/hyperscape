@@ -360,7 +360,7 @@ await avatar.load();
 **Usage:**
 ```typescript
 test('player spawns correctly', async ({ page }) => {
-  await page.goto('http://localhost:3000');
+  await page.goto('http://localhost:3333');
   await page.waitForSelector('.player-model');
   await expect(page).toHaveScreenshot();
 });

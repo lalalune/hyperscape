@@ -63,8 +63,45 @@ export class IdempotencyService {
    * const key = service.generateKey('player-1', 'pickup', { entityId: 'item-123' });
    */
   generateKey(playerId: string, action: string, data: unknown): string {
-    const payload = JSON.stringify({ playerId, action, data });
-    return this.hashString(payload);
+    // Optimized: avoid JSON.stringify for simple objects
+    // Most calls pass { entityId } or { itemId, slot } - simple flat objects
+    const dataStr = this.serializeData(data);
+    return this.hashString(`${playerId}|${action}|${dataStr}`);
+  }
+
+  /**
+   * Efficiently serialize data for key generation.
+   * Avoids JSON.stringify overhead for simple objects.
+   */
+  private serializeData(data: unknown): string {
+    if (data === null || data === undefined) {
+      return "";
+    }
+    if (typeof data === "string") {
+      return data;
+    }
+    if (typeof data === "number" || typeof data === "boolean") {
+      return String(data);
+    }
+    if (typeof data === "object") {
+      // For simple objects, concatenate key=value pairs sorted by key
+      // This is faster than JSON.stringify for typical 1-2 property objects
+      const obj = data as Record<string, unknown>;
+      const keys = Object.keys(obj).sort();
+      const parts: string[] = [];
+      for (const key of keys) {
+        const value = obj[key];
+        // Handle nested values - only stringify if truly complex
+        if (value !== null && typeof value === "object") {
+          parts.push(`${key}=${JSON.stringify(value)}`);
+        } else {
+          parts.push(`${key}=${String(value)}`);
+        }
+      }
+      return parts.join("&");
+    }
+    // Fallback for other types
+    return String(data);
   }
 
   /**
@@ -114,17 +151,12 @@ export class IdempotencyService {
   }
 
   /**
-   * Clear all entries for a specific player.
-   * Call this on player disconnect to free memory.
-   *
-   * Note: Since keys are hashed, we can't efficiently clear by player.
-   * Stale entries will be cleaned up by TTL instead.
-   * For targeted cleanup, consider using a player->keys index.
-   *
-   * @param _playerId - Player ID (unused - cleanup happens via TTL)
+   * Placeholder for player-specific cleanup.
+   * Currently a no-op since keys are hashed and can't be traced back to players.
+   * TTL-based cleanup handles stale entries automatically (every 10s).
    */
   clearPlayer(_playerId: string): void {
-    // No-op: TTL-based cleanup handles stale entries
+    // No-op: TTL handles cleanup
   }
 
   /**

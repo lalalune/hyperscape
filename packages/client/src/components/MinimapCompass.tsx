@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { THREE } from "@hyperscape/shared";
 import type { ClientWorld } from "../types";
 
@@ -8,24 +8,35 @@ interface MinimapCompassProps {
   isCollapsed: boolean;
 }
 
+const _forwardVec = new THREE.Vector3();
+
+const stopEvent = (e: React.MouseEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+};
+
 export function MinimapCompass({
   world,
   onClick,
   isCollapsed,
 }: MinimapCompassProps) {
   const [yawDeg, setYawDeg] = useState<number>(0);
+  const lastYawRef = useRef<number>(0);
 
   useEffect(() => {
     let rafId: number | null = null;
     const loop = () => {
       if (world.camera) {
-        const forward = new THREE.Vector3();
-        world.camera.getWorldDirection(forward);
-        forward.y = 0;
-        if (forward.lengthSq() > 1e-6) {
-          forward.normalize();
-          const yaw = Math.atan2(forward.x, -forward.z);
-          setYawDeg(THREE.MathUtils.radToDeg(yaw));
+        world.camera.getWorldDirection(_forwardVec);
+        _forwardVec.y = 0;
+        if (_forwardVec.lengthSq() > 1e-6) {
+          _forwardVec.normalize();
+          const yaw = Math.atan2(_forwardVec.x, -_forwardVec.z);
+          const newYawDeg = THREE.MathUtils.radToDeg(yaw);
+          if (Math.abs(newYawDeg - lastYawRef.current) > 0.1) {
+            lastYawRef.current = newYawDeg;
+            setYawDeg(newYawDeg);
+          }
         }
       }
       rafId = requestAnimationFrame(loop);
@@ -36,21 +47,16 @@ export function MinimapCompass({
     };
   }, [world]);
 
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    stopEvent(e);
+    onClick();
+  }, [onClick]);
+
   return (
     <div
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onClick();
-      }}
-      onMouseDown={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
+      onClick={handleClick}
+      onMouseDown={stopEvent}
+      onContextMenu={stopEvent}
       className="w-10 h-10 rounded-full border-2 border-white/30 bg-black/80 flex items-center justify-center cursor-pointer relative shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
       title={isCollapsed ? "Show minimap" : "Hide minimap"}
     >

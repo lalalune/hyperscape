@@ -34,6 +34,7 @@ export class DamageSplatSystem extends System {
   name = "damage-splat";
 
   private activeSplats: DamageSplat[] = [];
+  private _toRemove: number[] = []; // Reusable array for update loop
   private readonly SPLAT_DURATION = 1500; // 1.5 seconds
   private readonly RISE_DISTANCE = 1.5; // Units to float upward
   private readonly SPLAT_SIZE = 0.6; // Size of the splat sprite
@@ -188,7 +189,7 @@ export class DamageSplatSystem extends System {
     if (!this.world.isClient) return;
 
     const now = performance.now();
-    const toRemove: number[] = [];
+    this._toRemove.length = 0; // Clear and reuse array
 
     // Animate all active splats
     for (let i = 0; i < this.activeSplats.length; i++) {
@@ -211,13 +212,13 @@ export class DamageSplatSystem extends System {
         if (splat.sprite.material.map) {
           splat.sprite.material.map.dispose();
         }
-        toRemove.push(i);
+        this._toRemove.push(i);
       }
     }
 
     // Remove completed splats (reverse order to maintain indices)
-    for (let i = toRemove.length - 1; i >= 0; i--) {
-      this.activeSplats.splice(toRemove[i], 1);
+    for (let i = this._toRemove.length - 1; i >= 0; i--) {
+      this.activeSplats.splice(this._toRemove[i], 1);
     }
   }
 

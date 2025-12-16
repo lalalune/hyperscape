@@ -46,6 +46,9 @@ interface TickListener {
  * setInterval can accumulate timing errors over time, especially under load.
  * This implementation tracks the ideal next tick time and adjusts delays
  * to maintain accurate long-term tick timing.
+ *
+ * Performance: Listeners are pre-sorted on registration to avoid sorting
+ * every tick. The sorted cache is invalidated when listeners are added/removed.
  */
 export class TickSystem {
   private tickNumber = 0;
@@ -53,6 +56,10 @@ export class TickSystem {
   private nextTickTime = 0; // Ideal time for next tick (drift correction)
   private tickTimeout: ReturnType<typeof setTimeout> | null = null;
   private listeners: TickListener[] = [];
+  /** Pre-sorted listener cache - rebuilt only when listeners change */
+  private sortedListenersCache: TickListener[] = [];
+  /** Flag indicating the sorted cache needs rebuilding */
+  private listenersDirty = false;
   private isRunning = false;
 
   /**
@@ -134,13 +141,15 @@ export class TickSystem {
       this.nextTickTime = now + TICK_DURATION_MS;
     }
 
-    // Sort listeners by priority (stable sort preserves registration order within same priority)
-    const sortedListeners = [...this.listeners].sort(
-      (a, b) => a.priority - b.priority,
-    );
+    // Rebuild sorted cache only when listeners have changed
+    if (this.listenersDirty) {
+      this.rebuildSortedCache();
+    }
 
-    // Call all listeners in priority order
-    for (const listener of sortedListeners) {
+    // Call all listeners in priority order (using pre-sorted cache)
+    const listeners = this.sortedListenersCache;
+    for (let i = 0; i < listeners.length; i++) {
+      const listener = listeners[i];
       try {
         listener.callback(this.tickNumber, deltaMs);
       } catch (error) {
@@ -150,6 +159,18 @@ export class TickSystem {
         );
       }
     }
+  }
+
+  /**
+   * Rebuild the sorted listeners cache
+   * Called only when listeners are added or removed
+   */
+  private rebuildSortedCache(): void {
+    // Copy and sort (stable sort preserves registration order within same priority)
+    this.sortedListenersCache = this.listeners.slice().sort(
+      (a, b) => a.priority - b.priority,
+    );
+    this.listenersDirty = false;
   }
 
   /**
@@ -164,12 +185,16 @@ export class TickSystem {
   ): () => void {
     const listener: TickListener = { callback, priority };
     this.listeners.push(listener);
+    // Mark cache dirty - will rebuild on next tick
+    this.listenersDirty = true;
 
     // Return unsubscribe function
     return () => {
       const index = this.listeners.indexOf(listener);
       if (index !== -1) {
         this.listeners.splice(index, 1);
+        // Mark cache dirty - will rebuild on next tick
+        this.listenersDirty = true;
       }
     };
   }

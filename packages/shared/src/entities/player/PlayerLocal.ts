@@ -120,7 +120,6 @@ import { getSystem } from "../../utils/SystemUtils";
 import type { World } from "../../core/World";
 import { Entity } from "../Entity";
 
-const UP = new THREE.Vector3(0, 1, 0);
 
 interface NodeWithInstance extends THREE.Object3D {
   instance?: THREE.Object3D;
@@ -192,6 +191,17 @@ const _SCALE_IDENTITY = new THREE.Vector3(1, 1, 1);
 // Removed unused constant: MAX_ZOOM
 // Removed unused constant: STICK_MAX_DISTANCE
 const DEFAULT_CAM_HEIGHT = 1.2;
+
+// Pre-defined emote URL map to avoid per-call object allocation
+const LOCAL_EMOTE_URL_MAP: Record<string, string> = {
+  idle: Emotes.IDLE,
+  walk: Emotes.WALK,
+  run: Emotes.RUN,
+  combat: Emotes.COMBAT,
+  sword_swing: Emotes.SWORD_SWING,
+  chopping: Emotes.CHOPPING,
+  death: Emotes.DEATH,
+};
 
 // Utility function for roles check
 function hasRole(roles: string[], role: string): boolean {
@@ -483,7 +493,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
   capsuleHeight: number = 1.6;
   grounded: boolean = false;
   groundAngle: number = 0;
-  groundNormal: THREE.Vector3 = new THREE.Vector3().copy(UP);
+  groundNormal: THREE.Vector3 = new THREE.Vector3(0, 1, 0);
   groundSweepRadius: number = 0.29;
   groundSweepGeometry: PxSphereGeometry | PxCapsuleGeometry | PxShape | null =
     null;
@@ -563,7 +573,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
   private positionValidationInterval?: NodeJS.Timeout;
   // Add pendingMoves array
   private pendingMoves: { seq: number; pos: THREE.Vector3 }[] = [];
-  // PERFORMANCE: Cached objects for hot path updates
   private _tempVec3 = new THREE.Vector3();
   private _tempQuat = new THREE.Quaternion();
   private _tempMatrix4_nametag = new THREE.Matrix4();
@@ -887,19 +896,10 @@ export class PlayerLocal extends Entity implements HotReloadable {
         this.data.emote = newEmote;
         this.emote = newEmote;
 
-        // Immediately apply animation to avatar
+        // Immediately apply animation to avatar (using pre-defined module-level map)
         if (this._avatar) {
           const avatarNode = this._avatar as AvatarNode;
-          const emoteMap: Record<string, string> = {
-            idle: Emotes.IDLE,
-            walk: Emotes.WALK,
-            run: Emotes.RUN,
-            combat: Emotes.COMBAT,
-            sword_swing: Emotes.SWORD_SWING,
-            chopping: Emotes.CHOPPING,
-            death: Emotes.DEATH,
-          };
-          const emoteUrl = emoteMap[this.emote] || Emotes.IDLE;
+          const emoteUrl = LOCAL_EMOTE_URL_MAP[this.emote] || Emotes.IDLE;
 
           if (avatarNode.setEmote) {
             avatarNode.setEmote(emoteUrl);
@@ -1035,7 +1035,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
     this.grounded = false;
     this.groundAngle = 0;
-    this.groundNormal.copy(UP);
+    this.groundNormal.copy(_UP);
     this.groundSweepRadius = this.capsuleRadius - 0.01; // slighty smaller than player
     // groundSweepGeometry will be created later when PhysX is available
 
@@ -2047,7 +2047,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
       angle += Math.PI;
 
       // Apply instant rotation (RuneScape doesn't lerp combat rotation)
-      // PERFORMANCE: Use cached quaternion and module-level UP vector
       if (this.base) {
         this._tempQuat.setFromAxisAngle(_UP, angle);
         this.base.quaternion.copy(this._tempQuat);
@@ -2176,7 +2175,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
       }
       // Update nametag position above head
       if (this.nametag && this.nametag.handle && this.base) {
-        // PERFORMANCE: Use cached matrix instead of allocating new one
         this._tempMatrix4_nametag.copy(this.base.matrixWorld);
         this._tempMatrix4_nametag.elements[13] += 2.2; // Nametag slightly higher (above health bar)
         this.nametag.handle.move(this._tempMatrix4_nametag);
@@ -2184,7 +2182,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
       // Update health bar position (separate from nametag, slightly lower)
       if (this._healthBarHandle && this.base) {
-        // PERFORMANCE: Use cached matrix instead of allocating new one
         this._tempMatrix4_healthbar.copy(this.base.matrixWorld);
         this._tempMatrix4_healthbar.elements[13] += 2.0; // Health bar at Y=2.0
         this._healthBarHandle.move(this._tempMatrix4_healthbar);

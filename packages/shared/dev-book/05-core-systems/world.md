@@ -710,7 +710,7 @@ import { createClientWorld } from '@hyperscape/shared';
 const world = await createClientWorld({
   assetsUrl: '/assets/',
   renderer: canvas,
-  serverUrl: 'ws://localhost:3000'
+  serverUrl: 'ws://localhost:3333'
 });
 
 // Listen for events

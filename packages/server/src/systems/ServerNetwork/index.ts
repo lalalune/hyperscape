@@ -192,6 +192,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   private connectionHandler!: ConnectionHandler;
   private interactionSessionManager!: InteractionSessionManager;
 
+  /** Cached system references to avoid per-tick lookups */
+  private _combatSystem: CombatSystem | null = null;
+  private _playerDeathSystem: PlayerDeathSystemWithTick | null = null;
+  private _lootSystem: LootSystem | null = null;
+  private _resourceSystem: ResourceSystem | null = null;
+  private _systemsCached = false;
+
   constructor(world: World) {
     super(world);
     this.id = 0;
@@ -204,6 +211,22 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.maxUploadSize = 50; // Default 50MB upload limit
 
     // Initialize managers will happen in init() after world.db is set
+  }
+
+  /**
+   * Cache system references to avoid per-tick lookups.
+   * Called once on first tick after all systems are registered.
+   */
+  private cacheSystemReferences(): void {
+    this._combatSystem = this.world.getSystem("combat") as CombatSystem | null;
+    this._playerDeathSystem = this.world.getSystem(
+      "player-death",
+    ) as unknown as PlayerDeathSystemWithTick | null;
+    this._lootSystem = this.world.getSystem("loot") as LootSystem | null;
+    this._resourceSystem = this.world.getSystem(
+      "resource",
+    ) as ResourceSystem | null;
+    this._systemsCached = true;
   }
 
   /**
@@ -295,38 +318,32 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Register combat system to process on each tick (after movement, before AI)
     // This is OSRS-accurate: combat runs on the game tick, not per-frame
     this.tickSystem.onTick((tickNumber) => {
-      const combatSystem = this.world.getSystem(
-        "combat",
-      ) as CombatSystem | null;
-      if (combatSystem) {
-        combatSystem.processCombatTick(tickNumber);
+      // Cache system references on first tick to avoid per-tick lookups
+      if (!this._systemsCached) {
+        this.cacheSystemReferences();
+      }
+      if (this._combatSystem) {
+        this._combatSystem.processCombatTick(tickNumber);
       }
     }, TickPriority.COMBAT);
 
     // Register death system to process on each tick (after combat)
     // Handles gravestone expiration and ground item despawn (OSRS-accurate tick-based timing)
     this.tickSystem.onTick((tickNumber) => {
-      const playerDeathSystem = this.world.getSystem(
-        "player-death",
-      ) as unknown as PlayerDeathSystemWithTick | null;
-      if (
-        playerDeathSystem &&
-        typeof playerDeathSystem.processTick === "function"
-      ) {
-        playerDeathSystem.processTick(tickNumber);
+      if (this._playerDeathSystem) {
+        this._playerDeathSystem.processTick(tickNumber);
       }
     }, TickPriority.COMBAT); // Same priority as combat (after movement)
 
     // Register loot system to process on each tick (after combat)
     // Handles mob corpse despawn (OSRS-accurate tick-based timing)
     this.tickSystem.onTick((tickNumber) => {
-      const lootSystem = this.world.getSystem("loot") as LootSystem | null;
       if (
-        lootSystem &&
-        typeof (lootSystem as unknown as PlayerDeathSystemWithTick)
+        this._lootSystem &&
+        typeof (this._lootSystem as unknown as PlayerDeathSystemWithTick)
           .processTick === "function"
       ) {
-        (lootSystem as unknown as PlayerDeathSystemWithTick).processTick(
+        (this._lootSystem as unknown as PlayerDeathSystemWithTick).processTick(
           tickNumber,
         );
       }
@@ -335,14 +352,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Register resource gathering system to process on each tick (after combat)
     // OSRS-accurate: Woodcutting attempts every 4 ticks (2.4 seconds)
     this.tickSystem.onTick((tickNumber) => {
-      const resourceSystem = this.world.getSystem(
-        "resource",
-      ) as ResourceSystem | null;
       if (
-        resourceSystem &&
-        typeof resourceSystem.processGatheringTick === "function"
+        this._resourceSystem &&
+        typeof this._resourceSystem.processGatheringTick === "function"
       ) {
-        resourceSystem.processGatheringTick(tickNumber);
+        this._resourceSystem.processGatheringTick(tickNumber);
       }
     }, TickPriority.RESOURCES);
 
@@ -384,15 +398,48 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Handle mob tile movement requests from MobEntity AI
     this.world.on(EventType.MOB_NPC_MOVE_REQUEST, (event) => {
+      if (!event || typeof event !== "object") {
+        console.warn(
+          "[ServerNetwork] MOB_NPC_MOVE_REQUEST event received but event is invalid:",
+          event,
+        );
+        return;
+      }
+
       const moveEvent = event as {
-        mobId: string;
-        targetPos: { x: number; y: number; z: number };
+        mobId?: string;
+        targetPos?: { x: number; y: number; z: number };
         targetEntityId?: string;
         tilesPerTick?: number;
       };
+
+      if (!moveEvent.mobId || typeof moveEvent.mobId !== "string" || !moveEvent.targetPos) {
+        console.warn(
+          "[ServerNetwork] MOB_NPC_MOVE_REQUEST event missing required fields:",
+          {
+            mobId: moveEvent.mobId,
+            mobIdType: typeof moveEvent.mobId,
+            hasTargetPos: !!moveEvent.targetPos,
+            eventKeys: Object.keys(moveEvent),
+          },
+        );
+        return;
+      }
+
+      // Final runtime safety check before calling requestMoveTo
+      const mobId = moveEvent.mobId;
+      const targetPos = moveEvent.targetPos;
+      if (!mobId || !targetPos) {
+        console.error(
+          "[ServerNetwork] MOB_NPC_MOVE_REQUEST validation failed at runtime:",
+          { mobId, targetPos, moveEvent },
+        );
+        return;
+      }
+
       this.mobTileMovementManager.requestMoveTo(
-        moveEvent.mobId,
-        moveEvent.targetPos,
+        mobId,
+        targetPos,
         moveEvent.targetEntityId || null,
         moveEvent.tilesPerTick,
       );
@@ -401,11 +448,30 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Initialize mob tile movement state on spawn
     // This ensures mobs have proper tile state from the moment they're created
     this.world.on(EventType.MOB_NPC_SPAWNED, (event) => {
+      if (!event) {
+        console.warn(
+          "[ServerNetwork] MOB_NPC_SPAWNED event received but event is undefined",
+        );
+        return;
+      }
+
       const spawnEvent = event as {
-        mobId: string;
-        mobType: string;
-        position: { x: number; y: number; z: number };
+        mobId?: string;
+        mobType?: string;
+        position?: { x: number; y: number; z: number };
       };
+
+      if (!spawnEvent.mobId || !spawnEvent.position) {
+        console.warn(
+          "[ServerNetwork] MOB_NPC_SPAWNED event missing required fields:",
+          {
+            mobId: spawnEvent.mobId,
+            hasPosition: !!spawnEvent.position,
+          },
+        );
+        return;
+      }
+
       this.mobTileMovementManager.initializeMob(
         spawnEvent.mobId,
         spawnEvent.position,
@@ -416,7 +482,21 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Clean up mob tile movement state on mob death
     // This immediately clears stale tile state when mob dies
     this.world.on(EventType.NPC_DIED, (event) => {
-      const diedEvent = event as { mobId: string };
+      if (!event) {
+        console.warn(
+          "[ServerNetwork] NPC_DIED event received but event is undefined",
+        );
+        return;
+      }
+
+      const diedEvent = event as { mobId?: string };
+      if (!diedEvent.mobId) {
+        console.warn(
+          "[ServerNetwork] NPC_DIED event missing mobId field",
+        );
+        return;
+      }
+
       this.mobTileMovementManager.cleanup(diedEvent.mobId);
     });
 

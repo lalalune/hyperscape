@@ -54,13 +54,13 @@ combatSystem.update(deltaTime);  // Processes all combat components
 // Create client world
 const clientWorld = await createClientWorld({
   assetsUrl: '/assets/',
-  serverUrl: 'ws://localhost:3000'
+  serverUrl: 'ws://localhost:3333'
 });
 
 // Create server world
 const serverWorld = await createServerWorld({
   assetsDir: './assets',
-  port: 3000,
+  port: 3333,
   dbPath: './world.db'
 });
 
@@ -694,7 +694,7 @@ entity.createHealthBar();  // Shows current/max health
 **Usage:**
 ```typescript
 test('player spawns correctly', async ({ page }) => {
-  await page.goto('http://localhost:3000');
+  await page.goto('http://localhost:3333');
 
   // Detect player color (red cube proxy)
   const hasPlayer = await page.evaluate(() => {

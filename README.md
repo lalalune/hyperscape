@@ -135,7 +135,7 @@ Build order: `physx-js-webidl` → `shared` → everything else (handled automat
 ```bash
 bun run dev:client    # Client only (port 3333)
 bun run dev:server    # Server only (port 5555)
-bun run dev:ai        # Game + ElizaOS agents (adds port 4001)
+bun run dev:ai        # Game + ElizaOS agents (adds port 5069)
 bun run dev:forge     # AssetForge tools (ports 3400, 3401)
 bun run docs:dev      # Documentation site (port 3402)
 bun run dev:all       # Everything: game + AI + AssetForge
@@ -189,7 +189,7 @@ Both must use the same Privy App ID from [Privy Dashboard](https://dashboard.pri
 | 8080 | Asset CDN | `bun run dev` |
 | 3400 | AssetForge UI | `bun run dev:forge` |
 | 3401 | AssetForge API | `bun run dev:forge` |
-| 4001 | ElizaOS API | `bun run dev:ai` |
+| 5069 | ElizaOS API | `bun run dev:ai` |
 | 3402 | Documentation | `bun run docs:dev` |
 
 ## Troubleshooting

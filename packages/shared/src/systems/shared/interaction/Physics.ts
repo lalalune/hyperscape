@@ -123,6 +123,7 @@ import { SystemBase } from "../infrastructure/SystemBase";
 const _v3_1 = new THREE.Vector3();
 const _v3_2 = new THREE.Vector3();
 const _v3_3 = new THREE.Vector3();
+const _v3_4 = new THREE.Vector3();
 const _contact_pos = new THREE.Vector3();
 const _contact_nor = new THREE.Vector3();
 const _contact_imp = new THREE.Vector3();
@@ -1191,7 +1192,7 @@ export class Physics extends SystemBase implements IPhysics {
         "[Physics.raycast] Direction vector is too small to normalize",
       );
     }
-    const dirNormalized = new THREE.Vector3(
+    const dirNormalized = _v3_4.set(
       direction.x / dirLen,
       direction.y / dirLen,
       direction.z / dirLen,
@@ -1539,19 +1540,188 @@ export class Physics extends SystemBase implements IPhysics {
 
   // IPhysics interface methods
   createRigidBody(
-    _type: "static" | "dynamic" | "kinematic",
-    _position?: Vector3,
-    _rotation?: Quaternion,
+    type: "static" | "dynamic" | "kinematic",
+    position?: Vector3,
+    rotation?: Quaternion,
   ): RigidBody {
-    throw new Error("Not implemented - use addActor instead");
+    if (!this.physics || !this.scene) {
+      throw new Error("Physics system not initialized");
+    }
+
+    const PHYSX = getPhysX();
+    if (!PHYSX) {
+      throw new Error("PhysX not loaded");
+    }
+
+    // Create transform from position and rotation
+    const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity);
+    if (position) {
+      transform.p = new PHYSX.PxVec3(position.x, position.y, position.z);
+    }
+    if (rotation) {
+      transform.q = new PHYSX.PxQuat(
+        rotation.x,
+        rotation.y,
+        rotation.z,
+        rotation.w,
+      );
+    }
+
+    // Create appropriate rigid body type
+    let actor: PxRigidDynamic | PxRigidStatic;
+    if (type === "static") {
+      actor = this.physics.createRigidStatic(transform);
+    } else {
+      actor = this.physics.createRigidDynamic(transform);
+      if (type === "kinematic") {
+        (actor as PxRigidDynamic).setRigidBodyFlag(
+          PHYSX.PxRigidBodyFlagEnum.eKINEMATIC,
+          true,
+        );
+      }
+    }
+
+    // Create wrapper that implements RigidBody interface
+    const getPose = () => {
+      if ("getGlobalPose" in actor) {
+        return (actor as PxRigidDynamic).getGlobalPose();
+      }
+      return transform;
+    };
+
+    const setPose = (newTransform: PhysX.PxTransform) => {
+      if ("setGlobalPose" in actor) {
+        (actor as PxRigidDynamic).setGlobalPose(newTransform);
+      }
+    };
+
+    const getVelocity = () => {
+      if ("getLinearVelocity" in actor) {
+        return (actor as PxRigidDynamic).getLinearVelocity();
+      }
+      return new PHYSX.PxVec3(0, 0, 0);
+    };
+
+    const getAngularVelocity = () => {
+      if ("getAngularVelocity" in actor) {
+        return (actor as PxRigidDynamic).getAngularVelocity();
+      }
+      return new PHYSX.PxVec3(0, 0, 0);
+    };
+
+    const pose = getPose();
+
+    return {
+      type,
+      mass: type === "static" ? 0 : (actor as PxRigidDynamic).getMass?.() || 1,
+      position: {
+        x: pose.p.x,
+        y: pose.p.y,
+        z: pose.p.z,
+      },
+      rotation: {
+        x: pose.q.x,
+        y: pose.q.y,
+        z: pose.q.z,
+        w: pose.q.w,
+      },
+      velocity: {
+        x: getVelocity().x,
+        y: getVelocity().y,
+        z: getVelocity().z,
+      },
+      angularVelocity: {
+        x: getAngularVelocity().x,
+        y: getAngularVelocity().y,
+        z: getAngularVelocity().z,
+      },
+      applyForce: (force: Vector3, point?: Vector3) => {
+        if ("addForce" in actor) {
+          const forceVec = new PHYSX.PxVec3(force.x, force.y, force.z);
+          if (point) {
+            const pointVec = new PHYSX.PxVec3(point.x, point.y, point.z);
+            PHYSX.PxRigidBodyExt.addForceAtPos(
+              actor as PxRigidBody,
+              forceVec,
+              pointVec,
+              PHYSX.PxForceModeEnum.eFORCE,
+            );
+          } else {
+            (actor as PxRigidDynamic).addForce(
+              forceVec,
+              PHYSX.PxForceModeEnum.eFORCE,
+            );
+          }
+        }
+      },
+      applyImpulse: (impulse: Vector3, point?: Vector3) => {
+        if ("addForce" in actor) {
+          const impulseVec = new PHYSX.PxVec3(impulse.x, impulse.y, impulse.z);
+          if (point) {
+            const pointVec = new PHYSX.PxVec3(point.x, point.y, point.z);
+            PHYSX.PxRigidBodyExt.addForceAtPos(
+              actor as PxRigidBody,
+              impulseVec,
+              pointVec,
+              PHYSX.PxForceModeEnum.eIMPULSE,
+            );
+          } else {
+            (actor as PxRigidDynamic).addForce(
+              impulseVec,
+              PHYSX.PxForceModeEnum.eIMPULSE,
+            );
+          }
+        }
+      },
+      setLinearVelocity: (velocity: Vector3) => {
+        if ("setLinearVelocity" in actor) {
+          const velVec = new PHYSX.PxVec3(velocity.x, velocity.y, velocity.z);
+          (actor as PxRigidDynamic).setLinearVelocity(velVec);
+        }
+      },
+      setAngularVelocity: (velocity: Vector3) => {
+        if ("setAngularVelocity" in actor) {
+          const velVec = new PHYSX.PxVec3(velocity.x, velocity.y, velocity.z);
+          (actor as PxRigidDynamic).setAngularVelocity(velVec);
+        }
+      },
+    } as RigidBody & { _actor: PxRigidDynamic | PxRigidStatic };
   }
 
   createCollider(
-    _geometry: PxGeometry,
-    _material?: PhysicsMaterial,
-    _isTrigger?: boolean,
+    geometry: PxGeometry,
+    material?: PhysicsMaterial,
+    isTrigger?: boolean,
   ): PxShape | null {
-    throw new Error("Not implemented - use PhysX geometry directly");
+    if (!this.physics) {
+      throw new Error("Physics system not initialized");
+    }
+
+    // Get or create material
+    const pxMaterial = material
+      ? this.getMaterial(material.friction, material.friction, material.restitution)
+      : this.defaultMaterial;
+
+    // Create shape from geometry
+    const shape = this.physics.createShape(geometry, pxMaterial, true);
+
+    if (!shape) {
+      return null;
+    }
+
+    // Set trigger flag if specified
+    if (isTrigger) {
+      const PHYSX = getPhysX();
+      if (PHYSX) {
+        shape.setFlag(
+          PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE,
+          false,
+        );
+        shape.setFlag(PHYSX.PxShapeFlagEnum.eTRIGGER_SHAPE, true);
+      }
+    }
+
+    return shape;
   }
 
   createMaterial(

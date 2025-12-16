@@ -12,9 +12,17 @@ import type { ClientWorld } from "../../types";
 interface EntityPip {
   id: string;
   type: "player" | "enemy" | "building" | "item" | "resource";
-  position: THREE.Vector3;
+  /** World position - stored as simple x/z to avoid Vector3 allocations in hot paths */
+  x: number;
+  z: number;
   color: string;
 }
+
+// Cached Vector3 objects for render loop to avoid allocations every frame
+// These are module-level to ensure they're never recreated
+const _projectionVec = new THREE.Vector3();
+const _destinationVec = new THREE.Vector3();
+const _unprojectVec = new THREE.Vector3();
 
 interface MinimapProps {
   world: ClientWorld;
@@ -270,10 +278,12 @@ export function Minimap({
 
       if (player?.node?.position) {
         // Normal mode: local player is the green pip
+        // Store x/z directly to avoid Vector3 allocation
         const playerPip: EntityPip = {
           id: "local-player",
           type: "player",
-          position: player.node.position,
+          x: player.node.position.x,
+          z: player.node.position.z,
           color: "#00ff00",
         };
         pips.push(playerPip);
@@ -297,7 +307,8 @@ export function Minimap({
             const spectatedPip: EntityPip = {
               id: "spectated-player",
               type: "player",
-              position: cameraInfo.target.node.position,
+              x: cameraInfo.target.node.position.x,
+              z: cameraInfo.target.node.position.z,
               color: "#00ff00",
             };
             pips.push(spectatedPip);
@@ -320,14 +331,12 @@ export function Minimap({
           }
           const otherEntity = world.entities.get(otherPlayer.id);
           if (otherEntity && otherEntity.node && otherEntity.node.position) {
+            // Store x/z directly - no Vector3 allocation needed
             const playerPip: EntityPip = {
               id: otherPlayer.id,
               type: "player",
-              position: new THREE.Vector3(
-                otherEntity.node.position.x,
-                0,
-                otherEntity.node.position.z,
-              ),
+              x: otherEntity.node.position.x,
+              z: otherEntity.node.position.z,
               color: "#0088ff",
             };
             pips.push(playerPip);
@@ -378,10 +387,12 @@ export function Minimap({
               type = "item";
           }
 
+          // Store x/z directly - no Vector3 allocation needed
           const entityPip: EntityPip = {
             id: entity.id,
             type,
-            position: new THREE.Vector3(pos.x, 0, pos.z),
+            x: pos.x,
+            z: pos.z,
             color,
           };
           pips.push(entityPip);
@@ -541,13 +552,14 @@ export function Minimap({
 
         // Draw entity pips (use ref to avoid re-creating the render loop)
         entityPipsRefForRender.current.forEach((pip) => {
-          // Convert world position to screen position
+          // Convert world position to screen position using cached vector
           if (cameraRef.current) {
-            const vector = pip.position.clone();
-            vector.project(cameraRef.current);
+            // Reuse cached vector - set values instead of allocating new Vector3
+            _projectionVec.set(pip.x, 0, pip.z);
+            _projectionVec.project(cameraRef.current);
 
-            const x = (vector.x * 0.5 + 0.5) * width;
-            const y = (vector.y * -0.5 + 0.5) * height;
+            const x = (_projectionVec.x * 0.5 + 0.5) * width;
+            const y = (_projectionVec.y * -0.5 + 0.5) * height;
 
             // Only draw if within bounds
             if (x >= 0 && x <= width && y >= 0 && y <= height) {
@@ -640,10 +652,11 @@ export function Minimap({
               ? { x: destWorldRef.x, z: destWorldRef.z }
               : null;
         if (target && cameraRef.current) {
-          const v = new THREE.Vector3(target.x, 0, target.z);
-          v.project(cameraRef.current);
-          const sx = (v.x * 0.5 + 0.5) * width;
-          const sy = (v.y * -0.5 + 0.5) * height;
+          // Use cached vector for destination projection - no allocation
+          _destinationVec.set(target.x, 0, target.z);
+          _destinationVec.project(cameraRef.current);
+          const sx = (_destinationVec.x * 0.5 + 0.5) * width;
+          const sy = (_destinationVec.y * -0.5 + 0.5) * height;
           ctx.save();
           ctx.globalAlpha = 1;
           ctx.fillStyle = "#ff3333";
@@ -681,10 +694,11 @@ export function Minimap({
       const rect = canvas.getBoundingClientRect();
       const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
       const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
-      const v = new THREE.Vector3(ndcX, ndcY, 0);
-      v.unproject(cam);
+      // Use cached vector for unprojection - no allocation on each click
+      _unprojectVec.set(ndcX, ndcY, 0);
+      _unprojectVec.unproject(cam);
       // For top-down ortho, y is constant; grab x/z
-      return { x: v.x, z: v.z };
+      return { x: _unprojectVec.x, z: _unprojectVec.z };
     },
     [],
   );

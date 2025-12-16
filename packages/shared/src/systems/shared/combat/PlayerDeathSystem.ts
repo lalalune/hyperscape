@@ -21,6 +21,7 @@ import { WildernessDeathHandler } from "../death/WildernessDeathHandler";
 import { ZoneType } from "../../../types/death";
 import type { InventorySystem } from "../character/InventorySystem";
 import type { DatabaseTransaction } from "../../../types/network/database";
+import { getCachedTimestamp } from "../movement/ObjectPools";
 
 /**
  * Player Death and Respawn System - Orchestrator Pattern
@@ -64,7 +65,7 @@ export class PlayerDeathSystem extends SystemBase {
   private lastDeathTime = new Map<string, number>();
   private readonly DEATH_COOLDOWN = 10000; // 10 seconds
 
-  // PERFORMANCE: Cached system references and reusable position object
+  // Cached system references
   private cachedPlayerSystem?: {
     players?: Map<string, { position?: { x: number; y: number; z: number } }>;
   };
@@ -209,7 +210,6 @@ export class PlayerDeathSystem extends SystemBase {
       this.handlePlayerReconnect(data),
     );
 
-    // PERFORMANCE: Cache system references to avoid repeated lookups (already initialized in init())
 
     // Listen to position updates for reactive patterns
     this.subscribe(
@@ -309,8 +309,7 @@ export class PlayerDeathSystem extends SystemBase {
     }
 
     if (!position) {
-      // Fallback 2: Try to get from player system
-      // PERFORMANCE: Use cached player system reference
+      // Fallback: try cached player system
       const playerSystem = this.cachedPlayerSystem;
       if (playerSystem) {
         const player = playerSystem.players?.get?.(playerId);
@@ -343,7 +342,7 @@ export class PlayerDeathSystem extends SystemBase {
     playerId: string,
   ): InventoryItem[] {
     const items: InventoryItem[] = [];
-    const timestamp = Date.now();
+    const timestamp = getCachedTimestamp();
     const slots = ["weapon", "shield", "helmet", "body", "legs", "arrows"];
 
     for (const slotName of slots) {
@@ -377,8 +376,9 @@ export class PlayerDeathSystem extends SystemBase {
     }
 
     // Rate limiter - prevent death spam exploits
+    const now = getCachedTimestamp();
     const lastDeath = this.lastDeathTime.get(playerId) || 0;
-    const timeSinceDeath = Date.now() - lastDeath;
+    const timeSinceDeath = now - lastDeath;
 
     if (timeSinceDeath < this.DEATH_COOLDOWN) {
       this.logger.warn(
@@ -399,9 +399,8 @@ export class PlayerDeathSystem extends SystemBase {
     }
 
     // Update last death time
-    this.lastDeathTime.set(playerId, Date.now());
+    this.lastDeathTime.set(playerId, now);
 
-    // PERFORMANCE: Use cached system references
     const databaseSystem = this.cachedDatabaseSystem;
     if (!databaseSystem || !databaseSystem.executeInTransaction) {
       this.logger.error(
@@ -435,9 +434,10 @@ export class PlayerDeathSystem extends SystemBase {
             // Continue with empty items - still need to process death
           }
 
+          const deathTimestamp = getCachedTimestamp();
           const inventoryItems =
             inventory?.items.map((item, index) => ({
-              id: `death_${playerId}_${Date.now()}_${index}`,
+              id: `death_${playerId}_${deathTimestamp}_${index}`,
               itemId: item.itemId,
               quantity: item.quantity,
               slot: item.slot,
@@ -539,11 +539,10 @@ export class PlayerDeathSystem extends SystemBase {
     itemsToDrop: InventoryItem[],
     _killedBy: string,
   ): void {
-    // Store death location for tracking (memory only)
     const deathData: DeathLocationData = {
       playerId,
       deathPosition,
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
       items: itemsToDrop,
     };
     this.deathLocations.set(playerId, deathData);
@@ -609,7 +608,8 @@ export class PlayerDeathSystem extends SystemBase {
     items: InventoryItem[],
     killedBy: string,
   ): Promise<void> {
-    const headstoneId = `headstone_${playerId}_${Date.now()}`;
+    const timestamp = getCachedTimestamp();
+    const headstoneId = `headstone_${playerId}_${timestamp}`;
 
     // Get player's name from entity or use playerId
     const playerEntity = this.world.entities?.get?.(playerId);
@@ -619,7 +619,6 @@ export class PlayerDeathSystem extends SystemBase {
         (playerEntity.data as any).name) ||
       playerId;
 
-    // PERFORMANCE: Use cached entity manager reference
     const entityManager = this.cachedEntityManager;
     if (!entityManager) {
       this.logger.error("EntityManager not found, cannot spawn headstone");
@@ -651,13 +650,13 @@ export class PlayerDeathSystem extends SystemBase {
       headstoneData: {
         playerId,
         playerName,
-        deathTime: Date.now(),
+        deathTime: timestamp,
         deathMessage: `Killed by ${killedBy}`,
         position: groundedPosition,
         items: [...items],
         itemCount: items.length,
         despawnTime:
-          Date.now() + WORLD_STRUCTURE_CONSTANTS.DEATH_ITEM_DESPAWN_TIME, // 5 minutes for player graves
+          timestamp + WORLD_STRUCTURE_CONSTANTS.DEATH_ITEM_DESPAWN_TIME, // 5 minutes for player graves
       },
       properties: {
         movementComponent: null,
@@ -748,7 +747,6 @@ export class PlayerDeathSystem extends SystemBase {
       }
     }
 
-    // PERFORMANCE: Use cached terrain system reference
     const terrainSystem = this.cachedTerrainSystem;
     let groundedY = spawnPosition.y;
 
@@ -868,9 +866,10 @@ export class PlayerDeathSystem extends SystemBase {
       return;
     }
 
-    const gravestoneId = `gravestone_${playerId}_${Date.now()}`;
+    const timestamp = getCachedTimestamp();
+    const gravestoneId = `gravestone_${playerId}_${timestamp}`;
     const GRAVESTONE_DURATION = 5 * 60 * 1000; // 5 minutes
-    const despawnTime = Date.now() + GRAVESTONE_DURATION;
+    const despawnTime = timestamp + GRAVESTONE_DURATION;
 
     // Ground to terrain
     const groundedPosition = groundToTerrain(
@@ -897,7 +896,7 @@ export class PlayerDeathSystem extends SystemBase {
       headstoneData: {
         playerId: playerId,
         playerName: playerId,
-        deathTime: Date.now(),
+        deathTime: timestamp,
         deathMessage: `Slain by ${killedBy}`,
         position: groundedPosition,
         items: items,
@@ -1006,8 +1005,8 @@ export class PlayerDeathSystem extends SystemBase {
     if (deathLock) {
       // Check if death lock is stale (older than 1 hour)
       // Stale death locks should be cleared, not restored
-      const MAX_DEATH_LOCK_AGE = 60 * 60 * 1000; // 1 hour
-      const deathAge = Date.now() - deathLock.timestamp;
+      const MAX_DEATH_LOCK_AGE = 60 * 60 * 1000;
+      const deathAge = getCachedTimestamp() - deathLock.timestamp;
 
       if (deathAge > MAX_DEATH_LOCK_AGE) {
         await this.deathStateManager.clearDeathLock(playerId);
@@ -1180,7 +1179,7 @@ export class PlayerDeathSystem extends SystemBase {
     const deathData = this.deathLocations.get(playerId);
     if (!deathData) return 0;
 
-    const elapsed = Date.now() - deathData.timestamp;
+    const elapsed = getCachedTimestamp() - deathData.timestamp;
     return Math.max(0, WORLD_STRUCTURE_CONSTANTS.RESPAWN_TIME - elapsed);
   }
 
@@ -1188,7 +1187,7 @@ export class PlayerDeathSystem extends SystemBase {
     const deathData = this.deathLocations.get(playerId);
     if (!deathData) return 0;
 
-    const elapsed = Date.now() - deathData.timestamp;
+    const elapsed = getCachedTimestamp() - deathData.timestamp;
     return Math.max(
       0,
       WORLD_STRUCTURE_CONSTANTS.DEATH_ITEM_DESPAWN_TIME - elapsed,

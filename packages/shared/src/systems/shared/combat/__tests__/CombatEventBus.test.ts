@@ -9,7 +9,7 @@
  * - Entity-based queries
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, mock } from "bun:test";
 import {
   CombatEventBus,
   DamageDealtEvent,
@@ -26,7 +26,7 @@ describe("CombatEventBus", () => {
 
   describe("event emission", () => {
     it("emits combat started event", () => {
-      const handler = vi.fn();
+      const handler = mock();
       eventBus.onCombatStarted(handler);
 
       eventBus.emitCombatStarted({
@@ -43,7 +43,7 @@ describe("CombatEventBus", () => {
     });
 
     it("emits attack started event", () => {
-      const handler = vi.fn();
+      const handler = mock();
       eventBus.onAttackStarted(handler);
 
       eventBus.emitAttackStarted({
@@ -60,7 +60,7 @@ describe("CombatEventBus", () => {
     });
 
     it("emits damage dealt event", () => {
-      const handler = vi.fn();
+      const handler = mock();
       eventBus.onDamageDealt(handler);
 
       eventBus.emitDamageDealt({
@@ -76,7 +76,7 @@ describe("CombatEventBus", () => {
     });
 
     it("emits combat ended event", () => {
-      const handler = vi.fn();
+      const handler = mock();
       eventBus.onCombatEnded(handler);
 
       eventBus.emitCombatEnded({
@@ -93,7 +93,7 @@ describe("CombatEventBus", () => {
     });
 
     it("emits entity died event", () => {
-      const handler = vi.fn();
+      const handler = mock();
       eventBus.onEntityDied(handler);
 
       eventBus.emitEntityDied({
@@ -109,7 +109,7 @@ describe("CombatEventBus", () => {
     });
 
     it("emits retaliation event", () => {
-      const handler = vi.fn();
+      const handler = mock();
       eventBus.onRetaliation(handler);
 
       eventBus.emitRetaliation({
@@ -126,7 +126,7 @@ describe("CombatEventBus", () => {
     });
 
     it("adds timestamp to emitted events", () => {
-      const handler = vi.fn();
+      const handler = mock();
       eventBus.onDamageDealt(handler);
 
       const beforeEmit = Date.now();
@@ -147,8 +147,8 @@ describe("CombatEventBus", () => {
 
   describe("multiple handlers", () => {
     it("notifies all handlers for an event type", () => {
-      const handler1 = vi.fn();
-      const handler2 = vi.fn();
+      const handler1 = mock();
+      const handler2 = mock();
 
       eventBus.onDamageDealt(handler1);
       eventBus.onDamageDealt(handler2);
@@ -166,8 +166,8 @@ describe("CombatEventBus", () => {
     });
 
     it("does not notify handlers of other event types", () => {
-      const damageHandler = vi.fn();
-      const combatEndHandler = vi.fn();
+      const damageHandler = mock();
+      const combatEndHandler = mock();
 
       eventBus.onDamageDealt(damageHandler);
       eventBus.onCombatEnded(combatEndHandler);
@@ -187,7 +187,7 @@ describe("CombatEventBus", () => {
 
   describe("unsubscribe", () => {
     it("stops receiving events after unsubscribe", () => {
-      const handler = vi.fn();
+      const handler = mock();
       const unsubscribe = eventBus.onDamageDealt(handler);
 
       eventBus.emitDamageDealt({
@@ -214,8 +214,8 @@ describe("CombatEventBus", () => {
     });
 
     it("only unsubscribes the specific handler", () => {
-      const handler1 = vi.fn();
-      const handler2 = vi.fn();
+      const handler1 = mock();
+      const handler2 = mock();
 
       const unsub1 = eventBus.onDamageDealt(handler1);
       eventBus.onDamageDealt(handler2);
@@ -237,7 +237,7 @@ describe("CombatEventBus", () => {
 
   describe("onAny", () => {
     it("receives all event types", () => {
-      const handler = vi.fn();
+      const handler = mock();
       eventBus.onAny(handler);
 
       eventBus.emitCombatStarted({
@@ -269,7 +269,7 @@ describe("CombatEventBus", () => {
     });
 
     it("unsubscribe from onAny stops all events", () => {
-      const handler = vi.fn();
+      const handler = mock();
       const unsub = eventBus.onAny(handler);
 
       eventBus.emitDamageDealt({
@@ -459,10 +459,10 @@ describe("CombatEventBus", () => {
 
   describe("error handling", () => {
     it("continues to next handler if one throws", () => {
-      const errorHandler = vi.fn().mockImplementation(() => {
+      const errorHandler = mock().mockImplementation(() => {
         throw new Error("Handler error");
       });
-      const successHandler = vi.fn();
+      const successHandler = mock();
 
       eventBus.onDamageDealt(errorHandler);
       eventBus.onDamageDealt(successHandler);
@@ -524,7 +524,7 @@ describe("CombatEventBus", () => {
 
   describe("destroy", () => {
     it("removes all handlers and clears history", () => {
-      const handler = vi.fn();
+      const handler = mock();
       eventBus.onDamageDealt(handler);
       eventBus.enableTracing();
 
@@ -565,7 +565,7 @@ describe("CombatEventBus", () => {
 
     it("resetCombatEventBus destroys and resets singleton", () => {
       const bus1 = getCombatEventBus();
-      const handler = vi.fn();
+      const handler = mock();
       bus1.onDamageDealt(handler);
 
       resetCombatEventBus();

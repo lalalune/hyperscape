@@ -15,7 +15,7 @@
  * Environment Variables:
  * - START_ELIZAOS: Set to 'false' to disable ElizaOS
  * - AGENT_COUNT: Number of agents to start (default: 3, max: 3)
- * - ELIZAOS_PORT: Base port for ElizaOS servers (default: 4001)
+ * - ELIZAOS_PORT: Base port for ElizaOS servers (default: 5069)
  */
 
 import { spawn, execSync } from 'child_process';
@@ -27,10 +27,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, '..');
 
 // Agent configurations
+// Port 5069 avoids conflict with IPFS on 5069
 const AGENTS = [
-  { name: 'Theron', character: 'warrior.json', port: 4001 },
-  { name: 'Mira', character: 'gatherer.json', port: 4002 },
-  { name: 'Zephyr', character: 'explorer.json', port: 4003 },
+  { name: 'Theron', character: 'warrior.json', port: 5069 },
+  { name: 'Mira', character: 'gatherer.json', port: 5070 },
+  { name: 'Zephyr', character: 'explorer.json', port: 5071 },
 ];
 
 // Default localnet wallet address (for e2e testing / local dev)

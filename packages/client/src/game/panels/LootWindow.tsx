@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from "react";
-import type { World } from "@hyperscape/shared";
-import type { InventoryItem } from "@hyperscape/shared";
-import { EventType } from "@hyperscape/shared";
-import { getItem } from "@hyperscape/shared";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { EventType, getItem } from "@hyperscape/shared";
+import type { World, InventoryItem } from "@hyperscape/shared";
 
 interface LootWindowProps {
   visible: boolean;
@@ -22,130 +20,71 @@ export function LootWindow({
   world,
 }: LootWindowProps) {
   const [items, setItems] = useState<InventoryItem[]>(lootItems);
+  const isClosingRef = useRef(false);
 
-  // Update items when prop changes
-  useEffect(() => {
-    setItems(lootItems);
-  }, [lootItems, corpseId]);
+  useEffect(() => setItems(lootItems), [lootItems, corpseId]);
+  useEffect(() => { isClosingRef.current = false; }, [corpseId]);
 
-  // Listen for server updates to the gravestone entity
-  // This keeps the loot window in sync when items are removed
-  useEffect(() => {
-    const updateInterval = setInterval(() => {
-      if (!visible || !corpseId) return;
+  const checkGravestoneState = useCallback(() => {
+    if (!visible || !corpseId || isClosingRef.current) return;
 
-      // Get the gravestone entity from the world
-      const gravestoneEntity = world.entities?.get(corpseId);
-
-      // If gravestone entity no longer exists (despawned), close window immediately
-      if (!gravestoneEntity) {
-        console.log(
-          "[LootWindow] Gravestone despawned, closing window immediately...",
-        );
-        onClose();
-        return;
-      }
-
-      // Check if entity has lootItems in its data
-      const entityData = (
-        gravestoneEntity as {
-          data?: { lootItems?: InventoryItem[]; lootItemCount?: number };
-        }
-      ).data;
-      const gravestoneLootItems = (
-        gravestoneEntity as { lootItems?: InventoryItem[] }
-      ).lootItems;
-      if (entityData?.lootItems || gravestoneLootItems) {
-        const serverItems = entityData?.lootItems || gravestoneLootItems || [];
-
-        // Update local state with server data
-        setItems([...serverItems]);
-      }
-
-      // If gravestone is empty, close the window
-      if (
-        (gravestoneLootItems?.length === 0 ||
-          entityData?.lootItems?.length === 0 ||
-          entityData?.lootItemCount === 0) &&
-        items.length > 0
-      ) {
-        console.log(
-          "[LootWindow] Gravestone empty, closing window in 500ms...",
-        );
-        setTimeout(() => {
-          onClose();
-        }, 500);
-      }
-    }, 100); // Check every 100ms for updates
-
-    return () => clearInterval(updateInterval);
-  }, [visible, corpseId, world, items.length, onClose]);
-
-  const handleTakeItem = (item: InventoryItem, index: number) => {
-    const localPlayer = world.getPlayer();
-    if (!localPlayer) return;
-
-    // Send loot request to server
-    if (world.network?.send) {
-      world.network.send("entityEvent", {
-        id: "world",
-        event: EventType.CORPSE_LOOT_REQUEST,
-        payload: {
-          corpseId,
-          playerId: localPlayer.id,
-          itemId: item.itemId,
-          quantity: item.quantity,
-          slot: index,
-        },
-      });
-    } else {
-      world.emit(EventType.CORPSE_LOOT_REQUEST, {
-        corpseId,
-        playerId: localPlayer.id,
-        itemId: item.itemId,
-        quantity: item.quantity,
-        slot: index,
-      });
+    const gravestoneEntity = world.entities?.get(corpseId);
+    if (!gravestoneEntity) {
+      isClosingRef.current = true;
+      onClose();
+      return;
     }
 
-    // Optimistically remove item from UI
+    const entityData = gravestoneEntity as {
+      data?: { lootItems?: InventoryItem[]; lootItemCount?: number };
+      lootItems?: InventoryItem[];
+    };
+    const serverItems = entityData.data?.lootItems || entityData.lootItems || [];
+    setItems((prev) => prev.length !== serverItems.length ? [...serverItems] : prev);
+
+    if (serverItems.length === 0 || entityData.data?.lootItemCount === 0) {
+      isClosingRef.current = true;
+      setTimeout(onClose, 500);
+    }
+  }, [visible, corpseId, world, onClose]);
+
+  useEffect(() => {
+    if (!visible || !corpseId) return;
+
+    const handleEntityUpdate = (data: unknown) => {
+      const update = data as { entityId?: string; id?: string };
+      if (update.entityId === corpseId || update.id === corpseId) checkGravestoneState();
+    };
+
+    world.on(EventType.ENTITY_UPDATED, handleEntityUpdate);
+    const updateInterval = setInterval(checkGravestoneState, 250);
+
+    return () => {
+      clearInterval(updateInterval);
+      world.off(EventType.ENTITY_UPDATED, handleEntityUpdate);
+    };
+  }, [visible, corpseId, world, checkGravestoneState]);
+
+  const sendLootRequest = useCallback((item: InventoryItem, slot: number, playerId: string) => {
+    const payload = { corpseId, playerId, itemId: item.itemId, quantity: item.quantity, slot };
+    if (world.network?.send) {
+      world.network.send("entityEvent", { id: "world", event: EventType.CORPSE_LOOT_REQUEST, payload });
+    } else {
+      world.emit(EventType.CORPSE_LOOT_REQUEST, payload);
+    }
+  }, [corpseId, world]);
+
+  const handleTakeItem = (item: InventoryItem, index: number) => {
+    const playerId = world.getPlayer()?.id;
+    if (!playerId) return;
+    sendLootRequest(item, index, playerId);
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleTakeAll = () => {
-    const localPlayer = world.getPlayer();
-    if (!localPlayer) return;
-
-    // Take ALL items in one batch request
-    // Copy current items array since we'll clear it optimistically
-    const itemsToTake = [...items];
-
-    // Send loot request for each item
-    itemsToTake.forEach((item, index) => {
-      if (world.network?.send) {
-        world.network.send("entityEvent", {
-          id: "world",
-          event: EventType.CORPSE_LOOT_REQUEST,
-          payload: {
-            corpseId,
-            playerId: localPlayer.id,
-            itemId: item.itemId,
-            quantity: item.quantity,
-            slot: index,
-          },
-        });
-      } else {
-        world.emit(EventType.CORPSE_LOOT_REQUEST, {
-          corpseId,
-          playerId: localPlayer.id,
-          itemId: item.itemId,
-          quantity: item.quantity,
-          slot: index,
-        });
-      }
-    });
-
-    // Optimistically clear ALL items at once
+    const playerId = world.getPlayer()?.id;
+    if (!playerId) return;
+    items.forEach((item, i) => sendLootRequest(item, i, playerId));
     setItems([]);
   };
 
@@ -165,7 +104,6 @@ export function LootWindow({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h3 className="m-0 text-lg font-bold text-white">{corpseName}</h3>
         <div className="flex gap-2">
@@ -185,7 +123,6 @@ export function LootWindow({
         </div>
       </div>
 
-      {/* Loot Items */}
       {items.length === 0 ? (
         <div className="text-center text-gray-400 py-8">
           <p className="text-sm">This corpse has been looted</p>
@@ -223,7 +160,6 @@ export function LootWindow({
         </div>
       )}
 
-      {/* Instructions */}
       <div className="mt-4 pt-3 border-t border-white/10">
         <p className="text-xs text-gray-400 text-center">
           Click an item to take it • Take All to loot everything

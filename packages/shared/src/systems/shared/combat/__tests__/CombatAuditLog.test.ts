@@ -9,7 +9,7 @@
  * - Export functionality
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { CombatAuditLog, CombatAuditEventType } from "../CombatAuditLog";
 
 describe("CombatAuditLog", () => {

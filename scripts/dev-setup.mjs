@@ -38,7 +38,7 @@ const dirs = [
   'packages/shared/build',
   'packages/server/build',
   'packages/client/dist',
-  'packages/server/world/assets/web',
+  'assets/web',
 ]
 
 for (const dir of dirs) {
@@ -50,7 +50,7 @@ console.log(`${colors.green}✓ Build directories ready${colors.reset}`)
 // 2. Copy PhysX assets
 console.log(`${colors.blue}Copying PhysX assets...${colors.reset}`)
 const physxSrc = path.join(rootDir, 'packages/physx-js-webidl/dist')
-const physxDest = path.join(rootDir, 'packages/server/world/assets/web')
+const physxDest = path.join(rootDir, 'assets/web')
 
 if (fs.existsSync(physxSrc)) {
   const files = ['physx-js-webidl.wasm', 'physx-js-webidl.js', 'physx-js-webidl.d.ts']

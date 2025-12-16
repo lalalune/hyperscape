@@ -4,7 +4,7 @@
  * Displays loading progress while world initializes and assets load.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { COLORS } from "../constants";
 
 import { World } from "@hyperscape/shared";
@@ -21,9 +21,42 @@ export function LoadingScreen({
   const [loadingStage, setLoadingStage] = useState(
     message || "Initializing...",
   );
+  const [terrainReady, setTerrainReady] = useState(false);
+
+  // Track terrain readiness
+  useEffect(() => {
+    let terrainInterval: NodeJS.Timeout | null = null;
+    
+    function checkTerrain() {
+      const terrain = world.getSystem?.("terrain") as
+        | { isReady?: () => boolean }
+        | undefined;
+      if (terrain && terrain.isReady && terrain.isReady()) {
+        setTerrainReady(true);
+        if (terrainInterval) {
+          clearInterval(terrainInterval);
+          terrainInterval = null;
+        }
+      }
+    }
+
+    // Check immediately
+    checkTerrain();
+
+    // Poll every 100ms if not ready
+    terrainInterval = setInterval(() => {
+      checkTerrain();
+    }, 100);
+
+    return () => {
+      if (terrainInterval) clearInterval(terrainInterval);
+    };
+  }, [world]);
+
+  const assetsCompleteRef = useRef(false);
+  const systemsCompleteRef = useRef(false);
 
   useEffect(() => {
-    let systemsComplete = false;
     let lastProgress = 3; // Match initial state
 
     const handleProgress = (data: unknown) => {
@@ -47,18 +80,20 @@ export function LoadingScreen({
 
         // Ensure lastProgress reaches 30% when systems complete
         if (progressData.progress === 100) {
-          systemsComplete = true;
+          systemsCompleteRef.current = true;
           if (lastProgress < 30) {
             lastProgress = 30;
             setProgress(30);
           }
         }
       } else if (progressData.total !== undefined) {
-        // Asset loading: takes 30-100% of total progress
-        const assetProgress = 30 + (progressData.progress / 100) * 70;
+        // Asset loading: calculate displayed progress
+        // Cap at 95% until terrain ready, then allow up to 100%
+        const maxProgress = terrainReady ? 100 : 95;
+        const assetProgress = 30 + (progressData.progress / 100) * (maxProgress - 30);
 
         // Only update if systems are complete AND this doesn't go backwards
-        if (systemsComplete && assetProgress >= lastProgress) {
+        if (systemsCompleteRef.current && assetProgress >= lastProgress) {
           lastProgress = assetProgress;
           setProgress(assetProgress);
 
@@ -67,12 +102,24 @@ export function LoadingScreen({
               `Loading assets... (${Math.floor(progressData.progress)}%)`,
             );
           } else {
-            setLoadingStage("Finalizing...");
+            // Assets complete
+            assetsCompleteRef.current = true;
+            if (terrainReady) {
+              setLoadingStage("Ready!");
+              setProgress(100);
+              lastProgress = 100;
+            } else {
+              setLoadingStage("Loading terrain...");
+              // Cap at 95% until terrain ready
+              setProgress(95);
+              lastProgress = 95;
+            }
           }
         }
       } else {
         // Simple progress update - only if it doesn't go backwards
-        const newProgress = progressData.progress;
+        const maxProgress = terrainReady ? 100 : 95;
+        const newProgress = Math.min(progressData.progress, maxProgress);
         if (newProgress >= lastProgress) {
           lastProgress = newProgress;
           setProgress(newProgress);
@@ -84,7 +131,15 @@ export function LoadingScreen({
     return () => {
       world.off(EventType.ASSETS_LOADING_PROGRESS, handleProgress);
     };
-  }, []);
+  }, [world, terrainReady]);
+
+  // When terrain becomes ready, update progress if assets are already complete
+  useEffect(() => {
+    if (terrainReady && assetsCompleteRef.current) {
+      setProgress(100);
+      setLoadingStage("Ready!");
+    }
+  }, [terrainReady]);
 
   return (
     <div className="loading-screen absolute inset-0 bg-black flex pointer-events-auto">

@@ -20,7 +20,7 @@ import { createClientWorld } from '@hyperscape/shared';
 const world = await createClientWorld({
   assetsUrl: '/assets/',
   renderer: canvas,
-  serverUrl: 'ws://localhost:3000'
+  serverUrl: 'ws://localhost:3333'
 });
 
 await world.init();
@@ -52,7 +52,7 @@ import { createServerWorld } from '@hyperscape/shared';
 
 const world = await createServerWorld({
   assetsDir: './assets',
-  port: 3000,
+  port: 3333,
   dbPath: './world.db'
 });
 

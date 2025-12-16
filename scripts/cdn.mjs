@@ -51,9 +51,9 @@ async function ensureCDNRunning() {
       return true
     }
 
-    // Copy PhysX assets to CDN directory
+    // Copy PhysX assets to root assets directory (served by CDN)
     console.log(`${colors.dim}Copying PhysX assets...${colors.reset}`)
-    const assetsWebDir = path.join(rootDir, 'packages/server/world/assets/web')
+    const assetsWebDir = path.join(rootDir, 'assets/web')
     await fs.promises.mkdir(assetsWebDir, { recursive: true })
     
     const physxWasm = path.join(rootDir, 'packages/physx-js-webidl/dist/physx-js-webidl.wasm')

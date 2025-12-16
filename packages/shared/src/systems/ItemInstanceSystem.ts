@@ -25,6 +25,9 @@ import { EventType } from "../types/events";
 import { Logger } from "../utils/Logger";
 import type { World } from "../core/World";
 import { keccak256, solidityPacked, randomBytes } from "ethers";
+import { isMudClientAvailable, setupMudClient } from "../blockchain/mud-client";
+import type { MudClient } from "../blockchain/mud-client";
+import type { Address, Hex } from "viem";
 
 export interface ItemInstance {
   instanceId: string; // Unique keccak256 hash
@@ -53,6 +56,8 @@ export class ItemInstanceSystem extends SystemBase {
   private locks: Map<string, ItemLock> = new Map();
   private readonly LOCK_TIMEOUT_MS = 5000; // 5 seconds
   private readonly CLEANUP_INTERVAL_MS = 30000; // 30 seconds
+  private mudClient: MudClient | null = null;
+  private mudEnabled = false;
 
   constructor(world: World) {
     super(world, {
@@ -110,6 +115,30 @@ export class ItemInstanceSystem extends SystemBase {
       );
     });
 
+    // Initialize MUD client if available (for on-chain persistence)
+    if (isMudClientAvailable()) {
+      try {
+        this.mudClient = await setupMudClient();
+        this.mudEnabled = true;
+        Logger.system(
+          "ItemInstanceSystem",
+          "MUD client initialized - item instances will be persisted on-chain",
+        );
+      } catch (error) {
+        Logger.systemError(
+          "ItemInstanceSystem",
+          "Failed to initialize MUD client - item instances will be tracked locally only",
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        this.mudEnabled = false;
+      }
+    } else {
+      Logger.system(
+        "ItemInstanceSystem",
+        "MUD client not available - item instances tracked locally only",
+      );
+    }
+
     // Start cleanup timer for expired locks
     this.createInterval(() => {
       this.cleanupExpiredLocks();
@@ -141,12 +170,12 @@ export class ItemInstanceSystem extends SystemBase {
   /**
    * Handle item spawn - create instance record
    */
-  private handleItemSpawn(data: {
+  private async handleItemSpawn(data: {
     entityId: string;
     itemId: string;
     position: { x: number; y: number; z: number };
     spawnedBy?: string;
-  }): void {
+  }): Promise<void> {
     // Generate unique instance ID
     const instanceId = this.generateInstanceId(
       data.itemId,
@@ -167,8 +196,27 @@ export class ItemInstanceSystem extends SystemBase {
 
     this.instances.set(instanceId, instance);
 
-    // TODO: Persist to MUD ItemInstance table
-    // ItemInstance.set(instanceId, { ... });
+    // Persist to MUD ItemInstance table if available
+    if (this.mudEnabled && this.mudClient && data.position) {
+      try {
+        await this.mudClient.ItemInstanceSystem.createInstance(
+          instanceId as Hex,
+          parseInt(data.itemId) || 0, // Convert itemId string to number if possible
+          data.position,
+        );
+        Logger.system(
+          "ItemInstanceSystem",
+          `Persisted instance ${instanceId.substring(0, 10)}... to MUD`,
+        );
+      } catch (error) {
+        Logger.systemError(
+          "ItemInstanceSystem",
+          `Failed to persist instance ${instanceId.substring(0, 10)}... to MUD`,
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        // Continue execution - local tracking still works
+      }
+    }
 
     Logger.system(
       "ItemInstanceSystem",
@@ -256,10 +304,26 @@ export class ItemInstanceSystem extends SystemBase {
       instance.isOnGround = false;
       instance.position = null;
 
-      // Persist change
-      // TODO: Update MUD ItemInstance table
-      // ItemInstance.setOwner(instanceId, playerId);
-      // ItemInstance.setIsOnGround(instanceId, false);
+      // Persist change to MUD ItemInstance table if available
+      if (this.mudEnabled && this.mudClient) {
+        try {
+          await this.mudClient.ItemInstanceSystem.setOwner(
+            instanceId as Hex,
+            playerId as Address,
+          );
+          Logger.system(
+            "ItemInstanceSystem",
+            `Updated MUD: instance ${instanceId.substring(0, 10)}... owner set to ${playerId}`,
+          );
+        } catch (error) {
+          Logger.systemError(
+            "ItemInstanceSystem",
+            `Failed to update MUD for instance ${instanceId.substring(0, 10)}...`,
+            error instanceof Error ? error : new Error(String(error)),
+          );
+          // Continue execution - local tracking still works
+        }
+      }
 
       Logger.system(
         "ItemInstanceSystem",
@@ -340,11 +404,11 @@ export class ItemInstanceSystem extends SystemBase {
   /**
    * Handle item minted as NFT
    */
-  private handleItemMinted(data: {
+  private async handleItemMinted(data: {
     instanceId: string;
     tokenId: bigint;
     owner: string;
-  }): void {
+  }): Promise<void> {
     const instance = this.instances.get(data.instanceId);
     if (!instance) {
       Logger.systemError(
@@ -369,7 +433,26 @@ export class ItemInstanceSystem extends SystemBase {
     instance.mintedTokenId = data.tokenId;
     instance.owner = data.owner;
 
-    // TODO: Update MUD table
+    // Update MUD table if available
+    if (this.mudEnabled && this.mudClient) {
+      try {
+        await this.mudClient.ItemInstanceSystem.markAsMinted(
+          data.instanceId as Hex,
+          data.tokenId,
+        );
+        Logger.system(
+          "ItemInstanceSystem",
+          `Updated MUD: instance ${data.instanceId.substring(0, 10)}... marked as minted (token: ${data.tokenId})`,
+        );
+      } catch (error) {
+        Logger.systemError(
+          "ItemInstanceSystem",
+          `Failed to update MUD for minted instance ${data.instanceId.substring(0, 10)}...`,
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        // Continue execution - local tracking still works
+      }
+    }
     // ItemInstance.setIsMinted(data.instanceId, true);
     // ItemInstance.setMintedTokenId(data.instanceId, data.tokenId);
 
@@ -382,10 +465,10 @@ export class ItemInstanceSystem extends SystemBase {
   /**
    * Handle NFT burned (dropped back in game)
    */
-  private handleNFTBurned(data: {
+  private async handleNFTBurned(data: {
     instanceId: string;
     position: { x: number; y: number; z: number };
-  }): void {
+  }): Promise<void> {
     const instance = this.instances.get(data.instanceId);
     if (!instance) {
       Logger.systemError(
@@ -403,11 +486,27 @@ export class ItemInstanceSystem extends SystemBase {
     instance.isOnGround = true;
     instance.position = data.position;
 
-    // TODO: Update MUD table
-    // ItemInstance.setIsMinted(data.instanceId, false);
-    // ItemInstance.setMintedTokenId(data.instanceId, null);
-    // ItemInstance.setOwner(data.instanceId, null);
-    // ItemInstance.setIsOnGround(data.instanceId, true);
+    // Update MUD table - reset owner to null (back on ground)
+    if (this.mudEnabled && this.mudClient) {
+      try {
+        // Set owner to zero address to indicate item is back on ground
+        await this.mudClient.ItemInstanceSystem.setOwner(
+          data.instanceId as Hex,
+          "0x0000000000000000000000000000000000000000" as Address,
+        );
+        Logger.system(
+          "ItemInstanceSystem",
+          `Updated MUD: instance ${data.instanceId.substring(0, 10)}... reset to ground state`,
+        );
+      } catch (error) {
+        Logger.systemError(
+          "ItemInstanceSystem",
+          `Failed to update MUD for burned instance ${data.instanceId.substring(0, 10)}...`,
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        // Continue execution - local tracking still works
+      }
+    }
 
     Logger.system(
       "ItemInstanceSystem",

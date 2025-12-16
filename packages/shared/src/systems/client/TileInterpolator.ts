@@ -124,12 +124,12 @@ export class TileInterpolator {
   private entityStates: Map<string, EntityMovementState> = new Map();
   private debugMode = false;
 
-  // PERFORMANCE: Reusable vectors/quaternions for hot path operations
+  // Reusable objects for hot path operations
   private _tempDir = new THREE.Vector3();
   private _tempQuat = new THREE.Quaternion();
   private _tempNextPos = new THREE.Vector3();
   private _tempRotationTarget = new THREE.Vector3();
-  // Y-axis for yaw rotation
+  private _tempStartPos = new THREE.Vector3();
   private _up = new THREE.Vector3(0, 1, 0);
 
   /**
@@ -226,12 +226,15 @@ export class TileInterpolator {
     // Get or create state
     let state = this.entityStates.get(entityId);
 
-    // Starting visual position for interpolation
-    // Prioritize current visual position for smooth path interruption
-    const startPos =
-      state?.visualPosition?.clone() ||
-      currentPosition?.clone() ||
-      new THREE.Vector3();
+    // Starting visual position - prioritize current visual for smooth path interruption
+    const startPos = this._tempStartPos;
+    if (state?.visualPosition) {
+      startPos.copy(state.visualPosition);
+    } else if (currentPosition) {
+      startPos.copy(currentPosition);
+    } else {
+      startPos.set(0, 0, 0);
+    }
 
     // SERVER PATH IS AUTHORITATIVE - no client path calculation
     // Server sends complete path from its known position. Client follows exactly.
@@ -264,7 +267,6 @@ export class TileInterpolator {
     const rotationTargetTile =
       destinationTile || finalPath[finalPath.length - 1];
     const rotationTargetWorld = tileToWorld(rotationTargetTile);
-    // PERFORMANCE: Use cached vector instead of allocating new one
     const initialRotation =
       this.calculateFacingRotation(
         startPos,
@@ -299,18 +301,20 @@ export class TileInterpolator {
       state.tilesPerTick = tilesPerTick ?? null;
     } else {
       // Create new state - set both quaternion and target to initial (no slerp needed for first movement)
+      // NOTE: State objects store persistent Vector3/Quaternion instances that persist for entity lifetime
+      // We clone here once per entity (not per frame) - acceptable allocation
       state = {
         fullPath: finalPath,
         targetTileIndex: 0,
         destinationTile: destinationTile ? { ...destinationTile } : null,
-        visualPosition: startPos.clone(),
+        visualPosition: new THREE.Vector3().copy(startPos),
         targetWorldPos: new THREE.Vector3(
           firstTileWorld.x,
           startPos.y,
           firstTileWorld.z,
         ),
-        quaternion: initialRotation.clone(),
-        targetQuaternion: initialRotation.clone(),
+        quaternion: new THREE.Quaternion().copy(initialRotation),
+        targetQuaternion: new THREE.Quaternion().copy(initialRotation),
         isRunning: running,
         isMoving: true,
         emote: emote ?? (running ? "run" : "walk"),
@@ -384,22 +388,20 @@ export class TileInterpolator {
         );
       }
 
-      const initialQuat = quaternion
-        ? new THREE.Quaternion(
-            quaternion[0],
-            quaternion[1],
-            quaternion[2],
-            quaternion[3],
-          )
-        : new THREE.Quaternion();
+      // NOTE: State objects store persistent Vector3/Quaternion instances that persist for entity lifetime
+      // We create here once per entity (not per frame) - acceptable allocation
+      const initialQuat = new THREE.Quaternion();
+      if (quaternion) {
+        initialQuat.set(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
+      }
       const newState: EntityMovementState = {
         fullPath: [],
         targetTileIndex: 0,
         destinationTile: null,
-        visualPosition: usePos.clone(),
-        targetWorldPos: usePos.clone(),
-        quaternion: initialQuat.clone(),
-        targetQuaternion: initialQuat.clone(),
+        visualPosition: new THREE.Vector3().copy(usePos),
+        targetWorldPos: new THREE.Vector3().copy(usePos),
+        quaternion: new THREE.Quaternion().copy(initialQuat),
+        targetQuaternion: new THREE.Quaternion().copy(initialQuat),
         isRunning: emote === "run",
         isMoving: false,
         emote: emote,
@@ -868,7 +870,6 @@ export class TileInterpolator {
             // Calculate rotation to face next tile (only update if distance is sufficient)
             const nextTile = state.fullPath[state.targetTileIndex];
             const nextWorld = tileToWorld(nextTile);
-            // PERFORMANCE: Use cached vector instead of allocating new one
             const nextPos = this._tempNextPos.set(
               nextWorld.x,
               state.visualPosition.y,
@@ -1018,10 +1019,25 @@ export class TileInterpolator {
 
   /**
    * Get current visual position for an entity
+   * PERFORMANCE: Returns reference, caller should not modify directly
+   * Use getVisualPositionCopy() if modification is needed
    */
   getVisualPosition(entityId: string): THREE.Vector3 | null {
     const state = this.entityStates.get(entityId);
-    return state ? state.visualPosition.clone() : null;
+    return state ? state.visualPosition : null;
+  }
+
+  /**
+   * Get a copy of current visual position for an entity
+   * Use this when caller needs to modify the position
+   */
+  getVisualPositionCopy(entityId: string, target?: THREE.Vector3): THREE.Vector3 | null {
+    const state = this.entityStates.get(entityId);
+    if (!state) return null;
+    if (target) {
+      return target.copy(state.visualPosition);
+    }
+    return state.visualPosition.clone();
   }
 
   /**
@@ -1068,6 +1084,8 @@ export class TileInterpolator {
       state.moveSeq++;
     } else {
       // No existing state - create fresh state at new position
+      // NOTE: State objects store persistent Vector3/Quaternion instances that persist for entity lifetime
+      // We create here once per entity (not per frame) - acceptable allocation
       state = {
         fullPath: [],
         targetTileIndex: 0,

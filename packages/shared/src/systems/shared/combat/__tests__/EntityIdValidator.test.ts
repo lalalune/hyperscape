@@ -7,7 +7,7 @@
  * - Sanitization for safe logging
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { EntityIdValidator, entityIdValidator } from "../EntityIdValidator";
 
 describe("EntityIdValidator", () => {

@@ -36,7 +36,7 @@
  *   assetsDir: './assets',
  *   storage: nodeStorage
  * });
- * world.network.connect('ws://localhost:5009');
+ * world.network.connect('ws://localhost:3333');
  * // Headless client is now connected to server
  * ```
  *

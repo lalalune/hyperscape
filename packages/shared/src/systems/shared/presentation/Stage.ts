@@ -565,18 +565,15 @@ export class Stage extends SystemBase {
     }
 
     // Create a sky node compatible with ClientEnvironment.addSky
-    // Convert null values to undefined to match SkyNode interface
     const skyNode = {
       _bg: skyData.bg ?? undefined,
       _hdr: skyData.hdr ?? undefined,
       _sunDirection: skyData.sunDirection
-        ? this._tempVec3
-            .set(
-              skyData.sunDirection[0],
-              skyData.sunDirection[1],
-              skyData.sunDirection[2],
-            )
-            .clone()
+        ? {
+            x: skyData.sunDirection[0],
+            y: skyData.sunDirection[1],
+            z: skyData.sunDirection[2],
+          }
         : undefined,
       _sunIntensity: skyData.sunIntensity ?? undefined,
       _sunColor: skyData.sunColor ?? undefined,

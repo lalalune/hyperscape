@@ -1,9 +1,12 @@
 /**
  * Asset Database Service
  * Syncs file-based assets with PostgreSQL database
+ * 
+ * Note: All methods handle database unavailability gracefully.
+ * If database is not available, operations return null/void without throwing.
  */
 
-import { db } from "../db/db";
+import { getDb } from "../db/db";
 import { assets, type Asset, type NewAsset } from "../db/schema";
 import { eq } from "drizzle-orm";
 import type { AssetMetadataType } from "../models";
@@ -17,7 +20,13 @@ export class AssetDatabaseService {
     metadata: AssetMetadataType,
     ownerId: string,
     filePath: string,
-  ): Promise<Asset> {
+  ): Promise<Asset | null> {
+    const db = await getDb();
+    if (!db) {
+      // Silently skip - database not available
+      return null;
+    }
+    
     try {
       const [asset] = await db
         .insert(assets)
@@ -53,7 +62,8 @@ export class AssetDatabaseService {
         `[AssetDatabaseService] Failed to create asset record:`,
         error,
       );
-      throw error;
+      // Don't throw - return null to indicate failure without crashing
+      return null;
     }
   }
 
@@ -64,6 +74,12 @@ export class AssetDatabaseService {
     assetId: string,
     updates: Partial<NewAsset>,
   ): Promise<Asset | null> {
+    const db = await getDb();
+    if (!db) {
+      // Silently skip - database not available
+      return null;
+    }
+    
     try {
       // Find asset by filePath pattern (contains assetId)
       const existingAssets = await db
@@ -97,7 +113,7 @@ export class AssetDatabaseService {
         `[AssetDatabaseService] Failed to update asset record:`,
         error,
       );
-      throw error;
+      return null;
     }
   }
 
@@ -105,6 +121,12 @@ export class AssetDatabaseService {
    * Delete asset from database
    */
   async deleteAssetRecord(assetId: string): Promise<void> {
+    const db = await getDb();
+    if (!db) {
+      // Silently skip - database not available
+      return;
+    }
+    
     try {
       // Find and delete by filePath pattern
       await db
@@ -119,7 +141,7 @@ export class AssetDatabaseService {
         `[AssetDatabaseService] Failed to delete asset record:`,
         error,
       );
-      throw error;
+      // Don't throw - just log the error
     }
   }
 
@@ -127,6 +149,12 @@ export class AssetDatabaseService {
    * Get asset with owner info
    */
   async getAssetWithOwner(assetId: string): Promise<Asset | null> {
+    const db = await getDb();
+    if (!db) {
+      // Silently skip - database not available
+      return null;
+    }
+    
     try {
       const result = await db
         .select()

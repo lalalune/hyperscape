@@ -181,6 +181,7 @@ export enum EventType {
   COMBAT_ACTION = "combat:action",
   COMBAT_KILL = "combat:kill",
   COMBAT_LEVEL_CHANGED = "combat:level:changed",
+  COMBAT_FOLLOW_TARGET = "combat:follow_target",
 
   // Aggro System
   AGGRO_PLAYER_LEFT = "aggro:player_left",

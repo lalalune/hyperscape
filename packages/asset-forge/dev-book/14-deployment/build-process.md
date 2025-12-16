@@ -63,7 +63,7 @@ export default defineConfig({
   },
 
   server: {
-    port: 3000,
+    port: 3333,
     proxy: {
       '/api': {
         target: 'http://localhost:3004',
@@ -149,7 +149,7 @@ export default defineConfig({
 # Start development server
 npm run dev
 
-# Frontend: http://localhost:3000
+# Frontend: http://localhost:3333
 # Backend API: http://localhost:3004
 # Image server: http://localhost:8080
 ```

@@ -118,7 +118,6 @@ export class SocketManager {
       {
         hadPlayer: !!socket.player,
         playerId: socket.player?.id,
-        stackTrace: new Error().stack?.split("\n").slice(1, 4).join("\n"),
       },
     );
 

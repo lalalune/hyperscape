@@ -1,6 +1,14 @@
+/**
+ * Chat Component
+ * In-game chat interface with multiple channels
+ *
+ * PERFORMANCE: Style objects are memoized to avoid recreation on each render.
+ * Static styles are defined outside the component, dynamic styles use useMemo.
+ */
+
 import { MessageSquareIcon } from "lucide-react";
 import { COLORS, GRADIENTS } from "../../constants";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo, memo } from "react";
 
 import { ControlPriorities, EventType, isTouch } from "@hyperscape/shared";
 import type { ClientWorld, InventorySlotItem } from "../../types";
@@ -52,6 +60,72 @@ export type ChatWorld = ClientWorld & {
   };
 };
 
+// Static styles that don't depend on any props
+const DIVIDER_GRADIENT =
+  "linear-gradient(90deg, rgba(242,208,138,0), rgba(242,208,138,0.4) 14%, rgba(255,215,128,0.95) 50%, rgba(242,208,138,0.4) 86%, rgba(242,208,138,0))";
+
+const GOLD_LINE_STYLE: React.CSSProperties = {
+  width: "100%",
+  height: 1,
+  background: DIVIDER_GRADIENT,
+  opacity: 0.95,
+};
+
+const NARROW_GOLD_LINE_STYLE: React.CSSProperties = {
+  width: "80%",
+  height: 1,
+  background: DIVIDER_GRADIENT,
+  opacity: 0.95,
+  margin: "0 auto",
+};
+
+const PLACEMENT_STYLE_COLLAPSED: React.CSSProperties = {
+  left: `calc(env(safe-area-inset-left) + 24px)`,
+  bottom: `calc(env(safe-area-inset-bottom) + 24px)`,
+};
+
+const PLACEMENT_STYLE_EXPANDED: React.CSSProperties = {
+  left: 0,
+  bottom: 0,
+};
+
+const INPUT_STYLE_BASE: React.CSSProperties = {
+  flex: 1,
+  background: "transparent",
+  border: "none",
+  outline: "none",
+  color: "rgba(232, 235, 244, 0.96)",
+  letterSpacing: "0.02em",
+};
+
+const TAB_UNDERLINE_STYLE: React.CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  bottom: -2,
+  transform: "translateX(-50%)",
+  width: "80%",
+  height: 1,
+  borderRadius: 999,
+  background:
+    "linear-gradient(90deg, transparent, rgba(247,217,140,0.85), transparent)",
+  boxShadow: "0 0 4px rgba(242, 208, 138, 0.4)",
+};
+
+const MESSAGE_STYLE: React.CSSProperties = {
+  color: "rgba(232, 235, 244, 0.92)",
+  fontFamily: "'Inter', system-ui, sans-serif",
+  textShadow: "0 1px 2px rgba(0,0,0,0.75)",
+};
+
+const MESSAGE_FROM_STYLE: React.CSSProperties = {
+  fontFamily: CHAT_HEADER_FONT,
+  color: CHAT_ACCENT_COLOR,
+  fontSize: "0.65rem",
+  letterSpacing: "0.18em",
+};
+
+const TABS = ["Global", "Local", "Group"] as const;
+
 export function Chat({ world }: { world: ChatWorld }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const chatPanelRef = useRef<HTMLDivElement | null>(null);
@@ -60,12 +134,119 @@ export function Chat({ world }: { world: ChatWorld }) {
   const { active, setActive, collapsed, setCollapsed, hasOpenWindows } =
     useChatContext();
   const [chatVisible, setChatVisible] = useState(
-    () => world.prefs?.chatVisible ?? true,
+    () => world.prefs?.chatVisible ?? true
   );
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
   );
   const [inventory, setInventory] = useState<InventorySlotItem[]>([]);
+
+  // Memoize styles that depend on isTouch
+  const styles = useMemo(() => {
+    const panelWidth = isTouch ? 386 : 720;
+
+    const basePanelStyle: React.CSSProperties = {
+      background: GRADIENTS.PANEL,
+      border: "2px solid rgba(139, 69, 19, 0.6)",
+      borderRadius: 0,
+      padding: isTouch
+        ? "0.5rem 0.85rem 0.25rem 0.25rem"
+        : "0.6rem 1.1rem 0.3rem 0.3rem",
+      boxShadow:
+        "0 8px 32px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(139, 69, 19, 0.4), inset 0 1px 0 rgba(242, 208, 138, 0.15), inset 0 -2px 0 rgba(0, 0, 0, 0.6)",
+      backdropFilter: "blur(12px)",
+      color: "rgba(232, 235, 244, 0.92)",
+      display: "flex",
+      flexDirection: "column",
+      gap: isTouch ? "0.25rem" : "0.3rem",
+      pointerEvents: "auto",
+    };
+
+    return {
+      desktopPanel: {
+        ...basePanelStyle,
+        width: panelWidth,
+        maxWidth: "min(96vw, 760px)",
+        borderTopRightRadius: "12px",
+        borderTop: "2px solid rgba(139, 69, 19, 0.6)",
+        borderRight: "2px solid rgba(139, 69, 19, 0.6)",
+      } as React.CSSProperties,
+
+      mobilePanel: {
+        ...basePanelStyle,
+        width: "100%",
+        maxWidth: "100%",
+      } as React.CSSProperties,
+
+      chatButton: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "0.6rem",
+        background:
+          "linear-gradient(135deg, rgba(30, 20, 10, 0.9) 0%, rgba(20, 15, 10, 0.95) 100%)",
+        border: "2px solid rgba(139, 69, 19, 0.7)",
+        borderRadius: 9999,
+        padding: isTouch ? "0.55rem 1.2rem" : "0.65rem 1.4rem",
+        color: CHAT_ACCENT_COLOR,
+        fontFamily: CHAT_HEADER_FONT,
+        letterSpacing: "0.16em",
+        textTransform: "uppercase",
+        fontSize: isTouch ? "0.68rem" : "0.76rem",
+        boxShadow:
+          "0 4px 12px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(139, 69, 19, 0.4), inset 0 1px 0 rgba(242, 208, 138, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.5)",
+        textShadow:
+          "0 1px 2px rgba(0, 0, 0, 0.8), 0 0 6px rgba(242, 208, 138, 0.3)",
+        pointerEvents: "auto",
+      } as React.CSSProperties,
+
+      closeButton: {
+        width: isTouch ? 24 : 28,
+        height: isTouch ? 24 : 28,
+        borderRadius: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "transparent",
+        border: "none",
+        color: CHAT_ACCENT_COLOR,
+        boxShadow: "none",
+        cursor: "pointer",
+        flexShrink: 0,
+      } as React.CSSProperties,
+
+      inactiveInput: {
+        width: "100%",
+        padding: isTouch ? "0.35rem 0" : "0.4rem 0",
+        borderRadius: 0,
+        border: "none",
+        borderBottom: "1px solid rgba(247,217,140,0.55)",
+        background: "transparent",
+        color: "rgba(232, 235, 244, 0.75)",
+        fontSize: isTouch ? "0.72rem" : "0.8rem",
+        letterSpacing: "0.02em",
+        fontFamily: "'Inter', system-ui, sans-serif",
+        textAlign: "left",
+      } as React.CSSProperties,
+
+      inputContainer: {
+        display: "flex",
+        alignItems: "center",
+        gap: "0.5rem",
+        borderBottom: "1px solid rgba(247,217,140,0.55)",
+        padding: isTouch ? "0.35rem 0" : "0.4rem 0",
+      } as React.CSSProperties,
+
+      input: {
+        ...INPUT_STYLE_BASE,
+        fontSize: isTouch ? "0.74rem" : "0.86rem",
+      } as React.CSSProperties,
+
+      closeIconFontSize: isTouch ? "0.85rem" : "0.95rem",
+      chatButtonPadding: isTouch ? "0.65rem" : "0.75rem",
+      iconSize: isTouch ? 20 : 24,
+    };
+  }, []); // isTouch is a constant, so empty deps is fine
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -110,23 +291,19 @@ export function Chat({ world }: { world: ChatWorld }) {
     };
     world.on(EventType.INVENTORY_UPDATED, onInventory);
 
-    // Request initial inventory data (same pattern as Sidebar.tsx)
     const requestInitial = () => {
       const playerId = world.entities?.player?.id;
       if (playerId) {
-        // Check cached inventory first for instant load
         const cached = world.network?.lastInventoryByPlayerId?.[playerId];
         if (cached && Array.isArray(cached.items)) {
           setInventory(cached.items);
         }
-        // Request fresh data from server
         world.emit(EventType.INVENTORY_REQUEST, { playerId });
         return true;
       }
       return false;
     };
 
-    // Try immediately, retry after delay if player not ready
     let timeoutId: number | null = null;
     if (!requestInitial()) {
       timeoutId = window.setTimeout(() => requestInitial(), 400);
@@ -177,157 +354,32 @@ export function Chat({ world }: { world: ChatWorld }) {
     }
   }, [active]);
 
-  const send = async (
-    e: React.KeyboardEvent | React.MouseEvent | KeyboardEvent | MouseEvent,
-  ) => {
-    if (world.controls?.pointer?.locked) {
-      setTimeout(() => setActive(false), 10);
-    }
-    if (!msg) {
-      e.preventDefault();
-      return setActive(false);
-    }
-    setMsg("");
-    if (msg.startsWith("/")) {
-      world.chat.command(msg);
-      return;
-    }
-    world.chat.send(msg);
-    if (isTouch) {
-      if (e.target && e.target instanceof HTMLElement) {
-        e.target.blur();
+  const send = useCallback(
+    async (
+      e: React.KeyboardEvent | React.MouseEvent | KeyboardEvent | MouseEvent
+    ) => {
+      if (world.controls?.pointer?.locked) {
+        setTimeout(() => setActive(false), 10);
       }
-      setTimeout(() => setActive(false), 10);
-    }
-  };
-
-  const panelWidth = isTouch ? 386 : 720;
-  const dividerGradient =
-    "linear-gradient(90deg, rgba(242,208,138,0), rgba(242,208,138,0.4) 14%, rgba(255,215,128,0.95) 50%, rgba(242,208,138,0.4) 86%, rgba(242,208,138,0))";
-
-  const basePanelStyle: React.CSSProperties = {
-    background: GRADIENTS.PANEL,
-    border: "2px solid rgba(139, 69, 19, 0.6)",
-    borderRadius: 0,
-    padding: isTouch
-      ? "0.5rem 0.85rem 0.25rem 0.25rem"
-      : "0.6rem 1.1rem 0.3rem 0.3rem",
-    boxShadow:
-      "0 8px 32px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(139, 69, 19, 0.4), inset 0 1px 0 rgba(242, 208, 138, 0.15), inset 0 -2px 0 rgba(0, 0, 0, 0.6)",
-    backdropFilter: "blur(12px)",
-    color: "rgba(232, 235, 244, 0.92)",
-    display: "flex",
-    flexDirection: "column",
-    gap: isTouch ? "0.25rem" : "0.3rem",
-    pointerEvents: "auto",
-  };
-  const goldLineStyle: React.CSSProperties = {
-    width: "100%",
-    height: 1,
-    background: dividerGradient,
-    opacity: 0.95,
-  };
-  const narrowGoldLineStyle: React.CSSProperties = {
-    width: "80%",
-    height: 1,
-    background: dividerGradient,
-    opacity: 0.95,
-    margin: "0 auto",
-  };
-  const desktopPanelStyle: React.CSSProperties = {
-    ...basePanelStyle,
-    width: panelWidth,
-    maxWidth: "min(96vw, 760px)",
-    borderTopRightRadius: "12px",
-    borderTop: "2px solid rgba(139, 69, 19, 0.6)",
-    borderRight: "2px solid rgba(139, 69, 19, 0.6)",
-  };
-  const mobilePanelStyle: React.CSSProperties = {
-    ...basePanelStyle,
-    width: "100%",
-    maxWidth: "100%",
-  };
-
-  const chatButtonStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "0.6rem",
-    background:
-      "linear-gradient(135deg, rgba(30, 20, 10, 0.9) 0%, rgba(20, 15, 10, 0.95) 100%)",
-    border: "2px solid rgba(139, 69, 19, 0.7)",
-    borderRadius: 9999,
-    padding: isTouch ? "0.55rem 1.2rem" : "0.65rem 1.4rem",
-    color: CHAT_ACCENT_COLOR,
-    fontFamily: CHAT_HEADER_FONT,
-    letterSpacing: "0.16em",
-    textTransform: "uppercase",
-    fontSize: isTouch ? "0.68rem" : "0.76rem",
-    boxShadow:
-      "0 4px 12px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(139, 69, 19, 0.4), inset 0 1px 0 rgba(242, 208, 138, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.5)",
-    textShadow:
-      "0 1px 2px rgba(0, 0, 0, 0.8), 0 0 6px rgba(242, 208, 138, 0.3)",
-    pointerEvents: "auto",
-  };
-
-  const closeButtonStyle: React.CSSProperties = {
-    width: isTouch ? 24 : 28,
-    height: isTouch ? 24 : 28,
-    borderRadius: 9999,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "transparent",
-    border: "none",
-    color: CHAT_ACCENT_COLOR,
-    boxShadow: "none",
-    cursor: "pointer",
-    flexShrink: 0,
-  };
-
-  const inactiveInputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: isTouch ? "0.35rem 0" : "0.4rem 0",
-    borderRadius: 0,
-    border: "none",
-    borderBottom: "1px solid rgba(247,217,140,0.55)",
-    background: "transparent",
-    color: "rgba(232, 235, 244, 0.75)",
-    fontSize: isTouch ? "0.72rem" : "0.8rem",
-    letterSpacing: "0.02em",
-    fontFamily: "'Inter', system-ui, sans-serif",
-    textAlign: "left",
-  };
-
-  const inputContainerStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    borderBottom: "1px solid rgba(247,217,140,0.55)",
-    padding: isTouch ? "0.35rem 0" : "0.4rem 0",
-  };
-
-  const inputStyle: React.CSSProperties = {
-    flex: 1,
-    background: "transparent",
-    border: "none",
-    outline: "none",
-    color: "rgba(232, 235, 244, 0.96)",
-    fontSize: isTouch ? "0.74rem" : "0.86rem",
-    letterSpacing: "0.02em",
-  };
-
-  const placementStyleCollapsed: React.CSSProperties = {
-    left: `calc(env(safe-area-inset-left) + 24px)`,
-    bottom: `calc(env(safe-area-inset-bottom) + 24px)`,
-  };
-
-  const placementStyleExpanded: React.CSSProperties = {
-    left: 0,
-    bottom: 0,
-  };
-
-  const tabs = ["Global", "Local", "Group"] as const;
+      if (!msg) {
+        e.preventDefault();
+        return setActive(false);
+      }
+      setMsg("");
+      if (msg.startsWith("/")) {
+        world.chat.command(msg);
+        return;
+      }
+      world.chat.send(msg);
+      if (isTouch) {
+        if (e.target && e.target instanceof HTMLElement) {
+          e.target.blur();
+        }
+        setTimeout(() => setActive(false), 10);
+      }
+    },
+    [msg, setActive, world]
+  );
 
   const updateMobileOffset = useCallback(
     (newCollapsed?: boolean) => {
@@ -335,25 +387,26 @@ export function Chat({ world }: { world: ChatWorld }) {
       if (!isMobileLayout) {
         document.documentElement.style.setProperty(
           "--mobile-chat-offset",
-          "0px",
+          "0px"
         );
         return;
       }
-      const isCollapsed = newCollapsed !== undefined ? newCollapsed : collapsed;
-      if (!isCollapsed && chatPanelRef.current) {
+      const isCollapsedState =
+        newCollapsed !== undefined ? newCollapsed : collapsed;
+      if (!isCollapsedState && chatPanelRef.current) {
         const height = chatPanelRef.current.offsetHeight;
         document.documentElement.style.setProperty(
           "--mobile-chat-offset",
-          `${height}px`,
+          `${height}px`
         );
       } else {
         document.documentElement.style.setProperty(
           "--mobile-chat-offset",
-          "0px",
+          "0px"
         );
       }
     },
-    [collapsed, isMobileLayout],
+    [collapsed, isMobileLayout]
   );
 
   useEffect(() => {
@@ -377,154 +430,282 @@ export function Chat({ world }: { world: ChatWorld }) {
     };
   }, []);
 
-  const renderTabs = (fontSize: string) => (
-    <div
-      className="flex items-center gap-6"
-      style={{
+  // Memoize tab header styles
+  const tabHeaderStyles = useMemo(
+    () => ({
+      container: {
         fontFamily: CHAT_HEADER_FONT,
         letterSpacing: "0.16em",
-        textTransform: "uppercase",
-        fontSize,
-      }}
-    >
-      {tabs.map((tab, index) => (
-        <span
-          key={tab}
-          style={{
-            color: index === 0 ? CHAT_ACCENT_COLOR : "rgba(205, 212, 230, 0.5)",
-            position: "relative",
-            textShadow:
-              index === 0
-                ? "0 1px 2px rgba(0, 0, 0, 0.8), 0 0 6px rgba(242, 208, 138, 0.3)"
-                : "0 1px 2px rgba(0, 0, 0, 0.6)",
-          }}
-        >
-          {tab}
-          {index === 0 && (
-            <span
-              style={{
-                position: "absolute",
-                left: "50%",
-                bottom: -2,
-                transform: "translateX(-50%)",
-                width: "80%",
-                height: 1,
-                borderRadius: 999,
-                background:
-                  "linear-gradient(90deg, transparent, rgba(247,217,140,0.85), transparent)",
-                boxShadow: "0 0 4px rgba(242, 208, 138, 0.4)",
-              }}
-            />
-          )}
-        </span>
-      ))}
-    </div>
+        textTransform: "uppercase" as const,
+      },
+      activeTab: {
+        color: CHAT_ACCENT_COLOR,
+        position: "relative" as const,
+        textShadow:
+          "0 1px 2px rgba(0, 0, 0, 0.8), 0 0 6px rgba(242, 208, 138, 0.3)",
+      },
+      inactiveTab: {
+        color: "rgba(205, 212, 230, 0.5)",
+        position: "relative" as const,
+        textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
+      },
+    }),
+    []
   );
 
-  const renderChatBody = (variant: "desktop" | "mobile") => (
-    <>
-      <div className="flex items-center justify-between">
-        {renderTabs(
-          variant === "mobile"
-            ? isTouch
-              ? "0.64rem"
-              : "0.7rem"
-            : isTouch
-              ? "0.64rem"
-              : "0.74rem",
-        )}
-        <button
-          type="button"
-          style={closeButtonStyle}
-          className="focus:outline-none transition-transform duration-150 hover:scale-[1.05] active:scale-95"
-          onClick={() => {
-            setCollapsed(true);
-            setActive(false);
-          }}
-          title="Close chat"
-        >
+  const renderTabs = useCallback(
+    (fontSize: string) => (
+      <div
+        className="flex items-center gap-6"
+        style={{ ...tabHeaderStyles.container, fontSize }}
+      >
+        {TABS.map((tab, index) => (
           <span
-            style={{ fontSize: isTouch ? "0.85rem" : "0.95rem", lineHeight: 1 }}
+            key={tab}
+            style={index === 0 ? tabHeaderStyles.activeTab : tabHeaderStyles.inactiveTab}
           >
-            ✕
+            {tab}
+            {index === 0 && <span style={TAB_UNDERLINE_STYLE} />}
           </span>
-        </button>
+        ))}
       </div>
-      <div style={goldLineStyle} />
-      <div className="relative overflow-hidden">
-        <div style={narrowGoldLineStyle} />
-        <Messages
-          world={world}
-          active={active}
-          variant={variant}
-          style={{
-            height: variant === "mobile" ? 110 : isTouch ? 95 : 120,
-          }}
-        />
-        <div style={narrowGoldLineStyle} />
-      </div>
-      <div className="flex flex-col">
-        <div style={goldLineStyle} />
-        {!active ? (
-          <button
-            type="button"
-            style={inactiveInputStyle}
-            className="text-left text-[rgba(232,235,244,0.7)] transition-colors duration-150 hover:text-[rgba(247,217,140,0.9)] focus:outline-none"
-            onClick={() => {
-              setActive(true);
-              setCollapsed(false);
-            }}
-          >
-            Type in a message...
-          </button>
-        ) : (
-          <label
-            style={inputContainerStyle}
-            className="cursor-text focus-within:border-b-[rgba(247,217,140,0.75)]"
-            onClick={() => inputRef.current?.focus()}
-          >
-            <input
-              ref={inputRef}
-              style={inputStyle}
-              className="placeholder:text-slate-300/60 selection:bg-slate-200/20 bg-transparent"
-              type="text"
-              placeholder="Type in a message..."
-              value={msg}
-              onChange={(e) => setMsg(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.code === "Escape") {
-                  setActive(false);
-                }
-                if (e.code === "Enter" || e.key === "Enter") {
-                  send(e);
-                }
-              }}
-              onBlur={(_e) => {
-                if (!isTouch || variant === "mobile") {
-                  setActive(false);
-                }
-              }}
+    ),
+    [tabHeaderStyles]
+  );
+
+  const handleCloseClick = useCallback(() => {
+    setCollapsed(true);
+    setActive(false);
+  }, [setCollapsed, setActive]);
+
+  const handleOpenClick = useCallback(() => {
+    setActive(true);
+    setCollapsed(false);
+  }, [setActive, setCollapsed]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.code === "Escape") {
+        setActive(false);
+      }
+      if (e.code === "Enter" || e.key === "Enter") {
+        send(e);
+      }
+    },
+    [send, setActive]
+  );
+
+  const handleInputBlur = useCallback(() => {
+    if (!isTouch || isMobileLayout) {
+      setActive(false);
+    }
+  }, [setActive, isMobileLayout]);
+
+  const handleInputClick = useCallback(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Memoize message height styles
+  const messageHeights = useMemo(
+    () => ({
+      mobile: 110,
+      desktopTouch: 95,
+      desktop: 120,
+    }),
+    []
+  );
+
+  const renderChatBody = useCallback(
+    (variant: "desktop" | "mobile") => {
+      const fontSize =
+        variant === "mobile"
+          ? isTouch
+            ? "0.64rem"
+            : "0.7rem"
+          : isTouch
+            ? "0.64rem"
+            : "0.74rem";
+
+      const messageHeight =
+        variant === "mobile"
+          ? messageHeights.mobile
+          : isTouch
+            ? messageHeights.desktopTouch
+            : messageHeights.desktop;
+
+      return (
+        <>
+          <div className="flex items-center justify-between">
+            {renderTabs(fontSize)}
+            <button
+              type="button"
+              style={styles.closeButton}
+              className="focus:outline-none transition-transform duration-150 hover:scale-[1.05] active:scale-95"
+              onClick={handleCloseClick}
+              title="Close chat"
+            >
+              <span style={{ fontSize: styles.closeIconFontSize, lineHeight: 1 }}>
+                ✕
+              </span>
+            </button>
+          </div>
+          <div style={GOLD_LINE_STYLE} />
+          <div className="relative overflow-hidden">
+            <div style={NARROW_GOLD_LINE_STYLE} />
+            <Messages
+              world={world}
+              active={active}
+              variant={variant}
+              style={{ height: messageHeight }}
             />
-          </label>
-        )}
-      </div>
-    </>
+            <div style={NARROW_GOLD_LINE_STYLE} />
+          </div>
+          <div className="flex flex-col">
+            <div style={GOLD_LINE_STYLE} />
+            {!active ? (
+              <button
+                type="button"
+                style={styles.inactiveInput}
+                className="text-left text-[rgba(232,235,244,0.7)] transition-colors duration-150 hover:text-[rgba(247,217,140,0.9)] focus:outline-none"
+                onClick={handleOpenClick}
+              >
+                Type in a message...
+              </button>
+            ) : (
+              <label
+                style={styles.inputContainer}
+                className="cursor-text focus-within:border-b-[rgba(247,217,140,0.75)]"
+                onClick={handleInputClick}
+              >
+                <input
+                  ref={inputRef}
+                  style={styles.input}
+                  className="placeholder:text-slate-300/60 selection:bg-slate-200/20 bg-transparent"
+                  type="text"
+                  placeholder="Type in a message..."
+                  value={msg}
+                  onChange={(e) => setMsg(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleInputBlur}
+                />
+              </label>
+            )}
+          </div>
+        </>
+      );
+    },
+    [
+      active,
+      handleCloseClick,
+      handleInputBlur,
+      handleInputClick,
+      handleKeyDown,
+      handleOpenClick,
+      messageHeights,
+      msg,
+      renderTabs,
+      styles,
+      world,
+    ]
+  );
+
+  // Mobile collapsed button style (combines base + overrides)
+  const mobileCollapsedButtonStyle = useMemo(
+    () => ({
+      ...styles.chatButton,
+      padding: "0.65rem",
+      borderRadius: 9999,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }),
+    [styles.chatButton]
+  );
+
+  // Desktop collapsed button style
+  const desktopCollapsedButtonStyle = useMemo(
+    () => ({
+      ...styles.chatButton,
+      padding: styles.chatButtonPadding,
+    }),
+    [styles.chatButton, styles.chatButtonPadding]
+  );
+
+  // Touch handlers for mobile swipe
+  const handleTouchStart = useCallback((event: React.TouchEvent) => {
+    touchStartYRef.current = event.touches[0].clientY;
+  }, []);
+
+  const handleSwipeUp = useCallback(
+    (event: React.TouchEvent) => {
+      if (touchStartYRef.current === null) return;
+      const delta = event.changedTouches[0].clientY - touchStartYRef.current;
+      touchStartYRef.current = null;
+      if (delta < -40) {
+        setCollapsed(false);
+        setActive(true);
+        updateMobileOffset(false);
+      }
+    },
+    [setActive, setCollapsed, updateMobileOffset]
+  );
+
+  const handleSwipeDown = useCallback(
+    (event: React.TouchEvent) => {
+      if (touchStartYRef.current === null) return;
+      const delta = event.changedTouches[0].clientY - touchStartYRef.current;
+      touchStartYRef.current = null;
+      if (delta > 40) {
+        setCollapsed(true);
+        setActive(false);
+        updateMobileOffset(true);
+      }
+    },
+    [setActive, setCollapsed, updateMobileOffset]
+  );
+
+  const openChat = useCallback(() => {
+    setCollapsed(false);
+    setActive(true);
+  }, [setActive, setCollapsed]);
+
+  // Mobile layout positioning styles (these reference dynamic values)
+  const mobileActionPanelStyle = useMemo(
+    () => ({
+      left: `calc(env(safe-area-inset-left) + 16px)`,
+      bottom: `calc(env(safe-area-inset-bottom) + 16px)`,
+    }),
+    []
+  );
+
+  const mobileChatButtonStyle = useMemo(
+    () => ({
+      right: `calc(env(safe-area-inset-right) + 16px)`,
+      bottom: `calc(env(safe-area-inset-bottom) + 16px)`,
+    }),
+    []
+  );
+
+  // This style depends on chat panel height which is a DOM measurement
+  // We intentionally use the ref value directly here
+  const mobileExpandedActionPanelStyle = useMemo(
+    () => ({
+      left: "clamp(0.5rem, 2vw, 1rem)",
+      bottom: `calc(env(safe-area-inset-bottom) + ${chatPanelRef.current?.offsetHeight ?? 200}px + clamp(0.5rem, 1.2vw, 0.625rem))`,
+    }),
+    [collapsed, active] // Re-calculate when chat visibility changes
   );
 
   if (isMobileLayout) {
     if (collapsed) {
       return (
         <>
-          {/* Action Panel - Left aligned, hidden when GameWindows are open */}
           {!hasOpenWindows && (
             <div
               className={cls("fixed pointer-events-none z-[10]", {
                 hidden: !chatVisible,
               })}
-              style={{
-                left: `calc(env(safe-area-inset-left) + 16px)`,
-                bottom: `calc(env(safe-area-inset-bottom) + 16px)`,
-              }}
+              style={mobileActionPanelStyle}
             >
               <div className="pointer-events-auto">
                 <ActionPanel items={inventory} />
@@ -532,46 +713,20 @@ export function Chat({ world }: { world: ChatWorld }) {
             </div>
           )}
 
-          {/* Chat Button - Right aligned, hidden when GameWindows are open */}
           {!hasOpenWindows && (
             <div
               className={cls("mainchat fixed pointer-events-none z-[90]", {
                 hidden: !chatVisible,
               })}
-              style={{
-                right: `calc(env(safe-area-inset-right) + 16px)`,
-                bottom: `calc(env(safe-area-inset-bottom) + 16px)`,
-              }}
-              onTouchStart={(event) => {
-                touchStartYRef.current = event.touches[0].clientY;
-              }}
-              onTouchEnd={(event) => {
-                if (touchStartYRef.current === null) return;
-                const delta =
-                  event.changedTouches[0].clientY - touchStartYRef.current;
-                touchStartYRef.current = null;
-                if (delta < -40) {
-                  setCollapsed(false);
-                  setActive(true);
-                  updateMobileOffset(false);
-                }
-              }}
+              style={mobileChatButtonStyle}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleSwipeUp}
             >
               <button
                 type="button"
-                style={{
-                  ...chatButtonStyle,
-                  padding: "0.65rem",
-                  borderRadius: 9999,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
+                style={mobileCollapsedButtonStyle}
                 className="pointer-events-auto transition-transform duration-150 hover:scale-[1.04] active:scale-95 focus:outline-none"
-                onClick={() => {
-                  setCollapsed(false);
-                  setActive(true);
-                }}
+                onClick={openChat}
               >
                 <MessageSquareIcon size={20} />
               </button>
@@ -583,14 +738,10 @@ export function Chat({ world }: { world: ChatWorld }) {
 
     return (
       <>
-        {/* Action Panel - Separate fixed container with low z-index, hidden when GameWindows are open */}
         {!hasOpenWindows && (
           <div
             className="fixed pointer-events-none z-[10]"
-            style={{
-              left: "clamp(0.5rem, 2vw, 1rem)",
-              bottom: `calc(env(safe-area-inset-bottom) + ${chatPanelRef.current?.offsetHeight ?? 200}px + clamp(0.5rem, 1.2vw, 0.625rem))`,
-            }}
+            style={mobileExpandedActionPanelStyle}
           >
             <div className="pointer-events-auto">
               <ActionPanel items={inventory} />
@@ -598,32 +749,19 @@ export function Chat({ world }: { world: ChatWorld }) {
           </div>
         )}
 
-        {/* Chat Panel */}
         <div
           className={cls(
             "mainchat fixed inset-x-0 pointer-events-none z-[960]",
-            { hidden: !chatVisible },
+            { hidden: !chatVisible }
           )}
           style={{ bottom: "env(safe-area-inset-bottom)" }}
-          onTouchStart={(event) => {
-            touchStartYRef.current = event.touches[0].clientY;
-          }}
-          onTouchEnd={(event) => {
-            if (touchStartYRef.current === null) return;
-            const delta =
-              event.changedTouches[0].clientY - touchStartYRef.current;
-            touchStartYRef.current = null;
-            if (delta > 40) {
-              setCollapsed(true);
-              setActive(false);
-              updateMobileOffset(true);
-            }
-          }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleSwipeDown}
         >
           <div className="pointer-events-auto">
             <div
               ref={chatPanelRef}
-              style={mobilePanelStyle}
+              style={styles.mobilePanel}
               className="w-full transition-transform duration-300 ease-out translate-y-0 opacity-95"
             >
               {renderChatBody("mobile")}
@@ -634,14 +772,15 @@ export function Chat({ world }: { world: ChatWorld }) {
     );
   }
 
+  // Desktop layout
   return (
     <div
       className={cls(
         "mainchat fixed pointer-events-none",
         collapsed ? "z-[35]" : "z-[960]",
-        { hidden: !chatVisible },
+        { hidden: !chatVisible }
       )}
-      style={collapsed ? placementStyleCollapsed : placementStyleExpanded}
+      style={collapsed ? PLACEMENT_STYLE_COLLAPSED : PLACEMENT_STYLE_EXPANDED}
     >
       {collapsed ? (
         <div
@@ -650,23 +789,16 @@ export function Chat({ world }: { world: ChatWorld }) {
         >
           <button
             type="button"
-            style={{
-              ...chatButtonStyle,
-              padding: isTouch ? "0.65rem" : "0.75rem",
-            }}
+            style={desktopCollapsedButtonStyle}
             className="transition-transform duration-150 hover:scale-[1.03] active:scale-95 focus:outline-none"
-            onClick={() => {
-              setCollapsed(false);
-              setActive(true);
-            }}
+            onClick={openChat}
           >
-            <MessageSquareIcon size={isTouch ? 20 : 24} />
+            <MessageSquareIcon size={styles.iconSize} />
           </button>
           <ActionPanel items={inventory} />
         </div>
       ) : (
         <div className="pointer-events-auto relative z-[10]">
-          {/* Action Panel - Absolutely positioned above chat, left-aligned with padding */}
           <div
             className="absolute pointer-events-auto"
             style={{
@@ -678,8 +810,7 @@ export function Chat({ world }: { world: ChatWorld }) {
             <ActionPanel items={inventory} />
           </div>
 
-          {/* Chat Panel */}
-          <div style={desktopPanelStyle} className="chat-panel">
+          <div style={styles.desktopPanel} className="chat-panel">
             {renderChatBody("desktop")}
           </div>
         </div>
@@ -688,7 +819,8 @@ export function Chat({ world }: { world: ChatWorld }) {
   );
 }
 
-function Messages({
+// Memoized Messages component
+const Messages = memo(function Messages({
   world,
   active,
   variant,
@@ -704,7 +836,7 @@ function Messages({
   const initRef = useRef<boolean>(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const spacerRef = useRef<HTMLDivElement | null>(null);
-  const [msgs, setMsgs] = useState<unknown[]>([]);
+  const [msgs, setMsgs] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
     const unsubscribe = world.chat.subscribe(setMsgs);
@@ -740,6 +872,15 @@ function Messages({
     return () => observer.disconnect();
   }, []);
 
+  const containerStyle = useMemo(
+    (): React.CSSProperties => ({
+      pointerEvents:
+        variant === "mobile" ? (active ? "auto" : "none") : "auto",
+      ...style,
+    }),
+    [variant, active, style]
+  );
+
   return (
     <div
       ref={contentRef}
@@ -748,44 +889,26 @@ function Messages({
         variant === "desktop"
           ? "h-full w-full px-4 py-2 gap-0.5"
           : "w-full px-3.5 py-1.5 gap-0.5",
-        className,
+        className
       )}
-      style={{
-        pointerEvents:
-          variant === "mobile" ? (active ? "auto" : "none") : "auto",
-        ...style,
-      }}
+      style={containerStyle}
     >
       <div className="messages-spacer shrink-0" ref={spacerRef} />
       {msgs.map((msg) => (
-        <Message
-          key={(msg as ChatMessage & { id: string }).id}
-          msg={msg as ChatMessage}
-        />
+        <Message key={msg.id} msg={msg} />
       ))}
     </div>
   );
-}
+});
 
-function Message({ msg }: { msg: ChatMessage }) {
+// Memoized Message component
+const Message = memo(function Message({ msg }: { msg: ChatMessage }) {
   return (
-    <div
-      className="message text-[0.75rem] leading-[1.35]"
-      style={{
-        color: "rgba(232, 235, 244, 0.92)",
-        fontFamily: "'Inter', system-ui, sans-serif",
-        textShadow: "0 1px 2px rgba(0,0,0,0.75)",
-      }}
-    >
+    <div className="message text-[0.75rem] leading-[1.35]" style={MESSAGE_STYLE}>
       {msg.from && (
         <span
           className="message-from mr-1.5 uppercase tracking-[0.16em]"
-          style={{
-            fontFamily: CHAT_HEADER_FONT,
-            color: CHAT_ACCENT_COLOR,
-            fontSize: "0.65rem",
-            letterSpacing: "0.18em",
-          }}
+          style={MESSAGE_FROM_STYLE}
         >
           [{msg.from}]
         </span>
@@ -793,4 +916,4 @@ function Message({ msg }: { msg: ChatMessage }) {
       <span className="message-body">{msg.body}</span>
     </div>
   );
-}
+});

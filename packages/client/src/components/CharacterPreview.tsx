@@ -34,6 +34,7 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
   const animStateRef = useRef<AnimationState | null>(null);
   const clockRef = useRef<THREE.Clock>(new THREE.Clock());
   const frameIdRef = useRef<number>(0);
+  const cachedSkinnedMeshRef = useRef<THREE.SkinnedMesh | null>(null);
 
   // Main Effect: Initialize Scene and Load VRM + Animations
   useEffect(() => {
@@ -83,7 +84,23 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
 
       try {
         console.log("[CharacterPreview] Loading VRM:", vrmUrl);
-        const gltf = await loader.loadAsync(vrmUrl);
+        
+        // Try to load the VRM file
+        // GLTFLoader will handle binary/JSON parsing automatically
+        const gltf = await loader.loadAsync(vrmUrl).catch((loadError) => {
+          // If loading fails, check if it's a network/content error
+          if (loadError instanceof Error) {
+            // Check if the error suggests HTML was returned instead of binary
+            if (loadError.message.includes("JSON") || loadError.message.includes("parse")) {
+              throw new Error(
+                `VRM file appears to be invalid or server returned HTML instead of binary data. ` +
+                `URL: ${vrmUrl}. ` +
+                `Make sure the CDN server is running and the file exists.`
+              );
+            }
+          }
+          throw loadError;
+        });
 
         if (!isMounted) return;
 
@@ -255,15 +272,22 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
           }
         }
 
-        // Manual skeleton update
-        vrmRef.current.scene.traverse((obj: THREE.Object3D) => {
-          if (obj instanceof THREE.SkinnedMesh) {
-            obj.skeleton.bones.forEach((bone: THREE.Bone) =>
-              bone.updateMatrixWorld(),
-            );
-            obj.skeleton.update();
+        // Manual skeleton update using cached reference
+        if (!cachedSkinnedMeshRef.current) {
+          vrmRef.current.scene.traverse((obj: THREE.Object3D) => {
+            if (obj instanceof THREE.SkinnedMesh) {
+              cachedSkinnedMeshRef.current = obj;
+            }
+          });
+        }
+        const skinnedMesh = cachedSkinnedMeshRef.current;
+        if (skinnedMesh && skinnedMesh.skeleton) {
+          const bones = skinnedMesh.skeleton.bones;
+          for (let i = 0; i < bones.length; i++) {
+            bones[i].updateMatrixWorld();
           }
-        });
+          skinnedMesh.skeleton.update();
+        }
       }
 
       if (rendererRef.current && sceneRef.current && cameraRef.current) {

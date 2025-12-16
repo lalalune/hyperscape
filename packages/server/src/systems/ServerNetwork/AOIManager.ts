@@ -37,6 +37,9 @@ export class AOIManager {
 
   private static readonly EMPTY_SET: ReadonlySet<string> = new Set();
 
+  /** Cached Set for getSubscribableCells - cleared and reused each call */
+  private _subscribableCellsCache = new Set<string>();
+
   constructor(cellSize = 50, viewDistance = 2) {
     this.cellSize = cellSize;
     this.viewDistance = viewDistance;
@@ -57,10 +60,16 @@ export class AOIManager {
     return cell;
   }
 
+  /**
+   * Populates and returns a cached Set of subscribable cell keys.
+   * IMPORTANT: The returned Set is reused - do not store it directly.
+   * Call copySubscribableCells() if you need a persistent copy.
+   */
   private getSubscribableCells(x: number, z: number): Set<string> {
     const centerCellX = Math.floor(x / this.cellSize);
     const centerCellZ = Math.floor(z / this.cellSize);
-    const cells = new Set<string>();
+    const cells = this._subscribableCellsCache;
+    cells.clear();
     const vd = this.viewDistance;
 
     for (let dx = -vd; dx <= vd; dx++) {
@@ -70,6 +79,14 @@ export class AOIManager {
     }
 
     return cells;
+  }
+
+  /**
+   * Creates a new Set with the same contents as the subscribable cells cache.
+   * Use this when you need to store the Set persistently.
+   */
+  private copySubscribableCells(): Set<string> {
+    return new Set(this._subscribableCellsCache);
   }
 
   updateEntityPosition(entityId: string, x: number, z: number): boolean {
@@ -121,20 +138,22 @@ export class AOIManager {
     const state = this.players.get(playerId);
 
     if (!state) {
+      // For new players, we need to copy the cached Set since it will be stored
+      const subscribedCells = this.copySubscribableCells();
       this.players.set(playerId, {
         x,
         z,
         cellKey: this.getCellKey(x, z),
         socketId,
-        subscribedCells: newSubscribable,
+        subscribedCells,
       });
       this.socketToPlayer.set(socketId, playerId);
 
-      for (const cellKey of newSubscribable) {
+      for (const cellKey of subscribedCells) {
         this.getOrCreateCell(cellKey).subscribers.add(socketId);
       }
 
-      return { entered: Array.from(newSubscribable), exited: [] };
+      return { entered: Array.from(subscribedCells), exited: [] };
     }
 
     const entered: string[] = [];

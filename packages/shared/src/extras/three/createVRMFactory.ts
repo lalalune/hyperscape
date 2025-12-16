@@ -50,6 +50,12 @@ import THREE from "./three";
 const v1 = new THREE.Vector3();
 const v2 = new THREE.Vector3();
 
+// Pre-allocated matrices for move() to avoid per-frame allocations
+const _rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI);
+const _scaleMatrix = new THREE.Matrix4();
+const _tempMatrix1 = new THREE.Matrix4();
+const _tempMatrix2 = new THREE.Matrix4();
+
 /** How often to check avatar distance for LOD (seconds) */
 const DIST_CHECK_RATE = 1;
 
@@ -548,29 +554,23 @@ export function createVRMFactory(
       move(_matrix: THREE.Matrix4) {
         matrix.copy(_matrix);
         // CRITICAL: Also update the VRM scene's transform to follow the player
-        // Apply 180-degree Y-axis rotation only for VRM 1.0+ models
-        let finalMatrix = _matrix;
+        // Apply 180-degree Y-axis rotation only for VRM 1.0+ models (using pre-allocated matrices)
         if (isVRM1OrHigher) {
-          const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI);
-          finalMatrix = new THREE.Matrix4().multiplyMatrices(
-            _matrix,
-            rotationMatrix,
-          );
+          _tempMatrix1.multiplyMatrices(_matrix, _rotationMatrix);
+        } else {
+          _tempMatrix1.copy(_matrix);
         }
         // CRITICAL: Compose scale into the matrix to preserve height normalization
-        const scaleMatrix = new THREE.Matrix4().makeScale(
+        _scaleMatrix.makeScale(
           vrm.scene.scale.x,
           vrm.scene.scale.y,
           vrm.scene.scale.z,
         );
-        finalMatrix = new THREE.Matrix4().multiplyMatrices(
-          finalMatrix,
-          scaleMatrix,
-        );
+        _tempMatrix2.multiplyMatrices(_tempMatrix1, _scaleMatrix);
 
-        vrm.scene.matrix.copy(finalMatrix);
-        vrm.scene.matrixWorld.copy(finalMatrix);
-        vrm.scene.updateMatrixWorld(true); // Force update all children
+        vrm.scene.matrix.copy(_tempMatrix2);
+        vrm.scene.matrixWorld.copy(_tempMatrix2);
+        vrm.scene.updateMatrixWorld(true);
         if (hooks?.octree && hooks.octree.move) {
           hooks.octree.move(sItem);
         }

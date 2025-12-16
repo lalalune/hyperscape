@@ -25,6 +25,9 @@ const _v3_2 = new THREE.Vector3();
 const _v3_3 = new THREE.Vector3();
 const _q_1 = new THREE.Quaternion();
 const _sph_1 = new THREE.Spherical();
+// Pre-allocated for onContextMenu raycasting
+const _raycaster = new THREE.Raycaster();
+const _raycastVec2 = new THREE.Vector2();
 // Pre-allocated arrays for getCameraInfo to avoid allocations
 const _cameraInfoOffset: number[] = [0, 0, 0];
 const _cameraInfoPosition: number[] = [0, 0, 0];
@@ -98,6 +101,8 @@ export class ClientCameraSystem extends SystemBase {
   // Orbit state to prevent press-down snap until actual drag movement
   private orbitingActive = false;
   private orbitingPrimed = false;
+  // Track if we were orbiting when mouse was released (for contextmenu event which fires after mouseup)
+  private wasOrbiting = false;
 
   // Bound event handlers for cleanup
   private boundHandlers = {
@@ -299,10 +304,22 @@ export class ClientCameraSystem extends SystemBase {
     // Handle camera controls in capture phase before other systems
 
     if (event.button === 2) {
-      // Right mouse button - context menu (optional, could disable)
+      // Right mouse button - camera rotation (same as middle mouse)
       event.preventDefault(); // Prevent context menu
-      event.stopPropagation(); // Stop event from reaching other systems
+      event.stopPropagation(); // Stop DOM tree propagation
+      event.stopImmediatePropagation(); // Stop other listeners on same element
+      // Mark event as handled by camera for any systems that still see it
+      (event as MouseEvent & { cameraHandled: boolean }).cameraHandled = true;
       this.mouseState.rightDown = true;
+
+      // Align targets to current spherical to avoid any initial jump
+      this.targetSpherical.theta = this.spherical.theta;
+      this.targetSpherical.phi = this.spherical.phi;
+      // Prime orbiting; activate only after passing small drag threshold
+      this.orbitingPrimed = true;
+      this.orbitingActive = false;
+
+      this.canvas!.style.cursor = "grabbing";
     } else if (event.button === 1) {
       // Middle mouse button for camera rotation
       event.preventDefault();
@@ -327,10 +344,12 @@ export class ClientCameraSystem extends SystemBase {
   }
 
   private onMouseMove(event: MouseEvent): void {
-    // Handle middle mouse button drag for camera rotation
-    if (this.mouseState.middleDown) {
+    // Handle middle mouse button or right mouse button drag for camera rotation
+    if (this.mouseState.middleDown || this.mouseState.rightDown) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
+      (event as MouseEvent & { cameraHandled: boolean }).cameraHandled = true;
 
       this.mouseState.delta.set(
         event.clientX - this.mouseState.lastPosition.x,
@@ -374,14 +393,25 @@ export class ClientCameraSystem extends SystemBase {
 
   private onMouseUp(event: MouseEvent): void {
     if (event.button === 2) {
-      // Right mouse button
+      // Right mouse button - end camera rotation
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
+      (event as MouseEvent & { cameraHandled: boolean }).cameraHandled = true;
       this.mouseState.rightDown = false;
+      // Remember if we were orbiting for the contextmenu event which fires after mouseup
+      this.wasOrbiting = this.orbitingActive;
+      this.orbitingActive = false;
+      this.orbitingPrimed = false;
+      this.canvas!.style.cursor = "default";
+      // Clear wasOrbiting after a short delay (contextmenu fires immediately after mouseup)
+      setTimeout(() => {
+        this.wasOrbiting = false;
+      }, 50);
     }
 
     if (event.button === 1) {
-      // Middle mouse button
+      // Middle mouse button - end camera rotation
       event.preventDefault();
       event.stopPropagation();
       this.mouseState.middleDown = false;
@@ -407,7 +437,7 @@ export class ClientCameraSystem extends SystemBase {
       const pinchSensitivity = 0.05;
       this.targetSpherical.radius -= event.deltaY * pinchSensitivity;
     } else {
-      // Regular scroll wheel or trackpad scroll
+      // Regular scroll wheel or trackpad scroll for zoom
       const sign = Math.sign(event.deltaY);
       if (sign !== 0) {
         // Discrete notches with modest scaling for trackpads/high-res wheels
@@ -437,12 +467,24 @@ export class ClientCameraSystem extends SystemBase {
     this.mouseState.leftDown = false;
     this.orbitingActive = false;
     this.orbitingPrimed = false;
+    this.wasOrbiting = false;
     if (this.canvas) {
       this.canvas.style.cursor = "default";
     }
   }
 
   private onContextMenu(event: MouseEvent): void {
+    // If we were orbiting (rotating camera), always block context menu
+    // Check wasOrbiting because contextmenu fires after mouseup clears orbitingActive
+    if (this.orbitingActive || this.orbitingPrimed || this.wasOrbiting) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      (event as MouseEvent & { cameraHandled: boolean }).cameraHandled = true;
+      this.wasOrbiting = false; // Clear after handling
+      return;
+    }
+
     // Check if clicking on an entity - if so, let InteractionSystem handle it
     // Raycast to check if clicking on an entity
     if (this.world.camera && this.canvas) {
@@ -450,12 +492,12 @@ export class ClientCameraSystem extends SystemBase {
       const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(new THREE.Vector2(x, y), this.world.camera);
+      _raycastVec2.set(x, y);
+      _raycaster.setFromCamera(_raycastVec2, this.world.camera);
 
       const scene = this.world.stage?.scene;
       if (scene) {
-        const intersects = raycaster.intersectObjects(scene.children, true);
+        const intersects = _raycaster.intersectObjects(scene.children, true);
 
         // Check if any intersected object has entity userData
         for (const intersect of intersects) {
@@ -797,7 +839,7 @@ export class ClientCameraSystem extends SystemBase {
 
     // Apply spherical smoothing only while orbiting. When not orbiting, snap to target to avoid drift.
     const rotationDamping = this.settings.rotationDampingFactor;
-    if (this.mouseState.middleDown || this.touchState.active) {
+    if (this.mouseState.middleDown || this.mouseState.rightDown || this.touchState.active) {
       const phiDelta = this.targetSpherical.phi - this.spherical.phi;
       const thetaDelta = this.shortestAngleDelta(
         this.spherical.theta,
@@ -1013,7 +1055,7 @@ export class ClientCameraSystem extends SystemBase {
       target: this.target,
       offset: _cameraInfoOffset,
       position: position,
-      isControlling: this.mouseState.middleDown || this.touchState.active,
+      isControlling: this.mouseState.middleDown || this.mouseState.rightDown || this.touchState.active,
       spherical: {
         radius: this.spherical.radius,
         phi: this.spherical.phi,

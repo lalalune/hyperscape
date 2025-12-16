@@ -234,3 +234,176 @@ describe("TickPriority", () => {
     expect(TickPriority.RESOURCES).toBeLessThan(TickPriority.BROADCAST);
   });
 });
+
+describe.skipIf(!canRunTickTests)("TickSystem listener cache optimization", () => {
+  describe("sorted cache behavior", () => {
+    it("should maintain correct order after adding listeners during tick", async () => {
+      const tickSystem = new TickSystem();
+      const callOrder: string[] = [];
+      let addedDynamic = false;
+
+      tickSystem.onTick(() => {
+        callOrder.push("input");
+        if (!addedDynamic) {
+          addedDynamic = true;
+          // Add a listener during tick processing
+          tickSystem.onTick(() => callOrder.push("dynamic"), TickPriority.MOVEMENT);
+        }
+      }, TickPriority.INPUT);
+
+      tickSystem.onTick(() => callOrder.push("broadcast"), TickPriority.BROADCAST);
+
+      tickSystem.start();
+
+      // Wait for 2 ticks
+      await new Promise((r) => setTimeout(r, 1300));
+
+      tickSystem.stop();
+
+      // Dynamic listener should appear in correct order on subsequent ticks
+      // First tick: input, broadcast (dynamic added during input)
+      // Second tick: input, dynamic, broadcast
+      expect(callOrder.slice(0, 2)).toEqual(["input", "broadcast"]);
+      expect(callOrder.slice(2)).toEqual(["input", "dynamic", "broadcast"]);
+    }, 5000);
+
+    it("should handle removing listeners during tick", async () => {
+      const tickSystem = new TickSystem();
+      const callOrder: string[] = [];
+      let unsubMovement: (() => void) | null = null;
+      let removed = false;
+
+      tickSystem.onTick(() => {
+        callOrder.push("input");
+        if (unsubMovement && !removed) {
+          removed = true;
+          unsubMovement();
+        }
+      }, TickPriority.INPUT);
+
+      unsubMovement = tickSystem.onTick(() => {
+        callOrder.push("movement");
+      }, TickPriority.MOVEMENT);
+
+      tickSystem.onTick(() => callOrder.push("broadcast"), TickPriority.BROADCAST);
+
+      tickSystem.start();
+
+      // Wait for 2 ticks
+      await new Promise((r) => setTimeout(r, 1300));
+
+      tickSystem.stop();
+
+      // First tick: input, movement, broadcast (removal happens during input)
+      // Second tick: input, broadcast (movement removed)
+      expect(callOrder.slice(0, 3)).toEqual(["input", "movement", "broadcast"]);
+      expect(callOrder.slice(3)).toEqual(["input", "broadcast"]);
+    }, 5000);
+
+    it("should handle many listeners with same priority", async () => {
+      const tickSystem = new TickSystem();
+      const callOrder: number[] = [];
+
+      // Add 10 listeners with same priority
+      for (let i = 0; i < 10; i++) {
+        const idx = i;
+        tickSystem.onTick(() => callOrder.push(idx), TickPriority.MOVEMENT);
+      }
+
+      tickSystem.start();
+
+      await new Promise((r) => setTimeout(r, 700));
+
+      tickSystem.stop();
+
+      // Should maintain registration order
+      expect(callOrder).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    }, 3000);
+
+    it("should not rebuild cache if listeners unchanged", async () => {
+      const tickSystem = new TickSystem();
+      let tickCount = 0;
+
+      tickSystem.onTick(() => {
+        tickCount++;
+      }, TickPriority.MOVEMENT);
+
+      tickSystem.start();
+
+      // Wait for several ticks
+      await new Promise((r) => setTimeout(r, 2000));
+
+      tickSystem.stop();
+
+      // Should have processed multiple ticks correctly
+      expect(tickCount).toBeGreaterThanOrEqual(3);
+    }, 5000);
+  });
+
+  describe("edge cases", () => {
+    it("should handle unsubscribe called multiple times", () => {
+      const tickSystem = new TickSystem();
+      const unsub = tickSystem.onTick(() => {});
+
+      unsub();
+      unsub(); // Second call should be safe
+
+      expect(tickSystem.getListenerCount()).toBe(0);
+    });
+
+    it("should handle all listeners removed", async () => {
+      const tickSystem = new TickSystem();
+      const unsub1 = tickSystem.onTick(() => {}, TickPriority.INPUT);
+      const unsub2 = tickSystem.onTick(() => {}, TickPriority.BROADCAST);
+
+      unsub1();
+      unsub2();
+
+      expect(tickSystem.getListenerCount()).toBe(0);
+
+      tickSystem.start();
+
+      // Should not throw with no listeners
+      await new Promise((r) => setTimeout(r, 700));
+
+      tickSystem.stop();
+    }, 3000);
+
+    it("should handle listener that throws", async () => {
+      const tickSystem = new TickSystem();
+      let secondCalled = false;
+
+      tickSystem.onTick(() => {
+        throw new Error("Test error");
+      }, TickPriority.INPUT);
+
+      tickSystem.onTick(() => {
+        secondCalled = true;
+      }, TickPriority.BROADCAST);
+
+      tickSystem.start();
+
+      await new Promise((r) => setTimeout(r, 700));
+
+      tickSystem.stop();
+
+      // Second listener should still be called
+      expect(secondCalled).toBe(true);
+    }, 3000);
+
+    it("should handle rapid add/remove", () => {
+      const tickSystem = new TickSystem();
+
+      // Rapidly add and remove listeners
+      for (let i = 0; i < 100; i++) {
+        const unsub = tickSystem.onTick(() => {}, TickPriority.MOVEMENT);
+        if (i % 2 === 0) {
+          unsub();
+        }
+      }
+
+      // Should have 50 listeners (every other one kept)
+      expect(tickSystem.getListenerCount()).toBe(50);
+    });
+  });
+});

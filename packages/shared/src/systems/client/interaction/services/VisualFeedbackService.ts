@@ -125,6 +125,9 @@ export class VisualFeedbackService {
     scene.add(this.clickIndicatorRed);
   }
 
+  // Pre-allocated for showTargetMarker to avoid allocations
+  private _targetPos = new THREE.Vector3();
+
   /**
    * Show target marker at position (for movement destination)
    */
@@ -135,11 +138,10 @@ export class VisualFeedbackService {
     const tile = worldToTile(position.x, position.z);
     const snappedPos = tileToWorld(tile);
 
-    this.targetPosition = new THREE.Vector3(
-      snappedPos.x,
-      position.y,
-      snappedPos.z,
-    );
+    if (!this.targetPosition) {
+      this.targetPosition = this._targetPos;
+    }
+    this.targetPosition.set(snappedPos.x, position.y, snappedPos.z);
     this.targetMarker.position.set(snappedPos.x, 0, snappedPos.z);
 
     // Project onto terrain
@@ -215,25 +217,28 @@ export class VisualFeedbackService {
     }, TIMING.CLICK_INDICATOR_MS);
   }
 
+  // Pre-allocated for update() to avoid per-frame allocations
+  private _updatePlayerPos = new THREE.Vector3();
+
   /**
    * Update visual feedback (called each frame)
    */
   update(): void {
     // Animate target marker
     if (this.targetMarker && this.targetMarker.visible) {
-      const time = Date.now() * 0.001;
+      const time = performance.now() * 0.001;
       const scale = 1 + Math.sin(time * 4) * 0.1;
       this.targetMarker.scale.set(scale, 1, scale);
 
       // Hide when player reaches target
       const player = this.world.getPlayer();
       if (player && this.targetPosition) {
-        const playerPos = new THREE.Vector3(
+        this._updatePlayerPos.set(
           player.position.x,
           player.position.y,
           player.position.z,
         );
-        const distance = playerPos.distanceTo(this.targetPosition);
+        const distance = this._updatePlayerPos.distanceTo(this.targetPosition);
         if (distance < 0.5) {
           this.hideTargetMarker();
         }

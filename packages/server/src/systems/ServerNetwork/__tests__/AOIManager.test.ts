@@ -292,4 +292,155 @@ describe("AOIManager", () => {
       expect(queryTime).toBeLessThan(100); // < 100ms for 1000 queries
     });
   });
+
+  describe("cached Set optimization", () => {
+    it("should reuse subscribable cells cache across calls", () => {
+      // First player subscription
+      const changes1 = aoi.updatePlayerSubscriptions("player1", 25, 25, "socket1");
+      expect(changes1.entered.length).toBe(25);
+      
+      // Second player subscription should work correctly
+      const changes2 = aoi.updatePlayerSubscriptions("player2", 100, 100, "socket2");
+      expect(changes2.entered.length).toBe(25);
+      
+      // Both players should be tracked
+      const info = aoi.getDebugInfo();
+      expect(info.playerCount).toBe(2);
+    });
+
+    it("should handle rapid position updates", () => {
+      // Simulate a player moving rapidly
+      for (let i = 0; i < 100; i++) {
+        const x = i * 10;
+        const z = i * 10;
+        aoi.updatePlayerSubscriptions("player1", x, z, "socket1");
+      }
+      
+      // Player should still be tracked correctly
+      const info = aoi.getDebugInfo();
+      expect(info.playerCount).toBe(1);
+    });
+
+    it("should not corrupt state when cached Set is reused", () => {
+      // Add first player
+      aoi.updatePlayerSubscriptions("player1", 25, 25, "socket1");
+      
+      // Add entity in player1's view
+      aoi.updateEntityPosition("entity1", 30, 30);
+      
+      // Add second player (reuses cached Set)
+      aoi.updatePlayerSubscriptions("player2", 500, 500, "socket2");
+      
+      // Entity should still be visible to player1
+      expect(aoi.canPlayerSeeEntity("player1", "entity1")).toBe(true);
+      
+      // Entity should not be visible to player2 (too far)
+      expect(aoi.canPlayerSeeEntity("player2", "entity1")).toBe(false);
+    });
+
+    it("should correctly copy subscribable cells for new players", () => {
+      // Add player
+      const changes = aoi.updatePlayerSubscriptions("player1", 25, 25, "socket1");
+      
+      // Entered cells should be a real array, not linked to cache
+      const enteredCopy = [...changes.entered];
+      
+      // Add another player (which reuses cache internally)
+      aoi.updatePlayerSubscriptions("player2", 100, 100, "socket2");
+      
+      // Original player's entered cells should not have changed
+      expect(changes.entered).toEqual(enteredCopy);
+    });
+  });
+
+  describe("edge cases", () => {
+    it("should handle player at exact cell boundary", () => {
+      // Position exactly at cell boundary (50, 50)
+      const changes = aoi.updatePlayerSubscriptions("player1", 50, 50, "socket1");
+      expect(changes.entered.length).toBe(25);
+      
+      // Verify we're in cell (1,1)
+      expect(aoi.getCellKey(50, 50)).toBe("1,1");
+    });
+
+    it("should handle very large coordinates", () => {
+      aoi.updatePlayerSubscriptions("player1", 100000, 100000, "socket1");
+      aoi.updateEntityPosition("entity1", 100050, 100050);
+      
+      expect(aoi.canPlayerSeeEntity("player1", "entity1")).toBe(true);
+    });
+
+    it("should handle negative coordinates correctly", () => {
+      aoi.updatePlayerSubscriptions("player1", -100, -100, "socket1");
+      aoi.updateEntityPosition("entity1", -90, -90);
+      
+      expect(aoi.canPlayerSeeEntity("player1", "entity1")).toBe(true);
+    });
+
+    it("should handle mixed positive/negative coordinates", () => {
+      aoi.updatePlayerSubscriptions("player1", -25, 25, "socket1");
+      aoi.updateEntityPosition("entity1", 25, -25);
+      
+      // Distance is about 70 units, should be visible with 50m cells and 2 cell view
+      expect(aoi.canPlayerSeeEntity("player1", "entity1")).toBe(true);
+    });
+
+    it("should handle zero coordinates", () => {
+      aoi.updatePlayerSubscriptions("player1", 0, 0, "socket1");
+      aoi.updateEntityPosition("entity1", 0, 0);
+      
+      expect(aoi.canPlayerSeeEntity("player1", "entity1")).toBe(true);
+    });
+
+    it("should handle socket ID changes for same player", () => {
+      // Initial subscription
+      aoi.updatePlayerSubscriptions("player1", 25, 25, "socket1");
+      aoi.updateEntityPosition("entity1", 30, 30);
+      
+      // Get subscribers
+      let subs = aoi.getSubscribersForEntity("entity1");
+      expect(subs.has("socket1")).toBe(true);
+      
+      // Remove and re-add with new socket
+      aoi.removePlayer("player1");
+      aoi.updatePlayerSubscriptions("player1", 25, 25, "socket2");
+      
+      subs = aoi.getSubscribersForEntity("entity1");
+      expect(subs.has("socket1")).toBe(false);
+      expect(subs.has("socket2")).toBe(true);
+    });
+
+    it("should handle entity position update before any players exist", () => {
+      aoi.updateEntityPosition("entity1", 25, 25);
+      
+      // Should not throw
+      const subs = aoi.getSubscribersForEntity("entity1");
+      expect(subs.size).toBe(0);
+      
+      // Add player later
+      aoi.updatePlayerSubscriptions("player1", 25, 25, "socket1");
+      
+      const subs2 = aoi.getSubscribersForEntity("entity1");
+      expect(subs2.has("socket1")).toBe(true);
+    });
+  });
+
+  describe("getPlayerForSocket", () => {
+    it("should return player ID for valid socket", () => {
+      aoi.updatePlayerSubscriptions("player1", 25, 25, "socket1");
+      
+      expect(aoi.getPlayerForSocket("socket1")).toBe("player1");
+    });
+
+    it("should return undefined for unknown socket", () => {
+      expect(aoi.getPlayerForSocket("unknown")).toBeUndefined();
+    });
+
+    it("should return undefined after player is removed", () => {
+      aoi.updatePlayerSubscriptions("player1", 25, 25, "socket1");
+      aoi.removePlayer("player1");
+      
+      expect(aoi.getPlayerForSocket("socket1")).toBeUndefined();
+    });
+  });
 });

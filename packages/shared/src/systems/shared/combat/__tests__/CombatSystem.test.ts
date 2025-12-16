@@ -9,7 +9,7 @@
  * - Pool statistics
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, mock, afterEach } from "bun:test";
 import { CombatSystem } from "../CombatSystem";
 import type { World } from "../../../../core/World";
 
@@ -43,14 +43,14 @@ function createMockPlayer(
       combatTarget: null,
     },
     emote: "idle",
-    base: { quaternion: { set: vi.fn(), copy: vi.fn() } },
+    base: { quaternion: { set: mock(), copy: mock() } },
     node: {
       position,
-      quaternion: { set: vi.fn(), copy: vi.fn() },
+      quaternion: { set: mock(), copy: mock() },
     },
     getPosition: () => position,
-    markNetworkDirty: vi.fn(),
-    takeDamage: vi.fn((amount: number) => {
+    markNetworkDirty: mock(),
+    takeDamage: mock((amount: number) => {
       currentHealth -= amount;
       return currentHealth;
     }),
@@ -90,7 +90,7 @@ function createMockMob(
     },
     node: {
       position,
-      quaternion: { set: vi.fn(), copy: vi.fn() },
+      quaternion: { set: mock(), copy: mock() },
     },
     getPosition: () => position,
     getMobData: () => ({
@@ -100,13 +100,13 @@ function createMockMob(
       attackSpeedTicks: 4,
     }),
     getHealth: () => currentHealth,
-    takeDamage: vi.fn((amount: number) => {
+    takeDamage: mock((amount: number) => {
       currentHealth -= amount;
       return currentHealth;
     }),
     isAttackable: () => true,
-    setServerEmote: vi.fn(),
-    markNetworkDirty: vi.fn(),
+    setServerEmote: mock(),
+    markNetworkDirty: mock(),
     // CombatSystem.isEntityAlive needs isDead()
     isDead: () => currentHealth <= 0,
   };
@@ -137,7 +137,7 @@ function createMockWorld(
     currentTick: options.currentTick ?? 100,
     entities,
     network: {
-      send: vi.fn(),
+      send: mock(),
     },
     getPlayer: (id: string) => players.get(id),
     getSystem: (name: string) => {
@@ -159,8 +159,8 @@ function createMockWorld(
       }
       eventHandlers.get(event)!.push(handler);
     },
-    off: vi.fn(),
-    emit: vi.fn((event: string, data: unknown) => {
+    off: mock(),
+    emit: mock((event: string, data: unknown) => {
       const handlers = eventHandlers.get(event) || [];
       handlers.forEach((h) => h(data));
     }),
@@ -195,15 +195,13 @@ describe("CombatSystem", () => {
       expect(combatSystem.isInCombat("nonexistent")).toBe(false);
     });
 
-    // SKIPPED: Anti-cheat features not yet implemented
-    it.skip("initializes anti-cheat system", () => {
-      const stats = (combatSystem as { getAntiCheatStats: () => { trackedPlayers: number } }).getAntiCheatStats();
+    it("initializes anti-cheat system", () => {
+      const stats = combatSystem.getAntiCheatStats();
       expect(stats.trackedPlayers).toBe(0);
     });
 
-    // SKIPPED: Object pool management not yet implemented
-    it.skip("initializes pool statistics", () => {
-      const poolStats = (combatSystem as { getPoolStats: () => { quaternions: { total: number } } }).getPoolStats();
+    it("initializes pool statistics", () => {
+      const poolStats = combatSystem.getPoolStats();
       expect(poolStats.quaternions).toBeDefined();
       expect(poolStats.quaternions.total).toBeGreaterThan(0);
     });
@@ -361,10 +359,9 @@ describe("CombatSystem", () => {
       expect(combatSystem.isInCombat("player1")).toBe(false);
     });
 
-    // SKIPPED: Anti-cheat features not yet implemented
-    it.skip("cleans up anti-cheat tracking on disconnect", () => {
+    it("cleans up anti-cheat tracking on disconnect", () => {
       // Record a violation first
-      const _antiCheatStats = (combatSystem as { getAntiCheatStats: () => Record<string, unknown> }).getAntiCheatStats();
+      const _antiCheatStats = combatSystem.getAntiCheatStats();
       // The cleanup should work even with no violations
       expect(() => {
         combatSystem.cleanupPlayerDisconnect("player1");
@@ -372,11 +369,9 @@ describe("CombatSystem", () => {
     });
   });
 
-  // Anti-cheat integration tests - SKIPPED: Anti-cheat features not yet implemented in CombatSystem
-  // These tests document the expected anti-cheat API for future implementation
-  describe.skip("anti-cheat integration", () => {
+  describe("anti-cheat integration", () => {
     it("getAntiCheatStats returns stats", () => {
-      const stats = (combatSystem as { getAntiCheatStats: () => Record<string, unknown> }).getAntiCheatStats();
+      const stats = combatSystem.getAntiCheatStats();
 
       expect(stats).toHaveProperty("trackedPlayers");
       expect(stats).toHaveProperty("playersAboveWarning");
@@ -385,7 +380,7 @@ describe("CombatSystem", () => {
     });
 
     it("getAntiCheatPlayerReport returns report", () => {
-      const report = (combatSystem as { getAntiCheatPlayerReport: (id: string) => Record<string, unknown> }).getAntiCheatPlayerReport("player1");
+      const report = combatSystem.getAntiCheatPlayerReport("player1");
 
       expect(report).toHaveProperty("score");
       expect(report).toHaveProperty("recentViolations");
@@ -393,18 +388,18 @@ describe("CombatSystem", () => {
     });
 
     it("getPlayersRequiringReview returns array", () => {
-      const players = (combatSystem as { getPlayersRequiringReview: () => string[] }).getPlayersRequiringReview();
+      const players = combatSystem.getPlayersRequiringReview();
       expect(Array.isArray(players)).toBe(true);
     });
 
     it("decayAntiCheatScores does not throw", () => {
       expect(() => {
-        (combatSystem as { decayAntiCheatScores: () => void }).decayAntiCheatScores();
+        combatSystem.decayAntiCheatScores();
       }).not.toThrow();
     });
 
     it("getAntiCheatConfig returns configuration", () => {
-      const config = (combatSystem as { getAntiCheatConfig: () => Record<string, unknown> }).getAntiCheatConfig();
+      const config = combatSystem.getAntiCheatConfig();
 
       expect(config).toHaveProperty("warningThreshold");
       expect(config).toHaveProperty("alertThreshold");
@@ -415,11 +410,9 @@ describe("CombatSystem", () => {
     });
   });
 
-  // Pool statistics tests - SKIPPED: Object pool management not yet implemented in CombatSystem
-  // These tests document the expected pool stats API for future implementation
-  describe.skip("pool statistics", () => {
+  describe("pool statistics", () => {
     it("getPoolStats returns quaternion pool stats", () => {
-      const stats = (combatSystem as { getPoolStats: () => { quaternions: Record<string, unknown> } }).getPoolStats();
+      const stats = combatSystem.getPoolStats();
 
       expect(stats.quaternions).toBeDefined();
       expect(stats.quaternions).toHaveProperty("total");

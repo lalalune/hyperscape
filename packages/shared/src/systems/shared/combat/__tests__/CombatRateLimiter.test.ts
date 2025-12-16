@@ -8,7 +8,7 @@
  * - Player state cleanup
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { CombatRateLimiter, combatRateLimiter } from "../CombatRateLimiter";
 
 describe("CombatRateLimiter", () => {

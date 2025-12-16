@@ -24,6 +24,7 @@ import {
   http,
   type Chain,
   type Address,
+  type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import {
@@ -257,6 +258,40 @@ export async function setupMudClient(config?: {
       type: "function",
       stateMutability: "nonpayable",
       inputs: [{ name: "equipSlot", type: "uint8" }],
+      outputs: [],
+    },
+    // ItemInstanceSystem - Track unique item instances
+    {
+      name: "hyperscape__createItemInstance",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [
+        { name: "instanceId", type: "bytes32" },
+        { name: "itemId", type: "uint16" },
+        { name: "x", type: "int32" },
+        { name: "y", type: "int32" },
+        { name: "z", type: "int32" },
+      ],
+      outputs: [],
+    },
+    {
+      name: "hyperscape__setItemInstanceOwner",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [
+        { name: "instanceId", type: "bytes32" },
+        { name: "owner", type: "address" },
+      ],
+      outputs: [],
+    },
+    {
+      name: "hyperscape__markItemInstanceMinted",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [
+        { name: "instanceId", type: "bytes32" },
+        { name: "tokenId", type: "uint256" },
+      ],
       outputs: [],
     },
     // NFTIntegrationSystem - Bridge between MUD and ERC-1155 NFTs
@@ -540,6 +575,53 @@ export async function setupMudClient(config?: {
     SkillSystem: {
       // Skills are updated automatically via combat/gathering events
       // No direct calls needed - read-only from MUD indexer
+    },
+
+    /**
+     * ItemInstanceSystem - Track unique item instances to prevent duplication
+     * Manages item instance lifecycle: spawn, pickup, mint
+     */
+    ItemInstanceSystem: {
+      /**
+       * Create a new item instance on-chain
+       * Called when an item is spawned in the world
+       */
+      createInstance: async (
+        instanceId: Hex,
+        itemId: number,
+        position: { x: number; y: number; z: number },
+      ) => {
+        const abi = getSystemAbi("ItemInstanceSystem");
+        return sendTransaction(
+          "hyperscape__createItemInstance",
+          [instanceId, itemId, position.x, position.y, position.z],
+          abi,
+        );
+      },
+
+      /**
+       * Update item instance owner (when picked up)
+       */
+      setOwner: async (instanceId: Hex, owner: Address) => {
+        const abi = getSystemAbi("ItemInstanceSystem");
+        return sendTransaction(
+          "hyperscape__setItemInstanceOwner",
+          [instanceId, owner],
+          abi,
+        );
+      },
+
+      /**
+       * Mark item instance as minted
+       */
+      markAsMinted: async (instanceId: Hex, tokenId: bigint) => {
+        const abi = getSystemAbi("ItemInstanceSystem");
+        return sendTransaction(
+          "hyperscape__markItemInstanceMinted",
+          [instanceId, tokenId],
+          abi,
+        );
+      },
     },
 
     /**

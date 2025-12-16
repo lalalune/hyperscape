@@ -13,6 +13,7 @@ import { AGGRO_CONSTANTS } from "../../../constants/CombatConstants";
 import { AggroTarget, Position3D, MobAIStateData } from "../../../types";
 import { calculateDistance } from "../../../utils/game/EntityUtils";
 import { SystemBase } from "../infrastructure/SystemBase";
+import { getCachedTimestamp } from "../movement/ObjectPools";
 
 /**
  * Aggression System - GDD Compliant
@@ -166,8 +167,8 @@ export class AggroSystem extends SystemBase {
       type: mobType,
       state: "idle",
       behavior: behavior.behavior,
-      lastStateChange: Date.now(),
-      lastAction: Date.now(),
+      lastStateChange: getCachedTimestamp(),
+      lastAction: getCachedTimestamp(),
       isPatrolling: false,
       isChasing: false,
       isInCombat: false,
@@ -260,9 +261,9 @@ export class AggroSystem extends SystemBase {
     if (!aggroTarget) {
       aggroTarget = {
         playerId: playerId,
-        aggroLevel: 10, // Initial aggro
-        lastDamageTime: Date.now(),
-        lastSeen: Date.now(),
+        aggroLevel: 10,
+        lastDamageTime: getCachedTimestamp(),
+        lastSeen: getCachedTimestamp(),
         distance: distance,
         inRange: true,
       };
@@ -274,8 +275,7 @@ export class AggroSystem extends SystemBase {
         this.startChasing(mobState, playerId);
       }
     } else {
-      // Update existing aggro
-      aggroTarget.lastSeen = Date.now();
+      aggroTarget.lastSeen = getCachedTimestamp();
       aggroTarget.distance = distance;
       aggroTarget.inRange = distance <= mobState.detectionRange;
     }
@@ -405,7 +405,7 @@ export class AggroSystem extends SystemBase {
   }
 
   private updateMobAI(): void {
-    const now = Date.now();
+    const now = getCachedTimestamp();
 
     for (const [_mobId, mobState] of this.mobStates) {
       // Skip if in combat - combat system handles behavior
@@ -453,7 +453,7 @@ export class AggroSystem extends SystemBase {
   }
 
   private cleanupAggroTargets(mobState: MobAIStateData): void {
-    const now = Date.now();
+    const now = getCachedTimestamp();
 
     for (const [playerId, aggroTarget] of mobState.aggroTargets) {
       // Remove aggro if not seen for 10 seconds
@@ -507,7 +507,7 @@ export class AggroSystem extends SystemBase {
 
     // Update aggro target distance
     aggroTarget.distance = distance;
-    aggroTarget.lastSeen = Date.now();
+    aggroTarget.lastSeen = getCachedTimestamp();
 
     // If close enough, start combat
     if (distance <= 2.0 && !mobState.isInCombat) {

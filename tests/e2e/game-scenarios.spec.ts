@@ -15,7 +15,7 @@
  * NO MOCKS - Tests real client, real server, real blockchain.
  */
 
-import { test, expect, type Page, type BrowserContext } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 // =============================================================================
 // CONFIGURATION
@@ -137,7 +137,7 @@ async function sendGameCommand(
 /**
  * Wait for a UI element with test ID
  */
-async function waitForTestId(
+async function _waitForTestId(
   page: Page,
   testId: string,
   timeout: number = INTERACTION_TIMEOUT,
@@ -148,14 +148,14 @@ async function waitForTestId(
 /**
  * Click a UI element by test ID
  */
-async function clickTestId(page: Page, testId: string): Promise<void> {
+async function _clickTestId(page: Page, testId: string): Promise<void> {
   await page.locator(`[data-testid="${testId}"]`).click();
 }
 
 /**
  * Type text into an input by test ID
  */
-async function typeInTestId(
+async function _typeInTestId(
   page: Page,
   testId: string,
   text: string,
@@ -537,7 +537,7 @@ test.describe("Death & Respawn", () => {
         .catch(() => false);
 
       if (hasDeathBtn) {
-        const stateBefore = await getPlayerState(page);
+        const _stateBefore = await getPlayerState(page);
         await deathBtn.click();
         await page.waitForTimeout(3000);
 
@@ -589,7 +589,7 @@ test.describe("UI Interactions", () => {
     await page.keyboard.press("F9");
     await page.waitForTimeout(500);
 
-    let debugPanel = page.locator('[data-testid="debug-economy-panel"]');
+    const debugPanel = page.locator('[data-testid="debug-economy-panel"]');
     const isVisibleAfterToggle = await debugPanel
       .isVisible({ timeout: 2000 })
       .catch(() => false);

@@ -8,7 +8,7 @@
  * - Reusable buffer optimization
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { CombatStateService, CombatData } from "../CombatStateService";
 import { createEntityID } from "../../../../utils/IdentifierUtils";
 import { AttackType } from "../../../../types/core/core";
@@ -18,13 +18,13 @@ interface MockPlayer {
   id: string;
   combat: { inCombat: boolean; combatTarget: string | null };
   data: { c: boolean; ct: string | null };
-  markNetworkDirty: ReturnType<typeof vi.fn>;
+  markNetworkDirty: () => void;
 }
 
 // Mock World type for testing
 interface MockWorld {
   isServer: boolean;
-  network: { send: ReturnType<typeof vi.fn> };
+  network: { send: () => void };
   getPlayer: (id: string) => MockPlayer | undefined;
   players: Map<string, MockPlayer>;
 }
@@ -36,7 +36,7 @@ function createMockWorld(): MockWorld {
   return {
     isServer: true,
     network: {
-      send: vi.fn(),
+      send: mock(),
     },
     getPlayer: (id: string) => players.get(id),
     players,
@@ -49,7 +49,7 @@ function addMockPlayer(world: MockWorld, id: string): MockPlayer {
     id,
     combat: { inCombat: false, combatTarget: null },
     data: { c: false, ct: null },
-    markNetworkDirty: vi.fn(),
+    markNetworkDirty: mock(),
   };
   world.players.set(id, player);
   return player;

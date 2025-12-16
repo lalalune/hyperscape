@@ -132,6 +132,9 @@ const _v3_1 = new THREE.Vector3();
 const _v3_2 = new THREE.Vector3();
 const _v3_3 = new THREE.Vector3();
 const _quat_1 = new THREE.Quaternion();
+// Pre-allocated for input command capture
+const _inputMoveVector = new THREE.Vector3();
+const _inputViewAngles = new THREE.Quaternion();
 
 // Constants
 const LMB = 1;
@@ -956,14 +959,17 @@ export class ClientInput extends SystemBase {
   private captureAndSendInput(deltaTime: number): void {
     const now = performance.now();
 
-    // PERFORMANCE: Create input object (required for buffering - must be unique per frame)
+    // Copy to pre-allocated vectors to avoid allocation
+    _inputMoveVector.copy(this.moveVector);
+    _inputViewAngles.copy(this.viewAngles);
+
     const input: InputCommand = {
       sequence: this.sequenceNumber++,
       timestamp: now,
       deltaTime: deltaTime,
-      moveVector: this.moveVector.clone(), // Must clone - gets modified between frames
+      moveVector: _inputMoveVector,
       buttons: this.buttons,
-      viewAngles: this.viewAngles.clone(), // Must clone - gets modified between frames
+      viewAngles: _inputViewAngles,
       checksum: this.calculateChecksum(),
     };
 

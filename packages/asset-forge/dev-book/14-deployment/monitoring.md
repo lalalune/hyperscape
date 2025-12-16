@@ -718,7 +718,7 @@ services:
   grafana:
     image: grafana/grafana
     ports:
-      - "3001:3000"
+      - "3001:3333"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:

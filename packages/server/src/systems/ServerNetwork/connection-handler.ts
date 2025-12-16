@@ -561,7 +561,7 @@ export class ConnectionHandler {
         console.warn(
           "[ConnectionHandler] ❌ Spectator missing authToken for authentication",
         );
-        ws.close(4001, "Authentication required for spectator mode");
+        ws.close(5069, "Authentication required for spectator mode");
         return;
       }
 
@@ -580,7 +580,7 @@ export class ConnectionHandler {
           "[ConnectionHandler] ❌ Spectator authentication failed:",
           authErr,
         );
-        ws.close(4001, "Authentication failed");
+        ws.close(5069, "Authentication failed");
         return;
       }
 
@@ -588,7 +588,7 @@ export class ConnectionHandler {
         console.warn(
           "[ConnectionHandler] ❌ Spectator authentication returned no user",
         );
-        ws.close(4001, "Authentication failed");
+        ws.close(5069, "Authentication failed");
         return;
       }
 

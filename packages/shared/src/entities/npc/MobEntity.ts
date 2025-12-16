@@ -105,6 +105,7 @@ import type {
 } from "../../systems/client/HealthBars";
 import { COMBAT_CONSTANTS } from "../../constants/CombatConstants";
 import { AggroManager } from "../managers/AggroManager";
+import { getCachedTimestamp } from "../../systems/shared/movement/ObjectPools";
 import {
   worldToTile,
   TICK_DURATION_MS,
@@ -131,6 +132,15 @@ if (typeof ProgressEvent === "undefined") {
     };
 }
 
+// Pre-defined emote URL map to avoid per-call object allocation
+const MOB_EMOTE_URL_MAP: Record<string, string> = {
+  idle: Emotes.IDLE,
+  walk: Emotes.WALK,
+  run: Emotes.RUN,
+  combat: Emotes.COMBAT,
+  death: Emotes.DEATH,
+};
+
 export class MobEntity extends CombatantEntity {
   protected config: MobEntityConfig;
 
@@ -150,6 +160,7 @@ export class MobEntity extends CombatantEntity {
   private _tempMatrix2 = new THREE.Matrix4();
   private _tempScale = new THREE.Vector3(1, 1, 1);
   private _tempQuat = new THREE.Quaternion();
+  private _tempDeathPos = new THREE.Vector3();
   private static readonly _UP = new THREE.Vector3(0, 1, 0);
   private _terrainWarningLogged = false;
   private _hasValidTerrainHeight = false;
@@ -162,8 +173,8 @@ export class MobEntity extends CombatantEntity {
 
   // ===== MOVEMENT (Can be componentized later) =====
   private _wanderTarget: { x: number; z: number } | null = null;
-  private _cachedLastPosition = new THREE.Vector3(); // PERFORMANCE: Reusable position vector
-  private _hasLastPosition: boolean = false; // PERFORMANCE: Flag instead of nullable object
+  private _cachedLastPosition = new THREE.Vector3();
+  private _hasLastPosition = false;
   private _stuckTimer = 0;
   private readonly WANDER_MIN_DISTANCE = 1; // Minimum wander distance
   private readonly WANDER_MAX_DISTANCE = 5; // Maximum wander distance
@@ -208,6 +219,11 @@ export class MobEntity extends CombatantEntity {
   private static readonly ANIM_THROTTLE_MED = 50; // 30-80m: 20fps
   private static readonly ANIM_THROTTLE_FAR = 100; // 80-150m: 10fps
   private static readonly ANIM_THROTTLE_CULL = 200; // > 150m: 5fps (or skip)
+
+  // ===== PERFORMANCE: CACHED SKINNED MESH FOR ANIMATION =====
+  // Avoids traverse() every frame - caches SkinnedMesh and skeleton reference
+  private _cachedSkinnedMesh: THREE.SkinnedMesh | null = null;
+  private _skinnedMeshCached = false;
 
   async init(): Promise<void> {
     await super.init();
@@ -1063,13 +1079,16 @@ export class MobEntity extends CombatantEntity {
         this._lastRequestedTargetTile = { x: targetTile.x, z: targetTile.z };
         this._lastMoveRequestTick = currentTick;
 
-        // Note: Debug logging removed for production. Enable if needed:
-        // console.log(`[MobEntity] moveTowards: ${this.id} from tile (${currentTile.x}, ${currentTile.z}) to tile (${targetTile.x}, ${targetTile.z}), emitting MOB_NPC_MOVE_REQUEST`);
+        if (!this.id || !target) {
+          console.warn(
+            `[MobEntity] Cannot emit MOB_NPC_MOVE_REQUEST: id=${this.id}, target=${target}`,
+          );
+          return;
+        }
 
         this.world.emit(EventType.MOB_NPC_MOVE_REQUEST, {
           mobId: this.id,
           targetPos: target,
-          // If chasing a player, include targetEntityId for dynamic repathing
           targetEntityId: this.config.targetPlayerId || undefined,
           tilesPerTick: Math.max(
             1,
@@ -1133,8 +1152,8 @@ export class MobEntity extends CombatantEntity {
       getMovementType: () => this.config.movementType,
 
       // Timing
-      getCurrentTick: () => this.world.currentTick, // Server tick number for combat timing
-      getTime: () => Date.now(), // Date.now() for non-combat timing (idle duration, etc.)
+      getCurrentTick: () => this.world.currentTick,
+      getTime: () => getCachedTimestamp(),
 
       // State management
       markNetworkDirty: () => this.markNetworkDirty(),
@@ -1285,8 +1304,7 @@ export class MobEntity extends CombatantEntity {
 
     // Handle death state (position locking during death animation)
     if (this.deathManager.isCurrentlyDead()) {
-      // Use Date.now() for consistent millisecond timing (world.getTime() has inconsistent units)
-      const currentTime = Date.now();
+      const currentTime = getCachedTimestamp();
 
       // Lock position to death location (prevent any movement)
       const lockedPos = this.deathManager.getLockedPosition();
@@ -1459,14 +1477,13 @@ export class MobEntity extends CombatantEntity {
     super.clientUpdate(deltaTime);
     this.clientUpdateCalls++;
 
-    // PERFORMANCE: Update distance to camera periodically (not every frame)
+    // Update distance to camera periodically
     // Used for animation throttling - far mobs don't need 60fps updates
     if (this.clientUpdateCalls % 10 === 0) {
       this.updateDistanceToCamera();
     }
 
-    // PERFORMANCE: Get current time once per frame (avoid multiple Date.now() calls)
-    const currentTime = Date.now();
+    const currentTime = getCachedTimestamp();
 
     // Update health bar position (HealthBars system uses atlas + instanced mesh)
     if (this._healthBarHandle) {
@@ -1479,7 +1496,7 @@ export class MobEntity extends CombatantEntity {
 
     // Hide health bar after combat timeout (RuneScape pattern: 4.8 seconds)
     if (this._healthBarHandle && this._healthBarVisibleUntil > 0) {
-      if (Date.now() >= this._healthBarVisibleUntil) {
+      if (currentTime >= this._healthBarVisibleUntil) {
         this._healthBarHandle.hide();
         this._healthBarVisibleUntil = 0;
       }
@@ -1489,10 +1506,10 @@ export class MobEntity extends CombatantEntity {
     if (this.config.aiState === MobAIState.DEAD) {
       // Start tracking client-side death time when we first see DEAD state
       if (!this.clientDeathStartTime) {
-        this.clientDeathStartTime = Date.now();
+        this.clientDeathStartTime = currentTime;
       }
 
-      const currentTime = Date.now();
+      // Use currentTime already defined above
       const timeSinceDeath = currentTime - this.clientDeathStartTime;
 
       // Hide mesh and VRM after death animation finishes (4.5 seconds = 4500ms)
@@ -1526,9 +1543,8 @@ export class MobEntity extends CombatantEntity {
       // The death animation was already set via server emote, just let it play
       // After 4.5s the node will be hidden above
       if (this.config.aiState !== MobAIState.DEAD) {
-        // Skip AI-based emote updates if manual override is active (for one-shot attack animations)
-        const now = Date.now();
-        if (now >= this._manualEmoteOverrideUntil) {
+        // Skip AI-based emote updates if manual override is active
+        if (currentTime >= this._manualEmoteOverrideUntil) {
           // Switch animation based on AI state (walk when patrolling/chasing, idle otherwise)
           const targetEmote = this.getEmoteForAIState(this.config.aiState);
           if (this._currentEmote !== targetEmote) {
@@ -1572,7 +1588,6 @@ export class MobEntity extends CombatantEntity {
         // CRITICAL: Snap to terrain EVERY frame (server doesn't have terrain system)
         // Keep trying until terrain tile is generated, then snap every frame
         // This also counteracts VRM animation root motion that would push character into ground
-        // PERFORMANCE: Use cached terrain reference instead of getSystem() every frame
         const typedTerrain = this.getTerrainSystem();
         if (typedTerrain) {
           try {
@@ -1616,7 +1631,7 @@ export class MobEntity extends CombatantEntity {
         // DON'T call move() - it causes sliding due to internal interpolation
         // VRM scene was positioned once in modify() when entering death state
         // Just update the animation, VRM scene stays locked
-        // PERFORMANCE: Skip animation updates for distant mobs (death anim still plays at reduced rate)
+        // Skip animation updates for distant mobs (death anim still plays at reduced rate)
         if (!this.shouldSkipAnimationUpdate(currentTime)) {
           this._avatarInstance.update(deltaTime);
         }
@@ -1625,7 +1640,7 @@ export class MobEntity extends CombatantEntity {
         // move() applies vrm.scene.scale to maintain height normalization
         this._avatarInstance.move(this.node.matrixWorld);
 
-        // PERFORMANCE: Skip animation updates for distant mobs based on throttle interval
+        // Skip animation updates for distant mobs based on throttle interval
         if (!this.shouldSkipAnimationUpdate(currentTime)) {
           // Update VRM animations (mixer + humanoid + skeleton)
           this._avatarInstance.update(deltaTime);
@@ -1636,7 +1651,6 @@ export class MobEntity extends CombatantEntity {
       if (this.config.aiState !== MobAIState.DEAD) {
         // CRITICAL: Re-snap to terrain AFTER animation update to counteract root motion
         // Animation root motion can push character down/back, so we fix position after it applies
-        // PERFORMANCE: Use cached terrain reference
         const typedTerrain = this.getTerrainSystem();
         if (typedTerrain) {
           try {
@@ -1671,7 +1685,6 @@ export class MobEntity extends CombatantEntity {
     // Skip animation updates - placeholder doesn't animate
     if (this.mesh === this._placeholderHitbox) {
       // Just update position from terrain while waiting for VRM to load
-      // PERFORMANCE: Use cached terrain reference
       const typedTerrain = this.getTerrainSystem();
       if (typedTerrain) {
         try {
@@ -1703,52 +1716,61 @@ export class MobEntity extends CombatantEntity {
     // Note: Mixer may not exist for mobs with no animations - that's OK
     // The visible placeholder fallback doesn't have a mixer
 
-    // PERFORMANCE: Skip animation updates for distant mobs based on throttle interval
     if (mixer && !this.shouldSkipAnimationUpdate(currentTime)) {
       mixer.update(deltaTime);
 
-      // Update skeleton bones
-      if (this.mesh) {
+      // Update skeleton bones using cached reference (avoids traverse() per frame)
+      if (this.mesh && !this._skinnedMeshCached) {
+        // Cache the skinned mesh on first access
         this.mesh.traverse((child) => {
           if (child instanceof THREE.SkinnedMesh && child.skeleton) {
-            const skeleton = child.skeleton;
+            this._cachedSkinnedMesh = child;
+          }
+        });
+        this._skinnedMeshCached = true;
+      }
 
-            // Update bone matrices
-            skeleton.bones.forEach((bone) => bone.updateMatrixWorld());
-            skeleton.update();
+      const skinnedMesh = this._cachedSkinnedMesh;
+      if (skinnedMesh && skinnedMesh.skeleton) {
+        const skeleton = skinnedMesh.skeleton;
 
-            // VALIDATION: Check if bones are actually transforming (only for nearby mobs)
-            if (this._distanceToCamera < 30) {
-              if (this.clientUpdateCalls === 1) {
-                const hipsBone = skeleton.bones.find((b) =>
-                  b.name.toLowerCase().includes("hips"),
+        // Update bone matrices
+        const bones = skeleton.bones;
+        for (let i = 0; i < bones.length; i++) {
+          bones[i].updateMatrixWorld();
+        }
+        skeleton.update();
+
+        // VALIDATION: Check if bones are actually transforming (only for nearby mobs)
+        if (this._distanceToCamera < 30) {
+          if (this.clientUpdateCalls === 1) {
+            const hipsBone = skeleton.bones.find((b) =>
+              b.name.toLowerCase().includes("hips"),
+            );
+            if (hipsBone) {
+              this.initialBonePosition = hipsBone.position.clone();
+            }
+          } else if (this.clientUpdateCalls === 60) {
+            const hipsBone = skeleton.bones.find((b) =>
+              b.name.toLowerCase().includes("hips"),
+            );
+            if (hipsBone && this.initialBonePosition) {
+              const distance = hipsBone.position.distanceTo(
+                this.initialBonePosition,
+              );
+              if (distance < 0.001) {
+                throw new Error(
+                  `[MobEntity] BONES NOT MOVING: ${this.config.mobType}\n` +
+                    `  Start: [${this.initialBonePosition.toArray().map((v) => v.toFixed(4))}]\n` +
+                    `  Now: [${hipsBone.position.toArray().map((v) => v.toFixed(4))}]\n` +
+                    `  Distance: ${distance.toFixed(6)} (need > 0.001)\n` +
+                    `  Mixer time: ${mixer.time.toFixed(2)}s\n` +
+                    `  Animation runs but doesn't affect bones!`,
                 );
-                if (hipsBone) {
-                  this.initialBonePosition = hipsBone.position.clone();
-                }
-              } else if (this.clientUpdateCalls === 60) {
-                const hipsBone = skeleton.bones.find((b) =>
-                  b.name.toLowerCase().includes("hips"),
-                );
-                if (hipsBone && this.initialBonePosition) {
-                  const distance = hipsBone.position.distanceTo(
-                    this.initialBonePosition,
-                  );
-                  if (distance < 0.001) {
-                    throw new Error(
-                      `[MobEntity] BONES NOT MOVING: ${this.config.mobType}\n` +
-                        `  Start: [${this.initialBonePosition.toArray().map((v) => v.toFixed(4))}]\n` +
-                        `  Now: [${hipsBone.position.toArray().map((v) => v.toFixed(4))}]\n` +
-                        `  Distance: ${distance.toFixed(6)} (need > 0.001)\n` +
-                        `  Mixer time: ${mixer.time.toFixed(2)}s\n` +
-                        `  Animation runs but doesn't affect bones!`,
-                    );
-                  }
-                }
               }
             }
           }
-        });
+        }
       }
     }
   }
@@ -1822,9 +1844,7 @@ export class MobEntity extends CombatantEntity {
 
   die(): void {
     // ===== COMPONENT-BASED DEATH HANDLING =====
-
-    // Use Date.now() for consistent millisecond timing (world.getTime() has inconsistent units)
-    const currentTime = Date.now();
+    const currentTime = getCachedTimestamp();
     const deathPosition = this.getPosition();
 
     // Delegate death logic to DeathStateManager (position locking, death animation timing)
@@ -1931,7 +1951,6 @@ export class MobEntity extends CombatantEntity {
       };
 
       // Snap to terrain height (only if terrain system is ready)
-      // PERFORMANCE: Use cached terrain reference
       const typedTerrain = this.getTerrainSystem();
       if (typedTerrain) {
         try {
@@ -1975,7 +1994,6 @@ export class MobEntity extends CombatantEntity {
         this.config.aiState === MobAIState.RETURN;
 
       if (isMovingState) {
-        // PERFORMANCE: Use cached position and flag instead of allocating new Vector3
         if (this._hasLastPosition) {
           const moved = this.position.distanceTo(this._cachedLastPosition);
           if (moved < 0.01) {
@@ -2288,11 +2306,8 @@ export class MobEntity extends CombatantEntity {
         // Without this, stale timestamps from previous deaths cause immediate reset
         this.clientDeathStartTime = null;
 
-        // CRITICAL: Use current VISUAL position (this.position), NOT server position (data.p)
-        // TileInterpolator may be mid-interpolation, showing the mob at a different location
-        // than the server's authoritative position. The mob should die WHERE THE PLAYER SEES IT,
-        // not teleport to the server position. This matches RS3's smooth movement philosophy.
-        const visualDeathPos = new THREE.Vector3(
+        // Use visual position (not server position) - mob should die where player sees it
+        const visualDeathPos = this._tempDeathPos.set(
           this.position.x,
           this.position.y,
           this.position.z,
@@ -2323,7 +2338,7 @@ export class MobEntity extends CombatantEntity {
         // CRITICAL: If clientDeathStartTime is null, death just happened but
         // clientUpdate() hasn't run yet to set the timestamp. DON'T reset in this case!
         if (this.clientDeathStartTime) {
-          const timeSinceDeath = Date.now() - this.clientDeathStartTime;
+          const timeSinceDeath = getCachedTimestamp() - this.clientDeathStartTime;
 
           if (timeSinceDeath >= deathAnimationDuration) {
             // Death animation is complete, safe to reset
@@ -2356,8 +2371,7 @@ export class MobEntity extends CombatantEntity {
       if (inCombat && this._healthBarHandle) {
         // In combat - show health bar and set/extend timeout
         this._healthBarHandle.show();
-        this._healthBarVisibleUntil =
-          Date.now() + COMBAT_CONSTANTS.COMBAT_TIMEOUT_MS;
+        this._healthBarVisibleUntil = getCachedTimestamp() + COMBAT_CONSTANTS.COMBAT_TIMEOUT_MS;
       }
       // Note: Hiding is handled by clientUpdate() when timeout expires
     }
@@ -2396,19 +2410,12 @@ export class MobEntity extends CombatantEntity {
     if ("e" in data && data.e !== undefined && this._avatarInstance) {
       const serverEmote = data.e as string;
 
-      // Map symbolic emote names to asset URLs (same as PlayerRemote)
+      // Map symbolic emote names to asset URLs (using pre-defined module-level map)
       let emoteUrl: string;
       if (serverEmote.startsWith("asset://")) {
         emoteUrl = serverEmote;
       } else {
-        const emoteMap: Record<string, string> = {
-          idle: Emotes.IDLE,
-          walk: Emotes.WALK,
-          run: Emotes.RUN,
-          combat: Emotes.COMBAT,
-          death: Emotes.DEATH,
-        };
-        emoteUrl = emoteMap[serverEmote] || Emotes.IDLE;
+        emoteUrl = MOB_EMOTE_URL_MAP[serverEmote] || Emotes.IDLE;
       }
 
       if (this._currentEmote !== emoteUrl) {
@@ -2416,10 +2423,11 @@ export class MobEntity extends CombatantEntity {
         this._avatarInstance.setEmote(emoteUrl);
 
         // Set override durations for one-shot animations
+        const timestamp = getCachedTimestamp();
         if (emoteUrl.includes("combat") || emoteUrl.includes("punching")) {
-          this._manualEmoteOverrideUntil = Date.now() + 700; // 700ms for combat animation
+          this._manualEmoteOverrideUntil = timestamp + 700; // 700ms for combat animation
         } else if (emoteUrl.includes("death")) {
-          this._manualEmoteOverrideUntil = Date.now() + 4500; // 4500ms for full death animation (4.5 seconds)
+          this._manualEmoteOverrideUntil = timestamp + 4500; // 4500ms for full death animation (4.5 seconds)
         } else if (emoteUrl.includes("idle")) {
           this._manualEmoteOverrideUntil = 0; // Clear override when reset to idle
         }

@@ -83,6 +83,8 @@ function createMobTileState(
  * IMPORTANT: Mobs use greedy/direct pathfinding (chaseStep), NOT BFS.
  * This is authentic OSRS behavior - mobs walk directly toward their target
  * and get stuck behind obstacles (enabling safespotting gameplay).
+ *
+ * Performance: Caches terrain system reference to avoid repeated lookups.
  */
 export class MobTileMovementManager {
   private mobStates: Map<string, MobTileState> = new Map();
@@ -91,6 +93,12 @@ export class MobTileMovementManager {
   private _tempQuat = new THREE.Quaternion();
   // Debug mode - set to true for verbose logging (disabled in production)
   private readonly DEBUG_MODE = false;
+  /** Cached terrain system reference (lazy initialized) */
+  private _terrainSystem: InstanceType<typeof TerrainSystem> | null = null;
+  private _terrainSystemLookedUp = false;
+  /** Cached tile coordinate for temporary calculations (avoids object spreads) */
+  private _tempTile: TileCoord = { x: 0, z: 0 };
+  private _tempPrevTile: TileCoord = { x: 0, z: 0 };
 
   constructor(
     private world: World,
@@ -102,12 +110,16 @@ export class MobTileMovementManager {
   ) {}
 
   /**
-   * Get terrain system
+   * Get terrain system (cached after first lookup)
    */
   private getTerrain(): InstanceType<typeof TerrainSystem> | null {
-    return this.world.getSystem("terrain") as InstanceType<
-      typeof TerrainSystem
-    > | null;
+    if (!this._terrainSystemLookedUp) {
+      this._terrainSystem = this.world.getSystem("terrain") as InstanceType<
+        typeof TerrainSystem
+      > | null;
+      this._terrainSystemLookedUp = true;
+    }
+    return this._terrainSystem;
   }
 
   /**
@@ -240,7 +252,13 @@ export class MobTileMovementManager {
 
     // Set up chase state - onTick will use chaseStep for actual movement
     state.targetEntityId = targetEntityId;
-    state.lastTargetTile = { ...targetTile };
+    // Copy tile values directly to avoid object spread
+    if (!state.lastTargetTile) {
+      state.lastTargetTile = { x: targetTile.x, z: targetTile.z };
+    } else {
+      state.lastTargetTile.x = targetTile.x;
+      state.lastTargetTile.z = targetTile.z;
+    }
     state.tilesPerTick = tilesPerTick;
     state.isChasing = !!targetEntityId;
     state.hasDestination = true;
@@ -248,7 +266,10 @@ export class MobTileMovementManager {
 
     // Calculate initial chase path using chaseStep (NOT BFS!)
     const chasePath: TileCoord[] = [];
-    let currentPos = { ...state.currentTile };
+    // Use temp tile for iteration to avoid object allocation
+    this._tempTile.x = state.currentTile.x;
+    this._tempTile.z = state.currentTile.z;
+    let currentPos = this._tempTile;
 
     for (let step = 0; step < tilesPerTick; step++) {
       const nextTile = chaseStep(currentPos, targetTile, (tile) =>
@@ -433,7 +454,10 @@ export class MobTileMovementManager {
           // NOT in combat range - use chase pathfinder to calculate steps toward target
           // Calculate up to tilesPerTick steps (O(1) per step, unlike BFS which is O(tiles²))
           const chasePath: TileCoord[] = [];
-          let currentPos = { ...state.currentTile };
+          // Use temp tile for iteration to avoid object allocation
+          this._tempTile.x = state.currentTile.x;
+          this._tempTile.z = state.currentTile.z;
+          let currentPos = this._tempTile;
 
           for (let step = 0; step < state.tilesPerTick; step++) {
             // Check if this step would put us in combat range
@@ -459,7 +483,13 @@ export class MobTileMovementManager {
             state.path = chasePath;
             state.pathIndex = 0;
             state.hasDestination = true;
-            state.lastTargetTile = { ...currentTargetTile };
+            // Copy tile values directly to avoid object spread
+            if (!state.lastTargetTile) {
+              state.lastTargetTile = { x: currentTargetTile.x, z: currentTargetTile.z };
+            } else {
+              state.lastTargetTile.x = currentTargetTile.x;
+              state.lastTargetTile.z = currentTargetTile.z;
+            }
 
             // CRITICAL: Increment moveSeq and send tileMovementStart with new path
             // Without this, the client only receives entityTileUpdate (sync packets)
@@ -520,8 +550,10 @@ export class MobTileMovementManager {
         continue;
       }
 
-      // Store previous position for rotation calculation
-      const prevTile = { ...state.currentTile };
+      // Store previous position for rotation calculation (use cached object)
+      this._tempPrevTile.x = state.currentTile.x;
+      this._tempPrevTile.z = state.currentTile.z;
+      const prevTile = this._tempPrevTile;
 
       // Move tiles per tick (mob speed)
       const tilesToMove = state.tilesPerTick;
@@ -561,7 +593,9 @@ export class MobTileMovementManager {
           break;
         }
 
-        state.currentTile = { ...nextTile };
+        // Copy tile values directly to avoid object spread
+        state.currentTile.x = nextTile.x;
+        state.currentTile.z = nextTile.z;
         state.pathIndex++;
       }
 

@@ -264,9 +264,17 @@ export function CharacterSelectScreen({
     const checkElizaOS = async () => {
       try {
         // Check if ElizaOS API is running
-        const response = await fetch(`${ELIZAOS_API}/agents`, {
+        // This will proxy through Hyperscape server if ElizaOS is unavailable
+        // Use Promise.race for timeout instead of AbortController for better compatibility
+        const fetchPromise = fetch(`${ELIZAOS_API}/agents`, {
           method: "GET",
         });
+        
+        const timeoutPromise = new Promise<Response>((_, reject) => {
+          setTimeout(() => reject(new Error("Request timeout")), 5000);
+        });
+        
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
 
         if (!response.ok) {
           setElizaOSAvailable(false);
@@ -276,8 +284,11 @@ export function CharacterSelectScreen({
 
         // ElizaOS is running - assume Hyperscape plugin is available
         // (Plugin availability is verified during agent creation)
-        setElizaOSAvailable(true);
-      } catch {
+        const data = await response.json().catch(() => ({ agents: [] }));
+        setElizaOSAvailable(Array.isArray(data.agents) && data.agents.length > 0);
+      } catch (error) {
+        // Network error or timeout - ElizaOS not available
+        console.log("[CharacterSelectScreen] ElizaOS not available:", error instanceof Error ? error.message : "Unknown error");
         setElizaOSAvailable(false);
       } finally {
         setCheckingElizaOS(false);

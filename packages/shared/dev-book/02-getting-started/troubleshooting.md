@@ -67,10 +67,10 @@
 1. **Check Server URL**
    ```typescript
    // Correct
-   serverUrl: 'ws://localhost:3000'
+   serverUrl: 'ws://localhost:3333'
 
    // Wrong
-   serverUrl: 'http://localhost:3000'
+   serverUrl: 'http://localhost:3333'
    ```
 
 2. **Verify Server Running**

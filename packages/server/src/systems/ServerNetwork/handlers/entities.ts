@@ -79,13 +79,26 @@ export function handleEntityEvent(
   }
 }
 
+/**
+ * Handler for entityRemoved packets from clients.
+ *
+ * Intentionally a no-op: Entity removal is server-authoritative.
+ * The server controls when entities are removed (death, despawn, disconnect).
+ * Clients cannot request entity removal directly.
+ */
 export function handleEntityRemoved(
   _socket: ServerSocket,
   _data: unknown,
 ): void {
-  // Handle entity removal - currently a no-op placeholder
+  // Intentional no-op: entity removal is server-authoritative
 }
 
+/**
+ * Handler for settings packets from clients.
+ *
+ * Intentionally a no-op: World settings are admin-controlled.
+ * Settings changes require explicit admin commands, not client packets.
+ */
 export function handleSettings(_socket: ServerSocket, _data: unknown): void {
-  // Handle settings change - currently a no-op placeholder
+  // Intentional no-op: settings are admin-controlled
 }

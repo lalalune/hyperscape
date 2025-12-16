@@ -29,6 +29,7 @@ import {
 } from "viem";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { getChain, getRpcUrl, type JejuNetwork } from "./chain";
+import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync } from "crypto";
 
 // ============ Types ============
 
@@ -382,29 +383,89 @@ export async function executeWithSessionKey(
 
 /**
  * Encrypt a session key private key for storage
- * In production, use proper encryption with server-side secrets
+ * Uses AES-256-GCM encryption with server secret
+ * 
+ * Security:
+ * - AES-256-GCM provides authenticated encryption
+ * - IV (initialization vector) is randomly generated for each encryption
+ * - Server secret is derived using PBKDF2 with 100,000 iterations
+ * - Encrypted data includes IV, auth tag, and ciphertext
  */
 export function encryptSessionKey(privateKey: Hex): string {
-  // Simple base64 encoding for development
-  // TODO: Replace with proper AES-256-GCM encryption using server secret
-  const serverSecret = process.env.SESSION_KEY_SECRET || "development-secret";
-  const combined = `${serverSecret}:${privateKey}`;
-  return Buffer.from(combined).toString("base64");
+  const serverSecret =
+    process.env.SESSION_KEY_SECRET ||
+    (() => {
+      console.warn(
+        "[SessionKeys] SESSION_KEY_SECRET not set - using development secret (INSECURE)",
+      );
+      return "development-secret-change-in-production";
+    })();
+
+  // Derive encryption key from server secret using PBKDF2
+  const salt = Buffer.from("hyperscape-session-key-salt", "utf8");
+  const key = pbkdf2Sync(serverSecret, salt, 100000, 32, "sha256");
+
+  // Generate random IV for each encryption
+  const iv = randomBytes(12); // 12 bytes for GCM
+
+  // Create cipher
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+
+  // Encrypt the private key
+  const privateKeyBuffer = Buffer.from(privateKey.slice(2), "hex"); // Remove 0x prefix
+  const encrypted = Buffer.concat([
+    cipher.update(privateKeyBuffer),
+    cipher.final(),
+  ]);
+
+  // Get authentication tag
+  const authTag = cipher.getAuthTag();
+
+  // Combine IV + authTag + ciphertext
+  const combined = Buffer.concat([iv, authTag, encrypted]);
+
+  // Return as base64 for storage
+  return combined.toString("base64");
 }
 
 /**
  * Decrypt a session key private key
+ * Uses AES-256-GCM decryption matching the encryption function
  */
 export function decryptSessionKey(encrypted: string): Hex {
-  const serverSecret = process.env.SESSION_KEY_SECRET || "development-secret";
-  const decoded = Buffer.from(encrypted, "base64").toString();
-  const [secret, privateKey] = decoded.split(":");
+  const serverSecret =
+    process.env.SESSION_KEY_SECRET ||
+    (() => {
+      console.warn(
+        "[SessionKeys] SESSION_KEY_SECRET not set - using development secret (INSECURE)",
+      );
+      return "development-secret-change-in-production";
+    })();
 
-  if (secret !== serverSecret) {
-    throw new Error("Invalid session key encryption");
-  }
+  // Derive decryption key from server secret using PBKDF2 (same as encryption)
+  const salt = Buffer.from("hyperscape-session-key-salt", "utf8");
+  const key = pbkdf2Sync(serverSecret, salt, 100000, 32, "sha256");
 
-  return privateKey as Hex;
+  // Decode base64
+  const combined = Buffer.from(encrypted, "base64");
+
+  // Extract IV (first 12 bytes), auth tag (next 16 bytes), and ciphertext (rest)
+  const iv = combined.subarray(0, 12);
+  const authTag = combined.subarray(12, 28);
+  const ciphertext = combined.subarray(28);
+
+  // Create decipher
+  const decipher = createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(authTag);
+
+  // Decrypt
+  const decrypted = Buffer.concat([
+    decipher.update(ciphertext),
+    decipher.final(),
+  ]);
+
+  // Convert back to hex with 0x prefix
+  return (`0x${decrypted.toString("hex")}`) as Hex;
 }
 
 // ============ Server-Side Session Management ============

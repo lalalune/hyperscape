@@ -230,7 +230,7 @@ upstream image_backend {
 }
 
 upstream frontend_backend {
-    server localhost:3000;
+    server localhost:3333;
     keepalive 16;
 }
 
@@ -615,7 +615,7 @@ if [ "$API_STATUS" != "200" ]; then
 fi
 
 # Check frontend
-FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
+FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3333)
 
 if [ "$FRONTEND_STATUS" != "200" ]; then
   echo "Frontend health check failed"

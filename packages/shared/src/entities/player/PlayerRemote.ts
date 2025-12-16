@@ -93,6 +93,21 @@ let capsuleGeometry: THREE.CapsuleGeometry;
   capsuleGeometry.translate(0, height / 2, 0);
 }
 
+// Pre-defined emote URL map to avoid per-frame object allocation
+const EMOTE_URL_MAP: Record<string, string> = {
+  idle: Emotes.IDLE,
+  walk: Emotes.WALK,
+  run: Emotes.RUN,
+  float: Emotes.FLOAT,
+  fall: Emotes.FALL,
+  flip: Emotes.FLIP,
+  talk: Emotes.TALK,
+  combat: Emotes.COMBAT,
+  sword_swing: Emotes.SWORD_SWING,
+  chopping: Emotes.CHOPPING,
+  death: Emotes.DEATH,
+};
+
 export class PlayerRemote extends Entity implements HotReloadable {
   isPlayer: boolean;
   // Explicit non-local flag for tests
@@ -635,24 +650,11 @@ export class PlayerRemote extends Entity implements HotReloadable {
       let desiredUrl: string;
 
       if (serverEmote) {
-        // Map symbolic emote to asset URL
+        // Map symbolic emote to asset URL (using pre-defined module-level map)
         if (serverEmote.startsWith("asset://")) {
           desiredUrl = serverEmote;
         } else {
-          const emoteMap: Record<string, string> = {
-            idle: Emotes.IDLE,
-            walk: Emotes.WALK,
-            run: Emotes.RUN,
-            float: Emotes.FLOAT,
-            fall: Emotes.FALL,
-            flip: Emotes.FLIP,
-            talk: Emotes.TALK,
-            combat: Emotes.COMBAT,
-            sword_swing: Emotes.SWORD_SWING,
-            chopping: Emotes.CHOPPING,
-            death: Emotes.DEATH,
-          };
-          desiredUrl = emoteMap[serverEmote] || Emotes.IDLE;
+          desiredUrl = EMOTE_URL_MAP[serverEmote] || Emotes.IDLE;
         }
       } else {
         // Default to idle if no emote data

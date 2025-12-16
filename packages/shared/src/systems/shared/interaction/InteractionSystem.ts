@@ -470,6 +470,11 @@ export class InteractionSystem extends System {
   };
 
   private onMouseDown = (event: MouseEvent): void => {
+    // Skip if camera system already handled this event (for right-click rotation)
+    if ((event as MouseEvent & { cameraHandled?: boolean }).cameraHandled) {
+      return;
+    }
+
     if (event.button === 2) {
       const target = this.getEntityAtPosition(event.clientX, event.clientY);
       if (target) {

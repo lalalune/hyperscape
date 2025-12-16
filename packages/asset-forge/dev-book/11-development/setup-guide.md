@@ -330,7 +330,7 @@ npm run dev
 ```
 
 This single command starts:
-1. Vite development server on `http://localhost:3000`
+1. Vite development server on `http://localhost:3333`
 2. Express API server on `http://localhost:3004`
 3. Image server on `http://localhost:8081`
 
@@ -346,7 +346,7 @@ bun run dev:frontend
 npm run dev:frontend
 ```
 
-The frontend will be available at `http://localhost:3000`
+The frontend will be available at `http://localhost:3333`
 
 **Terminal 2 - Backend:**
 ```bash
@@ -371,10 +371,10 @@ npm run dev:images
 **Check Frontend:**
 ```bash
 # Open in browser
-open http://localhost:3000
+open http://localhost:3333
 
 # Or using curl
-curl http://localhost:3000
+curl http://localhost:3333
 ```
 
 **Check Backend:**
@@ -669,7 +669,7 @@ Create `.vscode/launch.json`:
       "type": "chrome",
       "request": "launch",
       "name": "Launch Chrome against localhost",
-      "url": "http://localhost:3000",
+      "url": "http://localhost:3333",
       "webRoot": "${workspaceFolder}/src",
       "sourceMapPathOverrides": {
         "webpack:///src/*": "${webRoot}/*"
@@ -893,13 +893,13 @@ gdd-assets/*/  # Generated assets (large files)
 
 **Issue: Port Already in Use**
 ```bash
-# Error: EADDRINUSE :::3000
+# Error: EADDRINUSE :::3333
 
 # Solution 1: Change port in .env
 API_PORT=3005
 
 # Solution 2: Kill process using port
-lsof -ti:3000 | xargs kill -9
+lsof -ti:3333 | xargs kill -9
 ```
 
 **Issue: API Keys Not Loading**
@@ -1020,7 +1020,7 @@ Before you start development, ensure:
 - [ ] `.env` file created and configured
 - [ ] API keys added to `.env`
 - [ ] Dev servers start without errors (`bun run dev`)
-- [ ] Frontend accessible at `http://localhost:3000`
+- [ ] Frontend accessible at `http://localhost:3333`
 - [ ] Backend health check passes
 - [ ] React DevTools extension installed
 - [ ] Redux DevTools extension installed

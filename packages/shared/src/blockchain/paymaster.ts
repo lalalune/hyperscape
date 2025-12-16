@@ -137,7 +137,15 @@ export async function getAvailablePaymasters(
         abi: PAYMASTER_FACTORY_ABI,
         functionName: "isPaymasterActive",
         args: [paymasterAddr],
-      }).catch(() => true) as Promise<boolean>;
+      }).catch((error) => {
+        // If we can't check if paymaster is active, assume inactive for safety
+        // This prevents using potentially inactive paymasters
+        console.warn(
+          `[Paymaster] Failed to check if paymaster ${paymasterAddr} is active:`,
+          error,
+        );
+        return false; // Fail closed: assume inactive if check fails
+      }) as Promise<boolean>;
       const [token, stake, active] = await Promise.all([
         tokenPromise,
         stakePromise,
@@ -194,7 +202,15 @@ export async function getPaymasterForToken(
     abi: PAYMASTER_FACTORY_ABI,
     functionName: "isPaymasterActive",
     args: [paymaster],
-  }).catch(() => true) as Promise<boolean>;
+  }).catch((error) => {
+    // If we can't check if paymaster is active, assume inactive for safety
+    // This prevents using potentially inactive paymasters
+    console.warn(
+      `[Paymaster] Failed to check if paymaster ${paymaster} is active:`,
+      error,
+    );
+    return false; // Fail closed: assume inactive if check fails
+  }) as Promise<boolean>;
   const [stake, active] = await Promise.all([stakePromise, activePromise]);
 
   if (stake < MIN_STAKE_THRESHOLD || !active) {
@@ -254,7 +270,15 @@ export async function findBestPaymaster(
       functionName: "getTokenBalance",
       args: [userAddress],
     });
-    const balance = (await balanceResult.catch(() => BigInt(0))) as bigint;
+    const balance = (await balanceResult.catch((error) => {
+      // If we can't get balance, assume 0 (no balance) for safety
+      // This prevents using paymasters we can't verify balance for
+      console.warn(
+        `[Paymaster] Failed to get token balance for ${userAddress} on paymaster ${pm.address}:`,
+        error,
+      );
+      return BigInt(0);
+    })) as bigint;
 
     if (balance > 0) {
       return pm;

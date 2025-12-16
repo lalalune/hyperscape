@@ -23,7 +23,7 @@ cd /path/to/elizaos
 npm start
 ```
 
-ElizaOS API should be running on `http://localhost:4001`
+ElizaOS API should be running on `http://localhost:5069`
 
 ### 3. Verify Services
 ```bash
@@ -31,7 +31,7 @@ ElizaOS API should be running on `http://localhost:4001`
 curl http://localhost:5555/api/characters
 
 # Check ElizaOS
-curl http://localhost:4001/api/agents
+curl http://localhost:5069/api/agents
 ```
 
 ---
@@ -102,7 +102,7 @@ cat /Users/home/hyperscape/logs/branch-validation/TEST_SUMMARY.md
 **Check services are running:**
 ```bash
 lsof -i :5555  # Hyperscape server
-lsof -i :3000  # ElizaOS API
+lsof -i :3333  # ElizaOS API
 ```
 
 **Check database:**
@@ -124,7 +124,7 @@ cd /Users/home/hyperscape/packages/server
 ```bash
 # Kill processes on ports
 lsof -ti:5555 | xargs kill -9
-lsof -ti:3000 | xargs kill -9
+lsof -ti:3333 | xargs kill -9
 ```
 
 ### Database Issues?

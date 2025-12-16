@@ -45,7 +45,7 @@ interface ServerWorldOptions {
 ```typescript
 const world = await createServerWorld({
   assetsDir: './assets',
-  port: 3000,
+  port: 3333,
   dbPath: './game.db'
 });
 ```

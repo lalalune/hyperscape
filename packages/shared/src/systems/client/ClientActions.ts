@@ -194,7 +194,7 @@ export class ClientActions extends SystemBase {
     if (xrSystem?.session) {
       // VR mode action rendering
       const _camPosition = v3.setFromMatrixPosition(
-        xrSystem.camera?.matrixWorld || new THREE.Matrix4(),
+        xrSystem.camera?.matrixWorld || _m1.identity(),
       );
       // ... existing VR code ...
     } else {
@@ -293,7 +293,7 @@ function createAction(world: World): ClientActionHandler {
         node.matrixWorld.decompose(_update_pos, _update_qua, _update_sca);
 
         _update_camPosition.setFromMatrixPosition(
-          world.xr?.camera?.matrixWorld || new THREE.Matrix4(),
+          world.xr?.camera?.matrixWorld || _m1.identity(),
         );
         distance = _update_camPosition.distanceTo(_update_pos);
 

@@ -15,7 +15,7 @@
  * - Noted items cannot be equipped, eaten, or used
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import {
   shouldGenerateNote,
   generateNotedItem,

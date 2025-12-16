@@ -274,7 +274,7 @@ All services have unique default ports to avoid conflicts:
 | 3401 | AssetForge API | `ASSET_FORGE_API_PORT` | `bun run dev:forge` |
 | 3402 | Docusaurus | (hardcoded) | `bun run docs:dev` |
 | 4000 | ElizaOS Dashboard | (internal) | `bun run dev:ai` |
-| 4001 | ElizaOS API | `ELIZAOS_PORT` | `bun run dev:ai` |
+| 5069 | ElizaOS API | `ELIZAOS_PORT` | `bun run dev:ai` |
 | 5555 | Game Server | `PORT` | `bun run dev` |
 
 ### Environment Variables
@@ -353,7 +353,7 @@ cd packages/physx-js-webidl
 # Kill processes on common Hyperscape ports
 lsof -ti:3333 | xargs kill -9  # Game Client
 lsof -ti:5555 | xargs kill -9  # Game Server
-lsof -ti:4001 | xargs kill -9  # ElizaOS
+lsof -ti:5069 | xargs kill -9  # ElizaOS
 ```
 
 See [Port Allocation](#port-allocation) section for full port list.

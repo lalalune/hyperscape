@@ -236,6 +236,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   /** Map of all active WebSocket connections by socket ID */
   sockets: Map<string, SocketInterface>;
+  
+  /** Reverse lookup: player ID -> socket for O(1) player lookups */
+  private playerIdToSocket: Map<string, SocketInterface> = new Map();
 
   /** Interval handle for socket health checks (ping/pong) */
   socketIntervalId: NodeJS.Timeout;
@@ -312,16 +315,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   private _tempVec3 = new THREE.Vector3();
   private _tempVec3Fwd = new THREE.Vector3(0, 0, -1);
   private _tempQuat = new THREE.Quaternion();
-
-  // Track last state per entity (used for future delta compression)
-  private lastStates = new Map<
-    string,
-    { q: [number, number, number, number] }
-  >();
-  // In broadcast, for q:
-  // const last = this.lastStates.get(entity.id) || {q: [0,0,0,1]};
-  // const qDelta = quatSubtract(currentQuaternion, last.q);
-  // Quantize and send qDelta, update last
+  /** Pool of reusable Vector3 objects for movement targets */
+  private _vector3Pool: THREE.Vector3[] = [];
+  /** Maximum pool size to prevent unbounded growth */
+  private static readonly MAX_POOL_SIZE = 50;
 
   constructor(world: World) {
     super(world);
@@ -403,6 +400,35 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["onCharacterCreate"] = this.onCharacterCreate.bind(this) as unknown as NetworkHandler;
     this.handlers["onCharacterSelected"] = this.onCharacterSelected.bind(this) as unknown as NetworkHandler;
     this.handlers["onEnterWorld"] = this.onEnterWorld.bind(this) as unknown as NetworkHandler;
+  }
+
+  // --- Vector3 pooling for movement targets ---
+  
+  /**
+   * Get a Vector3 from the pool or create a new one
+   */
+  private acquireVector3(x: number, y: number, z: number): THREE.Vector3 {
+    const vec = this._vector3Pool.pop();
+    if (vec) {
+      return vec.set(x, y, z);
+    }
+    return new THREE.Vector3(x, y, z);
+  }
+
+  /**
+   * Return a Vector3 to the pool for reuse
+   */
+  private releaseVector3(vec: THREE.Vector3): void {
+    if (this._vector3Pool.length < ServerNetwork.MAX_POOL_SIZE) {
+      this._vector3Pool.push(vec);
+    }
+  }
+
+  /**
+   * Get socket by player ID using O(1) reverse lookup
+   */
+  private getSocketByPlayerId(playerId: string): SocketInterface | undefined {
+    return this.playerIdToSocket.get(playerId);
   }
 
   // --- Character selection infrastructure (feature-flag guarded) ---
@@ -670,6 +696,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       : undefined;
     socket.player = (addedEntity as Entity) || undefined;
     if (socket.player) {
+      // Register reverse lookup for O(1) player ID -> socket lookups
+      this.playerIdToSocket.set(socket.player.id, socket);
+      
       // Register player with AOI system for optimized broadcasts
       this.registerPlayerAOI(
         socket.player.id,
@@ -1003,8 +1032,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       const entity = this.world.entities.get(playerId);
       if (!entity || !entity.position) {
         toDelete.push(playerId);
-        // Ensure associated state entries are also cleaned up
-        this.lastStates.delete(playerId);
         return;
       }
 
@@ -1109,7 +1136,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
     });
 
-    toDelete.forEach((id) => this.moveTargets.delete(id));
+    // Release completed movement vectors back to pool
+    for (const id of toDelete) {
+      const entry = this.moveTargets.get(id);
+      if (entry) {
+        this.releaseVector3(entry.target);
+        this.moveTargets.delete(id);
+      }
+    }
 
     // Flush all queued entity updates at end of tick
     this.flushEntityUpdates();
@@ -1383,7 +1417,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       {
         hadPlayer: !!serverSocket.player,
         playerId: serverSocket.player?.id,
-        stackTrace: new Error().stack?.split("\n").slice(1, 4).join("\n"),
       },
     );
 
@@ -1404,9 +1437,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           // Notify the other player
           const otherPlayerId =
             trade.initiator === playerId ? trade.recipient : trade.initiator;
-          const otherSocket = Array.from(this.sockets.values()).find(
-            (s) => s.player?.id === otherPlayerId,
-          );
+          const otherSocket = this.getSocketByPlayerId(otherPlayerId);
 
           if (otherSocket) {
             this.sendTo(otherSocket.id, "tradeCancelled", {
@@ -1419,6 +1450,16 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           this.activeTrades.delete(tradeId);
         }
       }
+
+      // Clean up movement target and release vector to pool
+      const moveEntry = this.moveTargets.get(playerId);
+      if (moveEntry) {
+        this.releaseVector3(moveEntry.target);
+        this.moveTargets.delete(playerId);
+      }
+
+      // Remove from player ID reverse lookup
+      this.playerIdToSocket.delete(playerId);
 
       // Remove from AOI system
       this.removePlayerAOI(serverSocket.player.id);
@@ -1449,18 +1490,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    * @public
    */
   flush(): void {
-    if (this.queue.length > 0) {
-      // console.debug(`[ServerNetwork] Flushing ${this.queue.length} packets`)
-    }
     while (this.queue.length) {
       const [socket, method, data] = this.queue.shift()!;
       const handler = this.handlers[method];
-      if (method === "onChatAdded") {
-        // Chat packets handled normally, debug logging disabled
-      }
       if (handler) {
         const result = handler.call(this, socket, data);
-        // If handler is async, wait for it to complete
         if (result && typeof result.then === "function") {
           result.catch((err: Error) => {
             console.error(
@@ -1740,9 +1774,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Only grant admin in development mode when no admin code is set
     // This prevents accidental admin access in production
     if (!process.env.ADMIN_CODE && process.env.NODE_ENV === "development") {
-      console.warn(
-        "[ServerNetwork] No ADMIN_CODE set in development mode - granting temporary admin access",
-      );
       // user.roles is already a string[] at this point after conversion
       if (Array.isArray(user.roles)) {
         user.roles.push("~admin");
@@ -1966,6 +1997,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
       // Register player with AOI system (legacy mode)
       if (socket.player) {
+        // Register reverse lookup for O(1) player ID -> socket lookups
+        this.playerIdToSocket.set(socket.player.id, socket);
+        
         this.registerPlayerAOI(
           socket.player.id,
           spawnPosition[0],
@@ -2294,7 +2328,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Handle cancellation
     if (data.cancel || data.target === null) {
-      this.moveTargets.delete(playerEntity.id);
+      const entry = this.moveTargets.get(playerEntity.id);
+      if (entry) {
+        this.releaseVector3(entry.target);
+        this.moveTargets.delete(playerEntity.id);
+      }
       const curr = playerEntity.position;
       this.queueEntityUpdate(playerEntity.id, {
         position: { x: curr.x, y: curr.y, z: curr.z },
@@ -2324,16 +2362,25 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
 
-    // Simple target creation - no complex terrain anchoring
-    const target = new THREE.Vector3(t[0], t[1], t[2]);
     const maxSpeed = data.runMode ? 8 : 4;
 
-    // Replace existing target completely (allows direction changes)
-    this.moveTargets.set(playerEntity.id, {
-      target,
-      maxSpeed,
-      lastUpdate: 0,
-    });
+    // Check if player already has a movement entry - reuse its Vector3
+    const existingEntry = this.moveTargets.get(playerEntity.id);
+    let target: THREE.Vector3;
+    if (existingEntry) {
+      // Reuse existing vector
+      target = existingEntry.target.set(t[0], t[1], t[2]);
+      existingEntry.maxSpeed = maxSpeed;
+      existingEntry.lastUpdate = 0;
+    } else {
+      // Acquire from pool or create new
+      target = this.acquireVector3(t[0], t[1], t[2]);
+      this.moveTargets.set(playerEntity.id, {
+        target,
+        maxSpeed,
+        lastUpdate: 0,
+      });
+    }
 
     // Immediately rotate the player to face the new target and broadcast state
     const curr = playerEntity.position;
@@ -2503,10 +2550,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
 
-    // Find recipient player
-    const recipientSocket = Array.from(this.sockets.values()).find(
-      (s) => s.player?.id === data.targetPlayerId,
-    );
+    // Find recipient player (O(1) lookup)
+    const recipientSocket = this.getSocketByPlayerId(data.targetPlayerId);
 
     if (!recipientSocket || !recipientSocket.player) {
       console.warn(
@@ -2586,10 +2631,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
 
-    // Find initiator
-    const initiatorSocket = Array.from(this.sockets.values()).find(
-      (s) => s.player?.id === data.fromPlayerId,
-    );
+    // Find initiator (O(1) lookup)
+    const initiatorSocket = this.getSocketByPlayerId(data.fromPlayerId);
 
     if (!initiatorSocket || !initiatorSocket.player) {
       console.warn("[ServerNetwork] onTradeResponse: initiator not found");
@@ -2612,13 +2655,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     const tradeId = data.tradeId || uuid();
     const initiator = initiatorSocket.player;
 
-    // Validate distance again
-    const distance = Math.sqrt(
-      Math.pow(initiator.position.x - recipient.position.x, 2) +
-        Math.pow(initiator.position.z - recipient.position.z, 2),
-    );
+    // Validate distance again (using squared distance to avoid sqrt)
+    const dx = initiator.position.x - recipient.position.x;
+    const dz = initiator.position.z - recipient.position.z;
+    const distanceSquared = dx * dx + dz * dz;
+    const maxTradeDistanceSquared = 25; // 5 * 5
 
-    if (distance > 5) {
+    if (distanceSquared > maxTradeDistanceSquared) {
       this.sendTo(socket.id, "tradeError", {
         message: "Players too far apart",
       });
@@ -2785,11 +2828,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       trade.recipientConfirmed = false; // Reset confirmation
     }
 
-    // Broadcast updated offers to both players
+    // Broadcast updated offers to both players (O(1) lookup)
     const otherPlayerId = isInitiator ? trade.recipient : trade.initiator;
-    const otherSocket = Array.from(this.sockets.values()).find(
-      (s) => s.player?.id === otherPlayerId,
-    );
+    const otherSocket = this.getSocketByPlayerId(otherPlayerId);
 
     const updateData = {
       tradeId: trade.tradeId,
@@ -2849,11 +2890,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       trade.recipientConfirmed = true;
     }
 
-    // Notify both players of confirmation
+    // Notify both players of confirmation (O(1) lookup)
     const otherPlayerId = isInitiator ? trade.recipient : trade.initiator;
-    const otherSocket = Array.from(this.sockets.values()).find(
-      (s) => s.player?.id === otherPlayerId,
-    );
+    const otherSocket = this.getSocketByPlayerId(otherPlayerId);
 
     const updateData = {
       tradeId: trade.tradeId,
@@ -2908,11 +2947,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
 
-    // Notify both players
+    // Notify both players (O(1) lookup)
     const otherPlayerId = isInitiator ? trade.recipient : trade.initiator;
-    const otherSocket = Array.from(this.sockets.values()).find(
-      (s) => s.player?.id === otherPlayerId,
-    );
+    const otherSocket = this.getSocketByPlayerId(otherPlayerId);
 
     const cancelData = {
       tradeId: trade.tradeId,
@@ -2939,13 +2976,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
 
-    // Find both player entities to check distance
-    const initiatorEntity = Array.from(this.sockets.values()).find(
-      (s) => s.player?.id === trade.initiator,
-    )?.player;
-    const recipientEntity = Array.from(this.sockets.values()).find(
-      (s) => s.player?.id === trade.recipient,
-    )?.player;
+    // Find both player entities to check distance (O(1) lookups)
+    const initiatorEntity = this.getSocketByPlayerId(trade.initiator)?.player;
+    const recipientEntity = this.getSocketByPlayerId(trade.recipient)?.player;
 
     if (!initiatorEntity || !recipientEntity) {
       console.error(
@@ -3180,13 +3213,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         });
       }
 
-      // Notify both players of successful trade
-      const initiatorSocket = Array.from(this.sockets.values()).find(
-        (s) => s.player?.id === trade.initiator,
-      );
-      const recipientSocket = Array.from(this.sockets.values()).find(
-        (s) => s.player?.id === trade.recipient,
-      );
+      // Notify both players of successful trade (O(1) lookups)
+      const initiatorSocket = this.getSocketByPlayerId(trade.initiator);
+      const recipientSocket = this.getSocketByPlayerId(trade.recipient);
 
       const successData = {
         tradeId: trade.tradeId,
@@ -3275,12 +3304,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     const trade = this.activeTrades.get(tradeId);
     if (!trade) return;
 
-    const initiatorSocket = Array.from(this.sockets.values()).find(
-      (s) => s.player?.id === trade.initiator,
-    );
-    const recipientSocket = Array.from(this.sockets.values()).find(
-      (s) => s.player?.id === trade.recipient,
-    );
+    // O(1) lookups for trade participants
+    const initiatorSocket = this.getSocketByPlayerId(trade.initiator);
+    const recipientSocket = this.getSocketByPlayerId(trade.recipient);
 
     const errorData = {
       tradeId: trade.tradeId,
@@ -3424,31 +3450,28 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   }
 
   /**
-   * Handles entity removal requests from clients
+   * Handler for entityRemoved packets from clients.
    *
-   * Currently a no-op placeholder. Entity removal is handled through other systems.
-   *
-   * @param _socket - The client socket (unused)
-   * @param _data - Removal data (unused)
+   * Intentionally a no-op: Entity removal is server-authoritative.
+   * The server controls when entities are removed (death, despawn, disconnect).
+   * Clients cannot request entity removal directly for security.
    *
    * @internal
    */
   onEntityRemoved(_socket: SocketInterface, _data: { id: string }): void {
-    // Handle entity removal
+    // Intentional no-op: entity removal is server-authoritative
   }
 
   /**
-   * Handles world settings modification from clients
+   * Handler for settings packets from clients.
    *
-   * Currently a no-op placeholder. Settings are managed through other systems.
-   *
-   * @param _socket - The client socket (unused)
-   * @param _data - Settings data (unused)
+   * Intentionally a no-op: World settings are admin-controlled.
+   * Settings changes require explicit admin commands, not client packets.
    *
    * @internal
    */
   onSettings(_socket: SocketInterface, _data: Record<string, unknown>): void {
-    // Handle settings change
+    // Intentional no-op: settings are admin-controlled
   }
 
   /**

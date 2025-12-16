@@ -3,7 +3,7 @@
  * Classic RuneScape-style skills interface with Prayer/Buffs system
  */
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { COLORS } from "../../constants";
 import type { ClientWorld, PlayerStats } from "../../types";
@@ -34,13 +34,41 @@ interface Prayer {
 
 type TabType = "skills" | "prayer";
 
+// Static prayer definitions (only active state changes at runtime)
+const PRAYER_DEFINITIONS: ReadonlyArray<Omit<Prayer, "active">> = [
+  { id: "clarity", name: "Clarity", icon: "🧠", level: 1, description: "Increases accuracy by 5%", drainRate: 3, category: "offensive" },
+  { id: "strength", name: "Strength", icon: "💪", level: 4, description: "Increases max hit by 5%", drainRate: 3, category: "offensive" },
+  { id: "sharpEye", name: "Sharp Eye", icon: "🎯", level: 8, description: "Increases ranged accuracy by 5%", drainRate: 3, category: "offensive" },
+  { id: "burst", name: "Burst of Strength", icon: "⚡", level: 16, description: "Increases max hit by 10%", drainRate: 6, category: "offensive" },
+  { id: "thickSkin", name: "Thick Skin", icon: "🛡️", level: 1, description: "Increases defense by 5%", drainRate: 3, category: "defensive" },
+  { id: "rockSkin", name: "Rock Skin", icon: "🪨", level: 10, description: "Increases defense by 10%", drainRate: 6, category: "defensive" },
+  { id: "steelSkin", name: "Steel Skin", icon: "⚙️", level: 28, description: "Increases defense by 15%", drainRate: 12, category: "defensive" },
+  { id: "protect", name: "Protect from Melee", icon: "🔰", level: 43, description: "Blocks 40% melee damage", drainRate: 12, category: "defensive" },
+  { id: "rapidHeal", name: "Rapid Heal", icon: "❤️‍🩹", level: 22, description: "Doubles health regeneration", drainRate: 6, category: "utility" },
+  { id: "preserveGather", name: "Preserve", icon: "🌿", level: 35, description: "Reduces gathering drain by 50%", drainRate: 3, category: "utility" },
+];
+
+// RuneScape-style XP formula
 function calculateXPForLevel(level: number): number {
-  // RuneScape-style XP formula
   let total = 0;
   for (let i = 1; i < level; i++) {
     total += Math.floor(i + 300 * Math.pow(2, i / 7));
   }
   return Math.floor(total / 4);
+}
+
+// OSRS Combat Level Formula
+function calculateCombatLevel(skills: NonNullable<PlayerStats["skills"]>): number {
+  const defense = skills.defense?.level || 1;
+  const constitution = skills.constitution?.level || 10;
+  const attack = skills.attack?.level || 1;
+  const strength = skills.strength?.level || 1;
+  const ranged = skills.ranged?.level || 1;
+  
+  const base = 0.25 * (defense + constitution);
+  const melee = 0.325 * (attack + strength);
+  const rangedBonus = 0.325 * Math.floor(ranged * 1.5);
+  return Math.floor(base + Math.max(melee, rangedBonus));
 }
 
 function SkillBox({
@@ -272,200 +300,111 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
 
   const s = stats?.skills || ({} as NonNullable<PlayerStats["skills"]>);
 
-  const skills: Skill[] = [
-    {
-      key: "attack",
-      label: "Attack",
-      icon: "⚔️",
-      level: s?.attack?.level || 1,
-      xp: s?.attack?.xp || 0,
-    },
-    {
-      key: "constitution",
-      label: "Constitution",
-      icon: "❤️",
-      level: Math.max(10, s?.constitution?.level || 10),
-      xp: s?.constitution?.xp || 0,
-    },
-    {
-      key: "strength",
-      label: "Strength",
-      icon: "💪",
-      level: s?.strength?.level || 1,
-      xp: s?.strength?.xp || 0,
-    },
-    {
-      key: "defense",
-      label: "Defense",
-      icon: "🛡️",
-      level: s?.defense?.level || 1,
-      xp: s?.defense?.xp || 0,
-    },
-    {
-      key: "ranged",
-      label: "Ranged",
-      icon: "🏹",
-      level: s?.ranged?.level || 1,
-      xp: s?.ranged?.xp || 0,
-    },
-    {
-      key: "woodcutting",
-      label: "Woodcutting",
-      icon: "🪓",
-      level: s?.woodcutting?.level || 1,
-      xp: s?.woodcutting?.xp || 0,
-    },
-    {
-      key: "fishing",
-      label: "Fishing",
-      icon: "🎣",
-      level: s?.fishing?.level || 1,
-      xp: s?.fishing?.xp || 0,
-    },
-    {
-      key: "firemaking",
-      label: "Firemaking",
-      icon: "🔥",
-      level: s?.firemaking?.level || 1,
-      xp: s?.firemaking?.xp || 0,
-    },
-    {
-      key: "cooking",
-      label: "Cooking",
-      icon: "🍳",
-      level: s?.cooking?.level || 1,
-      xp: s?.cooking?.xp || 0,
-    },
-  ];
+  const skills: Skill[] = useMemo(
+    () => [
+      {
+        key: "attack",
+        label: "Attack",
+        icon: "⚔️",
+        level: s?.attack?.level || 1,
+        xp: s?.attack?.xp || 0,
+      },
+      {
+        key: "constitution",
+        label: "Constitution",
+        icon: "❤️",
+        level: Math.max(10, s?.constitution?.level || 10),
+        xp: s?.constitution?.xp || 0,
+      },
+      {
+        key: "strength",
+        label: "Strength",
+        icon: "💪",
+        level: s?.strength?.level || 1,
+        xp: s?.strength?.xp || 0,
+      },
+      {
+        key: "defense",
+        label: "Defense",
+        icon: "🛡️",
+        level: s?.defense?.level || 1,
+        xp: s?.defense?.xp || 0,
+      },
+      {
+        key: "ranged",
+        label: "Ranged",
+        icon: "🏹",
+        level: s?.ranged?.level || 1,
+        xp: s?.ranged?.xp || 0,
+      },
+      {
+        key: "woodcutting",
+        label: "Woodcutting",
+        icon: "🪓",
+        level: s?.woodcutting?.level || 1,
+        xp: s?.woodcutting?.xp || 0,
+      },
+      {
+        key: "fishing",
+        label: "Fishing",
+        icon: "🎣",
+        level: s?.fishing?.level || 1,
+        xp: s?.fishing?.xp || 0,
+      },
+      {
+        key: "firemaking",
+        label: "Firemaking",
+        icon: "🔥",
+        level: s?.firemaking?.level || 1,
+        xp: s?.firemaking?.xp || 0,
+      },
+      {
+        key: "cooking",
+        label: "Cooking",
+        icon: "🍳",
+        level: s?.cooking?.level || 1,
+        xp: s?.cooking?.xp || 0,
+      },
+    ],
+    [s],
+  );
 
-  const prayers: Prayer[] = [
-    // Offensive Prayers
-    {
-      id: "clarity",
-      name: "Clarity",
-      icon: "🧠",
-      level: 1,
-      description: "Increases accuracy by 5%",
-      drainRate: 3,
-      active: activePrayers.has("clarity"),
-      category: "offensive",
-    },
-    {
-      id: "strength",
-      name: "Strength",
-      icon: "💪",
-      level: 4,
-      description: "Increases max hit by 5%",
-      drainRate: 3,
-      active: activePrayers.has("strength"),
-      category: "offensive",
-    },
-    {
-      id: "sharpEye",
-      name: "Sharp Eye",
-      icon: "🎯",
-      level: 8,
-      description: "Increases ranged accuracy by 5%",
-      drainRate: 3,
-      active: activePrayers.has("sharpEye"),
-      category: "offensive",
-    },
-    {
-      id: "burst",
-      name: "Burst of Strength",
-      icon: "⚡",
-      level: 16,
-      description: "Increases max hit by 10%",
-      drainRate: 6,
-      active: activePrayers.has("burst"),
-      category: "offensive",
-    },
-
-    // Defensive Prayers
-    {
-      id: "thickSkin",
-      name: "Thick Skin",
-      icon: "🛡️",
-      level: 1,
-      description: "Increases defense by 5%",
-      drainRate: 3,
-      active: activePrayers.has("thickSkin"),
-      category: "defensive",
-    },
-    {
-      id: "rockSkin",
-      name: "Rock Skin",
-      icon: "🪨",
-      level: 10,
-      description: "Increases defense by 10%",
-      drainRate: 6,
-      active: activePrayers.has("rockSkin"),
-      category: "defensive",
-    },
-    {
-      id: "steelSkin",
-      name: "Steel Skin",
-      icon: "⚙️",
-      level: 28,
-      description: "Increases defense by 15%",
-      drainRate: 12,
-      active: activePrayers.has("steelSkin"),
-      category: "defensive",
-    },
-    {
-      id: "protect",
-      name: "Protect from Melee",
-      icon: "🔰",
-      level: 43,
-      description: "Blocks 40% melee damage",
-      drainRate: 12,
-      active: activePrayers.has("protect"),
-      category: "defensive",
-    },
-
-    // Utility Prayers
-    {
-      id: "rapidHeal",
-      name: "Rapid Heal",
-      icon: "❤️‍🩹",
-      level: 22,
-      description: "Doubles health regeneration",
-      drainRate: 6,
-      active: activePrayers.has("rapidHeal"),
-      category: "utility",
-    },
-    {
-      id: "preserveGather",
-      name: "Preserve",
-      icon: "🌿",
-      level: 35,
-      description: "Reduces gathering drain by 50%",
-      drainRate: 3,
-      active: activePrayers.has("preserveGather"),
-      category: "utility",
-    },
-  ];
+  const prayers: Prayer[] = useMemo(
+    () => PRAYER_DEFINITIONS.map((p) => ({ ...p, active: activePrayers.has(p.id) })),
+    [activePrayers],
+  );
 
   const totalLevel = skills.reduce((sum, skill) => sum + skill.level, 0);
   const totalXP = skills.reduce((sum, skill) => sum + skill.xp, 0);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
     setMousePos({ x: e.clientX, y: e.clientY });
-  };
+  }, []);
 
-  const togglePrayer = (id: string) => {
-    const newActivePrayers = new Set(activePrayers);
-    if (newActivePrayers.has(id)) {
-      newActivePrayers.delete(id);
-    } else {
-      newActivePrayers.add(id);
-    }
-    setActivePrayers(newActivePrayers);
-  };
+  const togglePrayer = useCallback((id: string) => {
+    setActivePrayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
 
-  const offensivePrayers = prayers.filter((p) => p.category === "offensive");
-  const defensivePrayers = prayers.filter((p) => p.category === "defensive");
-  const utilityPrayers = prayers.filter((p) => p.category === "utility");
+  const offensivePrayers = useMemo(
+    () => prayers.filter((p) => p.category === "offensive"),
+    [prayers],
+  );
+  const defensivePrayers = useMemo(
+    () => prayers.filter((p) => p.category === "defensive"),
+    [prayers],
+  );
+  const utilityPrayers = useMemo(
+    () => prayers.filter((p) => p.category === "utility"),
+    [prayers],
+  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden gap-1">
@@ -583,18 +522,7 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
                       "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
                   }}
                 >
-                  {(() => {
-                    // OSRS Combat Level Formula (simplified - no Prayer/Magic yet)
-                    const base =
-                      0.25 *
-                      ((s.defense?.level || 1) + (s.constitution?.level || 10));
-                    const melee =
-                      0.325 *
-                      ((s.attack?.level || 1) + (s.strength?.level || 1));
-                    const ranged =
-                      0.325 * Math.floor((s.ranged?.level || 1) * 1.5);
-                    return Math.floor(base + Math.max(melee, ranged));
-                  })()}
+                  {calculateCombatLevel(s)}
                 </span>
               </div>
 

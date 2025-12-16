@@ -10,16 +10,16 @@
  * - Clears respawn timers on destroy
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, mock, afterEach, spyOn } from "bun:test";
 import { MobDeathSystem } from "../MobDeathSystem";
 
 // Mock World
 function createMockWorld() {
   const entitiesMap = new Map<string, Record<string, unknown>>();
-  const emitFn = vi.fn();
-  const onFn = vi.fn();
-  const offFn = vi.fn();
-  const removeFn = vi.fn();
+  const emitFn = mock();
+  const onFn = mock();
+  const offFn = mock();
+  const removeFn = mock();
 
   return {
     entities: {
@@ -32,7 +32,7 @@ function createMockWorld() {
     emit: emitFn,
     on: onFn,
     off: offFn,
-    getSystem: vi.fn(),
+    getSystem: mock(),
     _emit: emitFn,
     _remove: removeFn,
     addEntity: (id: string, data: Record<string, unknown> = {}) => {
@@ -65,7 +65,7 @@ describe("MobDeathSystem", () => {
         despawnMob: (mobId: string) => void;
       };
 
-      const despawnSpy = vi.spyOn(privateSystem, "despawnMob");
+      const despawnSpy = spyOn(privateSystem, "despawnMob");
 
       // Player death - should be ignored
       privateSystem.handleMobDeath({
@@ -97,7 +97,7 @@ describe("MobDeathSystem", () => {
         despawnMob: (mobId: string) => void;
       };
 
-      const despawnSpy = vi.spyOn(privateSystem, "despawnMob");
+      const despawnSpy = spyOn(privateSystem, "despawnMob");
 
       world.addEntity("mob1", { type: "mob", health: 0 });
 

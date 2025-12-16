@@ -11,6 +11,7 @@ import {
   groundToTerrain,
 } from "../../../utils/game/EntityUtils";
 import { EntityManager } from "..";
+import { getCachedTimestamp } from "../movement/ObjectPools";
 
 /**
  * Mob NPC System - GDD Compliant
@@ -203,7 +204,14 @@ export class MobNPCSystem extends SystemBase {
       Infinity,
     );
 
-    const mobId = `mob_${spawnId}_${Date.now()}`;
+    const mobId = `mob_${spawnId}_${getCachedTimestamp()}`;
+
+    // Create single position object and reuse for all position fields
+    const spawnPosition = {
+      x: groundedPosition.x,
+      y: groundedPosition.y,
+      z: groundedPosition.z,
+    };
 
     const mobData: MobInstance = {
       id: mobId,
@@ -234,25 +242,15 @@ export class MobNPCSystem extends SystemBase {
       level: config.level,
       health: config.health,
       maxHealth: config.health,
-      position: {
-        x: groundedPosition.x,
-        y: groundedPosition.y,
-        z: groundedPosition.z,
-      },
+      // Note: position will be mutated as mob moves, but that's expected
+      position: { ...spawnPosition },
       isAlive: true,
       isAggressive: config.isAggressive,
       aggroRange: config.aggroRange,
       aiState: "idle" as const,
-      homePosition: {
-        x: groundedPosition.x,
-        y: groundedPosition.y,
-        z: groundedPosition.z,
-      },
-      spawnLocation: {
-        x: groundedPosition.x,
-        y: groundedPosition.y,
-        z: groundedPosition.z,
-      },
+      // homePosition and spawnLocation share the same immutable reference
+      homePosition: spawnPosition,
+      spawnLocation: spawnPosition,
       equipment: {
         weapon: config.equipment?.weapon
           ? {
@@ -272,7 +270,7 @@ export class MobNPCSystem extends SystemBase {
           : null,
       },
       lootTable: config.lootTable,
-      lastAI: Date.now(),
+      lastAI: getCachedTimestamp(),
       stats: {
         level: config.level,
         health: config.health,
@@ -406,7 +404,7 @@ export class MobNPCSystem extends SystemBase {
     mob.homePosition = { ...groundedPosition };
     mob.aiState = "idle";
     mob.target = null;
-    mob.lastAI = Date.now();
+    mob.lastAI = getCachedTimestamp();
 
     // Clear respawn timer
     this.respawnTimers.delete(mobId);
@@ -567,7 +565,7 @@ export class MobNPCSystem extends SystemBase {
    * AI is now handled by MobEntity.serverUpdate()
    */
   update(_dt: number): void {
-    const now = Date.now();
+    const now = getCachedTimestamp();
 
     // Check respawn timers
     for (const [mobId, respawnTime] of this.respawnTimers.entries()) {

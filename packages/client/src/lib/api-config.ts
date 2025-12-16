@@ -9,7 +9,7 @@
  *   fetch(`${ELIZAOS_API}/agents`);
  *
  * Override via environment variables in .env:
- *   PUBLIC_ELIZAOS_URL=http://localhost:4001
+ *   PUBLIC_ELIZAOS_URL=http://localhost:5069
  *   PUBLIC_API_URL=http://localhost:5555
  */
 
@@ -20,7 +20,7 @@
 // Hyperscape routes: ${ELIZAOS_URL}/hyperscape/...
 
 export const ELIZAOS_URL =
-  import.meta.env.PUBLIC_ELIZAOS_URL || "http://localhost:4001";
+  import.meta.env.PUBLIC_ELIZAOS_URL || "http://localhost:5069";
 
 export const ELIZAOS_API = `${ELIZAOS_URL}/api`;
 

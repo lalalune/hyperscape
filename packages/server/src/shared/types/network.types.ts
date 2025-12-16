@@ -14,7 +14,32 @@
 
 // Re-export Socket base class from shared
 export type { Socket } from "@hyperscape/shared";
-import { Socket } from "@hyperscape/shared";
+import { Socket, EntityData } from "@hyperscape/shared";
+
+// ============================================================================
+// PLAYER ENTITY TYPE (minimal interface to avoid circular deps)
+// ============================================================================
+
+/**
+ * Minimal player entity interface for socket tracking
+ *
+ * Provides type-safe access to player properties without importing
+ * the full Entity class (which would create circular dependencies).
+ */
+export interface SocketPlayerEntity {
+  id: string;
+  data: EntityData & {
+    id?: string;
+    roles?: string[];
+  };
+  position: { x: number; y: number; z: number };
+  node: {
+    position: { x: number; y: number; z: number; set(x: number, y: number, z: number): void };
+    quaternion: { x: number; y: number; z: number; w: number };
+  };
+  serialize: () => EntityData;
+  modify: (data: Partial<EntityData>) => void;
+}
 
 // ============================================================================
 // WEBSOCKET TYPES
@@ -43,7 +68,7 @@ export type NodeWebSocket = WebSocket & {
  * Handlers now query the session manager for targetEntityId instead of socket properties.
  */
 export interface ServerSocket extends Socket {
-  player: unknown;
+  player: SocketPlayerEntity | undefined;
   // Base Socket properties from Socket class
   ws: NodeWebSocket;
   network: NetworkWithSocket;
@@ -97,15 +122,7 @@ export interface NetworkWithSocket {
  *
  * Extended network interface that includes player entity data
  * on each socket. Used by player management endpoints.
- *
- * Note: PlayerEntity type is defined in game.types.ts.
- * Import via the barrel export: import type { PlayerEntity } from '../types'
  */
 export interface ServerNetworkWithSockets {
-  sockets: Map<
-    string,
-    ServerSocket & {
-      player: unknown; // PlayerEntity from game.types.ts - avoid circular dependency
-    }
-  >;
+  sockets: Map<string, ServerSocket>;
 }

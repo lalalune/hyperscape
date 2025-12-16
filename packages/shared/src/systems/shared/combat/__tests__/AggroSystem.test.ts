@@ -10,7 +10,7 @@
  * - Player skills caching
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, mock, afterEach } from "bun:test";
 import { AggroSystem } from "../AggroSystem";
 import { AGGRO_CONSTANTS } from "../../../../constants/CombatConstants";
 
@@ -21,16 +21,16 @@ function createMockWorld() {
     string,
     { id: string; node: { position: { x: number; y: number; z: number } } }
   >();
-  const emitFn = vi.fn();
-  const onFn = vi.fn();
-  const offFn = vi.fn();
+  const emitFn = mock();
+  const onFn = mock();
+  const offFn = mock();
 
   return {
     entities,
     emit: emitFn,
     on: onFn,
     off: offFn,
-    getSystem: vi.fn(),
+    getSystem: mock(),
     getPlayer: (playerId: string) => players.get(playerId),
     _emit: emitFn,
     _players: players,

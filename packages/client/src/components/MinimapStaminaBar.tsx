@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { EventType } from "@hyperscape/shared";
 import type { ClientWorld } from "../types";
 
 interface MinimapStaminaBarProps {
@@ -7,27 +8,47 @@ interface MinimapStaminaBarProps {
 }
 
 export function MinimapStaminaBar({ world, width }: MinimapStaminaBarProps) {
-  const [runMode, setRunMode] = useState<boolean>(true);
-  const [stamina, setStamina] = useState<number>(100);
+  const [runMode, setRunMode] = useState(true);
+  const [stamina, setStamina] = useState(100);
 
   useEffect(() => {
-    const update = () => {
-      const player = world.entities?.player;
-      if (player) {
-        setRunMode(player.runMode ?? true);
-        setStamina(player.stamina ?? 100);
-      }
+    const player = world.entities?.player;
+    if (player) {
+      setRunMode(player.runMode ?? true);
+      setStamina(player.stamina ?? 100);
+    }
+
+    const handleUpdate = (data: unknown) => {
+      const update = data as { runMode?: boolean; stamina?: number };
+      if (typeof update.runMode === "boolean") setRunMode(update.runMode);
+      if (typeof update.stamina === "number") setStamina(update.stamina);
     };
-    const id = setInterval(update, 200);
-    update();
-    return () => clearInterval(id);
+
+    world.on(EventType.PLAYER_STAMINA_UPDATE, handleUpdate);
+    world.on(EventType.PLAYER_UPDATED, handleUpdate);
+
+    // Poll for stamina since PLAYER_STAMINA_UPDATE is not emitted by server
+    const pollInterval = setInterval(() => {
+      const p = world.entities?.player;
+      if (p) {
+        setStamina((prev) => (p.stamina !== prev ? (p.stamina ?? 100) : prev));
+        setRunMode((prev) => (p.runMode !== prev ? (p.runMode ?? true) : prev));
+      }
+    }, 100);
+
+    return () => {
+      world.off(EventType.PLAYER_STAMINA_UPDATE, handleUpdate);
+      world.off(EventType.PLAYER_UPDATED, handleUpdate);
+      clearInterval(pollInterval);
+    };
   }, [world]);
 
   const toggleRunMode = () => {
     const player = world.entities?.player;
-    player?.toggleRunMode?.();
-    setRunMode(player?.runMode === true);
-    world.network?.send?.("moveRequest", { runMode: player?.runMode });
+    const newRunMode = !runMode;
+    if (player) player.runMode = newRunMode;
+    setRunMode(newRunMode);
+    world.network?.send?.("moveRequest", { runMode: newRunMode });
   };
 
   return (

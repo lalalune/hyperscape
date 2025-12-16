@@ -8,7 +8,7 @@
  * - Weapon-based emote selection
  */
 
-import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
+import { describe, it, expect, beforeEach, mock, type Mock } from "bun:test";
 import { CombatAnimationManager } from "../CombatAnimationManager";
 
 /**
@@ -75,7 +75,7 @@ function createMockWorld(
     isServer: options.isServer ?? true,
     entities,
     network: options.network || {
-      send: vi.fn(),
+      send: mock(),
     },
     getPlayer: (id: string) => players.get(id),
     getSystem: (name: string) => {
@@ -97,7 +97,7 @@ function createMockPlayer(
     emote: "idle",
     data: { e: "idle" },
     combat: { combatTarget: null },
-    markNetworkDirty: vi.fn(),
+    markNetworkDirty: mock(),
     ...overrides,
   };
 }
@@ -106,7 +106,7 @@ function createMockPlayer(
 function createMockMob(id: string, overrides: Partial<MockMob> = {}): MockMob {
   return {
     id,
-    setServerEmote: vi.fn(),
+    setServerEmote: mock(),
     ...overrides,
   };
 }
@@ -144,7 +144,7 @@ describe("CombatAnimationManager", () => {
       mockPlayers.set("player1", player);
 
       const equipmentSystem = {
-        getPlayerEquipment: vi.fn().mockReturnValue({
+        getPlayerEquipment: mock().mockReturnValue({
           weapon: { item: { weaponType: "SWORD", id: "bronze_sword" } },
         }),
       };

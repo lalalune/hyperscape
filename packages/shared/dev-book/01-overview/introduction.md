@@ -171,13 +171,13 @@ Multiple world types for different use cases:
 const clientWorld = await createClientWorld({
   assetsUrl: '/assets/',
   renderer: canvas,
-  serverUrl: 'ws://localhost:3000'
+  serverUrl: 'ws://localhost:3333'
 });
 
 // Server world (Node.js)
 const serverWorld = await createServerWorld({
   assetsDir: './assets',
-  port: 3000,
+  port: 3333,
   dbPath: './world.db'
 });
 

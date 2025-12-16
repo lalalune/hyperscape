@@ -3,7 +3,7 @@
  * Modern MMORPG-style inventory interface with drag-and-drop functionality
  */
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, memo, useCallback } from "react";
 import { COLORS } from "../../constants";
 import {
   DndContext,
@@ -73,17 +73,67 @@ interface DraggableItemProps {
  * - Under 100K: show exact number
  * - 100K-9.99M: green "123K" format
  * - 10M+: green "12M" format
+ * 
+ * Returns a cached object for common quantities to reduce allocations
  */
+const QUANTITY_CACHE_WHITE = { color: "rgba(255, 255, 255, 0.95)" };
+const QUANTITY_CACHE_GREEN = { color: "rgba(0, 255, 128, 0.95)" };
+
 function formatQuantity(qty: number): { text: string; color: string } {
   if (qty < 100000) {
-    return { text: qty.toLocaleString(), color: "rgba(255, 255, 255, 0.95)" };
+    return { text: qty.toLocaleString(), ...QUANTITY_CACHE_WHITE };
   } else if (qty < 10000000) {
     const k = Math.floor(qty / 1000);
-    return { text: `${k}K`, color: "rgba(0, 255, 128, 0.95)" };
+    return { text: `${k}K`, ...QUANTITY_CACHE_GREEN };
   } else {
     const m = Math.floor(qty / 1000000);
-    return { text: `${m}M`, color: "rgba(0, 255, 128, 0.95)" };
+    return { text: `${m}M`, ...QUANTITY_CACHE_GREEN };
   }
+}
+
+/**
+ * Get icon for item based on itemId
+ * Pure function - moved outside component to avoid recreation
+ */
+function getItemIcon(itemId: string): string {
+  if (
+    itemId.includes("sword") ||
+    itemId.includes("dagger") ||
+    itemId.includes("scimitar")
+  )
+    return "⚔️";
+  if (itemId.includes("shield") || itemId.includes("defender")) return "🛡️";
+  if (
+    itemId.includes("helmet") ||
+    itemId.includes("helm") ||
+    itemId.includes("hat")
+  )
+    return "⛑️";
+  if (itemId.includes("boots") || itemId.includes("boot")) return "👢";
+  if (itemId.includes("glove") || itemId.includes("gauntlet")) return "🧤";
+  if (itemId.includes("cape") || itemId.includes("cloak")) return "🧥";
+  if (itemId.includes("amulet") || itemId.includes("necklace")) return "📿";
+  if (itemId.includes("ring")) return "💍";
+  if (itemId.includes("arrow") || itemId.includes("bolt")) return "🏹";
+  if (
+    itemId.includes("fish") ||
+    itemId.includes("lobster") ||
+    itemId.includes("shark")
+  )
+    return "🐟";
+  if (itemId.includes("log") || itemId.includes("wood")) return "🪵";
+  if (itemId.includes("ore") || itemId.includes("bar")) return "⛏️";
+  if (itemId.includes("coin")) return "💰";
+  if (itemId.includes("potion") || itemId.includes("vial")) return "🧪";
+  if (
+    itemId.includes("food") ||
+    itemId.includes("bread") ||
+    itemId.includes("meat")
+  )
+    return "🍖";
+  if (itemId.includes("axe")) return "🪓";
+  if (itemId.includes("pickaxe")) return "⛏️";
+  return itemId.substring(0, 2).toUpperCase();
 }
 
 /**
@@ -112,7 +162,8 @@ const snapCenterToCursor: Modifier = ({
   return transform;
 };
 
-function DraggableInventorySlot({
+// Memoized inventory slot component to prevent unnecessary re-renders
+const DraggableInventorySlot = memo(function DraggableInventorySlot({
   item,
   index,
   onShiftClick,
@@ -136,55 +187,13 @@ function DraggableInventorySlot({
   });
 
   // Combine refs for both draggable and droppable on same element
-  const setNodeRef = (node: globalThis.HTMLButtonElement | null) => {
+  const setNodeRef = useCallback((node: globalThis.HTMLButtonElement | null) => {
     setDraggableRef(node);
     setDroppableRef(node);
-  };
+  }, [setDraggableRef, setDroppableRef]);
 
   // Slots stay fixed - no transform! Only the DragOverlay moves.
   const isEmpty = !item;
-
-  // Get icon for item
-  const getItemIcon = (itemId: string) => {
-    if (
-      itemId.includes("sword") ||
-      itemId.includes("dagger") ||
-      itemId.includes("scimitar")
-    )
-      return "⚔️";
-    if (itemId.includes("shield") || itemId.includes("defender")) return "🛡️";
-    if (
-      itemId.includes("helmet") ||
-      itemId.includes("helm") ||
-      itemId.includes("hat")
-    )
-      return "⛑️";
-    if (itemId.includes("boots") || itemId.includes("boot")) return "👢";
-    if (itemId.includes("glove") || itemId.includes("gauntlet")) return "🧤";
-    if (itemId.includes("cape") || itemId.includes("cloak")) return "🧥";
-    if (itemId.includes("amulet") || itemId.includes("necklace")) return "📿";
-    if (itemId.includes("ring")) return "💍";
-    if (itemId.includes("arrow") || itemId.includes("bolt")) return "🏹";
-    if (
-      itemId.includes("fish") ||
-      itemId.includes("lobster") ||
-      itemId.includes("shark")
-    )
-      return "🐟";
-    if (itemId.includes("log") || itemId.includes("wood")) return "🪵";
-    if (itemId.includes("ore") || itemId.includes("bar")) return "⛏️";
-    if (itemId.includes("coin")) return "💰";
-    if (itemId.includes("potion") || itemId.includes("vial")) return "🧪";
-    if (
-      itemId.includes("food") ||
-      itemId.includes("bread") ||
-      itemId.includes("meat")
-    )
-      return "🍖";
-    if (itemId.includes("axe")) return "🪓";
-    if (itemId.includes("pickaxe")) return "⛏️";
-    return itemId.substring(0, 2).toUpperCase();
-  };
 
   // Calculate instance ID for this item
   const instanceId =
@@ -335,7 +344,7 @@ function DraggableInventorySlot({
       )}
     </button>
   );
-}
+});
 
 /**
  * Pending move operation for rollback tracking
@@ -690,40 +699,7 @@ export function InventoryPanel({
         <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]}>
           {activeItem
             ? (() => {
-                // Get icon for drag overlay
-                const getOverlayIcon = (itemId: string) => {
-                  if (
-                    itemId.includes("sword") ||
-                    itemId.includes("dagger") ||
-                    itemId.includes("scimitar")
-                  )
-                    return "⚔️";
-                  if (itemId.includes("shield") || itemId.includes("defender"))
-                    return "🛡️";
-                  if (
-                    itemId.includes("helmet") ||
-                    itemId.includes("helm") ||
-                    itemId.includes("hat")
-                  )
-                    return "⛑️";
-                  if (itemId.includes("boots") || itemId.includes("boot"))
-                    return "👢";
-                  if (
-                    itemId.includes("fish") ||
-                    itemId.includes("lobster") ||
-                    itemId.includes("shark")
-                  )
-                    return "🐟";
-                  if (itemId.includes("log") || itemId.includes("wood"))
-                    return "🪵";
-                  if (itemId.includes("ore") || itemId.includes("bar"))
-                    return "⛏️";
-                  if (itemId.includes("coin")) return "💰";
-                  if (itemId.includes("potion") || itemId.includes("vial"))
-                    return "🧪";
-                  if (itemId.includes("axe")) return "🪓";
-                  return itemId.substring(0, 2).toUpperCase();
-                };
+                // Use shared getItemIcon function
                 const qtyDisplay =
                   activeItem.quantity > 1
                     ? formatQuantity(activeItem.quantity)
@@ -744,7 +720,7 @@ export function InventoryPanel({
                       boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
                     }}
                   >
-                    {getOverlayIcon(activeItem.itemId)}
+                    {getItemIcon(activeItem.itemId)}
                     {qtyDisplay && (
                       <div
                         className="absolute bottom-0.5 right-0.5 font-bold rounded px-0.5 py-0.5 leading-none"

@@ -160,9 +160,14 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     world.on(EventType.NETWORK_DISCONNECTED, handleDisconnected);
     world.on(EventType.UI_DEATH_SCREEN, handleDeathScreen);
     world.on(EventType.UI_DEATH_SCREEN_CLOSE, handleDeathScreenClose);
+
     // Character selection flow (server-flagged)
-    world.on("character:list", () => setCharacterFlowActive(true));
-    world.on("character:selected", () => setCharacterFlowActive(false));
+    // Define handlers as named functions so cleanup can properly remove them
+    const handleCharacterList = () => setCharacterFlowActive(true);
+    const handleCharacterSelected = () => setCharacterFlowActive(false);
+    world.on("character:list", handleCharacterList);
+    world.on("character:selected", handleCharacterSelected);
+
     // If the packet arrived before UI mounted, consult network cache
     const network = world.network as { lastCharacterList?: unknown[] };
     if (network.lastCharacterList) setCharacterFlowActive(true);
@@ -184,10 +189,11 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       world.off(EventType.NETWORK_DISCONNECTED, handleDisconnected);
       world.off(EventType.UI_DEATH_SCREEN, handleDeathScreen);
       world.off(EventType.UI_DEATH_SCREEN_CLOSE, handleDeathScreenClose);
-      world.off("character:list", () => setCharacterFlowActive(true));
-      world.off("character:selected", () => setCharacterFlowActive(false));
+      // Use the same function references for proper cleanup
+      world.off("character:list", handleCharacterList);
+      world.off("character:selected", handleCharacterSelected);
     };
-  }, []);
+  }, [world, isSpectatorMode]);
 
   // Poll terrain readiness until ready
   useEffect(() => {
@@ -281,7 +287,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     return () => {
       world.prefs?.off("change", onChange);
     };
-  }, []);
+  }, [world.prefs]);
 
   return (
     <ChatProvider>
@@ -443,7 +449,7 @@ function ActionsBlock({ world }: { world: ClientWorld }) {
     return () => {
       world.prefs?.off("change", onPrefsChange);
     };
-  }, []);
+  }, [world.prefs]);
   if (isTouch) return null;
   if (!showActions) return null;
   return (
@@ -465,7 +471,7 @@ function Actions({ world }: { world: ClientWorld }) {
     return () => {
       world.off(EventType.UI_ACTIONS_UPDATE, handleActions);
     };
-  }, []);
+  }, [world]);
   return (
     <div className="actions flex-1 flex flex-col justify-center">
       {actions.map((action) => (
@@ -539,17 +545,18 @@ function Toast({ world }: { world: ClientWorld }) {
     id: number;
     position?: { x: number; y: number };
   } | null>(null);
+  const idsRef = useRef(0);
   useEffect(() => {
-    let ids = 0;
     const onToast = (rawData: Record<string, unknown>) => {
       const data = rawData as { message: string; position?: { x: number; y: number } };
-      setMsg({ text: data.message, id: ++ids, position: data.position });
+      idsRef.current += 1;
+      setMsg({ text: data.message, id: idsRef.current, position: data.position });
     };
     world.on(EventType.UI_TOAST, onToast);
     return () => {
       world.off(EventType.UI_TOAST, onToast);
     };
-  }, []);
+  }, [world]);
   if (!msg) return null;
 
   // RS3-style: If position is provided, render positioned tooltip
@@ -703,7 +710,7 @@ function TouchBtns({ world }: { world: ClientWorld }) {
     return () => {
       world.prefs?.off("touchAction", onChange);
     };
-  }, []);
+  }, [world.prefs]);
   return (
     <div
       className="absolute flex flex-col items-center gap-2"

@@ -34,6 +34,44 @@ export function registerAgentRoutes(
   console.log("[AgentRoutes] Registering agent credential routes...");
 
   /**
+   * GET /api/agents
+   *
+   * Health check endpoint for ElizaOS agent API.
+   * Proxies to ElizaOS server if available, otherwise returns empty array.
+   * Used by client to check if ElizaOS is running.
+   *
+   * Response:
+   *   - If ElizaOS is available: Proxies response from ElizaOS
+   *   - If ElizaOS is unavailable: Returns { agents: [] }
+   */
+  fastify.get("/api/agents", async (request, reply) => {
+    try {
+      const elizaOSUrl = process.env.ELIZAOS_URL || "http://localhost:5069";
+      const proxyUrl = `${elizaOSUrl}/api/agents`;
+
+      // Try to proxy to ElizaOS server
+      const response = await fetch(proxyUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return reply.send(data);
+      }
+
+      // ElizaOS not available - return empty array
+      return reply.send({ agents: [] });
+    } catch (_error) {
+      // ElizaOS not running or unreachable - return empty array
+      console.log("[AgentRoutes] ElizaOS not available, returning empty agents list");
+      return reply.send({ agents: [] });
+    }
+  });
+
+  /**
    * POST /api/agents/credentials
    *
    * Generate permanent authentication credentials for an AI agent character.

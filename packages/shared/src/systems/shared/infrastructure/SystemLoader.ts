@@ -418,9 +418,7 @@ export async function registerSystems(world: World): Promise<void> {
  * Set up global API for apps to use
  */
 function setupAPI(world: World, systems: Systems): void {
-  // Set up comprehensive API for apps
   const rpgAPI = {
-    // Actions - convert to Record format expected by World interface
     rpgActions: (() => {
       const actionsRecord: Record<
         string,
@@ -431,7 +429,6 @@ function setupAPI(world: World, systems: Systems): void {
         }
       > = {};
 
-      // Basic actions for compatibility
       actionsRecord["attack"] = {
         name: "attack",
         requiresAmmunition: false,

@@ -100,7 +100,7 @@ export class CombatSystem extends SystemBase {
     { tick: number; entityType: "player" | "mob" }
   >();
 
-  // PERFORMANCE: Cached system references (avoid repeated lookups)
+  // Cached system references
   private cachedEquipmentSystem?: {
     getPlayerEquipment?: (id: string) => {
       weapon?: {
@@ -116,7 +116,7 @@ export class CombatSystem extends SystemBase {
   };
   private cachedPlayerSystem?: PlayerSystem;
 
-  // PERFORMANCE: Reusable objects to avoid allocations in hot paths
+  // Reusable objects for hot paths
   private readonly reusablePos = { x: 0, y: 0, z: 0 };
   private readonly reusablePos2 = { x: 0, y: 0, z: 0 };
   private readonly reusableQuat = { x: 0, y: 0, z: 0, w: 1 };
@@ -130,6 +130,35 @@ export class CombatSystem extends SystemBase {
   };
   private readonly reusableCombatStatesArray: Array<[EntityID, CombatData]> =
     [];
+
+  // Anti-cheat system: Track suspicious combat behavior
+  private antiCheatScores = new Map<
+    string,
+    {
+      score: number;
+      violations: Array<{ tick: number; reason: string; severity: number }>;
+      attacksThisTick: number;
+      lastDecayTick: number;
+    }
+  >();
+  private attacksThisTick = new Map<string, number>(); // Track attacks per player per tick
+  private readonly ANTI_CHEAT_CONFIG = {
+    warningThreshold: 25,
+    alertThreshold: 75,
+    scoreDecayPerMinute: 5, // Decay 5 points per minute
+    maxAttacksPerTick: 1, // Normal players can't attack more than once per tick
+    violationSeverity: {
+      tooManyAttacksPerTick: 10,
+      suspiciousPattern: 5,
+    },
+  };
+
+  // Object pool statistics for quaternions
+  private quaternionPool = {
+    total: 100, // Pre-allocated pool size
+    available: 100,
+    inUse: 0,
+  };
 
   // Combat constants
 
@@ -145,7 +174,6 @@ export class CombatSystem extends SystemBase {
   }
 
   async init(): Promise<void> {
-    // Get entity manager - required dependency
     this.entityManager = this.world.getSystem<EntityManager>("entity-manager");
     if (!this.entityManager) {
       throw new Error(
@@ -153,10 +181,8 @@ export class CombatSystem extends SystemBase {
       );
     }
 
-    // Get mob NPC system - optional but recommended
     this.mobSystem = this.world.getSystem<MobNPCSystem>("mob-npc");
 
-    // PERFORMANCE: Cache system references to avoid repeated lookups
     this.cachedEquipmentSystem = this.world.getSystem("equipment") as {
       getPlayerEquipment?: (id: string) => {
         weapon?: {
@@ -257,6 +283,11 @@ export class CombatSystem extends SystemBase {
     targetType: "player" | "mob";
     attackType: AttackType;
   }): void {
+    // Record combat action for anti-cheat tracking (only for players)
+    if (data.attackerType === "player") {
+      this.recordCombatAction(data.attackerId, "attack");
+    }
+
     // Delegate to appropriate attack handler
     if (data.attackType === AttackType.RANGED) {
       this.handleRangedAttack(data);
@@ -273,31 +304,24 @@ export class CombatSystem extends SystemBase {
   }): void {
     const { attackerId, targetId, attackerType, targetType } = data;
 
-    // Convert IDs to typed IDs
     const typedAttackerId = createEntityID(attackerId);
     const typedTargetId = createEntityID(targetId);
 
-    // Get attacker and target positions for range check
     const attacker = this.getEntity(attackerId, attackerType);
     const target = this.getEntity(targetId, targetType);
 
-    // Check entities exist
     if (!attacker || !target) {
       return;
     }
 
-    // CRITICAL: Check if ATTACKER is alive (dead entities can't attack)
     if (!this.isEntityAlive(attacker, attackerType)) {
       return;
     }
 
-    // CRITICAL: Check if target is already dead BEFORE processing attack (Issue #265)
-    // This prevents attacks from being processed on dead entities
     if (!this.isEntityAlive(target, targetType)) {
       return;
     }
 
-    // Check if target is attackable (for mobs that have attackable: false in manifest)
     if (targetType === "mob") {
       const mobEntity = target as MobEntity;
       if (mobEntity.isAttackable && !mobEntity.isAttackable()) {
@@ -310,7 +334,6 @@ export class CombatSystem extends SystemBase {
       }
     }
 
-    // CRITICAL: Can't attack yourself
     if (attackerId === targetId) {
       return;
     }
@@ -333,44 +356,31 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
-    // Check attack cooldown (TICK-BASED, OSRS-accurate)
     const currentTick = this.world.currentTick;
     const nextAllowedTick = this.nextAttackTicks.get(typedAttackerId) ?? 0;
 
     if (isAttackOnCooldownTicks(currentTick, nextAllowedTick)) {
-      return; // Still on cooldown
+      return;
     }
 
-    // Get attack speed in ticks for later use
     const entityType = attacker.type === "mob" ? "mob" : "player";
     const attackSpeedTicks = this.getAttackSpeedTicks(
       typedAttackerId,
       entityType,
     );
 
-    // OSRS-STYLE: Face target before attacking
     this.rotateTowardsTarget(attackerId, targetId, attackerType, targetType);
-
-    // Play attack animation once (will reset to idle after 2 ticks = 1.2 seconds)
     this.setCombatEmote(attackerId, attackerType);
 
-    // Schedule tick-based emote reset (2 ticks for animation to complete)
-    // OSRS-style: animations are synchronized to game ticks
-    const resetTick = currentTick + 2; // 2 ticks = 1200ms for animation
+    const resetTick = currentTick + 2;
     this.emoteResetTicks.set(attackerId, {
       tick: resetTick,
       entityType: attackerType,
     });
 
-    // Calculate damage
     const rawDamage = this.calculateMeleeDamage(attacker, target);
-
-    // OSRS-STYLE: Cap damage at target's current health (no overkill)
-    // This ensures health never goes negative and damage display matches actual damage
     const currentHealth = this.getEntityHealth(target);
     const damage = Math.min(rawDamage, currentHealth);
-
-    // Apply capped damage
     this.applyDamage(targetId, targetType, damage, attackerId);
 
     // CRITICAL: ALWAYS emit damage splatter event (including for killing blow - RuneScape shows final damage)
@@ -414,27 +424,20 @@ export class CombatSystem extends SystemBase {
     const typedAttackerId = createEntityID(attackerId);
     const typedTargetId = createEntityID(targetId);
 
-    // Get attacker and target
     const attacker = this.getEntity(attackerId, attackerType);
     const target = this.getEntity(targetId, targetType);
 
-    // Check entities exist
     if (!attacker || !target) {
       return;
     }
 
-    // CRITICAL: Check if ATTACKER is alive (dead entities can't attack)
     if (!this.isEntityAlive(attacker, attackerType)) {
       return;
     }
 
-    // CRITICAL: Check if target is already dead BEFORE processing attack (Issue #265)
-    // This prevents attacks from being processed on dead entities
     if (!this.isEntityAlive(target, targetType)) {
       return;
     }
-
-    // Check if target is attackable (for mobs that have attackable: false in manifest)
     if (targetType === "mob") {
       const mobEntity = target as MobEntity;
       if (mobEntity.isAttackable && !mobEntity.isAttackable()) {
@@ -548,7 +551,6 @@ export class CombatSystem extends SystemBase {
     attacker: Entity | MobEntity,
     target: Entity | MobEntity,
   ): number {
-    // PERFORMANCE: Reuse objects instead of creating new ones
     const attackerData = this.reusableAttackerData;
     const targetData = this.reusableTargetData;
 
@@ -772,7 +774,6 @@ export class CombatSystem extends SystemBase {
   ): void {
     // Handle damage based on target type
     if (targetType === "player") {
-      // PERFORMANCE: Use cached player system reference
       const playerSystem = this.cachedPlayerSystem;
       if (!playerSystem) {
         this.logger.error("PlayerSystem not found!");
@@ -976,7 +977,6 @@ export class CombatSystem extends SystemBase {
         // Check if player has a sword equipped - get from EquipmentSystem (source of truth)
         let combatEmote = "combat"; // Default to punching
 
-        // PERFORMANCE: Use cached equipment system reference
         const equipmentSystem = this.cachedEquipmentSystem;
 
         if (equipmentSystem?.getPlayerEquipment) {
@@ -1101,37 +1101,32 @@ export class CombatSystem extends SystemBase {
     // Otherwise entities face AWAY from each other instead of towards
     angle += Math.PI;
 
+    // Calculate Y-axis rotation quaternion components
+    const halfAngle = angle / 2;
+    this.reusableQuat.x = 0;
+    this.reusableQuat.y = Math.sin(halfAngle);
+    this.reusableQuat.z = 0;
+    this.reusableQuat.w = Math.cos(halfAngle);
+
     // Set rotation differently based on entity type
     if (entityType === "player" && entityWithPos.base?.quaternion) {
       // For players, set on base and node
-      const tempQuat = {
-        x: 0,
-        y: Math.sin(angle / 2),
-        z: 0,
-        w: Math.cos(angle / 2),
-      };
       entityWithPos.base.quaternion.set(
-        tempQuat.x,
-        tempQuat.y,
-        tempQuat.z,
-        tempQuat.w,
+        this.reusableQuat.x,
+        this.reusableQuat.y,
+        this.reusableQuat.z,
+        this.reusableQuat.w,
       );
       if (entityWithPos.node?.quaternion) {
         entityWithPos.node.quaternion.copy(entityWithPos.base.quaternion);
       }
     } else if (entityWithPos.node?.quaternion) {
       // For mobs and other entities, set on node
-      const tempQuat = {
-        x: 0,
-        y: Math.sin(angle / 2),
-        z: 0,
-        w: Math.cos(angle / 2),
-      };
       entityWithPos.node.quaternion.set(
-        tempQuat.x,
-        tempQuat.y,
-        tempQuat.z,
-        tempQuat.w,
+        this.reusableQuat.x,
+        this.reusableQuat.y,
+        this.reusableQuat.z,
+        this.reusableQuat.w,
       );
     }
 
@@ -1147,7 +1142,6 @@ export class CombatSystem extends SystemBase {
     const currentTick = this.world.currentTick;
     const combatEndTick = currentTick + COMBAT_CONSTANTS.COMBAT_TIMEOUT_TICKS;
 
-    // PERFORMANCE: Cache string conversions to avoid repeated String() calls
     const attackerIdStr = String(attackerId);
     const targetIdStr = String(targetId);
 
@@ -1163,8 +1157,6 @@ export class CombatSystem extends SystemBase {
       }
     }
 
-    // Also check if target is a player marked as dead
-    // PERFORMANCE: Use cached player system reference and cached string conversion
     const playerSystem = this.cachedPlayerSystem;
     if (playerSystem) {
       const targetPlayer = playerSystem.getPlayer(targetIdStr);
@@ -1234,7 +1226,6 @@ export class CombatSystem extends SystemBase {
     }
 
     // Rotate both entities to face each other (RuneScape-style)
-    // PERFORMANCE: Use cached string conversions
     this.rotateTowardsTarget(
       attackerIdStr,
       targetIdStr,
@@ -1262,7 +1253,6 @@ export class CombatSystem extends SystemBase {
     });
 
     // Show combat UI indicator for the local player
-    // PERFORMANCE: Use cached string conversions
     const localPlayer = this.world.getPlayer();
     if (
       localPlayer &&
@@ -1354,10 +1344,8 @@ export class CombatSystem extends SystemBase {
     // Find all attackers targeting this dead entity
     // Their combat will naturally timeout after 4.8 seconds (8 ticks) since they got the last hit
     // This matches RuneScape behavior where health bars stay visible briefly after combat ends
-    // PERFORMANCE: Cache entityId (already a string) and cache string conversions in loop
     const entityIdStr = entityId;
     for (const [attackerId, state] of this.combatStates) {
-      // PERFORMANCE: Cache string conversion for comparison
       const targetIdStr = String(state.targetId);
       if (targetIdStr === entityIdStr) {
         // CRITICAL: Clear the attacker's attack cooldown so they can attack new targets immediately
@@ -1367,7 +1355,6 @@ export class CombatSystem extends SystemBase {
         // CRITICAL: If the attacker is a mob, reset its internal CombatStateManager
         // This clears the mob's own nextAttackTick so it can attack immediately when target respawns
         if (state.attackerType === "mob") {
-          // PERFORMANCE: Cache string conversion
           const attackerIdStr = String(attackerId);
           const mobEntity = this.world.entities.get(attackerIdStr) as MobEntity;
           if (mobEntity && typeof mobEntity.onTargetDied === "function") {
@@ -1483,17 +1470,23 @@ export class CombatSystem extends SystemBase {
     // Clear player's attack cooldowns
     this.nextAttackTicks.delete(typedPlayerId);
 
+    // Clear anti-cheat tracking
+    this.antiCheatScores.delete(playerId);
+    this.attacksThisTick.delete(playerId);
+
     // Clear any scheduled emote resets
     this.emoteResetTicks.delete(playerId);
 
     // Clear player's equipment stats cache
     this.playerEquipmentStats.delete(playerId);
 
+    // Clear anti-cheat tracking
+    this.antiCheatScores.delete(playerId);
+    this.attacksThisTick.delete(playerId);
+
     // Find all entities that were targeting this disconnected player
-    // PERFORMANCE: Cache playerId (already a string, but for consistency)
     const playerIdStr = playerId;
     for (const [attackerId, state] of this.combatStates) {
-      // PERFORMANCE: Cache string conversion for comparison
       const targetIdStr = String(state.targetId);
       if (targetIdStr === playerIdStr) {
         // Clear the attacker's cooldown so they can immediately retarget
@@ -1501,7 +1494,6 @@ export class CombatSystem extends SystemBase {
 
         // If attacker is a mob, reset its internal combat state
         if (state.attackerType === "mob") {
-          // PERFORMANCE: Cache string conversion
           const attackerIdStr = String(attackerId);
           const mobEntity = this.world.entities.get(attackerIdStr) as MobEntity;
           if (mobEntity && typeof mobEntity.onTargetDied === "function") {
@@ -1515,12 +1507,15 @@ export class CombatSystem extends SystemBase {
 
         // Clear combat state from entity if it's a player
         if (state.attackerType === "player") {
-          // PERFORMANCE: Cache string conversion
           const attackerIdStr = String(attackerId);
           this.clearCombatStateFromEntity(attackerIdStr, "player");
         }
       }
     }
+
+    // Clean up anti-cheat tracking
+    this.antiCheatScores.delete(playerId);
+    this.attacksThisTick.delete(playerId);
   }
 
   private getEntity(
@@ -1541,9 +1536,7 @@ export class CombatSystem extends SystemBase {
       // Look up players from world.entities.players (includes fake test players)
       const player = this.world.entities.players.get(entityId);
       if (!player) {
-        this.logger.warn(
-          `Player entity not found: ${entityId} (probably disconnected)`,
-        );
+        this.logger.warn(`Player entity not found: ${entityId}`);
         return null;
       }
       return player;
@@ -1561,11 +1554,12 @@ export class CombatSystem extends SystemBase {
     return entity;
   }
 
-  // Combat update loop - DEPRECATED: Combat logic now handled by processCombatTick() via TickSystem
-  // This method is kept for compatibility but does nothing - all combat runs through tick system
   update(_dt: number): void {
-    // Combat logic moved to processCombatTick() for OSRS-accurate tick-based timing
-    // This is called by TickSystem at TickPriority.COMBAT
+    // Reset attack counters for new tick
+    this.resetTickCounters();
+
+    // Decay anti-cheat scores periodically
+    this.decayAntiCheatScores();
   }
 
   /**
@@ -1582,31 +1576,25 @@ export class CombatSystem extends SystemBase {
       }
     }
 
-    // PERFORMANCE: Reuse array instead of creating new one every tick
     // Clear and repopulate to avoid allocations
     this.reusableCombatStatesArray.length = 0;
     for (const entry of this.combatStates.entries()) {
       this.reusableCombatStatesArray.push(entry);
     }
 
-    // Process all active combat sessions
     for (const [entityId, combatState] of this.reusableCombatStatesArray) {
-      // Re-check if this combat state still exists
       if (!this.combatStates.has(entityId)) {
         continue;
       }
 
-      // Check for combat timeout (8 ticks after last hit)
       if (combatState.inCombat && tickNumber >= combatState.combatEndTick) {
         const entityIdStr = String(entityId);
         this.endCombat({ entityId: entityIdStr });
         continue;
       }
 
-      // Skip if not in combat or doesn't have valid target
       if (!combatState.inCombat || !combatState.targetId) continue;
 
-      // Check if this entity can attack on this tick
       if (tickNumber >= combatState.nextAttackTick) {
         this.processAutoAttackOnTick(combatState, tickNumber);
       }
@@ -1628,19 +1616,15 @@ export class CombatSystem extends SystemBase {
     const attacker = this.getEntity(attackerId, combatState.attackerType);
     const target = this.getEntity(targetId, combatState.targetType);
 
-    // CRITICAL FIX FOR ISSUE #269: RuneScape-style combat timer
-    // If entity not found (dead mob, disconnected player, etc.), DON'T end combat immediately
-    // Let the 8-tick timeout expire naturally to keep health bars visible
+    // Issue #269: Don't end combat immediately if entity not found - let timeout expire naturally
     if (!attacker || !target) {
       return;
     }
 
-    // Check if attacker is still alive (prevent dead attackers from auto-attacking)
     if (!this.isEntityAlive(attacker, combatState.attackerType)) {
       return;
     }
 
-    // Check if target is still alive
     if (!this.isEntityAlive(target, combatState.targetType)) {
       return;
     }
@@ -1653,7 +1637,19 @@ export class CombatSystem extends SystemBase {
       // Ranged uses world distance (appropriate for projectiles)
       const distance2D = calculateDistance2D(attackerPos, targetPos);
       if (distance2D > COMBAT_CONSTANTS.RANGED_RANGE) {
-        // Out of range - don't end combat, just skip this attack
+        // Out of range - emit follow event and extend combat timeout
+        this.emitTypedEvent(EventType.COMBAT_FOLLOW_TARGET, {
+          playerId: attackerId,
+          targetId: targetId,
+          meleeRange: COMBAT_CONSTANTS.RANGED_RANGE,
+          attackerTile: worldToTile(attackerPos.x, attackerPos.z),
+          targetTile: worldToTile(targetPos.x, targetPos.z),
+        });
+
+        // Extend combat timeout by 8 ticks to allow time to catch up
+        combatState.combatEndTick = tickNumber + 8;
+
+        // Don't end combat, just skip this attack
         return;
       }
     } else {
@@ -1667,7 +1663,20 @@ export class CombatSystem extends SystemBase {
       );
       // OSRS-STYLE: Range 1 is cardinal-only, range 2+ allows diagonal
       if (!tilesWithinMeleeRange(attackerTile, targetTile, combatRangeTiles)) {
-        // Out of melee range - don't end combat, just skip this attack
+        // Out of melee range - emit follow event and extend combat timeout
+        // This allows players to chase targets while maintaining combat state
+        this.emitTypedEvent(EventType.COMBAT_FOLLOW_TARGET, {
+          playerId: attackerId,
+          targetId: targetId,
+          meleeRange: combatRangeTiles,
+          attackerTile: { x: attackerTile.x, z: attackerTile.z },
+          targetTile: { x: targetTile.x, z: targetTile.z },
+        });
+
+        // Extend combat timeout by 8 ticks to allow time to catch up
+        combatState.combatEndTick = tickNumber + 8;
+
+        // Don't end combat, just skip this attack
         return;
       }
     }
@@ -1786,7 +1795,6 @@ export class CombatSystem extends SystemBase {
   private getAttackSpeedTicks(entityId: EntityID, entityType: string): number {
     // For players, get equipment via EquipmentSystem
     if (entityType === "player") {
-      // PERFORMANCE: Use cached equipment system reference
       const equipmentSystem = this.cachedEquipmentSystem;
 
       if (equipmentSystem?.getPlayerEquipment) {
@@ -1849,7 +1857,6 @@ export class CombatSystem extends SystemBase {
 
     // Players: get weapon attackRange from equipped weapon via EquipmentSystem
     if (entityType === "player") {
-      // PERFORMANCE: Use cached equipment system reference
       const equipmentSystem = this.cachedEquipmentSystem;
 
       if (equipmentSystem?.getPlayerEquipment) {
@@ -1923,6 +1930,235 @@ export class CombatSystem extends SystemBase {
 
     return false;
   }
+
+  // ============ Anti-Cheat System ============
+
+  /**
+   * Get anti-cheat statistics
+   */
+  getAntiCheatStats(): {
+    trackedPlayers: number;
+    totalViolations: number;
+    playersAboveWarning: number;
+    playersAboveAlert: number;
+    totalViolationsLast5Min: number;
+  } {
+    const now = Date.now();
+    const fiveMinutesAgo = now - 5 * 60 * 1000;
+
+    let playersAboveWarning = 0;
+    let playersAboveAlert = 0;
+    let totalViolationsLast5Min = 0;
+
+    for (const [, data] of this.antiCheatScores.entries()) {
+      if (data.score >= this.ANTI_CHEAT_CONFIG.alertThreshold) {
+        playersAboveAlert++;
+      } else if (data.score >= this.ANTI_CHEAT_CONFIG.warningThreshold) {
+        playersAboveWarning++;
+      }
+
+      // Count violations in last 5 minutes
+      for (const violation of data.violations) {
+        // Convert tick to approximate timestamp (assuming 600ms per tick)
+        const violationTime = violation.tick * 600;
+        if (violationTime >= fiveMinutesAgo) {
+          totalViolationsLast5Min++;
+        }
+      }
+    }
+
+    return {
+      trackedPlayers: this.antiCheatScores.size,
+      totalViolations: Array.from(this.antiCheatScores.values()).reduce(
+        (sum, data) => sum + data.violations.length,
+        0,
+      ),
+      playersAboveWarning,
+      playersAboveAlert,
+      totalViolationsLast5Min,
+    };
+  }
+
+  /**
+   * Get anti-cheat report for a specific player
+   */
+  getAntiCheatPlayerReport(playerId: string): {
+    score: number;
+    recentViolations: Array<{ tick: number; reason: string; severity: number }>;
+    attacksThisTick: number;
+  } {
+    const data = this.antiCheatScores.get(playerId);
+    if (!data) {
+      return {
+        score: 0,
+        recentViolations: [],
+        attacksThisTick: 0,
+      };
+    }
+
+    return {
+      score: data.score,
+      recentViolations: [...data.violations].slice(-10), // Last 10 violations
+      attacksThisTick: data.attacksThisTick,
+    };
+  }
+
+  /**
+   * Get list of players requiring review (above warning threshold)
+   */
+  getPlayersRequiringReview(): string[] {
+    const players: string[] = [];
+    for (const [playerId, data] of this.antiCheatScores.entries()) {
+      if (data.score >= this.ANTI_CHEAT_CONFIG.warningThreshold) {
+        players.push(playerId);
+      }
+    }
+    return players;
+  }
+
+  /**
+   * Decay anti-cheat scores over time
+   * Called periodically to reduce scores for players who stop cheating
+   */
+  decayAntiCheatScores(): void {
+    const currentTick = this.world.currentTick;
+    const ticksPerMinute = 100; // Assuming 600ms per tick = 100 ticks per minute
+    const decayPerTick =
+      this.ANTI_CHEAT_CONFIG.scoreDecayPerMinute / ticksPerMinute;
+
+    for (const [playerId, data] of this.antiCheatScores.entries()) {
+      // Only decay if enough time has passed since last decay
+      const ticksSinceLastDecay = currentTick - data.lastDecayTick;
+      if (ticksSinceLastDecay >= ticksPerMinute) {
+        const decayAmount = decayPerTick * ticksSinceLastDecay;
+        data.score = Math.max(0, data.score - decayAmount);
+        data.lastDecayTick = currentTick;
+
+        // Remove old violations (older than 5 minutes)
+        const fiveMinutesAgo = currentTick - 5 * ticksPerMinute;
+        data.violations = data.violations.filter(
+          (v) => v.tick >= fiveMinutesAgo,
+        );
+
+        // Clean up if score is zero and no recent violations
+        if (data.score === 0 && data.violations.length === 0) {
+          this.antiCheatScores.delete(playerId);
+        }
+      }
+    }
+  }
+
+  /**
+   * Get anti-cheat configuration
+   */
+  getAntiCheatConfig(): {
+    warningThreshold: number;
+    alertThreshold: number;
+    scoreDecayPerMinute: number;
+    maxAttacksPerTick: number;
+  } {
+    return { ...this.ANTI_CHEAT_CONFIG };
+  }
+
+  /**
+   * Record a combat action for anti-cheat tracking
+   * Called internally when attacks occur
+   */
+  private recordCombatAction(playerId: string, action: "attack"): void {
+    const currentTick = this.world.currentTick;
+
+    // Initialize player tracking if needed
+    if (!this.antiCheatScores.has(playerId)) {
+      this.antiCheatScores.set(playerId, {
+        score: 0,
+        violations: [],
+        attacksThisTick: 0,
+        lastDecayTick: currentTick,
+      });
+    }
+
+    const data = this.antiCheatScores.get(playerId)!;
+
+    // Track attacks per tick
+    if (action === "attack") {
+      data.attacksThisTick++;
+      const tickCount = this.attacksThisTick.get(playerId) || 0;
+      this.attacksThisTick.set(playerId, tickCount + 1);
+
+      // Check for too many attacks in one tick
+      if (data.attacksThisTick > this.ANTI_CHEAT_CONFIG.maxAttacksPerTick) {
+        const severity =
+          this.ANTI_CHEAT_CONFIG.violationSeverity.tooManyAttacksPerTick;
+        data.score += severity;
+        data.violations.push({
+          tick: currentTick,
+          reason: `Too many attacks per tick: ${data.attacksThisTick}`,
+          severity,
+        });
+      }
+    }
+
+    // Decay scores periodically
+    this.decayAntiCheatScores();
+  }
+
+  /**
+   * Reset attack counter for new tick
+   * Called at start of each combat tick
+   */
+  private resetTickCounters(): void {
+    this.attacksThisTick.clear();
+    for (const [, data] of this.antiCheatScores.entries()) {
+      data.attacksThisTick = 0;
+    }
+  }
+
+  // ============ Pool Statistics ============
+
+  /**
+   * Get object pool statistics
+   */
+  getPoolStats(): {
+    quaternions: {
+      total: number;
+      available: number;
+      inUse: number;
+    };
+  } {
+    return {
+      quaternions: {
+        total: this.quaternionPool.total,
+        available: this.quaternionPool.available,
+        inUse: this.quaternionPool.inUse,
+      },
+    };
+  }
+
+  /**
+   * Acquire a quaternion from the pool
+   */
+  private acquireQuaternion(): { x: number; y: number; z: number; w: number } {
+    if (this.quaternionPool.available > 0) {
+      this.quaternionPool.available--;
+      this.quaternionPool.inUse++;
+      return { x: 0, y: 0, z: 0, w: 1 };
+    }
+    // Pool exhausted - allocate new one
+    this.quaternionPool.total++;
+    this.quaternionPool.inUse++;
+    return { x: 0, y: 0, z: 0, w: 1 };
+  }
+
+  /**
+   * Release a quaternion back to the pool
+   */
+  private releaseQuaternion(): void {
+    if (this.quaternionPool.inUse > 0) {
+      this.quaternionPool.inUse--;
+      this.quaternionPool.available++;
+    }
+  }
+
 
   destroy(): void {
     // Clear all combat states

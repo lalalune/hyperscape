@@ -121,7 +121,7 @@ import { PlayerLocal } from "../../entities/player/PlayerLocal";
 import { TileInterpolator } from "./TileInterpolator";
 import { type TileCoord } from "../shared/movement/TileSystem"; // Internal import within shared package
 
-// PERFORMANCE: Reusable objects for hot path packet handling
+// Reusable objects for hot path packet handling
 const _v3_1 = new THREE.Vector3();
 const _v3_2 = new THREE.Vector3();
 const _v3_3 = new THREE.Vector3();
@@ -2079,7 +2079,6 @@ export class ClientNetwork extends SystemBase {
     tickNumber: number;
     moveSeq?: number;
   }) => {
-    // PERFORMANCE: Use cached vector instead of allocating new one
     const worldPos = _v3_2.set(
       data.worldPos[0],
       data.worldPos[1],
@@ -2089,7 +2088,6 @@ export class ClientNetwork extends SystemBase {
     // Get entity's current position as fallback for smooth interpolation
     // (in case tileMovementStart was missed due to packet loss)
     const entity = this.world.entities.get(data.id);
-    // PERFORMANCE: Use cached vector for clone, TileInterpolator will copy if needed
     const entityCurrentPos = entity?.position
       ? _v3_3.copy(entity.position as THREE.Vector3)
       : undefined;
@@ -2140,8 +2138,6 @@ export class ClientNetwork extends SystemBase {
     emote?: string;
     tilesPerTick?: number; // Mob-specific speed (optional, defaults to walk/run speed)
   }) => {
-    // Get entity's current position for smooth start (fallback if startTile not provided)
-    // PERFORMANCE: Don't clone here - TileInterpolator.onMovementStart() clones internally
     const entity = this.world.entities.get(data.id);
     const currentPosition = entity?.position
       ? (entity.position as THREE.Vector3)
@@ -2189,7 +2185,6 @@ export class ClientNetwork extends SystemBase {
     worldPos: [number, number, number];
     moveSeq?: number;
   }) => {
-    // PERFORMANCE: Use cached vector instead of allocating new one
     const worldPos = _v3_2.set(
       data.worldPos[0],
       data.worldPos[1],

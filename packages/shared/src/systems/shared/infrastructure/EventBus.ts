@@ -19,6 +19,7 @@ import type {
   EventHandler,
   EventSubscription,
 } from "../../../types/events";
+import { getCachedTimestamp } from "../movement/ObjectPools";
 
 /**
  * Type-safe event bus for world-wide event communication
@@ -43,7 +44,7 @@ export class EventBus extends EventEmitter {
       type: type as EventType,
       data,
       source,
-      timestamp: Date.now(),
+      timestamp: getCachedTimestamp(),
     };
 
     // Ring buffer for O(1) history insertion

@@ -56,11 +56,9 @@ export class InventorySystem extends SystemBase {
   }
 
   async init(): Promise<void> {
-    // Subscribe to inventory events
     this.subscribe(
       EventType.PLAYER_REGISTERED,
       async (data: { playerId: string }) => {
-        // Use async method to properly load from database
         const loaded = await this.loadPersistedInventoryAsync(data.playerId);
         if (!loaded) {
           this.initializeInventory({ id: data.playerId });
@@ -73,7 +71,6 @@ export class InventorySystem extends SystemBase {
     this.subscribe<{ playerId: string; itemId: string; quantity: number; slot?: number }>(EventType.INVENTORY_ITEM_REMOVED, (data) => {
       this.removeItem(data);
     });
-    // Handle remove item requests (e.g., from store sell)
     this.subscribe<{ playerId: string; itemId: string; quantity: number }>(
       EventType.INVENTORY_REMOVE_ITEM,
       (data) => {
@@ -93,7 +90,6 @@ export class InventorySystem extends SystemBase {
         itemId: data.itemId,
       });
     });
-    // NOTE: Coin events now handled by CoinPouchSystem
     this.subscribe<{ playerId: string; fromSlot?: number; toSlot?: number; sourceSlot?: number; targetSlot?: number }>(EventType.INVENTORY_MOVE, (data) => {
       this.moveItem(data);
     });
@@ -833,15 +829,8 @@ export class InventorySystem extends SystemBase {
         return;
       }
 
-      // Re-check entity exists AFTER acquiring lock
-      // Between validation and lock, the item may have been picked up
       const entity = entityManager.getEntity(data.entityId);
       if (!entity) {
-        // Item may have already been picked up - this is expected during:
-        // - Spam clicking item piles (player races themselves)
-        // - Multiple players grabbing same item (race condition)
-        // - Client sync delay (item removed server-side but client still shows it)
-        // Silently ignore - not an error condition
         return;
       }
 
@@ -1148,8 +1137,8 @@ export class InventorySystem extends SystemBase {
     if (!playerIdKey) {
       Logger.systemError(
         "InventorySystem",
-        `Invalid player ID in getInventory: "${playerId}"`,
-        new Error(`Invalid player ID in getInventory: "${playerId}"`),
+        `Invalid player ID: "${playerId}"`,
+        new Error(`Invalid player ID: "${playerId}"`),
       );
       return undefined;
     }

@@ -334,12 +334,14 @@ export class MobInstancedRenderer extends SystemBase {
     initialMatrix.decompose(position, quaternion, scale);
 
     // Create mob instance data
+    // NOTE: Instance data persists for the lifetime of the mob, so we create
+    // new Vector3/Quaternion/Matrix4 objects here (once per mob, not per frame)
     const instanceData: MobInstanceData = {
       id: mobId,
-      position: position.clone(),
-      rotation: quaternion.clone(),
-      scale: scale.clone(),
-      matrix: initialMatrix.clone(),
+      position: new THREE.Vector3().copy(position),
+      rotation: new THREE.Quaternion().copy(quaternion),
+      scale: new THREE.Vector3().copy(scale),
+      matrix: new THREE.Matrix4().copy(initialMatrix),
       visible: false, // Start hidden until visibility update
       distance: Infinity,
       currentLOD: 3, // Start at lowest LOD

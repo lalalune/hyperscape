@@ -63,7 +63,7 @@ export async function createHttpServer(
   // Jeju mode: Client 5013, Server 5014
   await fastify.register(cors, {
     origin: [
-      "http://localhost:4001", // ElizaOS API
+      "http://localhost:5069", // ElizaOS API
       "http://localhost:3333", // Game Client (standalone)
       "http://localhost:5013", // Game Client (jeju mode)
       "http://localhost:5555", // Game Server (standalone)

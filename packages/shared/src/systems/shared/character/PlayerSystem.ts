@@ -63,6 +63,7 @@ import type { TerrainSystem } from "..";
 import { PlayerIdMapper } from "../../../utils/PlayerIdMapper";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
 import * as THREE from "three";
+import { getCachedTimestamp } from "../movement/ObjectPools";
 
 /**
  * PlayerSystem - Central Player Management
@@ -402,7 +403,7 @@ export class PlayerSystem extends SystemBase {
         ),
         hasStarterEquipment: false,
         aggroTriggered: false,
-        spawnTime: Date.now(),
+        spawnTime: getCachedTimestamp(),
       };
       this.spawnedPlayers.set(data.playerId, spawnData);
     }
@@ -498,7 +499,7 @@ export class PlayerSystem extends SystemBase {
         ),
         hasStarterEquipment: false,
         aggroTriggered: false,
-        spawnTime: Date.now(),
+        spawnTime: getCachedTimestamp(),
       };
       this.spawnedPlayers.set(data.playerId, spawnData);
     }
@@ -715,7 +716,7 @@ export class PlayerSystem extends SystemBase {
     // Mark player as dead in PlayerSystem data
     player.alive = false;
     player.death.deathLocation = { ...player.position };
-    player.death.respawnTime = Date.now() + this.RESPAWN_TIME;
+    player.death.respawnTime = getCachedTimestamp() + this.RESPAWN_TIME;
 
     // Emit ENTITY_DEATH for DeathSystem to handle (headstones, loot, respawn)
     // DeathSystem will handle the full death flow including respawn
@@ -1475,13 +1476,12 @@ export class PlayerSystem extends SystemBase {
       return;
     }
 
-    // Check cooldown
-    const now = Date.now();
+    const now = getCachedTimestamp();
     const timeSinceLastChange = now - playerState.lastStyleChange;
 
     if (timeSinceLastChange < this.STYLE_CHANGE_COOLDOWN) {
       const remainingCooldown = Math.ceil(
-        (this.STYLE_CHANGE_COOLDOWN - (now - playerState.lastStyleChange)) /
+        (this.STYLE_CHANGE_COOLDOWN - timeSinceLastChange) /
           1000,
       );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
@@ -1680,7 +1680,7 @@ export class PlayerSystem extends SystemBase {
 
     let cooldownRemaining = 0;
     if (!canChange) {
-      const now = Date.now();
+      const now = getCachedTimestamp();
       cooldownRemaining = Math.max(
         0,
         this.STYLE_CHANGE_COOLDOWN - (now - playerState.lastStyleChange),
@@ -1735,7 +1735,7 @@ export class PlayerSystem extends SystemBase {
     const playerState = this.playerAttackStyles.get(playerId);
     if (!playerState || this.canPlayerChangeStyle(playerId)) return 0;
 
-    const now = Date.now();
+    const now = getCachedTimestamp();
     return Math.max(
       0,
       this.STYLE_CHANGE_COOLDOWN - (now - playerState.lastStyleChange),

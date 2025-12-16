@@ -91,12 +91,10 @@ export class DataManager {
   private validationResult: DataValidationResult | null = null;
   private worldAssetsDir: string | null = null;
 
-  private constructor() {
-    // Private constructor for singleton pattern
-  }
+  private constructor() {}
 
   /**
-   * Get the singleton instance
+   * Get singleton instance
    */
   public static getInstance(): DataManager {
     if (!DataManager.instance) {
@@ -152,25 +150,17 @@ export class DataManager {
       const resourceList =
         (await resourcesRes.json()) as Array<ExternalResourceData>;
 
-      if (
-        !(
-          globalThis as {
-            EXTERNAL_RESOURCES?: Map<string, ExternalResourceData>;
-          }
-        ).EXTERNAL_RESOURCES
-      ) {
-        (
-          globalThis as {
-            EXTERNAL_RESOURCES?: Map<string, ExternalResourceData>;
-          }
-        ).EXTERNAL_RESOURCES = new Map();
+      // Get or create EXTERNAL_RESOURCES map on globalThis
+      const globalWithResources = globalThis as {
+        EXTERNAL_RESOURCES?: Map<string, ExternalResourceData>;
+      };
+      if (!globalWithResources.EXTERNAL_RESOURCES) {
+        globalWithResources.EXTERNAL_RESOURCES = new Map();
       }
+      // At this point, EXTERNAL_RESOURCES is guaranteed to exist
+      const resourcesMap = globalWithResources.EXTERNAL_RESOURCES;
       for (const resource of resourceList) {
-        (
-          globalThis as unknown as {
-            EXTERNAL_RESOURCES: Map<string, ExternalResourceData>;
-          }
-        ).EXTERNAL_RESOURCES.set(resource.id, resource);
+        resourcesMap.set(resource.id, resource);
       }
 
       // Load world areas
@@ -245,14 +235,27 @@ export class DataManager {
     const equipSlot = item.equipSlot ?? null;
     const attackType = item.attackType ?? null;
 
+    // Get equippedModelPath - it exists in JSON but TypeScript might not recognize it after type assertion
+    // The spread operator below will preserve it, but we need to check the actual runtime value
+    // Access it directly from the item object to get the runtime value
+    const equippedModelPathValue = item.equippedModelPath;
+
     // Validate: weapons with equipSlot "weapon" should have equippedModelPath
-    if (equipSlot === "weapon" && !item.equippedModelPath) {
+    // Only warn if it's truly missing (undefined/null/empty string)
+    if (
+      equipSlot === "weapon" &&
+      (!equippedModelPathValue ||
+        (typeof equippedModelPathValue === "string" &&
+          equippedModelPathValue.trim() === ""))
+    ) {
       console.warn(
         `[DataManager] Weapon "${item.id}" missing equippedModelPath - will use convention fallback`,
       );
     }
 
     // Apply defaults only for missing fields (use ?? to preserve falsy values like 0)
+    // Note: We spread ...item first to preserve all properties including equippedModelPath
+    // This ensures that even if TypeScript doesn't recognize the field, it's still preserved
     const normalized: Item = {
       ...item,
       type: item.type,
@@ -281,7 +284,8 @@ export class DataManager {
           : attackType === AttackType.MELEE
             ? 1
             : undefined),
-      equippedModelPath: item.equippedModelPath,
+      // equippedModelPath is preserved from spread above, explicitly set to ensure it's recognized
+      equippedModelPath: equippedModelPathValue ?? item.equippedModelPath,
       bonuses: item.bonuses,
       requirements: item.requirements,
     };

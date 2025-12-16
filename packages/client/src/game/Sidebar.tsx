@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { EventType } from "@hyperscape/shared";
 import type {
   ClientWorld,
@@ -27,10 +27,19 @@ import { StorePanel } from "./panels/StorePanel";
 import { DialoguePanel } from "./panels/DialoguePanel";
 import ModerationPanel from "../components/moderation/ModerationPanel";
 
-type InventorySlotViewItem = Pick<
-  InventorySlotItem,
-  "slot" | "itemId" | "quantity"
->;
+type InventorySlotViewItem = Pick<InventorySlotItem, "slot" | "itemId" | "quantity">;
+type EquipmentSlotData = { item?: Item | null; itemId?: string };
+
+function mapEquipment(eq: Record<string, EquipmentSlotData>): PlayerEquipmentItems {
+  return {
+    weapon: eq.weapon?.item ?? null,
+    shield: eq.shield?.item ?? null,
+    helmet: eq.helmet?.item ?? null,
+    body: eq.body?.item ?? null,
+    legs: eq.legs?.item ?? null,
+    arrows: eq.arrows?.item ?? null,
+  };
+}
 
 interface SidebarProps {
   world: ClientWorld;
@@ -59,7 +68,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
   );
   const [nextZIndex, setNextZIndex] = useState(1000);
 
-  // Loot window state
   const [lootWindowData, setLootWindowData] = useState<{
     visible: boolean;
     corpseId: string;
@@ -67,7 +75,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     lootItems: InventoryItem[];
   } | null>(null);
 
-  // Bank panel state
   const [bankData, setBankData] = useState<{
     visible: boolean;
     items: Array<{ itemId: string; quantity: number; slot: number }>;
@@ -75,7 +82,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     bankId: string;
   } | null>(null);
 
-  // Store panel state
   const [storeData, setStoreData] = useState<{
     visible: boolean;
     storeId: string;
@@ -93,7 +99,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     }>;
   } | null>(null);
 
-  // Dialogue panel state
   const [dialogueData, setDialogueData] = useState<{
     visible: boolean;
     npcId: string;
@@ -103,65 +108,66 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     npcEntityId?: string;
   } | null>(null);
 
-  // Moderation panel state
   const [moderationData, setModerationData] = useState<{
     visible: boolean;
     isAdmin: boolean;
     isModerator: boolean;
   } | null>(null);
 
-  // Update chat context whenever windows open/close
   useEffect(() => {
     setHasOpenWindows(openWindows.size > 0);
   }, [openWindows, setHasOpenWindows]);
 
-  const toggleWindow = (windowId: string) => {
+  const toggleWindow = useCallback((windowId: string) => {
     setOpenWindows((prev) => {
       const next = new Set(prev);
       if (next.has(windowId)) {
         next.delete(windowId);
       } else {
         next.add(windowId);
-        // Assign z-index when opening
         setWindowZIndices((prevIndices) => {
           const newIndices = new Map(prevIndices);
           newIndices.set(windowId, nextZIndex);
           return newIndices;
         });
-        setNextZIndex((prev) => prev + 1);
+        setNextZIndex((z) => z + 1);
       }
       return next;
     });
-  };
+  }, [nextZIndex]);
 
-  const closeWindow = (windowId: string) => {
+  const closeWindow = useCallback((windowId: string) => {
     setOpenWindows((prev) => {
       const next = new Set(prev);
       next.delete(windowId);
       return next;
     });
-    // Clean up z-index when closing
     setWindowZIndices((prev) => {
       const next = new Map(prev);
       next.delete(windowId);
       return next;
     });
-  };
+  }, []);
 
-  const bringToFront = (windowId: string) => {
+  const bringToFront = useCallback((windowId: string) => {
     setWindowZIndices((prevIndices) => {
       const newIndices = new Map(prevIndices);
       newIndices.set(windowId, nextZIndex);
       return newIndices;
     });
-    setNextZIndex((prev) => prev + 1);
-  };
+    setNextZIndex((z) => z + 1);
+  }, [nextZIndex]);
 
   useEffect(() => {
     const onOpenPane = (d: unknown) => {
       const data = d as { pane?: string | null };
-      if (data?.pane)
-        setOpenWindows((prev) => new Set(prev).add(data.pane as string));
+      if (data?.pane) {
+        setOpenWindows((prev) => {
+          const next = new Set(prev);
+          next.add(data.pane as string);
+          return next;
+        });
+      }
     };
     world.on(EventType.UI_OPEN_PANE, onOpenPane);
 
@@ -170,24 +176,9 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       if (update.component === "player")
         setPlayerStats(update.data as PlayerStats);
       if (update.component === "equipment") {
-        // The backend sends PlayerEquipment (with slots containing items),
-        // but the UI expects PlayerEquipmentItems (just the items).
-        const data = update.data as {
-          equipment: Record<string, { item?: Item | null }>;
-        };
-        const rawEq = data.equipment;
-
-        const mappedEquipment: PlayerEquipmentItems = {
-          weapon: rawEq.weapon?.item ?? null,
-          shield: rawEq.shield?.item ?? null,
-          helmet: rawEq.helmet?.item ?? null,
-          body: rawEq.body?.item ?? null,
-          legs: rawEq.legs?.item ?? null,
-          arrows: rawEq.arrows?.item ?? null,
-        };
-        setEquipment(mappedEquipment);
+        const data = update.data as { equipment: Record<string, EquipmentSlotData> };
+        setEquipment(mapEquipment(data.equipment));
       }
-      // Handle bank state updates
       if (update.component === "bank") {
         const data = update.data as {
           items?: Array<{ itemId: string; quantity: number; slot: number }>;
@@ -196,11 +187,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           isOpen?: boolean;
         };
         if (data.isOpen === false) {
-          // Server-authoritative close (player walked too far)
           setBankData(null);
         } else if (data.isOpen || data.items) {
-          // Open or update bank state
-          // Preserve existing bankId if new one not provided (deposit/withdraw responses)
           setBankData((prev) => ({
             visible: true,
             items: data.items || prev?.items || [],
@@ -209,7 +197,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           }));
         }
       }
-      // Handle store state updates
       if (update.component === "store") {
         const data = update.data as {
           storeId: string;
@@ -240,7 +227,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           setStoreData(null);
         }
       }
-      // Handle dialogue state updates
       if (update.component === "dialogue") {
         const data = update.data as {
           npcId: string;
@@ -256,15 +242,12 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         setDialogueData((prev) => ({
           visible: true,
           npcId: data.npcId,
-          // Preserve npcName from previous state if not provided (nodeChange packets)
           npcName: data.npcName || prev?.npcName || "NPC",
           text: data.text,
           responses: data.responses || [],
-          // Preserve npcEntityId from previous state if not provided
           npcEntityId: data.npcEntityId || prev?.npcEntityId,
         }));
       }
-      // Handle dialogue end
       if (update.component === "dialogueEnd") {
         setDialogueData(null);
       }
@@ -390,19 +373,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         }
         const cachedEquipment = world.network?.lastEquipmentByPlayerId?.[lp];
         if (cachedEquipment) {
-          // Backend format: { weapon: { item: Item, itemId: string }, ... }
-          // UI format: { weapon: Item | null, ... }
-          type EquipmentSlot = { item?: Item | null; itemId?: string };
-          const eq = cachedEquipment as Record<string, EquipmentSlot>;
-          const mappedEquipment: PlayerEquipmentItems = {
-            weapon: eq.weapon?.item ?? null,
-            shield: eq.shield?.item ?? null,
-            helmet: eq.helmet?.item ?? null,
-            body: eq.body?.item ?? null,
-            legs: eq.legs?.item ?? null,
-            arrows: eq.arrows?.item ?? null,
-          };
-          setEquipment(mappedEquipment);
+          setEquipment(mapEquipment(cachedEquipment as Record<string, EquipmentSlotData>));
         }
         world.emit(EventType.INVENTORY_REQUEST, { playerId: lp });
         return true;
@@ -422,7 +393,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       world.off(EventType.CORPSE_CLICK, onCorpseClick);
       window.removeEventListener("ui:openModerationPanel", onOpenModeration);
     };
-  }, []);
+  }, [world]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -434,7 +405,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const menuButtons = [
+  // Static menu buttons - defined once and never change
+  const menuButtons = useMemo(() => [
     { windowId: "combat", icon: "⚔️", label: "Combat" },
     { windowId: "dashboard", icon: "📋", label: "Dashboard" },
     { windowId: "skills", icon: "🧠", label: "Skills" },
@@ -442,36 +414,44 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     { windowId: "equipment", icon: "🛡️", label: "Equipment" },
     { windowId: "prefs", icon: "⚙️", label: "Settings" },
     { windowId: "account", icon: "👤", label: "Account" },
-  ] as const;
+  ] as const, []);
 
-  const minimapOuterSize = isMobile ? 180 : 220;
-  const minimapInnerSize = isMobile ? 164 : 204;
-  const minimapZoom = isMobile ? 40 : 50;
+  // Memoize minimap dimensions
+  const minimapDimensions = useMemo(() => ({
+    outerSize: isMobile ? 180 : 220,
+    innerSize: isMobile ? 164 : 204,
+    zoom: isMobile ? 40 : 50,
+  }), [isMobile]);
 
-  const radialOffset = isMobile ? 20 : 28;
-  const radialRadius = minimapOuterSize / 2 + radialOffset;
-  const startAngleDeg = isMobile ? 135 : 130;
-  const endAngleDeg = isMobile ? 225 : 220;
+  // Memoize radial button positions - only recalculate when isMobile changes
+  const radialButtons = useMemo(() => {
+    const radialOffset = isMobile ? 20 : 28;
+    const radialRadius = minimapDimensions.outerSize / 2 + radialOffset;
+    const startAngleDeg = isMobile ? 135 : 130;
+    const endAngleDeg = isMobile ? 225 : 220;
+    const startAngle = (Math.PI / 180) * startAngleDeg;
+    const endAngle = (Math.PI / 180) * endAngleDeg;
+    const angleStep =
+      menuButtons.length > 1
+        ? (endAngle - startAngle) / (menuButtons.length - 1)
+        : 0;
+
+    return menuButtons.map((button, index) => {
+      const angle = startAngle + angleStep * index;
+      const offsetX = Math.cos(angle) * radialRadius;
+      const offsetY = Math.sin(angle) * radialRadius;
+      return {
+        ...button,
+        style: {
+          left: "50%",
+          top: "50%",
+          transform: `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px)`,
+        } as React.CSSProperties,
+      };
+    });
+  }, [isMobile, menuButtons, minimapDimensions.outerSize]);
+
   const radialButtonSize = isMobile ? ("compact" as const) : ("small" as const);
-  const startAngle = (Math.PI / 180) * startAngleDeg;
-  const endAngle = (Math.PI / 180) * endAngleDeg;
-  const angleStep =
-    menuButtons.length > 1
-      ? (endAngle - startAngle) / (menuButtons.length - 1)
-      : 0;
-  const radialButtons = menuButtons.map((button, index) => {
-    const angle = startAngle + angleStep * index;
-    const offsetX = Math.cos(angle) * radialRadius;
-    const offsetY = Math.sin(angle) * radialRadius;
-    return {
-      ...button,
-      style: {
-        left: "50%",
-        top: "50%",
-        transform: `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px)`,
-      } as React.CSSProperties,
-    };
-  });
 
   return (
     <HintProvider>
@@ -487,8 +467,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           <div
             className="relative pointer-events-none"
             style={{
-              width: minimapCollapsed ? 56 : minimapOuterSize,
-              height: minimapCollapsed ? 56 : minimapOuterSize,
+              width: minimapCollapsed ? 56 : minimapDimensions.outerSize,
+              height: minimapCollapsed ? 56 : minimapDimensions.outerSize,
               transition: "width 0.3s ease-in-out, height 0.3s ease-in-out",
             }}
           >
@@ -522,9 +502,9 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             >
               <Minimap
                 world={world}
-                width={minimapInnerSize}
-                height={minimapInnerSize}
-                zoom={minimapZoom}
+                width={minimapDimensions.innerSize}
+                height={minimapDimensions.innerSize}
+                zoom={minimapDimensions.zoom}
                 onCompassClick={() => setMinimapCollapsed(true)}
                 isVisible={!minimapCollapsed}
               />

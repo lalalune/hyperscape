@@ -88,18 +88,37 @@ class HyperscapeBanCheckService {
 
   /**
    * Check if player is banned from Hyperscape
+   * 
+   * SECURITY: This method fails CLOSED (denies access) if ban system is unavailable.
+   * This prevents banned players from accessing the game if the ban system is down.
+   * 
+   * @param agentId - Player agent ID to check
+   * @returns true if player is banned, false if allowed
+   * @throws Error if ban system is unavailable (forces fail-closed behavior)
    */
   async isPlayerBanned(agentId: number): Promise<boolean> {
     if (!this.cache) {
-      console.warn("[BanCheck] Ban cache not initialized, allowing access");
-      return false; // Fail open (allow access if ban system down)
+      // SECURITY: Fail CLOSED - deny access if ban system unavailable
+      // This prevents banned players from bypassing bans if system is down
+      const error = new Error(
+        `[BanCheck] Ban cache not initialized - cannot verify ban status for agent ${agentId}. Access denied for security.`,
+      );
+      console.error(error.message);
+      throw error;
     }
 
     try {
       return !this.cache.isAllowed(agentId);
     } catch (error) {
-      console.error("[BanCheck] Error checking ban status:", error);
-      return false; // Fail open
+      // SECURITY: Fail CLOSED - if we can't check ban status, deny access
+      // This prevents banned players from accessing if ban check fails
+      console.error(
+        `[BanCheck] Error checking ban status for agent ${agentId}:`,
+        error,
+      );
+      throw new Error(
+        `[BanCheck] Failed to check ban status for agent ${agentId}. Access denied for security.`,
+      );
     }
   }
 
@@ -142,34 +161,52 @@ export const banCheckService = new HyperscapeBanCheckService();
 /**
  * Check if player agentId is banned and should be denied access
  * Returns { allowed: boolean, reason?: string }
+ * 
+ * SECURITY: If ban system is unavailable, access is DENIED (fail-closed).
+ * This prevents banned players from bypassing bans if the system is down.
  */
 export async function checkPlayerBan(
   agentId: number,
 ): Promise<{ allowed: boolean; reason?: string }> {
-  const isBanned = await banCheckService.isPlayerBanned(agentId);
+  try {
+    const isBanned = await banCheckService.isPlayerBanned(agentId);
 
-  if (!isBanned) {
+    if (!isBanned) {
+      return { allowed: true };
+    }
+
+    // Get ban reason
+    const status = await banCheckService.getBanStatus(agentId);
+
+    if (status.networkBanned) {
+      return {
+        allowed: false,
+        reason: status.banReason || "You have been banned from the Jeju network.",
+      };
+    }
+
+    if (status.appBanned) {
+      return {
+        allowed: false,
+        reason: status.banReason || "You have been banned from Hyperscape.",
+      };
+    }
+
     return { allowed: true };
-  }
-
-  // Get ban reason
-  const status = await banCheckService.getBanStatus(agentId);
-
-  if (status.networkBanned) {
+  } catch (error) {
+    // SECURITY: Fail CLOSED - if ban system unavailable, deny access
+    // This is a security-critical decision: better to deny legitimate players
+    // than allow banned players to bypass the system
+    console.error(
+      `[BanCheck] Critical: Cannot verify ban status for agent ${agentId}. Access denied.`,
+      error,
+    );
     return {
       allowed: false,
-      reason: status.banReason || "You have been banned from the Jeju network.",
+      reason:
+        "Ban verification system is unavailable. Access denied for security. Please contact support.",
     };
   }
-
-  if (status.appBanned) {
-    return {
-      allowed: false,
-      reason: status.banReason || "You have been banned from Hyperscape.",
-    };
-  }
-
-  return { allowed: true };
 }
 
 /**

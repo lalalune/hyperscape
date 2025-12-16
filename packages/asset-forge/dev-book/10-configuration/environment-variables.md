@@ -123,7 +123,7 @@ VITE_IMAGE_SERVER_URL=https://your-bucket.r2.dev
 ### VITE_GENERATION_API_URL
 
 **Type**: URL (Required)
-**Default**: `http://localhost:3000/api`
+**Default**: `http://localhost:3333/api`
 **Purpose**: Base URL for the generation API server
 
 ```bash

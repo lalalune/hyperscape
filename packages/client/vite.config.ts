@@ -16,15 +16,6 @@ export default defineConfig(({ mode }) => {
   const clientEnv = loadEnv(mode, clientDir, ["PUBLIC_", "VITE_"]);
   const env = { ...workspaceEnv, ...clientEnv };
 
-  console.log("[Vite Config] Loaded env from workspace:", workspaceRoot);
-  console.log("[Vite Config] Loaded env from client:", clientDir);
-  console.log(
-    "[Vite Config] PUBLIC_PRIVY_APP_ID:",
-    env.PUBLIC_PRIVY_APP_ID
-      ? `${env.PUBLIC_PRIVY_APP_ID.substring(0, 10)}...`
-      : "NOT SET",
-  );
-
   return {
     plugins: [
       react(),
@@ -45,11 +36,6 @@ export default defineConfig(({ mode }) => {
               file.includes("packages/shared/build/") ||
               file.includes("packages/shared/src/")
             ) {
-              console.log(
-                `\n[Vite] 🔄 Shared package file changed: ${path.basename(file)}`,
-              );
-              console.log("[Vite] ⚡ Triggering full reload...\n");
-
               // Clear Vite's module cache for @hyperscape/shared
               const sharedModule =
                 server.moduleGraph.getModuleById("@hyperscape/shared");
@@ -67,8 +53,6 @@ export default defineConfig(({ mode }) => {
               });
             }
           });
-
-          console.log("[Vite] 👀 Watching shared package:", sharedBuildPath);
         },
       },
       // Plugin to handle Node.js modules in browser
@@ -210,12 +194,16 @@ export default defineConfig(({ mode }) => {
           __dirname,
           "../shared/build/framework.client.js",
         ),
+        // Polyfill Node.js buffer module with npm package (required by @farcaster/miniapp-sdk)
+        // This prevents Vite from externalizing the buffer module
+        buffer: path.resolve(__dirname, "node_modules/buffer/index.js"),
       },
-      dedupe: ["three"],
+      // Dedupe React to prevent "useCallback is null" errors from multiple React instances
+      dedupe: ["three", "react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
     },
 
     optimizeDeps: {
-      include: ["three", "react", "react-dom"],
+      include: ["three", "react", "react-dom", "buffer"],
       exclude: [
         "@hyperscape/shared", // CRITICAL: Exclude from dep optimization so changes are detected
         "@playwright/test", // Exclude Playwright from optimization

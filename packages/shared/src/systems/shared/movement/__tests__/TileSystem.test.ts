@@ -13,7 +13,7 @@
  * - Direction calculations
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import {
   worldToTile,
   tileToWorld,

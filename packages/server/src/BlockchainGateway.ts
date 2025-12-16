@@ -200,6 +200,12 @@ export class BlockchainGateway extends SystemBase {
     options?: { batch?: boolean },
   ): Promise<{ txHash?: string; batched?: boolean }> {
     if (!this.isEnabled()) {
+      // In hybrid mode, blockchain operations are required for critical state
+      // If disabled, we're in PostgreSQL-only mode and should not be called
+      console.warn(
+        `[BlockchainGateway] addItem called but blockchain disabled - operation skipped (player: ${playerAddress}, item: ${itemId}, qty: ${quantity})`,
+      );
+      // Return honest response: operation was not performed
       return { batched: false };
     }
 
@@ -243,6 +249,12 @@ export class BlockchainGateway extends SystemBase {
     quantity: number,
   ): Promise<{ txHash?: string }> {
     if (!this.isEnabled()) {
+      // In hybrid mode, blockchain operations are required for critical state
+      // If disabled, we're in PostgreSQL-only mode and should not be called
+      console.warn(
+        `[BlockchainGateway] removeItem called but blockchain disabled - operation skipped (player: ${playerAddress}, slot: ${slot}, qty: ${quantity})`,
+      );
+      // Return honest response: no transaction hash because operation didn't happen
       return {};
     }
 
@@ -309,9 +321,15 @@ export class BlockchainGateway extends SystemBase {
    * Hybrid: Individual hits calculated off-chain, only kills on-chain
    * On-chain: ✅ Critical state (loot drops, XP gains)
    */
-  async recordMobKill(mobId: Address): Promise<{ txHash: string }> {
+  async recordMobKill(mobId: Address): Promise<{ txHash?: string }> {
     if (!this.isEnabled()) {
-      return { txHash: "0x0" };
+      // In hybrid mode, blockchain operations are required for critical state
+      // If disabled, we're in PostgreSQL-only mode - mob kills are tracked locally only
+      console.warn(
+        `[BlockchainGateway] recordMobKill called but blockchain disabled - mob kill tracked locally only (mob: ${mobId})`,
+      );
+      // Return honest response: no transaction hash because operation didn't happen on-chain
+      return {};
     }
 
     console.log(`[BlockchainGateway] ⚔️  Recording mob kill on blockchain...`);
@@ -339,9 +357,15 @@ export class BlockchainGateway extends SystemBase {
   async recordResourceGathered(
     resourceId: Address,
     resourceType: "tree" | "fish",
-  ): Promise<{ txHash: string }> {
+  ): Promise<{ txHash?: string }> {
     if (!this.isEnabled()) {
-      return { txHash: "0x0" };
+      // In hybrid mode, blockchain operations are required for critical state
+      // If disabled, we're in PostgreSQL-only mode - resource gathering tracked locally only
+      console.warn(
+        `[BlockchainGateway] recordResourceGathered called but blockchain disabled - resource gathering tracked locally only (resource: ${resourceId}, type: ${resourceType})`,
+      );
+      // Return honest response: no transaction hash because operation didn't happen on-chain
+      return {};
     }
 
     const receipt =

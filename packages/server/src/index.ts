@@ -105,6 +105,13 @@ async function startServer() {
   const config = await loadConfig();
   console.log(`[Server] ✅ Configuration loaded (port: ${config.port})`);
 
+  // Warn once at startup about missing ADMIN_CODE in development
+  if (!process.env.ADMIN_CODE && config.nodeEnv === "development") {
+    console.warn(
+      "[Server] ⚠️  No ADMIN_CODE set in development mode - granting temporary admin access to all users",
+    );
+  }
+
   // Step 2: Initialize database
   console.log("[Server] Step 2/7: Initializing database...");
   const dbContext = await initializeDatabase(config);

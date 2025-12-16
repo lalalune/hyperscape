@@ -35,7 +35,7 @@ The Asset Forge REST API is built on Express.js and provides both synchronous an
 
 ```bash
 # Frontend (Vite dev server)
-http://localhost:3000
+http://localhost:3333
 
 # Backend API server
 http://localhost:3004

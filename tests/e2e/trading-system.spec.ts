@@ -2,11 +2,23 @@ import {
   test,
   expect,
   chromium,
-  type Browser,
-  type Page,
 } from "@playwright/test";
 
 const GAME_URL = process.env.HYPERSCAPE_URL || `http://localhost:${process.env.VITE_PORT || "3333"}`;
+
+// Type for window with world object used in page.evaluate()
+type WorldSocket = {
+  player: { id: string; data?: { name: string } };
+  send: (event: string, data: Record<string, unknown>) => void;
+};
+type WindowWithWorld = Window & {
+  world: {
+    network: {
+      socket: WorldSocket;
+    };
+    entities: unknown;
+  };
+};
 
 test.describe("Hyperscape Trading System E2E", () => {
   test("should connect two players and verify server-side trading system", async () => {
@@ -28,7 +40,7 @@ test.describe("Hyperscape Trading System E2E", () => {
       await player1Page.waitForTimeout(8000); // Extra time for 3D world to load
 
       const player1Info = await player1Page.evaluate(() => {
-        const world = (window as any).world;
+        const world = (window as unknown as WindowWithWorld).world;
         return {
           connected: !!world?.network?.socket,
           hasPlayer: !!world?.network?.socket?.player,
@@ -49,7 +61,7 @@ test.describe("Hyperscape Trading System E2E", () => {
       await player2Page.waitForTimeout(8000);
 
       const player2Info = await player2Page.evaluate(() => {
-        const world = (window as any).world;
+        const world = (window as unknown as WindowWithWorld).world;
         return {
           connected: !!world?.network?.socket,
           hasPlayer: !!world?.network?.socket?.player,
@@ -71,7 +83,7 @@ test.describe("Hyperscape Trading System E2E", () => {
       console.log(`📤 Player 1 sending trade request to Player 2...`);
       const tradeRequestSent = await player1Page.evaluate((targetId) => {
         try {
-          const world = (window as any).world;
+          const world = (window as unknown as WindowWithWorld).world;
           if (!world?.network?.socket?.send) {
             console.error("Socket.send not available");
             return false;
@@ -112,11 +124,11 @@ test.describe("Hyperscape Trading System E2E", () => {
 
       // Verify server didn't crash
       const player1StillConnected = await player1Page.evaluate(() => {
-        return !!(window as any).world?.network?.socket;
+        return !!(window as unknown as WindowWithWorld).world?.network?.socket;
       });
 
       const player2StillConnected = await player2Page.evaluate(() => {
-        return !!(window as any).world?.network?.socket;
+        return !!(window as unknown as WindowWithWorld).world?.network?.socket;
       });
 
       expect(player1StillConnected).toBe(true);
@@ -146,7 +158,7 @@ test.describe("Hyperscape Trading System E2E", () => {
       await page.waitForTimeout(6000);
 
       const playerInfo = await page.evaluate(() => {
-        const world = (window as any).world;
+        const world = (window as unknown as WindowWithWorld).world;
         return {
           connected: !!world?.network?.socket,
           playerId: world?.network?.socket?.player?.id || null,
@@ -160,7 +172,7 @@ test.describe("Hyperscape Trading System E2E", () => {
       console.log("📤 Sending invalid trade requests to test validation...");
 
       const validationResults = await page.evaluate(() => {
-        const world = (window as any).world;
+        const world = (window as unknown as WindowWithWorld).world;
         const results = [];
 
         try {
@@ -200,7 +212,7 @@ test.describe("Hyperscape Trading System E2E", () => {
       await page.waitForTimeout(2000);
 
       const stillConnected = await page.evaluate(() => {
-        return !!(window as any).world?.network?.socket;
+        return !!(window as unknown as WindowWithWorld).world?.network?.socket;
       });
 
       expect(stillConnected).toBe(true);
@@ -227,7 +239,7 @@ test.describe("Hyperscape Trading System E2E", () => {
       await page.waitForTimeout(5000);
 
       const systemCheck = await page.evaluate(() => {
-        const world = (window as any).world;
+        const world = (window as unknown as WindowWithWorld).world;
         if (!world) return { error: "No world object" };
 
         return {

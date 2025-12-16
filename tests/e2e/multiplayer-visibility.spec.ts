@@ -19,6 +19,24 @@ import {
   type Page,
 } from "@playwright/test";
 
+// Type for window with world object used in page.evaluate()
+type Entity = {
+  id: string;
+  type: string;
+  node?: { position: { x: number; y: number; z: number } };
+};
+type WindowWithWorld = Window & {
+  world?: {
+    entities?: {
+      player?: { id: string; node?: { position: { x: number; y: number; z: number } } };
+      getAllPlayers?: () => Entity[];
+    };
+    getSystem?: (name: string) => {
+      getAllEntities?: () => Map<string, Entity>;
+    };
+  };
+};
+
 const test = base;
 
 interface TestPlayer {
@@ -58,14 +76,14 @@ async function setupPlayer(
   // Wait for world to be ready
   await page.waitForFunction(
     () => {
-      return (window as any).world?.entities?.player !== undefined;
+      return (window as unknown as WindowWithWorld).world?.entities?.player !== undefined;
     },
     { timeout: 30000 },
   );
 
   // Get player ID
   const playerId = await page.evaluate(() => {
-    const player = (window as any).world?.entities?.player;
+    const player = (window as unknown as WindowWithWorld).world?.entities?.player;
     return player?.id || null;
   });
 
@@ -76,7 +94,7 @@ async function setupPlayer(
 
 async function getPlayerCount(page: Page): Promise<number> {
   return await page.evaluate(() => {
-    const world = (window as any).world;
+    const world = (window as unknown as WindowWithWorld).world;
     if (!world?.entities?.getAllPlayers) return 0;
 
     const players = world.entities.getAllPlayers();
@@ -88,7 +106,7 @@ async function getVisibleEntities(
   page: Page,
 ): Promise<Array<{ id: string; type: string; position: number[] }>> {
   return await page.evaluate(() => {
-    const world = (window as any).world;
+    const world = (window as unknown as WindowWithWorld).world;
     const entities: Array<{ id: string; type: string; position: number[] }> =
       [];
 
@@ -115,7 +133,7 @@ async function getVisibleEntities(
   });
 }
 
-async function getMinimapPips(page: Page): Promise<number> {
+async function _getMinimapPips(page: Page): Promise<number> {
   return await page.evaluate(() => {
     // Count visible player pips on minimap
     const minimapPips = document.querySelectorAll(
@@ -249,7 +267,7 @@ test.describe("Multiplayer Visibility", () => {
 
       // Get Player 1's initial position
       const p1InitialPos = await player1.page.evaluate(() => {
-        const player = (window as any).world?.entities?.player;
+        const player = (window as unknown as WindowWithWorld).world?.entities?.player;
         if (player?.node?.position) {
           return {
             x: player.node.position.x,
@@ -268,7 +286,7 @@ test.describe("Multiplayer Visibility", () => {
 
       // Get Player 1's new position as seen by Player 2
       const p1NewPosFromP2 = await player2.page.evaluate((p1Id) => {
-        const world = (window as any).world;
+        const world = (window as unknown as WindowWithWorld).world;
         const entityManager = world?.getSystem("entity-manager");
         if (entityManager?.getAllEntities) {
           for (const [id, entity] of entityManager.getAllEntities()) {

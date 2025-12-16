@@ -28,6 +28,9 @@ import type { TileCoord, TileMovementState } from "@hyperscape/shared";
 
 /**
  * Tile-based movement manager for RuneScape-style movement
+ *
+ * Performance: Caches terrain system reference to avoid repeated lookups
+ * during pathfinding and movement calculations.
  */
 export class TileMovementManager {
   private playerStates: Map<string, TileMovementState> = new Map();
@@ -35,6 +38,11 @@ export class TileMovementManager {
   // Y-axis for stable yaw rotation calculation
   private _up = new THREE.Vector3(0, 1, 0);
   private _tempQuat = new THREE.Quaternion();
+  /** Cached terrain system reference (lazy initialized) */
+  private _terrainSystem: InstanceType<typeof TerrainSystem> | null = null;
+  private _terrainSystemLookedUp = false;
+  /** Cached tile coordinate for temporary calculations (avoids object spreads) */
+  private _tempPrevTile: TileCoord = { x: 0, z: 0 };
 
   constructor(
     private world: World,
@@ -48,12 +56,16 @@ export class TileMovementManager {
   }
 
   /**
-   * Get terrain system
+   * Get terrain system (cached after first lookup)
    */
   private getTerrain(): InstanceType<typeof TerrainSystem> | null {
-    return this.world.getSystem("terrain") as InstanceType<
-      typeof TerrainSystem
-    > | null;
+    if (!this._terrainSystemLookedUp) {
+      this._terrainSystem = this.world.getSystem("terrain") as InstanceType<
+        typeof TerrainSystem
+      > | null;
+      this._terrainSystemLookedUp = true;
+    }
+    return this._terrainSystem;
   }
 
   /**
@@ -254,8 +266,10 @@ export class TileMovementManager {
         continue;
       }
 
-      // Store previous position for rotation calculation
-      const prevTile = { ...state.currentTile };
+      // Store previous position for rotation calculation (use cached object)
+      this._tempPrevTile.x = state.currentTile.x;
+      this._tempPrevTile.z = state.currentTile.z;
+      const prevTile = this._tempPrevTile;
 
       // Move 1 tile (walk) or 2 tiles (run) per tick
       const tilesToMove = state.isRunning
@@ -266,7 +280,9 @@ export class TileMovementManager {
         if (state.pathIndex >= state.path.length) break;
 
         const nextTile = state.path[state.pathIndex];
-        state.currentTile = { ...nextTile };
+        // Copy tile values directly to avoid object spread
+        state.currentTile.x = nextTile.x;
+        state.currentTile.z = nextTile.z;
         state.pathIndex++;
       }
 
@@ -346,14 +362,6 @@ export class TileMovementManager {
         });
       }
     }
-  }
-
-  /**
-   * Legacy frame-based update (for compatibility during transition)
-   * This should be removed once tile movement is fully working
-   */
-  update(_dt: number): void {
-    // No-op - movement is now tick-based
   }
 
   /**

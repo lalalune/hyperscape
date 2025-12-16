@@ -41,6 +41,7 @@ import { Stage, Stage as StageSystem } from "../systems/shared";
 import { System, SystemConstructor } from "../systems/shared";
 import { XR } from "../systems/client/XR";
 import { Environment } from "../systems/shared";
+import { updateCachedTimestamp } from "../systems/shared/movement/ObjectPools";
 import {
   ClientAudio,
   ClientInput,
@@ -1030,6 +1031,8 @@ export class World extends EventEmitter {
   tick = (time: number): void => {
     const perf = this.performanceMonitor;
 
+    updateCachedTimestamp();
+
     // Begin performance monitoring
     this.preTick();
 
@@ -1132,7 +1135,6 @@ export class World extends EventEmitter {
    */
   private fixedUpdate(delta: number): void {
     const perf = this.performanceMonitor;
-    // PERFORMANCE: Reuse array to avoid allocation every frame
     this._reusableHotItems.length = 0;
     for (const item of this.hot) {
       this._reusableHotItems.push(item);
@@ -1184,7 +1186,6 @@ export class World extends EventEmitter {
    */
   private update(delta: number, _alpha: number): void {
     const perf = this.performanceMonitor;
-    // PERFORMANCE: Reuse array to avoid allocation every frame
     this._reusableHotItems.length = 0;
     for (const item of this.hot) {
       this._reusableHotItems.push(item);
@@ -1221,7 +1222,6 @@ export class World extends EventEmitter {
    */
   private lateUpdate(delta: number, _alpha: number): void {
     const perf = this.performanceMonitor;
-    // PERFORMANCE: Reuse array to avoid allocation every frame
     this._reusableHotItems.length = 0;
     for (const item of this.hot) {
       this._reusableHotItems.push(item);
@@ -1246,7 +1246,6 @@ export class World extends EventEmitter {
    */
   private postLateUpdate(delta: number): void {
     const perf = this.performanceMonitor;
-    // PERFORMANCE: Reuse array to avoid allocation every frame
     this._reusableHotItems.length = 0;
     for (const item of this.hot) {
       this._reusableHotItems.push(item);
@@ -1566,8 +1565,10 @@ export class World extends EventEmitter {
         mapForEvent = new Map();
         this.__busListenerMap.set(event, mapForEvent);
       }
-      const sub = this.$eventBus.subscribe(event, (evt) => {
-        (fn as (data: unknown) => void)(evt.data);
+      const sub = this.$eventBus.subscribe(event, (data) => {
+        // EventBus.subscribe already extracts .data from SystemEvent
+        // So 'data' here IS the event payload, not a SystemEvent wrapper
+        (fn as (data: unknown) => void)(data);
       });
       mapForEvent.set(fn as (...args: unknown[]) => void, sub);
       return this;

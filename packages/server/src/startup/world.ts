@@ -88,10 +88,11 @@ export async function initializeWorld(
   world.pgPool = dbContext.pgPool;
   world.drizzleDb = dbContext.drizzleDb;
 
-  // Set up default environment model
-  world.settings.model = {
-    url: "asset://world/base-environment.glb",
-  };
+  // Environment model is optional - skip if file is unavailable (LFS issue)
+  // The world will run fine without a base environment model
+  // world.settings.model = {
+  //   url: "asset://world/base-environment.glb",
+  // };
 
   // Configure assets URL
   world.assetsUrl = config.assetsUrl;

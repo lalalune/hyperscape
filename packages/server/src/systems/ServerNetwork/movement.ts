@@ -22,12 +22,24 @@ interface MoveTarget {
 
 /**
  * Movement state manager for server-authoritative movement
+ *
+ * Performance: Uses object pooling for Vector3 targets to reduce GC pressure.
+ * When a player's movement is updated, we reuse their existing target vector
+ * if possible, otherwise allocate from a pool. Also caches terrain system
+ * reference to avoid repeated lookups.
  */
 export class MovementManager {
   private moveTargets: Map<string, MoveTarget> = new Map();
   private _tempVec3 = new THREE.Vector3();
   private _tempVec3Fwd = new THREE.Vector3(0, 0, -1);
   private _tempQuat = new THREE.Quaternion();
+  /** Pool of reusable Vector3 objects for movement targets */
+  private _vector3Pool: THREE.Vector3[] = [];
+  /** Maximum pool size to prevent unbounded growth */
+  private static readonly MAX_POOL_SIZE = 50;
+  /** Cached terrain system reference (lazy initialized) */
+  private _terrainSystem: InstanceType<typeof TerrainSystem> | null = null;
+  private _terrainSystemLookedUp = false;
 
   constructor(
     private world: World,
@@ -37,6 +49,39 @@ export class MovementManager {
       ignoreSocketId?: string,
     ) => void,
   ) {}
+
+  /**
+   * Get terrain system (cached after first lookup)
+   */
+  private getTerrain(): InstanceType<typeof TerrainSystem> | null {
+    if (!this._terrainSystemLookedUp) {
+      this._terrainSystem = this.world.getSystem("terrain") as InstanceType<
+        typeof TerrainSystem
+      > | null;
+      this._terrainSystemLookedUp = true;
+    }
+    return this._terrainSystem;
+  }
+
+  /**
+   * Get a Vector3 from the pool or create a new one
+   */
+  private acquireVector3(x: number, y: number, z: number): THREE.Vector3 {
+    const vec = this._vector3Pool.pop();
+    if (vec) {
+      return vec.set(x, y, z);
+    }
+    return new THREE.Vector3(x, y, z);
+  }
+
+  /**
+   * Return a Vector3 to the pool for reuse
+   */
+  private releaseVector3(vec: THREE.Vector3): void {
+    if (this._vector3Pool.length < MovementManager.MAX_POOL_SIZE) {
+      this._vector3Pool.push(vec);
+    }
+  }
 
   /**
    * Update all active movements (called every frame)
@@ -56,16 +101,15 @@ export class MovementManager {
       const target = info.target;
       const dx = target.x - current.x;
       const dz = target.z - current.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
+      const distSquared = dx * dx + dz * dz;
 
-      // Check if arrived
-      if (dist < 0.3) {
+      // Check if arrived (using squared distance to avoid sqrt when near target)
+      // 0.3^2 = 0.09
+      if (distSquared < 0.09) {
         // Arrived at target
         // Clamp final Y to terrain
         let finalY = target.y;
-        const terrainFinal = this.world.getSystem("terrain") as InstanceType<
-          typeof TerrainSystem
-        > | null;
+        const terrainFinal = this.getTerrain();
         if (terrainFinal) {
           const th = terrainFinal.getHeightAt(target.x, target.z);
           if (Number.isFinite(th)) finalY = (th as number) + 0.1;
@@ -87,6 +131,9 @@ export class MovementManager {
         return;
       }
 
+      // Compute actual distance now (only for entities still moving)
+      const dist = Math.sqrt(distSquared);
+
       // Simple linear interpolation toward target
       const speed = info.maxSpeed;
       const moveDistance = Math.min(dist, speed * dt);
@@ -99,9 +146,7 @@ export class MovementManager {
 
       // Clamp Y to terrain height (slightly above)
       let ny = target.y;
-      const terrain = this.world.getSystem("terrain") as InstanceType<
-        typeof TerrainSystem
-      > | null;
+      const terrain = this.getTerrain();
       if (terrain) {
         const th = terrain.getHeightAt(nx, nz);
         if (Number.isFinite(th)) ny = (th as number) + 0.1;
@@ -135,8 +180,8 @@ export class MovementManager {
       if (!info.lastUpdate || now - info.lastUpdate >= 33) {
         info.lastUpdate = now;
 
-        const speed = Math.sqrt(velocity * velocity + velZ * velZ);
-        const emote = speed > 4 ? "run" : "walk";
+        const currentSpeed = Math.sqrt(velocity * velocity + velZ * velZ);
+        const emote = currentSpeed > 4 ? "run" : "walk";
 
         this.sendFn("entityModified", {
           id: playerId,
@@ -150,7 +195,14 @@ export class MovementManager {
       }
     });
 
-    toDelete.forEach((id) => this.moveTargets.delete(id));
+    // Release completed movement vectors back to pool
+    for (const id of toDelete) {
+      const entry = this.moveTargets.get(id);
+      if (entry) {
+        this.releaseVector3(entry.target);
+        this.moveTargets.delete(id);
+      }
+    }
   }
 
   /**
@@ -173,7 +225,11 @@ export class MovementManager {
 
     // Handle cancellation
     if (payload?.cancel || payload?.target === null) {
-      this.moveTargets.delete(playerEntity.id);
+      const entry = this.moveTargets.get(playerEntity.id);
+      if (entry) {
+        this.releaseVector3(entry.target);
+        this.moveTargets.delete(playerEntity.id);
+      }
       const curr = playerEntity.position;
       this.sendFn("entityModified", {
         id: playerEntity.id,
@@ -205,16 +261,25 @@ export class MovementManager {
       return;
     }
 
-    // Simple target creation - no complex terrain anchoring
-    const target = new THREE.Vector3(t[0], t[1], t[2]);
     const maxSpeed = payload?.runMode ? 8 : 4;
 
-    // Replace existing target completely (allows direction changes)
-    this.moveTargets.set(playerEntity.id, {
-      target,
-      maxSpeed,
-      lastUpdate: 0,
-    });
+    // Check if player already has a movement entry - reuse its Vector3
+    const existingEntry = this.moveTargets.get(playerEntity.id);
+    let target: THREE.Vector3;
+    if (existingEntry) {
+      // Reuse existing vector
+      target = existingEntry.target.set(t[0], t[1], t[2]);
+      existingEntry.maxSpeed = maxSpeed;
+      existingEntry.lastUpdate = 0;
+    } else {
+      // Acquire from pool or create new
+      target = this.acquireVector3(t[0], t[1], t[2]);
+      this.moveTargets.set(playerEntity.id, {
+        target,
+        maxSpeed,
+        lastUpdate: 0,
+      });
+    }
 
     // Immediately rotate the player to face the new target and broadcast state
     const curr = playerEntity.position;
@@ -272,6 +337,10 @@ export class MovementManager {
    * Cleanup movement state for a player
    */
   cleanup(playerId: string): void {
-    this.moveTargets.delete(playerId);
+    const entry = this.moveTargets.get(playerId);
+    if (entry) {
+      this.releaseVector3(entry.target);
+      this.moveTargets.delete(playerId);
+    }
   }
 }

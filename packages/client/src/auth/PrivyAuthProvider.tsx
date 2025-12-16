@@ -160,6 +160,10 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
           showWalletUIs: false,
         },
 
+        // External wallet configuration
+        // Solana is disabled - if you need Solana support, configure it in the Privy dashboard
+        // and provide proper connector implementations here
+
         // Default to Jeju Network
         defaultChain: JEJU_CHAIN,
         supportedChains: [JEJU_CHAIN],
