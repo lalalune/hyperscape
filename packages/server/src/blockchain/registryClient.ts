@@ -25,10 +25,7 @@ export class RegistryClient {
   constructor(provider: ethers.Provider, privateKey: string) {
     this.provider = provider;
     this.signer = new ethers.Wallet(privateKey, provider);
-    if (
-      IDENTITY_REGISTRY_ADDRESS &&
-      IDENTITY_REGISTRY_ADDRESS !== "0x0000000000000000000000000000000000000000"
-    ) {
+    if (IDENTITY_REGISTRY_ADDRESS && IDENTITY_REGISTRY_ADDRESS !== "0x0000000000000000000000000000000000000000") {
       this.contract = new ethers.Contract(
         IDENTITY_REGISTRY_ADDRESS,
         REGISTRY_ABI,
@@ -39,9 +36,7 @@ export class RegistryClient {
 
   async registerPlayer(playerAddress: string): Promise<number> {
     if (!this.contract) {
-      throw new Error(
-        "RegistryClient: IDENTITY_REGISTRY_ADDRESS not configured",
-      );
+      throw new Error("RegistryClient: IDENTITY_REGISTRY_ADDRESS not configured");
     }
     const tx = await this.contract.register(
       playerAddress,
@@ -77,9 +72,7 @@ export class RegistryClient {
     characterData?: { class?: string; level?: number; race?: string },
   ): Promise<number> {
     if (!this.contract) {
-      throw new Error(
-        "RegistryClient: IDENTITY_REGISTRY_ADDRESS not configured",
-      );
+      throw new Error("RegistryClient: IDENTITY_REGISTRY_ADDRESS not configured");
     }
     console.log(
       `[RegistryClient] Registering character "${characterName}" for player agent #${playerAgentId}`,

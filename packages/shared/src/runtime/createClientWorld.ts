@@ -209,8 +209,9 @@ export function createClientWorld() {
   // RPG GAME SYSTEMS (ASYNC)
   // ============================================================================
   // RPG systems are loaded asynchronously to avoid blocking world creation.
+  // Store the promise so callers can await if needed
 
-  (async () => {
+  const loadRPGSystems = async (): Promise<void> => {
     await registerSystems(world);
 
     // CRITICAL: Initialize newly registered systems
@@ -245,7 +246,17 @@ export function createClientWorld() {
       const stageSystem = world.stage as StageSystem;
       windowWithWorld.THREE = stageSystem.THREE;
     }
-  })();
+  };
+
+  // Start loading systems and handle errors
+  const systemsLoadedPromise: Promise<void> = loadRPGSystems().catch(
+    (error) => {
+      console.error("[createClientWorld] Failed to load RPG systems:", error);
+    },
+  );
+
+  // Override systemsLoadedPromise method to return the actual promise
+  world.systemsLoadedPromise = () => systemsLoadedPromise;
 
   return world;
 }

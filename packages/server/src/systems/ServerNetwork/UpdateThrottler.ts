@@ -10,9 +10,9 @@ interface ThrottleTier {
 
 // Precomputed squared distances for tier thresholds
 const DEFAULT_TIERS: ThrottleTier[] = [
-  { maxDistanceSquared: 625, updateInterval: 1 }, // 25^2
-  { maxDistanceSquared: 2500, updateInterval: 2 }, // 50^2
-  { maxDistanceSquared: 10000, updateInterval: 4 }, // 100^2
+  { maxDistanceSquared: 625, updateInterval: 1 },     // 25^2
+  { maxDistanceSquared: 2500, updateInterval: 2 },    // 50^2
+  { maxDistanceSquared: 10000, updateInterval: 4 },   // 100^2
   { maxDistanceSquared: Infinity, updateInterval: 8 },
 ];
 

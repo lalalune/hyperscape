@@ -118,7 +118,9 @@ export async function loadConfig(): Promise<ServerConfig> {
   const USE_LOCAL_POSTGRES =
     (process.env["USE_LOCAL_POSTGRES"] || "true") === "true";
   const DATABASE_URL = process.env["DATABASE_URL"];
-  const CDN_URL = process.env["PUBLIC_CDN_URL"] || "http://localhost:8080";
+  // Default CDN to server's own /assets/ endpoint when not configured
+  const CDN_URL =
+    process.env["PUBLIC_CDN_URL"] || `http://localhost:${PORT}/assets`;
   const SYSTEMS_PATH = process.env["SYSTEMS_PATH"];
   const ADMIN_CODE = process.env["ADMIN_CODE"];
   const JWT_SECRET = process.env["JWT_SECRET"];
@@ -130,7 +132,11 @@ export async function loadConfig(): Promise<ServerConfig> {
   const worldDir = path.isAbsolute(WORLD)
     ? WORLD
     : path.join(hyperscapeRoot, WORLD);
-  const assetsDir = path.join(worldDir, "assets");
+
+  // Assets are at the workspace root /assets/ folder, not inside world/
+  // hyperscapeRoot is packages/server/, so we go up 2 levels to reach workspace root
+  const workspaceRoot = path.join(hyperscapeRoot, "../..");
+  const assetsDir = path.join(workspaceRoot, "assets");
   const builtInAssetsDir = path.join(hyperscapeRoot, "src/world/assets");
 
   // Create world folders if needed

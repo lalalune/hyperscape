@@ -167,7 +167,8 @@ export function GameClient({ wsUrl, onSetup }: GameClientProps) {
         wsUrl || import.meta.env.PUBLIC_WS_URL || "ws://localhost:5555/ws";
 
       // Always use absolute CDN URL for all assets
-      const cdnUrl = import.meta.env.PUBLIC_CDN_URL || "http://localhost:8080";
+      const cdnUrl =
+        import.meta.env.PUBLIC_CDN_URL || "http://localhost:5555/assets";
       const assetsUrl = `${cdnUrl}/`;
 
       // Make CDN URL available globally for PhysX loading
@@ -187,19 +188,15 @@ export function GameClient({ wsUrl, onSetup }: GameClientProps) {
       }
 
       // Ensure RPG systems are registered before initializing the world
-      const systemsPromise = (
-        world as InstanceType<typeof World> & {
-          systemsLoadedPromise?: Promise<void>;
-        }
-      ).systemsLoadedPromise;
-      if (systemsPromise) {
-        await systemsPromise;
-      }
+      // systemsLoadedPromise() returns a promise that resolves when systems are loaded
+      await world.systemsLoadedPromise();
 
       await world.init(config);
     };
 
-    init();
+    init().catch((error) => {
+      console.error("[GameClient] Failed to initialize:", error);
+    });
 
     // Cleanup function
     return () => {

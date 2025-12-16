@@ -70,20 +70,14 @@ export const bankDepositAction: Action = {
     logger.info(`[BANK_DEPOSIT] Depositing ${quantity}x ${itemId}`);
     await service.executeBankDeposit(itemId, quantity);
 
-    await callback?.({
-      text: `Deposited ${quantity}x ${itemName}`,
-      action: "BANK_DEPOSIT",
-    });
+    await callback?.({ text: `Deposited ${quantity}x ${itemName}`, action: "BANK_DEPOSIT" });
     return { success: true, text: `Deposited ${quantity}x ${itemName}` };
   },
 
   examples: [
     [
       { name: "user", content: { text: "Deposit my logs" } },
-      {
-        name: "agent",
-        content: { text: "Deposited 1x Oak Logs", action: "BANK_DEPOSIT" },
-      },
+      { name: "agent", content: { text: "Deposited 1x Oak Logs", action: "BANK_DEPOSIT" } },
     ],
   ],
 };
@@ -122,20 +116,14 @@ export const bankWithdrawAction: Action = {
     logger.info(`[BANK_WITHDRAW] Withdrawing ${quantity}x ${itemId}`);
     await service.executeBankWithdraw(itemId, quantity);
 
-    await callback?.({
-      text: `Withdrew ${quantity}x ${itemId}`,
-      action: "BANK_WITHDRAW",
-    });
+    await callback?.({ text: `Withdrew ${quantity}x ${itemId}`, action: "BANK_WITHDRAW" });
     return { success: true, text: `Withdrew ${quantity}x ${itemId}` };
   },
 
   examples: [
     [
       { name: "user", content: { text: "Withdraw axe" } },
-      {
-        name: "agent",
-        content: { text: "Withdrew 1x axe", action: "BANK_WITHDRAW" },
-      },
+      { name: "agent", content: { text: "Withdrew 1x axe", action: "BANK_WITHDRAW" } },
     ],
   ],
 };
@@ -143,8 +131,7 @@ export const bankWithdrawAction: Action = {
 export const bankDepositAllAction: Action = {
   name: "BANK_DEPOSIT_ALL",
   similes: ["DEPOSIT_ALL", "BANK_ALL_ITEMS"],
-  description:
-    "Deposit all items from inventory into the bank. Must be near a bank.",
+  description: "Deposit all items from inventory into the bank. Must be near a bank.",
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
@@ -172,23 +159,14 @@ export const bankDepositAllAction: Action = {
     logger.info(`[BANK_DEPOSIT_ALL] Depositing all ${itemCount} items`);
     await service.executeBankDepositAll();
 
-    await callback?.({
-      text: `Deposited all items (${itemCount})`,
-      action: "BANK_DEPOSIT_ALL",
-    });
+    await callback?.({ text: `Deposited all items (${itemCount})`, action: "BANK_DEPOSIT_ALL" });
     return { success: true, text: `Deposited all items` };
   },
 
   examples: [
     [
       { name: "user", content: { text: "Deposit everything" } },
-      {
-        name: "agent",
-        content: {
-          text: "Deposited all items (5)",
-          action: "BANK_DEPOSIT_ALL",
-        },
-      },
+      { name: "agent", content: { text: "Deposited all items (5)", action: "BANK_DEPOSIT_ALL" } },
     ],
   ],
 };
@@ -237,20 +215,14 @@ export const bankDepositCoinsAction: Action = {
     logger.info(`[BANK_DEPOSIT_COINS] Depositing ${amount} coins`);
     await service.executeBankDepositCoins(amount);
 
-    await callback?.({
-      text: `Deposited ${amount} coins`,
-      action: "BANK_DEPOSIT_COINS",
-    });
+    await callback?.({ text: `Deposited ${amount} coins`, action: "BANK_DEPOSIT_COINS" });
     return { success: true, text: `Deposited ${amount} coins` };
   },
 
   examples: [
     [
       { name: "user", content: { text: "Deposit 500 gold" } },
-      {
-        name: "agent",
-        content: { text: "Deposited 500 coins", action: "BANK_DEPOSIT_COINS" },
-      },
+      { name: "agent", content: { text: "Deposited 500 coins", action: "BANK_DEPOSIT_COINS" } },
     ],
   ],
 };
@@ -293,20 +265,14 @@ export const bankWithdrawCoinsAction: Action = {
     logger.info(`[BANK_WITHDRAW_COINS] Withdrawing ${amount} coins`);
     await service.executeBankWithdrawCoins(amount);
 
-    await callback?.({
-      text: `Withdrew ${amount} coins`,
-      action: "BANK_WITHDRAW_COINS",
-    });
+    await callback?.({ text: `Withdrew ${amount} coins`, action: "BANK_WITHDRAW_COINS" });
     return { success: true, text: `Withdrew ${amount} coins` };
   },
 
   examples: [
     [
       { name: "user", content: { text: "Withdraw 100 gold" } },
-      {
-        name: "agent",
-        content: { text: "Withdrew 100 coins", action: "BANK_WITHDRAW_COINS" },
-      },
+      { name: "agent", content: { text: "Withdrew 100 coins", action: "BANK_WITHDRAW_COINS" } },
     ],
   ],
 };

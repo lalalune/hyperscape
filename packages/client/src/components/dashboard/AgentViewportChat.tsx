@@ -218,17 +218,15 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
       const data = await response.json();
       const responses = Array.isArray(data) ? data : [data];
 
-      responses.forEach(
-        (resp: { text?: string; content?: string }, index: number) => {
-          const agentMessage: Message = {
-            id: (Date.now() + index).toString(),
-            sender: "agent",
-            text: resp.text || resp.content || "No response",
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, agentMessage]);
-        },
-      );
+      responses.forEach((resp: { text?: string; content?: string }, index: number) => {
+        const agentMessage: Message = {
+          id: (Date.now() + index).toString(),
+          sender: "agent",
+          text: resp.text || resp.content || "No response",
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, agentMessage]);
+      });
     } catch (error) {
       console.error("Failed to send message:", error);
       const errorMessage: Message = {

@@ -1,12 +1,15 @@
 /**
  * Multiplayer Visibility Test - Synpress Version
+ *
  * Tests that players can see each other in the game world.
  * NO MOCKS - Uses real game systems, real network, real rendering.
+ *
+ * This test will CRASH HARD if players don't see each other!
  */
+
 import { testWithSynpress } from "@synthetixio/synpress";
 import { MetaMask, metaMaskFixtures } from "@synthetixio/synpress/playwright";
 import { basicSetup } from "../../synpress.config";
-import { CLIENT_URL } from "./test-utils";
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
@@ -19,8 +22,9 @@ test.describe("Hyperscape - Multiplayer Visibility", () => {
     console.log("=== MULTIPLAYER VISIBILITY TEST STARTING ===");
 
     // Setup Player 1
+    const GAME_URL = process.env.HYPERSCAPE_URL || "http://localhost:3333";
     console.log("[Player 1] Navigating to game...");
-    await page.goto(CLIENT_URL);
+    await page.goto(GAME_URL);
     await page.waitForLoadState("networkidle");
 
     console.log("[Player 1] Waiting for world to be ready...");
@@ -62,7 +66,7 @@ test.describe("Hyperscape - Multiplayer Visibility", () => {
     });
 
     console.log("[Player 2] Navigating to game...");
-    await player2Page.goto(CLIENT_URL);
+    await player2Page.goto(GAME_URL);
     await player2Page.waitForLoadState("networkidle");
 
     console.log("[Player 2] Waiting for world to be ready...");

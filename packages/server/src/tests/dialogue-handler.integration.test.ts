@@ -181,12 +181,7 @@ describe("Dialogue Handler Security - Effect Whitelisting", () => {
   it("unknown effects are ignored by server", () => {
     // If a malicious client somehow sent an unknown effect,
     // DialogueSystem.executeEffect would log a warning and do nothing
-    const _unknownEffects = [
-      "deleteInventory",
-      "giveGold",
-      "teleport",
-      "spawn",
-    ];
+    const _unknownEffects = ["deleteInventory", "giveGold", "teleport", "spawn"];
 
     // These would all be ignored by the server
     // (This is already handled by the switch statement in DialogueSystem)

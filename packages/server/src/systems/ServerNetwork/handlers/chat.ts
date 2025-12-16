@@ -31,12 +31,10 @@ function getDistance(
 /**
  * Get player position from socket
  */
-function getPlayerPosition(
-  socket: ServerSocket,
-): { x: number; y: number; z: number } | undefined {
+function getPlayerPosition(socket: ServerSocket): { x: number; y: number; z: number } | undefined {
   const player = socket.player;
   if (!player) return undefined;
-
+  
   const pos = player.position;
   if (Array.isArray(pos) && pos.length >= 3) {
     return { x: pos[0], y: pos[1], z: pos[2] };
@@ -56,45 +54,45 @@ export function handleChatAdded(
 ): void {
   const msg = data as ChatMessage;
   const chatType = msg.chatType || "global";
-
+  
   // Add sender position if not present
   if (!msg.senderPosition) {
     msg.senderPosition = getPlayerPosition(socket);
   }
-
+  
   // Check if sender is an agent
   const player = socket.player;
   if (player && (player as { isAgent?: boolean }).isAgent) {
     msg.isFromAgent = true;
   }
-
+  
   // Add message to chat system
   if (world.chat.add) {
     world.chat.add(msg, false);
   }
-
+  
   switch (chatType) {
     case "whisper":
       // Direct message to specific player
       handleWhisperMessage(socket, msg, sockets);
       break;
-
+      
     case "local":
       // Proximity-based chat
       handleLocalMessage(socket, msg, sockets);
       break;
-
+      
     case "party":
       // Party chat (future implementation)
       // For now, treat as global
       sendFn("chatAdded", msg, socket.id);
       break;
-
+      
     case "system":
       // System messages broadcast to all
       sendFn("chatAdded", msg);
       break;
-
+      
     case "global":
     default:
       // Broadcast to all except sender
@@ -121,7 +119,7 @@ function handleWhisperMessage(
     });
     return;
   }
-
+  
   // Find target socket by player ID
   let targetSocket: ServerSocket | undefined;
   for (const [, s] of sockets) {
@@ -130,7 +128,7 @@ function handleWhisperMessage(
       break;
     }
   }
-
+  
   if (!targetSocket) {
     socket.send("chatAdded", {
       ...msg,
@@ -140,10 +138,10 @@ function handleWhisperMessage(
     });
     return;
   }
-
+  
   // Send to target
   targetSocket.send("chatAdded", msg);
-
+  
   // Echo back to sender with confirmation
   socket.send("chatAdded", {
     ...msg,
@@ -161,7 +159,7 @@ function handleLocalMessage(
   sockets?: Map<string, ServerSocket>,
 ): void {
   if (!sockets) return;
-
+  
   const senderPos = msg.senderPosition || getPlayerPosition(socket);
   if (!senderPos) {
     // Can't determine position, fall back to global
@@ -172,14 +170,14 @@ function handleLocalMessage(
     }
     return;
   }
-
+  
   // Send to players within range
   for (const [socketId, s] of sockets) {
     if (socketId === socket.id) continue;
-
+    
     const receiverPos = getPlayerPosition(s);
     const distance = getDistance(senderPos, receiverPos);
-
+    
     if (distance <= LOCAL_CHAT_RANGE) {
       s.send("chatAdded", msg);
     }

@@ -32,19 +32,21 @@ export function patchTextureLoader() {
       };
 
       const handleLoad = () => {
-        texture.image = image;
+        (texture as { image: HTMLImageElement }).image = image;
         texture.needsUpdate = true;
         if (onLoad) onLoad(texture);
         cleanup();
       };
 
-      const handleError = (error: unknown) => {
+      const handleError = () => {
         console.error(
           "[TextureLoader] Failed to load texture from blob URL:",
           url,
-          error,
         );
-        throw new Error(`Failed to load texture from blob URL: ${url}`);
+        if (onError) {
+          onError(new Error(`Failed to load texture from blob URL: ${url}`));
+        }
+        cleanup();
       };
 
       // Set up event handlers

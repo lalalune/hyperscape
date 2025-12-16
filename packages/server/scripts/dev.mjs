@@ -6,7 +6,7 @@
  * Turbo handles orchestration, this script just focuses on the server.
  */
 
-import { spawn } from 'child_process'
+import { spawn, execSync } from 'child_process'
 import { fileURLToPath } from 'url'
 import path from 'path'
 import fs from 'fs'
@@ -15,6 +15,33 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.join(__dirname, '../')
 
 process.chdir(rootDir)
+
+const PORT = parseInt(process.env.PORT || '5555', 10)
+
+/**
+ * Kill any process using the specified port
+ */
+function killPort(port) {
+  try {
+    // Linux/Mac: find and kill process using the port
+    const result = execSync(`lsof -ti:${port} 2>/dev/null || true`, { encoding: 'utf8' }).trim()
+    if (result) {
+      const pids = result.split('\n').filter(Boolean)
+      for (const pid of pids) {
+        try {
+          process.kill(parseInt(pid, 10), 'SIGKILL')
+          console.log(`Killed process ${pid} on port ${port}`)
+        } catch {
+          // Process may have already exited
+        }
+      }
+      // Give OS time to release the port
+      execSync('sleep 0.5')
+    }
+  } catch {
+    // lsof not available or no process found - that's fine
+  }
+}
 
 const colors = {
   reset: '\x1b[0m',
@@ -96,12 +123,19 @@ if (hasBuild && !forceBuild) {
 let serverProcess = null
 let isRestarting = false
 
+// Kill any existing process on the port before starting
+console.log(`${colors.dim}Checking port ${PORT}...${colors.reset}`)
+killPort(PORT)
+
 // Start server
 function startServer() {
   if (serverProcess && !serverProcess.killed) {
     console.log(`${colors.dim}Server already running (PID ${serverProcess.pid})${colors.reset}`)
     return
   }
+
+  // Double-check port is free before starting
+  killPort(PORT)
 
   console.log(`${colors.green}Starting server...${colors.reset}`)
   
@@ -117,7 +151,8 @@ function startServer() {
         NODE_ENV: 'development',
         PORT: process.env.PORT || '5555',
         PUBLIC_WS_URL: process.env.PUBLIC_WS_URL || 'ws://localhost:5555/ws',
-        PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8080',
+        // Default to server's own /assets/ endpoint (matches config.ts default)
+        PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || `http://localhost:${process.env.PORT || '5555'}/assets`,
       }
     })
     
@@ -139,7 +174,8 @@ function startServer() {
         NODE_ENV: 'development',
         PORT: process.env.PORT || '5555',
         PUBLIC_WS_URL: process.env.PUBLIC_WS_URL || 'ws://localhost:5555/ws',
-        PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8080',
+        // Default to server's own /assets/ endpoint (matches config.ts default)
+        PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || `http://localhost:${process.env.PORT || '5555'}/assets`,
       }
     })
 
@@ -167,23 +203,35 @@ console.log(`${colors.blue}Setting up file watcher...${colors.reset}`)
 
 const { default: chokidar } = await import('chokidar')
 
+// Optimized watcher configuration to reduce system resource usage
+// Uses polling on Linux to avoid inotify exhaustion with many watchers
+const isLinux = process.platform === 'linux'
 const watcher = chokidar.watch([
-  'src/**/*.{ts,tsx,js,mjs}',
-  '../shared/build/**/*.{js,d.ts}'
+  'src/**/*.{ts,tsx}',  // Only watch TypeScript source (not .js/.mjs which are usually build artifacts)
+  '../shared/build/framework.js',  // Only watch main output, not all files
+  '../shared/build/framework.client.js',
 ], {
   cwd: rootDir,
   ignored: [
     '**/node_modules/**',
     '**/*.test.*',
     '**/*.spec.*',
+    '**/__tests__/**',
     '**/build/**',
     '**/dist/**',
+    '**/coverage/**',
   ],
   ignoreInitial: true,
+  // Use polling on Linux to avoid inotify exhaustion when turbo runs multiple watchers
+  usePolling: isLinux,
+  interval: isLinux ? 500 : 100,  // Slower polling to reduce CPU
+  binaryInterval: 1000,
   awaitWriteFinish: {
     stabilityThreshold: 300,
     pollInterval: 100
-  }
+  },
+  // Limit depth to avoid watching deep node_modules accidentally
+  depth: 10,
 })
 
 let rebuildTimeout = null
@@ -216,8 +264,31 @@ const rebuild = async (filePath) => {
       // Kill old server
       if (serverProcess && !serverProcess.killed) {
         serverProcess.kill('SIGTERM')
-        await new Promise(r => setTimeout(r, 1000))
+        // Wait for graceful shutdown
+        await new Promise(resolve => {
+          const timeout = setTimeout(() => {
+            if (serverProcess && !serverProcess.killed) {
+              serverProcess.kill('SIGKILL')
+            }
+            resolve()
+          }, 2000)
+          
+          if (serverProcess.exited) {
+            serverProcess.exited.then(() => {
+              clearTimeout(timeout)
+              resolve()
+            })
+          } else if (serverProcess.on) {
+            serverProcess.on('exit', () => {
+              clearTimeout(timeout)
+              resolve()
+            })
+          }
+        })
       }
+      
+      // Ensure port is free
+      killPort(PORT)
 
       // Start new server
       startServer()
@@ -238,20 +309,49 @@ watcher.on('ready', () => {
 })
 
 // Cleanup on exit
-const cleanup = () => {
+const cleanup = async () => {
   console.log(`\n${colors.yellow}Shutting down...${colors.reset}`)
   watcher.close()
+  
   if (serverProcess && !serverProcess.killed) {
+    // Try graceful shutdown first
     serverProcess.kill('SIGTERM')
+    
+    // Wait up to 2 seconds for graceful shutdown
+    await new Promise(resolve => {
+      const timeout = setTimeout(() => {
+        if (serverProcess && !serverProcess.killed) {
+          console.log(`${colors.yellow}Force killing server...${colors.reset}`)
+          serverProcess.kill('SIGKILL')
+        }
+        resolve()
+      }, 2000)
+      
+      // If process exits cleanly, clear the timeout
+      if (serverProcess.exited) {
+        serverProcess.exited.then(() => {
+          clearTimeout(timeout)
+          resolve()
+        })
+      } else if (serverProcess.on) {
+        serverProcess.on('exit', () => {
+          clearTimeout(timeout)
+          resolve()
+        })
+      }
+    })
   }
+  
+  // Final cleanup: kill any orphaned processes on the port
+  killPort(PORT)
 }
 
-process.on('SIGINT', () => {
-  cleanup()
+process.on('SIGINT', async () => {
+  await cleanup()
   process.exit(0)
 })
-process.on('SIGTERM', () => {
-  cleanup()
+process.on('SIGTERM', async () => {
+  await cleanup()
   process.exit(0)
 })
 

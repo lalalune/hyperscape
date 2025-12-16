@@ -79,14 +79,14 @@ export class XR extends SystemBase {
     const model1 = this.controllerModelFactory.createControllerModel(grip1);
     if (model1) this.controller1Model.add(model1);
     if (this.world.rig && this.controller1Model)
-      this.world.rig.add(this.controller1Model);
+      this.world.rig.add(this.controller1Model as unknown as THREE.Object3D);
 
     const grip2 = webglRenderer.xr.getControllerGrip(1);
     this.controller2Model = new THREE.Group();
     const model2 = this.controllerModelFactory.createControllerModel(grip2);
     if (model2) this.controller2Model.add(model2);
     if (this.world.rig && this.controller2Model)
-      this.world.rig.add(this.controller2Model);
+      this.world.rig.add(this.controller2Model as unknown as THREE.Object3D);
     (
       session as unknown as {
         addEventListener: (type: string, listener: () => void) => void;
@@ -106,9 +106,9 @@ export class XR extends SystemBase {
     this.world.camera!.position.set(0, 0, 0);
     this.world.camera!.rotation.set(0, 0, 0);
     if (this.world.rig && this.controller1Model)
-      this.world.rig.remove(this.controller1Model);
+      this.world.rig.remove(this.controller1Model as unknown as THREE.Object3D);
     if (this.world.rig && this.controller2Model)
-      this.world.rig.remove(this.controller2Model);
+      this.world.rig.remove(this.controller2Model as unknown as THREE.Object3D);
     this.session = null;
     this.camera = null;
     this.controller1Model = null;

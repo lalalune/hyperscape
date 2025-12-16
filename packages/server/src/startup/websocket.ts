@@ -103,10 +103,7 @@ const spectatorRateLimiter = new ConnectionRateLimiter(5, 60000); // 5 per minut
  * Validate WebSocket origin header
  * Prevents cross-site WebSocket hijacking (CSWSH)
  */
-function isValidOrigin(
-  origin: string | undefined,
-  allowedOrigins: string[],
-): boolean {
+function isValidOrigin(origin: string | undefined, allowedOrigins: string[]): boolean {
   // No origin header - could be same-origin or non-browser client
   // Allow in development, require in production
   if (!origin) {

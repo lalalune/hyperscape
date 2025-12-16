@@ -502,6 +502,14 @@ export interface GraphicsResizeEvent {
   aspect: number;
 }
 
+export interface GraphicsContextLostEvent {
+  timestamp: number;
+}
+
+export interface GraphicsContextRestoredEvent {
+  timestamp: number;
+}
+
 /**
  * Assets Events
  */
@@ -740,6 +748,8 @@ export interface EventDataMap {
   CAMERA_TAP: CameraTapEvent;
 
   GRAPHICS_RESIZE: GraphicsResizeEvent;
+  GRAPHICS_CONTEXT_LOST: GraphicsContextLostEvent;
+  GRAPHICS_CONTEXT_RESTORED: GraphicsContextRestoredEvent;
   ASSETS_LOADING_PROGRESS: AssetsLoadingProgressEvent;
 
   TRADE_REQUEST_RECEIVED: TradeRequestReceivedEvent;

@@ -50,29 +50,25 @@ interface Response {
  */
 export function createPaymentMiddleware(
   service: ServiceName,
-  recipientAddress: Address,
+  recipientAddress: Address
 ) {
   const amount = SERVICE_AMOUNTS[service];
 
   return async (req: Request, res: Response, next: () => void) => {
     const paymentHeader = req.headers["x-payment"] || req.headers["payment"];
 
-    const result = await checkPayment(
-      paymentHeader || null,
-      amount,
-      recipientAddress,
-    );
+    const result = await checkPayment(paymentHeader || null, amount, recipientAddress);
 
     if (!result.paid) {
       const requirements = createPaymentRequirement(
         service,
         amount,
         `Payment for ${service}`,
-        recipientAddress,
+        recipientAddress
       );
       const headers = generate402Headers(requirements);
       res.set(headers);
-      res.status(402).json(requirements as Record<string, unknown>);
+      res.status(402).json(requirements);
       return;
     }
 
@@ -86,7 +82,7 @@ export function createPaymentMiddleware(
 export async function verifyServicePayment(
   paymentHeader: string | null,
   service: ServiceName,
-  recipientAddress: Address,
+  recipientAddress: Address
 ): Promise<{ paid: boolean; signer?: Address; error?: string }> {
   const amount = SERVICE_AMOUNTS[service];
   return checkPayment(paymentHeader, amount, recipientAddress);
@@ -97,14 +93,14 @@ export async function verifyServicePayment(
  */
 export function getPaymentRequirements(
   service: ServiceName,
-  recipientAddress: Address,
+  recipientAddress: Address
 ): PaymentRequirements {
   const amount = SERVICE_AMOUNTS[service];
   return createPaymentRequirement(
     service,
     amount,
     `Payment for ${service}`,
-    recipientAddress,
+    recipientAddress
   );
 }
 

@@ -1,6 +1,6 @@
 /**
  * Social actions - CHAT_MESSAGE, WHISPER, LOCAL_CHAT
- *
+ * 
  * Supports multiple chat types:
  * - global: Broadcast to all players
  * - local: Only players within proximity
@@ -47,10 +47,7 @@ export const chatMessageAction: Action = {
     }
     const content = message.content.text || "";
 
-    const command: ChatMessageCommand = {
-      message: content,
-      chatType: "global",
-    };
+    const command: ChatMessageCommand = { message: content, chatType: "global" };
     await service.executeChatMessage(command);
 
     await callback?.({ text: `Said: "${content}"`, action: "CHAT_MESSAGE" });
@@ -75,8 +72,7 @@ export const chatMessageAction: Action = {
 export const localChatAction: Action = {
   name: "LOCAL_CHAT",
   similes: ["SAY_NEARBY", "TALK_LOCAL", "SPEAK_LOCAL"],
-  description:
-    "Send a message to nearby players only (within proximity range).",
+  description: "Send a message to nearby players only (within proximity range).",
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
@@ -103,10 +99,7 @@ export const localChatAction: Action = {
     const command: ChatMessageCommand = { message: content, chatType: "local" };
     await service.executeChatMessage(command);
 
-    await callback?.({
-      text: `Said locally: "${content}"`,
-      action: "LOCAL_CHAT",
-    });
+    await callback?.({ text: `Said locally: "${content}"`, action: "LOCAL_CHAT" });
 
     return { success: true, text: `Said locally: ${content}` };
   },
@@ -150,29 +143,23 @@ export const whisperAction: Action = {
         error: new Error("Hyperscape service not available"),
       };
     }
-
+    
     const content = message.content.text || "";
     const targetId = (options as { targetId?: string })?.targetId;
-
+    
     if (!targetId) {
-      await callback?.({
-        text: "Whisper requires a target player ID",
-        error: true,
-      });
+      await callback?.({ text: "Whisper requires a target player ID", error: true });
       return { success: false, error: new Error("No target specified") };
     }
 
-    const command: ChatMessageCommand = {
-      message: content,
+    const command: ChatMessageCommand = { 
+      message: content, 
       chatType: "whisper",
       targetId,
     };
     await service.executeChatMessage(command);
 
-    await callback?.({
-      text: `Whispered to ${targetId}: "${content}"`,
-      action: "WHISPER",
-    });
+    await callback?.({ text: `Whispered to ${targetId}: "${content}"`, action: "WHISPER" });
 
     return { success: true, text: `Whispered: ${content}` };
   },
@@ -189,8 +176,4 @@ export const whisperAction: Action = {
 };
 
 /** All social actions */
-export const socialActions = [
-  chatMessageAction,
-  localChatAction,
-  whisperAction,
-];
+export const socialActions = [chatMessageAction, localChatAction, whisperAction];

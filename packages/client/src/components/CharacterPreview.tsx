@@ -1,12 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import {
-  VRM,
-  VRMLoaderPlugin,
-  VRMUtils,
-  VRMHumanBoneName,
-} from "@pixiv/three-vrm";
+import { VRM, VRMLoaderPlugin, VRMUtils, VRMHumanBoneName } from "@pixiv/three-vrm";
 import { retargetAnimationToVRM } from "../utils/vrmAnimationRetarget";
 
 interface AnimationState {
@@ -262,8 +257,7 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
           const animState = animStateRef.current;
           if (animState && !animState.isWaving) {
             animState.idleTimer += delta;
-            if (animState.idleTimer >= 7) {
-              // IDLE_DURATION
+            if (animState.idleTimer >= 7) { // IDLE_DURATION
               animState.idleAction.fadeOut(0.5);
               animState.waveAction.reset().fadeIn(0.5).play();
               animState.isWaving = true;

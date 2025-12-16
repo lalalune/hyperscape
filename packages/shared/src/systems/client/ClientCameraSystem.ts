@@ -175,11 +175,11 @@ export class ClientCameraSystem extends SystemBase {
 
       // Remove from rig
       if (this.world.rig) {
-        this.world.rig.remove(this.camera);
+        this.world.rig.remove(this.camera as unknown as THREE.Object3D);
       }
 
       // Add directly to scene
-      this.world.stage.scene.add(this.camera);
+      this.world.stage.scene.add(this.camera as unknown as THREE.Object3D);
 
       // Restore world transform
       this.camera.position.copy(worldPos);

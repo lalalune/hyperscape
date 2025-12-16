@@ -15,13 +15,13 @@
  * NO MOCKS - Tests real client, real server, real blockchain.
  */
 
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type BrowserContext } from "@playwright/test";
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
 
-const GAME_URL = process.env.HYPERSCAPE_URL || process.env.GAME_URL || `http://localhost:${process.env.VITE_PORT || "3333"}`;
+const GAME_URL = process.env.GAME_URL || "http://localhost:3333";
 const LOAD_TIMEOUT = 60000;
 const INTERACTION_TIMEOUT = 30000;
 
@@ -137,7 +137,7 @@ async function sendGameCommand(
 /**
  * Wait for a UI element with test ID
  */
-async function _waitForTestId(
+async function waitForTestId(
   page: Page,
   testId: string,
   timeout: number = INTERACTION_TIMEOUT,
@@ -148,14 +148,14 @@ async function _waitForTestId(
 /**
  * Click a UI element by test ID
  */
-async function _clickTestId(page: Page, testId: string): Promise<void> {
+async function clickTestId(page: Page, testId: string): Promise<void> {
   await page.locator(`[data-testid="${testId}"]`).click();
 }
 
 /**
  * Type text into an input by test ID
  */
-async function _typeInTestId(
+async function typeInTestId(
   page: Page,
   testId: string,
   text: string,
@@ -537,7 +537,7 @@ test.describe("Death & Respawn", () => {
         .catch(() => false);
 
       if (hasDeathBtn) {
-        const _stateBefore = await getPlayerState(page);
+        const stateBefore = await getPlayerState(page);
         await deathBtn.click();
         await page.waitForTimeout(3000);
 
@@ -589,7 +589,7 @@ test.describe("UI Interactions", () => {
     await page.keyboard.press("F9");
     await page.waitForTimeout(500);
 
-    const debugPanel = page.locator('[data-testid="debug-economy-panel"]');
+    let debugPanel = page.locator('[data-testid="debug-economy-panel"]');
     const isVisibleAfterToggle = await debugPanel
       .isVisible({ timeout: 2000 })
       .catch(() => false);

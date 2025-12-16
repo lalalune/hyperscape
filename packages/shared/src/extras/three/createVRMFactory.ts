@@ -605,7 +605,9 @@ export function createVRMFactory(
  */
 function cloneGLB(glb: GLBData): GLBData {
   // Deep clone the scene (including skeleton and skinned meshes)
-  const clonedScene = SkeletonUtils.clone(glb.scene) as THREE.Scene;
+  const clonedScene = SkeletonUtils.clone(
+    glb.scene as unknown as THREE.Object3D,
+  ) as THREE.Scene;
 
   // CRITICAL: Preserve scale from original scene (height normalization)
   clonedScene.scale.copy(glb.scene.scale);

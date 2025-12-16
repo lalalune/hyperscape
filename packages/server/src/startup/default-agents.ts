@@ -173,10 +173,7 @@ function getSpawnPosition(area: string): [number, number, number] {
 /**
  * Behavior movement patterns
  */
-const BEHAVIOR_PATTERNS: Record<
-  string,
-  { range: number; interval: [number, number] }
-> = {
+const BEHAVIOR_PATTERNS: Record<string, { range: number; interval: [number, number] }> = {
   adventurer: { range: 40, interval: [10000, 30000] }, // Larger range, faster movement
   gatherer: { range: 20, interval: [15000, 45000] }, // Medium range, slower movement
   explorer: { range: 60, interval: [20000, 60000] }, // Largest range, varied timing
@@ -184,25 +181,19 @@ const BEHAVIOR_PATTERNS: Record<
 };
 
 // Track spawned bots
-const spawnedBots: Map<
-  string,
-  {
-    name: string;
-    behavior: string;
-    intervalId?: ReturnType<typeof setInterval>;
-  }
-> = new Map();
+const spawnedBots: Map<string, { name: string; behavior: string; intervalId?: ReturnType<typeof setInterval> }> = new Map();
 
 /**
  * Create a bot entity in the game world
  */
-function createBotEntity(world: World, agent: DefaultAgent): string {
+function createBotEntity(
+  world: World,
+  agent: DefaultAgent,
+): string {
   const botId = `bot-${agent.name.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`;
   const position = getSpawnPosition(agent.startingArea);
 
-  console.log(
-    `[DefaultAgents] Creating bot: ${agent.name} (${agent.behavior}) at [${position[0].toFixed(0)}, ${position[2].toFixed(0)}]`,
-  );
+  console.log(`[DefaultAgents] Creating bot: ${agent.name} (${agent.behavior}) at [${position[0].toFixed(0)}, ${position[2].toFixed(0)}]`);
 
   // Create bot entity data (similar to player but marked as bot)
   const botData = {
@@ -211,18 +202,18 @@ function createBotEntity(world: World, agent: DefaultAgent): string {
     name: agent.name,
     position,
     quaternion: [0, 0, 0, 1] as [number, number, number, number],
-
+    
     // Bot appearance (player-like)
     playerName: agent.name,
     isBot: true,
     isAgent: true,
-
+    
     // Stats
     health: { current: 100, max: 100 },
     stamina: { current: 100, max: 100 },
     alive: true,
     inCombat: false,
-
+    
     // Combat level derived from skills
     skills: {
       attack: { level: 5 + Math.floor(Math.random() * 10), xp: 0 },
@@ -235,14 +226,16 @@ function createBotEntity(world: World, agent: DefaultAgent): string {
       firemaking: { level: 1 + Math.floor(Math.random() * 10), xp: 0 },
       cooking: { level: 1 + Math.floor(Math.random() * 10), xp: 0 },
     },
-
+    
     // Basic equipment
-    items: [{ id: "bronze_sword", name: "Bronze Sword", quantity: 1, slot: 0 }],
+    items: [
+      { id: "bronze_sword", name: "Bronze Sword", quantity: 1, slot: 0 },
+    ],
     equipment: {
       weapon: { id: "bronze_sword", name: "Bronze Sword" },
     },
     coins: 50 + Math.floor(Math.random() * 100),
-
+    
     // Bot metadata
     behavior: agent.behavior,
     personality: agent.personality,
@@ -260,9 +253,7 @@ function createBotEntity(world: World, agent: DefaultAgent): string {
     console.log(`[DefaultAgents] ✅ Created bot: ${agent.name}`);
     return botId;
   } else {
-    console.error(
-      `[DefaultAgents] ❌ Could not create bot: ${agent.name} - entities.add not available`,
-    );
+    console.error(`[DefaultAgents] ❌ Could not create bot: ${agent.name} - entities.add not available`);
     return "";
   }
 }
@@ -275,8 +266,7 @@ function startBotBehavior(
   botId: string,
   agent: DefaultAgent,
 ): void {
-  const pattern =
-    BEHAVIOR_PATTERNS[agent.behavior] || BEHAVIOR_PATTERNS.explorer;
+  const pattern = BEHAVIOR_PATTERNS[agent.behavior] || BEHAVIOR_PATTERNS.explorer;
 
   const behaviorTick = () => {
     // Get bot entity
@@ -334,7 +324,7 @@ function startBotBehavior(
     behaviorTick();
     const nextInterval = getNextInterval();
     const intervalId = setTimeout(runBehavior, nextInterval);
-
+    
     // Store interval for cleanup
     const bot = spawnedBots.get(botId);
     if (bot) {
@@ -345,9 +335,7 @@ function startBotBehavior(
   // Initial delay before first movement
   setTimeout(runBehavior, 3000 + Math.random() * 5000);
 
-  console.log(
-    `[DefaultAgents] Started ${agent.behavior} behavior for ${agent.name}`,
-  );
+  console.log(`[DefaultAgents] Started ${agent.behavior} behavior for ${agent.name}`);
 }
 
 /**
@@ -378,9 +366,7 @@ export async function spawnDefaultAgents(world: World): Promise<void> {
   }
 
   console.log("[DefaultAgents] ═══════════════════════════════════════");
-  console.log(
-    `[DefaultAgents] ✅ Spawned ${spawned}/${DEFAULT_AGENTS.length} default bots`,
-  );
+  console.log(`[DefaultAgents] ✅ Spawned ${spawned}/${DEFAULT_AGENTS.length} default bots`);
 
   // List spawned bots
   spawnedBots.forEach((bot, _id) => {
@@ -400,10 +386,7 @@ export function getDefaultAgentCount(): number {
 /**
  * Get list of spawned bot IDs
  */
-export function getSpawnedAgents(): Map<
-  string,
-  { name: string; behavior: string }
-> {
+export function getSpawnedAgents(): Map<string, { name: string; behavior: string }> {
   return spawnedBots;
 }
 

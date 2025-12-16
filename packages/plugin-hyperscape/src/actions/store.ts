@@ -17,12 +17,7 @@ import type { Entity } from "../types.js";
 function hasStoreNearby(entities: Entity[]): boolean {
   return entities.some((e) => {
     const name = e.name?.toLowerCase() || "";
-    return (
-      name.includes("shop") ||
-      name.includes("store") ||
-      name.includes("merchant") ||
-      name.includes("vendor")
-    );
+    return name.includes("shop") || name.includes("store") || name.includes("merchant") || name.includes("vendor");
   });
 }
 
@@ -97,8 +92,7 @@ export const buyItemAction: Action = {
 export const sellItemAction: Action = {
   name: "SELL_ITEM",
   similes: ["SELL", "SELL_TO_STORE"],
-  description:
-    "Sell an item from inventory to a store. Must be near a store NPC.",
+  description: "Sell an item from inventory to a store. Must be near a store NPC.",
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
@@ -174,3 +168,4 @@ export const sellItemAction: Action = {
     ],
   ],
 };
+

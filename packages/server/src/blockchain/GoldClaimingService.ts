@@ -1,6 +1,5 @@
 import { type Address, type Hex, encodePacked, keccak256 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import type { MudClient } from "@hyperscape/shared/blockchain/mud-client";
 
 /**
  * GoldClaimingService
@@ -11,16 +10,10 @@ import type { MudClient } from "@hyperscape/shared/blockchain/mud-client";
 export class GoldClaimingService {
   private gameSignerKey: Hex;
   private goldContractAddress: Address;
-  private mudClient?: MudClient;
 
-  constructor(
-    gameSignerKey: Hex,
-    goldContractAddress: Address,
-    mudClient?: MudClient,
-  ) {
+  constructor(gameSignerKey: Hex, goldContractAddress: Address) {
     this.gameSignerKey = gameSignerKey;
     this.goldContractAddress = goldContractAddress;
-    this.mudClient = mudClient;
   }
 
   /**
@@ -89,9 +82,6 @@ export class GoldClaimingService {
 
   /**
    * Sync Gold claim to MUD after GoldClaimed event
-   *
-   * Updates MUD Coins table to mark the claimed amount as claimed.
-   * This prevents double-claiming and keeps MUD state in sync with ERC-20 Gold.
    */
   async syncGoldClaim(event: {
     player: Address;
@@ -104,31 +94,7 @@ export class GoldClaimingService {
       nonce: event.nonce,
     });
 
-    if (!this.mudClient) {
-      console.warn(
-        "[GoldClaiming] MUD client not available - skipping sync to MUD",
-      );
-      return;
-    }
-
-    try {
-      // Call MUD NFTIntegrationSystem.recordGoldClaim
-      // This updates the Coins table to mark amount as claimed
-      if (this.mudClient.NFTIntegrationSystem?.recordGoldClaim) {
-        await this.mudClient.NFTIntegrationSystem.recordGoldClaim(
-          event.amount,
-        );
-        console.log(
-          `[GoldClaiming] ✅ Successfully synced Gold claim of ${event.amount} to MUD`,
-        );
-      } else {
-        console.warn(
-          `[GoldClaiming] NFTIntegrationSystem not available in MUD World - Gold claim of ${event.amount} not synced`,
-        );
-      }
-    } catch (err) {
-      console.error("[GoldClaiming] Failed to sync Gold claim to MUD:", err);
-      // Don't throw - this is a sync operation, failure shouldn't break the flow
-    }
+    // TODO: Call MUD transaction
+    // await mudWorld.write.hyperscape__recordGoldClaim([event.amount]);
   }
 }

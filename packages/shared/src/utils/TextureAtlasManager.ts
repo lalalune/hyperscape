@@ -7,11 +7,35 @@ interface MaterialInfo {
   scale: number;
 }
 
+/**
+ * Material indices for terrain:
+ * 0 = Grass (primary for plains, forest, valley)
+ * 1 = Dirt (paths, roads, slopes)
+ * 2 = Rock (steep slopes, mountain peaks)
+ * 3 = Snow (high altitude, tundra biome)
+ * 4 = Sand (desert, beaches)
+ * 5 = Cobblestone (roads near towns)
+ */
+export const TerrainMaterialIndex = {
+  GRASS: 0,
+  DIRT: 1,
+  ROCK: 2,
+  SNOW: 3,
+  SAND: 4,
+  COBBLESTONE: 5,
+} as const;
+
+export type TerrainMaterialIndexType = typeof TerrainMaterialIndex[keyof typeof TerrainMaterialIndex];
+
 export class TextureAtlasManager {
   private atlas: THREE.Texture | null = null;
   private normalAtlas: THREE.Texture | null = null;
   private materials: MaterialInfo[] = [];
   private textureLoader = new THREE.TextureLoader();
+  
+  // Atlas grid configuration: 3 columns x 2 rows = 6 materials
+  private readonly ATLAS_COLS = 3;
+  private readonly ATLAS_ROWS = 2;
 
   async init() {
     // Get CDN URL from window or default to localhost CDN
@@ -23,6 +47,7 @@ export class TextureAtlasManager {
 
     // Scale values: higher = smaller texture (more tiled), lower = larger texture
     // With TEXTURE_SCALE=40 in shader, a scale of 4.0 gives ~10m per tile repeat
+    // 6 materials in 3x2 grid layout
     this.materials = [
       {
         name: "grass",
@@ -34,7 +59,7 @@ export class TextureAtlasManager {
         name: "dirt",
         diffuse: `${cdnUrl}/terrain/textures/dirt_ground/dirt_ground_d.png`,
         normal: `${cdnUrl}/terrain/textures/dirt_ground/dirt_ground_n.png`,
-        scale: 4.0, // ~10m per repeat
+        scale: 4.0, // ~10m per repeat - paths and roads
       },
       {
         name: "rock",
@@ -46,7 +71,20 @@ export class TextureAtlasManager {
         name: "snow",
         diffuse: `${cdnUrl}/terrain/textures/stylized_snow/stylized_snow_d.png`,
         normal: `${cdnUrl}/terrain/textures/stylized_snow/stylized_snow_n.png`,
-        scale: 6.0, // ~6.7m per repeat
+        scale: 6.0, // ~6.7m per repeat - high altitude, tundra
+      },
+      {
+        name: "sand",
+        diffuse: `${cdnUrl}/terrain/textures/sand/sand_d.png`,
+        normal: `${cdnUrl}/terrain/textures/sand/sand_n.png`,
+        scale: 5.0, // ~8m per repeat - desert and beaches
+      },
+      {
+        name: "cobblestone",
+        // Use stylized stone with different scale for cobblestone roads
+        diffuse: `${cdnUrl}/terrain/textures/stylized_stone/stylized_stone_d.png`,
+        normal: `${cdnUrl}/terrain/textures/stylized_stone/stylized_stone_n.png`,
+        scale: 8.0, // Tighter tiling for cobblestone appearance
       },
     ];
 
@@ -54,6 +92,13 @@ export class TextureAtlasManager {
     this.normalAtlas = await this.buildAtlas(
       this.materials.map((m) => m.normal),
     );
+  }
+
+  /**
+   * Get atlas grid dimensions for shader configuration
+   */
+  public getAtlasGridDimensions(): { cols: number; rows: number } {
+    return { cols: this.ATLAS_COLS, rows: this.ATLAS_ROWS };
   }
 
   private async buildAtlas(textureUrls: string[]): Promise<THREE.Texture> {
@@ -68,8 +113,9 @@ export class TextureAtlasManager {
 
     const imageWidth = images[0].image.width;
     const imageHeight = images[0].image.height;
-    const atlasWidth = imageWidth * 2;
-    const atlasHeight = imageHeight * 2;
+    // Build 3x2 atlas grid
+    const atlasWidth = imageWidth * this.ATLAS_COLS;
+    const atlasHeight = imageHeight * this.ATLAS_ROWS;
 
     const canvas = document.createElement("canvas");
     canvas.width = atlasWidth;
@@ -81,8 +127,8 @@ export class TextureAtlasManager {
     }
 
     images.forEach((texture, index) => {
-      const x = (index % 2) * imageWidth;
-      const y = Math.floor(index / 2) * imageHeight;
+      const x = (index % this.ATLAS_COLS) * imageWidth;
+      const y = Math.floor(index / this.ATLAS_COLS) * imageHeight;
       context.drawImage(texture.image, x, y);
     });
 

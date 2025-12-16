@@ -70,7 +70,7 @@ export class MessageManager {
     const chatType = (msg as { chatType?: string }).chatType || "global";
     const isFromAgent = (msg as { isFromAgent?: boolean }).isFromAgent || false;
     const senderAgentId = (msg as { agentId?: string }).agentId;
-
+    
     console.info("[MessageManager] Processing message:", {
       id: msg.id,
       userId: msg.userId,
@@ -84,12 +84,19 @@ export class MessageManager {
     const world = service.getWorld()!;
 
     // Skip messages from this agent
-    if (
-      msg.userId === this.runtime.agentId ||
-      senderAgentId === this.runtime.agentId
-    ) {
+    if (msg.userId === this.runtime.agentId || senderAgentId === this.runtime.agentId) {
       console.debug("[MessageManager] Skipping own message");
       return;
+    }
+    
+    // Handle whisper messages - only respond if we're the target
+    if (chatType === "whisper") {
+      const targetId = (msg as { targetId?: string }).targetId;
+      const playerEntity = service.getPlayerEntity();
+      if (targetId && targetId !== playerEntity?.id && targetId !== this.runtime.agentId) {
+        console.debug("[MessageManager] Whisper not for us, ignoring");
+        return;
+      }
     }
 
     // Handle whisper messages - only respond if we're the target

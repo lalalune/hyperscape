@@ -221,7 +221,7 @@ export class MultiAgentManager extends EventEmitter {
    */
   private broadcastMessage(fromAgentId: UUID, message: ChatMessage): void {
     const senderAgent = this.agents.get(fromAgentId);
-
+    
     for (const [agentId, agent] of this.agents) {
       if (agentId !== fromAgentId && agent.status === "connected") {
         // Create agent-to-agent message with full metadata
@@ -247,6 +247,46 @@ export class MultiAgentManager extends EventEmitter {
         }
       }
     }
+  }
+  
+  /**
+   * Send a direct message between agents
+   */
+  async sendDirectMessage(fromAgentId: UUID, toAgentId: UUID, text: string): Promise<boolean> {
+    const fromAgent = this.agents.get(fromAgentId);
+    const toAgent = this.agents.get(toAgentId);
+    
+    if (!fromAgent || !toAgent) {
+      logger.warn(`[MultiAgentManager] Agent not found for direct message`);
+      return false;
+    }
+    
+    if (toAgent.status !== "connected") {
+      logger.warn(`[MultiAgentManager] Target agent ${toAgent.name} not connected`);
+      return false;
+    }
+    
+    const message: ChatMessage = {
+      id: crypto.randomUUID(),
+      from: fromAgent.name,
+      fromId: fromAgentId,
+      body: text,
+      text: text,
+      timestamp: Date.now(),
+      createdAt: new Date().toISOString(),
+      isFromAgent: true,
+      agentId: fromAgentId,
+      chatType: "whisper",
+      targetId: toAgentId,
+    };
+    
+    const targetMessageManager = toAgent.service.getMessageManager();
+    if (targetMessageManager) {
+      await targetMessageManager.handleMessage(message);
+      return true;
+    }
+    
+    return false;
   }
 
   /**

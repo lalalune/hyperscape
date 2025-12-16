@@ -157,6 +157,10 @@ export class HyperscapeA2AClient {
     return this.executeSkill("gather-resource", { resourceId });
   }
 
+  async mineRock(rockId?: string): Promise<A2ATaskResult> {
+    return this.executeSkill("mine-rock", { rockId });
+  }
+
   async getInventory(): Promise<A2ATaskResult> {
     return this.executeSkill("get-inventory");
   }
@@ -294,6 +298,40 @@ export class HyperscapeA2AClient {
 
   async examineInventoryItem(itemId: string): Promise<A2ATaskResult> {
     return this.executeSkill("examine-inventory-item", { itemId });
+  }
+
+  // ============================================
+  // Trading Actions
+  // ============================================
+
+  async tradeRequest(
+    targetId?: string,
+    targetName?: string,
+  ): Promise<A2ATaskResult> {
+    return this.executeSkill("trade-request", { targetId, targetName });
+  }
+
+  async tradeRespond(
+    accept: boolean,
+    requesterId?: string,
+  ): Promise<A2ATaskResult> {
+    return this.executeSkill("trade-respond", { accept, requesterId });
+  }
+
+  async tradeOffer(
+    itemId?: string,
+    quantity?: number,
+    coins?: number,
+  ): Promise<A2ATaskResult> {
+    return this.executeSkill("trade-offer", { itemId, quantity, coins });
+  }
+
+  async tradeConfirm(): Promise<A2ATaskResult> {
+    return this.executeSkill("trade-confirm", {});
+  }
+
+  async tradeCancel(): Promise<A2ATaskResult> {
+    return this.executeSkill("trade-cancel", {});
   }
 
   /**

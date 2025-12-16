@@ -13,7 +13,7 @@ import {
   assessThreat,
   categorizeEntities,
   getPlayerStatus,
-  generateSceneDescription,
+  generateSceneDescription
 } from "../shared/game-helpers.js";
 import type { Skills, PlayerEntity, Entity } from "../types.js";
 
@@ -128,7 +128,7 @@ describe("Game Helpers", () => {
         strength: { level: 10, xp: 1000 },
         defense: { level: 10, xp: 1000 },
         constitution: { level: 10, xp: 1000 },
-        ranged: { level: 1, xp: 0 },
+        ranged: { level: 1, xp: 0 }
       };
       const combatLevel = calculateCombatLevel(skills);
       expect(combatLevel).toBeGreaterThan(0);
@@ -165,15 +165,10 @@ describe("Game Helpers", () => {
 
   describe("categorizeEntities", () => {
     const playerPos: [number, number, number] = [0, 0, 0];
-
+    
     it("should categorize mobs correctly", () => {
       const entities: Entity[] = [
-        {
-          id: "goblin-1",
-          name: "Goblin",
-          position: [10, 0, 10],
-          mobType: "goblin",
-        } as Entity,
+        { id: "goblin-1", name: "Goblin", position: [10, 0, 10], mobType: "goblin" } as Entity
       ];
       const result = categorizeEntities(entities, playerPos, "player-1", 10);
       expect(result.mobs.length).toBe(1);
@@ -182,12 +177,7 @@ describe("Game Helpers", () => {
 
     it("should categorize resources correctly", () => {
       const entities: Entity[] = [
-        {
-          id: "tree-1",
-          name: "Oak Tree",
-          position: [20, 0, 20],
-          resourceType: "tree",
-        } as Entity,
+        { id: "tree-1", name: "Oak Tree", position: [20, 0, 20], resourceType: "tree" } as Entity
       ];
       const result = categorizeEntities(entities, playerPos);
       expect(result.resources.length).toBe(1);
@@ -195,12 +185,7 @@ describe("Game Helpers", () => {
 
     it("should exclude player from results", () => {
       const entities: Entity[] = [
-        {
-          id: "player-1",
-          name: "Player",
-          position: [0, 0, 0],
-          playerId: "player-1",
-        } as Entity,
+        { id: "player-1", name: "Player", position: [0, 0, 0], playerId: "player-1" } as Entity
       ];
       const result = categorizeEntities(entities, playerPos, "player-1");
       expect(result.players.length).toBe(0);
@@ -208,18 +193,8 @@ describe("Game Helpers", () => {
 
     it("should sort by distance", () => {
       const entities: Entity[] = [
-        {
-          id: "goblin-far",
-          name: "Goblin",
-          position: [100, 0, 100],
-          mobType: "goblin",
-        } as Entity,
-        {
-          id: "goblin-near",
-          name: "Goblin",
-          position: [10, 0, 10],
-          mobType: "goblin",
-        } as Entity,
+        { id: "goblin-far", name: "Goblin", position: [100, 0, 100], mobType: "goblin" } as Entity,
+        { id: "goblin-near", name: "Goblin", position: [10, 0, 10], mobType: "goblin" } as Entity
       ];
       const result = categorizeEntities(entities, playerPos);
       expect(result.mobs[0].id).toBe("goblin-near");
@@ -239,10 +214,10 @@ describe("Game Helpers", () => {
       skills: {
         attack: { level: 10, xp: 1000 },
         strength: { level: 10, xp: 1000 },
-        defense: { level: 10, xp: 1000 },
+        defense: { level: 10, xp: 1000 }
       },
       items: [],
-      coins: 500,
+      coins: 500
     };
 
     it("should return complete player status", () => {
@@ -279,7 +254,7 @@ describe("Game Helpers", () => {
       inCombat: false,
       skills: {},
       items: [],
-      coins: 0,
+      coins: 0
     };
 
     it("should generate basic scene description", () => {
@@ -290,46 +265,34 @@ describe("Game Helpers", () => {
 
     it("should include nearby mobs", () => {
       const entities: Entity[] = [
-        {
-          id: "goblin-1",
-          name: "Goblin",
-          position: [10, 0, 10],
-          mobType: "goblin",
-        } as Entity,
+        { id: "goblin-1", name: "Goblin", position: [10, 0, 10], mobType: "goblin" } as Entity
       ];
       const description = generateSceneDescription(mockPlayer, entities);
       expect(description).toContain("Goblin");
     });
 
     it("should include status when enabled", () => {
-      const description = generateSceneDescription(mockPlayer, [], {
-        includeStatus: true,
-      });
+      const description = generateSceneDescription(mockPlayer, [], { includeStatus: true });
       expect(description).toContain("Health: 100%");
     });
 
     it("should include suggestions when enabled", () => {
-      const description = generateSceneDescription(mockPlayer, [], {
-        includeSuggestions: true,
-      });
+      const description = generateSceneDescription(mockPlayer, [], { includeSuggestions: true });
       expect(description).toContain("SUGGESTIONS");
     });
 
     it("should respect maxMobs option", () => {
-      const entities: Entity[] = Array(10)
-        .fill(null)
-        .map((_, i) => ({
-          id: `goblin-${i}`,
-          name: "Goblin",
-          position: [10 + i, 0, 10] as [number, number, number],
-          mobType: "goblin",
-        })) as Entity[];
-
-      const description = generateSceneDescription(mockPlayer, entities, {
-        maxMobs: 3,
-      });
+      const entities: Entity[] = Array(10).fill(null).map((_, i) => ({
+        id: `goblin-${i}`,
+        name: "Goblin",
+        position: [10 + i, 0, 10] as [number, number, number],
+        mobType: "goblin"
+      })) as Entity[];
+      
+      const description = generateSceneDescription(mockPlayer, entities, { maxMobs: 3 });
       const goblinCount = (description.match(/Goblin/g) ?? []).length;
       expect(goblinCount).toBeLessThanOrEqual(4); // maxMobs + potentially one in suggestions
     });
   });
 });
+

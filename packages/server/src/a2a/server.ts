@@ -8,65 +8,6 @@ import { randomUUID } from "crypto";
 import type { World } from "@hyperscape/shared";
 import { generateAgentCard } from "./agentCard.js";
 
-// Type for position data
-interface Position3D {
-  x: number;
-  y: number;
-  z: number;
-}
-
-// Type for player entity with expected properties
-interface PlayerEntity {
-  id: string;
-  position?: Position3D;
-  node?: { position?: Position3D };
-}
-
-// Type for inventory item
-interface InventoryItem {
-  itemId: string;
-  quantity: number;
-  name?: string;
-}
-
-// Type for mob entity
-interface MobEntity {
-  id: string;
-  name?: string;
-  mobType?: string;
-  level?: number;
-  alive?: boolean;
-}
-
-// Type for action registry interface
-interface ActionRegistryInterface {
-  execute: (actionName: string, context: unknown, data: unknown) => Promise<unknown>;
-}
-
-// Extended World type with optional RPG methods (added dynamically by systems)
-// Use Omit to avoid conflicts with base World methods
-type RPGWorld = Omit<World, 'getSkills'> & {
-  getAllPlayers?: () => PlayerEntity[];
-  getPlayerHealth?: (id: string) => { current: number; max: number };
-  getInventory?: (id: string) => InventoryItem[];
-  getEquipment?: (id: string) => Record<string, unknown>;
-  getSkills?: (id: string) => Record<string, unknown>;
-  isInCombat?: (id: string) => boolean;
-  isPlayerAlive?: (id: string) => boolean;
-  movePlayer?: (id: string, x: number, y: number, z: number) => void;
-  actionMethods?: Record<string, (context: unknown, data: unknown) => Promise<unknown>>;
-  getCombatLevel?: (id: string) => number;
-  getArrowCount?: (id: string) => number;
-  getMobsInArea?: (pos: Position3D, range: number) => Array<{ name?: string; mobType?: string }>;
-  getResourcesInArea?: (pos: Position3D, range: number) => Array<{ name?: string; resourceType?: string }>;
-  getItemsInRange?: (pos: Position3D, range: number) => Array<{ name?: string }>;
-  forceChangeAttackStyle?: (id: string, style: string) => void;
-  getAllMobs?: () => MobEntity[];
-  playEmote?: (id: string, emote: string) => void;
-  respawnPlayer?: (id: string) => void;
-  actionRegistry?: ActionRegistryInterface;
-};
-
 const uuidv4 = randomUUID;
 
 export interface JSONRPCRequest {
@@ -134,24 +75,13 @@ function firstDefined<T>(...values: (T | undefined | null)[]): T {
   throw new Error("No defined value found");
 }
 
-function isActionResult(
-  result: unknown,
-): result is { success: boolean; message?: string } {
-  return (
-    typeof result === "object" &&
-    result !== null &&
-    "success" in result &&
-    typeof (result as { success: unknown }).success === "boolean"
-  );
-}
-
 export class A2AServer {
-  private world: RPGWorld;
+  private world: World;
   private serverUrl: string;
   private seenMessageIds: Set<string> = new Set();
 
   constructor(world: World, serverUrl: string) {
-    this.world = world as RPGWorld;
+    this.world = world;
     this.serverUrl = serverUrl;
   }
 
@@ -323,61 +253,33 @@ export class A2AServer {
     message: string;
     data?: Record<string, unknown>;
   }> {
-    // Access RPG methods directly from world (they're flattened by SystemLoader)
-    // Type assertion needed because these methods are dynamically added by RPG systems
-    const rpg: Pick<RPGWorld, 
-      'getAllPlayers' | 'getPlayerHealth' | 'getInventory' | 'getEquipment' | 
-      'getSkills' | 'isInCombat' | 'isPlayerAlive' | 'movePlayer' | 'actionMethods' |
-      'getCombatLevel' | 'getArrowCount' | 'getMobsInArea' | 'getResourcesInArea' |
-      'getItemsInRange' | 'forceChangeAttackStyle' | 'getAllMobs' | 'playEmote' |
-      'respawnPlayer' | 'actionRegistry'
-    > = {
-      getAllPlayers: this.world.getAllPlayers,
-      getPlayerHealth: this.world.getPlayerHealth,
-      getInventory: this.world.getInventory,
-      getEquipment: this.world.getEquipment,
-      getSkills: this.world.getSkills,
-      isInCombat: this.world.isInCombat,
-      isPlayerAlive: this.world.isPlayerAlive,
-      movePlayer: this.world.movePlayer,
-      actionMethods: this.world.actionMethods,
-      getCombatLevel: this.world.getCombatLevel,
-      getArrowCount: this.world.getArrowCount,
-      getMobsInArea: this.world.getMobsInArea,
-      getResourcesInArea: this.world.getResourcesInArea,
-      getItemsInRange: this.world.getItemsInRange,
-      forceChangeAttackStyle: this.world.forceChangeAttackStyle,
-      getAllMobs: this.world.getAllMobs,
-      playEmote: this.world.playEmote,
-      respawnPlayer: this.world.respawnPlayer,
-      actionRegistry: this.world.actionRegistry,
-    };
+    const rpg = this.world.rpg;
+
+    if (!rpg) {
+      return { success: false, message: "RPG system not initialized" };
+    }
 
     switch (skillId) {
       case "join-game": {
-        const playerName = optionalString(
-          data.playerName,
-          `Agent_${agentId.slice(0, 8)}`,
-        );
-
-        // Create a character for this agent if they don't have one
-        // This would normally go through the WebSocket connection flow
-        // For A2A, we'll create a simplified registration
-
+        // A2A agents must connect via WebSocket to actually join the game world
+        // The A2A protocol is for querying/commanding an already-connected agent
         return {
-          success: true,
-          message: `Agent ${playerName} ready to join. Connect via WebSocket to spawn in-world.`,
+          success: false,
+          message:
+            "A2A agents must connect via WebSocket first. Use the Hyperscape plugin for ElizaOS or connect directly to the WebSocket server.",
           data: {
             agentId,
-            playerName,
-            instructions: "Use WebSocket connection for full gameplay",
+            instructions:
+              "Connect via WebSocket with your agentId to spawn in-world, then use A2A for commands",
+            websocketUrl: this.serverUrl.replace("/a2a", ""),
           },
         };
       }
 
       case "get-status": {
-        const statusPlayers = rpg.getAllPlayers?.() as PlayerEntity[] | undefined;
-        const player = statusPlayers?.find((p) => p.id === agentId);
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
 
         if (!player) {
           return {
@@ -465,38 +367,39 @@ export class A2AServer {
           { resourceId },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Gathering failed",
-          };
-        }
         return {
-          success: false,
-          message: "Gathering failed",
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Gathering failed",
         };
       }
 
       case "use-item": {
         const itemId = requireString(data.itemId, "itemId");
-        const slot = requireNumber(data.slot, "slot");
+        // Slot is optional - find it from inventory if not provided
+        let slot = typeof data.slot === "number" ? data.slot : undefined;
+
+        if (slot === undefined) {
+          // Find item in inventory
+          const inventory = rpg.getInventory?.(agentId) ?? [];
+          const itemIndex = inventory.findIndex(
+            (i: { id?: string; itemId?: string }) =>
+              i.id === itemId || i.itemId === itemId,
+          );
+          if (itemIndex >= 0) {
+            slot = itemIndex;
+          }
+        }
 
         const context = { world: this.world, playerId: agentId };
         const result = await this.world.actionRegistry?.execute(
           "use_item",
           context,
-          { itemId, slot },
+          { itemId, slot: slot ?? 0 },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Item use failed",
-          };
-        }
         return {
-          success: false,
-          message: "Item use failed",
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Item use failed",
         };
       }
 
@@ -511,15 +414,9 @@ export class A2AServer {
           { itemId, slot },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Equip failed",
-          };
-        }
         return {
-          success: false,
-          message: "Equip failed",
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Equip failed",
         };
       }
 
@@ -544,15 +441,9 @@ export class A2AServer {
           { itemId },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Pickup failed",
-          };
-        }
         return {
-          success: false,
-          message: "Pickup failed",
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Pickup failed",
         };
       }
 
@@ -567,20 +458,15 @@ export class A2AServer {
           { itemId, quantity },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Drop failed",
-          };
-        }
         return {
-          success: false,
-          message: "Drop failed",
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Drop failed",
         };
       }
 
       case "open-bank": {
-        const bankId = requireString(data.bankId, "bankId");
+        // Bank ID is optional - default to spawn_bank or nearest bank
+        const bankId = optionalString(data.bankId, "spawn_bank");
 
         const context = { world: this.world, playerId: agentId };
         const result = await this.world.actionRegistry?.execute(
@@ -589,20 +475,14 @@ export class A2AServer {
           { bankId },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Bank open failed",
-          };
-        }
         return {
-          success: false,
-          message: "Bank open failed",
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Bank open failed",
         };
       }
 
       case "deposit-item": {
-        const bankId = requireString(data.bankId, "bankId");
+        const bankId = optionalString(data.bankId, "spawn_bank");
         const itemId = requireString(data.itemId, "itemId");
         const quantity = optionalNumber(data.quantity, 1);
 
@@ -613,20 +493,14 @@ export class A2AServer {
           { bankId, itemId, quantity },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Deposit failed",
-          };
-        }
         return {
-          success: false,
-          message: "Deposit failed",
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Deposit failed",
         };
       }
 
       case "withdraw-item": {
-        const bankId = requireString(data.bankId, "bankId");
+        const bankId = optionalString(data.bankId, "spawn_bank");
         const itemId = requireString(data.itemId, "itemId");
         const quantity = optionalNumber(data.quantity, 1);
 
@@ -637,20 +511,15 @@ export class A2AServer {
           { bankId, itemId, quantity },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Withdrawal failed",
-          };
-        }
         return {
-          success: false,
-          message: "Withdrawal failed",
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Withdrawal failed",
         };
       }
 
       case "buy-item": {
-        const storeId = requireString(data.storeId, "storeId");
+        // Store ID is optional - default to general_store or nearest store
+        const storeId = optionalString(data.storeId, "general_store");
         const itemId = requireString(data.itemId, "itemId");
         const quantity = optionalNumber(data.quantity, 1);
 
@@ -661,21 +530,15 @@ export class A2AServer {
           { storeId, itemId, quantity },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Purchase failed",
-            data: result as Record<string, unknown>,
-          };
-        }
         return {
-          success: false,
-          message: "Purchase failed",
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Purchase failed",
+          data: result as Record<string, unknown>,
         };
       }
 
       case "sell-item": {
-        const storeId = requireString(data.storeId, "storeId");
+        const storeId = optionalString(data.storeId, "general_store");
         const itemId = requireString(data.itemId, "itemId");
         const quantity = optionalNumber(data.quantity, 1);
 
@@ -686,16 +549,10 @@ export class A2AServer {
           { storeId, itemId, quantity },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Sale failed",
-            data: result as Record<string, unknown>,
-          };
-        }
         return {
-          success: false,
-          message: "Sale failed",
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Sale failed",
+          data: result as Record<string, unknown>,
         };
       }
 
@@ -726,8 +583,9 @@ export class A2AServer {
         const range = optionalNumber(data.range, 20);
 
         // Get player position
-        const players = rpg.getAllPlayers?.() as PlayerEntity[] | undefined;
-        const player = players?.find((p) => p.id === agentId);
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
         if (!player) {
           return { success: false, message: "Player not found" };
         }
@@ -769,8 +627,9 @@ export class A2AServer {
       case "get-world-context": {
         const range = optionalNumber(data.range, 30);
 
-        const allPlayers = rpg.getAllPlayers?.() as PlayerEntity[] | undefined;
-        const player = allPlayers?.find((p) => p.id === agentId);
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
         if (!player) {
           return { success: false, message: "Player not found" };
         }
@@ -782,13 +641,10 @@ export class A2AServer {
         };
         const inCombat = rpg.isInCombat?.(agentId) ?? false;
 
-        // Get nearby entities (only if position is known)
-        type MobInfo = { name?: string; mobType?: string };
-        type ResourceInfo = { name?: string; resourceType?: string };
-        type ItemInfo = { name?: string };
-        const mobs: MobInfo[] = position ? (rpg.getMobsInArea?.(position, range) as MobInfo[] ?? []) : [];
-        const resources: ResourceInfo[] = position ? (rpg.getResourcesInArea?.(position, range) as ResourceInfo[] ?? []) : [];
-        const items: ItemInfo[] = position ? (rpg.getItemsInRange?.(position, range) as ItemInfo[] ?? []) : [];
+        // Get nearby entities
+        const mobs = rpg.getMobsInArea?.(position, range) ?? [];
+        const resources = rpg.getResourcesInArea?.(position, range) ?? [];
+        const items = rpg.getItemsInRange?.(position, range) ?? [];
 
         // Build semantic description
         const lines: string[] = [];
@@ -806,7 +662,7 @@ export class A2AServer {
           lines.push(`Creatures (${mobs.length}):`);
           mobs
             .slice(0, 5)
-            .forEach((mob) => {
+            .forEach((mob: { name?: string; mobType?: string }) => {
               lines.push(`  • ${mob.name || mob.mobType || "Unknown"}`);
             });
         }
@@ -815,14 +671,14 @@ export class A2AServer {
           lines.push(`Resources (${resources.length}):`);
           resources
             .slice(0, 5)
-            .forEach((res) => {
+            .forEach((res: { name?: string; resourceType?: string }) => {
               lines.push(`  • ${res.name || res.resourceType || "Resource"}`);
             });
         }
 
         if (items.length > 0) {
           lines.push(`Ground Items (${items.length}):`);
-          items.slice(0, 5).forEach((item) => {
+          items.slice(0, 5).forEach((item: { name?: string }) => {
             lines.push(`  • ${item.name || "Item"}`);
           });
         }
@@ -839,16 +695,39 @@ export class A2AServer {
         const npcName = optionalString(data.npcName);
 
         // Find NPC by ID or name
-        const target = npcId || npcName;
-        if (!target) {
-          return { success: false, message: "Specify npcId or npcName" };
+        let targetNpcId = npcId;
+        if (!targetNpcId && npcName) {
+          // Find NPC by name
+          const player = rpg
+            .getAllPlayers?.()
+            ?.find((p: { id: string }) => p.id === agentId);
+          const position = player?.position || player?.node?.position;
+
+          if (position) {
+            const npcs = rpg.getNpcsInArea?.(position, 10) ?? [];
+            const npc = npcs.find((n: { name?: string }) =>
+              n.name?.toLowerCase().includes(npcName.toLowerCase()),
+            );
+            targetNpcId = npc?.id;
+          }
         }
 
-        // NPC interaction would be handled by dialogue system
+        if (!targetNpcId) {
+          return { success: false, message: "NPC not found nearby" };
+        }
+
+        // Execute NPC interaction through action registry
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "interact_npc",
+          context,
+          { npcId: targetNpcId },
+        );
+
         return {
-          success: true,
-          message: `Interacting with NPC: ${target}`,
-          data: { npcId, npcName },
+          success: result?.success ?? true,
+          message: (result?.message as string) ?? `Interacting with NPC`,
+          data: { npcId: targetNpcId },
         };
       }
 
@@ -863,25 +742,19 @@ export class A2AServer {
           { corpseId },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? "Looting corpse",
-          };
-        }
         return {
-          success: true,
-          message: "Looting corpse",
+          success: result?.success ?? true,
+          message: (result?.message as string) ?? "Looting corpse",
         };
       }
 
       case "eat-food": {
         // Find food in inventory and use it
-        const inventory = rpg.getInventory?.(agentId) as InventoryItem[] ?? [];
+        const inventory = rpg.getInventory?.(agentId) ?? [];
         const food = inventory.find(
-          (item) =>
-            /fish|food|bread|meat/i.test(item.name ?? "") &&
-            !/raw/i.test(item.name ?? ""),
+          (item: { name?: string }) =>
+            /fish|food|bread|meat/i.test(item.name || "") &&
+            !/raw/i.test(item.name || ""),
         );
 
         if (!food) {
@@ -892,19 +765,12 @@ export class A2AServer {
         const result = await this.world.actionRegistry?.execute(
           "use_item",
           context,
-          { itemId: food.itemId },
+          { itemId: food.id },
         );
 
-        if (isActionResult(result)) {
-          return {
-            success: result.success,
-            message: result.message ?? `Eating ${food.name || food.itemId}`,
-            data: { food },
-          };
-        }
         return {
-          success: true,
-          message: `Eating ${food.name || food.itemId}`,
+          success: result?.success ?? true,
+          message: (result?.message as string) ?? `Eating ${food.name}`,
           data: { food },
         };
       }
@@ -912,7 +778,18 @@ export class A2AServer {
       case "emote": {
         const emoteName = optionalString(data.emote, "wave");
 
-        rpg.playEmote?.(agentId, emoteName);
+        // Try action registry first, fall back to rpg method
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "play_emote",
+          context,
+          { emote: emoteName },
+        );
+
+        // If action registry doesn't have it, try direct method
+        if (!result?.success && rpg.playEmote) {
+          rpg.playEmote(agentId, emoteName);
+        }
 
         return {
           success: true,
@@ -939,11 +816,21 @@ export class A2AServer {
         const goalType = optionalString(data.goalType, "exploration");
         const target = optionalString(data.target);
 
-        // Goals are managed by the plugin's AutonomousBehaviorManager
-        // This just acknowledges the intent
+        // Send goal sync packet to the world
+        // This updates the player's current goal for autonomous behavior
+        const goalData = {
+          playerId: agentId,
+          goalType,
+          target,
+          timestamp: Date.now(),
+        };
+
+        // Broadcast goal sync to the world
+        this.world.network?.broadcast?.("syncGoal", goalData);
+
         return {
           success: true,
-          message: `Goal set: ${goalType} - ${target || "general"}`,
+          message: `Goal set: ${goalType}${target ? ` - ${target}` : ""}`,
           data: { goalType, target },
         };
       }
@@ -952,8 +839,9 @@ export class A2AServer {
         const direction = optionalString(data.direction, "north");
         const distance = optionalNumber(data.distance, 10) * 5; // tiles to units
 
-        const dirPlayers = rpg.getAllPlayers?.() as PlayerEntity[] | undefined;
-        const player = dirPlayers?.find((p) => p.id === agentId);
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
         if (!player) {
           return { success: false, message: "Player not found" };
         }
@@ -994,8 +882,8 @@ export class A2AServer {
         }
 
         // Get entity info
-        const allMobs = rpg.getAllMobs?.() as MobEntity[] | undefined ?? [];
-        const mob = allMobs.find((m) => m.id === entityId);
+        const mobs = rpg.getAllMobs?.() ?? [];
+        const mob = mobs.find((m: { id: string }) => m.id === entityId);
 
         if (mob) {
           return {
@@ -1014,6 +902,216 @@ export class A2AServer {
         return {
           success: false,
           message: `Entity ${entityId} not found`,
+        };
+      }
+
+      case "mine-rock": {
+        const rockId = optionalString(data.rockId);
+
+        // If no specific rock, find nearest rock resource
+        let targetId = rockId;
+        if (!targetId) {
+          const player = rpg
+            .getAllPlayers?.()
+            ?.find((p: { id: string }) => p.id === agentId);
+          const position = player?.position || player?.node?.position;
+
+          if (position) {
+            const resources = rpg.getResourcesInArea?.(position, 20) ?? [];
+            const rock = resources.find(
+              (r: { resourceType?: string; name?: string }) =>
+                r.resourceType === "rock" ||
+                r.resourceType === "ore" ||
+                /rock|ore|vein/i.test(r.name || ""),
+            );
+            targetId = rock?.id;
+          }
+        }
+
+        if (!targetId) {
+          return { success: false, message: "No rock found nearby" };
+        }
+
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "start_gathering",
+          context,
+          { resourceId: targetId, skill: "mining" },
+        );
+
+        return {
+          success: result?.success ?? false,
+          message: (result?.message as string) ?? "Mining failed",
+        };
+      }
+
+      case "send-chat": {
+        const message = requireString(data.message, "message");
+
+        // Get player name for the chat message
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
+        const playerName =
+          player?.data?.name || player?.name || `Agent_${agentId.slice(0, 8)}`;
+
+        // Broadcast chat message to all players
+        const chatMsg = {
+          id: uuidv4(),
+          from: playerName,
+          fromId: agentId,
+          body: message,
+          text: message,
+          chatType: "global",
+          createdAt: new Date().toISOString(),
+        };
+
+        this.world.network?.broadcast?.("chatAdded", chatMsg);
+
+        return {
+          success: true,
+          message: `Sent chat: ${message.substring(0, 50)}${message.length > 50 ? "..." : ""}`,
+        };
+      }
+
+      case "send-local-chat": {
+        const message = requireString(data.message, "message");
+
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
+        const playerName =
+          player?.data?.name || player?.name || `Agent_${agentId.slice(0, 8)}`;
+        const position = player?.position || player?.node?.position;
+
+        const chatMsg = {
+          id: uuidv4(),
+          from: playerName,
+          fromId: agentId,
+          body: message,
+          text: message,
+          chatType: "local",
+          position,
+          createdAt: new Date().toISOString(),
+        };
+
+        this.world.network?.broadcast?.("chatAdded", chatMsg);
+
+        return {
+          success: true,
+          message: `Sent local chat: ${message.substring(0, 50)}${message.length > 50 ? "..." : ""}`,
+        };
+      }
+
+      case "send-whisper": {
+        const targetId = requireString(data.targetId, "targetId");
+        const message = requireString(data.message, "message");
+
+        // Whispers require finding the target's socket, which A2A doesn't have access to
+        // For now, we can only send via broadcast with targetId filter
+        const player = rpg
+          .getAllPlayers?.()
+          ?.find((p: { id: string }) => p.id === agentId);
+        const playerName =
+          player?.data?.name || player?.name || `Agent_${agentId.slice(0, 8)}`;
+
+        const chatMsg = {
+          id: uuidv4(),
+          from: playerName,
+          fromId: agentId,
+          targetId,
+          body: message,
+          text: message,
+          chatType: "whisper",
+          createdAt: new Date().toISOString(),
+        };
+
+        // Note: This broadcasts to all but only the target should display it
+        // The client should filter based on targetId
+        this.world.network?.broadcast?.("chatAdded", chatMsg);
+
+        return {
+          success: true,
+          message: `Whispered to ${targetId}`,
+        };
+      }
+
+      case "dialogue-respond": {
+        const responseIndex = requireNumber(
+          data.responseIndex,
+          "responseIndex",
+        );
+
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "dialogue_respond",
+          context,
+          { responseIndex },
+        );
+
+        return {
+          success: result?.success ?? true,
+          message:
+            (result?.message as string) ??
+            `Selected dialogue option ${responseIndex}`,
+        };
+      }
+
+      case "close-dialogue": {
+        const context = { world: this.world, playerId: agentId };
+        const result = await this.world.actionRegistry?.execute(
+          "close_dialogue",
+          context,
+          {},
+        );
+
+        return {
+          success: result?.success ?? true,
+          message: (result?.message as string) ?? "Closed dialogue",
+        };
+      }
+
+      case "examine-inventory-item": {
+        const itemId = requireString(data.itemId, "itemId");
+
+        const inventory = rpg.getInventory?.(agentId) ?? [];
+        const item = inventory.find((i: { id: string }) => i.id === itemId);
+
+        if (!item) {
+          return { success: false, message: `Item ${itemId} not in inventory` };
+        }
+
+        return {
+          success: true,
+          message: `Examining: ${item.name || "Unknown item"}`,
+          data: {
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity ?? 1,
+            stackable: item.stackable ?? false,
+            description: item.description ?? "",
+          },
+        };
+      }
+
+      case "trade-request":
+      case "trade-respond":
+      case "trade-offer":
+      case "trade-confirm":
+      case "trade-cancel": {
+        // Trading requires WebSocket connection for real-time bidirectional communication
+        // A2A protocol is request-response only, which doesn't support the interactive trade flow
+        // Use the Hyperscape ElizaOS plugin for trading, which connects via WebSocket
+        return {
+          success: false,
+          message:
+            "Trading requires WebSocket connection. Use the Hyperscape plugin for ElizaOS or connect directly via WebSocket to trade.",
+          data: {
+            reason:
+              "A2A is request-response only; trading needs real-time bidirectional communication",
+            alternative:
+              "Connect via WebSocket using plugin-hyperscape for trading support",
+          },
         };
       }
 

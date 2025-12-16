@@ -59,10 +59,7 @@ export function handleAttackMob(
 
   // SECURITY: Check if mob is already dead (prevents attacks on corpses)
   if (targetMob.type === "mob") {
-    const mobEntity = targetMob as {
-      isDead?: () => boolean;
-      getHealth?: () => number;
-    };
+    const mobEntity = targetMob as { isDead?: () => boolean; getHealth?: () => number };
     if (mobEntity.isDead?.() || (mobEntity.getHealth?.() ?? 1) <= 0) {
       console.warn(
         `[Combat] handleAttackMob: attempted attack on dead mob: ${payload.mobId}`,

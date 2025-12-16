@@ -128,10 +128,7 @@ class SpeedHackDetector {
     // Calculate time span in window
     const firstPos = history.positions[0];
     const lastPos = history.positions[history.positions.length - 1];
-    const timeSpanSec = Math.max(
-      0.1,
-      (lastPos.timestamp - firstPos.timestamp) / 1000,
-    );
+    const timeSpanSec = Math.max(0.1, (lastPos.timestamp - firstPos.timestamp) / 1000);
 
     // Calculate average speed
     const averageSpeed = totalDistance / timeSpanSec;

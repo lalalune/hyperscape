@@ -19,8 +19,7 @@ import type { Entity } from "../types.js";
 export const examineEntityAction: Action = {
   name: "EXAMINE_ENTITY",
   similes: ["EXAMINE", "INSPECT", "LOOK_AT", "CHECK"],
-  description:
-    "Examine an entity (item, NPC, resource) to get more information about it.",
+  description: "Examine an entity (item, NPC, resource) to get more information about it.",
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
@@ -72,9 +71,7 @@ export const examineEntityAction: Action = {
     if ("mobType" in target) {
       examineLines.push(`Type: ${entityAny.mobType}`);
       if (entityAny.level) examineLines.push(`Level: ${entityAny.level}`);
-      examineLines.push(
-        `Status: ${entityAny.alive !== false ? "Alive" : "Dead"}`,
-      );
+      examineLines.push(`Status: ${entityAny.alive !== false ? "Alive" : "Dead"}`);
     } else if ("resourceType" in target) {
       examineLines.push(`Resource: ${entityAny.resourceType}`);
     } else if (target.name?.startsWith("item:")) {
@@ -100,11 +97,7 @@ export const examineEntityAction: Action = {
     return {
       success: true,
       text: examineText,
-      data: {
-        action: "EXAMINE_ENTITY",
-        entityId: target.id,
-        entityName: target.name,
-      },
+      data: { action: "EXAMINE_ENTITY", entityId: target.id, entityName: target.name },
     };
   },
 
@@ -181,8 +174,7 @@ export const examineInventoryItemAction: Action = {
       return { success: false, error: new Error("Item not found") };
     }
 
-    const examineText =
-      item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name;
+    const examineText = item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name;
     logger.info(`[EXAMINE_INVENTORY_ITEM] ${examineText}`);
 
     await callback?.({
@@ -193,11 +185,7 @@ export const examineInventoryItemAction: Action = {
     return {
       success: true,
       text: examineText,
-      data: {
-        action: "EXAMINE_INVENTORY_ITEM",
-        itemId: item.id,
-        itemName: item.name,
-      },
+      data: { action: "EXAMINE_INVENTORY_ITEM", itemId: item.id, itemName: item.name },
     };
   },
 
@@ -214,3 +202,4 @@ export const examineInventoryItemAction: Action = {
     ],
   ],
 };
+

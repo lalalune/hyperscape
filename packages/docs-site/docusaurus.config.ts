@@ -3,43 +3,19 @@ import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
-  title: "Hyperscape Documentation",
-  tagline: "AI-powered virtual world with RPG elements",
+  title: "Hyperscape",
+  tagline: "3D multiplayer game engine",
   favicon: "img/favicon.ico",
 
-  // Set the production url of your site here
-  url: "https://your-username.github.io",
-  // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: "/hyperscape-2/",
+  url: "https://docs.hyperscape.xyz",
+  baseUrl: "/",
 
-  // GitHub pages deployment config.
-  organizationName: "your-username", // Usually your GitHub org/user name.
-  projectName: "hyperscape-2", // Usually your repo name.
+  organizationName: "HyperscapeAI",
+  projectName: "hyperscape",
 
   onBrokenLinks: "warn",
-  onBrokenAnchors: "ignore", // Ignore broken anchors in auto-generated API docs
+  onBrokenAnchors: "ignore",
 
-  // Markdown configuration
-  markdown: {
-    format: "mdx",
-    mermaid: false,
-    preprocessor: undefined,
-    parseFrontMatter: undefined,
-    mdx1Compat: {
-      comments: true,
-      admonitions: true,
-      headingIds: true,
-    },
-    remarkRehypeOptions: undefined,
-    hooks: {
-      onBrokenMarkdownLinks: "warn",
-    },
-  },
-
-  // Even if you don't use internationalization, you can use this field to set
-  // useful metadata like html lang. For example, if your site is Chinese, you
-  // may want to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: "en",
     locales: ["en"],
@@ -51,7 +27,6 @@ const config: Config = {
       {
         docs: {
           sidebarPath: "./sidebars.ts",
-          // Remove this to remove the "edit this page" links.
           editUrl:
             "https://github.com/HyperscapeAI/hyperscape/tree/main/packages/docs-site/",
         },
@@ -64,8 +39,6 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
-    image: "img/docusaurus-social-card.jpg",
     navbar: {
       title: "Hyperscape",
       logo: {
@@ -77,10 +50,10 @@ const config: Config = {
           type: "docSidebar",
           sidebarId: "tutorialSidebar",
           position: "left",
-          label: "API Documentation",
+          label: "API",
         },
         {
-          href: "https://github.com/your-username/hyperscape-2",
+          href: "https://github.com/HyperscapeAI/hyperscape",
           label: "GitHub",
           position: "right",
         },
@@ -93,22 +66,22 @@ const config: Config = {
           title: "Docs",
           items: [
             {
-              label: "API Documentation",
+              label: "API",
               to: "/docs/intro",
             },
           ],
         },
         {
-          title: "More",
+          title: "Links",
           items: [
             {
               label: "GitHub",
-              href: "https://github.com/your-username/hyperscape-2",
+              href: "https://github.com/HyperscapeAI/hyperscape",
             },
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Hyperscape Team. Built with Docusaurus.`,
+      copyright: `© ${new Date().getFullYear()} Hyperscape`,
     },
     prism: {
       theme: prismThemes.github,

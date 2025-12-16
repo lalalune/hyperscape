@@ -16,7 +16,7 @@
  */
 
 // Server-specific services
-export { banCheckService } from "./BanCheckService";
+export { BanCheckService } from "./BanCheckService";
 export { GoldClaimingService } from "./GoldClaimingService";
 export { ItemMintingService } from "./ItemMintingService";
 export { NFTDropSystem, NFTDropIntegration } from "./NFTDropSystem";
@@ -61,8 +61,8 @@ export {
 export function initializeBlockchainIntegration(): null {
   console.warn(
     "[Blockchain] initializeBlockchainIntegration is deprecated. " +
-      "Oracle publishing is now handled by Chain system. " +
-      "Set enableOracle: true and oracleAddress in ChainConfig.",
+    "Oracle publishing is now handled by Chain system. " +
+    "Set enableOracle: true and oracleAddress in ChainConfig."
   );
   return null;
 }

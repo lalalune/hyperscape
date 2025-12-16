@@ -27,6 +27,8 @@ import { equipmentProvider } from "./providers/equipment.js";
 import { availableActionsProvider } from "./providers/availableActions.js";
 import { goalProvider } from "./providers/goalProvider.js";
 import { worldContextProvider } from "./providers/worldContext.js";
+import { bankProvider } from "./providers/bank.js";
+import { storeProvider } from "./providers/store.js";
 
 // Actions
 import {
@@ -43,6 +45,7 @@ import {
   catchFishAction,
   lightFireAction,
   cookFoodAction,
+  mineRockAction,
 } from "./actions/skills.js";
 import {
   equipItemAction,
@@ -71,6 +74,13 @@ import {
   examineEntityAction,
   examineInventoryItemAction,
 } from "./actions/examine.js";
+import {
+  tradeRequestAction,
+  tradeRespondAction,
+  tradeOfferAction,
+  tradeConfirmAction,
+  tradeCancelAction,
+} from "./actions/trading.js";
 import {
   interactNpcAction,
   lootCorpseAction,
@@ -203,6 +213,8 @@ export const hyperscapePlugin: Plugin = {
     skillsProvider, // Skill levels and XP
     equipmentProvider, // Equipped items
     availableActionsProvider, // Context-aware available actions
+    bankProvider, // Bank contents (when bank is open)
+    storeProvider, // Store inventory (when store is open)
   ],
 
   // Evaluators assess game state for autonomous decision making
@@ -251,6 +263,7 @@ export const hyperscapePlugin: Plugin = {
     catchFishAction,
     lightFireAction,
     cookFoodAction,
+    mineRockAction,
 
     // Inventory
     equipItemAction,
@@ -277,6 +290,13 @@ export const hyperscapePlugin: Plugin = {
     // Dialogue
     dialogueRespondAction,
     closeDialogueAction,
+
+    // Trading (Player-to-Player)
+    tradeRequestAction,
+    tradeRespondAction,
+    tradeOfferAction,
+    tradeConfirmAction,
+    tradeCancelAction,
 
     // Examine/Inspect
     examineEntityAction,

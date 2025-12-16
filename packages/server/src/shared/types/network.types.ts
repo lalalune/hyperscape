@@ -97,7 +97,15 @@ export interface NetworkWithSocket {
  *
  * Extended network interface that includes player entity data
  * on each socket. Used by player management endpoints.
+ *
+ * Note: PlayerEntity type is defined in game.types.ts.
+ * Import via the barrel export: import type { PlayerEntity } from '../types'
  */
 export interface ServerNetworkWithSockets {
-  sockets: Map<string, ServerSocket>;
+  sockets: Map<
+    string,
+    ServerSocket & {
+      player: unknown; // PlayerEntity from game.types.ts - avoid circular dependency
+    }
+  >;
 }

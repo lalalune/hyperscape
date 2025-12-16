@@ -25,11 +25,11 @@
  * ```
  */
 
-import { SystemBase, World } from "@hyperscape/shared";
+import { SystemBase } from "@hyperscape/shared";
 import { eq, and, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type pg from "pg";
-import * as schema from "./database/schema";
+import * as schema from "./db/schema";
 import type {
   EquipmentRow,
   EquipmentSaveItem,
@@ -102,7 +102,7 @@ export class DatabaseSystem extends SystemBase {
    *
    * @param world - The game world instance this system belongs to
    */
-  constructor(world: World) {
+  constructor(world: unknown) {
     super(world, {
       name: "database",
       dependencies: {
@@ -125,7 +125,7 @@ export class DatabaseSystem extends SystemBase {
     // Get BlockchainGateway for hybrid sync
     const gateway = this.world.getSystem?.("blockchain-gateway");
     if (gateway && typeof gateway === "object" && "isEnabled" in gateway) {
-      this.blockchainGateway = gateway as unknown as typeof this.blockchainGateway;
+      this.blockchainGateway = gateway as typeof this.blockchainGateway;
       console.log(
         "[DatabaseSystem] ✅ BlockchainGateway integrated - hybrid mode enabled",
       );
@@ -992,12 +992,7 @@ export class DatabaseSystem extends SystemBase {
                       batch: true,
                     },
                   ) // Enable batching
-                  .catch((err) => {
-                    console.error(
-                      `[DatabaseSystem] Blockchain addItem failed for player ${playerId}, item ${item.itemId}:`,
-                      err,
-                    );
-                  }); // Non-blocking but logged
+                  .catch(() => {}); // Non-blocking
               }
             }
           }

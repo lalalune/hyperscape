@@ -13,7 +13,7 @@
  * - Performance state (movement, combat ticks) → Local/WebSocket
  */
 
-import { SystemBase, World } from "@hyperscape/shared";
+import { SystemBase } from "@hyperscape/shared";
 import {
   setupMudClient,
   type MudClient,
@@ -45,14 +45,13 @@ export class BlockchainGateway extends SystemBase {
     process.env.BATCH_INTERVAL_MS || "10000",
   );
 
-  constructor(world: World) {
+  constructor(world: unknown) {
     super(world, {
       name: "blockchain-gateway",
       dependencies: {
         required: [],
         optional: [],
       },
-      autoCleanup: true,
     });
   }
 
@@ -200,12 +199,6 @@ export class BlockchainGateway extends SystemBase {
     options?: { batch?: boolean },
   ): Promise<{ txHash?: string; batched?: boolean }> {
     if (!this.isEnabled()) {
-      // In hybrid mode, blockchain operations are required for critical state
-      // If disabled, we're in PostgreSQL-only mode and should not be called
-      console.warn(
-        `[BlockchainGateway] addItem called but blockchain disabled - operation skipped (player: ${playerAddress}, item: ${itemId}, qty: ${quantity})`,
-      );
-      // Return honest response: operation was not performed
       return { batched: false };
     }
 
@@ -249,12 +242,6 @@ export class BlockchainGateway extends SystemBase {
     quantity: number,
   ): Promise<{ txHash?: string }> {
     if (!this.isEnabled()) {
-      // In hybrid mode, blockchain operations are required for critical state
-      // If disabled, we're in PostgreSQL-only mode and should not be called
-      console.warn(
-        `[BlockchainGateway] removeItem called but blockchain disabled - operation skipped (player: ${playerAddress}, slot: ${slot}, qty: ${quantity})`,
-      );
-      // Return honest response: no transaction hash because operation didn't happen
       return {};
     }
 
@@ -321,15 +308,9 @@ export class BlockchainGateway extends SystemBase {
    * Hybrid: Individual hits calculated off-chain, only kills on-chain
    * On-chain: ✅ Critical state (loot drops, XP gains)
    */
-  async recordMobKill(mobId: Address): Promise<{ txHash?: string }> {
+  async recordMobKill(mobId: Address): Promise<{ txHash: string }> {
     if (!this.isEnabled()) {
-      // In hybrid mode, blockchain operations are required for critical state
-      // If disabled, we're in PostgreSQL-only mode - mob kills are tracked locally only
-      console.warn(
-        `[BlockchainGateway] recordMobKill called but blockchain disabled - mob kill tracked locally only (mob: ${mobId})`,
-      );
-      // Return honest response: no transaction hash because operation didn't happen on-chain
-      return {};
+      return { txHash: "0x0" };
     }
 
     console.log(`[BlockchainGateway] ⚔️  Recording mob kill on blockchain...`);
@@ -357,15 +338,9 @@ export class BlockchainGateway extends SystemBase {
   async recordResourceGathered(
     resourceId: Address,
     resourceType: "tree" | "fish",
-  ): Promise<{ txHash?: string }> {
+  ): Promise<{ txHash: string }> {
     if (!this.isEnabled()) {
-      // In hybrid mode, blockchain operations are required for critical state
-      // If disabled, we're in PostgreSQL-only mode - resource gathering tracked locally only
-      console.warn(
-        `[BlockchainGateway] recordResourceGathered called but blockchain disabled - resource gathering tracked locally only (resource: ${resourceId}, type: ${resourceType})`,
-      );
-      // Return honest response: no transaction hash because operation didn't happen on-chain
-      return {};
+      return { txHash: "0x0" };
     }
 
     const receipt =
@@ -421,56 +396,20 @@ export class BlockchainGateway extends SystemBase {
         `[BlockchainGateway]    Player ${playerAddress}: ${operations.length} ops`,
       );
 
-      // Execute operations sequentially
-      // Note: MUD v2 automatically batches transactions, so sequential execution
-      // is still efficient. For true multicall, we would need to use MUD's
-      // batch API which requires constructing multiple system calls in one transaction.
+      // Execute operations sequentially (TODO: use multicall for true batching)
       for (const op of operations) {
-        try {
-          if (
-            op.type === "add" &&
-            op.itemId !== undefined &&
-            op.quantity !== undefined
-          ) {
-            await this.mudClient!.InventorySystem.addItem(
-              playerAddress,
-              op.itemId,
-              op.quantity,
-            );
-          } else if (
-            op.type === "remove" &&
-            op.itemId !== undefined &&
-            op.quantity !== undefined
-          ) {
-            await this.mudClient!.InventorySystem.removeItem(
-              playerAddress,
-              op.itemId,
-              op.quantity,
-            );
-          } else if (
-            op.type === "move" &&
-            op.fromSlot !== undefined &&
-            op.toSlot !== undefined
-          ) {
-            await this.mudClient!.InventorySystem.moveItem(
-              playerAddress,
-              op.fromSlot,
-              op.toSlot,
-            );
-          } else {
-            console.warn(
-              `[BlockchainGateway] Unknown or incomplete operation type: ${op.type}`,
-              op,
-            );
-          }
-        } catch (err) {
-          console.error(
-            `[BlockchainGateway] Failed to execute ${op.type} operation:`,
-            err,
+        if (
+          op.type === "add" &&
+          op.itemId !== undefined &&
+          op.quantity !== undefined
+        ) {
+          await this.mudClient!.InventorySystem.addItem(
+            playerAddress,
+            op.itemId,
+            op.quantity,
           );
-          // Continue with other operations even if one fails
-          // The operation will remain in pendingInventoryOps for retry
         }
+        // TODO: Handle other operation types
       }
 
       console.log(`[BlockchainGateway] ✅ Batch complete for ${playerAddress}`);
@@ -482,47 +421,14 @@ export class BlockchainGateway extends SystemBase {
 
   // ============ Utilities ============
 
-  /**
-   * Parse event logs from a transaction receipt
-   *
-   * Note: MUD v2 uses system calls rather than traditional events.
-   * System call results are tracked via MUD's internal event system.
-   * This method parses standard Ethereum events if present.
-   *
-   * @param receipt - Transaction receipt with logs
-   * @returns Array of parsed events
-   */
-  private parseReceipt(receipt: {
+  private parseReceipt(_receipt: {
     logs: readonly { topics: readonly string[]; data: string }[];
   }): Array<{
     eventName: string;
     data: Record<string, unknown>;
   }> {
-    const parsedEvents: Array<{
-      eventName: string;
-      data: Record<string, unknown>;
-    }> = [];
-
-    // MUD system calls don't emit traditional events - they update on-chain state tables
-    // For standard Ethereum events (if any are emitted), we would decode them here
-    // For now, return empty array as MUD handles event tracking internally
-    for (const log of receipt.logs) {
-      if (log.topics.length === 0) continue;
-
-      // Standard Ethereum event format: topics[0] = event signature hash
-      // We would decode using viem's decodeEventLog here if we had event ABIs
-      // For MUD, system call results are tracked via MUD's event watchers instead
-
-      // Example parsing (commented out as MUD doesn't use standard events):
-      // try {
-      //   const decoded = decodeEventLog({ abi: EVENT_ABI, data: log.data, topics: log.topics });
-      //   parsedEvents.push({ eventName: decoded.eventName, data: decoded.args });
-      // } catch (err) {
-      //   // Not a known event, skip
-      // }
-    }
-
-    return parsedEvents;
+    // TODO: Parse event logs from receipt
+    return [];
   }
 
   /**

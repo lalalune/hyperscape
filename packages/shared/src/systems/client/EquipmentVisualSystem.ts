@@ -227,7 +227,9 @@ export class EquipmentVisualSystem extends SystemBase {
         this.weaponCache.set(itemId, gltf);
       }
 
-      const weaponMesh: THREE.Object3D = gltf.scene.clone(true); // Clone to allow multiple instances
+      const weaponMesh: THREE.Object3D = (
+        gltf.scene as unknown as THREE.Object3D
+      ).clone(true); // Clone to allow multiple instances
 
       // Read attachment metadata from Asset Forge export
       const attachmentData = weaponMesh.userData.hyperscape as

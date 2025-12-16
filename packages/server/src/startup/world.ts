@@ -66,6 +66,9 @@ export async function initializeWorld(
   config: ServerConfig,
   dbContext: DatabaseContext,
 ): Promise<World> {
+  // Set ASSETS_DIR env var for DataManager to load manifests from filesystem
+  process.env.ASSETS_DIR = config.assetsDir;
+
   console.log("[World] Installing Three.js extensions...");
   installThreeJSExtensions();
 

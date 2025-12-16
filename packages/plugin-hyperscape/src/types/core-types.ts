@@ -75,15 +75,15 @@ export interface ChatMessage {
   entityId?: string;
   playerId?: string;
   playerName?: string;
-
+  
   // Chat routing
   chatType?: ChatType; // Default: "global"
   targetId?: string; // For whisper messages
-
+  
   // Agent identification
   isFromAgent?: boolean; // True if sender is an AI agent
   agentId?: string; // ElizaOS agent ID if applicable
-
+  
   // Proximity data (for local chat)
   senderPosition?: { x: number; y: number; z: number };
 }

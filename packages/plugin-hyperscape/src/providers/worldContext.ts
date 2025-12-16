@@ -1,36 +1,29 @@
 /**
  * World Context Provider
- *
+ * 
  * Provides rich semantic descriptions of the game world to the agent,
  * enabling intelligent decision-making based on environmental context.
  */
 
-import type {
-  Provider,
-  IAgentRuntime,
-  Memory,
-  State,
-  ProviderResult,
-} from "@elizaos/core";
+import type { Provider, IAgentRuntime, Memory, State, ProviderResult } from "@elizaos/core";
 import type { HyperscapeService } from "../services/HyperscapeService.js";
 import {
   determineArea,
   getPlayerStatus,
   categorizeEntities,
-  generateSceneDescription,
+  generateSceneDescription
 } from "../shared/game-helpers.js";
 
 export const worldContextProvider: Provider = {
   name: "worldContext",
-  description:
-    "Provides semantic world context including location, threats, and opportunities",
+  description: "Provides semantic world context including location, threats, and opportunities",
   dynamic: true,
   position: 0,
 
   get: async (
     runtime: IAgentRuntime,
     _message: Memory,
-    _state: State,
+    _state: State
   ): Promise<ProviderResult> => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
 
@@ -58,13 +51,13 @@ export const worldContextProvider: Provider = {
       entities,
       player.position ?? [0, 0, 0],
       player.id,
-      status.combatLevel,
+      status.combatLevel
     );
 
     // Generate scene description using shared helper
     const contextText = generateSceneDescription(player, entities, {
       includeStatus: true,
-      includeSuggestions: true,
+      includeSuggestions: true
     });
 
     return {
@@ -96,5 +89,5 @@ export const worldContextProvider: Provider = {
         },
       },
     };
-  },
+  }
 };

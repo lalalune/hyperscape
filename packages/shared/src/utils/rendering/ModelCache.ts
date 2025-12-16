@@ -137,7 +137,7 @@ export class ModelCache {
         (typeof window !== "undefined" &&
           (window as Window & { __CDN_URL?: string }).__CDN_URL) ||
         world?.assetsUrl?.replace(/\/$/, "") ||
-        "http://localhost:8080";
+        "http://localhost:5555/assets";
       resolvedPath = resolvedPath.replace("asset://", `${cdnUrl}/`);
     }
 
@@ -208,10 +208,10 @@ export class ModelCache {
 
         // CRITICAL: Setup materials on the original scene for WebGPU/CSM
         // This ensures all clones will have properly configured materials
-        this.setupMaterials(gltf.scene, world);
+        this.setupMaterials(gltf.scene as unknown as THREE.Object3D, world);
 
         const cachedModel: CachedModel = {
-          scene: gltf.scene,
+          scene: gltf.scene as unknown as THREE.Object3D,
           animations: gltf.animations,
           loadedAt: Date.now(),
           cloneCount: 0,

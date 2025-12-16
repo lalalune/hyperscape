@@ -107,17 +107,29 @@ export class MusicSystem extends SystemBase {
   }
 
   private async loadMusicManifest(): Promise<void> {
-    // Load directly from CDN (localhost:8080 in dev, R2/S3 in prod)
-    // Use world.assetsUrl which is set by the server snapshot
+    // Load from world.assetsUrl (set by server snapshot) or server assets endpoint
     const cdnUrl =
-      this.world.assetsUrl?.replace(/\/$/, "") || "http://localhost:8080";
+      this.world.assetsUrl?.replace(/\/$/, "") ||
+      "http://localhost:5555/assets";
     const manifestPath = `${cdnUrl}/manifests/music.json`;
 
-    const response = await fetch(manifestPath);
-    if (!response.ok) {
-      this.logger.error(
-        `Failed to load music manifest: ${response.statusText}`,
+    let response: Response;
+    try {
+      response = await fetch(manifestPath);
+    } catch {
+      // CDN/network not available - music disabled
+      this.logger.warn(
+        `Music manifest not available (CDN may not be running): ${manifestPath}`,
       );
+      this.musicInitialized = false;
+      return;
+    }
+
+    if (!response.ok) {
+      this.logger.warn(
+        `Music manifest not available: ${response.status} ${response.statusText}`,
+      );
+      this.musicInitialized = false;
       return;
     }
 
@@ -136,10 +148,13 @@ export class MusicSystem extends SystemBase {
     if (!this.musicInitialized || !this.audio) return;
 
     // Wait for audio context to be unlocked
-    this.audio.ready(async () => {
+    // Wrap async callback to catch any errors since ready() doesn't handle promises
+    this.audio.ready(() => {
       const track = this.selectRandomTrack(this.normalTracks);
       if (track) {
-        await this.playTrack(track, this.INITIAL_FADE_DURATION);
+        this.playTrack(track, this.INITIAL_FADE_DURATION).catch((error) => {
+          this.logger.warn(`Failed to play initial track: ${error}`);
+        });
       }
     });
   }
@@ -188,10 +203,19 @@ export class MusicSystem extends SystemBase {
     if (cachedBuffer) {
       buffer = cachedBuffer as AudioBuffer;
     } else {
-      // Load audio buffer with error handling
-      const loadedBuffer = await this.loader.load("audio", track.path);
+      // Load audio buffer - gracefully handle missing files
+      let loadedBuffer;
+      try {
+        loadedBuffer = await this.loader.load("audio", track.path);
+      } catch {
+        // Music file not available - this is expected in dev without CDN
+        this.logger.warn(
+          `Music file not available: ${track.path} (CDN may not be running)`,
+        );
+        return;
+      }
       if (!loadedBuffer) {
-        this.logger.error(`Failed to load audio track: ${track.path}`);
+        this.logger.warn(`Failed to load audio track: ${track.path}`);
         return;
       }
       buffer = loadedBuffer as AudioBuffer;
@@ -341,7 +365,9 @@ export class MusicSystem extends SystemBase {
     const nextTrack = this.selectRandomTrack(trackList);
 
     if (nextTrack) {
-      this.playTrack(nextTrack, this.FADE_DURATION);
+      this.playTrack(nextTrack, this.FADE_DURATION).catch((error) => {
+        this.logger.warn(`Failed to play next track: ${error}`);
+      });
     }
   }
 
@@ -362,7 +388,9 @@ export class MusicSystem extends SystemBase {
     // Switch to combat music
     const combatTrack = this.selectRandomTrack(this.combatTracks);
     if (combatTrack) {
-      this.playTrack(combatTrack, this.FADE_DURATION);
+      this.playTrack(combatTrack, this.FADE_DURATION).catch((error) => {
+        this.logger.warn(`Failed to play combat track: ${error}`);
+      });
     }
   }
 
@@ -383,7 +411,9 @@ export class MusicSystem extends SystemBase {
 
     const normalTrack = this.selectRandomTrack(this.normalTracks);
     if (normalTrack) {
-      this.playTrack(normalTrack, this.FADE_DURATION);
+      this.playTrack(normalTrack, this.FADE_DURATION).catch((error) => {
+        this.logger.warn(`Failed to play normal track: ${error}`);
+      });
     }
   }
 

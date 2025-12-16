@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -11,6 +12,12 @@ export default defineConfig(({ mode }) => {
   const workspaceRoot = path.resolve(__dirname, "../..");
   const clientDir = __dirname;
 
+  // Detect if we're running in the jeju monorepo context
+  const isJejuContext = fs.existsSync(
+    path.join(workspaceRoot, "jeju-manifest.json"),
+  );
+  const defaultPort = isJejuContext ? 5009 : 3333;
+
   // Load from both locations - client dir takes precedence
   const workspaceEnv = loadEnv(mode, workspaceRoot, ["PUBLIC_", "VITE_"]);
   const clientEnv = loadEnv(mode, clientDir, ["PUBLIC_", "VITE_"]);
@@ -20,22 +27,19 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       // Watch shared package for changes and trigger full reload
+      // OPTIMIZED: Only watch build output (not source - esbuild handles that)
       {
         name: "watch-shared-package",
         configureServer(server) {
           const sharedBuildPath = path.resolve(__dirname, "../shared/build");
-          const sharedSrcPath = path.resolve(__dirname, "../shared/src");
 
-          // Watch both build output AND source files
-          server.watcher.add(path.join(sharedBuildPath, "**/*.js"));
-          server.watcher.add(path.join(sharedSrcPath, "**/*.ts"));
-          server.watcher.add(path.join(sharedSrcPath, "**/*.tsx"));
+          // Only watch the main build outputs, not source files
+          // The shared package's own watcher handles source → build
+          // We just need to know when the build output changes
+          server.watcher.add(path.join(sharedBuildPath, "framework.client.js"));
 
           server.watcher.on("change", (file) => {
-            if (
-              file.includes("packages/shared/build/") ||
-              file.includes("packages/shared/src/")
-            ) {
+            if (file.includes("packages/shared/build/framework.client.js")) {
               // Clear Vite's module cache for @hyperscape/shared
               const sharedModule =
                 server.moduleGraph.getModuleById("@hyperscape/shared");
@@ -159,7 +163,7 @@ export default defineConfig(({ mode }) => {
       "process.env.NODE_ENV": JSON.stringify(mode),
       "process.env.DEBUG_RPG": JSON.stringify(env.DEBUG_RPG || ""),
       "process.env.PUBLIC_CDN_URL": JSON.stringify(
-        env.PUBLIC_CDN_URL || "http://localhost:8080",
+        env.PUBLIC_CDN_URL || "http://localhost:5555/assets",
       ),
       "process.env.PUBLIC_STARTER_ITEMS": JSON.stringify(
         env.PUBLIC_STARTER_ITEMS || "",
@@ -171,7 +175,7 @@ export default defineConfig(({ mode }) => {
       // We don't need to manually define them here - Vite handles it automatically
     },
     server: {
-      port: Number(env.VITE_PORT) || 3333,
+      port: Number(env.VITE_PORT) || defaultPort,
       open: false,
       host: true,
       // Silence noisy missing source map warnings for vendored libs

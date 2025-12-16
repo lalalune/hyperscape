@@ -114,7 +114,8 @@
     "@types/three": "0.180.0",
     "@pixiv/three-vrm": "3.4.3",
     "joi": "^18.0.2",
-    "@hapi/hoek": "^11.0.7"
+    "@hapi/hoek": "^11.0.7",
+    "string-width": "^4.2.3"
   },
   "packageManager": "bun@1.1.38",
   "lint-staged": {

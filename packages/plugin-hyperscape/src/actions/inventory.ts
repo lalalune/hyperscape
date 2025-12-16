@@ -11,12 +11,7 @@ import type {
 } from "@elizaos/core";
 import { logger } from "@elizaos/core";
 import type { HyperscapeService } from "../services/HyperscapeService.js";
-import type {
-  EquipItemCommand,
-  UseItemCommand,
-  DropItemCommand,
-  Equipment,
-} from "../types.js";
+import type { EquipItemCommand, UseItemCommand, DropItemCommand, Equipment } from "../types.js";
 
 /** Equipment slot type */
 type EquipSlot = keyof Equipment;
@@ -128,10 +123,7 @@ export const unequipItemAction: Action = {
   ) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service) {
-      return {
-        success: false,
-        error: new Error("Hyperscape service not available"),
-      };
+      return { success: false, error: new Error("Hyperscape service not available") };
     }
     const playerEntity = service.getPlayerEntity();
     const content = message.content.text || "";
@@ -141,65 +133,36 @@ export const unequipItemAction: Action = {
 
     if (!slot) {
       const contentLower = content.toLowerCase();
-      if (
-        contentLower.includes("weapon") ||
-        contentLower.includes("sword") ||
-        contentLower.includes("axe")
-      ) {
+      if (contentLower.includes("weapon") || contentLower.includes("sword") || contentLower.includes("axe")) {
         slot = "weapon";
       } else if (contentLower.includes("shield")) {
         slot = "shield";
-      } else if (
-        contentLower.includes("helmet") ||
-        contentLower.includes("helm")
-      ) {
+      } else if (contentLower.includes("helmet") || contentLower.includes("helm")) {
         slot = "helmet";
-      } else if (
-        contentLower.includes("body") ||
-        contentLower.includes("chest") ||
-        contentLower.includes("armor")
-      ) {
+      } else if (contentLower.includes("body") || contentLower.includes("chest") || contentLower.includes("armor")) {
         slot = "body";
-      } else if (
-        contentLower.includes("legs") ||
-        contentLower.includes("pants")
-      ) {
+      } else if (contentLower.includes("legs") || contentLower.includes("pants")) {
         slot = "legs";
-      } else if (
-        contentLower.includes("boots") ||
-        contentLower.includes("feet")
-      ) {
+      } else if (contentLower.includes("boots") || contentLower.includes("feet")) {
         slot = "boots";
       }
     }
 
     if (!slot) {
-      await callback?.({
-        text: "Could not determine which slot to unequip. Specify: weapon, shield, helmet, body, legs, or boots.",
-        error: true,
-      });
+      await callback?.({ text: "Could not determine which slot to unequip. Specify: weapon, shield, helmet, body, legs, or boots.", error: true });
       return { success: false, error: new Error("Slot not specified") };
     }
 
     const equipped = playerEntity?.equipment[slot];
     if (!equipped) {
-      await callback?.({
-        text: `No item equipped in ${slot} slot.`,
-        error: true,
-      });
-      return {
-        success: false,
-        error: new Error(`Nothing equipped in ${slot}`),
-      };
+      await callback?.({ text: `No item equipped in ${slot} slot.`, error: true });
+      return { success: false, error: new Error(`Nothing equipped in ${slot}`) };
     }
 
     logger.info(`[UNEQUIP_ITEM] Unequipping ${slot}: ${equipped}`);
     await service.executeUnequipItem(slot);
 
-    await callback?.({
-      text: `Unequipped ${equipped} from ${slot}`,
-      action: "UNEQUIP_ITEM",
-    });
+    await callback?.({ text: `Unequipped ${equipped} from ${slot}`, action: "UNEQUIP_ITEM" });
     return { success: true, text: `Unequipped ${equipped}` };
   },
 
@@ -208,10 +171,7 @@ export const unequipItemAction: Action = {
       { name: "user", content: { text: "Unequip weapon" } },
       {
         name: "agent",
-        content: {
-          text: "Unequipped Bronze Sword from weapon",
-          action: "UNEQUIP_ITEM",
-        },
+        content: { text: "Unequipped Bronze Sword from weapon", action: "UNEQUIP_ITEM" },
       },
     ],
   ],
@@ -322,10 +282,7 @@ export const dropItemAction: Action = {
         return { success: false };
       }
 
-      const command: DropItemCommand = {
-        itemId: item.id,
-        quantity: item.quantity,
-      };
+      const command: DropItemCommand = { itemId: item.id, quantity: item.quantity };
       await service.executeDropItem(command);
 
       await callback?.({ text: `Dropped ${item.name}`, action: "DROP_ITEM" });

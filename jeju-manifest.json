@@ -1,16 +1,21 @@
 {
+  "$schema": "../../jeju-manifest.schema.json",
   "name": "hyperscape",
   "displayName": "Hyperscape MMORPG",
   "version": "1.0.0",
   "type": "vendor",
   "description": "Hyperscape MMORPG integration with on-chain items, gold, and game events",
   "commands": {
-    "dev": "bun run --watch app/",
-    "build": "bun build app/ --outdir=dist",
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start",
     "test": "bun test tests/"
   },
   "ports": {
-    "main": 8030
+    "main": 5009,
+    "game": 5009,
+    "api": 5010,
+    "storage": 8080
   },
   "dependencies": ["contracts", "config", "bazaar"],
   "optional": true,
@@ -22,5 +27,6 @@
   "ui": {
     "pages": ["app/games/hyperscape/"],
     "components": ["components/"]
-  }
+  },
+  "tags": ["game", "3d", "engine", "elizaos", "mmorpg"]
 }

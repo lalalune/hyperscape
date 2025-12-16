@@ -11,7 +11,12 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { encodeFunctionData, parseAbi, type Address, type Hex } from "viem";
+import {
+  encodeFunctionData,
+  parseAbi,
+  type Address,
+  type Hex,
+} from "viem";
 import {
   getGameTransactionService,
   initializeGameTransactionServiceFromEnv,
@@ -57,7 +62,7 @@ const WORLD_ABI = parseAbi([
 
 function encodeGameAction(
   action: GameAction,
-  params: Record<string, unknown>,
+  params: Record<string, unknown>
 ): { target: Address; callData: Hex } {
   const goldAddress = process.env.GOLD_ADDRESS as Address | undefined;
   const itemsAddress = process.env.ITEMS_ADDRESS as Address | undefined;
@@ -248,9 +253,7 @@ function ensureInitialized(): void {
 
 // ============ Route Registration ============
 
-export async function gameActionRoutes(
-  fastify: FastifyInstance,
-): Promise<void> {
+export async function gameActionRoutes(fastify: FastifyInstance): Promise<void> {
   // Initialize service on first request
   fastify.addHook("onRequest", async () => {
     ensureInitialized();
@@ -261,10 +264,7 @@ export async function gameActionRoutes(
    */
   fastify.post<{ Body: GameActionRequest }>(
     "/api/game/action",
-    async (
-      request: FastifyRequest<{ Body: GameActionRequest }>,
-      reply: FastifyReply,
-    ) => {
+    async (request: FastifyRequest<{ Body: GameActionRequest }>, reply: FastifyReply) => {
       const { player, action, params } = request.body;
 
       if (!player || !action) {
@@ -310,7 +310,7 @@ export async function gameActionRoutes(
         hash: result.hash,
         gasUsed: result.gasUsed?.toString(),
       });
-    },
+    }
   );
 
   /**
@@ -318,10 +318,7 @@ export async function gameActionRoutes(
    */
   fastify.post<{ Body: BatchActionRequest }>(
     "/api/game/batch",
-    async (
-      request: FastifyRequest<{ Body: BatchActionRequest }>,
-      reply: FastifyReply,
-    ) => {
+    async (request: FastifyRequest<{ Body: BatchActionRequest }>, reply: FastifyReply) => {
       const { actions } = request.body;
 
       if (!actions || !Array.isArray(actions) || actions.length === 0) {
@@ -338,9 +335,7 @@ export async function gameActionRoutes(
         });
       }
 
-      console.log(
-        `[GameActions] Executing batch of ${actions.length} actions for ${player}`,
-      );
+      console.log(`[GameActions] Executing batch of ${actions.length} actions for ${player}`);
 
       // Encode all actions
       const txs: GameTransaction[] = [];
@@ -379,7 +374,7 @@ export async function gameActionRoutes(
         gasUsed: result.gasUsed?.toString(),
         actionsExecuted: actions.length,
       });
-    },
+    }
   );
 
   /**
@@ -403,7 +398,7 @@ export async function gameActionRoutes(
         network: process.env.JEJU_NETWORK || "jeju",
         chainId: process.env.CHAIN_ID || "420691",
       });
-    },
+    }
   );
 
   /**
@@ -417,7 +412,7 @@ export async function gameActionRoutes(
         initialized,
         timestamp: Date.now(),
       });
-    },
+    }
   );
 }
 

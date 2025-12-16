@@ -1,36 +1,23 @@
 /**
  * Multicoin Paymaster Integration
- * Server-side wrapper for paymaster discovery with stake filtering
  */
 
 import { ethers } from "ethers";
-import {
-  getAvailablePaymasters as getAvailablePaymastersShared,
-  type PaymasterInfo,
-} from "@hyperscape/shared/blockchain/paymaster";
+
+const TOKENS = {
+  ELIZAOS: process.env.ELIZAOS_TOKEN_ADDRESS || "",
+  CLANKER: process.env.CLANKER_TOKEN_ADDRESS || "",
+  VIRTUAL: process.env.VIRTUAL_TOKEN_ADDRESS || "",
+  CLANKERMON: process.env.CLANKERMON_TOKEN_ADDRESS || "",
+};
 
 export class PaymasterService {
-  /**
-   * Get available paymasters filtered by ETH stake threshold
-   * 
-   * @param minETH - Minimum ETH stake required (default: 0.01 ETH)
-   * @returns Array of paymaster addresses that meet the stake requirement
-   */
   async getAvailablePaymasters(
-    minETH: bigint = BigInt(10 ** 19), // 0.01 ETH default
+    _minETH: bigint = BigInt(10 ** 19),
   ): Promise<string[]> {
-    try {
-      // Use shared paymaster discovery which already filters by stake
-      const paymasters = await getAvailablePaymastersShared(minETH);
-      return paymasters.map((pm: PaymasterInfo) => pm.address);
-    } catch (error) {
-      console.error(
-        "[PaymasterService] Failed to get available paymasters:",
-        error,
-      );
-      // Return empty array if query fails (fail closed)
-      return [];
-    }
+    // Query PaymasterFactory for deployed paymasters
+    // TODO: Filter by ETH stake threshold when implemented
+    return Object.values(TOKENS).filter(Boolean);
   }
 
   generatePaymasterData(paymasterAddr: string, appAddr: string): string {

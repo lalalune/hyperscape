@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 /**
  * MCP Protocol E2E Test Script
- *
+ * 
  * Tests the MCP integration for Hyperscape:
  * 1. Initialize MCP server with game service
  * 2. List available tools
  * 3. List available resources
  * 4. Execute tools for game actions
  * 5. Read game state resources
- *
+ * 
  * Usage:
  *   bun run scripts/test-mcp.ts
  */
@@ -34,12 +34,12 @@ function createMockService(): HyperscapeService {
       hitpoints: { level: 12, xp: 2000 },
       woodcutting: { level: 15, xp: 3500 },
       fishing: { level: 5, xp: 400 },
-      mining: { level: 20, xp: 6000 },
+      mining: { level: 20, xp: 6000 }
     },
     items: [
       { id: "bronze_sword", name: "Bronze Sword", quantity: 1, slot: 0 },
       { id: "cooked_fish", name: "Cooked Fish", quantity: 5, slot: 1 },
-      { id: "oak_logs", name: "Oak Logs", quantity: 12, slot: 2 },
+      { id: "oak_logs", name: "Oak Logs", quantity: 12, slot: 2 }
     ],
     coins: 1500,
     combatLevel: 15,
@@ -47,50 +47,16 @@ function createMockService(): HyperscapeService {
       weapon: { id: "bronze_sword", name: "Bronze Sword" },
       head: null,
       body: { id: "leather_body", name: "Leather Body" },
-      legs: { id: "leather_legs", name: "Leather Legs" },
-    },
+      legs: { id: "leather_legs", name: "Leather Legs" }
+    }
   };
 
   const mockEntities = [
-    {
-      id: "goblin-1",
-      name: "Goblin",
-      type: "mob",
-      mobType: "goblin",
-      position: [110, 0, 205] as [number, number, number],
-      health: { current: 15, max: 15 },
-      level: 2,
-    },
-    {
-      id: "goblin-2",
-      name: "Goblin",
-      type: "mob",
-      mobType: "goblin",
-      position: [95, 0, 190] as [number, number, number],
-      health: { current: 8, max: 15 },
-      level: 2,
-    },
-    {
-      id: "oak-tree-1",
-      name: "Oak Tree",
-      type: "resource",
-      resourceType: "tree",
-      position: [120, 0, 180] as [number, number, number],
-    },
-    {
-      id: "fishing-spot-1",
-      name: "Fishing Spot",
-      type: "resource",
-      resourceType: "fish",
-      position: [80, 0, 220] as [number, number, number],
-    },
-    {
-      id: "item-gold-1",
-      name: "Gold Coins",
-      type: "item",
-      position: [105, 0, 195] as [number, number, number],
-      quantity: 25,
-    },
+    { id: "goblin-1", name: "Goblin", type: "mob", mobType: "goblin", position: [110, 0, 205] as [number, number, number], health: { current: 15, max: 15 }, level: 2 },
+    { id: "goblin-2", name: "Goblin", type: "mob", mobType: "goblin", position: [95, 0, 190] as [number, number, number], health: { current: 8, max: 15 }, level: 2 },
+    { id: "oak-tree-1", name: "Oak Tree", type: "resource", resourceType: "tree", position: [120, 0, 180] as [number, number, number] },
+    { id: "fishing-spot-1", name: "Fishing Spot", type: "resource", resourceType: "fish", position: [80, 0, 220] as [number, number, number] },
+    { id: "item-gold-1", name: "Gold Coins", type: "item", position: [105, 0, 195] as [number, number, number], quantity: 25 }
   ];
 
   const service = {
@@ -101,14 +67,11 @@ function createMockService(): HyperscapeService {
     getGameState: () => ({
       connected: true,
       worldTime: Date.now(),
-      playerCount: 15,
+      playerCount: 15
     }),
-
+    
     // Action execution methods
-    executeMove: async (cmd: {
-      target: [number, number, number];
-      runMode?: boolean;
-    }) => {
+    executeMove: async (cmd: { target: [number, number, number]; runMode?: boolean }) => {
       const [x, _y, z] = cmd.target;
       console.log(`  [Mock] Moving to (${x}, ${z})`);
       mockPlayer.position = cmd.target;
@@ -116,13 +79,8 @@ function createMockService(): HyperscapeService {
     executeAttack: async (cmd: { targetEntityId: string }) => {
       console.log(`  [Mock] Attacking ${cmd.targetEntityId}`);
     },
-    executeGatherResource: async (cmd: {
-      resourceEntityId: string;
-      skill: string;
-    }) => {
-      console.log(
-        `  [Mock] Gathering ${cmd.skill} resource ${cmd.resourceEntityId}`,
-      );
+    executeGatherResource: async (cmd: { resourceEntityId: string; skill: string }) => {
+      console.log(`  [Mock] Gathering ${cmd.skill} resource ${cmd.resourceEntityId}`);
     },
     executeUseItem: async (cmd: { itemId: string }) => {
       console.log(`  [Mock] Using item ${cmd.itemId}`);
@@ -154,13 +112,9 @@ function createMockService(): HyperscapeService {
     executeChangeAttackStyle: async (cmd: { style: string }) => {
       console.log(`  [Mock] Changing attack style to ${cmd.style}`);
     },
-    executeBankAction: async (cmd: {
-      action: string;
-      itemId?: string;
-      amount?: number;
-    }) => {
+    executeBankAction: async (cmd: { action: string; itemId?: string; amount?: number }) => {
       console.log(`  [Mock] Bank ${cmd.action}: ${cmd.itemId} x${cmd.amount}`);
-    },
+    }
   };
 
   return service as unknown as HyperscapeService;
@@ -188,16 +142,16 @@ function info(message: string) {
 
 function testToolListing(mcpServer: HyperscapeMCPServer): boolean {
   info("Listing available MCP tools...");
-
+  
   const tools = mcpServer.listTools();
-
+  
   if (tools.length === 0) {
     fail("No tools available");
     return false;
   }
-
+  
   pass(`${tools.length} MCP tools available`);
-
+  
   // Check required tools - comprehensive list
   const requiredTools = [
     // Movement
@@ -235,19 +189,19 @@ function testToolListing(mcpServer: HyperscapeMCPServer): boolean {
     "hyperscape_look_around",
     "hyperscape_examine",
     "hyperscape_respawn",
-    "hyperscape_set_goal",
+    "hyperscape_set_goal"
   ];
-
-  const toolNames = tools.map((t) => t.name);
-  const missingTools = requiredTools.filter((t) => !toolNames.includes(t));
-
+  
+  const toolNames = tools.map(t => t.name);
+  const missingTools = requiredTools.filter(t => !toolNames.includes(t));
+  
   if (missingTools.length > 0) {
     fail(`Missing required tools: ${missingTools.join(", ")}`);
     return false;
   }
-
+  
   pass(`All ${requiredTools.length} required tools present`);
-
+  
   // Display tool names
   for (const tool of tools.slice(0, 10)) {
     info(`  - ${tool.name}: ${tool.description.slice(0, 50)}...`);
@@ -255,127 +209,111 @@ function testToolListing(mcpServer: HyperscapeMCPServer): boolean {
   if (tools.length > 10) {
     info(`  ... and ${tools.length - 10} more`);
   }
-
+  
   return true;
 }
 
 function testResourceListing(mcpServer: HyperscapeMCPServer): boolean {
   info("Listing available MCP resources...");
-
+  
   const resources = mcpServer.listResources();
-
+  
   if (resources.length === 0) {
     fail("No resources available");
     return false;
   }
-
+  
   pass(`${resources.length} MCP resources available`);
-
+  
   // Check required resources
-  const requiredUris = [
-    "/status",
-    "/inventory",
-    "/skills",
-    "/nearby",
-    "/equipment",
-  ];
-
-  const resourceUris = resources.map((r) => r.uri);
-  const missingResources = requiredUris.filter(
-    (uri) => !resourceUris.some((r) => r.includes(uri)),
-  );
-
+  const requiredUris = ["/status", "/inventory", "/skills", "/nearby", "/equipment"];
+  
+  const resourceUris = resources.map(r => r.uri);
+  const missingResources = requiredUris.filter(uri => !resourceUris.some(r => r.includes(uri)));
+  
   if (missingResources.length > 0) {
     fail(`Missing required resources: ${missingResources.join(", ")}`);
     return false;
   }
-
+  
   pass(`All ${requiredUris.length} required resources present`);
-
+  
   // Display resources
   for (const resource of resources) {
     info(`  - ${resource.uri}: ${resource.name}`);
   }
-
+  
   return true;
 }
 
 function testPromptListing(mcpServer: HyperscapeMCPServer): boolean {
   info("Listing available MCP prompts...");
-
+  
   const prompts = mcpServer.listPrompts();
-
+  
   if (prompts.length === 0) {
     info("No prompts defined (optional)");
     return true;
   }
-
+  
   pass(`${prompts.length} MCP prompts available`);
-
+  
   for (const prompt of prompts) {
     info(`  - ${prompt.name}: ${prompt.description}`);
   }
-
+  
   return true;
 }
 
-async function testToolExecution(
-  mcpServer: HyperscapeMCPServer,
-): Promise<boolean> {
+async function testToolExecution(mcpServer: HyperscapeMCPServer): Promise<boolean> {
   info("Testing tool execution...");
-
+  
   // Test get_status tool
   info("  Testing hyperscape_get_status...");
   const statusResult = await mcpServer.callTool("hyperscape_get_status", {});
-
+  
   if (!statusResult.content || statusResult.content.length === 0) {
     fail("No content returned from get_status");
     return false;
   }
-
+  
   pass("hyperscape_get_status executed");
   const statusContent = statusResult.content[0];
   if (statusContent.type === "text") {
     info(`    ${statusContent.text?.slice(0, 100)}...`);
   }
-
+  
   // Test get_nearby tool
   info("  Testing hyperscape_get_nearby...");
-  const nearbyResult = await mcpServer.callTool("hyperscape_get_nearby", {
-    range: 30,
-  });
-
+  const nearbyResult = await mcpServer.callTool("hyperscape_get_nearby", { range: 30 });
+  
   if (!nearbyResult.content || nearbyResult.content.length === 0) {
     fail("No content returned from get_nearby");
     return false;
   }
-
+  
   pass("hyperscape_get_nearby executed");
-
+  
   // Test move_to tool
   info("  Testing hyperscape_move_to...");
-  const moveResult = await mcpServer.callTool("hyperscape_move_to", {
-    x: 50,
-    y: 0,
-    z: 50,
-  });
-
+  const moveResult = await mcpServer.callTool("hyperscape_move_to", { x: 50, y: 0, z: 50 });
+  
   if (!moveResult.content || moveResult.content.length === 0) {
     fail("No content returned from move_to");
     return false;
   }
-
+  
   pass("hyperscape_move_to executed");
-
+  
   // Test look_around tool
   info("  Testing hyperscape_look_around...");
   const lookResult = await mcpServer.callTool("hyperscape_look_around", {});
-
+  
   if (!lookResult.content || lookResult.content.length === 0) {
     fail("No content returned from look_around");
     return false;
   }
-
+  
   pass("hyperscape_look_around executed");
   const lookContent = lookResult.content[0];
   if (lookContent.type === "text") {
@@ -384,7 +322,7 @@ async function testToolExecution(
       info(`    ${line}`);
     }
   }
-
+  
   // Test more tools for comprehensive coverage
   info("  Testing hyperscape_get_skills...");
   const skillsResult = await mcpServer.callTool("hyperscape_get_skills", {});
@@ -393,7 +331,7 @@ async function testToolExecution(
     return false;
   }
   pass("hyperscape_get_skills executed");
-
+  
   info("  Testing hyperscape_get_equipment...");
   const equipResult = await mcpServer.callTool("hyperscape_get_equipment", {});
   if (!equipResult.content || equipResult.content.length === 0) {
@@ -401,7 +339,7 @@ async function testToolExecution(
     return false;
   }
   pass("hyperscape_get_equipment executed");
-
+  
   info("  Testing hyperscape_get_inventory...");
   const invResult = await mcpServer.callTool("hyperscape_get_inventory", {});
   if (!invResult.content || invResult.content.length === 0) {
@@ -409,71 +347,62 @@ async function testToolExecution(
     return false;
   }
   pass("hyperscape_get_inventory executed");
-
+  
   info("  Testing hyperscape_move_direction...");
-  const dirResult = await mcpServer.callTool("hyperscape_move_direction", {
-    direction: "north",
-    distance: 5,
-  });
+  const dirResult = await mcpServer.callTool("hyperscape_move_direction", { direction: "north", distance: 5 });
   if (!dirResult.content || dirResult.content.length === 0) {
     fail("No content returned from move_direction");
     return false;
   }
   pass("hyperscape_move_direction executed");
-
+  
   info("  Testing hyperscape_set_goal...");
-  const goalResult = await mcpServer.callTool("hyperscape_set_goal", {
-    goalType: "exploration",
-  });
+  const goalResult = await mcpServer.callTool("hyperscape_set_goal", { goalType: "exploration" });
   if (!goalResult.content || goalResult.content.length === 0) {
     fail("No content returned from set_goal");
     return false;
   }
   pass("hyperscape_set_goal executed");
-
+  
   info("  Testing hyperscape_emote...");
-  const emoteResult = await mcpServer.callTool("hyperscape_emote", {
-    emote: "wave",
-  });
+  const emoteResult = await mcpServer.callTool("hyperscape_emote", { emote: "wave" });
   if (!emoteResult.content || emoteResult.content.length === 0) {
     fail("No content returned from emote");
     return false;
   }
-  pass("hyperscape_emote executed");
-
+  pass("hyperscape_emote executed")
+  
   return true;
 }
 
-async function testResourceReading(
-  mcpServer: HyperscapeMCPServer,
-): Promise<boolean> {
+async function testResourceReading(mcpServer: HyperscapeMCPServer): Promise<boolean> {
   info("Testing resource reading...");
-
+  
   const resources = mcpServer.listResources();
-
+  
   for (const resource of resources.slice(0, 5)) {
     try {
       info(`  Reading ${resource.uri}...`);
       const result = await mcpServer.readResource(resource.uri);
-
+      
       if (!result.contents || result.contents.length === 0) {
         fail(`No content returned for ${resource.uri}`);
         return false;
       }
-
+      
       const content = result.contents[0];
       if (content.text) {
         const preview = content.text.slice(0, 80).replace(/\n/g, " ");
         info(`    ${preview}...`);
       }
-
+      
       pass(`Read ${resource.uri}`);
     } catch (error) {
       fail(`Failed to read ${resource.uri}: ${error}`);
       return false;
     }
   }
-
+  
   return true;
 }
 
@@ -558,7 +487,8 @@ async function runTests() {
 }
 
 // Run
-runTests().catch((error) => {
+runTests().catch(error => {
   console.error("\n💥 FATAL ERROR:", error);
   process.exit(1);
 });
+

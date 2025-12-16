@@ -175,9 +175,7 @@ export class GameTransactionService {
    * Execute a single game transaction (gasless for player)
    */
   async executeTransaction(tx: GameTransaction): Promise<TransactionResult> {
-    console.log(
-      `[GameTxService] Executing tx for ${tx.player} -> ${tx.target}`,
-    );
+    console.log(`[GameTxService] Executing tx for ${tx.player} -> ${tx.target}`);
 
     // Check if bundler is available
     const useBundler = await this.isBundlerAvailable();
@@ -205,15 +203,10 @@ export class GameTransactionService {
 
     const player = txs[0].player;
     if (!txs.every((tx) => tx.player === player)) {
-      return {
-        success: false,
-        error: "All transactions must be for the same player",
-      };
+      return { success: false, error: "All transactions must be for the same player" };
     }
 
-    console.log(
-      `[GameTxService] Executing batch of ${txs.length} txs for ${player}`,
-    );
+    console.log(`[GameTxService] Executing batch of ${txs.length} txs for ${player}`);
 
     const callData = encodeFunctionData({
       abi: SIMPLE_ACCOUNT_ABI,
@@ -235,9 +228,7 @@ export class GameTransactionService {
   /**
    * Execute via ERC-4337 bundler (preferred)
    */
-  private async executeViaBundler(
-    tx: GameTransaction,
-  ): Promise<TransactionResult> {
+  private async executeViaBundler(tx: GameTransaction): Promise<TransactionResult> {
     const nonce = await this.getNonce(tx.player);
     const feeData = await this.publicClient.estimateFeesPerGas();
 
@@ -248,11 +239,10 @@ export class GameTransactionService {
     });
 
     // Build paymaster data
-    const verificationGas = 100000n.toString(16).padStart(32, "0");
-    const postOpGas = 50000n.toString(16).padStart(32, "0");
+    const verificationGas = (100000n).toString(16).padStart(32, "0");
+    const postOpGas = (50000n).toString(16).padStart(32, "0");
     const appAddr = this.config.appAddress.slice(2).toLowerCase();
-    const paymasterAndData =
-      `${this.config.paymasterAddress}${verificationGas}${postOpGas}${appAddr}` as Hex;
+    const paymasterAndData = `${this.config.paymasterAddress}${verificationGas}${postOpGas}${appAddr}` as Hex;
 
     const userOp = {
       sender: tx.player,
@@ -305,14 +295,12 @@ export class GameTransactionService {
   /**
    * Execute directly via game authority (fallback when no bundler)
    */
-  private async executeDirectly(
-    tx: GameTransaction,
-  ): Promise<TransactionResult> {
+  private async executeDirectly(tx: GameTransaction): Promise<TransactionResult> {
     const hash = await this.walletClient.sendTransaction({
       to: tx.target,
       data: tx.callData,
       value: tx.value ?? 0n,
-    } as unknown as Parameters<typeof this.walletClient.sendTransaction>[0]);
+    } as Parameters<typeof this.walletClient.sendTransaction>[0]);
 
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
 
@@ -331,16 +319,15 @@ export class GameTransactionService {
     const cacheKey = sender.toLowerCase();
     const pendingNonce = this.pendingNonces.get(cacheKey);
 
-    const onChainNonce = (await this.publicClient.readContract({
+    const onChainNonce = await this.publicClient.readContract({
       address: ENTRYPOINT_V07,
       abi: ENTRYPOINT_ABI,
       functionName: "getNonce",
       args: [sender, 0n],
-    } as Parameters<typeof this.publicClient.readContract>[0])) as bigint;
+    });
 
     // Use max of on-chain and pending
-    const nonce =
-      pendingNonce && pendingNonce > onChainNonce ? pendingNonce : onChainNonce;
+    const nonce = pendingNonce && pendingNonce > onChainNonce ? pendingNonce : onChainNonce;
 
     // Increment pending nonce
     this.pendingNonces.set(cacheKey, nonce + 1n);
@@ -376,7 +363,7 @@ export class GameTransactionService {
         BigInt(userOp.maxFeePerGas),
         BigInt(userOp.maxPriorityFeePerGas),
         keccak256(userOp.paymasterAndData as Hex),
-      ],
+      ]
     );
 
     const userOpHash = keccak256(packed);
@@ -384,8 +371,8 @@ export class GameTransactionService {
     return keccak256(
       encodeAbiParameters(
         [{ type: "bytes32" }, { type: "address" }, { type: "uint256" }],
-        [userOpHash, ENTRYPOINT_V07, BigInt(this.config.chainId)],
-      ),
+        [userOpHash, ENTRYPOINT_V07, BigInt(this.config.chainId)]
+      )
     );
   }
 
@@ -394,7 +381,7 @@ export class GameTransactionService {
    */
   private async waitForUserOpReceipt(
     userOpHash: Hash,
-    timeout = 60000,
+    timeout = 60000
   ): Promise<TransactionResult> {
     const startTime = Date.now();
 
@@ -411,10 +398,7 @@ export class GameTransactionService {
       });
 
       const result = (await response.json()) as {
-        result?: {
-          success: boolean;
-          receipt: { transactionHash: Hash; gasUsed: string };
-        } | null;
+        result?: { success: boolean; receipt: { transactionHash: Hash; gasUsed: string } } | null;
       };
 
       if (result.result) {
@@ -458,7 +442,7 @@ export class GameTransactionService {
    * Check paymaster balance
    */
   async getPaymasterBalance(): Promise<bigint> {
-    const balance = (await this.publicClient.readContract({
+    const balance = await this.publicClient.readContract({
       address: ENTRYPOINT_V07,
       abi: [
         {
@@ -468,10 +452,10 @@ export class GameTransactionService {
           inputs: [{ name: "account", type: "address" }],
           outputs: [{ name: "", type: "uint256" }],
         },
-      ] as const,
+      ],
       functionName: "balanceOf",
       args: [this.config.paymasterAddress],
-    } as Parameters<typeof this.publicClient.readContract>[0])) as bigint;
+    });
 
     return balance;
   }
@@ -502,20 +486,18 @@ export class GameTransactionService {
 let gameTransactionService: GameTransactionService | null = null;
 
 export function initializeGameTransactionService(
-  config: GameTransactionConfig,
+  config: GameTransactionConfig
 ): GameTransactionService {
   gameTransactionService = new GameTransactionService(config);
   console.log(
-    `[GameTxService] Initialized with authority: ${gameTransactionService.getGameAuthorityAddress()}`,
+    `[GameTxService] Initialized with authority: ${gameTransactionService.getGameAuthorityAddress()}`
   );
   return gameTransactionService;
 }
 
 export function getGameTransactionService(): GameTransactionService {
   if (!gameTransactionService) {
-    throw new Error(
-      "[GameTxService] Not initialized. Call initializeGameTransactionService first.",
-    );
+    throw new Error("[GameTxService] Not initialized. Call initializeGameTransactionService first.");
   }
   return gameTransactionService;
 }

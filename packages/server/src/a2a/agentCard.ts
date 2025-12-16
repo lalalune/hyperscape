@@ -55,16 +55,11 @@ export function generateAgentCard(serverUrl: string): A2AAgentCard {
     skills: [
       {
         id: "join-game",
-        name: "Join Game World",
+        name: "Check Join Status",
         description:
-          "Join the Hyperscape RPG world as a player. Creates a character and spawns in a random starter town.",
-        tags: ["game", "join", "character"],
-        examples: [
-          "Join the RPG world",
-          "Start playing Hyperscape",
-          "Create my character",
-          "Enter the game",
-        ],
+          "Check if you can join the game. Note: Actually joining requires WebSocket connection. A2A is for querying/commanding already-connected agents.",
+        tags: ["game", "status", "connection"],
+        examples: ["Can I join?", "Check game connection", "How do I join?"],
       },
       {
         id: "get-status",
@@ -380,6 +375,92 @@ export function generateAgentCard(serverUrl: string): A2AAgentCard {
           "Look at the sword",
         ],
       },
+      {
+        id: "mine-rock",
+        name: "Mine Rock",
+        description:
+          "Mine ore from a rock. Requires a pickaxe equipped. Yields ores based on Mining level.",
+        tags: ["skills", "gathering", "mining"],
+        examples: [
+          "Mine the rock",
+          "Mine some copper ore",
+          "Gather ore from the iron rock",
+        ],
+      },
+      {
+        id: "examine-inventory-item",
+        name: "Examine Inventory Item",
+        description:
+          "Get detailed information about an item in your inventory.",
+        tags: ["inventory", "examine", "query"],
+        examples: [
+          "Examine the sword in my inventory",
+          "What is this item?",
+          "Inspect my bronze axe",
+        ],
+      },
+      // Chat and social skills
+      {
+        id: "send-chat",
+        name: "Send Chat Message",
+        description:
+          "Send a global chat message visible to all players in the world.",
+        tags: ["social", "chat", "communication"],
+        examples: [
+          "Say hello to everyone",
+          "Send a message: Looking for group",
+          "Chat: Anyone want to trade?",
+        ],
+      },
+      {
+        id: "send-local-chat",
+        name: "Send Local Chat",
+        description:
+          "Send a message visible only to nearby players within chat range.",
+        tags: ["social", "chat", "communication"],
+        examples: [
+          "Say hello to nearby players",
+          "Local chat: Need help with this goblin",
+          "Speak locally: Is anyone around?",
+        ],
+      },
+      {
+        id: "send-whisper",
+        name: "Send Whisper",
+        description: "Send a private message to a specific player.",
+        tags: ["social", "chat", "whisper", "private"],
+        examples: [
+          "Whisper to Bob: Want to trade?",
+          "Private message Alice: Meet at the bank",
+          "Send whisper: Are you there?",
+        ],
+      },
+      // Dialogue skills
+      {
+        id: "dialogue-respond",
+        name: "Dialogue Response",
+        description:
+          "Select a dialogue option when talking to an NPC. Use the response index (0-based).",
+        tags: ["npc", "dialogue", "interaction"],
+        examples: [
+          "Select option 1",
+          "Choose the first dialogue option",
+          "Respond with option 0",
+        ],
+      },
+      {
+        id: "close-dialogue",
+        name: "Close Dialogue",
+        description: "End the current dialogue with an NPC.",
+        tags: ["npc", "dialogue", "interaction"],
+        examples: [
+          "Close the dialogue",
+          "End conversation",
+          "Stop talking to NPC",
+        ],
+      },
+      // Note: Trading requires WebSocket connection and is NOT available via A2A protocol
+      // Use the Hyperscape plugin for ElizaOS to enable trading via WebSocket
     ],
   };
 }

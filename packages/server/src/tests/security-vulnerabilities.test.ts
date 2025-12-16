@@ -256,7 +256,6 @@ describe.skipIf(!canRunTests)("Combat Exploit Prevention", () => {
   });
 
   describe("Attack cooldown bypass prevention", () => {
-
     it("should enforce tick-based attack cooldowns", () => {
       function isAttackOnCooldown(
         currentTick: number,

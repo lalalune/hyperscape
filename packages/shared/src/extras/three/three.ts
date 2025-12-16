@@ -74,9 +74,21 @@ export function safeMatrixCompose(
 // PhysX Vector3 utilities are now in utils/PhysicsUtils.ts
 
 // install three-mesh-bvh
-THREE_NAMESPACE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
-THREE_NAMESPACE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
-THREE_NAMESPACE.Mesh.prototype.raycast = acceleratedRaycast;
+(
+  THREE_NAMESPACE.BufferGeometry.prototype as THREE_NAMESPACE.BufferGeometry & {
+    computeBoundsTree: typeof computeBoundsTree;
+  }
+).computeBoundsTree = computeBoundsTree;
+(
+  THREE_NAMESPACE.BufferGeometry.prototype as THREE_NAMESPACE.BufferGeometry & {
+    disposeBoundsTree: typeof disposeBoundsTree;
+  }
+).disposeBoundsTree = disposeBoundsTree;
+(
+  THREE_NAMESPACE.Mesh.prototype as THREE_NAMESPACE.Mesh & {
+    raycast: typeof acceleratedRaycast;
+  }
+).raycast = acceleratedRaycast;
 
 // THREE is available globally, no need to export it separately
 

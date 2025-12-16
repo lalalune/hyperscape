@@ -159,14 +159,14 @@ const COMBAT_TOOLS: MCPTool[] = [
 const GATHERING_TOOLS: MCPTool[] = [
   {
     name: "hyperscape_gather",
-    description: "Gather from resource (tree, fish)",
+    description: "Gather from resource (tree, fish, rock)",
     inputSchema: {
       type: "object",
       properties: {
         resourceId: { type: "string", description: "Resource ID" },
         resourceType: {
           type: "string",
-          enum: ["tree", "fish"],
+          enum: ["tree", "fish", "rock"],
           description: "Type",
         },
       },
@@ -186,6 +186,14 @@ const GATHERING_TOOLS: MCPTool[] = [
     inputSchema: {
       type: "object",
       properties: { spotId: { type: "string", description: "Spot ID" } },
+    },
+  },
+  {
+    name: "hyperscape_mine",
+    description: "Mine a rock for ore",
+    inputSchema: {
+      type: "object",
+      properties: { rockId: { type: "string", description: "Rock ID" } },
     },
   },
 ];
@@ -458,6 +466,62 @@ const STORE_TOOLS: MCPTool[] = [
   },
 ];
 
+const TRADING_TOOLS: MCPTool[] = [
+  {
+    name: "hyperscape_trade_request",
+    description: "Request to trade with another player",
+    inputSchema: {
+      type: "object",
+      properties: {
+        targetId: { type: "string", description: "Target player ID" },
+        targetName: { type: "string", description: "Or target player name" },
+      },
+    },
+  },
+  {
+    name: "hyperscape_trade_respond",
+    description: "Accept or decline a trade request",
+    inputSchema: {
+      type: "object",
+      properties: {
+        accept: {
+          type: "boolean",
+          description: "True to accept, false to decline",
+        },
+        requesterId: { type: "string", description: "Optional requester ID" },
+      },
+      required: ["accept"],
+    },
+  },
+  {
+    name: "hyperscape_trade_offer",
+    description: "Offer items and/or coins in the trade window",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "Item ID to offer" },
+        quantity: {
+          type: "number",
+          description: "Quantity to offer",
+          minimum: 1,
+        },
+        coins: { type: "number", description: "Coins to offer", minimum: 0 },
+      },
+    },
+  },
+  {
+    name: "hyperscape_trade_confirm",
+    description:
+      "Confirm your trade offer. Both players must confirm for trade to complete.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "hyperscape_trade_cancel",
+    description: "Cancel the current trade",
+    inputSchema: { type: "object", properties: {} },
+  },
+];
+
 const QUERY_TOOLS: MCPTool[] = [
   {
     name: "hyperscape_get_status",
@@ -551,6 +615,7 @@ const ALL_TOOLS = [
   ...ITEM_TOOLS,
   ...BANKING_TOOLS,
   ...STORE_TOOLS,
+  ...TRADING_TOOLS,
   ...SOCIAL_TOOLS,
   ...QUERY_TOOLS,
   ...WORLD_TOOLS,
@@ -674,9 +739,11 @@ export class HyperscapeMCPServer {
       hyperscape_stop_combat: () => this.handleStopCombat(),
       hyperscape_change_attack_style: () => this.handleChangeStyle(args),
       // Gathering
-      hyperscape_gather: () => this.handleGather(args, "tree"),
+      hyperscape_gather: () =>
+        this.handleGather(args, String(args.resourceType ?? "tree")),
       hyperscape_chop_tree: () => this.handleGather(args, "tree"),
       hyperscape_fish: () => this.handleGather(args, "fish"),
+      hyperscape_mine: () => this.handleGather(args, "rock"),
       // Items
       hyperscape_equip_item: () => this.handleEquip(args),
       hyperscape_unequip_item: () => this.handleUnequip(args),
@@ -694,6 +761,12 @@ export class HyperscapeMCPServer {
       // Store
       hyperscape_store_buy: () => this.handleStoreBuy(args),
       hyperscape_store_sell: () => this.handleStoreSell(args),
+      // Trading
+      hyperscape_trade_request: () => this.handleTradeRequest(args),
+      hyperscape_trade_respond: () => this.handleTradeRespond(args),
+      hyperscape_trade_offer: () => this.handleTradeOffer(args),
+      hyperscape_trade_confirm: () => this.handleTradeConfirm(),
+      hyperscape_trade_cancel: () => this.handleTradeCancel(),
       // Social
       hyperscape_chat: () => this.handleChat(args),
       hyperscape_local_chat: () => this.handleLocalChat(args),
@@ -862,7 +935,9 @@ export class HyperscapeMCPServer {
     args: Record<string, unknown>,
     type: string,
   ): Promise<MCPToolResult> {
-    let entityId = String(args.resourceId ?? args.treeId ?? args.spotId ?? "");
+    let entityId = String(
+      args.resourceId ?? args.treeId ?? args.spotId ?? args.rockId ?? "",
+    );
 
     if (!entityId) {
       const resources = this.service.getNearbyEntities().filter((e) => {
@@ -879,9 +954,19 @@ export class HyperscapeMCPServer {
       return this.error(`No ${type} found nearby`);
     }
 
+    // Map resource type to skill
+    const skillMap: Record<string, "woodcutting" | "fishing" | "mining"> = {
+      tree: "woodcutting",
+      fish: "fishing",
+      fishing_spot: "fishing",
+      rock: "mining",
+      ore: "mining",
+    };
+    const skill = skillMap[type] ?? "woodcutting";
+
     await this.service.executeGatherResource({
       resourceEntityId: entityId,
-      skill: type === "tree" ? "woodcutting" : "fishing",
+      skill,
     });
     return this.success(`Gathering ${type}`);
   }
@@ -1102,6 +1187,104 @@ export class HyperscapeMCPServer {
     }
     await this.service.executeStoreSell(item.id, quantity);
     return this.success(`Selling ${quantity}x ${item.name}`);
+  }
+
+  // Trading Handlers
+  private async handleTradeRequest(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
+    let targetId = String(args.targetId ?? "");
+    const targetName = String(args.targetName ?? "");
+
+    // Find by name if no ID
+    if (!targetId && targetName) {
+      const target = this.service
+        .getNearbyEntities()
+        .find(
+          (e) =>
+            e.name?.toLowerCase().includes(targetName.toLowerCase()) &&
+            ("playerName" in e || "playerId" in e),
+        );
+      if (target) targetId = target.id;
+    }
+
+    // Find any nearby player if still no target
+    if (!targetId) {
+      const players = this.service
+        .getNearbyEntities()
+        .filter((e) => "playerName" in e || "playerId" in e);
+      if (players.length > 0) targetId = players[0].id;
+    }
+
+    if (!targetId) {
+      return this.error("No player found nearby to trade with");
+    }
+
+    await this.service.executeTradeRequest(targetId);
+    return this.success(`Requested trade with ${targetName || targetId}`);
+  }
+
+  private async handleTradeRespond(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
+    const accept = Boolean(args.accept ?? true);
+    const requesterId = String(args.requesterId ?? "");
+
+    await this.service.executeTradeResponse(accept, requesterId);
+    return this.success(
+      accept ? "Accepted trade request" : "Declined trade request",
+    );
+  }
+
+  private async handleTradeOffer(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
+    const player = this.service.getPlayerEntity();
+    const items: Array<{ itemId: string; quantity: number }> = [];
+    const coins = Number(args.coins ?? 0);
+
+    const itemId = String(args.itemId ?? "");
+    const quantity = Number(args.quantity ?? 1);
+
+    if (itemId) {
+      // Verify item exists in inventory
+      const item = player?.items?.find(
+        (i) =>
+          i.id === itemId ||
+          i.name?.toLowerCase().includes(itemId.toLowerCase()),
+      );
+      if (item) {
+        items.push({
+          itemId: item.id,
+          quantity: Math.min(quantity, item.quantity),
+        });
+      }
+    }
+
+    if (items.length === 0 && coins === 0) {
+      return this.error("Specify item or coins to offer");
+    }
+
+    await this.service.executeTradeOffer(items, coins);
+
+    const desc = [
+      items.length > 0 ? `${items[0].quantity}x item` : "",
+      coins > 0 ? `${coins} coins` : "",
+    ]
+      .filter(Boolean)
+      .join(" and ");
+
+    return this.success(`Offered ${desc}`);
+  }
+
+  private async handleTradeConfirm(): Promise<MCPToolResult> {
+    await this.service.executeTradeConfirm();
+    return this.success("Confirmed trade offer");
+  }
+
+  private async handleTradeCancel(): Promise<MCPToolResult> {
+    await this.service.executeTradeCancel();
+    return this.success("Cancelled trade");
   }
 
   private async handleLocalChat(

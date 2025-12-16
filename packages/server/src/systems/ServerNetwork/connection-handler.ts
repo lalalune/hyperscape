@@ -432,8 +432,7 @@ export class ConnectionHandler {
    */
   private serializeEntities(socket: ServerSocket): unknown[] {
     const allEntities: unknown[] = [];
-    const isSpectator =
-      (socket as ServerSocket & { isSpectator?: boolean }).isSpectator === true;
+    const isSpectator = (socket as ServerSocket & { isSpectator?: boolean }).isSpectator === true;
 
     if (isSpectator) {
       // Spectators don't have a player entity - serialize all world entities
@@ -637,18 +636,8 @@ export class ConnectionHandler {
       // Mark as spectator with VERIFIED accountId (not client-provided)
       socket.accountId = verifiedUserId;
       socket.createdAt = Date.now();
-      (
-        socket as ServerSocket & {
-          isSpectator?: boolean;
-          spectatingCharacterId?: string;
-        }
-      ).isSpectator = true;
-      (
-        socket as ServerSocket & {
-          isSpectator?: boolean;
-          spectatingCharacterId?: string;
-        }
-      ).spectatingCharacterId = characterId;
+      (socket as ServerSocket & { isSpectator?: boolean; spectatingCharacterId?: string }).isSpectator = true;
+      (socket as ServerSocket & { isSpectator?: boolean; spectatingCharacterId?: string }).spectatingCharacterId = characterId;
 
       // Wait for terrain system
       if (!(await this.waitForTerrain(ws))) {

@@ -252,10 +252,10 @@ Any AI agent can discover and play Hyperscape via A2A JSON-RPC:
 
 ```bash
 # Discover available skills
-curl http://localhost:3333/agent.json
+curl http://localhost:3000/agent.json
 
 # Example: Move to position
-curl -X POST http://localhost:3333/a2a/execute \
+curl -X POST http://localhost:3000/a2a/execute \
   -H "Content-Type: application/json" \
   -d '{"skill": "move-to", "params": {"x": 100, "z": 200}}'
 ```
@@ -293,7 +293,7 @@ await mcp.start(3001);
 ```typescript
 import { A2AClient } from "@hyperscape/plugin-hyperscape/a2a";
 
-const client = new A2AClient("http://localhost:3333");
+const client = new A2AClient("http://localhost:3000");
 
 // Full gameplay loop
 const context = await client.getWorldContext();

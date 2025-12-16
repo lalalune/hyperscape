@@ -5,11 +5,7 @@
 import type { ServerSocket } from "../../shared/types";
 import { writePacket } from "@hyperscape/shared";
 import { AOIManager, AOISubscriptionChanges } from "./AOIManager";
-import {
-  UpdateThrottler,
-  UpdatePriority,
-  distance2DSquared,
-} from "./UpdateThrottler";
+import { UpdateThrottler, UpdatePriority, distance2DSquared } from "./UpdateThrottler";
 import { BatchUpdater } from "./BatchUpdater";
 
 export interface OptimizedBroadcastConfig {
@@ -142,9 +138,7 @@ export class OptimizedBroadcastManager {
           entityPos.x,
           entityPos.z,
         );
-        if (
-          !this.throttler.shouldUpdate(entityId, playerId, distSq, priority)
-        ) {
+        if (!this.throttler.shouldUpdate(entityId, playerId, distSq, priority)) {
           continue;
         }
       }

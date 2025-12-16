@@ -1,6 +1,6 @@
 /**
  * Interaction actions - NPC_INTERACT, LOOT_CORPSE, PICKUP_ITEM, RESPAWN, EMOTE
- *
+ * 
  * These actions handle world interactions beyond combat and resource gathering.
  */
 
@@ -20,27 +20,23 @@ import type { Entity } from "../types.js";
 export const interactNpcAction: Action = {
   name: "INTERACT_NPC",
   similes: ["TALK_TO", "SPEAK_WITH", "TRADE_WITH"],
-  description:
-    "Interact with an NPC to talk, trade, or start a quest. Must be within interaction range.",
+  description: "Interact with an NPC to talk, trade, or start a quest. Must be within interaction range.",
 
   validate: async (runtime: IAgentRuntime, _message: Memory) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service?.isConnected()) return false;
-
+    
     const player = service.getPlayerEntity();
     if (!player?.alive) return false;
-
+    
     // Check if there are any NPCs nearby
     const entities = service.getNearbyEntities();
-    const npcs = entities.filter((e) => {
+    const npcs = entities.filter(e => {
       const ea = e as unknown as Record<string, unknown>;
-      return (
-        ea.npcType ||
-        ea.type === "npc" ||
-        (e.name && /banker|shopkeeper|guard|merchant/i.test(e.name))
-      );
+      return ea.npcType || ea.type === "npc" || 
+        (e.name && /banker|shopkeeper|guard|merchant/i.test(e.name));
     });
-
+    
     return npcs.length > 0;
   },
 
@@ -53,42 +49,33 @@ export const interactNpcAction: Action = {
   ) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service) {
-      return {
-        success: false,
-        error: new Error("Hyperscape service not available"),
-      };
+      return { success: false, error: new Error("Hyperscape service not available") };
     }
 
     const content = message.content.text || "";
     const entities = service.getNearbyEntities();
-
+    
     // Find NPC by name or get closest one
     let targetNpc: Entity | undefined;
-
-    const npcs = entities.filter((e) => {
+    
+    const npcs = entities.filter(e => {
       const ea = e as unknown as Record<string, unknown>;
-      return (
-        ea.npcType ||
-        ea.type === "npc" ||
-        (e.name && /banker|shopkeeper|guard|merchant/i.test(e.name))
-      );
+      return ea.npcType || ea.type === "npc" || 
+        (e.name && /banker|shopkeeper|guard|merchant/i.test(e.name));
     });
-
+    
     if (content) {
-      targetNpc = npcs.find((e) =>
-        e.name?.toLowerCase().includes(content.toLowerCase()),
+      targetNpc = npcs.find(e => 
+        e.name?.toLowerCase().includes(content.toLowerCase())
       );
     }
-
+    
     if (!targetNpc && npcs.length > 0) {
       targetNpc = npcs[0]; // Closest NPC
     }
-
+    
     if (!targetNpc) {
-      await callback?.({
-        text: "No NPC found nearby to interact with.",
-        error: true,
-      });
+      await callback?.({ text: "No NPC found nearby to interact with.", error: true });
       return { success: false, error: new Error("No NPC nearby") };
     }
 
@@ -109,10 +96,7 @@ export const interactNpcAction: Action = {
   examples: [
     [
       { name: "user", content: { text: "Talk to the banker" } },
-      {
-        name: "agent",
-        content: { text: "Interacting with Banker", action: "INTERACT_NPC" },
-      },
+      { name: "agent", content: { text: "Interacting with Banker", action: "INTERACT_NPC" } },
     ],
   ],
 };
@@ -123,27 +107,22 @@ export const interactNpcAction: Action = {
 export const lootCorpseAction: Action = {
   name: "LOOT_CORPSE",
   similes: ["LOOT", "TAKE_LOOT", "COLLECT_DROPS"],
-  description:
-    "Loot items and coins from a mob corpse. Must be near the corpse.",
+  description: "Loot items and coins from a mob corpse. Must be near the corpse.",
 
   validate: async (runtime: IAgentRuntime, _message: Memory) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service?.isConnected()) return false;
-
+    
     const player = service.getPlayerEntity();
     if (!player?.alive) return false;
-
+    
     // Check for corpses (dead mobs) or ground items
     const entities = service.getNearbyEntities();
-    const lootables = entities.filter((e) => {
+    const lootables = entities.filter(e => {
       const ea = e as unknown as Record<string, unknown>;
-      return (
-        ea.alive === false ||
-        e.name?.startsWith("item:") ||
-        ea.type === "corpse"
-      );
+      return ea.alive === false || e.name?.startsWith("item:") || ea.type === "corpse";
     });
-
+    
     return lootables.length > 0;
   },
 
@@ -156,26 +135,19 @@ export const lootCorpseAction: Action = {
   ) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service) {
-      return {
-        success: false,
-        error: new Error("Hyperscape service not available"),
-      };
+      return { success: false, error: new Error("Hyperscape service not available") };
     }
 
     const entities = service.getNearbyEntities();
     const player = service.getPlayerEntity();
     const playerPos = player?.position ?? [0, 0, 0];
-
+    
     // Find closest corpse or loot
-    const lootables = entities.filter((e) => {
+    const lootables = entities.filter(e => {
       const ea = e as unknown as Record<string, unknown>;
-      return (
-        ea.alive === false ||
-        e.name?.startsWith("item:") ||
-        ea.type === "corpse"
-      );
+      return ea.alive === false || e.name?.startsWith("item:") || ea.type === "corpse";
     });
-
+    
     if (lootables.length === 0) {
       await callback?.({ text: "Nothing to loot nearby.", error: true });
       return { success: false, error: new Error("No lootable entities") };
@@ -184,18 +156,18 @@ export const lootCorpseAction: Action = {
     // Sort by distance and loot closest
     lootables.sort((a, b) => {
       const distA = Math.sqrt(
-        Math.pow(a.position[0] - playerPos[0], 2) +
-          Math.pow(a.position[2] - playerPos[2], 2),
+        Math.pow(a.position[0] - playerPos[0], 2) + 
+        Math.pow(a.position[2] - playerPos[2], 2)
       );
       const distB = Math.sqrt(
-        Math.pow(b.position[0] - playerPos[0], 2) +
-          Math.pow(b.position[2] - playerPos[2], 2),
+        Math.pow(b.position[0] - playerPos[0], 2) + 
+        Math.pow(b.position[2] - playerPos[2], 2)
       );
       return distA - distB;
     });
 
     const target = lootables[0];
-
+    
     // Send loot command
     await callback?.({
       text: `Looting ${target.name || "corpse"}`,
@@ -212,10 +184,7 @@ export const lootCorpseAction: Action = {
   examples: [
     [
       { name: "user", content: { text: "Loot the corpse" } },
-      {
-        name: "agent",
-        content: { text: "Looting goblin corpse", action: "LOOT_CORPSE" },
-      },
+      { name: "agent", content: { text: "Looting goblin corpse", action: "LOOT_CORPSE" } },
     ],
   ],
 };
@@ -231,18 +200,18 @@ export const pickupItemAction: Action = {
   validate: async (runtime: IAgentRuntime, _message: Memory) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service?.isConnected()) return false;
-
+    
     const player = service.getPlayerEntity();
     if (!player?.alive) return false;
-
+    
     // Check for ground items
     const entities = service.getNearbyEntities();
-    const items = entities.filter((e) => e.name?.startsWith("item:"));
-
+    const items = entities.filter(e => e.name?.startsWith("item:"));
+    
     // Check inventory space
-    const inventorySize = player.items?.length ?? 0;
+    const inventorySize = (player.items?.length ?? 0);
     const hasSpace = inventorySize < 28;
-
+    
     return items.length > 0 && hasSpace;
   },
 
@@ -255,41 +224,38 @@ export const pickupItemAction: Action = {
   ) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service) {
-      return {
-        success: false,
-        error: new Error("Hyperscape service not available"),
-      };
+      return { success: false, error: new Error("Hyperscape service not available") };
     }
 
     const content = message.content.text || "";
     const entities = service.getNearbyEntities();
     const player = service.getPlayerEntity();
     const playerPos = player?.position ?? [0, 0, 0];
-
+    
     // Find items on ground
-    const items = entities.filter((e) => e.name?.startsWith("item:"));
-
+    const items = entities.filter(e => e.name?.startsWith("item:"));
+    
     if (items.length === 0) {
       await callback?.({ text: "No items on the ground nearby.", error: true });
       return { success: false, error: new Error("No ground items") };
     }
 
     // Find by name if specified, otherwise get closest
-    let targetItem = items.find((e) => {
+    let targetItem = items.find(e => {
       const itemName = e.name?.replace("item:", "").toLowerCase() ?? "";
       return content.toLowerCase().includes(itemName);
     });
-
+    
     if (!targetItem) {
       // Sort by distance
       items.sort((a, b) => {
         const distA = Math.sqrt(
-          Math.pow(a.position[0] - playerPos[0], 2) +
-            Math.pow(a.position[2] - playerPos[2], 2),
+          Math.pow(a.position[0] - playerPos[0], 2) + 
+          Math.pow(a.position[2] - playerPos[2], 2)
         );
         const distB = Math.sqrt(
-          Math.pow(b.position[0] - playerPos[0], 2) +
-            Math.pow(b.position[2] - playerPos[2], 2),
+          Math.pow(b.position[0] - playerPos[0], 2) + 
+          Math.pow(b.position[2] - playerPos[2], 2)
         );
         return distA - distB;
       });
@@ -297,7 +263,7 @@ export const pickupItemAction: Action = {
     }
 
     const itemName = targetItem.name?.replace("item:", "") || "item";
-
+    
     await callback?.({
       text: `Picking up ${itemName}`,
       action: "PICKUP_ITEM",
@@ -313,10 +279,7 @@ export const pickupItemAction: Action = {
   examples: [
     [
       { name: "user", content: { text: "Pick up the coins" } },
-      {
-        name: "agent",
-        content: { text: "Picking up coins", action: "PICKUP_ITEM" },
-      },
+      { name: "agent", content: { text: "Picking up coins", action: "PICKUP_ITEM" } },
     ],
   ],
 };
@@ -327,13 +290,12 @@ export const pickupItemAction: Action = {
 export const respawnAction: Action = {
   name: "RESPAWN",
   similes: ["REVIVE", "COME_BACK", "RESURRECT"],
-  description:
-    "Respawn at the nearest safe town after dying. Only available when dead.",
+  description: "Respawn at the nearest safe town after dying. Only available when dead.",
 
   validate: async (runtime: IAgentRuntime, _message: Memory) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service?.isConnected()) return false;
-
+    
     const player = service.getPlayerEntity();
     // Can only respawn when dead
     return player?.alive === false;
@@ -348,10 +310,7 @@ export const respawnAction: Action = {
   ) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service) {
-      return {
-        success: false,
-        error: new Error("Hyperscape service not available"),
-      };
+      return { success: false, error: new Error("Hyperscape service not available") };
     }
 
     // Send respawn request
@@ -371,10 +330,7 @@ export const respawnAction: Action = {
   examples: [
     [
       { name: "user", content: { text: "Respawn" } },
-      {
-        name: "agent",
-        content: { text: "Respawning at nearest town...", action: "RESPAWN" },
-      },
+      { name: "agent", content: { text: "Respawning at nearest town...", action: "RESPAWN" } },
     ],
   ],
 };
@@ -385,13 +341,12 @@ export const respawnAction: Action = {
 export const emoteAction: Action = {
   name: "EMOTE",
   similes: ["DANCE", "WAVE", "BOW", "CHEER"],
-  description:
-    "Perform an emote or animation. Available: wave, dance, bow, cheer, cry, laugh, sit",
+  description: "Perform an emote or animation. Available: wave, dance, bow, cheer, cry, laugh, sit",
 
   validate: async (runtime: IAgentRuntime, _message: Memory) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service?.isConnected()) return false;
-
+    
     const player = service.getPlayerEntity();
     return player?.alive !== false && !player?.inCombat;
   },
@@ -404,7 +359,7 @@ export const emoteAction: Action = {
     callback?: HandlerCallback,
   ) => {
     const content = (message.content.text || "").toLowerCase();
-
+    
     // Map common terms to emotes
     const emoteMap: Record<string, string> = {
       wave: "wave",
@@ -423,7 +378,7 @@ export const emoteAction: Action = {
       sitting: "sit",
       kneel: "kneel",
     };
-
+    
     let emote = "wave"; // default
     for (const [key, value] of Object.entries(emoteMap)) {
       if (content.includes(key)) {
@@ -447,17 +402,11 @@ export const emoteAction: Action = {
   examples: [
     [
       { name: "user", content: { text: "Dance" } },
-      {
-        name: "agent",
-        content: { text: "Performing dance-happy emote", action: "EMOTE" },
-      },
+      { name: "agent", content: { text: "Performing dance-happy emote", action: "EMOTE" } },
     ],
     [
       { name: "user", content: { text: "Wave at them" } },
-      {
-        name: "agent",
-        content: { text: "Performing wave emote", action: "EMOTE" },
-      },
+      { name: "agent", content: { text: "Performing wave emote", action: "EMOTE" } },
     ],
   ],
 };
@@ -468,24 +417,22 @@ export const emoteAction: Action = {
 export const eatFoodAction: Action = {
   name: "EAT_FOOD",
   similes: ["EAT", "CONSUME", "HEAL"],
-  description:
-    "Eat food from inventory to restore health. Prioritizes cooked fish.",
+  description: "Eat food from inventory to restore health. Prioritizes cooked fish.",
 
   validate: async (runtime: IAgentRuntime, _message: Memory) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service?.isConnected()) return false;
-
+    
     const player = service.getPlayerEntity();
     if (!player?.alive) return false;
-
+    
     // Check for food in inventory
     const items = player.items ?? [];
-    const food = items.filter(
-      (item) =>
-        /fish|food|bread|meat|pie|cake/i.test(item.name) &&
-        !/raw/i.test(item.name), // Not raw food
+    const food = items.filter(item => 
+      /fish|food|bread|meat|pie|cake/i.test(item.name) &&
+      !/raw/i.test(item.name) // Not raw food
     );
-
+    
     return food.length > 0;
   },
 
@@ -498,31 +445,27 @@ export const eatFoodAction: Action = {
   ) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
     if (!service) {
-      return {
-        success: false,
-        error: new Error("Hyperscape service not available"),
-      };
+      return { success: false, error: new Error("Hyperscape service not available") };
     }
 
     const player = service.getPlayerEntity();
     const items = player?.items ?? [];
-
+    
     // Find edible food (cooked, not raw)
-    const food = items.filter(
-      (item) =>
-        /fish|food|bread|meat|pie|cake/i.test(item.name) &&
-        !/raw/i.test(item.name),
+    const food = items.filter(item => 
+      /fish|food|bread|meat|pie|cake/i.test(item.name) &&
+      !/raw/i.test(item.name)
     );
-
+    
     if (food.length === 0) {
       await callback?.({ text: "No food in inventory.", error: true });
       return { success: false, error: new Error("No food available") };
     }
 
     const foodItem = food[0];
-
+    
     await service.executeUseItem({ itemId: foodItem.id });
-
+    
     await callback?.({
       text: `Eating ${foodItem.name}`,
       action: "EAT_FOOD",
@@ -538,10 +481,8 @@ export const eatFoodAction: Action = {
   examples: [
     [
       { name: "user", content: { text: "Eat food" } },
-      {
-        name: "agent",
-        content: { text: "Eating Cooked Fish", action: "EAT_FOOD" },
-      },
+      { name: "agent", content: { text: "Eating Cooked Fish", action: "EAT_FOOD" } },
     ],
   ],
 };
+

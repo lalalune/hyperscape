@@ -92,6 +92,14 @@ const up = new THREE.Vector3(0, 1, 0);
 const v1 = new THREE.Vector3();
 
 /**
+ * Check if the AudioListener supports AudioParam-based positioning (Chrome, Safari)
+ * Firefox uses the older setPosition/setOrientation methods
+ */
+function supportsAudioParamPosition(listener: AudioListener): boolean {
+  return listener.positionX !== undefined;
+}
+
+/**
  * Client Audio System
  *
  * Manages 3D spatial audio and sound effects.
@@ -106,10 +114,11 @@ export class ClientAudio extends System {
   queue: Array<() => void>;
   unlocked: boolean;
   private unlockHandler: (() => Promise<void>) | null = null;
+  private useAudioParams: boolean;
 
   constructor(world: World) {
     super(world);
-    this.ctx = new AudioContext(); // new (window.AudioContext || window.webkitAudioContext)();
+    this.ctx = new AudioContext();
     this.masterGain = this.ctx.createGain();
     this.masterGain.connect(this.ctx.destination);
     this.groupGains = {
@@ -124,15 +133,25 @@ export class ClientAudio extends System {
     this.groupGains.sfx.connect(this.masterGain);
     this.groupGains.voice.connect(this.masterGain);
     this.audioListener = this.ctx.listener;
-    this.audioListener.positionX.value = 0;
-    this.audioListener.positionY.value = 0;
-    this.audioListener.positionZ.value = 0;
-    this.audioListener.forwardX.value = 0;
-    this.audioListener.forwardY.value = 0;
-    this.audioListener.forwardZ.value = -1;
-    this.audioListener.upX.value = 0;
-    this.audioListener.upY.value = 1;
-    this.audioListener.upZ.value = 0;
+
+    // Firefox doesn't support AudioParam-based positioning, use legacy methods
+    this.useAudioParams = supportsAudioParamPosition(this.audioListener);
+
+    if (this.useAudioParams) {
+      this.audioListener.positionX.value = 0;
+      this.audioListener.positionY.value = 0;
+      this.audioListener.positionZ.value = 0;
+      this.audioListener.forwardX.value = 0;
+      this.audioListener.forwardY.value = 0;
+      this.audioListener.forwardZ.value = -1;
+      this.audioListener.upX.value = 0;
+      this.audioListener.upY.value = 1;
+      this.audioListener.upZ.value = 0;
+    } else {
+      // Firefox: use deprecated setPosition/setOrientation
+      this.audioListener.setPosition(0, 0, 0);
+      this.audioListener.setOrientation(0, 0, -1, 0, 1, 0);
+    }
     this.lastDelta = 0;
 
     this.queue = [];
@@ -168,13 +187,15 @@ export class ClientAudio extends System {
         await this.ctx.resume();
         if (this.ctx.state !== "running")
           throw new Error("Audio still suspended");
-        const video = document.createElement("video");
-        video.playsInline = true;
-        video.muted = true;
-        video.src = "/tiny.mp4";
-        await video.play();
-        video.pause();
-        video.remove();
+        // Create and play a silent oscillator to unlock audio context
+        const oscillator = this.ctx.createOscillator();
+        const gainNode = this.ctx.createGain();
+        gainNode.gain.value = 0; // Silent
+        oscillator.connect(gainNode);
+        gainNode.connect(this.ctx.destination);
+        oscillator.start();
+        oscillator.stop(this.ctx.currentTime + 0.001);
+        oscillator.disconnect();
         complete();
       } catch (error) {
         console.error("Failed to unlock audio context:", error);
@@ -208,25 +229,36 @@ export class ClientAudio extends System {
   lateUpdate(delta: number) {
     const target = this.world.rig;
     const dir = v1.set(0, 0, -1).applyQuaternion(target.quaternion);
-    const endTime = this.ctx.currentTime + delta * 2;
-    this.audioListener.positionX.linearRampToValueAtTime(
-      target.position.x,
-      endTime,
-    );
-    this.audioListener.positionY.linearRampToValueAtTime(
-      target.position.y,
-      endTime,
-    );
-    this.audioListener.positionZ.linearRampToValueAtTime(
-      target.position.z,
-      endTime,
-    );
-    this.audioListener.forwardX.linearRampToValueAtTime(dir.x, endTime);
-    this.audioListener.forwardY.linearRampToValueAtTime(dir.y, endTime);
-    this.audioListener.forwardZ.linearRampToValueAtTime(dir.z, endTime);
-    this.audioListener.upX.linearRampToValueAtTime(up.x, endTime);
-    this.audioListener.upY.linearRampToValueAtTime(up.y, endTime);
-    this.audioListener.upZ.linearRampToValueAtTime(up.z, endTime);
+
+    if (this.useAudioParams) {
+      const endTime = this.ctx.currentTime + delta * 2;
+      this.audioListener.positionX.linearRampToValueAtTime(
+        target.position.x,
+        endTime,
+      );
+      this.audioListener.positionY.linearRampToValueAtTime(
+        target.position.y,
+        endTime,
+      );
+      this.audioListener.positionZ.linearRampToValueAtTime(
+        target.position.z,
+        endTime,
+      );
+      this.audioListener.forwardX.linearRampToValueAtTime(dir.x, endTime);
+      this.audioListener.forwardY.linearRampToValueAtTime(dir.y, endTime);
+      this.audioListener.forwardZ.linearRampToValueAtTime(dir.z, endTime);
+      this.audioListener.upX.linearRampToValueAtTime(up.x, endTime);
+      this.audioListener.upY.linearRampToValueAtTime(up.y, endTime);
+      this.audioListener.upZ.linearRampToValueAtTime(up.z, endTime);
+    } else {
+      // Firefox: use deprecated setPosition/setOrientation (no smooth ramping)
+      this.audioListener.setPosition(
+        target.position.x,
+        target.position.y,
+        target.position.z,
+      );
+      this.audioListener.setOrientation(dir.x, dir.y, dir.z, up.x, up.y, up.z);
+    }
     this.lastDelta = delta * 2;
   }
 

@@ -38,50 +38,23 @@ export class BatchUpdater {
   private updates = new Map<string, QueuedUpdate>();
   private buffer: Uint8Array | null = null;
   private maxSeenUpdates = 0;
-  /** Pool of reusable QueuedUpdate objects to minimize allocations */
-  private updatePool: QueuedUpdate[] = [];
-  private static readonly MAX_POOL_SIZE = 256;
 
   private getOrCreateUpdate(entityId: string): QueuedUpdate {
     let update = this.updates.get(entityId);
     if (!update) {
-      // Try to get from pool first
-      update = this.updatePool.pop();
-      if (update) {
-        // Reset the pooled object
-        update.entityIdHash = hashEntityId(entityId);
-        update.flags = UpdateFlags.NONE;
-        // Keep position/quaternion/health objects - they'll be reused
-      } else {
-        // Create new if pool is empty
-        update = {
-          entityIdHash: hashEntityId(entityId),
-          flags: UpdateFlags.NONE,
-        };
-      }
+      update = {
+        entityIdHash: hashEntityId(entityId),
+        flags: UpdateFlags.NONE,
+      };
       this.updates.set(entityId, update);
     }
     return update;
   }
 
-  /** Return a QueuedUpdate object to the pool for reuse */
-  private releaseUpdate(update: QueuedUpdate): void {
-    if (this.updatePool.length < BatchUpdater.MAX_POOL_SIZE) {
-      this.updatePool.push(update);
-    }
-  }
-
   queuePositionUpdate(entityId: string, x: number, y: number, z: number): void {
     const update = this.getOrCreateUpdate(entityId);
     update.flags |= UpdateFlags.POSITION;
-    // Reuse existing position object if present, otherwise create new one
-    if (update.position) {
-      update.position.x = x;
-      update.position.y = y;
-      update.position.z = z;
-    } else {
-      update.position = { x, y, z };
-    }
+    update.position = { x, y, z };
   }
 
   queueRotationUpdate(
@@ -93,15 +66,7 @@ export class BatchUpdater {
   ): void {
     const update = this.getOrCreateUpdate(entityId);
     update.flags |= UpdateFlags.ROTATION;
-    // Reuse existing quaternion object if present, otherwise create new one
-    if (update.quaternion) {
-      update.quaternion.x = x;
-      update.quaternion.y = y;
-      update.quaternion.z = z;
-      update.quaternion.w = w;
-    } else {
-      update.quaternion = { x, y, z, w };
-    }
+    update.quaternion = { x, y, z, w };
   }
 
   queueTransformUpdate(
@@ -111,39 +76,14 @@ export class BatchUpdater {
   ): void {
     const update = this.getOrCreateUpdate(entityId);
     update.flags |= UpdateFlags.POSITION | UpdateFlags.ROTATION;
-    // Reuse existing objects if present
-    if (update.position) {
-      update.position.x = position.x;
-      update.position.y = position.y;
-      update.position.z = position.z;
-    } else {
-      update.position = { x: position.x, y: position.y, z: position.z };
-    }
-    if (update.quaternion) {
-      update.quaternion.x = quaternion.x;
-      update.quaternion.y = quaternion.y;
-      update.quaternion.z = quaternion.z;
-      update.quaternion.w = quaternion.w;
-    } else {
-      update.quaternion = {
-        x: quaternion.x,
-        y: quaternion.y,
-        z: quaternion.z,
-        w: quaternion.w,
-      };
-    }
+    update.position = position;
+    update.quaternion = quaternion;
   }
 
   queueHealthUpdate(entityId: string, current: number, max: number): void {
     const update = this.getOrCreateUpdate(entityId);
     update.flags |= UpdateFlags.HEALTH;
-    // Reuse existing health object if present, otherwise create new one
-    if (update.health) {
-      update.health.current = current;
-      update.health.max = max;
-    } else {
-      update.health = { current, max };
-    }
+    update.health = { current, max };
   }
 
   queueStateUpdate(entityId: string, state: number): void {
@@ -217,10 +157,6 @@ export class BatchUpdater {
       written++;
     }
 
-    // Return all updates to the pool for reuse, then clear the map
-    for (const update of this.updates.values()) {
-      this.releaseUpdate(update);
-    }
     this.updates.clear();
     return buffer.subarray(0, offset);
   }
@@ -234,10 +170,6 @@ export class BatchUpdater {
   }
 
   clear(): void {
-    // Return all updates to the pool for reuse before clearing
-    for (const update of this.updates.values()) {
-      this.releaseUpdate(update);
-    }
     this.updates.clear();
   }
 

@@ -69,18 +69,15 @@ interface PendingSession {
 const pendingSessions = new Map<string, PendingSession>();
 
 // Clean up expired pending sessions every 5 minutes
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [key, session] of pendingSessions) {
-      // Remove pending sessions older than 5 minutes
-      if (now - session.createdAt > 5 * 60 * 1000) {
-        pendingSessions.delete(key);
-      }
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, session] of pendingSessions) {
+    // Remove pending sessions older than 5 minutes
+    if (now - session.createdAt > 5 * 60 * 1000) {
+      pendingSessions.delete(key);
     }
-  },
-  5 * 60 * 1000,
-);
+  }
+}, 5 * 60 * 1000);
 
 // ============ Route Registration ============
 
@@ -91,15 +88,8 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
    */
   fastify.post<{ Body: CreateSessionRequest }>(
     "/api/session/create",
-    async (
-      request: FastifyRequest<{ Body: CreateSessionRequest }>,
-      reply: FastifyReply,
-    ) => {
-      const {
-        walletAddress,
-        permissions = ["gameplay"],
-        duration = 86400,
-      } = request.body;
+    async (request: FastifyRequest<{ Body: CreateSessionRequest }>, reply: FastifyReply) => {
+      const { walletAddress, permissions = ["gameplay"], duration = 86400 } = request.body;
 
       if (!walletAddress) {
         return reply.status(400).send({ error: "walletAddress is required" });
@@ -108,9 +98,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
       // Get world address for permissions
       const worldAddress = process.env.WORLD_ADDRESS as Address;
       if (!worldAddress) {
-        return reply
-          .status(500)
-          .send({ error: "Server not configured for sessions" });
+        return reply.status(500).send({ error: "Server not configured for sessions" });
       }
 
       // Build permissions based on requested permission sets
@@ -165,7 +153,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
         sessionKeyAddress,
         sessionPermissions,
         expiresAt,
-        chainId,
+        chainId
       );
 
       // Store pending session
@@ -187,7 +175,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
         expiresAt,
         permissions: permissions,
       });
-    },
+    }
   );
 
   /**
@@ -195,10 +183,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
    */
   fastify.post<{ Body: ConfirmSessionRequest }>(
     "/api/session/confirm",
-    async (
-      request: FastifyRequest<{ Body: ConfirmSessionRequest }>,
-      reply: FastifyReply,
-    ) => {
+    async (request: FastifyRequest<{ Body: ConfirmSessionRequest }>, reply: FastifyReply) => {
       const { walletAddress, sessionKeyAddress, signature } = request.body;
 
       if (!walletAddress || !sessionKeyAddress || !signature) {
@@ -215,13 +200,8 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.status(404).send({ error: "No pending session found" });
       }
 
-      if (
-        pending.sessionKeyAddress.toLowerCase() !==
-        sessionKeyAddress.toLowerCase()
-      ) {
-        return reply
-          .status(400)
-          .send({ error: "Session key address mismatch" });
+      if (pending.sessionKeyAddress.toLowerCase() !== sessionKeyAddress.toLowerCase()) {
+        return reply.status(400).send({ error: "Session key address mismatch" });
       }
 
       const manager = getSessionManager();
@@ -232,10 +212,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
         pending.permissions,
         signature,
         pending.expiresAt - Math.floor(Date.now() / 1000),
-        {
-          address: pending.sessionKeyAddress,
-          privateKey: pending.sessionKeyPrivateKey,
-        },
+        { address: pending.sessionKeyAddress, privateKey: pending.sessionKeyPrivateKey }
       );
 
       // Clear pending session
@@ -249,7 +226,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
         expiresAt: session.expiresAt,
         permissions: pending.permissions.length,
       });
-    },
+    }
   );
 
   /**
@@ -257,10 +234,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
    */
   fastify.post<{ Body: RevokeSessionRequest }>(
     "/api/session/revoke",
-    async (
-      request: FastifyRequest<{ Body: RevokeSessionRequest }>,
-      reply: FastifyReply,
-    ) => {
+    async (request: FastifyRequest<{ Body: RevokeSessionRequest }>, reply: FastifyReply) => {
       const { walletAddress } = request.body;
 
       if (!walletAddress) {
@@ -273,7 +247,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
       console.log(`[Session] Revoked session for ${walletAddress}`);
 
       return reply.send({ success: true });
-    },
+    }
   );
 
   /**
@@ -281,16 +255,11 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
    */
   fastify.get<{ Querystring: SessionStatusRequest }>(
     "/api/session/status",
-    async (
-      request: FastifyRequest<{ Querystring: SessionStatusRequest }>,
-      reply: FastifyReply,
-    ) => {
+    async (request: FastifyRequest<{ Querystring: SessionStatusRequest }>, reply: FastifyReply) => {
       const walletAddress = request.query.walletAddress;
 
       if (!walletAddress) {
-        return reply
-          .status(400)
-          .send({ error: "walletAddress query param is required" });
+        return reply.status(400).send({ error: "walletAddress query param is required" });
       }
 
       const manager = getSessionManager();
@@ -313,7 +282,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
         transactionCount: session.transactionCount,
         permissionCount: session.permissions.length,
       });
-    },
+    }
   );
 }
 

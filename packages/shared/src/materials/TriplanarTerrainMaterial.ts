@@ -4,11 +4,14 @@ import THREE from "../extras/three/three";
  * TriplanarTerrainMaterial - Blended terrain material with normal mapping
  *
  * Features:
- * - 4-way material blending (grass, dirt, rock, snow)
+ * - 6-way material blending (grass, dirt, rock, snow, sand, cobblestone)
  * - Tiling-free texture sampling to avoid repeating patterns
  * - Normal map support for surface detail
  * - Basic directional lighting
  * - Planar XZ projection (optimized for terrain)
+ * 
+ * Material indices:
+ * 0 = Grass, 1 = Dirt, 2 = Rock, 3 = Snow, 4 = Sand, 5 = Cobblestone
  */
 export class TriplanarTerrainMaterial extends THREE.ShaderMaterial {
   declare uniforms: {
@@ -69,7 +72,7 @@ export class TriplanarTerrainMaterial extends THREE.ShaderMaterial {
         uniform sampler2D uDiffMap;
         uniform sampler2D uNormalMap;
         uniform sampler2D uNoiseTexture;
-        uniform float uTextureScales[4];
+        uniform float uTextureScales[6];
         uniform vec3 uSunDirection;
         uniform vec3 uSunColor;
         uniform vec3 uAmbientColor;
@@ -83,27 +86,41 @@ export class TriplanarTerrainMaterial extends THREE.ShaderMaterial {
         varying vec3 vWorldNormal;
         
         const float TEXTURE_SCALE = 40.0;
-        const float TEXTURE_PER_ROW = 2.0;
-        const float TEXTURE_SIZE = 0.5;
+        // 3x2 atlas grid: 3 columns, 2 rows
+        const float ATLAS_COLS = 3.0;
+        const float ATLAS_ROWS = 2.0;
+        const float TEXTURE_WIDTH = 1.0 / ATLAS_COLS;   // 0.333...
+        const float TEXTURE_HEIGHT = 1.0 / ATLAS_ROWS;  // 0.5
         
         vec2 getSubTextureOffset(int textureIndex) {
-          float ax = mod(float(textureIndex), TEXTURE_PER_ROW);
-          float ay = floor(float(textureIndex) / TEXTURE_PER_ROW);
-          return vec2(ax, ay) * TEXTURE_SIZE;
+          float idx = float(textureIndex);
+          float ax = mod(idx, ATLAS_COLS);
+          float ay = floor(idx / ATLAS_COLS);
+          return vec2(ax * TEXTURE_WIDTH, ay * TEXTURE_HEIGHT);
         }
         
         vec4 subTexture2D(sampler2D tex, vec2 tileUv, vec2 textureOffset) {
-          vec2 subUv = fract(tileUv) * TEXTURE_SIZE + textureOffset;
+          vec2 subUv = fract(tileUv) * vec2(TEXTURE_WIDTH, TEXTURE_HEIGHT) + textureOffset;
           return texture2D(tex, subUv);
         }
         
-        // OPTIMIZED: Simplified stochastic sampling - single sample with noise offset
-        // Reduces texture samples by 50% vs original dual-sample blend
+        // Get scale for material index, clamped to valid range
+        float getTextureScale(int idx) {
+          if (idx == 0) return uTextureScales[0];
+          if (idx == 1) return uTextureScales[1];
+          if (idx == 2) return uTextureScales[2];
+          if (idx == 3) return uTextureScales[3];
+          if (idx == 4) return uTextureScales[4];
+          if (idx == 5) return uTextureScales[5];
+          return uTextureScales[0]; // Fallback to grass
+        }
+        
+        // Stochastic sampling to reduce tiling artifacts
         vec4 textureNoTile(sampler2D tex, int textureIndex, vec2 inputUv, float noiseVal) {
-          float UV_SCALE = uTextureScales[textureIndex];
+          float UV_SCALE = getTextureScale(textureIndex);
           vec2 uv = inputUv * (1.0 / UV_SCALE);
           
-          // Use pre-sampled noise for offset (avoids per-material noise lookup)
+          // Use pre-sampled noise for offset
           float l = noiseVal * 8.0;
           float ia = floor(l + 0.5);
           vec2 offset = fract(sin(vec2(ia * 30.0, ia * 7.0)) * 103.0);
@@ -112,8 +129,7 @@ export class TriplanarTerrainMaterial extends THREE.ShaderMaterial {
           return subTexture2D(tex, uv + offset, textureOffset);
         }
         
-        // OPTIMIZED: Skip zero-weight materials to reduce texture samples
-        // Most fragments only use 1-2 materials, saving 50-75% samples
+        // Blend up to 4 materials with weight-based sampling
         vec4 blendMaterials(sampler2D tex, vec2 uv, float noiseVal) {
           vec4 result = vec4(0.0);
           float weightSum = 0.0;
@@ -157,7 +173,7 @@ export class TriplanarTerrainMaterial extends THREE.ShaderMaterial {
         void main() {
           vec2 textureUv = vPosition.xz * (1.0 / TEXTURE_SCALE);
           
-          // OPTIMIZED: Sample noise once and reuse for all materials
+          // Sample noise once and reuse for all materials
           float noiseVal = texture2D(uNoiseTexture, 0.0025 * textureUv).x;
           
           // Sample diffuse and normal maps with shared noise

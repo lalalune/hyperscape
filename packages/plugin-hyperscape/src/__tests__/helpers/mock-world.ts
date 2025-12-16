@@ -1,5 +1,10 @@
 import { mock } from "bun:test";
 
+// Vitest compatibility shim
+const vi = {
+  fn: (impl?: (...args: unknown[]) => unknown) => mock(impl ?? (() => {})),
+};
+
 // Re-export from test-mocks for consistency
 export { createMockWorld } from "../../types/test-mocks";
 
