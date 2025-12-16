@@ -28,7 +28,7 @@
 import { SystemBase } from "@hyperscape/shared";
 import type { World } from "@hyperscape/shared";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type pg from "pg";
 import * as schema from "../../database/schema";
 import type {
@@ -986,6 +986,155 @@ export class DatabaseSystem extends SystemBase {
    */
   incrementNPCKill(playerId: string, npcId: string): void {
     this.trackAsyncOperation(this.incrementNPCKillAsync(playerId, npcId));
+  }
+
+  // ============================================================================
+  // MAINTENANCE METHODS
+  // ============================================================================
+
+  /**
+   * Clean up old player sessions from the database
+   *
+   * @param daysOld - Delete sessions older than this many days
+   * @returns Number of sessions deleted
+   */
+  async cleanupOldSessionsAsync(daysOld: number): Promise<number> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    const cutoffTime = Date.now() - daysOld * 24 * 60 * 60 * 1000;
+
+    const result = await this.db
+      .delete(schema.playerSessions)
+      .where(
+        sql`${schema.playerSessions.sessionEnd} IS NOT NULL AND ${schema.playerSessions.sessionEnd} < ${cutoffTime}`,
+      );
+
+    return result.rowCount || 0;
+  }
+
+  /**
+   * Synchronous wrapper for cleanupOldSessionsAsync (for backward compatibility)
+   * Fires and forgets the async operation
+   */
+  cleanupOldSessions(daysOld: number): number {
+    console.warn(
+      "[DatabaseSystem] cleanupOldSessions called synchronously - use cleanupOldSessionsAsync instead",
+    );
+    const operation = this.cleanupOldSessionsAsync(daysOld)
+      .catch((err) => {
+        console.error("[DatabaseSystem] Error in cleanupOldSessions:", err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+    return 0; // Can't return real count from async operation
+  }
+
+  /**
+   * Clean up old chunk activity records
+   *
+   * @param daysOld - Delete activity records older than this many days
+   * @returns Number of records deleted
+   */
+  async cleanupOldChunkActivityAsync(daysOld: number): Promise<number> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    const cutoffTime = Date.now() - daysOld * 24 * 60 * 60 * 1000;
+
+    const result = await this.db
+      .delete(schema.worldChunks)
+      .where(
+        sql`${schema.worldChunks.lastActive} < ${cutoffTime} AND ${schema.worldChunks.playerCount} = 0`,
+      );
+
+    return result.rowCount || 0;
+  }
+
+  /**
+   * Synchronous wrapper for cleanupOldChunkActivityAsync (for backward compatibility)
+   * Fires and forgets the async operation
+   */
+  cleanupOldChunkActivity(daysOld: number): number {
+    console.warn(
+      "[DatabaseSystem] cleanupOldChunkActivity called synchronously - use cleanupOldChunkActivityAsync instead",
+    );
+    const operation = this.cleanupOldChunkActivityAsync(daysOld)
+      .catch((err) => {
+        console.error(
+          "[DatabaseSystem] Error in cleanupOldChunkActivity:",
+          err,
+        );
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+    return 0; // Can't return real count from async operation
+  }
+
+  /**
+   * Get database statistics
+   *
+   * @returns Object containing various database counts
+   */
+  async getDatabaseStatsAsync(): Promise<{
+    playerCount: number;
+    activeSessionCount: number;
+    chunkCount: number;
+    activeChunkCount: number;
+    totalActivityRecords: number;
+  }> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    const [playerCountResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.characters);
+
+    const [activeSessionResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.playerSessions)
+      .where(sql`${schema.playerSessions.sessionEnd} IS NULL`);
+
+    const [chunkCountResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.worldChunks);
+
+    const [activeChunkResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.worldChunks)
+      .where(sql`${schema.worldChunks.playerCount} > 0`);
+
+    return {
+      playerCount: Number(playerCountResult.count),
+      activeSessionCount: Number(activeSessionResult.count),
+      chunkCount: Number(chunkCountResult.count),
+      activeChunkCount: Number(activeChunkResult.count),
+      totalActivityRecords: Number(chunkCountResult.count),
+    };
+  }
+
+  /**
+   * Synchronous wrapper for getDatabaseStatsAsync (for backward compatibility)
+   * Returns empty stats since we can't wait for async operation
+   */
+  getDatabaseStats(): {
+    playerCount: number;
+    activeSessionCount: number;
+    chunkCount: number;
+    activeChunkCount: number;
+    totalActivityRecords: number;
+  } {
+    console.warn(
+      "[DatabaseSystem] getDatabaseStats called synchronously - use getDatabaseStatsAsync instead",
+    );
+    return {
+      playerCount: 0,
+      activeSessionCount: 0,
+      chunkCount: 0,
+      activeChunkCount: 0,
+      totalActivityRecords: 0,
+    };
   }
 
   /**

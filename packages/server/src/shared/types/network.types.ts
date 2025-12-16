@@ -14,32 +14,7 @@
 
 // Re-export Socket base class from shared
 export type { Socket } from "@hyperscape/shared";
-import { Socket, EntityData } from "@hyperscape/shared";
-
-// ============================================================================
-// PLAYER ENTITY TYPE (minimal interface to avoid circular deps)
-// ============================================================================
-
-/**
- * Minimal player entity interface for socket tracking
- *
- * Provides type-safe access to player properties without importing
- * the full Entity class (which would create circular dependencies).
- */
-export interface SocketPlayerEntity {
-  id: string;
-  data: EntityData & {
-    id?: string;
-    roles?: string[];
-  };
-  position: { x: number; y: number; z: number };
-  node: {
-    position: { x: number; y: number; z: number; set(x: number, y: number, z: number): void };
-    quaternion: { x: number; y: number; z: number; w: number };
-  };
-  serialize: () => EntityData;
-  modify: (data: Partial<EntityData>) => void;
-}
+import { Socket } from "@hyperscape/shared";
 
 // ============================================================================
 // WEBSOCKET TYPES

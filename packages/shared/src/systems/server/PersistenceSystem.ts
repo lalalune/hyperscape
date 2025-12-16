@@ -381,22 +381,28 @@ export class PersistenceSystem extends SystemBase {
   private async performMaintenance(): Promise<void> {
     if (!this.databaseSystem) return;
 
-    // Clean up old sessions (7+ days old)
-    const oldSessionsDeleted = this.databaseSystem.cleanupOldSessions(7);
+    try {
+      // Clean up old sessions (7+ days old)
+      const oldSessionsDeleted =
+        await this.databaseSystem.cleanupOldSessionsAsync(7);
 
-    // Clean up old chunk activity records (30+ days old)
-    const oldActivityDeleted = this.databaseSystem.cleanupOldChunkActivity(30);
+      // Clean up old chunk activity records (30+ days old)
+      const oldActivityDeleted =
+        await this.databaseSystem.cleanupOldChunkActivityAsync(30);
 
-    // Get database statistics
-    const dbStats = this.databaseSystem.getDatabaseStats();
+      // Get database statistics
+      const dbStats = await this.databaseSystem.getDatabaseStatsAsync();
 
-    this.stats.lastMaintenanceTime = Date.now();
+      this.stats.lastMaintenanceTime = Date.now();
 
-    this.logger.info("🔧 Maintenance completed", {
-      oldSessionsDeleted,
-      oldActivityDeleted,
-      dbStats,
-    });
+      this.logger.info("🔧 Maintenance completed", {
+        oldSessionsDeleted,
+        oldActivityDeleted,
+        dbStats,
+      });
+    } catch (error) {
+      this.logger.error("❌ Maintenance failed", { error });
+    }
   }
 
   // Helper methods
