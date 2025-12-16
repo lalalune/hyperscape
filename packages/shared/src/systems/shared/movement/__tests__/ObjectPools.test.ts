@@ -227,11 +227,6 @@ describe("CachedTimestamp", () => {
 });
 
 describe("TileCoordPool", () => {
-  beforeEach(() => {
-    // Reset pool state by releasing any held tiles
-    // Pool doesn't have reset, but acquire/release cycle normalizes
-  });
-
   describe("acquire/release", () => {
     it("acquires tile with specified coordinates", () => {
       const tile = tileCoordPool.acquire(10, 20);

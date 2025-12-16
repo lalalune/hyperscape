@@ -13,6 +13,16 @@ interface AgentSettingsData {
   adjectives?: string[];
 }
 
+interface AgentSettingsData {
+  name?: string;
+  username?: string;
+  bio?: string;
+  lore?: string;
+  topics?: string[];
+  style?: { all?: string[]; chat?: string[]; post?: string[] };
+  adjectives?: string[];
+}
+
 interface AgentSettingsProps {
   agent: Agent;
   onDelete?: (agentId: string) => Promise<void>;
@@ -22,9 +32,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
   agent,
   onDelete,
 }) => {
-  const [settings, setSettings] = React.useState<AgentSettingsData | null>(
-    null,
-  );
+  const [settings, setSettings] = React.useState<AgentSettingsData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);

@@ -131,7 +131,8 @@ function createTestMob(
     damageHistory: [],
   };
 
-  const position = options.position ?? { x: 1, y: 0, z: 1 };
+  // Default position: Cardinal adjacent to origin (OSRS-style melee range 1 = cardinal only)
+  const position = options.position ?? { x: 1, y: 0, z: 0 };
   const stats = options.stats ?? { attack: 5, strength: 5, defence: 5 };
   const combatRange = options.combatRange ?? 1;
   const attackSpeedTicks =
@@ -318,6 +319,7 @@ describe("CombatFlow Integration", () => {
   describe("full player-vs-mob combat cycle", () => {
     it("completes combat from start to mob death", () => {
       // Setup: Player near a low-health mob
+      // NOTE: Mob must be CARDINALLY adjacent (not diagonal) for standard melee range 1
       const player = createTestPlayer("player1", {
         position: { x: 0, y: 0, z: 0 },
         stats: { attack: 50, strength: 50, defence: 10 },
@@ -325,7 +327,7 @@ describe("CombatFlow Integration", () => {
       const mob = createTestMob("mob1", {
         health: 10, // Low health to ensure death
         maxHealth: 10,
-        position: { x: 1, y: 0, z: 1 },
+        position: { x: 1, y: 0, z: 0 }, // Cardinal adjacent (East of player)
         stats: { attack: 5, strength: 5, defence: 1 },
       });
 
@@ -366,7 +368,7 @@ describe("CombatFlow Integration", () => {
       const mob = createTestMob("mob1", {
         health: 100,
         maxHealth: 100,
-        position: { x: 1, y: 0, z: 1 },
+        position: { x: 1, y: 0, z: 0 }, // Cardinal adjacent (East of player)
       });
 
       world.players.set("player1", player);
@@ -403,7 +405,7 @@ describe("CombatFlow Integration", () => {
       });
       const mob = createTestMob("mob1", {
         health: 200,
-        position: { x: 1, y: 0, z: 1 },
+        position: { x: 1, y: 0, z: 0 }, // Cardinal adjacent
       });
 
       world.players.set("player1", player);
@@ -540,7 +542,7 @@ describe("CombatFlow Integration", () => {
       });
       const mob = createTestMob("mob1", {
         health: 5, // Very low health
-        position: { x: 1, y: 0, z: 1 },
+        position: { x: 1, y: 0, z: 0 }, // Cardinal adjacent
       });
 
       world.players.set("player1", player);
@@ -660,10 +662,10 @@ describe("CombatFlow Integration", () => {
         position: { x: 10, y: 0, z: 10 },
       });
       const mob1 = createTestMob("mob1", {
-        position: { x: 1, y: 0, z: 1 },
+        position: { x: 1, y: 0, z: 0 }, // Cardinal adjacent to player1
       });
       const mob2 = createTestMob("mob2", {
-        position: { x: 11, y: 0, z: 11 },
+        position: { x: 11, y: 0, z: 10 }, // Cardinal adjacent to player2
       });
 
       world.players.set("player1", player1);
@@ -704,7 +706,7 @@ describe("CombatFlow Integration", () => {
       });
       const mob = createTestMob("mob1", {
         health: 200,
-        position: { x: 1, y: 0, z: 1 },
+        position: { x: 1, y: 0, z: 0 }, // Cardinal adjacent to both players
       });
 
       world.players.set("player1", player1);
@@ -789,10 +791,10 @@ describe("CombatFlow Integration", () => {
         position: { x: 10, y: 0, z: 10 },
       });
       const mob1 = createTestMob("mob1", {
-        position: { x: 1, y: 0, z: 1 },
+        position: { x: 1, y: 0, z: 0 }, // Cardinal adjacent to player1
       });
       const mob2 = createTestMob("mob2", {
-        position: { x: 11, y: 0, z: 11 },
+        position: { x: 11, y: 0, z: 10 }, // Cardinal adjacent to player2
       });
 
       world.players.set("player1", player1);

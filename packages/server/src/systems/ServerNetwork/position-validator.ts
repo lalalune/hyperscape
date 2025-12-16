@@ -54,6 +54,7 @@ class SpeedHackDetector {
   private readonly WINDOW_MS = 5000; // 5 second tracking window
   private readonly MAX_SPEED_TILES_PER_SEC = 7; // Max run speed + tolerance
   private readonly TELEPORT_THRESHOLD = 10; // Tiles - instant movement detection
+  private readonly TELEPORT_THRESHOLD_SQ = 100; // 10^2 - squared for fast comparison
   private readonly MAX_VIOLATIONS = 3; // Before kicking
   private readonly VIOLATION_DECAY_MS = 30000; // Reset violations after 30s clean
 
@@ -86,12 +87,14 @@ class SpeedHackDetector {
       const lastPos = history.positions[history.positions.length - 1];
       const dx = x - lastPos.x;
       const dz = z - lastPos.z;
-      const instantDistance = Math.sqrt(dx * dx + dz * dz);
+      const instantDistanceSq = dx * dx + dz * dz;
       const timeDelta = timestamp - lastPos.timestamp;
 
-      // Teleport detection: large movement in small time
-      if (instantDistance > this.TELEPORT_THRESHOLD && timeDelta < 500) {
+      // Teleport detection: large movement in small time (use squared distance)
+      if (instantDistanceSq > this.TELEPORT_THRESHOLD_SQ && timeDelta < 500) {
         history.violations++;
+        // Only compute sqrt for the log message
+        const instantDistance = Math.sqrt(instantDistanceSq);
         console.warn(
           `[SpeedHack] Teleport detected for ${playerId}: ${instantDistance.toFixed(1)} tiles in ${timeDelta}ms`,
         );
@@ -212,6 +215,10 @@ export class PositionValidator {
   /** Callback for kicking cheaters */
   private onKickPlayer?: (playerId: string, reason: string) => void;
 
+  /** Cached terrain system reference */
+  private _terrainSystem: InstanceType<typeof TerrainSystem> | null = null;
+  private _terrainSystemLookedUp = false;
+
   /**
    * Create a PositionValidator
    *
@@ -224,6 +231,19 @@ export class PositionValidator {
     private sockets: Map<string, ServerSocket>,
     private broadcast: BroadcastManager,
   ) {}
+
+  /**
+   * Get terrain system (cached after first lookup)
+   */
+  private getTerrain(): InstanceType<typeof TerrainSystem> | null {
+    if (!this._terrainSystemLookedUp) {
+      this._terrainSystem = this.world.getSystem("terrain") as InstanceType<
+        typeof TerrainSystem
+      > | null;
+      this._terrainSystemLookedUp = true;
+    }
+    return this._terrainSystem;
+  }
 
   /**
    * Set callback for kicking players
@@ -266,10 +286,7 @@ export class PositionValidator {
    * @private
    */
   private validateAllPositions(): void {
-    const terrain = this.world.getSystem("terrain") as InstanceType<
-      typeof TerrainSystem
-    > | null;
-
+    const terrain = this.getTerrain();
     if (!terrain) return;
 
     const now = Date.now();

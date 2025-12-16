@@ -9,7 +9,7 @@
  * - Entity-based queries
  */
 
-import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { describe, it, expect, beforeEach, mock, spyOn } from "bun:test";
 import {
   CombatEventBus,
   DamageDealtEvent,
@@ -468,9 +468,8 @@ describe("CombatEventBus", () => {
       eventBus.onDamageDealt(successHandler);
 
       // Suppress console.error for this test
-      const consoleSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
+      const originalError = console.error;
+      console.error = mock();
 
       eventBus.emitDamageDealt({
         tick: 100,
@@ -483,7 +482,7 @@ describe("CombatEventBus", () => {
       expect(errorHandler).toHaveBeenCalledTimes(1);
       expect(successHandler).toHaveBeenCalledTimes(1);
 
-      consoleSpy.mockRestore();
+      console.error = originalError;
     });
   });
 

@@ -74,7 +74,7 @@ function createMockPlayer(
 function createMockMob(
   id: string,
   health: number = 50,
-  position = { x: 1, y: 0, z: 1 },
+  position = { x: 1, y: 0, z: 0 }, // Cardinal adjacent for OSRS-style melee
 ) {
   let currentHealth = health;
   return {
