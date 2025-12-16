@@ -84,14 +84,10 @@ export default [
         Image: "readonly",
         requestAnimationFrame: "readonly",
         performance: "readonly",
-<<<<<<< ours
-=======
         Performance: "readonly",
         WebGLProgram: "readonly",
         WebGLShader: "readonly",
-        ImageData: "readonly",
->>>>>>> theirs
-        ResizeObserver: "readonly",
+        ImageData: "readonly",        ResizeObserver: "readonly",
         MutationObserver: "readonly",
         ScrollBehavior: "readonly",
         DataTransferItem: "readonly",
@@ -144,10 +140,6 @@ export default [
         afterEach: "readonly",
         jest: "readonly",
         vi: "readonly",
-<<<<<<< ours
-=======
-        mock: "readonly",
->>>>>>> theirs
 
         // PhysX global
         PHYSX: "readonly",
