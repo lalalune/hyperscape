@@ -43,7 +43,7 @@ export type NodeWebSocket = WebSocket & {
  * Handlers now query the session manager for targetEntityId instead of socket properties.
  */
 export interface ServerSocket extends Socket {
-  player: SocketPlayerEntity | undefined;
+  player: unknown;
   // Base Socket properties from Socket class
   ws: NodeWebSocket;
   network: NetworkWithSocket;
