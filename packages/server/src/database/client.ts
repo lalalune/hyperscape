@@ -146,24 +146,33 @@ export async function initializeDatabase(connectionString: string) {
     await migrate(db, { migrationsFolder });
   } catch (error) {
     // If tables already exist (42P07), that's fine - the database is already set up
-    const hasCode =
-      error &&
-      typeof error === "object" &&
-      "cause" in error &&
-      error.cause &&
-      typeof error.cause === "object" &&
-      "code" in error.cause;
-    const hasMessage = error && typeof error === "object" && "message" in error;
-    const errorWithCause = error as {
-      cause?: { code?: string };
+    // Extract error details for precise matching
+    const errorObj = error as {
+      cause?: { code?: string; message?: string };
       message?: string;
+      code?: string;
     };
+
+    // Check for PostgreSQL error codes indicating objects already exist
+    const pgErrorCode =
+      errorObj.cause?.code || errorObj.code; // Nested in cause (DrizzleQueryError) // Direct on error
+
+    const isTableExistsError = pgErrorCode === "42P07"; // relation already exists
+    const isColumnExistsError = pgErrorCode === "42701"; // column already exists
+    const isConstraintExistsError = pgErrorCode === "42710"; // constraint already exists
+
+    // Only match "already exists" at the START of the cause message (PostgreSQL error format)
+    // This prevents false positives from unrelated errors that mention "already exists"
+    const causeMessage = errorObj.cause?.message || "";
+    const isAlreadyExistsMessage =
+      causeMessage.startsWith("relation") &&
+      causeMessage.includes("already exists");
+
     const isExistsError =
-      (hasCode && errorWithCause.cause?.code === "42P07") || // Table already exists
-      (hasCode && errorWithCause.cause?.code === "42701") || // Column already exists
-      (hasMessage &&
-        typeof errorWithCause.message === "string" &&
-        errorWithCause.message.includes("already exists"));
+      isTableExistsError ||
+      isColumnExistsError ||
+      isConstraintExistsError ||
+      isAlreadyExistsMessage;
 
     if (isExistsError) {
       console.log(

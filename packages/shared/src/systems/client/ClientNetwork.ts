@@ -840,6 +840,9 @@ export class ClientNetwork extends SystemBase {
       createdAt: new Date().toISOString(),
     };
     this.world.chat.add(chatMessage, false);
+
+    // Auto-open chat when system message arrives so user sees feedback
+    this.world.emit("ui:chat:show" as EventType, {});
   };
 
   onEntityAdded = (data: EntityData) => {

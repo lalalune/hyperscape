@@ -87,6 +87,18 @@ export function Chat({ world }: { world: ChatWorld }) {
     };
   }, [active, setActive, setCollapsed, world]);
 
+  // Auto-open chat when system messages arrive (equipment feedback, combat info, etc.)
+  useEffect(() => {
+    const onShowChat = () => {
+      setActive(true);
+      setCollapsed(false);
+    };
+    world.on("ui:chat:show" as EventType, onShowChat);
+    return () => {
+      world.off("ui:chat:show" as EventType, onShowChat);
+    };
+  }, [setActive, setCollapsed, world]);
+
   useEffect(() => {
     const onPrefsChange = (changes: { chatVisible?: { value: boolean } }) => {
       if (changes.chatVisible !== undefined) {
