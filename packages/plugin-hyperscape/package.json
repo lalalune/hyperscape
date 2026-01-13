@@ -35,7 +35,7 @@
   "dependencies": {
     "@elizaos/core": "^1.2.9",
     "@elizaos/plugin-anthropic": "^1.5.12",
-    "@elizaos/plugin-openai": "1.5.16",
+    "@elizaos/plugin-openai": "1.6.0",
     "@elizaos/plugin-openrouter": "^1.5.15",
     "@elizaos/plugin-sql": "^1.6.4",
     "@hyperscape/shared": "workspace:*",
