@@ -73,7 +73,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@farcaster/miniapp-sdk": "^0.2.0",
     "@fastify/compress": "^8.0.1",
-    "@fastify/cors": "^10.0.1",
+    "@fastify/cors": "^11.2.0",
     "@fastify/multipart": "^9.0.1",
     "@fastify/static": "^8.0.1",
     "@fastify/websocket": "^11.0.1",
