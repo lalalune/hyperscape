@@ -48,7 +48,7 @@
     "tailwind-merge": "^2.5.4",
     "three": "^0.180.0",
     "ws": "^8.18.3",
-    "zod": "^3.25.67"
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@elizaos/cli": "^1.6.4",
