@@ -98,7 +98,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "^7.34.0",
     "eslint-plugin-react-hooks": "^7.0.0",
-    "jsdom": "^25.0.0",
+    "jsdom": "^27.4.0",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.14",
