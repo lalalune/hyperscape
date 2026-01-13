@@ -39,7 +39,7 @@
   "license": "MIT",
   "dependencies": {
     "ai": "^4.2.0",
-    "@ai-sdk/anthropic": "^1.2.0",
+    "@ai-sdk/anthropic": "^3.0.12",
     "@ai-sdk/openai": "^1.2.0",
     "@elysiajs/cors": "^1.4.0",
     "@elysiajs/server-timing": "^1.4.0",
