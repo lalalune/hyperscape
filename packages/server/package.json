@@ -78,7 +78,7 @@
     "vitest": "^4.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/moment": "^2.13.0",
-    "@types/node": "^24.7.2",
+    "@types/node": "^25.0.7",
     "@types/pg": "^8.11.10",
     "@types/source-map-support": "^0.5.10",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
