@@ -50,7 +50,7 @@
     "@farcaster/miniapp-sdk": "^0.2.1",
     "@hyperscape/physx-js-webidl": "workspace:*",
     "@hyperscape/shared": "workspace:*",
-    "@pixiv/three-vrm": "^3.3.3",
+    "@pixiv/three-vrm": "^3.4.5",
     "@privy-io/react-auth": "^3.3.0",
     "@rollup/rollup-darwin-x64": "^4.52.4",
     "@types/styled-components": "^5.1.34",
