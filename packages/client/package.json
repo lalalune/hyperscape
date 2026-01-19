@@ -68,7 +68,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "styled-components": "^6.1.19",
-    "three": "^0.181.0",
+    "three": "^0.182.0",
     "three-custom-shader-material": "^6.3.7",
     "three-mesh-bvh": "^0.8.3",
     "viem": "^2.39.3",
