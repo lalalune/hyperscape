@@ -8,6 +8,19 @@ export { ClientAudio } from "./ClientAudio";
 export { ClientCameraSystem } from "./ClientCameraSystem";
 export { ClientGraphics } from "./ClientGraphics";
 export { ClientInput } from "./ClientInput";
+export {
+  GamepadInput,
+  GamepadButton,
+  GamepadAxis,
+  DEFAULT_ACTION_MAPPING,
+  GAMEPAD_BUTTON_GLYPHS,
+  getButtonGlyph,
+} from "./GamepadInput";
+export type {
+  StickState,
+  GameAction,
+  GamepadInputEvents,
+} from "./GamepadInput";
 export { ClientInterface } from "./ClientInterface";
 export { ClientLiveKit } from "./ClientLiveKit";
 export { ClientLoader } from "./ClientLoader";

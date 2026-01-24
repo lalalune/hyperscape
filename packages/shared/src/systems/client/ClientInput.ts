@@ -115,6 +115,12 @@ import type {
   CustomPointerEvent,
 } from "../../types";
 import { InputButtons } from "../../types/network/networking";
+import {
+  GamepadInput,
+  GamepadButton,
+  type StickState,
+  type GameAction,
+} from "./GamepadInput";
 
 // Pre-allocated temp objects to avoid per-frame allocations
 const _v3_1 = new THREE.Vector3();
@@ -311,6 +317,10 @@ export class ClientInput extends SystemBase {
   private buttons = 0;
   private viewAngles = new THREE.Quaternion();
 
+  // Gamepad input system
+  private gamepadInput: GamepadInput | null = null;
+  private gamepadMoveVector = new THREE.Vector2();
+
   constructor(world: World) {
     super(world, {
       name: "client-input",
@@ -354,6 +364,9 @@ export class ClientInput extends SystemBase {
     window.addEventListener("resize", this.onResize);
     window.addEventListener("focus", this.onFocus);
     window.addEventListener("blur", this.onBlur);
+
+    // Initialize gamepad input system
+    this.initGamepad();
   }
 
   start() {
@@ -376,6 +389,9 @@ export class ClientInput extends SystemBase {
   }
 
   update(delta: number) {
+    // Update gamepad state (must be called every frame)
+    this.updateGamepad();
+
     // Update pointer state
     this.pointerState.update(
       this.screenHit,
@@ -1356,6 +1372,303 @@ export class ClientInput extends SystemBase {
     window.removeEventListener("resize", this.onResize);
     window.removeEventListener("focus", this.onFocus);
     window.removeEventListener("blur", this.onBlur);
+
+    // Clean up gamepad input
+    this.gamepadInput?.destroy();
+    this.gamepadInput = null;
+  }
+
+  // ========================================
+  // GAMEPAD INPUT METHODS
+  // ========================================
+
+  /**
+   * Initialize gamepad input system
+   */
+  private initGamepad(): void {
+    if (typeof navigator === "undefined" || !navigator.getGamepads) {
+      console.log("[ClientInput] Gamepad API not available");
+      return;
+    }
+
+    this.gamepadInput = new GamepadInput();
+
+    // Listen for gamepad events
+    this.gamepadInput.on("connected", (gamepad) => {
+      console.log(`[ClientInput] Gamepad connected: ${gamepad.id}`);
+      this.emit("gamepadConnected", { id: gamepad.id, index: gamepad.index });
+    });
+
+    this.gamepadInput.on("disconnected", (gamepad) => {
+      console.log(`[ClientInput] Gamepad disconnected: ${gamepad.id}`);
+      this.emit("gamepadDisconnected", {
+        id: gamepad.id,
+        index: gamepad.index,
+      });
+    });
+
+    // Map gamepad button events to control bindings
+    this.gamepadInput.on("buttonDown", (button, action) => {
+      this.handleGamepadButtonDown(button, action);
+    });
+
+    this.gamepadInput.on("buttonUp", (button, action) => {
+      this.handleGamepadButtonUp(button, action);
+    });
+  }
+
+  /**
+   * Update gamepad state - called every frame
+   */
+  private updateGamepad(): void {
+    if (!this.gamepadInput || !this._controlsEnabled) return;
+
+    // Poll gamepad state
+    this.gamepadInput.update();
+
+    // Update movement from left stick
+    const leftStick = this.gamepadInput.getLeftStick();
+    if (leftStick.x !== 0 || leftStick.y !== 0) {
+      this.gamepadMoveVector.set(leftStick.x, leftStick.y);
+
+      // Apply to movement buttons
+      if (leftStick.y < -0.3) {
+        this.buttons |= InputButtons.FORWARD;
+      } else {
+        this.buttons &= ~InputButtons.FORWARD;
+      }
+      if (leftStick.y > 0.3) {
+        this.buttons |= InputButtons.BACKWARD;
+      } else {
+        this.buttons &= ~InputButtons.BACKWARD;
+      }
+      if (leftStick.x < -0.3) {
+        this.buttons |= InputButtons.LEFT;
+      } else {
+        this.buttons &= ~InputButtons.LEFT;
+      }
+      if (leftStick.x > 0.3) {
+        this.buttons |= InputButtons.RIGHT;
+      } else {
+        this.buttons &= ~InputButtons.RIGHT;
+      }
+    } else {
+      // Clear movement if no gamepad input and no keyboard input
+      if (!this.buttonsDown.has("keyW") && !this.buttonsDown.has("arrowUp")) {
+        this.buttons &= ~InputButtons.FORWARD;
+      }
+      if (!this.buttonsDown.has("keyS") && !this.buttonsDown.has("arrowDown")) {
+        this.buttons &= ~InputButtons.BACKWARD;
+      }
+      if (!this.buttonsDown.has("keyA") && !this.buttonsDown.has("arrowLeft")) {
+        this.buttons &= ~InputButtons.LEFT;
+      }
+      if (
+        !this.buttonsDown.has("keyD") &&
+        !this.buttonsDown.has("arrowRight")
+      ) {
+        this.buttons &= ~InputButtons.RIGHT;
+      }
+    }
+
+    // Camera zoom from triggers
+    const triggers = this.gamepadInput.getTriggers();
+    if (triggers.left > 0.1 || triggers.right > 0.1) {
+      this.scroll.delta += (triggers.right - triggers.left) * 10;
+    }
+  }
+
+  /**
+   * Handle gamepad button press
+   */
+  private handleGamepadButtonDown(
+    button: GamepadButton,
+    action: GameAction | null,
+  ): void {
+    // CRITICAL: Block ALL input during death
+    const player = this.world.getPlayer();
+    if (
+      player &&
+      ((player as { isDying?: boolean }).isDying ||
+        (player.data as { isDying?: boolean })?.isDying)
+    ) {
+      return;
+    }
+
+    // Map specific buttons to keyboard equivalents for control bindings
+    switch (button) {
+      case GamepadButton.A:
+        this.simulateButtonPress("space");
+        break;
+      case GamepadButton.B:
+        this.simulateButtonPress("escape");
+        break;
+      case GamepadButton.X:
+        this.simulateButtonPress("keyE");
+        break;
+      case GamepadButton.Y:
+        this.simulateButtonPress("keyQ");
+        break;
+      case GamepadButton.START:
+        this.simulateButtonPress("escape");
+        break;
+      case GamepadButton.SELECT:
+        this.simulateButtonPress("keyI");
+        break;
+      case GamepadButton.L3:
+        this.buttons |= InputButtons.SPRINT;
+        break;
+      case GamepadButton.DPAD_UP:
+        this.simulateButtonPress("digit1");
+        break;
+      case GamepadButton.DPAD_RIGHT:
+        this.simulateButtonPress("digit2");
+        break;
+      case GamepadButton.DPAD_DOWN:
+        this.simulateButtonPress("digit3");
+        break;
+      case GamepadButton.DPAD_LEFT:
+        this.simulateButtonPress("digit4");
+        break;
+    }
+
+    // Emit generic gamepad event
+    this.emit("gamepadButtonDown", { button, action });
+  }
+
+  /**
+   * Handle gamepad button release
+   */
+  private handleGamepadButtonUp(
+    button: GamepadButton,
+    action: GameAction | null,
+  ): void {
+    switch (button) {
+      case GamepadButton.A:
+        this.simulateButtonRelease("space");
+        break;
+      case GamepadButton.B:
+        this.simulateButtonRelease("escape");
+        break;
+      case GamepadButton.X:
+        this.simulateButtonRelease("keyE");
+        break;
+      case GamepadButton.Y:
+        this.simulateButtonRelease("keyQ");
+        break;
+      case GamepadButton.START:
+        this.simulateButtonRelease("escape");
+        break;
+      case GamepadButton.SELECT:
+        this.simulateButtonRelease("keyI");
+        break;
+      case GamepadButton.L3:
+        this.buttons &= ~InputButtons.SPRINT;
+        break;
+      case GamepadButton.DPAD_UP:
+        this.simulateButtonRelease("digit1");
+        break;
+      case GamepadButton.DPAD_RIGHT:
+        this.simulateButtonRelease("digit2");
+        break;
+      case GamepadButton.DPAD_DOWN:
+        this.simulateButtonRelease("digit3");
+        break;
+      case GamepadButton.DPAD_LEFT:
+        this.simulateButtonRelease("digit4");
+        break;
+    }
+
+    // Emit generic gamepad event
+    this.emit("gamepadButtonUp", { button, action });
+  }
+
+  /**
+   * Simulate a button press for control bindings
+   */
+  private simulateButtonPress(prop: string): void {
+    this.buttonsDown.add(prop);
+    for (const control of this.controls) {
+      const button = control.entries[prop] as ButtonEntry;
+      if (button) {
+        button.pressed = true;
+        button.down = true;
+        const capture = button.onPress?.();
+        if (capture || button.capture) break;
+      }
+    }
+  }
+
+  /**
+   * Simulate a button release for control bindings
+   */
+  private simulateButtonRelease(prop: string): void {
+    this.buttonsDown.delete(prop);
+    for (const control of this.controls) {
+      const button = control.entries[prop] as ButtonEntry;
+      if (button?.down) {
+        button.down = false;
+        button.released = true;
+        button.onRelease?.();
+      }
+    }
+  }
+
+  // ========================================
+  // GAMEPAD PUBLIC API
+  // ========================================
+
+  /**
+   * Check if a gamepad is connected
+   */
+  isGamepadConnected(): boolean {
+    return this.gamepadInput?.isConnected() ?? false;
+  }
+
+  /**
+   * Get gamepad info
+   */
+  getGamepadInfo(): { id: string; index: number } | null {
+    return this.gamepadInput?.getGamepadInfo() ?? null;
+  }
+
+  /**
+   * Get left stick state
+   */
+  getLeftStick(): StickState {
+    return this.gamepadInput?.getLeftStick() ?? { x: 0, y: 0 };
+  }
+
+  /**
+   * Get right stick state
+   */
+  getRightStick(): StickState {
+    return this.gamepadInput?.getRightStick() ?? { x: 0, y: 0 };
+  }
+
+  /**
+   * Check if a gamepad button is pressed
+   */
+  isGamepadButtonPressed(button: GamepadButton): boolean {
+    return this.gamepadInput?.isButtonPressed(button) ?? false;
+  }
+
+  /**
+   * Vibrate the gamepad
+   */
+  vibrateGamepad(
+    duration: number,
+    weakMagnitude?: number,
+    strongMagnitude?: number,
+  ): void {
+    this.gamepadInput?.vibrate(duration, weakMagnitude, strongMagnitude);
+  }
+
+  /**
+   * Get the gamepad input instance for advanced usage
+   */
+  getGamepadInput(): GamepadInput | null {
+    return this.gamepadInput;
   }
 }
 

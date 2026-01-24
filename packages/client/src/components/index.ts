@@ -16,3 +16,14 @@ export { MouseRightIcon } from "./MouseRightIcon";
 export { MouseWheelIcon } from "./MouseWheelIcon";
 export { CurvePane } from "./CurvePane";
 export { CurvePreview } from "./CurvePreview";
+
+// Gamepad / Steam Deck support
+export {
+  GamepadButtonHint,
+  GamepadActionBar,
+  AdaptiveHint,
+  CommonHints,
+  useGamepadConnected,
+  useGamepadType,
+} from "./GamepadButtonHint";
+export type { GamepadButtonName } from "./GamepadButtonHint";

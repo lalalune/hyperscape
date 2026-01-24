@@ -1,0 +1,542 @@
+"controller_mappings"
+{
+    "version"       "3"
+    "title"         "Hyperscape - Default Configuration"
+    "description"   "MMORPG controls for Steam Deck and Xbox controllers"
+    "creator"       "HyperscapeAI"
+    
+    "actions"
+    {
+        "Menu"
+        {
+            "title"         "#Menu"
+            "StickPadGyro"
+            {
+                "Move"
+                {
+                    "title"         "#Menu_Move"
+                    "input_mode"    "joystick_move"
+                }
+            }
+            "Button"
+            {
+                "menu_select"
+                {
+                    "title"         "#Menu_Select"
+                    "input_mode"    "button"
+                }
+                "menu_cancel"
+                {
+                    "title"         "#Menu_Cancel"
+                    "input_mode"    "button"
+                }
+                "menu_up"
+                {
+                    "title"         "#Menu_Up"
+                    "input_mode"    "button"
+                }
+                "menu_down"
+                {
+                    "title"         "#Menu_Down"
+                    "input_mode"    "button"
+                }
+                "menu_left"
+                {
+                    "title"         "#Menu_Left"
+                    "input_mode"    "button"
+                }
+                "menu_right"
+                {
+                    "title"         "#Menu_Right"
+                    "input_mode"    "button"
+                }
+            }
+        }
+        "InGame"
+        {
+            "title"         "#InGame"
+            "StickPadGyro"
+            {
+                "Move"
+                {
+                    "title"         "#InGame_Move"
+                    "input_mode"    "joystick_move"
+                }
+                "Camera"
+                {
+                    "title"         "#InGame_Camera"
+                    "input_mode"    "joystick_camera"
+                }
+            }
+            "Button"
+            {
+                "interact"
+                {
+                    "title"         "#InGame_Interact"
+                    "input_mode"    "button"
+                }
+                "attack"
+                {
+                    "title"         "#InGame_Attack"
+                    "input_mode"    "button"
+                }
+                "special_attack"
+                {
+                    "title"         "#InGame_SpecialAttack"
+                    "input_mode"    "button"
+                }
+                "cancel"
+                {
+                    "title"         "#InGame_Cancel"
+                    "input_mode"    "button"
+                }
+                "inventory"
+                {
+                    "title"         "#InGame_Inventory"
+                    "input_mode"    "button"
+                }
+                "equipment"
+                {
+                    "title"         "#InGame_Equipment"
+                    "input_mode"    "button"
+                }
+                "skills"
+                {
+                    "title"         "#InGame_Skills"
+                    "input_mode"    "button"
+                }
+                "prayer"
+                {
+                    "title"         "#InGame_Prayer"
+                    "input_mode"    "button"
+                }
+                "menu"
+                {
+                    "title"         "#InGame_Menu"
+                    "input_mode"    "button"
+                }
+                "run_toggle"
+                {
+                    "title"         "#InGame_RunToggle"
+                    "input_mode"    "button"
+                }
+                "zoom_in"
+                {
+                    "title"         "#InGame_ZoomIn"
+                    "input_mode"    "trigger"
+                }
+                "zoom_out"
+                {
+                    "title"         "#InGame_ZoomOut"
+                    "input_mode"    "trigger"
+                }
+                "cycle_target_left"
+                {
+                    "title"         "#InGame_CycleTargetLeft"
+                    "input_mode"    "button"
+                }
+                "cycle_target_right"
+                {
+                    "title"         "#InGame_CycleTargetRight"
+                    "input_mode"    "button"
+                }
+                "hotbar_1"
+                {
+                    "title"         "#InGame_Hotbar1"
+                    "input_mode"    "button"
+                }
+                "hotbar_2"
+                {
+                    "title"         "#InGame_Hotbar2"
+                    "input_mode"    "button"
+                }
+                "hotbar_3"
+                {
+                    "title"         "#InGame_Hotbar3"
+                    "input_mode"    "button"
+                }
+                "hotbar_4"
+                {
+                    "title"         "#InGame_Hotbar4"
+                    "input_mode"    "button"
+                }
+            }
+            "AnalogTrigger"
+            {
+                "zoom"
+                {
+                    "title"         "#InGame_Zoom"
+                    "input_mode"    "trigger"
+                }
+            }
+        }
+    }
+    
+    "action_layers"
+    {
+    }
+    
+    "localization"
+    {
+        "english"
+        {
+            "title"                     "Hyperscape - Default Configuration"
+            
+            "#Menu"                     "Menu"
+            "#Menu_Move"                "Navigate Menu"
+            "#Menu_Select"              "Select"
+            "#Menu_Cancel"              "Back"
+            "#Menu_Up"                  "Up"
+            "#Menu_Down"                "Down"
+            "#Menu_Left"                "Left"
+            "#Menu_Right"               "Right"
+            
+            "#InGame"                   "In Game"
+            "#InGame_Move"              "Move Character"
+            "#InGame_Camera"            "Camera Control"
+            "#InGame_Interact"          "Interact / Confirm"
+            "#InGame_Attack"            "Attack"
+            "#InGame_SpecialAttack"     "Special Attack"
+            "#InGame_Cancel"            "Cancel / Back"
+            "#InGame_Inventory"         "Open Inventory"
+            "#InGame_Equipment"         "Open Equipment"
+            "#InGame_Skills"            "Open Skills"
+            "#InGame_Prayer"            "Open Prayer"
+            "#InGame_Menu"              "Open Menu"
+            "#InGame_RunToggle"         "Toggle Run"
+            "#InGame_ZoomIn"            "Zoom In"
+            "#InGame_ZoomOut"           "Zoom Out"
+            "#InGame_CycleTargetLeft"   "Previous Target"
+            "#InGame_CycleTargetRight"  "Next Target"
+            "#InGame_Hotbar1"           "Hotbar Slot 1"
+            "#InGame_Hotbar2"           "Hotbar Slot 2"
+            "#InGame_Hotbar3"           "Hotbar Slot 3"
+            "#InGame_Hotbar4"           "Hotbar Slot 4"
+            "#InGame_Zoom"              "Camera Zoom"
+        }
+    }
+    
+    "presets"
+    {
+        "id"        "0"
+        "name"      "Default"
+        "group_source_bindings"
+        {
+            "7"     "switch active"
+            "0"     "button_diamond active"
+            "3"     "left_trigger active"
+            "4"     "right_trigger active"
+            "1"     "left_bumper active"
+            "2"     "right_bumper active"
+            "11"    "dpad active"
+            "8"     "joystick active"
+            "9"     "right_joystick active"
+        }
+    }
+    
+    "group"
+    {
+        "id"        "0"
+        "mode"      "button_diamond"
+        "name"      ""
+        "description"       ""
+        "inputs"
+        {
+            "button_a"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame interact"
+                        }
+                    }
+                }
+            }
+            "button_b"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame cancel"
+                        }
+                    }
+                }
+            }
+            "button_x"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame attack"
+                        }
+                    }
+                }
+            }
+            "button_y"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame special_attack"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    "group"
+    {
+        "id"        "1"
+        "mode"      "left_bumper"
+        "name"      ""
+        "description"       ""
+        "inputs"
+        {
+            "click"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame cycle_target_left"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    "group"
+    {
+        "id"        "2"
+        "mode"      "right_bumper"
+        "name"      ""
+        "description"       ""
+        "inputs"
+        {
+            "click"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame cycle_target_right"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    "group"
+    {
+        "id"        "3"
+        "mode"      "left_trigger"
+        "name"      ""
+        "description"       ""
+        "inputs"
+        {
+            "click"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame zoom_out"
+                        }
+                    }
+                }
+            }
+        }
+        "settings"
+        {
+            "output_trigger"        "1"
+        }
+    }
+    "group"
+    {
+        "id"        "4"
+        "mode"      "right_trigger"
+        "name"      ""
+        "description"       ""
+        "inputs"
+        {
+            "click"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame zoom_in"
+                        }
+                    }
+                }
+            }
+        }
+        "settings"
+        {
+            "output_trigger"        "2"
+        }
+    }
+    "group"
+    {
+        "id"        "7"
+        "mode"      "switch"
+        "name"      ""
+        "description"       ""
+        "inputs"
+        {
+            "button_escape"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame inventory"
+                        }
+                    }
+                }
+            }
+            "button_menu"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame menu"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    "group"
+    {
+        "id"        "8"
+        "mode"      "joystick_move"
+        "name"      ""
+        "description"       ""
+        "inputs"
+        {
+            "click"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame run_toggle"
+                        }
+                    }
+                }
+            }
+        }
+        "settings"
+        {
+            "output_joystick"       "0"
+        }
+    }
+    "group"
+    {
+        "id"        "9"
+        "mode"      "joystick_camera"
+        "name"      ""
+        "description"       ""
+        "inputs"
+        {
+        }
+        "settings"
+        {
+            "output_joystick"       "1"
+        }
+    }
+    "group"
+    {
+        "id"        "11"
+        "mode"      "dpad"
+        "name"      ""
+        "description"       ""
+        "inputs"
+        {
+            "dpad_north"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame equipment"
+                        }
+                    }
+                }
+            }
+            "dpad_south"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame prayer"
+                        }
+                    }
+                }
+            }
+            "dpad_east"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame hotbar_2"
+                        }
+                    }
+                }
+            }
+            "dpad_west"
+            {
+                "activators"
+                {
+                    "Full_Press"
+                    {
+                        "bindings"
+                        {
+                            "binding"       "game_action InGame skills"
+                        }
+                    }
+                }
+            }
+        }
+        "settings"
+        {
+            "requires_click"        "0"
+        }
+    }
+}

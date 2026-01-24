@@ -99,3 +99,280 @@ div[data-privy-backdrop] {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background-color: rgba(242, 208, 138, 0.8);
 }
+
+/* ========================================
+   STEAM DECK / GAMEPAD MODE STYLES
+   ======================================== */
+
+/**
+ * Steam Deck Mode
+ * Applied when running on Steam Deck hardware
+ * Optimizes UI for 1280x800 resolution and controller input
+ */
+.steam-deck-mode {
+  /* Larger base font for 7" screen readability */
+  font-size: 18px !important;
+
+  /* Hide cursor in Game Mode (Steam handles virtual cursor) */
+  cursor: none !important;
+}
+
+.steam-deck-mode * {
+  /* Increase touch/focus targets */
+  min-height: 44px;
+}
+
+.steam-deck-mode button,
+.steam-deck-mode [role="button"],
+.steam-deck-mode a,
+.steam-deck-mode input,
+.steam-deck-mode select {
+  /* Steam Deck Verified requirement: 48px minimum touch targets */
+  min-height: 48px;
+  min-width: 48px;
+  padding: 12px 16px;
+}
+
+/**
+ * Gamepad Mode
+ * Applied when a gamepad is connected
+ * Shows controller button hints and adjusts focus styling
+ */
+.gamepad-mode {
+  /* Enhanced focus visibility for controller navigation */
+  --focus-ring-color: rgba(242, 208, 138, 0.8);
+  --focus-ring-width: 3px;
+}
+
+.gamepad-mode :focus,
+.gamepad-mode [data-focused="true"] {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color) !important;
+  outline-offset: 2px;
+}
+
+.gamepad-mode :focus:not(:focus-visible) {
+  outline: none !important;
+}
+
+.gamepad-mode :focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color) !important;
+  outline-offset: 2px;
+}
+
+/* Hide keyboard hints when gamepad connected */
+.gamepad-mode .keyboard-hint {
+  display: none !important;
+}
+
+/* Show gamepad hints when gamepad connected */
+.gamepad-hint {
+  display: none;
+}
+
+.gamepad-mode .gamepad-hint {
+  display: inline-flex !important;
+}
+
+/**
+ * Gamepad Button Glyph Styling
+ * Xbox/Steam Deck button icons for UI hints
+ */
+.gamepad-button-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  margin: 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(180deg, #4a4a4a 0%, #2a2a2a 100%);
+  border: 2px solid #5a5a5a;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Face buttons (A, B, X, Y) */
+.gamepad-button-glyph.button-a {
+  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 100%);
+  border-color: #66bb6a;
+}
+
+.gamepad-button-glyph.button-b {
+  background: linear-gradient(180deg, #f44336 0%, #c62828 100%);
+  border-color: #ef5350;
+}
+
+.gamepad-button-glyph.button-x {
+  background: linear-gradient(180deg, #2196f3 0%, #1565c0 100%);
+  border-color: #42a5f5;
+}
+
+.gamepad-button-glyph.button-y {
+  background: linear-gradient(180deg, #ffeb3b 0%, #f9a825 100%);
+  border-color: #ffee58;
+  color: #000000;
+  text-shadow: none;
+}
+
+/* Bumpers and Triggers */
+.gamepad-button-glyph.button-lb,
+.gamepad-button-glyph.button-rb,
+.gamepad-button-glyph.button-lt,
+.gamepad-button-glyph.button-rt {
+  background: linear-gradient(180deg, #616161 0%, #424242 100%);
+  border-color: #757575;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* D-Pad */
+.gamepad-button-glyph.dpad {
+  background: linear-gradient(180deg, #555555 0%, #333333 100%);
+  border-color: #666666;
+  font-size: 16px;
+}
+
+/* Start/Select */
+.gamepad-button-glyph.button-start,
+.gamepad-button-glyph.button-select {
+  background: linear-gradient(180deg, #424242 0%, #212121 100%);
+  border-color: #555555;
+  min-width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+
+/**
+ * Controller Hint Container
+ * Displays button prompt with label
+ */
+.controller-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.controller-hint-label {
+  opacity: 0.8;
+}
+
+/**
+ * Quick Action Bar for Gamepad
+ * Shows available actions with button prompts
+ */
+.gamepad-action-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(242, 208, 138, 0.3);
+  border-radius: 12px;
+  z-index: 100;
+}
+
+.gamepad-action-bar .action-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+/* Hide action bar when no gamepad */
+.gamepad-action-bar {
+  display: none;
+}
+
+.gamepad-mode .gamepad-action-bar {
+  display: flex;
+}
+
+/**
+ * Virtual Joystick Overlay (Touch Fallback)
+ * For Steam Deck Desktop Mode or touch fallback
+ */
+.virtual-joystick {
+  position: fixed;
+  bottom: 80px;
+  left: 40px;
+  width: 120px;
+  height: 120px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  display: none;
+}
+
+.virtual-joystick-thumb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50px;
+  height: 50px;
+  background: rgba(242, 208, 138, 0.8);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Show virtual joystick on touch devices without gamepad */
+@media (hover: none) and (pointer: coarse) {
+  .virtual-joystick:not(.gamepad-mode .virtual-joystick) {
+    display: block;
+  }
+}
+
+/**
+ * Resolution-specific adjustments for Steam Deck
+ * 1280x800 native, but also handle docked mode
+ */
+@media screen and (max-width: 1280px) and (max-height: 800px) {
+  .steam-deck-mode {
+    /* Compact UI spacing for smaller screen */
+    --ui-padding: 8px;
+    --ui-gap: 6px;
+  }
+
+  .steam-deck-mode .ui-panel {
+    padding: var(--ui-padding);
+    gap: var(--ui-gap);
+  }
+
+  /* Scale down large UI elements */
+  .steam-deck-mode .dialog,
+  .steam-deck-mode .modal {
+    max-width: 90vw;
+    max-height: 85vh;
+  }
+}
+
+/* Docked mode (external display) - restore normal sizing */
+@media screen and (min-width: 1920px) {
+  .steam-deck-mode {
+    font-size: 16px !important;
+  }
+
+  .steam-deck-mode button,
+  .steam-deck-mode [role="button"],
+  .steam-deck-mode a,
+  .steam-deck-mode input,
+  .steam-deck-mode select {
+    min-height: 40px;
+    min-width: 40px;
+    padding: 8px 12px;
+  }
+}

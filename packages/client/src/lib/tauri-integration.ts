@@ -77,6 +77,8 @@ export type PlatformInfo = {
   os: string;
   arch: string;
   family: string;
+  isSteamDeck?: boolean;
+  isSteamGameMode?: boolean;
 };
 
 /**
@@ -154,4 +156,130 @@ export function parseOAuthCallback(url: string): {
   } catch {
     return { code: null, state: null, error: "Invalid URL" };
   }
+}
+
+// ========================================
+// STEAM DECK DETECTION
+// ========================================
+
+// Cache platform info to avoid repeated IPC calls
+let cachedPlatformInfo: PlatformInfo | null = null;
+
+/**
+ * Check if running on Steam Deck
+ * Returns true if:
+ * - Running in Tauri with isSteamDeck flag
+ * - Running in browser with Steam Deck user agent hints
+ */
+export async function isSteamDeck(): Promise<boolean> {
+  // Check cached platform info first
+  if (cachedPlatformInfo?.isSteamDeck !== undefined) {
+    return cachedPlatformInfo.isSteamDeck;
+  }
+
+  // Try to get from Tauri
+  const platformInfo = await getPlatformInfo();
+  if (platformInfo) {
+    cachedPlatformInfo = platformInfo;
+    return platformInfo.isSteamDeck ?? false;
+  }
+
+  // Fallback: Check browser user agent for Linux + gamepad
+  if (typeof navigator !== "undefined") {
+    const isLinux = /Linux/.test(navigator.userAgent);
+    const hasGamepad =
+      "getGamepads" in navigator &&
+      navigator.getGamepads().some((gp) => gp !== null);
+
+    // Heuristic: Linux with gamepad connected is likely Steam Deck
+    // This is not 100% accurate but provides reasonable detection in browser
+    if (isLinux && hasGamepad) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if running in Steam Game Mode (Big Picture on Steam Deck)
+ */
+export async function isSteamGameMode(): Promise<boolean> {
+  if (cachedPlatformInfo?.isSteamGameMode !== undefined) {
+    return cachedPlatformInfo.isSteamGameMode;
+  }
+
+  const platformInfo = await getPlatformInfo();
+  if (platformInfo) {
+    cachedPlatformInfo = platformInfo;
+    return platformInfo.isSteamGameMode ?? false;
+  }
+
+  return false;
+}
+
+/**
+ * Clear the cached platform info (for testing)
+ */
+export function clearPlatformInfoCache(): void {
+  cachedPlatformInfo = null;
+}
+
+/**
+ * Detect if a gamepad is connected (useful for showing controller hints)
+ */
+export function isGamepadConnected(): boolean {
+  if (typeof navigator === "undefined" || !("getGamepads" in navigator)) {
+    return false;
+  }
+
+  const gamepads = navigator.getGamepads();
+  return gamepads.some((gp) => gp !== null);
+}
+
+/**
+ * Get the type of connected gamepad (for button glyph display)
+ */
+export function getGamepadType():
+  | "xbox"
+  | "playstation"
+  | "nintendo"
+  | "generic"
+  | null {
+  if (typeof navigator === "undefined" || !("getGamepads" in navigator)) {
+    return null;
+  }
+
+  const gamepads = navigator.getGamepads();
+  const gamepad = gamepads.find((gp) => gp !== null);
+
+  if (!gamepad) return null;
+
+  const id = gamepad.id.toLowerCase();
+
+  if (id.includes("xbox") || id.includes("microsoft")) {
+    return "xbox";
+  }
+  if (
+    id.includes("playstation") ||
+    id.includes("sony") ||
+    id.includes("dualshock") ||
+    id.includes("dualsense")
+  ) {
+    return "playstation";
+  }
+  if (
+    id.includes("nintendo") ||
+    id.includes("joy-con") ||
+    id.includes("pro controller")
+  ) {
+    return "nintendo";
+  }
+
+  // Steam Deck presents as Xbox controller
+  if (id.includes("steam") || id.includes("valve")) {
+    return "xbox";
+  }
+
+  return "generic";
 }

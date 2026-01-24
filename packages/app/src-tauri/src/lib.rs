@@ -2,8 +2,9 @@
 //!
 //! Core application logic for both desktop and mobile platforms.
 //! Uses Tauri v2 for native windowing and system integration.
+//! Includes Steam Deck optimizations for fullscreen gaming.
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, LogicalSize, PhysicalSize};
 
 /// Initialize and configure all Tauri plugins
 fn setup_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
@@ -60,19 +61,50 @@ fn setup_deep_link_handler(app: &AppHandle) {
     }
 }
 
+/// Check if we should run in Steam Deck mode
+fn should_use_steam_deck_mode() -> bool {
+    std::env::var("SteamOS").is_ok()
+        || std::env::var("SteamDeck").is_ok()
+        || std::env::var("STEAM_DECK").is_ok()
+        || std::env::var("SteamGamepadUI").is_ok()
+        || is_steam_deck_hardware()
+}
+
 /// Application setup hook - runs after window creation
 fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     // Configure deep link handler for OAuth
     setup_deep_link_handler(app);
     
     // Log platform info
-    log::info!("Hyperscape starting on {} {}", 
+    let is_steam_deck = should_use_steam_deck_mode();
+    log::info!("Hyperscape starting on {} {} (Steam Deck: {})", 
         std::env::consts::OS, 
-        std::env::consts::ARCH
+        std::env::consts::ARCH,
+        is_steam_deck
     );
 
-    // Log WebGPU status from the webview
+    // Configure window for Steam Deck
     if let Some(window) = app.get_webview_window("main") {
+        if is_steam_deck {
+            log::info!("[Hyperscape] Configuring for Steam Deck mode");
+            
+            // Steam Deck native resolution: 1280x800
+            let _ = window.set_size(LogicalSize::new(1280, 800));
+            
+            // Fullscreen for Game Mode, borderless for better UX
+            let _ = window.set_fullscreen(true);
+            let _ = window.set_decorations(false);
+            
+            // Disable cursor in Game Mode (Steam handles virtual cursor)
+            let _ = window.eval(r#"
+                document.body.style.cursor = 'none';
+                document.documentElement.classList.add('steam-deck-mode');
+                document.documentElement.classList.add('gamepad-mode');
+                console.log('[Hyperscape] Steam Deck mode enabled');
+            "#);
+        }
+
+        // Log WebGPU status from the webview
         let _ = window.eval(r#"
             (async () => {
                 if (navigator.gpu) {
@@ -92,15 +124,50 @@ fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Tauri command: Check WebGPU availability message
-/// Called from frontend to show appropriate error if WebGPU unavailable
+/// Tauri command: Get platform information including Steam Deck detection
+/// Called from frontend to detect platform and apply appropriate settings
 #[tauri::command]
 fn get_platform_info() -> serde_json::Value {
+    // Detect Steam Deck via environment variables set by SteamOS
+    let is_steam_deck = std::env::var("SteamOS").is_ok()
+        || std::env::var("SteamDeck").is_ok()
+        || std::env::var("STEAM_DECK").is_ok()
+        || is_steam_deck_hardware();
+
+    // Detect if running in Steam Game Mode
+    let is_steam_game_mode = std::env::var("SteamGamepadUI").is_ok()
+        || std::env::var("STEAM_RUNTIME").is_ok();
+
     serde_json::json!({
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
         "family": std::env::consts::FAMILY,
+        "isSteamDeck": is_steam_deck,
+        "isSteamGameMode": is_steam_game_mode,
     })
+}
+
+/// Check if running on Steam Deck hardware by checking for AMD APU characteristics
+fn is_steam_deck_hardware() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        // Check for Steam Deck's specific CPU model in /proc/cpuinfo
+        if let Ok(cpuinfo) = std::fs::read_to_string("/proc/cpuinfo") {
+            // Steam Deck uses AMD Custom APU 0405 (Van Gogh)
+            if cpuinfo.contains("AMD Custom APU 0405") {
+                return true;
+            }
+        }
+
+        // Check DMI product name
+        if let Ok(product_name) = std::fs::read_to_string("/sys/class/dmi/id/product_name") {
+            if product_name.trim().contains("Jupiter") || product_name.trim().contains("Galileo") {
+                return true; // Steam Deck LCD or OLED
+            }
+        }
+    }
+
+    false
 }
 
 /// Tauri command: Open external URL in system browser
