@@ -1,102 +1,634 @@
-{
-  "the_shadow_threat": {
+[
+  {
     "id": "the_shadow_threat",
     "name": "The Shadow Threat",
-    "description": "Sentinel Marcus needs help dealing with a goblin infestation threatening the outskirts of Haven.",
+    "description": "Goblins have been raiding Haven's supply lines. Help Sentinel Marcus deal with the threat and protect the settlement from these cunning creatures.",
     "difficulty": "novice",
     "questPoints": 1,
-    "replayable": false,
-    "startNpc": "sentinel_marcus",
     "requirements": {
       "quests": [],
       "skills": {},
-      "items": []
+      "items": [],
+      "questPoints": 0
     },
     "stages": [
       {
-        "id": "talk_to_sentinel",
+        "id": "talk_to_marcus",
         "type": "dialogue",
         "description": "Speak with Sentinel Marcus about the goblin threat",
-        "npcId": "sentinel_marcus"
+        "npcId": "sentinel_marcus",
+        "dialogueNodeId": "quest_accept"
       },
       {
         "id": "defeat_goblins",
         "type": "kill",
-        "description": "Defeat 10 Goblins threatening Haven",
+        "description": "Defeat 10 goblins in the Eastern Wilds",
         "target": "goblin",
         "count": 10
       },
       {
-        "id": "return_to_sentinel",
+        "id": "return_to_marcus",
         "type": "dialogue",
-        "description": "Return to Sentinel Marcus",
-        "npcId": "sentinel_marcus"
+        "description": "Return to Sentinel Marcus with news of your victory",
+        "npcId": "sentinel_marcus",
+        "dialogueNodeId": "shadow_threat_complete"
       }
     ],
-    "onStart": {
-      "items": [
-        { "itemId": "bronze_sword", "quantity": 1 }
-      ]
-    },
     "rewards": {
-      "questPoints": 1,
-      "items": [
-        { "itemId": "coins", "quantity": 500 }
-      ],
       "xp": {
         "attack": 250,
         "strength": 250
-      }
+      },
+      "items": [
+        { "itemId": "bronze_sword", "quantity": 1 }
+      ],
+      "coins": 500
     }
   },
-  "deeper_shadows": {
+  {
+    "id": "first_light",
+    "name": "First Light",
+    "description": "Learn the basics of survival from Mentor Elara - gathering wood and making fire are essential skills for any adventurer.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": [],
+      "questPoints": 0
+    },
+    "stages": [
+      {
+        "id": "talk_to_elara",
+        "type": "dialogue",
+        "description": "Speak with Mentor Elara about survival skills",
+        "npcId": "mentor_elara",
+        "dialogueNodeId": "first_light_accept"
+      },
+      {
+        "id": "gather_logs",
+        "type": "gather",
+        "description": "Gather 5 logs from trees",
+        "target": "logs",
+        "count": 5
+      },
+      {
+        "id": "light_fires",
+        "type": "interact",
+        "description": "Light 3 fires to prove your mastery",
+        "target": "fire",
+        "count": 3
+      },
+      {
+        "id": "return_to_elara",
+        "type": "dialogue",
+        "description": "Return to Mentor Elara",
+        "npcId": "mentor_elara",
+        "dialogueNodeId": "first_light_complete"
+      }
+    ],
+    "rewards": {
+      "xp": {
+        "woodcutting": 150,
+        "firemaking": 150
+      },
+      "items": [
+        { "itemId": "bronze_axe", "quantity": 1 },
+        { "itemId": "tinderbox", "quantity": 1 }
+      ],
+      "coins": 0
+    }
+  },
+  {
+    "id": "the_miners_burden",
+    "name": "The Miner's Burden",
+    "description": "The mines need more ore to meet quota. Help Foreman Grimjaw by gathering copper and tin ore from the rocks south of Haven.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": [],
+      "questPoints": 0
+    },
+    "stages": [
+      {
+        "id": "talk_to_grimjaw",
+        "type": "dialogue",
+        "description": "Speak with Foreman Grimjaw about the ore shortage",
+        "npcId": "foreman_grimjaw",
+        "dialogueNodeId": "miners_burden_accept"
+      },
+      {
+        "id": "mine_copper",
+        "type": "gather",
+        "description": "Mine 5 copper ore",
+        "target": "copper_ore",
+        "count": 5
+      },
+      {
+        "id": "mine_tin",
+        "type": "gather",
+        "description": "Mine 5 tin ore",
+        "target": "tin_ore",
+        "count": 5
+      },
+      {
+        "id": "return_to_grimjaw",
+        "type": "dialogue",
+        "description": "Return to Foreman Grimjaw with the ore",
+        "npcId": "foreman_grimjaw",
+        "dialogueNodeId": "miners_burden_complete"
+      }
+    ],
+    "rewards": {
+      "xp": {
+        "mining": 200
+      },
+      "items": [
+        { "itemId": "bronze_pickaxe", "quantity": 1 }
+      ],
+      "coins": 300
+    }
+  },
+  {
+    "id": "frontier_explorer",
+    "name": "Frontier Explorer",
+    "description": "Scout Vex needs someone to survey the dangerous areas around Haven - the Eastern Wastes and the Shadow Caves entrance.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": [],
+      "questPoints": 0
+    },
+    "stages": [
+      {
+        "id": "talk_to_vex",
+        "type": "dialogue",
+        "description": "Speak with Scout Vex about surveying the frontier",
+        "npcId": "scout_vex",
+        "dialogueNodeId": "frontier_accept"
+      },
+      {
+        "id": "explore_wastes",
+        "type": "travel",
+        "description": "Explore the Eastern Wastes watchtower",
+        "location": { "x": 65, "y": 0, "z": 0 },
+        "radius": 15
+      },
+      {
+        "id": "explore_caves",
+        "type": "travel",
+        "description": "Explore the Shadow Caves entrance",
+        "location": { "x": 0, "y": -10, "z": -130 },
+        "radius": 20
+      },
+      {
+        "id": "return_to_vex",
+        "type": "dialogue",
+        "description": "Return to Scout Vex with your observations",
+        "npcId": "scout_vex",
+        "dialogueNodeId": "frontier_complete"
+      }
+    ],
+    "rewards": {
+      "xp": {
+        "agility": 100
+      },
+      "items": [
+        { "itemId": "explorer_map", "quantity": 1 }
+      ],
+      "coins": 200
+    }
+  },
+  {
+    "id": "the_gatherer",
+    "name": "The Gatherer",
+    "description": "Chef Helena needs fresh ingredients for the tavern. Catch and cook shrimp to prove your culinary skills.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": [],
+      "questPoints": 0
+    },
+    "stages": [
+      {
+        "id": "talk_to_helena",
+        "type": "dialogue",
+        "description": "Speak with Chef Helena about gathering ingredients",
+        "npcId": "chef_helena",
+        "dialogueNodeId": "gatherer_accept"
+      },
+      {
+        "id": "catch_shrimp",
+        "type": "gather",
+        "description": "Catch 5 raw shrimp",
+        "target": "raw_shrimp",
+        "count": 5
+      },
+      {
+        "id": "cook_shrimp",
+        "type": "interact",
+        "description": "Cook 5 shrimp",
+        "target": "cooked_shrimp",
+        "count": 5
+      },
+      {
+        "id": "return_to_helena",
+        "type": "dialogue",
+        "description": "Bring the cooked shrimp to Chef Helena",
+        "npcId": "chef_helena",
+        "dialogueNodeId": "gatherer_complete"
+      }
+    ],
+    "rewards": {
+      "xp": {
+        "fishing": 150,
+        "cooking": 150
+      },
+      "items": [],
+      "coins": 250
+    }
+  },
+  {
     "id": "deeper_shadows",
     "name": "Deeper Shadows",
-    "description": "The goblin threat was just the beginning. Sentinel Marcus suspects a greater danger lurks in the shadows.",
+    "description": "The goblins were just puppets. Something darker lurks in the Shadow Caves - Shadow Crawlers, twisted creatures of darkness that must be stopped.",
     "difficulty": "intermediate",
     "questPoints": 2,
-    "replayable": false,
-    "startNpc": "sentinel_marcus",
     "requirements": {
       "quests": ["the_shadow_threat"],
-      "skills": {
-        "attack": 10
-      },
+      "skills": {},
       "items": [],
       "questPoints": 1
     },
     "stages": [
       {
-        "id": "talk_to_sentinel_again",
+        "id": "talk_to_marcus_shadows",
         "type": "dialogue",
-        "description": "Speak with Sentinel Marcus about the new threat",
-        "npcId": "sentinel_marcus"
+        "description": "Speak with Sentinel Marcus about the Shadow Caves",
+        "npcId": "sentinel_marcus",
+        "dialogueNodeId": "deeper_shadows_accept"
       },
       {
-        "id": "investigate_caves",
+        "id": "defeat_shadow_crawlers",
         "type": "kill",
-        "description": "Investigate the Shadow Caves and defeat 5 Shadow Crawlers",
+        "description": "Defeat 5 Shadow Crawlers in the caves",
         "target": "shadow_crawler",
         "count": 5
       },
       {
-        "id": "report_findings",
+        "id": "return_shadows",
         "type": "dialogue",
-        "description": "Report your findings to Sentinel Marcus",
-        "npcId": "sentinel_marcus"
+        "description": "Return to Sentinel Marcus",
+        "npcId": "sentinel_marcus",
+        "dialogueNodeId": "deeper_shadows_complete"
       }
     ],
     "rewards": {
-      "questPoints": 2,
-      "items": [
-        { "itemId": "iron_sword", "quantity": 1 },
-        { "itemId": "coins", "quantity": 1000 }
-      ],
       "xp": {
         "attack": 500,
         "strength": 500,
-        "defense": 250
+        "defence": 250
+      },
+      "items": [
+        { "itemId": "iron_sword", "quantity": 1 }
+      ],
+      "coins": 1000
+    }
+  },
+  {
+    "id": "forging_ahead",
+    "name": "Forging Ahead",
+    "description": "Foreman Grimjaw wants to teach you the art of smithing. Learn to smelt bronze bars and forge a bronze sword.",
+    "difficulty": "novice",
+    "questPoints": 2,
+    "requirements": {
+      "quests": ["the_miners_burden"],
+      "skills": {},
+      "items": [],
+      "questPoints": 2
+    },
+    "stages": [
+      {
+        "id": "talk_to_grimjaw_forge",
+        "type": "dialogue",
+        "description": "Speak with Foreman Grimjaw about smithing",
+        "npcId": "foreman_grimjaw",
+        "dialogueNodeId": "forging_ahead_accept"
+      },
+      {
+        "id": "smelt_bronze",
+        "type": "interact",
+        "description": "Smelt 3 bronze bars at the furnace",
+        "target": "bronze_bar",
+        "count": 3
+      },
+      {
+        "id": "smith_sword",
+        "type": "interact",
+        "description": "Smith a bronze sword at the anvil",
+        "target": "bronze_sword",
+        "count": 1
+      },
+      {
+        "id": "return_to_grimjaw_forge",
+        "type": "dialogue",
+        "description": "Show Foreman Grimjaw your crafted sword",
+        "npcId": "foreman_grimjaw",
+        "dialogueNodeId": "forging_ahead_complete"
       }
+    ],
+    "rewards": {
+      "xp": {
+        "mining": 200,
+        "smithing": 300
+      },
+      "items": [],
+      "coins": 500
+    }
+  },
+  {
+    "id": "proving_grounds",
+    "name": "Proving Grounds",
+    "description": "Sentinel Marcus challenges you to prove your combat prowess by facing both goblin hordes and Shadow Crawlers in a single campaign.",
+    "difficulty": "intermediate",
+    "questPoints": 3,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": [],
+      "questPoints": 5
+    },
+    "stages": [
+      {
+        "id": "accept_proving_grounds",
+        "type": "dialogue",
+        "description": "Accept Sentinel Marcus's challenge",
+        "npcId": "sentinel_marcus",
+        "dialogueNodeId": "proving_grounds_accept"
+      },
+      {
+        "id": "defeat_goblins_pg",
+        "type": "kill",
+        "description": "Defeat 15 goblins",
+        "target": "goblin",
+        "count": 15
+      },
+      {
+        "id": "defeat_crawlers_pg",
+        "type": "kill",
+        "description": "Defeat 3 Shadow Crawlers",
+        "target": "shadow_crawler",
+        "count": 3
+      },
+      {
+        "id": "complete_proving_grounds",
+        "type": "dialogue",
+        "description": "Return victorious to Sentinel Marcus",
+        "npcId": "sentinel_marcus",
+        "dialogueNodeId": "proving_grounds_complete"
+      }
+    ],
+    "rewards": {
+      "xp": {
+        "attack": 500,
+        "strength": 500,
+        "defence": 500
+      },
+      "items": [
+        { "itemId": "steel_sword", "quantity": 1 }
+      ],
+      "coins": 1500
+    }
+  },
+  {
+    "id": "path_of_strength",
+    "name": "Path of Strength",
+    "description": "Warrior Thorne challenges you to prove your martial might by defeating 20 goblins in pure combat - no magic, no tricks.",
+    "difficulty": "intermediate",
+    "questPoints": 2,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": [],
+      "questPoints": 5
+    },
+    "stages": [
+      {
+        "id": "accept_path",
+        "type": "dialogue",
+        "description": "Accept Warrior Thorne's challenge",
+        "npcId": "warrior_thorne",
+        "dialogueNodeId": "strength_accept"
+      },
+      {
+        "id": "defeat_goblins_path",
+        "type": "kill",
+        "description": "Defeat 20 goblins",
+        "target": "goblin",
+        "count": 20
+      },
+      {
+        "id": "complete_path",
+        "type": "dialogue",
+        "description": "Return to Warrior Thorne",
+        "npcId": "warrior_thorne",
+        "dialogueNodeId": "strength_complete"
+      }
+    ],
+    "rewards": {
+      "xp": {
+        "strength": 800,
+        "attack": 400
+      },
+      "items": [
+        { "itemId": "warrior_helm", "quantity": 1 }
+      ],
+      "coins": 0
+    }
+  },
+  {
+    "id": "shadow_hunter",
+    "name": "Shadow Hunter",
+    "description": "The Shadow Crawlers are organizing - preparing for something. Hunt them down before they attack Haven. Eliminate 10 of these creatures.",
+    "difficulty": "experienced",
+    "questPoints": 3,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": [],
+      "questPoints": 10
+    },
+    "stages": [
+      {
+        "id": "accept_hunt",
+        "type": "dialogue",
+        "description": "Accept the shadow hunting mission from Sentinel Marcus",
+        "npcId": "sentinel_marcus",
+        "dialogueNodeId": "shadow_hunter_accept"
+      },
+      {
+        "id": "hunt_crawlers",
+        "type": "kill",
+        "description": "Eliminate 10 Shadow Crawlers",
+        "target": "shadow_crawler",
+        "count": 10
+      },
+      {
+        "id": "complete_hunt",
+        "type": "dialogue",
+        "description": "Report your success to Sentinel Marcus",
+        "npcId": "sentinel_marcus",
+        "dialogueNodeId": "shadow_hunter_complete"
+      }
+    ],
+    "rewards": {
+      "xp": {
+        "attack": 1000,
+        "defence": 1000
+      },
+      "items": [
+        { "itemId": "shadow_cloak", "quantity": 1 }
+      ],
+      "coins": 2000
+    }
+  },
+  {
+    "id": "trial_of_the_ancients",
+    "name": "Trial of the Ancients",
+    "description": "The Elder Sage tests worthy adventurers with ancient trials. Travel to the Ancient Shrine, defeat its guardians, gather tribute, and light the Sacred Flame.",
+    "difficulty": "experienced",
+    "questPoints": 5,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": [],
+      "questPoints": 15
+    },
+    "stages": [
+      {
+        "id": "accept_trial",
+        "type": "dialogue",
+        "description": "Accept the Trial from the Elder Sage",
+        "npcId": "elder_sage",
+        "dialogueNodeId": "trial_accept"
+      },
+      {
+        "id": "travel_shrine",
+        "type": "travel",
+        "description": "Reach the Ancient Shrine",
+        "location": { "x": -50, "y": 10, "z": -80 },
+        "radius": 10
+      },
+      {
+        "id": "defeat_guardians",
+        "type": "kill",
+        "description": "Defeat 8 Shadow Crawler guardians",
+        "target": "shadow_crawler",
+        "count": 8
+      },
+      {
+        "id": "gather_tribute",
+        "type": "gather",
+        "description": "Collect 10 iron ore as tribute",
+        "target": "iron_ore",
+        "count": 10
+      },
+      {
+        "id": "light_flame",
+        "type": "interact",
+        "description": "Light the Sacred Flame",
+        "target": "fire",
+        "count": 1
+      },
+      {
+        "id": "complete_trial",
+        "type": "dialogue",
+        "description": "Return to the Elder Sage",
+        "npcId": "elder_sage",
+        "dialogueNodeId": "trial_complete"
+      }
+    ],
+    "rewards": {
+      "xp": {
+        "attack": 500,
+        "strength": 500,
+        "defence": 500
+      },
+      "items": [
+        { "itemId": "ancient_amulet", "quantity": 1 }
+      ],
+      "coins": 3000
+    }
+  },
+  {
+    "id": "champion_of_haven",
+    "name": "Champion of Haven",
+    "description": "The ultimate challenge. Prove yourself as the true Champion of Haven by cleansing the land of all threats and venturing to the Heart of Darkness.",
+    "difficulty": "master",
+    "questPoints": 10,
+    "requirements": {
+      "quests": [],
+      "skills": {
+        "attack": 20,
+        "strength": 20,
+        "defence": 20
+      },
+      "items": [],
+      "questPoints": 20
+    },
+    "stages": [
+      {
+        "id": "accept_championship",
+        "type": "dialogue",
+        "description": "Speak with Commander Aldric at the Champions Hall",
+        "npcId": "commander_aldric",
+        "dialogueNodeId": "champion_accept"
+      },
+      {
+        "id": "cleanse_goblins",
+        "type": "kill",
+        "description": "Cleanse the land of 25 goblins",
+        "target": "goblin",
+        "count": 25
+      },
+      {
+        "id": "purge_shadows",
+        "type": "kill",
+        "description": "Purge 15 Shadow Crawlers from the caves",
+        "target": "shadow_crawler",
+        "count": 15
+      },
+      {
+        "id": "heart_of_darkness",
+        "type": "travel",
+        "description": "Venture to the Heart of Darkness",
+        "location": { "x": 0, "y": -15, "z": -170 },
+        "radius": 15
+      },
+      {
+        "id": "claim_championship",
+        "type": "dialogue",
+        "description": "Return victorious to Commander Aldric",
+        "npcId": "commander_aldric",
+        "dialogueNodeId": "champion_complete"
+      }
+    ],
+    "rewards": {
+      "xp": {
+        "attack": 3000,
+        "strength": 3000,
+        "defence": 3000
+      },
+      "items": [
+        { "itemId": "champions_blade", "quantity": 1 }
+      ],
+      "coins": 10000
     }
   }
-}
+]

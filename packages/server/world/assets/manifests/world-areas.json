@@ -14,25 +14,154 @@
       {
         "id": "sentinel_marcus",
         "type": "quest_giver",
-        "position": { "x": 10, "y": 0, "z": -8 }
+        "position": { "x": 0, "y": 0, "z": 10 },
+        "description": "Sentinel's Post - Defender of Haven"
+      },
+      {
+        "id": "mentor_elara",
+        "type": "quest_giver",
+        "position": { "x": 5, "y": 0, "z": 0 },
+        "description": "Haven Square - Survival Training"
+      },
+      {
+        "id": "foreman_grimjaw",
+        "type": "quest_giver",
+        "position": { "x": -10, "y": 0, "z": 5 },
+        "description": "Haven Mine Entrance - Mining & Smithing"
+      },
+      {
+        "id": "scout_vex",
+        "type": "quest_giver",
+        "position": { "x": 15, "y": 0, "z": 0 },
+        "description": "Haven Gate - Frontier Scout"
+      },
+      {
+        "id": "chef_helena",
+        "type": "quest_giver",
+        "position": { "x": 0, "y": 0, "z": 15 },
+        "description": "Haven Tavern - Cooking & Fishing"
+      },
+      {
+        "id": "warrior_thorne",
+        "type": "quest_giver",
+        "position": { "x": 8, "y": 0, "z": -5 },
+        "description": "Training Grounds - Combat Training"
+      },
+      {
+        "id": "elder_sage",
+        "type": "quest_giver",
+        "position": { "x": -8, "y": 0, "z": -10 },
+        "description": "Haven Library - Ancient Knowledge"
+      },
+      {
+        "id": "commander_aldric",
+        "type": "quest_giver",
+        "position": { "x": 0, "y": 0, "z": -20 },
+        "description": "Champions Hall - Legendary Quests"
       }
     ],
-    "resources": [],
+    "resources": [
+      {
+        "type": "tree_oak",
+        "positions": [
+          { "x": -20, "y": 0, "z": 10 },
+          { "x": -25, "y": 0, "z": 5 },
+          { "x": -18, "y": 0, "z": -5 }
+        ],
+        "description": "Trees for woodcutting training"
+      },
+      {
+        "type": "fishing_spot",
+        "positions": [
+          { "x": 20, "y": 0, "z": 20 },
+          { "x": 25, "y": 0, "z": 18 }
+        ],
+        "description": "Pond - Shrimp fishing"
+      },
+      {
+        "type": "fire_pit",
+        "positions": [
+          { "x": 2, "y": 0, "z": 12 },
+          { "x": -5, "y": 0, "z": 8 }
+        ],
+        "description": "Cooking fires"
+      },
+      {
+        "type": "furnace",
+        "positions": [
+          { "x": -12, "y": 0, "z": 3 }
+        ],
+        "description": "Smelting furnace"
+      },
+      {
+        "type": "anvil",
+        "positions": [
+          { "x": -11, "y": 0, "z": 4 }
+        ],
+        "description": "Smithing anvil"
+      }
+    ],
     "ambient": {
       "music": "town_peaceful",
-      "ambientSounds": ["birds", "marketplace"]
+      "ambientSounds": ["birds", "marketplace", "hammer_on_anvil"]
+    }
+  },
+  "southern_mines": {
+    "id": "southern_mines",
+    "name": "Southern Mines",
+    "description": "Rich mineral deposits south of Haven. Copper and tin veins are abundant here, perfect for novice miners.",
+    "type": "resource_area",
+    "isSafeZone": true,
+    "bounds": {
+      "center": { "x": 0, "y": -5, "z": 60 },
+      "radius": 40
+    },
+    "resources": [
+      {
+        "type": "rock_copper",
+        "positions": [
+          { "x": -10, "y": -3, "z": 55 },
+          { "x": 5, "y": -4, "z": 65 },
+          { "x": -5, "y": -5, "z": 70 },
+          { "x": 10, "y": -3, "z": 50 }
+        ],
+        "description": "Copper ore veins"
+      },
+      {
+        "type": "rock_tin",
+        "positions": [
+          { "x": 8, "y": -4, "z": 60 },
+          { "x": -8, "y": -5, "z": 68 },
+          { "x": 0, "y": -3, "z": 52 },
+          { "x": 12, "y": -4, "z": 72 }
+        ],
+        "description": "Tin ore veins"
+      }
+    ],
+    "ambient": {
+      "music": "mine_peaceful",
+      "ambientSounds": ["pickaxe_sounds", "cave_echo"]
     }
   },
   "eastern_wilds": {
     "id": "eastern_wilds",
     "name": "Eastern Wilds",
-    "description": "The untamed wilderness east of Haven. Goblins have been spotted raiding supply lines in this area.",
+    "description": "The untamed wilderness east of Haven. Goblins have been spotted raiding supply lines in this area. An old watchtower stands as a reminder of better days.",
     "type": "wilderness",
     "isSafeZone": false,
     "bounds": {
       "center": { "x": 100, "y": 0, "z": 0 },
       "radius": 120
     },
+    "landmarks": [
+      {
+        "id": "old_watchtower",
+        "name": "Old Watchtower",
+        "position": { "x": 65, "y": 5, "z": 0 },
+        "radius": 15,
+        "description": "An ancient watchtower, partially ruined but still standing"
+      }
+    ],
     "mobSpawns": [
       {
         "mobId": "goblin",
@@ -41,10 +170,13 @@
           { "x": 95, "y": 0, "z": 10 },
           { "x": 110, "y": 0, "z": -5 },
           { "x": 120, "y": 0, "z": 25 },
-          { "x": 85, "y": 0, "z": 30 }
+          { "x": 85, "y": 0, "z": 30 },
+          { "x": 75, "y": 0, "z": 15 },
+          { "x": 100, "y": 0, "z": -15 },
+          { "x": 115, "y": 0, "z": 10 }
         ],
-        "maxCount": 8,
-        "respawnRate": 30000
+        "maxCount": 12,
+        "respawnRate": 25000
       }
     ],
     "resources": [
@@ -52,25 +184,49 @@
         "type": "tree_oak",
         "positions": [
           { "x": 90, "y": 0, "z": 15 },
-          { "x": 105, "y": 0, "z": -10 }
+          { "x": 105, "y": 0, "z": -10 },
+          { "x": 70, "y": 0, "z": 25 }
         ]
       }
     ],
     "ambient": {
       "music": "wilderness_tense",
-      "ambientSounds": ["wind", "distant_growls"]
+      "ambientSounds": ["wind", "distant_growls", "goblin_chatter"]
     }
   },
   "shadow_caves": {
     "id": "shadow_caves",
     "name": "Shadow Caves",
-    "description": "A network of dark caverns north of Haven. Strange creatures lurk in its depths, their glowing eyes visible in the darkness.",
+    "description": "A network of dark caverns north of Haven. Strange creatures lurk in its depths, their glowing eyes visible in the darkness. The deeper you go, the more dangerous it becomes.",
     "type": "dungeon",
     "isSafeZone": false,
     "bounds": {
       "center": { "x": 0, "y": -10, "z": -150 },
-      "radius": 80
+      "radius": 100
     },
+    "landmarks": [
+      {
+        "id": "cave_entrance",
+        "name": "Shadow Caves Entrance",
+        "position": { "x": 0, "y": -5, "z": -130 },
+        "radius": 20,
+        "description": "The dark maw leading into the Shadow Caves"
+      },
+      {
+        "id": "ancient_shrine",
+        "name": "Ancient Shrine",
+        "position": { "x": -50, "y": -10, "z": -80 },
+        "radius": 10,
+        "description": "An ancient shrine from a forgotten era, guarded by Shadow Crawlers"
+      },
+      {
+        "id": "heart_of_darkness",
+        "name": "Heart of Darkness",
+        "position": { "x": 0, "y": -15, "z": -170 },
+        "radius": 15,
+        "description": "The deepest, darkest point of the Shadow Caves - few who enter ever return"
+      }
+    ],
     "mobSpawns": [
       {
         "mobId": "shadow_crawler",
@@ -79,19 +235,23 @@
           { "x": 15, "y": -12, "z": -155 },
           { "x": 0, "y": -15, "z": -170 },
           { "x": -10, "y": -10, "z": -180 },
-          { "x": 25, "y": -12, "z": -165 }
+          { "x": 25, "y": -12, "z": -165 },
+          { "x": -45, "y": -10, "z": -85 },
+          { "x": -55, "y": -10, "z": -75 },
+          { "x": 10, "y": -14, "z": -175 }
         ],
-        "maxCount": 6,
-        "respawnRate": 60000
+        "maxCount": 10,
+        "respawnRate": 50000
       },
       {
         "mobId": "goblin",
         "spawnPoints": [
           { "x": 5, "y": -8, "z": -130 },
-          { "x": -15, "y": -10, "z": -135 }
+          { "x": -15, "y": -10, "z": -135 },
+          { "x": 10, "y": -9, "z": -125 }
         ],
-        "maxCount": 3,
-        "respawnRate": 45000
+        "maxCount": 4,
+        "respawnRate": 40000
       }
     ],
     "resources": [
@@ -99,13 +259,16 @@
         "type": "rock_iron",
         "positions": [
           { "x": -10, "y": -12, "z": -160 },
-          { "x": 20, "y": -14, "z": -175 }
-        ]
+          { "x": 20, "y": -14, "z": -175 },
+          { "x": -30, "y": -11, "z": -150 },
+          { "x": 15, "y": -10, "z": -145 }
+        ],
+        "description": "Iron ore deposits for Trial of the Ancients"
       }
     ],
     "ambient": {
       "music": "dungeon_ominous",
-      "ambientSounds": ["dripping_water", "echoes", "distant_shrieks"]
+      "ambientSounds": ["dripping_water", "echoes", "distant_shrieks", "shadow_whispers"]
     }
   }
 }

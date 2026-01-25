@@ -44,16 +44,16 @@
     "services": {
       "enabled": true,
       "types": ["quest"],
-      "questIds": ["the_shadow_threat", "deeper_shadows"]
+      "questIds": ["the_shadow_threat", "deeper_shadows", "proving_grounds", "shadow_hunter"]
     },
     "behavior": {
       "enabled": false
     },
     "appearance": {
-      "modelPath": "npcs/sentinel.glb",
+      "modelPath": "npcs/sentinel_marcus.glb",
       "scale": 1.0
     },
-    "position": { "x": 0, "y": 0, "z": 0 },
+    "position": { "x": 0, "y": 0, "z": 10 },
     "dialogue": {
       "entryNodeId": "greeting",
       "questOverrides": {
@@ -66,6 +66,16 @@
           "in_progress": "deeper_shadows_in_progress",
           "ready_to_complete": "deeper_shadows_complete",
           "completed": "deeper_shadows_done"
+        },
+        "proving_grounds": {
+          "in_progress": "proving_grounds_in_progress",
+          "ready_to_complete": "proving_grounds_complete",
+          "completed": "proving_grounds_done"
+        },
+        "shadow_hunter": {
+          "in_progress": "shadow_hunter_in_progress",
+          "ready_to_complete": "shadow_hunter_complete",
+          "completed": "shadow_hunter_done"
         }
       },
       "nodes": [
@@ -230,13 +240,1315 @@
         },
         {
           "id": "deeper_shadows_done",
-          "text": "Champion of Haven! Your bravery against the Shadow Crawlers will be remembered. The caves are quiet now, but I sense this was merely a glimpse of greater challenges to come. Rest well, hero.",
+          "text": "Champion of Haven! Your bravery against the Shadow Crawlers will be remembered. The caves are quiet now, but I sense this was merely a glimpse of greater challenges to come.",
           "responses": [
+            {
+              "text": "What else can I do for Haven?",
+              "nextNodeId": "proving_grounds_intro"
+            },
             {
               "text": "Farewell, Sentinel.",
               "nextNodeId": "farewell"
             }
           ]
+        },
+        {
+          "id": "proving_grounds_intro",
+          "text": "You've grown strong, adventurer. But strength must be proven against overwhelming odds. I challenge you to face both the goblin hordes AND the Shadow Crawlers in a single campaign. Are you ready for the Proving Grounds?",
+          "responses": [
+            {
+              "text": "I accept your challenge!",
+              "nextNodeId": "proving_grounds_accept",
+              "effect": "startQuest:proving_grounds"
+            },
+            {
+              "text": "I need to prepare more first.",
+              "nextNodeId": "proving_grounds_wait"
+            }
+          ]
+        },
+        {
+          "id": "proving_grounds_accept",
+          "text": "Excellent! Defeat 15 goblins and 3 Shadow Crawlers, then return to me. This is no small task - it will test everything you've learned. Go forth, warrior!",
+          "responses": []
+        },
+        {
+          "id": "proving_grounds_wait",
+          "text": "Wise caution. This challenge is not for beginners. Return when you've gained more experience.",
+          "responses": []
+        },
+        {
+          "id": "proving_grounds_in_progress",
+          "text": "How fares your campaign? Remember - 15 goblins and 3 Shadow Crawlers must fall before you can claim victory.",
+          "responses": [
+            {
+              "text": "The battle continues.",
+              "nextNodeId": "encouragement"
+            }
+          ]
+        },
+        {
+          "id": "proving_grounds_complete",
+          "text": "I see the fire of victory in your eyes! You've truly proven yourself on the battlefield. Come, claim your reward!",
+          "responses": [
+            {
+              "text": "The enemies of Haven have been vanquished.",
+              "nextNodeId": "proving_grounds_reward",
+              "effect": "completeQuest:proving_grounds"
+            }
+          ]
+        },
+        {
+          "id": "proving_grounds_reward",
+          "text": "You've exceeded my expectations! Take this steel sword - it's the weapon of a true warrior. Haven is fortunate to have you as an ally.",
+          "responses": []
+        },
+        {
+          "id": "proving_grounds_done",
+          "text": "The warrior who conquered the Proving Grounds! Your legend grows with each passing day.",
+          "responses": [
+            {
+              "text": "Are there greater threats to face?",
+              "nextNodeId": "shadow_hunter_intro"
+            },
+            {
+              "text": "Farewell for now.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "shadow_hunter_intro",
+          "text": "Indeed there are. Our scouts report that the Shadow Crawlers are organizing - preparing for something. We must strike first. Will you become a Shadow Hunter and eliminate 10 of these creatures?",
+          "responses": [
+            {
+              "text": "I will hunt the shadows.",
+              "nextNodeId": "shadow_hunter_accept",
+              "effect": "startQuest:shadow_hunter"
+            },
+            {
+              "text": "I'm not ready for that yet.",
+              "nextNodeId": "shadow_hunter_wait"
+            }
+          ]
+        },
+        {
+          "id": "shadow_hunter_accept",
+          "text": "Go deep into the caves and eliminate 10 Shadow Crawlers. They grow stronger in the darkness - do not underestimate them. This is one of the most dangerous missions we've ever assigned.",
+          "responses": []
+        },
+        {
+          "id": "shadow_hunter_wait",
+          "text": "The shadows will wait... but not forever. Return when you're stronger.",
+          "responses": []
+        },
+        {
+          "id": "shadow_hunter_in_progress",
+          "text": "Have you purged the Shadow Crawlers? We need 10 of them eliminated to disrupt their organization.",
+          "responses": [
+            {
+              "text": "The hunt continues.",
+              "nextNodeId": "encouragement"
+            }
+          ]
+        },
+        {
+          "id": "shadow_hunter_complete",
+          "text": "You've done it! The Shadow Crawler threat has been significantly weakened. The caves are safer now because of your heroic efforts.",
+          "responses": [
+            {
+              "text": "The shadows have been banished.",
+              "nextNodeId": "shadow_hunter_reward",
+              "effect": "completeQuest:shadow_hunter"
+            }
+          ]
+        },
+        {
+          "id": "shadow_hunter_reward",
+          "text": "You are a true Shadow Hunter now. Take this Shadow Cloak - taken from the very creatures you vanquished. It will serve you well in the battles to come.",
+          "responses": []
+        },
+        {
+          "id": "shadow_hunter_done",
+          "text": "The legendary Shadow Hunter returns! Your name is spoken with reverence throughout Haven. Speak to Commander Aldric at the Champions Hall when you're ready for the ultimate challenge.",
+          "responses": [
+            {
+              "text": "Thank you, Sentinel.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "mentor_elara",
+    "name": "Mentor Elara",
+    "description": "A wise and nurturing teacher who instructs new adventurers in the arts of survival.",
+    "category": "quest",
+    "faction": "haven",
+    "stats": {
+      "level": 15,
+      "health": 80,
+      "attack": 5,
+      "strength": 5,
+      "defense": 10,
+      "ranged": 1,
+      "magic": 20
+    },
+    "combat": {
+      "attackable": false,
+      "aggressive": false,
+      "retaliates": false,
+      "aggroRange": 0,
+      "combatRange": 1,
+      "attackSpeedTicks": 4,
+      "respawnTime": 0,
+      "xpReward": 0,
+      "poisonous": false,
+      "immuneToPoison": true
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0,
+      "roaming": false
+    },
+    "drops": {
+      "defaultDrop": { "itemId": "bones", "quantity": 1, "enabled": false },
+      "always": [],
+      "common": [],
+      "uncommon": [],
+      "rare": [],
+      "veryRare": [],
+      "rareDropTable": false
+    },
+    "services": {
+      "enabled": true,
+      "types": ["quest"],
+      "questIds": ["first_light"]
+    },
+    "behavior": {
+      "enabled": false
+    },
+    "appearance": {
+      "modelPath": "npcs/mentor_elara.glb",
+      "scale": 1.0
+    },
+    "position": { "x": 5, "y": 0, "z": 0 },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "first_light": {
+          "in_progress": "first_light_in_progress",
+          "ready_to_complete": "first_light_complete",
+          "completed": "first_light_done"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Welcome, young one. I am Mentor Elara. Before you venture into the wilds, you must learn the basics of survival. Would you like me to teach you the art of gathering and fire-making?",
+          "responses": [
+            {
+              "text": "Yes, please teach me.",
+              "nextNodeId": "first_light_accept",
+              "effect": "startQuest:first_light"
+            },
+            {
+              "text": "What will I learn?",
+              "nextNodeId": "explain_lesson"
+            },
+            {
+              "text": "Perhaps later.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "explain_lesson",
+          "text": "The forest provides wood for fire, and fire provides warmth and light in the darkness. These are the first skills every adventurer must master. Nature provides for those who know how to ask.",
+          "responses": [
+            {
+              "text": "I'm ready to learn.",
+              "nextNodeId": "first_light_accept",
+              "effect": "startQuest:first_light"
+            },
+            {
+              "text": "I'll think about it.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "first_light_accept",
+          "text": "Wonderful! First, gather 5 logs from the trees nearby. Use your axe - here, take this one. Then, light 3 fires to prove you've mastered the skill. Return to me when you're done.",
+          "responses": []
+        },
+        {
+          "id": "decline",
+          "text": "Of course. The forest will wait for you. Return when you're ready to embrace nature's teachings.",
+          "responses": []
+        },
+        {
+          "id": "first_light_in_progress",
+          "text": "How goes your gathering? Remember, you need 5 logs and must light 3 fires. The trees to the west of Haven are a good source of wood.",
+          "responses": [
+            {
+              "text": "I'm still working on it.",
+              "nextNodeId": "gathering_tips"
+            }
+          ]
+        },
+        {
+          "id": "gathering_tips",
+          "text": "Approach a tree and use your axe to gather logs. Then, with logs and a tinderbox, you can create a fire. The warmth will sustain you on cold nights.",
+          "responses": []
+        },
+        {
+          "id": "first_light_complete",
+          "text": "I see the glow of accomplishment in your eyes! You've gathered and created fire - the foundation of all survival skills. Well done, young one!",
+          "responses": [
+            {
+              "text": "It was a valuable lesson.",
+              "nextNodeId": "first_light_reward",
+              "effect": "completeQuest:first_light"
+            }
+          ]
+        },
+        {
+          "id": "first_light_reward",
+          "text": "Take this bronze axe and tinderbox as gifts. They will serve you well on your journey. Remember: nature provides for those who respect her. Go forth with wisdom!",
+          "responses": []
+        },
+        {
+          "id": "first_light_done",
+          "text": "Ah, my former student! I see you've grown since our lesson. May the light of knowledge guide your path. The forest remembers those who treat her kindly.",
+          "responses": [
+            {
+              "text": "Thank you for your teachings, Mentor.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "farewell",
+          "text": "May the warm glow of the fire always find you, young one. Safe travels.",
+          "responses": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "foreman_grimjaw",
+    "name": "Foreman Grimjaw",
+    "description": "A gruff dwarven mining supervisor who keeps Haven's ore supplies flowing.",
+    "category": "quest",
+    "faction": "haven",
+    "stats": {
+      "level": 25,
+      "health": 90,
+      "attack": 15,
+      "strength": 30,
+      "defense": 25,
+      "ranged": 1,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": false,
+      "aggressive": false,
+      "retaliates": false,
+      "aggroRange": 0,
+      "combatRange": 1,
+      "attackSpeedTicks": 4,
+      "respawnTime": 0,
+      "xpReward": 0,
+      "poisonous": false,
+      "immuneToPoison": true
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0,
+      "roaming": false
+    },
+    "drops": {
+      "defaultDrop": { "itemId": "bones", "quantity": 1, "enabled": false },
+      "always": [],
+      "common": [],
+      "uncommon": [],
+      "rare": [],
+      "veryRare": [],
+      "rareDropTable": false
+    },
+    "services": {
+      "enabled": true,
+      "types": ["quest"],
+      "questIds": ["the_miners_burden", "forging_ahead"]
+    },
+    "behavior": {
+      "enabled": false
+    },
+    "appearance": {
+      "modelPath": "npcs/foreman_grimjaw.glb",
+      "scale": 0.9
+    },
+    "position": { "x": -10, "y": 0, "z": 5 },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "the_miners_burden": {
+          "in_progress": "miners_burden_in_progress",
+          "ready_to_complete": "miners_burden_complete",
+          "completed": "miners_burden_done"
+        },
+        "forging_ahead": {
+          "in_progress": "forging_ahead_in_progress",
+          "ready_to_complete": "forging_ahead_complete",
+          "completed": "forging_ahead_done"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "*grumbles* Another adventurer, eh? Name's Grimjaw. I run the mines around here. Listen, we're behind on our ore quota. Think ye can swing a pickaxe?",
+          "responses": [
+            {
+              "text": "I can mine some ore for you.",
+              "nextNodeId": "miners_burden_accept",
+              "effect": "startQuest:the_miners_burden"
+            },
+            {
+              "text": "What kind of ore do you need?",
+              "nextNodeId": "explain_ore"
+            },
+            {
+              "text": "Mining isn't for me.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "explain_ore",
+          "text": "Copper and tin, that's what we need! Bronze don't make itself, ye know. The rocks to the south hold plenty of both. Just need someone willing to do honest work.",
+          "responses": [
+            {
+              "text": "I'll gather the ore for you.",
+              "nextNodeId": "miners_burden_accept",
+              "effect": "startQuest:the_miners_burden"
+            },
+            {
+              "text": "Not interested right now.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "miners_burden_accept",
+          "text": "Ha! Good to see someone who ain't afraid of hard work! Here's a pickaxe. Bring me 5 copper ore and 5 tin ore. The rocks are south of Haven. Now get to it!",
+          "responses": []
+        },
+        {
+          "id": "decline",
+          "text": "*grumbles* Fine, fine. Not everyone's cut out for real work. Come back if ye change yer mind.",
+          "responses": []
+        },
+        {
+          "id": "miners_burden_in_progress",
+          "text": "Well? Where's me ore? I need 5 copper and 5 tin! The rocks ain't gonna mine themselves!",
+          "responses": [
+            {
+              "text": "I'm still mining.",
+              "nextNodeId": "mining_tips"
+            }
+          ]
+        },
+        {
+          "id": "mining_tips",
+          "text": "Look for the copper-colored rocks and the gray tin veins. Use yer pickaxe and they'll crack open. Now stop chattin' and get back to it!",
+          "responses": []
+        },
+        {
+          "id": "miners_burden_complete",
+          "text": "*eyes widen* Well I'll be! Ye actually did it! That's some fine ore ye've got there. Hand it over and let's see yer reward!",
+          "responses": [
+            {
+              "text": "Here's the ore you requested.",
+              "nextNodeId": "miners_burden_reward",
+              "effect": "completeQuest:the_miners_burden"
+            }
+          ]
+        },
+        {
+          "id": "miners_burden_reward",
+          "text": "Not bad, not bad at all! Keep that pickaxe - ye've earned it. Here's some coins too. Ye've got the makings of a proper miner in ye!",
+          "responses": []
+        },
+        {
+          "id": "miners_burden_done",
+          "text": "Well if it ain't me favorite ore-gatherer! Say, now that ye know how to mine, how about learnin' to FORGE? Smithing's where the real craft begins!",
+          "responses": [
+            {
+              "text": "Teach me to forge!",
+              "nextNodeId": "forging_ahead_accept",
+              "effect": "startQuest:forging_ahead"
+            },
+            {
+              "text": "Maybe another time.",
+              "nextNodeId": "forging_later"
+            }
+          ]
+        },
+        {
+          "id": "forging_ahead_accept",
+          "text": "Now we're talkin'! First, smelt 3 bronze bars at the furnace - that's copper and tin together. Then, use the anvil to smith yerself a bronze sword. Show me when it's done!",
+          "responses": []
+        },
+        {
+          "id": "forging_later",
+          "text": "Suit yerself. The forge'll be here when ye're ready. Can't have adventurers runnin' around without knowin' how to make their own gear!",
+          "responses": []
+        },
+        {
+          "id": "forging_ahead_in_progress",
+          "text": "How's the smithing comin'? Remember - 3 bronze bars and 1 bronze sword. The furnace is for smeltin', the anvil's for smithin'!",
+          "responses": [
+            {
+              "text": "I'm working on it.",
+              "nextNodeId": "smithing_tips"
+            }
+          ]
+        },
+        {
+          "id": "smithing_tips",
+          "text": "Use the furnace with yer copper and tin to make bronze bars. Then, take them bars to the anvil and hammer out a sword. It ain't complicated!",
+          "responses": []
+        },
+        {
+          "id": "forging_ahead_complete",
+          "text": "*inspects the sword* By the ancestors... ye've done it! Fine craftsmanship for a beginner! The metal rings true!",
+          "responses": [
+            {
+              "text": "I forged this myself.",
+              "nextNodeId": "forging_ahead_reward",
+              "effect": "completeQuest:forging_ahead"
+            }
+          ]
+        },
+        {
+          "id": "forging_ahead_reward",
+          "text": "Ha! Ye've got the heart of a smith, ye do! Keep that sword - ye made it with yer own hands! Here's some extra coins for yer trouble. Now get out there and make Haven proud!",
+          "responses": []
+        },
+        {
+          "id": "forging_ahead_done",
+          "text": "The smith-warrior returns! Ye've done Grimjaw proud. If ye ever need more work, the mines always welcome strong arms!",
+          "responses": [
+            {
+              "text": "Thank you, Foreman.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "farewell",
+          "text": "*nods gruffly* Stay strong. And remember - a sturdy pickaxe is a miner's best friend!",
+          "responses": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "scout_vex",
+    "name": "Scout Vex",
+    "description": "An agile elven ranger who patrols the dangerous borders surrounding Haven.",
+    "category": "quest",
+    "faction": "haven",
+    "stats": {
+      "level": 20,
+      "health": 60,
+      "attack": 15,
+      "strength": 10,
+      "defense": 12,
+      "ranged": 25,
+      "magic": 5
+    },
+    "combat": {
+      "attackable": false,
+      "aggressive": false,
+      "retaliates": false,
+      "aggroRange": 0,
+      "combatRange": 1,
+      "attackSpeedTicks": 4,
+      "respawnTime": 0,
+      "xpReward": 0,
+      "poisonous": false,
+      "immuneToPoison": true
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0,
+      "roaming": false
+    },
+    "drops": {
+      "defaultDrop": { "itemId": "bones", "quantity": 1, "enabled": false },
+      "always": [],
+      "common": [],
+      "uncommon": [],
+      "rare": [],
+      "veryRare": [],
+      "rareDropTable": false
+    },
+    "services": {
+      "enabled": true,
+      "types": ["quest"],
+      "questIds": ["frontier_explorer"]
+    },
+    "behavior": {
+      "enabled": false
+    },
+    "appearance": {
+      "modelPath": "npcs/scout_vex.glb",
+      "scale": 1.05
+    },
+    "position": { "x": 15, "y": 0, "z": 0 },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "frontier_explorer": {
+          "in_progress": "frontier_in_progress",
+          "ready_to_complete": "frontier_complete",
+          "completed": "frontier_done"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "*emerges from shadows* Greetings, traveler. I am Vex, scout of Haven. The lands beyond our borders hold many dangers... and secrets. I could use someone to help survey the frontier.",
+          "responses": [
+            {
+              "text": "I'll explore the frontier for you.",
+              "nextNodeId": "frontier_accept",
+              "effect": "startQuest:frontier_explorer"
+            },
+            {
+              "text": "What dangers lie out there?",
+              "nextNodeId": "explain_dangers"
+            },
+            {
+              "text": "I prefer to stay safe in Haven.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "explain_dangers",
+          "text": "The Eastern Wastes are crawling with goblins, and the Shadow Caves to the north... *shudders* ...contain creatures that should not exist. But knowledge of these places is vital for Haven's defense.",
+          "responses": [
+            {
+              "text": "I'll survey these areas.",
+              "nextNodeId": "frontier_accept",
+              "effect": "startQuest:frontier_explorer"
+            },
+            {
+              "text": "That sounds too dangerous.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "frontier_accept",
+          "text": "Excellent. Travel to the Eastern Wastes and reach the old watchtower, then venture to the entrance of the Shadow Caves. Don't engage the enemies - just observe and return. I'll mark the locations on this map.",
+          "responses": []
+        },
+        {
+          "id": "decline",
+          "text": "*nods* Caution is wise. But remember - the unknown becomes less frightening once we understand it. Return if you change your mind.",
+          "responses": []
+        },
+        {
+          "id": "frontier_in_progress",
+          "text": "Have you surveyed both locations? The Eastern Wastes and the Shadow Caves entrance. Move quietly and observe - no need for combat.",
+          "responses": [
+            {
+              "text": "I'm still exploring.",
+              "nextNodeId": "exploration_tips"
+            }
+          ]
+        },
+        {
+          "id": "exploration_tips",
+          "text": "The Wastes are to the east - follow the old road. The Shadow Caves are north, through the forest. Stay alert, move quickly, and avoid unnecessary confrontations.",
+          "responses": []
+        },
+        {
+          "id": "frontier_complete",
+          "text": "*emerges silently* I saw you out there - moving through the dangerous lands. You've done well, explorer. Tell me what you observed.",
+          "responses": [
+            {
+              "text": "I've surveyed both areas as requested.",
+              "nextNodeId": "frontier_reward",
+              "effect": "completeQuest:frontier_explorer"
+            }
+          ]
+        },
+        {
+          "id": "frontier_reward",
+          "text": "Excellent work. Your observations will help us plan Haven's defenses. Take this explorer's map as a reward - it will help you navigate the frontier. You have the makings of a true scout.",
+          "responses": []
+        },
+        {
+          "id": "frontier_done",
+          "text": "*appears from nowhere* The frontier explorer returns. Your reconnaissance has proven valuable. The shadows remember those who watch them...",
+          "responses": [
+            {
+              "text": "Thank you, Scout Vex.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "farewell",
+          "text": "*vanishes into shadows* Walk silently, friend. The forest has eyes...",
+          "responses": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "chef_helena",
+    "name": "Chef Helena",
+    "description": "A friendly and rotund tavern cook who provides hearty meals for Haven's residents and adventurers.",
+    "category": "quest",
+    "faction": "haven",
+    "stats": {
+      "level": 10,
+      "health": 70,
+      "attack": 3,
+      "strength": 8,
+      "defense": 5,
+      "ranged": 1,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": false,
+      "aggressive": false,
+      "retaliates": false,
+      "aggroRange": 0,
+      "combatRange": 1,
+      "attackSpeedTicks": 4,
+      "respawnTime": 0,
+      "xpReward": 0,
+      "poisonous": false,
+      "immuneToPoison": true
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0,
+      "roaming": false
+    },
+    "drops": {
+      "defaultDrop": { "itemId": "bones", "quantity": 1, "enabled": false },
+      "always": [],
+      "common": [],
+      "uncommon": [],
+      "rare": [],
+      "veryRare": [],
+      "rareDropTable": false
+    },
+    "services": {
+      "enabled": true,
+      "types": ["quest"],
+      "questIds": ["the_gatherer"]
+    },
+    "behavior": {
+      "enabled": false
+    },
+    "appearance": {
+      "modelPath": "npcs/chef_helena.glb",
+      "scale": 1.0
+    },
+    "position": { "x": 0, "y": 0, "z": 15 },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "the_gatherer": {
+          "in_progress": "gatherer_in_progress",
+          "ready_to_complete": "gatherer_complete",
+          "completed": "gatherer_done"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Oh, hello dear! Welcome to my kitchen! I'm Helena, the cook here. *sighs* I'm running low on fresh ingredients. Would you be a dear and help me gather some seafood?",
+          "responses": [
+            {
+              "text": "I'd be happy to help, Chef.",
+              "nextNodeId": "gatherer_accept",
+              "effect": "startQuest:the_gatherer"
+            },
+            {
+              "text": "What do you need exactly?",
+              "nextNodeId": "explain_ingredients"
+            },
+            {
+              "text": "I'm busy adventuring, sorry.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "explain_ingredients",
+          "text": "Fresh shrimp, dear! The pond to the east has plenty. Catch 5 raw shrimp, then cook them on my fire. I need to see that you can cook properly before I trust you with the kitchen!",
+          "responses": [
+            {
+              "text": "I'll catch and cook the shrimp.",
+              "nextNodeId": "gatherer_accept",
+              "effect": "startQuest:the_gatherer"
+            },
+            {
+              "text": "Maybe another time.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "gatherer_accept",
+          "text": "Wonderful! The fishing spot is east of Haven, by the pond. Catch 5 raw shrimp, then cook them. Bring me 5 cooked shrimp and I'll reward you handsomely! Oh, and here's a small fishing net!",
+          "responses": []
+        },
+        {
+          "id": "decline",
+          "text": "Oh, that's alright dear. Adventures are important too! Come back if you get hungry - I always have stew on the fire!",
+          "responses": []
+        },
+        {
+          "id": "gatherer_in_progress",
+          "text": "How's the fishing going, dear? Remember, I need 5 cooked shrimp! Catch them at the pond and cook them over a fire!",
+          "responses": [
+            {
+              "text": "I'm still working on it.",
+              "nextNodeId": "cooking_tips"
+            }
+          ]
+        },
+        {
+          "id": "cooking_tips",
+          "text": "Fish at the pond, then find a fire or make one with logs. Use the raw shrimp on the fire to cook them. Don't let them burn! *chuckles* Though I've burned my share in my time...",
+          "responses": []
+        },
+        {
+          "id": "gatherer_complete",
+          "text": "*sniffs the air* Mmm! I can smell properly cooked shrimp! Let me see what you've caught and prepared, dear!",
+          "responses": [
+            {
+              "text": "Here are the cooked shrimp.",
+              "nextNodeId": "gatherer_reward",
+              "effect": "completeQuest:the_gatherer"
+            }
+          ]
+        },
+        {
+          "id": "gatherer_reward",
+          "text": "Oh, these are PERFECT! Golden and crispy, just the way I like them! You have a talent for cooking! Here, take these coins and keep the net - you've earned them!",
+          "responses": []
+        },
+        {
+          "id": "gatherer_done",
+          "text": "My favorite helper! *beams* The shrimp you brought were delicious. The whole tavern loved them! Come back anytime - there's always a hot meal waiting for you!",
+          "responses": [
+            {
+              "text": "Thank you, Chef Helena!",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "farewell",
+          "text": "Take care, dear! And remember - a full belly makes for a happy adventurer! *waves with wooden spoon*",
+          "responses": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "warrior_thorne",
+    "name": "Warrior Thorne",
+    "description": "A battle-scarred veteran who trains Haven's defenders and challenges worthy warriors.",
+    "category": "quest",
+    "faction": "haven",
+    "stats": {
+      "level": 40,
+      "health": 120,
+      "attack": 35,
+      "strength": 40,
+      "defense": 35,
+      "ranged": 10,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": false,
+      "aggressive": false,
+      "retaliates": false,
+      "aggroRange": 0,
+      "combatRange": 1,
+      "attackSpeedTicks": 4,
+      "respawnTime": 0,
+      "xpReward": 0,
+      "poisonous": false,
+      "immuneToPoison": true
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0,
+      "roaming": false
+    },
+    "drops": {
+      "defaultDrop": { "itemId": "bones", "quantity": 1, "enabled": false },
+      "always": [],
+      "common": [],
+      "uncommon": [],
+      "rare": [],
+      "veryRare": [],
+      "rareDropTable": false
+    },
+    "services": {
+      "enabled": true,
+      "types": ["quest"],
+      "questIds": ["path_of_strength"]
+    },
+    "behavior": {
+      "enabled": false
+    },
+    "appearance": {
+      "modelPath": "npcs/warrior_thorne.glb",
+      "scale": 1.1
+    },
+    "position": { "x": 8, "y": 0, "z": -5 },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "path_of_strength": {
+          "in_progress": "strength_in_progress",
+          "ready_to_complete": "strength_complete",
+          "completed": "strength_done"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "*crosses arms* Another adventurer seeking glory. I am Warrior Thorne. I've fought a thousand battles and bear the scars to prove it. Do you have what it takes to walk the Path of Strength?",
+          "responses": [
+            {
+              "text": "I accept your challenge.",
+              "nextNodeId": "strength_accept",
+              "effect": "startQuest:path_of_strength"
+            },
+            {
+              "text": "What is the Path of Strength?",
+              "nextNodeId": "explain_path"
+            },
+            {
+              "text": "I'm not ready for such a challenge.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "explain_path",
+          "text": "The Path of Strength is the warrior's trial. Defeat 20 goblins in single combat. No magic, no tricks - just pure martial prowess. It separates the true warriors from the pretenders.",
+          "responses": [
+            {
+              "text": "I will walk the Path.",
+              "nextNodeId": "strength_accept",
+              "effect": "startQuest:path_of_strength"
+            },
+            {
+              "text": "That's too many enemies.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "strength_accept",
+          "text": "*nods approvingly* Brave. Go to the Eastern Wastes and defeat 20 goblins. Return to me when you've proven your worth. And remember - strength without wisdom is merely violence.",
+          "responses": []
+        },
+        {
+          "id": "decline",
+          "text": "*shrugs* Not everyone is cut out for the warrior's path. Train more, grow stronger, then return. The Path will wait.",
+          "responses": []
+        },
+        {
+          "id": "strength_in_progress",
+          "text": "How many goblins have fallen to your blade? You need to defeat 20 of them to complete the Path of Strength.",
+          "responses": [
+            {
+              "text": "The battle continues.",
+              "nextNodeId": "combat_advice"
+            }
+          ]
+        },
+        {
+          "id": "combat_advice",
+          "text": "Keep your guard up and strike when they overextend. Goblins are weak individually but dangerous in groups. Pick them off one by one.",
+          "responses": []
+        },
+        {
+          "id": "strength_complete",
+          "text": "*studies you with approval* I can see it in your stance - the confidence of a true warrior. You've walked the Path of Strength. Tell me of your victory.",
+          "responses": [
+            {
+              "text": "Twenty goblins have fallen.",
+              "nextNodeId": "strength_reward",
+              "effect": "completeQuest:path_of_strength"
+            }
+          ]
+        },
+        {
+          "id": "strength_reward",
+          "text": "*clasps your shoulder* Well done, warrior. You have proven your strength. Take this helm - it belonged to me in my younger days. Wear it with honor, for you have earned it.",
+          "responses": []
+        },
+        {
+          "id": "strength_done",
+          "text": "*respectful nod* The warrior who walked the Path returns. Your strength is undeniable. May your blade never dull and your arm never tire.",
+          "responses": [
+            {
+              "text": "Thank you, Warrior Thorne.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "farewell",
+          "text": "*salutes* Fight well, warrior. The battlefield awaits.",
+          "responses": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "elder_sage",
+    "name": "Elder Sage",
+    "description": "An ancient mystical scholar who guards forbidden knowledge and tests worthy adventurers with trials of the Ancients.",
+    "category": "quest",
+    "faction": "haven",
+    "stats": {
+      "level": 50,
+      "health": 80,
+      "attack": 5,
+      "strength": 5,
+      "defense": 15,
+      "ranged": 5,
+      "magic": 50
+    },
+    "combat": {
+      "attackable": false,
+      "aggressive": false,
+      "retaliates": false,
+      "aggroRange": 0,
+      "combatRange": 1,
+      "attackSpeedTicks": 4,
+      "respawnTime": 0,
+      "xpReward": 0,
+      "poisonous": false,
+      "immuneToPoison": true
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0,
+      "roaming": false
+    },
+    "drops": {
+      "defaultDrop": { "itemId": "bones", "quantity": 1, "enabled": false },
+      "always": [],
+      "common": [],
+      "uncommon": [],
+      "rare": [],
+      "veryRare": [],
+      "rareDropTable": false
+    },
+    "services": {
+      "enabled": true,
+      "types": ["quest"],
+      "questIds": ["trial_of_the_ancients"]
+    },
+    "behavior": {
+      "enabled": false
+    },
+    "appearance": {
+      "modelPath": "npcs/elder_sage.glb",
+      "scale": 1.0
+    },
+    "position": { "x": -8, "y": 0, "z": -10 },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "trial_of_the_ancients": {
+          "in_progress": "trial_in_progress",
+          "ready_to_complete": "trial_complete",
+          "completed": "trial_done"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "*ancient eyes peer through you* Ah... one who has proven themselves many times. I am the Elder Sage, keeper of forgotten knowledge. I sense great potential in you. Would you undertake the Trial of the Ancients?",
+          "responses": [
+            {
+              "text": "I am ready for the Trial.",
+              "nextNodeId": "trial_accept",
+              "effect": "startQuest:trial_of_the_ancients"
+            },
+            {
+              "text": "What is this Trial?",
+              "nextNodeId": "explain_trial"
+            },
+            {
+              "text": "I need to prepare more first.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "explain_trial",
+          "text": "The Trial tests all aspects of an adventurer - exploration, combat, gathering, and mastery of fire. You must travel to the Ancient Shrine, defeat its guardians, gather tribute, and light the Sacred Flame. Few have succeeded.",
+          "responses": [
+            {
+              "text": "I will attempt the Trial.",
+              "nextNodeId": "trial_accept",
+              "effect": "startQuest:trial_of_the_ancients"
+            },
+            {
+              "text": "That sounds too difficult.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "trial_accept",
+          "text": "So be it. Travel north to the Ancient Shrine. Defeat the 8 Shadow Crawlers guarding it. Gather 10 iron ore as tribute to the Ancients. Light the Sacred Flame. Only then will you have completed the Trial.",
+          "responses": []
+        },
+        {
+          "id": "decline",
+          "text": "*nods slowly* Wisdom is knowing one's limits. The Trial will await you when you are ready. Return when you have gained more experience.",
+          "responses": []
+        },
+        {
+          "id": "trial_in_progress",
+          "text": "The Trial continues... Have you reached the Shrine? Defeated the guardians? Gathered the tribute? Lit the Sacred Flame? All must be completed.",
+          "responses": [
+            {
+              "text": "I am still working on it.",
+              "nextNodeId": "trial_guidance"
+            }
+          ]
+        },
+        {
+          "id": "trial_guidance",
+          "text": "The Shrine lies deep in the northern caves. The Shadow Crawlers will not yield easily. Iron ore can be found in the deeper rock faces. And fire... fire purifies all darkness.",
+          "responses": []
+        },
+        {
+          "id": "trial_complete",
+          "text": "*mystical energy swirls* The Sacred Flame burns once more! I felt its light from here. You have completed the Trial of the Ancients. Come, receive the blessing of the Ancients.",
+          "responses": [
+            {
+              "text": "I have completed the Trial.",
+              "nextNodeId": "trial_reward",
+              "effect": "completeQuest:trial_of_the_ancients"
+            }
+          ]
+        },
+        {
+          "id": "trial_reward",
+          "text": "*mystical power flows into you* The Ancients acknowledge your worth. Take this Ancient Amulet - it contains wisdom collected over millennia. You are now among the few who have passed the Trial. Use this power wisely.",
+          "responses": []
+        },
+        {
+          "id": "trial_done",
+          "text": "*bows respectfully* One who has passed the Trial of the Ancients. The wisdom of ages flows within you. When you are ready for the ultimate challenge, seek Commander Aldric at the Champions Hall.",
+          "responses": [
+            {
+              "text": "Thank you, Elder Sage.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "farewell",
+          "text": "*closes eyes* May the light of the Ancients guide your path, Chosen One.",
+          "responses": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "commander_aldric",
+    "name": "Commander Aldric",
+    "description": "The supreme military leader of Haven's forces, a legendary hero who only speaks to the most accomplished adventurers.",
+    "category": "quest",
+    "faction": "haven_command",
+    "stats": {
+      "level": 80,
+      "health": 200,
+      "attack": 60,
+      "strength": 60,
+      "defense": 60,
+      "ranged": 40,
+      "magic": 30
+    },
+    "combat": {
+      "attackable": false,
+      "aggressive": false,
+      "retaliates": false,
+      "aggroRange": 0,
+      "combatRange": 1,
+      "attackSpeedTicks": 4,
+      "respawnTime": 0,
+      "xpReward": 0,
+      "poisonous": false,
+      "immuneToPoison": true
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0,
+      "roaming": false
+    },
+    "drops": {
+      "defaultDrop": { "itemId": "bones", "quantity": 1, "enabled": false },
+      "always": [],
+      "common": [],
+      "uncommon": [],
+      "rare": [],
+      "veryRare": [],
+      "rareDropTable": false
+    },
+    "services": {
+      "enabled": true,
+      "types": ["quest"],
+      "questIds": ["champion_of_haven"]
+    },
+    "behavior": {
+      "enabled": false
+    },
+    "appearance": {
+      "modelPath": "npcs/commander_aldric.glb",
+      "scale": 1.15
+    },
+    "position": { "x": 0, "y": 0, "z": -20 },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "champion_of_haven": {
+          "in_progress": "champion_in_progress",
+          "ready_to_complete": "champion_complete",
+          "completed": "champion_done"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "*imposing figure turns* You dare approach the Champions Hall? *studies you* ...Wait. I've heard of your deeds. The Sentinels speak highly of you. Perhaps you ARE worthy. Tell me - do you wish to become the Champion of Haven?",
+          "responses": [
+            {
+              "text": "I am ready to become Champion.",
+              "nextNodeId": "champion_accept",
+              "effect": "startQuest:champion_of_haven"
+            },
+            {
+              "text": "What does being Champion require?",
+              "nextNodeId": "explain_championship"
+            },
+            {
+              "text": "I'm not worthy of that title yet.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "explain_championship",
+          "text": "The Champion of Haven is the realm's greatest defender. You must cleanse the land of ALL threats - 25 goblins and 15 Shadow Crawlers. Then venture to the Heart of Darkness itself and return alive. Only then will you be worthy.",
+          "responses": [
+            {
+              "text": "I accept this ultimate challenge.",
+              "nextNodeId": "champion_accept",
+              "effect": "startQuest:champion_of_haven"
+            },
+            {
+              "text": "That's too great a task for me.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "champion_accept",
+          "text": "*nods solemnly* Then go forth. Cleanse the land of 25 goblins and 15 Shadow Crawlers. Then travel to the Heart of Darkness - the deepest point of the Shadow Caves - and return victorious. The fate of Haven rests in your hands.",
+          "responses": []
+        },
+        {
+          "id": "decline",
+          "text": "*nods* Self-knowledge is the mark of wisdom. Return when you have grown stronger. The title of Champion awaits those who are truly ready.",
+          "responses": []
+        },
+        {
+          "id": "champion_in_progress",
+          "text": "The champion's trial continues. 25 goblins, 15 Shadow Crawlers, and journey to the Heart of Darkness. Complete all tasks and return to claim your destiny.",
+          "responses": [
+            {
+              "text": "I am still fighting.",
+              "nextNodeId": "battle_wisdom"
+            }
+          ]
+        },
+        {
+          "id": "battle_wisdom",
+          "text": "Every great warrior faces doubt. But you have already proven yourself many times. Trust in your training. The darkness fears those who do not fear it.",
+          "responses": []
+        },
+        {
+          "id": "champion_complete",
+          "text": "*rises from throne* By the Ancients... you've returned from the Heart of Darkness itself! I can see it in your eyes - the darkness could not claim you. You have truly proven yourself!",
+          "responses": [
+            {
+              "text": "I have completed the Champion's trial.",
+              "nextNodeId": "champion_reward",
+              "effect": "completeQuest:champion_of_haven"
+            }
+          ]
+        },
+        {
+          "id": "champion_reward",
+          "text": "*kneels before you* Rise, Champion of Haven! *presents legendary blade* Take the Champion's Blade - forged in ancient fires, wielded by heroes of old. From this day forth, you are Haven's greatest defender. All will know your name!",
+          "responses": []
+        },
+        {
+          "id": "champion_done",
+          "text": "*salutes* Champion of Haven! Your legend echoes throughout the realm. The people sleep soundly knowing you defend them. What adventures await you now, Champion?",
+          "responses": [
+            {
+              "text": "I will continue to defend Haven.",
+              "nextNodeId": "champion_farewell"
+            }
+          ]
+        },
+        {
+          "id": "champion_farewell",
+          "text": "*clasps your arm* And Haven will always stand behind you. Go forth, Champion. New challenges await. Your legend has only just begun.",
+          "responses": []
+        },
+        {
+          "id": "farewell",
+          "text": "*nods* Until we meet again, warrior.",
+          "responses": []
         }
       ]
     }
