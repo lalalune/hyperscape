@@ -62,7 +62,8 @@
       "skills": {
         "attack": 10
       },
-      "items": []
+      "items": [],
+      "questPoints": 1
     },
     "stages": [
       {

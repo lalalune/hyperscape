@@ -59,6 +59,8 @@ export interface QuestRequirements {
   readonly skills: Record<string, number>;
   /** Item IDs the player must have */
   readonly items: string[];
+  /** Minimum quest points required to start this quest (Dragon Slayer-style unlock) */
+  readonly questPoints?: number;
 }
 
 /** A single stage within a quest */

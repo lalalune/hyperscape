@@ -1077,6 +1077,19 @@ export class QuestSystem extends SystemBase implements IQuestSystem {
       }
     }
 
+    // Check minimum quest points requirement (Dragon Slayer-style unlock)
+    if (
+      definition.requirements.questPoints !== undefined &&
+      definition.requirements.questPoints > 0
+    ) {
+      if (state.questPoints < definition.requirements.questPoints) {
+        this.logger.debug(
+          `Player ${playerId} needs ${definition.requirements.questPoints} QP, has ${state.questPoints}`,
+        );
+        return false;
+      }
+    }
+
     // TODO: Check skill requirements
     // TODO: Check item requirements
 
