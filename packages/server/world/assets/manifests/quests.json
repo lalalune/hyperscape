@@ -1,0 +1,101 @@
+{
+  "the_shadow_threat": {
+    "id": "the_shadow_threat",
+    "name": "The Shadow Threat",
+    "description": "Sentinel Marcus needs help dealing with a goblin infestation threatening the outskirts of Haven.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "replayable": false,
+    "startNpc": "sentinel_marcus",
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": []
+    },
+    "stages": [
+      {
+        "id": "talk_to_sentinel",
+        "type": "dialogue",
+        "description": "Speak with Sentinel Marcus about the goblin threat",
+        "npcId": "sentinel_marcus"
+      },
+      {
+        "id": "defeat_goblins",
+        "type": "kill",
+        "description": "Defeat 10 Goblins threatening Haven",
+        "target": "goblin",
+        "count": 10
+      },
+      {
+        "id": "return_to_sentinel",
+        "type": "dialogue",
+        "description": "Return to Sentinel Marcus",
+        "npcId": "sentinel_marcus"
+      }
+    ],
+    "onStart": {
+      "items": [
+        { "itemId": "bronze_sword", "quantity": 1 }
+      ]
+    },
+    "rewards": {
+      "questPoints": 1,
+      "items": [
+        { "itemId": "coins", "quantity": 500 }
+      ],
+      "xp": {
+        "attack": 250,
+        "strength": 250
+      }
+    }
+  },
+  "deeper_shadows": {
+    "id": "deeper_shadows",
+    "name": "Deeper Shadows",
+    "description": "The goblin threat was just the beginning. Sentinel Marcus suspects a greater danger lurks in the shadows.",
+    "difficulty": "intermediate",
+    "questPoints": 2,
+    "replayable": false,
+    "startNpc": "sentinel_marcus",
+    "requirements": {
+      "quests": ["the_shadow_threat"],
+      "skills": {
+        "attack": 10
+      },
+      "items": []
+    },
+    "stages": [
+      {
+        "id": "talk_to_sentinel_again",
+        "type": "dialogue",
+        "description": "Speak with Sentinel Marcus about the new threat",
+        "npcId": "sentinel_marcus"
+      },
+      {
+        "id": "investigate_caves",
+        "type": "kill",
+        "description": "Investigate the Shadow Caves and defeat 5 Shadow Crawlers",
+        "target": "shadow_crawler",
+        "count": 5
+      },
+      {
+        "id": "report_findings",
+        "type": "dialogue",
+        "description": "Report your findings to Sentinel Marcus",
+        "npcId": "sentinel_marcus"
+      }
+    ],
+    "rewards": {
+      "questPoints": 2,
+      "items": [
+        { "itemId": "iron_sword", "quantity": 1 },
+        { "itemId": "coins", "quantity": 1000 }
+      ],
+      "xp": {
+        "attack": 500,
+        "strength": 500,
+        "defense": 250
+      }
+    }
+  }
+}

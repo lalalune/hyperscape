@@ -1,0 +1,369 @@
+[
+  {
+    "id": "sentinel_marcus",
+    "name": "Sentinel Marcus",
+    "description": "A veteran guardian of Haven, known for his unwavering dedication to protecting the settlement from threats.",
+    "category": "quest",
+    "faction": "haven_sentinels",
+    "stats": {
+      "level": 30,
+      "health": 100,
+      "attack": 25,
+      "strength": 25,
+      "defense": 30,
+      "ranged": 1,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": false,
+      "aggressive": false,
+      "retaliates": false,
+      "aggroRange": 0,
+      "combatRange": 1,
+      "attackSpeedTicks": 4,
+      "respawnTime": 0,
+      "xpReward": 0,
+      "poisonous": false,
+      "immuneToPoison": true
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0,
+      "roaming": false
+    },
+    "drops": {
+      "defaultDrop": { "itemId": "bones", "quantity": 1, "enabled": false },
+      "always": [],
+      "common": [],
+      "uncommon": [],
+      "rare": [],
+      "veryRare": [],
+      "rareDropTable": false
+    },
+    "services": {
+      "enabled": true,
+      "types": ["quest"],
+      "questIds": ["the_shadow_threat", "deeper_shadows"]
+    },
+    "behavior": {
+      "enabled": false
+    },
+    "appearance": {
+      "modelPath": "npcs/sentinel.glb",
+      "scale": 1.0
+    },
+    "position": { "x": 0, "y": 0, "z": 0 },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "the_shadow_threat": {
+          "in_progress": "shadow_threat_in_progress",
+          "ready_to_complete": "shadow_threat_complete",
+          "completed": "shadow_threat_done"
+        },
+        "deeper_shadows": {
+          "in_progress": "deeper_shadows_in_progress",
+          "ready_to_complete": "deeper_shadows_complete",
+          "completed": "deeper_shadows_done"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Greetings, traveler. I am Sentinel Marcus, guardian of Haven. These are troubling times - goblins have been spotted near our borders. Would you aid us in defending the settlement?",
+          "responses": [
+            {
+              "text": "I'll help you deal with the goblins.",
+              "nextNodeId": "quest_accept",
+              "effect": "startQuest:the_shadow_threat"
+            },
+            {
+              "text": "What can you tell me about Haven?",
+              "nextNodeId": "about_haven"
+            },
+            {
+              "text": "Not right now, perhaps later.",
+              "nextNodeId": "decline"
+            }
+          ]
+        },
+        {
+          "id": "quest_accept",
+          "text": "Excellent! The goblins have been raiding our supply lines to the east. Defeat 10 of them and return to me. Take this sword - you'll need it out there. May the light guide your blade!",
+          "responses": []
+        },
+        {
+          "id": "about_haven",
+          "text": "Haven is a sanctuary for those seeking a new beginning in this world. We've built a peaceful community here, but lately dark forces have been encroaching on our borders.",
+          "responses": [
+            {
+              "text": "I'll help protect Haven from the goblins.",
+              "nextNodeId": "quest_accept",
+              "effect": "startQuest:the_shadow_threat"
+            },
+            {
+              "text": "I see. Farewell for now.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "decline",
+          "text": "I understand. The life of an adventurer is not for everyone. Should you change your mind, you know where to find me.",
+          "responses": []
+        },
+        {
+          "id": "farewell",
+          "text": "Safe travels, friend. May our paths cross again.",
+          "responses": []
+        },
+        {
+          "id": "shadow_threat_in_progress",
+          "text": "Have you dealt with the goblin threat yet? We need you to defeat 10 of them to secure our eastern supply lines.",
+          "responses": [
+            {
+              "text": "I'm working on it.",
+              "nextNodeId": "encouragement"
+            },
+            {
+              "text": "Where can I find the goblins?",
+              "nextNodeId": "goblin_location"
+            }
+          ]
+        },
+        {
+          "id": "encouragement",
+          "text": "Stay vigilant out there. The goblins may seem weak alone, but they're cunning in numbers.",
+          "responses": []
+        },
+        {
+          "id": "goblin_location",
+          "text": "They've been spotted to the east of Haven, near the old mining paths. Be careful - they tend to attack in groups.",
+          "responses": []
+        },
+        {
+          "id": "shadow_threat_complete",
+          "text": "You've done it! The scouts report that the goblin raids have stopped. Haven owes you a debt of gratitude. Here is your reward.",
+          "responses": [
+            {
+              "text": "It was my honor to help.",
+              "nextNodeId": "shadow_threat_reward",
+              "effect": "completeQuest:the_shadow_threat"
+            }
+          ]
+        },
+        {
+          "id": "shadow_threat_reward",
+          "text": "You've proven yourself a true defender of Haven. But I'm troubled... these goblins were organized, as if directed by something. When you're ready, speak with me again - I fear this is only the beginning.",
+          "responses": []
+        },
+        {
+          "id": "shadow_threat_done",
+          "text": "Ah, the hero who drove back the goblins! Haven is safer because of you. I've been investigating their unusual behavior... something darker may be at work here.",
+          "responses": [
+            {
+              "text": "What have you discovered?",
+              "nextNodeId": "deeper_shadows_intro"
+            },
+            {
+              "text": "Just passing through. Farewell.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "deeper_shadows_intro",
+          "text": "Those goblins weren't acting on their own. I've traced their movements back to the Shadow Caves to the north. Something is commanding them - Shadow Crawlers, twisted creatures of darkness. Will you investigate?",
+          "responses": [
+            {
+              "text": "I'll investigate the Shadow Caves.",
+              "nextNodeId": "deeper_shadows_accept",
+              "effect": "startQuest:deeper_shadows"
+            },
+            {
+              "text": "I need more time to prepare.",
+              "nextNodeId": "deeper_shadows_later"
+            }
+          ]
+        },
+        {
+          "id": "deeper_shadows_accept",
+          "text": "Be careful in those caves. The Shadow Crawlers are far more dangerous than common goblins. Defeat 5 of them and return with any information you can gather. The fate of Haven may depend on it.",
+          "responses": []
+        },
+        {
+          "id": "deeper_shadows_later",
+          "text": "I understand. The Shadow Caves are no place for the unprepared. Return when you feel ready - but don't wait too long. Whatever lurks in those caves grows stronger by the day.",
+          "responses": []
+        },
+        {
+          "id": "deeper_shadows_in_progress",
+          "text": "Have you explored the Shadow Caves? We need you to defeat 5 Shadow Crawlers and uncover the source of their activity.",
+          "responses": [
+            {
+              "text": "I'm still searching.",
+              "nextNodeId": "caves_directions"
+            }
+          ]
+        },
+        {
+          "id": "caves_directions",
+          "text": "The Shadow Caves are to the north, beyond the forest. Watch for their glowing eyes in the darkness. They fear light, but their claws are deadly.",
+          "responses": []
+        },
+        {
+          "id": "deeper_shadows_complete",
+          "text": "You've returned! I can see in your eyes that you've faced the darkness. Tell me, what did you find in those caves?",
+          "responses": [
+            {
+              "text": "The Shadow Crawlers have been defeated.",
+              "nextNodeId": "deeper_shadows_reward",
+              "effect": "completeQuest:deeper_shadows"
+            }
+          ]
+        },
+        {
+          "id": "deeper_shadows_reward",
+          "text": "Incredible work! You've struck a blow against the darkness threatening our home. Take this iron sword - it was forged by the finest smith in Haven. You've earned it, champion.",
+          "responses": []
+        },
+        {
+          "id": "deeper_shadows_done",
+          "text": "Champion of Haven! Your bravery against the Shadow Crawlers will be remembered. The caves are quiet now, but I sense this was merely a glimpse of greater challenges to come. Rest well, hero.",
+          "responses": [
+            {
+              "text": "Farewell, Sentinel.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "goblin",
+    "name": "Goblin",
+    "description": "A small, cunning creature known for its mischief and aggression toward travelers.",
+    "category": "mob",
+    "faction": "goblins",
+    "stats": {
+      "level": 2,
+      "health": 10,
+      "attack": 2,
+      "strength": 2,
+      "defense": 1,
+      "ranged": 1,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": true,
+      "aggressive": true,
+      "retaliates": true,
+      "aggroRange": 5,
+      "combatRange": 1,
+      "attackSpeedTicks": 4,
+      "respawnTicks": 50,
+      "respawnTime": 30000,
+      "xpReward": 25,
+      "poisonous": false,
+      "immuneToPoison": false
+    },
+    "movement": {
+      "type": "wander",
+      "speed": 2,
+      "wanderRadius": 8,
+      "roaming": false
+    },
+    "drops": {
+      "defaultDrop": { "itemId": "bones", "quantity": 1, "enabled": true },
+      "always": [],
+      "common": [
+        { "itemId": "coins", "minQuantity": 1, "maxQuantity": 15, "chance": 0.5, "rarity": "common" }
+      ],
+      "uncommon": [
+        { "itemId": "bronze_dagger", "minQuantity": 1, "maxQuantity": 1, "chance": 0.1, "rarity": "uncommon" }
+      ],
+      "rare": [],
+      "veryRare": [],
+      "rareDropTable": false
+    },
+    "services": {
+      "enabled": false,
+      "types": []
+    },
+    "behavior": {
+      "enabled": true
+    },
+    "appearance": {
+      "modelPath": "mobs/goblin.glb",
+      "scale": 0.8
+    },
+    "position": { "x": 0, "y": 0, "z": 0 },
+    "spawnBiomes": ["forest", "plains"]
+  },
+  {
+    "id": "shadow_crawler",
+    "name": "Shadow Crawler",
+    "description": "A twisted creature born of darkness, with glowing eyes that pierce through the shadows.",
+    "category": "mob",
+    "faction": "shadow",
+    "stats": {
+      "level": 8,
+      "health": 35,
+      "attack": 8,
+      "strength": 10,
+      "defense": 6,
+      "ranged": 1,
+      "magic": 5
+    },
+    "combat": {
+      "attackable": true,
+      "aggressive": true,
+      "retaliates": true,
+      "aggroRange": 7,
+      "combatRange": 1,
+      "attackSpeedTicks": 3,
+      "respawnTicks": 100,
+      "respawnTime": 60000,
+      "xpReward": 75,
+      "poisonous": false,
+      "immuneToPoison": false
+    },
+    "movement": {
+      "type": "wander",
+      "speed": 3,
+      "wanderRadius": 10,
+      "roaming": false
+    },
+    "drops": {
+      "defaultDrop": { "itemId": "shadow_essence", "quantity": 1, "enabled": true },
+      "always": [],
+      "common": [
+        { "itemId": "coins", "minQuantity": 10, "maxQuantity": 50, "chance": 0.6, "rarity": "common" }
+      ],
+      "uncommon": [
+        { "itemId": "iron_ore", "minQuantity": 1, "maxQuantity": 3, "chance": 0.15, "rarity": "uncommon" }
+      ],
+      "rare": [
+        { "itemId": "shadow_cloak", "minQuantity": 1, "maxQuantity": 1, "chance": 0.02, "rarity": "rare" }
+      ],
+      "veryRare": [],
+      "rareDropTable": false
+    },
+    "services": {
+      "enabled": false,
+      "types": []
+    },
+    "behavior": {
+      "enabled": true
+    },
+    "appearance": {
+      "modelPath": "mobs/shadow_crawler.glb",
+      "scale": 1.2,
+      "tint": "#1a1a2e"
+    },
+    "position": { "x": 0, "y": 0, "z": 0 },
+    "spawnBiomes": ["caves", "shadow_realm"]
+  }
+]

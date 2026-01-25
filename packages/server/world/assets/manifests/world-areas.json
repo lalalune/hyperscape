@@ -1,0 +1,111 @@
+{
+  "haven": {
+    "id": "haven",
+    "name": "Haven",
+    "description": "A peaceful settlement serving as a sanctuary for travelers and adventurers. The Sentinels guard its borders from the threats that lurk in the wilderness.",
+    "type": "town",
+    "isSafeZone": true,
+    "bounds": {
+      "center": { "x": 0, "y": 0, "z": 0 },
+      "radius": 80
+    },
+    "spawnPoint": { "x": 0, "y": 0, "z": 0 },
+    "npcs": [
+      {
+        "id": "sentinel_marcus",
+        "type": "quest_giver",
+        "position": { "x": 10, "y": 0, "z": -8 }
+      }
+    ],
+    "resources": [],
+    "ambient": {
+      "music": "town_peaceful",
+      "ambientSounds": ["birds", "marketplace"]
+    }
+  },
+  "eastern_wilds": {
+    "id": "eastern_wilds",
+    "name": "Eastern Wilds",
+    "description": "The untamed wilderness east of Haven. Goblins have been spotted raiding supply lines in this area.",
+    "type": "wilderness",
+    "isSafeZone": false,
+    "bounds": {
+      "center": { "x": 100, "y": 0, "z": 0 },
+      "radius": 120
+    },
+    "mobSpawns": [
+      {
+        "mobId": "goblin",
+        "spawnPoints": [
+          { "x": 80, "y": 0, "z": -20 },
+          { "x": 95, "y": 0, "z": 10 },
+          { "x": 110, "y": 0, "z": -5 },
+          { "x": 120, "y": 0, "z": 25 },
+          { "x": 85, "y": 0, "z": 30 }
+        ],
+        "maxCount": 8,
+        "respawnRate": 30000
+      }
+    ],
+    "resources": [
+      {
+        "type": "tree_oak",
+        "positions": [
+          { "x": 90, "y": 0, "z": 15 },
+          { "x": 105, "y": 0, "z": -10 }
+        ]
+      }
+    ],
+    "ambient": {
+      "music": "wilderness_tense",
+      "ambientSounds": ["wind", "distant_growls"]
+    }
+  },
+  "shadow_caves": {
+    "id": "shadow_caves",
+    "name": "Shadow Caves",
+    "description": "A network of dark caverns north of Haven. Strange creatures lurk in its depths, their glowing eyes visible in the darkness.",
+    "type": "dungeon",
+    "isSafeZone": false,
+    "bounds": {
+      "center": { "x": 0, "y": -10, "z": -150 },
+      "radius": 80
+    },
+    "mobSpawns": [
+      {
+        "mobId": "shadow_crawler",
+        "spawnPoints": [
+          { "x": -20, "y": -10, "z": -140 },
+          { "x": 15, "y": -12, "z": -155 },
+          { "x": 0, "y": -15, "z": -170 },
+          { "x": -10, "y": -10, "z": -180 },
+          { "x": 25, "y": -12, "z": -165 }
+        ],
+        "maxCount": 6,
+        "respawnRate": 60000
+      },
+      {
+        "mobId": "goblin",
+        "spawnPoints": [
+          { "x": 5, "y": -8, "z": -130 },
+          { "x": -15, "y": -10, "z": -135 }
+        ],
+        "maxCount": 3,
+        "respawnRate": 45000
+      }
+    ],
+    "resources": [
+      {
+        "type": "rock_iron",
+        "positions": [
+          { "x": -10, "y": -12, "z": -160 },
+          { "x": 20, "y": -14, "z": -175 }
+        ]
+      }
+    ],
+    "ambient": {
+      "music": "dungeon_ominous",
+      "ambientSounds": ["dripping_water", "echoes", "distant_shrieks"]
+    }
+  }
+}
