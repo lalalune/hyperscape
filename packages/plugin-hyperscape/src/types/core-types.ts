@@ -133,10 +133,6 @@ export interface ChatListener {
   (messages: ChatMessage[]): void;
 }
 
-// ChatMessage is now imported from @hyperscape/shared - no local definition needed
-// Re-export for convenience
-export type { ChatMessage };
-
 // Plugin-specific Physics interface
 export interface Physics {
   enabled: boolean;
