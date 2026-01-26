@@ -279,9 +279,7 @@ export class PlayerTokenManager extends EventEmitter {
   }
 
   private generatePlayerId(): string {
-    const timestamp = Date.now().toString(36);
-    const randomPart = Math.random().toString(36).substr(2, 9);
-    return `player_${timestamp}_${randomPart}`;
+    return `player_${crypto.randomUUID()}`;
   }
 
   private generateTokenSecret(): string {
@@ -309,7 +307,7 @@ export class PlayerTokenManager extends EventEmitter {
   }
 
   private generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `session_${crypto.randomUUID()}`;
   }
 
   private saveToken(token: ClientPlayerToken): void {
