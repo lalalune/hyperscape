@@ -107,7 +107,7 @@ import type {
 } from "@hyperscape/shared";
 
 // Re-export for convenience
-export type { Player, PlayerInput, PlayerStats };
+export type { Player, PlayerInput, PlayerStats, ChatMessage };
 
 // Define RigidBody interface
 export interface RigidBody {
