@@ -354,6 +354,13 @@ export default defineConfig(({ mode }) => {
       port: Number(env.VITE_PORT) || 3333,
       open: false,
       host: true,
+      // Security headers for development server
+      headers: {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "X-XSS-Protection": "1; mode=block",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+      },
       // Silence noisy missing source map warnings for vendored libs
       sourcemapIgnoreList(relativeSourcePath, _sourcemapPath) {
         return /src\/libs\/(stats-gl|three-custom-shader-material)\//.test(

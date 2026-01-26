@@ -21,8 +21,16 @@ export default defineConfig({
         "src/lib/**/*.{ts,tsx}",
         "src/utils/**/*.{ts,tsx}",
         "src/hooks/**/*.{ts,tsx}",
+        "src/auth/**/*.{ts,tsx}",
+        "src/game/systems/**/*.{ts,tsx}",
       ],
       exclude: ["**/*.test.{ts,tsx}", "**/index.ts"],
+      thresholds: {
+        statements: 80,
+        branches: 75,
+        functions: 80,
+        lines: 80,
+      },
     },
     // Timeout for async operations
     testTimeout: 10000,

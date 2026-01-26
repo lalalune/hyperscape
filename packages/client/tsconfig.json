@@ -16,7 +16,6 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "outDir": "./dist",
-    "rootDir": "./src",
     "declaration": false,
     "allowJs": true,
     "checkJs": false,
@@ -29,7 +28,8 @@
     "jsxImportSource": "react"
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "tests/**/*"
   ],
   "exclude": [
     "node_modules",
