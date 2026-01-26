@@ -904,7 +904,7 @@ function MinimapPanel({ world }: { world: ClientWorld }): React.ReactElement {
         zoom={50}
         isVisible={true}
         resizable={false}
-        embedded={true}
+        embedded={false}
       />
     </div>
   );
