@@ -59,3 +59,25 @@ export type {
   NetworkEventName,
 } from "./player";
 export { NetworkEvents } from "./player";
+
+// Type guards for runtime validation
+export {
+  isInventoryUpdateEvent,
+  isCoinUpdateEvent,
+  isUIUpdateEvent,
+  isSkillsUpdateEvent,
+  isEquipmentUpdateEvent,
+  isLoadingProgressEvent,
+  isDeathScreenEvent,
+  isObject,
+  hasStringProperty,
+  hasNumberProperty,
+  hasArrayProperty,
+  type InventoryUpdateEvent,
+  type CoinUpdateEvent,
+  type UIUpdateEvent,
+  type SkillsUpdateEvent,
+  type EquipmentUpdateEvent,
+  type LoadingProgressEvent,
+  type DeathScreenEvent,
+} from "./guards";

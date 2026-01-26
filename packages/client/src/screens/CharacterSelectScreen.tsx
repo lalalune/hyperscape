@@ -483,6 +483,12 @@ export function CharacterSelectScreen({
       if (intentionalDisconnectRef.current) return;
 
       // Build WebSocket URL with authentication
+      // SECURITY NOTE: Auth token in URL can leak via server logs, browser history,
+      // and referrer headers. Ideally should use first-message auth pattern like
+      // EmbeddedGameClient. However, this requires coordinated server changes to
+      // handle auth packets before characterListRequest. See: packages/server/src/
+      // systems/ServerNetwork/character-selection.ts handleCharacterListRequest()
+      // TODO: Migrate to first-message auth when server supports it
       let url = `${wsUrl}?authToken=${encodeURIComponent(authToken)}`;
       if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
 

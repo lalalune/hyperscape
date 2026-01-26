@@ -488,43 +488,6 @@ export class ThreeResourceManager {
   }
 }
 
-/**
- * React hook for managing Three.js resource cleanup
- *
- * Provides a cleanup registry for React components that use Three.js objects.
- * Call cleanup functions in useEffect cleanup to prevent memory leaks.
- *
- * @returns Object with addCleanup and cleanup functions
- *
- * @example
- * ```typescript
- * function MyComponent() {
- *   const { addCleanup, cleanup } = useThreeCleanup();
- *
- *   useEffect(() => {
- *     const mesh = new THREE.Mesh(geometry, material);
- *     addCleanup(() => ThreeResourceManager.disposeObject(mesh));
- *
- *     return cleanup; // Cleanup on unmount
- *   }, []);
- * }
- * ```
- *
- * @public
- */
-export function useThreeCleanup() {
-  const cleanupFunctions = new Set<() => void>();
-
-  const addCleanup = (cleanupFn: () => void) => {
-    cleanupFunctions.add(cleanupFn);
-  };
-
-  const cleanup = () => {
-    cleanupFunctions.forEach((fn) => {
-      fn();
-    });
-    cleanupFunctions.clear();
-  };
-
-  return { addCleanup, cleanup };
-}
+// NOTE: useThreeCleanup hook moved to @/hooks/useThreeCleanup.ts
+// That version is more complete with refs, auto-unmount cleanup, and proper React patterns.
+// Import from there instead: import { useThreeCleanup } from "@/hooks/useThreeCleanup";
