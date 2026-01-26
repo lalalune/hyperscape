@@ -1393,15 +1393,19 @@ export async function handleCommand(
     const playerId = player.id || player.data?.id || socket.id;
 
     // Send test death screen to client (visual only - no state changes)
-    socket.send("testDeathScreen", {
-      cause: "Test death screen",
+    // Uses UI_DEATH_SCREEN event with proper data structure
+    socket.send("uiDeathScreen", {
+      message: "Test death - no items were actually dropped",
+      killedBy: "Test Command",
+      respawnTime: Date.now() + 60000, // 60 second timer for testing
+      playerId, // Include playerId for tracking
     });
 
     socket.send("chatAdded", {
       id: uuid(),
       from: null,
       fromId: null,
-      body: "[Test] Death screen triggered",
+      body: `[Test] Death screen triggered for player ${playerId}`,
       createdAt: moment().toISOString(),
     });
   }
