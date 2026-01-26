@@ -92,6 +92,19 @@ export class WebSocketManager {
   private messageQueue: Array<string | ArrayBuffer | Blob> = [];
   private intentionallyClosed = false;
 
+  /** Heartbeat interval handle */
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  /** Heartbeat timeout for pong response */
+  private heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** Heartbeat interval in milliseconds */
+  private readonly HEARTBEAT_INTERVAL = 30000;
+  /** Heartbeat timeout in milliseconds */
+  private readonly HEARTBEAT_TIMEOUT = 10000;
+  /** Last ping timestamp */
+  private lastPingTime = 0;
+  /** Last pong received timestamp */
+  private lastPongTime = 0;
+
   constructor(config: WebSocketManagerConfig) {
     this.config = {
       url: config.url,
@@ -163,6 +176,7 @@ export class WebSocketManager {
   disconnect(): void {
     this.intentionallyClosed = true;
     this.clearRetryTimeout();
+    this.stopHeartbeat();
     this.retryCount = 0;
     this.messageQueue = [];
 
@@ -216,6 +230,9 @@ export class WebSocketManager {
     this.setState(ConnectionState.CONNECTED);
     this.retryCount = 0;
 
+    // Start heartbeat
+    this.startHeartbeat();
+
     // Flush queued messages
     while (this.messageQueue.length > 0) {
       const message = this.messageQueue.shift()!;
@@ -227,6 +244,7 @@ export class WebSocketManager {
 
   private handleClose(event: CloseEvent): void {
     this.ws = null;
+    this.stopHeartbeat();
 
     // Don't reconnect if intentionally closed or server sent normal close
     if (this.intentionallyClosed) {
@@ -246,7 +264,86 @@ export class WebSocketManager {
   }
 
   private handleMessage(event: MessageEvent): void {
+    // Check for pong response
+    if (typeof event.data === "string") {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "pong") {
+          this.handlePong();
+          return;
+        }
+      } catch {
+        // Not a JSON message, pass through
+      }
+    }
+
     this.callbacks.onMessage?.(event);
+  }
+
+  /**
+   * Starts the heartbeat ping/pong mechanism
+   */
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+
+    this.heartbeatInterval = setInterval(() => {
+      if (this.isConnected()) {
+        this.sendPing();
+      }
+    }, this.HEARTBEAT_INTERVAL);
+  }
+
+  /**
+   * Stops the heartbeat mechanism
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    if (this.heartbeatTimeout) {
+      clearTimeout(this.heartbeatTimeout);
+      this.heartbeatTimeout = null;
+    }
+  }
+
+  /**
+   * Sends a ping message to the server
+   */
+  private sendPing(): void {
+    if (!this.isConnected()) return;
+
+    this.lastPingTime = Date.now();
+    this.send(JSON.stringify({ type: "ping", timestamp: this.lastPingTime }));
+
+    // Set timeout for pong response
+    this.heartbeatTimeout = setTimeout(() => {
+      console.warn("[WebSocketManager] Heartbeat timeout - no pong received");
+      // Connection may be stale, force reconnect
+      if (this.ws) {
+        this.ws.close(4000, "Heartbeat timeout");
+      }
+    }, this.HEARTBEAT_TIMEOUT);
+  }
+
+  /**
+   * Handles a pong response from the server
+   */
+  private handlePong(): void {
+    this.lastPongTime = Date.now();
+
+    if (this.heartbeatTimeout) {
+      clearTimeout(this.heartbeatTimeout);
+      this.heartbeatTimeout = null;
+    }
+  }
+
+  /**
+   * Gets the current connection latency (ping-pong round trip time)
+   */
+  getLatency(): number {
+    if (this.lastPingTime === 0 || this.lastPongTime === 0) return 0;
+    return this.lastPongTime - this.lastPingTime;
   }
 
   private scheduleReconnect(): void {
