@@ -361,6 +361,131 @@ export class ThreeResourceManager {
       window.gc();
     }
   }
+
+  /** Development memory monitoring interval handle */
+  private static devMonitorInterval: ReturnType<typeof setInterval> | null =
+    null;
+
+  /**
+   * Starts development memory monitoring
+   *
+   * Periodically logs memory statistics to the console in development mode.
+   * This helps identify memory leaks and resource usage patterns.
+   *
+   * @param intervalMs - Interval between memory reports (default: 5000ms)
+   * @param renderer - Optional renderer to get detailed stats from
+   *
+   * @example
+   * ```typescript
+   * // Start monitoring every 5 seconds
+   * ThreeResourceManager.startDevMonitoring(5000, renderer);
+   *
+   * // Stop monitoring
+   * ThreeResourceManager.stopDevMonitoring();
+   * ```
+   *
+   * @public
+   */
+  static startDevMonitoring(
+    intervalMs: number = 5000,
+    renderer?: {
+      info: {
+        memory: { geometries: number; textures: number };
+        programs?: unknown[];
+        render: {
+          calls: number;
+          triangles: number;
+          points: number;
+          lines: number;
+        };
+      };
+    },
+  ): void {
+    // Only run in development
+    if (import.meta.env.PROD) {
+      console.warn(
+        "[ThreeResourceManager] Memory monitoring is only available in development",
+      );
+      return;
+    }
+
+    // Stop existing monitoring
+    this.stopDevMonitoring();
+
+    let lastStats = { geometries: 0, textures: 0, programs: 0 };
+
+    this.devMonitorInterval = setInterval(() => {
+      const stats = this.getMemoryInfo(renderer);
+      const delta = {
+        geometries: stats.geometries - lastStats.geometries,
+        textures: stats.textures - lastStats.textures,
+        programs: stats.programs - lastStats.programs,
+      };
+
+      // Build memory report
+      const report = [
+        `[Memory Monitor]`,
+        `  Geometries: ${stats.geometries} (${delta.geometries >= 0 ? "+" : ""}${delta.geometries})`,
+        `  Textures:   ${stats.textures} (${delta.textures >= 0 ? "+" : ""}${delta.textures})`,
+        `  Programs:   ${stats.programs} (${delta.programs >= 0 ? "+" : ""}${delta.programs})`,
+      ];
+
+      // Add render stats if available
+      if (renderer?.info.render) {
+        const r = renderer.info.render;
+        report.push(
+          `  Render:     ${r.calls} calls, ${r.triangles.toLocaleString()} tris`,
+        );
+      }
+
+      // Add JS heap info if available (Chrome-specific)
+      const perfWithMemory = window.performance as typeof window.performance & {
+        memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number };
+      };
+      if (perfWithMemory.memory) {
+        const used = (
+          perfWithMemory.memory.usedJSHeapSize /
+          1024 /
+          1024
+        ).toFixed(1);
+        const limit = (
+          perfWithMemory.memory.jsHeapSizeLimit /
+          1024 /
+          1024
+        ).toFixed(1);
+        report.push(`  JS Heap:    ${used}MB / ${limit}MB`);
+      }
+
+      // Warn if resources are increasing rapidly
+      if (delta.geometries > 10 || delta.textures > 10) {
+        console.warn(report.join("\n"));
+        console.warn(
+          "[Memory Monitor] Rapid resource increase detected - possible leak!",
+        );
+      } else {
+        console.debug(report.join("\n"));
+      }
+
+      lastStats = stats;
+    }, intervalMs);
+
+    console.log(
+      `[ThreeResourceManager] Started memory monitoring (interval: ${intervalMs}ms)`,
+    );
+  }
+
+  /**
+   * Stops development memory monitoring
+   *
+   * @public
+   */
+  static stopDevMonitoring(): void {
+    if (this.devMonitorInterval) {
+      clearInterval(this.devMonitorInterval);
+      this.devMonitorInterval = null;
+      console.log("[ThreeResourceManager] Stopped memory monitoring");
+    }
+  }
 }
 
 /**
