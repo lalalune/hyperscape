@@ -13,7 +13,6 @@ import {
   repositionWindowForViewport,
   getDefaultAnchor,
   getDefaultPositionForAnchor,
-  type Viewport,
 } from "./anchorUtils";
 
 /** Whether to log debug messages (disabled in production) */
