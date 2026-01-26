@@ -262,16 +262,25 @@ export const BIOME_TYPES = {
 } as const;
 
 // === SKILL NAMES ===
+// All skills matching the Skills interface in entity-types.ts
 export const SKILLS = {
+  // Combat skills
   ATTACK: "attack",
   STRENGTH: "strength",
   DEFENSE: "defense",
   CONSTITUTION: "constitution",
-  RANGE: "range",
+  RANGED: "ranged",
+  MAGIC: "magic",
+  PRAYER: "prayer",
+  // Gathering skills
   WOODCUTTING: "woodcutting",
+  MINING: "mining",
   FISHING: "fishing",
+  // Production skills
   FIREMAKING: "firemaking",
   COOKING: "cooking",
+  SMITHING: "smithing",
+  AGILITY: "agility",
 } as const;
 
 // === EQUIPMENT SLOTS ===

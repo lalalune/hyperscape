@@ -16,6 +16,14 @@ import {
   THREE,
 } from "@hyperscape/shared";
 
+// Import canonical types from hyperscape shared package
+import type {
+  Player,
+  PlayerInput,
+  PlayerStats,
+  ChatMessage,
+} from "@hyperscape/shared";
+
 // Define local type aliases for THREE types
 export type Vector3 = THREEVector3;
 export type Quaternion = THREEQuaternion;
@@ -97,14 +105,6 @@ export interface WorldOptions {
   name?: string;
   avatar?: string;
 }
-
-// Import types from hyperscape shared package
-import type {
-  Player,
-  PlayerInput,
-  PlayerStats,
-  ChatMessage,
-} from "@hyperscape/shared";
 
 // Re-export for convenience
 export type { Player, PlayerInput, PlayerStats, ChatMessage };

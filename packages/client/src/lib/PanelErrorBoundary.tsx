@@ -10,7 +10,7 @@
 
 import React, { Component, type ReactNode, type ErrorInfo } from "react";
 import { ErrorCode, getErrorMeta, ErrorSeverity } from "./errorCodes";
-import { reportError } from "./error-reporting";
+import { errorReporting } from "./error-reporting";
 
 /**
  * Props for PanelErrorBoundary
@@ -162,14 +162,19 @@ export class PanelErrorBoundary extends Component<
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo });
 
-    // Report error
-    reportError(error, {
-      component: "PanelErrorBoundary",
-      panelName: this.props.panelName,
-      componentStack: errorInfo.componentStack,
-      errorCode: ErrorCode.UI_PANEL_ERROR,
-      severity: ErrorSeverity.WARNING,
+    // Report error to backend
+    errorReporting.reportReactError(error, {
+      componentStack: errorInfo.componentStack || "",
     });
+
+    // Log panel-specific context
+    if (import.meta.env.DEV) {
+      console.debug("[PanelErrorBoundary] Error context:", {
+        panelName: this.props.panelName,
+        errorCode: ErrorCode.UI_PANEL_ERROR,
+        severity: ErrorSeverity.WARNING,
+      });
+    }
 
     // Call custom error handler
     this.props.onError?.(error, errorInfo);

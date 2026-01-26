@@ -311,8 +311,16 @@ export { getStoreById } from "./data/banks-stores";
 // Export avatar options for character creation
 export { AVATAR_OPTIONS } from "./data/avatars";
 
-// Export skill icons for XP displays
-export { SKILL_ICONS, getSkillIcon } from "./data/skill-icons";
+// Export skill data for UI displays
+export {
+  SKILL_ICONS,
+  getSkillIcon,
+  SKILL_DEFINITIONS,
+  getSkillDefinition,
+  getSkillsByCategory,
+  type SkillDefinition,
+  type SkillCategory,
+} from "./data/skill-icons";
 
 // Export skill unlocks for level-up notifications
 export {

@@ -1275,18 +1275,12 @@ export function Minimap({
   return (
     <div
       ref={containerRef}
-      className={`minimap overflow-hidden relative touch-none select-none ${embedded ? "" : "rounded-lg"} ${className}`}
+      className={`minimap overflow-hidden relative touch-none select-none ${className}`}
       style={{
         width,
         height,
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
-        ...(embedded
-          ? {}
-          : {
-              border: `2px solid ${theme.colors.border.decorative}`,
-              boxShadow: `${theme.shadows.lg}, inset 0 1px 0 rgba(255, 255, 255, 0.1)`,
-            }),
         ...style,
       }}
       onMouseDown={(e) => {

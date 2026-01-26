@@ -3,6 +3,7 @@
  * Hyperscape-themed skills interface (Prayer is now in separate PrayerPanel)
  * Uses project theme colors (gold #f2d08a, brown borders)
  * Supports drag-drop to action bar
+ * Uses shared SKILL_DEFINITIONS for data-driven skill display
  */
 
 import React, { useState, useRef, useMemo, memo } from "react";
@@ -16,6 +17,7 @@ import {
 import { zIndex, MOBILE_SKILLS } from "../../constants";
 import { useTooltipSize } from "../../hooks";
 import type { PlayerStats, Skills } from "../../types";
+import { SKILL_DEFINITIONS, type SkillDefinition } from "@hyperscape/shared";
 
 interface SkillsPanelProps {
   stats: PlayerStats | null;
@@ -201,93 +203,18 @@ export function SkillsPanel({ stats }: SkillsPanelProps) {
 
   const s: Partial<Skills> = stats?.skills ?? {};
 
-  // Build skills array from stats
-  const skills: Skill[] = [
-    {
-      key: "attack",
-      label: "Attack",
-      icon: "⚔️",
-      level: s?.attack?.level || 1,
-      xp: s?.attack?.xp || 0,
-    },
-    {
-      key: "strength",
-      label: "Strength",
-      icon: "💪",
-      level: s?.strength?.level || 1,
-      xp: s?.strength?.xp || 0,
-    },
-    {
-      key: "defense",
-      label: "Defence",
-      icon: "🛡️",
-      level: s?.defense?.level || 1,
-      xp: s?.defense?.xp || 0,
-    },
-    {
-      key: "constitution",
-      label: "Constitution",
-      icon: "❤️",
-      level: s?.constitution?.level || 10,
-      xp: s?.constitution?.xp || 0,
-    },
-    {
-      key: "ranged",
-      label: "Ranged",
-      icon: "🏹",
-      level: s?.ranged?.level || 1,
-      xp: s?.ranged?.xp || 0,
-    },
-    {
-      key: "magic",
-      label: "Magic",
-      icon: "✨",
-      level: s?.magic?.level || 1,
-      xp: s?.magic?.xp || 0,
-    },
-    {
-      key: "fishing",
-      label: "Fishing",
-      icon: "🐟",
-      level: s?.fishing?.level || 1,
-      xp: s?.fishing?.xp || 0,
-    },
-    {
-      key: "cooking",
-      label: "Cooking",
-      icon: "🍖",
-      level: s?.cooking?.level || 1,
-      xp: s?.cooking?.xp || 0,
-    },
-    {
-      key: "woodcutting",
-      label: "Woodcutting",
-      icon: "🪓",
-      level: s?.woodcutting?.level || 1,
-      xp: s?.woodcutting?.xp || 0,
-    },
-    {
-      key: "firemaking",
-      label: "Firemaking",
-      icon: "🔥",
-      level: s?.firemaking?.level || 1,
-      xp: s?.firemaking?.xp || 0,
-    },
-    {
-      key: "mining",
-      label: "Mining",
-      icon: "⛏️",
-      level: s?.mining?.level || 1,
-      xp: s?.mining?.xp || 0,
-    },
-    {
-      key: "smithing",
-      label: "Smithing",
-      icon: "🔨",
-      level: s?.smithing?.level || 1,
-      xp: s?.smithing?.xp || 0,
-    },
-  ];
+  // Build skills array from shared SKILL_DEFINITIONS
+  // This ensures all skills including Agility are displayed and metadata stays in sync
+  const skills: Skill[] = SKILL_DEFINITIONS.map((def: SkillDefinition) => {
+    const skillData = s[def.key];
+    return {
+      key: def.key,
+      label: def.label,
+      icon: def.icon,
+      level: skillData?.level ?? def.defaultLevel,
+      xp: skillData?.xp ?? 0,
+    };
+  });
 
   const totalLevel = skills.reduce((sum, skill) => sum + skill.level, 0);
   const combatLevel = calculateCombatLevel(s);

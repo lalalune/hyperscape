@@ -377,7 +377,7 @@ export function MinimapWrapper({
         zoom={50}
         isVisible={true}
         resizable={false}
-        embedded={true}
+        embedded={false}
         dragHandleProps={dragHandleProps}
         isUnlocked={isUnlocked}
       />
