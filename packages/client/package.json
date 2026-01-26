@@ -69,7 +69,7 @@
     "nanoid": "^5.0.6",
     "postprocessing": "^6.36.4",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "react-dom": "^19.2.4",
     "three": "^0.181.0",
     "three-custom-shader-material": "^6.3.7",
     "three-mesh-bvh": "^0.8.3",

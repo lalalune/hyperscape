@@ -99,7 +99,7 @@
     "msgpackr": "^1.11.0",
     "nanoid": "^5.0.6",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "react-dom": "^19.2.4",
     "source-map-support": "^0.5.21",
     "sqlite3": "^5.1.7",
     "styled-components": "^6.1.19",
