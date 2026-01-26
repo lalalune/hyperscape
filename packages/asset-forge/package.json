@@ -59,7 +59,7 @@
     "concurrently": "^9.2.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "drizzle-orm": "^0.44.6",
+    "drizzle-orm": "^0.45.1",
     "elevenlabs": "^1.59.0",
     "elysia": "^1.4.15",
     "elysia-rate-limit": "^4.4.2",

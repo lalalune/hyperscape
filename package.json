@@ -133,7 +133,7 @@
     "better-sqlite3": "^12.2.0",
     "canvas": "^3.1.2",
     "drizzle-kit": "^0.31.5",
-    "drizzle-orm": "^0.44.6",
+    "drizzle-orm": "^0.45.1",
     "meshoptimizer": "^0.22.0",
     "pg": "^8.16.3",
     "playwright": "^1.54.2",
