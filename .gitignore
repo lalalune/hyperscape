@@ -68,14 +68,14 @@ tmp/
 !packages/asset-forge/src/components/Assets/
 
 # 3D Models and Avatars - downloaded from separate assets repo
-# Ignore large binary assets (models, textures) but keep manifests/ JSON
+# Ignore large binary assets (models, textures) but keep manifests JSON
 packages/server/world/assets/models/
 packages/server/world/assets/textures/
 packages/server/world/assets/audio/
-# The manifests/ directory IS tracked (essential JSON data for server startup)
-# Do NOT add packages/server/world/assets/ to gitignore - track manifests/
+# manifests/ directory IS tracked (essential JSON data for server startup)
 packages/client/src/public/models/
 packages/client/dist/models/
+packages/client/packages/
 
 # Claude Code and Cursor IDE development files (keep locally, not in git)
 # Allow .claude/settings.json and .claude/README.md for marketplace configuration
@@ -99,4 +99,7 @@ logs/
 
 eliza/
 
+# Server world assets - ignore large binaries, keep manifests
+# The manifests/ directory contains essential JSON data and MUST be tracked
+packages/server/world/assets/
 .wrangler/
