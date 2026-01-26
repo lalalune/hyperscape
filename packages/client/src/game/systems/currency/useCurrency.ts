@@ -9,6 +9,7 @@
 
 import { useCallback, useMemo, useRef, useEffect, useState } from "react";
 import { create } from "zustand";
+import { generateTransactionId } from "@hyperscape/shared";
 import {
   type CurrencyType,
   type CurrencyDefinition,
@@ -105,10 +106,7 @@ function createInitialBalance(type: CurrencyType): CurrencyBalance {
   };
 }
 
-/** Generate unique transaction ID */
-function generateTransactionId(): string {
-  return `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
+// Transaction ID generation is now imported from @hyperscape/shared
 
 /**
  * Zustand store for currency management
