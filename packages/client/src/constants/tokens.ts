@@ -15,6 +15,7 @@
  */
 
 import type { CSSProperties } from "react";
+import { INVENTORY_CONSTANTS } from "@hyperscape/shared";
 
 /**
  * Spacing - 8px Base Unit System
@@ -328,7 +329,7 @@ export const touchTargets = {
 export const gameUI = {
   /** Inventory configuration (grid layout: 7 columns × 4 rows = 28 slots) */
   inventory: {
-    slots: 28,
+    slots: INVENTORY_CONSTANTS.MAX_INVENTORY_SLOTS,
     columns: 7, // 7 slots across (horizontal)
     rows: 4, // 4 slots down (vertical)
     slotSize: "48px",
@@ -347,14 +348,14 @@ export const gameUI = {
     slotsPerPage: 7,
     /** Total pages/bars available */
     totalPages: 4,
-    /** Size of each action slot in pixels */
-    slotSize: "36px",
+    /** Size of each action slot in pixels (compact) */
+    slotSize: "30px",
     /** Gap between slots in pixels */
-    slotGap: "3px",
+    slotGap: "2px",
     /** Padding around the slot container */
-    padding: "4px",
+    padding: "3px",
     /** Size of +/- control buttons */
-    controlButtonSize: "20px",
+    controlButtonSize: "16px",
   },
 
   /** Equipment panel */
@@ -480,28 +481,28 @@ export const statusColors = {
  * Use these instead of hardcoding styles in individual panels.
  */
 export const panelStyles = {
-  /** Base container for all panels - Dark theme */
+  /** Base container for all panels - Hyperscape theme (RS3-inspired dark with bronze accents) */
   container: {
-    background: "#0a0a0c",
-    border: "1px solid #2d2820",
+    background: "#0f0f12", // Matches hyperscapeTheme.colors.background.primary
+    border: "1px solid #4d4540",
     borderRadius: "8px",
     boxShadow:
       "0 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(212, 168, 75, 0.1)",
   },
 
-  /** Section within a panel (like a card) - Dark theme */
+  /** Section within a panel (like a card) - Hyperscape theme */
   section: {
-    background: "#141418",
-    border: "1px solid #2d2820",
+    background: "#1a1a20", // Slightly lighter than container for depth
+    border: "1px solid #4d4540",
     borderRadius: "6px",
     boxShadow:
       "inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 2px 4px rgba(0, 0, 0, 0.3)",
   },
 
-  /** Grid item (inventory slot, skill box, etc.) - Dark theme */
+  /** Grid item (inventory slot, skill box, etc.) - Hyperscape theme */
   gridItem: {
-    background: "#16151a",
-    border: "1px solid #2d2820",
+    background: "#1a1a20", // Matches hyperscapeTheme.colors.slot.empty
+    border: "1px solid #4d4540",
     borderRadius: "4px",
     boxShadow:
       "inset 1px 1px 0 rgba(255, 255, 255, 0.03), inset -1px -1px 0 rgba(0, 0, 0, 0.3)",
@@ -533,36 +534,36 @@ export const panelStyles = {
 
   /** Disabled state */
   disabled: {
-    background: "#080808",
-    border: "1px solid #2d2820",
+    background: "#101012", // Slightly darker than primary
+    border: "1px solid #4d4540",
     opacity: "0.6",
   },
 
-  /** Input field styling - Dark theme */
+  /** Input field styling - Hyperscape theme */
   input: {
-    background: "#0c0c0e",
-    border: "1px solid #2d2820",
+    background: "#0f0f12", // Matches container background
+    border: "1px solid #4d4540",
     borderRadius: "4px",
     boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.4)",
   },
 
-  /** Tab styling - Dark theme */
+  /** Tab styling - Hyperscape theme */
   tab: {
     inactive: {
-      background: "#141418",
-      border: "1px solid #2d2820",
-      color: "#7d7460",
+      background: "#1a1a20",
+      border: "1px solid #4d4540",
+      color: "#9a8d78", // Matches hyperscapeTheme.colors.text.muted
     },
     active: {
-      background: "#1e1e24",
-      border: "1px solid #4a3f30",
-      color: "#d4a84b",
+      background: "#22222a", // Matches hyperscapeTheme.colors.background.secondary
+      border: "1px solid #6a5f50",
+      color: "#d4a84b", // Matches hyperscapeTheme.colors.accent.primary
     },
   },
 
-  /** Divider/separator - Dark theme */
+  /** Divider/separator - Hyperscape theme */
   divider: {
-    background: "linear-gradient(90deg, transparent, #2d2820, transparent)",
+    background: "linear-gradient(90deg, transparent, #4d4540, transparent)",
     height: "1px",
   },
 

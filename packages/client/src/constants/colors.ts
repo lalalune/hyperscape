@@ -26,34 +26,34 @@ export const COLORS = {
   CHAT_ACCENT: "#e8c55a",
 
   // ===========================================
-  // BACKGROUND COLORS (Dark Theme)
+  // BACKGROUND COLORS (Hyperscape Theme)
   // ===========================================
 
-  /** Primary panel background - Dark with slight warmth */
-  BG_PRIMARY: "#141416",
-  /** Secondary/darker background - Slightly lighter */
-  BG_SECONDARY: "#18181a",
-  /** Tertiary/accent background - Elevated surface */
-  BG_TERTIARY: "#1e1e22",
+  /** Primary panel background - Matches hyperscapeTheme.colors.background.primary */
+  BG_PRIMARY: "#0f0f12",
+  /** Secondary background - Matches hyperscapeTheme.colors.background.secondary */
+  BG_SECONDARY: "#22222a",
+  /** Tertiary/accent background - Matches hyperscapeTheme.colors.background.tertiary */
+  BG_TERTIARY: "#363640",
   /** Solid dark background */
-  BG_SOLID: "#141416",
+  BG_SOLID: "#0f0f12",
   /** Elevated surface */
-  BG_ELEVATED: "#1e1e22",
+  BG_ELEVATED: "#22222a",
   /** Overlay/inset background */
   BG_OVERLAY: "rgba(0, 0, 0, 0.75)",
 
   // ===========================================
-  // BORDER COLORS
+  // BORDER COLORS (Hyperscape Theme)
   // ===========================================
 
-  /** Primary border - Subtle brown border */
-  BORDER_PRIMARY: "#2d2820",
-  /** Secondary/subtle border */
-  BORDER_SECONDARY: "#2d2820",
-  /** Accent border (gold) */
-  BORDER_ACCENT: "#4a3f30",
-  /** Focus ring color - Bright gold */
-  BORDER_FOCUS: "#e8c55a",
+  /** Primary border - Matches hyperscapeTheme.colors.border.default */
+  BORDER_PRIMARY: "#4d4540",
+  /** Secondary/subtle border - Hover state */
+  BORDER_SECONDARY: "#6a5f50",
+  /** Accent border (gold) - Active state */
+  BORDER_ACCENT: "#8b7a60",
+  /** Focus ring color - Matches hyperscapeTheme.colors.border.focus */
+  BORDER_FOCUS: "#f0d060",
 
   // ===========================================
   // TEXT COLORS
@@ -92,28 +92,28 @@ export const COLORS = {
   INFO_DARK: "#3b82f6",
 
   // ===========================================
-  // INTERACTIVE STATES
+  // INTERACTIVE STATES (Hyperscape Theme)
   // ===========================================
 
-  /** Hover overlay */
-  HOVER: "#242428",
-  /** Active/pressed overlay */
-  ACTIVE: "#3d3830",
+  /** Hover overlay - Matches hyperscapeTheme.colors.slot.hover */
+  HOVER: "#3a3844",
+  /** Active/pressed overlay - Matches hyperscapeTheme.colors.slot.selected */
+  ACTIVE: "#5a5248",
   /** Disabled overlay */
-  DISABLED: "#0e0e0e",
+  DISABLED: "#101012",
   /** Selection highlight */
-  SELECTION: "#3d3830",
+  SELECTION: "#5a5248",
 } as const;
 
 /**
  * Gradient Definitions - Dark Theme
  */
 export const GRADIENTS = {
-  /** Panel background gradient - Dark theme */
-  PANEL: "linear-gradient(135deg, #141416 0%, #18181a 50%, #141416 100%)",
+  /** Panel background gradient - Hyperscape theme */
+  PANEL: "linear-gradient(135deg, #0f0f12 0%, #1a1a20 50%, #0f0f12 100%)",
 
-  /** Header gradient - Dark theme */
-  HEADER: "linear-gradient(180deg, #1e1e22 0%, #18181a 100%)",
+  /** Header gradient - Hyperscape theme */
+  HEADER: "linear-gradient(180deg, #22222a 0%, #1a1a20 100%)",
 
   /** Button gradient - Gold accent */
   BUTTON: "linear-gradient(135deg, #d4a84b 0%, #c49530 100%)",
