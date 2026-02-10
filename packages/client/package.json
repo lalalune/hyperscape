@@ -49,7 +49,7 @@
     "@privy-io/react-auth": "^3.3.0",
     "@rollup/rollup-darwin-x64": "^4.52.4",
     "@solana-mobile/wallet-adapter-mobile": "^2.2.5",
-    "@solana-program/memo": "^0.10.0",
+    "@solana-program/memo": "^0.11.0",
     "@solana/kit": "^5.4.0",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",
