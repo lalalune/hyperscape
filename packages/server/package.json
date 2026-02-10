@@ -87,7 +87,7 @@
     "@vitest/coverage-v8": "^4.0.6",
     "chokidar": "^4.0.3",
     "esbuild": "^0.27.0",
-    "eslint": "^9.37.0",
+    "eslint": "^10.0.0",
     "eslint-config-prettier": "^9.1.0",
     "playwright": "^1.54.2",
     "prettier": "^3.6.2",
