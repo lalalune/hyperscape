@@ -50,7 +50,7 @@
     "@rollup/rollup-darwin-x64": "^4.52.4",
     "@solana-mobile/wallet-adapter-mobile": "^2.2.5",
     "@solana-program/memo": "^0.10.0",
-    "@solana/kit": "^5.4.0",
+    "@solana/kit": "^6.0.1",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
