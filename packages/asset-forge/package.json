@@ -38,7 +38,7 @@
   "author": "Lucid",
   "license": "MIT",
   "dependencies": {
-    "ai": "^4.2.0",
+    "ai": "^6.0.86",
     "@ai-sdk/anthropic": "^1.2.0",
     "@ai-sdk/openai": "^1.2.0",
     "@elysiajs/cors": "^1.4.0",
