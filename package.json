@@ -91,7 +91,7 @@
     "@gltf-transform/extensions": "^4.1.1",
     "@gltf-transform/functions": "^4.1.1",
     "@types/fs-extra": "^11.0.4",
-    "@types/node": "^24.8.0",
+    "@types/node": "^25.2.3",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
