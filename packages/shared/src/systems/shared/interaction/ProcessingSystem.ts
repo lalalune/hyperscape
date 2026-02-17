@@ -30,6 +30,7 @@ import { SystemBase } from "../infrastructure/SystemBase";
 import type { World } from "../../../types/index";
 import { getTargetValidator } from "./TargetValidator";
 import { modelCache } from "../../../utils/rendering/ModelCache";
+import type { ParticleManager } from "../../../entities/managers/particleManager";
 
 /**
  * Debug logging flag for processing system.
@@ -44,55 +45,6 @@ export class ProcessingSystem extends SystemBase {
 
   private static readonly FIRE_PARTICLE_SPAWN_Y = 0.1;
   private static readonly FIRE_PLACEHOLDER_Y_OFFSET = 0.4;
-
-  // Shared fire particle resources (static, lazily initialized on client only)
-  private static fireParticleGeometry: THREE.CircleGeometry | null = null;
-  private static fireGlowTextures: Map<number, THREE.DataTexture> | null = null;
-
-  private static getFireParticleGeometry(): THREE.CircleGeometry {
-    if (!ProcessingSystem.fireParticleGeometry) {
-      ProcessingSystem.fireParticleGeometry = new THREE.CircleGeometry(0.7, 12);
-    }
-    return ProcessingSystem.fireParticleGeometry;
-  }
-
-  private static getOrCreateGlowTexture(colorHex: number): THREE.DataTexture {
-    if (!ProcessingSystem.fireGlowTextures) {
-      ProcessingSystem.fireGlowTextures = new Map();
-    }
-    const cached = ProcessingSystem.fireGlowTextures.get(colorHex);
-    if (cached) return cached;
-
-    const size = 64;
-    const sharpness = 2.0;
-    const r = (colorHex >> 16) & 0xff;
-    const g = (colorHex >> 8) & 0xff;
-    const b = colorHex & 0xff;
-    const data = new Uint8Array(size * size * 4);
-    const half = size / 2;
-
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const dx = (x + 0.5 - half) / half;
-        const dy = (y + 0.5 - half) / half;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const falloff = Math.max(0, 1 - dist);
-        const strength = Math.pow(falloff, sharpness);
-        const idx = (y * size + x) * 4;
-        data[idx] = Math.round(r * strength);
-        data[idx + 1] = Math.round(g * strength);
-        data[idx + 2] = Math.round(b * strength);
-        data[idx + 3] = Math.round(255 * strength);
-      }
-    }
-
-    const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
-    tex.magFilter = THREE.LinearFilter;
-    tex.minFilter = THREE.LinearFilter;
-    tex.needsUpdate = true;
-    ProcessingSystem.fireGlowTextures.set(colorHex, tex);
-    return tex;
-  }
 
   private activeFires = new Map<string, Fire>();
   private activeProcessing = new Map<string, ProcessingAction>();
@@ -1246,123 +1198,42 @@ export class ProcessingSystem extends SystemBase {
     }
   }
 
+  /** Access the centralized ParticleManager from the ResourceSystem. */
+  private getParticleManager(): ParticleManager | undefined {
+    const sys = this.world.getSystem("resource") as {
+      particleManager?: ParticleManager;
+    } | null;
+    return sys?.particleManager;
+  }
+
   /**
-   * Create billboard fire particle effect (client-only).
-   * Uses manual billboard meshes with baked glow textures (same pattern as RunecraftingAltarEntity).
+   * Create fire particle effect via centralized GlowParticleManager (GPU-instanced).
+   * Uses the "fire" preset which manages 18 rising/spreading warm-coloured particles.
    */
   private createFireParticles(fire: Fire): void {
     if (!this.world.isClient) return;
 
-    const PARTICLE_COUNT = 18;
-    const meshes: THREE.Mesh[] = [];
-    const geom = ProcessingSystem.getFireParticleGeometry();
-    const colors = [0xff4400, 0xff6600, 0xff8800, 0xffaa00, 0xffcc00];
+    const pm = this.getParticleManager();
+    if (!pm) return;
 
-    // Per-particle state
-    const ages = new Float32Array(PARTICLE_COUNT);
-    const lifetimes = new Float32Array(PARTICLE_COUNT);
-    const speeds = new Float32Array(PARTICLE_COUNT);
-    const offsetsX = new Float32Array(PARTICLE_COUNT);
-    const offsetsZ = new Float32Array(PARTICLE_COUNT);
-    const baseScales = new Float32Array(PARTICLE_COUNT);
+    const emitterId = `fire_${fire.id}`;
 
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      lifetimes[i] = 0.5 + Math.random() * 0.7;
-      ages[i] = Math.random() * lifetimes[i]; // stagger
-      speeds[i] = 0.6 + Math.random() * 0.8;
-      offsetsX[i] = (Math.random() - 0.5) * 0.25;
-      offsetsZ[i] = (Math.random() - 0.5) * 0.25;
-      baseScales[i] = 0.18 + Math.random() * 0.22;
+    pm.register(emitterId, {
+      type: "glow",
+      preset: "fire",
+      position: fire.position,
+    });
 
-      const colorIdx = Math.floor(Math.random() * colors.length);
-      const mat = new THREE.MeshBasicMaterial({
-        map: ProcessingSystem.getOrCreateGlowTexture(colors[colorIdx]),
-        transparent: true,
-        opacity: 0.7,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        depthTest: true,
-        side: THREE.DoubleSide,
-        fog: false,
-      });
-
-      const particle = new THREE.Mesh(geom, mat);
-      particle.renderOrder = 999;
-      particle.frustumCulled = false;
-      particle.layers.set(1);
-      this.world.stage.scene.add(particle);
-      meshes.push(particle);
-    }
-
-    // Animation loop
-    let lastTime = Date.now();
-    let animFrameId: number | null = null;
-    const camera = (this.world as { camera?: THREE.Camera }).camera;
-
-    const animate = () => {
-      if (!fire.isActive) {
-        animFrameId = null;
-        return;
-      }
-
-      const now = Date.now();
-      const dt = (now - lastTime) / 1000;
-      lastTime = now;
-
-      for (let i = 0; i < PARTICLE_COUNT; i++) {
-        ages[i] += dt;
-        if (ages[i] >= lifetimes[i]) {
-          ages[i] = 0;
-          offsetsX[i] = (Math.random() - 0.5) * 0.25;
-          offsetsZ[i] = (Math.random() - 0.5) * 0.25;
-        }
-
-        const t = ages[i] / lifetimes[i]; // 0..1
-        const rise = t * speeds[i] * 0.7;
-
-        meshes[i].position.set(
-          fire.position.x + offsetsX[i] * (1 + t * 0.5),
-          fire.position.y + ProcessingSystem.FIRE_PARTICLE_SPAWN_Y + rise,
-          fire.position.z + offsetsZ[i] * (1 + t * 0.5),
-        );
-
-        // Fade in fast, fade out near end
-        const fadeIn = Math.min(t * 6, 1);
-        const fadeOut = Math.pow(1 - t, 1.5);
-        (meshes[i].material as THREE.MeshBasicMaterial).opacity =
-          0.75 * fadeIn * fadeOut;
-
-        // Shrink as particle rises
-        const scale = baseScales[i] * (1 - t * 0.4);
-        meshes[i].scale.set(scale, scale * 1.3, scale);
-
-        // Billboard: face camera
-        if (camera) {
-          meshes[i].quaternion.copy(camera.quaternion);
-        }
-      }
-
-      animFrameId = requestAnimationFrame(animate);
-    };
-
-    if (typeof requestAnimationFrame !== "undefined") {
-      animate();
-    }
-
-    // Store cleanup function and mesh references on fire object
+    // Store cleanup that unregisters from ParticleManager
     const fireExt = fire as {
       fireParticleMeshes?: THREE.Mesh[];
       cancelFireParticles?: () => void;
     };
-    fireExt.fireParticleMeshes = meshes;
+    fireExt.fireParticleMeshes = [];
     fireExt.cancelFireParticles = () => {
-      if (animFrameId !== null) {
-        cancelAnimationFrame(animFrameId);
-        animFrameId = null;
-      }
-      for (const mesh of meshes) {
-        this.world.stage.scene.remove(mesh);
-        (mesh.material as THREE.Material).dispose();
+      const pmRef = this.getParticleManager();
+      if (pmRef) {
+        pmRef.unregister(emitterId);
       }
     };
   }

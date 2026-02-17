@@ -525,10 +525,9 @@ export class ResourceEntity extends InteractableEntity {
     if (!pm) return false;
 
     const pos = this.getPosition();
-    pm.registerSpot({
-      entityId: this.id,
+    pm.register(this.id, {
+      type: "water",
       position: { x: pos.x, y: pos.y, z: pos.z },
-      resourceType: this.config.resourceType || "",
       resourceId: this.config.resourceId || "",
     });
     this._registeredWithParticleManager = true;
@@ -664,7 +663,7 @@ export class ResourceEntity extends InteractableEntity {
       if (this._registeredWithParticleManager) {
         const pm = this.getParticleManager();
         if (pm) {
-          pm.unregisterSpot(this.id, this.config.resourceType || "");
+          pm.unregister(this.id);
         }
         this._registeredWithParticleManager = false;
       }

@@ -5,8 +5,12 @@
 
 export { ParticleManager } from "./ParticleManager";
 export type {
-  ParticleSpotConfig,
+  WaterParticleConfig,
+  GlowParticleConfig,
+  ParticleConfig,
   ParticleResourceEvent,
 } from "./ParticleManager";
 export { WaterParticleManager } from "./WaterParticleManager";
 export type { FishingSpotVariant } from "./WaterParticleManager";
+export { GlowParticleManager } from "./GlowParticleManager";
+export type { GlowPreset, GlowConfig } from "./GlowParticleManager";

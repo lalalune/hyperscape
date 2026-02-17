@@ -1,42 +1,61 @@
 /**
- * ParticleManager - Central Particle Manager Router
+ * ParticleManager – Unified Particle Manager
  *
- * Single entry point for all particle systems. ResourceSystem (and other systems)
- * send events here; the manager routes them to the correct specialised sub-manager
- * based on resource type or particle category.
+ * Single entry point for all particle systems. Consumers call `register`,
+ * `unregister`, and `move` with a discriminated-union config
+ * (`ParticleConfig`). The manager routes to the correct specialised
+ * sub-manager based on `config.type` and maintains an internal ownership
+ * map so that `unregister` / `move` don't need a type hint.
  *
  * Currently manages:
  *   - WaterParticleManager  (fishing spots: splash, bubble, shimmer, ripple)
- *
- * To add a new particle type (e.g. fire, magic, dust):
- *   1. Create a new sub-manager class in this folder
- *   2. Instantiate it in the ParticleManager constructor
- *   3. Add routing logic in the register / unregister / move / handleEvent methods
- *   4. Call its update() from ParticleManager.update()
- *   5. Call its dispose() from ParticleManager.dispose()
+ *   - GlowParticleManager   (instanced glow billboards: altar, fire, etc.)
  *
  * @module ParticleManager
  */
 
 import * as THREE from "../../../extras/three/three";
 import { WaterParticleManager } from "./WaterParticleManager";
+import { GlowParticleManager, type GlowPreset } from "./GlowParticleManager";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export interface ParticleSpotConfig {
-  entityId: string;
+/** Config for water-type particles (fishing spots). */
+export interface WaterParticleConfig {
+  type: "water";
   position: { x: number; y: number; z: number };
-  resourceType: string;
   resourceId: string;
 }
 
+/** Config for glow-type particles (altar, fire, etc.). */
+export interface GlowParticleConfig {
+  type: "glow";
+  preset: GlowPreset;
+  position: { x: number; y: number; z: number };
+  /** Colour override – single hex or three-tone palette. */
+  color?: number | { core: number; mid: number; outer: number };
+  /** Mesh root for geometry-aware spark placement (altar preset). */
+  meshRoot?: THREE.Object3D;
+  /** Scale of the loaded model (default 1.0). */
+  modelScale?: number;
+  /** Vertical offset applied to the model (default 0). */
+  modelYOffset?: number;
+}
+
+/** Discriminated union – pass this to `register()`. */
+export type ParticleConfig = WaterParticleConfig | GlowParticleConfig;
+
+/** Lightweight event shape emitted by ResourceSystem for spot relocation. */
 export interface ParticleResourceEvent {
   id?: string;
   type?: string;
   position?: { x: number; y: number; z: number };
 }
+
+/** Internal ownership discriminator. */
+type OwnerType = "water" | "glow";
 
 // =============================================================================
 // PARTICLE MANAGER
@@ -44,59 +63,87 @@ export interface ParticleResourceEvent {
 
 export class ParticleManager {
   private waterManager: WaterParticleManager;
-  // Future managers go here:
-  // private fireManager: FireParticleManager;
-  // private magicManager: MagicParticleManager;
+  private glowManager: GlowParticleManager;
+
+  /** Tracks which sub-manager owns each emitter id. */
+  private ownership = new Map<string, OwnerType>();
 
   constructor(scene: THREE.Scene) {
     this.waterManager = new WaterParticleManager(scene);
-    console.log("[ParticleManager] Initialized with WaterParticleManager");
+    this.glowManager = new GlowParticleManager(scene);
+    console.log(
+      "[ParticleManager] Initialized with WaterParticleManager + GlowParticleManager",
+    );
   }
 
   // ===========================================================================
-  // SPOT LIFECYCLE (called by entities)
+  // UNIFIED LIFECYCLE
   // ===========================================================================
 
   /**
-   * Register a particle-emitting spot. Routes to the correct manager
-   * based on `config.resourceType`.
+   * Register a particle emitter.
+   *
+   * Routes to the correct sub-manager based on `config.type`.
    */
-  registerSpot(config: ParticleSpotConfig): void {
-    if (this.isWaterType(config.resourceType)) {
-      this.waterManager.registerSpot({
-        entityId: config.entityId,
-        position: config.position,
-        resourceId: config.resourceId,
-      });
-      return;
+  register(id: string, config: ParticleConfig): void {
+    if (this.ownership.has(id)) {
+      this.unregister(id);
     }
-    // Future: route to other managers based on resourceType
+
+    switch (config.type) {
+      case "water": {
+        this.waterManager.registerSpot({
+          entityId: id,
+          position: config.position,
+          resourceId: config.resourceId,
+        });
+        this.ownership.set(id, "water");
+        break;
+      }
+      case "glow": {
+        const { type: _, ...glowConfig } = config;
+        this.glowManager.registerGlow(id, glowConfig);
+        this.ownership.set(id, "glow");
+        break;
+      }
+    }
   }
 
   /**
-   * Unregister a spot. Tries every manager that could own it.
+   * Unregister a particle emitter. No type hint required — the ownership
+   * map resolves the correct sub-manager automatically.
    */
-  unregisterSpot(entityId: string, resourceType: string): void {
-    if (this.isWaterType(resourceType)) {
-      this.waterManager.unregisterSpot(entityId);
-      return;
+  unregister(id: string): void {
+    const owner = this.ownership.get(id);
+    if (!owner) return;
+
+    switch (owner) {
+      case "water":
+        this.waterManager.unregisterSpot(id);
+        break;
+      case "glow":
+        this.glowManager.unregisterGlow(id);
+        break;
     }
-    // Future: route to other managers
+
+    this.ownership.delete(id);
   }
 
   /**
-   * Move an existing spot's position. Called when fishing spots relocate.
+   * Move an existing emitter to a new position. No type hint required.
    */
-  moveSpot(
-    entityId: string,
-    resourceType: string,
-    newPos: { x: number; y: number; z: number },
-  ): void {
-    if (this.isWaterType(resourceType)) {
-      this.waterManager.moveSpot(entityId, newPos);
-      return;
+  move(id: string, newPos: { x: number; y: number; z: number }): void {
+    const owner = this.ownership.get(id);
+    if (!owner) return;
+
+    switch (owner) {
+      case "water":
+        this.waterManager.moveSpot(id, newPos);
+        break;
+      case "glow":
+        this.glowManager.moveGlow(id, newPos);
+        break;
     }
-    // Future: route to other managers
   }
 
   // ===========================================================================
@@ -105,17 +152,11 @@ export class ParticleManager {
 
   /**
    * Handle a resource event (e.g. RESOURCE_SPAWNED) and route to the
-   * appropriate particle manager. Systems call this instead of knowing
-   * about individual managers.
+   * appropriate particle manager via the ownership map.
    */
   handleResourceEvent(data: ParticleResourceEvent): void {
-    if (!data.id || !data.type || !data.position) return;
-
-    if (this.isWaterType(data.type)) {
-      this.waterManager.moveSpot(data.id, data.position);
-      return;
-    }
-    // Future: route to other managers
+    if (!data.id || !data.position) return;
+    this.move(data.id, data.position);
   }
 
   // ===========================================================================
@@ -127,7 +168,7 @@ export class ParticleManager {
    */
   update(dt: number, camera: THREE.Camera): void {
     this.waterManager.update(dt, camera);
-    // Future: this.fireManager.update(dt, camera);
+    this.glowManager.update(dt, camera);
   }
 
   // ===========================================================================
@@ -136,15 +177,8 @@ export class ParticleManager {
 
   dispose(): void {
     this.waterManager.dispose();
-    // Future: this.fireManager.dispose();
+    this.glowManager.dispose();
+    this.ownership.clear();
     console.log("[ParticleManager] Disposed all particle managers");
-  }
-
-  // ===========================================================================
-  // HELPERS
-  // ===========================================================================
-
-  private isWaterType(resourceType: string): boolean {
-    return resourceType === "fishing_spot";
   }
 }
