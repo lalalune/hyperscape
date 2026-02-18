@@ -23,20 +23,19 @@ import {
   sin,
   cos,
 } from "../../../extras/three/three";
+import { FOG_NEAR, FOG_FAR, FOG_COLOR_DAY } from "./FogConfig";
 
 export const TERRAIN_CONSTANTS = {
-  TRIPLANAR_SCALE: 0.5, // Unused in OSRS style but kept for compatibility
+  TRIPLANAR_SCALE: 0.5,
   SNOW_HEIGHT: 50.0,
-  FOG_NEAR: 150.0, // Default fog near distance
-  FOG_FAR: 350.0, // Default fog far distance
-  NOISE_SCALE: 0.0008, // For dirt patch variation
+  FOG_NEAR: FOG_NEAR,
+  FOG_FAR: FOG_FAR,
+  NOISE_SCALE: 0.0008,
   DIRT_THRESHOLD: 0.5,
   LOD_FULL_DETAIL: 100.0,
   LOD_MEDIUM_DETAIL: 200.0,
-  // OSRS style water level
   WATER_LEVEL: 5.0,
-  // Default fog color (warm beige)
-  FOG_COLOR: new THREE.Color(0xd4c8b8),
+  FOG_COLOR: FOG_COLOR_DAY.clone(),
 };
 
 // ============================================================================

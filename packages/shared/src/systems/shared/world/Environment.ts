@@ -5,6 +5,13 @@ import { Node as NodeClass } from "../../../nodes/Node";
 import { System } from "../infrastructure/System";
 
 import { SkySystem } from "..";
+import {
+  FOG_NEAR,
+  FOG_FAR,
+  FOG_COLOR_DEFAULT,
+  FOG_COLOR_DAY,
+  FOG_COLOR_NIGHT,
+} from "./FogConfig";
 import type {
   BaseEnvironment,
   EnvironmentModel,
@@ -350,11 +357,9 @@ export class Environment extends System {
 
     const sunIntensity = node?._sunIntensity ?? base.sunIntensity;
     const sunColor = node?._sunColor ?? base.sunColor;
-    // Default fog for atmosphere - warm fog affecting terrain and models
-    // Closer fog distances create more atmospheric depth and hide distant terrain pop-in
-    const fogNear = node?._fogNear ?? base.fogNear ?? 350;
-    const fogFar = node?._fogFar ?? base.fogFar ?? 600;
-    const fogColor = node?._fogColor ?? base.fogColor ?? "#d4c8b8";
+    const fogNear = node?._fogNear ?? base.fogNear ?? FOG_NEAR;
+    const fogFar = node?._fogFar ?? base.fogFar ?? FOG_FAR;
+    const fogColor = node?._fogColor ?? base.fogColor ?? FOG_COLOR_DEFAULT;
 
     const n = ++this.skyN;
     // Load textures (kept for potential future use, currently SkySystem is active)
@@ -779,10 +784,8 @@ export class Environment extends System {
     graphics.renderer.toneMappingExposure = this.currentExposure;
   }
 
-  // Day fog color: warm beige
-  private readonly dayFogColor = new THREE.Color(0xd4c8b8);
-  // Night fog color: dark blue to blend with night sky (slightly lighter for visibility)
-  private readonly nightFogColor = new THREE.Color(0x2b3445);
+  private readonly dayFogColor = FOG_COLOR_DAY.clone();
+  private readonly nightFogColor = FOG_COLOR_NIGHT.clone();
   // Blended fog color (updated each frame)
   private readonly blendedFogColor = new THREE.Color();
 

@@ -2486,8 +2486,8 @@ export class TerrainSystem extends System {
   }
 
   /**
-   * Sync fog values from Environment system to terrain shader
-   * Ensures terrain fog matches the global scene fog
+   * Sync fog COLOR from Environment system to terrain shader for day/night cycle.
+   * Fog distances are NOT synced — the terrain shader keeps its own values from FogConfig.
    */
   private syncFogFromEnvironment(): void {
     if (!this.terrainMaterial?.terrainUniforms) return;
@@ -2497,17 +2497,8 @@ export class TerrainSystem extends System {
       | undefined;
     if (!environment?.skyInfo) return;
 
-    const { fogNear, fogFar, fogColor } = environment.skyInfo;
+    const { fogColor } = environment.skyInfo;
 
-    // Update fog uniforms (including pre-computed squared values for GPU optimization)
-    if (fogNear !== undefined) {
-      this.terrainMaterial.terrainUniforms.fogNear.value = fogNear;
-      this.terrainMaterial.terrainUniforms.fogNearSq.value = fogNear * fogNear;
-    }
-    if (fogFar !== undefined) {
-      this.terrainMaterial.terrainUniforms.fogFar.value = fogFar;
-      this.terrainMaterial.terrainUniforms.fogFarSq.value = fogFar * fogFar;
-    }
     if (fogColor) {
       const color = new THREE.Color(fogColor);
       this.terrainMaterial.terrainUniforms.fogColor.value.set(
