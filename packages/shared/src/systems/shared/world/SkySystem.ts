@@ -37,6 +37,7 @@ import {
   type ShaderNode,
 } from "../../../extras/three/three";
 import type { World, WorldOptions } from "../../../types";
+import { fogRenderTarget } from "./FogConfig";
 
 // -----------------------------
 // Utility: Procedural noise textures (avoids external deps)
@@ -137,6 +138,12 @@ export class SkySystem extends System {
   private noiseA!: THREE.Texture;
   private noiseB!: THREE.Texture;
 
+  // Fog sky scene — rendered to the shared fogRenderTarget from FogConfig
+  private fogScene: THREE.Scene | null = null;
+  private fogCamera: THREE.PerspectiveCamera | null = null;
+  private fogSkyMesh: THREE.Mesh | null = null;
+  private fogSkyUniforms: SkyMaterialUniforms | null = null;
+
   // Legacy uniforms (for compatibility)
   private skyUniforms: SkyUniforms;
 
@@ -193,6 +200,11 @@ export class SkySystem extends System {
   /** Moon direction vector (opposite of sun) */
   get moonDirection(): THREE.Vector3 {
     return this._sunDir.clone().negate();
+  }
+
+  /** Sky fog texture — low-res sky render (no stars) for per-pixel fog color sampling */
+  get skyFogTexture(): THREE.Texture | null {
+    return fogRenderTarget?.texture ?? null;
   }
 
   override getDependencies() {
@@ -278,6 +290,9 @@ export class SkySystem extends System {
 
     // Create sky dome with TSL Node Material
     this.createSkyDome();
+
+    // Create fog sky render target (sky dome without stars for fog color sampling)
+    this.createFogSky();
 
     // Create sun with TSL Node Material
     this.createSun();
@@ -757,6 +772,126 @@ export class SkySystem extends System {
     this.group.add(this.skyMesh);
   }
 
+  /**
+   * Create a low-res offscreen render of the sky dome WITHOUT stars/galaxy.
+   * This texture is sampled per-pixel by object shaders for fog color,
+   * ensuring fog matches the visible sky at every angle and time of day.
+   */
+  private createFogSky(): void {
+    if (!this.skyTSLUniforms) return;
+
+    // Uses the shared fogRenderTarget from FogConfig (created at module load)
+    this.fogScene = new THREE.Scene();
+    this.fogCamera = this.world.camera.clone() as THREE.PerspectiveCamera;
+
+    // Lower-res sphere is fine for a smooth gradient
+    const fogSkyGeom = new THREE.SphereGeometry(500, 64, 32);
+
+    // Fresh uniforms — updated alongside main sky in update()
+    const uSunPosition = uniform(vec3(0, 1, 0));
+    const uDayCycleProgress = uniform(float(0));
+    const uDayIntensity = uniform(float(0));
+
+    this.fogSkyUniforms = {
+      uTime: uniform(float(0)),
+      uSunPosition: uSunPosition as unknown as TSLUniformVec3,
+      uDayCycleProgress: uDayCycleProgress,
+      uDayIntensity: uDayIntensity,
+    } as SkyMaterialUniforms;
+
+    // Sky color node — same as main sky dome but WITHOUT stars and galaxy
+    const fogSkyColorNode = Fn(() => {
+      const localPos = normalize(positionLocal);
+      const elevation = abs(localPos.y);
+
+      const dayIntensity = uDayIntensity;
+      const nightIntensity = sub(float(1.0), dayIntensity);
+
+      // Day sky gradient
+      const dayZenith = vec3(0.25, 0.55, 0.95);
+      const dayHorizon = vec3(0.7, 0.85, 1.0);
+      const dayGradient = pow(sub(float(1.0), elevation), float(1.5));
+      const daySkyColor = mix(dayZenith, dayHorizon, dayGradient);
+
+      // Night sky gradient
+      const nightZenith = vec3(0.005, 0.008, 0.025);
+      const nightHorizon = vec3(0.02, 0.03, 0.06);
+      const nightGradient = pow(sub(float(1.0), elevation), float(2.0));
+      const nightSkyColor = mix(nightZenith, nightHorizon, nightGradient);
+
+      let skyColor: ShaderNode = mix(nightSkyColor, daySkyColor, dayIntensity);
+
+      // Sunrise/sunset glow
+      const sunY = uSunPosition.y;
+      const dawnDuskFactor = smoothstep(float(-0.2), float(0.0), sunY);
+      const dawnDuskFade = smoothstep(float(0.4), float(0.15), sunY);
+      const sunriseSunsetIntensity = mul(dawnDuskFactor, dawnDuskFade);
+
+      const sunDir = normalize(uSunPosition);
+      const angleToSun = dot(localPos, sunDir);
+
+      const sunriseColor = vec3(1.0, 0.5, 0.2);
+      const sunsetPinkColor = vec3(1.0, 0.4, 0.5);
+      const sunGlowRaw = clamp(angleToSun, float(0.0), float(1.0));
+      const sunGlowAngle = pow(sunGlowRaw, float(4.0));
+      const horizonGlow = pow(
+        clamp(
+          sub(float(1.0), mul(elevation, float(2.0))),
+          float(0.0),
+          float(1.0),
+        ),
+        float(2.0),
+      );
+      const glowIntensity = mul(
+        mul(sunGlowAngle, horizonGlow),
+        mul(sunriseSunsetIntensity, float(0.6)),
+      );
+      const dawnOrDusk = smoothstep(float(0.2), float(0.3), uDayCycleProgress);
+      const glowColor = mix(sunriseColor, sunsetPinkColor, dawnOrDusk);
+      skyColor = add(skyColor, mul(glowColor, glowIntensity));
+
+      // NO STARS — stars would bleed bright spots into the fog color
+
+      // Moon glow
+      const moonPos = mul(sunDir, float(-1.0));
+      const angleToMoon = dot(localPos, moonPos);
+      const moonGlowRaw = clamp(angleToMoon, float(0.0), float(1.0));
+      const moonGlowAngle = pow(moonGlowRaw, float(6.0));
+      const moonGlowColor = vec3(0.5, 0.6, 0.8);
+      const moonGlowIntensity = mul(
+        mul(moonGlowAngle, nightIntensity),
+        float(0.4),
+      );
+      skyColor = add(skyColor, mul(moonGlowColor, moonGlowIntensity));
+
+      // Horizon haze
+      const hazeColor = vec3(0.83, 0.78, 0.72);
+      const hazeStrength = smoothstep(float(0.15), float(0.0), elevation);
+      const hazeAmount = mul(
+        hazeStrength,
+        mul(float(0.3), mul(dayIntensity, float(0.9))),
+      );
+      skyColor = mix(skyColor, hazeColor, hazeAmount);
+
+      return vec4(skyColor, float(1.0));
+    })();
+
+    const fogSkyMat = new MeshBasicNodeMaterial();
+    fogSkyMat.colorNode = fogSkyColorNode;
+    fogSkyMat.side = THREE.BackSide;
+    fogSkyMat.depthWrite = false;
+    fogSkyMat.depthTest = false;
+    fogSkyMat.fog = false;
+
+    this.fogSkyMesh = new THREE.Mesh(fogSkyGeom, fogSkyMat);
+    this.fogSkyMesh.frustumCulled = false;
+    this.fogScene.add(this.fogSkyMesh);
+
+    console.log(
+      `[SkySystem] Fog sky scene created, rendering to shared fogRenderTarget (${fogRenderTarget.width}x${fogRenderTarget.height})`,
+    );
+  }
+
   // Store cloud group for rotation animation
   private cloudGroup: THREE.Group | null = null;
 
@@ -1116,6 +1251,62 @@ export class SkySystem extends System {
     } else if (this.world.rig) {
       this.group.position.copy(this.world.rig.position);
     }
+
+    // Render fog sky to offscreen render target
+    this.renderFogSky();
+  }
+
+  /** Render the fog sky dome (no stars) to the shared offscreen render target. */
+  private renderFogSky(): void {
+    if (!this.fogScene || !this.fogCamera) return;
+    const renderer = (
+      this.world.graphics as { renderer?: THREE.WebGPURenderer } | undefined
+    )?.renderer;
+    if (!renderer) return;
+
+    // Sync fog camera orientation with main camera (direction only)
+    // Position stays at origin to match the fog sky sphere center
+    const cam = this.world.camera;
+    if (cam) {
+      this.fogCamera.position.set(0, 0, 0);
+      this.fogCamera.quaternion.copy(cam.quaternion);
+      this.fogCamera.projectionMatrix.copy(cam.projectionMatrix);
+      this.fogCamera.projectionMatrixInverse.copy(cam.projectionMatrixInverse);
+
+      // Resize fog render target when aspect ratio changes (e.g. window resize)
+      const desiredW = Math.max(
+        1,
+        Math.round(cam.aspect * fogRenderTarget.height),
+      );
+      if (fogRenderTarget.width !== desiredW) {
+        fogRenderTarget.setSize(desiredW, fogRenderTarget.height);
+      }
+    }
+
+    // Sync fog sky uniforms with main sky values
+    if (this.fogSkyUniforms && this.skyTSLUniforms) {
+      (this.fogSkyUniforms.uSunPosition as { value: THREE.Vector3 }).value.copy(
+        (this.skyTSLUniforms.uSunPosition as { value: THREE.Vector3 }).value,
+      );
+      (this.fogSkyUniforms.uDayCycleProgress as { value: number }).value = (
+        this.skyTSLUniforms.uDayCycleProgress as { value: number }
+      ).value;
+      (this.fogSkyUniforms.uDayIntensity as { value: number }).value = (
+        this.skyTSLUniforms.uDayIntensity as { value: number }
+      ).value;
+    }
+
+    // Disable tone mapping so the fog texture stores linear values.
+    // Object shaders apply tone mapping once on final output — prevents double mapping.
+    const savedToneMapping = renderer.toneMapping;
+    renderer.toneMapping = THREE.NoToneMapping;
+
+    const currentTarget = renderer.getRenderTarget();
+    renderer.setRenderTarget(fogRenderTarget);
+    renderer.render(this.fogScene, this.fogCamera);
+    renderer.setRenderTarget(currentTarget);
+
+    renderer.toneMapping = savedToneMapping;
   }
 
   override destroy(): void {
@@ -1166,6 +1357,16 @@ export class SkySystem extends System {
     this.cloudMaterialUniforms = null;
     this.galaxyTextureUniform = null;
     this.group = null;
+
+    // Clean up fog sky resources (render target is shared via FogConfig, not disposed here)
+    if (this.fogSkyMesh) {
+      this.fogSkyMesh.geometry.dispose();
+      (this.fogSkyMesh.material as THREE.Material).dispose();
+      this.fogSkyMesh = null;
+    }
+    this.fogScene = null;
+    this.fogCamera = null;
+    this.fogSkyUniforms = null;
   }
 }
 

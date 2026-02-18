@@ -230,8 +230,8 @@ export function configureShadowMaps(
 ): void {
   const { enabled = true, type = THREE.PCFSoftShadowMap } = options;
 
-  renderer.shadowMap.enabled = enabled;
-  renderer.shadowMap.type = type;
+  // renderer.shadowMap.enabled = enabled;
+  // renderer.shadowMap.type = type;
 }
 
 /**

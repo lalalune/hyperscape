@@ -43,7 +43,7 @@ import { DataManager } from "../../../data/DataManager";
 import { ALL_WORLD_AREAS } from "../../../data/world-areas";
 import { stationDataProvider } from "../../../data/StationDataProvider";
 import { resolveFootprint } from "../../../types/game/resource-processing-types";
-import { WaterSystem, Environment } from "..";
+import { WaterSystem } from "..";
 import { createTerrainMaterial, TerrainUniforms } from "./TerrainShader";
 import type { RoadNetworkSystem } from "./RoadNetworkSystem";
 
@@ -216,7 +216,7 @@ export class TerrainSystem extends System {
    * Automatically uses KTX2 GPU-compressed textures when available
    */
   private initTerrainMaterial(): void {
-    // Create the shared terrain material (uses procedural OSRS-style colors, no textures needed)
+    // Fog uses the shared fogRenderTarget from FogConfig (no texture swap needed)
     this.terrainMaterial = createTerrainMaterial();
 
     // Setup for CSM shadows
@@ -490,7 +490,7 @@ export class TerrainSystem extends System {
       this.initTerrainMaterial();
     }
 
-    // Initialize water system
+    // Initialize water system (fog uses shared fogRenderTarget from FogConfig)
     this.waterSystem = new WaterSystem(this.world);
     await this.waterSystem.init();
 
@@ -2474,38 +2474,13 @@ export class TerrainSystem extends System {
       if (this.terrainMaterial?.terrainUniforms) {
         this.terrainMaterial.terrainUniforms.time.value = this.terrainTime;
 
-        // Sync fog values from Environment system
-        this.syncFogFromEnvironment();
+        // Fog texture is the shared fogRenderTarget from FogConfig — no sync needed
       }
 
       // Update water system
       if (this.waterSystem) {
         this.waterSystem.update(dt);
       }
-    }
-  }
-
-  /**
-   * Sync fog COLOR from Environment system to terrain shader for day/night cycle.
-   * Fog distances are NOT synced — the terrain shader keeps its own values from FogConfig.
-   */
-  private syncFogFromEnvironment(): void {
-    if (!this.terrainMaterial?.terrainUniforms) return;
-
-    const environment = this.world.getSystem("environment") as
-      | Environment
-      | undefined;
-    if (!environment?.skyInfo) return;
-
-    const { fogColor } = environment.skyInfo;
-
-    if (fogColor) {
-      const color = new THREE.Color(fogColor);
-      this.terrainMaterial.terrainUniforms.fogColor.value.set(
-        color.r,
-        color.g,
-        color.b,
-      );
     }
   }
 

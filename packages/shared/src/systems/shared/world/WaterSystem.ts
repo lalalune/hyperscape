@@ -11,11 +11,14 @@ import {
   texture,
   positionWorld,
   positionLocal,
+  positionView,
+  screenUV,
   cameraPosition,
   uniform,
   float,
   vec2,
   vec3,
+  vec4,
   sin,
   cos,
   pow,
@@ -30,8 +33,11 @@ import {
   smoothstep,
   clamp,
   Fn,
+  output,
   attribute,
   exp,
+  negate,
+  oneMinus,
   length,
   reflector,
   viewportDepthTexture,
@@ -43,6 +49,7 @@ import {
 } from "../../../extras/three/three";
 import type { World } from "../../../types";
 import type { TerrainTile } from "../../../types/world/terrain";
+import { FOG_NEAR_SQ, FOG_FAR_SQ, fogRenderTarget } from "./FogConfig";
 
 // ============================================================================
 // CONFIGURATION
@@ -412,6 +419,7 @@ export class WaterSystem {
     const uTime = uniform(float(0));
     const uSunDir = uniform(vec3(0.4, 0.8, 0.4));
     const uWind = uniform(float(1.0));
+    const fogTexNode = texture(fogRenderTarget.texture, screenUV);
 
     this.uniforms = {
       time: uTime,
@@ -691,11 +699,18 @@ export class WaterSystem {
       return color;
     })();
 
+    // === DISTANCE FOG (smoothstep with squared distances — avoids per-fragment sqrt) ===
+    const toCam = sub(cameraPosition, positionWorld);
+    const fogDistSq = dot(toCam, toCam);
+    const fogFactor = smoothstep(
+      float(FOG_NEAR_SQ),
+      float(FOG_FAR_SQ),
+      fogDistSq,
+    );
+
     material.colorNode = waterColorNode;
 
-    // Use reflection in emissiveNode like the Three.js example
-    // The reflection is added as emissive contribution, weighted by fresnel
-    // Reduced intensity to allow seeing through the water
+    // Reflection (fresnel-weighted emissive)
     const fresnelNode = Fn(() => {
       const V = normalize(sub(cameraPosition, positionWorld));
       const NdotV = max(dot(vec3(0, 1, 0), V), float(0.001));
@@ -705,10 +720,22 @@ export class WaterSystem {
       );
     })();
 
-    material.emissiveNode = mul(
+    const reflectionEmissive = mul(
       reflectionNode,
       mul(fresnelNode, float(WATER.REFLECTION_INTENSITY)),
     );
+
+    material.emissiveNode = reflectionEmissive;
+
+    // Apply fog AFTER PBR lighting via outputNode so fog color isn't darkened.
+    // Alpha pushed to 1.0 at fog distance to prevent transparent water
+    // from showing terrain with mismatched fog behind it.
+    material.outputNode = Fn(() => {
+      const litColor = output;
+      const foggedColor = mix(litColor.rgb, fogTexNode.rgb, fogFactor);
+      const foggedAlpha = mix(litColor.a, float(1.0), fogFactor);
+      return vec4(foggedColor, foggedAlpha);
+    })();
 
     // ========================================================================
     // OPACITY

@@ -5,13 +5,7 @@ import { Node as NodeClass } from "../../../nodes/Node";
 import { System } from "../infrastructure/System";
 
 import { SkySystem } from "..";
-import {
-  FOG_NEAR,
-  FOG_FAR,
-  FOG_COLOR_DEFAULT,
-  FOG_COLOR_DAY,
-  FOG_COLOR_NIGHT,
-} from "./FogConfig";
+import { FOG_NEAR, FOG_FAR } from "./FogConfig";
 import type {
   BaseEnvironment,
   EnvironmentModel,
@@ -127,6 +121,11 @@ export class Environment extends System {
   hdrUrl?: string;
   skyInfo!: SkyInfo;
   private skySystem?: SkySystem;
+
+  /** Sky fog texture from SkySystem — used by terrain, water, vegetation for sky-color fog */
+  get skyFogTexture(): THREE.Texture | null {
+    return this.skySystem?.skyFogTexture ?? null;
+  }
 
   // Main directional light (sun/moon) with CSM shadow support
   public sunLight: THREE.DirectionalLight | null = null;
@@ -359,7 +358,7 @@ export class Environment extends System {
     const sunColor = node?._sunColor ?? base.sunColor;
     const fogNear = node?._fogNear ?? base.fogNear ?? FOG_NEAR;
     const fogFar = node?._fogFar ?? base.fogFar ?? FOG_FAR;
-    const fogColor = node?._fogColor ?? base.fogColor ?? FOG_COLOR_DEFAULT;
+    const fogColor = node?._fogColor ?? base.fogColor ?? "#d4c8b8";
 
     const n = ++this.skyN;
     // Load textures (kept for potential future use, currently SkySystem is active)
@@ -387,16 +386,7 @@ export class Environment extends System {
       this.sunLight.color.set(sunColor || "#ffffff");
     }
 
-    // Always apply fog with defaults
-    const color = new THREE.Color(fogColor);
-    this.world.stage.scene.fog = new THREE.Fog(
-      color,
-      fogNear as number,
-      fogFar as number,
-    );
-    console.log(
-      `[Environment] Fog applied: near=${fogNear}, far=${fogFar}, color=${fogColor}`,
-    );
+    // Scene fog removed — sky-color fog is now applied per-material via FogConfig's shared render target
 
     this.skyInfo = {
       bgUrl,
@@ -582,9 +572,6 @@ export class Environment extends System {
       // Update auto exposure based on day/night cycle
       // Higher exposure at night mimics eye adaptation - keeps things visible while still darker
       this.updateAutoExposure(this.skySystem.dayIntensity);
-
-      // Update fog color based on day/night cycle
-      this.updateFogColor(this.skySystem.dayIntensity);
     }
 
     // Ensure sky sphere never writes depth (prevents cutting moon)
@@ -782,39 +769,6 @@ export class Environment extends System {
 
     // Apply to renderer
     graphics.renderer.toneMappingExposure = this.currentExposure;
-  }
-
-  private readonly dayFogColor = FOG_COLOR_DAY.clone();
-  private readonly nightFogColor = FOG_COLOR_NIGHT.clone();
-  // Blended fog color (updated each frame)
-  private readonly blendedFogColor = new THREE.Color();
-
-  /**
-   * Update fog color based on day/night cycle
-   * Day: warm beige fog
-   * Night: dark blue fog that blends with the night sky/horizon
-   * @param dayIntensity 0-1 (0 = night, 1 = day)
-   */
-  private updateFogColor(dayIntensity: number): void {
-    if (!this.world.stage?.scene) return;
-
-    // Lerp between night fog (dark blue) and day fog (warm beige)
-    this.blendedFogColor.lerpColors(
-      this.nightFogColor,
-      this.dayFogColor,
-      dayIntensity,
-    );
-
-    // Update scene fog color
-    const sceneFog = this.world.stage.scene.fog as THREE.Fog | null;
-    if (sceneFog) {
-      sceneFog.color.copy(this.blendedFogColor);
-    }
-
-    // Update skyInfo so terrain shader can sync the fog color
-    if (this.skyInfo) {
-      this.skyInfo.fogColor = `#${this.blendedFogColor.getHexString()}`;
-    }
   }
 
   override lateUpdate(_delta: number) {
