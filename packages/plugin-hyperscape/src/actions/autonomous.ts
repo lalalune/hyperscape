@@ -761,17 +761,8 @@ export const attackEntityAction: Action = {
 
     // Check if there are attackable mobs nearby
     const nearbyEntities = service.getNearbyEntities();
-    logger.info(`[ATTACK_ENTITY] Nearby entities: ${nearbyEntities.length}`);
-
-    // Debug: log what entities we see
-    for (const entity of nearbyEntities) {
-      logger.info(
-        `[ATTACK_ENTITY] Entity: "${entity.name}" id=${entity.id} type=${entity.type} mobType=${entity.mobType} alive=${entity.alive} hasPos=${!!entity.position}`,
-      );
-    }
 
     const attackableMobs = nearbyEntities.filter((entity) => {
-      // Check if this is a mob - try multiple detection methods
       const hasMobType = "mobType" in entity;
       const typeIsMob = entity.type === "mob";
       const entityTypeIsMob = entity.entityType === "mob";
@@ -781,7 +772,8 @@ export const attackEntityAction: Action = {
       const isMob =
         hasMobType || typeIsMob || entityTypeIsMob || nameMatchesMob;
 
-      // Check position - handle both array [x,y,z] and object {x,y,z} formats
+      if (!isMob) return false;
+
       let hasValidPosition = false;
       if (entity.position) {
         if (Array.isArray(entity.position) && entity.position.length >= 3) {
@@ -791,28 +783,12 @@ export const attackEntityAction: Action = {
           "x" in entity.position &&
           "z" in entity.position
         ) {
-          // Position is an object like {x, y, z}
           hasValidPosition = true;
         }
       }
-
-      // Check if mob is alive (undefined = alive)
-      const isAlive = entity.alive !== false;
-
-      // Debug: log why this entity passes or fails
-      if (isMob) {
-        const posType = Array.isArray(entity.position)
-          ? "array"
-          : typeof entity.position === "object"
-            ? "object"
-            : typeof entity.position;
-        logger.info(
-          `[ATTACK_ENTITY] Mob candidate: "${entity.name}" - isMob=${isMob}, hasPos=${hasValidPosition} (${posType}), alive=${isAlive}`,
-        );
-      }
-
-      if (!isMob) return false;
       if (!hasValidPosition) return false;
+
+      const isAlive = entity.alive !== false;
       if (!isAlive) return false;
 
       return true;
