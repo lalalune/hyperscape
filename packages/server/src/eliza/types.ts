@@ -179,6 +179,43 @@ export interface PickupCommand extends AgentCommand {
 }
 
 /**
+ * Active quest progress data returned to agent actions
+ */
+export interface AgentQuestProgress {
+  questId: string;
+  name: string;
+  status: string;
+  currentStage: string;
+  stageDescription: string;
+  stageProgress: Record<string, number>;
+  stageType: "dialogue" | "kill" | "gather" | "interact" | "travel" | "unknown";
+  stageTarget?: string;
+  stageCount?: number;
+  startNpc: string;
+}
+
+/**
+ * Quest definition info returned to agent actions for quest discovery
+ */
+export interface AgentQuestInfo {
+  questId: string;
+  name: string;
+  description: string;
+  difficulty: string;
+  status: string;
+  startNpc: string;
+  onStartItems: Array<{ itemId: string; quantity: number }>;
+  rewardItems: Array<{ itemId: string; quantity: number }>;
+  stages: Array<{
+    id: string;
+    type: string;
+    description: string;
+    target?: string;
+    count?: number;
+  }>;
+}
+
+/**
  * Interface for the embedded Hyperscape service
  * Provides direct world access instead of WebSocket
  */
@@ -236,4 +273,24 @@ export interface IEmbeddedHyperscapeService {
 
   /** Unregister event handler */
   offGameEvent(event: string, handler: (data: unknown) => void): void;
+
+  /** Get active quest state with progress details */
+  getQuestState(): AgentQuestProgress[];
+
+  /** Get all quest definitions with status for quest discovery */
+  getAvailableQuests(): AgentQuestInfo[];
+
+  /** Get all NPC positions in the world (for quest navigation) */
+  getAllNPCPositions(): Array<{
+    id: string;
+    name: string;
+    npcId: string;
+    position: [number, number, number];
+  }>;
+
+  /** Accept a quest by ID */
+  executeQuestAccept(questId: string): Promise<boolean>;
+
+  /** Complete a quest by ID (must be ready_to_complete) */
+  executeQuestComplete(questId: string): Promise<boolean>;
 }

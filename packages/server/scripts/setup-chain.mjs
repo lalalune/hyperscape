@@ -14,7 +14,7 @@ const worldsJsonPath = path.join(contractsDir, "worlds.json");
 const serverEnvPath = path.join(workspaceRoot, "packages/server/.env");
 
 const foundryBin = path.join(os.homedir(), ".foundry", "bin");
-const envPATH = [foundryBin, process.env.PATH].filter(Boolean).join(path.delimiter);
+const envPATH = [process.env.PATH, foundryBin].filter(Boolean).join(path.delimiter);
 
 const ANVIL_PORT = 8545;
 const ANVIL_HOST = "127.0.0.1";

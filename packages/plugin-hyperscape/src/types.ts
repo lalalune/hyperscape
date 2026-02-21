@@ -453,6 +453,9 @@ export interface HyperscapeServiceInterface {
 
   // Quest system
   getQuestState(): QuestData[];
+  requestQuestList(): void;
+  sendQuestAccept(questId: string): void;
+  sendQuestComplete(questId: string): void;
 }
 
 /**

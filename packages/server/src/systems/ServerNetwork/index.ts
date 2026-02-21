@@ -2650,6 +2650,62 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     return true;
   }
 
+  /**
+   * Server-initiated attack for non-socket actors (embedded agents).
+   * Uses the same walk-to-and-attack pipeline as real players.
+   */
+  requestServerAttack(
+    playerId: string,
+    targetId: string,
+    targetType: "mob" | "player" = "mob",
+  ): boolean {
+    const playerEntity = this.world.entities.get(playerId);
+    if (!this.tileMovementManager || !playerEntity) {
+      return false;
+    }
+
+    const targetEntity = this.world.entities.get(targetId) as {
+      position?: { x: number; y: number; z: number };
+    } | null;
+    if (!targetEntity?.position) {
+      return false;
+    }
+
+    this.pendingAttackManager.cancelPendingAttack(playerId);
+
+    const attackRange = this.getPlayerWeaponRange(playerId);
+    const attackType = this.getPlayerAttackType(playerId);
+
+    const playerTile = worldToTile(
+      playerEntity.position.x,
+      playerEntity.position.z,
+    );
+    const targetTile = worldToTile(
+      targetEntity.position.x,
+      targetEntity.position.z,
+    );
+
+    if (this.isInAttackRange(playerTile, targetTile, attackType, attackRange)) {
+      this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
+        attackerId: playerId,
+        targetId,
+        attackerType: "player",
+        targetType,
+        attackType,
+      });
+    } else {
+      this.pendingAttackManager.queuePendingAttack(
+        playerId,
+        targetId,
+        this.world.currentTick,
+        attackRange,
+        targetType,
+        attackType,
+      );
+    }
+    return true;
+  }
+
   enqueue(socket: ServerSocket | Socket, method: string, data: unknown): void {
     // CRITICAL SECURITY: Global rate limiting to prevent DoS attacks (100 msg/sec per socket)
     const socketId = (socket as ServerSocket).id;

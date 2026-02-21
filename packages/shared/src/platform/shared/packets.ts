@@ -292,6 +292,7 @@ const names = [
   'questTogglePin',      // Client -> Server: toggle quest pinned status
   'questPinned',         // Server -> Client: quest pin status changed
   'questComplete',       // Client -> Server: request to complete quest (when ready_to_complete)
+  'questStarted',        // Server -> Client: quest started successfully
   'questProgressed',     // Server -> Client: quest progress updated
   'questCompleted',      // Server -> Client: quest completed, show rewards
   // XP Lamp packets

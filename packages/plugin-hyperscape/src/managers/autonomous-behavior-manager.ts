@@ -47,6 +47,8 @@ import {
   chopTreeAction,
   mineRockAction,
   catchFishAction,
+  lightFireAction,
+  cookFoodAction,
 } from "../actions/skills.js";
 import { pickupItemAction, equipItemAction } from "../actions/inventory.js";
 import {
@@ -58,8 +60,14 @@ import {
   talkToNpcAction,
   acceptQuestAction,
   completeQuestAction,
+  checkQuestAction,
 } from "../actions/quests.js";
-import { smeltOreAction, smithItemAction } from "../actions/crafting.js";
+import {
+  smeltOreAction,
+  smithItemAction,
+  fletchItemAction,
+  runecraftAction,
+} from "../actions/crafting.js";
 import { buyItemAction, sellItemAction } from "../actions/shopping.js";
 import { KNOWN_LOCATIONS } from "../providers/goalProvider.js";
 import { SCRIPTED_AUTONOMY_CONFIG } from "../config/constants.js";
@@ -110,7 +118,8 @@ export interface CurrentGoal {
     | "exploration"
     | "idle"
     | "starter_items"
-    | "user_command";
+    | "user_command"
+    | "questing";
   description: string;
   target: number;
   progress: number;
@@ -131,6 +140,16 @@ export interface CurrentGoal {
   lockedAt?: number;
   /** Original user message for multi-step user commands */
   userMessage?: string;
+  /** For questing goals: which quest */
+  questId?: string;
+  /** For questing goals: current stage type (kill, gather, interact, dialogue) */
+  questStageType?: "kill" | "gather" | "interact" | "dialogue" | "travel";
+  /** For questing goals: target to kill/gather/interact with */
+  questStageTarget?: string;
+  /** For questing goals: count required */
+  questStageCount?: number;
+  /** For questing goals: NPC that starts/ends the quest */
+  questStartNpc?: string;
 }
 
 export class AutonomousBehaviorManager {
@@ -218,9 +237,13 @@ export class AutonomousBehaviorManager {
         "CHOP_TREE",
         "MINE_ROCK",
         "CATCH_FISH",
+        "LIGHT_FIRE",
+        "COOK_FOOD",
         // Crafting
         "SMELT_ORE",
         "SMITH_ITEM",
+        "FLETCH_ITEM",
+        "RUNECRAFT",
         // Looting & Equipment
         "PICKUP_ITEM",
         "EQUIP_ITEM",
@@ -234,6 +257,7 @@ export class AutonomousBehaviorManager {
         "TALK_TO_NPC",
         "ACCEPT_QUEST",
         "COMPLETE_QUEST",
+        "CHECK_QUEST",
         // Social
         "GREET_PLAYER",
         "SHARE_OPINION",
@@ -1117,14 +1141,19 @@ export class AutonomousBehaviorManager {
       chopTreeAction,
       mineRockAction,
       catchFishAction,
+      lightFireAction,
+      cookFoodAction,
       smeltOreAction,
       smithItemAction,
+      fletchItemAction,
+      runecraftAction,
       pickupItemAction,
       equipItemAction,
       lootStarterChestAction,
       talkToNpcAction,
       acceptQuestAction,
       completeQuestAction,
+      checkQuestAction,
       buyItemAction,
       sellItemAction,
       greetPlayerAction,
@@ -1445,6 +1474,20 @@ export class AutonomousBehaviorManager {
       }
       if (goal.location) lines.push(`Target Location: ${goal.location}`);
       if (goal.targetEntity) lines.push(`Target Entity: ${goal.targetEntity}`);
+
+      // Quest-specific goal info
+      if (goal.type === "questing" && goal.questId) {
+        lines.push("");
+        lines.push(`Quest ID: ${goal.questId}`);
+        if (goal.questStageType)
+          lines.push(`Current Objective Type: ${goal.questStageType}`);
+        if (goal.questStageTarget)
+          lines.push(`Objective Target: ${goal.questStageTarget}`);
+        if (goal.questStageCount)
+          lines.push(`Required Count: ${goal.questStageCount}`);
+        if (goal.questStartNpc)
+          lines.push(`Quest NPC: ${goal.questStartNpc.replace(/_/g, " ")}`);
+      }
     } else if (this.goalPaused) {
       lines.push("Goals are PAUSED by user. Wait for direction or use IDLE.");
     } else {
@@ -1452,6 +1495,56 @@ export class AutonomousBehaviorManager {
       lines.push("You should SET_GOAL to give yourself direction!");
     }
     lines.push("");
+
+    // === QUEST STATUS ===
+    const questState = this.service?.getQuestState?.() || [];
+    if (questState.length > 0) {
+      const activeQuests = questState.filter(
+        (q: { status?: string }) =>
+          q.status === "in_progress" || q.status === "ready_to_complete",
+      );
+      const notStartedQuests = questState.filter(
+        (q: { status?: string }) => q.status === "not_started",
+      );
+
+      if (activeQuests.length > 0) {
+        lines.push("=== ACTIVE QUESTS ===");
+        for (const q of activeQuests) {
+          const questAny = q as Record<string, unknown>;
+          const name =
+            (questAny.name as string) ||
+            (questAny.questId as string) ||
+            "Unknown";
+          const status = questAny.status as string;
+          lines.push(`- ${name} [${status}]`);
+          if (questAny.stageProgress) {
+            for (const [key, value] of Object.entries(
+              questAny.stageProgress as Record<string, number>,
+            )) {
+              lines.push(`  Progress: ${key} = ${value}`);
+            }
+          }
+          if (status === "ready_to_complete") {
+            lines.push(`  ** READY TO TURN IN! Use COMPLETE_QUEST! **`);
+          }
+        }
+        lines.push("");
+      }
+
+      if (notStartedQuests.length > 0 && !goal) {
+        lines.push("=== AVAILABLE QUESTS (not started) ===");
+        for (const q of notStartedQuests.slice(0, 3)) {
+          const questAny = q as Record<string, unknown>;
+          const name =
+            (questAny.name as string) ||
+            (questAny.questId as string) ||
+            "Unknown";
+          lines.push(`- ${name}: ${(questAny.description as string) || ""}`);
+        }
+        lines.push("Use ACCEPT_QUEST to start one!");
+        lines.push("");
+      }
+    }
 
     // === NEARBY ENVIRONMENT ===
     lines.push("=== WHAT'S NEARBY ===");
@@ -1676,6 +1769,145 @@ export class AutonomousBehaviorManager {
       } else {
         priorityAction = "EXPLORE";
         lines.push("  No rocks visible - explore nearby.");
+      }
+    } else if (goal.type === "questing") {
+      // Quest-driven priority: map quest stage to appropriate action
+      const questStageType = goal.questStageType;
+      const questStageTarget = goal.questStageTarget || "";
+
+      // Check if quest is ready to complete
+      const questReadyToComplete = questState.some(
+        (q: { questId?: string; status?: string }) =>
+          q.questId === goal.questId && q.status === "ready_to_complete",
+      );
+
+      if (questReadyToComplete) {
+        // Quest objective done - find the NPC and turn it in
+        const questNpcName = (goal.questStartNpc || "").replace(/_/g, " ");
+        const npcNearby =
+          npcsNearby > 0 &&
+          npcNames.some((n) =>
+            n.toLowerCase().includes(questNpcName.toLowerCase()),
+          );
+        if (npcNearby) {
+          priorityAction = "COMPLETE_QUEST";
+          lines.push(
+            `  ** Quest ready to complete! NPC ${questNpcName} is nearby! **`,
+          );
+        } else {
+          priorityAction = "NAVIGATE_TO";
+          lines.push(
+            `  ** Quest ready - navigate to ${questNpcName} to turn in. **`,
+          );
+        }
+      } else if (questStageType === "kill") {
+        if (mobsNearby > 0) {
+          priorityAction = "ATTACK_ENTITY";
+          lines.push(
+            `  ** Kill quest: ${mobsNearby} mob(s) nearby! Target: ${questStageTarget} **`,
+          );
+        } else {
+          priorityAction = "NAVIGATE_TO";
+          lines.push(
+            `  No ${questStageTarget}s nearby - navigate to find them.`,
+          );
+        }
+      } else if (questStageType === "gather") {
+        // Map gather target to appropriate action
+        if (
+          questStageTarget.includes("log") ||
+          questStageTarget.includes("wood")
+        ) {
+          if (treesNearby > 0) {
+            priorityAction = "CHOP_TREE";
+            lines.push(`  ** Gather quest: ${treesNearby} trees nearby! **`);
+          } else {
+            priorityAction = "NAVIGATE_TO";
+            lines.push(`  No trees nearby - navigate to forest.`);
+          }
+        } else if (
+          questStageTarget.includes("ore") ||
+          questStageTarget.includes("copper") ||
+          questStageTarget.includes("tin") ||
+          questStageTarget.includes("essence")
+        ) {
+          if (rocksNearby > 0) {
+            priorityAction = "MINE_ROCK";
+            lines.push(`  ** Gather quest: ${rocksNearby} rocks nearby! **`);
+          } else {
+            priorityAction = "NAVIGATE_TO";
+            lines.push(`  No rocks nearby - navigate to mine.`);
+          }
+        } else if (
+          questStageTarget.includes("shrimp") ||
+          questStageTarget.includes("fish")
+        ) {
+          if (fishingSpotsNearby > 0) {
+            priorityAction = "CATCH_FISH";
+            lines.push(
+              `  ** Gather quest: ${fishingSpotsNearby} fishing spots nearby! **`,
+            );
+          } else {
+            priorityAction = "NAVIGATE_TO";
+            lines.push(`  No fishing spots nearby - navigate to fishing area.`);
+          }
+        } else {
+          priorityAction = "EXPLORE";
+          lines.push(`  Looking for ${questStageTarget}...`);
+        }
+      } else if (questStageType === "interact") {
+        if (questStageTarget.includes("fire")) {
+          priorityAction = "LIGHT_FIRE";
+          lines.push(
+            `  ** Interact quest: light fires! Need tinderbox + logs. **`,
+          );
+        } else if (
+          questStageTarget.includes("shrimp") ||
+          questStageTarget.includes("cook")
+        ) {
+          priorityAction = "COOK_FOOD";
+          lines.push(
+            `  ** Interact quest: cook food! Need fire + raw food. **`,
+          );
+        } else if (
+          questStageTarget.includes("bar") ||
+          questStageTarget.includes("smelt")
+        ) {
+          if (furnaceNearby) {
+            priorityAction = "SMELT_ORE";
+            lines.push(`  ** Interact quest: smelt at nearby furnace! **`);
+          } else {
+            priorityAction = "NAVIGATE_TO";
+            lines.push(`  Need furnace - navigate to smelting area.`);
+          }
+        } else if (
+          questStageTarget.includes("sword") ||
+          questStageTarget.includes("hatchet") ||
+          questStageTarget.includes("pickaxe")
+        ) {
+          if (anvilNearby) {
+            priorityAction = "SMITH_ITEM";
+            lines.push(`  ** Interact quest: smith at nearby anvil! **`);
+          } else {
+            priorityAction = "NAVIGATE_TO";
+            lines.push(`  Need anvil - navigate to smithing area.`);
+          }
+        } else if (questStageTarget.includes("rune")) {
+          priorityAction = "RUNECRAFT";
+          lines.push(`  ** Interact quest: craft runes at altar! **`);
+        } else if (
+          questStageTarget.includes("arrow") ||
+          questStageTarget.includes("bow") ||
+          questStageTarget.includes("shaft")
+        ) {
+          priorityAction = "FLETCH_ITEM";
+          lines.push(`  ** Interact quest: fletch items! **`);
+        } else {
+          priorityAction = "EXPLORE";
+          lines.push(`  Looking for ${questStageTarget} interaction...`);
+        }
+      } else {
+        priorityAction = "EXPLORE";
       }
     } else if (goal.type === "exploration") {
       priorityAction = "EXPLORE";

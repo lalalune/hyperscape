@@ -1168,6 +1168,18 @@ export class EventBridge {
         }
       });
 
+      // Forward quest started event to specific player
+      this.world.on(EventType.QUEST_STARTED, (payload: unknown) => {
+        const data = payload as EventMap[EventType.QUEST_STARTED];
+
+        if (data.playerId) {
+          this.broadcast.sendToPlayer(data.playerId, "questStarted", {
+            questId: data.questId,
+            questName: data.questName,
+          });
+        }
+      });
+
       // Forward quest progress updates to specific player
       this.world.on(EventType.QUEST_PROGRESSED, (payload: unknown) => {
         const data = payload as EventMap[EventType.QUEST_PROGRESSED];

@@ -2,9 +2,9 @@
  * Quest actions for ElizaOS agents
  *
  * TALK_TO_NPC - Interact with a nearby NPC (quest giver, shopkeeper, banker)
- * ACCEPT_QUEST - Accept a quest from an NPC via dialogue
- * COMPLETE_QUEST - Turn in a completed quest for rewards
- * CHECK_QUEST - Check current quest progress
+ * ACCEPT_QUEST - Accept an available quest (sends questAccept packet)
+ * COMPLETE_QUEST - Turn in a ready_to_complete quest for rewards
+ * CHECK_QUEST - Check current quest progress and objectives
  */
 
 import type {
@@ -57,6 +57,17 @@ function findNpcByName(entities: Entity[], text: string): Entity | null {
   return npcs.length > 0 ? npcs[0] : null;
 }
 
+/**
+ * Convert NPC ID from quest manifest (e.g. "captain_rowan") to a display-style
+ * name for matching against entity names (e.g. "Captain Rowan").
+ */
+function npcIdToDisplayName(npcId: string): string {
+  return npcId
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export const talkToNpcAction: Action = {
   name: "TALK_TO_NPC",
   similes: ["INTERACT_NPC", "SPEAK_TO_NPC", "TALK_NPC"],
@@ -83,58 +94,51 @@ export const talkToNpcAction: Action = {
     options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ) => {
-    try {
-      const service =
-        runtime.getService<HyperscapeService>("hyperscapeService");
-      if (!service) {
-        return { success: false, error: "Service not available" };
-      }
-
-      const player = service.getPlayerEntity();
-      if (!player?.position) {
-        return { success: false, error: "No player position" };
-      }
-
-      const nearbyEntities = service.getNearbyEntities();
-      const text = message.content.text || "";
-
-      const npc = findNpcByName(nearbyEntities, text);
-      if (!npc) {
-        await callback?.({
-          text: "No NPC found nearby to talk to.",
-          action: "TALK_TO_NPC",
-        });
-        return { success: false, error: "No NPC nearby" };
-      }
-
-      const distance = getDistance2D(player.position, npc.position);
-      if (distance !== null && distance > 10) {
-        await service.executeMove({
-          target: npc.position,
-          runMode: false,
-        });
-        await callback?.({
-          text: `Walking towards ${npc.name}...`,
-          action: "TALK_TO_NPC",
-        });
-        await new Promise((r) => setTimeout(r, 2000));
-      }
-
-      service.interactWithEntity(npc.id, "talk");
-
-      const responseText = `Talking to ${npc.name}`;
-      await callback?.({ text: responseText, action: "TALK_TO_NPC" });
-
-      return {
-        success: true,
-        text: responseText,
-        data: { action: "TALK_TO_NPC", npcName: npc.name, npcId: npc.id },
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error(`[TALK_TO_NPC] Failed: ${errorMsg}`);
-      return { success: false, error: errorMsg };
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service) {
+      return { success: false, error: "Service not available" };
     }
+
+    const player = service.getPlayerEntity();
+    if (!player?.position) {
+      return { success: false, error: "No player position" };
+    }
+
+    const nearbyEntities = service.getNearbyEntities();
+    const text = message.content.text || "";
+
+    const npc = findNpcByName(nearbyEntities, text);
+    if (!npc) {
+      await callback?.({
+        text: "No NPC found nearby to talk to.",
+        action: "TALK_TO_NPC",
+      });
+      return { success: false, error: "No NPC nearby" };
+    }
+
+    const distance = getDistance2D(player.position, npc.position);
+    if (distance !== null && distance > 10) {
+      await service.executeMove({
+        target: npc.position,
+        runMode: false,
+      });
+      await callback?.({
+        text: `Walking towards ${npc.name}...`,
+        action: "TALK_TO_NPC",
+      });
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    service.interactWithEntity(npc.id, "talk");
+
+    const responseText = `Talking to ${npc.name}`;
+    await callback?.({ text: responseText, action: "TALK_TO_NPC" });
+
+    return {
+      success: true,
+      text: responseText,
+      data: { action: "TALK_TO_NPC", npcName: npc.name, npcId: npc.id },
+    };
   },
 
   examples: [
@@ -152,7 +156,7 @@ export const acceptQuestAction: Action = {
   name: "ACCEPT_QUEST",
   similes: ["START_QUEST", "BEGIN_QUEST", "TAKE_QUEST"],
   description:
-    "Accept a quest from a nearby NPC. Initiates dialogue and selects the quest acceptance option.",
+    "Accept an available quest. Finds a not_started quest, walks to the quest NPC, and accepts it to receive starter items. Use when near a quest NPC or when you want to start a new quest.",
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
@@ -161,107 +165,11 @@ export const acceptQuestAction: Action = {
     const player = service.getPlayerEntity();
     if (!player?.position || player.inCombat) return false;
 
-    const nearbyEntities = service.getNearbyEntities();
-    const questNpcs = nearbyEntities.filter((e) => {
-      const entityType = (e.entityType || "").toLowerCase();
-      return (
-        isNpcEntity(e) &&
-        (entityType === "quest_giver" ||
-          entityType === "npc" ||
-          (e.name && /captain|guide|master|elder/i.test(e.name)))
-      );
-    });
-
-    return questNpcs.length > 0;
-  },
-
-  handler: async (
-    runtime: IAgentRuntime,
-    message: Memory,
-    state?: State,
-    options?: Record<string, unknown>,
-    callback?: HandlerCallback,
-  ) => {
-    try {
-      const service =
-        runtime.getService<HyperscapeService>("hyperscapeService");
-      if (!service) {
-        return { success: false, error: "Service not available" };
-      }
-
-      const player = service.getPlayerEntity();
-      if (!player?.position) {
-        return { success: false, error: "No player position" };
-      }
-
-      const nearbyEntities = service.getNearbyEntities();
-      const text = message.content.text || "";
-
-      const npc = findNpcByName(nearbyEntities, text);
-      if (!npc) {
-        await callback?.({
-          text: "No quest NPC found nearby.",
-          action: "ACCEPT_QUEST",
-        });
-        return { success: false, error: "No quest NPC nearby" };
-      }
-
-      const distance = getDistance2D(player.position, npc.position);
-      if (distance !== null && distance > 10) {
-        await service.executeMove({
-          target: npc.position,
-          runMode: false,
-        });
-        await new Promise((r) => setTimeout(r, 2000));
-      }
-
-      service.interactWithEntity(npc.id, "talk");
-
-      const responseText = `Accepting quest from ${npc.name}`;
-      await callback?.({ text: responseText, action: "ACCEPT_QUEST" });
-
-      return {
-        success: true,
-        text: responseText,
-        data: {
-          action: "ACCEPT_QUEST",
-          npcName: npc.name,
-          npcId: npc.id,
-        },
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error(`[ACCEPT_QUEST] Failed: ${errorMsg}`);
-      return { success: false, error: errorMsg };
-    }
-  },
-
-  examples: [
-    [
-      { name: "user", content: { text: "Accept a quest" } },
-      {
-        name: "agent",
-        content: {
-          text: "Accepting quest from Captain Rowan",
-          action: "ACCEPT_QUEST",
-        },
-      },
-    ],
-  ],
-};
-
-export const completeQuestAction: Action = {
-  name: "COMPLETE_QUEST",
-  similes: ["TURN_IN_QUEST", "FINISH_QUEST", "HAND_IN_QUEST"],
-  description:
-    "Turn in a completed quest to the NPC for rewards. Only works when quest objectives are complete.",
-
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService<HyperscapeService>("hyperscapeService");
-    if (!service?.isConnected()) return false;
-
-    const player = service.getPlayerEntity();
-    if (!player?.position || player.inCombat) return false;
+    const questState = service.getQuestState();
+    const hasNotStartedQuest = questState.some(
+      (q) => q.status === "not_started",
+    );
+    if (hasNotStartedQuest) return true;
 
     const nearbyEntities = service.getNearbyEntities();
     return nearbyEntities.some(isNpcEntity);
@@ -274,54 +182,203 @@ export const completeQuestAction: Action = {
     options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ) => {
-    try {
-      const service =
-        runtime.getService<HyperscapeService>("hyperscapeService");
-      if (!service) {
-        return { success: false, error: "Service not available" };
-      }
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service) {
+      return { success: false, error: "Service not available" };
+    }
 
-      const player = service.getPlayerEntity();
-      if (!player?.position) {
-        return { success: false, error: "No player position" };
-      }
+    const player = service.getPlayerEntity();
+    if (!player?.position) {
+      return { success: false, error: "No player position" };
+    }
 
+    const questState = service.getQuestState();
+
+    // Find a quest that hasn't been started yet
+    const availableQuest = questState.find((q) => q.status === "not_started");
+
+    if (availableQuest) {
+      // We know which quest to accept - find its NPC and walk to them
+      const startNpcName = npcIdToDisplayName(
+        ((availableQuest as Record<string, unknown>).startNpc as string) || "",
+      );
+
+      // Look for the NPC nearby
       const nearbyEntities = service.getNearbyEntities();
-      const text = message.content.text || "";
+      const npc = nearbyEntities.find(
+        (e) =>
+          isNpcEntity(e) &&
+          e.name?.toLowerCase().includes(startNpcName.toLowerCase()),
+      );
 
-      const npc = findNpcByName(nearbyEntities, text);
-      if (!npc) {
-        await callback?.({
-          text: "No NPC found nearby to turn in quest.",
-          action: "COMPLETE_QUEST",
-        });
-        return { success: false, error: "No NPC nearby" };
+      if (npc) {
+        const distance = getDistance2D(player.position, npc.position);
+        if (distance !== null && distance > 10) {
+          await service.executeMove({ target: npc.position, runMode: false });
+          await new Promise((r) => setTimeout(r, 2000));
+        }
       }
 
-      const distance = getDistance2D(player.position, npc.position);
-      if (distance !== null && distance > 10) {
-        await service.executeMove({
-          target: npc.position,
-          runMode: false,
-        });
-        await new Promise((r) => setTimeout(r, 2000));
-      }
+      // Send quest accept packet directly - bypasses dialogue UI
+      const questId =
+        availableQuest.questId ||
+        ((availableQuest as Record<string, unknown>).id as string);
+      service.sendQuestAccept(questId);
 
-      service.interactWithEntity(npc.id, "talk");
+      const responseText = `Accepting quest: ${availableQuest.name || questId}`;
+      await callback?.({ text: responseText, action: "ACCEPT_QUEST" });
 
-      const responseText = `Turning in quest to ${npc.name}`;
-      await callback?.({ text: responseText, action: "COMPLETE_QUEST" });
+      // Refresh quest list after a short delay
+      setTimeout(() => service.requestQuestList(), 1000);
 
       return {
         success: true,
         text: responseText,
-        data: { action: "COMPLETE_QUEST", npcName: npc.name },
+        data: {
+          action: "ACCEPT_QUEST",
+          questId,
+          questName: availableQuest.name,
+        },
       };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error(`[COMPLETE_QUEST] Failed: ${errorMsg}`);
-      return { success: false, error: errorMsg };
     }
+
+    // No quest list available yet - talk to a nearby NPC to discover quests
+    const nearbyEntities = service.getNearbyEntities();
+    const npc = findNpcByName(nearbyEntities, message.content.text || "");
+    if (!npc) {
+      await callback?.({
+        text: "No quest NPC found nearby.",
+        action: "ACCEPT_QUEST",
+      });
+      return { success: false, error: "No quest NPC nearby" };
+    }
+
+    const distance = getDistance2D(player.position, npc.position);
+    if (distance !== null && distance > 10) {
+      await service.executeMove({ target: npc.position, runMode: false });
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    service.interactWithEntity(npc.id, "talk");
+
+    // Refresh quest list
+    service.requestQuestList();
+
+    const responseText = `Talking to ${npc.name} to find quests`;
+    await callback?.({ text: responseText, action: "ACCEPT_QUEST" });
+
+    return {
+      success: true,
+      text: responseText,
+      data: { action: "ACCEPT_QUEST", npcName: npc.name },
+    };
+  },
+
+  examples: [
+    [
+      { name: "user", content: { text: "Accept a quest" } },
+      {
+        name: "agent",
+        content: {
+          text: "Accepting quest: Goblin Slayer",
+          action: "ACCEPT_QUEST",
+        },
+      },
+    ],
+  ],
+};
+
+export const completeQuestAction: Action = {
+  name: "COMPLETE_QUEST",
+  similes: ["TURN_IN_QUEST", "FINISH_QUEST", "HAND_IN_QUEST"],
+  description:
+    "Turn in a completed quest for rewards. Only works when quest objectives are complete (status is ready_to_complete). Walks to quest NPC and sends completion.",
+
+  validate: async (runtime: IAgentRuntime) => {
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service?.isConnected()) return false;
+
+    const player = service.getPlayerEntity();
+    if (!player?.position || player.inCombat) return false;
+
+    // Only valid if we have a quest that is ready_to_complete
+    const questState = service.getQuestState();
+    return questState.some(
+      (q) =>
+        q.status === "ready_to_complete" ||
+        (q.status as string) === "ready_to_complete",
+    );
+  },
+
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state?: State,
+    options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ) => {
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service) {
+      return { success: false, error: "Service not available" };
+    }
+
+    const player = service.getPlayerEntity();
+    if (!player?.position) {
+      return { success: false, error: "No player position" };
+    }
+
+    const questState = service.getQuestState();
+    const readyQuest = questState.find((q) => q.status === "ready_to_complete");
+
+    if (!readyQuest) {
+      await callback?.({
+        text: "No quests are ready to turn in.",
+        action: "COMPLETE_QUEST",
+      });
+      return { success: false, error: "No ready_to_complete quest" };
+    }
+
+    const questId =
+      readyQuest.questId ||
+      ((readyQuest as Record<string, unknown>).id as string);
+
+    // Try to find and walk to the quest's NPC
+    const startNpcName = npcIdToDisplayName(
+      ((readyQuest as Record<string, unknown>).startNpc as string) || "",
+    );
+    const nearbyEntities = service.getNearbyEntities();
+    const npc = nearbyEntities.find(
+      (e) =>
+        isNpcEntity(e) &&
+        e.name?.toLowerCase().includes(startNpcName.toLowerCase()),
+    );
+
+    if (npc) {
+      const distance = getDistance2D(player.position, npc.position);
+      if (distance !== null && distance > 10) {
+        await service.executeMove({ target: npc.position, runMode: false });
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+
+    // Send quest complete packet
+    service.sendQuestComplete(questId);
+
+    const responseText = `Turning in quest: ${readyQuest.name || questId}`;
+    await callback?.({ text: responseText, action: "COMPLETE_QUEST" });
+
+    // Refresh quest list after a short delay
+    setTimeout(() => service.requestQuestList(), 1000);
+
+    return {
+      success: true,
+      text: responseText,
+      data: {
+        action: "COMPLETE_QUEST",
+        questId,
+        questName: readyQuest.name,
+      },
+    };
   },
 
   examples: [
@@ -330,7 +387,7 @@ export const completeQuestAction: Action = {
       {
         name: "agent",
         content: {
-          text: "Turning in quest to Captain Rowan",
+          text: "Turning in quest: Goblin Slayer",
           action: "COMPLETE_QUEST",
         },
       },
@@ -356,50 +413,53 @@ export const checkQuestAction: Action = {
     options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ) => {
-    try {
-      const service =
-        runtime.getService<HyperscapeService>("hyperscapeService");
-      if (!service) {
-        return { success: false, error: "Service not available" };
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service) {
+      return { success: false, error: "Service not available" };
+    }
+
+    // Refresh from server
+    service.requestQuestList();
+
+    const questState = service.getQuestState();
+    const activeQuests = questState.filter(
+      (q) => q.status === "in_progress" || q.status === "ready_to_complete",
+    );
+
+    if (activeQuests.length === 0) {
+      const responseText =
+        "No active quests. I should talk to an NPC to find a quest!";
+      await callback?.({ text: responseText, action: "CHECK_QUEST" });
+      return { success: true, text: responseText };
+    }
+
+    const lines: string[] = ["My current quests:"];
+
+    for (const quest of activeQuests) {
+      const name = quest.name || quest.questId || "Unknown Quest";
+      const status = quest.status || "in_progress";
+      const description = quest.description || "";
+      lines.push(
+        `- ${name} [${status}]${description ? `: ${description}` : ""}`,
+      );
+
+      if (status === "ready_to_complete") {
+        lines.push("  ** READY TO TURN IN! Go talk to the quest NPC. **");
       }
 
-      // Quest state tracking is not yet implemented in HyperscapeService.
-      // CHECK_QUEST currently reports no active quests until the quest
-      // packet handler is added to the service.
-      const activeQuests: Array<Record<string, unknown>> = [];
-      if (activeQuests.length === 0) {
-        const responseText =
-          "No active quests. I should talk to an NPC to find a quest!";
-        await callback?.({ text: responseText, action: "CHECK_QUEST" });
-        return { success: true, text: responseText };
-      }
-
-      const lines: string[] = ["My current quests:"];
-
-      for (const quest of activeQuests) {
-        const name = quest.name || quest.questId || "Unknown Quest";
-        const status = quest.status || "in_progress";
-        const description = quest.description || "";
-        lines.push(
-          `- ${name} (${status})${description ? `: ${description}` : ""}`,
-        );
-
-        if (quest.stageProgress) {
-          for (const [key, value] of Object.entries(quest.stageProgress)) {
-            lines.push(`  Progress: ${key} - ${value}`);
-          }
+      if (quest.stageProgress) {
+        for (const [key, value] of Object.entries(
+          quest.stageProgress as Record<string, number>,
+        )) {
+          lines.push(`  Progress: ${key} = ${value}`);
         }
       }
-
-      const responseText = lines.join("\n");
-      await callback?.({ text: responseText, action: "CHECK_QUEST" });
-
-      return { success: true, text: responseText };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error(`[CHECK_QUEST] Failed: ${errorMsg}`);
-      return { success: false, error: errorMsg };
     }
+
+    const responseText = lines.join("\n");
+    await callback?.({ text: responseText, action: "CHECK_QUEST" });
+
+    return { success: true, text: responseText };
   },
 
   examples: [
@@ -408,7 +468,7 @@ export const checkQuestAction: Action = {
       {
         name: "agent",
         content: {
-          text: "My current quests:\n- Goblin Slayer (in_progress): Kill 5 goblins",
+          text: "My current quests:\n- Goblin Slayer [in_progress]: Kill 15 goblins\n  Progress: kills = 7",
           action: "CHECK_QUEST",
         },
       },

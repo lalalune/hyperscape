@@ -9,6 +9,7 @@ function createMockRuntime(hasService = true) {
         getPlayerEntity: vi.fn().mockReturnValue({
           position: [100, 10, 100],
           items: [],
+          inCombat: false,
         }),
         getNearbyEntities: vi.fn().mockReturnValue([]),
       }
@@ -16,6 +17,7 @@ function createMockRuntime(hasService = true) {
 
   return {
     getService: vi.fn().mockReturnValue(service),
+    service,
   };
 }
 
@@ -34,7 +36,7 @@ describe("questProvider", () => {
 
   it("returns empty result when not connected", async () => {
     const runtime = createMockRuntime(true);
-    runtime.getService()!.isConnected.mockReturnValue(false);
+    runtime.service!.isConnected.mockReturnValue(false);
 
     const result = await questProvider.get(
       runtime as never,
@@ -45,15 +47,28 @@ describe("questProvider", () => {
     expect(result.text).toBe("");
   });
 
+  it("shows no-quests message when quest state is empty", async () => {
+    const runtime = createMockRuntime(true);
+
+    const result = await questProvider.get(
+      runtime as never,
+      {} as never,
+      {} as never,
+    );
+
+    expect(result.text).toContain("No Active Quests");
+    expect(result.values!.hasActiveQuests).toBe(false);
+    expect(result.values!.questCount).toBe(0);
+  });
+
   it("returns quest data when quests exist", async () => {
     const runtime = createMockRuntime(true);
-    runtime.getService()!.getQuestState.mockReturnValue([
+    runtime.service!.getQuestState.mockReturnValue([
       {
-        id: "quest-1",
-        name: "Kill Goblins",
-        status: "active",
-        progress: 3,
-        target: 5,
+        questId: "goblin_slayer",
+        name: "Goblin Slayer",
+        status: "in_progress",
+        description: "Kill goblins",
       },
     ]);
 
@@ -63,6 +78,134 @@ describe("questProvider", () => {
       {} as never,
     );
 
-    expect(result.text!.length).toBeGreaterThan(0);
+    expect(result.text).toContain("Active Quests");
+    expect(result.text).toContain("Goblin Slayer");
+    expect(result.text).toContain("in_progress");
+    expect(result.values!.hasActiveQuests).toBe(true);
+    expect(result.values!.questCount).toBe(1);
+  });
+
+  it("flags ready_to_complete quests", async () => {
+    const runtime = createMockRuntime(true);
+    runtime.service!.getQuestState.mockReturnValue([
+      {
+        questId: "goblin_slayer",
+        name: "Goblin Slayer",
+        status: "ready_to_complete",
+      },
+    ]);
+
+    const result = await questProvider.get(
+      runtime as never,
+      {} as never,
+      {} as never,
+    );
+
+    expect(result.text).toContain("READY TO TURN IN");
+    expect(result.values!.hasReadyQuests).toBe(true);
+  });
+
+  it("shows stage progress when available", async () => {
+    const runtime = createMockRuntime(true);
+    runtime.service!.getQuestState.mockReturnValue([
+      {
+        questId: "goblin_slayer",
+        name: "Goblin Slayer",
+        status: "in_progress",
+        stageProgress: { kills: 7 },
+      },
+    ]);
+
+    const result = await questProvider.get(
+      runtime as never,
+      {} as never,
+      {} as never,
+    );
+
+    expect(result.text).toContain("kills");
+    expect(result.text).toContain("7");
+  });
+
+  it("shows nearby NPCs with roles", async () => {
+    const runtime = createMockRuntime(true);
+    runtime.service!.getNearbyEntities.mockReturnValue([
+      {
+        id: "npc-1",
+        name: "Captain Rowan",
+        type: "npc",
+        entityType: "quest_giver",
+        position: [105, 10, 100],
+      },
+      {
+        id: "npc-2",
+        name: "General Store",
+        type: "npc",
+        entityType: "shopkeeper",
+        position: [110, 10, 100],
+      },
+    ]);
+
+    const result = await questProvider.get(
+      runtime as never,
+      {} as never,
+      {} as never,
+    );
+
+    expect(result.text).toContain("Captain Rowan");
+    expect(result.text).toContain("Quest Giver");
+    expect(result.text).toContain("General Store");
+    expect(result.text).toContain("Shop");
+    expect(result.values!.nearbyNpcCount).toBe(2);
+  });
+
+  it("shows no-NPCs message when none nearby", async () => {
+    const runtime = createMockRuntime(true);
+
+    const result = await questProvider.get(
+      runtime as never,
+      {} as never,
+      {} as never,
+    );
+
+    expect(result.text).toContain("No NPCs Nearby");
+  });
+
+  it("returns quests data in result.data", async () => {
+    const runtime = createMockRuntime(true);
+    runtime.service!.getQuestState.mockReturnValue([
+      {
+        questId: "test_quest",
+        name: "Test",
+        status: "in_progress",
+      },
+    ]);
+
+    const result = await questProvider.get(
+      runtime as never,
+      {} as never,
+      {} as never,
+    );
+
+    const data = result.data as { quests: unknown[] };
+    expect(data.quests).toHaveLength(1);
+  });
+
+  it("handles multiple active quests", async () => {
+    const runtime = createMockRuntime(true);
+    runtime.service!.getQuestState.mockReturnValue([
+      { questId: "q1", name: "Quest 1", status: "in_progress" },
+      { questId: "q2", name: "Quest 2", status: "ready_to_complete" },
+    ]);
+
+    const result = await questProvider.get(
+      runtime as never,
+      {} as never,
+      {} as never,
+    );
+
+    expect(result.text).toContain("Quest 1");
+    expect(result.text).toContain("Quest 2");
+    expect(result.values!.questCount).toBe(2);
+    expect(result.values!.hasReadyQuests).toBe(true);
   });
 });

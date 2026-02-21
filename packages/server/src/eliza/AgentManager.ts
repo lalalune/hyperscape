@@ -940,7 +940,7 @@ export class AgentManager {
       .sort((a, b) => a.distance - b.distance);
 
     const nearbyMobs = gameState.nearbyEntities
-      .filter((entity) => entity.type === "mob" && entity.distance <= 22)
+      .filter((entity) => entity.type === "mob" && entity.distance <= 35)
       .sort((a, b) => a.distance - b.distance);
 
     const nearbyResources = gameState.nearbyEntities
@@ -956,6 +956,11 @@ export class AgentManager {
       };
     }
 
+    // Already fighting — let the combat system handle auto-attacks, don't interrupt.
+    if (gameState.inCombat) {
+      return { type: "idle" };
+    }
+
     // Opportunistic loot pickup for all roles.
     if (nearbyItems.length > 0) {
       return { type: "pickup", targetId: nearbyItems[0].id };
@@ -965,6 +970,23 @@ export class AgentManager {
       const target = nearbyMobs[0];
       if (target) {
         return { type: "attack", targetId: target.id };
+      }
+
+      // No mobs nearby — head back toward spawn where goblins respawn
+      const [cx, , cz] = gameState.position;
+      const combatDistFromSpawn = Math.sqrt(cx * cx + cz * cz);
+      if (combatDistFromSpawn > 25) {
+        const angle = Math.atan2(-cz, -cx) + (Math.random() - 0.5) * 0.6;
+        const step = 12 + Math.random() * 8;
+        return {
+          type: "move",
+          target: [
+            cx + Math.cos(angle) * step,
+            gameState.position[1],
+            cz + Math.sin(angle) * step,
+          ] as [number, number, number],
+          runMode: false,
+        };
       }
 
       return {
@@ -997,6 +1019,25 @@ export class AgentManager {
 
     if (nearbyResources.length > 0) {
       return { type: "gather", targetId: nearbyResources[0].id };
+    }
+
+    // Nothing to do nearby — navigate back toward spawn where mobs respawn,
+    // rather than wandering aimlessly into empty terrain.
+    const [px, , pz] = gameState.position;
+    const distFromSpawn = Math.sqrt(px * px + pz * pz);
+    if (distFromSpawn > 30) {
+      const angle = Math.atan2(-pz, -px);
+      const jitter = (Math.random() - 0.5) * 0.8;
+      const stepDist = 15 + Math.random() * 10;
+      return {
+        type: "move",
+        target: [
+          px + Math.cos(angle + jitter) * stepDist,
+          gameState.position[1],
+          pz + Math.sin(angle + jitter) * stepDist,
+        ] as [number, number, number],
+        runMode: false,
+      };
     }
 
     return {

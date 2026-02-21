@@ -451,6 +451,128 @@ Choose the goal ID that makes the most sense. Respond with ONLY the goal ID (e.g
         }
       }
 
+      // === QUEST DISCOVERY ===
+      // Before selecting a skill goal, check if there are quests available.
+      // Quests grant starter gear and are the designed progression path.
+      const questState = service.getQuestState?.() || [];
+      const notStartedQuests = questState.filter(
+        (q: { status?: string }) => q.status === "not_started",
+      );
+      const activeQuests = questState.filter(
+        (q: { status?: string }) =>
+          q.status === "in_progress" || q.status === "ready_to_complete",
+      );
+
+      // Prefer questing if there are available quests and no active ones
+      if (notStartedQuests.length > 0 && activeQuests.length === 0) {
+        // Quest priority order: combat gear first, then gathering tools
+        const questPriority = [
+          "goblin_slayer",
+          "lumberjacks_first_lesson",
+          "fresh_catch",
+          "torvins_tools",
+          "rune_mysteries",
+          "fletchers_introduction",
+          "crafting_basics",
+        ];
+
+        let questToStart: Record<string, unknown> | null = null;
+        for (const questId of questPriority) {
+          const found = notStartedQuests.find(
+            (q: { questId?: string; id?: string }) =>
+              q.questId === questId ||
+              (q as Record<string, unknown>).id === questId,
+          );
+          if (found) {
+            questToStart = found as Record<string, unknown>;
+            break;
+          }
+        }
+
+        // Fallback: pick the first available quest
+        if (!questToStart && notStartedQuests.length > 0) {
+          questToStart = notStartedQuests[0] as Record<string, unknown>;
+        }
+
+        if (questToStart) {
+          const questId =
+            (questToStart.questId as string) ||
+            (questToStart.id as string) ||
+            "";
+          const questName = (questToStart.name as string) || questId;
+
+          // Accept the quest via packet
+          service.sendQuestAccept(questId);
+
+          // Build a questing goal
+          behaviorManager.setGoal({
+            type: "questing",
+            description: `Complete quest: ${questName}`,
+            target: 1,
+            progress: 0,
+            startedAt: Date.now(),
+            questId,
+            questStartNpc: (questToStart.startNpc as string) || "",
+          });
+
+          const questMsg = `✅ **Starting quest: ${questName}**\nAccepting quest and working towards objectives.`;
+          await callback?.({ text: questMsg, action: "SET_GOAL" });
+          service.syncAgentThought("decision", questMsg);
+
+          // Refresh quest list to get updated state
+          setTimeout(() => service.requestQuestList?.(), 1500);
+
+          return {
+            success: true,
+            text: `Started quest: ${questName}`,
+            data: { goalType: "questing", questId },
+          };
+        }
+      }
+
+      // If we have an active quest, set a questing goal for it
+      if (activeQuests.length > 0) {
+        const activeQuest = activeQuests[0] as Record<string, unknown>;
+        const questId =
+          (activeQuest.questId as string) || (activeQuest.id as string) || "";
+        const questName = (activeQuest.name as string) || questId;
+        const status = activeQuest.status as string;
+
+        behaviorManager.setGoal({
+          type: "questing",
+          description:
+            status === "ready_to_complete"
+              ? `Turn in quest: ${questName}`
+              : `Complete quest: ${questName}`,
+          target: 1,
+          progress: 0,
+          startedAt: Date.now(),
+          questId,
+          questStartNpc: (activeQuest.startNpc as string) || "",
+          questStageType:
+            (activeQuest.stageType as
+              | "kill"
+              | "gather"
+              | "interact"
+              | "dialogue") || undefined,
+          questStageTarget: (activeQuest.stageTarget as string) || undefined,
+          questStageCount: (activeQuest.stageCount as number) || undefined,
+        });
+
+        const questMsg =
+          status === "ready_to_complete"
+            ? `✅ **Quest ready to turn in: ${questName}**`
+            : `✅ **Continuing quest: ${questName}**`;
+        await callback?.({ text: questMsg, action: "SET_GOAL" });
+        service.syncAgentThought("decision", questMsg);
+
+        return {
+          success: true,
+          text: `Continuing quest: ${questName}`,
+          data: { goalType: "questing", questId },
+        };
+      }
+
       // Map template type to CurrentGoal type (combat -> combat_training)
       const templateTypeToGoalType: Record<
         string,

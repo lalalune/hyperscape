@@ -1562,6 +1562,7 @@ Respond with ONLY the action name, nothing else.`;
         this.hasReceivedSnapshot = true;
         logger.info("[HyperscapeService] 📸 Snapshot received");
         this.handleSnapshot(packetData);
+        this.requestQuestList();
       }
 
       // Update game state based on packet
@@ -2502,6 +2503,110 @@ Respond with ONLY the action name, nothing else.`;
             `[HyperscapeService] ⚔️ DAMAGE DEALT: ${damageData.damage} damage to ${damageData.targetId}`,
           );
         }
+        break;
+      }
+
+      // ============================================================================
+      // QUEST SYSTEM PACKETS
+      // ============================================================================
+
+      case "questList": {
+        const questListData = data as {
+          quests?: Array<{
+            id: string;
+            name: string;
+            status: string;
+            difficulty: string;
+            questPoints: number;
+          }>;
+          questPoints?: number;
+        };
+        if (questListData.quests && Array.isArray(questListData.quests)) {
+          this.gameState.quests = questListData.quests.map((q) => ({
+            questId: q.id,
+            name: q.name,
+            status: q.status,
+            description: "",
+          }));
+          logger.info(
+            `[HyperscapeService] 📜 Quest list received: ${questListData.quests.length} quests`,
+          );
+        }
+        break;
+      }
+
+      case "questStartConfirm": {
+        const confirmData = data as { questId?: string; questName?: string };
+        logger.info(
+          `[HyperscapeService] 📜 Quest start confirm: ${confirmData.questName || confirmData.questId}`,
+        );
+        this.sendCommand("questAccept", { questId: confirmData.questId });
+        break;
+      }
+
+      case "questStarted": {
+        const startedData = data as { questId?: string; questName?: string };
+        if (startedData.questId) {
+          const existing = this.gameState.quests.find(
+            (q) => q.questId === startedData.questId,
+          );
+          if (existing) {
+            existing.status = "in_progress";
+          } else {
+            this.gameState.quests.push({
+              questId: startedData.questId,
+              name: startedData.questName,
+              status: "in_progress",
+            });
+          }
+          logger.info(
+            `[HyperscapeService] 📜 Quest started: ${startedData.questName || startedData.questId}`,
+          );
+        }
+        this.requestQuestList();
+        break;
+      }
+
+      case "questProgressed": {
+        const progressData = data as {
+          questId?: string;
+          stage?: string;
+          progress?: Record<string, number>;
+          description?: string;
+        };
+        if (progressData.questId) {
+          const existing = this.gameState.quests.find(
+            (q) => q.questId === progressData.questId,
+          );
+          if (existing) {
+            existing.stageProgress = progressData.progress;
+            existing.description =
+              progressData.description || existing.description;
+          }
+          logger.info(
+            `[HyperscapeService] 📜 Quest progressed: ${progressData.questId} - ${progressData.description || ""}`,
+          );
+        }
+        break;
+      }
+
+      case "questCompleted": {
+        const completedData = data as {
+          questId?: string;
+          questName?: string;
+        };
+        if (completedData.questId) {
+          const idx = this.gameState.quests.findIndex(
+            (q) => q.questId === completedData.questId,
+          );
+          if (idx >= 0) {
+            this.gameState.quests.splice(idx, 1);
+          }
+          logger.info(
+            `[HyperscapeService] 📜 Quest completed: ${completedData.questName || completedData.questId}`,
+          );
+        }
+        this.requestQuestList();
         break;
       }
 
@@ -3535,8 +3640,36 @@ Respond with ONLY the action name, nothing else.`;
   }
 
   public getQuestState(): QuestData[] {
-    // Return the active quests tracked from server packets
     return this.gameState.quests || [];
+  }
+
+  /**
+   * Request the server to send us the quest list.
+   * Response arrives via "questList" packet which populates gameState.quests.
+   */
+  public requestQuestList(): void {
+    this.sendCommand("getQuestList", {});
+  }
+
+  /**
+   * Request detailed quest info from the server.
+   */
+  public requestQuestDetail(questId: string): void {
+    this.sendCommand("getQuestDetail", { questId });
+  }
+
+  /**
+   * Accept a quest by ID. Server will start the quest and grant onStart items.
+   */
+  public sendQuestAccept(questId: string): void {
+    this.sendCommand("questAccept", { questId });
+  }
+
+  /**
+   * Complete a quest by ID. Quest must be in ready_to_complete status.
+   */
+  public sendQuestComplete(questId: string): void {
+    this.sendCommand("questComplete", { questId });
   }
 
   /**

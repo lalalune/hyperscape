@@ -297,7 +297,7 @@ export class CombatSystem extends SystemBase {
     this.subscribe(
       EventType.COMBAT_ATTACK_REQUEST,
       async (data: {
-        playerId: string;
+        attackerId: string;
         targetId: string;
         attackerType?: "player" | "mob";
         targetType?: "player" | "mob";
@@ -305,7 +305,7 @@ export class CombatSystem extends SystemBase {
       }) => {
         if (!this.world.isServer) return; // Combat is server-authoritative
         await this.handleAttack({
-          attackerId: data.playerId,
+          attackerId: data.attackerId,
           targetId: data.targetId,
           attackerType: data.attackerType || "player",
           targetType: data.targetType || "mob",

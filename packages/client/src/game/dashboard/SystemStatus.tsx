@@ -170,7 +170,11 @@ export const SystemStatus: React.FC = () => {
                   Active Agents
                 </div>
                 <div className="text-lg font-bold text-[#e8ebf4]">
-                  {health.agents ?? "N/A"}
+                  {health.agents
+                    ? typeof health.agents === "object"
+                      ? `${(health.agents as { running?: number }).running ?? 0} / ${(health.agents as { total?: number }).total ?? 0}`
+                      : health.agents
+                    : "N/A"}
                 </div>
               </div>
 

@@ -13,6 +13,8 @@ import type {
   IEmbeddedHyperscapeService,
   EmbeddedGameState,
   NearbyEntityData,
+  AgentQuestProgress,
+  AgentQuestInfo,
 } from "./types.js";
 
 // Distance threshold for "nearby" entities (in world units)
@@ -531,32 +533,31 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       throw new Error("Agent not spawned");
     }
 
-    // Use the combat system directly
-    const combatSystem = this.world.getSystem("combat") as
+    const targetEntity = this.world.entities.get(targetId);
+    const targetType: "player" | "mob" =
+      targetEntity?.type === "player" ? "player" : "mob";
+
+    // Use the server network's walk-to-and-attack pipeline (same as real players)
+    const networkSystem = this.world.getSystem("network") as
       | {
-          startCombat?: (
-            attackerId: string,
+          requestServerAttack?: (
+            playerId: string,
             targetId: string,
-            options?: {
-              attackerType?: "player" | "mob";
-              targetType?: "player" | "mob";
-              weaponType?: number;
-            },
+            targetType: "mob" | "player",
           ) => boolean;
         }
       | undefined;
 
-    if (combatSystem?.startCombat) {
-      const targetEntity = this.world.entities.get(targetId);
-      const targetType: "player" | "mob" =
-        targetEntity?.type === "player" ? "player" : "mob";
-
-      combatSystem.startCombat(this.playerEntityId, targetId, {
-        attackerType: "player",
+    if (networkSystem?.requestServerAttack) {
+      networkSystem.requestServerAttack(
+        this.playerEntityId,
+        targetId,
         targetType,
-      });
+      );
     } else {
-      console.warn("[EmbeddedHyperscapeService] Combat system not available");
+      console.warn(
+        "[EmbeddedHyperscapeService] Network system requestServerAttack not available",
+      );
     }
   }
 
@@ -989,17 +990,168 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
     if (!this.playerEntityId || !this.isActive) return false;
     if (!questId) return false;
 
-    this.world.emit(EventType.QUEST_COMPLETED, {
-      playerId: this.playerEntityId,
-      questId,
-      questName: questId,
-      rewards: {
-        questPoints: 0,
-        items: [],
-        xp: {},
-      },
+    const questSystem = this.world.getSystem("quest") as {
+      completeQuest?: (playerId: string, questId: string) => Promise<boolean>;
+    } | null;
+
+    if (!questSystem?.completeQuest) return false;
+
+    return await questSystem.completeQuest(this.playerEntityId, questId);
+  }
+
+  /**
+   * Query active quest state directly from QuestSystem.
+   * Returns current stage, progress, and objective details for each active quest.
+   */
+  getQuestState(): AgentQuestProgress[] {
+    if (!this.playerEntityId || !this.isActive) return [];
+
+    const questSystem = this.world.getSystem("quest") as {
+      getActiveQuests?: (playerId: string) => Array<{
+        questId: string;
+        status: string;
+        currentStage: string;
+        stageProgress: Record<string, number>;
+      }>;
+      getQuestDefinition?: (questId: string) =>
+        | {
+            id: string;
+            name: string;
+            description: string;
+            startNpc: string;
+            stages: Array<{
+              id: string;
+              type: string;
+              description: string;
+              target?: string;
+              count?: number;
+              npcId?: string;
+            }>;
+          }
+        | undefined;
+    } | null;
+
+    if (!questSystem?.getActiveQuests || !questSystem.getQuestDefinition) {
+      return [];
+    }
+
+    const activeQuests = questSystem.getActiveQuests(this.playerEntityId);
+    return activeQuests.map((progress) => {
+      const definition = questSystem.getQuestDefinition!(progress.questId);
+      const currentStage = definition?.stages.find(
+        (s) => s.id === progress.currentStage,
+      );
+      return {
+        questId: progress.questId,
+        name: definition?.name || progress.questId,
+        status: progress.status,
+        currentStage: progress.currentStage,
+        stageDescription: currentStage?.description || "",
+        stageProgress: progress.stageProgress,
+        stageType: (currentStage?.type ||
+          "unknown") as AgentQuestProgress["stageType"],
+        stageTarget: currentStage?.target,
+        stageCount: currentStage?.count,
+        startNpc: definition?.startNpc || "",
+      };
     });
-    return true;
+  }
+
+  /**
+   * Query all quest definitions with their status for this agent.
+   * Used to discover which quests are available to start.
+   */
+  getAvailableQuests(): AgentQuestInfo[] {
+    if (!this.playerEntityId || !this.isActive) return [];
+
+    const questSystem = this.world.getSystem("quest") as {
+      getAllQuestDefinitions?: () => Array<{
+        id: string;
+        name: string;
+        description: string;
+        difficulty: string;
+        startNpc: string;
+        stages: Array<{
+          id: string;
+          type: string;
+          description: string;
+          target?: string;
+          count?: number;
+        }>;
+        onStart?: {
+          items?: Array<{ itemId: string; quantity: number }>;
+        };
+        rewards: {
+          questPoints: number;
+          items: Array<{ itemId: string; quantity: number }>;
+          xp: Record<string, number>;
+        };
+      }>;
+      getQuestStatus?: (playerId: string, questId: string) => string;
+    } | null;
+
+    if (!questSystem?.getAllQuestDefinitions || !questSystem.getQuestStatus) {
+      return [];
+    }
+
+    const allDefs = questSystem.getAllQuestDefinitions();
+    return allDefs.map((def) => ({
+      questId: def.id,
+      name: def.name,
+      description: def.description,
+      difficulty: def.difficulty,
+      status: questSystem.getQuestStatus!(this.playerEntityId!, def.id),
+      startNpc: def.startNpc,
+      onStartItems: def.onStart?.items || [],
+      rewardItems: def.rewards.items,
+      stages: def.stages.map((s) => ({
+        id: s.id,
+        type: s.type,
+        description: s.description,
+        target: s.target,
+        count: s.count,
+      })),
+    }));
+  }
+
+  /**
+   * Get positions of all NPC entities in the world, regardless of distance.
+   * Used for quest navigation - agents need to find specific quest NPCs.
+   */
+  getAllNPCPositions(): Array<{
+    id: string;
+    name: string;
+    npcId: string;
+    position: [number, number, number];
+  }> {
+    if (!this.isActive) return [];
+
+    const npcs: Array<{
+      id: string;
+      name: string;
+      npcId: string;
+      position: [number, number, number];
+    }> = [];
+
+    for (const [id, entity] of this.world.entities.items.entries()) {
+      const entityData = entity.data as Record<string, unknown>;
+      if (!entityData.npcType && entityData.type !== "npc") continue;
+
+      const pos = this.getEntityPosition(entity);
+      if (!pos) continue;
+
+      const npcId =
+        (entityData.npcId as string) || (entityData.customId as string) || id;
+
+      npcs.push({
+        id,
+        name: (entityData.name as string) || npcId,
+        npcId,
+        position: pos,
+      });
+    }
+
+    return npcs;
   }
 
   // =========================================================================
