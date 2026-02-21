@@ -46,7 +46,9 @@ export const DashboardScreen: React.FC = () => {
     | string
   >("chat");
   const [loading, setLoading] = useState(true);
-  const [userAccountId, setUserAccountId] = useState<string | null>(null);
+  const [userAccountId, setUserAccountId] = useState<string | null>(() =>
+    localStorage.getItem("privy_user_id"),
+  );
   const [agentPanels, setAgentPanels] = useState<AgentPanel[]>([]);
   const [_loadingPanels, setLoadingPanels] = useState(false);
 
@@ -66,12 +68,10 @@ export const DashboardScreen: React.FC = () => {
     };
   }, []);
 
-  // Get user's main account ID from Privy localStorage
+  // Log account ID on mount (already read from localStorage in useState initializer)
   useEffect(() => {
-    const accountId = localStorage.getItem("privy_user_id");
-    if (accountId) {
-      setUserAccountId(accountId);
-      console.log("[Dashboard] User account ID:", accountId);
+    if (userAccountId) {
+      console.log("[Dashboard] User account ID:", userAccountId);
     } else {
       console.warn(
         "[Dashboard] No user account ID found - dashboard may show all agents",
@@ -84,6 +84,7 @@ export const DashboardScreen: React.FC = () => {
       // First, fetch user's agent IDs from Hyperscape database
       let userAgentIds: string[] = [];
 
+      let mappingFetchFailed = false;
       if (userAccountId) {
         try {
           const mappingResult = await apiClient.get<{ agentIds?: string[] }>(
@@ -101,9 +102,11 @@ export const DashboardScreen: React.FC = () => {
               "[Dashboard] Failed to fetch agent mappings from Hyperscape:",
               mappingResult.error,
             );
+            mappingFetchFailed = true;
           }
         } catch (err) {
           console.error("[Dashboard] Error fetching agent mappings:", err);
+          mappingFetchFailed = true;
         }
       }
 
@@ -132,11 +135,15 @@ export const DashboardScreen: React.FC = () => {
           console.log(
             `[Dashboard] Filtered ${filteredAgents.length} agents out of ${data.data.agents.length} for user ${userAccountId}`,
           );
-        } else if (userAccountId) {
+        } else if (userAccountId && !mappingFetchFailed) {
           console.log(
             "[Dashboard] No agent mappings found - showing empty list",
           );
           filteredAgents = [];
+        } else if (mappingFetchFailed) {
+          console.warn(
+            "[Dashboard] Mapping fetch failed - showing all agents as fallback",
+          );
         } else {
           console.warn("[Dashboard] No userAccountId - showing all agents");
         }
@@ -459,8 +466,6 @@ export const DashboardScreen: React.FC = () => {
   }, [selectedAgentId]);
 
   useEffect(() => {
-    // Fetch agents immediately (don't wait for userAccountId)
-    // If userAccountId is available, it will be used for filtering
     fetchAgents();
     const interval = setInterval(fetchAgents, 30000);
     return () => clearInterval(interval);
