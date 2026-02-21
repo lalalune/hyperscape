@@ -849,7 +849,16 @@ export class AgentManager {
     }
 
     const gameState = instance.service.getGameState();
-    if (!gameState || !gameState.position) {
+    if (!gameState) {
+      console.warn(
+        `[AgentManager] Behavior tick for ${instance.config.name}: getGameState() returned null`,
+      );
+      return;
+    }
+    if (!gameState.position) {
+      console.warn(
+        `[AgentManager] Behavior tick for ${instance.config.name}: no position in gameState`,
+      );
       return;
     }
 
@@ -862,6 +871,14 @@ export class AgentManager {
         inCombat: gameState.inCombat,
         nearbyEntities: gameState.nearbyEntities,
       },
+    );
+
+    console.log(
+      `[AgentManager] ${instance.config.name} tick: action=${action.type}` +
+        ("targetId" in action ? ` target=${action.targetId}` : "") +
+        ("target" in action
+          ? ` pos=[${(action as { target: number[] }).target.map((n: number) => n.toFixed(0)).join(",")}]`
+          : ""),
     );
 
     switch (action.type) {
