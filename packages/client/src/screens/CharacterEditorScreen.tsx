@@ -393,6 +393,7 @@ export const CharacterEditorScreen: React.FC = () => {
         settings: {
           ...character.settings,
           accountId, // CRITICAL: Link agent to user for dashboard filtering
+          characterId, // Required by POST /api/agents route
           characterType: "ai-agent",
           secrets: {
             ...character.settings.secrets,
