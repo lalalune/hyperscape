@@ -622,7 +622,6 @@ export class VegetationSystem extends System {
     // Create SHARED material for all vegetation (reduces shader switches)
     // All vegetation uses vertex colors, so one material works for everything
     // Simple distance culling - no expensive LOD scaling
-    // Fog uses the shared fogRenderTarget from FogConfig (no texture swap needed)
     this.sharedVegetationMaterial = createGPUVegetationMaterial({
       vertexColors: true,
       alphaTest: 0.5,

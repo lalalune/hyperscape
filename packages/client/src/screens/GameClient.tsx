@@ -191,12 +191,15 @@ export function GameClient({ wsUrl, onSetup }: GameClientProps) {
       }
 
       const baseEnvironment = {
-        model: null as string | null,
+        model: "asset://world/base-environment.glb",
         bg: "asset://world/day2-2k.jpg",
         hdr: "asset://world/day2.hdr",
         sunDirection: new THREE.Vector3(-1, -2, -2).normalize(),
         sunIntensity: 1,
         sunColor: 0xffffff,
+        fogNear: null,
+        fogFar: null,
+        fogColor: null,
       };
 
       // Direct connection - no Vite proxy
