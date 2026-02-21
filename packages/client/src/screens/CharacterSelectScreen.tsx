@@ -847,6 +847,7 @@ export function CharacterSelectScreen({
                   settings: {
                     ...baseSettings,
                     accountId,
+                    characterId: c.id,
                     characterType: "ai-agent",
                     avatar:
                       AVATAR_OPTIONS[currentSelectedAvatarIndex]?.url || "",
