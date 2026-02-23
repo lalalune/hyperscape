@@ -39,7 +39,7 @@
     "@playwright/test": "1.54.2",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
-    "@vitejs/plugin-react": "5.0.4",
+    "@vitejs/plugin-react": "5.1.4",
     "typescript": "5.9.2",
     "vite": "6.4.1",
     "vite-plugin-node-polyfills": "0.24.0"
