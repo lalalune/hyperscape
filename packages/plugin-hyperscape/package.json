@@ -30,7 +30,7 @@
     "@livekit/rtc-node": "^0.13.24",
     "msgpackr": "^1.11.5",
     "ws": "^8.19.0",
-    "zod": "^3.24.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/three": "0.180.0",
