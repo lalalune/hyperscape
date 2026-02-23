@@ -15,7 +15,7 @@
     "@types/chai": "4.3.17",
     "@types/mocha": "10.0.10",
     "bn.js": "^5.2.3",
-    "chai": "4.5.0",
+    "chai": "6.2.2",
     "mocha": "10.8.2",
     "ts-mocha": "10.0.0",
     "typescript": "5.9.2"
