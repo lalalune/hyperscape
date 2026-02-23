@@ -115,7 +115,7 @@
     "@babel/eslint-parser": "^7.23.10",
     "@babel/preset-react": "^7.23.10",
     "@capacitor/android": "^7.4.3",
-    "@capacitor/cli": "^7.4.3",
+    "@capacitor/cli": "^8.1.0",
     "@capacitor/core": "^7.4.3",
     "@capacitor/ios": "^7.4.3",
     "@microsoft/api-extractor": "^7.52.10",
