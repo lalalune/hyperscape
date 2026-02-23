@@ -108,7 +108,7 @@
     "sqlite3": "^5.1.7",
     "styled-components": "^6.1.19",
     "three": "0.182.0",
-    "three-mesh-bvh": "^0.8.3",
+    "three-mesh-bvh": "^0.9.8",
     "yoga-layout": "^3.2.1"
   },
   "devDependencies": {
