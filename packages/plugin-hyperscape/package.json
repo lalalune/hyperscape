@@ -35,7 +35,7 @@
   "devDependencies": {
     "@types/three": "0.180.0",
     "@types/ws": "^8.5.14",
-    "eslint": "^9.37.0",
+    "eslint": "^10.0.2",
     "three": "^0.180.0",
     "typescript": "^5.9.2",
     "vitest": "^4.0.6"
