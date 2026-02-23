@@ -15,7 +15,7 @@
     "test:e2e:mainnet": "E2E_CLUSTER=mainnet-beta bash scripts/run-e2e-public.sh"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "0.31.1",
+    "@coral-xyz/anchor": "0.32.1",
     "@jup-ag/api": "^6.0.48",
     "@noble/curves": "^2.0.1",
     "@rainbow-me/rainbowkit": "^2.2.10",
