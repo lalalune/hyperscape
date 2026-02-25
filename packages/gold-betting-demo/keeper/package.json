@@ -23,8 +23,8 @@
   "devDependencies": {
     "@types/bn.js": "5.2.0",
     "@types/bun": "latest",
-    "@types/node": "24.8.0",
+    "@types/node": "25.3.0",
     "tsx": "4.20.6",
-    "typescript": "5.9.2"
+    "typescript": "5.9.3"
   }
 }

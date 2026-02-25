@@ -14,7 +14,7 @@
     "chai": "^5.2.0",
     "mocha": "^11.7.2",
     "ts-mocha": "^10.1.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   },
   "scripts": {
     "build": "if [ -d programs ] && find programs -mindepth 2 -maxdepth 2 -name Cargo.toml | grep -q .; then anchor build; else echo '[solana-prediction-market] No programs/*/Cargo.toml found; skipping build'; fi",
