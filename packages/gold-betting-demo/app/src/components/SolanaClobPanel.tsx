@@ -35,6 +35,7 @@ import {
 } from "./PredictionMarketPanel";
 import { type Trade } from "./RecentTrades";
 import { type OrderLevel } from "./OrderBook";
+import { PointsDisplay } from "./PointsDisplay";
 
 type BetSide = "YES" | "NO";
 
@@ -300,12 +301,41 @@ export function SolanaClobPanel({
         setConfigAccount(null);
       }
 
-      const allMatches = (await clobProgram.account.matchState.all()) as Array<{
-        publicKey: PublicKey;
-        account: any;
-      }>;
+      const activeMatches = await connection.getProgramAccounts(
+        GOLD_CLOB_MARKET_PROGRAM_ID,
+        {
+          filters: [
+            { dataSize: 84 }, // Size of MatchState account (8 discriminator + space)
+            { memcmp: { offset: 8, bytes: "2" } }, // isOpen == true (1 byte boolean encoded as true -> 1, false -> 0, Wait, in Borsh bool true is 1. base58 of [1] is '2')
+          ],
+        },
+      );
 
-      if (allMatches.length === 0) {
+      // And we need the preferred match if one is active but maybe closed recently
+      let preferredMatchAccount: any = null;
+      if (preferredMatchRef.current) {
+        try {
+          preferredMatchAccount = await clobProgram.account.matchState.fetch(
+            new PublicKey(preferredMatchRef.current),
+          );
+        } catch {
+          // ignore
+        }
+      }
+
+      const matchEntries = activeMatches
+        .map((m) => ({
+          publicKey: m.pubkey,
+          account: clobProgram.coder.accounts.decode(
+            "matchState",
+            m.account.data,
+          ),
+        }))
+        .sort((a, b) =>
+          a.publicKey.toBase58().localeCompare(b.publicKey.toBase58()),
+        );
+
+      if (matchEntries.length === 0 && !preferredMatchAccount) {
         setActiveMatch(null);
         setYesPool(0n);
         setNoPool(0n);
@@ -313,15 +343,13 @@ export function SolanaClobPanel({
         return;
       }
 
-      const matchEntries = allMatches.sort((a, b) =>
-        a.publicKey.toBase58().localeCompare(b.publicKey.toBase58()),
-      );
-
-      const preferred = preferredMatchRef.current
-        ? matchEntries.find(
-            (entry) => entry.publicKey.toBase58() === preferredMatchRef.current,
-          )
-        : null;
+      const preferred =
+        preferredMatchRef.current && preferredMatchAccount
+          ? {
+              publicKey: new PublicKey(preferredMatchRef.current),
+              account: preferredMatchAccount,
+            }
+          : null;
 
       const open = matchEntries.filter((entry) =>
         Boolean(entry.account.isOpen),
@@ -343,6 +371,12 @@ export function SolanaClobPanel({
         "confirmed",
       );
       const vault = vaultAccounts.value[0]?.pubkey ?? PublicKey.default;
+
+      // Find active orderbook PDAs for 'selected' match
+      const orderBookPda = PublicKey.findProgramAddressSync(
+        [Buffer.from("order_book"), matchStatePk.toBuffer()], // TODO: The orderbook isn't a PDA right now actually! We need to either read `all()` for the orderbook, or refactor orderbook to a PDA. Let's just keep using `.all()` for orderbooks but filtered manually below.
+        GOLD_CLOB_MARKET_PROGRAM_ID,
+      )[0];
 
       const allOrderBooks =
         (await clobProgram.account.orderBook.all()) as Array<{
@@ -1079,11 +1113,18 @@ export function SolanaClobPanel({
         agent1Name={agent1Name}
         agent2Name={agent2Name}
         isEvm={false}
+        currencySymbol="SOL"
         supportsSell={true}
         chartData={chartData}
         bids={bids}
         asks={asks}
         recentTrades={recentTrades}
+        pointsDisplay={
+          <PointsDisplay
+            walletAddress={wallet.publicKey?.toBase58() ?? null}
+            compact
+          />
+        }
       >
         <div style={{ display: "grid", gap: 8 }}>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>

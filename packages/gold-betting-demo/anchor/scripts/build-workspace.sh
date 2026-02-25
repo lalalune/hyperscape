@@ -5,9 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TOOLS_VERSION="${ANCHOR_SBF_TOOLS_VERSION:-v1.44}"
 PROGRAMS=(
   "fight_oracle"
-  "gold_binary_market"
   "gold_clob_market"
-  "hyperscape_prediction_market"
 )
 
 extract_marker_json() {

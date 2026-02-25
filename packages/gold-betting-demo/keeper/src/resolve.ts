@@ -6,7 +6,6 @@ import { hideBin } from "yargs/helpers";
 import {
   createPrograms,
   enumIs,
-  findMarketPda,
   findMatchPda,
   findOracleConfigPda,
   readKeypair,
@@ -24,17 +23,14 @@ const args = await yargs(hideBin(process.argv))
   .parse();
 
 const oracleAuthority = readKeypair(requireEnv("ORACLE_AUTHORITY_KEYPAIR"));
-const { fightOracle, goldBinaryMarket } = createPrograms(oracleAuthority);
+const { fightOracle } = createPrograms(oracleAuthority);
 const oracleProgram: any = fightOracle;
-const marketProgram: any = goldBinaryMarket;
 
 const matchId = new BN(args["match-id"]);
 const matchPda = findMatchPda(fightOracle.programId, matchId);
-const marketPda = findMarketPda(goldBinaryMarket.programId, matchPda);
 const oracleConfigPda = findOracleConfigPda(fightOracle.programId);
 
 const matchState = await oracleProgram.account.matchResult.fetch(matchPda);
-const marketState = await marketProgram.account.market.fetch(marketPda);
 const nowTs = Math.floor(Date.now() / 1000);
 
 let postResultSig: string | null = null;
@@ -58,25 +54,11 @@ if (enumIs(matchState.status, "open")) {
     .rpc();
 }
 
-let resolveSig: string | null = null;
-if (enumIs(marketState.status, "open")) {
-  resolveSig = await marketProgram.methods
-    .resolveFromOracle()
-    .accounts({
-      resolver: oracleAuthority.publicKey,
-      market: marketPda,
-      oracleMatch: matchPda,
-    })
-    .rpc();
-}
-
 console.log(
   JSON.stringify(
     {
       match: matchPda.toBase58(),
-      market: marketPda.toBase58(),
       postResultSig,
-      resolveSig,
     },
     null,
     2,

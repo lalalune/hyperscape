@@ -23,6 +23,7 @@ export const WEAPON_DEFAULT_ATTACK_STYLE: Record<string, MeleeAttackStyle> = {
   [WeaponType.MACE]: "crush",
   [WeaponType.DAGGER]: "stab",
   [WeaponType.SPEAR]: "stab",
+  [WeaponType.TWO_HAND_SWORD]: "slash",
   [WeaponType.HALBERD]: "slash",
   [WeaponType.NONE]: "crush", // unarmed = crush (fists)
 };

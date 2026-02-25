@@ -164,7 +164,7 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 const DEV_ANNOUNCEMENT_MS = 60 * 1000;
 const DEV_FIGHTING_MS = 270 * 1000;
 const DEV_END_WARNING_MS = 15 * 1000;
-const DEV_RESOLUTION_MS = 15 * 1000;
+const DEV_RESOLUTION_MS = 10 * 1000;
 
 const ANNOUNCEMENT_DURATION = parseDurationEnv(
   "STREAMING_ANNOUNCEMENT_MS",

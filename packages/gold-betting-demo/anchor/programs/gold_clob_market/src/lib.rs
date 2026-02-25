@@ -2,9 +2,9 @@
 #![allow(deprecated)]
 
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_lang::system_program;
 
-declare_id!("CGLu7Fa4CCaZ382YfRZr28MpPHs5ybkdYQzqrh1ZHaVb");
+declare_id!("AqRu5b1fd67VyR4MgjKPN9EMgQ8wxauDUxyY5pUsGdAW");
 
 #[program]
 pub mod gold_clob_market {
@@ -12,8 +12,8 @@ pub mod gold_clob_market {
 
     pub fn initialize_config(
         ctx: Context<InitializeConfig>,
-        treasury_token_account: Pubkey,
-        market_maker_token_account: Pubkey,
+        treasury: Pubkey,
+        market_maker: Pubkey,
         trade_treasury_fee_bps: u16,
         trade_market_maker_fee_bps: u16,
         winnings_market_maker_fee_bps: u16,
@@ -26,8 +26,8 @@ pub mod gold_clob_market {
 
         let config = &mut ctx.accounts.config;
         config.authority = *ctx.accounts.authority.key;
-        config.treasury_token_account = treasury_token_account;
-        config.market_maker_token_account = market_maker_token_account;
+        config.treasury = treasury;
+        config.market_maker = market_maker;
         config.trade_treasury_fee_bps = trade_treasury_fee_bps;
         config.trade_market_maker_fee_bps = trade_market_maker_fee_bps;
         config.winnings_market_maker_fee_bps = winnings_market_maker_fee_bps;
@@ -37,8 +37,8 @@ pub mod gold_clob_market {
 
     pub fn update_config(
         ctx: Context<UpdateConfig>,
-        treasury_token_account: Pubkey,
-        market_maker_token_account: Pubkey,
+        treasury: Pubkey,
+        market_maker: Pubkey,
         trade_treasury_fee_bps: u16,
         trade_market_maker_fee_bps: u16,
         winnings_market_maker_fee_bps: u16,
@@ -55,8 +55,8 @@ pub mod gold_clob_market {
         )?;
 
         let config = &mut ctx.accounts.config;
-        config.treasury_token_account = treasury_token_account;
-        config.market_maker_token_account = market_maker_token_account;
+        config.treasury = treasury;
+        config.market_maker = market_maker;
         config.trade_treasury_fee_bps = trade_treasury_fee_bps;
         config.trade_market_maker_fee_bps = trade_market_maker_fee_bps;
         config.winnings_market_maker_fee_bps = winnings_market_maker_fee_bps;
@@ -67,31 +67,31 @@ pub mod gold_clob_market {
     pub fn initialize_order_book(ctx: Context<InitializeOrderBook>) -> Result<()> {
         let order_book = &mut ctx.accounts.order_book;
         order_book.match_state = ctx.accounts.match_state.key();
-        order_book.balances = Vec::new();
-        order_book.orders = Vec::new();
         Ok(())
     }
 
     pub fn initialize_match(ctx: Context<InitializeMatch>, _yes_price: u16) -> Result<()> {
         let match_state = &mut ctx.accounts.match_state;
         match_state.is_open = true;
-        match_state.winner = 0;
+        match_state.winner = MarketSide::None;
         match_state.next_order_id = 1;
-        match_state.vault_authority_bump = ctx.bumps.vault_authority;
-        match_state.authority = *ctx.accounts.user.key; // Store deployer as authority
+        match_state.vault_bump = ctx.bumps.vault;
+        match_state.authority = *ctx.accounts.user.key;
         Ok(())
     }
 
-    pub fn place_order(
-        ctx: Context<PlaceOrder>,
+    pub fn place_order<'info>(
+        ctx: Context<'_, '_, 'info, 'info, PlaceOrder<'info>>,
+        order_id: u64,
         is_buy: bool,
         price: u16,
         amount: u64,
     ) -> Result<()> {
         let match_state = &mut ctx.accounts.match_state;
-        let order_book = &mut ctx.accounts.order_book;
+        let _order_book = &mut ctx.accounts.order_book;
 
         require!(match_state.is_open, ErrorCode::MatchClosed);
+        require!(order_id == match_state.next_order_id, ErrorCode::InvalidOrderId);
         require!(price > 0 && price < 1000, ErrorCode::InvalidPrice);
 
         let price_component = if is_buy {
@@ -101,24 +101,18 @@ pub mod gold_clob_market {
                 .checked_sub(price as u64)
                 .ok_or(ErrorCode::MathOverflow)?
         };
-        let cost = amount
+        let cost_full = amount
             .checked_mul(price_component)
-            .ok_or(ErrorCode::MathOverflow)?
+            .ok_or(ErrorCode::MathOverflow)?;
+            
+        require!(cost_full % 1000 == 0, ErrorCode::PrecisionError);
+        
+        let cost = cost_full
             .checked_div(1000)
             .ok_or(ErrorCode::MathOverflow)?;
         require!(cost > 0, ErrorCode::CostTooLow);
 
-        require_keys_eq!(
-            ctx.accounts.treasury_token_account.key(),
-            ctx.accounts.config.treasury_token_account,
-            ErrorCode::InvalidFeeAccount
-        );
-        require_keys_eq!(
-            ctx.accounts.market_maker_token_account.key(),
-            ctx.accounts.config.market_maker_token_account,
-            ErrorCode::InvalidFeeAccount
-        );
-
+        // Calculate fees
         let trade_treasury_fee = cost
             .checked_mul(ctx.accounts.config.trade_treasury_fee_bps as u64)
             .ok_or(ErrorCode::MathOverflow)?
@@ -130,222 +124,221 @@ pub mod gold_clob_market {
             .checked_div(10_000)
             .ok_or(ErrorCode::MathOverflow)?;
 
+        // Transfer treasury fee (native SOL)
         if trade_treasury_fee > 0 {
-            let fee_cpi_accounts = Transfer {
-                from: ctx.accounts.user_token_account.to_account_info(),
-                to: ctx.accounts.treasury_token_account.to_account_info(),
-                authority: ctx.accounts.user.to_account_info(),
-            };
-            let fee_cpi_ctx =
-                CpiContext::new(ctx.accounts.token_program.to_account_info(), fee_cpi_accounts);
-            token::transfer(fee_cpi_ctx, trade_treasury_fee)?;
+            system_program::transfer(
+                CpiContext::new(
+                    ctx.accounts.system_program.to_account_info(),
+                    system_program::Transfer {
+                        from: ctx.accounts.user.to_account_info(),
+                        to: ctx.accounts.treasury.to_account_info(),
+                    },
+                ),
+                trade_treasury_fee,
+            )?;
         }
 
+        // Transfer market maker fee (native SOL)
         if trade_market_maker_fee > 0 {
-            let fee_cpi_accounts = Transfer {
-                from: ctx.accounts.user_token_account.to_account_info(),
-                to: ctx.accounts.market_maker_token_account.to_account_info(),
-                authority: ctx.accounts.user.to_account_info(),
-            };
-            let fee_cpi_ctx =
-                CpiContext::new(ctx.accounts.token_program.to_account_info(), fee_cpi_accounts);
-            token::transfer(fee_cpi_ctx, trade_market_maker_fee)?;
+            system_program::transfer(
+                CpiContext::new(
+                    ctx.accounts.system_program.to_account_info(),
+                    system_program::Transfer {
+                        from: ctx.accounts.user.to_account_info(),
+                        to: ctx.accounts.market_maker.to_account_info(),
+                    },
+                ),
+                trade_market_maker_fee,
+            )?;
         }
 
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.user_token_account.to_account_info(),
-            to: ctx.accounts.vault.to_account_info(),
-            authority: ctx.accounts.user.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        token::transfer(cpi_ctx, cost)?;
+        // Transfer cost to vault PDA (native SOL)
+        system_program::transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                system_program::Transfer {
+                    from: ctx.accounts.user.to_account_info(),
+                    to: ctx.accounts.vault.to_account_info(),
+                },
+            ),
+            cost,
+        )?;
 
+        let match_key = match_state.key();
+        let vault_bump = match_state.vault_bump;
+
+        let mut account_idx = 0;
         let mut remaining_amount = amount;
         let mut matches_count = 0;
-        const MAX_MATCHES_PER_TX: u32 = 50; // Keep compute under budget
+        const MAX_MATCHES_PER_TX: u32 = 50;
 
-        loop {
-            if remaining_amount == 0 || matches_count >= MAX_MATCHES_PER_TX { break; }
-            let mut best_index = None;
-            let mut best_price = if is_buy { 1000 } else { 0 };
+        while remaining_amount > 0 && matches_count < MAX_MATCHES_PER_TX && account_idx < ctx.remaining_accounts.len() {
+            let maker_order_account = &ctx.remaining_accounts[account_idx];
+            let maker_balance_account = &ctx.remaining_accounts[account_idx + 1];
+            account_idx += 2;
 
-            for (i, order) in order_book.orders.iter().enumerate() {
-                if order.is_buy == is_buy { continue; }
-                if order.filled >= order.amount { continue; }
-                if is_buy {
-                    if order.price <= price && order.price < best_price {
-                        best_price = order.price;
-                        best_index = Some(i);
-                    }
-                } else if order.price >= price && order.price > best_price {
-                    best_price = order.price;
-                    best_index = Some(i);
-                }
-            }
-
-            if let Some(i) = best_index {
-                let maker_price = order_book.orders[i].price;
-                let maker_remaining = order_book.orders[i]
-                    .amount
-                    .checked_sub(order_book.orders[i].filled)
-                    .ok_or(ErrorCode::MathOverflow)?;
-                let fill_amount = std::cmp::min(remaining_amount, maker_remaining);
-
-                order_book.orders[i].filled = order_book.orders[i]
-                    .filled
-                    .checked_add(fill_amount)
-                    .ok_or(ErrorCode::MathOverflow)?;
-                remaining_amount = remaining_amount
-                    .checked_sub(fill_amount)
-                    .ok_or(ErrorCode::MathOverflow)?;
-                let maker = order_book.orders[i].maker;
-
-                if is_buy {
-                    add_shares(order_book, maker, 0, fill_amount);
-                    add_shares(order_book, *ctx.accounts.user.key, fill_amount, 0);
-
-                    // Locked Funds Fix: Taker pays `price` (worse), maker asked `maker_price` (better).
-                    if price > maker_price {
-                        let improvement = fill_amount.checked_mul((price - maker_price) as u64)
-                            .ok_or(ErrorCode::MathOverflow)?
-                            .checked_div(1000)
-                            .ok_or(ErrorCode::MathOverflow)?;
-                        if improvement > 0 {
-                            let match_key = match_state.key();
-                            let bump = match_state.vault_authority_bump;
-                            let seeds: &[&[u8]] = &[
-                                b"vault_auth",
-                                match_key.as_ref(),
-                                &[bump],
-                            ];
-                            let signer_seeds: &[&[&[u8]]] = &[seeds];
-                            let cpi_accounts = Transfer {
-                                from: ctx.accounts.vault.to_account_info(),
-                                to: ctx.accounts.user_token_account.to_account_info(),
-                                authority: ctx.accounts.vault_authority.to_account_info(),
-                            };
-                            let cpi_ctx = CpiContext::new_with_signer(ctx.accounts.token_program.to_account_info(), cpi_accounts, signer_seeds);
-                            token::transfer(cpi_ctx, improvement)?;
-                        }
-                    }
-                } else {
-                    add_shares(order_book, maker, fill_amount, 0);
-                    add_shares(order_book, *ctx.accounts.user.key, 0, fill_amount);
-
-                    // Locked Funds Fix: Taker asked `price` (worse), maker bid `maker_price` (better).
-                    if maker_price > price {
-                        let improvement = fill_amount.checked_mul((maker_price - price) as u64)
-                            .ok_or(ErrorCode::MathOverflow)?
-                            .checked_div(1000)
-                            .ok_or(ErrorCode::MathOverflow)?;
-                        if improvement > 0 {
-                            let match_key = match_state.key();
-                            let bump = match_state.vault_authority_bump;
-                            let seeds: &[&[u8]] = &[
-                                b"vault_auth",
-                                match_key.as_ref(),
-                                &[bump],
-                            ];
-                            let signer_seeds: &[&[&[u8]]] = &[seeds];
-                            let cpi_accounts = Transfer {
-                                from: ctx.accounts.vault.to_account_info(),
-                                to: ctx.accounts.user_token_account.to_account_info(),
-                                authority: ctx.accounts.vault_authority.to_account_info(),
-                            };
-                            let cpi_ctx = CpiContext::new_with_signer(ctx.accounts.token_program.to_account_info(), cpi_accounts, signer_seeds);
-                            token::transfer(cpi_ctx, improvement)?;
-                        }
-                    }
-                }
-                matches_count += 1;
+            if maker_order_account.data_is_empty() { continue; }
+            let mut maker_order: Account<Order> = Account::try_from(maker_order_account).map_err(|_| ErrorCode::InvalidRemainingAccount)?;
+            
+            if maker_order.is_buy == is_buy { continue; }
+            if maker_order.filled >= maker_order.amount { continue; }
+            if maker_order.match_state != match_state.key() { continue; }
+            
+            let maker_price = maker_order.price;
+            let checks_out = if is_buy {
+                maker_price <= price
             } else {
-                break;
+                maker_price >= price
+            };
+            if !checks_out { continue; }
+
+            let mut maker_balance: Account<UserBalance> = Account::try_from(maker_balance_account).map_err(|_| ErrorCode::InvalidRemainingAccount)?;
+            require_keys_eq!(maker_balance.user, maker_order.maker, ErrorCode::InvalidRemainingAccount);
+
+            let maker_remaining = maker_order.amount.checked_sub(maker_order.filled).ok_or(ErrorCode::MathOverflow)?;
+            let fill_amount = std::cmp::min(remaining_amount, maker_remaining);
+
+            maker_order.filled = maker_order.filled.checked_add(fill_amount).ok_or(ErrorCode::MathOverflow)?;
+            remaining_amount = remaining_amount.checked_sub(fill_amount).ok_or(ErrorCode::MathOverflow)?;
+
+            if is_buy {
+                maker_balance.no_shares = maker_balance.no_shares.checked_add(fill_amount).ok_or(ErrorCode::MathOverflow)?;
+                let user_balance = &mut ctx.accounts.user_balance;
+                user_balance.user = *ctx.accounts.user.key;
+                user_balance.match_state = match_state.key();
+                user_balance.yes_shares = user_balance.yes_shares.checked_add(fill_amount).ok_or(ErrorCode::MathOverflow)?;
+
+                if price > maker_price {
+                    let improvement = fill_amount.checked_mul((price - maker_price) as u64)
+                        .ok_or(ErrorCode::MathOverflow)?
+                        .checked_div(1000)
+                        .ok_or(ErrorCode::MathOverflow)?;
+                    if improvement > 0 {
+                        // Refund price improvement from vault PDA
+                        let seeds: &[&[u8]] = &[b"vault", match_key.as_ref(), &[vault_bump]];
+                        let signer_seeds: &[&[&[u8]]] = &[seeds];
+                        system_program::transfer(
+                            CpiContext::new_with_signer(
+                                ctx.accounts.system_program.to_account_info(),
+                                system_program::Transfer {
+                                    from: ctx.accounts.vault.to_account_info(),
+                                    to: ctx.accounts.user.to_account_info(),
+                                },
+                                signer_seeds,
+                            ),
+                            improvement,
+                        )?;
+                    }
+                }
+            } else {
+                maker_balance.yes_shares = maker_balance.yes_shares.checked_add(fill_amount).ok_or(ErrorCode::MathOverflow)?;
+                let user_balance = &mut ctx.accounts.user_balance;
+                user_balance.user = *ctx.accounts.user.key;
+                user_balance.match_state = match_state.key();
+                user_balance.no_shares = user_balance.no_shares.checked_add(fill_amount).ok_or(ErrorCode::MathOverflow)?;
+
+                if maker_price > price {
+                    let improvement = fill_amount.checked_mul((maker_price - price) as u64)
+                        .ok_or(ErrorCode::MathOverflow)?
+                        .checked_div(1000)
+                        .ok_or(ErrorCode::MathOverflow)?;
+                    if improvement > 0 {
+                        let seeds: &[&[u8]] = &[b"vault", match_key.as_ref(), &[vault_bump]];
+                        let signer_seeds: &[&[&[u8]]] = &[seeds];
+                        system_program::transfer(
+                            CpiContext::new_with_signer(
+                                ctx.accounts.system_program.to_account_info(),
+                                system_program::Transfer {
+                                    from: ctx.accounts.vault.to_account_info(),
+                                    to: ctx.accounts.user.to_account_info(),
+                                },
+                                signer_seeds,
+                            ),
+                            improvement,
+                        )?;
+                    }
+                }
             }
+            
+            maker_order.exit(&crate::ID)?;
+            maker_balance.exit(&crate::ID)?;
+            matches_count += 1;
         }
 
         if remaining_amount > 0 {
-            let order = Order {
-                id: match_state.next_order_id,
-                maker: *ctx.accounts.user.key,
-                is_buy,
-                price,
-                amount,
-                filled: amount - remaining_amount,
-            };
-            order_book.orders.push(order);
+            let new_order = &mut ctx.accounts.new_order;
+            new_order.id = match_state.next_order_id;
+            new_order.match_state = match_state.key();
+            new_order.maker = *ctx.accounts.user.key;
+            new_order.is_buy = is_buy;
+            new_order.price = price;
+            new_order.amount = amount;
+            new_order.filled = amount - remaining_amount;
+            
             match_state.next_order_id += 1;
         }
 
-        // Clean up fully matched orders to optimize compute during future iterations
-        order_book.orders.retain(|order| order.filled < order.amount);
-
         Ok(())
     }
 
-    pub fn cancel_order(ctx: Context<CancelOrder>, order_id: u64) -> Result<()> {
-        let match_state = &mut ctx.accounts.match_state;
-        let order_book = &mut ctx.accounts.order_book;
-        require!(match_state.is_open, ErrorCode::MatchClosed);
+    pub fn cancel_order(ctx: Context<CancelOrder>, _order_id: u64) -> Result<()> {
+        let order = &mut ctx.accounts.order;
+        require!(order.maker == *ctx.accounts.user.key, ErrorCode::NotOrderMaker);
+        require!(order.filled < order.amount, ErrorCode::AlreadyFilled);
 
-        let order_index = order_book.orders.iter().position(|o| o.id == order_id)
-            .ok_or(ErrorCode::OrderNotFound)?;
+        let remaining = order.amount - order.filled;
+        order.filled = order.amount;
 
-        {
-            let order = &mut order_book.orders[order_index];
-            require!(order.maker == *ctx.accounts.user.key, ErrorCode::NotOrderMaker);
-            require!(order.filled < order.amount, ErrorCode::AlreadyFilled);
-
-            let remaining = order.amount - order.filled;
-            order.filled = order.amount; // Mark as fully filled/cancelled
-
-            let price_component = if order.is_buy {
-                order.price as u64
-            } else {
-                1000u64
-                    .checked_sub(order.price as u64)
-                    .ok_or(ErrorCode::MathOverflow)?
-            };
-            let cost = remaining
-                .checked_mul(price_component)
+        let price_component = if order.is_buy {
+            order.price as u64
+        } else {
+            1000u64
+                .checked_sub(order.price as u64)
                 .ok_or(ErrorCode::MathOverflow)?
-                .checked_div(1000)
-                .ok_or(ErrorCode::MathOverflow)?;
+        };
+        let cost_full = remaining
+            .checked_mul(price_component)
+            .ok_or(ErrorCode::MathOverflow)?;
+            
+        require!(cost_full % 1000 == 0, ErrorCode::PrecisionError);
+            
+        let cost = cost_full
+            .checked_div(1000)
+            .ok_or(ErrorCode::MathOverflow)?;
 
-            let match_key = match_state.key();
-            let bump = match_state.vault_authority_bump;
+        let match_state = &ctx.accounts.match_state;
+        let match_key = match_state.key();
+        let bump = match_state.vault_bump;
 
-            let seeds: &[&[u8]] = &[
-                b"vault_auth",
-                match_key.as_ref(),
-                &[bump],
-            ];
+        let seeds: &[&[u8]] = &[b"vault", match_key.as_ref(), &[bump]];
+        let signer_seeds: &[&[&[u8]]] = &[seeds];
 
-            let cpi_accounts = Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.user_token_account.to_account_info(),
-                authority: ctx.accounts.vault_authority.to_account_info(),
-            };
-            let cpi_program = ctx.accounts.token_program.to_account_info();
-            let signer_seeds: &[&[&[u8]]] = &[seeds];
-            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
-            token::transfer(cpi_ctx, cost)?;
+        // Refund native SOL from vault PDA
+        if cost > 0 {
+            system_program::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.system_program.to_account_info(),
+                    system_program::Transfer {
+                        from: ctx.accounts.vault.to_account_info(),
+                        to: ctx.accounts.user.to_account_info(),
+                    },
+                    signer_seeds,
+                ),
+                cost,
+            )?;
         }
 
-        // Clean up the cancelled order immediately
-        order_book.orders.retain(|order| order.filled < order.amount);
-
         Ok(())
     }
 
-    pub fn resolve_match(ctx: Context<ResolveMatch>, winner: u8) -> Result<()> {
+    pub fn resolve_match(ctx: Context<ResolveMatch>, winner: MarketSide) -> Result<()> {
         let match_state = &mut ctx.accounts.match_state;
         require!(match_state.is_open, ErrorCode::MatchClosed);
         require!(
             *ctx.accounts.authority.key == match_state.authority,
             ErrorCode::UnauthorizedResolver
         );
-        require!(winner == 1 || winner == 2, ErrorCode::InvalidWinner);
+        require!(winner == MarketSide::Yes || winner == MarketSide::No, ErrorCode::InvalidWinner);
         match_state.is_open = false;
         match_state.winner = winner;
         Ok(())
@@ -353,33 +346,19 @@ pub mod gold_clob_market {
 
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         let match_state = &ctx.accounts.match_state;
-        let order_book = &mut ctx.accounts.order_book;
+        let user_balance = &mut ctx.accounts.user_balance;
+        
         require!(!match_state.is_open, ErrorCode::MatchStillOpen);
-        require_keys_eq!(
-            ctx.accounts.treasury_token_account.key(),
-            ctx.accounts.config.treasury_token_account,
-            ErrorCode::InvalidFeeAccount
-        );
-        require_keys_eq!(
-            ctx.accounts.market_maker_token_account.key(),
-            ctx.accounts.config.market_maker_token_account,
-            ErrorCode::InvalidFeeAccount
-        );
 
-        let user_key = ctx.accounts.user.key();
-        let mut winning_shares = 0;
+        let mut winning_shares: u64 = 0;
 
-        // Find user balances and clear them
-        if let Some(bal) = order_book.balances.iter_mut().find(|b| b.user == user_key) {
-            if match_state.winner == 1 {
-                winning_shares = bal.yes_shares;
-                bal.yes_shares = 0; // Only zero winning side
-            } else if match_state.winner == 2 {
-                winning_shares = bal.no_shares;
-                bal.no_shares = 0; // Only zero winning side
-            }
-        }
-
+        if match_state.winner == MarketSide::Yes {
+            winning_shares = user_balance.yes_shares;
+            user_balance.yes_shares = 0;
+        } else if match_state.winner == MarketSide::No {
+            winning_shares = user_balance.no_shares;
+            user_balance.no_shares = 0;
+        } 
         require!(winning_shares > 0, ErrorCode::NothingToClaim);
 
         let fee = winning_shares
@@ -391,51 +370,46 @@ pub mod gold_clob_market {
             .checked_sub(fee)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        let seeds: &[&[u8]] = &[
-            b"vault_auth",
-            ctx.accounts.match_state.to_account_info().key.as_ref(),
-            &[match_state.vault_authority_bump],
-        ];
+        let match_key = match_state.key();
+        let vault_bump = match_state.vault_bump;
+        let seeds: &[&[u8]] = &[b"vault", match_key.as_ref(), &[vault_bump]];
         let signer_seeds: &[&[&[u8]]] = &[seeds];
 
-        // 1. Transfer winnings fee to Market Maker
+        // Transfer winnings fee to market maker (native SOL)
         if fee > 0 {
-            let mm_cpi_accounts = Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.market_maker_token_account.to_account_info(),
-                authority: ctx.accounts.vault_authority.to_account_info(),
-            };
-            let mm_cpi_ctx = CpiContext::new_with_signer(ctx.accounts.token_program.to_account_info(), mm_cpi_accounts, signer_seeds);
-            token::transfer(mm_cpi_ctx, fee)?;
+            system_program::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.system_program.to_account_info(),
+                    system_program::Transfer {
+                        from: ctx.accounts.vault.to_account_info(),
+                        to: ctx.accounts.market_maker.to_account_info(),
+                    },
+                    signer_seeds,
+                ),
+                fee,
+            )?;
         }
 
-        // 2. Transfer Payout to User
+        // Transfer payout to user (native SOL)
         if payout > 0 {
-            let payout_cpi_accounts = Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.user_token_account.to_account_info(),
-                authority: ctx.accounts.vault_authority.to_account_info(),
-            };
-            let payout_cpi_ctx = CpiContext::new_with_signer(ctx.accounts.token_program.to_account_info(), payout_cpi_accounts, signer_seeds);
-            token::transfer(payout_cpi_ctx, payout)?;
+            system_program::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.system_program.to_account_info(),
+                    system_program::Transfer {
+                        from: ctx.accounts.vault.to_account_info(),
+                        to: ctx.accounts.user.to_account_info(),
+                    },
+                    signer_seeds,
+                ),
+                payout,
+            )?;
         }
 
         Ok(())
     }
 }
 
-fn add_shares(book: &mut OrderBook, user: Pubkey, yes: u64, no: u64) {
-    if let Some(bal) = book.balances.iter_mut().find(|b| b.user == user) {
-        bal.yes_shares += yes;
-        bal.no_shares += no;
-    } else {
-        book.balances.push(UserBalance {
-            user,
-            yes_shares: yes,
-            no_shares: no,
-        });
-    }
-}
+
 
 fn validate_fee_config(
     trade_treasury_fee_bps: u16,
@@ -500,56 +474,75 @@ pub struct InitializeMatch<'info> {
     )]
     pub config: Account<'info, MarketConfig>,
 
+    /// CHECK: PDA vault that holds native SOL
     #[account(
-        seeds = [b"vault_auth", match_state.key().as_ref()],
+        mut,
+        seeds = [b"vault", match_state.key().as_ref()],
         bump,
     )]
-    /// CHECK: PDA authority for vault
-    pub vault_authority: UncheckedAccount<'info>,
+    pub vault: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
+#[instruction(order_id: u64)]
 pub struct PlaceOrder<'info> {
     #[account(mut)]
-    pub match_state: Account<'info, MatchState>,
+    pub match_state: Box<Account<'info, MatchState>>,
     #[account(
         mut,
         has_one = match_state @ ErrorCode::OrderBookMismatch,
     )]
-    pub order_book: Account<'info, OrderBook>,
+    pub order_book: Box<Account<'info, OrderBook>>,
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + UserBalance::INIT_SPACE,
+        seeds = [b"balance", match_state.key().as_ref(), user.key().as_ref()],
+        bump
+    )]
+    pub user_balance: Box<Account<'info, UserBalance>>,
+    #[account(
+        init,
+        payer = user,
+        space = 8 + Order::INIT_SPACE,
+        seeds = [b"order", match_state.key().as_ref(), user.key().as_ref(), &order_id.to_le_bytes()],
+        bump
+    )]
+    pub new_order: Box<Account<'info, Order>>,
     #[account(
         seeds = [b"config"],
         bump,
     )]
-    pub config: Account<'info, MarketConfig>,
-    #[account(mut)]
-    pub user_token_account: Account<'info, TokenAccount>,
+    pub config: Box<Account<'info, MarketConfig>>,
+
+    /// CHECK: Treasury wallet to receive fees
     #[account(
         mut,
-        address = config.treasury_token_account @ ErrorCode::InvalidFeeAccount,
+        address = config.treasury @ ErrorCode::InvalidFeeAccount,
     )]
-    pub treasury_token_account: Account<'info, TokenAccount>,
+    pub treasury: UncheckedAccount<'info>,
+
+    /// CHECK: Market maker wallet to receive fees
     #[account(
         mut,
-        address = config.market_maker_token_account @ ErrorCode::InvalidFeeAccount,
+        address = config.market_maker @ ErrorCode::InvalidFeeAccount,
     )]
-    pub market_maker_token_account: Account<'info, TokenAccount>,
+    pub market_maker: UncheckedAccount<'info>,
+
+    /// CHECK: PDA vault that holds native SOL
     #[account(
         mut,
-        constraint = vault.owner == vault_authority.key() @ ErrorCode::VaultOwnerMismatch,
+        seeds = [b"vault", match_state.key().as_ref()],
+        bump = match_state.vault_bump,
     )]
-    pub vault: Account<'info, TokenAccount>,
-    #[account(
-        seeds = [b"vault_auth", match_state.key().as_ref()],
-        bump = match_state.vault_authority_bump,
-    )]
-    /// CHECK: PDA authority for vault
-    pub vault_authority: UncheckedAccount<'info>,
+    pub vault: UncheckedAccount<'info>,
+
     #[account(mut)]
     pub user: Signer<'info>,
-    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+    // remaining_accounts: Maker Orders being matched, Maker Balances being credited
 }
 
 #[derive(Accounts)]
@@ -562,117 +555,131 @@ pub struct ResolveMatch<'info> {
 #[derive(Accounts)]
 pub struct Claim<'info> {
     #[account(mut)]
-    pub match_state: Account<'info, MatchState>,
+    pub match_state: Box<Account<'info, MatchState>>,
     #[account(
         mut,
         has_one = match_state @ ErrorCode::OrderBookMismatch,
     )]
-    pub order_book: Account<'info, OrderBook>,
+    pub order_book: Box<Account<'info, OrderBook>>,
+    #[account(
+        mut,
+        seeds = [b"balance", match_state.key().as_ref(), user.key().as_ref()],
+        bump
+    )]
+    pub user_balance: Box<Account<'info, UserBalance>>,
     #[account(
         seeds = [b"config"],
         bump,
     )]
-    pub config: Account<'info, MarketConfig>,
-    #[account(mut)]
-    pub user_token_account: Account<'info, TokenAccount>,
-    #[account(mut)]
-    pub treasury_token_account: Account<'info, TokenAccount>,
-    #[account(mut)]
-    pub market_maker_token_account: Account<'info, TokenAccount>,
+    pub config: Box<Account<'info, MarketConfig>>,
+
+    /// CHECK: Market maker wallet to receive winnings fee
     #[account(
         mut,
-        constraint = vault.owner == vault_authority.key() @ ErrorCode::VaultOwnerMismatch,
+        address = config.market_maker @ ErrorCode::InvalidFeeAccount,
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub market_maker: UncheckedAccount<'info>,
 
+    /// CHECK: PDA vault that holds native SOL
     #[account(
-        seeds = [b"vault_auth", match_state.key().as_ref()],
-        bump = match_state.vault_authority_bump,
+        mut,
+        seeds = [b"vault", match_state.key().as_ref()],
+        bump = match_state.vault_bump,
     )]
-    /// CHECK: PDA authority for vault
-    pub vault_authority: UncheckedAccount<'info>,
+    pub vault: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub user: Signer<'info>,
-    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
+#[instruction(order_id: u64)]
 pub struct CancelOrder<'info> {
     #[account(mut)]
-    pub match_state: Account<'info, MatchState>,
+    pub match_state: Box<Account<'info, MatchState>>,
     #[account(
         mut,
         has_one = match_state @ ErrorCode::OrderBookMismatch,
     )]
-    pub order_book: Account<'info, OrderBook>,
-    #[account(mut)]
-    pub user_token_account: Account<'info, TokenAccount>,
+    pub order_book: Box<Account<'info, OrderBook>>,
     #[account(
         mut,
-        constraint = vault.owner == vault_authority.key() @ ErrorCode::VaultOwnerMismatch,
+        seeds = [b"order", match_state.key().as_ref(), user.key().as_ref(), &order_id.to_le_bytes()],
+        bump,
+        close = user,
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub order: Box<Account<'info, Order>>,
 
+    /// CHECK: PDA vault that holds native SOL
     #[account(
-        seeds = [b"vault_auth", match_state.key().as_ref()],
-        bump = match_state.vault_authority_bump,
+        mut,
+        seeds = [b"vault", match_state.key().as_ref()],
+        bump = match_state.vault_bump,
     )]
-    /// CHECK: PDA authority for vault
-    pub vault_authority: UncheckedAccount<'info>,
+    pub vault: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub user: Signer<'info>,
-    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
+pub enum MarketSide {
+    None,
+    Yes,
+    No,
 }
 
 #[account]
 #[derive(InitSpace)]
 pub struct MatchState {
     pub is_open: bool,
-    pub winner: u8, // 0 = none, 1 = YES, 2 = NO
+    pub winner: MarketSide,
     pub next_order_id: u64,
-    pub vault_authority_bump: u8,
-    pub authority: Pubkey, // Who can resolve this match
+    pub vault_bump: u8,
+    pub authority: Pubkey,
 }
 
 #[account]
 #[derive(InitSpace)]
 pub struct MarketConfig {
     pub authority: Pubkey,
-    pub treasury_token_account: Pubkey,
-    pub market_maker_token_account: Pubkey,
+    pub treasury: Pubkey,
+    pub market_maker: Pubkey,
     pub trade_treasury_fee_bps: u16,
     pub trade_market_maker_fee_bps: u16,
     pub winnings_market_maker_fee_bps: u16,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, InitSpace)]
+#[account]
+#[derive(InitSpace)]
+pub struct OrderBook {
+    pub match_state: Pubkey,
+}
+
+#[account]
+#[derive(InitSpace)]
 pub struct UserBalance {
     pub user: Pubkey,
+    pub match_state: Pubkey,
     pub yes_shares: u64,
     pub no_shares: u64,
 }
 
 #[account]
 #[derive(InitSpace)]
-pub struct OrderBook {
-    pub match_state: Pubkey, // Tie order book to its match
-    #[max_len(32)]
-    pub balances: Vec<UserBalance>,
-    #[max_len(96)]
-    pub orders: Vec<Order>,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]
 pub struct Order {
     pub id: u64,
+    pub match_state: Pubkey,
     pub maker: Pubkey,
     pub is_buy: bool,
     pub price: u16,
     pub amount: u64,
     pub filled: u64,
 }
+
+
 
 #[error_code]
 pub enum ErrorCode {
@@ -696,8 +703,6 @@ pub enum ErrorCode {
     UnauthorizedResolver,
     #[msg("Order book does not belong to this match")]
     OrderBookMismatch,
-    #[msg("Vault owner does not match expected authority")]
-    VaultOwnerMismatch,
     #[msg("Invalid fee account provided for treasury or market maker")]
     InvalidFeeAccount,
     #[msg("Invalid fee basis points")]
@@ -706,6 +711,12 @@ pub enum ErrorCode {
     UnauthorizedConfigAuthority,
     #[msg("Math overflow")]
     MathOverflow,
+    #[msg("Math precision error")]
+    PrecisionError,
+    #[msg("Invalid remaining account provided")]
+    InvalidRemainingAccount,
     #[msg("Winner must be YES (1) or NO (2)")]
     InvalidWinner,
+    #[msg("Provided order ID does not match next_order_id")]
+    InvalidOrderId,
 }

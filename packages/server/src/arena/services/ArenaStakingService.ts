@@ -55,9 +55,14 @@ export class ArenaStakingService {
   );
 
   private readonly ctx: ArenaContext;
+  private readonly listIdentityWallets?: (wallet: string) => Promise<string[]>;
 
-  constructor(ctx: ArenaContext) {
+  constructor(
+    ctx: ArenaContext,
+    listIdentityWallets?: (wallet: string) => Promise<string[]>,
+  ) {
     this.ctx = ctx;
+    this.listIdentityWallets = listIdentityWallets;
   }
 
   // ============================================================================
@@ -340,11 +345,22 @@ export class ArenaStakingService {
   }
 
   public async fetchGoldPositionForWallet(
-    wallet: string,
+    walletRaw: string,
   ): Promise<GoldPosition> {
+    const wallet = normalizeWallet(walletRaw);
+    let targetWallets = [wallet];
+    if (this.listIdentityWallets) {
+      targetWallets = await this.listIdentityWallets(wallet);
+      if (targetWallets.length === 0) targetWallets = [wallet];
+    }
+
+    // Find a solana wallet among targetWallets to fetch hold days and balance from
+    const solanaWallet =
+      targetWallets.find((w) => isLikelySolanaWallet(w)) || wallet;
+
     const [liquid, staked] = await Promise.all([
-      this.fetchGoldBalanceAndHoldDays(wallet),
-      this.fetchStakedGoldBalanceAndHoldDays(wallet),
+      this.fetchGoldBalanceAndHoldDays(solanaWallet),
+      this.fetchStakedGoldBalanceAndHoldDays(solanaWallet),
     ]);
 
     const liquidGoldBalance = Math.max(0, liquid.balance);

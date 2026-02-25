@@ -8,9 +8,7 @@ APP_PORT="${E2E_APP_PORT:-4182}"
 APP_LOG="$APP_DIR/.e2e-app-${E2E_CLUSTER:-mainnet-beta}.log"
 CLUSTER="${E2E_CLUSTER:-mainnet-beta}"
 DEFAULT_PUBLIC_ORACLE_ID="EW9GwxawnPEHA4eFgqd2oq9t55gSG4ReNqPRyG6Ui6PF"
-DEFAULT_PUBLIC_MARKET_ID="23YJWaC8AhEufH8eYdPMAouyWEgJ5MQWyvz3z8akTtR6"
 PROGRAM_ORACLE_ID="${VITE_FIGHT_ORACLE_PROGRAM_ID:-$DEFAULT_PUBLIC_ORACLE_ID}"
-PROGRAM_MARKET_ID="${VITE_GOLD_BINARY_MARKET_PROGRAM_ID:-$DEFAULT_PUBLIC_MARKET_ID}"
 
 APP_PID=""
 
@@ -63,7 +61,7 @@ deploy_testnet_programs_if_requested() {
     return 0
   fi
 
-  if account_exists testnet "$PROGRAM_ORACLE_ID" && account_exists testnet "$PROGRAM_MARKET_ID"; then
+  if account_exists testnet "$PROGRAM_ORACLE_ID"; then
     echo "[e2e] testnet programs already deployed"
     return 0
   fi
@@ -85,12 +83,6 @@ deploy_testnet_programs_if_requested() {
     --url testnet \
     --program-id "$ANCHOR_DIR/target/deploy/fight_oracle-keypair.json" \
     "$ANCHOR_DIR/target/deploy/fight_oracle.so"
-
-  echo "[e2e] deploying market program to testnet"
-  solana program deploy \
-    --url testnet \
-    --program-id "$ANCHOR_DIR/target/deploy/gold_binary_market-keypair.json" \
-    "$ANCHOR_DIR/target/deploy/gold_binary_market.so"
 }
 
 case "$CLUSTER" in

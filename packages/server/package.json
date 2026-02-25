@@ -92,7 +92,7 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@playwright/test": "^1.53.1",
+    "@playwright/test": "^1.58.2",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/moment": "^2.13.0",
     "@types/node": "^24.7.2",

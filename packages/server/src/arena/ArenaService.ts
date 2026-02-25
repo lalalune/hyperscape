@@ -21,6 +21,7 @@ import { ArenaPayoutService } from "./services/ArenaPayoutService.js";
 import { ArenaPointsService } from "./services/ArenaPointsService.js";
 import { ArenaStakingService } from "./services/ArenaStakingService.js";
 import { ArenaWalletService } from "./services/ArenaWalletService.js";
+import { EvmTransactionInspector } from "./services/EvmTransactionInspector.js";
 
 // Re-export types used by callers
 import type {
@@ -100,7 +101,9 @@ export class ArenaService {
 
     // Stateless sub-services
     this.rounds = new ArenaRoundService(this.ctx);
-    this.staking = new ArenaStakingService(this.ctx);
+    this.staking = new ArenaStakingService(this.ctx, async (w) =>
+      this.wallets.listIdentityWallets(w),
+    );
 
     // Points needs staking + wallet ops
     this.wallets = new ArenaWalletService(
@@ -116,7 +119,13 @@ export class ArenaService {
         ),
     );
 
-    this.points = new ArenaPointsService(this.ctx, this.staking, this.wallets);
+    const evmInspector = new EvmTransactionInspector();
+    this.points = new ArenaPointsService(
+      this.ctx,
+      this.staking,
+      this.wallets,
+      evmInspector,
+    );
 
     this.payouts = new ArenaPayoutService(this.ctx, (eventType, payload) =>
       this.rounds.persistRoundEvent(eventType, payload),
@@ -337,7 +346,7 @@ export class ArenaService {
     roundId: string;
     bettorWallet: string;
     side: ArenaSide;
-    sourceAsset: "GOLD" | "SOL" | "USDC";
+    sourceAsset: "GOLD" | "SOL" | "USDC" | "BNB" | "ETH" | "AVAX";
     sourceAmount: string;
     goldAmount: string;
     txSignature?: string | null;
@@ -353,7 +362,7 @@ export class ArenaService {
   public async recordExternalBet(params: {
     bettorWallet: string;
     chain: ArenaFeeChain;
-    sourceAsset: "GOLD" | "SOL" | "USDC";
+    sourceAsset: "GOLD" | "SOL" | "USDC" | "BNB" | "ETH" | "AVAX";
     sourceAmount: string;
     goldAmount: string;
     feeBps: number;
@@ -560,7 +569,7 @@ export class ArenaService {
     roundId: string | null;
     roundSeedHex: string | null;
     betId: string;
-    sourceAsset: "GOLD" | "SOL" | "USDC";
+    sourceAsset: "GOLD" | "SOL" | "USDC" | "BNB" | "ETH" | "AVAX";
     goldAmount: string;
     txSignature: string | null;
     side: ArenaSide;

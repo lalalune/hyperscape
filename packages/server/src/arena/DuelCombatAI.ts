@@ -35,14 +35,14 @@ const DEFAULT_CONFIG: DuelCombatConfig = {
 };
 
 /** Health percentage thresholds that trigger trash talk events. */
-const TRASH_TALK_THRESHOLDS = [75, 50, 25, 10] as const;
+const TRASH_TALK_THRESHOLDS = [90, 80, 70, 60, 50, 40, 30, 20, 10] as const;
 
 /** Minimum milliseconds between trash talk LLM calls. */
-const TRASH_TALK_COOLDOWN_MS = 8_000;
+const TRASH_TALK_COOLDOWN_MS = 4_000;
 
-/** Ambient trash talk fires randomly every 15-25 ticks. */
-const AMBIENT_TAUNT_MIN_TICKS = 15;
-const AMBIENT_TAUNT_MAX_TICKS = 25;
+/** Ambient trash talk fires randomly every 5-12 ticks. */
+const AMBIENT_TAUNT_MIN_TICKS = 5;
+const AMBIENT_TAUNT_MAX_TICKS = 12;
 
 /** Scripted fallback taunts when no LLM runtime is available. */
 const FALLBACK_TAUNTS_OWN_LOW = [
@@ -52,6 +52,8 @@ const FALLBACK_TAUNTS_OWN_LOW = [
   "Still standing",
   "Come on then!",
   "You call that damage?",
+  "Barely a scratch",
+  "Try harder",
 ];
 
 const FALLBACK_TAUNTS_OPPONENT_LOW = [
@@ -61,6 +63,8 @@ const FALLBACK_TAUNTS_OPPONENT_LOW = [
   "One more hit...",
   "Almost there!",
   "Easy money",
+  "Lights out",
+  "Get rekt",
 ];
 
 const FALLBACK_TAUNTS_AMBIENT = [
@@ -72,6 +76,20 @@ const FALLBACK_TAUNTS_AMBIENT = [
   "*yawns*",
   "Is this PvP?",
   "Warming up",
+  "You're trash",
+  "Catch these hands",
+];
+
+/** Opening taunts fired at the very start of a duel. */
+const FALLBACK_TAUNTS_OPENING = [
+  "You're going down",
+  "Let's dance",
+  "Ready to lose?",
+  "This won't take long",
+  "Easy fight",
+  "Hope you said bye",
+  "Prepare yourself",
+  "No mercy",
 ];
 
 type CombatPhase = "opening" | "trading" | "finishing" | "desperate";
@@ -148,9 +166,6 @@ export class DuelCombatAI {
 
   private isRunning = false;
   private tickCount = 0;
-  private ticksSinceLastAttack = 0;
-  /** Weapon attack speed in ticks (queried from equipment at start). */
-  private weaponSpeedTicks = 4;
   private lastHealthPct = 100;
   private opponentLastHealthPct = 100;
   private totalDamageDealt = 0;
@@ -235,17 +250,14 @@ export class DuelCombatAI {
         Math.random() * (AMBIENT_TAUNT_MAX_TICKS - AMBIENT_TAUNT_MIN_TICKS),
       );
 
-    // Query weapon attack speed so the AI attacks at the correct cadence.
-    // startCombat() does NOT auto-attack — executeAttack() is the only attack
-    // driver, so the AI must call it every weaponSpeedTicks.
-    this.weaponSpeedTicks = this.service.getWeaponAttackSpeed();
+    console.log(`[DuelCombatAI] Started combat against ${this.opponentId}`);
 
-    // Seed ticksSinceLastAttack to weaponSpeedTicks so the very first tick
-    // triggers an attack instead of waiting a full cooldown cycle.
-    this.ticksSinceLastAttack = this.weaponSpeedTicks;
-
-    console.log(
-      `[DuelCombatAI] Started combat against ${this.opponentId} (weaponSpeed=${this.weaponSpeedTicks} ticks)`,
+    // Fire an opening taunt immediately when the fight starts
+    this.fireTrashTalk(
+      "opening",
+      `The duel has just begun! Taunt your opponent ${this.opponentName || ""} with an opening line.`,
+      100,
+      null,
     );
   }
 
@@ -789,7 +801,7 @@ export class DuelCombatAI {
    * Always background / fire-and-forget — never blocks tick.
    */
   private fireTrashTalk(
-    kind: "own_low" | "opponent_low" | "ambient",
+    kind: "own_low" | "opponent_low" | "ambient" | "opening",
     situation: string,
     healthPct: number,
     opponentData: OpponentData | null,
@@ -805,7 +817,9 @@ export class DuelCombatAI {
           ? FALLBACK_TAUNTS_OWN_LOW
           : kind === "opponent_low"
             ? FALLBACK_TAUNTS_OPPONENT_LOW
-            : FALLBACK_TAUNTS_AMBIENT;
+            : kind === "opening"
+              ? FALLBACK_TAUNTS_OPENING
+              : FALLBACK_TAUNTS_AMBIENT;
       const msg = pool[Math.floor(Math.random() * pool.length)];
       this.lastTrashTalkTime = Date.now();
       try {
@@ -887,7 +901,9 @@ export class DuelCombatAI {
             ? FALLBACK_TAUNTS_OWN_LOW
             : kind === "opponent_low"
               ? FALLBACK_TAUNTS_OPPONENT_LOW
-              : FALLBACK_TAUNTS_AMBIENT;
+              : kind === "opening"
+                ? FALLBACK_TAUNTS_OPENING
+                : FALLBACK_TAUNTS_AMBIENT;
         const msg = pool[Math.floor(Math.random() * pool.length)];
         try {
           sendChat(msg);
@@ -904,21 +920,18 @@ export class DuelCombatAI {
     state: EmbeddedGameState,
     _phase: CombatPhase,
   ): Promise<void> {
-    this.ticksSinceLastAttack++;
-
-    // Combat dropped or wrong target — need immediate re-engagement.
-    const needsInitialAttack =
+    // The combat system's auto-attack loop (processPlayerCombatTick →
+    // processAutoAttackOnTick) drives the actual attack cadence once combat is
+    // established.  The AI only needs to (re-)engage when combat has dropped
+    // or the target has changed — calling executeAttack on every cooldown cycle
+    // creates a redundant second driver that competes for the same cooldown slot,
+    // silently dropping attacks (especially for slow weapons like 2h swords).
+    const needsEngagement =
       !state.inCombat || state.currentTarget !== this.opponentId;
 
-    // startCombat() does NOT auto-attack — executeAttack() is the ONLY attack
-    // driver for agents. Call it every weapon-speed cycle; the combat system's
-    // internal cooldown silently rejects attacks that arrive too early.
-    const cooldownElapsed = this.ticksSinceLastAttack >= this.weaponSpeedTicks;
-
-    if (needsInitialAttack || cooldownElapsed) {
+    if (needsEngagement) {
       try {
         await this.service.executeAttack(this.opponentId);
-        this.ticksSinceLastAttack = 0;
         this.attacksLanded++;
       } catch (err) {
         console.debug(`[DuelCombatAI] Attack failed:`, errMsg(err));

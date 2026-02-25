@@ -89,9 +89,9 @@ export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
     mobSpawns: [],
   },
   // Duel Arena - PvP dueling area with 6 arena platforms, lobby, and hospital
-  // NOTE: Flat zones REMOVED - terrain now shows natural procedural height.
-  // The DuelArenaVisualsSystem creates floor meshes with physics collision bodies
-  // on top of the terrain, so walkability is handled by floor collision, not terrain height.
+  // NOTE: Flat zones are registered programmatically by DuelArenaVisualsSystem.registerArenaFlatZones()
+  // at startup. This ensures terrain height queries return floor-level values so players stand
+  // on the floors and terrain mesh is carved to prevent grass growing through floor surfaces.
   duel_arena: {
     id: "duel_arena",
     name: "Duel Arena",
@@ -111,7 +111,7 @@ export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
     npcs: [],
     resources: [],
     mobSpawns: [],
-    // No flatZones - terrain shows natural height, platforms are visual/physical floor meshes
+    // Flat zones registered programmatically by DuelArenaVisualsSystem at startup
   },
 };
 

@@ -1,9 +1,8 @@
 [workspace]
 members = [
   "programs/fight_oracle",
-  "programs/gold_binary_market",
   "programs/gold_clob_market",
-  "programs/hyperscape_prediction_market"
+  "programs/gold_perps_market",
 ]
 resolver = "2"
 

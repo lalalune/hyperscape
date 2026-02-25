@@ -16,7 +16,8 @@ import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import dotenv from "dotenv";
 
 import fightOracleIdl from "./idl/fight_oracle.json";
-import goldBinaryMarketIdl from "./idl/gold_binary_market.json";
+import goldClobMarketIdl from "./idl/gold_clob_market.json";
+import goldPerpsMarketIdl from "./idl/gold_perps_market.json";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const keeperRoot = path.resolve(__dirname, "..");
@@ -145,24 +146,41 @@ export const FIGHT_ORACLE_PROGRAM_ID = resolveProgramId(
   fightOracleIdl,
   "A6utqr1N4KP3Tst2tMCqfJR4mhCRNw4M2uN3Nb6nPBcS",
 );
-export const GOLD_BINARY_MARKET_PROGRAM_ID = resolveProgramId(
-  goldBinaryMarketIdl,
+export const GOLD_CLOB_MARKET_PROGRAM_ID = resolveProgramId(
+  goldClobMarketIdl,
+  "4phSkAVkbtGbQbrT3p2xjNPLAyw1DWz99wT7g4dQMyiX",
+);
+export const GOLD_PERPS_MARKET_PROGRAM_ID = resolveProgramId(
+  goldPerpsMarketIdl,
+  "3WKQf3J4B8QqRyWcBLR7xrb9VFPVjkZwzyZS67AahDbK",
+);
+
+/** @deprecated Binary market is no longer deployed. Retained for backward compat. */
+export const GOLD_BINARY_MARKET_PROGRAM_ID = new PublicKey(
   "7pxwReoFYABrSN7rnqusAxniKvrdv3zWDLoVamX5NN3W",
 );
+
 const FIGHT_ORACLE_IDL = ensureIdlAddress(
   fightOracleIdl,
   FIGHT_ORACLE_PROGRAM_ID,
 );
-const GOLD_BINARY_MARKET_IDL = ensureIdlAddress(
-  goldBinaryMarketIdl,
-  GOLD_BINARY_MARKET_PROGRAM_ID,
+const GOLD_CLOB_MARKET_IDL = ensureIdlAddress(
+  goldClobMarketIdl,
+  GOLD_CLOB_MARKET_PROGRAM_ID,
+);
+const GOLD_PERPS_MARKET_IDL = ensureIdlAddress(
+  goldPerpsMarketIdl,
+  GOLD_PERPS_MARKET_PROGRAM_ID,
 );
 
 export function createPrograms(signer: Keypair): {
   connection: Connection;
   provider: AnchorProvider;
   fightOracle: Program<any>;
-  goldBinaryMarket: Program<any>;
+  goldClobMarket: Program<any>;
+  goldPerpsMarket: Program<any>;
+  /** @deprecated Binary market removed. Returns null. */
+  goldBinaryMarket: null;
 } {
   const connection = new Connection(getRpcUrl(), {
     commitment: "confirmed",
@@ -174,14 +192,16 @@ export function createPrograms(signer: Keypair): {
   });
 
   const fightOracle = new Program(FIGHT_ORACLE_IDL, provider);
-
-  const goldBinaryMarket = new Program(GOLD_BINARY_MARKET_IDL, provider);
+  const goldClobMarket = new Program(GOLD_CLOB_MARKET_IDL, provider);
+  const goldPerpsMarket = new Program(GOLD_PERPS_MARKET_IDL, provider);
 
   return {
     connection,
     provider,
     fightOracle,
-    goldBinaryMarket,
+    goldClobMarket,
+    goldPerpsMarket,
+    goldBinaryMarket: null,
   };
 }
 

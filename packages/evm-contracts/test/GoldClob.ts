@@ -5,29 +5,11 @@ describe("GoldClob", function () {
   async function deployFixture() {
     const [owner, maker, taker, treasury] = await ethers.getSigners();
 
-    const MockERC20 = await ethers.getContractFactory("MockERC20");
-    const token = await MockERC20.deploy("Gold", "GOLD");
-    await token.waitForDeployment();
-
     const GoldClob = await ethers.getContractFactory("GoldClob");
-    const clob = await GoldClob.deploy(
-      await token.getAddress(),
-      treasury.address,
-      owner.address,
-    );
+    const clob = await GoldClob.deploy(treasury.address, owner.address);
     await clob.waitForDeployment();
 
-    await token.mint(maker.address, ethers.parseUnits("1000", 9));
-    await token.mint(taker.address, ethers.parseUnits("1000", 9));
-
-    await token
-      .connect(maker)
-      .approve(await clob.getAddress(), ethers.MaxUint256);
-    await token
-      .connect(taker)
-      .approve(await clob.getAddress(), ethers.MaxUint256);
-
-    return { clob, token, owner, maker, taker, treasury };
+    return { clob, owner, maker, taker, treasury };
   }
 
   it("Should create a match", async function () {
@@ -42,10 +24,19 @@ describe("GoldClob", function () {
     await clob.createMatch();
 
     // Maker: Buy YES 10 shares @ 600 ($0.60)
-    await clob.connect(maker).placeOrder(1, true, 600, 10);
+    // cost = (10 * 600) / 1000 = 6 wei, plus fees
+    const makerCost = (10n * 600n) / 1000n;
+    const makerFee = (makerCost * 200n) / 10000n; // 2% total trade fees
+    await clob
+      .connect(maker)
+      .placeOrder(1, true, 600, 10, { value: makerCost + makerFee });
 
-    // Taker: Sell YES 10 shares @ 600 ($0.40 NO)
-    await clob.connect(taker).placeOrder(1, false, 600, 10);
+    // Taker: Sell YES 10 shares @ 600 (NO side cost = (10 * 400) / 1000 = 4)
+    const takerCost = (10n * 400n) / 1000n;
+    const takerFee = (takerCost * 200n) / 10000n;
+    await clob
+      .connect(taker)
+      .placeOrder(1, false, 600, 10, { value: takerCost + takerFee });
 
     const posMaker = await clob.positions(1, maker.address);
     const posTaker = await clob.positions(1, taker.address);

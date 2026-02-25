@@ -47,11 +47,12 @@ export interface PointsOps {
     roundId: string | null;
     roundSeedHex: string | null;
     betId: string;
-    sourceAsset: "GOLD" | "SOL" | "USDC";
+    sourceAsset: "GOLD" | "SOL" | "USDC" | "BNB" | "ETH" | "AVAX";
     goldAmount: string;
     txSignature: string | null;
     side: "A" | "B";
     verifiedForPoints: boolean;
+    chain?: ArenaFeeChain;
     referral: ReferralInfo | null;
   }): Promise<void>;
   recordFeeShare(params: {
@@ -180,7 +181,7 @@ export class ArenaBettingService {
     roundId: string;
     bettorWallet: string;
     side: ArenaSide;
-    sourceAsset: "GOLD" | "SOL" | "USDC";
+    sourceAsset: "GOLD" | "SOL" | "USDC" | "BNB" | "ETH" | "AVAX";
     sourceAmount: string;
     goldAmount: string;
     txSignature?: string | null;
@@ -297,7 +298,7 @@ export class ArenaBettingService {
   public async recordExternalBet(params: {
     bettorWallet: string;
     chain: ArenaFeeChain;
-    sourceAsset: "GOLD" | "SOL" | "USDC";
+    sourceAsset: "GOLD" | "SOL" | "USDC" | "BNB" | "ETH" | "AVAX";
     sourceAmount: string;
     goldAmount: string;
     feeBps: number;
@@ -360,7 +361,8 @@ export class ArenaBettingService {
             goldAmount: params.goldAmount,
             txSignature,
             side: "A",
-            verifiedForPoints: chain !== "SOLANA",
+            verifiedForPoints: false, // MUST inspect EVM transactions on-chain
+            chain,
             referral,
           })
           .catch((err) => {

@@ -7,7 +7,7 @@ ANCHOR_DIR="$DEMO_DIR/anchor"
 LEDGER_DIR="$ANCHOR_DIR/.local-demo-ledger"
 VALIDATOR_LOG="$APP_DIR/.local-demo-validator.log"
 PROGRAM_ORACLE_ID="A6utqr1N4KP3Tst2tMCqfJR4mhCRNw4M2uN3Nb6nPBcS"
-PROGRAM_MARKET_ID="GzwZKz1fku9sPVN8G3JdnLHTzGyPzW9MkgVfMcdJGc7e"
+PROGRAM_CLOB_ID="4phSkAVkbtGbQbrT3p2xjNPLAyw1DWz99wT7g4dQMyiX"
 APP_PORT="${APP_PORT:-4179}"
 RPC_URL="http://127.0.0.1:8899"
 
@@ -59,7 +59,7 @@ solana-test-validator \
   --quiet \
   --ledger "$LEDGER_DIR" \
   --bpf-program "$PROGRAM_ORACLE_ID" "$ANCHOR_DIR/target/deploy/fight_oracle.so" \
-  --bpf-program "$PROGRAM_MARKET_ID" "$ANCHOR_DIR/target/deploy/gold_binary_market.so" \
+  --bpf-program "$PROGRAM_CLOB_ID" "$ANCHOR_DIR/target/deploy/gold_clob_market.so" \
   >"$VALIDATOR_LOG" 2>&1 &
 VALIDATOR_PID="$!"
 

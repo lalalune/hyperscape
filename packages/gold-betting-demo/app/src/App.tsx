@@ -37,6 +37,7 @@ import {
   PredictionMarketPanel,
   type ChartDataPoint,
 } from "./components/PredictionMarketPanel";
+import { PerpsMarketPanel } from "./components/PerpsMarketPanel";
 import { PointsDisplay } from "./components/PointsDisplay";
 import { PointsLeaderboard } from "./components/PointsLeaderboard";
 import { PointsHistory } from "./components/PointsHistory";
@@ -268,6 +269,7 @@ export function App() {
   }, [activeChain, evmWalletAddress, pointsWalletAddress, solanaWalletAddress]);
 
   const [amountInput, setAmountInput] = useState<string>("1");
+  const [appMode, setAppMode] = useState<"DUEL" | "PERPS">("DUEL");
   const [side, setSide] = useState<BetSide>("YES");
   const [e2ePayAsset, setE2ePayAsset] = useState<"GOLD" | "SOL" | "USDC">(
     "GOLD",
@@ -1856,117 +1858,6 @@ export function App() {
         </>
       )}
 
-      {/* Stream Background (live mode) */}
-      {!isStreamUIMode && activeStreamUrl && (
-        <>
-          <div className="stream-bg" style={{ pointerEvents: "auto" }}>
-            <StreamPlayer
-              streamUrl={activeStreamUrl}
-              muted={isMuted}
-              autoPlay={true}
-              onStreamUnavailable={switchToBackupStream}
-            />
-          </div>
-
-          <button
-            onClick={() => setIsMuted((m) => !m)}
-            style={{
-              position: "absolute",
-              bottom: "20px",
-              left: "20px",
-              zIndex: 50,
-              background: "rgba(0,0,0,0.6)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: "50%",
-              width: "48px",
-              height: "48px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(0,0,0,0.8)";
-              e.currentTarget.style.transform = "scale(1.05)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(0,0,0,0.6)";
-              e.currentTarget.style.transform = "scale(1)";
-            }}
-            title={isMuted ? "Unmute Stream" : "Mute Stream"}
-          >
-            {isMuted ? (
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                <line x1="23" y1="9" x2="17" y2="15"></line>
-                <line x1="17" y1="9" x2="23" y2="15"></line>
-              </svg>
-            ) : (
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-              </svg>
-            )}
-          </button>
-
-          {streamSources.length > 1 && (
-            <button
-              onClick={cycleStreamSource}
-              style={{
-                position: "absolute",
-                bottom: "20px",
-                left: "78px",
-                zIndex: 50,
-                background: "rgba(0,0,0,0.6)",
-                border: "1px solid rgba(255,255,255,0.25)",
-                borderRadius: "999px",
-                height: "48px",
-                padding: "0 16px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "12px",
-                fontWeight: 700,
-                letterSpacing: "0.03em",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(0,0,0,0.8)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(0,0,0,0.6)";
-              }}
-              title="Switch stream source"
-            >
-              Source {streamSourceIndex + 1}/{streamSources.length}
-            </button>
-          )}
-        </>
-      )}
-
       {/* Points / Leaderboard / Referral Drawer */}
       {showPointsDrawer && (
         <div
@@ -2451,7 +2342,121 @@ export function App() {
 
       {/* Main Content */}
       <div className="main-layout">
-        <div className="stream-stage-placeholder" aria-hidden="true" />
+        <div
+          className="stream-stage-placeholder"
+          aria-hidden={appMode !== "DUEL"}
+        >
+          {/* Stream Background (live mode) */}
+          {appMode === "DUEL" && !isStreamUIMode && activeStreamUrl && (
+            <>
+              <div className="stream-bg" style={{ pointerEvents: "auto" }}>
+                <StreamPlayer
+                  streamUrl={activeStreamUrl}
+                  muted={isMuted}
+                  autoPlay={true}
+                  onStreamUnavailable={switchToBackupStream}
+                />
+              </div>
+
+              <button
+                onClick={() => setIsMuted((m) => !m)}
+                style={{
+                  position: "absolute",
+                  bottom: "20px",
+                  left: "20px",
+                  zIndex: 50,
+                  background: "rgba(0,0,0,0.6)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: "50%",
+                  width: "48px",
+                  height: "48px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(0,0,0,0.8)";
+                  e.currentTarget.style.transform = "scale(1.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(0,0,0,0.6)";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+                title={isMuted ? "Unmute Stream" : "Mute Stream"}
+              >
+                {isMuted ? (
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <line x1="23" y1="9" x2="17" y2="15"></line>
+                    <line x1="17" y1="9" x2="23" y2="15"></line>
+                  </svg>
+                ) : (
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                  </svg>
+                )}
+              </button>
+
+              {streamSources.length > 1 && (
+                <button
+                  onClick={cycleStreamSource}
+                  style={{
+                    position: "absolute",
+                    bottom: "20px",
+                    left: "78px",
+                    zIndex: 50,
+                    background: "rgba(0,0,0,0.6)",
+                    border: "1px solid rgba(255,255,255,0.25)",
+                    borderRadius: "999px",
+                    height: "48px",
+                    padding: "0 16px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    letterSpacing: "0.03em",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(0,0,0,0.8)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(0,0,0,0.6)";
+                  }}
+                  title="Switch stream source"
+                >
+                  Source {streamSourceIndex + 1}/{streamSources.length}
+                </button>
+              )}
+            </>
+          )}
+        </div>
 
         {!isE2eDebugMode ? (
           <div className={`betting-dock${isEvmChain ? " is-evm" : ""}`}>
@@ -2657,6 +2662,61 @@ export function App() {
                     flexShrink: 0,
                   }}
                 >
+                  {/* Mode Toggle */}
+                  <div
+                    style={{
+                      display: "flex",
+                      background: "rgba(255,255,255,0.05)",
+                      borderRadius: "12px",
+                      padding: "4px",
+                      marginRight: "8px",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setAppMode("DUEL")}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "none",
+                        background:
+                          appMode === "DUEL"
+                            ? "rgba(255,255,255,0.1)"
+                            : "transparent",
+                        color:
+                          appMode === "DUEL" ? "#fff" : "rgba(255,255,255,0.5)",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      DUEL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAppMode("PERPS")}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "none",
+                        background:
+                          appMode === "PERPS"
+                            ? "rgba(255,255,255,0.1)"
+                            : "transparent",
+                        color:
+                          appMode === "PERPS"
+                            ? "#fff"
+                            : "rgba(255,255,255,0.5)",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      PERPS
+                    </button>
+                  </div>
                   <ChainSelector />
                   {!wallet.connected ? (
                     <button
@@ -2793,10 +2853,19 @@ export function App() {
                   </div>
                 ) : !isStreamUIMode ? (
                   <div style={{ marginTop: 16 }}>
-                    <SolanaClobPanel
-                      agent1Name={effAgent1Name}
-                      agent2Name={effAgent2Name}
-                    />
+                    {appMode === "DUEL" ? (
+                      <SolanaClobPanel
+                        agent1Name={effAgent1Name}
+                        agent2Name={effAgent2Name}
+                      />
+                    ) : (
+                      <PerpsMarketPanel
+                        agent1Name={effAgent1Name}
+                        agent2Name={effAgent2Name}
+                        agent1Id={1}
+                        agent2Id={2}
+                      />
+                    )}
                   </div>
                 ) : (
                   <PredictionMarketPanel

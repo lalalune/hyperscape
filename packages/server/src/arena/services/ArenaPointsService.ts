@@ -20,6 +20,7 @@ import type {
   LiveArenaRound,
   GoldPosition,
 } from "../types.js";
+import { EvmTransactionInspector } from "./EvmTransactionInspector.js";
 
 // ---------------------------------------------------------------------------
 // Dependency interfaces — use these instead of importing concrete classes to
@@ -55,6 +56,7 @@ export class ArenaPointsService {
   private readonly ctx: ArenaContext;
   private readonly stakingOps: StakingOps;
   private readonly walletOps: WalletOps;
+  private readonly evmInspector: EvmTransactionInspector;
 
   // ---- Static constants ---------------------------------------------------
 
@@ -74,10 +76,16 @@ export class ArenaPointsService {
   private static readonly GOLD_TIER_2 = 1_000_000;
   private static readonly GOLD_HOLD_DAYS_BONUS = 10;
 
-  constructor(ctx: ArenaContext, stakingOps: StakingOps, walletOps: WalletOps) {
+  constructor(
+    ctx: ArenaContext,
+    stakingOps: StakingOps,
+    walletOps: WalletOps,
+    evmInspector: EvmTransactionInspector,
+  ) {
     this.ctx = ctx;
     this.stakingOps = stakingOps;
     this.walletOps = walletOps;
+    this.evmInspector = evmInspector;
   }
 
   // ==========================================================================
@@ -94,11 +102,12 @@ export class ArenaPointsService {
     roundId: string | null;
     roundSeedHex: string | null;
     betId: string;
-    sourceAsset: "GOLD" | "SOL" | "USDC";
+    sourceAsset: "GOLD" | "SOL" | "USDC" | "BNB" | "ETH" | "AVAX";
     goldAmount: string;
     txSignature: string | null;
     side: "A" | "B";
     verifiedForPoints: boolean;
+    chain?: ArenaFeeChain;
     referral: { inviteCode: string; inviterWallet: string } | null;
   }): Promise<void> {
     const verifiedGoldAmount =
@@ -242,16 +251,17 @@ export class ArenaPointsService {
     roundId: string | null;
     roundSeedHex: string | null;
     side: "A" | "B";
-    sourceAsset: "GOLD" | "SOL" | "USDC";
+    sourceAsset: "GOLD" | "SOL" | "USDC" | "BNB" | "ETH" | "AVAX";
     goldAmount: string;
     txSignature: string | null;
     verifiedForPoints: boolean;
+    chain?: ArenaFeeChain;
   }): Promise<string | null> {
     if (params.verifiedForPoints) {
       return params.goldAmount;
     }
 
-    if (!params.txSignature || !this.ctx.solanaOperator?.isEnabled()) {
+    if (!params.txSignature) {
       return null;
     }
 
@@ -262,6 +272,30 @@ export class ArenaPointsService {
         ArenaPointsService.GOLD_DECIMALS,
       );
     } catch {
+      return null;
+    }
+
+    const chain = normalizeFeeChain(params.chain ?? "SOLANA");
+
+    if (chain !== "SOLANA") {
+      if (!this.evmInspector.isEnabled(chain)) {
+        console.warn(
+          `[ArenaPoints] Cannot verify points, EVM inspector disabled for ${chain}`,
+        );
+        return null;
+      }
+      const evmTx = await this.evmInspector.inspectMarketBetTransaction(
+        params.txSignature,
+        chain,
+        params.wallet,
+      );
+      if (evmTx && evmTx.amountBaseUnits === expectedGoldAmount) {
+        return evmTx.amountGold;
+      }
+      return null;
+    }
+
+    if (!this.ctx.solanaOperator?.isEnabled()) {
       return null;
     }
 
