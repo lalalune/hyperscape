@@ -14,7 +14,7 @@
         "simulate:localnet": "hardhat run scripts/simulate-localnet.ts"
     },
     "devDependencies": {
-        "@types/chai": "^4.3.17",
+        "@types/chai": "^5.2.3",
         "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
         "@nomicfoundation/hardhat-ethers": "^3.1.0",
         "@types/mocha": "^10.0.6",
