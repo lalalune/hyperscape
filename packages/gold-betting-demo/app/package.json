@@ -15,7 +15,7 @@
     "test:e2e:mainnet": "E2E_CLUSTER=mainnet-beta bash scripts/run-e2e-public.sh"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "0.31.1",
+    "@coral-xyz/anchor": "0.32.1",
     "@jup-ag/api": "^6.0.48",
     "@noble/curves": "^2.0.1",
     "@rainbow-me/rainbowkit": "^2.2.10",
@@ -36,12 +36,12 @@
     "wagmi": "^3.5.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.54.2",
+    "@playwright/test": "1.58.2",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
-    "@vitejs/plugin-react": "5.0.4",
+    "@vitejs/plugin-react": "5.1.4",
     "typescript": "5.9.2",
     "vite": "6.4.1",
-    "vite-plugin-node-polyfills": "0.24.0"
+    "vite-plugin-node-polyfills": "0.25.0"
   }
 }

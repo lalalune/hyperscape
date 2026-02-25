@@ -19,7 +19,7 @@
         "@nomicfoundation/hardhat-ethers": "^3.1.0",
         "@types/mocha": "^10.0.6",
         "@types/node": "^20.0.0",
-        "chai": "^4.5.0",
+        "chai": "^6.2.2",
         "dotenv": "^17.3.1",
         "ethers": "^6.11.1",
         "hardhat": "^2.26.0",
