@@ -33,7 +33,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/three": "0.180.0",
+    "@types/three": "0.183.1",
     "@types/ws": "^8.5.14",
     "eslint": "^10.0.2",
     "three": "^0.180.0",
