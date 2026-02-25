@@ -1,5 +1,6 @@
 /**
  * EVM client for interacting with the GoldClob contract via viem.
+ * Uses native currency (BNB/ETH/AVAX) instead of ERC20 tokens.
  */
 
 import {
@@ -14,7 +15,7 @@ import {
   parseAbiItem,
 } from "viem";
 import type { EvmChainConfig } from "./chainConfig";
-import { GOLD_CLOB_ABI, ERC20_APPROVE_ABI } from "./goldClobAbi";
+import { GOLD_CLOB_ABI } from "./goldClobAbi";
 
 // ============================================================================
 // Types
@@ -186,44 +187,12 @@ export async function getFeeBps(
   );
 }
 
-export async function getGoldBalance(
+/** Get native currency balance for a user address. */
+export async function getNativeBalance(
   client: PublicClient,
-  tokenAddress: Address,
   userAddress: Address,
 ): Promise<bigint> {
-  return (await client.readContract({
-    address: tokenAddress,
-    abi: ERC20_APPROVE_ABI,
-    functionName: "balanceOf",
-    args: [userAddress],
-  })) as bigint;
-}
-
-export async function getGoldAllowance(
-  client: PublicClient,
-  tokenAddress: Address,
-  ownerAddress: Address,
-  spenderAddress: Address,
-): Promise<bigint> {
-  return (await client.readContract({
-    address: tokenAddress,
-    abi: ERC20_APPROVE_ABI,
-    functionName: "allowance",
-    args: [ownerAddress, spenderAddress],
-  })) as bigint;
-}
-
-export async function getGoldDecimals(
-  client: PublicClient,
-  tokenAddress: Address,
-): Promise<number> {
-  return Number(
-    await client.readContract({
-      address: tokenAddress,
-      abi: ERC20_APPROVE_ABI,
-      functionName: "decimals",
-    }),
-  );
+  return client.getBalance({ address: userAddress });
 }
 
 export async function getRecentTrades(
@@ -257,7 +226,7 @@ export async function getRecentTrades(
   const blockCache = new Map<bigint, number>();
 
   const trades = await Promise.all(
-    logs.map(async (log, index) => {
+    logs.map(async (log) => {
       let time = Date.now();
       if (log.blockNumber) {
         if (!blockCache.has(log.blockNumber)) {
@@ -271,8 +240,6 @@ export async function getRecentTrades(
         time,
         price: log.args.price! / 1000,
         amount: log.args.matchedAmount!,
-        // We infer side from the typical price range if not explicitly in the event
-        // (Usually takers are buying if price > 500, but it gets tricky, so we'll just say YES for >500)
         side: log.args.price! >= 500 ? "YES" : ("NO" as "YES" | "NO"),
       };
     }),
@@ -314,23 +281,7 @@ export async function getRecentOrders(
 // Write functions
 // ============================================================================
 
-export async function approveGoldToken(
-  walletClient: WalletClient,
-  tokenAddress: Address,
-  spenderAddress: Address,
-  amount: bigint,
-  account: Address,
-): Promise<Hash> {
-  return walletClient.writeContract({
-    address: tokenAddress,
-    abi: ERC20_APPROVE_ABI,
-    functionName: "approve",
-    args: [spenderAddress, amount],
-    account,
-    chain: walletClient.chain,
-  });
-}
-
+/** Place an order, sending native currency as msg.value. */
 export async function placeOrder(
   walletClient: WalletClient,
   contractAddress: Address,
@@ -339,6 +290,7 @@ export async function placeOrder(
   price: number,
   amount: bigint,
   account: Address,
+  value: bigint,
 ): Promise<Hash> {
   return walletClient.writeContract({
     address: contractAddress,
@@ -347,6 +299,7 @@ export async function placeOrder(
     args: [matchId, isBuy, price, amount],
     account,
     chain: walletClient.chain,
+    value,
   });
 }
 

@@ -714,13 +714,12 @@ let solanaCtx: {
 if (solanaKeyRef) {
   try {
     const signer = readKeypair(solanaKeyRef);
-    const { connection, fightOracle, goldBinaryMarket } =
-      createPrograms(signer);
+    const { connection, fightOracle, goldClobMarket } = createPrograms(signer);
     solanaCtx = {
       connection,
       fightProgram: fightOracle,
-      marketProgram: goldBinaryMarket,
-      marketProgramId: goldBinaryMarket.programId,
+      marketProgram: goldClobMarket,
+      marketProgramId: goldClobMarket.programId,
     };
     parsers.solana.enabled = true;
   } catch (error) {

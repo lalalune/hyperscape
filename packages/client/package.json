@@ -81,7 +81,7 @@
     "react": "^19.2.0",
     "react-device-detect": "^2.2.3",
     "react-dom": "^19.2.0",
-    "three": "0.182.0",
+    "three": "0.183.1",
     "three-custom-shader-material": "^6.3.7",
     "three-mesh-bvh": "^0.8.3",
     "viem": "^2.39.3",

@@ -26,6 +26,7 @@ import { Layers } from "../../physics/Layers";
 import type { Physics } from "../shared/interaction/Physics";
 import type { PxRigidStatic } from "../../types/systems/physics";
 import type { ParticleSystem } from "../shared/presentation/ParticleSystem";
+import type { FlatZone } from "../../types/world/terrain";
 
 // ============================================================================
 // Arena Configuration (matches ArenaPoolManager)
@@ -115,7 +116,12 @@ export class DuelArenaVisualsSystem extends System {
   private terrainSystem: {
     getHeightAt?: (x: number, z: number) => number;
     getProceduralHeightAt?: (x: number, z: number) => number;
+    registerFlatZone?: (zone: FlatZone) => void;
+    unregisterFlatZone?: (id: string) => void;
   } | null = null;
+
+  /** Flat zone IDs registered with the terrain system */
+  private flatZoneIds: string[] = [];
 
   /** Reference to physics system for collision bodies */
   private physicsSystem: Physics | null = null;
@@ -191,6 +197,9 @@ export class DuelArenaVisualsSystem extends System {
     // Get terrain system for height queries
     this.terrainSystem = this.world.getSystem("terrain") as {
       getHeightAt?: (x: number, z: number) => number;
+      getProceduralHeightAt?: (x: number, z: number) => number;
+      registerFlatZone?: (zone: FlatZone) => void;
+      unregisterFlatZone?: (id: string) => void;
     } | null;
 
     if (!this.terrainSystem?.getHeightAt) {
@@ -207,10 +216,113 @@ export class DuelArenaVisualsSystem extends System {
       );
     }
 
+    // Register flat zones so terrain height queries return floor-level values
+    // (prevents players sinking into floors and grass growing through them)
+    this.registerArenaFlatZones();
+
     console.log(
       "[DuelArenaVisualsSystem] start() called, creating arena visuals...",
     );
     this.createArenaVisuals();
+  }
+
+  /**
+   * Register flat zones with the terrain system for all duel arena floors.
+   * This ensures getHeightAt() returns the floor-level height so players
+   * stand ON the floors (not sinking through) and terrain mesh is flattened
+   * to prevent grass from growing through floor surfaces.
+   */
+  private registerArenaFlatZones(): void {
+    if (!this.terrainSystem?.registerFlatZone) {
+      console.warn(
+        "[DuelArenaVisualsSystem] TerrainSystem.registerFlatZone not available, skipping flat zone registration",
+      );
+      return;
+    }
+
+    const FLAT_ZONE_HEIGHT_OFFSET = 0.4; // Where players stand above procedural terrain
+    const BLEND_RADIUS = 1.0;
+    const CARVE_INSET = 1.0;
+
+    // Register flat zones for all 6 arenas
+    for (let i = 0; i < ARENA_COUNT; i++) {
+      const row = Math.floor(i / 2);
+      const col = i % 2;
+      const centerX =
+        ARENA_BASE_X + col * (ARENA_WIDTH + ARENA_GAP) + ARENA_WIDTH / 2;
+      const centerZ =
+        ARENA_BASE_Z + row * (ARENA_LENGTH + ARENA_GAP) + ARENA_LENGTH / 2;
+
+      const proceduralHeight = this.getProceduralTerrainHeight(
+        centerX,
+        centerZ,
+      );
+      const zoneId = `duel_arena_floor_${i + 1}`;
+
+      const zone: FlatZone = {
+        id: zoneId,
+        centerX,
+        centerZ,
+        width: ARENA_WIDTH,
+        depth: ARENA_LENGTH,
+        height: proceduralHeight + FLAT_ZONE_HEIGHT_OFFSET,
+        blendRadius: BLEND_RADIUS,
+        carveInset: CARVE_INSET,
+      };
+
+      this.terrainSystem.registerFlatZone(zone);
+      this.flatZoneIds.push(zoneId);
+    }
+
+    // Register flat zone for lobby
+    {
+      const proceduralHeight = this.getProceduralTerrainHeight(
+        LOBBY_CENTER_X,
+        LOBBY_CENTER_Z,
+      );
+      const zoneId = "duel_lobby_floor";
+
+      const zone: FlatZone = {
+        id: zoneId,
+        centerX: LOBBY_CENTER_X,
+        centerZ: LOBBY_CENTER_Z,
+        width: LOBBY_WIDTH,
+        depth: LOBBY_LENGTH,
+        height: proceduralHeight + FLAT_ZONE_HEIGHT_OFFSET,
+        blendRadius: BLEND_RADIUS,
+        carveInset: CARVE_INSET,
+      };
+
+      this.terrainSystem.registerFlatZone(zone);
+      this.flatZoneIds.push(zoneId);
+    }
+
+    // Register flat zone for hospital
+    {
+      const proceduralHeight = this.getProceduralTerrainHeight(
+        HOSPITAL_CENTER_X,
+        HOSPITAL_CENTER_Z,
+      );
+      const zoneId = "duel_hospital_floor";
+
+      const zone: FlatZone = {
+        id: zoneId,
+        centerX: HOSPITAL_CENTER_X,
+        centerZ: HOSPITAL_CENTER_Z,
+        width: HOSPITAL_WIDTH,
+        depth: HOSPITAL_LENGTH,
+        height: proceduralHeight + FLAT_ZONE_HEIGHT_OFFSET,
+        blendRadius: BLEND_RADIUS,
+        carveInset: CARVE_INSET,
+      };
+
+      this.terrainSystem.registerFlatZone(zone);
+      this.flatZoneIds.push(zoneId);
+    }
+
+    console.log(
+      `[DuelArenaVisualsSystem] Registered ${this.flatZoneIds.length} flat zones (${ARENA_COUNT} arenas + lobby + hospital)`,
+    );
   }
 
   /**
@@ -1048,6 +1160,14 @@ export class DuelArenaVisualsSystem extends System {
    * Clean up all resources
    */
   destroy(): void {
+    // Unregister flat zones from terrain system
+    if (this.terrainSystem?.unregisterFlatZone) {
+      for (const id of this.flatZoneIds) {
+        this.terrainSystem.unregisterFlatZone(id);
+      }
+    }
+    this.flatZoneIds = [];
+
     // Unregister torch particle emitters
     const particleSystem = this.world.getSystem("particle") as
       | ParticleSystem

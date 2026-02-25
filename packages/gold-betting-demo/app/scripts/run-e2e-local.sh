@@ -105,7 +105,6 @@ echo "[e2e] compiling evm contracts"
 bun run --cwd "$EVM_DIR" compile >/tmp/gold-betting-demo-e2e-evm-build.log 2>&1
 
 IDL_ORACLE_ID="$(jq -r '.address // .metadata.address // empty' "$ANCHOR_DIR/target/idl/fight_oracle.json" 2>/dev/null || true)"
-IDL_MARKET_ID="$(jq -r '.address // .metadata.address // empty' "$ANCHOR_DIR/target/idl/gold_binary_market.json" 2>/dev/null || true)"
 IDL_CLOB_ID="$(jq -r '.address // .metadata.address // empty' "$ANCHOR_DIR/target/idl/gold_clob_market.json" 2>/dev/null || true)"
 if [[ -n "$IDL_ORACLE_ID" && "$IDL_ORACLE_ID" != "null" ]]; then
   PROGRAM_ORACLE_ID="$IDL_ORACLE_ID"
@@ -127,7 +126,6 @@ solana-test-validator \
   --mint "$SOLANA_MINT_AUTHORITY" \
   --ledger "$LEDGER_DIR" \
   --bpf-program "$PROGRAM_ORACLE_ID" "$ANCHOR_DIR/target/deploy/fight_oracle.so" \
-  --bpf-program "$PROGRAM_MARKET_ID" "$ANCHOR_DIR/target/deploy/gold_binary_market.so" \
   --bpf-program "$PROGRAM_CLOB_ID" "$ANCHOR_DIR/target/deploy/gold_clob_market.so" \
   >"$VALIDATOR_LOG" 2>&1 &
 VALIDATOR_PID="$!"

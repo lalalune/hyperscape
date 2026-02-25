@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import BN from "bn.js";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+} from "@solana/web3.js";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
@@ -160,19 +165,95 @@ const args = await yargs(hideBin(process.argv))
 
 import { GameClient } from "./game-client";
 
+import { Program } from "@coral-xyz/anchor";
+import { type FightOracle } from "../../anchor/target/types/fight_oracle";
+import { type GoldClobMarket } from "../../anchor/target/types/gold_clob_market";
+import { type GoldPerpsMarket } from "../../anchor/target/types/gold_perps_market";
+import {
+  updateRatings,
+  calculateSpotIndex,
+  createInitialRating,
+  type AgentRating,
+} from "./trueskill";
+import path from "node:path";
+import fs_node from "node:fs";
+
 const botKeypair = readKeypair(
   process.env.BOT_KEYPAIR ||
-  process.env.ORACLE_AUTHORITY_KEYPAIR ||
-  process.env.MARKET_MAKER_KEYPAIR ||
-  requireEnv("ORACLE_AUTHORITY_KEYPAIR"),
+    process.env.ORACLE_AUTHORITY_KEYPAIR ||
+    process.env.MARKET_MAKER_KEYPAIR ||
+    requireEnv("ORACLE_AUTHORITY_KEYPAIR"),
 );
-const { connection, fightOracle, goldBinaryMarket } =
+const { connection, fightOracle, goldClobMarket, goldPerpsMarket } =
   createPrograms(botKeypair);
-const fightProgram: any = fightOracle;
-const marketProgram: any = goldBinaryMarket;
+const fightProgram = fightOracle as Program<FightOracle>;
+const marketProgram = goldClobMarket as Program<GoldClobMarket>;
+const perpsProgram = goldPerpsMarket as Program<GoldPerpsMarket>;
 
 function hasProgramMethod(program: any, method: string): boolean {
   return typeof program?.methods?.[method] === "function";
+}
+
+const RATINGS_FILE = path.resolve(__dirname, "agent_ratings.json");
+let agentRatings: Record<string, AgentRating> = {};
+if (fs_node.existsSync(RATINGS_FILE)) {
+  try {
+    agentRatings = JSON.parse(fs_node.readFileSync(RATINGS_FILE, "utf8"));
+  } catch (e) {
+    console.error("Failed to load ratings", e);
+  }
+}
+
+function saveRatings() {
+  fs_node.writeFileSync(RATINGS_FILE, JSON.stringify(agentRatings, null, 2));
+}
+
+function getRating(agentId: string): AgentRating {
+  if (!agentRatings[agentId]) {
+    agentRatings[agentId] = createInitialRating();
+  }
+  return agentRatings[agentId];
+}
+
+async function updatePerpsOracle(agentId: string, rating: AgentRating) {
+  try {
+    const numericAgentId = parseInt(agentId) || 0;
+    if (numericAgentId === 0) return;
+
+    const spotIndex = calculateSpotIndex(rating);
+    const spotIndexScaled = new BN(Math.floor(spotIndex * 1_000_000));
+    const muScaled = new BN(Math.floor(rating.mu * 1_000_000));
+    const sigmaScaled = new BN(Math.floor(rating.sigma * 1_000_000));
+
+    const oraclePda = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("oracle"),
+        new BN(numericAgentId).toArrayLike(Buffer, "le", 4),
+      ],
+      perpsProgram.programId,
+    )[0];
+
+    await runWithRecovery(
+      () =>
+        perpsProgram.methods
+          .updateOracle(numericAgentId, spotIndexScaled, muScaled, sigmaScaled)
+          // @ts-ignore - Anchor IDL resolves PDA accounts automatically
+          .accounts({
+            oracle: oraclePda,
+            authority: botKeypair.publicKey,
+          })
+          .rpc(),
+      connection,
+    );
+    console.log(
+      "[Keeper] Updated Perps Oracle for agent",
+      agentId,
+      "to spot",
+      spotIndex,
+    );
+  } catch (e) {
+    console.error("Failed to update perps oracle", e);
+  }
 }
 
 const missingKeeperMethods: string[] = [];
@@ -229,7 +310,7 @@ let airdropBlockedUntil = 0;
 const oracleConfigPda = findOracleConfigPda(fightOracle.programId);
 const marketConfigPda = PublicKey.findProgramAddressSync(
   [Buffer.from("config")],
-  goldBinaryMarket.programId,
+  goldClobMarket.programId,
 )[0];
 
 const configuredGoldMint = args["gold-mint"]
@@ -309,7 +390,7 @@ async function ensureBotSignerFunding(): Promise<boolean> {
       ).toFixed(
         6,
       )} SOL (< ${(minSignerLamports / LAMPORTS_PER_SOL).toFixed(6)} required). ` +
-      `Skipping keeper cycle for ${Math.round(fundingBackoffMs / 1000)}s.`,
+        `Skipping keeper cycle for ${Math.round(fundingBackoffMs / 1000)}s.`,
     );
     lastFundingWarningAt = Date.now();
   }
@@ -324,8 +405,6 @@ const ensureOracleReady = async (): Promise<void> => {
         .initializeOracle()
         .accounts({
           authority: botKeypair.publicKey,
-          oracleConfig: oracleConfigPda,
-          systemProgram: SystemProgram.programId,
         })
         .rpc(),
     connection,
@@ -372,8 +451,6 @@ const ensureMarketConfigReady = async (
           )
           .accounts({
             authority: botKeypair.publicKey,
-            config: marketConfigPda,
-            systemProgram: SystemProgram.programId,
           })
           .rpc(),
       connection,
@@ -423,9 +500,7 @@ async function createRound(
         )
         .accounts({
           authority: botKeypair.publicKey,
-          oracleConfig: oracleConfigPda,
           matchResult: matchPda,
-          systemProgram: SystemProgram.programId,
         })
         .rpc(),
     connection,
@@ -434,7 +509,7 @@ async function createRound(
   const matchStateKeypair = Keypair.generate();
   const vaultAuthorityPda = PublicKey.findProgramAddressSync(
     [Buffer.from("vault_auth"), matchStateKeypair.publicKey.toBuffer()],
-    goldBinaryMarket.programId,
+    goldClobMarket.programId,
   )[0];
 
   await runWithRecovery(
@@ -444,9 +519,6 @@ async function createRound(
         .accounts({
           matchState: matchStateKeypair.publicKey,
           user: botKeypair.publicKey,
-          config: marketConfigPda,
-          vaultAuthority: vaultAuthorityPda,
-          systemProgram: SystemProgram.programId,
         })
         .signers([matchStateKeypair])
         .rpc(),
@@ -462,7 +534,6 @@ async function createRound(
           user: botKeypair.publicKey,
           matchState: matchStateKeypair.publicKey,
           orderBook: orderBookKeypair.publicKey,
-          systemProgram: SystemProgram.programId,
         })
         .signers([orderBookKeypair])
         .rpc(),
@@ -503,7 +574,6 @@ async function maybeResolveMatch(
           )
           .accounts({
             authority: botKeypair.publicKey,
-            oracleConfig: oracleConfigPda,
             matchResult: matchPda,
           })
           .rpc(),
@@ -548,7 +618,9 @@ async function maybeResolveMarket(
     await runWithRecovery(
       () =>
         marketProgram.methods
-          .resolveMatch(winner)
+          .resolveMatch(
+            winner === 1 ? ({ yes: {} } as any) : ({ no: {} } as any),
+          )
           .accounts({
             matchState: matchStatePubkey,
             authority: botKeypair.publicKey,
@@ -564,7 +636,11 @@ async function maybeResolveMarket(
   activeClobMatches.delete(duelId);
   console.log(
     JSON.stringify(
-      { action: "clob_resolved", matchState: matchStatePubkey.toBase58(), winner },
+      {
+        action: "clob_resolved",
+        matchState: matchStatePubkey.toBase58(),
+        winner,
+      },
       null,
       2,
     ),
@@ -661,6 +737,31 @@ gameClient.onDuelEnd(async (data: any) => {
     const isAgent1 = winnerId === data.agent1?.id;
     const winnerSide = isAgent1 ? "A" : "B";
 
+    // Update TrueSkill Ratings
+    if (data.agent1?.id && data.agent2?.id) {
+      const uA1 = getRating(data.agent1.id.toString());
+      const uA2 = getRating(data.agent2.id.toString());
+
+      const { winner, loser } = updateRatings(
+        isAgent1 ? uA1 : uA2,
+        isAgent1 ? uA2 : uA1,
+      );
+
+      agentRatings[data.agent1.id.toString()] = isAgent1 ? winner : loser;
+      agentRatings[data.agent2.id.toString()] = isAgent1 ? loser : winner;
+      saveRatings();
+
+      // Push to Solana Perps Oracle
+      await updatePerpsOracle(
+        data.agent1.id.toString(),
+        agentRatings[data.agent1.id.toString()],
+      );
+      await updatePerpsOracle(
+        data.agent2.id.toString(),
+        agentRatings[data.agent2.id.toString()],
+      );
+    }
+
     // Use cryptographically secure oracle data emitted by the Game Server
     if (!data.seed || !data.replayHash) {
       console.warn(
@@ -688,7 +789,6 @@ gameClient.onDuelEnd(async (data: any) => {
           )
           .accounts({
             authority: botKeypair.publicKey,
-            oracleConfig: oracleConfigPda,
             matchResult: matchPda,
           })
           .rpc(),
@@ -717,20 +817,33 @@ async function runMaintenance(): Promise<void> {
   await ensureOracleReady();
   // ... (simplified loop for seeing liquidity and resolving old markets)
 
-  const latestMatches = (await fightProgram.account.matchResult.all()) as any[];
   const now = Math.floor(Date.now() / 1000);
 
-  for (const entry of latestMatches.slice(0, 50)) {
-    const matchPda = entry.publicKey as PublicKey;
-    const matchState = entry.account;
-    await maybeResolveMatch(matchPda, matchState);
-    // CLOB resolution is tracked via activeClobMatches map
+  // Poll only the actively tracked CLOB matches we created
+  for (const [
+    numericMatchId,
+    matchStatePubkey,
+  ] of activeClobMatches.entries()) {
+    const matchPda = findMatchPda(
+      fightOracle.programId,
+      new BN(numericMatchId),
+    );
+
+    // First Ensure oracle is resolved (which will then resolve CLOB)
+    const oracleMatch = await getMatchState(matchPda);
+    if (!oracleMatch) continue;
+
+    if (enumIs(oracleMatch.status, "open")) {
+      await maybeResolveMatch(matchPda, oracleMatch);
+    } else if (enumIs(oracleMatch.status, "resolved")) {
+      await maybeResolveMarket(matchPda, numericMatchId);
+    }
   }
 
   // NOTE: We do NOT create new rounds here anymore.
 }
 
-for (; ;) {
+for (;;) {
   try {
     await runMaintenance();
   } catch (error) {

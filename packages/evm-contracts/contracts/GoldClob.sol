@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract GoldClob is ReentrancyGuard {
-    IERC20 public immutable goldToken;
     address public immutable treasury;
     address public immutable marketMaker;
     address public immutable admin;
@@ -56,7 +54,7 @@ contract GoldClob is ReentrancyGuard {
     uint64 public nextOrderId = 1;
     mapping(uint64 => Order) public orders;
 
-    // matchId => true if open
+    // matchId => user => position
     mapping(uint256 => mapping(address => Position)) public positions;
 
     // matchId => price => queue of order IDs
@@ -77,11 +75,9 @@ contract GoldClob is ReentrancyGuard {
         uint256 winningsMarketMakerFeeBps
     );
 
-    constructor(address _goldToken, address _treasury, address _marketMaker) {
-        require(_goldToken != address(0), "Invalid token zero address");
+    constructor(address _treasury, address _marketMaker) {
         require(_treasury != address(0), "Invalid treasury zero address");
         require(_marketMaker != address(0), "Invalid market maker zero address");
-        goldToken = IERC20(_goldToken);
         treasury = _treasury;
         marketMaker = _marketMaker;
         admin = msg.sender;
@@ -151,40 +147,35 @@ contract GoldClob is ReentrancyGuard {
         return matchId;
     }
 
-    function placeOrder(uint256 matchId, bool isBuy, uint16 price, uint256 amount) external nonReentrant {
+    function placeOrder(uint256 matchId, bool isBuy, uint16 price, uint256 amount) external payable nonReentrant {
         require(matches[matchId].status == MatchStatus.OPEN, "Match not open");
         require(price > 0 && price < 1000, "Invalid price");
         require(amount > 0, "Invalid amount");
         require(amount <= type(uint128).max, "Amount overflow");
 
-        uint256 cost = (amount * (isBuy ? price : (1000 - price))) / 1000;
+        uint256 priceComp = isBuy ? price : (1000 - price);
+        require((amount * priceComp) % 1000 == 0, "Amount/Price precision error");
+        uint256 cost = (amount * priceComp) / 1000;
         require(cost > 0, "Cost too low");
 
         uint256 tradeTreasuryFee = (cost * tradeTreasuryFeeBps) / MAX_FEE_BPS;
-        uint256 tradeMarketMakerFee = (cost * tradeMarketMakerFeeBps) /
-            MAX_FEE_BPS;
+        uint256 tradeMarketMakerFee = (cost * tradeMarketMakerFeeBps) / MAX_FEE_BPS;
+        uint256 totalRequired = cost + tradeTreasuryFee + tradeMarketMakerFee;
+        require(msg.value >= totalRequired, "Insufficient native currency sent");
 
+        // Send fees
         if (tradeTreasuryFee > 0) {
-            require(
-                goldToken.transferFrom(msg.sender, treasury, tradeTreasuryFee),
-                "Trade treasury fee failed"
-            );
+            _sendNative(treasury, tradeTreasuryFee);
         }
         if (tradeMarketMakerFee > 0) {
-            require(
-                goldToken.transferFrom(
-                    msg.sender,
-                    marketMaker,
-                    tradeMarketMakerFee
-                ),
-                "Trade MM fee failed"
-            );
+            _sendNative(marketMaker, tradeMarketMakerFee);
         }
 
-        require(
-            goldToken.transferFrom(msg.sender, address(this), cost),
-            "Transfer failed"
-        );
+        // Refund excess
+        uint256 excess = msg.value - totalRequired;
+        if (excess > 0) {
+            _sendNative(msg.sender, excess);
+        }
 
         uint256 remainingAmount = amount;
         uint256 matchesCount = 0;
@@ -205,7 +196,7 @@ contract GoldClob is ReentrancyGuard {
                 Order storage makerOrder = orders[orderId];
                 if (makerOrder.filled >= makerOrder.amount) {
                     _popQueue(matchId, currentAsk);
-                    matchesCount++; // OOG DoS Fix: Count cancelled orders against the loop limit
+                    matchesCount++;
                     continue;
                 }
 
@@ -221,7 +212,6 @@ contract GoldClob is ReentrancyGuard {
                 positions[matchId][makerOrder.maker].noShares += fillAmount;
                 positions[matchId][msg.sender].yesShares += fillAmount;
 
-                // Track aggregate taker price-improvement and refund once after matching.
                 if (price > currentAsk) {
                     uint256 improvement = (fillAmount * (price - currentAsk)) / 1000;
                     if (improvement > 0) {
@@ -251,7 +241,7 @@ contract GoldClob is ReentrancyGuard {
                 Order storage makerOrder = orders[orderId];
                 if (makerOrder.filled >= makerOrder.amount) {
                     _popQueue(matchId, currentBid);
-                    matchesCount++; // OOG DoS Fix: Count cancelled orders against the loop limit
+                    matchesCount++;
                     continue;
                 }
 
@@ -267,7 +257,6 @@ contract GoldClob is ReentrancyGuard {
                 positions[matchId][makerOrder.maker].yesShares += fillAmount;
                 positions[matchId][msg.sender].noShares += fillAmount;
 
-                // Track aggregate taker price-improvement and refund once after matching.
                 if (currentBid > price) {
                     uint256 improvement = (fillAmount * (currentBid - price)) / 1000;
                     if (improvement > 0) {
@@ -287,7 +276,7 @@ contract GoldClob is ReentrancyGuard {
         }
 
         if (totalImprovement > 0) {
-            require(goldToken.transfer(msg.sender, totalImprovement), "Refund failed");
+            _sendNative(msg.sender, totalImprovement);
         }
 
         if (remainingAmount > 0) {
@@ -331,8 +320,11 @@ contract GoldClob is ReentrancyGuard {
         uint256 remaining = orderInfo.amount - orderInfo.filled;
         orderInfo.filled = orderInfo.amount; // Mark as effectively cancelled/filled
 
-        uint256 cost = (remaining * (orderInfo.isBuy ? orderInfo.price : (1000 - orderInfo.price))) / 1000;
-        require(goldToken.transfer(msg.sender, cost), "Refund failed");
+        uint256 priceComp = orderInfo.isBuy ? orderInfo.price : (1000 - orderInfo.price);
+        uint256 cost = (remaining * priceComp) / 1000;
+        if (cost > 0) {
+            _sendNative(msg.sender, cost);
+        }
 
         emit OrderCancelled(matchId, orderId);
     }
@@ -361,14 +353,13 @@ contract GoldClob is ReentrancyGuard {
 
         require(winningShares > 0, "Nothing to claim");
 
-        uint256 fee = (winningShares * winningsMarketMakerFeeBps) /
-            MAX_FEE_BPS;
+        uint256 fee = (winningShares * winningsMarketMakerFeeBps) / MAX_FEE_BPS;
         uint256 payout = winningShares - fee;
 
         if (fee > 0) {
-            require(goldToken.transfer(marketMaker, fee), "MM fee failed");
+            _sendNative(marketMaker, fee);
         }
-        require(goldToken.transfer(msg.sender, payout), "Payout failed");
+        _sendNative(msg.sender, payout);
     }
 
     // OOG DoS Fix: Allow sweeping of dead/cancelled orders from the queue manually
@@ -384,8 +375,16 @@ contract GoldClob is ReentrancyGuard {
                 _popQueue(matchId, price);
                 cleared++;
             } else {
-                break; // Stop at the first valid, uncancelled order
+                break;
             }
         }
     }
+
+    function _sendNative(address to, uint256 amount) internal {
+        (bool success, ) = payable(to).call{value: amount}("");
+        require(success, "Native transfer failed");
+    }
+
+    // Allow contract to receive native currency
+    receive() external payable {}
 }

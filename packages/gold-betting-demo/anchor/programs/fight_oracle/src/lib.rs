@@ -3,7 +3,7 @@
 
 use anchor_lang::prelude::*;
 
-declare_id!("A85mbYhhsC5X8Qz1hJbt5RfD4uptLtkgkRQGvhgQ8AT7");
+declare_id!("4fvVdiZkMQQGjYWHyKubjkdhh1DfJaYNvaRvRWPeKcMN");
 
 pub const ORACLE_CONFIG_SEED: &[u8] = b"oracle_config";
 pub const MATCH_SEED: &[u8] = b"match";

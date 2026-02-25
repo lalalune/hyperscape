@@ -9,11 +9,9 @@ import {
   BSC_RPC_URL,
   BSC_CHAIN_ID,
   BSC_GOLD_CLOB_ADDRESS,
-  BSC_GOLD_TOKEN_ADDRESS,
   BASE_RPC_URL,
   BASE_CHAIN_ID,
   BASE_GOLD_CLOB_ADDRESS,
-  BASE_GOLD_TOKEN_ADDRESS,
 } from "./config";
 
 // ============================================================================
@@ -29,7 +27,6 @@ export type EvmChainConfig = {
   shortName: string;
   rpcUrl: string;
   goldClobAddress: string;
-  goldTokenAddress: string;
   nativeCurrency: { name: string; symbol: string; decimals: number };
   blockExplorer: string;
   wagmiChain: Chain;
@@ -48,7 +45,6 @@ const BSC_CONFIG: EvmChainConfig = {
   shortName: "BSC",
   rpcUrl: BSC_RPC_URL,
   goldClobAddress: BSC_GOLD_CLOB_ADDRESS,
-  goldTokenAddress: BSC_GOLD_TOKEN_ADDRESS,
   nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
   blockExplorer:
     BSC_CHAIN_ID === 56 ? "https://bscscan.com" : "https://testnet.bscscan.com",
@@ -64,7 +60,6 @@ const BASE_CONFIG: EvmChainConfig = {
   shortName: "Base",
   rpcUrl: BASE_RPC_URL,
   goldClobAddress: BASE_GOLD_CLOB_ADDRESS,
-  goldTokenAddress: BASE_GOLD_TOKEN_ADDRESS,
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   blockExplorer:
     BASE_CHAIN_ID === 8453
@@ -80,10 +75,7 @@ const BASE_CONFIG: EvmChainConfig = {
 // ============================================================================
 
 function hasConfiguredContracts(config: EvmChainConfig): boolean {
-  return (
-    config.goldClobAddress.trim().length > 0 &&
-    config.goldTokenAddress.trim().length > 0
-  );
+  return config.goldClobAddress.trim().length > 0;
 }
 
 /** Get all EVM chain configs that have valid contract addresses configured. */

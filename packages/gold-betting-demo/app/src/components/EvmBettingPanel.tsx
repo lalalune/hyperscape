@@ -27,10 +27,7 @@ import {
   getNextMatchId,
   getBestBid,
   getBestAsk,
-  getGoldBalance,
-  getGoldAllowance,
-  getGoldDecimals,
-  approveGoldToken,
+  getNativeBalance,
   placeOrder,
   resolveMatch,
   getFeeBps,
@@ -46,6 +43,7 @@ import {
 } from "./PredictionMarketPanel";
 import { type Trade } from "./RecentTrades";
 import { type OrderLevel } from "./OrderBook";
+import { PointsDisplay } from "./PointsDisplay";
 
 // ============================================================================
 // Types
@@ -124,8 +122,9 @@ export function EvmBettingPanel({
   const [matchId, setMatchId] = useState<bigint>(1n);
   const [matchMeta, setMatchMeta] = useState<MatchMeta | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
-  const [goldBalance, setGoldBalance] = useState<bigint>(0n);
-  const [goldDecimals, setGoldDecimals] = useState(18);
+  const [nativeBalance, setNativeBalance] = useState<bigint>(0n);
+  const nativeDecimals = chainConfig?.nativeCurrency.decimals ?? 18;
+  const nativeSymbol = chainConfig?.nativeCurrency.symbol ?? "ETH";
   const [bestBid, setBestBid] = useState(0);
   const [bestAsk, setBestAsk] = useState(1000);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -136,7 +135,6 @@ export function EvmBettingPanel({
   const [asks, setAsks] = useState<OrderLevel[]>([]);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
 
-  const [lastApprovalTx, setLastApprovalTx] = useState("-");
   const [lastOrderTx, setLastOrderTx] = useState("-");
   const [lastCreateTx, setLastCreateTx] = useState("-");
   const [lastResolveTx, setLastResolveTx] = useState("-");
@@ -178,7 +176,6 @@ export function EvmBettingPanel({
 
     try {
       const contractAddr = chainConfig.goldClobAddress as Address;
-      const tokenAddr = chainConfig.goldTokenAddress as Address;
 
       // Get latest match ID
       const nextId = await getNextMatchId(publicClient, contractAddr);
@@ -201,10 +198,6 @@ export function EvmBettingPanel({
       const feeBps = await getFeeBps(publicClient, contractAddr);
       setTradeFeeBps(feeBps);
 
-      // Get token decimals
-      const decimals = await getGoldDecimals(publicClient, tokenAddr);
-      setGoldDecimals(decimals);
-
       // User-specific data
       if (effectiveAddress) {
         const pos = await getPosition(
@@ -215,12 +208,8 @@ export function EvmBettingPanel({
         );
         setPosition(pos);
 
-        const bal = await getGoldBalance(
-          publicClient,
-          tokenAddr,
-          effectiveAddress,
-        );
-        setGoldBalance(bal);
+        const bal = await getNativeBalance(publicClient, effectiveAddress);
+        setNativeBalance(bal);
       }
 
       // Fetch recent trades and orders for pump.fun UI
@@ -232,7 +221,7 @@ export function EvmBettingPanel({
       const tradesForUi = fetchedTrades.map((t) => ({
         id: t.id,
         side: t.side,
-        amount: Number(formatUnits(t.amount, decimals)),
+        amount: Number(formatUnits(t.amount, nativeDecimals)),
         time: t.time,
         price: t.price,
       }));
@@ -274,19 +263,19 @@ export function EvmBettingPanel({
       if (bid > 0)
         bidMap.set(
           bid / 1000,
-          (bidMap.get(bid / 1000) || 0n) + 500n * 10n ** BigInt(decimals),
+          (bidMap.get(bid / 1000) || 0n) + 500n * 10n ** BigInt(nativeDecimals),
         );
       if (ask < 1000)
         askMap.set(
           ask / 1000,
-          (askMap.get(ask / 1000) || 0n) + 500n * 10n ** BigInt(decimals),
+          (askMap.get(ask / 1000) || 0n) + 500n * 10n ** BigInt(nativeDecimals),
         );
 
       const sortedBids = Array.from(bidMap.entries())
         .sort((a, b) => b[0] - a[0])
         .map(([price, amount]) => ({
           price,
-          amount: Number(formatUnits(amount, decimals)),
+          amount: Number(formatUnits(amount, nativeDecimals)),
           total: 0,
         }));
 
@@ -294,7 +283,7 @@ export function EvmBettingPanel({
         .sort((a, b) => a[0] - b[0])
         .map(([price, amount]) => ({
           price,
-          amount: Number(formatUnits(amount, decimals)),
+          amount: Number(formatUnits(amount, nativeDecimals)),
           total: 0,
         }));
 
@@ -448,44 +437,21 @@ export function EvmBettingPanel({
     }
 
     const contractAddr = chainConfig.goldClobAddress as Address;
-    const tokenAddr = chainConfig.goldTokenAddress as Address;
     const price = executionPrice;
 
     try {
-      const amount = parseUnits(amountInput, goldDecimals);
+      const amount = parseUnits(amountInput, nativeDecimals);
       if (amount <= 0n) {
         setStatus("Amount must be > 0");
         return;
       }
 
-      // Calculate cost
+      // Calculate cost in native currency
       const isBuy = side === "YES";
       const costPrice = BigInt(isBuy ? price : 1000 - price);
       const cost = (amount * costPrice) / 1000n;
       const tradeFee = (cost * BigInt(Math.max(0, tradeFeeBps))) / 10000n;
-      const requiredDebit = cost + tradeFee;
-
-      // Check and approve allowance
-      const currentAllowance = await getGoldAllowance(
-        publicClient,
-        tokenAddr,
-        effectiveAddress,
-        contractAddr,
-      );
-
-      if (currentAllowance < requiredDebit) {
-        setStatus("Approving GOLD token...");
-        const approveTx = await approveGoldToken(
-          effectiveWalletClient,
-          tokenAddr,
-          contractAddr,
-          requiredDebit * 2n, // Approve 2x for convenience
-          effectiveAddress,
-        );
-        setLastApprovalTx(approveTx);
-        setStatus(`Approval sent: ${approveTx.slice(0, 10)}...`);
-        await publicClient.waitForTransactionReceipt({ hash: approveTx });
-      }
+      const totalValue = cost + tradeFee;
 
       setStatus("Placing order...");
       const tx = await placeOrder(
@@ -496,6 +462,7 @@ export function EvmBettingPanel({
         price,
         amount,
         effectiveAddress,
+        totalValue,
       );
       setLastOrderTx(tx);
       setStatus(`Order sent: ${tx.slice(0, 10)}...`);
@@ -511,7 +478,7 @@ export function EvmBettingPanel({
             body: JSON.stringify({
               bettorWallet: effectiveAddress,
               chain: chainConfig.chainId === "bsc" ? "BSC" : "BASE",
-              sourceAsset: "GOLD",
+              sourceAsset: nativeSymbol,
               sourceAmount: amountInput,
               goldAmount: amountInput,
               feeBps: tradeFeeBps,
@@ -606,10 +573,10 @@ export function EvmBettingPanel({
   }
 
   const yesPool = matchMeta
-    ? Number(formatUnits(matchMeta.yesPool, goldDecimals))
+    ? Number(formatUnits(matchMeta.yesPool, nativeDecimals))
     : 0;
   const noPool = matchMeta
-    ? Number(formatUnits(matchMeta.noPool, goldDecimals))
+    ? Number(formatUnits(matchMeta.noPool, nativeDecimals))
     : 0;
   const totalPool = yesPool + noPool;
   const yesPercent =
@@ -646,7 +613,6 @@ export function EvmBettingPanel({
       >
         <div data-testid="evm-status">{status}</div>
         <div data-testid="evm-match-id">Match #{matchId.toString()}</div>
-        <div data-testid="evm-last-approve-tx">{lastApprovalTx}</div>
         <div data-testid="evm-last-order-tx">{lastOrderTx}</div>
         <div data-testid="evm-last-create-tx">{lastCreateTx}</div>
         <div data-testid="evm-last-resolve-tx">{lastResolveTx}</div>
@@ -732,10 +698,14 @@ export function EvmBettingPanel({
       agent1Name={agent1Name}
       agent2Name={agent2Name}
       isEvm={true}
+      currencySymbol={nativeSymbol}
       chartData={chartData}
       bids={bids}
       asks={asks}
       recentTrades={recentTrades}
+      pointsDisplay={
+        <PointsDisplay walletAddress={effectiveAddress ?? null} compact />
+      }
     />
   );
 }

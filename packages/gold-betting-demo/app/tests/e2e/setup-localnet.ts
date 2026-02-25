@@ -20,7 +20,6 @@ import {
 } from "@solana/spl-token";
 
 import fightOracleIdl from "../../../anchor/target/idl/fight_oracle.json";
-import marketIdl from "../../../anchor/target/idl/gold_binary_market.json";
 
 type SignableTx = Transaction | VersionedTransaction;
 type AnchorLikeWallet = Wallet & { payer: Keypair };
@@ -125,21 +124,16 @@ async function main(): Promise<void> {
   });
 
   let fightProgram = new Program(fightOracleIdl as Idl, provider);
-  let marketProgram = new Program(marketIdl as Idl, provider);
   let fight: any = fightProgram;
-  let market: any = marketProgram;
 
   const [oracleConfigPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("oracle_config")],
     fightProgram.programId,
   );
-  const [marketConfigPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("market_config")],
-    marketProgram.programId,
-  );
 
-  const existingOracleConfig =
-    await fightProgram.account.oracleConfig.fetchNullable(oracleConfigPda);
+  const existingOracleConfig = await (
+    fightProgram as any
+  ).account.oracleConfig.fetchNullable(oracleConfigPda);
   if (
     existingOracleConfig?.authority &&
     !existingOracleConfig.authority.equals(authority.publicKey)
@@ -154,9 +148,7 @@ async function main(): Promise<void> {
         preflightCommitment: "confirmed",
       });
       fightProgram = new Program(fightOracleIdl as Idl, provider);
-      marketProgram = new Program(marketIdl as Idl, provider);
       fight = fightProgram;
-      market = marketProgram;
     }
   }
 
@@ -210,49 +202,13 @@ async function main(): Promise<void> {
     })
     .rpc();
 
-  await market.methods
-    .initializeMarketConfig(
-      authority.publicKey,
-      authority.publicKey,
-      authority.publicKey,
-      100,
-      100,
-      200,
-    )
-    .accountsPartial({
-      authority: authority.publicKey,
-      marketConfig: marketConfigPda,
-      systemProgram: SystemProgram.programId,
-    })
-    .rpc();
-
   const deriveMarket = (matchId: number) => {
     const [matchPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("match"), new BN(matchId).toArrayLike(Buffer, "le", 8)],
       fightProgram.programId,
     );
-    const [marketPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("market"), matchPda.toBuffer()],
-      marketProgram.programId,
-    );
-    const [vaultAuthorityPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("vault_auth"), marketPda.toBuffer()],
-      marketProgram.programId,
-    );
-    const [yesVaultPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("yes_vault"), marketPda.toBuffer()],
-      marketProgram.programId,
-    );
-    const [noVaultPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("no_vault"), marketPda.toBuffer()],
-      marketProgram.programId,
-    );
     return {
       matchPda,
-      marketPda,
-      vaultAuthorityPda,
-      yesVaultPda,
-      noVaultPda,
     };
   };
 
@@ -275,23 +231,6 @@ async function main(): Promise<void> {
     })
     .rpc();
 
-  await market.methods
-    .initializeMarket(new BN(10))
-    .accountsPartial({
-      payer: authority.publicKey,
-      marketMaker: authority.publicKey,
-      oracleMatch: resolved.matchPda,
-      marketConfig: marketConfigPda,
-      market: resolved.marketPda,
-      vaultAuthority: resolved.vaultAuthorityPda,
-      yesVault: resolved.yesVaultPda,
-      noVault: resolved.noVaultPda,
-      goldMint,
-      tokenProgram: localTokenProgram,
-      systemProgram: SystemProgram.programId,
-    })
-    .rpc();
-
   await sleep(2_500);
 
   await fight.methods
@@ -300,15 +239,6 @@ async function main(): Promise<void> {
       authority: authority.publicKey,
       oracleConfig: oracleConfigPda,
       matchResult: resolved.matchPda,
-    })
-    .rpc();
-
-  await market.methods
-    .resolveFromOracle()
-    .accountsPartial({
-      resolver: authority.publicKey,
-      market: resolved.marketPda,
-      oracleMatch: resolved.matchPda,
     })
     .rpc();
 
@@ -331,23 +261,6 @@ async function main(): Promise<void> {
     })
     .rpc();
 
-  await market.methods
-    .initializeMarket(new BN(10))
-    .accountsPartial({
-      payer: authority.publicKey,
-      marketMaker: authority.publicKey,
-      oracleMatch: current.matchPda,
-      marketConfig: marketConfigPda,
-      market: current.marketPda,
-      vaultAuthority: current.vaultAuthorityPda,
-      yesVault: current.yesVaultPda,
-      noVault: current.noVaultPda,
-      goldMint,
-      tokenProgram: localTokenProgram,
-      systemProgram: SystemProgram.programId,
-    })
-    .rpc();
-
   const envBody = [
     "VITE_SOLANA_CLUSTER=localnet",
     `VITE_SOLANA_RPC_URL=${solanaRpcUrl}`,
@@ -359,9 +272,6 @@ async function main(): Promise<void> {
     "VITE_AUTO_SEED_DELAY_SECONDS=10",
     "VITE_MARKET_MAKER_SEED_GOLD=1",
     "VITE_BET_FEE_BPS=200",
-    `VITE_BINARY_MARKET_MAKER_WALLET=${authority.publicKey.toBase58()}`,
-    `VITE_BINARY_TRADE_TREASURY_WALLET=${authority.publicKey.toBase58()}`,
-    `VITE_BINARY_TRADE_MARKET_MAKER_WALLET=${authority.publicKey.toBase58()}`,
     "VITE_GOLD_DECIMALS=6",
     "VITE_REFRESH_INTERVAL_MS=1500",
     "VITE_ENABLE_AUTO_SEED=false",
@@ -383,7 +293,6 @@ async function main(): Promise<void> {
         goldMint: goldMint.toBase58(),
         currentMatchId,
         currentMatchPda: current.matchPda.toBase58(),
-        currentMarketPda: current.marketPda.toBase58(),
         lastResolvedMatchId: resolvedMatchId,
         expectedSeedSuccess: true,
         canStartNewRound: true,

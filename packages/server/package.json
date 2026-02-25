@@ -57,7 +57,7 @@
   ],
   "dependencies": {
     "@ai-sdk/openai": "^3.0.30",
-    "@elizaos/core": "2.0.0-alpha.11",
+    "@elizaos/core": "2.0.0-alpha.12",
     "@elizaos/plugin-groq": "2.0.0-alpha.7",
     "@elizaos/plugin-openai": "2.0.0-alpha.8",
     "@elizaos/plugin-sql": "2.0.0-alpha.11",
@@ -92,7 +92,7 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@playwright/test": "^1.53.1",
+    "@playwright/test": "^1.58.2",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/moment": "^2.13.0",
     "@types/node": "^25.3.0",

@@ -1610,6 +1610,9 @@ export class DuelOrchestrator {
     // Trigger victory emote on winner (waving both hands celebration)
     this.triggerVictoryEmote(winnerId);
 
+    // Fire a victory trash talk message from the winner
+    this.fireVictoryTrashTalk(winnerId);
+
     // Notify the facade to handle resolution (phase transition, stats, recording, camera)
     this.onResolution(winnerId, loserId, winReason);
   }
@@ -1634,6 +1637,40 @@ export class DuelOrchestrator {
       "StreamingDuelScheduler",
       `Triggered victory emote for winner ${winnerId}`,
     );
+  }
+
+  /**
+   * Fire a victory trash talk message from the winning agent.
+   * Uses the agent's chat service to display a closing taunt overhead.
+   */
+  private fireVictoryTrashTalk(winnerId: string): void {
+    const VICTORY_TAUNTS = [
+      "GG EZ",
+      "Too easy",
+      "Get good",
+      "Was that it?",
+      "Next!",
+      "Sit down kid",
+      "Another one bites the dust",
+      "Unmatched",
+    ];
+
+    // Fire-and-forget: try to send a victory taunt via agent service
+    void (async () => {
+      try {
+        const { getAgentManager } =
+          await import("../../../eliza/AgentManager.js");
+        const manager = getAgentManager();
+        const service = manager?.getAgentService(winnerId);
+        if (service) {
+          const msg =
+            VICTORY_TAUNTS[Math.floor(Math.random() * VICTORY_TAUNTS.length)];
+          await service.sendChatMessage(msg);
+        }
+      } catch {
+        // Swallow — chat failure must not break resolution
+      }
+    })();
   }
 
   // ============================================================================

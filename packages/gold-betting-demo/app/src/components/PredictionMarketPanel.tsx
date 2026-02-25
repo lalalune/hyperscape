@@ -40,6 +40,8 @@ interface PredictionMarketPanelProps {
   recentTrades?: Trade[];
   goldPriceUsd?: number | null;
   children?: ReactNode;
+  pointsDisplay?: ReactNode;
+  currencySymbol?: string;
   onViewAgent1?: () => void;
   onViewAgent2?: () => void;
 }
@@ -66,6 +68,8 @@ export function PredictionMarketPanel({
   recentTrades = [],
   goldPriceUsd = null,
   children,
+  pointsDisplay,
+  currencySymbol = "SOL",
   onViewAgent1,
   onViewAgent2,
 }: PredictionMarketPanelProps) {
@@ -312,6 +316,10 @@ export function PredictionMarketPanel({
             }}
           />
 
+          {pointsDisplay && (
+            <div style={{ marginBottom: 4 }}>{pointsDisplay}</div>
+          )}
+
           {/* Buy / Sell Toggle */}
           <div
             style={{
@@ -442,7 +450,7 @@ export function PredictionMarketPanel({
                     letterSpacing: 1.5,
                   }}
                 >
-                  GOLD
+                  {currencySymbol}
                 </div>
               </div>
               <button

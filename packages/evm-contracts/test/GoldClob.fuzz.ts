@@ -45,27 +45,12 @@ describe("GoldClob — Randomized Invariants", function () {
       await ethers.getSigners();
     const activeTraders = traders.slice(0, 12);
 
-    const MockERC20 = await ethers.getContractFactory("MockERC20");
-    const token = await MockERC20.deploy("Gold", "GOLD");
-    await token.waitForDeployment();
-
     const GoldClob = await ethers.getContractFactory("GoldClob");
-    const clob = await GoldClob.deploy(
-      await token.getAddress(),
-      treasury.address,
-      marketMaker.address,
-    );
+    const clob = await GoldClob.deploy(treasury.address, marketMaker.address);
     await clob.waitForDeployment();
-    const clobAddress = await clob.getAddress();
-
-    for (const trader of activeTraders) {
-      await token.mint(trader.address, ethers.parseUnits("1000000", 9));
-      await token.connect(trader).approve(clobAddress, ethers.MaxUint256);
-    }
 
     return {
       clob,
-      token,
       admin,
       treasury,
       marketMaker,
@@ -73,11 +58,19 @@ describe("GoldClob — Randomized Invariants", function () {
     };
   }
 
+  /** Compute native value needed for placeOrder (cost + 2% trade fee). */
+  function computeValue(amount: bigint, price: number, isBuy: boolean): bigint {
+    const priceComp = BigInt(isBuy ? price : 1000 - price);
+    const cost = (amount * priceComp) / 1000n;
+    const fee = (cost * 200n) / 10000n;
+    return cost + fee;
+  }
+
   it("holds claim/fee invariants under randomized order flow", async function () {
     const seeds = [0x1001n, 0x2002n, 0x3003n, 0x4004n];
 
     for (const seed of seeds) {
-      const { clob, token, admin, treasury, marketMaker, traders } =
+      const { clob, admin, treasury, marketMaker, traders } =
         await deployFixture();
 
       await clob.connect(admin).createMatch();
@@ -101,15 +94,21 @@ describe("GoldClob — Randomized Invariants", function () {
           const beforeOrderId = await clob.nextOrderId();
 
           try {
+            const value = computeValue(amount, price, isBuy);
             await clob
               .connect(trader)
-              .placeOrder(matchId, isBuy, price, amount);
+              .placeOrder(matchId, isBuy, price, amount, { value });
             const afterOrderId = await clob.nextOrderId();
             if (afterOrderId === beforeOrderId + 1n) {
               ordersForTrader.push(beforeOrderId);
             }
           } catch (error) {
-            expectKnownRevert(error, ["Cost too low", "Transfer failed"]);
+            expectKnownRevert(error, [
+              "Cost too low",
+              "Native transfer failed",
+              "Amount/Price precision error",
+              "Insufficient native currency sent",
+            ]);
           }
           continue;
         }
@@ -154,21 +153,24 @@ describe("GoldClob — Randomized Invariants", function () {
           continue;
         }
 
-        const traderBefore = await token.balanceOf(trader.address);
-        const treasuryBefore = await token.balanceOf(treasury.address);
-        const marketMakerBefore = await token.balanceOf(marketMaker.address);
+        const traderBefore = await ethers.provider.getBalance(trader.address);
+        const marketMakerBefore = await ethers.provider.getBalance(
+          marketMaker.address,
+        );
 
-        await clob.connect(trader).claim(matchId);
+        const tx = await clob.connect(trader).claim(matchId);
+        const receipt = await tx.wait();
+        const gasCost = receipt!.gasUsed * receipt!.gasPrice;
 
         const fee = (winningShares * 200n) / 10000n;
         const payout = winningShares - fee;
 
-        const traderAfter = await token.balanceOf(trader.address);
-        const treasuryAfter = await token.balanceOf(treasury.address);
-        const marketMakerAfter = await token.balanceOf(marketMaker.address);
+        const traderAfter = await ethers.provider.getBalance(trader.address);
+        const marketMakerAfter = await ethers.provider.getBalance(
+          marketMaker.address,
+        );
 
-        expect(traderAfter - traderBefore).to.equal(payout);
-        expect(treasuryAfter - treasuryBefore).to.equal(0n);
+        expect(traderAfter - traderBefore + gasCost).to.equal(payout);
         expect(marketMakerAfter - marketMakerBefore).to.equal(fee);
 
         await expectRevert(

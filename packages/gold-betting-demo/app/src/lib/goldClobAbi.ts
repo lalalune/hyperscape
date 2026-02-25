@@ -1,13 +1,12 @@
 /**
- * ABI for the GoldClob EVM contract.
- * Extracted from evm-contracts/artifacts/contracts/GoldClob.sol/GoldClob.json
+ * ABI for the GoldClob EVM contract (native currency version).
+ * placeOrder is payable — sends native currency (BNB/ETH/AVAX) with the tx.
  */
 
 export const GOLD_CLOB_ABI = [
   // Constructor
   {
     inputs: [
-      { internalType: "address", name: "_goldToken", type: "address" },
       { internalType: "address", name: "_treasury", type: "address" },
       { internalType: "address", name: "_marketMaker", type: "address" },
     ],
@@ -157,13 +156,6 @@ export const GOLD_CLOB_ABI = [
   },
   {
     inputs: [],
-    name: "goldToken",
-    outputs: [{ internalType: "contract IERC20", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
     name: "marketMaker",
     outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
@@ -268,7 +260,7 @@ export const GOLD_CLOB_ABI = [
     ],
     name: "placeOrder",
     outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: "payable",
     type: "function",
   },
   {
@@ -279,44 +271,6 @@ export const GOLD_CLOB_ABI = [
     name: "resolveMatch",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
-  },
-] as const;
-
-/** ERC20 approve ABI fragment for token approval. */
-export const ERC20_APPROVE_ABI = [
-  {
-    inputs: [
-      { internalType: "address", name: "spender", type: "address" },
-      { internalType: "uint256", name: "amount", type: "uint256" },
-    ],
-    name: "approve",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "owner", type: "address" },
-      { internalType: "address", name: "spender", type: "address" },
-    ],
-    name: "allowance",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "account", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "decimals",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
     type: "function",
   },
 ] as const;

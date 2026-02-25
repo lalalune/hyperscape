@@ -71,7 +71,7 @@ export interface ArenaRoundSnapshot {
 export interface BetQuoteRequest {
   roundId: string;
   side: ArenaSide;
-  sourceAsset: "GOLD" | "SOL" | "USDC";
+  sourceAsset: "GOLD" | "SOL" | "USDC" | "BNB" | "ETH" | "AVAX";
   sourceAmount: string;
   bettorWallet: string;
 }
@@ -79,7 +79,7 @@ export interface BetQuoteRequest {
 export interface BetQuoteResponse {
   roundId: string;
   side: ArenaSide;
-  sourceAsset: "GOLD" | "SOL" | "USDC";
+  sourceAsset: "GOLD" | "SOL" | "USDC" | "BNB" | "ETH" | "AVAX";
   sourceAmount: string;
   expectedGoldAmount: string;
   minGoldAmount: string;
