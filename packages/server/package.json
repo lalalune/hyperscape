@@ -57,7 +57,7 @@
   ],
   "dependencies": {
     "@ai-sdk/openai": "^3.0.30",
-    "@elizaos/core": "2.0.0-alpha.12",
+    "@elizaos/core": "2.0.0-alpha.26",
     "@elizaos/plugin-groq": "2.0.0-alpha.7",
     "@elizaos/plugin-openai": "2.0.0-alpha.8",
     "@elizaos/plugin-sql": "2.0.0-alpha.11",
@@ -104,7 +104,7 @@
     "@vitest/coverage-v8": "^4.0.6",
     "chokidar": "^4.0.3",
     "esbuild": "^0.27.0",
-    "eslint": "^9.37.0",
+    "eslint": "^10.0.2",
     "eslint-config-prettier": "^9.1.0",
     "pg-mem": "^3.0.8",
     "playwright": "^1.55.1",
