@@ -64,7 +64,7 @@ interface CachedModel {
 
 const PROCESSED_DB_NAME = "hyperscape-processed-models";
 const PROCESSED_STORE_NAME = "models";
-const PROCESSED_CACHE_VERSION = 2;
+const PROCESSED_CACHE_VERSION = 3;
 
 /** Serialized mesh data for IndexedDB storage */
 interface SerializedMesh {
@@ -82,6 +82,13 @@ interface SerializedMesh {
   material: SerializedMaterialProps | SerializedMaterialProps[];
 }
 
+/** Raw RGBA pixel data for a texture, stored as ArrayBuffer in IndexedDB. */
+interface SerializedTextureData {
+  pixels: ArrayBuffer;
+  width: number;
+  height: number;
+}
+
 /** Material properties that can be serialized (no GPU state) */
 interface SerializedMaterialProps {
   name: string;
@@ -96,15 +103,14 @@ interface SerializedMaterialProps {
   side: number;
   flatShading: boolean;
   vertexColors: boolean;
-  /** Texture URLs — the raw bytes are already in ClientLoader's IndexedDB */
-  mapUrl?: string;
-  normalMapUrl?: string;
+  mapData?: SerializedTextureData;
+  normalMapData?: SerializedTextureData;
   normalScaleX?: number;
   normalScaleY?: number;
-  emissiveMapUrl?: string;
-  roughnessMapUrl?: string;
-  metalnessMapUrl?: string;
-  aoMapUrl?: string;
+  emissiveMapData?: SerializedTextureData;
+  roughnessMapData?: SerializedTextureData;
+  metalnessMapData?: SerializedTextureData;
+  aoMapData?: SerializedTextureData;
   aoMapIntensity?: number;
 }
 
@@ -333,7 +339,14 @@ export class ModelCache {
         PROCESSED_STORE_NAME,
         "readwrite",
       );
-      tx.objectStore(PROCESSED_STORE_NAME).put(serialized);
+      const putReq = tx.objectStore(PROCESSED_STORE_NAME).put(serialized);
+      putReq.onerror = () =>
+        console.warn(
+          `[ModelCache] IndexedDB put failed for ${url}:`,
+          putReq.error,
+        );
+      tx.onerror = () =>
+        console.warn(`[ModelCache] IndexedDB tx failed for ${url}:`, tx.error);
     } catch (err) {
       console.warn(`[ModelCache] Failed to cache processed model ${url}:`, err);
     }
@@ -351,11 +364,13 @@ export class ModelCache {
     collision?: ModelCollisionData,
   ): SerializedProcessedModel {
     const meshes: SerializedMesh[] = [];
+    const meshNodeToIndex = new Map<THREE.Object3D, number>();
 
-    // Collect all meshes
+    // Collect all meshes and build identity map (avoids name-collision bugs)
     scene.traverse((node) => {
       if (node instanceof THREE.Mesh || node instanceof THREE.SkinnedMesh) {
         const geo = node.geometry;
+        meshNodeToIndex.set(node, meshes.length);
         const sm: SerializedMesh = {
           name: node.name,
           type: node instanceof THREE.SkinnedMesh ? "SkinnedMesh" : "Mesh",
@@ -392,8 +407,8 @@ export class ModelCache {
       }
     });
 
-    // Serialize hierarchy
-    const hierarchy = this.serializeNode(scene, meshes);
+    // Serialize hierarchy (uses identity map, not name-based lookup)
+    const hierarchy = this.serializeNode(scene, meshNodeToIndex);
 
     // Serialize animations
     const serializedAnimations = animations.map((clip) => ({
@@ -431,6 +446,42 @@ export class ModelCache {
     };
   }
 
+  /**
+   * Extract raw RGBA pixel data from a texture for IndexedDB storage.
+   * Synchronous via canvas drawImage + getImageData — the resulting
+   * DataTexture is immediately usable on deserialization (no async load).
+   */
+  private textureToPixelData(
+    texture: THREE.Texture,
+  ): SerializedTextureData | null {
+    const image = texture.source?.data ?? texture.image;
+    if (!image) return null;
+
+    const w =
+      (image as HTMLImageElement).naturalWidth ||
+      (image as ImageBitmap).width ||
+      0;
+    const h =
+      (image as HTMLImageElement).naturalHeight ||
+      (image as ImageBitmap).height ||
+      0;
+    if (w === 0 || h === 0) return null;
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(image as CanvasImageSource, 0, 0);
+      const imageData = ctx.getImageData(0, 0, w, h);
+      return { pixels: imageData.data.buffer, width: w, height: h };
+    } catch (e) {
+      console.warn("[ModelCache] Failed to extract texture pixels:", e);
+      return null;
+    }
+  }
+
   /** Serialize material properties (no GPU state) */
   private serializeMaterialProps(mat: THREE.Material): SerializedMaterialProps {
     const m = mat as THREE.MeshStandardMaterial & {
@@ -459,49 +510,53 @@ export class ModelCache {
       vertexColors: m.vertexColors ?? false,
     };
 
-    // Store texture source URLs (textures themselves are cached by ClientLoader)
-    type TexWithSrc = { source?: { data?: { src?: string } } };
-    const mapSrc = (m.map as TexWithSrc | undefined)?.source?.data?.src;
-    if (mapSrc) props.mapUrl = mapSrc;
-    const normalMapSrc = (m.normalMap as TexWithSrc | undefined)?.source?.data
-      ?.src;
-    if (normalMapSrc) props.normalMapUrl = normalMapSrc;
+    if (m.map) {
+      const d = this.textureToPixelData(m.map);
+      if (d) props.mapData = d;
+    }
+    if (m.normalMap) {
+      const d = this.textureToPixelData(m.normalMap);
+      if (d) props.normalMapData = d;
+    }
     if (m.normalScale) {
       props.normalScaleX = m.normalScale.x;
       props.normalScaleY = m.normalScale.y;
     }
-    const emissiveMapSrc = (m.emissiveMap as TexWithSrc | undefined)?.source
-      ?.data?.src;
-    if (emissiveMapSrc) props.emissiveMapUrl = emissiveMapSrc;
-    const roughnessMapSrc = (m.roughnessMap as TexWithSrc | undefined)?.source
-      ?.data?.src;
-    if (roughnessMapSrc) props.roughnessMapUrl = roughnessMapSrc;
-    const metalnessMapSrc = (m.metalnessMap as TexWithSrc | undefined)?.source
-      ?.data?.src;
-    if (metalnessMapSrc) props.metalnessMapUrl = metalnessMapSrc;
-    const aoMapSrc = (m.aoMap as TexWithSrc | undefined)?.source?.data?.src;
-    if (aoMapSrc) {
-      props.aoMapUrl = aoMapSrc;
+    if (m.emissiveMap) {
+      const d = this.textureToPixelData(m.emissiveMap);
+      if (d) props.emissiveMapData = d;
+    }
+    if (m.roughnessMap) {
+      const d = this.textureToPixelData(m.roughnessMap);
+      if (d) props.roughnessMapData = d;
+    }
+    if (m.metalnessMap) {
+      const d = this.textureToPixelData(m.metalnessMap);
+      if (d) props.metalnessMapData = d;
+    }
+    if (m.aoMap) {
+      const d = this.textureToPixelData(m.aoMap);
+      if (d) props.aoMapData = d;
       props.aoMapIntensity = m.aoMapIntensity ?? 1.0;
     }
 
     return props;
   }
 
-  /** Serialize scene hierarchy */
+  /** Serialize scene hierarchy using object-identity mesh indices */
   private serializeNode(
     node: THREE.Object3D,
-    meshes: SerializedMesh[],
+    meshNodeToIndex: Map<THREE.Object3D, number>,
   ): SerializedNode {
     let type: SerializedNode["type"] = "Object3D";
     let meshIndex: number | undefined;
 
     if (node instanceof THREE.SkinnedMesh) {
       type = "SkinnedMesh";
-      meshIndex = meshes.findIndex((m) => m.name === node.name);
+      meshIndex = meshNodeToIndex.get(node);
     } else if (node instanceof THREE.Mesh) {
       type = "Mesh";
-      meshIndex = meshes.findIndex((m) => m.name === node.name);
+      meshIndex = meshNodeToIndex.get(node);
     } else if (node instanceof THREE.Bone) {
       type = "Bone";
     } else if (node instanceof THREE.Group) {
@@ -511,9 +566,10 @@ export class ModelCache {
     return {
       name: node.name,
       type,
-      meshIndex:
-        meshIndex !== undefined && meshIndex >= 0 ? meshIndex : undefined,
-      children: node.children.map((child) => this.serializeNode(child, meshes)),
+      meshIndex,
+      children: node.children.map((child) =>
+        this.serializeNode(child, meshNodeToIndex),
+      ),
     };
   }
 
@@ -602,9 +658,44 @@ export class ModelCache {
         (mat as THREE.Material & { shadowSide?: number }).shadowSide =
           THREE.BackSide;
 
-        // Textures are loaded separately by ClientLoader and referenced by URL.
-        // We DON'T reload textures here — they'll be reattached when setupMaterials() runs.
-        // The key win is skipping GLTF binary parsing, not texture loading.
+        const restoreTex = (
+          td: SerializedTextureData,
+          srgb: boolean,
+        ): THREE.DataTexture => {
+          const tex = new THREE.DataTexture(
+            new Uint8ClampedArray(td.pixels),
+            td.width,
+            td.height,
+            THREE.RGBAFormat,
+          );
+          tex.colorSpace = srgb
+            ? THREE.SRGBColorSpace
+            : THREE.LinearSRGBColorSpace;
+          tex.needsUpdate = true;
+          return tex;
+        };
+
+        if (props.mapData) mat.map = restoreTex(props.mapData, true);
+        if (props.normalMapData) {
+          mat.normalMap = restoreTex(props.normalMapData, false);
+          if (props.normalScaleX !== undefined) {
+            mat.normalScale.set(
+              props.normalScaleX,
+              props.normalScaleY ?? props.normalScaleX,
+            );
+          }
+        }
+        if (props.emissiveMapData)
+          mat.emissiveMap = restoreTex(props.emissiveMapData, true);
+        if (props.roughnessMapData)
+          mat.roughnessMap = restoreTex(props.roughnessMapData, false);
+        if (props.metalnessMapData)
+          mat.metalnessMap = restoreTex(props.metalnessMapData, false);
+        if (props.aoMapData) {
+          mat.aoMap = restoreTex(props.aoMapData, false);
+          mat.aoMapIntensity = props.aoMapIntensity ?? 1.0;
+        }
+        mat.needsUpdate = true;
 
         // CSM integration
         if (world?.setupMaterial) {

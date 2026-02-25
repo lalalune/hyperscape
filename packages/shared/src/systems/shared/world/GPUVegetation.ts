@@ -898,28 +898,37 @@ export function createDissolveMaterial(
 ): DissolveMaterial {
   const material = new MeshStandardNodeMaterial();
 
-  // Copy properties from source material
-  if (source instanceof THREE.MeshStandardMaterial) {
-    material.color.copy(source.color);
-    material.roughness = source.roughness;
-    material.metalness = source.metalness;
-    material.emissive.copy(source.emissive);
-    material.emissiveIntensity = source.emissiveIntensity;
-    material.vertexColors = source.vertexColors;
-    material.side = source.side;
-    material.transparent = false; // Cutout rendering
+  // Copy properties from source material.
+  // ModelCache converts all materials to MeshStandardNodeMaterial, which may
+  // not pass `instanceof MeshStandardMaterial` in the WebGPU build where
+  // they are separate classes. Duck-type check for PBR properties instead.
+  const src = source as THREE.MeshStandardMaterial & {
+    map?: THREE.Texture | null;
+    normalMap?: THREE.Texture | null;
+    emissiveMap?: THREE.Texture | null;
+    roughnessMap?: THREE.Texture | null;
+    metalnessMap?: THREE.Texture | null;
+    aoMap?: THREE.Texture | null;
+  };
+  if (src.color && src.roughness !== undefined) {
+    material.color.copy(src.color);
+    material.roughness = src.roughness;
+    material.metalness = src.metalness;
+    material.emissive.copy(src.emissive);
+    material.emissiveIntensity = src.emissiveIntensity;
+    material.vertexColors = src.vertexColors;
+    material.side = src.side;
+    material.transparent = false;
     material.depthWrite = true;
     material.opacity = 1.0;
 
-    // Copy textures if present
-    if (source.map) material.map = source.map;
-    if (source.normalMap) material.normalMap = source.normalMap;
-    if (source.emissiveMap) material.emissiveMap = source.emissiveMap;
-    if (source.roughnessMap) material.roughnessMap = source.roughnessMap;
-    if (source.metalnessMap) material.metalnessMap = source.metalnessMap;
-    if (source.aoMap) material.aoMap = source.aoMap;
+    if (src.map) material.map = src.map;
+    if (src.normalMap) material.normalMap = src.normalMap;
+    if (src.emissiveMap) material.emissiveMap = src.emissiveMap;
+    if (src.roughnessMap) material.roughnessMap = src.roughnessMap;
+    if (src.metalnessMap) material.metalnessMap = src.metalnessMap;
+    if (src.aoMap) material.aoMap = src.aoMap;
   } else {
-    // Fallback for non-standard materials
     material.color.set(0x888888);
     material.roughness = 0.8;
     material.metalness = 0.0;
