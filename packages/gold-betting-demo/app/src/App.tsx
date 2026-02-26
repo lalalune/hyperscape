@@ -65,7 +65,6 @@ import {
 import { findAnyGoldAccount } from "./lib/token";
 import { simulateFight, type FightResult } from "./lib/fight";
 import { isHeadlessWalletEnabled } from "./lib/headlessWallet";
-import { useMockStreamingEngine } from "./lib/useMockStreamingEngine";
 import { useStreamingState } from "./spectator/useStreamingState";
 import { useDuelContext } from "./spectator/useDuelContext";
 import { useResizePanel, useIsMobile } from "./lib/useResizePanel";
@@ -283,14 +282,13 @@ export function App() {
   const isE2eMode = import.meta.env.MODE === "e2e";
   const isE2eDebugMode =
     isE2eMode && new URLSearchParams(window.location.search).has("debug");
-  const isStreamUIMode = import.meta.env.MODE === "stream-ui";
   const isEvmChain = activeChain === "bsc" || activeChain === "base";
   const autoSeedEnabled = CONFIG.enableAutoSeed;
   const solanaWalletAddress = wallet.publicKey?.toBase58() ?? null;
-  // Spectator sessions should not fan out direct Solana RPC polling.
-  const shouldPollChainData =
-    !isStreamUIMode &&
-    Boolean(isE2eMode || wallet.publicKey || wallet.connected);
+  // Only poll chain data when a wallet is connected (saves unnecessary RPC calls for spectators).
+  const shouldPollChainData = Boolean(
+    isE2eMode || wallet.publicKey || wallet.connected,
+  );
   const pointsWalletAddress = useMemo(() => {
     if (activeChain === "solana" && solanaWalletAddress)
       return solanaWalletAddress;
@@ -397,11 +395,8 @@ export function App() {
   const appRootRef = useRef<HTMLDivElement | null>(null);
   const bettingDockInnerRef = useRef<HTMLDivElement | null>(null);
 
-  const mock = useMockStreamingEngine({ disabled: !isStreamUIMode });
-  const { state: streamingState } = useStreamingState({
-    disabled: isStreamUIMode,
-  });
-  const { context: duelContext } = useDuelContext({ disabled: isStreamUIMode });
+  const { state: streamingState } = useStreamingState();
+  const { context: duelContext } = useDuelContext();
   const liveCycle = streamingState?.cycle ?? null;
   const streamSources = STREAM_URLS;
   const activeStreamUrl = streamSources[streamSourceIndex] ?? "";
@@ -1749,17 +1744,14 @@ export function App() {
     return [{ price: askPrice, amount: noPot, total: noPot }];
   }, [yesSharePercent, noPot]);
 
-  // Stream-UI mode: override chain data with mock engine values
-  const effYesPot = isStreamUIMode ? mock.yesPot : yesPot;
-  const effNoPot = isStreamUIMode ? mock.noPot : noPot;
-  const effYesPercent = isStreamUIMode ? mock.yesPercent : yesSharePercent;
-  const effNoPercent = isStreamUIMode ? mock.noPercent : noSharePercent;
-  const effChartData = isStreamUIMode ? mock.chartData : solanaChartData;
-  const effBids = isStreamUIMode ? mock.bids : solanaBids;
-  const effAsks = isStreamUIMode ? mock.asks : solanaAsks;
-  const effRecentTrades = isStreamUIMode
-    ? mock.recentTrades
-    : solanaRecentTrades;
+  const effYesPot = yesPot;
+  const effNoPot = noPot;
+  const effYesPercent = yesSharePercent;
+  const effNoPercent = noSharePercent;
+  const effChartData = solanaChartData;
+  const effBids = solanaBids;
+  const effAsks = solanaAsks;
+  const effRecentTrades = solanaRecentTrades;
   const liveAgent1Name =
     liveCycle?.agent1?.name?.trim() && liveCycle.agent1.name.trim().length > 0
       ? liveCycle.agent1.name.trim()
@@ -1768,88 +1760,71 @@ export function App() {
     liveCycle?.agent2?.name?.trim() && liveCycle.agent2.name.trim().length > 0
       ? liveCycle.agent2.name.trim()
       : null;
-  const effAgent1Name = isStreamUIMode
-    ? mock.matchAgent1Name
-    : (currentMatch?.agent1Name ?? liveAgent1Name ?? "Agent A");
-  const effAgent2Name = isStreamUIMode
-    ? mock.matchAgent2Name
-    : (currentMatch?.agent2Name ?? liveAgent2Name ?? "Agent B");
-  const effProgramsReady = isStreamUIMode ? true : programsReady;
-  const effWalletReady = isStreamUIMode ? true : isWalletReady(wallet);
-  const effStatusColor = isStreamUIMode
-    ? mock.statusColor
-    : (() => {
-        if (/failed|error|unavailable|required|not found/i.test(status))
-          return "#fda4af";
-        if (/placed|complete|seeded|created|linked/i.test(status))
-          return "#86efac";
-        return "rgba(255,255,255,0.78)";
-      })();
-  const effStatus = isStreamUIMode ? mock.status : status;
-  const effPhase = isStreamUIMode
-    ? mock.streamState.cycle.phase
-    : (liveCycle?.phase ?? "IDLE");
+  const effAgent1Name = currentMatch?.agent1Name ?? liveAgent1Name ?? "Agent A";
+  const effAgent2Name = currentMatch?.agent2Name ?? liveAgent2Name ?? "Agent B";
+  const effProgramsReady = programsReady;
+  const effWalletReady = isWalletReady(wallet);
+  const effStatusColor = (() => {
+    if (/failed|error|unavailable|required|not found/i.test(status))
+      return "#fda4af";
+    if (/placed|complete|seeded|created|linked/i.test(status)) return "#86efac";
+    return "rgba(255,255,255,0.78)";
+  })();
+  const effStatus = status;
+  const effPhase = liveCycle?.phase ?? "IDLE";
 
-  // Agent context for hm-* layout (real data from SSE in devnet, mock in stream-ui)
-  const effA1 = isStreamUIMode
-    ? mock.agent1Context
-    : {
-        id: "agent1",
-        name: effAgent1Name,
-        hp: liveCycle?.agent1?.hp ?? 100,
-        maxHp: liveCycle?.agent1?.maxHp ?? 100,
-        wins: liveCycle?.agent1?.wins ?? 0,
-        losses: liveCycle?.agent1?.losses ?? 0,
-        rank: 1,
-        combatLevel: liveCycle?.agent1?.combatLevel ?? 1,
-        provider: liveCycle?.agent1?.provider ?? "",
-        model: liveCycle?.agent1?.model ?? "",
-        damageDealtThisFight: liveCycle?.agent1?.damageDealtThisFight ?? 0,
-        headToHeadWins: 0,
-        headToHeadLosses: 0,
-        monologues: [] as {
-          id: string;
-          type: string;
-          content: string;
-          timestamp: number;
-        }[],
-      };
-  const effA2 = isStreamUIMode
-    ? mock.agent2Context
-    : {
-        id: "agent2",
-        name: effAgent2Name,
-        hp: liveCycle?.agent2?.hp ?? 100,
-        maxHp: liveCycle?.agent2?.maxHp ?? 100,
-        wins: liveCycle?.agent2?.wins ?? 0,
-        losses: liveCycle?.agent2?.losses ?? 0,
-        rank: 2,
-        combatLevel: liveCycle?.agent2?.combatLevel ?? 1,
-        provider: liveCycle?.agent2?.provider ?? "",
-        model: liveCycle?.agent2?.model ?? "",
-        damageDealtThisFight: liveCycle?.agent2?.damageDealtThisFight ?? 0,
-        headToHeadWins: 0,
-        headToHeadLosses: 0,
-        monologues: [] as {
-          id: string;
-          type: string;
-          content: string;
-          timestamp: number;
-        }[],
-      };
-  const effCycle = isStreamUIMode
-    ? mock.streamState.cycle
-    : {
-        cycleId: liveCycle?.cycleId ?? "cycle-0",
-        phase: liveCycle?.phase ?? "IDLE",
-        countdown: liveCycle?.countdown ?? null,
-        winnerName: liveCycle?.winnerName ?? null,
-        winReason: liveCycle?.winReason ?? null,
-        timeRemaining: liveCycle?.timeRemaining ?? 0,
-      };
-  const effLeaderboard = isStreamUIMode
-    ? mock.streamState.leaderboard
-    : (streamingState?.leaderboard ?? []);
+  // Agent context from live SSE + duel-context polling
+  const effA1 = {
+    id: "agent1",
+    name: effAgent1Name,
+    hp: liveCycle?.agent1?.hp ?? 100,
+    maxHp: liveCycle?.agent1?.maxHp ?? 100,
+    wins: liveCycle?.agent1?.wins ?? 0,
+    losses: liveCycle?.agent1?.losses ?? 0,
+    rank: 1,
+    combatLevel: liveCycle?.agent1?.combatLevel ?? 1,
+    provider: liveCycle?.agent1?.provider ?? "",
+    model: liveCycle?.agent1?.model ?? "",
+    damageDealtThisFight: liveCycle?.agent1?.damageDealtThisFight ?? 0,
+    headToHeadWins: 0,
+    headToHeadLosses: 0,
+    monologues: [] as {
+      id: string;
+      type: string;
+      content: string;
+      timestamp: number;
+    }[],
+  };
+  const effA2 = {
+    id: "agent2",
+    name: effAgent2Name,
+    hp: liveCycle?.agent2?.hp ?? 100,
+    maxHp: liveCycle?.agent2?.maxHp ?? 100,
+    wins: liveCycle?.agent2?.wins ?? 0,
+    losses: liveCycle?.agent2?.losses ?? 0,
+    rank: 2,
+    combatLevel: liveCycle?.agent2?.combatLevel ?? 1,
+    provider: liveCycle?.agent2?.provider ?? "",
+    model: liveCycle?.agent2?.model ?? "",
+    damageDealtThisFight: liveCycle?.agent2?.damageDealtThisFight ?? 0,
+    headToHeadWins: 0,
+    headToHeadLosses: 0,
+    monologues: [] as {
+      id: string;
+      type: string;
+      content: string;
+      timestamp: number;
+    }[],
+  };
+  const effCycle = {
+    cycleId: liveCycle?.cycleId ?? "cycle-0",
+    phase: liveCycle?.phase ?? "IDLE",
+    countdown: liveCycle?.countdown ?? null,
+    winnerName: liveCycle?.winnerName ?? null,
+    winReason: liveCycle?.winReason ?? null,
+    timeRemaining: liveCycle?.timeRemaining ?? 0,
+  };
+  const effLeaderboard = streamingState?.leaderboard ?? [];
   const effTotalPool =
     (typeof effYesPot === "number" ? effYesPot : 0) +
     (typeof effNoPot === "number" ? effNoPot : 0);
@@ -1889,23 +1864,17 @@ export function App() {
   })();
   const statusColor = effStatusColor;
   const streamPhaseText = liveCycle?.phase ?? null;
-  const marketStatusText = isStreamUIMode
-    ? effStatus
-    : isEvmChain
-      ? (streamPhaseText ??
-        (currentMatch ? currentMatch.status.toUpperCase() : "LIVE"))
-      : marketStatusLabel(currentMarketState?.status);
-  const countdownText = isStreamUIMode
-    ? formatCountdown(
-        normalizeRemainingSeconds(mock.streamState.cycle.timeRemaining),
-      )
-    : isEvmChain
-      ? liveCycle
-        ? formatCountdown(normalizeRemainingSeconds(liveCycle.timeRemaining))
-        : ""
-      : formatCountdown(
-          currentMatch ? Math.max(0, currentMatch.closeTs - nowTs) : 0,
-        );
+  const marketStatusText = isEvmChain
+    ? (streamPhaseText ??
+      (currentMatch ? currentMatch.status.toUpperCase() : "LIVE"))
+    : marketStatusLabel(currentMarketState?.status);
+  const countdownText = isEvmChain
+    ? liveCycle
+      ? formatCountdown(normalizeRemainingSeconds(liveCycle.timeRemaining))
+      : ""
+    : formatCountdown(
+        currentMatch ? Math.max(0, currentMatch.closeTs - nowTs) : 0,
+      );
   const clientSyncDelaySeconds = (Math.max(0, UI_SYNC_DELAY_MS) / 1000).toFixed(
     UI_SYNC_DELAY_MS % 1000 === 0 ? 0 : 1,
   );
@@ -1921,13 +1890,6 @@ export function App() {
     .toUpperCase();
 
   const handleAgentClick = (side: BetSide) => {
-    if (isStreamUIMode) {
-      const agent = side === "YES" ? mock.agent1Context : mock.agent2Context;
-      setSelectedAgentForStats(agent);
-      setIsShowingStats(true);
-      return;
-    }
-
     // Prefer enriched duel context (has inventory + monologues), fall back to
     // basic streaming state agent (hp, wins, losses) then on-chain match names.
     const contextAgent =
@@ -3338,132 +3300,8 @@ export function App() {
                   agent1Id={1}
                   agent2Id={2}
                 />
-              ) : isStreamUIMode ? (
-                /* Predictions — stream-ui mock controls */
-                <>
-                  <div className="hm-sidebar-buysell">
-                    <button
-                      className={`hm-buysell-btn hm-buysell-btn--buy ${hmSide === "YES" ? "hm-buysell-btn--active" : ""}`}
-                      onClick={() => setHmSide("YES")}
-                      type="button"
-                    >
-                      {effA1.name}
-                    </button>
-                    <button
-                      className={`hm-buysell-btn hm-buysell-btn--sell ${hmSide === "NO" ? "hm-buysell-btn--active" : ""}`}
-                      onClick={() => setHmSide("NO")}
-                      type="button"
-                    >
-                      {effA2.name}
-                    </button>
-                  </div>
-                  <div className="hm-order-tabs">
-                    {(["market", "limit", "pro"] as const).map((type) => (
-                      <button
-                        key={type}
-                        className={`hm-order-tab ${hmOrderType === type ? "hm-order-tab--active" : ""}`}
-                        onClick={() => setHmOrderType(type)}
-                        type="button"
-                      >
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="hm-input-group">
-                    <label htmlFor="hm-shares" className="hm-input-label">
-                      Amount
-                    </label>
-                    <div className="hm-input-row">
-                      <input
-                        id="hm-shares"
-                        type="number"
-                        min="0"
-                        step="1"
-                        placeholder={`— ${hmSide === "YES" ? effA1.name : effA2.name}`}
-                        value={hmSharesInput}
-                        onChange={(e) => setHmSharesInput(e.target.value)}
-                        className="hm-shares-input"
-                      />
-                      <span className="hm-input-suffix">
-                        {hmEstCost > 0 ? formatAmount(hmEstCost) : "—"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="hm-quick-amounts">
-                    {["+$10", "+$50", "+$200", "+$500"].map((label) => (
-                      <button
-                        key={label}
-                        className="hm-quick-btn"
-                        onClick={() =>
-                          setHmSharesInput(
-                            String(
-                              parseInt(hmSharesInput || "0", 10) +
-                                parseInt(label.replace(/[^0-9]/g, ""), 10),
-                            ),
-                          )
-                        }
-                        type="button"
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="hm-slider-group">
-                    <input
-                      type="range"
-                      min="0"
-                      max="1000"
-                      value={hmSharesInput || "0"}
-                      onChange={(e) => setHmSharesInput(e.target.value)}
-                      className="hm-slider"
-                    />
-                  </div>
-                  <div className="hm-sidebar-divider" />
-                  <div className="hm-payout-section">
-                    <div className="hm-payout-row">
-                      <span>
-                        If {hmSide === "YES" ? effA1.name : effA2.name} wins
-                      </span>
-                      <span className="hm-payout-dots" />
-                      <span className="hm-payout-value hm-payout-value--green">
-                        {hmEstPayout > 0 ? formatAmount(hmEstPayout) : "—"}
-                      </span>
-                    </div>
-                    <div className="hm-payout-row">
-                      <span>Odds</span>
-                      <span className="hm-payout-dots" />
-                      <span className="hm-payout-value">
-                        {(hmPrice * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="hm-sidebar-divider" />
-                  <div className="hm-order-summary">
-                    <div className="hm-summary-row">
-                      <span>Total Cost</span>
-                      <span>
-                        {hmEstCost > 0 ? formatAmount(hmEstCost) : "—"}
-                      </span>
-                    </div>
-                    <div className="hm-summary-row">
-                      <span>Betting On</span>
-                      <span>{hmSide === "YES" ? effA1.name : effA2.name}</span>
-                    </div>
-                  </div>
-                  <button
-                    className="hm-trade-btn"
-                    type="button"
-                    disabled={!canBetNow}
-                  >
-                    {canBetNow
-                      ? "PLACE BET"
-                      : effCycle.phase === "RESOLUTION"
-                        ? "RESOLVED"
-                        : "WAITING"}
-                  </button>
-                </>
               ) : (
-                /* Predictions — real Solana CLOB panel */
+                /* Predictions — Solana CLOB panel */
                 <SolanaClobPanel
                   agent1Name={effAgent1Name}
                   agent2Name={effAgent2Name}

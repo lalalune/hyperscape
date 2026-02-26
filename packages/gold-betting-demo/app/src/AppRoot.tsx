@@ -15,9 +15,12 @@ import { createHeadlessWalletsFromEnv } from "./lib/headlessWallet";
 import { ChainProvider } from "./lib/ChainContext";
 import { wagmiConfig } from "./lib/wagmiConfig";
 import { App } from "./App";
+import { StreamUIApp } from "./StreamUIApp";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 import "@rainbow-me/rainbowkit/styles.css";
+
+const IS_STREAM_UI = import.meta.env.MODE === "stream-ui";
 
 if (!(globalThis as { Buffer?: typeof Buffer }).Buffer) {
   (globalThis as { Buffer?: typeof Buffer }).Buffer = Buffer;
@@ -64,7 +67,7 @@ export default function AppRoot() {
             >
               <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>
-                  <App />
+                  {IS_STREAM_UI ? <StreamUIApp /> : <App />}
                 </WalletModalProvider>
               </WalletProvider>
             </ConnectionProvider>
