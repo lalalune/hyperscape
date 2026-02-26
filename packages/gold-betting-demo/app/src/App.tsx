@@ -66,8 +66,49 @@ import { findAnyGoldAccount } from "./lib/token";
 import { simulateFight, type FightResult } from "./lib/fight";
 import { isHeadlessWalletEnabled } from "./lib/headlessWallet";
 import { useMockStreamingEngine } from "./lib/useMockStreamingEngine";
-import { FightOverlay } from "./components/FightOverlay";
 import { useStreamingState } from "./spectator/useStreamingState";
+import { useDuelContext } from "./spectator/useDuelContext";
+import { useResizePanel, useIsMobile } from "./lib/useResizePanel";
+import { ResizeHandle } from "./components/ResizeHandle";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from "recharts";
+
+// ── Shared UI utilities ──────────────────────────────────────────────────────
+function formatGold(v: number): string {
+  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+  return String(v);
+}
+
+function formatAmount(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
+  if (v >= 1)
+    return `$${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  if (v > 0) return `$${v.toFixed(4)}`;
+  return "$0";
+}
+
+function formatTimeAgo(ts: number): string {
+  const ago = Math.floor((Date.now() - ts) / 1000);
+  if (ago < 0) return "just now";
+  const mins = Math.floor(ago / 60);
+  if (mins > 0) return `${mins}m`;
+  return `${ago}s`;
+}
+
+function truncateAddr(addr: string): string {
+  if (addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
 
 type BetSide = "YES" | "NO";
 
@@ -312,6 +353,33 @@ export function App() {
   const [streamSourceIndex, setStreamSourceIndex] = useState(0);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [showPointsDrawer, setShowPointsDrawer] = useState(false);
+
+  // ── Resizable panels ─────────────────────────────────────────────────────
+  // Track mobile breakpoint — inline resize styles must NOT apply on mobile
+  // because they override CSS media-query layout (sidebar fixed sheet, etc.)
+  const isMobile = useIsMobile(768);
+
+  // Stream panel width (left column in viewport-row)
+  const { size: streamWidthPx, startDrag: startStreamDrag } = useResizePanel({
+    initial: 520,
+    min: 180,
+    max: 1400,
+    storageKey: "hs-panel-stream",
+  });
+  // Sidebar width (right column)
+  const { size: sidebarWidthPx, startDrag: startSidebarDrag } = useResizePanel({
+    initial: 320,
+    min: 200,
+    max: 640,
+    storageKey: "hs-panel-sidebar",
+  });
+  // Bottom panel height
+  const { size: bottomHeightPx, startDrag: startBottomDrag } = useResizePanel({
+    initial: 240,
+    min: 80,
+    max: 560,
+    storageKey: "hs-panel-bottom",
+  });
   const [pointsDrawerTab, setPointsDrawerTab] = useState<
     "leaderboard" | "history" | "referral"
   >("leaderboard");
@@ -333,6 +401,7 @@ export function App() {
   const { state: streamingState } = useStreamingState({
     disabled: isStreamUIMode,
   });
+  const { context: duelContext } = useDuelContext({ disabled: isStreamUIMode });
   const liveCycle = streamingState?.cycle ?? null;
   const streamSources = STREAM_URLS;
   const activeStreamUrl = streamSources[streamSourceIndex] ?? "";
@@ -1717,7 +1786,81 @@ export function App() {
         return "rgba(255,255,255,0.78)";
       })();
   const effStatus = isStreamUIMode ? mock.status : status;
-  const effPhase = isStreamUIMode ? mock.streamState.cycle.phase : null;
+  const effPhase = isStreamUIMode
+    ? mock.streamState.cycle.phase
+    : (liveCycle?.phase ?? "IDLE");
+
+  // Agent context for hm-* layout (real data from SSE in devnet, mock in stream-ui)
+  const effA1 = isStreamUIMode
+    ? mock.agent1Context
+    : {
+        id: "agent1",
+        name: effAgent1Name,
+        hp: liveCycle?.agent1?.hp ?? 100,
+        maxHp: liveCycle?.agent1?.maxHp ?? 100,
+        wins: liveCycle?.agent1?.wins ?? 0,
+        losses: liveCycle?.agent1?.losses ?? 0,
+        rank: 1,
+        combatLevel: liveCycle?.agent1?.combatLevel ?? 1,
+        provider: liveCycle?.agent1?.provider ?? "",
+        model: liveCycle?.agent1?.model ?? "",
+        damageDealtThisFight: liveCycle?.agent1?.damageDealtThisFight ?? 0,
+        headToHeadWins: 0,
+        headToHeadLosses: 0,
+        monologues: [] as {
+          id: string;
+          type: string;
+          content: string;
+          timestamp: number;
+        }[],
+      };
+  const effA2 = isStreamUIMode
+    ? mock.agent2Context
+    : {
+        id: "agent2",
+        name: effAgent2Name,
+        hp: liveCycle?.agent2?.hp ?? 100,
+        maxHp: liveCycle?.agent2?.maxHp ?? 100,
+        wins: liveCycle?.agent2?.wins ?? 0,
+        losses: liveCycle?.agent2?.losses ?? 0,
+        rank: 2,
+        combatLevel: liveCycle?.agent2?.combatLevel ?? 1,
+        provider: liveCycle?.agent2?.provider ?? "",
+        model: liveCycle?.agent2?.model ?? "",
+        damageDealtThisFight: liveCycle?.agent2?.damageDealtThisFight ?? 0,
+        headToHeadWins: 0,
+        headToHeadLosses: 0,
+        monologues: [] as {
+          id: string;
+          type: string;
+          content: string;
+          timestamp: number;
+        }[],
+      };
+  const effCycle = isStreamUIMode
+    ? mock.streamState.cycle
+    : {
+        cycleId: liveCycle?.cycleId ?? "cycle-0",
+        phase: liveCycle?.phase ?? "IDLE",
+        countdown: liveCycle?.countdown ?? null,
+        winnerName: liveCycle?.winnerName ?? null,
+        winReason: liveCycle?.winReason ?? null,
+        timeRemaining: liveCycle?.timeRemaining ?? 0,
+      };
+  const effLeaderboard = isStreamUIMode
+    ? mock.streamState.leaderboard
+    : (streamingState?.leaderboard ?? []);
+  const effTotalPool =
+    (typeof effYesPot === "number" ? effYesPot : 0) +
+    (typeof effNoPot === "number" ? effNoPot : 0);
+  const effPhaseLabel = (() => {
+    const p = effCycle.phase;
+    if (p === "FIGHTING") return "LIVE";
+    if (p === "COUNTDOWN") return `Starting ${effCycle.countdown ?? ""}`;
+    if (p === "RESOLUTION") return "RESOLVED";
+    if (p === "ANNOUNCEMENT") return "NEXT MATCH";
+    return "IDLE";
+  })();
 
   const resolvedWinner = sideFromEnum(currentMarketState?.resolvedWinner);
   const marketTradeTreasuryFeeBps = asNumber(
@@ -1784,80 +1927,60 @@ export function App() {
       setIsShowingStats(true);
       return;
     }
-    const fallbackAgent1Name = currentMatch?.agent1Name ?? liveAgent1Name;
-    const fallbackAgent2Name = currentMatch?.agent2Name ?? liveAgent2Name;
-    const name =
+
+    // Prefer enriched duel context (has inventory + monologues), fall back to
+    // basic streaming state agent (hp, wins, losses) then on-chain match names.
+    const contextAgent =
+      side === "YES" ? duelContext?.cycle.agent1 : duelContext?.cycle.agent2;
+    const liveAgent = side === "YES" ? liveCycle?.agent1 : liveCycle?.agent2;
+    const fallbackName =
       side === "YES"
-        ? (fallbackAgent1Name ?? "Agent A")
-        : (fallbackAgent2Name ?? "Agent B");
-    const mockAgent = {
-      id: side,
-      name,
-      provider: "Hyperscape",
-      model: "v1.0",
-      hp: 100,
-      maxHp: 100,
-      combatLevel: 42,
-      wins: side === "YES" ? 12 : 8,
-      losses: side === "YES" ? 4 : 5,
-      damageDealtThisFight: 0,
-      inventory: [],
-      monologues: [],
+        ? (currentMatch?.agent1Name ?? liveAgent1Name ?? "Agent A")
+        : (currentMatch?.agent2Name ?? liveAgent2Name ?? "Agent B");
+
+    const realAgent = {
+      id: contextAgent?.id ?? liveAgent?.id ?? side,
+      name: contextAgent?.name ?? liveAgent?.name ?? fallbackName,
+      provider: contextAgent?.provider ?? liveAgent?.provider ?? "AI",
+      model: contextAgent?.model ?? liveAgent?.model ?? "v1",
+      hp: contextAgent?.hp ?? liveAgent?.hp ?? 100,
+      maxHp: contextAgent?.maxHp ?? liveAgent?.maxHp ?? 100,
+      combatLevel: contextAgent?.combatLevel ?? liveAgent?.combatLevel ?? 1,
+      wins: contextAgent?.wins ?? liveAgent?.wins ?? 0,
+      losses: contextAgent?.losses ?? liveAgent?.losses ?? 0,
+      damageDealtThisFight:
+        contextAgent?.damageDealtThisFight ??
+        liveAgent?.damageDealtThisFight ??
+        0,
+      inventory: contextAgent?.inventory ?? [],
+      monologues: contextAgent?.monologues ?? [],
     };
-    setSelectedAgentForStats(mockAgent);
+
+    setSelectedAgentForStats(realAgent);
     setIsShowingStats(true);
   };
 
-  return (
-    <div className="app-root" ref={appRootRef}>
-      {/* Stream-UI mode: animated gradient + FightOverlay */}
-      {isStreamUIMode && (
-        <>
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 0,
-              background:
-                "linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 25%, #0a1a2e 50%, #0a0a1a 75%, #1a1a0a 100%)",
-              backgroundSize: "400% 400%",
-              animation: "gradientShift 15s ease infinite",
-            }}
-          />
-          <style>{`@keyframes gradientShift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }`}</style>
-          <div
-            style={{
-              position: "fixed",
-              top: 12,
-              left: 12,
-              zIndex: 100,
-              background: "rgba(234,179,8,0.15)",
-              border: "1px solid rgba(234,179,8,0.4)",
-              borderRadius: 6,
-              padding: "4px 10px",
-              color: "#eab308",
-              fontSize: 10,
-              fontWeight: 800,
-              letterSpacing: 2,
-              fontFamily: "'Orbitron', 'Inter', system-ui, sans-serif",
-              textTransform: "uppercase",
-            }}
-          >
-            STREAM UI DEV
-          </div>
-          <FightOverlay
-            phase={mock.streamState.cycle.phase}
-            agent1={mock.agent1Context}
-            agent2={mock.agent2Context}
-            countdown={mock.streamState.cycle.countdown}
-            timeRemaining={mock.streamState.cycle.timeRemaining}
-            winnerId={mock.streamState.cycle.winnerId}
-            winnerName={mock.streamState.cycle.winnerName}
-            winReason={mock.streamState.cycle.winReason}
-          />
-        </>
-      )}
+  // Sidebar bet state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [hmSide, setHmSide] = useState<BetSide>("YES");
+  const [hmOrderType, setHmOrderType] = useState<"market" | "limit" | "pro">(
+    "market",
+  );
+  const [hmSharesInput, setHmSharesInput] = useState("");
+  const [hmBottomTab, setHmBottomTab] = useState<
+    "positions" | "orders" | "trades" | "topTraders" | "holders" | "news"
+  >("trades");
+  const [hmMuted, setHmMuted] = useState(true);
 
+  const hmSharesVal = parseInt(hmSharesInput || "0", 10);
+  const hmPrice = hmSide === "YES" ? effYesPercent / 100 : effNoPercent / 100;
+  const hmEstCost = hmSharesVal * hmPrice;
+  const hmEstPayout = hmSharesVal > 0 ? hmSharesVal * 1.0 : 0;
+
+  const canBetNow = effPhase === "FIGHTING" || effPhase === "COUNTDOWN";
+
+  return (
+    <div className="hm-root" ref={appRootRef}>
       {/* Points / Leaderboard / Referral Drawer */}
       {showPointsDrawer && (
         <div
@@ -1881,17 +2004,17 @@ export function App() {
           <div
             style={{
               background:
-                "linear-gradient(180deg, rgba(20,22,30,0.85) 0%, rgba(14,16,24,0.9) 100%)",
+                "linear-gradient(180deg, rgba(20,22,30,0.95) 0%, rgba(14,16,24,0.98) 100%)",
               backdropFilter: "blur(32px) saturate(1.4)",
               WebkitBackdropFilter: "blur(32px) saturate(1.4)",
               padding: 24,
-              borderRadius: 20,
-              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 2,
+              border: "1px solid rgba(229,184,74,0.2)",
               width: "min(440px, calc(100vw - 32px))",
               maxHeight: "calc(100vh - 64px)",
               overflowY: "auto",
               boxShadow:
-                "0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 0 30px rgba(255,255,255,0.02)",
+                "0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(229,184,74,0.08), 0 0 0 1px rgba(0,0,0,0.5)",
               position: "relative",
               overflow: "hidden",
             }}
@@ -1908,7 +2031,7 @@ export function App() {
                 background:
                   "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%)",
                 pointerEvents: "none",
-                borderRadius: "20px 20px 0 0",
+                borderRadius: "2px 2px 0 0",
               }}
             />
             <div
@@ -1952,14 +2075,14 @@ export function App() {
                 type="button"
                 onClick={() => setShowPointsDrawer(false)}
                 style={{
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 10,
-                  color: "rgba(255,255,255,0.5)",
+                  background: "rgba(0,0,0,0.3)",
+                  border: "1px solid var(--hm-stone-mid)",
+                  borderRadius: 2,
+                  color: "rgba(255,255,255,0.4)",
                   cursor: "pointer",
                   fontSize: 14,
-                  width: 32,
-                  height: 32,
+                  width: 28,
+                  height: 28,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -2079,15 +2202,15 @@ export function App() {
           <div
             style={{
               background:
-                "linear-gradient(180deg, rgba(20,22,30,0.85) 0%, rgba(14,16,24,0.9) 100%)",
+                "linear-gradient(180deg, rgba(20,22,30,0.95) 0%, rgba(14,16,24,0.98) 100%)",
               backdropFilter: "blur(32px) saturate(1.4)",
               WebkitBackdropFilter: "blur(32px) saturate(1.4)",
               padding: 24,
-              borderRadius: 20,
-              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 2,
+              border: "1px solid rgba(229,184,74,0.2)",
               width: 340,
               boxShadow:
-                "0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 0 30px rgba(255,255,255,0.02)",
+                "0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(229,184,74,0.08), 0 0 0 1px rgba(0,0,0,0.5)",
               position: "relative",
               overflow: "hidden",
             }}
@@ -2104,7 +2227,7 @@ export function App() {
                 background:
                   "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%)",
                 pointerEvents: "none",
-                borderRadius: "20px 20px 0 0",
+                borderRadius: "2px 2px 0 0",
               }}
             />
             {/* Top highlight line */}
@@ -2340,573 +2463,1074 @@ export function App() {
         </div>
       ) : null}
 
-      <div className="top-bar">
-        <div className="top-bar-left">
-          <div
-            style={{
-              fontSize: 20,
-              fontWeight: 900,
-              fontFamily: "'Orbitron', sans-serif",
-              letterSpacing: 2,
-              textTransform: "uppercase",
-              color: "#f2d08a",
-              textShadow: "0 0 8px rgba(242,208,138,0.3)",
-            }}
-          >
-            Hyperscape Market
-          </div>
-          <ChainSelector />
-        </div>
-        <div className="top-bar-wallets">
-          <PointsDisplay walletAddress={pointsWalletAddress} compact />
-          <button
-            type="button"
-            className="dock-collapse-btn"
-            title="Leaderboard & Stats"
-            onClick={() => setShowPointsDrawer(true)}
-            style={{ width: 38, height: 38, fontSize: 16 }}
-          >
-            🏆
-          </button>
-          {!wallet.connected ? (
-            <button
-              type="button"
-              className="sol-connect-btn"
-              onClick={() => setSolModalVisible(true)}
-            >
-              Add SOL Wallet
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="sol-connect-btn is-linked"
-              onClick={() => wallet.disconnect()}
-            >
-              SOL{" "}
-              {wallet.publicKey
-                ? `${wallet.publicKey.toBase58().slice(0, 4)}...${wallet.publicKey.toBase58().slice(-4)}`
-                : ""}
-            </button>
-          )}
-          <ConnectButton.Custom>
-            {({
-              openConnectModal,
-              openAccountModal,
-              openChainModal,
-              account,
-              chain,
-              mounted,
-            }) => {
-              if (!mounted || !account) {
-                return (
-                  <button
-                    type="button"
-                    className="evm-connect-btn"
-                    onClick={openConnectModal}
-                  >
-                    Add EVM Wallet
-                  </button>
-                );
-              }
-              if (chain?.unsupported) {
-                return (
-                  <button
-                    type="button"
-                    className="evm-connect-btn"
-                    onClick={openChainModal}
-                  >
-                    Switch EVM Network
-                  </button>
-                );
-              }
-              return (
+      {/* ── HM LAYOUT ──────────────────────────────────────────────────── */}
+
+      {/* Header */}
+      <header className="hm-header" role="banner">
+        {isMobile ? (
+          /* ── Mobile header: 2 compact rows ─────────────────────────────── */
+          <>
+            {/* Row 1: Brand + quick controls */}
+            <div className="hm-header-mob-row1">
+              <div className="hm-logo">
+                <span className="hm-logo-text hm-logo-text--stacked">
+                  HYPERSCAPE
+                  <br />
+                  MARKET
+                </span>
+                <ChainSelector />
+              </div>
+              <div className="hm-header-mob-controls">
                 <button
                   type="button"
-                  className="evm-connect-btn is-linked"
-                  onClick={openAccountModal}
+                  className="hm-header-mob-icon-btn"
+                  title="Leaderboard"
+                  onClick={() => setShowPointsDrawer(true)}
                 >
-                  EVM {account.displayName}
+                  🏆
                 </button>
-              );
-            }}
-          </ConnectButton.Custom>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div
-        className="main-layout"
-        style={{
-          flexDirection: "column",
-          overflowY: "auto",
-          alignItems: "center",
-        }}
-      >
-        {!isStreamUIMode && activeStreamUrl && (
-          <div
-            className="stream-inline-container"
-            style={{
-              width: "100%",
-              maxWidth: "1200px",
-              aspectRatio: "16/9",
-              maxHeight: "50vh",
-              position: "relative",
-              marginTop: "16px",
-              borderRadius: "16px",
-              overflow: "hidden",
-              border: "1px solid rgba(255,255,255,0.1)",
-              flexShrink: 0,
-            }}
-          >
-            <StreamPlayer
-              streamUrl={activeStreamUrl}
-              muted={isMuted}
-              autoPlay={true}
-              onStreamUnavailable={switchToBackupStream}
-            />
-
-            <button
-              onClick={() => setIsMuted((m) => !m)}
-              style={{
-                position: "absolute",
-                bottom: "20px",
-                left: "20px",
-                zIndex: 50,
-                background: "rgba(0,0,0,0.6)",
-                border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: "50%",
-                width: "48px",
-                height: "48px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(0,0,0,0.8)";
-                e.currentTarget.style.transform = "scale(1.05)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(0,0,0,0.6)";
-                e.currentTarget.style.transform = "scale(1)";
-              }}
-              title={isMuted ? "Unmute Stream" : "Mute Stream"}
-            >
-              {isMuted ? (
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                {/* SOL wallet */}
+                {!wallet.connected ? (
+                  <button
+                    type="button"
+                    className="hm-header-mob-wallet-btn"
+                    onClick={() => setSolModalVisible(true)}
+                  >
+                    Connect SOL
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="hm-header-mob-wallet-btn hm-header-mob-wallet-btn--linked"
+                    onClick={() => wallet.disconnect()}
+                  >
+                    ◎{" "}
+                    {wallet.publicKey
+                      ? wallet.publicKey.toBase58().slice(0, 4) + "…"
+                      : "SOL"}
+                  </button>
+                )}
+                {/* EVM wallet */}
+                <ConnectButton.Custom>
+                  {({
+                    openConnectModal,
+                    openAccountModal,
+                    openChainModal,
+                    account,
+                    chain,
+                    mounted,
+                  }) => {
+                    if (!mounted || !account)
+                      return (
+                        <button
+                          type="button"
+                          className="hm-header-mob-wallet-btn"
+                          onClick={openConnectModal}
+                        >
+                          Connect EVM
+                        </button>
+                      );
+                    if (chain?.unsupported)
+                      return (
+                        <button
+                          type="button"
+                          className="hm-header-mob-wallet-btn"
+                          onClick={openChainModal}
+                        >
+                          ⚠ Wrong Net
+                        </button>
+                      );
+                    return (
+                      <button
+                        type="button"
+                        className="hm-header-mob-wallet-btn hm-header-mob-wallet-btn--linked"
+                        onClick={openAccountModal}
+                      >
+                        ⬡ {account.displayName?.slice(0, 6) ?? "EVM"}
+                      </button>
+                    );
+                  }}
+                </ConnectButton.Custom>
+              </div>
+            </div>
+            {/* Row 2: Match strip — name + agent side-select chips */}
+            <div className="hm-header-mob-row2">
+              <span className="hm-market-name">
+                {effA1.name} vs {effA2.name}
+              </span>
+              <div className="hm-header-mob-chips">
+                <button
+                  className={`hm-side-chip hm-side-chip--yes${hmSide === "YES" ? " hm-side-chip--active" : ""}`}
+                  onClick={() => setHmSide("YES")}
+                  type="button"
+                  aria-pressed={hmSide === "YES"}
                 >
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                  <line x1="23" y1="9" x2="17" y2="15"></line>
-                  <line x1="17" y1="9" x2="23" y2="15"></line>
-                </svg>
-              ) : (
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                  {effA1.name}{" "}
+                  <span className="hm-mob-chip-odds">
+                    {(effYesPercent / 100).toFixed(2)}
+                  </span>
+                </button>
+                <button
+                  className={`hm-side-chip hm-side-chip--no${hmSide === "NO" ? " hm-side-chip--active" : ""}`}
+                  onClick={() => setHmSide("NO")}
+                  type="button"
+                  aria-pressed={hmSide === "NO"}
                 >
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-                </svg>
-              )}
-            </button>
+                  {effA2.name}{" "}
+                  <span className="hm-mob-chip-odds">
+                    {(effNoPercent / 100).toFixed(2)}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* ── Desktop header: original layout ───────────────────────────── */
+          <>
+            <div className="hm-header-left">
+              <div className="hm-logo">
+                <span className="hm-logo-text">HYPERSCAPE MARKET</span>
+                <ChainSelector />
+              </div>
 
-            {streamSources.length > 1 && (
-              <button
-                onClick={cycleStreamSource}
-                style={{
-                  position: "absolute",
-                  bottom: "20px",
-                  left: "78px",
-                  zIndex: 50,
-                  background: "rgba(0,0,0,0.6)",
-                  border: "1px solid rgba(255,255,255,0.25)",
-                  borderRadius: "999px",
-                  height: "48px",
-                  padding: "0 16px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(0,0,0,0.8)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(0,0,0,0.6)";
-                }}
-                title="Switch stream source"
-              >
-                Source {streamSourceIndex + 1}/{streamSources.length}
-              </button>
-            )}
-          </div>
-        )}
+              <div className="hm-market-info">
+                <span className="hm-market-name">
+                  {effA1.name} vs {effA2.name}
+                </span>
+                <span
+                  className={`hm-phase-badge hm-phase-badge--${effCycle.phase.toLowerCase()}`}
+                >
+                  {effPhaseLabel}
+                </span>
+                <button
+                  className={`hm-side-chip hm-side-chip--yes ${hmSide === "YES" ? "hm-side-chip--active" : ""}`}
+                  onClick={() => setHmSide("YES")}
+                  type="button"
+                  aria-pressed={hmSide === "YES"}
+                >
+                  {effA1.name} {(effYesPercent / 100).toFixed(2)}
+                </button>
+                <button
+                  className={`hm-side-chip hm-side-chip--no ${hmSide === "NO" ? "hm-side-chip--active" : ""}`}
+                  onClick={() => setHmSide("NO")}
+                  type="button"
+                  aria-pressed={hmSide === "NO"}
+                >
+                  {effA2.name} {(effNoPercent / 100).toFixed(2)}
+                </button>
+              </div>
 
-        {!isE2eDebugMode ? (
-          <div
-            className="app-content-container"
-            style={{
-              width: "100%",
-              maxWidth: "1200px",
-              margin: "24px auto",
-              padding: "0 16px",
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div
-              className="app-tabs"
-              style={{ display: "flex", gap: "8px", marginBottom: "16px" }}
-            >
-              <button
-                className={`app-tab-btn ${appMode === "DUEL" ? "active" : ""}`}
-                onClick={() => setAppMode("DUEL")}
-                style={{
-                  padding: "12px 24px",
-                  borderRadius: "12px",
-                  border: "1px solid",
-                  borderColor:
-                    appMode === "DUEL"
-                      ? "rgba(242,208,138,0.5)"
-                      : "rgba(255,255,255,0.1)",
-                  background:
-                    appMode === "DUEL"
-                      ? "rgba(242,208,138,0.1)"
-                      : "rgba(255,255,255,0.02)",
-                  color:
-                    appMode === "DUEL" ? "#f2d08a" : "rgba(255,255,255,0.5)",
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                Predictions
-              </button>
-              <button
-                className={`app-tab-btn ${appMode === "PERPS" ? "active" : ""}`}
-                onClick={() => setAppMode("PERPS")}
-                style={{
-                  padding: "12px 24px",
-                  borderRadius: "12px",
-                  border: "1px solid",
-                  borderColor:
-                    appMode === "PERPS"
-                      ? "rgba(242,208,138,0.5)"
-                      : "rgba(255,255,255,0.1)",
-                  background:
-                    appMode === "PERPS"
-                      ? "rgba(242,208,138,0.1)"
-                      : "rgba(255,255,255,0.02)",
-                  color:
-                    appMode === "PERPS" ? "#f2d08a" : "rgba(255,255,255,0.5)",
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                Perpetuals
-              </button>
+              <div className="hm-market-stats">
+                <div className="hm-stat">
+                  <span className="hm-stat-label">Phase</span>
+                  <span className="hm-stat-value">{effCycle.phase}</span>
+                </div>
+                <div className="hm-stat">
+                  <span className="hm-stat-label">Pool</span>
+                  <span className="hm-stat-value">
+                    {formatGold(effTotalPool)}
+                  </span>
+                </div>
+                <div className="hm-stat">
+                  <span className="hm-stat-label">{effA1.name} HP</span>
+                  <span
+                    className={`hm-stat-value ${effA1.hp < 30 ? "hm-stat-value--negative" : "hm-stat-value--positive"}`}
+                  >
+                    {effA1.hp}%
+                  </span>
+                </div>
+                <div className="hm-stat">
+                  <span className="hm-stat-label">{effA2.name} HP</span>
+                  <span
+                    className={`hm-stat-value ${effA2.hp < 30 ? "hm-stat-value--negative" : "hm-stat-value--positive"}`}
+                  >
+                    {effA2.hp}%
+                  </span>
+                </div>
+                <div className="hm-stat">
+                  <span className="hm-stat-label">Trades</span>
+                  <span className="hm-stat-value">
+                    {effRecentTrades.length}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div
-              className={`betting-dock${isEvmChain ? " is-evm" : ""}`}
-              style={{
-                position: "relative",
-                width: "100%",
-                bottom: "auto",
-                left: "auto",
-                transform: "none",
-                background: "transparent",
-                padding: 0,
-              }}
-            >
-              <div
-                className={`betting-dock-inner${isEvmChain ? " is-evm" : ""}`}
-                ref={bettingDockInnerRef}
-                style={{
-                  background: "var(--panel-bg)",
-                  backdropFilter: "blur(16px)",
-                  borderRadius: "16px",
-                  border: "1px solid var(--panel-border)",
-                  padding: "20px",
-                }}
+            <div className="hm-header-right">
+              <span
+                className="hm-status-text"
+                style={{ color: effStatusColor }}
               >
-                {/* Wallets + Live Banner + Actions */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
+                {effStatus}
+              </span>
+              <PointsDisplay walletAddress={pointsWalletAddress} compact />
+              <button
+                type="button"
+                className="dock-collapse-btn"
+                title="Leaderboard & Stats"
+                onClick={() => setShowPointsDrawer(true)}
+                style={{ fontSize: 16 }}
+              >
+                🏆
+              </button>
+              {!wallet.connected ? (
+                <button
+                  type="button"
+                  className="hm-wallet-btn"
+                  onClick={() => setSolModalVisible(true)}
                 >
-                  {/* Inline Live Banner */}
-                  {(() => {
-                    const accentColor =
-                      statusColor === "#86efac"
-                        ? "#00ffcc"
-                        : statusColor === "#fda4af"
-                          ? "#ff0d3c"
-                          : "#f2d08a";
-                    const accentGlow =
-                      statusColor === "#86efac"
-                        ? "rgba(0,255,204,"
-                        : statusColor === "#fda4af"
-                          ? "rgba(255,13,60,"
-                          : "rgba(242,208,138,";
+                  Add SOL Wallet
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="hm-wallet-btn hm-wallet-btn--linked"
+                  onClick={() => wallet.disconnect()}
+                >
+                  SOL{" "}
+                  {wallet.publicKey
+                    ? `${wallet.publicKey.toBase58().slice(0, 4)}...${wallet.publicKey.toBase58().slice(-4)}`
+                    : ""}
+                </button>
+              )}
+              <ConnectButton.Custom>
+                {({
+                  openConnectModal,
+                  openAccountModal,
+                  openChainModal,
+                  account,
+                  chain,
+                  mounted,
+                }) => {
+                  if (!mounted || !account)
                     return (
-                      <div
-                        className="live-banner"
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          height: 38,
-                          padding: "0 12px",
-                          borderRadius: 12,
-                          background: `linear-gradient(95deg, ${accentGlow}0.12) 0%, rgba(10,10,18,0.6) 50%, rgba(10,10,18,0.5) 100%)`,
-                          border: `1px solid ${accentGlow}0.2)`,
-                          position: "relative",
-                          overflow: "hidden",
-                          backdropFilter: "blur(16px)",
-                          WebkitBackdropFilter: "blur(16px)",
-                          boxShadow: `0 0 12px ${accentGlow}0.1), inset 0 1px 0 rgba(255,255,255,0.06)`,
-                        }}
+                      <button
+                        type="button"
+                        className="hm-wallet-btn"
+                        onClick={openConnectModal}
                       >
-                        {/* Sweep scanline */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            background: `linear-gradient(90deg, transparent 0%, ${accentGlow}0.05) 50%, transparent 100%)`,
-                            animation: "bannerSweep 3s ease-in-out infinite",
-                            pointerEvents: "none",
-                          }}
-                        />
-
-                        {/* Top edge glow */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: 1,
-                            background: `linear-gradient(90deg, transparent 5%, ${accentGlow}0.5) 30%, ${accentGlow}0.7) 50%, ${accentGlow}0.5) 70%, transparent 95%)`,
-                          }}
-                        />
-
-                        {/* Left accent bar */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            width: 2,
-                            height: "100%",
-                            background: `linear-gradient(180deg, ${accentColor} 0%, ${accentGlow}0.3) 100%)`,
-                            boxShadow: `0 0 8px ${accentGlow}0.4)`,
-                          }}
-                        />
-
-                        {/* LIVE pill */}
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            padding: "4px 8px",
-                            borderRadius: 8,
-                            background: `linear-gradient(135deg, ${accentGlow}0.18) 0%, ${accentGlow}0.06) 100%)`,
-                            border: `1px solid ${accentGlow}0.3)`,
-                            flexShrink: 0,
-                            zIndex: 1,
-                          }}
-                        >
-                          <span
-                            style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: "50%",
-                              background: accentColor,
-                              boxShadow: `0 0 6px ${accentColor}, 0 0 12px ${accentGlow}0.4)`,
-                              animation:
-                                "statusPulse 1.5s ease-in-out infinite",
-                            }}
-                          />
-                        </div>
-
-                        {/* Divider */}
-                        <div
-                          style={{
-                            width: 1,
-                            height: 20,
-                            background: `linear-gradient(180deg, transparent, ${accentGlow}0.25), transparent)`,
-                            flexShrink: 0,
-                            zIndex: 1,
-                          }}
-                        />
-
-                        {/* Status text */}
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            color: "rgba(255,255,255,0.9)",
-                            fontSize: 13,
-                            fontWeight: 800,
-                            letterSpacing: 2,
-                            textTransform: "uppercase",
-                            fontFamily: "'Teko', sans-serif",
-                            textShadow: `0 0 8px ${accentGlow}0.3)`,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            zIndex: 1,
-                          }}
-                        >
-                          {marketStatusText}
-                          {countdownText ? (
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "#fff",
-                                marginLeft: 8,
-                                fontWeight: 900,
-                                fontSize: 11,
-                                fontFamily: "'IBM Plex Mono', monospace",
-                                background: "rgba(0,0,0,0.4)",
-                                padding: "2px 6px",
-                                borderRadius: 3,
-                                border: `1px solid ${accentGlow}0.3)`,
-                                letterSpacing: 1,
-                                lineHeight: 1,
-                                verticalAlign: "middle",
-                              }}
-                            >
-                              {countdownText}
-                            </span>
-                          ) : null}
-                        </span>
-
-                        {/* Ticker dots */}
-                        <div
-                          style={{
-                            marginLeft: "auto",
-                            display: "flex",
-                            gap: 3,
-                            alignItems: "center",
-                            zIndex: 1,
-                          }}
-                        >
-                          {[0.7, 1, 0.5].map((opacity, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                width: 3,
-                                height: 3,
-                                borderRadius: "50%",
-                                background: accentColor,
-                                opacity,
-                                animation: `statusPulse 1.5s ease-in-out ${i * 0.3}s infinite`,
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
+                        Add EVM Wallet
+                      </button>
                     );
-                  })()}
-                </div>
+                  if (chain?.unsupported)
+                    return (
+                      <button
+                        type="button"
+                        className="hm-wallet-btn"
+                        onClick={openChainModal}
+                      >
+                        Switch Network
+                      </button>
+                    );
+                  return (
+                    <button
+                      type="button"
+                      className="hm-wallet-btn hm-wallet-btn--linked"
+                      onClick={openAccountModal}
+                    >
+                      EVM {account.displayName}
+                    </button>
+                  );
+                }}
+              </ConnectButton.Custom>
+            </div>
+          </>
+        )}
+      </header>
 
-                {inviteShareStatus ? (
-                  <div className="betting-dock-meta-status">
-                    {inviteShareStatus}
-                  </div>
-                ) : null}
+      {/* Main Content */}
+      <div className="hm-main">
+        <div className="hm-content">
+          <div className="hm-viewport-row">
+            {/* Phase status strip — only rendered on mobile, sits above the video */}
+            {isMobile && (
+              <div className="hm-mob-phase-strip">
+                <span
+                  className={`hm-phase-badge hm-phase-badge--${effCycle.phase.toLowerCase()}`}
+                >
+                  {effPhaseLabel}
+                </span>
+                <span className="hm-mob-phase-strip-meta">
+                  {effA1.name} vs {effA2.name}
+                </span>
+              </div>
+            )}
 
-                {isEvmChain && !isStreamUIMode ? (
-                  <div style={{ marginTop: 16 }}>
-                    <EvmBettingPanel
-                      agent1Name={effAgent1Name}
-                      agent2Name={effAgent2Name}
-                    />
-                  </div>
-                ) : !isStreamUIMode ? (
-                  <div style={{ marginTop: 16 }}>
-                    {appMode === "DUEL" ? (
-                      <SolanaClobPanel
-                        agent1Name={effAgent1Name}
-                        agent2Name={effAgent2Name}
-                      />
-                    ) : (
-                      <PerpsMarketPanel
-                        agent1Name={effAgent1Name}
-                        agent2Name={effAgent2Name}
-                        agent1Id={1}
-                        agent2Id={2}
-                      />
+            {/* Game Viewport */}
+            <div
+              className="hm-game-viewport"
+              style={isMobile ? undefined : { width: streamWidthPx }}
+            >
+              {activeStreamUrl ? (
+                <>
+                  <StreamPlayer
+                    streamUrl={activeStreamUrl}
+                    muted={hmMuted}
+                    autoPlay={true}
+                    onStreamUnavailable={switchToBackupStream}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                    }}
+                  />
+                  <div className="hm-stream-controls">
+                    <button
+                      className="hm-stream-mute-btn"
+                      onClick={() => setHmMuted((m) => !m)}
+                      type="button"
+                      aria-label={hmMuted ? "Unmute stream" : "Mute stream"}
+                    >
+                      {hmMuted ? (
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                          <line x1="23" y1="9" x2="17" y2="15" />
+                          <line x1="17" y1="9" x2="23" y2="15" />
+                        </svg>
+                      ) : (
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                        </svg>
+                      )}
+                    </button>
+                    {streamSources.length > 1 && (
+                      <button
+                        className="hm-stream-source-btn"
+                        onClick={cycleStreamSource}
+                        type="button"
+                      >
+                        Source {streamSourceIndex + 1}/{streamSources.length}
+                      </button>
                     )}
                   </div>
-                ) : (
-                  <PredictionMarketPanel
-                    yesPercent={effYesPercent}
-                    noPercent={effNoPercent}
-                    yesPool={effYesPot}
-                    noPool={effNoPot}
-                    side={side}
-                    setSide={setSide}
-                    amountInput={amountInput}
-                    setAmountInput={setAmountInput}
-                    onPlaceBet={handlePlaceBet}
-                    isWalletReady={effWalletReady}
-                    programsReady={effProgramsReady}
-                    agent1Name={effAgent1Name}
-                    agent2Name={effAgent2Name}
-                    isEvm={false}
-                    chartData={effChartData}
-                    bids={effBids}
-                    asks={effAsks}
-                    recentTrades={effRecentTrades}
-                    onViewAgent1={() => handleAgentClick("YES")}
-                    onViewAgent2={() => handleAgentClick("NO")}
-                  />
-                )}
+                </>
+              ) : (
+                <div className="hm-game-placeholder">
+                  <div className="hm-game-bg" />
+                  <span className="hm-game-waiting">
+                    Waiting for stream&hellip;
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <ResizeHandle
+              direction="h"
+              onMouseDown={(e) => startStreamDrag(e, "x")}
+            />
+
+            {/* Odds Chart */}
+            <div className="hm-chart-panel">
+              <div className="hm-chart-toolbar">
+                <button className="hm-chart-tool-btn" type="button">
+                  +
+                </button>
+                <button className="hm-chart-tool-btn" type="button">
+                  &#9881;
+                </button>
+                <button className="hm-chart-tool-btn" type="button">
+                  &#9634;
+                </button>
+              </div>
+              <div className="hm-chart-price-label">
+                <span className="hm-chart-price-current">
+                  {(effYesPercent / 100).toFixed(1)}
+                </span>
+              </div>
+              <div className="hm-chart-container">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={effChartData}>
+                    <XAxis
+                      dataKey="time"
+                      tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
+                      tickFormatter={(v: number) => {
+                        const d = new Date(v);
+                        return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+                      }}
+                    />
+                    <YAxis
+                      domain={[0, 100]}
+                      tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
+                      width={40}
+                      tickFormatter={(v: number) => `${v}%`}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) =>
+                        active && payload?.length ? (
+                          <div className="hm-chart-tooltip">
+                            <span>{payload[0].value}%</span>
+                          </div>
+                        ) : null
+                      }
+                    />
+                    <ReferenceLine
+                      y={50}
+                      stroke="rgba(255,255,255,0.06)"
+                      strokeDasharray="4 4"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="pct"
+                      stroke="#e5b84a"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
-        ) : null}
+
+          <ResizeHandle
+            direction="v"
+            onMouseDown={(e) => startBottomDrag(e, "y", true)}
+          />
+
+          {/* Bottom Panel */}
+          <div
+            className="hm-bottom-panel"
+            style={isMobile ? undefined : { height: bottomHeightPx }}
+          >
+            <nav className="hm-bottom-tabs" role="tablist">
+              {(
+                [
+                  ["trades", "Trades"],
+                  ["orders", "Order Book"],
+                  ["news", "Match Log"],
+                  ["holders", "Agents"],
+                  ["topTraders", "Leaderboard"],
+                  ["positions", "Positions"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={hmBottomTab === key}
+                  className={`hm-bottom-tab ${hmBottomTab === key ? "hm-bottom-tab--active" : ""}`}
+                  onClick={() => setHmBottomTab(key)}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+
+            {hmBottomTab === "trades" && (
+              <div className="hm-trades-panel" role="tabpanel">
+                <div className="hm-trades-summary">
+                  <span>
+                    Pool <strong>{formatGold(effTotalPool)}</strong>
+                  </span>
+                  <span>
+                    {effA1.name} <strong>{effYesPercent}%</strong>
+                  </span>
+                  <span>
+                    {effA2.name} <strong>{effNoPercent}%</strong>
+                  </span>
+                  <span>
+                    Trades <strong>{effRecentTrades.length}</strong>
+                  </span>
+                </div>
+                <div className="hm-trades-table-wrap">
+                  <table className="hm-trades-table" role="grid">
+                    <thead>
+                      <tr>
+                        <th>Side</th>
+                        <th>Agent</th>
+                        <th>Price</th>
+                        <th>Amount</th>
+                        <th>Age</th>
+                        <th>Trader</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {effRecentTrades.map((trade, i) => (
+                        <tr key={trade.id ?? i}>
+                          <td>
+                            <span
+                              className={`hm-type-label ${trade.side === "YES" ? "hm-type-label--buy" : "hm-type-label--sell"}`}
+                            >
+                              {trade.side === "YES" ? "BUY" : "SELL"}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="hm-outcome-badge">
+                              {trade.side === "YES" ? effA1.name : effA2.name}
+                            </span>
+                          </td>
+                          <td className="hm-td-mono">
+                            {(trade.price ?? 0).toFixed(2)}
+                          </td>
+                          <td className="hm-td-mono">
+                            {formatGold(trade.amount ?? 0)}
+                          </td>
+                          <td className="hm-td-dim">
+                            {formatTimeAgo(trade.time ?? Date.now())}
+                          </td>
+                          <td className="hm-td-trader">
+                            <span className="hm-trader-addr">
+                              {truncateAddr(trade.trader ?? "")}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {hmBottomTab === "orders" && (
+              <div className="hm-trades-panel" role="tabpanel">
+                <div className="hm-orderbook">
+                  <div className="hm-ob-side hm-ob-side--bids">
+                    <div className="hm-ob-header">BIDS ({effA1.name})</div>
+                    {effBids.map((level, i) => (
+                      <div
+                        key={`bid-${i}`}
+                        className="hm-ob-row hm-ob-row--bid"
+                      >
+                        <span className="hm-ob-price">
+                          {level.price.toFixed(2)}
+                        </span>
+                        <span className="hm-ob-amount">
+                          {formatGold(level.amount)}
+                        </span>
+                        <div
+                          className="hm-ob-depth"
+                          style={{
+                            width: `${Math.min(100, (level.amount / (effTotalPool || 1)) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hm-ob-spread">
+                    <span>
+                      Spread: {Math.abs(effYesPercent - effNoPercent)}%
+                    </span>
+                  </div>
+                  <div className="hm-ob-side hm-ob-side--asks">
+                    <div className="hm-ob-header">ASKS ({effA2.name})</div>
+                    {effAsks.map((level, i) => (
+                      <div
+                        key={`ask-${i}`}
+                        className="hm-ob-row hm-ob-row--ask"
+                      >
+                        <span className="hm-ob-price">
+                          {level.price.toFixed(2)}
+                        </span>
+                        <span className="hm-ob-amount">
+                          {formatGold(level.amount)}
+                        </span>
+                        <div
+                          className="hm-ob-depth hm-ob-depth--ask"
+                          style={{
+                            width: `${Math.min(100, (level.amount / (effTotalPool || 1)) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {hmBottomTab === "topTraders" && (
+              <div className="hm-trades-panel" role="tabpanel">
+                <div className="hm-trades-table-wrap">
+                  <table className="hm-trades-table" role="grid">
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Agent</th>
+                        <th>Provider</th>
+                        <th>Wins</th>
+                        <th>Losses</th>
+                        <th>Win Rate</th>
+                        <th>Streak</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {effLeaderboard.map((entry) => (
+                        <tr key={entry.name}>
+                          <td className="hm-td-mono">#{entry.rank}</td>
+                          <td>
+                            <strong>{entry.name}</strong>
+                          </td>
+                          <td className="hm-td-dim">{entry.provider}</td>
+                          <td
+                            className="hm-td-mono"
+                            style={{ color: "#22c55e" }}
+                          >
+                            {entry.wins}
+                          </td>
+                          <td
+                            className="hm-td-mono"
+                            style={{ color: "#ef4444" }}
+                          >
+                            {entry.losses}
+                          </td>
+                          <td className="hm-td-mono">
+                            {entry.winRate.toFixed(1)}%
+                          </td>
+                          <td className="hm-td-mono">
+                            {entry.currentStreak > 0
+                              ? `${entry.currentStreak}W`
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {hmBottomTab === "holders" && (
+              <div className="hm-trades-panel" role="tabpanel">
+                <div className="hm-agents-detail">
+                  {[effA1, effA2].map((agent) => {
+                    const hpPct =
+                      agent.maxHp > 0
+                        ? Math.max(
+                            0,
+                            Math.min(100, (agent.hp / agent.maxHp) * 100),
+                          )
+                        : 0;
+                    const hpColor =
+                      agent.hp < 25
+                        ? "#ef4444"
+                        : agent.hp < 60
+                          ? "#f59e0b"
+                          : "#22c55e";
+                    return (
+                      <div key={agent.id} className="hm-agent-card">
+                        <div className="hm-agent-card-header">
+                          <strong>{agent.name}</strong>
+                          <span className="hm-agent-meta">
+                            {agent.provider}
+                            {agent.model ? ` · ${agent.model}` : ""}
+                            {agent.combatLevel
+                              ? ` · Lv.${agent.combatLevel}`
+                              : ""}
+                          </span>
+                        </div>
+                        {/* HP bar — always visible, quick health read */}
+                        <div className="hm-agent-hp-bar-wrap">
+                          <div
+                            className="hm-agent-hp-bar"
+                            style={{ width: `${hpPct}%`, background: hpColor }}
+                          />
+                        </div>
+                        <div className="hm-agent-stats-grid">
+                          <div className="hm-agent-stat">
+                            <span className="hm-agent-stat-label">HP</span>
+                            <span
+                              className={`hm-agent-stat-value ${agent.hp < 30 ? "hm-stat-value--negative" : "hm-stat-value--positive"}`}
+                            >
+                              {agent.hp}/{agent.maxHp}
+                            </span>
+                          </div>
+                          <div className="hm-agent-stat">
+                            <span className="hm-agent-stat-label">W/L</span>
+                            <span className="hm-agent-stat-value">
+                              {agent.wins}W-{agent.losses}L
+                            </span>
+                          </div>
+                          <div className="hm-agent-stat">
+                            <span className="hm-agent-stat-label">Dmg</span>
+                            <span className="hm-agent-stat-value">
+                              {agent.damageDealtThisFight}
+                            </span>
+                          </div>
+                        </div>
+                        {agent.monologues && agent.monologues.length > 0 && (
+                          <div className="hm-agent-monologues">
+                            {agent.monologues
+                              .slice(0, isMobile ? 1 : 3)
+                              .map((m) => (
+                                <div
+                                  key={m.id}
+                                  className={`hm-monologue hm-monologue--${m.type}`}
+                                >
+                                  <span className="hm-monologue-type">
+                                    {m.type === "action" ? "ACT" : "THK"}
+                                  </span>
+                                  <span>{m.content}</span>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {hmBottomTab === "news" && (
+              <div className="hm-trades-panel" role="tabpanel">
+                <div className="hm-match-log">
+                  <div className="hm-log-entry">
+                    <span className="hm-log-phase">{effCycle.phase}</span>
+                    <span
+                      className="hm-log-text"
+                      style={{ color: effStatusColor }}
+                    >
+                      {effStatus}
+                    </span>
+                  </div>
+                  {effCycle.winnerName && (
+                    <div className="hm-log-entry hm-log-entry--winner">
+                      <span className="hm-log-phase">RESULT</span>
+                      <span className="hm-log-text">
+                        {effCycle.winnerName} wins! {effCycle.winReason}
+                      </span>
+                    </div>
+                  )}
+                  {[...effA1.monologues, ...effA2.monologues]
+                    .sort((a, b) => b.timestamp - a.timestamp)
+                    .slice(0, 10)
+                    .map((m) => (
+                      <div key={m.id} className="hm-log-entry">
+                        <span className="hm-log-phase">
+                          {m.type.toUpperCase()}
+                        </span>
+                        <span className="hm-log-text">{m.content}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {hmBottomTab === "positions" && (
+              <div className="hm-empty-tab" role="tabpanel">
+                <p>No open positions</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <ResizeHandle
+          direction="h"
+          onMouseDown={(e) => startSidebarDrag(e, "x", true)}
+        />
+
+        {/* ── RIGHT SIDEBAR: Real betting or mock controls ──────────────── */}
+        <aside
+          className={`hm-sidebar${isSidebarOpen ? " hm-sidebar--open" : ""}`}
+          aria-label="Trading controls"
+          style={
+            isMobile
+              ? undefined
+              : { width: sidebarWidthPx, minWidth: sidebarWidthPx }
+          }
+        >
+          {/* Agent matchup header — close button lives here so it never floats over agent names */}
+          <div className="hm-matchup-header">
+            <span className="hm-matchup-label">Current Match</span>
+            <div className="hm-matchup-header-right">
+              <span
+                className={`hm-phase-badge hm-phase-badge--${effCycle.phase.toLowerCase()} hm-phase-badge--sm`}
+              >
+                {effPhaseLabel}
+              </span>
+              <button
+                className="hm-sidebar-close"
+                type="button"
+                aria-label="Close trading panel"
+                onClick={() => setIsSidebarOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          <div className="hm-matchup">
+            <div className="hm-matchup-agent">
+              <span className="hm-matchup-name" title={effA1.name}>
+                {effA1.name}
+              </span>
+              <span className="hm-matchup-record">
+                {effA1.wins}W-{effA1.losses}L
+                {effA1.combatLevel ? ` · Lv.${effA1.combatLevel}` : ""}
+              </span>
+              <span className="hm-matchup-odds hm-matchup-odds--yes">
+                {effYesPercent}%
+              </span>
+            </div>
+            <span className="hm-matchup-vs">VS</span>
+            <div className="hm-matchup-agent hm-matchup-agent--right">
+              <span className="hm-matchup-name" title={effA2.name}>
+                {effA2.name}
+              </span>
+              <span className="hm-matchup-record">
+                {effA2.wins}W-{effA2.losses}L
+                {effA2.combatLevel ? ` · Lv.${effA2.combatLevel}` : ""}
+              </span>
+              <span className="hm-matchup-odds hm-matchup-odds--no">
+                {effNoPercent}%
+              </span>
+            </div>
+          </div>
+
+          {/* Market type tabs + betting panels */}
+          <div className="hm-market-panel-wrap">
+            {/* Predictions / Perpetuals tab switcher — always visible on Solana */}
+            {!isEvmChain && (
+              <div className="hm-market-tabs">
+                <button
+                  className={`hm-market-tab ${appMode === "DUEL" ? "hm-market-tab--active" : ""}`}
+                  onClick={() => setAppMode("DUEL")}
+                  type="button"
+                >
+                  Predictions
+                </button>
+                <button
+                  className={`hm-market-tab ${appMode === "PERPS" ? "hm-market-tab--active" : ""}`}
+                  onClick={() => setAppMode("PERPS")}
+                  type="button"
+                >
+                  Perpetuals
+                </button>
+              </div>
+            )}
+
+            {/* Active market panel */}
+            <div className="hm-market-panel-body">
+              {isEvmChain ? (
+                /* EVM — single panel, no tabs */
+                <EvmBettingPanel
+                  agent1Name={effAgent1Name}
+                  agent2Name={effAgent2Name}
+                />
+              ) : appMode === "PERPS" ? (
+                /* Perpetuals — same real panel for both stream-ui and live mode */
+                <PerpsMarketPanel
+                  agent1Name={effAgent1Name}
+                  agent2Name={effAgent2Name}
+                  agent1Id={1}
+                  agent2Id={2}
+                />
+              ) : isStreamUIMode ? (
+                /* Predictions — stream-ui mock controls */
+                <>
+                  <div className="hm-sidebar-buysell">
+                    <button
+                      className={`hm-buysell-btn hm-buysell-btn--buy ${hmSide === "YES" ? "hm-buysell-btn--active" : ""}`}
+                      onClick={() => setHmSide("YES")}
+                      type="button"
+                    >
+                      {effA1.name}
+                    </button>
+                    <button
+                      className={`hm-buysell-btn hm-buysell-btn--sell ${hmSide === "NO" ? "hm-buysell-btn--active" : ""}`}
+                      onClick={() => setHmSide("NO")}
+                      type="button"
+                    >
+                      {effA2.name}
+                    </button>
+                  </div>
+                  <div className="hm-order-tabs">
+                    {(["market", "limit", "pro"] as const).map((type) => (
+                      <button
+                        key={type}
+                        className={`hm-order-tab ${hmOrderType === type ? "hm-order-tab--active" : ""}`}
+                        onClick={() => setHmOrderType(type)}
+                        type="button"
+                      >
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="hm-input-group">
+                    <label htmlFor="hm-shares" className="hm-input-label">
+                      Amount
+                    </label>
+                    <div className="hm-input-row">
+                      <input
+                        id="hm-shares"
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder={`— ${hmSide === "YES" ? effA1.name : effA2.name}`}
+                        value={hmSharesInput}
+                        onChange={(e) => setHmSharesInput(e.target.value)}
+                        className="hm-shares-input"
+                      />
+                      <span className="hm-input-suffix">
+                        {hmEstCost > 0 ? formatAmount(hmEstCost) : "—"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="hm-quick-amounts">
+                    {["+$10", "+$50", "+$200", "+$500"].map((label) => (
+                      <button
+                        key={label}
+                        className="hm-quick-btn"
+                        onClick={() =>
+                          setHmSharesInput(
+                            String(
+                              parseInt(hmSharesInput || "0", 10) +
+                                parseInt(label.replace(/[^0-9]/g, ""), 10),
+                            ),
+                          )
+                        }
+                        type="button"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="hm-slider-group">
+                    <input
+                      type="range"
+                      min="0"
+                      max="1000"
+                      value={hmSharesInput || "0"}
+                      onChange={(e) => setHmSharesInput(e.target.value)}
+                      className="hm-slider"
+                    />
+                  </div>
+                  <div className="hm-sidebar-divider" />
+                  <div className="hm-payout-section">
+                    <div className="hm-payout-row">
+                      <span>
+                        If {hmSide === "YES" ? effA1.name : effA2.name} wins
+                      </span>
+                      <span className="hm-payout-dots" />
+                      <span className="hm-payout-value hm-payout-value--green">
+                        {hmEstPayout > 0 ? formatAmount(hmEstPayout) : "—"}
+                      </span>
+                    </div>
+                    <div className="hm-payout-row">
+                      <span>Odds</span>
+                      <span className="hm-payout-dots" />
+                      <span className="hm-payout-value">
+                        {(hmPrice * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="hm-sidebar-divider" />
+                  <div className="hm-order-summary">
+                    <div className="hm-summary-row">
+                      <span>Total Cost</span>
+                      <span>
+                        {hmEstCost > 0 ? formatAmount(hmEstCost) : "—"}
+                      </span>
+                    </div>
+                    <div className="hm-summary-row">
+                      <span>Betting On</span>
+                      <span>{hmSide === "YES" ? effA1.name : effA2.name}</span>
+                    </div>
+                  </div>
+                  <button
+                    className="hm-trade-btn"
+                    type="button"
+                    disabled={!canBetNow}
+                  >
+                    {canBetNow
+                      ? "PLACE BET"
+                      : effCycle.phase === "RESOLUTION"
+                        ? "RESOLVED"
+                        : "WAITING"}
+                  </button>
+                </>
+              ) : (
+                /* Predictions — real Solana CLOB panel */
+                <SolanaClobPanel
+                  agent1Name={effAgent1Name}
+                  agent2Name={effAgent2Name}
+                  compact
+                />
+              )}
+            </div>
+          </div>
+
+          <p className="hm-legal-text">
+            By trading, you agree to our <a href="#terms">Terms</a> &amp;{" "}
+            <a href="#privacy">Privacy</a>
+          </p>
+        </aside>
       </div>
+
+      {/* Mobile FAB — opens the sidebar sheet */}
+      {!isSidebarOpen && (
+        <button
+          className="hm-bet-fab"
+          type="button"
+          onClick={() => setIsSidebarOpen(true)}
+          aria-label="Open trading panel"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Place Bet
+        </button>
+      )}
+
+      {/* Backdrop — close sidebar when tapping outside */}
+      {isSidebarOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 48,
+            background: "rgba(0,0,0,0.5)",
+            backdropFilter: "blur(2px)",
+          }}
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Status bar */}
+      <footer className="hm-statusbar" role="contentinfo">
+        <span className="hm-statusbar-link">
+          {effA1.name} vs {effA2.name} · Round #
+          {effCycle.cycleId.split("-").pop()}
+        </span>
+        <div className="hm-statusbar-right">
+          <span className="hm-status-indicator" />
+          <span>{effCycle.phase === "FIGHTING" ? "LIVE" : "STABLE"}</span>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -51,6 +51,7 @@ export function PerpsMarketPanel({
   const [a2Collateral, setA2Collateral] = useState<number>(10);
 
   const [loadingTx, setLoadingTx] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<number>(agent1Id);
 
   const [positions, setPositions] = useState<PositionRow[]>([]);
 
@@ -348,234 +349,202 @@ export function PerpsMarketPanel({
     }
   };
 
-  const renderTradeCard = (
-    agentName: string,
-    agentId: number,
-    spotPrice: number | null,
-    collateral: number,
-    setCollateral: (v: number) => void,
-    leverage: number,
-    setLeverage: (v: number) => void,
-  ) => {
-    const estSize = collateral * leverage;
-    const estLiqLong = spotPrice
-      ? spotPrice * (1 - (collateral * 0.9) / estSize)
-      : 0;
-    const estLiqShort = spotPrice
-      ? spotPrice * (1 + (collateral * 0.9) / estSize)
-      : 0;
+  const agentSpot = selectedAgent === agent1Id ? agent1Spot : agent2Spot;
+  const agentCollateral =
+    selectedAgent === agent1Id ? a1Collateral : a2Collateral;
+  const setAgentCollateral =
+    selectedAgent === agent1Id ? setA1Collateral : setA2Collateral;
+  const agentLeverage = selectedAgent === agent1Id ? a1Leverage : a2Leverage;
+  const setAgentLeverage =
+    selectedAgent === agent1Id ? setA1Leverage : setA2Leverage;
 
-    return (
-      <div className="perp-card">
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div
-              style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                background: spotPrice ? "#22c55e" : "#888",
-                boxShadow: spotPrice ? "0 0 8px #22c55e" : "none",
-              }}
-            />
-            <span style={{ fontWeight: 700, fontSize: "18px" }}>
-              {agentName}
-            </span>
-          </div>
-          <div className="perp-price">
-            {spotPrice !== null ? "$" + spotPrice.toFixed(2) : "--"}
-          </div>
-        </div>
-
-        <div className="perp-input-group">
-          <label>Collateral (GOLD)</label>
-          <input
-            type="number"
-            value={collateral}
-            onChange={(e) => setCollateral(Number(e.target.value))}
-            min={1}
-          />
-        </div>
-
-        <div className="perp-input-group">
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <label>Leverage</label>
-            <span style={{ color: "#fff", fontWeight: 600 }}>{leverage}x</span>
-          </div>
-          <input
-            type="range"
-            className="leverage-slider"
-            min={1}
-            max={10}
-            step={1}
-            value={leverage}
-            onChange={(e) => setLeverage(Number(e.target.value))}
-          />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: "11px",
-              color: "rgba(255,255,255,0.4)",
-              marginTop: "4px",
-            }}
-          >
-            <span>1x</span>
-            <span>5x</span>
-            <span>10x</span>
-          </div>
-        </div>
-
-        <div className="perp-order-details">
-          <div className="perp-order-row">
-            <span>Position Size</span>
-            <span style={{ color: "#fff" }}>{estSize.toFixed(2)} GOLD</span>
-          </div>
-          {spotPrice && leverage > 1 && (
-            <>
-              <div className="perp-order-row">
-                <span>Est. Liq (Long)</span>
-                <span style={{ color: "#ef4444" }}>
-                  ${estLiqLong.toFixed(2)}
-                </span>
-              </div>
-              <div className="perp-order-row">
-                <span>Est. Liq (Short)</span>
-                <span style={{ color: "#22c55e" }}>
-                  ${estLiqShort.toFixed(2)}
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div style={{ display: "flex", gap: "12px", marginTop: "16px" }}>
-          <button
-            className="btn-perp-long"
-            disabled={!!loadingTx || collateral <= 0}
-            onClick={() => handleOpenPosition(agentId, 0, collateral, leverage)}
-          >
-            LONG {leverage}x
-          </button>
-          <button
-            className="btn-perp-short"
-            disabled={!!loadingTx || collateral <= 0}
-            onClick={() => handleOpenPosition(agentId, 1, collateral, leverage)}
-          >
-            SHORT {leverage}x
-          </button>
-        </div>
-      </div>
-    );
-  };
+  const openPosition = positions.find((p) => p.agentId === selectedAgent);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+    <div className="perp-wrap">
       <Toaster theme="dark" position="bottom-right" />
 
-      {/* Position Dashboard */}
-      {positions.length > 0 && (
-        <div className="perp-dashboard">
-          <h3
-            style={{
-              margin: "0 0 12px 0",
-              fontSize: "14px",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-              color: "rgba(255,255,255,0.6)",
-            }}
-          >
-            Open Positions
-          </h3>
-          <div className="perp-table-wrapper">
-            <table className="perp-table">
-              <thead>
-                <tr>
-                  <th>Market</th>
-                  <th>Side</th>
-                  <th>Size</th>
-                  <th>Entry</th>
-                  <th>Mark</th>
-                  <th>Liq. Price</th>
-                  <th>Unrealized PnL</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map((p) => {
-                  const marketName =
-                    p.agentId === agent1Id ? agent1Name : agent2Name;
-                  const isLong = p.type === 0;
-                  const pnlColor = p.pnl >= 0 ? "pnl-positive" : "pnl-negative";
+      {/* Agent selector */}
+      <div className="perp-agent-selector">
+        <button
+          className={`perp-agent-btn ${selectedAgent === agent1Id ? "perp-agent-btn--active" : ""}`}
+          onClick={() => setSelectedAgent(agent1Id)}
+          type="button"
+        >
+          {agent1Name}
+        </button>
+        <button
+          className={`perp-agent-btn ${selectedAgent === agent2Id ? "perp-agent-btn--active" : ""}`}
+          onClick={() => setSelectedAgent(agent2Id)}
+          type="button"
+        >
+          {agent2Name}
+        </button>
+      </div>
 
-                  return (
-                    <tr key={p.agentId}>
-                      <td style={{ fontWeight: 600 }}>{marketName}</td>
-                      <td
-                        style={{
-                          color: isLong ? "#22c55e" : "#ef4444",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {isLong ? "LONG" : "SHORT"}
-                      </td>
-                      <td>{p.size.toFixed(2)}</td>
-                      <td>${p.entryPrice.toFixed(2)}</td>
-                      <td>${p.markPrice.toFixed(2)}</td>
-                      <td style={{ color: "#eab308" }}>
-                        ${p.liquidationPrice.toFixed(2)}
-                      </td>
-                      <td className={pnlColor}>
-                        {p.pnl >= 0 ? "+" : ""}
-                        {p.pnl.toFixed(2)} GOLD
-                      </td>
-                      <td>
-                        <button
-                          className="btn-perp-close"
-                          onClick={() => handleClosePosition(p.agentId)}
-                          disabled={!!loadingTx}
-                        >
-                          Close
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* Price & spot */}
+      <div className="perp-spot-row">
+        <div className="perp-spot-indicator">
+          <span
+            className="perp-spot-dot"
+            style={{
+              background: agentSpot ? "#22c55e" : "#555",
+              boxShadow: agentSpot ? "0 0 6px #22c55e" : "none",
+            }}
+          />
+          <span className="perp-spot-label">SPOT</span>
+        </div>
+        <span className="perp-spot-price">
+          {agentSpot !== null ? `$${agentSpot.toFixed(2)}` : "—"}
+        </span>
+      </div>
+
+      {/* Open position badge */}
+      {openPosition && (
+        <div
+          className={`perp-pos-badge ${openPosition.type === 0 ? "perp-pos-badge--long" : "perp-pos-badge--short"}`}
+        >
+          <div className="perp-pos-badge-row">
+            <span>
+              {openPosition.type === 0 ? "▲ LONG" : "▼ SHORT"} ·{" "}
+              {openPosition.size.toFixed(2)} GOLD
+            </span>
+            <span
+              className={
+                openPosition.pnl >= 0 ? "pnl-positive" : "pnl-negative"
+              }
+            >
+              {openPosition.pnl >= 0 ? "+" : ""}
+              {openPosition.pnl.toFixed(2)}
+            </span>
+          </div>
+          <div className="perp-pos-badge-row perp-pos-badge-row--sub">
+            <span>Entry ${openPosition.entryPrice.toFixed(2)}</span>
+            <span>
+              Liq{" "}
+              <span style={{ color: "#eab308" }}>
+                ${openPosition.liquidationPrice.toFixed(2)}
+              </span>
+            </span>
+            <button
+              className="perp-pos-close-btn"
+              onClick={() => handleClosePosition(selectedAgent)}
+              disabled={!!loadingTx}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
 
-      {/* Trade Cards */}
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}
-      >
-        {renderTradeCard(
-          agent1Name,
-          agent1Id,
-          agent1Spot,
-          a1Collateral,
-          setA1Collateral,
-          a1Leverage,
-          setA1Leverage,
+      {/* Collateral input */}
+      <div className="perp-field">
+        <label className="perp-field-label">
+          Collateral <span className="perp-field-unit">GOLD</span>
+        </label>
+        <input
+          className="perp-field-input"
+          type="number"
+          value={agentCollateral}
+          onChange={(e) => setAgentCollateral(Number(e.target.value))}
+          min={1}
+        />
+      </div>
+
+      {/* Leverage */}
+      <div className="perp-field">
+        <div className="perp-field-header">
+          <label className="perp-field-label">Leverage</label>
+          <span className="perp-lev-display">{agentLeverage}x</span>
+        </div>
+        <div className="perp-lev-presets">
+          {[1, 2, 5, 10].map((lv) => (
+            <button
+              key={lv}
+              className={`perp-lev-btn ${agentLeverage === lv ? "perp-lev-btn--active" : ""}`}
+              onClick={() => setAgentLeverage(lv)}
+              type="button"
+            >
+              {lv}x
+            </button>
+          ))}
+        </div>
+        <input
+          type="range"
+          className="perp-slider"
+          min={1}
+          max={10}
+          step={1}
+          value={agentLeverage}
+          onChange={(e) => setAgentLeverage(Number(e.target.value))}
+        />
+      </div>
+
+      {/* Order summary */}
+      <div className="perp-summary">
+        <div className="perp-summary-row">
+          <span>Position Size</span>
+          <span className="perp-summary-val">
+            {(agentCollateral * agentLeverage).toFixed(2)} GOLD
+          </span>
+        </div>
+        {agentSpot && agentLeverage > 1 && (
+          <>
+            <div className="perp-summary-row">
+              <span>Est. Liq (Long)</span>
+              <span style={{ color: "#ef4444" }}>
+                $
+                {(
+                  agentSpot *
+                  (1 -
+                    (agentCollateral * 0.9) / (agentCollateral * agentLeverage))
+                ).toFixed(2)}
+              </span>
+            </div>
+            <div className="perp-summary-row">
+              <span>Est. Liq (Short)</span>
+              <span style={{ color: "#22c55e" }}>
+                $
+                {(
+                  agentSpot *
+                  (1 +
+                    (agentCollateral * 0.9) / (agentCollateral * agentLeverage))
+                ).toFixed(2)}
+              </span>
+            </div>
+          </>
         )}
-        {renderTradeCard(
-          agent2Name,
-          agent2Id,
-          agent2Spot,
-          a2Collateral,
-          setA2Collateral,
-          a2Leverage,
-          setA2Leverage,
-        )}
+      </div>
+
+      {/* LONG / SHORT */}
+      <div className="perp-action-row">
+        <button
+          className="perp-btn-long"
+          disabled={!!loadingTx || agentCollateral <= 0}
+          onClick={() =>
+            handleOpenPosition(selectedAgent, 0, agentCollateral, agentLeverage)
+          }
+          type="button"
+        >
+          ▲ LONG {agentLeverage}x
+        </button>
+        <button
+          className="perp-btn-short"
+          disabled={!!loadingTx || agentCollateral <= 0}
+          onClick={() =>
+            handleOpenPosition(selectedAgent, 1, agentCollateral, agentLeverage)
+          }
+          type="button"
+        >
+          ▼ SHORT {agentLeverage}x
+        </button>
+      </div>
+
+      <div className="perp-footer-note">
+        <span>
+          By trading, you agree to our <a href="#">Terms</a> &amp;{" "}
+          <a href="#">Privacy</a>
+        </span>
       </div>
     </div>
   );

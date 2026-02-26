@@ -6,6 +6,7 @@ export interface Trade {
   amount: number;
   price?: number;
   time: number; // timestamp
+  trader?: string;
 }
 
 interface RecentTradesProps {

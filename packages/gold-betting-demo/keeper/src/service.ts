@@ -6,6 +6,18 @@ import path from "node:path";
 import { createPublicClient, http, type Address } from "viem";
 
 import { createPrograms, findMarketPda, readKeypair } from "./common";
+import {
+  loadAll,
+  saveBet,
+  saveWalletDisplay,
+  saveWalletPoints,
+  saveWalletCanonical,
+  saveIdentityMembers,
+  saveInviteCode,
+  saveReferral,
+  saveInvitedWallet,
+  saveReferralFees,
+} from "./db";
 
 type StreamState = {
   type: "STREAMING_STATE_UPDATE";
@@ -139,9 +151,9 @@ let streamState: StreamState = {
   type: "STREAMING_STATE_UPDATE",
   cycle: {
     cycleId: "boot-cycle",
-    phase: "BETTING",
-    countdown: 15,
-    timeRemaining: 300,
+    phase: "IDLE",
+    countdown: null,
+    timeRemaining: 0,
     winnerId: null,
     winnerName: null,
     winReason: null,
@@ -164,21 +176,29 @@ let streamSourceConsecutiveFailures = 0;
 let streamSourceBackoffUntil = 0;
 
 const sseClients = new Set<ReadableStreamDefaultController<Uint8Array>>();
-const bets: BetRecord[] = [];
 const manifestCache = new Map<string, unknown>();
-
-const walletDisplay = new Map<string, string>();
-const pointsByWallet = new Map<string, WalletPoints>();
-const canonicalByWallet = new Map<string, string>();
-const identityMembers = new Map<string, Set<string>>();
-const inviteCodeByWallet = new Map<string, string>();
-const walletByInviteCode = new Map<string, string>();
-const referredByWallet = new Map<string, { wallet: string; code: string }>();
-const invitedWalletsByWallet = new Map<string, Set<string>>();
-const referralFeeShareGoldByWallet = new Map<string, number>();
-const treasuryFeesFromReferralsByWallet = new Map<string, number>();
-
 const rateBuckets = new Map<string, RateBucket>();
+
+// ── Persistent state (hydrated from SQLite on startup, written through on change)
+const _db = loadAll(BET_STORE_LIMIT);
+
+const bets: BetRecord[] = _db.bets;
+const walletDisplay: Map<string, string> = _db.walletDisplay;
+const pointsByWallet: Map<string, WalletPoints> = _db.pointsByWallet;
+const canonicalByWallet: Map<string, string> = _db.canonicalByWallet;
+const identityMembers: Map<string, Set<string>> = _db.identityMembers;
+const inviteCodeByWallet: Map<string, string> = _db.inviteCodeByWallet;
+const walletByInviteCode: Map<string, string> = _db.walletByInviteCode;
+const referredByWallet: Map<string, { wallet: string; code: string }> =
+  _db.referredByWallet;
+const invitedWalletsByWallet: Map<
+  string,
+  Set<string>
+> = _db.invitedWalletsByWallet;
+const referralFeeShareGoldByWallet: Map<string, number> =
+  _db.referralFeeShareGoldByWallet;
+const treasuryFeesFromReferralsByWallet: Map<string, number> =
+  _db.treasuryFeesFromReferralsByWallet;
 
 const parsers: {
   solana: ParserState;
@@ -245,6 +265,7 @@ function rememberWalletCase(wallet: string): string {
   const normalized = normalizeWallet(wallet);
   if (!walletDisplay.has(normalized)) {
     walletDisplay.set(normalized, wallet.trim());
+    saveWalletDisplay(normalized, wallet.trim());
   }
   return normalized;
 }
@@ -256,12 +277,14 @@ function displayWallet(normalizedWallet: string): string {
 function ensureWalletPoints(wallet: string): WalletPoints {
   const normalized = rememberWalletCase(wallet);
   if (!pointsByWallet.has(normalized)) {
-    pointsByWallet.set(normalized, {
+    const initial: WalletPoints = {
       selfPoints: 0,
       winPoints: 0,
       referralPoints: 0,
       stakingPoints: 0,
-    });
+    };
+    pointsByWallet.set(normalized, initial);
+    saveWalletPoints(normalized, initial);
   }
   return pointsByWallet.get(normalized)!;
 }
@@ -271,7 +294,10 @@ function ensureIdentity(wallet: string): string {
   const existingCanonical = canonicalByWallet.get(normalized);
   if (existingCanonical) return existingCanonical;
   canonicalByWallet.set(normalized, normalized);
-  identityMembers.set(normalized, new Set([normalized]));
+  saveWalletCanonical(normalized, normalized);
+  const members = new Set([normalized]);
+  identityMembers.set(normalized, members);
+  saveIdentityMembers(normalized, members);
   return normalized;
 }
 
@@ -286,16 +312,21 @@ function mergeIdentity(walletA: string, walletB: string): boolean {
   const membersB = identityMembers.get(canonicalB) ?? new Set([canonicalB]);
   const mergedCanonical =
     membersA.size >= membersB.size ? canonicalA : canonicalB;
+  const obsoleteCanonical =
+    canonicalA === mergedCanonical ? canonicalB : canonicalA;
   const mergedMembers = new Set<string>([...membersA, ...membersB]);
 
   for (const member of mergedMembers) {
     canonicalByWallet.set(member, mergedCanonical);
+    saveWalletCanonical(member, mergedCanonical);
   }
 
   identityMembers.set(mergedCanonical, mergedMembers);
-  identityMembers.delete(
-    canonicalA === mergedCanonical ? canonicalB : canonicalA,
-  );
+  saveIdentityMembers(mergedCanonical, mergedMembers);
+  identityMembers.delete(obsoleteCanonical);
+  // Remove obsolete canonical's rows (saveIdentityMembers deletes + re-inserts,
+  // so removing from the map is sufficient; the old rows were already cleared
+  // when we persisted mergedCanonical above).
   return true;
 }
 
@@ -341,6 +372,7 @@ function inviteCodeForWallet(wallet: string): string {
   const code = `HS${hash.slice(0, 8).toUpperCase()}`;
   inviteCodeByWallet.set(normalized, code);
   walletByInviteCode.set(code, normalized);
+  saveInviteCode(normalized, code);
   return code;
 }
 
@@ -983,6 +1015,7 @@ async function handleBetRecord(req: Request): Promise<Response> {
     Math.round(Math.max(goldAmount, sourceAmount) * 10),
   );
   points.selfPoints += pointsAwarded;
+  saveWalletPoints(normalizedWallet, points);
 
   const inviteCodeRaw = String(payload.inviteCode || "")
     .trim()
@@ -994,9 +1027,11 @@ async function handleBetRecord(req: Request): Promise<Response> {
         wallet: inviter,
         code: inviteCodeRaw,
       });
+      saveReferral(normalizedWallet, inviter, inviteCodeRaw);
       const invited = invitedWalletsByWallet.get(inviter) ?? new Set<string>();
       invited.add(normalizedWallet);
       invitedWalletsByWallet.set(inviter, invited);
+      saveInvitedWallet(inviter, normalizedWallet);
     }
   }
 
@@ -1005,19 +1040,19 @@ async function handleBetRecord(req: Request): Promise<Response> {
     const referrerPoints = ensureWalletPoints(referrer.wallet);
     const referralPointsAwarded = Math.max(1, Math.round(pointsAwarded * 0.2));
     referrerPoints.referralPoints += referralPointsAwarded;
+    saveWalletPoints(referrer.wallet, referrerPoints);
 
     const betFeeGold = (Math.max(goldAmount, 0) * Math.max(feeBps, 0)) / 10_000;
     const referralFeeShare = betFeeGold * 0.5;
-    referralFeeShareGoldByWallet.set(
-      referrer.wallet,
+    const newFeeShare =
       (referralFeeShareGoldByWallet.get(referrer.wallet) ?? 0) +
-        referralFeeShare,
-    );
-    treasuryFeesFromReferralsByWallet.set(
-      referrer.wallet,
+      referralFeeShare;
+    const newTreasuryFees =
       (treasuryFeesFromReferralsByWallet.get(referrer.wallet) ?? 0) +
-        betFeeGold,
-    );
+      betFeeGold;
+    referralFeeShareGoldByWallet.set(referrer.wallet, newFeeShare);
+    treasuryFeesFromReferralsByWallet.set(referrer.wallet, newTreasuryFees);
+    saveReferralFees(referrer.wallet, newFeeShare, newTreasuryFees);
   }
 
   const record: BetRecord = {
@@ -1040,6 +1075,7 @@ async function handleBetRecord(req: Request): Promise<Response> {
   if (bets.length > BET_STORE_LIMIT) {
     bets.length = BET_STORE_LIMIT;
   }
+  saveBet(record);
 
   return jsonResponse(req, {
     ok: true,
@@ -1099,13 +1135,17 @@ async function handleInviteRedeem(req: Request): Promise<Response> {
   }
 
   referredByWallet.set(wallet, { wallet: inviterWallet, code: inviteCode });
+  saveReferral(wallet, inviterWallet, inviteCode);
   const invited =
     invitedWalletsByWallet.get(inviterWallet) ?? new Set<string>();
   invited.add(wallet);
   invitedWalletsByWallet.set(inviterWallet, invited);
+  saveInvitedWallet(inviterWallet, wallet);
 
   const signupBonus = 50;
-  ensureWalletPoints(wallet).selfPoints += signupBonus;
+  const walletPts = ensureWalletPoints(wallet);
+  walletPts.selfPoints += signupBonus;
+  saveWalletPoints(wallet, walletPts);
 
   return jsonResponse(req, {
     result: {
@@ -1143,7 +1183,9 @@ async function handleWalletLink(req: Request): Promise<Response> {
   const merged = mergeIdentity(wallet, linkedWallet);
   const awardedPoints = merged ? 100 : 0;
   if (merged) {
-    ensureWalletPoints(wallet).selfPoints += awardedPoints;
+    const walletPts = ensureWalletPoints(wallet);
+    walletPts.selfPoints += awardedPoints;
+    saveWalletPoints(wallet, walletPts);
   }
 
   return jsonResponse(req, {

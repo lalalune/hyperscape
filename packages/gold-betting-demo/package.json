@@ -6,7 +6,9 @@
   "scripts": {
     "anchor:build": "bun run --cwd anchor build",
     "anchor:test": "bun run --cwd anchor test",
-    "dev": "bash app/scripts/run-local-demo.sh",
+    "dev": "bun run --cwd app dev --mode devnet",
+    "dev:local": "bash app/scripts/run-local-demo.sh",
+    "dev:devnet": "bun run --cwd app dev --mode devnet",
     "dev:stream-ui": "bun run --cwd app dev --mode stream-ui",
     "dev:app-local": "bun run --cwd app dev --mode local",
     "dev:testnet": "bun run --cwd app dev --mode testnet",

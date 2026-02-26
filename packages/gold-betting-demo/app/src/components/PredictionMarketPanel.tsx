@@ -44,6 +44,8 @@ interface PredictionMarketPanelProps {
   currencySymbol?: string;
   onViewAgent1?: () => void;
   onViewAgent2?: () => void;
+  /** Sidebar compact mode: single-column layout, hm-* gold theme, hides chart/orderbook/trades cols */
+  compact?: boolean;
 }
 
 export function PredictionMarketPanel({
@@ -72,6 +74,7 @@ export function PredictionMarketPanel({
   currencySymbol = "SOL",
   onViewAgent1,
   onViewAgent2,
+  compact = false,
 }: PredictionMarketPanelProps) {
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
 
@@ -80,20 +83,48 @@ export function PredictionMarketPanel({
   const canBet = isWalletReady && programsReady;
   const sellSupported = isEvm || supportsSell;
 
+  // Compact mode colour tokens (hm-* theme)
+  const C_YES_ACTIVE_BG = compact
+    ? "linear-gradient(180deg, rgba(34,197,94,0.22) 0%, rgba(34,197,94,0.06) 100%)"
+    : "linear-gradient(180deg, rgba(0,255,204,0.22) 0%, rgba(0,255,204,0.06) 100%)";
+  const C_YES_ACTIVE_BORDER = compact
+    ? "1px solid rgba(34,197,94,0.4)"
+    : "1px solid rgba(0,255,204,0.4)";
+  const C_YES_ACTIVE_SHADOW = compact
+    ? "0 4px 20px rgba(34,197,94,0.2), inset 0 1px 0 rgba(255,255,255,0.18)"
+    : "0 4px 20px rgba(0,255,204,0.2), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 16px rgba(0,255,204,0.08)";
+  const C_YES_TEXT = compact ? "#22c55e" : "#00ffcc";
+  const C_YES_GLOW = compact ? "rgba(34,197,94,0.6)" : "rgba(0,255,204,0.6)";
+  const C_YES_BAR = compact
+    ? "linear-gradient(90deg, rgba(34,197,94,0.2), #22c55e, rgba(34,197,94,0.2))"
+    : "linear-gradient(90deg, rgba(0,255,204,0.2), #00ffcc, rgba(0,255,204,0.2))";
+  const C_YES_BAR_SHADOW = compact
+    ? "0 0 8px rgba(34,197,94,0.5)"
+    : "0 0 8px rgba(0,255,204,0.5)";
+
   return (
     <>
-      {/* 4 Column Layout */}
+      {/* Layout: 4-column wide OR single-column compact sidebar */}
       <div
+        className={compact ? "pm-compact" : ""}
         style={{
           display: "grid",
-          gridTemplateColumns:
-            "210px 1fr minmax(180px, 220px) minmax(180px, 220px)",
+          gridTemplateColumns: compact
+            ? "1fr"
+            : "210px 1fr minmax(180px, 220px) minmax(180px, 220px)",
           alignItems: "stretch",
-          gap: 12,
+          gap: compact ? 0 : 12,
         }}
       >
         {/* ========== COL 1: Betting Controls ========== */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: compact ? 8 : 10,
+            padding: compact ? "14px 16px" : 0,
+          }}
+        >
           {/* Agent buttons side by side */}
           <div
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
@@ -110,7 +141,7 @@ export function PredictionMarketPanel({
                   padding: "8px 10px",
                   borderRadius: 10,
                   border: yesSelected
-                    ? "1px solid rgba(0,255,204,0.4)"
+                    ? C_YES_ACTIVE_BORDER
                     : "1px solid rgba(255,255,255,0.1)",
                   color: "#fff",
                   cursor: "pointer",
@@ -118,10 +149,10 @@ export function PredictionMarketPanel({
                   transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
                   overflow: "hidden",
                   background: yesSelected
-                    ? "linear-gradient(180deg, rgba(0,255,204,0.22) 0%, rgba(0,255,204,0.06) 100%)"
+                    ? C_YES_ACTIVE_BG
                     : "linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)",
                   boxShadow: yesSelected
-                    ? "0 4px 20px rgba(0,255,204,0.2), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 16px rgba(0,255,204,0.08)"
+                    ? C_YES_ACTIVE_SHADOW
                     : "inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.2)",
                   backdropFilter: "blur(16px)",
                   WebkitBackdropFilter: "blur(16px)",
@@ -134,10 +165,8 @@ export function PredictionMarketPanel({
                     letterSpacing: 1.5,
                     textTransform: "uppercase",
                     fontFamily: "'Teko', sans-serif",
-                    color: yesSelected ? "#00ffcc" : "rgba(255,255,255,0.5)",
-                    textShadow: yesSelected
-                      ? "0 0 10px rgba(0,255,204,0.6)"
-                      : "none",
+                    color: yesSelected ? C_YES_TEXT : "rgba(255,255,255,0.5)",
+                    textShadow: yesSelected ? `0 0 10px ${C_YES_GLOW}` : "none",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -168,9 +197,8 @@ export function PredictionMarketPanel({
                       left: 0,
                       right: 0,
                       height: 2,
-                      background:
-                        "linear-gradient(90deg, rgba(0,255,204,0.2), #00ffcc, rgba(0,255,204,0.2))",
-                      boxShadow: "0 0 8px rgba(0,255,204,0.5)",
+                      background: C_YES_BAR,
+                      boxShadow: C_YES_BAR_SHADOW,
                     }}
                   />
                 )}
@@ -324,15 +352,16 @@ export function PredictionMarketPanel({
           <div
             style={{
               display: "flex",
-              gap: 4,
-              background: "rgba(0,0,0,0.25)",
-              borderRadius: 12,
-              padding: 3,
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow:
-                "inset 0 2px 6px rgba(0,0,0,0.3), inset 0 0 0 0.5px rgba(255,255,255,0.04)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
+              gap: compact ? 6 : 4,
+              background: compact ? "transparent" : "rgba(0,0,0,0.25)",
+              borderRadius: compact ? 2 : 12,
+              padding: compact ? 0 : 3,
+              border: compact ? "none" : "1px solid rgba(255,255,255,0.08)",
+              boxShadow: compact
+                ? "none"
+                : "inset 0 2px 6px rgba(0,0,0,0.3), inset 0 0 0 0.5px rgba(255,255,255,0.04)",
+              backdropFilter: compact ? "none" : "blur(12px)",
+              WebkitBackdropFilter: compact ? "none" : "blur(12px)",
             }}
           >
             <button
@@ -352,12 +381,16 @@ export function PredictionMarketPanel({
                 fontFamily: "'Teko', sans-serif",
                 background:
                   activeTab === "buy"
-                    ? "linear-gradient(180deg, #00ffcc 0%, #00d4aa 100%)"
+                    ? compact
+                      ? "linear-gradient(180deg, #22c55e 0%, #16a34a 100%)"
+                      : "linear-gradient(180deg, #00ffcc 0%, #00d4aa 100%)"
                     : "transparent",
-                color: activeTab === "buy" ? "#000" : "rgba(255,255,255,0.35)",
+                color: activeTab === "buy" ? "#fff" : "rgba(255,255,255,0.35)",
                 boxShadow:
                   activeTab === "buy"
-                    ? "0 2px 12px rgba(0,255,204,0.4), inset 0 1px 0 rgba(255,255,255,0.3)"
+                    ? compact
+                      ? "0 2px 8px rgba(34,197,94,0.35), inset 0 1px 0 rgba(255,255,255,0.25)"
+                      : "0 2px 12px rgba(0,255,204,0.4), inset 0 1px 0 rgba(255,255,255,0.3)"
                     : "none",
               }}
             >
@@ -586,300 +619,309 @@ export function PredictionMarketPanel({
           )}
         </div>
 
-        {/* ========== COL 2: Chart ========== */}
-        <div
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 12,
-            padding: "10px 12px",
-            display: "flex",
-            flexDirection: "column",
-            position: "relative",
-            overflow: "hidden",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px rgba(0,0,0,0.15)",
-          }}
-        >
-          {/* Glass highlight overlay */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: "40%",
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%)",
-              pointerEvents: "none",
-              zIndex: 0,
-              borderRadius: "12px 12px 0 0",
-            }}
-          />
-          {/* Subtle Scanline Overlay */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background:
-                "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.04) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.015), rgba(0, 255, 0, 0.005), rgba(0, 0, 255, 0.015))",
-              backgroundSize: "100% 2px, 3px 100%",
-              pointerEvents: "none",
-              zIndex: 10,
-            }}
-          />
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-end",
-              marginBottom: 6,
-              borderBottom: "1px solid rgba(255,255,255,0.05)",
-              paddingBottom: 4,
-            }}
-          >
+        {/* ========== COL 2-4: Chart / Order Book / Trades — hidden in compact sidebar mode ========== */}
+        {!compact && (
+          <>
             <div
               style={{
-                fontSize: 14,
-                fontWeight: 800,
-                letterSpacing: 2,
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.4)",
-                fontFamily: "'Teko', sans-serif",
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 12,
+                padding: "10px 12px",
+                display: "flex",
+                flexDirection: "column",
+                position: "relative",
+                overflow: "hidden",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px rgba(0,0,0,0.15)",
               }}
             >
-              PREDICTION MARKET
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ textAlign: "right" }}>
+              {/* Glass highlight overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: "40%",
+                  background:
+                    "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%)",
+                  pointerEvents: "none",
+                  zIndex: 0,
+                  borderRadius: "12px 12px 0 0",
+                }}
+              />
+              {/* Subtle Scanline Overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background:
+                    "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.04) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.015), rgba(0, 255, 0, 0.005), rgba(0, 0, 255, 0.015))",
+                  backgroundSize: "100% 2px, 3px 100%",
+                  pointerEvents: "none",
+                  zIndex: 10,
+                }}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-end",
+                  marginBottom: 6,
+                  borderBottom: "1px solid rgba(255,255,255,0.05)",
+                  paddingBottom: 4,
+                }}
+              >
                 <div
                   style={{
-                    fontSize: 8,
-                    fontWeight: 900,
-                    color: "#00ffcc",
-                    letterSpacing: 1,
-                    textShadow: "0 0 8px rgba(0,255,204,0.6)",
+                    fontSize: 14,
+                    fontWeight: 800,
+                    letterSpacing: 2,
+                    textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.4)",
+                    fontFamily: "'Teko', sans-serif",
                   }}
                 >
-                  {agent1Name.toUpperCase()}
+                  PREDICTION MARKET
                 </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ textAlign: "right" }}>
+                    <div
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 900,
+                        color: "#00ffcc",
+                        letterSpacing: 1,
+                        textShadow: "0 0 8px rgba(0,255,204,0.6)",
+                      }}
+                    >
+                      {agent1Name.toUpperCase()}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 900,
+                        color: "#fff",
+                        fontFamily: "'IBM Plex Mono', monospace",
+                      }}
+                    >
+                      {yesPercent}%
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      width: 1,
+                      height: 16,
+                      background: "rgba(255,255,255,0.1)",
+                    }}
+                  />
+                  <div style={{ textAlign: "right" }}>
+                    <div
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 900,
+                        color: "#ff0d3c",
+                        letterSpacing: 1,
+                        textShadow: "0 0 8px rgba(255,13,60,0.6)",
+                      }}
+                    >
+                      {agent2Name.toUpperCase()}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 900,
+                        color: "#fff",
+                        fontFamily: "'IBM Plex Mono', monospace",
+                      }}
+                    >
+                      {noPercent}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Probability tug-of-war bar */}
+              <div
+                style={{
+                  height: 3,
+                  borderRadius: 2,
+                  display: "flex",
+                  overflow: "hidden",
+                  marginBottom: 6,
+                  background: "rgba(0,0,0,0.3)",
+                  border: "1px solid rgba(255,255,255,0.05)",
+                }}
+              >
                 <div
                   style={{
-                    fontSize: 15,
-                    fontWeight: 900,
-                    color: "#fff",
-                    fontFamily: "'IBM Plex Mono', monospace",
+                    width: `${yesPercent}%`,
+                    height: "100%",
+                    background:
+                      "linear-gradient(90deg, #00ffcc, rgba(0,255,204,0.6))",
+                    boxShadow: "0 0 8px rgba(0,255,204,0.4)",
+                    transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                    borderRadius: "2px 0 0 2px",
                   }}
-                >
-                  {yesPercent}%
-                </div>
+                />
+                <div
+                  style={{
+                    width: `${noPercent}%`,
+                    height: "100%",
+                    background:
+                      "linear-gradient(90deg, rgba(255,13,60,0.6), #ff0d3c)",
+                    boxShadow: "0 0 8px rgba(255,13,60,0.4)",
+                    transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                    borderRadius: "0 2px 2px 0",
+                  }}
+                />
               </div>
               <div
                 style={{
-                  width: 1,
-                  height: 16,
-                  background: "rgba(255,255,255,0.1)",
+                  flex: 1,
+                  minHeight: 0,
+                  position: "relative",
+                  zIndex: 1,
                 }}
-              />
-              <div style={{ textAlign: "right" }}>
-                <div
-                  style={{
-                    fontSize: 8,
-                    fontWeight: 900,
-                    color: "#ff0d3c",
-                    letterSpacing: 1,
-                    textShadow: "0 0 8px rgba(255,13,60,0.6)",
-                  }}
-                >
-                  {agent2Name.toUpperCase()}
-                </div>
-                <div
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 900,
-                    color: "#fff",
-                    fontFamily: "'IBM Plex Mono', monospace",
-                  }}
-                >
-                  {noPercent}%
-                </div>
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <defs>
+                      <filter
+                        id="glow"
+                        x="-20%"
+                        y="-20%"
+                        width="140%"
+                        height="140%"
+                      >
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feComposite
+                          in="SourceGraphic"
+                          in2="blur"
+                          operator="over"
+                        />
+                      </filter>
+                    </defs>
+                    <XAxis dataKey="time" hide />
+                    <YAxis domain={[0, 100]} hide />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div
+                              style={{
+                                background: "rgba(10,12,18,0.7)",
+                                backdropFilter: "blur(20px)",
+                                WebkitBackdropFilter: "blur(20px)",
+                                padding: "6px 12px",
+                                borderRadius: 8,
+                                border: "1px solid rgba(242,208,138,0.3)",
+                                fontSize: 13,
+                                fontFamily: "monospace",
+                                fontWeight: 900,
+                                color: "#fff",
+                                boxShadow:
+                                  "0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)",
+                              }}
+                            >
+                              <span style={{ color: "#f2d08a" }}>
+                                {payload[0].value}%
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <ReferenceLine
+                      y={50}
+                      stroke="rgba(255,255,255,0.1)"
+                      strokeDasharray="4 4"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="pct"
+                      stroke="#00ffcc"
+                      strokeWidth={3}
+                      dot={false}
+                      isAnimationActive={true}
+                      filter="url(#glow)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </div>
-          </div>
-          {/* Probability tug-of-war bar */}
-          <div
-            style={{
-              height: 3,
-              borderRadius: 2,
-              display: "flex",
-              overflow: "hidden",
-              marginBottom: 6,
-              background: "rgba(0,0,0,0.3)",
-              border: "1px solid rgba(255,255,255,0.05)",
-            }}
-          >
+
+            {/* COL 3: Order Book */}
             <div
               style={{
-                width: `${yesPercent}%`,
-                height: "100%",
                 background:
-                  "linear-gradient(90deg, #00ffcc, rgba(0,255,204,0.6))",
-                boxShadow: "0 0 8px rgba(0,255,204,0.4)",
-                transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-                borderRadius: "2px 0 0 2px",
+                  "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 12,
+                padding: "6px 10px 8px",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px rgba(0,0,0,0.15)",
+                color: "#fff",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                fontFamily: "'Inter', system-ui, sans-serif",
+                overflow: "hidden",
+                minHeight: 0,
               }}
-            />
+            >
+              <OrderBook
+                yesPot={Number(yesPool)}
+                noPot={Number(noPool)}
+                totalPot={Number(yesPool) + Number(noPool)}
+                goldPriceUsd={goldPriceUsd}
+                bids={bids}
+                asks={asks}
+                midPrice={yesPercent / 100}
+              />
+            </div>
+
+            {/* COL 4: Recent Trades */}
             <div
               style={{
-                width: `${noPercent}%`,
-                height: "100%",
                 background:
-                  "linear-gradient(90deg, rgba(255,13,60,0.6), #ff0d3c)",
-                boxShadow: "0 0 8px rgba(255,13,60,0.4)",
-                transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-                borderRadius: "0 2px 2px 0",
+                  "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 12,
+                padding: "6px 10px 8px",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px rgba(0,0,0,0.15)",
+                color: "#fff",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                fontFamily: "'Inter', system-ui, sans-serif",
+                overflow: "hidden",
+                minHeight: 0,
               }}
-            />
-          </div>
-          <div
-            style={{ flex: 1, minHeight: 0, position: "relative", zIndex: 1 }}
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <defs>
-                  <filter
-                    id="glow"
-                    x="-20%"
-                    y="-20%"
-                    width="140%"
-                    height="140%"
-                  >
-                    <feGaussianBlur stdDeviation="3" result="blur" />
-                    <feComposite
-                      in="SourceGraphic"
-                      in2="blur"
-                      operator="over"
-                    />
-                  </filter>
-                </defs>
-                <XAxis dataKey="time" hide />
-                <YAxis domain={[0, 100]} hide />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div
-                          style={{
-                            background: "rgba(10,12,18,0.7)",
-                            backdropFilter: "blur(20px)",
-                            WebkitBackdropFilter: "blur(20px)",
-                            padding: "6px 12px",
-                            borderRadius: 8,
-                            border: "1px solid rgba(242,208,138,0.3)",
-                            fontSize: 13,
-                            fontFamily: "monospace",
-                            fontWeight: 900,
-                            color: "#fff",
-                            boxShadow:
-                              "0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)",
-                          }}
-                        >
-                          <span style={{ color: "#f2d08a" }}>
-                            {payload[0].value}%
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <ReferenceLine
-                  y={50}
-                  stroke="rgba(255,255,255,0.1)"
-                  strokeDasharray="4 4"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="pct"
-                  stroke="#00ffcc"
-                  strokeWidth={3}
-                  dot={false}
-                  isAnimationActive={true}
-                  filter="url(#glow)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* ========== COL 3: Order Book ========== */}
-        <div
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 12,
-            padding: "6px 10px 8px",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px rgba(0,0,0,0.15)",
-            color: "#fff",
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-            fontFamily: "'Inter', system-ui, sans-serif",
-            overflow: "hidden",
-            minHeight: 0,
-          }}
-        >
-          <OrderBook
-            yesPot={Number(yesPool)}
-            noPot={Number(noPool)}
-            totalPot={Number(yesPool) + Number(noPool)}
-            goldPriceUsd={goldPriceUsd}
-            bids={bids}
-            asks={asks}
-            midPrice={yesPercent / 100}
-          />
-        </div>
-
-        {/* ========== COL 4: Recent Trades ========== */}
-        <div
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 12,
-            padding: "6px 10px 8px",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px rgba(0,0,0,0.15)",
-            color: "#fff",
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-            fontFamily: "'Inter', system-ui, sans-serif",
-            overflow: "hidden",
-            minHeight: 0,
-          }}
-        >
-          <RecentTrades
-            yesPot={Number(yesPool)}
-            noPot={Number(noPool)}
-            totalPot={Number(yesPool) + Number(noPool)}
-            goldPriceUsd={goldPriceUsd}
-            trades={recentTrades}
-          />
-        </div>
+            >
+              <RecentTrades
+                yesPot={Number(yesPool)}
+                noPot={Number(noPool)}
+                totalPot={Number(yesPool) + Number(noPool)}
+                goldPriceUsd={goldPriceUsd}
+                trades={recentTrades}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <style>{`
@@ -887,17 +929,9 @@ export function PredictionMarketPanel({
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.4; transform: scale(0.8); }
         }
-        .gm-btn {
-          transform: translateY(0);
-        }
-        .gm-btn:hover {
-          transform: translateY(-1px);
-          filter: brightness(1.15);
-        }
-        .gm-btn:active {
-          transform: translateY(1px);
-          filter: brightness(0.95);
-        }
+        .gm-btn { transform: translateY(0); }
+        .gm-btn:hover { transform: translateY(-1px); filter: brightness(1.15); }
+        .gm-btn:active { transform: translateY(1px); filter: brightness(0.95); }
         .gm-btn-agent1:hover {
           box-shadow: 0 6px 28px rgba(0,255,204,0.25), inset 0 1px 0 rgba(255,255,255,0.15), 0 1px 0 rgba(0,0,0,0.6) !important;
           border-color: rgba(0,255,204,0.5) !important;
@@ -906,16 +940,9 @@ export function PredictionMarketPanel({
           box-shadow: 0 6px 28px rgba(255,13,60,0.25), inset 0 1px 0 rgba(255,255,255,0.15), 0 1px 0 rgba(0,0,0,0.6) !important;
           border-color: rgba(255,13,60,0.5) !important;
         }
-        .gm-btn-sm {
-          transform: translateY(0);
-        }
-        .gm-btn-sm:hover {
-          transform: translateY(-1px);
-          filter: brightness(1.3);
-        }
-        .gm-btn-sm:active {
-          transform: translateY(1px);
-        }
+        .gm-btn-sm { transform: translateY(0); }
+        .gm-btn-sm:hover { transform: translateY(-1px); filter: brightness(1.3); }
+        .gm-btn-sm:active { transform: translateY(1px); }
         .gm-btn-sm-yes:hover {
           box-shadow: 0 4px 16px rgba(0,255,204,0.2), inset 0 1px 0 rgba(0,255,204,0.15) !important;
           border-color: rgba(0,255,204,0.5) !important;
@@ -924,26 +951,107 @@ export function PredictionMarketPanel({
           box-shadow: 0 4px 16px rgba(255,13,60,0.2), inset 0 1px 0 rgba(255,13,60,0.15) !important;
           border-color: rgba(255,13,60,0.5) !important;
         }
-        .gm-tab-btn:hover {
-          filter: brightness(1.1);
-        }
+        .gm-tab-btn:hover { filter: brightness(1.1); }
         .gm-amount-input:focus {
-          border-color: rgba(242,208,138,0.5) !important;
-          box-shadow: inset 0 2px 8px rgba(0,0,0,0.8), 0 0 12px rgba(242,208,138,0.15) !important;
+          border-color: rgba(229,184,74,0.6) !important;
+          box-shadow: inset 0 2px 6px rgba(0,0,0,0.6), 0 0 10px rgba(229,184,74,0.12) !important;
           outline: none;
         }
-        .gm-btn-submit {
-          transform: translateY(0);
-        }
+        .gm-btn-submit { transform: translateY(0); }
         .gm-btn-submit:not(:disabled):hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 32px rgba(242,208,138,0.35), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -2px 0 rgba(0,0,0,0.2), 0 2px 0 rgba(0,0,0,0.4) !important;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 24px rgba(229,184,74,0.35), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -2px 0 rgba(0,0,0,0.25) !important;
           filter: brightness(1.08);
         }
         .gm-btn-submit:not(:disabled):active {
           transform: translateY(1px);
-          box-shadow: 0 2px 8px rgba(242,208,138,0.2), inset 0 2px 4px rgba(0,0,0,0.3), 0 1px 0 rgba(0,0,0,0.4) !important;
+          box-shadow: inset 0 2px 6px rgba(0,0,0,0.4) !important;
           filter: brightness(0.95);
+        }
+
+        /* ═══ COMPACT / HYPERSCAPE SIDEBAR THEME ═══════════════════════════ */
+        /* Square corners everywhere */
+        .pm-compact * { border-radius: 2px !important; }
+
+        /* Full-width fluid layout so compact mode never overflows sidebar */
+        .pm-compact { width: 100%; box-sizing: border-box; }
+        .pm-compact > div { width: 100%; min-width: 0; box-sizing: border-box; }
+
+        /* Agent selector buttons — chunky stone panels, fluid */
+        .pm-compact .gm-btn {
+          border-radius: 2px !important;
+          padding: 10px 6px !important;
+          border-width: 1px !important;
+          font-family: var(--hm-font-display, 'Orbitron', monospace) !important;
+          min-width: 0;
+          overflow: hidden;
+        }
+        .pm-compact .gm-btn-agent1:hover {
+          box-shadow: 0 0 12px rgba(34,197,94,0.3), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+          border-color: rgba(34,197,94,0.5) !important;
+        }
+        .pm-compact .gm-btn-agent2:hover {
+          box-shadow: 0 0 12px rgba(239,68,68,0.3), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+          border-color: rgba(239,68,68,0.5) !important;
+        }
+
+        /* STATS mini-buttons — hidden in compact mode, replaced by odds in agent button */
+        .pm-compact .gm-btn-sm { display: none !important; }
+
+        /* BUY/SELL toggle container — flat stone bar */
+        .pm-compact .gm-tab-btn {
+          border-radius: 2px !important;
+          font-family: var(--hm-font-display, 'Orbitron', monospace) !important;
+          font-size: 11px !important;
+          letter-spacing: 0.1em !important;
+          font-weight: 800 !important;
+          min-height: 40px;
+        }
+        .pm-compact .gm-tab-btn:hover { filter: brightness(1.15); }
+
+        /* Amount input — sharp corners, thicker border, prevent iOS zoom */
+        .pm-compact .gm-amount-input {
+          border-radius: 2px !important;
+          border: 1px solid rgba(229,184,74,0.25) !important;
+          font-family: var(--hm-font-mono, 'IBM Plex Mono', monospace) !important;
+          background: rgba(0,0,0,0.4) !important;
+          font-size: max(16px, 15px) !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        .pm-compact .gm-amount-input:focus {
+          border-color: rgba(229,184,74,0.55) !important;
+          box-shadow: 0 0 0 2px rgba(229,184,74,0.1), inset 0 2px 4px rgba(0,0,0,0.5) !important;
+        }
+
+        /* Submit button — matches hm-trade-btn gold, touch-friendly */
+        .pm-compact .gm-btn-submit {
+          border-radius: 2px !important;
+          font-family: var(--hm-font-display, 'Orbitron', monospace) !important;
+          font-size: 12px !important;
+          letter-spacing: 0.08em !important;
+          font-weight: 800 !important;
+          height: 46px !important;
+          min-height: 44px !important;
+          text-shadow: 0 1px 0 rgba(255,255,255,0.2) !important;
+          width: 100% !important;
+          touch-action: manipulation;
+        }
+        .pm-compact .gm-btn-submit:not(:disabled):hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 20px rgba(229,184,74,0.4), inset 0 1px 0 rgba(255,255,255,0.45) !important;
+        }
+
+        /* Divider lines */
+        .pm-compact > div > div[style*="height: 1"] {
+          background: linear-gradient(90deg, transparent, rgba(229,184,74,0.12), transparent) !important;
+        }
+
+        /* Touch action on agent buttons */
+        .pm-compact .gm-btn,
+        .pm-compact .gm-tab-btn {
+          touch-action: manipulation;
+          -webkit-tap-highlight-color: transparent;
         }
       `}</style>
     </>

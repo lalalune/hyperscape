@@ -120,11 +120,14 @@ function walletReady(wallet: ReturnType<typeof useWallet>): boolean {
 interface SolanaClobPanelProps {
   agent1Name: string;
   agent2Name: string;
+  /** Sidebar compact mode: hides admin/debug panel, uses single-column PredictionMarketPanel */
+  compact?: boolean;
 }
 
 export function SolanaClobPanel({
   agent1Name,
   agent2Name,
+  compact = false,
 }: SolanaClobPanelProps) {
   const { connection } = useConnection();
   const wallet = useWallet();
@@ -917,188 +920,197 @@ export function SolanaClobPanel({
       data-testid="solana-clob-panel"
       style={{ display: "grid", gap: 10, position: "relative" }}
     >
-      {/* Top Right Admin Panel */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
-          background: "rgba(0, 0, 0, 0.85)",
-          border: "1px solid #333",
-          padding: 12,
-          borderRadius: 8,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          zIndex: 100,
-          maxWidth: 320,
-        }}
-      >
+      {/* Admin / Debug Panel — hidden in compact sidebar mode */}
+      {!compact && (
         <div
           style={{
-            fontSize: 12,
-            fontWeight: "bold",
-            textTransform: "uppercase",
-            letterSpacing: "1px",
+            position: "absolute",
+            top: 0,
+            right: 0,
+            background: "rgba(0, 0, 0, 0.85)",
+            border: "1px solid #333",
+            padding: 12,
+            borderRadius: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            zIndex: 100,
+            maxWidth: 320,
           }}
         >
-          Admin Panel
-        </div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              letterSpacing: "1px",
+            }}
+          >
+            Admin Panel
+          </div>
 
-        {ENABLE_MANUAL_MARKET_ADMIN_CONTROLS ? (
+          {ENABLE_MANUAL_MARKET_ADMIN_CONTROLS ? (
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                flexWrap: "wrap",
+                marginBottom: 4,
+              }}
+            >
+              <button
+                data-testid="solana-clob-refresh"
+                type="button"
+                onClick={() => void refreshData()}
+                disabled={isRefreshing}
+                style={{ fontSize: 11, padding: "4px 8px" }}
+              >
+                {isRefreshing ? "Refreshing..." : "Refresh"}
+              </button>
+              <button
+                data-testid="solana-clob-create-match"
+                type="button"
+                onClick={() => void handleCreateMatch()}
+                style={{ fontSize: 11, padding: "4px 8px" }}
+              >
+                Create Match
+              </button>
+              <button
+                data-testid="solana-clob-resolve"
+                type="button"
+                onClick={() => void handleResolve()}
+                disabled={!activeMatch?.isOpen}
+                style={{ fontSize: 11, padding: "4px 8px" }}
+              >
+                Resolve ({side})
+              </button>
+              <button
+                data-testid="solana-clob-claim"
+                type="button"
+                onClick={() => void handleClaim("manual")}
+                style={{ fontSize: 11, padding: "4px 8px" }}
+              >
+                Claim
+              </button>
+              <button
+                data-testid="solana-clob-cancel-order"
+                type="button"
+                onClick={() => void handleCancelOrder()}
+                style={{ fontSize: 11, padding: "4px 8px" }}
+              >
+                Cancel Last Order
+              </button>
+            </div>
+          ) : (
+            <span style={{ fontSize: 11, opacity: 0.85, marginBottom: 4 }}>
+              Market lifecycle is automated by keeper bot.
+            </span>
+          )}
+
+          <div
+            style={{
+              fontSize: 10,
+              opacity: 0.75,
+              wordBreak: "break-all",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            <div
+              data-testid="solana-clob-status"
+              style={{ color: "#fff", marginBottom: 4 }}
+            >
+              {status}
+            </div>
+            <div data-testid="solana-clob-init-config-tx">
+              Init Config Tx: {txs.initConfig}
+            </div>
+            <div data-testid="solana-clob-create-match-tx">
+              Create Match Tx: {txs.createMatch}
+            </div>
+            <div data-testid="solana-clob-init-orderbook-tx">
+              Init OrderBook Tx: {txs.initOrderBook}
+            </div>
+            <div data-testid="solana-clob-place-order-tx">
+              Place Order Tx: {txs.placeOrder}
+            </div>
+            <div data-testid="solana-clob-cancel-order-tx">
+              Cancel Tx: {txs.cancelOrder}
+            </div>
+            <div data-testid="solana-clob-resolve-tx">
+              Resolve Tx: {txs.resolveMatch}
+            </div>
+            <div data-testid="solana-clob-claim-tx">Claim Tx: {txs.claim}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Debug metadata rows — hidden in compact sidebar mode */}
+      {!compact && (
+        <>
           <div
             style={{
               display: "flex",
-              gap: 6,
+              gap: 8,
               flexWrap: "wrap",
-              marginBottom: 4,
+              alignItems: "center",
             }}
           >
-            <button
-              data-testid="solana-clob-refresh"
-              type="button"
-              onClick={() => void refreshData()}
-              disabled={isRefreshing}
-              style={{ fontSize: 11, padding: "4px 8px" }}
+            <span
+              data-testid="solana-clob-match"
+              style={{ opacity: 0.8, fontSize: 12 }}
             >
-              {isRefreshing ? "Refreshing..." : "Refresh"}
-            </button>
-            <button
-              data-testid="solana-clob-create-match"
-              type="button"
-              onClick={() => void handleCreateMatch()}
-              style={{ fontSize: 11, padding: "4px 8px" }}
-            >
-              Create Match
-            </button>
-            <button
-              data-testid="solana-clob-resolve"
-              type="button"
-              onClick={() => void handleResolve()}
-              disabled={!activeMatch?.isOpen}
-              style={{ fontSize: 11, padding: "4px 8px" }}
-            >
-              Resolve ({side})
-            </button>
-            <button
-              data-testid="solana-clob-claim"
-              type="button"
-              onClick={() => void handleClaim("manual")}
-              style={{ fontSize: 11, padding: "4px 8px" }}
-            >
-              Claim
-            </button>
-            <button
-              data-testid="solana-clob-cancel-order"
-              type="button"
-              onClick={() => void handleCancelOrder()}
-              style={{ fontSize: 11, padding: "4px 8px" }}
-            >
-              Cancel Last Order
-            </button>
+              Match: {matchLabel}
+            </span>
           </div>
-        ) : (
-          <span style={{ fontSize: 11, opacity: 0.85, marginBottom: 4 }}>
-            Market lifecycle is automated by keeper bot.
-          </span>
-        )}
 
-        <div
-          style={{
-            fontSize: 10,
-            opacity: 0.75,
-            wordBreak: "break-all",
-            display: "flex",
-            flexDirection: "column",
-            gap: 2,
-          }}
-        >
           <div
-            data-testid="solana-clob-status"
-            style={{ color: "#fff", marginBottom: 4 }}
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              alignItems: "center",
+              fontSize: 12,
+              opacity: 0.85,
+            }}
           >
-            {status}
+            <span>{marketFeeSummary}</span>
+            <span>
+              Position YES {fmtAmount(position.yesShares).toFixed(4)} | NO{" "}
+              {fmtAmount(position.noShares).toFixed(4)}
+            </span>
           </div>
-          <div data-testid="solana-clob-init-config-tx">
-            Init Config Tx: {txs.initConfig}
-          </div>
-          <div data-testid="solana-clob-create-match-tx">
-            Create Match Tx: {txs.createMatch}
-          </div>
-          <div data-testid="solana-clob-init-orderbook-tx">
-            Init OrderBook Tx: {txs.initOrderBook}
-          </div>
-          <div data-testid="solana-clob-place-order-tx">
-            Place Order Tx: {txs.placeOrder}
-          </div>
-          <div data-testid="solana-clob-cancel-order-tx">
-            Cancel Tx: {txs.cancelOrder}
-          </div>
-          <div data-testid="solana-clob-resolve-tx">
-            Resolve Tx: {txs.resolveMatch}
-          </div>
-          <div data-testid="solana-clob-claim-tx">Claim Tx: {txs.claim}</div>
-        </div>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
-        <span
-          data-testid="solana-clob-match"
-          style={{ opacity: 0.8, fontSize: 12 }}
-        >
-          Match: {matchLabel}
-        </span>
-      </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap",
-          alignItems: "center",
-          fontSize: 12,
-          opacity: 0.85,
-        }}
-      >
-        <span>{marketFeeSummary}</span>
-        <span>
-          Position YES {fmtAmount(position.yesShares).toFixed(4)} | NO{" "}
-          {fmtAmount(position.noShares).toFixed(4)}
-        </span>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
-        <label style={{ fontSize: 12, opacity: 0.9 }}>
-          Limit Price (1-999)
-          <input
-            data-testid="solana-clob-price-input"
-            type="number"
-            value={priceInput}
-            onChange={(event) => setPriceInput(event.target.value)}
-            min={1}
-            max={999}
-            style={{ marginLeft: 6, width: 90 }}
-          />
-        </label>
-        <span style={{ fontSize: 12, opacity: 0.75 }}>
-          Wallet {walletConnected ? "connected" : "not connected"}
-        </span>
-      </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <label style={{ fontSize: 12, opacity: 0.9 }}>
+              Limit Price (1-999)
+              <input
+                data-testid="solana-clob-price-input"
+                type="number"
+                value={priceInput}
+                onChange={(event) => setPriceInput(event.target.value)}
+                min={1}
+                max={999}
+                style={{ marginLeft: 6, width: 90 }}
+              />
+            </label>
+            <span style={{ fontSize: 12, opacity: 0.75 }}>
+              Wallet {walletConnected ? "connected" : "not connected"}
+            </span>
+          </div>
+        </>
+      )}
 
       <PredictionMarketPanel
+        compact={compact}
         yesPercent={yesPercent}
         noPercent={noPercent}
         yesPool={fmtAmount(yesPool)}
