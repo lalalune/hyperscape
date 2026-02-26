@@ -256,7 +256,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: packages/app
-          args: --target ${{ matrix.rust_target }} --bundles app
+          args: --target ${{ matrix.rust_target }} --no-bundle
 
       - name: Build Tauri app (Release)
         uses: tauri-apps/tauri-action@v0
@@ -280,7 +280,8 @@ jobs:
           projectPath: packages/app
           args: --target ${{ matrix.rust_target }}
 
-      - name: Upload desktop artifacts
+      - name: Upload desktop artifacts (Release bundles)
+        if: needs.prepare.outputs.is_release == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: hyperscape-desktop-${{ matrix.target }}
@@ -288,6 +289,18 @@ jobs:
             packages/app/src-tauri/target/${{ matrix.rust_target }}/release/bundle/**/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload desktop artifacts (Unsigned binary)
+        if: needs.prepare.outputs.is_release != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyperscape-desktop-${{ matrix.target }}
+          path: |
+            packages/app/src-tauri/target/${{ matrix.rust_target }}/release/hyperscape*
+            !packages/app/src-tauri/target/${{ matrix.rust_target }}/release/*.d
+            !packages/app/src-tauri/target/${{ matrix.rust_target }}/release/*.rlib
+          if-no-files-found: warn
+          retention-days: 7
 
   build-ios:
     name: Build iOS
