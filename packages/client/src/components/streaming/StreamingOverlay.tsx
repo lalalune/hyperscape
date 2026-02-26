@@ -10,12 +10,7 @@
  */
 
 import React, { useEffect, useState, useRef } from "react";
-import type {
-  StreamingState,
-  AgentInfo,
-  LeaderboardEntry,
-} from "../../screens/StreamingMode";
-import { DuelInfoPanel } from "./DuelInfoPanel";
+import type { StreamingState } from "../../screens/StreamingMode";
 import { AgentStatsDisplay } from "./AgentStatsDisplay";
 import { LeaderboardPanel } from "./LeaderboardPanel";
 import { CountdownOverlay } from "./CountdownOverlay";
@@ -115,7 +110,13 @@ export function StreamingOverlay({ state }: StreamingOverlayProps) {
         <div style={styles.duelInfoContainer}>
           <AgentStatsDisplay agent={agent1} side="left" />
           <div style={styles.timerContainer}>
-            <div style={styles.timer}>{formatTime(timeRemaining)}</div>
+            <div style={styles.timerHexOuter}>
+              <div style={styles.timerHexInner}>
+                <div style={styles.timerHighlight} />
+                {formatTime(timeRemaining)}
+              </div>
+              <div style={styles.timerInsetShadow} />
+            </div>
           </div>
           <AgentStatsDisplay agent={agent2} side="right" />
         </div>
@@ -159,23 +160,6 @@ function formatTime(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function getPhaseLabel(phase: string): string {
-  switch (phase) {
-    case "IDLE":
-      return "Waiting for agents...";
-    case "ANNOUNCEMENT":
-      return "NEXT DUEL";
-    case "COUNTDOWN":
-      return "GET READY";
-    case "FIGHTING":
-      return "FIGHT!";
-    case "RESOLUTION":
-      return "WINNER";
-    default:
-      return "";
-  }
-}
-
 const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: "absolute",
@@ -210,35 +194,61 @@ const styles: Record<string, React.CSSProperties> = {
     left: "50%",
     transform: "translateX(-50%)",
     display: "flex",
-    width: "1200px",
+    width: "min(1200px, calc(100vw - 40px))",
     justifyContent: "space-between",
     alignItems: "flex-start",
-  },
-  statsContainer: {
-    position: "absolute",
-    bottom: "40px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    display: "flex",
-    alignItems: "center",
-    gap: "40px",
   },
   timerContainer: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    marginTop: "16px",
+    marginTop: 42,
   },
-  timer: {
-    color: "#fff",
-    fontSize: "2rem",
-    fontWeight: "bold",
-    fontFamily: "monospace",
-    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-    background: "rgba(0, 0, 0, 0.6)",
-    padding: "8px 20px",
-    borderRadius: "8px",
-    border: "2px solid rgba(242, 208, 138, 0.5)",
+  timerHexOuter: {
+    minWidth: 164,
+    height: 52,
+    position: "relative",
+    padding: 1,
+    clipPath: "polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%)",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.1) 100%)",
+    boxShadow: "0 10px 28px rgba(0,0,0,0.45), 0 0 14px rgba(96,165,250,0.14)",
+  },
+  timerHexInner: {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "rgba(232,243,255,0.95)",
+    fontSize: "clamp(1.28rem, 2.7vw, 2rem)",
+    fontWeight: 900,
+    fontFamily: "'IBM Plex Mono', monospace",
+    letterSpacing: 1.2,
+    textShadow: "0 0 12px rgba(96,165,250,0.25)",
+    background:
+      "linear-gradient(180deg, rgba(10,12,18,0.9) 0%, rgba(10,12,18,0.76) 100%)",
+    clipPath: "polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%)",
+    backdropFilter: "blur(14px) saturate(1.2)",
+    WebkitBackdropFilter: "blur(14px) saturate(1.2)",
+    position: "relative",
+    overflow: "hidden",
+  },
+  timerHighlight: {
+    position: "absolute",
+    top: 0,
+    left: 12,
+    right: 12,
+    height: 1,
+    background:
+      "linear-gradient(90deg, transparent, rgba(191,219,254,0.45), transparent)",
+  },
+  timerInsetShadow: {
+    position: "absolute",
+    inset: 0,
+    clipPath: "polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%)",
+    boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
+    pointerEvents: "none",
   },
   nextDuelTimerContainer: {
     position: "absolute",
@@ -267,19 +277,5 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: "bold",
     fontFamily: "monospace",
     textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-  },
-  phaseIndicator: {
-    position: "absolute",
-    top: "20px",
-    right: "20px",
-    color: "#f2d08a",
-    fontSize: "0.9rem",
-    fontWeight: "bold",
-    textTransform: "uppercase",
-    letterSpacing: "2px",
-    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-    background: "rgba(0, 0, 0, 0.6)",
-    padding: "8px 16px",
-    borderRadius: "4px",
   },
 };
