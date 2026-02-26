@@ -2049,7 +2049,7 @@ select:focus-visible {
 
 .hm-chart-container {
   flex: 1;
-  min-height: 0;
+  min-height: 120px;
   padding: 8px;
 }
 

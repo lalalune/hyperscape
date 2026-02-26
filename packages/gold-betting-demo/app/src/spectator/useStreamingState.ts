@@ -163,6 +163,12 @@ export function useStreamingState(options: { disabled?: boolean } = {}) {
     source.onerror = () => {
       setIsConnected(false);
       if (!closedRef.current) {
+        // Close the EventSource explicitly to stop the browser's built-in
+        // auto-reconnect loop, which floods the console with connection errors.
+        // The fallback poll timer will keep checking the server, and SSE will
+        // be re-established on the next page load or reconnect.
+        source.close();
+        eventSourceRef.current = null;
         startFallbackPolling();
       }
     };

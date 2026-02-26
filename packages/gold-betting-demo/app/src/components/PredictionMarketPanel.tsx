@@ -786,7 +786,7 @@ export function PredictionMarketPanel({
               <div
                 style={{
                   flex: 1,
-                  minHeight: 0,
+                  minHeight: 120,
                   position: "relative",
                   zIndex: 1,
                 }}
