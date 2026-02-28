@@ -469,13 +469,15 @@ export function Minimap({
 
   // Canvas 2D terrain background cache
   const terrainCacheRef = useRef<ImageData | null>(null);
-  // World-space center when the cache was last generated
+  // World-space center when the cache was last generated (reused object — no per-frame allocation)
   const terrainCacheCenterRef = useRef<{ x: number; z: number }>({
     x: Infinity,
     z: Infinity,
   });
   // Extent (half-width in world units) when the cache was last generated
   const terrainCacheExtentRef = useRef<number>(0);
+  // Camera up vector when the cache was last generated (reused object)
+  const terrainCacheUpRef = useRef<{ x: number; z: number }>({ x: 0, z: -1 });
 
   // Cached 2D rendering contexts — avoids DOM query every frame
   const mainCtxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -724,6 +726,8 @@ export function Minimap({
 
       // Clear terrain cache and static world feature caches
       terrainCacheRef.current = null;
+      terrainCacheCenterRef.current.x = Infinity;
+      terrainCacheCenterRef.current.z = Infinity;
       roadsCacheRef.current = null;
       townsCacheRef.current = null;
 
@@ -1189,10 +1193,14 @@ export function Minimap({
         }
       }
 
-      // --- Update camera matrices unconditionally for pip projection ---
-      // No 3D render is performed — the projection-view matrix is computed
-      // purely from the camera's current transform so pip coordinates stay accurate.
-      if (cam) {
+      // --- Canvas 2D terrain background (throttled, same cadence as old 3D render) ---
+      // Declared early so the matrix update below can use the same flag.
+      const shouldRedrawTerrain = frameCount % RENDER_EVERY_N_FRAMES === 0;
+
+      // --- Update camera matrices on terrain-draw frames ---
+      // Pips use this matrix for projection. By updating only when terrain is
+      // (re)drawn, all layers share the same camera snapshot and stay aligned.
+      if (cam && shouldRedrawTerrain) {
         cam.updateMatrixWorld();
         _cachedProjectionViewMatrix.multiplyMatrices(
           cam.projectionMatrix,
@@ -1200,9 +1208,6 @@ export function Minimap({
         );
         _hasCachedMatrix = true;
       }
-
-      // --- Canvas 2D terrain background (throttled, same cadence as old 3D render) ---
-      const shouldRedrawTerrain = frameCount % RENDER_EVERY_N_FRAMES === 0;
       if (shouldRedrawTerrain && cam) {
         const mainCanvas = canvasRef.current;
         // Use cached context — avoids a DOM query every frame
@@ -1212,17 +1217,27 @@ export function Minimap({
             const cw = mainCanvas.width;
             const ch = mainCanvas.height;
 
-            // Check whether terrain cache needs to be regenerated.
-            // Trigger when: player moved >20 units, extent changed, or cache is empty.
+            // Snapshot camera state — used for both terrain generation and overlay drawing
+            // so all layers are guaranteed to be aligned with each other.
             const centerX = cam.position.x;
             const centerZ = cam.position.z;
             const currentExtent = extentRef.current;
+            const upX = cam.up.x;
+            const upZ = cam.up.z;
+
+            // Check whether terrain cache needs to be regenerated.
+            // Trigger when: player moved >20 units, camera rotated, extent changed, or cache empty.
             const cacheCtr = terrainCacheCenterRef.current;
-            const dx = centerX - cacheCtr.x;
-            const dz = centerZ - cacheCtr.z;
-            const moved = dx * dx + dz * dz > 400; // 20² world units
+            const ddx = centerX - cacheCtr.x;
+            const ddz = centerZ - cacheCtr.z;
+            const moved = ddx * ddx + ddz * ddz > 400; // 20² world units
             const extentChanged =
               terrainCacheExtentRef.current !== currentExtent;
+            // Detect camera rotation (dot-product divergence in up vector)
+            const cacheUp = terrainCacheUpRef.current;
+            const rotated =
+              Math.abs(upX - cacheUp.x) > 0.01 ||
+              Math.abs(upZ - cacheUp.z) > 0.01;
             const sizeChanged =
               terrainCacheRef.current !== null &&
               (terrainCacheRef.current.width !== cw ||
@@ -1231,6 +1246,7 @@ export function Minimap({
             if (
               !terrainCacheRef.current ||
               moved ||
+              rotated ||
               extentChanged ||
               sizeChanged
             ) {
@@ -1245,6 +1261,9 @@ export function Minimap({
               if (terrainSystem?.getHeightAt) {
                 const imageData = mainCtx.createImageData(cw, ch);
                 const data = imageData.data;
+                // right = perpendicular to up in XZ plane (for top-down ortho camera)
+                const rightX = -upZ;
+                const rightZ = upX;
                 for (let py = 0; py < ch; py++) {
                   for (let px = 0; px < cw; px++) {
                     // Convert pixel to world coords (accounting for camera up direction)
@@ -1252,13 +1271,7 @@ export function Minimap({
                     const ndcX = (px / cw) * 2 - 1;
                     const ndcY = 1 - (py / ch) * 2;
                     // Unproject through orthographic camera:
-                    // world = cam position + ndcX * right * extent + ndcY * up * extent
-                    const upX = cam.up.x;
-                    const upZ = cam.up.z;
-                    // right = forward × up (but forward is -Y axis in ortho top-down)
-                    // For top-down ortho the right vector in XZ is perpendicular to up
-                    const rightX = -upZ;
-                    const rightZ = upX;
+                    // world = cam position + ndcX * right * extent - ndcY * up * extent
                     const worldX =
                       centerX +
                       ndcX * rightX * currentExtent -
@@ -1309,10 +1322,13 @@ export function Minimap({
                   }
                 }
                 terrainCacheRef.current = imageData;
-                // Reuse the existing object to avoid allocating a new {x,z} each time
+                // Save all camera parameters that were used to generate the ImageData.
+                // Road/building overlays MUST use these same values to stay aligned.
                 terrainCacheCenterRef.current.x = centerX;
                 terrainCacheCenterRef.current.z = centerZ;
                 terrainCacheExtentRef.current = currentExtent;
+                terrainCacheUpRef.current.x = upX;
+                terrainCacheUpRef.current.z = upZ;
               }
             }
 
@@ -1358,34 +1374,37 @@ export function Minimap({
               }
             }
 
-            const upX = cam.up.x;
-            const upZ = cam.up.z;
-            // Pixels per world unit
-            const worldScale = cw / (2 * currentExtent);
+            // CRITICAL: Use the CACHED terrain parameters (center, up, extent) for all
+            // vector overlays. The terrain ImageData was baked with these values — any
+            // divergence here causes visible layer sliding as the camera moves/rotates.
+            const overlayUpX = terrainCacheUpRef.current.x;
+            const overlayUpZ = terrainCacheUpRef.current.z;
+            const overlayCenterX = terrainCacheCenterRef.current.x;
+            const overlayCenterZ = terrainCacheCenterRef.current.z;
+            const overlayExtent = terrainCacheExtentRef.current;
+            // Pixels per world unit (derived from cached extent)
+            const worldScale = cw / (2 * overlayExtent);
 
             // Draw roads
             const roadsData = roadsCacheRef.current;
             if (roadsData && roadsData.length > 0) {
-              // Road width in canvas pixels, clamped to 1–6px
-              const baseRoadPx = Math.max(1, Math.min(6, 4 * worldScale));
               mainCtx.save();
               mainCtx.lineCap = "round";
               mainCtx.lineJoin = "round";
               for (const road of roadsData) {
                 if (road.path.length < 2) continue;
-                // Quick visibility check: skip roads whose first point is
-                // further than 2× extent from camera center on either axis
+                // Quick visibility check using cached overlay center
                 const fp = road.path[0];
-                const fdx = Math.abs(fp.x - centerX);
-                const fdz = Math.abs(fp.z - centerZ);
+                const fdx = Math.abs(fp.x - overlayCenterX);
+                const fdz = Math.abs(fp.z - overlayCenterZ);
                 const lp = road.path[road.path.length - 1];
-                const ldx = Math.abs(lp.x - centerX);
-                const ldz = Math.abs(lp.z - centerZ);
+                const ldx = Math.abs(lp.x - overlayCenterX);
+                const ldz = Math.abs(lp.z - overlayCenterZ);
                 if (
-                  fdx > currentExtent * 3 &&
-                  fdz > currentExtent * 3 &&
-                  ldx > currentExtent * 3 &&
-                  ldz > currentExtent * 3
+                  fdx > overlayExtent * 3 &&
+                  fdz > overlayExtent * 3 &&
+                  ldx > overlayExtent * 3 &&
+                  ldz > overlayExtent * 3
                 ) {
                   continue;
                 }
@@ -1393,18 +1412,18 @@ export function Minimap({
                   1,
                   Math.min(6, road.width * worldScale),
                 );
-                // Outline pass (darker)
+                // Outline pass (darker border)
                 mainCtx.strokeStyle = "rgba(100, 80, 50, 0.7)";
                 mainCtx.lineWidth = roadPx + 1;
                 mainCtx.beginPath();
                 const [x0, y0] = worldToPx(
                   road.path[0].x,
                   road.path[0].z,
-                  centerX,
-                  centerZ,
-                  currentExtent,
-                  upX,
-                  upZ,
+                  overlayCenterX,
+                  overlayCenterZ,
+                  overlayExtent,
+                  overlayUpX,
+                  overlayUpZ,
                   cw,
                   ch,
                 );
@@ -1413,11 +1432,11 @@ export function Minimap({
                   const [xi, yi] = worldToPx(
                     road.path[ri].x,
                     road.path[ri].z,
-                    centerX,
-                    centerZ,
-                    currentExtent,
-                    upX,
-                    upZ,
+                    overlayCenterX,
+                    overlayCenterZ,
+                    overlayExtent,
+                    overlayUpX,
+                    overlayUpZ,
                     cw,
                     ch,
                   );
@@ -1433,11 +1452,11 @@ export function Minimap({
                   const [xi, yi] = worldToPx(
                     road.path[ri].x,
                     road.path[ri].z,
-                    centerX,
-                    centerZ,
-                    currentExtent,
-                    upX,
-                    upZ,
+                    overlayCenterX,
+                    overlayCenterZ,
+                    overlayExtent,
+                    overlayUpX,
+                    overlayUpZ,
                     cw,
                     ch,
                   );
@@ -1446,7 +1465,6 @@ export function Minimap({
                 mainCtx.stroke();
               }
               mainCtx.restore();
-              void baseRoadPx; // prevent unused-variable warning
             }
 
             // Draw building footprints
@@ -1458,10 +1476,10 @@ export function Minimap({
                 for (const building of town.buildings) {
                   const bx = building.position.x;
                   const bz = building.position.z;
-                  // Visibility cull: skip buildings outside 2× extent
+                  // Visibility cull using cached overlay center
                   if (
-                    Math.abs(bx - centerX) > currentExtent * 2 ||
-                    Math.abs(bz - centerZ) > currentExtent * 2
+                    Math.abs(bx - overlayCenterX) > overlayExtent * 2 ||
+                    Math.abs(bz - overlayCenterZ) > overlayExtent * 2
                   ) {
                     continue;
                   }
@@ -1481,44 +1499,44 @@ export function Minimap({
                   const [p0x, p0y] = worldToPx(
                     c0x,
                     c0z,
-                    centerX,
-                    centerZ,
-                    currentExtent,
-                    upX,
-                    upZ,
+                    overlayCenterX,
+                    overlayCenterZ,
+                    overlayExtent,
+                    overlayUpX,
+                    overlayUpZ,
                     cw,
                     ch,
                   );
                   const [p1x, p1y] = worldToPx(
                     c1x,
                     c1z,
-                    centerX,
-                    centerZ,
-                    currentExtent,
-                    upX,
-                    upZ,
+                    overlayCenterX,
+                    overlayCenterZ,
+                    overlayExtent,
+                    overlayUpX,
+                    overlayUpZ,
                     cw,
                     ch,
                   );
                   const [p2x, p2y] = worldToPx(
                     c2x,
                     c2z,
-                    centerX,
-                    centerZ,
-                    currentExtent,
-                    upX,
-                    upZ,
+                    overlayCenterX,
+                    overlayCenterZ,
+                    overlayExtent,
+                    overlayUpX,
+                    overlayUpZ,
                     cw,
                     ch,
                   );
                   const [p3x, p3y] = worldToPx(
                     c3x,
                     c3z,
-                    centerX,
-                    centerZ,
-                    currentExtent,
-                    upX,
-                    upZ,
+                    overlayCenterX,
+                    overlayCenterZ,
+                    overlayExtent,
+                    overlayUpX,
+                    overlayUpZ,
                     cw,
                     ch,
                   );
