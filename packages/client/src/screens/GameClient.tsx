@@ -423,8 +423,11 @@ export function GameClient({
         setInitError(message);
       }
 
-      // If cleanup fired while we were initializing, execute it now that the
-      // world is fully constructed and safe to destroy
+      // If cleanup fired while we were initializing, execute it now.
+      // Set initComplete even when init threw — partial worlds still hold
+      // resources (WebSocket, systems, render targets) that doCleanup() must
+      // release when the error screen eventually unmounts. doCleanup() is
+      // always wrapped in try/catch so it is safe to call on a failed init.
       if (needsCleanup) {
         doCleanup();
       } else {
