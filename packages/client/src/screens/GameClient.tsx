@@ -9,6 +9,7 @@ import {
 import { World } from "@hyperscape/shared";
 import { CoreUI } from "../game/CoreUI";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
+import { ThreeResourceManager } from "@/lib/ThreeResourceManager";
 
 export { System };
 
@@ -419,6 +420,9 @@ export function GameClient({
             error instanceof Error ? error.message : String(error),
           );
         }
+        // Stop the dev memory monitor and reset the disposed-object tracker
+        // so the next world init (e.g. hot-reload) starts completely clean
+        ThreeResourceManager.teardown();
       }
     };
   }, [world, wsUrl, onSetup]);

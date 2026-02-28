@@ -403,4 +403,33 @@ export class HealthBars extends SystemBase {
   getByEntityId(entityId: string): HealthBarEntry | undefined {
     return this.healthBars.find((e) => e.entityId === entityId);
   }
+
+  /**
+   * Tear down the system: cancel all pending hide-timers, remove the mesh
+   * from the scene, and dispose GPU-allocated resources.
+   *
+   * Without an explicit destroy(), setTimeout callbacks set by show() can
+   * fire after the world is torn down and call undraw() against a disposed
+   * texture, causing WebGPU errors or silent data corruption.
+   */
+  destroy(): void {
+    // Cancel every pending auto-hide timer before anything else
+    for (const entry of this.healthBars) {
+      if (entry.hideTimeout) {
+        clearTimeout(entry.hideTimeout);
+        entry.hideTimeout = null;
+      }
+    }
+    this.healthBars = [];
+
+    // Remove instanced mesh from scene
+    if (this.mesh.parent) {
+      this.mesh.parent.remove(this.mesh);
+    }
+
+    // Dispose GPU resources
+    this.texture.dispose();
+    this.material.dispose();
+    this.geometry.dispose();
+  }
 }

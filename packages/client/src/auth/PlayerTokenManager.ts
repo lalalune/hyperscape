@@ -72,8 +72,30 @@ export class PlayerTokenManager extends EventEmitter {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private readonly HEARTBEAT_INTERVAL = 30000; // 30 seconds
 
+  // Stored so we can removeEventListener later — anonymous lambdas cannot be removed
+  private readonly beforeUnloadHandler: () => void;
+
   constructor() {
     super();
+
+    // Define handler as named method stored on instance so it can be removed later
+    this.beforeUnloadHandler = () => {
+      this.currentToken.lastSeen = new Date();
+      this.saveToken(this.currentToken);
+      this.currentSession.lastActivity = new Date();
+      this.saveSession(this.currentSession);
+      const data = {
+        playerId: this.currentToken.playerId,
+        sessionId: this.currentSession.sessionId,
+        reason: "window_unload",
+      };
+      const baseUrl = GAME_API_URL;
+      navigator.sendBeacon(
+        `${baseUrl}/api/player/disconnect`,
+        JSON.stringify(data),
+      );
+    };
+
     // Load existing token and session immediately with safe JSON parsing
     const storedToken = localStorage.getItem(PlayerTokenManager.STORAGE_KEY);
     let parsedToken: ClientPlayerToken | null = null;
@@ -353,26 +375,18 @@ export class PlayerTokenManager extends EventEmitter {
   }
 
   private setupBeforeUnloadHandler(): void {
-    window.addEventListener("beforeunload", () => {
-      // Save final state
-      this.currentToken.lastSeen = new Date();
-      this.saveToken(this.currentToken);
+    window.addEventListener("beforeunload", this.beforeUnloadHandler);
+  }
 
-      this.currentSession.lastActivity = new Date();
-      this.saveSession(this.currentSession);
-
-      // Attempt to notify server of disconnect
-      const data = {
-        playerId: this.currentToken.playerId,
-        sessionId: this.currentSession.sessionId,
-        reason: "window_unload",
-      };
-
-      // Use sendBeacon for reliable delivery during page unload
-      const baseUrl = GAME_API_URL;
-      const endpoint = `${baseUrl}/api/player/disconnect`;
-      navigator.sendBeacon(endpoint, JSON.stringify(data));
-    });
+  /**
+   * Removes the beforeunload listener and releases all resources.
+   * Call this when the app is torn down or the user logs out entirely.
+   *
+   * @public
+   */
+  dispose(): void {
+    window.removeEventListener("beforeunload", this.beforeUnloadHandler);
+    this.endSession();
   }
 
   /**

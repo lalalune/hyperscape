@@ -12,7 +12,8 @@
  *
  * Architecture:
  * - Listens to DUEL_COUNTDOWN_TICK events from ClientNetwork
- * - Creates THREE.Sprite for each countdown number over each player
+ * - Pre-renders 4 textures (one per count value) at init — no per-event canvas creation
+ * - Maintains a pool of sprite+material pairs reused across ticks
  * - Animates with scale punch and fade effects
  */
 
@@ -23,11 +24,18 @@ import type { World } from "../../core/World";
 import type { WorldOptions } from "../../types/index";
 
 interface CountdownSplat {
-  sprite: THREE.Sprite;
+  poolItem: SplatPoolItem;
   entityId: string;
   startTime: number;
   duration: number;
   baseScale: number;
+}
+
+/** Reusable sprite+material pair. Material.map is swapped per count value. */
+interface SplatPoolItem {
+  material: THREE.SpriteMaterial;
+  sprite: THREE.Sprite;
+  active: boolean;
 }
 
 // Color coding for countdown numbers (OSRS-style)
@@ -45,12 +53,21 @@ export class DuelCountdownSplatSystem extends System {
   private readonly SPLAT_DURATION = 900; // Slightly less than 1 second to clear before next tick
   private readonly SPLAT_SIZE = 1.2; // Larger than damage splats for visibility
   private readonly HEIGHT_OFFSET = 2.5; // Height above player
+  private readonly POOL_SIZE = 6; // 2 active per tick + buffer
 
   // Pre-allocated array for removal indices
   private readonly _toRemove: number[] = [];
 
   // Bound handler reference for cleanup
   private boundCountdownHandler: ((data: unknown) => void) | null = null;
+
+  // Pre-rendered textures: one per count value (0=FIGHT!, 1, 2, 3)
+  // Created once at init, reused for every countdown tick — no per-event canvas allocation
+  private countTextures: Map<number, THREE.CanvasTexture> = new Map();
+
+  // Pool of reusable sprite+material pairs
+  private splatPool: SplatPoolItem[] = [];
+  private poolInitialized = false;
 
   constructor(world: World) {
     super(world);
@@ -59,15 +76,12 @@ export class DuelCountdownSplatSystem extends System {
   async init(options?: WorldOptions): Promise<void> {
     await super.init(options as WorldOptions);
 
-    // Only run on client
-    if (!this.world.isClient) {
-      return;
-    }
+    if (!this.world.isClient) return;
 
     // Prevent duplicate subscriptions
-    if (this.boundCountdownHandler) {
-      return;
-    }
+    if (this.boundCountdownHandler) return;
+
+    this.initPool();
 
     this.boundCountdownHandler = this.onCountdownTick.bind(this);
     this.world.on(
@@ -75,6 +89,89 @@ export class DuelCountdownSplatSystem extends System {
       this.boundCountdownHandler,
       this,
     );
+  }
+
+  private initPool(): void {
+    if (this.poolInitialized) return;
+
+    // Pre-render one texture per count value — happens once, not per event
+    for (const count of [0, 1, 2, 3]) {
+      const size = 512;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d")!;
+      this.renderCountdownToCanvas(context, size, count);
+      // NOTE: Do not call texture.dispose() during active gameplay.
+      // Pool textures are reclaimed by GC when cleared in destroy().
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      this.countTextures.set(count, texture);
+    }
+
+    // Pre-allocate sprite+material pairs
+    for (let i = 0; i < this.POOL_SIZE; i++) {
+      const material = new THREE.SpriteMaterial({
+        transparent: true,
+        depthTest: false,
+      });
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(this.SPLAT_SIZE, this.SPLAT_SIZE, 1);
+      sprite.visible = false;
+      this.splatPool.push({ material, sprite, active: false });
+    }
+
+    this.poolInitialized = true;
+  }
+
+  private renderCountdownToCanvas(
+    context: CanvasRenderingContext2D,
+    size: number,
+    count: number,
+  ): void {
+    const displayText = count === 0 ? "FIGHT!" : count.toString();
+    const color = COUNT_COLORS[count] || "#ffffff";
+
+    context.clearRect(0, 0, size, size);
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+
+    // Outer glow
+    context.shadowColor = color;
+    context.shadowBlur = 30;
+    context.fillStyle = color;
+    context.font = count === 0 ? "bold 100px Arial" : "bold 180px Arial";
+    context.fillText(displayText, size / 2, size / 2);
+
+    // Inner glow layer
+    context.shadowBlur = 15;
+    context.fillText(displayText, size / 2, size / 2);
+
+    // Solid text on top
+    context.shadowBlur = 0;
+    context.strokeStyle = "#000000";
+    context.lineWidth = 8;
+    context.strokeText(displayText, size / 2, size / 2);
+    context.fillText(displayText, size / 2, size / 2);
+  }
+
+  private acquirePoolItem(): SplatPoolItem | null {
+    for (const item of this.splatPool) {
+      if (!item.active) {
+        item.active = true;
+        return item;
+      }
+    }
+    return null; // Pool exhausted
+  }
+
+  private releasePoolItem(item: SplatPoolItem): void {
+    item.active = false;
+    item.sprite.visible = false;
+    item.material.opacity = 1;
+    if (item.sprite.parent) {
+      item.sprite.parent.remove(item.sprite);
+    }
   }
 
   private onCountdownTick = (data: unknown): void => {
@@ -96,81 +193,36 @@ export class DuelCountdownSplatSystem extends System {
   };
 
   private createCountdownSplat(entityId: string, count: number): void {
-    if (!this.world.stage?.scene) {
-      return;
-    }
+    if (!this.world.stage?.scene) return;
 
-    // Get entity for position
     const entity =
       this.world.entities.get(entityId) ||
       this.world.entities.players?.get(entityId);
-    if (!entity?.position) {
-      return;
+    if (!entity?.position) return;
+
+    const poolItem = this.acquirePoolItem();
+    if (!poolItem) return; // Pool exhausted — skip
+
+    // Swap the shared pre-rendered texture for this count value
+    const tex = this.countTextures.get(count);
+    if (tex) {
+      poolItem.material.map = tex;
+      poolItem.material.needsUpdate = true;
     }
 
-    // Create canvas for the countdown text
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-
-    const size = 512;
-    canvas.width = size;
-    canvas.height = size;
-
-    // Determine display text and color
-    const displayText = count === 0 ? "FIGHT!" : count.toString();
-    const color = COUNT_COLORS[count] || "#ffffff";
-
-    // Draw text with glow effect
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-
-    // Outer glow
-    context.shadowColor = color;
-    context.shadowBlur = 30;
-    context.fillStyle = color;
-    context.font = count === 0 ? "bold 100px Arial" : "bold 180px Arial";
-    context.fillText(displayText, size / 2, size / 2);
-
-    // Inner glow layer
-    context.shadowBlur = 15;
-    context.fillText(displayText, size / 2, size / 2);
-
-    // Solid text on top
-    context.shadowBlur = 0;
-    context.strokeStyle = "#000000";
-    context.lineWidth = 8;
-    context.strokeText(displayText, size / 2, size / 2);
-    context.fillText(displayText, size / 2, size / 2);
-
-    // Create texture and sprite
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-
-    const material = new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      depthTest: false, // Always render on top
-    });
-
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(this.SPLAT_SIZE, this.SPLAT_SIZE, 1);
-
-    // Position above the entity's head
-    sprite.position.set(
+    poolItem.material.opacity = 1;
+    poolItem.sprite.scale.set(this.SPLAT_SIZE, this.SPLAT_SIZE, 1);
+    poolItem.sprite.position.set(
       entity.position.x,
       entity.position.y + this.HEIGHT_OFFSET,
       entity.position.z,
     );
+    poolItem.sprite.visible = true;
 
-    // Add to scene
-    this.world.stage.scene.add(sprite);
+    this.world.stage.scene.add(poolItem.sprite);
 
-    // Track splat for animation
     this.activeSplats.push({
-      sprite,
+      poolItem,
       entityId,
       startTime: performance.now(),
       duration: this.SPLAT_DURATION,
@@ -180,9 +232,7 @@ export class DuelCountdownSplatSystem extends System {
 
   private clearAllSplats(): void {
     for (const splat of this.activeSplats) {
-      if (this.world.stage?.scene) {
-        this.world.stage.scene.remove(splat.sprite);
-      }
+      this.releasePoolItem(splat.poolItem);
     }
     this.activeSplats = [];
   }
@@ -198,45 +248,38 @@ export class DuelCountdownSplatSystem extends System {
       const elapsed = now - splat.startTime;
       const progress = Math.min(elapsed / splat.duration, 1);
 
-      // Get entity for position tracking (follow the player)
+      // Track entity position
       const entity =
         this.world.entities.get(splat.entityId) ||
         this.world.entities.players?.get(splat.entityId);
       if (entity?.position) {
-        splat.sprite.position.x = entity.position.x;
-        splat.sprite.position.y = entity.position.y + this.HEIGHT_OFFSET;
-        splat.sprite.position.z = entity.position.z;
+        splat.poolItem.sprite.position.x = entity.position.x;
+        splat.poolItem.sprite.position.y =
+          entity.position.y + this.HEIGHT_OFFSET;
+        splat.poolItem.sprite.position.z = entity.position.z;
       }
 
       // Punch animation: scale up quickly, then settle
       let scale: number;
       if (progress < 0.15) {
-        // Punch up (0 -> 0.15)
         const punchProgress = progress / 0.15;
         scale = splat.baseScale * (1 + 0.4 * punchProgress);
       } else if (progress < 0.3) {
-        // Settle back (0.15 -> 0.3)
         const settleProgress = (progress - 0.15) / 0.15;
         scale = splat.baseScale * (1.4 - 0.4 * settleProgress);
       } else {
-        // Hold steady, then fade
         scale = splat.baseScale;
       }
-      splat.sprite.scale.set(scale, scale, 1);
+      splat.poolItem.sprite.scale.set(scale, scale, 1);
 
       // Fade out in the last 30% of duration
       if (progress > 0.7) {
         const fadeProgress = (progress - 0.7) / 0.3;
-        if (splat.sprite.material instanceof THREE.SpriteMaterial) {
-          splat.sprite.material.opacity = 1 - fadeProgress;
-        }
+        splat.poolItem.material.opacity = 1 - fadeProgress;
       }
 
-      // Mark for removal when done
       if (progress >= 1) {
-        if (this.world.stage?.scene) {
-          this.world.stage.scene.remove(splat.sprite);
-        }
+        this.releasePoolItem(splat.poolItem);
         this._toRemove.push(i);
       }
     }
@@ -253,7 +296,15 @@ export class DuelCountdownSplatSystem extends System {
       this.boundCountdownHandler = null;
     }
 
+    // Return all active splats to pool (removes from scene)
     this.clearAllSplats();
+
+    // Clear pool references — GC reclaims textures without dispose()
+    // to avoid WebGPU texture cache corruption with dual-renderer setup
+    this.countTextures.clear();
+    this.splatPool = [];
+    this.poolInitialized = false;
+
     super.destroy();
   }
 }

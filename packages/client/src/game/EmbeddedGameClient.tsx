@@ -631,17 +631,18 @@ export function EmbeddedGameClient() {
               embeddedConfig.agentId || "",
             );
 
+            // Re-check after await — component may have unmounted during the fetch
+            if (cancelled) return;
+
             if (characterId) {
               logger.log(
                 `[EmbeddedGameClient] Found characterId ${characterId} for agent`,
               );
-              // Update config with characterId
               const updatedConfig = {
                 ...embeddedConfig,
                 characterId,
                 followEntity: characterId,
               };
-              // Also update window config
               if (window.__HYPERSCAPE_CONFIG__) {
                 window.__HYPERSCAPE_CONFIG__.characterId = characterId;
                 window.__HYPERSCAPE_CONFIG__.followEntity = characterId;
@@ -652,6 +653,8 @@ export function EmbeddedGameClient() {
 
             attempts++;
             await new Promise((resolve) => setTimeout(resolve, pollInterval));
+            // Re-check after the sleep delay too
+            if (cancelled) return;
           }
 
           if (!cancelled) {

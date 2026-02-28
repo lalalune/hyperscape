@@ -188,7 +188,7 @@
     "lodash-es": ">=4.17.23",
     "@elizaos/prompts": "2.0.0-alpha.1",
     "vite": ">=6.4.1",
-    "@trpc/server": ">=10.45.3",
+    "@trpc/server": "^10.45.3",
     "minimatch": ">=10.2.1",
     "cookie": ">=0.7.0",
     "undici": ">=6.23.0",

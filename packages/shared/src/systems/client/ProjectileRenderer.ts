@@ -120,6 +120,10 @@ export class ProjectileRenderer extends System {
   private boundLaunchHandler: ((data: unknown) => void) | null = null;
   private boundHitHandler: ((data: unknown) => void) | null = null;
 
+  // Tracks pending delayed-spawn timers so destroy() can cancel them
+  private readonly _pendingDelays: Set<ReturnType<typeof setTimeout>> =
+    new Set();
+
   // Cached textures to avoid per-projectile allocation
   private arrowTextures: Map<string, THREE.Texture> = new Map();
 
@@ -573,7 +577,8 @@ export class ProjectileRenderer extends System {
 
     // If there's a delay (e.g., for magic cast animation), wait before spawning
     if (delayMs && delayMs > 0) {
-      setTimeout(() => {
+      const handle = setTimeout(() => {
+        this._pendingDelays.delete(handle);
         this.createProjectile(
           attackerId,
           targetId,
@@ -584,6 +589,7 @@ export class ProjectileRenderer extends System {
           arrowId,
         );
       }, delayMs);
+      this._pendingDelays.add(handle);
     } else {
       this.createProjectile(
         attackerId,
@@ -1122,6 +1128,12 @@ export class ProjectileRenderer extends System {
   }
 
   destroy(): void {
+    // Cancel any pending delayed-spawn timers so they don't fire after teardown
+    for (const handle of this._pendingDelays) {
+      clearTimeout(handle);
+    }
+    this._pendingDelays.clear();
+
     // Remove event listeners
     if (this.boundLaunchHandler) {
       this.world.off(
