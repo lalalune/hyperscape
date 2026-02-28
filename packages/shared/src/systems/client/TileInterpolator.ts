@@ -26,6 +26,7 @@ import {
   tilesEqual,
   worldToTile,
   tileToWorld,
+  tileToWorldInto,
 } from "../shared/movement/TileSystem";
 
 // Movement speeds in tiles per second (derived from server tick rate)
@@ -35,6 +36,11 @@ const RUN_SPEED = TILES_PER_TICK_RUN / (TICK_DURATION_MS / 1000); // tiles/sec
 
 // How close we need to be to consider "at" a tile
 const TILE_ARRIVAL_THRESHOLD = 0.02;
+// Squared threshold — avoids sqrt in hot arrival check
+const TILE_ARRIVAL_THRESHOLD_SQ =
+  TILE_ARRIVAL_THRESHOLD * TILE_ARRIVAL_THRESHOLD;
+// Squared skip threshold for backward-tile detection (0.5² = 0.25)
+const TILE_SKIP_THRESHOLD_SQ = 0.25;
 
 // Maximum distance from server position before we snap (teleport detection)
 // Should be larger than max tiles moved per tick to avoid false snaps
@@ -193,6 +199,8 @@ export class TileInterpolator {
   private _up = new THREE.Vector3(0, 1, 0);
   // Pre-allocated Vector3 for tile transitions in update()
   private _nextPos = new THREE.Vector3();
+  // Pre-allocated world-pos for backward-tile-skip (avoids tileToWorld() allocation per frame)
+  private _destWorldPos = { x: 0, y: 0, z: 0 };
 
   // OPTIMIZATION: Pre-allocated objects for onMovementStart/onTileUpdate
   // Avoids creating new Vector3/Quaternion per movement start
@@ -384,7 +392,11 @@ export class TileInterpolator {
     // SERVER PATH IS AUTHORITATIVE - no client path calculation
     // Server sends complete path from its known position. Client follows exactly.
     // If client visual position differs from server's startTile, catch-up multiplier handles sync.
-    const finalPath = path.map((t) => ({ ...t }));
+    // OPTIMIZATION: push loop avoids intermediate array from .map()
+    const finalPath: TileCoord[] = [];
+    for (let _pi = 0; _pi < path.length; _pi++) {
+      finalPath.push({ x: path[_pi].x, z: path[_pi].z });
+    }
 
     // Ensure destination is included (authoritative from server)
     if (destinationTile) {
@@ -1201,20 +1213,20 @@ export class TileInterpolator {
           state.destinationTile &&
           state.targetTileIndex < state.fullPath.length - 1
         ) {
-          const destWorld = tileToWorld(state.destinationTile);
+          // OPTIMIZATION: tileToWorldInto reuses pre-allocated object, no heap allocation
+          tileToWorldInto(state.destinationTile, this._destWorldPos);
           const toTargetX = state.targetWorldPos.x - state.visualPosition.x;
           const toTargetZ = state.targetWorldPos.z - state.visualPosition.z;
-          const toDestX = destWorld.x - state.visualPosition.x;
-          const toDestZ = destWorld.z - state.visualPosition.z;
+          const toDestX = this._destWorldPos.x - state.visualPosition.x;
+          const toDestZ = this._destWorldPos.z - state.visualPosition.z;
 
           // Dot product: if negative, target tile is behind us relative to destination
           const dot = toTargetX * toDestX + toTargetZ * toDestZ;
-          const distToTarget = Math.sqrt(
-            toTargetX * toTargetX + toTargetZ * toTargetZ,
-          );
+          // OPTIMIZATION: compare squared distance (avoids sqrt in hot path)
+          const distToTargetSq = toTargetX * toTargetX + toTargetZ * toTargetZ;
 
           // Skip if target is behind us AND not very close (avoid skipping near-destination tiles)
-          if (dot < 0 && distToTarget > 0.5) {
+          if (dot < 0 && distToTargetSq > TILE_SKIP_THRESHOLD_SQ) {
             state.targetTileIndex++;
             continue; // Re-evaluate with next tile
           }
@@ -1223,9 +1235,16 @@ export class TileInterpolator {
         // Calculate distance to target
         const dx = state.targetWorldPos.x - state.visualPosition.x;
         const dz = state.targetWorldPos.z - state.visualPosition.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
+        // OPTIMIZATION: use squared distance to defer sqrt until we actually need it
+        const distSq = dx * dx + dz * dz;
+        // Arrived if very close (thresh²) OR movement budget covers the remaining distance (rem²≥dist²)
+        const arrived =
+          distSq <= TILE_ARRIVAL_THRESHOLD_SQ ||
+          remainingMove * remainingMove >= distSq;
+        // Only pay for sqrt when we know we're arriving (avoids sqrt every iteration)
+        const dist = arrived ? Math.sqrt(distSq) : 0;
 
-        if (dist <= TILE_ARRIVAL_THRESHOLD || remainingMove >= dist) {
+        if (arrived) {
           // Arrived at current target tile - snap to tile center and advance
           state.visualPosition.x = state.targetWorldPos.x;
           state.visualPosition.z = state.targetWorldPos.z;
@@ -1307,7 +1326,8 @@ export class TileInterpolator {
           }
         } else {
           // Move toward target, consuming all remaining movement
-          this._tempDir.set(dx, 0, dz).normalize();
+          // OPTIMIZATION: divideScalar(sqrt(distSq)) avoids a second sqrt vs .normalize()
+          this._tempDir.set(dx, 0, dz).divideScalar(Math.sqrt(distSq));
           state.visualPosition.x += this._tempDir.x * remainingMove;
           state.visualPosition.z += this._tempDir.z * remainingMove;
           // Y will be set from terrain at end of loop

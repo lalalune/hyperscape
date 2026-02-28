@@ -827,18 +827,22 @@ export class ProjectileRenderer extends System {
 
       // Calculate direction to target
       this._tempVec3.copy(proj.targetPos).sub(proj.currentPos);
-      const distanceToTarget = this._tempVec3.length();
+      // OPTIMIZATION: use lengthSq for hit check (avoids sqrt), then compute sqrt once
+      // for both normalization and fade — saves one sqrt vs length() + normalize()
+      const distSqToTarget = this._tempVec3.lengthSq();
 
       // Check if we've hit the target
-      if (distanceToTarget < this.HIT_THRESHOLD) {
+      if (distSqToTarget < this.HIT_THRESHOLD * this.HIT_THRESHOLD) {
         this.spawnImpactBurst(proj);
         this.removeProjectile(proj);
         this._toRemove.push(i);
         continue;
       }
 
-      // Normalize direction and move at constant speed
-      this._tempVec3.normalize();
+      // Compute distance once; reuse for normalization and fade (1 sqrt total)
+      const distanceToTarget = Math.sqrt(distSqToTarget);
+      // divideScalar(dist) is equivalent to normalize() but avoids a second sqrt
+      this._tempVec3.divideScalar(distanceToTarget);
       const moveDistance = proj.speed * dt;
       proj.distanceTraveled += moveDistance;
 
