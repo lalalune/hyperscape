@@ -189,11 +189,10 @@ async function generateTerrainChunked(
 
 /**
  * Pre-allocated flat pixel-path buffer — zero heap allocation per road per frame.
- * Supports up to 4096 points per road (auto-grows if needed).
- * Two XY floats per point stored as (x0,y0, x1,y1, ...).
+ * Stores (x, y) pairs for all visible road points in a single contiguous block.
+ * Grows by doubling when capacity is exceeded; never shrinks.
  */
 let _roadPixelBuf = new Float32Array(4096 * 2);
-let _roadPixelBufLen = 0;
 
 function ensureRoadPixelBufCapacity(needed: number): void {
   if (_roadPixelBuf.length >= needed * 2) return;
@@ -201,6 +200,16 @@ function ensureRoadPixelBufCapacity(needed: number): void {
   while (n < needed * 2) n *= 2;
   _roadPixelBuf = new Float32Array(n);
 }
+
+/** Per-road projected data — populated once per frame, two-pass rendered */
+type ProjectedRoad = {
+  pts: Float32Array;
+  len: number;
+  fill: number;
+  outline: number;
+};
+/** Module-level reusable array — cleared with .length = 0 each draw call (zero allocation) */
+const _projectedRoads: ProjectedRoad[] = [];
 
 /**
  * Project a world XZ point to canvas pixel coordinates using the camera's
@@ -255,15 +264,26 @@ function drawRoadsAndBuildingsOverlay(
     // road's fill.  Batching outlines then fills means every fill covers every
     // outline edge, so intersections look seamless.
 
-    // Pre-project every visible road's pixel path into a reusable cache so we
-    // don't repeat the matrix math in the second pass.
-    type ProjectedRoad = {
-      pts: Float32Array;
-      len: number;
-      fill: number;
-      outline: number;
-    };
-    const projected: ProjectedRoad[] = [];
+    // Pass 0 — count total visible points so we can pre-size the global buffer
+    // in one shot, avoiding any mid-loop reallocation.
+    let totalVisiblePts = 0;
+    for (const road of roads) {
+      if (road.path.length < 2) continue;
+      if (
+        road.maxX < camX - viewRadius ||
+        road.minX > camX + viewRadius ||
+        road.maxZ < camZ - viewRadius ||
+        road.minZ > camZ + viewRadius
+      )
+        continue;
+      totalVisiblePts += road.path.length;
+    }
+    ensureRoadPixelBufCapacity(totalVisiblePts);
+
+    // Pass 1 (projection) — write XY pairs into _roadPixelBuf, store subarray
+    // views in _projectedRoads.  Zero Float32Array allocations per frame.
+    _projectedRoads.length = 0;
+    let _bufOffset = 0;
 
     for (const road of roads) {
       if (road.path.length < 2) continue;
@@ -282,7 +302,7 @@ function drawRoadsAndBuildingsOverlay(
       );
       const scaledOutline = Math.max(ROAD_OUTLINE_WIDTH_PX, scaledFill + 2);
 
-      const pts = new Float32Array(road.path.length * 2);
+      const ptsBase = _bufOffset;
       for (let ri = 0; ri < road.path.length; ri++) {
         const [px, py] = worldToPx(
           road.path[ri].x,
@@ -292,25 +312,25 @@ function drawRoadsAndBuildingsOverlay(
           cw,
           ch,
         );
-        pts[ri * 2] = px;
-        pts[ri * 2 + 1] = py;
+        _roadPixelBuf[_bufOffset++] = px;
+        _roadPixelBuf[_bufOffset++] = py;
       }
-      projected.push({
-        pts,
+      _projectedRoads.push({
+        pts: _roadPixelBuf.subarray(ptsBase, _bufOffset),
         len: road.path.length,
         fill: scaledFill,
         outline: scaledOutline,
       });
     }
 
-    if (projected.length > 0) {
+    if (_projectedRoads.length > 0) {
       ctx.save();
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
-      // Pass 1 — outlines only (all roads)
+      // Pass 2 — outlines only (all roads)
       ctx.strokeStyle = "rgb(140, 110, 65)";
-      for (const r of projected) {
+      for (const r of _projectedRoads) {
         ctx.lineWidth = r.outline;
         ctx.beginPath();
         ctx.moveTo(r.pts[0], r.pts[1]);
@@ -319,9 +339,9 @@ function drawRoadsAndBuildingsOverlay(
         ctx.stroke();
       }
 
-      // Pass 2 — fills only (all roads)
+      // Pass 3 — fills only (all roads)
       ctx.strokeStyle = "rgb(200, 175, 125)";
-      for (const r of projected) {
+      for (const r of _projectedRoads) {
         ctx.lineWidth = r.fill;
         ctx.beginPath();
         ctx.moveTo(r.pts[0], r.pts[1]);
@@ -830,6 +850,16 @@ function _drawIconGlyph(
   return true;
 }
 
+/** Terrain system interface used for height sampling and click-to-move */
+interface TerrainSystemLike {
+  getHeightAt: (x: number, z: number) => number;
+}
+
+/** Minimal structural interface for elements that can be rotated via inline style */
+interface CSSStylable {
+  style: { transform: string };
+}
+
 /** Drag handle props passed from Window component for edit mode dragging */
 interface DragHandleProps {
   onPointerDown: (e: React.PointerEvent) => void;
@@ -892,7 +922,6 @@ export function Minimap({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
-  const [entityPips, setEntityPips] = useState<EntityPip[]>([]);
   const entityPipsRefForRender = useRef<EntityPip[]>([]);
   const entityCacheRef = useRef<Map<string, EntityPip>>(new Map());
   // Per-instance render state — isolated from other Minimap instances
@@ -1065,26 +1094,18 @@ export function Minimap({
     setExtent(sizeBasedExtent);
   }, [sizeBasedExtent]);
 
-  // Always rotate with the main camera (RS3-style). A future "North-lock" toggle
-  // can re-introduce the useState, but for now this avoids an extra hook + useEffect.
+  // Always rotate with the main camera (RS3-style).
   const rotateWithCameraRef = useRef<boolean>(true);
-  const [yawDeg, setYawDeg] = useState<number>(0);
+  // Direct ref to the collapsed compass SVG — yaw is written via DOM to avoid
+  // triggering React reconciliation from inside requestAnimationFrame.
+  const compassRef = useRef<CSSStylable | null>(null);
 
-  // Refs for destination state - allows RAF loop to access without restarting
+  // Destination in world space — written by handleMinimapClick, cleared by RAF on arrival.
+  // Ref-only: the RAF loop reads it synchronously, no React state needed.
   const lastDestinationWorldRef = useRef<{ x: number; z: number } | null>(null);
-  const lastMinimapClickScreenRef = useRef<{ x: number; y: number } | null>(
-    null,
-  );
-  // Persistent destination (stays until reached or new click)
-  const [lastDestinationWorld, setLastDestinationWorld] = useState<{
-    x: number;
-    z: number;
-  } | null>(null);
-  // For minimap clicks: keep the pixel where user clicked until arrival
-  const [lastMinimapClickScreen, setLastMinimapClickScreen] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  // Debounce: ignore minimap clicks within 150ms of the previous one to prevent
+  // flooding the server with moveRequest packets during accidental double-clicks.
+  const lastClickTimeRef = useRef<number>(0);
 
   // Initialize minimap camera (no WebGPU renderer needed — Canvas 2D handles all drawing)
   useEffect(() => {
@@ -1167,19 +1188,10 @@ export function Minimap({
     };
   }, []);
 
-  // Keep refs in sync with state for render loop access
-  // This allows the single RAF loop to read current values without restarting
+  // Keep extent ref in sync with state for render loop access
   useEffect(() => {
     extentRef.current = extent;
   }, [extent]);
-
-  useEffect(() => {
-    lastDestinationWorldRef.current = lastDestinationWorld;
-  }, [lastDestinationWorld]);
-
-  useEffect(() => {
-    lastMinimapClickScreenRef.current = lastMinimapClickScreen;
-  }, [lastMinimapClickScreen]);
 
   // Collect entity data for pips (update at a moderate cadence, only when visible)
   useEffect(() => {
@@ -1188,7 +1200,7 @@ export function Minimap({
     // console.log('[Minimap] Starting entity detection updates');
     let intervalId: number | null = null;
 
-    // Pre-allocate working arrays/maps to avoid GC pressure in 200ms interval
+    // Pre-allocate working arrays to avoid GC pressure in 200ms interval
     // We swap between two caches to track which entities are still valid
     const workingPips: EntityPip[] = [];
     const seenIds = new Set<string>();
@@ -1481,16 +1493,13 @@ export function Minimap({
         }
       }
 
-      setEntityPips(workingPips);
+      entityPipsRefForRender.current = workingPips;
     };
 
     update();
     intervalId = window.setInterval(update, 200);
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-        // console.log('[Minimap] Stopped entity detection updates');
-      }
+      if (intervalId) clearInterval(intervalId);
     };
   }, [world, isVisible]);
 
@@ -1575,24 +1584,22 @@ export function Minimap({
             const upX = Math.sin(yaw);
             const upZ = -Math.cos(yaw);
             cam.up.set(upX, 0, upZ);
-            // Update yaw display (used by compass)
-            const newYawDeg = THREE.MathUtils.radToDeg(yaw);
-            setYawDeg((prev) =>
-              Math.abs(prev - newYawDeg) > 0.1 ? newYawDeg : prev,
-            );
+            // Update compass arrow via direct DOM write — no React re-render
+            if (compassRef.current) {
+              compassRef.current.style.transform = `rotate(${THREE.MathUtils.radToDeg(yaw)}deg)`;
+            }
           }
         } else {
           cam.up.set(0, 0, -1);
         }
 
-        // Clear destination when reached (using refs for sync access)
+        // Clear destination when reached
         const destWorld = lastDestinationWorldRef.current;
         if (destWorld) {
           const dx = destWorld.x - _tempTargetPos.x;
           const dz = destWorld.z - _tempTargetPos.z;
           if (Math.hypot(dx, dz) < 0.6) {
-            setLastDestinationWorld(null);
-            setLastMinimapClickScreen(null);
+            lastDestinationWorldRef.current = null;
           }
         }
 
@@ -1683,9 +1690,6 @@ export function Minimap({
               // Terrain generation runs OUTSIDE the RAF callback as an async
               // task chain that yields every 10 rows.  The current (possibly
               // stale) offscreen canvas is drawn below while generation runs.
-              type TerrainSystemLike = {
-                getHeightAt: (worldX: number, worldZ: number) => number;
-              };
               const terrainSystem = world.getSystem("terrain") as
                 | TerrainSystemLike
                 | null
@@ -2024,29 +2028,15 @@ export function Minimap({
         }
       }
 
-      // Log performance every 60 frames (approximately 1 second)
-      // if (frameCount % 60 === 0) {
-      //   console.log(`[Minimap] Render frame ${frameCount}, visible: ${isVisible}, entities: ${entityPipsRefForRender.current.length}`);
-      // }
-
       rafId = requestAnimationFrame(render);
     };
 
-    // console.log('[Minimap] Starting render loop');
     rafId = requestAnimationFrame(render);
 
     return () => {
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-        // console.log('[Minimap] Stopping render loop');
-      }
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
     };
   }, [isVisible, world]);
-
-  // Keep latest pips in a ref so the render loop doesn't restart
-  useEffect(() => {
-    entityPipsRefForRender.current = entityPips;
-  }, [entityPips]);
 
   // Convert a click in the minimap to a world XZ position
   const screenToWorldXZ = useCallback(
@@ -2070,6 +2060,11 @@ export function Minimap({
   // Shared click handler core
   const handleMinimapClick = useCallback(
     (clientX: number, clientY: number) => {
+      // Debounce: drop clicks within 150ms to prevent moveRequest flooding
+      const now = performance.now();
+      if (now - lastClickTimeRef.current < 150) return;
+      lastClickTimeRef.current = now;
+
       const worldPos = screenToWorldXZ(clientX, clientY);
       if (!worldPos) return;
 
@@ -2088,15 +2083,15 @@ export function Minimap({
         targetZ = player.position.z + dz * scale;
       }
 
-      const worldWithSystem = world as {
-        getSystem: (name: string) => {
-          getHeightAt: (x: number, z: number) => number;
-        };
-      };
-      const terrainSystem = worldWithSystem.getSystem("terrain");
+      const terrainSystem = world.getSystem("terrain") as unknown as
+        | TerrainSystemLike
+        | null
+        | undefined;
       let targetY = 0;
-      const h = terrainSystem.getHeightAt(targetX, targetZ);
-      targetY = (Number.isFinite(h) ? h : 0) + 0.1;
+      if (terrainSystem?.getHeightAt) {
+        const h = terrainSystem.getHeightAt(targetX, targetZ);
+        targetY = (Number.isFinite(h) ? h : 0) + 0.1;
+      }
 
       // Send server-authoritative move request instead of local movement
       const currentRun = (player as { runMode: boolean }).runMode === true;
@@ -2110,7 +2105,7 @@ export function Minimap({
       });
 
       // Persist destination dot until arrival (no auto-fade)
-      setLastDestinationWorld({ x: targetX, z: targetZ });
+      lastDestinationWorldRef.current = { x: targetX, z: targetZ };
       // Expose same diagnostic target used by world clicks so minimap renders dot identically
       (window as WindowWithRaycastTarget).__lastRaycastTarget = {
         x: targetX,
@@ -2272,13 +2267,16 @@ export function Minimap({
         onClick={toggleCollapse}
         title="Expand Minimap (Tab)"
       >
-        {/* Player direction arrow in collapsed state */}
+        {/* Player direction arrow in collapsed state — rotated via direct DOM write in RAF */}
         <svg
+          ref={(el) => {
+            compassRef.current = el;
+          }}
           width="18"
           height="18"
           viewBox="0 0 18 18"
           style={{
-            transform: `rotate(${yawDeg}deg)`,
+            transform: "rotate(0deg)",
             transition: "transform 0.1s ease-out",
           }}
         >
