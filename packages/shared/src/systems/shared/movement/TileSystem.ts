@@ -73,7 +73,7 @@ export interface TileMovementState {
    * the destination or the destination becomes unreachable.
    * Used to seamlessly continue movement when BFS returns a partial path.
    */
-  requestedDestination?: TileCoord | null;
+  requestedDestination: TileCoord | null;
 
   /**
    * Whether the most recently computed path for this player was partial
@@ -81,7 +81,7 @@ export interface TileMovementState {
    * Stored per-player to avoid reading BFSPathfinder.wasLastPathPartial()
    * after other players' paths may have overwritten the shared flag.
    */
-  lastPathPartial?: boolean;
+  lastPathPartial: boolean;
 }
 
 /**
