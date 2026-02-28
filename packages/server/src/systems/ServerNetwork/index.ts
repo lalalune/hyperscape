@@ -1560,25 +1560,27 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["runecraftingAltarInteract"] =
       this.handlers["onRunecraftingAltarInteract"];
 
-    // Route movement and combat through action queue for OSRS-style tick processing
-    // Actions are queued and processed on tick boundaries, not immediately
+    // Movement is processed immediately — pathfinding and tileMovementStart broadcast
+    // happen on packet receipt, not at the next tick boundary. Walking itself still
+    // advances on the 600ms tick schedule via onTick(). This matches the documented
+    // 30 Hz client input rate and removes the 0–600ms ActionQueue delay.
     this.handlers["onMoveRequest"] = (socket, data) => {
       // Cancel any pending actions when player moves elsewhere (OSRS behavior)
       if (socket.player) {
         this.cancelAllPendingActions(socket.player.id, socket);
       }
-      this.actionQueue.queueMovement(socket, data);
+      this.tileMovementManager.handleMoveRequest(socket, data);
     };
 
     this.handlers["onInput"] = (socket, data) => {
-      // Legacy input handler - convert clicks to movement queue
+      // Legacy input handler - convert clicks to immediate move request
       const payload = data as LegacyInputPayload;
       if (payload.type === "click" && Array.isArray(payload.target)) {
         // Cancel any pending actions when player moves elsewhere (OSRS behavior)
         if (socket.player) {
           this.cancelAllPendingActions(socket.player.id, socket);
         }
-        this.actionQueue.queueMovement(socket, {
+        this.tileMovementManager.handleMoveRequest(socket, {
           target: payload.target,
           runMode: payload.runMode,
         });
