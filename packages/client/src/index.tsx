@@ -490,6 +490,7 @@ function App() {
     playerTokenManager.startSession();
     return () => {
       playerTokenManager.endSession();
+      playerTokenManager.dispose();
     };
   }, []);
 

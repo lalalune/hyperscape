@@ -1005,6 +1005,25 @@ export class TileMovementManager {
 
     // Check if arrived at destination
     if (state.pathIndex >= state.path.length) {
+      // Path continuation: if BFS hit its iteration limit before reaching the
+      // requested destination, immediately re-pathfind from the new tile so
+      // movement continues seamlessly without a stop frame.
+      if (
+        state.lastPathPartial &&
+        state.requestedDestination &&
+        !tilesEqual(state.currentTile, state.requestedDestination)
+      ) {
+        const dest = state.requestedDestination;
+        state.requestedDestination = null;
+        state.lastPathPartial = false;
+        this._continuePathToDestination(playerId, dest, state.isRunning);
+        // If continuation found a new path, skip tileMovementEnd to keep animation continuous
+        if (state.path.length > 0) return;
+      } else {
+        state.requestedDestination = null;
+        state.lastPathPartial = false;
+      }
+
       // Get any pending arrival emote (e.g., "fishing" for gathering actions)
       // This is bundled with tileMovementEnd to prevent race conditions
       const arrivalEmote = this.arrivalEmotes.get(playerId) || "idle";
@@ -1056,6 +1075,24 @@ export class TileMovementManager {
     const state = this.playerStates.get(playerId);
     const entity = this.world.entities.get(playerId);
     if (!state || !entity) return;
+
+    // Respect the same guards as handleMoveRequest — don't continue moving if
+    // the player died or became frozen mid-path (e.g. duel countdown started)
+    const deathState = entity.data?.deathState as DeathState | undefined;
+    if (deathState === DeathState.DYING || deathState === DeathState.DEAD) {
+      state.requestedDestination = null;
+      state.lastPathPartial = false;
+      return;
+    }
+
+    const duelSystem = this.world.getSystem("duel") as {
+      canMove?: (playerId: string) => boolean;
+    } | null;
+    if (duelSystem?.canMove && !duelSystem.canMove(playerId)) {
+      state.requestedDestination = null;
+      state.lastPathPartial = false;
+      return;
+    }
 
     const buildingService = this.getBuildingCollision();
     const currentFloor = buildingService
@@ -1182,6 +1219,11 @@ export class TileMovementManager {
       state.path.length = 0; // Zero-allocation clear
       state.pathIndex = 0;
       state.moveSeq = (state.moveSeq || 0) + 1; // Increment to invalidate stale client packets
+
+      // Cancel any pending path continuation — the player has teleported/respawned
+      // so the original destination is no longer valid
+      state.requestedDestination = null;
+      state.lastPathPartial = false;
 
       // RS3-style: Clear movement flag so combat can resume
       const entity = this.world.entities.get(playerId);

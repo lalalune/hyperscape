@@ -57,15 +57,19 @@ export class XPDropSystem extends System {
   // Reusable sprite pool — eliminates per-event CanvasTexture/SpriteMaterial allocation
   private pool: XPDropPoolItem[] = [];
 
+  // Stored bound handler so it can be removed in destroy()
+  private readonly _boundOnXPDrop: (data: unknown) => void;
+
   constructor(world: World) {
     super(world);
+    this._boundOnXPDrop = this.onXPDrop.bind(this);
   }
 
   async init(): Promise<void> {
     if (!this.world.isClient) return;
 
     this.initPool();
-    this.world.on(EventType.XP_DROP_RECEIVED, this.onXPDrop.bind(this), this);
+    this.world.on(EventType.XP_DROP_RECEIVED, this._boundOnXPDrop, this);
   }
 
   private initPool(): void {
@@ -245,6 +249,8 @@ export class XPDropSystem extends System {
   }
 
   destroy(): void {
+    this.world.off(EventType.XP_DROP_RECEIVED, this._boundOnXPDrop, this);
+
     // Return all active drops to pool (removes from scene)
     for (const drop of this.activeDrops) {
       this.releasePoolItem(drop.poolItem);
