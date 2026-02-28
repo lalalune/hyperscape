@@ -466,6 +466,18 @@ export class TileMovementManager {
     // Client uses this to ignore stale packets from previous movements
     state.moveSeq = (state.moveSeq || 0) + 1;
 
+    // Track partial-path state per player so the path-continuation logic in onTick
+    // can check without reading the shared BFSPathfinder flag (which may be overwritten
+    // by another player's path before onTick runs).
+    state.lastPathPartial = this.pathfinder.wasLastPathPartial();
+
+    // Store original requested destination for seamless long-distance continuation.
+    // Cleared when destination is reached or is definitively unreachable.
+    state.requestedDestination = {
+      x: payload.targetTile.x,
+      z: payload.targetTile.z,
+    };
+
     // Set movement flag for tracking active tile movement
     if (path.length > 0) {
       playerEntity.data.tileMovementActive = true;
@@ -784,6 +796,29 @@ export class TileMovementManager {
 
       // Check if arrived at destination
       if (state.pathIndex >= state.path.length) {
+        // Path continuation: if BFS hit its iteration limit before reaching the
+        // requested destination, immediately re-pathfind from the new tile so
+        // movement continues seamlessly without a stop frame.
+        if (
+          state.lastPathPartial &&
+          state.requestedDestination &&
+          !tilesEqual(state.currentTile, state.requestedDestination)
+        ) {
+          const dest = state.requestedDestination;
+          // Clear before re-pathfind so an unreachable tile cannot loop forever
+          state.requestedDestination = null;
+          state.lastPathPartial = false;
+          this._continuePathToDestination(playerId, dest, state.isRunning);
+          // If continuation found a new path, skip tileMovementEnd to keep animation continuous
+          if (state.path.length > 0) {
+            continue;
+          }
+        } else {
+          // Reached the true destination (or it became unreachable)
+          state.requestedDestination = null;
+          state.lastPathPartial = false;
+        }
+
         // Get any pending arrival emote (e.g., "fishing" for gathering actions)
         // This is bundled with tileMovementEnd to prevent race conditions
         const arrivalEmote = this.arrivalEmotes.get(playerId) || "idle";
@@ -1003,6 +1038,76 @@ export class TileMovementManager {
         changes: entityModifiedChanges,
       });
     }
+  }
+
+  /**
+   * Continue movement toward a destination after a partial BFS path ended.
+   * Called server-side only — skips rate-limiting and input validation because
+   * the original move request was already fully validated.
+   *
+   * If BFS returns an empty path the destination is definitively unreachable
+   * and movement stops (no infinite loop).
+   */
+  private _continuePathToDestination(
+    playerId: string,
+    destination: TileCoord,
+    isRunning: boolean,
+  ): void {
+    const state = this.playerStates.get(playerId);
+    const entity = this.world.entities.get(playerId);
+    if (!state || !entity) return;
+
+    const buildingService = this.getBuildingCollision();
+    const currentFloor = buildingService
+      ? buildingService.getPlayerFloor(playerId as EntityID)
+      : 0;
+    const currentBuildingId = buildingService
+      ? buildingService.getBuildingAt(state.currentTile.x, state.currentTile.z)
+      : null;
+
+    const path = this.pathfinder.findPath(
+      state.currentTile,
+      destination,
+      (tile, fromTile) =>
+        this.isTileWalkable(tile, currentFloor, fromTile, currentBuildingId),
+    );
+
+    // Empty path means destination is unreachable — stop here
+    if (path.length === 0) return;
+
+    state.path = path;
+    state.pathIndex = 0;
+    state.isRunning = isRunning;
+    state.moveSeq = (state.moveSeq || 0) + 1;
+    state.lastPathPartial = this.pathfinder.wasLastPathPartial();
+
+    // If this segment is also partial, keep the destination so onTick
+    // will trigger another continuation when this segment ends
+    if (state.lastPathPartial) {
+      state.requestedDestination = { x: destination.x, z: destination.z };
+    }
+
+    entity.data.tileMovementActive = true;
+
+    // Build network path buffer (zero-allocation pattern)
+    this._networkPathBuffer.length = path.length;
+    for (let i = 0; i < path.length; i++) {
+      if (!this._networkPathBuffer[i]) {
+        this._networkPathBuffer[i] = { x: 0, z: 0 };
+      }
+      this._networkPathBuffer[i].x = path[i].x;
+      this._networkPathBuffer[i].z = path[i].z;
+    }
+
+    this.sendFn("tileMovementStart", {
+      id: playerId,
+      startTile: { x: state.currentTile.x, z: state.currentTile.z },
+      path: this._networkPathBuffer,
+      running: isRunning,
+      destinationTile: { x: destination.x, z: destination.z },
+      moveSeq: state.moveSeq,
+      emote: isRunning ? "run" : "walk",
+    });
   }
 
   /**
