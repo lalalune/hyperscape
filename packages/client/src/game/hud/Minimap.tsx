@@ -44,6 +44,92 @@ const MINIMAP_TERRAIN_COLORS: Array<{
 ];
 
 /**
+ * Async terrain background generator.
+ *
+ * Samples the terrain height grid at TERRAIN_SAMPLE_SIZE² points, yielding to
+ * the browser between row-groups so the main thread is never blocked.  Each
+ * yield costs ~0 frames but allows the GPU to present the next 3-D frame
+ * before we resume — this is the correct fix for in-game choppiness caused by
+ * synchronous noise calls inside requestAnimationFrame callbacks.
+ *
+ * Returns an OffscreenCanvas on success, or null if cancelled (the caller
+ * increments the version token to cancel an in-flight generation).
+ */
+async function generateTerrainChunked(
+  terrainSystem: { getHeightAt: (x: number, z: number) => number },
+  centerX: number,
+  centerZ: number,
+  extent: number,
+  upX: number,
+  upZ: number,
+  isCancelled: () => boolean,
+): Promise<OffscreenCanvas | null> {
+  const S = TERRAIN_SAMPLE_SIZE;
+  const offscreen = new OffscreenCanvas(S, S);
+  const osCtx = offscreen.getContext("2d");
+  if (!osCtx) return null;
+
+  const imageData = osCtx.createImageData(S, S);
+  const data = imageData.data;
+  const rightX = -upZ;
+  const rightZ = upX;
+
+  for (let sy = 0; sy < S; sy++) {
+    // Check cancellation before each row — exits quickly if superseded
+    if (isCancelled()) return null;
+
+    for (let sx = 0; sx < S; sx++) {
+      const px = (sx + 0.5) / S;
+      const py = (sy + 0.5) / S;
+      const ndcX = px * 2 - 1;
+      const ndcY = 1 - py * 2;
+      const worldX = centerX + ndcX * rightX * extent - ndcY * upX * extent;
+      const worldZ = centerZ + ndcX * rightZ * extent - ndcY * upZ * extent;
+
+      const h = terrainSystem.getHeightAt(worldX, worldZ);
+
+      let r = 30,
+        g = 60,
+        b = 130;
+      for (let ci = 0; ci < MINIMAP_TERRAIN_COLORS.length; ci++) {
+        const entry = MINIMAP_TERRAIN_COLORS[ci];
+        if (h <= entry.maxHeight) {
+          r = entry.r;
+          g = entry.g;
+          b = entry.b;
+          break;
+        }
+      }
+      if (h > MINIMAP_WATER_THRESHOLD) {
+        const lift =
+          Math.min(30, ((h - MINIMAP_WATER_THRESHOLD) / 40) * 30) | 0;
+        r = Math.min(255, r + lift);
+        g = Math.min(255, g + lift);
+        b = Math.min(255, b + lift);
+      }
+
+      const idx = (sy * S + sx) * 4;
+      data[idx] = r;
+      data[idx + 1] = g;
+      data[idx + 2] = b;
+      data[idx + 3] = 255;
+    }
+
+    // Yield every 10 rows (5 yields per full generation).
+    // Each chunk = 10 × TERRAIN_SAMPLE_SIZE samples ≈ 500 calls.
+    // The setTimeout(0) posts the continuation as a new macrotask, allowing
+    // the browser to run its rendering pipeline between chunks.
+    if (sy % 10 === 9) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      if (isCancelled()) return null;
+    }
+  }
+
+  osCtx.putImageData(imageData, 0, 0);
+  return offscreen;
+}
+
+/**
  * Convert a world-space (wx, wz) point to canvas pixel coordinates.
  * Derived by inverting the terrain-pixel unproject transform, accounting for
  * the minimap orthographic camera's up vector (which rotates with the player).
@@ -486,6 +572,10 @@ export function Minimap({
   const terrainCacheExtentRef = useRef<number>(0);
   // Camera up vector when the cache was last generated (reused object)
   const terrainCacheUpRef = useRef<{ x: number; z: number }>({ x: 0, z: -1 });
+  // Monotonically incrementing generation token.  Incrementing it cancels any
+  // in-flight generateTerrainChunked call (they check isCancelled() each row).
+  // Only the generation whose version still matches when it completes is accepted.
+  const terrainGenVersionRef = useRef(0);
 
   // Cached 2D rendering contexts — avoids DOM query every frame
   const mainCtxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -732,7 +822,8 @@ export function Minimap({
         cameraRef.current = null;
       }
 
-      // Clear terrain cache and static world feature caches
+      // Cancel any in-flight async terrain generation and clear caches
+      terrainGenVersionRef.current++;
       terrainOffscreenRef.current = null;
       terrainCacheCenterRef.current.x = Infinity;
       terrainCacheCenterRef.current.z = Infinity;
@@ -1257,10 +1348,11 @@ export function Minimap({
               rotated ||
               extentChanged
             ) {
-              // Sample terrain at TERRAIN_SAMPLE_SIZE × TERRAIN_SAMPLE_SIZE resolution
-              // (2,500 calls vs up to 40,000+ for per-pixel sampling).
-              // The OffscreenCanvas is drawn scaled-up via drawImage with bilinear
-              // filtering — visually smooth at minimap scale, 16× cheaper on the CPU.
+              // Terrain generation runs OUTSIDE the RAF callback as an async
+              // task chain that yields every 10 rows.  The current (possibly
+              // stale) offscreen canvas is drawn below while generation runs.
+              // Incrementing the version token cancels any in-flight generation
+              // — only the result that matches the current version is accepted.
               type TerrainSystemLike = {
                 getHeightAt: (worldX: number, worldZ: number) => number;
               };
@@ -1269,79 +1361,35 @@ export function Minimap({
                 | null
                 | undefined;
               if (terrainSystem?.getHeightAt) {
-                const S = TERRAIN_SAMPLE_SIZE;
-                const offscreen = new OffscreenCanvas(S, S);
-                const osCtx = offscreen.getContext("2d");
-                if (osCtx) {
-                  const imageData = osCtx.createImageData(S, S);
-                  const data = imageData.data;
-                  // right = perpendicular to up in XZ plane
-                  const rightX = -upZ;
-                  const rightZ = upX;
-                  for (let sy = 0; sy < S; sy++) {
-                    for (let sx = 0; sx < S; sx++) {
-                      // Centre of sample cell in canvas-pixel space
-                      const px = (sx + 0.5) / S;
-                      const py = (sy + 0.5) / S;
-                      const ndcX = px * 2 - 1;
-                      const ndcY = 1 - py * 2;
-                      const worldX =
-                        centerX +
-                        ndcX * rightX * currentExtent -
-                        ndcY * upX * currentExtent;
-                      const worldZ =
-                        centerZ +
-                        ndcX * rightZ * currentExtent -
-                        ndcY * upZ * currentExtent;
+                const version = ++terrainGenVersionRef.current;
+                // Snapshot all camera values now — the closure must not capture
+                // mutable refs directly since they change each frame.
+                const snapCX = centerX;
+                const snapCZ = centerZ;
+                const snapExt = currentExtent;
+                const snapUpX = upX;
+                const snapUpZ = upZ;
 
-                      const h = terrainSystem.getHeightAt(worldX, worldZ);
-
-                      // Map height to color
-                      let r = 30,
-                        g = 60,
-                        b = 130;
-                      for (
-                        let ci = 0;
-                        ci < MINIMAP_TERRAIN_COLORS.length;
-                        ci++
-                      ) {
-                        const entry = MINIMAP_TERRAIN_COLORS[ci];
-                        if (h <= entry.maxHeight) {
-                          r = entry.r;
-                          g = entry.g;
-                          b = entry.b;
-                          break;
-                        }
-                      }
-
-                      // Height-based lightening for land (sense of elevation)
-                      if (h > MINIMAP_WATER_THRESHOLD) {
-                        const lift =
-                          Math.min(
-                            30,
-                            ((h - MINIMAP_WATER_THRESHOLD) / 40) * 30,
-                          ) | 0;
-                        r = Math.min(255, r + lift);
-                        g = Math.min(255, g + lift);
-                        b = Math.min(255, b + lift);
-                      }
-
-                      const idx = (sy * S + sx) * 4;
-                      data[idx] = r;
-                      data[idx + 1] = g;
-                      data[idx + 2] = b;
-                      data[idx + 3] = 255;
-                    }
-                  }
-                  osCtx.putImageData(imageData, 0, 0);
+                void generateTerrainChunked(
+                  terrainSystem,
+                  snapCX,
+                  snapCZ,
+                  snapExt,
+                  snapUpX,
+                  snapUpZ,
+                  () => terrainGenVersionRef.current !== version,
+                ).then((offscreen) => {
+                  // Reject stale results — a newer generation has since started
+                  if (terrainGenVersionRef.current !== version) return;
+                  if (!offscreen) return;
                   terrainOffscreenRef.current = offscreen;
-                  // Save camera snapshot — overlay drawing uses these to stay aligned.
-                  terrainCacheCenterRef.current.x = centerX;
-                  terrainCacheCenterRef.current.z = centerZ;
-                  terrainCacheExtentRef.current = currentExtent;
-                  terrainCacheUpRef.current.x = upX;
-                  terrainCacheUpRef.current.z = upZ;
-                }
+                  // Update snapshot so overlay drawing stays aligned
+                  terrainCacheCenterRef.current.x = snapCX;
+                  terrainCacheCenterRef.current.z = snapCZ;
+                  terrainCacheExtentRef.current = snapExt;
+                  terrainCacheUpRef.current.x = snapUpX;
+                  terrainCacheUpRef.current.z = snapUpZ;
+                });
               }
             }
 
