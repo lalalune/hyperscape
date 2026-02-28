@@ -210,6 +210,16 @@ export class HealthBars extends SystemBase {
    * Update orientation uniform each frame
    */
   update() {
+    // Sweep for stale entries whose entities have been removed from the world.
+    // Iterating in reverse is required because remove() uses swap-with-last,
+    // which modifies the array length — forward iteration would skip entries.
+    for (let i = this.healthBars.length - 1; i >= 0; i--) {
+      const entry = this.healthBars[i];
+      if (!this.world.entities.get(entry.entityId)) {
+        this.remove(entry);
+      }
+    }
+
     // Update orientation uniform from camera
     const mat = this.material as THREE.Material & {
       healthBarUniforms?: {
