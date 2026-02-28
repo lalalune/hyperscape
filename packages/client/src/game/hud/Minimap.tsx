@@ -188,9 +188,9 @@ async function generateTerrainChunked(
 }
 
 /**
- * Pre-allocated flat pixel-path buffer — zero heap allocation per road.
+ * Pre-allocated flat pixel-path buffer — zero heap allocation per road per frame.
  * Supports up to 4096 points per road (auto-grows if needed).
- * Two XY floats per point → stored as (x0,y0, x1,y1, ...).
+ * Two XY floats per point stored as (x0,y0, x1,y1, ...).
  */
 let _roadPixelBuf = new Float32Array(4096 * 2);
 let _roadPixelBufLen = 0;
@@ -203,200 +203,206 @@ function ensureRoadPixelBufCapacity(needed: number): void {
 }
 
 /**
- * Draw roads and buildings onto the minimap at FIXED pixel sizes (no zoom scaling).
+ * Project a world XZ point to canvas pixel coordinates using the camera's
+ * projection-view matrix — the same transform used for entity pips.
  *
- * Optimisations vs. the naive version:
- *  • AABBs are passed in pre-computed (built once, used every 4 frames).
- *  • Pixel coordinates are computed into _roadPixelBuf once per road, then the
- *    outline and fill strokes both replay from the buffer — halving worldToPx calls.
- *  • ctx.save/restore wraps the entire road batch, not individual roads.
+ * This replaces the old worldToPx() which used a separate (often stale)
+ * center/extent/up coordinate system that would drift out of sync with the
+ * terrain on zoom, pan, or rotate.
+ */
+function worldToPx(
+  wx: number,
+  wz: number,
+  projectionViewMatrix: THREE.Matrix4,
+  scratchVec: THREE.Vector3,
+  cw: number,
+  ch: number,
+): [number, number] {
+  scratchVec.set(wx, 0, wz);
+  scratchVec.applyMatrix4(projectionViewMatrix);
+  return [(scratchVec.x * 0.5 + 0.5) * cw, (scratchVec.y * -0.5 + 0.5) * ch];
+}
+
+/**
+ * Draw roads and buildings on the overlay canvas.
+ *
+ * Uses camera-matrix projection (same as entity pips) so roads zoom, pan, and
+ * rotate in perfect lockstep with pips — no separate coordinate system, no
+ * terrain-cache dependency, no desync on zoom or rotation.
+ *
+ * Roads use fixed pixel widths (ROAD_LINE_WIDTH_PX / ROAD_OUTLINE_WIDTH_PX) so
+ * they don't visually scale when the player zooms in/out — only the terrain
+ * background scales.
  */
 function drawRoadsAndBuildingsOverlay(
-  ctx: MinimapDrawContext,
+  ctx: CanvasRenderingContext2D,
   roads: MinimapRoadWithAABB[] | null,
   towns: MinimapTown[] | null,
-  centerX: number,
-  centerZ: number,
-  extent: number,
-  upX: number,
-  upZ: number,
+  projectionViewMatrix: THREE.Matrix4,
+  scratchVec: THREE.Vector3,
+  camX: number,
+  camZ: number,
+  viewRadius: number,
+  /** Pixels per world unit: cw / (2 * extent). Used to scale road widths with zoom. */
+  worldToPixel: number,
   cw: number,
   ch: number,
 ): void {
-  const viewMargin = extent * 2;
-  const viewMinX = centerX - viewMargin;
-  const viewMaxX = centerX + viewMargin;
-  const viewMinZ = centerZ - viewMargin;
-  const viewMaxZ = centerZ + viewMargin;
-
   if (roads && roads.length > 0) {
-    // One save/restore per batch — all roads share the same lineCap/lineJoin state
-    ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+    // Two-pass rendering: all outlines first, all fills second.
+    // Drawing per-road (outline→fill→outline→fill…) leaves dark outline bands
+    // wherever roads cross because each road's outline paints over the previous
+    // road's fill.  Batching outlines then fills means every fill covers every
+    // outline edge, so intersections look seamless.
+
+    // Pre-project every visible road's pixel path into a reusable cache so we
+    // don't repeat the matrix math in the second pass.
+    type ProjectedRoad = {
+      pts: Float32Array;
+      len: number;
+      fill: number;
+      outline: number;
+    };
+    const projected: ProjectedRoad[] = [];
 
     for (const road of roads) {
       if (road.path.length < 2) continue;
-
-      // O(1) visibility check using pre-computed AABB (no per-frame path iteration)
       if (
-        road.maxX < viewMinX ||
-        road.minX > viewMaxX ||
-        road.maxZ < viewMinZ ||
-        road.minZ > viewMaxZ
+        road.maxX < camX - viewRadius ||
+        road.minX > camX + viewRadius ||
+        road.maxZ < camZ - viewRadius ||
+        road.minZ > camZ + viewRadius
       )
         continue;
 
-      // Build pixel path into flat buffer once — no heap allocation
-      ensureRoadPixelBufCapacity(road.path.length);
-      _roadPixelBufLen = road.path.length;
+      const worldWidth = road.width > 0 ? road.width : 4;
+      const scaledFill = Math.max(
+        ROAD_LINE_WIDTH_PX,
+        Math.min(40, worldWidth * worldToPixel),
+      );
+      const scaledOutline = Math.max(ROAD_OUTLINE_WIDTH_PX, scaledFill + 2);
+
+      const pts = new Float32Array(road.path.length * 2);
       for (let ri = 0; ri < road.path.length; ri++) {
         const [px, py] = worldToPx(
           road.path[ri].x,
           road.path[ri].z,
-          centerX,
-          centerZ,
-          extent,
-          upX,
-          upZ,
+          projectionViewMatrix,
+          scratchVec,
           cw,
           ch,
         );
-        _roadPixelBuf[ri * 2] = px;
-        _roadPixelBuf[ri * 2 + 1] = py;
+        pts[ri * 2] = px;
+        pts[ri * 2 + 1] = py;
       }
-
-      // Outline stroke — reads cached pixel coords
-      ctx.strokeStyle = "rgba(100, 80, 50, 0.7)";
-      ctx.lineWidth = ROAD_OUTLINE_WIDTH_PX;
-      ctx.beginPath();
-      ctx.moveTo(_roadPixelBuf[0], _roadPixelBuf[1]);
-      for (let ri = 1; ri < _roadPixelBufLen; ri++) {
-        ctx.lineTo(_roadPixelBuf[ri * 2], _roadPixelBuf[ri * 2 + 1]);
-      }
-      ctx.stroke();
-
-      // Fill stroke — replays the same buffer, no second worldToPx pass
-      ctx.strokeStyle = "rgba(190, 160, 110, 0.85)";
-      ctx.lineWidth = ROAD_LINE_WIDTH_PX;
-      ctx.beginPath();
-      ctx.moveTo(_roadPixelBuf[0], _roadPixelBuf[1]);
-      for (let ri = 1; ri < _roadPixelBufLen; ri++) {
-        ctx.lineTo(_roadPixelBuf[ri * 2], _roadPixelBuf[ri * 2 + 1]);
-      }
-      ctx.stroke();
+      projected.push({
+        pts,
+        len: road.path.length,
+        fill: scaledFill,
+        outline: scaledOutline,
+      });
     }
-    ctx.restore();
+
+    if (projected.length > 0) {
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      // Pass 1 — outlines only (all roads)
+      ctx.strokeStyle = "rgb(140, 110, 65)";
+      for (const r of projected) {
+        ctx.lineWidth = r.outline;
+        ctx.beginPath();
+        ctx.moveTo(r.pts[0], r.pts[1]);
+        for (let i = 1; i < r.len; i++)
+          ctx.lineTo(r.pts[i * 2], r.pts[i * 2 + 1]);
+        ctx.stroke();
+      }
+
+      // Pass 2 — fills only (all roads)
+      ctx.strokeStyle = "rgb(200, 175, 125)";
+      for (const r of projected) {
+        ctx.lineWidth = r.fill;
+        ctx.beginPath();
+        ctx.moveTo(r.pts[0], r.pts[1]);
+        for (let i = 1; i < r.len; i++)
+          ctx.lineTo(r.pts[i * 2], r.pts[i * 2 + 1]);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   if (towns && towns.length > 0) {
     ctx.save();
-    ctx.lineWidth = BUILDING_LINE_WIDTH_PX;
+    // Building stroke scales with zoom but clamped to a thin line
+    ctx.lineWidth = Math.max(
+      BUILDING_LINE_WIDTH_PX,
+      Math.min(3, worldToPixel * 0.3),
+    );
     for (const town of towns) {
       for (const building of town.buildings) {
         const bx = building.position.x;
         const bz = building.position.z;
         if (
-          Math.abs(bx - centerX) > viewMargin ||
-          Math.abs(bz - centerZ) > viewMargin
+          Math.abs(bx - camX) > viewRadius ||
+          Math.abs(bz - camZ) > viewRadius
         )
           continue;
+
         const hw = building.size.width * 0.5;
         const hd = building.size.depth * 0.5;
         const cos = Math.cos(building.rotation);
         const sin = Math.sin(building.rotation);
-        const c0x = bx + cos * hw - sin * hd;
-        const c0z = bz + sin * hw + cos * hd;
-        const c1x = bx - cos * hw - sin * hd;
-        const c1z = bz - sin * hw + cos * hd;
-        const c2x = bx - cos * hw + sin * hd;
-        const c2z = bz - sin * hw - cos * hd;
-        const c3x = bx + cos * hw + sin * hd;
-        const c3z = bz + sin * hw - cos * hd;
+
+        // Project 4 rotated corners through the camera matrix
         const [p0x, p0y] = worldToPx(
-          c0x,
-          c0z,
-          centerX,
-          centerZ,
-          extent,
-          upX,
-          upZ,
+          bx + cos * hw - sin * hd,
+          bz + sin * hw + cos * hd,
+          projectionViewMatrix,
+          scratchVec,
           cw,
           ch,
         );
         const [p1x, p1y] = worldToPx(
-          c1x,
-          c1z,
-          centerX,
-          centerZ,
-          extent,
-          upX,
-          upZ,
+          bx - cos * hw - sin * hd,
+          bz - sin * hw + cos * hd,
+          projectionViewMatrix,
+          scratchVec,
           cw,
           ch,
         );
         const [p2x, p2y] = worldToPx(
-          c2x,
-          c2z,
-          centerX,
-          centerZ,
-          extent,
-          upX,
-          upZ,
+          bx - cos * hw + sin * hd,
+          bz - sin * hw - cos * hd,
+          projectionViewMatrix,
+          scratchVec,
           cw,
           ch,
         );
         const [p3x, p3y] = worldToPx(
-          c3x,
-          c3z,
-          centerX,
-          centerZ,
-          extent,
-          upX,
-          upZ,
+          bx + cos * hw + sin * hd,
+          bz + sin * hw - cos * hd,
+          projectionViewMatrix,
+          scratchVec,
           cw,
           ch,
         );
+
         ctx.beginPath();
         ctx.moveTo(p0x, p0y);
         ctx.lineTo(p1x, p1y);
         ctx.lineTo(p2x, p2y);
         ctx.lineTo(p3x, p3y);
         ctx.closePath();
-        ctx.fillStyle = "rgba(110, 95, 78, 0.92)";
+        ctx.fillStyle = "rgb(130, 110, 85)";
         ctx.fill();
-        ctx.strokeStyle = "rgba(60, 45, 30, 0.9)";
+        ctx.strokeStyle = "rgb(70, 55, 35)";
         ctx.stroke();
       }
     }
     ctx.restore();
   }
-}
-
-/**
- * Convert a world-space (wx, wz) point to canvas pixel coordinates.
- * Derived by inverting the terrain-pixel unproject transform, accounting for
- * the minimap orthographic camera's up vector (which rotates with the player).
- */
-function worldToPx(
-  wx: number,
-  wz: number,
-  centerX: number,
-  centerZ: number,
-  extent: number,
-  upX: number,
-  upZ: number,
-  cw: number,
-  ch: number,
-): [number, number] {
-  const dx = wx - centerX;
-  const dz = wz - centerZ;
-  // Project (dx,dz) onto camera right and up axes.
-  // right = (-upZ, upX) in XZ (cross(view, up) for camera looking down -Y)
-  const ndcX = (dz * upX - dx * upZ) / extent;
-  // ndcY = dot((dx,dz), up) / extent — top of canvas = forward (center+up)
-  const ndcY = (dx * upX + dz * upZ) / extent;
-  return [(ndcX * 0.5 + 0.5) * cw, (-ndcY * 0.5 + 0.5) * ch];
 }
 
 /**
@@ -1798,8 +1804,10 @@ export function Minimap({
               mainCtx.fillRect(0, 0, cw, ch);
             }
 
-            // Roads and buildings drawn as overlay with FIXED pixel sizes — they stay
-            // constant size when zooming so the minimap zooms around them (no distortion).
+            // Restore canvas transform — terrain only, no overlays here
+            mainCtx.restore();
+
+            // Populate road/town caches (cheap system queries, done once per session)
             if (!roadsCacheRef.current) {
               const roadSys = world.getSystem("roads") as {
                 getRoads?: () => MinimapRoad[];
@@ -1833,53 +1841,39 @@ export function Minimap({
               const towns = townSys?.getTowns?.();
               if (towns?.length) townsCacheRef.current = towns;
             }
-
-            const overlayUpX = terrainCacheUpRef.current.x;
-            const overlayUpZ = terrainCacheUpRef.current.z;
-            const overlayCenterX = isFinite(terrainCacheCenterRef.current.x)
-              ? terrainCacheCenterRef.current.x
-              : centerX;
-            const overlayCenterZ = isFinite(terrainCacheCenterRef.current.z)
-              ? terrainCacheCenterRef.current.z
-              : centerZ;
-            const inZoomTransition =
-              terrainCacheExtentRef.current > 0 &&
-              terrainCacheExtentRef.current !== currentExtent;
-            const overlayExtent =
-              terrainCacheExtentRef.current > 0
-                ? inZoomTransition
-                  ? currentExtent
-                  : terrainCacheExtentRef.current
-                : currentExtent;
-
-            drawRoadsAndBuildingsOverlay(
-              mainCtx,
-              roadsWithAABBRef.current,
-              townsCacheRef.current,
-              overlayCenterX,
-              overlayCenterZ,
-              overlayExtent,
-              overlayUpX,
-              overlayUpZ,
-              cw,
-              ch,
-            );
-
-            // Restore canvas transform — terrain block complete
-            mainCtx.restore();
           }
         }
       }
 
-      // Draw 2D pips on overlay canvas every frame for smooth interaction
-      // Use cached context — avoids a DOM query every frame
+      // Draw 2D overlay (roads → buildings → pips → flag) every frame
       const ctx = overlayCtxRef.current;
       if (ctx) {
-        // Clear the overlay each frame
-        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        const cw = overlayCanvas.width;
+        const ch = overlayCanvas.height;
+        ctx.clearRect(0, 0, cw, ch);
 
-        // Draw entity pips (use ref to avoid re-creating the render loop)
-        // Use for-loop instead of forEach to avoid creating callback functions every frame
+        // ── Roads & buildings ─────────────────────────────────────────────────
+        // Same camera-matrix projection as entity pips — moves, zooms, and
+        // rotates in perfect sync with no separate coordinate system.
+        if (rs.hasCachedMatrix && cam) {
+          const currentExtent = extentRef.current;
+          drawRoadsAndBuildingsOverlay(
+            ctx,
+            roadsWithAABBRef.current,
+            townsCacheRef.current,
+            _cachedProjectionViewMatrix,
+            _tempProjectVec,
+            cam.position.x,
+            cam.position.z,
+            currentExtent * 2,
+            // pixels per world unit — drives road width scaling with zoom
+            cw / (2 * currentExtent),
+            cw,
+            ch,
+          );
+        }
+
+        // ── Entity pips ───────────────────────────────────────────────────────
         const pipsArray = entityPipsRefForRender.current;
         for (let pipIdx = 0; pipIdx < pipsArray.length; pipIdx++) {
           const pip = pipsArray[pipIdx];
