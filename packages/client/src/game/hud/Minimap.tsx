@@ -22,6 +22,10 @@ const MINIMAP_WATER_THRESHOLD = 9.0;
 // ImageData is drawn to an OffscreenCanvas and then scaled up via drawImage with
 // bilinear filtering — visually indistinguishable at minimap scale, 16× cheaper.
 const TERRAIN_SAMPLE_SIZE = 50;
+// Over-sample factor relative to the visible extent.
+// sqrt(2) × 1.1 ≈ 1.555 ensures the offscreen canvas always covers the canvas
+// corners at any camera rotation angle without clipping.
+const TERRAIN_OVERSHOOT = Math.SQRT2 * 1.1;
 
 // Height-based color palette for Canvas 2D terrain background.
 // Colors map to height ranges after the water threshold.
@@ -576,6 +580,11 @@ export function Minimap({
   // in-flight generateTerrainChunked call (they check isCancelled() each row).
   // Only the generation whose version still matches when it completes is accepted.
   const terrainGenVersionRef = useRef(0);
+  // Mutex: true while an async terrain generation is running.
+  // Prevents overlapping generations — only one runs at a time.
+  // Without this gate, the version-increment cancel system would restart generation
+  // every 4 frames during rotation so no generation ever completes.
+  const terrainIsGeneratingRef = useRef(false);
 
   // Cached 2D rendering contexts — avoids DOM query every frame
   const mainCtxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -824,6 +833,7 @@ export function Minimap({
 
       // Cancel any in-flight async terrain generation and clear caches
       terrainGenVersionRef.current++;
+      terrainIsGeneratingRef.current = false;
       terrainOffscreenRef.current = null;
       terrainCacheCenterRef.current.x = Infinity;
       terrainCacheCenterRef.current.z = Infinity;
@@ -1324,35 +1334,36 @@ export function Minimap({
             const upX = cam.up.x;
             const upZ = cam.up.z;
 
-            // Check whether terrain cache needs to be regenerated.
-            // Trigger when: player moved >20 units, camera rotated, extent changed, or cache empty.
+            // Compute the rotation delta between the live camera and the cached terrain angle.
+            // KEY INSIGHT: rotating the canvas context by +deltaYaw around the canvas center
+            // is mathematically equivalent to re-drawing everything with the live worldToPx
+            // camera orientation (proven by coordinate algebra). This means terrain, roads,
+            // and buildings all rotate INSTANTLY without needing terrain regeneration.
+            const cachedYaw = Math.atan2(
+              terrainCacheUpRef.current.x,
+              -terrainCacheUpRef.current.z,
+            );
+            const currentYaw = Math.atan2(upX, -upZ);
+            const deltaYaw = currentYaw - cachedYaw;
+
+            // Terrain regeneration is triggered by POSITION or EXTENT change only —
+            // NOT by camera rotation (canvas rotation handles that instantly).
+            // This eliminates the restart-cancel deadlock: previously, every 4-frame
+            // terrain check during rotation would increment the version token and cancel
+            // the in-flight generation before it could finish, freezing the minimap.
             const cacheCtr = terrainCacheCenterRef.current;
             const ddx = centerX - cacheCtr.x;
             const ddz = centerZ - cacheCtr.z;
             const moved = ddx * ddx + ddz * ddz > 400; // 20² world units
             const extentChanged =
               terrainCacheExtentRef.current !== currentExtent;
-            // Detect meaningful camera rotation (≥ ~5° change in up vector).
-            // Using a per-component threshold of sin(5°) ≈ 0.087 prevents
-            // near-continuous terrain regeneration during smooth camera rotation.
-            // Detect meaningful camera rotation (≥ ~5° = sin(5°) ≈ 0.087 per component).
-            // Canvas resize is handled by the resize useEffect nulling terrainOffscreenRef.
-            const cacheUp = terrainCacheUpRef.current;
-            const rotated =
-              Math.abs(upX - cacheUp.x) > 0.087 ||
-              Math.abs(upZ - cacheUp.z) > 0.087;
+            const needsRegen =
+              !terrainOffscreenRef.current || moved || extentChanged;
 
-            if (
-              !terrainOffscreenRef.current ||
-              moved ||
-              rotated ||
-              extentChanged
-            ) {
+            if (needsRegen && !terrainIsGeneratingRef.current) {
               // Terrain generation runs OUTSIDE the RAF callback as an async
               // task chain that yields every 10 rows.  The current (possibly
               // stale) offscreen canvas is drawn below while generation runs.
-              // Incrementing the version token cancels any in-flight generation
-              // — only the result that matches the current version is accepted.
               type TerrainSystemLike = {
                 getHeightAt: (worldX: number, worldZ: number) => number;
               };
@@ -1362,11 +1373,14 @@ export function Minimap({
                 | undefined;
               if (terrainSystem?.getHeightAt) {
                 const version = ++terrainGenVersionRef.current;
-                // Snapshot all camera values now — the closure must not capture
-                // mutable refs directly since they change each frame.
+                terrainIsGeneratingRef.current = true;
                 const snapCX = centerX;
                 const snapCZ = centerZ;
-                const snapExt = currentExtent;
+                // Store visible extent for overlay coordinate math (worldToPx scale).
+                const snapVisExt = currentExtent;
+                // Generate at TERRAIN_OVERSHOOT × the visible extent so the corners of
+                // the canvas are always covered regardless of camera rotation angle.
+                const snapExt = currentExtent * TERRAIN_OVERSHOOT;
                 const snapUpX = upX;
                 const snapUpZ = upZ;
 
@@ -1379,27 +1393,41 @@ export function Minimap({
                   snapUpZ,
                   () => terrainGenVersionRef.current !== version,
                 ).then((offscreen) => {
-                  // Reject stale results — a newer generation has since started
-                  if (terrainGenVersionRef.current !== version) return;
-                  if (!offscreen) return;
+                  terrainIsGeneratingRef.current = false;
+                  if (terrainGenVersionRef.current !== version || !offscreen)
+                    return;
                   terrainOffscreenRef.current = offscreen;
-                  // Update snapshot so overlay drawing stays aligned
+                  // Cache visible extent (not generation extent) so overlay worldToPx is scaled correctly
                   terrainCacheCenterRef.current.x = snapCX;
                   terrainCacheCenterRef.current.z = snapCZ;
-                  terrainCacheExtentRef.current = snapExt;
+                  terrainCacheExtentRef.current = snapVisExt;
                   terrainCacheUpRef.current.x = snapUpX;
                   terrainCacheUpRef.current.z = snapUpZ;
                 });
               }
             }
 
-            // Scale the low-res OffscreenCanvas up to full canvas size.
-            // drawImage with imageSmoothingEnabled applies bilinear filtering,
-            // making the 50×50 sample grid look smooth at any minimap size.
+            // Apply a single canvas rotation transform so terrain + all vector overlays
+            // rotate to the live camera orientation in one GPU operation.
+            // translate → rotate(+deltaYaw) → translate-back = rotate around canvas center.
+            mainCtx.save();
+            mainCtx.translate(cw / 2, ch / 2);
+            mainCtx.rotate(deltaYaw);
+            mainCtx.translate(-cw / 2, -ch / 2);
+
             if (terrainOffscreenRef.current) {
               mainCtx.imageSmoothingEnabled = true;
               mainCtx.imageSmoothingQuality = "medium";
-              mainCtx.drawImage(terrainOffscreenRef.current, 0, 0, cw, ch);
+              // Draw at TERRAIN_OVERSHOOT × canvas size, centered, so corners always filled
+              const drawW = cw * TERRAIN_OVERSHOOT;
+              const drawH = ch * TERRAIN_OVERSHOOT;
+              mainCtx.drawImage(
+                terrainOffscreenRef.current,
+                cw / 2 - drawW / 2,
+                ch / 2 - drawH / 2,
+                drawW,
+                drawH,
+              );
             } else {
               // Fallback: dark background until terrain system is ready
               mainCtx.fillStyle = "#1a1a2e";
@@ -1439,15 +1467,24 @@ export function Minimap({
               }
             }
 
-            // CRITICAL: Use the CACHED terrain parameters (center, up, extent) for all
-            // vector overlays. The terrain ImageData was baked with these values — any
-            // divergence here causes visible layer sliding as the camera moves/rotates.
+            // Roads and buildings are drawn using CACHED worldToPx coordinates.
+            // Inside the rotated canvas context, these cached positions are transformed
+            // to their live-camera positions — keeping terrain, roads, buildings, and pips
+            // in perfect alignment at any camera angle.
             const overlayUpX = terrainCacheUpRef.current.x;
             const overlayUpZ = terrainCacheUpRef.current.z;
-            const overlayCenterX = terrainCacheCenterRef.current.x;
-            const overlayCenterZ = terrainCacheCenterRef.current.z;
-            const overlayExtent = terrainCacheExtentRef.current;
-            // Pixels per world unit (derived from cached extent)
+            const overlayCenterX = isFinite(terrainCacheCenterRef.current.x)
+              ? terrainCacheCenterRef.current.x
+              : centerX;
+            const overlayCenterZ = isFinite(terrainCacheCenterRef.current.z)
+              ? terrainCacheCenterRef.current.z
+              : centerZ;
+            // Use visible extent; fall back to live extent before first generation
+            const overlayExtent =
+              terrainCacheExtentRef.current > 0
+                ? terrainCacheExtentRef.current
+                : currentExtent;
+            // Pixels per world unit
             const worldScale = cw / (2 * overlayExtent);
 
             // Draw roads
@@ -1619,6 +1656,9 @@ export function Minimap({
               }
               mainCtx.restore();
             }
+
+            // Restore canvas transform — terrain + overlays block complete
+            mainCtx.restore();
           }
         }
       }
