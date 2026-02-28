@@ -12,10 +12,30 @@ import React, {
   useMemo,
 } from "react";
 import { useThemeStore, useQuestSelectionStore } from "@/ui";
-import { Entity, EventType, THREE, createRenderer } from "@hyperscape/shared";
-import type { WebGPURenderer } from "@hyperscape/shared";
+import { Entity, EventType, THREE } from "@hyperscape/shared";
 import type { ClientWorld } from "../../types";
-import { ThreeResourceManager } from "../../lib/ThreeResourceManager";
+// Water threshold height — matches TERRAIN_CONSTANTS.WATER_THRESHOLD
+const MINIMAP_WATER_THRESHOLD = 9.0;
+
+// Height-based color palette for Canvas 2D terrain background.
+// Colors map to height ranges after the water threshold.
+// These approximate the visual terrain biome colors seen in the 3D view.
+const MINIMAP_TERRAIN_COLORS: Array<{
+  maxHeight: number;
+  r: number;
+  g: number;
+  b: number;
+}> = [
+  { maxHeight: MINIMAP_WATER_THRESHOLD, r: 30, g: 60, b: 130 }, // deep water
+  { maxHeight: MINIMAP_WATER_THRESHOLD + 1, r: 50, g: 100, b: 160 }, // shallow water
+  { maxHeight: 15, r: 70, g: 110, b: 70 }, // swamp/wetland
+  { maxHeight: 22, r: 80, g: 140, b: 60 }, // low grassland
+  { maxHeight: 30, r: 90, g: 130, b: 50 }, // grassland
+  { maxHeight: 36, r: 110, g: 120, b: 55 }, // forest / rolling hills
+  { maxHeight: 42, r: 130, g: 110, b: 80 }, // highland
+  { maxHeight: 48, r: 140, g: 120, b: 95 }, // mountain
+  { maxHeight: Infinity, r: 160, g: 155, b: 155 }, // snow peak
+];
 
 // === PRE-ALLOCATED VECTORS FOR HOT PATHS ===
 // These vectors are reused in RAF loops and intervals to avoid GC pressure
@@ -416,13 +436,20 @@ export function Minimap({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<WebGPURenderer | null>(null);
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
   const [entityPips, setEntityPips] = useState<EntityPip[]>([]);
   const entityPipsRefForRender = useRef<EntityPip[]>([]);
   const entityCacheRef = useRef<Map<string, EntityPip>>(new Map());
-  const rendererInitializedRef = useRef<boolean>(false);
+
+  // Canvas 2D terrain background cache
+  const terrainCacheRef = useRef<ImageData | null>(null);
+  // World-space center when the cache was last generated
+  const terrainCacheCenterRef = useRef<{ x: number; z: number }>({
+    x: Infinity,
+    z: Infinity,
+  });
+  // Extent (half-width in world units) when the cache was last generated
+  const terrainCacheExtentRef = useRef<number>(0);
 
   // Quest statuses for minimap quest icons (ref for access in entity loop)
   const questStatusesRef = useRef<Map<string, string>>(new Map());
@@ -586,15 +613,13 @@ export function Minimap({
     opacity: number;
   } | null>(null);
 
-  // Initialize minimap renderer and camera
+  // Initialize minimap camera (no WebGPU renderer needed — Canvas 2D handles all drawing)
   useEffect(() => {
     const canvas = canvasRef.current;
     const overlayCanvas = overlayCanvasRef.current;
     if (!canvas || !overlayCanvas) return;
 
-    // console.log('[Minimap] Initializing renderer...');
-
-    // Create orthographic camera for overhead view - much higher up
+    // Create orthographic camera for overhead view
     const camera = new THREE.OrthographicCamera(
       -extent,
       extent,
@@ -617,55 +642,13 @@ export function Minimap({
       initialForward.normalize();
     }
     camera.up.copy(initialForward);
-    camera.position.set(0, 500, 0); // Much higher for better overview
+    camera.position.set(0, 500, 0);
     camera.lookAt(0, 0, 0);
-
-    // PERFORMANCE: Only see layer 0 (excludes grass on layer 1, vegetation on layer 2)
-    // By default cameras only see layer 0, but ensure we don't enable other layers
-    camera.layers.set(0);
 
     // Mark camera as minimap for systems that need to check (e.g., water system)
     camera.userData.isMinimap = true;
 
     cameraRef.current = camera;
-
-    // Track if component is still mounted for async renderer creation
-    let mounted = true;
-
-    // Only create renderer if it doesn't exist
-    if (!rendererRef.current || !rendererInitializedRef.current) {
-      // console.log('[Minimap] Creating new renderer');
-      createRenderer({
-        canvas,
-        alpha: true,
-        antialias: false,
-      })
-        .then((renderer) => {
-          if (!mounted) {
-            if ("dispose" in renderer)
-              (renderer as { dispose: () => void }).dispose();
-            return;
-          }
-
-          renderer.setSize(width, height);
-
-          rendererRef.current = renderer;
-          rendererInitializedRef.current = true;
-          // console.log('[Minimap] Renderer initialized successfully');
-        })
-        .catch((error) => {
-          console.warn("[Minimap] Failed to create renderer:", error);
-          rendererRef.current = null;
-          rendererInitializedRef.current = false;
-        });
-    } else {
-      // console.log('[Minimap] Reusing existing renderer');
-      // Update renderer size when reusing
-      if (rendererRef.current) {
-        rendererRef.current.setSize(width, height);
-      }
-      // console.log('[Minimap] Renderer size updated');
-    }
 
     // Ensure both canvases have the correct backing size
     canvas.width = width;
@@ -673,65 +656,17 @@ export function Minimap({
     overlayCanvas.width = width;
     overlayCanvas.height = height;
 
-    return () => {
-      // Set mounted to false to prevent renderer initialization after unmount
-      mounted = false;
-      // Don't dispose renderer on unmount - we want to reuse it
-      // Only pause rendering when hidden, don't dispose
-      if (rendererRef.current && rendererInitializedRef.current && !isVisible) {
-        // console.log('[Minimap] Pausing renderer (component hidden)');
-        // Pause rendering when hidden
-        if ("setAnimationLoop" in rendererRef.current) {
-          rendererRef.current.setAnimationLoop(null);
-        }
-      }
-    };
-    // Note: extent intentionally omitted - changes handled via extentRef in render loop (lines 582-590)
+    // Invalidate terrain cache when canvas dimensions change
+    terrainCacheRef.current = null;
+
+    // Note: extent intentionally omitted - changes handled via extentRef in render loop
   }, [width, height, world]);
 
-  // Use the actual world scene instead of creating a separate one
-  useEffect(() => {
-    if (!world.stage.scene) return;
-
-    // Use the world's actual scene for minimap rendering
-    sceneRef.current = world.stage.scene;
-
-    // No cleanup needed - we're using the world's scene
-  }, [world]);
-
-  // Handle visibility changes to pause/resume rendering
-  useEffect(() => {
-    if (!rendererRef.current) return;
-
-    if (isVisible) {
-      // console.log('[Minimap] Resuming renderer (component visible)');
-      // Resume rendering when visible
-      if ("setAnimationLoop" in rendererRef.current) {
-        rendererRef.current.setAnimationLoop(null);
-      }
-    } else {
-      // console.log('[Minimap] Pausing renderer (component hidden)');
-      // Pause rendering when hidden
-      if ("setAnimationLoop" in rendererRef.current) {
-        rendererRef.current.setAnimationLoop(null);
-      }
-    }
-  }, [isVisible]);
-
-  // Cleanup renderer, camera, and scene reference when component is actually unmounted
+  // Cleanup camera reference and terrain cache when component unmounts
   useEffect(() => {
     return () => {
-      // Dispose renderer
-      if (rendererRef.current && rendererInitializedRef.current) {
-        // console.log('[Minimap] Disposing renderer on component unmount');
-        ThreeResourceManager.disposeRenderer(rendererRef.current);
-        rendererRef.current = null;
-        rendererInitializedRef.current = false;
-      }
-
       // Clear camera reference and userData
       if (cameraRef.current) {
-        // Clear camera userData to prevent dangling references
         if (cameraRef.current.userData) {
           Object.keys(cameraRef.current.userData).forEach((key) => {
             delete cameraRef.current!.userData[key];
@@ -740,8 +675,8 @@ export function Minimap({
         cameraRef.current = null;
       }
 
-      // Clear scene reference (we don't own it, just borrowed from world)
-      sceneRef.current = null;
+      // Clear terrain cache
+      terrainCacheRef.current = null;
 
       // Clear entity cache to prevent memory retention
       entityCacheRef.current.clear();
@@ -1088,8 +1023,8 @@ export function Minimap({
     let rafId: number | null = null;
     let frameCount = 0;
 
-    // PERFORMANCE: Throttle 3D rendering to ~15fps (render every 4th frame)
-    // 2D overlay (pips) still updates every frame for smooth interaction
+    // Throttle terrain background redraw to ~15fps (every 4th frame)
+    // 2D pip overlay still updates every frame for smooth interaction
     const RENDER_EVERY_N_FRAMES = 4;
 
     // Note: We use module-level pre-allocated vectors (_tempForwardVec, _tempProjectVec, etc.)
@@ -1203,68 +1138,147 @@ export function Minimap({
         }
       }
 
-      // --- Render 3D scene (throttled for performance) ---
-      // Only render 3D every N frames to reduce GPU load
-      const shouldRender3D = frameCount % RENDER_EVERY_N_FRAMES === 0;
-      if (shouldRender3D && rendererRef.current && sceneRef.current && cam) {
-        // PERFORMANCE: Disable fog for minimap rendering (top-down view doesn't need it)
-        const savedFog = sceneRef.current.fog;
-        sceneRef.current.fog = null;
-
-        // Also disable terrain shader fog (it uses custom uniforms, not scene.fog)
-        // Access terrain material uniforms directly - TerrainSystem exposes getTerrainMaterialWithUniforms()
-        type TerrainMaterialUniforms = {
-          fogEnabled: { value: number };
-        };
-        type TerrainMaterial = { terrainUniforms: TerrainMaterialUniforms };
-        type TerrainSystemWithMaterial = {
-          getTerrainMaterialWithUniforms: () => TerrainMaterial | null;
-        };
-
-        let terrainMat: TerrainMaterial | null = null;
-
-        try {
-          const terrainSystem = world.getSystem("terrain") as
-            | TerrainSystemWithMaterial
-            | undefined;
-          if (terrainSystem?.getTerrainMaterialWithUniforms) {
-            terrainMat = terrainSystem.getTerrainMaterialWithUniforms();
-            if (terrainMat?.terrainUniforms) {
-              // Disable fog completely for minimap (fogEnabled = 0.0)
-              terrainMat.terrainUniforms.fogEnabled.value = 0.0;
-            }
-          }
-        } catch {
-          // If terrain system isn't ready yet, fog will remain - that's okay
-        }
-
-        rendererRef.current.render(sceneRef.current, cam);
-
-        // Cache the projection-view matrix used for this render
-        // This keeps pip positions synced with the throttled 3D background
+      // --- Update camera matrices unconditionally for pip projection ---
+      // No 3D render is performed — the projection-view matrix is computed
+      // purely from the camera's current transform so pip coordinates stay accurate.
+      if (cam) {
+        cam.updateMatrixWorld();
         _cachedProjectionViewMatrix.multiplyMatrices(
           cam.projectionMatrix,
           cam.matrixWorldInverse,
         );
         _hasCachedMatrix = true;
+      }
 
-        // Restore fog for main camera
-        sceneRef.current.fog = savedFog;
-        if (terrainMat?.terrainUniforms) {
-          terrainMat.terrainUniforms.fogEnabled.value = 1.0;
+      // --- Canvas 2D terrain background (throttled, same cadence as old 3D render) ---
+      const shouldRedrawTerrain = frameCount % RENDER_EVERY_N_FRAMES === 0;
+      if (shouldRedrawTerrain && cam) {
+        const mainCanvas = canvasRef.current;
+        if (mainCanvas) {
+          const mainCtx = mainCanvas.getContext("2d");
+          if (mainCtx) {
+            const cw = mainCanvas.width;
+            const ch = mainCanvas.height;
+
+            // Check whether terrain cache needs to be regenerated.
+            // Trigger when: player moved >20 units, extent changed, or cache is empty.
+            const centerX = cam.position.x;
+            const centerZ = cam.position.z;
+            const currentExtent = extentRef.current;
+            const cacheCtr = terrainCacheCenterRef.current;
+            const dx = centerX - cacheCtr.x;
+            const dz = centerZ - cacheCtr.z;
+            const moved = dx * dx + dz * dz > 400; // 20² world units
+            const extentChanged =
+              terrainCacheExtentRef.current !== currentExtent;
+            const sizeChanged =
+              terrainCacheRef.current !== null &&
+              (terrainCacheRef.current.width !== cw ||
+                terrainCacheRef.current.height !== ch);
+
+            if (
+              !terrainCacheRef.current ||
+              moved ||
+              extentChanged ||
+              sizeChanged
+            ) {
+              // Sample terrain heights in a grid, map to RGBA colors
+              type TerrainSystemLike = {
+                getHeightAt: (worldX: number, worldZ: number) => number;
+              };
+              const terrainSystem = world.getSystem("terrain") as
+                | TerrainSystemLike
+                | null
+                | undefined;
+              if (terrainSystem?.getHeightAt) {
+                const imageData = mainCtx.createImageData(cw, ch);
+                const data = imageData.data;
+                for (let py = 0; py < ch; py++) {
+                  for (let px = 0; px < cw; px++) {
+                    // Convert pixel to world coords (accounting for camera up direction)
+                    // NDC: x in [-1,1], y in [-1,1] (flipped — screen y is down)
+                    const ndcX = (px / cw) * 2 - 1;
+                    const ndcY = 1 - (py / ch) * 2;
+                    // Unproject through orthographic camera:
+                    // world = cam position + ndcX * right * extent + ndcY * up * extent
+                    const upX = cam.up.x;
+                    const upZ = cam.up.z;
+                    // right = forward × up (but forward is -Y axis in ortho top-down)
+                    // For top-down ortho the right vector in XZ is perpendicular to up
+                    const rightX = -upZ;
+                    const rightZ = upX;
+                    const worldX =
+                      centerX +
+                      ndcX * rightX * currentExtent -
+                      ndcY * upX * currentExtent;
+                    const worldZ =
+                      centerZ +
+                      ndcX * rightZ * currentExtent -
+                      ndcY * upZ * currentExtent;
+
+                    let h: number;
+                    try {
+                      h = terrainSystem.getHeightAt(worldX, worldZ);
+                    } catch {
+                      h = 0;
+                    }
+
+                    // Map height to color
+                    let r = 30,
+                      g = 60,
+                      b = 130;
+                    for (let ci = 0; ci < MINIMAP_TERRAIN_COLORS.length; ci++) {
+                      const entry = MINIMAP_TERRAIN_COLORS[ci];
+                      if (h <= entry.maxHeight) {
+                        r = entry.r;
+                        g = entry.g;
+                        b = entry.b;
+                        break;
+                      }
+                    }
+
+                    // Height-based lightening for land (adds sense of elevation)
+                    if (h > MINIMAP_WATER_THRESHOLD) {
+                      const lift =
+                        Math.min(
+                          30,
+                          ((h - MINIMAP_WATER_THRESHOLD) / 40) * 30,
+                        ) | 0;
+                      r = Math.min(255, r + lift);
+                      g = Math.min(255, g + lift);
+                      b = Math.min(255, b + lift);
+                    }
+
+                    const idx = (py * cw + px) * 4;
+                    data[idx] = r;
+                    data[idx + 1] = g;
+                    data[idx + 2] = b;
+                    data[idx + 3] = 255;
+                  }
+                }
+                terrainCacheRef.current = imageData;
+                terrainCacheCenterRef.current = { x: centerX, z: centerZ };
+                terrainCacheExtentRef.current = currentExtent;
+              }
+            }
+
+            // Paint the cached terrain onto the base canvas
+            if (terrainCacheRef.current) {
+              mainCtx.putImageData(terrainCacheRef.current, 0, 0);
+            } else {
+              // Fallback: dark background until terrain system is ready
+              mainCtx.fillStyle = "#1a1a2e";
+              mainCtx.fillRect(0, 0, cw, ch);
+            }
+          }
         }
       }
 
-      // Always draw 2D pips on overlay canvas
+      // Draw 2D pips on overlay canvas every frame for smooth interaction
       const ctx = overlayCanvas.getContext("2d");
       if (ctx) {
         // Clear the overlay each frame
         ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        // If no renderer, fill background on overlay
-        if (!rendererRef.current) {
-          ctx.fillStyle = "#1a1a2e";
-          ctx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        }
 
         // Draw entity pips (use ref to avoid re-creating the render loop)
         // Use for-loop instead of forEach to avoid creating callback functions every frame
