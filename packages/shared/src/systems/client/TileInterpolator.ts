@@ -311,6 +311,7 @@ export class TileInterpolator {
     moveSeq?: number,
     emote?: string,
     tilesPerTick?: number,
+    isContinuation?: boolean,
   ): void {
     if (this.debugMode) {
       console.log(
@@ -341,6 +342,30 @@ export class TileInterpolator {
       this.deleteEntityState(entityId);
       return;
     }
+
+    // Continuation fast-path: server sent this segment 1 tick early so the client
+    // can append it to the existing path with no idle frame.
+    // Preserve visual position, catch-up multiplier, and tile index — nothing resets.
+    const existingMoving =
+      existingState?.isMoving && (existingState?.fullPath.length ?? 0) > 0;
+    if (isContinuation && existingMoving && existingState) {
+      for (const tile of path) {
+        existingState.fullPath.push({ ...tile });
+      }
+      if (destinationTile) {
+        existingState.destinationTile = { ...destinationTile };
+      }
+      existingState.moveSeq = moveSeq ?? existingState.moveSeq;
+      existingState.isRunning = running;
+      if (this.debugMode) {
+        console.log(
+          `[TileInterpolator] Continuation: appended ${path.length} tiles to path (total=${existingState.fullPath.length})`,
+        );
+      }
+      return;
+    }
+    // isContinuation=true but entity already stopped (packet arrived slightly late):
+    // fall through to normal full-reset logic — still better than an idle gap.
 
     // Get or create state
     let state = this.entityStates.get(entityId);
@@ -473,6 +498,30 @@ export class TileInterpolator {
         `[TileInterpolator] Path set: ${finalPath.map((t) => `(${t.x},${t.z})`).join(" -> ")}, tilesPerTick=${tilesPerTick ?? "default"}`,
       );
     }
+  }
+
+  /**
+   * Immediately pivot the entity's visual rotation toward a new world-space target.
+   * Called client-side on every move-click so the character faces the new destination
+   * BEFORE the server round-trip completes (optimistic rotation).
+   *
+   * Only updates the target quaternion — the existing path, visual position, and
+   * catch-up state are untouched. The slerp in update() smoothly transitions
+   * the visual rotation, and onMovementStart() will overwrite targetQuaternion
+   * again when the server's confirmed path arrives.
+   */
+  setOptimisticTarget(
+    entityId: string,
+    worldPos: { x: number; z: number },
+  ): void {
+    const state = this.entityStates.get(entityId);
+    if (!state || !state.isMoving) return;
+    const dx = worldPos.x - state.visualPosition.x;
+    const dz = worldPos.z - state.visualPosition.z;
+    if (Math.abs(dx) < 0.01 && Math.abs(dz) < 0.01) return;
+    // VRM faces -Z; apply same yaw convention as the movement rotation code
+    const yaw = Math.atan2(-dx, -dz);
+    state.targetQuaternion.setFromAxisAngle(this._up, yaw);
   }
 
   /**
@@ -630,7 +679,7 @@ export class TileInterpolator {
 
         // Use catch-up multiplier based on distance for smooth but quick sync
         const rawMultiplier = 1.0 + (dist - 1) * 0.6;
-        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 4.0);
+        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 2.0);
 
         if (this.debugMode) {
           console.log(
@@ -691,7 +740,7 @@ export class TileInterpolator {
         // Formula: 1.0 + (tileDiff - 2) * 0.5, capped at 4.0x for very large desyncs
         // 3 tiles behind = 1.5x, 6 tiles = 3.0x, 10+ tiles = 4.0x (max)
         const rawMultiplier = 1.0 + (tileDiff - 2) * 0.5;
-        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 4.0);
+        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 2.0);
         if (this.debugMode) {
           console.log(
             `[TileInterpolator] Behind by ${tileDiff} tiles, speeding up to ${state.targetCatchUpMultiplier.toFixed(2)}x`,
@@ -746,7 +795,7 @@ export class TileInterpolator {
         // Use aggressive catch-up multiplier based on distance
         // This ensures we reach server position quickly without teleporting
         const rawMultiplier = 1.0 + (dist - 1) * 0.6;
-        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 4.0);
+        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 2.0);
 
         if (this.debugMode || dist > 4) {
           console.log(
@@ -778,7 +827,7 @@ export class TileInterpolator {
             // Speed up to catch up
             const behindBy = visualDistToDest - serverDistToDest;
             const rawMultiplier = 1.0 + (behindBy - 1) * 0.5;
-            state.targetCatchUpMultiplier = Math.min(rawMultiplier, 4.0);
+            state.targetCatchUpMultiplier = Math.min(rawMultiplier, 2.0);
             if (this.debugMode) {
               console.log(
                 `[TileInterpolator] Behind by ~${behindBy.toFixed(1)} tiles (path mismatch), speeding to ${state.targetCatchUpMultiplier.toFixed(2)}x`,
@@ -791,7 +840,7 @@ export class TileInterpolator {
         } else {
           // No destination info - use distance-based speed up (assume behind)
           const rawMultiplier = 1.0 + (dist - 2) * 0.5;
-          state.targetCatchUpMultiplier = Math.min(rawMultiplier, 4.0);
+          state.targetCatchUpMultiplier = Math.min(rawMultiplier, 2.0);
         }
       }
       // For small distances or when we have an active path with small desync,

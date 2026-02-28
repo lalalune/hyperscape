@@ -112,6 +112,18 @@ export class InteractionRouter extends System {
   private pathLineTimeout: ReturnType<typeof setTimeout> | null = null;
   private pathfinder: BFSPathfinder = new BFSPathfinder();
 
+  // Pending-move queue: ensures the most recent click always reaches the server
+  // even when two clicks arrive within the server's rate-limit window (67ms / 15 req/sec).
+  private _lastMoveSentAt = 0;
+  private _pendingMove: {
+    target: [number, number, number];
+    targetTile: { x: number; z: number };
+    runMode: boolean;
+    cancel: boolean;
+  } | null = null;
+  private _pendingMoveTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly MOVE_SEND_COOLDOWN_MS = 70;
+
   constructor(world: World) {
     super(world);
 
@@ -326,6 +338,12 @@ export class InteractionRouter extends System {
 
     if (this.longPressTimer) {
       clearTimeout(this.longPressTimer);
+    }
+
+    if (this._pendingMoveTimer) {
+      clearTimeout(this._pendingMoveTimer);
+      this._pendingMoveTimer = null;
+      this._pendingMove = null;
     }
 
     super.destroy();
@@ -1084,8 +1102,27 @@ export class InteractionRouter extends System {
       z: snappedPos.z,
     });
 
-    // Send move request
-    if (this.world.network?.send) {
+    // M1 — Optimistic pivot: immediately rotate the character toward the new
+    // destination without waiting for the server round-trip. Only updates the
+    // target quaternion so the existing path and catch-up state are untouched.
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer) {
+      const networkWithInterpolator = this.world.network as {
+        tileInterpolator?: {
+          setOptimisticTarget: (
+            entityId: string,
+            worldPos: { x: number; z: number },
+          ) => void;
+        };
+      } | null;
+      networkWithInterpolator?.tileInterpolator?.setOptimisticTarget(
+        localPlayer.id,
+        snappedPos,
+      );
+    }
+
+    // Send move request (M2 — pending-move queue ensures last click always wins)
+    {
       let runMode = shiftKey;
       const playerEntity = this.world.getPlayer() as {
         runMode?: boolean;
@@ -1094,13 +1131,54 @@ export class InteractionRouter extends System {
         runMode = playerEntity.runMode;
       }
 
-      this.world.network.send(MESSAGE_TYPES.MOVE_REQUEST, {
+      this._sendMoveRequest({
         target: [snappedPos.x, terrainPos.y, snappedPos.z],
         targetTile: { x: tile.x, z: tile.z },
         runMode,
         cancel: false,
       });
     }
+  }
+
+  // === Pending-Move Queue helpers ===
+
+  private _sendMoveRequest(payload: {
+    target: [number, number, number];
+    targetTile: { x: number; z: number };
+    runMode: boolean;
+    cancel: boolean;
+  }): void {
+    const now = Date.now();
+    const elapsed = now - this._lastMoveSentAt;
+    if (elapsed < InteractionRouter.MOVE_SEND_COOLDOWN_MS) {
+      // Within rate-limit window: overwrite any previous pending request and
+      // schedule a flush so the most recent destination always reaches the server.
+      this._pendingMove = payload;
+      if (this._pendingMoveTimer) clearTimeout(this._pendingMoveTimer);
+      this._pendingMoveTimer = setTimeout(
+        () => this._flushPendingMove(),
+        InteractionRouter.MOVE_SEND_COOLDOWN_MS - elapsed,
+      );
+      return;
+    }
+    this._doSendMove(payload);
+  }
+
+  private _flushPendingMove(): void {
+    if (!this._pendingMove) return;
+    this._doSendMove(this._pendingMove);
+    this._pendingMove = null;
+    this._pendingMoveTimer = null;
+  }
+
+  private _doSendMove(payload: {
+    target: [number, number, number];
+    targetTile: { x: number; z: number };
+    runMode: boolean;
+    cancel: boolean;
+  }): void {
+    this._lastMoveSentAt = Date.now();
+    this.world.network?.send(MESSAGE_TYPES.MOVE_REQUEST, payload);
   }
 
   /**

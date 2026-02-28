@@ -466,6 +466,10 @@ export class TileMovementManager {
       z: payload.targetTile.z,
     };
 
+    // Any new click cancels a precomputed segment that hasn't been consumed yet.
+    // The stale tileMovementStart (isContinuation) will be rejected client-side via moveSeq.
+    state.nextSegmentPrecomputed = false;
+
     // Set movement flag for tracking active tile movement
     if (path.length > 0) {
       playerEntity.data.tileMovementActive = true;
@@ -782,6 +786,37 @@ export class TileMovementManager {
         moveSeq: state.moveSeq,
       });
 
+      // Look-ahead: pre-compute the next path segment 1 tick before the current
+      // one ends so the client can append it seamlessly (no idle gap between segments).
+      // Fires when exactly 1 tick of path is left and there is more ground to cover.
+      {
+        const tilesPerTick = state.isRunning
+          ? TILES_PER_TICK_RUN
+          : TILES_PER_TICK_WALK;
+        const tilesRemaining = state.path.length - state.pathIndex;
+        if (
+          tilesRemaining > 0 &&
+          tilesRemaining <= tilesPerTick &&
+          state.lastPathPartial &&
+          state.requestedDestination &&
+          !state.nextSegmentPrecomputed &&
+          !tilesEqual(
+            state.path[state.path.length - 1],
+            state.requestedDestination,
+          )
+        ) {
+          const pathEnd = state.path[state.path.length - 1];
+          this._precomputeAndSendNextSegment(
+            playerId,
+            pathEnd,
+            state.requestedDestination,
+            state.isRunning,
+            state,
+          );
+          state.nextSegmentPrecomputed = true;
+        }
+      }
+
       // Check if arrived at destination
       if (state.pathIndex >= state.path.length) {
         // Path continuation: if BFS hit its iteration limit before reaching the
@@ -792,19 +827,28 @@ export class TileMovementManager {
           state.requestedDestination &&
           !tilesEqual(state.currentTile, state.requestedDestination)
         ) {
-          const dest = state.requestedDestination;
-          // Clear before re-pathfind so an unreachable tile cannot loop forever
-          state.requestedDestination = null;
-          state.lastPathPartial = false;
-          this._continuePathToDestination(playerId, dest, state.isRunning);
-          // If continuation found a new path, skip tileMovementEnd to keep animation continuous
-          if (state.path.length > 0) {
-            continue;
+          if (state.nextSegmentPrecomputed) {
+            // Already sent the next segment early — just clear flags so the
+            // client's appended path plays through without an extra BFS here.
+            state.requestedDestination = null;
+            state.lastPathPartial = false;
+            state.nextSegmentPrecomputed = false;
+          } else {
+            const dest = state.requestedDestination;
+            // Clear before re-pathfind so an unreachable tile cannot loop forever
+            state.requestedDestination = null;
+            state.lastPathPartial = false;
+            this._continuePathToDestination(playerId, dest, state.isRunning);
+            // If continuation found a new path, skip tileMovementEnd to keep animation continuous
+            if (state.path.length > 0) {
+              continue;
+            }
           }
         } else {
           // Reached the true destination (or it became unreachable)
           state.requestedDestination = null;
           state.lastPathPartial = false;
+          state.nextSegmentPrecomputed = false;
         }
 
         // Get any pending arrival emote (e.g., "fishing" for gathering actions)
@@ -991,6 +1035,36 @@ export class TileMovementManager {
       moveSeq: state.moveSeq,
     });
 
+    // Look-ahead: pre-compute the next path segment 1 tick before the current
+    // one ends so the client can append it seamlessly (no idle gap between segments).
+    {
+      const tilesPerTick = state.isRunning
+        ? TILES_PER_TICK_RUN
+        : TILES_PER_TICK_WALK;
+      const tilesRemaining = state.path.length - state.pathIndex;
+      if (
+        tilesRemaining > 0 &&
+        tilesRemaining <= tilesPerTick &&
+        state.lastPathPartial &&
+        state.requestedDestination &&
+        !state.nextSegmentPrecomputed &&
+        !tilesEqual(
+          state.path[state.path.length - 1],
+          state.requestedDestination,
+        )
+      ) {
+        const pathEnd = state.path[state.path.length - 1];
+        this._precomputeAndSendNextSegment(
+          playerId,
+          pathEnd,
+          state.requestedDestination,
+          state.isRunning,
+          state,
+        );
+        state.nextSegmentPrecomputed = true;
+      }
+    }
+
     // Check if arrived at destination
     if (state.pathIndex >= state.path.length) {
       // Path continuation: if BFS hit its iteration limit before reaching the
@@ -1001,15 +1075,23 @@ export class TileMovementManager {
         state.requestedDestination &&
         !tilesEqual(state.currentTile, state.requestedDestination)
       ) {
-        const dest = state.requestedDestination;
-        state.requestedDestination = null;
-        state.lastPathPartial = false;
-        this._continuePathToDestination(playerId, dest, state.isRunning);
-        // If continuation found a new path, skip tileMovementEnd to keep animation continuous
-        if (state.path.length > 0) return;
+        if (state.nextSegmentPrecomputed) {
+          // Already sent the next segment early — just clear flags.
+          state.requestedDestination = null;
+          state.lastPathPartial = false;
+          state.nextSegmentPrecomputed = false;
+        } else {
+          const dest = state.requestedDestination;
+          state.requestedDestination = null;
+          state.lastPathPartial = false;
+          this._continuePathToDestination(playerId, dest, state.isRunning);
+          // If continuation found a new path, skip tileMovementEnd to keep animation continuous
+          if (state.path.length > 0) return;
+        }
       } else {
         state.requestedDestination = null;
         state.lastPathPartial = false;
+        state.nextSegmentPrecomputed = false;
       }
 
       // Get any pending arrival emote (e.g., "fishing" for gathering actions)
@@ -1136,6 +1218,101 @@ export class TileMovementManager {
   }
 
   /**
+   * Pre-compute the next path segment and send it to the client 1 tick before
+   * the current segment ends, allowing seamless path-appending on the client
+   * with no idle frame between segments.
+   *
+   * Unlike _continuePathToDestination this method does NOT overwrite state.path /
+   * state.pathIndex — the player continues walking the current segment unchanged.
+   * It does update state.moveSeq, state.lastPathPartial, and
+   * state.requestedDestination so the server stays consistent when the current
+   * segment does finish on the next tick.
+   */
+  private _precomputeAndSendNextSegment(
+    playerId: string,
+    fromTile: TileCoord,
+    destination: TileCoord,
+    isRunning: boolean,
+    state: TileMovementState,
+  ): void {
+    const entity = this.world.entities.get(playerId);
+    if (!entity) return;
+
+    // Apply the same movement guards as handleMoveRequest
+    const deathState = entity.data?.deathState as DeathState | undefined;
+    if (deathState === DeathState.DYING || deathState === DeathState.DEAD) {
+      state.requestedDestination = null;
+      state.lastPathPartial = false;
+      return;
+    }
+
+    const duelSystem = this.world.getSystem("duel") as {
+      canMove?: (playerId: string) => boolean;
+    } | null;
+    if (duelSystem?.canMove && !duelSystem.canMove(playerId)) {
+      state.requestedDestination = null;
+      state.lastPathPartial = false;
+      return;
+    }
+
+    const buildingService = this.getBuildingCollision();
+    const currentFloor = buildingService
+      ? buildingService.getPlayerFloor(playerId as EntityID)
+      : 0;
+    const currentBuildingId = buildingService
+      ? buildingService.getBuildingAt(fromTile.x, fromTile.z)
+      : null;
+
+    // BFS from the last tile of the current path (the player hasn't stepped on
+    // it yet — keeps the segment boundary invisible to the client)
+    const path = this.pathfinder.findPath(
+      fromTile,
+      destination,
+      (tile, prevTile) =>
+        this.isTileWalkable(tile, currentFloor, prevTile, currentBuildingId),
+    );
+
+    if (path.length === 0) {
+      // Destination is unreachable from the path-end tile; let normal end-of-path
+      // handling deal with it when the current segment finishes.
+      return;
+    }
+
+    // Advance moveSeq so the client can validate ordering (stale precomputed
+    // packets sent before a re-click are rejected via the existing moveSeq check)
+    state.moveSeq = (state.moveSeq || 0) + 1;
+    state.lastPathPartial = this.pathfinder.wasLastPathPartial();
+
+    if (state.lastPathPartial) {
+      // Another continuation will be needed; keep the ultimate destination alive
+      state.requestedDestination = { x: destination.x, z: destination.z };
+    } else {
+      state.requestedDestination = null;
+    }
+
+    // Build network path buffer (zero-allocation pattern)
+    this._networkPathBuffer.length = path.length;
+    for (let i = 0; i < path.length; i++) {
+      if (!this._networkPathBuffer[i]) {
+        this._networkPathBuffer[i] = { x: 0, z: 0 };
+      }
+      this._networkPathBuffer[i].x = path[i].x;
+      this._networkPathBuffer[i].z = path[i].z;
+    }
+
+    this.sendFn("tileMovementStart", {
+      id: playerId,
+      startTile: { x: fromTile.x, z: fromTile.z },
+      path: this._networkPathBuffer,
+      running: isRunning,
+      destinationTile: { x: destination.x, z: destination.z },
+      moveSeq: state.moveSeq,
+      emote: isRunning ? "run" : "walk",
+      isContinuation: true,
+    });
+  }
+
+  /**
    * Legacy frame-based update (for compatibility during transition)
    * This should be removed once tile movement is fully working
    */
@@ -1212,6 +1389,7 @@ export class TileMovementManager {
       // so the original destination is no longer valid
       state.requestedDestination = null;
       state.lastPathPartial = false;
+      state.nextSegmentPrecomputed = false;
 
       // RS3-style: Clear movement flag so combat can resume
       const entity = this.world.entities.get(playerId);

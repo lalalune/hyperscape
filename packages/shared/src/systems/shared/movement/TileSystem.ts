@@ -82,6 +82,14 @@ export interface TileMovementState {
    * after other players' paths may have overwritten the shared flag.
    */
   lastPathPartial: boolean;
+
+  /**
+   * Whether the server has already pre-computed and sent the next path segment
+   * 1 tick early to eliminate the idle gap at segment boundaries.
+   * Prevents double-sending when the path-exhaustion block also fires.
+   * Cleared on any new move request or respawn/teleport.
+   */
+  nextSegmentPrecomputed: boolean;
 }
 
 /**
@@ -956,6 +964,7 @@ export function createTileMovementState(
     previousTile: null, // Set on first tick
     requestedDestination: null,
     lastPathPartial: false,
+    nextSegmentPrecomputed: false,
   };
 }
 

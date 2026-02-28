@@ -4583,6 +4583,7 @@ export class ClientNetwork extends SystemBase {
     moveSeq?: number;
     emote?: string;
     tilesPerTick?: number; // Mob-specific speed (optional, defaults to walk/run speed)
+    isContinuation?: boolean; // Append to existing path instead of resetting interpolator
   }) => {
     // Get entity's current position for smooth start (fallback if startTile not provided)
     const entity = this.world.entities.get(data.id);
@@ -4605,6 +4606,7 @@ export class ClientNetwork extends SystemBase {
       data.moveSeq,
       data.emote,
       data.tilesPerTick,
+      data.isContinuation,
     );
 
     // CRITICAL: Set the flag IMMEDIATELY when movement starts
