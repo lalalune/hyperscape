@@ -134,6 +134,9 @@ export class ProjectileRenderer extends System {
   // Shared geometry for billboard particles (reused across all projectiles)
   private static particleGeometry: THREE.CircleGeometry | null = null;
 
+  // Reference count — particleGeometry is only disposed when the last instance tears down
+  private static _instanceCount = 0;
+
   // Last trail update time
   private lastTrailUpdate = 0;
 
@@ -143,6 +146,7 @@ export class ProjectileRenderer extends System {
 
   async init(options?: WorldOptions): Promise<void> {
     await super.init(options as WorldOptions);
+    ProjectileRenderer._instanceCount++;
 
     // Only run on client
     if (!this.world.isClient) {
@@ -1172,7 +1176,15 @@ export class ProjectileRenderer extends System {
     this.spellGlowTextures.clear();
 
     // Dispose shared geometry
-    if (ProjectileRenderer.particleGeometry) {
+    // Only dispose the shared geometry when the last instance is torn down
+    ProjectileRenderer._instanceCount = Math.max(
+      0,
+      ProjectileRenderer._instanceCount - 1,
+    );
+    if (
+      ProjectileRenderer._instanceCount === 0 &&
+      ProjectileRenderer.particleGeometry
+    ) {
       ProjectileRenderer.particleGeometry.dispose();
       ProjectileRenderer.particleGeometry = null;
     }

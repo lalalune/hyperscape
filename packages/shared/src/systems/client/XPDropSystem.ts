@@ -141,7 +141,12 @@ export class XPDropSystem extends System {
     if (!this.world.stage?.scene) return;
 
     const item = this.acquirePoolItem();
-    if (!item) return; // Pool exhausted — drop skipped, no allocation
+    if (!item) {
+      console.warn(
+        `[XPDropSystem] Pool exhausted — XP drop skipped. Increase POOL_SIZE (currently ${this.POOL_SIZE}) if this occurs frequently.`,
+      );
+      return;
+    }
 
     const { canvas, context, texture, material, sprite } = item;
     const size = this.CANVAS_SIZE;
