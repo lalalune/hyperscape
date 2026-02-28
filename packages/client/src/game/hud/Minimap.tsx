@@ -37,6 +37,32 @@ const MINIMAP_TERRAIN_COLORS: Array<{
   { maxHeight: Infinity, r: 160, g: 155, b: 155 }, // snow peak
 ];
 
+/**
+ * Convert a world-space (wx, wz) point to canvas pixel coordinates.
+ * Derived by inverting the terrain-pixel unproject transform, accounting for
+ * the minimap orthographic camera's up vector (which rotates with the player).
+ */
+function worldToPx(
+  wx: number,
+  wz: number,
+  centerX: number,
+  centerZ: number,
+  extent: number,
+  upX: number,
+  upZ: number,
+  cw: number,
+  ch: number,
+): [number, number] {
+  const dx = wx - centerX;
+  const dz = wz - centerZ;
+  // Project (dx,dz) onto camera right and up axes.
+  // right = (-upZ, upX) in XZ.  ndcX = dot((dx,dz), right) / extent
+  const ndcX = (dz * upX - dx * upZ) / extent;
+  // ndcY = -dot((dx,dz), up) / extent  (canvas Y is inverted vs world Z)
+  const ndcY = -(dx * upX + dz * upZ) / extent;
+  return [(ndcX * 0.5 + 0.5) * cw, (-ndcY * 0.5 + 0.5) * ch];
+}
+
 // === PRE-ALLOCATED VECTORS FOR HOT PATHS ===
 // These vectors are reused in RAF loops and intervals to avoid GC pressure
 
@@ -451,6 +477,23 @@ export function Minimap({
   // Extent (half-width in world units) when the cache was last generated
   const terrainCacheExtentRef = useRef<number>(0);
 
+  // Cached 2D rendering contexts — avoids DOM query every frame
+  const mainCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const overlayCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+
+  // Static world feature caches — populated once, never change after world init
+  const roadsCacheRef = useRef<Array<{
+    path: Array<{ x: number; z: number }>;
+    width: number;
+  }> | null>(null);
+  const townsCacheRef = useRef<Array<{
+    buildings: Array<{
+      position: { x: number; z: number };
+      size: { width: number; depth: number };
+      rotation: number;
+    }>;
+  }> | null>(null);
+
   // Quest statuses for minimap quest icons (ref for access in entity loop)
   const questStatusesRef = useRef<Map<string, string>>(new Map());
   const setQuestStatuses = useQuestSelectionStore((s) => s.setQuestStatuses);
@@ -656,6 +699,10 @@ export function Minimap({
     overlayCanvas.width = width;
     overlayCanvas.height = height;
 
+    // Cache 2D contexts once (getContext is a DOM query — avoid calling every frame)
+    mainCtxRef.current = canvas.getContext("2d");
+    overlayCtxRef.current = overlayCanvas.getContext("2d");
+
     // Invalidate terrain cache when canvas dimensions change
     terrainCacheRef.current = null;
 
@@ -675,8 +722,10 @@ export function Minimap({
         cameraRef.current = null;
       }
 
-      // Clear terrain cache
+      // Clear terrain cache and static world feature caches
       terrainCacheRef.current = null;
+      roadsCacheRef.current = null;
+      townsCacheRef.current = null;
 
       // Clear entity cache to prevent memory retention
       entityCacheRef.current.clear();
@@ -1038,6 +1087,8 @@ export function Minimap({
       }
 
       frameCount++;
+      // Cache time once per frame — reused for pulse animations, avoids Date.now() per-pip
+      const frameTimeMs = performance.now();
       const cam = cameraRef.current;
 
       // --- Camera Position Update (follow player or spectated entity) ---
@@ -1154,9 +1205,10 @@ export function Minimap({
       const shouldRedrawTerrain = frameCount % RENDER_EVERY_N_FRAMES === 0;
       if (shouldRedrawTerrain && cam) {
         const mainCanvas = canvasRef.current;
-        if (mainCanvas) {
-          const mainCtx = mainCanvas.getContext("2d");
-          if (mainCtx) {
+        // Use cached context — avoids a DOM query every frame
+        const mainCtx = mainCtxRef.current;
+        if (mainCanvas && mainCtx) {
+          {
             const cw = mainCanvas.width;
             const ch = mainCanvas.height;
 
@@ -1257,7 +1309,9 @@ export function Minimap({
                   }
                 }
                 terrainCacheRef.current = imageData;
-                terrainCacheCenterRef.current = { x: centerX, z: centerZ };
+                // Reuse the existing object to avoid allocating a new {x,z} each time
+                terrainCacheCenterRef.current.x = centerX;
+                terrainCacheCenterRef.current.z = centerZ;
                 terrainCacheExtentRef.current = currentExtent;
               }
             }
@@ -1270,12 +1324,225 @@ export function Minimap({
               mainCtx.fillStyle = "#1a1a2e";
               mainCtx.fillRect(0, 0, cw, ch);
             }
+
+            // --- Road and building overlays (Canvas 2D vector, drawn every terrain frame) ---
+            // Lazy-populate static caches once the world systems are ready.
+            if (!roadsCacheRef.current) {
+              const roadSys = world.getSystem("roads") as {
+                getRoads?: () => Array<{
+                  path: Array<{ x: number; z: number }>;
+                  width: number;
+                }>;
+              } | null;
+              const roads = roadSys?.getRoads?.();
+              if (roads && roads.length > 0) {
+                roadsCacheRef.current = roads.map((r) => ({
+                  path: r.path,
+                  width: r.width,
+                }));
+              }
+            }
+            if (!townsCacheRef.current) {
+              const townSys = world.getSystem("towns") as {
+                getTowns?: () => Array<{
+                  buildings: Array<{
+                    position: { x: number; z: number };
+                    size: { width: number; depth: number };
+                    rotation: number;
+                  }>;
+                }>;
+              } | null;
+              const towns = townSys?.getTowns?.();
+              if (towns && towns.length > 0) {
+                townsCacheRef.current = towns;
+              }
+            }
+
+            const upX = cam.up.x;
+            const upZ = cam.up.z;
+            // Pixels per world unit
+            const worldScale = cw / (2 * currentExtent);
+
+            // Draw roads
+            const roadsData = roadsCacheRef.current;
+            if (roadsData && roadsData.length > 0) {
+              // Road width in canvas pixels, clamped to 1–6px
+              const baseRoadPx = Math.max(1, Math.min(6, 4 * worldScale));
+              mainCtx.save();
+              mainCtx.lineCap = "round";
+              mainCtx.lineJoin = "round";
+              for (const road of roadsData) {
+                if (road.path.length < 2) continue;
+                // Quick visibility check: skip roads whose first point is
+                // further than 2× extent from camera center on either axis
+                const fp = road.path[0];
+                const fdx = Math.abs(fp.x - centerX);
+                const fdz = Math.abs(fp.z - centerZ);
+                const lp = road.path[road.path.length - 1];
+                const ldx = Math.abs(lp.x - centerX);
+                const ldz = Math.abs(lp.z - centerZ);
+                if (
+                  fdx > currentExtent * 3 &&
+                  fdz > currentExtent * 3 &&
+                  ldx > currentExtent * 3 &&
+                  ldz > currentExtent * 3
+                ) {
+                  continue;
+                }
+                const roadPx = Math.max(
+                  1,
+                  Math.min(6, road.width * worldScale),
+                );
+                // Outline pass (darker)
+                mainCtx.strokeStyle = "rgba(100, 80, 50, 0.7)";
+                mainCtx.lineWidth = roadPx + 1;
+                mainCtx.beginPath();
+                const [x0, y0] = worldToPx(
+                  road.path[0].x,
+                  road.path[0].z,
+                  centerX,
+                  centerZ,
+                  currentExtent,
+                  upX,
+                  upZ,
+                  cw,
+                  ch,
+                );
+                mainCtx.moveTo(x0, y0);
+                for (let ri = 1; ri < road.path.length; ri++) {
+                  const [xi, yi] = worldToPx(
+                    road.path[ri].x,
+                    road.path[ri].z,
+                    centerX,
+                    centerZ,
+                    currentExtent,
+                    upX,
+                    upZ,
+                    cw,
+                    ch,
+                  );
+                  mainCtx.lineTo(xi, yi);
+                }
+                mainCtx.stroke();
+                // Fill pass (tan/dirt color)
+                mainCtx.strokeStyle = "rgba(190, 160, 110, 0.85)";
+                mainCtx.lineWidth = roadPx;
+                mainCtx.beginPath();
+                mainCtx.moveTo(x0, y0);
+                for (let ri = 1; ri < road.path.length; ri++) {
+                  const [xi, yi] = worldToPx(
+                    road.path[ri].x,
+                    road.path[ri].z,
+                    centerX,
+                    centerZ,
+                    currentExtent,
+                    upX,
+                    upZ,
+                    cw,
+                    ch,
+                  );
+                  mainCtx.lineTo(xi, yi);
+                }
+                mainCtx.stroke();
+              }
+              mainCtx.restore();
+              void baseRoadPx; // prevent unused-variable warning
+            }
+
+            // Draw building footprints
+            const townsData = townsCacheRef.current;
+            if (townsData && townsData.length > 0) {
+              mainCtx.save();
+              mainCtx.lineWidth = 0.5;
+              for (const town of townsData) {
+                for (const building of town.buildings) {
+                  const bx = building.position.x;
+                  const bz = building.position.z;
+                  // Visibility cull: skip buildings outside 2× extent
+                  if (
+                    Math.abs(bx - centerX) > currentExtent * 2 ||
+                    Math.abs(bz - centerZ) > currentExtent * 2
+                  ) {
+                    continue;
+                  }
+                  const hw = building.size.width * 0.5;
+                  const hd = building.size.depth * 0.5;
+                  const cos = Math.cos(building.rotation);
+                  const sin = Math.sin(building.rotation);
+                  // Four corners in world XZ (rotated around building center)
+                  const c0x = bx + cos * hw - sin * hd;
+                  const c0z = bz + sin * hw + cos * hd;
+                  const c1x = bx - cos * hw - sin * hd;
+                  const c1z = bz - sin * hw + cos * hd;
+                  const c2x = bx - cos * hw + sin * hd;
+                  const c2z = bz - sin * hw - cos * hd;
+                  const c3x = bx + cos * hw + sin * hd;
+                  const c3z = bz + sin * hw - cos * hd;
+                  const [p0x, p0y] = worldToPx(
+                    c0x,
+                    c0z,
+                    centerX,
+                    centerZ,
+                    currentExtent,
+                    upX,
+                    upZ,
+                    cw,
+                    ch,
+                  );
+                  const [p1x, p1y] = worldToPx(
+                    c1x,
+                    c1z,
+                    centerX,
+                    centerZ,
+                    currentExtent,
+                    upX,
+                    upZ,
+                    cw,
+                    ch,
+                  );
+                  const [p2x, p2y] = worldToPx(
+                    c2x,
+                    c2z,
+                    centerX,
+                    centerZ,
+                    currentExtent,
+                    upX,
+                    upZ,
+                    cw,
+                    ch,
+                  );
+                  const [p3x, p3y] = worldToPx(
+                    c3x,
+                    c3z,
+                    centerX,
+                    centerZ,
+                    currentExtent,
+                    upX,
+                    upZ,
+                    cw,
+                    ch,
+                  );
+                  mainCtx.beginPath();
+                  mainCtx.moveTo(p0x, p0y);
+                  mainCtx.lineTo(p1x, p1y);
+                  mainCtx.lineTo(p2x, p2y);
+                  mainCtx.lineTo(p3x, p3y);
+                  mainCtx.closePath();
+                  mainCtx.fillStyle = "rgba(110, 95, 78, 0.92)";
+                  mainCtx.fill();
+                  mainCtx.strokeStyle = "rgba(60, 45, 30, 0.9)";
+                  mainCtx.stroke();
+                }
+              }
+              mainCtx.restore();
+            }
           }
         }
       }
 
       // Draw 2D pips on overlay canvas every frame for smooth interaction
-      const ctx = overlayCanvas.getContext("2d");
+      // Use cached context — avoids a DOM query every frame
+      const ctx = overlayCtxRef.current;
       if (ctx) {
         // Clear the overlay each frame
         ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
@@ -1345,8 +1612,8 @@ export function Minimap({
               // Apply pulse animation for active pips (quests, etc.)
               let pulseScale = 1;
               if (pip.isActive) {
-                // Create pulsing effect using time
-                const pulseTime = Date.now() / 500; // 500ms per cycle
+                // frameTimeMs is cached once per frame — avoid per-pip Date.now() call
+                const pulseTime = frameTimeMs / 500; // 500ms per cycle
                 pulseScale = 1 + 0.15 * Math.sin(pulseTime * Math.PI * 2);
               }
 

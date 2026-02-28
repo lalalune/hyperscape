@@ -193,9 +193,9 @@ export class InterpolationEngine {
 
       // CRITICAL: Skip interpolation for dead mobs to prevent death animation sliding
       // Dead mobs lock their position client-side for RuneScape-style stationary death
-      // Check if entity has aiState property (indicates it's a MobEntity)
-      const mobData = entity.serialize();
-      if (mobData.aiState === "dead") {
+      // Access entity.data directly (avoid entity.serialize() which copies all fields)
+      const entityData = entity.data as { aiState?: string } | null | undefined;
+      if (entityData?.aiState === "dead") {
         continue; // Don't interpolate - let MobEntity maintain locked death position
       }
 
