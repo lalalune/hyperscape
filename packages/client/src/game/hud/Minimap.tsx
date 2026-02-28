@@ -1193,14 +1193,11 @@ export function Minimap({
         }
       }
 
-      // --- Canvas 2D terrain background (throttled, same cadence as old 3D render) ---
-      // Declared early so the matrix update below can use the same flag.
-      const shouldRedrawTerrain = frameCount % RENDER_EVERY_N_FRAMES === 0;
-
-      // --- Update camera matrices on terrain-draw frames ---
-      // Pips use this matrix for projection. By updating only when terrain is
-      // (re)drawn, all layers share the same camera snapshot and stay aligned.
-      if (cam && shouldRedrawTerrain) {
+      // --- Update camera matrices every frame for smooth pip rendering ---
+      // Pips represent live entity positions and must stay fluid at 60fps.
+      // Road/building overlays use the terrain-snapshot parameters (below) so they
+      // remain locked to the terrain ImageData regardless of this live matrix.
+      if (cam) {
         cam.updateMatrixWorld();
         _cachedProjectionViewMatrix.multiplyMatrices(
           cam.projectionMatrix,
@@ -1208,6 +1205,9 @@ export function Minimap({
         );
         _hasCachedMatrix = true;
       }
+
+      // --- Canvas 2D terrain background (throttled, same cadence as old 3D render) ---
+      const shouldRedrawTerrain = frameCount % RENDER_EVERY_N_FRAMES === 0;
       if (shouldRedrawTerrain && cam) {
         const mainCanvas = canvasRef.current;
         // Use cached context — avoids a DOM query every frame
@@ -1233,11 +1233,13 @@ export function Minimap({
             const moved = ddx * ddx + ddz * ddz > 400; // 20² world units
             const extentChanged =
               terrainCacheExtentRef.current !== currentExtent;
-            // Detect camera rotation (dot-product divergence in up vector)
+            // Detect meaningful camera rotation (≥ ~5° change in up vector).
+            // Using a per-component threshold of sin(5°) ≈ 0.087 prevents
+            // near-continuous terrain regeneration during smooth camera rotation.
             const cacheUp = terrainCacheUpRef.current;
             const rotated =
-              Math.abs(upX - cacheUp.x) > 0.01 ||
-              Math.abs(upZ - cacheUp.z) > 0.01;
+              Math.abs(upX - cacheUp.x) > 0.087 ||
+              Math.abs(upZ - cacheUp.z) > 0.087;
             const sizeChanged =
               terrainCacheRef.current !== null &&
               (terrainCacheRef.current.width !== cw ||
