@@ -5,6 +5,7 @@
  */
 
 import React, {
+  memo,
   useCallback,
   useEffect,
   useRef,
@@ -38,6 +39,10 @@ const STEP_EXTENT = 10;
 
 // Max click-to-move distance — mirrors InteractionSystem's clamp
 const MAX_TRAVEL_DISTANCE = 100;
+
+// Reference minimap pixel size at which the initial zoom level is 1:1.
+// sizeBasedExtent = zoom × (avgSize / MINIMAP_BASE_SIZE_PX)
+const MINIMAP_BASE_SIZE_PX = 200;
 
 // Fixed road/building pixel widths — do NOT scale with zoom
 const ROAD_LINE_WIDTH_PX = 5;
@@ -478,16 +483,44 @@ interface EntityPip {
   subType?: string;
 }
 
-/** Window extension for last raycast target diagnostic (used by both world clicks and minimap) */
-type WindowWithRaycastTarget = Window &
+/** Augmented window type covering all Hyperscape globals written to window */
+type HyperscapeWindow = Window &
   typeof globalThis & {
-    __lastRaycastTarget?: {
-      x: number;
-      y: number;
-      z: number;
-      method: string;
-    };
+    __lastRaycastTarget?: { x: number; y: number; z: number; method: string };
+    __HYPERSCAPE_CONFIG__?: { mode?: string; followEntity?: string };
   };
+
+/** Camera info shape returned by the client-camera-system */
+interface SpectatorTarget {
+  id?: string;
+  position: { x: number; z: number };
+}
+
+/**
+ * Returns the spectated entity's position when in spectator mode, or null.
+ * Centralises the duplicated window.__HYPERSCAPE_CONFIG__ + camera-system reads
+ * that previously appeared independently in the entity interval and the RAF loop.
+ */
+function getSpectatorTarget(world: ClientWorld): SpectatorTarget | null {
+  if ((window as HyperscapeWindow).__HYPERSCAPE_CONFIG__?.mode !== "spectator")
+    return null;
+  const cameraSystem = world.getSystem("client-camera-system") as {
+    getCameraInfo?: () => {
+      target?: {
+        id?: string;
+        node?: { position?: THREE.Vector3 };
+        position?: { x: number; z: number };
+      };
+    };
+  } | null;
+  const info = cameraSystem?.getCameraInfo?.();
+  if (!info?.target) return null;
+  // Entity-interval callers need node.position (Vector3); RAF needs target.position ({x,z}).
+  // Return the first available position shape.
+  const pos = info.target.node?.position ?? info.target.position;
+  if (!pos) return null;
+  return { id: info.target.id, position: { x: pos.x, z: pos.z } };
+}
 
 /** Color palette for group members (up to 8 unique) */
 const GROUP_COLORS = [
@@ -855,9 +888,48 @@ interface TerrainSystemLike {
   getHeightAt: (x: number, z: number) => number;
 }
 
+/**
+ * Config properties read from entity data for minimap icon detection.
+ * Used by both NPC (services/questIds) and resource (resourceType/harvestSkill) entities.
+ * The entity system doesn't expose typed config yet — this documents the expected shape
+ * until ECS types land.
+ */
+interface MinimapEntityConfig {
+  services?: string[];
+  questIds?: string[];
+  resourceType?: string;
+  harvestSkill?: string;
+}
+
+/** Network send interface needed for server-authoritative move requests */
+interface WorldNetworkSend {
+  network: { send: (method: string, data: unknown) => void };
+}
+
 /** Minimal structural interface for elements that can be rotated via inline style */
 interface CSSStylable {
   style: { transform: string };
+}
+
+type ServerQuestStatus =
+  | "not_started"
+  | "in_progress"
+  | "ready_to_complete"
+  | "completed";
+type ClientQuestState = "available" | "active" | "completed";
+
+function mapQuestStatus(status: ServerQuestStatus): ClientQuestState {
+  switch (status) {
+    case "not_started":
+      return "available";
+    case "in_progress":
+    case "ready_to_complete":
+      return "active";
+    case "completed":
+      return "completed";
+    default:
+      return "available";
+  }
 }
 
 /** Drag handle props passed from Window component for edit mode dragging */
@@ -897,7 +969,7 @@ interface MinimapProps {
   isUnlocked?: boolean;
 }
 
-export function Minimap({
+function MinimapInner({
   world,
   width: initialWidth = 200,
   height: initialHeight = 200,
@@ -967,28 +1039,6 @@ export function Minimap({
 
   // Fetch quest statuses from server for minimap quest icons
   useEffect(() => {
-    /** Server quest status type */
-    type ServerQuestStatus =
-      | "not_started"
-      | "in_progress"
-      | "ready_to_complete"
-      | "completed";
-    type ClientQuestState = "available" | "active" | "completed";
-
-    const mapStatus = (status: ServerQuestStatus): ClientQuestState => {
-      switch (status) {
-        case "not_started":
-          return "available";
-        case "in_progress":
-        case "ready_to_complete":
-          return "active";
-        case "completed":
-          return "completed";
-        default:
-          return "available";
-      }
-    };
-
     const fetchQuestList = () => {
       world.network?.send?.("getQuestList", {});
     };
@@ -1002,7 +1052,7 @@ export function Minimap({
 
       const mapped = payload.quests.map((q) => ({
         id: q.id,
-        state: mapStatus(q.status),
+        state: mapQuestStatus(q.status),
       }));
 
       // Update ref for synchronous access in entity loop
@@ -1079,11 +1129,8 @@ export function Minimap({
   // Calculate extent based on size - larger size = more visible area (not scaled)
   // Use the average of width/height to determine extent
   const sizeBasedExtent = useMemo(() => {
-    // Base extent at 200px is the initial zoom value
-    // When size increases, we reveal more map (increase extent proportionally)
-    const baseSize = 200;
     const avgSize = (width + height) / 2;
-    return zoom * (avgSize / baseSize);
+    return zoom * (avgSize / MINIMAP_BASE_SIZE_PX);
   }, [width, height, zoom]);
 
   // Minimap zoom state (orthographic half-extent in world units)
@@ -1165,11 +1212,7 @@ export function Minimap({
     return () => {
       // Clear camera reference and userData
       if (cameraRef.current) {
-        if (cameraRef.current.userData) {
-          Object.keys(cameraRef.current.userData).forEach((key) => {
-            delete cameraRef.current!.userData[key];
-          });
-        }
+        cameraRef.current.userData = {};
         cameraRef.current = null;
       }
 
@@ -1185,6 +1228,8 @@ export function Minimap({
 
       // Clear entity cache to prevent memory retention
       entityCacheRef.current.clear();
+      // Clear icon flyweight cache so OffscreenCanvas objects can be GC'd
+      _iconCache.clear();
     };
   }, []);
 
@@ -1197,11 +1242,10 @@ export function Minimap({
   useEffect(() => {
     if (!world.entities || !isVisible) return;
 
-    // console.log('[Minimap] Starting entity detection updates');
     let intervalId: number | null = null;
 
-    // Pre-allocate working arrays to avoid GC pressure in 200ms interval
-    // We swap between two caches to track which entities are still valid
+    // Single mutable array written directly to the render ref each interval.
+    // Cleared with .length = 0 and repopulated — no allocations between ticks.
     const workingPips: EntityPip[] = [];
     const seenIds = new Set<string>();
 
@@ -1212,6 +1256,15 @@ export function Minimap({
 
       const player = world.entities?.player as Entity | undefined;
       let playerPipId: string | null = null;
+
+      // World-space cull origin: player position (or spectator target).
+      // Entities beyond 1.5× the current view extent are skipped in the build
+      // loop so we never allocate/update pips for things off the minimap.
+      // 1.5× gives a comfortable margin so pips near the edge are never clipped.
+      const buildCullExtent = extentRef.current * 1.5;
+      let buildOriginX = 0;
+      let buildOriginZ = 0;
+      let hasBuildOrigin = false;
 
       if (player?.node?.position) {
         // Normal mode: local player is the green pip
@@ -1234,41 +1287,42 @@ export function Minimap({
         workingPips.push(playerPip);
         seenIds.add("local-player");
         playerPipId = player.id;
+        buildOriginX = player.node.position.x;
+        buildOriginZ = player.node.position.z;
+        hasBuildOrigin = true;
       } else {
         // Spectator mode: get spectated entity from camera system as green pip
-        const config = (
-          window as {
-            __HYPERSCAPE_CONFIG__?: { mode?: string; followEntity?: string };
-          }
-        ).__HYPERSCAPE_CONFIG__;
-        if (config?.mode === "spectator") {
-          const cameraSystem = world.getSystem("client-camera-system") as {
-            getCameraInfo?: () => {
-              target?: { id?: string; node?: { position?: THREE.Vector3 } };
+        const spectatorTarget = getSpectatorTarget(world);
+        if (spectatorTarget) {
+          let spectatedPip = entityCacheRef.current.get("spectated-player");
+          if (!spectatedPip) {
+            spectatedPip = {
+              id: "spectated-player",
+              type: "player",
+              position: new THREE.Vector3(
+                spectatorTarget.position.x,
+                0,
+                spectatorTarget.position.z,
+              ),
+              color: "#ffffff",
+              isLocalPlayer: true,
             };
-          } | null;
-          const cameraInfo = cameraSystem?.getCameraInfo?.();
-          if (cameraInfo?.target?.node?.position) {
-            // Reuse cached pip if available
-            let spectatedPip = entityCacheRef.current.get("spectated-player");
-            if (!spectatedPip) {
-              spectatedPip = {
-                id: "spectated-player",
-                type: "player",
-                position: cameraInfo.target.node.position,
-                color: "#ffffff",
-                isLocalPlayer: true,
-              };
-              entityCacheRef.current.set("spectated-player", spectatedPip);
-            } else {
-              spectatedPip.position = cameraInfo.target.node.position;
-              spectatedPip.color = "#ffffff";
-              spectatedPip.isLocalPlayer = true;
-            }
-            workingPips.push(spectatedPip);
-            seenIds.add("spectated-player");
-            playerPipId = cameraInfo.target.id ?? null;
+            entityCacheRef.current.set("spectated-player", spectatedPip);
+          } else {
+            spectatedPip.position.set(
+              spectatorTarget.position.x,
+              0,
+              spectatorTarget.position.z,
+            );
+            spectatedPip.color = "#ffffff";
+            spectatedPip.isLocalPlayer = true;
           }
+          workingPips.push(spectatedPip);
+          seenIds.add("spectated-player");
+          playerPipId = spectatorTarget.id ?? null;
+          buildOriginX = spectatorTarget.position.x;
+          buildOriginZ = spectatorTarget.position.z;
+          hasBuildOrigin = true;
         }
       }
 
@@ -1327,6 +1381,15 @@ export function Minimap({
           const pos = entity?.position;
           if (!pos) continue;
 
+          // Build-loop world-space pre-cull: skip entities far outside the
+          // minimap view so we never allocate/update pips for invisible entities.
+          if (
+            hasBuildOrigin &&
+            (Math.abs(pos.x - buildOriginX) > buildCullExtent ||
+              Math.abs(pos.z - buildOriginZ) > buildCullExtent)
+          )
+            continue;
+
           let color = "#ffffff";
           let type: EntityPip["type"] = "item";
           let subType: string | undefined;
@@ -1345,12 +1408,7 @@ export function Minimap({
               type = "enemy"; // NPCs show as yellow dots like mobs
               // Detect NPC service type for minimap icons
               const npcConfig = (
-                entity as unknown as {
-                  config?: {
-                    services?: string[];
-                    questIds?: string[];
-                  };
-                }
+                entity as unknown as { config?: MinimapEntityConfig }
               ).config;
               const serviceTypes = npcConfig?.services;
               if (serviceTypes?.includes("bank")) {
@@ -1388,35 +1446,17 @@ export function Minimap({
               }
               break;
             }
+            // All static building types with dedicated icons: the entity.type
+            // string is the same key used by drawMinimapIcon, so subType = entity.type.
             case "bank":
-              color = "#ffff00";
-              type = "building";
-              subType = "bank";
-              break;
             case "furnace":
-              color = "#ffff00";
-              type = "building";
-              subType = "furnace";
-              break;
             case "anvil":
-              color = "#ffff00";
-              type = "building";
-              subType = "anvil";
-              break;
             case "range":
-              color = "#ffff00";
-              type = "building";
-              subType = "range";
-              break;
             case "altar":
-              color = "#ffff00";
-              type = "building";
-              subType = "altar";
-              break;
             case "runecrafting_altar":
               color = "#ffff00";
               type = "building";
-              subType = "runecrafting_altar";
+              subType = entity.type;
               break;
             case "building":
             case "structure":
@@ -1433,9 +1473,7 @@ export function Minimap({
               type = "resource";
               // Detect resource subtype for minimap icons
               const resConfig = (
-                entity as unknown as {
-                  config?: { resourceType?: string; harvestSkill?: string };
-                }
+                entity as unknown as { config?: MinimapEntityConfig }
               ).config;
               if (
                 resConfig?.resourceType === "fishing_spot" ||
@@ -1513,12 +1551,6 @@ export function Minimap({
     let frameCount = 0;
 
     const render = () => {
-      // Skip render loop entirely when not visible to reduce CPU usage
-      if (!isVisible) {
-        // Don't continue RAF when hidden - the useEffect will restart when visible
-        return;
-      }
-
       frameCount++;
       // Cache time once per frame — reused for pulse animations, avoids Date.now() per-pip
       const frameTimeMs = performance.now();
@@ -1544,23 +1576,11 @@ export function Minimap({
         hasTarget = true;
       } else {
         // Spectator mode: get camera target from camera system
-        const config = (
-          window as {
-            __HYPERSCAPE_CONFIG__?: { mode?: string; followEntity?: string };
-          }
-        ).__HYPERSCAPE_CONFIG__;
-        if (config?.mode === "spectator") {
-          const cameraSystem = world.getSystem("client-camera-system") as {
-            getCameraInfo?: () => {
-              target?: { position?: { x: number; z: number } };
-            };
-          } | null;
-          const cameraInfo = cameraSystem?.getCameraInfo?.();
-          if (cameraInfo?.target?.position) {
-            _tempTargetPos.x = cameraInfo.target.position.x;
-            _tempTargetPos.z = cameraInfo.target.position.z;
-            hasTarget = true;
-          }
+        const spectatorTarget = getSpectatorTarget(world);
+        if (spectatorTarget) {
+          _tempTargetPos.x = spectatorTarget.position.x;
+          _tempTargetPos.z = spectatorTarget.position.z;
+          hasTarget = true;
         }
       }
 
@@ -1604,15 +1624,11 @@ export function Minimap({
         }
 
         // Also clear global raycast target when player reaches it
-        const windowWithTarget = window as {
-          __lastRaycastTarget?: { x: number; z: number };
-        };
-        if (windowWithTarget.__lastRaycastTarget) {
-          const dx = windowWithTarget.__lastRaycastTarget.x - _tempTargetPos.x;
-          const dz = windowWithTarget.__lastRaycastTarget.z - _tempTargetPos.z;
-          if (Math.hypot(dx, dz) < 0.6) {
-            delete windowWithTarget.__lastRaycastTarget;
-          }
+        const hw = window as HyperscapeWindow;
+        if (hw.__lastRaycastTarget) {
+          const dx = hw.__lastRaycastTarget.x - _tempTargetPos.x;
+          const dz = hw.__lastRaycastTarget.z - _tempTargetPos.z;
+          if (Math.hypot(dx, dz) < 0.6) delete hw.__lastRaycastTarget;
         }
       }
 
@@ -1879,8 +1895,23 @@ export function Minimap({
 
         // ── Entity pips ───────────────────────────────────────────────────────
         const pipsArray = entityPipsRefForRender.current;
+        // World-space cull radius: extent + small pip margin so pips near the edge
+        // aren't clipped mid-frame. 8 world units covers the largest icon (16px icon
+        // at typical zoom ≈ 4 world units; double for safety).
+        const pipCullRadius = extentRef.current + 8;
+        const camPX = cam ? cam.position.x : 0;
+        const camPZ = cam ? cam.position.z : 0;
         for (let pipIdx = 0; pipIdx < pipsArray.length; pipIdx++) {
           const pip = pipsArray[pipIdx];
+          // World-space pre-cull: skip projection entirely for off-screen pips.
+          // Uses Chebyshev distance (max of |dx|, |dz|) — tighter than circle,
+          // safe because the minimap is square-ish.
+          if (
+            Math.abs(pip.position.x - camPX) > pipCullRadius ||
+            Math.abs(pip.position.z - camPZ) > pipCullRadius
+          )
+            continue;
+
           // Convert world position to screen position using cached matrix
           // This keeps pips synced with the throttled 3D render (not the live camera)
           if (rs.hasCachedMatrix) {
@@ -1900,32 +1931,15 @@ export function Minimap({
               y >= 0 &&
               y <= heightRef.current
             ) {
-              // Set pip properties based on type
-              // RS3-style: dots are compact, icons are larger for readability
+              // Pip radius — default 3px; player and quest are the only exceptions
               let radius = 3;
-              let borderColor = "#000000";
-              let borderWidth = 1;
-
-              switch (pip.type) {
-                case "player":
-                  radius =
-                    pip.groupIndex !== undefined && pip.groupIndex >= 0 ? 4 : 3;
-                  break;
-                case "enemy":
-                  radius = 3;
-                  break;
-                case "building":
-                  radius = 3;
-                  break;
-                case "item":
-                  radius = 3;
-                  break;
-                case "resource":
-                  radius = 3;
-                  break;
-                case "quest":
-                  radius = pip.isActive ? 7 : 5;
-                  break;
+              const borderColor = "#000000";
+              const borderWidth = 1;
+              if (pip.type === "player") {
+                radius =
+                  pip.groupIndex !== undefined && pip.groupIndex >= 0 ? 4 : 3;
+              } else if (pip.type === "quest") {
+                radius = pip.isActive ? 7 : 5;
               }
 
               // Determine pip color (group members use GROUP_COLORS)
@@ -1946,35 +1960,34 @@ export function Minimap({
                 pulseScale = 1 + 0.15 * Math.sin(pulseTime * Math.PI * 2);
               }
 
-              // Draw pip
+              // Draw pip — subtype icons use drawImage (no path needed).
+              // beginPath() is deferred past the icon check to avoid building
+              // a path that gets discarded for every icon-bearing pip.
               ctx.fillStyle = pipColor;
-              ctx.beginPath();
 
-              // Try subtype icon first (bank, shop, altar, etc.)
               if (pip.subType && drawMinimapIcon(ctx, x, y, pip.subType)) {
-                // Icon was drawn by drawMinimapIcon
+                // Icon drawn via cached OffscreenCanvas — no path work needed
               } else if (pip.isLocalPlayer) {
                 // RS3/OSRS: local player is a white square (slightly larger than dots)
                 const sqHalf = 2.5;
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(x - sqHalf, y - sqHalf, sqHalf * 2, sqHalf * 2);
               } else if (pip.type === "quest" || pip.icon === "star") {
-                // Star for quest markers
+                // Star for quest markers.
+                // Shadow is set BEFORE the fill so one draw call produces both
+                // the solid star and its glow ring — then cleared before stroke
+                // so the outline stays crisp with no halo artefacts.
                 const scaledRadius = radius * pulseScale;
+                if (pip.isActive) {
+                  ctx.shadowColor = pipColor;
+                  ctx.shadowBlur = 8;
+                }
                 drawStar(ctx, x, y, scaledRadius, scaledRadius * 0.5, 5);
                 ctx.fill();
+                ctx.shadowBlur = 0; // reset before stroke
                 ctx.strokeStyle = borderColor;
                 ctx.lineWidth = borderWidth;
                 ctx.stroke();
-
-                // Add glow effect for active quests
-                if (pip.isActive) {
-                  ctx.save();
-                  ctx.shadowColor = pipColor;
-                  ctx.shadowBlur = 8;
-                  ctx.fill();
-                  ctx.restore();
-                }
               } else if (pip.icon === "diamond") {
                 // Diamond shape
                 drawDiamond(ctx, x, y, radius);
@@ -1984,6 +1997,7 @@ export function Minimap({
                 ctx.stroke();
               } else {
                 // Circle for everything else (players, mobs, items)
+                ctx.beginPath();
                 ctx.arc(x, y, radius, 0, 2 * Math.PI);
                 ctx.fill();
 
@@ -1997,15 +2011,7 @@ export function Minimap({
         }
 
         // Draw destination like world clicks: project world target to minimap
-        const windowWithTarget = window as {
-          __lastRaycastTarget?: {
-            x: number;
-            y: number;
-            z: number;
-            method: string;
-          };
-        };
-        const lastTarget = windowWithTarget.__lastRaycastTarget;
+        const lastTarget = (window as HyperscapeWindow).__lastRaycastTarget;
         const destWorldRef = lastDestinationWorldRef.current;
         const target =
           lastTarget &&
@@ -2094,20 +2100,17 @@ export function Minimap({
       }
 
       // Send server-authoritative move request instead of local movement
-      const currentRun = (player as { runMode: boolean }).runMode === true;
-      const worldWithNetwork = world as {
-        network: { send: (method: string, data: unknown) => void };
-      };
-      worldWithNetwork.network.send("moveRequest", {
+      const currentRun = (player as { runMode?: boolean }).runMode === true;
+      (world as unknown as WorldNetworkSend).network.send("moveRequest", {
         target: [targetX, targetY, targetZ],
         runMode: currentRun,
         cancel: false,
       });
 
-      // Persist destination dot until arrival (no auto-fade)
+      // Persist destination until arrival (no auto-fade)
       lastDestinationWorldRef.current = { x: targetX, z: targetZ };
       // Expose same diagnostic target used by world clicks so minimap renders dot identically
-      (window as WindowWithRaycastTarget).__lastRaycastTarget = {
+      (window as HyperscapeWindow).__lastRaycastTarget = {
         x: targetX,
         y: targetY,
         z: targetZ,
@@ -2124,6 +2127,28 @@ export function Minimap({
       handleMinimapClick(e.clientX, e.clientY);
     },
     [handleMinimapClick],
+  );
+
+  // Stable prevent-default-only handler — no deps, never recreated
+  const onPreventDefault = useCallback(
+    (e: React.SyntheticEvent) => e.preventDefault(),
+    [],
+  );
+
+  // Stable stop-propagation + prevent-default handler for canvas events
+  const onStopAndPrevent = useCallback((e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  // Collapse button click — same as toggleCollapse but also swallows the event
+  const onCollapseButtonClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleCollapse();
+    },
+    [toggleCollapse],
   );
 
   // Wheel handler for minimap zoom - uses native WheelEvent for passive: false support
@@ -2165,9 +2190,9 @@ export function Minimap({
     };
   }, [handleWheel]);
 
-  // Resize handlers for corner drag - allows independent width and height
+  // SE corner drag handler — widens right and down (matching the only rendered handle)
   const handleResizeStart = useCallback(
-    (e: React.PointerEvent, corner: "se" | "sw" | "ne" | "nw") => {
+    (e: React.PointerEvent) => {
       if (!resizable) return;
       e.preventDefault();
       e.stopPropagation();
@@ -2185,29 +2210,11 @@ export function Minimap({
 
         const dx = moveEvent.clientX - resizeStartRef.current.x;
         const dy = moveEvent.clientY - resizeStartRef.current.y;
-
-        let newW = resizeStartRef.current.w;
-        let newH = resizeStartRef.current.h;
-
-        // Calculate new size based on corner being dragged
-        // Width and height are independent - no longer forcing square
-        if (corner === "se") {
-          newW = resizeStartRef.current.w + dx;
-          newH = resizeStartRef.current.h + dy;
-        } else if (corner === "sw") {
-          newW = resizeStartRef.current.w - dx;
-          newH = resizeStartRef.current.h + dy;
-        } else if (corner === "ne") {
-          newW = resizeStartRef.current.w + dx;
-          newH = resizeStartRef.current.h - dy;
-        } else if (corner === "nw") {
-          newW = resizeStartRef.current.w - dx;
-          newH = resizeStartRef.current.h - dy;
-        }
+        const newW = resizeStartRef.current.w + dx;
+        const newH = resizeStartRef.current.h + dy;
 
         // Clamp to bounds independently for width and height
-        // If maxSize is not specified, allow unlimited resizing (use very large number)
-        const effectiveMaxSize = maxSize ?? 9999;
+        const effectiveMaxSize = maxSize ?? Infinity;
         const clampedW = Math.max(
           minSize,
           Math.min(effectiveMaxSize, Math.round(newW / 8) * 8),
@@ -2235,16 +2242,7 @@ export function Minimap({
       window.addEventListener("pointermove", handleMove);
       window.addEventListener("pointerup", handleUp);
     },
-    [
-      resizable,
-      width,
-      height,
-      minSize,
-      maxSize,
-      currentWidth,
-      currentHeight,
-      onSizeChange,
-    ],
+    [resizable, width, height, minSize, maxSize, onSizeChange],
   );
 
   // Render collapsed state as a 32x32 icon
@@ -2302,14 +2300,8 @@ export function Minimap({
         WebkitTouchCallout: "none",
         ...style,
       }}
-      onMouseDown={(e) => {
-        // Only prevent default to avoid text selection, don't stop propagation
-        // as it blocks resize handles from receiving events
-        e.preventDefault();
-      }}
-      onContextMenu={(e) => {
-        e.preventDefault();
-      }}
+      onMouseDown={onPreventDefault}
+      onContextMenu={onPreventDefault}
     >
       {/* 3D canvas */}
       <canvas
@@ -2325,14 +2317,8 @@ export function Minimap({
         height={height}
         className="absolute inset-0 block w-full h-full pointer-events-auto cursor-crosshair z-[1]"
         onClick={onOverlayClick}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
+        onMouseDown={onStopAndPrevent}
+        onContextMenu={onStopAndPrevent}
       />
       {/* Resize handles (SE corner only for simplicity) */}
       {resizable && (
@@ -2341,7 +2327,7 @@ export function Minimap({
           style={{
             background: `linear-gradient(135deg, transparent 50%, ${theme.colors.border.decorative} 50%)`,
           }}
-          onPointerDown={(e) => handleResizeStart(e, "se")}
+          onPointerDown={handleResizeStart}
         />
       )}
 
@@ -2393,11 +2379,7 @@ export function Minimap({
             color: theme.colors.text.secondary,
             padding: 0,
           }}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleCollapse();
-          }}
+          onClick={onCollapseButtonClick}
           title="Collapse Minimap (Tab)"
         >
           −
@@ -2406,3 +2388,5 @@ export function Minimap({
     </div>
   );
 }
+
+export const Minimap = memo(MinimapInner);
