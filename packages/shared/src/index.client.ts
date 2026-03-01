@@ -163,6 +163,12 @@ export { INVENTORY_CONSTANTS } from "./constants/GameConstants";
 // Player constants (health, stamina, speeds)
 export { PLAYER_CONSTANTS } from "./constants/GameConstants";
 
+// Terrain constants (water threshold, walkable slopes) — single source of truth
+export { TERRAIN_CONSTANTS } from "./constants/GameConstants";
+
+// Client input constants (click-to-move distance, drag threshold, raycast range)
+export { INPUT } from "./systems/client/interaction/constants";
+
 // Export avatar options for character creation
 export { AVATAR_OPTIONS } from "./data/avatars";
 

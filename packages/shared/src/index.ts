@@ -1091,6 +1091,9 @@ export {
   INPUT_LIMITS,
 } from "./constants/interaction";
 
+// Client input constants (click distances, drag thresholds, raycast ranges)
+export { INPUT } from "./systems/client/interaction/constants";
+
 // Combat constants (tick-based timing, ranges, etc.)
 export { COMBAT_CONSTANTS } from "./constants/CombatConstants";
 

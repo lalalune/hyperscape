@@ -13,11 +13,14 @@ import React, {
   useMemo,
 } from "react";
 import { useThemeStore, useQuestSelectionStore } from "@/ui";
-import { Entity, EventType, THREE } from "@hyperscape/shared";
+import {
+  Entity,
+  EventType,
+  THREE,
+  TERRAIN_CONSTANTS,
+  INPUT,
+} from "@hyperscape/shared";
 import type { ClientWorld } from "../../types";
-// Water threshold height — matches TERRAIN_CONSTANTS.WATER_THRESHOLD
-const MINIMAP_WATER_THRESHOLD = 9.0;
-
 // Terrain sample grid size per axis.  50×50 = 2,500 getHeightAt calls vs the
 // previous per-pixel approach which was W×H (up to 40,000+ calls).  The low-res
 // ImageData is drawn to an OffscreenCanvas and then scaled up via drawImage with
@@ -36,9 +39,6 @@ const RENDER_EVERY_N_FRAMES = 4;
 const MIN_EXTENT = 20;
 const MAX_EXTENT = 1000;
 const STEP_EXTENT = 10;
-
-// Max click-to-move distance — mirrors InteractionSystem's clamp
-const MAX_TRAVEL_DISTANCE = 100;
 
 // Reference minimap pixel size at which the initial zoom level is 1:1.
 // sizeBasedExtent = zoom × (avgSize / MINIMAP_BASE_SIZE_PX)
@@ -93,8 +93,8 @@ const MINIMAP_TERRAIN_COLORS: Array<{
   g: number;
   b: number;
 }> = [
-  { maxHeight: MINIMAP_WATER_THRESHOLD, r: 30, g: 60, b: 130 }, // deep water
-  { maxHeight: MINIMAP_WATER_THRESHOLD + 1, r: 50, g: 100, b: 160 }, // shallow water
+  { maxHeight: TERRAIN_CONSTANTS.WATER_THRESHOLD, r: 30, g: 60, b: 130 }, // deep water
+  { maxHeight: TERRAIN_CONSTANTS.WATER_THRESHOLD + 1, r: 50, g: 100, b: 160 }, // shallow water
   { maxHeight: 15, r: 70, g: 110, b: 70 }, // swamp/wetland
   { maxHeight: 22, r: 80, g: 140, b: 60 }, // low grassland
   { maxHeight: 30, r: 90, g: 130, b: 50 }, // grassland
@@ -163,9 +163,9 @@ async function generateTerrainChunked(
           break;
         }
       }
-      if (h > MINIMAP_WATER_THRESHOLD) {
+      if (h > TERRAIN_CONSTANTS.WATER_THRESHOLD) {
         const lift =
-          Math.min(30, ((h - MINIMAP_WATER_THRESHOLD) / 40) * 30) | 0;
+          Math.min(30, ((h - TERRAIN_CONSTANTS.WATER_THRESHOLD) / 40) * 30) | 0;
         r = Math.min(255, r + lift);
         g = Math.min(255, g + lift);
         b = Math.min(255, b + lift);
@@ -1050,19 +1050,16 @@ function MinimapInner({
       };
       if (!Array.isArray(payload.quests)) return;
 
-      const mapped = payload.quests.map((q) => ({
-        id: q.id,
-        state: mapQuestStatus(q.status),
-      }));
-
-      // Update ref for synchronous access in entity loop
+      // Single pass: build both the fast-lookup Map (for entity interval)
+      // and the mapped array (for the quest selection store).
       const map = new Map<string, string>();
-      for (const q of mapped) {
-        map.set(q.id, q.state);
+      const mapped: Array<{ id: string; state: ClientQuestState }> = [];
+      for (const q of payload.quests) {
+        const state = mapQuestStatus(q.status);
+        map.set(q.id, state);
+        mapped.push({ id: q.id, state });
       }
       questStatusesRef.current = map;
-
-      // Update store for external consumers
       setQuestStatuses(mapped);
     };
 
@@ -2083,8 +2080,8 @@ function MinimapInner({
       const dist = Math.hypot(dx, dz);
       let targetX = worldPos.x;
       let targetZ = worldPos.z;
-      if (dist > MAX_TRAVEL_DISTANCE) {
-        const scale = MAX_TRAVEL_DISTANCE / dist;
+      if (dist > INPUT.MAX_CLICK_DISTANCE_TILES) {
+        const scale = INPUT.MAX_CLICK_DISTANCE_TILES / dist;
         targetX = player.position.x + dx * scale;
         targetZ = player.position.z + dz * scale;
       }
