@@ -43,6 +43,7 @@ import {
   writePacket,
   readPacket,
   uuid,
+  ALL_WORLD_AREAS,
 } from "@hyperscape/shared";
 import type {
   ConnectionParams,
@@ -390,6 +391,9 @@ export class ConnectionHandler {
     let authCompleted = false; // Guard against race conditions
     let isCleanedUp = false; // Prevent double cleanup
 
+    // Error handler defined early so cleanup can reference it
+    let errorHandler: ((err: Error) => void) | null = null;
+
     /**
      * SECURITY: Cleanup function to remove listeners and clear timeout.
      * Must be called from all exit paths to prevent resource leaks.
@@ -401,6 +405,9 @@ export class ConnectionHandler {
       try {
         ws.removeListener?.("message", messageHandler);
         ws.removeListener?.("close", closeHandler);
+        if (errorHandler) {
+          ws.removeListener?.("error", errorHandler);
+        }
       } catch {
         // Ignore errors during cleanup (socket may be closing)
       }
@@ -616,12 +623,13 @@ export class ConnectionHandler {
       cleanup();
     };
 
-    // Register error handler
-    ws.on("error", (err: Error) => {
+    // Error handler (assigned to variable defined earlier for cleanup)
+    errorHandler = (err: Error) => {
       console.error("[ConnectionHandler] WebSocket error during auth:", err);
-    });
+    };
 
-    // Register message and close handlers
+    // Register message, close, and error handlers
+    ws.on("error", errorHandler);
     ws.on("message", messageHandler);
     ws.on("close", closeHandler);
 
@@ -824,10 +832,12 @@ export class ConnectionHandler {
   }
 
   /**
-   * Serialize world map data (towns + POIs) for snapshot
+   * Serialize world map data for snapshot
    *
    * Provides lightweight location data so agents and clients can
    * navigate to distant locations without needing to discover them.
+   * Includes towns, POIs, and manifest-driven resources/stations/NPCs
+   * from ALL_WORLD_AREAS so agents have full world awareness.
    */
   private serializeWorldMap(): {
     towns: Array<{
@@ -845,10 +855,32 @@ export class ConnectionHandler {
       position: { x: number; y: number; z: number };
       biome: string;
     }>;
+    resources: Array<{
+      type: string;
+      resourceId: string;
+      position: { x: number; y: number; z: number };
+      areaId: string;
+    }>;
+    stations: Array<{
+      id: string;
+      type: string;
+      position: { x: number; y: number; z: number };
+      areaId: string;
+    }>;
+    npcs: Array<{
+      id: string;
+      type: string;
+      name?: string;
+      position: { x: number; y: number; z: number };
+      areaId: string;
+    }>;
   } {
     const result: ReturnType<ConnectionHandler["serializeWorldMap"]> = {
       towns: [],
       pois: [],
+      resources: [],
+      stations: [],
+      npcs: [],
     };
 
     try {
@@ -900,6 +932,51 @@ export class ConnectionHandler {
           position: { x: p.position.x, y: p.position.y, z: p.position.z },
           biome: p.biome,
         }));
+      }
+
+      // Get resources, stations, and NPCs from ALL_WORLD_AREAS manifest
+      for (const area of Object.values(ALL_WORLD_AREAS)) {
+        for (const resource of area.resources) {
+          result.resources.push({
+            type: resource.type,
+            resourceId: resource.resourceId,
+            position: {
+              x: resource.position.x,
+              y: resource.position.y,
+              z: resource.position.z,
+            },
+            areaId: area.id,
+          });
+        }
+
+        if (area.stations) {
+          for (const station of area.stations) {
+            result.stations.push({
+              id: station.id,
+              type: station.type,
+              position: {
+                x: station.position.x,
+                y: station.position.y,
+                z: station.position.z,
+              },
+              areaId: area.id,
+            });
+          }
+        }
+
+        for (const npc of area.npcs) {
+          result.npcs.push({
+            id: npc.id,
+            type: npc.type,
+            name: npc.name,
+            position: {
+              x: npc.position.x,
+              y: npc.position.y,
+              z: npc.position.z,
+            },
+            areaId: area.id,
+          });
+        }
       }
     } catch {
       // Graceful fallback — map data is optional

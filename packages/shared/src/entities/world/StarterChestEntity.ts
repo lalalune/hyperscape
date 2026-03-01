@@ -63,8 +63,18 @@ export class StarterChestEntity extends InteractableEntity {
   /** Tiles this chest occupies for collision */
   private collisionTiles: TileCoord[] = [];
 
-  /** Set of character IDs that have already looted this chest (server-side tracking) */
+  /**
+   * Set of character IDs that have already looted this chest (server-side tracking)
+   * NOTE: This is in-memory only - resets on server restart.
+   * For production, this should be stored in the database.
+   */
   private static lootedByCharacters: Set<string> = new Set();
+
+  /**
+   * Maximum number of looted character IDs to track before pruning
+   * This prevents unbounded memory growth in long-running servers
+   */
+  private static readonly MAX_LOOTED_TRACKING = 10000;
 
   constructor(world: World, config: StarterChestEntityConfig) {
     const interactableConfig: InteractableConfig = {
@@ -121,9 +131,45 @@ export class StarterChestEntity extends InteractableEntity {
 
   /**
    * Mark a character as having looted this chest
+   * Automatically prunes oldest entries if max tracking limit is reached
    */
   static markLooted(characterId: string): void {
+    // Check if we need to prune before adding
+    if (
+      StarterChestEntity.lootedByCharacters.size >=
+      StarterChestEntity.MAX_LOOTED_TRACKING
+    ) {
+      // Remove roughly 10% of oldest entries (Sets iterate in insertion order)
+      const pruneCount = Math.floor(
+        StarterChestEntity.MAX_LOOTED_TRACKING * 0.1,
+      );
+      let removed = 0;
+      for (const id of StarterChestEntity.lootedByCharacters) {
+        if (removed >= pruneCount) break;
+        StarterChestEntity.lootedByCharacters.delete(id);
+        removed++;
+      }
+      console.warn(
+        `[StarterChest] Pruned ${removed} old looted entries (reached max tracking limit)`,
+      );
+    }
     StarterChestEntity.lootedByCharacters.add(characterId);
+  }
+
+  /**
+   * Clear all looted character tracking
+   * Used for server shutdown cleanup
+   */
+  static clearLootedTracking(): void {
+    StarterChestEntity.lootedByCharacters.clear();
+  }
+
+  /**
+   * Get the number of characters being tracked
+   * Useful for monitoring memory usage
+   */
+  static getLootedCount(): number {
+    return StarterChestEntity.lootedByCharacters.size;
   }
 
   /**

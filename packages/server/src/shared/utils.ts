@@ -64,16 +64,37 @@ export async function hashFile(buffer: Buffer): Promise<string> {
  * Tokens are signed with JWT_SECRET from environment variables.
  */
 
-// JWT secret — required in production, uses dev fallback only in development
-const jwtSecret =
-  process.env["JWT_SECRET"] ||
-  (process.env.NODE_ENV === "production"
-    ? (() => {
-        throw new Error(
-          "[Security] JWT_SECRET environment variable is required in production",
-        );
-      })()
-    : "hyperscape-dev-secret-key-12345");
+// JWT secret — required in production, uses dev fallback only in local development
+const getJwtSecret = (): string => {
+  const secret = process.env["JWT_SECRET"];
+  if (secret) {
+    return secret;
+  }
+
+  // In production or staging, JWT_SECRET is required
+  const env = process.env.NODE_ENV;
+  if (env === "production" || env === "staging") {
+    throw new Error(
+      "[Security] JWT_SECRET environment variable is required in production/staging",
+    );
+  }
+
+  // Only allow dev secret in explicit development mode
+  if (env !== "development") {
+    console.warn(
+      "[Security] JWT_SECRET not set and NODE_ENV is not 'development'. " +
+        "Using insecure dev secret. Set JWT_SECRET or NODE_ENV=development to suppress.",
+    );
+  }
+
+  console.warn(
+    "[Security] Using insecure development JWT secret. " +
+      "This is only acceptable for local development.",
+  );
+  return "hyperscape-dev-secret-key-12345";
+};
+
+const jwtSecret = getJwtSecret();
 
 /**
  * Creates a signed JSON Web Token containing arbitrary data

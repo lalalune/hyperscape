@@ -242,6 +242,9 @@ export class MobEntity extends CombatantEntity {
   /** Shuffle indices for random cardinal selection (avoids array allocation) */
   private readonly _shuffleIndices: number[] = [0, 1, 2, 3];
 
+  /** Tracked PLAYER_SET_DEAD handler for cleanup */
+  private _playerDeadHandler: ((data: unknown) => void) | null = null;
+
   /** Cached NPC size (avoid repeated lookups) */
   private _cachedNPCSize: { width: number; depth: number } | null = null;
 
@@ -656,7 +659,7 @@ export class MobEntity extends CombatantEntity {
     });
 
     // Listen for player deaths - disengage if we were targeting them
-    this.world.on(EventType.PLAYER_SET_DEAD, (data: unknown) => {
+    this._playerDeadHandler = (data: unknown) => {
       const deathData = data as { playerId: string; isDead: boolean };
       if (
         deathData.isDead &&
@@ -664,7 +667,8 @@ export class MobEntity extends CombatantEntity {
       ) {
         this.clearTargetAndExitCombat();
       }
-    });
+    };
+    this.world.on(EventType.PLAYER_SET_DEAD, this._playerDeadHandler);
 
     // CRITICAL: Server uses RespawnManager to generate random spawn position
     // Client uses position from config (which comes from network data - the server's authoritative position)
@@ -3154,6 +3158,12 @@ export class MobEntity extends CombatantEntity {
   override destroy(): void {
     // Unregister entity from hot updates
     this.world.setHot(this, false);
+
+    // Clean up PLAYER_SET_DEAD listener
+    if (this._playerDeadHandler) {
+      this.world.off(EventType.PLAYER_SET_DEAD, this._playerDeadHandler);
+      this._playerDeadHandler = null;
+    }
 
     // Clean up placeholder hitbox (if VRM never loaded)
     this.destroyRaycastProxy();

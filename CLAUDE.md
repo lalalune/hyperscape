@@ -6,6 +6,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Hyperscape is a RuneScape-style MMORPG built on a custom 3D multiplayer engine. The project features a real-time 3D metaverse engine (Hyperscape) in a persistent world.
 
+## CRITICAL: WebGPU Required (NO WebGL)
+
+**Hyperscape requires WebGPU. WebGL WILL NOT WORK.**
+
+This is a hard requirement due to our use of TSL (Three Shading Language) for all materials and post-processing effects. TSL only works with the WebGPU node material pipeline.
+
+### Why WebGPU-Only?
+- **TSL Shaders**: All materials use Three.js Shading Language (TSL) which requires WebGPU
+- **Post-Processing**: Bloom, tone mapping, and other effects use TSL-based node materials
+- **No Fallback**: There is NO WebGL fallback - the game will not render without WebGPU
+
+### Browser Requirements
+- Chrome 113+ (recommended)
+- Edge 113+
+- Safari 17+
+- Firefox (behind flag, not recommended)
+
+### Server/Streaming Requirements
+For Vast.ai and other GPU servers running the streaming pipeline:
+- **NVIDIA GPU with Vulkan support is REQUIRED**
+- **Must run headful** with Xorg or Xvfb (NOT headless Chrome)
+- Chrome uses ANGLE/Vulkan backend to access WebGPU
+- If GPU cannot initialize WebGPU, deployment MUST FAIL (no soft fallbacks)
+
+### Development Rules for WebGPU
+- **NEVER add WebGL fallback code** - it will not work with TSL shaders
+- **NEVER use `--disable-webgpu`** or `forceWebGL` flags
+- **NEVER use headless Chrome modes** that don't support WebGPU
+- All renderer code must assume WebGPU availability
+- If WebGPU is unavailable, throw an error immediately
+
 ## Essential Commands
 
 ### Development Workflow
@@ -122,6 +153,19 @@ packages/
 3. **All other packages** - Depend on shared
 
 The `turbo.json` configuration handles this automatically via `dependsOn: ["^build"]`.
+
+> **TODO(AUDIT-004): CIRCULAR DEPENDENCY - shared ↔ procgen**
+>
+> There is a circular dependency between `@hyperscape/shared` and `@hyperscape/procgen`.
+> - shared imports procgen for vegetation/terrain generation
+> - procgen imports shared for TileCoord type in viewers
+>
+> **Current workaround**: procgen build ignores TypeScript errors.
+>
+> **Recommended fix**: Extract shared types to `@hyperscape/types` package:
+> - Create new package with only type definitions (no runtime code)
+> - Both shared and procgen depend on types (no circular dep)
+> - Move TileCoord, Position3D, EntityData to types package
 
 ### Entity Component System (ECS)
 
@@ -311,6 +355,7 @@ This project uses **Bun** (v1.1.38+) as the package manager and runtime.
 ## Tech Stack
 
 - **Runtime**: Bun v1.1.38+
+- **Rendering**: WebGPU ONLY (Three.js WebGPURenderer + TSL shaders) - NO WebGL
 - **Engine**: Three.js 0.180.0, PhysX (WASM)
 - **UI**: React 19.2.0, styled-components
 - **Server**: Fastify, WebSockets, LiveKit
@@ -354,7 +399,7 @@ See [Port Allocation](#port-allocation) section for full port list.
 - Ensure server is not running before tests
 - Check `/logs/` folder for error details
 - Tests spawn their own Hyperscape instances
-- Visual tests require headless browser support
+- Visual tests require WebGPU support (headful browser with GPU access)
 
 ## Additional Resources
 

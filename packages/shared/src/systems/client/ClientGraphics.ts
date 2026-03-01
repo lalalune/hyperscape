@@ -79,7 +79,7 @@ import {
   configureShadowMaps,
   getMaxAnisotropy,
   isWebGPURenderer,
-  type UniversalRenderer,
+  type WebGPURenderer,
   logWebGPUInfo,
   getWebGPUCapabilities,
 } from "../../utils/rendering/RendererFactory";
@@ -95,9 +95,9 @@ import {
   type GPUComputeManager,
 } from "../../utils/compute";
 
-let renderer: UniversalRenderer | undefined;
+let renderer: WebGPURenderer | undefined;
 
-async function getRenderer(): Promise<UniversalRenderer> {
+async function getRenderer(): Promise<WebGPURenderer> {
   if (!renderer) {
     renderer = await createRenderer({
       powerPreference: "high-performance",
@@ -111,7 +111,7 @@ async function getRenderer(): Promise<UniversalRenderer> {
  * Get the shared WebGPU renderer instance
  * @returns The renderer or undefined if not initialized
  */
-export function getSharedRenderer(): UniversalRenderer | undefined {
+export function getSharedRenderer(): WebGPURenderer | undefined {
   return renderer;
 }
 
@@ -123,7 +123,7 @@ export function getSharedRenderer(): UniversalRenderer | undefined {
  */
 export class ClientGraphics extends System {
   // Properties
-  renderer!: UniversalRenderer;
+  renderer!: WebGPURenderer;
   viewport!: HTMLElement;
   maxAnisotropy!: number;
   usePostprocessing!: boolean;
@@ -158,14 +158,17 @@ export class ClientGraphics extends System {
     this.world.camera.aspect = this.aspect;
     this.world.camera.updateProjectionMatrix();
 
-    // Create renderer (prefers WebGPU; stream/dev can permit WebGL fallback)
+    // Create WebGPU renderer (WebGPU is REQUIRED - shaders use TSL which only works with WebGPU)
     this.renderer = await getRenderer();
     const isWebGPUBackend = isWebGPURenderer(this.renderer);
     this.isWebGPU = isWebGPUBackend;
 
+    // WebGPU is mandatory - all shaders use TSL (Three Shading Language) which requires WebGPU
     if (!isWebGPUBackend) {
-      console.warn(
-        "[ClientGraphics] WebGPU backend unavailable, running in WebGL fallback mode",
+      throw new Error(
+        "WebGPU is REQUIRED but the renderer backend is not WebGPU. " +
+          "All Hyperscape shaders use TSL which only works with WebGPU. " +
+          "Please use Chrome 113+, Edge 113+, or Safari 17+.",
       );
     }
 
@@ -200,10 +203,12 @@ export class ClientGraphics extends System {
     this.maxAnisotropy = getMaxAnisotropy(this.renderer);
     THREE.Texture.DEFAULT_ANISOTROPY = this.maxAnisotropy;
 
-    // Initialize GPU compute infrastructure
-    this.gpuCompute = isWebGPURenderer(this.renderer)
-      ? setupGPUCompute(this.renderer, this.world)
-      : null;
+    // Initialize GPU compute infrastructure (always available since WebGPU is required)
+    // Cast is safe because we verified isWebGPU above and would have thrown otherwise
+    this.gpuCompute = setupGPUCompute(
+      this.renderer as unknown as THREE.Renderer,
+      this.world,
+    );
     if (this.gpuCompute) {
       console.log("[ClientGraphics] GPU compute initialized:", {
         grass: !!this.gpuCompute.grass?.isReady(),
@@ -393,10 +398,9 @@ export class ClientGraphics extends System {
       this.renderer.setPixelRatio(changes.dpr.value);
       this.resize(this.width, this.height);
     }
-    // postprocessing (always available with WebGPU)
+    // postprocessing (TSL-based, requires WebGPU which is mandatory)
     if (changes.postprocessing) {
-      // WebGL fallback currently runs without TSL post-processing.
-      this.usePostprocessing = changes.postprocessing.value && this.isWebGPU;
+      this.usePostprocessing = changes.postprocessing.value;
     }
     // color grading LUT
     if (changes.colorGrading && this.composer) {

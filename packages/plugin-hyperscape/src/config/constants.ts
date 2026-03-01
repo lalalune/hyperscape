@@ -81,7 +81,7 @@ export const SCRIPTED_AUTONOMY_CONFIG = {
     process.env.HYPERSCAPE_RESOURCE_LEVEL_MAX_BELOW || "10",
   ),
   RESOURCE_APPROACH_RANGE: parseFloat(
-    process.env.HYPERSCAPE_RESOURCE_APPROACH_RANGE || "20",
+    process.env.HYPERSCAPE_RESOURCE_APPROACH_RANGE || "40",
   ),
 } as const;
 

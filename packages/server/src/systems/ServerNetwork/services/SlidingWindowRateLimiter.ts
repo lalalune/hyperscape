@@ -280,14 +280,14 @@ export function getTileMovementRateLimiter(): RateLimiter {
 }
 
 /**
- * Get the pathfinding rate limiter (5/sec)
- * Limits BFS pathfinding operations which are CPU-expensive
- * Separate from movement to allow position updates without pathfinding
+ * Get the pathfinding rate limiter (15/sec)
+ * Aligned with the tile movement limiter so rapid re-clicks are not silently
+ * dropped now that moveRequest is processed immediately (no ActionQueue buffer).
  */
 export function getPathfindRateLimiter(): RateLimiter {
   if (!pathfindLimiter) {
     pathfindLimiter = createRateLimiter({
-      maxPerSecond: 5,
+      maxPerSecond: 15,
       name: "pathfinding",
     });
   }

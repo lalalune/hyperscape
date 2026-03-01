@@ -14,7 +14,7 @@
     "start": "bun run start:api",
     "start:api": "bun run build:services && bun server/api-elysia.ts",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
-    "lint": "eslint . --ext .ts,.tsx",
+    "lint": "eslint src",
     "preview": "vite preview",
     "assets:audit": "bun x tsx scripts/audit-assets.ts",
     "assets:normalize": "bun x tsx scripts/normalize-all-assets.ts",

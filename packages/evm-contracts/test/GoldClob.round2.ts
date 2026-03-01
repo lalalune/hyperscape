@@ -25,33 +25,35 @@ describe("GoldClob — Round 2 Security Fixes", function () {
       const { clob, maker, taker, owner } = await deployFixture();
       await clob.connect(owner).createMatch();
 
-      // Maker places a SELL (NO) at price=500 for 100 shares.
-      const makerValue = computeValue(100n, 500, false);
+      // Use larger amounts to avoid precision issues with gas costs
+      const amount = 10000n;
+      const makerPrice = 500;
+      const takerPrice = 600;
+
+      // Maker places a SELL (NO) at price=500 for shares.
+      const makerValue = computeValue(amount, makerPrice, false);
       await clob
         .connect(maker)
-        .placeOrder(1, false, 500, 100, { value: makerValue });
+        .placeOrder(1, false, makerPrice, amount, { value: makerValue });
 
       const takerBalBefore = await ethers.provider.getBalance(taker.address);
 
-      // Taker places a BUY (YES) at price=600 for 100 shares.
+      // Taker places a BUY (YES) at price=600.
       // They match against the maker's sell at 500.
-      // Improvement = (600 - 500) per share, so refund = 100 * 100 / 1000 = 10 wei.
-      const takerValue = computeValue(100n, 600, true);
+      const takerValue = computeValue(amount, takerPrice, true);
       const tx = await clob
         .connect(taker)
-        .placeOrder(1, true, 600, 100, { value: takerValue });
+        .placeOrder(1, true, takerPrice, amount, { value: takerValue });
       const receipt = await tx.wait();
-      const gasCost = receipt!.gasUsed * receipt!.gasPrice;
+      const gasCost = BigInt(receipt!.gasUsed) * BigInt(receipt!.gasPrice);
 
       const takerBalAfter = await ethers.provider.getBalance(taker.address);
 
       // Taker paid cost at the maker's price (500), not their own (600).
-      // Effective cost = 100 * 500 / 1000 = 50 + fees on the original 60 (but improvement refunded).
       // The key check: the improvement was refunded.
       const spent = takerBalBefore - takerBalAfter - gasCost;
-      // Expected: cost at match price (50) + trade fees on original cost (60 * 200 / 10000 ≈ 1)
-      // This is approximate because fees are on the original higher cost.
-      expect(spent).to.be.lessThan(takerValue); // Should be less than what was sent
+      // Spent should be less than what was sent (takerValue) since improvement was refunded
+      expect(spent).to.be.lessThan(takerValue);
     });
 
     it("Refunds the taker when a SELL order crosses a higher BUY order", async function () {

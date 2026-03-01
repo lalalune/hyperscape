@@ -7,12 +7,51 @@ on:
       - completed
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: 'Skip build step (deploy current code)'
+        required: false
+        default: 'false'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     steps:
+      # Step 1: Enter maintenance mode before deployment
+      # This pauses new duel cycles and waits for current markets to resolve
+      - name: Enter Maintenance Mode
+        continue-on-error: true
+        env:
+          VAST_SERVER_URL: ${{ secrets.VAST_SERVER_URL }}
+          ADMIN_CODE: ${{ secrets.ADMIN_CODE }}
+        run: |
+          # Skip if secrets not configured
+          if [ -z "$VAST_SERVER_URL" ] || [ -z "$ADMIN_CODE" ]; then
+            echo "Skipping maintenance mode - secrets not configured"
+            exit 0
+          fi
+          echo "Entering maintenance mode..."
+          RESPONSE=$(curl -s -X POST \
+            "$VAST_SERVER_URL/admin/maintenance/enter" \
+            -H "Content-Type: application/json" \
+            -H "x-admin-code: $ADMIN_CODE" \
+            -d '{"reason": "deployment", "timeoutMs": 300000}' \
+            --max-time 600 || echo '{"error": "curl failed"}')
+
+          echo "Maintenance mode response: $RESPONSE"
+
+          SAFE=$(echo "$RESPONSE" | jq -r '.status.safeToDeploy // "unknown"')
+          PHASE=$(echo "$RESPONSE" | jq -r '.status.currentPhase // "unknown"')
+          MARKETS=$(echo "$RESPONSE" | jq -r '.status.pendingMarkets // "unknown"')
+
+          echo "Safe to deploy: $SAFE"
+          echo "Current phase: $PHASE"
+          echo "Pending markets: $MARKETS"
+
+      # Step 2: Deploy to Vast.ai
+      # First checkout main explicitly to ensure we have the latest deploy script
       - name: SSH and Deploy Vast
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -20,7 +59,95 @@ jobs:
           port: ${{ secrets.VAST_PORT }}
           username: root
           key: ${{ secrets.VAST_SSH_KEY }}
+          command_timeout: 30m
           script: |
+            # Install bun if not present (always check first)
+            echo "[deploy] Checking for bun..."
+            if [ ! -f "/root/.bun/bin/bun" ]; then
+              echo "[deploy] Installing unzip (required for bun)..."
+              apt-get update && apt-get install -y unzip
+              echo "[deploy] Installing bun..."
+              curl -fsSL https://bun.sh/install | bash
+              echo "[deploy] Bun install completed"
+            fi
             export PATH="/root/.bun/bin:$PATH"
+            echo "[deploy] bun --version: $(bun --version 2>&1 || echo 'failed')"
+
+            # First-time setup: clone repo if it doesn't exist
+            if [ ! -d "/root/hyperscape" ]; then
+              echo "[deploy] First-time setup: cloning repository..."
+              cd /root
+              git clone https://github.com/HyperscapeAI/hyperscape.git
+            fi
+
             cd /root/hyperscape
+            git fetch origin
+            git checkout main
+            git reset --hard origin/main
+            # Write environment variables to /tmp FIRST (so git reset in deploy-vast.sh doesn't overwrite)
+            # Using direct secret substitution since envs parameter doesn't work reliably
+            echo "[deploy] Writing secrets to /tmp/hyperscape-secrets.env"
+            cat > /tmp/hyperscape-secrets.env << 'ENVEOF'
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            ARENA_EXTERNAL_BET_WRITE_KEY=${{ secrets.ARENA_EXTERNAL_BET_WRITE_KEY }}
+            TWITCH_STREAM_KEY=${{ secrets.TWITCH_STREAM_KEY }}
+            X_STREAM_KEY=${{ secrets.X_STREAM_KEY }}
+            X_RTMP_URL=${{ secrets.X_RTMP_URL }}
+            KICK_STREAM_KEY=${{ secrets.KICK_STREAM_KEY }}
+            KICK_RTMP_URL=${{ secrets.KICK_RTMP_URL }}
+            YOUTUBE_STREAM_KEY=
+            SOLANA_DEPLOYER_PRIVATE_KEY=${{ secrets.SOLANA_DEPLOYER_PRIVATE_KEY }}
+            ENVEOF
+            # Clean up any leading whitespace from heredoc
+            sed -i 's/^[[:space:]]*//' /tmp/hyperscape-secrets.env
+            # Debug: show what was written (masked keys)
+            echo "[deploy] Secrets file contents (keys only):"
+            cut -d= -f1 /tmp/hyperscape-secrets.env
+            # Now run the deploy script (which will copy from /tmp after its own git reset)
             bash /root/hyperscape/scripts/deploy-vast.sh
+
+      # Step 3: Exit maintenance mode after successful deployment
+      # The deploy script will restart PM2, so we need to wait for server to be ready
+      - name: Exit Maintenance Mode
+        continue-on-error: true
+        env:
+          VAST_SERVER_URL: ${{ secrets.VAST_SERVER_URL }}
+          ADMIN_CODE: ${{ secrets.ADMIN_CODE }}
+        run: |
+          # Skip if secrets not configured
+          if [ -z "$VAST_SERVER_URL" ] || [ -z "$ADMIN_CODE" ]; then
+            echo "Skipping maintenance mode exit - secrets not configured"
+            exit 0
+          fi
+
+          echo "Waiting for server to be ready after deployment..."
+
+          # Wait up to 5 minutes for server to be healthy
+          for i in {1..30}; do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$VAST_SERVER_URL/health" --max-time 10 || echo "000")
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "Server is healthy!"
+              break
+            fi
+
+            echo "Server not ready (status: $HTTP_STATUS), retrying in 10s... ($i/30)"
+            sleep 10
+          done
+
+          echo "Exiting maintenance mode..."
+          RESPONSE=$(curl -s -X POST \
+            "$VAST_SERVER_URL/admin/maintenance/exit" \
+            -H "Content-Type: application/json" \
+            -H "x-admin-code: $ADMIN_CODE" \
+            --max-time 30 || echo '{"error": "curl failed"}')
+
+          echo "Exit maintenance response: $RESPONSE"
+
+          SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
+          if [ "$SUCCESS" = "true" ]; then
+            echo "Maintenance mode exited successfully!"
+          else
+            echo "Warning: Failed to exit maintenance mode. Manual intervention may be required."
+          fi

@@ -67,7 +67,11 @@ import {
   shareOpinionAction,
   offerHelpAction,
 } from "./actions/social.js";
-import { bankDepositAction, bankWithdrawAction } from "./actions/banking.js";
+import {
+  bankDepositAction,
+  bankWithdrawAction,
+  bankDepositAllAction,
+} from "./actions/banking.js";
 import {
   talkToNpcAction,
   acceptQuestAction,
@@ -88,7 +92,6 @@ import {
   idleAction,
   approachEntityAction,
   attackEntityAction as autonomousAttackAction,
-  lootStarterChestAction,
 } from "./actions/autonomous.js";
 import { setGoalAction, navigateToAction } from "./actions/goals.js";
 import { challengeDuelAction, acceptDuelAction } from "./actions/duel.js";
@@ -331,8 +334,6 @@ export const hyperscapePlugin: Plugin = {
     fleeAction, // Run away from danger
     idleAction, // Stand still and observe
     approachEntityAction, // Move towards a specific entity
-    lootStarterChestAction, // Loot starter chest for basic tools
-
     // Duel actions (for agent vs agent PvP)
     challengeDuelAction, // Challenge nearby player to a duel
     acceptDuelAction, // Accept incoming duel challenge
@@ -386,6 +387,7 @@ export const hyperscapePlugin: Plugin = {
     // Banking
     bankDepositAction,
     bankWithdrawAction,
+    bankDepositAllAction,
 
     // Trading
     requestTradeAction,

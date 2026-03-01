@@ -114,6 +114,7 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       );
       this.playerEntityId = this.characterId;
       this.isActive = true;
+      this.subscribeToWorldEvents();
       return;
     }
 
@@ -348,6 +349,12 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
    * Subscribe to world events and forward to registered handlers
    */
   private subscribeToWorldEvents(): void {
+    // Guard: prevent duplicate subscriptions if initialize() is called
+    // multiple times without stop() in between.
+    if (this.worldListeners.length > 0) {
+      return;
+    }
+
     const track = (event: string, fn: (...args: unknown[]) => void) => {
       this.world.on(event, fn);
       this.worldListeners.push({ event, fn });
@@ -549,15 +556,12 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       string,
       { level: number; xp: number }
     >;
-    const inventory = (data.inventory || []) as Array<{
-      slot: number;
-      itemId: string;
-      quantity: number;
-    }>;
-    const equipment = (data.equipment || {}) as Record<
-      string,
-      { itemId: string }
-    >;
+    const inventory = this.getInventoryItems();
+    const equippedRaw = this.getEquippedItems();
+    const equipment: Record<string, { itemId: string }> = {};
+    for (const [slot, itemId] of Object.entries(equippedRaw)) {
+      if (itemId) equipment[slot] = { itemId };
+    }
 
     return {
       playerId: this.playerEntityId,
@@ -569,9 +573,8 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       inventory,
       equipment,
       nearbyEntities: this.getNearbyEntities(),
-      inCombat: !!(data.inCombat || data.combatTarget || data.c || data.ct),
-      currentTarget:
-        (data.combatTarget as string) || (data.ct as string) || null,
+      inCombat: !!(data.inCombat || data.combatTarget),
+      currentTarget: (data.combatTarget as string) || null,
       activePrayers: (data.activePrayers as string[]) || [],
     };
   }
@@ -1018,11 +1021,26 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       }
     }
 
-    // Cancel combat
+    // Cancel combat via CombatSystem (keeps internal tracking in sync)
+    const combatSystem = this.world.getSystem("combat") as {
+      forceEndCombat?: (entityId: string) => void;
+    } | null;
+    if (combatSystem?.forceEndCombat) {
+      try {
+        combatSystem.forceEndCombat(this.playerEntityId);
+      } catch {
+        // Fall through to manual cleanup
+      }
+    }
+
+    // Clear any remaining combat state (including serialized fields)
     const player = this.world.entities.get(this.playerEntityId);
     if (player) {
       player.data.combatTarget = null;
       player.data.inCombat = false;
+      (player.data as Record<string, unknown>).ct = null;
+      (player.data as Record<string, unknown>).c = false;
+      (player.data as Record<string, unknown>).attackTarget = null;
     }
   }
 

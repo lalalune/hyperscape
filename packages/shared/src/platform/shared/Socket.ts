@@ -53,6 +53,11 @@ export class Socket {
   closed: boolean;
   disconnected: boolean;
 
+  // Handler references for cleanup
+  private _messageHandler: ((arg?: unknown) => void) | null = null;
+  private _pongHandler: (() => void) | null = null;
+  private _closeHandler: ((arg?: unknown) => void) | null = null;
+
   constructor({ id, ws, network, player }: SocketOptions) {
     this.id = id;
     this.ws = ws;
@@ -75,20 +80,42 @@ export class Socket {
       } as unknown as NodeWebSocket;
     }
 
-    // Use Node.js WebSocket event handling
-    this.ws.on("message", (arg?: unknown) => {
+    // Use Node.js WebSocket event handling (store refs for cleanup)
+    this._messageHandler = (arg?: unknown) => {
       // Strong type assumption - message is always ArrayBuffer or Uint8Array
       const data = arg as ArrayBuffer | Uint8Array;
       this.onMessage(data);
-    });
-    this.ws.on("pong", () => {
+    };
+    this._pongHandler = () => {
       this.onPong();
-    });
-    this.ws.on("close", (arg?: unknown) => {
+    };
+    this._closeHandler = (arg?: unknown) => {
       // Strong type assumption - close event has code property
       const closeEvent = arg as { code?: number | string } | undefined;
       this.onClose({ code: closeEvent?.code });
-    });
+    };
+    this.ws.on("message", this._messageHandler);
+    this.ws.on("pong", this._pongHandler);
+    this.ws.on("close", this._closeHandler);
+  }
+
+  /**
+   * Remove all event listeners from the WebSocket
+   * Called during disconnect to prevent memory leaks
+   */
+  private cleanup(): void {
+    if (this._messageHandler) {
+      this.ws.removeListener?.("message", this._messageHandler);
+      this._messageHandler = null;
+    }
+    if (this._pongHandler) {
+      this.ws.removeListener?.("pong", this._pongHandler);
+      this._pongHandler = null;
+    }
+    if (this._closeHandler) {
+      this.ws.removeListener?.("close", this._closeHandler);
+      this._closeHandler = null;
+    }
   }
 
   send<T>(name: string, data: T): void {
@@ -133,6 +160,9 @@ export class Socket {
   };
 
   disconnect(code?: number | string): void {
+    // Clean up event listeners to prevent memory leaks
+    this.cleanup();
+
     if (!this.closed) {
       // Use Node.js WebSocket terminate method
       this.ws.terminate();

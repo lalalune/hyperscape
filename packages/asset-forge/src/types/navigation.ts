@@ -7,6 +7,7 @@ export type NavigationView =
   | "armorFitting"
   | "retargetAnimate"
   | "batchSprites"
+  | "vfx"
   | "worldBuilder"
   | "worldEditor" // New: Uses real game systems
   | "manifests"

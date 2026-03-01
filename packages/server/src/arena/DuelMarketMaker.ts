@@ -372,10 +372,22 @@ export class DuelMarketMaker {
       );
     }
 
-    // Clean up market state after a delay
+    // Clean up market state after a short delay (reduced from 60s to 10s
+    // to prevent unbounded growth during rapid duel cycles)
     setTimeout(() => {
       this.activeMarkets.delete(cycleId);
-    }, 60000);
+    }, 10_000);
+
+    // Safety cap: if too many markets accumulated (e.g. timers delayed by
+    // event loop congestion), prune resolved entries immediately.
+    if (this.activeMarkets.size > 10) {
+      for (const [oldCycleId, oldMarket] of this.activeMarkets) {
+        if (oldMarket.status === "resolved" && oldCycleId !== cycleId) {
+          this.activeMarkets.delete(oldCycleId);
+        }
+        if (this.activeMarkets.size <= 10) break;
+      }
+    }
   }
 
   /**

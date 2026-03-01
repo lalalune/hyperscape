@@ -6,26 +6,28 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-fight_oracle = "4fvVdiZkMQQGjYWHyKubjkdhh1DfJaYNvaRvRWPeKcMN"
-gold_clob_market = "AqRu5b1fd67VyR4MgjKPN9EMgQ8wxauDUxyY5pUsGdAW"
-gold_perps_market = "3WKQf3J4B8QqRyWcBLR7xrb9VFPVjkZwzyZS67AahDbK"
+fight_oracle = "6tpRysBFd1yXRipYEYwAw9jxEoVHk15kVXfkDGFLMqcD"
+gold_clob_market = "ARVJNJp49VZnkB8QBYZAAFJmufvtVSPhnuuenwwSLwpi"
+gold_perps_market = "HbXhqEFevpkfYdZCN6YmJGRmQmj9vsBun2ZHjeeaLRik"
 
 [programs.localnet]
-fight_oracle = "4fvVdiZkMQQGjYWHyKubjkdhh1DfJaYNvaRvRWPeKcMN"
-gold_clob_market = "AqRu5b1fd67VyR4MgjKPN9EMgQ8wxauDUxyY5pUsGdAW"
-gold_perps_market = "3WKQf3J4B8QqRyWcBLR7xrb9VFPVjkZwzyZS67AahDbK"
+fight_oracle = "6tpRysBFd1yXRipYEYwAw9jxEoVHk15kVXfkDGFLMqcD"
+gold_clob_market = "ARVJNJp49VZnkB8QBYZAAFJmufvtVSPhnuuenwwSLwpi"
+gold_perps_market = "HbXhqEFevpkfYdZCN6YmJGRmQmj9vsBun2ZHjeeaLRik"
 
 [programs.mainnet]
-fight_oracle = "4fvVdiZkMQQGjYWHyKubjkdhh1DfJaYNvaRvRWPeKcMN"
-gold_clob_market = "AqRu5b1fd67VyR4MgjKPN9EMgQ8wxauDUxyY5pUsGdAW"
-gold_perps_market = "3WKQf3J4B8QqRyWcBLR7xrb9VFPVjkZwzyZS67AahDbK"
+fight_oracle = "6tpRysBFd1yXRipYEYwAw9jxEoVHk15kVXfkDGFLMqcD"
+gold_clob_market = "ARVJNJp49VZnkB8QBYZAAFJmufvtVSPhnuuenwwSLwpi"
+gold_perps_market = "HbXhqEFevpkfYdZCN6YmJGRmQmj9vsBun2ZHjeeaLRik"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
+# Use localnet for testing (anchor test spins up a local validator)
+# For devnet/mainnet deployments, use: anchor deploy --provider.cluster devnet
 cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+wallet = "~/.config/solana/hyperscape-keys/deployer.json"
 
 [workspace]
 members = ["programs/*"]

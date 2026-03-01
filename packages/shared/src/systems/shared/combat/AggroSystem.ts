@@ -242,9 +242,10 @@ export class AggroSystem extends SystemBase {
       },
     );
 
-    // Clean up tolerance data when player disconnects
+    // Clean up all player data when player disconnects
     this.subscribe(EventType.PLAYER_LEFT, (data: { playerId: string }) => {
       this.removePlayerTolerance(data.playerId);
+      this.removePlayerData(data.playerId);
     });
 
     // Listen for player respawn to clear any lingering aggro state
@@ -791,6 +792,25 @@ export class AggroSystem extends SystemBase {
   }
 
   /**
+   * Clean up player-specific data (skills, combat level cache) on disconnect
+   * Prevents memory leaks from accumulated player data
+   */
+  private removePlayerData(playerId: string): void {
+    this.playerSkills.delete(playerId);
+    this.combatLevelCache.delete(playerId);
+
+    // Also clear any aggro targeting this player across all mobs
+    for (const [, mobState] of this.mobStates) {
+      if (mobState.currentTarget === playerId) {
+        mobState.currentTarget = null;
+        mobState.isChasing = false;
+        mobState.isInCombat = false;
+      }
+      mobState.aggroTargets.delete(playerId);
+    }
+  }
+
+  /**
    * Get remaining tolerance time in ticks for a player
    * Useful for debugging and UI display
    *
@@ -1307,6 +1327,7 @@ export class AggroSystem extends SystemBase {
 
     // Clear player tolerance data
     this.playerTolerance.clear();
+    this.playersByRegion.clear();
 
     // Clear cached skills
     this.playerSkills.clear();

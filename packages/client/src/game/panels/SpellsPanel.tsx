@@ -724,35 +724,6 @@ export function SpellsPanel({ stats, world }: SpellsPanelProps) {
               </button>
             )}
 
-            {/* Cast option (for manual casting on current target) */}
-            {playerMagicLevel >= contextMenu.spell.level && (
-              <button
-                onClick={() => {
-                  // TODO: Implement manual cast on current combat target
-                  // For now just close the menu
-                  setContextMenu((prev) => ({ ...prev, visible: false }));
-                }}
-                className="w-full text-left transition-colors duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400/60"
-                style={{
-                  padding: "6px 10px",
-                  fontSize: 11,
-                  color: theme.colors.text.secondary,
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    theme.colors.background.hover)
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
-                Cast {contextMenu.spell.name}
-              </button>
-            )}
-
             {/* Locked message */}
             {playerMagicLevel < contextMenu.spell.level && (
               <div

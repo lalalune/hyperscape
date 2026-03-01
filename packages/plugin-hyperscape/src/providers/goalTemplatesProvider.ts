@@ -52,7 +52,8 @@ export interface GoalTemplate {
     | "cooking"
     | "fishing"
     | "exploration"
-    | "starter_items";
+    | "questing"
+    | "banking";
   description: string;
   prerequisites: string[]; // Human-readable prerequisite descriptions
   hardRequirements: string[]; // Machine-checkable requirements that MUST be met (e.g., "has_axe", "mining >= 15")
@@ -77,17 +78,17 @@ const GOAL_TEMPLATES: GoalTemplate[] = [
   // === ACQUISITION GOALS (for getting starter equipment) ===
   {
     id: "acquire_starter_tools",
-    name: "Get Starter Tools",
-    type: "starter_items",
+    name: "Get Starter Tools via Quests",
+    type: "questing",
     description:
-      "Acquire basic tools needed for gathering skills (axe, pickaxe, tinderbox)",
+      "Accept quests from NPCs to get basic tools (axe, pickaxe, tinderbox, fishing net)",
     prerequisites: [],
     hardRequirements: [], // No requirements - this is the bootstrap goal
     steps: [
-      "Find and loot starter chest near spawn (contains bronze tools)",
-      "Or: Kill goblins - they sometimes drop tools",
-      "Or: Visit a general store to buy basic tools",
-      "Priority: Get axe first (for logs), then pickaxe (for ore)",
+      "Talk to Forester Wilma and ACCEPT_QUEST 'lumberjacks_first_lesson' for bronze hatchet + tinderbox",
+      "Talk to Torvin and ACCEPT_QUEST 'torvins_tools' for bronze pickaxe + hammer",
+      "Talk to Fisherman Pete and ACCEPT_QUEST 'fresh_catch' for small fishing net",
+      "Quest items are granted immediately on accept!",
     ],
     successCondition: "Have axe AND pickaxe in inventory",
     recommendedWhen: ["no_axe", "no_pickaxe", "no_tools"],

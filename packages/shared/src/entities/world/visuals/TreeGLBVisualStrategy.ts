@@ -11,6 +11,8 @@ import {
   addInstance as addGLBTreeInstance,
   removeInstance as removeGLBTreeInstance,
   setDepleted as setGLBTreeDepleted,
+  hasDepleted as hasGLBTreeDepleted,
+  getHighlightMesh as getGLBTreeHighlightMesh,
   updateGLBTreeInstancer,
 } from "../../../systems/shared/world/GLBTreeInstancer";
 import type {
@@ -61,28 +63,36 @@ export class TreeGLBVisualStrategy implements ResourceVisualStrategy {
       worldPos,
       rotation,
       baseScale,
+      config.depletedModelPath ?? null,
+      config.depletedModelScale ?? 0.3,
     );
 
     if (success) {
       createCollisionProxy(ctx, baseScale);
     }
-    // If instancing fails ResourceEntity factory falls back to StandardModelVisualStrategy
   }
 
-  async onDepleted(ctx: ResourceVisualContext): Promise<void> {
+  async onDepleted(ctx: ResourceVisualContext): Promise<boolean> {
     setGLBTreeDepleted(ctx.id, true);
+    const proxy = ctx.getMesh();
+    if (proxy) {
+      proxy.userData.depleted = true;
+      proxy.userData.interactable = false;
+    }
+    return hasGLBTreeDepleted(ctx.id);
+  }
+
+  getHighlightMesh(ctx: ResourceVisualContext): THREE.Object3D | null {
+    return getGLBTreeHighlightMesh(ctx.id);
   }
 
   async onRespawn(ctx: ResourceVisualContext): Promise<void> {
     setGLBTreeDepleted(ctx.id, false);
-    // Remove stump mesh, recreate proxy
-    const mesh = ctx.getMesh();
-    if (mesh) {
-      ctx.node.remove(mesh);
-      ctx.setMesh(null);
+    const proxy = ctx.getMesh();
+    if (proxy) {
+      proxy.userData.depleted = false;
+      proxy.userData.interactable = true;
     }
-    const baseScale = ctx.config.modelScale ?? 3.0;
-    createCollisionProxy(ctx, baseScale);
   }
 
   update(): void {

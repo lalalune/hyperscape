@@ -341,13 +341,20 @@ export class InteractionSessionManager implements ISessionReader {
   /**
    * Validate all active sessions
    *
-   * Checks distance for each session and closes those that are too far.
+   * Checks distance and timeout for each session and closes those that fail.
    */
   private validateAllSessions(): void {
     for (const [playerId, session] of this.sessions) {
-      // Skip sessions in grace period
       const ticksSinceOpen = this.tickCounter - session.openedAtTick;
+
+      // Skip sessions in grace period
       if (ticksSinceOpen < SESSION_CONFIG.GRACE_PERIOD_TICKS) {
+        continue;
+      }
+
+      // Close zombie sessions that have been open too long (30 min default)
+      if (ticksSinceOpen >= SESSION_CONFIG.MAX_SESSION_TICKS) {
+        this.closeSession(playerId, "timeout");
         continue;
       }
 

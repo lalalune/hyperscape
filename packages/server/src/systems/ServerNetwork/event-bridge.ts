@@ -51,6 +51,15 @@ export class EventBridge {
   private lastCleanupTick = 0;
 
   /**
+   * Registered event handlers for cleanup.
+   * Maps event type to handler function so we can remove them in destroy().
+   */
+  private eventHandlers: Array<{
+    event: string | symbol;
+    handler: (payload: unknown) => void;
+  }> = [];
+
+  /**
    * Create an EventBridge
    *
    * @param world - Game world instance that emits events
@@ -60,6 +69,30 @@ export class EventBridge {
     private world: World,
     private broadcast: BroadcastManager,
   ) {}
+
+  /**
+   * Register an event handler and track it for cleanup
+   * @private
+   */
+  private on(
+    event: keyof EventMap | string,
+    handler: (payload: unknown) => void,
+  ): void {
+    this.world.on(event as keyof EventMap, handler);
+    this.eventHandlers.push({ event, handler });
+  }
+
+  /**
+   * Cleanup all registered event listeners.
+   * MUST be called when the ServerNetwork system is destroyed to prevent memory leaks.
+   */
+  destroy(): void {
+    for (const { event, handler } of this.eventHandlers) {
+      this.world.off(event as keyof EventMap, handler as () => void);
+    }
+    this.eventHandlers = [];
+    this.recentDamageEvents.clear();
+  }
 
   /**
    * Get database from world object
@@ -121,15 +154,15 @@ export class EventBridge {
    */
   private setupResourceEvents(): void {
     try {
-      this.world.on(EventType.RESOURCE_DEPLETED, (...args: unknown[]) => {
+      this.on(EventType.RESOURCE_DEPLETED, (...args: unknown[]) => {
         this.broadcast.sendToAll("resourceDepleted", args[0]);
       });
 
-      this.world.on(EventType.RESOURCE_RESPAWNED, (...args: unknown[]) => {
+      this.on(EventType.RESOURCE_RESPAWNED, (...args: unknown[]) => {
         this.broadcast.sendToAll("resourceRespawned", args[0]);
       });
 
-      this.world.on(EventType.RESOURCE_SPAWNED, (...args: unknown[]) => {
+      this.on(EventType.RESOURCE_SPAWNED, (...args: unknown[]) => {
         this.broadcast.sendToAll("resourceSpawned", args[0]);
       });
 
@@ -141,14 +174,14 @@ export class EventBridge {
       );
 
       // OSRS-STYLE: Forward gathering tool show/hide events (for fishing rod visual)
-      this.world.on(EventType.GATHERING_TOOL_SHOW, (payload: unknown) => {
+      this.on(EventType.GATHERING_TOOL_SHOW, (payload: unknown) => {
         const data = payload as EventMap[EventType.GATHERING_TOOL_SHOW];
         if (data.playerId) {
           this.broadcast.sendToPlayer(data.playerId, "gatheringToolShow", data);
         }
       });
 
-      this.world.on(EventType.GATHERING_TOOL_HIDE, (payload: unknown) => {
+      this.on(EventType.GATHERING_TOOL_HIDE, (payload: unknown) => {
         const data = payload as EventMap[EventType.GATHERING_TOOL_HIDE];
         if (data.playerId) {
           this.broadcast.sendToPlayer(data.playerId, "gatheringToolHide", data);
@@ -170,7 +203,7 @@ export class EventBridge {
   private setupInventoryEvents(): void {
     try {
       // Send inventory updates to specific player only (not all clients!)
-      this.world.on(EventType.INVENTORY_UPDATED, (payload: unknown) => {
+      this.on(EventType.INVENTORY_UPDATED, (payload: unknown) => {
         const data = payload as EventMap[EventType.INVENTORY_UPDATED];
         if (data.playerId) {
           this.broadcast.sendToPlayer(data.playerId, "inventoryUpdated", data);
@@ -178,7 +211,7 @@ export class EventBridge {
       });
 
       // Send inventory initialization to specific player
-      this.world.on(EventType.INVENTORY_INITIALIZED, (payload: unknown) => {
+      this.on(EventType.INVENTORY_INITIALIZED, (payload: unknown) => {
         const data = payload as EventMap[EventType.INVENTORY_INITIALIZED];
 
         const packet = {
@@ -197,7 +230,7 @@ export class EventBridge {
       });
 
       // Handle coin updates - send to specific player
-      this.world.on(EventType.INVENTORY_COINS_UPDATED, (payload: unknown) => {
+      this.on(EventType.INVENTORY_COINS_UPDATED, (payload: unknown) => {
         const data = payload as EventMap[EventType.INVENTORY_COINS_UPDATED];
         // Send coins update to the specific player
         this.broadcast.sendToPlayer(data.playerId, "coinsUpdated", {
@@ -207,7 +240,7 @@ export class EventBridge {
       });
 
       // Handle inventory data requests
-      this.world.on(EventType.INVENTORY_REQUEST, (payload: unknown) => {
+      this.on(EventType.INVENTORY_REQUEST, (payload: unknown) => {
         const data = payload as EventMap[EventType.INVENTORY_REQUEST];
 
         try {
@@ -271,7 +304,7 @@ export class EventBridge {
    */
   private setupSkillEvents(): void {
     try {
-      this.world.on(EventType.SKILLS_UPDATED, (payload: unknown) => {
+      this.on(EventType.SKILLS_UPDATED, (payload: unknown) => {
         const data = payload as EventMap[EventType.SKILLS_UPDATED];
 
         if (data?.playerId) {
@@ -290,7 +323,7 @@ export class EventBridge {
       // Forward XP drops to clients for visual feedback (RS3-style)
       // Uses XP_DROP_BROADCAST which is emitted AFTER SkillsSystem processes XP
       // This ensures newLevel reflects any level-ups that occurred
-      this.world.on(EventType.XP_DROP_BROADCAST, (payload: unknown) => {
+      this.on(EventType.XP_DROP_BROADCAST, (payload: unknown) => {
         const data = payload as EventMap[EventType.XP_DROP_BROADCAST];
 
         if (!data?.playerId) return;
@@ -361,7 +394,7 @@ export class EventBridge {
   private setupPrayerEvents(): void {
     try {
       // Forward prayer state sync to clients
-      this.world.on(EventType.PRAYER_STATE_SYNC, (payload: unknown) => {
+      this.on(EventType.PRAYER_STATE_SYNC, (payload: unknown) => {
         const data = payload as EventMap[EventType.PRAYER_STATE_SYNC];
 
         if (!data?.playerId) return;
@@ -376,7 +409,7 @@ export class EventBridge {
       });
 
       // Forward prayer toggled events for visual feedback
-      this.world.on(EventType.PRAYER_TOGGLED, (payload: unknown) => {
+      this.on(EventType.PRAYER_TOGGLED, (payload: unknown) => {
         const data = payload as EventMap[EventType.PRAYER_TOGGLED];
 
         if (!data?.playerId) return;
@@ -391,7 +424,7 @@ export class EventBridge {
       });
 
       // Forward prayer points changes for real-time drain animation
-      this.world.on(EventType.PRAYER_POINTS_CHANGED, (payload: unknown) => {
+      this.on(EventType.PRAYER_POINTS_CHANGED, (payload: unknown) => {
         const data = payload as EventMap[EventType.PRAYER_POINTS_CHANGED];
 
         if (!data?.playerId) return;
@@ -419,7 +452,7 @@ export class EventBridge {
   private setupUIEvents(): void {
     try {
       // Forward UI_MESSAGE events to chat (system messages, warnings, etc.)
-      this.world.on(EventType.UI_MESSAGE, (payload: unknown) => {
+      this.on(EventType.UI_MESSAGE, (payload: unknown) => {
         const data = payload as EventMap[EventType.UI_MESSAGE];
 
         if (data.playerId && data.message) {
@@ -431,7 +464,7 @@ export class EventBridge {
       });
 
       // Forward UI_TOAST events to client for toast notifications
-      this.world.on(EventType.UI_TOAST, (payload: unknown) => {
+      this.on(EventType.UI_TOAST, (payload: unknown) => {
         const data = payload as EventMap[EventType.UI_TOAST];
 
         if (data.playerId && data.message) {
@@ -442,7 +475,7 @@ export class EventBridge {
         }
       });
 
-      this.world.on(EventType.UI_UPDATE, (payload: unknown) => {
+      this.on(EventType.UI_UPDATE, (payload: unknown) => {
         const data = payload as EventMap[EventType.UI_UPDATE] | undefined;
         const inner = data?.data as
           | { playerId?: string; [k: string]: unknown }
@@ -454,7 +487,7 @@ export class EventBridge {
       });
 
       // Forward death screen events to specific player
-      this.world.on(EventType.UI_DEATH_SCREEN, (payload: unknown) => {
+      this.on(EventType.UI_DEATH_SCREEN, (payload: unknown) => {
         const data = payload as EventMap[EventType.UI_DEATH_SCREEN];
 
         if (data.playerId) {
@@ -468,7 +501,7 @@ export class EventBridge {
       });
 
       // Forward death screen close events to specific player AND spectators
-      this.world.on(EventType.UI_DEATH_SCREEN_CLOSE, (payload: unknown) => {
+      this.on(EventType.UI_DEATH_SCREEN_CLOSE, (payload: unknown) => {
         const data = payload as EventMap[EventType.UI_DEATH_SCREEN_CLOSE];
 
         if (data.playerId) {
@@ -483,7 +516,7 @@ export class EventBridge {
 
       // Forward player death state changes to ALL clients
       // CRITICAL: Broadcast to all so other players see death animation and position updates
-      this.world.on(EventType.PLAYER_SET_DEAD, (payload: unknown) => {
+      this.on(EventType.PLAYER_SET_DEAD, (payload: unknown) => {
         const data = payload as EventMap[EventType.PLAYER_SET_DEAD];
 
         if (data.playerId) {
@@ -513,7 +546,7 @@ export class EventBridge {
 
       // Forward player respawn events to ALL clients
       // CRITICAL: Broadcast to all so other players see respawned player at new position
-      this.world.on(EventType.PLAYER_RESPAWNED, (payload: unknown) => {
+      this.on(EventType.PLAYER_RESPAWNED, (payload: unknown) => {
         const data = payload as EventMap[EventType.PLAYER_RESPAWNED];
 
         if (data.playerId) {
@@ -523,7 +556,7 @@ export class EventBridge {
       });
 
       // Forward attack style change events to specific player
-      this.world.on(EventType.UI_ATTACK_STYLE_CHANGED, (payload: unknown) => {
+      this.on(EventType.UI_ATTACK_STYLE_CHANGED, (payload: unknown) => {
         const data = payload as EventMap[EventType.UI_ATTACK_STYLE_CHANGED];
 
         if (data.playerId) {
@@ -536,7 +569,7 @@ export class EventBridge {
       });
 
       // Forward attack style update events to specific player
-      this.world.on(EventType.UI_ATTACK_STYLE_UPDATE, (payload: unknown) => {
+      this.on(EventType.UI_ATTACK_STYLE_UPDATE, (payload: unknown) => {
         const data = payload as EventMap[EventType.UI_ATTACK_STYLE_UPDATE];
 
         if (data.playerId) {
@@ -545,7 +578,7 @@ export class EventBridge {
       });
 
       // Forward auto-retaliate change events to specific player
-      this.world.on(EventType.UI_AUTO_RETALIATE_CHANGED, (payload: unknown) => {
+      this.on(EventType.UI_AUTO_RETALIATE_CHANGED, (payload: unknown) => {
         const data = payload as EventMap[EventType.UI_AUTO_RETALIATE_CHANGED];
 
         // Defensive validation before sending to client
@@ -577,7 +610,7 @@ export class EventBridge {
   private setupCombatEvents(): void {
     try {
       // Forward damage dealt events to all clients for visual effects
-      this.world.on(EventType.COMBAT_DAMAGE_DEALT, (payload: unknown) => {
+      this.on(EventType.COMBAT_DAMAGE_DEALT, (payload: unknown) => {
         const data = payload as EventMap[EventType.COMBAT_DAMAGE_DEALT];
 
         // Deduplicate damage events to prevent duplicate splats
@@ -586,9 +619,9 @@ export class EventBridge {
         const currentTick = this.world.currentTick;
         const dedupeKey = `${data.attackerId}-${data.targetId}-${currentTick}`;
 
-        // Cleanup old entries (older than 2 ticks) — uses stored tick number
-        // instead of parsing it from the key string (avoids split/parseInt allocs)
-        if (currentTick > this.lastCleanupTick + 1) {
+        // Cleanup old entries every tick (entries older than 2 ticks)
+        // More aggressive cleanup to prevent memory buildup
+        if (currentTick > this.lastCleanupTick) {
           for (const [key, entry] of this.recentDamageEvents) {
             if (entry.tick < currentTick - 1) {
               this.recentDamageEvents.delete(key);
@@ -597,13 +630,14 @@ export class EventBridge {
           this.lastCleanupTick = currentTick;
         }
 
-        // Safety cap: if Map somehow grows large (e.g. tick counter anomaly),
-        // evict oldest entries to prevent unbounded memory growth.
-        if (this.recentDamageEvents.size > 5000) {
+        // Safety cap: prevent unbounded memory growth with aggressive eviction
+        // Lower threshold (1000) and evict more entries (75%) to recover quickly
+        if (this.recentDamageEvents.size > 1000) {
           let evicted = 0;
+          const evictTarget = Math.floor(this.recentDamageEvents.size * 0.75);
           for (const [key] of this.recentDamageEvents) {
             this.recentDamageEvents.delete(key);
-            if (++evicted >= 2500) break;
+            if (++evicted >= evictTarget) break;
           }
         }
 
@@ -677,7 +711,7 @@ export class EventBridge {
 
       // Forward combat face target events so clients rotate toward their target
       // Essential for magic/ranged attacks where player is stationary
-      this.world.on(EventType.COMBAT_FACE_TARGET, (payload: unknown) => {
+      this.on(EventType.COMBAT_FACE_TARGET, (payload: unknown) => {
         const data = payload as EventMap[EventType.COMBAT_FACE_TARGET];
 
         // Send to specific player only — they need to rotate their local character
@@ -685,7 +719,7 @@ export class EventBridge {
       });
 
       // Forward combat clear face target so clients stop rotating toward dead/disengaged targets
-      this.world.on(EventType.COMBAT_CLEAR_FACE_TARGET, (payload: unknown) => {
+      this.on(EventType.COMBAT_CLEAR_FACE_TARGET, (payload: unknown) => {
         const data = payload as EventMap[EventType.COMBAT_CLEAR_FACE_TARGET];
         this.broadcast.sendToPlayer(
           data.playerId,
@@ -708,7 +742,7 @@ export class EventBridge {
   private setupPlayerEvents(): void {
     try {
       // Forward weight changes to specific player (for stamina drain calculations)
-      this.world.on(EventType.PLAYER_WEIGHT_CHANGED, (payload: unknown) => {
+      this.on(EventType.PLAYER_WEIGHT_CHANGED, (payload: unknown) => {
         const data = payload as EventMap[EventType.PLAYER_WEIGHT_CHANGED];
 
         if (data.playerId) {
@@ -722,7 +756,7 @@ export class EventBridge {
       // Forward player updates to specific player (health, stats, etc.)
       // Note: emitPlayerUpdate() sends { playerId, component, data: playerData }
       // where data.health is { current, max } object
-      this.world.on(EventType.PLAYER_UPDATED, (payload: unknown) => {
+      this.on(EventType.PLAYER_UPDATED, (payload: unknown) => {
         const data = payload as EventMap[EventType.PLAYER_UPDATED];
 
         if (data.playerId && data.data) {
@@ -759,7 +793,7 @@ export class EventBridge {
   private setupDialogueEvents(): void {
     try {
       // Forward dialogue start events to specific player
-      this.world.on(EventType.DIALOGUE_START, (payload: unknown) => {
+      this.on(EventType.DIALOGUE_START, (payload: unknown) => {
         const data = payload as EventMap[EventType.DIALOGUE_START];
 
         if (data.playerId) {
@@ -776,7 +810,7 @@ export class EventBridge {
       });
 
       // Forward dialogue node change events to specific player
-      this.world.on(EventType.DIALOGUE_NODE_CHANGE, (payload: unknown) => {
+      this.on(EventType.DIALOGUE_NODE_CHANGE, (payload: unknown) => {
         const data = payload as EventMap[EventType.DIALOGUE_NODE_CHANGE];
 
         if (data.playerId) {
@@ -790,7 +824,7 @@ export class EventBridge {
       });
 
       // Forward dialogue end events to specific player
-      this.world.on(EventType.DIALOGUE_END, (payload: unknown) => {
+      this.on(EventType.DIALOGUE_END, (payload: unknown) => {
         const data = payload as EventMap[EventType.DIALOGUE_END];
 
         if (data.playerId) {
@@ -815,7 +849,7 @@ export class EventBridge {
   private setupBankingEvents(): void {
     try {
       // Handle bank open requests (from dialogue effects, NPC interactions, etc.)
-      this.world.on(EventType.BANK_OPEN_REQUEST, async (payload: unknown) => {
+      this.on(EventType.BANK_OPEN_REQUEST, async (payload: unknown) => {
         const data = payload as EventMap[EventType.BANK_OPEN_REQUEST];
 
         if (!data.playerId) {
@@ -848,6 +882,30 @@ export class EventBridge {
           console.error("[EventBridge] Error fetching bank data:", err);
         }
       });
+
+      // Send bank contents on player spawn so agents know what's in bank
+      // without having to physically open it first
+      this.world.on(EventType.PLAYER_SPAWNED, async (payload: unknown) => {
+        const data = payload as { playerId?: string };
+        if (!data.playerId) return;
+
+        try {
+          const db = this.getDatabase();
+          if (!db) return;
+
+          const bankRepo = new BankRepository(db.drizzle, db.pool);
+          const items = await bankRepo.getPlayerBank(data.playerId);
+
+          this.broadcast.sendToPlayer(data.playerId, "bankState", {
+            playerId: data.playerId,
+            bankId: "spawn_sync",
+            items,
+            maxSlots: 480,
+          });
+        } catch (_err) {
+          // Database may not be ready during early spawn — silently ignore
+        }
+      });
     } catch (_err) {
       console.error("[EventBridge] Error setting up banking events:", _err);
     }
@@ -863,7 +921,7 @@ export class EventBridge {
    */
   private setupStoreEvents(): void {
     try {
-      this.world.on(EventType.STORE_OPEN_REQUEST, async (payload: unknown) => {
+      this.on(EventType.STORE_OPEN_REQUEST, async (payload: unknown) => {
         const data = payload as EventMap[EventType.STORE_OPEN_REQUEST];
 
         if (!data.playerId) {
@@ -1023,7 +1081,7 @@ export class EventBridge {
   private setupFireEvents(): void {
     try {
       // Broadcast fire lighting started to nearby clients (show model during 3s animation)
-      this.world.on(EventType.FIRE_LIGHTING_STARTED, (payload: unknown) => {
+      this.on(EventType.FIRE_LIGHTING_STARTED, (payload: unknown) => {
         const data = payload as EventMap[EventType.FIRE_LIGHTING_STARTED];
 
         this.broadcast.sendToNearby(
@@ -1035,14 +1093,14 @@ export class EventBridge {
       });
 
       // Broadcast fire lighting cancelled to all clients (remove preloaded model)
-      this.world.on(EventType.FIRE_LIGHTING_CANCELLED, (payload: unknown) => {
+      this.on(EventType.FIRE_LIGHTING_CANCELLED, (payload: unknown) => {
         const data = payload as EventMap[EventType.FIRE_LIGHTING_CANCELLED];
 
         this.broadcast.sendToAll("fireLightingCancelled", data);
       });
 
       // Broadcast fire creation to all clients for visual rendering
-      this.world.on(EventType.FIRE_CREATED, (payload: unknown) => {
+      this.on(EventType.FIRE_CREATED, (payload: unknown) => {
         const data = payload as EventMap[EventType.FIRE_CREATED];
 
         // Send to nearby clients so they can render the fire visual
@@ -1055,7 +1113,7 @@ export class EventBridge {
       });
 
       // Broadcast fire extinguish to all clients
-      this.world.on(EventType.FIRE_EXTINGUISHED, (payload: unknown) => {
+      this.on(EventType.FIRE_EXTINGUISHED, (payload: unknown) => {
         const data = payload as EventMap[EventType.FIRE_EXTINGUISHED];
 
         // Send to all clients so they can remove the fire visual
@@ -1077,7 +1135,7 @@ export class EventBridge {
   private setupSmeltingEvents(): void {
     try {
       // Forward smelting interface open events to specific player
-      this.world.on(EventType.SMELTING_INTERFACE_OPEN, (payload: unknown) => {
+      this.on(EventType.SMELTING_INTERFACE_OPEN, (payload: unknown) => {
         const data = payload as EventMap[EventType.SMELTING_INTERFACE_OPEN];
 
         if (data.playerId) {
@@ -1089,7 +1147,7 @@ export class EventBridge {
       });
 
       // Forward smithing interface open events to specific player
-      this.world.on(EventType.SMITHING_INTERFACE_OPEN, (payload: unknown) => {
+      this.on(EventType.SMITHING_INTERFACE_OPEN, (payload: unknown) => {
         const data = payload as EventMap[EventType.SMITHING_INTERFACE_OPEN];
 
         if (data.playerId) {
@@ -1115,7 +1173,7 @@ export class EventBridge {
   private setupCraftingEvents(): void {
     try {
       // Forward crafting interface open events to specific player
-      this.world.on(EventType.CRAFTING_INTERFACE_OPEN, (payload: unknown) => {
+      this.on(EventType.CRAFTING_INTERFACE_OPEN, (payload: unknown) => {
         const data = payload as EventMap[EventType.CRAFTING_INTERFACE_OPEN];
 
         if (data.playerId) {
@@ -1141,7 +1199,7 @@ export class EventBridge {
   private setupFletchingEvents(): void {
     try {
       // Forward fletching interface open events to specific player
-      this.world.on(EventType.FLETCHING_INTERFACE_OPEN, (payload: unknown) => {
+      this.on(EventType.FLETCHING_INTERFACE_OPEN, (payload: unknown) => {
         const data = payload as FletchingInterfaceOpenPayload;
 
         if (data.playerId) {
@@ -1166,7 +1224,7 @@ export class EventBridge {
   private setupTanningEvents(): void {
     try {
       // Forward tanning interface open events to specific player
-      this.world.on(EventType.TANNING_INTERFACE_OPEN, (payload: unknown) => {
+      this.on(EventType.TANNING_INTERFACE_OPEN, (payload: unknown) => {
         const data = payload as EventMap[EventType.TANNING_INTERFACE_OPEN];
 
         if (data.playerId) {
@@ -1191,7 +1249,7 @@ export class EventBridge {
   private setupQuestEvents(): void {
     try {
       // Forward quest start confirmation to specific player
-      this.world.on(EventType.QUEST_START_CONFIRM, (payload: unknown) => {
+      this.on(EventType.QUEST_START_CONFIRM, (payload: unknown) => {
         const data = payload as EventMap[EventType.QUEST_START_CONFIRM];
 
         if (data.playerId) {
@@ -1207,7 +1265,7 @@ export class EventBridge {
       });
 
       // Forward quest started event to specific player
-      this.world.on(EventType.QUEST_STARTED, (payload: unknown) => {
+      this.on(EventType.QUEST_STARTED, (payload: unknown) => {
         const data = payload as EventMap[EventType.QUEST_STARTED];
 
         if (data.playerId) {
@@ -1219,7 +1277,7 @@ export class EventBridge {
       });
 
       // Forward quest progress updates to specific player
-      this.world.on(EventType.QUEST_PROGRESSED, (payload: unknown) => {
+      this.on(EventType.QUEST_PROGRESSED, (payload: unknown) => {
         const data = payload as EventMap[EventType.QUEST_PROGRESSED];
 
         if (data.playerId) {
@@ -1233,7 +1291,7 @@ export class EventBridge {
       });
 
       // Forward quest completed event to specific player
-      this.world.on(EventType.QUEST_COMPLETED, (payload: unknown) => {
+      this.on(EventType.QUEST_COMPLETED, (payload: unknown) => {
         const data = payload as EventMap[EventType.QUEST_COMPLETED];
 
         if (data.playerId) {
@@ -1262,7 +1320,7 @@ export class EventBridge {
     try {
       // Listen for trade cancellation events from TradingSystem
       // This handles: timeout, disconnect, player death
-      this.world.on(EventType.TRADE_CANCELLED, (payload: unknown) => {
+      this.on(EventType.TRADE_CANCELLED, (payload: unknown) => {
         const data = payload as EventMap[EventType.TRADE_CANCELLED];
 
         // Build user-friendly message based on reason

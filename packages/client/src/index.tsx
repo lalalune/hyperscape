@@ -1,5 +1,6 @@
 /**
  * index.tsx - Hyperscape Client Entry Point
+ * @build 2026-02-25 - Packet sync rebuild
  *
  * Main entry point for the Hyperscape browser client. Initializes the React application,
  * authentication, and 3D game world. Handles the complete client lifecycle from login
@@ -489,6 +490,7 @@ function App() {
     playerTokenManager.startSession();
     return () => {
       playerTokenManager.endSession();
+      playerTokenManager.dispose();
     };
   }, []);
 
@@ -707,6 +709,11 @@ const LeaderboardScreen = React.lazy(() =>
     default: m.LeaderboardScreen,
   })),
 );
+const AgentMonitorScreen = React.lazy(() =>
+  import("./screens/AgentMonitorScreen").then((m) => ({
+    default: m.AgentMonitorScreen,
+  })),
+);
 import {
   isTauriApp,
   onDeepLink,
@@ -845,6 +852,17 @@ async function mountApp() {
         <ErrorBoundary>
           <React.Suspense fallback={<ScreenLoadingFallback />}>
             <LeaderboardScreen />
+          </React.Suspense>
+        </ErrorBoundary>,
+      );
+    } else if (page === "agent-monitor") {
+      console.log(
+        "[Hyperscape] Agent monitor mode detected - rendering AgentMonitorScreen",
+      );
+      root.render(
+        <ErrorBoundary>
+          <React.Suspense fallback={<ScreenLoadingFallback />}>
+            <AgentMonitorScreen />
           </React.Suspense>
         </ErrorBoundary>,
       );

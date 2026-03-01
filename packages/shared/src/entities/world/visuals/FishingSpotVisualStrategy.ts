@@ -66,7 +66,7 @@ export class FishingSpotVisualStrategy implements ResourceVisualStrategy {
     this.tryRegisterPM(ctx);
   }
 
-  async onDepleted(ctx: ResourceVisualContext): Promise<void> {
+  async onDepleted(ctx: ResourceVisualContext): Promise<boolean> {
     if (this.glowMesh) this.glowMesh.visible = false;
 
     if (this.registeredWithPM) {
@@ -74,6 +74,7 @@ export class FishingSpotVisualStrategy implements ResourceVisualStrategy {
       if (pm) pm.unregister(ctx.id);
       this.registeredWithPM = false;
     }
+    return false;
   }
 
   async onRespawn(ctx: ResourceVisualContext): Promise<void> {

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { THREE, createRenderer } from "@hyperscape/shared";
-import type { UniversalRenderer } from "@hyperscape/shared";
+import type { WebGPURenderer } from "@hyperscape/shared";
 import {
   GLTFLoader,
   type GLTFParser,
@@ -65,7 +65,7 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const rendererRef = useRef<UniversalRenderer | null>(null);
+  const rendererRef = useRef<WebGPURenderer | null>(null);
   const vrmRef = useRef<VRM | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const clockRef = useRef<THREE.Clock>(new THREE.Clock());

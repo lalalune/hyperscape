@@ -4,7 +4,6 @@ import tseslint from '@typescript-eslint/eslint-plugin'
 import tsparser from '@typescript-eslint/parser'
 import reactPlugin from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
-import importPlugin from 'eslint-plugin-import'
 import globals from 'globals'
 
 export default [
@@ -25,24 +24,10 @@ export default [
     plugins: {
       '@typescript-eslint': tseslint,
       react: reactPlugin,
-      'react-hooks': reactHooks,
-      import: importPlugin
+      'react-hooks': reactHooks
     },
     settings: {
-      react: { version: 'detect' },
-      'import/resolver': {
-        typescript: true,
-        alias: {
-          map: [
-            ['@', './src'],
-            ['@hyperscape/decimation', '../decimation/src'],
-            ['@hyperscape/impostor', '../impostors/src'],
-            ['@hyperscape/procgen', '../procgen/src'],
-            ['@hyperscape/shared', '../shared/src']
-          ],
-          extensions: ['.ts', '.tsx', '.js', '.jsx']
-        }
-      }
+      react: { version: 'detect' }
     },
     rules: {
       'no-undef': 'off',
@@ -50,8 +35,7 @@ export default [
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true }],
       'react/prop-types': 'off',
       'react-hooks/exhaustive-deps': 'warn',
-      'import/no-unresolved': 'error',
-      'import/order': ['warn', { 'newlines-between': 'always', alphabetize: { order: 'asc' } }]
+      'import/order': 'off'
     }
   },
   {

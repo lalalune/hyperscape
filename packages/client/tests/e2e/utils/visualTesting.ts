@@ -243,29 +243,26 @@ export async function captureCanvasPixels(
 
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      // For WebGL canvas, we need to read from the GL context
-      const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
-      if (!gl) return null;
-
+      // For WebGPU canvas, we use toDataURL and draw to a 2D canvas to read pixels
+      // WebGPU doesn't support direct pixel reading like WebGL's readPixels
       const width = canvas.width;
       const height = canvas.height;
-      const pixels = new Uint8Array(width * height * 4);
-      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
-      // WebGL pixels are bottom-to-top, flip them
-      const flipped = new Uint8Array(width * height * 4);
-      for (let y = 0; y < height; y++) {
-        const srcRow = (height - y - 1) * width * 4;
-        const dstRow = y * width * 4;
-        for (let x = 0; x < width * 4; x++) {
-          flipped[dstRow + x] = pixels[srcRow + x];
-        }
-      }
+      // Create an offscreen canvas to draw the WebGPU canvas content
+      const offscreen = document.createElement("canvas");
+      offscreen.width = width;
+      offscreen.height = height;
+      const offCtx = offscreen.getContext("2d");
+      if (!offCtx) return null;
+
+      // Draw the WebGPU canvas to the 2D canvas
+      offCtx.drawImage(canvas, 0, 0);
+      const imageData = offCtx.getImageData(0, 0, width, height);
 
       return {
         width,
         height,
-        data: Array.from(flipped),
+        data: Array.from(imageData.data),
       };
     }
 

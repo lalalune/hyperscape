@@ -40,6 +40,20 @@ function isNpcEntity(entity: Entity): boolean {
   );
 }
 
+/** NPCs that can actually give quests — excludes bankers, shopkeepers */
+function isQuestNpc(entity: Entity): boolean {
+  const entityType = (entity.entityType || "").toLowerCase();
+  const type = (entity.type || "").toLowerCase();
+  const name = (entity.name || "").toLowerCase();
+
+  // Exclude bankers and shopkeepers
+  if (entityType === "banker" || entityType === "shopkeeper") return false;
+  if (name.includes("bank") || name.includes("clerk") || name.includes("shop"))
+    return false;
+
+  return entityType === "npc" || type === "npc" || entityType === "quest_giver";
+}
+
 function findNpcByName(entities: Entity[], text: string): Entity | null {
   const lowerText = text.toLowerCase();
   const npcs = entities.filter(isNpcEntity);
@@ -166,13 +180,7 @@ export const acceptQuestAction: Action = {
     if (!player?.position || player.inCombat) return false;
 
     const questState = service.getQuestState();
-    const hasNotStartedQuest = questState.some(
-      (q) => q.status === "not_started",
-    );
-    if (hasNotStartedQuest) return true;
-
-    const nearbyEntities = service.getNearbyEntities();
-    return nearbyEntities.some(isNpcEntity);
+    return questState.some((q) => q.status === "not_started");
   },
 
   handler: async (
@@ -242,36 +250,12 @@ export const acceptQuestAction: Action = {
       };
     }
 
-    // No quest list available yet - talk to a nearby NPC to discover quests
-    const nearbyEntities = service.getNearbyEntities();
-    const npc = findNpcByName(nearbyEntities, message.content.text || "");
-    if (!npc) {
-      await callback?.({
-        text: "No quest NPC found nearby.",
-        action: "ACCEPT_QUEST",
-      });
-      return { success: false, error: "No quest NPC nearby" };
-    }
-
-    const distance = getDistance2D(player.position, npc.position);
-    if (distance !== null && distance > 10) {
-      await service.executeMove({ target: npc.position, runMode: false });
-      await new Promise((r) => setTimeout(r, 2000));
-    }
-
-    service.interactWithEntity(npc.id, "talk");
-
-    // Refresh quest list
-    service.requestQuestList();
-
-    const responseText = `Talking to ${npc.name} to find quests`;
-    await callback?.({ text: responseText, action: "ACCEPT_QUEST" });
-
-    return {
-      success: true,
-      text: responseText,
-      data: { action: "ACCEPT_QUEST", npcName: npc.name },
-    };
+    // No available quest to accept
+    await callback?.({
+      text: "No quests available to accept right now.",
+      action: "ACCEPT_QUEST",
+    });
+    return { success: false, error: "No not_started quest available" };
   },
 
   examples: [

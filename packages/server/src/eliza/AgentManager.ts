@@ -260,8 +260,10 @@ export class AgentManager {
   private world: World;
   private agents: Map<string, AgentInstance> = new Map();
   private isShuttingDown: boolean = false;
-  private readonly behaviorTicker: AgentBehaviorTicker;
+  readonly behaviorTicker: AgentBehaviorTicker;
   private readonly commandDispatcher: AgentCommandDispatcher;
+  /** Stored event handler reference for cleanup during shutdown */
+  private readonly combatDamageHandler: (data: unknown) => void;
 
   constructor(world: World) {
     this.world = world;
@@ -274,10 +276,11 @@ export class AgentManager {
       this.agents.get(id),
     );
 
-    // Subscribe to combat events for chat reactions
-    this.world.on(EventType.COMBAT_DAMAGE_DEALT, (data: unknown) => {
+    // Subscribe to combat events for chat reactions (store ref for cleanup)
+    this.combatDamageHandler = (data: unknown) => {
       this.behaviorTicker.handleCombatDamageDealt(data);
-    });
+    };
+    this.world.on(EventType.COMBAT_DAMAGE_DEALT, this.combatDamageHandler);
 
     console.log("[AgentManager] Initialized with combat chat reactions");
   }
@@ -744,6 +747,9 @@ export class AgentManager {
 
     this.isShuttingDown = true;
     console.log(`[AgentManager] Shutting down ${this.agents.size} agent(s)...`);
+
+    // Remove event listeners to prevent memory leaks
+    this.world.off(EventType.COMBAT_DAMAGE_DEALT, this.combatDamageHandler);
 
     const stopPromises: Promise<void>[] = [];
 

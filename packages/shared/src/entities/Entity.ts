@@ -76,6 +76,16 @@
  * Runs on: Both client and server
  * Used by: Entities system, all entity subclasses
  * References: Entities.ts, Component system, Physics system
+ *
+ * TODO(AUDIT-001): ARCHITECTURAL REFACTORING REQUIRED
+ * This file is ~97K lines and violates Single Responsibility Principle.
+ * Decompose into focused modules:
+ * - EntityCore.ts: Data container, component management, lifecycle
+ * - EntityPhysics.ts: PhysX rigid body integration
+ * - EntityRendering.ts: Three.js mesh, LOD, materials, animations
+ * - EntityNetwork.ts: State sync, dirty flags, serialization
+ * - EntityInteraction.ts: Interaction handlers for interactable entities
+ * Priority: Critical for maintainability and code review velocity.
  */
 
 import type { Entity as IEntity, Quaternion, Vector3 } from "../types";

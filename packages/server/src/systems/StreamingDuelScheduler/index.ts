@@ -46,6 +46,10 @@ const config = {
   /** Whether the streaming scheduler is enabled */
   enabled: process.env.STREAMING_DUEL_ENABLED !== "false",
 
+  /** Check if maintenance mode is active (blocks new cycles) */
+  isMaintenanceMode: (): boolean =>
+    process.env.STREAMING_DUEL_MAINTENANCE_MODE === "true",
+
   /** Minimum agents required to run duels */
   minAgents: 2,
 
@@ -491,14 +495,15 @@ export class StreamingDuelScheduler {
     // Fix K — Watchdog for stuck phases. If any phase exceeds its generous
     // grace period, abort to IDLE rather than staying stuck forever.
     const phaseElapsed = now - this.currentCycle.phaseStartTime;
+    // Reduced grace periods (10s instead of 30s) to fail faster on stuck phases
     const PHASE_TIMEOUT_MS: Partial<Record<StreamingPhase, number>> = {
-      ANNOUNCEMENT: 30_000 + STREAMING_TIMING.ANNOUNCEMENT_DURATION,
-      COUNTDOWN: 15_000 + STREAMING_TIMING.COUNTDOWN_DURATION,
+      ANNOUNCEMENT: 10_000 + STREAMING_TIMING.ANNOUNCEMENT_DURATION,
+      COUNTDOWN: 5_000 + STREAMING_TIMING.COUNTDOWN_DURATION,
       FIGHTING:
-        30_000 +
+        10_000 +
         STREAMING_TIMING.FIGHTING_DURATION +
         STREAMING_TIMING.END_WARNING_DURATION,
-      RESOLUTION: 15_000 + STREAMING_TIMING.RESOLUTION_DURATION,
+      RESOLUTION: 10_000 + STREAMING_TIMING.RESOLUTION_DURATION,
     };
     const maxPhaseMs = PHASE_TIMEOUT_MS[this.currentCycle.phase];
     if (maxPhaseMs !== undefined && phaseElapsed > maxPhaseMs) {
@@ -553,9 +558,18 @@ export class StreamingDuelScheduler {
    * Implements proper error handling and auto-recovery for insufficient agents
    */
   private handleIdleState(now: number): void {
+    // Guard: don't start a new cycle while endCycle cleanup is still in flight
+    if (this._endCycleInProgress) return;
+
     this.orchestrator.clearStaleDuelFlagsForIdleAgents(
       this.matchmaking.availableAgents,
     );
+
+    // Check for maintenance mode - don't start new cycles during deployment
+    if (config.isMaintenanceMode()) {
+      this.schedulerState = "IDLE";
+      return;
+    }
 
     const agentCount = this.matchmaking.availableAgents.size;
 
@@ -615,6 +629,15 @@ export class StreamingDuelScheduler {
   // ============================================================================
 
   private startNewCycle(): void {
+    // Guard: don't start a new cycle while endCycle cleanup is still in flight
+    if (this._endCycleInProgress) {
+      Logger.warn(
+        "StreamingDuelScheduler",
+        "startNewCycle blocked: endCycle cleanup still in progress",
+      );
+      return;
+    }
+
     const cycleId = uuidv4();
     const now = Date.now();
 
@@ -1133,9 +1156,13 @@ export class StreamingDuelScheduler {
     });
     this.camera.finishFightCutawayTracking(now);
 
-    // CRITICAL: Clear duel flags synchronously BEFORE nulling the cycle and
-    // starting the next one.
-    this.orchestrator.clearDuelFlagsForCycle(cycleSnapshot);
+    // NOTE: Duel flags (inStreamingDuel, preventRespawn) are intentionally NOT
+    // cleared here. They stay `true` until cleanupAfterDuel() teleports both
+    // agents out of the arena and then clears them via microtask. Clearing
+    // flags before the cleanup teleport creates a race condition where
+    // DuelSystem.ejectNonDuelingPlayersFromCombatArenas() sees the agents
+    // still in the arena with inStreamingDuel=false and emits a spurious
+    // extra teleport (causing duplicate teleport VFX).
 
     // Clear current cycle
     this.currentCycle = null;

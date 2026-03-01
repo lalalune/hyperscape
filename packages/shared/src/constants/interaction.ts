@@ -55,6 +55,8 @@ export const SESSION_CONFIG = {
   VALIDATION_INTERVAL_TICKS: 1,
   /** Grace period after opening before validation starts */
   GRACE_PERIOD_TICKS: 2,
+  /** Maximum session duration in ticks before auto-close (30 minutes at 600ms/tick = 3000 ticks) */
+  MAX_SESSION_TICKS: 3000,
 } as const;
 
 // ============================================================================

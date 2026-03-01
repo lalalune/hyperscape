@@ -320,9 +320,39 @@ export class DuelScheduler {
     // Sort by total duels (prioritize less active agents for fair scheduling)
     availableAgents.sort((a, b) => a.totalDuels - b.totalDuels);
 
-    // Pick first two agents
-    const agent1 = availableAgents[0];
-    const agent2 = availableAgents[1];
+    let agent1: AgentDuelStats | undefined;
+    let agent2: AgentDuelStats | undefined;
+
+    // Find a pair of agents within the combat level tolerance
+    for (let i = 0; i < availableAgents.length; i++) {
+      const candidate1 = availableAgents[i];
+      const combatLevel1 = this.getAgentCombatLevel(candidate1.agentId);
+
+      for (let j = i + 1; j < availableAgents.length; j++) {
+        const candidate2 = availableAgents[j];
+        const combatLevel2 = this.getAgentCombatLevel(candidate2.agentId);
+
+        if (
+          Math.abs(combatLevel1 - combatLevel2) <= config.combatLevelTolerance
+        ) {
+          agent1 = candidate1;
+          agent2 = candidate2;
+          break;
+        }
+      }
+
+      if (agent1 && agent2) {
+        break;
+      }
+    }
+
+    if (!agent1 || !agent2) {
+      Logger.debug(
+        "DuelScheduler",
+        "No agents found within combat level tolerance.",
+      );
+      return;
+    }
 
     // Validate agent IDs before proceeding
     if (!agent1?.agentId || !agent2?.agentId) {
@@ -332,10 +362,6 @@ export class DuelScheduler {
       });
       return;
     }
-
-    // TODO: Add combat level matching for fairer matches
-    // const combatLevel1 = this.getAgentCombatLevel(agent1.agentId);
-    // const combatLevel2 = this.getAgentCombatLevel(agent2.agentId);
 
     Logger.info("DuelScheduler", "Scheduling duel between agents", {
       agent1: agent1.agentName,

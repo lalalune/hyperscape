@@ -66,6 +66,30 @@ export interface TileMovementState {
    */
   pendingDestination?: TileCoord | null;
   pendingBuildingId?: string | null;
+
+  /**
+   * Original click destination for path continuation.
+   * Set when a new move request is received; cleared when the player reaches
+   * the destination or the destination becomes unreachable.
+   * Used to seamlessly continue movement when BFS returns a partial path.
+   */
+  requestedDestination: TileCoord | null;
+
+  /**
+   * Whether the most recently computed path for this player was partial
+   * (BFS hit MAX_BFS_ITERATIONS before reaching the destination).
+   * Stored per-player to avoid reading BFSPathfinder.wasLastPathPartial()
+   * after other players' paths may have overwritten the shared flag.
+   */
+  lastPathPartial: boolean;
+
+  /**
+   * Whether the server has already pre-computed and sent the next path segment
+   * 1 tick early to eliminate the idle gap at segment boundaries.
+   * Prevents double-sending when the path-exhaustion block also fires.
+   * Cleared on any new move request or respawn/teleport.
+   */
+  nextSegmentPrecomputed: boolean;
 }
 
 /**
@@ -938,6 +962,9 @@ export function createTileMovementState(
     isRunning: false,
     moveSeq: 0,
     previousTile: null, // Set on first tick
+    requestedDestination: null,
+    lastPathPartial: false,
+    nextSegmentPrecomputed: false,
   };
 }
 

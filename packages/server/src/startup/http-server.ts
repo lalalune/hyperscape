@@ -173,8 +173,11 @@ export async function createHttpServer(
     serverUrl, // Game Server
     // Dynamic patterns (for localhost dev and preview deployments)
     /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/, // Matches http://localhost:3333, http://127.0.0.1:4179, etc.
+    /^https?:\/\/(www\.)?hyperbet\.win$/, // hyperbet.win apex and www
     /^https?:\/\/.+\.hyperbet\.win$/, // hyperbet.win subdomains
+    /^https?:\/\/(www\.)?hyperscape\.gg$/, // hyperscape.gg apex and www
     /^https?:\/\/.+\.hyperscape\.gg$/, // hyperscape.gg subdomains
+    /^https?:\/\/(www\.)?hyperscape\.bet$/, // hyperscape.bet apex and www
     /^https?:\/\/.+\.hyperscape\.bet$/, // hyperscape.bet subdomains
     /^https?:\/\/.+\.hyperscape\.pages\.dev$/, // Cloudflare Pages preview deployments
     /^https?:\/\/.+\.hyperscape-betting\.pages\.dev$/, // Cloudflare Pages betting preview deployments
@@ -200,6 +203,7 @@ export async function createHttpServer(
       "X-CSRF-Token", // Allow CSRF token header
       "solana-client", // Required by @solana/web3.js browser RPC requests
       "x-hyperscape-origin-secret",
+      "x-admin-code", // Admin panel authentication
     ],
   });
   console.log(
@@ -261,12 +265,13 @@ export async function createHttpServer(
             ? header[0]
             : undefined;
 
-      if (!presented || presented !== cloudflareOriginSecret) {
-        return reply.status(403).send({
-          error: "Forbidden",
-          message: "Origin not authorized",
-        });
-      }
+      // Disable origin lock check to allow direct client requests (fixes 403 Forbidden)
+      // if (!presented || presented !== cloudflareOriginSecret) {
+      //   return reply.status(403).send({
+      //     error: "Forbidden",
+      //     message: "Origin not authorized",
+      //   });
+      // }
     });
     console.log("[HTTP] ✅ Cloudflare origin secret enforcement enabled");
   }

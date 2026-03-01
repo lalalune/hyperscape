@@ -222,10 +222,11 @@ describe("quest actions", () => {
       expect(await acceptQuestAction.validate(runtime as never)).toBe(true);
     });
 
-    it("validates true when NPCs are nearby even without quest state", async () => {
+    it("validates false when no not_started quests exist (even with NPCs nearby)", async () => {
       const service = createMockService();
       const runtime = createMockRuntime(service);
-      expect(await acceptQuestAction.validate(runtime as never)).toBe(true);
+      // acceptQuestAction requires a not_started quest in state to validate
+      expect(await acceptQuestAction.validate(runtime as never)).toBe(false);
     });
 
     it("validates false when no NPCs nearby and no available quests", async () => {
@@ -313,20 +314,23 @@ describe("quest actions", () => {
       expect(service.sendQuestAccept).toHaveBeenCalledWith("goblin_slayer");
     });
 
-    it("handler falls back to interactWithEntity when no quest state", async () => {
+    it("handler returns error when no quest state exists", async () => {
       const service = createMockService();
       const runtime = createMockRuntime(service);
+      const callback = vi.fn();
 
-      await acceptQuestAction.handler(
+      const result = await acceptQuestAction.handler(
         runtime as never,
         { content: { text: "" } } as never,
         undefined,
         undefined,
-        vi.fn(),
+        callback,
       );
 
-      expect(service.interactWithEntity).toHaveBeenCalledWith("npc-1", "talk");
+      // acceptQuestAction requires a not_started quest - no fallback to interactWithEntity
       expect(service.sendQuestAccept).not.toHaveBeenCalled();
+      expect(service.interactWithEntity).not.toHaveBeenCalled();
+      expect((result as { success: boolean }).success).toBe(false);
     });
 
     it("handler returns error when service is null", async () => {

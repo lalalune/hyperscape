@@ -17,6 +17,7 @@ import {
   Sprout,
   Gamepad2,
   Image,
+  Sparkles,
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -175,6 +176,11 @@ const Navigation: React.FC = () => {
           >
             <Image size={18} />
             <span>Batch Sprites</span>
+          </Link>
+
+          <Link to={ROUTES.VFX} className={navLinkClass(ROUTES.VFX)}>
+            <Sparkles size={18} />
+            <span>VFX</span>
           </Link>
 
           <Link

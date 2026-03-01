@@ -34,6 +34,7 @@ import { DatabaseSystem } from "../systems/DatabaseSystem/index.js";
 import type { DatabaseContext } from "./database.js";
 import { closeDatabase } from "./database.js";
 import { getAgentManager } from "../eliza/index.js";
+import { stopAllModelAgents } from "../eliza/ModelAgentSpawner.js";
 import { getStreamCapture } from "../streaming/stream-capture.js";
 import { errMsg } from "../shared/errMsg.js";
 import { ArenaService } from "../arena/ArenaService.js";
@@ -288,7 +289,8 @@ export function registerShutdownHandlers(
       reasonStr.includes("initialization aborted") ||
       reasonStr.includes("shutdown in progress") ||
       reasonStr.includes("failed to register") ||
-      reasonStr.includes("runtime initialization");
+      reasonStr.includes("runtime initialization") ||
+      reasonStr.includes("Database is shutting down");
 
     if (isShuttingDown) {
       if (isNonFatalAgentError) {
@@ -351,6 +353,16 @@ async function shutdownAgents(): Promise<void> {
     }
   } catch (err) {
     console.error("[Shutdown] Error shutting down agents:", err);
+  }
+
+  // Stop model agents (ElizaOS LLM agents managed by ModelAgentSpawner).
+  // This clears behaviorIntervals, agentPlans, and stops all runtimes.
+  try {
+    console.log("[Shutdown] Stopping model agents...");
+    await stopAllModelAgents();
+    console.log("[Shutdown] ✅ Model agents stopped");
+  } catch (err) {
+    console.error("[Shutdown] Error stopping model agents:", err);
   }
 }
 

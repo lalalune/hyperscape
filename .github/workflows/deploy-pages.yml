@@ -1,0 +1,88 @@
+name: Deploy Client to Cloudflare Pages
+
+# Deploys the web client to Cloudflare Pages on pushes to main
+# Triggers on changes to client or shared packages (shared contains packet definitions)
+#
+# Frontend URLs:
+#   - Production: hyperscape.gg, hyperscape.club
+#   - Preview: <commit>.hyperscape.pages.dev
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/client/**'
+      - 'packages/shared/**'
+      - 'package.json'
+      - 'bun.lockb'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - preview
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: 50ad2052bbc6ca528d6993a689b419a4
+
+jobs:
+  deploy-client:
+    name: Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build client (includes shared + physx dependencies via turbo)
+        run: bun run build:client
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+          PUBLIC_PRIVY_APP_ID: ${{ secrets.PUBLIC_PRIVY_APP_ID || 'cmgk4zu56005kjj0bcaae0rei' }}
+          PUBLIC_API_URL: https://hyperscape-production.up.railway.app
+          PUBLIC_WS_URL: wss://hyperscape-production.up.railway.app/ws
+          PUBLIC_CDN_URL: https://assets.hyperscape.club
+          PUBLIC_APP_URL: https://hyperscape.gg
+
+      - name: Deploy to Cloudflare Pages
+        working-directory: packages/client
+        run: |
+          # Extract first line of commit message to avoid multi-line issues
+          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1 | tr -d '"' | cut -c1-100)
+          npx wrangler pages deploy dist \
+            --project-name=hyperscape \
+            --branch=${{ github.ref_name }} \
+            --commit-hash=${{ github.sha }} \
+            --commit-message="$COMMIT_MSG" \
+            --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URLs:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Production: https://hyperscape.gg" >> $GITHUB_STEP_SUMMARY
+          echo "- Preview: https://${{ github.sha }}.hyperscape.pages.dev" >> $GITHUB_STEP_SUMMARY

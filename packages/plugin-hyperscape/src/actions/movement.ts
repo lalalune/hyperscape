@@ -43,7 +43,7 @@ export const moveToAction: Action = {
 
     if (playerEntity.alive === false || playerEntity.inCombat) {
       console.warn(
-        `[MOVE_TO] Validation failed: player not alive (alive=${playerEntity.alive})`,
+        `[MOVE_TO] Validation failed: alive=${playerEntity.alive}, inCombat=${playerEntity.inCombat}`,
       );
       return false;
     }

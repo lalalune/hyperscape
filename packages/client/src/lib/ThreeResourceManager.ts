@@ -509,6 +509,19 @@ export class ThreeResourceManager {
       console.log("[ThreeResourceManager] Stopped memory monitoring");
     }
   }
+
+  /**
+   * Full static teardown — stops the dev monitor and resets the disposed-object
+   * tracker. Call this when the game world is completely destroyed (e.g. on
+   * page unload or hot-reload) so the next world initialization starts clean.
+   *
+   * @public
+   */
+  static teardown(): void {
+    this.stopDevMonitoring();
+    // Reset the WeakSet so a fresh world doesn't see stale "already disposed" marks
+    this.disposedObjects = new WeakSet();
+  }
 }
 
 // NOTE: useThreeCleanup hook moved to @/hooks/useThreeCleanup.ts

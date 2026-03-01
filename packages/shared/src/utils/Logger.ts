@@ -46,6 +46,8 @@ class LoggerImpl {
     string,
     { actions: number; errors: number; warnings: number }
   >();
+  /** Periodic cleanup interval - stored for proper cleanup */
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config?: Partial<LoggerConfig>) {
     const envMaxEntries = (() => {
@@ -65,9 +67,22 @@ class LoggerImpl {
       ...config,
     };
 
-    // Set up periodic log cleanup
-    const cleanupTimer = setInterval(() => this.cleanupLogs(), 300000); // Every 5 minutes
-    cleanupTimer.unref?.();
+    // Set up periodic log cleanup (stored for proper cleanup)
+    this.cleanupTimer = setInterval(() => this.cleanupLogs(), 300000); // Every 5 minutes
+    this.cleanupTimer.unref?.();
+  }
+
+  /**
+   * Cleanup resources - call when shutting down
+   */
+  public destroy(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    this.logs = [];
+    this.systemStats.clear();
+    this.playerStats.clear();
   }
 
   public configure(config: Partial<LoggerConfig>): void {

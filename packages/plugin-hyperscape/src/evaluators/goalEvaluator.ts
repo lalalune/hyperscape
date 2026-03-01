@@ -211,17 +211,18 @@ export const goalEvaluator: Evaluator = {
     } else if (goal.type === "exploration") {
       recommendations.push("EXPLORE to discover new areas");
       priorityAction = "EXPLORE";
-    } else if (goal.type === "starter_items") {
-      // For starter items goal, ALWAYS recommend LOOT_STARTER_CHEST
-      facts.push("Need to acquire starter tools from chest near spawn");
-      facts.push("** USE LOOT_STARTER_CHEST to get tools! **");
+    } else if (goal.type === "questing") {
+      facts.push("Need to accept quests from NPCs to get tools and rewards");
       recommendations.push(
-        "LOOT_STARTER_CHEST - go to starter chest and loot it",
+        "TALK_TO_NPC or ACCEPT_QUEST to get starter tools from quest NPCs",
       );
+      priorityAction = "ACCEPT_QUEST";
+    } else if (goal.type === "banking") {
+      facts.push("Inventory is full — need to bank items");
       recommendations.push(
-        "The starter chest is at coordinates (5, -20) near spawn",
+        "BANK_DEPOSIT_ALL to free inventory space (keeps essential tools)",
       );
-      priorityAction = "LOOT_STARTER_CHEST";
+      priorityAction = "BANK_DEPOSIT_ALL";
     }
 
     // Store in state

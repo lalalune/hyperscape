@@ -89,12 +89,13 @@ export class TreeProcgenVisualStrategy implements ResourceVisualStrategy {
     await this.createFallbackMesh(ctx);
   }
 
-  async onDepleted(ctx: ResourceVisualContext): Promise<void> {
+  async onDepleted(ctx: ResourceVisualContext): Promise<boolean> {
     if (this.useInstanced && ctx.config.procgenPreset) {
       removeTreeInstance(ctx.config.procgenPreset, ctx.id, this.instancedLOD);
     }
     const mesh = ctx.getMesh();
     if (mesh) mesh.visible = false;
+    return false;
   }
 
   async onRespawn(ctx: ResourceVisualContext): Promise<void> {

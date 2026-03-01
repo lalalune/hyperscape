@@ -521,8 +521,9 @@ export const ERROR_META: Record<ErrorCode, ErrorMeta> = {
   [ErrorCode.SYSTEM_WEBGL_ERROR]: {
     code: ErrorCode.SYSTEM_WEBGL_ERROR,
     severity: ErrorSeverity.CRITICAL,
-    message: "WebGL error",
-    userMessage: "Graphics error. Please update your browser.",
+    message: "WebGPU error",
+    userMessage:
+      "Graphics error. WebGPU is required. Please use Chrome 113+, Edge 113+, or Safari 17+.",
     recoverable: false,
   },
   [ErrorCode.SYSTEM_PHYSICS_ERROR]: {

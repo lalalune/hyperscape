@@ -166,6 +166,12 @@ export class DuelBot extends EventEmitter {
   private connectionCheckTimer: ReturnType<typeof setInterval> | null = null;
   private challengeTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  /** Registered event handlers for cleanup to prevent memory leaks */
+  private eventHandlers: Array<{
+    event: string | symbol;
+    handler: (...args: unknown[]) => void;
+  }> = [];
+
   private inventory: InventoryItem[] = [];
   private lastEatTime = 0;
   private lastHealthPct = 100;
@@ -316,6 +322,8 @@ export class DuelBot extends EventEmitter {
     this.attackTimer = null;
     this.connectionCheckTimer = null;
     this.challengeTimeout = null;
+    // Clean up event handlers BEFORE destroying world to prevent memory leaks
+    this.cleanupEventHandlers();
     if (this.clientWorld) this.clientWorld.destroy();
     this.clientWorld = null;
     this.metrics.isConnected = false;
@@ -379,8 +387,17 @@ export class DuelBot extends EventEmitter {
     const world = this.clientWorld;
     if (!world) return;
 
+    // Helper to register and track event handlers for cleanup
+    const on = (
+      event: string | symbol,
+      handler: (...args: unknown[]) => void,
+    ) => {
+      world.on(event as string, handler);
+      this.eventHandlers.push({ event, handler });
+    };
+
     // Track inventory from server updates
-    world.on(EventType.INVENTORY_UPDATED, (data: unknown) => {
+    on(EventType.INVENTORY_UPDATED, (data: unknown) => {
       const inv = data as {
         playerId?: string;
         items?: Array<{
@@ -400,52 +417,61 @@ export class DuelBot extends EventEmitter {
     });
 
     // Modern client networking emits duel lifecycle updates through UI_UPDATE.
-    world.on(EventType.UI_UPDATE, (event: unknown) => {
+    on(EventType.UI_UPDATE, (event: unknown) => {
       this.handleUiUpdate(event);
     });
 
     // Incoming duel challenge
-    world.on("duelChallengeIncoming", (data: unknown) => {
+    on("duelChallengeIncoming", (data: unknown) => {
       this.handleDuelChallengeIncoming(data);
     });
 
     // Duel session started (entering rules screen)
-    world.on("duelSessionStarted", (data: unknown) => {
+    on("duelSessionStarted", (data: unknown) => {
       this.handleDuelSessionStarted(data);
     });
 
     // Duel state changed (rules -> stakes -> confirm)
-    world.on("duelStateChanged", (data: unknown) => {
+    on("duelStateChanged", (data: unknown) => {
       this.handleDuelStateChanged(data);
     });
 
     // Duel countdown starting
-    world.on("duelCountdownStart", (data: unknown) => {
+    on("duelCountdownStart", (data: unknown) => {
       this.handleDuelCountdownStart(data);
     });
 
     // Duel fight starting
-    world.on("duelFightStart", (data: unknown) => {
+    on("duelFightStart", (data: unknown) => {
       this.handleDuelFightStart(data);
     });
 
-    world.on("duelFightBegin", (data: unknown) => {
+    on("duelFightBegin", (data: unknown) => {
       this.handleDuelFightStart(data);
     });
 
     // Duel ended
-    world.on("duelEnded", (data: unknown) => {
+    on("duelEnded", (data: unknown) => {
       this.handleDuelEnded(data);
     });
 
-    world.on("duelCompleted", (data: unknown) => {
+    on("duelCompleted", (data: unknown) => {
       this.handleDuelEnded(data);
     });
 
     // Acceptance state updated
-    world.on("duelAcceptanceUpdated", (data: unknown) => {
+    on("duelAcceptanceUpdated", (data: unknown) => {
       this.handleDuelAcceptanceUpdated(data);
     });
+  }
+
+  /** Clean up all registered event handlers to prevent memory leaks */
+  private cleanupEventHandlers(): void {
+    if (!this.clientWorld) return;
+    for (const { event, handler } of this.eventHandlers) {
+      this.clientWorld.off(event as string, handler);
+    }
+    this.eventHandlers = [];
   }
 
   private handleUiUpdate(event: unknown): void {

@@ -173,7 +173,7 @@ export interface AgentThoughtSyncPayload {
   characterId?: string;
   thought: {
     id: string;
-    type: "situation" | "evaluation" | "thinking" | "decision";
+    type: "situation" | "evaluation" | "thinking" | "decision" | "action";
     content: string;
     timestamp: number;
   };
@@ -439,11 +439,17 @@ export interface PrivateMessagePayload {
 // World Event Payloads (not client packets — internal world events)
 // ============================================================================
 
+/** Payload for corpse loot all (gravestone) from client */
+export interface CorpseLootAllPayload {
+  corpseId?: string;
+}
+
 /** Payload for player teleport events (world event) */
 export interface PlayerTeleportPayload {
   playerId: string;
   position: { x: number; y: number; z: number };
   rotation: number;
+  suppressEffect?: boolean;
 }
 
 /** Payload for player:movement:cancel events */

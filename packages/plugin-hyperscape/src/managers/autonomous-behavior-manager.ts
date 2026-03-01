@@ -40,7 +40,6 @@ import {
   idleAction,
   approachEntityAction,
   attackEntityAction,
-  lootStarterChestAction,
 } from "../actions/autonomous.js";
 import { setGoalAction, navigateToAction } from "../actions/goals.js";
 import {
@@ -54,6 +53,8 @@ import {
   pickupItemAction,
   equipItemAction,
   dropItemAction,
+  useItemAction,
+  lootGravestoneAction,
 } from "../actions/inventory.js";
 import {
   greetPlayerAction,
@@ -73,22 +74,40 @@ import {
   runecraftAction,
 } from "../actions/crafting.js";
 import { buyItemAction, sellItemAction } from "../actions/shopping.js";
+import {
+  bankDepositAction,
+  bankWithdrawAction,
+  bankDepositAllAction,
+} from "../actions/banking.js";
 import { moveToAction } from "../actions/movement.js";
-import { KNOWN_LOCATIONS } from "../providers/goalProvider.js";
+import {
+  KNOWN_LOCATIONS,
+  updateKnownLocationsFromNearbyEntities,
+} from "../providers/goalProvider.js";
 import { SCRIPTED_AUTONOMY_CONFIG } from "../config/constants.js";
 import {
   hasCombatCapableItem,
   hasWeapon,
   hasOre,
   hasBars,
+  hasFood as hasAnyFood,
+  hasAxe,
+  hasPickaxe,
+  hasFishingEquipment,
 } from "../utils/item-detection.js";
+import { getBankPosition } from "../utils/world-data.js";
+import {
+  planNextGoal,
+  buildPlannerContext,
+  logPlannerDecision,
+} from "./goal-progression-planner.js";
 import { getPersonalityTraits } from "../providers/personalityProvider.js";
 import { getTimeSinceLastSocial } from "../providers/socialMemory.js";
 
 // Configuration
-const DEFAULT_TICK_INTERVAL = 10000; // 10 seconds between decisions
-const MIN_TICK_INTERVAL = 5000; // Minimum 5 seconds
-const MAX_TICK_INTERVAL = 30000; // Maximum 30 seconds
+const DEFAULT_TICK_INTERVAL = 5000; // 5 seconds between decisions
+const MIN_TICK_INTERVAL = 2000; // Minimum 2 seconds (fast-tick mode)
+const MAX_TICK_INTERVAL = 15000; // Maximum 15 seconds
 
 type AutonomyMode = "llm" | "scripted";
 type ScriptedRole =
@@ -122,9 +141,9 @@ export interface CurrentGoal {
     | "cooking"
     | "exploration"
     | "idle"
-    | "starter_items"
     | "user_command"
-    | "questing";
+    | "questing"
+    | "banking";
   description: string;
   target: number;
   progress: number;
@@ -192,6 +211,29 @@ export class AutonomousBehaviorManager {
   private lockedTargetStartTime: number = 0;
   private readonly TARGET_LOCK_TIMEOUT = 30000; // 30s max lock duration
 
+  /** Whether agent is currently in a streaming duel (suppresses autonomous actions) */
+  private inActiveDuel = false;
+
+  /** When the agent entered reactive combat (attacked while on a non-combat goal) */
+  private reactiveCombatStartTime: number = 0;
+  private readonly REACTIVE_COMBAT_MAX_MS = 15000; // 15s max reactive fight
+
+  /** Saved goal before duel interruption — restored after duel completion */
+  private savedGoal: CurrentGoal | null = null;
+
+  /** Duel outcome history for strategy analysis */
+  private duelHistory: Array<{
+    opponentName: string;
+    won: boolean;
+    myHealth: number;
+    foodUsed: number;
+    timestamp: number;
+  }> = [];
+  private readonly MAX_DUEL_HISTORY = 10;
+
+  /** Whether duel event handlers have been registered */
+  private duelEventHandlerRegistered = false;
+
   /**
    * Combat chat reaction state - prompts agent to react to combat events
    */
@@ -209,6 +251,36 @@ export class AutonomousBehaviorManager {
   private readonly CRITICAL_HIT_THRESHOLD = 0.3; // 30% of max health
   private readonly NEAR_DEATH_THRESHOLD = 0.2; // 20% of current health
   private combatEventHandlerRegistered = false;
+
+  /** Stored event handler references for cleanup during stop() */
+  private combatDamageHandler: ((data: unknown) => void) | null = null;
+  private duelStartHandler: (() => void) | null = null;
+  private duelCompletedHandler: ((data: unknown) => void) | null = null;
+
+  /** Action lock — skip LLM while an action is in progress */
+  private actionLock: {
+    actionName: string;
+    startedAt: number;
+    timeoutMs: number;
+    /** Minimum lock duration — stays locked even if movement stops */
+    minDurationMs: number;
+  } | null = null;
+  private readonly ACTION_LOCK_MAX_MS = 20000; // Safety: max 20s lock
+
+  /** Last executed action — used in prompt for continuity */
+  private lastActionName: string | null = null;
+  private lastActionResult: "success" | "failure" | null = null;
+  private lastActionTime: number = 0;
+
+  /** Request a fast follow-up tick (2s instead of normal interval) */
+  private nextTickFast = false;
+
+  /** LLM rate limiting - exponential backoff on consecutive failures */
+  private llmConsecutiveFailures = 0;
+  private llmLastFailureAt = 0;
+  private readonly LLM_MAX_CONSECUTIVE_FAILURES = 5;
+  private readonly LLM_BASE_BACKOFF_MS = 5000; // 5 second base backoff
+  private readonly LLM_MAX_BACKOFF_MS = 60000; // 60 second max backoff
 
   constructor(runtime: IAgentRuntime, config?: AutonomousBehaviorConfig) {
     this.runtime = runtime;
@@ -273,6 +345,7 @@ export class AutonomousBehaviorManager {
         // Banking
         "BANK_DEPOSIT",
         "BANK_WITHDRAW",
+        "BANK_DEPOSIT_ALL",
         // Shopping
         "BUY_ITEM",
         "SELL_ITEM",
@@ -281,12 +354,14 @@ export class AutonomousBehaviorManager {
         "ACCEPT_QUEST",
         "COMPLETE_QUEST",
         "CHECK_QUEST",
+        // Item usage
+        "USE_ITEM",
+        "DROP_ITEM",
+        "MOVE_TO",
         // Social
         "GREET_PLAYER",
         "SHARE_OPINION",
         "OFFER_HELP",
-        // World interactions
-        "LOOT_STARTER_CHEST",
         // Idle
         "IDLE",
       ],
@@ -324,15 +399,45 @@ export class AutonomousBehaviorManager {
       `[AutonomousBehavior] Allowed actions: ${Array.from(this.allowedActions).join(", ")}`,
     );
 
-    // Subscribe to combat events for chat reactions
+    // Subscribe to combat events for chat reactions (store refs for cleanup)
     if (!this.combatEventHandlerRegistered) {
-      this.service.onGameEvent("COMBAT_DAMAGE_DEALT", (data: unknown) => {
+      this.combatDamageHandler = (data: unknown) => {
         this.handleCombatDamageEvent(data);
-      });
+      };
+      this.service.onGameEvent("COMBAT_DAMAGE_DEALT", this.combatDamageHandler);
       this.combatEventHandlerRegistered = true;
       logger.info(
         "[AutonomousBehavior] Registered combat chat reaction handler",
       );
+    }
+
+    // Subscribe to duel events for goal save/restore and duel awareness (store refs for cleanup)
+    if (!this.duelEventHandlerRegistered) {
+      this.duelStartHandler = () => {
+        this.onDuelStart();
+      };
+      this.duelCompletedHandler = (data: unknown) => {
+        this.onDuelCompleted(data);
+      };
+      this.service.onGameEvent("DUEL_FIGHT_START", this.duelStartHandler);
+      this.service.onGameEvent("DUEL_COMPLETED", this.duelCompletedHandler);
+      this.duelEventHandlerRegistered = true;
+      logger.info("[AutonomousBehavior] Registered duel event handlers");
+    }
+
+    // Register bank location from world data if not already known
+    if (!KNOWN_LOCATIONS.bank) {
+      const bankPos = getBankPosition();
+      if (bankPos) {
+        KNOWN_LOCATIONS.bank = {
+          position: bankPos,
+          description: "Bank for depositing items",
+          entities: ["bank", "banker", "bank_clerk"],
+        };
+        logger.info(
+          `[AutonomousBehavior] Registered bank location: [${bankPos.join(", ")}]`,
+        );
+      }
     }
 
     this.isRunning = true;
@@ -357,6 +462,29 @@ export class AutonomousBehaviorManager {
 
     logger.info("[AutonomousBehavior] Stopping autonomous behavior...");
     this.isRunning = false;
+
+    // Unregister event handlers to prevent memory leaks
+    if (this.service && this.combatDamageHandler) {
+      this.service.offGameEvent(
+        "COMBAT_DAMAGE_DEALT",
+        this.combatDamageHandler,
+      );
+      this.combatDamageHandler = null;
+      this.combatEventHandlerRegistered = false;
+      logger.info("[AutonomousBehavior] Unregistered combat event handler");
+    }
+
+    if (this.service && this.duelStartHandler) {
+      this.service.offGameEvent("DUEL_FIGHT_START", this.duelStartHandler);
+      this.duelStartHandler = null;
+    }
+
+    if (this.service && this.duelCompletedHandler) {
+      this.service.offGameEvent("DUEL_COMPLETED", this.duelCompletedHandler);
+      this.duelCompletedHandler = null;
+      this.duelEventHandlerRegistered = false;
+      logger.info("[AutonomousBehavior] Unregistered duel event handlers");
+    }
   }
 
   /**
@@ -545,20 +673,39 @@ export class AutonomousBehaviorManager {
 
       try {
         await this.tick();
+        // Reset LLM failure counter on successful tick
+        if (this.llmConsecutiveFailures > 0) {
+          this.llmConsecutiveFailures = 0;
+          logger.info(
+            "[AutonomousBehavior] LLM rate limit cleared after successful tick",
+          );
+        }
       } catch (error) {
+        // Track consecutive failures for LLM rate limiting
+        this.llmConsecutiveFailures++;
+        this.llmLastFailureAt = Date.now();
+        const backoffMs = Math.min(
+          this.LLM_BASE_BACKOFF_MS *
+            Math.pow(2, this.llmConsecutiveFailures - 1),
+          this.LLM_MAX_BACKOFF_MS,
+        );
         logger.error(
-          "[AutonomousBehavior] Error in tick:",
+          `[AutonomousBehavior] Error in tick (failure ${this.llmConsecutiveFailures}, backoff ${Math.round(backoffMs / 1000)}s):`,
           error instanceof Error ? error.message : String(error),
         );
       }
 
       // Calculate how long to wait until next tick
       const tickDuration = Date.now() - tickStart;
-      const sleepTime = Math.max(0, this.tickInterval - tickDuration);
+      const baseInterval = this.nextTickFast
+        ? MIN_TICK_INTERVAL
+        : this.tickInterval;
+      this.nextTickFast = false; // Reset after use
+      const sleepTime = Math.max(0, baseInterval - tickDuration);
 
       if (this.debug) {
         logger.debug(
-          `[AutonomousBehavior] Tick ${this.tickCount} took ${tickDuration}ms, sleeping ${sleepTime}ms`,
+          `[AutonomousBehavior] Tick ${this.tickCount} took ${tickDuration}ms, sleeping ${sleepTime}ms${baseInterval === MIN_TICK_INTERVAL ? " (fast-tick)" : ""}`,
         );
       }
 
@@ -581,6 +728,62 @@ export class AutonomousBehaviorManager {
         logger.debug("[AutonomousBehavior] Cannot act, skipping tick");
       }
       return;
+    }
+
+    // Check action lock — skip LLM if still executing previous action
+    if (this.actionLock) {
+      const elapsed = Date.now() - this.actionLock.startedAt;
+      const isMoving = this.service?.isMoving ?? false;
+
+      // Stay locked if minimum duration hasn't elapsed yet (gather/attack cooldown)
+      const withinMinDuration = elapsed < this.actionLock.minDurationMs;
+      if (
+        elapsed < this.actionLock.timeoutMs &&
+        (isMoving || withinMinDuration)
+      ) {
+        logger.debug(
+          `[AutonomousBehavior] Action lock active: ${this.actionLock.actionName} ` +
+            `(${Math.round(elapsed / 1000)}s) — ${isMoving ? "moving" : "cooldown"}, skipping tick`,
+        );
+        return;
+      }
+
+      // Lock expired or movement/cooldown finished — clear it
+      logger.info(
+        `[AutonomousBehavior] Action lock cleared: ${this.actionLock.actionName} ` +
+          `(${isMoving ? "timeout" : withinMinDuration ? "timeout" : "complete"})`,
+      );
+      this.actionLock = null;
+      this.nextTickFast = true; // Quick follow-up after lock clears
+    }
+
+    // LLM rate limiting - exponential backoff on consecutive failures
+    if (this.llmConsecutiveFailures > 0) {
+      const backoffMs = Math.min(
+        this.LLM_BASE_BACKOFF_MS * Math.pow(2, this.llmConsecutiveFailures - 1),
+        this.LLM_MAX_BACKOFF_MS,
+      );
+      const timeSinceFailure = Date.now() - this.llmLastFailureAt;
+      if (timeSinceFailure < backoffMs) {
+        logger.debug(
+          `[AutonomousBehavior] LLM rate limited: ${this.llmConsecutiveFailures} failures, waiting ${Math.round((backoffMs - timeSinceFailure) / 1000)}s more`,
+        );
+        return;
+      }
+    }
+
+    // Pre-save current goal if inventory is near-full (banking may be triggered)
+    const playerForGoalSave = this.service?.getPlayerEntity();
+    const inventoryCountForSave = Array.isArray(playerForGoalSave?.items)
+      ? playerForGoalSave.items.length
+      : 0;
+    if (
+      inventoryCountForSave >= 25 &&
+      this.currentGoal &&
+      this.currentGoal.type !== "banking" &&
+      !this.savedGoal
+    ) {
+      this.savedGoal = { ...this.currentGoal };
     }
 
     // Process pending combat chat reaction (non-blocking)
@@ -746,20 +949,26 @@ export class AutonomousBehaviorManager {
         `[AutonomousBehavior] Action ${selectedAction.name} failed validation`,
       );
 
-      // NOTE: Removed smart fallback logic that forced NAVIGATE_TO or goal actions
-      // LLM will try again next tick with updated context
-      // This gives more autonomy - let the LLM learn from failed validations
-
-      // Simple fallback to IDLE - wait for next tick
-      logger.info("[AutonomousBehavior] Falling back to IDLE");
-      const idleValid = await idleAction.validate(
-        this.runtime,
-        tickMessage,
-        state,
-      );
-      if (idleValid) {
-        await this.executeAction(idleAction, tickMessage, state);
+      // Smart fallback: try a goal-appropriate alternative before idling
+      const fallback = this.getFallbackAction(selectedAction.name);
+      if (fallback) {
+        logger.info(
+          `[AutonomousBehavior] Validation fallback: ${selectedAction.name} → ${fallback.name}`,
+        );
+        const fallbackValid = await fallback.validate(
+          this.runtime,
+          tickMessage,
+          state,
+        );
+        if (fallbackValid) {
+          await this.executeAction(fallback, tickMessage, state);
+          return;
+        }
       }
+
+      // No fallback worked — fast-tick to retry quickly (2s, not 5s idle)
+      logger.info("[AutonomousBehavior] No valid fallback — fast-tick retry");
+      this.nextTickFast = true;
       return;
     }
 
@@ -780,6 +989,23 @@ export class AutonomousBehaviorManager {
   ): Promise<Action | null> {
     if (this.autonomyMode === "scripted") {
       return this.selectActionScripted(state);
+    }
+
+    // --- SHORT-CIRCUIT: Skip LLM for obvious decisions ---
+    const shortCircuit = this.tryShortCircuit();
+    if (shortCircuit) {
+      logger.info(`[AutonomousBehavior] Short-circuit: ${shortCircuit.name}`);
+
+      // Sync short-circuit decisions as thoughts so the dashboard shows activity
+      // for agents that rarely/never reach the LLM path.
+      const goal = this.currentGoal;
+      const thought = goal
+        ? `[${goal.type}] ${goal.description} → ${shortCircuit.name}`
+        : `→ ${shortCircuit.name}`;
+      this.lastThinking = thought;
+      this.syncThinkingToDashboard(thought);
+
+      return shortCircuit;
     }
 
     // Get available actions for autonomous behavior
@@ -821,6 +1047,16 @@ export class AutonomousBehaviorManager {
       let selectedActionName = actionName;
 
       if (!selectedActionName) {
+        // If there's an active goal, don't derail it — retry next tick
+        if (this.currentGoal) {
+          logger.warn(
+            "[AutonomousBehavior] Could not parse LLM action — retrying goal next tick",
+          );
+          this.lastThinking = `LLM unclear — retrying goal: ${this.currentGoal.description}`;
+          this.syncThinkingToDashboard(this.lastThinking);
+          this.nextTickFast = true;
+          return null;
+        }
         logger.warn(
           "[AutonomousBehavior] Could not parse action from LLM response, defaulting to EXPLORE",
         );
@@ -854,6 +1090,17 @@ export class AutonomousBehaviorManager {
         "[AutonomousBehavior] Error selecting action:",
         error instanceof Error ? error.message : String(error),
       );
+
+      // If the agent has an active goal, don't override it with explore —
+      // return null to idle this tick and retry the short-circuit next tick.
+      // This prevents LLM errors (e.g. rate limits) from derailing goal progress.
+      if (this.currentGoal) {
+        this.lastThinking = `LLM error — retrying goal: ${this.currentGoal.description}`;
+        this.syncThinkingToDashboard(this.lastThinking);
+        this.nextTickFast = true;
+        return null;
+      }
+
       this.lastThinking = "Error occurred - exploring as fallback";
       this.syncThinkingToDashboard(this.lastThinking);
       return exploreAction;
@@ -1296,13 +1543,12 @@ export class AutonomousBehaviorManager {
       // This will be displayed in the agent dashboard
       this.service.syncThoughtsToServer(thinking);
     } catch (error) {
-      // Non-critical - just log and continue
-      if (this.debug) {
-        logger.debug(
-          "[AutonomousBehavior] Could not sync thinking to dashboard:",
-          error instanceof Error ? error.message : String(error),
-        );
-      }
+      // Non-critical but worth logging so we can see which agents can't
+      // reach the server (typically "Not connected to Hyperscape server").
+      logger.warn(
+        "[AutonomousBehavior] Could not sync thinking to dashboard:",
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
@@ -1316,6 +1562,1023 @@ export class AutonomousBehaviorManager {
   /**
    * Get available autonomous actions
    */
+  /**
+   * Skip LLM for obvious decisions — deterministic short-circuit.
+   * Returns an action if the decision is obvious, null to fall through to LLM.
+   */
+  private tryShortCircuit(): Action | null {
+    const player = this.service?.getPlayerEntity();
+    if (!player) return null;
+
+    const goal = this.currentGoal;
+
+    // 0a. HIGHEST PRIORITY: Gravestone recovery — if we died and see our gravestone, go loot it
+    const gravestone = this.findOwnGravestone();
+    if (gravestone) {
+      const dist = this.getEntityDistance2D(
+        player.position,
+        gravestone.position,
+      );
+      if (dist !== null && dist > 4) {
+        // Too far — navigate to gravestone (run mode)
+        logger.info(
+          `[AutonomousBehavior] Gravestone detected ${dist.toFixed(1)}m away — running to recover items`,
+        );
+        return (
+          this.getAvailableActions().find(
+            (a) => a.name === "LOOT_GRAVESTONE",
+          ) || moveToAction
+        );
+      }
+      // Close enough — loot it
+      logger.info(
+        `[AutonomousBehavior] Gravestone within range — looting items`,
+      );
+      return (
+        this.getAvailableActions().find((a) => a.name === "LOOT_GRAVESTONE") ||
+        null
+      );
+    }
+
+    // 0b. Pick up valuable ground items (coins, weapons, tools, food) — after gravestone but before goal check
+    const valuableItem = this.findValuableGroundItem();
+    if (valuableItem && !player.inCombat) {
+      logger.info(
+        `[AutonomousBehavior] Valuable ground item nearby: ${valuableItem.name} — picking up`,
+      );
+      return pickupItemAction;
+    }
+
+    // 1. No goal → use deterministic planner first, fallback to LLM SET_GOAL
+    if (!goal) {
+      const plan = this.tryPlannerGoal(player);
+      if (plan) {
+        // Planner set a goal — request fast tick so agent acts immediately
+        this.nextTickFast = true;
+        return null; // goal is set, next tick will act on it
+      }
+      // Planner returned null — fall through to LLM for SET_GOAL
+      return (
+        this.getAvailableActions().find((a) => a.name === "SET_GOAL") || null
+      );
+    }
+
+    // 2. Goal completion detection — check skill-based goals
+    if (goal.targetSkill && goal.targetSkillLevel) {
+      const currentLevel = player.skills?.[goal.targetSkill]?.level ?? 1;
+      if (currentLevel >= goal.targetSkillLevel) {
+        logger.info(
+          `[AutonomousBehavior] Goal COMPLETE via planner check: ${goal.targetSkill} level ${currentLevel} >= ${goal.targetSkillLevel}`,
+        );
+        this.clearGoal();
+        // clearGoal() now chains via planner, fast tick requested there
+        return null;
+      }
+    }
+
+    // 2.1. Quest goal status change detection — re-plan when the quest's
+    // server-side status evolves past what the goal was targeting.
+    //   - Accept goal + quest now in_progress → Phase 3 continues it
+    //   - In-progress goal + quest now ready_to_complete → Phase 2 turns it in
+    //   - Turn-in goal + quest now completed → planner picks next goal
+    if (goal.type === "questing" && goal.questId) {
+      const quests = this.service?.getQuestState?.() || [];
+      const quest = quests.find(
+        (q: { questId?: string }) => q.questId === goal.questId,
+      );
+      const currentStatus = quest?.status;
+      const isAcceptGoal = goal.description?.startsWith("Accept quest:");
+      const isTurnInGoal = goal.description?.startsWith("Turn in quest:");
+
+      if (
+        // Accept goal → quest is now active or done
+        (isAcceptGoal && currentStatus && currentStatus !== "not_started") ||
+        // In-progress goal → quest stage complete, ready to turn in
+        (!isAcceptGoal &&
+          !isTurnInGoal &&
+          currentStatus === "ready_to_complete") ||
+        // Any non-accept goal → quest completed
+        (!isAcceptGoal && currentStatus === "completed")
+      ) {
+        logger.info(
+          `[AutonomousBehavior] Quest ${goal.questId} status → ${currentStatus} — re-planning`,
+        );
+        this.clearGoal();
+        return null;
+      }
+    }
+
+    // 2.5. Stale exploration invalidation — if the planner set exploration because
+    // quest data wasn't loaded yet, re-evaluate now that data may have arrived.
+    if (goal.type === "exploration") {
+      const quests = this.service?.getQuestState?.() || [];
+      if (quests.length > 0) {
+        logger.info(
+          "[AutonomousBehavior] Quest data arrived while exploring — re-evaluating goal",
+        );
+        this.clearGoal();
+        return null; // clearGoal chains into tryPlannerGoal, next tick acts on new goal
+      }
+    }
+
+    // 2.5a. Goal requires a tool the player doesn't have → check bank or re-plan
+    // This prevents the LLM from trying to fish without a net, chop without an axe, etc.
+    const toolCheckMap: Record<
+      string,
+      {
+        hasIt: (p: PlayerEntity) => boolean;
+        bankKeywords: string[];
+      }
+    > = {
+      fishing: {
+        hasIt: (p) => hasFishingEquipment(p),
+        bankKeywords: ["net", "fishing"],
+      },
+      woodcutting: {
+        hasIt: (p) => hasAxe(p),
+        bankKeywords: ["axe", "hatchet"],
+      },
+      mining: { hasIt: (p) => hasPickaxe(p), bankKeywords: ["pickaxe"] },
+    };
+    const toolInfo = toolCheckMap[goal.type];
+    if (toolInfo && !toolInfo.hasIt(player)) {
+      // Check if the tool might be in the bank
+      const cachedBankItems = this.service?.getBankItems?.() || [];
+      const toolInBank = cachedBankItems.some((item) => {
+        const name = (item.name || item.itemId || "").toLowerCase();
+        return toolInfo.bankKeywords.some((kw) => name.includes(kw));
+      });
+
+      if (toolInBank) {
+        logger.info(
+          `[AutonomousBehavior] Goal "${goal.type}" tool is in bank — switching to banking to withdraw`,
+        );
+        this.savedGoal = { ...goal };
+        this.currentGoal = {
+          type: "banking",
+          description: `Withdraw ${goal.type} tool from bank`,
+          target: 1,
+          progress: 0,
+          location: "bank",
+          startedAt: Date.now(),
+        };
+        this.nextTickFast = true;
+        return null;
+      }
+
+      logger.info(
+        `[AutonomousBehavior] Goal "${goal.type}" requires a tool the player doesn't have — clearing goal to re-plan`,
+      );
+      this.clearGoal();
+      this.nextTickFast = true;
+      return null; // Re-plan on next tick
+    }
+
+    // 2.5b. Eat food in combat when low health (survival reflex)
+    const healthPercent = this.getHealthPercent(player);
+    if (player.inCombat && healthPercent < 50 && hasAnyFood(player)) {
+      const foodItem = this.findFirstFoodItem(player);
+      if (foodItem && this.service) {
+        logger.info(
+          `[AutonomousBehavior] Low health in combat (${Math.round(healthPercent)}%) — eating ${foodItem.name}`,
+        );
+        // Fire-and-forget: send eat command, continue to combat handling
+        this.service.executeUseItem({ itemId: foodItem.id }).catch((err) => {
+          logger.warn(
+            `[AutonomousBehavior] Failed to eat food: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+        this.nextTickFast = true;
+        // Don't return — fall through to combat handling so we keep fighting
+      }
+    }
+
+    // 3. Combat handling — context-aware
+    if (player.inCombat) {
+      const isCombatGoal =
+        goal.type === "combat_training" ||
+        (goal.type === "questing" && goal.questStageType === "kill");
+
+      if (isCombatGoal) {
+        // Goal IS combat → keep fighting
+        return (
+          this.getAvailableActions().find((a) => a.name === "ATTACK_ENTITY") ||
+          null
+        );
+      }
+
+      // Goal is NOT combat (e.g., fishing) — reactive combat
+      const now = Date.now();
+      if (this.reactiveCombatStartTime === 0) {
+        // Just got attacked — start reactive timer, save goal
+        this.reactiveCombatStartTime = now;
+        if (!this.savedGoal) {
+          this.savedGoal = { ...goal };
+        }
+        logger.info(
+          `[AutonomousBehavior] Reactive combat started — fighting back (max ${this.REACTIVE_COMBAT_MAX_MS / 1000}s)`,
+        );
+        return (
+          this.getAvailableActions().find((a) => a.name === "ATTACK_ENTITY") ||
+          null
+        );
+      }
+
+      if (now - this.reactiveCombatStartTime < this.REACTIVE_COMBAT_MAX_MS) {
+        // Still within reactive window — keep fighting
+        return (
+          this.getAvailableActions().find((a) => a.name === "ATTACK_ENTITY") ||
+          null
+        );
+      }
+
+      // Exceeded reactive window — flee and restore goal
+      logger.info("[AutonomousBehavior] Reactive combat timeout — fleeing");
+      this.reactiveCombatStartTime = 0;
+      if (this.savedGoal) {
+        this.currentGoal = this.savedGoal;
+        this.savedGoal = null;
+      }
+      return this.getAvailableActions().find((a) => a.name === "FLEE") || null;
+    }
+
+    // Not in combat — clear reactive timer if it was set
+    if (this.reactiveCombatStartTime !== 0) {
+      this.reactiveCombatStartTime = 0;
+      // Combat ended naturally — restore saved goal if we have one
+      if (this.savedGoal && goal.type !== this.savedGoal.type) {
+        logger.info(
+          "[AutonomousBehavior] Reactive combat ended — restoring saved goal",
+        );
+        this.currentGoal = this.savedGoal;
+        this.savedGoal = null;
+        this.nextTickFast = true;
+        return null;
+      }
+    }
+
+    // 4. Inventory full → switch to banking goal (deterministic, no LLM needed)
+    const inventoryItems = Array.isArray(player.items) ? player.items : [];
+    if (inventoryItems.length >= 28 && goal.type !== "banking") {
+      // Save current goal and switch to banking
+      if (!this.savedGoal) {
+        this.savedGoal = { ...goal };
+      }
+      this.currentGoal = {
+        type: "banking",
+        description: "Bank items — inventory is full",
+        progress: 0,
+        target: 1,
+        location: "bank",
+        startedAt: Date.now(),
+      };
+      logger.info(
+        "[AutonomousBehavior] Short-circuit: inventory full → banking goal",
+      );
+      // Check if bank is nearby
+      const bank = this.findNearestBankEntity();
+      if (bank) {
+        return (
+          this.getAvailableActions().find(
+            (a) => a.name === "BANK_DEPOSIT_ALL",
+          ) || null
+        );
+      }
+      // No bank nearby — navigate to one
+      return (
+        this.getAvailableActions().find((a) => a.name === "NAVIGATE_TO") || null
+      );
+    }
+
+    // 5. Banking goal + bank nearby → BANK_DEPOSIT_ALL
+    if (goal.type === "banking") {
+      const bank = this.findNearestBankEntity();
+      if (bank) {
+        return (
+          this.getAvailableActions().find(
+            (a) => a.name === "BANK_DEPOSIT_ALL",
+          ) || null
+        );
+      }
+    }
+
+    // 5.5. Goal requires travel to a known destination → NAVIGATE_TO directly
+    // Prevents wasting LLM ticks on EXPLORE when the agent already knows where to go
+    if (
+      this.lastActionName !== "NAVIGATE_TO" &&
+      !player.inCombat &&
+      this.shouldNavigateToGoal(goal, player)
+    ) {
+      const navigateAction =
+        this.getAvailableActions().find((a) => a.name === "NAVIGATE_TO") ||
+        null;
+      if (navigateAction) {
+        logger.info(
+          `[AutonomousBehavior] Short-circuit: goal "${goal.type}" requires travel — NAVIGATE_TO`,
+        );
+        return navigateAction;
+      }
+    }
+
+    // 6. Last action was NAVIGATE_TO and succeeded → check if arrived, then act
+    if (
+      this.lastActionName === "NAVIGATE_TO" &&
+      this.lastActionResult === "success"
+    ) {
+      const goalAction = this.getGoalActionOnArrival(goal, player);
+      if (goalAction) {
+        logger.info(
+          `[AutonomousBehavior] Arrived at destination — acting on goal: ${goalAction.name}`,
+        );
+        return goalAction;
+      }
+
+      // getGoalActionOnArrival returned null — but we may actually be near matching resources
+      // (e.g., fishing spots nearby but resolveCurrentGoalTarget couldn't find the exact position).
+      // Check for nearby resources before blindly re-issuing NAVIGATE_TO.
+      const nearbyEntities = this.service?.getNearbyEntities() || [];
+      const nearbyResourceAction = this.getResourceActionForGoal(
+        goal,
+        nearbyEntities,
+      );
+      if (nearbyResourceAction) {
+        logger.info(
+          `[AutonomousBehavior] Post-NAVIGATE_TO: resources found nearby — ${nearbyResourceAction.name}`,
+        );
+        return nearbyResourceAction;
+      }
+
+      // Not arrived yet — keep navigating
+      return (
+        this.getAvailableActions().find((a) => a.name === "NAVIGATE_TO") || null
+      );
+    }
+
+    // 7. Last action was same resource action and goal type matches → repeat
+    if (this.lastActionName && this.lastActionResult === "success") {
+      const repeatMap: Record<string, string> = {
+        woodcutting: "CHOP_TREE",
+        fishing: "CATCH_FISH",
+        mining: "MINE_ROCK",
+      };
+      const expectedAction = repeatMap[goal.type];
+      if (expectedAction && this.lastActionName === expectedAction) {
+        // Same goal, same action succeeded — check if resources still nearby
+        const entities = this.service?.getNearbyEntities() || [];
+        const hasResources = this.hasNearbyResourcesForGoal(
+          goal.type,
+          entities,
+        );
+
+        // Check if all nearby resources are depleted
+        if (
+          !hasResources &&
+          this.hasDepletedResourcesForGoal(goal.type, entities)
+        ) {
+          logger.info(
+            `[AutonomousBehavior] Resources depleted for ${goal.type} — exploring for more`,
+          );
+          return exploreAction;
+        }
+        if (hasResources) {
+          return (
+            this.getAvailableActions().find((a) => a.name === expectedAction) ||
+            null
+          );
+        }
+      }
+    }
+
+    // 8. Goal-action enforcement — prevent the LLM from going rogue.
+    // If we have a clear goal, select the appropriate action deterministically
+    // instead of letting the LLM pick ATTACK_ENTITY during a questing goal.
+    if (!player.inCombat) {
+      const actions = this.getAvailableActions();
+      const find = (name: string) =>
+        actions.find((a) => a.name === name) || null;
+
+      switch (goal.type) {
+        case "combat_training": {
+          // Attack mobs in the area
+          const mob = find("ATTACK_ENTITY");
+          if (mob) return mob;
+          break;
+        }
+        case "questing": {
+          // Determine quest-appropriate action based on stage type
+          if (goal.questStageType === "kill") {
+            const attack = find("ATTACK_ENTITY");
+            if (attack) return attack;
+          } else {
+            // For non-kill quests (dialogue, gather, interact, accept),
+            // navigate to the quest location — never attack random mobs
+            const nav = find("NAVIGATE_TO");
+            if (nav) return nav;
+          }
+          break;
+        }
+        case "cooking": {
+          const cook = find("COOK_FOOD");
+          if (cook) return cook;
+          break;
+        }
+        case "smithing": {
+          if (goal.location === "furnace") {
+            const smelt = find("SMELT_ORE");
+            if (smelt) return smelt;
+          } else {
+            const smith = find("SMITH_ITEM");
+            if (smith) return smith;
+          }
+          break;
+        }
+        case "banking": {
+          const bank = find("NAVIGATE_TO");
+          if (bank) return bank;
+          break;
+        }
+        case "fishing": {
+          const fish = find("CATCH_FISH");
+          if (fish) return fish;
+          break;
+        }
+        case "woodcutting": {
+          const chop = find("CHOP_TREE");
+          if (chop) return chop;
+          break;
+        }
+        case "mining": {
+          const mine = find("MINE_ROCK");
+          if (mine) return mine;
+          break;
+        }
+        default:
+          break; // exploration, idle → let LLM decide
+      }
+    }
+
+    return null; // No short-circuit — use LLM
+  }
+
+  /**
+   * Try the deterministic planner to set a goal.
+   * Returns true if a goal was set, false otherwise.
+   */
+  private tryPlannerGoal(player: PlayerEntity): boolean {
+    if (!this.service) return false;
+    if (this.goalPaused) return false;
+
+    const quests = this.service.getQuestState?.() || [];
+    const recentGoalCounts = this.getRecentGoalCounts();
+    const bankItems = this.service.getBankItems?.() || [];
+    const bankItemNames = bankItems.map((b) =>
+      (b.name || b.itemId || "").toLowerCase(),
+    );
+    const ctx = buildPlannerContext(
+      player,
+      quests,
+      recentGoalCounts,
+      bankItemNames,
+    );
+    const plan = planNextGoal(ctx);
+
+    if (plan) {
+      logPlannerDecision(plan);
+      this.setGoal(plan.goal);
+      logger.info(
+        `[AutonomousBehavior] Planner set goal: ${plan.goal.type} — ${plan.reason}`,
+      );
+
+      // Sync planner reasoning as thinking to the dashboard so agents
+      // show activity even when LLM calls fail on subsequent ticks
+      this.lastThinking = `Goal: ${plan.goal.description} (${plan.reason})`;
+      this.syncThinkingToDashboard(this.lastThinking);
+
+      // If it's a quest accept, send the accept packet
+      if (
+        plan.goal.type === "questing" &&
+        plan.goal.questId &&
+        plan.goal.description.startsWith("Accept quest:")
+      ) {
+        this.service.sendQuestAccept(plan.goal.questId);
+        // Refresh quest list to get updated state
+        setTimeout(() => this.service?.requestQuestList?.(), 1500);
+      }
+
+      return true;
+    }
+
+    return false;
+  }
+
+  private findNearestBankEntity(): { id: string; name?: string } | null {
+    const entities = this.service?.getNearbyEntities() || [];
+    return (
+      (entities.find((entity) => {
+        const name = entity.name?.toLowerCase() || "";
+        const type = (entity.type || "").toLowerCase();
+        return type === "bank" || name.includes("bank");
+      }) as { id: string; name?: string } | undefined) || null
+    );
+  }
+
+  /**
+   * Find the player's own gravestone among nearby entities.
+   * Mirrors AgentBehaviorTicker.findOwnGravestone for LLM agents.
+   */
+  private findOwnGravestone(): Entity | null {
+    const player = this.service?.getPlayerEntity();
+    const playerId = player?.id;
+    if (!playerId) return null;
+
+    const entities = this.service?.getNearbyEntities() || [];
+    for (const entity of entities) {
+      const id = entity.id || "";
+      const name = (entity.name || "").toLowerCase();
+      // Gravestone IDs are formatted as "gravestone_<playerId>_<timestamp>"
+      if (
+        (id.includes("gravestone") && id.includes(playerId)) ||
+        (name.includes("gravestone") && name.includes(playerId))
+      ) {
+        return entity;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Find valuable ground items nearby (coins, tools, food, weapons).
+   * Returns the closest one within 10m, or null.
+   */
+  private findValuableGroundItem(): Entity | null {
+    const player = this.service?.getPlayerEntity();
+    if (!player?.position) return null;
+
+    const inventoryItems = Array.isArray(player.items) ? player.items : [];
+    if (inventoryItems.length >= 28) return null; // inventory full
+
+    const entities = this.service?.getNearbyEntities() || [];
+    const VALUABLE_KEYWORDS = [
+      "coin",
+      "gold",
+      "sword",
+      "scimitar",
+      "axe",
+      "hatchet",
+      "pickaxe",
+      "fishing",
+      "net",
+      "rod",
+      "food",
+      "shrimp",
+      "trout",
+      "salmon",
+      "lobster",
+      "swordfish",
+      "shark",
+      "bread",
+      "meat",
+      "ore",
+      "bar",
+      "rune",
+      "arrow",
+      "bow",
+      "staff",
+      "helmet",
+      "platebody",
+      "legs",
+      "shield",
+      "boots",
+      "gloves",
+    ];
+
+    let bestItem: Entity | null = null;
+    let bestDist = 10; // max 10m
+
+    for (const entity of entities) {
+      const entityType = (entity.type || "").toLowerCase();
+      if (entityType !== "item" && entityType !== "grounditem") continue;
+
+      const name = (entity.name || "").toLowerCase();
+      const isValuable = VALUABLE_KEYWORDS.some((kw) => name.includes(kw));
+      if (!isValuable) continue;
+
+      const dist = this.getEntityDistance2D(player.position, entity.position);
+      if (dist !== null && dist < bestDist) {
+        bestDist = dist;
+        bestItem = entity;
+      }
+    }
+
+    return bestItem;
+  }
+
+  /**
+   * 2D distance helper for short-circuit checks
+   */
+  private getEntityDistance2D(pos1: unknown, pos2: unknown): number | null {
+    let x1: number, z1: number;
+    if (Array.isArray(pos1) && pos1.length >= 3) {
+      x1 = pos1[0];
+      z1 = pos1[2];
+    } else if (pos1 && typeof pos1 === "object" && "x" in pos1) {
+      const p = pos1 as { x: number; z: number };
+      x1 = p.x;
+      z1 = p.z;
+    } else {
+      return null;
+    }
+
+    let x2: number, z2: number;
+    if (Array.isArray(pos2) && pos2.length >= 3) {
+      x2 = pos2[0];
+      z2 = pos2[2];
+    } else if (pos2 && typeof pos2 === "object" && "x" in pos2) {
+      const p = pos2 as { x: number; z: number };
+      x2 = p.x;
+      z2 = p.z;
+    } else {
+      return null;
+    }
+
+    return Math.sqrt((x1 - x2) ** 2 + (z1 - z2) ** 2);
+  }
+
+  private hasNearbyResourcesForGoal(
+    goalType: string,
+    entities: Array<{
+      name?: string;
+      resourceType?: string;
+      type?: string;
+      depleted?: boolean;
+    }>,
+  ): boolean {
+    return entities.some((e) => {
+      if (e.depleted) return false;
+      const rt = (e.resourceType || "").toLowerCase();
+      const name = (e.name || "").toLowerCase();
+      switch (goalType) {
+        case "woodcutting":
+          return rt === "tree" || /tree/i.test(name);
+        case "fishing":
+          return rt === "fishing_spot" || name.includes("fishing spot");
+        case "mining":
+          return rt === "mining_rock" || rt === "ore" || name.includes("rock");
+        default:
+          return false;
+      }
+    });
+  }
+
+  /**
+   * Check if nearby resources for goal type are all depleted (exist but can't be used).
+   */
+  private hasDepletedResourcesForGoal(
+    goalType: string,
+    entities: Array<{
+      name?: string;
+      resourceType?: string;
+      type?: string;
+      depleted?: boolean;
+    }>,
+  ): boolean {
+    return entities.some((e) => {
+      if (!e.depleted) return false;
+      const rt = (e.resourceType || "").toLowerCase();
+      const name = (e.name || "").toLowerCase();
+      switch (goalType) {
+        case "woodcutting":
+          return rt === "tree" || /tree/i.test(name);
+        case "fishing":
+          return rt === "fishing_spot" || name.includes("fishing spot");
+        case "mining":
+          return rt === "mining_rock" || rt === "ore" || name.includes("rock");
+        default:
+          return false;
+      }
+    });
+  }
+
+  /**
+   * Get a fallback action when the selected action fails validation.
+   * Tries goal-appropriate alternatives before giving up.
+   */
+  private getFallbackAction(failedActionName: string): Action | null {
+    const goal = this.currentGoal;
+    const actions = this.getAvailableActions();
+    const find = (name: string) => actions.find((a) => a.name === name) || null;
+
+    switch (failedActionName) {
+      case "CHOP_TREE":
+      case "MINE_ROCK":
+      case "CATCH_FISH": {
+        // Resource action failed → try navigating to resource location
+        if (goal?.location) return find("NAVIGATE_TO");
+        return find("EXPLORE");
+      }
+      case "NAVIGATE_TO":
+        return find("EXPLORE");
+      case "ATTACK_ENTITY":
+        // No valid target → navigate to combat area or explore
+        if (goal?.location) return find("NAVIGATE_TO");
+        return find("EXPLORE");
+      case "BANK_DEPOSIT_ALL":
+      case "BANK_DEPOSIT":
+        // Bank not nearby → ensure goal has location and navigate
+        if (goal && !goal.location) {
+          goal.location = "bank";
+        }
+        return find("NAVIGATE_TO");
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * After NAVIGATE_TO succeeds, check if we've arrived at destination
+   * and return the appropriate goal action.
+   */
+  private getGoalActionOnArrival(
+    goal: CurrentGoal,
+    player: PlayerEntity,
+  ): Action | null {
+    // Resolve the target position for the current goal
+    const targetPos = this.resolveCurrentGoalTarget(goal);
+    if (!targetPos) return null;
+
+    const dist = this.getDistance2D(player.position, targetPos);
+    if (dist === null || dist > 15) return null; // Not arrived yet
+
+    // We're within 15 units of destination — map goal type to action
+    const actions = this.getAvailableActions();
+    const find = (name: string) => actions.find((a) => a.name === name) || null;
+
+    switch (goal.type) {
+      case "woodcutting":
+        return find("CHOP_TREE");
+      case "mining":
+        return find("MINE_ROCK");
+      case "fishing":
+        return find("CATCH_FISH");
+      case "combat_training":
+        return find("ATTACK_ENTITY");
+      case "banking":
+        return find("BANK_DEPOSIT_ALL");
+      case "smithing":
+        if (hasOre({ items: player.items } as PlayerEntity))
+          return find("SMELT_ORE");
+        if (hasBars({ items: player.items } as PlayerEntity))
+          return find("SMITH_ITEM");
+        return null;
+      case "cooking":
+        return find("COOK_FOOD");
+      case "questing": {
+        // Check quest state to determine if ready to turn in
+        const questState = this.service?.getQuestState?.() || [];
+        const activeQuest = questState.find(
+          (q: { questId?: string; id?: string; status?: string }) =>
+            q.questId === goal.questId || q.id === goal.questId,
+        ) as { status?: string } | undefined;
+
+        if (activeQuest?.status === "ready_to_complete")
+          return find("COMPLETE_QUEST");
+        if (!goal.questStageType) return find("ACCEPT_QUEST");
+
+        switch (goal.questStageType) {
+          case "kill":
+            return find("ATTACK_ENTITY");
+          case "dialogue":
+            return find("TALK_TO_NPC");
+          case "gather": {
+            const target = (goal.questStageTarget || "").toLowerCase();
+            if (target.includes("log") || target.includes("wood"))
+              return find("CHOP_TREE");
+            if (target.includes("ore")) return find("MINE_ROCK");
+            if (target.includes("fish") || target.includes("shrimp"))
+              return find("CATCH_FISH");
+            return null;
+          }
+          case "interact": {
+            const iTarget = (goal.questStageTarget || "").toLowerCase();
+            if (iTarget.includes("smelt") || iTarget.includes("furnace"))
+              return find("SMELT_ORE");
+            if (iTarget.includes("smith") || iTarget.includes("anvil"))
+              return find("SMITH_ITEM");
+            if (iTarget.includes("cook") || iTarget.includes("range"))
+              return find("COOK_FOOD");
+            if (iTarget.includes("fire")) return find("LIGHT_FIRE");
+            return find("TALK_TO_NPC");
+          }
+          default:
+            return null;
+        }
+      }
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Resolve the target position for the current goal.
+   * Updates KNOWN_LOCATIONS from nearby entities, then checks
+   * goal.targetPosition, KNOWN_LOCATIONS, and quest-specific lookups.
+   */
+  private resolveCurrentGoalTarget(
+    goal: CurrentGoal,
+  ): [number, number, number] | null {
+    if (goal.targetPosition) return goal.targetPosition;
+
+    // Ensure KNOWN_LOCATIONS has latest positions from nearby entities
+    if (this.service) {
+      updateKnownLocationsFromNearbyEntities(this.service);
+    }
+
+    if (goal.location) {
+      const loc = KNOWN_LOCATIONS[goal.location];
+      if (loc?.position) return loc.position;
+    }
+
+    // Questing fallback: resolve via questStartNpc or quest stage location
+    if (goal.type === "questing") {
+      if (goal.questStartNpc) {
+        const npcLoc = KNOWN_LOCATIONS[goal.questStartNpc];
+        if (npcLoc?.position) return npcLoc.position;
+      }
+      const stagePos = this.resolveQuestStageLocation(
+        goal.questStageType,
+        goal.questStageTarget,
+      );
+      if (stagePos) return stagePos;
+    }
+
+    return null;
+  }
+
+  /**
+   * Map quest stage type + target to a known area position.
+   */
+  private resolveQuestStageLocation(
+    stageType?: string,
+    stageTarget?: string,
+  ): [number, number, number] | null {
+    if (!stageType || !stageTarget) return null;
+    const target = stageTarget.toLowerCase();
+    let areaKey: string | null = null;
+
+    if (stageType === "kill") {
+      areaKey = "spawn";
+    } else if (stageType === "gather") {
+      if (target.includes("log") || target.includes("wood")) areaKey = "forest";
+      else if (target.includes("ore")) areaKey = "mine";
+      else if (target.includes("fish") || target.includes("shrimp"))
+        areaKey = "fishing";
+    } else if (stageType === "interact") {
+      if (target.includes("smelt") || target.includes("furnace"))
+        areaKey = "furnace";
+      else if (target.includes("smith") || target.includes("anvil"))
+        areaKey = "anvil";
+    }
+
+    if (areaKey) {
+      const loc = KNOWN_LOCATIONS[areaKey];
+      if (loc?.position) return loc.position;
+    }
+    return null;
+  }
+
+  /**
+   * Check if the current goal requires travel to a known destination
+   * that is > 15 units away. Skips if nearby resources already match the goal.
+   */
+  private shouldNavigateToGoal(
+    goal: CurrentGoal,
+    player: PlayerEntity,
+  ): boolean {
+    // Resolve a target position for this goal
+    const targetPos = this.resolveCurrentGoalTarget(goal);
+    if (!targetPos) return false;
+
+    // Check distance — only navigate if far away
+    const dist = this.getDistance2D(player.position, targetPos);
+    if (dist === null || dist <= 15) return false;
+
+    // If the goal is a resource-gathering type, check if matching resources are already nearby
+    const entities = this.service?.getNearbyEntities() || [];
+    const resourceGoalTypes = ["woodcutting", "fishing", "mining"];
+    if (resourceGoalTypes.includes(goal.type)) {
+      if (this.hasNearbyResourcesForGoal(goal.type, entities)) return false;
+    }
+
+    // For questing kill goals, check if combat targets are already nearby
+    if (goal.type === "questing" && goal.questStageType === "kill") {
+      if (this.hasNearbyResourcesForGoal("combat_training", entities))
+        return false;
+      // Also check for any attackable entities nearby
+      const hasTarget = entities.some((e) => {
+        const type = (e.type || "").toLowerCase();
+        return type === "mob" || type === "npc" || type === "monster";
+      });
+      if (hasTarget) return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Map a goal type to the appropriate resource action when matching resources are nearby.
+   * Returns null if no matching resources or goal type has no resource action.
+   */
+  private getResourceActionForGoal(
+    goal: CurrentGoal,
+    entities: Array<{
+      name?: string;
+      resourceType?: string;
+      type?: string;
+      depleted?: boolean;
+    }>,
+  ): Action | null {
+    const goalTypeToAction: Record<string, string> = {
+      woodcutting: "CHOP_TREE",
+      fishing: "CATCH_FISH",
+      mining: "MINE_ROCK",
+      combat_training: "ATTACK_ENTITY",
+    };
+
+    // For questing goals, map stage type to resource type
+    let effectiveGoalType: string = goal.type;
+    if (goal.type === "questing" && goal.questStageType) {
+      const stageMap: Record<string, string> = {
+        kill: "combat_training",
+        gather: this.questStageTargetToGoalType(goal.questStageTarget),
+      };
+      effectiveGoalType = stageMap[goal.questStageType] || goal.type;
+    }
+
+    const actionName = goalTypeToAction[effectiveGoalType];
+    if (!actionName) return null;
+
+    if (!this.hasNearbyResourcesForGoal(effectiveGoalType, entities))
+      return null;
+
+    return (
+      this.getAvailableActions().find((a) => a.name === actionName) || null
+    );
+  }
+
+  /**
+   * Map quest stage target text to an effective goal type for resource matching.
+   */
+  private questStageTargetToGoalType(target?: string): string {
+    if (!target) return "";
+    const t = target.toLowerCase();
+    if (t.includes("log") || t.includes("wood")) return "woodcutting";
+    if (t.includes("ore")) return "mining";
+    if (t.includes("fish") || t.includes("shrimp")) return "fishing";
+    return "";
+  }
+
+  /**
+   * Find the first food item in the player's inventory.
+   */
+  private findFirstFoodItem(
+    player: PlayerEntity,
+  ): { id: string; name: string } | null {
+    const items = Array.isArray(player.items) ? player.items : [];
+    for (const item of items) {
+      const name = (
+        item.name ||
+        (item as { item?: { name?: string } }).item?.name ||
+        item.itemId ||
+        ""
+      )
+        .toString()
+        .toLowerCase();
+      if (
+        name.includes("shrimp") ||
+        name.includes("anchovies") ||
+        name.includes("sardine") ||
+        name.includes("herring") ||
+        name.includes("trout") ||
+        name.includes("salmon") ||
+        name.includes("tuna") ||
+        name.includes("lobster") ||
+        name.includes("swordfish") ||
+        name.includes("shark") ||
+        name.includes("bread") ||
+        name.includes("meat") ||
+        name.includes("cooked") ||
+        name.includes("pie") ||
+        name.includes("cake")
+      ) {
+        return {
+          id: item.id || item.itemId || "",
+          name,
+        };
+      }
+    }
+    return null;
+  }
+
   private getAvailableActions(): Action[] {
     return [
       setGoalAction,
@@ -1332,13 +2595,15 @@ export class AutonomousBehaviorManager {
       runecraftAction,
       pickupItemAction,
       equipItemAction,
-      lootStarterChestAction,
       talkToNpcAction,
       acceptQuestAction,
       completeQuestAction,
       checkQuestAction,
       buyItemAction,
       sellItemAction,
+      bankDepositAction,
+      bankWithdrawAction,
+      bankDepositAllAction,
       greetPlayerAction,
       shareOpinionAction,
       offerHelpAction,
@@ -1346,6 +2611,10 @@ export class AutonomousBehaviorManager {
       fleeAction,
       idleAction,
       approachEntityAction,
+      useItemAction,
+      dropItemAction,
+      moveToAction,
+      lootGravestoneAction,
     ];
   }
 
@@ -1445,7 +2714,7 @@ export class AutonomousBehaviorManager {
       rocksNearby = 0,
       fishingSpotsNearby = 0,
       mobsNearby = 0;
-    let starterChestNearby = false;
+    let bankNearby = false;
     let furnaceNearby = false;
     let anvilNearby = false;
     let npcsNearby = 0;
@@ -1465,8 +2734,14 @@ export class AutonomousBehaviorManager {
 
       if (entity.depleted === true) continue;
 
-      if (entityType === "starter_chest" || name.includes("starter")) {
-        starterChestNearby = true;
+      if (
+        entityType === "banker" ||
+        entityType === "bank" ||
+        type === "bank" ||
+        type === "banker" ||
+        name.includes("bank")
+      ) {
+        bankNearby = true;
       } else if (resourceType === "tree" || name.includes("tree")) {
         treesNearby++;
       } else if (
@@ -1578,14 +2853,38 @@ export class AutonomousBehaviorManager {
     );
     lines.push("- If health drops below 30%, you should FLEE to survive.");
     lines.push("");
-    lines.push("STARTER EQUIPMENT:");
+    lines.push("GETTING STARTED:");
     lines.push(
-      "- New players should look for a STARTER CHEST near spawn to get basic tools.",
+      "- New players should talk to NPCs and accept quests to get starter tools.",
     );
     lines.push(
-      "- The starter chest gives: bronze hatchet, bronze pickaxe, tinderbox, fishing net, food.",
+      '- "Lumberjack\'s First Lesson" gives bronze hatchet + tinderbox (talk to Forester Wilma).',
     );
-    lines.push("- You can only loot the starter chest ONCE per character.");
+    lines.push(
+      '- "Fresh Catch" gives a small fishing net (talk to Fisherman Pete).',
+    );
+    lines.push(
+      '- "Torvin\'s Tools" gives bronze pickaxe + hammer (talk to Torvin).',
+    );
+    lines.push(
+      "- Use ACCEPT_QUEST to accept available quests. Quest items are granted immediately on accept.",
+    );
+    lines.push(
+      "- Use COMPLETE_QUEST to turn in completed quests for XP rewards.",
+    );
+    lines.push("");
+    lines.push("BANKING:");
+    lines.push(
+      "- When your inventory is full, go to a bank and deposit items.",
+    );
+    lines.push(
+      "- Keep essential tools (axe, pickaxe, tinderbox, net) and bank everything else.",
+    );
+    lines.push("- Before combat, withdraw food from the bank.");
+    lines.push("- Banks are found in towns and near the duel arena.");
+    lines.push(
+      "- Use BANK_DEPOSIT_ALL to dump inventory and keep only essential tools.",
+    );
     lines.push("");
     lines.push("GENERAL LOGIC:");
     lines.push("- Have a goal and work toward it. Don't wander aimlessly.");
@@ -1624,15 +2923,79 @@ export class AutonomousBehaviorManager {
         `>>> You have a COMBAT WEAPON in inventory but NOT equipped! <<<`,
       );
     }
-    lines.push(`Has Axe/Hatchet: ${hasAxe ? "Yes" : "No"}`);
-    lines.push(`Has Pickaxe: ${hasPickaxe ? "Yes" : "No"}`);
-    lines.push(`Has Fishing Equipment: ${hasNet ? "Yes" : "No"}`);
-    lines.push(`Has Tinderbox: ${hasTinderbox ? "Yes" : "No"}`);
+    const inventoryItems = Array.isArray(player?.items) ? player.items : [];
+    const inventoryCount = inventoryItems.length;
+    const maxInventory = 28;
+    lines.push(`Inventory: ${inventoryCount}/${maxInventory} slots`);
+    if (inventoryCount >= maxInventory) {
+      lines.push(
+        `>>> INVENTORY FULL! You MUST bank items before you can gather or loot more. Use BANK_DEPOSIT_ALL. <<<`,
+      );
+    } else if (inventoryCount >= 25) {
+      lines.push(
+        `>>> Inventory nearly full (${inventoryCount}/${maxInventory}) - consider banking soon! <<<`,
+      );
+    }
+    // Check bank for tools not in inventory
+    const cachedBank = this.service?.getBankItems?.() || [];
+    const bankNames = cachedBank.map((b) =>
+      (
+        (b as { name?: string; itemId?: string }).name ||
+        (b as { name?: string; itemId?: string }).itemId ||
+        ""
+      ).toLowerCase(),
+    );
+    const axeInBank = !hasAxe && bankNames.some((n) => n.includes("hatchet"));
+    const pickInBank =
+      !hasPickaxe && bankNames.some((n) => n.includes("pickaxe"));
+    const netInBank =
+      !hasNet &&
+      bankNames.some((n) => n.includes("net") || n.includes("fishing"));
+    const tinderInBank =
+      !hasTinderbox && bankNames.some((n) => n.includes("tinderbox"));
+    const weaponInBank = bankNames.some(
+      (n) =>
+        n.includes("shortsword") ||
+        n.includes("longsword") ||
+        n.includes("scimitar") ||
+        n.includes("dagger"),
+    );
+
+    if (bankNames.length > 0) {
+      lines.push(`Bank: ${bankNames.length} item types cached`);
+    }
+
+    lines.push(
+      `Has Axe/Hatchet: ${hasAxe ? "Yes" : axeInBank ? "IN BANK — use BANK_DEPOSIT_ALL to withdraw tools" : "No"}`,
+    );
+    lines.push(
+      `Has Pickaxe: ${hasPickaxe ? "Yes" : pickInBank ? "IN BANK — use BANK_DEPOSIT_ALL to withdraw tools" : "No"}`,
+    );
+    lines.push(
+      `Has Fishing Equipment: ${hasNet ? "Yes" : netInBank ? "IN BANK — use BANK_DEPOSIT_ALL to withdraw tools" : "No"}`,
+    );
+    lines.push(
+      `Has Tinderbox: ${hasTinderbox ? "Yes" : tinderInBank ? "IN BANK — use BANK_DEPOSIT_ALL to withdraw tools" : "No"}`,
+    );
+    if (!hasWeaponEquipped && !hasCombatItem && weaponInBank) {
+      lines.push(
+        `Has Weapon: IN BANK — use BANK_DEPOSIT_ALL to withdraw tools`,
+      );
+    }
     lines.push(`Has Food: ${hasFood ? "Yes" : "No"}`);
     lines.push(`Has Logs: ${hasLogs ? "Yes" : "No"}`);
     if (playerHasOre) lines.push(`Has Ore: Yes (can smelt at furnace)`);
     if (playerHasBars) lines.push(`Has Bars: Yes (can smith at anvil)`);
     lines.push("");
+
+    // === LAST ACTION CONTEXT ===
+    if (this.lastActionName) {
+      const elapsed = Math.round((Date.now() - this.lastActionTime) / 1000);
+      lines.push(
+        `LAST ACTION (${elapsed}s ago): ${this.lastActionName} — ${this.lastActionResult || "unknown"}`,
+      );
+      lines.push("");
+    }
 
     // === GOAL STATUS ===
     lines.push("=== YOUR CURRENT GOAL ===");
@@ -1731,8 +3094,8 @@ export class AutonomousBehaviorManager {
 
     // === NEARBY ENVIRONMENT ===
     lines.push("=== WHAT'S NEARBY ===");
-    if (starterChestNearby)
-      lines.push(`STARTER CHEST: Yes! (can get starter tools)`);
+    if (bankNearby)
+      lines.push(`Bank: Yes! (can BANK_DEPOSIT_ALL to free inventory space)`);
     if (treesNearby > 0) lines.push(`Trees: ${treesNearby} (need axe to chop)`);
     if (rocksNearby > 0)
       lines.push(`Rocks/Ore: ${rocksNearby} (need pickaxe to mine)`);
@@ -1753,7 +3116,7 @@ export class AutonomousBehaviorManager {
     if (mobsNearby > 0)
       lines.push(`Attackable Mobs: ${mobsNearby} - ${mobNames.join(", ")}`);
     if (
-      !starterChestNearby &&
+      !bankNearby &&
       treesNearby === 0 &&
       rocksNearby === 0 &&
       fishingSpotsNearby === 0 &&
@@ -1885,10 +3248,11 @@ export class AutonomousBehaviorManager {
         }
       }
     } else if (goal.type === "woodcutting") {
-      // Check for trees WITHIN approach range (20m - CHOP_TREE will walk to tree)
-      const APPROACH_RANGE = 20;
+      // Check for trees WITHIN approach range (40m — matches skills.ts validation)
+      const APPROACH_RANGE = 40;
       const playerPos = this.service?.getPlayerEntity()?.position;
       const allTrees = nearbyEntitiesForPriority.filter((entity) => {
+        if (entity.depleted) return false; // Skip depleted trees
         const name = entity.name?.toLowerCase() || "";
         const resourceType = (entity.resourceType || "").toLowerCase();
         const type = (entity.type || "").toLowerCase();
@@ -1952,6 +3316,7 @@ export class AutonomousBehaviorManager {
       }
     } else if (goal.type === "fishing") {
       const spots = nearbyEntitiesForPriority.filter((entity) => {
+        if (entity.depleted) return false; // Skip depleted spots
         const resourceType = (entity.resourceType || "").toLowerCase();
         const name = entity.name?.toLowerCase() || "";
         return resourceType === "fishing_spot" || name.includes("fishing spot");
@@ -1969,6 +3334,7 @@ export class AutonomousBehaviorManager {
       }
     } else if (goal.type === "mining") {
       const rocks = nearbyEntitiesForPriority.filter((entity) => {
+        if (entity.depleted) return false; // Skip depleted rocks
         const resourceType = (entity.resourceType || "").toLowerCase();
         const name = entity.name?.toLowerCase() || "";
         return (
@@ -2128,6 +3494,21 @@ export class AutonomousBehaviorManager {
       } else {
         priorityAction = "EXPLORE";
       }
+    } else if (goal.type === "banking") {
+      // Banking goal — deposit all, then restore previous goal
+      const bankNearby = nearbyEntitiesForPriority.some((entity) => {
+        const name = entity.name?.toLowerCase() || "";
+        const type = (entity.type || "").toLowerCase();
+        return type === "bank" || name.includes("bank");
+      });
+
+      if (bankNearby) {
+        priorityAction = "BANK_DEPOSIT_ALL";
+        lines.push("  ** Bank nearby! Deposit your items! **");
+      } else {
+        priorityAction = "NAVIGATE_TO";
+        lines.push("  Navigate to nearest bank to deposit items.");
+      }
     } else if (goal.type === "exploration") {
       priorityAction = "EXPLORE";
     } else if (goal.type === "idle") {
@@ -2253,11 +3634,138 @@ export class AutonomousBehaviorManager {
         },
       );
 
+      // Track last action for prompt context
+      this.lastActionName = action.name;
+      this.lastActionTime = Date.now();
+
       if (result && typeof result === "object" && "success" in result) {
+        this.lastActionResult = result.success ? "success" : "failure";
+
+        // Sync action to server dashboard
+        try {
+          const err = result.error;
+          const resultText =
+            result.text ||
+            (err instanceof Error
+              ? err.message
+              : typeof err === "string"
+                ? err
+                : "") ||
+            "";
+          const status = result.success ? "OK" : "FAIL";
+          this.service?.syncAgentThought(
+            "action",
+            `${action.name} [${status}]${resultText ? ` — ${resultText}` : ""}`,
+          );
+        } catch {
+          /* non-critical */
+        }
+
         if (result.success) {
           logger.info(
             `[AutonomousBehavior] Action ${action.name} completed successfully`,
           );
+
+          // Set action lock for movement-based actions
+          if (result.data?.moving) {
+            this.actionLock = {
+              actionName: action.name,
+              startedAt: Date.now(),
+              timeoutMs: this.ACTION_LOCK_MAX_MS,
+              minDurationMs: 0, // Clears when movement stops
+            };
+            logger.info(
+              `[AutonomousBehavior] Action lock set: ${action.name} (moving)`,
+            );
+          }
+
+          // Gather actions: server needs time for walk-to + gather cycle
+          const GATHER_ACTIONS = [
+            "CHOP_TREE",
+            "MINE_ROCK",
+            "CATCH_FISH",
+            "COOK_FOOD",
+            "LIGHT_FIRE",
+          ];
+          if (!result.data?.moving && GATHER_ACTIONS.includes(action.name)) {
+            this.actionLock = {
+              actionName: action.name,
+              startedAt: Date.now(),
+              timeoutMs: this.ACTION_LOCK_MAX_MS,
+              minDurationMs: 5000, // ~1 gather cycle
+            };
+            logger.info(
+              `[AutonomousBehavior] Action lock set: ${action.name} (gather cooldown 5s)`,
+            );
+          }
+
+          // In-range attack: server needs time for combat cycle
+          if (!result.data?.moving && action.name === "ATTACK_ENTITY") {
+            this.actionLock = {
+              actionName: action.name,
+              startedAt: Date.now(),
+              timeoutMs: this.ACTION_LOCK_MAX_MS,
+              minDurationMs: 3000, // ~1 attack cycle
+            };
+            logger.info(
+              `[AutonomousBehavior] Action lock set: ${action.name} (attack cooldown 3s)`,
+            );
+          }
+
+          // Smelt/smith: server needs time for crafting
+          const CRAFT_ACTIONS = [
+            "SMELT_ORE",
+            "SMITH_ITEM",
+            "FLETCH_ITEM",
+            "RUNECRAFT",
+          ];
+          if (!result.data?.moving && CRAFT_ACTIONS.includes(action.name)) {
+            this.actionLock = {
+              actionName: action.name,
+              startedAt: Date.now(),
+              timeoutMs: this.ACTION_LOCK_MAX_MS,
+              minDurationMs: 4000, // ~1 craft cycle
+            };
+            logger.info(
+              `[AutonomousBehavior] Action lock set: ${action.name} (craft cooldown 4s)`,
+            );
+          }
+
+          // Fast-tick only for transition actions — NOT gather/attack/craft
+          const FAST_TICK_ACTIONS = new Set([
+            "SET_GOAL",
+            "NAVIGATE_TO",
+            "EQUIP_ITEM",
+            "PICKUP_ITEM",
+            "BANK_DEPOSIT_ALL",
+            "BANK_DEPOSIT",
+            "BANK_WITHDRAW",
+            "DROP_ITEM",
+            "USE_ITEM",
+            "ACCEPT_QUEST",
+            "COMPLETE_QUEST",
+            "TALK_TO_NPC",
+            "BUY_ITEM",
+            "SELL_ITEM",
+          ]);
+          if (!result.data?.moving && FAST_TICK_ACTIONS.has(action.name)) {
+            this.nextTickFast = true;
+          }
+
+          // Banking done — restore previous goal if we saved one
+          if (
+            action.name === "BANK_DEPOSIT_ALL" &&
+            !result.data?.moving &&
+            this.savedGoal &&
+            this.currentGoal?.type === "banking"
+          ) {
+            logger.info(
+              `[AutonomousBehavior] Banking complete, restoring saved goal: ${this.savedGoal.type}`,
+            );
+            this.currentGoal = this.savedGoal;
+            this.savedGoal = null;
+            this.nextTickFast = true;
+          }
         } else {
           logger.warn(
             `[AutonomousBehavior] Action ${action.name} failed: ${result.error || "unknown error"}`,
@@ -2296,6 +3804,15 @@ export class AutonomousBehaviorManager {
     if (player.alive === false) {
       if (this.debug)
         logger.debug("[AutonomousBehavior] Player is explicitly dead");
+      return false;
+    }
+
+    // Don't try autonomous actions during an active duel
+    if (this.inActiveDuel) {
+      if (this.debug)
+        logger.debug(
+          "[AutonomousBehavior] In active duel, skipping autonomous actions",
+        );
       return false;
     }
 
@@ -2362,6 +3879,27 @@ export class AutonomousBehaviorManager {
         ? player.position[2].toFixed(1)
         : "?";
 
+    // Build quest progress summary
+    const questLines: string[] = [];
+    const quests = this.service?.getQuestState?.() || [];
+    for (const q of quests) {
+      if (q.status !== "in_progress") continue;
+      const name = q.name || q.questId || "unknown";
+      if (q.stageProgress && typeof q.stageProgress === "object") {
+        const entries = Object.entries(q.stageProgress);
+        if (entries.length > 0) {
+          const progressParts = entries
+            .map(([key, val]) => `${key}: ${val}`)
+            .join(", ");
+          questLines.push(`  - ${name} (${progressParts})`);
+        } else {
+          questLines.push(`  - ${name}`);
+        }
+      } else {
+        questLines.push(`  - ${name}`);
+      }
+    }
+
     // Build a natural language prompt for the decision
     const lines = [
       "AUTONOMOUS BEHAVIOR TICK",
@@ -2374,8 +3912,23 @@ export class AutonomousBehaviorManager {
       `- Position: [${posX}, ${posZ}]`,
       `- In Combat: ${player.inCombat ? "Yes" : "No"}`,
       `- Nearby Entities: ${nearbyCount}`,
+      `- Inventory: ${Array.isArray(player.items) ? player.items.length : 0}/28`,
+    ];
+
+    if (this.currentGoal) {
+      lines.push(
+        `- Current Goal: ${this.currentGoal.type} — ${this.currentGoal.description}`,
+      );
+    }
+
+    if (questLines.length > 0) {
+      lines.push(`- Active Quests:`);
+      lines.push(...questLines);
+    }
+
+    lines.push(
       "",
-      "Available actions: SET_GOAL, NAVIGATE_TO, ATTACK_ENTITY, CHOP_TREE, CATCH_FISH, MINE_ROCK, EXPLORE, FLEE, IDLE, APPROACH_ENTITY",
+      "Available actions: SET_GOAL, NAVIGATE_TO, ATTACK_ENTITY, CHOP_TREE, CATCH_FISH, MINE_ROCK, EXPLORE, FLEE, IDLE, APPROACH_ENTITY, LOOT_GRAVESTONE, PICKUP_ITEM",
       "",
       "GOAL-ORIENTED BEHAVIOR:",
       "1. You MUST have a goal. If no goal, use SET_GOAL first.",
@@ -2391,7 +3944,7 @@ export class AutonomousBehaviorManager {
       "- IDLE only if waiting for something",
       "",
       "What action should you take?",
-    ];
+    );
 
     return lines.join("\n");
   }
@@ -2526,6 +4079,19 @@ export class AutonomousBehaviorManager {
     }
     this.currentGoal = null;
     logger.info("[AutonomousBehavior] Goal cleared");
+
+    // Goal chaining: try the planner immediately for the next goal
+    const player = this.service?.getPlayerEntity();
+    if (player && !this.goalPaused) {
+      const chained = this.tryPlannerGoal(player);
+      if (chained) {
+        logger.info(
+          "[AutonomousBehavior] Goal chained via planner → fast tick",
+        );
+        this.nextTickFast = true;
+      }
+    }
+
     // Sync to server for dashboard display
     this.service?.syncGoalToServer();
   }
@@ -2667,6 +4233,93 @@ export class AutonomousBehaviorManager {
    */
   hasGoal(): boolean {
     return this.currentGoal !== null;
+  }
+
+  /**
+   * Get duel outcome history for strategy context
+   */
+  getDuelHistory(): Array<{
+    opponentName: string;
+    won: boolean;
+    myHealth: number;
+    foodUsed: number;
+    timestamp: number;
+  }> {
+    return this.duelHistory;
+  }
+
+  // ============================================================================
+  // DUEL AWARENESS - Save/restore goals and track outcomes across duels
+  // ============================================================================
+
+  /**
+   * Called when a duel fight starts — save current goal and enter duel mode
+   */
+  private onDuelStart(): void {
+    logger.info(
+      "[AutonomousBehavior] ⚔️ Duel starting — saving goal and entering duel mode",
+    );
+    this.inActiveDuel = true;
+
+    // Save current goal for restoration after duel
+    if (this.currentGoal) {
+      this.savedGoal = { ...this.currentGoal };
+      logger.info(
+        `[AutonomousBehavior] Saved goal: ${this.currentGoal.type} - ${this.currentGoal.description}`,
+      );
+    }
+  }
+
+  /**
+   * Called when a duel completes — restore goal and record outcome
+   */
+  private onDuelCompleted(data: unknown): void {
+    const duelData = data as {
+      winnerId?: string;
+      loserId?: string;
+      winnerName?: string;
+      loserName?: string;
+      duelId?: string;
+    };
+
+    const myId = this.runtime.agentId;
+    const won = duelData.winnerId === myId;
+    const opponentName = won
+      ? duelData.loserName || "Unknown"
+      : duelData.winnerName || "Unknown";
+
+    logger.info(
+      `[AutonomousBehavior] ⚔️ Duel completed — ${won ? "WON" : "LOST"} against ${opponentName}`,
+    );
+
+    // Record duel outcome
+    const player = this.service?.getPlayerEntity();
+    this.duelHistory.push({
+      opponentName,
+      won,
+      myHealth: player?.health?.current ?? 0,
+      foodUsed: 0, // TODO: track food consumption during duel
+      timestamp: Date.now(),
+    });
+    if (this.duelHistory.length > this.MAX_DUEL_HISTORY) {
+      this.duelHistory.shift();
+    }
+
+    // Exit duel mode
+    this.inActiveDuel = false;
+
+    // Restore saved goal
+    if (this.savedGoal) {
+      this.currentGoal = this.savedGoal;
+      this.savedGoal = null;
+      logger.info(
+        `[AutonomousBehavior] Restored goal: ${this.currentGoal.type} - ${this.currentGoal.description}`,
+      );
+    } else {
+      logger.info(
+        "[AutonomousBehavior] No saved goal to restore — agent will pick a new one",
+      );
+    }
   }
 
   // ============================================================================

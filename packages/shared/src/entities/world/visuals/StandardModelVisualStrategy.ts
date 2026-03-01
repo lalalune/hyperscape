@@ -147,8 +147,8 @@ export class StandardModelVisualStrategy implements ResourceVisualStrategy {
 
   // ---- depletion / respawn ----
 
-  async onDepleted(): Promise<void> {
-    // Stump loading handled by ResourceEntity
+  async onDepleted(): Promise<boolean> {
+    return false;
   }
 
   async onRespawn(ctx: ResourceVisualContext): Promise<void> {

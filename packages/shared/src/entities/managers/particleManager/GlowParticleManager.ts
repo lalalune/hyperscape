@@ -31,6 +31,7 @@ import {
   MeshBasicNodeMaterial,
   uv,
   float,
+  vec2,
   vec3,
   mul,
   add,
@@ -41,6 +42,11 @@ import {
   pow,
   min,
   max,
+  mix,
+  fract,
+  dot,
+  smoothstep,
+  floor as tslFloor,
   time,
   positionLocal,
 } from "../../../extras/three/three";
@@ -54,7 +60,7 @@ const MAX_PILLAR = 32;
 const MAX_WISP = 192;
 const MAX_SPARK = 256;
 const MAX_BASE = 96;
-const MAX_RISE_SPREAD = 256;
+const MAX_RISE_SPREAD = 896;
 
 // =============================================================================
 // HELPERS
@@ -73,7 +79,7 @@ function hexToRgb(hex: number): [number, number, number] {
 // =============================================================================
 
 /** Available built-in presets. */
-export type GlowPreset = "altar" | "fire" | "torch";
+export type GlowPreset = "altar" | "fire";
 
 /**
  * Configuration passed to `registerGlow`.
@@ -197,9 +203,6 @@ export class GlowParticleManager {
         break;
       case "fire":
         this.registerFire(emitterId, config);
-        break;
-      case "torch":
-        this.registerTorch(emitterId, config);
         break;
       default:
         console.warn(`[GlowParticleManager] Unknown preset: ${config.preset}`);
@@ -529,8 +532,8 @@ export class GlowParticleManager {
    * dynamics:    (baseScale, speed, unused, scaleYMult)
    */
   private registerFire(emitterId: string, config: GlowConfig): void {
-    const FIRE_COUNT = 18;
-    const FIRE_SPAWN_Y = 0.1;
+    const FIRE_COUNT = 28;
+    const FIRE_SPAWN_Y = 0.0;
     const FIRE_COLORS = [0xff4400, 0xff6600, 0xff8800, 0xffaa00, 0xffcc00];
 
     const record: EmitterRecord = {
@@ -550,101 +553,27 @@ export class GlowParticleManager {
       const s = pool.freeSlots.pop()!;
       slots.push(s);
 
-      const lifetime = 0.5 + Math.random() * 0.7;
+      const lifetime = 0.35 + Math.random() * 0.45;
 
-      // emitterPos
       pool.emitterPosArr[s * 3] = config.position.x;
       pool.emitterPosArr[s * 3 + 1] = config.position.y;
       pool.emitterPosArr[s * 3 + 2] = config.position.z;
 
-      // ageLifetime — stagger ages for continuous effect
       pool.ageLifetimeArr[s * 2] = Math.random() * lifetime;
       pool.ageLifetimeArr[s * 2 + 1] = lifetime;
 
       // spawnOffset: (offsetX, spawnY, offsetZ)
-      pool.spawnOffsetArr[s * 3] = (Math.random() - 0.5) * 0.25;
+      pool.spawnOffsetArr[s * 3] = (Math.random() - 0.5) * 0.04;
       pool.spawnOffsetArr[s * 3 + 1] = FIRE_SPAWN_Y;
-      pool.spawnOffsetArr[s * 3 + 2] = (Math.random() - 0.5) * 0.25;
+      pool.spawnOffsetArr[s * 3 + 2] = (Math.random() - 0.5) * 0.04;
 
-      // dynamics: (baseScale, speed, unused, scaleYMult)
-      pool.dynamicsArr[s * 4] = 0.18 + Math.random() * 0.22;
-      pool.dynamicsArr[s * 4 + 1] = 0.6 + Math.random() * 0.8;
-      pool.dynamicsArr[s * 4 + 2] = 0;
-      pool.dynamicsArr[s * 4 + 3] = 1.3;
+      // dynamics: (baseScale, speed, phase, scaleYMult)
+      pool.dynamicsArr[s * 4] = 0.12 + Math.random() * 0.08;
+      pool.dynamicsArr[s * 4 + 1] = 0.25 + Math.random() * 0.35;
+      pool.dynamicsArr[s * 4 + 2] = Math.random() * Math.PI * 2;
+      pool.dynamicsArr[s * 4 + 3] = 1.8;
 
-      // colorSharpness — per-particle colour from palette
       const hex = FIRE_COLORS[Math.floor(Math.random() * FIRE_COLORS.length)];
-      const [r, g, b] = hexToRgb(hex);
-      pool.colorSharpnessArr[s * 4] = r;
-      pool.colorSharpnessArr[s * 4 + 1] = g;
-      pool.colorSharpnessArr[s * 4 + 2] = b;
-      pool.colorSharpnessArr[s * 4 + 3] = 2.0; // sharpness
-
-      // identity instance matrix
-      pool.mesh.setMatrixAt(s, new THREE.Matrix4());
-    }
-
-    if (slots.length > 0) {
-      record.slots.set("riseSpread", slots);
-      this.markAllDirty(pool);
-    }
-
-    this.emitters.set(emitterId, record);
-  }
-
-  // ---------------------------------------------------------------------------
-  // PRESET: torch
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Torch preset — 6 rising/spreading particles with warm colours.
-   * Smaller, tighter flame than campfire (0.08 spread vs 0.25).
-   *
-   * Uses the `riseSpread` pool.
-   */
-  private registerTorch(emitterId: string, config: GlowConfig): void {
-    const TORCH_COUNT = 6;
-    const TORCH_SPAWN_Y = 0.15;
-    const TORCH_COLORS = [0xff4400, 0xff6600, 0xff8800, 0xffaa00, 0xffcc00];
-
-    const record: EmitterRecord = {
-      preset: "torch",
-      position: { ...config.position },
-      slots: new Map(),
-    };
-
-    const pool = this.pools.get("riseSpread")!;
-    const slots: number[] = [];
-
-    for (let i = 0; i < TORCH_COUNT; i++) {
-      if (pool.freeSlots.length === 0) {
-        console.warn("[GlowParticleManager] riseSpread pool exhausted");
-        break;
-      }
-      const s = pool.freeSlots.pop()!;
-      slots.push(s);
-
-      const lifetime = 0.4 + Math.random() * 0.5;
-
-      pool.emitterPosArr[s * 3] = config.position.x;
-      pool.emitterPosArr[s * 3 + 1] = config.position.y;
-      pool.emitterPosArr[s * 3 + 2] = config.position.z;
-
-      pool.ageLifetimeArr[s * 2] = Math.random() * lifetime;
-      pool.ageLifetimeArr[s * 2 + 1] = lifetime;
-
-      // Tighter spawn spread than fire (0.08 vs 0.25)
-      pool.spawnOffsetArr[s * 3] = (Math.random() - 0.5) * 0.08;
-      pool.spawnOffsetArr[s * 3 + 1] = TORCH_SPAWN_Y;
-      pool.spawnOffsetArr[s * 3 + 2] = (Math.random() - 0.5) * 0.08;
-
-      // Smaller scale than fire (0.10-0.22 vs 0.18-0.40), slightly faster
-      pool.dynamicsArr[s * 4] = 0.1 + Math.random() * 0.12;
-      pool.dynamicsArr[s * 4 + 1] = 0.8 + Math.random() * 0.9;
-      pool.dynamicsArr[s * 4 + 2] = 0;
-      pool.dynamicsArr[s * 4 + 3] = 1.3;
-
-      const hex = TORCH_COLORS[Math.floor(Math.random() * TORCH_COLORS.length)];
       const [r, g, b] = hexToRgb(hex);
       pool.colorSharpnessArr[s * 4] = r;
       pool.colorSharpnessArr[s * 4 + 1] = g;
@@ -689,15 +618,15 @@ export class GlowParticleManager {
     pool.dynamicsArr[s * 4 + 1] = 0.5 + Math.random() * 0.6;
   }
 
-  /** RiseSpread respawn: re-randomize x/z offset for natural fire flicker. */
+  /** RiseSpread respawn: re-randomize x/z offset and phase for natural fire flicker. */
   private respawnRiseSpread(
     pool: PoolLayer,
     s: number,
-    record: EmitterRecord,
+    _record: EmitterRecord,
   ): void {
-    const spread = record.preset === "torch" ? 0.08 : 0.25;
-    pool.spawnOffsetArr[s * 3] = (Math.random() - 0.5) * spread;
-    pool.spawnOffsetArr[s * 3 + 2] = (Math.random() - 0.5) * spread;
+    pool.spawnOffsetArr[s * 3] = (Math.random() - 0.5) * 0.04;
+    pool.spawnOffsetArr[s * 3 + 2] = (Math.random() - 0.5) * 0.04;
+    pool.dynamicsArr[s * 4 + 2] = Math.random() * Math.PI * 2;
   }
 
   // ===========================================================================
@@ -1087,35 +1016,47 @@ export class GlowParticleManager {
       opacity = mul(float(0.85), mul(fadeIn, mul(fadeOut, globalPulse)));
     } else if (motion === "riseSpread") {
       // ---------------------------------------------------------------
-      // RISE-SPREAD: fire particles rising upward, spreading outward
+      // RISE-SPREAD: fire particles rising with turbulent jitter
       // spawnOffset: (offsetX, spawnY, offsetZ)
-      // dynamics:    (baseScale, speed, unused, scaleYMult)
+      // dynamics:    (baseScale, speed, phase, scaleYMult)
       // ---------------------------------------------------------------
       const speed = aDynamics.y;
+      const phase = aDynamics.z;
       const scaleYMult = aDynamics.w;
 
-      // spread = offset * (1 + t * 0.5)
-      const spreadX = mul(aSpawnOffset.x, add(float(1.0), mul(t, float(0.5))));
-      const spreadZ = mul(aSpawnOffset.z, add(float(1.0), mul(t, float(0.5))));
-      // rise = spawnY + t * speed
+      // Spread widens slightly as particles rise, then converge at top
+      const spreadFactor = add(float(1.0), mul(t, float(0.4)));
+      const spreadX = mul(aSpawnOffset.x, spreadFactor);
+      const spreadZ = mul(aSpawnOffset.z, spreadFactor);
       const riseY = add(aSpawnOffset.y, mul(t, speed));
 
-      particleCenter = add(aEmitterPos, vec3(spreadX, riseY, spreadZ));
+      // Flame-like turbulence — visible flicker that fades with height
+      const turbAmp = mul(float(0.04), sub(float(1.0), mul(t, float(0.7))));
+      const turbX = mul(sin(add(mul(time, float(7.0)), phase)), turbAmp);
+      const turbZ = mul(
+        cos(add(mul(time, float(5.5)), mul(phase, float(1.5)))),
+        turbAmp,
+      );
 
-      // fade: quick in, smooth out
-      const fadeIn = min(mul(t, float(10.0)), float(1.0));
+      particleCenter = add(
+        aEmitterPos,
+        vec3(add(spreadX, turbX), riseY, add(spreadZ, turbZ)),
+      );
+
+      // fade: instant in, gradual out
+      const fadeIn = min(mul(t, float(8.0)), float(1.0));
       const fadeOut = pow(sub(float(1.0), t), float(1.2));
       const fade = mul(fadeIn, fadeOut);
 
-      // shrink as they rise
+      // Shrink moderately — tapering flame tip
       const shrinkScale = mul(
         baseScale,
-        mul(fade, sub(float(1.0), mul(t, float(0.7)))),
+        mul(fade, sub(float(1.0), mul(t, float(0.5)))),
       );
       scaleX = shrinkScale;
       scaleY = mul(shrinkScale, scaleYMult);
 
-      opacity = mul(float(0.9), fade);
+      opacity = mul(float(0.85), fade);
     } else {
       // ---------------------------------------------------------------
       // BASE: slow orbit at mesh footprint, gentle pulse
@@ -1173,33 +1114,93 @@ export class GlowParticleManager {
     material.positionNode = add(particleCenter, billboardOffset);
 
     // -----------------------------------------------------------------
-    // Fragment: procedural radial glow
-    //
-    // Matches the original DataTexture approach:
-    //   strength = pow(max(1 - dist, 0), sharpness)
-    //   pixel = color * strength   (RGB)
-    //   alpha = strength            (A)
-    //
-    // With additive blending the final contribution is:
-    //   color * strength * alpha * opacity = color * strength^2 * opacity
+    // Fragment
     // -----------------------------------------------------------------
     const uvNode = uv();
     const dx = sub(uvNode.x, float(0.5));
     const dy = sub(uvNode.y, float(0.5));
-    const distSq = add(mul(dx, dx), mul(dy, dy));
-    const dist = pow(distSq, float(0.5));
-    const scaledDist = mul(dist, float(2.0));
-    const falloff = max(sub(float(1.0), scaledDist), float(0.0));
-    const sharpness = aColorSharpness.w;
-    const glow = pow(falloff, sharpness);
 
     const pColor = vec3(
       aColorSharpness.x,
       aColorSharpness.y,
       aColorSharpness.z,
     );
-    material.colorNode = mul(pColor, glow);
-    material.opacityNode = mul(glow, opacity);
+
+    if (motion === "riseSpread") {
+      // ---- FIRE FRAGMENT: soft falloff + noise for additive blending merge ----
+
+      // Smooth value noise via bilinear interpolation of hash lattice
+      const hash2d = (p: ShaderNode) =>
+        fract(mul(sin(dot(p, vec2(127.1, 311.7))), float(43758.5453)));
+
+      const valueNoise = (p: ShaderNode) => {
+        const i = vec2(tslFloor(p.x), tslFloor(p.y));
+        const f = vec2(fract(p.x), fract(p.y));
+        const u = mul(mul(f, f), sub(vec2(3.0, 3.0), mul(f, float(2.0))));
+        const a = hash2d(i);
+        const b = hash2d(add(i, vec2(1.0, 0.0)));
+        const c = hash2d(add(i, vec2(0.0, 1.0)));
+        const d = hash2d(add(i, vec2(1.0, 1.0)));
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+      };
+
+      const fragPhase = aDynamics.z;
+
+      // Soft radial falloff — no hard edges, blends with neighbors via additive
+      const radialDist = mul(
+        pow(add(mul(dx, dx), mul(dy, dy)), float(0.5)),
+        float(2.0),
+      );
+      // Vertically biased: narrower at top, wider at bottom
+      const yBias = mul(uvNode.y, float(0.3));
+      const softFalloff = max(
+        sub(float(1.0), add(radialDist, yBias)),
+        float(0.0),
+      );
+      // Gentle power curve — keeps brightness high across most of the particle
+      const baseMask = pow(softFalloff, float(0.8));
+
+      // Scrolling noise gives organic edges and upward motion feel
+      const scrollY = mul(time, float(-3.0));
+      const nUV1 = vec2(
+        mul(uvNode.x, float(4.0)),
+        add(mul(uvNode.y, float(4.0)), scrollY),
+      );
+      const nUV2 = vec2(
+        add(mul(uvNode.x, float(7.0)), mul(fragPhase, float(0.3))),
+        add(mul(uvNode.y, float(7.0)), mul(scrollY, float(1.4))),
+      );
+      const noise = add(
+        mul(valueNoise(nUV1), float(0.6)),
+        mul(valueNoise(nUV2), float(0.4)),
+      );
+
+      // Noise modulates the mask — wispy edges but keeps 70%+ base intensity
+      const noisyMask = mul(baseMask, add(float(0.7), mul(noise, float(0.3))));
+
+      // Age-based fade: hold brightness then drop at end of life
+      const ageFade = smoothstep(float(1.0), float(0.3), t);
+      const glow = mul(noisyMask, ageFade);
+
+      // Color: bright core fading to particle color at edges/top
+      const coreColor = vec3(1.0, 0.9, 0.4);
+      const coreness = pow(max(softFalloff, float(0.0)), float(2.0));
+      const fireColor = mix(pColor, coreColor, coreness);
+
+      material.colorNode = mul(fireColor, mul(glow, float(1.5)));
+      material.opacityNode = mul(glow, opacity);
+    } else {
+      // ---- DEFAULT FRAGMENT: procedural radial glow (pillar/wisp/spark/base) ----
+      const distSq = add(mul(dx, dx), mul(dy, dy));
+      const dist = pow(distSq, float(0.5));
+      const scaledDist = mul(dist, float(2.0));
+      const falloff = max(sub(float(1.0), scaledDist), float(0.0));
+      const sharpness = aColorSharpness.w;
+      const glow = pow(falloff, sharpness);
+
+      material.colorNode = mul(pColor, glow);
+      material.opacityNode = mul(glow, opacity);
+    }
 
     return material;
   }

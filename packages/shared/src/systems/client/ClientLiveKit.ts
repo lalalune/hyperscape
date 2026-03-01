@@ -261,8 +261,31 @@ export class ClientLiveKit extends System {
       this.world.prefs.off?.("change", this.onPrefsChange);
       this.prefsBound = false;
     }
+
+    // Clean up all voice audio nodes to prevent memory leaks
+    for (const [, voice] of this.voices) {
+      voice.source.disconnect();
+      voice.gainNode.disconnect();
+      voice.pannerNode.disconnect();
+    }
+    this.voices.clear();
+
+    // Clean up screens
+    this.screens = [];
+
     if (this.room) {
+      // Remove room event listeners
+      this.room.off(RoomEvent.TrackMuted, this.onTrackMuted);
+      this.room.off(RoomEvent.TrackUnmuted, this.onTrackUnmuted);
+      this.room.off(RoomEvent.LocalTrackPublished, this.onLocalTrackPublished);
+      this.room.off(
+        RoomEvent.LocalTrackUnpublished,
+        this.onLocalTrackUnpublished,
+      );
+      this.room.off(RoomEvent.TrackSubscribed, this.onTrackSubscribed);
+      this.room.off(RoomEvent.TrackUnsubscribed, this.onTrackUnsubscribed);
       this.room.disconnect();
+      this.room = null;
     }
   }
 }

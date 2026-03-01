@@ -1,33 +1,126 @@
-import * as THREE from "../../extras/three/three";
+import THREE, {
+  MeshBasicNodeMaterial,
+  uniform,
+  uv,
+  time,
+  float,
+  vec3,
+  sin,
+  mul,
+  add,
+  sub,
+  pow,
+  max,
+  positionLocal,
+  mix,
+  length,
+  vec2,
+} from "../../extras/three/three";
+import type { ShaderNode } from "../../extras/three/three";
 import { World } from "../../core/World";
 import { SystemBase } from "../shared/infrastructure/SystemBase";
 import { EventType } from "../../types/events/event-types";
+import { Curve } from "../../extras/animation/Curve";
 
-interface TeleportEffect {
+// ─── Constants ──────────────────────────────────────────────────────────────
+const EFFECT_DURATION = 2.5;
+const POOL_SIZE = 2; // Max concurrent effects (both duel agents)
+const HELIX_COUNT = 8; // 2 strands of 4
+const BURST_COUNT = 6;
+
+// Phase boundaries (normalized 0-1)
+const GATHER_END = 0.2;
+const ERUPT_END = 0.34;
+const SUSTAIN_END = 0.68;
+
+// Pre-allocated colors (shared, never disposed)
+const COLOR_CYAN = new THREE.Color(0x66ccff);
+const COLOR_WHITE = new THREE.Color(0xffffff);
+
+// ─── Pooled particle state ──────────────────────────────────────────────────
+interface HelixParticle {
+  mesh: THREE.Mesh;
+  helixIndex: number;
+  particleIndex: number;
+  spawnDelay: number;
+  baseScale: number;
+  // Mutable runtime state (reset on spawn)
+  angle: number;
+}
+
+interface BurstParticle {
+  mesh: THREE.Mesh;
+  baseScale: number;
+  // Mutable runtime state (reset on spawn)
+  velocity: THREE.Vector3;
+}
+
+interface PooledEffect {
   group: THREE.Group;
-  beam: THREE.Mesh;
+
+  // Structural meshes (pre-allocated)
+  runeCircle: THREE.Mesh;
   baseGlow: THREE.Mesh;
-  ring: THREE.Mesh;
-  particles: { mesh: THREE.Mesh; velocity: THREE.Vector3 }[];
+  innerBeam: THREE.Mesh;
+  outerBeam: THREE.Mesh;
+  coreFlash: THREE.Mesh;
+  shockwave1: THREE.Mesh;
+  shockwave2: THREE.Mesh;
+
+  // Per-effect materials with own uniforms (7 per pool entry)
+  perEffectMaterials: InstanceType<typeof MeshBasicNodeMaterial>[];
+  uRuneOpacity: ReturnType<typeof uniform>;
+  uGlowOpacity: ReturnType<typeof uniform>;
+  uInnerBeamOpacity: ReturnType<typeof uniform>;
+  uOuterBeamOpacity: ReturnType<typeof uniform>;
+  uFlashOpacity: ReturnType<typeof uniform>;
+  uShock1Opacity: ReturnType<typeof uniform>;
+  uShock2Opacity: ReturnType<typeof uniform>;
+
+  // Particles (share materials across pool, fade via scale)
+  helixParticles: HelixParticle[];
+  burstParticles: BurstParticle[];
+
+  // Runtime state
+  active: boolean;
   life: number;
-  maxLife: number;
 }
 
 /**
  * ClientTeleportEffectsSystem
  *
- * Renders high-visibility teleportation visual effects whenever a player
- * is teleported (e.g., into/out of the duel arena). Spawns a bright beam
- * of light, a ground glow ring, and rising spark particles.
+ * Renders a spectacular multi-phase teleportation visual effect when a player
+ * is teleported (e.g., into/out of the duel arena). Features a ground rune circle,
+ * dual beams with elastic overshoot, shockwave rings, helix spiral particles,
+ * burst particles with gravity, and dynamic point lighting.
+ *
+ * Performance: Uses object pooling — all materials are compiled once in init(),
+ * zero allocations or pipeline compilations at spawn time.
  */
 export class ClientTeleportEffectsSystem extends SystemBase {
-  private activeEffects: TeleportEffect[] = [];
-  private particleGeometry: THREE.CircleGeometry | null = null;
-  private cyGeometry: THREE.CylinderGeometry | null = null;
-  private ringGeometry: THREE.RingGeometry | null = null;
+  // ─── Object pool ────────────────────────────────────────────────────────
+  private pool: PooledEffect[] = [];
 
-  // Cached glow texture shared by all effects
-  private glowTexture: THREE.Texture | null = null;
+  // ─── Shared geometries (allocated once) ─────────────────────────────────
+  private particleGeo: THREE.PlaneGeometry | null = null;
+  private beamInnerGeo: THREE.CylinderGeometry | null = null;
+  private beamOuterGeo: THREE.CylinderGeometry | null = null;
+  private discGeo: THREE.CircleGeometry | null = null;
+  private runeCircleGeo: THREE.CircleGeometry | null = null;
+  private shockwaveGeo: THREE.RingGeometry | null = null;
+  private sphereGeo: THREE.SphereGeometry | null = null;
+
+  // ─── Shared textures ────────────────────────────────────────────────────
+  private runeTexture: THREE.CanvasTexture | null = null;
+
+  // ─── Shared particle materials (2 total, used by all pool entries) ──────
+  private particleCyanMat: InstanceType<typeof MeshBasicNodeMaterial> | null =
+    null;
+  private particleWhiteMat: InstanceType<typeof MeshBasicNodeMaterial> | null =
+    null;
+
+  // ─── Shared Hermite curves ──────────────────────────────────────────────
+  private beamElasticCurve: Curve | null = null;
 
   constructor(world: World) {
     super(world, {
@@ -40,303 +133,898 @@ export class ClientTeleportEffectsSystem extends SystemBase {
   async init(): Promise<void> {
     this.world.on(EventType.PLAYER_TELEPORTED, this.onPlayerTeleported);
 
-    // Shared geometries — allocated once, reused for every effect
-    this.particleGeometry = new THREE.CircleGeometry(0.5, 16);
-    this.cyGeometry = new THREE.CylinderGeometry(1.2, 1.2, 12, 24, 1, true);
-    this.ringGeometry = new THREE.RingGeometry(1.5, 3.0, 32);
+    // ─── Shared geometries (lower poly for performance) ─────────────────
+    this.particleGeo = new THREE.PlaneGeometry(1, 1);
 
-    // Generate a bright radial gradient texture
-    const canvas = document.createElement("canvas");
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-      gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
-      gradient.addColorStop(0.2, "rgba(200, 230, 255, 0.95)");
-      gradient.addColorStop(0.5, "rgba(100, 180, 255, 0.5)");
-      gradient.addColorStop(1, "rgba(50, 120, 255, 0)");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 128, 128);
+    // Inner beam: bottom pivot (translate geometry up by half height)
+    this.beamInnerGeo = new THREE.CylinderGeometry(0.12, 0.25, 18, 12, 1, true);
+    this.beamInnerGeo.translate(0, 9, 0);
+
+    // Outer beam: bottom pivot
+    this.beamOuterGeo = new THREE.CylinderGeometry(0.06, 0.5, 16, 10, 1, true);
+    this.beamOuterGeo.translate(0, 8, 0);
+
+    this.discGeo = new THREE.CircleGeometry(0.5, 16);
+    this.runeCircleGeo = new THREE.CircleGeometry(1.5, 32);
+    this.shockwaveGeo = new THREE.RingGeometry(0.15, 0.4, 24);
+    this.sphereGeo = new THREE.SphereGeometry(0.4, 8, 6);
+
+    // ─── Shared textures ────────────────────────────────────────────────
+    this.runeTexture = this.createRuneTexture();
+
+    // ─── Shared particle materials (no per-instance opacity — fade via scale) ─
+    this.particleCyanMat = this.createParticleGlowMaterial(COLOR_CYAN);
+    this.particleWhiteMat = this.createParticleGlowMaterial(COLOR_WHITE);
+
+    // ─── Hermite curves ────────────────────────────────────────────────
+    this.beamElasticCurve = new Curve();
+    this.beamElasticCurve.add({
+      time: 0,
+      value: 0,
+      inTangent: 0,
+      outTangent: 5.0,
+    });
+    this.beamElasticCurve.add({
+      time: 0.35,
+      value: 1.3,
+      inTangent: 1.0,
+      outTangent: -2.0,
+    });
+    this.beamElasticCurve.add({
+      time: 0.65,
+      value: 0.95,
+      inTangent: -0.3,
+      outTangent: 0.5,
+    });
+    this.beamElasticCurve.add({
+      time: 1.0,
+      value: 1.0,
+      inTangent: 0.2,
+      outTangent: 0,
+    });
+
+    // ─── Pre-allocate effect pool ───────────────────────────────────────
+    for (let i = 0; i < POOL_SIZE; i++) {
+      this.pool.push(this.createPoolEntry());
     }
-
-    this.glowTexture = new THREE.CanvasTexture(canvas);
-    console.log(
-      "[TeleportEffects] System initialized and listening for PLAYER_TELEPORTED events",
-    );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // POOL ENTRY CREATION (called only during init)
+  // ═══════════════════════════════════════════════════════════════════════════
+  private createPoolEntry(): PooledEffect {
+    const group = new THREE.Group();
+    group.visible = false; // Hidden until spawned
+    const perEffectMaterials: InstanceType<typeof MeshBasicNodeMaterial>[] = [];
+
+    // ─── 1. Ground Rune Circle ──────────────────────────────────────────
+    const uRuneOpacity = uniform(0.0);
+    const runeMat = this.createTexturedMaterial(
+      this.runeTexture!,
+      COLOR_CYAN,
+      uRuneOpacity,
+    );
+    perEffectMaterials.push(runeMat);
+    const runeCircle = new THREE.Mesh(this.runeCircleGeo!, runeMat);
+    runeCircle.rotation.x = -Math.PI / 2;
+    runeCircle.renderOrder = 1000;
+    runeCircle.frustumCulled = false;
+    group.add(runeCircle);
+
+    // ─── 2. Base Glow Disc ──────────────────────────────────────────────
+    const uGlowOpacity = uniform(0.0);
+    const glowMat = this.createStructuralGlowMaterial(COLOR_CYAN, uGlowOpacity);
+    perEffectMaterials.push(glowMat);
+    const baseGlow = new THREE.Mesh(this.discGeo!, glowMat);
+    baseGlow.rotation.x = -Math.PI / 2;
+    baseGlow.renderOrder = 1001;
+    baseGlow.frustumCulled = false;
+    group.add(baseGlow);
+
+    // ─── 3. Inner Beam ──────────────────────────────────────────────────
+    const uInnerBeamOpacity = uniform(0.0);
+    const innerBeamMat = this.createBeamMaterial(
+      COLOR_WHITE,
+      new THREE.Color(0x66ccff),
+      uInnerBeamOpacity,
+    );
+    perEffectMaterials.push(innerBeamMat);
+    const innerBeam = new THREE.Mesh(this.beamInnerGeo!, innerBeamMat);
+    innerBeam.renderOrder = 999;
+    innerBeam.frustumCulled = false;
+    group.add(innerBeam);
+
+    // ─── 4. Outer Beam ──────────────────────────────────────────────────
+    const uOuterBeamOpacity = uniform(0.0);
+    const outerBeamMat = this.createBeamMaterial(
+      new THREE.Color(0xaaddff),
+      new THREE.Color(0x4488cc),
+      uOuterBeamOpacity,
+    );
+    perEffectMaterials.push(outerBeamMat);
+    const outerBeam = new THREE.Mesh(this.beamOuterGeo!, outerBeamMat);
+    outerBeam.renderOrder = 998;
+    outerBeam.frustumCulled = false;
+    group.add(outerBeam);
+
+    // ─── 5. Core Flash ──────────────────────────────────────────────────
+    const uFlashOpacity = uniform(0.0);
+    const flashMat = this.createStructuralGlowMaterial(
+      COLOR_WHITE,
+      uFlashOpacity,
+    );
+    perEffectMaterials.push(flashMat);
+    const coreFlash = new THREE.Mesh(this.sphereGeo!, flashMat);
+    coreFlash.position.y = 0.5;
+    coreFlash.renderOrder = 1010;
+    coreFlash.frustumCulled = false;
+    group.add(coreFlash);
+
+    // ─── 6. Shockwave Ring 1 ────────────────────────────────────────────
+    const uShock1Opacity = uniform(0.0);
+    const shock1Mat = this.createBasicAdditiveMaterial(
+      COLOR_WHITE,
+      uShock1Opacity,
+    );
+    perEffectMaterials.push(shock1Mat);
+    const shockwave1 = new THREE.Mesh(this.shockwaveGeo!, shock1Mat);
+    shockwave1.rotation.x = -Math.PI / 2;
+    shockwave1.renderOrder = 1005;
+    shockwave1.frustumCulled = false;
+    group.add(shockwave1);
+
+    // ─── 7. Shockwave Ring 2 ────────────────────────────────────────────
+    const uShock2Opacity = uniform(0.0);
+    const shock2Mat = this.createBasicAdditiveMaterial(
+      COLOR_CYAN,
+      uShock2Opacity,
+    );
+    perEffectMaterials.push(shock2Mat);
+    const shockwave2 = new THREE.Mesh(this.shockwaveGeo!, shock2Mat);
+    shockwave2.rotation.x = -Math.PI / 2;
+    shockwave2.renderOrder = 1004;
+    shockwave2.frustumCulled = false;
+    group.add(shockwave2);
+
+    // ─── 9. Helix Spiral Particles (8: 2 strands of 4) ────────────────
+    const helixParticles: HelixParticle[] = [];
+    for (let i = 0; i < HELIX_COUNT; i++) {
+      const helixIndex = i < 4 ? 0 : 1;
+      const particleIndex = i % 4;
+      const mesh = new THREE.Mesh(this.particleGeo!, this.particleCyanMat!);
+      const baseScale = 0.35 + Math.random() * 0.2;
+      mesh.renderOrder = 1002;
+      mesh.frustumCulled = false;
+      mesh.visible = false;
+      group.add(mesh);
+
+      helixParticles.push({
+        mesh,
+        helixIndex,
+        particleIndex,
+        spawnDelay: particleIndex * 0.05 + helixIndex * 0.025,
+        baseScale,
+        angle: helixIndex * Math.PI + (particleIndex / 4) * Math.PI * 2,
+      });
+    }
+
+    // ─── 10. Burst Particles (6) ────────────────────────────────────────
+    const burstParticles: BurstParticle[] = [];
+    for (let i = 0; i < BURST_COUNT; i++) {
+      const mat = i < 3 ? this.particleWhiteMat! : this.particleCyanMat!;
+
+      const mesh = new THREE.Mesh(this.particleGeo!, mat);
+      const baseScale = 0.25 + Math.random() * 0.25;
+      mesh.renderOrder = 1003;
+      mesh.frustumCulled = false;
+      mesh.visible = false;
+      group.add(mesh);
+
+      burstParticles.push({
+        mesh,
+        baseScale,
+        velocity: new THREE.Vector3(), // Reset on spawn
+      });
+    }
+
+    return {
+      group,
+      runeCircle,
+      baseGlow,
+      innerBeam,
+      outerBeam,
+      coreFlash,
+      shockwave1,
+      shockwave2,
+      perEffectMaterials,
+      uRuneOpacity,
+      uGlowOpacity,
+      uInnerBeamOpacity,
+      uOuterBeamOpacity,
+      uFlashOpacity,
+      uShock1Opacity,
+      uShock2Opacity,
+      helixParticles,
+      burstParticles,
+      active: false,
+      life: 0,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EVENT HANDLER
+  // ═══════════════════════════════════════════════════════════════════════════
   private onPlayerTeleported = (data: unknown): void => {
     const payload = data as {
       playerId: string;
       position: THREE.Vector3 | { x: number; y: number; z: number };
       suppressEffect?: boolean;
     };
-    if (!payload?.position) {
-      console.warn(
-        "[TeleportEffects] Received PLAYER_TELEPORTED but no position in payload",
-      );
-      return;
-    }
+    if (!payload?.position) return;
+    if (payload.suppressEffect) return;
 
-    // Skip visual effect for duel-internal teleports (proximity corrections
-    // during FIGHTING phase) that set suppressEffect.
-    if (payload.suppressEffect) {
-      return;
-    }
-
-    // Normalize position — may be a THREE.Vector3 or plain {x,y,z} object
     const pos = payload.position;
     const vec =
       pos instanceof THREE.Vector3
         ? pos
         : new THREE.Vector3(pos.x, pos.y, pos.z);
 
-    console.log(
-      `[TeleportEffects] Spawning teleport effect for player ${payload.playerId} at`,
-      vec.x.toFixed(1),
-      vec.y.toFixed(1),
-      vec.z.toFixed(1),
-    );
     this.spawnTeleportEffect(vec);
   };
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPAWN (grab from pool, reset state, zero allocations)
+  // ═══════════════════════════════════════════════════════════════════════════
   private spawnTeleportEffect(position: THREE.Vector3): void {
-    if (!this.world.stage?.scene) {
-      console.warn(
-        "[TeleportEffects] Cannot spawn effect — no scene available",
-      );
-      return;
+    if (!this.world.stage?.scene) return;
+
+    // Find an inactive pool entry
+    const fx = this.pool.find((e) => !e.active);
+    if (!fx) return; // All slots in use, skip
+
+    // Reset timeline
+    fx.active = true;
+    fx.life = 0;
+
+    // Position the group
+    fx.group.position.copy(position);
+    fx.group.position.y += 0.05;
+    fx.group.visible = true;
+
+    // Reset structural mesh state + visibility (hidden until their phase)
+    fx.runeCircle.scale.setScalar(0.5);
+    fx.runeCircle.rotation.z = 0;
+    fx.runeCircle.visible = true;
+    fx.baseGlow.scale.setScalar(0.5);
+    fx.baseGlow.visible = true;
+    fx.innerBeam.scale.set(1, 0, 1);
+    fx.innerBeam.visible = false; // Hidden until ERUPT
+    fx.outerBeam.scale.set(1, 0, 1);
+    fx.outerBeam.visible = false; // Hidden until ERUPT
+    fx.coreFlash.scale.setScalar(0);
+    fx.coreFlash.visible = false; // Hidden until ERUPT
+    fx.shockwave1.scale.setScalar(1);
+    fx.shockwave1.visible = false; // Hidden until ERUPT
+    fx.shockwave2.scale.setScalar(1);
+    fx.shockwave2.visible = false; // Hidden until ERUPT
+
+    // Reset uniforms
+    fx.uRuneOpacity.value = 0;
+    fx.uGlowOpacity.value = 0;
+    fx.uInnerBeamOpacity.value = 0;
+    fx.uOuterBeamOpacity.value = 0;
+    fx.uFlashOpacity.value = 0;
+    fx.uShock1Opacity.value = 0;
+    fx.uShock2Opacity.value = 0;
+
+    // Reset helix particles
+    for (const p of fx.helixParticles) {
+      p.mesh.visible = false;
+      p.mesh.position.set(0, 0, 0);
+      p.mesh.scale.setScalar(0);
+      p.angle = p.helixIndex * Math.PI + (p.particleIndex / 4) * Math.PI * 2;
     }
-    if (
-      !this.particleGeometry ||
-      !this.cyGeometry ||
-      !this.ringGeometry ||
-      !this.glowTexture
-    )
-      return;
 
-    const group = new THREE.Group();
-    group.position.copy(position);
-    group.position.y += 0.05; // Slight ground offset
-
-    // ---------------------------------------------------------------
-    // 1. BASE GLOW — bright flat disc on the ground
-    // ---------------------------------------------------------------
-    const baseMat = new THREE.MeshBasicMaterial({
-      map: this.glowTexture,
-      transparent: true,
-      opacity: 1.0,
-      blending: THREE.AdditiveBlending,
-      color: 0x66ccff,
-      depthWrite: false,
-      depthTest: true,
-      side: THREE.DoubleSide,
-      fog: false,
-    });
-    const baseGlow = new THREE.Mesh(this.particleGeometry, baseMat);
-    baseGlow.rotation.x = -Math.PI / 2;
-    baseGlow.scale.set(6, 6, 6); // 3m radius bright disc
-    baseGlow.renderOrder = 1000;
-    baseGlow.frustumCulled = false;
-    group.add(baseGlow);
-
-    // ---------------------------------------------------------------
-    // 2. RING — glowing ring around the base
-    // ---------------------------------------------------------------
-    const ringMat = new THREE.MeshBasicMaterial({
-      map: this.glowTexture,
-      transparent: true,
-      opacity: 0.9,
-      blending: THREE.AdditiveBlending,
-      color: 0xaaddff,
-      depthWrite: false,
-      depthTest: true,
-      side: THREE.DoubleSide,
-      fog: false,
-    });
-    const ring = new THREE.Mesh(this.ringGeometry, ringMat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.renderOrder = 1001;
-    ring.frustumCulled = false;
-    group.add(ring);
-
-    // ---------------------------------------------------------------
-    // 3. BEAM — tall glowing cylinder shooting upward
-    // ---------------------------------------------------------------
-    const beamMat = new THREE.MeshBasicMaterial({
-      map: this.glowTexture,
-      transparent: true,
-      opacity: 0.7,
-      blending: THREE.AdditiveBlending,
-      color: 0x88ccff,
-      depthWrite: false,
-      depthTest: true,
-      side: THREE.DoubleSide,
-      fog: false,
-    });
-    const beam = new THREE.Mesh(this.cyGeometry, beamMat);
-    beam.position.y = 6; // Center the 12-unit tall cylinder
-    beam.scale.set(2, 1, 2);
-    beam.renderOrder = 999;
-    beam.frustumCulled = false;
-    group.add(beam);
-
-    // ---------------------------------------------------------------
-    // 4. PARTICLES — 20 rising sparks billboarded toward the camera
-    // ---------------------------------------------------------------
-    const particles: { mesh: THREE.Mesh; velocity: THREE.Vector3 }[] = [];
-    const particleCount = 20;
-    for (let i = 0; i < particleCount; i++) {
-      const isCore = i < 6;
-      const pColor = isCore ? 0xffffff : 0x88ddff;
-      const pMat = new THREE.MeshBasicMaterial({
-        map: this.glowTexture,
-        transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending,
-        color: pColor,
-        depthWrite: false,
-        depthTest: true,
-        side: THREE.DoubleSide,
-        fog: false,
-      });
-      const pMesh = new THREE.Mesh(this.particleGeometry, pMat);
-
-      // Spawn around the base in a ring pattern
+    // Reset burst particles with fresh random velocities
+    for (const p of fx.burstParticles) {
+      p.mesh.visible = false;
+      p.mesh.position.set(0, 0.5, 0);
+      p.mesh.scale.setScalar(0);
       const angle = Math.random() * Math.PI * 2;
-      const radius = 0.3 + Math.random() * 2.0;
-      pMesh.position.set(
-        Math.cos(angle) * radius,
-        Math.random() * 1.0,
-        Math.sin(angle) * radius,
+      const upSpeed = 4.0 + Math.random() * 5.0;
+      const spread = 1.0 + Math.random() * 2.0;
+      p.velocity.set(
+        Math.cos(angle) * spread,
+        upSpeed,
+        Math.sin(angle) * spread,
       );
-
-      const size = isCore
-        ? 0.5 + Math.random() * 0.4
-        : 0.3 + Math.random() * 0.3;
-      pMesh.scale.setScalar(size);
-      pMesh.renderOrder = 1002;
-      pMesh.frustumCulled = false;
-
-      // Rise upward with slight XZ drift
-      const speed = 2.0 + Math.random() * 4.0;
-      const drift = 0.3 + Math.random() * 0.5;
-      const velocity = new THREE.Vector3(
-        Math.cos(angle) * drift,
-        speed,
-        Math.sin(angle) * drift,
-      );
-
-      group.add(pMesh);
-      particles.push({ mesh: pMesh, velocity });
     }
 
-    this.world.stage.scene.add(group);
-
-    this.activeEffects.push({
-      group,
-      beam,
-      baseGlow,
-      ring,
-      particles,
-      life: 0,
-      maxLife: 2.0, // 2 seconds — more time to be noticed
-    });
+    // Add to scene if not already parented
+    if (!fx.group.parent) {
+      this.world.stage.scene.add(fx.group);
+    }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UPDATE LOOP
+  // ═══════════════════════════════════════════════════════════════════════════
   update(dt: number): void {
     if (!this.world.isClient || !this.world.stage?.scene) return;
 
     const camQuat = this.world.camera?.quaternion;
 
-    for (let i = this.activeEffects.length - 1; i >= 0; i--) {
-      const effect = this.activeEffects[i];
-      effect.life += dt;
-      const t = effect.life / effect.maxLife; // 0..1 progress
+    for (const fx of this.pool) {
+      if (!fx.active) continue;
+
+      fx.life += dt;
+      const t = Math.min(fx.life / EFFECT_DURATION, 1.0);
 
       if (t >= 1) {
-        // Cleanup
-        this.world.stage.scene.remove(effect.group);
-        (effect.baseGlow.material as THREE.Material).dispose();
-        (effect.beam.material as THREE.Material).dispose();
-        (effect.ring.material as THREE.Material).dispose();
-        effect.particles.forEach((p) =>
-          (p.mesh.material as THREE.Material).dispose(),
-        );
-        this.activeEffects.splice(i, 1);
+        this.deactivateEffect(fx);
         continue;
       }
 
-      // Ease-out factor: stays bright early, fades at the end
-      const fade = t < 0.3 ? 1.0 : 1.0 - (t - 0.3) / 0.7;
+      // Always-visible elements
+      this.updateRuneCircle(fx, t, dt);
+      this.updateBaseGlow(fx, t);
 
-      // --- Beam animation ---
-      const beamMat = effect.beam.material as THREE.MeshBasicMaterial;
-      beamMat.opacity = fade * 0.7;
-      // Beam rises and expands slightly
-      effect.beam.scale.set(2 + t * 0.8, 1 + t * 0.3, 2 + t * 0.8);
-      effect.beam.position.y = 6 + t * 3;
-
-      // --- Base glow animation ---
-      const baseMat = effect.baseGlow.material as THREE.MeshBasicMaterial;
-      baseMat.opacity = fade * 1.0;
-      const baseScale = 6 + Math.sin(t * Math.PI * 2) * 0.5;
-      effect.baseGlow.scale.setScalar(baseScale);
-
-      // --- Ring animation: expand outward and fade ---
-      const ringMat = effect.ring.material as THREE.MeshBasicMaterial;
-      ringMat.opacity = fade * 0.9;
-      const ringScale = 1 + t * 1.5;
-      effect.ring.scale.setScalar(ringScale);
-
-      // --- Particle animation ---
-      for (const p of effect.particles) {
-        p.mesh.position.addScaledVector(p.velocity, dt);
-        const pMat = p.mesh.material as THREE.MeshBasicMaterial;
-        pMat.opacity = fade * 0.9;
-
-        // Billboard toward camera
-        if (camQuat) {
-          p.mesh.quaternion.copy(camQuat);
-        }
+      // Phase-gated elements (skip draw calls when not active)
+      if (t >= GATHER_END) {
+        this.updateBeams(fx, t);
+        this.updateCoreFlash(fx, t);
+        this.updateShockwaves(fx, t);
+        this.updateHelixParticles(fx, dt, camQuat);
+        this.updateBurstParticles(fx, t, dt, camQuat);
       }
     }
   }
+
+  // ─── Phase helpers ──────────────────────────────────────────────────────
+  private gatherProgress(t: number): number {
+    return t < GATHER_END ? t / GATHER_END : 1;
+  }
+
+  private eruptProgress(t: number): number {
+    if (t < GATHER_END) return 0;
+    if (t > ERUPT_END) return 1;
+    return (t - GATHER_END) / (ERUPT_END - GATHER_END);
+  }
+
+  private fadeProgress(t: number): number {
+    if (t < SUSTAIN_END) return 0;
+    return (t - SUSTAIN_END) / (1.0 - SUSTAIN_END);
+  }
+
+  // ─── 1. Ground Rune Circle ────────────────────────────────────────────
+  private updateRuneCircle(fx: PooledEffect, t: number, dt: number): void {
+    const gp = this.gatherProgress(t);
+    const fp = this.fadeProgress(t);
+
+    let opacity = 1.0;
+    if (t < GATHER_END) {
+      opacity = easeOutQuad(gp);
+    } else if (t > SUSTAIN_END) {
+      opacity = 1.0 - easeInQuad(fp);
+    }
+    fx.uRuneOpacity.value = opacity;
+
+    const scale = t < GATHER_END ? 0.5 + 0.9 * easeOutQuad(gp) : 1.4;
+    fx.runeCircle.scale.setScalar(scale);
+
+    let rotSpeed: number;
+    if (t < GATHER_END) {
+      rotSpeed = gp * 2.0;
+    } else if (t < SUSTAIN_END) {
+      rotSpeed = 2.0;
+    } else {
+      rotSpeed = 2.0 * (1.0 - fp);
+    }
+    fx.runeCircle.rotation.z += rotSpeed * dt;
+  }
+
+  // ─── 2. Base Glow Disc ────────────────────────────────────────────────
+  private updateBaseGlow(fx: PooledEffect, t: number): void {
+    const gp = this.gatherProgress(t);
+    const fp = this.fadeProgress(t);
+
+    let opacity = 0.8;
+    if (t < GATHER_END) {
+      opacity = easeOutQuad(gp) * 0.8;
+    } else if (t > SUSTAIN_END) {
+      opacity = 0.8 * (1.0 - easeInQuad(fp));
+    }
+    fx.uGlowOpacity.value = opacity;
+
+    let scale = 1.5;
+    if (t >= GATHER_END && t <= SUSTAIN_END) {
+      scale = 1.5 + 0.2 * Math.sin(fx.life * 6);
+    } else if (t < GATHER_END) {
+      scale = 0.5 + gp * 1.0;
+    }
+    fx.baseGlow.scale.setScalar(scale);
+  }
+
+  // ─── 3 & 4. Beams ────────────────────────────────────────────────────
+  private updateBeams(fx: PooledEffect, t: number): void {
+    if (!this.beamElasticCurve) return;
+
+    const ep = this.eruptProgress(t);
+    const fp = this.fadeProgress(t);
+    const beamT = t < ERUPT_END ? ep : 1.0;
+    const scaleY = this.beamElasticCurve.evaluate(beamT);
+
+    fx.innerBeam.visible = true;
+    fx.outerBeam.visible = true;
+
+    if (t > SUSTAIN_END) {
+      const beamOpacity = 0.85 * (1.0 - easeInQuad(fp));
+      const thinFactor = 1.0 - fp * 0.7;
+      fx.innerBeam.scale.set(thinFactor, scaleY, thinFactor);
+      fx.uInnerBeamOpacity.value = beamOpacity;
+      // Hide when fully faded
+      if (beamOpacity < 0.01) fx.innerBeam.visible = false;
+    } else {
+      fx.uInnerBeamOpacity.value = 0.85;
+      fx.innerBeam.scale.set(1, scaleY, 1);
+    }
+
+    const outerDelay = 0.03;
+    const outerT =
+      Math.max(0, t - GATHER_END - outerDelay) / (ERUPT_END - GATHER_END);
+    const outerScaleY = this.beamElasticCurve.evaluate(Math.min(outerT, 1.0));
+
+    if (t > SUSTAIN_END) {
+      const outerOpacity = 0.5 * (1.0 - easeInQuad(fp));
+      const outerThin = 1.0 - fp * 0.6;
+      fx.outerBeam.scale.set(outerThin, outerScaleY, outerThin);
+      fx.uOuterBeamOpacity.value = outerOpacity;
+      if (outerOpacity < 0.01) fx.outerBeam.visible = false;
+    } else {
+      fx.uOuterBeamOpacity.value = 0.5;
+      fx.outerBeam.scale.set(1, outerScaleY, 1);
+    }
+  }
+
+  // ─── 5. Core Flash ────────────────────────────────────────────────────
+  private updateCoreFlash(fx: PooledEffect, t: number): void {
+    const flashStart = GATHER_END;
+    const flashPopEnd = flashStart + 0.02;
+    const flashShrinkEnd = flashStart + 0.12;
+
+    if (t >= flashStart && t <= flashShrinkEnd) {
+      fx.coreFlash.visible = true;
+      if (t <= flashPopEnd) {
+        const popT = (t - flashStart) / (flashPopEnd - flashStart);
+        fx.coreFlash.scale.setScalar(2.5 * easeOutQuad(popT));
+        fx.uFlashOpacity.value = 1.0;
+      } else {
+        const shrinkT = (t - flashPopEnd) / (flashShrinkEnd - flashPopEnd);
+        fx.coreFlash.scale.setScalar(2.5 * (1.0 - easeInQuad(shrinkT)));
+        fx.uFlashOpacity.value = 1.0 - easeInQuad(shrinkT);
+      }
+    } else {
+      fx.coreFlash.visible = false;
+    }
+  }
+
+  // ─── 6 & 7. Shockwave Rings ──────────────────────────────────────────
+  private updateShockwaves(fx: PooledEffect, t: number): void {
+    this.updateSingleShockwave(
+      fx.shockwave1,
+      fx.uShock1Opacity,
+      t,
+      GATHER_END,
+      0.2,
+      12,
+    );
+    this.updateSingleShockwave(
+      fx.shockwave2,
+      fx.uShock2Opacity,
+      t,
+      GATHER_END + 0.024,
+      0.22,
+      10,
+    );
+  }
+
+  private updateSingleShockwave(
+    mesh: THREE.Mesh,
+    uOpacity: ReturnType<typeof uniform>,
+    t: number,
+    startT: number,
+    duration: number,
+    maxScale: number,
+  ): void {
+    if (t >= startT && t <= startT + duration) {
+      mesh.visible = true;
+      const st = (t - startT) / duration;
+      const eased = easeOutExpo(st);
+      mesh.scale.setScalar(1 + (maxScale - 1) * eased);
+      uOpacity.value = 0.8 * (1.0 - eased);
+    } else {
+      mesh.visible = false;
+    }
+  }
+
+  // ─── 9. Helix Spiral Particles ────────────────────────────────────────
+  private updateHelixParticles(
+    fx: PooledEffect,
+    dt: number,
+    camQuat: THREE.Quaternion | undefined,
+  ): void {
+    for (const p of fx.helixParticles) {
+      const localTime =
+        fx.life -
+        (GATHER_END * EFFECT_DURATION + p.spawnDelay * EFFECT_DURATION);
+      if (localTime < 0) {
+        p.mesh.visible = false;
+        continue;
+      }
+
+      p.mesh.visible = true;
+
+      // Spiral upward
+      p.angle += dt * (3.0 + p.particleIndex * 0.4);
+      const riseSpeed = 2.5 + p.particleIndex * 0.25;
+      const radius = Math.max(0.1, 0.8 - localTime * 0.15);
+
+      p.mesh.position.set(
+        Math.cos(p.angle) * radius,
+        localTime * riseSpeed,
+        Math.sin(p.angle) * radius,
+      );
+
+      // Recycle if too high
+      if (p.mesh.position.y > 16) {
+        p.mesh.position.y = 0;
+        p.angle = p.helixIndex * Math.PI + (p.particleIndex / 4) * Math.PI * 2;
+      }
+
+      // Fade via scale (glow shader handles soft edges)
+      const heightFade = Math.max(0, 1.0 - p.mesh.position.y / 16);
+      p.mesh.scale.setScalar(p.baseScale * heightFade);
+
+      if (heightFade < 0.01) {
+        p.mesh.visible = false;
+        continue;
+      }
+
+      if (camQuat) {
+        p.mesh.quaternion.copy(camQuat);
+      }
+    }
+  }
+
+  // ─── 10. Burst Particles ──────────────────────────────────────────────
+  private updateBurstParticles(
+    fx: PooledEffect,
+    t: number,
+    dt: number,
+    camQuat: THREE.Quaternion | undefined,
+  ): void {
+    if (t < GATHER_END) return;
+
+    const burstLocalTime = (t - GATHER_END) * EFFECT_DURATION;
+
+    for (const p of fx.burstParticles) {
+      if (burstLocalTime <= 0) {
+        p.mesh.visible = false;
+        continue;
+      }
+
+      p.mesh.visible = true;
+
+      // Gravity simulation
+      p.velocity.y -= 6.0 * dt;
+      p.mesh.position.addScaledVector(p.velocity, dt);
+
+      // Fade via scale
+      const burstFade = Math.max(0, 1.0 - burstLocalTime / 1.8);
+      p.mesh.scale.setScalar(p.baseScale * burstFade);
+
+      // Hide if below ground
+      if (p.mesh.position.y < -0.5) {
+        p.mesh.visible = false;
+      }
+
+      if (camQuat) {
+        p.mesh.quaternion.copy(camQuat);
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEACTIVATE (return to pool, zero disposal)
+  // ═══════════════════════════════════════════════════════════════════════════
+  private deactivateEffect(fx: PooledEffect): void {
+    fx.active = false;
+    fx.group.visible = false;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MATERIAL FACTORIES (called only during init)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Shared particle glow material — no per-instance opacity uniform.
+   * Particles fade by scaling down; the glow pattern handles soft edges.
+   */
+  private createParticleGlowMaterial(
+    color: THREE.Color,
+  ): InstanceType<typeof MeshBasicNodeMaterial> {
+    const material = new MeshBasicNodeMaterial();
+    material.transparent = true;
+    material.blending = THREE.AdditiveBlending;
+    material.depthWrite = false;
+    material.side = THREE.DoubleSide;
+    material.fog = false;
+
+    const center = vec2(float(0.5), float(0.5));
+    const dist = length(sub(uv(), center));
+    const glow = pow(
+      max(sub(float(1.0), mul(dist, float(2.0))), float(0.0)),
+      float(3.0),
+    );
+
+    const colorVec = vec3(float(color.r), float(color.g), float(color.b));
+    material.colorNode = mul(colorVec, glow) as ShaderNode;
+    material.opacityNode = mul(glow, float(0.8)) as ShaderNode;
+
+    return material;
+  }
+
+  /** Textured material with additive blending (rune circle). */
+  private createTexturedMaterial(
+    tex: THREE.Texture,
+    color: THREE.Color,
+    uOpacity: ReturnType<typeof uniform>,
+  ): InstanceType<typeof MeshBasicNodeMaterial> {
+    const material = new MeshBasicNodeMaterial();
+    material.transparent = true;
+    material.blending = THREE.AdditiveBlending;
+    material.depthWrite = false;
+    material.side = THREE.DoubleSide;
+    material.fog = false;
+
+    const texNode = THREE.TSL.texture(tex, uv());
+    const colorVec = vec3(float(color.r), float(color.g), float(color.b));
+    material.colorNode = mul(texNode.rgb as ShaderNode, colorVec) as ShaderNode;
+    material.opacityNode = mul(
+      texNode.a as ShaderNode,
+      uOpacity as ShaderNode,
+    ) as ShaderNode;
+
+    return material;
+  }
+
+  /** Structural glow with per-effect opacity uniform (glow disc, flash). */
+  private createStructuralGlowMaterial(
+    color: THREE.Color,
+    uOpacity: ReturnType<typeof uniform>,
+  ): InstanceType<typeof MeshBasicNodeMaterial> {
+    const material = new MeshBasicNodeMaterial();
+    material.transparent = true;
+    material.blending = THREE.AdditiveBlending;
+    material.depthWrite = false;
+    material.side = THREE.DoubleSide;
+    material.fog = false;
+
+    const center = vec2(float(0.5), float(0.5));
+    const dist = length(sub(uv(), center));
+    const glow = pow(
+      max(sub(float(1.0), mul(dist, float(2.0))), float(0.0)),
+      float(3.0),
+    );
+
+    const colorVec = vec3(float(color.r), float(color.g), float(color.b));
+    material.colorNode = mul(colorVec, glow) as ShaderNode;
+    material.opacityNode = mul(glow, uOpacity as ShaderNode) as ShaderNode;
+
+    return material;
+  }
+
+  /** Beam material with vertical gradient + scrolling energy pulse. */
+  private createBeamMaterial(
+    baseColor: THREE.Color,
+    topColor: THREE.Color,
+    uOpacity: ReturnType<typeof uniform>,
+  ): InstanceType<typeof MeshBasicNodeMaterial> {
+    const material = new MeshBasicNodeMaterial();
+    material.transparent = true;
+    material.blending = THREE.AdditiveBlending;
+    material.depthWrite = false;
+    material.side = THREE.DoubleSide;
+    material.fog = false;
+
+    const yNorm = positionLocal.y;
+    const baseVec = vec3(
+      float(baseColor.r),
+      float(baseColor.g),
+      float(baseColor.b),
+    );
+    const topVec = vec3(
+      float(topColor.r),
+      float(topColor.g),
+      float(topColor.b),
+    );
+    const gradientColor = mix(baseVec, topVec, yNorm) as ShaderNode;
+
+    const pulse = add(
+      float(0.8),
+      mul(
+        sin(add(mul(positionLocal.y, float(3.0)), mul(time, float(4.0)))),
+        float(0.2),
+      ),
+    );
+
+    // Soft fade at beam base so it emerges from the rune circle, not through the floor
+    const bottomFade = sub(
+      float(1.0),
+      max(sub(float(1.0), mul(yNorm, float(2.0))), float(0.0)),
+    );
+
+    material.colorNode = mul(gradientColor, pulse) as ShaderNode;
+    material.opacityNode = mul(
+      mul(
+        mul(sub(float(1.0), mul(yNorm, float(0.3))), bottomFade),
+        uOpacity as ShaderNode,
+      ),
+      pulse,
+    ) as ShaderNode;
+
+    return material;
+  }
+
+  /** Simple additive material with uniform opacity (shockwave rings). */
+  private createBasicAdditiveMaterial(
+    color: THREE.Color,
+    uOpacity: ReturnType<typeof uniform>,
+  ): InstanceType<typeof MeshBasicNodeMaterial> {
+    const material = new MeshBasicNodeMaterial();
+    material.transparent = true;
+    material.blending = THREE.AdditiveBlending;
+    material.depthWrite = false;
+    material.side = THREE.DoubleSide;
+    material.fog = false;
+
+    const colorVec = vec3(float(color.r), float(color.g), float(color.b));
+    material.colorNode = colorVec as ShaderNode;
+    material.opacityNode = uOpacity as ShaderNode;
+
+    return material;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TEXTURE GENERATORS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private createRuneTexture(): THREE.CanvasTexture {
+    const size = 256;
+    const half = size / 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+
+    ctx.clearRect(0, 0, size, size);
+
+    const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+    gradient.addColorStop(0, "rgba(150, 220, 255, 0.3)");
+    gradient.addColorStop(0.4, "rgba(100, 180, 255, 0.1)");
+    gradient.addColorStop(1, "rgba(50, 120, 255, 0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.strokeStyle = "rgba(180, 230, 255, 0.9)";
+    ctx.lineWidth = 1.5;
+
+    ctx.beginPath();
+    ctx.arc(half, half, 118, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(half, half, 111, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.arc(half, half, 72, 0, Math.PI * 2);
+    ctx.stroke();
+
+    for (let s = 0; s < 8; s++) {
+      const angle = (s / 8) * Math.PI * 2;
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+
+      ctx.beginPath();
+      ctx.moveTo(half + cosA * 72, half + sinA * 72);
+      ctx.lineTo(half + cosA * 118, half + sinA * 118);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(220, 240, 255, 1.0)";
+      for (const r of [72, 111, 118]) {
+        ctx.beginPath();
+        ctx.arc(half + cosA * r, half + sinA * r, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const midAngle = ((s + 0.5) / 8) * Math.PI * 2;
+      const rx = half + Math.cos(midAngle) * 92;
+      const ry = half + Math.sin(midAngle) * 92;
+      ctx.fillStyle = "rgba(180, 230, 255, 0.7)";
+      ctx.beginPath();
+      ctx.moveTo(rx, ry - 6);
+      ctx.lineTo(rx - 4.2, ry + 3);
+      ctx.lineTo(rx + 4.2, ry + 3);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLEANUP
+  // ═══════════════════════════════════════════════════════════════════════════
 
   destroy(): void {
     this.world.off(EventType.PLAYER_TELEPORTED, this.onPlayerTeleported);
 
-    for (const effect of this.activeEffects) {
-      if (this.world.stage?.scene) {
-        this.world.stage.scene.remove(effect.group);
+    // Dispose all pool entries
+    for (const fx of this.pool) {
+      if (fx.group.parent) {
+        fx.group.parent.remove(fx.group);
       }
-      (effect.baseGlow.material as THREE.Material).dispose();
-      (effect.beam.material as THREE.Material).dispose();
-      (effect.ring.material as THREE.Material).dispose();
-      effect.particles.forEach((p) =>
-        (p.mesh.material as THREE.Material).dispose(),
-      );
+      for (const mat of fx.perEffectMaterials) {
+        mat.dispose();
+      }
     }
-    this.activeEffects = [];
+    this.pool = [];
 
-    if (this.particleGeometry) {
-      this.particleGeometry.dispose();
-      this.particleGeometry = null;
-    }
-    if (this.cyGeometry) {
-      this.cyGeometry.dispose();
-      this.cyGeometry = null;
-    }
-    if (this.ringGeometry) {
-      this.ringGeometry.dispose();
-      this.ringGeometry = null;
-    }
-    if (this.glowTexture) {
-      this.glowTexture.dispose();
-      this.glowTexture = null;
-    }
+    // Dispose shared particle materials
+    this.particleCyanMat?.dispose();
+    this.particleWhiteMat?.dispose();
+    this.particleCyanMat = null;
+    this.particleWhiteMat = null;
+
+    // Dispose shared geometries
+    this.particleGeo?.dispose();
+    this.beamInnerGeo?.dispose();
+    this.beamOuterGeo?.dispose();
+    this.discGeo?.dispose();
+    this.runeCircleGeo?.dispose();
+    this.shockwaveGeo?.dispose();
+    this.sphereGeo?.dispose();
+    this.particleGeo = null;
+    this.beamInnerGeo = null;
+    this.beamOuterGeo = null;
+    this.discGeo = null;
+    this.runeCircleGeo = null;
+    this.shockwaveGeo = null;
+    this.sphereGeo = null;
+
+    // Dispose shared textures
+    this.runeTexture?.dispose();
+    this.runeTexture = null;
+
+    this.beamElasticCurve = null;
 
     super.destroy();
   }
+}
+
+// ─── Easing functions ─────────────────────────────────────────────────────
+function easeOutQuad(t: number): number {
+  return 1 - (1 - t) * (1 - t);
+}
+
+function easeInQuad(t: number): number {
+  return t * t;
+}
+
+function easeOutExpo(t: number): number {
+  return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
 }

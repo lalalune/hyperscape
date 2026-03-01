@@ -78,9 +78,12 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       nodePolyfills({
-        include: ["buffer", "process"],
-        globals: { global: true, process: true, Buffer: true },
-        protocolImports: true,
+        // Include only buffer - we'll handle process via define
+        include: ["buffer"],
+        // Enable globals injection for buffer only
+        globals: { global: true, Buffer: true },
+        // Disable protocol imports to avoid unresolved shim imports in production
+        protocolImports: false,
       }),
       // PWA plugin for installable web app on Saga and Android devices
       VitePWA({
@@ -450,6 +453,29 @@ export default defineConfig(({ mode }) => {
       // More specific paths (e.g., @hyperscape/procgen/items/dock) must be listed
       // BEFORE less specific ones (e.g., @hyperscape/procgen) to prevent incorrect resolution
       alias: [
+        // Fix vite-plugin-node-polyfills shims not being resolved in production build
+        // These need to resolve to the actual shim modules in node_modules
+        {
+          find: "vite-plugin-node-polyfills/shims/process",
+          replacement: path.resolve(
+            __dirname,
+            "node_modules/vite-plugin-node-polyfills/shims/process/dist/index.js",
+          ),
+        },
+        {
+          find: "vite-plugin-node-polyfills/shims/buffer",
+          replacement: path.resolve(
+            __dirname,
+            "node_modules/vite-plugin-node-polyfills/shims/buffer/dist/index.js",
+          ),
+        },
+        {
+          find: "vite-plugin-node-polyfills/shims/global",
+          replacement: path.resolve(
+            __dirname,
+            "node_modules/vite-plugin-node-polyfills/shims/global/dist/index.js",
+          ),
+        },
         // Use client-only build of shared package to avoid Node.js module leakage
         {
           find: "@hyperscape/shared",

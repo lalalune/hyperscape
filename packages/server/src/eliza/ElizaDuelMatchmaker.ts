@@ -61,6 +61,9 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 /** Maximum match history entries to retain in memory */
 const MAX_MATCH_HISTORY = 200;
 
+/** Maximum reconnection attempts per bot before giving up */
+const MAX_RECONNECT_ATTEMPTS = 8;
+
 export class ElizaDuelMatchmaker extends EventEmitter {
   private config: Required<
     Pick<
@@ -85,6 +88,8 @@ export class ElizaDuelMatchmaker extends EventEmitter {
   /** Tracked reconnect timers per bot so they can be cancelled on stop */
   private reconnectTimers: Map<ElizaDuelBot, ReturnType<typeof setTimeout>> =
     new Map();
+  /** Per-bot reconnect attempt counter */
+  private reconnectAttempts: Map<ElizaDuelBot, number> = new Map();
   /** Tracked initial scheduling timeout */
   private initialScheduleTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -202,19 +207,44 @@ export class ElizaDuelMatchmaker extends EventEmitter {
       // Track the timer so stop() can cancel it.
       if (this.isRunning) {
         let backoff = 3000;
+        const attempts = (this.reconnectAttempts.get(bot) ?? 0) + 1;
+        this.reconnectAttempts.set(bot, attempts);
+
+        if (attempts > MAX_RECONNECT_ATTEMPTS) {
+          console.error(
+            `[ElizaDuelMatchmaker] ${bot.name} exceeded ${MAX_RECONNECT_ATTEMPTS} reconnect attempts, giving up`,
+          );
+          this.reconnectTimers.delete(bot);
+          this.reconnectAttempts.delete(bot);
+          return;
+        }
+
         const attemptReconnect = async () => {
           this.reconnectTimers.delete(bot);
           if (!this.isRunning || bot.connected) return;
           try {
             console.log(
-              `[ElizaDuelMatchmaker] Attempting reconnect for ${bot.name}...`,
+              `[ElizaDuelMatchmaker] Attempting reconnect for ${bot.name} (${this.reconnectAttempts.get(bot) ?? 0}/${MAX_RECONNECT_ATTEMPTS})...`,
             );
             await bot.connect();
+            // Reset counter on successful reconnect
+            this.reconnectAttempts.delete(bot);
             console.log(`[ElizaDuelMatchmaker] ${bot.name} reconnected`);
           } catch (err) {
             if (!this.isRunning) return;
+            const nextAttempts = (this.reconnectAttempts.get(bot) ?? 0) + 1;
+            this.reconnectAttempts.set(bot, nextAttempts);
+
+            if (nextAttempts > MAX_RECONNECT_ATTEMPTS) {
+              console.error(
+                `[ElizaDuelMatchmaker] ${bot.name} exceeded ${MAX_RECONNECT_ATTEMPTS} reconnect attempts, giving up`,
+              );
+              this.reconnectAttempts.delete(bot);
+              return;
+            }
+
             console.warn(
-              `[ElizaDuelMatchmaker] ${bot.name} reconnect failed, retrying in ${backoff}ms`,
+              `[ElizaDuelMatchmaker] ${bot.name} reconnect failed (${nextAttempts}/${MAX_RECONNECT_ATTEMPTS}), retrying in ${backoff}ms`,
             );
             const timer = setTimeout(attemptReconnect, backoff);
             this.reconnectTimers.set(bot, timer);
@@ -478,6 +508,7 @@ export class ElizaDuelMatchmaker extends EventEmitter {
       clearTimeout(timer);
     }
     this.reconnectTimers.clear();
+    this.reconnectAttempts.clear();
 
     // Disconnect bots and remove all listeners to break reference cycles
     for (const bot of this.bots) {

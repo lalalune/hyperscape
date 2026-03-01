@@ -64,7 +64,7 @@ interface CachedModel {
 
 const PROCESSED_DB_NAME = "hyperscape-processed-models";
 const PROCESSED_STORE_NAME = "models";
-const PROCESSED_CACHE_VERSION = 3;
+const PROCESSED_CACHE_VERSION = 4;
 
 /** Serialized mesh data for IndexedDB storage */
 interface SerializedMesh {
@@ -75,7 +75,8 @@ interface SerializedMesh {
   uvs?: ArrayBuffer;
   uv2s?: ArrayBuffer;
   colors?: ArrayBuffer;
-  indices?: ArrayBuffer; // Uint32Array
+  indices?: ArrayBuffer;
+  indexType?: "Uint16" | "Uint32";
   skinWeights?: ArrayBuffer;
   skinIndices?: ArrayBuffer;
   /** Material properties (not the GPU material itself) */
@@ -393,7 +394,11 @@ export class ModelCache {
         const colors = geo.getAttribute("color");
         if (colors) sm.colors = colors.array.buffer.slice(0);
 
-        if (geo.index) sm.indices = geo.index.array.buffer.slice(0);
+        if (geo.index) {
+          sm.indices = geo.index.array.buffer.slice(0);
+          sm.indexType =
+            geo.index.array instanceof Uint16Array ? "Uint16" : "Uint32";
+        }
 
         // Skinning data
         if (node instanceof THREE.SkinnedMesh) {
@@ -619,7 +624,9 @@ export class ModelCache {
         );
       }
       if (sm.indices) {
-        geo.setIndex(new THREE.BufferAttribute(new Uint32Array(sm.indices), 1));
+        const IndexArray =
+          sm.indexType === "Uint16" ? Uint16Array : Uint32Array;
+        geo.setIndex(new THREE.BufferAttribute(new IndexArray(sm.indices), 1));
       }
       if (sm.skinWeights) {
         geo.setAttribute(
@@ -1760,10 +1767,35 @@ export class ModelCache {
   }
 
   /**
+   * Dispose all geometries in a scene (but NOT materials - they're managed)
+   * @private
+   */
+  private disposeSceneGeometries(scene: THREE.Object3D): void {
+    scene.traverse((child) => {
+      if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
+        if (child.geometry) {
+          child.geometry.dispose();
+        }
+      }
+    });
+  }
+
+  /**
    * Clear the cache (useful for hot reload)
    * Should be called when code is rebuilt to prevent stale Hyperscape Nodes
+   * IMPORTANT: Disposes geometries to prevent GPU memory leaks
    */
   clear(): void {
+    // Dispose all cached model geometries before clearing
+    for (const [, model] of this.cache) {
+      this.disposeSceneGeometries(model.scene);
+      // Dispose LOD bundle geometries if present
+      if (model.lodBundle) {
+        model.lodBundle.lod0?.dispose();
+        model.lodBundle.lod1?.dispose();
+        model.lodBundle.lod2?.dispose();
+      }
+    }
     this.cache.clear();
     this.loading.clear();
   }
@@ -1778,8 +1810,19 @@ export class ModelCache {
 
   /**
    * Remove a specific model from cache
+   * IMPORTANT: Disposes geometries to prevent GPU memory leaks
    */
   remove(path: string): boolean {
+    const model = this.cache.get(path);
+    if (model) {
+      this.disposeSceneGeometries(model.scene);
+      // Dispose LOD bundle geometries if present
+      if (model.lodBundle) {
+        model.lodBundle.lod0?.dispose();
+        model.lodBundle.lod1?.dispose();
+        model.lodBundle.lod2?.dispose();
+      }
+    }
     return this.cache.delete(path);
   }
 

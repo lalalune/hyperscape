@@ -31,6 +31,7 @@ import {
   notifyFriendsOfStatusChange,
 } from "./handlers/friends";
 import { getAgentManager } from "../../eliza";
+import { getAgentRuntimeByCharacterId } from "../../eliza/ModelAgentSpawner.js";
 
 /**
  * Create an ElizaOS agent record for a character
@@ -434,15 +435,20 @@ export async function handleEnterWorld(
   const loadTestBotParam = payload.loadTestBot;
   const isLoadTestBot =
     loadTestBotParam === true || loadTestBotParam === "true";
-  // SECURITY: Determine duel-bot status from the server-side AgentManager
+  // SECURITY: Determine agent/duel-bot status from server-side registries
   // instead of trusting the client-supplied `duelBot` flag.
-  // AgentManager.hasAgent() checks if the characterId belongs to a registered
-  // agent runtime, preventing regular clients from spoofing bot privileges.
+  // Check both embedded AgentManager and ModelAgentSpawner registries.
   // Exception: load-test bots (already bypass auth) may also claim duelBot
   // from the payload to support the DuelBot test harness which isn't
   // registered in AgentManager.
   const agentManager = getAgentManager();
-  const agentIsDuelBot = !!(characterId && agentManager?.hasAgent(characterId));
+  const isEmbeddedAgent = !!(
+    characterId && agentManager?.hasAgent(characterId)
+  );
+  const isModelAgent = !!(
+    characterId && getAgentRuntimeByCharacterId(characterId)
+  );
+  const agentIsDuelBot = isEmbeddedAgent || isModelAgent;
   const loadTestDuelBot =
     isLoadTestBot && (payload.duelBot === true || payload.duelBot === "true");
   const isDuelBot = agentIsDuelBot || loadTestDuelBot;
@@ -957,6 +963,7 @@ export async function handleEnterWorld(
     socket.player.data.isLoading = true;
     if (isDuelBot) {
       socket.player.data.isDuelBot = true;
+      socket.player.data.isAgent = true;
     }
   }
 
@@ -1092,6 +1099,7 @@ export async function handleEnterWorld(
       equipment: equipmentRows,
       inventory: inventoryRows,
       isLoadTestBot,
+      isAgent: isDuelBot,
     });
 
     try {

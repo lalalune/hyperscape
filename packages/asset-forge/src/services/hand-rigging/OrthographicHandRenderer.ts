@@ -138,7 +138,7 @@ export class OrthographicHandRenderer {
       "Wrist_R",
     ];
 
-    model.traverse((child) => {
+    model.traverse((child: THREE.Object3D) => {
       if (child instanceof THREE.Bone) {
         const lowerName = child.name.toLowerCase();
 
@@ -226,7 +226,7 @@ export class OrthographicHandRenderer {
     const modelClone = model.clone(true);
 
     // Ensure materials are properly cloned and set up for capture
-    modelClone.traverse((child) => {
+    modelClone.traverse((child: THREE.Object3D) => {
       if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
         if (child.material) {
           // Create simple materials for better hand detection
@@ -516,11 +516,11 @@ export class OrthographicHandRenderer {
     }
     this.isInitialized = false;
     // Dispose of any geometries, materials, textures in the scene
-    this.scene.traverse((child) => {
+    this.scene.traverse((child: THREE.Object3D) => {
       if (child instanceof THREE.Mesh) {
         child.geometry?.dispose();
         if (Array.isArray(child.material)) {
-          child.material.forEach((mat) => mat.dispose());
+          child.material.forEach((mat: THREE.Material) => mat.dispose());
         } else {
           child.material?.dispose();
         }

@@ -472,17 +472,34 @@ function startMemoryMonitor(world: unknown): void {
     parseInt(process.env.MEMORY_COLLECTION_LIMIT || "12", 10) || 12,
   );
 
+  // Production GC hint: periodically nudge the runtime to collect garbage.
+  // Runs every 60s regardless of the memory monitor interval.
+  const GC_HINT_INTERVAL_MS = 60_000;
+  let lastGcHintAt = 0;
+  // Track whether we already warned at the soft threshold to avoid log spam
+  let softWarningLogged = false;
+
+  const bunGcHint = (): void => {
+    try {
+      (
+        globalThis as typeof globalThis & {
+          Bun?: { gc?: (force?: boolean) => void };
+        }
+      ).Bun?.gc?.(true);
+    } catch {
+      // Best-effort GC hint only.
+    }
+  };
+
   const timer = setInterval(() => {
+    const now = Date.now();
+
+    // GC hint: in Playwright tests, every interval; in production, every 60s
     if (forceGcInPlaywright) {
-      try {
-        (
-          globalThis as typeof globalThis & {
-            Bun?: { gc?: (force?: boolean) => void };
-          }
-        ).Bun?.gc?.(true);
-      } catch {
-        // Best-effort GC hint only.
-      }
+      bunGcHint();
+    } else if (now - lastGcHintAt >= GC_HINT_INTERVAL_MS) {
+      bunGcHint();
+      lastGcHintAt = now;
     }
 
     const mem = process.memoryUsage();
@@ -505,6 +522,22 @@ function startMemoryMonitor(world: unknown): void {
       }
     }
     const memLimitGB = Number(process.env.MEMORY_LIMIT_GB) || 12;
+
+    // Soft warning at 80% of limit — trigger GC and log a warning
+    const softLimitBytes = memLimitGB * 1024 * MB * 0.8;
+    if (!isPlaywrightTest && mem.rss > softLimitBytes) {
+      if (!softWarningLogged) {
+        process.stderr.write(
+          `[Memory] ⚠️ RSS ${rssMB}MB > 80% of ${memLimitGB}GB limit, triggering GC\n`,
+        );
+        softWarningLogged = true;
+      }
+      bunGcHint();
+    } else {
+      softWarningLogged = false;
+    }
+
+    // Hard limit: restart process
     if (!isPlaywrightTest && mem.rss > memLimitGB * 1024 * MB) {
       process.stderr.write(
         `[Memory] RSS ${rssMB}MB > ${memLimitGB}GB, restarting\n`,

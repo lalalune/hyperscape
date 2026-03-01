@@ -167,7 +167,14 @@ jobs:
             patchelf
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            echo "Install attempt $attempt..."
+            bun install --frozen-lockfile && break
+            echo "Attempt $attempt failed, retrying in 10s..."
+            sleep 10
+          done
 
       - name: Build shared package
         working-directory: packages/shared
@@ -242,28 +249,39 @@ jobs:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
 
-      - name: Build Tauri app
+      - name: Build Tauri app (Unsigned)
         uses: tauri-apps/tauri-action@v0
+        if: needs.prepare.outputs.is_release != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ needs.prepare.outputs.is_release == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
-          APPLE_CERTIFICATE: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_CERTIFICATE || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_ID: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_ID || '' }}
-          APPLE_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_PASSWORD || '' }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_TEAM_ID || '' }}
-          WINDOWS_CERTIFICATE: ${{ needs.prepare.outputs.is_release == 'true' && secrets.WINDOWS_CERTIFICATE || '' }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
-          TAURI_WINDOWS_CERTIFICATE: ${{ needs.prepare.outputs.is_release == 'true' && secrets.WINDOWS_CERTIFICATE || '' }}
-          TAURI_WINDOWS_CERTIFICATE_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
+        with:
+          projectPath: packages/app
+          args: --target ${{ matrix.rust_target }} --no-bundle
+
+      - name: Build Tauri app (Release)
+        uses: tauri-apps/tauri-action@v0
+        if: needs.prepare.outputs.is_release == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          TAURI_WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          TAURI_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         with:
           projectPath: packages/app
           args: --target ${{ matrix.rust_target }}
 
-      - name: Upload desktop artifacts
+      - name: Upload desktop artifacts (Release bundles)
+        if: needs.prepare.outputs.is_release == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: hyperscape-desktop-${{ matrix.target }}
@@ -272,11 +290,25 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload desktop artifacts (Unsigned binary)
+        if: needs.prepare.outputs.is_release != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyperscape-desktop-${{ matrix.target }}
+          path: |
+            packages/app/src-tauri/target/${{ matrix.rust_target }}/release/hyperscape*
+            !packages/app/src-tauri/target/${{ matrix.rust_target }}/release/*.d
+            !packages/app/src-tauri/target/${{ matrix.rust_target }}/release/*.rlib
+          if-no-files-found: warn
+          retention-days: 7
+
   build-ios:
     name: Build iOS
     needs: prepare
     runs-on: macos-14
-    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'ios'
+    if: |
+      needs.prepare.outputs.is_release == 'true' &&
+      (github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'ios')
 
     steps:
       - name: Checkout
@@ -370,10 +402,10 @@ jobs:
         working-directory: packages/app
         run: bun tauri ios build --export-method app-store-connect
         env:
-          APPLE_CERTIFICATE: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_CERTIFICATE || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_PROVISIONING_PROFILE: ${{ needs.prepare.outputs.is_release == 'true' && secrets.APPLE_PROVISIONING_PROFILE || '' }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
 
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
@@ -504,19 +536,25 @@ jobs:
         working-directory: packages/app
         run: bun run android:init
 
-      - name: Build Android app
+      - name: Build Android app (Unsigned)
         working-directory: packages/app
+        if: needs.prepare.outputs.is_release != 'true'
+        run: bun tauri android build
+
+      - name: Build Android app (Release)
+        working-directory: packages/app
+        if: needs.prepare.outputs.is_release == 'true'
         run: bun tauri android build
         env:
-          ANDROID_KEYSTORE: ${{ needs.prepare.outputs.is_release == 'true' && secrets.ANDROID_KEYSTORE || '' }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
-          ANDROID_KEY_ALIAS: ${{ needs.prepare.outputs.is_release == 'true' && secrets.ANDROID_KEY_ALIAS || '' }}
-          ANDROID_KEY_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.ANDROID_KEY_PASSWORD || '' }}
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEYSTORE_PATH: ${{ env.ANDROID_KEYSTORE_PATH }}
           TAURI_ANDROID_KEYSTORE_PATH: ${{ env.TAURI_ANDROID_KEYSTORE_PATH }}
-          TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
-          TAURI_ANDROID_KEY_ALIAS: ${{ needs.prepare.outputs.is_release == 'true' && secrets.ANDROID_KEY_ALIAS || '' }}
-          TAURI_ANDROID_KEY_PASSWORD: ${{ needs.prepare.outputs.is_release == 'true' && secrets.ANDROID_KEY_PASSWORD || '' }}
+          TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          TAURI_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4

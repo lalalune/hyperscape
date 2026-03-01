@@ -53,11 +53,13 @@ export class ThreeErrorBoundary extends React.Component<
     let errorType: "webgl" | "render" | "unknown" = "unknown";
 
     if (
+      errorMessage.includes("webgpu") ||
       errorMessage.includes("webgl") ||
       errorMessage.includes("context") ||
-      errorMessage.includes("gpu")
+      errorMessage.includes("gpu") ||
+      errorMessage.includes("renderer")
     ) {
-      errorType = "webgl";
+      errorType = "webgl"; // Keep as "webgl" for backwards compat, but it handles WebGPU errors too
     } else if (
       errorMessage.includes("render") ||
       errorMessage.includes("shader") ||
@@ -103,7 +105,7 @@ export class ThreeErrorBoundary extends React.Component<
 
     switch (errorType) {
       case "webgl":
-        return "WebGL initialization failed. Your browser or device may not support 3D graphics, or GPU resources are exhausted.";
+        return "WebGPU initialization failed. Your browser may not support WebGPU, or GPU resources are exhausted.";
       case "render":
         return "3D rendering failed. There may be an issue with graphics resources.";
       default:
@@ -116,7 +118,7 @@ export class ThreeErrorBoundary extends React.Component<
 
     switch (errorType) {
       case "webgl":
-        return "Try refreshing the page, closing other browser tabs, or updating your graphics drivers.";
+        return "Hyperscape requires WebGPU. Use Chrome 113+, Edge 113+, or Safari 17+. Try refreshing the page or updating your graphics drivers.";
       case "render":
         return "Try refreshing the page. If the problem persists, please report this issue.";
       default:

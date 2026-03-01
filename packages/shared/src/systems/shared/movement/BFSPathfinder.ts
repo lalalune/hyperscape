@@ -322,7 +322,10 @@ export class BFSPathfinder {
    *
    * OPTIMIZATION: Uses read index instead of queue.shift() for O(1) dequeue.
    */
-  private readonly MAX_BFS_ITERATIONS = 2000; // Balance path completeness and frame safety
+  // 8000 iterations gives ~44-tile reliable radius in open terrain (4n² ≈ 8000 → n ≈ 44).
+  // Raised from 2000 (~22 tiles) to cover the majority of practical click distances
+  // without risking main-thread frame drops. Path continuation handles the rest.
+  private readonly MAX_BFS_ITERATIONS = 8000;
   private _bfsIterationWarnings = 0;
 
   private findBFSPath(

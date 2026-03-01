@@ -26,6 +26,7 @@ import {
   tilesEqual,
   worldToTile,
   tileToWorld,
+  tileToWorldInto,
 } from "../shared/movement/TileSystem";
 
 // Movement speeds in tiles per second (derived from server tick rate)
@@ -35,6 +36,11 @@ const RUN_SPEED = TILES_PER_TICK_RUN / (TICK_DURATION_MS / 1000); // tiles/sec
 
 // How close we need to be to consider "at" a tile
 const TILE_ARRIVAL_THRESHOLD = 0.02;
+// Squared threshold — avoids sqrt in hot arrival check
+const TILE_ARRIVAL_THRESHOLD_SQ =
+  TILE_ARRIVAL_THRESHOLD * TILE_ARRIVAL_THRESHOLD;
+// Squared skip threshold for backward-tile detection (0.5² = 0.25)
+const TILE_SKIP_THRESHOLD_SQ = 0.25;
 
 // Maximum distance from server position before we snap (teleport detection)
 // Should be larger than max tiles moved per tick to avoid false snaps
@@ -193,6 +199,8 @@ export class TileInterpolator {
   private _up = new THREE.Vector3(0, 1, 0);
   // Pre-allocated Vector3 for tile transitions in update()
   private _nextPos = new THREE.Vector3();
+  // Pre-allocated world-pos for backward-tile-skip (avoids tileToWorld() allocation per frame)
+  private _destWorldPos = { x: 0, y: 0, z: 0 };
 
   // OPTIMIZATION: Pre-allocated objects for onMovementStart/onTileUpdate
   // Avoids creating new Vector3/Quaternion per movement start
@@ -311,6 +319,7 @@ export class TileInterpolator {
     moveSeq?: number,
     emote?: string,
     tilesPerTick?: number,
+    isContinuation?: boolean,
   ): void {
     if (this.debugMode) {
       console.log(
@@ -342,6 +351,30 @@ export class TileInterpolator {
       return;
     }
 
+    // Continuation fast-path: server sent this segment 1 tick early so the client
+    // can append it to the existing path with no idle frame.
+    // Preserve visual position, catch-up multiplier, and tile index — nothing resets.
+    const existingMoving =
+      existingState?.isMoving && (existingState?.fullPath.length ?? 0) > 0;
+    if (isContinuation && existingMoving && existingState) {
+      for (const tile of path) {
+        existingState.fullPath.push({ ...tile });
+      }
+      if (destinationTile) {
+        existingState.destinationTile = { ...destinationTile };
+      }
+      existingState.moveSeq = moveSeq ?? existingState.moveSeq;
+      existingState.isRunning = running;
+      if (this.debugMode) {
+        console.log(
+          `[TileInterpolator] Continuation: appended ${path.length} tiles to path (total=${existingState.fullPath.length})`,
+        );
+      }
+      return;
+    }
+    // isContinuation=true but entity already stopped (packet arrived slightly late):
+    // fall through to normal full-reset logic — still better than an idle gap.
+
     // Get or create state
     let state = this.entityStates.get(entityId);
 
@@ -359,7 +392,11 @@ export class TileInterpolator {
     // SERVER PATH IS AUTHORITATIVE - no client path calculation
     // Server sends complete path from its known position. Client follows exactly.
     // If client visual position differs from server's startTile, catch-up multiplier handles sync.
-    const finalPath = path.map((t) => ({ ...t }));
+    // OPTIMIZATION: push loop avoids intermediate array from .map()
+    const finalPath: TileCoord[] = [];
+    for (let _pi = 0; _pi < path.length; _pi++) {
+      finalPath.push({ x: path[_pi].x, z: path[_pi].z });
+    }
 
     // Ensure destination is included (authoritative from server)
     if (destinationTile) {
@@ -473,6 +510,30 @@ export class TileInterpolator {
         `[TileInterpolator] Path set: ${finalPath.map((t) => `(${t.x},${t.z})`).join(" -> ")}, tilesPerTick=${tilesPerTick ?? "default"}`,
       );
     }
+  }
+
+  /**
+   * Immediately pivot the entity's visual rotation toward a new world-space target.
+   * Called client-side on every move-click so the character faces the new destination
+   * BEFORE the server round-trip completes (optimistic rotation).
+   *
+   * Only updates the target quaternion — the existing path, visual position, and
+   * catch-up state are untouched. The slerp in update() smoothly transitions
+   * the visual rotation, and onMovementStart() will overwrite targetQuaternion
+   * again when the server's confirmed path arrives.
+   */
+  setOptimisticTarget(
+    entityId: string,
+    worldPos: { x: number; z: number },
+  ): void {
+    const state = this.entityStates.get(entityId);
+    if (!state || !state.isMoving) return;
+    const dx = worldPos.x - state.visualPosition.x;
+    const dz = worldPos.z - state.visualPosition.z;
+    if (Math.abs(dx) < 0.01 && Math.abs(dz) < 0.01) return;
+    // VRM faces -Z; apply same yaw convention as the movement rotation code
+    const yaw = Math.atan2(-dx, -dz);
+    state.targetQuaternion.setFromAxisAngle(this._up, yaw);
   }
 
   /**
@@ -630,7 +691,7 @@ export class TileInterpolator {
 
         // Use catch-up multiplier based on distance for smooth but quick sync
         const rawMultiplier = 1.0 + (dist - 1) * 0.6;
-        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 4.0);
+        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 2.0);
 
         if (this.debugMode) {
           console.log(
@@ -691,7 +752,7 @@ export class TileInterpolator {
         // Formula: 1.0 + (tileDiff - 2) * 0.5, capped at 4.0x for very large desyncs
         // 3 tiles behind = 1.5x, 6 tiles = 3.0x, 10+ tiles = 4.0x (max)
         const rawMultiplier = 1.0 + (tileDiff - 2) * 0.5;
-        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 4.0);
+        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 2.0);
         if (this.debugMode) {
           console.log(
             `[TileInterpolator] Behind by ${tileDiff} tiles, speeding up to ${state.targetCatchUpMultiplier.toFixed(2)}x`,
@@ -746,7 +807,7 @@ export class TileInterpolator {
         // Use aggressive catch-up multiplier based on distance
         // This ensures we reach server position quickly without teleporting
         const rawMultiplier = 1.0 + (dist - 1) * 0.6;
-        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 4.0);
+        state.targetCatchUpMultiplier = Math.min(rawMultiplier, 2.0);
 
         if (this.debugMode || dist > 4) {
           console.log(
@@ -778,7 +839,7 @@ export class TileInterpolator {
             // Speed up to catch up
             const behindBy = visualDistToDest - serverDistToDest;
             const rawMultiplier = 1.0 + (behindBy - 1) * 0.5;
-            state.targetCatchUpMultiplier = Math.min(rawMultiplier, 4.0);
+            state.targetCatchUpMultiplier = Math.min(rawMultiplier, 2.0);
             if (this.debugMode) {
               console.log(
                 `[TileInterpolator] Behind by ~${behindBy.toFixed(1)} tiles (path mismatch), speeding to ${state.targetCatchUpMultiplier.toFixed(2)}x`,
@@ -791,7 +852,7 @@ export class TileInterpolator {
         } else {
           // No destination info - use distance-based speed up (assume behind)
           const rawMultiplier = 1.0 + (dist - 2) * 0.5;
-          state.targetCatchUpMultiplier = Math.min(rawMultiplier, 4.0);
+          state.targetCatchUpMultiplier = Math.min(rawMultiplier, 2.0);
         }
       }
       // For small distances or when we have an active path with small desync,
@@ -1152,20 +1213,20 @@ export class TileInterpolator {
           state.destinationTile &&
           state.targetTileIndex < state.fullPath.length - 1
         ) {
-          const destWorld = tileToWorld(state.destinationTile);
+          // OPTIMIZATION: tileToWorldInto reuses pre-allocated object, no heap allocation
+          tileToWorldInto(state.destinationTile, this._destWorldPos);
           const toTargetX = state.targetWorldPos.x - state.visualPosition.x;
           const toTargetZ = state.targetWorldPos.z - state.visualPosition.z;
-          const toDestX = destWorld.x - state.visualPosition.x;
-          const toDestZ = destWorld.z - state.visualPosition.z;
+          const toDestX = this._destWorldPos.x - state.visualPosition.x;
+          const toDestZ = this._destWorldPos.z - state.visualPosition.z;
 
           // Dot product: if negative, target tile is behind us relative to destination
           const dot = toTargetX * toDestX + toTargetZ * toDestZ;
-          const distToTarget = Math.sqrt(
-            toTargetX * toTargetX + toTargetZ * toTargetZ,
-          );
+          // OPTIMIZATION: compare squared distance (avoids sqrt in hot path)
+          const distToTargetSq = toTargetX * toTargetX + toTargetZ * toTargetZ;
 
           // Skip if target is behind us AND not very close (avoid skipping near-destination tiles)
-          if (dot < 0 && distToTarget > 0.5) {
+          if (dot < 0 && distToTargetSq > TILE_SKIP_THRESHOLD_SQ) {
             state.targetTileIndex++;
             continue; // Re-evaluate with next tile
           }
@@ -1174,9 +1235,16 @@ export class TileInterpolator {
         // Calculate distance to target
         const dx = state.targetWorldPos.x - state.visualPosition.x;
         const dz = state.targetWorldPos.z - state.visualPosition.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
+        // OPTIMIZATION: use squared distance to defer sqrt until we actually need it
+        const distSq = dx * dx + dz * dz;
+        // Arrived if very close (thresh²) OR movement budget covers the remaining distance (rem²≥dist²)
+        const arrived =
+          distSq <= TILE_ARRIVAL_THRESHOLD_SQ ||
+          remainingMove * remainingMove >= distSq;
+        // Only pay for sqrt when we know we're arriving (avoids sqrt every iteration)
+        const dist = arrived ? Math.sqrt(distSq) : 0;
 
-        if (dist <= TILE_ARRIVAL_THRESHOLD || remainingMove >= dist) {
+        if (arrived) {
           // Arrived at current target tile - snap to tile center and advance
           state.visualPosition.x = state.targetWorldPos.x;
           state.visualPosition.z = state.targetWorldPos.z;
@@ -1258,7 +1326,8 @@ export class TileInterpolator {
           }
         } else {
           // Move toward target, consuming all remaining movement
-          this._tempDir.set(dx, 0, dz).normalize();
+          // OPTIMIZATION: divideScalar(sqrt(distSq)) avoids a second sqrt vs .normalize()
+          this._tempDir.set(dx, 0, dz).divideScalar(Math.sqrt(distSq));
           state.visualPosition.x += this._tempDir.x * remainingMove;
           state.visualPosition.z += this._tempDir.z * remainingMove;
           // Y will be set from terrain at end of loop

@@ -30,9 +30,18 @@ coverage/
 test-*.json
 test-*.png
 
-# Environment
+# Environment - NEVER commit secrets
 .env
 .env.local
+.env.production
+.env.development
+**/.env
+**/.env.local
+**/.env.production
+**/.env.development
+# Allow .env.example files (documentation only, no secrets)
+!.env.example
+!**/.env.example
 packages/market-maker-bot/wallets.generated.json
 .runtime-locks/
 
@@ -127,3 +136,4 @@ packages/gold-betting-demo/app/public/live/
 .e2e-ledger-debug/
 .mud/
 packages/server/packages/
+deployer-keypair.json

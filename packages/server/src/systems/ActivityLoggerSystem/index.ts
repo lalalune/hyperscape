@@ -35,6 +35,8 @@ export class ActivityLoggerSystem extends SystemBase {
   private readonly skippedCharacterIds = new Set<string>();
 
   private static readonly ID_CACHE_LIMIT = 5000;
+  /** Maximum pending entries before dropping oldest (prevents memory buildup) */
+  private static readonly MAX_PENDING_ENTRIES = 1000;
 
   constructor(world: World, config?: Partial<ActivityLoggerConfig>) {
     super(world, {
@@ -76,6 +78,22 @@ export class ActivityLoggerSystem extends SystemBase {
     position?: Position,
   ): void {
     if (!playerId) return;
+
+    // Enforce max queue size to prevent memory buildup
+    if (
+      this.pendingEntries.length >= ActivityLoggerSystem.MAX_PENDING_ENTRIES
+    ) {
+      // Drop oldest 25% of entries when at capacity
+      const dropCount = Math.floor(
+        ActivityLoggerSystem.MAX_PENDING_ENTRIES * 0.25,
+      );
+      this.pendingEntries.splice(0, dropCount);
+      if (this.activityConfig.debug) {
+        console.warn(
+          `[ActivityLoggerSystem] Queue at capacity, dropped ${dropCount} oldest entries`,
+        );
+      }
+    }
 
     this.pendingEntries.push({
       playerId,

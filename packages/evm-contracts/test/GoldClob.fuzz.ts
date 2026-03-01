@@ -40,6 +40,8 @@ async function expectRevert(
 }
 
 describe("GoldClob — Randomized Invariants", function () {
+  // Increase timeout for randomized tests that process 4 seeds x 140 operations + claims
+  this.timeout(120000);
   async function deployFixture() {
     const [admin, treasury, marketMaker, ...traders] =
       await ethers.getSigners();

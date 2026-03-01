@@ -1,5 +1,8 @@
 /**
- * Banking actions - BANK_DEPOSIT, BANK_WITHDRAW
+ * Banking actions - BANK_DEPOSIT, BANK_WITHDRAW, BANK_DEPOSIT_ALL
+ *
+ * Autonomous-friendly banking: agents walk to bank, open session,
+ * deposit/withdraw using proper server packet protocol, then close.
  */
 
 import type {
@@ -11,48 +14,163 @@ import type {
 } from "@elizaos/core";
 import { logger } from "@elizaos/core";
 import type { HyperscapeService } from "../services/HyperscapeService.js";
-import type { BankCommand, InventoryItem } from "../types.js";
+import type { Entity, InventoryItem } from "../types.js";
+import {
+  hasAxe,
+  hasPickaxe,
+  hasTinderbox,
+  hasFishingEquipment,
+  getItemName,
+} from "../utils/item-detection.js";
 
-function parseQuantity(text: string): number | null {
-  const match = text.match(/(\d+)/);
-  if (match) return parseInt(match[1], 10);
-  if (text.includes("all")) return -1;
+/** Items we never want to deposit — essential tools the agent needs to keep.
+ * Uses specific patterns to avoid false positives (e.g. "swordfish").
+ * Validated against packages/server/world/assets/manifests/ item data. */
+const ESSENTIAL_ITEM_PATTERNS = [
+  // Gathering tools
+  "hatchet",
+  "pickaxe",
+  "tinderbox",
+  "fishing net",
+  "fishing_net",
+  "fishing rod",
+  "fishing_rod",
+  "hammer",
+  // Melee weapons (specific enough to not match food like "swordfish")
+  "shortsword",
+  "longsword",
+  "2h sword",
+  "2h_sword",
+  "scimitar",
+  "dagger",
+];
+
+function isEssentialItem(item: InventoryItem): boolean {
+  const name = getItemName(item);
+  return ESSENTIAL_ITEM_PATTERNS.some((p) => name.includes(p));
+}
+
+function getPlayerPosition(player: {
+  position?: unknown;
+}): [number, number, number] | null {
+  const pos = player.position;
+  if (Array.isArray(pos) && pos.length >= 3) {
+    return [pos[0], pos[1], pos[2]];
+  }
+  if (pos && typeof pos === "object" && "x" in pos) {
+    const p = pos as { x: number; y?: number; z: number };
+    return [p.x, p.y ?? 0, p.z];
+  }
   return null;
 }
 
-function findItemInInventory(
-  items: InventoryItem[],
-  searchText: string,
-): InventoryItem | null {
-  const term = searchText.toLowerCase().trim();
-  if (!term) return null;
-
-  const exact = items.find(
-    (i) => (i.name || i.itemId || "").toLowerCase() === term,
-  );
-  if (exact) return exact;
-
-  return (
-    items.find((i) =>
-      (i.name || i.itemId || "").toLowerCase().includes(term),
-    ) ?? null
-  );
+function distanceBetween(
+  a: [number, number, number],
+  b: unknown,
+): number | null {
+  let bx: number, bz: number;
+  if (Array.isArray(b) && b.length >= 3) {
+    bx = b[0];
+    bz = b[2];
+  } else if (b && typeof b === "object" && "x" in b) {
+    const p = b as { x: number; z: number };
+    bx = p.x;
+    bz = p.z;
+  } else {
+    return null;
+  }
+  const dx = a[0] - bx;
+  const dz = a[2] - bz;
+  return Math.sqrt(dx * dx + dz * dz);
 }
 
-function extractItemName(content: string, actionWord: string): string {
-  return content
-    .toLowerCase()
-    .replace(new RegExp(`${actionWord}\\s*(all\\s*)?`, "i"), "")
-    .replace(/\d+\s*/g, "")
-    .replace(/\s*(my|the|some|a|an)\s*/g, " ")
-    .trim();
+/**
+ * Find nearest bank entity from nearby entities or world map stations
+ */
+function findNearestBank(
+  service: HyperscapeService,
+  playerPos: [number, number, number],
+): { id: string; position: [number, number, number] } | null {
+  const nearbyEntities = service.getNearbyEntities();
+
+  // Check nearby entities for bank/banker
+  let bestBank: { id: string; position: [number, number, number] } | null =
+    null;
+  let bestDist = Infinity;
+
+  for (const entity of nearbyEntities) {
+    const entityType = (entity.entityType || "").toLowerCase();
+    const type = (entity.type || "").toLowerCase();
+    const name = (entity.name || "").toLowerCase();
+
+    const isBank =
+      entityType === "banker" ||
+      entityType === "bank" ||
+      type === "bank" ||
+      type === "banker" ||
+      name.includes("bank");
+
+    if (!isBank || !entity.position) continue;
+
+    const dist = distanceBetween(playerPos, entity.position);
+    if (dist !== null && dist < bestDist) {
+      bestDist = dist;
+      const pos = Array.isArray(entity.position)
+        ? ([entity.position[0], entity.position[1], entity.position[2]] as [
+            number,
+            number,
+            number,
+          ])
+        : [
+            (entity.position as { x: number }).x,
+            0,
+            (entity.position as { z: number }).z,
+          ];
+      bestBank = {
+        id: entity.id,
+        position: pos as [number, number, number],
+      };
+    }
+  }
+
+  if (bestBank) return bestBank;
+
+  // Fall back to world map stations
+  const worldMap = service.getWorldMap?.();
+  if (worldMap?.stations) {
+    for (const station of worldMap.stations) {
+      const sType = (station.type || "").toLowerCase();
+      if (!sType.includes("bank")) continue;
+
+      const dist = distanceBetween(playerPos, station.position);
+      if (dist !== null && dist < bestDist) {
+        bestDist = dist;
+        bestBank = {
+          id: station.id,
+          position: [
+            station.position.x,
+            station.position.y,
+            station.position.z,
+          ],
+        };
+      }
+    }
+  }
+
+  return bestBank;
 }
+
+const BANK_INTERACTION_RANGE = 5;
+
+// ============================================================================
+// BANK_DEPOSIT — deposit specific items
+// ============================================================================
 
 export const bankDepositAction: Action = {
   name: "BANK_DEPOSIT",
   similes: ["DEPOSIT", "BANK_ITEMS", "STORE"],
   description:
-    "Deposit items or coins into the bank. Specify which item to deposit.",
+    "Deposit items into the bank. Walks to nearest bank if not already there. Use BANK_DEPOSIT_ALL for bulk depositing.",
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
@@ -63,80 +181,94 @@ export const bankDepositAction: Action = {
     if (player.inCombat) return false;
 
     const inventoryItems = Array.isArray(player.items) ? player.items : [];
-    const coinCount = typeof player.coins === "number" ? player.coins : 0;
-    return inventoryItems.length > 0 || coinCount > 0;
+    return inventoryItems.length > 0;
   },
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state?: State,
-    options?: Record<string, unknown>,
+    _state?: State,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ) => {
     try {
       const service =
         runtime.getService<HyperscapeService>("hyperscapeService");
       if (!service) {
-        return {
-          success: false,
-          error: new Error("Hyperscape service not available"),
-        };
+        return { success: false, error: new Error("Service not available") };
       }
 
       const player = service.getPlayerEntity();
       if (!player) {
+        return { success: false, error: new Error("No player entity") };
+      }
+
+      const playerPos = getPlayerPosition(player);
+      if (!playerPos) {
         return {
           success: false,
-          error: new Error("No player entity"),
+          error: new Error("Cannot determine position"),
         };
       }
-      const inventoryItems = Array.isArray(player.items) ? player.items : [];
 
-      const content = message.content.text || "";
-      const quantity = parseQuantity(content);
-      const itemName = extractItemName(content, "deposit");
-      const item = findItemInInventory(inventoryItems, itemName);
-
-      if (!item && itemName.length > 0) {
+      // Find nearest bank
+      const bank = findNearestBank(service, playerPos);
+      if (!bank) {
         await callback?.({
-          text: `Could not find "${itemName}" in inventory.`,
+          text: "No bank found nearby. I need to travel to a town with a bank.",
           action: "BANK_DEPOSIT",
         });
-        return {
-          success: false,
-          error: new Error(`Item "${itemName}" not found in inventory`),
-        };
+        return { success: false, error: new Error("No bank found nearby") };
       }
 
-      const depositAmount =
-        quantity === -1
-          ? (item?.quantity ?? 1)
-          : (quantity ?? item?.quantity ?? 1);
+      const dist = distanceBetween(playerPos, bank.position);
 
-      const command: BankCommand = {
-        action: "deposit",
-        itemId: item?.id,
-        amount: depositAmount,
-      };
-
-      await service.executeBankAction(command);
-
-      const itemLabel = item ? item.name : "items";
-      const amountLabel = depositAmount > 1 ? `${depositAmount}x ` : "";
-      const responseText = `Deposited ${amountLabel}${itemLabel} into the bank`;
-      await callback?.({ text: responseText, action: "BANK_DEPOSIT" });
-
-      return {
-        success: true,
-        text: responseText,
-        data: {
+      // Walk to bank if too far — await arrival then proceed
+      if (dist !== null && dist > BANK_INTERACTION_RANGE) {
+        logger.info(`[BANK_DEPOSIT] Walking to bank (${dist.toFixed(1)} away)`);
+        await service.executeMove({ target: bank.position, runMode: true });
+        await callback?.({
+          text: `Walking to the bank... (${dist.toFixed(0)} units away)`,
           action: "BANK_DEPOSIT",
-          itemId: item?.id ?? null,
-          itemName: itemLabel,
-          amount: depositAmount,
-        },
-      };
+        });
+        await service.waitForMovementComplete(15000);
+      }
+
+      // Parse what to deposit from message
+      const content = message.content.text || "";
+      const inventoryItems = Array.isArray(player.items) ? player.items : [];
+
+      // Open bank session
+      await service.openBank(bank.id);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      // Check for "all" keyword
+      if (content.toLowerCase().includes("all")) {
+        await service.bankDepositAll();
+      } else {
+        // Try to find specific item
+        const term = content
+          .toLowerCase()
+          .replace(/deposit\s*/i, "")
+          .replace(/\d+\s*/g, "")
+          .trim();
+        const item = inventoryItems.find((i) => getItemName(i).includes(term));
+        if (item) {
+          await service.bankDeposit(
+            item.id || item.itemId || "",
+            item.quantity || 1,
+          );
+        } else {
+          await service.bankDepositAll();
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await service.closeBank();
+
+      const responseText = "Deposited items into the bank.";
+      await callback?.({ text: responseText, action: "BANK_DEPOSIT" });
+      return { success: true, text: responseText };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error(`[BANK_DEPOSIT] Failed: ${errorMsg}`);
@@ -154,17 +286,7 @@ export const bankDepositAction: Action = {
       {
         name: "agent",
         content: {
-          text: "Deposited Logs into the bank",
-          action: "BANK_DEPOSIT",
-        },
-      },
-    ],
-    [
-      { name: "user", content: { text: "Deposit 5 iron ore" } },
-      {
-        name: "agent",
-        content: {
-          text: "Deposited 5x Iron Ore into the bank",
+          text: "Deposited items into the bank.",
           action: "BANK_DEPOSIT",
         },
       },
@@ -172,11 +294,15 @@ export const bankDepositAction: Action = {
   ],
 };
 
+// ============================================================================
+// BANK_WITHDRAW — withdraw specific items
+// ============================================================================
+
 export const bankWithdrawAction: Action = {
   name: "BANK_WITHDRAW",
   similes: ["WITHDRAW", "TAKE_FROM_BANK"],
   description:
-    "Withdraw items or coins from the bank. Specify which item to withdraw.",
+    "Withdraw items from the bank. Walks to nearest bank if not already there.",
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService<HyperscapeService>("hyperscapeService");
@@ -192,23 +318,60 @@ export const bankWithdrawAction: Action = {
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state?: State,
-    options?: Record<string, unknown>,
+    _state?: State,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ) => {
     try {
       const service =
         runtime.getService<HyperscapeService>("hyperscapeService");
       if (!service) {
+        return { success: false, error: new Error("Service not available") };
+      }
+
+      const player = service.getPlayerEntity();
+      if (!player) {
+        return { success: false, error: new Error("No player entity") };
+      }
+
+      const playerPos = getPlayerPosition(player);
+      if (!playerPos) {
         return {
           success: false,
-          error: new Error("Hyperscape service not available"),
+          error: new Error("Cannot determine position"),
         };
       }
 
+      const bank = findNearestBank(service, playerPos);
+      if (!bank) {
+        await callback?.({
+          text: "No bank found nearby. I need to travel to a town with a bank.",
+          action: "BANK_WITHDRAW",
+        });
+        return { success: false, error: new Error("No bank found nearby") };
+      }
+
+      const dist = distanceBetween(playerPos, bank.position);
+
+      // Walk to bank if too far — await arrival then proceed
+      if (dist !== null && dist > BANK_INTERACTION_RANGE) {
+        logger.info(
+          `[BANK_WITHDRAW] Walking to bank (${dist.toFixed(1)} away)`,
+        );
+        await service.executeMove({ target: bank.position, runMode: true });
+        await callback?.({
+          text: `Walking to the bank... (${dist.toFixed(0)} units away)`,
+          action: "BANK_WITHDRAW",
+        });
+        await service.waitForMovementComplete(15000);
+      }
+
       const content = message.content.text || "";
-      const quantity = parseQuantity(content);
-      const itemName = extractItemName(content, "withdraw");
+      const itemName = content
+        .toLowerCase()
+        .replace(/withdraw\s*/i, "")
+        .replace(/\d+\s*/g, "")
+        .trim();
 
       if (!itemName) {
         await callback?.({
@@ -221,30 +384,20 @@ export const bankWithdrawAction: Action = {
         };
       }
 
-      const withdrawAmount = quantity === -1 ? undefined : (quantity ?? 1);
+      const quantityMatch = content.match(/(\d+)/);
+      const quantity = quantityMatch ? parseInt(quantityMatch[1], 10) : 1;
 
-      const command: BankCommand = {
-        action: "withdraw",
-        itemId: itemName,
-        amount: withdrawAmount,
-      };
+      // Open bank, withdraw, close
+      await service.openBank(bank.id);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await service.bankWithdraw(itemName, quantity);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await service.closeBank();
 
-      await service.executeBankAction(command);
-
-      const amountLabel =
-        withdrawAmount && withdrawAmount > 1 ? `${withdrawAmount}x ` : "";
-      const responseText = `Withdrawing ${amountLabel}${itemName} from the bank`;
+      const amountLabel = quantity > 1 ? `${quantity}x ` : "";
+      const responseText = `Withdrew ${amountLabel}${itemName} from the bank.`;
       await callback?.({ text: responseText, action: "BANK_WITHDRAW" });
-
-      return {
-        success: true,
-        text: responseText,
-        data: {
-          action: "BANK_WITHDRAW",
-          itemName,
-          amount: withdrawAmount ?? "all",
-        },
-      };
+      return { success: true, text: responseText };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error(`[BANK_WITHDRAW] Failed: ${errorMsg}`);
@@ -262,17 +415,7 @@ export const bankWithdrawAction: Action = {
       {
         name: "agent",
         content: {
-          text: "Withdrawing axe from the bank",
-          action: "BANK_WITHDRAW",
-        },
-      },
-    ],
-    [
-      { name: "user", content: { text: "Withdraw 10 lobsters" } },
-      {
-        name: "agent",
-        content: {
-          text: "Withdrawing 10x lobsters from the bank",
+          text: "Withdrew axe from the bank.",
           action: "BANK_WITHDRAW",
         },
       },
@@ -280,4 +423,198 @@ export const bankWithdrawAction: Action = {
   ],
 };
 
-export const bankingActions = [bankDepositAction, bankWithdrawAction];
+// ============================================================================
+// BANK_DEPOSIT_ALL — autonomous bulk banking
+// ============================================================================
+
+export const bankDepositAllAction: Action = {
+  name: "BANK_DEPOSIT_ALL",
+  similes: ["BANK_ALL", "DUMP_INVENTORY", "BANK_EVERYTHING"],
+  description:
+    "Deposit all non-essential items at the bank. Keeps tools (axe, pickaxe, tinderbox, net). Use when inventory is full from gathering.",
+
+  validate: async (runtime: IAgentRuntime) => {
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service?.isConnected()) return false;
+
+    const player = service.getPlayerEntity();
+    if (!player) return false;
+    if (player.inCombat) return false;
+
+    const inventoryItems = Array.isArray(player.items) ? player.items : [];
+    // Only useful if we have more than just essential tools
+    const bankableCount = inventoryItems.filter(
+      (i) => !isEssentialItem(i),
+    ).length;
+    return bankableCount > 0;
+  },
+
+  handler: async (
+    runtime: IAgentRuntime,
+    _message: Memory,
+    _state?: State,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ) => {
+    try {
+      const service =
+        runtime.getService<HyperscapeService>("hyperscapeService");
+      if (!service) {
+        return { success: false, error: new Error("Service not available") };
+      }
+
+      const player = service.getPlayerEntity();
+      if (!player) {
+        return { success: false, error: new Error("No player entity") };
+      }
+
+      const playerPos = getPlayerPosition(player);
+      if (!playerPos) {
+        return {
+          success: false,
+          error: new Error("Cannot determine position"),
+        };
+      }
+
+      const bank = findNearestBank(service, playerPos);
+      if (!bank) {
+        await callback?.({
+          text: "No bank found nearby. I need to travel to a town with a bank first.",
+          action: "BANK_DEPOSIT_ALL",
+        });
+        return { success: false, error: new Error("No bank found nearby") };
+      }
+
+      const dist = distanceBetween(playerPos, bank.position);
+
+      // Walk to bank if too far — await arrival then proceed
+      if (dist !== null && dist > BANK_INTERACTION_RANGE) {
+        logger.info(
+          `[BANK_DEPOSIT_ALL] Walking to bank (${dist.toFixed(1)} away)`,
+        );
+        await service.executeMove({ target: bank.position, runMode: true });
+        await callback?.({
+          text: `Walking to the bank to deposit items... (${dist.toFixed(0)} units away)`,
+          action: "BANK_DEPOSIT_ALL",
+        });
+        await service.waitForMovementComplete(15000);
+      }
+
+      const inventoryItems = Array.isArray(player.items) ? player.items : [];
+      const bankableItems = inventoryItems.filter((i) => !isEssentialItem(i));
+      const essentialItems = inventoryItems.filter((i) => isEssentialItem(i));
+
+      logger.info(
+        `[BANK_DEPOSIT_ALL] At bank. Depositing ${bankableItems.length} items, keeping ${essentialItems.length} essentials`,
+      );
+
+      // Open bank session
+      await service.openBank(bank.id);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      // Deposit all items
+      await service.bankDepositAll();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      // Withdraw back essential tools that we want to keep.
+      // Validated against packages/server/world/assets/manifests/items/.
+      const toolsToKeep = [
+        // Gathering tools
+        "bronze_hatchet",
+        "iron_hatchet",
+        "steel_hatchet",
+        "mithril_hatchet",
+        "adamant_hatchet",
+        "rune_hatchet",
+        "bronze_pickaxe",
+        "iron_pickaxe",
+        "steel_pickaxe",
+        "mithril_pickaxe",
+        "adamant_pickaxe",
+        "rune_pickaxe",
+        "tinderbox",
+        "hammer",
+        "small_fishing_net",
+        "fishing_rod",
+        "fly_fishing_rod",
+        "harpoon",
+        "lobster_pot",
+        // Melee weapons
+        "bronze_shortsword",
+        "iron_shortsword",
+        "steel_shortsword",
+        "mithril_shortsword",
+        "adamant_shortsword",
+        "rune_shortsword",
+        "bronze_longsword",
+        "iron_longsword",
+        "steel_longsword",
+        "bronze_scimitar",
+        "iron_scimitar",
+        "steel_scimitar",
+        "bronze_dagger",
+        "iron_dagger",
+        "steel_dagger",
+      ];
+
+      // Only withdraw tools we actually had before depositing
+      const essentialNames = essentialItems.map((i) =>
+        (i.itemId || i.name || "").toLowerCase(),
+      );
+      for (const toolId of toolsToKeep) {
+        if (
+          essentialNames.some((n) => n.includes(toolId) || toolId.includes(n))
+        ) {
+          await service.bankWithdraw(toolId, 1);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
+      await service.closeBank();
+
+      const responseText = `Banked ${bankableItems.length} items. Kept essential tools.`;
+      await callback?.({ text: responseText, action: "BANK_DEPOSIT_ALL" });
+      logger.info(`[BANK_DEPOSIT_ALL] ${responseText}`);
+
+      return {
+        success: true,
+        text: responseText,
+        data: {
+          action: "BANK_DEPOSIT_ALL",
+          deposited: bankableItems.length,
+          keptEssentials: essentialItems.length,
+        },
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(`[BANK_DEPOSIT_ALL] Failed: ${errorMsg}`);
+      await callback?.({
+        text: `Failed to bank items: ${errorMsg}`,
+        error: true,
+      });
+      return { success: false, error: error as Error };
+    }
+  },
+
+  examples: [
+    [
+      {
+        name: "system",
+        content: { text: "Inventory full with 28 shrimp, near a bank" },
+      },
+      {
+        name: "agent",
+        content: {
+          text: "Banked 24 items. Kept essential tools.",
+          action: "BANK_DEPOSIT_ALL",
+        },
+      },
+    ],
+  ],
+};
+
+export const bankingActions = [
+  bankDepositAction,
+  bankWithdrawAction,
+  bankDepositAllAction,
+];

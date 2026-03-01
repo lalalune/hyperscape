@@ -206,19 +206,30 @@ export class ElizaDuelBot extends EventEmitter {
 
         // Initialize with timeout to prevent hanging
         const initPromise = this.runtime.initialize();
+        let timedOut = false;
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `runtime.initialize() timed out after ${INIT_TIMEOUT_MS / 1000}s`,
-                ),
+          setTimeout(() => {
+            timedOut = true;
+            reject(
+              new Error(
+                `runtime.initialize() timed out after ${INIT_TIMEOUT_MS / 1000}s`,
               ),
-            INIT_TIMEOUT_MS,
-          );
+            );
+          }, INIT_TIMEOUT_MS);
         });
 
-        await Promise.race([initPromise, timeoutPromise]);
+        try {
+          await Promise.race([initPromise, timeoutPromise]);
+        } catch (err) {
+          if (timedOut) {
+            // Swallow the dangling initPromise so it doesn't surface as
+            // an unhandled rejection when it eventually settles.
+            initPromise.catch(() => {});
+            // Kick off stop() to tear down background initialize() work.
+            this.runtime?.stop().catch(() => {});
+          }
+          throw err;
+        }
 
         this._id = characterId;
         this._connected = true;
@@ -240,10 +251,13 @@ export class ElizaDuelBot extends EventEmitter {
           `[ElizaDuelBot] ❌ ${name} init attempt ${attempt + 1} failed: ${lastError.message}`,
         );
 
-        // Stop any partially-initialized runtime
+        // Stop any partially-initialized runtime (10s timeout to avoid hanging)
         if (this.runtime) {
           try {
-            await this.runtime.stop();
+            await Promise.race([
+              this.runtime.stop(),
+              new Promise((r) => setTimeout(r, 10_000)),
+            ]);
           } catch {
             /* ignore */
           }
@@ -275,7 +289,10 @@ export class ElizaDuelBot extends EventEmitter {
     this.duelListenersRegistered = false;
 
     if (this.runtime) {
-      this.runtime.stop().catch((err) => {
+      Promise.race([
+        this.runtime.stop(),
+        new Promise((r) => setTimeout(r, 10_000)),
+      ]).catch((err) => {
         console.warn(
           `[ElizaDuelBot] Error stopping runtime for ${this.config.name}:`,
           errMsg(err),

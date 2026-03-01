@@ -356,6 +356,8 @@ export async function spawnModelAgents(
   }
 
   let spawnedCount = 0;
+  let consecutiveFailures = 0;
+  const MAX_CONSECUTIVE_FAILURES = 3;
   const { wsUrl: hyperscapeServerUrl, apiUrl: hyperscapeApiUrl } =
     resolveModelAgentServerUrls();
 
@@ -514,13 +516,39 @@ export async function spawnModelAgents(
         return runtimeInstance;
       };
 
+      const MODEL_AGENT_INIT_TIMEOUT_MS = 45_000;
+
       const initializeRuntimeInstance = async (
         runtimeInstance: AgentRuntime,
       ): Promise<void> => {
         if (sqlPlugin) {
           await runtimeInstance.registerPlugin(sqlPlugin);
         }
-        await runtimeInstance.initialize();
+        const initPromise = runtimeInstance.initialize();
+        let timedOut = false;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            timedOut = true;
+            reject(
+              new Error(
+                `runtime.initialize() timed out after ${MODEL_AGENT_INIT_TIMEOUT_MS / 1000}s`,
+              ),
+            );
+          }, MODEL_AGENT_INIT_TIMEOUT_MS);
+        });
+        try {
+          await Promise.race([initPromise, timeoutPromise]);
+        } catch (err) {
+          if (timedOut) {
+            // Swallow the dangling initPromise so it doesn't surface as
+            // an unhandled rejection when it eventually settles.
+            initPromise.catch(() => {});
+            // Kick off stop() to tear down any partially-initialized
+            // plugins / WASM heaps from the background initialize().
+            runtimeInstance.stop().catch(() => {});
+          }
+          throw err;
+        }
       };
 
       const pgliteDataDir =
@@ -542,7 +570,10 @@ export async function spawnModelAgents(
           console.warn(
             `[ModelAgentSpawner] Runtime init failed for ${agentConfig.displayName}: ${errMsg(initializeError)}. Resetting ${pgliteDataDir} and retrying once.`,
           );
-          await runtimeInstance.stop().catch(() => undefined);
+          await Promise.race([
+            runtimeInstance.stop().catch(() => undefined),
+            new Promise((r) => setTimeout(r, 10_000)),
+          ]);
           await resetAgentPgliteDataDir(pgliteDataDir, agentConfig.displayName);
 
           runtimeInstance = createRuntimeInstance();
@@ -569,6 +600,7 @@ export async function spawnModelAgents(
 
       spawnedCount++;
       spawnedThisIteration = true;
+      consecutiveFailures = 0;
       console.log(
         `[ModelAgentSpawner] ✅ Spawned: ${agentConfig.displayName} (${agentConfig.model})`,
       );
@@ -577,17 +609,39 @@ export async function spawnModelAgents(
       agentPlans.delete(agentKey);
       if (runtime) {
         try {
-          await runtime.stop();
+          await Promise.race([
+            runtime.stop(),
+            new Promise((r) => setTimeout(r, 10_000)),
+          ]);
         } catch (stopErr) {
           console.warn(
             `[ModelAgentSpawner] Failed to cleanup runtime for ${agentConfig.displayName}: ${errMsg(stopErr)}`,
           );
         }
+        // Explicitly close DB adapter to free PGLite WASM heap
+        try {
+          const adapter = runtime.adapter as {
+            close?: () => Promise<void>;
+            db?: { close?: () => Promise<void> };
+          } | null;
+          await adapter?.close?.();
+          await adapter?.db?.close?.();
+        } catch {
+          /* best-effort cleanup */
+        }
+        runtime = null;
       }
       console.error(
         `[ModelAgentSpawner] ❌ Failed to spawn ${agentConfig.displayName}:`,
         errMsg(error),
       );
+      consecutiveFailures++;
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        console.error(
+          `[ModelAgentSpawner] Circuit breaker: ${MAX_CONSECUTIVE_FAILURES} consecutive failures, aborting remaining spawns`,
+        );
+        break;
+      }
     }
 
     // Stagger successful agent spawns to avoid concurrent PGLite/API contention
@@ -643,11 +697,27 @@ export async function stopModelAgent(
 
   let stopError: unknown = null;
   try {
-    // Stop the runtime (this also stops HyperscapeService)
-    await agent.runtime.stop();
+    // Stop the runtime (this also stops HyperscapeService).
+    // 10s timeout prevents indefinite hang if stop() blocks.
+    await Promise.race([
+      agent.runtime.stop(),
+      new Promise((r) => setTimeout(r, 10_000)),
+    ]);
   } catch (error) {
     stopError = error;
   } finally {
+    // Explicitly close DB adapter to free PGLite WASM heap memory.
+    // runtime.stop() should do this, but we ensure it as a safety net.
+    try {
+      const adapter = agent.runtime.adapter as {
+        close?: () => Promise<void>;
+        db?: { close?: () => Promise<void> };
+      } | null;
+      await adapter?.close?.();
+      await adapter?.db?.close?.();
+    } catch {
+      /* best-effort cleanup */
+    }
     runningAgents.delete(key);
   }
 
@@ -701,9 +771,11 @@ const BEHAVIOR_TICK_INTERVAL = 3000; // 3 seconds
 /** Map of behavior loop intervals for cleanup */
 const behaviorIntervals: Map<string, NodeJS.Timeout> = new Map();
 
-/** Keep autonomous roaming near the duel lobby so spectators always see activity on known terrain. */
-const LOBBY_SOFT_RADIUS = 80;
-const LOBBY_HARD_RADIUS = 150;
+/** Keep autonomous roaming near the duel lobby so spectators always see activity.
+ * Expanded from 80/150 so agents can reach resources (trees, rocks, fishing spots)
+ * that spawn outside the flat duel arena zone. */
+const LOBBY_SOFT_RADIUS = 120;
+const LOBBY_HARD_RADIUS = 200;
 
 function distance2D(ax: number, az: number, bx: number, bz: number): number {
   const dx = ax - bx;

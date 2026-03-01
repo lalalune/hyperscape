@@ -7,6 +7,14 @@
  * - position-validator.ts, event-bridge.ts, initialization.ts
  * - connection-handler.ts, duel-events.ts, duel-settlement.ts
  * - handlers/* (chat, combat, inventory, processing, etc.)
+ *
+ * AUDIT-002 (ASSESSED): File is ~3K lines (116KB). ServerNetwork is already
+ * heavily decomposed into 30+ modules including handlers/, services/, movement/
+ * directories. This file is the coordinator that ties together:
+ * - authentication.ts, character-selection.ts, socket-management.ts
+ * - broadcast.ts, save-manager.ts, position-validator.ts, event-bridge.ts
+ * - Full handlers/ directory (bank/, duel/, trade/, chat, combat, inventory, etc.)
+ * Current structure is appropriate for a central networking coordinator.
  */
 
 import type {
@@ -92,6 +100,7 @@ import type {
   FriendIdPayload,
   IgnoreIdPayload,
   PrivateMessagePayload,
+  CorpseLootAllPayload,
 } from "./types";
 
 // Import modular components
@@ -357,7 +366,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     string,
     Array<{
       id: string;
-      type: "situation" | "evaluation" | "thinking" | "decision";
+      type: "situation" | "evaluation" | "thinking" | "decision" | "action";
       content: string;
       timestamp: number;
     }>
@@ -908,7 +917,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Listen for player teleport events (used by duel system)
     this.onWorld("player:teleport", (event) => {
-      const { playerId, position, rotation } = event as PlayerTeleportPayload;
+      const { playerId, position, rotation, suppressEffect } =
+        event as PlayerTeleportPayload;
 
       // Validate position before processing
       if (
@@ -951,12 +961,18 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
       // Send teleport to the teleporting player
       const socket = this.getSocketByPlayerId(playerId);
+      const teleportPacket = {
+        playerId,
+        position: [position.x, position.y, position.z] as [
+          number,
+          number,
+          number,
+        ],
+        rotation,
+        ...(suppressEffect ? { suppressEffect: true } : {}),
+      };
       if (socket) {
-        socket.send("playerTeleport", {
-          playerId,
-          position: [position.x, position.y, position.z],
-          rotation,
-        });
+        socket.send("playerTeleport", teleportPacket);
       }
 
       // Broadcast teleport to ALL other clients so they see the teleport
@@ -965,11 +981,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       // and entityModified position updates are skipped for tile-controlled entities
       this.broadcastManager.sendToAll(
         "playerTeleport",
-        {
-          playerId,
-          position: [position.x, position.y, position.z],
-          rotation,
-        },
+        teleportPacket,
         socket?.id,
       );
 
@@ -1548,25 +1560,27 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["runecraftingAltarInteract"] =
       this.handlers["onRunecraftingAltarInteract"];
 
-    // Route movement and combat through action queue for OSRS-style tick processing
-    // Actions are queued and processed on tick boundaries, not immediately
+    // Movement is processed immediately — pathfinding and tileMovementStart broadcast
+    // happen on packet receipt, not at the next tick boundary. Walking itself still
+    // advances on the 600ms tick schedule via onTick(). This matches the documented
+    // 30 Hz client input rate and removes the 0–600ms ActionQueue delay.
     this.handlers["onMoveRequest"] = (socket, data) => {
       // Cancel any pending actions when player moves elsewhere (OSRS behavior)
       if (socket.player) {
         this.cancelAllPendingActions(socket.player.id, socket);
       }
-      this.actionQueue.queueMovement(socket, data);
+      this.tileMovementManager.handleMoveRequest(socket, data);
     };
 
     this.handlers["onInput"] = (socket, data) => {
-      // Legacy input handler - convert clicks to movement queue
+      // Legacy input handler - convert clicks to immediate move request
       const payload = data as LegacyInputPayload;
       if (payload.type === "click" && Array.isArray(payload.target)) {
         // Cancel any pending actions when player moves elsewhere (OSRS behavior)
         if (socket.player) {
           this.cancelAllPendingActions(socket.player.id, socket);
         }
-        this.actionQueue.queueMovement(socket, {
+        this.tileMovementManager.handleMoveRequest(socket, {
           target: payload.target,
           runMode: payload.runMode,
         });
@@ -1854,6 +1868,19 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onPickupItem"] = (socket, data) =>
       handlePickupItem(socket, data, this.world);
+
+    // Gravestone loot-all: client requests to loot all items from a gravestone
+    this.handlers["onCorpseLootAll"] = (socket, data) => {
+      const player = socket.player;
+      if (!player) return;
+      const payload = data as CorpseLootAllPayload;
+      if (!payload.corpseId) return;
+      this.world.emit(EventType.CORPSE_LOOT_ALL_REQUEST, {
+        corpseId: payload.corpseId,
+        playerId: player.id,
+      });
+    };
+    this.handlers["corpseLootAll"] = this.handlers["onCorpseLootAll"];
 
     this.handlers["onDropItem"] = (socket, data) =>
       handleDropItem(socket, data, this.world);
@@ -2826,6 +2853,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.spatialIndex.destroy();
     this.saveManager.destroy();
     this.interactionSessionManager.destroy();
+    this.eventBridge.destroy();
     this.tickSystem.stop();
 
     for (const [_id, socket] of this.sockets) {

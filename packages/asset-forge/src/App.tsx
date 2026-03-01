@@ -24,6 +24,7 @@ import { RockGenPage } from "./pages/RockGenPage";
 import { TerrainGenPage } from "./pages/TerrainGenPage";
 import { TreeGenPage } from "./pages/TreeGenPage";
 import { VegetationGenPage } from "./pages/VegetationGenPage";
+import { VFXPage } from "./pages/VFXPage";
 import { WorldBuilderPage } from "./pages/WorldBuilderPage";
 import { WorldEditorPage } from "./pages/WorldEditorPage";
 
@@ -72,6 +73,7 @@ function AppLayout() {
               element={<RetargetAnimatePage />}
             />
             <Route path={ROUTES.BATCH_SPRITES} element={<BatchSpritesPage />} />
+            <Route path={ROUTES.VFX} element={<VFXPage />} />
             <Route path={ROUTES.WORLD_BUILDER} element={<WorldBuilderPage />} />
             <Route path={ROUTES.WORLD_EDITOR} element={<WorldEditorPage />} />
             <Route path={ROUTES.MANIFESTS} element={<ManifestsPage />} />

@@ -79,6 +79,10 @@ export class InventoryInteractionSystem extends SystemBase {
   private contextMenus: Map<string, ItemContextMenu> = new Map();
   private itemActions: Map<string, ItemAction[]> = new Map();
 
+  // Event listener cleanup - AbortController per element for proper cleanup
+  private elementAbortControllers: Map<HTMLElement, AbortController> =
+    new Map();
+
   constructor(world: World) {
     super(world, {
       name: "inventory-interaction",
@@ -323,57 +327,82 @@ export class InventoryInteractionSystem extends SystemBase {
   ): void {
     element.draggable = true;
 
-    element.addEventListener("dragstart", (_event) => {
-      this.handleDragStartEvent(
-        _event as DragEvent,
-        playerId,
-        sourceType,
-        slot,
-      );
-    });
+    // Create AbortController for this element's listeners
+    const controller = new AbortController();
+    this.elementAbortControllers.set(element, controller);
+    const { signal } = controller;
 
-    element.addEventListener("dragend", (_event) => {
-      this.handleDragEndEvent(_event);
-    });
-
-    // Also support touch interactions for mobile
-    let touchStart: { x: number; y: number } | null = null;
-
-    element.addEventListener("touchstart", (event) => {
-      const touch = (event as TouchEvent).touches[0];
-      touchStart = { x: touch.clientX, y: touch.clientY };
-
-      // Prevent scrolling during drag
-      event.preventDefault();
-    });
-
-    element.addEventListener("touchmove", (event) => {
-      if (!touchStart) return;
-
-      const touch = (event as TouchEvent).touches[0];
-      const deltaX = Math.abs(touch.clientX - touchStart.x);
-      const deltaY = Math.abs(touch.clientY - touchStart.y);
-
-      // If moved enough, start drag
-      if (deltaX > 10 || deltaY > 10) {
-        this.handleTouchDragStart(
-          event as TouchEvent,
+    element.addEventListener(
+      "dragstart",
+      (_event) => {
+        this.handleDragStartEvent(
+          _event as DragEvent,
           playerId,
           sourceType,
           slot,
         );
+      },
+      { signal },
+    );
+
+    element.addEventListener(
+      "dragend",
+      (_event) => {
+        this.handleDragEndEvent(_event);
+      },
+      { signal },
+    );
+
+    // Also support touch interactions for mobile
+    let touchStart: { x: number; y: number } | null = null;
+
+    element.addEventListener(
+      "touchstart",
+      (event) => {
+        const touch = (event as TouchEvent).touches[0];
+        touchStart = { x: touch.clientX, y: touch.clientY };
+
+        // Prevent scrolling during drag
+        event.preventDefault();
+      },
+      { signal },
+    );
+
+    element.addEventListener(
+      "touchmove",
+      (event) => {
+        if (!touchStart) return;
+
+        const touch = (event as TouchEvent).touches[0];
+        const deltaX = Math.abs(touch.clientX - touchStart.x);
+        const deltaY = Math.abs(touch.clientY - touchStart.y);
+
+        // If moved enough, start drag
+        if (deltaX > 10 || deltaY > 10) {
+          this.handleTouchDragStart(
+            event as TouchEvent,
+            playerId,
+            sourceType,
+            slot,
+          );
+          touchStart = null;
+        }
+
+        event.preventDefault();
+      },
+      { signal },
+    );
+
+    element.addEventListener(
+      "touchend",
+      () => {
+        if (this.isDragging) {
+          this.handleTouchDragEnd();
+        }
         touchStart = null;
-      }
-
-      event.preventDefault();
-    });
-
-    element.addEventListener("touchend", () => {
-      if (this.isDragging) {
-        this.handleTouchDragEnd();
-      }
-      touchStart = null;
-    });
+      },
+      { signal },
+    );
   }
 
   /**
@@ -382,13 +411,29 @@ export class InventoryInteractionSystem extends SystemBase {
   private registerDropTarget(id: string, target: DropTarget): void {
     this.dropTargets.set(id, target);
 
-    target.element.addEventListener("dragover", (event) => {
-      this.handleDragOver(event as DragEvent, target);
-    });
+    // Get or create AbortController for this element
+    let controller = this.elementAbortControllers.get(target.element);
+    if (!controller) {
+      controller = new AbortController();
+      this.elementAbortControllers.set(target.element, controller);
+    }
+    const { signal } = controller;
 
-    target.element.addEventListener("drop", (event) => {
-      this.handleDropEvent(event as DragEvent, target);
-    });
+    target.element.addEventListener(
+      "dragover",
+      (event) => {
+        this.handleDragOver(event as DragEvent, target);
+      },
+      { signal },
+    );
+
+    target.element.addEventListener(
+      "drop",
+      (event) => {
+        this.handleDropEvent(event as DragEvent, target);
+      },
+      { signal },
+    );
 
     // Add visual feedback classes
     target.element.classList.add("drop-target");
@@ -947,6 +992,12 @@ export class InventoryInteractionSystem extends SystemBase {
    * Cleanup interactions
    */
   private cleanupInteractions(): void {
+    // Abort all element event listeners
+    for (const controller of this.elementAbortControllers.values()) {
+      controller.abort();
+    }
+    this.elementAbortControllers.clear();
+
     this.dropTargets.clear();
     if (this.isDragging) {
       this.cancelDrag();
@@ -1021,6 +1072,13 @@ export class InventoryInteractionSystem extends SystemBase {
     this.currentDrag = undefined;
     this.contextMenus.clear();
     this.itemActions.clear();
+    this.playerEquipment.clear();
+
+    // Ensure all element listeners are cleaned up
+    for (const controller of this.elementAbortControllers.values()) {
+      controller.abort();
+    }
+    this.elementAbortControllers.clear();
   }
 
   // === ITEM ACTION METHODS (merged from ItemActionSystem) ===

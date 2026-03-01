@@ -29,6 +29,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { World } from "@hyperscape/shared";
 import type { ServerConfig } from "../config.js";
 import { DatabaseSystem } from "../../systems/DatabaseSystem/index.js";
+import { isMaintenanceModeActive } from "../maintenance-mode.js";
 
 type DatabaseHealthResult = {
   healthy: boolean;
@@ -72,9 +73,11 @@ export function registerHealthRoutes(
   fastify.get(
     "/health",
     async (_request: FastifyRequest, reply: FastifyReply) => {
+      const maintenanceMode = isMaintenanceModeActive();
       const baseHealth = {
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
+        maintenanceMode,
       };
 
       // Keep /health lightweight for runtime probes by default.

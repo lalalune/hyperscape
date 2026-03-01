@@ -1127,12 +1127,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
         this.base.updateTransform();
       }
 
-      if ("t" in data) {
-        this.world.emit(EventType.PLAYER_TELEPORTED, {
-          playerId: this.data.id,
-          position: this.position.clone(),
-        });
-      }
+      // Note: PLAYER_TELEPORTED VFX is emitted by ClientNetwork.onPlayerTeleport
+      // when the dedicated playerTeleport packet arrives. Do NOT emit here —
+      // the entity position may be stale at this point, causing ghost effects.
     }
     if (data.q !== undefined) {
       // AAA ARCHITECTURE: Rotation handling depends on whether TileInterpolator is active

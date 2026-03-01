@@ -99,6 +99,7 @@ type AgentCombatData = {
   inCombat?: boolean;
   combatTarget?: string | null;
   ct?: string | null;
+  c?: boolean;
   attackTarget?: string | null;
 };
 
@@ -145,7 +146,11 @@ export class DuelOrchestrator {
   private duelFoodSlotsByAgent: Map<string, DuelFoodProvisionedSlot[]> =
     new Map();
   private combatRolesByAgent: Map<string, DuelCombatRole> = new Map();
-  private lastCombatStallNudgeCycleId: string | null = null;
+  /**
+   * Track last nudge timestamp per agent pair to allow re-nudging if combat stalls again.
+   * Key format: "cycleId-agent1Id-agent2Id"
+   */
+  private lastCombatStallNudgeAt: number = 0;
 
   constructor(
     private readonly world: World,
@@ -372,17 +377,12 @@ export class DuelOrchestrator {
     if (!cycle?.agent1 || !cycle?.agent2) return;
 
     const { agent1, agent2 } = cycle;
-    const duelFoodItemId = getDuelFoodItemForLevels(
-      agent1.combatLevel,
-      agent2.combatLevel,
-    );
     const levelDiff = Math.abs(agent1.combatLevel - agent2.combatLevel);
 
-    // CRITICAL: Stop any active combat and movement BEFORE the async food
-    // operations below. During the awaits in fillInventoryWithFood(), the event
-    // loop is free and combat system ticks can fire — if agents are still in
-    // combat, attack/damage events would be broadcast to clients at the agents'
-    // pre-arena positions, causing the "fight outside arena" visual glitch.
+    // CRITICAL: Stop any active combat and movement BEFORE any async
+    // operations below. During awaits, the event loop is free and combat
+    // system ticks can fire — if agents are still in combat, attack/damage
+    // events would be broadcast at pre-arena positions.
     this.forceStopAgentCombat(agent1.characterId);
     this.forceStopAgentCombat(agent2.characterId);
     this.world.emit("player:movement:cancel", { playerId: agent1.characterId });
@@ -399,13 +399,9 @@ export class DuelOrchestrator {
       this.ensureAgentCombatSetup(agent2.characterId, role2),
     ]);
 
-    // Fill inventory with food (Fix H — parallel to cut prep latency)
-    const [agent1FoodSlots, agent2FoodSlots] = await Promise.all([
-      this.fillInventoryWithFood(agent1.characterId, duelFoodItemId),
-      this.fillInventoryWithFood(agent2.characterId, duelFoodItemId),
-    ]);
-    this.duelFoodSlotsByAgent.set(agent1.characterId, agent1FoodSlots);
-    this.duelFoodSlotsByAgent.set(agent2.characterId, agent2FoodSlots);
+    // NOTE: Food provisioning removed — agents must self-provision food
+    // through fishing/cooking between duels. They fight with whatever
+    // food/gear they've gathered autonomously.
 
     // Restore full health
     this.restoreHealth(agent1.characterId);
@@ -416,7 +412,7 @@ export class DuelOrchestrator {
 
     Logger.info(
       "StreamingDuelScheduler",
-      `Contestants prepared: ${agent1.name} (${role1}) vs ${agent2.name} (${role2}) (food=${duelFoodItemId}, levelDiff=${levelDiff})`,
+      `Contestants prepared: ${agent1.name} (${role1}) vs ${agent2.name} (${role2}) (self-provisioned food, levelDiff=${levelDiff})`,
     );
   }
 
@@ -1546,6 +1542,7 @@ export class DuelOrchestrator {
       (entity.data as AgentCombatData).inCombat = false;
       (entity.data as AgentCombatData).combatTarget = null;
       (entity.data as AgentCombatData).ct = null;
+      (entity.data as AgentCombatData).c = false;
       (entity.data as AgentCombatData).attackTarget = null;
     }
 
@@ -1641,7 +1638,7 @@ export class DuelOrchestrator {
 
       this.setAgentCombatTarget(agent1Id, agent2Id);
       this.setAgentCombatTarget(agent2Id, agent1Id);
-    }, 1500);
+    }, 3000); // 5 ticks at 600ms - aligned with combat loop re-engagement interval
   }
 
   getTileChebyshevDistance(
@@ -1870,17 +1867,26 @@ export class DuelOrchestrator {
   applyCombatStallNudge(now: number): void {
     const cycle = this.getCurrentCycle();
     if (!cycle || cycle.phase !== "FIGHTING") return;
-    if (this.lastCombatStallNudgeCycleId === cycle.cycleId) return;
 
     const { agent1, agent2 } = cycle;
     if (!agent1 || !agent2) return;
 
-    const hasCombatEvidence =
-      agent1.currentHp < agent1.maxHp ||
-      agent2.currentHp < agent2.maxHp ||
-      agent1.damageDealtThisFight > 0 ||
-      agent2.damageDealtThisFight > 0;
-    if (hasCombatEvidence) return;
+    // Cooldown: don't nudge more than once per STREAMING_COMBAT_STALL_NUDGE_MS
+    // This allows re-nudging if combat stalls again after the cooldown
+    const timeSinceLastNudge = now - this.lastCombatStallNudgeAt;
+    if (timeSinceLastNudge < STREAMING_COMBAT_STALL_NUDGE_MS) return;
+
+    // Check if there's evidence of active combat SINCE the last nudge
+    // We look at recent damage, not total damage, to allow re-nudging
+    const recentCombatEvidence =
+      agent1.currentHp < agent1.maxHp || agent2.currentHp < agent2.maxHp;
+
+    // If both agents are at full HP, combat hasn't started - nudge needed
+    // If HP is damaged but no recent damage in the last stall window, also nudge
+    if (recentCombatEvidence) {
+      // Combat is happening, no nudge needed
+      return;
+    }
 
     const attackerId = agent1.characterId;
     const targetId = agent2.characterId;
@@ -1911,10 +1917,10 @@ export class DuelOrchestrator {
       damage,
     });
 
-    this.lastCombatStallNudgeCycleId = cycle.cycleId;
+    this.lastCombatStallNudgeAt = now;
     Logger.warn(
       "StreamingDuelScheduler",
-      `Applied fallback combat nudge (${attackerId} -> ${targetId}, damage=${damage})`,
+      `Applied fallback combat nudge (${attackerId} -> ${targetId}, damage=${damage}, timeSinceLastNudge=${timeSinceLastNudge}ms)`,
     );
   }
 
@@ -1990,23 +1996,33 @@ export class DuelOrchestrator {
     this.clearCombatRetryTimeout();
     this.stopCombatAIs();
 
-    // Trigger victory emote on winner (waving both hands celebration)
-    this.triggerVictoryEmote(winnerId);
-
-    // Fire a victory trash talk message from the winner
-    this.fireVictoryTrashTalk(winnerId);
-
     // Notify the facade to handle resolution (phase transition, stats, recording, camera)
     this.onResolution(winnerId, loserId, winReason);
+
+    // Delay the victory emote so all death/combat cleanup (emote resets,
+    // combat state teardown, scheduled animation resets) finishes first.
+    // Without this, the "victory" emote gets immediately overwritten by
+    // stale "idle" resets from the combat animation system.
+    setTimeout(() => {
+      this.triggerVictoryEmote(winnerId);
+      this.fireVictoryTrashTalk(winnerId);
+    }, 600);
   }
 
   /**
    * Trigger victory emote on the winning agent.
-   * Broadcasts entityModified with "victory" emote so clients play the celebration animation.
+   * Called after a short delay so all death/combat cleanup has finished
+   * and won't overwrite the emote.
    */
   triggerVictoryEmote(winnerId: string): void {
     const network = this.world.network as NetworkWithSend | undefined;
     if (!network?.send) return;
+
+    // Set emote on the server entity so any future entity sync includes it
+    const entity = this.world.entities.get(winnerId);
+    if (entity?.data) {
+      entity.data.emote = "victory";
+    }
 
     // Broadcast victory emote to all clients
     network.send("entityModified", {
@@ -2091,24 +2107,14 @@ export class DuelOrchestrator {
       agent1.originalPosition,
       agent1.characterId,
     );
-    this.teleportPlayer(
-      agent1.characterId,
-      agent1RestorePosition,
-      undefined,
-      true,
-    );
+    this.teleportPlayer(agent1.characterId, agent1RestorePosition);
     this.stopCombat(agent1.characterId);
 
     const agent2RestorePosition = this.sanitizeRestorePosition(
       agent2.originalPosition,
       agent2.characterId,
     );
-    this.teleportPlayer(
-      agent2.characterId,
-      agent2RestorePosition,
-      undefined,
-      true,
-    );
+    this.teleportPlayer(agent2.characterId, agent2RestorePosition);
     this.stopCombat(agent2.characterId);
 
     // Defer flag clear until current death-event dispatch unwinds. If we clear
@@ -2218,11 +2224,44 @@ export class DuelOrchestrator {
   }
 
   stopCombat(playerId: string): void {
+    // Tear down CombatSystem internal state (StateService entries, attack
+    // cooldowns, animation resets) so the combat tick doesn't re-set entity
+    // flags after we clear them below.
+    const combatSystem = this.world.getSystem("combat") as {
+      forceEndCombat?: (entityId: string) => void;
+    } | null;
+    if (combatSystem?.forceEndCombat) {
+      try {
+        combatSystem.forceEndCombat(playerId);
+      } catch {
+        // Agent may not have active combat state; safe to ignore.
+      }
+    }
+
     const entity = this.world.entities.get(playerId);
     if (!entity) return;
 
-    entity.data.combatTarget = null;
-    entity.data.inCombat = false;
+    // Clear ALL combat-related entity data fields. The `ct` (serialized
+    // combatTarget) and `attackTarget` fields are checked by
+    // EmbeddedHyperscapeService.getGameState() — leaving them stale causes
+    // agents to think they're still in combat and return "idle" from every
+    // behavior tick instead of moving or attacking.
+    (entity.data as AgentCombatData).combatTarget = null;
+    (entity.data as AgentCombatData).inCombat = false;
+    (entity.data as AgentCombatData).ct = null;
+    (entity.data as AgentCombatData).c = false;
+    (entity.data as AgentCombatData).attackTarget = null;
+
+    // Reset emote to idle so victory wave stops when agent teleports out
+    entity.data.emote = "idle";
+    const network = this.world.network as NetworkWithSend | undefined;
+    network?.send?.("entityModified", {
+      id: playerId,
+      changes: { e: "idle" },
+    });
+
+    // Notify other systems (animation, face direction) to stop combat visuals.
+    this.world.emit(EventType.COMBAT_STOP_ATTACK, { attackerId: playerId });
   }
 
   // ============================================================================
@@ -2250,7 +2289,7 @@ export class DuelOrchestrator {
     this.stopCombatAIs();
     this.duelFoodSlotsByAgent.clear();
     this.combatRolesByAgent.clear();
-    this.lastCombatStallNudgeCycleId = null;
+    this.lastCombatStallNudgeAt = 0;
     this.combatLoopTickCount = 0;
   }
 }

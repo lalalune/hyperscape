@@ -152,6 +152,92 @@ function isFishingSpot(e: Entity): boolean {
 }
 
 /**
+ * Fishing tool keywords and the spot resourceIds they can be used at.
+ * The server uses EXACT tool matching per spot, so agents must only
+ * approach spots that match the tool they have in their inventory.
+ */
+const FISHING_TOOL_KEYWORDS: Array<{
+  keywords: string[];
+  spotResourceIds: string[];
+}> = [
+  {
+    keywords: [
+      "small_fishing_net",
+      "small fishing net",
+      "fishing net",
+      "fishing_net",
+      "net",
+    ],
+    spotResourceIds: ["fishing_spot_net", "fishing_spot_monkfish"],
+  },
+  {
+    keywords: ["fly_fishing_rod", "fly fishing rod", "fly_rod"],
+    spotResourceIds: ["fishing_spot_fly"],
+  },
+  {
+    keywords: ["fishing_rod", "fishing rod"],
+    spotResourceIds: ["fishing_spot_bait"],
+  },
+  {
+    keywords: ["harpoon"],
+    spotResourceIds: ["fishing_spot_harpoon", "fishing_spot_shark"],
+  },
+  {
+    keywords: ["lobster_pot", "lobster pot", "lobster_cage"],
+    spotResourceIds: ["fishing_spot_cage"],
+  },
+];
+
+/**
+ * Normalize a name for fuzzy matching: lowercase, replace underscores with spaces.
+ */
+function normalizeFishingName(name: string): string {
+  return name.toLowerCase().replace(/_/g, " ");
+}
+
+/**
+ * Check if the player has ANY fishing tool and return matching spot resource IDs.
+ */
+function getMatchingFishingSpotIds(items: InventoryItem[]): string[] {
+  const matchedSpotIds: string[] = [];
+  for (const toolDef of FISHING_TOOL_KEYWORDS) {
+    const hasTool = items.some((item) => {
+      const rawName = getInventoryItemName(item);
+      const name = normalizeFishingName(rawName);
+      // Also check original name and underscore variant
+      return toolDef.keywords.some((kw) => {
+        const normalizedKw = normalizeFishingName(kw);
+        return name.includes(normalizedKw) || name.includes(kw);
+      });
+    });
+    if (hasTool) {
+      matchedSpotIds.push(...toolDef.spotResourceIds);
+    }
+  }
+  return matchedSpotIds;
+}
+
+function hasFishingTool(items: InventoryItem[]): boolean {
+  return items.some((item) => {
+    const rawName = getInventoryItemName(item);
+    const name = normalizeFishingName(rawName);
+    return (
+      name.includes("fishing net") ||
+      name.includes("fishing rod") ||
+      name.includes("fly fishing rod") ||
+      name.includes("harpoon") ||
+      name.includes("lobster pot") ||
+      name.includes("lobster cage") ||
+      rawName.includes("small_fishing_net") ||
+      rawName.includes("fly_fishing_rod") ||
+      rawName.includes("fishing_rod") ||
+      rawName.includes("lobster_pot") ||
+      rawName.includes("fishing_net")
+    );
+  });
+}
+
+/**
  * Check if an entity is a mining rock
  */
 function isMiningRock(e: Entity): boolean {
@@ -209,7 +295,7 @@ export const chopTreeAction: Action = {
     const isAlive = playerEntity.alive !== false;
     if (!service.isConnected() || !isAlive || playerEntity.inCombat) {
       logger.info(
-        `[CHOP_TREE] Validation failed: connected=${service.isConnected()}, alive=${playerEntity.alive}`,
+        `[CHOP_TREE] Validation failed: connected=${service.isConnected()}, alive=${playerEntity.alive}, inCombat=${playerEntity.inCombat}`,
       );
       return false;
     }
@@ -221,7 +307,7 @@ export const chopTreeAction: Action = {
     const skills = playerEntity.skills;
     const woodcuttingLevel = skills?.woodcutting?.level ?? 1;
 
-    // Check for trees WITHIN approach range (20m)
+    // Check for trees WITHIN approach range (40m)
     // Handler will walk to tree if needed, then chop when within 4m
     const playerPos = playerEntity.position;
     const allTrees = entities.filter(isTree);
@@ -229,7 +315,7 @@ export const chopTreeAction: Action = {
       const entityPos = e.position;
       if (!entityPos) return false;
       const dist = getEntityDistance(playerPos, entityPos);
-      return dist !== null && dist <= 20; // 20m approach range
+      return dist !== null && dist <= 40; // 40m approach range
     });
 
     // Filter by level requirement
@@ -356,14 +442,14 @@ export const chopTreeAction: Action = {
         (t) => t.distance !== null && t.distance <= MAX_GATHER_DISTANCE,
       );
 
-      // Trees within approach range (20m) - close enough to walk to
+      // Trees within approach range (40m) - close enough to walk to
       const approachableTrees = treesWithDistance.filter(
-        (t) => t.distance !== null && t.distance <= 20,
+        (t) => t.distance !== null && t.distance <= 40,
       );
 
       logger.info(
         `[CHOP_TREE] Handler: Found ${nearbyTrees.length} choppable trees within ${MAX_GATHER_DISTANCE}m, ` +
-          `${approachableTrees.length} within 20m (woodcutting level: ${woodcuttingLevel})`,
+          `${approachableTrees.length} within 40m (woodcutting level: ${woodcuttingLevel})`,
       );
 
       // If no trees within gathering range but some within approach range, walk to nearest first
@@ -431,7 +517,11 @@ export const chopTreeAction: Action = {
           text: `Walking to ${nearest.entity.name}...`,
           action: "CHOP_TREE",
         });
-        return { success: true, text: `Walking to ${nearest.entity.name}` };
+        return {
+          success: true,
+          text: `Walking to ${nearest.entity.name}`,
+          data: { moving: true },
+        };
       }
 
       const tree = nearbyTrees[0]?.entity; // Pick nearest tree within range
@@ -442,7 +532,7 @@ export const chopTreeAction: Action = {
           const entityPos = t.position;
           if (!entityPos) return false;
           const dist = getEntityDistance(playerPos, entityPos);
-          return dist !== null && dist <= 20;
+          return dist !== null && dist <= 40;
         });
 
         if (allNearbyTrees.length > 0) {
@@ -539,7 +629,11 @@ export const chopTreeAction: Action = {
           text: `Positioning to chop ${tree.name}...`,
           action: "CHOP_TREE",
         });
-        return { success: true, text: `Positioning to chop ${tree.name}` };
+        return {
+          success: true,
+          text: `Positioning to chop ${tree.name}`,
+          data: { moving: true },
+        };
       }
 
       const command: GatherResourceCommand = {
@@ -675,7 +769,7 @@ export const mineRockAction: Action = {
     const isAlive = playerEntity.alive !== false;
     if (!service.isConnected() || !isAlive || playerEntity.inCombat) {
       logger.info(
-        `[MINE_ROCK] Validation failed: connected=${service.isConnected()}, alive=${playerEntity.alive}`,
+        `[MINE_ROCK] Validation failed: connected=${service.isConnected()}, alive=${playerEntity.alive}, inCombat=${playerEntity.inCombat}`,
       );
       return false;
     }
@@ -687,14 +781,14 @@ export const mineRockAction: Action = {
     const skills = playerEntity.skills;
     const miningLevel = skills?.mining?.level ?? 1;
 
-    // Check for rocks within approach range (20m) that player can mine
+    // Check for rocks within approach range (40m) that player can mine
     const playerPos = playerEntity.position;
     const allRocks = entities.filter(isRock);
     const approachableRocks = allRocks.filter((e) => {
       const entityPos = e.position;
       if (!entityPos) return false;
       const dist = getEntityDistance(playerPos, entityPos);
-      return dist !== null && dist <= 20;
+      return dist !== null && dist <= 40;
     });
 
     // Filter by level requirement
@@ -797,14 +891,14 @@ export const mineRockAction: Action = {
         (r) => r.distance !== null && r.distance <= MAX_GATHER_DISTANCE,
       );
 
-      // Rocks within approach range (20m)
+      // Rocks within approach range (40m)
       const approachableRocks = rocksWithDistance.filter(
-        (r) => r.distance !== null && r.distance <= 20,
+        (r) => r.distance !== null && r.distance <= 40,
       );
 
       logger.info(
         `[MINE_ROCK] Handler: Found ${nearbyRocks.length} mineable rocks within ${MAX_GATHER_DISTANCE}m, ` +
-          `${approachableRocks.length} within 20m (mining level: ${miningLevel})`,
+          `${approachableRocks.length} within 40m (mining level: ${miningLevel})`,
       );
 
       // If no rocks within gathering range but some within approach range, walk to nearest
@@ -883,7 +977,11 @@ export const mineRockAction: Action = {
           text: `Walking to ${nearest.entity.name}...`,
           action: "MINE_ROCK",
         });
-        return { success: true, text: `Walking to ${nearest.entity.name}` };
+        return {
+          success: true,
+          text: `Walking to ${nearest.entity.name}`,
+          data: { moving: true },
+        };
       }
 
       // Find the nearest rock we can mine
@@ -894,7 +992,7 @@ export const mineRockAction: Action = {
           const entityPos = r.position;
           if (!entityPos) return false;
           const dist = getEntityDistance(playerPos, entityPos);
-          return dist !== null && dist <= 20;
+          return dist !== null && dist <= 40;
         });
 
         if (allNearbyRocks.length > 0) {
@@ -1004,7 +1102,11 @@ export const mineRockAction: Action = {
           text: `Positioning to mine ${rock.name}...`,
           action: "MINE_ROCK",
         });
-        return { success: true, text: `Positioning to mine ${rock.name}` };
+        return {
+          success: true,
+          text: `Positioning to mine ${rock.name}`,
+          data: { moving: true },
+        };
       }
 
       const command: GatherResourceCommand = {
@@ -1058,25 +1160,55 @@ export const catchFishAction: Action = {
     )
       return false;
 
-    const hasRod =
-      playerEntity.items?.some((i) => {
-        const name = getInventoryItemName(i);
-        return name.includes("fishing rod") || name.includes("rod");
-      }) ?? false;
+    const items = playerEntity.items ?? [];
+    if (!hasFishingTool(items)) {
+      logger.info(
+        `[CATCH_FISH] Validate: no fishing tool found in ${items.length} items`,
+      );
+      return false;
+    }
 
+    const matchingSpotIds = getMatchingFishingSpotIds(items);
     const fishingLevel = playerEntity.skills?.fishing?.level ?? 1;
     const playerPos = playerEntity.position;
     const spots = entities.filter(isFishingSpot);
+
+    // Log tool-to-spot matching for diagnostics
+    const toolNames = items
+      .map((i) => getInventoryItemName(i))
+      .filter((n) => n.length > 0);
+    logger.info(
+      `[CATCH_FISH] Validate: tools=[${toolNames.join(", ")}] matchingSpotIds=[${matchingSpotIds.join(", ")}] nearbySpots=${spots.length}`,
+    );
 
     const approachableSpots = spots.filter((spot) => {
       if (spot.depleted) return false;
       const requiredLevel = spot.requiredLevel ?? 1;
       if (requiredLevel > fishingLevel) return false;
+      // Only consider spots that match an available fishing tool
+      const spotResId = (spot.resourceId || "").toLowerCase();
+      if (
+        matchingSpotIds.length > 0 &&
+        spotResId &&
+        !matchingSpotIds.includes(spotResId)
+      )
+        return false;
       const dist = getEntityDistance(playerPos, spot.position);
-      return dist !== null && dist <= 20;
+      return dist !== null && dist <= 40;
     });
 
-    return hasRod && approachableSpots.length > 0;
+    if (approachableSpots.length === 0 && spots.length > 0) {
+      // Log why spots were rejected
+      for (const spot of spots) {
+        const spotResId = (spot.resourceId || "").toLowerCase();
+        const dist = getEntityDistance(playerPos, spot.position);
+        logger.info(
+          `[CATCH_FISH] Rejected spot: name=${spot.name} resourceId=${spotResId} depleted=${spot.depleted} dist=${dist?.toFixed(1) ?? "?"} reqLvl=${spot.requiredLevel ?? 1}/${fishingLevel} toolMatch=${matchingSpotIds.includes(spotResId)}`,
+        );
+      }
+    }
+
+    return approachableSpots.length > 0;
   },
 
   handler: async (
@@ -1099,13 +1231,31 @@ export const catchFishAction: Action = {
       const player = service.getPlayerEntity();
       const playerPos = player?.position;
       const fishingLevel = player?.skills?.fishing?.level ?? 1;
+      const matchingSpotIds = getMatchingFishingSpotIds(player?.items ?? []);
 
-      // Find fishing spots and sort by distance
-      const allSpots = entities.filter(isFishingSpot).filter((spot) => {
+      // Find fishing spots that match the agent's tool and sort by distance
+      const rawSpots = entities.filter(isFishingSpot);
+      const allSpots = rawSpots.filter((spot) => {
         if (spot.depleted) return false;
         const requiredLevel = spot.requiredLevel ?? 1;
-        return requiredLevel <= fishingLevel;
+        if (requiredLevel > fishingLevel) return false;
+        // Only go to spots that match a tool we have
+        const spotResId = (spot.resourceId || "").toLowerCase();
+        if (
+          matchingSpotIds.length > 0 &&
+          spotResId &&
+          !matchingSpotIds.includes(spotResId)
+        )
+          return false;
+        return true;
       });
+
+      if (allSpots.length === 0 && rawSpots.length > 0) {
+        logger.info(
+          `[CATCH_FISH] Handler: ${rawSpots.length} fishing spots found but none match tools. ` +
+            `matchingSpotIds=[${matchingSpotIds.join(",")}] spotResourceIds=[${rawSpots.map((s) => s.resourceId || "?").join(",")}]`,
+        );
+      }
 
       const spotsWithDistance = allSpots
         .map((e) => {
@@ -1119,7 +1269,7 @@ export const catchFishAction: Action = {
         (t) => t.distance !== null && t.distance <= MAX_GATHER_DISTANCE,
       );
       const approachableSpots = spotsWithDistance.filter(
-        (t) => t.distance !== null && t.distance <= 20,
+        (t) => t.distance !== null && t.distance <= 40,
       );
 
       if (nearbySpots.length === 0 && approachableSpots.length > 0) {
@@ -1185,7 +1335,11 @@ export const catchFishAction: Action = {
           text: `Walking to ${nearest.entity.name}...`,
           action: "CATCH_FISH",
         });
-        return { success: true, text: `Walking to ${nearest.entity.name}` };
+        return {
+          success: true,
+          text: `Walking to ${nearest.entity.name}`,
+          data: { moving: true },
+        };
       }
 
       const spot = nearbySpots[0]?.entity;
@@ -1263,7 +1417,11 @@ export const catchFishAction: Action = {
           text: `Positioning to fish at ${spot.name}...`,
           action: "CATCH_FISH",
         });
-        return { success: true, text: `Positioning to fish at ${spot.name}` };
+        return {
+          success: true,
+          text: `Positioning to fish at ${spot.name}`,
+          data: { moving: true },
+        };
       }
 
       const command: GatherResourceCommand = {

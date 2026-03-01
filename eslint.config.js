@@ -208,6 +208,9 @@ export default [
     rules: {
       // TypeScript rules
       "@typescript-eslint/no-unused-vars": "off",
+      // TODO(AUDIT-005): Change to "error" after fixing remaining ~46 explicit any types.
+      // Reduced from 142 after audit cleanup. Remaining are in: Three.js integrations, Web3 code.
+      // Priority: Medium - core game logic types are now clean.
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-dupe-class-members": "error", // TypeScript-aware duplicate member checking
       "@typescript-eslint/ban-ts-comment": [

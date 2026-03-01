@@ -238,11 +238,11 @@ export function createAgentCharacter(
       model: config.model,
       secrets: {
         PGLITE_DATA_DIR: pgliteDataDir,
-        // Use the server's Postgres URL to connect agents directly to Supabase
-        POSTGRES_URL:
-          process.env.DATABASE_URL || process.env.POSTGRES_URL || "",
-        DATABASE_URL:
-          process.env.DATABASE_URL || process.env.POSTGRES_URL || "",
+        // Force PGLite in-memory DB — do NOT pass POSTGRES_URL/DATABASE_URL.
+        // The ElizaOS SQL plugin prioritizes Postgres over PGLite when both
+        // are set, which causes destructive schema migrations against the
+        // game database (different schema than ElizaOS expects).
+        // Long-term memory is disabled anyway, so agents don't need Postgres.
         // Disable memory accumulation: agents use live world state, not persistent memories
         MEMORY_LONG_TERM_ENABLED: "false",
         MEMORY_LONG_TERM_VECTOR_SEARCH_ENABLED: "false",

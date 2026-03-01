@@ -70,7 +70,7 @@ describe("EmbeddedHyperscapeService", () => {
       // If the module can't be loaded in test context (missing deps), skip
       EmbeddedHyperscapeService = null;
     }
-  });
+  }, 60000); // Increase timeout for dynamic import
 
   it("removes all world event listeners on stop()", async () => {
     if (!EmbeddedHyperscapeService) {

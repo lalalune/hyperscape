@@ -96,36 +96,36 @@ export const challengeDuelAction: Action = {
       return false;
     }
 
-    // Check if there are players nearby to challenge
+    // Check if there are any visible players to challenge (any distance)
     const nearbyEntities = service.getNearbyEntities();
-    const nearbyPlayers = nearbyEntities.filter((entity) => {
-      // Check if this is another player (not a mob)
+    const visiblePlayers = nearbyEntities.filter((entity) => {
       const isPlayer =
         entity.type === "player" ||
         entity.entityType === "player" ||
         entity.playerId !== undefined;
 
-      // Don't challenge ourselves
       if (entity.id === player.id) return false;
 
-      // Check position
       const entityPos = getXZ(entity.position);
       if (!entityPos) return false;
 
-      // Must be within 15 tiles
-      const dist = calculateDistance(player.position, entity.position);
-      return isPlayer && dist <= 15;
+      return isPlayer;
     });
 
-    if (nearbyPlayers.length === 0) {
+    if (visiblePlayers.length === 0) {
       logger.debug(
-        "[CHALLENGE_DUEL] Validation failed: no nearby players to challenge",
+        "[CHALLENGE_DUEL] Validation failed: no visible players to challenge",
       );
       return false;
     }
 
+    const nearestDist = Math.min(
+      ...visiblePlayers.map((p) =>
+        calculateDistance(player.position, p.position),
+      ),
+    );
     logger.info(
-      `[CHALLENGE_DUEL] Validation passed - ${nearbyPlayers.length} players available`,
+      `[CHALLENGE_DUEL] Validation passed - ${visiblePlayers.length} players visible (nearest: ${nearestDist.toFixed(0)} tiles)`,
     );
     return true;
   },
@@ -149,9 +149,9 @@ export const challengeDuelAction: Action = {
         return { success: false, error: "Player entity not available" };
       }
 
-      // Find nearest player to challenge
+      // Find nearest visible player to challenge
       const nearbyEntities = service.getNearbyEntities();
-      const nearbyPlayers = nearbyEntities.filter((entity) => {
+      const visiblePlayers = nearbyEntities.filter((entity) => {
         const isPlayer =
           entity.type === "player" ||
           entity.entityType === "player" ||
@@ -159,22 +159,21 @@ export const challengeDuelAction: Action = {
         if (entity.id === player.id) return false;
         const entityPos = getXZ(entity.position);
         if (!entityPos) return false;
-        const dist = calculateDistance(player.position, entity.position);
-        return isPlayer && dist <= 15;
+        return isPlayer;
       });
 
-      if (nearbyPlayers.length === 0) {
-        return { success: false, error: "No nearby players to challenge" };
+      if (visiblePlayers.length === 0) {
+        return { success: false, error: "No visible players to challenge" };
       }
 
       // Find nearest player
-      let nearestPlayer = nearbyPlayers[0];
+      let nearestPlayer = visiblePlayers[0];
       let nearestDist = calculateDistance(
         player.position,
         nearestPlayer.position,
       );
 
-      for (const p of nearbyPlayers) {
+      for (const p of visiblePlayers) {
         const dist = calculateDistance(player.position, p.position);
         if (dist < nearestDist) {
           nearestDist = dist;
@@ -182,7 +181,33 @@ export const challengeDuelAction: Action = {
         }
       }
 
-      // Send duel challenge
+      // If too far to challenge, walk to the player first
+      if (nearestDist > 15) {
+        const targetPos = getXZ(nearestPlayer.position);
+        if (targetPos) {
+          logger.info(
+            `[CHALLENGE_DUEL] Player ${nearestPlayer.name || nearestPlayer.id} is ${nearestDist.toFixed(0)} tiles away — walking to them`,
+          );
+          await service.executeMove({
+            target: [targetPos.x, 0, targetPos.z],
+            runMode: true,
+          });
+          const responseText = `Walking to ${nearestPlayer.name || nearestPlayer.id} to challenge them to a duel (${nearestDist.toFixed(0)} tiles away)`;
+          await callback?.({ text: responseText, action: "CHALLENGE_DUEL" });
+          return {
+            success: true,
+            text: responseText,
+            data: {
+              action: "CHALLENGE_DUEL",
+              moving: true,
+              targetId: nearestPlayer.id,
+              targetName: nearestPlayer.name,
+            },
+          };
+        }
+      }
+
+      // Close enough — send duel challenge
       await service.executeDuelChallenge({
         targetPlayerId: nearestPlayer.id,
       });

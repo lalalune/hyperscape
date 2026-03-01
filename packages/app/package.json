@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "CI=true tauri build --no-bundle",
+    "build:client-if-missing": "node -e \"const fs=require('fs');if(!fs.existsSync('../client/dist')){const{execSync}=require('child_process');execSync('bun run build',{cwd:'../client',stdio:'inherit'})}\"",
     "build:full": "CI=true tauri build",
     "build:debug": "CI=true tauri build --debug",
     "ios:init": "tauri ios init",

@@ -51,6 +51,18 @@ const EXEMPT_PATHS = new Set([
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /**
+ * Known cross-origin client domains.
+ * These are protected by Origin header validation (in http-server.ts), so CSRF
+ * cookie validation is redundant and doesn't work anyway (SameSite=Strict blocks cookies).
+ */
+const KNOWN_CROSS_ORIGIN_PATTERNS = [
+  /^https?:\/\/(www\.)?hyperscape\.gg$/,
+  /^https?:\/\/(www\.)?hyperbet\.win$/,
+  /^https?:\/\/.+\.hyperscape\.pages\.dev$/,
+  /^https?:\/\/.+\.hyperscape-betting\.pages\.dev$/,
+];
+
+/**
  * Generate a cryptographically secure CSRF token
  */
 function generateCsrfToken(): string {
@@ -85,6 +97,19 @@ function shouldSkipCsrf(request: FastifyRequest): boolean {
   // Admin requests with X-Admin-Code are already authenticated
   if (request.headers["x-admin-code"]) {
     return true;
+  }
+
+  // Cross-origin requests from known clients
+  // These are already protected by Origin header validation in http-server.ts.
+  // CSRF cookies use SameSite=Strict which doesn't work cross-origin, so we
+  // skip CSRF validation for these and rely on Origin validation instead.
+  const origin = request.headers.origin;
+  if (origin) {
+    for (const pattern of KNOWN_CROSS_ORIGIN_PATTERNS) {
+      if (pattern.test(origin)) {
+        return true;
+      }
+    }
   }
 
   return false;

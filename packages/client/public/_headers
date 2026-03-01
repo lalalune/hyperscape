@@ -15,10 +15,10 @@
   # - 'unsafe-eval' is required for:
   #   1. Privy SDK: Uses eval for authentication flows
   #   2. Webpack/Vite: Hot module replacement in development
-  # - report-uri: Sends CSP violations to our API for monitoring
+  # - static.cloudflareinsights.com: Cloudflare Pages Web Analytics beacon
   # - Consider migrating to CSP nonces when Privy SDK adds support
   # ============================================================================
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://*.privy.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' wss: https: ws://localhost:* http://localhost:*; frame-src 'self' https://auth.privy.io https://*.privy.io; worker-src 'self' blob:; media-src 'self' blob:; report-uri /api/csp-report;
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://*.privy.io https://static.cloudflareinsights.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' wss: https: ws://localhost:* http://localhost:* data: blob:; frame-src 'self' https://auth.privy.io https://*.privy.io; worker-src 'self' blob:; media-src 'self' blob:;
   # Report-Only mode for testing stricter policies (uncomment to test)
   # Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://auth.privy.io https://*.privy.io; style-src 'self'; report-uri /api/csp-report;
 

@@ -4,7 +4,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 
-declare_id!("AqRu5b1fd67VyR4MgjKPN9EMgQ8wxauDUxyY5pUsGdAW");
+declare_id!("ARVJNJp49VZnkB8QBYZAAFJmufvtVSPhnuuenwwSLwpi");
 
 #[program]
 pub mod gold_clob_market {

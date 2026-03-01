@@ -38,6 +38,7 @@ export type {
 export {
   spawnModelAgents,
   getRunningAgents,
+  getAgentRuntimeByCharacterId,
   stopModelAgent,
   stopAllModelAgents,
   getAvailableModels,

@@ -1,6 +1,6 @@
 name: Deploy Assets to Cloudflare R2
 
-# NOTE: Frontend deployment is handled by Cloudflare Pages GitHub integration
+# NOTE: Frontend deployment is handled by deploy-pages.yml workflow
 # This workflow only handles R2 asset uploads (manifests, WASM, models, etc.)
 # Only runs on pushes to main branch (NOT on PRs or staging branch)
 #
@@ -76,6 +76,45 @@ jobs:
 
       - name: Install Wrangler
         run: npm install -g wrangler
+
+      - name: Configure R2 CORS
+        run: |
+          BUCKET="${{ steps.target.outputs.bucket }}"
+          echo "🔧 Configuring CORS for R2 bucket: $BUCKET"
+
+          # Create CORS configuration (wrangler R2 API format)
+          cat > /tmp/cors-rules.json << 'EOF'
+          {
+            "rules": [
+              {
+                "allowed": {
+                  "origins": [
+                    "https://hyperscape.gg",
+                    "https://www.hyperscape.gg",
+                    "https://hyperbet.win",
+                    "https://www.hyperbet.win",
+                    "https://hyperscape.bet",
+                    "https://www.hyperscape.bet",
+                    "https://hyperscape-production.up.railway.app",
+                    "https://*.hyperscape.pages.dev",
+                    "https://*.hyperscape-betting.pages.dev",
+                    "http://localhost:3333",
+                    "http://localhost:5555"
+                  ],
+                  "methods": ["GET", "HEAD"],
+                  "headers": ["*"]
+                },
+                "exposed": ["Content-Length", "Content-Type", "ETag"],
+                "maxAge": 86400
+              }
+            ]
+          }
+          EOF
+
+          wrangler r2 bucket cors set "$BUCKET" --file /tmp/cors-rules.json
+          echo "✅ CORS configured for $BUCKET"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Upload manifests to R2
         run: |

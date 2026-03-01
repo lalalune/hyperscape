@@ -92,6 +92,10 @@ import {
   initPlaceholderInstancer,
   destroyPlaceholderInstancer,
 } from "../systems/shared/world/PlaceholderInstancer";
+import {
+  initGLBResourceInstancer,
+  destroyGLBResourceInstancer,
+} from "../systems/shared/world/GLBResourceInstancer";
 
 // PhysX loading - used to defer heavy work until WASM is loaded
 import { waitForPhysX } from "../physics/PhysXManager";
@@ -185,6 +189,7 @@ export function createClientWorld() {
   // Clean up any previous instancer state from prior world
   destroyGLBTreeInstancer();
   destroyPlaceholderInstancer();
+  destroyGLBResourceInstancer();
 
   // ============================================================================
   // BROWSER TEST UTILITIES
@@ -342,6 +347,10 @@ export function createClientWorld() {
       stageSystem.THREE = THREE as unknown as StageSystem["THREE"];
       initGLBTreeInstancer(stageSystem.scene as unknown as THREE.Scene, world);
       initPlaceholderInstancer(stageSystem.scene as unknown as THREE.Scene);
+      initGLBResourceInstancer(
+        stageSystem.scene as unknown as THREE.Scene,
+        world,
+      );
     }
   };
 

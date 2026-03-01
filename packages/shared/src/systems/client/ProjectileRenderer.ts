@@ -120,6 +120,10 @@ export class ProjectileRenderer extends System {
   private boundLaunchHandler: ((data: unknown) => void) | null = null;
   private boundHitHandler: ((data: unknown) => void) | null = null;
 
+  // Tracks pending delayed-spawn timers so destroy() can cancel them
+  private readonly _pendingDelays: Set<ReturnType<typeof setTimeout>> =
+    new Set();
+
   // Cached textures to avoid per-projectile allocation
   private arrowTextures: Map<string, THREE.Texture> = new Map();
 
@@ -130,6 +134,9 @@ export class ProjectileRenderer extends System {
   // Shared geometry for billboard particles (reused across all projectiles)
   private static particleGeometry: THREE.CircleGeometry | null = null;
 
+  // Reference count — particleGeometry is only disposed when the last instance tears down
+  private static _instanceCount = 0;
+
   // Last trail update time
   private lastTrailUpdate = 0;
 
@@ -139,6 +146,7 @@ export class ProjectileRenderer extends System {
 
   async init(options?: WorldOptions): Promise<void> {
     await super.init(options as WorldOptions);
+    ProjectileRenderer._instanceCount++;
 
     // Only run on client
     if (!this.world.isClient) {
@@ -573,7 +581,8 @@ export class ProjectileRenderer extends System {
 
     // If there's a delay (e.g., for magic cast animation), wait before spawning
     if (delayMs && delayMs > 0) {
-      setTimeout(() => {
+      const handle = setTimeout(() => {
+        this._pendingDelays.delete(handle);
         this.createProjectile(
           attackerId,
           targetId,
@@ -584,6 +593,7 @@ export class ProjectileRenderer extends System {
           arrowId,
         );
       }, delayMs);
+      this._pendingDelays.add(handle);
     } else {
       this.createProjectile(
         attackerId,
@@ -817,18 +827,22 @@ export class ProjectileRenderer extends System {
 
       // Calculate direction to target
       this._tempVec3.copy(proj.targetPos).sub(proj.currentPos);
-      const distanceToTarget = this._tempVec3.length();
+      // OPTIMIZATION: use lengthSq for hit check (avoids sqrt), then compute sqrt once
+      // for both normalization and fade — saves one sqrt vs length() + normalize()
+      const distSqToTarget = this._tempVec3.lengthSq();
 
       // Check if we've hit the target
-      if (distanceToTarget < this.HIT_THRESHOLD) {
+      if (distSqToTarget < this.HIT_THRESHOLD * this.HIT_THRESHOLD) {
         this.spawnImpactBurst(proj);
         this.removeProjectile(proj);
         this._toRemove.push(i);
         continue;
       }
 
-      // Normalize direction and move at constant speed
-      this._tempVec3.normalize();
+      // Compute distance once; reuse for normalization and fade (1 sqrt total)
+      const distanceToTarget = Math.sqrt(distSqToTarget);
+      // divideScalar(dist) is equivalent to normalize() but avoids a second sqrt
+      this._tempVec3.divideScalar(distanceToTarget);
       const moveDistance = proj.speed * dt;
       proj.distanceTraveled += moveDistance;
 
@@ -1122,6 +1136,12 @@ export class ProjectileRenderer extends System {
   }
 
   destroy(): void {
+    // Cancel any pending delayed-spawn timers so they don't fire after teardown
+    for (const handle of this._pendingDelays) {
+      clearTimeout(handle);
+    }
+    this._pendingDelays.clear();
+
     // Remove event listeners
     if (this.boundLaunchHandler) {
       this.world.off(
@@ -1160,7 +1180,15 @@ export class ProjectileRenderer extends System {
     this.spellGlowTextures.clear();
 
     // Dispose shared geometry
-    if (ProjectileRenderer.particleGeometry) {
+    // Only dispose the shared geometry when the last instance is torn down
+    ProjectileRenderer._instanceCount = Math.max(
+      0,
+      ProjectileRenderer._instanceCount - 1,
+    );
+    if (
+      ProjectileRenderer._instanceCount === 0 &&
+      ProjectileRenderer.particleGeometry
+    ) {
       ProjectileRenderer.particleGeometry.dispose();
       ProjectileRenderer.particleGeometry = null;
     }

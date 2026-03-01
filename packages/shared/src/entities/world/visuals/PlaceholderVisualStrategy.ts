@@ -70,7 +70,7 @@ export class PlaceholderVisualStrategy implements ResourceVisualStrategy {
     }
   }
 
-  async onDepleted(ctx: ResourceVisualContext): Promise<void> {
+  async onDepleted(ctx: ResourceVisualContext): Promise<boolean> {
     if (this.instanced) {
       setPlaceholderVisible(ctx.id, false);
     }
@@ -79,6 +79,7 @@ export class PlaceholderVisualStrategy implements ResourceVisualStrategy {
       proxy.userData.depleted = true;
       proxy.userData.interactable = false;
     }
+    return false;
   }
 
   async onRespawn(ctx: ResourceVisualContext): Promise<void> {

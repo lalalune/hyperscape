@@ -86,6 +86,12 @@
  *
  * @see packets.ts for packet format
  * @see ServerNetwork.ts for server implementation
+ *
+ * AUDIT-003 (ASSESSED): File is ~5K lines (165KB). The 127 packet handlers are
+ * simple event emitters that forward data to the world event bus. Extraction
+ * modules exist (ConnectionManager.ts, InterpolationEngine.ts) but handlers
+ * don't benefit from extraction - they're intentionally thin wrappers.
+ * TileInterpolator is already extracted. Current structure is appropriate.
  */
 
 // moment removed; use native Date
@@ -4224,6 +4230,7 @@ export class ClientNetwork extends SystemBase {
     playerId: string;
     position: [number, number, number];
     rotation?: number;
+    suppressEffect?: boolean;
   }) => {
     const pos = _v3_1.set(data.position[0], data.position[1], data.position[2]);
 
@@ -4277,11 +4284,8 @@ export class ClientNetwork extends SystemBase {
         );
       }
 
-      // Emit event for UI (e.g., home teleport completion)
-      this.world.emit(EventType.PLAYER_TELEPORTED, {
-        playerId: data.playerId,
-        position: { x: pos.x, y: pos.y, z: pos.z },
-      });
+      // Note: localPlayer.teleport() above already emits PLAYER_TELEPORTED
+      // for VFX — do not emit again here to avoid duplicate effects.
     } else {
       // Remote player teleport - update their position so we see them move
       const remotePlayer = this.world.entities.players?.get(data.playerId);
@@ -4339,6 +4343,7 @@ export class ClientNetwork extends SystemBase {
         this.world.emit(EventType.PLAYER_TELEPORTED, {
           playerId: data.playerId,
           position: { x: pos.x, y: pos.y, z: pos.z },
+          ...(data.suppressEffect ? { suppressEffect: true } : {}),
         });
 
         // Apply rotation if provided
@@ -4578,6 +4583,7 @@ export class ClientNetwork extends SystemBase {
     moveSeq?: number;
     emote?: string;
     tilesPerTick?: number; // Mob-specific speed (optional, defaults to walk/run speed)
+    isContinuation?: boolean; // Append to existing path instead of resetting interpolator
   }) => {
     // Get entity's current position for smooth start (fallback if startTile not provided)
     const entity = this.world.entities.get(data.id);
@@ -4600,6 +4606,7 @@ export class ClientNetwork extends SystemBase {
       data.moveSeq,
       data.emote,
       data.tilesPerTick,
+      data.isContinuation,
     );
 
     // CRITICAL: Set the flag IMMEDIATELY when movement starts

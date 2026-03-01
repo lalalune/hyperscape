@@ -17,6 +17,11 @@ import type {
 } from "@elizaos/core";
 import type { HyperscapeService } from "../services/HyperscapeService.js";
 import type { Entity } from "../types.js";
+import {
+  hasAxe,
+  hasPickaxe,
+  hasFishingEquipment,
+} from "../utils/item-detection.js";
 
 function isNpcEntity(entity: Entity): boolean {
   const entityType = (entity.entityType || "").toLowerCase();
@@ -106,6 +111,38 @@ export const questProvider: Provider = {
       textParts.push("### No Active Quests");
       textParts.push("You have no quests. Talk to NPCs to find quests!");
       textParts.push("");
+    }
+
+    // Tell agent which quests give tools when they're missing essential items
+    if (player) {
+      const missingAxe = !hasAxe(player);
+      const missingPickaxe = !hasPickaxe(player);
+      const missingNet = !hasFishingEquipment(player);
+
+      if (missingAxe || missingPickaxe || missingNet) {
+        textParts.push("### MISSING Essential Tools!");
+        const toolHints: string[] = [];
+        if (missingAxe) {
+          toolHints.push(
+            '- ACCEPT_QUEST "lumberjacks_first_lesson" from Forester Wilma → bronze hatchet + tinderbox',
+          );
+        }
+        if (missingPickaxe) {
+          toolHints.push(
+            '- ACCEPT_QUEST "torvins_tools" from Torvin → bronze pickaxe + hammer',
+          );
+        }
+        if (missingNet) {
+          toolHints.push(
+            '- ACCEPT_QUEST "fresh_catch" from Fisherman Pete → small fishing net',
+          );
+        }
+        textParts.push(
+          "You need to accept quests to get tools. Items are granted immediately on accept:",
+        );
+        textParts.push(...toolHints);
+        textParts.push("");
+      }
     }
 
     const npcs = nearbyEntities.filter(isNpcEntity);

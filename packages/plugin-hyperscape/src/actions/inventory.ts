@@ -118,14 +118,17 @@ export const equipItemAction: Action = {
         playerEntity?.items.find((i) => {
           const itemName = getItemName(i);
           return (
-            itemName.includes("axe") ||
             itemName.includes("hatchet") ||
             itemName.includes("pickaxe") ||
-            itemName.includes("sword") ||
+            itemName.includes("shortsword") ||
+            itemName.includes("longsword") ||
+            itemName.includes("2h sword") ||
+            itemName.includes("2h_sword") ||
             itemName.includes("scimitar") ||
             itemName.includes("dagger") ||
-            itemName.includes("mace") ||
-            itemName.includes("spear")
+            itemName.includes("shortbow") ||
+            itemName.includes("longbow") ||
+            itemName.includes("staff")
           );
         });
 
@@ -944,6 +947,157 @@ export const pickupItemAction: Action = {
       {
         name: "agent",
         content: { text: "Picked up Coins", action: "PICKUP_ITEM" },
+      },
+    ],
+  ],
+};
+
+// Max distance to loot gravestone
+const MAX_GRAVESTONE_DISTANCE = 4;
+
+/**
+ * LOOT_GRAVESTONE - Loot all items from the player's own gravestone after death
+ */
+export const lootGravestoneAction: Action = {
+  name: "LOOT_GRAVESTONE",
+  similes: ["LOOT_GRAVE", "RECOVER_ITEMS", "GET_GRAVESTONE"],
+  description:
+    "Loot all items from your gravestone after dying. Walk to it if needed.",
+
+  validate: async (runtime: IAgentRuntime) => {
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    if (!service) return false;
+
+    if (!service.isConnected()) return false;
+
+    const player = service.getPlayerEntity();
+    if (!player || player.alive === false) return false;
+
+    const playerId = player.id;
+    if (!playerId) return false;
+
+    // Check for nearby gravestone matching this player
+    const entities = service.getNearbyEntities() || [];
+    return entities.some((e) => {
+      const id = e.id || "";
+      const name = (e.name || "").toLowerCase();
+      return (
+        (id.includes("gravestone") && id.includes(playerId)) ||
+        (name.includes("gravestone") && name.includes(playerId))
+      );
+    });
+  },
+
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state?: State,
+    options?: unknown,
+    callback?: HandlerCallback,
+  ) => {
+    try {
+      const service =
+        runtime.getService<HyperscapeService>("hyperscapeService");
+      if (!service) {
+        return {
+          success: false,
+          error: new Error("Hyperscape service not available"),
+        };
+      }
+
+      const player = service.getPlayerEntity();
+      const playerId = player?.id;
+      if (!player || !playerId) {
+        await callback?.({ text: "Player not available.", error: true });
+        return { success: false };
+      }
+
+      const entities = service.getNearbyEntities() || [];
+      const gravestone = entities.find((e) => {
+        const id = e.id || "";
+        const name = (e.name || "").toLowerCase();
+        return (
+          (id.includes("gravestone") && id.includes(playerId)) ||
+          (name.includes("gravestone") && name.includes(playerId))
+        );
+      });
+
+      if (!gravestone) {
+        await callback?.({
+          text: "No gravestone found nearby.",
+          error: true,
+        });
+        return { success: false };
+      }
+
+      // Calculate distance
+      const dist = getEntityDistance(player.position, gravestone.position);
+
+      // If too far, walk to it first
+      if (dist !== null && dist > MAX_GRAVESTONE_DISTANCE) {
+        const gravePos = gravestone.position as
+          | [number, number, number]
+          | { x: number; y: number; z: number };
+
+        let targetPos: [number, number, number];
+        if (Array.isArray(gravePos)) {
+          targetPos = [gravePos[0], gravePos[1], gravePos[2]];
+        } else if (
+          gravePos &&
+          typeof gravePos === "object" &&
+          "x" in gravePos
+        ) {
+          targetPos = [gravePos.x, gravePos.y, gravePos.z];
+        } else {
+          await callback?.({
+            text: "Could not locate gravestone position.",
+            error: true,
+          });
+          return { success: false };
+        }
+
+        logger.info(
+          `[LOOT_GRAVESTONE] Walking to gravestone at distance ${dist.toFixed(1)}m`,
+        );
+        await service.executeMove({ target: targetPos, runMode: true });
+        await callback?.({
+          text: "Running to gravestone to recover items...",
+          action: "LOOT_GRAVESTONE",
+        });
+        return { success: true, text: "Running to gravestone..." };
+      }
+
+      // Close enough — loot it
+      logger.info(`[LOOT_GRAVESTONE] Looting gravestone ${gravestone.id}`);
+      await service.lootGravestone(gravestone.id);
+
+      await callback?.({
+        text: "Looted all items from gravestone!",
+        action: "LOOT_GRAVESTONE",
+      });
+
+      return { success: true, text: "Recovered items from gravestone" };
+    } catch (error) {
+      logger.error(
+        `[LOOT_GRAVESTONE] Error: ${error instanceof Error ? error.message : error}`,
+      );
+      await callback?.({
+        text: `Failed to loot gravestone: ${error instanceof Error ? error.message : ""}`,
+        error: true,
+      });
+      return { success: false, error: error as Error };
+    }
+  },
+
+  examples: [
+    [
+      { name: "user", content: { text: "Loot my gravestone" } },
+      {
+        name: "agent",
+        content: {
+          text: "Looted all items from gravestone!",
+          action: "LOOT_GRAVESTONE",
+        },
       },
     ],
   ],

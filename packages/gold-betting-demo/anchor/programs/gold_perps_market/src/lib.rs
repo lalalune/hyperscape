@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-declare_id!("3WKQf3J4B8QqRyWcBLR7xrb9VFPVjkZwzyZS67AahDbK");
+declare_id!("HbXhqEFevpkfYdZCN6YmJGRmQmj9vsBun2ZHjeeaLRik");
 
 #[program]
 pub mod gold_perps_market {

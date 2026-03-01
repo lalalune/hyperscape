@@ -14,6 +14,10 @@ type Vector3 = THREE.Vector3;
  */
 export class ColliderComponent extends Component {
   private physicsHandle?: PxRigidBody | PxShape;
+  private eventHandlers: Array<{
+    event: string;
+    handler: (...args: unknown[]) => void;
+  }> = [];
 
   constructor(
     entity: Entity,
@@ -173,43 +177,43 @@ export class ColliderComponent extends Component {
 
   // Set collision event callbacks
   onCollisionEnter(callback: (other: Entity) => void): void {
-    this.entity.world.on(
-      `collision:enter:${this.entity.id}`,
-      (...args: unknown[]) => {
-        const other = args[0] as Entity;
-        callback(other);
-      },
-    );
+    const event = `collision:enter:${this.entity.id}`;
+    const handler = (...args: unknown[]) => {
+      const other = args[0] as Entity;
+      callback(other);
+    };
+    this.entity.world.on(event, handler);
+    this.eventHandlers.push({ event, handler });
   }
 
   onCollisionExit(callback: (other: Entity) => void): void {
-    this.entity.world.on(
-      `collision:exit:${this.entity.id}`,
-      (...args: unknown[]) => {
-        const other = args[0] as Entity;
-        callback(other);
-      },
-    );
+    const event = `collision:exit:${this.entity.id}`;
+    const handler = (...args: unknown[]) => {
+      const other = args[0] as Entity;
+      callback(other);
+    };
+    this.entity.world.on(event, handler);
+    this.eventHandlers.push({ event, handler });
   }
 
   onTriggerEnter(callback: (other: Entity) => void): void {
-    this.entity.world.on(
-      `trigger:enter:${this.entity.id}`,
-      (...args: unknown[]) => {
-        const other = args[0] as Entity;
-        callback(other);
-      },
-    );
+    const event = `trigger:enter:${this.entity.id}`;
+    const handler = (...args: unknown[]) => {
+      const other = args[0] as Entity;
+      callback(other);
+    };
+    this.entity.world.on(event, handler);
+    this.eventHandlers.push({ event, handler });
   }
 
   onTriggerExit(callback: (other: Entity) => void): void {
-    this.entity.world.on(
-      `trigger:exit:${this.entity.id}`,
-      (...args: unknown[]) => {
-        const other = args[0] as Entity;
-        callback(other);
-      },
-    );
+    const event = `trigger:exit:${this.entity.id}`;
+    const handler = (...args: unknown[]) => {
+      const other = args[0] as Entity;
+      callback(other);
+    };
+    this.entity.world.on(event, handler);
+    this.eventHandlers.push({ event, handler });
   }
 
   /**
@@ -243,6 +247,12 @@ export class ColliderComponent extends Component {
   }
 
   destroy(): void {
+    // Clean up collision event handlers
+    for (const { event, handler } of this.eventHandlers) {
+      this.entity.world.off(event, handler);
+    }
+    this.eventHandlers = [];
+
     // Physics handles are cleaned up by the Physics system
     // when the entity is removed from the world
     this.physicsHandle = undefined;

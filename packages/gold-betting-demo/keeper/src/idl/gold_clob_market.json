@@ -1,5 +1,5 @@
 {
-  "address": "4phSkAVkbtGbQbrT3p2xjNPLAyw1DWz99wT7g4dQMyiX",
+  "address": "ARVJNJp49VZnkB8QBYZAAFJmufvtVSPhnuuenwwSLwpi",
   "metadata": {
     "name": "gold_clob_market",
     "version": "0.1.0",
@@ -32,15 +32,38 @@
           "writable": true
         },
         {
-          "name": "user_token_account",
-          "writable": true
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "match_state"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "arg",
+                "path": "order_id"
+              }
+            ]
+          }
         },
         {
           "name": "vault",
-          "writable": true
-        },
-        {
-          "name": "vault_authority",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -50,12 +73,7 @@
                   97,
                   117,
                   108,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104
+                  116
                 ]
               },
               {
@@ -71,13 +89,13 @@
           "signer": true
         },
         {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
         {
-          "name": "order_id",
+          "name": "_order_id",
           "type": "u64"
         }
       ]
@@ -107,6 +125,34 @@
           "writable": true
         },
         {
+          "name": "user_balance",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  108,
+                  97,
+                  110,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "match_state"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
           "name": "config",
           "pda": {
             "seeds": [
@@ -125,23 +171,12 @@
           }
         },
         {
-          "name": "user_token_account",
-          "writable": true
-        },
-        {
-          "name": "treasury_token_account",
-          "writable": true
-        },
-        {
-          "name": "market_maker_token_account",
+          "name": "market_maker",
           "writable": true
         },
         {
           "name": "vault",
-          "writable": true
-        },
-        {
-          "name": "vault_authority",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -151,12 +186,7 @@
                   97,
                   117,
                   108,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104
+                  116
                 ]
               },
               {
@@ -172,8 +202,8 @@
           "signer": true
         },
         {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
@@ -222,11 +252,11 @@
       ],
       "args": [
         {
-          "name": "treasury_token_account",
+          "name": "treasury",
           "type": "pubkey"
         },
         {
-          "name": "market_maker_token_account",
+          "name": "market_maker",
           "type": "pubkey"
         },
         {
@@ -285,7 +315,8 @@
           }
         },
         {
-          "name": "vault_authority",
+          "name": "vault",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -295,12 +326,7 @@
                   97,
                   117,
                   108,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104
+                  116
                 ]
               },
               {
@@ -380,6 +406,64 @@
           "writable": true
         },
         {
+          "name": "user_balance",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  108,
+                  97,
+                  110,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "match_state"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "new_order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "match_state"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "arg",
+                "path": "order_id"
+              }
+            ]
+          }
+        },
+        {
           "name": "config",
           "pda": {
             "seeds": [
@@ -398,23 +482,16 @@
           }
         },
         {
-          "name": "user_token_account",
+          "name": "treasury",
           "writable": true
         },
         {
-          "name": "treasury_token_account",
-          "writable": true
-        },
-        {
-          "name": "market_maker_token_account",
+          "name": "market_maker",
           "writable": true
         },
         {
           "name": "vault",
-          "writable": true
-        },
-        {
-          "name": "vault_authority",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -424,12 +501,7 @@
                   97,
                   117,
                   108,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104
+                  116
                 ]
               },
               {
@@ -445,11 +517,15 @@
           "signer": true
         },
         {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
+        {
+          "name": "order_id",
+          "type": "u64"
+        },
         {
           "name": "is_buy",
           "type": "bool"
@@ -489,7 +565,11 @@
       "args": [
         {
           "name": "winner",
-          "type": "u8"
+          "type": {
+            "defined": {
+              "name": "MarketSide"
+            }
+          }
         }
       ]
     },
@@ -532,11 +612,11 @@
       ],
       "args": [
         {
-          "name": "treasury_token_account",
+          "name": "treasury",
           "type": "pubkey"
         },
         {
-          "name": "market_maker_token_account",
+          "name": "market_maker",
           "type": "pubkey"
         },
         {
@@ -582,6 +662,19 @@
       ]
     },
     {
+      "name": "Order",
+      "discriminator": [
+        134,
+        173,
+        223,
+        185,
+        77,
+        86,
+        28,
+        51
+      ]
+    },
+    {
       "name": "OrderBook",
       "discriminator": [
         55,
@@ -592,6 +685,19 @@
         39,
         65,
         248
+      ]
+    },
+    {
+      "name": "UserBalance",
+      "discriminator": [
+        187,
+        237,
+        208,
+        146,
+        86,
+        132,
+        29,
+        191
       ]
     }
   ],
@@ -648,33 +754,43 @@
     },
     {
       "code": 6010,
-      "name": "VaultOwnerMismatch",
-      "msg": "Vault owner does not match expected authority"
-    },
-    {
-      "code": 6011,
       "name": "InvalidFeeAccount",
       "msg": "Invalid fee account provided for treasury or market maker"
     },
     {
-      "code": 6012,
+      "code": 6011,
       "name": "InvalidFeeBps",
       "msg": "Invalid fee basis points"
     },
     {
-      "code": 6013,
+      "code": 6012,
       "name": "UnauthorizedConfigAuthority",
       "msg": "Only config authority can update fee config"
     },
     {
-      "code": 6014,
+      "code": 6013,
       "name": "MathOverflow",
       "msg": "Math overflow"
     },
     {
+      "code": 6014,
+      "name": "PrecisionError",
+      "msg": "Math precision error"
+    },
+    {
       "code": 6015,
+      "name": "InvalidRemainingAccount",
+      "msg": "Invalid remaining account provided"
+    },
+    {
+      "code": 6016,
       "name": "InvalidWinner",
       "msg": "Winner must be YES (1) or NO (2)"
+    },
+    {
+      "code": 6017,
+      "name": "InvalidOrderId",
+      "msg": "Provided order ID does not match next_order_id"
     }
   ],
   "types": [
@@ -688,11 +804,11 @@
             "type": "pubkey"
           },
           {
-            "name": "treasury_token_account",
+            "name": "treasury",
             "type": "pubkey"
           },
           {
-            "name": "market_maker_token_account",
+            "name": "market_maker",
             "type": "pubkey"
           },
           {
@@ -711,6 +827,23 @@
       }
     },
     {
+      "name": "MarketSide",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "None"
+          },
+          {
+            "name": "Yes"
+          },
+          {
+            "name": "No"
+          }
+        ]
+      }
+    },
+    {
       "name": "MatchState",
       "type": {
         "kind": "struct",
@@ -721,14 +854,18 @@
           },
           {
             "name": "winner",
-            "type": "u8"
+            "type": {
+              "defined": {
+                "name": "MarketSide"
+              }
+            }
           },
           {
             "name": "next_order_id",
             "type": "u64"
           },
           {
-            "name": "vault_authority_bump",
+            "name": "vault_bump",
             "type": "u8"
           },
           {
@@ -746,6 +883,10 @@
           {
             "name": "id",
             "type": "u64"
+          },
+          {
+            "name": "match_state",
+            "type": "pubkey"
           },
           {
             "name": "maker",
@@ -778,26 +919,6 @@
           {
             "name": "match_state",
             "type": "pubkey"
-          },
-          {
-            "name": "balances",
-            "type": {
-              "vec": {
-                "defined": {
-                  "name": "UserBalance"
-                }
-              }
-            }
-          },
-          {
-            "name": "orders",
-            "type": {
-              "vec": {
-                "defined": {
-                  "name": "Order"
-                }
-              }
-            }
           }
         ]
       }
@@ -809,6 +930,10 @@
         "fields": [
           {
             "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "match_state",
             "type": "pubkey"
           },
           {

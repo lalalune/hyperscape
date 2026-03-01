@@ -100,4 +100,5 @@ export type SessionCloseReason =
   | "disconnect" // Player disconnected
   | "new_session" // Replaced by new session (opening another UI)
   | "target_gone" // Target entity no longer exists
-  | "combat"; // Player was attacked (OSRS-style: interrupts banking)
+  | "combat" // Player was attacked (OSRS-style: interrupts banking)
+  | "timeout"; // Session exceeded maximum duration (zombie cleanup)

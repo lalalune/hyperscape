@@ -4,10 +4,11 @@
 
 name = "hyperscape"
 compatibility_date = "2024-10-01"
-pages_build_output_dir = "dist"
 
-# Deployment is handled by Cloudflare Pages GitHub integration
-# Manual deploy: wrangler pages deploy dist --project-name=hyperscape
+# Static assets directory for Pages deployment
+# This enables `wrangler deploy` to work for Pages projects
+[assets]
+directory = "./dist"
 
 [env.production]
 vars = { }
@@ -17,9 +18,10 @@ vars = { }
 # ============================================================
 # Configure in Dashboard: Settings → Builds & deployments
 #
-# Build command:     npm run build:cf
-# Build output dir:  packages/client/dist
+# Build command:     bun run build
+# Build output dir:  dist
 # Root directory:    packages/client
+# Deploy command:    (leave empty - Pages auto-deploys)
 #
 # ============================================================
 # REQUIRED ENVIRONMENT VARIABLES

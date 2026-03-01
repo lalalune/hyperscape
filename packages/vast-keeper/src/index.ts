@@ -19,6 +19,30 @@ const TARGET_IMAGE =
 const DISK_SIZE_GB = Number.parseInt(process.env.VAST_DISK_GB || "120", 10);
 const RTMP_MULTIPLEXER_URL = process.env.RTMP_MULTIPLEXER_URL;
 
+// Health check configuration
+const HEALTH_CHECK_ENABLED =
+  process.env.KEEPER_HEALTH_CHECK_ENABLED !== "false";
+const HEALTH_CHECK_URL = process.env.KEEPER_HEALTH_CHECK_URL; // e.g., http://your-server:35143/health
+const HEALTH_CHECK_TIMEOUT_MS = Number.parseInt(
+  process.env.KEEPER_HEALTH_CHECK_TIMEOUT_MS || "10000",
+  10,
+);
+const HEALTH_CHECK_MAX_FAILURES = Number.parseInt(
+  process.env.KEEPER_HEALTH_CHECK_MAX_FAILURES || "5",
+  10,
+);
+const HEALTH_CHECK_INTERVAL_MS = Number.parseInt(
+  process.env.KEEPER_HEALTH_CHECK_INTERVAL_MS || "30000",
+  10,
+);
+
+// Track health check state
+const healthState = {
+  consecutiveFailures: 0,
+  lastCheckTime: 0,
+  lastHealthy: true,
+};
+
 // Interfaces
 interface VastInstance {
   id: number;
@@ -169,6 +193,108 @@ async function waitForSsh(
   return false;
 }
 
+/**
+ * Check if the server is healthy by calling the health endpoint
+ */
+async function checkServerHealth(healthUrl: string): Promise<boolean> {
+  if (!HEALTH_CHECK_ENABLED || !healthUrl) {
+    return true; // Skip health check if disabled or no URL
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      HEALTH_CHECK_TIMEOUT_MS,
+    );
+
+    const response = await fetch(healthUrl, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (response.ok) {
+      healthState.consecutiveFailures = 0;
+      healthState.lastHealthy = true;
+      return true;
+    }
+
+    console.warn(`[Keeper] Health check failed with status ${response.status}`);
+    healthState.consecutiveFailures++;
+    healthState.lastHealthy = false;
+    return false;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[Keeper] Health check error: ${message}`);
+    healthState.consecutiveFailures++;
+    healthState.lastHealthy = false;
+    return false;
+  }
+}
+
+/**
+ * Check streaming health via the streaming state endpoint
+ */
+async function checkStreamingHealth(baseUrl: string): Promise<boolean> {
+  const streamingUrl = `${baseUrl}/api/streaming/state`;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      HEALTH_CHECK_TIMEOUT_MS,
+    );
+
+    const response = await fetch(streamingUrl, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (response.ok) {
+      const data = (await response.json()) as { cycle?: unknown };
+      // Check if we have valid streaming data
+      if (data && data.cycle) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Destroy an unhealthy instance
+ */
+async function destroyInstance(instanceId: number): Promise<void> {
+  console.log(`[Keeper] Destroying unhealthy instance ${instanceId}...`);
+  try {
+    await runVastCmd(["destroy", "instance", String(instanceId)]);
+    console.log(`[Keeper] Instance ${instanceId} destroyed.`);
+  } catch (err) {
+    console.error(`[Keeper] Failed to destroy instance ${instanceId}:`, err);
+  }
+}
+
+/**
+ * Build health check URL from instance info
+ */
+function buildHealthUrl(instance: VastInstance): string | null {
+  if (HEALTH_CHECK_URL) {
+    return HEALTH_CHECK_URL;
+  }
+
+  // Try to build URL from instance ports
+  // Vast.ai typically maps internal ports to external ports
+  // The common pattern is internal 5555 -> external 35143
+  const sshHost = instance.ssh_host;
+  if (!sshHost) return null;
+
+  // Try port 35143 (common mapping for game server)
+  return `http://${sshHost}:35143/health`;
+}
+
 async function deployToServer(sshHost: string, sshPort: number) {
   console.log(
     `[Keeper] Starting deployment process onto ${sshHost}:${sshPort}...`,
@@ -314,10 +440,68 @@ async function loop() {
 
         await deployToServer(instanceInfo.ssh_host, instanceInfo.ssh_port);
       } else {
-        console.log(
-          `[Keeper] Found ${instances.length} running instances. Status OK.`,
-        );
-        // We could do health checks on the instances here, but PM2 should keep it alive inside.
+        console.log(`[Keeper] Found ${instances.length} running instances.`);
+
+        // Health check the running instance
+        for (const instance of instances) {
+          const healthUrl = buildHealthUrl(instance);
+
+          if (healthUrl && HEALTH_CHECK_ENABLED) {
+            const timeSinceLastCheck = Date.now() - healthState.lastCheckTime;
+
+            if (timeSinceLastCheck >= HEALTH_CHECK_INTERVAL_MS) {
+              healthState.lastCheckTime = Date.now();
+
+              console.log(`[Keeper] Checking server health at ${healthUrl}...`);
+              const isHealthy = await checkServerHealth(healthUrl);
+
+              if (isHealthy) {
+                console.log(`[Keeper] Instance ${instance.id} is healthy.`);
+
+                // Also check streaming if we have a base URL
+                const baseUrl = healthUrl.replace(/\/health$/, "");
+                const streamingHealthy = await checkStreamingHealth(baseUrl);
+                if (streamingHealthy) {
+                  console.log(`[Keeper] Streaming is active.`);
+                } else {
+                  console.warn(
+                    `[Keeper] Streaming may not be active (this is OK during idle periods).`,
+                  );
+                }
+              } else {
+                console.warn(
+                  `[Keeper] Instance ${instance.id} health check failed (${healthState.consecutiveFailures}/${HEALTH_CHECK_MAX_FAILURES}).`,
+                );
+
+                if (
+                  healthState.consecutiveFailures >= HEALTH_CHECK_MAX_FAILURES
+                ) {
+                  console.error(
+                    `[Keeper] Instance ${instance.id} has failed ${HEALTH_CHECK_MAX_FAILURES} consecutive health checks. Destroying and reprovisioning...`,
+                  );
+
+                  // Destroy the unhealthy instance
+                  await destroyInstance(instance.id);
+                  healthState.consecutiveFailures = 0;
+                  healthState.lastHealthy = true;
+
+                  // The next loop iteration will provision a new instance
+                  console.log(
+                    "[Keeper] Will provision a new instance on next iteration.",
+                  );
+                }
+              }
+            } else {
+              console.log(
+                `[Keeper] Skipping health check (last check ${Math.floor(timeSinceLastCheck / 1000)}s ago, interval ${Math.floor(HEALTH_CHECK_INTERVAL_MS / 1000)}s).`,
+              );
+            }
+          } else {
+            console.log(
+              `[Keeper] Health checks disabled or no URL available. Instance ${instance.id} status: ${instance.actual_status}`,
+            );
+          }
+        }
       }
     } catch (err) {
       console.error("[Keeper] Error during loop iteration:", err);

@@ -70,7 +70,6 @@
   ],
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.2.0",
-    "@hyperscape/procgen": "workspace:*",
     "@fastify/compress": "^8.0.1",
     "@fastify/cors": "^10.0.1",
     "@fastify/multipart": "^9.0.1",
@@ -114,6 +113,7 @@
   "devDependencies": {
     "@babel/eslint-parser": "^7.23.10",
     "@babel/preset-react": "^7.23.10",
+    "@hyperscape/procgen": "workspace:*",
     "@capacitor/android": "^7.4.3",
     "@capacitor/cli": "^8.1.0",
     "@capacitor/core": "^7.4.3",

@@ -33,8 +33,8 @@ import type {
   EquipItemCommand,
   ChatMessageCommand,
   GatherResourceCommand,
-  BankCommand,
   QuestData,
+  BankItem,
   PendingDuelChallenge,
   HyperscapeServiceInterface,
   WorldMapData,
@@ -229,6 +229,10 @@ export class HyperscapeService
   /** Temporarily stores the last removed entity for event handlers */
   private _lastRemovedEntity: Entity | null = null;
 
+  /** Movement completion tracking — resolved when tileMovementEnd fires for our character */
+  private _movementResolve: (() => void) | null = null;
+  private _isMoving = false;
+
   /** Local chat message buffer - stores recent messages from nearby entities */
   private localChatBuffer: Array<{
     from: string;
@@ -250,6 +254,7 @@ export class HyperscapeService
       worldId: null,
       lastUpdate: Date.now(),
       quests: [],
+      bankItems: [],
     };
 
     this.connectionState = {
@@ -662,6 +667,12 @@ export class HyperscapeService
             body?: string;
             timestamp: number;
           };
+
+          // Ignore system messages — these are game feedback (e.g. "You swing your axe",
+          // "You receive 1x Logs"), not player commands. Processing them wastes LLM calls.
+          if (chatData.from === "System" || !chatData.fromId) {
+            return;
+          }
 
           // Ignore messages from the agent itself
           const agentCharacterId = this.getGameState()?.playerEntity?.id;
@@ -2106,9 +2117,40 @@ Respond with ONLY the action name, nothing else.`;
             //   logger.debug(`[HyperscapeService] MOB PRESERVED POSITION: "${entityData.name}"`);
             // }
           } else {
+            // Normalize position for ALL entity types (resources, mobs, items, etc.)
+            // Some entities arrive with top-level x/z fields but no position object
+            const entityToStore = data as unknown as Entity & {
+              x?: number;
+              y?: number;
+              z?: number;
+            };
+            if (
+              !entityToStore.position &&
+              entityToStore.x !== undefined &&
+              entityToStore.z !== undefined
+            ) {
+              entityToStore.position = [
+                entityToStore.x,
+                entityToStore.y ?? 0,
+                entityToStore.z,
+              ];
+            } else if (
+              entityToStore.position &&
+              !Array.isArray(entityToStore.position)
+            ) {
+              // Normalize {x, y, z} object to [x, y, z] array for consistency
+              const objPos = entityToStore.position as unknown as {
+                x?: number;
+                y?: number;
+                z?: number;
+              };
+              if (objPos.x !== undefined && objPos.z !== undefined) {
+                entityToStore.position = [objPos.x, objPos.y ?? 0, objPos.z];
+              }
+            }
             this.gameState.nearbyEntities.set(
               entityId,
-              data as unknown as Entity,
+              entityToStore as Entity,
             );
           }
         }
@@ -2159,6 +2201,20 @@ Respond with ONLY the action name, nothing else.`;
             //   logger.debug(`[HyperscapeService] MOB POSITION UPDATE: "${entity.name}" id=${data.id}`);
             // }
             Object.assign(entity, translatedChanges);
+            // Normalize position to array format after update
+            if (translatedChanges.position) {
+              const normalizedPos = updatePositionInPlace(
+                entity.position as [number, number, number] | null,
+                translatedChanges.position,
+              );
+              if (normalizedPos) {
+                entity.position = [...normalizedPos] as [
+                  number,
+                  number,
+                  number,
+                ];
+              }
+            }
           }
         }
         break;
@@ -2449,6 +2505,12 @@ Respond with ONLY the action name, nothing else.`;
               this.gameState.playerEntity.position = updatedPos;
             }
           }
+          // Resolve movement completion promise
+          this._isMoving = false;
+          if (this._movementResolve) {
+            this._movementResolve();
+            this._movementResolve = null;
+          }
           logger.debug(
             `[HyperscapeService] 🏁 Tile movement ended at tile (${endData.tile?.x}, ${endData.tile?.z})`,
           );
@@ -2686,6 +2748,37 @@ Respond with ONLY the action name, nothing else.`;
       }
 
       // ============================================================================
+      // BANK SYSTEM PACKETS
+      // ============================================================================
+
+      case "bankState": {
+        const bankData = data as {
+          items?: Array<{
+            item_id?: string;
+            itemId?: string;
+            name?: string;
+            quantity?: number;
+            slot?: number;
+            tab_index?: number;
+            tabIndex?: number;
+          }>;
+        };
+        if (bankData.items && Array.isArray(bankData.items)) {
+          this.gameState.bankItems = bankData.items.map((item) => ({
+            itemId: item.item_id || item.itemId || "",
+            name: item.name,
+            quantity: item.quantity ?? 1,
+            slot: item.slot,
+            tabIndex: item.tab_index ?? item.tabIndex,
+          }));
+          logger.info(
+            `[HyperscapeService] 🏦 Bank state cached: ${this.gameState.bankItems.length} items`,
+          );
+        }
+        break;
+      }
+
+      // ============================================================================
       // DUEL SYSTEM PACKETS
       // ============================================================================
 
@@ -2735,6 +2828,10 @@ Respond with ONLY the action name, nothing else.`;
         logger.info(
           `[HyperscapeService] ⚔️ Duel fight started: ${duelData.duelId}`,
         );
+        // Set inCombat flag explicitly for duel fight
+        if (this.gameState.playerEntity) {
+          this.gameState.playerEntity.inCombat = true;
+        }
         this.broadcastEvent("DUEL_FIGHT_START", duelData);
         break;
       }
@@ -2745,6 +2842,11 @@ Respond with ONLY the action name, nothing else.`;
         logger.info(
           `[HyperscapeService] ⚔️ Duel completed: ${duelData.duelId} (winner: ${duelData.winnerId})`,
         );
+        // CRITICAL: Clear inCombat flag so autonomous actions can resume
+        if (this.gameState.playerEntity) {
+          this.gameState.playerEntity.inCombat = false;
+          this.gameState.playerEntity.combatTarget = null;
+        }
         this.broadcastEvent("DUEL_COMPLETED", duelData);
         // Clear pending challenge state just in case
         this.clearPendingDuelChallenge();
@@ -2915,6 +3017,24 @@ Respond with ONLY the action name, nothing else.`;
    */
   getNearbyEntities(): Entity[] {
     return Array.from(this.gameState.nearbyEntities.values());
+  }
+
+  /**
+   * Get cached bank items (populated when bank is opened)
+   */
+  getBankItems(): BankItem[] {
+    return this.gameState.bankItems;
+  }
+
+  /**
+   * Check if a specific item exists in the bank by name pattern
+   */
+  hasBankItem(namePattern: string): boolean {
+    const pattern = namePattern.toLowerCase();
+    return this.gameState.bankItems.some((item) => {
+      const name = (item.name || item.itemId || "").toLowerCase();
+      return name.includes(pattern);
+    });
   }
 
   /**
@@ -3228,6 +3348,7 @@ Respond with ONLY the action name, nothing else.`;
           logger.warn(
             `[HyperscapeService] Clamping move target from ${distance2D.toFixed(1)} to ${MAX_MOVE_DISTANCE} units`,
           );
+          this._isMoving = true;
           this.sendCommand("moveRequest", {
             ...command,
             target: clampedTarget,
@@ -3237,7 +3358,25 @@ Respond with ONLY the action name, nothing else.`;
       }
     }
 
+    this._isMoving = true;
     this.sendCommand("moveRequest", command);
+  }
+
+  /** Wait for current movement to complete. Resolves immediately if not moving. */
+  waitForMovementComplete(timeoutMs = 15000): Promise<void> {
+    if (!this._isMoving) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      this._movementResolve = resolve;
+      setTimeout(() => {
+        this._isMoving = false;
+        this._movementResolve = null;
+        resolve();
+      }, timeoutMs);
+    });
+  }
+
+  get isMoving(): boolean {
+    return this._isMoving;
   }
 
   /**
@@ -3297,6 +3436,13 @@ Respond with ONLY the action name, nothing else.`;
   async executePickupItem(itemId: string): Promise<void> {
     // Server requires timestamp for anti-replay validation
     this.sendCommand("pickupItem", { itemId, timestamp: Date.now() });
+  }
+
+  /**
+   * Loot all items from a gravestone (corpse loot-all)
+   */
+  async lootGravestone(corpseId: string): Promise<void> {
+    this.sendCommand("corpseLootAll", { corpseId });
   }
 
   /**
@@ -3374,10 +3520,43 @@ Respond with ONLY the action name, nothing else.`;
   }
 
   /**
-   * Execute bank action command
+   * Open a bank session (must be called before deposit/withdraw)
    */
-  async executeBankAction(command: BankCommand): Promise<void> {
-    this.sendCommand("bankAction", command);
+  async openBank(bankId: string): Promise<void> {
+    logger.info(`[HyperscapeService] Opening bank: ${bankId}`);
+    this.sendCommand("bankOpen", { bankId });
+  }
+
+  /**
+   * Deposit a specific item into the bank
+   */
+  async bankDeposit(itemId: string, quantity: number): Promise<void> {
+    logger.info(`[HyperscapeService] Depositing ${quantity}x ${itemId}`);
+    this.sendCommand("bankDeposit", { itemId, quantity });
+  }
+
+  /**
+   * Deposit all inventory items into the bank
+   */
+  async bankDepositAll(): Promise<void> {
+    logger.info("[HyperscapeService] Depositing all items");
+    this.sendCommand("bankDepositAll", {});
+  }
+
+  /**
+   * Withdraw items from the bank
+   */
+  async bankWithdraw(itemId: string, quantity: number): Promise<void> {
+    logger.info(`[HyperscapeService] Withdrawing ${quantity}x ${itemId}`);
+    this.sendCommand("bankWithdraw", { itemId, quantity });
+  }
+
+  /**
+   * Close the current bank session
+   */
+  async closeBank(): Promise<void> {
+    logger.info("[HyperscapeService] Closing bank");
+    this.sendCommand("bankClose", {});
   }
 
   // ============================================================================
@@ -3715,7 +3894,7 @@ Respond with ONLY the action name, nothing else.`;
    * @param content - The thought content (markdown supported)
    */
   syncAgentThought(
-    type: "situation" | "evaluation" | "thinking" | "decision",
+    type: "situation" | "evaluation" | "thinking" | "decision" | "action",
     content: string,
   ): void {
     if (!this.characterId) {

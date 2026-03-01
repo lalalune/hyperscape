@@ -1026,20 +1026,22 @@ async function main() {
       process.env.SKIP_DEATH_RECOVERY_ON_STARTUP || "true",
     DEATH_RECOVERY_STARTUP_TIMEOUT_MS:
       process.env.DEATH_RECOVERY_STARTUP_TIMEOUT_MS || "5000",
-    // Duel stack should auto-load embedded agents by default, regardless of
-    // server/.env defaults that may disable them for other workflows.
-    AUTO_START_AGENTS: process.env.AUTO_START_AGENTS ?? "true",
+    // Disable embedded agents — use LLM-driven model agents instead.
+    AUTO_START_AGENTS: process.env.AUTO_START_AGENTS ?? "false",
     AUTO_START_AGENTS_MAX: process.env.AUTO_START_AGENTS_MAX || "10",
-    // Disable heavyweight model-agent spawner unless explicitly enabled.
-    SPAWN_MODEL_AGENTS: process.env.SPAWN_MODEL_AGENTS ?? "false",
-    MAX_MODEL_AGENTS: process.env.MAX_MODEL_AGENTS || "0",
+    // Enable model agents (LLM-driven, WebSocket-based) for duels and world behavior.
+    SPAWN_MODEL_AGENTS: process.env.SPAWN_MODEL_AGENTS ?? "true",
+    MAX_MODEL_AGENTS: process.env.MAX_MODEL_AGENTS || "10",
+    // Allow model agents even if embedded agents are also running (safety net).
+    SPAWN_MODEL_AGENTS_WITH_EMBEDDED:
+      process.env.SPAWN_MODEL_AGENTS_WITH_EMBEDDED || "true",
     // Prevent aggressive local auto-restarts while tuning duel/MM workflows.
     MEMORY_RESTART_THRESHOLD_MB:
       process.env.MEMORY_RESTART_THRESHOLD_MB || "12288",
-    // Keep stream servers stable by default: let StreamingDuelScheduler own
-    // combat flow without background questing/pathing churn.
+    // Enable autonomous behavior (movement, questing, skilling) outside duels.
+    // StreamingDuelScheduler still owns combat flow inside the arena.
     EMBEDDED_AGENT_AUTONOMY_ENABLED:
-      process.env.EMBEDDED_AGENT_AUTONOMY_ENABLED || "false",
+      process.env.EMBEDDED_AGENT_AUTONOMY_ENABLED || "true",
     // Keep duel CPU predictable on long-running streams; scripted combat
     // strategy avoids piling LLM planning work into fight ticks.
     STREAMING_DUEL_LLM_TACTICS_ENABLED:
@@ -1181,9 +1183,30 @@ async function main() {
     }
 
     if (!clientWasReady) {
-      spawnManaged("game-client", "bun", ["run", "--cwd", "packages/client", "dev"], {
-        env: gameEnv,
-      });
+      // Check if production build exists and should be used
+      const clientDistPath = path.join(ROOT, "packages/client/dist/index.html");
+      const useProductionBuild =
+        process.env.NODE_ENV === "production" ||
+        process.env.DUEL_CLIENT_MODE === "production" ||
+        /^(1|true|yes|on)$/i.test(process.env.DUEL_USE_PRODUCTION_CLIENT || "");
+      const distExists = fs.existsSync(clientDistPath);
+
+      if (useProductionBuild && distExists) {
+        log("starting game client in production mode (vite preview)...");
+        spawnManaged(
+          "game-client",
+          "bun",
+          ["run", "--cwd", "packages/client", "preview", "--", "--host", "--port", "3333"],
+          { env: gameEnv },
+        );
+      } else {
+        if (useProductionBuild && !distExists) {
+          log("warning: production client requested but dist not found, falling back to dev mode");
+        }
+        spawnManaged("game-client", "bun", ["run", "--cwd", "packages/client", "dev"], {
+          env: gameEnv,
+        });
+      }
     }
   }
 

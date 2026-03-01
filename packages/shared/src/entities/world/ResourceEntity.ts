@@ -46,6 +46,9 @@ export class ResourceEntity extends InteractableEntity {
   /** Tiles this resource occupies for collision (cached for cleanup) */
   private collisionTiles: TileCoord[] = [];
 
+  /** True when the visual strategy handled depletion (instanced stump) — prevents swapToFullModel from removing the collision proxy */
+  private depletionHandledByStrategy = false;
+
   // LOD meshes — owned by the visual strategy but stored here for Entity base class compat
   private lod1Mesh?: THREE.Object3D;
   private lod2Mesh?: THREE.Object3D;
@@ -117,6 +120,18 @@ export class ResourceEntity extends InteractableEntity {
       };
     }
     return this.visualCtx;
+  }
+
+  /**
+   * Returns a temporary highlight mesh positioned at this entity's instanced
+   * location. Used by EntityHighlightService for outline rendering when the
+   * entity is instanced (no individual scene-graph mesh to outline).
+   */
+  public getHighlightRoot(): THREE.Object3D | null {
+    if (typeof this.visual.getHighlightMesh === "function") {
+      return this.visual.getHighlightMesh(this.getVisualCtx());
+    }
+    return null;
   }
 
   // ===========================================================================
@@ -217,21 +232,26 @@ export class ResourceEntity extends InteractableEntity {
   private async swapToStump(): Promise<void> {
     if (this.world.isServer || !this.node) return;
 
-    // Let the strategy hide its visual (instanced tree, glow, etc.)
-    await this.visual.onDepleted(this.getVisualCtx());
+    const ctx = this.getVisualCtx();
+    const handledByStrategy = await this.visual.onDepleted(ctx);
+    this.depletionHandledByStrategy = handledByStrategy;
 
-    // Load stump/depleted model (shared across all types)
-    await this.loadDepletedModel();
+    if (!handledByStrategy) {
+      await this.loadDepletedModel();
+    }
   }
 
   private async swapToFullModel(): Promise<void> {
     if (this.world.isServer || !this.node) return;
 
-    // Remove stump mesh
-    if (this.mesh) {
+    // Only remove the stump mesh if the entity loaded one individually.
+    // When the instancer handles depletion, this.mesh is the collision proxy
+    // and must NOT be removed.
+    if (!this.depletionHandledByStrategy && this.mesh) {
       this.node.remove(this.mesh);
       this.mesh = null;
     }
+    this.depletionHandledByStrategy = false;
 
     // Let the strategy restore its visual
     await this.visual.onRespawn(this.getVisualCtx());

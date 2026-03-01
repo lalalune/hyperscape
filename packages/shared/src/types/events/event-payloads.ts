@@ -47,6 +47,8 @@ export interface PlayerJoinedPayload {
   isLoadTestBot?: boolean;
   /** Whether this player is an embedded AI agent */
   isEmbeddedAgent?: boolean;
+  /** Whether this player is an AI agent (embedded or model) */
+  isAgent?: boolean;
   /** Whether this is a reconnection (existing entity, new socket) */
   isReconnect?: boolean;
 }

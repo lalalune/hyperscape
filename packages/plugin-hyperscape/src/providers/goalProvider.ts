@@ -21,8 +21,10 @@ import {
   hasWeapon as detectHasWeapon,
   hasCombatCapableItem,
   hasFood as detectHasFood,
+  countFood as detectCountFood,
   hasAxe as detectHasAxe,
   hasPickaxe as detectHasPickaxe,
+  hasFishingEquipment as detectHasFishingEquipment,
 } from "../utils/item-detection.js";
 
 /**
@@ -105,9 +107,9 @@ function setKnownLocationPosition(
 }
 
 /**
- * Populate KNOWN_LOCATIONS with towns and POIs from world map data.
+ * Populate KNOWN_LOCATIONS from world map data (towns, POIs, resources, stations, NPCs).
  * Called once by mapProvider when world data first arrives from the server.
- * This allows NAVIGATE_TO to route to any town or POI by name.
+ * This allows NAVIGATE_TO to route to any town, POI, resource, or station by name.
  */
 export function populateKnownLocationsFromWorldMap(
   worldMap: WorldMapData,
@@ -127,21 +129,50 @@ export function populateKnownLocationsFromWorldMap(
   // Refresh canonical navigation anchors from current world map when available.
   const spawnPos = findCandidate(["spawn", "start", "home", "origin"]);
   if (spawnPos) setKnownLocationPosition("spawn", spawnPos);
-  const forestPos = findCandidate(["forest", "wood", "tree", "grove"]);
+
+  // For forest/fishing/mine, prefer manifest resources over town/POI name matches
+  const firstResourcePos = (
+    types: string[],
+  ): [number, number, number] | null => {
+    const resources = worldMap.resources ?? [];
+    const match = resources.find((r) =>
+      types.some((t) => r.type.includes(t) || r.resourceId.includes(t)),
+    );
+    if (!match) return null;
+    return [match.position.x, match.position.y, match.position.z];
+  };
+
+  const forestPos =
+    firstResourcePos(["tree"]) ??
+    findCandidate(["forest", "wood", "tree", "grove"]);
   if (forestPos) setKnownLocationPosition("forest", forestPos);
-  const fishingPos = findCandidate([
-    "fishing",
-    "dock",
-    "wharf",
-    "river",
-    "lake",
-  ]);
+
+  const fishingPos =
+    firstResourcePos(["fishing"]) ??
+    findCandidate(["fishing", "dock", "wharf", "river", "lake"]);
   if (fishingPos) setKnownLocationPosition("fishing", fishingPos);
-  const minePos = findCandidate(["mine", "mining", "ore", "quarry"]);
+
+  const minePos =
+    firstResourcePos(["mine", "rock"]) ??
+    findCandidate(["mine", "mining", "ore", "quarry"]);
   if (minePos) setKnownLocationPosition("mine", minePos);
-  const furnacePos = findCandidate(["furnace", "smelt"]);
+
+  // For stations, prefer manifest station positions
+  const firstStationPos = (
+    types: string[],
+  ): [number, number, number] | null => {
+    const stations = worldMap.stations ?? [];
+    const match = stations.find((s) => types.some((t) => s.type.includes(t)));
+    if (!match) return null;
+    return [match.position.x, match.position.y, match.position.z];
+  };
+
+  const furnacePos =
+    firstStationPos(["furnace"]) ?? findCandidate(["furnace", "smelt"]);
   if (furnacePos) setKnownLocationPosition("furnace", furnacePos);
-  const anvilPos = findCandidate(["anvil", "smith"]);
+
+  const anvilPos =
+    firstStationPos(["anvil"]) ?? findCandidate(["anvil", "smith"]);
   if (anvilPos) setKnownLocationPosition("anvil", anvilPos);
 
   // Add towns
@@ -171,6 +202,59 @@ export function populateKnownLocationsFromWorldMap(
         position: [poi.position.x, poi.position.y, poi.position.z],
         description: `${poi.name} (${poi.category}) in ${poi.biome}`,
       };
+    }
+  }
+
+  // Add stations as known locations (bank, furnace, anvil, range, altar)
+  for (const station of worldMap.stations ?? []) {
+    const key = `${station.type}_${station.areaId}`;
+    if (!KNOWN_LOCATIONS[key]) {
+      KNOWN_LOCATIONS[key] = {
+        position: [station.position.x, station.position.y, station.position.z],
+        description: `${station.type} station in ${station.areaId.replace(/_/g, " ")}`,
+        entities: [station.type],
+      };
+    }
+  }
+
+  // Add NPC locations
+  for (const npc of worldMap.npcs ?? []) {
+    const key = npc.id;
+    if (!KNOWN_LOCATIONS[key]) {
+      KNOWN_LOCATIONS[key] = {
+        position: [npc.position.x, npc.position.y, npc.position.z],
+        description: `${npc.name ?? npc.type} (${npc.type}) in ${npc.areaId.replace(/_/g, " ")}`,
+        entities: [npc.type],
+      };
+    }
+  }
+
+  // Add resource clusters as known locations (group by type per area)
+  const resourcesByArea = new Map<
+    string,
+    Map<string, { x: number; y: number; z: number }>
+  >();
+  for (const resource of worldMap.resources ?? []) {
+    const areaKey = resource.areaId;
+    if (!resourcesByArea.has(areaKey)) {
+      resourcesByArea.set(areaKey, new Map());
+    }
+    const areaResources = resourcesByArea.get(areaKey)!;
+    // Store first position per resource type per area
+    if (!areaResources.has(resource.type)) {
+      areaResources.set(resource.type, resource.position);
+    }
+  }
+  for (const [areaId, types] of resourcesByArea) {
+    for (const [type, pos] of types) {
+      const key = `${type}_${areaId}`;
+      if (!KNOWN_LOCATIONS[key]) {
+        KNOWN_LOCATIONS[key] = {
+          position: [pos.x, pos.y, pos.z],
+          description: `${type.replace(/_/g, " ")} resources in ${areaId.replace(/_/g, " ")}`,
+          entities: [type],
+        };
+      }
     }
   }
 }
@@ -269,7 +353,8 @@ export interface GoalOption {
     | "cooking"
     | "exploration"
     | "idle"
-    | "starter_items";
+    | "questing"
+    | "banking";
   description: string;
   targetSkill?: string;
   targetSkillLevel?: number;
@@ -399,27 +484,51 @@ export function getAvailableGoals(service: HyperscapeService): GoalOption[] {
       name.includes("ore")
     );
   });
-  const hasStarterChest = nearbyEntities.some(
-    (e) =>
-      e.type === "starter_chest" ||
-      e.name?.toLowerCase().includes("starter chest"),
-  );
-
   // Check if player has basic tools using centralized item detection
   const hasAxe = detectHasAxe(player);
   const hasPickaxe = detectHasPickaxe(player);
+  const hasFishingGear = detectHasFishingEquipment(player);
 
-  // Starter chest goal - highest priority when player has no basic tools
-  if (hasStarterChest && !hasAxe && !hasPickaxe) {
+  // Duel preparation: check food status for priority boosting
+  const hasFood = detectHasFood(player);
+  const foodCount = detectCountFood(player);
+  // Boost food-producing skills when inventory is low on food
+  const needsFood = !hasFood || foodCount < 5;
+  const foodPriorityBoost = needsFood ? 25 : 0;
+
+  // Quest-based tool acquisition — highest priority when player has no basic tools
+  if (!hasAxe || !hasPickaxe || !hasFishingGear) {
+    const missingTools: string[] = [];
+    if (!hasAxe)
+      missingTools.push(
+        "axe (accept Lumberjack's First Lesson from Forester Wilma)",
+      );
+    if (!hasPickaxe)
+      missingTools.push("pickaxe (accept Torvin's Tools from Torvin)");
+    if (!hasFishingGear)
+      missingTools.push("fishing net (accept Fresh Catch from Fisherman Pete)");
+
     goals.push({
-      id: "get_starter_items",
-      type: "starter_items",
-      description: "Search the starter chest for basic tools and food",
-      targetEntity: "starter_chest",
-      location: "spawn", // Starter chest is at spawn
-      priority: 100, // Highest priority - new players need tools!
-      reason:
-        "You have no basic tools! The starter chest contains an axe, pickaxe, tinderbox, fishing net, and food to get you started.",
+      id: "get_tools_via_quests",
+      type: "questing",
+      description: "Talk to NPCs and accept quests to get starter tools",
+      location: "spawn",
+      priority: 100, // Highest priority - need tools to do anything!
+      reason: `You are MISSING essential tools: ${missingTools.join("; ")}. Accept quests from nearby NPCs to receive these tools immediately.`,
+    });
+  }
+
+  // Banking goal — when inventory is nearly full
+  const inventoryItems = Array.isArray(player?.items) ? player.items : [];
+  if (inventoryItems.length >= 25) {
+    goals.push({
+      id: "bank_items",
+      type: "banking",
+      description:
+        "Go to bank and deposit non-essential items to free inventory space",
+      location: "spawn",
+      priority: 90, // Very high — can't gather/loot with full inventory
+      reason: `Inventory is ${inventoryItems.length}/28 — almost full! Bank your gathered items to make room for more.`,
     });
   }
 
@@ -509,19 +618,21 @@ export function getAvailableGoals(service: HyperscapeService): GoalOption[] {
       : "Head to the western forest for woodcutting",
   });
 
-  // Fishing goal
+  // Fishing goal — boosted when agent needs food for duel preparation
   goals.push({
     id: "train_fishing",
     type: "fishing",
-    description: `Train fishing from ${fishingLevel} to ${fishingLevel + 2} by catching fish`,
+    description: `Train fishing from ${fishingLevel} to ${fishingLevel + 2} by catching fish${needsFood ? " (PRIORITY: need food for duels!)" : ""}`,
     targetSkill: "fishing",
     targetSkillLevel: fishingLevel + 2,
     targetEntity: "fishing_spot",
     location: "fishing",
-    priority: hasFishingSpots ? 60 : 35,
-    reason: hasFishingSpots
-      ? "Fishing spots nearby - steady XP gains"
-      : "Look for fishing spots near water",
+    priority: (hasFishingSpots ? 60 : 35) + foodPriorityBoost,
+    reason: needsFood
+      ? `Need food for duels! Only ${foodCount} food items in inventory. Fish provide food AND fishing XP.`
+      : hasFishingSpots
+        ? "Fishing spots nearby - steady XP gains"
+        : "Look for fishing spots near water",
   });
 
   // Mining goal
@@ -583,6 +694,41 @@ export const goalProvider: Provider = {
     const behaviorManager = service?.getBehaviorManager();
     const goal = behaviorManager?.getGoal();
 
+    // Build duel history context for strategy awareness
+    const duelHistory = behaviorManager?.getDuelHistory() ?? [];
+    let duelContextText = "";
+    if (duelHistory.length > 0) {
+      const wins = duelHistory.filter((d) => d.won).length;
+      const losses = duelHistory.length - wins;
+      const recentDuels = duelHistory
+        .slice(-3)
+        .map((d) => {
+          const result = d.won ? "Won" : "Lost";
+          return `- ${result} vs ${d.opponentName} (${d.myHealth}hp remaining)`;
+        })
+        .join("\n");
+
+      // Generate strategy suggestion based on patterns
+      const avgEndHealth =
+        duelHistory.reduce((sum, d) => sum + d.myHealth, 0) /
+        duelHistory.length;
+      let suggestion = "";
+      if (losses > wins) {
+        suggestion =
+          "Focus on gathering food (fishing/cooking) and training combat skills to improve.";
+      } else if (avgEndHealth < 10) {
+        suggestion =
+          "Fights are very close. Stockpile more food to have a cushion.";
+      } else {
+        suggestion = "Good win rate! Keep training to maintain your edge.";
+      }
+
+      duelContextText = `\n\n## Recent Duel Performance
+**Record**: ${wins}W / ${losses}L
+${recentDuels}
+**Strategy**: ${suggestion}`;
+    }
+
     // Get available goals based on current state
     const availableGoals = service ? getAvailableGoals(service) : [];
     const goalsText = availableGoals
@@ -603,7 +749,7 @@ export const goalProvider: Provider = {
 
 ## Available Goals (choose one):
 ${goalsText}
-
+${duelContextText}
 Use SET_GOAL to select one of these objectives based on your situation.`,
         values: {
           hasGoal: false,
@@ -627,7 +773,7 @@ Use SET_GOAL to select one of these objectives based on your situation.`,
 **Progress**: ${goal.progress}/${goal.target} (${progressPercent}%)
 **Location**: ${goal.location || "anywhere"}
 **Target**: ${goal.targetEntity || "any"}
-${goal.targetSkill ? `**Training**: ${goal.targetSkill} to level ${goal.targetSkillLevel}` : ""}`,
+${goal.targetSkill ? `**Training**: ${goal.targetSkill} to level ${goal.targetSkillLevel}` : ""}${duelContextText}`,
       values: {
         hasGoal: true,
         goalType: goal.type,

@@ -56,6 +56,7 @@ function isActiveStreamingDuelContestant(playerId: string): boolean {
   }
 
   if (
+    cycle.phase !== "ANNOUNCEMENT" &&
     cycle.phase !== "COUNTDOWN" &&
     cycle.phase !== "FIGHTING" &&
     cycle.phase !== "RESOLUTION"
@@ -169,8 +170,10 @@ export function recoverAgentFromDeathLoop(
     entity.data.inStreamingDuel === true || entity.data.preventRespawn === true;
   const activeDuelContestant = isActiveStreamingDuelContestant(playerId);
 
-  // Never override duel-owned death handling while an active streaming duel is running.
-  if (inStreamingDuel && activeDuelContestant) {
+  // Never override duel-owned death handling while an active streaming duel
+  // is running. Check contestant status alone (not just inStreamingDuel flag)
+  // because during ANNOUNCEMENT phase the flag may not be set yet.
+  if (activeDuelContestant) {
     return false;
   }
 

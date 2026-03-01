@@ -72,8 +72,38 @@ export class PlayerTokenManager extends EventEmitter {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private readonly HEARTBEAT_INTERVAL = 30000; // 30 seconds
 
+  // Stored so we can removeEventListener later — anonymous lambdas cannot be removed
+  private readonly beforeUnloadHandler: () => void;
+
+  // Cached machine fingerprint — computed once per session, never changes
+  private _cachedMachineId: string | null = null;
+
+  // Debounce handle for activity saves — prevents synchronous localStorage
+  // writes at mouse-event frequency (called on every user interaction)
+  private _activitySaveTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readonly ACTIVITY_SAVE_DEBOUNCE_MS = 500;
+
   constructor() {
     super();
+
+    // Define handler as named method stored on instance so it can be removed later
+    this.beforeUnloadHandler = () => {
+      this.currentToken.lastSeen = new Date();
+      this.saveToken(this.currentToken);
+      this.currentSession.lastActivity = new Date();
+      this.saveSession(this.currentSession);
+      const data = {
+        playerId: this.currentToken.playerId,
+        sessionId: this.currentSession.sessionId,
+        reason: "window_unload",
+      };
+      const baseUrl = GAME_API_URL;
+      navigator.sendBeacon(
+        `${baseUrl}/api/player/disconnect`,
+        JSON.stringify(data),
+      );
+    };
+
     // Load existing token and session immediately with safe JSON parsing
     const storedToken = localStorage.getItem(PlayerTokenManager.STORAGE_KEY);
     let parsedToken: ClientPlayerToken | null = null;
@@ -199,12 +229,28 @@ export class PlayerTokenManager extends EventEmitter {
    * @public
    */
   endSession(): void {
+    // Flush any pending debounced activity write so the session record is current
+    if (this._activitySaveTimeout) {
+      clearTimeout(this._activitySaveTimeout);
+      this._activitySaveTimeout = null;
+      this.saveSession(this.currentSession);
+    }
+
     this.currentSession.isActive = false;
     this.saveSession(this.currentSession);
     this.emit("session-ended", this.currentSession);
 
+    this.stopHeartbeat();
+  }
+
+  /**
+   * Stop the heartbeat interval
+   * @private
+   */
+  private stopHeartbeat(): void {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
     }
   }
 
@@ -218,7 +264,13 @@ export class PlayerTokenManager extends EventEmitter {
    */
   updateActivity(): void {
     this.currentSession.lastActivity = new Date();
-    this.saveSession(this.currentSession);
+    // Debounce the write — localStorage.setItem is synchronous and can be
+    // called at mouse-event frequency, blocking the JS thread on every call
+    if (this._activitySaveTimeout) clearTimeout(this._activitySaveTimeout);
+    this._activitySaveTimeout = setTimeout(() => {
+      this.saveSession(this.currentSession);
+      this._activitySaveTimeout = null;
+    }, this.ACTIVITY_SAVE_DEBOUNCE_MS);
   }
 
   /**
@@ -253,6 +305,9 @@ export class PlayerTokenManager extends EventEmitter {
    * @public
    */
   clearStoredData(): void {
+    // Stop heartbeat before clearing data to prevent memory leak
+    this.stopHeartbeat();
+
     localStorage.removeItem(PlayerTokenManager.STORAGE_KEY);
     localStorage.removeItem(PlayerTokenManager.SESSION_KEY);
 
@@ -291,7 +346,9 @@ export class PlayerTokenManager extends EventEmitter {
   }
 
   private generateMachineId(): string {
-    // Generate a unique machine ID based on browser fingerprinting
+    if (this._cachedMachineId) return this._cachedMachineId;
+
+    // Canvas fingerprint — stable for the life of this browser session
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d")!;
     ctx.textBaseline = "top";
@@ -303,7 +360,8 @@ export class PlayerTokenManager extends EventEmitter {
       return (acc << 5) - acc + char.charCodeAt(0);
     }, 0);
 
-    return `machine_${Math.abs(hash).toString(36)}_${navigator.hardwareConcurrency}_${screen.width}x${screen.height}`;
+    this._cachedMachineId = `machine_${Math.abs(hash).toString(36)}_${navigator.hardwareConcurrency}_${screen.width}x${screen.height}`;
+    return this._cachedMachineId;
   }
 
   private generateSessionId(): string {
@@ -341,26 +399,23 @@ export class PlayerTokenManager extends EventEmitter {
   }
 
   private setupBeforeUnloadHandler(): void {
-    window.addEventListener("beforeunload", () => {
-      // Save final state
-      this.currentToken.lastSeen = new Date();
-      this.saveToken(this.currentToken);
+    window.addEventListener("beforeunload", this.beforeUnloadHandler);
+  }
 
-      this.currentSession.lastActivity = new Date();
-      this.saveSession(this.currentSession);
-
-      // Attempt to notify server of disconnect
-      const data = {
-        playerId: this.currentToken.playerId,
-        sessionId: this.currentSession.sessionId,
-        reason: "window_unload",
-      };
-
-      // Use sendBeacon for reliable delivery during page unload
-      const baseUrl = GAME_API_URL;
-      const endpoint = `${baseUrl}/api/player/disconnect`;
-      navigator.sendBeacon(endpoint, JSON.stringify(data));
-    });
+  /**
+   * Removes the beforeunload listener and releases all resources.
+   * Call this when the app is torn down or the user logs out entirely.
+   *
+   * @public
+   */
+  dispose(): void {
+    // Cancel any pending debounced activity write before tearing down
+    if (this._activitySaveTimeout) {
+      clearTimeout(this._activitySaveTimeout);
+      this._activitySaveTimeout = null;
+    }
+    window.removeEventListener("beforeunload", this.beforeUnloadHandler);
+    this.endSession();
   }
 
   /**

@@ -123,6 +123,9 @@ import {
 const ROAD_BLEND_WIDTH = 0.5; // Extra blend distance beyond road width (meters)
 const TERRAIN_ROAD_INFLUENCE_DEBUG =
   process.env.TERRAIN_ROAD_INFLUENCE_DEBUG === "true";
+const TERRAIN_TIMING_DEBUG = process.env.TERRAIN_TIMING_DEBUG === "true";
+/** Maximum entries retained in pendingSerializationData to prevent unbounded growth */
+const MAX_PENDING_SERIALIZATION_ENTRIES = 100;
 
 // Lamppost vertex lighting (terrain-only, GPU shader accumulation)
 const LAMP_VERTEX_LIGHT_RANGE = 12;
@@ -546,14 +549,18 @@ export class TerrainSystem extends System {
         const geometry = this.createTileGeometryFromWorkerData(workerData);
         this.createTileFromGeometryWithResources(x, z, geometry);
         this.pendingWorkerResults.delete(key);
-        console.warn(
-          `[TerrainTiming] worker tile ${key}: ${(performance.now() - _tStart).toFixed(1)}ms`,
-        );
+        if (TERRAIN_TIMING_DEBUG) {
+          console.debug(
+            `[TerrainTiming] worker tile ${key}: ${(performance.now() - _tStart).toFixed(1)}ms`,
+          );
+        }
       } else {
         this.generateTile(x, z);
-        console.warn(
-          `[TerrainTiming] sync tile ${key}: ${(performance.now() - _tStart).toFixed(1)}ms`,
-        );
+        if (TERRAIN_TIMING_DEBUG) {
+          console.debug(
+            `[TerrainTiming] sync tile ${key}: ${(performance.now() - _tStart).toFixed(1)}ms`,
+          );
+        }
       }
       generated++;
     }
@@ -1922,12 +1929,23 @@ export class TerrainSystem extends System {
 
         // Fallback to camera position until the target entity is available.
         const cameraPos = this.world.camera?.position;
-        if (cameraPos) {
+        if (
+          cameraPos &&
+          (Math.abs(cameraPos.x) > 1 || Math.abs(cameraPos.z) > 1)
+        ) {
           this._spectatorFocusPos.set(cameraPos.x, cameraPos.y, cameraPos.z);
           return [
             { id: "spectator-camera", position: this._spectatorFocusPos },
           ];
         }
+
+        // Final fallback: use duel arena lobby so terrain generates at the
+        // arena instead of the world origin when no agents exist yet.
+        const lobby = getDuelArenaConfig().lobbySpawnPoint;
+        this._spectatorFocusPos.set(lobby.x, lobby.y, lobby.z);
+        return [
+          { id: "spectator-arena-lobby", position: this._spectatorFocusPos },
+        ];
       }
     }
 
@@ -1940,6 +1958,16 @@ export class TerrainSystem extends System {
         position: player.node.position,
       });
     }
+
+    // If no players at all (spectator on server, or empty world), use arena lobby.
+    if (centers.length === 0 && this.runtimeIsClient) {
+      const lobby = getDuelArenaConfig().lobbySpawnPoint;
+      this._spectatorFocusPos.set(lobby.x, lobby.y, lobby.z);
+      return [
+        { id: "spectator-arena-lobby", position: this._spectatorFocusPos },
+      ];
+    }
+
     return centers;
   }
 
@@ -5323,6 +5351,8 @@ export class TerrainSystem extends System {
     this.activeChunks.delete(tile.key);
     // Remove cached bounding box if present
     this.terrainBoundingBoxes.delete(tile.key);
+    // Remove pending serialization data to prevent unbounded memory growth
+    this.pendingSerializationData.delete(tile.key);
     this.emitTileUnloaded(`${tile.x},${tile.z}`, tile.x, tile.z);
   }
 
@@ -6702,6 +6732,24 @@ export class TerrainSystem extends System {
 
         this.databaseSystem.saveWorldChunk(chunkData);
         _serializedChunks++;
+      }
+    }
+
+    // Cap pendingSerializationData to prevent unbounded memory growth.
+    // Evict oldest entries (by insertion order) when over the limit.
+    if (
+      this.pendingSerializationData.size > MAX_PENDING_SERIALIZATION_ENTRIES
+    ) {
+      const excess =
+        this.pendingSerializationData.size - MAX_PENDING_SERIALIZATION_ENTRIES;
+      let evicted = 0;
+      for (const evictKey of this.pendingSerializationData.keys()) {
+        if (evicted >= excess) break;
+        // Only evict tiles that are no longer loaded
+        if (!this.terrainTiles.has(evictKey)) {
+          this.pendingSerializationData.delete(evictKey);
+          evicted++;
+        }
       }
     }
 

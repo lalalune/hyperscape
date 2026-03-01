@@ -148,15 +148,15 @@ function ensureIdlAddress(idlJson: unknown, programId: PublicKey): Idl {
 
 export const FIGHT_ORACLE_PROGRAM_ID = resolveProgramId(
   fightOracleIdl,
-  "A6utqr1N4KP3Tst2tMCqfJR4mhCRNw4M2uN3Nb6nPBcS",
+  "6tpRysBFd1yXRipYEYwAw9jxEoVHk15kVXfkDGFLMqcD",
 );
 export const GOLD_CLOB_MARKET_PROGRAM_ID = resolveProgramId(
   goldClobMarketIdl,
-  "4phSkAVkbtGbQbrT3p2xjNPLAyw1DWz99wT7g4dQMyiX",
+  "ARVJNJp49VZnkB8QBYZAAFJmufvtVSPhnuuenwwSLwpi",
 );
 export const GOLD_PERPS_MARKET_PROGRAM_ID = resolveProgramId(
   goldPerpsMarketIdl,
-  "3WKQf3J4B8QqRyWcBLR7xrb9VFPVjkZwzyZS67AahDbK",
+  "HbXhqEFevpkfYdZCN6YmJGRmQmj9vsBun2ZHjeeaLRik",
 );
 
 /** @deprecated Binary market is no longer deployed. Retained for backward compat. */

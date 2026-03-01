@@ -54,6 +54,8 @@ const _meshBuffer: THREE.Object3D[] = [];
 export class EntityHighlightService {
   private currentTargetId: string | null = null;
   private composer: PostProcessingComposer | null = null;
+  /** Temporary highlight mesh added to the scene for instanced entities */
+  private activeHighlightMesh: THREE.Object3D | null = null;
 
   constructor(private world: World) {}
 
@@ -76,21 +78,37 @@ export class EntityHighlightService {
    * Only updates the outline pass when the target changes.
    */
   setHoverTarget(target: RaycastTarget | null): void {
-    // Same target — no work needed
     const newId = target?.entityId ?? null;
     if (newId === this.currentTargetId) return;
 
+    this.removeActiveHighlightMesh();
     this.currentTargetId = newId;
 
     if (!this.composer) return;
 
     if (!target || !target.entity) {
-      // Clear outline
       this.composer.setOutlineObjects([]);
       return;
     }
 
-    // Get the visual root for mesh collection
+    // Try instanced highlight path first
+    const entity = target.entity as unknown as Record<string, unknown>;
+    if (typeof entity.getHighlightRoot === "function") {
+      const hlRoot = (entity.getHighlightRoot as () => THREE.Object3D | null)();
+      if (hlRoot) {
+        this.world.stage?.scene?.add?.(hlRoot);
+        this.activeHighlightMesh = hlRoot;
+        const meshes = this.collectMeshes(hlRoot);
+        if (meshes.length > 0) {
+          const color = this.getHighlightColor(target.entityType);
+          this.composer.setOutlineColor(color);
+          this.composer.setOutlineObjects(meshes);
+          return;
+        }
+      }
+    }
+
+    // Fallback: use entity's own scene-graph mesh
     const mesh = target.entity.mesh;
     const node = target.entity.node;
     const root = mesh ?? node;
@@ -99,14 +117,12 @@ export class EntityHighlightService {
       return;
     }
 
-    // Collect all mesh children for the outline pass
     const meshes = this.collectMeshes(root);
     if (meshes.length === 0) {
       this.composer.setOutlineObjects([]);
       return;
     }
 
-    // Set color based on entity type
     const color = this.getHighlightColor(target.entityType);
     this.composer.setOutlineColor(color);
     this.composer.setOutlineObjects(meshes);
@@ -118,8 +134,16 @@ export class EntityHighlightService {
   clearHover(): void {
     if (this.currentTargetId === null) return;
     this.currentTargetId = null;
+    this.removeActiveHighlightMesh();
     if (this.composer) {
       this.composer.setOutlineObjects([]);
+    }
+  }
+
+  private removeActiveHighlightMesh(): void {
+    if (this.activeHighlightMesh) {
+      this.world.stage?.scene?.remove?.(this.activeHighlightMesh);
+      this.activeHighlightMesh = null;
     }
   }
 

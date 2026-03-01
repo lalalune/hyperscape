@@ -163,12 +163,12 @@ export class AgentBehaviorTicker {
     this.stopBehaviorLoop(characterId);
 
     const runTick = async () => {
-      const current = this.getAgent(characterId);
-      if (!current || current.state !== "running") {
-        return;
-      }
-
       try {
+        const current = this.getAgent(characterId);
+        if (!current || current.state !== "running") {
+          return;
+        }
+
         await this.executeBehaviorTick(characterId);
       } catch (err) {
         console.warn(
@@ -190,7 +190,11 @@ export class AgentBehaviorTicker {
 
     // Delay the first tick so PLAYER_REGISTERED has time to fire and
     // QuestSystem can load the player's quest state from the database.
-    setTimeout(() => void runTick(), 3000);
+    setTimeout(() => {
+      if (tickInProgress) return;
+      tickInProgress = true;
+      void runTick();
+    }, 3000);
   }
 
   /**
@@ -270,16 +274,16 @@ export class AgentBehaviorTicker {
     await this.manageQuests(instance);
 
     // === INVENTORY MANAGEMENT ===
-    this.manageInventory(instance);
+    await this.manageInventory(instance);
 
     // === SHOPPING: buy missing tools/weapons ===
-    this.manageShopping(instance);
+    await this.manageShopping(instance);
 
     // === EQUIPMENT MANAGEMENT ===
-    this.manageEquipment(instance, gameState);
+    await this.manageEquipment(instance, gameState);
 
     // === SURVIVAL: EAT FOOD IF NEEDED ===
-    if (this.assessAndEat(instance, gameState)) {
+    if (await this.assessAndEat(instance, gameState)) {
       return; // Ate food this tick — skip action to let health update
     }
 
@@ -474,7 +478,7 @@ export class AgentBehaviorTicker {
    * Checks quest requirements, current equipment, and coins.
    * One purchase per tick to avoid spam.
    */
-  public manageShopping(instance: AgentInstance): void {
+  public async manageShopping(instance: AgentInstance): Promise<void> {
     const inventory = instance.service.getInventoryItems();
     const equipped = instance.service.getEquippedItems();
     const goal = instance.goal;
@@ -524,14 +528,22 @@ export class AgentBehaviorTicker {
         console.log(
           `[AgentManager] ${instance.config.name} buying bronze_shortsword (unarmed, ${coins} coins)`,
         );
-        instance.service.executeStoreBuy("sword_store", "bronze_shortsword", 1);
+        await instance.service.executeStoreBuy(
+          "sword_store",
+          "bronze_shortsword",
+          1,
+        );
         return;
       }
       if (coins >= 10) {
         console.log(
           `[AgentManager] ${instance.config.name} buying bronze_dagger (unarmed, ${coins} coins)`,
         );
-        instance.service.executeStoreBuy("sword_store", "bronze_dagger", 1);
+        await instance.service.executeStoreBuy(
+          "sword_store",
+          "bronze_dagger",
+          1,
+        );
         return;
       }
     }
@@ -551,7 +563,7 @@ export class AgentBehaviorTicker {
             console.log(
               `[AgentManager] ${instance.config.name} buying bronze_hatchet for woodcutting quest (${coins} coins)`,
             );
-            instance.service.executeStoreBuy(
+            await instance.service.executeStoreBuy(
               "general_store",
               "bronze_hatchet",
               1,
@@ -572,7 +584,7 @@ export class AgentBehaviorTicker {
             console.log(
               `[AgentManager] ${instance.config.name} buying bronze_pickaxe for mining quest (${coins} coins)`,
             );
-            instance.service.executeStoreBuy(
+            await instance.service.executeStoreBuy(
               "general_store",
               "bronze_pickaxe",
               1,
@@ -592,7 +604,7 @@ export class AgentBehaviorTicker {
             console.log(
               `[AgentManager] ${instance.config.name} buying small_fishing_net for fishing quest (${coins} coins)`,
             );
-            instance.service.executeStoreBuy(
+            await instance.service.executeStoreBuy(
               "fishing_store",
               "small_fishing_net",
               1,
@@ -609,7 +621,11 @@ export class AgentBehaviorTicker {
             console.log(
               `[AgentManager] ${instance.config.name} buying tinderbox (${coins} coins)`,
             );
-            instance.service.executeStoreBuy("general_store", "tinderbox", 1);
+            await instance.service.executeStoreBuy(
+              "general_store",
+              "tinderbox",
+              1,
+            );
             return;
           }
         }
@@ -625,7 +641,7 @@ export class AgentBehaviorTicker {
    * Priority to keep: weapons > armor > tools > food (max 5) > everything else
    * Priority to drop: bones, excess food beyond 5, other junk
    */
-  public manageInventory(instance: AgentInstance): void {
+  public async manageInventory(instance: AgentInstance): Promise<void> {
     const inventory = instance.service.getInventoryItems();
     if (inventory.length < 20) return; // Keep 8+ free slots for quest loot and gear
     if (Date.now() < instance.dropCooldownUntil) return;
@@ -683,7 +699,7 @@ export class AgentBehaviorTicker {
         console.log(
           `[AgentManager] ${instance.config.name} burying ${slot.itemId} for prayer XP`,
         );
-        instance.service.executeUse(slot.itemId);
+        await instance.service.executeUse(slot.itemId);
         return; // One action per tick
       }
 
@@ -708,7 +724,7 @@ export class AgentBehaviorTicker {
       console.log(
         `[AgentManager] ${instance.config.name} dropping ${toDrop.itemId} (inventory: ${inventory.length - i}/28)`,
       );
-      instance.service.executeDrop(toDrop.itemId, 1);
+      await instance.service.executeDrop(toDrop.itemId, 1);
     }
 
     // Set cooldown so agent doesn't immediately pick up what it dropped
@@ -725,10 +741,10 @@ export class AgentBehaviorTicker {
    * - Don't waste high-value food on small damage (pick lowest heal that covers the gap)
    * - Don't eat at full health
    */
-  public assessAndEat(
+  public async assessAndEat(
     instance: AgentInstance,
     gameState: EmbeddedGameState,
-  ): boolean {
+  ): Promise<boolean> {
     const { health, maxHealth, inCombat } = gameState;
     if (maxHealth <= 0) return false;
 
@@ -789,7 +805,7 @@ export class AgentBehaviorTicker {
     console.log(
       `[AgentManager] ${instance.config.name} eating ${bestFood.itemId} (hp: ${health}/${maxHealth}, heal: ${bestFood.healAmount})`,
     );
-    instance.service.executeUse(bestFood.itemId);
+    await instance.service.executeUse(bestFood.itemId);
     instance.lastAteAt = Date.now();
     return true;
   }
@@ -802,10 +818,10 @@ export class AgentBehaviorTicker {
    * Reads directly from InventorySystem and EquipmentSystem
    * (entity data.inventory is unreliable — often empty).
    */
-  public manageEquipment(
+  public async manageEquipment(
     instance: AgentInstance,
     _gameState: EmbeddedGameState,
-  ): void {
+  ): Promise<void> {
     // Read real inventory from InventorySystem (not entity data)
     const inventory = instance.service.getInventoryItems();
     if (inventory.length === 0) return;
@@ -848,7 +864,7 @@ export class AgentBehaviorTicker {
       console.log(
         `[AgentManager] ${instance.config.name} equipping weapon ${bestWeapon.itemId} (score ${bestWeapon.score} > ${equippedWeaponScore})`,
       );
-      instance.service.executeEquip(bestWeapon.itemId);
+      await instance.service.executeEquip(bestWeapon.itemId);
       return; // one equip per tick
     }
 
@@ -895,7 +911,7 @@ export class AgentBehaviorTicker {
           console.log(
             `[AgentManager] ${instance.config.name} equipping ${bestArmor.itemId} in ${slotName} (score ${bestArmor.score} > ${currentScore})`,
           );
-          instance.service.executeEquip(bestArmor.itemId);
+          await instance.service.executeEquip(bestArmor.itemId);
           return; // one equip per tick
         }
       }

@@ -11,7 +11,7 @@
  * efficiently (single encode, multiple outputs).
  */
 
-import { spawn, exec, type ChildProcess } from "child_process";
+import { spawn, exec, execSync, type ChildProcess } from "child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
@@ -118,7 +118,7 @@ export class RTMPBridge {
   private clientSocketPaused = false;
 
   /** Maximum restart attempts before giving up */
-  private static readonly MAX_RESTART_ATTEMPTS = 5;
+  private static readonly MAX_RESTART_ATTEMPTS = 8;
 
   /** Base delay for exponential backoff (ms) */
   private static readonly BASE_RESTART_DELAY = 1000;
@@ -126,11 +126,11 @@ export class RTMPBridge {
   /** Maximum delay between restart attempts (ms) */
   private static readonly MAX_RESTART_DELAY = 60000;
 
-  /** Health check interval (ms) */
-  private static readonly HEALTH_CHECK_INTERVAL = 10000;
+  /** Health check interval (ms) - check every 5s for faster detection */
+  private static readonly HEALTH_CHECK_INTERVAL = 5000;
 
-  /** Timeout for no data before considering unhealthy (ms) */
-  private static readonly DATA_TIMEOUT = 30000;
+  /** Timeout for no data before considering unhealthy (ms) - reduced to 15s */
+  private static readonly DATA_TIMEOUT = 15000;
   /** Number of FFmpeg log lines to keep in memory */
   private static readonly FFMPEG_LOG_TAIL_LINES = 40;
 
@@ -163,6 +163,11 @@ export class RTMPBridge {
         DEFAULT_STREAMING_CONFIG.audioBitrate,
         32,
       ),
+      gopSize: parseEnvInt(
+        process.env.STREAM_GOP_SIZE,
+        DEFAULT_STREAMING_CONFIG.gopSize,
+        15,
+      ),
     };
 
     this.config = { ...DEFAULT_STREAMING_CONFIG, ...envConfig, ...config };
@@ -177,7 +182,7 @@ export class RTMPBridge {
     this.ffmpegCommand = resolveFfmpegCommand();
     console.log(`[RTMPBridge] Using FFmpeg command: ${this.ffmpegCommand}`);
     console.log(
-      `[RTMPBridge] Stream profile: ${this.config.width}x${this.config.height}@${this.config.fps} ${this.config.videoBitrate}k video / ${this.config.audioBitrate}k audio`,
+      `[RTMPBridge] Stream profile: ${this.config.width}x${this.config.height}@${this.config.fps}fps, GOP=${this.config.gopSize}, ${this.config.videoBitrate}k video / ${this.config.audioBitrate}k audio`,
     );
   }
 
@@ -325,9 +330,10 @@ export class RTMPBridge {
       addDestination("YouTube", RTMPBridge.toRtmpUrl(server), youtubeStreamKey);
     }
 
-    // Kick
+    // Kick (uses RTMPS with regional ingest)
     const kickServer =
-      process.env.KICK_RTMP_URL || "rtmp://ingest.kick.com/live";
+      process.env.KICK_RTMP_URL ||
+      "rtmps://fa723fc1b171.global-contribute.live-video.net/app";
     const kickStreamKey = process.env.KICK_STREAM_KEY?.trim() || "";
     const kickUrlHasEmbeddedKey = /\/live\/[^/]+/.test(kickServer);
     if (
@@ -602,23 +608,35 @@ export class RTMPBridge {
       ];
     }
 
+    // Use 'film' tune for better quality and stability (allows B-frames)
+    // Only use 'zerolatency' if STREAM_LOW_LATENCY=true is explicitly set
+    const useLowLatency = /^(1|true|yes)$/i.test(
+      process.env.STREAM_LOW_LATENCY || "",
+    );
+    const tune = useLowLatency ? "zerolatency" : "film";
+    // Buffer multiplier: 2x for both modes (was 4x for film, caused 18MB buffer)
+    // Lower buffer reduces latency accumulation and backpressure buildup
+    const bufferMultiplier = 2;
+
     return [
       "-c:v",
       "libx264",
       "-preset",
       this.config.preset,
       "-tune",
-      "zerolatency",
+      tune,
       "-b:v",
       `${this.config.videoBitrate}k`,
       "-maxrate",
-      `${Math.floor(this.config.videoBitrate * 1.1)}k`,
+      `${Math.floor(this.config.videoBitrate * 1.2)}k`,
       "-bufsize",
-      `${this.config.videoBitrate * 2}k`,
+      `${this.config.videoBitrate * bufferMultiplier}k`,
       "-pix_fmt",
       "yuv420p",
       "-g",
       String(this.config.gopSize),
+      // Add B-frames for better compression (disabled in zerolatency mode)
+      ...(useLowLatency ? [] : ["-bf", "2"]),
     ];
   }
 
@@ -627,6 +645,11 @@ export class RTMPBridge {
    */
   private buildAudioArgs(): string[] {
     return [
+      // Audio filter: async resample to recover from timing drift
+      // async=1000 means resample if audio drifts more than 1000 samples (22ms at 44.1kHz)
+      // This prevents audio dropouts when video/audio streams desync
+      "-af",
+      "aresample=async=1000:first_pts=0",
       "-c:a",
       "aac",
       "-b:a",
@@ -756,26 +779,96 @@ export class RTMPBridge {
     const outputString = this.buildOutputString();
     const isNullOutput = outputString === "-f null -";
 
+    // Check if low latency mode is explicitly requested
+    const useLowLatency = /^(1|true|yes)$/i.test(
+      process.env.STREAM_LOW_LATENCY || "",
+    );
+
     // FFmpeg args for JPEG frame piping (mjpeg → H.264)
-    const args: string[] = [
-      // Low-latency input flags
-      "-fflags",
-      "nobuffer",
-      "-flags",
-      "low_delay",
-      // Input: JPEG frames piped via stdin
+    const args: string[] = useLowLatency
+      ? [
+          // Ultra low-latency input flags (may cause buffering on viewers)
+          "-fflags",
+          "nobuffer",
+          "-flags",
+          "low_delay",
+        ]
+      : [
+          // Balanced input flags with larger buffer for a/v sync stability
+          "-fflags",
+          "+genpts+discardcorrupt",
+          "-thread_queue_size",
+          "1024",
+        ];
+
+    // Input: JPEG frames piped via stdin
+    args.push(
       "-f",
       "mjpeg",
       "-framerate",
       String(this.config.fps),
       "-i",
       "pipe:0",
-    ];
+    );
 
-    // Generate a silent audio source (many RTMP servers require an audio track)
-    args.push("-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-shortest");
+    // Audio input: try PulseAudio first, fallback to silent if not available
+    const audioEnabled = process.env.STREAM_AUDIO_ENABLED !== "false";
+    const pulseDevice =
+      process.env.PULSE_AUDIO_DEVICE || "chrome_audio.monitor";
+    let usePulseAudio = audioEnabled && process.platform === "linux";
 
-    // Map video from pipe and audio from anullsrc
+    // Check if PulseAudio is actually accessible before trying to use it
+    if (usePulseAudio) {
+      try {
+        // Test if we can access PulseAudio - pactl info will fail if not
+        execSync("pactl info", { timeout: 2000, stdio: "pipe" });
+        // Also verify the specific sink exists
+        const sinks = execSync("pactl list short sinks", {
+          timeout: 2000,
+          stdio: "pipe",
+        }).toString();
+        if (!sinks.includes("chrome_audio")) {
+          console.log(
+            "[RTMPBridge] PulseAudio accessible but chrome_audio sink not found, falling back to silent",
+          );
+          usePulseAudio = false;
+        }
+      } catch {
+        console.log(
+          "[RTMPBridge] PulseAudio not accessible, falling back to silent audio",
+        );
+        usePulseAudio = false;
+      }
+    }
+
+    if (usePulseAudio) {
+      // Capture from PulseAudio virtual sink (Chrome outputs here)
+      // Use thread_queue_size to buffer audio and prevent underruns
+      // Use wallclock timestamps to maintain real-time timing
+      args.push(
+        "-thread_queue_size",
+        "1024",
+        "-use_wallclock_as_timestamps",
+        "1",
+        "-f",
+        "pulse",
+        "-ac",
+        "2",
+        "-ar",
+        "44100",
+        "-i",
+        pulseDevice,
+      );
+      console.log(`[RTMPBridge] Audio capture from PulseAudio: ${pulseDevice}`);
+    } else {
+      // Fallback: silent audio source (many RTMP servers require an audio track)
+      args.push("-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo");
+      console.log(
+        "[RTMPBridge] Audio: using silent source (PulseAudio not available)",
+      );
+    }
+
+    // Map video from pipe and audio from PulseAudio/anullsrc
     args.push("-map", "0:v:0", "-map", "1:a:0");
 
     // Force output frame rate
@@ -1109,7 +1202,8 @@ export class RTMPBridge {
     const enabledDests = this.destinations.filter((d) => d.enabled);
     const outputs = enabledDests.map((dest) => {
       const fullUrl = dest.key ? `${dest.url}/${dest.key}` : dest.url;
-      return `[f=flv:onfail=ignore]${fullUrl}`;
+      // Add flvflags for better RTMP stability and buffering
+      return `[f=flv:onfail=ignore:flvflags=no_duration_filesize]${fullUrl}`;
     });
 
     const hlsOutputPath = process.env.HLS_OUTPUT_PATH?.trim();
@@ -1578,6 +1672,14 @@ export class RTMPBridge {
    */
   resetBytesReceived(): void {
     this.bytesReceived = 0;
+  }
+
+  /**
+   * Reset FFmpeg restart attempt counter.
+   * Call after a successful soft recovery to prevent premature give-up.
+   */
+  resetRestartAttempts(): void {
+    this.ffmpegRestartAttempts = 0;
   }
 }
 

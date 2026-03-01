@@ -45,7 +45,6 @@ export type DuelContextState = {
 };
 
 const POLL_INTERVAL_MS = 3000;
-const BACKOFF_MAX_MS = 60_000;
 const API_URL = CONFIG.gameApiUrl.replace(/\/$/, "");
 const DUEL_CONTEXT_URL = `${API_URL}/api/streaming/duel-context`;
 
@@ -109,32 +108,20 @@ function normalizeDuelContext(raw: unknown): DuelContextState | null {
 export function useDuelContext(options: { disabled?: boolean } = {}) {
   const { disabled = false } = options;
   const [context, setContext] = useState<DuelContextState | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const backoffRef = useRef<number>(POLL_INTERVAL_MS);
-  const activeRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (disabled) {
-      activeRef.current = false;
       if (timerRef.current) {
-        clearTimeout(timerRef.current);
+        clearInterval(timerRef.current);
         timerRef.current = null;
       }
       abortRef.current?.abort();
       return;
     }
 
-    activeRef.current = true;
-    backoffRef.current = POLL_INTERVAL_MS;
-
-    const scheduleNext = (delay: number) => {
-      if (!activeRef.current) return;
-      timerRef.current = setTimeout(() => void doFetch(), delay);
-    };
-
     const doFetch = async () => {
-      if (!activeRef.current) return;
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
@@ -146,25 +133,18 @@ export function useDuelContext(options: { disabled?: boolean } = {}) {
         if (res.ok) {
           const data = normalizeDuelContext(await res.json());
           if (data) setContext(data);
-          // Reset backoff on success.
-          backoffRef.current = POLL_INTERVAL_MS;
         }
-        scheduleNext(backoffRef.current);
-      } catch (err) {
-        // Silently ignore aborts (unmount or disable).
-        if (err instanceof Error && err.name === "AbortError") return;
-        // Exponential backoff when server is unreachable.
-        backoffRef.current = Math.min(backoffRef.current * 2, BACKOFF_MAX_MS);
-        scheduleNext(backoffRef.current);
+      } catch {
+        // unavailable — streaming mode not active, silently ignore
       }
     };
 
     void doFetch();
+    timerRef.current = setInterval(() => void doFetch(), POLL_INTERVAL_MS);
 
     return () => {
-      activeRef.current = false;
       if (timerRef.current) {
-        clearTimeout(timerRef.current);
+        clearInterval(timerRef.current);
         timerRef.current = null;
       }
       abortRef.current?.abort();

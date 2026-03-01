@@ -9,6 +9,7 @@ import {
 import { World } from "@hyperscape/shared";
 import { CoreUI } from "../game/CoreUI";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
+import { ThreeResourceManager } from "@/lib/ThreeResourceManager";
 
 export { System };
 
@@ -80,6 +81,118 @@ const loadRuntimeEnv = async (): Promise<PublicRuntimeEnv | undefined> => {
   });
 };
 
+/**
+ * Full-screen error display for critical initialization failures (e.g., WebGPU unavailable)
+ */
+function CriticalErrorScreen({ error }: { error: string }) {
+  const isWebGPUError =
+    error.toLowerCase().includes("webgpu") ||
+    error.toLowerCase().includes("renderer");
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "#0a0a0a",
+        color: "#fff",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        padding: "24px",
+        textAlign: "center",
+      }}
+    >
+      <div style={{ maxWidth: "500px" }}>
+        <h1
+          style={{
+            fontSize: "24px",
+            fontWeight: 600,
+            marginBottom: "16px",
+            color: "#ff6b6b",
+          }}
+        >
+          {isWebGPUError ? "WebGPU Required" : "Initialization Failed"}
+        </h1>
+
+        {isWebGPUError ? (
+          <>
+            <p style={{ fontSize: "16px", marginBottom: "24px", opacity: 0.9 }}>
+              Hyperscape requires WebGPU for rendering. Your browser or device
+              does not support WebGPU.
+            </p>
+            <div
+              style={{
+                backgroundColor: "rgba(255,255,255,0.05)",
+                borderRadius: "8px",
+                padding: "16px",
+                marginBottom: "24px",
+                textAlign: "left",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  marginBottom: "12px",
+                }}
+              >
+                Supported Browsers:
+              </p>
+              <ul
+                style={{
+                  fontSize: "14px",
+                  opacity: 0.8,
+                  margin: 0,
+                  paddingLeft: "20px",
+                }}
+              >
+                <li>Chrome 113+ (recommended)</li>
+                <li>Edge 113+</li>
+                <li>Safari 17+ (macOS Sonoma / iOS 17)</li>
+                <li>Firefox (requires enabling in about:config)</li>
+              </ul>
+            </div>
+            <p style={{ fontSize: "13px", opacity: 0.6, marginBottom: "24px" }}>
+              Make sure hardware acceleration is enabled in your browser
+              settings and your GPU drivers are up to date.
+            </p>
+          </>
+        ) : (
+          <p
+            style={{
+              fontSize: "14px",
+              marginBottom: "24px",
+              opacity: 0.8,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {error}
+          </p>
+        )}
+
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            padding: "12px 24px",
+            fontSize: "14px",
+            fontWeight: 500,
+            backgroundColor: "#4a9eff",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function GameClient({
   wsUrl,
   onSetup,
@@ -87,6 +200,7 @@ export function GameClient({
 }: GameClientProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const uiRef = useRef<HTMLDivElement>(null);
+  const [initError, setInitError] = useState<string | null>(null);
 
   // Detect HMR and force full page reload instead of hot reload
   useEffect(() => {
@@ -196,7 +310,7 @@ export function GameClient({
     };
   }, [world]);
 
-  // Handle WebGL context loss/restoration
+  // Handle GPU device lost (WebGPU equivalent of context lost)
   // This can happen when GPU resources are exhausted or driver issues occur
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -206,40 +320,46 @@ export function GameClient({
     const canvas = viewport.querySelector("canvas");
     if (!canvas) return;
 
+    // WebGPU handles device lost events internally via the Three.js renderer.
+    // Note: webglcontextlost won't fire for WebGPU, but we keep this for debugging
+    // in case the renderer falls back (which shouldn't happen - WebGPU is required).
     const handleContextLost = (event: Event) => {
-      // Some browser/runtime edge-cases can invoke this handler with a null-ish event.
-      const maybeEvent = event as Event | null | undefined;
-      maybeEvent?.preventDefault?.(); // Allows context to be restored
-      console.warn(
-        "[GameClient] WebGL context lost - GPU resources exhausted or driver issue",
+      event.preventDefault?.();
+      console.error(
+        "[GameClient] GPU context lost - WebGPU device may have been lost. " +
+          "This indicates GPU resource exhaustion or driver issues.",
       );
-      // The Three.js renderer will attempt to restore automatically
-      // User will see frozen frame until restored
     };
 
-    const handleContextRestored = () => {
-      console.info("[GameClient] WebGL context restored - resuming rendering");
-      // Three.js handles re-initialization automatically
-      // Force a resize to ensure proper viewport dimensions
-      const graphics = world.getSystem("graphics") as {
-        resize?: (width: number, height: number) => void;
-      } | null;
-      if (graphics?.resize) {
-        graphics.resize(viewport.offsetWidth, viewport.offsetHeight);
-      }
-    };
-
+    // Listen for both WebGL (legacy) and WebGPU context lost events
     canvas.addEventListener("webglcontextlost", handleContextLost);
-    canvas.addEventListener("webglcontextrestored", handleContextRestored);
 
     return () => {
       canvas.removeEventListener("webglcontextlost", handleContextLost);
-      canvas.removeEventListener("webglcontextrestored", handleContextRestored);
     };
   }, [world]);
 
   useEffect(() => {
     let cleanedUp = false;
+    // Guards against the race where the cleanup callback fires while world.init()
+    // is still awaiting. If cleanup arrives first, init will destroy on landing.
+    // If init finishes first, cleanup destroys immediately as normal.
+    let initComplete = false;
+    let needsCleanup = false;
+
+    const doCleanup = () => {
+      try {
+        world.destroy();
+      } catch (error) {
+        console.warn(
+          "[GameClient] world.destroy() threw during cleanup:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      // Stop the dev memory monitor and reset the disposed-object tracker
+      // so the next world init (e.g. hot-reload) starts completely clean
+      ThreeResourceManager.teardown();
+    };
 
     const init = async () => {
       const viewport = viewportRef.current;
@@ -292,7 +412,27 @@ export function GameClient({
       // Ensure RPG systems are registered before initializing the world
       await world.systemsLoadedPromise;
 
-      await world.init(config);
+      try {
+        await world.init(config);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Unknown initialization error";
+        console.error("[GameClient] World initialization failed:", message);
+        setInitError(message);
+      }
+
+      // If cleanup fired while we were initializing, execute it now.
+      // Set initComplete even when init threw — partial worlds still hold
+      // resources (WebSocket, systems, render targets) that doCleanup() must
+      // release when the error screen eventually unmounts. doCleanup() is
+      // always wrapped in try/catch so it is safe to call on a failed init.
+      if (needsCleanup) {
+        doCleanup();
+      } else {
+        initComplete = true;
+      }
     };
 
     init();
@@ -301,18 +441,21 @@ export function GameClient({
     return () => {
       if (!cleanedUp) {
         cleanedUp = true;
-        // Destroy the world to cleanup WebSocket and resources
-        try {
-          world.destroy();
-        } catch (error) {
-          console.warn(
-            "[GameClient] world.destroy() threw during cleanup:",
-            error instanceof Error ? error.message : String(error),
-          );
+        if (initComplete) {
+          // Normal path — init finished before unmount
+          doCleanup();
+        } else {
+          // Init is still running — signal it to clean up when it lands
+          needsCleanup = true;
         }
       }
     };
   }, [world, wsUrl, onSetup]);
+
+  // Show full-screen error for critical initialization failures (WebGPU, etc.)
+  if (initError) {
+    return <CriticalErrorScreen error={initError} />;
+  }
 
   return (
     <div className="App absolute top-0 left-0 right-0 h-screen">

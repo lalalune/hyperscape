@@ -73,8 +73,7 @@
   "peerDependencies": {
     "three": ">=0.182.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "@hyperscape/shared": "workspace:*"
+    "react-dom": "19.2.4"
   },
   "dependencies": {
     "@hyperscape/impostor": "workspace:*",
@@ -95,9 +94,6 @@
       "optional": true
     },
     "react-dom": {
-      "optional": true
-    },
-    "@hyperscape/shared": {
       "optional": true
     }
   },

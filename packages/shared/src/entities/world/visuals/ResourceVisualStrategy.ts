@@ -46,8 +46,15 @@ export interface ResourceVisualContext {
 
 export interface ResourceVisualStrategy {
   createVisual(ctx: ResourceVisualContext): Promise<void>;
-  onDepleted(ctx: ResourceVisualContext): Promise<void>;
+  /**
+   * @returns true if the strategy handled depletion visuals (instanced stump),
+   *          false if ResourceEntity should load an individual depleted model.
+   */
+  onDepleted(ctx: ResourceVisualContext): Promise<boolean>;
   onRespawn(ctx: ResourceVisualContext): Promise<void>;
   update(ctx: ResourceVisualContext, deltaTime: number): void;
   destroy(ctx: ResourceVisualContext): void;
+
+  /** Return a temporary mesh positioned at this instance for the outline pass. */
+  getHighlightMesh?(ctx: ResourceVisualContext): THREE.Object3D | null;
 }
