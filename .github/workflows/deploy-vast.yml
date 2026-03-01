@@ -131,7 +131,7 @@ jobs:
       # Step 2: Deploy to Vast.ai
       # First checkout main explicitly to ensure we have the latest deploy script
       - name: SSH and Deploy Vast
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VAST_HOST }}
           port: ${{ secrets.VAST_PORT }}
