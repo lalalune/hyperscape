@@ -55,7 +55,7 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "three": "0.182.0",
+    "three": "0.183.2",
     "troika-three-text": "^0.52.3",
     "tweakpane": "^4.0.5"
   }

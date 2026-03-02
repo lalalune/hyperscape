@@ -84,7 +84,7 @@
     "react-router-dom": "^7.13.0",
     "styled-components": "^6.1.0",
     "tailwind-merge": "^3.3.1",
-    "three": "0.183.1",
+    "three": "0.183.2",
     "three-mesh-bvh": "^0.9.1",
     "zustand": "^5.0.6"
   },
