@@ -114,7 +114,7 @@
     "@babel/eslint-parser": "^7.23.10",
     "@babel/preset-react": "^7.23.10",
     "@hyperscape/procgen": "workspace:*",
-    "@capacitor/android": "^7.4.3",
+    "@capacitor/android": "^8.1.0",
     "@capacitor/cli": "^8.1.0",
     "@capacitor/core": "^7.4.3",
     "@capacitor/ios": "^7.4.3",
