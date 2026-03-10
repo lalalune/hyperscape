@@ -63,7 +63,7 @@
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-backend-webgl": "^4.22.0",
     "@tensorflow/tfjs-backend-webgpu": "^4.22.0",
-    "ai": "^4.2.0",
+    "ai": "^6.0.116",
     "chalk": "^4.1.2",
     "clsx": "^2.0.0",
     "concurrently": "^9.2.1",
