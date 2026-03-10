@@ -116,7 +116,7 @@
     "@capacitor/android": "^7.4.3",
     "@capacitor/cli": "^8.1.0",
     "@capacitor/core": "^7.4.3",
-    "@capacitor/ios": "^7.4.3",
+    "@capacitor/ios": "^8.2.0",
     "@hyperscape/procgen": "workspace:*",
     "@microsoft/api-extractor": "^7.52.10",
     "@playwright/test": "^1.58.2",
