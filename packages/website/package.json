@@ -34,7 +34,7 @@
     "tailwindcss": "^4.0.0",
     "@tailwindcss/postcss": "^4.0.0",
     "postcss": "^8.5.0",
-    "eslint": "^9.0.0",
+    "eslint": "^10.0.3",
     "eslint-config-next": "^16.1.6"
   },
   "engines": {
