@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@tweakpane/core": "^2.0.5",
-    "@types/three": "0.182.0",
+    "@types/three": "0.183.1",
     "@vitest/browser": "^3.0.0",
     "jsdom": "^28.1.0",
     "playwright": "^1.55.1",

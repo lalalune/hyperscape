@@ -139,7 +139,7 @@
     "@livekit/rtc-node": "^0.13.24",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^25.3.0",
-    "@types/three": "0.182.0",
+    "@types/three": "0.183.1",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
