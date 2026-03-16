@@ -78,7 +78,7 @@
     "@hyperscape/decimation": "workspace:*",
     "@hyperscape/impostor": "workspace:*",
     "@hyperscape/physx-js-webidl": "workspace:*",
-    "@pixiv/three-vrm": "3.4.3",
+    "@pixiv/three-vrm": "3.5.1",
     "@privy-io/react-auth": "^3.13.1",
     "@privy-io/server-auth": "^1.32.5",
     "@types/styled-components": "^5.1.34",
