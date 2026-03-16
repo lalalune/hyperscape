@@ -104,7 +104,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "source-map-support": "^0.5.21",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "styled-components": "^6.1.19",
     "three": "0.183.2",
     "three-mesh-bvh": "^0.9.8",
