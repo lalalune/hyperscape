@@ -56,7 +56,7 @@
     "@pixiv/three-vrm": "^3.3.3",
     "@privy-io/react-auth": "^3.13.1",
     "@rollup/rollup-darwin-x64": "^4.52.4",
-    "@solana-mobile/wallet-standard-mobile": "^0.4.4",
+    "@solana-mobile/wallet-standard-mobile": "^0.5.0",
     "@solana-program/memo": "^0.11.0",
     "@solana/kit": "^6.0.1",
     "@solana/wallet-adapter-base": "^0.9.27",
