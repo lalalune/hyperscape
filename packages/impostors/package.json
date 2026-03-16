@@ -47,7 +47,7 @@
     "@tweakpane/core": "^2.0.5",
     "@types/three": "0.182.0",
     "@vitest/browser": "^3.0.0",
-    "jsdom": "^28.1.0",
+    "jsdom": "^29.0.0",
     "playwright": "^1.55.1",
     "typescript": "~5.9.3",
     "vite": "^6.4.1",
