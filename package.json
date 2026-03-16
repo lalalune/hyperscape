@@ -218,7 +218,7 @@
     "@rollup/rollup-darwin-x64": "^4.52.4",
     "@solana/web3.js": "^1.98.4",
     "@types/pg": "^8.15.5",
-    "@vitejs/plugin-react": "^5.1.4",
+    "@vitejs/plugin-react": "^6.0.1",
     "better-sqlite3": "^12.2.0",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
