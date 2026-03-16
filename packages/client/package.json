@@ -53,7 +53,7 @@
     "@hyperscape/impostor": "workspace:*",
     "@hyperscape/physx-js-webidl": "workspace:*",
     "@hyperscape/shared": "workspace:*",
-    "@pixiv/three-vrm": "^3.3.3",
+    "@pixiv/three-vrm": "^3.5.1",
     "@privy-io/react-auth": "^3.13.1",
     "@rollup/rollup-darwin-x64": "^4.52.4",
     "@solana-mobile/wallet-standard-mobile": "^0.4.4",

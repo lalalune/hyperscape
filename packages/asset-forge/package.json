@@ -55,7 +55,7 @@
     "@hyperscape/procgen": "workspace:*",
     "@hyperscape/shared": "workspace:*",
     "@mediapipe/hands": "^0.4.1675469240",
-    "@pixiv/three-vrm": "^3.4.3",
+    "@pixiv/three-vrm": "^3.5.1",
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^9.0.0",
     "@sinclair/typebox": "^0.34.41",
