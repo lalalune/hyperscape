@@ -103,7 +103,7 @@
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
-    "@vitejs/plugin-react": "^5.1.4",
+    "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.0.6",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.27.0",
