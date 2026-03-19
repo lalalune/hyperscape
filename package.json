@@ -162,7 +162,7 @@
     "typedoc": "^0.28.14",
     "typedoc-plugin-markdown": "^4.9.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.6"
+    "vitest": "^4.1.0"
   },
   "overrides": {
     "react": "19.2.4",
