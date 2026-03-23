@@ -25,6 +25,6 @@
     "@latticexyz/world-module-erc20": "2.2.23",
     "@latticexyz/world-modules": "2.2.23",
     "forge-std": "github:foundry-rs/forge-std",
-    "solhint": "^5.0.0"
+    "solhint": "^6.1.0"
   }
 }
