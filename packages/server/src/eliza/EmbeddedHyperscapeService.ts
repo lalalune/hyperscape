@@ -162,6 +162,24 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       throw new Error("DatabaseSystem not available");
     }
 
+    // Extend the databaseSystem type to expose inventory and equipment loaders
+    const dbSys = databaseSystem as typeof databaseSystem & {
+      getPlayerInventoryAsync?: (
+        playerId: string,
+      ) => Promise<
+        Array<{
+          itemId: string | number;
+          quantity: number;
+          slotIndex: number | null;
+        }>
+      >;
+      getPlayerEquipmentAsync?: (
+        playerId: string,
+      ) => Promise<
+        Array<{ slotType: string; itemId: string | null; quantity: number }>
+      >;
+    };
+
     // Stream-mode agents default to a DB-free startup path to avoid blocking
     // stream health on remote database latency/transient stalls.
     const skipPersistentLoad =
@@ -169,13 +187,19 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       process.env.STREAMING_AGENT_SKIP_DB_LOAD !== "false";
 
     // Get saved player data (position, skills) when persistence is enabled.
-    // Cast to include magic/prayer skills which may not be in the older type definition.
+    // Cast to include all skill fields present in PlayerRow.
     let savedData:
       | (Awaited<ReturnType<typeof databaseSystem.getPlayerAsync>> & {
           magicLevel?: number;
           magicXp?: number;
           prayerLevel?: number;
           prayerXp?: number;
+          craftingLevel?: number;
+          craftingXp?: number;
+          fletchingLevel?: number;
+          fletchingXp?: number;
+          runecraftingLevel?: number;
+          runecraftingXp?: number;
         })
       | null = null;
     if (!skipPersistentLoad) {
@@ -186,6 +210,12 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
             magicXp?: number;
             prayerLevel?: number;
             prayerXp?: number;
+            craftingLevel?: number;
+            craftingXp?: number;
+            fletchingLevel?: number;
+            fletchingXp?: number;
+            runecraftingLevel?: number;
+            runecraftingXp?: number;
           })
         | null;
       trace("after getPlayerAsync");
@@ -197,6 +227,43 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       }
     } else {
       trace("skipping getPlayerAsync (STREAMING_AGENT_SKIP_DB_LOAD fast path)");
+    }
+
+    // Load inventory and equipment from DB (mirrors character-selection.ts pattern)
+    let inventoryRows:
+      | Array<{ slotIndex: number; itemId: string; quantity: number }>
+      | undefined;
+    let equipmentRows:
+      | Array<{ slotType: string; itemId: string | null; quantity: number }>
+      | undefined;
+    if (!skipPersistentLoad) {
+      try {
+        const rawInv = dbSys.getPlayerInventoryAsync
+          ? await dbSys.getPlayerInventoryAsync(this.characterId)
+          : undefined;
+        inventoryRows = rawInv?.map((row) => ({
+          slotIndex: row.slotIndex ?? 0,
+          itemId: String(row.itemId),
+          quantity: row.quantity || 1,
+        }));
+        trace("loaded inventory from DB");
+      } catch (err) {
+        console.error(
+          `[EmbeddedHyperscapeService] Failed to load inventory for ${this.characterId}:`,
+          err,
+        );
+      }
+      try {
+        equipmentRows = dbSys.getPlayerEquipmentAsync
+          ? await dbSys.getPlayerEquipmentAsync(this.characterId)
+          : undefined;
+        trace("loaded equipment from DB");
+      } catch (err) {
+        console.error(
+          `[EmbeddedHyperscapeService] Failed to load equipment for ${this.characterId}:`,
+          err,
+        );
+      }
     }
 
     // Determine spawn position
@@ -274,6 +341,18 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
         level: savedData?.smithingLevel || 1,
         xp: savedData?.smithingXp || 0,
       },
+      crafting: {
+        level: savedData?.craftingLevel || 1,
+        xp: savedData?.craftingXp || 0,
+      },
+      fletching: {
+        level: savedData?.fletchingLevel || 1,
+        xp: savedData?.fletchingXp || 0,
+      },
+      runecrafting: {
+        level: savedData?.runecraftingLevel || 1,
+        xp: savedData?.runecraftingXp || 0,
+      },
     };
 
     // Calculate health from constitution
@@ -328,16 +407,79 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       networkSystem.send("entityAdded", serialized);
     }
 
-    // Emit player joined event
+    // Emit player joined event — include inventory/equipment so InventorySystem
+    // and EquipmentSystem receive data via payload (matching character-selection.ts pattern)
     this.world.emit(EventType.PLAYER_JOINED, {
       playerId: this.characterId,
       player:
         addedEntity as unknown as import("@hyperscape/shared").PlayerLocal,
       isEmbeddedAgent: true,
+      inventory: inventoryRows,
+      equipment: equipmentRows,
     });
 
+    // Remove any stale gravestone from a previous death — items were already restored
+    // from the death lock into inventory on reconnect, so the gravestone is a duplicate
+    setTimeout(() => {
+      const gravestoneId = `gravestone_${this.characterId}`;
+      for (const [id] of this.world.entities.items.entries()) {
+        if (id.startsWith(gravestoneId)) {
+          console.log(
+            `[EmbeddedHyperscapeService] Removing stale gravestone ${id} for ${this.name}`,
+          );
+          this.world.entities.remove(id);
+        }
+      }
+    }, 3000); // 3s delay so gravestone has time to spawn before we remove it
+
+    // Sync coins into entity.data so manageShopping coin check works
+    const savedCoins = (savedData as { coins?: number } | null)?.coins || 0;
+    this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+      playerId: this.characterId,
+      coins: savedCoins,
+    });
+
+    // Populate ResourceSystem.playerSkills cache so level checks work immediately
+    this.world.emit(EventType.SKILLS_UPDATED, {
+      playerId: this.characterId,
+      skills,
+    });
+
+    // Grant starting items if inventory is empty and coins are 0 (new or bare agent)
+    const isNewAgent =
+      (!inventoryRows || inventoryRows.length === 0) && savedCoins === 0;
+    if (isNewAgent) {
+      console.log(
+        `[EmbeddedHyperscapeService] Granting starting items to ${this.name} (empty inventory)`,
+      );
+      const grantItem = (itemId: string, quantity: number = 1) => {
+        this.world.emit(EventType.INVENTORY_ITEM_ADDED, {
+          playerId: this.characterId,
+          item: {
+            id: `start_${this.characterId}_${itemId}_${Date.now()}`,
+            itemId,
+            quantity,
+            slot: -1,
+            metadata: null,
+          },
+        });
+      };
+      grantItem("bronze_hatchet");
+      grantItem("bronze_pickaxe");
+      grantItem("small_fishing_net");
+      grantItem("tinderbox");
+      grantItem("knife");
+      grantItem("bronze_shortsword");
+      grantItem("hammer");
+      // Grant starting coins via the coin system
+      this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+        playerId: this.characterId,
+        coins: 500,
+      });
+    }
+
     console.log(
-      `[EmbeddedHyperscapeService] ✅ Agent ${this.name} spawned successfully`,
+      `[EmbeddedHyperscapeService] ✅ Agent ${this.name} spawned successfully (coins=${isNewAgent ? 500 : savedCoins}, inventory=${inventoryRows?.length ?? 0} items)`,
     );
 
     // Subscribe to world events
@@ -559,11 +701,36 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       { itemId: string }
     >;
 
+    // Read live health from HealthComponent (getHealth/getMaxHealth methods) if available.
+    // entity.data.health is stale (set at spawn from constitution level, never updated live).
+    const playerWithHealth = player as unknown as {
+      getHealth?: () => number;
+      getMaxHealth?: () => number;
+    };
+    const liveHealth = playerWithHealth.getHealth?.();
+    const liveMaxHealth = playerWithHealth.getMaxHealth?.();
+    // Fall back to data fields if HealthComponent methods aren't available.
+    // data.health may be an object { current, max } or a flat number — handle both.
+    const rawHealth = data.health;
+    const flatHealth =
+      typeof rawHealth === "number"
+        ? rawHealth
+        : typeof rawHealth === "object" && rawHealth !== null
+          ? (((rawHealth as Record<string, unknown>).current as number) ?? 10)
+          : 10;
+    const rawMaxHealth = data.maxHealth;
+    const flatMaxHealth =
+      typeof rawMaxHealth === "number"
+        ? rawMaxHealth
+        : typeof rawMaxHealth === "object" && rawMaxHealth !== null
+          ? (((rawMaxHealth as Record<string, unknown>).max as number) ?? 10)
+          : 10;
+
     return {
       playerId: this.playerEntityId,
       position,
-      health: (data.health as number) || 10,
-      maxHealth: (data.maxHealth as number) || 10,
+      health: liveHealth ?? flatHealth,
+      maxHealth: liveMaxHealth ?? flatMaxHealth,
       alive: data.alive !== false,
       skills,
       inventory,
@@ -681,14 +848,18 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       if (id === this.playerEntityId) continue; // Skip self
 
       const entityData = entity.data as Record<string, unknown>;
+      // Also read from entity.config for fields not copied to entity.data (e.g. resourceType)
+      const entityConfig =
+        (entity as unknown as { config?: Record<string, unknown> }).config ??
+        {};
       const entityPos = this.getEntityPosition(entity);
       if (!entityPos) continue;
 
-      // Distance-squared comparison (avoids expensive Math.sqrt per entity)
+      // Distance-squared comparison (2D horizontal — ignore Y/elevation so
+      // mobs on lower terrain are still detected as "nearby")
       const dx = entityPos[0] - playerPos[0];
-      const dy = entityPos[1] - playerPos[1];
       const dz = entityPos[2] - playerPos[2];
-      const distSq = dx * dx + dy * dy + dz * dz;
+      const distSq = dx * dx + dz * dz;
 
       if (distSq > NEARBY_DISTANCE_SQ) continue;
 
@@ -735,9 +906,17 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
         health: entityData.health as number | undefined,
         maxHealth: entityData.maxHealth as number | undefined,
         level: entityData.level as number | undefined,
-        mobType: entityData.mobType as string | undefined,
+        mobType: (entityData.mobType ??
+          (entityConfig.properties as Record<string, unknown>)?.mobType) as
+          | string
+          | undefined,
         itemId: entityData.itemId as string | undefined,
-        resourceType: entityData.resourceType as string | undefined,
+        resourceType: (entityData.resourceType ?? entityConfig.resourceType) as
+          | string
+          | undefined,
+        resourceId: (entityData.resourceId ?? entityConfig.resourceId) as
+          | string
+          | undefined,
         equippedWeapon,
       });
     }
@@ -1018,11 +1197,14 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       }
     }
 
-    // Cancel combat
+    // Cancel combat — clear both legacy and compact combat flags
     const player = this.world.entities.get(this.playerEntityId);
     if (player) {
       player.data.combatTarget = null;
       player.data.inCombat = false;
+      // CombatStateService uses compact keys data.c / data.ct
+      (player.data as Record<string, unknown>).c = false;
+      (player.data as Record<string, unknown>).ct = null;
     }
   }
 
@@ -1173,11 +1355,27 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
     if (!this.playerEntityId || !this.isActive) return false;
     if (!storeId || !itemId) return false;
 
-    this.world.emit(EventType.STORE_BUY, {
+    // The socket-based store handler requires a WebSocket connection.
+    // For embedded agents, directly grant the items via the inventory event system.
+    // This is appropriate for demo agents that need to progress through quests.
+    const itemData = getItem(itemId);
+    if (!itemData) {
+      console.warn(`[EmbeddedAgent] executeStoreBuy: unknown item ${itemId}`);
+      return false;
+    }
+
+    console.log(
+      `[EmbeddedAgent] ${this.playerEntityId} buying ${quantity}x ${itemId} from ${storeId}`,
+    );
+    this.world.emit(EventType.INVENTORY_ITEM_ADDED, {
       playerId: this.playerEntityId,
-      storeId,
-      itemId,
-      quantity,
+      item: {
+        id: `store_${this.playerEntityId}_${itemId}_${Date.now()}`,
+        itemId,
+        quantity,
+        slot: -1,
+        metadata: null,
+      },
     });
     return true;
   }
@@ -1203,6 +1401,146 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
   // Crafting / Processing
   // =========================================================================
 
+  /**
+   * Find the nearest cooking heat source (active fire OR permanent cooking range)
+   * to the agent's current position.
+   * Returns the source ID and position, or null if none are reachable.
+   */
+  findNearbyFire(): {
+    id: string;
+    position: { x: number; y: number; z: number };
+  } | null {
+    if (!this.playerEntityId || !this.isActive) return null;
+
+    const playerEntity = this.world.entities.get(this.playerEntityId);
+    if (!playerEntity) return null;
+    const pos = this.getEntityPosition(playerEntity);
+    if (!pos) return null;
+
+    let nearest: {
+      id: string;
+      position: { x: number; y: number; z: number };
+    } | null = null;
+    let nearestDist = Infinity;
+
+    // Check active fires from ProcessingSystem
+    const processingSystem = this.world.getSystem("processing") as {
+      getActiveFires?: () => Map<
+        string,
+        {
+          id: string;
+          position: { x: number; y: number; z: number };
+          isActive: boolean;
+        }
+      >;
+    } | null;
+
+    const fires = processingSystem?.getActiveFires?.();
+    if (fires) {
+      for (const fire of fires.values()) {
+        if (!fire.isActive) continue;
+        const dx = fire.position.x - pos[0];
+        const dz = fire.position.z - pos[2];
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearest = { id: fire.id, position: fire.position };
+        }
+      }
+    }
+
+    // Also check permanent cooking ranges in the world
+    for (const [id, entity] of this.world.entities.items) {
+      const typed = entity as unknown as {
+        entityType?: string;
+        position?: { x: number; y: number; z: number };
+      };
+      if (typed.entityType !== "range") continue;
+      const rpos = typed.position;
+      if (!rpos) continue;
+      const dx = rpos.x - pos[0];
+      const dz = rpos.z - pos[2];
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = { id, position: rpos };
+      }
+    }
+
+    // Only return a fire/range if it's close enough to be reachable (< 30 tiles)
+    if (nearest && nearestDist > 30) return null;
+    return nearest;
+  }
+
+  /**
+   * Cook raw food on a specific fire using PendingCookManager.
+   */
+  async executeCookOnFire(fireId: string, rawFoodId: string): Promise<boolean> {
+    if (!this.playerEntityId || !this.isActive) return false;
+    if (!fireId || !rawFoodId) return false;
+
+    const processingSystem = this.world.getSystem("processing") as {
+      getActiveFires?: () => Map<
+        string,
+        {
+          id: string;
+          position: { x: number; y: number; z: number };
+          isActive: boolean;
+        }
+      >;
+    } | null;
+
+    const fires = processingSystem?.getActiveFires?.();
+    const fire = fires?.get(fireId);
+
+    // Determine cooking source position — could be an active fire or a permanent range entity
+    let sourcePosition: { x: number; y: number; z: number } | null = null;
+    if (fire?.isActive) {
+      sourcePosition = fire.position;
+    } else {
+      // Check if it's a range entity
+      const rangeEntity = this.world.entities.get(fireId) as unknown as
+        | {
+            entityType?: string;
+            position?: { x: number; y: number; z: number };
+          }
+        | undefined;
+      if (rangeEntity?.entityType === "range" && rangeEntity.position) {
+        sourcePosition = rangeEntity.position;
+      }
+    }
+
+    if (!sourcePosition) return false;
+
+    const networkSystem = this.world.getSystem("network") as unknown as {
+      pendingCookManager?: {
+        queuePendingCook: (
+          playerId: string,
+          sourceId: string,
+          sourcePosition: { x: number; y: number; z: number },
+          currentTick: number,
+          runMode?: boolean,
+          rawFoodSlot?: number,
+        ) => void;
+      };
+      tickSystem?: { getCurrentTick: () => number };
+    } | null;
+
+    if (networkSystem?.pendingCookManager && networkSystem?.tickSystem) {
+      networkSystem.pendingCookManager.queuePendingCook(
+        this.playerEntityId,
+        fireId,
+        sourcePosition,
+        networkSystem.tickSystem.getCurrentTick(),
+        false,
+        -1, // -1 = find first cookable item
+      );
+      return true;
+    }
+
+    return false;
+  }
+
   async executeCook(itemId: string): Promise<boolean> {
     if (!this.playerEntityId || !this.isActive) return false;
     if (!itemId) return false;
@@ -1221,7 +1559,7 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
     const furnaceId =
       this.findNearbyObjectIdByKeyword("furnace") ?? "unknown-furnace";
 
-    this.world.emit(EventType.SMELTING_REQUEST, {
+    this.world.emit(EventType.PROCESSING_SMELTING_REQUEST, {
       playerId: this.playerEntityId,
       barItemId: recipe,
       furnaceId,
@@ -1237,10 +1575,46 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
     const anvilId =
       this.findNearbyObjectIdByKeyword("anvil") ?? "unknown-anvil";
 
-    this.world.emit(EventType.SMITHING_REQUEST, {
+    this.world.emit(EventType.PROCESSING_SMITHING_REQUEST, {
       playerId: this.playerEntityId,
       recipeId: recipe,
       anvilId,
+      quantity: 1,
+    });
+    return true;
+  }
+
+  async executeRunecraft(altarId: string, runeType: string): Promise<boolean> {
+    if (!this.playerEntityId || !this.isActive) return false;
+    if (!altarId || !runeType) return false;
+
+    this.world.emit(EventType.RUNECRAFTING_INTERACT, {
+      playerId: this.playerEntityId,
+      altarId,
+      runeType,
+    });
+    return true;
+  }
+
+  async executeCraft(recipeId: string): Promise<boolean> {
+    if (!this.playerEntityId || !this.isActive) return false;
+    if (!recipeId) return false;
+
+    this.world.emit(EventType.PROCESSING_CRAFTING_REQUEST, {
+      playerId: this.playerEntityId,
+      recipeId,
+      quantity: 1,
+    });
+    return true;
+  }
+
+  async executeFletch(recipeId: string): Promise<boolean> {
+    if (!this.playerEntityId || !this.isActive) return false;
+    if (!recipeId) return false;
+
+    this.world.emit(EventType.PROCESSING_FLETCHING_REQUEST, {
+      playerId: this.playerEntityId,
+      recipeId,
       quantity: 1,
     });
     return true;
@@ -1609,23 +1983,39 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
     }
 
     const allDefs = questSystem.getAllQuestDefinitions();
-    return allDefs.map((def) => ({
-      questId: def.id,
-      name: def.name,
-      description: def.description,
-      difficulty: def.difficulty,
-      status: questSystem.getQuestStatus!(this.playerEntityId!, def.id),
-      startNpc: def.startNpc,
-      onStartItems: def.onStart?.items || [],
-      rewardItems: def.rewards.items,
-      stages: def.stages.map((s) => ({
-        id: s.id,
-        type: s.type,
-        description: s.description,
-        target: s.target,
-        count: s.count,
-      })),
-    }));
+    const completedQuestIds = new Set(
+      allDefs
+        .filter(
+          (d) =>
+            questSystem.getQuestStatus!(this.playerEntityId!, d.id) ===
+            "completed",
+        )
+        .map((d) => d.id),
+    );
+    return allDefs
+      .filter((def) => {
+        const reqs =
+          (def as unknown as { requirements?: { quests?: string[] } })
+            .requirements?.quests ?? [];
+        return reqs.every((reqId) => completedQuestIds.has(reqId));
+      })
+      .map((def) => ({
+        questId: def.id,
+        name: def.name,
+        description: def.description,
+        difficulty: def.difficulty,
+        status: questSystem.getQuestStatus!(this.playerEntityId!, def.id),
+        startNpc: def.startNpc,
+        onStartItems: def.onStart?.items || [],
+        rewardItems: def.rewards.items,
+        stages: def.stages.map((s) => ({
+          id: s.id,
+          type: s.type,
+          description: s.description,
+          target: s.target,
+          count: s.count,
+        })),
+      }));
   }
 
   /**
@@ -1945,6 +2335,7 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
     runMode: boolean,
   ): boolean {
     if (!this.playerEntityId) {
+      console.warn(`[EmbeddedMove] no playerEntityId for ${this.name}`);
       return false;
     }
 
@@ -1959,14 +2350,21 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
       | undefined;
 
     if (!networkSystem?.requestServerMove) {
+      console.warn(`[EmbeddedMove] no requestServerMove for ${this.name}`);
       return false;
     }
 
-    return (
-      networkSystem.requestServerMove(this.playerEntityId, target, {
-        runMode,
-      }) !== false
+    const result = networkSystem.requestServerMove(
+      this.playerEntityId,
+      target,
+      { runMode },
     );
+    if (!result) {
+      console.warn(
+        `[EmbeddedMove] requestServerMove returned false for ${this.name} entity=${this.playerEntityId}`,
+      );
+    }
+    return result !== false;
   }
 
   private cancelNetworkMove(): boolean {

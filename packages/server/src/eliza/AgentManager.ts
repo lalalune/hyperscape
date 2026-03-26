@@ -326,8 +326,24 @@ export class AgentManager {
       dropCooldownUntil: 0,
       lastGatherTargetId: null,
       lastGatherQueuedAt: 0,
+      lastGatherSessionStartAt: 0,
       pendingChatReaction: null,
       lastCombatChatAt: 0,
+      lastPlayerChatResponseAt: 0,
+      lastAmbientChatAt: 0,
+      goalSetAt: Date.now(),
+      lastGoalKey: "",
+      llmQuestDecision: null,
+      llmFreeTimeDecision: null,
+      llmSkillGrindDecision: null,
+      lastRegenAt: 0,
+      lastPickupTargetId: null,
+      lastPickupAttemptAt: 0,
+      pickupAttemptCount: 0,
+      gravestoneSkipUntil: 0,
+      gravestoneLootAttempts: 0,
+      lastAttackCommandAt: 0,
+      lastAttackCommandTargetId: null,
     };
 
     this.agents.set(characterId, instance);
@@ -682,10 +698,13 @@ export class AgentManager {
           : defaultAutoStartMax;
 
       // isAgent is stored as integer (1 = true, 0 = false) in database
+      // ORDER BY createdAt ASC ensures the oldest (primary) agent loads first when capped
+      const { asc } = await import("drizzle-orm");
       const agentCharacters = await databaseSystem.db
         .select()
         .from(characters)
-        .where(eq(characters.isAgent, 1));
+        .where(eq(characters.isAgent, 1))
+        .orderBy(asc(characters.createdAt));
 
       console.log(
         `[AgentManager] Found ${agentCharacters.length} agent character(s) in database`,

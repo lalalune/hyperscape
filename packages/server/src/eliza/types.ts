@@ -123,6 +123,8 @@ export interface NearbyEntityData {
   mobType?: string;
   itemId?: string;
   resourceType?: string;
+  /** Specific resource subtype ID (e.g. "fishing_spot_net", "fishing_spot_bait") */
+  resourceId?: string;
   equippedWeapon?: string;
 }
 
