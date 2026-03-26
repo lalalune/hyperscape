@@ -54,6 +54,7 @@ import { registerDataRoutes } from "./routes/data-routes.js";
 import { registerProxyRoutes } from "../routes/proxy-routes.js";
 import { registerArenaRoutes } from "./routes/arena-routes.js";
 import { registerStreamingRoutes } from "../routes/streaming.js";
+import { registerSpectatorRoutes } from "./routes/spectator-routes.js";
 
 /**
  * Register all API routes
@@ -126,6 +127,9 @@ export function registerApiRoutes(
 
   // Streaming mode state and leaderboard
   registerStreamingRoutes(fastify, world);
+
+  // Spectator overlay data
+  registerSpectatorRoutes(fastify, world);
 
   console.log("[API] ✅ API routes registered");
 }

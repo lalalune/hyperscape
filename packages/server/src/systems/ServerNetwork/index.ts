@@ -2657,6 +2657,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     data: unknown,
   ): Promise<void> {
     const accountId = socket.accountId;
+    // Cancel any pending combat-logout or reconnect timers for the player's characterId.
+    // This prevents a stale timer from removing the entity after re-entry.
+    const characterIdHint =
+      (data as { characterId?: string })?.characterId ||
+      socket.selectedCharacterId ||
+      socket.characterId;
+    if (characterIdHint) {
+      this.socketManager.cancelPendingTimers(characterIdHint);
+    }
     if (accountId) {
       const reconnectedPlayerId = this.socketManager.tryReconnect(
         accountId,
@@ -2913,7 +2922,16 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     target: [number, number, number],
     options?: { runMode?: boolean },
   ): boolean {
-    if (!this.tileMovementManager || !this.world.entities.get(playerId)) {
+    if (!this.tileMovementManager) {
+      console.warn(
+        `[ServerNetwork] requestServerMove: no tileMovementManager for ${playerId}`,
+      );
+      return false;
+    }
+    if (!this.world.entities.get(playerId)) {
+      console.warn(
+        `[ServerNetwork] requestServerMove: entity not found: ${playerId}`,
+      );
       return false;
     }
 

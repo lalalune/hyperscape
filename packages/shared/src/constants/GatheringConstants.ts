@@ -7,6 +7,7 @@
  * @see https://oldschool.runescape.wiki/w/Woodcutting
  * @see https://oldschool.runescape.wiki/w/Mining
  * @see https://oldschool.runescape.wiki/w/Fishing
+ * @lastUpdated 2026-03-08 - remote session test
  */
 
 export const GATHERING_CONSTANTS = {
@@ -177,6 +178,8 @@ export const GATHERING_CONSTANTS = {
     // Runite ore (level 85) - 6.64% at L85, 7.42% at L97+
     // Confirmed by Mod Ash: 17/256 at L85, 19/256 at L97+
     ore_runite: { low: 17, high: 19 },
+    // Rune essence (level 1) - always succeeds (256/256), like OSRS
+    ore_essence: { low: 256, high: 256 },
   } as const,
 
   /**

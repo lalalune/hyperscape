@@ -30,6 +30,7 @@ import { EscapeMenu } from "./hud/EscapeMenu";
 import { ConnectionIndicator } from "./hud/ConnectionIndicator";
 import { NotificationContainer } from "@/ui/components";
 import { Disconnected, KickedOverlay, DeathScreen } from "./hud/overlays";
+import { SpectatorOverlay } from "./SpectatorOverlay";
 import {
   COLORS,
   spacing,
@@ -57,6 +58,14 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     return config?.mode === "spectator";
   })();
 
+  // The entity being followed in spectator mode — prefer config, fall back to URL param
+  const spectatorFollowId = (() => {
+    const config = window.__HYPERSCAPE_CONFIG__;
+    if (config?.followEntity) return config.followEntity;
+    if (config?.characterId) return config.characterId;
+    return new URLSearchParams(window.location.search).get("followEntity");
+  })();
+
   // Presentation gating flags
   const [playerReady, setPlayerReady] = useState(() => !!world.entities.player);
   const [physReady, setPhysReady] = useState(false);
@@ -67,6 +76,14 @@ export function CoreUI({ world }: { world: ClientWorld }) {
   const [disconnected, setDisconnected] = useState(false);
   const [kicked, setKicked] = useState<string | null>(null);
   const [characterFlowActive, setCharacterFlowActive] = useState(false);
+  const [characterList, setCharacterList] = useState<
+    Array<{ id: string; name: string; level?: number }>
+  >(() => {
+    const net = world.network as {
+      lastCharacterList?: Array<{ id: string; name: string; level?: number }>;
+    };
+    return net.lastCharacterList || [];
+  });
   const [deathScreen, setDeathScreen] = useState<{
     message: string;
     killedBy: string;
@@ -168,13 +185,24 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     world.on(EventType.UI_DEATH_SCREEN_CLOSE, handleDeathScreenClose);
     // Character selection flow (server-flagged)
     // Define named handlers for proper cleanup (anonymous functions don't work with off())
-    const handleCharacterList = (): void => setCharacterFlowActive(true);
+    const handleCharacterList = (data: unknown): void => {
+      const listData = data as {
+        characters?: Array<{ id: string; name: string; level?: number }>;
+      };
+      setCharacterList(listData.characters || []);
+      setCharacterFlowActive(true);
+    };
     const handleCharacterSelected = (): void => setCharacterFlowActive(false);
     world.on("character:list", handleCharacterList);
     world.on("character:selected", handleCharacterSelected);
     // If the packet arrived before UI mounted, consult network cache
-    const network = world.network as { lastCharacterList?: unknown[] };
-    if (network.lastCharacterList) setCharacterFlowActive(true);
+    const network = world.network as {
+      lastCharacterList?: Array<{ id: string; name: string; level?: number }>;
+    };
+    if (network.lastCharacterList) {
+      setCharacterList(network.lastCharacterList);
+      setCharacterFlowActive(true);
+    }
 
     return () => {
       // Clean up the ready timeout if it exists
@@ -427,16 +455,17 @@ export function CoreUI({ world }: { world: ClientWorld }) {
           <div id="core-ui-portal" />
         </div>
         {/* Non-scaled overlays - full screen elements */}
-        {!ready && (
-          <LoadingScreen
-            world={world}
-            message={
-              characterFlowActive ? "Entering world..." : "Loading world..."
-            }
-          />
+        {!ready && !characterFlowActive && (
+          <LoadingScreen world={world} message="Loading world..." />
+        )}
+        {!ready && characterFlowActive && (
+          <CharacterSelectOverlay world={world} characters={characterList} />
         )}
         {kicked && <KickedOverlay code={kicked} />}
         {deathScreen && <DeathScreen data={deathScreen} world={world} />}
+        {ready && isSpectatorMode && spectatorFollowId && (
+          <SpectatorOverlay characterId={spectatorFollowId} />
+        )}
       </main>
     </ChatProvider>
   );
@@ -718,6 +747,273 @@ function ToastMsg({ text }: { text: string }) {
       }}
     >
       {text}
+    </div>
+  );
+}
+
+type CharEntry = { id: string; name: string; level?: number };
+
+function CharacterSelectOverlay({
+  world,
+  characters,
+}: {
+  world: ClientWorld;
+  characters: CharEntry[];
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const network = world.network as {
+    requestCharacterSelect: (id: string) => void;
+    requestCharacterCreate: (name: string) => void;
+    requestEnterWorld: () => void;
+  };
+
+  // Auto-select newly created character
+  useEffect(() => {
+    const onCreated = (data: unknown) => {
+      const created = data as { id: string; name: string };
+      if (created.id) {
+        handleSelect(created.id);
+      }
+    };
+    world.on(EventType.CHARACTER_CREATED, onCreated);
+    return () => world.off(EventType.CHARACTER_CREATED, onCreated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [world]);
+
+  const handleSelect = (id: string) => {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem("selectedCharacterId", id);
+    }
+    network.requestCharacterSelect(id);
+    network.requestEnterWorld();
+  };
+
+  const handleCreate = () => {
+    const name = newName.trim();
+    if (!name) {
+      setError("Name cannot be empty.");
+      return;
+    }
+    if (name.length < 2 || name.length > 20) {
+      setError("Name must be 2–20 characters.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    network.requestCharacterCreate(name);
+    // Server responds with character:created → auto-selects via the effect above
+  };
+
+  return (
+    <div
+      className="absolute inset-0 flex items-center justify-center pointer-events-auto"
+      style={{ background: "rgba(0,0,0,0.85)", zIndex: 1000 }}
+    >
+      <div
+        style={{
+          background: COLORS.BG_SOLID,
+          border: `1px solid ${COLORS.BORDER_SECONDARY}`,
+          borderRadius: borderRadius.xl,
+          boxShadow: shadows.panel,
+          padding: spacing["2xl"],
+          minWidth: "320px",
+          maxWidth: "480px",
+          width: "90%",
+        }}
+      >
+        <h2
+          style={{
+            color: COLORS.TEXT_PRIMARY,
+            fontFamily: typography.fontFamily.heading,
+            fontSize: typography.fontSize["2xl"],
+            fontWeight: typography.fontWeight.bold,
+            marginBottom: spacing.lg,
+            textAlign: "center",
+          }}
+        >
+          {showCreate ? "Create Character" : "Select Character"}
+        </h2>
+
+        {!showCreate && (
+          <>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: spacing.sm,
+                marginBottom: spacing.lg,
+              }}
+            >
+              {characters.length === 0 && (
+                <p
+                  style={{
+                    color: COLORS.TEXT_SECONDARY,
+                    textAlign: "center",
+                    fontSize: typography.fontSize.sm,
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  No characters yet. Create one to begin!
+                </p>
+              )}
+              {characters.map((char) => (
+                <button
+                  key={char.id}
+                  onClick={() => handleSelect(char.id)}
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    border: `1px solid ${COLORS.BORDER_SECONDARY}`,
+                    borderRadius: borderRadius.md,
+                    padding: `${spacing.md} ${spacing.lg}`,
+                    color: COLORS.TEXT_PRIMARY,
+                    fontFamily: typography.fontFamily.body,
+                    fontSize: typography.fontSize.base,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "rgba(255,255,255,0.12)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "rgba(255,255,255,0.05)";
+                  }}
+                >
+                  <span style={{ fontWeight: typography.fontWeight.medium }}>
+                    {char.name}
+                  </span>
+                  {char.level !== undefined && (
+                    <span
+                      style={{
+                        color: COLORS.TEXT_SECONDARY,
+                        fontSize: typography.fontSize.sm,
+                      }}
+                    >
+                      Lv {char.level}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowCreate(true)}
+              style={{
+                width: "100%",
+                background: "rgba(99,102,241,0.2)",
+                border: `1px solid rgba(99,102,241,0.5)`,
+                borderRadius: borderRadius.md,
+                padding: `${spacing.sm} ${spacing.lg}`,
+                color: COLORS.TEXT_PRIMARY,
+                fontFamily: typography.fontFamily.body,
+                fontSize: typography.fontSize.base,
+                cursor: "pointer",
+                fontWeight: typography.fontWeight.medium,
+              }}
+            >
+              + New Character
+            </button>
+          </>
+        )}
+
+        {showCreate && (
+          <>
+            <input
+              autoFocus
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreate();
+              }}
+              placeholder="Enter character name"
+              maxLength={20}
+              disabled={submitting}
+              style={{
+                width: "100%",
+                background: "rgba(255,255,255,0.07)",
+                border: `1px solid ${error ? "rgba(239,68,68,0.7)" : COLORS.BORDER_SECONDARY}`,
+                borderRadius: borderRadius.md,
+                padding: `${spacing.md} ${spacing.lg}`,
+                color: COLORS.TEXT_PRIMARY,
+                fontFamily: typography.fontFamily.body,
+                fontSize: typography.fontSize.base,
+                outline: "none",
+                marginBottom: spacing.sm,
+                boxSizing: "border-box",
+              }}
+            />
+            {error && (
+              <p
+                style={{
+                  color: "rgba(239,68,68,0.9)",
+                  fontSize: typography.fontSize.sm,
+                  marginBottom: spacing.sm,
+                }}
+              >
+                {error}
+              </p>
+            )}
+            <div
+              style={{
+                display: "flex",
+                gap: spacing.sm,
+                marginTop: spacing.sm,
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowCreate(false);
+                  setNewName("");
+                  setError("");
+                }}
+                disabled={submitting}
+                style={{
+                  flex: 1,
+                  background: "rgba(255,255,255,0.05)",
+                  border: `1px solid ${COLORS.BORDER_SECONDARY}`,
+                  borderRadius: borderRadius.md,
+                  padding: spacing.sm,
+                  color: COLORS.TEXT_SECONDARY,
+                  fontFamily: typography.fontFamily.body,
+                  fontSize: typography.fontSize.base,
+                  cursor: "pointer",
+                }}
+              >
+                Back
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={submitting || !newName.trim()}
+                style={{
+                  flex: 2,
+                  background: submitting
+                    ? "rgba(99,102,241,0.1)"
+                    : "rgba(99,102,241,0.35)",
+                  border: `1px solid rgba(99,102,241,0.5)`,
+                  borderRadius: borderRadius.md,
+                  padding: spacing.sm,
+                  color: COLORS.TEXT_PRIMARY,
+                  fontFamily: typography.fontFamily.body,
+                  fontSize: typography.fontSize.base,
+                  cursor: submitting ? "default" : "pointer",
+                  fontWeight: typography.fontWeight.medium,
+                }}
+              >
+                {submitting ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

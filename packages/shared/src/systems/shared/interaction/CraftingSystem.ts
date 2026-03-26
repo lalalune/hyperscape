@@ -272,6 +272,9 @@ export class CraftingSystem extends SystemBase {
     // Validate recipe exists
     const recipe = processingDataProvider.getCraftingRecipe(recipeId);
     if (!recipe) {
+      console.warn(
+        `[CraftingSystem] startCrafting FAILED: recipe not found: ${recipeId} player=${playerId}`,
+      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: "Invalid crafting recipe.",
@@ -283,6 +286,9 @@ export class CraftingSystem extends SystemBase {
     // Check level requirement
     const craftingLevel = this.getCraftingLevel(playerId);
     if (craftingLevel < recipe.level) {
+      console.warn(
+        `[CraftingSystem] startCrafting FAILED: level too low: need=${recipe.level} have=${craftingLevel} player=${playerId}`,
+      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: `You need level ${recipe.level} Crafting to make that.`,
@@ -294,6 +300,9 @@ export class CraftingSystem extends SystemBase {
     // Build inventory state once for all checks
     const invState = this.getInventoryState(playerId);
     if (!invState) {
+      console.warn(
+        `[CraftingSystem] startCrafting FAILED: no inventory for player=${playerId}`,
+      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: "You have no items.",
@@ -304,6 +313,9 @@ export class CraftingSystem extends SystemBase {
 
     // Check tools
     if (!this.hasRequiredTools(invState, recipe)) {
+      console.warn(
+        `[CraftingSystem] startCrafting FAILED: missing tools=${recipe.tools.join(",")} player=${playerId} inventory=${JSON.stringify([...invState.itemIds])}`,
+      );
       const toolNames = recipe.tools.join(", ").replace(/_/g, " ");
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
@@ -315,6 +327,9 @@ export class CraftingSystem extends SystemBase {
 
     // Check materials
     if (!this.hasRequiredInputs(invState, recipe)) {
+      console.warn(
+        `[CraftingSystem] startCrafting FAILED: missing materials for ${recipeId} player=${playerId} inventory=${JSON.stringify([...invState.itemIds])}`,
+      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: "You don't have the required materials.",
@@ -325,6 +340,9 @@ export class CraftingSystem extends SystemBase {
 
     // Check consumables (e.g., thread)
     if (!this.hasRequiredConsumables(invState, recipe)) {
+      console.warn(
+        `[CraftingSystem] startCrafting FAILED: missing consumables for ${recipeId} player=${playerId} inventory=${JSON.stringify([...invState.itemIds])}`,
+      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: "You need thread to craft that.",

@@ -850,7 +850,7 @@ export function EmbeddedGameClient() {
           setTerrainReady(true);
           clearTerrainPolling();
         }
-      }, 100);
+      }, 500);
 
       terrainTimeoutRef.current = setTimeout(() => {
         // Failsafe: avoid infinite loading if readiness signal is unavailable.
@@ -895,7 +895,7 @@ export function EmbeddedGameClient() {
         checkAvatarReady();
         avatarPollRef.current = setInterval(() => {
           checkAvatarReady();
-        }, 250);
+        }, 500);
         avatarTimeoutRef.current = setTimeout(() => {
           // Failsafe: don't block forever if avatar event is missed.
           setTargetAvatarReady(true);

@@ -265,6 +265,9 @@ export class FletchingSystem extends SystemBase {
     // Validate recipe exists
     const recipe = processingDataProvider.getFletchingRecipe(recipeId);
     if (!recipe) {
+      console.warn(
+        `[FletchingSystem] startFletching FAILED: recipe not found: ${recipeId} player=${playerId}`,
+      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: "Invalid fletching recipe.",
@@ -276,6 +279,9 @@ export class FletchingSystem extends SystemBase {
     // Check level requirement
     const fletchingLevel = this.getFletchingLevel(playerId);
     if (fletchingLevel < recipe.level) {
+      console.warn(
+        `[FletchingSystem] startFletching FAILED: level too low: need=${recipe.level} have=${fletchingLevel} player=${playerId}`,
+      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: `You need level ${recipe.level} Fletching to make that.`,
@@ -287,6 +293,9 @@ export class FletchingSystem extends SystemBase {
     // Build inventory state once for all checks
     const invState = this.getInventoryState(playerId);
     if (!invState) {
+      console.warn(
+        `[FletchingSystem] startFletching FAILED: no inventory player=${playerId}`,
+      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: "You have no items.",
@@ -297,6 +306,9 @@ export class FletchingSystem extends SystemBase {
 
     // Check tools
     if (!this.hasRequiredTools(invState, recipe)) {
+      console.warn(
+        `[FletchingSystem] startFletching FAILED: missing tools=${recipe.tools.join(",")} player=${playerId} inventory=${JSON.stringify([...invState.itemIds])}`,
+      );
       const toolNames = recipe.tools.join(", ").replace(/_/g, " ");
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
@@ -308,6 +320,9 @@ export class FletchingSystem extends SystemBase {
 
     // Check materials
     if (!this.hasRequiredInputs(invState, recipe)) {
+      console.warn(
+        `[FletchingSystem] startFletching FAILED: missing materials for ${recipeId} player=${playerId} inventory=${JSON.stringify([...invState.itemIds])}`,
+      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: "You don't have the required materials.",
@@ -516,11 +531,13 @@ export class FletchingSystem extends SystemBase {
     const recipe = processingDataProvider.getFletchingRecipe(session.recipeId);
 
     // Emit completion event
+    const outputQty = recipe?.outputQuantity ?? 1;
+    const totalItemsProduced = session.crafted * outputQty;
     this.emitTypedEvent(EventType.FLETCHING_COMPLETE, {
       playerId,
       recipeId: session.recipeId,
       outputItemId: recipe?.output || session.recipeId,
-      totalCrafted: session.crafted,
+      totalCrafted: totalItemsProduced,
       totalXp: session.crafted * (recipe?.xp || 0),
     });
   }

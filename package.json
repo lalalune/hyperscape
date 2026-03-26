@@ -207,6 +207,8 @@
     "@livekit/rtc-node-linux-x64-gnu": "0.13.24",
     "@nomicfoundation/hardhat-ignition": "^3.0.7",
     "@rollup/rollup-darwin-x64": "^4.52.4",
+    "@trpc/client": "^11.10.0",
+    "@trpc/server": "^11.10.0",
     "@types/pg": "^8.15.5",
     "@vitejs/plugin-react": "^5.1.4",
     "better-sqlite3": "^12.2.0",

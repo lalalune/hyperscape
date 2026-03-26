@@ -429,6 +429,14 @@ export class SocketManager {
     }
     this.disconnectedPlayers.delete(accountId);
 
+    // Cancel any pending combat logout timer for this player so it doesn't
+    // fire and remove the entity after the player has reconnected
+    const combatTimer = this.combatLogoutTimers.get(disconnected.playerId);
+    if (combatTimer) {
+      clearTimeout(combatTimer);
+      this.combatLogoutTimers.delete(disconnected.playerId);
+    }
+
     // Verify entity still exists
     const entity = this.world.entities?.get(disconnected.playerId);
     if (!entity) {
@@ -502,6 +510,20 @@ export class SocketManager {
    */
   getRTT(socketId: string): number {
     return this.socketRTT.get(socketId) ?? -1;
+  }
+
+  /**
+   * Cancel any pending removal timers for a player (combat logout or reconnect grace).
+   * Call this when a player re-enters the world so stale timers don't kill their new entity.
+   */
+  cancelPendingTimers(playerId: string): void {
+    const combatTimer = this.combatLogoutTimers.get(playerId);
+    if (combatTimer) {
+      clearTimeout(combatTimer);
+      this.combatLogoutTimers.delete(playerId);
+    }
+    // Reconnect timers are keyed by accountId, not playerId.
+    // Those are handled in tryReconnect() directly.
   }
 
   /**

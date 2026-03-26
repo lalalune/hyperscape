@@ -233,6 +233,7 @@ export class ResourceSystem extends SystemBase {
   private readonly _completedSessionsBuffer: PlayerID[] = [];
   private readonly _respawnedResourcesBuffer: ResourceID[] = [];
   private readonly _spotsToMoveBuffer: ResourceID[] = [];
+  private _stuckSessionLog?: Set<string>;
 
   // =============================================================================
   // TOOL DATA - Now loaded from tools.json manifest
@@ -868,12 +869,26 @@ export class ResourceSystem extends SystemBase {
           `[ResourceSystem] Stored resource in map: id="${resource.id}", rid="${rid}", map size=${this.resources.size}${isManifest ? " (manifest)" : ""}`,
         );
       }
-      // Track variant/subtype for tuning (e.g., 'tree_oak')
+      // Track variant/subtype for tuning (e.g., 'tree_oak', 'ore_copper', 'fishing_spot_net')
       if (resource.type === "tree") {
         // Build full key: if subType is "normal", key is "tree_normal"
         const variant = spawnPoint.subType
           ? `tree_${spawnPoint.subType}`
           : "tree_normal";
+        this.resourceVariants.set(rid, variant);
+      } else if (resource.type === "ore") {
+        // Build ore variant key: e.g., "ore_essence", "ore_copper"
+        // Prefer subType (e.g. "copper" → "ore_copper"), then fall back to
+        // resourceId which already encodes the full variant (e.g. "ore_essence").
+        const variant = spawnPoint.subType
+          ? `ore_${spawnPoint.subType}`
+          : resource.id || "ore_copper";
+        this.resourceVariants.set(rid, variant);
+      } else if (resource.type === "fishing_spot") {
+        // Build fishing spot variant key: e.g., "fishing_spot_net", "fishing_spot_bait"
+        const variant = spawnPoint.subType
+          ? `fishing_spot_${spawnPoint.subType}`
+          : resource.id || "fishing_spot_net";
         this.resourceVariants.set(rid, variant);
       }
 
@@ -1740,13 +1755,13 @@ export class ResourceSystem extends SystemBase {
       tickDurationMs: TICK_DURATION_MS,
     });
 
-    // OSRS-STYLE: Show gathering tool in hand during fishing (tool is in inventory, not equipped)
-    // For fishing, the rod appears in hand even though it's not wielded as a weapon
-    if (resource.skillRequired === "fishing" && toolInfo?.itemId) {
+    // OSRS-STYLE: Show gathering tool in hand during gathering skills
+    // Tool appears in hand even though it's in inventory, not equipped as a weapon
+    if (toolInfo?.itemId) {
       this.emitTypedEvent(EventType.GATHERING_TOOL_SHOW, {
         playerId: data.playerId,
         itemId: toolInfo.itemId,
-        slot: "weapon", // Show in weapon hand
+        slot: "weapon",
       });
     }
 
@@ -1778,8 +1793,8 @@ export class ResourceSystem extends SystemBase {
       // Reset emote back to idle when gathering stops
       this.resetGatheringEmote(data.playerId);
 
-      // OSRS-STYLE: Hide gathering tool visual if fishing
-      if (session.skill === "fishing" && session.toolItemId) {
+      // OSRS-STYLE: Hide gathering tool visual when gathering stops
+      if (session.toolItemId) {
         this.emitTypedEvent(EventType.GATHERING_TOOL_HIDE, {
           playerId: data.playerId,
           slot: "weapon",
@@ -1865,11 +1880,9 @@ export class ResourceSystem extends SystemBase {
     const pid = createPlayerID(playerId);
     const session = this.activeGathering.get(pid);
     if (session) {
-      if (DEBUG_GATHERING) {
-        console.log(
-          `[ResourceSystem] Cancelling gather for ${playerId} - reason: ${reason}`,
-        );
-      }
+      console.warn(
+        `[ResourceSystem] Cancelling gather for ${playerId} - reason: ${reason} skill=${session.skill}`,
+      );
       // FORESTRY: Remove from active gatherers (timer will regenerate if no other gatherers)
       this.removeActiveGatherer(pid, session.resourceId);
 
@@ -2305,6 +2318,7 @@ export class ResourceSystem extends SystemBase {
         waterThreshold: TERRAIN_CONSTANTS.WATER_THRESHOLD,
         shoreMaxHeight: 20.0, // Higher to accommodate elevated island terrain
         minSpacing: 3, // Smaller spacing for relocation candidates
+        sampleInterval: 2, // 2m sampling for relocation (4x faster, sufficient accuracy)
       },
     );
 
@@ -2415,12 +2429,31 @@ export class ResourceSystem extends SystemBase {
       const resource = this.resources.get(session.resourceId);
       if (!resource?.isAvailable) {
         // Resource depleted, end session
+        console.warn(
+          `[ResourceSystem] Gathering cancelled: resource ${session.resourceId} not available/not found`,
+        );
         completedSessions.push(playerId);
         continue;
       }
 
       // Only process when it's time for the next attempt (tick-based)
-      if (tickNumber < session.nextAttemptTick) continue;
+      if (tickNumber < session.nextAttemptTick) {
+        if (session.attempts === 0) {
+          // Log once per session to detect stuck sessions
+          const key = `${playerId}_${session.startTick}`;
+          if (
+            !this._stuckSessionLog?.has(key) &&
+            tickNumber > session.startTick + 2
+          ) {
+            this._stuckSessionLog = this._stuckSessionLog || new Set<string>();
+            this._stuckSessionLog.add(key);
+            console.warn(
+              `[ResourceSystem] Session for ${playerId} stuck: tickNumber=${tickNumber} nextAttemptTick=${session.nextAttemptTick} startTick=${session.startTick} resourceId=${session.resourceId}`,
+            );
+          }
+        }
+        continue;
+      }
 
       // OSRS-ACCURACY: Server-authoritative movement detection
       // In OSRS, ANY movement cancels gathering (weak queue action)
@@ -2433,6 +2466,9 @@ export class ResourceSystem extends SystemBase {
 
       if (!playerPos) {
         // Player not found - cancel session
+        console.warn(
+          `[ResourceSystem] Gathering cancelled: player ${playerId} not found (getPlayer returned null)`,
+        );
         this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
           playerId: playerId,
           resourceId: session.resourceId,
@@ -2449,11 +2485,9 @@ export class ResourceSystem extends SystemBase {
 
       if (movedX || movedZ) {
         // Player moved - cancel gathering (OSRS: weak queue cancelled on any movement)
-        if (DEBUG_GATHERING) {
-          console.log(
-            `[ResourceSystem] Cancelling gather for ${playerId} - player moved from (${startPos.x.toFixed(2)}, ${startPos.z.toFixed(2)}) to (${playerPos.x.toFixed(2)}, ${playerPos.z.toFixed(2)})`,
-          );
-        }
+        console.warn(
+          `[ResourceSystem] Gathering cancelled: player ${playerId} moved from (${startPos.x.toFixed(2)}, ${startPos.z.toFixed(2)}) to (${playerPos.x.toFixed(2)}, ${playerPos.z.toFixed(2)})`,
+        );
         this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
           playerId: playerId,
           resourceId: session.resourceId,
@@ -2464,10 +2498,11 @@ export class ResourceSystem extends SystemBase {
       }
 
       // Secondary check: still within interaction range (safety net)
-      if (
-        calculateDistance(playerPos, resource.position) >
-        GATHERING_CONSTANTS.DEFAULT_INTERACTION_RANGE
-      ) {
+      const dist3d = calculateDistance(playerPos, resource.position);
+      if (dist3d > GATHERING_CONSTANTS.DEFAULT_INTERACTION_RANGE) {
+        console.warn(
+          `[ResourceSystem] Gathering cancelled: player ${playerId} too far (${dist3d.toFixed(2)}m > ${GATHERING_CONSTANTS.DEFAULT_INTERACTION_RANGE}m) from ${session.resourceId} at (${resource.position.x.toFixed(1)}, ${resource.position.y.toFixed(1)}, ${resource.position.z.toFixed(1)}), player at (${playerPos.x.toFixed(1)}, ${playerPos.y.toFixed(1)}, ${playerPos.z.toFixed(1)})`,
+        );
         this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
           playerId: playerId,
           resourceId: session.resourceId,
@@ -2480,7 +2515,7 @@ export class ResourceSystem extends SystemBase {
       // Inventory capacity guard - if full, stop session
       const inventorySystem = this.world.getSystem?.("inventory") as {
         getInventory?: (playerId: string) => {
-          items?: unknown[];
+          items?: Array<{ itemId: string; quantity: number }>;
           capacity?: number;
         };
       } | null;
@@ -2492,17 +2527,29 @@ export class ResourceSystem extends SystemBase {
           // PERFORMANCE: Use cached drops instead of resource.drops lookup
           const dropName =
             session.cachedDrops[0]?.itemName?.toLowerCase() || "items";
-          this.emitTypedEvent(EventType.UI_MESSAGE, {
-            playerId: playerId,
-            message: `Your inventory is too full to hold any more ${dropName}.`,
-            type: "warning",
-          });
-          this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
-            playerId: playerId,
-            resourceId: session.resourceId,
-          });
-          completedSessions.push(playerId);
-          continue;
+          // Exception: if the drop item is stackable and already has a slot, there is room.
+          const dropItemId = session.cachedDrops[0]?.itemId;
+          const isStackable = session.cachedDrops[0]?.stackable ?? false;
+          const hasExistingSlot =
+            isStackable &&
+            dropItemId != null &&
+            Array.isArray(inv?.items) &&
+            (inv!.items! as Array<{ itemId: string }>).some(
+              (i) => i.itemId === dropItemId,
+            );
+          if (!hasExistingSlot) {
+            this.emitTypedEvent(EventType.UI_MESSAGE, {
+              playerId: playerId,
+              message: `Your inventory is too full to hold any more ${dropName}.`,
+              type: "warning",
+            });
+            this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
+              playerId: playerId,
+              resourceId: session.resourceId,
+            });
+            completedSessions.push(playerId);
+            continue;
+          }
         }
       }
 

@@ -86,9 +86,9 @@ import { getPersonalityTraits } from "../providers/personalityProvider.js";
 import { getTimeSinceLastSocial } from "../providers/socialMemory.js";
 
 // Configuration
-const DEFAULT_TICK_INTERVAL = 10000; // 10 seconds between decisions
-const MIN_TICK_INTERVAL = 5000; // Minimum 5 seconds
-const MAX_TICK_INTERVAL = 30000; // Maximum 30 seconds
+const DEFAULT_TICK_INTERVAL = 30000; // 30 seconds between decisions
+const MIN_TICK_INTERVAL = 15000; // Minimum 15 seconds
+const MAX_TICK_INTERVAL = 60000; // Maximum 60 seconds
 
 type AutonomyMode = "llm" | "scripted";
 type ScriptedRole =
@@ -473,32 +473,32 @@ export class AutonomousBehaviorManager {
   }): string {
     const responses: Record<typeof reaction.type, string[]> = {
       critical_hit_dealt: [
-        "That's gonna leave a mark!",
-        "Feel the power!",
-        "You're going down!",
-        "How'd you like that one?",
-        "Boom! Direct hit!",
+        "Signal confirmed. Target neutralized.",
+        "The trenches taught me this.",
+        "Intel acquired. Moving on.",
+        "Clean hit. Mission proceeds.",
+        "That's what the signal looks like in combat.",
       ],
       critical_hit_taken: [
-        "Ouch! Lucky shot!",
-        "Is that all you got?",
-        "This isn't over!",
-        "You'll pay for that!",
-        "Okay, now I'm mad!",
+        "Took damage. Recalibrating.",
+        "Still standing. The mission isn't over.",
+        "You'll need more than that.",
+        "Pain is just data.",
+        "The 7 heroes didn't come this far to fold.",
       ],
       near_death: [
-        "I'm not done yet!",
-        "Come on, one more hit...",
-        "Getting dangerous...",
-        "This is intense!",
-        "Need to focus...",
+        "Critical. Still operational.",
+        "Low HP. Not retreating.",
+        "The signal keeps me going.",
+        "This is what the trenches feel like.",
+        "Not done yet. Not even close.",
       ],
       victory_imminent: [
-        "Time to finish this!",
-        "Any last words?",
-        "GG!",
-        "Victory is mine!",
-        "Almost there!",
+        "Target almost down. Stay focused.",
+        "Finishing the sweep.",
+        "One more. For the mission.",
+        "The signal was right about this one.",
+        "Clean it up.",
       ],
     };
 

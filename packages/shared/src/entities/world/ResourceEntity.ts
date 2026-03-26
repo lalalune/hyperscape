@@ -54,6 +54,9 @@ export class ResourceEntity extends InteractableEntity {
   private visual: ResourceVisualStrategy;
   private visualCtx!: ResourceVisualContext;
 
+  // Generation counter — incremented on every swap to cancel stale async operations
+  private _swapGen = 0;
+
   constructor(world: World, config: ResourceEntityConfig) {
     const interactableConfig: InteractableConfig = {
       ...config,
@@ -216,16 +219,19 @@ export class ResourceEntity extends InteractableEntity {
 
   private async swapToStump(): Promise<void> {
     if (this.world.isServer || !this.node) return;
+    const gen = ++this._swapGen;
 
     // Let the strategy hide its visual (instanced tree, glow, etc.)
     await this.visual.onDepleted(this.getVisualCtx());
+    if (gen !== this._swapGen) return;
 
     // Load stump/depleted model (shared across all types)
-    await this.loadDepletedModel();
+    await this.loadDepletedModel(gen);
   }
 
   private async swapToFullModel(): Promise<void> {
     if (this.world.isServer || !this.node) return;
+    const gen = ++this._swapGen;
 
     // Remove stump mesh
     if (this.mesh) {
@@ -233,15 +239,21 @@ export class ResourceEntity extends InteractableEntity {
       this.mesh = null;
     }
 
-    // Let the strategy restore its visual
+    // Let the strategy restore its visual (async — loads GLB)
     await this.visual.onRespawn(this.getVisualCtx());
+
+    // If a newer swap started while loading, discard what we just added
+    if (gen !== this._swapGen && this.mesh) {
+      this.node.remove(this.mesh);
+      this.mesh = null;
+    }
   }
 
   /**
    * Load the depleted model (stump, depleted rock, etc.).
    * Shared across all resource types — the strategy doesn't handle this.
    */
-  private async loadDepletedModel(): Promise<void> {
+  private async loadDepletedModel(gen?: number): Promise<void> {
     const depletedModelPath = this.config.depletedModelPath;
 
     if (!depletedModelPath) {
@@ -260,6 +272,9 @@ export class ResourceEntity extends InteractableEntity {
         depletedModelPath,
         this.world,
       );
+
+      // Abort if a newer swap has started
+      if (gen !== undefined && gen !== this._swapGen) return;
 
       this.mesh = scene;
       this.mesh.name = `ResourceDepleted_${this.config.resourceType}`;

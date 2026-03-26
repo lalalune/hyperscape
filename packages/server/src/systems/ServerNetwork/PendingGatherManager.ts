@@ -72,8 +72,8 @@ interface ResourceData {
   type?: string;
 }
 
-/** Timeout for pending gathers (in ticks) - 20 ticks = 12 seconds at 600ms/tick */
-const PENDING_GATHER_TIMEOUT_TICKS = 20;
+/** Timeout for pending gathers (in ticks) - 80 ticks = 48 seconds at 600ms/tick */
+const PENDING_GATHER_TIMEOUT_TICKS = 80;
 
 export class PendingGatherManager {
   private world: World;
@@ -182,6 +182,10 @@ export class PendingGatherManager {
       ) => boolean;
     } | null;
 
+    const inventorySystem = this.world.getSystem("inventory") as {
+      isInventoryReady?: (playerId: string) => boolean;
+    } | null;
+
     if (!resourceSystem?.getResource) {
       console.warn("[PendingGather] No resource system available");
       return;
@@ -259,6 +263,11 @@ export class PendingGatherManager {
         console.log(
           `[PendingGather]   🎣 Already on shore tile - starting gather immediately`,
         );
+        // CRITICAL: Stop any residual movement before starting gather.
+        // If the agent had an active path toward this resource, the tile movement
+        // system would continue moving them on the next tick, causing the gathering
+        // session to be silently cancelled (position changed > POSITION_EPSILON).
+        this.tileMovementManager.stopPlayer(playerId);
         this.setFaceTargetViaManager(
           playerId,
           this._resourceTile,
@@ -280,8 +289,13 @@ export class PendingGatherManager {
 
       // CRITICAL: Only set arrival emote if player meets ALL requirements (level + tool)
       // Without this, the fishing animation plays even when the player lacks the required tool
+      // If inventory is still loading (e.g. agent just spawned), skip tool check and assume present -
+      // ResourceSystem will enforce the requirement when the gather actually starts.
       const meetsLevel = this.playerMeetsLevelRequirement(playerId, resource);
+      const inventoryReady =
+        inventorySystem?.isInventoryReady?.(playerId) !== false;
       const hasTool =
+        !inventoryReady ||
         resourceSystem?.playerHasRequiredToolForResource?.(
           playerId,
           resourceId,
@@ -336,6 +350,11 @@ export class PendingGatherManager {
         console.log(
           `[PendingGather]   Already on cardinal tile - starting gather immediately`,
         );
+        // CRITICAL: Stop any residual movement before starting gather.
+        // If the agent had an active path toward this resource, the tile movement
+        // system would continue moving them on the next tick, causing the gathering
+        // session to be silently cancelled (position changed > POSITION_EPSILON).
+        this.tileMovementManager.stopPlayer(playerId);
         this.setFaceTargetViaManager(
           playerId,
           this._resourceTile,
@@ -366,7 +385,10 @@ export class PendingGatherManager {
       playerId,
       resource,
     );
+    const inventoryReadyNonFish =
+      inventorySystem?.isInventoryReady?.(playerId) !== false;
     const hasToolNonFish =
+      !inventoryReadyNonFish ||
       resourceSystem?.playerHasRequiredToolForResource?.(
         playerId,
         resourceId,

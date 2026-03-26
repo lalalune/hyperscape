@@ -1499,7 +1499,7 @@ export class ClientCameraSystem extends SystemBase {
       return true;
     }
 
-    if (now - this.cinematicLastLosRefreshAt >= 120) {
+    if (now - this.cinematicLastLosRefreshAt >= 500) {
       return true;
     }
 
@@ -1516,15 +1516,14 @@ export class ClientCameraSystem extends SystemBase {
       return true;
     }
 
-    if (actorPosition.distanceToSquared(this.cinematicLastActorSample) > 0.18) {
+    if (actorPosition.distanceToSquared(this.cinematicLastActorSample) > 1.0) {
       return true;
     }
 
     if (
       hasOpponent &&
       opponentPosition &&
-      opponentPosition.distanceToSquared(this.cinematicLastOpponentSample) >
-        0.28
+      opponentPosition.distanceToSquared(this.cinematicLastOpponentSample) > 1.5
     ) {
       return true;
     }
@@ -1628,9 +1627,9 @@ export class ClientCameraSystem extends SystemBase {
     actorPosition: THREE.Vector3,
     opponentPosition: THREE.Vector3 | null,
   ): { theta: number; phi: number } {
-    const coarseThetaOffsets = [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05];
+    const coarseThetaOffsets = [0, 0.4, -0.4, 0.85, -0.85];
     const coarsePhiOffsets = [0, -0.1, 0.1];
-    const fineThetaOffsets = [0, 0.12, -0.12, 0.24, -0.24];
+    const fineThetaOffsets = [0, 0.15, -0.15];
     const finePhiOffsets = [0, -0.05, 0.05];
     let bestScore = -Infinity;
     let bestTheta = baseTheta;

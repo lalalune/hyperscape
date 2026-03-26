@@ -2020,7 +2020,14 @@ export class ProcessingDataProvider {
    */
   public getFletchingRecipe(recipeId: string): FletchingRecipeData | null {
     this.ensureInitialized();
-    return this.fletchingRecipeMap.get(recipeId) || null;
+    // Try exact match first (full "output:primaryInput" format)
+    const exact = this.fletchingRecipeMap.get(recipeId);
+    if (exact) return exact;
+    // Fall back to first recipe matching by output name (for agent convenience)
+    for (const recipe of this.fletchingRecipeMap.values()) {
+      if (recipe.output === recipeId) return recipe;
+    }
+    return null;
   }
 
   /**

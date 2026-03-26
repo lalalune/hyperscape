@@ -503,6 +503,134 @@ export class MobNPCSpawnerSystem extends SystemBase {
     console.log(
       `[MobNPCSpawnerSystem] ✅ Spawned ${spawnedCount} test goblins around spawn area`,
     );
+
+    // Spawn bandits and barbarians for intermediate quests (roads_run_red / iron_will / warchiefs_fury)
+    // Placed in a "bandit camp" area west of the starting zone, within 40 units of spawn.
+    const combatMobSpawns: Array<{
+      npcId: string;
+      idPrefix: string;
+      positions: Array<{ x: number; z: number }>;
+    }> = [
+      {
+        npcId: "bandit",
+        idPrefix: "default_bandit",
+        positions: [
+          { x: -22, z: 16 },
+          { x: -26, z: 22 },
+          { x: -20, z: 26 },
+          { x: -28, z: 14 },
+        ],
+      },
+      {
+        npcId: "barbarian",
+        idPrefix: "default_barbarian",
+        positions: [
+          { x: -18, z: 14 },
+          { x: -22, z: 10 },
+          { x: -16, z: 20 },
+          { x: -24, z: 18 },
+        ],
+      },
+      {
+        npcId: "barbarian_warchief",
+        idPrefix: "default_warchief",
+        positions: [{ x: -30, z: 18 }],
+      },
+    ];
+
+    for (const group of combatMobSpawns) {
+      const npcData = getNPCById(group.npcId);
+      if (!npcData) {
+        console.warn(
+          `[MobNPCSpawnerSystem] NPC '${group.npcId}' not found in manifest, skipping`,
+        );
+        continue;
+      }
+      let groupCount = 0;
+      for (let i = 0; i < group.positions.length; i++) {
+        const pos = group.positions[i];
+        const terrainHeight = this.terrainSystem.getHeightAt(pos.x, pos.z);
+        const spawnPosition = { x: pos.x, y: terrainHeight, z: pos.z };
+        const mobConfig = {
+          id: `${group.idPrefix}_${i + 1}`,
+          type: EntityType.MOB,
+          name: npcData.name,
+          position: spawnPosition,
+          rotation: { x: 0, y: 0, z: 0, w: 1 },
+          scale: {
+            x: npcData.appearance.scale ?? 1,
+            y: npcData.appearance.scale ?? 1,
+            z: npcData.appearance.scale ?? 1,
+          },
+          visible: true,
+          interactable: true,
+          interactionType: InteractionType.ATTACK,
+          interactionDistance: 10,
+          description: npcData.description,
+          model: npcData.appearance.modelPath,
+          properties: {
+            movementComponent: null,
+            combatComponent: null,
+            healthComponent: null,
+            visualComponent: null,
+            health: {
+              current: npcData.stats.health,
+              max: npcData.stats.health,
+            },
+            level: npcData.stats.level,
+          },
+          mobType: npcData.id,
+          level: npcData.stats.level,
+          currentHealth: npcData.stats.health,
+          maxHealth: npcData.stats.health,
+          attack: npcData.stats.attack,
+          attackPower: npcData.stats.strength ?? npcData.stats.attack,
+          defense: npcData.stats.defense,
+          attackSpeedTicks: npcData.combat.attackSpeedTicks,
+          moveSpeed: npcData.movement?.speed ?? 3,
+          xpReward: npcData.combat.xpReward,
+          lootTable: npcData.drops.common.map(
+            (drop: {
+              itemId: string;
+              minQuantity: number;
+              maxQuantity: number;
+              chance: number;
+            }) => ({
+              itemId: drop.itemId,
+              minQuantity: drop.minQuantity,
+              maxQuantity: drop.maxQuantity,
+              chance: drop.chance,
+            }),
+          ),
+          spawnPoint: spawnPosition,
+          aggressive: npcData.combat.aggressive,
+          retaliates: npcData.combat.retaliates,
+          attackable: npcData.combat.attackable ?? true,
+          movementType: npcData.movement?.type ?? "wander",
+          aggroRange: npcData.combat.aggroRange,
+          combatRange: npcData.combat.combatRange,
+          leashRange: npcData.combat.leashRange,
+          wanderRadius: npcData.movement?.wanderRadius ?? 5,
+          aiState: "idle",
+          targetPlayerId: null,
+          lastAttackTime: 0,
+          deathTime: null,
+          respawnTime: npcData.combat.respawnTime,
+        };
+        try {
+          await entityManager.spawnEntity(mobConfig);
+          groupCount++;
+        } catch (err) {
+          console.error(
+            `[MobNPCSpawnerSystem] ❌ Error spawning ${group.npcId} ${i + 1}:`,
+            err,
+          );
+        }
+      }
+      console.log(
+        `[MobNPCSpawnerSystem] ✅ Spawned ${groupCount} ${group.npcId}(s)`,
+      );
+    }
   }
 
   private getMobLevelRange(mobData: NPCData): LevelRange {

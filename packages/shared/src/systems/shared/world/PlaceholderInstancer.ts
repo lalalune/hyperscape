@@ -45,6 +45,16 @@ let _scene: THREE.Scene | null = null;
 const _pools = new Map<string, Pool>();
 const _entityToType = new Map<string, string>();
 
+// ---- Pending queue (instances added before scene is initialized) ----
+interface PendingPlaceholderAdd {
+  resourceType: string;
+  entityId: string;
+  worldPos: THREE.Vector3;
+  scale: number;
+}
+const _pendingAddQueue: PendingPlaceholderAdd[] = [];
+const _pendingVisibility = new Map<string, boolean>(); // entityId → desired visible state
+
 // ---- Geometry / material factories (one per resource type) ----
 
 function createGeometry(resourceType: string): THREE.BufferGeometry {
@@ -135,9 +145,25 @@ function ensurePool(resourceType: string): Pool {
 
 export function initPlaceholderInstancer(scene: THREE.Scene): void {
   _scene = scene;
+  // Flush instances that arrived before the scene was ready
+  if (_pendingAddQueue.length > 0) {
+    const toFlush = [..._pendingAddQueue];
+    _pendingAddQueue.length = 0;
+    for (const p of toFlush) {
+      addPlaceholderInstance(p.resourceType, p.entityId, p.worldPos, p.scale);
+      // Apply any pending visibility change (e.g., depleted resource)
+      const vis = _pendingVisibility.get(p.entityId);
+      if (vis !== undefined) {
+        setPlaceholderVisible(p.entityId, vis);
+        _pendingVisibility.delete(p.entityId);
+      }
+    }
+  }
 }
 
 export function destroyPlaceholderInstancer(): void {
+  _pendingAddQueue.length = 0;
+  _pendingVisibility.clear();
   for (const pool of _pools.values()) {
     _scene?.remove(pool.mesh);
     pool.mesh.geometry.dispose();
@@ -156,7 +182,19 @@ export function addPlaceholderInstance(
   worldPos: THREE.Vector3,
   scale: number,
 ): boolean {
-  if (!_scene) return false;
+  if (!_scene) {
+    // Scene not ready yet — queue for when initPlaceholderInstancer fires
+    if (!_pendingAddQueue.find((p) => p.entityId === entityId)) {
+      _pendingAddQueue.push({
+        resourceType,
+        entityId,
+        worldPos: worldPos.clone(),
+        scale,
+      });
+    }
+    // Return true so PlaceholderVisualStrategy creates the collision proxy now
+    return true;
+  }
   if (_entityToType.has(entityId)) return true;
 
   const pool = ensurePool(resourceType);
@@ -185,6 +223,14 @@ export function addPlaceholderInstance(
 }
 
 export function removePlaceholderInstance(entityId: string): void {
+  // Cancel if still pending
+  const pendingIdx = _pendingAddQueue.findIndex((p) => p.entityId === entityId);
+  if (pendingIdx !== -1) {
+    _pendingAddQueue.splice(pendingIdx, 1);
+    _pendingVisibility.delete(entityId);
+    return;
+  }
+
   const resourceType = _entityToType.get(entityId);
   if (!resourceType) return;
 
@@ -218,6 +264,12 @@ export function setPlaceholderVisible(
   entityId: string,
   visible: boolean,
 ): void {
+  // If still pending, store the desired state for when it's flushed
+  if (_pendingAddQueue.find((p) => p.entityId === entityId)) {
+    _pendingVisibility.set(entityId, visible);
+    return;
+  }
+
   const resourceType = _entityToType.get(entityId);
   if (!resourceType) return;
 

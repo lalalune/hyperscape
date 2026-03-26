@@ -115,6 +115,8 @@ import { InteractionRouter } from "../systems/client/interaction";
 import { Particles } from "../systems/shared";
 import { Wind } from "../systems/shared";
 import { ClientTeleportEffectsSystem } from "../systems/client/ClientTeleportEffectsSystem";
+import { NameplateSystem } from "../systems/client/NameplateSystem";
+import { ChatBubbleSystem } from "../systems/client/ChatBubbleSystem";
 
 /**
  * Window extension for browser testing and debugging.
@@ -306,6 +308,8 @@ export function createClientWorld() {
   world.register("particle", ParticleSystem); // GPU-instanced glow/fire particles
   world.register("wind", Wind); // Environmental wind effects
   world.register("teleport-effects", ClientTeleportEffectsSystem); // Teleportation animations
+  world.register("nameplates", NameplateSystem); // Entity name labels
+  world.register("chat-bubbles", ChatBubbleSystem); // Speech bubbles
 
   // ============================================================================
   // GRASS SYSTEM
@@ -336,16 +340,22 @@ export function createClientWorld() {
   // Expose THREE.js to the stage system after a short delay
   // This ensures stage.scene is ready before we try to access it
 
-  const setupStageWithTHREE = () => {
+  const trySetupStageWithTHREE = () => {
     const stageSystem = world.stage as unknown as StageSystem;
     if (stageSystem && stageSystem.scene) {
       stageSystem.THREE = THREE as unknown as StageSystem["THREE"];
       initGLBTreeInstancer(stageSystem.scene as unknown as THREE.Scene, world);
       initPlaceholderInstancer(stageSystem.scene as unknown as THREE.Scene);
+      console.log(
+        "[createClientWorld] GLBTreeInstancer and PlaceholderInstancer initialized",
+      );
+    } else {
+      // Scene not ready yet — retry until it is
+      setTimeout(trySetupStageWithTHREE, 100);
     }
   };
 
-  setTimeout(setupStageWithTHREE, 200);
+  setTimeout(trySetupStageWithTHREE, 200);
 
   // ============================================================================
   // RPG GAME SYSTEMS (ASYNC)
@@ -435,6 +445,16 @@ export function createClientWorld() {
       const projectileRenderer = world.getSystem("projectile-renderer");
       if (projectileRenderer && !projectileRenderer.isInitialized()) {
         await projectileRenderer.init(worldOptions);
+      }
+
+      const nameplates = world.getSystem("nameplates");
+      if (nameplates && !nameplates.isInitialized()) {
+        await nameplates.init(worldOptions);
+      }
+
+      const chatBubbles = world.getSystem("chat-bubbles");
+      if (chatBubbles && !chatBubbles.isInitialized()) {
+        await chatBubbles.init(worldOptions);
       }
 
       // Re-expose utilities after RPG systems load (in case they were cleared)

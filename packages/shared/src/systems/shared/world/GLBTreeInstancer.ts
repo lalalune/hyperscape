@@ -71,6 +71,17 @@ let world: World | null = null;
 const pools = new Map<string, ModelPool>();
 const entityToModel = new Map<string, string>();
 
+// ---- Pending queue (instances added before scene is initialized) ----
+interface PendingAdd {
+  modelPath: string;
+  entityId: string;
+  position: THREE.Vector3;
+  rotation: number;
+  scale: number;
+  resolve: (value: boolean) => void;
+}
+const pendingAddQueue: PendingAdd[] = [];
+
 function inferLOD1Path(lod0Path: string): string {
   return lod0Path.replace(/\.glb$/i, "_lod1.glb");
 }
@@ -289,9 +300,25 @@ function removeFromPool(pool: LODPool, entityId: string): void {
 export function initGLBTreeInstancer(s: THREE.Scene, w: World): void {
   scene = s;
   world = w;
+  // Flush instances that arrived before the scene was ready
+  if (pendingAddQueue.length > 0) {
+    const toFlush = [...pendingAddQueue];
+    pendingAddQueue.length = 0;
+    for (const p of toFlush) {
+      addInstance(
+        p.modelPath,
+        p.entityId,
+        p.position,
+        p.rotation,
+        p.scale,
+      ).then(p.resolve);
+    }
+  }
 }
 
 export function destroyGLBTreeInstancer(): void {
+  for (const p of pendingAddQueue) p.resolve(false);
+  pendingAddQueue.length = 0;
   for (const pool of pools.values()) {
     for (const lodPool of [pool.lod0, pool.lod1, pool.lod2]) {
       if (!lodPool) continue;
@@ -314,7 +341,19 @@ export async function addInstance(
   rotation: number,
   scale: number,
 ): Promise<boolean> {
-  if (!scene || !world) return false;
+  if (!scene || !world) {
+    // Scene not ready yet — queue and resolve when initGLBTreeInstancer fires
+    return new Promise<boolean>((resolve) => {
+      pendingAddQueue.push({
+        modelPath,
+        entityId,
+        position: position.clone(),
+        rotation,
+        scale,
+        resolve,
+      });
+    });
+  }
 
   try {
     const pool = await ensureModelPool(modelPath);
@@ -353,6 +392,14 @@ export async function addInstance(
 }
 
 export function removeInstance(entityId: string): void {
+  // Cancel if still in the pending queue
+  const pendingIdx = pendingAddQueue.findIndex((p) => p.entityId === entityId);
+  if (pendingIdx !== -1) {
+    const [removed] = pendingAddQueue.splice(pendingIdx, 1);
+    removed.resolve(false);
+    return;
+  }
+
   const modelPath = entityToModel.get(entityId);
   if (!modelPath) return;
 

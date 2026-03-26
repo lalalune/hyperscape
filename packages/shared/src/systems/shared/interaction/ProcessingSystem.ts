@@ -1113,7 +1113,7 @@ export class ProcessingSystem extends SystemBase {
       // Load model fresh (late join / missed lighting event)
       try {
         const result = await modelCache.loadModel(
-          "asset://models/firemaking-fire/firemaking-fire.glb",
+          "asset://models/misc/firemaking-fire/firemaking-fire.glb",
           this.world,
         );
         model = result.scene;
@@ -1172,7 +1172,7 @@ export class ProcessingSystem extends SystemBase {
   ): Promise<void> {
     try {
       const result = await modelCache.loadModel(
-        "asset://models/firemaking-fire/firemaking-fire.glb",
+        "asset://models/misc/firemaking-fire/firemaking-fire.glb",
         this.world,
       );
 

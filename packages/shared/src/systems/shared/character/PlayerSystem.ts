@@ -1019,6 +1019,14 @@ export class PlayerSystem extends SystemBase {
     );
 
     if (player.health.current !== oldHealth) {
+      // Sync entity health (mirrors takeDamage() pattern)
+      const playerEntity = this.world.entities.get(
+        playerId,
+      ) as PlayerEntity | null;
+      if (playerEntity && "setHealth" in playerEntity) {
+        playerEntity.setHealth(player.health.current);
+      }
+
       this.emitTypedEvent(EventType.PLAYER_HEALTH_UPDATED, {
         playerId,
         health: player.health.current,
@@ -1081,25 +1089,9 @@ export class PlayerSystem extends SystemBase {
     }
 
     // === MAX HEALTH CHECK ===
-    // Similar to prayer points check - notify player if already at max health
+    // OSRS behavior: food is consumed regardless of current health.
+    // If already at max health, show a message but still consume the food.
     const player = this.players.get(data.playerId);
-    if (player) {
-      console.log("[PlayerSystem] handleItemUsed health check:", {
-        playerId: data.playerId,
-        current: player.health.current,
-        max: player.health.max,
-        isAtMax: player.health.current >= player.health.max,
-      });
-    }
-    if (player && player.health.current >= player.health.max) {
-      console.log("[PlayerSystem] Player at max health, sending UI_MESSAGE");
-      this.emitTypedEvent(EventType.UI_MESSAGE, {
-        playerId: data.playerId,
-        message: "You're already at full health.",
-        type: "warning" as const,
-      });
-      return;
-    }
 
     // === SECURITY: Bounds checking (OWASP) ===
     const healAmount = Math.min(
@@ -1140,10 +1132,13 @@ export class PlayerSystem extends SystemBase {
     // even at full health. Food is consumed regardless.
     // @see https://oldschool.runescape.wiki/w/Food
 
-    // OSRS-style message (lowercase item name, no heal amount shown)
+    // OSRS-style message - if at max health, note that no healing occurred
+    const atMaxHealth = player && player.health.current >= player.health.max;
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId: data.playerId,
-      message: `You eat the ${itemData.name.toLowerCase()}.`,
+      message: atMaxHealth
+        ? `You eat the ${itemData.name.toLowerCase()}. You are already at full health.`
+        : `You eat the ${itemData.name.toLowerCase()}.`,
       type: "success" as const,
     });
 

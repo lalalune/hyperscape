@@ -461,28 +461,42 @@ function buildCollectionSummary(world: unknown, limit = 12): string {
 
 function startMemoryMonitor(world: unknown): void {
   const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === "true";
-  const INTERVAL_MS = isPlaywrightTest ? 5_000 : 30_000;
+  const INTERVAL_MS = isPlaywrightTest ? 5_000 : 10_000;
   const MB = 1024 * 1024;
   const forceGcInPlaywright =
     isPlaywrightTest &&
     (process.env.PLAYWRIGHT_FORCE_GC || "true").toLowerCase() !== "false";
-  const collectionDebugEnabled = process.env.MEMORY_COLLECTION_DEBUG === "true";
+  // Always enable collection debug to identify memory leaks; disable with MEMORY_COLLECTION_DEBUG=false
+  const collectionDebugEnabled =
+    process.env.MEMORY_COLLECTION_DEBUG !== "false";
   const collectionLimit = Math.max(
     8,
     parseInt(process.env.MEMORY_COLLECTION_LIMIT || "12", 10) || 12,
   );
 
+  // GC strategy: gc(true) every 10s while RSS < 3GB keeps heap small so each
+  // collection is fast (<1s). Letting memory grow to 20GB causes JSC to auto-trigger
+  // a blocking major GC that freezes the server for 40+ seconds.
+  // gc(false) hint only when already above 3GB — don't force a blocking pause on a huge heap.
   const timer = setInterval(() => {
-    if (forceGcInPlaywright) {
-      try {
-        (
-          globalThis as typeof globalThis & {
-            Bun?: { gc?: (force?: boolean) => void };
-          }
-        ).Bun?.gc?.(true);
-      } catch {
-        // Best-effort GC hint only.
+    try {
+      const bunGlobal = globalThis as typeof globalThis & {
+        Bun?: { gc?: (force?: boolean) => void };
+      };
+      if (bunGlobal.Bun?.gc) {
+        // Only force GC when heap is small enough that collection is fast (<1s).
+        // At >4GB heap, gc(true) can freeze the server for 10+ minutes.
+        // Above the threshold, use gc(false) (hint-only) to avoid freezes
+        // and let the server OOM-restart naturally instead.
+        const rssMB = process.memoryUsage().rss / (1024 * 1024);
+        if (rssMB < 4096) {
+          bunGlobal.Bun.gc(true);
+        } else {
+          bunGlobal.Bun.gc(false);
+        }
       }
+    } catch {
+      // Best-effort GC only.
     }
 
     const mem = process.memoryUsage();
@@ -503,11 +517,49 @@ function startMemoryMonitor(world: unknown): void {
       if (networkSummary) {
         process.stderr.write(`[MemoryNetwork] ${networkSummary}\n`);
       }
+      // Direct terrain tile count (bypasses reflection to ensure visibility)
+      const worldRecord = world as {
+        systemsByName?: Map<string, unknown>;
+      };
+      const terrainSystem = worldRecord.systemsByName?.get("terrain") as
+        | {
+            terrainTiles?: Map<unknown, unknown>;
+            pendingTileKeys?: unknown[];
+            pendingCollisionKeys?: unknown[];
+            resources?: Map<unknown, unknown>;
+            activeGathering?: Map<unknown, unknown>;
+          }
+        | undefined;
+      if (terrainSystem) {
+        const tileCount = terrainSystem.terrainTiles?.size ?? "?";
+        const pendingTiles = terrainSystem.pendingTileKeys?.length ?? "?";
+        const pendingCollision =
+          terrainSystem.pendingCollisionKeys?.length ?? "?";
+        process.stderr.write(
+          `[MemoryTerrain] tiles=${tileCount} pendingTiles=${pendingTiles} pendingCollision=${pendingCollision}\n`,
+        );
+      }
+      const resourceSystem = worldRecord.systemsByName?.get("resource") as
+        | {
+            resources?: Map<unknown, unknown>;
+            activeGathering?: Map<unknown, unknown>;
+          }
+        | undefined;
+      if (resourceSystem) {
+        const resourceCount = resourceSystem.resources?.size ?? "?";
+        const gatherCount = resourceSystem.activeGathering?.size ?? "?";
+        process.stderr.write(
+          `[MemoryResources] resources=${resourceCount} activeGathering=${gatherCount}\n`,
+        );
+      }
     }
     const memLimitGB = Number(process.env.MEMORY_LIMIT_GB) || 12;
+    // Use RSS for the OOM check: Bun.gc(true) releases memory back to OS (RSS drops) but
+    // JSC still reports it in heapUsed, so heapUsed can hit 7GB while RSS stays at 3-4GB.
+    // Checking RSS reflects actual OS memory pressure and avoids premature restarts.
     if (!isPlaywrightTest && mem.rss > memLimitGB * 1024 * MB) {
       process.stderr.write(
-        `[Memory] RSS ${rssMB}MB > ${memLimitGB}GB, restarting\n`,
+        `[Memory] RSS ${rssMB}MB > ${memLimitGB}GB limit — exiting for restart\n`,
       );
       process.exit(1);
     }

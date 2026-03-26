@@ -152,7 +152,9 @@ export class StandardModelVisualStrategy implements ResourceVisualStrategy {
   }
 
   async onRespawn(ctx: ResourceVisualContext): Promise<void> {
-    // Reload the full model
+    // Reset dissolve state so applyDissolveMaterials re-runs on the new mesh
+    this.dissolveInitialized = false;
+    this.dissolveMaterials = [];
     await this.createVisual(ctx);
   }
 

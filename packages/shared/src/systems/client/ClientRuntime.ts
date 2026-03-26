@@ -58,6 +58,14 @@ export class ClientRuntime extends System {
   private disableVisibilityThrottle = false;
   private forcedTickInterval: ReturnType<typeof setInterval> | null = null;
   private readonly FORCED_TICK_INTERVAL_MS = 33; // ~30 FPS fallback for stream capture
+  // Spectator mode FPS cap: 30fps to halve CPU/GPU load vs default 60fps
+  private readonly SPECTATOR_FPS_INTERVAL =
+    typeof window !== "undefined" &&
+    (window as { __HYPERSCAPE_CONFIG__?: { mode?: string } })
+      .__HYPERSCAPE_CONFIG__?.mode === "spectator"
+      ? 1000 / 30
+      : 0;
+  private lastTickTime = 0;
 
   constructor(world: World) {
     super(world);
@@ -71,6 +79,19 @@ export class ClientRuntime extends System {
       (window as WindowWithDebug).world = world;
       (window as WindowWithDebug).THREE = THREE;
     }
+  }
+
+  /** Returns a tick callback, optionally throttled to 30fps for spectator mode. */
+  private makeTickFn(): (time?: number) => void {
+    if (this.SPECTATOR_FPS_INTERVAL > 0) {
+      return (time?: number) => {
+        const t = time ?? performance.now();
+        if (t - this.lastTickTime < this.SPECTATOR_FPS_INTERVAL) return;
+        this.lastTickTime = t;
+        this.world.tick(t);
+      };
+    }
+    return (time?: number) => this.world.tick(time ?? performance.now());
   }
 
   async init(
@@ -94,9 +115,7 @@ export class ClientRuntime extends System {
         this.world.graphics.renderer as {
           setAnimationLoop: (fn: (time?: number) => void | null) => void;
         }
-      ).setAnimationLoop((time?: number) =>
-        this.world.tick(time ?? performance.now()),
-      );
+      ).setAnimationLoop(this.makeTickFn());
     }
 
     this.disableVisibilityThrottle = this.shouldDisableVisibilityThrottle();
@@ -220,9 +239,7 @@ export class ClientRuntime extends System {
             this.world.graphics.renderer as {
               setAnimationLoop: (fn: (time?: number) => void) => void;
             }
-          ).setAnimationLoop((time?: number) =>
-            this.world.tick(time ?? performance.now()),
-          );
+          ).setAnimationLoop(this.makeTickFn());
         }
       }
       return;
@@ -275,9 +292,7 @@ export class ClientRuntime extends System {
           this.world.graphics.renderer as {
             setAnimationLoop: (fn: (time?: number) => void) => void;
           }
-        ).setAnimationLoop((time?: number) =>
-          this.world.tick(time ?? performance.now()),
-        );
+        ).setAnimationLoop(this.makeTickFn());
       }
     }
   };

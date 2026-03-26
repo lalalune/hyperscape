@@ -27,12 +27,14 @@
   },
   "dependencies": {
     "@elizaos/core": "next",
+    "@elizaos/plugin-anthropic": "^1.5.12",
     "@livekit/rtc-node": "^0.13.24",
     "msgpackr": "^1.11.5",
     "ws": "^8.19.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@elizaos/cli": "^1.7.2",
     "@types/three": "0.183.1",
     "@types/ws": "^8.5.14",
     "eslint": "^10.0.2",

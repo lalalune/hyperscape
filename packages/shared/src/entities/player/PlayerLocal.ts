@@ -1629,25 +1629,19 @@ export class PlayerLocal extends Entity implements HotReloadable {
       const avatarHeight = (this._avatar as AvatarNode).height ?? 1.5;
       this.camHeight = Math.max(1.2, avatarHeight * 0.9);
 
-      // CRITICAL: Keep avatar hidden until idle animation is loaded and applied
-      // This prevents the T-pose flash that occurs when the avatar is visible
-      // but no animation is playing yet
+      // Hide avatar while loading idle animation to prevent T-pose flash
       (this._avatar as { visible: boolean }).visible = false;
       (this._avatar as AvatarNode).position.set(0, 0, 0);
 
-      // Ensure VRM scene is also hidden
       const vrmInstance = (this._avatar as AvatarNode).instance;
       if (vrmInstance?.raw?.scene) {
         vrmInstance.raw.scene.visible = false;
       }
 
-      // CRITICAL: Load and apply idle emote BEFORE making avatar visible
-      // This prevents T-pose flash on spawn
+      // Load and apply idle emote before making avatar visible
       if (vrmInstance?.setEmoteAndWait) {
-        // Use setEmoteAndWait to ensure animation is loaded and first frame is applied
         await vrmInstance.setEmoteAndWait(Emotes.IDLE, 3000);
       } else if (vrmInstance?.setEmote) {
-        // Fallback to regular setEmote (may show brief T-pose)
         vrmInstance.setEmote(Emotes.IDLE);
       }
 
@@ -1741,6 +1735,15 @@ export class PlayerLocal extends Entity implements HotReloadable {
         `[PlayerLocal] Avatar load failed for ${avatarUrl}:`,
         error,
       );
+
+      // Ensure avatar is visible even on error (prevent permanent invisible state)
+      if (this._avatar) {
+        (this._avatar as { visible: boolean }).visible = true;
+        const errInstance = (this._avatar as AvatarNode).instance;
+        if (errInstance?.raw?.scene) {
+          errInstance.raw.scene.visible = true;
+        }
+      }
 
       if (allowFallback && avatarUrl !== defaultAvatarUrl) {
         console.warn(

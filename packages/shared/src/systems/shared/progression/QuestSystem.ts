@@ -198,6 +198,54 @@ export class QuestSystem extends SystemBase implements IQuestSystem {
       },
     );
 
+    // Track runecrafting (essence → runes)
+    this.subscribe(
+      EventType.RUNECRAFTING_COMPLETE,
+      (data: {
+        playerId: string;
+        runeItemId: string;
+        runesProduced: number;
+      }) => {
+        this.handleInteractStage(
+          data.playerId,
+          data.runeItemId,
+          data.runesProduced,
+        );
+      },
+    );
+
+    // Track crafting (leather, jewellery, etc.)
+    this.subscribe(
+      EventType.CRAFTING_COMPLETE,
+      (data: {
+        playerId: string;
+        outputItemId: string;
+        totalCrafted: number;
+      }) => {
+        this.handleInteractStage(
+          data.playerId,
+          data.outputItemId,
+          data.totalCrafted,
+        );
+      },
+    );
+
+    // Track fletching (bows, arrows, etc.)
+    this.subscribe(
+      EventType.FLETCHING_COMPLETE,
+      (data: {
+        playerId: string;
+        outputItemId: string;
+        totalCrafted: number;
+      }) => {
+        this.handleInteractStage(
+          data.playerId,
+          data.outputItemId,
+          data.totalCrafted,
+        );
+      },
+    );
+
     this.logger.info(
       `QuestSystem initialized with ${this.questDefinitions.size} quests`,
     );

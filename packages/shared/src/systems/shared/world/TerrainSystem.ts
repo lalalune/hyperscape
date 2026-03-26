@@ -1932,6 +1932,7 @@ export class TerrainSystem extends System {
     }
 
     const players = this.world.getPlayers() || [];
+    if (players.length === 0) return [];
     const centers: Array<{ id: string; position: THREE.Vector3 }> = [];
     for (const player of players) {
       if (!player?.node?.position) continue;
@@ -5143,6 +5144,7 @@ export class TerrainSystem extends System {
   private checkPlayerMovement(): void {
     // Get player positions and update loaded tiles accordingly
     const players = this.world.getPlayers() || [];
+    if (players.length === 0) return;
 
     for (const player of players) {
       const x = player.node.position.x;
@@ -5282,6 +5284,21 @@ export class TerrainSystem extends System {
       tile.mesh.geometry.dispose();
       if (tile.mesh.material instanceof THREE.Material) {
         this.safeDisposeMaterial(tile.mesh.material);
+      }
+    } else if (!this.terrainContainer && tile.mesh) {
+      // Server-side: no scene, but explicitly dispose geometry to release
+      // Float32Array backing buffers so JSC/GC can reclaim them promptly.
+      const geo = tile.mesh.geometry;
+      if (geo) {
+        geo.dispose();
+        // Null out attribute arrays so the ArrayBuffers are immediately
+        // eligible for GC without waiting for a full geometry sweep.
+        for (const attr of Object.values(geo.attributes)) {
+          (attr as THREE.BufferAttribute).array = new Float32Array(0);
+        }
+        if (geo.index) {
+          geo.index.array = new Uint16Array(0);
+        }
       }
     }
 
@@ -6371,7 +6388,7 @@ export class TerrainSystem extends System {
       // avoid runaway memory when many autonomous agents are active.
       this.coreChunkRange = 1; // 3x3 core grid
       this.ringChunkRange = 1; // No extra preload ring
-      this.terrainOnlyChunkRange = 0; // Never load render-only distant tiles
+      this.terrainOnlyChunkRange = 1; // Keep 1 extra tile to prevent boundary oscillation unloads
       this.maxTilesPerFrame = 2;
       this.generationBudgetMsPerFrame = 4;
     } else if (isEmbeddedSpectator) {
@@ -6431,6 +6448,7 @@ export class TerrainSystem extends System {
 
     // Resolve terrain centers (local players, or spectator camera target).
     const centers = this.getTerrainCenters();
+    if (centers.length === 0) return;
 
     // Clear previous player chunk tracking
     this.playerChunks.clear();
@@ -6537,6 +6555,7 @@ export class TerrainSystem extends System {
     }
 
     // Queue missing tiles for smooth generation
+    let tilesEnqueued = 0;
     for (const tileKey of neededTiles) {
       if (!this.terrainTiles.has(tileKey)) {
         const [x, z] = tileKey.split("_").map(Number);
@@ -6555,11 +6574,13 @@ export class TerrainSystem extends System {
         }
 
         this.enqueueTileForGeneration(x, z, generateContent);
+        tilesEnqueued++;
       }
     }
 
     // Remove tiles that are no longer needed, with hysteresis padding
     // Approximate each player's center from their core chunk set
+    let tilesUnloaded = 0;
     for (const [tileKey, tile] of this.terrainTiles) {
       if (!neededTiles.has(tileKey)) {
         let minChebyshev = Infinity;
@@ -6569,8 +6590,15 @@ export class TerrainSystem extends System {
         }
         if (minChebyshev > this.terrainOnlyChunkRange + this.unloadPadding) {
           this.unloadTile(tile);
+          tilesUnloaded++;
         }
       }
+    }
+    // Log tile churn to detect oscillation memory leaks
+    if (tilesEnqueued > 0 || tilesUnloaded > 0) {
+      console.log(
+        `[TerrainChurn] loaded=${this.terrainTiles.size} enqueued=${tilesEnqueued} unloaded=${tilesUnloaded} needed=${neededTiles.size}`,
+      );
     }
 
     // Log simulation status every 10 updates

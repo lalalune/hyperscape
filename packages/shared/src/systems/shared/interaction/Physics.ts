@@ -1097,16 +1097,24 @@ export class Physics extends SystemBase implements IPhysics {
 
   override postFixedUpdate(delta: number): void {
     if (!this.scene) return; // Skip if physics not initialized
-    this.scene.simulate(delta);
-    this.scene.fetchResults(true);
 
-    // Log physics step periodically
-    // Commented out verbose physics stepping log
-    // if (Math.random() < 0.01) { // Log ~1% of frames
-    //   console.log(`[Physics] Stepping physics with delta=${delta.toFixed(4)}`);
-    // }
-    if (this.processContactCallbacks) this.processContactCallbacks();
-    if (this.processTriggerCallbacks) this.processTriggerCallbacks();
+    // In spectator mode there is no local player — terrain and character geometry
+    // are static (positions set via setGlobalPose). Skipping simulate/fetchResults
+    // removes WASM overhead while keeping raycasts fully functional.
+    const isSpectator =
+      typeof window !== "undefined" &&
+      (window as { __HYPERSCAPE_CONFIG__?: { mode?: string } })
+        .__HYPERSCAPE_CONFIG__?.mode === "spectator";
+
+    if (!isSpectator) {
+      this.scene.simulate(delta);
+      this.scene.fetchResults(true);
+      if (this.processContactCallbacks) this.processContactCallbacks();
+      if (this.processTriggerCallbacks) this.processTriggerCallbacks();
+    }
+
+    // No simulation was run in spectator mode — skip active actors query too.
+    if (isSpectator) return;
 
     const PHYSX = getPhysX();
     if (!this.scene || !PHYSX) return; // Skip if physics not initialized

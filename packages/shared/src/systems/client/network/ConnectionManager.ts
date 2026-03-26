@@ -192,7 +192,17 @@ export class ConnectionManager {
       const privyToken = localStorage.getItem("privy_auth_token");
       const privyId = localStorage.getItem("privy_user_id");
 
-      if (privyToken && privyId && !isPlaywrightRuntime) {
+      // Only use Privy credentials if Privy is actually configured (has app ID).
+      // When PUBLIC_PRIVY_APP_ID is not set, fall through to legacy JWT so that
+      // stale privy_auth_token in localStorage doesn't override the persistent JWT.
+      const privyAppId =
+        typeof import.meta !== "undefined"
+          ? (import.meta as { env?: { PUBLIC_PRIVY_APP_ID?: string } }).env
+              ?.PUBLIC_PRIVY_APP_ID
+          : undefined;
+      const privyConfigured = Boolean(privyAppId && privyAppId.length > 0);
+
+      if (privyToken && privyId && !isPlaywrightRuntime && privyConfigured) {
         authToken = privyToken;
         privyUserId = privyId;
       } else if (!isPlaywrightRuntime) {
@@ -265,7 +275,7 @@ export class ConnectionManager {
         if (!packet || packet.length === 0) return;
 
         const [method, data] = packet;
-        if (method === "onAuthResult") {
+        if (method === "authResult" || method === "onAuthResult") {
           const result = data as { success: boolean; error?: string };
 
           // Remove auth handler - we're done with auth phase

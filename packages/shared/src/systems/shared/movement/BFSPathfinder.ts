@@ -322,7 +322,7 @@ export class BFSPathfinder {
    *
    * OPTIMIZATION: Uses read index instead of queue.shift() for O(1) dequeue.
    */
-  private readonly MAX_BFS_ITERATIONS = 2000; // Balance path completeness and frame safety
+  private readonly MAX_BFS_ITERATIONS = 10000; // Increased from 2000 — cross-map paths need more iterations
   private _bfsIterationWarnings = 0;
 
   private findBFSPath(

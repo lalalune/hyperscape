@@ -207,6 +207,7 @@ export class MobEntity extends CombatantEntity {
   private _raycastProxy: THREE.Mesh | null = null;
   // Track if visibility needs to be restored after respawn position update
   private _pendingRespawnRestore = false;
+  private _playerDeadHandler: ((data: unknown) => void) | null = null;
 
   private patrolPoints: Array<{ x: number; z: number }> = [];
   private currentPatrolIndex = 0;
@@ -656,7 +657,7 @@ export class MobEntity extends CombatantEntity {
     });
 
     // Listen for player deaths - disengage if we were targeting them
-    this.world.on(EventType.PLAYER_SET_DEAD, (data: unknown) => {
+    this._playerDeadHandler = (data: unknown) => {
       const deathData = data as { playerId: string; isDead: boolean };
       if (
         deathData.isDead &&
@@ -664,7 +665,8 @@ export class MobEntity extends CombatantEntity {
       ) {
         this.clearTargetAndExitCombat();
       }
-    });
+    };
+    this.world.on(EventType.PLAYER_SET_DEAD, this._playerDeadHandler);
 
     // CRITICAL: Server uses RespawnManager to generate random spawn position
     // Client uses position from config (which comes from network data - the server's authoritative position)
@@ -815,20 +817,16 @@ export class MobEntity extends CombatantEntity {
    * Load VRM model and create avatar instance
    */
   private async loadVRMModel(): Promise<void> {
-    // LOGGING: No more silent failures - log all early returns
     if (!this.world.loader) {
-      console.warn(
+      throw new Error(
         `[MobEntity] ${this.id}: No world.loader available for VRM loading`,
       );
-      return;
     }
     if (!this.config.model) {
-      console.warn(`[MobEntity] ${this.id}: No model path configured`);
-      return;
+      throw new Error(`[MobEntity] ${this.id}: No model path configured`);
     }
     if (!this.world.stage?.scene) {
-      console.warn(`[MobEntity] ${this.id}: No world.stage.scene available`);
-      return;
+      throw new Error(`[MobEntity] ${this.id}: No world.stage.scene available`);
     }
 
     // Create VRM hooks with scene reference (CRITICAL for visibility!)
@@ -850,10 +848,9 @@ export class MobEntity extends CombatantEntity {
     const avatarNode = nodeMap.get("avatar") || nodeMap.get("root");
 
     if (!avatarNode) {
-      console.warn(
+      throw new Error(
         `[MobEntity] ${this.id}: No avatar/root node found in VRM for ${this.config.model}`,
       );
-      return;
     }
 
     // Get the factory from the avatar node
@@ -864,10 +861,9 @@ export class MobEntity extends CombatantEntity {
     };
 
     if (!avatarNodeWithFactory?.factory) {
-      console.warn(
+      throw new Error(
         `[MobEntity] ${this.id}: No VRM factory found on avatar node for ${this.config.model}`,
       );
-      return;
     }
 
     // Update our node's transform
@@ -885,10 +881,10 @@ export class MobEntity extends CombatantEntity {
       if (!MobEntity.loggedNullVrmModels.has(modelKey)) {
         MobEntity.loggedNullVrmModels.add(modelKey);
         console.warn(
-          `[MobEntity] VRM factory.create() returned null for ${modelKey}; mob avatar visuals disabled for this model`,
+          `[MobEntity] VRM factory.create() returned null for ${modelKey}; falling back to visible placeholder`,
         );
       }
-      return;
+      throw new Error(`VRM factory.create() returned null for ${modelKey}`);
     }
 
     // Check for pending emote that arrived before VRM loaded
@@ -964,8 +960,8 @@ export class MobEntity extends CombatantEntity {
       // The factory already added the scene to world.stage.scene
       // We'll use avatarInstance.move() to position it each frame
     } else {
-      console.error(
-        `[MobEntity] ❌ No scene in VRM instance for ${this.config.mobType}`,
+      throw new Error(
+        `[MobEntity] No scene in VRM instance for ${this.config.mobType}`,
       );
     }
   }
@@ -1161,17 +1157,17 @@ export class MobEntity extends CombatantEntity {
       try {
         // Check if this is a VRM file
         if (this.config.model.endsWith(".vrm")) {
-          // Fire-and-forget VRM loading - placeholder is already functional
-          // If VRM loads successfully, it will replace the placeholder
-          // If VRM fails, the placeholder remains functional (invisible but clickable)
+          // Fire-and-forget VRM loading - invisible raycast proxy already set
+          // If VRM loads successfully, it will replace the proxy with the VRM scene
+          // If VRM fails, fall back to a visible colored capsule placeholder
           this.loadVRMModelAsync().catch((err) => {
             console.warn(
-              `[MobEntity] VRM loading failed for ${this.config.mobType}, using placeholder:`,
+              `[MobEntity] VRM loading failed for ${this.config.mobType}, using visible placeholder:`,
               err instanceof Error ? err.message : err,
             );
-            // Placeholder is already in place - mob remains functional
+            this.createVisibleFallback();
           });
-          return; // Mesh is set (placeholder), VRM loading continues in background
+          return; // Mesh is set (proxy), VRM loading continues in background
         }
 
         // Otherwise load as GLB (existing code path)
@@ -1281,8 +1277,19 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    // No model available - create visible placeholder capsule
-    // Remove invisible placeholder (if it's still the current mesh)
+    // No model available - fall back to visible placeholder
+    this.createVisibleFallback();
+  }
+
+  /**
+   * Create a visible colored capsule placeholder.
+   * Used when no model is configured OR when VRM/GLB loading fails.
+   * Replaces any existing invisible raycast proxy so the mob is actually visible.
+   */
+  private createVisibleFallback(): void {
+    if (this.world.isServer) return;
+
+    // Remove invisible proxy if it's still the current mesh
     if (this.mesh === this._raycastProxy) {
       this.destroyRaycastProxy();
     }
@@ -1301,13 +1308,11 @@ export class MobEntity extends CombatantEntity {
       4,
       8,
     );
-    // Use MeshStandardNodeMaterial for proper WebGPU lighting (responds to sun, moon, and environment maps)
-    // Add subtle emissive so mobs pop at night (matches player rendering)
     const emissiveColor = color.clone();
     const material = new MeshStandardNodeMaterial();
     material.color = new THREE.Color(color.getHex());
     material.emissive = emissiveColor;
-    material.emissiveIntensity = 0.3; // Subtle glow - matches PlayerEntity and VRM avatars
+    material.emissiveIntensity = 0.3;
     material.roughness = 0.8;
     material.metalness = 0.0;
 
@@ -1316,7 +1321,6 @@ export class MobEntity extends CombatantEntity {
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
 
-    // Set up userData with proper typing for mob
     const userData: MeshUserData = {
       type: "mob",
       entityId: this.id,
@@ -1333,10 +1337,7 @@ export class MobEntity extends CombatantEntity {
     };
     this.mesh.userData = { ...userData };
 
-    // Add mesh to node so it appears in the scene
     this.node.add(this.mesh);
-
-    // Health bar is created by Entity base class
   }
 
   protected async onInteract(data: EntityInteractionData): Promise<void> {
@@ -3154,6 +3155,12 @@ export class MobEntity extends CombatantEntity {
   override destroy(): void {
     // Unregister entity from hot updates
     this.world.setHot(this, false);
+
+    // Clean up PLAYER_SET_DEAD listener (one registered per mob instance - must be removed to prevent leak)
+    if (this._playerDeadHandler) {
+      this.world.off(EventType.PLAYER_SET_DEAD, this._playerDeadHandler);
+      this._playerDeadHandler = null;
+    }
 
     // Clean up placeholder hitbox (if VRM never loaded)
     this.destroyRaycastProxy();
