@@ -225,7 +225,7 @@
     "buffer": "^6.0.3",
     "canvas": "^3.1.2",
     "drizzle-kit": "^0.31.5",
-    "drizzle-orm": "^0.44.6",
+    "drizzle-orm": "^0.45.2",
     "meshoptimizer": "^0.22.0",
     "pg": "^8.16.3",
     "playwright": "^1.55.1",
