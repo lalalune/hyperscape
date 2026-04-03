@@ -36,7 +36,8 @@ export type OreSubType =
   | "coal"
   | "mithril"
   | "adamant"
-  | "runite";
+  | "runite"
+  | "essence";
 
 /**
  * Combined resource subtype for spawn points.

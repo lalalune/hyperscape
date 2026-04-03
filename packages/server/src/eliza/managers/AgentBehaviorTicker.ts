@@ -1761,6 +1761,33 @@ export class AgentBehaviorTicker {
               instance.service.executeDrop(toDrop.itemId, toDrop.quantity);
               return true;
             }
+            // findItemToDropForSlot couldn't find anything — try force-dropping crafted
+            // leather goods (quest outputs, not inputs) or excess logs to free a slot.
+            const craftedLeather = inventory.find(
+              (i) =>
+                i.itemId === "leather_gloves" || i.itemId === "leather_boots",
+            );
+            if (craftedLeather) {
+              console.log(
+                `[AgentManager] ${instance.config.name} dropping crafted ${craftedLeather.itemId} to free slot for leather`,
+              );
+              instance.service.executeDrop(craftedLeather.itemId, 1);
+              return true;
+            }
+            // Drop one excess logs stack if we have more than one
+            const logSlots = inventory.filter((i) => i.itemId === "logs");
+            if (logSlots.length > 1) {
+              console.log(
+                `[AgentManager] ${instance.config.name} dropping excess logs to free slot for leather`,
+              );
+              instance.service.executeDrop("logs", 1);
+              return true;
+            }
+            // Nothing safe to drop — can't add leather, skip this tick
+            console.warn(
+              `[AgentManager] ${instance.config.name} inventory full (${inventory.length}/28) and nothing droppable — cannot add leather`,
+            );
+            return true;
           }
           console.log(
             `[AgentManager] ${instance.config.name} buying 1x leather for crafting quest (direct grant)`,
@@ -2718,6 +2745,18 @@ export class AgentBehaviorTicker {
         : "";
     const skillingPickupFilter = (item: NearbyEntityData): boolean => {
       const id = (item.itemId || item.name || "").toLowerCase();
+      // In crafting quest interact stage: skip crafted leather goods that we intentionally dropped
+      // to free inventory slots. Picking them back up creates an infinite drop-pickup loop.
+      if (
+        instance.goal?.type === "questing" &&
+        instance.goal?.questStageType === "interact" &&
+        (instance.goal?.questId === "crafting_basics" ||
+          (instance.goal?.questStageTarget ?? "").includes("leather"))
+      ) {
+        if (id.includes("leather_gloves") || id.includes("leather_boots")) {
+          return false;
+        }
+      }
       // In quest gather-ore stage: never pick up non-target ores (they get dropped and picked up in a loop).
       // Ground items may use "Tin Ore" (name) instead of "tin_ore" (itemId), so check both formats.
       if (questGatherTarget.endsWith("_ore")) {
@@ -3868,6 +3907,26 @@ export class AgentBehaviorTicker {
       return {
         type: "move",
         target: [bestPos[0], position[1], bestPos[2]],
+        runMode: false,
+      };
+    }
+
+    // Known fallback positions from world-areas.json when entities haven't loaded yet
+    const knownResourcePositions: Record<string, [number, number, number]> = {
+      essence: [35, position[1], -44],
+      rune_essence: [35, position[1], -44],
+      altar: [35, position[1], -44],
+    };
+    const fallbackKey = Object.keys(knownResourcePositions).find((k) =>
+      stageTarget.toLowerCase().includes(k),
+    );
+    if (fallbackKey) {
+      console.log(
+        `[AgentManager] moveTowardResourceArea(${stageTarget}): no entity found, moving to known position`,
+      );
+      return {
+        type: "move",
+        target: knownResourcePositions[fallbackKey],
         runMode: false,
       };
     }

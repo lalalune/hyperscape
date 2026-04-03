@@ -629,15 +629,22 @@ export class ResourceSystem extends SystemBase {
 
       for (const r of area.resources) {
         // Look up resource in manifest to get authoritative type
-        const resourceData = getExternalResource(r.resourceId);
+        // Cast to access runtime fields that may not match the TypeScript type exactly
+        const rAny = r as unknown as Record<string, unknown>;
+        const resourceId = (r.resourceId ?? rAny.id ?? rAny.resource_id) as
+          | string
+          | undefined;
+        const resourceData = resourceId
+          ? getExternalResource(resourceId)
+          : null;
         if (DEBUG_GATHERING) {
           console.log(
-            `[ResourceSystem] getExternalResource("${r.resourceId}") returned: ${resourceData ? resourceData.type : "null"}`,
+            `[ResourceSystem] getExternalResource("${resourceId}") returned: ${resourceData ? resourceData.type : "null"}`,
           );
         }
         if (!resourceData) {
           console.warn(
-            `[ResourceSystem] Unknown resource ID in world-areas: ${r.resourceId}`,
+            `[ResourceSystem] Unknown resource ID in world-areas: ${resourceId}`,
           );
           continue;
         }
@@ -648,7 +655,7 @@ export class ResourceSystem extends SystemBase {
         // Extract subType by removing type prefix from resourceId
         // "tree_oak" - "tree_" = "oak"
         // "tree_normal" - "tree_" = "normal" → undefined
-        const suffix = r.resourceId.replace(resourceData.type + "_", "");
+        const suffix = (resourceId ?? "").replace(resourceData.type + "_", "");
         const subType = suffix === "normal" ? undefined : suffix;
 
         // Ground Y position to terrain height
