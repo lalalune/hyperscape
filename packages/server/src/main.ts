@@ -485,11 +485,13 @@ function startMemoryMonitor(world: unknown): void {
       };
       if (bunGlobal.Bun?.gc) {
         // Only force GC when heap is small enough that collection is fast (<1s).
-        // At >4GB heap, gc(true) can freeze the server for 10+ minutes.
-        // Above the threshold, use gc(false) (hint-only) to avoid freezes
-        // and let the server OOM-restart naturally instead.
-        const rssMB = process.memoryUsage().rss / (1024 * 1024);
-        if (rssMB < 4096) {
+        // JSC gc(true) time scales with HeapTotal (virtual heap), NOT RSS.
+        // With HeapTotal=22GB, gc(true) blocks for 40+ seconds even if RSS=3GB.
+        // Must check HeapTotal, not just RSS.
+        const mem2 = process.memoryUsage();
+        const rssMB = mem2.rss / (1024 * 1024);
+        const heapTotalMB = mem2.heapTotal / (1024 * 1024);
+        if (rssMB < 4096 && heapTotalMB < 8192) {
           bunGlobal.Bun.gc(true);
         } else {
           bunGlobal.Bun.gc(false);
@@ -560,6 +562,16 @@ function startMemoryMonitor(world: unknown): void {
     if (!isPlaywrightTest && mem.rss > memLimitGB * 1024 * MB) {
       process.stderr.write(
         `[Memory] RSS ${rssMB}MB > ${memLimitGB}GB limit — exiting for restart\n`,
+      );
+      process.exit(1);
+    }
+    // Also restart when HeapTotal grows very large — JSC auto-triggers major GC when
+    // heap arenas fill up. With HeapTotal > 16GB, each auto-GC cycle takes 30-60s
+    // causing TPS=0 (server freeze). Restart early before this threshold.
+    const heapTotalLimitMB = 16 * 1024;
+    if (!isPlaywrightTest && mem.heapTotal > heapTotalLimitMB * MB) {
+      process.stderr.write(
+        `[Memory] HeapTotal ${heapTotalMB}MB > ${heapTotalLimitMB}MB limit — exiting to prevent GC thrash\n`,
       );
       process.exit(1);
     }
