@@ -14,6 +14,12 @@
 import type { Plugin, IAgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
 import { z } from "zod";
+import {
+  hyperscapeAppBridge,
+  hyperscapeAppMeta,
+  type HyperscapeAppBridge,
+  type HyperscapeAppMeta,
+} from "./app.js";
 
 // Service
 import {
@@ -196,10 +202,17 @@ function normalizeEnvValue(value: string | undefined, fallback = ""): string {
  * - Event-driven memory storage for learning
  * - Automatic reconnection and error handling
  */
-export const hyperscapePlugin: Plugin = {
+type HyperscapePlugin = Plugin & {
+  app: HyperscapeAppMeta;
+  appBridge: HyperscapeAppBridge;
+};
+
+export const hyperscapePlugin: HyperscapePlugin = {
   name: "@hyperscape/plugin-hyperscape",
   description:
     "Connect ElizaOS AI agents to Hyperscape 3D multiplayer RPG worlds",
+  app: hyperscapeAppMeta,
+  appBridge: hyperscapeAppBridge,
 
   config: {
     HYPERSCAPE_SERVER_URL: normalizeEnvValue(
@@ -437,6 +450,7 @@ export default hyperscapePlugin;
 // Export types for external use
 export * from "./types.js";
 export { HyperscapeService };
+export * from "./app.js";
 
 // Export content packs
 export * from "./content-packs/index.js";

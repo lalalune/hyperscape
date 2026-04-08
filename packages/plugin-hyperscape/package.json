@@ -14,6 +14,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./app": {
+      "types": "./dist/app.d.ts",
+      "import": "./dist/app.js",
+      "default": "./dist/app.js"
     }
   },
   "scripts": {
@@ -26,8 +31,10 @@
     "clean": "node -e \"const fs=require('node:fs'); fs.rmSync('dist', { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); fs.rmSync('tsconfig.tsbuildinfo', { force: true });\""
   },
   "dependencies": {
+    "@noble/curves": "^2.0.1",
     "@elizaos/core": "alpha",
     "@livekit/rtc-node": "^0.13.24",
+    "ethers": "^6.16.0",
     "msgpackr": "^1.11.5",
     "ws": "^8.19.0",
     "zod": "^4.3.6"
@@ -42,5 +49,41 @@
   },
   "peerDependencies": {
     "@hyperscape/shared": "workspace:*"
+  },
+  "elizaos": {
+    "app": {
+      "displayName": "Hyperscape",
+      "category": "game",
+      "launchType": "connect",
+      "launchUrl": "{HYPERSCAPE_CLIENT_URL}",
+      "runtimePlugin": "@hyperscape/plugin-hyperscape",
+      "bridgeExport": "./app",
+      "capabilities": [
+        "combat",
+        "skills",
+        "inventory",
+        "banking",
+        "social-chat",
+        "exploration",
+        "crafting"
+      ],
+      "viewer": {
+        "url": "{HYPERSCAPE_CLIENT_URL}",
+        "embedParams": {
+          "embedded": "true",
+          "mode": "spectator",
+          "surface": "agent-control",
+          "followEntity": "{HYPERSCAPE_CHARACTER_ID}",
+          "hiddenUI": "chat,inventory,minimap,hotbar,stats",
+          "quality": "medium"
+        },
+        "postMessageAuth": true,
+        "sandbox": "allow-scripts allow-same-origin allow-popups allow-forms"
+      },
+      "session": {
+        "mode": "spectate-and-steer",
+        "features": ["commands", "telemetry", "pause", "resume", "suggestions"]
+      }
+    }
   }
 }
