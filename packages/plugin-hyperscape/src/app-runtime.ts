@@ -46,7 +46,6 @@ export interface HyperscapeViewerAuthMessage {
 interface HyperscapeWalletCandidate {
   address: string;
   walletType: "evm" | "solana";
-  source: string;
 }
 
 interface HyperscapeWalletAuthResponse {
@@ -253,7 +252,6 @@ function extractWalletCandidateFromRecord(
       return {
         address: candidate.trim(),
         walletType: "evm",
-        source: "runtime-agent-record",
       };
     }
   }
@@ -269,7 +267,6 @@ function extractWalletCandidateFromRecord(
       return {
         address: candidate.trim(),
         walletType: "solana",
-        source: "runtime-agent-record",
       };
     }
   }
@@ -302,7 +299,6 @@ async function resolveRuntimeWalletCandidate(
   if (characterCandidate) {
     return {
       ...characterCandidate,
-      source: "runtime-character",
     };
   }
 
@@ -311,7 +307,6 @@ async function resolveRuntimeWalletCandidate(
     return {
       address: managedEvmAddress.trim(),
       walletType: "evm",
-      source: "runtime-setting",
     };
   }
 
@@ -323,7 +318,6 @@ async function resolveRuntimeWalletCandidate(
     return {
       address: managedSolanaAddress.trim(),
       walletType: "solana",
-      source: "runtime-setting",
     };
   }
 
@@ -460,14 +454,12 @@ async function resolveHyperscapeWalletCandidate(
     return {
       address: walletAddresses.evmAddress.trim(),
       walletType: "evm",
-      source: "wallet-env",
     };
   }
   if (isLikelySolanaAddress(walletAddresses.solanaAddress)) {
     return {
       address: walletAddresses.solanaAddress.trim(),
       walletType: "solana",
-      source: "wallet-env",
     };
   }
 
@@ -500,12 +492,8 @@ function persistRuntimeSecret(
 }
 
 function provisionRuntimeWalletCandidate(
-  runtime: HyperscapeBridgeRuntimeLike | null,
-): HyperscapeWalletCandidate | null {
-  if (!runtime) {
-    return null;
-  }
-
+  runtime: HyperscapeBridgeRuntimeLike,
+): HyperscapeWalletCandidate {
   const walletKeys = generateWalletKeys();
   persistRuntimeSecret(runtime, "EVM_PRIVATE_KEY", walletKeys.evmPrivateKey);
   persistRuntimeSecret(runtime, "SOLANA_PRIVATE_KEY", walletKeys.solanaPrivateKey);
@@ -513,7 +501,6 @@ function provisionRuntimeWalletCandidate(
   return {
     address: walletKeys.evmAddress,
     walletType: "evm",
-    source: "runtime-generated",
   };
 }
 
@@ -628,9 +615,6 @@ export async function prepareHyperscapeAppLaunch(
   const wallet =
     (await resolveHyperscapeWalletCandidate(runtime)) ??
     provisionRuntimeWalletCandidate(runtime);
-  if (!wallet) {
-    return [];
-  }
 
   try {
     const authResult = await authenticateHyperscapeWallet(runtime, wallet);

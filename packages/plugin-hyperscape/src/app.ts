@@ -339,23 +339,6 @@ function resolveHyperscapeClientUrl(
     : "http://localhost:3333";
 }
 
-function buildPreparedViewerConfig(
-  runtime?: HyperscapeBridgeRuntimeLike | null,
-): HyperscapeAppViewer {
-  return {
-    url: resolveHyperscapeClientUrl(runtime),
-    embedParams: {
-      embedded: "true",
-      mode: "spectator",
-      surface: "agent-control",
-      hiddenUI: "chat,inventory,minimap,hotbar,stats",
-      quality: "medium",
-    },
-    postMessageAuth: true,
-    sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
-  };
-}
-
 function resolveHyperscapeAuthorizationHeader(
   runtime?: HyperscapeBridgeRuntimeLike | null,
 ): string | null {
@@ -1336,10 +1319,23 @@ export async function prepareLaunch(
 } | null> {
   const runtime = asRuntime(ctx.runtime);
   const diagnostics = await prepareHyperscapeAppLaunch(runtime);
+  const viewerUrl = resolveHyperscapeClientUrl(runtime);
+
   return {
     ...(diagnostics.length > 0 ? { diagnostics } : {}),
-    launchUrl: resolveHyperscapeClientUrl(runtime),
-    viewer: buildPreparedViewerConfig(runtime),
+    launchUrl: viewerUrl,
+    viewer: {
+      url: viewerUrl,
+      embedParams: {
+        embedded: "true",
+        mode: "spectator",
+        surface: "agent-control",
+        hiddenUI: "chat,inventory,minimap,hotbar,stats",
+        quality: "medium",
+      },
+      postMessageAuth: true,
+      sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+    },
   };
 }
 
