@@ -619,6 +619,9 @@ async function loadThoughtsState(
     "?limit=5",
     runtime,
   );
+  if (response.status === 404 || response.status === 501) {
+    return null;
+  }
   return requireJsonData(response, "Hyperscape thoughts request");
 }
 

@@ -41,7 +41,9 @@ async function readJsonBody(
   >;
 }
 
-async function startFixtureServer(): Promise<HyperscapeFixtureServer> {
+async function startFixtureServer(options?: {
+  omitThoughtsRoute?: boolean;
+}): Promise<HyperscapeFixtureServer> {
   const headers = {
     goalStop: [] as string[],
     message: [] as string[],
@@ -117,7 +119,8 @@ async function startFixtureServer(): Promise<HyperscapeFixtureServer> {
 
     if (
       req.method === "GET" &&
-      url.pathname === "/api/agents/agent-1/thoughts"
+      url.pathname === "/api/agents/agent-1/thoughts" &&
+      !options?.omitThoughtsRoute
     ) {
       headers.thoughts.push(req.headers.authorization ?? "");
       res.statusCode = 200;
@@ -367,6 +370,35 @@ describe("plugin-hyperscape app bridge", () => {
         }),
       );
       expect(fixtureServer.headers.thoughts).toEqual(["Bearer runtime-token"]);
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
+  it("treats a missing thoughts endpoint as optional session telemetry", async () => {
+    const fixtureServer = await startFixtureServer({ omitThoughtsRoute: true });
+    try {
+      const runtime = createRuntime(fixtureServer.url);
+      const session = await resolveLaunchSession({
+        runtime,
+        viewer: {
+          authMessage: {
+            agentId: "agent-1",
+            characterId: "character-1",
+            followEntity: "character-1",
+          },
+        },
+      });
+
+      expect(session).toEqual(
+        expect.objectContaining({
+          sessionId: "agent-1",
+          activity: [],
+          telemetry: expect.objectContaining({
+            recentThoughts: [],
+          }),
+        }),
+      );
     } finally {
       await fixtureServer.close();
     }
