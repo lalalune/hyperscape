@@ -5,6 +5,7 @@ import {
   ensureRuntimeReady,
   handleAppRoutes,
   prepareLaunch,
+  refreshRunSession,
   resolveLaunchSession,
   resolveViewerAuthMessage,
   type HyperscapeAppRouteContext,
@@ -42,6 +43,18 @@ async function readJsonBody(
 }
 
 async function startFixtureServer(options?: {
+  agentStateDelayMs?: number;
+  embeddedAgents?: Array<{
+    agentId?: string;
+    characterId?: string;
+    name?: string;
+    state?: string;
+    entityId?: string | null;
+    lastActivity?: number;
+    startedAt?: number;
+  }>;
+  malformedThoughtsRoute?: boolean;
+  mappedQuickActionsMessage?: string;
   omitThoughtsRoute?: boolean;
 }): Promise<HyperscapeFixtureServer> {
   const headers = {
@@ -54,15 +67,36 @@ async function startFixtureServer(options?: {
     message: [] as Array<Record<string, unknown>>,
     walletAuth: [] as Array<Record<string, unknown>>,
   };
+  const sleep = async () => {
+    if ((options?.agentStateDelayMs ?? 0) > 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, options?.agentStateDelayMs),
+      );
+    }
+  };
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     const body = await readJsonBody(req);
+    const genericAgentRouteMatch = url.pathname.match(
+      /^\/api\/agents\/([^/]+)\/(goal|quick-actions|thoughts)$/,
+    );
+    const genericEmbeddedAgent =
+      genericAgentRouteMatch?.[1] && options?.embeddedAgents
+        ? options.embeddedAgents.find(
+            (agent) => agent.agentId === genericAgentRouteMatch[1],
+          )
+        : null;
     res.setHeader("Content-Type", "application/json");
 
     if (req.method === "GET" && url.pathname === "/api/embedded-agents") {
       res.statusCode = 200;
-      res.end(JSON.stringify({ success: true, agents: [] }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          agents: options?.embeddedAgents ?? [],
+        }),
+      );
       return;
     }
 
@@ -80,7 +114,25 @@ async function startFixtureServer(options?: {
       return;
     }
 
+    if (
+      req.method === "GET" &&
+      url.pathname === "/api/agents/mapping/agent-connecting"
+    ) {
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          success: true,
+          agentId: "agent-connecting",
+          characterId: "character-connecting",
+          accountId: "account-connecting",
+          agentName: "Dormant Scout",
+        }),
+      );
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/agents/agent-1/goal") {
+      await sleep();
       res.statusCode = 200;
       res.end(
         JSON.stringify({
@@ -98,8 +150,32 @@ async function startFixtureServer(options?: {
 
     if (
       req.method === "GET" &&
+      url.pathname === "/api/agents/agent-connecting/goal"
+    ) {
+      await sleep();
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          success: true,
+          goal: null,
+          availableGoals: [
+            {
+              description: "Reconnect to Hyperscape",
+              type: "reconnect",
+            },
+          ],
+          goalsPaused: false,
+          message: "Agent session is reconnecting.",
+        }),
+      );
+      return;
+    }
+
+    if (
+      req.method === "GET" &&
       url.pathname === "/api/agents/agent-1/quick-actions"
     ) {
+      await sleep();
       res.statusCode = 200;
       res.end(
         JSON.stringify({
@@ -119,10 +195,46 @@ async function startFixtureServer(options?: {
 
     if (
       req.method === "GET" &&
+      url.pathname === "/api/agents/agent-connecting/quick-actions"
+    ) {
+      await sleep();
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          success: true,
+          quickCommands: [
+            {
+              label: "Reconnect",
+              command: "Retry connecting to Hyperscape",
+            },
+          ],
+          nearbyLocations: [],
+          availableGoals: [
+            {
+              description: "Reconnect to Hyperscape",
+              type: "reconnect",
+            },
+          ],
+          message:
+            options?.mappedQuickActionsMessage ??
+            "Agent not connected to Hyperscape yet.",
+        }),
+      );
+      return;
+    }
+
+    if (
+      req.method === "GET" &&
       url.pathname === "/api/agents/agent-1/thoughts" &&
       !options?.omitThoughtsRoute
     ) {
       headers.thoughts.push(req.headers.authorization ?? "");
+      await sleep();
+      if (options?.malformedThoughtsRoute) {
+        res.statusCode = 200;
+        res.end("{not-json");
+        return;
+      }
       res.statusCode = 200;
       res.end(
         JSON.stringify({
@@ -133,6 +245,109 @@ async function startFixtureServer(options?: {
               type: "reasoning",
               content: "The moon gate is the safest scouting route.",
               timestamp: 1_710_000_100_000,
+            },
+          ],
+          count: 1,
+        }),
+      );
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/agents/agent-connecting/thoughts") {
+      headers.thoughts.push(req.headers.authorization ?? "");
+      await sleep();
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          success: true,
+          thoughts: [],
+          count: 0,
+        }),
+      );
+      return;
+    }
+
+    if (
+      req.method === "GET" &&
+      genericEmbeddedAgent &&
+      genericAgentRouteMatch?.[2] === "goal"
+    ) {
+      await sleep();
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          success: true,
+          goal: {
+            description: `Follow ${genericEmbeddedAgent.name ?? genericEmbeddedAgent.agentId}`,
+            type: "observe",
+          },
+          availableGoals: [
+            {
+              description: `Follow ${genericEmbeddedAgent.name ?? genericEmbeddedAgent.agentId}`,
+              type: "observe",
+            },
+          ],
+          goalsPaused: false,
+        }),
+      );
+      return;
+    }
+
+    if (
+      req.method === "GET" &&
+      genericEmbeddedAgent &&
+      genericAgentRouteMatch?.[2] === "quick-actions"
+    ) {
+      await sleep();
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          success: true,
+          quickCommands: [
+            {
+              label: "Observe",
+              command: `Check ${genericEmbeddedAgent.name ?? genericEmbeddedAgent.agentId}`,
+            },
+          ],
+          nearbyLocations: [
+            {
+              name:
+                genericEmbeddedAgent.name ??
+                genericEmbeddedAgent.agentId ??
+                "Unknown",
+            },
+          ],
+          availableGoals: [
+            {
+              description: `Follow ${genericEmbeddedAgent.name ?? genericEmbeddedAgent.agentId}`,
+              type: "observe",
+            },
+          ],
+          playerPosition: [1, 0, 1],
+        }),
+      );
+      return;
+    }
+
+    if (
+      req.method === "GET" &&
+      genericEmbeddedAgent &&
+      genericAgentRouteMatch?.[2] === "thoughts"
+    ) {
+      headers.thoughts.push(req.headers.authorization ?? "");
+      await sleep();
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          success: true,
+          thoughts: [
+            {
+              id: `thought-${genericEmbeddedAgent.agentId ?? "embedded"}`,
+              type: "note",
+              content: `Tracking ${
+                genericEmbeddedAgent.name ?? genericEmbeddedAgent.agentId
+              }`,
+              timestamp: 1_710_000_200_000,
             },
           ],
           count: 1,
@@ -225,6 +440,7 @@ async function startFixtureServer(options?: {
 function createRuntime(
   serverUrl: string,
   options?: {
+    agentId?: string | null;
     authToken?: string | null;
     characterId?: string | null;
     hasService?: boolean;
@@ -243,7 +459,7 @@ function createRuntime(
   const getServiceLoadPromise = vi.fn(async () => ({}));
 
   return {
-    agentId: "agent-1",
+    agentId: options?.agentId === null ? undefined : (options?.agentId ?? "agent-1"),
     character: {
       name: "Chen",
       walletAddresses: {
@@ -451,6 +667,94 @@ describe("plugin-hyperscape app bridge", () => {
     }
   });
 
+  it("returns 400 for missing or blank session message content", async () => {
+    const fixtureServer = await startFixtureServer();
+    try {
+      const runtime = createRuntime(fixtureServer.url);
+
+      const missingBody = createRouteContext(
+        "http://localhost/api/apps/hyperscape/session/agent-1/message",
+        "POST",
+        runtime,
+      );
+      expect(await handleAppRoutes(missingBody.ctx)).toBe(true);
+      expect(missingBody.getStatus()).toBe(400);
+      expect(JSON.parse(missingBody.getBody())).toEqual({
+        error: "request body is required",
+      });
+
+      const blankMessage = createRouteContext(
+        "http://localhost/api/apps/hyperscape/session/agent-1/message",
+        "POST",
+        runtime,
+        { content: "   " },
+      );
+      expect(await handleAppRoutes(blankMessage.ctx)).toBe(true);
+      expect(blankMessage.getStatus()).toBe(400);
+      expect(JSON.parse(blankMessage.getBody())).toEqual({
+        error: "content is required",
+      });
+
+      expect(fixtureServer.requests.message).toEqual([]);
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
+  it("returns 400 for invalid control actions and missing control bodies", async () => {
+    const fixtureServer = await startFixtureServer();
+    try {
+      const runtime = createRuntime(fixtureServer.url);
+
+      const missingBody = createRouteContext(
+        "http://localhost/api/apps/hyperscape/session/agent-1/control",
+        "POST",
+        runtime,
+      );
+      expect(await handleAppRoutes(missingBody.ctx)).toBe(true);
+      expect(missingBody.getStatus()).toBe(400);
+      expect(JSON.parse(missingBody.getBody())).toEqual({
+        error: "request body is required",
+      });
+
+      const invalidAction = createRouteContext(
+        "http://localhost/api/apps/hyperscape/session/agent-1/control",
+        "POST",
+        runtime,
+        { action: "rewind" },
+      );
+      expect(await handleAppRoutes(invalidAction.ctx)).toBe(true);
+      expect(invalidAction.getStatus()).toBe(400);
+      expect(JSON.parse(invalidAction.getBody())).toEqual({
+        error: "action must be pause or resume",
+      });
+
+      expect(fixtureServer.requests.goalStop).toEqual([]);
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
+  it("returns 400 when embedded command routes omit their request body", async () => {
+    const fixtureServer = await startFixtureServer();
+    try {
+      const runtime = createRuntime(fixtureServer.url);
+      const embeddedCommand = createRouteContext(
+        "http://localhost/api/apps/hyperscape/embedded-agents/character-1/command",
+        "POST",
+        runtime,
+      );
+
+      expect(await handleAppRoutes(embeddedCommand.ctx)).toBe(true);
+      expect(embeddedCommand.getStatus()).toBe(400);
+      expect(JSON.parse(embeddedCommand.getBody())).toEqual({
+        error: "request body is required",
+      });
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
   it("proxies the thoughts route with runtime authorization", async () => {
     const fixtureServer = await startFixtureServer();
     try {
@@ -474,6 +778,28 @@ describe("plugin-hyperscape app bridge", () => {
         }),
       );
       expect(fixtureServer.headers.thoughts).toEqual(["Bearer runtime-token"]);
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
+  it("returns 502 when an upstream proxy route returns malformed JSON", async () => {
+    const fixtureServer = await startFixtureServer({ malformedThoughtsRoute: true });
+    try {
+      const runtime = createRuntime(fixtureServer.url);
+      const thoughts = createRouteContext(
+        "http://localhost/api/apps/hyperscape/agents/agent-1/thoughts?limit=1",
+        "GET",
+        runtime,
+      );
+
+      expect(await handleAppRoutes(thoughts.ctx)).toBe(true);
+      expect(thoughts.getStatus()).toBe(502);
+      expect(JSON.parse(thoughts.getBody())).toEqual(
+        expect.objectContaining({
+          error: expect.stringContaining("Hyperscape route failed"),
+        }),
+      );
     } finally {
       await fixtureServer.close();
     }
@@ -515,6 +841,171 @@ describe("plugin-hyperscape app bridge", () => {
           agentId: "agent-1",
           characterId: "character-1",
           followEntity: "character-1",
+        }),
+      );
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
+  it("selects the embedded launch session by runtime character name when identifiers are absent", async () => {
+    const fixtureServer = await startFixtureServer({
+      embeddedAgents: [
+        {
+          agentId: "agent-2",
+          characterId: "character-2",
+          entityId: "entity-2",
+          name: "Other",
+          state: "running",
+        },
+        {
+          agentId: "agent-1",
+          characterId: "character-1",
+          entityId: "entity-1",
+          name: "Chen",
+          state: "running",
+        },
+      ],
+    });
+    try {
+      const runtime = createRuntime(fixtureServer.url);
+      const session = await resolveLaunchSession({ runtime, viewer: null });
+
+      expect(session).toEqual(
+        expect.objectContaining({
+          sessionId: "agent-1",
+          characterId: "character-1",
+          followEntity: "entity-1",
+        }),
+      );
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
+  it("falls back to the only embedded agent when launch identifiers are unavailable", async () => {
+    const fixtureServer = await startFixtureServer({
+      embeddedAgents: [
+        {
+          agentId: "solo-agent",
+          characterId: "solo-character",
+          entityId: "solo-entity",
+          name: "Solo Scout",
+          state: "running",
+        },
+      ],
+    });
+    try {
+      const runtime = createRuntime(fixtureServer.url, {
+        agentId: null,
+        characterId: "missing-character",
+      });
+      const session = await resolveLaunchSession({
+        runtime,
+        viewer: {
+          authMessage: {
+            agentId: "missing-agent",
+          },
+        },
+      });
+
+      expect(session).toEqual(
+        expect.objectContaining({
+          sessionId: "solo-agent",
+          characterId: "solo-character",
+          followEntity: "solo-entity",
+        }),
+      );
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
+  it("returns mapped sessions as connecting until the agent reports a live player position", async () => {
+    const fixtureServer = await startFixtureServer();
+    try {
+      const runtime = createRuntime(fixtureServer.url);
+      const session = await resolveLaunchSession({
+        runtime,
+        viewer: {
+          authMessage: {
+            agentId: "agent-connecting",
+          },
+        },
+      });
+
+      expect(session).toEqual(
+        expect.objectContaining({
+          sessionId: "agent-connecting",
+          status: "connecting",
+          canSendCommands: false,
+          controls: [],
+          summary: "Agent not connected to Hyperscape yet.",
+        }),
+      );
+      expect(session?.telemetry).toEqual(
+        expect.objectContaining({
+          playerPosition: null,
+          nearbyLocationCount: 0,
+        }),
+      );
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
+  it("loads goal, quick-action, and thought state concurrently during session refresh", async () => {
+    const fixtureServer = await startFixtureServer({ agentStateDelayMs: 120 });
+    try {
+      const runtime = createRuntime(fixtureServer.url);
+      const startedAt = Date.now();
+      const session = await resolveLaunchSession({
+        runtime,
+        viewer: {
+          authMessage: {
+            agentId: "agent-1",
+            characterId: "character-1",
+          },
+        },
+      });
+      const elapsedMs = Date.now() - startedAt;
+
+      expect(session).toEqual(
+        expect.objectContaining({
+          sessionId: "agent-1",
+          goalLabel: "Scout the moon gate",
+        }),
+      );
+      expect(elapsedMs).toBeLessThan(260);
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
+  it("refreshes launch sessions when a run snapshot does not have a session id yet", async () => {
+    const fixtureServer = await startFixtureServer({
+      embeddedAgents: [
+        {
+          agentId: "agent-1",
+          characterId: "character-1",
+          entityId: "entity-1",
+          name: "Chen",
+          state: "running",
+        },
+      ],
+    });
+    try {
+      const runtime = createRuntime(fixtureServer.url);
+      const session = await refreshRunSession({
+        runtime,
+        viewer: null,
+        session: {},
+      });
+
+      expect(session).toEqual(
+        expect.objectContaining({
+          sessionId: "agent-1",
+          characterId: "character-1",
         }),
       );
     } finally {

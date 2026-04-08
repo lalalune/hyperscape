@@ -1041,11 +1041,14 @@ async function handleSessionMessageRoute(
 ): Promise<boolean> {
   const runtime = asRuntime(ctx.runtime);
   const body = await ctx.readJsonBody<{ content?: string }>(ctx.req, ctx.res);
-  if (!body) return true;
+  if (!body) {
+    ctx.error(ctx.res, "request body is required", 400);
+    return true;
+  }
 
   const content = body.content?.trim();
   if (!content) {
-    ctx.error(ctx.res, "content is required");
+    ctx.error(ctx.res, "content is required", 400);
     return true;
   }
 
@@ -1100,11 +1103,14 @@ async function handleSessionControlRoute(
 ): Promise<boolean> {
   const runtime = asRuntime(ctx.runtime);
   const body = await ctx.readJsonBody<{ action?: string }>(ctx.req, ctx.res);
-  if (!body) return true;
+  if (!body) {
+    ctx.error(ctx.res, "request body is required", 400);
+    return true;
+  }
 
   const action = body.action?.trim();
   if (action !== "pause" && action !== "resume") {
-    ctx.error(ctx.res, "action must be pause or resume");
+    ctx.error(ctx.res, "action must be pause or resume", 400);
     return true;
   }
 
@@ -1179,7 +1185,10 @@ export async function handleAppRoutes(
       pathname === `/api/apps/${HYPERSCAPE_ROUTE_SLUG}/embedded-agents`
     ) {
       const body = await ctx.readJsonBody<Record<string, unknown>>(req, res);
-      if (!body) return true;
+      if (!body) {
+        ctx.error(ctx.res, "request body is required", 400);
+        return true;
+      }
       const upstream = await requestHyperscape<unknown>(
         "POST",
         "/api/embedded-agents",
@@ -1232,7 +1241,10 @@ export async function handleAppRoutes(
           action === "command"
             ? await ctx.readJsonBody<Record<string, unknown>>(req, res)
             : undefined;
-        if (action === "command" && !body) return true;
+        if (action === "command" && !body) {
+          ctx.error(ctx.res, "request body is required", 400);
+          return true;
+        }
         const upstream = await requestHyperscape<unknown>(
           "POST",
           `/api/embedded-agents/${encodeURIComponent(characterId)}/${action}`,
