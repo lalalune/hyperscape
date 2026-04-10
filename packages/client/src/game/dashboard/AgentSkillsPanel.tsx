@@ -2,6 +2,13 @@ import { GAME_API_URL } from "@/lib/api-config";
 import React, { useState, useEffect, useRef } from "react";
 import type { Agent } from "./types";
 import { ChevronDown, ChevronUp, Swords, TrendingUp } from "lucide-react";
+import {
+  calculateCombatLevel,
+  normalizeCombatSkills,
+  getXPForLevel,
+  getXPProgress,
+  type Skills,
+} from "@hyperscape/shared";
 
 // Configuration constants
 const SKILLS_POLL_INTERVAL_MS = 10000; // Poll every 10 seconds to avoid rate limiting
@@ -47,23 +54,7 @@ async function fetchWithRetry(
   throw lastError || new Error("Request failed after retries");
 }
 
-interface SkillData {
-  level: number;
-  xp: number;
-}
-
-interface AgentSkills {
-  attack?: SkillData;
-  strength?: SkillData;
-  defense?: SkillData;
-  constitution?: SkillData;
-  // ranged?: SkillData; // Hidden for melee-only MVP
-  woodcutting?: SkillData;
-  fishing?: SkillData;
-  firemaking?: SkillData;
-  cooking?: SkillData;
-  agility?: SkillData;
-}
+type AgentSkills = Partial<Skills>;
 
 interface AgentSkillsPanelProps {
   agent: Agent;
@@ -83,36 +74,6 @@ const SKILL_CONFIG = [
   { key: "cooking", label: "Cooking", icon: "🍳" },
   { key: "agility", label: "Agility", icon: "🏃" },
 ] as const;
-
-// XP calculation for progress bar
-function calculateXPForLevel(level: number): number {
-  let total = 0;
-  for (let i = 1; i < level; i++) {
-    total += Math.floor(i + 300 * Math.pow(2, i / 7));
-  }
-  return Math.floor(total / 4);
-}
-
-function getXPProgress(xp: number, level: number): number {
-  if (level >= MAX_SKILL_LEVEL) return 100;
-  const currentLevelXP = calculateXPForLevel(level);
-  const nextLevelXP = calculateXPForLevel(level + 1);
-  const xpIntoLevel = xp - currentLevelXP;
-  const xpForThisLevel = nextLevelXP - currentLevelXP;
-  return Math.min(100, Math.max(0, (xpIntoLevel / xpForThisLevel) * 100));
-}
-
-// Calculate combat level from skills (melee-only MVP)
-function calculateCombatLevel(skills: AgentSkills): number {
-  const defense = skills.defense?.level || 1;
-  const constitution = skills.constitution?.level || 10;
-  const attack = skills.attack?.level || 1;
-  const strength = skills.strength?.level || 1;
-
-  const base = 0.25 * (defense + constitution);
-  const melee = 0.325 * (attack + strength);
-  return Math.floor(base + melee);
-}
 
 function SkillRow({
   icon,
@@ -351,7 +312,19 @@ export const AgentSkillsPanel: React.FC<AgentSkillsPanelProps> = ({
       }, 0)
     : 0;
 
-  const combatLevel = skills ? calculateCombatLevel(skills) : 3;
+  const combatLevel = skills
+    ? calculateCombatLevel(
+        normalizeCombatSkills({
+          attack: skills.attack?.level,
+          strength: skills.strength?.level,
+          defense: skills.defense?.level,
+          constitution: skills.constitution?.level,
+          ranged: skills.ranged?.level,
+          magic: skills.magic?.level,
+          prayer: skills.prayer?.level,
+        }),
+      )
+    : 3;
 
   return (
     <div className="border-t border-[#8b4513]/30 bg-[#0b0a15]/80">

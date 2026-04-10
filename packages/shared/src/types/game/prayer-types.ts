@@ -88,6 +88,39 @@ export interface PrayerStateSyncPayload {
 // === Type Guards (Runtime Validation) ===
 
 /**
+ * Validates PrayerStateSyncPayload shape.
+ * Used by client UI components to safely narrow event data.
+ */
+export function isPrayerStateSyncPayload(
+  data: unknown,
+): data is PrayerStateSyncPayload {
+  if (!data || typeof data !== "object") return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.playerId === "string" &&
+    typeof obj.points === "number" &&
+    typeof obj.maxPoints === "number" &&
+    Array.isArray(obj.active)
+  );
+}
+
+/**
+ * Validates PrayerToggledEvent shape.
+ * Used by client UI components to safely narrow event data.
+ */
+export function isPrayerToggledPayload(
+  data: unknown,
+): data is PrayerToggledEvent {
+  if (!data || typeof data !== "object") return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.playerId === "string" &&
+    typeof obj.prayerId === "string" &&
+    typeof obj.active === "boolean"
+  );
+}
+
+/**
  * Validates prayer ID format (security + anti-exploit)
  * - Max 64 characters
  * - Lowercase alphanumeric + underscore only

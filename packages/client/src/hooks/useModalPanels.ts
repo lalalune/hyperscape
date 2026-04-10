@@ -20,6 +20,7 @@ interface LegacyUIUpdatePayload {
 }
 
 interface DuelCompletedPayload {
+  duelId?: string;
   won?: boolean;
   opponentName?: string;
   itemsReceived?: InventoryItem[];
@@ -27,6 +28,12 @@ interface DuelCompletedPayload {
   totalValueWon?: number;
   totalValueLost?: number;
   forfeit?: boolean;
+}
+
+function isDuelCompletedPayload(data: unknown): data is DuelCompletedPayload {
+  if (!data || typeof data !== "object") return false;
+  const obj = data as Record<string, unknown>;
+  return typeof obj.won === "boolean";
 }
 
 function normalizeDuelResultItems(
@@ -801,7 +808,9 @@ function handleLegacyDuelUIUpdate(
   }
 
   if (payload.component === "duelCompleted") {
-    const completedData = payload.data as unknown as DuelCompletedPayload;
+    const rawData: unknown = payload.data;
+    if (!isDuelCompletedPayload(rawData)) return;
+    const completedData = rawData;
     setDuelData(null);
     setDuelResultData({
       visible: true,

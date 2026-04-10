@@ -6,6 +6,7 @@
  */
 
 import { BANKING_CONSTANTS } from "./BankingConstants";
+import { MAX_COINS } from "../systems/shared/character/CoinPouchSystem";
 
 // ============================================================================
 // SESSION TYPES
@@ -66,7 +67,7 @@ export const SESSION_CONFIG = {
 export const INPUT_LIMITS = {
   MAX_ITEM_ID_LENGTH: 64,
   MAX_STORE_ID_LENGTH: 64,
-  MAX_QUANTITY: 2_147_483_647, // Max signed 32-bit int
+  MAX_QUANTITY: MAX_COINS,
   MAX_INVENTORY_SLOTS: 28,
   /** Single source of truth: BankingConstants.ts */
   MAX_BANK_SLOTS: BANKING_CONSTANTS.MAX_BANK_SLOTS,

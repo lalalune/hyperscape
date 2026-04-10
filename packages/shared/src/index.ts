@@ -264,6 +264,8 @@ export {
   PRAYER_TOGGLE_COOLDOWN_MS,
   PRAYER_TOGGLE_RATE_LIMIT,
   PRAYER_ID_PATTERN,
+  isPrayerStateSyncPayload,
+  isPrayerToggledPayload,
 } from "./types/game/prayer-types";
 export type {
   PrayerCategory,
@@ -1199,7 +1201,10 @@ export type {
 } from "./types/interaction";
 
 // Context menu styled label type (for combat level colors)
-export type { LabelSegment } from "./systems/client/interaction/types";
+export type {
+  LabelSegment,
+  ContextMenuAction,
+} from "./systems/client/interaction/types";
 
 // Bank equipment type guards, types, and constants
 export {
@@ -1367,3 +1372,30 @@ export {
   getCombatLevelColor,
   getCombatLevelDescription,
 } from "./systems/client/interaction/utils/combatLevelColor";
+
+// Combat level calculation (OSRS-accurate formula)
+export {
+  calculateCombatLevel,
+  normalizeCombatSkills,
+  type CombatSkills,
+  type CombatType,
+  MIN_COMBAT_LEVEL,
+  MAX_COMBAT_LEVEL,
+} from "./utils/game/CombatLevelCalculator";
+
+// XP ↔ Level calculations (OSRS-accurate, standalone utilities for UI)
+export {
+  getXPForLevel,
+  getLevelForXP,
+  getXPToNextLevel,
+  getXPProgress,
+} from "./utils/game/XPCalculator";
+
+// HP bar utilities (OSRS-style)
+export { getHpPercent, getHpColor } from "./utils/game/CombatUtils";
+
+// Currency constants (single source of truth for coin caps)
+export {
+  MAX_COINS,
+  DEFAULT_STARTING_COINS,
+} from "./systems/shared/character/CoinPouchSystem";

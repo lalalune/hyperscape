@@ -12,6 +12,10 @@
 import { useMemo } from "react";
 import { useThemeStore } from "@/ui";
 import { getPanelSurfaceStyle } from "@/ui/theme/themes";
+import {
+  calculateCombatLevel,
+  normalizeCombatSkills,
+} from "@hyperscape/shared";
 import type { PlayerEquipmentItems, PlayerStats } from "../../types";
 
 // ============================================================================
@@ -188,12 +192,17 @@ export function StatsPanel({
   const combatLevel = useMemo(() => {
     const skills = stats?.skills;
     if (!skills) return 1;
-    const base =
-      0.25 *
-      ((skills.defense?.level || 1) + (skills.constitution?.level || 10));
-    const melee =
-      0.325 * ((skills.attack?.level || 1) + (skills.strength?.level || 1));
-    return Math.floor(base + melee);
+    return calculateCombatLevel(
+      normalizeCombatSkills({
+        attack: skills.attack?.level,
+        strength: skills.strength?.level,
+        defense: skills.defense?.level,
+        constitution: skills.constitution?.level,
+        ranged: skills.ranged?.level,
+        magic: skills.magic?.level,
+        prayer: skills.prayer?.level,
+      }),
+    );
   }, [stats]);
 
   const panelStyle = {

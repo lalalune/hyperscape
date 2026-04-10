@@ -20,6 +20,7 @@
 
 import type { Item } from "../types/game/item-types";
 import { ItemRarity } from "../types/entities";
+import { MAX_COINS } from "../systems/shared/character/CoinPouchSystem";
 
 /** NOTE SUFFIX: Appended to base item ID to create noted variant */
 export const NOTE_SUFFIX = "_noted";
@@ -111,7 +112,7 @@ export function generateNotedItem(baseItem: Item): Item {
 
     // Noted items are ALWAYS stackable
     stackable: true,
-    maxStackSize: 2147483647, // Max int32
+    maxStackSize: MAX_COINS,
 
     // Notes are weightless (paper)
     weight: 0,

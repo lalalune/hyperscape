@@ -25,8 +25,12 @@ interface LoadedEntry {
   img: HTMLImageElement;
 }
 
+/** Error TTL — retry after 30 seconds so transient CDN failures don't permanently block images */
+const ERROR_TTL_MS = 30_000;
+
 interface ErrorEntry {
   status: "error";
+  errorTime: number;
 }
 
 type CacheEntry = LoadingEntry | LoadedEntry | ErrorEntry;
@@ -83,8 +87,11 @@ export function loadCachedImage(
       existing.callbacks.push(onLoad);
       return null;
     }
-    // Error — don't retry
-    return null;
+    // Error — retry after TTL expires
+    if (Date.now() - existing.errorTime < ERROR_TTL_MS) {
+      return null;
+    }
+    cache.delete(url); // TTL expired, fall through to reload
   }
 
   // Start new load
@@ -112,7 +119,7 @@ export function loadCachedImage(
   });
 
   img.addEventListener("error", () => {
-    const errorEntry: ErrorEntry = { status: "error" };
+    const errorEntry: ErrorEntry = { status: "error", errorTime: Date.now() };
     cache.set(url, errorEntry);
     entry.callbacks.length = 0;
   });

@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import type { World, LabelSegment } from "@hyperscape/shared";
+import type {
+  World,
+  LabelSegment,
+  ContextMenuAction as SharedContextMenuAction,
+} from "@hyperscape/shared";
 import { useThemeStore } from "@/ui";
 import { UI } from "@/ui/core";
 import {
@@ -7,15 +11,13 @@ import {
   getContextMenuSurfaceStyle,
 } from "@/ui/theme/themes";
 
-export interface ContextMenuAction {
-  id: string;
-  label: string;
-  /** Rich text label with colors/styles - takes precedence over label if present */
-  styledLabel?: LabelSegment[];
-  icon?: string;
-  enabled: boolean;
+/** Context menu action for React rendering — shared action minus handler/priority, plus onClick */
+export type ContextMenuAction = Omit<
+  SharedContextMenuAction,
+  "handler" | "priority"
+> & {
   onClick: () => void;
-}
+};
 
 /**
  * Render a styled label with colored segments.

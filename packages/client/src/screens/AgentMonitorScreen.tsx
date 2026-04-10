@@ -7,6 +7,7 @@
 
 import { GAME_API_URL } from "@/lib/api-config";
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { getHpPercent, getHpColor, getXPForLevel } from "@hyperscape/shared";
 import {
   Swords,
   RefreshCw,
@@ -219,27 +220,6 @@ type DetailTab =
   | "actions"
   | "pipeline";
 
-// ─── XP Table ───────────────────────────────────────────────────────────────
-
-const XP_TABLE = [
-  0, 83, 174, 276, 388, 512, 650, 801, 969, 1154, 1358, 1584, 1833, 2107, 2411,
-  2746, 3115, 3523, 3973, 4470, 5018, 5624, 6291, 7028, 7842, 8740, 9730, 10824,
-  12031, 13363, 14833, 16456, 18247, 20224, 22406, 24815, 27473, 30408, 33648,
-  37224, 41171, 45529, 50339, 55649, 61512, 67983, 75127, 83014, 91721, 101333,
-  111945, 123660, 136594, 150872, 166636, 184040, 203254, 224466, 247886,
-  273742, 302288, 333804, 368599, 407015, 449428, 496254, 547953, 605032,
-  668051, 737627, 814445, 899257, 992895, 1096278, 1210421, 1336443, 1475581,
-  1629200, 1798808, 1986068, 2192818, 2421087, 2673114, 2951373, 3258594,
-  3597792, 3972294, 4385776, 4842295, 5346332, 5902831, 6517253, 7195629,
-  7944614, 8771558, 9684577, 10692629, 11805606, 13034431,
-];
-
-function xpForLevel(level: number): number {
-  if (level <= 1) return 0;
-  if (level > 99) return XP_TABLE[98] ?? 13034431;
-  return XP_TABLE[level - 1] ?? 0;
-}
-
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function formatDuration(ms: number): string {
@@ -269,15 +249,10 @@ function formatTime(timestamp: number): string {
   });
 }
 
-function hpColor(ratio: number): string {
-  if (ratio > 0.6) return "#22c55e";
-  if (ratio > 0.3) return "#eab308";
-  return "#ef4444";
-}
-
 function hpClass(ratio: number): string {
-  if (ratio > 0.6) return "high";
-  if (ratio > 0.3) return "mid";
+  const color = getHpColor(ratio * 100);
+  if (color === "#22c55e") return "high";
+  if (color === "#eab308") return "mid";
   return "low";
 }
 
@@ -669,7 +644,10 @@ function OverviewTab({ agent }: { agent: AgentData }) {
         <div className="hp-bar-track">
           <div
             className="hp-bar-fill"
-            style={{ width: `${hpRatio * 100}%`, background: hpColor(hpRatio) }}
+            style={{
+              width: `${hpRatio * 100}%`,
+              background: getHpColor(hpRatio * 100),
+            }}
           />
         </div>
         <div className="hp-bar-label">
@@ -857,8 +835,8 @@ function SkillsTab({ agent }: { agent: AgentData }) {
   return (
     <div className="skills-grid">
       {skillEntries.map(([name, skill]) => {
-        const currentLevelXp = xpForLevel(skill.level);
-        const nextLevelXp = xpForLevel(skill.level + 1);
+        const currentLevelXp = getXPForLevel(skill.level);
+        const nextLevelXp = getXPForLevel(skill.level + 1);
         const xpRange = nextLevelXp - currentLevelXp;
         const xpProgress =
           xpRange > 0 ? (skill.xp - currentLevelXp) / xpRange : 1;
@@ -1800,8 +1778,8 @@ function PipelineNodeBody({ data }: { data: PipelineNodeData }) {
 
   switch (nodeType) {
     case "survival": {
-      const pct = data.maxHealth > 0 ? (data.health / data.maxHealth) * 100 : 0;
-      const color = pct < 25 ? "#ef4444" : pct < 50 ? "#eab308" : "#22c55e";
+      const pct = getHpPercent(data.health, data.maxHealth);
+      const color = getHpColor(pct);
       return (
         <div className="pn-survival">
           <div className="pn-hp-track">

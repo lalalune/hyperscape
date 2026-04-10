@@ -62,6 +62,11 @@ import type {
   PlayerLeaveEvent,
   PlayerLevelUpEvent,
 } from "../../../types/events";
+import type { StatsComponent } from "../../../components/StatsComponent";
+import {
+  calculateCombatLevel,
+  normalizeCombatSkills,
+} from "../../../utils/game/CombatLevelCalculator";
 import { EventType } from "../../../types/events";
 import type { World } from "../../../types/index";
 import { Logger } from "../../../utils/Logger";
@@ -1478,14 +1483,22 @@ export class PlayerSystem extends SystemBase {
           player.health.current <= 0;
       }
 
-      // Update stats component health
-      const statsComponent = playerEntity.getComponent("stats");
-      if (statsComponent && statsComponent.data && statsComponent.data.health) {
-        const healthData = statsComponent.data.health as {
-          current: number;
-          max: number;
-        };
-        healthData.current = player.health.current;
+      // Update stats component health (both public property AND data dict)
+      // StatsComponent has TWO health objects: this.health (public) and this.data.health
+      // Both must stay in sync — handleLevelUp reads this.health, serialization reads this.data.health
+      const statsComponent = playerEntity.getComponent(
+        "stats",
+      ) as StatsComponent | null;
+      if (statsComponent) {
+        statsComponent.health.current = player.health.current;
+        statsComponent.health.max = player.health.max;
+        if (statsComponent.data?.health) {
+          (
+            statsComponent.data.health as { current: number; max: number }
+          ).current = player.health.current;
+          (statsComponent.data.health as { current: number; max: number }).max =
+            player.health.max;
+        }
       }
 
       // COMBAT_DAMAGE_DEALT is emitted by CombatSystem - no need to emit here
@@ -1788,22 +1801,17 @@ export class PlayerSystem extends SystemBase {
   }
 
   private calculateCombatLevel(skills: Skills): number {
-    // OSRS Combat Level Formula:
-    // base = 0.25 × (Defence + Hitpoints + floor(Prayer / 2))
-    // melee = 0.325 × (Attack + Strength)
-    // ranged = 0.325 × floor(Ranged × 1.5)
-    // magic = 0.325 × floor(Magic × 1.5)
-    // combat = base + max(melee, ranged, magic)
-
-    // Since we don't have Prayer or Magic yet, simplified formula:
-    const base = 0.25 * (skills.defense.level + skills.constitution.level);
-
-    const melee = 0.325 * (skills.attack.level + skills.strength.level);
-    const ranged = 0.325 * Math.floor(skills.ranged.level * 1.5);
-
-    const combatLevel = base + Math.max(melee, ranged);
-
-    return Math.floor(combatLevel);
+    return calculateCombatLevel(
+      normalizeCombatSkills({
+        attack: skills.attack.level,
+        strength: skills.strength.level,
+        defense: skills.defense.level,
+        hitpoints: skills.constitution.level,
+        ranged: skills.ranged.level,
+        magic: skills.magic?.level,
+        prayer: skills.prayer?.level,
+      }),
+    );
   }
 
   /**
@@ -2332,6 +2340,21 @@ export class PlayerSystem extends SystemBase {
     // Update player skills
     player.skills = data.skills;
 
+    // Sync health.max from constitution (same formula as initial registration at line 693)
+    // Without this, emitPlayerUpdate() broadcasts stale health.max after constitution XP gain
+    const constitutionLevel =
+      Number.isFinite(data.skills.constitution?.level) &&
+      data.skills.constitution.level > 0
+        ? data.skills.constitution.level
+        : 10;
+    const healthMaxChanged = constitutionLevel !== player.health.max;
+    if (healthMaxChanged) {
+      player.health.max = constitutionLevel;
+      if (player.health.current > player.health.max) {
+        player.health.current = player.health.max;
+      }
+    }
+
     // Recalculate combat level
     player.combat.combatLevel = this.calculateCombatLevel(data.skills);
 
@@ -2341,7 +2364,9 @@ export class PlayerSystem extends SystemBase {
     // Update stats component with new skill data for SkillsSystem and combat calculations
     const playerEntity = this.world.entities.get(data.playerId);
     if (playerEntity) {
-      const statsComponent = playerEntity.getComponent("stats");
+      const statsComponent = playerEntity.getComponent(
+        "stats",
+      ) as StatsComponent | null;
       if (statsComponent) {
         // Update skill data (full SkillData objects with level + xp) in stats component
         statsComponent.data.attack = data.skills.attack;
@@ -2353,6 +2378,18 @@ export class PlayerSystem extends SystemBase {
         statsComponent.data.fishing = data.skills.fishing;
         statsComponent.data.firemaking = data.skills.firemaking;
         statsComponent.data.cooking = data.skills.cooking;
+
+        // Sync health to statsComponent so handleLevelUp reads correct values
+        // (defense-in-depth: handleLevelUp reads stats.health, not player.health)
+        statsComponent.health.current = player.health.current;
+        statsComponent.health.max = player.health.max;
+      }
+
+      // Push updated health.max to entity data for network serialization
+      if (healthMaxChanged) {
+        playerEntity.data.health = player.health.current;
+        (playerEntity.data as { maxHealth?: number }).maxHealth =
+          player.health.max;
       }
     }
 

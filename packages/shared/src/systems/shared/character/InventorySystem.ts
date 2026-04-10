@@ -27,6 +27,7 @@ import { EntityManager } from "..";
 import { SystemBase } from "../infrastructure/SystemBase";
 import { Logger } from "../../../utils/Logger";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
+import { MAX_COINS } from "./CoinPouchSystem";
 import type { GroundItemSystem } from "../economy/GroundItemSystem";
 import type { CoinPouchSystem } from "./CoinPouchSystem";
 import { DeathState } from "../../../types/entities";
@@ -34,8 +35,8 @@ import { DeathState } from "../../../types/entities";
 export class InventorySystem extends SystemBase {
   protected playerInventories = new Map<PlayerID, PlayerInventory>();
   private readonly MAX_INVENTORY_SLOTS = 28;
-  /** Max stackable quantity — matches PostgreSQL integer max to prevent DB truncation */
-  private readonly MAX_QUANTITY = 2_147_483_647;
+  /** Max stackable quantity — uses shared MAX_COINS (PostgreSQL integer max) */
+  private readonly MAX_QUANTITY = MAX_COINS;
   // Pickup locks to prevent race conditions when multiple players try to pickup same item
   private pickupLocks = new Set<string>();
 

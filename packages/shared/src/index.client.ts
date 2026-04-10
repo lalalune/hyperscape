@@ -763,3 +763,41 @@ export {
   getCombatLevelColor,
   getCombatLevelDescription,
 } from "./systems/client/interaction/utils/combatLevelColor";
+
+// Combat level calculation (OSRS-accurate formula)
+export {
+  calculateCombatLevel,
+  normalizeCombatSkills,
+  type CombatSkills,
+  type CombatType,
+  MIN_COMBAT_LEVEL,
+  MAX_COMBAT_LEVEL,
+} from "./utils/game/CombatLevelCalculator";
+
+// XP ↔ Level calculations (OSRS-accurate, standalone utilities for UI)
+export {
+  getXPForLevel,
+  getLevelForXP,
+  getXPToNextLevel,
+  getXPProgress,
+} from "./utils/game/XPCalculator";
+
+// HP bar utilities (OSRS-style)
+export { getHpPercent, getHpColor } from "./utils/game/CombatUtils";
+
+// Currency constants (single source of truth for coin caps)
+export {
+  MAX_COINS,
+  DEFAULT_STARTING_COINS,
+} from "./systems/shared/character/CoinPouchSystem";
+
+// Prayer event type guards (runtime validation for UI components)
+export {
+  isPrayerStateSyncPayload,
+  isPrayerToggledPayload,
+} from "./types/game/prayer-types";
+export type {
+  PrayerStateSyncPayload,
+  PrayerToggledEvent,
+  PrayerState,
+} from "./types/game/prayer-types";

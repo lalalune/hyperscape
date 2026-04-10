@@ -2,6 +2,10 @@ import { GAME_API_URL } from "@/lib/api-config";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { Agent } from "./types";
 import { Swords, Activity, Target, Coins, Clock, Heart } from "lucide-react";
+import {
+  calculateCombatLevel,
+  normalizeCombatSkills,
+} from "@hyperscape/shared";
 
 interface HealthData {
   current: number;
@@ -65,20 +69,6 @@ function formatXp(xp: number): string {
     return `${(xp / 1000).toFixed(1)}K`;
   }
   return xp.toLocaleString();
-}
-
-// Calculate combat level from skills
-function calculateCombatLevel(
-  skills: Record<string, { level: number }> | null,
-): number {
-  if (!skills) return 3;
-  const defense = skills.defense?.level || 1;
-  const constitution = skills.constitution?.level || 10;
-  const attack = skills.attack?.level || 1;
-  const strength = skills.strength?.level || 1;
-  const base = 0.25 * (defense + constitution);
-  const melee = 0.325 * (attack + strength);
-  return Math.floor(base + melee);
 }
 
 // Calculate total level
@@ -199,7 +189,19 @@ export const AgentSummaryCard: React.FC<AgentSummaryCardProps> = ({
             ...prev,
             online: posData.online !== false,
             uptimeMs: Date.now() - sessionStartTime,
-            combatLevel: calculateCombatLevel(skills),
+            combatLevel: skills
+              ? calculateCombatLevel(
+                  normalizeCombatSkills({
+                    attack: skills.attack?.level,
+                    strength: skills.strength?.level,
+                    defense: skills.defense?.level,
+                    constitution: skills.constitution?.level,
+                    ranged: skills.ranged?.level,
+                    magic: skills.magic?.level,
+                    prayer: skills.prayer?.level,
+                  }),
+                )
+              : 3,
             totalLevel: calculateTotalLevel(skills),
             currentGoal: goalData?.goal?.description || null,
             goalProgress: goalData?.goal?.progressPercent || 0,
@@ -215,7 +217,19 @@ export const AgentSummaryCard: React.FC<AgentSummaryCardProps> = ({
         ...prev,
         online: agent.status === "active",
         uptimeMs: Date.now() - sessionStartTime,
-        combatLevel: calculateCombatLevel(skills),
+        combatLevel: skills
+          ? calculateCombatLevel(
+              normalizeCombatSkills({
+                attack: skills.attack?.level,
+                strength: skills.strength?.level,
+                defense: skills.defense?.level,
+                constitution: skills.constitution?.level,
+                ranged: skills.ranged?.level,
+                magic: skills.magic?.level,
+                prayer: skills.prayer?.level,
+              }),
+            )
+          : 3,
         totalLevel: calculateTotalLevel(skills),
         currentGoal: goalData?.goal?.description || null,
         goalProgress: goalData?.goal?.progressPercent || 0,
