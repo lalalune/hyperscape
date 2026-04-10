@@ -773,6 +773,8 @@ export class EventBridge {
           const playerData = data.data as {
             health: { current: number; max: number };
             alive: boolean;
+            specialEnergy?: number;
+            specialAttackActive?: boolean;
           };
 
           // Send to specific player AND spectators with flat health values for client
@@ -783,6 +785,8 @@ export class EventBridge {
               health: playerData.health.current,
               maxHealth: playerData.health.max,
               alive: playerData.alive,
+              specialEnergy: playerData.specialEnergy,
+              specialAttackActive: playerData.specialAttackActive,
             },
           );
         }

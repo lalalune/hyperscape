@@ -14,8 +14,8 @@ export {
 } from "./StyleIcons";
 export { CombatStyleSelector } from "./CombatStyleSelector";
 export { CombatBonusesDisplay } from "./CombatBonusesDisplay";
-export { SpecialAttackBar } from "./SpecialAttackBar";
 export { AutoRetaliateToggle } from "./AutoRetaliateToggle";
+export { SpecialAttackBar } from "./SpecialAttackBar";
 export {
   isStyleUpdateEvent,
   isTargetChangedEvent,

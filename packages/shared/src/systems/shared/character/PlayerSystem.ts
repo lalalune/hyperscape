@@ -126,6 +126,8 @@ export class PlayerSystem extends SystemBase {
     maxStamina: 100,
     coins: 0,
     combatStyle: "attack" as string,
+    specialEnergy: 1000,
+    specialAttackActive: false,
   };
   private _playerUpdatedEvent = {
     playerId: "",
@@ -155,6 +157,11 @@ export class PlayerSystem extends SystemBase {
   /** Rate limiting for toggle spam prevention (OWASP) */
   private autoRetaliateLastToggle = new Map<string, number>();
   private readonly AUTO_RETALIATE_COOLDOWN_MS = 500; // Max 2 toggles/second
+
+  // Special attack energy tracking (OSRS: 0-1000 internal, displayed as 0-100%)
+  private specialAttackToggle = new Map<string, boolean>();
+  private specialAttackLastToggle = new Map<string, number>();
+  private specialRechargeLastTick = new Map<string, number>();
 
   // Attack styles - OSRS-accurate stat bonuses applied via CombatCalculations.getStyleBonus()
   // @see https://oldschool.runescape.wiki/w/Combat_Options
@@ -387,6 +394,19 @@ export class PlayerSystem extends SystemBase {
     this.subscribe(EventType.UI_AUTO_RETALIATE_UPDATE, (data) =>
       this.handleAutoRetaliateToggle(
         data as { playerId: string; enabled: boolean },
+      ),
+    );
+
+    // Special attack energy events
+    this.subscribe(EventType.UI_SPECIAL_ATTACK_TOGGLE, (data) =>
+      this.handleSpecialAttackToggle(data as { playerId: string }),
+    );
+    this.subscribe(EventType.UI_SPECIAL_ATTACK_GET, (data) =>
+      this.handleSpecialAttackGet(
+        data as {
+          playerId: string;
+          callback?: (info: { energy: number; active: boolean }) => void;
+        },
       ),
     );
 
@@ -773,6 +793,11 @@ export class PlayerSystem extends SystemBase {
     this.playerAutoRetaliate.delete(data.playerId);
     this.autoRetaliateLastToggle.delete(data.playerId);
 
+    // Clean up special attack
+    this.specialAttackToggle.delete(data.playerId);
+    this.specialAttackLastToggle.delete(data.playerId);
+    this.specialRechargeLastTick.delete(data.playerId);
+
     // Clean up eat cooldown (memory hygiene)
     this.eatDelayManager.clearPlayer(data.playerId);
 
@@ -977,9 +1002,14 @@ export class PlayerSystem extends SystemBase {
     // Reset player state to alive
     player.alive = true;
     player.health.current = player.health.max;
+    player.specialEnergy.current = player.specialEnergy.max;
     player.position = data.spawnPosition;
     player.death.respawnTime = 0;
     player.death.deathLocation = null;
+
+    // Clear special attack state
+    this.specialAttackToggle.delete(data.playerId);
+    this.specialRechargeLastTick.delete(data.playerId);
 
     // Update PlayerEntity health if it exists
     const playerEntity = this.world.getPlayer?.(
@@ -1033,6 +1063,10 @@ export class PlayerSystem extends SystemBase {
     playerData.maxStamina = player.stamina?.max || 100;
     playerData.coins = player.coins || 0;
     playerData.combatStyle = player.combat.combatStyle || "attack";
+    playerData.specialEnergy =
+      player.specialEnergy?.current ?? COMBAT_CONSTANTS.SPECIAL_ENERGY_MAX;
+    playerData.specialAttackActive =
+      this.specialAttackToggle.get(playerId) ?? false;
 
     // OPTIMIZATION: Reuse pre-allocated event objects
     // Emit PLAYER_UPDATED for systems
@@ -1731,6 +1765,9 @@ export class PlayerSystem extends SystemBase {
         player.position.z = entity.position.z;
       }
     }
+
+    // Recharge special attack energy (10% per 30 seconds)
+    this.rechargeSpecialEnergy();
   }
 
   private async performAutoSave(): Promise<void> {
@@ -2328,6 +2365,135 @@ export class PlayerSystem extends SystemBase {
    */
   getPlayerAutoRetaliate(playerId: string): boolean {
     return this.playerAutoRetaliate.get(playerId) ?? true;
+  }
+
+  // ============================================================================
+  // SPECIAL ATTACK ENERGY METHODS
+  // ============================================================================
+
+  private handleSpecialAttackToggle(data: { playerId: string }): void {
+    if (!this.world.isServer) return;
+
+    const player = this.players.get(data.playerId);
+    if (!player || !player.alive) return;
+
+    // Rate limit (OWASP: prevent toggle spam)
+    const now = Date.now();
+    const lastToggle = this.specialAttackLastToggle.get(data.playerId) ?? 0;
+    if (now - lastToggle < COMBAT_CONSTANTS.SPECIAL_ATTACK_TOGGLE_COOLDOWN_MS) {
+      return;
+    }
+    this.specialAttackLastToggle.set(data.playerId, now);
+
+    const currentlyActive =
+      this.specialAttackToggle.get(data.playerId) ?? false;
+
+    if (currentlyActive) {
+      // Toggle OFF
+      this.specialAttackToggle.set(data.playerId, false);
+    } else {
+      // Toggle ON — check energy
+      const energy = player.specialEnergy.current;
+      if (energy < COMBAT_CONSTANTS.SPECIAL_ATTACK_MVP_COST) {
+        return; // Not enough energy
+      }
+      this.specialAttackToggle.set(data.playerId, true);
+    }
+
+    this.emitTypedEvent(EventType.UI_SPECIAL_ATTACK_CHANGED, {
+      playerId: data.playerId,
+      energy: player.specialEnergy.current,
+      maxEnergy: player.specialEnergy.max,
+      active: this.specialAttackToggle.get(data.playerId) ?? false,
+    });
+  }
+
+  private handleSpecialAttackGet(data: {
+    playerId: string;
+    callback?: (info: { energy: number; active: boolean }) => void;
+  }): void {
+    const player = this.players.get(data.playerId);
+    const energy =
+      player?.specialEnergy.current ?? COMBAT_CONSTANTS.SPECIAL_ENERGY_MAX;
+    const active = this.specialAttackToggle.get(data.playerId) ?? false;
+
+    if (data.callback) {
+      data.callback({ energy, active });
+    } else {
+      this.emitTypedEvent(EventType.UI_SPECIAL_ATTACK_CHANGED, {
+        playerId: data.playerId,
+        energy,
+        maxEnergy:
+          player?.specialEnergy.max ?? COMBAT_CONSTANTS.SPECIAL_ENERGY_MAX,
+        active,
+      });
+    }
+  }
+
+  /** Public: Check if player's special attack toggle is ON (used by CombatSystem) */
+  isSpecialAttackActive(playerId: string): boolean {
+    return this.specialAttackToggle.get(playerId) ?? false;
+  }
+
+  /** Public: Get current special energy (used by CombatSystem) */
+  getSpecialEnergy(playerId: string): number {
+    return this.players.get(playerId)?.specialEnergy.current ?? 0;
+  }
+
+  /**
+   * Public: Drain special energy and clear toggle (called by CombatSystem after special attack)
+   * Returns false if insufficient energy.
+   */
+  drainSpecialEnergy(playerId: string, amount: number): boolean {
+    const player = this.players.get(playerId);
+    if (!player) return false;
+
+    if (player.specialEnergy.current < amount) {
+      this.specialAttackToggle.set(playerId, false);
+      return false;
+    }
+
+    player.specialEnergy.current -= amount;
+    this.specialAttackToggle.set(playerId, false);
+
+    this.emitTypedEvent(EventType.UI_SPECIAL_ATTACK_CHANGED, {
+      playerId,
+      energy: player.specialEnergy.current,
+      maxEnergy: player.specialEnergy.max,
+      active: false,
+    });
+
+    this.emitPlayerUpdate(playerId);
+    return true;
+  }
+
+  /** Recharge special energy for all players (called from update tick) */
+  private rechargeSpecialEnergy(): void {
+    if (!this.world.isServer) return;
+    const currentTick = this.world.currentTick ?? 0;
+
+    for (const [playerId, player] of this.players) {
+      if (!player.alive) continue;
+      if (player.specialEnergy.current >= player.specialEnergy.max) continue;
+
+      const lastTick = this.specialRechargeLastTick.get(playerId) ?? 0;
+      if (
+        currentTick - lastTick <
+        COMBAT_CONSTANTS.SPECIAL_ENERGY_RECHARGE_TICKS
+      ) {
+        continue;
+      }
+
+      this.specialRechargeLastTick.set(playerId, currentTick);
+      player.specialEnergy.current = Math.min(
+        player.specialEnergy.max,
+        player.specialEnergy.current +
+          COMBAT_CONSTANTS.SPECIAL_ENERGY_RECHARGE_AMOUNT,
+      );
+
+      // Only broadcast when energy changes (avoid unnecessary packets)
+      this.emitPlayerUpdate(playerId);
+    }
   }
 
   private handleSkillsUpdate(data: { playerId: string; skills: Skills }): void {

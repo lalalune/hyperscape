@@ -42,9 +42,11 @@ export interface CombatBonusesDisplayProps {
   theme: Theme;
 }
 
-/** Props for the special attack bar (future expansion) */
+/** Props for the special attack bar with toggle */
 export interface SpecialAttackBarProps {
   specialEnergy: number;
+  isActive: boolean;
+  onToggle: () => void;
   theme: Theme;
   compactPanel: boolean;
 }

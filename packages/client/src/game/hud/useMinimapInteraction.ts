@@ -7,10 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { THREE, INPUT, TerrainSystem } from "@hyperscape/shared";
 import type { ClientWorld } from "../../types";
-import {
-  type MinimapRenderState,
-  type HyperscapeWindow,
-} from "./MinimapRenderer";
+import { type MinimapRenderState, type HyperscapeWindow } from "./minimapTypes";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 

@@ -31,6 +31,7 @@ import {
   CombatStyleSelector,
   CombatBonusesDisplay,
   AutoRetaliateToggle,
+  SpecialAttackBar,
   isStyleUpdateEvent,
   isTargetChangedEvent,
   isTargetHealthEvent,
@@ -105,6 +106,10 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
     }
     return true;
   });
+
+  // Special attack energy state
+  const [specialEnergy, setSpecialEnergy] = useState<number>(1000);
+  const [specialActive, setSpecialActive] = useState<boolean>(false);
 
   const playerId = world.entities?.player?.id ?? null;
   const previousPlayerIdRef = useRef<string | null>(null);
@@ -205,11 +210,28 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
       setAutoRetaliate(data.enabled);
     };
 
+    const onSpecialAttackChanged = (data: unknown) => {
+      if (!data || typeof data !== "object") return;
+      const d = data as {
+        playerId?: string;
+        energy?: number;
+        active?: boolean;
+      };
+      if (d.playerId !== playerId) return;
+      if (typeof d.energy === "number") setSpecialEnergy(d.energy);
+      if (typeof d.active === "boolean") setSpecialActive(d.active);
+    };
+
     world.on(EventType.UI_ATTACK_STYLE_UPDATE, onUpdate, undefined);
     world.on(EventType.UI_ATTACK_STYLE_CHANGED, onChanged, undefined);
     world.on(
       EventType.UI_AUTO_RETALIATE_CHANGED,
       onAutoRetaliateChanged,
+      undefined,
+    );
+    world.on(
+      EventType.UI_SPECIAL_ATTACK_CHANGED,
+      onSpecialAttackChanged,
       undefined,
     );
     world.on(EventType.UI_COMBAT_TARGET_CHANGED, onTargetChanged, undefined);
@@ -235,6 +257,12 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
       world.off(
         EventType.UI_AUTO_RETALIATE_CHANGED,
         onAutoRetaliateChanged,
+        undefined,
+        undefined,
+      );
+      world.off(
+        EventType.UI_SPECIAL_ATTACK_CHANGED,
+        onSpecialAttackChanged,
         undefined,
         undefined,
       );
@@ -335,6 +363,13 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
     autoRetaliateCache.set(currentPlayerId, newValue);
     setAutoRetaliate(newValue);
     actions.actionMethods.setAutoRetaliate(currentPlayerId, newValue);
+  };
+
+  const toggleSpecialAttack = () => {
+    if (!world.network?.send) return;
+    // Optimistic toggle
+    setSpecialActive((prev) => !prev);
+    world.network.send("toggleSpecialAttack", {});
   };
 
   // Filter styles based on equipped weapon (OSRS-accurate restrictions)
@@ -439,8 +474,17 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
         />
       </div>
 
-      {/* Spacer to push auto-retaliate to bottom */}
+      {/* Spacer to push controls to bottom */}
       <div style={{ flex: 1 }} />
+
+      {/* Special Attack Bar */}
+      <SpecialAttackBar
+        specialEnergy={specialEnergy}
+        isActive={specialActive}
+        onToggle={toggleSpecialAttack}
+        theme={theme}
+        compactPanel={compactPanel}
+      />
 
       {/* Auto Retaliate -- pinned to bottom */}
       <AutoRetaliateToggle

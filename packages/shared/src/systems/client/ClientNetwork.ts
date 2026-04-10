@@ -4526,6 +4526,8 @@ export class ClientNetwork extends SystemBase {
     health: number;
     maxHealth: number;
     alive: boolean;
+    specialEnergy?: number;
+    specialAttackActive?: boolean;
   }) => {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) {
@@ -4555,6 +4557,15 @@ export class ClientNetwork extends SystemBase {
       health: data.health,
       maxHealth: data.maxHealth,
     });
+
+    // Emit special attack energy update for combat panel
+    if (typeof data.specialEnergy === "number") {
+      this.world.emit(EventType.UI_SPECIAL_ATTACK_CHANGED, {
+        playerId: localPlayer.id,
+        energy: data.specialEnergy,
+        active: data.specialAttackActive ?? false,
+      });
+    }
   };
 
   onCorpseLoot = (data: {

@@ -801,3 +801,17 @@ export type {
   PrayerToggledEvent,
   PrayerState,
 } from "./types/game/prayer-types";
+
+// Minimap Worker - 2D Canvas minimap rendering in web worker
+export {
+  MinimapWorkerManager,
+  isMinimapWorkerSupported,
+  type MinimapTile,
+  type MinimapEntity,
+  type MinimapRoad,
+  type MinimapBuilding,
+  type MinimapCamera,
+  type MinimapConfig,
+  type MinimapWorkerInput,
+  type MinimapWorkerOutput,
+} from "./utils/workers/MinimapWorker";

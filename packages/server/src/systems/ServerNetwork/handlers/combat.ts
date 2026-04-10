@@ -413,3 +413,23 @@ export function handleSetAutoRetaliate(
     enabled: payload.enabled,
   });
 }
+
+/**
+ * Handle special attack toggle request from client
+ *
+ * OSRS: Player clicks the spec bar to toggle special attack ON/OFF.
+ * Server validates energy and rate-limits in PlayerSystem.
+ */
+export function handleToggleSpecialAttack(
+  socket: ServerSocket,
+  _data: unknown,
+  world: World,
+): void {
+  const playerEntity = socket.player;
+  if (!playerEntity) return;
+
+  // Server authority: use socket.player.id
+  world.emit(EventType.UI_SPECIAL_ATTACK_TOGGLE, {
+    playerId: playerEntity.id,
+  });
+}

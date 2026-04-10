@@ -137,6 +137,7 @@ import {
   handleAttackPlayer,
   handleChangeAttackStyle,
   handleSetAutoRetaliate,
+  handleToggleSpecialAttack,
 } from "./handlers/combat";
 import {
   handlePickupItem,
@@ -2222,6 +2223,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onSetAutoRetaliate"] = (socket, data) =>
       handleSetAutoRetaliate(socket, data, this.world);
+
+    this.handlers["onToggleSpecialAttack"] = (socket, data) =>
+      handleToggleSpecialAttack(socket, data, this.world);
 
     // Autocast spell selection (F2P magic combat)
     this.handlers["onSetAutocast"] = (socket, data) => {

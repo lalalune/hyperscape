@@ -1278,6 +1278,8 @@ export {
   createMinimapWorker,
   type MinimapTile,
   type MinimapEntity,
+  type MinimapRoad,
+  type MinimapBuilding,
   type MinimapCamera,
   type MinimapConfig,
   type MinimapWorkerInput,

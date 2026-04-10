@@ -624,6 +624,12 @@ export enum EventType {
   UI_AUTO_RETALIATE_GET = "ui:auto_retaliate:get",
   UI_AUTO_RETALIATE_UPDATE = "ui:auto_retaliate:update",
   UI_AUTO_RETALIATE_CHANGED = "ui:auto_retaliate:changed",
+
+  // Special Attack Energy
+  UI_SPECIAL_ATTACK_GET = "ui:special_attack:get",
+  UI_SPECIAL_ATTACK_TOGGLE = "ui:special_attack:toggle",
+  UI_SPECIAL_ATTACK_CHANGED = "ui:special_attack:changed",
+
   UI_MESSAGE = "ui:message",
   UI_REQUEST = "ui:request",
   UI_CONTEXT_ACTION = "ui:context_action",

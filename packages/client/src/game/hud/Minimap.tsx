@@ -2,14 +2,25 @@
  * Minimap.tsx - 2D Minimap Component
  *
  * Shows player position, nearby entities, and terrain on a 2D minimap.
- * Orchestrates the canvas ref lifecycle, requestAnimationFrame loop,
- * and composes satellite components. All pure draw logic lives in
- * MinimapRenderer.ts; all interaction logic lives in useMinimapInteraction.ts.
+ * Orchestrates canvas lifecycle, RAF loop, and satellite hooks.
+ *
+ * Rendering: Overlay (roads, buildings, entities, destination) is rendered
+ * off-thread by shared MinimapWorker via OffscreenCanvas. Terrain background
+ * stays on main thread (biome-aware cache in useMinimapTerrainCache).
+ * Interaction logic lives in useMinimapInteraction.ts.
  */
 
 import React, { memo, useEffect, useRef } from "react";
 import { useThemeStore, useQuestSelectionStore } from "@/ui";
-import { Entity, THREE } from "@hyperscape/shared";
+import {
+  Entity,
+  THREE,
+  MinimapWorkerManager,
+  isMinimapWorkerSupported,
+  type MinimapEntity as WorkerEntity,
+  type MinimapRoad as WorkerRoad,
+  type MinimapBuilding as WorkerBuilding,
+} from "@hyperscape/shared";
 import type { ClientWorld } from "../../types";
 import { type EntityPip, useMinimapEntityPips } from "./useMinimapEntityPips";
 import { useQuestStatusSync } from "./useQuestStatusSync";
@@ -24,16 +35,11 @@ import {
   useMinimapTerrainCache,
 } from "./useMinimapTerrainCache";
 import {
-  type ProjectedRoad,
   type MinimapRenderState,
   type HyperscapeWindow,
   createRenderState,
-  clearIconCache,
   getSpectatorTarget,
-  drawRoadsAndBuildings,
-  drawEntityPips,
-  drawDestinationMarker,
-} from "./MinimapRenderer";
+} from "./minimapTypes";
 import { useMinimapInteraction } from "./useMinimapInteraction";
 
 // Shared with terrain-cache generation so draw-time coverage matches the
@@ -113,10 +119,10 @@ function MinimapInner({
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
   const entityPipsRefForRender = useRef<EntityPip[]>([]);
   const entityCacheRef = useRef<Map<string, EntityPip>>(new Map());
-  const roadPixelBufRef = useRef(new Float32Array(4096 * 2));
-  const projectedRoadsRef = useRef<ProjectedRoad[]>([]);
   const renderStateRef = useRef<MinimapRenderState>(createRenderState());
   const lastDestinationWorldRef = useRef<{ x: number; z: number } | null>(null);
+  const workerRef = useRef<MinimapWorkerManager | null>(null);
+  const workerInitializedRef = useRef(false);
 
   // Always rotate with the main camera (RS3-style).
   const rotateWithCameraRef = useRef<boolean>(true);
@@ -221,12 +227,14 @@ function MinimapInner({
 
     canvas.width = width;
     canvas.height = height;
-    overlayCanvas.width = width;
-    overlayCanvas.height = height;
-
     mainCtxRef.current = canvas.getContext("2d");
     overlayCtxRef.current = overlayCanvas.getContext("2d");
     invalidateTerrainCache();
+
+    // Resize worker if it exists
+    if (workerRef.current) {
+      workerRef.current.resize(width, height);
+    }
 
     // Note: extent intentionally omitted - changes handled via extentRef in render loop
   }, [width, height, world]);
@@ -243,7 +251,11 @@ function MinimapInner({
       roadsWithAABBRef.current = null;
       townsCacheRef.current = null;
       entityCacheRef.current.clear();
-      clearIconCache();
+      if (workerRef.current) {
+        workerRef.current.dispose();
+        workerRef.current = null;
+        workerInitializedRef.current = false;
+      }
     };
   }, [clearTerrainCache]);
 
@@ -445,73 +457,105 @@ function MinimapInner({
         }
       }
 
-      // --- Draw 2D overlay (roads -> buildings -> pips -> flag) every frame ---
-      const ctx = overlayCtxRef.current;
-      if (ctx) {
-        const cw = overlayCanvas.width;
-        const ch = overlayCanvas.height;
-        const viewportW = widthRef.current;
-        const viewportH = heightRef.current;
-        ctx.clearRect(0, 0, cw, ch);
-
-        if (rs.hasCachedMatrix && cam) {
-          const currentExtent = extentRef.current;
-          drawRoadsAndBuildings({
-            ctx,
-            roads: roadsWithAABBRef.current,
-            towns: townsCacheRef.current,
-            roadPixelBufHolder: roadPixelBufRef,
-            projectedRoads: projectedRoadsRef.current,
-            projectionViewMatrix: pvMatrix,
-            scratchVec: projectVec,
-            camX: cam.position.x,
-            camZ: cam.position.z,
-            viewRadius: currentExtent * 2,
-            worldToPixel: cw / (2 * currentExtent),
-            cw,
-            ch,
+      // --- Worker overlay (roads, buildings, entities, destination) ---
+      if (cam && isMinimapWorkerSupported()) {
+        // Lazy-init worker on first frame (ImageBitmap mode — avoids
+        // transferControlToOffscreen() which makes the overlay canvas opaque)
+        if (!workerInitializedRef.current && overlayCanvas) {
+          workerInitializedRef.current = true;
+          const mgr = new MinimapWorkerManager(
+            overlayCanvas.width,
+            overlayCanvas.height,
+          );
+          workerRef.current = mgr;
+          mgr.init();
+          mgr.setOnBitmap((bitmap) => {
+            const ctx = overlayCtxRef.current;
+            if (ctx) {
+              ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+              ctx.drawImage(bitmap, 0, 0);
+              bitmap.close();
+            }
           });
         }
 
-        if (rs.hasCachedMatrix) {
-          drawEntityPips({
-            ctx,
-            pips: entityPipsRefForRender.current,
-            projectionViewMatrix: pvMatrix,
-            scratchVec: projectVec,
-            camX: cam ? cam.position.x : 0,
-            camZ: cam ? cam.position.z : 0,
-            pipCullRadius: extentRef.current + 8,
-            viewportW,
-            viewportH,
-            frameTimeMs,
-          });
-        }
+        const worker = workerRef.current;
+        if (worker?.isReady()) {
+          // Camera yaw from world camera forward direction
+          let yaw = 0;
+          if (rotateWithCameraRef.current && cam.up) {
+            yaw = Math.atan2(cam.up.x, -cam.up.z);
+          }
 
-        // Draw destination marker
-        const lastTarget = (window as HyperscapeWindow).__lastRaycastTarget;
-        const destWorldRef = lastDestinationWorldRef.current;
-        const hasLastTarget =
-          lastTarget &&
-          Number.isFinite(lastTarget.x) &&
-          Number.isFinite(lastTarget.z);
-        const markerX = hasLastTarget ? lastTarget.x : destWorldRef?.x;
-        const markerZ = hasLastTarget ? lastTarget.z : destWorldRef?.z;
-
-        if (
-          rs.hasCachedMatrix &&
-          markerX !== undefined &&
-          markerZ !== undefined
-        ) {
-          drawDestinationMarker({
-            ctx,
-            projectionViewMatrix: pvMatrix,
-            scratchVec: destVec,
-            viewportW,
-            viewportH,
-            targetX: markerX,
-            targetZ: markerZ,
+          worker.updateCamera({
+            x: cam.position.x,
+            z: cam.position.z,
+            extent: extentRef.current,
+            rotation: yaw,
           });
+
+          // Convert EntityPip[] to WorkerEntity[]
+          const pips = entityPipsRefForRender.current;
+          const workerEntities: WorkerEntity[] = [];
+          for (let i = 0; i < pips.length; i++) {
+            const pip = pips[i];
+            workerEntities.push({
+              id: pip.id,
+              x: pip.position.x,
+              z: pip.position.z,
+              type: pip.type as WorkerEntity["type"],
+              color: pip.color,
+              size: pip.type === "quest" ? 6 : pip.type === "player" ? 4 : 3,
+              isLocalPlayer: pip.isLocalPlayer,
+              groupIndex: pip.groupIndex,
+              subType: pip.subType,
+              isActive: pip.isActive,
+              icon: pip.icon,
+            });
+          }
+          worker.updateEntities(workerEntities);
+
+          // Send roads (only when cache changes, but send every frame for simplicity — worker replaces array)
+          const roads = roadsWithAABBRef.current;
+          if (roads) {
+            worker.updateRoads(roads as WorkerRoad[]);
+          }
+
+          // Send buildings from town data
+          const towns = townsCacheRef.current;
+          if (towns) {
+            const workerBuildings: WorkerBuilding[] = [];
+            for (const town of towns) {
+              for (const b of town.buildings) {
+                workerBuildings.push({
+                  x: b.position.x,
+                  z: b.position.z,
+                  width: b.size.width,
+                  depth: b.size.depth,
+                  rotation: b.rotation,
+                });
+              }
+            }
+            worker.updateBuildings(workerBuildings);
+          }
+
+          // Destination marker
+          const lastTarget = (window as HyperscapeWindow).__lastRaycastTarget;
+          const destWorldRef = lastDestinationWorldRef.current;
+          const hasLastTarget =
+            lastTarget &&
+            Number.isFinite(lastTarget.x) &&
+            Number.isFinite(lastTarget.z);
+          const markerX = hasLastTarget ? lastTarget.x : destWorldRef?.x;
+          const markerZ = hasLastTarget ? lastTarget.z : destWorldRef?.z;
+
+          if (markerX !== undefined && markerZ !== undefined) {
+            worker.updateDestination(markerX, markerZ);
+          } else {
+            worker.clearDestination();
+          }
+
+          worker.render();
         }
       }
 
