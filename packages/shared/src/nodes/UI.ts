@@ -32,6 +32,7 @@ import type {
   UIData,
   UIProxy,
   UIYogaNode,
+  UIWheelEvent,
 } from "../types/rendering/nodes";
 import type { HotReloadable } from "../types";
 import { borderRoundRect } from "../extras/ui/borderRoundRect";
@@ -129,6 +130,8 @@ export class UI extends Node implements HotReloadable {
   mesh?: THREE.Mesh | null;
   sItem?: UISceneItem | null;
   cleanupPointer: (() => void) | null = null;
+  /** Optional wheel event handler, set by attachScrollHandler(). */
+  onWheel?: (e: UIWheelEvent) => void;
   needsRebuild?: boolean;
   needsRedraw?: boolean;
   box?: { left: number; top: number; width: number; height: number } | null;

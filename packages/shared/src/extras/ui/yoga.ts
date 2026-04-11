@@ -103,3 +103,14 @@ const flexWraps = ["no-wrap", "wrap", "wrap-reverse"];
 export function isFlexWrap(value: unknown): boolean {
   return flexWraps.includes(value as string);
 }
+
+/** Type guard for edge values (single number or [top, right, bottom, left] tuple). */
+export function isEdge(
+  value: unknown,
+): value is number | [number, number, number, number] {
+  if (typeof value === "number") return true;
+  if (Array.isArray(value)) {
+    return value.length === 4 && value.every((n) => typeof n === "number");
+  }
+  return false;
+}

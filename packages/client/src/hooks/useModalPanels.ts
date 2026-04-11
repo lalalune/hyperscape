@@ -12,16 +12,7 @@ import { EventType } from "@hyperscape/shared";
 import { useNotificationStore } from "@/ui/stores/notificationStore";
 import type { InventoryItem, TradeOfferItem } from "@hyperscape/shared";
 import type { ClientWorld } from "../types";
-
-/** Network event names for UI interactions */
-const NetworkEvents = {
-  SMELTING_CLOSE: "smeltingClose",
-  SMITHING_CLOSE: "smithingClose",
-  CRAFTING_CLOSE: "craftingClose",
-  TANNING_CLOSE: "tanningClose",
-  FLETCHING_CLOSE: "fletchingClose",
-  DUEL_ERROR: "duelError",
-} as const;
+import { NetworkEvents } from "../game/types";
 
 interface LegacyUIUpdatePayload {
   component: string;

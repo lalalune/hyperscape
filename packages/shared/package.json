@@ -14,7 +14,7 @@
       "require": "./build/framework.js"
     },
     "./client": {
-      "types": "./build/framework.d.ts",
+      "types": "./build/framework.client.d.ts",
       "import": "./build/framework.client.js",
       "default": "./build/framework.client.js"
     }

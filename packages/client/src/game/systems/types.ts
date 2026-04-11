@@ -21,23 +21,3 @@ export interface Size {
 
 /** Rectangle combining position and size */
 export interface Rect extends Point, Size {}
-
-// ============================================================================
-// Item Types
-// ============================================================================
-
-/** Basic item data structure */
-export interface ItemData {
-  /** Unique item identifier */
-  id: string;
-  /** Display name */
-  name: string;
-  /** Item type/category */
-  type: string;
-  /** Stack quantity (1 for non-stackable) */
-  quantity?: number;
-  /** Item icon URL or identifier */
-  icon?: string;
-  /** Item description */
-  description?: string;
-}

@@ -704,23 +704,28 @@ export interface UIViewData extends NodeData {
   flexBasis?: FlexBasis;
   flexGrow?: number;
   flexShrink?: number;
+  overflow?: "visible" | "hidden" | "scroll";
+  scrollX?: number;
+  scrollY?: number;
 }
+
+export type OverflowMode = "visible" | "hidden" | "scroll";
 
 // Enhanced UI Image interfaces
 export interface UIImageData extends NodeData {
   display?: string;
   src?: string | null;
-  width?: number | string | null;
-  height?: number | string | null;
+  width?: number | null;
+  height?: number | null;
   absolute?: boolean;
   top?: number | null;
   right?: number | null;
   bottom?: number | null;
   left?: number | null;
-  objectFit?: "fill" | "contain" | "cover" | "none" | "scale-down" | string;
+  objectFit?: "fill" | "contain" | "cover" | "none" | "scale-down";
   backgroundColor?: string | null;
   borderRadius?: number | null;
-  margin?: number | number[] | null;
+  margin?: number | [number, number, number, number] | null;
 }
 
 // UI component interfaces shared across UI nodes

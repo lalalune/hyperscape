@@ -26,6 +26,7 @@ export {
   getChangeIndicator,
   getChangeColor,
   formatChange,
+  formatGoldValue,
 } from "./currencyUtils";
 
 // Hooks

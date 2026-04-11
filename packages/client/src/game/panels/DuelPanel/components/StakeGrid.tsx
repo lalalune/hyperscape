@@ -8,7 +8,7 @@ import type { CSSProperties } from "react";
 import type { Theme } from "@/ui";
 import { getItem, type StakedItem } from "@hyperscape/shared";
 import { SlotItem } from "./SlotItem";
-import { formatGoldValue } from "../utils";
+import { formatGoldValue } from "../../../systems/currency";
 
 // ============================================================================
 // Types

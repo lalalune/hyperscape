@@ -42,6 +42,7 @@ export { Particles } from "./Particles";
 export { UI } from "./UI";
 export { UIView } from "./UIView";
 export { UIText } from "./UIText";
+export { UIImage } from "./UIImage";
 export { RigidBody } from "./RigidBody";
 export { Collider } from "./Collider";
 
@@ -58,5 +59,6 @@ export { Particles as particles } from "./Particles";
 export { UI as ui } from "./UI";
 export { UIView as uiview } from "./UIView";
 export { UIText as uitext } from "./UIText";
+export { UIImage as uiimage } from "./UIImage";
 export { RigidBody as rigidbody } from "./RigidBody";
 export { Collider as collider } from "./Collider";

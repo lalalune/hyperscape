@@ -41,13 +41,6 @@ export {
   OBJECTIVE_TYPE_CONFIG,
 } from "./questUtils";
 
-// Quest log hook
-export {
-  useQuestLog,
-  type UseQuestLogOptions,
-  type UseQuestLogResult,
-} from "./useQuestLog";
-
 // Quest tracker hook
 export {
   useQuestTracker,

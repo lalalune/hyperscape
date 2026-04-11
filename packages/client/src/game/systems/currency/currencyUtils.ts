@@ -357,6 +357,21 @@ export function formatBreakdown(breakdown: {
   return parts.join(" ");
 }
 
+/**
+ * Format gold value for OSRS-style wealth display (K/M/B suffixes).
+ * Used by DuelPanel and TradePanel for stake/trade value indicators.
+ */
+export function formatGoldValue(value: number): string {
+  if (value >= 1_000_000_000) {
+    return `${(value / 1_000_000_000).toFixed(1)}B`;
+  } else if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1)}M`;
+  } else if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(1)}K`;
+  }
+  return value.toLocaleString();
+}
+
 /** Change indicator for value changes */
 export type ChangeIndicator = "gain" | "loss" | "neutral";
 

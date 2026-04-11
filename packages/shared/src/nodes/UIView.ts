@@ -4,7 +4,7 @@
  * Container element for UI layouts with flexbox support.
  */
 
-import { every, isArray, isBoolean, isNumber, isString } from "lodash-es";
+import { isArray, isBoolean, isNumber, isString } from "lodash-es";
 import type * as YogaTypes from "yoga-layout";
 import Yoga from "yoga-layout";
 import { borderRoundRect } from "../extras/ui/borderRoundRect";
@@ -19,17 +19,20 @@ import {
   isAlignItem,
   isDisplay,
   isFlexDirection,
+  isEdge,
   isFlexWrap,
   isJustifyContent,
   JustifyContent,
 } from "../extras/ui/yoga";
 import { Node } from "./Node";
+import { roundRect } from "../extras/ui/roundRect";
 import type {
   UIViewData,
   DisplayType,
   FlexBasis,
   EdgeValue,
   UIContext,
+  OverflowMode,
 } from "../types/rendering/nodes";
 
 const defaults = {
@@ -56,6 +59,9 @@ const defaults = {
   flexBasis: "auto",
   flexGrow: 0,
   flexShrink: 1,
+  overflow: "visible",
+  scrollX: 0,
+  scrollY: 0,
 };
 
 export class UIView extends Node {
@@ -83,6 +89,9 @@ export class UIView extends Node {
   _flexBasis!: FlexBasis;
   _flexGrow!: number;
   _flexShrink!: number;
+  _overflow!: OverflowMode;
+  _scrollX!: number;
+  _scrollY!: number;
 
   // UI properties
   ui?: UIContext;
@@ -125,6 +134,10 @@ export class UIView extends Node {
     this.flexBasis = data.flexBasis ?? (defaults.flexBasis as FlexBasis);
     this.flexGrow = data.flexGrow ?? defaults.flexGrow;
     this.flexShrink = data.flexShrink ?? defaults.flexShrink;
+    this.overflow =
+      (data.overflow as OverflowMode) ?? (defaults.overflow as OverflowMode);
+    this.scrollX = data.scrollX ?? defaults.scrollX;
+    this.scrollY = data.scrollY ?? defaults.scrollY;
   }
 
   draw(ctx: CanvasRenderingContext2D, offsetLeft: number, offsetTop: number) {
@@ -170,6 +183,31 @@ export class UIView extends Node {
       }
     }
     this.box = { left, top, width, height };
+
+    const needsClip = this._overflow !== "visible";
+    if (needsClip) {
+      ctx.save();
+      ctx.beginPath();
+      if (this._borderRadius) {
+        roundRect(
+          ctx,
+          left,
+          top,
+          width,
+          height,
+          this._borderRadius * this.ui!._res,
+        );
+      } else {
+        ctx.rect(left, top, width, height);
+      }
+      ctx.clip();
+    }
+
+    const childOffsetX = needsClip
+      ? left - this._scrollX * this.ui!._res
+      : left;
+    const childOffsetY = needsClip ? top - this._scrollY * this.ui!._res : top;
+
     this.children.forEach((child) => {
       const drawable = child as {
         draw?: (
@@ -178,8 +216,12 @@ export class UIView extends Node {
           top: number,
         ) => void;
       };
-      if (drawable.draw) drawable.draw(ctx, left, top);
+      if (drawable.draw) drawable.draw(ctx, childOffsetX, childOffsetY);
     });
+
+    if (needsClip) {
+      ctx.restore();
+    }
   }
 
   mount() {
@@ -255,6 +297,9 @@ export class UIView extends Node {
     this.yogaNode.setFlexBasis(this._flexBasis);
     this.yogaNode.setFlexGrow(this._flexGrow);
     this.yogaNode.setFlexShrink(this._flexShrink);
+    if (this._overflow === "hidden" || this._overflow === "scroll") {
+      this.yogaNode.setOverflow(Yoga.OVERFLOW_HIDDEN);
+    }
     const parentNode = (this.parent as Node & { yogaNode?: YogaTypes.Node })
       ?.yogaNode;
     if (parentNode) {
@@ -306,6 +351,9 @@ export class UIView extends Node {
     this._flexShrink = source._flexShrink;
     this._flexWrap = source._flexWrap;
     this._gap = source._gap;
+    this._overflow = source._overflow;
+    this._scrollX = source._scrollX;
+    this._scrollY = source._scrollY;
     return this;
   }
 
@@ -706,6 +754,50 @@ export class UIView extends Node {
     this.ui?.redraw();
   }
 
+  get overflow() {
+    return this._overflow;
+  }
+
+  set overflow(value: OverflowMode) {
+    if (value !== "visible" && value !== "hidden" && value !== "scroll") {
+      throw new Error(
+        `[uiview] overflow must be "visible", "hidden", or "scroll", got "${value}"`,
+      );
+    }
+    if (this._overflow === value) return;
+    this._overflow = value;
+    if (this.yogaNode) {
+      if (value === "hidden" || value === "scroll") {
+        this.yogaNode.setOverflow(Yoga.OVERFLOW_HIDDEN);
+      } else {
+        this.yogaNode.setOverflow(Yoga.OVERFLOW_VISIBLE);
+      }
+    }
+    this.ui?.redraw();
+  }
+
+  get scrollX() {
+    return this._scrollX;
+  }
+
+  set scrollX(value: number) {
+    if (!isNumber(value)) throw new Error("[uiview] scrollX not a number");
+    if (this._scrollX === value) return;
+    this._scrollX = value;
+    this.ui?.redraw();
+  }
+
+  get scrollY() {
+    return this._scrollY;
+  }
+
+  set scrollY(value: number) {
+    if (!isNumber(value)) throw new Error("[uiview] scrollY not a number");
+    if (this._scrollY === value) return;
+    this._scrollY = value;
+    this.ui?.redraw();
+  }
+
   getProxy() {
     const self = this;
     if (!this.proxy) {
@@ -848,6 +940,24 @@ export class UIView extends Node {
         set flexShrink(value) {
           self.flexShrink = value;
         },
+        get overflow() {
+          return self.overflow;
+        },
+        set overflow(value) {
+          self.overflow = value;
+        },
+        get scrollX() {
+          return self.scrollX;
+        },
+        set scrollX(value) {
+          self.scrollX = value;
+        },
+        get scrollY() {
+          return self.scrollY;
+        },
+        set scrollY(value) {
+          self.scrollY = value;
+        },
       };
       proxy = Object.defineProperties(
         proxy,
@@ -857,14 +967,4 @@ export class UIView extends Node {
     }
     return this.proxy;
   }
-}
-
-function isEdge(value: unknown): value is number | EdgeValue {
-  if (isNumber(value)) {
-    return true;
-  }
-  if (isArray(value)) {
-    return value.length === 4 && every(value, (n) => isNumber(n));
-  }
-  return false;
 }

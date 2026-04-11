@@ -16,3 +16,7 @@ export { EQUIPMENT_SLOT_NAMES } from "./equipment";
 
 // UI types
 export type { InventorySlotViewItem, StatusValue, PanelState } from "./ui";
+
+// Network event types
+export { NetworkEvents } from "./events";
+export type { NetworkEventName } from "./events";

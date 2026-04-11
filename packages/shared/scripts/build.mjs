@@ -184,6 +184,17 @@ async function generateDeclarations() {
   } else {
     console.warn('⚠️  index.d.ts not found at', indexDts)
   }
+
+  // Copy index.client.d.ts to framework.client.d.ts for client-only types
+  const indexClientDts = path.join(buildDir, 'index.client.d.ts')
+  const frameworkClientDts = path.join(buildDir, 'framework.client.d.ts')
+
+  if (await fs.pathExists(indexClientDts)) {
+    await fs.copy(indexClientDts, frameworkClientDts)
+    console.log('✓ Copied index.client.d.ts to framework.client.d.ts')
+  } else {
+    console.warn('⚠️  index.client.d.ts not found at', indexClientDts)
+  }
 }
 
 /**
