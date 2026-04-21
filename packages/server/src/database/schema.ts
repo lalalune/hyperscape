@@ -2562,6 +2562,15 @@ export const streamingDuelHistory = pgTable(
     winReason: text("winReason").notNull(),
     damageWinner: integer("damageWinner").notNull().default(0),
     damageLoser: integer("damageLoser").notNull().default(0),
+    // Oracle proof columns, populated at resolution time from buildOracleProof().
+    // Nullable for backwards-compatibility with rows created before this
+    // schema bump. The keeper catch-up endpoint requires these for any
+    // duel whose onDuelEnd was missed — without them, synthetic replay
+    // cannot propose a Solana result.
+    duelKeyHex: text("duelKeyHex"),
+    duelEndTime: bigint("duelEndTime", { mode: "number" }),
+    seed: text("seed"),
+    replayHash: text("replayHash"),
   },
   (table) => ({
     finishedAtIdx: index("idx_streaming_duel_history_finished").on(
@@ -2569,6 +2578,7 @@ export const streamingDuelHistory = pgTable(
     ),
     winnerIdx: index("idx_streaming_duel_history_winner").on(table.winnerId),
     loserIdx: index("idx_streaming_duel_history_loser").on(table.loserId),
+    duelIdIdx: index("idx_streaming_duel_history_duelid").on(table.duelId),
   }),
 );
 

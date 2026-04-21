@@ -6,7 +6,7 @@
  * management, HP tracking, fight resolution, and post-duel cleanup.
  */
 
-import type { World } from "@hyperscape/shared";
+import type { DuelArenaConfig, World } from "@hyperscape/shared";
 import {
   AttackType,
   COMBAT_SPELLS,
@@ -20,6 +20,8 @@ import {
   getDuelArenaConfig,
   getItem,
   isPositionInsideCombatArena,
+  tileChebyshevDistance,
+  worldToTile,
 } from "@hyperscape/shared";
 import { DuelCombatAI } from "../../../duel/DuelCombatAI.js";
 import {
@@ -124,6 +126,8 @@ type AgentCombatData = {
 
 /** Reserved regular duel arena for streaming agents (always use a single arena). */
 const STREAMING_AGENT_ARENA_ID = 1;
+/** Streaming agents enter combat immediately, so they must spawn in melee range. */
+const STREAMING_AGENT_ENGAGEMENT_TILE_DISTANCE = 1;
 /** Duel-eligible bronze weapons — only types with new models in swords/ directory. */
 const DUEL_BRONZE_WEAPON_IDS = [
   "bronze_longsword",
@@ -144,6 +148,62 @@ const STALL_NUDGE_MAX_DAMAGE = 5;
 
 /** Combat role types for duel arena agents. */
 type DuelCombatRole = "melee" | "ranged" | "mage" | "prayer";
+
+export function computeStreamingArenaEngagementSpawnPoints(
+  arenaConfig: DuelArenaConfig,
+  requestedArenaId = STREAMING_AGENT_ARENA_ID,
+): {
+  arenaId: number;
+  agent1: { x: number; z: number };
+  agent2: { x: number; z: number };
+} {
+  const arenaId = Math.max(
+    1,
+    Math.min(requestedArenaId, arenaConfig.arenaCount),
+  );
+  const row = Math.floor((arenaId - 1) / arenaConfig.columns);
+  const col = (arenaId - 1) % arenaConfig.columns;
+  const centerX =
+    arenaConfig.baseX +
+    col * (arenaConfig.arenaWidth + arenaConfig.arenaGap) +
+    arenaConfig.arenaWidth / 2;
+  const centerZ =
+    arenaConfig.baseZ +
+    row * (arenaConfig.arenaLength + arenaConfig.arenaGap) +
+    arenaConfig.arenaLength / 2;
+  const centerTileX = Math.floor(centerX);
+  const centerTileZ = Math.floor(centerZ);
+  const tileCenter = (tile: number) => tile + 0.5;
+
+  // Regular player duels use opposite spawn points. Streaming agents skip the
+  // human chase phase and call CombatSystem.startCombat immediately, so they
+  // must begin on adjacent tiles or melee combat deterministically fails.
+  if (arenaConfig.spawnLayout === "alongWidth") {
+    return {
+      arenaId,
+      agent1: {
+        x: tileCenter(centerTileX - STREAMING_AGENT_ENGAGEMENT_TILE_DISTANCE),
+        z: tileCenter(centerTileZ),
+      },
+      agent2: {
+        x: tileCenter(centerTileX),
+        z: tileCenter(centerTileZ),
+      },
+    };
+  }
+
+  return {
+    arenaId,
+    agent1: {
+      x: tileCenter(centerTileX),
+      z: tileCenter(centerTileZ - STREAMING_AGENT_ENGAGEMENT_TILE_DISTANCE),
+    },
+    agent2: {
+      x: tileCenter(centerTileX),
+      z: tileCenter(centerTileZ),
+    },
+  };
+}
 
 /**
  * When skill scores tie, prefer ranged/mage over melee so streaming duels
@@ -183,6 +243,8 @@ export class DuelOrchestrator {
   private combatLoopInterval: ReturnType<typeof setInterval> | null = null;
   private combatLoopTickCount: number = 0;
   private combatRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private victoryPresentationTimeout: ReturnType<typeof setTimeout> | null =
+    null;
   private combatRetryCount: number = 0;
   private static readonly MAX_COMBAT_RETRIES = 5;
   private duelFoodSlotsByAgent: Map<string, DuelFoodProvisionedSlot[]> =
@@ -1963,50 +2025,22 @@ export class DuelOrchestrator {
     // Use a single reserved regular duel arena so all agent duels happen in
     // the same standard arena as player duels (no custom arena coordinates).
     const arenaConfig = getDuelArenaConfig();
-    const arenaId = Math.max(
-      1,
-      Math.min(STREAMING_AGENT_ARENA_ID, arenaConfig.arenaCount),
-    );
-    const row = Math.floor((arenaId - 1) / arenaConfig.columns);
-    const col = (arenaId - 1) % arenaConfig.columns;
-    const arenaCenterX =
-      arenaConfig.baseX +
-      col * (arenaConfig.arenaWidth + arenaConfig.arenaGap) +
-      arenaConfig.arenaWidth / 2;
-    const arenaCenterZ =
-      arenaConfig.baseZ +
-      row * (arenaConfig.arenaLength + arenaConfig.arenaGap) +
-      arenaConfig.arenaLength / 2;
-    const cx = arenaCenterX;
-    const cz = arenaCenterZ;
-    const off = arenaConfig.spawnOffset;
-
-    let agent1X: number;
-    let agent1Z: number;
-    let agent2X: number;
-    let agent2Z: number;
-    if (arenaConfig.spawnLayout === "alongWidth") {
-      agent1X = cx - off;
-      agent1Z = cz;
-      agent2X = cx + off;
-      agent2Z = cz;
-    } else {
-      agent1X = cx;
-      agent1Z = cz - off;
-      agent2X = cx;
-      agent2Z = cz + off;
-    }
+    const { arenaId, agent1, agent2 } =
+      computeStreamingArenaEngagementSpawnPoints(
+        arenaConfig,
+        STREAMING_AGENT_ARENA_ID,
+      );
 
     const agent1Pos: [number, number, number] = [
-      agent1X,
-      this.getGroundedY(agent1X, agent1Z, arenaConfig.baseY),
-      agent1Z,
+      agent1.x,
+      this.getGroundedY(agent1.x, agent1.z, arenaConfig.baseY),
+      agent1.z,
     ];
 
     const agent2Pos: [number, number, number] = [
-      agent2X,
-      this.getGroundedY(agent2X, agent2Z, arenaConfig.baseY),
-      agent2Z,
+      agent2.x,
+      this.getGroundedY(agent2.x, agent2.z, arenaConfig.baseY),
+      agent2.z,
     ];
 
     // Teleport both agents, facing each other
@@ -2373,9 +2407,10 @@ export class DuelOrchestrator {
 
     // Start DuelCombatAI for each agent (tick-based heal/buff/attack decisions)
     this.startCombatAIs().catch((err) => {
-      Logger.warn(
+      Logger.error(
         "StreamingDuelScheduler",
         `Failed to start combat AIs: ${errMsg(err)}`,
+        err instanceof Error ? err : null,
       );
     });
   }
@@ -2386,9 +2421,6 @@ export class DuelOrchestrator {
    * potion usage, and combat phase awareness (opening, trading, finishing).
    */
   async startCombatAIs(): Promise<void> {
-    this.stopCombatAIs();
-    this.combatRetryCount = 0;
-
     const cycle = this.getCurrentCycle();
     if (!cycle?.agent1 || !cycle?.agent2) return;
 
@@ -2397,6 +2429,8 @@ export class DuelOrchestrator {
         .toLowerCase()
         .trim() !== "false";
     if (!combatAiEnabled) {
+      this.stopCombatAIs();
+      this.combatRetryCount = 0;
       Logger.info(
         "StreamingDuelScheduler",
         "Combat AI disabled via STREAMING_DUEL_COMBAT_AI_ENABLED=false; relying on combat system re-engagement loop",
@@ -2414,6 +2448,11 @@ export class DuelOrchestrator {
     const { getAgentRuntimeByCharacterId } =
       await import("../../../eliza/ModelAgentSpawner.js");
     const manager = getAgentManager();
+
+    // Stop/relock after async imports so autonomy is not briefly restored while
+    // the module loader yields.
+    this.stopCombatAIs();
+    this.combatRetryCount = 0;
 
     const service1 = manager?.getAgentService(agent1.characterId) ?? null;
     const service2 = manager?.getAgentService(agent2.characterId) ?? null;
@@ -2487,6 +2526,20 @@ export class DuelOrchestrator {
       Logger.info(
         "StreamingDuelScheduler",
         `Combat AI started for ${agent2.name} (role=${role2}, ${llmTacticsEnabled && !!runtime2 ? "LLM strategy" : "scripted"})`,
+      );
+    }
+
+    if (this.combatAIs.size === 0) {
+      Logger.error(
+        "StreamingDuelScheduler",
+        "No combat AIs started; fight will rely only on combat re-engagement loop",
+        null,
+        {
+          agent1Id: agent1.characterId,
+          agent2Id: agent2.characterId,
+          service1Available: !!service1,
+          service2Available: !!service2,
+        },
       );
     }
   }
@@ -2754,6 +2807,13 @@ export class DuelOrchestrator {
     }
   }
 
+  clearVictoryPresentationTimeout(): void {
+    if (this.victoryPresentationTimeout) {
+      clearTimeout(this.victoryPresentationTimeout);
+      this.victoryPresentationTimeout = null;
+    }
+  }
+
   scheduleCombatRetryIfNeeded(agent1Id: string, agent2Id: string): void {
     this.clearCombatRetryTimeout();
     this.combatRetryTimeout = setTimeout(() => {
@@ -2810,19 +2870,7 @@ export class DuelOrchestrator {
       // Re-teleport to fix spacing, then retry combat
       this.ensureDuelProximity(agent1Id, agent2Id);
 
-      if (combatSystem?.startCombat) {
-        combatSystem.startCombat(agent1Id, agent2Id, {
-          attackerType: "player",
-          targetType: "player",
-        });
-        const cycleAfterRetry = this.getCurrentCycle();
-        if (cycleAfterRetry?.phase === "FIGHTING") {
-          combatSystem.startCombat(agent2Id, agent1Id, {
-            attackerType: "player",
-            targetType: "player",
-          });
-        }
-      }
+      this.tryMutualCombat(agent1Id, agent2Id);
 
       this.setAgentCombatTarget(agent1Id, agent2Id);
       this.setAgentCombatTarget(agent2Id, agent1Id);
@@ -2856,11 +2904,7 @@ export class DuelOrchestrator {
     const bx = Array.isArray(posB) ? posB[0] : posB.x;
     const bz = Array.isArray(posB) ? posB[2] : posB.z;
 
-    const tileAx = Math.floor(ax);
-    const tileAz = Math.floor(az);
-    const tileBx = Math.floor(bx);
-    const tileBz = Math.floor(bz);
-    return Math.max(Math.abs(tileAx - tileBx), Math.abs(tileAz - tileBz));
+    return tileChebyshevDistance(worldToTile(ax, az), worldToTile(bx, bz));
   }
 
   // ============================================================================
@@ -3040,7 +3084,9 @@ export class DuelOrchestrator {
   // HP Tracking & Combat Stall Nudge
   // ============================================================================
 
-  updateContestantHp(): void {
+  updateContestantHp():
+    | { hpLost1: number; hpLost2: number; maxHp1: number; maxHp2: number }
+    | undefined {
     const cycle = this.getCurrentCycle();
     if (!cycle?.agent1 || !cycle?.agent2) return;
 
@@ -3083,6 +3129,14 @@ export class DuelOrchestrator {
     if (hpLost2 > 0) {
       cycle.agent1.damageDealtThisFight += hpLost2;
     }
+
+    // Return HP deltas so the scheduler can feed combat hits to the camera director
+    return {
+      hpLost1,
+      hpLost2,
+      maxHp1: cycle.agent1.maxHp,
+      maxHp2: cycle.agent2.maxHp,
+    };
   }
 
   /**
@@ -3239,7 +3293,9 @@ export class DuelOrchestrator {
     // combat state teardown, scheduled animation resets) finishes first.
     // Without this, the "victory" emote gets immediately overwritten by
     // stale "idle" resets from the combat animation system.
-    setTimeout(() => {
+    this.clearVictoryPresentationTimeout();
+    this.victoryPresentationTimeout = setTimeout(() => {
+      this.victoryPresentationTimeout = null;
       this.triggerVictoryEmote(winnerId);
       this.fireVictoryTrashTalk(winnerId);
     }, 600);
@@ -3522,6 +3578,7 @@ export class DuelOrchestrator {
   reset(): void {
     this.stopCombatLoop();
     this.clearCombatRetryTimeout();
+    this.clearVictoryPresentationTimeout();
     this.stopCombatAIs();
     this._lastFightStats.clear();
     this.duelFoodSlotsByAgent.clear();

@@ -22,6 +22,22 @@ interface NetworkWithSend {
   send: <T>(name: string, data: T, ignoreSocketId?: string) => void;
   sendToSpectators?: <T>(name: string, data: T) => void;
 }
+
+function redactOracleProofFromStreamingState(
+  state: StreamingStateUpdate,
+): StreamingStateUpdate {
+  return {
+    ...state,
+    cycle: {
+      ...state.cycle,
+      duelKeyHex: null,
+      duelEndTime: null,
+      seed: null,
+      replayHash: null,
+    },
+  };
+}
+
 import { Logger } from "../ServerNetwork/services";
 import { v4 as uuidv4 } from "uuid";
 import { errMsg } from "../../shared/errMsg.js";
@@ -1360,8 +1376,25 @@ export class StreamingDuelScheduler {
       this.orchestrator.endFightByTimeout();
     }
 
-    // Update HP from entities
-    this.orchestrator.updateContestantHp();
+    // Update HP from entities and feed damage hits to camera director
+    const hpDeltas = this.orchestrator.updateContestantHp();
+    if (hpDeltas && this.currentCycle) {
+      const { hpLost1, hpLost2, maxHp1, maxHp2 } = hpDeltas;
+      if (hpLost1 > 0 && this.currentCycle.agent1) {
+        this.camera.onCombatHit(
+          this.currentCycle.agent1.characterId,
+          hpLost1 / Math.max(1, maxHp1),
+          now,
+        );
+      }
+      if (hpLost2 > 0 && this.currentCycle.agent2) {
+        this.camera.onCombatHit(
+          this.currentCycle.agent2.characterId,
+          hpLost2 / Math.max(1, maxHp2),
+          now,
+        );
+      }
+    }
 
     // Fallback: nudge stalled fights so the stream cycle still progresses even
     // when combat start hooks fail in this tick window.
@@ -1391,7 +1424,7 @@ export class StreamingDuelScheduler {
     loserId: string,
     winReason: "kill" | "hp_advantage" | "damage_advantage" | "draw",
     finishedAt: number,
-  ): { seed: string; replayHash: string } {
+  ): { duelKeyHex: string | null; seed: string; replayHash: string } {
     const duelId = cycle.duelId ?? `streaming-${cycle.cycleId}`;
     const fightStartedAt = cycle.fightStartTime ?? cycle.cycleStartTime;
     const duelSeedHex = crypto
@@ -1422,7 +1455,11 @@ export class StreamingDuelScheduler {
         }),
       )
       .digest("hex");
-    return { seed, replayHash };
+    // Return the duel key alongside seed + replayHash so the proof is
+    // self-contained. Callers that persist the proof must not rely on
+    // cycle.duelKeyHex still being populated at write time — the cycle can
+    // be cleared by shutdown or phase-reset before persistence completes.
+    return { duelKeyHex: cycle.duelKeyHex ?? null, seed, replayHash };
   }
 
   /**
@@ -1471,6 +1508,11 @@ export class StreamingDuelScheduler {
     );
     this.currentCycle.seed = oracleProof.seed;
     this.currentCycle.replayHash = oracleProof.replayHash;
+    // If the cycle's duelKeyHex was somehow cleared, recover it from the
+    // self-contained proof so persistence below is consistent.
+    if (!this.currentCycle.duelKeyHex && oracleProof.duelKeyHex) {
+      this.currentCycle.duelKeyHex = oracleProof.duelKeyHex;
+    }
 
     // Update stats — draws don't affect win/loss/streaks (#24)
     if (winReason === "draw") {
@@ -1505,6 +1547,12 @@ export class StreamingDuelScheduler {
         this.currentCycle.agent1?.characterId === loserId
           ? this.currentCycle.agent1.damageDealtThisFight
           : (this.currentCycle.agent2?.damageDealtThisFight ?? 0),
+      // Oracle proof — needed by the keeper result-catch-up endpoint so a
+      // missed onDuelEnd event can still be replayed to resolve the bundle.
+      duelKeyHex: this.currentCycle.duelKeyHex ?? null,
+      duelEndTime: this.currentCycle.duelEndTime ?? null,
+      seed: this.currentCycle.seed ?? null,
+      replayHash: this.currentCycle.replayHash ?? null,
     });
 
     // Pull per-fight AI stats (attacksLanded, healsUsed) captured in stopCombatAIs
@@ -1594,104 +1642,139 @@ export class StreamingDuelScheduler {
 
     // Fix M — guard against re-entry
     if (this._endCycleInProgress) return;
+    const cycleSnapshot = this.currentCycle;
     this._endCycleInProgress = true;
 
-    const cycleSnapshot = this.currentCycle;
-    const now = Date.now();
-    const winnerId = cycleSnapshot.winnerId;
-    const loserId = cycleSnapshot.loserId;
-    const cycleAgent1Id = cycleSnapshot.agent1?.characterId ?? null;
-    const cycleAgent2Id = cycleSnapshot.agent2?.characterId ?? null;
+    try {
+      const now = Date.now();
+      const winnerId = cycleSnapshot.winnerId;
+      const loserId = cycleSnapshot.loserId;
+      const cycleAgent1Id = cycleSnapshot.agent1?.characterId ?? null;
+      const cycleAgent2Id = cycleSnapshot.agent2?.characterId ?? null;
 
-    // Snapshot duel food slots before clearing
-    const duelFoodSlotsMap = this.orchestrator.getDuelFoodSlotsByAgent();
-    const duelFoodSlotsSnapshotByAgent = new Map<
-      string,
-      Array<{ slot: number; itemId: string }>
-    >();
-    if (cycleAgent1Id) {
-      duelFoodSlotsSnapshotByAgent.set(cycleAgent1Id, [
-        ...(duelFoodSlotsMap.get(cycleAgent1Id) ?? []),
-      ]);
-      duelFoodSlotsMap.delete(cycleAgent1Id);
-    }
-    if (cycleAgent2Id) {
-      duelFoodSlotsSnapshotByAgent.set(cycleAgent2Id, [
-        ...(duelFoodSlotsMap.get(cycleAgent2Id) ?? []),
-      ]);
-      duelFoodSlotsMap.delete(cycleAgent2Id);
-    }
+      // Snapshot duel food slots before clearing
+      const duelFoodSlotsMap = this.orchestrator.getDuelFoodSlotsByAgent();
+      const duelFoodSlotsSnapshotByAgent = new Map<
+        string,
+        Array<{ slot: number; itemId: string }>
+      >();
+      if (cycleAgent1Id) {
+        duelFoodSlotsSnapshotByAgent.set(cycleAgent1Id, [
+          ...(duelFoodSlotsMap.get(cycleAgent1Id) ?? []),
+        ]);
+        duelFoodSlotsMap.delete(cycleAgent1Id);
+      }
+      if (cycleAgent2Id) {
+        duelFoodSlotsSnapshotByAgent.set(cycleAgent2Id, [
+          ...(duelFoodSlotsMap.get(cycleAgent2Id) ?? []),
+        ]);
+        duelFoodSlotsMap.delete(cycleAgent2Id);
+      }
 
-    Logger.info(
-      "StreamingDuelScheduler",
-      `Cycle ${cycleSnapshot.cycleId} ended. Winner: ${winnerId || "none"}`,
-    );
+      Logger.info(
+        "StreamingDuelScheduler",
+        `Cycle ${cycleSnapshot.cycleId} ended. Winner: ${winnerId || "none"}`,
+      );
 
-    // Emit cycle end
-    this.world.emit("streaming:resolution:end", {
-      cycleId: cycleSnapshot.cycleId,
-      duelId: cycleSnapshot.duelId,
-      duelKeyHex: cycleSnapshot.duelKeyHex,
-      winnerId,
-      loserId,
-    });
-    this.camera.finishFightCutawayTracking(now);
+      // Emit cycle end
+      this.world.emit("streaming:resolution:end", {
+        cycleId: cycleSnapshot.cycleId,
+        duelId: cycleSnapshot.duelId,
+        duelKeyHex: cycleSnapshot.duelKeyHex,
+        winnerId,
+        loserId,
+      });
+      this.camera.finishFightCutawayTracking(now);
 
-    // NOTE: Duel flags (inStreamingDuel, preventRespawn) are intentionally NOT
-    // cleared here. They stay `true` until cleanupAfterDuel() teleports both
-    // agents out of the arena and then clears them via microtask. Clearing
-    // flags before the cleanup teleport creates a race condition where
-    // DuelSystem.ejectNonDuelingPlayersFromCombatArenas() sees the agents
-    // still in the arena with inStreamingDuel=false and emits a spurious
-    // extra teleport (causing duplicate teleport VFX).
+      // NOTE: Duel flags (inStreamingDuel, preventRespawn) are intentionally NOT
+      // cleared here. They stay `true` until cleanupAfterDuel() teleports both
+      // agents out of the arena and then clears them via microtask. Clearing
+      // flags before the cleanup teleport creates a race condition where
+      // DuelSystem.ejectNonDuelingPlayersFromCombatArenas() sees the agents
+      // still in the arena with inStreamingDuel=false and emits a spurious
+      // extra teleport (causing duplicate teleport VFX).
 
-    // Clear current cycle
-    this.currentCycle = null;
+      // Clear current cycle
+      this.currentCycle = null;
 
-    // Transition phase state machine back to IDLE
-    this.phaseStateMachine.forceIdle();
-    this.schedulerState = "IDLE";
+      // Transition phase state machine back to IDLE
+      this.phaseStateMachine.forceIdle();
+      this.schedulerState = "IDLE";
 
-    // Await cleanup, then start next cycle after an inter-cycle delay.
-    // This prevents stale avatars from lingering in the arena — cleanup
-    // must complete before re-selecting agents for the next duel.
-    this.orchestrator
-      .cleanupAfterDuel(cycleSnapshot, duelFoodSlotsSnapshotByAgent)
-      .catch((err) => {
+      // Await cleanup, then start next cycle after an inter-cycle delay.
+      // This prevents stale avatars from lingering in the arena — cleanup
+      // must complete before re-selecting agents for the next duel.
+      this.orchestrator
+        .cleanupAfterDuel(cycleSnapshot, duelFoodSlotsSnapshotByAgent)
+        .catch((err) => {
+          Logger.warn(
+            "StreamingDuelScheduler",
+            `cleanupAfterDuel failed: ${err instanceof Error ? err.message : String(err)}. Clearing duel food tracking and flags as fallback.`,
+          );
+          this.orchestrator.clearDuelFlagsForCycleIfInactive(cycleSnapshot);
+        })
+        .finally(() => {
+          // Wait for inter-cycle delay so spectators see a clean arena reset
+          setTimeout(() => {
+            this._endCycleInProgress = false;
+
+            // Check for pending graceful restart
+            if (this._pendingGracefulRestart) {
+              Logger.info(
+                "StreamingDuelScheduler",
+                "Duel cycle complete, triggering pending graceful restart",
+              );
+              this.triggerGracefulRestart();
+              return;
+            }
+
+            // Start new cycle if enough agents are available
+            if (this.matchmaking.availableAgents.size >= config.minAgents) {
+              this.schedulerState = "ACTIVE";
+              this.startNewCycle();
+            } else {
+              this.schedulerState = "WAITING_FOR_AGENTS";
+              Logger.info(
+                "StreamingDuelScheduler",
+                `Waiting for agents after cycle end: ${this.matchmaking.availableAgents.size}/${config.minAgents}`,
+              );
+            }
+          }, STREAMING_TIMING.INTER_CYCLE_DELAY_MS);
+        });
+    } catch (err) {
+      Logger.error(
+        "StreamingDuelScheduler",
+        "endCycle failed during synchronous transition",
+        err instanceof Error ? err : null,
+        {
+          cycleId: cycleSnapshot.cycleId,
+          duelId: cycleSnapshot.duelId,
+        },
+      );
+
+      try {
+        this.orchestrator.clearDuelFlagsForCycleIfInactive(cycleSnapshot);
+      } catch (cleanupErr) {
         Logger.warn(
           "StreamingDuelScheduler",
-          `cleanupAfterDuel failed: ${err instanceof Error ? err.message : String(err)}. Clearing duel food tracking and flags as fallback.`,
+          `endCycle fallback flag cleanup failed: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)}`,
         );
-        this.orchestrator.clearDuelFlagsForCycleIfInactive(cycleSnapshot);
-      })
-      .finally(() => {
-        // Wait for inter-cycle delay so spectators see a clean arena reset
-        setTimeout(() => {
-          this._endCycleInProgress = false;
+      }
 
-          // Check for pending graceful restart
-          if (this._pendingGracefulRestart) {
-            Logger.info(
-              "StreamingDuelScheduler",
-              "Duel cycle complete, triggering pending graceful restart",
-            );
-            this.triggerGracefulRestart();
-            return;
-          }
-
-          // Start new cycle if enough agents are available
-          if (this.matchmaking.availableAgents.size >= config.minAgents) {
-            this.schedulerState = "ACTIVE";
-            this.startNewCycle();
-          } else {
-            this.schedulerState = "WAITING_FOR_AGENTS";
-            Logger.info(
-              "StreamingDuelScheduler",
-              `Waiting for agents after cycle end: ${this.matchmaking.availableAgents.size}/${config.minAgents}`,
-            );
-          }
-        }, STREAMING_TIMING.INTER_CYCLE_DELAY_MS);
-      });
+      if (this.currentCycle === cycleSnapshot) {
+        this.currentCycle = null;
+      }
+      try {
+        this.phaseStateMachine.forceIdle();
+      } catch (phaseErr) {
+        Logger.warn(
+          "StreamingDuelScheduler",
+          `endCycle fallback phase reset failed: ${phaseErr instanceof Error ? phaseErr.message : String(phaseErr)}`,
+        );
+      }
+      this.schedulerState = "IDLE";
+      this._endCycleInProgress = false;
+    }
   }
 
   /**
@@ -1971,7 +2054,7 @@ export class StreamingDuelScheduler {
   }
 
   private broadcastState(): void {
-    const state = this.getStreamingState();
+    const state = redactOracleProofFromStreamingState(this.getStreamingState());
     // Broadcast streaming state only to spectator sockets (interest management).
     // Regular gameplay clients don't need streaming duel updates every second.
     const network = this.world.network as NetworkWithSend | undefined;
@@ -1984,7 +2067,13 @@ export class StreamingDuelScheduler {
   }
 
   /**
-   * Get current streaming state for broadcast.
+   * Get current raw streaming state.
+   *
+   * This object may contain oracle-proof material (`duelKeyHex`, `seed`,
+   * `replayHash`, `duelEndTime`) while a duel is active or freshly resolved.
+   * Any public HTTP, SSE, or spectator-socket emission must redact those
+   * fields first.
+   *
    * MEMORY OPTIMIZATION: Reuses pre-allocated objects to avoid GC pressure.
    * Only creates new contestant objects when agents change.
    */
@@ -2379,6 +2468,25 @@ export class StreamingDuelScheduler {
       if (this.camera.isAgentValidCameraCandidate(agentId)) {
         return agentId;
       }
+    }
+
+    // Final fallback: during an active cycle, prefer to point at a contestant
+    // that still has a live world entity, even if they are no longer in the
+    // matchmaking `availableAgents` pool. This covers the case where a
+    // contestant disconnects mid-fight (PLAYER_LEFT → unregisterAgent) and
+    // is therefore no longer a "valid camera candidate" by the matchmaking
+    // rule, but their entity is still in the arena and is the thing the
+    // viewer actually wants to see. Observed on 2026-04-15 where the state
+    // endpoint returned `phase: FIGHTING` with `cameraTarget: null` because
+    // both contestants had been unregistered from matchmaking but were still
+    // alive in the world.
+    const cycleAgent1Id = this.currentCycle.agent1?.characterId;
+    if (cycleAgent1Id && this.world.entities.get(cycleAgent1Id)) {
+      return cycleAgent1Id;
+    }
+    const cycleAgent2Id = this.currentCycle.agent2?.characterId;
+    if (cycleAgent2Id && this.world.entities.get(cycleAgent2Id)) {
+      return cycleAgent2Id;
     }
 
     return null;

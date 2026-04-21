@@ -18,7 +18,7 @@
  * Handles signals:
  * - SIGINT (Ctrl+C) - User termination
  * - SIGTERM (Docker stop, systemd) - Graceful shutdown
- * - SIGUSR2 (Hot reload) - Dev mode restart
+ * - SIGUSR2 (Hot reload in development, restart in production)
  * - uncaughtException - Crash handling
  * - unhandledRejection - Promise error handling
  *
@@ -130,6 +130,9 @@ export function registerShutdownHandlers(
       /^(1|true|yes|on)$/i.test(
         process.env.SERVER_SURVIVE_UNHANDLED_REJECTION || "",
       ));
+  const preserveProcessOnSigusr2 =
+    process.env.NODE_ENV !== "production" &&
+    !/^(1|true|yes|on)$/i.test(process.env.SERVER_EXIT_ON_SIGUSR2 || "");
 
   if (surviveUnhandledRejection) {
     console.log(
@@ -147,7 +150,10 @@ export function registerShutdownHandlers(
    * Graceful shutdown handler
    *
    * Performs cleanup in the correct order to prevent data loss.
-   * Handles hot reload (SIGUSR2) differently from termination signals.
+   * Handles hot reload (SIGUSR2) differently from termination signals only
+   * outside production. Production process managers may use SIGUSR2 during
+   * reloads; keeping the process alive after closing HTTP leaves PM2 "online"
+   * while Caddy has no upstream listener.
    *
    * @param signal - Signal that triggered shutdown
    */
@@ -261,13 +267,19 @@ export function registerShutdownHandlers(
     // Step 9: Clear startup flag
     clearStartupFlag();
 
-    // For hot reload (SIGUSR2), don't exit process
-    if (signal === "SIGUSR2") {
+    // For development hot reload (SIGUSR2), don't exit process.
+    if (signal === "SIGUSR2" && preserveProcessOnSigusr2) {
       isShuttingDown = false; // Reset so next reload can proceed
       return;
     }
 
-    // For termination signals, exit after short delay
+    if (signal === "SIGUSR2") {
+      console.warn(
+        "[Shutdown] SIGUSR2 completed cleanup; exiting so the process manager can restart with a live HTTP listener.",
+      );
+    }
+
+    // For termination/restart signals, exit after short delay
     setTimeout(() => {
       process.exit(0);
     }, 100);

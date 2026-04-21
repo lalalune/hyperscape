@@ -37,6 +37,7 @@ type CameraSwitchTiming = {
   minHoldMs: number;
   maxHoldMs: number;
   idleThresholdMs: number;
+  reverseAngleCooldownMs: number;
 };
 
 type CameraCandidateWeight = {
@@ -75,19 +76,36 @@ const clampNumber = (value: number, min: number, max: number): number => {
 
 const CAMERA_DIRECTOR = {
   switchTiming: {
-    IDLE: { minHoldMs: 30_000, maxHoldMs: 90_000, idleThresholdMs: 15_000 },
+    IDLE: {
+      minHoldMs: 30_000,
+      maxHoldMs: 90_000,
+      idleThresholdMs: 15_000,
+      reverseAngleCooldownMs: 20_000,
+    },
     ANNOUNCEMENT: {
       minHoldMs: 22_000,
       maxHoldMs: 95_000,
       idleThresholdMs: 12_000,
+      reverseAngleCooldownMs: 20_000,
     },
-    COUNTDOWN: { minHoldMs: 6_000, maxHoldMs: 24_000, idleThresholdMs: 6_000 },
+    COUNTDOWN: {
+      minHoldMs: 6_000,
+      maxHoldMs: 24_000,
+      idleThresholdMs: 6_000,
+      reverseAngleCooldownMs: 20_000,
+    },
     FIGHTING: {
       minHoldMs: 28_000,
       maxHoldMs: 90_000,
       idleThresholdMs: 20_000,
+      reverseAngleCooldownMs: 14_000,
     },
-    RESOLUTION: { minHoldMs: 8_000, maxHoldMs: 45_000, idleThresholdMs: 8_000 },
+    RESOLUTION: {
+      minHoldMs: 8_000,
+      maxHoldMs: 45_000,
+      idleThresholdMs: 8_000,
+      reverseAngleCooldownMs: 20_000,
+    },
   } as Record<StreamingPhase, CameraSwitchTiming>,
   baseWeights: {
     IDLE: { contestant: 1.3, nonContestant: 1.3 },
@@ -105,9 +123,12 @@ const CAMERA_DIRECTOR = {
     currentTargetBias: 1.45,
     recentFocusPenaltyShort: 0.45,
     recentFocusPenaltyLong: 0.78,
-    switchRandomChance: 0.12,
+    switchRandomChancePerSec: 0.06,
     strongerThresholdActive: 1.55,
     strongerThresholdIdle: 1.1,
+    focusFatigueCooldownMs: 10_000,
+    returnPenaltyThreshold: 1.8,
+    returnPenaltyCooldownMs: 20_000,
   },
   idlePenalty: {
     softThresholdMs: 12_000,
@@ -157,8 +178,8 @@ const CAMERA_DIRECTOR = {
     currentTargetBias: 1.15,
     /** Threshold: new candidate must be this much stronger to trigger early switch */
     strongerThreshold: 1.2,
-    /** Small random chance to switch for variety (per eligible check) */
-    switchRandomChance: 0.18,
+    /** Per-second probability of random switch for variety */
+    switchRandomChancePerSec: 0.1,
   },
   /** Known skilling emotes from PendingGatherManager / PendingCookManager */
   skillingEmotes: new Set([
@@ -184,6 +205,8 @@ export class CameraDirector {
 
   private _cameraTarget: string | null = null;
   private lastCameraSwitchTime: number = 0;
+  private lastSwitchedAwayFrom: string | null = null;
+  private lastSwitchedAwayTime: number = 0;
   private agentActivity: Map<string, AgentActivitySample> = new Map();
   private fightCutawayStartedAt: number | null = null;
   private fightCutawayTotalMs: number = 0;
@@ -211,6 +234,8 @@ export class CameraDirector {
   reset(): void {
     this._cameraTarget = null;
     this.lastCameraSwitchTime = 0;
+    this.lastSwitchedAwayFrom = null;
+    this.lastSwitchedAwayTime = 0;
     this.agentActivity.clear();
     this.fightCutawayStartedAt = null;
     this.fightCutawayTotalMs = 0;
@@ -564,6 +589,10 @@ export class CameraDirector {
 
     const previous = this._cameraTarget;
     if (previous !== agentId) {
+      if (previous) {
+        this.lastSwitchedAwayFrom = previous;
+        this.lastSwitchedAwayTime = now;
+      }
       this._cameraTarget = agentId;
       this.lastCameraSwitchTime = now;
     }
@@ -620,6 +649,26 @@ export class CameraDirector {
     for (const agentId of availableAgents) {
       if (this.isAgentValidCameraCandidate(agentId)) {
         return agentId;
+      }
+    }
+
+    // Final fallback: if we have an active cycle, prefer to point at a
+    // contestant whose entity is still alive in the world even if they are
+    // no longer in the matchmaking `availableAgents` pool (e.g. mid-fight
+    // disconnect). The matchmaking pool is the set of agents eligible to
+    // start a NEW duel; a fighter who has dropped out of that pool is still
+    // physically in the arena and is what the viewer should see. Without
+    // this fallback `resolveCycleCameraTarget` returns null during FIGHTING
+    // when both contestants have been unregistered mid-fight, leaving the
+    // camera untargeted. Observed on 2026-04-15.
+    if (cycle) {
+      const cycleAgent1 = cycle.agent1?.characterId;
+      if (cycleAgent1 && this.world.entities.get(cycleAgent1)) {
+        return cycleAgent1;
+      }
+      const cycleAgent2 = cycle.agent2?.characterId;
+      if (cycleAgent2 && this.world.entities.get(cycleAgent2)) {
+        return cycleAgent2;
       }
     }
 
@@ -1013,20 +1062,38 @@ export class CameraDirector {
       currentIdleDurationMs >= timing.idleThresholdMs &&
       !currentCandidate.isInCombat;
 
+    const isReturningToRecent =
+      selected.agentId === this.lastSwitchedAwayFrom &&
+      now - this.lastSwitchedAwayTime <
+        CAMERA_DIRECTOR.multipliers.returnPenaltyCooldownMs;
+    const strongerThreshold = currentIsIdle
+      ? CAMERA_DIRECTOR.multipliers.strongerThresholdIdle
+      : isReturningToRecent
+        ? CAMERA_DIRECTOR.multipliers.returnPenaltyThreshold
+        : CAMERA_DIRECTOR.multipliers.strongerThresholdActive;
     const selectedIsStronger =
-      selected.weight >
-      currentCandidate.weight *
-        (currentIsIdle
-          ? CAMERA_DIRECTOR.multipliers.strongerThresholdIdle
-          : CAMERA_DIRECTOR.multipliers.strongerThresholdActive);
+      selected.weight > currentCandidate.weight * strongerThreshold;
+
+    const elapsedSec = msSinceSwitch / 1000;
+    const randomSwitchProb =
+      1 -
+      Math.exp(
+        -CAMERA_DIRECTOR.multipliers.switchRandomChancePerSec * elapsedSec,
+      );
+    const selectedSample = this.ensureAgentActivity(selected.agentId, now);
+    const hasFocusFatigue =
+      selectedSample.lastFocusedTime > 0 &&
+      now - selectedSample.lastFocusedTime <
+        CAMERA_DIRECTOR.multipliers.focusFatigueCooldownMs;
 
     const shouldSwitch =
       forceSwitch ||
       (selected.agentId !== currentTarget &&
+        !hasFocusFatigue &&
         (selectedIsStronger ||
           (currentIsIdle &&
             selected.activityScore >= currentCandidate.activityScore) ||
-          Math.random() < CAMERA_DIRECTOR.multipliers.switchRandomChance));
+          Math.random() < randomSwitchProb));
 
     if (shouldSwitch && selected.agentId !== currentTarget) {
       this.setCameraTarget(selected.agentId, now);
@@ -1225,16 +1292,26 @@ export class CameraDirector {
       selected.weight >
       currentCandidate.weight * CAMERA_DIRECTOR.idle.strongerThreshold;
     const currentIsIdle = currentActivity === "idle";
+    const idleElapsedSec = msSinceSwitch / 1000;
+    const idleRandomProb =
+      1 -
+      Math.exp(-CAMERA_DIRECTOR.idle.switchRandomChancePerSec * idleElapsedSec);
 
     const shouldSwitch =
       selectedIsStronger ||
       (currentIsIdle &&
         selected.activityScore >= currentCandidate.activityScore) ||
-      Math.random() < CAMERA_DIRECTOR.idle.switchRandomChance;
+      Math.random() < idleRandomProb;
 
     if (shouldSwitch) {
       this.setCameraTarget(selected.agentId, now);
     }
+  }
+
+  onCombatHit(agentId: string, damageFraction: number, now: number): void {
+    if (!this.getAvailableAgents().has(agentId)) return;
+    const intensity = 1.5 + damageFraction * 8;
+    this.markAgentInteresting(agentId, intensity, now);
   }
 
   // ---- Activity map management (for external cleanup) ----
