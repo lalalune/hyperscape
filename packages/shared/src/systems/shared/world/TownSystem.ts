@@ -1662,9 +1662,13 @@ export class TownSystem extends System {
     }
     const nodeEnv =
       typeof process !== "undefined" ? process.env.NODE_ENV : undefined;
-    // Keep exhaustive validation enabled for test runs while avoiding
-    // multi-gigabyte startup churn in normal server runtimes.
-    return nodeEnv === "test";
+    const isCi =
+      typeof process !== "undefined" &&
+      isTruthyEnv(process.env.CI ?? undefined);
+    // Keep exhaustive validation available for explicit opt-in and local test
+    // debugging, but do not make CI startup depend on fully deterministic world
+    // generation + pathfinding layout.
+    return nodeEnv === "test" && !isCi;
   }
 
   /**

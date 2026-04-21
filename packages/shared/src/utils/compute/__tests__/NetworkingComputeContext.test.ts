@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   NetworkingComputeContext,
+  MAX_INTEREST_MANAGEMENT_ENTITIES,
   isNetworkingComputeAvailable,
   type GPUEntityInterest,
   type GPUPlayerPosition,
@@ -52,6 +53,10 @@ describe("NetworkingComputeContext", () => {
       );
     });
 
+    it("documents the one-workgroup-per-entity interest limit", () => {
+      expect(MAX_INTEREST_MANAGEMENT_ENTITIES).toBe(65_535);
+    });
+
     it("should export spatial range query shader", () => {
       expect(SPATIAL_RANGE_QUERY_SHADER).toBeDefined();
       expect(SPATIAL_RANGE_QUERY_SHADER).toContain("@compute");
@@ -85,6 +90,87 @@ describe("NetworkingComputeContext", () => {
       expect(PHYSICS_BROADPHASE_SHADER).toBeDefined();
       expect(PHYSICS_BROADPHASE_SHADER).toContain("@compute");
       expect(PHYSICS_BROADPHASE_SHADER).toContain("aabbOverlap");
+    });
+
+    it("broadphase shader carries the 2D-dispatch linear-index reconstruction and uniform field", () => {
+      // Regression guard for the 2D dispatch reshape: at aabbCount ≳ 5793
+      // the O(N²) pair dispatch exceeds WebGPU's 65535 per-dimension
+      // workgroup ceiling, so the host issues a 2D dispatch and the
+      // shader must reconstruct the linear thread index from
+      // (global_id.x, global_id.y) using `numWorkgroupsX` passed via
+      // uniforms. If this assertion fails the shader is back to the
+      // 1D form and the canary will stall at 1080p.
+      expect(PHYSICS_BROADPHASE_SHADER).toContain("numWorkgroupsX: u32");
+      // Shader multiplies by a named WGSL const bound to the host-side
+      // workgroup constant (not a raw "64u"), so host and shader cannot
+      // drift. The const value itself is still 64u, emitted from the TS
+      // template literal, so the assertion accepts either form for
+      // safety against future template tweaks.
+      expect(PHYSICS_BROADPHASE_SHADER).toMatch(
+        /uniforms\.numWorkgroupsX \* (WORKGROUP_SIZE_1D|64u)/,
+      );
+      expect(PHYSICS_BROADPHASE_SHADER).toContain(
+        "const WORKGROUP_SIZE_1D: u32 = 64u",
+      );
+      expect(PHYSICS_BROADPHASE_SHADER).toContain(
+        "global_id.y * threadsPerRow + global_id.x",
+      );
+      // `padding` was repurposed to numWorkgroupsX; make sure the old
+      // name isn't accidentally reintroduced.
+      expect(PHYSICS_BROADPHASE_SHADER).not.toContain("padding: u32");
+    });
+
+    it("broadphase 2D dispatch shape covers the pair space", () => {
+      // Host-side reshape math: totalPairs = n*(n-1)/2, workgroups =
+      // ceil(totalPairs / 64), dispatchX = min(workgroups, 65535),
+      // dispatchY = ceil(workgroups / dispatchX). Verify the resulting
+      // (x, y, 64 threads-per-workgroup) 3-tuple ALWAYS covers every
+      // pair for a range of aabbCounts spanning under, at, and well
+      // above the dispatch-dimension ceiling.
+      const WEBGPU_MAX = 65535;
+      const reshape = (aabbCount: number) => {
+        const totalPairs = (aabbCount * (aabbCount - 1)) / 2;
+        const workgroups = Math.ceil(totalPairs / 64);
+        const dispatchX = Math.min(workgroups, WEBGPU_MAX);
+        const dispatchY = Math.ceil(workgroups / dispatchX);
+        if (dispatchY > WEBGPU_MAX) {
+          throw new Error("dispatchY exceeds WebGPU limit");
+        }
+        return { totalPairs, workgroups, dispatchX, dispatchY };
+      };
+
+      for (const aabbCount of [2, 1000, 5793, 5800, 8000, 12000, 20000]) {
+        const r = reshape(aabbCount);
+        // Dimensions within WebGPU limits.
+        expect(r.dispatchX).toBeLessThanOrEqual(WEBGPU_MAX);
+        expect(r.dispatchY).toBeLessThanOrEqual(WEBGPU_MAX);
+        // Total threads cover every pair.
+        expect(r.dispatchX * r.dispatchY * 64).toBeGreaterThanOrEqual(
+          r.totalPairs,
+        );
+      }
+    });
+
+    it("rejects impossible broadphase dispatch shapes instead of overflowing Y", () => {
+      // totalPairs = WEBGPU_MAX² * 64 + 1 forces dispatchY one over the
+      // per-dimension ceiling after the 2D reshape.
+      const WEBGPU_MAX = 65535;
+      const reshape = (aabbCount: number) => {
+        const totalPairs = (aabbCount * (aabbCount - 1)) / 2;
+        const workgroups = Math.ceil(totalPairs / 64);
+        const dispatchX = Math.min(workgroups, WEBGPU_MAX);
+        const dispatchY = Math.ceil(workgroups / dispatchX);
+        if (dispatchY > WEBGPU_MAX) {
+          throw new Error("dispatchY exceeds WebGPU limit");
+        }
+        return { dispatchX, dispatchY };
+      };
+      const impossiblePairs = WEBGPU_MAX * WEBGPU_MAX * 64 + 1;
+      const aabbCount = Math.ceil((1 + Math.sqrt(1 + 8 * impossiblePairs)) / 2);
+
+      expect(() => reshape(aabbCount)).toThrow(
+        "dispatchY exceeds WebGPU limit",
+      );
     });
 
     it("should export sound occlusion shader", () => {

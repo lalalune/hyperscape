@@ -28,6 +28,15 @@ export interface EquipmentVisualStore {
   [slot: string]: THREE.Object3D | undefined;
 }
 
+const EQUIPMENT_MODEL_FALLBACKS: Readonly<Record<string, string>> =
+  Object.freeze({
+    iron_arrow: "asset://models/arrows/arrows-bronze/arrows-bronze.glb",
+    steel_arrow: "asset://models/arrows/arrows-bronze/arrows-bronze.glb",
+    mithril_arrow: "asset://models/arrows/arrows-bronze/arrows-bronze.glb",
+    adamant_arrow: "asset://models/arrows/arrows-bronze/arrows-bronze.glb",
+    rune_arrow: "asset://models/arrows/arrows-bronze/arrows-bronze.glb",
+  });
+
 export function removeEquipmentVisual(
   store: EquipmentVisualStore,
   slot: string,
@@ -69,6 +78,11 @@ export function resolveEquipmentVisualUrls(options: {
 
   let equippedModelPath = itemData?.equippedModelPath;
   let modelPath = itemData?.modelPath;
+  const explicitlyModelLess =
+    itemData?.equippedModelPath === null ||
+    itemData?.modelPath === null ||
+    fallbackItemData?.equippedModelPath === null ||
+    fallbackItemData?.modelPath === null;
 
   if (equippedModelPath === null) {
     return null;
@@ -93,6 +107,17 @@ export function resolveEquipmentVisualUrls(options: {
   if (modelPath && typeof modelPath === "string") {
     return {
       primaryUrl: modelPath.replace("asset://", `${assetsUrl}/`),
+      fallbackUrl: null,
+    };
+  }
+
+  if (explicitlyModelLess) {
+    const fallbackAssetPath = EQUIPMENT_MODEL_FALLBACKS[itemId];
+    if (!fallbackAssetPath) {
+      return null;
+    }
+    return {
+      primaryUrl: fallbackAssetPath.replace("asset://", `${assetsUrl}/`),
       fallbackUrl: null,
     };
   }

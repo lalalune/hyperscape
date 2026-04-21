@@ -150,8 +150,16 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
  * Output:
  * - influences: float per pixel (0-1)
  */
+// Workgroup size used by the road-influence-texture compute shader (1D
+// along X). Exported so host-side TerrainComputeContext dispatch math stays
+// in sync with the shader — any drift here would silently miscompute pixel
+// indices in the 2D dispatch reshape path.
+export const ROAD_INFLUENCE_TEXTURE_WORKGROUP_SIZE_X = 64;
+
 export const ROAD_INFLUENCE_TEXTURE_SHADER = /* wgsl */ `
 const EPS: f32 = 0.001;
+// WORKGROUP_SIZE_1D must match ROAD_INFLUENCE_TEXTURE_WORKGROUP_SIZE_X above.
+const WORKGROUP_SIZE_1D: u32 = ${ROAD_INFLUENCE_TEXTURE_WORKGROUP_SIZE_X}u;
 
 struct Road {
   startX: f32,
@@ -165,14 +173,23 @@ struct Road {
 }
 
 struct Uniforms {
-  pixelCount: f32,
+  pixelCount: u32,
   roadCount: f32,
   textureSize: f32,
   worldSize: f32,
   centerX: f32,
   centerZ: f32,
   blendWidth: f32,
-  padding: f32,
+  // X-dimension workgroup count passed from the host. At textureSize ≥
+  // 2048 (pixelCount ≥ 4,194,304) the 1D dispatch count exceeds
+  // WebGPU's 65535 per-dimension ceiling, so the host issues a 2D
+  // dispatch (dispatchWorkgroups(x, y, 1)) and the shader must
+  // reconstruct the linear pixel index from
+  // (global_invocation_id.x, global_invocation_id.y) using
+  // numWorkgroupsX. Under the 1D case the host passes y=1 and
+  // numWorkgroupsX = totalWorkgroups, and the arithmetic degenerates
+  // back to idx = global_id.x.
+  numWorkgroupsX: u32,
 }
 
 @group(0) @binding(0) var<storage, read> roads: array<Road>;
@@ -206,14 +223,20 @@ fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
   return t * t * (3.0 - 2.0 * t);
 }
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(${ROAD_INFLUENCE_TEXTURE_WORKGROUP_SIZE_X})
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-  let idx = global_id.x;
-  let pixelCount = u32(uniforms.pixelCount);
-  if (idx >= pixelCount) {
+  // Reconstruct the linear pixel index across 2D dispatch.
+  // threadsPerRow = numWorkgroupsX * workgroup_size_x.
+  // Under a 1D dispatch dispatchWorkgroups(N, 1, 1), global_id.y is 0
+  // and this reduces to idx = global_id.x. Under a 2D dispatch
+  // dispatchWorkgroups(65535, K, 1) we offset by a full row of threads
+  // per y index.
+  let threadsPerRow = uniforms.numWorkgroupsX * WORKGROUP_SIZE_1D;
+  let idx = global_id.y * threadsPerRow + global_id.x;
+  if (idx >= uniforms.pixelCount) {
     return;
   }
-  
+
   let roadCount = u32(uniforms.roadCount);
   let texSize = u32(uniforms.textureSize);
   let halfWorld = uniforms.worldSize * 0.5;

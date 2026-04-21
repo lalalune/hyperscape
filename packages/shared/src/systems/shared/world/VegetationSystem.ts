@@ -64,6 +64,10 @@ import {
   getGlobalCullingManager,
 } from "../../../utils/compute";
 import { isPositionInsideDuelArenaZone } from "../../../data/duel-manifest";
+import {
+  isDedicatedStreamViewport,
+  isStreamDebugEnabled,
+} from "../../../runtime/clientViewportMode";
 // Octahedral impostor for high-quality multi-angle billboard rendering
 import {
   OctahedralImpostor,
@@ -117,9 +121,10 @@ const SKIP_LOD1_CATEGORIES = new Set([
 const VEGETATION_CHUNK_SIZE = 64; // meters per chunk
 const MAX_INSTANCES_PER_CHUNK = 256;
 
-let FADE_START = 1000; // Shader fade begins (fully opaque inside)
-let FADE_END = 1200; // Shader fully culls (invisible beyond)
-let CHUNK_RENDER_DISTANCE = 1400; // CPU hides chunks (buffer zone for loading)
+// Default fade distances - overridden by shadow quality settings in start()
+let FADE_START = 180; // Shader fade begins (fully opaque inside)
+let FADE_END = 200; // Shader fully culls (invisible beyond)
+let CHUNK_RENDER_DISTANCE = 300; // CPU hides chunks (buffer zone for loading)
 
 // NOTE: Per-category LOD distances are defined in LODConfig.ts LOD_DISTANCES
 // Access via getLODDistances(category) for actual LOD decisions.
@@ -263,7 +268,36 @@ function getAssetLODConfig(category: string, boundingSize?: number) {
 }
 
 /** Max tile distance from player to generate vegetation (in tiles, not world units) */
-const MAX_VEGETATION_TILE_RADIUS = 5;
+// PERFORMANCE: Reduced from 3 to 2 tiles - vegetation fades before this distance anyway
+const MAX_VEGETATION_TILE_RADIUS = 2;
+const STREAM_MAX_VEGETATION_TILE_RADIUS = 1;
+const DEFAULT_STARTUP_TILE_BATCH_SIZE = 8;
+const STREAM_STARTUP_TILE_BATCH_SIZE = 2;
+const STREAM_MAX_CHUNK_RENDER_DISTANCE = 140;
+
+function isDedicatedStreamVegetationMode(): boolean {
+  return typeof window !== "undefined" && isDedicatedStreamViewport();
+}
+
+function getVegetationTileRadius(): number {
+  return isDedicatedStreamVegetationMode()
+    ? STREAM_MAX_VEGETATION_TILE_RADIUS
+    : MAX_VEGETATION_TILE_RADIUS;
+}
+
+function getVegetationStartupBatchSize(): number {
+  return isDedicatedStreamVegetationMode()
+    ? STREAM_STARTUP_TILE_BATCH_SIZE
+    : DEFAULT_STARTUP_TILE_BATCH_SIZE;
+}
+
+function shouldQueueDistantVegetationTiles(): boolean {
+  return !isDedicatedStreamVegetationMode();
+}
+
+function shouldEmitVerboseVegetationBootLogs(): boolean {
+  return !isDedicatedStreamVegetationMode() || isStreamDebugEnabled();
+}
 
 /** Water threshold from centralized constants */
 import { TERRAIN_CONSTANTS } from "../../../constants/GameConstants";
@@ -773,6 +807,7 @@ export class VegetationSystem extends System {
     if (!this.world.stage?.scene) return;
 
     this.scene = this.world.stage.scene as THREE.Scene;
+    const isDedicatedStreamMode = isDedicatedStreamVegetationMode();
 
     // Sync vegetation fade distances with shadow quality
     // Vegetation must dissolve BEFORE shadow cutoff to avoid unshadowed trees
@@ -787,19 +822,30 @@ export class VegetationSystem extends System {
       csmLevels[shadowsLevel as keyof typeof csmLevels] || csmLevels.med;
     const shadowMaxFar = csmConfig.maxFar;
 
-    // Fade distances are independent of shadow range — distant trees render
-    // without shadows rather than disappearing at the shadow cutoff.
-    FADE_START = 1000;
-    FADE_END = 1200;
-    CHUNK_RENDER_DISTANCE = 1400;
+    // Sync fade distances with shadow range
+    // Vegetation fully dissolves AT shadow maxFar so we never see unshadowed trees
+    FADE_END = shadowMaxFar; // Fully dissolved at shadow cutoff
+    FADE_START = shadowMaxFar * 0.9; // Start dissolving at 90% of shadow range
+    CHUNK_RENDER_DISTANCE = shadowMaxFar * 1.2; // Chunks visible 20% beyond shadow range
+    if (isDedicatedStreamMode) {
+      CHUNK_RENDER_DISTANCE = Math.min(
+        CHUNK_RENDER_DISTANCE,
+        STREAM_MAX_CHUNK_RENDER_DISTANCE,
+      );
+      this.setConfig({
+        cullDistance: CHUNK_RENDER_DISTANCE,
+      });
+    }
 
     // Imposter distances - switch to billboard before dissolve zone
     // LOD transition: 3D mesh -> Billboard imposter -> Dissolve -> Cull
     // Per-category LOD distances are defined in LODConfig.ts LOD_DISTANCES
     // The shared material uses FADE_START/FADE_END for dissolve shader
-    console.log(
-      `[VegetationSystem] Synced with shadows "${shadowsLevel}": fade ${FADE_START.toFixed(0)}-${FADE_END.toFixed(0)}m, chunks ${CHUNK_RENDER_DISTANCE.toFixed(0)}m (per-category LOD via getLODDistances)`,
-    );
+    if (shouldEmitVerboseVegetationBootLogs()) {
+      console.log(
+        `[VegetationSystem] Synced with shadows "${shadowsLevel}": fade ${FADE_START.toFixed(0)}-${FADE_END.toFixed(0)}m, chunks ${CHUNK_RENDER_DISTANCE.toFixed(0)}m (per-category LOD via getLODDistances)`,
+      );
+    }
 
     // Load LOD settings first (affects all subsequent distance calculations)
     await this.loadLODSettings();
@@ -823,9 +869,11 @@ export class VegetationSystem extends System {
       fadeStart: FADE_START,
       fadeEnd: FADE_END,
     });
-    console.log(
-      `[VegetationSystem] Created shared material (fade: ${FADE_START.toFixed(0)}-${FADE_END.toFixed(0)}m, chunks: ${CHUNK_RENDER_DISTANCE.toFixed(0)}m)`,
-    );
+    if (shouldEmitVerboseVegetationBootLogs()) {
+      console.log(
+        `[VegetationSystem] Created shared material (fade: ${FADE_START.toFixed(0)}-${FADE_END.toFixed(0)}m, chunks: ${CHUNK_RENDER_DISTANCE.toFixed(0)}m)`,
+      );
+    }
 
     // PERFORMANCE: Enable layer 1 for main camera so it can see vegetation
     // Minimap camera only sees layer 0, so vegetation won't render in minimap
@@ -848,14 +896,23 @@ export class VegetationSystem extends System {
     );
 
     console.log(
-      `[VegetationSystem] ✅ Started with ${this.assetDefinitions.size} assets, radius=${MAX_VEGETATION_TILE_RADIUS} tiles`,
+      `[VegetationSystem] ✅ Started with ${this.assetDefinitions.size} assets, radius=${getVegetationTileRadius()} tiles`,
     );
 
     // Initialize GPU compute culling (optional enhancement)
     this.initializeGPUCulling();
 
     // Process existing terrain tiles that were generated before we subscribed
-    await this.processExistingTiles();
+    if (isDedicatedStreamMode) {
+      this.processExistingTiles().catch((error) => {
+        console.warn(
+          "[VegetationSystem] Deferred stream vegetation startup failed:",
+          error,
+        );
+      });
+    } else {
+      await this.processExistingTiles();
+    }
   }
 
   /**
@@ -919,7 +976,7 @@ export class VegetationSystem extends System {
     for (const tile of allTiles) {
       const dx = Math.abs(tile.tileX - playerTileX);
       const dz = Math.abs(tile.tileZ - playerTileZ);
-      if (Math.max(dx, dz) <= MAX_VEGETATION_TILE_RADIUS) {
+      if (Math.max(dx, dz) <= getVegetationTileRadius()) {
         nearbyTiles.push(tile);
       } else {
         distantTiles.push(tile);
@@ -945,7 +1002,7 @@ export class VegetationSystem extends System {
     if (totalTiles > 0) {
       // PARALLEL BATCH PROCESSING: Process tiles in batches of 8 for optimal parallelism
       // This balances worker pool utilization with progress reporting
-      const BATCH_SIZE = 8;
+      const BATCH_SIZE = getVegetationStartupBatchSize();
       let processedTiles = 0;
 
       for (let i = 0; i < nearbyTiles.length; i += BATCH_SIZE) {
@@ -967,14 +1024,17 @@ export class VegetationSystem extends System {
     }
 
     // Queue distant tiles for lazy loading
-    for (const tile of distantTiles) {
-      this.pendingTiles.set(`${tile.tileX}_${tile.tileZ}`, tile);
+    if (shouldQueueDistantVegetationTiles()) {
+      for (const tile of distantTiles) {
+        this.pendingTiles.set(`${tile.tileX}_${tile.tileZ}`, tile);
+      }
     }
 
-    // Keep startup logs concise; per-tile detail is noisy in embedded spectator mode.
-    console.log(
-      `[VegetationSystem] Processed ${nearbyTiles.length} nearby tiles, queued ${distantTiles.length} for lazy loading`,
-    );
+    if (shouldEmitVerboseVegetationBootLogs()) {
+      console.log(
+        `[VegetationSystem] Processed ${nearbyTiles.length} nearby tiles, queued ${shouldQueueDistantVegetationTiles() ? distantTiles.length : 0} for lazy loading`,
+      );
+    }
   }
 
   /**
@@ -1004,7 +1064,7 @@ export class VegetationSystem extends System {
 
     const dx = Math.abs(tileX - playerTile.x);
     const dz = Math.abs(tileZ - playerTile.z);
-    return Math.max(dx, dz) <= MAX_VEGETATION_TILE_RADIUS;
+    return Math.max(dx, dz) <= getVegetationTileRadius();
   }
 
   /**
@@ -1024,7 +1084,9 @@ export class VegetationSystem extends System {
 
     if (!this.isTileInRange(data.tileX, data.tileZ)) {
       // Store as pending for later generation when player gets closer
-      this.pendingTiles.set(key, data);
+      if (shouldQueueDistantVegetationTiles()) {
+        this.pendingTiles.set(key, data);
+      }
       return;
     }
 
@@ -4151,7 +4213,8 @@ export class VegetationSystem extends System {
    * Process pending tiles that are now within range of the player
    */
   private async processPendingTiles(): Promise<void> {
-    if (this.pendingTiles.size === 0) return;
+    if (!shouldQueueDistantVegetationTiles() || this.pendingTiles.size === 0)
+      return;
 
     const playerTile = this.getPlayerTile();
     if (!playerTile) return;
