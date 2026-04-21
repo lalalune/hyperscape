@@ -165,7 +165,9 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
 
   // ── Unread badge when chat is closed ────────────────────────────────────
   useEffect(() => {
-    if (!chatOpen && messages.at(-1)?.sender === "agent") {
+    const latestMessage =
+      messages.length > 0 ? messages[messages.length - 1] : undefined;
+    if (!chatOpen && latestMessage?.sender === "agent") {
       setUnreadCount((n) => n + 1);
     }
   }, [messages]); // chatOpen intentionally omitted: only trigger on new messages
@@ -509,7 +511,11 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
   });
 
   const agentDisplayName = agent.characterName || agent.name;
-  const lastAgentMsg = messages.filter((m) => m.sender === "agent").at(-1);
+  const agentMessages = messages.filter((m) => m.sender === "agent");
+  const lastAgentMsg =
+    agentMessages.length > 0
+      ? agentMessages[agentMessages.length - 1]
+      : undefined;
 
   return (
     <div

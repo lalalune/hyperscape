@@ -647,12 +647,12 @@ export function buildBehaviorDecisionPrompt(
             (q.stageType === "gather" || q.stageType === "interact") &&
             q.stageTarget
           ) {
+            const stageTarget = q.stageTarget;
             const hasItem = fullInv.some(
-              (s) =>
-                s.itemId === q.stageTarget || s.itemId.includes(q.stageTarget),
+              (s) => s.itemId === stageTarget || s.itemId.includes(stageTarget),
             );
             if (!hasItem && q.stageCount && progress < q.stageCount) {
-              line += ` ⚠️ You do NOT have ${q.stageTarget} in inventory — gather/obtain it first!`;
+              line += ` ⚠️ You do NOT have ${stageTarget} in inventory — gather/obtain it first!`;
             }
           }
           return line;

@@ -23,8 +23,6 @@ import {
   stringToUuid,
   type Character,
   type Plugin,
-  // @ts-ignore - exported at runtime but missing from .d.ts
-  InMemoryDatabaseAdapter,
 } from "@elizaos/core";
 import { createJWT } from "../shared/utils.js";
 import { errMsg } from "../shared/errMsg.js";
@@ -40,6 +38,10 @@ import {
   ejectAgentFromCombatArena,
   recoverAgentFromDeathLoop,
 } from "./agentRecovery.js";
+import {
+  CharacterWithModelProvider,
+  InMemoryDatabaseAdapter,
+} from "./elizaCoreCompat.js";
 
 /**
  * Dynamically import the Hyperscape plugin to avoid hard dependency in dev.
@@ -1184,7 +1186,7 @@ export class AgentManager {
       instance.config.characterConfig?.system ||
       `You are ${instance.config.name}, an embedded Hyperscape agent. Respond as yourself, stay grounded in the current game world, and keep replies concise and useful.`;
 
-    return {
+    const character = {
       id: stringToUuid(`embedded-chat-${instance.config.characterId}`),
       name: instance.config.name,
       username:
@@ -1225,9 +1227,9 @@ export class AgentManager {
         },
       },
       plugins: [],
-      // @ts-ignore - runtime supports modelProvider even if core type lags.
       modelProvider: provider.provider,
-    } as unknown as Character;
+    } as unknown as CharacterWithModelProvider;
+    return character as Character;
   }
 
   private buildDashboardChatPrompt(
@@ -1420,12 +1422,18 @@ export class AgentManager {
       }
 
       const adapter = new InMemoryDatabaseAdapter();
+      const adapterWithLog = adapter as unknown as {
+        log?: (params: unknown) => Promise<void>;
+        logs?: unknown[];
+      };
       // Eliza 2.0 alpha.76+ InMemoryDatabaseAdapter may omit `log`; only wrap when present.
-      if (typeof adapter.log === "function") {
-        const originalLog = adapter.log.bind(adapter);
-        adapter.log = async (params: Parameters<typeof originalLog>[0]) => {
+      if (typeof adapterWithLog.log === "function") {
+        const originalLog = adapterWithLog.log.bind(adapterWithLog);
+        adapterWithLog.log = async (
+          params: Parameters<typeof originalLog>[0],
+        ) => {
           await originalLog(params);
-          const logs = (adapter as unknown as { logs?: unknown[] }).logs;
+          const logs = adapterWithLog.logs;
           if (logs && logs.length > 50) {
             logs.splice(0, logs.length - 50);
           }
@@ -1519,7 +1527,16 @@ export class AgentManager {
         return;
       }
       const mod = await import("./ModelAgentSpawner.js");
-      mod.startEmbeddedAgentLlmPlanningLoop(
+      (
+        mod as typeof mod & {
+          startEmbeddedAgentLlmPlanningLoop?: (
+            characterId: string,
+            runtime: AgentRuntime,
+            service: EmbeddedHyperscapeService,
+            name: string,
+          ) => void;
+        }
+      ).startEmbeddedAgentLlmPlanningLoop?.(
         characterId,
         runtime,
         instance.service,
@@ -1536,7 +1553,11 @@ export class AgentManager {
     this.stopCharacterVisionRefresh(characterId);
     try {
       const mod = await import("./ModelAgentSpawner.js");
-      mod.stopEmbeddedAgentLlmPlanningLoop(characterId);
+      (
+        mod as typeof mod & {
+          stopEmbeddedAgentLlmPlanningLoop?: (characterId: string) => void;
+        }
+      ).stopEmbeddedAgentLlmPlanningLoop?.(characterId);
     } catch {
       /* ignore */
     }

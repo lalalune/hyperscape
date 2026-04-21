@@ -233,7 +233,9 @@ export class ConnectionManager {
       ).__HYPERSCAPE_CONFIG__;
 
       if (isEmbedded && embeddedConfig) {
-        this.isEmbeddedSpectator = embeddedConfig.mode === "spectator";
+        this.isEmbeddedSpectator =
+          embeddedConfig.mode === "spectator" ||
+          embeddedConfig.mode === "stream";
         const characterId = embeddedConfig.characterId || null;
         onEmbeddedConfig(characterId);
 
@@ -244,11 +246,17 @@ export class ConnectionManager {
       }
     }
 
-    // Capture whether we're using first-message auth for the open handler.
-    // Use first-message auth whenever URL auth is unavailable.
-    const useFirstMessageAuth = !urlHasAuthToken;
     const isStreamingConnection = /[?&]mode=streaming(?:[&#]|$)/.test(url);
-    const connectionTimeoutMs = isStreamingConnection ? 120_000 : 30_000;
+    const isSpectatorConnection = /[?&]mode=spectator(?:[&#]|$)/.test(url);
+    const allowsAnonymousMode =
+      isStreamingConnection ||
+      isSpectatorConnection ||
+      this.isEmbeddedSpectator;
+    // Streaming/spectator connections are read-only public viewers. They must
+    // not send an empty authenticate packet when URL auth is absent.
+    const useFirstMessageAuth = !urlHasAuthToken && !allowsAnonymousMode;
+    const connectionTimeoutMs =
+      isStreamingConnection || isSpectatorConnection ? 120_000 : 30_000;
 
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(url);

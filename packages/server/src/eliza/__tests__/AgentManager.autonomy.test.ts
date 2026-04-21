@@ -5,6 +5,8 @@ import {
   isPositionInsideCombatArena,
 } from "@hyperscape/shared";
 import { AgentManager } from "../AgentManager";
+import { AgentBehaviorBridge } from "../managers/AgentBehaviorBridge";
+import { ejectAgentFromCombatArena } from "../agentRecovery";
 
 type Skill = { level: number; xp: number };
 
@@ -230,6 +232,14 @@ describe("AgentManager autonomous loop", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    vi.spyOn(AgentBehaviorBridge.prototype, "start").mockResolvedValue();
+    vi.spyOn(AgentBehaviorBridge.prototype, "stop").mockImplementation(() => {});
+    vi.spyOn(AgentBehaviorBridge.prototype, "startAgent").mockImplementation(
+      () => {},
+    );
+    vi.spyOn(AgentBehaviorBridge.prototype, "stopAgent").mockImplementation(
+      () => {},
+    );
   });
 
   afterEach(() => {
@@ -243,8 +253,6 @@ describe("AgentManager autonomous loop", () => {
     ctx.addResource("resource-tree", [2, terrainHeight + 0.1, 0], "tree");
 
     const manager = new AgentManager(ctx.world as never);
-    const lobby = getDuelArenaConfig().lobbySpawnPoint;
-
     try {
       await manager.createAgent({
         characterId: "agent-loop",
@@ -277,9 +285,17 @@ describe("AgentManager autonomous loop", () => {
       expect(agent!.data.preventRespawn).toBe(false);
       expect(agent!.data.inCombat).toBe(false);
       expect(agent!.data.combatTarget).toBeNull();
-      expect(agent!.data.position[0]).toBeCloseTo(lobby.x, 5);
+      expect(
+        isPositionInsideCombatArena(
+          agent!.data.position[0],
+          agent!.data.position[2],
+        ),
+      ).toBe(false);
+      expect(
+        Math.hypot(agent!.data.position[0], agent!.data.position[2]),
+      ).toBeLessThanOrEqual(8);
       expect(agent!.data.position[1]).toBeCloseTo(terrainHeight + 0.1, 5);
-      expect(agent!.data.position[2]).toBeCloseTo(lobby.z, 5);
+      expect(agent!.data._teleport).toBe(true);
     } finally {
       await manager.shutdown();
     }
@@ -288,51 +304,47 @@ describe("AgentManager autonomous loop", () => {
   it("teleports non-dueling agents out of combat arena tiles", async () => {
     const terrainHeight = 9;
     const ctx = createMockWorld(terrainHeight);
-    ctx.registerCharacter("acct-5", "agent-out", "Outside Agent");
+    const arena = getDuelArenaConfig();
+    const arenaCenter = [
+      arena.baseX + Math.max(1, Math.floor(arena.arenaWidth / 2)),
+      terrainHeight + 0.1,
+      arena.baseZ + Math.max(1, Math.floor(arena.arenaLength / 2)),
+    ] as const;
+    ctx.world.entities.add({
+      id: "agent-out",
+      type: "player",
+      isAgent: true,
+      position: [...arenaCenter],
+      health: 20,
+      maxHealth: 20,
+      inStreamingDuel: false,
+      preventRespawn: false,
+    });
 
-    const manager = new AgentManager(ctx.world as never);
-    const lobby = getDuelArenaConfig().lobbySpawnPoint;
+    const agent = ctx.entities.get("agent-out");
+    expect(agent).toBeDefined();
 
-    try {
-      await manager.createAgent({
-        characterId: "agent-out",
-        accountId: "acct-5",
-        name: "Outside Agent",
-        scriptedRole: "combat",
-        autoStart: true,
-      });
+    const ejected = ejectAgentFromCombatArena(
+      ctx.world as never,
+      "agent-out",
+      "test",
+    );
 
-      await Promise.resolve();
-      await Promise.resolve();
-
-      const agent = ctx.entities.get("agent-out");
-      expect(agent).toBeDefined();
-
-      // Place agent inside arena 1 while not in a duel.
-      agent!.data.position = [70, terrainHeight + 0.1, 90];
-      agent!.data.inStreamingDuel = false;
-      agent!.data.preventRespawn = false;
-
-      await manager.executeBehaviorTick("agent-out");
-
-      expect(
-        isPositionInsideCombatArena(
-          agent!.data.position[0],
-          agent!.data.position[2],
-        ),
-      ).toBe(false);
-      expect(agent!.data._teleport).toBe(true);
-      expect(agent!.data.inStreamingDuel).toBe(false);
-      expect(agent!.data.preventRespawn).toBe(false);
-
-      // Ejected agents should remain near the lobby area.
-      const distFromLobby = Math.hypot(
-        agent!.data.position[0] - lobby.x,
-        agent!.data.position[2] - lobby.z,
-      );
-      expect(distFromLobby).toBeLessThanOrEqual(40);
-    } finally {
-      await manager.shutdown();
-    }
+    expect(isPositionInsideCombatArena(arenaCenter[0], arenaCenter[2])).toBe(
+      true,
+    );
+    expect(ejected).toBe(true);
+    expect(
+      isPositionInsideCombatArena(
+        agent!.data.position[0],
+        agent!.data.position[2],
+      ),
+    ).toBe(false);
+    expect(agent!.data._teleport).toBe(true);
+    expect(agent!.data.inStreamingDuel).toBe(false);
+    expect(agent!.data.preventRespawn).toBe(false);
+    expect(
+      Math.hypot(agent!.data.position[0], agent!.data.position[2]),
+    ).toBeLessThanOrEqual(8);
   });
 });

@@ -36,6 +36,7 @@ export interface AgentCharacterConfig {
   username?: string;
   system?: string;
   bio?: string[];
+  lore?: string[];
   topics?: string[];
   adjectives?: string[];
   plugins?: string[];
@@ -122,6 +123,7 @@ export interface NearbyEntityData {
   level?: number;
   mobType?: string;
   itemId?: string;
+  resourceId?: string;
   resourceType?: string;
   equippedWeapon?: string;
 }
@@ -205,6 +207,7 @@ export interface AgentQuestProgress {
  */
 export interface AgentQuestInfo {
   questId: string;
+  id?: string;
   name: string;
   description: string;
   difficulty: string;
@@ -226,6 +229,9 @@ export interface AgentQuestInfo {
  * Provides direct world access instead of WebSocket
  */
 export interface IEmbeddedHyperscapeService {
+  /** Update the agent display name used by dashboard/chat surfaces. */
+  setDisplayName(name: string): void;
+
   /** Get the world instance */
   getWorld(): World;
 
@@ -270,6 +276,12 @@ export interface IEmbeddedHyperscapeService {
 
   /** Execute a prayer toggle command. Returns false if the prayer system was unavailable. */
   executePrayer(prayerId: string): Promise<boolean>;
+
+  /** Execute a prayer toggle command against the embedded client action API. */
+  executePrayerToggle(prayerId: string): Promise<boolean>;
+
+  /** Execute a combat style change against the embedded client action API. */
+  executeChangeStyle(newStyle: string): Promise<boolean>;
 
   /** Execute a chat message command. Returns false if the chat system was unavailable. */
   executeChat(message: string): Promise<boolean>;
@@ -324,4 +336,13 @@ export interface IEmbeddedHyperscapeService {
 
   /** Remove the arena movement constraint set by setArenaBounds(). */
   clearArenaBounds(): void;
+
+  /** Enable or disable autonomous overworld behavior while an external controller owns the agent. */
+  setAutonomousBehaviorEnabled(enabled: boolean): void;
+
+  /** Whether autonomous overworld behavior is currently enabled. */
+  isAutonomousEnabled(): boolean;
+
+  /** Send an overhead chat message through the embedded client bridge. */
+  sendChatMessage(text: string): Promise<string>;
 }

@@ -9,7 +9,7 @@ function createMockWorld() {
     entities: {
       get: (id: string) => entities.get(id),
       add: vi.fn().mockReturnValue("new-entity-id"),
-      items: () => entities.entries(),
+      items: entities,
       [Symbol.iterator]: () => entities.entries(),
     },
     getSystem: (name: string) => systems.get(name) ?? null,
@@ -75,7 +75,15 @@ describe("EmbeddedHyperscapeService RPG methods", () => {
     });
 
     it("executeBankDepositAll emits BANK_DEPOSIT_ALL event", async () => {
-      const { service, world } = createActiveService();
+      const { service, world, entities } = createActiveService();
+      entities.get("agent-1").data.position = [0, 0, 0];
+      entities.set("bank-lumbridge", {
+        data: {
+          type: "bank",
+          name: "Bank Chest",
+          position: [2, 0, 2],
+        },
+      });
       const result = await service.executeBankDepositAll();
       expect(result).toBe(true);
       expect(world.emit).toHaveBeenCalledWith(
@@ -112,7 +120,27 @@ describe("EmbeddedHyperscapeService RPG methods", () => {
 
   describe("crafting", () => {
     it("executeCook emits cooking event", async () => {
-      const { service, world } = createActiveService();
+      const { service, world, entities, systems } = createActiveService();
+      entities.get("agent-1").data.position = [0, 0, 0];
+      entities.set("station-range", {
+        data: {
+          type: "object",
+          name: "Cooking Range",
+          position: [2, 0, 2],
+        },
+      });
+      systems.set("inventory", {
+        getInventory: () => ({
+          items: [
+            {
+              slot: 0,
+              itemId: "raw_shrimp",
+              quantity: 1,
+              item: { id: "raw_shrimp", name: "Raw Shrimp", type: "food" },
+            },
+          ],
+        }),
+      });
       const result = await service.executeCook("raw_shrimp");
       expect(result).toBe(true);
       expect(world.emit).toHaveBeenCalled();
