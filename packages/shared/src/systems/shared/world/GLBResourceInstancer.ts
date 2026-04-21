@@ -22,13 +22,7 @@ import {
   GPU_VEG_CONFIG,
   type DissolveMaterial,
 } from "./GPUMaterials";
-import {
-  getLODDistances,
-  inferLOD1Path,
-  inferLOD2Path,
-  resolveLOD1ModelPath,
-  resolveLOD2ModelPath,
-} from "./LODConfig";
+import { getLODDistances, inferLOD1Path, inferLOD2Path } from "./LODConfig";
 
 const MAX_INSTANCES = 512;
 
@@ -71,14 +65,11 @@ interface ModelPool {
 
 const resourceLOD = getLODDistances("resource");
 
-function hasExplicitLODPath(path?: string | null): path is string {
-  return typeof path === "string" && path.trim().length > 0;
-}
-
 let scene: THREE.Scene | null = null;
 let world: World | null = null;
 const pools = new Map<string, ModelPool>();
 const entityToModel = new Map<string, string>();
+const missingLodModelPaths = new Set<string>();
 
 function extractGeometryAndMaterial(
   root: THREE.Object3D,
@@ -163,10 +154,19 @@ async function loadLODModel(path: string): Promise<{
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
 } | null> {
+  if (missingLodModelPaths.has(path)) {
+    return null;
+  }
+
   try {
     const { scene: lodScene } = await modelCache.loadModel(path, world!);
     return extractGeometryAndMaterial(lodScene);
-  } catch {
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message.toLowerCase() : String(error);
+    if (message.includes("404") || message.includes("not found")) {
+      missingLodModelPaths.add(path);
+    }
     return null;
   }
 }
@@ -217,11 +217,19 @@ async function ensureModelPool(
     world!.setupMaterial(lod0Material);
     const lod0Pool = createLODPool(lod0Data.geometry, lod0Material);
 
+    const shouldInferLodPaths = !modelPath.includes("/models/mining-rocks/");
+    const inferredLod1ModelPath = shouldInferLodPaths
+      ? inferLOD1Path(modelPath)
+      : null;
+    const inferredLod2ModelPath = shouldInferLodPaths
+      ? inferLOD2Path(modelPath)
+      : null;
+
     // LOD1 — explicit path first, fall back to inferred naming convention
     let lod1Pool: LODPool | null = null;
-    const resolvedLod1Path = resolveLOD1ModelPath(modelPath, lod1ModelPath);
-    const lod1Data = resolvedLod1Path
-      ? await loadLODModel(resolvedLod1Path)
+    const lod1CandidatePath = lod1ModelPath ?? inferredLod1ModelPath;
+    const lod1Data = lod1CandidatePath
+      ? await loadLODModel(lod1CandidatePath)
       : null;
     if (lod1Data) {
       const lod1Material = createDissolveMaterial(
@@ -230,8 +238,10 @@ async function ensureModelPool(
       );
       world!.setupMaterial(lod1Material);
       lod1Pool = createLODPool(lod1Data.geometry, lod1Material);
-    } else if (hasExplicitLODPath(lod1ModelPath)) {
-      const lod1Inferred = await loadLODModel(inferLOD1Path(modelPath));
+    } else if (lod1ModelPath) {
+      const lod1Inferred = inferredLod1ModelPath
+        ? await loadLODModel(inferredLod1ModelPath)
+        : null;
       if (lod1Inferred) {
         const lod1Material = createDissolveMaterial(
           lod1Inferred.material,
@@ -244,9 +254,9 @@ async function ensureModelPool(
 
     // LOD2 — explicit path first, fall back to inferred naming convention
     let lod2Pool: LODPool | null = null;
-    const resolvedLod2Path = resolveLOD2ModelPath(modelPath, lod2ModelPath);
-    const lod2Data = resolvedLod2Path
-      ? await loadLODModel(resolvedLod2Path)
+    const lod2CandidatePath = lod2ModelPath ?? inferredLod2ModelPath;
+    const lod2Data = lod2CandidatePath
+      ? await loadLODModel(lod2CandidatePath)
       : null;
     if (lod2Data) {
       const lod2Material = createDissolveMaterial(
@@ -255,8 +265,10 @@ async function ensureModelPool(
       );
       world!.setupMaterial(lod2Material);
       lod2Pool = createLODPool(lod2Data.geometry, lod2Material);
-    } else if (hasExplicitLODPath(lod2ModelPath)) {
-      const lod2Inferred = await loadLODModel(inferLOD2Path(modelPath));
+    } else if (lod2ModelPath) {
+      const lod2Inferred = inferredLod2ModelPath
+        ? await loadLODModel(inferredLod2ModelPath)
+        : null;
       if (lod2Inferred) {
         const lod2Material = createDissolveMaterial(
           lod2Inferred.material,

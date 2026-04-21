@@ -35,6 +35,7 @@ export interface StreamingState {
   type: "STREAMING_STATE_UPDATE";
   cycle: {
     cycleId: string;
+    duelId: string | null;
     phase: "IDLE" | "ANNOUNCEMENT" | "COUNTDOWN" | "FIGHTING" | "RESOLUTION";
     cycleStartTime: number;
     phaseStartTime: number;

@@ -301,7 +301,12 @@ export class ClientRuntime extends System {
       const searchParams = new URLSearchParams(window.location.search);
       const page = (searchParams.get("page") || "").trim().toLowerCase();
       const mode = (searchParams.get("mode") || "").trim().toLowerCase();
-      if (page === "stream" || mode === "spectator" || isStreamPageRoute()) {
+      if (
+        page === "stream" ||
+        mode === "spectator" ||
+        mode === "stream" ||
+        isStreamPageRoute()
+      ) {
         return true;
       }
       if (parseTruthy(searchParams.get("disableVisibilityThrottle"))) {

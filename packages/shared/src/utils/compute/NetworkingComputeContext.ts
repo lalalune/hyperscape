@@ -15,10 +15,13 @@ import {
   BATCH_AGGRO_CHECK_SHADER,
   NEAREST_ENTITY_SHADER,
   PHYSICS_BROADPHASE_SHADER,
+  BROADPHASE_WORKGROUP_SIZE_X,
   SOUND_OCCLUSION_SHADER,
   SPAWN_VALIDATION_SHADER,
   LOOT_DISTRIBUTION_SHADER,
 } from "./shaders/networking.wgsl";
+
+export const MAX_INTEREST_MANAGEMENT_ENTITIES = 65_535;
 
 // ============================================================================
 // TYPES
@@ -339,6 +342,11 @@ export class NetworkingComputeContext {
     const entityCount = entities.length;
     const playerCount = players.length;
     const u32PerEntity = Math.ceil(playerCount / 32);
+    if (entityCount > MAX_INTEREST_MANAGEMENT_ENTITIES) {
+      throw new Error(
+        `Interest management supports at most ${MAX_INTEREST_MANAGEMENT_ENTITIES} entities per dispatch; received ${entityCount}`,
+      );
+    }
 
     // Pack entity data (4 floats per entity)
     const entityData = new Float32Array(entityCount * 4);
@@ -737,9 +745,32 @@ export class NetworkingComputeContext {
       "bp_count",
       new Uint32Array([0]),
     );
+    // Dispatch shape: one GPU thread per pair, workgroup size 64.
+    // The pair count is O(N²), so for aabbCount ≳ 5793 the 1D dispatch
+    // exceeds WebGPU's per-dimension ceiling of 65535 workgroups. We
+    // reshape to a 2D dispatch (x × y × 1) in that case and pass
+    // numWorkgroupsX in the uniform buffer so the shader can
+    // reconstruct the linear thread index via
+    //   threadIdx = global_id.y * (numWorkgroupsX * WORKGROUP_SIZE_1D)
+    //             + global_id.x
+    // For the 1D case we still pass numWorkgroupsX = totalWorkgroups,
+    // y=1, and the shader arithmetic degenerates correctly. Workgroup
+    // size is imported from the shader module so the host-side divisor
+    // can't drift from @workgroup_size.
+    const totalPairs = (aabbCount * (aabbCount - 1)) / 2;
+    const totalWorkgroups = Math.ceil(totalPairs / BROADPHASE_WORKGROUP_SIZE_X);
+    const WEBGPU_MAX_WORKGROUPS_PER_DIM = 65535;
+    const dispatchX = Math.min(totalWorkgroups, WEBGPU_MAX_WORKGROUPS_PER_DIM);
+    const dispatchY = Math.ceil(totalWorkgroups / dispatchX);
+    if (dispatchY > WEBGPU_MAX_WORKGROUPS_PER_DIM) {
+      throw new Error(
+        `Broadphase dispatch exceeds WebGPU 2D workgroup limits: totalWorkgroups=${totalWorkgroups}, dispatch=${dispatchX}x${dispatchY}`,
+      );
+    }
+
     const uniformBuffer = this.ctx.createUniformBuffer(
       "bp_uniforms",
-      new Uint32Array([aabbCount, layerMask, maxOverlaps, 0]),
+      new Uint32Array([aabbCount, layerMask, maxOverlaps, dispatchX]),
     );
 
     if (!aabbBuffer || !overlapBuffer || !countBuffer || !uniformBuffer) {
@@ -758,12 +789,10 @@ export class NetworkingComputeContext {
       throw new Error("Failed to create broadphase bind group");
     }
 
-    // Dispatch - one thread per pair
-    const totalPairs = (aabbCount * (aabbCount - 1)) / 2;
     await this.ctx.dispatchAndWait({
       pipeline: this.broadphasePipeline,
       bindGroup,
-      workgroupCount: this.ctx.calculateWorkgroupCount(totalPairs, 64),
+      workgroupCount: [dispatchX, dispatchY, 1],
     });
 
     // Read back results

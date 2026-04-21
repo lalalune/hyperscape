@@ -123,6 +123,8 @@ const WATER_LOD = {
   MEDIUM_DISTANCE: 200, // Distance threshold for medium->low LOD
 };
 
+const WATER_TEXTURE_LOAD_TIMEOUT_MS = 5000;
+
 type WaveParams = {
   w: number;
   phi: number;
@@ -336,19 +338,21 @@ export class WaterSystem {
         );
       });
 
-    const [normalResult, flowResult] = await Promise.allSettled([
-      loadTex("/textures/waterNormal.png"),
-      loadTex("/textures/noise28.png"),
+    const [normalTex, flowTex] = await Promise.all([
+      this.withTextureLoadFallback(
+        "water normal",
+        loadTex("/textures/waterNormal.png"),
+        () => this.createNormalMap(512, 1.0, 42),
+      ),
+      this.withTextureLoadFallback(
+        "water flow",
+        loadTex("/textures/noise28.png"),
+        () => this.createFlowFallback(256),
+      ),
     ]);
 
-    this.normalTex =
-      normalResult.status === "fulfilled"
-        ? normalResult.value
-        : await this.createNormalMap(512, 1.0, 42);
-    this.flowTex =
-      flowResult.status === "fulfilled"
-        ? flowResult.value
-        : this.createFlowFallback(256);
+    this.normalTex = normalTex;
+    this.flowTex = flowTex;
     this.foamTex = await this.createFoamTexture(128);
 
     // TSL reflector: handles render target, camera mirroring, oblique clipping
@@ -358,6 +362,52 @@ export class WaterSystem {
 
     this.lakeMaterial = this.createLakeMaterial();
     this.oceanMaterial = this.createOceanMaterial();
+  }
+
+  private async withTextureLoadFallback(
+    label: string,
+    texturePromise: Promise<THREE.Texture>,
+    fallback: () => THREE.Texture | Promise<THREE.Texture>,
+  ): Promise<THREE.Texture> {
+    type TextureLoadResult =
+      | { ok: true; texture: THREE.Texture }
+      | { ok: false; error: unknown };
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeout = new Promise<TextureLoadResult>((resolve) => {
+      timeoutId = setTimeout(() => {
+        resolve({
+          ok: false,
+          error: new Error(
+            `${label} texture load timed out after ${WATER_TEXTURE_LOAD_TIMEOUT_MS}ms`,
+          ),
+        });
+      }, WATER_TEXTURE_LOAD_TIMEOUT_MS);
+    });
+
+    try {
+      const result = await Promise.race([
+        texturePromise.then(
+          (texture): TextureLoadResult => ({ ok: true, texture }),
+          (error): TextureLoadResult => ({ ok: false, error }),
+        ),
+        timeout,
+      ]);
+
+      if (result.ok) {
+        return result.texture;
+      }
+
+      console.warn(
+        `[WaterSystem] ${label} texture unavailable; using generated fallback`,
+        result.error,
+      );
+      return await fallback();
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
   }
 
   /**

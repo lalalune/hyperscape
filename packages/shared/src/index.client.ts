@@ -238,19 +238,7 @@ export { ClientRuntime } from "./systems/client/ClientRuntime"; // Client lifecy
 export { ClientAudio } from "./systems/client/ClientAudio";
 export { ClientLiveKit } from "./systems/client/ClientLiveKit";
 export { ClientInput } from "./systems/client/ClientInput";
-export {
-  attachEquipmentVisualToVRM,
-  extractEquipmentAttachmentData,
-  removeEquipmentVisual,
-  resolveEquipmentVisualData,
-  resolveEquipmentVisualUrls,
-} from "./systems/client/EquipmentVisualHelpers";
-export type {
-  EquipmentAttachmentData,
-  EquipmentVisualModelData,
-  EquipmentVisualStore,
-  EquipmentVisualUrlResolution,
-} from "./systems/client/EquipmentVisualHelpers";
+export * from "./systems/client/EquipmentVisualHelpers";
 export { ClientActions } from "./systems/client/ClientActions";
 export { DevStats } from "./systems/client/DevStats"; // FPS counter and dev performance telemetry
 export { EventBus } from "./systems/shared";
