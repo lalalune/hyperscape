@@ -43,3 +43,8 @@ export {
   type AllocRecord,
   type LeakSnapshot,
 } from "./stream-leak-diagnostics.js";
+export {
+  startHlsCdnSync,
+  stopHlsCdnSync,
+  getHlsStreamUrl,
+} from "./hls-cdn-sync.js";

@@ -57,16 +57,35 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  */
 const KNOWN_CROSS_ORIGIN_PATTERNS = [
   /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/,
-  /^https?:\/\/(www\.)?hyperscape\.gg$/,
-  /^https?:\/\/(www\.)?hyperbet\.win$/,
-  /^https?:\/\/(www\.)?bsc\.hyperbet\.win$/,
-  /^https?:\/\/(www\.)?hyperscape-betting\.pages\.dev$/,
-  /^https?:\/\/.+\.hyperscape-betting\.pages\.dev$/,
-  /^https?:\/\/.+\.hyperbet\.pages\.dev$/,
-  /^https?:\/\/.+\.hyperbet-solana\.pages\.dev$/,
-  /^https?:\/\/.+\.hyperbet-bsc\.pages\.dev$/,
-  /^https?:\/\/.+\.hyperscape\.pages\.dev$/,
+  /^https:\/\/(www\.)?hyperscape\.gg$/,
+  /^https:\/\/(www\.)?hyperbet\.win$/,
+  /^https:\/\/(www\.)?bsc\.hyperbet\.win$/,
+  /^https:\/\/(www\.)?hyperscape-betting\.pages\.dev$/,
+  /^https:\/\/.+\.hyperscape-betting\.pages\.dev$/,
+  /^https:\/\/.+\.hyperbet\.pages\.dev$/,
+  /^https:\/\/.+\.hyperscape\.pages\.dev$/,
 ];
+
+function hasRequestCookie(request: FastifyRequest): boolean {
+  return (
+    typeof request.headers.cookie === "string" &&
+    request.headers.cookie.trim().length > 0
+  );
+}
+
+function hasStructuredAuthorizationHeader(request: FastifyRequest): boolean {
+  const authorization = request.headers.authorization;
+  const value = Array.isArray(authorization) ? authorization[0] : authorization;
+  return (
+    typeof value === "string" && /^(?:Bearer|Basic)\s+\S+$/i.test(value.trim())
+  );
+}
+
+function hasStructuredAdminCodeHeader(request: FastifyRequest): boolean {
+  const adminCode = request.headers["x-admin-code"];
+  const value = Array.isArray(adminCode) ? adminCode[0] : adminCode;
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 /**
  * Generate a cryptographically secure CSRF token
@@ -78,7 +97,7 @@ function generateCsrfToken(): string {
 /**
  * Check if a request should skip CSRF validation
  */
-function shouldSkipCsrf(request: FastifyRequest): boolean {
+export function shouldSkipCsrf(request: FastifyRequest): boolean {
   // Safe methods don't need CSRF protection
   if (SAFE_METHODS.has(request.method)) {
     return true;
@@ -94,14 +113,19 @@ function shouldSkipCsrf(request: FastifyRequest): boolean {
     return true;
   }
 
-  // API clients with Authorization header (Bearer token, API key, etc.)
-  // These are already authenticated via a different mechanism
-  if (request.headers.authorization) {
+  const requestHasCookies = hasRequestCookie(request);
+
+  // API clients with Authorization header are authenticated via a different
+  // mechanism only when the request is not also carrying ambient cookies.
+  // Otherwise a forged Authorization header could bypass CSRF while session
+  // cookies still authenticate the route.
+  if (hasStructuredAuthorizationHeader(request) && !requestHasCookies) {
     return true;
   }
 
-  // Admin requests with X-Admin-Code are already authenticated
-  if (request.headers["x-admin-code"]) {
+  // Same rule for admin-code clients: the header must be structurally present,
+  // and cookie-bearing browser requests still need the CSRF token.
+  if (hasStructuredAdminCodeHeader(request) && !requestHasCookies) {
     return true;
   }
 

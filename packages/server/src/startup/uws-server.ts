@@ -10,7 +10,7 @@
  * EventEmitter-like NodeWebSocket interface that Socket/ConnectionHandler expect.
  */
 
-import * as uWS from "uWebSockets.js";
+import type * as uWS from "uWebSockets.js";
 import type { World } from "@hyperscape/shared";
 import {
   UwsWebSocketAdapter,
@@ -18,11 +18,16 @@ import {
 } from "./UwsWebSocketAdapter.js";
 import type { NodeWebSocket } from "../shared/types/network.types.js";
 
+type UwsModule = typeof import("uWebSockets.js");
+
 /** Module-level listen socket for graceful shutdown */
 let _listenSocket: uWS.us_listen_socket | null = null;
 
 /** Module-level uWS app reference for pub/sub broadcasting */
 let _uwsApp: uWS.TemplatedApp | null = null;
+
+/** Loaded uWS module, if the runtime supports it */
+let _uwsModule: UwsModule | null = null;
 
 /**
  * Get the uWS app instance for pub/sub operations.
@@ -30,6 +35,14 @@ let _uwsApp: uWS.TemplatedApp | null = null;
  */
 export function getUwsApp(): uWS.TemplatedApp | null {
   return _uwsApp;
+}
+
+async function loadUwsModule(): Promise<UwsModule> {
+  if (_uwsModule) {
+    return _uwsModule;
+  }
+  _uwsModule = await import("uWebSockets.js");
+  return _uwsModule;
 }
 
 /**
@@ -64,10 +77,11 @@ function parseQueryString(qs: string): Record<string, string> {
  * @param port - Port to listen on (default: 5556 via UWS_PORT env var)
  * @returns Promise that resolves with the uWS listen socket (for shutdown)
  */
-export function createUwsServer(
+export async function createUwsServer(
   world: World,
   port: number,
 ): Promise<uWS.us_listen_socket | null> {
+  const uWS = await loadUwsModule();
   const app = uWS.App();
   _uwsApp = app;
 
@@ -173,8 +187,8 @@ export function createUwsServer(
  * Safe to call even if uWS was never started.
  */
 export function closeUwsServer(): void {
-  if (_listenSocket) {
-    uWS.us_listen_socket_close(_listenSocket);
+  if (_listenSocket && _uwsModule) {
+    _uwsModule.us_listen_socket_close(_listenSocket);
     _listenSocket = null;
     console.log("[uWS] Listen socket closed");
   }

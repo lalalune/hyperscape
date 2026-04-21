@@ -34,6 +34,36 @@ let thoughtFlushTimer: ReturnType<typeof setInterval> | null = null;
 // DB handle — set once via setThoughtDb() from server startup
 let _thoughtDb: Database | null = null;
 
+function normalizeDashboardThoughtType(
+  value: string,
+): DashboardThought["type"] {
+  switch (value) {
+    case "situation":
+    case "evaluation":
+    case "thinking":
+    case "decision":
+    case "action":
+      return value;
+    default:
+      return "thinking";
+  }
+}
+
+function normalizeDashboardDecisionPath(
+  value: string | null | undefined,
+): DashboardThought["decisionPath"] {
+  switch (value) {
+    case "short-circuit":
+    case "llm":
+    case "scripted":
+    case "planner":
+    case "curiosity":
+      return value;
+    default:
+      return undefined;
+  }
+}
+
 /** Set the Drizzle DB instance for thought persistence. Call once at startup. */
 export function setThoughtDb(db: Database): void {
   _thoughtDb = db;
@@ -109,10 +139,10 @@ export async function hydrateThoughtsFromDb(
       if (!existingIds.has(id)) {
         existing.push({
           id,
-          type: r.type,
+          type: normalizeDashboardThoughtType(r.type),
           content: r.content,
           timestamp: r.timestamp,
-          decisionPath: r.decisionPath ?? undefined,
+          decisionPath: normalizeDashboardDecisionPath(r.decisionPath),
         });
       }
     }
@@ -141,6 +171,10 @@ type CommandData = {
   message?: string;
   npcId?: string;
   interaction?: string;
+  questId?: string;
+  recipe?: string;
+  slot?: string;
+  description?: string;
 };
 
 type DistancePreference = "nearest" | "furthest";
@@ -241,13 +275,23 @@ export function recordAgentThought(
 
 /** Snapshot of embedded AgentBehaviorTicker.goal (avoid circular import of AgentInstance). */
 export type EmbeddedTickerGoalSnapshot = {
-  type: "questing" | "combat" | "gathering" | "idle";
+  type:
+    | "questing"
+    | "combat"
+    | "gathering"
+    | "banking"
+    | "cooking"
+    | "smelting"
+    | "smithing"
+    | "exploring"
+    | "idle";
   description: string;
   questId?: string;
   questName?: string;
   questStageType?: string;
   questStageTarget?: string;
   questStageCount?: number;
+  questStartNpc?: string;
 };
 
 const MAX_EMBEDDED_DASHBOARD_ACTIVITY = 100;
@@ -1162,7 +1206,7 @@ function findGlobalResourceTarget(
     getWorld?: () => { entities?: { items?: Map<string, WorldEntity> } };
   };
   const world = (service as ServiceWithWorld).getWorld?.();
-  const items = world?.entities?.items;
+  const items = world?.entities?.items as Map<string, WorldEntity> | undefined;
   if (!items) return null;
   const kws = typeKeywords.map((k) => k.toLowerCase());
   let bestId: string | null = null;
@@ -1236,7 +1280,7 @@ function findGlobalMobTarget(
     getWorld?: () => { entities?: { items?: Map<string, WorldEntity> } };
   };
   const world = (service as ServiceWithWorld).getWorld?.();
-  const items = world?.entities?.items;
+  const items = world?.entities?.items as Map<string, WorldEntity> | undefined;
   if (!items) return null;
   const tokens = tokenizeTarget(targetPhrase);
   let bestId: string | null = null;
@@ -1639,13 +1683,11 @@ export function resolveDashboardIntent(
       };
     }
     // No specific item found, try any raw food
-    const anyRaw = inventoryEntries.find((e) =>
-      e.item?.itemId?.startsWith("raw_"),
-    );
+    const anyRaw = inventoryEntries.find((e) => e.itemId.startsWith("raw_"));
     if (anyRaw) {
       return {
         command: "cook",
-        data: { itemId: anyRaw.item!.itemId! },
+        data: { itemId: anyRaw.itemId },
         text: `Cooking ${anyRaw.name}.`,
         thought: `Operator requested cooking. Found ${anyRaw.name} in inventory.`,
         targetName: anyRaw.name,
@@ -1820,7 +1862,7 @@ export function resolveDashboardIntent(
       if (bestQuest && bestScore > 0) {
         return {
           command: "questAccept",
-          data: { questId: bestQuest.id },
+          data: { questId: bestQuest.questId },
           text: `Accepting quest "${bestQuest.name}".`,
           thought: `Operator asked to begin quest. Matched "${bestQuest.name}" from available quests.`,
           targetName: bestQuest.name,
@@ -1833,7 +1875,7 @@ export function resolveDashboardIntent(
       const first = startable[0];
       return {
         command: "questAccept",
-        data: { questId: first.id },
+        data: { questId: first.questId },
         text: `Accepting quest "${first.name}".`,
         thought: `Operator asked to begin a quest. No specific match — picking first available: "${first.name}".`,
         targetName: first.name,

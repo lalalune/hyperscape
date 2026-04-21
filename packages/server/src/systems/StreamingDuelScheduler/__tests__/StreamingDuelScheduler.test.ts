@@ -379,6 +379,47 @@ function createMockWorld(options?: {
   };
 }
 
+describe("StreamingDuelScheduler endCycle guard", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("resets the end-cycle guard when a synchronous transition throws", async () => {
+    const ctx = createMockWorld();
+    const scheduler = new StreamingDuelScheduler(ctx.world as never);
+    (scheduler as any).currentCycle = {
+      cycleId: "cycle-sync-throw",
+      duelId: "duel-sync-throw",
+      duelKeyHex: "0xcycle",
+      winnerId: "agent-alpha",
+      loserId: "agent-beta",
+      agent1: { characterId: "agent-alpha" },
+      agent2: { characterId: "agent-beta" },
+    };
+    (scheduler as any).schedulerState = "ACTIVE";
+
+    const originalEmit = ctx.world.emit;
+    ctx.world.emit = ((event: string, payload: unknown) => {
+      if (event === "streaming:resolution:end") {
+        throw new Error("resolution end emit failed");
+      }
+      originalEmit(event, payload);
+    }) as typeof ctx.world.emit;
+
+    expect(() => (scheduler as any).endCycle()).not.toThrow();
+    expect((scheduler as any)._endCycleInProgress).toBe(false);
+    expect((scheduler as any).schedulerState).toBe("IDLE");
+    expect(scheduler.getCurrentCycle()).toBeNull();
+
+    scheduler.destroy();
+  });
+});
+
 // TODO: These tests need refactoring - they call internal methods via `(scheduler as any)`
 // that have been moved to the orchestrator pattern. Many pass but 23 fail.
 describe.skip("StreamingDuelScheduler", () => {
@@ -426,7 +467,14 @@ describe.skip("StreamingDuelScheduler", () => {
 
     expect(ctx.world.network.send).toHaveBeenCalledWith(
       "streamingState",
-      expect.any(Object),
+      expect.objectContaining({
+        cycle: expect.objectContaining({
+          duelKeyHex: null,
+          duelEndTime: null,
+          seed: null,
+          replayHash: null,
+        }),
+      }),
     );
 
     scheduler.destroy();
@@ -1380,6 +1428,10 @@ describe.skip("StreamingDuelScheduler", () => {
       winReason: "kill",
       damageWinner: 50,
       damageLoser: 30,
+      duelKeyHex: null,
+      duelEndTime: null,
+      seed: null,
+      replayHash: null,
     });
 
     const duels1 = scheduler.getRecentDuels(10);

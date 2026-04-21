@@ -33,7 +33,11 @@ import Fastify, {
   type FastifyReply,
 } from "fastify";
 import fs from "fs-extra";
+import { timingSafeEqual } from "node:crypto";
+import { Readable } from "node:stream";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import path from "path";
+import { RateLimiterMemory } from "rate-limiter-flexible";
 import type { ServerConfig } from "./config.js";
 import {
   getDefaultElizaOsApiUrl,
@@ -48,12 +52,60 @@ import {
   enforceSameSiteCookies,
 } from "../middleware/csrf.js";
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function derivePagesProjectHost(hostname: string): string | null {
+  const normalized = hostname.trim().toLowerCase();
+  if (!normalized.endsWith(".pages.dev")) {
+    return null;
+  }
+
+  const segments = normalized.split(".");
+  if (segments.length < 3) {
+    return null;
+  }
+
+  return segments.slice(-3).join(".");
+}
+
+export function buildPagesPreviewOriginPatterns(
+  origin: string | null | undefined,
+): RegExp[] {
+  const trimmed = origin?.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return [];
+    }
+
+    const projectHost = derivePagesProjectHost(parsed.hostname);
+    if (!projectHost) {
+      return [];
+    }
+
+    return [
+      new RegExp(
+        `^${escapeRegExp(parsed.protocol)}//(?:[a-z0-9-]+\\.)+${escapeRegExp(projectHost)}$`,
+        "i",
+      ),
+    ];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * SECURITY: Validate Origin header for state-changing requests.
  * This provides additional protection against cross-origin attacks
  * even though we don't use cookies (which would make CSRF a non-issue).
  */
-function createOriginValidator(allowedOrigins: (string | RegExp)[]) {
+export function createOriginValidator(allowedOrigins: (string | RegExp)[]) {
   return function validateOrigin(origin: string | undefined): boolean {
     if (!origin) return true; // Server-to-server or same-origin requests may not have Origin
 
@@ -74,6 +126,16 @@ type PublicRootInfo = {
   assetsPath: string;
   source: "server-public" | "client-dist";
 };
+
+const PUBLIC_DEBUG_CODEQL_LIMITER = new RateLimiterMemory({
+  points: 240,
+  duration: 60,
+});
+
+const GAME_ASSETS_CODEQL_LIMITER = new RateLimiterMemory({
+  points: 240,
+  duration: 60,
+});
 
 async function resolvePublicRoot(
   config: ServerConfig,
@@ -148,6 +210,11 @@ export async function createHttpServer(
     process.env.PUBLIC_APP_URL ||
     getDefaultPublicAppUrl();
   const serverUrl = process.env.SERVER_URL || `http://localhost:${config.port}`;
+  const derivedPagesPreviewOrigins = [
+    ...buildPagesPreviewOriginPatterns(clientUrl),
+    ...buildPagesPreviewOriginPatterns(process.env.PUBLIC_APP_URL),
+    ...buildPagesPreviewOriginPatterns(process.env.CLIENT_URL),
+  ];
 
   const allowedOrigins = [
     // Production domains (HTTPS)
@@ -162,8 +229,6 @@ export async function createHttpServer(
     "https://hyperscape.pages.dev",
     "https://hyperscape-betting.pages.dev",
     "https://hyperbet.pages.dev",
-    "https://hyperbet-solana.pages.dev",
-    "https://hyperbet-bsc.pages.dev",
     "https://hyperscape-production.up.railway.app",
     "https://api.hyperbet.win",
     "https://bsc-api.hyperbet.win",
@@ -171,8 +236,6 @@ export async function createHttpServer(
     "http://hyperscape.pages.dev",
     "http://hyperscape-betting.pages.dev",
     "http://hyperbet.pages.dev",
-    "http://hyperbet-solana.pages.dev",
-    "http://hyperbet-bsc.pages.dev",
     // Development (from env vars or defaults)
     elizaOSUrl, // ElizaOS API
     clientUrl, // Game Client
@@ -183,8 +246,6 @@ export async function createHttpServer(
     /^https?:\/\/.+\.hyperbet\.win$/, // hyperbet.win subdomains
     /^https?:\/\/.+\.hyperscape-betting\.pages\.dev$/, // Existing Hyperbet Pages preview deployments
     /^https?:\/\/.+\.hyperbet\.pages\.dev$/, // Hyperbet Pages preview deployments
-    /^https?:\/\/.+\.hyperbet-solana\.pages\.dev$/, // Hyperbet Solana preview deployments
-    /^https?:\/\/.+\.hyperbet-bsc\.pages\.dev$/, // Hyperbet BSC preview deployments
     /^https?:\/\/(www\.)?hyperscape\.gg$/, // hyperscape.gg apex and www
     /^https?:\/\/.+\.hyperscape\.gg$/, // hyperscape.gg subdomains
     /^https?:\/\/.+\.hyperscape\.pages\.dev$/, // Cloudflare Pages preview deployments
@@ -192,6 +253,7 @@ export async function createHttpServer(
     /^https:\/\/.+\.warpcast\.com$/,
     /^https:\/\/.+\.privy\.io$/,
     /^https:\/\/.+\.up\.railway\.app$/,
+    ...derivedPagesPreviewOrigins,
   ];
 
   // Add custom domain from env if set
@@ -222,6 +284,23 @@ export async function createHttpServer(
   // SECURITY: Add Origin validation for state-changing requests
   // This provides defense-in-depth against cross-origin attacks
   const isValidOrigin = createOriginValidator(allowedOrigins);
+  const isLocalhostOrigin = (origin: string): boolean => {
+    // Parse the origin and check the hostname is literally localhost/loopback.
+    // A substring match like origin.includes("localhost") is exploitable by
+    // origins such as `http://evil-localhost.com` or `https://localhost.evil`.
+    try {
+      const parsed = new URL(origin);
+      const host = parsed.hostname;
+      return (
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host === "[::1]" ||
+        host === "::1"
+      );
+    } catch {
+      return false;
+    }
+  };
   fastify.addHook("preHandler", async (request, reply) => {
     // Only check state-changing methods
     if (["POST", "PUT", "DELETE", "PATCH"].includes(request.method)) {
@@ -232,7 +311,7 @@ export async function createHttpServer(
       // - Health check endpoints
       if (
         origin &&
-        !origin.includes("localhost") &&
+        !isLocalhostOrigin(origin) &&
         !request.url.startsWith("/health") &&
         !isValidOrigin(origin)
       ) {
@@ -272,25 +351,35 @@ export async function createHttpServer(
             ? header[0]
             : undefined;
 
-      // Disable origin lock check to allow direct client requests (fixes 403 Forbidden)
-      // if (!presented || presented !== cloudflareOriginSecret) {
-      //   return reply.status(403).send({
-      //     error: "Forbidden",
-      //     message: "Origin not authorized",
-      //   });
-      // }
+      const expected = Buffer.from(cloudflareOriginSecret);
+      const actual = presented ? Buffer.from(presented) : null;
+      const authorized =
+        actual != null &&
+        actual.length === expected.length &&
+        timingSafeEqual(actual, expected);
+
+      if (!authorized) {
+        return reply.status(403).send({
+          error: "Forbidden",
+          message: "Origin not authorized",
+        });
+      }
     });
     console.log("[HTTP] ✅ Cloudflare origin secret enforcement enabled");
   }
 
-  // Configure rate limiting for production security
+  // Always register the rate-limit plugin so route-level limiters are wired.
+  // The global limiter remains policy-controlled for dev/test ergonomics.
   if (isRateLimitEnabled()) {
     await fastify.register(rateLimit, getGlobalRateLimit());
     console.log(
       "[HTTP] ✅ Rate limiting enabled (100 requests/min per IP globally)",
     );
   } else {
-    console.log("[HTTP] ⚠️  Rate limiting disabled (development mode)");
+    await fastify.register(rateLimit, { global: false });
+    console.log(
+      "[HTTP] ⚠️  Global rate limiting disabled (development mode); route-level rate limiters remain available",
+    );
   }
 
   // Configure CSRF protection for state-changing requests
@@ -359,30 +448,50 @@ export async function createHttpServer(
     reply.status(500).send({ error: "Internal server error" });
   });
 
-  // Debug endpoint to see public directory contents
-  fastify.get("/debug/public", async (_req, reply) => {
-    const publicDir = path.join(config.__dirname, "public");
-    const assetsDir = path.join(publicDir, "assets");
-    let publicContents: string[] = [];
-    let assetsContents: string[] = [];
-    try {
-      publicContents = await fs.readdir(publicDir);
-    } catch (e) {
-      publicContents = [`ERROR: ${e}`];
-    }
-    try {
-      assetsContents = await fs.readdir(assetsDir);
-    } catch (e) {
-      assetsContents = [`ERROR: ${e}`];
-    }
-    return reply.send({
-      publicDir,
-      assetsDir,
-      publicContents,
-      assetsContents: assetsContents.slice(0, 20), // Limit to 20 items
-      configDirname: config.__dirname,
-    });
-  });
+  const allowPublicDebugRoute =
+    process.env.NODE_ENV !== "production" ||
+    process.env.ENABLE_PUBLIC_DEBUG_ROUTE === "true";
+  if (allowPublicDebugRoute) {
+    ensureRateLimitDecorator(fastify);
+    // Debug endpoint to see public directory contents
+    fastify.get(
+      "/debug/public",
+      {
+        preHandler: fastify.rateLimit({
+          max: 240,
+          timeWindow: "1 minute",
+        }),
+      },
+      async (request, reply) => {
+        try {
+          await PUBLIC_DEBUG_CODEQL_LIMITER.consume(request.ip);
+        } catch {
+          return reply.code(429).send({ error: "Too Many Requests" });
+        }
+        const publicDir = path.join(config.__dirname, "public");
+        const assetsDir = path.join(publicDir, "assets");
+        let publicContents: string[] = [];
+        let assetsContents: string[] = [];
+        try {
+          publicContents = await fs.readdir(publicDir);
+        } catch (e) {
+          publicContents = [`ERROR: ${e}`];
+        }
+        try {
+          assetsContents = await fs.readdir(assetsDir);
+        } catch (e) {
+          assetsContents = [`ERROR: ${e}`];
+        }
+        return reply.send({
+          publicDir,
+          assetsDir,
+          publicContents,
+          assetsContents: assetsContents.slice(0, 20), // Limit to 20 items
+          configDirname: config.__dirname,
+        });
+      },
+    );
+  }
 
   // SPA catch-all route - serve index.html for any unmatched routes
   // This must be registered AFTER all other routes
@@ -558,15 +667,24 @@ async function registerStaticFiles(
       : null;
 
   if (gameAssetsRoot) {
-    await fastify.register(statics, {
-      root: gameAssetsRoot,
-      prefix: "/game-assets/",
-      decorateReply: false,
-      setHeaders: (res, filePath) => {
-        setAssetHeaders(res, filePath);
-      },
-    });
-    console.log(`[HTTP] ✅ Registered /game-assets/ → ${gameAssetsRoot}`);
+    const gameAssetsFallbackUrl =
+      process.env["GAME_ASSETS_FALLBACK_URL"]?.trim() || null;
+    if (gameAssetsFallbackUrl) {
+      registerGameAssetsRoute(fastify, gameAssetsRoot, gameAssetsFallbackUrl);
+      console.log(
+        `[HTTP] ✅ Registered /game-assets/ → ${gameAssetsRoot} (fallback: ${gameAssetsFallbackUrl})`,
+      );
+    } else {
+      await fastify.register(statics, {
+        root: gameAssetsRoot,
+        prefix: "/game-assets/",
+        decorateReply: false,
+        setHeaders: (res, filePath) => {
+          setAssetHeaders(res, filePath);
+        },
+      });
+      console.log(`[HTTP] ✅ Registered /game-assets/ → ${gameAssetsRoot}`);
+    }
 
     const legacyAssetsRoot = hasCachedAssetsDir
       ? config.assetsDir
@@ -768,6 +886,199 @@ function setAssetHeaders(
   // browser) can fetch assets served from :5555 without triggering CORP blocks.
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+}
+
+export function normalizeGameAssetPath(rawPath: string): string | null {
+  let decodedPath: string;
+  try {
+    decodedPath = decodeURIComponent(rawPath);
+  } catch {
+    return null;
+  }
+
+  if (decodedPath.includes("\0")) {
+    return null;
+  }
+
+  const normalizedPath = path.posix.normalize(decodedPath).replace(/^\/+/, "");
+  if (
+    normalizedPath.length === 0 ||
+    normalizedPath === "." ||
+    normalizedPath === ".." ||
+    normalizedPath.startsWith("../")
+  ) {
+    return null;
+  }
+  return normalizedPath;
+}
+
+function copyHeaderIfPresent(
+  reply: FastifyReply,
+  upstreamHeaders: Headers,
+  headerName: string,
+): void {
+  const value = upstreamHeaders.get(headerName);
+  if (value) {
+    reply.header(headerName, value);
+  }
+}
+
+const GAME_ASSET_PROXY_RATE_LIMIT = {
+  max: 240,
+  timeWindow: "1 minute",
+} as const;
+type RateLimitedFastify = FastifyInstance & {
+  rateLimit: NonNullable<FastifyInstance["rateLimit"]>;
+};
+
+function ensureRateLimitDecorator(
+  fastify: FastifyInstance,
+): asserts fastify is RateLimitedFastify {
+  if (typeof fastify.rateLimit === "function") {
+    return;
+  }
+  throw new Error(
+    "HTTP routes require @fastify/rate-limit to be registered before route setup",
+  );
+}
+
+function buildGameAssetFallbackUrl(
+  fallbackBaseUrl: string,
+  normalizedPath: string,
+): URL | null {
+  if (!/^[A-Za-z0-9/_\-.]+$/.test(normalizedPath)) {
+    return null;
+  }
+
+  try {
+    const baseUrl = new URL(
+      fallbackBaseUrl.endsWith("/") ? fallbackBaseUrl : `${fallbackBaseUrl}/`,
+    );
+    if (baseUrl.protocol !== "http:" && baseUrl.protocol !== "https:") {
+      return null;
+    }
+
+    const nextUrl = new URL(baseUrl.toString());
+    nextUrl.pathname = path.posix.join(baseUrl.pathname, normalizedPath);
+    nextUrl.search = "";
+    nextUrl.hash = "";
+    return nextUrl;
+  } catch {
+    return null;
+  }
+}
+
+function registerGameAssetsRoute(
+  fastify: FastifyInstance,
+  gameAssetsRoot: string,
+  fallbackBaseUrl: string,
+): void {
+  const resolvedRoot = path.resolve(gameAssetsRoot);
+  const fallbackRoot = fallbackBaseUrl.endsWith("/")
+    ? fallbackBaseUrl
+    : `${fallbackBaseUrl}/`;
+  ensureRateLimitDecorator(fastify);
+  fastify.route({
+    method: ["GET", "HEAD"],
+    url: "/game-assets/*",
+    handler: async (request, reply) => {
+      try {
+        await GAME_ASSETS_CODEQL_LIMITER.consume(request.ip);
+      } catch {
+        return reply.code(429).send({ error: "Too Many Requests" });
+      }
+      const rawPath = String((request.params as { "*": string })["*"] || "");
+      const normalizedPath = normalizeGameAssetPath(rawPath);
+      if (!normalizedPath) {
+        return reply.code(400).send({ error: "Invalid asset path" });
+      }
+
+      const localAssetPath = path.resolve(resolvedRoot, normalizedPath);
+      if (
+        localAssetPath === resolvedRoot ||
+        !localAssetPath.startsWith(`${resolvedRoot}${path.sep}`)
+      ) {
+        return reply.code(400).send({ error: "Invalid asset path" });
+      }
+
+      if (await fs.pathExists(localAssetPath)) {
+        setAssetHeaders(reply.raw, localAssetPath);
+        if (request.method === "HEAD") {
+          const stats = await fs.stat(localAssetPath);
+          reply.header("Content-Length", String(stats.size));
+          return reply.code(200).send();
+        }
+        return reply.send(fs.createReadStream(localAssetPath));
+      }
+
+      if (normalizedPath.startsWith("manifests/")) {
+        return reply.code(404).send({ error: "Asset not found" });
+      }
+
+      const fallbackUrl = buildGameAssetFallbackUrl(
+        fallbackRoot,
+        normalizedPath,
+      );
+      if (!fallbackUrl) {
+        return reply.code(400).send({ error: "Invalid asset path" });
+      }
+
+      console.warn(
+        `[HTTP] Local asset miss for /game-assets/${normalizedPath}; proxying to ${fallbackUrl.toString()}`,
+      );
+
+      let upstreamResponse: Response;
+      try {
+        upstreamResponse = await fetch(fallbackUrl, {
+          method: request.method,
+          redirect: "follow",
+          signal: AbortSignal.timeout(15_000),
+        });
+      } catch (error) {
+        const errorName = error instanceof Error ? error.name : "";
+        return reply
+          .code(
+            errorName === "TimeoutError" || errorName === "AbortError"
+              ? 504
+              : 502,
+          )
+          .send({
+            error:
+              errorName === "TimeoutError" || errorName === "AbortError"
+                ? "Asset fallback timed out"
+                : "Asset fallback failed",
+          });
+      }
+      if (!upstreamResponse.ok) {
+        return reply
+          .code(upstreamResponse.status)
+          .send({ error: "Asset not found" });
+      }
+
+      setAssetHeaders(reply.raw, normalizedPath);
+      copyHeaderIfPresent(reply, upstreamResponse.headers, "content-type");
+      copyHeaderIfPresent(reply, upstreamResponse.headers, "content-length");
+      copyHeaderIfPresent(reply, upstreamResponse.headers, "etag");
+      copyHeaderIfPresent(reply, upstreamResponse.headers, "last-modified");
+      copyHeaderIfPresent(reply, upstreamResponse.headers, "accept-ranges");
+
+      if (request.method === "HEAD") {
+        return reply.code(200).send();
+      }
+
+      if (!upstreamResponse.body) {
+        return reply
+          .code(502)
+          .send({ error: "Asset fallback returned no body" });
+      }
+
+      return reply.send(
+        Readable.fromWeb(
+          upstreamResponse.body as unknown as NodeReadableStream,
+        ),
+      );
+    },
+  });
 }
 
 /**

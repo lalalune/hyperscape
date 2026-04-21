@@ -207,7 +207,11 @@ async function startServer() {
       | { db?: unknown; getDb?: () => unknown }
       | undefined;
     const db = dbSystem?.db ?? dbSystem?.getDb?.();
-    if (db) setThoughtDb(db);
+    if (db) {
+      setThoughtDb(
+        db as Parameters<typeof setThoughtDb>[0],
+      );
+    }
   } catch {
     // Non-critical — thoughts will stay in-memory only
   }
