@@ -281,7 +281,9 @@ export const CAPTURE_SCRIPT = `
           uptime: Date.now() - window.__captureStatus__.startTime,
           chunkCount,
           bytesSent,
-          lastChunkMs: Date.now() - lastChunkAt,
+          lastChunkAt: lastChunkAt > 0 ? lastChunkAt : null,
+          lastChunkAgeMs: lastChunkAt > 0 ? Date.now() - lastChunkAt : null,
+          lastChunkMs: lastChunkAt > 0 ? Date.now() - lastChunkAt : null,
           wsBufferedAmount: ws?.bufferedAmount || 0,
           captureFps
         })

@@ -25,9 +25,16 @@
  * This is used by UI components to show/hide touch controls, adjust button sizes,
  * and optimize pointer interactions.
  */
-const coarse = window.matchMedia("(pointer: coarse)").matches;
-const noHover = window.matchMedia("(hover: none)").matches;
-const hasTouch = navigator.maxTouchPoints > 0;
+const canMatchMedia =
+  typeof window !== "undefined" && typeof window.matchMedia === "function";
+const coarse = canMatchMedia
+  ? window.matchMedia("(pointer: coarse)").matches
+  : false;
+const noHover = canMatchMedia
+  ? window.matchMedia("(hover: none)").matches
+  : false;
+const hasTouch =
+  typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
 export const isTouch = (coarse && hasTouch) || (noHover && hasTouch);
 
 /**

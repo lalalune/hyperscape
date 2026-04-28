@@ -61,7 +61,7 @@ function CoreUIContent({ world }: { world: ClientWorld }) {
   // Check if this is spectator mode (from embedded config)
   const isSpectatorMode = (() => {
     const config = window.__HYPERSCAPE_CONFIG__;
-    return config?.mode === "spectator";
+    return config?.mode === "spectator" || config?.mode === "stream";
   })();
 
   // Presentation gating flags

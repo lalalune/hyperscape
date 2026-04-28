@@ -10,18 +10,14 @@
  * initiates challenges between bots.
  */
 
-import {
-  AgentRuntime,
-  type Plugin,
-  // @ts-ignore — InMemoryDatabaseAdapter is exported at runtime but not in .d.ts
-  InMemoryDatabaseAdapter,
-} from "@elizaos/core";
+import { AgentRuntime, type Plugin } from "@elizaos/core";
 import { EventEmitter } from "events";
 import { hyperscapePlugin } from "@hyperscape/plugin-hyperscape";
 import { createJWT } from "../shared/utils.js";
 import { errMsg } from "../shared/errMsg.js";
 import type { ModelProviderConfig } from "./ModelAgentSpawner.js";
 import { loadModelPlugin, createAgentCharacter } from "./agentHelpers.js";
+import { InMemoryDatabaseAdapter } from "./elizaCoreCompat.js";
 import { duelLogError, duelLogInfo, duelLogWarn } from "./logging.js";
 
 // Re-export for convenience

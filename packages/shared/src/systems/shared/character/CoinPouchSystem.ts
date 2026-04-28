@@ -30,10 +30,10 @@ import type { PlayerID } from "../../../types/core/identifiers";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
 
 /** Default starting coins for new players */
-const DEFAULT_STARTING_COINS = 100;
+export const DEFAULT_STARTING_COINS = 100;
 
-/** Maximum coins a player can hold (prevent overflow) */
-const MAX_COINS = 2147483647; // Max 32-bit signed integer (OSRS cap)
+/** Maximum coins a player can hold (prevent overflow) — OSRS INT32 cap */
+export const MAX_COINS = 2147483647;
 
 /**
  * CoinPouchSystem - Manages player coin balances

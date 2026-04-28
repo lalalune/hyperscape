@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
-import { TERRAIN_CONSTANTS } from "@hyperscape/shared";
+import { TERRAIN_CONSTANTS, TerrainSystem } from "@hyperscape/shared";
 import type { ClientWorld } from "../../types";
 
 const TERRAIN_BASE_SAMPLE_SIZE = 96;
@@ -36,12 +36,6 @@ const MINIMAP_BIOME_OVERRIDES: Record<string, CachedBiomeColor> = {
   ice: { r: 144, g: 166, b: 184 },
   beach: { r: 170, g: 152, b: 110 },
 };
-
-interface TerrainSystemLike {
-  getHeightAt: (x: number, z: number) => number;
-  getBiomeAtPosition?: (x: number, z: number) => string;
-  getBiomeData?: (biomeId: string) => BiomeDataLike | null;
-}
 
 interface EnsureTerrainCacheArgs {
   centerX: number;
@@ -159,7 +153,7 @@ function blendColors(
 }
 
 function getBiomeBaseColor(
-  terrainSystem: TerrainSystemLike,
+  terrainSystem: TerrainSystem,
   worldX: number,
   worldZ: number,
 ): CachedBiomeColor {
@@ -203,7 +197,7 @@ function getBiomeBaseColor(
 }
 
 async function generateTerrainChunked(
-  terrainSystem: TerrainSystemLike,
+  terrainSystem: TerrainSystem,
   centerX: number,
   centerZ: number,
   extent: number,
@@ -378,10 +372,7 @@ export function useMinimapTerrainCache(
         return;
       }
 
-      const terrainSystem = world.getSystem("terrain") as
-        | TerrainSystemLike
-        | null
-        | undefined;
+      const terrainSystem = world.getSystem<TerrainSystem>("terrain");
       if (!terrainSystem?.getHeightAt) {
         return;
       }

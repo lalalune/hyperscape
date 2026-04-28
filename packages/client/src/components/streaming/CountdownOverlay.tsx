@@ -83,7 +83,7 @@ export function CountdownOverlay({
   const isFight = displayCount === 0;
 
   // Fade-out: starts fully opaque, fades to 0 over the linger period
-  const fightOpacity = isFight ? 1 - fightProgress * 0.9 : 1;
+  const fightOpacity = isFight ? 1 - fightProgress : 1;
   // Scale: starts at 1, scales up to 1.3 then back during fade
   const fightScale = isFight ? 1 + Math.sin(fightProgress * Math.PI) * 0.3 : 1;
 

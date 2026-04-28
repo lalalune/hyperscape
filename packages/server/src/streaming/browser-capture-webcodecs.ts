@@ -25,6 +25,7 @@ export const WEBCODECS_CAPTURE_SCRIPT = `
   const BRIDGE_URL = window.__RTMP_BRIDGE_URL__ || 'ws://localhost:8765';
   const TARGET_FPS = window.__TARGET_FPS__ || 30;
   const VIDEO_BITRATE = window.__VIDEO_BITRATE__ || 6000000; // 6 Mbps
+  const TARGET_GOP_FRAMES = window.__TARGET_GOP_FRAMES__ || Math.max(1, TARGET_FPS * 2);
 
   console.log('[WebCodecs Capture] Starting direct hardware capture...');
   console.log('[WebCodecs Capture] Bridge URL:', BRIDGE_URL);
@@ -151,33 +152,112 @@ export const WEBCODECS_CAPTURE_SCRIPT = `
       }
     });
 
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const encoderCandidates = [
+      {
+        codec: 'avc1.64002A', // H.264 High Profile, Level 4.2 (1080p60)
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'constant',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.64002A',
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'variable',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.640028', // H.264 High Profile, Level 4.0 (1080p30)
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'constant',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.640028',
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'variable',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.64001F', // H.264 High Profile, Level 3.1
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'constant',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.64001F',
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'variable',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.42E01F', // H.264 Baseline, Level 3.1
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'constant',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.42E01F',
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        framerate: TARGET_FPS,
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      }
+    ];
 
-    const encoderConfig = {
-      codec: 'avc1.42E01F', // H.264 Baseline, Level 3.1
-      width: canvas.width,
-      height: canvas.height,
-      bitrate: VIDEO_BITRATE,
-      framerate: TARGET_FPS,
-      latencyMode: 'realtime', // Important for live streaming
-      avc: { format: 'annexb' } // CRITICAL: forces inline SPS/PPS headers
-    };
-
-    // Mac VideoToolbox hardware encoder handles high bitrate well, others might need tuning
-    if (!isMac) {
-       // Optional fallback tweaks for other platforms
-    }
-
-    try {
-        const support = await VideoEncoder.isConfigSupported(encoderConfig);
+    let configured = false;
+    for (const candidate of encoderCandidates) {
+      try {
+        const support = await VideoEncoder.isConfigSupported(candidate);
         if (!support.supported) {
-            console.error('[WebCodecs Capture] Configuration not supported:', encoderConfig);
-            return;
+          continue;
         }
-        encoder.configure(encoderConfig);
-        console.log('[WebCodecs Capture] Encoder configured:', encoderConfig);
-    } catch(e) {
-        console.error('[WebCodecs Capture] Failed to configure encoder:', e);
+        encoder.configure(support.config);
+        console.log('[WebCodecs Capture] Encoder configured:', JSON.stringify(support.config));
+        configured = true;
+        break;
+      } catch (e) {
+        console.warn('[WebCodecs Capture] Candidate config failed:', JSON.stringify(candidate), e);
+      }
+    }
+    if (!configured) {
+        console.error('[WebCodecs Capture] No supported encoder configuration for target stream quality');
         return;
     }
 
@@ -205,8 +285,9 @@ export const WEBCODECS_CAPTURE_SCRIPT = `
                     // Encoder is backlogged, drop frame
                     frame.close();
                 } else {
-                    // Keyframe every 1 second for ultra-fast joining logic bounds
-                    const keyFrame = (chunkCount % (TARGET_FPS * 1)) === 0;
+                    // Align keyframes to the configured ingest GOP so the live
+                    // source does not waste bitrate on overly frequent IDRs.
+                    const keyFrame = (chunkCount % TARGET_GOP_FRAMES) === 0;
                     encoder.encode(frame, { keyFrame });
                     frame.close();
                 }
@@ -266,6 +347,8 @@ export const WEBCODECS_CAPTURE_SCRIPT = `
       chunkCount,
       bytesSent,
       uptime: startTime > 0 ? Date.now() - startTime : 0,
+      lastChunkAt: lastFrameTime > 0 ? lastFrameTime : null,
+      lastChunkAgeMs: lastFrameTime > 0 ? Date.now() - lastFrameTime : null,
       lastChunkMs: lastFrameTime > 0 ? Date.now() - lastFrameTime : 0,
       captureFps,
       bufferedAmount: ws ? ws.bufferedAmount : 0,
@@ -289,12 +372,365 @@ export function generateWebCodecsCaptureScript(config: {
   bridgeUrl: string;
   fps: number;
   bitrate: number;
+  gopFrames: number;
 }): string {
   // Inject configuration variables into the script window object
   const preamble = `
     window.__RTMP_BRIDGE_URL__ = ${JSON.stringify(config.bridgeUrl)};
     window.__TARGET_FPS__ = ${config.fps};
     window.__VIDEO_BITRATE__ = ${config.bitrate};
+    window.__TARGET_GOP_FRAMES__ = ${config.gopFrames};
   `;
   return preamble + WEBCODECS_CAPTURE_SCRIPT;
+}
+
+/**
+ * WebCodecs capture variant that uses Playwright page.exposeFunction() instead
+ * of WebSocket to send H.264 NAL units from the browser to Node. This bypasses
+ * the Bun/ws WebSocket handshake timeout issue on headless Linux.
+ *
+ * The browser calls window.__streamNALU(base64) which is a direct IPC channel
+ * through Playwright's CDP bindings — no network stack involved.
+ */
+export const WEBCODECS_EXPOSED_CAPTURE_SCRIPT = `
+(function() {
+  if (window.__captureControl__) {
+    try {
+      const s = window.__captureControl__.getStatus();
+      if (s && s.recording) {
+        console.log('[WebCodecs/Exposed] Already active, skipping re-injection');
+        return;
+      }
+    } catch(e) {}
+  }
+
+  const TARGET_FPS = window.__TARGET_FPS__ || 30;
+  const VIDEO_BITRATE = window.__VIDEO_BITRATE__ || 6000000;
+  const TARGET_GOP_FRAMES = window.__TARGET_GOP_FRAMES__ || Math.max(1, TARGET_FPS * 2);
+
+  if (typeof window.__streamNALU !== 'function') {
+    console.error('[WebCodecs/Exposed] window.__streamNALU not exposed — exposeFunction() must be called first');
+    return;
+  }
+
+  console.log('[WebCodecs/Exposed] Starting direct Playwright bridge capture...');
+  console.log('[WebCodecs/Exposed] Target:', TARGET_FPS, 'fps @', VIDEO_BITRATE, 'bps');
+
+  const canvas = document.querySelector('canvas');
+  if (!canvas) {
+    console.error('[WebCodecs/Exposed] No canvas element found!');
+    return;
+  }
+
+  console.log('[WebCodecs/Exposed] Found canvas:', canvas.width, 'x', canvas.height);
+
+  let stream = null;
+  let encoder = null;
+  let processor = null;
+  let frameReader = null;
+
+  let chunkCount = 0;
+  let bytesSent = 0;
+  let startTime = 0;
+  let lastFrameTime = 0;
+  let stopped = false;
+
+  let captureFps = 0;
+  let frameCountForFps = 0;
+  let lastFpsCalcTime = Date.now();
+
+  // Batch small NALUs to reduce IPC overhead: accumulate up to ~32KB or 16ms
+  let pendingBuffer = null;
+  let pendingSize = 0;
+  let flushTimer = null;
+  const BATCH_THRESHOLD = 32768;
+  const BATCH_FLUSH_MS = 16;
+
+  function flushPending() {
+    if (pendingBuffer && pendingSize > 0) {
+      const toSend = new Uint8Array(pendingBuffer.buffer, 0, pendingSize);
+      // Convert to base64 for exposeFunction (binary not supported)
+      const base64 = btoa(String.fromCharCode.apply(null, toSend));
+      window.__streamNALU(base64).catch(() => {});
+    }
+    pendingBuffer = null;
+    pendingSize = 0;
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+  }
+
+  function sendNALU(buffer) {
+    const data = new Uint8Array(buffer);
+    bytesSent += data.length;
+    chunkCount++;
+    frameCountForFps++;
+    lastFrameTime = Date.now();
+
+    const now = Date.now();
+    if (now - lastFpsCalcTime >= 1000) {
+      captureFps = frameCountForFps;
+      frameCountForFps = 0;
+      lastFpsCalcTime = now;
+    }
+
+    // For large chunks (keyframes), send immediately
+    if (data.length > BATCH_THRESHOLD) {
+      flushPending();
+      const base64 = btoa(String.fromCharCode.apply(null, data));
+      window.__streamNALU(base64).catch(() => {});
+      return;
+    }
+
+    // Accumulate small chunks
+    if (!pendingBuffer || pendingSize + data.length > 65536) {
+      flushPending();
+      pendingBuffer = new Uint8Array(65536);
+      pendingSize = 0;
+    }
+    pendingBuffer.set(data, pendingSize);
+    pendingSize += data.length;
+
+    if (pendingSize >= BATCH_THRESHOLD) {
+      flushPending();
+    } else if (!flushTimer) {
+      flushTimer = setTimeout(flushPending, BATCH_FLUSH_MS);
+    }
+  }
+
+  async function startEncoding() {
+    if (encoder && encoder.state !== 'closed') {
+      console.warn('[WebCodecs/Exposed] Encoder already active');
+      return;
+    }
+
+    if (!stream) {
+      try {
+        stream = canvas.captureStream(TARGET_FPS);
+        console.log('[WebCodecs/Exposed] Created canvas stream at', TARGET_FPS, 'fps');
+      } catch (err) {
+        console.error('[WebCodecs/Exposed] Failed to capture canvas stream:', err);
+        return;
+      }
+    }
+
+    const videoTrack = stream.getVideoTracks()[0];
+    if (!videoTrack) {
+      console.error('[WebCodecs/Exposed] No video track in stream!');
+      return;
+    }
+
+    encoder = new VideoEncoder({
+      output: (chunk) => {
+        if (stopped) return;
+        const buffer = new ArrayBuffer(chunk.byteLength);
+        chunk.copyTo(buffer);
+        sendNALU(buffer);
+      },
+      error: (e) => {
+        console.error('[WebCodecs/Exposed] VideoEncoder error:', e);
+      }
+    });
+
+    const encoderCandidates = [
+      {
+        codec: 'avc1.64002A', // H.264 High Profile, Level 4.2 (1080p60)
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'constant',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.64002A',
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'variable',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.640028', // H.264 High Profile, Level 4.0 (1080p30)
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'constant',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.640028',
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'variable',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.64001F',
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'constant',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.64001F',
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'variable',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.42E01F',
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        bitrateMode: 'constant',
+        framerate: TARGET_FPS,
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      },
+      {
+        codec: 'avc1.42E01F',
+        width: canvas.width,
+        height: canvas.height,
+        bitrate: VIDEO_BITRATE,
+        framerate: TARGET_FPS,
+        latencyMode: 'realtime',
+        avc: { format: 'annexb' }
+      }
+    ];
+
+    let configured = false;
+    for (const candidate of encoderCandidates) {
+      try {
+        const support = await VideoEncoder.isConfigSupported(candidate);
+        if (!support.supported) {
+          continue;
+        }
+        encoder.configure(support.config);
+        console.log('[WebCodecs/Exposed] Encoder configured:', JSON.stringify(support.config));
+        configured = true;
+        break;
+      } catch(e) {
+        console.warn('[WebCodecs/Exposed] Candidate config failed:', JSON.stringify(candidate), e);
+      }
+    }
+    if (!configured) {
+      console.error('[WebCodecs/Exposed] No supported encoder configuration for target stream quality');
+      return;
+    }
+
+    startTime = Date.now();
+
+    try {
+      processor = new MediaStreamTrackProcessor({ track: videoTrack });
+      frameReader = processor.readable.getReader();
+
+      const readFrame = async () => {
+        if (!encoder || encoder.state === 'closed' || stopped) return;
+
+        try {
+          const { done, value: frame } = await frameReader.read();
+          if (done) {
+            console.log('[WebCodecs/Exposed] Track ended');
+            return;
+          }
+
+          if (encoder.encodeQueueSize > 5) {
+            frame.close();
+          } else {
+            const keyFrame = (chunkCount % TARGET_GOP_FRAMES) === 0;
+            encoder.encode(frame, { keyFrame });
+            frame.close();
+          }
+
+          readFrame();
+        } catch (e) {
+          console.error('[WebCodecs/Exposed] Frame read error:', e);
+        }
+      };
+
+      readFrame();
+      console.log('[WebCodecs/Exposed] Hardware encoding loop started');
+    } catch(e) {
+      console.error('[WebCodecs/Exposed] Failed to start frame processor:', e);
+    }
+  }
+
+  function stopEncoding() {
+    if (frameReader) {
+      frameReader.cancel();
+      frameReader = null;
+    }
+    if (encoder && encoder.state !== 'closed') {
+      encoder.close();
+    }
+    encoder = null;
+    flushPending();
+  }
+
+  function stop() {
+    console.log('[WebCodecs/Exposed] Stopping...');
+    stopped = true;
+    stopEncoding();
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      stream = null;
+    }
+  }
+
+  function getStatus() {
+    return {
+      recording: encoder && encoder.state === 'configured',
+      wsConnected: true, // Always "connected" since we use exposeFunction
+      chunkCount,
+      bytesSent,
+      uptime: startTime > 0 ? Date.now() - startTime : 0,
+      lastChunkAt: lastFrameTime > 0 ? lastFrameTime : null,
+      lastChunkAgeMs: lastFrameTime > 0 ? Date.now() - lastFrameTime : null,
+      lastChunkMs: lastFrameTime > 0 ? Date.now() - lastFrameTime : 0,
+      captureFps,
+      encodeQueue: encoder ? encoder.encodeQueueSize : 0
+    };
+  }
+
+  window.__captureControl__ = { stop, getStatus };
+
+  startEncoding();
+})();
+`;
+
+export function generateWebCodecsExposedCaptureScript(config: {
+  fps: number;
+  bitrate: number;
+  gopFrames: number;
+}): string {
+  const preamble = `
+    window.__TARGET_FPS__ = ${config.fps};
+    window.__VIDEO_BITRATE__ = ${config.bitrate};
+    window.__TARGET_GOP_FRAMES__ = ${config.gopFrames};
+  `;
+  return preamble + WEBCODECS_EXPOSED_CAPTURE_SCRIPT;
 }

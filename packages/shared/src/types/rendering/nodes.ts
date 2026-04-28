@@ -704,7 +704,12 @@ export interface UIViewData extends NodeData {
   flexBasis?: FlexBasis;
   flexGrow?: number;
   flexShrink?: number;
+  overflow?: "visible" | "hidden" | "scroll";
+  scrollX?: number;
+  scrollY?: number;
 }
+
+export type OverflowMode = "visible" | "hidden" | "scroll";
 
 // Enhanced UI Image interfaces
 export interface UIImageData extends NodeData {

@@ -49,6 +49,7 @@ vi.mock("../../../src/lib/ThreeResourceManager", () => ({
 }));
 
 vi.mock("../../../src/lib/api-config", () => ({
+  GAME_API_URL: "http://game.example/api",
   GAME_WS_URL: "ws://game.example/ws",
   CDN_URL: "https://cdn.example/assets",
   normalizeBrowserLoopbackUrl: (value?: string) => value,

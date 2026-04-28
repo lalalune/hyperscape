@@ -1,7 +1,7 @@
 // Runtime environment configuration
 // This file is loaded at runtime to override build-time environment variables.
-// In development, defaults are used. In production, this file is generated
-// by the deployment platform (Cloudflare Pages, Vercel, etc.) with actual values.
+// In development, defaults are used. In production, runtime host-specific
+// overrides keep manually deployed Pages builds pointed at the correct backend.
 //
 // Example production content:
 //   window.env = {
@@ -19,10 +19,12 @@
     currentPort === "3333" || currentPort === "4173" || currentPort === "5173";
 
   if (isLocalDevServer) {
-    const host = window.location.hostname || "127.0.0.1";
+    const hostname = window.location.hostname || "127.0.0.1";
+    const host = hostname || "127.0.0.1";
     env.PUBLIC_API_URL ||= `http://${host}:5555`;
     env.PUBLIC_WS_URL ||= `ws://${host}:5556/ws`;
     env.PUBLIC_CDN_URL ||= `http://${host}:5555/game-assets`;
+    env.PUBLIC_ELIZAOS_URL ||= `http://${host}:5555`;
   }
 
   window.env = env;

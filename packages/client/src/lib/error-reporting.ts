@@ -91,6 +91,10 @@ class ErrorReportingService {
    * @private
    */
   private setupGlobalErrorHandlers() {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return;
+    }
+
     // Store handler reference for cleanup
     this.errorHandler = (event: ErrorEvent) => {
       const errorData: ErrorReport = {
@@ -154,6 +158,10 @@ class ErrorReportingService {
    * @public
    */
   public dispose(): void {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return;
+    }
+
     if (this.errorHandler) {
       window.removeEventListener("error", this.errorHandler);
       this.errorHandler = null;
@@ -340,8 +348,9 @@ class ErrorReportingService {
     const errorData: ErrorReport = {
       message: error.message,
       stack: error.stack!,
-      url: window.location.href,
-      userAgent: navigator.userAgent,
+      url: typeof window !== "undefined" ? window.location.href : "about:blank",
+      userAgent:
+        typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
       timestamp: new Date().toISOString(),
       context: {
         type: "react-error",
@@ -379,8 +388,9 @@ class ErrorReportingService {
     const errorData: ErrorReport = {
       message: message,
       stack: error.stack!,
-      url: window.location.href,
-      userAgent: navigator.userAgent,
+      url: typeof window !== "undefined" ? window.location.href : "about:blank",
+      userAgent:
+        typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
       timestamp: new Date().toISOString(),
       context: context,
       componentStack: "",

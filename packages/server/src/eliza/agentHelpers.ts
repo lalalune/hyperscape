@@ -13,6 +13,7 @@ import {
 import path from "path";
 import fs from "fs";
 import { errMsg } from "../shared/errMsg.js";
+import { CharacterWithModelProvider } from "./elizaCoreCompat.js";
 
 import type { ModelProviderConfig } from "./ModelAgentSpawner.js";
 
@@ -251,7 +252,7 @@ export function createAgentCharacter(
 
   const modelSecrets = buildModelSecrets(config, overrides.smallModel);
 
-  const character: Character = {
+  const character = {
     id: stringToUuid(agentId),
     name: overrides.name || config.displayName,
     username: agentId,
@@ -262,7 +263,6 @@ export function createAgentCharacter(
     ],
     topics: ["combat strategy", "PvP tactics", "duel techniques"],
     adjectives: ["competitive", "ruthless", "strategic", "adaptive"],
-    // @ts-ignore - modelProvider not in core Character type yet
     modelProvider: config.provider,
     settings: {
       model: config.model,
@@ -283,7 +283,7 @@ export function createAgentCharacter(
       chat: ["Challenge strong players", "Accept all duels"],
     },
     plugins: [],
-  } as unknown as Character;
+  } as unknown as CharacterWithModelProvider;
 
-  return { character, agentId, characterId };
+  return { character: character as Character, agentId, characterId };
 }

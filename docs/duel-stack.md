@@ -1,103 +1,240 @@
-# Duel Stack (`bun run duel`)
+# Duel Stack
 
-`bun run duel` now boots the end-to-end agent duel arena stack:
+This document is the authoritative streaming model for the duel arena stack on
+`enoomian` personal staging and the basis for the canonical production path.
 
-1. Game server + client (streaming duel scheduler enabled)
-2. Duel matchmaker bots (`dev:duel:skip-dev`)
-3. RTMP bridge fanout to public platforms (YouTube/Twitch/etc.)
-4. Betting app (testnet mode)
-5. Keeper bot (testnet automation)
+## Source Of Truth
 
-## Run
+Hyperscapes owns duel truth across three layers:
 
-```bash
-bun run duel
-```
+1. simulation truth
+   - duel lifecycle
+   - fighter state
+   - result data
+2. renderer truth
+   - stream-page readiness
+   - render tick freshness
+   - visual change freshness
+   - capture and encoder cadence
+3. broadcast truth
+   - channel identity
+   - destination roles
+   - canonical public readiness
+   - fallback readiness
+   - mirror isolation
 
-`bun run duel` now bootstraps streaming prerequisites automatically on first run:
-- uses bundled `ffmpeg-static` binary by default (or `FFMPEG_PATH` if provided)
-- auto-installs Playwright Chromium if the bundled browser is missing
+Hyperbet does not invent a second broadcast model. It consumes the additive
+session/feed contract that Hyperscapes publishes.
 
-No separate Docker stream container is required for stream fanout.
+## Runtime Topology
 
-Recommended fresh-install prep command:
+- Cloudflare Pages hosts the public `/stream` page.
+- `/stream` is a dedicated capture preset, not a generic spectator client.
+- The stream preset keeps the duel camera path and combat/world SFX, but strips
+  non-essential client systems that do not improve viewer output.
+- The GPU host runs the dedicated source worker service (`hyperscape-stream-source`)
+  for browser capture and FFmpeg encode.
+- The duel API/control-plane service (`hyperscape-duel-api`) runs the duel stack
+  without capture ownership unless `DUEL_OWNS_STREAM_CAPTURE=true` is set
+  explicitly for local ownership mode.
+- Railway hosts the Hyperscapes API and control plane.
+- The transport plane fans out one encoded stream to multiple independent
+  destinations using the existing FFmpeg tee architecture.
+- Self-hosted HLS remains available on the GPU host for smoke, fallback, and
+  diagnostics.
+- Provider selection is environment-driven rather than hard-wired:
+  `self_hls` can be canonical while Cloudflare remains a warm fallback or
+  research rail.
+- Twitch, Kick, YouTube, and custom restream outputs are mirrors.
 
-```bash
-bun run install
-```
+Railway is not the renderer of record for personal staging. The channel is
+always on; duel transitions update the content carried by the channel rather
+than restarting the broadcast identity.
 
-This ensures assets are synced and Chromium is installed for local capture.
+## Channel Contract
 
-Optional flags:
+Each emitted session/feed frame carries a server-authored channel snapshot:
 
-```bash
-bun run duel --bots=6 --betting-port=4179 --rtmp-port=8765
-bun run duel --skip-keeper
-bun run duel --skip-stream
-bun run duel --verify
-```
+- `channel.id`
+- `channel.mode`
+- `channel.presentationDelayMs`
+- `channel.activeDuelId`
+- `channel.activeDuelKey`
+- `channel.canonicalDestinationId`
+- `channel.fallbackDestinationId`
+- `channel.destinations[]`
+- `channel.publicPlaybackUrl`
+- `channel.publicReadiness`
 
-## Streaming Outputs
+Each destination entry carries:
 
-Configure the following env vars (root `.env` or `packages/server/.env`):
+- `id`
+- `name`
+- `role`
+- `provider`
+- `transport`
+- `playbackUrl`
+- `ingestUrl`
+- `connected`
+- `transportHealthy`
+- `playbackReady`
+- `manifestStatus`
+- `lastError`
+- `updatedAt`
 
-- `RTMP_MULTIPLEXER_URL` (+ optional `RTMP_MULTIPLEXER_STREAM_KEY`, `RTMP_MULTIPLEXER_NAME`)
-- `TWITCH_STREAM_KEY` (or `TWITCH_RTMP_STREAM_KEY`)
-  Optional ingest override: `TWITCH_STREAM_URL` / `TWITCH_RTMP_URL` / `TWITCH_RTMP_SERVER`
-- `YOUTUBE_STREAM_KEY` (or `YOUTUBE_RTMP_STREAM_KEY`)
-  Optional ingest override: `YOUTUBE_STREAM_URL` / `YOUTUBE_RTMP_URL`
-- `KICK_STREAM_KEY` (+ optional `KICK_RTMP_URL`)
-- `PUMPFUN_RTMP_URL` (+ optional `PUMPFUN_STREAM_KEY`)
-- `X_RTMP_URL` (+ optional `X_STREAM_KEY`)
-- `RTMP_DESTINATIONS_JSON` for additional/custom fanout destinations
-- `STREAMING_VIEWER_ACCESS_TOKEN` optional gate for live WebSocket stream/spectator viewers
+The channel contract is authoritative. Keepers and frontends relay and consume
+it; they do not reconstruct equivalent state from local env vars.
 
-Default anti-cheat timing policy (no env required):
+## Destination Roles
 
-- Canonical platform: `youtube`
-- Default public delay: `15000ms`
-- Optional: `STREAMING_CANONICAL_PLATFORM` (`youtube` | `twitch`)
-- Optional override: `STREAMING_PUBLIC_DELAY_MS`
+- `canonical`
+  - the only destination that controls betting-page public readiness
+  - Cloudflare on `enoomian/staging`, with operator-only failover outside the bettor path
+- `fallback`
+  - warm standby rail tracked independently from canonical truth
+  - promoted only by an explicit authority/operator path, never by the browser
+- `mirror`
+  - downstream promotional outputs
+  - Twitch, Kick, YouTube, custom
 
-Optional client-side extra delay (usually keep `0` if server delay is enabled):
+Mirror failures must not change canonical public readiness. Fallback is tracked
+independently and is not promoted automatically by the browser.
 
-- `VITE_UI_SYNC_DELAY_MS`
+## Delivery Configuration
 
-Website/betting embed input (recommended):
+The runtime remains provider-neutral, but delivery config is now a bootstrap
+helper for the source server and bridge, not a canonical truth surface.
 
-- `NEXT_PUBLIC_ARENA_STREAM_EMBED_URL` (in `packages/website/.env.local`)
-- `VITE_STREAM_EMBED_URL` (in the Hyperbet app `.env*` files if you boot the sibling repo locally)
+Relevant bootstrap envs include:
 
-When `STREAMING_PUBLIC_DELAY_MS > 0`, live `mode=streaming` WebSocket viewers are restricted to:
-- loopback/local capture clients, or
-- clients presenting `streamToken=<STREAMING_VIEWER_ACCESS_TOKEN>`
+- `STREAM_DELIVERY_MODE`
+- `STREAM_DELIVERY_PROVIDER`
+- `STREAM_CANONICAL_PROVIDER_PRIORITY`
+- `STREAM_FAILBACK_SOAK_MS`
+- `STREAM_INGEST_*`
+- `STREAM_PLAYBACK_*`
+- `STREAM_EXTERNAL_DELIVERY_PROVIDER`
+- `STREAM_EXTERNAL_PLAYBACK_HLS_URL`
+- `STREAM_EXTERNAL_PLAYBACK_LLHLS_URL`
+- `STREAM_EXTERNAL_INGEST_RTMPS_URL`
+- `STREAM_CLOUDFLARE_PROBE_ONLY`
+- `DUEL_OWNS_STREAM_CAPTURE=true` for explicit local integrated-mode capture
+  ownership only
 
-`stream-to-rtmp` automatically appends `streamToken` to capture URLs when `STREAMING_VIEWER_ACCESS_TOKEN` is set.
+Those envs define destination bootstrapping on the source server. They are not
+for keepers or frontends to use when deciding whether canonical betting
+playback is healthy.
 
-## Spectator + Betting URLs
+## Renderer Health Model
 
-- Game stream view: `http://localhost:3333/?page=stream`
-- Embedded spectator: `http://localhost:3333/?embedded=true&mode=spectator`
-- Betting app: `http://localhost:4179`
-- Betting video source: `VITE_STREAM_EMBED_URL` (YouTube/Twitch embed URL)
+The stream page publishes a heartbeat and the capture pipeline persists richer
+status snapshots. Health is phase-aware:
 
-## Open APIs (duel telemetry + monologues)
+- `IDLE`, `OPEN`, `LOCKED`
+  - require fresh render tick and fresh delivery/manifests
+- `FIGHT`, `RESOLUTION`
+  - also require recent visual change
+  - also require acceptable capture and encoder cadence
 
+Current degraded reasons include:
+
+- `render_tick_stale`
+- `visual_change_stale`
+- `capture_fps_low`
+- `encoder_fps_low`
+- `manifest_stale`
+- `asset_origin_incomplete`
+
+Renderer health and broadcast readiness are related but not identical. A
+healthy renderer with an unhealthy canonical destination is a distribution-plane
+incident, not a simulation or renderer incident.
+
+## Canonical Public Readiness
+
+Canonical betting readiness is derived only from the canonical destination.
+
+For external-delivery canonical providers such as Cloudflare, readiness
+requires both:
+
+- healthy bridge transport to the canonical destination
+- a positive public playback probe against the canonical playback manifest
+
+For self-hosted HLS canonical delivery, readiness depends on local manifest
+freshness plus local transport health. Mirrors do not participate in canonical
+readiness.
+
+Missing canonical readiness must be treated as not ready.
+
+## Required Health Checks
+
+For the renderer/capture worker:
+
+- `GET /api/streaming/capture/status`
+- `GET /api/streaming/capture/smoke`
+- `GET /api/streaming/rtmp/status`
+- `GET /live/stream.m3u8`
+- `capture/status` should reflect source-worker readiness before canonical
+  public playback is considered healthy
+
+For the API/control plane:
+
+- `GET /health`
 - `GET /api/streaming/state`
-- `GET /api/streaming/duel-context`
-- `GET /api/streaming/agent/:characterId/inventory`
-- `GET /api/streaming/agent/:characterId/monologues?limit=20`
+- `GET /api/streaming/state/events`
+- `GET /api/hyperbet/config`
+- betting feed/session payloads must include `channel.publicReadiness`
 
-These endpoints power the betting app live duel telemetry section (inventory, wins/losses, level, HP, and internal monologues).
+For the canonical public rail:
 
-## Verification
+- probe the canonical playback manifest exposed in `channel.publicPlaybackUrl`
+- verify public playback readiness independently from ingest connectivity
 
-Run the full startup verifier against a running stack:
+For the rendered page:
 
-```bash
-bun run duel:verify
-bun run duel:verify --require-destinations=twitch,youtube
-```
+- `/stream` must visibly move through a full duel
+- during active combat, `visualChangeAgeMs < 1000`
+- during active combat, `captureFps >= 24`
+- during active combat, `encodeFps >= 24`
 
-This validates server/client/betting uptime, active duel combat, RTMP bridge status evidence, and telemetry endpoints.
-RTMP bridge status is best-effort by default, and can be made strict with `--require-destinations`.
+## Personal Staging Rule
+
+On `enoomian` personal staging:
+
+- Pages hosts the public client
+- the GPU box runs the source worker service that renders and encodes
+- Railway serves the API and control plane
+- self-hosted HLS is the current canonical betting viewer path
+- Cloudflare Stream is configured as a warm fallback and investigation rail
+- canonical selection is driven by
+  `STREAM_CANONICAL_PROVIDER_PRIORITY=self_hls,cloudflare_stream`
+- `STREAM_CLOUDFLARE_PROBE_ONLY=false` keeps Cloudflare exercised in parallel
+  without letting it poison canonical readiness while it is unhealthy
+- mirrors are optional and independent
+- health-driven source-worker restarts are handled by the source worker
+  process supervisor, not the API control plane
+
+## Operational Outcomes
+
+### Canonical Down, Mirrors Healthy
+
+- betting playback is unavailable
+- mirror viewers may still be healthy
+- this is a canonical distribution incident
+
+### Mirror Down, Canonical Healthy
+
+- betting playback remains healthy
+- only that mirror destination is degraded
+- do not relabel this as a betting outage
+
+### Renderer Healthy, Canonical Not Ready
+
+- duel truth and renderer output continue
+- betting playback remains unavailable until public readiness recovers
+- investigate canonical destination transport health and manifest probe results
+
+### Duel Transition
+
+- the channel remains continuous
+- only `activeDuelId` and content-related state change
+- transport identity and routing policy should not reset

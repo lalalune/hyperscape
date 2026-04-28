@@ -567,6 +567,10 @@ export class PlayerEntity extends CombatantEntity {
 
       // Player-specific data from playerData
       stamina: this.playerData.stamina!,
+      specialEnergy: this.playerData.specialEnergy ?? {
+        current: 1000,
+        max: 1000,
+      },
       skills: this.playerData.skills!,
       equipment: this.playerData.equipment!,
       coins: this.playerData.coins!,

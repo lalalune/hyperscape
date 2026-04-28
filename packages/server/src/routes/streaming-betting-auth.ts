@@ -9,6 +9,11 @@ export type BettingFeedAccessTokenResolution = {
   source: "betting-feed" | null;
 };
 
+export type OracleProofAccessTokenResolution = {
+  token: string | null;
+  source: "oracle-proof" | null;
+};
+
 export function shouldSkipBettingFeedAuth(
   env: Record<string, string | undefined>,
 ): boolean {
@@ -16,6 +21,19 @@ export function shouldSkipBettingFeedAuth(
     env.NODE_ENV === "development" &&
     (env.BETTING_FEED_SKIP_AUTH || "").trim().toLowerCase() === "true"
   );
+}
+
+export function assertSafeBettingFeedAuthConfig(
+  env: Record<string, string | undefined>,
+): void {
+  if (
+    env.NODE_ENV === "production" &&
+    (env.BETTING_FEED_SKIP_AUTH || "").trim().toLowerCase() === "true"
+  ) {
+    throw new Error(
+      "BETTING_FEED_SKIP_AUTH=true is forbidden when NODE_ENV=production",
+    );
+  }
 }
 
 function digestToken(token: string): Buffer {
@@ -28,12 +46,9 @@ export function extractBettingFeedToken(
   const authHeader = Array.isArray(params.authorizationHeader)
     ? params.authorizationHeader[0]
     : params.authorizationHeader;
-  const headerToken =
-    authHeader && /^Bearer\s+/i.test(authHeader)
-      ? authHeader.replace(/^Bearer\s+/i, "").trim()
-      : null;
-  if (headerToken) {
-    return headerToken;
+  const match = authHeader?.match(/^Bearer\s+(\S+)\s*$/i);
+  if (match) {
+    return match[1];
   }
   return null;
 }
@@ -69,4 +84,19 @@ export function resolveBettingFeedAccessToken(
     token: null,
     source: null,
   };
+}
+
+// Oracle-proof retrieval (`/api/streaming/results/:duelId`) exposes
+// `duelKeyHex` + `seed` + `replayHash` — the material needed to submit a
+// Solana resolution. It intentionally has one dedicated secret boundary and
+// never falls back to the general betting feed token.
+export function resolveOracleProofAccessToken(
+  env: Record<string, string | undefined>,
+): OracleProofAccessTokenResolution {
+  const keeperAlignedToken =
+    env.HYPERSCAPES_RESULT_LOOKUP_BEARER_TOKEN?.trim() || null;
+  if (keeperAlignedToken) {
+    return { token: keeperAlignedToken, source: "oracle-proof" };
+  }
+  return { token: null, source: null };
 }

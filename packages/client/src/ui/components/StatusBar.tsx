@@ -8,6 +8,7 @@
  */
 
 import React, { memo, type CSSProperties } from "react";
+import { getHpColor } from "@hyperscape/shared";
 import { useTheme } from "../stores/themeStore";
 
 /** Status type */
@@ -161,16 +162,6 @@ export interface StatusOrbProps {
 }
 
 /**
- * Get label color based on HP percentage (OSRS-style)
- * Green (>50%) -> Yellow (25-50%) -> Red (<25%)
- */
-function getHpLabelColor(percent: number): string {
-  if (percent > 50) return "#22c55e"; // Green
-  if (percent > 25) return "#eab308"; // Yellow
-  return "#ef4444"; // Red
-}
-
-/**
  * Get status effect background color
  */
 function getStatusEffectColor(effect: StatusEffect): string | null {
@@ -248,7 +239,7 @@ export const StatusOrb = memo(function StatusOrb({
   // Determine label color
   const labelColor =
     dynamicLabelColor && type === "hp"
-      ? getHpLabelColor(percent)
+      ? getHpColor(percent)
       : theme.colors.text.primary;
 
   // Use muted, darker versions of status colors for the fill

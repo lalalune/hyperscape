@@ -372,6 +372,7 @@ export class ClientLoader extends SystemBase {
   private maxConcurrentFetches = 16; // Higher during preload, lowered after
   private readonly PRELOAD_CONCURRENCY = 16;
   private readonly RUNTIME_CONCURRENCY = 6;
+  private readonly FETCH_TIMEOUT_MS = 15000;
   private activeFetches = 0;
   private fetchQueue: Array<() => void> = [];
   private isPreloading = false;
@@ -594,14 +595,41 @@ export class ClientLoader extends SystemBase {
         try {
           this.stats.networkRequests++;
           const fetchStart = performance.now();
+          const abortController =
+            typeof AbortController !== "undefined"
+              ? new AbortController()
+              : null;
+          let timedOut = false;
+          const timeoutId =
+            abortController !== null
+              ? setTimeout(() => {
+                  timedOut = true;
+                  abortController.abort();
+                }, this.FETCH_TIMEOUT_MS)
+              : null;
 
           console.log(`[ClientLoader] Fetching: ${url}`);
           // Use 'default' cache mode to leverage browser HTTP cache
           // This will use cached response if available and not stale
-          const resp = await fetch(url, {
-            cache: "default",
-            mode: "cors",
-          });
+          let resp: Response;
+          try {
+            resp = await fetch(url, {
+              cache: "default",
+              mode: "cors",
+              signal: abortController?.signal,
+            });
+          } catch (error) {
+            if (timedOut) {
+              throw new Error(
+                `Request timed out after ${this.FETCH_TIMEOUT_MS}ms`,
+              );
+            }
+            throw error;
+          } finally {
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
+          }
 
           if (!resp.ok) {
             console.error(

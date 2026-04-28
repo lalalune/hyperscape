@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "@hyperscape/shared";
 import { StreamingMode } from "../../../src/screens/StreamingMode";
@@ -10,6 +10,7 @@ const gameClientState = vi.hoisted(() => ({
   mode: "setup" as "setup" | "init-error",
   wsUrl: null as string | null,
   world: null as ReturnType<typeof createMockWorld> | null,
+  emitReadyEvent: true,
 }));
 
 function createMockWorld() {
@@ -70,6 +71,12 @@ function createMockWorld() {
 vi.mock("../../../src/lib/api-config", () => ({
   GAME_API_URL: "http://localhost:5555",
   GAME_WS_URL: "ws://localhost:5555/ws",
+  refreshApiConfig: () => ({
+    cdnUrl: "https://runtime.example/game-assets",
+    elizaOsUrl: "http://localhost:5555",
+    gameApiUrl: "https://runtime.example",
+    gameWsUrl: "wss://runtime.example/ws",
+  }),
 }));
 
 vi.mock("../../../src/lib/streamingAccessToken", () => ({
@@ -95,7 +102,9 @@ vi.mock("../../../src/screens/GameClient", () => ({
       const world = createMockWorld();
       gameClientState.world = world;
       onSetup(world);
-      world.emitLocal(EventType.READY);
+      if (gameClientState.emitReadyEvent) {
+        world.emitLocal(EventType.READY);
+      }
     }, [onInitError, onSetup, wsUrl]);
 
     return <div data-testid="game-client" />;
@@ -193,6 +202,7 @@ describe("StreamingMode component", () => {
     gameClientState.mode = "setup";
     gameClientState.wsUrl = null;
     gameClientState.world = null;
+    gameClientState.emitReadyEvent = true;
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => ({
@@ -200,6 +210,13 @@ describe("StreamingMode component", () => {
         json: async () => createStreamingState(),
       })),
     );
+    (
+      window as Window & {
+        __HYPERSCAPE_STREAM_BOOT_READY__?: boolean;
+        __HYPERSCAPE_STREAM_READY__?: boolean;
+        __HYPERSCAPE_STREAM_RENDERER_HEALTH__?: unknown;
+      }
+    ).__HYPERSCAPE_STREAM_BOOT_READY__ = false;
     (
       window as Window & {
         __HYPERSCAPE_STREAM_READY__?: boolean;
@@ -223,6 +240,7 @@ describe("StreamingMode component", () => {
 
     await waitFor(() => {
       expect(gameClientState.wsUrl).toContain("streamToken=stream-token");
+      expect(gameClientState.wsUrl).toContain("wss://runtime.example/ws");
     });
   });
 
@@ -234,9 +252,75 @@ describe("StreamingMode component", () => {
     await waitFor(() => {
       expect(queryByTestId("loading-screen")).toBeNull();
       expect(
+        (
+          window as Window & {
+            __HYPERSCAPE_STREAM_BOOT_READY__?: boolean;
+          }
+        ).__HYPERSCAPE_STREAM_BOOT_READY__,
+      ).toBe(true);
+      expect(
         (window as Window & { __HYPERSCAPE_STREAM_READY__?: boolean })
           .__HYPERSCAPE_STREAM_READY__,
       ).toBe(true);
+      expect(getByTestId("streaming-overlay").textContent).toBe("FIGHTING");
+    });
+  });
+
+  it("keeps the loading overlay up without a READY event even when stream data arrives", async () => {
+    gameClientState.emitReadyEvent = false;
+
+    const { queryByTestId, getByTestId } = render(<StreamingMode />);
+
+    expect(getByTestId("loading-screen")).toBeTruthy();
+
+    await waitFor(() => {
+      expect(queryByTestId("loading-screen")).toBeTruthy();
+      expect(
+        (
+          window as Window & {
+            __HYPERSCAPE_STREAM_BOOT_READY__?: boolean;
+            __HYPERSCAPE_STREAM_READY__?: boolean;
+          }
+        ).__HYPERSCAPE_STREAM_BOOT_READY__,
+      ).toBe(false);
+      expect(
+        (window as Window & { __HYPERSCAPE_STREAM_READY__?: boolean })
+          .__HYPERSCAPE_STREAM_READY__,
+      ).toBe(false);
+      expect(getByTestId("streaming-overlay").textContent).toBe("FIGHTING");
+    });
+  });
+
+  it("keeps the loading overlay up when websocket state arrives before READY", async () => {
+    gameClientState.emitReadyEvent = false;
+
+    const { queryByTestId, getByTestId } = render(<StreamingMode />);
+
+    await waitFor(() => {
+      expect(gameClientState.world).toBeTruthy();
+    });
+
+    act(() => {
+      gameClientState.world?.emitLocal(
+        "streaming:state:update",
+        createStreamingState(),
+      );
+    });
+
+    await waitFor(() => {
+      expect(queryByTestId("loading-screen")).toBeTruthy();
+      expect(
+        (
+          window as Window & {
+            __HYPERSCAPE_STREAM_BOOT_READY__?: boolean;
+            __HYPERSCAPE_STREAM_READY__?: boolean;
+          }
+        ).__HYPERSCAPE_STREAM_BOOT_READY__,
+      ).toBe(false);
+      expect(
+        (window as Window & { __HYPERSCAPE_STREAM_READY__?: boolean })
+          .__HYPERSCAPE_STREAM_READY__,
+      ).toBe(false);
       expect(getByTestId("streaming-overlay").textContent).toBe("FIGHTING");
     });
   });

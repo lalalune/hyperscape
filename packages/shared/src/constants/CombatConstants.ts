@@ -56,6 +56,20 @@ export const COMBAT_CONSTANTS = {
   /** Maximum heal amount per food item (prevents exploit with modified manifests) */
   MAX_HEAL_AMOUNT: 99,
 
+  // === Special Attack Energy (OSRS-accurate) ===
+  /** Maximum special energy (100% = 1000 internal, displayed as 0-100%) */
+  SPECIAL_ENERGY_MAX: 1000,
+  /** Energy recharged per interval (10% = 100 internal) */
+  SPECIAL_ENERGY_RECHARGE_AMOUNT: 100,
+  /** Ticks between recharge intervals (50 ticks * 600ms = 30 seconds) */
+  SPECIAL_ENERGY_RECHARGE_TICKS: 50,
+  /** MVP: flat cost for all weapon specials (25% = 250 internal) */
+  SPECIAL_ATTACK_MVP_COST: 250,
+  /** MVP: flat damage multiplier for all specials (1.2x) */
+  SPECIAL_ATTACK_MVP_DAMAGE_MULTIPLIER: 1.2,
+  /** Cooldown between special attack toggles (ms) */
+  SPECIAL_ATTACK_TOGGLE_COOLDOWN_MS: 500,
+
   // === Hit Delay ===
   // Formula: MELEE=0, RANGED=1+floor((3+dist)/6), MAGIC=1+floor((1+dist)/3)
   HIT_DELAY: {

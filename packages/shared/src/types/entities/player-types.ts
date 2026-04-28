@@ -57,6 +57,12 @@ export interface PlayerStamina {
   max: number;
 }
 
+// Special attack energy (OSRS: 0-100%, recharges 10% every 30 seconds)
+export interface PlayerSpecialEnergy {
+  current: number;
+  max: number;
+}
+
 // Death and respawn
 export interface PlayerDeathData {
   deathLocation: PlayerPosition | null;
@@ -77,6 +83,7 @@ export interface Player {
   health: PlayerHealth;
   alive: boolean;
   stamina: PlayerStamina;
+  specialEnergy: PlayerSpecialEnergy;
 
   // Position and movement
   position: PlayerPosition;
@@ -169,7 +176,8 @@ export class PlayerMigration {
       name: old.name,
       health: { current: currentHealth, max: maxHealth },
       alive: currentHealth > 0,
-      stamina: { current: 100, max: 100 }, // Assuming default stamina
+      stamina: { current: 100, max: 100 },
+      specialEnergy: { current: 100, max: 100 },
       position: { x: old.positionX, y: old.positionY, z: old.positionZ },
       skills: {
         attack: { level: old.attackLevel, xp: old.attackXp },
@@ -346,6 +354,7 @@ export class PlayerMigration {
       health: { current: constitutionLevel, max: constitutionLevel },
       alive: true,
       stamina: { current: 100, max: 100 },
+      specialEnergy: { current: 100, max: 100 },
       position: { x: 0, y: 0, z: 0 },
       skills,
       equipment: {
@@ -418,6 +427,10 @@ export interface PlayerStats {
   inCombat: boolean;
   /** Prayer points (current/max) for prayer system UI */
   prayerPoints?: { current: number; max: number };
+  /** Special attack energy (0-100) for special attack bar UI */
+  specialEnergy?: number;
+  /** Whether special attack toggle is active (next attack will be special) */
+  specialAttackActive?: boolean;
 }
 
 // Attack style state

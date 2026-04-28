@@ -197,7 +197,6 @@ try {
 // Parse URL parameters for embedded configuration
 const urlParams = new URLSearchParams(window.location.search);
 const isEmbedded = urlParams.get("embedded") === "true";
-
 if (isEmbedded) {
   window.__HYPERSCAPE_EMBEDDED__ = true;
 
@@ -320,6 +319,7 @@ declare global {
     readonly PUBLIC_EMBED_ALLOWED_ORIGINS?: string;
     readonly PUBLIC_API_URL?: string;
     readonly PUBLIC_ELIZAOS_URL?: string;
+    readonly PUBLIC_STREAMING_VIEWER_ACCESS_TOKEN?: string;
   }
 }
 
@@ -731,6 +731,21 @@ const AgentMonitorScreen = React.lazy(() =>
     default: m.AgentMonitorScreen,
   })),
 );
+const DuelArenaShowcaseScreen = React.lazy(() =>
+  import("./screens/DuelArenaShowcaseScreen").then((m) => ({
+    default: m.DuelArenaShowcaseScreen,
+  })),
+);
+const DuelArenaMonitorScreen = React.lazy(() =>
+  import("./screens/DuelArenaMonitorScreen").then((m) => ({
+    default: m.DuelArenaMonitorScreen,
+  })),
+);
+const HyperBetScreen = React.lazy(() =>
+  import("./screens/HyperBetScreen").then((m) => ({
+    default: m.HyperBetScreen,
+  })),
+);
 import {
   isTauriApp,
   onDeepLink,
@@ -779,6 +794,7 @@ async function mountApp() {
   const rootElement = document.getElementById("root")!;
 
   await ensurePublicRuntimeEnv();
+  primeStreamingAccessTokenFromWindow(window);
   refreshApiConfig();
   syncRuntimeAssetBaseUrls();
 
@@ -872,6 +888,34 @@ async function mountApp() {
           <React.Suspense fallback={<ScreenLoadingFallback />}>
             <AgentMonitorScreen />
           </React.Suspense>
+        </ErrorBoundary>,
+      );
+    } else if (page === "duel-arena-showcase" || page === "duel-showcase") {
+      root.render(
+        <ErrorBoundary>
+          <MaintenanceBanner />
+          <React.Suspense fallback={<ScreenLoadingFallback />}>
+            <DuelArenaShowcaseScreen />
+          </React.Suspense>
+        </ErrorBoundary>,
+      );
+    } else if (page === "duel-monitor") {
+      root.render(
+        <ErrorBoundary>
+          <MaintenanceBanner />
+          <React.Suspense fallback={<ScreenLoadingFallback />}>
+            <DuelArenaMonitorScreen />
+          </React.Suspense>
+        </ErrorBoundary>,
+      );
+    } else if (page === "hyperbet" || page === "bet") {
+      root.render(
+        <ErrorBoundary>
+          <SolanaWalletProvider>
+            <React.Suspense fallback={<ScreenLoadingFallback />}>
+              <HyperBetScreen />
+            </React.Suspense>
+          </SolanaWalletProvider>
         </ErrorBoundary>,
       );
     } else {

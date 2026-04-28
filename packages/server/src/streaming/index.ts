@@ -28,6 +28,8 @@ export { CAPTURE_SCRIPT, generateCaptureScript } from "./browser-capture.js";
 export {
   WEBCODECS_CAPTURE_SCRIPT,
   generateWebCodecsCaptureScript,
+  WEBCODECS_EXPOSED_CAPTURE_SCRIPT,
+  generateWebCodecsExposedCaptureScript,
 } from "./browser-capture-webcodecs.js";
 export type {
   RTMPDestination,
@@ -43,3 +45,8 @@ export {
   type AllocRecord,
   type LeakSnapshot,
 } from "./stream-leak-diagnostics.js";
+export {
+  startHlsCdnSync,
+  stopHlsCdnSync,
+  getHlsStreamUrl,
+} from "./hls-cdn-sync.js";

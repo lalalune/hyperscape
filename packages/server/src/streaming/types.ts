@@ -1,3 +1,9 @@
+import type {
+  StreamDeliveryTransport,
+  StreamDestinationProvider,
+  StreamDestinationRole,
+} from "./delivery-config.js";
+
 /**
  * RTMP Streaming Types
  *
@@ -6,7 +12,13 @@
 
 /** RTMP destination configuration */
 export interface RTMPDestination {
+  id?: string;
   name: string;
+  role?: StreamDestinationRole;
+  provider?: StreamDestinationProvider;
+  transport?: StreamDeliveryTransport;
+  playbackUrl?: string | null;
+  ingestUrl?: string | null;
   url: string;
   key: string;
   enabled: boolean;
@@ -28,19 +40,34 @@ export interface StreamingConfig {
   preset: "ultrafast" | "veryfast" | "fast" | "medium";
   /** Keyframe interval in frames */
   gopSize: number;
-  /** Capture mode: 'cdp' uses Page.startScreencast, 'mediarecorder' uses legacy WebSocket path, 'webcodecs' uses hardware VideoEncoder */
-  captureMode: "cdp" | "mediarecorder" | "webcodecs";
+  /** Capture mode: 'cdp' uses Page.startScreencast, 'mediarecorder' uses legacy WebSocket path, 'webcodecs' uses hardware VideoEncoder, 'x11_nvenc' uses X11 desktop capture + NVENC encode */
+  captureMode: "cdp" | "mediarecorder" | "webcodecs" | "x11_nvenc";
   /** JPEG quality for CDP screencast frames (1-100, default 80) */
   jpegQuality: number;
 }
 
 /** Stream status for a single destination */
 export interface DestinationStatus {
+  id?: string;
   name: string;
+  role?: StreamDestinationRole;
+  provider?: StreamDestinationProvider;
+  transport?: StreamDeliveryTransport;
+  playbackUrl?: string | null;
+  ingestUrl?: string | null;
   connected: boolean;
   error?: string;
   bytesWritten: number;
   startedAt?: number;
+  /**
+   * Wallclock ms of the most recent fatal write-error attributed to this
+   * destination (slave-muxer failure, av_interleaved_write_frame error,
+   * RTMPS session invalidated, etc.). Used to prevent the "FFmpeg
+   * is still emitting `frame=` progress so everything must be OK" false
+   * positive from flipping `connected` back to `true` while the RTMP
+   * destination is actually dark.
+   */
+  lastWriteErrorAt?: number | null;
 }
 
 /** Overall streaming status */

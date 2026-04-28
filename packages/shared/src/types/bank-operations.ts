@@ -5,12 +5,14 @@
  * Used by both client (pre-validation) and server (security validation).
  */
 
+import { MAX_COINS } from "../systems/shared/character/CoinPouchSystem";
+
 // ============================================================================
 // VALIDATION CONSTANTS
 // ============================================================================
 
 const MAX_ITEM_ID_LENGTH = 64;
-const MAX_QUANTITY = 2147483647; // Max signed 32-bit int
+const MAX_QUANTITY = MAX_COINS;
 const MAX_TAB_INDEX = 20;
 const MAX_SLOT = 500;
 

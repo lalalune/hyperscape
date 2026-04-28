@@ -398,7 +398,9 @@ export async function registerSystems(world: World): Promise<void> {
     process.env.DUEL_ARENA_VISUALS_ENABLED !== "false";
   if (duelArenaVisualsEnabled) {
     try {
-      world.register("duel-arena-visuals", DuelArenaVisualsSystem);
+      if (!world.getSystem("duel-arena-visuals")) {
+        world.register("duel-arena-visuals", DuelArenaVisualsSystem);
+      }
     } catch (err) {
       console.error(
         "[SystemLoader] Failed to register DuelArenaVisualsSystem:",

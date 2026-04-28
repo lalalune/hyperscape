@@ -52,6 +52,23 @@ export function getStreamCapture(): {
     bridgeActive: boolean;
     ffmpegRunning: boolean;
     clientConnected: boolean;
+    bytesReceived: number;
+    uptime: number;
+    destinations: number;
+    restartAttempts: number;
+    lastCrash: number;
+    healthy: boolean;
+    droppedFrames: number;
+    backpressured: boolean;
+    spectators: number;
+    encoderFps?: number | null;
+    processMemory: {
+      rssBytes: number;
+      heapTotalBytes: number;
+      heapUsedBytes: number;
+      externalBytes: number;
+      arrayBuffersBytes: number;
+    };
   };
 } {
   const bridge = peekRTMPBridge();
@@ -64,6 +81,23 @@ export function getStreamCapture(): {
         bridgeActive: false,
         ffmpegRunning: false,
         clientConnected: false,
+        bytesReceived: 0,
+        uptime: 0,
+        destinations: 0,
+        restartAttempts: 0,
+        lastCrash: 0,
+        healthy: false,
+        droppedFrames: 0,
+        backpressured: false,
+        spectators: 0,
+        encoderFps: null,
+        processMemory: {
+          rssBytes: 0,
+          heapTotalBytes: 0,
+          heapUsedBytes: 0,
+          externalBytes: 0,
+          arrayBuffersBytes: 0,
+        },
       }),
     };
   }

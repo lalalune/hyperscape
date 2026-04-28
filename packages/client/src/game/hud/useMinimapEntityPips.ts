@@ -33,9 +33,8 @@ interface SpectatorTarget {
 }
 
 function getSpectatorTarget(world: ClientWorld): SpectatorTarget | null {
-  if (
-    (window as HyperscapeWindow).__HYPERSCAPE_CONFIG__?.mode !== "spectator"
-  ) {
+  const mode = (window as HyperscapeWindow).__HYPERSCAPE_CONFIG__?.mode;
+  if (mode !== "spectator" && mode !== "stream") {
     return null;
   }
 

@@ -20,13 +20,6 @@ export {
   ELIZAOS_API,
 } from "./api-config";
 export {
-  WebSocketManager,
-  createWebSocketManager,
-  ConnectionState,
-  type WebSocketManagerConfig,
-  type WebSocketManagerCallbacks,
-} from "./websocket-manager";
-export {
   withRetry,
   tryWithRetry,
   retryable,
@@ -44,17 +37,6 @@ export {
   type ObjectFactory,
   type ObjectReset,
 } from "./LRUCache";
-
-// Deprecated: Use ObjectPool instead for game patterns
-export {
-  LRUCache, // Deprecated alias for ObjectPool
-  createMonitoredCache, // Deprecated
-  cacheRegistry, // Deprecated alias for poolRegistry
-} from "./LRUCache";
-
-// Safe JSON parsing - use utils/validation.ts instead:
-// - parseJSON(text, validator) -> T | null
-// - parseJSONWithDefault(text, validator, default) -> T
 
 // Secure storage for auth tokens with expiration
 export {

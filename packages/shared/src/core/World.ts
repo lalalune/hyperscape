@@ -31,6 +31,7 @@ import {
   FrameBudgetManager,
   type FrameTimingStats,
 } from "../utils/FrameBudgetManager";
+import { normalizeAvatarAssetUrl } from "../data/avatars";
 
 // NOTE: Import directly to avoid circular dependency through barrel file
 // The barrel imports combat which imports MobEntity which extends Entity (circular)
@@ -147,6 +148,87 @@ function getSystemDebugName(
 }
 
 let hasLoggedMissingAssetBase = false;
+
+const TREE_ASSET_FAMILY_REWRITES = Object.freeze<
+  Record<string, readonly string[]>
+>({
+  bamboo: ["bamboo_01", "bamboo_02", "bamboo_03", "bamboo_04"],
+  banana: ["oak_01", "oak_02", "oak_03", "oak_04"],
+  dead: ["dead_01", "dead_02", "dead_03", "dead_04", "dead_05", "dead_06"],
+  eucalyptus: ["oak_01", "oak_02", "oak_03", "oak_04", "oak_01"],
+  general: ["oak_01", "oak_02", "oak_03", "oak_04", "oak_01", "oak_02"],
+  magic: ["oak_03", "oak_04"],
+  maple: ["maple_01", "maple_02", "maple_03", "maple_01"],
+  mahogany: ["oak_02", "oak_03"],
+  oak: ["oak_01", "oak_02", "oak_03", "oak_04"],
+  palm: ["palm_01", "palm_02", "palm_03", "palm_04", "palm_05"],
+  pine: ["pine_01", "pine_02", "pine_03", "pine_01", "pine_02"],
+  pineDead: ["dead_01", "dead_02", "dead_03"],
+});
+
+function normalizeTreeAssetAlias(url: string): string {
+  const queryIndex = url.indexOf("?");
+  const hashIndex = url.indexOf("#");
+  const suffixStart =
+    queryIndex === -1
+      ? hashIndex
+      : hashIndex === -1
+        ? queryIndex
+        : Math.min(queryIndex, hashIndex);
+  const suffix = suffixStart >= 0 ? url.slice(suffixStart) : "";
+  const baseUrl = suffixStart >= 0 ? url.slice(0, suffixStart) : url;
+
+  const marker = "/models/trees/";
+  const markerIndex = baseUrl.toLowerCase().indexOf(marker);
+  if (markerIndex === -1) {
+    return url;
+  }
+
+  const prefix = baseUrl.slice(0, markerIndex + marker.length);
+  const assetPath = baseUrl.slice(markerIndex + marker.length);
+  const familySeparatorIndex = assetPath.indexOf("/");
+  if (familySeparatorIndex <= 0) {
+    return url;
+  }
+
+  const family = assetPath.slice(0, familySeparatorIndex);
+  const fileName = assetPath.slice(familySeparatorIndex + 1);
+  if (!fileName.toLowerCase().endsWith(".glb")) {
+    return url;
+  }
+
+  const withoutExtension = fileName.slice(0, -4);
+  const lodSuffix = withoutExtension.endsWith("_lod1")
+    ? "_lod1"
+    : withoutExtension.endsWith("_lod2")
+      ? "_lod2"
+      : "";
+  const withoutLod = lodSuffix
+    ? withoutExtension.slice(0, -lodSuffix.length)
+    : withoutExtension;
+  const indexSeparatorIndex = withoutLod.lastIndexOf("_");
+  if (indexSeparatorIndex <= 0) {
+    return url;
+  }
+
+  const rawIndex = withoutLod.slice(indexSeparatorIndex + 1);
+  if (!/^\d+$/.test(rawIndex)) {
+    return url;
+  }
+
+  const replacements =
+    TREE_ASSET_FAMILY_REWRITES[
+      family as keyof typeof TREE_ASSET_FAMILY_REWRITES
+    ];
+  if (!replacements?.length) {
+    return url;
+  }
+
+  const index = Math.max(Number.parseInt(rawIndex, 10) - 1, 0);
+  const replacement =
+    replacements[index] ?? replacements[index % replacements.length];
+  return `${prefix}${replacement}${lodSuffix}.glb${suffix}`;
+}
 
 interface AsyncTickCallMetric {
   label: string;
@@ -2079,6 +2161,7 @@ export class World extends EventEmitter {
   resolveURL(url: string, allowLocal?: boolean): string {
     if (!url) return url;
     url = url.trim();
+    url = normalizeAvatarAssetUrl(url, url);
 
     // Some persisted player records store shorthand avatar filenames like "ws-avatar.vrm".
     // Treat these as local avatar assets instead of mistaken bare hostnames.
@@ -2096,7 +2179,7 @@ export class World extends EventEmitter {
       url = `asset://avatars/${filename}${suffix}`;
     } else {
       const relativeAvatarMatch = url.match(
-        /^(?:\.\/|\/)?(avatars\/[A-Za-z0-9_./-]+\.vrm)([?#].*)?$/i,
+        /^(?:\.\/|\/)?(avatars\/[A-Za-z0-9_.-]+\.vrm)([?#].*)?$/i,
       );
       if (relativeAvatarMatch) {
         const [, relativePathRaw, suffix = ""] = relativeAvatarMatch;
@@ -2108,6 +2191,8 @@ export class World extends EventEmitter {
         url = `asset://${relativePath}${suffix}`;
       }
     }
+
+    url = normalizeTreeAssetAlias(url);
 
     // Blob URLs are already resolved
     if (url.startsWith("blob")) {
@@ -2138,7 +2223,7 @@ export class World extends EventEmitter {
         ) {
           if (this._resolvedCdnFallback === undefined) {
             this._resolvedCdnFallback =
-              (window as any).__CDN_URL ||
+              (window as unknown as { __CDN_URL?: string }).__CDN_URL ||
               `${window.location.origin}/game-assets`;
             console.warn(
               `[resolveURL] Origin is ${window.location.origin}, falling back from ${finalAssetsUrl} to local ${this._resolvedCdnFallback}`,

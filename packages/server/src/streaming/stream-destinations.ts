@@ -1,5 +1,6 @@
 export type StreamDestinationKind =
   | "custom"
+  | "external"
   | "kick"
   | "multiplexer"
   | "pumpfun"
@@ -8,7 +9,12 @@ export type StreamDestinationKind =
   | "youtube";
 
 const DESTINATION_ALIASES: Record<string, StreamDestinationKind> = {
+  cloudflare: "external",
+  cloudflarelive: "external",
+  cloudflarestream: "external",
   custom: "custom",
+  external: "external",
+  externaldelivery: "external",
   kick: "kick",
   multiplexer: "multiplexer",
   pump: "pumpfun",

@@ -81,6 +81,7 @@ Options:
   --skip-chain-setup      Start server without setup-chain/anvil bootstrap
   --skip-keeper           Skip keeper bot
   --skip-stream           Skip RTMP/HLS bridge process
+                           (split topology is default; DUEL_OWNS_STREAM_CAPTURE=true opts into local ownership)
   --skip-betting          Skip the sibling Hyperbet app
   --skip-bots             Skip duel matchmaker bots
   --with-mm               Start sibling Hyperbet market-maker bot(s) after duel stack is ready
@@ -387,6 +388,10 @@ const useExternalAgentPool = options["skip-bots"] !== true;
 const defaultDuelServerAgentMode = useExternalAgentPool
   ? "external"
   : "embedded";
+const ownsStreamCapture = /^(1|true|yes|on)$/i.test(
+  process.env.DUEL_OWNS_STREAM_CAPTURE || "",
+);
+const shouldOwnStreamCapture = ownsStreamCapture && !options["skip-stream"];
 const DUEL_LOG_LEVEL_PRIORITY = {
   debug: 0,
   info: 1,
@@ -1671,7 +1676,7 @@ async function main() {
     // stream-to-rtmp capture.
     STREAMING_CAPTURE_ENABLED:
       process.env.STREAMING_CAPTURE_ENABLED ||
-      (options["skip-stream"] ? "true" : "false"),
+      (shouldOwnStreamCapture ? "true" : "false"),
     RTMP_STATUS_FILE: rtmpStatusFile,
     // Keep the server DB pool conservative in local duel workflows to avoid
     // exceeding low local Postgres max_connections limits.
@@ -1924,8 +1929,12 @@ async function main() {
     );
   }
 
-  if (!options["skip-stream"]) {
+  if (shouldOwnStreamCapture) {
     await startStreamBridge();
+  } else {
+    log(
+      "stream capture is split out by default; set DUEL_OWNS_STREAM_CAPTURE=true only for explicit local ownership mode",
+    );
   }
 
   if (!skipBettingApp && hyperbetEnabled && hyperbetAvailable) {
@@ -1980,7 +1989,7 @@ async function main() {
   }
 
   async function startStreamBridge() {
-    log("starting RTMP bridge + local HLS fanout...");
+    log("starting RTMP bridge + local HLS fanout (explicit ownership mode)...");
     await terminateProcessesByCommandPatterns(
       [
         "bun run --cwd packages/server stream:rtmp",
@@ -2137,7 +2146,7 @@ async function main() {
       rtmpArgs,
       {
         env: streamEnv,
-        critical: false,
+        critical: true,
         restart: true,
         restartDelayMs: 3000,
       },
@@ -2146,11 +2155,11 @@ async function main() {
     const hlsReadyTimeoutMs =
       Number.parseInt(process.env.DUEL_STREAM_READY_TIMEOUT_MS || "", 10) ||
       180_000;
-    // Non-fatal: if HLS stream never comes up (e.g. no RTMP source) just warn
-    // and keep the rest of the stack (Hyperbet app, bots, keeper) running.
     waitForLiveHls(hlsUrl, hlsReadyTimeoutMs).catch((err) => {
       warnLog(`HLS stream not ready - ${err.message}`);
-      warnLog("stream may not be available, but the rest of the stack continues");
+      warnLog(
+        "stream capture ownership is explicit; the rest of the stack continues only when stream capture is split out",
+      );
     });
   }
 

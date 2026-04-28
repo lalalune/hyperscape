@@ -55,8 +55,7 @@ async function main() {
         console.log("Stats:", bridge.getStats());
         console.log("\nClosing...");
         ws.close();
-        bridge.stop();
-        process.exit(0);
+        void bridge.stop().finally(() => process.exit(0));
         return;
       }
 
@@ -70,8 +69,7 @@ async function main() {
 
   ws.on("error", (err) => {
     console.error("WebSocket error:", err);
-    bridge.stop();
-    process.exit(1);
+    void bridge.stop().finally(() => process.exit(1));
   });
 
   ws.on("close", () => {
@@ -81,8 +79,7 @@ async function main() {
   // Timeout
   setTimeout(() => {
     console.log("\nTimeout - stopping");
-    bridge.stop();
-    process.exit(1);
+    void bridge.stop().finally(() => process.exit(1));
   }, 10000);
 }
 

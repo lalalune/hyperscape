@@ -556,6 +556,20 @@ export class DuelArenaOraclePublisher {
   private readonly solanaTargets: SolanaOracleTarget[];
   private persistQueue: Promise<void> = Promise.resolve();
 
+  /** Exponential backoff delays for retrying failed chain publishes.
+   *  Keeping this bounded prevents unbounded queues if a provider is truly down
+   *  while still giving transient RPC hiccups (~1 minute window) a chance to
+   *  resolve. Total budget ≈ 54.5s across 5 attempts. */
+  private static readonly RETRY_DELAYS_MS = [1000, 2500, 6000, 15000, 30000];
+
+  /** Pending retry timers keyed by `${duelId}:${targetKey}`. A single pending
+   *  retry per (duel, target) is kept — fresh publishes supersede it so we
+   *  never send stale state after a newer one. Cleared on destroy(). */
+  private readonly retryTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+
   public constructor(
     private readonly world: World,
     private readonly config: DuelArenaOracleConfig,
@@ -579,6 +593,10 @@ export class DuelArenaOraclePublisher {
       metadataBaseUrl: this.config.metadataBaseUrl,
       storePath: this.config.storePath,
     });
+    // Any record that was mid-retry when the process crashed is stranded
+    // with chainState.lastError != null and no timer in memory. Re-queue it
+    // so revenue doesn't leak just because the server restarted.
+    this.requeueFailedPublishesOnBoot();
   }
 
   public destroy(): void {
@@ -586,10 +604,175 @@ export class DuelArenaOraclePublisher {
       this.world.off(event, handler);
     }
     this.listeners.length = 0;
+    // Cancel any pending publish retries so they don't fire after teardown.
+    for (const timer of this.retryTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.retryTimers.clear();
   }
 
   public getRecord(duelId: string): DuelArenaOracleRecord | null {
     return this.records.get(duelId) ?? null;
+  }
+
+  /**
+   * Records with at least one configured target in a failed state (lastError
+   * set, lastTxHash null). Used by the admin "stuck records" endpoint so
+   * operators can triage duels that exhausted their retry budget and need
+   * human confirmation before off-chain settlement.
+   */
+  public getStuckRecords(): Array<{
+    duelId: string;
+    status: DuelArenaOracleStatus;
+    winnerId: string | null;
+    loserId: string | null;
+    updatedAt: string;
+    stuckTargets: Array<{
+      target: DuelArenaOracleChainKey;
+      label: string;
+      lastAction: "UPSERT" | "RESOLVE" | "CANCEL" | null;
+      lastError: string;
+      updatedAt: string;
+    }>;
+  }> {
+    const results: Array<{
+      duelId: string;
+      status: DuelArenaOracleStatus;
+      winnerId: string | null;
+      loserId: string | null;
+      updatedAt: string;
+      stuckTargets: Array<{
+        target: DuelArenaOracleChainKey;
+        label: string;
+        lastAction: "UPSERT" | "RESOLVE" | "CANCEL" | null;
+        lastError: string;
+        updatedAt: string;
+      }>;
+    }> = [];
+
+    for (const record of this.records.values()) {
+      const stuckTargets: Array<{
+        target: DuelArenaOracleChainKey;
+        label: string;
+        lastAction: "UPSERT" | "RESOLVE" | "CANCEL" | null;
+        lastError: string;
+        updatedAt: string;
+      }> = [];
+      for (const [key, state] of Object.entries(record.chainState ?? {})) {
+        if (!state || state.lastError == null) continue;
+        stuckTargets.push({
+          target: key as DuelArenaOracleChainKey,
+          label: state.label,
+          lastAction: state.lastAction,
+          lastError: state.lastError,
+          updatedAt: state.updatedAt,
+        });
+      }
+      if (stuckTargets.length > 0) {
+        results.push({
+          duelId: record.duelId,
+          status: record.status,
+          winnerId: record.winnerId,
+          loserId: record.loserId,
+          updatedAt: record.updatedAt,
+          stuckTargets,
+        });
+      }
+    }
+
+    // Newest-first so operators see recent problems at the top.
+    results.sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
+    );
+    return results;
+  }
+
+  /**
+   * Operator-triggered triage for a stuck record. Always clears lastError on
+   * every currently-stuck target so the scheduler stops treating it as an
+   * open problem. When `forceRetry` is true, also fires a fresh publish
+   * attempt (attempt=0 → full retry budget) for each cleared target —
+   * useful when operators believe the underlying RPC/contract issue has
+   * resolved and want to try settlement again.
+   *
+   * Pending in-memory retry timers for the affected targets are cancelled
+   * so only the fresh attempt runs.
+   */
+  public async clearStuckRecord(
+    duelId: string,
+    options?: { forceRetry?: boolean },
+  ): Promise<{
+    cleared: boolean;
+    reason?: string;
+    targetsCleared: string[];
+    targetsRetried: string[];
+  }> {
+    const record = this.records.get(duelId);
+    if (!record) {
+      return {
+        cleared: false,
+        reason: "not_found",
+        targetsCleared: [],
+        targetsRetried: [],
+      };
+    }
+    const configuredTargets: Array<EvmOracleTarget | SolanaOracleTarget> = [
+      ...this.evmTargets,
+      ...this.solanaTargets,
+    ];
+    const targetByKey = new Map(configuredTargets.map((t) => [t.key, t]));
+
+    const targetsCleared: string[] = [];
+    const targetsRetried: string[] = [];
+
+    for (const [key, state] of Object.entries(record.chainState ?? {})) {
+      if (!state || state.lastError == null) continue;
+      // Cancel any pending retry timer so we don't race with the operator.
+      const retryKey = `${duelId}:${key}`;
+      const timer = this.retryTimers.get(retryKey);
+      if (timer) {
+        clearTimeout(timer);
+        this.retryTimers.delete(retryKey);
+      }
+      state.lastError = null;
+      state.updatedAt = nowIso();
+      targetsCleared.push(key);
+
+      if (options?.forceRetry) {
+        const target = targetByKey.get(key as DuelArenaOracleChainKey);
+        if (!target) continue;
+        const action: "UPSERT" | "RESOLVE" | "CANCEL" =
+          record.status === "RESOLVED"
+            ? "RESOLVE"
+            : record.status === "CANCELLED"
+              ? "CANCEL"
+              : "UPSERT";
+        targetsRetried.push(key);
+        setImmediate(() => {
+          void this.publishToTarget(record, target, action, 0);
+        });
+      }
+    }
+
+    if (targetsCleared.length > 0) {
+      record.updatedAt = nowIso();
+      this.records.set(duelId, record);
+      await this.persistRecords();
+      Logger.info(
+        "DuelArenaOraclePublisher",
+        `Operator cleared stuck record ${duelId} (${targetsCleared.join(", ")})` +
+          (options?.forceRetry
+            ? ` — forcing retry on (${targetsRetried.join(", ")})`
+            : ""),
+      );
+    }
+
+    return {
+      cleared: targetsCleared.length > 0,
+      reason: targetsCleared.length === 0 ? "no_stuck_targets" : undefined,
+      targetsCleared,
+      targetsRetried,
+    };
   }
 
   public getRecentRecords(limit: number = 50): DuelArenaOracleRecord[] {
@@ -771,7 +954,17 @@ export class DuelArenaOraclePublisher {
     record: DuelArenaOracleRecord,
     target: EvmOracleTarget | SolanaOracleTarget,
     action: "UPSERT" | "RESOLVE" | "CANCEL",
+    attempt = 0,
   ): Promise<void> {
+    // Cancel any pending retry timer for this (duel, target) — this call
+    // supersedes it (either we're the retry firing, or a fresh publish).
+    const retryKey = `${record.duelId}:${target.key}`;
+    const existingTimer = this.retryTimers.get(retryKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      this.retryTimers.delete(retryKey);
+    }
+
     try {
       let txHash: string;
       if (action === "UPSERT") {
@@ -793,6 +986,12 @@ export class DuelArenaOraclePublisher {
         lastError: null,
         updatedAt: nowIso(),
       });
+      if (attempt > 0) {
+        Logger.info(
+          "DuelArenaOraclePublisher",
+          `Oracle publish succeeded on retry ${attempt} for ${record.duelId} on ${target.label} (${action}) txHash=${txHash}`,
+        );
+      }
     } catch (error) {
       let errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -826,7 +1025,105 @@ export class DuelArenaOraclePublisher {
       });
       Logger.warn(
         "DuelArenaOraclePublisher",
-        `Failed oracle publish on ${target.label} (${action}) for ${record.duelId}: ${errorMessage}`,
+        `Failed oracle publish on ${target.label} (${action}) for ${record.duelId} (attempt ${attempt + 1}): ${errorMessage}`,
+      );
+      this.scheduleRetry(record, target, action, attempt + 1);
+    }
+  }
+
+  /**
+   * Schedule a bounded, exponentially-backed-off retry of publishToTarget.
+   *
+   * Retries fire in the background — callers of publishToTarget never wait for
+   * retries. Only one retry is kept in flight per (duelId, targetKey); fresh
+   * publishes supersede pending retries so we never send stale state.
+   */
+  private scheduleRetry(
+    record: DuelArenaOracleRecord,
+    target: EvmOracleTarget | SolanaOracleTarget,
+    action: "UPSERT" | "RESOLVE" | "CANCEL",
+    nextAttempt: number,
+  ): void {
+    const delays = DuelArenaOraclePublisher.RETRY_DELAYS_MS;
+    if (nextAttempt > delays.length) {
+      Logger.error(
+        "DuelArenaOraclePublisher",
+        `Giving up oracle publish for ${record.duelId} on ${target.label} (${action}) after ${nextAttempt} attempts — manual intervention required`,
+      );
+      return;
+    }
+    const delay = delays[nextAttempt - 1];
+    const retryKey = `${record.duelId}:${target.key}`;
+    const timer = setTimeout(() => {
+      this.retryTimers.delete(retryKey);
+      // Re-fetch the latest record so the retry reflects current state.
+      // If the record has since been cancelled/updated, we publish that newer
+      // state instead — the contract flow is monotonic enough that this is
+      // safer than replaying the snapshot we failed on.
+      const latest = this.records.get(record.duelId) ?? record;
+      void this.publishToTarget(latest, target, action, nextAttempt);
+    }, delay);
+    // Don't keep the Node event loop alive purely for a pending retry.
+    if (typeof timer.unref === "function") {
+      timer.unref();
+    }
+    this.retryTimers.set(retryKey, timer);
+    Logger.info(
+      "DuelArenaOraclePublisher",
+      `Scheduled oracle retry ${nextAttempt}/${delays.length} for ${record.duelId} on ${target.label} (${action}) in ${delay}ms`,
+    );
+  }
+
+  /**
+   * Scan persisted records on boot and re-queue any publish that was in a
+   * failed state when the process stopped. Without this, a duel that had a
+   * transient RPC error at shutdown stays stranded forever — the retry
+   * timer lives only in memory and dies with the process.
+   *
+   * We re-queue at attempt=0 (full fresh retry schedule) rather than resuming
+   * from a persisted attempt counter, because the time since the last attempt
+   * is unknown and probably long enough that a fresh backoff is appropriate.
+   */
+  private requeueFailedPublishesOnBoot(): void {
+    const configuredTargets: Array<EvmOracleTarget | SolanaOracleTarget> = [
+      ...this.evmTargets,
+      ...this.solanaTargets,
+    ];
+    if (configuredTargets.length === 0) return;
+
+    let requeued = 0;
+    for (const record of this.records.values()) {
+      // CANCELLED is terminal: if the cancel publish itself failed we still
+      // want it delivered, but any BETTING_OPEN/LOCKED leftover on a cancelled
+      // duel is stale and publishing it now would mislead downstream.
+      if (!record.status) continue;
+
+      const action: "UPSERT" | "RESOLVE" | "CANCEL" =
+        record.status === "RESOLVED"
+          ? "RESOLVE"
+          : record.status === "CANCELLED"
+            ? "CANCEL"
+            : "UPSERT";
+
+      for (const target of configuredTargets) {
+        const state = record.chainState?.[target.key];
+        // lastError null means this target already accepted the publish —
+        // skip. lastError set means it was failed at shutdown, re-queue.
+        if (!state || state.lastError == null) continue;
+        // Fire publishToTarget with attempt=0 so it goes through the normal
+        // retry schedule if it fails again. Doing this on the next tick so
+        // init() returns fast and callers see the publisher as ready.
+        setImmediate(() => {
+          void this.publishToTarget(record, target, action, 0);
+        });
+        requeued++;
+      }
+    }
+
+    if (requeued > 0) {
+      Logger.info(
+        "DuelArenaOraclePublisher",
+        `Re-queued ${requeued} failed oracle publish(es) from persisted records on boot`,
       );
     }
   }

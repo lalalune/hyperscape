@@ -13,6 +13,8 @@ import {
   getDuelArenaConfig,
   getItem,
   isPositionInsideCombatArena,
+  normalizeAvatarAssetUrl,
+  DEFAULT_AVATAR_URL,
   ALL_WORLD_AREAS,
   type World,
 } from "@hyperscape/shared";
@@ -36,6 +38,13 @@ interface EmbeddedWorldMapData {
     buildings: Array<{ type: string }>;
   }>;
   pois: Array<{
+    id: string;
+    name: string;
+    category: string;
+    position: { x: number; y: number; z: number };
+    biome: string;
+  }>;
+  pointsOfInterest?: Array<{
     id: string;
     name: string;
     category: string;
@@ -106,7 +115,7 @@ function getSharedEntitySnapshot(
     now - cached.time < SHARED_SNAPSHOT_TTL_MS &&
     cached.snapshot.length > 0
   ) {
-    return cached.snapshot;
+    return cached.snapshot.slice();
   }
   const snapshot: EntitySnapshot[] = [];
   for (const [id, entity] of world.entities.items.entries()) {
@@ -117,7 +126,7 @@ function getSharedEntitySnapshot(
     snapshot.push({ id, position: pos, data, entity });
   }
   _snapshotCache.set(world, { snapshot, time: now });
-  return snapshot;
+  return snapshot.slice();
 }
 
 // Event handler type
@@ -225,6 +234,10 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
     this.world = world;
     this.characterId = characterId;
     this.accountId = accountId;
+    this.name = name;
+  }
+
+  setDisplayName(name: string): void {
     this.name = name;
   }
 
@@ -430,10 +443,11 @@ export class EmbeddedHyperscapeService implements IEmbeddedHyperscapeService {
           name: savedData?.name || this.name,
           health,
           maxHealth: health,
-          avatar:
+          avatar: normalizeAvatarAssetUrl(
             savedData?.avatar ||
-            this.world.settings?.avatar?.url ||
-            "asset://avatars/avatar-male-01.vrm",
+              this.world.settings?.avatar?.url ||
+              DEFAULT_AVATAR_URL,
+          ),
           wallet: savedData?.wallet || undefined,
           roles: [],
           skills,

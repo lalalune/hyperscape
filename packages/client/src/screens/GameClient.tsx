@@ -1,9 +1,14 @@
 import {
+  GAME_API_URL,
   GAME_WS_URL,
   CDN_URL,
   normalizeBrowserLoopbackUrl,
 } from "@/lib/api-config";
-import type { PublicRuntimeEnv, StreamingWindow } from "@/lib/streamingWindow";
+import {
+  resolveCaptureAssetBase,
+  type PublicRuntimeEnv,
+  type StreamingWindow,
+} from "@/lib/streamingWindow";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { THREE, createClientWorld, System } from "@hyperscape/shared";
 import { World } from "@hyperscape/shared";
@@ -41,8 +46,22 @@ const normalizeEnvValue = (value?: string): string | undefined => {
 const resolveCdnUrlForClient = (
   runtimeCdnUrl?: string,
   buildCdnUrl?: string,
+  runtimeApiUrl?: string,
+  preferCaptureFallback: boolean = false,
 ): string => {
   const sameOriginFallback = `${window.location.origin}/game-assets`;
+  const selectedBase = runtimeCdnUrl || buildCdnUrl;
+
+  if (preferCaptureFallback) {
+    const captureBase = resolveCaptureAssetBase(
+      selectedBase,
+      runtimeApiUrl,
+      window.location.href,
+    );
+    if (captureBase) {
+      return captureBase;
+    }
+  }
 
   if (runtimeCdnUrl) {
     return runtimeCdnUrl;
@@ -353,7 +372,15 @@ export function GameClient({
       const finalWsUrl = initialWsUrlRef.current || runtimeWsUrl || GAME_WS_URL;
       const runtimeCdnUrl = normalizeEnvValue(runtimeEnv?.PUBLIC_CDN_URL);
       const buildCdnUrl = normalizeEnvValue(CDN_URL);
-      const resolvedCdnUrl = resolveCdnUrlForClient(runtimeCdnUrl, buildCdnUrl);
+      const runtimeApiUrl =
+        normalizeEnvValue(runtimeEnv?.PUBLIC_API_URL) ||
+        normalizeEnvValue(GAME_API_URL);
+      const resolvedCdnUrl = resolveCdnUrlForClient(
+        runtimeCdnUrl,
+        buildCdnUrl,
+        runtimeApiUrl,
+        initialStreamingModeRef.current,
+      );
       const assetsUrl = resolvedCdnUrl.endsWith("/")
         ? resolvedCdnUrl
         : `${resolvedCdnUrl}/`;

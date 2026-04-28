@@ -19,20 +19,20 @@ import {
   type Character,
   type Memory,
   type UUID,
-  // @ts-ignore — InMemoryDatabaseAdapter is exported at runtime but not in .d.ts
-  InMemoryDatabaseAdapter,
 } from "@elizaos/core";
 import { EventType, getDuelArenaConfig, type World } from "@hyperscape/shared";
 import { createJWT } from "../shared/utils.js";
 import { errMsg } from "../shared/errMsg.js";
 import { hyperscapePlugin } from "@hyperscape/plugin-hyperscape";
 import type { EmbeddedHyperscapeService } from "./EmbeddedHyperscapeService.js";
+import type { DatabaseSystem } from "../systems/DatabaseSystem/index.js";
 import {
   ejectAgentFromCombatArena,
   recoverAgentFromDeathLoop,
 } from "./agentRecovery.js";
 import { getAgentManager } from "./AgentManager.js";
 import { loadModelPlugin, createAgentCharacter } from "./agentHelpers.js";
+import { InMemoryDatabaseAdapter } from "./elizaCoreCompat.js";
 
 type BunRuntime = {
   gc?: (force?: boolean) => void;
@@ -273,8 +273,7 @@ export async function spawnModelAgents(
   // both cause unbounded memory growth (WASM heap + in-memory log accumulation).
 
   // Get database system for character creation
-  // @ts-ignore - Dynamic import to avoid circular dependency
-  const databaseSystem = world.getSystem("database");
+  const databaseSystem = world.getSystem<DatabaseSystem>("database");
   const db = databaseSystem?.getDb?.();
 
   if (!db) {

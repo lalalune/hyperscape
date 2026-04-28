@@ -23,8 +23,6 @@ import {
   stringToUuid,
   type Character,
   type Plugin,
-  // @ts-ignore - exported at runtime but missing from .d.ts
-  InMemoryDatabaseAdapter,
 } from "@elizaos/core";
 import { createJWT } from "../shared/utils.js";
 import { errMsg } from "../shared/errMsg.js";
@@ -40,6 +38,10 @@ import {
   ejectAgentFromCombatArena,
   recoverAgentFromDeathLoop,
 } from "./agentRecovery.js";
+import {
+  CharacterWithModelProvider,
+  InMemoryDatabaseAdapter,
+} from "./elizaCoreCompat.js";
 
 /**
  * Dynamically import the Hyperscape plugin to avoid hard dependency in dev.
@@ -354,40 +356,75 @@ async function getModelProviderPlugin(
     }
   }
 
-  // Fall back to Ollama when no cloud keys (env or character)
+  // Fall back to Ollama when no cloud keys (env or character).
+  //
+  // We try the local shim first — `./plugins/localOllama.ts` wraps
+  // `ollama-ai-provider-v2@^3.5.0` which implements AI SDK spec v2 and is
+  // compatible with our `ai@^6.0.97`. The upstream
+  // `@elizaos/plugin-ollama@2.0.0-alpha.70` bundles `ollama-ai-provider@^1.2.0`
+  // (spec v1), so it imports successfully but every model call fails at
+  // runtime with "Unsupported model version v1 for provider 'ollama.chat'".
+  // See `packages/server/src/eliza/plugins/localOllama.ts` for the shim
+  // contract and the rollback plan.
+  //
+  // If the shim import itself fails (e.g. `ollama-ai-provider-v2` not
+  // installed on the node_modules tree yet), we still try the upstream
+  // plugin as a second best — that way we don't regress the existing
+  // behaviour if the shim is missing for any reason.
+  const buildOllamaProviderRecord = (
+    plugin: Plugin,
+    source: string,
+  ): ResolvedChatModelProvider => {
+    const model =
+      (typeof charModel === "string" && charModel.trim()
+        ? charModel.trim()
+        : "") ||
+      process.env.OLLAMA_LARGE_MODEL?.trim() ||
+      process.env.OLLAMA_MODEL?.trim() ||
+      "provider default";
+    return {
+      plugin,
+      provider: "ollama",
+      model,
+      source,
+      secrets: {
+        ...(process.env.OLLAMA_BASE_URL
+          ? { OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL }
+          : {}),
+        ...(model === "provider default"
+          ? {}
+          : {
+              LARGE_MODEL: model,
+              OLLAMA_MODEL: model,
+            }),
+      },
+    };
+  };
+
+  try {
+    const localMod = await import("./plugins/localOllama.js");
+    const plugin = localMod.ollamaPlugin;
+    if (plugin) {
+      return buildOllamaProviderRecord(plugin, "local Ollama (shim)");
+    }
+  } catch (err) {
+    console.warn(
+      "[AgentManager] Failed to load local Ollama shim:",
+      errMsg(err),
+    );
+  }
+
   try {
     const mod = await import("@elizaos/plugin-ollama");
     const plugin = mod.ollamaPlugin;
     if (plugin) {
-      const model =
-        (typeof charModel === "string" && charModel.trim()
-          ? charModel.trim()
-          : "") ||
-        process.env.OLLAMA_LARGE_MODEL?.trim() ||
-        process.env.OLLAMA_MODEL?.trim() ||
-        "provider default";
-      return {
-        plugin,
-        provider: "ollama",
-        model,
-        source: "local Ollama",
-        secrets: {
-          ...(process.env.OLLAMA_BASE_URL
-            ? {
-                OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
-              }
-            : {}),
-          ...(model === "provider default"
-            ? {}
-            : {
-                LARGE_MODEL: model,
-                OLLAMA_MODEL: model,
-              }),
-        },
-      };
+      return buildOllamaProviderRecord(plugin, "local Ollama (upstream)");
     }
   } catch (err) {
-    console.warn("[AgentManager] Failed to load Ollama plugin:", errMsg(err));
+    console.warn(
+      "[AgentManager] Failed to load upstream Ollama plugin:",
+      errMsg(err),
+    );
   }
 
   console.warn(
@@ -1184,7 +1221,7 @@ export class AgentManager {
       instance.config.characterConfig?.system ||
       `You are ${instance.config.name}, an embedded Hyperscape agent. Respond as yourself, stay grounded in the current game world, and keep replies concise and useful.`;
 
-    return {
+    const character = {
       id: stringToUuid(`embedded-chat-${instance.config.characterId}`),
       name: instance.config.name,
       username:
@@ -1225,9 +1262,9 @@ export class AgentManager {
         },
       },
       plugins: [],
-      // @ts-ignore - runtime supports modelProvider even if core type lags.
       modelProvider: provider.provider,
-    } as unknown as Character;
+    } as unknown as CharacterWithModelProvider;
+    return character as Character;
   }
 
   private buildDashboardChatPrompt(
@@ -1420,12 +1457,18 @@ export class AgentManager {
       }
 
       const adapter = new InMemoryDatabaseAdapter();
+      const adapterWithLog = adapter as unknown as {
+        log?: (params: unknown) => Promise<void>;
+        logs?: unknown[];
+      };
       // Eliza 2.0 alpha.76+ InMemoryDatabaseAdapter may omit `log`; only wrap when present.
-      if (typeof adapter.log === "function") {
-        const originalLog = adapter.log.bind(adapter);
-        adapter.log = async (params: Parameters<typeof originalLog>[0]) => {
+      if (typeof adapterWithLog.log === "function") {
+        const originalLog = adapterWithLog.log.bind(adapterWithLog);
+        adapterWithLog.log = async (
+          params: Parameters<typeof originalLog>[0],
+        ) => {
           await originalLog(params);
-          const logs = (adapter as unknown as { logs?: unknown[] }).logs;
+          const logs = adapterWithLog.logs;
           if (logs && logs.length > 50) {
             logs.splice(0, logs.length - 50);
           }
@@ -1519,7 +1562,16 @@ export class AgentManager {
         return;
       }
       const mod = await import("./ModelAgentSpawner.js");
-      mod.startEmbeddedAgentLlmPlanningLoop(
+      (
+        mod as typeof mod & {
+          startEmbeddedAgentLlmPlanningLoop?: (
+            characterId: string,
+            runtime: AgentRuntime,
+            service: EmbeddedHyperscapeService,
+            name: string,
+          ) => void;
+        }
+      ).startEmbeddedAgentLlmPlanningLoop?.(
         characterId,
         runtime,
         instance.service,
@@ -1536,7 +1588,11 @@ export class AgentManager {
     this.stopCharacterVisionRefresh(characterId);
     try {
       const mod = await import("./ModelAgentSpawner.js");
-      mod.stopEmbeddedAgentLlmPlanningLoop(characterId);
+      (
+        mod as typeof mod & {
+          stopEmbeddedAgentLlmPlanningLoop?: (characterId: string) => void;
+        }
+      ).stopEmbeddedAgentLlmPlanningLoop?.(characterId);
     } catch {
       /* ignore */
     }

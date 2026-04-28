@@ -25,6 +25,7 @@ import { getDuelArenaOracleConfig } from "./oracle/config.js";
 
 // Import stream capture pipeline
 import { initStreamCapture } from "./streaming/stream-capture.js";
+import { startHlsCdnSync } from "./streaming/hls-cdn-sync.js";
 
 // Import memory monitoring infrastructure
 import {
@@ -129,6 +130,12 @@ async function startServer() {
         errMsg(err),
       );
     }
+  } else if (streamingDuelEnabled) {
+    // Streaming duels run but no on-chain oracle will publish results.
+    // Flag this loudly — operators otherwise don't notice revenue is off.
+    console.warn(
+      "[Server] ⚠️ STREAMING_DUEL_ENABLED=true but DUEL_ARENA_ORACLE_ENABLED=false — duel results will NOT be published on-chain (no hyperbet settlement).",
+    );
   }
 
   // Step 3b: Initialize Web3 (EVM chain writer) if enabled
@@ -207,7 +214,9 @@ async function startServer() {
       | { db?: unknown; getDb?: () => unknown }
       | undefined;
     const db = dbSystem?.db ?? dbSystem?.getDb?.();
-    if (db) setThoughtDb(db);
+    if (db) {
+      setThoughtDb(db as Parameters<typeof setThoughtDb>[0]);
+    }
   } catch {
     // Non-critical — thoughts will stay in-memory only
   }
@@ -248,6 +257,17 @@ async function startServer() {
         "[Server] ⚠️ Stream capture failed to initialize, continuing without capture:",
         errMsg(err),
       );
+    }
+
+    // Start HLS CDN sync if configured (uploads segments to R2/S3)
+    try {
+      const hlsCdnUrl = startHlsCdnSync();
+      if (hlsCdnUrl) {
+        (world as World & { hlsCdnStreamUrl?: string }).hlsCdnStreamUrl =
+          hlsCdnUrl;
+      }
+    } catch (err) {
+      console.error("[Server] ⚠️ HLS CDN sync failed to start:", errMsg(err));
     }
   }
 

@@ -1,4 +1,4 @@
-/* Public stream overlay — vignette, leaderboard, lower third, waiting */
+/* Public stream overlay — vignette, opt-in diagnostics, waiting */
 
 .streaming-overlay-root {
   isolation: isolate;
@@ -40,73 +40,6 @@
 /* Combat log scroll — hide native scrollbar */
 .combat-log-scroll::-webkit-scrollbar {
   display: none;
-}
-
-.streaming-lower-third {
-  position: absolute;
-  left: 50%;
-  bottom: max(16px, env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  z-index: 52;
-  width: min(720px, calc(100vw - 28px));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 18px 14px;
-  border-radius: 14px;
-  background: linear-gradient(
-    180deg,
-    rgba(6, 8, 14, 0.82) 0%,
-    rgba(8, 12, 22, 0.9) 100%
-  );
-  border: 1px solid rgba(251, 191, 36, 0.18);
-  box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  animation: streaming-mount-in 0.6s ease-out 0.15s both;
-}
-
-.streaming-lower-third-brand {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.streaming-lower-third-mark {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(251, 191, 36, 0.95);
-}
-
-.streaming-lower-third-divider {
-  color: rgba(148, 163, 184, 0.45);
-  font-weight: 700;
-}
-
-.streaming-lower-third-sub {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(226, 232, 240, 0.88);
-}
-
-.streaming-lower-third-status {
-  margin: 0;
-  text-align: center;
-  font-size: clamp(0.78rem, 1.9vw, 0.92rem);
-  font-weight: 600;
-  line-height: 1.35;
-  color: rgba(203, 213, 225, 0.95);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
-  max-width: 42ch;
 }
 
 .streaming-fight-timer-eyebrow {

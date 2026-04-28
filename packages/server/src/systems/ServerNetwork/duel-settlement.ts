@@ -7,7 +7,7 @@
  * Extracted from ServerNetwork to keep the main orchestrator lean.
  */
 
-import { getItem, World } from "@hyperscape/shared";
+import { getItem, World, MAX_COINS } from "@hyperscape/shared";
 import { InventoryRepository } from "../../database/repositories/InventoryRepository";
 import type { ServerSocket } from "../../shared/types";
 
@@ -399,7 +399,7 @@ async function executeDuelStakeTransfer(
               };
               const existingSlot = existingRow.slotIndex;
               const existingQty = existingRow.quantity;
-              if (existingQty > 2147483647 - transferQuantity) {
+              if (existingQty > MAX_COINS - transferQuantity) {
                 console.error(
                   `[Duel] SECURITY: Stack merge would overflow! ` +
                     `winnerId=${winnerId}, itemId=${stake.itemId}, ` +
@@ -438,7 +438,7 @@ async function executeDuelStakeTransfer(
                 id: string;
                 quantity: number;
               };
-              if (bankRow.quantity > 2147483647 - transferQuantity) {
+              if (bankRow.quantity > MAX_COINS - transferQuantity) {
                 console.error(
                   `[Duel] SECURITY: Bank stack merge would overflow! ` +
                     `winnerId=${winnerId}, itemId=${stake.itemId}, ` +

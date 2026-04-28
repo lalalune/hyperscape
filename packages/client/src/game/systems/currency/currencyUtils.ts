@@ -6,6 +6,8 @@
  * @packageDocumentation
  */
 
+import { MAX_COINS } from "@hyperscape/shared";
+
 /** Currency type identifier */
 export type CurrencyType = "gold" | "silver" | "copper" | "gems" | "tokens";
 
@@ -39,7 +41,7 @@ export const DEFAULT_CURRENCIES: Record<CurrencyType, CurrencyDefinition> = {
     backgroundColor: "#3d3224",
     icon: "coins",
     conversionRate: 1,
-    maxValue: 2147483647, // Max int32
+    maxValue: MAX_COINS, // Max int32
   },
   silver: {
     type: "silver",
@@ -49,7 +51,7 @@ export const DEFAULT_CURRENCIES: Record<CurrencyType, CurrencyDefinition> = {
     backgroundColor: "#2a2a2a",
     icon: "coins",
     conversionRate: 0.01, // 100 silver = 1 gold
-    maxValue: 2147483647,
+    maxValue: MAX_COINS,
   },
   copper: {
     type: "copper",
@@ -59,7 +61,7 @@ export const DEFAULT_CURRENCIES: Record<CurrencyType, CurrencyDefinition> = {
     backgroundColor: "#2d1a0d",
     icon: "coins",
     conversionRate: 0.0001, // 10000 copper = 1 gold
-    maxValue: 2147483647,
+    maxValue: MAX_COINS,
   },
   gems: {
     type: "gems",
@@ -323,18 +325,6 @@ export function calculateBreakdown(totalCopper: number): {
 }
 
 /**
- * Convert breakdown back to total copper
- */
-export function toTotalCopper(breakdown: {
-  gold?: number;
-  silver?: number;
-  copper?: number;
-}): number {
-  const { gold = 0, silver = 0, copper = 0 } = breakdown;
-  return gold * 10000 + silver * 100 + copper;
-}
-
-/**
  * Format a breakdown as a display string
  */
 export function formatBreakdown(breakdown: {
@@ -355,6 +345,16 @@ export function formatBreakdown(breakdown: {
   }
 
   return parts.join(" ");
+}
+
+/**
+ * Format gold value for OSRS-style wealth display (K/M/B suffixes).
+ * Delegates to compactNumber to avoid duplicate formatting logic.
+ */
+export function formatGoldValue(value: number): string {
+  if (value < 1000) return value.toLocaleString();
+  const { value: v, suffix } = compactNumber(value);
+  return `${v}${suffix}`;
 }
 
 /** Change indicator for value changes */

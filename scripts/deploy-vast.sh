@@ -1,21 +1,43 @@
 #!/bin/bash
 # Hyperscape CI/CD Deploy for Vast.ai
-# Pulls latest, builds, and starts the full duel stack under pm2
+# Pulls latest, builds, and starts the split duel/control plane plus source worker under pm2
 set -euo pipefail
 
 export PATH="/root/.bun/bin:$PATH"
 cd /root/hyperscape
 
-SECRETS_FILE="/tmp/hyperscape-secrets.env"
-if [ -f "$SECRETS_FILE" ]; then
-    echo "[deploy] Loading runtime secrets from $SECRETS_FILE"
+# Prefer the persistent path first. /tmp is wiped on reboot by systemd-tmpfiles,
+# so a pm2 resurrect or manual restart after a host reboot would otherwise lose
+# the deploy-time env. The /tmp path remains as a transitional fallback.
+SECRETS_CANDIDATES=(
+    "/root/hyperscape-secrets.env"
+    "/tmp/hyperscape-secrets.env"
+)
+SECRETS_FILE=""
+for candidate in "${SECRETS_CANDIDATES[@]}"; do
+    if [ -f "$candidate" ]; then
+        SECRETS_FILE="$candidate"
+        break
+    fi
+done
+
+if [ -n "$SECRETS_FILE" ]; then
+    echo "[deploy] Loading local runtime secrets from $SECRETS_FILE"
     set -a
     # shellcheck disable=SC1090
     . "$SECRETS_FILE"
     set +a
+    # Mirror to the persistent path so subsequent reboots retain these secrets.
+    if [ "$SECRETS_FILE" != "/root/hyperscape-secrets.env" ]; then
+        cp "$SECRETS_FILE" /root/hyperscape-secrets.env
+        chmod 600 /root/hyperscape-secrets.env
+        echo "[deploy] Mirrored secrets to /root/hyperscape-secrets.env"
+    fi
 else
-    echo "[deploy] Warning: $SECRETS_FILE not found; relying on existing environment"
+    echo "[deploy] Warning: no secrets file found at ${SECRETS_CANDIDATES[*]}; relying on the existing local shell environment only"
 fi
+
+echo "[deploy] Shared project secrets are intentionally not read in this enoomian staging path"
 
 # Auto-detect database mode: if DATABASE_URL is set to a remote host, use remote mode
 if [ -z "${DUEL_DATABASE_MODE:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
@@ -115,6 +137,29 @@ SQL
     echo "[deploy] Local PostgreSQL ready at ${LOCAL_POSTGRES_HOST}:${LOCAL_POSTGRES_PORT}/${LOCAL_POSTGRES_DB}"
 }
 
+ensure_tree_asset_aliases() {
+    local trees_root="/root/hyperscape/packages/server/world/assets/models/trees"
+    if [ ! -d "$trees_root" ]; then
+        echo "[deploy] Skipping tree asset alias generation; missing $trees_root"
+        return
+    fi
+
+    echo "[deploy] Ensuring tree asset compatibility aliases..."
+    find "$trees_root" -maxdepth 1 -type f -name '*.glb' | while read -r asset_path; do
+        local asset_name family_dir alias_path
+        asset_name="$(basename "$asset_path")"
+        family_dir="${asset_name%%_*}"
+        if [ -z "$family_dir" ] || [ "$family_dir" = "$asset_name" ]; then
+            continue
+        fi
+        mkdir -p "$trees_root/$family_dir"
+        alias_path="$trees_root/$family_dir/$asset_name"
+        if [ ! -e "$alias_path" ]; then
+            ln -s "../$asset_name" "$alias_path"
+        fi
+    done
+}
+
 echo "[deploy] Starting Hyperscape CI/CD update on Vast.ai..."
 
 # ── Pull latest code ──────────────────────────────────────────
@@ -174,25 +219,20 @@ sleep 2
 bunx pm2 kill 2>/dev/null || true
 sleep 2
 
-# Kill specific server processes (avoid killing deploy script's bun processes)
-# Target the hyperscape server process specifically, not all bun processes
-pkill -f "hyperscape-duel" || true
-pkill -f "watchdog.sh" || true
-pkill -f "stream-to-rtmp" || true
-pkill -f "xvfb-run.*packages/server.*stream:rtmp" || true
-pkill -f "turbo.*dev" || true
-pkill -f "chromium" || true
-pkill -f "chrome" || true
-# Kill node processes that might hold DB connections
-pkill -f "node.*packages/server" || true
-pkill -f "drizzle" || true
-# Kill ORPHANED bun child processes that pm2 kill failed to terminate
-# (Specifically avoids killing the bash deployment script's own bun instances)
+# Kill specific server processes using explicit ownership names and lock files.
+pkill -f "hyperscape-duel-api" || true
+pkill -f "hyperscape-stream-source" || true
+pkill -f "scripts/duel-stack.mjs" || true
+pkill -f "packages/server/scripts/stream-to-rtmp.ts" || true
+pkill -f "bun.*packages/server.*stream:rtmp" || true
 pkill -f "bun.*packages/server.*dist/index.js" || true
 pkill -f "bun.*packages/server.*start" || true
 pkill -f "bun.*dev-duel.mjs" || true
 pkill -f "bun.*preview.*3333" || true
-rm -f /root/hyperscape/.runtime-locks/rtmp-status.json || true
+rm -f \
+    /root/hyperscape/.runtime-locks/duel-stack.json \
+    /root/hyperscape/.runtime-locks/stream-source.json \
+    /root/hyperscape/.runtime-locks/rtmp-status.json || true
 
 DB_DRAIN_WAIT_SECONDS=5
 if [ "$DUEL_DATABASE_MODE" = "remote" ]; then
@@ -211,6 +251,7 @@ cd packages/asset-forge && bun run build:services && cd ../..
 cd packages/shared && bun run build && cd ../..
 echo "[deploy] Building fresh client dist for stream/runtime pages..."
 cd packages/client && bun run build:cf && cd ../..
+ensure_tree_asset_aliases
 
 # ── Database migration (after connections cleared) ────────────
 echo "[deploy] Applying database migrations..."
@@ -246,7 +287,7 @@ export DISPLAY=:99
 echo "[deploy] Xvfb started on DISPLAY=$DISPLAY"
 
 # ── Start duel stack via pm2 ─────────────────────────────────
-echo "[deploy] Starting Hyperscape duel stack via pm2..."
+echo "[deploy] Starting split Hyperscape duel stack via pm2..."
 bunx pm2 start ecosystem.config.cjs --update-env
 
 REQUIRE_LOCAL_CDN=false
@@ -261,6 +302,7 @@ echo "[deploy] Waiting for local services to become healthy..."
 for attempt in $(seq 1 30); do
     SERVER_OK=false
     STREAMING_OK=false
+    CAPTURE_OK=false
     CDN_OK=true
 
     if curl -fsS --max-time 10 http://127.0.0.1:5555/health > /dev/null 2>&1; then
@@ -269,6 +311,9 @@ for attempt in $(seq 1 30); do
     if curl -fsS --max-time 10 http://127.0.0.1:5555/api/streaming/state > /dev/null 2>&1; then
         STREAMING_OK=true
     fi
+    if curl -fsS --max-time 10 http://127.0.0.1:5555/api/streaming/capture/status > /dev/null 2>&1; then
+        CAPTURE_OK=true
+    fi
     if [ "$REQUIRE_LOCAL_CDN" = true ]; then
         CDN_OK=false
         if curl -fsS --max-time 10 http://127.0.0.1:8080/health > /dev/null 2>&1; then
@@ -276,7 +321,7 @@ for attempt in $(seq 1 30); do
         fi
     fi
 
-    if [ "$SERVER_OK" = true ] && [ "$STREAMING_OK" = true ] && [ "$CDN_OK" = true ]; then
+    if [ "$SERVER_OK" = true ] && [ "$STREAMING_OK" = true ] && [ "$CAPTURE_OK" = true ] && [ "$CDN_OK" = true ]; then
         echo "[deploy] Local services are healthy"
         break
     fi
@@ -286,12 +331,14 @@ for attempt in $(seq 1 30); do
         echo "[deploy] pm2 status:"
         bunx pm2 status || true
         echo "[deploy] tailing duel logs directly from OS:"
-        tail -n 10000 /root/.pm2/logs/hyperscape-duel-error.log 2>/dev/null || true
-        tail -n 10000 /root/.pm2/logs/hyperscape-duel-out.log 2>/dev/null || true
+        tail -n 10000 /root/.pm2/logs/hyperscape-duel-api-error.log 2>/dev/null || true
+        tail -n 10000 /root/.pm2/logs/hyperscape-duel-api-out.log 2>/dev/null || true
+        tail -n 10000 /root/.pm2/logs/hyperscape-stream-source-error.log 2>/dev/null || true
+        tail -n 10000 /root/.pm2/logs/hyperscape-stream-source-out.log 2>/dev/null || true
         exit 1
     fi
 
-    echo "[deploy] health check ${attempt}/30 pending (server=$SERVER_OK streaming=$STREAMING_OK cdn=$CDN_OK)"
+    echo "[deploy] health check ${attempt}/30 pending (server=$SERVER_OK streaming=$STREAMING_OK capture=$CAPTURE_OK cdn=$CDN_OK)"
     sleep 10
 done
 
@@ -302,7 +349,7 @@ bunx pm2 save
 echo ""
 echo "════════════════════════════════════════════════════════════"
 echo "  ✓ Hyperscape deployed successfully!"
-echo "  ✓ Duel stack managed by pm2 (auto-restart on crash)"
+echo "  ✓ Duel API/control plane and stream source are split under pm2"
 echo ""
 echo "  Useful commands:"
 echo "    bun run duel:prod:logs     # tail live logs"

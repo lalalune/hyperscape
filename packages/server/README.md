@@ -1,481 +1,155 @@
 # Hyperscape Server
 
-Production-ready game server for Hyperscape 3D multiplayer worlds with PostgreSQL backend.
-
-## ✅ Status: FULLY OPERATIONAL
-
-The server has been successfully migrated to PostgreSQL and is production-ready with:
-- PostgreSQL database with automatic migrations
-- 54 mobs + 5 NPCs spawning at startup  
-- Character creation and multi-character support
-- Complete persistence layer (inventory, equipment, skills, position)
-- Real-time multiplayer via WebSocket
-- 15 registered game actions
+This package is the Hyperscapes API and control plane. For the duel-streaming
+stack it should be read as the canonical source of lifecycle, renderer, and
+delivery truth consumed by Hyperbet. The source worker is separate in staging
+and production unless `DUEL_OWNS_STREAM_CAPTURE=true` is set for local
+integrated ownership.
+
+## Streaming Architecture
+
+- Cloudflare Pages hosts the public stream page.
+- The GPU host runs the dedicated source worker service for browser capture
+  and FFmpeg encode.
+- Railway runs this server package and publishes the canonical stream session.
+- Cloudflare Stream is the canonical bettor playback rail on `enoomian/staging`.
+- Self-hosted HLS remains available for operator smoke, debug, and explicit
+  failover only.
+- Automatic provider failover is disabled by default; bettors should not
+  auto-cycle between playback providers.
+
+This server is not the renderer of record.
+The split topology is the default operating model.
+
+## Same-Origin PhysX Requirement
+
+The stream page must load PhysX JS and WASM same-origin from the Pages-hosted
+client. Do not relax CSP to permit arbitrary script origins. If same-origin
+loading is broken, the renderer should degrade instead of silently widening
+policy.
+
+## Delivery Configuration
+
+Provider-neutral delivery envs:
+
+- `STREAM_DELIVERY_MODE=self_hls|external_hls`
+- `STREAM_DELIVERY_PROVIDER`
+- `STREAM_CANONICAL_PROVIDER_PRIORITY`
+- `STREAM_ENABLE_AUTOMATIC_FAILOVER`
+- `STREAM_FAILBACK_SOAK_MS`
+- `STREAM_INGEST_RTMPS_URL`
+- `STREAM_INGEST_STREAM_KEY`
+- `STREAM_PLAYBACK_HLS_URL`
+- `STREAM_PLAYBACK_LLHLS_URL`
+- `STREAM_EXTERNAL_DELIVERY_PROVIDER`
+- `STREAM_EXTERNAL_PLAYBACK_HLS_URL`
+- `STREAM_EXTERNAL_PLAYBACK_LLHLS_URL`
+- `STREAM_EXTERNAL_INGEST_RTMPS_URL`
+- `STREAM_CLOUDFLARE_PROBE_ONLY`
+
+Selection order for playback:
+
+1. the canonical Cloudflare playback URL selected by persisted authority
+   reconciliation
+2. regular HLS derived from that same playback object when LL-HLS falls back
+   in the player
+3. self-hosted HLS only when an explicit operator/debug path enables failover
+
+`hls-cdn-sync.ts` is fallback/object-store sync only.
+
+## Capture And Encode Defaults
+
+Personal staging expects:
+
+- `FFMPEG_HWACCEL=nvidia`
+- `STREAM_LOW_LATENCY=true`
+- `STREAM_FPS=30`
+- `HLS_TIME_SECONDS=1`
+- `HLS_LIST_SIZE=6`
+- `HLS_DELETE_THRESHOLD=24`
+
+## Health Contract
+
+The canonical capture status now includes additive fields that Hyperbet and
+operator surfaces consume:
+
+- `canonicalAuthority`
+  - `providerLive`
+  - `playbackProbeReady`
+  - `decision`
+  - `reason`
+  - `revision`
+- `sourceRuntime`
+- `rendererHealth`
+- `metrics`
+  - `captureFps`
+  - `encodeFps`
+  - `droppedFrames`
+  - `latestFrameAt`
+  - `latestRenderTickAt`
+  - `latestDuelStateTickAt`
+  - `latestVisualChangeAt`
+  - `visualChangeAgeMs`
+  - `hlsManifest`
+- `delivery`
+  - `mode`
+  - `provider`
+  - `playbackUrl`
+  - `canonicalDestination`
+  - `fallbackDestination`
+
+`publicReadiness` is the final server-side delivery gate for bettor playback.
+It should be read as:
+
+1. `sourceRuntime.ready`
+2. persisted Cloudflare lifecycle / lifecycle-poll evidence
+3. canonical playback probe health
 
-See `FIXES-COMPLETE.md` for detailed migration changelog.
+It is not the same thing as player live-edge sync. Hyperbet derives bettor
+"live synced" UX from player telemetry on top of this server gate.
 
-## Features
+Phase-aware degradation can emit:
 
-- **PostgreSQL Database** - Full persistence with automatic migrations
-- **WebSocket Support** - Real-time multiplayer via Fastify WebSockets
-- **Docker Integration** - Automatic local PostgreSQL via Docker (optional)
-- **Asset Serving** - Efficient static asset delivery
-- **Character System** - Multi-character support per account
-- **Authentication** - Optional Privy authentication with Farcaster support
-- **LiveKit Voice** - Optional voice chat integration
+- `render_tick_stale`
+- `visual_change_stale`
+- `capture_fps_low`
+- `encoder_fps_low`
+- `manifest_stale`
+- `asset_origin_incomplete`
 
-## Quick Start
+## Cloudflare Authority Reconciliation
 
-### Prerequisites
+Cloudflare authority truth is persisted under these storage keys:
 
-- **Bun** (recommended) or Node.js 22+
-- **Docker Desktop** (for local PostgreSQL) OR external PostgreSQL instance
+- `streaming:cloudflare:lifecycle`
+- `streaming:cloudflare:last-webhook`
+- `streaming:cloudflare:last-lifecycle-poll`
+- `streaming:cloudflare:last-playback-probe`
+- `streaming:cloudflare:reconciliation`
 
-### Installation
+The reconciliation decision is the operator-debug source of truth. Decision
+ordering is:
 
-```bash
-cd packages/server
-bun install
-```
+1. `source_unready`
+2. `provider_not_live`
+3. `probe_unready`
+4. `authority_stale`
 
-### Configuration
+When `STREAM_ENABLE_AUTOMATIC_FAILOVER=false`, fallback destinations may still
+be emitted for compatibility, but they are not the normal bettor rail.
 
-Copy the example environment file:
-```bash
-cp env.example .env
-```
+## Endpoints
 
-**Option 1: Local PostgreSQL (Docker)**
-```env
-USE_LOCAL_POSTGRES=true
-# Docker will automatically start PostgreSQL
-```
+Operationally important endpoints:
 
-**Option 2: External PostgreSQL**
-```env
-DATABASE_URL=postgresql://user:pass@host:5488/dbname
-USE_LOCAL_POSTGRES=false
-```
+- `GET /health`
+- `GET /api/streaming/state`
+- `GET /api/streaming/state/events`
+- `GET /api/streaming/capture/status`
+- `GET /api/streaming/rtmp/status`
+- `GET /api/hyperbet/config`
 
-### Running
+## Deployment Rule
 
-**Development:**
-```bash
-bun run dev
-```
-This automatically starts:
-- CDN Server (nginx on port 8080) - via Docker
-- Game Server (Fastify on port 5555)
-- Client (Vite on port 3333)
-- 3D Asset Forge API (port 3001) & UI (port 3003)
-
-**Production Build:**
-```bash
-bun run build
-bun run start
-```
-
-### CDN Server
-
-The development script automatically manages a local CDN server via Docker:
-
-**Automatic Management:**
-- Starts when you run `bun run dev`
-- Stops when you exit the dev server (Ctrl+C)
-- Serves game assets from `../../assets/` on port 8080
-- Health check at `http://localhost:8080/health`
-
-**Manual CDN Management:**
-```bash
-# Start CDN only
-bun run cdn:up
-
-# Stop CDN
-bun run cdn:down
-
-# View CDN logs
-bun run cdn:logs
-
-# Verify CDN is working
-bun run cdn:verify
-```
-
-**Requirements:**
-- Docker Desktop must be installed and running
-- If Docker is not available, the dev script will skip CDN startup and warn you
-
-**Asset Access:**
-- All assets served directly from CDN: `http://localhost:8080/assets/world/music/normal/1.mp3`
-- No proxying - client fetches directly from CDN
-
-## Database
-
-### PostgreSQL Setup
-
-The server uses PostgreSQL with automatic migrations. On first run:
-
-1. If `USE_LOCAL_POSTGRES=true`, Docker will start a PostgreSQL container
-2. Migrations run automatically on startup
-3. Tables are created: users, characters, players, inventory, equipment, etc.
-
-### Manual Database Operations
-
-**Connect to local PostgreSQL:**
-```bash
-docker exec -it hyperscape-postgres psql -U hyperscape -d hyperscape
-```
-
-**Backup database:**
-```bash
-docker exec hyperscape-postgres pg_dump -U hyperscape hyperscape > backup.sql
-```
-
-**Restore database:**
-```bash
-cat backup.sql | docker exec -i hyperscape-postgres psql -U hyperscape hyperscape
-```
-
-### Migrations
-
-Migrations are defined in `src/db.ts` and run automatically on server start. The migration system tracks version in the `config` table.
-
-**Current migrations:**
-1. Users table
-2. VRM/avatar column migration
-3. Settings config migration
-4. Entities scale field update
-5. Entities table creation
-6. Privy authentication columns
-7. RPG tables (players, items, inventory, equipment)
-8. World chunks and sessions
-9. Characters table (for multi-character support)
-
-## Architecture
-
-### Core Systems
-
-**ServerNetwork** (`src/ServerNetwork.ts`)
-- WebSocket connection handling
-- Player spawning and lifecycle
-- Character selection flow
-- Message routing and broadcasting
-
-**DatabaseSystem** (`src/DatabaseSystem.ts`)
-- PostgreSQL connection management
-- Character CRUD operations
-- Player data persistence
-- Inventory and equipment management
-
-**Database Layer** (`src/db.ts`)
-- Connection pooling (pg)
-- Migration runner
-- Query builder for shared code
-
-### Character System
-
-The server supports multiple characters per account:
-
-1. **Account** - Identified by Privy user ID or legacy user ID
-2. **Character** - Each account can have multiple characters
-3. **Player Session** - Character becomes "player" when spawned in world
-
-**Flow:**
-```
-Login → Character List → Select/Create Character → Enter World → Spawn as Player
-```
-
-## API Endpoints
-
-### Health & Status
-
-- `GET /health` - Health check (for load balancers)
-- `GET /status` - Detailed server status with player count
-
-### Assets
-
-- `GET /*` - Game assets (models, textures, audio)
-- `GET /assets/*` - Legacy asset path (backward compatible)
-
-### WebSocket
-
-- `GET /ws` - WebSocket connection for real-time gameplay
-
-### Actions (HTTP API)
-
-- `GET /api/actions` - List all available actions
-- `GET /api/actions/available` - Get actions available to player
-- `POST /api/actions/:name` - Execute specific action
-
-### Utility
-
-- `GET /env.js` - Public environment variables for client
-- `POST /api/upload` - Upload user assets (VRM, textures)
-- `GET /api/upload-check` - Check if asset exists
-
-## Environment Variables
-
-### Required
-
-```env
-PORT=5555                    # Server port
-WORLD=world                   # World directory path
-```
-
-### Database
-
-```env
-# Option 1: Docker PostgreSQL
-USE_LOCAL_POSTGRES=true
-POSTGRES_CONTAINER=hyperscape-postgres
-POSTGRES_USER=hyperscape
-POSTGRES_PASSWORD=hyperscape_dev_password
-POSTGRES_DB=hyperscape
-POSTGRES_PORT=5488
-
-# Option 2: External PostgreSQL
-DATABASE_URL=postgresql://user:pass@host:5488/dbname
-```
-
-### Assets
-
-```env
-PUBLIC_CDN_URL=http://localhost:5555/game-assets  # CDN URL for static assets
-PUBLIC_WS_URL=ws://localhost:5556/ws              # WebSocket URL
-```
-
-### Authentication (Optional)
-
-```env
-PUBLIC_PRIVY_APP_ID=your-app-id
-PRIVY_APP_SECRET=your-app-secret
-ADMIN_CODE=your-admin-code          # For /admin command
-```
-
-### Farcaster Frame v2 (Optional)
-
-```env
-PUBLIC_ENABLE_FARCASTER=true
-PUBLIC_APP_URL=https://your-domain.com
-```
-
-### LiveKit Voice (Optional)
-
-```env
-LIVEKIT_API_KEY=your-key
-LIVEKIT_API_SECRET=your-secret
-PUBLIC_LIVEKIT_URL=wss://your-livekit-server
-```
-
-### Monitoring & Alerting (Optional)
-
-```env
-ALERT_WEBHOOK_URL=https://hooks.slack.com/services/...
-```
-
-Monitoring endpoints:
-- `GET /health` - basic uptime/timestamp (use for uptime checks)
-- `GET /status` - connected users + commit hash
-
-Configure your monitoring service (Railway health checks, UptimeRobot, Pingdom, etc.)
-to poll `/health` and trigger alerts on non-200 responses or elevated latency.
-
-## Deployment
-
-### Docker
-
-Build and run with Docker:
-
-```bash
-docker build -t hyperscape-server .
-docker run -p 5555:5555 \
-  -e DATABASE_URL=postgresql://... \
-  hyperscape-server
-```
-
-### Traditional Hosting
-
-Requirements:
-- Node.js 22+ or Bun runtime
-- PostgreSQL 16+ (local or managed)
-- Reverse proxy (nginx, caddy) for SSL
-
-```bash
-# Build
-bun run build
-
-# Run with process manager
-pm2 start dist/index.js --name hyperscape-server
-```
-
-### Environment-Specific
-
-**Staging:**
-```bash
-NODE_ENV=staging bun run start
-```
-
-**Production:**
-```bash
-NODE_ENV=production bun run start
-```
-
-### Rollback
-
-Rollback uses the same deployment workflows with an explicit ref:
-
-1. Railway API (server): run the **Deploy to Railway** workflow and set
-   `deploy_ref` to the previous commit SHA or tag.
-2. Cloudflare R2 assets: run **Deploy Assets to Cloudflare R2** with
-   `deploy_ref` pointing at the same commit to keep assets in sync.
-
-## Troubleshooting
-
-### PostgreSQL Connection Failed
-
-**Error:** `ECONNREFUSED` or connection timeout
-
-**Solutions:**
-1. Check if Docker is running: `docker ps`
-2. Start PostgreSQL: `docker-compose up postgres`
-3. Check connection string in .env
-4. Verify firewall allows port 5488
-
-### Database Migration Errors
-
-**Error:** Column already exists
-
-**Solution:** This is usually safe to ignore. The migrations use `IF NOT EXISTS` and `ON CONFLICT` to handle re-runs.
-
-**Error:** Foreign key constraint violation
-
-**Solution:** 
-```sql
--- Connect to database
-docker exec -it hyperscape-postgres psql -U hyperscape hyperscape
-
--- Drop all tables and re-run migrations
-DROP SCHEMA public CASCADE;
-CREATE SCHEMA public;
-\q
-```
-Then restart the server.
-
-### Character Creation Fails
-
-**Error:** Missing columns when creating character
-
-**Solution:** The characters table migration may not have run. Check:
-```sql
-SELECT * FROM config WHERE key = 'version';
-```
-
-Should be at version 15 or higher. If not, restart server to run migrations.
-
-### Docker Issues
-
-**Error:** Docker daemon not running
-
-**Solution:**
-1. Install Docker Desktop: https://www.docker.com/products/docker-desktop
-2. Start Docker Desktop
-3. Restart server
-
-**Alternative:** Use external PostgreSQL instead:
-```env
-DATABASE_URL=postgresql://user:pass@host:5488/dbname
-USE_LOCAL_POSTGRES=false
-```
-
-## Development
-
-### Code Structure
-
-```
-src/
-├── index.ts              # Main server entry point
-├── ServerNetwork.ts      # Network layer & player lifecycle
-├── DatabaseSystem.ts     # Database operations
-├── db.ts                 # Connection & migrations
-├── docker-manager.ts     # Docker PostgreSQL automation
-├── Storage.ts            # File storage
-├── utils.ts              # Utilities (JWT, hashing)
-├── privy-auth.ts        # Privy authentication
-└── polyfills.ts         # Node.js polyfills
-```
-
-### Running Tests
-
-```bash
-bun test
-```
-
-### Linting
-
-```bash
-bun run lint
-```
-
-### Building
-
-```bash
-bun run build
-```
-
-Output: `dist/index.js` (bundled server)
-
-## Performance
-
-### Database Connection Pool
-
-- Max connections: 20
-- Idle timeout: 30s
-- Connection timeout: 5s
-
-Adjust in `src/db.ts` and `src/DatabaseSystem.ts` if needed.
-
-### Asset Caching
-
-Assets are served with aggressive caching:
-```
-Cache-Control: public, max-age=31536000, immutable
-```
-
-For development, disable browser cache or use incognito mode.
-
-## Security
-
-### Authentication
-
-Optional Privy authentication provides:
-- Wallet-based login
-- Farcaster Frame v2 support
-- Account-to-character linking
-
-### Admin Access
-
-Admin commands require:
-1. `ADMIN_CODE` set in environment
-2. `/admin <code>` command in chat
-
-### Database
-
-- Use strong PostgreSQL passwords in production
-- Restrict database access to server IP
-- Enable SSL for remote PostgreSQL connections
-
-### Rate Limiting
-
-Not implemented yet. Consider adding:
-- Connection rate limiting (websocket)
-- API endpoint rate limiting
-- Upload size limits (currently 50MB)
-
-## Support
-
-- **Documentation:** See `MIGRATION-FIXES.md` for recent changes
-- **Cloudflare Deployment:** See `CLOUDFLARE.md` (currently disabled)
-- **Issues:** Report bugs in the main Hyperscape repository
-
-## License
-
-GPL-3.0-only - See LICENSE file
+Keep secrets and delivery URLs in Railway, Pages, and GPU-host runtime config.
+Do not hardcode them in the repo and do not commit staging-only secrets.

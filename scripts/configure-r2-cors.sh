@@ -40,8 +40,6 @@ CORS_CONFIG=$(cat <<'EOF'
           "https://*.hyperscape.pages.dev",
           "https://*.hyperscape-betting.pages.dev",
           "https://*.hyperbet.pages.dev",
-          "https://*.hyperbet-solana.pages.dev",
-          "https://*.hyperbet-bsc.pages.dev",
           "http://localhost:3333",
           "http://localhost:5555",
           "http://127.0.0.1:3333",
@@ -82,6 +80,4 @@ echo "  - https://hyperscape-production.up.railway.app"
 echo "  - https://*.hyperscape.pages.dev"
 echo "  - https://*.hyperscape-betting.pages.dev"
 echo "  - https://*.hyperbet.pages.dev"
-echo "  - https://*.hyperbet-solana.pages.dev"
-echo "  - https://*.hyperbet-bsc.pages.dev"
 echo "  - http://localhost:*"

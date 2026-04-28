@@ -56,6 +56,8 @@ export interface StreamingDuelCycle {
   betCloseTime: number | null;
   countdownValue: number | null; // 3, 2, 1, 0
   fightStartTime: number | null;
+  announcementExpiredAt: number | null;
+  countdownBeganAt: number | null;
   duelEndTime: number | null;
   arenaPositions: {
     agent1: [number, number, number];
@@ -96,6 +98,7 @@ export interface LeaderboardEntry {
   winRate: number;
   combatLevel: number;
   currentStreak: number;
+  lossStreak: number;
 }
 
 export interface RecentDuelEntry {
@@ -109,6 +112,15 @@ export interface RecentDuelEntry {
   winReason: "kill" | "hp_advantage" | "damage_advantage" | "draw";
   damageWinner: number;
   damageLoser: number;
+  // Oracle proof fields required by the keeper result-catch-up endpoint.
+  // Populated at resolution time from buildOracleProof() on the currentCycle.
+  // Nullable for backwards-compatibility with rows persisted before this
+  // field set was added; legacy rows cannot be used for synthetic onDuelEnd
+  // replay.
+  duelKeyHex: string | null;
+  duelEndTime: number | null;
+  seed: string | null;
+  replayHash: string | null;
 }
 
 export interface StreamingCycleAgent {
@@ -131,6 +143,24 @@ export interface StreamingCycleAgent {
   rank: number;
   headToHeadWins: number;
   headToHeadLosses: number;
+}
+
+/**
+ * Raw source-time timeline emitted alongside the live-scheduler cycle when
+ * the `STREAMING_EMIT_RAW_SOURCE_TIME` flag is enabled. Every timestamp
+ * mirrors the underlying scheduler's wall-clock field without any
+ * presentation-delay projection applied; consumers (bettor-facing clients
+ * doing per-viewer alignment) are expected to key snapshot history off
+ * these fields rather than off `broadcastTimeline` values that the
+ * betting-feed rail pre-projects. See docs/frontier_duel_bet_stream_sync_prd_sow.md.
+ */
+export interface StreamingSourceTimeline {
+  phase: StreamingPhase;
+  betOpenTime: number | null;
+  betCloseTime: number | null;
+  fightStartTime: number | null;
+  duelEndTime: number | null;
+  updatedAt: number;
 }
 
 export interface StreamingStateUpdate {
@@ -163,9 +193,24 @@ export interface StreamingStateUpdate {
     winReason: string | null;
     seed: string | null;
     replayHash: string | null;
+    /**
+     * Optional raw source-time timeline. Present only when
+     * `STREAMING_EMIT_RAW_SOURCE_TIME=true` on the server. Absent on default
+     * deployments to preserve the current wire contract for consumers that
+     * don't participate in viewer-clock alignment.
+     */
+    sourceTimeline?: StreamingSourceTimeline;
   };
   leaderboard: LeaderboardEntry[];
   cameraTarget: string | null;
+  /**
+   * Raw source-emission timestamp of the frame. Present on REST responses
+   * only when `STREAMING_EMIT_RAW_SOURCE_TIME=true`; SSE frames stamp this
+   * independently via their own envelope regardless of the flag. Consumers
+   * doing per-viewer clock alignment use this as the selector key for
+   * historical session snapshots.
+   */
+  emittedAt?: number;
 }
 
 const parseDurationEnv = (

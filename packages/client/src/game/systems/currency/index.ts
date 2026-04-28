@@ -21,11 +21,11 @@ export {
   convertCurrency,
   validateAmount,
   calculateBreakdown,
-  toTotalCopper,
   formatBreakdown,
   getChangeIndicator,
   getChangeColor,
   formatChange,
+  formatGoldValue,
 } from "./currencyUtils";
 
 // Hooks

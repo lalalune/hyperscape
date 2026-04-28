@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertSafeBettingFeedAuthConfig,
   extractBettingFeedToken,
   hasValidBettingFeedToken,
   resolveBettingFeedAccessToken,
+  resolveOracleProofAccessToken,
   shouldSkipBettingFeedAuth,
 } from "../../../src/routes/streaming-betting-auth.js";
 
@@ -31,6 +33,19 @@ describe("streaming-betting-auth", () => {
         authorizationHeader: "bearer secret-token",
       }),
     ).toBe("secret-token");
+  });
+
+  it("rejects empty or malformed bearer headers", () => {
+    expect(
+      extractBettingFeedToken({
+        authorizationHeader: "Bearer ",
+      }),
+    ).toBeNull();
+    expect(
+      extractBettingFeedToken({
+        authorizationHeader: "Bearer secret extra",
+      }),
+    ).toBeNull();
   });
 
   it("does not accept query tokens unless the route explicitly allows them", () => {
@@ -81,5 +96,45 @@ describe("streaming-betting-auth", () => {
         BETTING_FEED_SKIP_AUTH: "true",
       }),
     ).toBe(false);
+  });
+
+  it("throws when skip-auth is configured in production", () => {
+    expect(() =>
+      assertSafeBettingFeedAuthConfig({
+        NODE_ENV: "production",
+        BETTING_FEED_SKIP_AUTH: "true",
+      }),
+    ).toThrow("BETTING_FEED_SKIP_AUTH=true is forbidden");
+  });
+
+  it("requires HYPERSCAPES_RESULT_LOOKUP_BEARER_TOKEN for oracle proof retrieval", () => {
+    expect(
+      resolveOracleProofAccessToken({
+        HYPERSCAPES_RESULT_LOOKUP_BEARER_TOKEN: "keeper-aligned-secret",
+        BETTING_FEED_ACCESS_TOKEN: "bet-secret",
+      }),
+    ).toEqual({
+      token: "keeper-aligned-secret",
+      source: "oracle-proof",
+    });
+  });
+
+  it("does not fall back to BETTING_FEED_ACCESS_TOKEN for oracle proof retrieval", () => {
+    expect(
+      resolveOracleProofAccessToken({
+        NODE_ENV: "development",
+        BETTING_FEED_ACCESS_TOKEN: "bet-secret",
+      }),
+    ).toEqual({
+      token: null,
+      source: null,
+    });
+  });
+
+  it("reports missing auth when neither oracle-proof nor betting feed token is configured", () => {
+    expect(resolveOracleProofAccessToken({})).toEqual({
+      token: null,
+      source: null,
+    });
   });
 });

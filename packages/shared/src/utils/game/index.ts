@@ -37,3 +37,6 @@ export * from "./ComponentUtils";
 
 // Combat level calculation (OSRS-accurate)
 export * from "./CombatLevelCalculator";
+
+// XP ↔ Level calculations (OSRS-accurate, standalone utilities)
+export * from "./XPCalculator";

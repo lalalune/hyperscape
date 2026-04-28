@@ -4,24 +4,25 @@
  * Displays:
  * - Duel info panel (top center)
  * - Agent HP bars (bottom)
- * - Leaderboard (left)
- * - Lower third (brand + live status for viewers)
+ * - Debug leaderboard (left, opt-in)
  * - Countdown timer
  * - Victory announcement
  */
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import type { StreamingState } from "../../screens/StreamingMode";
 import { AgentStatsDisplay } from "./AgentStatsDisplay";
 import { LeaderboardPanel } from "./LeaderboardPanel";
 import { CountdownOverlay } from "./CountdownOverlay";
 import { VictoryOverlay } from "./VictoryOverlay";
+import { DamageFloaters } from "./DamageFloaters";
 import { PostFightStatsCard } from "./PostFightStatsCard";
 import {
   StreamingBettingRail,
   type StreamingBettingConfig,
 } from "./StreamingBettingRail";
 import { CombatLog } from "./CombatLog";
+import { resolveStreamCountdownDisplay } from "./streamCountdown";
 import "./StreamingOverlay.css";
 
 // Delay before showing victory overlay during RESOLUTION phase (ms).
@@ -31,6 +32,13 @@ const VICTORY_OVERLAY_DELAY_MS = 500;
 
 /** How long the "FIGHT!" text lingers after the countdown ends (ms). */
 const FIGHT_TEXT_LINGER_MS = 2500;
+
+export interface DamageFloaterEntry {
+  id: string;
+  amount: number;
+  side: "left" | "right";
+  createdAt: number;
+}
 
 interface StreamingOverlayProps {
   state: StreamingState | null;
@@ -43,13 +51,28 @@ export function StreamingOverlay({
   bettingConfig = null,
 }: StreamingOverlayProps) {
   const [showVictory, setShowVictory] = useState(false);
+  const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
   const victoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track when the FIGHTING phase starts so the "FIGHT!" text can linger
   const [showFightText, setShowFightText] = useState(false);
   const fightTextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevHpRef = useRef<{
+    agent1Hp: number | null;
+    agent2Hp: number | null;
+  }>({
+    agent1Hp: null,
+    agent2Hp: null,
+  });
+  const [damageFloaters, setDamageFloaters] = useState<DamageFloaterEntry[]>(
+    [],
+  );
 
   const phase = state?.cycle?.phase;
+  const agent1 = state?.cycle?.agent1 ?? null;
+  const agent2 = state?.cycle?.agent2 ?? null;
+  const agent1Hp = agent1?.hp ?? null;
+  const agent2Hp = agent2?.hp ?? null;
 
   useEffect(() => {
     if (phase === "RESOLUTION") {
@@ -70,6 +93,82 @@ export function StreamingOverlay({
       }
     };
   }, [phase]);
+
+  useEffect(() => {
+    const targetTimeMs =
+      phase === "ANNOUNCEMENT"
+        ? (state?.cycle?.betCloseTime ?? null)
+        : phase === "COUNTDOWN"
+          ? (state?.cycle?.fightStartTime ?? null)
+          : null;
+
+    setCountdownNowMs(Date.now());
+
+    if (targetTimeMs == null || !Number.isFinite(targetTimeMs)) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setCountdownNowMs(Date.now());
+    }, 250);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [phase, state?.cycle?.betCloseTime, state?.cycle?.fightStartTime]);
+
+  useEffect(() => {
+    const prev = prevHpRef.current;
+    const newFloaters: DamageFloaterEntry[] = [];
+
+    if (phase === "FIGHTING") {
+      if (
+        prev.agent1Hp !== null &&
+        agent1Hp !== null &&
+        agent1Hp < prev.agent1Hp
+      ) {
+        const createdAt = Date.now();
+        newFloaters.push({
+          id: `${createdAt}-${Math.random().toString(36).slice(2, 8)}-a1`,
+          amount: prev.agent1Hp - agent1Hp,
+          side: "left",
+          createdAt,
+        });
+      }
+
+      if (
+        prev.agent2Hp !== null &&
+        agent2Hp !== null &&
+        agent2Hp < prev.agent2Hp
+      ) {
+        const createdAt = Date.now();
+        newFloaters.push({
+          id: `${createdAt}-${Math.random().toString(36).slice(2, 8)}-a2`,
+          amount: prev.agent2Hp - agent2Hp,
+          side: "right",
+          createdAt,
+        });
+      }
+    }
+
+    prev.agent1Hp = agent1Hp;
+    prev.agent2Hp = agent2Hp;
+
+    if (newFloaters.length > 0) {
+      setDamageFloaters((existing) => [...existing, ...newFloaters]);
+    }
+  }, [agent1Hp, agent2Hp, phase]);
+
+  useEffect(() => {
+    setDamageFloaters([]);
+    prevHpRef.current = { agent1Hp: null, agent2Hp: null };
+  }, [state?.cycle?.cycleId]);
+
+  const handleFloaterExpire = useCallback((id: string) => {
+    setDamageFloaters((existing) =>
+      existing.filter((floater) => floater.id !== id),
+    );
+  }, []);
 
   // When transitioning to FIGHTING, keep the fight text visible for a linger period
   useEffect(() => {
@@ -110,14 +209,21 @@ export function StreamingOverlay({
 
   const { cycle, leaderboard } = state;
   const {
-    agent1,
-    agent2,
     winnerId,
     winnerName,
     winReason,
     timeRemaining,
     duelId,
+    betCloseTime,
+    fightStartTime,
   } = cycle;
+  const countdownDisplay = resolveStreamCountdownDisplay({
+    phase,
+    betCloseTime,
+    fightStartTime,
+    fallbackTimeRemainingMs: timeRemaining,
+    nowMs: countdownNowMs,
+  });
 
   // Get winner agent info
   const winnerAgent =
@@ -166,19 +272,24 @@ export function StreamingOverlay({
   const matchupLine =
     agent1 && agent2 ? `${agent1.name} vs ${agent2.name}` : null;
 
+  const debugCombatLogEnabled =
+    import.meta.env.VITE_STREAMING_DEBUG_COMBAT_LOG === "1";
   const showCombatLog =
-    phase === "FIGHTING" || phase === "COUNTDOWN" || phase === "RESOLUTION";
+    debugCombatLogEnabled &&
+    (phase === "FIGHTING" || phase === "COUNTDOWN" || phase === "RESOLUTION");
+  const showDebugLeaderboard =
+    !showCombatLog && import.meta.env.VITE_STREAMING_DEBUG_LEADERBOARD === "1";
 
   return (
     <div className="streaming-overlay-root" style={styles.overlay}>
-      {/* Left panel: combat log during a fight, leaderboard during intermission */}
+      {/* Left-side diagnostic panels are opt-in only for the public capture. */}
       {showCombatLog ? (
         <CombatLog state={state} />
-      ) : (
+      ) : showDebugLeaderboard ? (
         <aside className="streaming-leaderboard-mount">
           <LeaderboardPanel leaderboard={leaderboard} />
         </aside>
-      )}
+      ) : null}
 
       <StreamingBettingRail
         config={bettingConfig}
@@ -186,7 +297,8 @@ export function StreamingOverlay({
         duelId={duelId ?? null}
         agent1Name={agent1?.name}
         agent2Name={agent2?.name}
-        timeRemainingMs={timeRemaining}
+        countdownText={countdownDisplay.text}
+        countdownHoldState={countdownDisplay.holdState}
       />
 
       {/* Duel Info - Top Center (live fight + countdown to first swing) */}
@@ -194,17 +306,30 @@ export function StreamingOverlay({
         <div style={styles.duelInfoContainer}>
           <AgentStatsDisplay agent={agent1} side="left" />
           <div style={styles.timerContainer}>
-            <span className="streaming-fight-timer-eyebrow">Round timer</span>
+            <span className="streaming-fight-timer-eyebrow">
+              {phase === "COUNTDOWN"
+                ? countdownDisplay.label || "Fight starts"
+                : "Round timer"}
+            </span>
             <div style={styles.timerHexOuter}>
               <div style={styles.timerHexInner}>
                 <div style={styles.timerHighlight} />
-                {formatTime(timeRemaining)}
+                {phase === "COUNTDOWN"
+                  ? countdownDisplay.text || "Starting..."
+                  : formatTime(timeRemaining)}
               </div>
               <div style={styles.timerInsetShadow} />
             </div>
           </div>
           <AgentStatsDisplay agent={agent2} side="right" />
         </div>
+      )}
+
+      {damageFloaters.length > 0 && (
+        <DamageFloaters
+          floaters={damageFloaters}
+          onExpire={handleFloaterExpire}
+        />
       )}
 
       {/* Between phases: keep fighter cards when we know the matchup */}
@@ -236,7 +361,7 @@ export function StreamingOverlay({
             </span>
             <div className="streaming-between-timer-wrap">
               <div className="streaming-between-timer-inner">
-                {timeRemaining > 0 ? formatTime(timeRemaining) : "—"}
+                {countdownDisplay.text || "—"}
               </div>
             </div>
             <span
@@ -249,7 +374,9 @@ export function StreamingOverlay({
                 color: "rgba(148, 163, 184, 0.9)",
               }}
             >
-              {phase === "RESOLUTION" ? "Next duel" : "Starts in"}
+              {phase === "RESOLUTION"
+                ? "Next duel"
+                : countdownDisplay.label || "Up next"}
             </span>
           </div>
           <div
@@ -285,7 +412,7 @@ export function StreamingOverlay({
             ) : null}
             <div className="streaming-interstitial-rule" />
             <div className="streaming-interstitial-timer">
-              {timeRemaining > 0 ? formatTime(timeRemaining) : "—"}
+              {countdownDisplay.text || "—"}
             </div>
             <span
               style={{
@@ -296,7 +423,9 @@ export function StreamingOverlay({
                 color: "rgba(148, 163, 184, 0.85)",
               }}
             >
-              {phase === "RESOLUTION" ? "Next round" : "Time to ring"}
+              {phase === "RESOLUTION"
+                ? "Next round"
+                : countdownDisplay.label || "Time to ring"}
             </span>
           </div>
         )}
@@ -316,6 +445,13 @@ export function StreamingOverlay({
       {phase === "RESOLUTION" && showVictory && winnerAgent && (
         <VictoryOverlay
           winner={winnerAgent}
+          loser={
+            winnerId === agent1?.id
+              ? agent2
+              : winnerId === agent2?.id
+                ? agent1
+                : null
+          }
           winReason={winReason || "victory"}
           winReasonLine={formatWinReason(winReason || "victory")}
         />
@@ -336,19 +472,6 @@ export function StreamingOverlay({
             />
           </div>
         )}
-
-      <footer className="streaming-lower-third">
-        <div className="streaming-lower-third-brand">
-          <span className="streaming-lower-third-mark">Hyperscape</span>
-          <span className="streaming-lower-third-divider" aria-hidden>
-            ·
-          </span>
-          <span className="streaming-lower-third-sub">AI duel arena</span>
-        </div>
-        <p className="streaming-lower-third-status">
-          {publicStreamStatusLine(phase, hasMatchup, bettingConfig)}
-        </p>
-      </footer>
     </div>
   );
 }
@@ -358,36 +481,6 @@ function formatTime(ms: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-/** One line for the lower-third bar (OBS-friendly, readable at a glance). */
-function publicStreamStatusLine(
-  phase: StreamingState["cycle"]["phase"] | undefined,
-  hasMatchup: boolean,
-  betting: StreamingBettingConfig | null,
-): string {
-  switch (phase) {
-    case "IDLE":
-      return hasMatchup
-        ? "Matchup locked — ring opens soon"
-        : "Pairing the next warriors";
-    case "ANNOUNCEMENT":
-      if (betting?.betUrl && hasMatchup) {
-        return "Betting open on this matchup — pick a side before the bell.";
-      }
-      return "Fighters heading to the arena";
-    case "COUNTDOWN":
-      return "Get ready — combat starts after countdown";
-    case "FIGHTING":
-      return "Live — round in progress";
-    case "RESOLUTION":
-      if (betting?.bettingBridgeEnabled && betting?.betUrl) {
-        return "Winner decided — on-chain payouts follow oracle settlement.";
-      }
-      return "Winner decided — next bout loading";
-    default:
-      return "Hyperscape AI duels";
-  }
 }
 
 /** Readable subtitle for victory overlay / interstitials */

@@ -32,6 +32,7 @@ import type { ShorelineConfig, BiomeNoiseSet } from "./TerrainHeightParams";
 import { BiomeType, DEFAULT_BIOME, BIOME_LIST } from "./TerrainBiomeTypes";
 import { WaterBodyRegistry } from "./WaterBodyRegistry";
 import type { BridgeSystem } from "./BridgeSystem";
+
 // Import terrain generator from procgen package
 import {
   TerrainGenerator,
@@ -75,10 +76,7 @@ import {
   // generatePlants, // DISABLED - plants not working/looking good yet
   type ResourceGenerationContext,
 } from "./BiomeResourceGenerator";
-import {
-  getTreeConfigForBiome,
-  getGrassConfigForBiome,
-} from "./TerrainBiomeTypes";
+import { getTreeConfigForBiome } from "./TerrainBiomeTypes";
 import {
   setProcgenRockWorld,
   addRockInstance,
@@ -102,7 +100,6 @@ import {
   updateTerrainVertexLights,
   createTerrainMaterial,
   TerrainUniforms,
-  computeTerrainColorCPU,
 } from "./TerrainShader";
 import { isLamppostLightTextureReady } from "./LamppostLightMask";
 import { isCsmEnabled } from "./Environment";
@@ -115,16 +112,14 @@ import {
   type GPURoadSegment,
 } from "../../../utils/compute";
 import {
+  isDedicatedStreamViewport,
+  isEmbeddedSpectatorViewport,
+  isStreamDebugEnabled,
+} from "../../../runtime/clientViewportMode";
+import {
   TerrainVisualManager,
   type VisualManagerTerrainProvider,
 } from "./TerrainVisualManager";
-import { WaterVisualManager } from "./WaterVisualManager";
-import {
-  GrassVisualManager,
-  type GrassWorkerSetup,
-} from "./GrassVisualManager";
-import { terminateGrassWorkerPool } from "../../../utils/workers/GrassWorker";
-import { CompositeQuadTreeListener } from "./TerrainQuadTree";
 import type { QuadChunkWorkerConfig } from "../../../utils/workers/QuadChunkWorker";
 import { terminateQuadChunkWorkerPool } from "../../../utils/workers/QuadChunkWorker";
 
@@ -133,6 +128,11 @@ const ROAD_BLEND_WIDTH = 0.5; // Extra blend distance beyond road width (meters)
 const TERRAIN_ROAD_INFLUENCE_DEBUG =
   process.env.TERRAIN_ROAD_INFLUENCE_DEBUG === "true";
 const TERRAIN_TIMING_DEBUG = process.env.TERRAIN_TIMING_DEBUG === "true";
+
+function shouldEmitVerboseTerrainBootLogs(): boolean {
+  if (typeof window === "undefined") return true;
+  return !isDedicatedStreamViewport() || isStreamDebugEnabled();
+}
 /** Maximum entries retained in pendingSerializationData to prevent unbounded growth */
 const MAX_PENDING_SERIALIZATION_ENTRIES = 100;
 
@@ -223,6 +223,13 @@ export class TerrainSystem extends System {
   private pendingTileSet = new Set<string>();
   private pendingCollisionKeys: string[] = [];
   private pendingCollisionSet = new Set<string>();
+  // Buffer for heightData computed during createTileGeometry() before the
+  // corresponding tile object has been inserted into this.terrainTiles. Without
+  // this, storeHeightData() silently no-ops during initial tile creation and
+  // bakeWalkabilityFlags() then falls through to expensive noise-based
+  // getHeightAtComputed() for every sample (observed 2026-04-15: ~900ms per
+  // tile bake instead of the intended ~1-2ms).
+  private _pendingTileHeightData = new Map<string, number[]>();
   // Deferred walkability baking queue — spreads 10,000 iterations across ticks
   private pendingWalkabilityTiles: Array<{ tileX: number; tileZ: number }> = [];
   private walkabilityProgress: {
@@ -246,6 +253,7 @@ export class TerrainSystem extends System {
   private _tempVec2_2 = new THREE.Vector2();
   private _tempVec2_3 = new THREE.Vector2(); // For road distance calculations
   private _tempBox3 = new THREE.Box3();
+  private _tempColor = new THREE.Color(); // For biome color parsing
   private _spectatorFocusPos = new THREE.Vector3();
   private lamppostLightUpdateTimer = 0;
   private lamppostActiveLights: VertexLight[] = [];
@@ -266,8 +274,6 @@ export class TerrainSystem extends System {
 
   // Quad-tree LOD visual manager (client-only, when CONFIG.USE_QUADTREE_LOD is true)
   private quadTreeVisualManager: TerrainVisualManager | null = null;
-  private waterVisualManager: WaterVisualManager | null = null;
-  private grassVisualManager: GrassVisualManager | null = null;
 
   // Unified terrain generator from @hyperscape/procgen
   // Provides deterministic height/biome calculation independent of rendering
@@ -585,6 +591,14 @@ export class TerrainSystem extends System {
         }
       }
       generated++;
+      // Post-check: if the tile we just generated blew the budget, exit now
+      // rather than starting another tile that will block the event loop for
+      // another 60-135ms. The pre-check at the top of the loop catches the
+      // easy case (already over budget from a previous iteration), but a
+      // single expensive bakeWalkabilityFlags() call can take 60ms+ — without
+      // this post-check, the loop would start a second tile before realizing
+      // the budget was blown.
+      if (nowFn() - start > this.generationBudgetMsPerFrame) break;
     }
   }
 
@@ -952,7 +966,8 @@ export class TerrainSystem extends System {
       }
     }
 
-    // Set attributes (color attribute removed — shader computes colors procedurally)
+    // Set attributes
+    geometry.setAttribute("color", new THREE.BufferAttribute(colorData, 3));
     geometry.setAttribute(
       "biomeId",
       new THREE.BufferAttribute(new Float32Array(biomeData), 1),
@@ -977,7 +992,7 @@ export class TerrainSystem extends System {
     );
 
     // DEBUG: log biome weights for first 5 tiles
-    if (this._loggedWorkerTileBiome < 5) {
+    if (shouldEmitVerboseTerrainBootLogs() && this._loggedWorkerTileBiome < 5) {
       // Also log river proximity stats
       let rpNonZero = 0,
         rpMax = 0;
@@ -1034,9 +1049,8 @@ export class TerrainSystem extends System {
 
     this.applyFlatZoneCarve(geometry, tileX, tileZ);
 
-    // Attach heightData to geometry so the caller can store it AFTER the tile
-    // is added to terrainTiles (storeHeightData requires the tile to exist).
-    geometry.userData.heightData = Array.from(heightData);
+    // Store height data for persistence
+    this.storeHeightData(tileX, tileZ, Array.from(heightData));
 
     return geometry;
   }
@@ -1196,9 +1210,7 @@ export class TerrainSystem extends System {
         this.generateTileResources(tile);
       }
       this.generateVisualFeatures(tile);
-      if (!this.CONFIG.USE_QUADTREE_LOD) {
-        this.generateWaterMeshes(tile);
-      }
+      this.generateWaterMeshes(tile);
 
       // Queue resource instances for deferred creation (spreads work across frames)
       if (tile.resources.length > 0 && tile.mesh) {
@@ -1275,14 +1287,6 @@ export class TerrainSystem extends System {
 
     this.terrainTiles.set(key, tile);
     this.activeChunks.add(key);
-
-    // Store height data NOW that the tile is in the map.
-    // createTileGeometryFromWorkerData attaches heightData to geometry.userData
-    // because storeHeightData requires the tile to exist in terrainTiles.
-    if (geometry.userData.heightData) {
-      tile.heightData = geometry.userData.heightData;
-      tile.needsSave = true;
-    }
 
     // Synchronously bake WATER and STEEP_SLOPE collision flags (server-only).
     // Must match generateTile() — worker-generated tiles need the same
@@ -1414,11 +1418,11 @@ export class TerrainSystem extends System {
     WATER_THRESHOLD: TERRAIN_CONSTANTS.WATER_THRESHOLD,
 
     // LOD (Level of Detail) - Resolution tiers based on distance
-    LOD_DISTANCES: [200, 400, 700], // Distance thresholds
+    LOD_DISTANCES: [100, 200, 350], // Distance thresholds
     LOD_RESOLUTIONS: [64, 32, 16, 8], // Resolution at each LOD level
 
-    // Chunking
-    VIEW_DISTANCE: 5, // Load 5 tiles in each direction (11x11 = 121 tiles, ~1100m)
+    // Chunking - Only adjacent tiles
+    VIEW_DISTANCE: 1, // Load only 1 tile in each direction (3x3 = 9 tiles)
     UPDATE_INTERVAL: 0.5, // Check player movement every 0.5 seconds
 
     // Movement Constraints
@@ -1507,6 +1511,7 @@ export class TerrainSystem extends System {
     this.ensureNoiseInitialized();
 
     // Initialize the unified terrain generator from @hyperscape/procgen
+    // This provides a standalone, testable height generation system
     this.initializeTerrainGenerator();
 
     // Water body registry — ocean level only (no manual rivers/ponds)
@@ -1706,11 +1711,6 @@ export class TerrainSystem extends System {
           "[TerrainSystem] Roads ready, refreshing road influence on loaded tiles...",
         );
         this.refreshRoadInfluence();
-      }
-
-      // Rebuild grass chunks so road influence is reflected
-      if (this.grassVisualManager) {
-        this.grassVisualManager.rebuildAllChunks();
       }
     });
 
@@ -1927,266 +1927,11 @@ export class TerrainSystem extends System {
       this.CONFIG.QUADTREE_MAX_ASSEMBLIES_PER_FRAME,
     );
 
-    // Water quad-tree visual manager — flat water meshes aligned with terrain chunks
-    if (this.waterSystem) {
-      const waterContainer = new THREE.Group();
-      waterContainer.name = "QuadTreeWaterContainer";
-      if (this.terrainContainer) {
-        this.terrainContainer.parent?.add(waterContainer);
-      }
-
-      this.waterSystem.setWaterLevel(this.CONFIG.WATER_THRESHOLD);
-
-      this.waterVisualManager = new WaterVisualManager(
-        waterContainer,
-        this.waterSystem,
-        (x: number, z: number) => this.getHeightAt(x, z),
-        (x: number, z: number) => this.getIslandMask(x, z),
-        this.CONFIG.WATER_THRESHOLD,
-      );
-
-      const grassContainer = new THREE.Group();
-      grassContainer.name = "QuadTreeGrassContainer";
-      if (this.terrainContainer) {
-        this.terrainContainer.parent?.add(grassContainer);
-      }
-      const grassWorkerSetup = this.buildGrassWorkerSetup();
-      this.grassVisualManager = new GrassVisualManager(
-        grassContainer,
-        (x: number, z: number) => this.getHeightAt(x, z),
-        this.CONFIG.WATER_THRESHOLD,
-        (wx: number, wz: number) =>
-          this.calculateRoadInfluenceAtVertex(wx, wz, 0, 0),
-        (wx: number, wz: number) => this.isInFlatZone(wx, wz),
-        (wx: number, wz: number) => this.getTerrainColorAt(wx, wz),
-        grassWorkerSetup,
-      );
-
-      // Wire terrain, water, grass managers to the same quad-tree via composite
-      const composite = new CompositeQuadTreeListener();
-      composite.add(this.quadTreeVisualManager);
-      composite.add(this.waterVisualManager);
-      composite.add(this.grassVisualManager);
-      this.quadTreeVisualManager.getQuadTree().setListener(composite);
-    }
-
     console.log(
       "[TerrainSystem] Quad-tree LOD visual manager initialized " +
         `(minSize=${this.CONFIG.QUADTREE_MIN_SIZE}, maxDepth=${this.CONFIG.QUADTREE_MAX_DEPTH}, ` +
         `resolution=${this.CONFIG.QUADTREE_RESOLUTION}, splitRatio=${this.CONFIG.QUADTREE_SPLIT_RATIO})`,
     );
-  }
-
-  private buildGrassWorkerSetup(): GrassWorkerSetup {
-    const workerConfig: TerrainWorkerConfig = {
-      TILE_SIZE: this.CONFIG.TILE_SIZE,
-      TILE_RESOLUTION: this.CONFIG.TILE_RESOLUTION,
-      MAX_HEIGHT: MAX_HEIGHT,
-      BIOME_GAUSSIAN_COEFF: BIOME_CONFIG.gaussianCoeff,
-      BIOME_BOUNDARY_NOISE_SCALE: BIOME_CONFIG.boundaryNoiseScale,
-      BIOME_BOUNDARY_NOISE_AMOUNT: BIOME_CONFIG.boundaryNoiseAmount,
-      WATER_THRESHOLD: this.CONFIG.WATER_THRESHOLD,
-      WATER_LEVEL_NORMALIZED: WATER_LEVEL_NORMALIZED,
-      SHORELINE_THRESHOLD: SHORELINE_CONFIG.THRESHOLD,
-      SHORELINE_STRENGTH: SHORELINE_CONFIG.STRENGTH,
-      SHORELINE_MIN_SLOPE: SHORELINE_CONFIG.MIN_SLOPE,
-      SHORELINE_SLOPE_SAMPLE_DISTANCE: SHORELINE_CONFIG.SLOPE_SAMPLE_DISTANCE,
-      SHORELINE_LAND_BAND: SHORELINE_CONFIG.LAND_BAND,
-      SHORELINE_LAND_MAX_MULTIPLIER: SHORELINE_CONFIG.LAND_MAX_MULTIPLIER,
-      SHORELINE_UNDERWATER_BAND: SHORELINE_CONFIG.UNDERWATER_BAND,
-      UNDERWATER_DEPTH_MULTIPLIER: SHORELINE_CONFIG.UNDERWATER_DEPTH_MULTIPLIER,
-    };
-
-    const biomeData: Record<
-      string,
-      { heightModifier: number; color: { r: number; g: number; b: number } }
-    > = {};
-    for (const [name, biome] of Object.entries(BIOMES)) {
-      const color = new THREE.Color(biome.color);
-      biomeData[name] = {
-        heightModifier: biome.terrainMultiplier || 1,
-        color: { r: color.r, g: color.g, b: color.b },
-      };
-    }
-
-    const biomeCenters = this.terrainGenerator
-      .getBiomeSystem()
-      .getBiomeCenters() as BiomeCenter[];
-
-    const tCfg = getGrassConfigForBiome(BiomeType.Tundra);
-    const fCfg = getGrassConfigForBiome(BiomeType.Forest);
-    const cCfg = getGrassConfigForBiome(BiomeType.Canyon);
-
-    const resolveTint = (cfg: ReturnType<typeof getGrassConfigForBiome>) => ({
-      density: cfg.density,
-      maxSlope: cfg.maxSlope,
-      minGrassWeight: cfg.minGrassWeight,
-      heightScale: cfg.heightScale,
-      patchiness: cfg.patchiness,
-      patchScale: cfg.patchScale,
-      tintR: cfg.tintColor?.[0] ?? 0,
-      tintG: cfg.tintColor?.[1] ?? 0,
-      tintB: cfg.tintColor?.[2] ?? 0,
-      tintStrength: cfg.tintStrength ?? 0,
-    });
-
-    const grassConfigs: Record<
-      string,
-      {
-        density: number;
-        maxSlope: number;
-        minGrassWeight: number;
-        heightScale: number;
-        patchiness: number;
-        patchScale: number;
-        tintR: number;
-        tintG: number;
-        tintB: number;
-        tintStrength: number;
-      }
-    > = {
-      [BiomeType.Tundra]: resolveTint(tCfg),
-      [BiomeType.Forest]: resolveTint(fCfg),
-      [BiomeType.Canyon]: resolveTint(cCfg),
-    };
-
-    const tileSize = this.CONFIG.TILE_SIZE;
-
-    return {
-      terrainConfig: workerConfig,
-      seed: this.computeSeedFromWorldId(),
-      biomeCenters: biomeCenters.map((c) => ({
-        x: c.x,
-        z: c.z,
-        type: c.type,
-        influence: c.influence,
-      })),
-      biomes: biomeData,
-      grassConfigs,
-      tileSize,
-      getRoadSegmentsForRegion: (
-        minX: number,
-        minZ: number,
-        maxX: number,
-        maxZ: number,
-      ) => this.getWorldSpaceRoadSegmentsForRegion(minX, minZ, maxX, maxZ),
-      getFlatZonesForRegion: (
-        minX: number,
-        minZ: number,
-        maxX: number,
-        maxZ: number,
-      ) => this.getFlatZonesForRegion(minX, minZ, maxX, maxZ),
-    };
-  }
-
-  /**
-   * Collect road segments overlapping a world-space AABB, returned in
-   * world coordinates for the grass worker.
-   */
-  private getWorldSpaceRoadSegmentsForRegion(
-    minX: number,
-    minZ: number,
-    maxX: number,
-    maxZ: number,
-  ): Array<{
-    startX: number;
-    startZ: number;
-    endX: number;
-    endZ: number;
-    width: number;
-  }> {
-    this.roadNetworkSystem ??= this.world.getSystem("roads") as
-      | RoadNetworkSystem
-      | undefined;
-    if (!this.roadNetworkSystem) return [];
-
-    const ts = this.CONFIG.TILE_SIZE;
-    const minTX = Math.floor(minX / ts);
-    const minTZ = Math.floor(minZ / ts);
-    const maxTX = Math.floor(maxX / ts);
-    const maxTZ = Math.floor(maxZ / ts);
-
-    const result: Array<{
-      startX: number;
-      startZ: number;
-      endX: number;
-      endZ: number;
-      width: number;
-    }> = [];
-
-    for (let tx = minTX; tx <= maxTX; tx++) {
-      for (let tz = minTZ; tz <= maxTZ; tz++) {
-        const segs = this.roadNetworkSystem.getRoadSegmentsForTile(tx, tz);
-        const originX = tx * ts;
-        const originZ = tz * ts;
-        for (const seg of segs) {
-          result.push({
-            startX: originX + seg.start.x,
-            startZ: originZ + seg.start.z,
-            endX: originX + seg.end.x,
-            endZ: originZ + seg.end.z,
-            width: seg.width,
-          });
-        }
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Collect flat zones overlapping a world-space AABB, returned as simplified
-   * rectangles for the grass worker to exclude grass from buildings/arenas.
-   */
-  private getFlatZonesForRegion(
-    minX: number,
-    minZ: number,
-    maxX: number,
-    maxZ: number,
-  ): Array<{
-    centerX: number;
-    centerZ: number;
-    halfWidth: number;
-    halfDepth: number;
-    blendRadius: number;
-  }> {
-    if (this.flatZones.size === 0) return [];
-
-    const tileSize = this.CONFIG.TILE_SIZE;
-    const halfTile = tileSize / 2;
-    const minTX = Math.floor((minX + halfTile) / tileSize);
-    const minTZ = Math.floor((minZ + halfTile) / tileSize);
-    const maxTX = Math.floor((maxX + halfTile) / tileSize);
-    const maxTZ = Math.floor((maxZ + halfTile) / tileSize);
-
-    const seen = new Set<string>();
-    const result: Array<{
-      centerX: number;
-      centerZ: number;
-      halfWidth: number;
-      halfDepth: number;
-      blendRadius: number;
-    }> = [];
-
-    for (let tx = minTX; tx <= maxTX; tx++) {
-      for (let tz = minTZ; tz <= maxTZ; tz++) {
-        const zones = this.flatZonesByTile.get(`${tx}_${tz}`);
-        if (!zones) continue;
-        for (const zone of zones) {
-          if (seen.has(zone.id)) continue;
-          seen.add(zone.id);
-          result.push({
-            centerX: zone.centerX,
-            centerZ: zone.centerZ,
-            halfWidth: zone.width / 2,
-            halfDepth: zone.depth / 2,
-            blendRadius: zone.blendRadius,
-          });
-        }
-      }
-    }
-
-    return result;
   }
 
   private registerInstancedMeshes(): void {
@@ -2680,9 +2425,7 @@ export class TerrainSystem extends System {
 
         // Generate visual features and water meshes
         this.generateVisualFeatures(tile);
-        if (!this.CONFIG.USE_QUADTREE_LOD) {
-          this.generateWaterMeshes(tile);
-        }
+        this.generateWaterMeshes(tile);
         // NOTE: Grass rendering is handled by ProceduralGrassSystem
 
         // Queue resource instances for deferred creation (spreads work across frames)
@@ -2766,18 +2509,23 @@ export class TerrainSystem extends System {
     this.terrainTiles.set(key, tile);
     this.activeChunks.add(key);
 
-    // Store height data NOW that the tile is in the map.
-    // createTileGeometry attaches heightData to geometry.userData because
-    // storeHeightData requires the tile to exist in terrainTiles.
-    if (geometry.userData.heightData) {
-      tile.heightData = geometry.userData.heightData;
+    // Drain any heightData that createTileGeometry() buffered earlier in this
+    // same call. storeHeightData() fell back to the pending buffer because
+    // tile wasn't yet in this.terrainTiles at that point; now that it is, we
+    // copy the data onto the tile so getHeightAtCached() can bilinear-sample
+    // it during bakeWalkabilityFlags below (P7.a fix 2026-04-15).
+    const _pendingHeights = this._pendingTileHeightData.get(key);
+    if (_pendingHeights) {
+      tile.heightData = _pendingHeights;
       tile.needsSave = true;
+      this._pendingTileHeightData.delete(key);
     }
 
     // Synchronously bake WATER and STEEP_SLOPE collision flags (server-only).
     // Must complete before any movement query can reach this tile, otherwise
     // players can walk into water during the gap between tile generation and
-    // flag baking. ~1-2ms per tile (10K height lookups with cached data).
+    // flag baking. ~1-2ms per tile now that the fast in-tile bilinear path
+    // is used — see P7.a fix 2026-04-15.
     if (isServer) {
       this.bakeWalkabilityFlags(tileX, tileZ);
     }
@@ -2840,9 +2588,8 @@ export class TerrainSystem extends System {
     // Carve terrain triangles inside building flat zones to avoid overdraw
     this.applyFlatZoneCarve(geometry, tileX, tileZ);
 
-    // Attach heightData to geometry so the caller can store it AFTER the tile
-    // is added to terrainTiles (storeHeightData requires the tile to exist).
-    geometry.userData.heightData = heightData;
+    // Store height data for persistence
+    this.storeHeightData(tileX, tileZ, heightData);
 
     // SERVER: Skip all visual-only attributes (colors, biomeIds, roadInfluences,
     // forestWeights, canyonWeights) and the expensive per-vertex biome/color
@@ -2853,45 +2600,121 @@ export class TerrainSystem extends System {
       return geometry;
     }
 
-    // CLIENT: Visual attribute generation (shader computes colors procedurally)
+    // CLIENT: Full visual attribute generation
+    const colors = new Float32Array(positions.count * 3);
     const biomeIds = new Float32Array(positions.count);
     const roadInfluences = new Float32Array(positions.count);
     const forestWeights = new Float32Array(positions.count);
     const canyonWeights = new Float32Array(positions.count);
 
+    // Verify biome data is loaded - error if not
+    if (Object.keys(BIOMES).length === 0) {
+      throw new Error(
+        "[TerrainSystem] BIOMES data not loaded! DataManager must initialize before terrain generation.",
+      );
+    }
+    const defaultBiomeData = BIOMES[DEFAULT_BIOME];
+    if (!defaultBiomeData) {
+      throw new Error(
+        "[TerrainSystem] Default biome not found in BIOMES data!",
+      );
+    }
+
     for (let i = 0; i < positions.count; i++) {
       const i3 = i * 3;
       const x = positionsArray[i3] + tileX * this.CONFIG.TILE_SIZE;
       const z = positionsArray[i3 + 2] + tileZ * this.CONFIG.TILE_SIZE;
+      const height = positionsArray[i3 + 1]; // Already computed above
 
+      // Get biome influences for smooth color blending
       const { biomeWeightMap, totalWeight } =
         this.computeBiomeWeightsAtPosition(x, z);
+      const normalizedHeight = height / MAX_HEIGHT;
 
+      // Store dominant biome ID for shader
       let dominantBiome = DEFAULT_BIOME as string;
       let dominantWeight = -Infinity;
 
+      // PERFORMANCE: Reuse _tempColor to avoid GC pressure (no new THREE.Color per vertex)
+      // Blend up to 3 biome colors based on influence weights
+      let colorR = 0,
+        colorG = 0,
+        colorB = 0;
+
       if (totalWeight > 0) {
-        const invW = 1 / totalWeight;
+        const invTotal = 1 / totalWeight;
         for (const [type, rawWeight] of biomeWeightMap) {
-          const weight = rawWeight * invW;
+          const weight = rawWeight * invTotal;
           if (weight > dominantWeight) {
             dominantWeight = weight;
             dominantBiome = type;
           }
+
+          const biomeData = BIOMES[type];
+          if (!biomeData) {
+            throw new Error(
+              `[TerrainSystem] Biome "${type}" not found in BIOMES data!`,
+            );
+          }
+          this._tempColor.set(biomeData.color);
+
+          colorR += this._tempColor.r * weight;
+          colorG += this._tempColor.g * weight;
+          colorB += this._tempColor.b * weight;
         }
-        forestWeights[i] = (biomeWeightMap.get(BiomeType.Forest) || 0) * invW;
-        canyonWeights[i] = (biomeWeightMap.get(BiomeType.Canyon) || 0) * invW;
+      } else {
+        const biomeData = BIOMES[DEFAULT_BIOME];
+        if (!biomeData) {
+          throw new Error(
+            `[TerrainSystem] Default biome not found in BIOMES data!`,
+          );
+        }
+        this._tempColor.set(biomeData.color);
+        colorR = this._tempColor.r;
+        colorG = this._tempColor.g;
+        colorB = this._tempColor.b;
       }
       biomeIds[i] = this.getBiomeId(dominantBiome);
 
+      if (totalWeight > 0) {
+        const invW = 1 / totalWeight;
+        forestWeights[i] = (biomeWeightMap.get(BiomeType.Forest) || 0) * invW;
+        canyonWeights[i] = (biomeWeightMap.get(BiomeType.Canyon) || 0) * invW;
+      }
+
+      // Apply brownish shoreline tint near water level
+      const waterLevel = WATER_LEVEL_NORMALIZED;
+      const shorelineThreshold = SHORELINE_CONFIG.THRESHOLD;
+      if (
+        normalizedHeight > waterLevel &&
+        normalizedHeight < shorelineThreshold
+      ) {
+        const shoreFactor =
+          (1.0 -
+            (normalizedHeight - waterLevel) /
+              (shorelineThreshold - waterLevel)) *
+          SHORELINE_CONFIG.STRENGTH;
+        colorR = colorR + (0.545 - colorR) * shoreFactor;
+        colorG = colorG + (0.451 - colorG) * shoreFactor;
+        colorB = colorB + (0.333 - colorB) * shoreFactor;
+      }
+
+      // Calculate road influence - shader uses this attribute for road coloring
+      // (vertex colors are NOT modified for roads, shader handles this procedurally)
       roadInfluences[i] = this.calculateRoadInfluenceAtVertex(
         x,
         z,
         tileX,
         tileZ,
       );
+
+      // Store biome color (kept for potential fallback/debug rendering)
+      colors[i * 3] = colorR;
+      colors[i * 3 + 1] = colorG;
+      colors[i * 3 + 2] = colorB;
     }
 
+    geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geometry.setAttribute("biomeId", new THREE.BufferAttribute(biomeIds, 1));
     geometry.setAttribute(
       "roadInfluence",
@@ -2907,7 +2730,7 @@ export class TerrainSystem extends System {
     );
 
     // DEBUG: log biome weights for first 5 sync tiles
-    if (this._loggedSyncTileBiome < 5) {
+    if (shouldEmitVerboseTerrainBootLogs() && this._loggedSyncTileBiome < 5) {
       this._loggedSyncTileBiome++;
       let sumF = 0,
         sumD = 0;
@@ -3518,6 +3341,12 @@ export class TerrainSystem extends System {
 
   private getHeightAtWithoutShore(worldX: number, worldZ: number): number {
     this.ensureNoiseInitialized();
+
+    const flatHeight = this.getFlatZoneHeight(worldX, worldZ);
+    if (flatHeight !== null) {
+      return flatHeight;
+    }
+
     return this.getBaseHeightAt(worldX, worldZ);
   }
 
@@ -3701,7 +3530,9 @@ export class TerrainSystem extends System {
   }
 
   /**
-   * Compute height using noise (expensive). Skips flat zone check — caller must check first.
+   * Compute height using noise (expensive). The caller skips the outer
+   * getFlatZoneHeight() check, but the underlying base-height path still
+   * respects flat zones before shoreline shaping is applied.
    * PERF: Avoids redundant getFlatZoneHeight() when called from getHeightAt().
    */
   private getHeightAtComputedSkipFlatZone(
@@ -4018,6 +3849,62 @@ export class TerrainSystem extends System {
   }
 
   /**
+   * Get terrain color at a world position by sampling the nearest terrain tile vertex.
+   * Used by ProceduralGrassSystem to match grass color to terrain.
+   *
+   * @param worldX - World X coordinate
+   * @param worldZ - World Z coordinate
+   * @returns RGB color (0-1 range) or null if no terrain data available
+   */
+  getTerrainColorAt(
+    worldX: number,
+    worldZ: number,
+  ): { r: number; g: number; b: number } | null {
+    const tileX = this.worldToTerrainTileIndex(worldX);
+    const tileZ = this.worldToTerrainTileIndex(worldZ);
+    const key = `${tileX}_${tileZ}`;
+
+    const tile = this.terrainTiles.get(key);
+    if (!tile?.mesh) {
+      return null;
+    }
+
+    // Get vertex colors from geometry
+    const geometry = tile.mesh.geometry as THREE.BufferGeometry;
+    const colorAttr = geometry.getAttribute("color") as
+      | THREE.BufferAttribute
+      | undefined;
+    if (!colorAttr) {
+      return null;
+    }
+
+    const localX = worldX - tileX * this.CONFIG.TILE_SIZE;
+    const localZ = worldZ - tileZ * this.CONFIG.TILE_SIZE;
+
+    const resolution = this.CONFIG.TILE_RESOLUTION;
+    const vertexX = Math.round(
+      Math.max(0, Math.min(resolution - 1, this.localToGridIndex(localX))),
+    );
+    const vertexZ = Math.round(
+      Math.max(0, Math.min(resolution - 1, this.localToGridIndex(localZ))),
+    );
+    const vertexIndex = vertexZ * resolution + vertexX;
+
+    if (
+      vertexIndex < 0 ||
+      vertexIndex * 3 + 2 >= colorAttr.count * colorAttr.itemSize
+    ) {
+      return null;
+    }
+
+    return {
+      r: colorAttr.getX(vertexIndex),
+      g: colorAttr.getY(vertexIndex),
+      b: colorAttr.getZ(vertexIndex),
+    };
+  }
+
+  /**
    * Register a flat zone and update spatial index.
    * Spatial index uses terrain tiles (100m each) for efficient lookup.
    *
@@ -4130,26 +4017,6 @@ export class TerrainSystem extends System {
           this.queueTerrainTileRegeneration(tile.x, tile.z, "flat_zone");
         }
       }
-    }
-
-    // Invalidate quad-tree visual chunks so they regenerate with flat zone heights.
-    // Without this, chunks generated before the flat zone was registered would
-    // show the procedural height instead of the flat zone height.
-    if (this.quadTreeVisualManager) {
-      this.quadTreeVisualManager.invalidateRegion(
-        zoneMinX,
-        zoneMinZ,
-        zoneMaxX,
-        zoneMaxZ,
-      );
-    }
-    if (this.grassVisualManager) {
-      this.grassVisualManager.invalidateRegion(
-        zoneMinX,
-        zoneMinZ,
-        zoneMaxX,
-        zoneMaxZ,
-      );
     }
   }
 
@@ -4287,18 +4154,6 @@ export class TerrainSystem extends System {
           }
         }
       }
-    }
-
-    // Invalidate quad-tree visual chunks so they regenerate without the flat zone.
-    const minX = zone.centerX - totalRadius;
-    const maxX = zone.centerX + totalRadius;
-    const minZ = zone.centerZ - totalRadius;
-    const maxZ = zone.centerZ + totalRadius;
-    if (this.quadTreeVisualManager) {
-      this.quadTreeVisualManager.invalidateRegion(minX, minZ, maxX, maxZ);
-    }
-    if (this.grassVisualManager) {
-      this.grassVisualManager.invalidateRegion(minX, minZ, maxX, maxZ);
     }
   }
 
@@ -4756,146 +4611,6 @@ export class TerrainSystem extends System {
     return { biomeWeightMap, totalWeight };
   }
 
-  /**
-   * Single entry point for getting the terrain base color and grass weight
-   * at a world position.  Encapsulates height, slope, biome-weight lookups
-   * and the CPU terrain-color computation so callers (e.g. GrassVisualManager)
-   * don't need any biome knowledge.
-   */
-  getTerrainColorAt(
-    wx: number,
-    wz: number,
-  ): {
-    r: number;
-    g: number;
-    b: number;
-    grassWeight: number;
-    grassPlacement: number;
-    grassHeightScale: number;
-    tintR: number;
-    tintG: number;
-    tintB: number;
-    tintStrength: number;
-    nx: number;
-    ny: number;
-    nz: number;
-  } {
-    const height = this.getHeightAt(wx, wz);
-
-    const sd = 0.5;
-    const hL = this.getHeightAt(wx - sd, wz);
-    const hR = this.getHeightAt(wx + sd, wz);
-    const hD = this.getHeightAt(wx, wz - sd);
-    const hU = this.getHeightAt(wx, wz + sd);
-    const dhdx = (hR - hL) / (2 * sd);
-    const dhdz = (hU - hD) / (2 * sd);
-    const gradMag = Math.sqrt(dhdx * dhdx + dhdz * dhdz);
-    const normalY = 1 / Math.sqrt(1 + gradMag * gradMag);
-    const slope = 1 - normalY;
-
-    const rnx = -dhdx;
-    const rnz = -dhdz;
-    const rny = 1.0;
-    const nLen = Math.sqrt(rnx * rnx + rny * rny + rnz * rnz);
-    const invLen = 1 / nLen;
-
-    const { biomeWeightMap, totalWeight } = this.computeBiomeWeightsAtPosition(
-      wx,
-      wz,
-    );
-    const invW = totalWeight > 0 ? 1 / totalWeight : 1;
-    const forestW = (biomeWeightMap.get("forest") || 0) * invW;
-    const canyonW = (biomeWeightMap.get("canyon") || 0) * invW;
-    const tundraW = 1 - forestW - canyonW;
-
-    const color = computeTerrainColorCPU(
-      wx,
-      wz,
-      height,
-      slope,
-      forestW,
-      canyonW,
-    );
-
-    const tCfg = getGrassConfigForBiome(BiomeType.Tundra);
-    const fCfg = getGrassConfigForBiome(BiomeType.Forest);
-    const cCfg = getGrassConfigForBiome(BiomeType.Canyon);
-
-    const maxSlope =
-      tCfg.maxSlope * tundraW +
-      fCfg.maxSlope * forestW +
-      cCfg.maxSlope * canyonW;
-    const minGW =
-      tCfg.minGrassWeight * tundraW +
-      fCfg.minGrassWeight * forestW +
-      cCfg.minGrassWeight * canyonW;
-    const density =
-      tCfg.density * tundraW + fCfg.density * forestW + cCfg.density * canyonW;
-    const grassHeightScale =
-      tCfg.heightScale * tundraW +
-      fCfg.heightScale * forestW +
-      cCfg.heightScale * canyonW;
-    const patchiness =
-      tCfg.patchiness * tundraW +
-      fCfg.patchiness * forestW +
-      cCfg.patchiness * canyonW;
-    const patchScale =
-      tCfg.patchScale * tundraW +
-      fCfg.patchScale * forestW +
-      cCfg.patchScale * canyonW;
-
-    const slopeOk = slope <= maxSlope ? 1.0 : 0.0;
-    const weightOk = color.grassWeight >= minGW ? 1.0 : 0.0;
-
-    // Noise-based patch mask: patchiness 0 = uniform, 1 = tight clusters
-    const patchThreshold = patchiness * 2 - 1; // maps [0,1] -> [-1,1]
-    const noiseVal = this.noise.simplex2D(wx * patchScale, wz * patchScale);
-    const patchMask = noiseVal > patchThreshold ? 1.0 : 0.0;
-
-    const grassPlacement =
-      color.grassWeight * density * slopeOk * weightOk * patchMask;
-
-    // Biome-blended grass tint (returned separately for tip-only application)
-    const tintStrength =
-      (tCfg.tintStrength ?? 0) * tundraW +
-      (fCfg.tintStrength ?? 0) * forestW +
-      (cCfg.tintStrength ?? 0) * canyonW;
-    let tintR = 0,
-      tintG = 0,
-      tintB = 0;
-    if (tintStrength > 0) {
-      const wR =
-        (tCfg.tintColor?.[0] ?? 0) * (tCfg.tintStrength ?? 0) * tundraW +
-        (fCfg.tintColor?.[0] ?? 0) * (fCfg.tintStrength ?? 0) * forestW +
-        (cCfg.tintColor?.[0] ?? 0) * (cCfg.tintStrength ?? 0) * canyonW;
-      const wG =
-        (tCfg.tintColor?.[1] ?? 0) * (tCfg.tintStrength ?? 0) * tundraW +
-        (fCfg.tintColor?.[1] ?? 0) * (fCfg.tintStrength ?? 0) * forestW +
-        (cCfg.tintColor?.[1] ?? 0) * (cCfg.tintStrength ?? 0) * canyonW;
-      const wB =
-        (tCfg.tintColor?.[2] ?? 0) * (tCfg.tintStrength ?? 0) * tundraW +
-        (fCfg.tintColor?.[2] ?? 0) * (fCfg.tintStrength ?? 0) * forestW +
-        (cCfg.tintColor?.[2] ?? 0) * (cCfg.tintStrength ?? 0) * canyonW;
-      const inv = 1 / tintStrength;
-      tintR = wR * inv;
-      tintG = wG * inv;
-      tintB = wB * inv;
-    }
-
-    return {
-      ...color,
-      grassPlacement,
-      grassHeightScale,
-      tintR,
-      tintG,
-      tintB,
-      tintStrength,
-      nx: rnx * invLen,
-      ny: rny * invLen,
-      nz: rnz * invLen,
-    };
-  }
-
   computeBiomeWeightsByPosition(
     worldX: number,
     worldZ: number,
@@ -5332,7 +5047,16 @@ export class TerrainSystem extends System {
     if (tile) {
       tile.heightData = heightData;
       tile.needsSave = true;
+      return;
     }
+
+    // Tile not yet inserted into this.terrainTiles (initial createTileGeometry
+    // path). Stash the data in the pending buffer so generateTile() can drain
+    // it onto the tile immediately after adding the tile to the map. Without
+    // this the tile ends up with heightData=[], which forces bakeWalkability-
+    // Flags through the expensive noise-based height path — see P7.a fix
+    // 2026-04-15.
+    this._pendingTileHeightData.set(key, heightData);
   }
 
   private saveModifiedChunks(): void {
@@ -5366,12 +5090,26 @@ export class TerrainSystem extends System {
     }
   }
 
+  private _clientUpdateTickCounter = 0;
+
   update(_deltaTime: number): void {
     // Skip processing until terrain is fully initialized (DataManager loaded BIOMES)
     // This prevents race conditions where update() is called before start() completes
     if (!this._terrainInitialized) {
       return;
     }
+
+    // Track client-side tick count for throttling expensive per-frame work.
+    // Quad-tree LOD updates and instance visibility checks only need to run
+    // at ~4 Hz (every 4th frame at 15 fps), not every tick. Throttling frees
+    // ~75% of terrain CPU for the WebGPU render loop, which is the primary
+    // bottleneck for the streaming capture pipeline (1 unique fps at full
+    // tick rate vs ~8-12 fps when throttled).
+    if (this.runtimeIsClient) {
+      this._clientUpdateTickCounter++;
+    }
+    const isClientHeavyTick =
+      this.runtimeIsClient && this._clientUpdateTickCounter % 4 === 0;
 
     // Dispatch pending tiles to workers for pre-computation (client only)
     if (this.runtimeIsClient && this.CONFIG.USE_WORKERS) {
@@ -5388,33 +5126,22 @@ export class TerrainSystem extends System {
       this.processWalkabilityQueue();
     }
 
-    // Process pending resource instance creation (client only, spreads work across frames)
-    if (this.runtimeIsClient) {
+    // Process pending resource instance creation (client only, throttled)
+    if (isClientHeavyTick) {
       this.processResourceInstanceQueue();
     }
 
-    // Update quad-tree LOD visual manager (client only)
-    if (this.runtimeIsClient && this.quadTreeVisualManager) {
+    // Update quad-tree LOD visual manager (client only, throttled)
+    if (isClientHeavyTick && this.quadTreeVisualManager) {
       const centers = this.getTerrainCenters();
       if (centers.length > 0) {
         const pos = centers[0].position;
-
-        // Set grass player position BEFORE quad-tree update so
-        // onNodeNeedsGeometry dispatches with correct LOD & distance
-        if (this.grassVisualManager) {
-          this.grassVisualManager.setPlayerPosition(pos.x, pos.z);
-        }
-
         this.quadTreeVisualManager.update(pos.x, pos.z);
-
-        if (this.grassVisualManager) {
-          this.grassVisualManager.update(pos.x, pos.z, this.world.camera);
-        }
       }
     }
 
-    // Update instance visibility on client based on player position
-    if (this.runtimeIsClient && this.instancedMeshManager) {
+    // Update instance visibility on client based on player position (throttled)
+    if (isClientHeavyTick && this.instancedMeshManager) {
       this.instancedMeshManager.updateAllInstanceVisibility();
 
       // TEMPORARILY DISABLED - rock instancer update
@@ -5448,29 +5175,16 @@ export class TerrainSystem extends System {
       if (materialWithUniforms) {
         materialWithUniforms.terrainUniforms.time.value = this.terrainTime;
 
-        // Sync sun direction + day intensity from Environment system
+        // Sync sun direction and shade color from Environment system
         const env = this.world.getSystem("environment") as {
           lightDirection?: THREE.Vector3;
-          getDayIntensity?: () => number;
+          hemisphereLight?: { color: THREE.Color };
         } | null;
         if (env?.lightDirection) {
           materialWithUniforms.terrainUniforms.sunDirection.value
             .copy(env.lightDirection)
             .negate();
-          if (this.grassVisualManager) {
-            this.grassVisualManager.updateLighting(
-              materialWithUniforms.terrainUniforms.sunDirection.value,
-            );
-          }
         }
-        if (env?.getDayIntensity) {
-          const dayVal = env.getDayIntensity();
-          materialWithUniforms.terrainUniforms.dayIntensity.value = dayVal;
-          if (this.grassVisualManager) {
-            this.grassVisualManager.updateDayIntensity(dayVal);
-          }
-        }
-
         // Fog texture is the shared fogRenderTarget from FogConfig — no sync needed
 
         // Update lamppost vertex lights (night-only)
@@ -5975,6 +5689,58 @@ export class TerrainSystem extends System {
     const originXInt = Math.floor(originX);
     const originZInt = Math.floor(originZ);
 
+    // FAST HEIGHT PATH: bakeWalkabilityFlags only cares about raw terrain
+    // height, not bridge/dock/flat-zone overrides (those are applied later
+    // in Pass 3/4 as walkability flag overrides, not height overrides). Using
+    // `getHeightAt` here means 94,356 lookups × (3 system-lookups + flat-zone
+    // scan + bilinear interpolation) per bake. That's what made bake take
+    // 800ms+ per tile even after the heightData caching fix.
+    //
+    // Instead, cache the current tile's heightData locally and bilinear-
+    // interpolate directly for in-tile samples. For samples outside this
+    // tile's bounds (tile edges, slope check overflow), fall back to
+    // `getHeightAtCached` which handles adjacent-tile lookups, and finally
+    // to the noise path if nothing is cached.
+    const tileKey = `${terrainTileX}_${terrainTileZ}`;
+    const currentTile = this.terrainTiles.get(tileKey);
+    const tileHeightData = currentTile?.heightData;
+    const hasLocalHeights =
+      Array.isArray(tileHeightData) && tileHeightData.length > 0;
+    const resolution = this.CONFIG.TILE_RESOLUTION;
+    const fastHeight = (wx: number, wz: number): number => {
+      if (hasLocalHeights) {
+        // In-tile bilinear from the local heightData. Only applies when the
+        // sample is actually inside this tile; otherwise fall through.
+        const lxf = wx - originX;
+        const lzf = wz - originZ;
+        if (lxf >= 0 && lxf <= tileSize && lzf >= 0 && lzf <= tileSize) {
+          const gx = (lxf / tileSize) * (resolution - 1);
+          const gz = (lzf / tileSize) * (resolution - 1);
+          const gxClamped = Math.max(0, Math.min(resolution - 1.001, gx));
+          const gzClamped = Math.max(0, Math.min(resolution - 1.001, gz));
+          const ix0 = Math.floor(gxClamped);
+          const iz0 = Math.floor(gzClamped);
+          const ix1 = Math.min(ix0 + 1, resolution - 1);
+          const iz1 = Math.min(iz0 + 1, resolution - 1);
+          const fx = gxClamped - ix0;
+          const fz = gzClamped - iz0;
+          const h00 = tileHeightData![iz0 * resolution + ix0];
+          const h10 = tileHeightData![iz0 * resolution + ix1];
+          const h01 = tileHeightData![iz1 * resolution + ix0];
+          const h11 = tileHeightData![iz1 * resolution + ix1];
+          const h0 = h00 + (h10 - h00) * fx;
+          const h1 = h01 + (h11 - h01) * fx;
+          return h0 + (h1 - h0) * fz;
+        }
+      }
+      // Out-of-tile or missing local data → walk the full adjacent-tile cache
+      // then fall back to the computed noise path (skip flat-zone since we
+      // already know we're not inside a flat zone for terrain sampling).
+      const adjacentCached = this.getHeightAtCached(wx, wz);
+      if (adjacentCached !== null) return adjacentCached;
+      return this.getHeightAtComputedSkipFlatZone(wx, wz);
+    };
+
     // Clear stale terrain flags first (handles re-baking after flat zone regeneration)
     const terrainFlagsMask = CollisionFlag.WATER | CollisionFlag.STEEP_SLOPE;
     for (let lx = 0; lx < tilesPerSide; lx++) {
@@ -6008,7 +5774,7 @@ export class TerrainSystem extends System {
       const iStride = i * gridPoints;
       for (let j = 0; j < gridPoints; j++) {
         const wz = gridStartZ + j * cellSize;
-        heights[iStride + j] = this.getHeightAt(wx, wz);
+        heights[iStride + j] = fastHeight(wx, wz);
       }
     }
 
@@ -6130,6 +5896,15 @@ export class TerrainSystem extends System {
     }
 
     // ---- PASS 2: Biome + slope flags (non-water tiles only) ----
+    // Inline the slope computation using fastHeight() so the inner 10K×9
+    // getHeightAt calls become 10K×9 fastHeight calls (direct bilinear from
+    // the current tile's heightData array, no bridge/dock/flat-zone lookup,
+    // no per-call Map indirection). Matches the behaviour of calculateSlope()
+    // but skips the system lookups that are irrelevant for the raw terrain
+    // slope used here.
+    const slopeD = this.CONFIG.SLOPE_CHECK_DISTANCE;
+    const slopeInvD = 1 / slopeD;
+    const slopeInvDiag = 1 / (slopeD * Math.SQRT2);
     for (let lx = 0; lx < tilesPerSide; lx++) {
       const worldX = originX + lx + 0.5;
       const moveTileX = originXInt + lx;
@@ -6151,8 +5926,33 @@ export class TerrainSystem extends System {
           // Slope check — slope exceeds biome's maxSlope
           const biomeData = BIOMES[biome];
           if (biomeData) {
-            const slope = this.calculateSlope(worldX, worldZ);
-            if (slope > biomeData.maxSlope) {
+            const c = fastHeight(worldX, worldZ);
+            let maxSlope =
+              Math.abs(fastHeight(worldX, worldZ + slopeD) - c) * slopeInvD;
+            let s =
+              Math.abs(fastHeight(worldX, worldZ - slopeD) - c) * slopeInvD;
+            if (s > maxSlope) maxSlope = s;
+            s = Math.abs(fastHeight(worldX + slopeD, worldZ) - c) * slopeInvD;
+            if (s > maxSlope) maxSlope = s;
+            s = Math.abs(fastHeight(worldX - slopeD, worldZ) - c) * slopeInvD;
+            if (s > maxSlope) maxSlope = s;
+            s =
+              Math.abs(fastHeight(worldX + slopeD, worldZ + slopeD) - c) *
+              slopeInvDiag;
+            if (s > maxSlope) maxSlope = s;
+            s =
+              Math.abs(fastHeight(worldX - slopeD, worldZ + slopeD) - c) *
+              slopeInvDiag;
+            if (s > maxSlope) maxSlope = s;
+            s =
+              Math.abs(fastHeight(worldX + slopeD, worldZ - slopeD) - c) *
+              slopeInvDiag;
+            if (s > maxSlope) maxSlope = s;
+            s =
+              Math.abs(fastHeight(worldX - slopeD, worldZ - slopeD) - c) *
+              slopeInvDiag;
+            if (s > maxSlope) maxSlope = s;
+            if (maxSlope > biomeData.maxSlope) {
               collision.addFlags(
                 moveTileX,
                 originZInt + lz,
@@ -6670,7 +6470,9 @@ export class TerrainSystem extends System {
     worldZ: number,
     overrideDifficultyLevel?: number,
   ): DifficultySample {
-    this.ensureNoiseInitialized();
+    if (!this.noise) {
+      this.noise = new NoiseGenerator(this.computeSeedFromWorldId());
+    }
 
     const biome = this.getBiomeAtWorldPosition(worldX, worldZ);
     const biomeData = BIOMES[biome];
@@ -6832,7 +6634,9 @@ export class TerrainSystem extends System {
   private generateBossHotspots(): void {
     if (this.bossHotspots.length > 0) return;
 
-    this.ensureNoiseInitialized();
+    if (!this.noise) {
+      this.noise = new NoiseGenerator(this.computeSeedFromWorldId());
+    }
 
     const worldSizeMeters = this.getActiveWorldSizeMeters();
     const halfWorld = worldSizeMeters / 2;
@@ -7006,20 +6810,9 @@ export class TerrainSystem extends System {
       this.quadTreeVisualManager = null;
     }
 
-    if (this.waterVisualManager) {
-      this.waterVisualManager.destroy();
-      this.waterVisualManager = null;
-    }
-
-    if (this.grassVisualManager) {
-      this.grassVisualManager.destroy();
-      this.grassVisualManager = null;
-    }
-
     // Terminate worker pools to free resources
     terminateTerrainWorkerPool();
     terminateQuadChunkWorkerPool();
-    terminateGrassWorkerPool();
 
     // Clear pending worker results
     this.pendingWorkerResults.clear();
@@ -7203,29 +6996,30 @@ export class TerrainSystem extends System {
    * Initialize chunk loading system with 9 core + ring strategy
    */
   private initializeChunkLoadingSystem(): void {
-    const isEmbeddedSpectator = (() => {
-      if (typeof window === "undefined") return false;
-      const win = window as Window & {
-        __HYPERSCAPE_EMBEDDED__?: boolean;
-        __HYPERSCAPE_CONFIG__?: { mode?: string };
-      };
-      return (
-        win.__HYPERSCAPE_EMBEDDED__ === true &&
-        win.__HYPERSCAPE_CONFIG__?.mode === "spectator"
-      );
-    })();
     // world.isServer can be false during early bootstrap (before network mode
     // is finalized). Resolve runtime role explicitly so server startup always
     // uses tight headless chunk ranges.
     const { isServer: isServerRuntime } = this.resolveRuntimeRole();
+    const isDedicatedStream = !isServerRuntime && isDedicatedStreamViewport();
+    const isEmbeddedSpectator =
+      !isDedicatedStream && isEmbeddedSpectatorViewport();
 
     // Embedded spectator prioritizes first-frame time over long-range preload.
     if (isServerRuntime) {
-      this.coreChunkRange = 3; // 7x7 core grid (full simulation)
-      this.ringChunkRange = 5; // 11x11 ring — resource content generated here
-      this.terrainOnlyChunkRange = 0; // No render-only tiles on server
-      this.maxTilesPerFrame = 4;
-      this.generationBudgetMsPerFrame = 6;
+      // Server does not render horizon terrain, so keep chunk windows tight to
+      // avoid runaway memory when many autonomous agents are active.
+      // Reduced tile budget to minimize GC pressure from Float32Array allocations.
+      this.coreChunkRange = 1; // 3x3 core grid
+      this.ringChunkRange = 1; // No extra preload ring
+      this.terrainOnlyChunkRange = 0; // Never load render-only distant tiles
+      this.maxTilesPerFrame = 1;
+      this.generationBudgetMsPerFrame = 2;
+    } else if (isDedicatedStream) {
+      this.coreChunkRange = 1; // 3x3 core grid
+      this.ringChunkRange = 1; // No broad preload beyond the duel arena envelope
+      this.terrainOnlyChunkRange = 0; // Disable distant terrain-only horizon churn
+      this.maxTilesPerFrame = 1; // Favor continuity over catch-up bursts
+      this.generationBudgetMsPerFrame = 4;
     } else if (isEmbeddedSpectator) {
       this.coreChunkRange = 1; // 3x3 core grid
       this.ringChunkRange = 2; // Preload ring up to 5x5
@@ -7233,12 +7027,12 @@ export class TerrainSystem extends System {
       this.maxTilesPerFrame = 4; // Catch up faster after camera retargets
       this.generationBudgetMsPerFrame = 10;
     } else {
-      // Client: load tiles out to match LOD fade distances (~1000m)
-      this.coreChunkRange = 3; // 7x7 core grid
-      this.ringChunkRange = 5; // 11x11 ring — content generated here (~1100m)
-      this.terrainOnlyChunkRange = 7; // Terrain mesh horizon (~1500m)
-      this.maxTilesPerFrame = 3;
-      this.generationBudgetMsPerFrame = 8;
+      // Balanced load radius to reduce generation spikes when moving
+      this.coreChunkRange = 2; // 5x5 core grid
+      this.ringChunkRange = 3; // Preload ring up to ~7x7
+      this.terrainOnlyChunkRange = 5;
+      this.maxTilesPerFrame = 2;
+      this.generationBudgetMsPerFrame = 6;
     }
 
     // Initialize tracking maps

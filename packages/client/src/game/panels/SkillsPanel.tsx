@@ -31,6 +31,9 @@ import type { PlayerStats, Skills } from "../../types";
 import {
   SKILL_DEFINITIONS,
   getUnlocksForSkill,
+  calculateCombatLevel,
+  normalizeCombatSkills,
+  getXPForLevel,
   type SkillDefinition,
 } from "@hyperscape/shared";
 import { SkillGuidePanel } from "./SkillGuidePanel";
@@ -45,25 +48,6 @@ interface Skill {
   icon: string;
   level: number;
   xp: number;
-}
-
-function calculateXPForLevel(level: number): number {
-  let total = 0;
-  for (let i = 1; i < level; i++) {
-    total += Math.floor(i + 300 * Math.pow(2, i / 7));
-  }
-  return Math.floor(total / 4);
-}
-
-/** Calculate combat level from skill stats */
-function calculateCombatLevel(stats: Partial<Skills>): number {
-  const attack = stats.attack?.level ?? 1;
-  const strength = stats.strength?.level ?? 1;
-  const defense = stats.defense?.level ?? 1;
-  const constitution = stats.constitution?.level ?? 10;
-  return Math.floor(
-    0.25 * (defense + constitution) + 0.325 * (attack + strength),
-  );
 }
 
 /** Draggable skill card component for action bar drag-drop */
@@ -254,7 +238,17 @@ export function SkillsPanel({ stats }: SkillsPanelProps) {
 
   const totalLevel = skills.reduce((sum, skill) => sum + skill.level, 0);
   const totalXP = skills.reduce((sum, skill) => sum + skill.xp, 0);
-  const combatLevel = calculateCombatLevel(s);
+  const combatLevel = calculateCombatLevel(
+    normalizeCombatSkills({
+      attack: s.attack?.level,
+      strength: s.strength?.level,
+      defense: s.defense?.level,
+      constitution: s.constitution?.level,
+      ranged: s.ranged?.level,
+      magic: s.magic?.level,
+      prayer: s.prayer?.level,
+    }),
+  );
 
   return (
     <div
@@ -407,8 +401,8 @@ export function SkillsPanel({ stats }: SkillsPanelProps) {
       {/* Skill Tooltip */}
       {hoveredSkill &&
         (() => {
-          const currentLevelXP = calculateXPForLevel(hoveredSkill.level);
-          const nextLevelXP = calculateXPForLevel(hoveredSkill.level + 1);
+          const currentLevelXP = getXPForLevel(hoveredSkill.level);
+          const nextLevelXP = getXPForLevel(hoveredSkill.level + 1);
           const xpRemaining = nextLevelXP - hoveredSkill.xp;
           const xpIntoLevel = hoveredSkill.xp - currentLevelXP;
           const xpForThisLevel = nextLevelXP - currentLevelXP;

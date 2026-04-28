@@ -35,12 +35,6 @@ export interface Field {
   buttons?: Array<{ label: string; onClick: () => void }>;
 }
 
-// Component prop types
-export interface HintContextType {
-  hint: string | null;
-  setHint: (hint: string | null) => void;
-}
-
 export interface PermissionsInfo {
   isAdmin: boolean;
   isBuilder: boolean;

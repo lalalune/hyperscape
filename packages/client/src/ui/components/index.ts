@@ -159,7 +159,6 @@ export { MenuButton, type MenuIconName } from "./MenuButton";
 export { MouseLeftIcon } from "./MouseLeftIcon";
 export { MouseRightIcon } from "./MouseRightIcon";
 export { MouseWheelIcon } from "./MouseWheelIcon";
-// Fields moved to game/ as it depends on CurvePane/CurvePreview
 
 // Theme utilities
 export {

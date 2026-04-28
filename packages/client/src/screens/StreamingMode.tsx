@@ -27,7 +27,7 @@ import type {
 } from "@hyperscape/shared";
 import { EventType, deriveStreamingGuardrailReason } from "@hyperscape/shared";
 import type { StreamingWindow } from "@/lib/streamingWindow";
-import { GAME_WS_URL, GAME_API_URL } from "../lib/api-config";
+import { GAME_API_URL, GAME_WS_URL, refreshApiConfig } from "../lib/api-config";
 import { getStreamingAccessToken } from "../lib/streamingAccessToken";
 
 /** Streaming state from server */
@@ -35,6 +35,7 @@ export interface StreamingState {
   type: "STREAMING_STATE_UPDATE";
   cycle: {
     cycleId: string;
+    duelId: string | null;
     phase: "IDLE" | "ANNOUNCEMENT" | "COUNTDOWN" | "FIGHTING" | "RESOLUTION";
     cycleStartTime: number;
     phaseStartTime: number;
@@ -42,6 +43,8 @@ export interface StreamingState {
     timeRemaining: number;
     agent1: AgentInfo | null;
     agent2: AgentInfo | null;
+    betOpenTime?: number | null;
+    betCloseTime?: number | null;
     countdown: number | null;
     fightStartTime: number | null;
     arenaPositions: {
@@ -88,6 +91,7 @@ export interface LeaderboardEntry {
   winRate: number;
   combatLevel: number;
   currentStreak: number;
+  lossStreak?: number;
 }
 
 export interface StreamingRendererHealth {
@@ -95,6 +99,133 @@ export interface StreamingRendererHealth {
   degradedReason: string | null;
   updatedAt: number;
   phase: StreamingState["cycle"]["phase"] | null;
+}
+
+function sameArenaPositions(
+  prev: StreamingState["cycle"]["arenaPositions"],
+  next: StreamingState["cycle"]["arenaPositions"],
+): boolean {
+  if (prev === next) return true;
+  if (!prev || !next) return false;
+  return (
+    prev.agent1[0] === next.agent1[0] &&
+    prev.agent1[1] === next.agent1[1] &&
+    prev.agent1[2] === next.agent1[2] &&
+    prev.agent2[0] === next.agent2[0] &&
+    prev.agent2[1] === next.agent2[1] &&
+    prev.agent2[2] === next.agent2[2]
+  );
+}
+
+function sameAgentInfo(
+  prev: AgentInfo | null,
+  next: AgentInfo | null,
+): boolean {
+  if (prev === next) return true;
+  if (!prev || !next) return false;
+  return (
+    prev.id === next.id &&
+    prev.name === next.name &&
+    prev.provider === next.provider &&
+    prev.model === next.model &&
+    prev.hp === next.hp &&
+    prev.maxHp === next.maxHp &&
+    prev.combatLevel === next.combatLevel &&
+    prev.wins === next.wins &&
+    prev.losses === next.losses &&
+    prev.damageDealtThisFight === next.damageDealtThisFight &&
+    prev.highestHit === next.highestHit &&
+    prev.attacksLanded === next.attacksLanded &&
+    prev.healsUsed === next.healsUsed &&
+    sameEquipment(prev.equipment, next.equipment) &&
+    sameInventory(prev.inventory, next.inventory) &&
+    prev.rank === next.rank &&
+    prev.headToHeadWins === next.headToHeadWins &&
+    prev.headToHeadLosses === next.headToHeadLosses
+  );
+}
+
+function sameEquipment(
+  prev: Record<string, string>,
+  next: Record<string, string>,
+): boolean {
+  if (prev === next) return true;
+  const prevKeys = Object.keys(prev).sort();
+  const nextKeys = Object.keys(next).sort();
+  if (prevKeys.length !== nextKeys.length) return false;
+  return prevKeys.every((key, index) => {
+    const nextKey = nextKeys[index];
+    return key === nextKey && prev[key] === next[nextKey];
+  });
+}
+
+function sameInventory(
+  prev: Array<{ itemId: string; quantity: number } | null>,
+  next: Array<{ itemId: string; quantity: number } | null>,
+): boolean {
+  if (prev === next) return true;
+  if (prev.length !== next.length) return false;
+  return prev.every((item, index) => {
+    const candidate = next[index];
+    if (item === candidate) return true;
+    if (!item || !candidate) return false;
+    return item.itemId === candidate.itemId && item.quantity === candidate.quantity;
+  });
+}
+
+function sameLeaderboard(
+  prev: LeaderboardEntry[],
+  next: LeaderboardEntry[],
+): boolean {
+  if (prev === next) return true;
+  if (prev.length !== next.length) return false;
+  return prev.every((entry, index) => {
+    const candidate = next[index];
+    return (
+      candidate !== undefined &&
+      entry.rank === candidate.rank &&
+      entry.characterId === candidate.characterId &&
+      entry.name === candidate.name &&
+      entry.provider === candidate.provider &&
+      entry.model === candidate.model &&
+      entry.wins === candidate.wins &&
+      entry.losses === candidate.losses &&
+      entry.winRate === candidate.winRate &&
+      entry.combatLevel === candidate.combatLevel &&
+      entry.currentStreak === candidate.currentStreak &&
+      entry.lossStreak === candidate.lossStreak
+    );
+  });
+}
+
+export function shouldReuseStreamingState(
+  prev: StreamingState,
+  next: StreamingState,
+): boolean {
+  const p = prev.cycle;
+  const c = next.cycle;
+
+  return (
+    c.cycleId === p.cycleId &&
+    c.duelId === p.duelId &&
+    c.phase === p.phase &&
+    c.cycleStartTime === p.cycleStartTime &&
+    c.phaseStartTime === p.phaseStartTime &&
+    c.phaseEndTime === p.phaseEndTime &&
+    c.betOpenTime === p.betOpenTime &&
+    c.betCloseTime === p.betCloseTime &&
+    c.fightStartTime === p.fightStartTime &&
+    c.countdown === p.countdown &&
+    c.winnerId === p.winnerId &&
+    c.winnerName === p.winnerName &&
+    c.winReason === p.winReason &&
+    sameAgentInfo(p.agent1, c.agent1) &&
+    sameAgentInfo(p.agent2, c.agent2) &&
+    sameArenaPositions(p.arenaPositions, c.arenaPositions) &&
+    next.cameraTarget === prev.cameraTarget &&
+    sameLeaderboard(prev.leaderboard, next.leaderboard) &&
+    Math.floor(c.timeRemaining / 1000) === Math.floor(p.timeRemaining / 1000)
+  );
 }
 
 function toGuardrailAgent(
@@ -212,6 +343,13 @@ export function shouldDismissStreamingLoading(params: {
   );
 }
 
+export function shouldShowStreamingLoadingOverlay(params: {
+  initError?: string | null;
+  loadingDismissed: boolean;
+}): boolean {
+  return !params.loadingDismissed && !params.initError?.trim();
+}
+
 export function StreamingMode() {
   const [streamingState, setStreamingState] = useState<StreamingState | null>(
     null,
@@ -240,10 +378,11 @@ export function StreamingMode() {
   const [streamAccessToken] = useState<string | null>(() =>
     getStreamingAccessToken(),
   );
+  const apiConfigRef = useRef(refreshApiConfig());
 
   // WebSocket URL for streaming mode (supports optional streamToken gate)
   const wsUrl = useMemo(() => {
-    const baseWsUrl = GAME_WS_URL;
+    const baseWsUrl = apiConfigRef.current.gameWsUrl || GAME_WS_URL;
     const url = new URL(baseWsUrl, window.location.href);
     url.searchParams.set("mode", "streaming");
     if (streamAccessToken) {
@@ -278,6 +417,7 @@ export function StreamingMode() {
       worldRef.current = world;
       setConnected(true);
       const win = window as StreamingWindow;
+      win.__HYPERSCAPE_STREAM_BOOT_READY__ = false;
       win.__HYPERSCAPE_STREAM_READY__ = false;
       win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__ = null;
       win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = "initializing";
@@ -360,11 +500,9 @@ export function StreamingMode() {
       const onStreamingStateUpdate = (data: unknown) => {
         const state = data as StreamingState;
 
-        // Initial camera lock: only needed for the very first target so
-        // the loading screen can dismiss.  After that, ClientCameraSystem
-        // handles all target switches via its own streaming:state:update
-        // subscription with smooth cinematic transitions — no loading screen.
-        markWorldReady();
+        // Initial camera lock: only needed for the very first target. READY
+        // remains the sole authority for world readiness; a live state packet
+        // must not dismiss the loading gate on its own.
         if (
           state.cameraTarget &&
           state.cameraTarget !== lastCameraTargetRef.current
@@ -381,21 +519,9 @@ export function StreamingMode() {
         // Only trigger React re-render when visible state actually changed
         setStreamingState((prev) => {
           if (!prev) return state;
-          // Skip re-render if phase, HP, countdown, and leaderboard are unchanged
-          const c = state.cycle;
-          const p = prev.cycle;
-          if (
-            c.phase === p.phase &&
-            c.countdown === p.countdown &&
-            c.winnerId === p.winnerId &&
-            c.agent1?.hp === p.agent1?.hp &&
-            c.agent2?.hp === p.agent2?.hp &&
-            c.agent1?.damageDealtThisFight === p.agent1?.damageDealtThisFight &&
-            c.agent2?.damageDealtThisFight === p.agent2?.damageDealtThisFight &&
-            Math.floor(c.timeRemaining / 1000) ===
-              Math.floor(p.timeRemaining / 1000) &&
-            state.leaderboard.length === prev.leaderboard.length
-          ) {
+          // Skip re-render only if both the visible combat state and the
+          // timing anchors are unchanged.
+          if (shouldReuseStreamingState(prev, state)) {
             return prev; // Same reference = no re-render
           }
           return state;
@@ -503,8 +629,8 @@ export function StreamingMode() {
     let warnedOnce = false;
 
     // Try to fetch initial state via HTTP. Keep retrying until WS/state arrives.
-    const baseApiUrl = GAME_API_URL;
-    const stateUrl = `${baseApiUrl}/api/streaming/state`;
+    const baseApiUrl = apiConfigRef.current.gameApiUrl || GAME_API_URL;
+    const stateUrl = new URL("/api/streaming/state", baseApiUrl).toString();
     const fetchState = () => {
       if (!mounted) return;
       const controller = new AbortController();
@@ -576,7 +702,19 @@ export function StreamingMode() {
     };
   }, [worldReady]);
 
-  // Auto-start canvas capture for HLS streaming when world is ready
+  const needsCameraLock = Boolean(streamingState?.cameraTarget);
+  const streamBootReady = shouldDismissStreamingLoading({
+    connected,
+    worldReady,
+    terrainReady,
+    hasStreamingState: streamingState !== null,
+    initError: clientInitError,
+    needsCameraLock,
+    cameraLocked,
+    phase: streamingState?.cycle.phase ?? null,
+  });
+
+  // Auto-start canvas capture for HLS streaming when world and terrain are ready
   useEffect(() => {
     if (!worldReady || !terrainReady) return;
 
@@ -912,6 +1050,7 @@ export function StreamingMode() {
   useEffect(() => {
     return () => {
       const win = window as StreamingWindow;
+      win.__HYPERSCAPE_STREAM_BOOT_READY__ = false;
       win.__HYPERSCAPE_STREAM_READY__ = false;
       win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__ = null;
       win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = null;
@@ -931,17 +1070,7 @@ export function StreamingMode() {
   // Loading screen is shown only during initial boot. Once everything is
   // ready for the first time, we fade out and never show it again — camera
   // target switches are handled seamlessly by ClientCameraSystem.
-  const needsCameraLock = Boolean(streamingState?.cameraTarget);
-  const isInitiallyReady = shouldDismissStreamingLoading({
-    connected,
-    worldReady,
-    terrainReady,
-    hasStreamingState: streamingState !== null,
-    initError: clientInitError,
-    needsCameraLock,
-    cameraLocked,
-    phase: streamingState?.cycle.phase ?? null,
-  });
+  const isInitiallyReady = streamBootReady;
   const rendererHealth = useMemo(
     () =>
       deriveStreamingRendererHealth({
@@ -972,9 +1101,10 @@ export function StreamingMode() {
 
   useEffect(() => {
     const win = window as StreamingWindow;
+    win.__HYPERSCAPE_STREAM_BOOT_READY__ = streamBootReady;
     win.__HYPERSCAPE_STREAM_READY__ = rendererHealth.ready;
     win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__ = rendererHealth;
-  }, [rendererHealth]);
+  }, [rendererHealth, streamBootReady]);
 
   // Write boot status to a window global so the capture pipeline's renderer
   // health probe can detect loading/error state without reading DOM textContent.

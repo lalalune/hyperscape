@@ -39,7 +39,8 @@ import type {
   QuantityPromptState,
 } from "./types";
 import { TRADE_GRID_COLS, TRADE_SLOTS } from "./constants";
-import { formatGoldValue, getWealthDifferenceColor } from "./utils";
+import { formatGoldValue } from "../../systems/currency";
+import { getWealthDifferenceColor } from "./utils";
 import { TradeSlot, InventoryMiniPanel } from "./components";
 import { TradeContextMenu, QuantityPrompt } from "./modals";
 import { useRemovedItemTracking } from "./hooks";

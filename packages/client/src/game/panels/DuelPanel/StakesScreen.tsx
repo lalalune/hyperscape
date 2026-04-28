@@ -15,7 +15,8 @@ import { useState, useCallback, useMemo, type CSSProperties } from "react";
 import { useThemeStore, type Theme } from "@/ui";
 import { getPanelSurfaceStyle } from "@/ui/theme/themes";
 import type { StakedItem, SlotNumber } from "@hyperscape/shared";
-import { formatGoldValue, calculateTotalValue } from "./utils";
+import { formatGoldValue } from "../../systems/currency";
+import { calculateTotalValue } from "./utils";
 import { StakeGrid, StakeInventoryPanel, StakeContextMenu } from "./components";
 
 // ============================================================================

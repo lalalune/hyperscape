@@ -355,3 +355,30 @@ export function isAlive(player: Player): boolean {
 export function isDead(player: Player): boolean {
   return !player.alive || player.health.current <= 0;
 }
+
+// HP bar utilities (OSRS-style)
+
+/**
+ * Calculate clamped, rounded health percentage from raw values.
+ *
+ * @param current - Current health points
+ * @param max - Maximum health points
+ * @returns Percentage 0-100 (rounded integer)
+ */
+export function getHpPercent(current: number, max: number): number {
+  if (max <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((current / max) * 100)));
+}
+
+/**
+ * Get the OSRS-style hex color for a health percentage.
+ * Thresholds: >50% green, 25-50% yellow, ≤25% red.
+ *
+ * @param percent - Health percentage (0-100)
+ * @returns Hex color string
+ */
+export function getHpColor(percent: number): string {
+  if (percent > 50) return "#22c55e";
+  if (percent > 25) return "#eab308";
+  return "#ef4444";
+}

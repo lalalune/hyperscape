@@ -14,6 +14,7 @@
 import { spawn, exec, execSync, type ChildProcess } from "child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
+import path from "node:path";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import type {
   RTMPDestination,
@@ -23,12 +24,55 @@ import type {
 } from "./types.js";
 import { DEFAULT_STREAMING_CONFIG } from "./types.js";
 import {
+  buildStreamDestinationId,
+  inferStreamDeliveryTransport,
+  normalizeStreamDestinationProvider,
+  resolveExternalStreamDeliveryInfo,
+  resolveStreamCanonicalProviderPriority,
+} from "./delivery-config.js";
+import {
+  assertValidStreamIngestSettings,
+  resolveStreamIngestSettings,
+} from "./ingest-config.js";
+import {
   isStreamDestinationEnabled,
   resolveEnabledStreamDestinations,
 } from "./stream-destinations.js";
+import { probePlaybackUrl } from "./destination-probe.js";
+import { errMsg } from "../shared/errMsg.js";
 
 const require = createRequire(import.meta.url);
 let resolvedFfmpegCommand: string | null = null;
+
+type DirectFrameDiagnosticSample = {
+  at: number;
+  size: number;
+  cdpTimestamp: number | null;
+};
+
+type BackpressureTransition = {
+  at: number;
+  backpressured: boolean;
+};
+
+type FatalWriteDiagnostic = {
+  at: number;
+  message: string;
+  frameCount: number;
+  droppedFrames: number;
+  bytesReceived: number;
+  backpressured: boolean;
+  cdpDirectMode: boolean;
+  uptimeMs: number;
+};
+
+type BridgeClientSocket = WebSocket & {
+  _isWebCodecs?: boolean;
+  _socket?: {
+    pause?: () => void;
+    resume?: () => void;
+  };
+};
 
 function parseEnvInt(
   rawValue: string | undefined,
@@ -96,10 +140,11 @@ function resolveFfmpegCommand(): string {
 }
 
 export class RTMPBridge {
+  private static readonly CAPTURE_DIAGNOSTIC_HISTORY_LIMIT = 16;
   private wss: WebSocketServer | null = null;
   private spectatorWss: WebSocketServer | null = null;
   private ffmpeg: ChildProcess | null = null;
-  private client: WebSocket | null = null;
+  private client: BridgeClientSocket | null = null;
   private spectatorClients: Set<WebSocket> = new Set();
   /** Cached fMP4 init segment (moov atom) — required for late joiners */
   private fmp4InitSegment: Buffer | null = null;
@@ -132,8 +177,51 @@ export class RTMPBridge {
   private ffmpegLogTail: string[] = [];
   /** Whether FFmpeg stdin is currently backpressured */
   private ffmpegBackpressured = false;
+  /** Rolling encoder FPS reported by FFmpeg progress logs */
+  private ffmpegEncoderFps = 0;
+  /**
+   * Monotonic encoder frame counter parsed from FFmpeg stderr (`frame=  NNN`).
+   * Unlike `directFrameCount` (which counts JPEG frames we *wrote* to FFmpeg
+   * stdin), this counts frames FFmpeg itself has actually encoded. For
+   * x11grab-based capture modes there is no stdin frame write, so this is the
+   * only reliable encoder-side liveness signal.
+   */
+  private lastEncoderFrameCount = 0;
+  /** Wallclock timestamp of the most recent `frame=` advance observed in FFmpeg stderr */
+  private lastEncoderFrameAt: number | null = null;
+  /**
+   * Most recent `speed=N.NNx` value parsed from FFmpeg stderr. Values < 1.0
+   * mean the encoder is running slower than real-time — a reliable early
+   * warning that RTMP upstream is backed up or the input pipeline is
+   * starving the encoder. Null until FFmpeg emits its first progress line.
+   */
+  private ffmpegSpeedX: number | null = null;
+  /** Most recent `bitrate=N.Nkbits/s` value parsed from FFmpeg stderr (kbps). */
+  private ffmpegOutputBitrateKbps: number | null = null;
   /** Whether client socket reads are paused due to FFmpeg backpressure */
   private clientSocketPaused = false;
+  /** Recent CDP frame arrival diagnostics */
+  private recentDirectFrames: DirectFrameDiagnosticSample[] = [];
+  /** Recent FFmpeg stdin backpressure transitions */
+  private recentBackpressureTransitions: BackpressureTransition[] = [];
+  /** First fatal FFmpeg write error observed in the current worker process */
+  private firstFatalWriteError: FatalWriteDiagnostic | null = null;
+  /** Most recent fatal FFmpeg write error observed in the current worker process */
+  private lastFatalWriteError: FatalWriteDiagnostic | null = null;
+  /** Pending recovery for an FFmpeg process that lost its delivery output */
+  private fatalWriteRestartTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** Guard against overlapping fatal-write restarts */
+  private fatalWriteRecoveryInFlight = false;
+  /** Prevent overlapping playback delivery probes */
+  private deliveryRecoveryProbeInFlight = false;
+  /** Consecutive canonical playback probe failures while FFmpeg is healthy */
+  private deliveryRecoveryProbeFailures = 0;
+  /** Last time delivery-health recovery requested an FFmpeg restart */
+  private lastDeliveryRecoveryRestartAt = 0;
+  /** Last seen CDP timestamp for monotonicity checks */
+  private lastCdpTimestamp: number | null = null;
+  /** Number of non-monotonic CDP timestamps observed */
+  private nonMonotonicCdpTimestampCount = 0;
 
   /** Placeholder frame buffer (JPEG) for idle periods */
   private placeholderFrame: Buffer | null = null;
@@ -184,7 +272,7 @@ export class RTMPBridge {
         process.env.STREAM_VIDEO_BITRATE_KBPS ||
           process.env.STREAM_VIDEO_BITRATE,
         DEFAULT_STREAMING_CONFIG.videoBitrate,
-        250,
+        96,
       ),
       audioBitrate: parseEnvInt(
         process.env.STREAM_AUDIO_BITRATE_KBPS ||
@@ -329,6 +417,34 @@ export class RTMPBridge {
     return !["0", "false", "no", "off"].includes(raw.trim().toLowerCase());
   }
 
+  private static deliveryRecoveryGraceMs(): number {
+    return parseEnvInt(
+      process.env.STREAM_DELIVERY_RECOVERY_GRACE_MS,
+      45_000,
+      0,
+    );
+  }
+
+  private static deliveryRecoveryFailureThreshold(): number {
+    return parseEnvInt(process.env.STREAM_DELIVERY_RECOVERY_FAILURES, 3, 1);
+  }
+
+  private static deliveryRecoveryProbeTimeoutMs(): number {
+    return parseEnvInt(
+      process.env.STREAM_DELIVERY_RECOVERY_PROBE_TIMEOUT_MS,
+      2_500,
+      500,
+    );
+  }
+
+  private static deliveryRecoveryRestartCooldownMs(): number {
+    return parseEnvInt(
+      process.env.STREAM_DELIVERY_RECOVERY_RESTART_COOLDOWN_MS,
+      30_000,
+      5_000,
+    );
+  }
+
   private static toRtmpUrl(input: string): string {
     const trimmed = input.trim();
     if (/^rtmps?:\/\//i.test(trimmed)) {
@@ -363,7 +479,99 @@ export class RTMPBridge {
       .replace(/\|/g, "\\|");
   }
 
+  private static appendSrtQuery(
+    baseUrl: string,
+    streamId: string,
+    passphrase: string,
+  ): string {
+    const separator = baseUrl.includes("?") ? "&" : "?";
+    const query = new URLSearchParams({
+      passphrase,
+      streamid: streamId,
+    });
+    return `${baseUrl}${separator}${query.toString()}`;
+  }
+
+  private static redactSensitiveFfmpegText(value: string): string {
+    return value
+      .replace(/(passphrase=)[^&\s\]'"]+/gi, "$1***REDACTED***")
+      .replace(/(streamid=)[^&\s\]'"]+/gi, "$1***REDACTED***")
+      .replace(/(rtmps?:\/\/[^/\s[\]'"]+\/)[^\s[\]'"]+/gi, "$1***REDACTED***");
+  }
+
+  private resolveIngestSettings() {
+    return assertValidStreamIngestSettings(
+      process.env,
+      resolveStreamIngestSettings(process.env),
+    );
+  }
+
+  private buildExternalDeliveryDestination(
+    ingestUrl: string,
+    streamKey: string,
+    role: "canonical" | "fallback",
+  ): RTMPDestination | null {
+    const ingestSettings = this.resolveIngestSettings();
+    const deliveryInfo = resolveExternalStreamDeliveryInfo(process.env);
+    const provider = normalizeStreamDestinationProvider(
+      deliveryInfo.provider,
+      "External Delivery",
+    );
+    const playbackUrl =
+      deliveryInfo.playbackUrl ?? deliveryInfo.llhlsUrl ?? deliveryInfo.hlsUrl;
+    const destinationId = buildStreamDestinationId({
+      role,
+      provider,
+      name: "External Delivery",
+    });
+    if (ingestSettings.transport === "srt") {
+      if (
+        !ingestSettings.srtUrl ||
+        !ingestSettings.srtStreamId ||
+        !ingestSettings.srtPassphrase
+      ) {
+        console.warn(
+          "[RTMPBridge] STREAM_INGEST_TRANSPORT=srt but SRT ingest settings are incomplete; skipping external delivery destination",
+        );
+        return null;
+      }
+      return {
+        id: destinationId,
+        name: "External Delivery",
+        role,
+        provider,
+        transport: "srt",
+        playbackUrl,
+        ingestUrl: ingestSettings.srtUrl,
+        url: RTMPBridge.appendSrtQuery(
+          ingestSettings.srtUrl,
+          ingestSettings.srtStreamId,
+          ingestSettings.srtPassphrase,
+        ),
+        key: "",
+        enabled: true,
+      };
+    }
+
+    return {
+      id: destinationId,
+      name: "External Delivery",
+      role,
+      provider,
+      transport: inferStreamDeliveryTransport({
+        playbackUrl,
+        ingestUrl,
+      }),
+      playbackUrl,
+      ingestUrl,
+      url: RTMPBridge.toRtmpUrl(ingestUrl),
+      key: streamKey,
+      enabled: true,
+    };
+  }
+
   private buildBridgeAudioInputArgs(): string[] {
+    const ingestSettings = this.resolveIngestSettings();
     const audioEnabled = process.env.STREAM_AUDIO_ENABLED !== "false";
     const pulseDevice =
       process.env.PULSE_AUDIO_DEVICE || "chrome_audio.monitor";
@@ -402,7 +610,7 @@ export class RTMPBridge {
         "-ac",
         "2",
         "-ar",
-        "44100",
+        String(ingestSettings.audioSampleRate),
         "-i",
         pulseDevice,
       ];
@@ -411,7 +619,12 @@ export class RTMPBridge {
     console.log(
       "[RTMPBridge] Audio: using bridge-managed silent source (anullsrc)",
     );
-    return ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"];
+    return [
+      "-f",
+      "lavfi",
+      "-i",
+      `anullsrc=r=${ingestSettings.audioSampleRate}:cl=stereo`,
+    ];
   }
 
   private toBuffer(data: RawData): Buffer | null {
@@ -426,14 +639,10 @@ export class RTMPBridge {
 
   private setClientBackpressurePaused(
     paused: boolean,
-    ws: WebSocket | null = this.client,
+    ws: BridgeClientSocket | null = this.client,
   ): void {
     if (!ws) return;
-    const socket = (
-      ws as unknown as {
-        _socket?: { pause?: () => void; resume?: () => void };
-      }
-    )._socket;
+    const socket = ws._socket;
     if (!socket) return;
 
     if (paused && !this.clientSocketPaused) {
@@ -445,11 +654,299 @@ export class RTMPBridge {
     }
   }
 
+  private pushDiagnosticSample<T>(samples: T[], value: T): void {
+    samples.push(value);
+    while (samples.length > RTMPBridge.CAPTURE_DIAGNOSTIC_HISTORY_LIMIT) {
+      samples.shift();
+    }
+  }
+
+  private setFfmpegBackpressured(
+    backpressured: boolean,
+    ws: BridgeClientSocket | null = this.client,
+  ): void {
+    if (this.ffmpegBackpressured === backpressured) {
+      if (!backpressured) {
+        this.setClientBackpressurePaused(false, ws);
+      }
+      return;
+    }
+
+    this.ffmpegBackpressured = backpressured;
+    this.pushDiagnosticSample(this.recentBackpressureTransitions, {
+      at: Date.now(),
+      backpressured,
+    });
+
+    if (backpressured) {
+      this.setClientBackpressurePaused(true, ws);
+    } else {
+      this.setClientBackpressurePaused(false, ws);
+    }
+  }
+
+  private recordDirectFrameSample(params: {
+    frameAt: number;
+    size: number;
+    cdpTimestamp?: number | null;
+  }): void {
+    const cdpTimestamp =
+      typeof params.cdpTimestamp === "number" &&
+      Number.isFinite(params.cdpTimestamp)
+        ? params.cdpTimestamp
+        : null;
+
+    if (
+      cdpTimestamp != null &&
+      this.lastCdpTimestamp != null &&
+      cdpTimestamp < this.lastCdpTimestamp
+    ) {
+      this.nonMonotonicCdpTimestampCount += 1;
+    }
+    if (cdpTimestamp != null) {
+      this.lastCdpTimestamp = cdpTimestamp;
+    }
+
+    this.pushDiagnosticSample(this.recentDirectFrames, {
+      at: params.frameAt,
+      size: params.size,
+      cdpTimestamp,
+    });
+  }
+
+  private recordFatalWriteError(message: string): void {
+    const snapshot: FatalWriteDiagnostic = {
+      at: Date.now(),
+      message: RTMPBridge.redactSensitiveFfmpegText(message.trim()),
+      frameCount: this.directFrameCount,
+      droppedFrames: this.droppedFrameCount,
+      bytesReceived: this.bytesReceived,
+      backpressured: this.ffmpegBackpressured,
+      cdpDirectMode: this.cdpDirectMode,
+      uptimeMs: this.startTime ? Math.max(0, Date.now() - this.startTime) : 0,
+    };
+
+    if (!this.firstFatalWriteError) {
+      this.firstFatalWriteError = snapshot;
+    }
+    this.lastFatalWriteError = snapshot;
+  }
+
+  private scheduleFatalWriteRestart(
+    message: string,
+    targetProcess: ChildProcess | null = this.ffmpeg,
+    label = "Fatal FFmpeg output write",
+  ): void {
+    if (!targetProcess || this.ffmpeg !== targetProcess) return;
+    if (this.fatalWriteRecoveryInFlight || this.fatalWriteRestartTimeout) {
+      return;
+    }
+
+    const sanitizedMessage = RTMPBridge.redactSensitiveFfmpegText(
+      message.trim(),
+    );
+    if (this.ffmpegRestartAttempts >= RTMPBridge.MAX_RESTART_ATTEMPTS) {
+      console.error(
+        `[RTMPBridge] ${label} persisted after ${this.ffmpegRestartAttempts} restart attempts. Manual intervention required: ${sanitizedMessage}`,
+      );
+      return;
+    }
+
+    const nextAttempt = this.ffmpegRestartAttempts + 1;
+    const baseDelay =
+      RTMPBridge.BASE_RESTART_DELAY * Math.pow(2, nextAttempt - 1);
+    const jitter = Math.random() * 1000;
+    const delay = Math.min(baseDelay + jitter, RTMPBridge.MAX_RESTART_DELAY);
+
+    console.warn(
+      `[RTMPBridge] ${label} detected; restarting encoder in ${Math.round(delay)}ms: ${sanitizedMessage}`,
+    );
+
+    this.fatalWriteRestartTimeout = setTimeout(() => {
+      this.fatalWriteRestartTimeout = null;
+      void this.restartAfterFatalWrite(targetProcess);
+    }, delay);
+  }
+
+  private async restartAfterFatalWrite(
+    targetProcess: ChildProcess,
+  ): Promise<void> {
+    if (this.fatalWriteRecoveryInFlight) return;
+    if (this.ffmpeg !== targetProcess) return;
+
+    const wasCdpDirectMode = this.cdpDirectMode;
+    const wasWebCodecsMode = Boolean(this.client?._isWebCodecs);
+    const hadClient = Boolean(this.client);
+
+    this.fatalWriteRecoveryInFlight = true;
+    try {
+      this.ffmpegRestartAttempts++;
+      await this.stopFFmpeg();
+
+      if (wasCdpDirectMode) {
+        this.startFFmpegDirect();
+      } else if (hadClient && wasWebCodecsMode) {
+        this.startFFmpegWebCodecs();
+      } else if (hadClient) {
+        this.startFFmpeg();
+      } else {
+        console.log(
+          "[RTMPBridge] No active capture client after fatal write; skipping FFmpeg restart",
+        );
+        this.ffmpegRestartAttempts = 0;
+        return;
+      }
+
+      setTimeout(() => {
+        if (this.ffmpeg && this.status.ffmpegRunning) {
+          console.log(
+            "[RTMPBridge] FFmpeg fatal-write recovery appears successful",
+          );
+          this.ffmpegRestartAttempts = Math.max(
+            0,
+            this.ffmpegRestartAttempts - 1,
+          );
+        }
+      }, 5000).unref?.();
+    } catch (error) {
+      console.error(
+        "[RTMPBridge] Failed to recover FFmpeg after fatal output write:",
+        errMsg(error),
+      );
+      this.handleFFmpegCrash(-1);
+    } finally {
+      this.fatalWriteRecoveryInFlight = false;
+    }
+  }
+
+  private resolveCanonicalDeliveryDestination(): DestinationStatus | null {
+    const destinations = this.status.destinations.filter((destination) => {
+      if (!destination.playbackUrl) return false;
+      const provider = normalizeStreamDestinationProvider(
+        destination.provider ?? null,
+        destination.name,
+      );
+      return provider === "cloudflare_stream";
+    });
+    return (
+      destinations.find((destination) => destination.role === "canonical") ??
+      destinations[0] ??
+      null
+    );
+  }
+
+  private shouldRunDeliveryRecoveryProbe(
+    now: number,
+    stats: ReturnType<RTMPBridge["getStats"]>,
+    destination: DestinationStatus | null,
+  ): destination is DestinationStatus & { playbackUrl: string } {
+    if (!destination?.playbackUrl) return false;
+    if (
+      !RTMPBridge.parseEnvBool(
+        process.env.STREAM_DELIVERY_RECOVERY_ENABLED,
+        true,
+      )
+    ) {
+      return false;
+    }
+    if (!this.ffmpeg || !this.status.ffmpegRunning || !stats.healthy) {
+      this.deliveryRecoveryProbeFailures = 0;
+      return false;
+    }
+    if (this.deliveryRecoveryProbeInFlight) return false;
+    if (this.fatalWriteRecoveryInFlight || this.fatalWriteRestartTimeout) {
+      return false;
+    }
+    if (
+      this.startTime > 0 &&
+      now - this.startTime < RTMPBridge.deliveryRecoveryGraceMs()
+    ) {
+      return false;
+    }
+    if (
+      this.lastDeliveryRecoveryRestartAt > 0 &&
+      now - this.lastDeliveryRecoveryRestartAt <
+        RTMPBridge.deliveryRecoveryRestartCooldownMs()
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  private checkCanonicalDeliveryRecovery(
+    now: number,
+    stats: ReturnType<RTMPBridge["getStats"]>,
+  ): void {
+    const destination = this.resolveCanonicalDeliveryDestination();
+    if (!this.shouldRunDeliveryRecoveryProbe(now, stats, destination)) {
+      return;
+    }
+
+    const targetProcess = this.ffmpeg;
+    const playbackUrl = destination.playbackUrl;
+    this.deliveryRecoveryProbeInFlight = true;
+
+    void probePlaybackUrl(
+      playbackUrl,
+      RTMPBridge.deliveryRecoveryProbeTimeoutMs(),
+    )
+      .then((result) => {
+        if (!targetProcess || this.ffmpeg !== targetProcess) return;
+
+        if (result.ready) {
+          this.deliveryRecoveryProbeFailures = 0;
+          destination.connected = true;
+          if (
+            destination.error === "delivery_disconnected" ||
+            destination.error?.startsWith("playback_probe_")
+          ) {
+            delete destination.error;
+          }
+          return;
+        }
+
+        this.deliveryRecoveryProbeFailures += 1;
+        destination.connected = false;
+        const failureLabel =
+          result.lastError ??
+          `playback_probe_${result.manifestStatus}_${result.statusCode ?? "no_status"}`;
+        destination.error = failureLabel;
+
+        console.warn(
+          `[RTMPBridge] Canonical Cloudflare playback probe failed (${this.deliveryRecoveryProbeFailures}/${RTMPBridge.deliveryRecoveryFailureThreshold()}): ${failureLabel}`,
+        );
+
+        if (
+          this.deliveryRecoveryProbeFailures <
+          RTMPBridge.deliveryRecoveryFailureThreshold()
+        ) {
+          return;
+        }
+
+        this.deliveryRecoveryProbeFailures = 0;
+        this.lastDeliveryRecoveryRestartAt = Date.now();
+        this.scheduleFatalWriteRestart(
+          `canonical delivery unavailable after healthy FFmpeg output: ${failureLabel}`,
+          targetProcess,
+          "Canonical delivery probe failure",
+        );
+      })
+      .catch((error) => {
+        if (!targetProcess || this.ffmpeg !== targetProcess) return;
+        this.deliveryRecoveryProbeFailures += 1;
+        destination.connected = false;
+        destination.error = errMsg(error);
+      })
+      .finally(() => {
+        this.deliveryRecoveryProbeInFlight = false;
+      });
+  }
+
   /**
    * Write encoded media into FFmpeg stdin with backpressure handling.
    * In CDP direct mode we drop frames when backpressured to preserve low latency.
    */
-  private writeToFfmpeg(data: Buffer, sourceWs?: WebSocket): boolean {
+  private writeToFfmpeg(data: Buffer, sourceWs?: BridgeClientSocket): boolean {
     if (!this.ffmpeg?.stdin?.writable) return false;
 
     // CDP direct mode has no transport-level pause control, so drop when backed up.
@@ -465,12 +962,56 @@ export class RTMPBridge {
     try {
       const writable = this.ffmpeg.stdin.write(data);
       if (!writable) {
-        this.ffmpegBackpressured = true;
-        this.setClientBackpressurePaused(true, sourceWs);
+        this.setFfmpegBackpressured(true, sourceWs);
       }
       return true;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Start FFmpeg in H.264 stream-copy mode for the exposed-function capture
+   * bridge. Unlike startWebCodecs(), this doesn't create a WebSocket server —
+   * data arrives via writeToFfmpegRaw() called from page.exposeFunction().
+   */
+  startWebCodecsDirect(): void {
+    this.initOutputs();
+    this.cdpDirectMode = false;
+    this.status.clientConnected = true; // No WebSocket client, but data will flow
+    this.bytesReceived = 0;
+    this.droppedFrameCount = 0;
+    this.startFFmpegWebCodecs();
+    console.log(
+      "[RTMPBridge] Started FFmpeg in WebCodecs direct mode (no WebSocket, data via exposeFunction)",
+    );
+  }
+
+  /**
+   * Public entry point for writing raw H.264 NAL units from the exposed-function
+   * capture bridge. Tracks bytes received and last-data timestamps the same way
+   * the WebSocket handler does, but without a WebSocket dependency.
+   */
+  writeToFfmpegRaw(data: Buffer): boolean {
+    if (!this.ffmpeg?.stdin?.writable) return false;
+    this.bytesReceived += data.length;
+    this.lastDataReceived = Date.now();
+    return this.writeToFfmpeg(data);
+  }
+
+  /**
+   * Close the WebSocket server without stopping FFmpeg.
+   * Used by the exposed-function capture mode which starts FFmpeg via
+   * startWebCodecs() (to get the H.264 stream-copy pipeline) but doesn't
+   * need the WebSocket listener.
+   */
+  closeWebSocketServer(): void {
+    if (this.wss) {
+      this.wss.close();
+      this.wss = null;
+      console.log(
+        "[RTMPBridge] WebSocket server closed (not needed for exposed-function capture)",
+      );
     }
   }
 
@@ -481,6 +1022,7 @@ export class RTMPBridge {
   loadDestinationsFromEnv(): void {
     // Keep any manually added destinations, just add from env
     const existingNames = new Set(this.destinations.map((d) => d.name));
+    const ingestSettings = this.resolveIngestSettings();
     const enabledDestinations = resolveEnabledStreamDestinations(
       process.env.STREAM_ENABLED_DESTINATIONS ||
         process.env.DUEL_STREAM_DESTINATIONS,
@@ -495,15 +1037,22 @@ export class RTMPBridge {
       process.env.YOUTUBE_RTMP_STREAM_KEY ||
       ""
     ).trim();
-    const addDestination = (
-      name: string,
-      url: string,
-      key: string = "",
-      enabled: boolean = true,
-    ) => {
-      if (!url || existingNames.has(name)) return;
-      this.destinations.push({ name, url, key, enabled });
-      existingNames.add(name);
+    const externalDeliveryInfo = resolveExternalStreamDeliveryInfo(process.env);
+    const providerPriority = resolveStreamCanonicalProviderPriority(
+      process.env,
+    );
+    const hasExternalDeliveryIngest =
+      ingestSettings.transport === "srt"
+        ? Boolean(
+            ingestSettings.srtUrl &&
+            ingestSettings.srtStreamId &&
+            ingestSettings.srtPassphrase,
+          )
+        : Boolean(externalDeliveryInfo.ingestUrl);
+    const addDestination = (destination: RTMPDestination) => {
+      if (!destination.url || existingNames.has(destination.name)) return;
+      this.destinations.push(destination);
+      existingNames.add(destination.name);
     };
 
     // Optional external multiplexer (Restream/livepeer/etc.)
@@ -514,11 +1063,25 @@ export class RTMPBridge {
         process.env.RTMP_MULTIPLEXER_NAME || "RTMP Multiplexer",
       )
     ) {
-      addDestination(
-        process.env.RTMP_MULTIPLEXER_NAME || "RTMP Multiplexer",
-        RTMPBridge.toRtmpUrl(process.env.RTMP_MULTIPLEXER_URL),
-        process.env.RTMP_MULTIPLEXER_STREAM_KEY || "",
-      );
+      const name = process.env.RTMP_MULTIPLEXER_NAME || "RTMP Multiplexer";
+      addDestination({
+        id: buildStreamDestinationId({
+          role: "mirror",
+          provider: "custom",
+          name,
+        }),
+        name,
+        role: "mirror",
+        provider: "custom",
+        transport: inferStreamDeliveryTransport({
+          ingestUrl: RTMPBridge.toRtmpUrl(process.env.RTMP_MULTIPLEXER_URL),
+        }),
+        playbackUrl: null,
+        ingestUrl: RTMPBridge.toRtmpUrl(process.env.RTMP_MULTIPLEXER_URL),
+        url: RTMPBridge.toRtmpUrl(process.env.RTMP_MULTIPLEXER_URL),
+        key: process.env.RTMP_MULTIPLEXER_STREAM_KEY || "",
+        enabled: true,
+      });
     }
 
     // Twitch
@@ -532,7 +1095,20 @@ export class RTMPBridge {
         process.env.TWITCH_RTMP_URL ||
         process.env.TWITCH_RTMP_SERVER ||
         "live.twitch.tv/app";
-      addDestination("Twitch", RTMPBridge.toRtmpUrl(server), twitchStreamKey);
+      addDestination({
+        id: "mirror-twitch",
+        name: "Twitch",
+        role: "mirror",
+        provider: "twitch",
+        transport: inferStreamDeliveryTransport({
+          ingestUrl: RTMPBridge.toRtmpUrl(server),
+        }),
+        playbackUrl: null,
+        ingestUrl: RTMPBridge.toRtmpUrl(server),
+        url: RTMPBridge.toRtmpUrl(server),
+        key: twitchStreamKey,
+        enabled: true,
+      });
     }
 
     // YouTube
@@ -545,7 +1121,37 @@ export class RTMPBridge {
         process.env.YOUTUBE_STREAM_URL ||
         process.env.YOUTUBE_RTMP_URL ||
         "rtmp://a.rtmp.youtube.com/live2";
-      addDestination("YouTube", RTMPBridge.toRtmpUrl(server), youtubeStreamKey);
+      addDestination({
+        id: "mirror-youtube",
+        name: "YouTube",
+        role: "mirror",
+        provider: "youtube",
+        transport: inferStreamDeliveryTransport({
+          ingestUrl: RTMPBridge.toRtmpUrl(server),
+        }),
+        playbackUrl: null,
+        ingestUrl: RTMPBridge.toRtmpUrl(server),
+        url: RTMPBridge.toRtmpUrl(server),
+        key: youtubeStreamKey,
+        enabled: true,
+      });
+    }
+
+    if (
+      isStreamDestinationEnabled(enabledDestinations, "external") &&
+      hasExternalDeliveryIngest &&
+      !existingNames.has("External Delivery")
+    ) {
+      const role =
+        providerPriority[0] === "cloudflare_stream" ? "canonical" : "fallback";
+      const destination = this.buildExternalDeliveryDestination(
+        externalDeliveryInfo.ingestUrl ?? "",
+        process.env.STREAM_INGEST_STREAM_KEY?.trim() || "",
+        role,
+      );
+      if (destination) {
+        addDestination(destination);
+      }
     }
 
     // Kick (uses RTMPS with regional ingest)
@@ -560,7 +1166,18 @@ export class RTMPBridge {
       (kickStreamKey || kickUrlHasEmbeddedKey) &&
       !existingNames.has("Kick")
     ) {
-      addDestination("Kick", kickServer, kickStreamKey);
+      addDestination({
+        id: "mirror-kick",
+        name: "Kick",
+        role: "mirror",
+        provider: "kick",
+        transport: inferStreamDeliveryTransport({ ingestUrl: kickServer }),
+        playbackUrl: null,
+        ingestUrl: kickServer,
+        url: kickServer,
+        key: kickStreamKey,
+        enabled: true,
+      });
     }
 
     // Pump.fun (full URL provided)
@@ -569,11 +1186,20 @@ export class RTMPBridge {
       process.env.PUMPFUN_RTMP_URL &&
       !existingNames.has("Pump.fun")
     ) {
-      addDestination(
-        "Pump.fun",
-        process.env.PUMPFUN_RTMP_URL,
-        process.env.PUMPFUN_STREAM_KEY || "",
-      );
+      addDestination({
+        id: "mirror-pump-fun",
+        name: "Pump.fun",
+        role: "mirror",
+        provider: "custom",
+        transport: inferStreamDeliveryTransport({
+          ingestUrl: process.env.PUMPFUN_RTMP_URL,
+        }),
+        playbackUrl: null,
+        ingestUrl: process.env.PUMPFUN_RTMP_URL,
+        url: process.env.PUMPFUN_RTMP_URL,
+        key: process.env.PUMPFUN_STREAM_KEY || "",
+        enabled: true,
+      });
     }
 
     // X/Twitter (full URL provided via Media Studio)
@@ -582,11 +1208,20 @@ export class RTMPBridge {
       process.env.X_RTMP_URL &&
       !existingNames.has("X/Twitter")
     ) {
-      addDestination(
-        "X/Twitter",
-        process.env.X_RTMP_URL,
-        process.env.X_STREAM_KEY || "",
-      );
+      addDestination({
+        id: "mirror-x-twitter",
+        name: "X/Twitter",
+        role: "mirror",
+        provider: "custom",
+        transport: inferStreamDeliveryTransport({
+          ingestUrl: process.env.X_RTMP_URL,
+        }),
+        playbackUrl: null,
+        ingestUrl: process.env.X_RTMP_URL,
+        url: process.env.X_RTMP_URL,
+        key: process.env.X_STREAM_KEY || "",
+        enabled: true,
+      });
     }
 
     // Generic custom destination
@@ -595,11 +1230,25 @@ export class RTMPBridge {
       process.env.CUSTOM_RTMP_URL &&
       !existingNames.has(process.env.CUSTOM_RTMP_NAME || "Custom")
     ) {
-      addDestination(
-        process.env.CUSTOM_RTMP_NAME || "Custom",
-        process.env.CUSTOM_RTMP_URL,
-        process.env.CUSTOM_STREAM_KEY || "",
-      );
+      const name = process.env.CUSTOM_RTMP_NAME || "Custom";
+      addDestination({
+        id: buildStreamDestinationId({
+          role: "mirror",
+          provider: "custom",
+          name,
+        }),
+        name,
+        role: "mirror",
+        provider: "custom",
+        transport: inferStreamDeliveryTransport({
+          ingestUrl: process.env.CUSTOM_RTMP_URL,
+        }),
+        playbackUrl: null,
+        ingestUrl: process.env.CUSTOM_RTMP_URL,
+        url: process.env.CUSTOM_RTMP_URL,
+        key: process.env.CUSTOM_STREAM_KEY || "",
+        enabled: true,
+      });
     }
 
     // Arbitrary fanout list (JSON array of { name, url, key?, enabled? })
@@ -615,11 +1264,23 @@ export class RTMPBridge {
         if (Array.isArray(parsed)) {
           for (const item of parsed) {
             if (!item?.name || !item?.url) continue;
-            addDestination(
-              item.name,
-              RTMPBridge.toRtmpUrl(item.url),
-              item.key || "",
-              RTMPBridge.parseEnvBool(
+            addDestination({
+              id: buildStreamDestinationId({
+                role: "mirror",
+                provider: "custom",
+                name: item.name,
+              }),
+              name: item.name,
+              role: "mirror",
+              provider: "custom",
+              transport: inferStreamDeliveryTransport({
+                ingestUrl: item.url,
+              }),
+              playbackUrl: null,
+              ingestUrl: item.url,
+              url: RTMPBridge.toRtmpUrl(item.url),
+              key: item.key || "",
+              enabled: RTMPBridge.parseEnvBool(
                 typeof item.enabled === "string"
                   ? item.enabled
                   : item.enabled == null
@@ -627,7 +1288,7 @@ export class RTMPBridge {
                     : String(item.enabled),
                 true,
               ),
-            );
+            });
           }
         }
       } catch (err) {
@@ -692,6 +1353,40 @@ export class RTMPBridge {
   }
 
   /**
+   * Re-initialize output destinations by re-reading environment variables.
+   * Use after credential rotation (e.g. Cloudflare Stream live input
+   * recreation) so a Tier-1 FFmpeg-only restart picks up new ingest URLs
+   * without killing the browser or restarting the process.
+   */
+  reinitOutputs(): void {
+    this.destinations = [];
+    this.outputsInitialized = false;
+    this.initOutputs();
+    console.log(
+      `[RTMPBridge] Destinations re-initialized (${this.enabledOutputCount()} outputs)`,
+    );
+  }
+
+  /**
+   * Tier-1 warm restart: stop the current FFmpeg process and launch a new
+   * one with fresh destinations. Everything else (browser, page, CDP
+   * session, IndexedDB cache, WebGPU context) survives. Recovery time: ~2s.
+   *
+   * Optionally pass `rereadEnv: true` to call `reinitOutputs()` first,
+   * picking up rotated Cloudflare credentials from the process environment.
+   */
+  async restartFFmpegDirect(options?: { rereadEnv?: boolean }): Promise<void> {
+    console.log(
+      `[RTMPBridge] Tier-1 restart: stopping FFmpeg (rereadEnv=${options?.rereadEnv ?? false})`,
+    );
+    await this.stopFFmpeg();
+    if (options?.rereadEnv) {
+      this.reinitOutputs();
+    }
+    this.startFFmpegDirect();
+  }
+
+  /**
    * Start the WebSocket server (legacy MediaRecorder mode)
    */
   start(port: number = 8765): void {
@@ -701,6 +1396,7 @@ export class RTMPBridge {
     }
 
     this.initOutputs();
+    this.cdpDirectMode = false;
 
     // Graceful port handling to avoid EADDRINUSE
     const tryListen = (retries: number = 1) => {
@@ -748,6 +1444,7 @@ export class RTMPBridge {
     }
 
     this.initOutputs();
+    this.cdpDirectMode = false;
 
     const tryListen = (retries: number = 1) => {
       this.wss = new WebSocketServer({ port });
@@ -787,6 +1484,7 @@ export class RTMPBridge {
    * Shared by startFFmpeg, startFFmpegDirect, and startFFmpegWebCodecs.
    */
   private buildVideoEncoderArgs(): string[] {
+    const ingestSettings = this.resolveIngestSettings();
     const hwAccel = process.env.FFMPEG_HWACCEL || "auto";
     let encoder = "libx264";
 
@@ -799,8 +1497,17 @@ export class RTMPBridge {
       encoder = "h264_nvenc";
     }
 
-    const maxrate = Math.floor(this.config.videoBitrate * 1.1); // 10% overhead for VBR spikes
-    const bufsize = this.config.videoBitrate * 2; // 2 seconds of buffering to absorb network jitter
+    const targetBitrate =
+      ingestSettings.profile === "cloudflare_live"
+        ? Math.max(this.config.videoBitrate, 6_000)
+        : this.config.videoBitrate;
+    const maxrate =
+      ingestSettings.profile === "cloudflare_live"
+        ? targetBitrate
+        : Math.floor(targetBitrate * 1.1); // 10% overhead for VBR spikes
+    const minrate =
+      ingestSettings.profile === "cloudflare_live" ? targetBitrate : 0;
+    const bufsize = targetBitrate * 2; // 2 seconds of buffering to absorb network jitter
 
     if (encoder === "h264_videotoolbox") {
       return [
@@ -809,7 +1516,10 @@ export class RTMPBridge {
         "-realtime",
         "1",
         "-b:v",
-        `${this.config.videoBitrate}k`,
+        `${targetBitrate}k`,
+        ...(ingestSettings.profile === "cloudflare_live"
+          ? ["-profile:v", "high", "-level", "4.1", "-minrate", `${minrate}k`]
+          : []),
         "-maxrate",
         `${maxrate}k`,
         "-bufsize",
@@ -817,9 +1527,49 @@ export class RTMPBridge {
         "-pix_fmt",
         "yuv420p",
         "-g",
-        String(this.config.gopSize),
+        String(ingestSettings.gopFrames),
       ];
     } else if (encoder === "h264_nvenc") {
+      if (ingestSettings.profile === "cloudflare_live") {
+        return [
+          "-c:v",
+          "h264_nvenc",
+          "-preset",
+          "llhq",
+          "-tune",
+          "ll",
+          "-rc",
+          "cbr",
+          "-multipass",
+          "disabled",
+          "-b:v",
+          `${targetBitrate}k`,
+          "-minrate",
+          `${targetBitrate}k`,
+          "-maxrate",
+          `${targetBitrate}k`,
+          "-bufsize",
+          `${bufsize}k`,
+          "-pix_fmt",
+          "yuv420p",
+          "-g",
+          String(ingestSettings.gopFrames),
+          "-bf",
+          "0",
+          "-forced-idr",
+          "1",
+          "-zerolatency",
+          "1",
+          "-strict_gop",
+          "1",
+          "-rc-lookahead",
+          "0",
+          "-profile:v",
+          "high",
+          "-level",
+          "4.1",
+        ];
+      }
       return [
         "-c:v",
         "h264_nvenc",
@@ -828,7 +1578,7 @@ export class RTMPBridge {
         "-tune",
         "ll",
         "-b:v",
-        `${this.config.videoBitrate}k`,
+        `${targetBitrate}k`,
         "-maxrate",
         `${maxrate}k`,
         "-bufsize",
@@ -836,7 +1586,7 @@ export class RTMPBridge {
         "-pix_fmt",
         "yuv420p",
         "-g",
-        String(this.config.gopSize),
+        String(ingestSettings.gopFrames),
       ];
     }
 
@@ -848,6 +1598,43 @@ export class RTMPBridge {
     );
     const tune = useHighLatency ? "film" : "zerolatency";
 
+    if (ingestSettings.profile === "cloudflare_live") {
+      return [
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-tune",
+        "zerolatency",
+        "-b:v",
+        `${targetBitrate}k`,
+        "-minrate",
+        `${targetBitrate}k`,
+        "-maxrate",
+        `${targetBitrate}k`,
+        "-bufsize",
+        `${bufsize}k`,
+        "-pix_fmt",
+        "yuv420p",
+        "-g",
+        String(ingestSettings.gopFrames),
+        "-keyint_min",
+        String(ingestSettings.gopFrames),
+        "-sc_threshold",
+        "0",
+        "-bf",
+        "0",
+        "-forced-idr",
+        "1",
+        "-profile:v",
+        "high",
+        "-level",
+        "4.1",
+        "-x264-params",
+        "nal-hrd=cbr:force-cfr=1:open-gop=0",
+      ];
+    }
+
     return [
       "-c:v",
       "libx264",
@@ -856,7 +1643,7 @@ export class RTMPBridge {
       "-tune",
       tune,
       "-b:v",
-      `${this.config.videoBitrate}k`,
+      `${targetBitrate}k`,
       "-maxrate",
       `${maxrate}k`,
       "-bufsize",
@@ -864,7 +1651,7 @@ export class RTMPBridge {
       "-pix_fmt",
       "yuv420p",
       "-g",
-      String(this.config.gopSize),
+      String(ingestSettings.gopFrames),
       // B-frames add latency — only use for VOD/recording mode
       ...(useHighLatency ? ["-bf", "2"] : []),
     ];
@@ -874,7 +1661,8 @@ export class RTMPBridge {
    * Build common audio codec + global_header args.
    */
   private buildAudioArgs(): string[] {
-    return [
+    const ingestSettings = this.resolveIngestSettings();
+    const args = [
       // Audio filter: async resample to recover from timing drift
       // async=1000 means resample if audio drifts more than 1000 samples (22ms at 44.1kHz)
       // This prevents audio dropouts when video/audio streams desync
@@ -885,10 +1673,12 @@ export class RTMPBridge {
       "-b:a",
       `${this.config.audioBitrate}k`,
       "-ar",
-      "44100",
-      "-flags",
-      "+global_header",
+      String(ingestSettings.audioSampleRate),
     ];
+    if (ingestSettings.transport !== "srt") {
+      args.push("-flags", "+global_header");
+    }
+    return args;
   }
 
   private buildOutputVideoFilter(resetPts: boolean = false): string {
@@ -919,8 +1709,7 @@ export class RTMPBridge {
   ): void {
     if (!this.ffmpeg) return;
 
-    this.ffmpegBackpressured = false;
-    this.setClientBackpressurePaused(false);
+    this.setFfmpegBackpressured(false);
     this.ffmpegLogTail = [];
 
     this.startTime = Date.now();
@@ -931,8 +1720,14 @@ export class RTMPBridge {
     this.status.destinations = this.destinations
       .filter((d) => d.enabled)
       .map((d) => ({
+        id: d.id,
         name: d.name,
-        connected: true,
+        role: d.role,
+        provider: d.provider,
+        transport: d.transport,
+        playbackUrl: d.playbackUrl ?? null,
+        ingestUrl: d.ingestUrl ?? d.url,
+        connected: false,
         bytesWritten: 0,
         startedAt: this.startTime,
       }));
@@ -943,7 +1738,8 @@ export class RTMPBridge {
 
     this.ffmpeg.stderr?.on("data", (data) => {
       const msg = data.toString();
-      const lines = msg
+      const sanitizedMsg = RTMPBridge.redactSensitiveFfmpegText(msg);
+      const lines = sanitizedMsg
         .split(/\r?\n/)
         .map((line: string) => line.trim())
         .filter(Boolean);
@@ -955,10 +1751,10 @@ export class RTMPBridge {
           );
         }
       }
-      if (!msg.includes("frame=") && !msg.includes("fps=")) {
-        console.log("[FFmpeg]", msg.trim());
+      if (!sanitizedMsg.includes("frame=") && !sanitizedMsg.includes("fps=")) {
+        console.log("[FFmpeg]", sanitizedMsg.trim());
       }
-      this.parseFFmpegOutput(msg);
+      this.parseFFmpegOutput(sanitizedMsg);
     });
 
     this.ffmpeg.on("close", (code, signal) => {
@@ -968,6 +1764,11 @@ export class RTMPBridge {
       this.ffmpeg = null;
       this.status.ffmpegRunning = false;
       this.status.active = false;
+      this.markAllDestinationsDisconnected(
+        code !== 0 || signal != null
+          ? `ffmpeg_exit:${code ?? "null"}:${signal ?? "null"}`
+          : undefined,
+      );
 
       if ((code !== 0 || signal != null) && this.ffmpegLogTail.length > 0) {
         console.warn(
@@ -984,6 +1785,7 @@ export class RTMPBridge {
       this.logFFmpegSpawnError(err);
       this.ffmpeg = null;
       this.status.ffmpegRunning = false;
+      this.markAllDestinationsDisconnected(errMsg(err));
 
       if (shouldRestartOnCrash()) {
         this.handleFFmpegCrash(-1);
@@ -993,8 +1795,7 @@ export class RTMPBridge {
     this.startHealthMonitoring();
 
     this.ffmpeg.stdin?.on("drain", () => {
-      this.ffmpegBackpressured = false;
-      this.setClientBackpressurePaused(false);
+      this.setFfmpegBackpressured(false);
     });
 
     this.ffmpeg.stdin?.on("error", (err) => {
@@ -1076,13 +1877,16 @@ export class RTMPBridge {
     if (isNullOutput) {
       args.push("-f", "null", "-");
     } else {
-      args.push("-f", "tee", outputString);
+      const directOutputArgs = this.buildDirectOutputArgs();
+      if (directOutputArgs) {
+        args.push(...directOutputArgs);
+      } else {
+        args.push("-f", "tee", outputString);
+      }
     }
 
     const redactedCdpArgs = args.map((arg) =>
-      /rtmps?:\/\//.test(arg)
-        ? arg.replace(/\/[^/\s[\]]+$/, "/***REDACTED***")
-        : arg,
+      RTMPBridge.redactSensitiveFfmpegText(arg),
     );
     console.log(
       "[RTMPBridge] Starting FFmpeg (CDP direct mode) with args:",
@@ -1093,8 +1897,7 @@ export class RTMPBridge {
       stdio: ["pipe", "pipe", "pipe"],
     });
 
-    this.ffmpegBackpressured = false;
-    this.setClientBackpressurePaused(false);
+    this.setFfmpegBackpressured(false);
 
     this.startTime = Date.now();
     this.status.active = true;
@@ -1105,12 +1908,201 @@ export class RTMPBridge {
   }
 
   /**
+   * Start FFmpeg with x11grab input (native X11 display capture) and NVENC
+   * encode, bypassing the in-browser encode path and the JPEG stdin-pipe
+   * entirely. Chromium keeps rendering the scene to the Xvfb display; FFmpeg
+   * reads that display directly, encodes with h264_nvenc, and fans out to
+   * configured destinations via the existing tee/direct output paths.
+   *
+   * The caller is responsible for ensuring:
+   *   - An Xvfb (or Xorg) display is running at `options.display`.
+   *   - Chromium is pinned full-screen at (0,0) to WxH so the captured region
+   *     is the canvas and not the whole virtual screen.
+   *   - `FFMPEG_HWACCEL=nvidia` is set so `buildVideoEncoderArgs` picks
+   *     h264_nvenc; this method does not fall back to libx264.
+   */
+  startFFmpegX11Grab(options: {
+    display: string;
+    width: number;
+    height: number;
+    fps: number;
+    drawMouse?: boolean;
+  }): void {
+    if (this.ffmpeg) {
+      console.warn("[RTMPBridge] FFmpeg already running");
+      return;
+    }
+
+    const drawMouse = options.drawMouse === true;
+    // x11grab format string. The `.0+0,0` suffix pins the grab offset to the
+    // top-left of screen 0. If the caller has sized Xvfb to exactly WxH and
+    // pinned Chromium at (0,0), this captures the scene region exactly.
+    const x11Input = `${options.display}.0+0,0`;
+
+    this.initOutputs();
+    // x11grab does not use the CDP-direct stdin path, but we mark the bridge
+    // as running so destination bookkeeping, backpressure accounting, and
+    // status reporting all behave identically to `startFFmpegDirect`.
+    this.cdpDirectMode = false;
+    this.directFrameCount = 0;
+    this.droppedFrameCount = 0;
+    this.lastEncoderFrameCount = 0;
+    this.lastEncoderFrameAt = null;
+
+    const outputString = this.buildOutputString();
+    const isNullOutput = outputString === "-f null -";
+
+    const args: string[] = [
+      // Low-latency input flags — x11grab is real-time only
+      "-fflags",
+      "nobuffer",
+      "-flags",
+      "low_delay",
+      "-thread_queue_size",
+      "512",
+      "-probesize",
+      "32",
+      "-analyzeduration",
+      "0",
+      "-f",
+      "x11grab",
+      "-draw_mouse",
+      drawMouse ? "1" : "0",
+      "-video_size",
+      `${options.width}x${options.height}`,
+      "-framerate",
+      String(options.fps),
+      "-i",
+      x11Input,
+    ];
+
+    args.push(...this.buildBridgeAudioInputArgs());
+
+    // Video from x11grab (input 0), audio from pulse/anullsrc (input 1).
+    args.push("-map", "0:v:0", "-map", "1:a:0");
+
+    // Force output frame rate (matches existing CDP path).
+    args.push("-r", String(options.fps));
+
+    // NOTE: buildOutputVideoFilter normalises scale/pad for the final output
+    // resolution. Safe to reuse here; if Xvfb is sized to exactly WxH this is
+    // a no-op pass-through.
+    args.push("-vf", this.buildOutputVideoFilter(true));
+
+    // Video encoder (h264_nvenc via FFMPEG_HWACCEL=nvidia).
+    args.push(...this.buildVideoEncoderArgs());
+
+    args.push(...this.buildAudioArgs());
+
+    // Use wallclock PTS so audio/video stay in lockstep against Cloudflare
+    // ingest expectations (matches the existing CDP path's implicit behaviour).
+    args.push("-fflags", "+genpts", "-use_wallclock_as_timestamps", "1");
+
+    if (isNullOutput) {
+      args.push("-f", "null", "-");
+    } else {
+      const directOutputArgs = this.buildDirectOutputArgs();
+      if (directOutputArgs) {
+        args.push(...directOutputArgs);
+      } else {
+        args.push("-f", "tee", outputString);
+      }
+    }
+
+    const redactedArgs = args.map((arg) =>
+      RTMPBridge.redactSensitiveFfmpegText(arg),
+    );
+    console.log(
+      "[RTMPBridge] Starting FFmpeg (x11grab + NVENC mode) with args:",
+      redactedArgs.join(" "),
+    );
+
+    this.ffmpeg = spawn(this.ffmpegCommand, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    this.setFfmpegBackpressured(false);
+
+    this.startTime = Date.now();
+    this.status.active = true;
+    this.status.ffmpegRunning = true;
+    // x11grab is always "connected" to its source (the X display); unlike the
+    // WebSocket-based modes there is no client socket to wait for.
+    this.status.clientConnected = true;
+
+    this.setupFFmpegHandlers(
+      "x11grab",
+      () => this.status.ffmpegRunning === true,
+    );
+  }
+
+  /** Exposed for unit tests — builds the args array without spawning FFmpeg. */
+  buildX11GrabArgsForTest(options: {
+    display: string;
+    width: number;
+    height: number;
+    fps: number;
+    drawMouse?: boolean;
+  }): string[] {
+    const drawMouse = options.drawMouse === true;
+    const x11Input = `${options.display}.0+0,0`;
+    const outputString = this.buildOutputString();
+    const isNullOutput = outputString === "-f null -";
+    const args: string[] = [
+      "-fflags",
+      "nobuffer",
+      "-flags",
+      "low_delay",
+      "-thread_queue_size",
+      "512",
+      "-probesize",
+      "32",
+      "-analyzeduration",
+      "0",
+      "-f",
+      "x11grab",
+      "-draw_mouse",
+      drawMouse ? "1" : "0",
+      "-video_size",
+      `${options.width}x${options.height}`,
+      "-framerate",
+      String(options.fps),
+      "-i",
+      x11Input,
+    ];
+    args.push(...this.buildBridgeAudioInputArgs());
+    args.push("-map", "0:v:0", "-map", "1:a:0");
+    args.push("-r", String(options.fps));
+    args.push("-vf", this.buildOutputVideoFilter(true));
+    args.push(...this.buildVideoEncoderArgs());
+    args.push(...this.buildAudioArgs());
+    args.push("-fflags", "+genpts", "-use_wallclock_as_timestamps", "1");
+    if (isNullOutput) {
+      args.push("-f", "null", "-");
+    } else {
+      const directOutputArgs = this.buildDirectOutputArgs();
+      if (directOutputArgs) {
+        args.push(...directOutputArgs);
+      } else {
+        args.push("-f", "tee", outputString);
+      }
+    }
+    return args;
+  }
+
+  /**
    * Feed a single JPEG frame to FFmpeg (CDP direct mode)
    *
    * @param jpegBuffer - Raw JPEG image data
    * @returns true if frame was written, false if dropped
    */
-  feedFrame(jpegBuffer: Buffer): boolean {
+  feedFrame(
+    jpegBuffer: Buffer,
+    options?: {
+      frameAt?: number | null;
+      cdpTimestamp?: number | null;
+    },
+  ): boolean {
     if (!this.ffmpeg?.stdin?.writable) return false;
 
     // Exit placeholder mode when live frames resume
@@ -1118,9 +2110,18 @@ export class RTMPBridge {
       this.stopPlaceholderMode();
     }
 
+    const frameAt =
+      typeof options?.frameAt === "number" && Number.isFinite(options.frameAt)
+        ? options.frameAt
+        : Date.now();
     this.bytesReceived += jpegBuffer.length;
-    this.lastDataReceived = Date.now();
+    this.lastDataReceived = frameAt;
     this.directFrameCount++;
+    this.recordDirectFrameSample({
+      frameAt,
+      size: jpegBuffer.length,
+      cdpTimestamp: options?.cdpTimestamp ?? null,
+    });
 
     return this.writeToFfmpeg(jpegBuffer);
   }
@@ -1133,21 +2134,87 @@ export class RTMPBridge {
   }
 
   /**
+   * Monotonic frame counter as reported by FFmpeg's own `frame= NNN` stderr
+   * progress line. Authoritative encoder-side liveness signal — used by the
+   * x11_nvenc watchdog since that capture mode does not write JPEG frames to
+   * FFmpeg stdin (and therefore `directFrameCount` is meaningless there).
+   */
+  getLastEncoderFrameCount(): number {
+    return this.lastEncoderFrameCount;
+  }
+
+  /**
+   * Wallclock ms timestamp of the most recent FFmpeg `frame=` advance, or
+   * null if the encoder has not yet reported progress (typical before FFmpeg
+   * first emits a progress line or immediately after a restart).
+   */
+  getLastEncoderFrameAt(): number | null {
+    return this.lastEncoderFrameAt;
+  }
+
+  getCaptureDiagnostics(): {
+    recentFrames: Array<{
+      at: number;
+      size: number;
+      cdpTimestamp: number | null;
+    }>;
+    recentFrameCadenceMs: number[];
+    nonMonotonicCdpTimestampCount: number;
+    backpressureTransitions: Array<{
+      at: number;
+      backpressured: boolean;
+    }>;
+    firstFatalWriteError: FatalWriteDiagnostic | null;
+    lastFatalWriteError: FatalWriteDiagnostic | null;
+  } {
+    const recentFrames = this.recentDirectFrames.map((sample) => ({
+      at: sample.at,
+      size: sample.size,
+      cdpTimestamp: sample.cdpTimestamp,
+    }));
+    const recentFrameCadenceMs: number[] = [];
+    for (let index = 1; index < recentFrames.length; index += 1) {
+      const cadence = recentFrames[index]!.at - recentFrames[index - 1]!.at;
+      if (Number.isFinite(cadence) && cadence >= 0) {
+        recentFrameCadenceMs.push(cadence);
+      }
+    }
+
+    return {
+      recentFrames,
+      recentFrameCadenceMs,
+      nonMonotonicCdpTimestampCount: this.nonMonotonicCdpTimestampCount,
+      backpressureTransitions: this.recentBackpressureTransitions.map(
+        (transition) => ({
+          at: transition.at,
+          backpressured: transition.backpressured,
+        }),
+      ),
+      firstFatalWriteError: this.firstFatalWriteError
+        ? { ...this.firstFatalWriteError }
+        : null,
+      lastFatalWriteError: this.lastFatalWriteError
+        ? { ...this.lastFatalWriteError }
+        : null,
+    };
+  }
+
+  /**
    * Stop processing (FFmpeg only) for browser rotation
    */
-  stopProcessing(): void {
+  async stopProcessing(): Promise<void> {
     if (this.ffmpegRestartTimeout) {
       clearTimeout(this.ffmpegRestartTimeout);
       this.ffmpegRestartTimeout = null;
     }
     this.stopHealthMonitoring();
-    this.stopFFmpeg();
+    await this.stopFFmpeg();
   }
 
   /**
    * Stop the server and clean up
    */
-  stop(): void {
+  async stop(): Promise<void> {
     // Clear any pending restart timeout
     if (this.ffmpegRestartTimeout) {
       clearTimeout(this.ffmpegRestartTimeout);
@@ -1157,9 +2224,8 @@ export class RTMPBridge {
     // Stop health monitoring
     this.stopHealthMonitoring();
 
-    this.stopFFmpeg();
-    this.ffmpegBackpressured = false;
-    this.setClientBackpressurePaused(false);
+    await this.stopFFmpeg();
+    this.setFfmpegBackpressured(false);
 
     if (this.client) {
       this.client.close();
@@ -1321,8 +2387,9 @@ export class RTMPBridge {
       return;
     }
 
+    const clientWs = ws as BridgeClientSocket;
     console.log("[RTMPBridge] Client connected");
-    this.client = ws;
+    this.client = clientWs;
     this.status.clientConnected = true;
     this.bytesReceived = 0;
     this.droppedFrameCount = 0;
@@ -1336,14 +2403,14 @@ export class RTMPBridge {
 
       this.bytesReceived += data.length;
       this.lastDataReceived = Date.now();
-      this.writeToFfmpeg(data, ws);
+      this.writeToFfmpeg(data, clientWs);
     });
 
     ws.on("close", () => {
       console.log("[RTMPBridge] Client disconnected");
       this.client = null;
       this.status.clientConnected = false;
-      this.stopFFmpeg();
+      void this.stopFFmpeg();
     });
 
     ws.on("error", (err) => {
@@ -1362,9 +2429,10 @@ export class RTMPBridge {
       return;
     }
 
+    const clientWs = ws as BridgeClientSocket;
     console.log("[RTMPBridge] Client connected (WebCodecs mode)");
-    this.client = ws;
-    (this.client as any)._isWebCodecs = true;
+    this.client = clientWs;
+    this.client._isWebCodecs = true;
     this.status.clientConnected = true;
     this.bytesReceived = 0;
     this.droppedFrameCount = 0;
@@ -1378,14 +2446,14 @@ export class RTMPBridge {
 
       this.bytesReceived += data.length;
       this.lastDataReceived = Date.now();
-      this.writeToFfmpeg(data, ws);
+      this.writeToFfmpeg(data, clientWs);
     });
 
     ws.on("close", () => {
       console.log("[RTMPBridge] Client disconnected");
       this.client = null;
       this.status.clientConnected = false;
-      this.stopFFmpeg();
+      void this.stopFFmpeg();
     });
 
     ws.on("error", (err) => {
@@ -1399,18 +2467,23 @@ export class RTMPBridge {
   private buildOutputString(): string {
     const enabledDests = this.destinations.filter((d) => d.enabled);
     const outputs = enabledDests.map((dest) => {
+      if (dest.url.startsWith("srt://")) {
+        return `[f=mpegts:mpegts_flags=resend_headers:onfail=ignore]${RTMPBridge.teeEscape(dest.url)}`;
+      }
       const fullUrl = dest.key ? `${dest.url}/${dest.key}` : dest.url;
       // Wrap each RTMP endpoint in a fifo muxer to absorb network stalls without blocking the encoder
       return `[f=fifo:fifo_format=flv:drop_pkts_on_overflow=1:attempt_recovery=1:recovery_wait_time=1]${fullUrl}`;
     });
 
+    const ingestSettings = this.resolveIngestSettings();
     const hlsOutputPath = process.env.HLS_OUTPUT_PATH?.trim();
-    if (hlsOutputPath) {
+    if (hlsOutputPath && !ingestSettings.probeOnly) {
+      this.cleanupHlsOutputArtifacts(hlsOutputPath);
       const hlsTime = parseEnvInt(process.env.HLS_TIME_SECONDS, 1, 1);
-      const hlsListSize = parseEnvInt(process.env.HLS_LIST_SIZE, 30, 2);
+      const hlsListSize = parseEnvInt(process.env.HLS_LIST_SIZE, 6, 2);
       const hlsDeleteThreshold = parseEnvInt(
         process.env.HLS_DELETE_THRESHOLD,
-        120,
+        24,
         1,
       );
       const hlsStartNumber = parseEnvInt(
@@ -1449,6 +2522,181 @@ export class RTMPBridge {
     return outputs.join("|");
   }
 
+  private cleanupHlsOutputArtifacts(hlsOutputPath: string): void {
+    const outputDir = path.dirname(hlsOutputPath);
+    const manifestName = path.basename(hlsOutputPath);
+    const defaultSegmentPattern = `${hlsOutputPath.replace(/\.[^./]+$/, "") || "stream"}-%09d.ts`;
+    const segmentPattern =
+      process.env.HLS_SEGMENT_PATTERN?.trim() || defaultSegmentPattern;
+    const segmentPrefix = path.basename(segmentPattern).split("%", 1)[0] ?? "";
+    if (!segmentPrefix) return;
+
+    try {
+      if (!fs.existsSync(outputDir)) return;
+      for (const fileName of fs.readdirSync(outputDir)) {
+        const isManifest = fileName === manifestName;
+        const isSegment =
+          fileName.startsWith(segmentPrefix) &&
+          (fileName.endsWith(".ts") || fileName.endsWith(".tmp"));
+        if (!isManifest && !isSegment) continue;
+        fs.rmSync(path.join(outputDir, fileName), { force: true });
+      }
+    } catch (error) {
+      console.warn(
+        `[RTMPBridge] Unable to clean HLS output artifacts in ${outputDir}: ${errMsg(error)}`,
+      );
+    }
+  }
+
+  private buildDirectOutputArgs(): string[] | null {
+    const enabledDests = this.destinations.filter(
+      (destination) => destination.enabled,
+    );
+    const ingestSettings = this.resolveIngestSettings();
+    const hlsOutputPath = process.env.HLS_OUTPUT_PATH?.trim();
+    const hasLocalHlsOutput = Boolean(
+      hlsOutputPath && !ingestSettings.probeOnly,
+    );
+    if (hasLocalHlsOutput || enabledDests.length !== 1) {
+      return null;
+    }
+
+    const [destination] = enabledDests;
+    if (!destination) return null;
+    if (destination.url.startsWith("srt://")) {
+      return [
+        "-f",
+        "mpegts",
+        "-mpegts_flags",
+        "+resend_headers",
+        destination.url,
+      ];
+    }
+
+    const fullUrl = destination.key
+      ? `${destination.url}/${destination.key}`
+      : destination.url;
+    return ["-f", "flv", fullUrl];
+  }
+
+  private markAllDestinationsDisconnected(error?: string): void {
+    for (const destination of this.status.destinations) {
+      destination.connected = false;
+      if (error) {
+        destination.error = error;
+      }
+    }
+  }
+
+  private markDestinationsFromMessage(msg: string): void {
+    const trimmed = msg.trim();
+    const normalized = trimmed.toLowerCase();
+    const now = Date.now();
+    let matched = false;
+
+    for (const destination of this.status.destinations) {
+      const ingestCandidates = [
+        destination.ingestUrl,
+        this.destinations.find((candidate) => candidate.id === destination.id)
+          ?.url,
+      ]
+        .filter(Boolean)
+        .map((value) => {
+          try {
+            const url = new URL(String(value));
+            return `${url.protocol}//${url.host}`;
+          } catch {
+            return String(value);
+          }
+        });
+
+      if (
+        normalized.includes(destination.name.toLowerCase()) ||
+        ingestCandidates.some((candidate) =>
+          normalized.includes(candidate.toLowerCase()),
+        )
+      ) {
+        destination.connected = false;
+        destination.error = trimmed;
+        destination.lastWriteErrorAt = now;
+        matched = true;
+      }
+    }
+
+    if (!matched && this.status.destinations.length === 1) {
+      const [destination] = this.status.destinations;
+      if (destination) {
+        destination.connected = false;
+        destination.error = trimmed;
+        destination.lastWriteErrorAt = now;
+      }
+    }
+  }
+
+  /** Quiet window after a write error during which markHealthyDestinationsConnected refuses to re-flip a destination to connected=true. */
+  private static readonly DESTINATION_WRITE_ERROR_QUIET_WINDOW_MS = 10_000;
+  /** Encoder output bitrate (kbps) below which we treat delivery as dark, once FFmpeg has been running long enough for the buffer to settle. */
+  private static readonly DESTINATION_MIN_HEALTHY_BITRATE_KBPS = 100;
+  /** Skip the bitrate-floor check for the first N ms of bridge uptime so initial I-frame burst doesn't trip it. */
+  private static readonly DESTINATION_BITRATE_GRACE_MS = 15_000;
+
+  private markHealthyDestinationsConnected(): void {
+    const now = Date.now();
+    // Encoder output running but pushing near-zero kbps AFTER the startup
+    // grace window means the tee/fifo muxer is silently dropping output —
+    // destinations are dark even though `frame=` progress keeps advancing.
+    const bridgeUptimeMs = this.startTime > 0 ? now - this.startTime : 0;
+    const encoderBitrate = this.ffmpegOutputBitrateKbps;
+    const bitrateStarved =
+      bridgeUptimeMs > RTMPBridge.DESTINATION_BITRATE_GRACE_MS &&
+      encoderBitrate != null &&
+      Number.isFinite(encoderBitrate) &&
+      encoderBitrate < RTMPBridge.DESTINATION_MIN_HEALTHY_BITRATE_KBPS;
+
+    for (const destination of this.status.destinations) {
+      if (destination.error) continue;
+      // An `frame=` / `fps=` progress line from FFmpeg only proves the
+      // encoder is running. It does NOT prove the RTMP destination is
+      // accepting bytes — FFmpeg will keep emitting progress lines while
+      // its tee/fifo muxer is silently dropping packets. If a fatal
+      // write error was observed in the recent past, leave `connected`
+      // alone so the upstream health surface reports the real outage
+      // until we have positive evidence (a new, clean progress run
+      // after the quiet window elapses) that delivery has recovered.
+      if (
+        destination.lastWriteErrorAt != null &&
+        now - destination.lastWriteErrorAt <
+          RTMPBridge.DESTINATION_WRITE_ERROR_QUIET_WINDOW_MS
+      ) {
+        continue;
+      }
+      if (bitrateStarved) continue;
+      destination.connected = true;
+    }
+  }
+
+  /** Most recent `speed=N.NNx` parsed from FFmpeg stderr, or null before first progress line. Values below 1.0 indicate the encoder is falling behind real-time. */
+  getEncoderSpeed(): number | null {
+    return this.ffmpegSpeedX;
+  }
+
+  /** Most recent encoder output bitrate in kbps, or null before first progress line. */
+  getEncoderOutputBitrateKbps(): number | null {
+    return this.ffmpegOutputBitrateKbps;
+  }
+
+  /** Wallclock ms of the most recent destination write error, across all destinations. Null if none have been recorded since bridge start. */
+  getLastDestinationWriteErrorAt(): number | null {
+    let latest: number | null = null;
+    for (const dest of this.status.destinations) {
+      if (dest.lastWriteErrorAt == null) continue;
+      if (latest == null || dest.lastWriteErrorAt > latest) {
+        latest = dest.lastWriteErrorAt;
+      }
+    }
+    return latest;
+  }
+
   /**
    * Start FFmpeg process
    */
@@ -1458,6 +2706,7 @@ export class RTMPBridge {
       return;
     }
 
+    this.ffmpegEncoderFps = 0;
     const outputString = this.buildOutputString();
     const isNullOutput = outputString === "-f null -";
 
@@ -1494,14 +2743,17 @@ export class RTMPBridge {
       // No destinations - discard output (for testing)
       args.push("-f", "null", "-");
     } else {
-      // Use tee muxer for multiple outputs
-      args.push("-f", "tee", outputString);
+      const directOutputArgs = this.buildDirectOutputArgs();
+      if (directOutputArgs) {
+        args.push(...directOutputArgs);
+      } else {
+        // Use tee muxer for multiple outputs
+        args.push("-f", "tee", outputString);
+      }
     }
 
     const redactedArgs = args.map((arg) =>
-      /rtmps?:\/\//.test(arg)
-        ? arg.replace(/\/[^/\s[\]]+$/, "/***REDACTED***")
-        : arg,
+      RTMPBridge.redactSensitiveFfmpegText(arg),
     );
     console.log(
       "[RTMPBridge] Starting FFmpeg with args:",
@@ -1525,6 +2777,8 @@ export class RTMPBridge {
       console.warn("[RTMPBridge] FFmpeg already running");
       return;
     }
+
+    this.cdpDirectMode = false;
 
     const outputString = this.buildOutputString();
     const isNullOutput = outputString === "-f null -";
@@ -1569,13 +2823,16 @@ export class RTMPBridge {
     if (isNullOutput) {
       args.push("-f", "null", "-");
     } else {
-      args.push("-f", "tee", outputString);
+      const directOutputArgs = this.buildDirectOutputArgs();
+      if (directOutputArgs) {
+        args.push(...directOutputArgs);
+      } else {
+        args.push("-f", "tee", outputString);
+      }
     }
 
     const redactedWcArgs = args.map((arg) =>
-      /rtmps?:\/\//.test(arg)
-        ? arg.replace(/\/[^/\s[\]]+$/, "/***REDACTED***")
-        : arg,
+      RTMPBridge.redactSensitiveFfmpegText(arg),
     );
     console.log(
       "[RTMPBridge] Starting FFmpeg (WebCodecs mode/Stream Copy) with args:",
@@ -1593,6 +2850,53 @@ export class RTMPBridge {
    * Parse FFmpeg output for connection status
    */
   private parseFFmpegOutput(msg: string): void {
+    const encoderFpsMatch = msg.match(/fps=\s*([0-9]+(?:\.[0-9]+)?)/i);
+    if (encoderFpsMatch) {
+      const parsedFps = Number.parseFloat(encoderFpsMatch[1] || "");
+      if (Number.isFinite(parsedFps)) {
+        this.ffmpegEncoderFps = parsedFps;
+      }
+    }
+
+    const encoderFrameMatch = msg.match(/frame=\s*(\d+)/i);
+    if (encoderFrameMatch) {
+      const parsedFrame = Number.parseInt(encoderFrameMatch[1] || "", 10);
+      if (
+        Number.isFinite(parsedFrame) &&
+        parsedFrame > this.lastEncoderFrameCount
+      ) {
+        this.lastEncoderFrameCount = parsedFrame;
+        this.lastEncoderFrameAt = Date.now();
+      }
+    }
+
+    // Parse `speed=0.25x` — encoder keeping up with real-time when >= ~1.0.
+    // Sustained speed < 1.0 means the encoder is falling behind (either
+    // RTMP upstream is backed up or the input pipeline is starving it),
+    // and Cloudflare will refuse to promote the input to live.
+    const speedMatch = msg.match(/speed=\s*([0-9]+(?:\.[0-9]+)?)x/i);
+    if (speedMatch) {
+      const parsedSpeed = Number.parseFloat(speedMatch[1] || "");
+      if (Number.isFinite(parsedSpeed)) {
+        this.ffmpegSpeedX = parsedSpeed;
+      }
+    }
+
+    // Parse `bitrate=4123.5kbits/s` — encoder output bitrate.
+    const bitrateMatch = msg.match(
+      /bitrate=\s*([0-9]+(?:\.[0-9]+)?)\s*kbits\/s/i,
+    );
+    if (bitrateMatch) {
+      const parsedBitrate = Number.parseFloat(bitrateMatch[1] || "");
+      if (Number.isFinite(parsedBitrate)) {
+        this.ffmpegOutputBitrateKbps = parsedBitrate;
+      }
+    }
+
+    if (encoderFrameMatch || encoderFpsMatch) {
+      this.markHealthyDestinationsConnected();
+    }
+
     const slaveMuxerFailureMatch = msg.match(/Slave muxer #(\d+) failed/i);
     if (slaveMuxerFailureMatch) {
       const destIndex = Number.parseInt(slaveMuxerFailureMatch[1] || "", 10);
@@ -1603,6 +2907,16 @@ export class RTMPBridge {
           destination.error = msg.trim();
         }
       }
+    }
+
+    if (
+      /All tee outputs failed|av_interleaved_write_frame\(\)|Error writing trailer|Broken pipe|Input\/output error|The specified session has been invalidated/i.test(
+        msg,
+      )
+    ) {
+      this.recordFatalWriteError(msg);
+      this.markDestinationsFromMessage(msg);
+      this.scheduleFatalWriteRestart(msg);
     }
 
     // Check for RTMP connection errors
@@ -1622,18 +2936,25 @@ export class RTMPBridge {
   /**
    * Stop FFmpeg process
    */
-  private stopFFmpeg(): void {
+  private async stopFFmpeg(): Promise<void> {
     if (!this.ffmpeg) return;
 
     console.log("[RTMPBridge] Stopping FFmpeg");
+    if (this.fatalWriteRestartTimeout) {
+      clearTimeout(this.fatalWriteRestartTimeout);
+      this.fatalWriteRestartTimeout = null;
+    }
     this.stopHealthMonitoring();
     this.stopPlaceholderMode();
-    this.ffmpegBackpressured = false;
+    this.cdpDirectMode = false;
+    this.setFfmpegBackpressured(false);
+    this.ffmpegEncoderFps = 0;
     this.setClientBackpressurePaused(false);
 
     const oldFfmpeg = this.ffmpeg;
     this.ffmpeg = null;
     this.status.ffmpegRunning = false;
+    this.markAllDestinationsDisconnected("ffmpeg_stopped");
 
     // Remove event listeners so old process close events don't nullify a newly started current process
     oldFfmpeg.removeAllListeners("close");
@@ -1643,16 +2964,60 @@ export class RTMPBridge {
     oldFfmpeg.stdin?.removeAllListeners("drain");
     oldFfmpeg.stdin?.removeAllListeners("error");
 
-    // Close stdin first to signal end of input
-    oldFfmpeg.stdin?.end();
+    if (oldFfmpeg.exitCode !== null || oldFfmpeg.signalCode !== null) {
+      return;
+    }
 
-    // Give it a moment to finish, then kill
-    const killTimer = setTimeout(() => {
+    let forceKilled = false;
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      let killTimer: ReturnType<typeof setTimeout> | null = null;
+      let hardTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        if (killTimer) {
+          clearTimeout(killTimer);
+        }
+        if (hardTimeoutTimer) {
+          clearTimeout(hardTimeoutTimer);
+        }
+        oldFfmpeg.removeListener("exit", settle);
+        oldFfmpeg.removeListener("close", settle);
+        resolve();
+      };
+
+      oldFfmpeg.once("exit", settle);
+      oldFfmpeg.once("close", settle);
+
+      // Close stdin first to signal end of input.
+      oldFfmpeg.stdin?.end();
+
+      // Give it a moment to finish, then kill.
+      killTimer = setTimeout(() => {
+        forceKilled = true;
+        try {
+          oldFfmpeg.kill("SIGKILL"); // Force kill to prevent zombie FFmpeg processes taking up GPU/CPU
+        } catch {}
+      }, 750);
+      killTimer.unref?.();
+
+      hardTimeoutTimer = setTimeout(() => {
+        forceKilled = true;
+        settle();
+      }, 3_000);
+      hardTimeoutTimer.unref?.();
+
       try {
-        oldFfmpeg.kill("SIGKILL"); // Force kill to prevent zombie FFmpeg processes taking up GPU/CPU
+        oldFfmpeg.kill("SIGTERM");
       } catch {}
-    }, 2000);
-    killTimer.unref?.();
+    });
+
+    if (forceKilled) {
+      console.warn(
+        "[RTMPBridge] FFmpeg did not exit after SIGTERM; forced SIGKILL",
+      );
+    }
   }
 
   /**
@@ -1669,7 +3034,13 @@ export class RTMPBridge {
         : this.destinations
             .filter((destination) => destination.enabled)
             .map((destination) => ({
+              id: destination.id,
               name: destination.name,
+              role: destination.role,
+              provider: destination.provider,
+              transport: destination.transport,
+              playbackUrl: destination.playbackUrl ?? null,
+              ingestUrl: destination.ingestUrl ?? destination.url,
               connected: false,
               bytesWritten: 0,
               startedAt: this.status.startedAt,
@@ -1692,6 +3063,7 @@ export class RTMPBridge {
     lastCrash: number;
     healthy: boolean;
     droppedFrames: number;
+    encoderFps: number;
     backpressured: boolean;
     spectators: number;
     processMemory: {
@@ -1718,6 +3090,7 @@ export class RTMPBridge {
       lastCrash: this.lastFFmpegCrash,
       healthy,
       droppedFrames: this.droppedFrameCount,
+      encoderFps: this.ffmpegEncoderFps,
       backpressured: this.ffmpegBackpressured,
       spectators: this.spectatorClients.size,
       processMemory: {
@@ -1776,7 +3149,7 @@ export class RTMPBridge {
         console.log("[RTMPBridge] Attempting FFmpeg restart...");
         if (this.cdpDirectMode) {
           this.startFFmpegDirect();
-        } else if (this.client && (this.client as any)._isWebCodecs) {
+        } else if (this.client?._isWebCodecs) {
           this.startFFmpegWebCodecs();
         } else {
           this.startFFmpeg();
@@ -1858,6 +3231,7 @@ export class RTMPBridge {
         );
       }
     }
+    this.checkCanonicalDeliveryRecovery(now, stats);
 
     // Log periodic health status (every 5 health checks = ~50s)
     if (Math.random() < 0.2) {

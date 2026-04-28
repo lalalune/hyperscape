@@ -7,7 +7,7 @@
 /**
  * Viewport mode options
  */
-export type ViewportMode = "spectator" | "free";
+export type ViewportMode = "spectator" | "stream" | "free";
 
 /**
  * Embedded surface variants

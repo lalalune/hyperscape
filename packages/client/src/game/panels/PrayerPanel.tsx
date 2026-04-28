@@ -53,35 +53,11 @@ import {
 import type { PlayerStats, ClientWorld } from "../../types";
 import {
   EventType,
-  type PrayerStateSyncPayload,
-  type PrayerToggledEvent,
+  isPrayerStateSyncPayload,
+  isPrayerToggledPayload,
   type PrayerDefinition,
   prayerDataProvider,
 } from "@hyperscape/shared";
-
-// Type guards for prayer events
-function isPrayerStateSyncPayload(
-  data: unknown,
-): data is PrayerStateSyncPayload {
-  if (typeof data !== "object" || data === null) return false;
-  const obj = data as Record<string, unknown>;
-  return (
-    typeof obj.playerId === "string" &&
-    typeof obj.points === "number" &&
-    typeof obj.maxPoints === "number" &&
-    Array.isArray(obj.active)
-  );
-}
-
-function isPrayerToggledPayload(data: unknown): data is PrayerToggledEvent {
-  if (typeof data !== "object" || data === null) return false;
-  const obj = data as Record<string, unknown>;
-  return (
-    typeof obj.playerId === "string" &&
-    typeof obj.prayerId === "string" &&
-    typeof obj.active === "boolean"
-  );
-}
 
 // Prayer panel layout constants — use shared sizing tokens from panelLayout.ts
 // to ensure consistency across Prayer, Spells, Skills, and Inventory panels.

@@ -455,6 +455,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
       health: this._playerHealth,
       alive: this.alive,
       stamina: { current: this.stamina, max: 100 },
+      specialEnergy: { current: 1000, max: 1000 },
       position: { x: this.position.x, y: this.position.y, z: this.position.z },
       skills: this.skills,
       equipment: this.equipment,

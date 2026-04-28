@@ -73,9 +73,12 @@ RUN bun -e " \
     fs.writeFileSync(f, JSON.stringify(p, null, 2)); \
   }"
 
-# Match CI's stable install mode. `--trust` can hang in container builds,
-# while the frozen install path already passes in CI.
-RUN bun install --frozen-lockfile
+# This build intentionally strips better-sqlite3 from the copied manifests to
+# avoid cross-arch native compilation failures. That makes the in-container
+# package graph diverge from the committed bun.lock, so a frozen install will
+# fail by construction. `--no-save` keeps the install ephemeral inside the
+# image while still using the lockfile as the base resolution source.
+RUN bun install --no-save --ignore-scripts
 
 # Bun may hoist workspace deps without materializing per-package node_modules.
 # Create every runtime COPY source explicitly so missing dirs don't break builds.
@@ -101,8 +104,8 @@ RUN cd /app/packages/physx-js-webidl && bun run build && \
     cd /app/packages/plugin-hyperscape && bun run build && \
     cd /app/packages/web3 && bun run build && \
     cd /app/packages/server && bun run build && \
-    cd /app/packages/client && NODE_OPTIONS='--max-old-space-size=4096' \
-    node ../../node_modules/vite/bin/vite.js build
+    cd /app/packages/client && bun run build:cf && \
+    python3 /app/scripts/fix-esm-specifiers.py
 
 # ─── Runtime ────────────────────────────────────────────────────────────────
 #

@@ -264,6 +264,8 @@ export {
   PRAYER_TOGGLE_COOLDOWN_MS,
   PRAYER_TOGGLE_RATE_LIMIT,
   PRAYER_ID_PATTERN,
+  isPrayerStateSyncPayload,
+  isPrayerToggledPayload,
 } from "./types/game/prayer-types";
 export type {
   PrayerCategory,
@@ -364,8 +366,12 @@ export {
 // Export store helpers used by server store handler
 export { getStoreById } from "./data/banks-stores";
 
-// Export avatar options for character creation
-export { AVATAR_OPTIONS } from "./data/avatars";
+// Export avatar helpers for character creation and runtime normalization
+export {
+  AVATAR_OPTIONS,
+  DEFAULT_AVATAR_URL,
+  normalizeAvatarAssetUrl,
+} from "./data/avatars";
 
 // Export skill data for UI displays
 export {
@@ -492,6 +498,7 @@ export { Node } from "./nodes/Node";
 export { UI } from "./nodes/UI";
 export { UIView } from "./nodes/UIView";
 export { UIText } from "./nodes/UIText";
+export { UIImage } from "./nodes/UIImage";
 export { Group } from "./nodes/Group";
 export { Mesh } from "./nodes/Mesh";
 export { Avatar } from "./nodes/Avatar";
@@ -1208,7 +1215,10 @@ export type {
 } from "./types/interaction";
 
 // Context menu styled label type (for combat level colors)
-export type { LabelSegment } from "./systems/client/interaction/types";
+export type {
+  LabelSegment,
+  ContextMenuAction,
+} from "./systems/client/interaction/types";
 
 // Bank equipment type guards, types, and constants
 export {
@@ -1282,6 +1292,8 @@ export {
   createMinimapWorker,
   type MinimapTile,
   type MinimapEntity,
+  type MinimapRoad,
+  type MinimapBuilding,
   type MinimapCamera,
   type MinimapConfig,
   type MinimapWorkerInput,
@@ -1349,3 +1361,57 @@ export type {
   CullingGroup,
   FrustumData,
 } from "./utils/compute";
+
+// Accessibility types and constants (OSRS-accurate colorblind palettes)
+export {
+  COLORBLIND_PALETTES,
+  FONT_SIZE_SCALE,
+  DEFAULT_ACCESSIBILITY_SETTINGS,
+  type ColorblindMode,
+  type ColorOverrides,
+  type AccessibilitySettings,
+  type FontSizeOption,
+} from "./types/interface/accessibility";
+
+// UI complexity mode types and constants
+export {
+  COMPLEXITY_MODE_CONFIGS,
+  DEFAULT_PROGRESSION_THRESHOLDS,
+  type ComplexityMode,
+  type ComplexityFeatures,
+  type ComplexityModeConfig,
+  type ProgressionThresholds,
+} from "./types/interface/complexity";
+
+// Combat level color utilities (OSRS-accurate threat coloring)
+export {
+  getCombatLevelColor,
+  getCombatLevelDescription,
+} from "./systems/client/interaction/utils/combatLevelColor";
+
+// Combat level calculation (OSRS-accurate formula)
+export {
+  calculateCombatLevel,
+  normalizeCombatSkills,
+  type CombatSkills,
+  type CombatType,
+  MIN_COMBAT_LEVEL,
+  MAX_COMBAT_LEVEL,
+} from "./utils/game/CombatLevelCalculator";
+
+// XP ↔ Level calculations (OSRS-accurate, standalone utilities for UI)
+export {
+  getXPForLevel,
+  getLevelForXP,
+  getXPToNextLevel,
+  getXPProgress,
+} from "./utils/game/XPCalculator";
+
+// HP bar utilities (OSRS-style)
+export { getHpPercent, getHpColor } from "./utils/game/CombatUtils";
+
+// Currency constants (single source of truth for coin caps)
+export {
+  MAX_COINS,
+  DEFAULT_STARTING_COINS,
+} from "./systems/shared/character/CoinPouchSystem";

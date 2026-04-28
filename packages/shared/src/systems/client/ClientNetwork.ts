@@ -123,12 +123,16 @@ import { isStreamingLikeViewport } from "../../runtime/clientViewportMode";
 import { PlayerLocal } from "../../entities/player/PlayerLocal";
 import { TileInterpolator } from "./TileInterpolator";
 import { type TileCoord } from "../shared/movement/TileSystem"; // Internal import within shared package
+import { resolveClientAssetBase } from "../../utils/clientAssetBase";
 
 type ClientNetworkEnv = {
   PUBLIC_DISABLE_NETWORK?: string;
   DISABLE_NETWORK?: string;
   PUBLIC_INTERPOLATION_MAX_PER_FRAME?: string;
   INTERPOLATION_MAX_PER_FRAME?: string;
+  PUBLIC_API_URL?: string;
+  PUBLIC_CDN_URL?: string;
+  PUBLIC_ASSETS_URL?: string;
 };
 
 const isTruthy = (value?: string): boolean =>
@@ -397,14 +401,10 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.INVENTORY_UPDATED, { ...cached });
   }
 
-  /**
-   * Schedule a single delayed prune check. Re-schedules itself only while
-   * there are still pending optimistic actions, so the timer stops when idle
-   * instead of ticking every 1s unconditionally.
-   */
+  /** Start the periodic rollback pruner (once, lazily on first optimistic call). */
   private ensureInventoryPruner(): void {
     if (this.inventoryPrunerInterval) return;
-    const runPrune = () => {
+    this.inventoryPrunerInterval = setInterval(() => {
       const rollbacks = this.inventoryTracker.pruneStale();
       for (const snapshot of rollbacks) {
         this.lastInventoryByPlayerId[snapshot.playerId] = snapshot;
@@ -413,20 +413,11 @@ export class ClientNetwork extends SystemBase {
           "[ClientNetwork] Optimistic inventory action timed out, rolling back",
         );
       }
-      // Re-schedule only if more actions are still pending
-      if (this.inventoryTracker.hasPending()) {
-        this.inventoryPrunerInterval = setTimeout(
-          runPrune,
-          1000,
-        ) as unknown as ReturnType<typeof setInterval>;
-      } else {
+      if (!this.inventoryTracker.hasPending()) {
+        clearInterval(this.inventoryPrunerInterval!);
         this.inventoryPrunerInterval = null;
       }
-    };
-    this.inventoryPrunerInterval = setTimeout(
-      runPrune,
-      1000,
-    ) as unknown as ReturnType<typeof setInterval>;
+    }, 1000);
   }
 
   public getSpectatorFollowEntity(): string | undefined {
@@ -582,32 +573,7 @@ export class ClientNetwork extends SystemBase {
       }
     }
 
-    // For embedded spectator viewfinders (dashboard agent live view), the spectator
-    // JWT is passed as a URL param on the iframe and stored in __HYPERSCAPE_CONFIG__.authToken.
-    // It is intentionally NOT put in the WebSocket URL by EmbeddedGameClient (security
-    // concern about token leaking in logs), but the server requires it to pass the
-    // STREAMING_PUBLIC_DELAY_MS access gate for agent spectating.  Use it here if no
-    // other authToken was found, so the connection is authenticated.
-    if (
-      !authToken &&
-      !urlHasAuthToken &&
-      typeof window !== "undefined" &&
-      !isPlaywrightRuntime
-    ) {
-      const embeddedAuth = (
-        window as {
-          __HYPERSCAPE_CONFIG__?: { authToken?: string };
-        }
-      ).__HYPERSCAPE_CONFIG__?.authToken;
-      if (embeddedAuth) {
-        authToken = embeddedAuth;
-      }
-    }
-
-    // Build WebSocket URL with authToken included.
-    // Note: For `mode=streaming`, the server may require `authToken` + `privyUserId` in the
-    // query string at connect time (`verifyStreamingViewerCredentials`) when public delay is
-    // enabled — streaming does not use the deferred first-message auth path on the server.
+    // Build WebSocket URL with authToken included
     let url: string;
     if (urlHasAuthToken) {
       // URL already has authToken (legacy embedded mode) - use as-is
@@ -651,43 +617,23 @@ export class ClientNetwork extends SystemBase {
       ).__HYPERSCAPE_CONFIG__;
 
       if (isEmbedded && embeddedConfig) {
-        this.isEmbeddedSpectator = embeddedConfig.mode === "spectator";
-        // Use followEntity as fallback so the onStreamingState guard fires even
-        // when the dashboard specifies an agent via followEntity (not characterId).
-        const originalFollowTarget =
-          embeddedConfig.characterId || embeddedConfig.followEntity || null;
-        this.embeddedCharacterId = originalFollowTarget;
-        // Freeze the original follow target on window so it survives HMR re-instantiation
-        // and can't be overwritten by streaming state broadcasts.
-        if (
-          originalFollowTarget &&
-          !(window as { __HYPERSCAPE_ORIGINAL_FOLLOW__?: string })
-            .__HYPERSCAPE_ORIGINAL_FOLLOW__
-        ) {
-          (
-            window as { __HYPERSCAPE_ORIGINAL_FOLLOW__?: string }
-          ).__HYPERSCAPE_ORIGINAL_FOLLOW__ = originalFollowTarget;
+        this.isEmbeddedSpectator =
+          embeddedConfig.mode === "spectator" ||
+          embeddedConfig.mode === "stream";
+        this.embeddedCharacterId = embeddedConfig.characterId || null;
+        const explicitFollow =
+          embeddedConfig.followEntity || embeddedConfig.characterId || null;
+        if (this.isEmbeddedSpectator && explicitFollow) {
+          const w = window as Window & {
+            __HYPERSCAPE_ORIGINAL_FOLLOW__?: string;
+          };
+          w.__HYPERSCAPE_ORIGINAL_FOLLOW__ ??= explicitFollow;
         }
 
         this.logger.debug("[ClientNetwork] Embedded config loaded", {
           isSpectator: this.isEmbeddedSpectator,
           hasCharacterId: !!this.embeddedCharacterId,
         });
-
-        // CRITICAL: Add mode, characterId, and followEntity to the WebSocket URL
-        // so the server's ConnectionHandler can use them to target the correct agent.
-        // Without these params, params.characterId and params.followEntity are undefined
-        // on the server, so requestedCharacterId is null and the server falls back to
-        // whatever streaming duel is active — causing the "random guy near a tree" bug.
-        if (embeddedConfig.mode && !url.includes("mode=")) {
-          url += `${url.includes("?") ? "&" : "?"}mode=${encodeURIComponent(embeddedConfig.mode)}`;
-        }
-        if (embeddedConfig.characterId && !url.includes("characterId=")) {
-          url += `&characterId=${encodeURIComponent(embeddedConfig.characterId)}`;
-        }
-        if (embeddedConfig.followEntity && !url.includes("followEntity=")) {
-          url += `&followEntity=${encodeURIComponent(embeddedConfig.followEntity)}`;
-        }
       }
     }
 
@@ -1187,22 +1133,41 @@ export class ClientNetwork extends SystemBase {
     }
     this.maxUploadSize = data.maxUploadSize || 10 * 1024 * 1024; // Default 10MB
 
-    // Use assetsUrl from server (always absolute URL to CDN)
-    this.world.assetsUrl = data.assetsUrl || "/";
+    const isStreamingLikeClient =
+      isSpectatorMode || this.isEmbeddedSpectator || isStreamingLikeViewport();
+
+    const resolvedAssetsUrl =
+      typeof window !== "undefined"
+        ? resolveClientAssetBase(
+            data.assetsUrl,
+            data.apiUrl,
+            window.location.href,
+            {
+              preferRuntimeAssetBase: isStreamingLikeClient,
+            },
+          )
+        : data.assetsUrl;
+    const normalizedAssetsUrl = resolvedAssetsUrl
+      ? resolvedAssetsUrl.endsWith("/")
+        ? resolvedAssetsUrl
+        : `${resolvedAssetsUrl}/`
+      : "/";
+
+    // Use assetsUrl from server/runtime, but sanitize problematic staging hosts first.
+    this.world.assetsUrl = normalizedAssetsUrl;
     if (typeof window !== "undefined") {
       const windowWithAssets = window as Window & {
         __CDN_URL?: string;
         __ASSETS_URL?: string;
       };
-      if (data.assetsUrl) {
-        windowWithAssets.__ASSETS_URL = data.assetsUrl;
-        windowWithAssets.__CDN_URL = data.assetsUrl;
+      if (resolvedAssetsUrl) {
+        windowWithAssets.__ASSETS_URL = resolvedAssetsUrl;
+        windowWithAssets.__CDN_URL = resolvedAssetsUrl;
       }
     }
 
     const loader = this.world.loader!;
-    // Assume preload and execPreload methods exist on loader
-    // preload environment model and avatar
+
     if (loader) {
       if (
         data.settings &&
@@ -1226,11 +1191,9 @@ export class ClientNetwork extends SystemBase {
           loader.preload("avatar", settings.avatar.url);
         }
       }
-      // preload emotes
       for (const url of emoteUrls) {
         loader.preload("emote", url as string);
       }
-      // We'll preload local player avatar after entities are deserialized
     }
 
     // Deserialize settings if method exists
@@ -2019,13 +1982,12 @@ export class ClientNetwork extends SystemBase {
     const now = performance.now();
     const renderTime = now - this.interpolationDelay;
 
-    // OPTIMIZATION: Use cached array, only rebuild when states change.
-    // forEach avoids the iterator object allocation that .entries() creates.
+    // OPTIMIZATION: Use cached array, only rebuild when states change
     if (this._interpolationStatesDirty) {
       this._interpolationStatesArray.length = 0;
-      this.interpolationStates.forEach((state, entityId) => {
-        this._interpolationStatesArray.push([entityId, state]);
-      });
+      for (const entry of this.interpolationStates.entries()) {
+        this._interpolationStatesArray.push(entry);
+      }
       this._interpolationStatesDirty = false;
       this._interpolationRotationIndex = 0; // Reset rotation on change
     }
@@ -4526,6 +4488,8 @@ export class ClientNetwork extends SystemBase {
     health: number;
     maxHealth: number;
     alive: boolean;
+    specialEnergy?: number;
+    specialAttackActive?: boolean;
   }) => {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) {
@@ -4555,6 +4519,15 @@ export class ClientNetwork extends SystemBase {
       health: data.health,
       maxHealth: data.maxHealth,
     });
+
+    // Emit special attack energy update for combat panel
+    if (typeof data.specialEnergy === "number") {
+      this.world.emit(EventType.UI_SPECIAL_ATTACK_CHANGED, {
+        playerId: localPlayer.id,
+        energy: data.specialEnergy,
+        active: data.specialAttackActive ?? false,
+      });
+    }
   };
 
   onCorpseLoot = (data: {
@@ -5167,7 +5140,7 @@ export class ClientNetwork extends SystemBase {
 
     // Clean up optimistic inventory tracker on disconnect
     if (this.inventoryPrunerInterval) {
-      clearTimeout(this.inventoryPrunerInterval);
+      clearInterval(this.inventoryPrunerInterval);
       this.inventoryPrunerInterval = null;
     }
     this.inventoryTracker.clear();
@@ -5450,26 +5423,17 @@ export class ClientNetwork extends SystemBase {
         ? data.cameraTarget
         : null;
 
-    // Embedded spectators should follow scheduler camera target changes
-    // (prevents stale followEntity from pinning the camera to inactive agents).
-    if (!this.isEmbeddedSpectator || !nextTargetId) {
-      return;
-    }
-
-    // Dashboard viewfinders have an explicit embeddedCharacterId — they are
-    // deliberately watching a specific agent and must NOT be hijacked by the
-    // streaming scheduler's cameraTarget (which points at whoever is currently
-    // dueling, not the agent the dashboard selected).  Only anonymous/streaming
-    // viewers with no pinned character should follow the scheduler's camera.
-    // Check instance field AND the frozen window value so HMR re-instantiation
-    // (which resets class fields to null) doesn't bypass this guard.
-    const frozenFollow =
-      this.embeddedCharacterId ||
-      (typeof window !== "undefined" &&
+    const hasDashboardFollowLock =
+      typeof window !== "undefined" &&
+      Boolean(
         (window as { __HYPERSCAPE_ORIGINAL_FOLLOW__?: string })
-          .__HYPERSCAPE_ORIGINAL_FOLLOW__) ||
-      null;
-    if (frozenFollow) {
+          .__HYPERSCAPE_ORIGINAL_FOLLOW__,
+      );
+
+    // Stream capture spectators should follow scheduler camera target changes.
+    // Dashboard viewfinders with an explicit follow target must stay pinned to
+    // that agent; the frozen value survives HMR/config churn.
+    if (!this.isEmbeddedSpectator || hasDashboardFollowLock || !nextTargetId) {
       return;
     }
 

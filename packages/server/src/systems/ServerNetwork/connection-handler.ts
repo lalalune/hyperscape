@@ -188,6 +188,31 @@ export class ConnectionHandler {
     return this.hasStreamingViewerAccessToken(params) || this.isLoopbackWs(ws);
   }
 
+  private logStreamingViewerDecision(
+    level: "info" | "warn",
+    ws: NodeWebSocket,
+    params: ConnectionParams,
+    reason: string,
+    extra?: Record<string, unknown>,
+  ): void {
+    const payload = {
+      path: "/ws",
+      route: "/ws",
+      mode: params.mode ?? null,
+      hasStreamToken:
+        typeof params.streamToken === "string" &&
+        params.streamToken.trim().length > 0,
+      remoteAddress: ws.__remoteAddress ?? null,
+      reason,
+      ...extra,
+    };
+    const logger = level === "warn" ? console.warn : console.info;
+    logger(
+      "[ConnectionHandler] Streaming viewer access",
+      JSON.stringify(payload),
+    );
+  }
+
   /**
    * Handle incoming WebSocket connection
    *
@@ -1658,18 +1683,44 @@ export class ConnectionHandler {
   ): Promise<void> {
     try {
       const requiresRestrictedAccess = STREAMING_PUBLIC_DELAY_MS > 0;
+      const hasStreamToken = this.hasStreamingViewerAccessToken(params);
+      const isLoopback = this.isLoopbackWs(ws);
       if (requiresRestrictedAccess) {
-        const bypassSync = this.hasStreamingBypassAccess(ws, params);
+        const bypassSync = hasStreamToken || isLoopback;
         const bypassAuth = bypassSync
           ? true
           : await verifyStreamingViewerCredentials(params, this.db);
         if (!bypassSync && !bypassAuth) {
+          this.logStreamingViewerDecision("warn", ws, params, "access_denied", {
+            requiresRestrictedAccess,
+            bypassSync,
+            bypassAuth,
+            authRoute: "none",
+          });
           console.warn(
             "[ConnectionHandler] 🚫 Rejected public streaming websocket: delayed public mode requires dev, loopback, streamToken, or verified login",
           );
           ws.close(4001, "Streaming viewer access denied");
           return;
         }
+
+        this.logStreamingViewerDecision("info", ws, params, "accepted", {
+          requiresRestrictedAccess,
+          bypassSync,
+          bypassAuth,
+          authRoute: hasStreamToken
+            ? "stream_token"
+            : isLoopback
+              ? "loopback"
+              : "verified_login",
+        });
+      } else {
+        this.logStreamingViewerDecision("info", ws, params, "accepted", {
+          requiresRestrictedAccess,
+          bypassSync: false,
+          bypassAuth: true,
+          authRoute: "public_no_delay",
+        });
       }
 
       console.log("[ConnectionHandler] 📺 Streaming viewer connecting...");

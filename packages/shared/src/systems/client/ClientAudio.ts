@@ -176,17 +176,9 @@ export class ClientAudio extends System {
         await this.ctx.resume();
         if (this.ctx.state !== "running")
           throw new Error("Audio still suspended");
-        const video = document.createElement("video");
-        video.playsInline = true;
-        video.muted = true;
-        video.src = "/tiny.mp4";
-        await video.play();
-        video.pause();
-        video.remove();
         complete();
       } catch (error) {
         console.error("Failed to unlock audio context:", error);
-        this.removeUnlockListeners();
       }
     };
 

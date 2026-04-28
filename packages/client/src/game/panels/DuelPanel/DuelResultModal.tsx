@@ -16,7 +16,7 @@ import { useCallback, useState, useEffect, type CSSProperties } from "react";
 import { ModalWindow, useThemeStore } from "@/ui";
 import { getPanelSurfaceStyle } from "@/ui/theme/themes";
 import { getItem } from "@hyperscape/shared";
-import { formatGoldValue } from "./utils";
+import { formatGoldValue } from "../../systems/currency";
 
 // ============================================================================
 // Types

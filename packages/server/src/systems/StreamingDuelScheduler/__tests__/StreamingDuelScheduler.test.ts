@@ -4,6 +4,7 @@ import { StreamingDuelScheduler } from "../index";
 /** Legacy constant kept for test assertions. */
 const DUEL_FOOD_ITEM = "shark";
 import { isDuelFoodItemId } from "../../duelFood";
+import { Logger } from "../../ServerNetwork/services/Logger";
 
 type SkillMap = Record<string, { level: number; xp: number }>;
 
@@ -379,6 +380,321 @@ function createMockWorld(options?: {
   };
 }
 
+describe("StreamingDuelScheduler endCycle guard", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("resets the end-cycle guard when a synchronous transition throws", async () => {
+    const ctx = createMockWorld();
+    const scheduler = new StreamingDuelScheduler(ctx.world as never);
+    (scheduler as any).currentCycle = {
+      cycleId: "cycle-sync-throw",
+      duelId: "duel-sync-throw",
+      duelKeyHex: "0xcycle",
+      winnerId: "agent-alpha",
+      loserId: "agent-beta",
+      agent1: { characterId: "agent-alpha" },
+      agent2: { characterId: "agent-beta" },
+    };
+    (scheduler as any).schedulerState = "ACTIVE";
+
+    const originalEmit = ctx.world.emit;
+    ctx.world.emit = ((event: string, payload: unknown) => {
+      if (event === "streaming:resolution:end") {
+        throw new Error("resolution end emit failed");
+      }
+      originalEmit(event, payload);
+    }) as typeof ctx.world.emit;
+
+    expect(() => (scheduler as any).endCycle()).not.toThrow();
+    expect((scheduler as any)._endCycleInProgress).toBe(false);
+    expect((scheduler as any).schedulerState).toBe("IDLE");
+    expect(scheduler.getCurrentCycle()).toBeNull();
+
+    scheduler.destroy();
+  });
+});
+
+describe("StreamingDuelScheduler deterministic countdown start", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  function createSchedulerWithActiveAnnouncementCycle() {
+    const ctx = createMockWorld();
+    const scheduler = new StreamingDuelScheduler(ctx.world as never);
+    scheduler.init();
+    scheduler.registerAgent("agent-alpha");
+    scheduler.registerAgent("agent-beta");
+    (scheduler as any).startNewCycle();
+    return { ctx, scheduler };
+  }
+
+  it("uses betCloseTime as the announcement phase deadline in streaming state snapshots", () => {
+    const { scheduler } = createSchedulerWithActiveAnnouncementCycle();
+    const now = Date.now();
+    (scheduler as any).currentCycle.phaseStartTime = now - 55_000;
+    (scheduler as any).currentCycle.betCloseTime = now + 51_000;
+
+    const state = scheduler.getStreamingState();
+
+    expect(state.cycle?.phase).toBe("ANNOUNCEMENT");
+    expect(state.cycle?.phaseEndTime).toBe(now + 51_000);
+    expect(state.cycle?.timeRemaining).toBe(51_000);
+
+    scheduler.destroy();
+  });
+
+  it("does not leave announcement before betCloseTime even if phaseStartTime drifted earlier", () => {
+    const { scheduler } = createSchedulerWithActiveAnnouncementCycle();
+    const now = Date.now();
+    const startCountdownSpy = vi.spyOn(scheduler as any, "startCountdown");
+    (scheduler as any).currentCycle.phaseStartTime = now - 120_000;
+    (scheduler as any).currentCycle.betCloseTime = now + 30_000;
+
+    (scheduler as any).tickAnnouncement(now);
+
+    expect(startCountdownSpy).not.toHaveBeenCalled();
+    expect(scheduler.getCurrentCycle()?.phase).toBe("ANNOUNCEMENT");
+
+    scheduler.destroy();
+  });
+
+  it("primes contestants into the arena during announcement before countdown begins", async () => {
+    const { scheduler } = createSchedulerWithActiveAnnouncementCycle();
+
+    await (scheduler as any).announcementArenaPrepPromise;
+
+    const state = scheduler.getStreamingState();
+    expect(state.cycle?.phase).toBe("ANNOUNCEMENT");
+    expect(state.cycle?.arenaPositions).toMatchObject({
+      agent1: expect.any(Array),
+      agent2: expect.any(Array),
+    });
+
+    scheduler.destroy();
+  });
+
+  it("teleports contestants into the arena before async duel prep finishes", async () => {
+    const ctx = createMockWorld();
+    const scheduler = new StreamingDuelScheduler(ctx.world as never);
+    // TS's control-flow analysis cannot prove the Promise executor
+    // synchronously assigns `resolvePrep`, so narrow it up-front with
+    // a definite-assignment assertion rather than a `| null` union
+    // that ends up narrowed to `null` at the call site.
+    let resolvePrep!: () => void;
+    const prepPromise = new Promise<void>((resolve) => {
+      resolvePrep = () => resolve();
+    });
+    const prepareSpy = vi
+      .spyOn((scheduler as any).orchestrator, "prepareContestantsForDuel")
+      .mockImplementation(() => prepPromise);
+    const teleportSpy = vi.spyOn(
+      (scheduler as any).orchestrator,
+      "teleportToArena",
+    );
+
+    scheduler.init();
+    scheduler.registerAgent("agent-alpha");
+    scheduler.registerAgent("agent-beta");
+    (scheduler as any).startNewCycle();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const state = scheduler.getStreamingState();
+    expect(state.cycle?.phase).toBe("ANNOUNCEMENT");
+    expect(state.cycle?.arenaPositions).toMatchObject({
+      agent1: expect.any(Array),
+      agent2: expect.any(Array),
+    });
+    expect(teleportSpy).toHaveBeenCalledTimes(1);
+    expect(prepareSpy).toHaveBeenCalledTimes(1);
+
+    resolvePrep();
+    await (scheduler as any).announcementArenaPrepPromise;
+
+    scheduler.destroy();
+  });
+
+  it("starts announcement arena prep before downstream cycle event listeners run", async () => {
+    const ctx = createMockWorld();
+    const scheduler = new StreamingDuelScheduler(ctx.world as never);
+    const originalEmit = ctx.world.emit;
+
+    ctx.world.emit = ((event: string, payload: unknown) => {
+      if (event === "duel:scheduled") {
+        throw new Error("duel scheduling listener failed");
+      }
+      originalEmit(event, payload);
+    }) as typeof ctx.world.emit;
+
+    scheduler.init();
+    scheduler.registerAgent("agent-alpha");
+    scheduler.registerAgent("agent-beta");
+
+    expect(() => (scheduler as any).startNewCycle()).toThrow(
+      "duel scheduling listener failed",
+    );
+
+    await Promise.resolve();
+
+    const state = scheduler.getStreamingState();
+    expect(state.cycle?.phase).toBe("ANNOUNCEMENT");
+    expect(state.cycle?.arenaPositions).toMatchObject({
+      agent1: expect.any(Array),
+      agent2: expect.any(Array),
+    });
+
+    scheduler.destroy();
+  });
+
+  it("restarts announcement arena prep from tick if kickoff was skipped", () => {
+    const { scheduler } = createSchedulerWithActiveAnnouncementCycle();
+    const restartSpy = vi.spyOn(scheduler as any, "beginAnnouncementArenaPrep");
+
+    (scheduler as any).announcementArenaPrepPromise = null;
+    (scheduler as any).announcementArenaPrepCycleId = null;
+    (scheduler as any).currentCycle.arenaPositions = null;
+
+    (scheduler as any).tickAnnouncement(Date.now());
+
+    expect(restartSpy).toHaveBeenCalledWith(
+      (scheduler as any).currentCycle.cycleId,
+    );
+
+    scheduler.destroy();
+  });
+
+  it("reuses announcement arena prep when countdown starts", async () => {
+    const ctx = createMockWorld();
+    const scheduler = new StreamingDuelScheduler(ctx.world as never);
+    const prepareSpy = vi.spyOn(
+      (scheduler as any).orchestrator,
+      "prepareContestantsForDuel",
+    );
+    const teleportSpy = vi.spyOn(
+      (scheduler as any).orchestrator,
+      "teleportToArena",
+    );
+
+    scheduler.init();
+    scheduler.registerAgent("agent-alpha");
+    scheduler.registerAgent("agent-beta");
+    (scheduler as any).startNewCycle();
+    await (scheduler as any).announcementArenaPrepPromise;
+
+    expect(prepareSpy).toHaveBeenCalledTimes(1);
+    expect(teleportSpy).toHaveBeenCalledTimes(1);
+
+    await (scheduler as any).startCountdown();
+
+    expect(scheduler.getCurrentCycle()?.phase).toBe("COUNTDOWN");
+    expect(prepareSpy).toHaveBeenCalledTimes(1);
+    expect(teleportSpy).toHaveBeenCalledTimes(1);
+
+    scheduler.destroy();
+  });
+
+  it("starts the fight on tick once fightStartTime has passed even if the timeout is still pending", async () => {
+    const { ctx, scheduler } = createSchedulerWithActiveAnnouncementCycle();
+    await (scheduler as any).startCountdown();
+
+    expect(scheduler.getCurrentCycle()?.phase).toBe("COUNTDOWN");
+    expect((scheduler as any).countdownTimeout).not.toBeNull();
+
+    (scheduler as any).currentCycle.fightStartTime = Date.now() - 250;
+    (scheduler as any).tick();
+
+    expect(scheduler.getCurrentCycle()?.phase).toBe("FIGHTING");
+    expect((scheduler as any).countdownTimeout).toBeNull();
+
+    scheduler.destroy();
+  });
+
+  it("treats a late timeout callback as a no-op once the fight already started", async () => {
+    const { ctx, scheduler } = createSchedulerWithActiveAnnouncementCycle();
+    await (scheduler as any).startCountdown();
+
+    (scheduler as any).currentCycle.fightStartTime = Date.now() - 250;
+    (scheduler as any).tick();
+    const combatCallsAfterStart = ctx.combatCalls.length;
+
+    (scheduler as any).doStartFight(Date.now() + 50, "timeout");
+
+    expect(scheduler.getCurrentCycle()?.phase).toBe("FIGHTING");
+    expect(ctx.combatCalls.length).toBe(combatCallsAfterStart);
+
+    scheduler.destroy();
+  });
+
+  it("logs structured fight-start lag diagnostics", async () => {
+    const infoSpy = vi.spyOn(Logger, "info");
+    const { scheduler } = createSchedulerWithActiveAnnouncementCycle();
+    await (scheduler as any).startCountdown();
+
+    (scheduler as any).currentCycle.fightStartTime = Date.now() - 300;
+    (scheduler as any).tick();
+
+    const lagLog = infoSpy.mock.calls.find(
+      (call) =>
+        call[0] === "StreamingDuelScheduler" &&
+        call[1] === "Fight start committed",
+    );
+    expect(lagLog).toBeDefined();
+    expect(lagLog?.[2]).toMatchObject({
+      scheduledFightStartAt: Date.now() - 300,
+      actualFightStartAt: Date.now(),
+      startTrigger: "tick_fallback",
+    });
+    expect((lagLog?.[2] as { fightStartLagMs?: number }).fightStartLagMs).toBe(
+      300,
+    );
+
+    scheduler.destroy();
+  });
+
+  it("logs prep lag when countdown begins after announcement zero", async () => {
+    const infoSpy = vi.spyOn(Logger, "info");
+    const { scheduler } = createSchedulerWithActiveAnnouncementCycle();
+    (scheduler as any).currentCycle.announcementExpiredAt = Date.now() - 1_500;
+
+    await (scheduler as any).startCountdown();
+
+    const countdownLog = infoSpy.mock.calls.find(
+      (call) =>
+        call[0] === "StreamingDuelScheduler" &&
+        call[1] === "Starting countdown",
+    );
+    expect(countdownLog).toBeDefined();
+    expect(countdownLog?.[2]).toMatchObject({
+      announcementExpiredAt: Date.now() - 1_500,
+      countdownBeganAt: Date.now(),
+    });
+    expect(
+      (countdownLog?.[2] as { announcementZeroToCountdownMs?: number })
+        .announcementZeroToCountdownMs,
+    ).toBeGreaterThanOrEqual(1_500);
+    expect(
+      (countdownLog?.[2] as { prepDurationMs?: number }).prepDurationMs,
+    ).toBeGreaterThanOrEqual(0);
+
+    scheduler.destroy();
+  });
+});
+
 // TODO: These tests need refactoring - they call internal methods via `(scheduler as any)`
 // that have been moved to the orchestrator pattern. Many pass but 23 fail.
 describe.skip("StreamingDuelScheduler", () => {
@@ -426,7 +742,14 @@ describe.skip("StreamingDuelScheduler", () => {
 
     expect(ctx.world.network.send).toHaveBeenCalledWith(
       "streamingState",
-      expect.any(Object),
+      expect.objectContaining({
+        cycle: expect.objectContaining({
+          duelKeyHex: null,
+          duelEndTime: null,
+          seed: null,
+          replayHash: null,
+        }),
+      }),
     );
 
     scheduler.destroy();
@@ -927,16 +1250,15 @@ describe.skip("StreamingDuelScheduler", () => {
     scheduler.destroy();
   });
 
-  it("resets countdown guard and aborts when arena teleport fails", async () => {
+  it("aborts the cycle when announcement arena priming teleport fails", async () => {
     const ctx = createMockWorld();
     const scheduler = new StreamingDuelScheduler(ctx.world as never);
-    scheduler.init();
-
     const teleportSpy = vi
-      .spyOn(scheduler as any, "teleportToArena")
+      .spyOn((scheduler as any).orchestrator, "teleportToArena")
       .mockRejectedValue(new Error("teleport failure"));
 
-    await (scheduler as any).startCountdown();
+    scheduler.init();
+    await (scheduler as any).announcementArenaPrepPromise;
 
     expect((scheduler as any)._startCountdownInProgress).toBe(false);
     expect(scheduler.getCurrentCycle()).toBeNull();
@@ -1380,6 +1702,10 @@ describe.skip("StreamingDuelScheduler", () => {
       winReason: "kill",
       damageWinner: 50,
       damageLoser: 30,
+      duelKeyHex: null,
+      duelEndTime: null,
+      seed: null,
+      replayHash: null,
     });
 
     const duels1 = scheduler.getRecentDuels(10);

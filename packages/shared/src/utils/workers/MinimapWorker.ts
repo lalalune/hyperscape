@@ -41,9 +41,38 @@ export interface MinimapEntity {
   id: string;
   x: number;
   z: number;
-  type: "player" | "enemy" | "item" | "building" | "resource" | "npc";
+  type: "player" | "enemy" | "item" | "building" | "resource" | "npc" | "quest";
   color: string;
   size?: number;
+  /** Render as white square (local player) */
+  isLocalPlayer?: boolean;
+  /** Party member slot (0-7) for group color */
+  groupIndex?: number;
+  /** POI icon subtype: "bank", "shop", "quest", "mining", etc. */
+  subType?: string;
+  /** Pulse animation active */
+  isActive?: boolean;
+  /** Shape override: star, diamond, or default circle */
+  icon?: "star" | "circle" | "diamond";
+}
+
+/** Road polyline with AABB for culling */
+export interface MinimapRoad {
+  path: Array<{ x: number; z: number }>;
+  width: number;
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+/** Rotated building rectangle */
+export interface MinimapBuilding {
+  x: number;
+  z: number;
+  width: number;
+  depth: number;
+  rotation: number;
 }
 
 /** Camera state for minimap rendering */
@@ -90,6 +119,10 @@ export type MinimapWorkerInput =
   | { type: "removeTiles"; tileKeys: string[] }
   | { type: "updateCamera"; camera: MinimapCamera }
   | { type: "updateEntities"; entities: MinimapEntity[] }
+  | { type: "updateRoads"; roads: MinimapRoad[] }
+  | { type: "updateBuildings"; buildings: MinimapBuilding[] }
+  | { type: "updateDestination"; x: number; z: number }
+  | { type: "clearDestination" }
   | { type: "render" }
   | { type: "dispose" };
 
@@ -122,8 +155,39 @@ const tiles = new Map();
 // Entity data
 let entities = [];
 
+// Road data
+let roads = [];
+
+// Building data
+let buildings = [];
+
+// Destination marker (null = hidden)
+let destination = null;
+
+// Frame counter for animations
+let frameCount = 0;
+
 // Camera state
 let camera = { x: 0, z: 0, extent: 50, rotation: 0 };
+
+// Party colors (OSRS-style, 8 members)
+const GROUP_COLORS = [
+  '#4CAF50', '#2196F3', '#9C27B0', '#FF9800',
+  '#00BCD4', '#E91E63', '#CDDC39', '#607D8B'
+];
+
+// Road rendering constants
+const ROAD_LINE_WIDTH_PX = 5;
+const ROAD_OUTLINE_WIDTH_PX = 7;
+const ROAD_OUTLINE_COLOR = 'rgb(56, 60, 68)';
+const ROAD_FILL_COLOR = 'rgb(164, 151, 128)';
+
+// Building rendering constants
+const BUILDING_FILL_COLOR = 'rgba(84, 92, 104, 0.92)';
+const BUILDING_STROKE_COLOR = 'rgb(34, 39, 46)';
+
+// POI icon cache (OffscreenCanvas per subType)
+const iconCache = new Map();
 
 // Config
 let config = {
@@ -293,9 +357,8 @@ function render() {
   
   const startTime = performance.now();
   
-  // Clear with background
-  ctx.fillStyle = hexToRgb(config.backgroundColor);
-  ctx.fillRect(0, 0, width, height);
+  // Clear to transparent — this canvas is an overlay composited on top of terrain
+  ctx.clearRect(0, 0, width, height);
   
   // Save context for rotation
   ctx.save();
@@ -339,10 +402,10 @@ function render() {
   if (config.showGrid) {
     ctx.strokeStyle = hexToRgb(config.gridColor);
     ctx.lineWidth = 1;
-    
+
     const gridWorldMin = Math.floor(worldMinX / config.gridSize) * config.gridSize;
     const gridWorldMax = Math.ceil(worldMaxX / config.gridSize) * config.gridSize;
-    
+
     for (let gx = gridWorldMin; gx <= gridWorldMax; gx += config.gridSize) {
       const start = worldToScreen(gx, worldMinZ);
       const end = worldToScreen(gx, worldMaxZ);
@@ -351,7 +414,7 @@ function render() {
       ctx.lineTo(end.x, end.y);
       ctx.stroke();
     }
-    
+
     for (let gz = gridWorldMin; gz <= gridWorldMax; gz += config.gridSize) {
       const start = worldToScreen(worldMinX, gz);
       const end = worldToScreen(worldMaxX, gz);
@@ -361,43 +424,249 @@ function render() {
       ctx.stroke();
     }
   }
-  
+
   ctx.restore();
-  
-  // Render entities (after rotation restore so they're always upright)
+
+  // Roads, buildings, entities drawn AFTER ctx.restore() because worldToScreen()
+  // already applies camera rotation — no double-rotation from ctx.rotate().
+
+  // Draw roads (two-pass: outlines first, then fills to avoid dark bands at intersections)
+  if (roads.length > 0) {
+    const viewRadius = camera.extent * 2;
+    const worldToPixel = width / (2 * camera.extent);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Pass 1: outlines
+    ctx.strokeStyle = ROAD_OUTLINE_COLOR;
+    for (const road of roads) {
+      if (Math.abs((road.minX + road.maxX) / 2 - camera.x) > viewRadius) continue;
+      if (Math.abs((road.minZ + road.maxZ) / 2 - camera.z) > viewRadius) continue;
+      const outlineW = Math.max(ROAD_OUTLINE_WIDTH_PX, Math.min(40, road.width * worldToPixel) + 2);
+      ctx.lineWidth = outlineW;
+      ctx.beginPath();
+      for (let i = 0; i < road.path.length; i++) {
+        const p = worldToScreen(road.path[i].x, road.path[i].z);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+
+    // Pass 2: fills
+    ctx.strokeStyle = ROAD_FILL_COLOR;
+    for (const road of roads) {
+      if (Math.abs((road.minX + road.maxX) / 2 - camera.x) > viewRadius) continue;
+      if (Math.abs((road.minZ + road.maxZ) / 2 - camera.z) > viewRadius) continue;
+      const fillW = Math.max(ROAD_LINE_WIDTH_PX, Math.min(40, road.width * worldToPixel));
+      ctx.lineWidth = fillW;
+      ctx.beginPath();
+      for (let i = 0; i < road.path.length; i++) {
+        const p = worldToScreen(road.path[i].x, road.path[i].z);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Draw buildings (rotated rectangles)
+  if (buildings.length > 0) {
+    const viewRadius = camera.extent * 2;
+    ctx.fillStyle = BUILDING_FILL_COLOR;
+    ctx.strokeStyle = BUILDING_STROKE_COLOR;
+    ctx.lineWidth = 0.5;
+
+    for (const b of buildings) {
+      if (Math.abs(b.x - camera.x) > viewRadius || Math.abs(b.z - camera.z) > viewRadius) continue;
+      const hw = b.width / 2;
+      const hd = b.depth / 2;
+      const cos = Math.cos(b.rotation);
+      const sin = Math.sin(b.rotation);
+      const corners = [
+        worldToScreen(b.x + cos * hw - sin * hd, b.z + sin * hw + cos * hd),
+        worldToScreen(b.x - cos * hw - sin * hd, b.z - sin * hw + cos * hd),
+        worldToScreen(b.x - cos * hw + sin * hd, b.z - sin * hw - cos * hd),
+        worldToScreen(b.x + cos * hw + sin * hd, b.z + sin * hw - cos * hd),
+      ];
+      ctx.beginPath();
+      ctx.moveTo(corners[0].x, corners[0].y);
+      for (let i = 1; i < 4; i++) ctx.lineTo(corners[i].x, corners[i].y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  frameCount++;
+
+  // Render entities
   for (const entity of entities) {
     const pos = worldToScreen(entity.x, entity.z);
-    
+
     // Skip if off-screen
     if (pos.x < -10 || pos.x > width + 10 || pos.y < -10 || pos.y > height + 10) {
       continue;
     }
-    
-    const size = entity.size || 4;
-    
-    ctx.fillStyle = entity.color;
-    ctx.beginPath();
-    
-    if (entity.type === 'building') {
-      // Square for buildings
-      ctx.fillRect(pos.x - size, pos.y - size, size * 2, size * 2);
+
+    const baseSize = entity.size || 4;
+    const pulseScale = entity.isActive ? (Math.sin(frameCount * 0.1) * 0.15 + 1) : 1;
+    const size = baseSize * pulseScale;
+
+    // Determine color (party group override for players)
+    let pipColor = entity.color;
+    if (entity.type === 'player' && entity.groupIndex !== undefined && entity.groupIndex >= 0) {
+      pipColor = GROUP_COLORS[entity.groupIndex % GROUP_COLORS.length];
+    }
+
+    // Try POI icon first
+    if (entity.subType && drawIcon(ctx, pos.x, pos.y, entity.subType)) {
+      continue;
+    }
+
+    ctx.fillStyle = pipColor;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+
+    if (entity.isLocalPlayer) {
+      // White square for local player
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(pos.x - 2.5, pos.y - 2.5, 5, 5);
+    } else if (entity.icon === 'star' || entity.type === 'quest') {
+      // Star shape
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+        const r = i % 2 === 0 ? size : size * 0.5;
+        const sx = pos.x + Math.cos(angle) * r;
+        const sy = pos.y + Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (entity.icon === 'diamond') {
+      // Diamond shape
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y - size);
+      ctx.lineTo(pos.x + size * 0.7, pos.y);
+      ctx.lineTo(pos.x, pos.y + size);
+      ctx.lineTo(pos.x - size * 0.7, pos.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
     } else if (entity.type === 'player') {
-      // Larger circle for players
+      // Circle with white border for players
+      ctx.beginPath();
       ctx.arc(pos.x, pos.y, size + 1, 0, Math.PI * 2);
       ctx.fill();
-      // White border
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
       ctx.stroke();
     } else {
       // Circle for everything else
+      ctx.beginPath();
       ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  // Draw destination marker (red flag)
+  if (destination) {
+    const dp = worldToScreen(destination.x, destination.z);
+    if (dp.x > -20 && dp.x < width + 20 && dp.y > -20 && dp.y < height + 20) {
+      // Pole
+      ctx.strokeStyle = '#880000';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(dp.x, dp.y + 3);
+      ctx.lineTo(dp.x, dp.y - 5);
+      ctx.stroke();
+      // Flag triangle
+      ctx.fillStyle = '#ff0000';
+      ctx.beginPath();
+      ctx.moveTo(dp.x, dp.y - 5);
+      ctx.lineTo(dp.x + 5, dp.y - 3);
+      ctx.lineTo(dp.x, dp.y - 1);
+      ctx.closePath();
       ctx.fill();
     }
   }
-  
+
   const frameTime = performance.now() - startTime;
   return { frameTime };
+}
+
+/**
+ * Draw a POI icon from flyweight cache.
+ * Returns true if icon was drawn, false if subType unknown.
+ */
+function drawIcon(ctx, cx, cy, subType) {
+  if (!iconCache.has(subType)) {
+    // Create icon on first use
+    try {
+      const ic = new OffscreenCanvas(16, 16);
+      const ictx = ic.getContext('2d');
+      if (ictx) {
+        renderIconGlyph(ictx, subType);
+        iconCache.set(subType, ic);
+      } else {
+        iconCache.set(subType, null);
+      }
+    } catch (e) {
+      iconCache.set(subType, null);
+    }
+  }
+  const cached = iconCache.get(subType);
+  if (!cached) return false;
+  ctx.drawImage(cached, cx - 8, cy - 8, 16, 16);
+  return true;
+}
+
+/**
+ * Render a glyph onto a 16x16 icon canvas.
+ */
+function renderIconGlyph(ctx, subType) {
+  const w = 16, h = 16, cx = 8, cy = 8, r = 6;
+  ctx.clearRect(0, 0, w, h);
+
+  const glyphs = {
+    bank:                { bg: '#ffd700', fg: '#000000', label: '$' },
+    shop:                { bg: '#d4a574', fg: '#000000', label: 'S' },
+    altar:               { bg: '#ffffff', fg: '#000000', label: '+' },
+    runecrafting_altar:  { bg: '#9b59b6', fg: '#ffffff', label: 'R' },
+    anvil:               { bg: '#555555', fg: '#ffffff', label: 'A' },
+    furnace:             { bg: '#ff6600', fg: '#ffffff', label: 'F' },
+    range:               { bg: '#8b4513', fg: '#ffffff', label: '~' },
+    fishing:             { bg: '#00bcd4', fg: '#ffffff', label: 'f' },
+    mining:              { bg: '#8b6914', fg: '#ffffff', label: 'P' },
+    tree:                { bg: '#22c55e', fg: '#000000', label: 'T' },
+    quest_available:     { bg: '#2196f3', fg: '#ffffff', label: '!' },
+    quest:               { bg: '#2196f3', fg: '#ffffff', label: '!' },
+    quest_in_progress:   { bg: '#2196f3', fg: '#ffffff', label: '?' },
+  };
+
+  const glyph = glyphs[subType];
+  if (!glyph) return;
+
+  // Circle background
+  ctx.fillStyle = glyph.bg;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Label
+  ctx.fillStyle = glyph.fg;
+  ctx.font = 'bold 9px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(glyph.label, cx, cy + 1);
 }
 
 // Message handler
@@ -440,7 +709,27 @@ self.onmessage = function(e) {
       updateEntities(msg.entities);
       break;
     }
-    
+
+    case 'updateRoads': {
+      roads = msg.roads || [];
+      break;
+    }
+
+    case 'updateBuildings': {
+      buildings = msg.buildings || [];
+      break;
+    }
+
+    case 'updateDestination': {
+      destination = { x: msg.x, z: msg.z };
+      break;
+    }
+
+    case 'clearDestination': {
+      destination = null;
+      break;
+    }
+
     case 'render': {
       const result = render();
       
@@ -458,6 +747,10 @@ self.onmessage = function(e) {
     case 'dispose': {
       tiles.clear();
       entities = [];
+      roads = [];
+      buildings = [];
+      destination = null;
+      iconCache.clear();
       canvas = null;
       ctx = null;
       break;
@@ -638,6 +931,30 @@ export class MinimapWorkerManager {
   updateEntities(entities: MinimapEntity[]): void {
     if (!this.worker || !this.ready) return;
     this.worker.postMessage({ type: "updateEntities", entities });
+  }
+
+  /** Update road polylines */
+  updateRoads(roads: MinimapRoad[]): void {
+    if (!this.worker || !this.ready) return;
+    this.worker.postMessage({ type: "updateRoads", roads });
+  }
+
+  /** Update building rectangles */
+  updateBuildings(buildings: MinimapBuilding[]): void {
+    if (!this.worker || !this.ready) return;
+    this.worker.postMessage({ type: "updateBuildings", buildings });
+  }
+
+  /** Set destination marker position */
+  updateDestination(x: number, z: number): void {
+    if (!this.worker || !this.ready) return;
+    this.worker.postMessage({ type: "updateDestination", x, z });
+  }
+
+  /** Clear destination marker */
+  clearDestination(): void {
+    if (!this.worker || !this.ready) return;
+    this.worker.postMessage({ type: "clearDestination" });
   }
 
   /** Request a render */

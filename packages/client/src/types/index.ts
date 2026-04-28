@@ -44,21 +44,20 @@ export type {
 // UI and component types
 export type {
   Field,
-  HintContextType,
   PermissionsInfo,
   PointerEventHandler,
   ChangeEventHandler,
   SelectOption,
 } from "./ui";
 
-// Player state types
+// Player state types (canonical definitions in game/types/)
 export type {
   RawEquipmentSlot,
   RawEquipmentData,
   InventorySlotViewItem,
   NetworkEventName,
-} from "./player";
-export { NetworkEvents } from "./player";
+} from "../game/types";
+export { NetworkEvents } from "../game/types";
 
 // Type guards for runtime validation
 export {

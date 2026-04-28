@@ -8,7 +8,6 @@
     "emitDecoratorMetadata": true,
     "strict": true,
     "downlevelIteration": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },

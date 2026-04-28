@@ -33,8 +33,8 @@ export function CompactStatusHUD({
 
   // Normalize values with defaults
   const hp = {
-    current: typeof health?.current === "number" ? health.current : 10,
-    max: typeof health?.max === "number" ? health.max : 10,
+    current: typeof health?.current === "number" ? health.current : 0,
+    max: typeof health?.max === "number" ? health.max : 1,
   };
   const prayer = {
     current:

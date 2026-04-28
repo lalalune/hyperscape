@@ -10,6 +10,332 @@ import type {
   GatheringToolData,
 } from "../data/DataManager";
 
+const OAK_TREE_VARIANTS = [
+  "asset://models/trees/oak/oak_01.glb",
+  "asset://models/trees/oak/oak_02.glb",
+] as const;
+
+const DEAD_TREE_VARIANTS = [
+  "asset://models/trees/dead/dead_01.glb",
+  "asset://models/trees/dead/dead_02.glb",
+  "asset://models/trees/dead/dead_03.glb",
+  "asset://models/trees/dead/dead_04.glb",
+] as const;
+
+const PINE_TREE_VARIANTS = [
+  "asset://models/trees/pine/pine_01.glb",
+  "asset://models/trees/pine/pine_02.glb",
+  "asset://models/trees/pine/pine_03.glb",
+  "asset://models/trees/pine/pine_04.glb",
+  "asset://models/trees/pine/pine_05.glb",
+] as const;
+
+const MAPLE_TREE_VARIANTS = [
+  "asset://models/trees/maple/maple_01.glb",
+  "asset://models/trees/maple/maple_02.glb",
+  "asset://models/trees/maple/maple_03.glb",
+  "asset://models/trees/maple/maple_04.glb",
+] as const;
+
+const RESOURCE_ID_ALIASES: Record<string, string> = {
+  // Legacy/default terrain subtype ids that are still present in staging
+  // world data or emitted by older terrain generators. Map them onto
+  // stable fallback-backed resource ids so both the stream client and the
+  // staging server can survive partial manifest loads.
+  tree_normal: "tree_general",
+  tree_cactus: "tree_general",
+  tree_coconut: "tree_general",
+  tree_birch: "tree_maple",
+  tree_windPine: "tree_pine",
+  tree_chinaPine: "tree_pine",
+  tree_fir: "tree_pine",
+  tree_knotwood: "tree_dead",
+};
+
+const RESOURCE_FALLBACKS: Record<string, ExternalResourceData> = {
+  tree_dead: {
+    id: "tree_dead",
+    name: "Dead Tree",
+    type: "tree",
+    examine: "A dead tree with brittle, weathered branches.",
+    modelPath: null,
+    modelVariants: [...DEAD_TREE_VARIANTS],
+    depletedModelPath:
+      "asset://models/trees/wood-tree-stump/wood-tree-stump.glb",
+    scale: 1,
+    depletedScale: 0.1,
+    harvestSkill: "woodcutting",
+    toolRequired: "bronze_hatchet",
+    levelRequired: 1,
+    baseCycleTicks: 4,
+    depleteChance: 0.125,
+    respawnTicks: 80,
+    harvestYield: [
+      {
+        itemId: "logs",
+        itemName: "Logs",
+        quantity: 1,
+        chance: 1,
+        xpAmount: 25,
+        stackable: true,
+      },
+    ],
+  },
+  tree_pine: {
+    id: "tree_pine",
+    name: "Pine Tree",
+    type: "tree",
+    examine: "A tall pine tree with dense evergreen needles.",
+    modelPath: null,
+    modelVariants: [...PINE_TREE_VARIANTS],
+    depletedModelPath:
+      "asset://models/trees/wood-tree-stump/wood-tree-stump.glb",
+    scale: 1,
+    depletedScale: 0.1,
+    harvestSkill: "woodcutting",
+    toolRequired: "bronze_hatchet",
+    levelRequired: 1,
+    baseCycleTicks: 4,
+    depleteChance: 0.125,
+    respawnTicks: 80,
+    harvestYield: [
+      {
+        itemId: "logs",
+        itemName: "Logs",
+        quantity: 1,
+        chance: 1,
+        xpAmount: 25,
+        stackable: true,
+      },
+    ],
+  },
+  tree_maple: {
+    id: "tree_maple",
+    name: "Maple Tree",
+    type: "tree",
+    examine: "A broad maple tree with a thick trunk.",
+    modelPath: null,
+    modelVariants: [...MAPLE_TREE_VARIANTS],
+    depletedModelPath:
+      "asset://models/trees/wood-tree-stump/wood-tree-stump.glb",
+    scale: 1,
+    depletedScale: 0.1,
+    harvestSkill: "woodcutting",
+    toolRequired: "bronze_hatchet",
+    levelRequired: 1,
+    baseCycleTicks: 4,
+    depleteChance: 0.125,
+    respawnTicks: 80,
+    harvestYield: [
+      {
+        itemId: "logs",
+        itemName: "Logs",
+        quantity: 1,
+        chance: 1,
+        xpAmount: 25,
+        stackable: true,
+      },
+    ],
+  },
+  tree_banana: {
+    id: "tree_banana",
+    name: "Banana Tree",
+    type: "tree",
+    examine: "A tropical banana tree with large, broad leaves.",
+    modelPath: null,
+    modelVariants: [
+      "asset://models/trees/banana/banana_01.glb",
+      "asset://models/trees/banana/banana_02.glb",
+      "asset://models/trees/banana/banana_03.glb",
+      "asset://models/trees/banana/banana_04.glb",
+      "asset://models/trees/banana/banana_05.glb",
+    ],
+    depletedModelPath:
+      "asset://models/trees/wood-tree-stump/wood-tree-stump.glb",
+    scale: 1,
+    depletedScale: 0.1,
+    harvestSkill: "woodcutting",
+    toolRequired: "bronze_hatchet",
+    levelRequired: 1,
+    baseCycleTicks: 4,
+    depleteChance: 0.125,
+    respawnTicks: 80,
+    harvestYield: [
+      {
+        itemId: "logs",
+        itemName: "Logs",
+        quantity: 1,
+        chance: 1,
+        xpAmount: 25,
+        stackable: true,
+      },
+    ],
+  },
+  tree_pineDead: {
+    id: "tree_pineDead",
+    name: "Dead Pine",
+    type: "tree",
+    examine: "A weathered pine, stripped bare by harsh tundra winds.",
+    modelPath: null,
+    modelVariants: [
+      "asset://models/trees/pine_dead/pine_dead_01.glb",
+      "asset://models/trees/pine_dead/pine_dead_02.glb",
+      "asset://models/trees/pine_dead/pine_dead_03.glb",
+    ],
+    depletedModelPath:
+      "asset://models/trees/wood-tree-stump/wood-tree-stump.glb",
+    scale: 1,
+    depletedScale: 0.1,
+    harvestSkill: "woodcutting",
+    toolRequired: "bronze_hatchet",
+    levelRequired: 1,
+    baseCycleTicks: 4,
+    depleteChance: 0.125,
+    respawnTicks: 80,
+    harvestYield: [
+      {
+        itemId: "logs",
+        itemName: "Logs",
+        quantity: 1,
+        chance: 1,
+        xpAmount: 25,
+        stackable: true,
+      },
+    ],
+  },
+  tree_eucalyptus: {
+    id: "tree_eucalyptus",
+    name: "Eucalyptus Tree",
+    type: "tree",
+    examine: "A tall eucalyptus with peeling bark and long leaves.",
+    modelPath: null,
+    modelVariants: [
+      "asset://models/trees/eucalyptus/eucalyptus_01.glb",
+      "asset://models/trees/eucalyptus/eucalyptus_02.glb",
+      "asset://models/trees/eucalyptus/eucalyptus_03.glb",
+      "asset://models/trees/eucalyptus/eucalyptus_04.glb",
+      "asset://models/trees/eucalyptus/eucalyptus_05.glb",
+    ],
+    depletedModelPath:
+      "asset://models/trees/wood-tree-stump/wood-tree-stump.glb",
+    scale: 1,
+    depletedScale: 0.1,
+    harvestSkill: "woodcutting",
+    toolRequired: "bronze_hatchet",
+    levelRequired: 30,
+    baseCycleTicks: 4,
+    depleteChance: 0.125,
+    respawnTicks: 80,
+    harvestYield: [
+      {
+        itemId: "logs",
+        itemName: "Logs",
+        quantity: 1,
+        chance: 1,
+        xpAmount: 67.5,
+        stackable: true,
+      },
+    ],
+  },
+  tree_general: {
+    id: "tree_general",
+    name: "Tree",
+    type: "tree",
+    examine: "A common tree. I can chop it down with a hatchet.",
+    modelPath: null,
+    modelVariants: [
+      "asset://models/trees/general/general_01.glb",
+      "asset://models/trees/general/general_02.glb",
+      "asset://models/trees/general/general_03.glb",
+      "asset://models/trees/general/general_04.glb",
+      "asset://models/trees/general/general_05.glb",
+      "asset://models/trees/general/general_06.glb",
+    ],
+    depletedModelPath:
+      "asset://models/trees/wood-tree-stump/wood-tree-stump.glb",
+    scale: 1,
+    depletedScale: 0.1,
+    harvestSkill: "woodcutting",
+    toolRequired: "bronze_hatchet",
+    levelRequired: 1,
+    baseCycleTicks: 4,
+    depleteChance: 0.125,
+    respawnTicks: 80,
+    harvestYield: [
+      {
+        itemId: "logs",
+        itemName: "Logs",
+        quantity: 1,
+        chance: 1,
+        xpAmount: 25,
+        stackable: true,
+      },
+    ],
+  },
+  tree_magic: {
+    id: "tree_magic",
+    name: "Magic Tree",
+    type: "tree",
+    examine: "A tree infused with magical energy.",
+    modelPath: null,
+    modelVariants: [
+      "asset://models/trees/magic/magic_01.glb",
+      "asset://models/trees/magic/magic_02.glb",
+    ],
+    depletedModelPath:
+      "asset://models/trees/wood-tree-stump/wood-tree-stump.glb",
+    scale: 1,
+    depletedScale: 0.1,
+    harvestSkill: "woodcutting",
+    toolRequired: "bronze_hatchet",
+    levelRequired: 60,
+    baseCycleTicks: 4,
+    depleteChance: 0.125,
+    respawnTicks: 80,
+    harvestYield: [
+      {
+        itemId: "magic_logs",
+        itemName: "Magic Logs",
+        quantity: 1,
+        chance: 1,
+        xpAmount: 250,
+        stackable: true,
+      },
+    ],
+  },
+  tree_mahogany: {
+    id: "tree_mahogany",
+    name: "Mahogany Tree",
+    type: "tree",
+    examine: "A mahogany tree with rich, reddish-brown timber.",
+    modelPath: null,
+    modelVariants: [
+      "asset://models/trees/mahogany/mahogany_01.glb",
+      "asset://models/trees/mahogany/mahogany_02.glb",
+    ],
+    depletedModelPath:
+      "asset://models/trees/wood-tree-stump/wood-tree-stump.glb",
+    scale: 1,
+    depletedScale: 0.1,
+    harvestSkill: "woodcutting",
+    toolRequired: "bronze_hatchet",
+    levelRequired: 50,
+    baseCycleTicks: 4,
+    depleteChance: 0.125,
+    respawnTicks: 80,
+    harvestYield: [
+      {
+        itemId: "mahogany_logs",
+        itemName: "Mahogany Logs",
+        quantity: 1,
+        chance: 1,
+        xpAmount: 125,
+        stackable: true,
+      },
+    ],
+  },
+};
+
 interface ExternalBuilding {
   id: string;
   name: string;
@@ -48,10 +374,13 @@ export function getExternalNPC(id: string): NPCData | null {
  * Get all external resources loaded from manifests
  */
 export function getExternalResources(): Map<string, ExternalResourceData> {
-  const resources = (
-    globalThis as { EXTERNAL_RESOURCES?: Map<string, ExternalResourceData> }
-  ).EXTERNAL_RESOURCES;
-  return resources || new Map();
+  const resourceRoot = globalThis as {
+    EXTERNAL_RESOURCES?: Map<string, ExternalResourceData>;
+  };
+  if (!resourceRoot.EXTERNAL_RESOURCES) {
+    resourceRoot.EXTERNAL_RESOURCES = new Map();
+  }
+  return resourceRoot.EXTERNAL_RESOURCES;
 }
 
 /**
@@ -59,7 +388,26 @@ export function getExternalResources(): Map<string, ExternalResourceData> {
  */
 export function getExternalResource(id: string): ExternalResourceData | null {
   const resources = getExternalResources();
-  return resources.get(id) || null;
+  const existing = resources.get(id);
+  if (existing) {
+    return existing;
+  }
+
+  const canonicalId = RESOURCE_ID_ALIASES[id] ?? id;
+  if (canonicalId !== id) {
+    const aliased = resources.get(canonicalId) ?? RESOURCE_FALLBACKS[canonicalId];
+    if (aliased) {
+      resources.set(id, aliased);
+      return aliased;
+    }
+  }
+
+  const fallback = RESOURCE_FALLBACKS[canonicalId];
+  if (!fallback) {
+    return null;
+  }
+  resources.set(id, fallback);
+  return fallback;
 }
 
 /**

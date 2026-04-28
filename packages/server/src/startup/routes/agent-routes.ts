@@ -17,6 +17,7 @@
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { World } from "@hyperscape/shared";
+import { RateLimiterMemory } from "rate-limiter-flexible";
 import { getDefaultPublicWsUrl } from "../../shared/public-ws-url.js";
 import { createJWT } from "../../shared/utils.js";
 import {
@@ -31,6 +32,14 @@ import type {
 // Command acknowledgment delay (ms) - allows plugin to process before response
 const COMMAND_ACK_DELAY_MS = 100;
 const AGENT_MAPPING_CACHE_TTL_MS = 5000;
+const AGENT_MANAGEMENT_RATE_LIMIT = {
+  max: 60,
+  timeWindow: "1 minute",
+};
+const AGENT_MANAGEMENT_CODEQL_LIMITER = new RateLimiterMemory({
+  points: 60,
+  duration: 60,
+});
 
 type AgentRouteCharacterRecord = {
   accountId: string;
@@ -49,6 +58,20 @@ type AgentMappingRecord = {
 type CachedValue<T> = {
   expiresAt: number;
   value: T;
+};
+
+function normalizeThoughtsLimit(rawLimit: string | undefined): number {
+  const parsed = Number.parseInt(rawLimit || "100", 10);
+  if (!Number.isFinite(parsed)) {
+    return 100;
+  }
+  return Math.max(1, Math.min(parsed, 200));
+}
+
+type AgentRouteSelectQuery = PromiseLike<unknown[]> & {
+  orderBy: (order: unknown) => {
+    limit: (count: number) => Promise<unknown[]>;
+  };
 };
 
 type AgentRouteDb = {
@@ -75,7 +98,7 @@ type AgentRouteDb = {
   };
   select: (fields?: unknown) => {
     from: (table: unknown) => {
-      where: (condition: unknown) => Promise<unknown[]>;
+      where: (condition: unknown) => AgentRouteSelectQuery;
     };
   };
   update: (table: unknown) => {
@@ -107,11 +130,10 @@ export function registerAgentRoutes(
   world: World,
 ): void {
   console.log("[AgentRoutes] Registering agent credential routes...");
-
   const getVerifiedUserId = async (
     request: FastifyRequest,
   ): Promise<string | null> => {
-    const authHeader = request.headers.authorization;
+    const authHeader = request.headers?.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return null;
     }
@@ -141,6 +163,29 @@ export function registerAgentRoutes(
     return null;
   };
 
+  const ensureAccountAccess = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    accountId: string,
+  ): Promise<boolean> => {
+    const verifiedUserId = await getVerifiedUserId(request);
+    if (!verifiedUserId) {
+      await reply.status(401).send({
+        success: false,
+        error: "Unauthorized",
+      });
+      return false;
+    }
+    if (verifiedUserId !== accountId) {
+      await reply.status(403).send({
+        success: false,
+        error: "Forbidden",
+      });
+      return false;
+    }
+    return true;
+  };
+
   const agentMappingByIdCache = new Map<
     string,
     CachedValue<AgentMappingRecord | null>
@@ -160,6 +205,23 @@ export function registerAgentRoutes(
     const databaseSystem = getDatabaseSystem();
     return databaseSystem?.db ?? databaseSystem?.getDb?.() ?? null;
   };
+
+  const withAgentManagementRateLimit =
+    (
+      handler: (
+        request: FastifyRequest,
+        reply: FastifyReply,
+      ) => Promise<unknown>,
+    ) =>
+    async (request: FastifyRequest, reply: FastifyReply): Promise<unknown> => {
+      try {
+        await AGENT_MANAGEMENT_CODEQL_LIMITER.consume(request.ip);
+      } catch {
+        return reply.code(429).send({ error: "Too Many Requests" });
+      }
+
+      return handler(request, reply);
+    };
 
   const getCachedValue = <T>(
     cache: Map<string, CachedValue<T>>,
@@ -417,95 +479,113 @@ export function registerAgentRoutes(
    *   serverUrl: "ws://localhost:5556/ws"
    * }
    */
-  fastify.post("/api/agents/credentials", async (request, reply) => {
-    try {
-      const body = request.body as {
-        characterId: string;
-        accountId: string;
-      };
-
-      if (!body.characterId || !body.accountId) {
-        return reply.status(400).send({
-          success: false,
-          error: "Missing required fields: characterId, accountId",
-        });
+  fastify.post(
+    "/api/agents/credentials",
+    {
+      config: { rateLimit: AGENT_MANAGEMENT_RATE_LIMIT },
+    },
+    async (request, reply) => {
+      try {
+        await AGENT_MANAGEMENT_CODEQL_LIMITER.consume(request.ip);
+      } catch {
+        return reply.code(429).send({ error: "Too Many Requests" });
       }
 
-      const { characterId, accountId } = body;
+      try {
+        const body = request.body as {
+          characterId: string;
+          accountId: string;
+        };
 
-      console.log("[AgentRoutes] Generating credentials for:", {
-        characterId,
-        accountId,
-      });
+        if (!body.characterId || !body.accountId) {
+          return reply.status(400).send({
+            success: false,
+            error: "Missing required fields: characterId, accountId",
+          });
+        }
 
-      // Verify character exists and belongs to this account
-      const databaseSystem = world.getSystem("database") as
-        | {
-            getCharactersAsync: (
-              accountId: string,
-            ) => Promise<Array<{ id: string; name: string }>>;
-          }
-        | undefined;
+        const { characterId, accountId } = body;
+        if (!(await ensureAccountAccess(request, reply, accountId))) {
+          return;
+        }
 
-      if (!databaseSystem) {
-        console.error("[AgentRoutes] DatabaseSystem not available");
+        console.log("[AgentRoutes] Generating credentials for:", {
+          characterId,
+          accountId,
+        });
+
+        // Verify character exists and belongs to this account
+        const databaseSystem = world.getSystem("database") as
+          | {
+              getCharactersAsync: (
+                accountId: string,
+              ) => Promise<Array<{ id: string; name: string }>>;
+            }
+          | undefined;
+
+        if (!databaseSystem) {
+          console.error("[AgentRoutes] DatabaseSystem not available");
+          return reply.status(500).send({
+            success: false,
+            error: "Database system not available",
+          });
+        }
+
+        const characters = await databaseSystem.getCharactersAsync(accountId);
+        const character = characters.find((c) => c.id === characterId);
+
+        if (!character) {
+          console.warn(
+            `[AgentRoutes] Character ${characterId} not found or not owned by ${accountId}`,
+          );
+          return reply.status(403).send({
+            success: false,
+            error: "Character not found or access denied",
+          });
+        }
+
+        console.log("[AgentRoutes] Character verified:", character.name);
+
+        // Generate 7-day Hyperscape JWT
+        const authToken = await createJWT({
+          userId: accountId,
+          characterId: characterId,
+          isAgent: true,
+        });
+
+        console.log(
+          `[AgentRoutes] ✅ Generated 7-day JWT for agent: ${character.name}`,
+        );
+
+        // Get server URL from environment or use default
+        const serverUrl =
+          process.env.HYPERSCAPE_SERVER_URL ||
+          process.env.PUBLIC_WS_URL ||
+          getDefaultPublicWsUrl();
+
+        return reply.send({
+          success: true,
+          authToken,
+          characterId,
+          serverUrl,
+          message: `Credentials generated for ${character.name} (expires in 7 days)`,
+        });
+      } catch (error) {
+        console.error(
+          "[AgentRoutes] ❌ Failed to generate credentials:",
+          error,
+        );
+
         return reply.status(500).send({
           success: false,
-          error: "Database system not available",
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to generate credentials",
         });
       }
-
-      const characters = await databaseSystem.getCharactersAsync(accountId);
-      const character = characters.find((c) => c.id === characterId);
-
-      if (!character) {
-        console.warn(
-          `[AgentRoutes] Character ${characterId} not found or not owned by ${accountId}`,
-        );
-        return reply.status(403).send({
-          success: false,
-          error: "Character not found or access denied",
-        });
-      }
-
-      console.log("[AgentRoutes] Character verified:", character.name);
-
-      // Generate 7-day Hyperscape JWT
-      const authToken = await createJWT({
-        userId: accountId,
-        characterId: characterId,
-        isAgent: true,
-      });
-
-      console.log(
-        `[AgentRoutes] ✅ Generated 7-day JWT for agent: ${character.name}`,
-      );
-
-      // Get server URL from environment or use default
-      const serverUrl =
-        process.env.HYPERSCAPE_SERVER_URL ||
-        process.env.PUBLIC_WS_URL ||
-        getDefaultPublicWsUrl();
-
-      return reply.send({
-        success: true,
-        authToken,
-        characterId,
-        serverUrl,
-        message: `Credentials generated for ${character.name} (expires in 7 days)`,
-      });
-    } catch (error) {
-      console.error("[AgentRoutes] ❌ Failed to generate credentials:", error);
-
-      return reply.status(500).send({
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to generate credentials",
-      });
-    }
-  });
+    },
+  );
 
   /**
    * POST /api/agents/wallet-auth
@@ -565,35 +645,7 @@ export function registerAgentRoutes(
       const accountId = `wallet:${walletType}:${walletAddress}`;
 
       // Get database access
-      const databaseSystem = world.getSystem("database") as
-        | {
-            db: {
-              select: (fields?: unknown) => {
-                from: (table: unknown) => {
-                  where: (condition: unknown) => Promise<unknown[]>;
-                };
-              };
-              insert: (table: unknown) => {
-                values: (values: Record<string, unknown>) => {
-                  onConflictDoUpdate: (config: {
-                    target: unknown;
-                    set: unknown;
-                  }) => Promise<unknown>;
-                } & Promise<unknown>;
-              };
-              query: {
-                characters: {
-                  findFirst: (opts: {
-                    where: (
-                      chars: { accountId: unknown },
-                      ops: { eq: (a: unknown, b: string) => unknown },
-                    ) => unknown;
-                  }) => Promise<{ id: string; name: string } | null>;
-                };
-              };
-            };
-          }
-        | undefined;
+      const databaseSystem = getDatabaseSystem();
 
       if (!databaseSystem?.db) {
         return reply.status(500).send({
@@ -640,7 +692,15 @@ export function registerAgentRoutes(
           createdAt: Date.now(),
         });
 
-        character = { id: characterId, name: agentName };
+        character = {
+          id: characterId,
+          accountId,
+          name: agentName,
+        };
+      }
+
+      if (!character) {
+        throw new Error("Failed to resolve character after wallet auth");
       }
 
       // Generate 7-day JWT
@@ -741,72 +801,90 @@ export function registerAgentRoutes(
    *   agentIds: ["agent-id-1", "agent-id-2", ...]
    * }
    */
-  fastify.get("/api/agents/mappings/:accountId", async (request, reply) => {
-    try {
-      const params = request.params as { accountId: string };
-      const { accountId } = params;
-
-      if (!accountId) {
-        return reply.status(400).send({
-          success: false,
-          error: "Missing required parameter: accountId",
-        });
+  fastify.get(
+    "/api/agents/mappings/:accountId",
+    {
+      config: { rateLimit: AGENT_MANAGEMENT_RATE_LIMIT },
+    },
+    async (request, reply) => {
+      try {
+        await AGENT_MANAGEMENT_CODEQL_LIMITER.consume(request.ip);
+      } catch {
+        return reply.code(429).send({ error: "Too Many Requests" });
       }
 
-      console.log("[AgentRoutes] Fetching agent mappings for:", accountId);
+      try {
+        const params = request.params as { accountId: string };
+        const { accountId } = params;
 
-      const db = getDatabaseDb();
-      if (!db) {
-        console.error("[AgentRoutes] DatabaseSystem not available");
+        if (!accountId) {
+          return reply.status(400).send({
+            success: false,
+            error: "Missing required parameter: accountId",
+          });
+        }
+        if (!(await ensureAccountAccess(request, reply, accountId))) {
+          return;
+        }
+
+        console.log("[AgentRoutes] Fetching agent mappings for:", accountId);
+
+        const db = getDatabaseDb();
+        if (!db) {
+          console.error("[AgentRoutes] DatabaseSystem not available");
+          return reply.status(500).send({
+            success: false,
+            error: "Database system not available",
+          });
+        }
+
+        const mappings = await listAgentMappingsByAccount(db, accountId);
+
+        const agentIds = mappings.flatMap((m) => [m.agentId, m.characterId]);
+
+        // Model duel agents are public streaming participants; include them in
+        // mapping lookup so dashboards can discover live duel roster.
+        const { getRunningAgents } = await import("../../eliza/index.js");
+        const runningModelAgents = getRunningAgents() as Map<
+          string,
+          {
+            characterId: string;
+          }
+        >;
+
+        for (const [, runningAgent] of runningModelAgents) {
+          if (runningAgent.characterId) {
+            agentIds.push(runningAgent.characterId);
+          }
+        }
+
+        const uniqueAgentIds = Array.from(new Set(agentIds));
+
+        console.log(
+          `[AgentRoutes] Found ${uniqueAgentIds.length} agent(s) for ${accountId}`,
+        );
+
+        return reply.send({
+          success: true,
+          agentIds: uniqueAgentIds,
+          count: uniqueAgentIds.length,
+        });
+      } catch (error) {
+        console.error(
+          "[AgentRoutes] ❌ Failed to fetch agent mappings:",
+          error,
+        );
+
         return reply.status(500).send({
           success: false,
-          error: "Database system not available",
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch agent mappings",
         });
       }
-
-      const mappings = await listAgentMappingsByAccount(db, accountId);
-
-      const agentIds = mappings.flatMap((m) => [m.agentId, m.characterId]);
-
-      // Model duel agents are public streaming participants; include them in
-      // mapping lookup so dashboards can discover live duel roster.
-      const { getRunningAgents } = await import("../../eliza/index.js");
-      const runningModelAgents = getRunningAgents() as Map<
-        string,
-        {
-          characterId: string;
-        }
-      >;
-
-      for (const [, runningAgent] of runningModelAgents) {
-        if (runningAgent.characterId) {
-          agentIds.push(runningAgent.characterId);
-        }
-      }
-
-      const uniqueAgentIds = Array.from(new Set(agentIds));
-
-      console.log(
-        `[AgentRoutes] Found ${uniqueAgentIds.length} agent(s) for ${accountId}`,
-      );
-
-      return reply.send({
-        success: true,
-        agentIds: uniqueAgentIds,
-        count: uniqueAgentIds.length,
-      });
-    } catch (error) {
-      console.error("[AgentRoutes] ❌ Failed to fetch agent mappings:", error);
-
-      return reply.status(500).send({
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to fetch agent mappings",
-      });
-    }
-  });
+    },
+  );
 
   /**
    * POST /api/agents/mappings
@@ -827,121 +905,130 @@ export function registerAgentRoutes(
    *   success: true
    * }
    */
-  fastify.post("/api/agents/mappings", async (request, reply) => {
-    try {
-      const body = request.body as {
-        agentId: string;
-        accountId: string;
-        characterId: string;
-        agentName: string;
-      };
+  fastify.post(
+    "/api/agents/mappings",
+    {
+      config: { rateLimit: AGENT_MANAGEMENT_RATE_LIMIT },
+    },
+    withAgentManagementRateLimit(async (request, reply) => {
+      try {
+        const body = request.body as {
+          agentId: string;
+          accountId: string;
+          characterId: string;
+          agentName: string;
+        };
 
-      if (
-        !body.agentId ||
-        !body.accountId ||
-        !body.characterId ||
-        !body.agentName
-      ) {
-        return reply.status(400).send({
-          success: false,
-          error:
-            "Missing required fields: agentId, accountId, characterId, agentName",
+        if (
+          !body.agentId ||
+          !body.accountId ||
+          !body.characterId ||
+          !body.agentName
+        ) {
+          return reply.status(400).send({
+            success: false,
+            error:
+              "Missing required fields: agentId, accountId, characterId, agentName",
+          });
+        }
+
+        const { agentId, accountId, characterId, agentName } = body;
+        if (!(await ensureAccountAccess(request, reply, accountId))) {
+          return;
+        }
+
+        console.log("[AgentRoutes] Saving agent mapping:", {
+          agentId,
+          accountId,
+          characterId,
+          agentName,
         });
-      }
 
-      const { agentId, accountId, characterId, agentName } = body;
-
-      console.log("[AgentRoutes] Saving agent mapping:", {
-        agentId,
-        accountId,
-        characterId,
-        agentName,
-      });
-
-      // Get database system
-      const databaseSystem = world.getSystem("database") as
-        | {
-            db: {
-              insert: (table: unknown) => {
-                values: (values: unknown) => {
-                  onConflictDoUpdate: (config: {
-                    target: unknown;
-                    set: unknown;
-                  }) => Promise<unknown>;
+        // Get database system
+        const databaseSystem = world.getSystem("database") as
+          | {
+              db: {
+                insert: (table: unknown) => {
+                  values: (values: unknown) => {
+                    onConflictDoUpdate: (config: {
+                      target: unknown;
+                      set: unknown;
+                    }) => Promise<unknown>;
+                  };
                 };
               };
-            };
-          }
-        | undefined;
+            }
+          | undefined;
 
-      if (!databaseSystem || !databaseSystem.db) {
-        console.error("[AgentRoutes] DatabaseSystem not available");
-        return reply.status(500).send({
-          success: false,
-          error: "Database system not available",
-        });
-      }
+        if (!databaseSystem || !databaseSystem.db) {
+          console.error("[AgentRoutes] DatabaseSystem not available");
+          return reply.status(500).send({
+            success: false,
+            error: "Database system not available",
+          });
+        }
 
-      // Import schema
-      const { agentMappings } = await import("../../database/schema.js");
-      const existingMapping = await getAgentMappingById(
-        databaseSystem.db as AgentRouteDb,
-        agentId,
-        true,
-      );
+        // Import schema
+        const { agentMappings } = await import("../../database/schema.js");
+        const existingMapping = await getAgentMappingById(
+          databaseSystem.db as AgentRouteDb,
+          agentId,
+          true,
+        );
 
-      // Insert or update mapping
-      await databaseSystem.db
-        .insert(agentMappings)
-        .values({
+        // Insert or update mapping
+        await databaseSystem.db
+          .insert(agentMappings)
+          .values({
+            agentId,
+            accountId,
+            characterId,
+            agentName,
+            streamingDuelEnabled: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: agentMappings.agentId,
+            set: {
+              accountId,
+              characterId,
+              agentName,
+              updatedAt: new Date(),
+            },
+          });
+        invalidateAgentMappingCache(
+          agentId,
+          existingMapping?.accountId,
+          accountId,
+        );
+        primeAgentMappingCache({
           agentId,
           accountId,
           characterId,
           agentName,
           streamingDuelEnabled: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: agentMappings.agentId,
-          set: {
-            accountId,
-            characterId,
-            agentName,
-            updatedAt: new Date(),
-          },
         });
-      invalidateAgentMappingCache(
-        agentId,
-        existingMapping?.accountId,
-        accountId,
-      );
-      primeAgentMappingCache({
-        agentId,
-        accountId,
-        characterId,
-        agentName,
-        streamingDuelEnabled: true,
-      });
 
-      console.log(`[AgentRoutes] ✅ Agent mapping saved for: ${agentName}`);
+        console.log(`[AgentRoutes] ✅ Agent mapping saved for: ${agentName}`);
 
-      return reply.send({
-        success: true,
-        message: `Agent mapping saved for ${agentName}`,
-      });
-    } catch (error) {
-      console.error("[AgentRoutes] ❌ Failed to save agent mapping:", error);
+        return reply.send({
+          success: true,
+          message: `Agent mapping saved for ${agentName}`,
+        });
+      } catch (error) {
+        console.error("[AgentRoutes] ❌ Failed to save agent mapping:", error);
 
-      return reply.status(500).send({
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to save agent mapping",
-      });
-    }
-  });
+        return reply.status(500).send({
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to save agent mapping",
+        });
+      }
+    }),
+  );
 
   /**
    * GET /api/agents/mapping/:agentId
@@ -1150,54 +1237,87 @@ export function registerAgentRoutes(
    *   message: "Agent mapping deleted"
    * }
    */
-  fastify.delete("/api/agents/mappings/:agentId", async (request, reply) => {
-    try {
-      const params = request.params as { agentId: string };
-      const { agentId } = params;
-
-      if (!agentId) {
-        return reply.status(400).send({
-          success: false,
-          error: "Missing required parameter: agentId",
-        });
+  fastify.delete(
+    "/api/agents/mappings/:agentId",
+    {
+      config: { rateLimit: AGENT_MANAGEMENT_RATE_LIMIT },
+    },
+    async (request, reply) => {
+      try {
+        await AGENT_MANAGEMENT_CODEQL_LIMITER.consume(request.ip);
+      } catch {
+        return reply.code(429).send({ error: "Too Many Requests" });
       }
 
-      console.log("[AgentRoutes] Deleting agent mapping for:", agentId);
+      try {
+        const params = request.params as { agentId: string };
+        const { agentId } = params;
 
-      const db = getDatabaseDb();
-      if (!db) {
-        console.error("[AgentRoutes] DatabaseSystem not available");
+        if (!agentId) {
+          return reply.status(400).send({
+            success: false,
+            error: "Missing required parameter: agentId",
+          });
+        }
+
+        console.log("[AgentRoutes] Deleting agent mapping for:", agentId);
+
+        const db = getDatabaseDb();
+        if (!db) {
+          console.error("[AgentRoutes] DatabaseSystem not available");
+          return reply.status(500).send({
+            success: false,
+            error: "Database system not available",
+          });
+        }
+
+        const existingMapping = await getAgentMappingById(db, agentId, true);
+        if (!existingMapping) {
+          return reply.status(404).send({
+            success: false,
+            error: "Agent mapping not found",
+          });
+        }
+        if (
+          !(await ensureAccountAccess(
+            request,
+            reply,
+            existingMapping.accountId,
+          ))
+        ) {
+          return;
+        }
+
+        const { agentMappings } = await schemaModulePromise;
+        const { eq } = await drizzleModulePromise;
+
+        await db
+          .delete(agentMappings)
+          .where(eq(agentMappings.agentId, agentId));
+        invalidateAgentMappingCache(agentId, existingMapping?.accountId);
+
+        console.log(`[AgentRoutes] ✅ Agent mapping deleted for: ${agentId}`);
+
+        return reply.send({
+          success: true,
+          message: "Agent mapping deleted",
+        });
+      } catch (error) {
+        console.error(
+          "[AgentRoutes] ❌ Failed to delete agent mapping:",
+          error,
+        );
+
         return reply.status(500).send({
           success: false,
-          error: "Database system not available",
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to delete agent mapping",
         });
       }
-
-      const existingMapping = await getAgentMappingById(db, agentId, true);
-      const { agentMappings } = await schemaModulePromise;
-      const { eq } = await drizzleModulePromise;
-
-      await db.delete(agentMappings).where(eq(agentMappings.agentId, agentId));
-      invalidateAgentMappingCache(agentId, existingMapping?.accountId);
-
-      console.log(`[AgentRoutes] ✅ Agent mapping deleted for: ${agentId}`);
-
-      return reply.send({
-        success: true,
-        message: "Agent mapping deleted",
-      });
-    } catch (error) {
-      console.error("[AgentRoutes] ❌ Failed to delete agent mapping:", error);
-
-      return reply.status(500).send({
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to delete agent mapping",
-      });
-    }
-  });
+    },
+  );
 
   /**
    * POST /api/agents/:agentId/message
@@ -2880,7 +3000,7 @@ export function registerAgentRoutes(
       }
 
       // Parse query params
-      const limit = Math.min(parseInt(query.limit || "100", 10), 200);
+      const limit = normalizeThoughtsLimit(query.limit);
       const since = query.since ? parseInt(query.since, 10) : 0;
 
       const db = getDatabaseDb();
@@ -2926,13 +3046,23 @@ export function registerAgentRoutes(
         try {
           const { agentThoughts: agentThoughtsTable } =
             await import("../../database/schema.js");
-          const { desc, eq } = await import("drizzle-orm");
-          const rows = await db
+          const { and, desc, eq, gt } = await import("drizzle-orm");
+          const conditions = [eq(agentThoughtsTable.characterId, characterId)];
+          if (since > 0) {
+            conditions.push(gt(agentThoughtsTable.timestamp, since));
+          }
+          const rows = (await db
             .select()
             .from(agentThoughtsTable)
-            .where(eq(agentThoughtsTable.characterId, characterId))
+            .where(and(...conditions))
             .orderBy(desc(agentThoughtsTable.timestamp))
-            .limit(limit);
+            .limit(limit)) as Array<{
+            characterId: string;
+            type: string;
+            content: string;
+            timestamp: number;
+            decisionPath?: string | null;
+          }>;
           thoughts = rows.map((r) => ({
             id: `${r.characterId}-thought-${r.timestamp}`,
             type: r.type,
@@ -2952,11 +3082,10 @@ export function registerAgentRoutes(
       }
 
       // Filter by since timestamp and limit
-      let filteredThoughts = thoughts;
-      if (since > 0) {
-        filteredThoughts = thoughts.filter((t) => t.timestamp > since);
-      }
-      filteredThoughts = filteredThoughts.slice(0, limit);
+      const filteredThoughts =
+        since > 0
+          ? thoughts.filter((t) => t.timestamp > since).slice(0, limit)
+          : thoughts.slice(0, limit);
 
       return reply.send({
         success: true,
@@ -3087,42 +3216,7 @@ export function registerAgentRoutes(
       const inputCharacterId = body.characterId;
 
       // Get character from database to retrieve accountId and name
-      const databaseSystem = world.getSystem("database") as
-        | {
-            db: {
-              select: (fields?: unknown) => {
-                from: (table: unknown) => {
-                  where: (condition: unknown) => Promise<unknown[]>;
-                };
-              };
-              insert: (table: unknown) => {
-                values: (values: Record<string, unknown>) => {
-                  onConflictDoUpdate: (config: {
-                    set: Record<string, unknown>;
-                    target: unknown;
-                  }) => Promise<unknown>;
-                } & Promise<unknown>;
-              };
-              delete: (table: unknown) => {
-                where: (condition: unknown) => Promise<unknown>;
-              };
-              query: {
-                characters: {
-                  findFirst: (opts: {
-                    where: (
-                      chars: { id: unknown },
-                      ops: { eq: (a: unknown, b: string) => unknown },
-                    ) => unknown;
-                  }) => Promise<{
-                    id: string;
-                    accountId: string;
-                    name: string;
-                  } | null>;
-                };
-              };
-            };
-          }
-        | undefined;
+      const databaseSystem = getDatabaseSystem();
 
       if (!databaseSystem?.db) {
         return reply.status(500).send({

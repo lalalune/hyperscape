@@ -531,145 +531,104 @@ export class PlayerRemote extends Entity implements HotReloadable {
       ) {
         avatarWithInstance.instance.disableRateCheck();
       }
-
-      // Set up positioning
-      const headHeight = this.avatar.getHeadToHeight()!;
-      // Bubble goes at head height for chat
-      this.bubble.position.y = headHeight + 0.2;
-
-      nodeObj.position.set(0, 0, 0);
-
-      // PERFORMANCE: Disable raycasting on VRM meshes - use raycastProxy instead
-      // SkinnedMesh raycast is extremely slow (~700ms) because THREE.js must
-      // transform every vertex by bone weights. The capsule proxy mesh is instant.
-      const instanceWithRaw = avatarWithInstance.instance as unknown as {
-        raw?: { scene?: THREE.Object3D };
-      };
-      if (instanceWithRaw?.raw?.scene) {
-        instanceWithRaw.raw.scene.traverse((child: THREE.Object3D) => {
-          child.raycast = () => {}; // No-op raycast
-        });
-      }
-
-      // CRITICAL: Load and apply idle emote BEFORE making avatar visible
-      // This prevents T-pose flash on spawn
-      const avatarWithEmote = this.avatar as AvatarWithInstance;
-      if (avatarWithEmote.instance?.setEmoteAndWait) {
-        // Use setEmoteAndWait to ensure animation is loaded and first frame is applied
-        await avatarWithEmote.instance.setEmoteAndWait(Emotes.IDLE, 3000);
-      } else if (avatarWithEmote.setEmote) {
-        // Fallback to regular setEmote (may show brief T-pose)
-        avatarWithEmote.setEmote(Emotes.IDLE);
-      }
-      this.lastEmote = Emotes.IDLE;
-
-      // NOW make avatar visible - idle animation is guaranteed to be playing
-      if (instanceWithRaw?.raw?.scene) {
-        instanceWithRaw.raw.scene.visible = true;
-      }
-
-      // Pre-warm essential emotes in background to prevent T-pose on first use
-      // This is fire-and-forget - doesn't block avatar display
-      if (avatarWithEmote.instance?.preloadEmote) {
-        for (const emote of essentialEmotes) {
-          if (emote !== Emotes.IDLE) {
-            // IDLE already loaded
-            avatarWithEmote.instance.preloadEmote(emote);
-          }
-        }
-      }
-
-      // Calculate camera height for spectator mode (same as PlayerLocal)
-      interface AvatarWithHeight {
-        height?: number;
-      }
-      const avatarHeight = (this.avatar as AvatarWithHeight).height ?? 1.5;
-      const camHeight = Math.max(1.2, avatarHeight * 0.9);
-
-      // HLOD: Set mesh reference (VRM scene is the mesh)
-      if (instanceWithRaw?.raw?.scene) {
-        this.mesh = instanceWithRaw.raw.scene as THREE.Object3D;
-
-        // Initialize HLOD impostor support for VRM players
-        // VRM models use a different rendering path (avatarInstance.move()) but we can still use impostors.
-        // The key is that this.node.position is kept in sync with the VRM's world position.
-        await this.initHLOD(`vrm_player_${this.id}_${avatarUrl}`, {
-          category: "player",
-          atlasSize: 512, // Smaller for players
-          hemisphere: true,
-          freezeAnimationAtLOD1: true, // Freeze animation at medium distance
-          prepareForBake: async () => {
-            // Prepare VRM mesh for impostor baking at local origin
-            if (this.mesh && this.avatar) {
-              const savedPosition = this.mesh.position.clone();
-              const savedQuaternion = this.mesh.quaternion.clone();
-
-              // Move mesh to local origin for baking
-              this.mesh.position.set(0, 0, 0);
-              this.mesh.quaternion.identity();
-
-              // Update to ensure current pose
-              const avatarWithInstance = this.avatar as AvatarWithInstance;
-              avatarWithInstance.instance?.update(0);
-              this.mesh.updateMatrixWorld(true);
-
-              // Restore position after baking (microtask)
-              Promise.resolve().then(() => {
-                if (this.mesh) {
-                  this.mesh.position.copy(savedPosition);
-                  this.mesh.quaternion.copy(savedQuaternion);
-                  this.mesh.updateMatrixWorld(true);
-                }
-              });
-            }
-          },
-        });
-
-        // Animated impostor support for remote players (walk cycle)
-        // DISABLED: Animated impostor system not ready for agents/player characters
-        // this.cleanupAnimatedHLOD();
-        // void this.initAnimatedHLODFromEmote(
-        //   `player_${avatarUrl}`,
-        //   Emotes.WALK,
-        //   avatarWithInstance.instance?.raw,
-        //   PLAYER_IMPOSTOR_DISTANCES,
-        // );
-      }
-
-      // Avatar loaded successfully
       loadSuccess = true;
       this.avatarUrl = avatarUrl;
       this._nextAvatarRetryAt = 0;
 
-      // CRITICAL: Sync base transform and position the avatar BEFORE making it visible.
-      // Without this, the avatar appears at (0,0,0) in T-pose for one frame because
-      // instance.move() normally only runs in update() on the next frame.
-      this.base.position.copy(this.node.position);
-      this.base.quaternion.copy(this.node.quaternion);
-      this.base.updateTransform();
-      if (avatarWithInstance.instance?.move) {
-        avatarWithInstance.instance.move(this.base.matrixWorld);
-      }
-      if (avatarWithInstance.instance?.update) {
-        avatarWithInstance.instance.update(0);
+      const instanceWithRaw = avatarWithInstance.instance as unknown as {
+        raw?: { scene?: THREE.Object3D };
+      };
+      const rawScene = instanceWithRaw?.raw?.scene;
+      if (rawScene) {
+        rawScene.visible = false;
+        rawScene.traverse((child: THREE.Object3D) => {
+          child.raycast = () => {};
+        });
+        this.mesh = rawScene as THREE.Object3D;
       }
 
-      // NOW make avatar visible — it's already positioned and in idle pose
-      if (this.avatar?.instance) {
-        const avatarWithRaw = this.avatar.instance as unknown as {
-          raw?: { scene?: { visible?: boolean } };
-        };
-        if (avatarWithRaw.raw?.scene) {
-          avatarWithRaw.raw.scene.visible = true;
+      let camHeight = 1.35;
+      try {
+        const headHeight = this.avatar.getHeadToHeight() ?? 1.6;
+        this.bubble.position.y = headHeight + 0.2;
+        nodeObj.position.set(0, 0, 0);
+
+        const avatarWithEmote = this.avatar as AvatarWithInstance;
+        if (avatarWithEmote.instance?.setEmoteAndWait) {
+          await avatarWithEmote.instance.setEmoteAndWait(Emotes.IDLE, 3000);
+        } else if (avatarWithEmote.setEmote) {
+          avatarWithEmote.setEmote(Emotes.IDLE);
+        }
+        this.lastEmote = Emotes.IDLE;
+
+        if (avatarWithEmote.instance?.preloadEmote) {
+          for (const emote of essentialEmotes) {
+            if (emote !== Emotes.IDLE) {
+              avatarWithEmote.instance.preloadEmote(emote);
+            }
+          }
+        }
+
+        interface AvatarWithHeight {
+          height?: number;
+        }
+        const avatarHeight = (this.avatar as AvatarWithHeight).height ?? 1.5;
+        camHeight = Math.max(1.2, avatarHeight * 0.9);
+
+        if (rawScene) {
+          await this.initHLOD(`vrm_player_${this.id}_${avatarUrl}`, {
+            category: "player",
+            atlasSize: 512,
+            hemisphere: true,
+            freezeAnimationAtLOD1: true,
+            prepareForBake: async () => {
+              if (this.mesh && this.avatar) {
+                const savedPosition = this.mesh.position.clone();
+                const savedQuaternion = this.mesh.quaternion.clone();
+
+                this.mesh.position.set(0, 0, 0);
+                this.mesh.quaternion.identity();
+
+                const avatarWithInstance = this.avatar as AvatarWithInstance;
+                avatarWithInstance.instance?.update(0);
+                this.mesh.updateMatrixWorld(true);
+
+                Promise.resolve().then(() => {
+                  if (this.mesh) {
+                    this.mesh.position.copy(savedPosition);
+                    this.mesh.quaternion.copy(savedQuaternion);
+                    this.mesh.updateMatrixWorld(true);
+                  }
+                });
+              }
+            },
+          });
+        }
+
+        this.base.position.copy(this.node.position);
+        this.base.quaternion.copy(this.node.quaternion);
+        this.base.updateTransform();
+        if (avatarWithInstance.instance?.move) {
+          avatarWithInstance.instance.move(this.base.matrixWorld);
+        }
+        if (avatarWithInstance.instance?.update) {
+          avatarWithInstance.instance.update(0);
+        }
+      } catch (postLoadError) {
+        console.warn(
+          "[PlayerRemote] Avatar post-load setup degraded:",
+          postLoadError,
+        );
+      } finally {
+        if (rawScene) {
+          rawScene.visible = true;
         }
       }
 
-      // SPECTATOR FIX: Emit PLAYER_AVATAR_READY so camera system can set proper offset
-      // This is critical for spectator mode to work correctly
       this.world.emit(EventType.PLAYER_AVATAR_READY, {
         playerId: this.id,
         avatar: this.avatar,
-        camHeight: camHeight,
+        camHeight,
       });
     } catch (error) {
       console.error("[PlayerRemote] Avatar load failed:", error);

@@ -28,6 +28,7 @@ import {
   useMobileLayout,
   StatusOrb,
 } from "@/ui";
+import { getHpPercent } from "@hyperscape/shared";
 import { getHudClusterSurfaceStyle } from "@/ui/theme/themes";
 import type { PlayerStats } from "../../types";
 import { HUD_FRAME, HUD_LAYERS } from "./layout";
@@ -331,7 +332,7 @@ export function StatusBars({
   };
 
   // Calculate bar data
-  const hpPercent = Math.round((health.current / health.max) * 100);
+  const hpPercent = getHpPercent(health.current, health.max);
   const prayerPercent = Math.round(
     (prayerPoints.current / Math.max(1, prayerPoints.max)) * 100,
   );

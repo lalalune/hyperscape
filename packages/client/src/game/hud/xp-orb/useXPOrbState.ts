@@ -12,7 +12,12 @@
  */
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { EventType, SKILL_ICONS } from "@hyperscape/shared";
+import {
+  EventType,
+  SKILL_ICONS,
+  getXPForLevel,
+  getLevelForXP,
+} from "@hyperscape/shared";
 import type { ClientWorld } from "../../../types";
 
 // === CONSTANTS ===
@@ -68,44 +73,6 @@ export function normalizeSkillName(skill: string): string {
   if (lower === "hitpoints") return "constitution";
   if (lower === "defense") return "defence";
   return lower;
-}
-
-// Pre-computed XP table for O(1) lookups (OSRS formula)
-// Computed once at module load instead of looping on every render
-const XP_TABLE: readonly number[] = (() => {
-  const table: number[] = new Array(100).fill(0);
-  for (let level = 2; level <= 99; level++) {
-    let total = 0;
-    for (let i = 1; i < level; i++) {
-      total += Math.floor(i + 300 * Math.pow(2, i / 7));
-    }
-    table[level] = Math.floor(total / 4);
-  }
-  return table;
-})();
-
-/** O(1) lookup for XP required at a given level */
-export function getXPForLevel(level: number): number {
-  if (level < 1) return 0;
-  if (level > 99) return XP_TABLE[99];
-  return XP_TABLE[level];
-}
-
-/** Get level for a given XP amount (binary search for efficiency) */
-function getLevelForXP(xp: number): number {
-  if (xp <= 0) return 1;
-  // Binary search through XP_TABLE to find highest level where XP_TABLE[level] <= xp
-  let low = 1;
-  let high = 99;
-  while (low < high) {
-    const mid = Math.ceil((low + high + 1) / 2);
-    if (XP_TABLE[mid] <= xp) {
-      low = mid;
-    } else {
-      high = mid - 1;
-    }
-  }
-  return low;
 }
 
 /** Type guard for runtime validation of XP drop data from server */

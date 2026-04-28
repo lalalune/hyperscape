@@ -24,31 +24,6 @@ export function formatQuantity(qty: number): { text: string; color: string } {
   }
 }
 
-// ============================================================================
-// Gold Value Formatting
-// ============================================================================
-
-/**
- * Format gold value for wealth indicator display (OSRS-style)
- * Shows K/M/B suffixes with decimal places
- */
-export function formatGoldValue(value: number): string {
-  if (value < 1000) {
-    return value.toLocaleString();
-  } else if (value < 1000000) {
-    const k = Math.floor(value / 1000);
-    const remainder = Math.floor((value % 1000) / 100);
-    return remainder > 0 ? `${k}.${remainder}K` : `${k}K`;
-  } else if (value < 1000000000) {
-    const m = Math.floor(value / 1000000);
-    const remainder = Math.floor((value % 1000000) / 100000);
-    return remainder > 0 ? `${m}.${remainder}M` : `${m}M`;
-  } else {
-    const b = Math.floor(value / 1000000000);
-    return `${b}B`;
-  }
-}
-
 /**
  * Get color for wealth difference indicator
  * Green = gaining value, Red = losing value, White = neutral

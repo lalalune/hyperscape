@@ -54,6 +54,7 @@ import {
   type ModelBoundsManifest,
 } from "./StationDataProvider";
 import { prayerDataProvider, type PrayersManifest } from "./PrayerDataProvider";
+import { getRuntimeClientAssetBase } from "../utils/clientAssetBase";
 
 // Define constants from JSON data
 const STARTING_ITEMS: Array<{ id: string }> = []; // Stub - data removed
@@ -100,40 +101,10 @@ function isBuildingsManifest(value: unknown): value is BuildingsManifest {
   );
 }
 
-type BrowserDataWindow = Window & {
-  __CDN_URL?: string;
-  __ASSETS_URL?: string;
-};
-
 function getClientAssetsBaseUrl(): string {
-  let cdnUrl =
-    process.env.PUBLIC_CDN_URL || "http://localhost:5555/game-assets";
-
-  if (typeof window !== "undefined") {
-    const windowWithCdn = window as BrowserDataWindow;
-    if (windowWithCdn.__ASSETS_URL) {
-      cdnUrl = windowWithCdn.__ASSETS_URL;
-    } else if (windowWithCdn.__CDN_URL) {
-      cdnUrl = windowWithCdn.__CDN_URL;
-    } else if (
-      typeof import.meta !== "undefined" &&
-      import.meta.env?.PUBLIC_CDN_URL
-    ) {
-      cdnUrl =
-        import.meta.env.PUBLIC_CDN_URL || "http://localhost:5555/game-assets";
-    }
-  }
-
-  if (
-    typeof process !== "undefined" &&
-    typeof process.env !== "undefined" &&
-    process.env.PUBLIC_CDN_URL &&
-    !cdnUrl.includes("localhost")
-  ) {
-    cdnUrl = process.env.PUBLIC_CDN_URL;
-  }
-
-  return cdnUrl;
+  return getRuntimeClientAssetBase(
+    process.env.PUBLIC_CDN_URL || "http://localhost:5555/game-assets",
+  );
 }
 
 async function fetchRequiredJson<T>(url: string, label: string): Promise<T> {

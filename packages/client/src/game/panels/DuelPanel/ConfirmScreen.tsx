@@ -21,7 +21,8 @@ import {
   DUEL_RULE_LABELS,
   EQUIPMENT_SLOT_LABELS,
 } from "@hyperscape/shared";
-import { formatQuantity, formatGoldValue, calculateTotalValue } from "./utils";
+import { formatGoldValue } from "../../systems/currency";
+import { formatQuantity, calculateTotalValue } from "./utils";
 
 // ============================================================================
 // Types

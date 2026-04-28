@@ -6,6 +6,7 @@
  */
 
 import React, { useMemo } from "react";
+import type { StreamCountdownHoldState } from "./streamCountdown";
 
 export interface StreamingBettingConfig {
   betUrl: string | null;
@@ -25,20 +26,14 @@ function buildBetHref(base: string, duelId: string | null): string {
   }
 }
 
-function formatMmSs(ms: number): string {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
 interface StreamingBettingRailProps {
   config: StreamingBettingConfig | null;
   phase: string | undefined;
   duelId: string | null | undefined;
   agent1Name: string | null | undefined;
   agent2Name: string | null | undefined;
-  timeRemainingMs: number;
+  countdownText: string;
+  countdownHoldState: StreamCountdownHoldState;
 }
 
 export function StreamingBettingRail({
@@ -47,7 +42,8 @@ export function StreamingBettingRail({
   duelId,
   agent1Name,
   agent2Name,
-  timeRemainingMs,
+  countdownText,
+  countdownHoldState,
 }: StreamingBettingRailProps) {
   const betUrl = config?.betUrl?.trim() || null;
   const hasMatchup = Boolean(agent1Name && agent2Name);
@@ -68,8 +64,16 @@ export function StreamingBettingRail({
   let urgency: "open" | "locked" | "done" = "open";
 
   if (phase === "ANNOUNCEMENT") {
-    headline = "Betting open";
-    sub = `Wagers lock when the fight countdown starts. Closes in ${formatMmSs(timeRemainingMs)}.`;
+    if (countdownHoldState === "preparing_arena") {
+      headline = "Preparing arena";
+      sub =
+        "Wagers are closing while the arena readies for the live countdown.";
+    } else {
+      headline = "Betting open";
+      sub = countdownText
+        ? `Wagers lock when the fight countdown starts. Closes in ${countdownText}.`
+        : "Wagers lock when the fight countdown starts.";
+    }
     urgency = "open";
   } else if (phase === "COUNTDOWN" || phase === "FIGHTING") {
     headline = "Betting locked";

@@ -7,7 +7,7 @@ import type {
 } from "../types/embeddedConfig";
 import type { URLParamValidation } from "../utils/InputValidator";
 
-const EMBEDDED_MODE_VALUES = ["spectator", "free"] as const;
+const EMBEDDED_MODE_VALUES = ["spectator", "stream", "free"] as const;
 const EMBEDDED_SURFACE_VALUES = ["viewport", "agent-control"] as const;
 const GRAPHICS_QUALITY_VALUES = [
   "potato",
@@ -38,7 +38,14 @@ export const embeddedParamSchema: URLParamValidation[] = [
 ];
 
 function resolveViewportMode(rawMode: unknown): ViewportMode {
-  return rawMode === "free" ? "free" : "spectator";
+  switch (rawMode) {
+    case "stream":
+      return "stream";
+    case "free":
+      return "free";
+    default:
+      return "spectator";
+  }
 }
 
 function resolveEmbeddedSurface(rawSurface: unknown): EmbeddedSurface {
@@ -57,7 +64,7 @@ function resolveGraphicsQuality(
     case "ultra":
       return rawQuality;
     default:
-      return mode === "spectator" ? "low" : "medium";
+      return mode === "spectator" || mode === "stream" ? "low" : "medium";
   }
 }
 

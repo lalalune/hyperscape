@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import fs from "node:fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -244,6 +245,52 @@ export default defineConfig(({ mode }) => {
           enabled: false, // Disable PWA in dev mode
         },
       }),
+      {
+        name: "rewrite-stream-html-build-output",
+        apply: "build",
+        closeBundle() {
+          const streamHtmlPath = path.resolve(__dirname, "dist/stream.html");
+          if (!fs.existsSync(streamHtmlPath)) {
+            return;
+          }
+
+          let html = fs.readFileSync(streamHtmlPath, "utf8");
+          const streamEntryMatch = html.match(
+            /<script type="module" crossorigin src="([^"]*\/assets\/stream-[^"]+\.js)"><\/script>/,
+          );
+          if (!streamEntryMatch) {
+            console.warn(
+              "[rewrite-stream-html-build-output] Unable to locate stream entry in dist/stream.html",
+            );
+            return;
+          }
+
+          const streamEntrySrc = streamEntryMatch[1];
+          html = html
+            .replace(streamEntryMatch[0], "")
+            .replace(/\s*<link rel="modulepreload"[^>]*>/g, "")
+            .replace(/<link rel="manifest"[^>]*>/g, "")
+            .replace(
+              /<script id="vite-plugin-pwa:register-sw"[^>]*><\/script>/g,
+              "",
+            );
+
+          const deferredBootstrap = `
+  <script type="module">
+    try {
+      await window.__HYPERSCAPE_STREAM_PREBOOT__;
+      await import(${JSON.stringify(streamEntrySrc)});
+    } catch (error) {
+      console.error("[stream.html] Stream bootstrap import failed:", error);
+      throw error;
+    }
+  </script>
+`;
+
+          html = html.replace("</body>", `${deferredBootstrap}</body>`);
+          fs.writeFileSync(streamHtmlPath, html, "utf8");
+        },
+      },
       // Watch shared package for changes and trigger full reload
       ...(disableSharedWatch
         ? []
@@ -341,6 +388,7 @@ export default defineConfig(({ mode }) => {
         input: {
           index: path.resolve(__dirname, "src/index.html"),
           stream: path.resolve(__dirname, "src/stream.html"),
+          hyperbet: path.resolve(__dirname, "src/hyperbet.html"),
         },
         external: ["fs", "fs-extra", "path", "node:fs", "node:path", "crypto"],
         output: {

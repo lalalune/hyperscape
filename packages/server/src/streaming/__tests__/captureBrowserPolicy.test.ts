@@ -27,6 +27,29 @@ describe("captureBrowserPolicy", () => {
     expect(args).toContain("--no-sandbox");
   });
 
+  it("does NOT emit kiosk/window-size flags without fullScreenPin", () => {
+    const args = buildDefaultCaptureLaunchArgs({
+      angleBackend: "vulkan",
+      featureFlags: "--enable-features=Vulkan,UseSkiaRenderer,WebGPU",
+    });
+    expect(args).not.toContain("--kiosk");
+    expect(args.some((a) => a.startsWith("--window-size="))).toBe(false);
+    expect(args.some((a) => a.startsWith("--window-position="))).toBe(false);
+  });
+
+  it("pins Chromium full-screen at (0,0) when fullScreenPin is supplied (x11_nvenc mode)", () => {
+    const args = buildDefaultCaptureLaunchArgs({
+      angleBackend: "vulkan",
+      featureFlags: "--enable-features=Vulkan,UseSkiaRenderer,WebGPU",
+      fullScreenPin: { width: 1920, height: 1080 },
+    });
+    expect(args).toContain("--kiosk");
+    expect(args).toContain("--window-size=1920,1080");
+    expect(args).toContain("--window-position=0,0");
+    expect(args).toContain("--hide-scrollbars");
+    expect(args).toContain("--disable-infobars");
+  });
+
   it("derives one allowed origin per configured game URL", () => {
     expect(
       resolveAllowedCaptureOrigins([

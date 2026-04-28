@@ -30,6 +30,16 @@ function createMockWorld() {
     return getCallCount <= 1 ? undefined : playerData;
   });
 
+  const characterSystem = {
+    getCharactersAsync: vi
+      .fn()
+      .mockResolvedValue([
+        { id: "char-1", name: "TestAgent", avatar: null, wallet: null },
+      ]),
+    getPlayerAsync: vi.fn().mockResolvedValue({}),
+    getHeightAt: vi.fn().mockReturnValue(10),
+  };
+
   return {
     entities: {
       get: entityGet,
@@ -45,16 +55,9 @@ function createMockWorld() {
       if (idx >= 0) listeners.splice(idx, 1);
     }),
     emit: vi.fn(),
-    getSystem: vi.fn().mockReturnValue({
-      getCharactersAsync: vi
-        .fn()
-        .mockResolvedValue([
-          { id: "char-1", name: "TestAgent", avatar: null, wallet: null },
-        ]),
-      getPlayerAsync: vi.fn().mockResolvedValue({}),
-      getHeightAt: vi.fn().mockReturnValue(10),
-    }),
+    getSystem: vi.fn().mockReturnValue(characterSystem),
     settings: { avatar: { url: "test.vrm" } },
+    _characterSystem: characterSystem,
     _listeners: listeners,
   };
 }
@@ -111,5 +114,72 @@ describe("EmbeddedHyperscapeService", () => {
 
     const result = service.getGameState();
     expect(result).toBeNull();
+  });
+
+  it("normalizes stale saved avatar LOD URLs before spawning the entity", async () => {
+    const world = createMockWorld();
+    world._characterSystem.getPlayerAsync.mockResolvedValue({
+      id: "char-1",
+      name: "TestAgent",
+      avatar: "asset://avatars/avatar-female-01_lod2.vrm",
+      wallet: null,
+    });
+
+    const service = new EmbeddedHyperscapeService(
+      world as any,
+      "char-1",
+      "account-1",
+      "TestAgent",
+    );
+
+    await service.initialize();
+
+    expect(world.entities.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        avatar: "asset://avatars/avatar-female-01.vrm",
+      }),
+    );
+  });
+
+  it("normalizes world-settings avatar URLs before spawning the entity", async () => {
+    const world = createMockWorld();
+    world.settings.avatar.url = "avatars/avatar-female-02_lod1.vrm?cache=1";
+
+    const service = new EmbeddedHyperscapeService(
+      world as any,
+      "char-1",
+      "account-1",
+      "TestAgent",
+    );
+
+    await service.initialize();
+
+    expect(world.entities.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        avatar: "asset://avatars/avatar-female-02.vrm?cache=1",
+      }),
+    );
+  });
+
+  it("falls back to the default stock avatar when no avatar is configured", async () => {
+    const world = createMockWorld();
+    // Intentionally clearing avatar to exercise the fallback path; the
+    // production code treats the settings shape as partial.
+    (world as { settings: Record<string, unknown> }).settings = {};
+
+    const service = new EmbeddedHyperscapeService(
+      world as any,
+      "char-1",
+      "account-1",
+      "TestAgent",
+    );
+
+    await service.initialize();
+
+    expect(world.entities.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        avatar: "asset://avatars/avatar-male-01.vrm",
+      }),
+    );
   });
 });

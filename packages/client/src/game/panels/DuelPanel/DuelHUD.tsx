@@ -18,6 +18,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useThemeStore } from "@/ui";
+import { getHpPercent, getHpColor } from "@hyperscape/shared";
 import { UI } from "@/ui/core";
 import type { DuelRules } from "@hyperscape/shared";
 
@@ -117,9 +118,9 @@ export function DuelHUD({ state, onForfeit }: DuelHUDProps) {
 
   if (!state.visible) return null;
 
-  const healthPercent = Math.max(
-    0,
-    Math.min(100, (state.opponentHealth / state.opponentMaxHealth) * 100),
+  const healthPercent = getHpPercent(
+    state.opponentHealth,
+    state.opponentMaxHealth,
   );
 
   // Get active rules for display
@@ -133,12 +134,14 @@ export function DuelHUD({ state, onForfeit }: DuelHUDProps) {
   // Can forfeit?
   const canForfeit = !state.rules.noForfeit;
 
-  // Health bar color based on percentage
-  const getHealthColor = (percent: number): string => {
-    if (percent > 50) return theme.colors.state.success;
-    if (percent > 25) return theme.colors.state.warning;
-    return theme.colors.state.danger;
+  // Map OSRS HP color to theme semantic colors
+  const hpColorToTheme: Record<string, string> = {
+    "#22c55e": theme.colors.state.success,
+    "#eab308": theme.colors.state.warning,
+    "#ef4444": theme.colors.state.danger,
   };
+  const getHealthColor = (percent: number): string =>
+    hpColorToTheme[getHpColor(percent)] ?? theme.colors.state.danger;
 
   // Styles
   const containerStyle: CSSProperties = {

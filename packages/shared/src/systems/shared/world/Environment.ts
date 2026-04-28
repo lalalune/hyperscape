@@ -2,6 +2,7 @@ import THREE, { CSMShadowNode } from "../../../extras/three/three";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 
 import { Node as NodeClass } from "../../../nodes/Node";
+import { isDedicatedStreamViewport } from "../../../runtime/clientViewportMode";
 import { System } from "../infrastructure/System";
 
 // NOTE: Import directly to avoid circular dependency through barrel file
@@ -48,11 +49,13 @@ const _sunDirection = new THREE.Vector3(0, -1, 0);
 // Default: false — uses a single 2048 shadow map centered on the player.
 export function isCsmEnabled(): boolean {
   try {
-    if (
-      typeof import.meta !== "undefined" &&
-      (import.meta as any).env?.ENABLE_CSM
-    )
-      return (import.meta as any).env.ENABLE_CSM === "true";
+    const metaEnv = (
+      import.meta as unknown as {
+        env?: { ENABLE_CSM?: string };
+      }
+    ).env;
+    if (typeof import.meta !== "undefined" && metaEnv?.ENABLE_CSM)
+      return metaEnv.ENABLE_CSM === "true";
     if (typeof process !== "undefined" && process.env?.ENABLE_CSM)
       return process.env.ENABLE_CSM === "true";
   } catch {
@@ -179,6 +182,10 @@ export class Environment extends System {
   private ambientLight: THREE.AmbientLight | null = null;
 
   private isClientWithGraphics: boolean = false;
+  private deferredEnvironmentAssetTimer: ReturnType<typeof setTimeout> | null =
+    null;
+  private optionalEnvironmentAssetsStarted = false;
+  private destroyed = false;
 
   constructor(world: World) {
     super(world);
@@ -187,6 +194,9 @@ export class Environment extends System {
   override init(
     options: WorldOptions & { baseEnvironment?: BaseEnvironment },
   ): Promise<void> {
+    this.destroyed = false;
+    this.optionalEnvironmentAssetsStarted = false;
+    this.deferredEnvironmentAssetTimer = null;
     this.base = options.baseEnvironment || {};
 
     // Determine if this is a client with graphics capabilities
@@ -216,7 +226,36 @@ export class Environment extends System {
     // Create ambient lighting for day/night visibility
     this.createAmbientLighting();
 
-    this.updateSky();
+    const dedicatedStreamViewport = isDedicatedStreamViewport();
+
+    this.applyBaselineFog();
+    if (!dedicatedStreamViewport) {
+      void this.updateSky().catch((err) => {
+        console.warn("[Environment] Failed to apply initial sky state:", err);
+      });
+    }
+
+    // No environment map - using planar reflections for water, toon/rough style for everything else
+    this.clearSceneEnvironmentMap();
+
+    this.world.settings?.on("change", this.onSettingsChange);
+    this.world.prefs?.on("change", this.onPrefsChange);
+
+    if (this.world.graphics) {
+      this.world.graphics.on("resize", this.onViewportResize);
+    }
+
+    if (dedicatedStreamViewport) {
+      this.deferStreamOptionalEnvironmentAssetsUntilArenaReady();
+      return;
+    }
+
+    await this.startOptionalEnvironmentAssets();
+  }
+
+  private async startOptionalEnvironmentAssets(): Promise<void> {
+    if (this.optionalEnvironmentAssetsStarted || this.destroyed) return;
+    this.optionalEnvironmentAssetsStarted = true;
 
     // Load initial model (non-blocking - don't let model errors break sky)
     try {
@@ -228,34 +267,101 @@ export class Environment extends System {
       );
     }
 
-    // Enhanced dynamic sky (client-only) - must run even if model fails
-    this.skySystem = new SkySystem(this.world);
-    await this.skySystem.init({} as unknown as WorldOptions);
-    this.skySystem.start();
+    if (this.destroyed) return;
 
-    // Initialize exposure based on current time of day to avoid jarring transitions
-    // when joining at night (otherwise exposure would lerp from 0.85 day → 1.7 night)
-    this.initializeExposure();
+    try {
+      // Enhanced dynamic sky (client-only) - must run even if model fails.
+      const skySystem = new SkySystem(this.world);
+      await skySystem.init({} as unknown as WorldOptions);
 
-    // Ensure legacy sky sphere never occludes dynamic sky
-    if (this.sky) {
-      const mat = this.sky.material as THREE.MeshBasicMaterial;
-      mat.depthWrite = false;
-      this.sky.visible = false;
+      if (this.destroyed) {
+        skySystem.destroy();
+        return;
+      }
+
+      this.skySystem = skySystem;
+      this.skySystem.start();
+
+      // Initialize exposure based on current time of day to avoid jarring transitions
+      // when joining at night (otherwise exposure would lerp from 0.85 day to 1.7 night).
+      this.initializeExposure();
+
+      // Ensure legacy sky sphere never occludes dynamic sky
+      if (this.sky) {
+        const mat = this.sky.material as THREE.MeshBasicMaterial;
+        mat.depthWrite = false;
+        this.sky.visible = false;
+      }
+      // Re-evaluate sky state now that SkySystem exists
+      await this.updateSky();
+    } catch (err) {
+      console.warn(
+        "[Environment] Failed to initialize dynamic sky (continuing without):",
+        err,
+      );
     }
-    // Re-evaluate sky state now that SkySystem exists
-    await this.updateSky();
 
-    // No environment map - using planar reflections for water, toon/rough style for everything else
+    this.clearSceneEnvironmentMap();
+  }
+
+  private deferStreamOptionalEnvironmentAssetsUntilArenaReady(): void {
+    if (this.deferredEnvironmentAssetTimer) return;
+
+    const waitForArenaVisuals = () => {
+      this.deferredEnvironmentAssetTimer = null;
+      if (this.destroyed || this.optionalEnvironmentAssetsStarted) return;
+
+      const arenaVisuals = this.world.getSystem("duel-arena-visuals") as
+        | { isReady?: () => boolean }
+        | undefined;
+      const arenaReady =
+        typeof arenaVisuals?.isReady === "function" && arenaVisuals.isReady();
+
+      if (!arenaReady) {
+        this.deferredEnvironmentAssetTimer = setTimeout(
+          waitForArenaVisuals,
+          250,
+        );
+        return;
+      }
+
+      void this.startOptionalEnvironmentAssets().catch((err) => {
+        console.warn(
+          "[Environment] Deferred stream environment asset load failed:",
+          err,
+        );
+      });
+    };
+
+    this.deferredEnvironmentAssetTimer = setTimeout(waitForArenaVisuals, 0);
+  }
+
+  private applyBaselineFog(): void {
+    if (!this.isClientWithGraphics || !this.world.stage?.scene) return;
+
+    const fogNear = this.base.fogNear ?? FOG_NEAR;
+    const fogFar = this.base.fogFar ?? FOG_FAR;
+    const fogColor = this.base.fogColor ?? "#d4c8b8";
+    this.world.stage.scene.fog = new THREE.Fog(
+      new THREE.Color(fogColor),
+      fogNear as number,
+      fogFar as number,
+    );
+    this.skyInfo = {
+      bgUrl: this.base.bg,
+      hdrUrl: this.base.hdr,
+      sunDirection: this.base.sunDirection || _sunDirection,
+      sunIntensity: this.base.sunIntensity || 1,
+      sunColor: this.base.sunColor || "#ffffff",
+      fogNear,
+      fogFar,
+      fogColor,
+    };
+  }
+
+  private clearSceneEnvironmentMap(): void {
     if (this.world.stage?.scene) {
       this.world.stage.scene.environment = null;
-    }
-
-    this.world.settings?.on("change", this.onSettingsChange);
-    this.world.prefs?.on("change", this.onPrefsChange);
-
-    if (this.world.graphics) {
-      this.world.graphics.on("resize", this.onViewportResize);
     }
   }
 
@@ -439,6 +545,12 @@ export class Environment extends System {
   }
 
   override destroy(): void {
+    this.destroyed = true;
+    if (this.deferredEnvironmentAssetTimer) {
+      clearTimeout(this.deferredEnvironmentAssetTimer);
+      this.deferredEnvironmentAssetTimer = null;
+    }
+
     if (this.skySystem) {
       this.skySystem.destroy();
       this.skySystem = undefined;
@@ -1124,14 +1236,30 @@ export class Environment extends System {
 
   onSettingsChange = (changes: { model?: string | { url?: string } }) => {
     if (changes.model) {
-      this.updateModel();
+      if (
+        isDedicatedStreamViewport() &&
+        !this.optionalEnvironmentAssetsStarted
+      ) {
+        return;
+      }
+      void this.updateModel().catch((err) => {
+        console.warn("[Environment] Failed to update environment model:", err);
+      });
     }
   };
 
   onPrefsChange = (changes: { shadows?: string }) => {
     if (changes.shadows) {
       this.buildSunLight();
-      this.updateSky();
+      if (
+        isDedicatedStreamViewport() &&
+        !this.optionalEnvironmentAssetsStarted
+      ) {
+        return;
+      }
+      void this.updateSky().catch((err) => {
+        console.warn("[Environment] Failed to update sky preferences:", err);
+      });
     }
   };
 

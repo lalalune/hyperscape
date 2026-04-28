@@ -22,14 +22,37 @@
   # Report-Only mode for testing stricter policies (uncomment to test)
   # Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://auth.privy.io https://*.privy.io; style-src 'self'; report-uri /api/csp-report;
 
+# ============================================================================
+# /stream route: path-scoped override so the bets page can embed the live
+# capture view as an iframe. We keep the full CSP from /* but add a
+# frame-ancestors directive. Per HTML/CSP spec, when CSP includes
+# frame-ancestors the browser IGNORES X-Frame-Options entirely, so the
+# legacy DENY from the /* rule becomes inert on /stream without needing
+# to explicitly clear it (which CF Pages' _headers parser does not support).
+# Scope is intentionally narrow: only /stream, only the bets staging domain.
+# ============================================================================
+/stream
+  Cache-Control: no-store
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://*.privy.io https://static.cloudflareinsights.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' wss: https: ws://localhost:* http://localhost:* data: blob:; frame-src 'self' https://auth.privy.io https://*.privy.io; worker-src 'self' blob:; media-src 'self' blob:; frame-ancestors 'self' https://hyperbet-enoomian-staging.pages.dev https://*.hyperbet-enoomian-staging.pages.dev;
+
+/stream.html
+  Cache-Control: no-store
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://*.privy.io https://static.cloudflareinsights.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' wss: https: ws://localhost:* http://localhost:* data: blob:; frame-src 'self' https://auth.privy.io https://*.privy.io; worker-src 'self' blob:; media-src 'self' blob:; frame-ancestors 'self' https://hyperbet-enoomian-staging.pages.dev https://*.hyperbet-enoomian-staging.pages.dev;
+
+/env.js
+  Cache-Control: no-store
+
+/registerSW.js
+  Cache-Control: no-store
+
+/sw.js
+  Cache-Control: no-store
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
 /images/*
   Cache-Control: public, max-age=86400
-
-/*.js
-  Cache-Control: public, max-age=31536000, immutable
 
 /*.css
   Cache-Control: public, max-age=31536000, immutable

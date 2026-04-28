@@ -311,11 +311,18 @@ export class AgentBehaviorTicker {
     // QuestSystem can load the player's quest state from the database.
     // Additional stagger offset prevents simultaneous first ticks.
     instance.behaviorStartTimeout = setTimeout(() => {
-      instance.behaviorStartTimeout = null;
+      const current = this.getAgent(characterId);
+      if (!current || current.state !== "running") {
+        return;
+      }
+      current.behaviorStartTimeout = null;
+      if (!current.service.isAutonomousEnabled()) {
+        return;
+      }
       void runTick();
 
       // Start the recurring interval AFTER the first tick completes its stagger
-      instance.behaviorInterval = setInterval(() => {
+      current.behaviorInterval = setInterval(() => {
         if (tickInProgress) return;
         tickInProgress = true;
         void runTick();
@@ -2298,6 +2305,41 @@ export class AgentBehaviorTicker {
       return [p.x, p.y ?? 0, p.z];
     }
     return null;
+  }
+
+  private getRequiredWoodcuttingLevel(entity: NearbyEntityData): number {
+    return this.getRequiredWoodcuttingLevelFromText(
+      `${entity.name || ""} ${entity.resourceType || ""} ${entity.resourceId || ""}`,
+    );
+  }
+
+  private getRequiredWoodcuttingLevelFromData(
+    data: Record<string, unknown>,
+  ): number {
+    return this.getRequiredWoodcuttingLevelFromText(
+      `${String(data.name || "")} ${String(data.resourceType || "")} ${String(data.type || "")}`,
+    );
+  }
+
+  private getRequiredWoodcuttingLevelFromText(text: string): number {
+    const normalized = text.toLowerCase();
+    if (normalized.includes("magic")) return 75;
+    if (normalized.includes("yew")) return 60;
+    if (normalized.includes("maple")) return 45;
+    if (normalized.includes("teak")) return 35;
+    if (normalized.includes("willow")) return 30;
+    if (normalized.includes("oak")) return 15;
+    return 1;
+  }
+
+  private isActivelyGatheringResource(
+    instance: AgentInstance,
+    resourceId: string,
+  ): boolean {
+    return (
+      instance.lastGatherTargetId === resourceId &&
+      Date.now() - instance.lastGatherQueuedAt < 30_000
+    );
   }
 
   /**

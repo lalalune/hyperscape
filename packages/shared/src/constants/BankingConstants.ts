@@ -2,6 +2,8 @@
  * Banking system constants
  */
 
+import { MAX_COINS } from "../systems/shared/character/CoinPouchSystem";
+
 export const BANKING_CONSTANTS = Object.freeze({
   // Bank sizes
   MAX_BANK_SLOTS: 480, // 12 tabs * 40 slots per tab
@@ -16,7 +18,7 @@ export const BANKING_CONSTANTS = Object.freeze({
   ITEMS_PER_ROW: 8,
 
   // Transaction limits
-  MAX_ITEM_STACK: 2147483647, // Max int32
+  MAX_ITEM_STACK: MAX_COINS,
   MIN_ITEM_QUANTITY: 1,
 
   // Error messages

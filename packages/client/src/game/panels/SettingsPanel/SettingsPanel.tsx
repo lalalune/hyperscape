@@ -14,8 +14,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { isTouch } from "@hyperscape/shared";
-import type { ClientWorld } from "../../types";
-import { useFullscreen } from "../../hooks/useFullscreen";
+import type { ClientWorld } from "../../../types";
+import { useFullscreen } from "../../../hooks/useFullscreen";
 import { ToggleSwitch, Slider } from "@/ui";
 import {
   getInteractiveTileStyle,
@@ -23,7 +23,7 @@ import {
   getPanelInsetStyle,
   getPanelSurfaceStyle,
 } from "@/ui/theme/themes";
-import { NAME_SANITIZE_REGEX } from "../../utils/validation";
+import { NAME_SANITIZE_REGEX } from "../../../utils/validation";
 import {
   useComplexityStore,
   useComplexityMode,
@@ -35,16 +35,16 @@ import {
   type StatusBarsConfig,
   STATUSBAR_CONFIG_CHANGED_EVENT,
   STATUSBAR_CONFIG_STORAGE_KEY,
-} from "../hud/StatusBars";
-import { privyAuthManager } from "../../auth/PrivyAuthManager";
-import { useSolanaWallet } from "../../hooks/useSolanaWallet";
+} from "../../hud/StatusBars";
+import { privyAuthManager } from "../../../auth/PrivyAuthManager";
+import { useSolanaWallet } from "../../../hooks/useSolanaWallet";
 import {
   type GraphicsQuality,
   QUALITY_PRESETS,
   QUALITY_LEVELS,
   getQualityDisplayName,
   detectRecommendedQuality,
-} from "../../types/embeddedConfig";
+} from "../../../types/embeddedConfig";
 
 /** Minimum name length required for submission */
 const MIN_NAME_LENGTH = 1;

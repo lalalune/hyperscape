@@ -8,16 +8,38 @@
 import React, { useEffect, useRef } from "react";
 import type { AgentInfo } from "../../screens/StreamingMode";
 
+function formatWinReason(raw: string): string {
+  switch (raw) {
+    case "hp_advantage":
+      return "by HP advantage";
+    case "damage_advantage":
+      return "by damage dealt";
+    case "timeout":
+    case "time_limit":
+      return "by timeout";
+    case "knockout":
+    case "death":
+    case "killed":
+      return "by knockout";
+    case "draw":
+      return "Draw!";
+    default:
+      return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+}
+
 interface VictoryOverlayProps {
   winner: AgentInfo;
   winReason: string;
+  loser?: AgentInfo | null;
   /** Pre-formatted line for viewers (e.g. "Knockout — HP reached zero.") */
   winReasonLine?: string | null;
 }
 
 export function VictoryOverlay({
   winner,
-  winReason: _winReason,
+  winReason,
+  loser = null,
   winReasonLine,
 }: VictoryOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -36,9 +58,18 @@ export function VictoryOverlay({
     <div style={styles.container}>
       <div ref={containerRef} className="victory-pulse" style={styles.content}>
         <div style={styles.winnerName}>{winner.name}</div>
-        <div style={styles.winsText}>WINS!</div>
-        {winReasonLine ? (
-          <div style={styles.reasonLine}>{winReasonLine}</div>
+        <div style={styles.winsText}>
+          {winReason === "draw" ? "DRAW!" : "WINS!"}
+        </div>
+        {loser && winReason !== "draw" ? (
+          <div style={styles.defeatedLine}>
+            defeated <span style={styles.loserName}>{loser.name}</span>
+          </div>
+        ) : null}
+        {winReasonLine || winReason ? (
+          <div style={styles.reasonLine}>
+            {winReasonLine ?? formatWinReason(winReason)}
+          </div>
         ) : null}
       </div>
 
@@ -109,5 +140,19 @@ const styles: Record<string, React.CSSProperties> = {
     color: "rgba(226, 232, 240, 0.95)",
     textShadow: "0 2px 16px rgba(0,0,0,0.9), 0 0 20px rgba(96,165,250,0.12)",
     lineHeight: 1.35,
+  },
+  defeatedLine: {
+    color: "rgba(200, 200, 210, 0.72)",
+    fontSize: "clamp(1rem, 3vw, 2rem)",
+    fontWeight: 700,
+    fontFamily: "Impact, sans-serif",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    textShadow: "0 2px 6px rgba(0,0,0,0.8)",
+    lineHeight: 1.2,
+    marginTop: "0.2em",
+  },
+  loserName: {
+    color: "rgba(255, 255, 255, 0.92)",
   },
 };
