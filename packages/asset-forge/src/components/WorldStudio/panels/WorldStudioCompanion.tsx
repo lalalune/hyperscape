@@ -48,6 +48,7 @@ import {
   setAndPersistAgentResource,
   setAndPersistAgentSpawn,
   setAndPersistAgentStation,
+  setAndPersistAgentTeleport,
   setAndPersistAgentZone,
 } from "../state/agentWorldContent";
 import {
@@ -243,6 +244,11 @@ function CompanionInner({ projectId }: { projectId: string }) {
         ) {
           void setAndPersistAgentStation(projectId, data.station);
         } else if (
+          call.name === "PROPOSE_TELEPORT" &&
+          data.teleport !== undefined
+        ) {
+          void setAndPersistAgentTeleport(projectId, data.teleport);
+        } else if (
           call.name === "PROPOSE_RESOURCE" &&
           data.resource !== undefined
         ) {
@@ -276,6 +282,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
               | "zone"
               | "asset"
               | "station"
+              | "teleport"
               | "mobSpawn"
               | "resource";
             id?: string;
@@ -314,7 +321,8 @@ function CompanionInner({ projectId }: { projectId: string }) {
             (removal.kind === "npc" ||
               removal.kind === "quest" ||
               removal.kind === "zone" ||
-              removal.kind === "station") &&
+              removal.kind === "station" ||
+              removal.kind === "teleport") &&
             removal.id
           ) {
             void removeAndPersistAgentEntity(
@@ -917,6 +925,10 @@ const TOOL_BREADCRUMB_SUMMARY: Record<
     icon: "🛠️",
     label: (n) => `Placed ${n} station${n === 1 ? "" : "s"}`,
   },
+  PROPOSE_TELEPORT: {
+    icon: "🌀",
+    label: (n) => `Placed ${n} teleport${n === 1 ? "" : "s"}`,
+  },
   PROPOSE_ASSET: {
     icon: "✨",
     label: (n) => `Queued ${n} asset bake${n === 1 ? "" : "s"}`,
@@ -960,6 +972,8 @@ function prettifyToolName(name: string): string {
       return "Placing a resource…";
     case "PROPOSE_STATION":
       return "Placing a station…";
+    case "PROPOSE_TELEPORT":
+      return "Placing a teleport…";
     case "REMOVE_FROM_PROJECT":
       return "Removing an entity…";
     case "GET_PROJECT_STATE":

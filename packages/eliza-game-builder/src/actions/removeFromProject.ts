@@ -47,7 +47,7 @@ const Vec3Schema = z.object({
 });
 
 const RemoveByIdSchema = z.object({
-  kind: z.enum(["npc", "quest", "zone", "asset", "station"]),
+  kind: z.enum(["npc", "quest", "zone", "asset", "station", "teleport"]),
   id: z.string().min(1),
 });
 
@@ -74,6 +74,7 @@ const RemovalSchema = z.discriminatedUnion("kind", [
   RemoveByIdSchema.extend({ kind: z.literal("zone") }),
   RemoveByIdSchema.extend({ kind: z.literal("asset") }),
   RemoveByIdSchema.extend({ kind: z.literal("station") }),
+  RemoveByIdSchema.extend({ kind: z.literal("teleport") }),
   RemoveSpawnSchema,
   RemoveResourceSchema,
 ]);
@@ -92,7 +93,7 @@ export const removeFromProjectAction: Action = {
     "DROP_FROM_PROJECT",
   ],
   description:
-    "Remove an existing entity from the project. Pass `removal` — JSON discriminated by `kind`. Use when the user says 'remove the goblin spawn' or 'drop the tutorial quest'. Call GET_PROJECT_STATE first to confirm the id. Shapes: { kind: 'npc'|'quest'|'zone'|'asset'|'station', id } OR { kind: 'mobSpawn', mobId, position: {x,y,z} } OR { kind: 'resource', resourceId, position: {x,y,z} }. The host applies removal to the agent-world-content store; persisted worldContent is patched on next sync.",
+    "Remove an existing entity from the project. Pass `removal` — JSON discriminated by `kind`. Use when the user says 'remove the goblin spawn' or 'drop the tutorial quest'. Call GET_PROJECT_STATE first to confirm the id. Shapes: { kind: 'npc'|'quest'|'zone'|'asset'|'station'|'teleport', id } OR { kind: 'mobSpawn', mobId, position: {x,y,z} } OR { kind: 'resource', resourceId, position: {x,y,z} }. The host applies removal to the agent-world-content store; persisted worldContent is patched on next sync.",
 
   parameters: [
     {

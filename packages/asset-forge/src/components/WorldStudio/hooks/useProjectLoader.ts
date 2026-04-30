@@ -317,7 +317,10 @@ export function useProjectLoader(projectId: string) {
             counts.npcs > 0 ||
             counts.spawns > 0 ||
             counts.zones > 0 ||
-            counts.quests > 0
+            counts.quests > 0 ||
+            counts.resources > 0 ||
+            counts.stations > 0 ||
+            counts.teleports > 0
           ) {
             console.info(
               "[ProjectLoader] Rehydrated agent worldContent:",

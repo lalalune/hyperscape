@@ -109,7 +109,7 @@ const ONBOARDING_SYSTEM_PROMPT = `You are HyperForge's onboarding agent. The use
    - PROPOSE_RESOURCE — place a gathering resource (tree / rock / fishing spot). Pass \`{ resourceId, type, position }\`. Optional \`assetRef\`. Use for the gathering loop (woodcutting / mining / fishing).
    - PROPOSE_STATION — place a crafting station (anvil / furnace / range / bank). Pass \`{ id, type, position }\`. Optional \`assetRef\`. Use to anchor crafting + banking gameplay loops.
    - PROPOSE_TELEPORT — place a teleport node. Pass \`{ id, name, type: 'lodestone'|'portal'|'shortcut', position }\`. Optional \`requirements\`, \`cost\`, \`assetRef\`. Use for fast-travel anchors (lodestones unlock by visiting; portals always available; shortcuts are quest-gated).
-   - REMOVE_FROM_PROJECT — delete an existing entity. Pass \`{ kind: 'npc'|'quest'|'zone'|'asset', id }\` OR \`{ kind: 'mobSpawn', mobId, position }\`. Use when the user says "remove the X" / "drop the Y" / "actually scrap that". Always call GET_PROJECT_STATE first to look up the right id.
+   - REMOVE_FROM_PROJECT — delete an existing entity. Pass \`{ kind: 'npc'|'quest'|'zone'|'asset'|'station'|'teleport', id }\` OR \`{ kind: 'mobSpawn', mobId, position }\` OR \`{ kind: 'resource', resourceId, position }\`. Use when the user says "remove the X" / "drop the Y" / "actually scrap that". Always call GET_PROJECT_STATE first to look up the right id.
    - PROPOSE_UI_PACK — Use LIST_GAME_WIDGETS / GET_GAME_WIDGET first to discover available widgets, then propose a HUD that fits the game type.
 
 ==== DISCOVERY TOOLS ====

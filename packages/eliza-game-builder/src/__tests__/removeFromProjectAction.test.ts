@@ -163,4 +163,16 @@ describe("REMOVE_FROM_PROJECT action", () => {
     );
     expect(r?.success).toBe(true);
   });
+
+  it("accepts teleport removal by id", async () => {
+    const { runtime, callback } = makeStubRuntime({ service: makeService() });
+    const r = await removeFromProjectAction.handler(
+      runtime,
+      makeMessage(""),
+      undefined,
+      { removal: { kind: "teleport", id: "village-lodestone" } },
+      callback,
+    );
+    expect(r?.success).toBe(true);
+  });
 });

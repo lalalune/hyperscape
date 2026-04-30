@@ -57,11 +57,13 @@ const NPC_COLOR = 0x8b5cf6; // primary / purple
 const SPAWN_COLOR = 0xf59e0b; // ember / amber
 const RESOURCE_COLOR = 0x10b981; // emerald / gathering
 const STATION_COLOR = 0x60a5fa; // sky / crafting
+const TELEPORT_COLOR = 0xa855f7; // violet / waypoint
 
 const NPC_GEOMETRY = new THREE.BoxGeometry(0.8, 1.6, 0.8);
 const SPAWN_GEOMETRY = new THREE.IcosahedronGeometry(0.5, 0);
 const RESOURCE_GEOMETRY = new THREE.ConeGeometry(0.4, 1.2, 6);
 const STATION_GEOMETRY = new THREE.CylinderGeometry(0.5, 0.5, 0.8, 8);
+const TELEPORT_GEOMETRY = new THREE.TorusGeometry(0.6, 0.18, 8, 24);
 
 export function useAgentEntityMarkers(
   sceneRefs: TerrainSceneRefs | null,
@@ -159,6 +161,25 @@ export function useAgentEntityMarkers(
       );
     }
 
+    // ---- Teleport nodes ----
+    for (const [id, teleport] of agentWorldContent.teleports) {
+      const fullId = `teleport:${id}`;
+      liveIds.add(fullId);
+      const tpAssetRef = (teleport as unknown as { assetRef?: unknown })
+        .assetRef;
+      const ref = typeof tpAssetRef === "string" ? tpAssetRef : null;
+      upsertMarker(
+        parent,
+        markersRef.current,
+        fullId,
+        TELEPORT_GEOMETRY,
+        TELEPORT_COLOR,
+        teleport.position,
+        `${teleport.name} (${teleport.type})`,
+        ref,
+      );
+    }
+
     // ---- Cleanup removed markers ----
     for (const [id, entry] of markersRef.current) {
       if (!liveIds.has(id)) {
@@ -172,6 +193,7 @@ export function useAgentEntityMarkers(
     agentWorldContent.spawns,
     agentWorldContent.resources,
     agentWorldContent.stations,
+    agentWorldContent.teleports,
   ]);
 
   useEffect(() => {

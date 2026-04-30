@@ -31,12 +31,14 @@ import {
   WorldAreaResourceSchema,
   WorldAreaSchema,
   WorldAreaStationSchema,
+  WorldAreaTeleportNodeSchema,
   type Quest,
   type WorldArea,
   type WorldAreaMobSpawn,
   type WorldAreaNPC,
   type WorldAreaResource,
   type WorldAreaStation,
+  type WorldAreaTeleportNode,
 } from "@hyperforge/manifest-schema";
 import { patchProjectWorldContent } from "../../../utils/worldProjectApi";
 
@@ -57,6 +59,11 @@ export interface AgentWorldContent {
    * cooking ranges, banks. Keyed by station `id` (unique per pack).
    */
   readonly stations: ReadonlyMap<string, WorldAreaStation>;
+  /**
+   * Teleport nodes placed by the agent — lodestones, portals,
+   * shortcuts. Keyed by teleport `id` (unique per project).
+   */
+  readonly teleports: ReadonlyMap<string, WorldAreaTeleportNode>;
 }
 
 let state: AgentWorldContent = {
@@ -66,6 +73,7 @@ let state: AgentWorldContent = {
   quests: new Map(),
   resources: new Map(),
   stations: new Map(),
+  teleports: new Map(),
 };
 const listeners = new Set<() => void>();
 
@@ -186,6 +194,26 @@ export function setAgentStation(
 }
 
 /**
+ * Validate + store a teleport node. Teleports have a unique id
+ * (per-project), so we key by id directly — same pattern as NPCs
+ * and stations.
+ */
+export function setAgentTeleport(
+  raw: WorldAreaTeleportNode | unknown,
+): ValidationOk<WorldAreaTeleportNode> | ValidationFail {
+  const result = WorldAreaTeleportNodeSchema.safeParse(raw);
+  if (!result.success) {
+    return { ok: false, issues: issuesFrom(result.error) };
+  }
+  const entity = result.data;
+  const teleports = new Map(state.teleports);
+  teleports.set(entity.id, entity);
+  state = { ...state, teleports };
+  notify();
+  return { ok: true, entity };
+}
+
+/**
  * Validate + store a quest. Replaces any existing quest with the
  * same id (the schema requires `id`). Phase A1 of the AAA gap audit.
  */
@@ -230,6 +258,7 @@ export function rehydrateAgentWorldContentFromProject(
   quests: number;
   resources: number;
   stations: number;
+  teleports: number;
   dropped: number;
 } {
   const wc = worldContent ?? {};
@@ -239,6 +268,7 @@ export function rehydrateAgentWorldContentFromProject(
   const quests = new Map<string, Quest>();
   const resources = new Map<string, WorldAreaResource>();
   const stations = new Map<string, WorldAreaStation>();
+  const teleports = new Map<string, WorldAreaTeleportNode>();
   let dropped = 0;
 
   if (Array.isArray(wc.npcs)) {
@@ -293,8 +323,23 @@ export function rehydrateAgentWorldContentFromProject(
       else dropped++;
     }
   }
+  if (Array.isArray(wc.teleports)) {
+    for (const raw of wc.teleports as unknown[]) {
+      const r = WorldAreaTeleportNodeSchema.safeParse(raw);
+      if (r.success) teleports.set(r.data.id, r.data);
+      else dropped++;
+    }
+  }
 
-  state = { npcs, zones, spawns, quests, resources, stations };
+  state = {
+    npcs,
+    zones,
+    spawns,
+    quests,
+    resources,
+    stations,
+    teleports,
+  };
   notify();
 
   return {
@@ -304,6 +349,7 @@ export function rehydrateAgentWorldContentFromProject(
     quests: quests.size,
     resources: resources.size,
     stations: stations.size,
+    teleports: teleports.size,
     dropped,
   };
 }
@@ -318,7 +364,14 @@ export function rehydrateAgentWorldContentFromProject(
  * the entity was found and removed; false if it wasn't present.
  */
 export function removeAgentEntity(
-  kind: "npc" | "quest" | "zone" | "mobSpawn" | "resource" | "station",
+  kind:
+    | "npc"
+    | "quest"
+    | "zone"
+    | "mobSpawn"
+    | "resource"
+    | "station"
+    | "teleport",
   key: string,
 ): boolean {
   switch (kind) {
@@ -370,6 +423,14 @@ export function removeAgentEntity(
       notify();
       return true;
     }
+    case "teleport": {
+      if (!state.teleports.has(key)) return false;
+      const teleports = new Map(state.teleports);
+      teleports.delete(key);
+      state = { ...state, teleports };
+      notify();
+      return true;
+    }
   }
 }
 
@@ -405,7 +466,14 @@ export function resourceKey(
  */
 export async function removeAndPersistAgentEntity(
   projectId: string | null,
-  kind: "npc" | "quest" | "zone" | "mobSpawn" | "resource" | "station",
+  kind:
+    | "npc"
+    | "quest"
+    | "zone"
+    | "mobSpawn"
+    | "resource"
+    | "station"
+    | "teleport",
   key: string,
 ): Promise<
   | { ok: true; removed: boolean }
@@ -430,7 +498,8 @@ export function clearAgentWorldContent(): void {
     state.spawns.size === 0 &&
     state.quests.size === 0 &&
     state.resources.size === 0 &&
-    state.stations.size === 0
+    state.stations.size === 0 &&
+    state.teleports.size === 0
   ) {
     return;
   }
@@ -441,6 +510,7 @@ export function clearAgentWorldContent(): void {
     quests: new Map(),
     resources: new Map(),
     stations: new Map(),
+    teleports: new Map(),
   };
   notify();
 }
@@ -463,6 +533,7 @@ const SSR_SNAPSHOT: AgentWorldContent = {
   quests: new Map(),
   resources: new Map(),
   stations: new Map(),
+  teleports: new Map(),
 };
 
 /**
@@ -533,6 +604,9 @@ export async function persistAgentWorldContentToProject(
   }
   if (snapshot.stations.size > 0) {
     patch.stations = Array.from(snapshot.stations.values());
+  }
+  if (snapshot.teleports.size > 0) {
+    patch.teleports = Array.from(snapshot.teleports.values());
   }
 
   if (Object.keys(patch).length === 0) {
@@ -638,6 +712,26 @@ export async function setAndPersistAgentStation(
   | { ok: false; stage: "persist"; error: string }
 > {
   const validation = setAgentStation(raw);
+  if (!validation.ok) {
+    return { ok: false, stage: "validate", issues: validation.issues };
+  }
+  const persist = await persistAgentWorldContentToProject(projectId);
+  if (!persist.ok) {
+    return { ok: false, stage: "persist", error: persist.error };
+  }
+  return { ok: true, entity: validation.entity };
+}
+
+/** Validate + store + persist a teleport node. */
+export async function setAndPersistAgentTeleport(
+  projectId: string | null,
+  raw: WorldAreaTeleportNode | unknown,
+): Promise<
+  | { ok: true; entity: WorldAreaTeleportNode }
+  | { ok: false; stage: "validate"; issues: ValidationFail["issues"] }
+  | { ok: false; stage: "persist"; error: string }
+> {
+  const validation = setAgentTeleport(raw);
   if (!validation.ok) {
     return { ok: false, stage: "validate", issues: validation.issues };
   }
