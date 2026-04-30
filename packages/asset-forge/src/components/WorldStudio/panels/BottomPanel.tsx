@@ -28,6 +28,7 @@ import {
   Package,
   Wrench,
   Circle,
+  Boxes,
 } from "lucide-react";
 import React, {
   useState,
@@ -43,6 +44,7 @@ import {
   useManifestValidation,
   type ManifestValidationIssue,
 } from "../hooks/useManifestValidation";
+import { AssetPackBrowserPanelProjectBound } from "./AssetPackBrowserPanel";
 import { ContentBrowser } from "./ContentBrowser";
 import { PluginBrowserPanel } from "./PluginBrowserPanel";
 import { UILayoutLibraryTab } from "./UILayoutLibraryTab";
@@ -66,6 +68,7 @@ type TabId =
   | "content"
   | "uiLayouts"
   | "plugins"
+  | "assetPacks"
   | "validation"
   | "console"
   | "history";
@@ -82,6 +85,7 @@ const TABS: TabDef[] = [
   { id: "content", label: "Content", icon: Book },
   { id: "uiLayouts", label: "UI Layouts", icon: LayoutPanelTop },
   { id: "plugins", label: "Plugins", icon: Package },
+  { id: "assetPacks", label: "Asset Packs", icon: Boxes },
   { id: "validation", label: "Validation", icon: AlertTriangle },
   { id: "console", label: "Console", icon: Terminal },
   { id: "history", label: "History", icon: History },
@@ -714,6 +718,7 @@ export const BottomPanel = React.memo(function BottomPanel() {
           {activeTab === "content" && <ContentBrowser />}
           {activeTab === "uiLayouts" && <UILayoutLibraryTab />}
           {activeTab === "plugins" && <PluginBrowserPanel />}
+          {activeTab === "assetPacks" && <AssetPackBrowserPanelProjectBound />}
           {activeTab === "validation" && <ValidationTab />}
           {activeTab === "console" && <ConsoleTab />}
           {activeTab === "history" && <HistoryTab />}

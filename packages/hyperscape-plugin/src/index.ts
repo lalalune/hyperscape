@@ -40,6 +40,7 @@ import {
 } from "@hyperforge/shared";
 import { createDropConditionDispatcher } from "./systems/economy/DropConditionDispatcher.js";
 import { installWorldDropConditions } from "./systems/economy/WorldDropConditionEvaluators.js";
+import { loadHyperiaManifestsSync } from "./onEnable/loadHyperiaManifests.js";
 import { MobEntity } from "./entities/npc/MobEntity.js";
 import { PlayerEntity } from "./entities/player/PlayerEntity.js";
 import { PlayerLocal } from "./entities/player/PlayerLocal.js";
@@ -264,6 +265,21 @@ export {
 } from "@hyperforge/skills";
 
 export { manifest } from "./manifest.js";
+
+// SpellService — singleton + class for the magic spellbook. Migrated
+// from @hyperforge/shared on 2026-04-26 (Wave 6). Re-exported here so
+// the React spellbook panel and any other client-side consumers can
+// keep importing through the plugin's public surface.
+export { SpellService, spellService } from "./systems/combat/SpellService.js";
+
+// Phase B0'.F — default HUD layout the plugin contributes. PIE
+// Play of a Hyperia project renders this layout; the production
+// client at localhost:3333 will re-export from this module in
+// B0'.F.2 (dedupe).
+export {
+  HYPERSCAPE_DEFAULT_HUD_LAYOUT,
+  HYPERSCAPE_DEFAULT_HUD_LAYOUT_ID,
+} from "./contributions/defaultHud.js";
 
 // Plugin-contributed widgets — re-exported so hosts that pre-register
 // widgets at boot (e.g. the asset-forge editor's UI Layout Editor)
@@ -1369,6 +1385,15 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
       // itself on `isServerEnvironment`. Preserve that behavior so
       // client builds don't pay the registration cost.
       if (ctx.world.isServer) {
+        // Phase B0'.E — load Hyperia's authored manifest files
+        // (world-areas.json, etc.) directly from the plugin's
+        // onEnable so a project that doesn't install
+        // `@hyperforge/hyperscape` doesn't end up with Hyperia
+        // content populated in `worldAreasRegistry`. Today this
+        // runs idempotently on top of `DataManager`'s legacy load;
+        // a follow-up cut removes the engine-wide load entirely.
+        loadHyperiaManifestsSync();
+
         register("health-regen", HealthRegenSystem);
 
         // TileMovementManager — migrated to plugin (Phase E1,
@@ -2223,12 +2248,14 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
         // impostor atlas, lazy collision. Reads building placement
         // data from TownSystem (still in shared).
         register("building-rendering", BuildingRenderingSystem);
-        // Procedural grass — GPU instanced + heightmap fallback.
-        // Mutable shader state (grid exclusion, character bending)
-        // owned by `GrassSharedRegistry` in shared so in-shared
-        // sibling modules (`GrassExclusionGrid`,
-        // `CharacterInfluenceManager`) can push updates.
-        register("grass", ProceduralGrassSystem);
+        // Procedural grass — disabled. `GrassVisualManager` (the
+        // quad-tree instanced clump renderer in TerrainSystem) is
+        // the canonical grass system; `ProceduralGrassSystem` here
+        // was the parallel implementation that produced the
+        // "everywhere" look-worse coverage when both ran together.
+        // Kept the import so re-enabling is one-line if we ever
+        // resume the procedural path.
+        // register("grass", ProceduralGrassSystem);
         // Drag-and-drop + right-click context menus. Originally
         // registered inside `if (world.isClient)` in SystemLoader.
         // Stats reader (`getSystemInfo`) is duck-typed at the

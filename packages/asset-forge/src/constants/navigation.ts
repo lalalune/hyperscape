@@ -31,6 +31,7 @@ export const NAVIGATION_VIEWS = {
   WORLD_STUDIO: "worldStudio",
   ARMOR_PIPELINE: "armorPipeline",
   UI_LAYOUT_EDITOR: "uiLayoutEditor",
+  ASSET_PACKS: "assetPacks",
 } as const satisfies Record<string, NavigationView>;
 
 // Route paths for URL navigation
@@ -64,6 +65,7 @@ export const ROUTES = {
   MANIFESTS: "/manifests",
   ARMOR_PIPELINE: "/armor-pipeline",
   UI_LAYOUT_EDITOR: "/ui-layout",
+  ASSET_PACKS: "/asset-packs",
   /**
    * Asset-scoped UI layout editor route. The concrete URL is built by
    * `buildUILayoutEditorPath(teamId, layoutId)`; ROUTES.UI_LAYOUT_ASSET
@@ -109,6 +111,7 @@ export const ROUTE_TO_VIEW: Record<string, NavigationView> = {
   [ROUTES.MANIFESTS]: NAVIGATION_VIEWS.MANIFESTS,
   [ROUTES.ARMOR_PIPELINE]: NAVIGATION_VIEWS.ARMOR_PIPELINE,
   [ROUTES.UI_LAYOUT_EDITOR]: NAVIGATION_VIEWS.UI_LAYOUT_EDITOR,
+  [ROUTES.ASSET_PACKS]: NAVIGATION_VIEWS.ASSET_PACKS,
 };
 
 // Map navigation views to routes
@@ -140,6 +143,7 @@ export const VIEW_TO_ROUTE: Record<NavigationView, string> = {
   [NAVIGATION_VIEWS.MANIFESTS]: ROUTES.MANIFESTS,
   [NAVIGATION_VIEWS.ARMOR_PIPELINE]: ROUTES.ARMOR_PIPELINE,
   [NAVIGATION_VIEWS.UI_LAYOUT_EDITOR]: ROUTES.UI_LAYOUT_EDITOR,
+  [NAVIGATION_VIEWS.ASSET_PACKS]: ROUTES.ASSET_PACKS,
 };
 
 // Grid background styles for the app

@@ -42,11 +42,11 @@ import {
 } from "../../constants/panelLayout";
 import type { PlayerStats, ClientWorld } from "../../types";
 import {
-  spellService,
   combatSpellsRegistry,
   EventType,
   type Spell,
 } from "@hyperforge/shared";
+import { spellService } from "@hyperforge/hyperscape";
 import { useRegistryReload } from "@hyperforge/ui-widgets";
 
 // Spell panel layout constants — use shared sizing tokens from panelLayout.ts

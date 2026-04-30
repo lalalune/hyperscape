@@ -1460,6 +1460,60 @@ export const DEFAULT_CREATION_CONFIG: WorldCreationConfig = {
 };
 
 /**
+ * Blank-template creation config — terrain only.
+ *
+ * Phase B0'.B / B0'.E follow-up. Produces just the heightmap +
+ * biome colors + island shape. ZERO towns, ZERO roads, ZERO
+ * vegetation. The agent fills the world from there:
+ *
+ *   - PROPOSE_TERRAIN_CONFIG (B0'.H) — agent reshapes the terrain
+ *   - PROPOSE_PLUGIN_SET (B0'.I) — agent declares game systems
+ *   - PROPOSE_NPC_PLACEMENT (B1.2 / B0'.G) — agent places NPCs
+ *   - PROPOSE_UI_PACK — agent designs the HUD
+ *
+ * Why disable vegetation: `DEFAULT_VEGETATION_CONFIG` declares
+ * Hyperia-specific tree species (`tree_oak`, `tree_pine`,
+ * `tree_palm`, etc.). A blank template should not assume those
+ * species exist in the project's gathering manifests — that's an
+ * assumption only the Hyperia template can make.
+ *
+ * Why disable towns: `DEFAULT_TOWN_CONFIG` generates Hyperia-style
+ * settlements (hamlet/village/town). A blank project shouldn't
+ * pre-populate human settlement structures.
+ */
+export const BLANK_CREATION_CONFIG: WorldCreationConfig = {
+  seed: 0,
+  preset: null,
+  useGamePipeline: false,
+  terrain: {
+    tileSize: 100,
+    worldSize: 100,
+    tileResolution: 32,
+    maxHeight: 50,
+    waterThreshold: 16,
+  },
+  noise: DEFAULT_NOISE_CONFIG,
+  biomes: DEFAULT_BIOME_CONFIG,
+  island: DEFAULT_ISLAND_CONFIG,
+  shoreline: DEFAULT_SHORELINE_CONFIG,
+  // Zero towns — sub-config retained for type compatibility but
+  // the count knob ensures procgen produces nothing.
+  towns: { ...DEFAULT_TOWN_CONFIG, townCount: 0 },
+  // Roads only generate between towns; with townCount: 0 this is
+  // dead config but kept for type compatibility.
+  roads: DEFAULT_ROAD_CONFIG,
+  // Vegetation: every biome's `enabled` flipped off so no trees
+  // / bushes / grass clumps spawn. The schema requires the full
+  // biome map, so we override flags rather than omit entries.
+  vegetation: Object.fromEntries(
+    Object.entries(DEFAULT_VEGETATION_CONFIG).map(([biomeName, biomeCfg]) => [
+      biomeName,
+      { ...biomeCfg, enabled: false },
+    ]),
+  ) as VegetationConfig,
+};
+
+/**
  * Default viewport overlays
  */
 export const DEFAULT_VIEWPORT_OVERLAYS: ViewportOverlays = {

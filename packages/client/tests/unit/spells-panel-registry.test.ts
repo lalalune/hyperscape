@@ -11,7 +11,8 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { combatSpellsRegistry, spellService } from "@hyperforge/shared";
+import { combatSpellsRegistry } from "@hyperforge/shared";
+import { spellService } from "@hyperforge/hyperscape";
 
 const SAMPLE_MANIFEST = {
   standard: {

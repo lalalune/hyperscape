@@ -50,6 +50,7 @@ import { usePipelineStatus } from "@/hooks";
 import { useMaterialPresets } from "@/hooks";
 import { Asset, AssetService } from "@/services/api/AssetService";
 import { GenerationAPIClient } from "@/services/api/GenerationAPIClient";
+import { GenerationPackTargetBanner } from "@/components/GenerationPackTargetBanner";
 
 export const GenerationPage: React.FC = () => {
   const [apiClient] = useState(() => new GenerationAPIClient());
@@ -674,7 +675,9 @@ export const GenerationPage: React.FC = () => {
 
   return (
     <div className="fixed inset-0 pt-[44px] bg-bg-primary bg-opacity-95 backdrop-blur-xl z-40 overflow-y-auto animate-fade-in scrollbar-hide">
-      {/* Main container with hidden scrollbar for clean appearance while maintaining scroll functionality */}
+      {/* Pack-target banner — only renders when launched from the
+          Asset Packs page with `?targetPack=…`. Sticks above content. */}
+      <GenerationPackTargetBanner />
 
       {/* Main Content Area */}
       <div className="bg-bg-primary">

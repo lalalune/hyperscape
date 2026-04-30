@@ -42,6 +42,7 @@ import React, { useMemo, useState, useCallback, useDeferredValue } from "react";
 
 import type { PaletteCategory, PaletteItem } from "../types";
 import { useWorldStudio } from "../WorldStudioContext";
+import { hasAllRequiredAssetPacks } from "../../../gameModules/GameModule";
 import { EntityThumbnail } from "./EntityThumbnail";
 import {
   buildModulePalette,
@@ -269,6 +270,17 @@ export const EntityPalette = React.memo(function EntityPalette() {
   const { manifests, tools } = state;
   const activePlacement = tools.activePlacement;
   const isHyperia = activeModule.id === "hyperia";
+  // AP6 — palette items are gated on the project having installed
+  // every pack the active module declares as required (per
+  // `GameModule.requiredAssetPacks`). A blank project or one that
+  // uninstalled a required pack gets an empty palette + a hint
+  // to install, even if `manifests.loaded` is true (the global
+  // manifest store may still hold the data for other consumers —
+  // runtime placeholders, server tooling).
+  const requiredPacksSatisfied = hasAllRequiredAssetPacks(
+    activeModule,
+    state.project.assetPacks,
+  );
 
   const [expandedCategory, setExpandedCategory] =
     useState<PaletteCategory | null>(null);
@@ -282,7 +294,11 @@ export const EntityPalette = React.memo(function EntityPalette() {
   const paletteItems = useMemo((): Map<PaletteCategory, PaletteItem[]> => {
     const map = new Map<PaletteCategory, PaletteItem[]>();
 
-    if (!manifests.loaded) {
+    // AP6 — gate every category on the active module's required
+    // packs being installed, NOT just manifests.loaded. Without
+    // this a fresh project shows trees + rocks + NPCs in the
+    // palette even when it hasn't installed any pack.
+    if (!manifests.loaded || !requiredPacksSatisfied) {
       CATEGORIES.forEach((c) => map.set(c.id, []));
       return map;
     }
@@ -654,7 +670,7 @@ export const EntityPalette = React.memo(function EntityPalette() {
     map.set("custom-assets", []);
 
     return map;
-  }, [manifests]);
+  }, [manifests, requiredPacksSatisfied]);
 
   // Build palette from GameModule schema for non-Hyperia modules
   const modulePalette = useMemo((): ModulePaletteCategory[] | null => {
@@ -796,6 +812,46 @@ export const EntityPalette = React.memo(function EntityPalette() {
             >
               Retry
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // AP6 — empty state when the active module's required packs are
+  // not installed. Distinct from "loading" / "error": the project
+  // simply hasn't opted into the module's content. User installs
+  // via the AI companion or a future Asset Library pack picker.
+  if (isHyperia && !requiredPacksSatisfied) {
+    const missing = (activeModule.requiredAssetPacks ?? []).filter(
+      (id) => !state.project.assetPacks.includes(id),
+    );
+    return (
+      <div className="flex flex-col h-full">
+        <PaletteHeader viewMode={viewMode} onViewModeChange={setViewMode} />
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center space-y-2 max-w-[240px]">
+            <Package size={20} className="mx-auto text-text-tertiary/60" />
+            <p className="text-xs text-text-tertiary">
+              {missing.length === 1
+                ? "Required asset pack not installed."
+                : `${missing.length} required asset packs not installed.`}
+            </p>
+            <p className="text-[10px] text-text-tertiary/70 leading-relaxed">
+              The {activeModule.name} module needs:
+            </p>
+            <ul className="text-[10px] text-text-tertiary/80 font-mono space-y-0.5">
+              {missing.map((id) => (
+                <li key={id} className="truncate">
+                  {id}
+                </li>
+              ))}
+            </ul>
+            <p className="text-[10px] text-text-tertiary/70 leading-relaxed pt-1">
+              Ask the AI companion to install{" "}
+              {missing.length === 1 ? "it" : "them"} or add via the Asset
+              Library.
+            </p>
           </div>
         </div>
       </div>

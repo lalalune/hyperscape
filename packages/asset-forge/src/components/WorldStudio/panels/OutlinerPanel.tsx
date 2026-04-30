@@ -81,6 +81,7 @@ import {
   executeDelete,
   executeCreatePrefab,
 } from "../utils/entityActions";
+import { useAgentWorldContent } from "../state/agentWorldContent";
 
 // ============== CONSTANTS ==============
 
@@ -759,7 +760,26 @@ export const OutlinerPanel = React.memo(function OutlinerPanel() {
   const expandedNodes = state.builder.editing.expandedNodes;
   const selection = state.builder.editing.selection;
   const selectedId = selection ? selection.id : null;
-  const hierarchyTree = computed.getHierarchyTree();
+  const baseHierarchyTree = computed.getHierarchyTree();
+
+  // Subscribe to agent-emitted world content so the outliner shows
+  // NPCs / mob spawns / quests / zones / resources the agent
+  // produced via chat — they live in `agentWorldContent`, not in
+  // `state.extendedLayers`, so the base hierarchy tree misses them.
+  // We merge here as a top-level "AI Generated" folder so agent vs
+  // designer content is visually distinguishable.
+  const agentContent = useAgentWorldContent();
+  const hierarchyTree = useMemo<HierarchyNode | null>(() => {
+    if (!baseHierarchyTree) return baseHierarchyTree;
+    const aiNode = buildAgentContentNode(agentContent);
+    if (!aiNode) return baseHierarchyTree;
+    // Prepend the AI folder as the first top-level child so it's
+    // visible without scrolling.
+    return {
+      ...baseHierarchyTree,
+      children: [aiNode, ...baseHierarchyTree.children],
+    };
+  }, [baseHierarchyTree, agentContent]);
 
   // Multi-selection set for efficient lookup
   const multiSelectedIds = useMemo(
@@ -1580,6 +1600,125 @@ export const OutlinerPanel = React.memo(function OutlinerPanel() {
 });
 
 // ============== HELPER ==============
+
+/**
+ * Build the "AI Generated" outliner subtree from the agent's
+ * world-content store. Returns null when nothing is present, so
+ * the folder doesn't render an empty heading.
+ *
+ * This is a pure function over the agentWorldContent snapshot —
+ * the outliner's `useMemo` invalidates when the snapshot changes
+ * (the store guarantees reference stability per `notify()`).
+ */
+function buildAgentContentNode(
+  content: ReturnType<typeof useAgentWorldContent>,
+): HierarchyNode | null {
+  const totalCount =
+    content.npcs.size +
+    content.spawns.size +
+    content.quests.size +
+    content.zones.size;
+  if (totalCount === 0) return null;
+
+  const folders: HierarchyNode[] = [];
+
+  if (content.npcs.size > 0) {
+    folders.push({
+      id: "ai-npcs",
+      label: "NPCs",
+      type: "npcs" as const,
+      badge: content.npcs.size,
+      expandable: true,
+      children: Array.from(content.npcs.values()).map((npc) => ({
+        id: `ai-npc-${npc.id}`,
+        label: npc.name ?? npc.id,
+        type: "npc" as const,
+        children: [],
+        dataId: npc.id,
+        expandable: false,
+        metadata: { npcType: npc.type, source: "agent" },
+      })),
+    });
+  }
+  if (content.spawns.size > 0) {
+    folders.push({
+      id: "ai-mob-spawns",
+      label: "Mob Spawns",
+      type: "mobSpawns" as const,
+      badge: content.spawns.size,
+      expandable: true,
+      children: Array.from(content.spawns.entries()).map(([key, spawn]) => ({
+        id: `ai-spawn-${key}`,
+        label: `${spawn.mobId} ×${spawn.maxCount}`,
+        type: "mobSpawn" as const,
+        children: [],
+        dataId: key,
+        expandable: false,
+        metadata: {
+          mobId: spawn.mobId,
+          maxCount: spawn.maxCount,
+          source: "agent",
+        },
+      })),
+    });
+  }
+  if (content.quests.size > 0) {
+    folders.push({
+      id: "ai-quests",
+      label: "Quests",
+      // Reusing "pois" type here is harmless — the outliner uses it
+      // for icon resolution; PoI's scroll-icon fits a quest visually.
+      type: "pois" as const,
+      badge: content.quests.size,
+      expandable: true,
+      children: Array.from(content.quests.values()).map((quest) => ({
+        id: `ai-quest-${quest.id}`,
+        label: quest.name ?? quest.id,
+        type: "poi" as const,
+        children: [],
+        dataId: quest.id,
+        expandable: false,
+        metadata: {
+          difficulty: quest.difficulty,
+          stages: quest.stages.length,
+          source: "agent",
+        },
+      })),
+    });
+  }
+  if (content.zones.size > 0) {
+    folders.push({
+      id: "ai-zones",
+      label: "Zones",
+      type: "regions" as const,
+      badge: content.zones.size,
+      expandable: true,
+      children: Array.from(content.zones.values()).map((zone) => ({
+        id: `ai-zone-${zone.id}`,
+        label: zone.name,
+        type: "region" as const,
+        children: [],
+        dataId: zone.id,
+        expandable: false,
+        metadata: {
+          biomeType: zone.biomeType,
+          difficulty: zone.difficultyLevel,
+          source: "agent",
+        },
+      })),
+    });
+  }
+
+  return {
+    id: "ai-generated",
+    label: "AI Generated",
+    type: "gameEntities" as const,
+    children: folders,
+    badge: totalCount,
+    expandable: true,
+    metadata: { source: "agent" },
+  };
+}
 
 function findEntityPosition(
   state: ReturnType<typeof useWorldStudio>["state"],

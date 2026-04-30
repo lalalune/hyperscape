@@ -14,6 +14,9 @@ export * from "./team-members.schema";
 // World Studio — Projects & Deployments
 export * from "./world-projects.schema";
 
+// World Studio — Asset Packs (AP1)
+export * from "./asset-packs.schema";
+
 // World Studio — Audit
 export * from "./audit-log.schema";
 
@@ -28,6 +31,7 @@ export * from "./ui-layouts.schema";
 
 // Re-export everything for drizzle
 import * as assetsSchema from "./assets.schema";
+import * as assetPacksSchema from "./asset-packs.schema";
 import * as forgeUsersSchema from "./forge-users.schema";
 import * as teamsSchema from "./teams.schema";
 import * as teamMembersSchema from "./team-members.schema";
@@ -39,6 +43,7 @@ import * as uiLayoutsSchema from "./ui-layouts.schema";
 
 export const schema = {
   ...assetsSchema,
+  ...assetPacksSchema,
   ...forgeUsersSchema,
   ...teamsSchema,
   ...teamMembersSchema,

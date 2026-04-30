@@ -32,6 +32,8 @@ import {
   type GameEntityData,
 } from "../../WorldBuilder/TileBasedTerrain";
 import { useWorldStudio } from "../WorldStudioContext";
+import { useAgentWorldContent } from "../state/agentWorldContent";
+import { useAgentEntityMarkers } from "../hooks/useAgentEntityMarkers";
 import { useEditorWorldSync } from "../hooks/useEditorWorldSync";
 import { usePlacementInteraction } from "../hooks/usePlacementInteraction";
 import { useZonePainting } from "../hooks/useZonePainting";
@@ -138,6 +140,10 @@ function getSelectableIdFromSelection(
 
 export function ViewportContainer() {
   const { state, actions, viewportRef, registry, dispatch } = useWorldStudio();
+  // Agent-emitted world content (B1 of PLAN_AAA_QUALITY). The viewport
+  // counts these alongside designer-placed content; full marker
+  // rendering is a follow-up slice.
+  const agentWorldContent = useAgentWorldContent();
   const isEditing = state.builder.mode === "editing";
   // Live terrain config (from slider drags) takes priority, then editing config, then creation config.
   // This allows real-time slider updates without full scene teardown.
@@ -488,20 +494,31 @@ export function ViewportContainer() {
       ]),
     [],
   );
+  // PIE Play mode: hide editor gizmos and tool affordances so the
+  // viewport feels like the runtime game (B0 reopen). Simulate mode
+  // keeps the editor surface; only `mode === "play"` flips the
+  // visibility off.
+  const isPiePlayMode = state.pie.active && state.pie.mode === "play";
+
   const showGizmo =
     isEditing &&
+    !isPiePlayMode &&
     activeTool === "select" &&
     selection &&
     MOVABLE_TYPES.has(selection.type);
 
   const needsToolMode =
     isEditing &&
+    !isPiePlayMode &&
     (activeTool === "brush" || activeTool === "place" || hasActivePlacement);
 
   // Multi-select from Zustand store (used for interaction mode + multi-gizmo)
   const multiSelectionForMode = useSelectionStore((s) => s.multiSelection);
   const showMultiGizmo =
-    isEditing && activeTool === "select" && multiSelectionForMode.length > 1;
+    isEditing &&
+    !isPiePlayMode &&
+    activeTool === "select" &&
+    multiSelectionForMode.length > 1;
 
   useEffect(() => {
     if (!activeSceneRefs) return;
@@ -1271,8 +1288,13 @@ export function ViewportContainer() {
       count += world.layers.bosses.length;
       count += world.layers.events.length;
     }
+    count += agentWorldContent.npcs.size;
+    count += agentWorldContent.zones.size;
+    count += agentWorldContent.spawns.size;
+    count += agentWorldContent.resources.size;
+    count += agentWorldContent.stations.size;
     return count;
-  }, [state.extendedLayers, state.builder.editing.world]);
+  }, [state.extendedLayers, state.builder.editing.world, agentWorldContent]);
 
   // Memoized roads prop — avoids creating a new array reference on every render
   // (which would cause TileBasedTerrain's useEffect to fire on every MOVE_TOWN
@@ -1342,6 +1364,10 @@ export function ViewportContainer() {
       [isEditing, actions],
     ),
   });
+
+  // Render agent-emitted NPCs / mob spawns as primary-tinted
+  // markers — answers "where did the agent put things?" visually.
+  useAgentEntityMarkers(activeSceneRefs);
 
   // Click-to-place viewport interaction (raycasts, rotation, confirm/cancel)
   usePlacementInteraction({
@@ -2002,7 +2028,11 @@ export function ViewportContainer() {
     >
       <TileBasedTerrain
         config={config}
-        showVegetation={true}
+        // Phase B0'.B / B0'.E follow-up — blank-template projects
+        // skip vegetation entirely (no manifest-tree fetch, no
+        // procgen tree fallback). Hyperia + every other template
+        // gets the full vegetation pipeline.
+        showVegetation={state.project.templateId !== "blank"}
         selectedId={terrainSelectedId}
         onTileCountChange={handleTileCountChange}
         onSelect={handleSelect}

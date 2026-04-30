@@ -156,7 +156,12 @@ function DropdownItem({
 // Props
 // ---------------------------------------------------------------------------
 
-export type RightPanelTab = "properties" | "deployment" | "automation";
+export type RightPanelTab =
+  | "properties"
+  | "deployment"
+  | "automation"
+  | "companion"
+  | "history";
 
 interface MainToolbarProps {
   leftPanelOpen: boolean;
@@ -555,6 +560,18 @@ export function MainToolbar({
               onToggleRight();
             } else {
               onSetRightTab("deployment");
+            }
+          }}
+        />
+        <ToolButton
+          icon={Sparkles}
+          label="AI Companion"
+          active={rightPanelOpen && activeRightTab === "companion"}
+          onClick={() => {
+            if (rightPanelOpen && activeRightTab === "companion") {
+              onToggleRight();
+            } else {
+              onSetRightTab("companion");
             }
           }}
         />

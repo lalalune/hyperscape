@@ -60,9 +60,36 @@ export interface WorldProjectSummary {
   lockedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // ── B0'.A typed-layer surface ──
+  schemaVersion: number;
+  /** Template id the project was cloned from, or null. */
+  templateId: string | null;
+  /** Plugin ids installed by PIE on Play. */
+  plugins: string[];
+  /**
+   * Asset pack manifest ids installed on this project (Phase AP1
+   * of `PLAN_ASSET_PACKS.md`). Empty = no asset packs.
+   */
+  assetPacks: string[];
 }
 
 export interface WorldProjectDetail extends WorldProjectSummary {
+  /**
+   * Procgen config (terrain shape, biomes, vegetation). May be
+   * null until the project's first PIE Play triggers procgen.
+   */
+  config: Record<string, unknown> | null;
+  /**
+   * Authored content layered on top of plugin contributions
+   * (npcs, zones, quests, uiPack).
+   */
+  worldContent: Record<string, unknown>;
+  /**
+   * @deprecated Legacy opaque blob, preserved during the
+   * deprecation window for read-fallback compatibility. New code
+   * should consume `config` + `worldContent` + `templateId` +
+   * `plugins`.
+   */
   worldData: unknown;
   manifestSnapshot: unknown;
 }
@@ -169,7 +196,20 @@ export async function createWorldProject(data: {
   gameId: string;
   name: string;
   description?: string;
-  worldData: unknown;
+  /**
+   * Project template to clone from. When supplied, the server
+   * resolves the template's layers (config + plugins + worldContent
+   * + templateId) and writes them into the new row. `worldData`
+   * becomes optional in this mode.
+   * Phase B0'.B of `PLAN_PROJECT_AS_DATA.md`.
+   */
+  templateId?: string;
+  /**
+   * @deprecated Use `templateId` instead. Still accepted for
+   * legacy callers that construct `worldData` client-side (e.g. a
+   * NewWorldDialog that has already run procgen).
+   */
+  worldData?: unknown;
 }): Promise<WorldProjectDetail> {
   const res = await apiFetch("/api/world/projects", {
     method: "POST",
@@ -177,6 +217,115 @@ export async function createWorldProject(data: {
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(`Failed to create project: ${res.status}`);
+  return res.json();
+}
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  thumbnailUrl?: string;
+  defaultPick?: boolean;
+  /** Plugin ids the template installs. */
+  plugins: string[];
+}
+
+/**
+ * List the available project templates. Used by the New-Project
+ * dialog to render the template picker. Phase B0'.B.
+ */
+export async function listProjectTemplates(): Promise<ProjectTemplate[]> {
+  const res = await apiFetch("/api/world/project-templates");
+  if (!res.ok) throw new Error(`Failed to list templates: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Patch the project's `worldContent` with a partial overlay.
+ * Used by agent actions (PROPOSE_NPC_PLACEMENT, etc.) so the
+ * agent's authored content persists into the project — surviving
+ * reload and shipping on Publish.
+ *
+ * Phase B0'.G of `PLAN_PROJECT_AS_DATA.md`. Top-level keys
+ * (`npcs`, `zones`, `spawns`, `quests`, `uiPack`) overlay onto
+ * the existing content; explicit `null` removes a key.
+ */
+export async function patchProjectWorldContent(
+  projectId: string,
+  patch: Record<string, unknown>,
+): Promise<WorldProjectSummary> {
+  const res = await apiFetch(`/api/world/projects/${projectId}/world-content`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ patch }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Failed to patch world content: ${res.status} ${text || res.statusText}`,
+    );
+  }
+  return res.json();
+}
+
+/**
+ * Project revision history (G1). One row per write that bumped
+ * the project's typed-layer state. Newest first.
+ */
+export interface ProjectRevisionSummary {
+  id: string;
+  projectId: string;
+  version: number;
+  author: "user" | "agent" | "system" | string;
+  authorId: string | null;
+  changeReason: string | null;
+  schemaVersion: number;
+  config: unknown;
+  plugins: ReadonlyArray<string>;
+  worldContent: unknown;
+  templateId: string | null;
+  createdAt: string;
+}
+
+export async function listProjectRevisions(
+  projectId: string,
+  options: { limit?: number; offset?: number } = {},
+): Promise<ReadonlyArray<ProjectRevisionSummary>> {
+  const params = new URLSearchParams();
+  if (typeof options.limit === "number")
+    params.set("limit", String(options.limit));
+  if (typeof options.offset === "number")
+    params.set("offset", String(options.offset));
+  const qs = params.toString();
+  const url = `/api/world/projects/${projectId}/revisions${qs ? `?${qs}` : ""}`;
+  const res = await apiFetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to list project revisions: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json();
+}
+
+/**
+ * G1.b — restore a project to a prior revision. The current state
+ * is snapshotted into a new revision before the write so the
+ * restore is reversible.
+ */
+export async function restoreProjectRevision(
+  projectId: string,
+  revisionId: string,
+): Promise<WorldProjectSummary> {
+  const res = await apiFetch(
+    `/api/world/projects/${projectId}/revisions/${revisionId}/restore`,
+    { method: "POST" },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Failed to restore revision: ${res.status} ${text || res.statusText}`,
+    );
+  }
   return res.json();
 }
 

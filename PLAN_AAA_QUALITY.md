@@ -1,8 +1,21 @@
 # AAA Quality — Plan
 
-**Status:** Draft — 2026-04-29
+**Status:** Updated 2026-04-29 — B0 reopened + replaced by `PLAN_PROJECT_AS_DATA.md`
 **Predecessor:** `PLAN_AI_AUTHORING_FOUNDATIONS.md` (Phase A complete — `48b664c23`)
 **Tip commit at planning time:** `48b664c23` on `feat/world-studio`
+
+> **2026-04-29 architectural correction:** the original B0 ("Hyperia
+> ↔ PIE parity") was framed as "make PIE behave like Hyperia." Live
+> testing exposed a deeper mismatch — *plugin contributions are
+> currently engine-scoped, not project-scoped*. Hyperia is loaded
+> globally regardless of which project is open, so a "blank" project
+> still gets Hyperia's mobs, NPCs, stations, HUD. The actual
+> unification is **Project-as-Data**: a project declares its
+> terrain config, plugins, and content, and PIE plays a project.
+> Hyperia is one project among many. See
+> **`PLAN_PROJECT_AS_DATA.md`** — that plan supersedes B0 here. The
+> rest of B1–B10 is unchanged in intent but reframed to operate
+> against `Project.worldContent` instead of editor-local state.
 
 ## North star
 
@@ -60,74 +73,39 @@ so the priority order matters.
 > captures that work. B1+ are unchanged from the prior version of
 > this plan but only meaningful once B0 lands.
 
-### Phase B0 — Hyperia ↔ PIE parity ⚪ *(next; supersedes B1 in priority)*
+### Phase B0 — REPLACED BY `PLAN_PROJECT_AS_DATA.md`
 
-**Goal:** When the user presses **Play** on the hyperscape project
-in World Studio, the gameplay produced by PIE is **bit-for-bit
-identical** to playing Hyperia on port 3333. This is the regression
-test for the decomposition itself: if Hyperia can't be rebuilt
-from its own building blocks, neither can any game an agent
-designs from those blocks.
+**Status:** Reopened 2026-04-29 after the original B0 was declared
+closed too narrowly.
 
-**What audit found (2026-04-29):**
+The original B0 (sub-slices B0.1–B0.4 — plugin loader in prod, real
+InteractionRouter in PIE, live DataContext, smoke test) shipped on
+this branch and is preserved as **B0' segments F and J** in the new
+plan. But the broader unification — *project drives the runtime* —
+was missing. PIE always loaded Hyperia regardless of which project
+was open, so a blank project still got Hyperia's gameplay surface.
 
-The decomposition is partly done. World data (NPCs, mobs, resources,
-manifests) renders correctly in PIE. The gameplay loop has two
-visible gaps:
+**Replacement plan:** `PLAN_PROJECT_AS_DATA.md`. The new B0' is 10
+slices (A–J), ~6 focused weeks total. Hyperia ends up as a
+template among many, and pressing Play renders whatever the active
+project declares. Slices A–F + J reproduce the parity goal under the
+new substrate; slices G–I (agent writes to project) collapse what
+were originally B1's actions into the same architecture.
 
-| Gap | Root cause | Plan that already addresses it |
-|---|---|---|
-| Click-to-interact dead in PIE (no NPC dialogue, no resource gather, no context menus) | `PIEInteractionRouterShim` is throwaway scaffolding from before the real loopback existed (Step 9 of `PLAN_SERVERNETWORK_MIGRATION` shipped that loopback at `054588a48`); shim never replaced | `PLAN_SERVERNETWORK_MIGRATION` Step 9 footnote, `PLAN_ENGINE_GAME_SEPARATION` Phase 3 |
-| HUD shows placeholders, not live HP/inventory | PIE has the registry but no `DataContext` bridge from in-process server world state | `PLAN_WORLD_STUDIO_AAA_COMPLETION` Phase 3, this plan's B5 |
-| Production server still monolithic; PIE is plugin-loaded | Two divergent code paths drift over time | `PLAN_NEXT_SESSIONS` Session 1 |
+The cumulative effect after B0' is:
 
-**Sub-slices:**
+- New project = blank (terrain only)
+- Hyperia template = explicit, reproducible
+- PIE Play = whatever the project declares
+- Agent actions write to a typed `Project.worldContent`
+- Production `localhost:3333` = a deployed `Project`
+- Parity smoke = state-equivalence between Hyperia project in PIE
+  and `localhost:3333`
 
-- **B0.1 — `PLAN_NEXT_SESSIONS` Session 1**: wire the plugin loader
-  into the **real server's** startup so prod and PIE share one code
-  path. Existing plan; just needs to land. ~1 week.
-
-- **B0.2 — Real `InteractionRouter` in PIE**: delete
-  `PIEInteractionRouterShim` (`packages/shared/src/runtime/pieShims/`),
-  register the real `InteractionRouter` against PIE's
-  `_clientWorld`. Requires bridging the editor's THREE renderer +
-  scene + camera onto `_clientWorld.graphics` / `.stage.scene` /
-  `.camera`. The renderer currently lives 3 levels deep
-  (`ViewportRenderLoop` → `TileBasedTerrain` → `TerrainSceneRefs`),
-  so the first step is exposing it on `TerrainSceneRefs`. Scope:
-  ~5–7 days. Includes its own multi-file refactor.
-
-- **B0.3 — Live `DataContext` bridge** (was B5): expose live player
-  state from `PIEEditorSession`'s in-memory `ServerNetwork` as the
-  `DataContext` `ManifestRenderer` reads. After this lands, agent-
-  designed HUDs show real HP/position/inventory in PIE instead of
-  placeholders. ~3 days.
-
-- **B0.4 — Parity smoke test**: scripted scenario (spawn → walk →
-  click NPC → talk → walk to mob → attack → take damage → die →
-  respawn) run in both real Hyperia and PIE, asserts state-
-  equivalence at each tick. Catches regressions automatically going
-  forward. ~2 days.
-
-**Exit criteria:**
-- A user pressing Play on the hyperscape project in World Studio
-  reaches the same observable state as playing on port 3333 across
-  movement, interaction, combat, HUD, and persistence-on-this-tick
-- Parity smoke test passes; CI catches regressions automatically
-- The two stub shims (`PIEInteractionRouterShim`,
-  `PIEOrbitCameraShim`) are deleted
-
-**Sizing:** ~3 weeks if Session 1 isn't already in flight; ~2 weeks
-if it is.
-
-**Leverage:** highest. AAA is undefined without it — the platform
-claim ("AI builds games on these blocks") presupposes the blocks
-faithfully reproduce the reference game.
-
-**Why this is B0 not B1:** B1+ assume a validated substrate. Adding
-agent authoring of world content (B1) on top of an unvalidated PIE
-means every B1 bug looks like an authoring bug when it might be a
-substrate bug. Closing B0 first localizes future failures.
+**B1 (below) collapses substantially under the new substrate** —
+the actions still need to ship, but the editor-local stores they
+were going to wire into don't exist; they write directly to the
+active project.
 
 ---
 
@@ -418,14 +396,14 @@ B7  ──→  B8  (multi-agent needs test gating)
 B10 (orthogonal — sustainability layer; ship anytime after B1)
 ```
 
-**Recommended order (revised 2026-04-29):**
+**Recommended order (revised 2026-04-29 after B0 reopen):**
 
-1. **B0 — Hyperia ↔ PIE parity** *(blocking; AAA undefined without it)*
-2. B1 — world content (offensive; platform-defining)
-3. B2 — persistence (defensive; foundation)
-4. B3 — state awareness (now valuable since B1 produced content)
+1. **B0' — Project-as-data substrate** *(blocking; supersedes old B0; see `PLAN_PROJECT_AS_DATA.md`)*
+2. B1 — world content actions wire into `project.worldContent` (much smaller now; agent action surface mostly already exists)
+3. B2 — persistence (free under B0'.A — Project IS the persisted shape)
+4. B3 — state awareness (free under B0' — agent reads the active project)
 5. B6 — streaming UX (demo polish)
-6. B4 — iteration (now valuable since B2 persists artifacts)
+6. B4 — iteration (variants/refine/undo; now valuable since project is durable)
 7. B7 — closed code loop
 8. B9 — asset gen
 9. B8 — multi-agent orchestration
@@ -441,10 +419,10 @@ Rough working-week estimates per phase, assuming focused single-track work:
 
 | Phase | Estimate | Notes |
 |---|---|---|
-| **B0** | **2–3 weeks** | **Session 1 plugin boot in prod (~1wk) + real InteractionRouter in PIE (~5–7d) + DataContext bridge (~3d) + parity smoke (~2d). Multi-file, multi-package. Audit-driven sizing.** |
-| B1 | 1.5–2.5 weeks | 4 actions × ~2 days each + integration |
-| B2 | 3–5 days | Server endpoint + read/write/compile |
-| B3 | 3–5 days | World-state extraction + prompt plumbing |
+| **B0'** | **~6 weeks** | **10 slices A–J. Replaces old B0. See `PLAN_PROJECT_AS_DATA.md` for slice-by-slice scope.** |
+| B1 | 3–5 days | Agent actions reshaped to write to `project.worldContent`. `proposeNpcPlacement` already shipped this session; remaining 3 actions follow same pattern. |
+| B2 | 0 (free) | Project IS the persisted shape; persistence comes with B0'.A. |
+| B3 | 3–5 days | Agent reads the active project; prompt-plumbing only. |
 | B4 | 1 week | Multi-turn UI + refine action |
 | B6 | 3–5 days | SSE plumbing + UI |
 | B7 | 3–5 days | Test runner + agent feedback path |
@@ -452,14 +430,15 @@ Rough working-week estimates per phase, assuming focused single-track work:
 | B9 | 1 week | Asset gen integration |
 | B10 | 3–5 days | Mostly CI work |
 
-**Total to AAA: ~12–17 focused weeks of single-track work**
-(B0 added ~2–3 weeks vs the prior estimate). Realistically with
+**Total to AAA: ~10–14 focused weeks of single-track work**
+(B0' adds ~6 weeks but B1–B3 collapse to ~1 week of follow-on work
+because the substrate is now correct — net: similar total but
+better architectural rest-state). Realistically with
 context-switching, holds, and unknown unknowns: ~4–6 calendar
 months.
 
-After B0 + B1 + B2 + B3 ship (~8–10 focused weeks), the demo-quality
-jump is real. Phases B4–B10 are quality polish that compound over
-time.
+After B0' + B1 + B3 ship (~7 focused weeks), the demo-quality jump
+is real. Phases B4–B10 are quality polish that compound over time.
 
 ## What this plan does NOT cover
 

@@ -24,6 +24,7 @@
 
 import {
   AlertCircle,
+  AlertTriangle,
   Check,
   ChevronDown,
   ChevronRight,
@@ -58,6 +59,7 @@ import {
   subscribeInstalledPlugins,
   uninstallPlugin,
 } from "../../../utils/installedPluginsStore";
+import { useWorldStudio } from "../WorldStudioContext";
 
 type ListStatus =
   | { kind: "idle" }
@@ -93,6 +95,11 @@ type InstallStatus =
 type ActiveTab = "browse" | "installed";
 
 export function PluginBrowserPanel() {
+  // AP8 — read project's installed asset packs so we can warn when
+  // a plugin's `requiresAssetPacks` declaration is unmet.
+  const { state } = useWorldStudio();
+  const installedAssetPacks = state.project.assetPacks;
+
   const [activeTab, setActiveTab] = useState<ActiveTab>("browse");
   const [status, setStatus] = useState<ListStatus>({ kind: "idle" });
   const [filter, setFilter] = useState("");
@@ -251,6 +258,7 @@ export function PluginBrowserPanel() {
       {activeTab === "installed" ? (
         <InstalledTab
           plugins={installedPlugins}
+          installedAssetPacks={installedAssetPacks}
           onUninstall={handleUninstall}
         />
       ) : null}
@@ -560,6 +568,81 @@ function PluginDetailView({
         </ul>
       </div>
 
+      {/* Layer B — entity types this plugin's runtime backs with
+          actual gameplay behavior. Mirrors what the AI sees via
+          LIST_ENTITY_TYPES so humans inspecting the plugin
+          understand what placement vocabulary it provides. */}
+      {(() => {
+        const entityTypes = (
+          contributions as { entityTypes?: ReadonlyArray<unknown> }
+        ).entityTypes;
+        if (!Array.isArray(entityTypes) || entityTypes.length === 0)
+          return null;
+        // Group by `kind` so the four placement categories read
+        // cleanly side-by-side.
+        type Et = {
+          kind: string;
+          type: string;
+          description?: string;
+          requiredFields?: ReadonlyArray<string>;
+          acceptedAssetTypes?: ReadonlyArray<string>;
+        };
+        const byKind: Record<string, Et[]> = {};
+        for (const raw of entityTypes as Et[]) {
+          (byKind[raw.kind] = byKind[raw.kind] ?? []).push(raw);
+        }
+        return (
+          <div>
+            <div className="text-text-tertiary text-[10px] uppercase tracking-wide mb-0.5">
+              entity types ({entityTypes.length})
+            </div>
+            <div className="space-y-1.5">
+              {(["npc", "mobSpawn", "resource", "station"] as const).map(
+                (k) => {
+                  const list = byKind[k];
+                  if (!list || list.length === 0) return null;
+                  return (
+                    <div key={k}>
+                      <div className="text-[10px] text-text-tertiary capitalize">
+                        {k} ({list.length})
+                      </div>
+                      <ul className="space-y-1 pl-2">
+                        {list.map((et) => (
+                          <li key={`${et.kind}::${et.type}`}>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono text-text-primary">
+                                {et.type}
+                              </span>
+                              {et.requiredFields &&
+                              et.requiredFields.length > 0 ? (
+                                <span className="text-[9px] px-1 py-[1px] rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                  needs {et.requiredFields.join(", ")}
+                                </span>
+                              ) : null}
+                              {et.acceptedAssetTypes &&
+                              et.acceptedAssetTypes.length > 0 ? (
+                                <span className="text-[9px] px-1 py-[1px] rounded bg-sky-500/10 text-sky-300 border border-sky-500/20">
+                                  asset: {et.acceptedAssetTypes.join("|")}
+                                </span>
+                              ) : null}
+                            </div>
+                            {et.description ? (
+                              <div className="text-[10px] text-text-tertiary leading-relaxed">
+                                {et.description}
+                              </div>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                },
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Install / Uninstall controls + status */}
       <div className="flex items-center gap-2 pt-2 border-t border-border-primary">
         {installed ? (
@@ -609,10 +692,31 @@ function PluginDetailView({
  */
 interface InstalledTabProps {
   plugins: InstalledPlugin[];
+  /** AP8 — installed asset pack ids on the active project. */
+  installedAssetPacks: ReadonlyArray<string>;
   onUninstall: (id: string, version: string) => void;
 }
 
-function InstalledTab({ plugins, onUninstall }: InstalledTabProps) {
+/**
+ * AP8 — extract the pack ids the plugin's manifest declares as
+ * required. Returns empty array when the field is missing (older
+ * manifests) or empty.
+ */
+function readRequiredAssetPacks(plugin: InstalledPlugin): string[] {
+  const manifest = plugin.bundle.manifest as
+    | { requiresAssetPacks?: ReadonlyArray<string> }
+    | undefined;
+  const list = manifest?.requiresAssetPacks;
+  return Array.isArray(list)
+    ? list.filter((x): x is string => typeof x === "string")
+    : [];
+}
+
+function InstalledTab({
+  plugins,
+  installedAssetPacks,
+  onUninstall,
+}: InstalledTabProps) {
   if (plugins.length === 0) {
     return (
       <div className="flex-1 overflow-y-auto">
@@ -632,6 +736,10 @@ function InstalledTab({ plugins, onUninstall }: InstalledTabProps) {
       <ul className="divide-y divide-border-primary">
         {plugins.map((p) => {
           const totalKb = (p.totalSize / 1024).toFixed(1);
+          const required = readRequiredAssetPacks(p);
+          const unmet = required.filter(
+            (id) => !installedAssetPacks.includes(id),
+          );
           return (
             <li key={`${p.id}@${p.version}`} className="px-3 py-2 text-[11px]">
               <div className="flex items-center gap-2">
@@ -657,6 +765,29 @@ function InstalledTab({ plugins, onUninstall }: InstalledTabProps) {
                 installed from registry &middot; published{" "}
                 {formatPublishedAt(p.publishedAt)}
               </div>
+              {unmet.length > 0 && (
+                <div
+                  className="ml-5 mt-1.5 px-2 py-1 rounded border border-amber-500/30 bg-amber-500/5 text-[10px] text-amber-300/90 space-y-0.5"
+                  role="alert"
+                >
+                  <div className="flex items-center gap-1 font-medium">
+                    <AlertTriangle size={10} />
+                    Missing asset pack
+                    {unmet.length === 1 ? "" : "s"}
+                  </div>
+                  <div className="text-amber-200/70 leading-relaxed">
+                    This plugin needs the following pack
+                    {unmet.length === 1 ? "" : "s"} installed on the project:
+                  </div>
+                  <ul className="font-mono text-amber-200/90">
+                    {unmet.map((id) => (
+                      <li key={id} className="truncate">
+                        &middot; {id}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </li>
           );
         })}

@@ -15,6 +15,13 @@ export const HyperiaModule: GameModule = {
   id: "hyperia",
   name: "Hyperia",
   version: "0.2.0",
+  // AP6 — palette / content browser unlock when these packs are
+  // installed. We require trees as the minimum signal that the
+  // user wants Hyperia content (it's the largest, most-visible
+  // pack); from there they can install rocks / weapons / npcs /
+  // etc. à la carte. Gating on ALL ten would force users to
+  // install everything to see anything.
+  requiredAssetPacks: ["@hyperforge/asset-pack-hyperia-trees-v1"],
 
   // ============== PALETTE CATEGORIES ==============
 

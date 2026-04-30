@@ -16,6 +16,7 @@ import { APP_BACKGROUND_STYLES, ROUTES } from "./constants";
 import { AppProvider } from "./contexts/AppContext";
 import { NavigationProvider } from "./contexts/NavigationContext";
 import { ArmorFittingPage } from "./pages/ArmorFittingPage";
+import { AssetPacksPage } from "./pages/AssetPacksPage";
 import { AssetsPage } from "./pages/AssetsPage";
 import { BatchSpritesPage } from "./pages/BatchSpritesPage";
 import { BuildingGenPage } from "./pages/BuildingGenPage";
@@ -155,6 +156,7 @@ function AppLayout() {
               path={ROUTES.UI_LAYOUT_ASSET}
               element={<UILayoutEditorPage />}
             />
+            <Route path={ROUTES.ASSET_PACKS} element={<AssetPacksPage />} />
 
             {/* Procedural Generators */}
             <Route path={ROUTES.BUILDING_GEN} element={<BuildingGenPage />} />

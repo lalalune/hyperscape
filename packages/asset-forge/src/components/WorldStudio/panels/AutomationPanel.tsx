@@ -21,7 +21,11 @@ import {
 import React, { useState, useCallback, useMemo } from "react";
 
 import { useWorldStudio } from "../WorldStudioContext";
-import { setAgentPack } from "../state/agentPack";
+import { setAgentPack, persistAgentPackToProject } from "../state/agentPack";
+import {
+  setAgentNpc,
+  persistAgentWorldContentToProject,
+} from "../state/agentWorldContent";
 import { AgentBuilderForm } from "./AgentBuilderForm";
 import { PropertySection } from "./properties/PropertyControls";
 import { QuestGraphPanel } from "./QuestGraphPanel";
@@ -414,6 +418,20 @@ export function AutomationPanel() {
                 result.loaded.defaultLayout?.instances.length ?? 0,
                 "Press Play to render in PIE.",
               );
+              // B0'.G: persist to the active project so the agent's
+              // pack survives reload + ships on Publish.
+              persistAgentPackToProject(
+                state.project.currentProjectId,
+                pack as Parameters<typeof persistAgentPackToProject>[1],
+              ).then((persist) => {
+                if (!persist.ok) {
+                  // eslint-disable-next-line no-console
+                  console.warn(
+                    "[AgentBuilder] Pack persist failed:",
+                    persist.error,
+                  );
+                }
+              });
             } else {
               // eslint-disable-next-line no-console
               console.warn(
@@ -423,6 +441,51 @@ export function AutomationPanel() {
             }
           }}
         />
+        {/* B1.2 demo — pushes a hardcoded NPC into the agent-world
+            store + persists to the active project (B0'.G). The
+            chain proves: validate → local store → API → DB → next
+            reload sees the same NPC. */}
+        <button
+          type="button"
+          onClick={async () => {
+            const result = setAgentNpc({
+              id: "demo_eldric_shopkeeper",
+              type: "shopkeeper",
+              name: "Eldric",
+              position: { x: 0, y: 0, z: 0 },
+            });
+            if (!result.ok) {
+              // eslint-disable-next-line no-console
+              console.warn("[AgentBuilder] Demo NPC rejected:", result.issues);
+              return;
+            }
+            // eslint-disable-next-line no-console
+            console.info(
+              "[AgentBuilder] Demo NPC stored locally:",
+              result.entity.id,
+            );
+            // B0'.G: also persist to the active project so the
+            // change survives reload + ships on Publish.
+            const persist = await persistAgentWorldContentToProject(
+              state.project.currentProjectId,
+            );
+            if (persist.ok) {
+              // eslint-disable-next-line no-console
+              console.info(
+                "[AgentBuilder] Demo NPC persisted to project (B0'.G).",
+              );
+            } else {
+              // eslint-disable-next-line no-console
+              console.warn(
+                "[AgentBuilder] Demo NPC persist failed:",
+                persist.error,
+              );
+            }
+          }}
+          className="mt-2 w-full px-3 py-1 text-xs bg-bg-tertiary hover:bg-bg-tertiary/80 rounded"
+        >
+          Place demo NPC (B1.2 + B0'.G persist)
+        </button>
       </div>
 
       {/* Tools */}

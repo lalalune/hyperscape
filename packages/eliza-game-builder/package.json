@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@elizaos/core": "alpha",
+    "@hyperforge/manifest-schema": "workspace:*",
     "@hyperforge/plugin-scaffolder": "workspace:*",
     "@hyperforge/ui-framework": "workspace:*",
     "@hyperforge/widget-catalog": "workspace:*"

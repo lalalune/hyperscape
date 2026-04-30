@@ -1342,7 +1342,8 @@ export { updateTreeInstances } from "./systems/shared/world/ProcgenTreeCache";
 // (`getGlobalCullingManager` already exported via the
 // utils/compute block below; only `isGPUComputeAvailable` added.)
 export { isGPUComputeAvailable } from "./utils/compute";
-export { resolveBiomeOrFallback } from "./biomes";
+export { resolveBiomeOrFallback, biomesRegistry } from "./biomes";
+export { npcDefinitionsRegistry } from "./npc-definitions";
 
 // ProceduralTownLandmarksSystem deps — needed by the migrated
 // ProceduralTownLandmarks in @hyperforge/hyperscape. TownSystem

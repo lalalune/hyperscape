@@ -73,10 +73,22 @@ export interface PIEUIWidgetRegistryLike {
   unregister?(id: string): boolean;
 }
 
-function getPluginModules(
+/**
+ * Resolve the set of plugin modules for a given plugin-set id.
+ * Exported so a focused test can assert the second-game claim
+ * (shooter-demo and hyperscape boot disjoint module sets) without
+ * spinning up a full PIEEditorSession.
+ */
+export function getPluginModules(
   gameId: GamePluginSetId,
 ): ReadonlyArray<LoadedPluginModule<PluginContextBase>> {
   switch (gameId) {
+    case "blank":
+      // B0'.C: no plugins. PIE boots an engine-only world; PIE Play
+      // renders the project's terrain only. Designer / agent fills
+      // it via `PROPOSE_PLUGIN_SET` (B0'.I) and content actions
+      // (B0'.G+).
+      return [];
     case "hyperscape":
       return [
         {

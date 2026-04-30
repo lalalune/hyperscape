@@ -18,8 +18,27 @@ export {
  * lands that needs area bounds (town spawning, zone AI, etc.), it
  * imports `worldAreasRegistry` and reads through the same instance
  * that the editor is writing to.
+ *
+ * Pinned to `globalThis` for the same reason `gatheringResources` is —
+ * the server's esbuild bundle inlines parts of `@hyperforge/shared`
+ * via relative-path reach-ins from server/src, producing a duplicate
+ * registry instance separate from the `@hyperforge/hyperscape` plugin's
+ * import. `DataManager` writes areas into one instance and the
+ * `MobNPCSpawnerSystem` / `StationSpawnerSystem` read from the empty
+ * one, leading to silent zero-spawn (no NPCs, no stations, no mobs).
  */
-export const worldAreasRegistry = new WorldAreasRegistry();
+const WORLD_AREAS_REGISTRY_GLOBAL_KEY = Symbol.for(
+  "@hyperforge/shared/worldAreasRegistry",
+);
+type WorldAreasRegistryGlobal = typeof globalThis & {
+  [WORLD_AREAS_REGISTRY_GLOBAL_KEY]?: WorldAreasRegistry;
+};
+const _worldAreasGlobal = globalThis as WorldAreasRegistryGlobal;
+if (!_worldAreasGlobal[WORLD_AREAS_REGISTRY_GLOBAL_KEY]) {
+  _worldAreasGlobal[WORLD_AREAS_REGISTRY_GLOBAL_KEY] = new WorldAreasRegistry();
+}
+export const worldAreasRegistry: WorldAreasRegistry =
+  _worldAreasGlobal[WORLD_AREAS_REGISTRY_GLOBAL_KEY]!;
 
 /**
  * Resolve a starter-town area by id with the canonical

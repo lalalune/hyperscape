@@ -854,6 +854,28 @@ export class DataManager {
         (process.versions as { bun?: string }).bun !== undefined);
 
     if (isServer) {
+      // Phase B2 (final cut) of the AAA gap audit. The
+      // `HYPERFORGE_DISABLE_ENGINE_DATA_LOAD=1` env flag tells
+      // DataManager to skip its boot-time Hyperia load. The
+      // `@hyperforge/hyperscape` plugin's `onEnable` populates the
+      // same registries when (and only when) the project installs
+      // the plugin — so blank projects ship with truly empty
+      // worldAreas / npcDefinitions / biomes registries.
+      //
+      // Default behavior (flag unset) keeps the legacy boot-load
+      // path so existing deployments continue working with no
+      // change. Flip this on the prod server once every project
+      // resolves through the typed `plugins` column.
+      if (
+        typeof process !== "undefined" &&
+        process.env?.HYPERFORGE_DISABLE_ENGINE_DATA_LOAD === "1"
+      ) {
+        // eslint-disable-next-line no-console
+        console.info(
+          "[DataManager] HYPERFORGE_DISABLE_ENGINE_DATA_LOAD=1 — skipping engine-side Hyperia manifest load. Plugin onEnable owns registry population.",
+        );
+        return;
+      }
       await this.loadManifestsFromFilesystem();
       return;
     }

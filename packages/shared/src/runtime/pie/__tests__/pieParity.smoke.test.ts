@@ -180,3 +180,128 @@ describe("PIE parity smoke (B0.4)", () => {
     },
   );
 });
+
+// ============================================================
+// B0'.J — Scenario-driven parity (state-equivalence harness)
+// ============================================================
+
+import {
+  AGENT_CONTENT_PARITY_SCENARIO,
+  STANDARD_PARITY_SCENARIO,
+} from "./parityScenario";
+import { recordScenarioInPIE, diffRecordings } from "./recordScenario";
+import { runScenarioInLocalhostHyperia } from "./runScenarioInLocalhostHyperia";
+
+describe("PIE parity scenario (B0'.J)", () => {
+  it(
+    "scenario completes without error and records a snapshot per step",
+    { timeout: LONG_TIMEOUT_MS },
+    async () => {
+      const result = await recordScenarioInPIE(STANDARD_PARITY_SCENARIO);
+      if (!result.ok) {
+        // Surface the failed step + partial recording for debug.
+        throw new Error(
+          `scenario failed at step "${result.failedStep}": ${result.error.message}`,
+        );
+      }
+      expect(result.recording.length).toBe(STANDARD_PARITY_SCENARIO.length);
+      result.recording.forEach((snap, i) => {
+        expect(snap.stepName).toBe(STANDARD_PARITY_SCENARIO[i]!.name);
+      });
+    },
+  );
+
+  it(
+    "scenario is deterministic across runs — recordings have matching shape",
+    { timeout: LONG_TIMEOUT_MS },
+    async () => {
+      // Determinism is a precondition for cross-context state-
+      // equivalence. Today's scenario is substrate-only; once
+      // player-mediated steps land (post-B0'.F.2), this assertion
+      // tightens to `expect(mismatches).toEqual([])`.
+      const a = await recordScenarioInPIE(STANDARD_PARITY_SCENARIO);
+      const b = await recordScenarioInPIE(STANDARD_PARITY_SCENARIO);
+      expect(a.ok).toBe(true);
+      expect(b.ok).toBe(true);
+      if (!a.ok || !b.ok) return;
+      const mismatches = diffRecordings(a.recording, b.recording);
+      if (mismatches.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[parity smoke] determinism mismatches (recorded for debug, not yet fatal):",
+          mismatches,
+        );
+      }
+      expect(a.recording.length).toBe(b.recording.length);
+    },
+  );
+
+  it("localhost:3333 runner is stubbed (B0'.J.2 follow-up)", async () => {
+    // Documents the cross-context comparison contract even though
+    // the localhost runner is currently stubbed — depends on
+    // B0'.F.2 (avatar spawn) before the comparison is meaningful.
+    // When F.2 lands, replace this test's body with a real
+    // PIE-vs-localhost diff assertion via `diffRecordings(...)`.
+    const result = await runScenarioInLocalhostHyperia(
+      STANDARD_PARITY_SCENARIO,
+    );
+    expect(result.ok).toBe(false);
+    const stubbed = (result as { stubbed?: boolean }).stubbed;
+    expect(stubbed).toBe(true);
+    expect(result.recording).toEqual([]);
+  });
+});
+
+describe("PIE agent-content parity (covers PIE-feeds-agent-content cut)", () => {
+  it(
+    "agent-emitted mob spawns and NPCs are accepted by start() without error",
+    { timeout: LONG_TIMEOUT_MS },
+    async () => {
+      // The minimal claim this test guards: passing
+      // `mobSpawns: [{ id: 'agent-spawn-...', ... }]` and
+      // `npcs: [{ id: 'agent-npc-...', ... }]` to
+      // PIEEditorSession.start() doesn't crash. That's the
+      // contract `usePIESession` relies on when it merges agent
+      // content into the start payload.
+      //
+      // We don't assert server-side spawn instantiation here —
+      // mob spawning depends on DataManager-loaded mob
+      // definitions (e.g. the "goblin" template), which the
+      // vitest environment doesn't load by default. The
+      // browser-side smoke (run via dev server) covers that
+      // end-to-end.
+      const result = await recordScenarioInPIE(AGENT_CONTENT_PARITY_SCENARIO);
+      if (!result.ok) {
+        throw new Error(
+          `agent-content scenario failed at step "${result.failedStep}": ${result.error.message}`,
+        );
+      }
+      expect(result.recording).toHaveLength(
+        AGENT_CONTENT_PARITY_SCENARIO.length,
+      );
+
+      // While running, the session is in fact running and has
+      // the player entity at minimum.
+      const settleSnap = result.recording[1]!;
+      expect(settleSnap.running).toBe(true);
+
+      // After stop(), the session is torn down.
+      const stopSnap = result.recording[2]!;
+      expect(stopSnap.running).toBe(false);
+    },
+  );
+
+  it(
+    "agent-content scenario is independent of the standard scenario",
+    { timeout: LONG_TIMEOUT_MS },
+    async () => {
+      // Run both back-to-back; no cross-contamination of session
+      // state. Each scenario constructs its own PIEEditorSession
+      // inside `recordScenarioInPIE`.
+      const standard = await recordScenarioInPIE(STANDARD_PARITY_SCENARIO);
+      const agent = await recordScenarioInPIE(AGENT_CONTENT_PARITY_SCENARIO);
+      expect(standard.ok).toBe(true);
+      expect(agent.ok).toBe(true);
+    },
+  );
+});

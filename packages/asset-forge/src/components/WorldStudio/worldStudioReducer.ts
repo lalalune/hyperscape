@@ -51,6 +51,9 @@ function studioReducer(
           projectName: action.name,
           projectVersion: action.version,
           gameMode: action.gameMode,
+          templateId: action.templateId,
+          plugins: action.plugins,
+          assetPacks: action.assetPacks,
         },
       };
 

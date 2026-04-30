@@ -26,6 +26,38 @@ export interface GameModule {
   outlinerLayers: OutlinerLayerSchema[];
   /** Optional terrain module configuration */
   terrain?: TerrainModuleConfig;
+  /**
+   * Asset pack manifest ids this module's content requires (Phase
+   * AP6 of `PLAN_ASSET_PACKS.md`). The studio's Entity Palette and
+   * Content Browser are gated on the project having installed
+   * EVERY id in this list. Empty / omitted = no pack required (the
+   * module is self-contained, e.g. shooter-demo). Multiple = AND;
+   * an alpha module that needs both the Hyperia trees pack AND a
+   * weapons-pack would list both ids.
+   *
+   * The pack ids are checked against `project.assetPacks` — string
+   * equality. Versioning lives in the pack id (`...-v1`, `...-v2`),
+   * so swapping to v2 is a one-character change here when ready.
+   */
+  requiredAssetPacks?: ReadonlyArray<string>;
+}
+
+/**
+ * True when the project has every pack the module declares as
+ * required. A module with no `requiredAssetPacks` is always
+ * satisfied — it's self-contained.
+ */
+export function hasAllRequiredAssetPacks(
+  module: Pick<GameModule, "requiredAssetPacks">,
+  installedAssetPacks: ReadonlyArray<string>,
+): boolean {
+  const required = module.requiredAssetPacks ?? [];
+  if (required.length === 0) return true;
+  const installed = new Set(installedAssetPacks);
+  for (const id of required) {
+    if (!installed.has(id)) return false;
+  }
+  return true;
 }
 
 // ============== ENTITY TYPE SCHEMA ==============

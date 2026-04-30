@@ -18,11 +18,26 @@ type Listener = () => void;
 const installed = new Map<string, InstalledPlugin>();
 const listeners = new Set<Listener>();
 
+/**
+ * Cached snapshot — `useSyncExternalStore` requires reference
+ * stability between calls when state hasn't changed, otherwise
+ * React thinks the snapshot changed on every render and loops
+ * infinitely. We rebuild this only when the underlying Map mutates.
+ */
+let snapshot: InstalledPlugin[] = [];
+
 function key(id: string, version: string): string {
   return `${id}@${version}`;
 }
 
+function rebuildSnapshot(): void {
+  snapshot = Array.from(installed.values()).sort((a, b) =>
+    b.publishedAt.localeCompare(a.publishedAt),
+  );
+}
+
 function notify(): void {
+  rebuildSnapshot();
   for (const fn of listeners) {
     try {
       fn();
@@ -48,11 +63,13 @@ export function uninstallPlugin(id: string, version: string): boolean {
   return existed;
 }
 
-/** Read-only snapshot of currently installed plugins, newest-first. */
+/**
+ * Read-only snapshot of currently installed plugins, newest-first.
+ * Returns the same array reference between calls until `notify()`
+ * rebuilds it — required by `useSyncExternalStore`.
+ */
 export function listInstalledPlugins(): InstalledPlugin[] {
-  return Array.from(installed.values()).sort((a, b) =>
-    b.publishedAt.localeCompare(a.publishedAt),
-  );
+  return snapshot;
 }
 
 /** Look up a single installed plugin by id+version. */

@@ -293,6 +293,9 @@ interface WorldStudioContextValue {
       name: string,
       version: number,
       gameMode: GameModeManifest | null,
+      templateId: string | null,
+      plugins: ReadonlyArray<string>,
+      assetPacks: ReadonlyArray<string>,
     ) => void;
     clearProject: () => void;
     setProjectLock: (lockedBy: string | null) => void;
@@ -780,6 +783,9 @@ export function WorldStudioProvider({
         name: string,
         version: number,
         gameMode: GameModeManifest | null,
+        templateId: string | null,
+        plugins: ReadonlyArray<string>,
+        assetPacks: ReadonlyArray<string>,
       ) =>
         dispatch({
           type: "SET_PROJECT",
@@ -789,6 +795,9 @@ export function WorldStudioProvider({
           name,
           version,
           gameMode,
+          templateId,
+          plugins,
+          assetPacks,
         }),
       clearProject: () => dispatch({ type: "CLEAR_PROJECT" }),
       setProjectLock: (lockedBy: string | null) =>

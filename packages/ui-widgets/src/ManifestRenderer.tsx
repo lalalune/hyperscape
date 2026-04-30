@@ -390,7 +390,15 @@ export const ManifestRenderer = memo(function ManifestRenderer({
         position: overlayPosition,
         inset: 0,
         pointerEvents: "none",
-        zIndex: 10,
+        // Layer above the runtime client's hand-coded HUD. The
+        // native HUD widgets at localhost:3333 (status bars, action
+        // bar, modals, draggable windows) use Tailwind z-10 / z-20
+        // / z-50 — at the previous zIndex: 10 the manifest layer
+        // sat at or below them and an agent-built pack rendered
+        // *underneath* the native HUD. Lift to a value above any
+        // realistic z-stack so manifest-driven HUDs are reliably
+        // on top during the A/B migration.
+        zIndex: 9999,
         ...(themeVars as CSSProperties),
       }}
     >

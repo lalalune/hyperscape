@@ -139,6 +139,24 @@ export interface StudioProjectState {
    * games). Callers should fall back to `HYPERIA_DEFAULT_MANIFEST`.
    */
   gameMode: GameModeManifest | null;
+  /**
+   * Template id the project was cloned from (B0'.B). Used by PIE to
+   * resolve which plugin set to install on Play. `null` means the
+   * project predates the typed-layer migration.
+   */
+  templateId: string | null;
+  /**
+   * Plugin ids the project declares (B0'.A). Empty = blank canvas;
+   * PIE Play boots no game plugins, viewport renders terrain only.
+   */
+  plugins: ReadonlyArray<string>;
+  /**
+   * Asset pack manifest ids installed on this project (Phase AP1
+   * of `PLAN_ASSET_PACKS.md`). The studio's Asset Library reads
+   * from the union of these packs; the agent's `GET_PROJECT_STATE`
+   * (select=availableAssets) flattens them into a catalog.
+   */
+  assetPacks: ReadonlyArray<string>;
 }
 
 /** Server persistence state */
@@ -316,6 +334,9 @@ export type StudioSpecificAction =
       name: string;
       version: number;
       gameMode: GameModeManifest | null;
+      templateId: string | null;
+      plugins: ReadonlyArray<string>;
+      assetPacks: ReadonlyArray<string>;
     }
   | { type: "CLEAR_PROJECT" }
   | { type: "SET_PROJECT_LOCK"; lockedBy: string | null }
@@ -780,6 +801,9 @@ export const initialProjectState: StudioProjectState = {
   projectVersion: 0,
   lockedBy: null,
   gameMode: null,
+  templateId: null,
+  plugins: [],
+  assetPacks: [],
 };
 
 export const initialPersistenceState: StudioPersistenceState = {

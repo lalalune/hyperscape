@@ -41,6 +41,7 @@ import {
   EMPTY_AUDIO_LAYERS,
 } from "../types";
 import { useWorldStudio } from "../WorldStudioContext";
+import { rehydrateAgentWorldContentFromProject } from "../state/agentWorldContent";
 import type { GameModeManifest } from "@hyperforge/shared/runtime";
 
 /**
@@ -235,10 +236,23 @@ export function useProjectLoader(projectId: string) {
         }
         if (cancelled || controller.signal.aborted) return;
 
-        // Check if this is a placeholder project (created at signup, no world data yet)
+        // Detect Hyperia-template projects for first-open world
+        // generation. Phase B0'.B: prefer the typed `templateId`
+        // surface; fall back to the deprecated `worldData._placeholder`
+        // sentinel for rows that haven't been migrated through the
+        // 0007_project_typed_layers backfill yet.
         const rawData = project.worldData as Record<string, unknown>;
+        const isHyperiaTemplate =
+          project.templateId === "hyperia" || rawData?._placeholder === true;
+        const hasGeneratedTerrain =
+          rawData &&
+          typeof rawData === "object" &&
+          !rawData._placeholder &&
+          // serialized worlds carry a `tiles` or `terrain` key — the
+          // placeholder sentinel only carries `_placeholder`.
+          ("tiles" in rawData || "terrain" in rawData || "biomes" in rawData);
         let world;
-        if (rawData?._placeholder) {
+        if (isHyperiaTemplate && !hasGeneratedTerrain) {
           // Generate the Hyperia game world on first open
           const generated = await new Promise<
             ReturnType<typeof generateWorldFromConfig>
@@ -270,7 +284,9 @@ export function useProjectLoader(projectId: string) {
         // Repair biomes for worlds saved before the biome generation fix
         repairBiomes(world);
 
-        // Set project context
+        // Set project context. `templateId` + `plugins` come from
+        // the typed-layer surface (B0'.A); usePIESession reads them
+        // to decide which plugin set to install on Play.
         actions.setProject(
           project.teamId,
           project.gameId,
@@ -278,12 +294,47 @@ export function useProjectLoader(projectId: string) {
           project.name,
           project.version,
           gameMode,
+          project.templateId ?? null,
+          project.plugins ?? [],
+          project.assetPacks ?? [],
         );
 
         // Load world into editing state
         actions.loadWorld(world);
         actions.switchToEditing();
         actions.loadSuccess();
+
+        // Phase B4 of the AAA gap audit — rehydrate the agent
+        // world-content store from `project.worldContent` so the
+        // agent's prior NPCs/spawns/quests/zones survive a refresh.
+        // Without this every reload returned the editor to a clean
+        // canvas and the agent's work appeared lost.
+        try {
+          const counts = rehydrateAgentWorldContentFromProject(
+            project.worldContent ?? null,
+          );
+          if (
+            counts.npcs > 0 ||
+            counts.spawns > 0 ||
+            counts.zones > 0 ||
+            counts.quests > 0
+          ) {
+            console.info(
+              "[ProjectLoader] Rehydrated agent worldContent:",
+              counts,
+            );
+          }
+          if (counts.dropped > 0) {
+            console.warn(
+              `[ProjectLoader] Dropped ${counts.dropped} malformed worldContent entries during rehydration.`,
+            );
+          }
+        } catch (err) {
+          console.warn(
+            "[ProjectLoader] Failed to rehydrate agent worldContent (non-fatal):",
+            err,
+          );
+        }
 
         // Restore brush overlays (terrain sculpts, biome paints) if saved
         const savedBrushOverlays = (rawData as Record<string, unknown>)

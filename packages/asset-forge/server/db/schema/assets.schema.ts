@@ -47,6 +47,11 @@ export const assets = pgTable(
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
     metadata: jsonb("metadata").notNull().default({}),
 
+    // AP1: optional FK to the asset pack this asset belongs to.
+    // Loose assets (legacy + agent's one-off bakes that haven't
+    // been routed yet) keep this NULL.
+    packId: uuid("pack_id"),
+
     // Versioning
     version: integer("version").notNull().default(1),
     parentAssetId: uuid("parent_asset_id").references(() => assets.id, {

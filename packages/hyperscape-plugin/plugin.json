@@ -28,7 +28,114 @@
     "manifestSchemas": [],
     "paletteCategories": [],
     "toolbarTools": [],
-    "commands": []
+    "commands": [],
+    "entityTypes": [
+      {
+        "kind": "npc",
+        "type": "shopkeeper",
+        "description": "Opens a store UI on click. Reads `storeId` to look up the store catalog.",
+        "requiredFields": ["storeId"],
+        "acceptedAssetTypes": ["character"]
+      },
+      {
+        "kind": "npc",
+        "type": "questgiver",
+        "description": "Offers quests on dialogue. Quest mappings are authored separately via PROPOSE_QUEST.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["character"]
+      },
+      {
+        "kind": "npc",
+        "type": "banker",
+        "description": "Opens the bank UI on click. Stores items per-account.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["character"]
+      },
+      {
+        "kind": "npc",
+        "type": "guard",
+        "description": "Neutral or hostile patrolling NPC. Does not interact unless attacked.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["character"]
+      },
+      {
+        "kind": "npc",
+        "type": "trainer",
+        "description": "Skill trainer dialogue NPC — speaks about a specific skill.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["character"]
+      },
+      {
+        "kind": "mobSpawn",
+        "type": "mob",
+        "description": "Generic combat creature spawn. Engaged by player attacks; respawns on the manifest's `respawnTicks` cadence.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["creature"]
+      },
+      {
+        "kind": "mobSpawn",
+        "type": "aggressive",
+        "description": "Hostile mob that attacks the player on sight within aggro range.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["creature"]
+      },
+      {
+        "kind": "mobSpawn",
+        "type": "passive",
+        "description": "Mob that only retaliates if attacked first. Useful for ambient flavor.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["creature"]
+      },
+      {
+        "kind": "resource",
+        "type": "tree",
+        "description": "Woodcutting target. Yields logs based on the woodcutting skill manifest.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      },
+      {
+        "kind": "resource",
+        "type": "rock",
+        "description": "Mining target. Yields ores based on the mining skill manifest.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      },
+      {
+        "kind": "resource",
+        "type": "fishing_spot",
+        "description": "Fishing target. Yields fish based on the fishing skill manifest.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      },
+      {
+        "kind": "station",
+        "type": "anvil",
+        "description": "Smithing station. Player uses metal bars + a hammer to forge weapons/armor.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      },
+      {
+        "kind": "station",
+        "type": "furnace",
+        "description": "Smelting station. Converts ore + coal into metal bars.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      },
+      {
+        "kind": "station",
+        "type": "range",
+        "description": "Cooking station. Converts raw food into edible food (heals when consumed).",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      },
+      {
+        "kind": "station",
+        "type": "bank",
+        "description": "Banking deposit/withdraw station. Same UI as the banker NPC but a static prop.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      }
+    ]
   },
   "tags": ["meta", "hyperia", "game"]
 }

@@ -7,6 +7,7 @@ import { Elysia, t } from "elysia";
 import { authDerive, requireAuthGuard } from "../middleware/auth";
 import { TeamService } from "../services/TeamService";
 import { WorldProjectService } from "../services/WorldProjectService";
+import { ProjectTemplateService } from "../services/ProjectTemplateService";
 import { AuditLogService } from "../services/AuditLogService";
 import * as WS from "../models/world-studio.models";
 import * as Models from "../models";
@@ -16,6 +17,7 @@ export const createWorldProjectRoutes = (
   teamService: TeamService,
   worldProjectService: WorldProjectService,
   auditLogService: AuditLogService,
+  templateService: ProjectTemplateService,
 ) => {
   return new Elysia({
     prefix: "/api/world/projects",
@@ -48,12 +50,38 @@ export const createWorldProjectRoutes = (
               return { error: "project:create permission required" };
             }
 
+            // B0'.B: resolve typed project layers. When the caller
+            // supplies a `templateId`, clone the template and use
+            // its layers; that path is preferred. Otherwise, fall
+            // back to the legacy `worldData` blob — `create()` will
+            // decode it via `resolveLayersFromCreateInput`.
+            let templateLayers: Awaited<
+              ReturnType<typeof templateService.clone>
+            > | null = null;
+            if (body.templateId) {
+              templateLayers = templateService.clone(body.templateId);
+              if (!templateLayers) {
+                set.status = 400;
+                return { error: `Unknown template: ${body.templateId}` };
+              }
+            }
+
             const project = await worldProjectService.create({
               teamId: game.teamId,
               gameId: body.gameId,
               name: body.name,
               description: body.description,
-              worldData: body.worldData as Record<string, unknown>,
+              ...(templateLayers
+                ? {
+                    config: templateLayers.config,
+                    plugins: templateLayers.plugins,
+                    worldContent: templateLayers.worldContent,
+                    templateId: templateLayers.templateId ?? body.templateId,
+                  }
+                : {}),
+              ...(body.worldData
+                ? { worldData: body.worldData as Record<string, unknown> }
+                : {}),
               createdBy: user.id,
             });
 
@@ -162,6 +190,9 @@ export const createWorldProjectRoutes = (
 
             return {
               ...formatProjectResponse(project),
+              config: project.config as Record<string, unknown> | null,
+              worldContent:
+                (project.worldContent as Record<string, unknown>) ?? {},
               worldData: project.worldData,
               manifestSnapshot: project.manifestSnapshot,
             };
@@ -478,11 +509,312 @@ export const createWorldProjectRoutes = (
               security: [{ BearerAuth: [] }],
             },
           },
+        )
+
+        // ──────── Phase G1 — Revision History ────────
+        .get(
+          "/:projectId/revisions",
+          async ({ auth, params, query, set }) => {
+            const user = auth.user!;
+            const { projectId } = params;
+
+            const existing = await worldProjectService.getById(projectId);
+            if (!existing) {
+              set.status = 404;
+              return { error: "Project not found" };
+            }
+            const role = await teamService.getMemberRole(
+              existing.teamId,
+              user.id,
+            );
+            if (!role) {
+              set.status = 403;
+              return { error: "Not a member of this team" };
+            }
+
+            const limit = query?.limit ? Number(query.limit) : undefined;
+            const offset = query?.offset ? Number(query.offset) : undefined;
+            const rows = await worldProjectService.listRevisions(projectId, {
+              limit,
+              offset,
+            });
+            return rows.map((r) => ({
+              id: r.id,
+              projectId: r.projectId,
+              version: r.version,
+              author: r.author,
+              authorId: r.authorId ?? null,
+              changeReason: r.changeReason ?? null,
+              schemaVersion: r.schemaVersion,
+              config: r.config ?? null,
+              plugins: r.plugins,
+              worldContent: r.worldContent ?? {},
+              templateId: r.templateId ?? null,
+              createdAt: r.createdAt.toISOString(),
+            }));
+          },
+          {
+            params: t.Object({ projectId: t.String() }),
+            query: t.Optional(
+              t.Object({
+                limit: t.Optional(t.String()),
+                offset: t.Optional(t.String()),
+              }),
+            ),
+            response: {
+              200: WS.WorldProjectRevisionListResponse,
+              403: Models.ErrorResponse,
+              404: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["World Projects"],
+              summary: "List project revision history (G1)",
+              description:
+                "Returns project revisions newest first. Each revision is the BEFORE state captured before a write — use `version` to reconstruct history. Optional `limit` (1-200, default 50) and `offset`.",
+              security: [{ BearerAuth: [] }],
+            },
+          },
+        )
+
+        // ──────── Phase G1.b — Restore Revision ────────
+        .post(
+          "/:projectId/revisions/:revisionId/restore",
+          async ({ auth, params, set }) => {
+            const user = auth.user!;
+            const { projectId, revisionId } = params;
+
+            const existing = await worldProjectService.getById(projectId);
+            if (!existing) {
+              set.status = 404;
+              return { error: "Project not found" };
+            }
+            const role = await teamService.getMemberRole(
+              existing.teamId,
+              user.id,
+            );
+            if (!role) {
+              set.status = 403;
+              return { error: "Not a member of this team" };
+            }
+
+            try {
+              const project = await worldProjectService.restoreRevision(
+                projectId,
+                revisionId,
+                user.id,
+              );
+              if (!project) {
+                set.status = 404;
+                return { error: "Revision not found" };
+              }
+
+              await auditLogService.log({
+                teamId: existing.teamId,
+                gameId: existing.gameId,
+                userId: user.id,
+                action: "project:revision:restore",
+                targetType: "project",
+                targetId: projectId,
+              });
+
+              return formatProjectResponse(project);
+            } catch (err) {
+              if (err instanceof Error && err.message.includes("locked by")) {
+                set.status = 409;
+                return { error: err.message };
+              }
+              throw err;
+            }
+          },
+          {
+            params: t.Object({
+              projectId: t.String(),
+              revisionId: t.String(),
+            }),
+            response: {
+              200: WS.WorldProjectResponse,
+              403: Models.ErrorResponse,
+              404: Models.ErrorResponse,
+              409: Models.ErrorResponse,
+              500: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["World Projects"],
+              summary: "Restore project to a prior revision (G1.b)",
+              description:
+                "Writes the revision's snapshot back into the project. Captures the current state as a new revision first so restore itself is reversible. Bumps the project version.",
+              security: [{ BearerAuth: [] }],
+            },
+          },
+        )
+
+        // ──────── Phase AP3 — Asset Packs ────────
+        .post(
+          "/:projectId/asset-packs",
+          async ({ auth, params, body, set }) => {
+            const user = auth.user!;
+            const { projectId } = params;
+
+            const existing = await worldProjectService.getById(projectId);
+            if (!existing) {
+              set.status = 404;
+              return { error: "Project not found" };
+            }
+            const role = await teamService.getMemberRole(
+              existing.teamId,
+              user.id,
+            );
+            if (!role) {
+              set.status = 403;
+              return { error: "Not a member of this team" };
+            }
+
+            try {
+              const project = await worldProjectService.setAssetPacks(
+                projectId,
+                body.assetPacks,
+                user.id,
+              );
+              if (!project) {
+                set.status = 500;
+                return { error: "Failed to set asset packs" };
+              }
+
+              await auditLogService.log({
+                teamId: existing.teamId,
+                gameId: existing.gameId,
+                userId: user.id,
+                action: "project:asset-packs:set",
+                targetType: "project",
+                targetId: projectId,
+              });
+
+              return formatProjectResponse(project);
+            } catch (err) {
+              if (err instanceof Error && err.message.includes("locked by")) {
+                set.status = 409;
+                return { error: err.message };
+              }
+              throw err;
+            }
+          },
+          {
+            params: t.Object({ projectId: t.String() }),
+            body: t.Object({
+              /**
+               * Replacement asset-pack id list. Empty = blank
+               * library (uninstall all). Each id must be an
+               * `asset_packs.manifest_id`.
+               */
+              assetPacks: t.Array(t.String()),
+            }),
+            response: {
+              200: WS.WorldProjectResponse,
+              403: Models.ErrorResponse,
+              404: Models.ErrorResponse,
+              409: Models.ErrorResponse,
+              500: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["World Projects"],
+              summary: "Replace project's installed asset packs (AP3)",
+              description:
+                "Set the project's `assetPacks` array. The studio's Asset Library shows the union of installed packs' catalogs.",
+              security: [{ BearerAuth: [] }],
+            },
+          },
+        )
+
+        // ──────── Phase B0'.G — World Content Patch ────────
+        .post(
+          "/:projectId/world-content",
+          async ({ auth, params, body, set }) => {
+            const user = auth.user!;
+            const { projectId } = params;
+
+            const existing = await worldProjectService.getById(projectId);
+            if (!existing) {
+              set.status = 404;
+              return { error: "Project not found" };
+            }
+
+            const role = await teamService.getMemberRole(
+              existing.teamId,
+              user.id,
+            );
+            if (!role) {
+              set.status = 403;
+              return { error: "Not a member of this team" };
+            }
+
+            try {
+              const project = await worldProjectService.patchWorldContent(
+                projectId,
+                body.patch as Record<string, unknown>,
+                user.id,
+              );
+
+              if (!project) {
+                set.status = 500;
+                return { error: "Failed to patch world content" };
+              }
+
+              await auditLogService.log({
+                teamId: existing.teamId,
+                gameId: existing.gameId,
+                userId: user.id,
+                action: "project:world-content:patch",
+                targetType: "project",
+                targetId: projectId,
+              });
+
+              return formatProjectResponse(project);
+            } catch (err) {
+              if (err instanceof Error && err.message.includes("locked by")) {
+                set.status = 409;
+                return { error: err.message };
+              }
+              throw err;
+            }
+          },
+          {
+            params: t.Object({ projectId: t.String() }),
+            body: t.Object({
+              /**
+               * Partial `WorldContent` patch — npcs / zones /
+               * spawns / quests / uiPack. Top-level keys overlay
+               * onto the existing content; explicit `null` removes
+               * a key.
+               */
+              patch: t.Record(t.String(), t.Unknown()),
+            }),
+            response: {
+              200: WS.WorldProjectResponse,
+              403: Models.ErrorResponse,
+              404: Models.ErrorResponse,
+              409: Models.ErrorResponse,
+              500: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["World Projects"],
+              summary: "Patch project worldContent (B0'.G)",
+              description:
+                "Merge a partial WorldContent patch into the project. Used by agent actions (PROPOSE_NPC_PLACEMENT, etc.) to persist authored content. Top-level keys are replaced; null removes.",
+              security: [{ BearerAuth: [] }],
+            },
+          },
         ),
     );
 };
 
-/** Format a WorldProject row to a JSON-safe response */
+/**
+ * Format a WorldProject row to the JSON-safe summary response.
+ *
+ * B0'.A: includes the typed-layer surface (`schemaVersion`,
+ * `templateId`, `plugins`) on the summary so list views can show
+ * template badges + filter by plugin set without needing the
+ * detail endpoint.
+ */
 function formatProjectResponse(project: {
   id: string;
   teamId: string;
@@ -495,6 +827,10 @@ function formatProjectResponse(project: {
   lockedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  schemaVersion?: number;
+  templateId?: string | null;
+  plugins?: string[] | null;
+  assetPacks?: string[] | null;
 }) {
   return {
     id: project.id,
@@ -508,5 +844,9 @@ function formatProjectResponse(project: {
     lockedAt: project.lockedAt?.toISOString() ?? null,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
+    schemaVersion: project.schemaVersion ?? 1,
+    templateId: project.templateId ?? null,
+    plugins: project.plugins ?? [],
+    assetPacks: project.assetPacks ?? [],
   };
 }

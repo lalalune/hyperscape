@@ -59,6 +59,7 @@ import type {
   ManifestData,
 } from "../types";
 import { useWorldStudio } from "../WorldStudioContext";
+import { hasAllRequiredAssetPacks } from "../../../gameModules/GameModule";
 import { ManifestFormEditor } from "./properties/ManifestEntryEditor";
 
 // ============== CATEGORY → MANIFEST MAPPING ==============
@@ -679,7 +680,7 @@ function matchesTypeFilter(
 // ============== MAIN COMPONENT ==============
 
 export const ContentBrowser = React.memo(function ContentBrowser() {
-  const { state, actions } = useWorldStudio();
+  const { state, actions, activeModule } = useWorldStudio();
   const manifests = state.manifests;
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -699,10 +700,21 @@ export const ContentBrowser = React.memo(function ContentBrowser() {
 
   const customAssets = state.extendedLayers.customAssets;
   const prefabs = state.prefabs;
+  // AP6 — manifest-driven entries are gated on the active module's
+  // required asset packs being installed (per `GameModule.requiredAssetPacks`).
+  // Custom assets + prefabs (project-scoped, not pack-scoped) are
+  // always shown.
+  const requiredPacksSatisfied = hasAllRequiredAssetPacks(
+    activeModule,
+    state.project.assetPacks,
+  );
 
   // Build all content entries
   const allEntries = useMemo(() => {
-    const entries = manifests.loaded ? buildAllEntries(manifests) : [];
+    const entries =
+      manifests.loaded && requiredPacksSatisfied
+        ? buildAllEntries(manifests)
+        : [];
 
     // Add placed custom assets
     for (const ca of customAssets) {
@@ -731,7 +743,7 @@ export const ContentBrowser = React.memo(function ContentBrowser() {
     }
 
     return entries;
-  }, [manifests, customAssets, prefabs]);
+  }, [manifests, customAssets, prefabs, requiredPacksSatisfied]);
 
   const categoryCounts = useMemo(
     () => countByCategory(allEntries),

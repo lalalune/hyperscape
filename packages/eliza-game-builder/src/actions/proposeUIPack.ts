@@ -35,13 +35,21 @@ export const proposeUIPackAction: Action = {
   name: "PROPOSE_UI_PACK",
   similes: ["EMIT_UI_PACK", "BUILD_UI_PACK", "SUBMIT_UI_PACK"],
   description:
-    "Submit a complete UIPackManifest the agent has composed. Pass `pack` — a JSON object matching `UIPackManifestSchema` (version: 1, id, name, widgets[], theme?, layouts?). The handler validates the pack against the canonical schema; if invalid, every Zod issue is returned so the agent can fix and resubmit. The validated pack is surfaced on `data.pack` for the host to apply via `loadUIPackOnClient`.",
+    "Submit a complete UIPackManifest the agent has composed. Pass `pack` — a JSON object matching `UIPackManifestSchema`. The handler validates the pack against the canonical schema; if invalid, every Zod issue is returned so the agent can fix and resubmit.\n\n" +
+    "REQUIRED top-level fields: `version` (must be 1), `id` (kebab-case), `name`, `widgets` (object catalog of widget refs).\n" +
+    "OPTIONAL top-level fields: `author`, `description`, `theme`, `layouts`, `customization`.\n\n" +
+    "LAYOUTS: `layouts` is an object keyed by layout id (typically `default`). Each layout has the shape `{ id, name, instances: [...] }`. Each instance has `{ id, widget, position }`.\n\n" +
+    "POSITION (CRITICAL — use a discriminated union via the `kind` field):\n" +
+    "  - `{ kind: 'anchored', anchor: 'top-left'|'top-center'|'top-right'|'middle-left'|'middle-center'|'middle-right'|'bottom-left'|'bottom-center'|'bottom-right', offset: { x: number, y: number }, width?: number, height?: number }` — for HUD widgets pinned to a screen edge/corner.\n" +
+    "  - `{ kind: 'grid', column: int, row: int, columnSpan?: int, rowSpan?: int }` — for widgets in a CSS grid container.\n" +
+    "  - `{ kind: 'flex', container: string, order: int }` — for widgets in a named flex container.\n\n" +
+    "Most HUD widgets should use `anchored` positioning. Always include `kind` — without it the schema rejects the pack.",
 
   parameters: [
     {
       name: "pack",
       description:
-        "The UIPackManifest JSON. Required fields: version (must be 1), id, name, widgets (catalog of widget refs the pack uses). Optional: author, description, theme, layouts, customization defaults.",
+        "The UIPackManifest JSON. Required: version=1, id, name, widgets. Optional: theme, layouts. Each layout instance's `position` MUST include `kind` ('anchored' | 'grid' | 'flex') with kind-specific fields. See the action description for the exact shape.",
       required: true,
       schema: { type: "object" },
     },

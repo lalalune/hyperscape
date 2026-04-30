@@ -35,7 +35,8 @@ import {
 } from "@hyperforge/shared/runtime";
 import type { ScriptGraph } from "../../../scripting/types";
 import { createPIEPluginHooks } from "../../../pie/pluginBoot";
-import { resolveGamePluginSetId } from "../toolbar/gamePluginResolver";
+import { resolveProjectPluginSet } from "../toolbar/gamePluginResolver";
+import { getAgentWorldContent } from "../state/agentWorldContent";
 import type { WidgetRegistry } from "@hyperforge/ui-framework";
 import {
   bindAllWidgets,
@@ -683,6 +684,41 @@ export function usePIESession({
       behaviorGraph: npcGraph(npc.entityId),
     }));
 
+    // Merge in agent-emitted content (B1 follow-up — closes the
+    // gap where agent emissions appeared as viewport markers but
+    // didn't run as gameplay entities in PIE Play). The
+    // agentWorldContent store carries the live agent state for
+    // the active project.
+    const agentContent = getAgentWorldContent();
+    for (const [key, spawn] of agentContent.spawns) {
+      mobSpawns.push({
+        id: `agent-spawn-${key}`,
+        mobId: spawn.mobId,
+        name: spawn.mobId,
+        position: {
+          x: spawn.position.x + offset,
+          y: spawn.position.y,
+          z: spawn.position.z + offset,
+        },
+        spawnRadius: spawn.spawnRadius,
+        maxCount: spawn.maxCount,
+        behaviorGraph: undefined,
+      });
+    }
+    for (const [id, npc] of agentContent.npcs) {
+      npcs.push({
+        id: `agent-npc-${id}`,
+        type: npc.type ?? "generic",
+        name: npc.name ?? id,
+        position: {
+          x: (npc.position?.x ?? 0) + offset,
+          y: npc.position?.y ?? 0,
+          z: (npc.position?.z ?? 0) + offset,
+        },
+        behaviorGraph: undefined,
+      });
+    }
+
     // Gather resources
     const resources = extendedLayers.resources.map((res) => ({
       id: res.id,
@@ -755,7 +791,18 @@ export function usePIESession({
       debugSink: (entry: PIEDebugEntry) => onDebugRef.current?.(entry),
       gameMode: manifest,
       mode: pieMode === "play" ? "play" : "simulate",
-      plugins: createPIEPluginHooks(resolveGamePluginSetId(), widgetRegistry),
+      // B0'.C: derive the active plugin set from the project's
+      // typed-layer surface (B0'.A) instead of env/localStorage.
+      // Empty `project.plugins` → "blank" → no game plugins boot.
+      // Hyperia template → "hyperscape" → full plugin chain.
+      plugins: createPIEPluginHooks(
+        resolveProjectPluginSet({
+          plugins: state.project.plugins,
+          templateId: state.project.templateId,
+          projectLoaded: state.project.currentProjectId !== null,
+        }),
+        widgetRegistry,
+      ),
       ...(pieMode === "play"
         ? {
             viewport: refs.container,

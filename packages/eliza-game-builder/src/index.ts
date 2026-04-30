@@ -23,9 +23,22 @@
 import type { Plugin } from "@elizaos/core";
 import {
   catalogStatsAction,
+  getPluginAction,
+  getProjectStateAction,
   getWidgetAction,
+  listPluginsAction,
   listWidgetsAction,
+  offerChoicesAction,
+  proposeAssetAction,
+  proposeMobSpawnAction,
+  proposeNpcPlacementAction,
+  proposePluginSetAction,
+  proposeQuestAction,
+  proposeResourceAction,
+  proposeTerrainConfigAction,
   proposeUIPackAction,
+  proposeZoneAction,
+  removeFromProjectAction,
   scaffoldWidgetAction,
   searchWidgetsAction,
 } from "./actions/index.js";
@@ -44,6 +57,19 @@ export const gameBuilderPlugin: Plugin = {
     getWidgetAction,
     searchWidgetsAction,
     proposeUIPackAction,
+    proposeNpcPlacementAction,
+    proposeMobSpawnAction,
+    proposeQuestAction,
+    proposeAssetAction,
+    proposeZoneAction,
+    proposeResourceAction,
+    proposeTerrainConfigAction,
+    proposePluginSetAction,
+    removeFromProjectAction,
+    listPluginsAction,
+    getPluginAction,
+    getProjectStateAction,
+    offerChoicesAction,
     scaffoldWidgetAction,
   ],
 
@@ -63,12 +89,47 @@ export {
 } from "./services/GameBuilderService.js";
 
 export {
+  PROJECT_CONTEXT_SERVICE_TYPE,
+  makeProjectContextService,
+  type IProjectContextService,
+  type ProjectContext,
+  type ProjectContextAssetPack,
+} from "./services/ProjectContextService.js";
+
+export {
+  ASSET_PACK_CATALOG_SERVICE_TYPE,
+  makeAssetPackCatalogService,
+  type IAssetPackCatalogService,
+  type InstallableAssetPack,
+} from "./services/AssetPackCatalogService.js";
+
+export {
   catalogStatsAction,
+  getPluginAction,
+  getProjectStateAction,
   getWidgetAction,
+  listAssetPacksAction,
+  listEntityTypesAction,
+  listPluginsAction,
   listWidgetsAction,
+  offerChoicesAction,
+  proposeAssetAction,
+  proposeAssetPackInstallAction,
+  proposeMobSpawnAction,
+  proposeNpcPlacementAction,
+  proposePluginSetAction,
+  proposeQuestAction,
+  proposeResourceAction,
+  proposeStationAction,
+  proposeTerrainConfigAction,
   proposeUIPackAction,
+  proposeZoneAction,
+  removeFromProjectAction,
   scaffoldWidgetAction,
   searchWidgetsAction,
+  type AssetProposal,
+  type OfferedChoice,
+  type RemovalRequest,
 } from "./actions/index.js";
 
 export {

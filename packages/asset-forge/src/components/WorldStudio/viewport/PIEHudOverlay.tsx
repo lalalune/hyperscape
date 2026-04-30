@@ -38,6 +38,7 @@ import {
   type UIWidgetComponent,
 } from "@hyperforge/ui-widgets";
 import type { WidgetRegistry } from "@hyperforge/ui-framework";
+import { HYPERSCAPE_DEFAULT_HUD_LAYOUT } from "@hyperforge/hyperscape";
 import { useEffect, useMemo, useState } from "react";
 
 import type { GamePluginSetId } from "../toolbar/gamePluginResolver";
@@ -76,15 +77,19 @@ const EMPTY_PIE_LAYOUT: UILayoutManifest = UILayoutManifestSchema.parse({
 
 function pickLayoutForGame(gameId: GamePluginSetId): UILayoutManifest {
   switch (gameId) {
+    case "blank":
+      // Phase B0'.C — blank projects boot without any game plugin,
+      // so PIE renders no HUD. The viewport is just terrain.
+      return EMPTY_PIE_LAYOUT;
     case "shooter-demo":
       return SHOOTER_DEMO_PIE_LAYOUT;
     case "hyperscape":
     default:
-      // Hyperscape's full HUD needs a DataContext (HP, inventory, etc.)
-      // populated from live player state — out of scope for the PIE
-      // overlay's first cut. Render an empty layout so the overlay
-      // doesn't blow up on missing data bindings.
-      return EMPTY_PIE_LAYOUT;
+      // Phase B0'.F — Hyperia plugin contributes its default HUD
+      // layout (HP bar, action bar, tooltip overlay). Bindings
+      // resolve against the live `DataContext` PIE assembles via
+      // `PIEEditorSession.getDataContext()` (B0.3).
+      return HYPERSCAPE_DEFAULT_HUD_LAYOUT;
   }
 }
 

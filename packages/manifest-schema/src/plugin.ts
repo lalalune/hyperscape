@@ -62,6 +62,53 @@ export type PluginDependency = z.infer<typeof PluginDependencySchema>;
  * exists so the editor's Plugin Browser can surface a summary before
  * the plugin is enabled.
  */
+/**
+ * Layer B of the AI ↔ assets ↔ plugins integration plan.
+ * One entry describing a placement type the plugin's runtime
+ * actually handles — e.g. the Hyperia plugin contributes a
+ * `shopkeeper` NPC type whose `storeId` field its store system
+ * reads at click-interact time.
+ *
+ * The agent's `LIST_ENTITY_TYPES` action surfaces this catalog so
+ * the AI can pick a `type` that has gameplay backing it instead
+ * of guessing a string. Validators (future) can reject placements
+ * whose type isn't supported by any installed plugin.
+ */
+export const EntityTypeContributionSchema = z.object({
+  /**
+   * Which world-content schema this contribution applies to.
+   * Mirrors the four placement schemas in
+   * `@hyperforge/manifest-schema/world-areas`.
+   */
+  kind: z.enum(["npc", "mobSpawn", "resource", "station"]),
+  /**
+   * Value of the `type` field on the placement (e.g. `shopkeeper`,
+   * `questgiver`, `goblin_aggressive`, `tree`, `anvil`). The
+   * placement's `type` is matched against this string.
+   */
+  type: z.string().min(1),
+  /** One-line behavior summary surfaced to the AI + plugin browser. */
+  description: z.string().min(1),
+  /**
+   * Schema-extra fields this entity type expects. Validators
+   * surface a warning when a placement of this type omits one of
+   * these. Names match the field names on the placement schema
+   * (e.g. `["storeId"]` for a shopkeeper).
+   */
+  requiredFields: z.array(z.string().min(1)).default([]),
+  /**
+   * Asset pack `type` values this entity type is most-naturally
+   * paired with. The agent uses this hint to filter
+   * `availableAssets` to plausible candidates. E.g. a `shopkeeper`
+   * entity type accepts `["character"]`; a `tree` resource accepts
+   * `["prop"]`.
+   */
+  acceptedAssetTypes: z.array(z.string().min(1)).default([]),
+});
+export type EntityTypeContribution = z.infer<
+  typeof EntityTypeContributionSchema
+>;
+
 export const PluginContributionsSchema = z.object({
   systems: z.array(z.string().min(1)).default([]),
   entities: z.array(z.string().min(1)).default([]),
@@ -70,6 +117,13 @@ export const PluginContributionsSchema = z.object({
   paletteCategories: z.array(z.string().min(1)).default([]),
   toolbarTools: z.array(z.string().min(1)).default([]),
   commands: z.array(z.string().min(1)).default([]),
+  /**
+   * Layer B — gameplay-typed entity contributions. Each entry
+   * tells the agent that a placement of this `kind` + `type`
+   * will be handled by this plugin's runtime systems. Empty by
+   * default — old plugins keep working unchanged.
+   */
+  entityTypes: z.array(EntityTypeContributionSchema).default([]),
 });
 export type PluginContributions = z.infer<typeof PluginContributionsSchema>;
 
@@ -105,6 +159,20 @@ export const PluginManifestSchema = z
     /** Plugins this plugin must load AFTER if both are present. */
     loadAfter: z.array(PluginId).default([]),
     /**
+     * Asset pack manifest ids this plugin's content depends on
+     * (Phase AP8 of `PLAN_ASSET_PACKS.md`). Each entry is an
+     * npm-style pack id (e.g. `"@hyperforge/asset-pack-hyperia-v1"`).
+     * The studio surfaces unmet entries when the plugin is
+     * installed onto a project, and the agent's
+     * `PROPOSE_PLUGIN_SET` warns if a chosen plugin needs packs
+     * the project hasn't installed.
+     *
+     * Empty / omitted = self-contained (the plugin ships its own
+     * placeholders or doesn't need 3D content). Multiple entries
+     * combine with AND.
+     */
+    requiresAssetPacks: z.array(z.string().min(1)).default([]),
+    /**
      * Enabled-by-default flag the editor respects on first install.
      * Users can toggle it; this is only the factory default.
      */
@@ -117,6 +185,7 @@ export const PluginManifestSchema = z
       paletteCategories: [],
       toolbarTools: [],
       commands: [],
+      entityTypes: [],
     }),
     /** Free-form tags for Plugin Browser filtering. */
     tags: z.array(z.string().min(1)).default([]),
@@ -133,3 +202,35 @@ export const PluginManifestSchema = z
     { message: "dependency ids must be unique" },
   );
 export type PluginManifest = z.infer<typeof PluginManifestSchema>;
+
+/**
+ * Validate a `plugin.json` blob into a typed manifest. Mirrors the
+ * `validateProject` / `validateUIPackManifest` pattern so callers
+ * get structured `{ ok, manifest }` / `{ ok: false, issues }`
+ * results without needing to handle Zod errors directly.
+ *
+ * Phase B0'.D of `PLAN_PROJECT_AS_DATA.md` — used by
+ * `PluginRegistryService` when scanning workspace + node_modules
+ * for plugins.
+ */
+export interface PluginManifestValidationOk {
+  readonly ok: true;
+  readonly manifest: PluginManifest;
+}
+export interface PluginManifestValidationFail {
+  readonly ok: false;
+  readonly issues: ReadonlyArray<{ path: string; message: string }>;
+}
+export function validatePluginManifest(
+  raw: unknown,
+): PluginManifestValidationOk | PluginManifestValidationFail {
+  const result = PluginManifestSchema.safeParse(raw);
+  if (result.success) return { ok: true, manifest: result.data };
+  return {
+    ok: false,
+    issues: result.error.issues.map((i) => ({
+      path: i.path.join(".") || "(root)",
+      message: i.message,
+    })),
+  };
+}

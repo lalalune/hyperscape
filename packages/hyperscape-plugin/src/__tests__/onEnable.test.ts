@@ -228,7 +228,9 @@ const CLIENT_ONLY_REGISTRATIONS = [
   "music",
   "vegetation",
   "building-rendering",
-  "grass",
+  // "grass" registration disabled when `ProceduralGrassSystem`
+  // was retired in favor of TerrainSystem's `GrassVisualManager`
+  // (Cluster A #2 fix). Re-enable here if procedural grass returns.
   "inventory-interaction",
 ];
 

@@ -1872,6 +1872,7 @@ export {
   RANGED_STYLE_BONUSES,
   WEAPON_DEFAULT_ATTACK_STYLE,
 } from "./constants/CombatConstants";
+export { lootTablesProvider } from "./data/LootTablesProvider";
 export { mobLootTableMappingsProvider } from "./data/MobLootTableMappingsProvider";
 export { ARROW_DATA, BOW_TIERS } from "./data/ammunition";
 export { COMBAT_SPELLS, SPELL_ORDER } from "./data/combat-spells";

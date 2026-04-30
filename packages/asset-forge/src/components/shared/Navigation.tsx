@@ -28,6 +28,7 @@ import {
   Map,
   LogOut,
   User,
+  Package,
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -68,6 +69,7 @@ const NAV_ITEMS = [
   { route: ROUTES.WORLD_EDITOR, label: "World Editor", icon: Gamepad2 },
   { route: ROUTES.WORLD_STUDIO, label: "World Studio", icon: Map },
   { route: ROUTES.UI_LAYOUT_EDITOR, label: "UI Layouts", icon: LayoutPanelTop },
+  { route: ROUTES.ASSET_PACKS, label: "Asset Packs", icon: Package },
   { route: ROUTES.MANIFESTS, label: "Manifests", icon: FileJson },
   { route: ROUTES.ARMOR_PIPELINE, label: "Armor v2", icon: Gem },
 ] as const;

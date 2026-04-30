@@ -12,8 +12,10 @@ import {
   Loader2,
   AlertTriangle,
   GripVertical,
+  History,
   Settings,
   Rocket,
+  Sparkles,
   Wand2,
 } from "lucide-react";
 import React, { useState, useCallback, useRef, useEffect } from "react";
@@ -32,6 +34,8 @@ import { ProcgenPanel } from "./panels/ProcgenPanel";
 import { ZonePaintPanel } from "./panels/ZonePaintPanel";
 import { DeploymentPanel } from "./panels/DeploymentPanel";
 import { AutomationPanel } from "./panels/AutomationPanel";
+import { WorldStudioCompanion } from "./panels/WorldStudioCompanion";
+import { HistoryPanel } from "./panels/HistoryPanel";
 import { PropertiesPanel } from "./panels/PropertiesPanel";
 import { BottomPanel } from "./panels/BottomPanel";
 import { MainToolbar, type RightPanelTab } from "./toolbar/MainToolbar";
@@ -167,10 +171,12 @@ const RIGHT_TABS: {
   icon: typeof Settings;
 }[] = [
   // Content Browser lives in the bottom dock (UE5 convention) — not in
-  // the right sidebar tabs. Details/Deploy/AI remain here.
+  // the right sidebar tabs. Details/Deploy/AI/Companion remain here.
   { id: "properties", label: "Details", icon: Settings },
   { id: "deployment", label: "Deploy", icon: Rocket },
   { id: "automation", label: "AI", icon: Wand2 },
+  { id: "companion", label: "Chat", icon: Sparkles },
+  { id: "history", label: "History", icon: History },
 ];
 
 function RightPanelTabs({
@@ -448,6 +454,10 @@ export function WorldStudioLayout({ projectId }: WorldStudioLayoutProps) {
         return <DeploymentPanel />;
       case "automation":
         return <AutomationPanel />;
+      case "companion":
+        return <WorldStudioCompanion />;
+      case "history":
+        return <HistoryPanel />;
       default:
         return <PropertiesPanel />;
     }

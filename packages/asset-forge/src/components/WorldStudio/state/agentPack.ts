@@ -30,6 +30,7 @@ import {
   type LoadedUIPack,
   type UIPackManifest,
 } from "@hyperforge/ui-framework";
+import { patchProjectWorldContent } from "../../../utils/worldProjectApi";
 
 let activePack: LoadedUIPack | null = null;
 const listeners = new Set<() => void>();
@@ -91,4 +92,44 @@ export function useAgentPack(): LoadedUIPack | null {
     getAgentPack,
     () => null, // SSR snapshot
   );
+}
+
+// ============== Phase B0'.G — Project persistence ==============
+
+interface PersistOk {
+  readonly ok: true;
+}
+interface PersistFail {
+  readonly ok: false;
+  readonly error: string;
+}
+
+/**
+ * Snapshot the current local agent UI pack and POST it to the
+ * active project's `worldContent.uiPack`. After this resolves,
+ * the agent's HUD design persists into the project — survives
+ * reload and ships on Publish.
+ *
+ * Phase B0'.G of `PLAN_PROJECT_AS_DATA.md`. Pass `null` to clear
+ * the project's uiPack (B0'.G's deletion semantic).
+ */
+export async function persistAgentPackToProject(
+  projectId: string | null,
+  pack: UIPackManifest | unknown | null,
+): Promise<PersistOk | PersistFail> {
+  if (!projectId) {
+    return { ok: false, error: "no active project" };
+  }
+  try {
+    // Pass `null` through as an explicit removal; the server's
+    // `mergeWorldContent` deletes the key when the patch value
+    // is null.
+    await patchProjectWorldContent(projectId, { uiPack: pack });
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }

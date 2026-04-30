@@ -336,17 +336,30 @@ describe("SCAFFOLD_WIDGET action", () => {
 });
 
 describe("gameBuilderPlugin", () => {
-  it("exports plugin with all 5 actions and the service", async () => {
+  it("exports plugin with all actions and the service", async () => {
     const mod = await import("../index.js");
     const plugin = mod.gameBuilderPlugin;
     expect(plugin.name).toBe("@hyperforge/eliza-game-builder");
-    expect(plugin.actions?.length).toBe(6);
+    expect(plugin.actions?.length).toBe(19);
     expect(plugin.services?.length).toBe(1);
     expect(plugin.actions?.map((a) => a.name).sort()).toEqual([
       "GET_CATALOG_STATS",
       "GET_GAME_WIDGET",
+      "GET_PLUGIN",
+      "GET_PROJECT_STATE",
       "LIST_GAME_WIDGETS",
+      "LIST_PLUGINS",
+      "OFFER_CHOICES",
+      "PROPOSE_ASSET",
+      "PROPOSE_MOB_SPAWN",
+      "PROPOSE_NPC_PLACEMENT",
+      "PROPOSE_PLUGIN_SET",
+      "PROPOSE_QUEST",
+      "PROPOSE_RESOURCE",
+      "PROPOSE_TERRAIN_CONFIG",
       "PROPOSE_UI_PACK",
+      "PROPOSE_ZONE",
+      "REMOVE_FROM_PROJECT",
       "SCAFFOLD_WIDGET",
       "SEARCH_GAME_WIDGETS",
     ]);

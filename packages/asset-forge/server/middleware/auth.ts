@@ -86,8 +86,12 @@ async function findOrCreateForgeUser(
     // (guards against the prior schema-change regression where seeding a
     // game without `gameMode` silently failed the NOT NULL constraint).
     await ensureDefaultGameForTeams(user);
-    // Backfill default world project if any games are missing one
-    await ensureDefaultWorldProject(user);
+    // NOTE: world-project backfill removed deliberately. New users start
+    // with a game but zero projects — they create their own via
+    // NewWorldDialog (blank terrain) or load Hyperia explicitly as a
+    // sample. The auto-backfill caused new projects to silently
+    // resolve to the Hyperia placeholder and load HYPERIA_GAME_WORLD_CONFIG
+    // instead of starting from a blank slate.
     return user;
   }
 

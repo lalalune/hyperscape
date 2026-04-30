@@ -25,6 +25,28 @@ const BoundsSchema = z.object({
   maxZ: z.number(),
 });
 
+/**
+ * Asset pack reference — `<packManifestId>/<entryId>`. Optional on
+ * every world-content placement; when present, the engine renders
+ * the named entry's model instead of falling back to a placeholder.
+ *
+ * Layer A of the AI ↔ assets ↔ plugins integration plan. The
+ * AI's `GET_PROJECT_STATE.availableAssets` returns refs in this
+ * exact shape so the agent can copy a `ref` value directly into
+ * a placement. The studio validates that the pack is in the
+ * project's installed list before accepting the proposal.
+ *
+ * Two slashes are the only required content (separating pack id
+ * from entry id); npm-scoped pack ids include their own '@' so
+ * the pattern is `@scope/pack-id-vN/entry-id`.
+ */
+const AssetRefSchema = z
+  .string()
+  .regex(
+    /^.+\/.+$/,
+    "assetRef must be `<packManifestId>/<entryId>` (e.g. `@hyperforge/asset-pack-hyperia-trees-v1/tree_oak_v1`)",
+  );
+
 /** NPC inside an area — `type` selects role (shop, healer, quest giver, …). */
 export const WorldAreaNPCSchema = z
   .object({
@@ -36,6 +58,12 @@ export const WorldAreaNPCSchema = z
     storeId: z.string().min(1).optional(),
     /** Free-form dialogue data — keyed by dialogue id. */
     dialogue: z.record(z.string(), z.string()).optional(),
+    /**
+     * Optional asset pack reference (`<packId>/<entryId>`). Engine
+     * uses this to load the model. If absent, the engine falls
+     * back to a generic NPC placeholder.
+     */
+    assetRef: AssetRefSchema.optional(),
   })
   .passthrough();
 export type WorldAreaNPC = z.infer<typeof WorldAreaNPCSchema>;
@@ -44,6 +72,8 @@ export const WorldAreaResourceSchema = z.object({
   resourceId: z.string().min(1),
   type: z.string().min(1),
   position: Vec3Schema,
+  /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
+  assetRef: AssetRefSchema.optional(),
 });
 export type WorldAreaResource = z.infer<typeof WorldAreaResourceSchema>;
 
@@ -52,6 +82,8 @@ export const WorldAreaMobSpawnSchema = z.object({
   position: Vec3Schema,
   maxCount: z.number().int().positive(),
   spawnRadius: z.number().nonnegative(),
+  /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
+  assetRef: AssetRefSchema.optional(),
 });
 export type WorldAreaMobSpawn = z.infer<typeof WorldAreaMobSpawnSchema>;
 
@@ -66,6 +98,8 @@ export const WorldAreaStationSchema = z
     id: z.string().min(1),
     type: z.string().min(1),
     position: Vec3Schema,
+    /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
+    assetRef: AssetRefSchema.optional(),
   })
   .passthrough();
 export type WorldAreaStation = z.infer<typeof WorldAreaStationSchema>;

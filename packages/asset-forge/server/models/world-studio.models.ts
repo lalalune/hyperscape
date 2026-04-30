@@ -174,8 +174,33 @@ export const CreateWorldProjectBody = t.Object({
   name: t.String({ minLength: 1, maxLength: 200 }),
   description: t.Optional(t.String({ maxLength: 2000 })),
   gameId: t.String({ format: "uuid" }),
-  worldData: WorldDataSchema,
+  /**
+   * Project template to clone from. When supplied, the server clones
+   * the named template's `ProjectLayers` (config + plugins +
+   * worldContent + templateId) and writes them into the new row.
+   * `worldData` may still be supplied as a legacy compat path; when
+   * both are supplied, `templateId` wins.
+   * Phase B0'.B of `PLAN_PROJECT_AS_DATA.md`.
+   */
+  templateId: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
+  /**
+   * @deprecated Use `templateId` instead. Kept as the legacy path
+   * for callers that still construct `worldData` client-side.
+   */
+  worldData: t.Optional(WorldDataSchema),
 });
+
+export const ProjectTemplateResponse = t.Object({
+  id: t.String(),
+  name: t.String(),
+  description: t.String(),
+  thumbnailUrl: t.Optional(t.String()),
+  defaultPick: t.Optional(t.Boolean()),
+  /** Plugin ids the template installs (surfaced for picker preview). */
+  plugins: t.Array(t.String()),
+});
+
+export const ProjectTemplateListResponse = t.Array(ProjectTemplateResponse);
 
 export const UpdateWorldProjectBody = t.Object({
   name: t.Optional(t.String({ minLength: 1, maxLength: 200 })),
@@ -195,17 +220,69 @@ export const WorldProjectResponse = t.Object({
   lockedAt: t.Nullable(t.String()),
   createdAt: t.String(),
   updatedAt: t.String(),
+  // ── B0'.A typed project layers (summary view) ──
+  /** Project shape version — B0'.A introduces v1. */
+  schemaVersion: t.Number(),
+  /** Template the project was cloned from (e.g. "blank", "hyperia"). */
+  templateId: t.Nullable(t.String()),
+  /** Plugin ids installed by PIE on Play. Empty = blank canvas. */
+  plugins: t.Array(t.String()),
+  /**
+   * Asset pack manifest ids installed on this project (Phase AP1
+   * of `PLAN_ASSET_PACKS.md`). Empty = no asset packs; agent may
+   * only place engine-default placeholders.
+   */
+  assetPacks: t.Array(t.String()),
 });
 
 export const WorldProjectDetailResponse = t.Composite([
   WorldProjectResponse,
   t.Object({
+    /**
+     * Procgen `WorldCreationConfig` (terrain shape, biomes,
+     * vegetation). May be null until the project's first PIE Play
+     * triggers procgen. Phase B0'.A.
+     */
+    config: t.Nullable(t.Record(t.String(), t.Any())),
+    /**
+     * Authored content layered on top of plugin contributions
+     * (npcs, zones, quests, uiPack). Empty `{}` for fresh projects.
+     */
+    worldContent: t.Record(t.String(), t.Any()),
     worldData: WorldDataSchema,
     manifestSnapshot: ManifestSnapshotSchema,
   }),
 ]);
 
 export const WorldProjectListResponse = t.Array(WorldProjectResponse);
+
+// ==================== Revision Models (G1) ====================
+
+/**
+ * One project revision row. Capture of the BEFORE state for the
+ * write that bumped the project to `version + 1`.
+ */
+export const WorldProjectRevisionResponse = t.Object({
+  id: t.String(),
+  projectId: t.String(),
+  /** Project version this revision captures (BEFORE state). */
+  version: t.Number(),
+  /** "user" | "agent" | "system". */
+  author: t.String(),
+  /** forge_users.id when author = "user". */
+  authorId: t.Nullable(t.String()),
+  changeReason: t.Nullable(t.String()),
+  schemaVersion: t.Number(),
+  config: t.Unknown(),
+  plugins: t.Array(t.String()),
+  worldContent: t.Unknown(),
+  templateId: t.Nullable(t.String()),
+  createdAt: t.String(),
+});
+
+export const WorldProjectRevisionListResponse = t.Array(
+  WorldProjectRevisionResponse,
+);
 
 // ==================== Deployment Models ====================
 
