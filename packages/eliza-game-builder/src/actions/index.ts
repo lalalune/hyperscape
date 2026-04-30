@@ -29,4 +29,5 @@ export { listAssetPacksAction } from "./listAssetPacks.js";
 export { proposeAssetPackInstallAction } from "./proposeAssetPackInstall.js";
 export { listEntityTypesAction } from "./listEntityTypes.js";
 export { proposeStationAction } from "./proposeStation.js";
+export { proposeTeleportAction } from "./proposeTeleport.js";
 export { offerChoicesAction, type OfferedChoice } from "./offerChoices.js";

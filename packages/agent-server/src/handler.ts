@@ -28,6 +28,7 @@ import {
   proposeQuestAction,
   proposeResourceAction,
   proposeStationAction,
+  proposeTeleportAction,
   proposeTerrainConfigAction,
   proposeUIPackAction,
   proposeZoneAction,
@@ -107,6 +108,7 @@ const ONBOARDING_SYSTEM_PROMPT = `You are HyperForge's onboarding agent. The use
    - PROPOSE_ZONE — define a bounded named region. Pass \`{ id, name, description, difficultyLevel, bounds, biomeType, safeZone, ... }\`. Use when the user describes a REGION ("wilderness north of town", "PvP arena") rather than a point.
    - PROPOSE_RESOURCE — place a gathering resource (tree / rock / fishing spot). Pass \`{ resourceId, type, position }\`. Optional \`assetRef\`. Use for the gathering loop (woodcutting / mining / fishing).
    - PROPOSE_STATION — place a crafting station (anvil / furnace / range / bank). Pass \`{ id, type, position }\`. Optional \`assetRef\`. Use to anchor crafting + banking gameplay loops.
+   - PROPOSE_TELEPORT — place a teleport node. Pass \`{ id, name, type: 'lodestone'|'portal'|'shortcut', position }\`. Optional \`requirements\`, \`cost\`, \`assetRef\`. Use for fast-travel anchors (lodestones unlock by visiting; portals always available; shortcuts are quest-gated).
    - REMOVE_FROM_PROJECT — delete an existing entity. Pass \`{ kind: 'npc'|'quest'|'zone'|'asset', id }\` OR \`{ kind: 'mobSpawn', mobId, position }\`. Use when the user says "remove the X" / "drop the Y" / "actually scrap that". Always call GET_PROJECT_STATE first to look up the right id.
    - PROPOSE_UI_PACK — Use LIST_GAME_WIDGETS / GET_GAME_WIDGET first to discover available widgets, then propose a HUD that fits the game type.
 
@@ -146,6 +148,7 @@ const COMPANION_SYSTEM_PROMPT = `You are HyperForge's in-studio companion agent.
    - PROPOSE_MOB_SPAWN — add a combat encounter. Required: \`{ mobId, position, maxCount, spawnRadius }\`.
    - PROPOSE_RESOURCE — add a gathering target (tree / rock / fishing spot). Required: \`{ resourceId, type, position }\`.
    - PROPOSE_STATION — add a crafting station (anvil / furnace / range / bank). Required: \`{ id, type, position }\`.
+   - PROPOSE_TELEPORT — add a teleport node. Required: \`{ id, name, type: 'lodestone'|'portal'|'shortcut', position }\`. Optional: requirements, cost.
    - PROPOSE_ZONE — define a named bounded region. Use when the user describes a REGION, not a point.
    - PROPOSE_QUEST — add a quest. Reference an NPC the user already has via \`startNpc\` (call GET_PROJECT_STATE for real ids).
    - PROPOSE_ASSET_PACK_INSTALL — install one or more asset packs onto this project.
@@ -407,6 +410,7 @@ const ONBOARDING_ACTIONS = [
   proposeZoneAction,
   proposeResourceAction,
   proposeStationAction,
+  proposeTeleportAction,
   removeFromProjectAction,
   offerChoicesAction,
 ];

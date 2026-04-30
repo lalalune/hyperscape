@@ -23,6 +23,7 @@ import { proposeNpcPlacementAction } from "../actions/proposeNpcPlacement.js";
 import { proposeResourceAction } from "../actions/proposeResource.js";
 import { proposeMobSpawnAction } from "../actions/proposeMobSpawn.js";
 import { proposeStationAction } from "../actions/proposeStation.js";
+import { proposeTeleportAction } from "../actions/proposeTeleport.js";
 import {
   PROJECT_CONTEXT_SERVICE_TYPE,
   makeProjectContextService,
@@ -537,5 +538,129 @@ describe("Layer B placement validators (via propose actions)", () => {
     // Schema's regex catches malformed shape FIRST (validator never
     // runs because Zod rejects). Either way: not success.
     expect(r?.success).toBe(false);
+  });
+
+  it("PROPOSE_TELEPORT happy path with all required fields", async () => {
+    const runtime = runtimeWithCtx({
+      plugins: ["com.hyperforge.hyperscape"],
+      assetPacks: [],
+    });
+    const r = await proposeTeleportAction.handler(
+      runtime,
+      makeMessage(""),
+      undefined,
+      {
+        teleport: {
+          id: "village-lodestone",
+          name: "Village Lodestone",
+          type: "lodestone",
+          position: { x: 0, y: 0, z: 0 },
+        },
+      },
+      undefined,
+    );
+    expect(r?.success).toBe(true);
+    const data = r?.data as {
+      teleport: { id: string; name: string; type: string };
+    };
+    expect(data.teleport.id).toBe("village-lodestone");
+    expect(data.teleport.type).toBe("lodestone");
+  });
+
+  it("PROPOSE_TELEPORT preserves optional requirements + cost", async () => {
+    const runtime = runtimeWithCtx({
+      plugins: ["com.hyperforge.hyperscape"],
+      assetPacks: [],
+    });
+    const r = await proposeTeleportAction.handler(
+      runtime,
+      makeMessage(""),
+      undefined,
+      {
+        teleport: {
+          id: "ancient-portal",
+          name: "Ancient Portal",
+          type: "portal",
+          position: { x: 50, y: 0, z: 50 },
+          requirements: { questComplete: "lost_city", level: 30 },
+          cost: 100,
+        },
+      },
+      undefined,
+    );
+    expect(r?.success).toBe(true);
+    const data = r?.data as {
+      teleport: {
+        requirements?: { questComplete?: string | null; level?: number };
+        cost?: number;
+      };
+    };
+    expect(data.teleport.requirements?.questComplete).toBe("lost_city");
+    expect(data.teleport.requirements?.level).toBe(30);
+    expect(data.teleport.cost).toBe(100);
+  });
+
+  it("PROPOSE_TELEPORT rejects type outside the enum", async () => {
+    const runtime = runtimeWithCtx({
+      plugins: ["com.hyperforge.hyperscape"],
+      assetPacks: [],
+    });
+    const r = await proposeTeleportAction.handler(
+      runtime,
+      makeMessage(""),
+      undefined,
+      {
+        teleport: {
+          id: "bad",
+          name: "Bad",
+          type: "wormhole", // not in enum
+          position: { x: 0, y: 0, z: 0 },
+        },
+      },
+      undefined,
+    );
+    expect(r?.success).toBe(false);
+    expect(String(r?.text)).toContain("Teleport invalid");
+  });
+
+  it("PROPOSE_TELEPORT auto-fills assetRef when an exact-id match exists", async () => {
+    const runtime = runtimeWithCtx({
+      plugins: ["com.hyperforge.hyperscape"],
+      assetPacks: [
+        {
+          manifestId: "@hyperforge/asset-pack-hyperia-portals-v1",
+          name: "Hyperia Portals",
+          packVersion: "1.0.0",
+          assets: [
+            {
+              id: "lodestone",
+              name: "Lodestone",
+              type: "prop",
+              subtype: "lodestone",
+            },
+          ],
+        },
+      ],
+    });
+    const r = await proposeTeleportAction.handler(
+      runtime,
+      makeMessage(""),
+      undefined,
+      {
+        teleport: {
+          id: "village-lodestone",
+          name: "Village Lodestone",
+          type: "lodestone",
+          position: { x: 0, y: 0, z: 0 },
+          // assetRef omitted — auto-fill should pick the lodestone entry
+        },
+      },
+      undefined,
+    );
+    expect(r?.success).toBe(true);
+    const data = r?.data as { teleport: { assetRef?: string } };
+    expect(data.teleport.assetRef).toBe(
+      "@hyperforge/asset-pack-hyperia-portals-v1/lodestone",
+    );
   });
 });
