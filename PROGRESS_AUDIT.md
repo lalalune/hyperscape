@@ -1,4 +1,4 @@
-# Hyperscape Progress Audit — 2026-04-28 (REFRESH 13)
+# Hyperscape Progress Audit — 2026-04-30 (REFRESH 14)
 
 **This doc supersedes the 2026-04-24 cut.** That audit accurately
 described state at 50–60% AAA, with the engine/game separation
@@ -16,7 +16,7 @@ session's commit trail (`63ab4b2d6` → `c103e5e7e`, 59 commits).
 
 ## Headline correction
 
-**~89–90% of the way to "truly AAA, truly done"**. **REFRESH 12 (2026-04-28 mid-day): D6.c long-tail continues — 13 more widgets shipped over slices 46-58. Total session arc widget count: 28 widgets / ~8,400 LOC of widget code / +240 plugin tests (slices 31-58, 198 → 438). All 6 manifest categories now seeded — overlay (5), HUD (7), modal (4), panel (8), menu (1), debug (1). New primitives this refresh: QuantityPrompt, IncomingRequestModal, EquipmentSlotIcon, DialoguePanel, ArrayInput, CurvePreview, ContextMenu, KeyValueList, CursorTooltip, NotificationToastList, BuffBar, VictoryOverlay, AlignmentGuides. Plugin 321/321 → 438/438 (+117 new this refresh). Recipe is fully mechanical across every shape (presentational, RAF tickers, callbacks, packet sends, canvas rendering, SVG-radial-progress, animation-token-driven re-mounts, generic primitives, abstract patterns).** REFRESH 11 (slices 37-45): 9 widgets, panel/modal categories seeded. REFRESH 10 closed D6.c.2 overlay set + 3 HUDs (slices 31-36). REFRESH 9 substantively closed #8. REFRESH 8 closed #7 end-to-end. REFRESH 7 #7 substrate. REFRESH 6 partial #8. REFRESH 5 closed #9 (CombatSystem). REFRESH 4 closed #10 (registry hot-reload). REFRESH 3 closed AI test-coverage gap.
+**~91–92% of the way to "truly AAA, truly done"**. **REFRESH 14 (2026-04-30 evening): asset-pack ecosystem + AI-↔-assets-↔-plugins integration shipped end-to-end as a single milestone commit (`8679afa1d`, ~150 files), plus 3 teleport-vertical slices today closing the last placement-vocabulary gap.** **Big shifts vs REFRESH 13**: (1) The "AI authoring foundations" plan (PLAN_AI_AUTHORING_FOUNDATIONS) shipped phases A1-A4 between sessions; A5 worked-example is the only open phase. (2) An entirely new arc — the Asset Pack ecosystem (PLAN_ASSET_PACKS AP1-AP9) — went from non-existent to fully shipped: schema + DB migrations + AssetPackService (CRUD/marketplace/publish/unpublish) + Hyperia seeder producing 10 category packs (~142 assets) + AssetPacksPage with marketplace tabs + WebGPU thumbnail renderer + ModelThumbnail React component + AssetPackBrowserPanel with full UX polish. (3) AI ↔ assets ↔ plugins integration (Layer A + Layer B) is end-to-end live: assetRef field on every placement schema; entityType contributions in plugin.json; LIST_ENTITY_TYPES + LIST_ASSET_PACKS + PROPOSE_ASSET_PACK_INSTALL + PROPOSE_STATION + PROPOSE_TELEPORT actions; placement validators (validatePlacementType + validateAssetRef + autoFillAssetRef); useAgentEntityMarkers renders agent placements as 3D markers with assetRef → GLB load. (4) System prompts (ONBOARDING + COMPANION) refreshed for parity with the new actions and auto-fill behavior. (5) e2e integration smoke test pins all 5 placement actions at the integration boundary. **Net plugin tests**: 712/712 unchanged (widget catalog stable since REFRESH 13). **Net eliza-game-builder tests**: 169/169 (was ~60 before this work). REFRESH 13 captured the AI authoring pivot. REFRESH 12 (2026-04-28 mid-day): D6.c long-tail continues — 13 more widgets shipped over slices 46-58. Total session arc widget count: 28 widgets / ~8,400 LOC of widget code / +240 plugin tests (slices 31-58, 198 → 438). All 6 manifest categories now seeded — overlay (5), HUD (7), modal (4), panel (8), menu (1), debug (1). New primitives this refresh: QuantityPrompt, IncomingRequestModal, EquipmentSlotIcon, DialoguePanel, ArrayInput, CurvePreview, ContextMenu, KeyValueList, CursorTooltip, NotificationToastList, BuffBar, VictoryOverlay, AlignmentGuides. Plugin 321/321 → 438/438 (+117 new this refresh). Recipe is fully mechanical across every shape (presentational, RAF tickers, callbacks, packet sends, canvas rendering, SVG-radial-progress, animation-token-driven re-mounts, generic primitives, abstract patterns).** REFRESH 11 (slices 37-45): 9 widgets, panel/modal categories seeded. REFRESH 10 closed D6.c.2 overlay set + 3 HUDs (slices 31-36). REFRESH 9 substantively closed #8. REFRESH 8 closed #7 end-to-end. REFRESH 7 #7 substrate. REFRESH 6 partial #8. REFRESH 5 closed #9 (CombatSystem). REFRESH 4 closed #10 (registry hot-reload). REFRESH 3 closed AI test-coverage gap.
 two days ago. The single biggest blocker on the prior top-10 list
 ("#2 Hyperscape→plugin extraction, XL effort, biggest unknown") is
 mostly resolved.
@@ -39,6 +39,138 @@ Branch composition by additions (vs `main`):
 The branch is **~44% editor, 33% runtime engine, 15% game-plugin, 8% framework + everything else**.
 The shift from "shared has everything" to "plugin owns game logic"
 is the single biggest visible change in the past 48 hours.
+
+---
+
+## REFRESH 14 — Asset pack ecosystem + AI ↔ assets ↔ plugins integration shipped end-to-end (2026-04-30 evening)
+
+Two days after REFRESH 13's pivot to "AI authoring foundations,"
+the work shifted onto a different but complementary arc — the
+**asset pack ecosystem** plus the **agent vocabulary for placing
+gameplay entities into a world** (PROPOSE_NPC_PLACEMENT,
+PROPOSE_MOB_SPAWN, PROPOSE_RESOURCE, PROPOSE_STATION,
+PROPOSE_TELEPORT). This is the world-content side of what
+PLAN_AI_AUTHORING_FOUNDATIONS does for HUDs.
+
+### What shipped
+
+**Headline commit `8679afa1d` (~150 files)** — the asset-pack
+ecosystem + AI integration milestone, accumulated over the
+preceding session arc and committed as one feat:
+
+- **Asset packs (PLAN_ASSET_PACKS AP1-AP9)**: schema + DB
+  migrations (0009 asset_packs, 0010 visibility tier),
+  `AssetPackService` (CRUD + marketplace browse + publish/unpublish
+  + entries), Hyperia seeder produces 10 category-specific built-in
+  packs (~142 assets across trees, rocks, npcs, mobs, weapons,
+  armor, tools, stations, consumables, resources). Top-level
+  `AssetPacksPage` in nav with team picker, `AssetPackBrowserPanel`
+  with Marketplace + My Team tabs, Create Pack modal, Add Asset
+  modal (Library / Generate / URL), pack detail popup with asset
+  grid + hero, hover lifts, stats summary, real-time toast feedback.
+- **Real GLB previews in pack browser**: built a singleton WebGPU
+  thumbnail renderer with LRU cache + serial queue + IntersectionObserver
+  lazy-load. `ModelThumbnail` React component + `loadModelForScene`
+  + `assetRefResolver` (cached pack manifest fetch). Solved the
+  "still no asset preview image in the packs" gap.
+- **AI ↔ assets ↔ plugins (Layer A + Layer B)**: Layer A added
+  the `assetRef` field on every placement schema (NPC, MobSpawn,
+  Resource, Station, Teleport). Layer B made plugins self-describe
+  their entity types via `EntityTypeContribution` in `plugin.json`;
+  the Hyperscape plugin declares 15 native types. New agent actions:
+  `LIST_ENTITY_TYPES`, `LIST_ASSET_PACKS`, `PROPOSE_ASSET_PACK_INSTALL`,
+  `PROPOSE_STATION`, `PROPOSE_RESOURCE`, `PROPOSE_NPC_PLACEMENT`
+  (all the placements). Placement validators (`validatePlacementType`,
+  `validateAssetRef`, `autoFillAssetRef`) reject bad type/asset
+  combos with structured errors that name valid choices.
+- **Renderer integration**: `useAgentEntityMarkers` renders agent
+  placements as 3D markers in the studio viewport; resolves
+  `assetRef` → GLB → swaps in real model when ready, placeholder
+  cube/cone/torus while loading or when no ref provided.
+- **Auto-fill assetRef**: agent can omit `assetRef` and the host
+  picks a sensible default (id-pref pass: `mobId="goblin"` →
+  `goblin` entry; type pass: matches by `acceptedAssetTypes`).
+  Saves prompt tokens AND keeps the schema's optional ref optional.
+- **System prompts** (ONBOARDING + COMPANION) refreshed for
+  parity with the new actions and auto-fill behavior. Hard rule
+  #4 explicitly tells the agent it usually doesn't need to set
+  assetRef.
+- **Plugin Browser UI**: surfaces entity types per plugin
+  (PluginBrowserPanel detail view).
+- **Removal coverage**: REMOVE_FROM_PROJECT accepts `station` +
+  `resource` (and now `teleport`) kinds.
+- **e2e integration smoke test**: 11 cases pinning the
+  integration boundary — LIST_ENTITY_TYPES catalog, LIST_ASSET_PACKS,
+  GET_PROJECT_STATE availableAssets, all four propose actions
+  with auto-fill + bad-type rejection + bad-ref rejection,
+  cross-action data shape consistency.
+
+**Today's 3 teleport-vertical slices** close the last
+placement-vocabulary gap:
+
+- `47e904b9c` `feat(eliza-game-builder): PROPOSE_TELEPORT action`
+  — agent action for lodestones / portals / shortcuts. Modeled
+  on PROPOSE_STATION but skips plugin-type validation (the
+  schema's `type` field is a fixed enum, not plugin-extensible).
+  Auto-fill via the preferred-id pass (passing `type` as the
+  preferred id, so `lodestone` teleport pairs with a `lodestone`
+  entry in any installed portals pack). 4 new tests.
+- `7057f6ac0` `feat(world-studio): teleport end-to-end wiring` —
+  studio side: `agentWorldContent` gains a `teleports` slice with
+  `setAgentTeleport` / `setAndPersistAgentTeleport`; rehydrate +
+  remove + clear all extended; `useAgentEntityMarkers` renders
+  teleports as a violet torus (distinct from station cylinder);
+  `WorldStudioCompanion` handles `PROPOSE_TELEPORT`; REMOVE_FROM_PROJECT
+  schema accepts `kind: 'teleport'` + new test.
+- `2937da50d` `test(eliza-game-builder): add PROPOSE_TELEPORT
+  case to e2e smoke` — pins the teleport flow at the integration
+  boundary alongside the other placement actions. 169/169 in the
+  suite.
+
+### Test counts
+
+| Package | Before REFRESH 14 | After |
+|---|---:|---:|
+| `eliza-game-builder` | ~60 | **169** |
+| `manifest-schema` | ~30 | unchanged |
+| `hyperscape-plugin` | 712 | 712 |
+| `agent-server` | clean tsc | clean tsc |
+| `asset-forge` | 891 pre-existing | 891 pre-existing (zero new) |
+
+### What's still open
+
+After REFRESH 14, the only top-10 item still genuinely open is
+**#5** (D6.c per-widget migration). The widget catalog at 50/52
+items was sufficient for REFRESH 13's diagnostic phase; further
+catalog growth is paused until the AI authoring loop demonstrably
+needs more inventory.
+
+PLAN_AI_AUTHORING_FOUNDATIONS phases A1-A4 shipped between
+REFRESH 13 and 14 (catalog discovery, action bindings, plugin
+scaffolder, agent shells — full chat-to-HUD loop in browser).
+**A5 (worked example: AI builds a tiny game) is the only open
+phase**. Recording / scripted Eliza session log proving the
+end-to-end loop is the final marker.
+
+PLAN_ASSET_PACKS shipped end-to-end. PLAN_PROJECT_AS_DATA shipped
+in earlier sessions and is fully integrated. The Project-as-Data
++ Project Templates + Plugin Registry triumvirate now backs the
+entire studio.
+
+### What this means for the headline number
+
+REFRESH 13 said ~89-90% AAA. REFRESH 14 closes:
+- entire asset pack ecosystem (was non-existent)
+- AI placement vocabulary (was partial — only NPCs + mobs)
+- AI auto-fill (saves prompt tokens, makes the loop ergonomic)
+- studio renderer integration (was placeholder-only)
+- plugin self-description for entity types (was hand-coded)
+
+Net: **~91-92% of the way to "truly AAA, truly done"**. Remaining
+work is the long-tail D6.c per-widget migration (mechanical,
+~7 sessions), A5 worked-example (1 session, demonstrates the
+authoring loop), and non-plan items (cross-chain hardening,
+streaming pipeline, mobile polish).
 
 ---
 
@@ -855,7 +987,7 @@ installs concrete implementation, shared internals lazy-resolve)
 proved 5× this session and is the unblock-tool for any remaining
 engine-coupled game code.
 
-**Status: pivoted from widget stockpiling to AI authoring foundations.** Plugin tests stable at 712/712 (slices 31-80 = 50 widgets); ui-framework 274/274; client ui-framework 117/117 + 6 new diagnostic tests in `tinyThirdPartyPack.test.tsx`. **REFRESH 13 (2026-04-28 afternoon): diagnostic experiment proved framework supports read-only authoring end-to-end (5 of 6 checkpoints ✅) but interactive authoring requires host code (1 ❌ — no `actions` field on `WidgetInstanceSchema`). New plan `PLAN_AI_AUTHORING_FOUNDATIONS.md` defines 5-phase foundation work to close the gap (catalog discovery → action bindings → scaffolder → agent shells → worked example). Eliza orchestrates, Claude Code edits.** Slice 81-83 shipped 3 consumer-swaps (Kicked + Disconnected + DeathScreen + ConnectionIndicator + MinimapCompass) before the strategic pivot; pattern proven. Top-10 #5 widget stockpile is sufficient inventory for the diagnostic phase; further additions paused until the catalog is queryable. REFRESH 12 (slices 46-58): 13 widgets, 6 categories seeded. REFRESH 11 (slices 37-45): 9 widgets, panels/modals seeded. REFRESH 10 closed D6.c.2 overlay set + 3 HUDs (slices 31-36). REFRESH 9 substantively closed #8. REFRESH 8 closed #7 (DataSourceRegistry + ui-pack.json) end-to-end (7 slices). REFRESH 5 closed #9 (CombatSystem decomposition, 4,065 → 1,359 LOC). REFRESH 4 closed #10 (registry hot-reload long-tail). REFRESH 3 closed AI test-coverage gap. Branch pushed and ready for review.
+**Status: asset pack + AI ↔ assets ↔ plugins integration shipped end-to-end (REFRESH 14, 2026-04-30).** Headline commit `8679afa1d` shipped the full asset-pack ecosystem (10 built-in Hyperia category packs, marketplace UI, WebGPU thumbnail renderer) plus the agent placement vocabulary (LIST_ENTITY_TYPES + LIST_ASSET_PACKS + PROPOSE_NPC/MOB/RESOURCE/STATION + auto-fill assetRef + studio renderer integration). Today's 3 teleport slices (`47e904b9c`, `7057f6ac0`, `2937da50d`) closed the last placement-vocabulary gap. Plugin tests stable at 712/712; eliza-game-builder 60 → 169. **PLAN_AI_AUTHORING_FOUNDATIONS A1-A4 shipped between sessions; only A5 (worked-example) remains open. REFRESH 13 (2026-04-28 afternoon): diagnostic experiment proved framework supports read-only authoring end-to-end (5 of 6 checkpoints ✅) but interactive authoring requires host code (1 ❌ — no `actions` field on `WidgetInstanceSchema`). New plan `PLAN_AI_AUTHORING_FOUNDATIONS.md` defines 5-phase foundation work to close the gap (catalog discovery → action bindings → scaffolder → agent shells → worked example). Eliza orchestrates, Claude Code edits.** Slice 81-83 shipped 3 consumer-swaps (Kicked + Disconnected + DeathScreen + ConnectionIndicator + MinimapCompass) before the strategic pivot; pattern proven. Top-10 #5 widget stockpile is sufficient inventory for the diagnostic phase; further additions paused until the catalog is queryable. REFRESH 12 (slices 46-58): 13 widgets, 6 categories seeded. REFRESH 11 (slices 37-45): 9 widgets, panels/modals seeded. REFRESH 10 closed D6.c.2 overlay set + 3 HUDs (slices 31-36). REFRESH 9 substantively closed #8. REFRESH 8 closed #7 (DataSourceRegistry + ui-pack.json) end-to-end (7 slices). REFRESH 5 closed #9 (CombatSystem decomposition, 4,065 → 1,359 LOC). REFRESH 4 closed #10 (registry hot-reload long-tail). REFRESH 3 closed AI test-coverage gap. Branch pushed and ready for review.
 
 The work pattern has shifted from "find structural blockers" to
 "finish enumerable items":
