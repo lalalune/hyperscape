@@ -33,6 +33,7 @@ import { proposeNpcPlacementAction } from "../actions/proposeNpcPlacement.js";
 import { proposeMobSpawnAction } from "../actions/proposeMobSpawn.js";
 import { proposeResourceAction } from "../actions/proposeResource.js";
 import { proposeStationAction } from "../actions/proposeStation.js";
+import { proposeTeleportAction } from "../actions/proposeTeleport.js";
 import {
   PROJECT_CONTEXT_SERVICE_TYPE,
   makeProjectContextService,
@@ -112,9 +113,19 @@ const STATIONS_PACK = {
   ],
 };
 
+const TELEPORTS_PACK = {
+  manifestId: "@hyperforge/asset-pack-hyperia-teleports-v1",
+  name: "Hyperia Teleports",
+  packVersion: "1.0.0",
+  assets: [
+    { id: "lodestone", name: "Lodestone", type: "prop", subtype: "lodestone" },
+    { id: "portal", name: "Portal", type: "prop", subtype: "portal" },
+  ],
+};
+
 const FULL_CONTEXT: ProjectContext = {
   plugins: ["com.hyperforge.hyperscape"],
-  assetPacks: [NPCS_PACK, MOBS_PACK, TREES_PACK, STATIONS_PACK],
+  assetPacks: [NPCS_PACK, MOBS_PACK, TREES_PACK, STATIONS_PACK, TELEPORTS_PACK],
 };
 
 const INSTALLABLE_AS_CATALOG: InstallableAssetPack[] = [
@@ -340,6 +351,33 @@ describe("e2e agent integration smoke", () => {
     expect(r?.success).toBe(true);
     const data = r?.data as { station: { assetRef?: string } };
     expect(data.station.assetRef).toBe(`${STATIONS_PACK.manifestId}/anvil`);
+  });
+
+  it("PROPOSE_TELEPORT auto-fills assetRef from the type enum (lodestone/portal/shortcut)", async () => {
+    const r = await proposeTeleportAction.handler(
+      runtime,
+      makeMessage(""),
+      undefined,
+      {
+        teleport: {
+          id: "village-lodestone",
+          name: "Village Lodestone",
+          type: "lodestone",
+          position: { x: 0, y: 0, z: 0 },
+        },
+      },
+      undefined,
+    );
+    expect(r?.success).toBe(true);
+    const data = r?.data as {
+      teleport: { id: string; type: string; assetRef?: string };
+    };
+    // Auto-fill passes `type` as the preferredId — the teleports
+    // pack has an entry with id "lodestone", so the exact-id pass
+    // wins.
+    expect(data.teleport.assetRef).toBe(
+      `${TELEPORTS_PACK.manifestId}/lodestone`,
+    );
   });
 
   it("Each successful placement carries the resolved assetRef on its data field", async () => {
