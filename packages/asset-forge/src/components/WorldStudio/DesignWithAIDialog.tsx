@@ -70,6 +70,7 @@ import {
   createWorldProject,
   patchProjectWorldContent,
 } from "../../utils/worldProjectApi";
+import { setProjectAssetPacks } from "../../utils/assetPackApi";
 import { kickoffAssetGeneration } from "../../utils/assetGenApi";
 
 const DEFAULT_DESIGN_ENDPOINT = "http://localhost:5180/design";
@@ -82,6 +83,14 @@ const DEFAULT_DESIGN_ENDPOINT = "http://localhost:5180/design";
 interface OnboardingPlan {
   terrainConfig: Record<string, unknown> | null;
   pluginIds: string[] | null;
+  /**
+   * Asset packs the agent recommended installing
+   * (PROPOSE_ASSET_PACK_INSTALL). Surfaced here so the dialog
+   * can preview installs before commit; project-pack persistence
+   * happens via the dedicated asset-pack endpoint, not the
+   * worldContent patch.
+   */
+  assetPackIds: string[] | null;
   npcs: unknown[];
   mobSpawns: unknown[];
   quests: unknown[];
@@ -91,6 +100,10 @@ interface OnboardingPlan {
   zones: unknown[];
   /** Gathering resources (trees, rocks, fishing spots). */
   resources: unknown[];
+  /** Crafting stations (anvils, furnaces, ranges, banks). */
+  stations: unknown[];
+  /** Teleport nodes (lodestones, portals, shortcuts). */
+  teleports: unknown[];
   uiPack: unknown | null;
 }
 
@@ -508,6 +521,32 @@ function buildDebugPlan(): OnboardingPlan {
         position: { x: -25, y: 0, z: 18 },
       },
     ],
+    stations: [
+      {
+        id: "debug_smithy_anvil",
+        type: "anvil",
+        position: { x: 4, y: 0, z: -2 },
+      },
+      {
+        id: "debug_smithy_furnace",
+        type: "furnace",
+        position: { x: 5, y: 0, z: -2 },
+      },
+    ],
+    teleports: [
+      {
+        id: "debug_village_lodestone",
+        name: "Village Lodestone",
+        type: "lodestone",
+        position: { x: 0, y: 0, z: 6 },
+      },
+    ],
+    assetPackIds: [
+      "@hyperforge/asset-pack-hyperia-npcs-v1",
+      "@hyperforge/asset-pack-hyperia-mobs-v1",
+      "@hyperforge/asset-pack-hyperia-trees-v1",
+      "@hyperforge/asset-pack-hyperia-stations-v1",
+    ],
     uiPack: null,
   };
 }
@@ -621,6 +660,35 @@ function applyStreamingTurn(
           }));
         }
         break;
+      case "PROPOSE_STATION":
+        if (data.station !== undefined) {
+          setPlan((p) => ({
+            ...p,
+            stations: [...p.stations, data.station],
+          }));
+        }
+        break;
+      case "PROPOSE_TELEPORT":
+        if (data.teleport !== undefined) {
+          setPlan((p) => ({
+            ...p,
+            teleports: [...p.teleports, data.teleport],
+          }));
+        }
+        break;
+      case "PROPOSE_ASSET_PACK_INSTALL":
+        if (Array.isArray(data.assetPackIds)) {
+          // Additive merge — multiple PROPOSE_ASSET_PACK_INSTALL
+          // turns over a conversation should accumulate.
+          const incoming = (data.assetPackIds as unknown[]).filter(
+            (x): x is string => typeof x === "string",
+          );
+          setPlan((p) => {
+            const merged = new Set([...(p.assetPackIds ?? []), ...incoming]);
+            return { ...p, assetPackIds: Array.from(merged) };
+          });
+        }
+        break;
       case "REMOVE_FROM_PROJECT":
         if (data.removal !== undefined) {
           // A4 — apply the removal to the streaming aggregate so
@@ -631,6 +699,7 @@ function applyStreamingTurn(
             kind: string;
             id?: string;
             mobId?: string;
+            resourceId?: string;
             position?: { x: number; y: number; z: number };
           };
           setPlan((p) => {
@@ -647,6 +716,27 @@ function applyStreamingTurn(
                   ...p,
                   quests: p.quests.filter(
                     (q) => (q as { id?: string }).id !== removal.id,
+                  ),
+                };
+              case "zone":
+                return {
+                  ...p,
+                  zones: p.zones.filter(
+                    (z) => (z as { id?: string }).id !== removal.id,
+                  ),
+                };
+              case "station":
+                return {
+                  ...p,
+                  stations: p.stations.filter(
+                    (s) => (s as { id?: string }).id !== removal.id,
+                  ),
+                };
+              case "teleport":
+                return {
+                  ...p,
+                  teleports: p.teleports.filter(
+                    (t) => (t as { id?: string }).id !== removal.id,
                   ),
                 };
               case "asset":
@@ -666,6 +756,22 @@ function applyStreamingTurn(
                     };
                     return !(
                       o.mobId === removal.mobId &&
+                      o.position?.x === removal.position?.x &&
+                      o.position?.y === removal.position?.y &&
+                      o.position?.z === removal.position?.z
+                    );
+                  }),
+                };
+              case "resource":
+                return {
+                  ...p,
+                  resources: p.resources.filter((r) => {
+                    const o = r as {
+                      resourceId?: string;
+                      position?: { x?: number; y?: number; z?: number };
+                    };
+                    return !(
+                      o.resourceId === removal.resourceId &&
                       o.position?.x === removal.position?.x &&
                       o.position?.y === removal.position?.y &&
                       o.position?.z === removal.position?.z
@@ -727,6 +833,16 @@ function prettifyToolName(name: string): string {
       return "Carving a zone…";
     case "PROPOSE_RESOURCE":
       return "Placing a resource…";
+    case "PROPOSE_STATION":
+      return "Placing a station…";
+    case "PROPOSE_TELEPORT":
+      return "Placing a teleport…";
+    case "PROPOSE_ASSET_PACK_INSTALL":
+      return "Picking asset packs…";
+    case "LIST_ENTITY_TYPES":
+      return "Listing entity types…";
+    case "LIST_ASSET_PACKS":
+      return "Listing asset packs…";
     case "REMOVE_FROM_PROJECT":
       return "Removing an entity…";
     case "GET_PROJECT_STATE":
@@ -797,6 +913,18 @@ const TOOL_BREADCRUMB_SUMMARY: Record<
   PROPOSE_RESOURCE: {
     icon: "🪵",
     label: (n) => `Placed ${n} resource${n === 1 ? "" : "s"}`,
+  },
+  PROPOSE_STATION: {
+    icon: "🛠️",
+    label: (n) => `Placed ${n} station${n === 1 ? "" : "s"}`,
+  },
+  PROPOSE_TELEPORT: {
+    icon: "🌀",
+    label: (n) => `Placed ${n} teleport${n === 1 ? "" : "s"}`,
+  },
+  PROPOSE_ASSET_PACK_INSTALL: {
+    icon: "📦",
+    label: (n) => `Picked ${n} asset pack${n === 1 ? "" : "s"}`,
   },
   PROPOSE_ASSET: {
     icon: "✨",
@@ -934,6 +1062,9 @@ export function DesignWithAIDialog({
       ? {
           terrainConfig: restored.plan.terrainConfig ?? null,
           pluginIds: restored.plan.pluginIds ?? null,
+          assetPackIds: Array.isArray(restored.plan.assetPackIds)
+            ? [...restored.plan.assetPackIds]
+            : null,
           npcs: Array.isArray(restored.plan.npcs)
             ? [...restored.plan.npcs]
             : [],
@@ -952,17 +1083,26 @@ export function DesignWithAIDialog({
           resources: Array.isArray(restored.plan.resources)
             ? [...restored.plan.resources]
             : [],
+          stations: Array.isArray(restored.plan.stations)
+            ? [...restored.plan.stations]
+            : [],
+          teleports: Array.isArray(restored.plan.teleports)
+            ? [...restored.plan.teleports]
+            : [],
           uiPack: restored.plan.uiPack ?? null,
         }
       : {
           terrainConfig: null,
           pluginIds: null,
+          assetPackIds: null,
           npcs: [],
           mobSpawns: [],
           quests: [],
           assets: [],
           zones: [],
           resources: [],
+          stations: [],
+          teleports: [],
           uiPack: null,
         },
   );
@@ -1040,6 +1180,9 @@ export function DesignWithAIDialog({
       const priorAssets = effectivePlan.assets;
       const priorZones = effectivePlan.zones;
       const priorResources = effectivePlan.resources;
+      const priorStations = effectivePlan.stations;
+      const priorTeleports = effectivePlan.teleports;
+      const priorAssetPackIds = effectivePlan.assetPackIds;
       let finalResponse: DesignResponse | null = null;
       let streamErrored: { message: string } | null = null;
       // Tally tool calls across the turn so the agent message can
@@ -1139,6 +1282,13 @@ export function DesignWithAIDialog({
           const finalZones = (finalPlan as { zones?: unknown[] }).zones;
           const finalResources = (finalPlan as { resources?: unknown[] })
             .resources;
+          const finalStations = (finalPlan as { stations?: unknown[] })
+            .stations;
+          const finalTeleports = (finalPlan as { teleports?: unknown[] })
+            .teleports;
+          const finalAssetPackIds = (
+            finalPlan as { assetPackIds?: string[] | null }
+          ).assetPackIds;
           setEffectivePlan((prev) => ({
             terrainConfig:
               finalPlan.terrainConfig !== null
@@ -1148,6 +1298,15 @@ export function DesignWithAIDialog({
               finalPlan.pluginIds !== null
                 ? [...finalPlan.pluginIds]
                 : prev.pluginIds,
+            assetPackIds:
+              Array.isArray(finalAssetPackIds) && finalAssetPackIds.length > 0
+                ? Array.from(
+                    new Set([
+                      ...(priorAssetPackIds ?? []),
+                      ...finalAssetPackIds,
+                    ]),
+                  )
+                : prev.assetPackIds,
             npcs:
               finalPlan.npcs.length > 0
                 ? [...priorNpcs, ...finalPlan.npcs]
@@ -1172,6 +1331,14 @@ export function DesignWithAIDialog({
               Array.isArray(finalResources) && finalResources.length > 0
                 ? [...priorResources, ...finalResources]
                 : prev.resources,
+            stations:
+              Array.isArray(finalStations) && finalStations.length > 0
+                ? [...priorStations, ...finalStations]
+                : prev.stations,
+            teleports:
+              Array.isArray(finalTeleports) && finalTeleports.length > 0
+                ? [...priorTeleports, ...finalTeleports]
+                : prev.teleports,
             uiPack: finalPlan.uiPack !== null ? finalPlan.uiPack : prev.uiPack,
           }));
         }
@@ -1225,12 +1392,15 @@ export function DesignWithAIDialog({
     setEffectivePlan({
       terrainConfig: null,
       pluginIds: null,
+      assetPackIds: null,
       npcs: [],
       mobSpawns: [],
       quests: [],
       assets: [],
       zones: [],
       resources: [],
+      stations: [],
+      teleports: [],
       uiPack: null,
     });
     setInput("");
@@ -1258,16 +1428,19 @@ export function DesignWithAIDialog({
         role: "agent",
         text:
           "🐛 Debug plan loaded — terrain seeded (50×50, island), Hyperia plugin set, " +
-          "3 NPCs, 5 mob spawns, 1 quest, 1 zone, 2 resources. Click 'Generate world' " +
-          "to test the build pipeline end-to-end without an LLM call.",
+          "4 asset packs, 3 NPCs, 5 mob spawns, 1 quest, 1 zone, 2 resources, 2 stations, " +
+          "1 teleport. Click 'Generate world' to test the build pipeline end-to-end without an LLM call.",
         toolBreadcrumbs: [
           { icon: "🗺️", label: "Shaped the terrain" },
           { icon: "🧩", label: "Picked plugins" },
+          { icon: "📦", label: "Picked 4 asset packs" },
           { icon: "👤", label: "Placed 3 NPCs" },
           { icon: "⚔️", label: "Placed 5 mob spawns" },
           { icon: "📜", label: "Wrote 1 quest" },
           { icon: "🌍", label: "Carved 1 zone" },
           { icon: "🪵", label: "Placed 2 resources" },
+          { icon: "🛠️", label: "Placed 2 stations" },
+          { icon: "🌀", label: "Placed 1 teleport" },
         ],
       },
     ]);
@@ -1375,6 +1548,12 @@ export function DesignWithAIDialog({
       if (effectivePlan.resources.length > 0) {
         patch.resources = effectivePlan.resources;
       }
+      if (effectivePlan.stations.length > 0) {
+        patch.stations = effectivePlan.stations;
+      }
+      if (effectivePlan.teleports.length > 0) {
+        patch.teleports = effectivePlan.teleports;
+      }
       if (effectivePlan.uiPack) {
         patch.uiPack = effectivePlan.uiPack;
       }
@@ -1385,6 +1564,22 @@ export function DesignWithAIDialog({
           // eslint-disable-next-line no-console
           console.warn(
             "[DesignWithAIDialog] worldContent patch failed (project still created):",
+            err,
+          );
+        }
+      }
+
+      // Asset packs the agent recommended (PROPOSE_ASSET_PACK_INSTALL)
+      // — persist via the dedicated `/api/world/projects/:id/asset-packs`
+      // endpoint so they're installed on the project before the
+      // designer opens it. Soft-fails (project still created) on error.
+      if (effectivePlan.assetPackIds && effectivePlan.assetPackIds.length > 0) {
+        try {
+          await setProjectAssetPacks(project.id, effectivePlan.assetPackIds);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            "[DesignWithAIDialog] asset-pack install failed (project still created):",
             err,
           );
         }
@@ -2829,7 +3024,15 @@ function hasAnyPlanContent(plan: OnboardingPlan): boolean {
   return (
     plan.terrainConfig !== null ||
     (plan.pluginIds !== null && plan.pluginIds.length > 0) ||
+    (plan.assetPackIds !== null && plan.assetPackIds.length > 0) ||
     plan.npcs.length > 0 ||
+    plan.mobSpawns.length > 0 ||
+    plan.quests.length > 0 ||
+    plan.assets.length > 0 ||
+    plan.zones.length > 0 ||
+    plan.resources.length > 0 ||
+    plan.stations.length > 0 ||
+    plan.teleports.length > 0 ||
     plan.uiPack !== null
   );
 }
@@ -2856,7 +3059,24 @@ function planSummaryText(plan: OnboardingPlan): string {
   if (plan.pluginIds && plan.pluginIds.length > 0) {
     parts.push(`${plan.pluginIds.length} plugin(s)`);
   }
+  if (plan.assetPackIds && plan.assetPackIds.length > 0) {
+    parts.push(`${plan.assetPackIds.length} pack(s)`);
+  }
   if (plan.npcs.length > 0) parts.push(`${plan.npcs.length} NPC(s)`);
+  if (plan.mobSpawns.length > 0) {
+    parts.push(`${plan.mobSpawns.length} spawn(s)`);
+  }
+  if (plan.resources.length > 0) {
+    parts.push(`${plan.resources.length} resource(s)`);
+  }
+  if (plan.stations.length > 0) {
+    parts.push(`${plan.stations.length} station(s)`);
+  }
+  if (plan.teleports.length > 0) {
+    parts.push(`${plan.teleports.length} teleport(s)`);
+  }
+  if (plan.zones.length > 0) parts.push(`${plan.zones.length} zone(s)`);
+  if (plan.quests.length > 0) parts.push(`${plan.quests.length} quest(s)`);
   if (plan.uiPack) parts.push("HUD");
   if (parts.length === 0) return "Plan empty.";
   return `✓ Plan: ${parts.join(", ")}. Click Build.`;
