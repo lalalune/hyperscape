@@ -47,6 +47,42 @@ const AssetRefSchema = z
     "assetRef must be `<packManifestId>/<entryId>` (e.g. `@hyperforge/asset-pack-hyperia-trees-v1/tree_oak_v1`)",
   );
 
+/**
+ * Common placement metadata shared by every world-content
+ * placement — NPCs, mob spawns, resources, stations, teleports.
+ *
+ * P1 of `PLAN_AGENT_STUDIO_PARITY.md`. These fields are the
+ * minimum surface needed for an agent-emitted placement to behave
+ * identically to a manually-placed one in World Studio:
+ *
+ *   - `rotation`        — Y-axis rotation in radians (default 0).
+ *                         Lets the gizmo's rotate handle round-trip.
+ *   - `scale`           — uniform scale multiplier (default 1).
+ *                         Studio applies to the rendered model.
+ *   - `properties`      — passthrough extension bag for engine-
+ *                         or plugin-specific state that doesn't
+ *                         fit the typed schema. Survives
+ *                         serialization round-trips.
+ *   - `source`          — provenance tag. The studio's outliner
+ *                         color-codes by this so a user can see at
+ *                         a glance which entities came from where.
+ *   - `sourceRegionId`  — when `source = "procgen"`, references
+ *                         the generator that produced this entry.
+ *                         Used by procgen cleanup to remove a
+ *                         whole region's contributions in one go.
+ *
+ * All fields are optional so existing payloads continue to parse.
+ * The studio reads each with sensible defaults when absent.
+ */
+export const PlacementCommonSchema = z.object({
+  rotation: z.number().optional(),
+  scale: z.number().positive().optional(),
+  properties: z.record(z.string(), z.unknown()).optional(),
+  source: z.enum(["designer", "procgen", "agent"]).optional(),
+  sourceRegionId: z.string().min(1).optional(),
+});
+export type PlacementCommon = z.infer<typeof PlacementCommonSchema>;
+
 /** NPC inside an area — `type` selects role (shop, healer, quest giver, …). */
 export const WorldAreaNPCSchema = z
   .object({
@@ -65,26 +101,64 @@ export const WorldAreaNPCSchema = z
      */
     assetRef: AssetRefSchema.optional(),
   })
+  .merge(PlacementCommonSchema)
   .passthrough();
 export type WorldAreaNPC = z.infer<typeof WorldAreaNPCSchema>;
 
-export const WorldAreaResourceSchema = z.object({
-  resourceId: z.string().min(1),
-  type: z.string().min(1),
-  position: Vec3Schema,
-  /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
-  assetRef: AssetRefSchema.optional(),
-});
+export const WorldAreaResourceSchema = z
+  .object({
+    /**
+     * Unique placement id. Optional for backward compat (older
+     * placements were keyed by composite `resourceId@x,y,z`); when
+     * present the studio prefers it for selection / outliner /
+     * gizmo edits, matching `PlacedResource.id`.
+     */
+    id: z.string().min(1).optional(),
+    /** Display name. When absent the studio derives one from `resourceId`. */
+    name: z.string().min(1).optional(),
+    resourceId: z.string().min(1),
+    type: z.string().min(1),
+    position: Vec3Schema,
+    /**
+     * Variant index for resources that ship multiple visual
+     * variants (e.g. tree_oak has 3 mesh variants for procgen
+     * variety). 0-based; the studio clamps to the available
+     * variants for the resolved asset.
+     */
+    modelVariant: z.number().int().nonnegative().optional(),
+    /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
+    assetRef: AssetRefSchema.optional(),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough();
 export type WorldAreaResource = z.infer<typeof WorldAreaResourceSchema>;
 
-export const WorldAreaMobSpawnSchema = z.object({
-  mobId: z.string().min(1),
-  position: Vec3Schema,
-  maxCount: z.number().int().positive(),
-  spawnRadius: z.number().nonnegative(),
-  /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
-  assetRef: AssetRefSchema.optional(),
-});
+export const WorldAreaMobSpawnSchema = z
+  .object({
+    /**
+     * Unique placement id. Optional for backward compat (older
+     * placements were keyed by composite `mobId@x,y,z`); when
+     * present the studio prefers it for selection / outliner /
+     * gizmo edits, matching `PlacedMobSpawn.id`.
+     */
+    id: z.string().min(1).optional(),
+    /** Display name. When absent the studio uses `mobId` as the label. */
+    name: z.string().min(1).optional(),
+    mobId: z.string().min(1),
+    position: Vec3Schema,
+    maxCount: z.number().int().positive(),
+    spawnRadius: z.number().nonnegative(),
+    /**
+     * Game ticks (600 ms each) between a kill and the next spawn.
+     * Default 50 ticks (~30 s). Used by the runtime spawn manager
+     * and surfaced in the studio's GameMobSpawnProperties panel.
+     */
+    respawnTicks: z.number().int().nonnegative().optional(),
+    /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
+    assetRef: AssetRefSchema.optional(),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough();
 export type WorldAreaMobSpawn = z.infer<typeof WorldAreaMobSpawnSchema>;
 
 export const WorldAreaFishingSchema = z.object({
@@ -96,11 +170,25 @@ export const WorldAreaFishingSchema = z.object({
 export const WorldAreaStationSchema = z
   .object({
     id: z.string().min(1),
+    /** Display name. When absent the studio derives one from `type`. */
+    name: z.string().min(1).optional(),
     type: z.string().min(1),
     position: Vec3Schema,
+    /**
+     * Bank id for `type === "bank"` stations. References a bank
+     * configuration in the project's banking layer; the studio's
+     * GameStationProperties panel exposes the picker.
+     */
+    bankId: z.string().min(1).optional(),
+    /**
+     * Rune type for runecrafting altars (`type === "altar"`).
+     * Determines which rune the altar produces.
+     */
+    runeType: z.string().min(1).optional(),
     /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
     assetRef: AssetRefSchema.optional(),
   })
+  .merge(PlacementCommonSchema)
   .passthrough();
 export type WorldAreaStation = z.infer<typeof WorldAreaStationSchema>;
 
@@ -130,7 +218,18 @@ export const WorldAreaTeleportNodeSchema = z
       })
       .optional(),
     cost: z.number().nonnegative().optional(),
+    /**
+     * Bidirectional teleport network — ids of other teleport
+     * nodes this one connects to. Empty (or absent) means the
+     * teleport is a dead-end (lodestones typically pair with the
+     * player's home node; portals + shortcuts often connect to
+     * a specific destination).
+     */
+    connections: z.array(z.string().min(1)).optional(),
+    /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
+    assetRef: AssetRefSchema.optional(),
   })
+  .merge(PlacementCommonSchema)
   .passthrough();
 export type WorldAreaTeleportNode = z.infer<typeof WorldAreaTeleportNodeSchema>;
 

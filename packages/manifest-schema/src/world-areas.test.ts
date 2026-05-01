@@ -229,3 +229,197 @@ describe("WorldAreasManifestSchema", () => {
     expect(result.success).toBe(false);
   });
 });
+
+// ──────────────── P1 — placement-common parity ────────────────
+//
+// Every WorldArea* placement schema accepts the shared placement-
+// common fields (rotation, scale, properties bag, source,
+// sourceRegionId). These need to round-trip cleanly so the studio's
+// gizmo / property panels / outliner-by-source can read them.
+
+import {
+  PlacementCommonSchema,
+  WorldAreaMobSpawnSchema,
+  WorldAreaNPCSchema,
+  WorldAreaResourceSchema,
+  WorldAreaStationSchema,
+  WorldAreaTeleportNodeSchema,
+} from "./world-areas.js";
+
+describe("P1 — placement-common fields round-trip on every placement schema", () => {
+  const common = {
+    rotation: 1.5708, // π/2
+    scale: 1.5,
+    source: "agent" as const,
+    sourceRegionId: "starter-village-procgen-r1",
+    properties: { hp: 100, faction: "merchants" },
+  };
+
+  it("PlacementCommonSchema accepts the canonical shape", () => {
+    expect(PlacementCommonSchema.safeParse(common).success).toBe(true);
+  });
+
+  it("rejects a non-positive scale", () => {
+    expect(
+      PlacementCommonSchema.safeParse({ ...common, scale: -0.5 }).success,
+    ).toBe(false);
+    expect(
+      PlacementCommonSchema.safeParse({ ...common, scale: 0 }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an unknown source value", () => {
+    expect(
+      PlacementCommonSchema.safeParse({ ...common, source: "alien" }).success,
+    ).toBe(false);
+  });
+
+  it("WorldAreaNPC accepts placement-common fields", () => {
+    const r = WorldAreaNPCSchema.safeParse({
+      id: "npc1",
+      type: "shopkeeper",
+      position: { x: 0, y: 0, z: 0 },
+      ...common,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.rotation).toBe(common.rotation);
+      expect(r.data.scale).toBe(common.scale);
+      expect(r.data.source).toBe("agent");
+      expect(r.data.properties).toEqual(common.properties);
+    }
+  });
+
+  it("WorldAreaMobSpawn accepts placement-common + new mob-specific fields", () => {
+    const r = WorldAreaMobSpawnSchema.safeParse({
+      id: "spawn-goblin-1",
+      name: "Goblin Patrol",
+      mobId: "goblin",
+      position: { x: 12, y: 0, z: 8 },
+      maxCount: 3,
+      spawnRadius: 5,
+      respawnTicks: 100,
+      ...common,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.id).toBe("spawn-goblin-1");
+      expect(r.data.respawnTicks).toBe(100);
+      expect(r.data.rotation).toBe(common.rotation);
+    }
+  });
+
+  it("WorldAreaResource accepts placement-common + modelVariant", () => {
+    const r = WorldAreaResourceSchema.safeParse({
+      id: "tree-1",
+      name: "Old Oak",
+      resourceId: "tree_oak",
+      type: "tree",
+      position: { x: 18, y: 0, z: -12 },
+      modelVariant: 2,
+      ...common,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.modelVariant).toBe(2);
+      expect(r.data.scale).toBe(common.scale);
+    }
+  });
+
+  it("WorldAreaStation accepts placement-common + bankId/runeType", () => {
+    const r = WorldAreaStationSchema.safeParse({
+      id: "town-bank",
+      name: "Town Bank",
+      type: "bank",
+      position: { x: 4, y: 0, z: -2 },
+      bankId: "main",
+      ...common,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.bankId).toBe("main");
+      expect(r.data.source).toBe("agent");
+    }
+  });
+
+  it("WorldAreaTeleportNode accepts placement-common + connections", () => {
+    const r = WorldAreaTeleportNodeSchema.safeParse({
+      id: "lodestone-village",
+      name: "Village Lodestone",
+      type: "lodestone",
+      position: { x: 0, y: 0, z: 0 },
+      connections: ["lodestone-mountain", "lodestone-coast"],
+      ...common,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.connections).toHaveLength(2);
+      expect(r.data.rotation).toBe(common.rotation);
+    }
+  });
+
+  it("rejects negative modelVariant on resource", () => {
+    expect(
+      WorldAreaResourceSchema.safeParse({
+        resourceId: "tree_oak",
+        type: "tree",
+        position: { x: 0, y: 0, z: 0 },
+        modelVariant: -1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects negative respawnTicks on mob spawn", () => {
+    expect(
+      WorldAreaMobSpawnSchema.safeParse({
+        mobId: "goblin",
+        position: { x: 0, y: 0, z: 0 },
+        maxCount: 1,
+        spawnRadius: 0,
+        respawnTicks: -10,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("legacy payloads without placement-common fields still parse (backward compat)", () => {
+    // Pre-P1 payloads only had id/type/position. Adding optional
+    // fields cannot break existing data — verify explicitly.
+    expect(
+      WorldAreaNPCSchema.safeParse({
+        id: "n1",
+        type: "shopkeeper",
+        position: { x: 0, y: 0, z: 0 },
+      }).success,
+    ).toBe(true);
+    expect(
+      WorldAreaMobSpawnSchema.safeParse({
+        mobId: "goblin",
+        position: { x: 0, y: 0, z: 0 },
+        maxCount: 1,
+        spawnRadius: 5,
+      }).success,
+    ).toBe(true);
+    expect(
+      WorldAreaResourceSchema.safeParse({
+        resourceId: "tree_oak",
+        type: "tree",
+        position: { x: 0, y: 0, z: 0 },
+      }).success,
+    ).toBe(true);
+    expect(
+      WorldAreaStationSchema.safeParse({
+        id: "anvil-1",
+        type: "anvil",
+        position: { x: 0, y: 0, z: 0 },
+      }).success,
+    ).toBe(true);
+    expect(
+      WorldAreaTeleportNodeSchema.safeParse({
+        id: "tp1",
+        name: "Lodestone",
+        type: "lodestone",
+        position: { x: 0, y: 0, z: 0 },
+      }).success,
+    ).toBe(true);
+  });
+});
