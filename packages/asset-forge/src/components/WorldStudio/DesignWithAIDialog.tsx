@@ -69,6 +69,7 @@ import { serializeWorld } from "../WorldBuilder/utils/worldPersistence";
 import {
   createWorldProject,
   patchProjectWorldContent,
+  setProjectPlugins,
 } from "../../utils/worldProjectApi";
 import { setProjectAssetPacks } from "../../utils/assetPackApi";
 import { kickoffAssetGeneration } from "../../utils/assetGenApi";
@@ -1585,23 +1586,25 @@ export function DesignWithAIDialog({
         }
       }
 
-      // Plugins land on the project's typed `plugins` column —
-      // surface this through the (deprecated) save path until
-      // B1'.2.3 adds a dedicated endpoint. Today we no-op this
-      // because saveWorldProject doesn't accept `plugins`; the
-      // designer can pick the plugin set manually post-creation.
-      // TODO(B1'.2.3): add a `PATCH /api/world/projects/:id` that
-      // accepts the typed-layer fields and call it here.
+      // Plugins land on the project's typed `plugins` column via
+      // `POST /api/world/projects/:id/plugins`. Manifest ids
+      // (`com.hyperforge.x`) are translated to npm ids
+      // (`@hyperforge/x`) at this seam — that's what
+      // `resolveProjectPluginSet` matches against. Soft-fails
+      // (project still created) on error.
       if (effectivePlan.pluginIds && effectivePlan.pluginIds.length > 0) {
         const npmIds = effectivePlan.pluginIds.map(
           (id) => MANIFEST_TO_NPM[id] ?? id,
         );
-        // eslint-disable-next-line no-console
-        console.info(
-          "[DesignWithAIDialog] plugin set proposed by agent:",
-          npmIds,
-          "(designer must apply manually until B1'.2.3 ships the patch endpoint)",
-        );
+        try {
+          await setProjectPlugins(project.id, npmIds);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            "[DesignWithAIDialog] plugin install failed (project still created):",
+            err,
+          );
+        }
       }
 
       // A5 — fire any asset bakes the agent proposed. Don't await

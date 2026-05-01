@@ -269,6 +269,35 @@ export async function patchProjectWorldContent(
 }
 
 /**
+ * Replace the project's installed plugin set. Hits
+ * `POST /api/world/projects/:projectId/plugins`. The new list
+ * is persisted, the project version bumps, and the BEFORE state
+ * is snapshotted into the revision history (same pattern as
+ * `setProjectAssetPacks`).
+ *
+ * Each id is an npm-style package name (`@hyperforge/hyperscape`).
+ * Empty list = no plugins.
+ */
+export async function setProjectPlugins(
+  projectId: string,
+  plugins: ReadonlyArray<string>,
+): Promise<WorldProjectSummary> {
+  const res = await apiFetch(
+    `/api/world/projects/${encodeURIComponent(projectId)}/plugins`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plugins: [...plugins] }),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => `HTTP ${res.status}`);
+    throw new Error(`Failed to update plugins: ${text}`);
+  }
+  return res.json();
+}
+
+/**
  * Project revision history (G1). One row per write that bumped
  * the project's typed-layer state. Newest first.
  */

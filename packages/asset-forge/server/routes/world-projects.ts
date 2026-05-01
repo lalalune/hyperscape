@@ -725,6 +725,84 @@ export const createWorldProjectRoutes = (
           },
         )
 
+        // ──────── Replace project's plugin set ────────
+        .post(
+          "/:projectId/plugins",
+          async ({ auth, params, body, set }) => {
+            const user = auth.user!;
+            const { projectId } = params;
+
+            const existing = await worldProjectService.getById(projectId);
+            if (!existing) {
+              set.status = 404;
+              return { error: "Project not found" };
+            }
+            const role = await teamService.getMemberRole(
+              existing.teamId,
+              user.id,
+            );
+            if (!role) {
+              set.status = 403;
+              return { error: "Not a member of this team" };
+            }
+
+            try {
+              const project = await worldProjectService.setPlugins(
+                projectId,
+                body.plugins,
+                user.id,
+              );
+              if (!project) {
+                set.status = 500;
+                return { error: "Failed to set plugins" };
+              }
+
+              await auditLogService.log({
+                teamId: existing.teamId,
+                gameId: existing.gameId,
+                userId: user.id,
+                action: "project:plugins:set",
+                targetType: "project",
+                targetId: projectId,
+              });
+
+              return formatProjectResponse(project);
+            } catch (err) {
+              if (err instanceof Error && err.message.includes("locked by")) {
+                set.status = 409;
+                return { error: err.message };
+              }
+              throw err;
+            }
+          },
+          {
+            params: t.Object({ projectId: t.String() }),
+            body: t.Object({
+              /**
+               * Replacement plugin id list. Empty = no plugins
+               * (the engine still boots, but no game-mode logic).
+               * Each id is an npm-style package name like
+               * `@hyperforge/hyperscape`.
+               */
+              plugins: t.Array(t.String()),
+            }),
+            response: {
+              200: WS.WorldProjectResponse,
+              403: Models.ErrorResponse,
+              404: Models.ErrorResponse,
+              409: Models.ErrorResponse,
+              500: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["World Projects"],
+              summary: "Replace project's installed plugin set",
+              description:
+                "Set the project's `plugins` array. Used by the AI agent's PROPOSE_PLUGIN_SET action and by the studio's plugin browser.",
+              security: [{ BearerAuth: [] }],
+            },
+          },
+        )
+
         // ──────── Phase B0'.G — World Content Patch ────────
         .post(
           "/:projectId/world-content",

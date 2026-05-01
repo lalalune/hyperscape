@@ -565,6 +565,77 @@ export class WorldProjectService {
   }
 
   /**
+   * Replace the project's `plugins` array (the typed gameplay
+   * plugin set — Hyperia, shooter-demo, etc.). Same lock + audit
+   * + revision-snapshot pattern as `setAssetPacks`.
+   *
+   * Empty list = no plugins (the engine still boots; the world
+   * loads with no game-mode logic). Each id is an npm-style
+   * package name (`@hyperforge/hyperscape`).
+   *
+   * Returns the updated project, or null on lock/permission
+   * failure. Validates that the caller is a team member upstream
+   * (the route handler does that); this method is the
+   * mutate-and-persist primitive.
+   */
+  async setPlugins(
+    projectId: string,
+    plugins: ReadonlyArray<string>,
+    userId: string,
+  ): Promise<WorldProject | null> {
+    const db = getDb();
+    if (!isDatabaseEnabled() || !db) return null;
+
+    const existing = await this.getById(projectId);
+    if (!existing) return null;
+
+    if (existing.lockedBy && existing.lockedBy !== userId) {
+      if (existing.lockedAt) {
+        const lockAge = Date.now() - new Date(existing.lockedAt).getTime();
+        if (lockAge < LOCK_EXPIRY_MS) {
+          throw new Error(
+            `Project is locked by another user. Lock expires in ${Math.ceil((LOCK_EXPIRY_MS - lockAge) / 60000)} minutes.`,
+          );
+        }
+      }
+    }
+
+    // Snapshot BEFORE state into revision history (best-effort).
+    try {
+      await db.insert(worldProjectRevisions).values({
+        projectId: existing.id,
+        version: existing.version,
+        author: "user",
+        authorId: userId,
+        changeReason: `set plugins: [${plugins.join(", ") || "(empty)"}]`,
+        schemaVersion: existing.schemaVersion ?? 1,
+        config: existing.config,
+        plugins: existing.plugins,
+        worldContent: existing.worldContent,
+        templateId: existing.templateId,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[WorldProjectService] revision snapshot failed (non-fatal):",
+        err,
+      );
+    }
+
+    const [updated] = await db
+      .update(worldProjects)
+      .set({
+        plugins: [...plugins],
+        version: sql`${worldProjects.version} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(worldProjects.id, projectId))
+      .returning();
+
+    return updated ?? null;
+  }
+
+  /**
    * G1 — list revision history for a project, newest first.
    * `limit` defaults to 50, `offset` to 0.
    */

@@ -61,6 +61,12 @@ import {
   setProjectAssetPacks,
   type InstallablePackSummary,
 } from "../../../utils/assetPackApi";
+import { setProjectPlugins } from "../../../utils/worldProjectApi";
+
+const COMPANION_MANIFEST_TO_NPM: Record<string, string> = {
+  "com.hyperforge.hyperscape": "@hyperforge/hyperscape",
+  "com.hyperforge.plugin-shooter-demo": "@hyperforge/plugin-shooter-demo",
+};
 
 const DEFAULT_DESIGN_ENDPOINT = "http://localhost:5180/design";
 
@@ -391,6 +397,44 @@ function CompanionInner({ projectId }: { projectId: string }) {
             .catch((err: unknown) => {
               // eslint-disable-next-line no-console
               console.warn("[Companion] Failed to install asset packs:", err);
+            });
+        } else if (
+          call.name === "PROPOSE_PLUGIN_SET" &&
+          Array.isArray(data.pluginIds)
+        ) {
+          // Agent swapped the gameplay plugin set. Translate
+          // manifest ids → npm ids (matches resolveProjectPluginSet)
+          // and replace the project's plugins column. The current
+          // world may need a Play restart for the new plugin set
+          // to take effect — surfacing that is the system prompt's
+          // job (it tells the agent to confirm before emitting).
+          const incoming = (data.pluginIds as unknown[]).filter(
+            (x): x is string => typeof x === "string",
+          );
+          const npmIds = incoming.map(
+            (id) => COMPANION_MANIFEST_TO_NPM[id] ?? id,
+          );
+          void setProjectPlugins(projectId, npmIds)
+            .then(() => {
+              // Mirror into studio state so the next agent request's
+              // projectContext sees the new plugin set without a
+              // project reload — same pattern as the asset-pack
+              // mirror above.
+              actions.setProject(
+                state.project.currentTeamId ?? "",
+                state.project.currentGameId ?? "",
+                projectId,
+                state.project.projectName ?? "",
+                state.project.projectVersion + 1,
+                state.project.gameMode,
+                state.project.templateId,
+                npmIds,
+                state.project.assetPacks,
+              );
+            })
+            .catch((err: unknown) => {
+              // eslint-disable-next-line no-console
+              console.warn("[Companion] Failed to set plugins:", err);
             });
         }
       }
