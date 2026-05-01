@@ -44,8 +44,21 @@ export interface PlacedTeleport {
   properties: Record<string, unknown>;
 }
 
-/** Entity provenance — how it was created */
-export type EntitySource = "hand-placed" | "procgen";
+/**
+ * Entity provenance — how it was created.
+ *
+ * P0 of `PLAN_AGENT_STUDIO_PARITY.md`: agent-emitted placements
+ * land in `extendedLayers` alongside designer + procgen entries,
+ * tagged with `source: "agent"`. The outliner color-codes by
+ * source so a user sees at a glance which entries came from the
+ * AI vs. their own placements vs. procgen.
+ *
+ * `"hand-placed"` is kept for legacy compatibility; new code
+ * should prefer `"designer"` for designer-placed entries
+ * (matches the `PlacementCommonSchema.source` enum in
+ * `manifest-schema/world-areas.ts`).
+ */
+export type EntitySource = "hand-placed" | "designer" | "procgen" | "agent";
 
 /** Mob spawn zone */
 export interface PlacedMobSpawn {
