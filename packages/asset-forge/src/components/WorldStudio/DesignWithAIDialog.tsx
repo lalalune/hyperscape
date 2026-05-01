@@ -65,6 +65,7 @@ import {
   DEFAULT_CREATION_CONFIG,
 } from "../WorldBuilder/types";
 import { generateWorldFromConfig } from "../WorldBuilder/worldGeneration";
+import { mergeProcgenConfig } from "./utils/mergeProcgenConfig";
 import { serializeWorld } from "../WorldBuilder/utils/worldPersistence";
 import {
   createWorldProject,
@@ -1563,18 +1564,23 @@ export function DesignWithAIDialog({
       const projectDescription =
         summary.description ?? "Created via Design with AI onboarding.";
 
-      // Merge agent's terrain knobs over the blank base. Agent's
-      // explicit fields win; everything else stays blank-clean.
+      // Deep-merge agent's terrain knobs over the blank base.
+      // Shallow spread silently corrupts nested objects (terrain,
+      // biomes, etc.) — partial agent overrides wipe sibling
+      // fields, producing NaN heights. See mergeProcgenConfig
+      // for the full story.
       const seed = Math.floor(Math.random() * 2147483647);
       const agentTerrain = (effectivePlan.terrainConfig ?? {}) as Record<
         string,
         unknown
       >;
-      const procgenConfig = {
-        ...BLANK_CREATION_CONFIG,
-        ...agentTerrain,
-        seed: typeof agentTerrain.seed === "number" ? agentTerrain.seed : seed,
-      };
+      const resolvedSeed =
+        typeof agentTerrain.seed === "number" ? agentTerrain.seed : seed;
+      const procgenConfig = mergeProcgenConfig(
+        BLANK_CREATION_CONFIG as unknown as Record<string, unknown>,
+        agentTerrain,
+        resolvedSeed,
+      ) as unknown as Parameters<typeof generateWorldFromConfig>[0];
       // Reference for type checker — keeps DEFAULT_CREATION_CONFIG
       // imported for future use (e.g. when "use Hyperia procgen"
       // becomes a separately-toggleable agent action).

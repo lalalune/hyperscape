@@ -51,6 +51,7 @@ import { generateWorldFromConfig } from "../../WorldBuilder/worldGeneration";
 import { BLANK_CREATION_CONFIG } from "../../WorldBuilder/types";
 import { serializeWorld } from "../../WorldBuilder/utils/worldPersistence";
 import { saveWorldProject } from "../../../utils/worldProjectApi";
+import { mergeProcgenConfig } from "../utils/mergeProcgenConfig";
 import type {
   WorldAreaDangerSource,
   WorldAreaMobSpawn,
@@ -253,12 +254,22 @@ function CompanionInner({ projectId }: { projectId: string }) {
               typeof agentTerrain.seed === "number"
                 ? agentTerrain.seed
                 : Math.floor(Math.random() * 2147483647);
-            const procgenConfig = {
-              ...BLANK_CREATION_CONFIG,
-              ...agentTerrain,
+            // Deep-merge nested config sections so the agent emitting
+            // partial `terrain: { worldSize: 100 }` doesn't wipe
+            // tileSize / maxHeight / tileResolution from the blank
+            // base. Without this, procgen reads undefined values
+            // and writes NaN into the heightmap → "Computed radius
+            // is NaN" error spam from BufferGeometry.
+            const procgenConfig = mergeProcgenConfig(
+              BLANK_CREATION_CONFIG as unknown as Record<string, unknown>,
+              agentTerrain,
               seed,
-            };
-            const newWorld = generateWorldFromConfig(procgenConfig);
+            );
+            const newWorld = generateWorldFromConfig(
+              procgenConfig as unknown as Parameters<
+                typeof generateWorldFromConfig
+              >[0],
+            );
             actions.loadWorld(newWorld);
             // LOAD_WORLD sets hasUnsavedChanges=false (it's a load
             // semantically), so useAutoSave won't fire. Persist
