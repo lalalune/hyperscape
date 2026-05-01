@@ -33,7 +33,6 @@ import {
 } from "../../WorldBuilder/TileBasedTerrain";
 import { useWorldStudio } from "../WorldStudioContext";
 import { useAgentWorldContent } from "../state/agentWorldContent";
-import { useAgentEntityMarkers } from "../hooks/useAgentEntityMarkers";
 import { useEditorWorldSync } from "../hooks/useEditorWorldSync";
 import { usePlacementInteraction } from "../hooks/usePlacementInteraction";
 import { useZonePainting } from "../hooks/useZonePainting";
@@ -1364,10 +1363,6 @@ export function ViewportContainer() {
       [isEditing, actions],
     ),
   });
-
-  // Render agent-emitted NPCs / mob spawns as primary-tinted
-  // markers — answers "where did the agent put things?" visually.
-  useAgentEntityMarkers(activeSceneRefs);
 
   // Click-to-place viewport interaction (raycasts, rotation, confirm/cancel)
   usePlacementInteraction({

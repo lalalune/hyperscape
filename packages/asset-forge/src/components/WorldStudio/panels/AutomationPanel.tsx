@@ -22,10 +22,7 @@ import React, { useState, useCallback, useMemo } from "react";
 
 import { useWorldStudio } from "../WorldStudioContext";
 import { setAgentPack, persistAgentPackToProject } from "../state/agentPack";
-import {
-  setAgentNpc,
-  persistAgentWorldContentToProject,
-} from "../state/agentWorldContent";
+import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatcher";
 import { AgentBuilderForm } from "./AgentBuilderForm";
 import { PropertySection } from "./properties/PropertyControls";
 import { QuestGraphPanel } from "./QuestGraphPanel";
@@ -39,6 +36,7 @@ interface AutomationResult {
 
 export function AutomationPanel() {
   const { state } = useWorldStudio();
+  const placementDispatcher = useAgentPlacementDispatcher();
   const [running, setRunning] = useState<string | null>(null);
   const [results, setResults] = useState<AutomationResult[]>([]);
 
@@ -447,44 +445,25 @@ export function AutomationPanel() {
             reload sees the same NPC. */}
         <button
           type="button"
-          onClick={async () => {
-            const result = setAgentNpc({
+          onClick={() => {
+            // P0.5 of PLAN_AGENT_STUDIO_PARITY — demo button now
+            // dispatches through the unified path. Lands in
+            // extendedLayers, picks up the gizmo / property panel /
+            // outliner; auto-saved by useAutoSave; survives reload.
+            placementDispatcher.placeNpc({
               id: "demo_eldric_shopkeeper",
               type: "shopkeeper",
               name: "Eldric",
               position: { x: 0, y: 0, z: 0 },
             });
-            if (!result.ok) {
-              // eslint-disable-next-line no-console
-              console.warn("[AgentBuilder] Demo NPC rejected:", result.issues);
-              return;
-            }
             // eslint-disable-next-line no-console
             console.info(
-              "[AgentBuilder] Demo NPC stored locally:",
-              result.entity.id,
+              "[AgentBuilder] Demo NPC dispatched to extendedLayers.",
             );
-            // B0'.G: also persist to the active project so the
-            // change survives reload + ships on Publish.
-            const persist = await persistAgentWorldContentToProject(
-              state.project.currentProjectId,
-            );
-            if (persist.ok) {
-              // eslint-disable-next-line no-console
-              console.info(
-                "[AgentBuilder] Demo NPC persisted to project (B0'.G).",
-              );
-            } else {
-              // eslint-disable-next-line no-console
-              console.warn(
-                "[AgentBuilder] Demo NPC persist failed:",
-                persist.error,
-              );
-            }
           }}
           className="mt-2 w-full px-3 py-1 text-xs bg-bg-tertiary hover:bg-bg-tertiary/80 rounded"
         >
-          Place demo NPC (B1.2 + B0'.G persist)
+          Place demo NPC (P0.5 — unified placement path)
         </button>
       </div>
 
