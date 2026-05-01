@@ -28,6 +28,10 @@ import {
   cancelStagedAdditions,
   cancelStagedObject,
 } from "./deferredGpuDisposal";
+import {
+  getCachedAssetRefModel,
+  loadAssetRefModelOnce,
+} from "./assetRefModelLoader";
 
 import type { TerrainSceneRefs } from "../../WorldBuilder/TileBasedTerrain";
 import type {
@@ -562,6 +566,17 @@ export function syncExtendedLayers(
     rotation: number = 0,
     modelCategory?: string,
     templateId?: string,
+    /**
+     * Pack-aware asset reference (`<packId>/<entryId>`). When
+     * provided, takes priority over `modelCategory`/`templateId`
+     * — placements with an `assetRef` resolve through the asset
+     * pack pipeline (`assetRefResolver` → `loadModelForScene`)
+     * instead of the Hyperia-only `tryLoadEntityModel` cache.
+     * Async load is fire-and-forget; the marker first renders
+     * with its abstract fallback and the real model swaps in
+     * when the load resolves.
+     */
+    assetRef?: string,
   ) => {
     activeIds.add(id);
     const existing = sync.markers.get(id);
@@ -575,7 +590,50 @@ export function syncExtendedLayers(
       // Try real model first
       let mesh: THREE.Mesh | null = null;
       let hasRealModel = false;
-      if (modelCategory && templateId) {
+
+      // Pack-aware path takes priority. If the assetRef is already
+      // cached, clone + add immediately. If it's a known-failed
+      // entry (cached as null), skip pack path silently and fall
+      // through to the legacy/abstract paths. If we haven't tried
+      // it yet (cache miss), kick off the async load and queue a
+      // post-load swap-in so the marker upgrades from abstract to
+      // real once the GLB lands.
+      if (assetRef) {
+        const cached = getCachedAssetRefModel(assetRef);
+        if (cached) {
+          group.add(cached.clone(true));
+          hasRealModel = true;
+        } else if (cached === undefined) {
+          void loadAssetRefModelOnce(assetRef).then((loaded) => {
+            if (sync.disposed || !loaded) return;
+            const marker = sync.markers.get(id);
+            if (!marker) return;
+            // Strip the abstract fallback if present, then graft
+            // the loaded model in. Keep the label; it lives at
+            // the group level.
+            if (marker.mesh) {
+              marker.group.remove(marker.mesh);
+              queueDisposal(marker.mesh.geometry);
+              // Material is owned by the shared MaterialPool —
+              // do NOT dispose it here.
+              marker.mesh = null;
+            }
+            marker.group.add(loaded.clone(true));
+            marker.hasRealModel = true;
+            // Auto-gen markers were scaled 5x for visibility; un-scale
+            // now that they have a real model.
+            if (id.startsWith("autogen-")) marker.group.scale.setScalar(1);
+          });
+        }
+      }
+
+      // Legacy Hyperia-cache path — only when the pack-aware path
+      // didn't already produce a real model AND no assetRef was
+      // declared (an entity with assetRef has opted in to the
+      // pack-aware path; we don't second-guess by also probing
+      // Hyperia caches with a templateId that may belong to a
+      // different game).
+      if (!hasRealModel && !assetRef && modelCategory && templateId) {
         const modelGroup = tryLoadEntityModel(modelCategory, templateId);
         if (modelGroup) {
           group.add(modelGroup);
@@ -630,7 +688,14 @@ export function syncExtendedLayers(
     }
   };
 
-  // NPCs — use real NPC model from cache
+  // assetRef lives on `properties.assetRef` since it's an
+  // optional manifest field carried alongside type-specific data.
+  const refOf = (p: { properties?: Record<string, unknown> }) => {
+    const raw = p.properties?.assetRef;
+    return typeof raw === "string" ? raw : undefined;
+  };
+
+  // NPCs — pack-aware ref → falls back to Hyperia npc cache
   layers.npcs.forEach((npc: PlacedNPC) => {
     upsertMarker(
       npc.id,
@@ -640,6 +705,7 @@ export function syncExtendedLayers(
       npc.rotation,
       "npcs",
       npc.npcTypeId,
+      refOf(npc),
     );
   });
 
@@ -648,12 +714,22 @@ export function syncExtendedLayers(
     upsertMarker(sp.id, "spawnPoint", sp.name, sp.position, sp.rotation);
   });
 
-  // Teleports (no model — abstract marker)
+  // Teleports — pack-aware ref → no Hyperia fallback (teleports have no
+  // canonical model in the legacy cache)
   layers.teleports.forEach((tp: PlacedTeleport) => {
-    upsertMarker(tp.id, "teleport", tp.name, tp.position);
+    upsertMarker(
+      tp.id,
+      "teleport",
+      tp.name,
+      tp.position,
+      0,
+      undefined,
+      undefined,
+      refOf(tp),
+    );
   });
 
-  // Mob spawns — use NPC model for the mob type
+  // Mob spawns — pack-aware ref → falls back to Hyperia mob cache
   layers.mobSpawns.forEach((ms: PlacedMobSpawn) => {
     upsertMarker(
       ms.id,
@@ -663,10 +739,11 @@ export function syncExtendedLayers(
       0,
       "mob-spawns",
       ms.mobId,
+      refOf(ms),
     );
   });
 
-  // Resources — use ore/tree model
+  // Resources — pack-aware ref → falls back to Hyperia resource cache
   layers.resources.forEach((r: PlacedResource) => {
     const resCat =
       r.resourceType === "mining"
@@ -682,10 +759,11 @@ export function syncExtendedLayers(
       r.rotation,
       resCat,
       r.resourceId,
+      refOf(r),
     );
   });
 
-  // Stations — use station model
+  // Stations — pack-aware ref → falls back to Hyperia station cache
   layers.stations.forEach((s: PlacedStation) => {
     upsertMarker(
       s.id,
@@ -695,15 +773,25 @@ export function syncExtendedLayers(
       s.rotation,
       "stations",
       s.stationType,
+      refOf(s),
     );
   });
 
-  // POIs
+  // POIs — pack-aware ref → no Hyperia fallback
   layers.pois.forEach((p: PlacedPOI) => {
-    upsertMarker(p.id, "poi", p.name, p.position);
+    upsertMarker(
+      p.id,
+      "poi",
+      p.name,
+      p.position,
+      0,
+      undefined,
+      undefined,
+      refOf(p),
+    );
   });
 
-  // Water Bodies
+  // Water Bodies (no model — abstract marker)
   layers.waterBodies.forEach((w: PlacedWaterBody) => {
     const pos = w.waypoints?.[0]
       ? { x: w.waypoints[0].x, y: 0, z: w.waypoints[0].z }
@@ -711,7 +799,7 @@ export function syncExtendedLayers(
     upsertMarker(w.id, "waterBody", w.name, pos);
   });
 
-  // Danger Sources
+  // Danger Sources (no assetRef on local Placed type — abstract marker)
   layers.dangerSources.forEach((ds: PlacedDangerSource) => {
     upsertMarker(ds.id, "dangerSource", ds.name, ds.position);
   });
