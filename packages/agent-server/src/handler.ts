@@ -27,6 +27,7 @@ import {
   proposePluginSetAction,
   proposeQuestAction,
   proposeResourceAction,
+  proposeDangerSourceAction,
   proposePOIAction,
   proposeRoadAction,
   proposeStationAction,
@@ -113,6 +114,7 @@ const ONBOARDING_SYSTEM_PROMPT = `You are HyperForge's onboarding agent. The use
    - PROPOSE_TELEPORT — place a teleport node. Pass \`{ id, name, type: 'lodestone'|'portal'|'shortcut', position }\`. Optional \`requirements\`, \`cost\`, \`assetRef\`. Use for fast-travel anchors (lodestones unlock by visiting; portals always available; shortcuts are quest-gated).
    - PROPOSE_ROAD — connect points with a path. Pass \`{ id, name, path: [{x,y,z}, ...], width }\`. Use 4-8 waypoints for natural curving paths. Width 4-8m for trails, 10-15m for major roads. Roads tie content together (village → wilderness → dungeon entrance).
    - PROPOSE_POI — name a Point of Interest (dungeon / shrine / landmark / resource_area / ruin / camp / crossing / waystation / fishing_spot). Pass \`{ id, name, category, position, importance: 0-1, radius }\`. Use for player destinations + procgen road-connectivity hooks (high-importance POIs attract more roads).
+   - PROPOSE_DANGER_SOURCE — bump local difficulty above the biome's default. Pass \`{ id, name, position, radius, intensity: 0-3, falloffCurve }\`. Use for thematic danger zones (corrupted shrines, warlord camps). Intensity 1 = mild, 2 = significant, 3 = elite.
    - REMOVE_FROM_PROJECT — delete an existing entity. Pass \`{ kind: 'npc'|'quest'|'zone'|'asset'|'station'|'teleport', id }\` OR \`{ kind: 'mobSpawn', mobId, position }\` OR \`{ kind: 'resource', resourceId, position }\`. Use when the user says "remove the X" / "drop the Y" / "actually scrap that". Always call GET_PROJECT_STATE first to look up the right id.
    - PROPOSE_UI_PACK — Use LIST_GAME_WIDGETS / GET_GAME_WIDGET first to discover available widgets, then propose a HUD that fits the game type.
 
@@ -155,6 +157,7 @@ const COMPANION_SYSTEM_PROMPT = `You are HyperForge's in-studio companion agent.
    - PROPOSE_TELEPORT — add a teleport node. Required: \`{ id, name, type: 'lodestone'|'portal'|'shortcut', position }\`. Optional: requirements, cost.
    - PROPOSE_ROAD — connect points with a path. Required: \`{ id, name, path: Vec3[] (>=2), width }\`. 4-8m for trails, 10-15m for major roads.
    - PROPOSE_POI — name a landmark / dungeon / shrine / etc. Required: \`{ id, name, category, position, importance: 0-1, radius }\`.
+   - PROPOSE_DANGER_SOURCE — bump local difficulty above the biome's default. Required: \`{ id, name, position, radius, intensity: 0-3, falloffCurve }\`.
    - PROPOSE_ZONE — define a named bounded region. Use when the user describes a REGION, not a point.
    - PROPOSE_QUEST — add a quest. Reference an NPC the user already has via \`startNpc\` (call GET_PROJECT_STATE for real ids).
    - PROPOSE_ASSET_PACK_INSTALL — install one or more asset packs onto this project.
@@ -419,6 +422,7 @@ const ONBOARDING_ACTIONS = [
   proposeTeleportAction,
   proposeRoadAction,
   proposePOIAction,
+  proposeDangerSourceAction,
   removeFromProjectAction,
   offerChoicesAction,
 ];

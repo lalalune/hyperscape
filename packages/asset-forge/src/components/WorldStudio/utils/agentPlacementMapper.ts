@@ -62,9 +62,11 @@ import type {
   WorldAreaTeleportNode,
   WorldAreaRoad,
   WorldAreaPOI,
+  WorldAreaDangerSource,
 } from "@hyperforge/manifest-schema";
 
 import type {
+  PlacedDangerSource,
   PlacedMobSpawn,
   PlacedPOI,
   PlacedResource,
@@ -507,5 +509,43 @@ export function placedPOIToWorldArea(
     entryPoint: placed.entryPoint,
     assetRef,
     properties: Object.keys(props).length > 0 ? props : undefined,
+  };
+}
+
+// ───────────────── Danger source ─────────────────
+//
+// PlacedDangerSource has no `properties` bag (it's a small, focused
+// type). The agent's optional `properties` from PlacementCommonSchema
+// has no Placed-side home, so we drop it on the way in (acceptable —
+// danger sources are simple gradient anchors, not extensible
+// entities). Reverse mapping returns no `properties`.
+
+export function worldAreaDangerSourceToPlaced(
+  ds: WorldAreaDangerSource,
+  worldCenterOffset: number,
+): PlacedDangerSource {
+  return {
+    id: ds.id,
+    name: ds.name,
+    position: gameToScene(ds.position, worldCenterOffset),
+    radius: ds.radius,
+    intensity: ds.intensity,
+    falloffCurve: ds.falloffCurve,
+    description: ds.description,
+  };
+}
+
+export function placedDangerSourceToWorldArea(
+  placed: PlacedDangerSource,
+  worldCenterOffset: number,
+): WorldAreaDangerSource {
+  return {
+    id: placed.id,
+    name: placed.name,
+    position: sceneToGame(placed.position, worldCenterOffset),
+    radius: placed.radius,
+    intensity: placed.intensity,
+    falloffCurve: placed.falloffCurve,
+    description: placed.description,
   };
 }

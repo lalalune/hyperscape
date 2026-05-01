@@ -47,6 +47,7 @@ import {
 } from "../state/agentWorldContent";
 import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatcher";
 import type {
+  WorldAreaDangerSource,
   WorldAreaMobSpawn,
   WorldAreaNPC,
   WorldAreaPOI,
@@ -275,6 +276,13 @@ function CompanionInner({ projectId }: { projectId: string }) {
           placementDispatcher.placeRoad(data.road as WorldAreaRoad);
         } else if (call.name === "PROPOSE_POI" && data.poi !== undefined) {
           placementDispatcher.placePOI(data.poi as WorldAreaPOI);
+        } else if (
+          call.name === "PROPOSE_DANGER_SOURCE" &&
+          data.dangerSource !== undefined
+        ) {
+          placementDispatcher.placeDangerSource(
+            data.dangerSource as WorldAreaDangerSource,
+          );
         } else if (
           call.name === "REMOVE_FROM_PROJECT" &&
           data.removal !== undefined
@@ -1009,6 +1017,10 @@ const TOOL_BREADCRUMB_SUMMARY: Record<
     icon: "📍",
     label: (n) => `Marked ${n} POI${n === 1 ? "" : "s"}`,
   },
+  PROPOSE_DANGER_SOURCE: {
+    icon: "⚠️",
+    label: (n) => `Added ${n} danger source${n === 1 ? "" : "s"}`,
+  },
   PROPOSE_ASSET: {
     icon: "✨",
     label: (n) => `Queued ${n} asset bake${n === 1 ? "" : "s"}`,
@@ -1058,6 +1070,8 @@ function prettifyToolName(name: string): string {
       return "Drawing a road…";
     case "PROPOSE_POI":
       return "Marking a point of interest…";
+    case "PROPOSE_DANGER_SOURCE":
+      return "Adding a danger zone…";
     case "REMOVE_FROM_PROJECT":
       return "Removing an entity…";
     case "GET_PROJECT_STATE":

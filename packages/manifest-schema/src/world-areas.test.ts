@@ -591,3 +591,62 @@ describe("WorldAreaPOISchema (P5.a)", () => {
     }
   });
 });
+
+// ─────────── P5.b — WorldAreaDangerSource ───────────
+
+import { WorldAreaDangerSourceSchema } from "./world-areas.js";
+
+describe("WorldAreaDangerSourceSchema (P5.b)", () => {
+  const valid = {
+    id: "cursed-grove",
+    name: "Cursed Grove",
+    position: { x: 60, y: 0, z: 80 },
+    radius: 40,
+    intensity: 2,
+    falloffCurve: 1.5,
+  };
+
+  it("accepts a canonical danger source shape", () => {
+    expect(WorldAreaDangerSourceSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("accepts intensity at boundaries (0 and 3)", () => {
+    expect(
+      WorldAreaDangerSourceSchema.safeParse({ ...valid, intensity: 0 }).success,
+    ).toBe(true);
+    expect(
+      WorldAreaDangerSourceSchema.safeParse({ ...valid, intensity: 3 }).success,
+    ).toBe(true);
+  });
+
+  it("rejects intensity outside 0-3", () => {
+    expect(
+      WorldAreaDangerSourceSchema.safeParse({ ...valid, intensity: -0.1 })
+        .success,
+    ).toBe(false);
+    expect(
+      WorldAreaDangerSourceSchema.safeParse({ ...valid, intensity: 4 }).success,
+    ).toBe(false);
+  });
+
+  it("rejects non-positive radius or falloffCurve", () => {
+    expect(
+      WorldAreaDangerSourceSchema.safeParse({ ...valid, radius: 0 }).success,
+    ).toBe(false);
+    expect(
+      WorldAreaDangerSourceSchema.safeParse({ ...valid, falloffCurve: 0 })
+        .success,
+    ).toBe(false);
+  });
+
+  it("accepts optional description", () => {
+    const r = WorldAreaDangerSourceSchema.safeParse({
+      ...valid,
+      description: "A blight has taken root.",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.description).toBe("A blight has taken root.");
+    }
+  });
+});

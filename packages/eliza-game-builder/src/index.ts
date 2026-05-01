@@ -124,6 +124,7 @@ export {
   proposeTeleportAction,
   proposeRoadAction,
   proposePOIAction,
+  proposeDangerSourceAction,
   proposeTerrainConfigAction,
   proposeUIPackAction,
   proposeZoneAction,

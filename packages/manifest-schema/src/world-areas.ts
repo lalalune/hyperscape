@@ -205,6 +205,43 @@ export type WorldAreaStation = z.infer<typeof WorldAreaStationSchema>;
  * `ALL_WORLD_AREAS` constant.
  */
 /**
+ * Danger source — a placeable point that increases local difficulty
+ * beyond the biome's default scalar.
+ *
+ * P5.b of `PLAN_AGENT_STUDIO_PARITY.md`. Maps to the studio's
+ * `PlacedDangerSource` shape. Used for procgen difficulty hooks
+ * ("this region is more dangerous than the biome alone implies"
+ * — a corrupted shrine deep in a Forest biome bumps mob levels
+ * + spawn density nearby).
+ *
+ * Fields:
+ *   id           — unique id
+ *   name         — display name ("Cursed Grove")
+ *   position     — game-space coords
+ *   radius       — radius of influence in meters; positive
+ *   intensity    — 0-3, added to the biome's difficulty scalar
+ *                  at the danger center; falls off with distance
+ *   falloffCurve — how quickly intensity falls off (higher =
+ *                  sharper edge); default 1
+ *
+ * Optional:
+ *   description  — tooltip / lore text
+ */
+export const WorldAreaDangerSourceSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    position: Vec3Schema,
+    radius: z.number().positive(),
+    intensity: z.number().min(0).max(3),
+    falloffCurve: z.number().positive(),
+    description: z.string().optional(),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough();
+export type WorldAreaDangerSource = z.infer<typeof WorldAreaDangerSourceSchema>;
+
+/**
  * Point of Interest — a named landmark with a radius, importance
  * weight, and optional road connectivity.
  *

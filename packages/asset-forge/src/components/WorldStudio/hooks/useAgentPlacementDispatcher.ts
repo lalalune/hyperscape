@@ -31,6 +31,7 @@
 import { useMemo } from "react";
 
 import type {
+  WorldAreaDangerSource,
   WorldAreaMobSpawn,
   WorldAreaNPC,
   WorldAreaPOI,
@@ -43,6 +44,7 @@ import type { WorldData } from "../../WorldBuilder/types";
 
 import { useWorldStudio } from "../WorldStudioContext";
 import {
+  worldAreaDangerSourceToPlaced,
   worldAreaMobSpawnToPlaced,
   worldAreaNpcToPlaced,
   worldAreaPOIToPlaced,
@@ -94,6 +96,12 @@ export interface AgentPlacementDispatcher {
    */
   placePOI: (poi: WorldAreaPOI) => void;
   /**
+   * P5.b — agent danger source placement. Increases local
+   * difficulty beyond biome defaults; feeds procgen's mob-level
+   * + spawn-density shaping.
+   */
+  placeDangerSource: (ds: WorldAreaDangerSource) => void;
+  /**
    * The offset used by all the placement functions in this
    * dispatcher. Exposed so callers (companion / dialog) can
    * surface a useful diagnostic when the offset is 0 (i.e. the
@@ -122,6 +130,8 @@ export function useAgentPlacementDispatcher(): AgentPlacementDispatcher {
       placeRoad: (road) =>
         actions.addCustomRoad(worldAreaRoadToPlaced(road, offset)),
       placePOI: (poi) => actions.addPOI(worldAreaPOIToPlaced(poi, offset)),
+      placeDangerSource: (ds) =>
+        actions.addDangerSource(worldAreaDangerSourceToPlaced(ds, offset)),
       worldCenterOffset: offset,
     }),
     [actions, offset],
