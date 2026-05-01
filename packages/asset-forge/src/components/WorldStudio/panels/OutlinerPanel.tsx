@@ -810,17 +810,27 @@ export const OutlinerPanel = React.memo(function OutlinerPanel() {
   // We merge here as a top-level "AI Generated" folder so agent vs
   // designer content is visually distinguishable.
   const agentContent = useAgentWorldContent();
+  const extendedLayers = state.extendedLayers;
   const hierarchyTree = useMemo<HierarchyNode | null>(() => {
     if (!baseHierarchyTree) return baseHierarchyTree;
     const aiNode = buildAgentContentNode(agentContent);
-    if (!aiNode) return baseHierarchyTree;
-    // Prepend the AI folder as the first top-level child so it's
-    // visible without scrolling.
+    // P0.4 finishing touch — surface the unified extendedLayers
+    // placements (designer + agent + procgen all merged via
+    // PLAN_AGENT_STUDIO_PARITY) as a top-level "Placements"
+    // subtree. SourceIndicator color-codes each leaf by origin.
+    // Without this, agent emissions land in extendedLayers but
+    // never appear in the outliner — the user reported exactly
+    // this gap.
+    const placementsNode = buildExtendedLayersNode(extendedLayers);
+    const extras: HierarchyNode[] = [];
+    if (aiNode) extras.push(aiNode);
+    if (placementsNode) extras.push(placementsNode);
+    if (extras.length === 0) return baseHierarchyTree;
     return {
       ...baseHierarchyTree,
-      children: [aiNode, ...baseHierarchyTree.children],
+      children: [...extras, ...baseHierarchyTree.children],
     };
-  }, [baseHierarchyTree, agentContent]);
+  }, [baseHierarchyTree, agentContent, extendedLayers]);
 
   // Multi-selection set for efficient lookup
   const multiSelectedIds = useMemo(
@@ -1651,6 +1661,214 @@ export const OutlinerPanel = React.memo(function OutlinerPanel() {
  * the outliner's `useMemo` invalidates when the snapshot changes
  * (the store guarantees reference stability per `notify()`).
  */
+/**
+ * Build a "Placements" outliner subtree from `state.extendedLayers`.
+ *
+ * The five P0+P5 placement kinds (npcs / mobSpawns / resources /
+ * stations / teleports) plus POIs + danger sources land here from
+ * BOTH designer drag-drop AND agent emissions (post P0.3 + P0.6).
+ * Each leaf carries `metadata.source` so SourceIndicator can
+ * color-code by provenance ("agent" → primary purple,
+ * "procgen" → amber, "designer"/"hand-placed" → no indicator).
+ *
+ * Without this builder, agent emissions reach extendedLayers and
+ * render in the viewport via useEditorWorldSync, but never appear
+ * in the outliner tree — the exact gap that produced the
+ * "I only see hyperia entities" report.
+ */
+function buildExtendedLayersNode(
+  ext: import("../types").ExtendedWorldLayers,
+): HierarchyNode | null {
+  const totalCount =
+    ext.npcs.length +
+    ext.mobSpawns.length +
+    ext.resources.length +
+    ext.stations.length +
+    ext.teleports.length +
+    ext.spawnPoints.length +
+    ext.pois.length +
+    ext.dangerSources.length;
+  if (totalCount === 0) return null;
+
+  const folders: HierarchyNode[] = [];
+
+  if (ext.npcs.length > 0) {
+    folders.push({
+      id: "ext-npcs",
+      label: "NPCs",
+      type: "npcs" as const,
+      badge: ext.npcs.length,
+      expandable: true,
+      children: ext.npcs.map((npc) => ({
+        id: `ext-npc-${npc.id}`,
+        label: npc.name ?? npc.id,
+        type: "npc" as const,
+        children: [],
+        dataId: npc.id,
+        expandable: false,
+        metadata: {
+          npcType: (npc as { npcTypeId?: string }).npcTypeId,
+          source:
+            (npc as unknown as { source?: string }).source ?? "hand-placed",
+        },
+      })),
+    });
+  }
+  if (ext.mobSpawns.length > 0) {
+    folders.push({
+      id: "ext-mob-spawns",
+      label: "Mob Spawns",
+      type: "mobSpawns" as const,
+      badge: ext.mobSpawns.length,
+      expandable: true,
+      children: ext.mobSpawns.map((ms) => ({
+        id: `ext-spawn-${ms.id}`,
+        label: ms.name ?? `${ms.mobId} ×${ms.maxCount}`,
+        type: "mobSpawn" as const,
+        children: [],
+        dataId: ms.id,
+        expandable: false,
+        metadata: {
+          mobId: ms.mobId,
+          maxCount: ms.maxCount,
+          source: ms.source ?? "hand-placed",
+        },
+      })),
+    });
+  }
+  if (ext.resources.length > 0) {
+    folders.push({
+      id: "ext-resources",
+      label: "Resources",
+      type: "resources" as const,
+      badge: ext.resources.length,
+      expandable: true,
+      children: ext.resources.map((r) => ({
+        id: `ext-resource-${r.id}`,
+        label: r.name ?? `${r.resourceId} (${r.resourceType})`,
+        type: "resource" as const,
+        children: [],
+        dataId: r.id,
+        expandable: false,
+        metadata: {
+          resourceId: r.resourceId,
+          resourceType: r.resourceType,
+          source: r.source ?? "hand-placed",
+        },
+      })),
+    });
+  }
+  if (ext.stations.length > 0) {
+    folders.push({
+      id: "ext-stations",
+      label: "Stations",
+      type: "stations" as const,
+      badge: ext.stations.length,
+      expandable: true,
+      children: ext.stations.map((s) => ({
+        id: `ext-station-${s.id}`,
+        label: s.name ?? `${s.id} (${s.stationType})`,
+        type: "station" as const,
+        children: [],
+        dataId: s.id,
+        expandable: false,
+        metadata: {
+          stationType: s.stationType,
+          source: s.source ?? "hand-placed",
+        },
+      })),
+    });
+  }
+  if (ext.teleports.length > 0) {
+    folders.push({
+      id: "ext-teleports",
+      label: "Teleports",
+      type: "teleports" as const,
+      badge: ext.teleports.length,
+      expandable: true,
+      children: ext.teleports.map((tp) => ({
+        id: `ext-teleport-${tp.id}`,
+        label: tp.name,
+        type: "teleport" as const,
+        children: [],
+        dataId: tp.id,
+        expandable: false,
+        metadata: {
+          source: ((tp.properties as { source?: string } | undefined)?.source ??
+            "hand-placed") as string,
+        },
+      })),
+    });
+  }
+  if (ext.spawnPoints.length > 0) {
+    folders.push({
+      id: "ext-spawn-points",
+      label: "Spawn Points",
+      type: "spawnPoints" as const,
+      badge: ext.spawnPoints.length,
+      expandable: true,
+      children: ext.spawnPoints.map((sp) => ({
+        id: `ext-spawnpoint-${sp.id}`,
+        label: sp.name,
+        type: "spawnPoint" as const,
+        children: [],
+        dataId: sp.id,
+        expandable: false,
+        metadata: { spawnType: sp.spawnType },
+      })),
+    });
+  }
+  if (ext.pois.length > 0) {
+    folders.push({
+      id: "ext-pois",
+      label: "POIs",
+      type: "pois" as const,
+      badge: ext.pois.length,
+      expandable: true,
+      children: ext.pois.map((p) => ({
+        id: `ext-poi-${p.id}`,
+        label: p.name,
+        type: "poi" as const,
+        children: [],
+        dataId: p.id,
+        expandable: false,
+        metadata: {
+          category: p.category,
+          source: ((p.properties as { source?: string } | undefined)?.source ??
+            "hand-placed") as string,
+        },
+      })),
+    });
+  }
+  if (ext.dangerSources.length > 0) {
+    folders.push({
+      id: "ext-danger-sources",
+      label: "Danger Sources",
+      type: "dangerSources" as const,
+      badge: ext.dangerSources.length,
+      expandable: true,
+      children: ext.dangerSources.map((d) => ({
+        id: `ext-danger-${d.id}`,
+        label: d.name,
+        type: "dangerSource" as const,
+        children: [],
+        dataId: d.id,
+        expandable: false,
+        metadata: { intensity: d.intensity },
+      })),
+    });
+  }
+
+  return {
+    id: "extended-layers",
+    label: "Placements",
+    type: "gameEntities" as const,
+    children: folders,
+    badge: totalCount,
+    expandable: true,
+  };
+}
+
 function buildAgentContentNode(
   content: ReturnType<typeof useAgentWorldContent>,
 ): HierarchyNode | null {

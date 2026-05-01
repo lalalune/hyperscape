@@ -274,11 +274,25 @@ function CompanionInner({ projectId }: { projectId: string }) {
             // LOAD_WORLD sets hasUnsavedChanges=false (it's a load
             // semantically), so useAutoSave won't fire. Persist
             // directly so the new terrain survives a refresh.
+            //
+            // Critically: include the CURRENT extendedLayers in the
+            // serialized worldData. Without this, the save passes
+            // ONLY the new world (foundation + manifest layers) and
+            // overwrites the persisted extendedLayers with nothing —
+            // silently wiping every agent + designer placement on
+            // disk. autoSave merges them in normally; we have to
+            // mirror that behavior here.
+            const serialized = serializeWorld(newWorld) as unknown as Record<
+              string,
+              unknown
+            >;
+            const ext = state.extendedLayers;
+            const hasExt = Object.values(ext).some((v) =>
+              Array.isArray(v) ? v.length > 0 : v !== null,
+            );
+            if (hasExt) serialized.extendedLayers = ext;
             void saveWorldProject(projectId, {
-              worldData: serializeWorld(newWorld) as unknown as Record<
-                string,
-                unknown
-              >,
+              worldData: serialized,
             }).catch((err: unknown) => {
               // eslint-disable-next-line no-console
               console.warn("[Companion] Terrain regen save failed:", err);
