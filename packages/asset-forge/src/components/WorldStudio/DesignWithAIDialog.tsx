@@ -60,10 +60,7 @@ import React, {
   type FormEvent,
 } from "react";
 
-import {
-  BLANK_CREATION_CONFIG,
-  DEFAULT_CREATION_CONFIG,
-} from "../WorldBuilder/types";
+import { DEFAULT_CREATION_CONFIG } from "../WorldBuilder/types";
 import { generateWorldFromConfig } from "../WorldBuilder/worldGeneration";
 import { mergeProcgenConfig } from "./utils/mergeProcgenConfig";
 import { serializeWorld } from "../WorldBuilder/utils/worldPersistence";
@@ -1546,11 +1543,10 @@ export function DesignWithAIDialog({
       // B1'.2.2 — apply the agent's full plan across the four
       // typed-layer slots:
       //   - terrain config → procgen base config (knobs from agent
-      //                       overlaid on BLANK_CREATION_CONFIG;
-      //                       BLANK_CREATION_CONFIG wins for
-      //                       fields the agent didn't specify so
-      //                       we never accidentally pull in
-      //                       Hyperia-style towns/vegetation).
+      //                       overlaid on DEFAULT_CREATION_CONFIG
+      //                       so vegetation + towns + biomes work
+      //                       out of the box; agent's overrides
+      //                       win field-by-field via deep-merge).
       //   - plugins        → translated to npm-style ids and
       //                       persisted in `Project.plugins[]`
       //                       via the worldContent patch (templates
@@ -1564,11 +1560,14 @@ export function DesignWithAIDialog({
       const projectDescription =
         summary.description ?? "Created via Design with AI onboarding.";
 
-      // Deep-merge agent's terrain knobs over the blank base.
-      // Shallow spread silently corrupts nested objects (terrain,
-      // biomes, etc.) — partial agent overrides wipe sibling
-      // fields, producing NaN heights. See mergeProcgenConfig
-      // for the full story.
+      // Deep-merge agent's terrain knobs over the rich Hyperia
+      // default. Vegetation enabled, towns enabled, biomes
+      // distributed. BLANK_CREATION_CONFIG explicitly disables
+      // vegetation + sets townCount=0 — it's the "empty template"
+      // base; not what the agent wants when building a Hyperia-
+      // style world. Shallow spread silently corrupts nested
+      // objects (terrain, biomes, etc.); deep-merge preserves
+      // sibling fields. See mergeProcgenConfig for the full story.
       const seed = Math.floor(Math.random() * 2147483647);
       const agentTerrain = (effectivePlan.terrainConfig ?? {}) as Record<
         string,
@@ -1577,14 +1576,10 @@ export function DesignWithAIDialog({
       const resolvedSeed =
         typeof agentTerrain.seed === "number" ? agentTerrain.seed : seed;
       const procgenConfig = mergeProcgenConfig(
-        BLANK_CREATION_CONFIG as unknown as Record<string, unknown>,
+        DEFAULT_CREATION_CONFIG as unknown as Record<string, unknown>,
         agentTerrain,
         resolvedSeed,
       ) as unknown as Parameters<typeof generateWorldFromConfig>[0];
-      // Reference for type checker — keeps DEFAULT_CREATION_CONFIG
-      // imported for future use (e.g. when "use Hyperia procgen"
-      // becomes a separately-toggleable agent action).
-      void DEFAULT_CREATION_CONFIG;
 
       const worldData = await new Promise<ReturnType<typeof serializeWorld>>(
         (resolve, reject) => {

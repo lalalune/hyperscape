@@ -48,7 +48,7 @@ import {
 import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatcher";
 import { buildTerrainSummary } from "../utils/buildTerrainSummary";
 import { generateWorldFromConfig } from "../../WorldBuilder/worldGeneration";
-import { BLANK_CREATION_CONFIG } from "../../WorldBuilder/types";
+import { DEFAULT_CREATION_CONFIG } from "../../WorldBuilder/types";
 import { serializeWorld } from "../../WorldBuilder/utils/worldPersistence";
 import { saveWorldProject } from "../../../utils/worldProjectApi";
 import { mergeProcgenConfig } from "../utils/mergeProcgenConfig";
@@ -260,8 +260,15 @@ function CompanionInner({ projectId }: { projectId: string }) {
             // base. Without this, procgen reads undefined values
             // and writes NaN into the heightmap → "Computed radius
             // is NaN" error spam from BufferGeometry.
+            // Use the rich Hyperia default as the merge base —
+            // vegetation enabled, towns enabled, biomes
+            // distributed. BLANK_CREATION_CONFIG explicitly
+            // disables vegetation + sets townCount=0 (it's the
+            // "empty template" base; not what the agent wants when
+            // building a Hyperia-style world). The agent's
+            // overrides win field-by-field via deep-merge.
             const procgenConfig = mergeProcgenConfig(
-              BLANK_CREATION_CONFIG as unknown as Record<string, unknown>,
+              DEFAULT_CREATION_CONFIG as unknown as Record<string, unknown>,
               agentTerrain,
               seed,
             );

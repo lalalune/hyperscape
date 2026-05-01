@@ -140,6 +140,7 @@ When the user says "snowy mountains" → emit \`{ preset: "mountain-range", seed
    - **\`gridSize: 1\`** → 1 biome cell → mono-biome world. ONLY use when the user explicitly asks for a single-theme world ("entirely a desert", "all snow"). Do NOT default to this — it produces the "all snow" failure mode.
    - **\`gridSize: 3-5\`** → varied biomes. **DEFAULT for almost any RPG.** With gridSize=4 you get 16 biome cells statistically split ~5 of each type, giving the world visual + gameplay variety.
    - **\`jitter: 0.3-0.5\`** → biome borders aren't perfect grids. 0 = grid, 1 = chaotic. 0.3 looks natural.
+   - **\`minInfluence\` / \`maxInfluence\`** → biome reach in METERS. **CRITICAL: scale to your world.** The default (2000/3500) is sized for a 100-tile world (10 km²); on a 50-tile world (5 km²) it produces severe biome overlap and one biome dominates everything = "all snow" failure mode. Rule of thumb: \`minInfluence ≈ (worldSize × tileSize) / (gridSize × 4)\`, \`maxInfluence ≈ minInfluence × 2\`. For a 50×100m world with gridSize=4: \`minInfluence: 300, maxInfluence: 600\`. For 100×100m with gridSize=4: \`minInfluence: 600, maxInfluence: 1200\`.
 
 **Step 3 — set worldSize FIRST, then derive other values.** \`terrain.worldSize\` defaults to 50-100 (5-10km²). Hard cap is 200. \`terrain.tileSize\` defaults to 100m and rarely needs changing.
 

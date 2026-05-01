@@ -17,6 +17,7 @@ import { useEffect, useRef, useCallback } from "react";
 
 import type { TerrainSceneRefs } from "../../WorldBuilder/TileBasedTerrain";
 import { queueDisposal } from "../utils/deferredGpuDisposal";
+import { initEntityModels } from "../../WorldBuilder/GameWorldAssets";
 
 import type { WorldStudioState } from "../WorldStudioContext";
 import type {
@@ -71,6 +72,24 @@ export function useEditorWorldSync({
   // Keep stable ref to registry
   const registryRef = useRef(registry);
   registryRef.current = registry;
+
+  // Pre-load Hyperia's NPC / station / ore GLB models into the
+  // shared cache so `tryLoadEntityModel` can resolve them at
+  // marker render time. Without this, blank-template projects
+  // (which is what the AI-built worlds use) never trigger
+  // `generateGameWorldEntities` (the manifest-driven path that
+  // normally calls initEntityModels), so agent-placed NPCs /
+  // mob spawns / stations / resources fall back to abstract
+  // colored markers — the user-reported "no real assets on the
+  // map" failure mode. Async, fire-and-forget; markers placed
+  // before init resolves stay placeholder until the next render
+  // pass after init lands.
+  useEffect(() => {
+    void initEntityModels().catch((err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.warn("[useEditorWorldSync] initEntityModels failed:", err);
+    });
+  }, []);
 
   // Sync extended layer entities
   const handleSyncLayers = useCallback(
