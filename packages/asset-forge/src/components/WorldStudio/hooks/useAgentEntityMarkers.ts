@@ -59,11 +59,15 @@ const RESOURCE_COLOR = 0x10b981; // emerald / gathering
 const STATION_COLOR = 0x60a5fa; // sky / crafting
 const TELEPORT_COLOR = 0xa855f7; // violet / waypoint
 
-const NPC_GEOMETRY = new THREE.BoxGeometry(0.8, 1.6, 0.8);
-const SPAWN_GEOMETRY = new THREE.IcosahedronGeometry(0.5, 0);
-const RESOURCE_GEOMETRY = new THREE.ConeGeometry(0.4, 1.2, 6);
-const STATION_GEOMETRY = new THREE.CylinderGeometry(0.5, 0.5, 0.8, 8);
-const TELEPORT_GEOMETRY = new THREE.TorusGeometry(0.6, 0.18, 8, 24);
+// Markers are 2× the natural entity size so they're unmissable
+// against terrain even at default zoom — they're visualization
+// proxies, not 1:1 game-render. The Hyperia world is large; a
+// 0.8m cube vanishes from a few tens of meters away.
+const NPC_GEOMETRY = new THREE.BoxGeometry(1.6, 3.2, 1.6);
+const SPAWN_GEOMETRY = new THREE.IcosahedronGeometry(1.2, 0);
+const RESOURCE_GEOMETRY = new THREE.ConeGeometry(1.0, 2.4, 6);
+const STATION_GEOMETRY = new THREE.CylinderGeometry(1.2, 1.2, 1.6, 8);
+const TELEPORT_GEOMETRY = new THREE.TorusGeometry(1.6, 0.4, 8, 24);
 
 export function useAgentEntityMarkers(
   sceneRefs: TerrainSceneRefs | null,
@@ -78,6 +82,8 @@ export function useAgentEntityMarkers(
     if (!groupRef.current) {
       const group = new THREE.Group();
       group.name = "agent-entity-markers";
+      group.frustumCulled = false;
+      group.renderOrder = 999;
       sceneRefs.entityOverlay.add(group);
       groupRef.current = group;
     }
@@ -104,6 +110,31 @@ export function useAgentEntityMarkers(
     };
 
     const liveIds = new Set<string>();
+
+    // Diagnostic — surfaces "the AI told us about N things" so a
+    // user staring at an empty viewport can confirm whether the
+    // agent's emissions reached the store or not. Cheap; only logs
+    // when the relevant maps are non-empty.
+    const counts = {
+      npcs: agentWorldContent.npcs.size,
+      spawns: agentWorldContent.spawns.size,
+      resources: agentWorldContent.resources.size,
+      stations: agentWorldContent.stations.size,
+      teleports: agentWorldContent.teleports.size,
+    };
+    const total =
+      counts.npcs +
+      counts.spawns +
+      counts.resources +
+      counts.stations +
+      counts.teleports;
+    if (total > 0) {
+      // eslint-disable-next-line no-console
+      console.info(
+        `[useAgentEntityMarkers] rendering ${total} agent placements`,
+        counts,
+      );
+    }
 
     // ---- NPCs ----
     for (const [id, npc] of agentWorldContent.npcs) {
@@ -251,7 +282,7 @@ function upsertMarker(
 ): void {
   const existing = markers.get(id);
   if (existing) {
-    existing.group.position.set(position.x, position.y + 0.8, position.z);
+    existing.group.position.set(position.x, position.y + 1.6, position.z);
     // If assetRef changed, kick off a fresh load (and tear down
     // any prior real model). Edge case: agent revises a placement
     // to point at a different model.
@@ -272,6 +303,7 @@ function upsertMarker(
           opacity: 0.85,
         });
         const mesh = new THREE.Mesh(geometry, material);
+        mesh.renderOrder = 999;
         existing.placeholderMesh = mesh;
         existing.placeholderMaterial = material;
         existing.group.add(mesh);
@@ -284,18 +316,20 @@ function upsertMarker(
   const material = new THREE.MeshStandardMaterial({
     color,
     emissive: color,
-    emissiveIntensity: 0.3,
+    emissiveIntensity: 0.6,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.95,
+    depthTest: false,
   });
   const mesh = new THREE.Mesh(geometry, material);
+  mesh.renderOrder = 999;
   const labelSprite = makeLabelSprite(label);
-  labelSprite.position.set(0, 1.4, 0);
+  labelSprite.position.set(0, 2.4, 0);
   const group = new THREE.Group();
   group.name = `agent-marker-${id}`;
   group.add(mesh);
   group.add(labelSprite);
-  group.position.set(position.x, position.y + 0.8, position.z);
+  group.position.set(position.x, position.y + 1.6, position.z);
   parent.add(group);
 
   const entry: MarkerEntry = {
