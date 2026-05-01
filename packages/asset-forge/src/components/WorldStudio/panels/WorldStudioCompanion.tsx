@@ -46,6 +46,7 @@ import {
   setAndPersistAgentZone,
 } from "../state/agentWorldContent";
 import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatcher";
+import { buildTerrainSummary } from "../utils/buildTerrainSummary";
 import type {
   WorldAreaDangerSource,
   WorldAreaMobSpawn,
@@ -528,11 +529,18 @@ function CompanionInner({ projectId }: { projectId: string }) {
         y: p.y,
         z: p.z - offset,
       });
+      // Terrain summary lets the agent know where biomes + towns
+      // are, so it can pick land coords + match content to biomes
+      // (rather than dropping things in the ocean by emitting raw
+      // game-space (0,0,0) coords).
+      const terrainSummary = buildTerrainSummary(state.builder.editing.world);
+
       const projectContext = {
         projectId,
         templateId,
         plugins: projectPlugins,
         assetPacks: resolvedAssetPacks,
+        terrainSummary,
         worldContent: {
           npcs: ext.npcs.map((n) => ({
             id: n.id,

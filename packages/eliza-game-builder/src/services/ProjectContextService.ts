@@ -71,6 +71,35 @@ export interface ProjectContext {
    * issuing the design request.
    */
   readonly assetPacks?: ReadonlyArray<ProjectContextAssetPack>;
+  /**
+   * Compact summary of the project's generated terrain so the
+   * agent can pick land coordinates + match content to biomes
+   * (instead of dropping placements in the ocean by emitting
+   * raw (0, 0, 0) coords). Sent on every chat turn when the
+   * project has a generated world; null/omitted before
+   * generation.
+   *
+   * See PLAN_AGENT_STUDIO_PARITY P9 + the "TERRAIN SUMMARY"
+   * section of ONBOARDING_SYSTEM_PROMPT for the agent-side
+   * contract.
+   */
+  readonly terrainSummary?: {
+    readonly worldSize: number;
+    readonly tileSize: number;
+    readonly worldExtent: number;
+    readonly biomes: ReadonlyArray<{
+      id: string;
+      type: string;
+      center: { x: number; z: number };
+      influenceRadius: number;
+    }>;
+    readonly towns: ReadonlyArray<{
+      id: string;
+      name: string;
+      position: { x: number; z: number };
+      safeZoneRadius: number;
+    }>;
+  } | null;
 }
 
 /**
