@@ -330,6 +330,41 @@ function ExpandArrow({ expanded }: { expanded: boolean }) {
   );
 }
 
+/**
+ * Color-coded provenance indicator. P0.4 of
+ * PLAN_AGENT_STUDIO_PARITY — the outliner now color-codes by
+ * `source` so a user can tell at a glance which entries came
+ * from the agent vs. procgen vs. their own placements. Designer
+ * entries get no indicator (the absence is the default state;
+ * we only highlight non-default origins).
+ *
+ * Color choices match the studio's existing palette:
+ *   agent   → primary purple (matches the Sparkles brand color)
+ *   procgen → amber (procgen-generated content is "automated")
+ *   designer / hand-placed → no indicator
+ */
+const SOURCE_INDICATOR_COLORS: Record<string, string> = {
+  agent: "#a855f7", // violet/purple — matches Sparkles brand
+  procgen: "#f59e0b", // amber
+};
+
+function SourceIndicator({
+  source,
+}: {
+  source: unknown;
+}): React.ReactElement | null {
+  if (typeof source !== "string") return null;
+  const color = SOURCE_INDICATOR_COLORS[source];
+  if (!color) return null;
+  return (
+    <span
+      className="w-1.5 h-1.5 rounded-full flex-shrink-0 ml-0.5"
+      style={{ backgroundColor: color }}
+      title={`Source: ${source}`}
+    />
+  );
+}
+
 const CATEGORY_FILTERS = [
   { id: "all", label: "All" },
   { id: "foundation", label: "Foundation" },
@@ -656,6 +691,12 @@ function OutlinerNode({
         >
           {node.label}
         </span>
+
+        {/* Source indicator — color-coded dot for non-designer
+            entries so a user can scan the tree and see at a glance
+            which entries came from which path. P0.4 of
+            PLAN_AGENT_STUDIO_PARITY. */}
+        <SourceIndicator source={node.metadata?.source} />
 
         {/* Badge count */}
         {node.badge !== undefined && node.badge > 0 && (
