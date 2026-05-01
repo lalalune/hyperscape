@@ -111,7 +111,14 @@ export function useAgentEntityMarkers(
       debugBeacon.name = "agent-marker-DEBUG-BEACON";
       debugBeacon.renderOrder = 9999;
       debugBeacon.frustumCulled = false;
-      debugBeacon.position.set(0, 30, 0);
+      debugBeacon.position.set(
+        sceneRefs.worldCenterOffset,
+        sceneRefs.getTerrainHeight(
+          sceneRefs.worldCenterOffset,
+          sceneRefs.worldCenterOffset,
+        ) + 30,
+        sceneRefs.worldCenterOffset,
+      );
       group.add(debugBeacon);
 
       // Log the full scene path so we can verify what we're
@@ -130,24 +137,32 @@ export function useAgentEntityMarkers(
     }
     const parent = groupRef.current;
 
-    // Snap a placement onto the terrain. The agent typically emits
-    // `y: 0` (it has no terrain-height knowledge), so when y is at
-    // or near 0 we sample the terrain at (x, z) and use that
-    // instead — otherwise markers rendered on a +20m hill would be
-    // 20m underground. When y is non-trivial (agent set it
-    // explicitly, e.g. for floating teleport), we trust the
-    // emission.
+    // Convert agent's game-space coords (centered: -half..+half)
+    // to scene-space (0..worldSize). `sceneX = gameX + offset`.
+    // Without this, markers placed at game (0,0,0) end up at the
+    // scene's (0,0,0) corner — the camera defaults to the
+    // world center (~2500, 350, ~2500) so the corner is hundreds
+    // of meters off-screen. Verified against GameWorldEntitySync's
+    // header doc and the cellsbridge / arena pipelines.
+    //
+    // Also snap to terrain when the agent's y is at or near 0
+    // (the agent has no terrain-height knowledge — it picks an
+    // x,z and leaves y for the renderer). When y is non-trivial,
+    // trust the agent (e.g. floating teleport).
+    const offset = sceneRefs.worldCenterOffset;
     const groundOf = (
       pos: { x: number; y: number; z: number } | null | undefined,
     ): { x: number; y: number; z: number } => {
-      const x = pos?.x ?? 0;
-      const z = pos?.z ?? 0;
+      const gameX = pos?.x ?? 0;
+      const gameZ = pos?.z ?? 0;
       const yIn = pos?.y ?? 0;
+      const sceneX = gameX + offset;
+      const sceneZ = gameZ + offset;
       if (Math.abs(yIn) < 0.01) {
-        const terrainY = sceneRefs.getTerrainHeight(x, z);
-        return { x, y: terrainY, z };
+        const terrainY = sceneRefs.getTerrainHeight(sceneX, sceneZ);
+        return { x: sceneX, y: terrainY, z: sceneZ };
       }
-      return { x, y: yIn, z };
+      return { x: sceneX, y: yIn, z: sceneZ };
     };
 
     const liveIds = new Set<string>();
