@@ -36,7 +36,6 @@ import {
 import type { ScriptGraph } from "../../../scripting/types";
 import { createPIEPluginHooks } from "../../../pie/pluginBoot";
 import { resolveProjectPluginSet } from "../toolbar/gamePluginResolver";
-import { getAgentWorldContent } from "../state/agentWorldContent";
 import type { WidgetRegistry } from "@hyperforge/ui-framework";
 import {
   bindAllWidgets,
@@ -671,53 +670,40 @@ export function usePIESession({
       behaviorGraph: mobGraph(ms.id),
     }));
 
-    // Gather NPCs (GameEntityInfo has position: {x, z} — no y)
-    const npcs = (gameEntities?.npcs ?? []).map((npc) => ({
-      id: npc.entityId,
-      type: npc.npcType ?? "generic",
-      name: npc.name,
-      position: {
-        x: npc.position.x + offset,
-        y: 0, // Will be corrected to terrain height by the PIE world
-        z: npc.position.z + offset,
-      },
-      behaviorGraph: npcGraph(npc.entityId),
-    }));
-
-    // Merge in agent-emitted content (B1 follow-up — closes the
-    // gap where agent emissions appeared as viewport markers but
-    // didn't run as gameplay entities in PIE Play). The
-    // agentWorldContent store carries the live agent state for
-    // the active project.
-    const agentContent = getAgentWorldContent();
-    for (const [key, spawn] of agentContent.spawns) {
-      mobSpawns.push({
-        id: `agent-spawn-${key}`,
-        mobId: spawn.mobId,
-        name: spawn.mobId,
+    // Gather NPCs from BOTH manifest (gameEntities — Hyperia's
+    // hand-authored NPCs from world-areas.json) AND extendedLayers
+    // (palette-placed designer NPCs + agent emissions; both flow
+    // into extendedLayers post-P0.3+P0.6 of PLAN_AGENT_STUDIO_PARITY).
+    // The legacy `agentWorldContent.npcs/spawns` merge that used to
+    // bolt on agent content separately is no longer needed — agent
+    // entries are in extendedLayers from emission time onward.
+    //
+    // GameEntityInfo position is {x, z} (no y); extendedLayers is
+    // already in scene-space so it adds offset 0 (already-applied).
+    const npcs = [
+      ...(gameEntities?.npcs ?? []).map((npc) => ({
+        id: npc.entityId,
+        type: npc.npcType ?? "generic",
+        name: npc.name,
         position: {
-          x: spawn.position.x + offset,
-          y: spawn.position.y,
-          z: spawn.position.z + offset,
+          x: npc.position.x + offset,
+          y: 0, // Will be corrected to terrain height by the PIE world
+          z: npc.position.z + offset,
         },
-        spawnRadius: spawn.spawnRadius,
-        maxCount: spawn.maxCount,
-        behaviorGraph: undefined,
-      });
-    }
-    for (const [id, npc] of agentContent.npcs) {
-      npcs.push({
-        id: `agent-npc-${id}`,
-        type: npc.type ?? "generic",
-        name: npc.name ?? id,
+        behaviorGraph: npcGraph(npc.entityId),
+      })),
+      ...extendedLayers.npcs.map((npc) => ({
+        id: npc.id,
+        type: npc.npcTypeId ?? "generic",
+        name: npc.name,
         position: {
-          x: (npc.position?.x ?? 0) + offset,
-          y: npc.position?.y ?? 0,
-          z: (npc.position?.z ?? 0) + offset,
+          x: npc.position.x,
+          y: npc.position.y,
+          z: npc.position.z,
         },
-        behaviorGraph: undefined,
-      });
-    }
+        behaviorGraph: npcGraph(npc.id),
+      })),
+    ];
 
     // Gather resources
     const resources = extendedLayers.resources.map((res) => ({

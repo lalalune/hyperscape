@@ -1287,11 +1287,11 @@ export function ViewportContainer() {
       count += world.layers.bosses.length;
       count += world.layers.events.length;
     }
-    count += agentWorldContent.npcs.size;
+    // P0.5.b — placement kinds (npcs/spawns/resources/stations/
+    // teleports) live in extendedLayers and are already counted
+    // above. agentWorldContent now only carries quests + zones.
     count += agentWorldContent.zones.size;
-    count += agentWorldContent.spawns.size;
-    count += agentWorldContent.resources.size;
-    count += agentWorldContent.stations.size;
+    count += agentWorldContent.quests.size;
     return count;
   }, [state.extendedLayers, state.builder.editing.world, agentWorldContent]);
 

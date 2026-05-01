@@ -1,79 +1,48 @@
 /**
- * agentWorldContent — World-Studio-local state holder for
- * agent-emitted *world content* (NPC placements, zones, spawn
- * tables, quests).
+ * agentWorldContent — World-Studio-local state holder for the
+ * subset of agent-emitted *world content* that doesn't yet have a
+ * `Placed*` counterpart in `extendedLayers`: namely **quests** and
+ * **zones**.
  *
- * Phase B1 of `PLAN_AAA_QUALITY.md`. Mirrors the pattern in
- * `agentPack.ts` (module-level state + listener Set +
- * `useSyncExternalStore` hook) so the editor's rendering pipeline
- * can subscribe to agent-authored content without round-tripping
- * to the server.
- *
- * The store keeps a separate keyed map per content type so each
- * action can update its slice independently. The B1.2 slice only
- * populates `npcs`; later slices add zones/spawns/quests.
+ * P0.5.b of `PLAN_AGENT_STUDIO_PARITY.md`. The five placement
+ * kinds (NPCs, mob spawns, resources, stations, teleports) used to
+ * land here in a parallel store; they now flow through the studio
+ * reducer into `extendedLayers` (P0.3 emit + P0.6 rehydrate),
+ * sharing the gizmo / property-panel / outliner machinery with
+ * designer + procgen entries. This file is what's left for quests
+ * + zones — both will follow the same pattern in P0.7+ once they
+ * gain Placed* counterparts.
  *
  * Lifecycle:
- *   1. AutomationPanel.onPackReceived dispatches a world-content
- *      payload to `setAgentNpc(...)` / `setAgentZone(...)` etc.
- *   2. ViewportContainer subscribes via `useAgentWorldContent()`
- *      and merges the entries into its rendering pipeline next to
- *      designer-placed content.
- *   3. `clearAgentWorldContent()` empties every slice so the
- *      designer's view goes back to just the manifest content.
+ *   1. Companion's `applyTurnSideEffects` calls
+ *      `setAndPersistAgentQuest` / `setAndPersistAgentZone` when
+ *      the agent emits PROPOSE_QUEST / PROPOSE_ZONE.
+ *   2. OutlinerPanel.buildAgentContentNode subscribes via
+ *      `useAgentWorldContent()` and shows the entries under the
+ *      "AI Generated" subtree.
+ *   3. `useProjectLoader` calls
+ *      `rehydrateAgentWorldContentFromProject` on project load to
+ *      restore quests + zones from the persisted `worldContent`.
+ *   4. `clearAgentWorldContent()` empties the maps.
  */
 
 import { useSyncExternalStore } from "react";
 import {
   QuestSchema,
-  WorldAreaMobSpawnSchema,
-  WorldAreaNPCSchema,
-  WorldAreaResourceSchema,
   WorldAreaSchema,
-  WorldAreaStationSchema,
-  WorldAreaTeleportNodeSchema,
   type Quest,
   type WorldArea,
-  type WorldAreaMobSpawn,
-  type WorldAreaNPC,
-  type WorldAreaResource,
-  type WorldAreaStation,
-  type WorldAreaTeleportNode,
 } from "@hyperforge/manifest-schema";
 import { patchProjectWorldContent } from "../../../utils/worldProjectApi";
 
 export interface AgentWorldContent {
-  readonly npcs: ReadonlyMap<string, WorldAreaNPC>;
   readonly zones: ReadonlyMap<string, WorldArea>;
-  readonly spawns: ReadonlyMap<string, WorldAreaMobSpawn>;
   readonly quests: ReadonlyMap<string, Quest>;
-  /**
-   * Gathering resources placed by the agent — trees, rocks,
-   * fishing spots, etc. Keyed by composite resourceId+position
-   * (resources don't have a unique top-level id, so two oak trees
-   * at different points each get their own entry).
-   */
-  readonly resources: ReadonlyMap<string, WorldAreaResource>;
-  /**
-   * Crafting stations placed by the agent — anvils, furnaces,
-   * cooking ranges, banks. Keyed by station `id` (unique per pack).
-   */
-  readonly stations: ReadonlyMap<string, WorldAreaStation>;
-  /**
-   * Teleport nodes placed by the agent — lodestones, portals,
-   * shortcuts. Keyed by teleport `id` (unique per project).
-   */
-  readonly teleports: ReadonlyMap<string, WorldAreaTeleportNode>;
 }
 
 let state: AgentWorldContent = {
-  npcs: new Map(),
   zones: new Map(),
-  spawns: new Map(),
   quests: new Map(),
-  resources: new Map(),
-  stations: new Map(),
-  teleports: new Map(),
 };
 const listeners = new Set<() => void>();
 
@@ -100,26 +69,9 @@ function issuesFrom(err: {
 }
 
 /**
- * Validate + store an NPC placement. Replaces any existing entry
- * with the same id. The schema is the same one
- * `PROPOSE_NPC_PLACEMENT` validates against, so this is a
- * defensive re-check at the editor seam.
+ * Validate + store a zone (named bounded region). Replaces any
+ * existing zone with the same id.
  */
-export function setAgentNpc(
-  raw: WorldAreaNPC | unknown,
-): ValidationOk<WorldAreaNPC> | ValidationFail {
-  const result = WorldAreaNPCSchema.safeParse(raw);
-  if (!result.success) {
-    return { ok: false, issues: issuesFrom(result.error) };
-  }
-  const entity = result.data;
-  const npcs = new Map(state.npcs);
-  npcs.set(entity.id, entity);
-  state = { ...state, npcs };
-  notify();
-  return { ok: true, entity };
-}
-
 export function setAgentZone(
   raw: WorldArea | unknown,
 ): ValidationOk<WorldArea> | ValidationFail {
@@ -135,87 +87,9 @@ export function setAgentZone(
   return { ok: true, entity };
 }
 
-export function setAgentSpawn(
-  raw: WorldAreaMobSpawn | unknown,
-  spawnKey: string,
-): ValidationOk<WorldAreaMobSpawn> | ValidationFail {
-  const result = WorldAreaMobSpawnSchema.safeParse(raw);
-  if (!result.success) {
-    return { ok: false, issues: issuesFrom(result.error) };
-  }
-  const entity = result.data;
-  const spawns = new Map(state.spawns);
-  spawns.set(spawnKey, entity);
-  state = { ...state, spawns };
-  notify();
-  return { ok: true, entity };
-}
-
-/**
- * Validate + store a gathering resource. Resources don't have a
- * unique top-level id, so the caller passes a composite key
- * (typically `resourceKey(resourceId, position)`). Same pattern
- * as mob spawns.
- */
-export function setAgentResource(
-  raw: WorldAreaResource | unknown,
-  resourceKey: string,
-): ValidationOk<WorldAreaResource> | ValidationFail {
-  const result = WorldAreaResourceSchema.safeParse(raw);
-  if (!result.success) {
-    return { ok: false, issues: issuesFrom(result.error) };
-  }
-  const entity = result.data;
-  const resources = new Map(state.resources);
-  resources.set(resourceKey, entity);
-  state = { ...state, resources };
-  notify();
-  return { ok: true, entity };
-}
-
-/**
- * Validate + store a crafting station. Stations have a unique id
- * (anvil-1, smithy-furnace), so we key by id directly — same
- * pattern as NPCs.
- */
-export function setAgentStation(
-  raw: WorldAreaStation | unknown,
-): ValidationOk<WorldAreaStation> | ValidationFail {
-  const result = WorldAreaStationSchema.safeParse(raw);
-  if (!result.success) {
-    return { ok: false, issues: issuesFrom(result.error) };
-  }
-  const entity = result.data;
-  const stations = new Map(state.stations);
-  stations.set(entity.id, entity);
-  state = { ...state, stations };
-  notify();
-  return { ok: true, entity };
-}
-
-/**
- * Validate + store a teleport node. Teleports have a unique id
- * (per-project), so we key by id directly — same pattern as NPCs
- * and stations.
- */
-export function setAgentTeleport(
-  raw: WorldAreaTeleportNode | unknown,
-): ValidationOk<WorldAreaTeleportNode> | ValidationFail {
-  const result = WorldAreaTeleportNodeSchema.safeParse(raw);
-  if (!result.success) {
-    return { ok: false, issues: issuesFrom(result.error) };
-  }
-  const entity = result.data;
-  const teleports = new Map(state.teleports);
-  teleports.set(entity.id, entity);
-  state = { ...state, teleports };
-  notify();
-  return { ok: true, entity };
-}
-
 /**
  * Validate + store a quest. Replaces any existing quest with the
- * same id (the schema requires `id`). Phase A1 of the AAA gap audit.
+ * same id.
  */
 export function setAgentQuest(
   raw: Quest | unknown,
@@ -233,56 +107,31 @@ export function setAgentQuest(
 }
 
 /**
- * Phase B4 of the AAA gap audit. Replace the in-memory store with
- * a fresh snapshot built from a project's `worldContent`. Called
- * by `useProjectLoader` after the project loads from the server,
- * so a refresh doesn't lose the agent's prior work.
+ * Replace the in-memory store with a fresh snapshot built from a
+ * project's `worldContent`. Called by `useProjectLoader` after the
+ * project loads from the server.
+ *
+ * P0.5.b: scope reduced to quests + zones. The five placement
+ * kinds are rehydrated by
+ * `rehydrateExtendedLayersFromWorldContent` instead — see
+ * `utils/rehydrateExtendedLayers.ts`.
  *
  * Each entry is re-validated against its schema. Malformed entries
  * are dropped silently (the store cannot hold invalid data) and
  * counted in the return value so the caller can surface a warning.
- *
- * Spawn keys: spawns have no schema-level id, so we recompose the
- * same `mobId@x,y,z` key the companion uses when persisting agent
- * emissions. This means "two goblin spawns at exactly the same
- * point" collapses to one entry — which is correct (the schema
- * allows multiple ids but the runtime would render them on top of
- * each other anyway).
  */
 export function rehydrateAgentWorldContentFromProject(
   worldContent: Record<string, unknown> | null | undefined,
 ): {
-  npcs: number;
-  spawns: number;
   zones: number;
   quests: number;
-  resources: number;
-  stations: number;
-  teleports: number;
   dropped: number;
 } {
   const wc = worldContent ?? {};
-  const npcs = new Map<string, WorldAreaNPC>();
-  const spawns = new Map<string, WorldAreaMobSpawn>();
   const zones = new Map<string, WorldArea>();
   const quests = new Map<string, Quest>();
-  const resources = new Map<string, WorldAreaResource>();
-  const stations = new Map<string, WorldAreaStation>();
-  const teleports = new Map<string, WorldAreaTeleportNode>();
   let dropped = 0;
 
-  // P0.6 of PLAN_AGENT_STUDIO_PARITY — placement kinds (npcs,
-  // spawns, resources, stations, teleports) are no longer
-  // rehydrated into agentWorldContent. They flow through
-  // `rehydrateExtendedLayersFromWorldContent` into
-  // `state.extendedLayers` via the studio reducer. This function
-  // now only handles quests + zones (the kinds that don't have a
-  // Placed* counterpart in extendedLayers yet).
-  //
-  // Skipping the placement kinds prevents double-render: without
-  // this skip, an agent placement would appear once via
-  // useEditorWorldSync (from extendedLayers) AND once via
-  // useAgentEntityMarkers (from agentWorldContent).
   if (Array.isArray(wc.zones)) {
     for (const raw of wc.zones as unknown[]) {
       const r = WorldAreaSchema.safeParse(raw);
@@ -298,58 +147,31 @@ export function rehydrateAgentWorldContentFromProject(
     }
   }
 
-  state = {
-    npcs,
-    zones,
-    spawns,
-    quests,
-    resources,
-    stations,
-    teleports,
-  };
+  state = { zones, quests };
   notify();
 
   return {
-    npcs: npcs.size,
-    spawns: spawns.size,
     zones: zones.size,
     quests: quests.size,
-    resources: resources.size,
-    stations: stations.size,
-    teleports: teleports.size,
     dropped,
   };
 }
 
 /**
- * Remove an entity from the agent-world-content store by its
- * native key (npc/quest/zone use schema id; mobSpawn uses the
- * composite `mobId@x,y,z` the companion uses for persistence).
+ * Remove a quest or zone from the agent-world-content store by id.
+ * Returns true if the entity was found and removed; false if it
+ * wasn't present.
  *
- * Phase A4 of the AAA gap audit. Companion + dialog call this
- * when the agent emits `REMOVE_FROM_PROJECT`. Returns true if
- * the entity was found and removed; false if it wasn't present.
+ * Placement removals (npc / mobSpawn / resource / station /
+ * teleport) go through the studio reducer's `actions.removeNPC` /
+ * `removeMobSpawn` / etc. — see WorldStudioCompanion's removal
+ * branch.
  */
 export function removeAgentEntity(
-  kind:
-    | "npc"
-    | "quest"
-    | "zone"
-    | "mobSpawn"
-    | "resource"
-    | "station"
-    | "teleport",
+  kind: "quest" | "zone",
   key: string,
 ): boolean {
   switch (kind) {
-    case "npc": {
-      if (!state.npcs.has(key)) return false;
-      const npcs = new Map(state.npcs);
-      npcs.delete(key);
-      state = { ...state, npcs };
-      notify();
-      return true;
-    }
     case "quest": {
       if (!state.quests.has(key)) return false;
       const quests = new Map(state.quests);
@@ -366,64 +188,7 @@ export function removeAgentEntity(
       notify();
       return true;
     }
-    case "mobSpawn": {
-      if (!state.spawns.has(key)) return false;
-      const spawns = new Map(state.spawns);
-      spawns.delete(key);
-      state = { ...state, spawns };
-      notify();
-      return true;
-    }
-    case "resource": {
-      if (!state.resources.has(key)) return false;
-      const resources = new Map(state.resources);
-      resources.delete(key);
-      state = { ...state, resources };
-      notify();
-      return true;
-    }
-    case "station": {
-      if (!state.stations.has(key)) return false;
-      const stations = new Map(state.stations);
-      stations.delete(key);
-      state = { ...state, stations };
-      notify();
-      return true;
-    }
-    case "teleport": {
-      if (!state.teleports.has(key)) return false;
-      const teleports = new Map(state.teleports);
-      teleports.delete(key);
-      state = { ...state, teleports };
-      notify();
-      return true;
-    }
   }
-}
-
-/**
- * Compose the `mobId@x,y,z` key the companion / rehydrator both
- * use. Exported so removal-by-position lookups can build the key
- * the same way without duplicating the logic.
- */
-export function mobSpawnKey(
-  mobId: string,
-  position: { x: number; y: number; z: number },
-): string {
-  return `${mobId}@${position.x},${position.y},${position.z}`;
-}
-
-/**
- * Compose the `resourceId@x,y,z` key for resource entries.
- * Same pattern as mobSpawnKey — resources don't have unique ids
- * (multiple oak trees are all `tree_oak`), so position
- * disambiguates.
- */
-export function resourceKey(
-  resourceId: string,
-  position: { x: number; y: number; z: number },
-): string {
-  return `${resourceId}@${position.x},${position.y},${position.z}`;
 }
 
 /**
@@ -433,14 +198,7 @@ export function resourceKey(
  */
 export async function removeAndPersistAgentEntity(
   projectId: string | null,
-  kind:
-    | "npc"
-    | "quest"
-    | "zone"
-    | "mobSpawn"
-    | "resource"
-    | "station"
-    | "teleport",
+  kind: "quest" | "zone",
   key: string,
 ): Promise<
   | { ok: true; removed: boolean }
@@ -459,25 +217,12 @@ export async function removeAndPersistAgentEntity(
 }
 
 export function clearAgentWorldContent(): void {
-  if (
-    state.npcs.size === 0 &&
-    state.zones.size === 0 &&
-    state.spawns.size === 0 &&
-    state.quests.size === 0 &&
-    state.resources.size === 0 &&
-    state.stations.size === 0 &&
-    state.teleports.size === 0
-  ) {
+  if (state.zones.size === 0 && state.quests.size === 0) {
     return;
   }
   state = {
-    npcs: new Map(),
     zones: new Map(),
-    spawns: new Map(),
     quests: new Map(),
-    resources: new Map(),
-    stations: new Map(),
-    teleports: new Map(),
   };
   notify();
 }
@@ -494,19 +239,13 @@ function subscribe(listener: () => void): () => void {
 }
 
 const SSR_SNAPSHOT: AgentWorldContent = {
-  npcs: new Map(),
   zones: new Map(),
-  spawns: new Map(),
   quests: new Map(),
-  resources: new Map(),
-  stations: new Map(),
-  teleports: new Map(),
 };
 
 /**
- * React hook — re-renders when any slice of the agent-world
- * content store changes. Consumers typically read just one slice
- * (e.g. `useAgentWorldContent().npcs`) and `useMemo` over it.
+ * React hook — re-renders when the quest or zone slice of the
+ * agent-world-content store changes.
  */
 export function useAgentWorldContent(): AgentWorldContent {
   return useSyncExternalStore(
@@ -516,7 +255,7 @@ export function useAgentWorldContent(): AgentWorldContent {
   );
 }
 
-// ============== Phase B0'.G — Project persistence ==============
+// ============== Project persistence ==============
 
 interface PersistOk {
   readonly ok: true;
@@ -528,20 +267,11 @@ interface PersistFail {
 
 /**
  * Snapshot the current local agent-world-content store and POST
- * it to the active project as a `worldContent` patch. After this
- * resolves, the agent's NPC / zone / spawn content is persisted
- * server-side and survives reload.
+ * it to the active project as a `worldContent` patch.
  *
- * Phase B0'.G of `PLAN_PROJECT_AS_DATA.md`. Today's local store
- * still drives the editor's viewport (so designer-feedback is
- * instant); this function is the durability path. Future cut
- * (B0'.G.2) flips reads to come from the project's worldContent
- * directly, retiring the local store as a transient cache.
- *
- * Caller is `AutomationPanel.onPackReceived` / equivalent —
- * pass the active project id from `state.project.currentProjectId`.
- * No-ops with `{ ok: false, error: "no active project" }` when
- * called without a project loaded.
+ * P0.5.b: only patches quests + zones. The five placement kinds
+ * are persisted via `useAutoSave` (which serializes
+ * `extendedLayers`); they don't flow through this path anymore.
  */
 export async function persistAgentWorldContentToProject(
   projectId: string | null,
@@ -550,30 +280,12 @@ export async function persistAgentWorldContentToProject(
     return { ok: false, error: "no active project" };
   }
   const snapshot = state;
-  // Convert ReadonlyMap → array for the JSON wire format. Matches
-  // the shape `ProjectWorldContentSchema` in manifest-schema
-  // expects: `{ npcs?: WorldAreaNPC[], zones?: WorldArea[], ... }`.
   const patch: Record<string, unknown> = {};
-  if (snapshot.npcs.size > 0) {
-    patch.npcs = Array.from(snapshot.npcs.values());
-  }
   if (snapshot.zones.size > 0) {
     patch.zones = Array.from(snapshot.zones.values());
   }
-  if (snapshot.spawns.size > 0) {
-    patch.spawns = Array.from(snapshot.spawns.values());
-  }
   if (snapshot.quests.size > 0) {
     patch.quests = Array.from(snapshot.quests.values());
-  }
-  if (snapshot.resources.size > 0) {
-    patch.resources = Array.from(snapshot.resources.values());
-  }
-  if (snapshot.stations.size > 0) {
-    patch.stations = Array.from(snapshot.stations.values());
-  }
-  if (snapshot.teleports.size > 0) {
-    patch.teleports = Array.from(snapshot.teleports.values());
   }
 
   if (Object.keys(patch).length === 0) {
@@ -592,125 +304,7 @@ export async function persistAgentWorldContentToProject(
 }
 
 /**
- * One-shot: validate a single NPC, update the local store, then
- * persist to the project. Convenience wrapper combining
- * `setAgentNpc(...)` + `persistAgentWorldContentToProject(...)`.
- *
- * Returns the union of validation + persistence outcomes so the
- * caller can branch on either failure mode.
- */
-export async function setAndPersistAgentNpc(
-  projectId: string | null,
-  raw: WorldAreaNPC | unknown,
-): Promise<
-  | { ok: true; entity: WorldAreaNPC }
-  | { ok: false; stage: "validate"; issues: ValidationFail["issues"] }
-  | { ok: false; stage: "persist"; error: string }
-> {
-  const validation = setAgentNpc(raw);
-  if (!validation.ok) {
-    return { ok: false, stage: "validate", issues: validation.issues };
-  }
-  const persist = await persistAgentWorldContentToProject(projectId);
-  if (!persist.ok) {
-    return { ok: false, stage: "persist", error: persist.error };
-  }
-  return { ok: true, entity: validation.entity };
-}
-
-/**
- * Validate + store + persist a mob spawn in one shot.
- * Phase A2 of the AAA gap audit.
- *
- * Spawn keys aren't part of the schema (mob spawns don't have an
- * `id` field — multiple goblin spawns can coexist). The caller
- * provides a key (e.g. `"agent-spawn-0"`, `"agent-spawn-1"`); the
- * dialog passes the run-relative index for stable identity within
- * a single agent run.
- */
-export async function setAndPersistAgentSpawn(
-  projectId: string | null,
-  raw: WorldAreaMobSpawn | unknown,
-  spawnKey: string,
-): Promise<
-  | { ok: true; entity: WorldAreaMobSpawn }
-  | { ok: false; stage: "validate"; issues: ValidationFail["issues"] }
-  | { ok: false; stage: "persist"; error: string }
-> {
-  const validation = setAgentSpawn(raw, spawnKey);
-  if (!validation.ok) {
-    return { ok: false, stage: "validate", issues: validation.issues };
-  }
-  const persist = await persistAgentWorldContentToProject(projectId);
-  if (!persist.ok) {
-    return { ok: false, stage: "persist", error: persist.error };
-  }
-  return { ok: true, entity: validation.entity };
-}
-
-/** Validate + store + persist a gathering resource. Same pattern as spawns. */
-export async function setAndPersistAgentResource(
-  projectId: string | null,
-  raw: WorldAreaResource | unknown,
-  resourceKeyValue: string,
-): Promise<
-  | { ok: true; entity: WorldAreaResource }
-  | { ok: false; stage: "validate"; issues: ValidationFail["issues"] }
-  | { ok: false; stage: "persist"; error: string }
-> {
-  const validation = setAgentResource(raw, resourceKeyValue);
-  if (!validation.ok) {
-    return { ok: false, stage: "validate", issues: validation.issues };
-  }
-  const persist = await persistAgentWorldContentToProject(projectId);
-  if (!persist.ok) {
-    return { ok: false, stage: "persist", error: persist.error };
-  }
-  return { ok: true, entity: validation.entity };
-}
-
-/** Validate + store + persist a crafting station. */
-export async function setAndPersistAgentStation(
-  projectId: string | null,
-  raw: WorldAreaStation | unknown,
-): Promise<
-  | { ok: true; entity: WorldAreaStation }
-  | { ok: false; stage: "validate"; issues: ValidationFail["issues"] }
-  | { ok: false; stage: "persist"; error: string }
-> {
-  const validation = setAgentStation(raw);
-  if (!validation.ok) {
-    return { ok: false, stage: "validate", issues: validation.issues };
-  }
-  const persist = await persistAgentWorldContentToProject(projectId);
-  if (!persist.ok) {
-    return { ok: false, stage: "persist", error: persist.error };
-  }
-  return { ok: true, entity: validation.entity };
-}
-
-/** Validate + store + persist a teleport node. */
-export async function setAndPersistAgentTeleport(
-  projectId: string | null,
-  raw: WorldAreaTeleportNode | unknown,
-): Promise<
-  | { ok: true; entity: WorldAreaTeleportNode }
-  | { ok: false; stage: "validate"; issues: ValidationFail["issues"] }
-  | { ok: false; stage: "persist"; error: string }
-> {
-  const validation = setAgentTeleport(raw);
-  if (!validation.ok) {
-    return { ok: false, stage: "validate", issues: validation.issues };
-  }
-  const persist = await persistAgentWorldContentToProject(projectId);
-  if (!persist.ok) {
-    return { ok: false, stage: "persist", error: persist.error };
-  }
-  return { ok: true, entity: validation.entity };
-}
-
-/**
- * Validate + store + persist a zone. Mirrors the npc/quest path.
+ * Validate + store + persist a zone in one shot.
  */
 export async function setAndPersistAgentZone(
   projectId: string | null,
@@ -732,7 +326,7 @@ export async function setAndPersistAgentZone(
 }
 
 /**
- * Validate + store + persist a quest. Phase A1 of the AAA gap audit.
+ * Validate + store + persist a quest in one shot.
  */
 export async function setAndPersistAgentQuest(
   projectId: string | null,

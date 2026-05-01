@@ -495,54 +495,70 @@ function CompanionInner({ projectId }: { projectId: string }) {
         );
       }
 
-      // A3 — snapshot the agent's currently-accumulated content so
-      // GET_PROJECT_STATE returns "what the user can already see"
-      // not what the agent thinks it has emitted in this run.
+      // P0.5.b of PLAN_AGENT_STUDIO_PARITY — placements are now in
+      // extendedLayers (designer + agent + procgen all merged via
+      // P0.3 emit + P0.6 rehydrate). The agent's GET_PROJECT_STATE
+      // sees ONE consolidated world from a single source instead
+      // of the dual-store merge this used to do.
+      //
+      // Quests + zones still flow through agentWorldContent until
+      // P0.7+ migrates them — read from there for those two kinds.
+      // Position is converted from scene-space (extendedLayers) to
+      // game-space (the agent's convention) by subtracting the
+      // worldCenterOffset.
       const wc = getAgentWorldContent();
-      // Merge designer-placed entities (extendedLayers — palette
-      // drag/drop, procgen, brush placements) with agent-emitted
-      // ones (agentWorldContent) so GET_PROJECT_STATE reflects the
-      // FULL world. Without this the agent thinks the project is
-      // empty whenever the user has placed things by hand instead
-      // of through chat.
       const ext = state.extendedLayers;
+      const offset = placementDispatcher.worldCenterOffset;
+      const toGameSpace = (p: { x: number; y: number; z: number }) => ({
+        x: p.x - offset,
+        y: p.y,
+        z: p.z - offset,
+      });
       const projectContext = {
         projectId,
         templateId,
         plugins: projectPlugins,
         assetPacks: resolvedAssetPacks,
         worldContent: {
-          npcs: [
-            ...Array.from(wc.npcs.values()),
-            ...ext.npcs.map((n) => ({
-              id: n.id,
-              name: n.name,
-              type:
-                (n as { npcType?: string; npcTypeId?: string }).npcType ??
-                (n as { npcTypeId?: string }).npcTypeId ??
-                "generic",
-              position: n.position,
-              source: "designer",
-            })),
-          ],
-          spawns: [
-            ...Array.from(wc.spawns.values()),
-            ...ext.mobSpawns.map((m) => ({
-              mobId: m.mobId,
-              position: m.position,
-              maxCount: m.maxCount,
-              spawnRadius: m.spawnRadius,
-              source: "designer",
-            })),
-          ],
-          zones: Array.from(wc.zones.values()),
-          quests: Array.from(wc.quests.values()),
+          npcs: ext.npcs.map((n) => ({
+            id: n.id,
+            name: n.name,
+            type:
+              (n as { npcType?: string; npcTypeId?: string }).npcType ??
+              (n as { npcTypeId?: string }).npcTypeId ??
+              "generic",
+            position: toGameSpace(n.position),
+            source: (n as { source?: string }).source ?? "designer",
+          })),
+          spawns: ext.mobSpawns.map((m) => ({
+            id: m.id,
+            mobId: m.mobId,
+            position: toGameSpace(m.position),
+            maxCount: m.maxCount,
+            spawnRadius: m.spawnRadius,
+            source: m.source ?? "designer",
+          })),
           resources: ext.resources.map((r) => ({
+            id: r.id,
             resourceId: r.resourceId,
             type: r.resourceType,
-            position: r.position,
+            position: toGameSpace(r.position),
+            source: r.source ?? "designer",
+          })),
+          stations: ext.stations.map((s) => ({
+            id: s.id,
+            type: s.stationType,
+            position: toGameSpace(s.position),
+            source: s.source ?? "designer",
+          })),
+          teleports: ext.teleports.map((t) => ({
+            id: t.id,
+            name: t.name,
+            position: toGameSpace(t.position),
             source: "designer",
           })),
+          zones: Array.from(wc.zones.values()),
+          quests: Array.from(wc.quests.values()),
         },
       };
 

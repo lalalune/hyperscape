@@ -1654,58 +1654,19 @@ export const OutlinerPanel = React.memo(function OutlinerPanel() {
 function buildAgentContentNode(
   content: ReturnType<typeof useAgentWorldContent>,
 ): HierarchyNode | null {
-  const totalCount =
-    content.npcs.size +
-    content.spawns.size +
-    content.quests.size +
-    content.zones.size +
-    content.resources.size +
-    content.stations.size +
-    content.teleports.size;
+  // P0.5.b of PLAN_AGENT_STUDIO_PARITY — placement kinds (npcs,
+  // spawns, resources, stations, teleports) no longer flow
+  // through agentWorldContent. They live in `extendedLayers`
+  // alongside designer + procgen entries (P0.3 emit + P0.6
+  // rehydrate) and render in the studio's existing "Game
+  // Entities" subtree, color-coded by `source: "agent"` via the
+  // SourceIndicator (P0.4). This subtree now only surfaces the
+  // two kinds without a Placed* counterpart yet — quests + zones
+  // — until P0.7+ migrates them too.
+  const totalCount = content.quests.size + content.zones.size;
   if (totalCount === 0) return null;
 
   const folders: HierarchyNode[] = [];
-
-  if (content.npcs.size > 0) {
-    folders.push({
-      id: "ai-npcs",
-      label: "NPCs",
-      type: "npcs" as const,
-      badge: content.npcs.size,
-      expandable: true,
-      children: Array.from(content.npcs.values()).map((npc) => ({
-        id: `ai-npc-${npc.id}`,
-        label: npc.name ?? npc.id,
-        type: "npc" as const,
-        children: [],
-        dataId: npc.id,
-        expandable: false,
-        metadata: { npcType: npc.type, source: "agent" },
-      })),
-    });
-  }
-  if (content.spawns.size > 0) {
-    folders.push({
-      id: "ai-mob-spawns",
-      label: "Mob Spawns",
-      type: "mobSpawns" as const,
-      badge: content.spawns.size,
-      expandable: true,
-      children: Array.from(content.spawns.entries()).map(([key, spawn]) => ({
-        id: `ai-spawn-${key}`,
-        label: `${spawn.mobId} ×${spawn.maxCount}`,
-        type: "mobSpawn" as const,
-        children: [],
-        dataId: key,
-        expandable: false,
-        metadata: {
-          mobId: spawn.mobId,
-          maxCount: spawn.maxCount,
-          source: "agent",
-        },
-      })),
-    });
-  }
   if (content.quests.size > 0) {
     folders.push({
       id: "ai-quests",
@@ -1749,64 +1710,6 @@ function buildAgentContentNode(
           difficulty: zone.difficultyLevel,
           source: "agent",
         },
-      })),
-    });
-  }
-  if (content.resources.size > 0) {
-    folders.push({
-      id: "ai-resources",
-      label: "Resources",
-      type: "resources" as const,
-      badge: content.resources.size,
-      expandable: true,
-      children: Array.from(content.resources.entries()).map(([key, res]) => ({
-        id: `ai-resource-${key}`,
-        label: `${res.resourceId} (${res.type})`,
-        type: "resource" as const,
-        children: [],
-        dataId: key,
-        expandable: false,
-        metadata: {
-          resourceId: res.resourceId,
-          resourceType: res.type,
-          source: "agent",
-        },
-      })),
-    });
-  }
-  if (content.stations.size > 0) {
-    folders.push({
-      id: "ai-stations",
-      label: "Stations",
-      type: "stations" as const,
-      badge: content.stations.size,
-      expandable: true,
-      children: Array.from(content.stations.values()).map((station) => ({
-        id: `ai-station-${station.id}`,
-        label: `${station.id} (${station.type})`,
-        type: "station" as const,
-        children: [],
-        dataId: station.id,
-        expandable: false,
-        metadata: { stationType: station.type, source: "agent" },
-      })),
-    });
-  }
-  if (content.teleports.size > 0) {
-    folders.push({
-      id: "ai-teleports",
-      label: "Teleports",
-      type: "teleports" as const,
-      badge: content.teleports.size,
-      expandable: true,
-      children: Array.from(content.teleports.values()).map((tp) => ({
-        id: `ai-teleport-${tp.id}`,
-        label: `${tp.name} (${tp.type})`,
-        type: "teleport" as const,
-        children: [],
-        dataId: tp.id,
-        expandable: false,
-        metadata: { teleportType: tp.type, source: "agent" },
       })),
     });
   }
