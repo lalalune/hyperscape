@@ -40,51 +40,136 @@ can only paste Hyperia and edit on top.
 
 ## What's actually built (substrate that works)
 
+The 2026-05-01 deep audit confirmed the following substrate is
+real, generic, and reusable. It is **not** the problem.
+
+### Genuinely game-agnostic packages (audit-verified)
+
+- **`@hyperforge/manifest-schema`** — 160+ Zod schemas with
+  `.passthrough()`, no Hyperia hardcoding except in test fixtures
+  (acceptable). Schemas are extension-friendly by design.
+- **`@hyperforge/agent-runner`** — 297-line generic LLM-loop +
+  Anthropic tool adapter. Zero game-domain knowledge.
+- **`@hyperforge/gameplay-framework`** — public API facade for
+  plugin authors. Lifecycle driver, semver resolver, catalog
+  loader, snapshot. Zero `@hyperforge/shared` import. Clean.
+- **`@hyperforge/ui-framework`** — fully generic widget /
+  layout / theme / data-binding contracts. `DataSourceRegistry`
+  + `CommandRegistry` + `WidgetRegistry` + `UIPackManifest` are
+  all pluggable. Names like "prayer" are domain hints; schemas
+  are generic.
+- **`@hyperforge/widget-catalog`** — query service over a
+  `WidgetRegistry`. Designed for AI authoring. Clean.
+- **`@hyperforge/client`** (mostly) — render + network only.
+  Engine-generic except for the 27 hardcoded HUD panels (see #20).
+
+### Project / asset / agent infrastructure (works)
+
 - **Project-as-data**: typed `config` / `plugins` /
   `worldContent` columns. `WorldProjectService`,
   `world-projects.schema.ts`. B0'.A complete.
-- **Plugin registry**: 5 plugins discoverable from monorepo +
-  `node_modules/@hyperforge/`. `PluginRegistryService.ts`.
+- **`PluginRegistryService`**: discovers plugins from monorepo
+  `packages/` + `node_modules/@hyperforge/`. **Used by editor;
+  unused by the agent surface (#21).**
 - **Asset pack ecosystem**: schema, DB, marketplace UI, browser,
   WebGPU thumbnails, 10 Hyperia category packs (~142 assets).
-  `AssetPackService.ts`, `seed-hyperia-asset-pack.ts`.
-- **Agent action surface**: 15 PROPOSE_* actions (terrain,
-  plugin set, asset pack install, NPC, mob spawn, resource,
-  station, teleport, road, POI, danger source, zone, quest,
-  asset, UI pack). `eliza-game-builder/src/actions/`.
+- **Agent action surface**: 15 PROPOSE_* actions in
+  `eliza-game-builder/src/actions/`.
 - **Agent ↔ studio data unification (P0+P1)**: `extendedLayers`
-  is the single store; bidirectional WorldArea↔Placed mappers;
-  `useAgentPlacementDispatcher`; outliner color-codes by
-  `source`. PROGRESS_AUDIT REFRESH 15.
-- **Templates: 2 (`blank` + `hyperia`)** —
+  is the single store; bidirectional mappers; outliner
+  color-codes by `source`.
+- **Templates**: 2 (`blank` + `hyperia`) via
   `ProjectTemplateService.ts`.
-- **Agent terrain regen**: `PROPOSE_TERRAIN_CONFIG` triggers
-  `generateWorldFromConfig` + `actions.loadWorld`. Deep-merge
-  via `mergeProcgenConfig`.
-- **HYPERFORGE_DISABLE_ENGINE_DATA_LOAD env flag** — lets blank
+- **`HYPERFORGE_DISABLE_ENGINE_DATA_LOAD` env flag** — lets blank
   projects boot without the engine-side Hyperia manifest load.
-  `DataManager.ts:850-880`.
 
-This represents 8–10 months of legitimate substrate work. It is
-not the problem.
+This represents 8–10 months of legitimate substrate work.
+
+### What I underweighted in the original sweep
+
+Three findings made me revise upward both the substrate's quality
+and the depth of the Hyperia bake:
+
+1. **The substrate is cleaner than I thought** —
+   `gameplay-framework`, `ui-framework`, `manifest-schema`,
+   `agent-runner`, `widget-catalog` are genuinely framework-grade.
+   The composability story works at the contract layer.
+
+2. **The bake is deeper than I thought** — Hyperia is welded into
+   `shared`'s engine types (`hyperiaPlayerId`, `BiomeType` enum,
+   `HyperiaError` class names), into `procgen` (oak-specific
+   `LeafShape`, 3-biome `GrassWorker`, 18 named tree presets),
+   into the server tick (`GameTickProcessor`'s NPC-first ordering
+   with "OSRS combat feel" comment), and into the client HUD (27
+   hardcoded panels). The editor's pinch points (#1–#11) were
+   the *visible* layer; the engine, server, and client carry
+   their own.
+
+3. **Plugin manifest contributions don't fire at runtime
+   (#24)** — `plugin.json` declares `entityTypes`, `widgets`,
+   `manifestSchemas`, `paletteCategories`, `toolbarTools`,
+   `commands`. The runtime never reads them. They populate a
+   debug snapshot. Plugins register via `onLoad`/`onEnable`
+   callbacks instead. This is the worst kind of slop because
+   the manifest *looks* like substrate but isn't.
 
 ---
 
 ## The pinch points (where Hyperia is baked in below the substrate)
 
+> The 27 pinch points below are grouped by layer. **Layer A** (#1–#11) was identified
+> in the original sweep. **Layer B** (#12–#17) emerged from auditing the engine /
+> server / client / procgen packages. **Layer C** (#18–#23) emerged from auditing
+> the agent + plugin scaffolding + UI widget packages. **Layer D** (#24–#27) is
+> declared-but-unread contribution surface — the most insidious kind, because
+> the substrate looks correct on paper but doesn't fire at runtime.
+
+### Layer A — substrate-vs-Hyperia (asset-forge editor side)
+
 | # | Pinch point | File | Effect |
 |---|---|---|---|
-| 1 | **3-element plugin enum** | `gamePluginResolver.ts:30` (`type GamePluginSetId = "blank" \| "hyperscape" \| "shooter-demo"`) | `PROPOSE_PLUGIN_SET` writes arbitrary npm ids; PIE only knows how to boot 3. The plugin registry is window-dressing for a hardcoded switch. |
-| 2 | **`DEFAULT_CREATION_CONFIG` is Hyperia, misnamed "default"** | `WorldBuilder/types.ts:1442` | Sets `useGamePipeline: true`, `preset: "large-island"`, full Hyperia town + biome + vegetation configs. Every "new world" gets pasted under this. The 5e5aad816 fix made AI-built worlds use this as the base. |
-| 3 | **`GAME_BIOME_DEFINITIONS` hardcoded (tundra/forest/canyon)** | `GameTerrainAdapter.ts:49`, `GameWorldContext.ts:203` (parallel copies) | Plugins have no path to contribute new biomes. Agent prompt literally says "Hyperia ships 3 biome types: tundra, forest, canyon." |
-| 4 | **`initEntityModels()` Hyperia-coupled, runs always** | `useEditorWorldSync.ts:88` calls it; `GameWorldAssets.ts:543` fetches Hyperia-specific manifests. | Blank projects load Hyperia GLBs into the entity model cache regardless of plugins installed. The 5e5aad816 fix made this run unconditionally. |
-| 5 | **Zero non-Hyperia asset packs or plugins** | All packs are `@hyperforge/asset-pack-hyperia-*-v1` | "Compose from packs" is theoretical until a second author ships content. |
-| 6 | **Plugin contributions don't extend procgen** | `plugin.json` schema | `entityTypes[]` exists but no `BiomeContribution` / `VegetationContribution` / `TerrainPresetContribution`. Plugins can't contribute biomes, vegetation profiles, or terrain shapes. |
-| 7 | **Two parallel asset-loading systems** | `assetRefResolver` + `loadModelForScene` (pack-aware) vs `tryLoadEntityModel` + `initEntityModels` (Hyperia-manifest-aware) — `editorMarkers.ts:265` | Don't share state. Agent placement falls through to Hyperia path when assetRef is absent. |
-| 8 | **Onboarding system prompt teaches Hyperia thinking** | `agent-server/src/handler.ts:147` | "Hyperia ships 3 biome types: ..." Prompt is honest about the substrate constraint, but the constraint shouldn't exist. |
-| 9 | **Static plugin imports in `pluginBoot.ts`** | `packages/asset-forge/src/pie/pluginBoot.ts:1-30` | `combatManifest`, `skillsManifest`, `hyperscapeManifest`, `combatPluginFactory`, etc. are hardcoded `import`s. Dynamic federation hasn't started. |
-| 10 | **Agent vocabulary gaps** | `eliza-game-builder/src/actions/` | `PROPOSE_TOWN`, `PROPOSE_PATH`, `PROPOSE_WATER_BODY`, `PROPOSE_MUSIC_ZONE`, `PROPOSE_AMBIENT_ZONE`, `PROPOSE_MINE`, `PROPOSE_WILDERNESS_BOUNDARY` not implemented. `PLAN_AGENT_STUDIO_PARITY.md` P2/P3/P5/P6. |
-| 11 | **Plugin-contributable property panels (P4) not implemented** | `PropertiesPanel.tsx` | Plugins can declare `entityTypes[]` but not the editor for them. 16 hardcoded Hyperia editor components. |
+| 1 | **3-element plugin enum** | `asset-forge/src/components/WorldStudio/toolbar/gamePluginResolver.ts:30` (`type GamePluginSetId = "blank" \| "hyperscape" \| "shooter-demo"`) | `PROPOSE_PLUGIN_SET` writes arbitrary npm ids; PIE only knows how to boot 3. |
+| 2 | **`DEFAULT_CREATION_CONFIG` is Hyperia, misnamed "default"** | `asset-forge/src/components/WorldBuilder/types.ts:1442` | `useGamePipeline: true`, `preset: "large-island"`, full Hyperia town/biome/vegetation. The 5e5aad816 fix made AI-built worlds use this as the base. |
+| 3 | **`GAME_BIOME_DEFINITIONS` hardcoded (tundra/forest/canyon)** | `GameTerrainAdapter.ts:49`, `GameWorldContext.ts:203` (parallel copies) | Plugins have no path to contribute new biomes. |
+| 4 | **`initEntityModels()` Hyperia-coupled, runs always** | `useEditorWorldSync.ts:88` calls it; `GameWorldAssets.ts:543` fetches Hyperia manifests. | Blank projects load Hyperia GLBs regardless of plugins. |
+| 5 | **Zero non-Hyperia asset packs or plugins shipped** | All packs are `@hyperforge/asset-pack-hyperia-*-v1` | "Compose from packs" is theoretical until a second author ships content. |
+| 6 | **Plugin contributions don't extend procgen** | `manifest-schema/src/plugin.ts` | `entityTypes[]` exists but no `biomes` / `vegetationProfiles` / `terrainPresets`. |
+| 7 | **Two parallel asset-loading systems** | `assetRefResolver` + `loadModelForScene` (pack-aware) vs `tryLoadEntityModel` + `initEntityModels` (Hyperia-manifest-aware) — `editorMarkers.ts:265` | Agent placements fall through to the Hyperia path when assetRef is absent. |
+| 8 | **Onboarding system prompt teaches Hyperia thinking** | `agent-server/src/handler.ts:138` | "Hyperia ships 3 biome types: ..." baked into a 2000+-line static megaprompt that doesn't branch on `templateId` / `plugins`. |
+| 9 | **Static plugin imports in `pluginBoot.ts`** | `asset-forge/src/pie/pluginBoot.ts:34-50` | `combatManifest`, `skillsManifest`, `hyperscapeManifest`, factories — hardcoded `import`s. `pluginBoot.ts:80-100` has a hardcoded `switch(gameId)`. |
+| 10 | **Agent vocabulary gaps** | `eliza-game-builder/src/actions/` | `PROPOSE_TOWN`, `PROPOSE_PATH`, `PROPOSE_WATER_BODY`, `PROPOSE_MUSIC_ZONE`, `PROPOSE_AMBIENT_ZONE`, `PROPOSE_MINE`, `PROPOSE_WILDERNESS_BOUNDARY` not implemented. |
+| 11 | **Plugin-contributable property panels not implemented** | `PropertiesPanel.tsx` | 16 hardcoded Hyperia editor components. |
+
+### Layer B — engine / server / client / procgen (the deeper bake)
+
+| # | Pinch point | File | Effect |
+|---|---|---|---|
+| 12 | **Login/auth fields embedded in engine `Player` type** | `shared/src/types/entities/player-types.ts:30-90` (`hyperiaPlayerId`, `hyperiaLinked`, `hyperiaUserName`, `hyperiaUserRoles`, `fromPlayerRow(hyperiaPlayerId)`) | The "engine" is not engine-shaped — auth is welded into core types. A second game inherits Hyperia's auth model whether it wants it or not. |
+| 13 | **Database schema columns are Hyperia-specific** | `shared/src/types/network/database.ts` (`hyperiaUserId`, `hyperiaLinked`) | Same as #12 at the persistence layer. |
+| 14 | **`BiomeType` enum hardcoded at engine level** | `shared/src/world/world.d.ts:18-20` (`Tundra \| Forest \| Canyon`); `MineBiomePalette` has `readonly forest`, `readonly tundra` | Even if asset-forge fixed its parallel copies (#3), the engine still constrains procgen to 3 biomes. |
+| 15 | **`GrassWorker` hardcodes 3-biome blending** | `shared/src/utils/workers/GrassWorker.ts:90-120` (`_TUNDRA_GRASS`, `_FOREST_GRASS`, `_CANYON_SAND` constants; `blendBiome()` takes 3 args) | Adding a desert/swamp biome requires editing the worker — biomes can't be a registry-driven contribution. |
+| 16 | **`LeafShape` enum has oak-specific shapes** | `procgen/src/geometry/LeafMaterialTSL.ts:59-66` (`SpikyOak`, `RoundedOak`) | Leaf shaders assume Hyperia's tree species. |
+| 17 | **18 tree-species presets are static TypeScript** | `procgen/src/params/presets.ts:158-230` (Black Oak, Cambridge Oak, Weeping Willow, etc.) | Vegetation species can't be plugin-contributed; adding a palm tree requires editing the procgen package. |
+
+### Layer C — server boot, client HUD, agent surface, scaffolding
+
+| # | Pinch point | File | Effect |
+|---|---|---|---|
+| 18 | **`bootServerPlugins` ignores `project.plugins`** | `server/src/startup/world.ts:149`, `server/src/startup/plugins.ts:216-305` | Server uses a hardcoded gameId switch; project's declared plugins are ignored. Server-side contribution path is broken. |
+| 19 | **Server has no plugin tick / packet hooks** | `server/src/systems/GameTickProcessor.ts:6-12` (NPC-first tick order, "OSRS combat feel" comment, hardcoded `processNPCCombatTick()` + `mobMovement: MobTileMovementManager`) | Plugins can declare entity types; they cannot register tick systems or packet handlers. A second game can't add custom server logic without forking. |
+| 20 | **Client HUD is 27 hardcoded panels** | `client/src/game/interface/InterfacePanels.tsx` | No registry; plugins cannot contribute panels. Blank projects render all 27 (empty). |
+| 21 | **Hardcoded `KNOWN_PLUGINS` list in agent action** | `eliza-game-builder/src/actions/listPlugins.ts:48-68` | The agent's `LIST_PLUGINS` returns 2 entries (Hyperia, shooter-demo) — pulling from a const array, not from `PluginRegistryService`. The registry is window-dressing for the agent surface too, not just for PIE. |
+| 22 | **`plugin-scaffolder` defaults are Hyperia-shaped** | `plugin-scaffolder/src/scaffoldWidget.ts:12-13` (`DEFAULT_WIDGETS_DIR = "packages/hyperscape-plugin/src/widgets"`) | Scaffold a widget without overrides → it lands inside the Hyperia plugin. |
+| 23 | **`plugin-scaffolder` only supports widget scaffolding** | `plugin-scaffolder/src/index.ts` | No `scaffoldPlugin()`, `scaffoldSystem()`, `scaffoldEntity()`, `scaffoldManifestSchema()`. Cannot scaffold a starter plugin.json or system. |
+
+### Layer D — declared-but-unread contribution surface (the worst kind)
+
+| # | Pinch point | File | Effect |
+|---|---|---|---|
+| 24 | **Plugin manifest contributions are informational-only** | `manifest-schema/src/plugin.ts`; consumed only by `gameplay-framework/src/snapshot.ts:143-150` (counts) | `plugin.json` declares `entityTypes`, `widgets`, `manifestSchemas`, `paletteCategories`, `toolbarTools`, `commands` — runtime never reads them. They populate a debug snapshot, nothing else. Plugins register via `onLoad`/`onEnable` callbacks, so the manifest is documentation pretending to be substrate. |
+| 25 | **`bindAllWidgets` has no plugin hook** | `ui-widgets/src/bindings.ts:54-71` | The 15 builtin widget components are hardcoded; a plugin cannot contribute new widget React components through any registered path. |
+| 26 | **`ui-widgets` styling is Hyperia-locked** | `InventoryWidget.tsx:50-63` (hardcoded `PANEL_BG`, `OSRS-yellow quantity badge`); `EquipmentWidget.tsx:14` (`OSRS paperdoll figure`); `PrayerWidget.tsx:50-77` (hardcoded prayer ids `thick_skin`, `burst_of_strength`); `widgetStyles.ts` (Hyperia dark palette baked in) | Migrated widgets are Hyperia-shaped. A second game gets Hyperia's color scheme, slot sizes, OSRS prayer names whether it wants them or not. |
+| 27 | **`shared` self-identifies as the Hyperia engine** | `shared/src/index.ts:1-5` ("Hyperia 3D multiplayer game engine"); `shared/src/types/index.ts` (`HyperiaError`, `PlayerError`, `ItemError`); `shared/src/types/rendering/three-extensions.d.ts` (dead `HyperiaObject3D` type) | Branding bake-in. Affects discoverability and signals to newcomers that "shared = the Hyperia engine" instead of "shared = the engine that Hyperia runs on." |
 
 ---
 
@@ -208,26 +293,159 @@ JSON-Schema-driven panel renderer in `PropertiesPanel.tsx`.
 Required so non-Hyperia entity types are editable. Aligns with
 `PLAN_AGENT_STUDIO_PARITY.md` Phase P4.
 
+### P10 — **Wire the declared-but-unread plugin contribution surface** (M, ~5 days) — pinch points #24, #25
+
+The substrate's biggest lie. `plugin.json` contributions
+(`entityTypes`, `widgets`, `manifestSchemas`, `paletteCategories`,
+`toolbarTools`, `commands`) are validated, stored, snapshotted —
+and never read at runtime. Plugins register via callbacks
+instead. Two effects: (a) the manifest pretends to be the
+substrate but isn't, (b) tooling that walks the manifest sees
+contributions that don't exist or vice versa.
+
+This phase makes the manifest authoritative:
+
+- A `PluginContributionRegistry` reads `plugin.contributions.*`
+  arrays at plugin onLoad and registers each one against the
+  appropriate runtime registry (widgets → `WidgetRegistry`,
+  entityTypes → entity-type registry, paletteCategories →
+  editor palette, toolbarTools → toolbar slot, commands →
+  `CommandRegistry`).
+- `ui-widgets/bindings.ts` exposes `registerPluginWidgets(registry, widgets[])`
+  and the boot path calls it after `bindAllWidgets` for every
+  active plugin.
+- Tests assert that a plugin declaring a `widgets` contribution
+  in plugin.json renders that widget when its UI pack is active,
+  without that plugin needing imperative registration code.
+
+**Files**: `gameplay-framework/src/lifecycle.ts`,
+`ui-widgets/src/bindings.ts`, `manifest-schema/src/plugin.ts`,
+`hyperscape-plugin/src/index.ts` (consumer).
+
+### P11 — **Server- and client-side plugin extension hooks** (L, ~2 weeks) — pinch points #18, #19, #20
+
+Today plugins are an editor-side abstraction. They register
+nothing on the server tick and nothing on the client HUD because
+no hooks exist.
+
+- **Server**: `bootServerPlugins(world, project)` reads
+  `project.plugins[]`, dynamically imports each plugin's server
+  entry, and exposes hooks on a `ServerPluginContext`:
+  `registerTickSystem(name, system)`, `registerPacketHandler(opcode, fn)`,
+  `registerSaveColumn(name, schema)`. `GameTickProcessor` becomes a
+  generic dispatcher iterating registered systems instead of
+  hardcoding "NPCs first → Players."
+- **Client**: `client/src/game/interface/InterfacePanels.tsx`
+  becomes a registry walk (`pluginPanelRegistry.list()`) instead
+  of 27 hardcoded imports. Plugins register panels via `clientPluginContext.registerPanel(id, component)`.
+
+**Files**: `server/src/startup/plugins.ts`,
+`server/src/systems/GameTickProcessor.ts`,
+`client/src/game/interface/InterfacePanels.tsx`, plus the plugin
+context type in `gameplay-framework`.
+
+### P12 — **Detangle login / auth from engine types** (M, ~5 days) — pinch points #12, #13, #27
+
+`shared/src/types/entities/player-types.ts` has `hyperiaPlayerId`,
+`hyperiaLinked`, `hyperiaUserName`, `hyperiaUserRoles`,
+`fromPlayerRow(hyperiaPlayerId)`. The DB schema has the matching
+columns. These are auth/login fields, not engine primitives.
+
+Move them into `@hyperforge/auth-bridge` (or similar). The engine's
+`Player` type carries an opaque `externalAccountId?: string` and
+nothing else. Hyperia plugin's onEnable reads/writes its
+hyperia-specific fields via that bridge. Drop the
+`HyperiaError`/`PlayerError`/`ItemError` class names — they're not
+typed errors, just stringly-prefixed marketing. Update
+`shared/src/index.ts` header from "Hyperia 3D multiplayer game
+engine" to "HyperForge engine substrate."
+
+**Files**: `shared/src/types/entities/player-types.ts`,
+`shared/src/types/network/database.ts`, `shared/src/index.ts`,
+`shared/src/types/index.ts`, plus a new `auth-bridge` package or
+folder.
+
+### P13 — **Style + content-driven `ui-widgets`** (M, ~5 days) — pinch point #26
+
+The 15 migrated widgets bake Hyperia palette/sizing/content into
+RGBA constants and JSX. Three changes:
+
+- Replace constants with `theme` token reads (`themeToCssVars()`
+  exists; widgets must call it).
+- Drop hardcoded fallback content (e.g.,
+  `PrayerWidget.tsx:50-77`'s `thick_skin`, `burst_of_strength`
+  rows). Empty data → empty widget; a widget without data is a
+  bug for the consumer to fix, not for the widget to paper over.
+- Strip `OSRS-yellow`, `OSRS paperdoll`, `Matches gameUI.actionBar
+  tokens` comments and the values they describe — replace with
+  the actual token reads they advertise.
+
+**Files**: `ui-widgets/src/widgets/*.tsx`,
+`ui-widgets/src/widgetStyles.ts`.
+
+### P14 — **`plugin-scaffolder` for plugins, systems, entities** (M, ~5 days) — pinch points #22, #23
+
+Today the scaffolder writes widget files only and defaults their
+target to `packages/hyperscape-plugin/src/widgets`. Two changes:
+
+- Drop the Hyperia-shaped default. Callers must pass the target
+  plugin path; the scaffolder refuses if missing.
+- Add `scaffoldPlugin(spec)` (emits a starter `plugin.json` +
+  `index.ts` + factory + manifest), `scaffoldSystem(spec)`,
+  `scaffoldEntity(spec)`, `scaffoldManifestSchema(spec)`.
+  Wire one onboarding action (`PROPOSE_NEW_PLUGIN`) that
+  invokes `scaffoldPlugin` so the agent can author plugins
+  during a Design with AI session.
+
+**Files**: `plugin-scaffolder/src/scaffoldWidget.ts`,
+`plugin-scaffolder/src/scaffoldPlugin.ts` (new), agent action.
+
+### P15 — **`PluginRegistryService` is the single source of truth for the agent** (S, ~1 day) — pinch point #21
+
+Replace `eliza-game-builder/src/actions/listPlugins.ts:48-68`'s
+hardcoded `KNOWN_PLUGINS` with a runtime call to
+`PluginRegistryService.listPlugins()` (already implemented in
+asset-forge per memory 19881). The agent then sees whatever is
+on disk, not whatever was hand-curated. This is a 1-day swap once
+the service is reachable from the agent process.
+
+**Files**: `eliza-game-builder/src/actions/listPlugins.ts`,
+`agent-server/src/handler.ts` (passes registry to action context).
+
 ---
 
 ## Sequencing principle
 
+**Round 1 — surface fixes (P1, P15, P5)** that cost <2 days each
+and make the AI's behavior visibly different. P1 (named configs)
+makes the merge base honest; P15 (real plugin list) makes the
+agent see all plugins; P5 (project-scoped engine load) stops
+Hyperia data from leaking into blank projects.
+
+**Round 2 — substrate plumbing (P2, P10, P12)** turns the
+manifest from documentation into substrate. P2 makes the plugin
+enum a registry. P10 reads `plugin.contributions.*` at runtime.
+P12 detangles auth from engine types. After this round, the
+substrate matches the manifest's claims.
+
+**Round 3 — extension surface (P3, P4, P9, P11, P13)** enables
+plugins to actually shape the engine. Biomes (P3), assets (P4),
+property panels (P9), server/client hooks (P11), styled widgets
+(P13). After this, a plugin's contribution surface is real.
+
+**Round 4 — polish + scaffolding (P6, P14, P8)** makes plugins
+authorable from the AI surface. Prompt-aware (P6),
+scaffoldable (P14), broader agent vocabulary (P8).
+
+**Round 5 — acceptance test (P7)** ships a real second plugin +
+second pack and proves the framework promise.
+
 P1 first. It's the smallest move that immediately makes the
 user's complaint go away (AI worlds stop looking exactly like
-Hyperia). It also makes the next moves more visible: once
-MINIMAL is the AI default, every Hyperia leak (hardcoded biomes,
-hardcoded entity models) becomes a concrete bug to fix rather
-than "the substrate has Hyperia in it."
+Hyperia). After P1, every other Hyperia leak becomes a concrete
+bug to fix rather than "the substrate has Hyperia in it."
 
-P2 + P5 are independent quick wins.
-
-P3 + P4 are the architectural unlock — after these, plugins
-genuinely extend the engine's capabilities, and "compose a game
-from building blocks" becomes mechanically possible instead of
-vocabulary.
-
-P7 is the acceptance test. Until a second pack + second plugin
-exist, P1–P6 are theoretical claims.
+P15 + P5 are 1-day independent wins that should ship alongside P1.
 
 ---
 
