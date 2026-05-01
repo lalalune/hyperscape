@@ -1,4 +1,206 @@
-# Hyperscape Progress Audit — 2026-05-01 (REFRESH 16)
+# Hyperscape Progress Audit — 2026-05-01 (REFRESH 17)
+
+## REFRESH 17 — Wired-vs-declared trace (orphan code, dead surfaces, corrections to prior claims) (2026-05-01 late afternoon)
+
+**Branch tip:** `9d063c7df`. Continuation of REFRESH 16's audit
+cycle, deeper drill: trace actual runtime data flow vs declared
+contract surface across 4 subsystems (plugin lifecycle, asset
+loading, studio editor, agent action surface) with file:line
+verification of every claim. Findings change the cleanup-phase
+scope estimates materially.
+
+### Newly identified dead code (3 items)
+
+These surfaces exist as fully-implemented code with **zero
+runtime consumers**. Each is "wiring waiting to happen" — close
+to working, but never integrated.
+
+1. **`assetRefResolver.ts:73` — `resolveAssetRef(packId/entryId)`**
+   is fully implemented (splits ref, fetches pack manifest,
+   returns model URL). **Active call sites: 0.** Referenced only
+   in comments at `assetPackApi.ts:6` and `editorMarkers.ts:265`.
+   The pack-aware asset resolution path the architecture claims
+   to have **does not exist at runtime today** — it exists as
+   shelf-ware. **Implication for HYPERIA_DECOUPLING.P4**:
+   smaller than estimated; the function is written, just not
+   imported.
+
+2. **`/api/plugins/contributions?dir=...` endpoint** at
+   `packages/asset-forge/server/routes/plugins.ts:84-120`,
+   wired into `api-elysia.ts:441`. **Active fetchers: 0** —
+   no UI, no CLI, no test calls it. Declared "Phase I3 bridge"
+   for a UI that doesn't exist. Returns `aggregated` +
+   `origins` data.
+
+3. **`aggregateContributions()` + `computeContributionOrigins()`**
+   at `gameplay-framework/src/snapshot.ts:745-820`, exported
+   from public API at `index.ts:267-268`. **Active runtime
+   callers: 0** — only the `hyperforge-plugin` CLI's `snapshot`
+   subcommand and unit tests call them. Zero integration into
+   plugin host lifecycle.
+
+### Plugin contribution surface — definitive verification
+
+Layer D pinch point #24 traced field-by-field at
+`manifest-schema/src/plugin.ts:146-152`:
+
+| Field | Schema line | Read at runtime | Verdict |
+|---|---|---|---|
+| `systems` | :146 | NO | SNAPSHOT-ONLY |
+| `entities` | :147 | NO | SNAPSHOT-ONLY |
+| `widgets` | :148 | NO | SNAPSHOT-ONLY |
+| `manifestSchemas` | :149 | NO | SNAPSHOT-ONLY |
+| `paletteCategories` | :150 | NO | SNAPSHOT-ONLY |
+| `toolbarTools` | :151 | NO | SNAPSHOT-ONLY |
+| `commands` | :152 | NO | SNAPSHOT-ONLY |
+
+All 7 fields read only by `snapshot.ts:303-309`,
+`plugin-registry.ts:109-115`, and the
+`DesignWithAIDialog.tsx:2814` UI picker. Real registration
+happens imperatively in plugin `onEnable` callbacks
+(`ctx.registerAbility()`, `ctx.registerSkill()`,
+`ctx.widgets.register()`). **The manifest is documentation
+pretending to be substrate.** HYPERIA_DECOUPLING.P10 is the
+right size and priority.
+
+### Corrections to prior claims
+
+REFRESH 16 (and earlier audits) overstated several findings.
+Verification with file:line:
+
+1. **System prompt size** — REFRESH 16 said "2000+ lines";
+   actual: **113 lines** (`agent-server/src/handler.ts:75-187`)
+   for ONBOARDING + 48 for COMPANION + 12 for HUD = **173
+   total**. Static (no template literals). Hyperia hardcoding
+   concentrated at lines 105 (plugin choice examples), 122
+   ("Hyperia-class RPGs"), 138 ("Hyperia ships 3 biome types").
+   **Prompt is small, not bloated** — P6 (plugin-aware prompt)
+   is the right approach but smaller-scoped than thought.
+
+2. **WorldStudio editor wiring** — Earlier framing implied
+   slop. Actual: **end-to-end SOLID**. PropertiesPanel has
+   15 hardcoded cases + 1 generic `SchemaPropertyEditor`
+   default (`PropertiesPanel.tsx:251-310`) that dispatches via
+   `EntityTypeRegistry.getBySelectionType()` — already a
+   registry-based extension point, just not yet populated by
+   plugin contributions. OutlinerPanel surfaces all 8
+   extendedLayers types via `buildExtendedLayersNode`.
+   `useEditorWorldSync` renders all 8 entity types with
+   selectable+gizmo support. WorldStudioCompanion's 16
+   AI-tool-call branches are all wired to live dispatchers
+   (no logging-only stubs).
+
+3. **Agent action surface — 6 actions not in plan aggregator**
+   (newly discovered). 9 of 15 PROPOSE_* actions reach
+   `aggregatePlanFromTurns` (`handler.ts:789-870`); 6 do not:
+   STATION, TELEPORT, ROAD, POI, DANGER_SOURCE,
+   ASSET_PACK_INSTALL. They emit valid artifacts and the
+   companion editor handles them in real-time, but **onboarding
+   mode clients reconstructing state from the response plan are
+   missing 6 artifact types.** Information asymmetry between
+   modes. ~30 minutes to fix (add 6 case branches to the
+   aggregator).
+
+4. **PropertiesPanel default case is registry-driven** — the
+   prior audit's "16 hardcoded Hyperia editor components"
+   claim missed that the *default* case at L251 already routes
+   through `EntityTypeRegistry.getBySelectionType()`. Plugin
+   contribution → registry → SchemaPropertyEditor is one wiring
+   step away from working. **HYPERIA_DECOUPLING.P9 (≡
+   AGENT_STUDIO_PARITY.P4) is smaller than 2 weeks** — the
+   registry exists, the JSON-Schema renderer exists; the gap
+   is only "have plugin onEnable contribute its entity types
+   to the registry" (which is L#24 wiring). Closer to 5 days.
+
+### Asymmetry findings
+
+- **PIE has a "blank" gameId path; server does not.**
+  `pluginBoot.ts:79` returns `[]` for blank; `plugins.ts:78-95`
+  always boots at least combat + one app plugin. The server is
+  not yet aligned with project-as-data.
+- **`HYPERFORGE_DISABLE_ENGINE_DATA_LOAD` is per-deploy env
+  flag, default OFF.** Every project boots Hyperia globally
+  unless the deploy explicitly opts out. P5 makes this
+  per-project.
+- **Asset pack install is DB-only.** The `assetPacks` column
+  is read by `resolveProjectAssetPacks()` for agent context
+  (`WorldStudioCompanion.tsx:152`) and by the `EntityPalette`
+  UI for filtering. **Marker rendering at
+  `editorMarkers.ts:540-620` does not consult the installed
+  packs registry** — it only reads the hardcoded
+  `stationModelCache` / `oreModelCache` / `npcModelCache`.
+  P4 fixes this.
+
+### Revised P-phase scope estimates
+
+Three phases shrink based on this audit:
+
+| Phase | Prior estimate | Revised | Why |
+|---|---|---|---|
+| P4 (pack-aware initEntityModels) | M, ~3-5 days | S, ~2 days | `assetRefResolver` exists; wiring is import + invoke. |
+| P6 (plugin-aware prompt) | S, ~1 day | S, ~half-day | Prompt is 113 lines, not 2000+. |
+| P9 (plugin-contributable property panels) | L, ~2 weeks | M, ~5 days | `EntityTypeRegistry` + `SchemaPropertyEditor` already exist; gap is contribution → registry wiring (Layer D #24). |
+
+Two phases hold scope:
+- P10 (read plugin contributions at runtime) — **the central
+  unlock**. All 7 contribution fields confirmed snapshot-only;
+  fixing this enables P3, P9, P11.
+- P11 (server + client plugin extension hooks) — server's
+  `bootServerPlugins` + client's hardcoded 27 panels still need
+  registries.
+
+### Quick win surfaced
+
+**Fix the agent-action plan aggregator gap.** Add 6 case
+branches to `aggregatePlanFromTurns` at
+`agent-server/src/handler.ts:789-870` for STATION, TELEPORT,
+ROAD, POI, DANGER_SOURCE, ASSET_PACK_INSTALL. Restores
+information parity between onboarding mode and companion mode.
+~30 minutes, mechanical, no architectural risk. Should ship
+ahead of P1.
+
+### Live priority queue (revised)
+
+Round 0 (today, <1 hour): aggregator quick win above.
+
+Round 1 (~2 days, was ~3): P1 (named configs) + P15 (real
+plugin list) + P5 (project-scoped engine load).
+
+Round 2 (~2 weeks): P2 (plugin enum→registry) + P10 (read
+contributions at runtime) + P12 (auth out of engine types).
+
+Round 3 (~2-3 weeks, was ~3-4): P3 (plugin biomes) + P4
+(pack-aware models, smaller now) + P9 (property panels,
+smaller now) + P11 (server+client hooks) + P13 (themed
+widgets).
+
+Round 4 (~1-2 weeks, was ~2): P6 (plugin-aware prompt, smaller
+now) + P14 (broader scaffolder) + P8 (agent vocabulary).
+
+Round 5 (~1 week): P7 (acceptance test) + AI_AUTHORING_FOUNDATIONS.A5
+(demo).
+
+Total revised estimate: **~7-9 weeks** (down from 10-12) at
+one engineer.
+
+### What this means
+
+The framework is **closer to working than the surface
+suggested**. Three pieces of important code already exist as
+unconsumed implementations (`assetRefResolver`,
+`aggregateContributions`, the contributions HTTP endpoint).
+The studio editor is solid; the agent surface is 90% wired;
+property panels have a registry already. The "we are in slop
+territory" framing was correct about the symptoms but
+overstated the structural depth. The fix is mostly **wiring
+existing pieces together**, not building new substrate.
+
+The Layer D pinch point (manifest contributions are
+documentation pretending to be substrate) remains the central
+architectural gap. Everything else flows from making the
+manifest authoritative at runtime.
+
+---
 
 ## REFRESH 16 — Plan-portfolio audit + AAA % reconciliation post-deep-decoupling-audit (2026-05-01 afternoon)
 
