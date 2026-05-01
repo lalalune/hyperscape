@@ -4,14 +4,27 @@
  *
  * Boots the agent service from environment variables:
  *
- *   ANTHROPIC_API_KEY            (required)
+ *   ANTHROPIC_API_KEY            (required — use the API key for whichever
+ *                                 provider ANTHROPIC_BASE_URL points to;
+ *                                 for OpenRouter use your OpenRouter key)
+ *   ANTHROPIC_BASE_URL           (optional; override the API base URL.
+ *                                 Examples:
+ *                                   • OpenRouter (cheap; supports OSS + Gemini + Anthropic):
+ *                                     https://openrouter.ai/api/v1/anthropic
+ *                                   • AWS Bedrock proxy: <your-bedrock-proxy>
+ *                                 When unset, hits Anthropic's API directly.)
  *   HYPERFORGE_CATALOG_PATH      (optional; defaults to monorepo location)
  *   HYPERFORGE_WORKSPACE_ROOT    (optional; defaults to the monorepo root,
  *                                 found by walking up from this script
  *                                 until package.json with `workspaces` is hit)
  *   AGENT_SERVER_PORT            (optional; defaults to 5180)
  *   AGENT_SERVER_HOSTNAME        (optional; defaults to 0.0.0.0)
- *   AGENT_SERVER_MODEL           (optional; defaults to claude-sonnet-4-5)
+ *   AGENT_SERVER_MODEL           (optional; defaults to claude-sonnet-4-5.
+ *                                 For OpenRouter use the provider/model form,
+ *                                 e.g. `anthropic/claude-haiku-4-5`,
+ *                                 `google/gemini-2.0-flash-001`,
+ *                                 `meta-llama/llama-3.3-70b-instruct:free`,
+ *                                 `deepseek/deepseek-chat`)
  *
  * Loads `.env` next to this file's package.json automatically so
  * the key can live in `packages/agent-server/.env`.
@@ -96,7 +109,17 @@ function main(): void {
   });
   const stats = service.getCatalog().stats;
 
-  const anthropic = new Anthropic({ apiKey });
+  const baseURL = process.env.ANTHROPIC_BASE_URL;
+  const anthropic = new Anthropic({
+    apiKey,
+    ...(baseURL ? { baseURL } : {}),
+  });
+  if (baseURL) {
+    // eslint-disable-next-line no-console
+    console.info(
+      `[agent-server] LLM base URL overridden: ${baseURL} (model=${defaultModel})`,
+    );
+  }
   const llm: LLMClient = {
     async sendMessage(req) {
       return anthropic.messages.create({
