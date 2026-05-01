@@ -687,8 +687,67 @@ export class DataManager {
   private static wildernessBoundary: WildernessBoundaryManifest | null = null;
   private static brushOverlays: BrushOverlaysManifest | null = null;
 
+  /**
+   * R1.P5 of `PLAN_HYPERIA_DECOUPLING.md` — active project's
+   * plugin set. When set, `loadManifestsFromCDN` skips the
+   * Hyperia engine-side manifest load if the project doesn't
+   * include `@hyperforge/hyperscape`. Complements the
+   * `HYPERFORGE_DISABLE_ENGINE_DATA_LOAD` env flag (which is
+   * per-deploy) with per-project granularity.
+   *
+   * `null` (default) preserves legacy behavior: the env flag is
+   * the only knob and DataManager loads Hyperia by default.
+   * Callers (project loaders, PIE sessions, server boot) call
+   * `setActiveProjectPlugins(ids)` BEFORE `initialize()` to opt
+   * into per-project scoping.
+   */
+  private static activeProjectPlugins: ReadonlyArray<string> | null = null;
+
   private constructor() {
     // Private constructor for singleton pattern
+  }
+
+  /**
+   * R1.P5 — record the active project's plugin set. When
+   * provided AND the set doesn't include the Hyperia plugin
+   * (manifest id `com.hyperforge.hyperscape` or npm name
+   * `@hyperforge/hyperscape`), `loadManifestsFromCDN` will skip
+   * the Hyperia engine-side manifest load on init.
+   *
+   * Pass `null` to clear (revert to env-flag-only behavior).
+   * Must be called BEFORE `initialize()` to take effect for
+   * the initial load — subsequent project switches require a
+   * full re-init (DataManager isn't designed for swap-in-place;
+   * future P5+ work).
+   */
+  public static setActiveProjectPlugins(
+    plugins: ReadonlyArray<string> | null,
+  ): void {
+    DataManager.activeProjectPlugins = plugins ? plugins.map((id) => id) : null;
+  }
+
+  /**
+   * R1.P5 — read-only view of the recorded project plugin set.
+   * Primarily for tests + diagnostics; production callers should
+   * not branch on this (treat the load decision as
+   * DataManager-internal).
+   */
+  public static getActiveProjectPlugins(): ReadonlyArray<string> | null {
+    return DataManager.activeProjectPlugins;
+  }
+
+  /**
+   * R1.P5 — true when the active project's plugin set excludes
+   * Hyperia. When the set is null (no project context recorded),
+   * returns false — the env flag stays the only opt-out.
+   */
+  private static projectExcludesHyperia(): boolean {
+    const ids = DataManager.activeProjectPlugins;
+    if (!ids) return false;
+    return !ids.some(
+      (id) =>
+        id === "@hyperforge/hyperscape" || id === "com.hyperforge.hyperscape",
+    );
   }
 
   /**
@@ -854,18 +913,37 @@ export class DataManager {
         (process.versions as { bun?: string }).bun !== undefined);
 
     if (isServer) {
-      // Phase B2 (final cut) of the AAA gap audit. The
-      // `HYPERFORGE_DISABLE_ENGINE_DATA_LOAD=1` env flag tells
-      // DataManager to skip its boot-time Hyperia load. The
-      // `@hyperforge/hyperscape` plugin's `onEnable` populates the
-      // same registries when (and only when) the project installs
-      // the plugin — so blank projects ship with truly empty
-      // worldAreas / npcDefinitions / biomes registries.
+      // Phase B2 (final cut) of the AAA gap audit + R1.P5 of
+      // `PLAN_HYPERIA_DECOUPLING.md`. Two opt-outs from the
+      // boot-time Hyperia load, in priority order:
       //
-      // Default behavior (flag unset) keeps the legacy boot-load
-      // path so existing deployments continue working with no
-      // change. Flip this on the prod server once every project
-      // resolves through the typed `plugins` column.
+      //   1. `setActiveProjectPlugins([...])` recorded a project
+      //      whose plugin set excludes `@hyperforge/hyperscape`.
+      //      Per-project granularity. Set by project loaders /
+      //      PIE sessions / server boot when project context is
+      //      known.
+      //
+      //   2. `HYPERFORGE_DISABLE_ENGINE_DATA_LOAD=1` env flag.
+      //      Per-deploy escape hatch. Useful when a deploy
+      //      doesn't yet plumb project context but already wants
+      //      blank-engine boot.
+      //
+      // The `@hyperforge/hyperscape` plugin's `onEnable` populates
+      // the same registries when (and only when) the project
+      // installs the plugin — so non-Hyperia projects ship with
+      // truly empty worldAreas / npcDefinitions / biomes
+      // registries.
+      //
+      // Default behavior (no project context recorded, flag
+      // unset) keeps the legacy boot-load path so existing
+      // deployments continue working with no change.
+      if (DataManager.projectExcludesHyperia()) {
+        // eslint-disable-next-line no-console
+        console.info(
+          "[DataManager] Active project plugin set excludes @hyperforge/hyperscape — skipping engine-side Hyperia manifest load. Plugin onEnable owns registry population.",
+        );
+        return;
+      }
       if (
         typeof process !== "undefined" &&
         process.env?.HYPERFORGE_DISABLE_ENGINE_DATA_LOAD === "1"

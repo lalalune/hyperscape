@@ -22,6 +22,7 @@ import {
 import type { WorldCreationConfig, WorldData } from "../../WorldBuilder/types";
 import { generateWorldFromConfig } from "../../WorldBuilder/worldGeneration";
 import { BiomeSystem } from "@hyperforge/procgen/terrain";
+import { DataManager } from "@hyperforge/shared";
 import { GAME_BIOME_DEFINITIONS } from "../../WorldBuilder/GameTerrainAdapter";
 import {
   getWorldProject,
@@ -284,6 +285,14 @@ export function useProjectLoader(projectId: string) {
 
         // Repair biomes for worlds saved before the biome generation fix
         repairBiomes(world);
+
+        // R1.P5 — record the project's plugin set on DataManager
+        // so the next initialize() (or a PIE session boot) can
+        // skip Hyperia engine-side manifests for non-Hyperia
+        // projects. Idempotent; setting multiple times across
+        // project switches is allowed (DataManager re-init paths
+        // pick up the latest value).
+        DataManager.setActiveProjectPlugins(project.plugins ?? []);
 
         // Set project context. `templateId` + `plugins` come from
         // the typed-layer surface (B0'.A); usePIESession reads them
