@@ -423,3 +423,86 @@ describe("P1 — placement-common fields round-trip on every placement schema", 
     ).toBe(true);
   });
 });
+
+// ─────────── P2.a — WorldAreaRoad ───────────
+
+import { WorldAreaRoadSchema } from "./world-areas.js";
+
+describe("WorldAreaRoadSchema (P2.a)", () => {
+  const validRoad = {
+    id: "north-trade-road",
+    name: "Northern Trade Road",
+    path: [
+      { x: 0, y: 0, z: 0 },
+      { x: 50, y: 0, z: 30 },
+      { x: 120, y: 0, z: 80 },
+    ],
+    width: 8,
+  };
+
+  it("accepts a canonical road shape", () => {
+    expect(WorldAreaRoadSchema.safeParse(validRoad).success).toBe(true);
+  });
+
+  it("requires at least 2 waypoints in the path", () => {
+    expect(
+      WorldAreaRoadSchema.safeParse({
+        ...validRoad,
+        path: [{ x: 0, y: 0, z: 0 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      WorldAreaRoadSchema.safeParse({
+        ...validRoad,
+        path: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects non-positive width", () => {
+    expect(
+      WorldAreaRoadSchema.safeParse({ ...validRoad, width: 0 }).success,
+    ).toBe(false);
+    expect(
+      WorldAreaRoadSchema.safeParse({ ...validRoad, width: -5 }).success,
+    ).toBe(false);
+  });
+
+  it("requires id + name + path + width", () => {
+    expect(
+      WorldAreaRoadSchema.safeParse({ ...validRoad, id: undefined }).success,
+    ).toBe(false);
+    expect(
+      WorldAreaRoadSchema.safeParse({ ...validRoad, name: undefined }).success,
+    ).toBe(false);
+  });
+
+  it("accepts optional placement-common fields", () => {
+    const r = WorldAreaRoadSchema.safeParse({
+      ...validRoad,
+      source: "agent",
+      properties: { surface: "cobblestone" },
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.source).toBe("agent");
+      expect(r.data.properties).toEqual({ surface: "cobblestone" });
+    }
+  });
+
+  it("accepts optional assetRef", () => {
+    expect(
+      WorldAreaRoadSchema.safeParse({
+        ...validRoad,
+        assetRef: "@hyperforge/asset-pack-roads-v1/cobblestone",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects malformed assetRef", () => {
+    expect(
+      WorldAreaRoadSchema.safeParse({ ...validRoad, assetRef: "no-slash" })
+        .success,
+    ).toBe(false);
+  });
+});

@@ -60,6 +60,7 @@ import type {
   WorldAreaResource,
   WorldAreaStation,
   WorldAreaTeleportNode,
+  WorldAreaRoad,
 } from "@hyperforge/manifest-schema";
 
 import type {
@@ -68,7 +69,7 @@ import type {
   PlacedStation,
   PlacedTeleport,
 } from "../types";
-import type { PlacedNPC } from "../../WorldBuilder/types";
+import type { PlacedNPC, CustomRoad } from "../../WorldBuilder/types";
 
 // ───────────────── Coordinate-space conversions ─────────────────
 
@@ -416,5 +417,41 @@ export function placedTeleportToWorldArea(
     connections: placed.connections,
     assetRef,
     properties: Object.keys(props).length > 0 ? props : undefined,
+  };
+}
+
+// ───────────────── Road ─────────────────
+//
+// Roads differ from point-placements: they're polylines (a path
+// of waypoints, not a single position). Each waypoint converts
+// game ↔ scene independently. CustomRoad doesn't have rotation /
+// scale / source / sourceRegionId / properties (the studio's
+// road shape predates PlacementCommonSchema), so the agent's
+// optional metadata round-trips through `name` only — the
+// reverse mapper preserves what survived.
+//
+// CustomRoad = { id, name, path, width }
+
+export function worldAreaRoadToPlaced(
+  road: WorldAreaRoad,
+  worldCenterOffset: number,
+): CustomRoad {
+  return {
+    id: road.id,
+    name: road.name,
+    path: road.path.map((p) => gameToScene(p, worldCenterOffset)),
+    width: road.width,
+  };
+}
+
+export function placedCustomRoadToWorldArea(
+  road: CustomRoad,
+  worldCenterOffset: number,
+): WorldAreaRoad {
+  return {
+    id: road.id,
+    name: road.name,
+    path: road.path.map((p) => sceneToGame(p, worldCenterOffset)),
+    width: road.width,
   };
 }

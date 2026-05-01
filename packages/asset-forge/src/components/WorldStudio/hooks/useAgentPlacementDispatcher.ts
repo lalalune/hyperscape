@@ -34,6 +34,7 @@ import type {
   WorldAreaMobSpawn,
   WorldAreaNPC,
   WorldAreaResource,
+  WorldAreaRoad,
   WorldAreaStation,
   WorldAreaTeleportNode,
 } from "@hyperforge/manifest-schema";
@@ -44,6 +45,7 @@ import {
   worldAreaMobSpawnToPlaced,
   worldAreaNpcToPlaced,
   worldAreaResourceToPlaced,
+  worldAreaRoadToPlaced,
   worldAreaStationToPlaced,
   worldAreaTeleportToPlaced,
 } from "../utils/agentPlacementMapper";
@@ -79,6 +81,12 @@ export interface AgentPlacementDispatcher {
   placeStation: (station: WorldAreaStation) => void;
   placeTeleport: (teleport: WorldAreaTeleportNode) => void;
   /**
+   * P2.a — agent road placement. Lands in
+   * `world.layers.customRoads` via `actions.addCustomRoad`,
+   * rendered alongside the procgen-generated foundation roads.
+   */
+  placeRoad: (road: WorldAreaRoad) => void;
+  /**
    * The offset used by all the placement functions in this
    * dispatcher. Exposed so callers (companion / dialog) can
    * surface a useful diagnostic when the offset is 0 (i.e. the
@@ -104,6 +112,8 @@ export function useAgentPlacementDispatcher(): AgentPlacementDispatcher {
         actions.addStation(worldAreaStationToPlaced(station, offset)),
       placeTeleport: (teleport) =>
         actions.addTeleport(worldAreaTeleportToPlaced(teleport, offset)),
+      placeRoad: (road) =>
+        actions.addCustomRoad(worldAreaRoadToPlaced(road, offset)),
       worldCenterOffset: offset,
     }),
     [actions, offset],

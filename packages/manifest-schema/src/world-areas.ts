@@ -204,6 +204,41 @@ export type WorldAreaStation = z.infer<typeof WorldAreaStationSchema>;
  * data through `worldAreasRegistry` instead of the in-tree
  * `ALL_WORLD_AREAS` constant.
  */
+/**
+ * Road / path placed by the agent or designer. Connects two
+ * points (or, for multi-segment roads, runs through a sequence of
+ * waypoints). The studio renders these as ribbons on the terrain
+ * mesh; the runtime uses them for navmesh hints + mob patrol
+ * paths + travel UX.
+ *
+ * P2 of `PLAN_AGENT_STUDIO_PARITY.md`. Maps to `CustomRoad` in
+ * the studio (which is itself a parallel slot to the procgen-
+ * generated `GeneratedRoad`, both rendered together).
+ *
+ * Position semantics: each `path` waypoint is in game-space
+ * (centered, agent's convention). The mapper translates to
+ * scene-space when persisting into `world.layers.customRoads`.
+ *
+ * Fields:
+ *   id        — unique road id
+ *   name      — display name ("Northern Trade Road")
+ *   path      — array of {x,y,z} waypoints; minimum 2 points
+ *   width     — road width in meters; positive number
+ *   assetRef  — optional pack ref for the road texture/material
+ */
+export const WorldAreaRoadSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    path: z.array(Vec3Schema).min(2),
+    width: z.number().positive(),
+    /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
+    assetRef: AssetRefSchema.optional(),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough();
+export type WorldAreaRoad = z.infer<typeof WorldAreaRoadSchema>;
+
 export const WorldAreaTeleportNodeSchema = z
   .object({
     id: z.string().min(1),

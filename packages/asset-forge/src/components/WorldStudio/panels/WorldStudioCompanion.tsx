@@ -50,6 +50,7 @@ import type {
   WorldAreaMobSpawn,
   WorldAreaNPC,
   WorldAreaResource,
+  WorldAreaRoad,
   WorldAreaStation,
   WorldAreaTeleportNode,
 } from "@hyperforge/manifest-schema";
@@ -269,6 +270,8 @@ function CompanionInner({ projectId }: { projectId: string }) {
           data.resource !== undefined
         ) {
           placementDispatcher.placeResource(data.resource as WorldAreaResource);
+        } else if (call.name === "PROPOSE_ROAD" && data.road !== undefined) {
+          placementDispatcher.placeRoad(data.road as WorldAreaRoad);
         } else if (
           call.name === "REMOVE_FROM_PROJECT" &&
           data.removal !== undefined
@@ -995,6 +998,10 @@ const TOOL_BREADCRUMB_SUMMARY: Record<
     icon: "🌀",
     label: (n) => `Placed ${n} teleport${n === 1 ? "" : "s"}`,
   },
+  PROPOSE_ROAD: {
+    icon: "🛣️",
+    label: (n) => `Drew ${n} road${n === 1 ? "" : "s"}`,
+  },
   PROPOSE_ASSET: {
     icon: "✨",
     label: (n) => `Queued ${n} asset bake${n === 1 ? "" : "s"}`,
@@ -1040,6 +1047,8 @@ function prettifyToolName(name: string): string {
       return "Placing a station…";
     case "PROPOSE_TELEPORT":
       return "Placing a teleport…";
+    case "PROPOSE_ROAD":
+      return "Drawing a road…";
     case "REMOVE_FROM_PROJECT":
       return "Removing an entity…";
     case "GET_PROJECT_STATE":

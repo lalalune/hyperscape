@@ -31,6 +31,7 @@ import {
   type ViewMode,
   type GameEntityData,
 } from "../../WorldBuilder/TileBasedTerrain";
+import type { WorldPosition } from "../../WorldBuilder/types";
 import { useWorldStudio } from "../WorldStudioContext";
 import { useAgentWorldContent } from "../state/agentWorldContent";
 import { useEditorWorldSync } from "../hooks/useEditorWorldSync";
@@ -1298,11 +1299,22 @@ export function ViewportContainer() {
   // Memoized roads prop — avoids creating a new array reference on every render
   // (which would cause TileBasedTerrain's useEffect to fire on every MOVE_TOWN
   // re-render, overwriting providedRoadsRef with stale road data during drag).
+  // P2.a — agent + designer-authored `customRoads` (from path tool / agent's
+  // PROPOSE_ROAD) are merged in alongside procgen-generated foundation roads
+  // so the viewport renders a single unified road network.
   const foundationRoads = state.builder.editing.world?.foundation.roads;
-  const memoizedRoads = useMemo(
-    () => foundationRoads?.map((r) => ({ path: r.path, width: r.width })),
-    [foundationRoads],
-  );
+  const customRoads = state.builder.editing.world?.layers.customRoads;
+  const memoizedRoads = useMemo(() => {
+    const out: Array<{ path: WorldPosition[]; width: number }> = [];
+    if (foundationRoads) {
+      for (const r of foundationRoads)
+        out.push({ path: r.path, width: r.width });
+    }
+    if (customRoads) {
+      for (const r of customRoads) out.push({ path: r.path, width: r.width });
+    }
+    return out.length > 0 ? out : undefined;
+  }, [foundationRoads, customRoads]);
 
   // Memoized mines prop — same reason as roads above. Without memoization the
   // inline .map() creates a new array reference every render, which triggers

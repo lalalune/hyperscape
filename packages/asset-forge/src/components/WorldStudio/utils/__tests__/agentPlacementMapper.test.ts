@@ -27,11 +27,13 @@ import {
   worldAreaResourceToPlaced,
   worldAreaStationToPlaced,
   worldAreaTeleportToPlaced,
+  worldAreaRoadToPlaced,
   placedNpcToWorldArea,
   placedMobSpawnToWorldArea,
   placedResourceToWorldArea,
   placedStationToWorldArea,
   placedTeleportToWorldArea,
+  placedCustomRoadToWorldArea,
 } from "../agentPlacementMapper";
 
 // World tests use a 5km world (50 tiles × 100m = 5000m total),
@@ -594,5 +596,90 @@ describe("Teleport mapper", () => {
     };
     const back = placedTeleportToWorldArea(placed, OFFSET);
     expect(back.type).toBe("lodestone");
+  });
+});
+
+// ───────────────── Road (P2.a) ─────────────────
+
+describe("Road mapper", () => {
+  it("converts each waypoint independently from game→scene", () => {
+    const placed = worldAreaRoadToPlaced(
+      {
+        id: "north-road",
+        name: "Northern Trade Road",
+        path: [
+          { x: 0, y: 0, z: 0 },
+          { x: 50, y: 0, z: 30 },
+          { x: -100, y: 0, z: 80 },
+        ],
+        width: 8,
+      },
+      OFFSET,
+    );
+    expect(placed.id).toBe("north-road");
+    expect(placed.path).toHaveLength(3);
+    // Each waypoint gets the offset added independently.
+    expect(placed.path[0]).toEqual({ x: 2500, y: 0, z: 2500 });
+    expect(placed.path[1]).toEqual({ x: 2550, y: 0, z: 2530 });
+    expect(placed.path[2]).toEqual({ x: 2400, y: 0, z: 2580 });
+    expect(placed.width).toBe(8);
+  });
+
+  it("preserves Y values verbatim across waypoints", () => {
+    const placed = worldAreaRoadToPlaced(
+      {
+        id: "mountain-pass",
+        name: "Mountain Pass",
+        path: [
+          { x: 0, y: 100, z: 0 },
+          { x: 50, y: 250, z: 0 },
+          { x: 100, y: 100, z: 0 },
+        ],
+        width: 4,
+      },
+      OFFSET,
+    );
+    expect(placed.path[0]?.y).toBe(100);
+    expect(placed.path[1]?.y).toBe(250);
+    expect(placed.path[2]?.y).toBe(100);
+  });
+
+  it("round-trips lossless: agent → studio → agent", () => {
+    const original = {
+      id: "village-to-mine",
+      name: "Old Mining Trail",
+      path: [
+        { x: -50, y: 0, z: 100 },
+        { x: 0, y: 0, z: 50 },
+        { x: 80, y: 0, z: -20 },
+      ],
+      width: 6,
+    };
+    const placed = worldAreaRoadToPlaced(original, OFFSET);
+    const back = placedCustomRoadToWorldArea(placed, OFFSET);
+    expect(back.id).toBe(original.id);
+    expect(back.name).toBe(original.name);
+    expect(back.width).toBe(original.width);
+    expect(back.path).toHaveLength(3);
+    for (let i = 0; i < 3; i++) {
+      expect(back.path[i]?.x).toBeCloseTo(original.path[i]!.x);
+      expect(back.path[i]?.z).toBeCloseTo(original.path[i]!.z);
+    }
+  });
+
+  it("handles 2-waypoint minimum (the schema's minimum)", () => {
+    const placed = worldAreaRoadToPlaced(
+      {
+        id: "short-road",
+        name: "Short Road",
+        path: [
+          { x: 0, y: 0, z: 0 },
+          { x: 10, y: 0, z: 10 },
+        ],
+        width: 4,
+      },
+      OFFSET,
+    );
+    expect(placed.path).toHaveLength(2);
   });
 });

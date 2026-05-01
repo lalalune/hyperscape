@@ -24,6 +24,7 @@ import { proposeResourceAction } from "../actions/proposeResource.js";
 import { proposeMobSpawnAction } from "../actions/proposeMobSpawn.js";
 import { proposeStationAction } from "../actions/proposeStation.js";
 import { proposeTeleportAction } from "../actions/proposeTeleport.js";
+import { proposeRoadAction } from "../actions/proposeRoad.js";
 import {
   PROJECT_CONTEXT_SERVICE_TYPE,
   makeProjectContextService,
@@ -662,5 +663,90 @@ describe("Layer B placement validators (via propose actions)", () => {
     expect(data.teleport.assetRef).toBe(
       "@hyperforge/asset-pack-hyperia-portals-v1/lodestone",
     );
+  });
+
+  it("PROPOSE_ROAD happy path with multi-waypoint path", async () => {
+    const runtime = runtimeWithCtx({
+      plugins: ["com.hyperforge.hyperscape"],
+      assetPacks: [],
+    });
+    const r = await proposeRoadAction.handler(
+      runtime,
+      makeMessage(""),
+      undefined,
+      {
+        road: {
+          id: "north-trade-road",
+          name: "Northern Trade Road",
+          path: [
+            { x: 0, y: 0, z: 0 },
+            { x: 50, y: 0, z: 30 },
+            { x: 120, y: 0, z: 80 },
+          ],
+          width: 8,
+        },
+      },
+      undefined,
+    );
+    expect(r?.success).toBe(true);
+    const data = r?.data as {
+      road: {
+        id: string;
+        name: string;
+        path: Array<{ x: number; y: number; z: number }>;
+        width: number;
+      };
+    };
+    expect(data.road.id).toBe("north-trade-road");
+    expect(data.road.path).toHaveLength(3);
+    expect(data.road.width).toBe(8);
+  });
+
+  it("PROPOSE_ROAD rejects fewer than 2 waypoints", async () => {
+    const runtime = runtimeWithCtx({
+      plugins: ["com.hyperforge.hyperscape"],
+      assetPacks: [],
+    });
+    const r = await proposeRoadAction.handler(
+      runtime,
+      makeMessage(""),
+      undefined,
+      {
+        road: {
+          id: "lonely",
+          name: "Lonely Path",
+          path: [{ x: 0, y: 0, z: 0 }],
+          width: 4,
+        },
+      },
+      undefined,
+    );
+    expect(r?.success).toBe(false);
+    expect(String(r?.text)).toContain("Road invalid");
+  });
+
+  it("PROPOSE_ROAD rejects non-positive width", async () => {
+    const runtime = runtimeWithCtx({
+      plugins: ["com.hyperforge.hyperscape"],
+      assetPacks: [],
+    });
+    const r = await proposeRoadAction.handler(
+      runtime,
+      makeMessage(""),
+      undefined,
+      {
+        road: {
+          id: "weird",
+          name: "Weird",
+          path: [
+            { x: 0, y: 0, z: 0 },
+            { x: 1, y: 0, z: 1 },
+          ],
+          width: 0,
+        },
+      },
+      undefined,
+    );
+    expect(r?.success).toBe(false);
   });
 });
