@@ -142,6 +142,30 @@ export async function runAgentLoop(
       max_tokens: maxTokens,
     });
 
+    // Defensive — providers behind ANTHROPIC_BASE_URL (OpenRouter,
+    // proxies, etc.) sometimes return a body without `content` when
+    // the model doesn't support the requested capability or the
+    // request errored at the provider's gateway. Surface a clear
+    // error with the actual response so we can diagnose, instead
+    // of letting `.filter` blow up with "undefined is not an object".
+    if (!response || !Array.isArray(response.content)) {
+      const preview =
+        response && typeof response === "object"
+          ? JSON.stringify(response).slice(0, 500)
+          : String(response);
+      throw new Error(
+        `LLM returned a malformed response (no \`content\` array). ` +
+          `If you set ANTHROPIC_BASE_URL, this often means: ` +
+          `(a) the model doesn't support tool-calling through the ` +
+          `Anthropic-compat shim, ` +
+          `(b) the provider returned an error envelope (rate-limited, ` +
+          `model not found, billing issue), or ` +
+          `(c) the baseURL is wrong (must end in \`/anthropic\` for ` +
+          `OpenRouter). ` +
+          `Response preview: ${preview}`,
+      );
+    }
+
     // Append the assistant message verbatim — Anthropic requires the
     // exact tool_use blocks to be echoed back as the `assistant` turn
     // so subsequent `tool_result` blocks can refer to them by id.
