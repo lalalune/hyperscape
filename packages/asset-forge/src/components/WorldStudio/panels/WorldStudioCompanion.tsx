@@ -41,16 +41,18 @@ import { useWorldStudio } from "../WorldStudioContext";
 import { setAgentPack, persistAgentPackToProject } from "../state/agentPack";
 import {
   getAgentWorldContent,
-  mobSpawnKey,
   removeAndPersistAgentEntity,
-  setAndPersistAgentNpc,
   setAndPersistAgentQuest,
-  setAndPersistAgentResource,
-  setAndPersistAgentSpawn,
-  setAndPersistAgentStation,
-  setAndPersistAgentTeleport,
   setAndPersistAgentZone,
 } from "../state/agentWorldContent";
+import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatcher";
+import type {
+  WorldAreaMobSpawn,
+  WorldAreaNPC,
+  WorldAreaResource,
+  WorldAreaStation,
+  WorldAreaTeleportNode,
+} from "@hyperforge/manifest-schema";
 import {
   kickoffAssetGeneration,
   type AgentAssetProposal,
@@ -141,6 +143,15 @@ function CompanionInner({ projectId }: { projectId: string }) {
   const projectAssetPackIds = state.project.assetPacks;
   const teamId = state.project.currentTeamId;
 
+  // P0.3 of PLAN_AGENT_STUDIO_PARITY — agent placements now flow
+  // through the studio's reducer into `extendedLayers`, sharing
+  // the property panel / gizmo / outliner / undo machinery with
+  // designer + procgen entries. The dispatcher applies the
+  // bidirectional mapper (agent's WorldArea* shape + game-space
+  // → studio's Placed* shape + scene-space) and dispatches via
+  // `actions.addNPC`/etc.
+  const placementDispatcher = useAgentPlacementDispatcher();
+
   // Boot from localStorage if available.
   const restored = (() => {
     if (typeof window === "undefined") return null;
@@ -224,54 +235,40 @@ function CompanionInner({ projectId }: { projectId: string }) {
           call.name === "PROPOSE_NPC_PLACEMENT" &&
           data.entity !== undefined
         ) {
-          void setAndPersistAgentNpc(projectId, data.entity);
+          // P0.3 — dispatch through the studio reducer instead of
+          // the parallel agentWorldContent store. Auto-saved to
+          // the project via useAutoSave; no explicit persistence
+          // call needed.
+          placementDispatcher.placeNpc(data.entity as WorldAreaNPC);
         } else if (
           call.name === "PROPOSE_MOB_SPAWN" &&
           data.spawn !== undefined
         ) {
-          // Spawns have no `id` in the schema; key by composite
-          // mobId+position so re-emissions of the same spawn collapse.
-          const spawn = data.spawn as {
-            mobId?: string;
-            position?: { x?: number; y?: number; z?: number };
-          };
-          const key =
-            typeof spawn.mobId === "string"
-              ? `${spawn.mobId}@${spawn.position?.x ?? 0},${spawn.position?.y ?? 0},${spawn.position?.z ?? 0}`
-              : `agent-spawn-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-          void setAndPersistAgentSpawn(projectId, data.spawn, key);
+          placementDispatcher.placeMobSpawn(data.spawn as WorldAreaMobSpawn);
         } else if (call.name === "PROPOSE_QUEST" && data.quest !== undefined) {
+          // Quests live in worldContent (separate from extendedLayers).
+          // Keep the legacy persistence path until P0.6 unifies.
           void setAndPersistAgentQuest(projectId, data.quest);
         } else if (call.name === "PROPOSE_ZONE" && data.zone !== undefined) {
+          // Zones likewise — separate state slice from extendedLayers.
           void setAndPersistAgentZone(projectId, data.zone);
         } else if (
           call.name === "PROPOSE_STATION" &&
           data.station !== undefined
         ) {
-          void setAndPersistAgentStation(projectId, data.station);
+          placementDispatcher.placeStation(data.station as WorldAreaStation);
         } else if (
           call.name === "PROPOSE_TELEPORT" &&
           data.teleport !== undefined
         ) {
-          void setAndPersistAgentTeleport(projectId, data.teleport);
+          placementDispatcher.placeTeleport(
+            data.teleport as WorldAreaTeleportNode,
+          );
         } else if (
           call.name === "PROPOSE_RESOURCE" &&
           data.resource !== undefined
         ) {
-          // Resources don't have a unique top-level id (multiple
-          // oak trees are all `tree_oak`), so position
-          // disambiguates. Same key shape as mob spawns.
-          const r = data.resource as {
-            resourceId?: string;
-            position?: { x?: number; y?: number; z?: number };
-          };
-          const key =
-            typeof r.resourceId === "string"
-              ? `${r.resourceId}@${r.position?.x ?? 0},${r.position?.y ?? 0},${r.position?.z ?? 0}`
-              : `agent-resource-${Date.now()}-${Math.random()
-                  .toString(36)
-                  .slice(2, 6)}`;
-          void setAndPersistAgentResource(projectId, data.resource, key);
+          placementDispatcher.placeResource(data.resource as WorldAreaResource);
         } else if (
           call.name === "REMOVE_FROM_PROJECT" &&
           data.removal !== undefined
@@ -296,50 +293,59 @@ function CompanionInner({ projectId }: { projectId: string }) {
             resourceId?: string;
             position?: { x: number; y: number; z: number };
           };
+          // P0.3 — removals route through the studio reducer
+          // (`actions.removeNPC` / `removeMobSpawn` / etc.) so the
+          // gizmo / properties / outliner all see the change in
+          // sync with the underlying state. extendedLayers is
+          // auto-saved to the project, no explicit persistence
+          // call required.
+          //
+          // For composite-keyed kinds (mobSpawn / resource), match
+          // by the synthesized id the forward mapper produces:
+          // `<key>@x,y,z` in scene-space. The agent emits in
+          // game-space, so we add worldCenterOffset before matching.
           if (
             removal.kind === "mobSpawn" &&
             removal.mobId &&
             removal.position
           ) {
-            void removeAndPersistAgentEntity(
-              projectId,
-              "mobSpawn",
-              mobSpawnKey(removal.mobId, removal.position),
-            );
+            const p = removal.position;
+            const offset = placementDispatcher.worldCenterOffset;
+            const sceneId = `${removal.mobId}@${p.x + offset},${p.y},${p.z + offset}`;
+            actions.removeMobSpawn(sceneId);
           } else if (
             removal.kind === "resource" &&
             removal.resourceId &&
             removal.position
           ) {
-            // Resources use the same composite key shape as
-            // mob spawns — `<resourceId>@x,y,z`. Reusing
-            // mobSpawnKey under a different name would imply a
-            // wrong invariant, so we inline the format here to
-            // match the writer-side `setAndPersistAgentResource`
-            // call site.
             const p = removal.position;
-            void removeAndPersistAgentEntity(
-              projectId,
-              "resource",
-              `${removal.resourceId}@${p.x},${p.y},${p.z}`,
-            );
+            const offset = placementDispatcher.worldCenterOffset;
+            const sceneId = `${removal.resourceId}@${p.x + offset},${p.y},${p.z + offset}`;
+            actions.removeResource(sceneId);
+          } else if (removal.kind === "npc" && removal.id) {
+            actions.removeNPC(removal.id);
+          } else if (removal.kind === "station" && removal.id) {
+            actions.removeStation(removal.id);
+          } else if (removal.kind === "teleport" && removal.id) {
+            actions.removeTeleport(removal.id);
           } else if (
-            (removal.kind === "npc" ||
-              removal.kind === "quest" ||
-              removal.kind === "zone" ||
-              removal.kind === "station" ||
-              removal.kind === "teleport") &&
+            (removal.kind === "quest" || removal.kind === "zone") &&
             removal.id
           ) {
+            // Quests + zones still live in agentWorldContent + the
+            // worldContent JSON shape (separate from extendedLayers).
+            // P0.6 will migrate them to studio state slices; for now
+            // route through the legacy persister so they actually
+            // disappear instead of silently no-op'ing.
             void removeAndPersistAgentEntity(
               projectId,
               removal.kind,
               removal.id,
             );
           }
-          // `asset` removal isn't applied to agentWorldContent
-          // (assets aren't tracked there); the host's pipeline
-          // status panel handles bake cancellation separately.
+          // `asset` removal continues to be a separate concern —
+          // the host's pipeline status panel handles bake
+          // cancellation, not the world-content store.
         } else if (call.name === "PROPOSE_ASSET" && data.asset !== undefined) {
           // A5 — fire the bake pipeline asynchronously. The agent's
           // job ends with the proposal; the host owns the long-
