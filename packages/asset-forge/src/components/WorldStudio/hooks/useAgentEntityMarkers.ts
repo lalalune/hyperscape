@@ -40,7 +40,7 @@ interface MarkerEntry {
   /** Synchronous placeholder mesh; null after a real model swaps in. */
   placeholderMesh: THREE.Mesh | null;
   /** Material used by the placeholder. Disposed when the model swaps in. */
-  placeholderMaterial: THREE.MeshStandardMaterial | null;
+  placeholderMaterial: THREE.MeshBasicMaterial | null;
   /** Loaded GLB root once async resolution completes. */
   modelRoot: THREE.Object3D | null;
   label: THREE.Sprite;
@@ -295,12 +295,13 @@ function upsertMarker(
         existing.group.remove(existing.modelRoot);
         disposeSubtree(existing.modelRoot);
         existing.modelRoot = null;
-        const material = new THREE.MeshStandardMaterial({
+        const material = new THREE.MeshBasicMaterial({
           color,
-          emissive: color,
-          emissiveIntensity: 0.3,
           transparent: true,
-          opacity: 0.85,
+          opacity: 0.95,
+          depthTest: false,
+          depthWrite: false,
+          side: THREE.DoubleSide,
         });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.renderOrder = 999;
@@ -313,13 +314,13 @@ function upsertMarker(
     return;
   }
 
-  const material = new THREE.MeshStandardMaterial({
+  const material = new THREE.MeshBasicMaterial({
     color,
-    emissive: color,
-    emissiveIntensity: 0.6,
     transparent: true,
     opacity: 0.95,
     depthTest: false,
+    depthWrite: false,
+    side: THREE.DoubleSide,
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 999;
