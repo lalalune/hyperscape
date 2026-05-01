@@ -42,6 +42,8 @@ import {
 } from "../types";
 import { useWorldStudio } from "../WorldStudioContext";
 import { rehydrateAgentWorldContentFromProject } from "../state/agentWorldContent";
+import { rehydrateExtendedLayersFromWorldContent } from "../utils/rehydrateExtendedLayers";
+import { computeWorldCenterOffset } from "./useAgentPlacementDispatcher";
 import type { GameModeManifest } from "@hyperforge/shared/runtime";
 
 /**
@@ -304,32 +306,51 @@ export function useProjectLoader(projectId: string) {
         actions.switchToEditing();
         actions.loadSuccess();
 
-        // Phase B4 of the AAA gap audit — rehydrate the agent
-        // world-content store from `project.worldContent` so the
-        // agent's prior NPCs/spawns/quests/zones survive a refresh.
-        // Without this every reload returned the editor to a clean
-        // canvas and the agent's work appeared lost.
+        // P0.6 of PLAN_AGENT_STUDIO_PARITY — placements
+        // (NPCs / mob spawns / resources / stations / teleports)
+        // rehydrate into `extendedLayers` via the studio reducer
+        // so they share the property panel / gizmo / outliner /
+        // undo machinery with designer + procgen entries.
+        // Quests + zones still hydrate into the legacy
+        // agentWorldContent store until P0.7+ migrates them.
         try {
-          const counts = rehydrateAgentWorldContentFromProject(
+          const offset = computeWorldCenterOffset(world);
+          const placementCounts = rehydrateExtendedLayersFromWorldContent(
             project.worldContent ?? null,
+            actions,
+            offset,
           );
           if (
-            counts.npcs > 0 ||
-            counts.spawns > 0 ||
-            counts.zones > 0 ||
-            counts.quests > 0 ||
-            counts.resources > 0 ||
-            counts.stations > 0 ||
-            counts.teleports > 0
+            placementCounts.npcs > 0 ||
+            placementCounts.spawns > 0 ||
+            placementCounts.resources > 0 ||
+            placementCounts.stations > 0 ||
+            placementCounts.teleports > 0
           ) {
             console.info(
-              "[ProjectLoader] Rehydrated agent worldContent:",
-              counts,
+              "[ProjectLoader] Rehydrated agent placements into extendedLayers:",
+              placementCounts,
             );
           }
-          if (counts.dropped > 0) {
+          if (placementCounts.dropped > 0) {
             console.warn(
-              `[ProjectLoader] Dropped ${counts.dropped} malformed worldContent entries during rehydration.`,
+              `[ProjectLoader] Dropped ${placementCounts.dropped} malformed worldContent placement entries during rehydration.`,
+            );
+          }
+
+          // Legacy path for quests + zones (the two kinds that
+          // don't have a Placed* counterpart in extendedLayers
+          // yet). Skips the placement kinds — those are handled
+          // above. Once quests/zones migrate to extendedLayers
+          // (P0.7+), this call goes away with `agentWorldContent`
+          // (P0.5).
+          const legacyCounts = rehydrateAgentWorldContentFromProject(
+            project.worldContent ?? null,
+          );
+          if (legacyCounts.quests > 0 || legacyCounts.zones > 0) {
+            console.info(
+              "[ProjectLoader] Rehydrated legacy agentWorldContent (quests/zones):",
+              { quests: legacyCounts.quests, zones: legacyCounts.zones },
             );
           }
         } catch (err) {

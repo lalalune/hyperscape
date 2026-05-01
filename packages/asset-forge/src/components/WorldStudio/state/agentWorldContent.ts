@@ -271,25 +271,18 @@ export function rehydrateAgentWorldContentFromProject(
   const teleports = new Map<string, WorldAreaTeleportNode>();
   let dropped = 0;
 
-  if (Array.isArray(wc.npcs)) {
-    for (const raw of wc.npcs as unknown[]) {
-      const r = WorldAreaNPCSchema.safeParse(raw);
-      if (r.success) npcs.set(r.data.id, r.data);
-      else dropped++;
-    }
-  }
-  if (Array.isArray(wc.spawns)) {
-    for (const raw of wc.spawns as unknown[]) {
-      const r = WorldAreaMobSpawnSchema.safeParse(raw);
-      if (r.success) {
-        const s = r.data;
-        const key = `${s.mobId}@${s.position.x},${s.position.y},${s.position.z}`;
-        spawns.set(key, s);
-      } else {
-        dropped++;
-      }
-    }
-  }
+  // P0.6 of PLAN_AGENT_STUDIO_PARITY — placement kinds (npcs,
+  // spawns, resources, stations, teleports) are no longer
+  // rehydrated into agentWorldContent. They flow through
+  // `rehydrateExtendedLayersFromWorldContent` into
+  // `state.extendedLayers` via the studio reducer. This function
+  // now only handles quests + zones (the kinds that don't have a
+  // Placed* counterpart in extendedLayers yet).
+  //
+  // Skipping the placement kinds prevents double-render: without
+  // this skip, an agent placement would appear once via
+  // useEditorWorldSync (from extendedLayers) AND once via
+  // useAgentEntityMarkers (from agentWorldContent).
   if (Array.isArray(wc.zones)) {
     for (const raw of wc.zones as unknown[]) {
       const r = WorldAreaSchema.safeParse(raw);
@@ -301,32 +294,6 @@ export function rehydrateAgentWorldContentFromProject(
     for (const raw of wc.quests as unknown[]) {
       const r = QuestSchema.safeParse(raw);
       if (r.success) quests.set(r.data.id, r.data);
-      else dropped++;
-    }
-  }
-  if (Array.isArray(wc.resources)) {
-    for (const raw of wc.resources as unknown[]) {
-      const r = WorldAreaResourceSchema.safeParse(raw);
-      if (r.success) {
-        const res = r.data;
-        const key = `${res.resourceId}@${res.position.x},${res.position.y},${res.position.z}`;
-        resources.set(key, res);
-      } else {
-        dropped++;
-      }
-    }
-  }
-  if (Array.isArray(wc.stations)) {
-    for (const raw of wc.stations as unknown[]) {
-      const r = WorldAreaStationSchema.safeParse(raw);
-      if (r.success) stations.set(r.data.id, r.data);
-      else dropped++;
-    }
-  }
-  if (Array.isArray(wc.teleports)) {
-    for (const raw of wc.teleports as unknown[]) {
-      const r = WorldAreaTeleportNodeSchema.safeParse(raw);
-      if (r.success) teleports.set(r.data.id, r.data);
       else dropped++;
     }
   }
