@@ -60,6 +60,8 @@ export const proposeTerrainConfigAction: Action = {
     "VALID TOP-LEVEL KEYS (D1 hardening — anything else is rejected): `seed` (number, required), `preset` (string|null), `useGamePipeline` (boolean), `terrain`, `noise`, `biomes`, `island`, `shoreline`, `towns`, `roads`, `vegetation`. Sub-objects are passthrough so engine-only knobs round-trip. " +
     "Each sub-object's known fields: " +
     "  terrain: { tileSize, worldSize, tileResolution, maxHeight, waterThreshold } — all optional numbers. " +
+    "    worldSize is tiles per side (total = worldSize²); cap is 200. Recommended: 50 (small sandbox), 100 (default Hyperia, 10km²), 150-200 (large MMO). DO NOT exceed 200 — the studio's tile streamer can't handle larger and the viewport will hang. " +
+    "    tileSize is meters per tile; default 100 (so worldSize=100 → 10km × 10km world). " +
     "  biomes: { gridSize, jitter (0-1), minInfluence, maxInfluence, gaussianCoeff, boundaryNoiseScale, boundaryNoiseAmount }. " +
     "  island: { enabled, maxWorldSizeTiles, falloffTiles, edgeNoiseScale, edgeNoiseStrength }. " +
     "  shoreline: { waterLevelNormalized (0-1), threshold (0-1), colorStrength (0-1), minSlope, slopeSampleDistance, landBand, landMaxMultiplier, underwaterBand, underwaterDepthMultiplier }. " +

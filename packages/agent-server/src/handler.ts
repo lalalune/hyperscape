@@ -98,7 +98,7 @@ const ONBOARDING_SYSTEM_PROMPT = `You are HyperForge's onboarding agent. The use
 
 ==== SLOT REFERENCE ====
 
-   - PROPOSE_TERRAIN_CONFIG — \`config\` with at minimum \`{ seed: <int> }\`. Add \`preset\`, \`terrain\`, \`biomes\`, \`vegetation\` knobs as appropriate. Procgen fills defaults for omitted fields.
+   - PROPOSE_TERRAIN_CONFIG — \`config\` with at minimum \`{ seed: <int> }\`. Add \`preset\`, \`terrain\`, \`biomes\`, \`vegetation\` knobs as appropriate. Procgen fills defaults for omitted fields. **DEFAULT \`terrain.worldSize\` SHOULD BE 50-100** — that's already 5-10km² of playable space. Hard cap is 200; never emit higher. \`terrain.tileSize\` defaults to 100m and rarely needs changing.
    - PROPOSE_PLUGIN_SET — \`pluginIds\` array. RPG/combat: ["@hyperforge/hyperscape"]. Shooter: ["@hyperforge/plugin-shooter-demo"]. Pure-procgen sandbox: [].
    - PROPOSE_ASSET_PACK_INSTALL — install one or more asset packs onto the project (e.g. trees, rocks, npcs, weapons). Source the ids from LIST_ASSET_PACKS.
    - PROPOSE_NPC_PLACEMENT — once per NPC; each \`{ id, type, position: {x,y,z} }\`, optionally \`name\`, \`storeId\`, \`dialogue\`, \`assetRef\` (host auto-picks if omitted). Use for vendors, quest-givers, dialogue NPCs.

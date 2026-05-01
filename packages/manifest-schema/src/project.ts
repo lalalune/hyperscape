@@ -96,7 +96,20 @@ const TerrainNoiseConfigSchema = z
 const TerrainSubConfigSchema = z
   .object({
     tileSize: z.number().positive().optional(),
-    worldSize: z.number().int().positive().optional(),
+    /**
+     * Number of tiles per side. Total tiles = worldSize².
+     *
+     * Capped at 200 (40,000 tiles). Larger values overwhelm the
+     * tile streamer + cause the render loop to thrash, which has
+     * been observed to trigger React's "Maximum update depth
+     * exceeded" guard. The agent has no built-in sense of scale,
+     * so without this cap a careless `worldSize: 512` (262k tiles)
+     * lands in the project and the studio becomes unusable.
+     *
+     * Recommended values: 50 (5km², default sandbox), 100
+     * (10km², shipped Hyperia game), 150-200 (large MMO).
+     */
+    worldSize: z.number().int().positive().max(200).optional(),
     tileResolution: z.number().int().positive().optional(),
     maxHeight: z.number().nonnegative().optional(),
     waterThreshold: z.number().optional(),
