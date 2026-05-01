@@ -71,7 +71,13 @@ import {
   patchProjectWorldContent,
   setProjectPlugins,
 } from "../../utils/worldProjectApi";
-import { setProjectAssetPacks } from "../../utils/assetPackApi";
+import {
+  listInstallableAssetPacks,
+  resolveProjectAssetPacks,
+  setProjectAssetPacks,
+  type InstallablePackSummary,
+  type ResolvedProjectAssetPack,
+} from "../../utils/assetPackApi";
 import { kickoffAssetGeneration } from "../../utils/assetGenApi";
 
 const DEFAULT_DESIGN_ENDPOINT = "http://localhost:5180/design";
@@ -1123,6 +1129,47 @@ export function DesignWithAIDialog({
   const abortRef = useRef<AbortController | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
 
+  // Pre-fetch the catalog of installable asset packs (built-in
+  // Hyperia packs + the team's published packs). Without this the
+  // agent's auto-fill helper has no `assetPacks` to pick from in
+  // the projectContext we send, so every PROPOSE_NPC / MOB / etc.
+  // arrives without an assetRef and the renderer falls back to a
+  // placeholder cube. The cost is one round-trip on dialog mount.
+  const [installablePacks, setInstallablePacks] = useState<
+    InstallablePackSummary[]
+  >([]);
+  const [resolvedPacks, setResolvedPacks] = useState<
+    ResolvedProjectAssetPack[]
+  >([]);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const installable = await listInstallableAssetPacks(teamId);
+        if (cancelled) return;
+        setInstallablePacks(installable);
+        // Resolve the full catalog so projectContext.assetPacks
+        // has the entry-level data the agent needs to pick refs
+        // (each pack's `assets[]` with id + type + subtype).
+        const resolved = await resolveProjectAssetPacks(
+          installable.map((p) => p.manifestId),
+        );
+        if (cancelled) return;
+        setResolvedPacks(resolved);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[DesignWithAIDialog] Failed to fetch installable packs " +
+            "(agent auto-fill will be limited):",
+          err,
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [teamId]);
+
   // B1'.7 — persist (messages + plan) to localStorage so a stray
   // refresh doesn't lose the user's onboarding work. Skip while
   // the project is being created (the dialog is about to unmount).
@@ -1202,6 +1249,17 @@ export function DesignWithAIDialog({
       // render compact breadcrumbs ("⚔️ Placed 3 mob spawns").
       const toolCallTally = new Map<string, number>();
       try {
+        // Pre-onboarding projectContext — there's no project yet,
+        // but the agent's `autoFillAssetRef` and `validateAssetRef`
+        // helpers expect `assetPacks` to know what's available.
+        // Sending the full installable catalog as `assetPacks` lets
+        // them resolve refs against the built-in Hyperia packs from
+        // turn 1. At Generate time we install whichever packs the
+        // emitted entities actually referenced.
+        const projectContext = {
+          plugins: effectivePlan.pluginIds ?? [],
+          assetPacks: resolvedPacks,
+        };
         const res = await fetch(`${endpoint}/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1209,6 +1267,8 @@ export function DesignWithAIDialog({
             prompt: promptForAgent,
             mode: "onboarding",
             history,
+            projectContext,
+            installableAssetPacks: installablePacks,
           }),
           signal: abortRef.current.signal,
         });
@@ -1583,12 +1643,30 @@ export function DesignWithAIDialog({
       }
 
       // Asset packs the agent recommended (PROPOSE_ASSET_PACK_INSTALL)
-      // — persist via the dedicated `/api/world/projects/:id/asset-packs`
-      // endpoint so they're installed on the project before the
-      // designer opens it. Soft-fails (project still created) on error.
-      if (effectivePlan.assetPackIds && effectivePlan.assetPackIds.length > 0) {
+      // PLUS any pack referenced by an entity's assetRef. The agent's
+      // auto-fill picks refs from the projectContext.assetPacks we
+      // sent (full installable catalog), so those packs need to be
+      // actually installed on the new project for the renderer to
+      // resolve them post-Generate. Walk every entity slot, extract
+      // pack ids from assetRefs, dedupe, and install.
+      const refPackIds = new Set<string>(effectivePlan.assetPackIds ?? []);
+      const collectRefs = (entries: ReadonlyArray<unknown>): void => {
+        for (const e of entries) {
+          const ref = (e as { assetRef?: unknown })?.assetRef;
+          if (typeof ref !== "string") continue;
+          const slash = ref.lastIndexOf("/");
+          if (slash > 0) refPackIds.add(ref.slice(0, slash));
+        }
+      };
+      collectRefs(effectivePlan.npcs);
+      collectRefs(effectivePlan.mobSpawns);
+      collectRefs(effectivePlan.resources);
+      collectRefs(effectivePlan.stations);
+      collectRefs(effectivePlan.teleports);
+      const allPackIds = Array.from(refPackIds);
+      if (allPackIds.length > 0) {
         try {
-          await setProjectAssetPacks(project.id, effectivePlan.assetPackIds);
+          await setProjectAssetPacks(project.id, allPackIds);
         } catch (err) {
           // eslint-disable-next-line no-console
           console.warn(
