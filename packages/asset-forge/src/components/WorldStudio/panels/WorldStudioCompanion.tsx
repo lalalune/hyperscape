@@ -608,19 +608,62 @@ function CompanionInner({ projectId }: { projectId: string }) {
       // PluginRegistryService. LIST_PLUGINS reads through this on
       // the agent side; without it the action falls back to a
       // hardcoded 2-element list. Failures drop silently.
-      let installablePlugins: Array<{
+      // R2.P10 — also carry entityTypeContributions so
+      // LIST_ENTITY_TYPES reads live plugin.json instead of the
+      // static eliza-game-builder mirror.
+      type CompanionPluginEntry = {
         id: string;
         npmName: string | null;
         name: string;
         description: string;
         tags: string[];
-      }> = [];
+        entityTypeContributions?: Array<{
+          kind: "npc" | "mobSpawn" | "resource" | "station";
+          type: string;
+          description: string;
+          requiredFields: string[];
+          acceptedAssetTypes: string[];
+        }>;
+      };
+      let installablePlugins: CompanionPluginEntry[] = [];
       try {
         const res = await fetch("/api/plugins/installed", {
           credentials: "same-origin",
         });
         if (res.ok) {
-          installablePlugins = (await res.json()) as typeof installablePlugins;
+          type RegistryEntry = {
+            id: string;
+            npmName: string | null;
+            name: string;
+            description: string;
+            tags: string[];
+            contributions?: {
+              entityTypes?: Array<{
+                kind: "npc" | "mobSpawn" | "resource" | "station";
+                type: string;
+                description: string;
+                requiredFields: string[];
+                acceptedAssetTypes: string[];
+              }>;
+            };
+          };
+          const json = (await res.json()) as ReadonlyArray<RegistryEntry>;
+          installablePlugins = json.map((p) => ({
+            id: p.id,
+            npmName: p.npmName,
+            name: p.name,
+            description: p.description,
+            tags: [...p.tags],
+            entityTypeContributions: p.contributions?.entityTypes
+              ? p.contributions.entityTypes.map((e) => ({
+                  kind: e.kind,
+                  type: e.type,
+                  description: e.description,
+                  requiredFields: [...e.requiredFields],
+                  acceptedAssetTypes: [...e.acceptedAssetTypes],
+                }))
+              : undefined,
+          }));
         }
       } catch (err) {
         console.warn("[Companion] Failed to fetch installable plugins", err);

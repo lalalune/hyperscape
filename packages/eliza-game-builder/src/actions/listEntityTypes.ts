@@ -35,7 +35,12 @@ import {
   PROJECT_CONTEXT_SERVICE_TYPE,
   type IProjectContextService,
 } from "../services/ProjectContextService.js";
+import {
+  PLUGIN_CATALOG_SERVICE_TYPE,
+  type IPluginCatalogService,
+} from "../services/PluginCatalogService.js";
 import { getEntityTypesForPlugins } from "./entityTypeContributions.js";
+import type { EntityTypeContribution } from "@hyperforge/manifest-schema";
 import { readStringField } from "./shared.js";
 
 type KindFilter = "all" | "npc" | "mobSpawn" | "resource" | "station";
@@ -93,7 +98,35 @@ export const listEntityTypesAction: Action = {
         ? (rawKind as KindFilter)
         : "all";
 
-    const all = getEntityTypesForPlugins(installedPluginIds);
+    // R2.P10 — prefer the live registry's contributions
+    // (populated by the studio from PluginRegistryService) over
+    // the static `_PLUGIN_ENTITY_TYPES` mirror in eliza-game-builder.
+    // Falls back to the static map for paths that don't plumb a
+    // PluginCatalogService (MCP / CLI / unit tests) — same
+    // pattern as LIST_PLUGINS in R1.P15.
+    const pluginCatalog = runtime.getService(
+      PLUGIN_CATALOG_SERVICE_TYPE,
+    ) as unknown as IPluginCatalogService | null;
+    const liveContributions: ReadonlyArray<{
+      pluginId: string;
+      contribution: EntityTypeContribution;
+    }> = pluginCatalog
+      ? pluginCatalog.listInstallable().flatMap((p) => {
+          const eligible =
+            installedPluginIds.length === 0 ||
+            installedPluginIds.includes(p.id) ||
+            (p.npmName !== null && installedPluginIds.includes(p.npmName));
+          if (!eligible) return [];
+          return (p.entityTypeContributions ?? []).map((c) => ({
+            pluginId: p.id,
+            contribution: c as EntityTypeContribution,
+          }));
+        })
+      : [];
+    const all =
+      liveContributions.length > 0
+        ? liveContributions
+        : getEntityTypesForPlugins(installedPluginIds);
     const filtered =
       kindFilter === "all"
         ? all

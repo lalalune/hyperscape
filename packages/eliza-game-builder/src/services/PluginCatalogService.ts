@@ -28,6 +28,22 @@ export const PLUGIN_CATALOG_SERVICE_TYPE = "pluginCatalogService" as const;
  * contribution arrays are not surfaced here (the agent doesn't
  * pre-validate contributions).
  */
+/**
+ * One entity-type contribution from a plugin's
+ * `plugin.json` `contributions.entityTypes[]`. R2.P10 of
+ * `PLAN_HYPERIA_DECOUPLING.md` plumbs these from the live
+ * registry to the agent so `LIST_ENTITY_TYPES` reflects the
+ * actual `plugin.json` contents instead of a static mirror in
+ * eliza-game-builder.
+ */
+export interface InstallablePluginEntityType {
+  readonly kind: "npc" | "mobSpawn" | "resource" | "station";
+  readonly type: string;
+  readonly description: string;
+  readonly requiredFields: ReadonlyArray<string>;
+  readonly acceptedAssetTypes: ReadonlyArray<string>;
+}
+
 export interface InstallablePlugin {
   /** Manifest id, e.g. `com.hyperforge.hyperscape`. */
   readonly id: string;
@@ -40,6 +56,16 @@ export interface InstallablePlugin {
   readonly description: string;
   /** Free-form tags applied to the plugin. */
   readonly tags: ReadonlyArray<string>;
+  /**
+   * R2.P10 — entity-type contributions from the plugin's live
+   * `plugin.json`. When populated by the studio (which reads
+   * `PluginRegistryService` output), `LIST_ENTITY_TYPES`
+   * surfaces these to the agent instead of falling back to the
+   * static `_PLUGIN_ENTITY_TYPES` mirror in eliza-game-builder.
+   * Empty array (default) preserves legacy behavior — the
+   * action's static fallback fires.
+   */
+  readonly entityTypeContributions?: ReadonlyArray<InstallablePluginEntityType>;
 }
 
 export interface IPluginCatalogService {
@@ -65,6 +91,15 @@ export function makePluginCatalogService(
     name: p.name,
     description: p.description,
     tags: [...p.tags],
+    entityTypeContributions: p.entityTypeContributions
+      ? p.entityTypeContributions.map((c) => ({
+          kind: c.kind,
+          type: c.type,
+          description: c.description,
+          requiredFields: [...c.requiredFields],
+          acceptedAssetTypes: [...c.acceptedAssetTypes],
+        }))
+      : undefined,
   }));
   return {
     listInstallable() {

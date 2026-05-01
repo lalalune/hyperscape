@@ -1227,9 +1227,12 @@ export function DesignWithAIDialog({
   // R1.P15 — discoverable plugins from PluginRegistryService.
   // Sent to agent-server with each /design request so the
   // LIST_PLUGINS action sees actual on-disk plugins instead of
-  // a hardcoded 2-element fallback. Same fetch as
-  // BuildingBlocksPanel below; kept here at the dialog scope so
-  // the chat handler has access to it.
+  // a hardcoded 2-element fallback.
+  // R2.P10 — also carries entityTypeContributions so
+  // LIST_ENTITY_TYPES reads from live plugin.json instead of the
+  // static eliza-game-builder mirror.
+  // Same fetch as BuildingBlocksPanel below; kept here at the
+  // dialog scope so the chat handler has access to it.
   const [installablePlugins, setInstallablePlugins] = useState<
     Array<{
       id: string;
@@ -1237,6 +1240,13 @@ export function DesignWithAIDialog({
       name: string;
       description: string;
       tags: string[];
+      entityTypeContributions?: Array<{
+        kind: "npc" | "mobSpawn" | "resource" | "station";
+        type: string;
+        description: string;
+        requiredFields: string[];
+        acceptedAssetTypes: string[];
+      }>;
     }>
   >([]);
   useEffect(() => {
@@ -1275,15 +1285,42 @@ export function DesignWithAIDialog({
           credentials: "same-origin",
         });
         if (!res.ok) return;
-        const json = (await res.json()) as ReadonlyArray<{
+        type RegistryEntry = {
           id: string;
           npmName: string | null;
           name: string;
           description: string;
           tags: string[];
-        }>;
+          contributions?: {
+            entityTypes?: Array<{
+              kind: "npc" | "mobSpawn" | "resource" | "station";
+              type: string;
+              description: string;
+              requiredFields: string[];
+              acceptedAssetTypes: string[];
+            }>;
+          };
+        };
+        const json = (await res.json()) as ReadonlyArray<RegistryEntry>;
         if (cancelled) return;
-        setInstallablePlugins(json.map((p) => ({ ...p, tags: [...p.tags] })));
+        setInstallablePlugins(
+          json.map((p) => ({
+            id: p.id,
+            npmName: p.npmName,
+            name: p.name,
+            description: p.description,
+            tags: [...p.tags],
+            entityTypeContributions: p.contributions?.entityTypes
+              ? p.contributions.entityTypes.map((e) => ({
+                  kind: e.kind,
+                  type: e.type,
+                  description: e.description,
+                  requiredFields: [...e.requiredFields],
+                  acceptedAssetTypes: [...e.acceptedAssetTypes],
+                }))
+              : undefined,
+          })),
+        );
       } catch (err) {
         // eslint-disable-next-line no-console
         console.warn(

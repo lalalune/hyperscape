@@ -1058,6 +1058,10 @@ export function parseDesignRequest(
  * R1.P15 — parse the per-request plugin catalog payload. Skips
  * malformed entries silently (best-effort tolerance for legacy
  * client versions). Required fields: id, name, description.
+ *
+ * R2.P10 — also parses `entityTypeContributions[]` from each
+ * plugin so `LIST_ENTITY_TYPES` can read live contributions
+ * instead of the static eliza-game-builder mirror.
  */
 function parseInstallablePlugins(
   raw: ReadonlyArray<unknown>,
@@ -1076,12 +1080,71 @@ function parseInstallablePlugins(
     const tags: string[] = Array.isArray(p.tags)
       ? (p.tags as unknown[]).filter((t): t is string => typeof t === "string")
       : [];
+    const entityTypeContributions = parseEntityTypeContributions(
+      p.entityTypeContributions,
+    );
     out.push({
       id: p.id,
       npmName,
       name: p.name,
       description: p.description,
       tags,
+      entityTypeContributions,
+    });
+  }
+  return out;
+}
+
+const VALID_ENTITY_KINDS: ReadonlyArray<string> = [
+  "npc",
+  "mobSpawn",
+  "resource",
+  "station",
+];
+
+function parseEntityTypeContributions(raw: unknown):
+  | ReadonlyArray<{
+      kind: "npc" | "mobSpawn" | "resource" | "station";
+      type: string;
+      description: string;
+      requiredFields: ReadonlyArray<string>;
+      acceptedAssetTypes: ReadonlyArray<string>;
+    }>
+  | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: Array<{
+    kind: "npc" | "mobSpawn" | "resource" | "station";
+    type: string;
+    description: string;
+    requiredFields: ReadonlyArray<string>;
+    acceptedAssetTypes: ReadonlyArray<string>;
+  }> = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const c = entry as Record<string, unknown>;
+    if (
+      typeof c.kind !== "string" ||
+      !VALID_ENTITY_KINDS.includes(c.kind) ||
+      typeof c.type !== "string" ||
+      typeof c.description !== "string"
+    )
+      continue;
+    const requiredFields: string[] = Array.isArray(c.requiredFields)
+      ? (c.requiredFields as unknown[]).filter(
+          (x): x is string => typeof x === "string",
+        )
+      : [];
+    const acceptedAssetTypes: string[] = Array.isArray(c.acceptedAssetTypes)
+      ? (c.acceptedAssetTypes as unknown[]).filter(
+          (x): x is string => typeof x === "string",
+        )
+      : [];
+    out.push({
+      kind: c.kind as "npc" | "mobSpawn" | "resource" | "station",
+      type: c.type,
+      description: c.description,
+      requiredFields,
+      acceptedAssetTypes,
     });
   }
   return out;

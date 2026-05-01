@@ -39,6 +39,28 @@ const PluginRegistryEntryResponse = t.Object({
     paletteCategories: t.Array(t.String()),
     toolbarTools: t.Array(t.String()),
     commands: t.Array(t.String()),
+    /**
+     * R2.P10 — gameplay-typed entity contributions. Each entry
+     * tells the agent that placements with this kind+type are
+     * handled by this plugin's runtime systems. The studio's
+     * Design with AI dialog forwards these to the agent's
+     * LIST_ENTITY_TYPES via PluginCatalogService, replacing the
+     * static eliza-game-builder mirror.
+     */
+    entityTypes: t.Array(
+      t.Object({
+        kind: t.Union([
+          t.Literal("npc"),
+          t.Literal("mobSpawn"),
+          t.Literal("resource"),
+          t.Literal("station"),
+        ]),
+        type: t.String(),
+        description: t.String(),
+        requiredFields: t.Array(t.String()),
+        acceptedAssetTypes: t.Array(t.String()),
+      }),
+    ),
   }),
   /** Plugin ids this plugin depends on. */
   dependencies: t.Array(t.Object({ id: t.String(), versionRange: t.String() })),
@@ -113,6 +135,13 @@ function formatEntry(
       paletteCategories: [...m.contributions.paletteCategories],
       toolbarTools: [...m.contributions.toolbarTools],
       commands: [...m.contributions.commands],
+      entityTypes: m.contributions.entityTypes.map((e) => ({
+        kind: e.kind,
+        type: e.type,
+        description: e.description,
+        requiredFields: [...e.requiredFields],
+        acceptedAssetTypes: [...e.acceptedAssetTypes],
+      })),
     },
     dependencies: m.dependencies.map((d) => ({
       id: d.id,
