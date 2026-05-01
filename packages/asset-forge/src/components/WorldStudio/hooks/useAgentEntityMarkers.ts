@@ -86,6 +86,40 @@ export function useAgentEntityMarkers(
       group.renderOrder = 999;
       sceneRefs.entityOverlay.add(group);
       groupRef.current = group;
+
+      // DIAGNOSTIC — drop a giant magenta sphere at world origin
+      // that's impossible to miss IF this overlay is being
+      // rendered by the active camera at all. If you see the
+      // sphere but no agent markers → coordinate-space issue.
+      // If you don't see the sphere → the entire entityOverlay
+      // path isn't reaching the visible viewport.
+      const debugBeacon = new THREE.Mesh(
+        new THREE.SphereGeometry(8, 16, 16),
+        new THREE.MeshBasicMaterial({
+          color: 0xff00ff,
+          depthTest: false,
+          depthWrite: false,
+        }),
+      );
+      debugBeacon.name = "agent-marker-DEBUG-BEACON";
+      debugBeacon.renderOrder = 9999;
+      debugBeacon.frustumCulled = false;
+      debugBeacon.position.set(0, 30, 0);
+      group.add(debugBeacon);
+
+      // Log the full scene path so we can verify what we're
+      // attached to. Walks up parents until null.
+      const path: string[] = [];
+      let node: THREE.Object3D | null = group;
+      while (node) {
+        path.push(`${node.name || node.type} (visible=${node.visible})`);
+        node = node.parent;
+      }
+      // eslint-disable-next-line no-console
+      console.info(
+        "[useAgentEntityMarkers] marker group attached to scene path:",
+        path.reverse().join(" → "),
+      );
     }
     const parent = groupRef.current;
 
