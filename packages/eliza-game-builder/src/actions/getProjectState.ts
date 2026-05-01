@@ -202,6 +202,12 @@ function projectViewFor(
           assetPacks: packs.length,
           availableAssets: assetTotal,
         },
+        // Always surface terrainSummary in the default view —
+        // agent needs it on every placement turn to pick land
+        // coords + match content to biomes. Compact (<2K tokens
+        // for a 50×50 world) so it doesn't blow context. Null
+        // when the project has no generated world yet.
+        terrainSummary: ctx.terrainSummary ?? null,
       };
     }
   }
@@ -279,6 +285,42 @@ function formatProjectSummary(ctx: ProjectContext, select: SelectMode): string {
       );
     } else {
       lines.push("Asset packs: (none installed)");
+    }
+
+    // Surface terrain layout so the agent reads it as part of the
+    // default summary. Without this, placements default to (0,0,0)
+    // which lands in the ocean for island presets.
+    const ts = ctx.terrainSummary;
+    if (ts) {
+      lines.push(
+        `Terrain: ${ts.worldSize}×${ts.worldSize} tiles @ ${ts.tileSize}m (game-space ±${ts.worldExtent}m)`,
+      );
+      if (ts.biomes.length > 0) {
+        const biomeSummary = ts.biomes
+          .map(
+            (b) =>
+              `${b.type}@(${Math.round(b.center.x)},${Math.round(b.center.z)})`,
+          )
+          .join(", ");
+        lines.push(
+          `Biome centers (game-space, place biome-themed content NEAR these): ${biomeSummary}`,
+        );
+      }
+      if (ts.towns.length > 0) {
+        const townSummary = ts.towns
+          .map(
+            (t) =>
+              `${t.name}@(${Math.round(t.position.x)},${Math.round(t.position.z)})`,
+          )
+          .join(", ");
+        lines.push(
+          `Towns (guaranteed land — safe placement anchors): ${townSummary}`,
+        );
+      }
+    } else {
+      lines.push(
+        "Terrain: not yet generated — emit PROPOSE_TERRAIN_CONFIG first.",
+      );
     }
   }
   return lines.join("\n");

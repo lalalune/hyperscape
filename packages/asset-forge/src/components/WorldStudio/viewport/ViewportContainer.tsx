@@ -33,6 +33,7 @@ import {
 } from "../../WorldBuilder/TileBasedTerrain";
 import type { WorldPosition } from "../../WorldBuilder/types";
 import { useWorldStudio } from "../WorldStudioContext";
+import { registerTerrainQuerier } from "../utils/terrainQueryRegistry";
 import { useAgentWorldContent } from "../state/agentWorldContent";
 import { useEditorWorldSync } from "../hooks/useEditorWorldSync";
 import { usePlacementInteraction } from "../hooks/usePlacementInteraction";
@@ -203,9 +204,20 @@ export function ViewportContainer() {
       viewportRef.current.setVegetationVisible = refs.setVegetationVisible;
       viewportRef.current.getTerrainQuerier = refs.getTerrainQuerier;
       viewportRef.current.setImportedQuerier = setImportedQuerier;
+      // Make terrain queries reachable from outside the viewport
+      // tree (placement dispatcher needs this to snap agent
+      // emissions onto the actual terrain mesh instead of leaving
+      // them at y=0 in the ocean).
+      registerTerrainQuerier({
+        getTerrainHeight: refs.getTerrainHeight,
+        getWaterLevel: () => {
+          const w = state.builder.editing.world;
+          return w?.foundation?.config?.terrain?.waterThreshold ?? 0;
+        },
+      });
       setSceneReady(true);
     },
-    [viewportRef],
+    [viewportRef, state.builder.editing.world],
   );
 
   const handleGameEntitiesLoaded = useCallback(

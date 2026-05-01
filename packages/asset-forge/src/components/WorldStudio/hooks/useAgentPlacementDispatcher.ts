@@ -53,6 +53,51 @@ import {
   worldAreaStationToPlaced,
   worldAreaTeleportToPlaced,
 } from "../utils/agentPlacementMapper";
+import {
+  getTerrainHeightAt,
+  getWaterLevel,
+} from "../utils/terrainQueryRegistry";
+
+/**
+ * Snap a Placed entity's position.y onto the terrain mesh.
+ *
+ * The agent typically emits y=0 (it has no terrain knowledge).
+ * Without this, NPCs/mobs/etc. stay at y=0 — which is below
+ * terrain on hills/mountains AND in ocean for low-elevation
+ * terrain. Result: visible "trees floating in water" failure
+ * mode the user reported.
+ *
+ * We sample the actual terrain mesh (via the registered
+ * querier) at the placement's (x, z) and overwrite y. When no
+ * querier is registered yet (project not loaded, scene not
+ * ready), we leave y untouched.
+ *
+ * Returns the placed entity (mutated in place — caller already
+ * holds the only reference, no aliasing concern).
+ */
+function snapToTerrain<
+  T extends { position: { x: number; y: number; z: number } },
+>(placed: T): T {
+  const terrainY = getTerrainHeightAt(placed.position.x, placed.position.z);
+  if (terrainY !== null) {
+    placed.position.y = terrainY;
+  }
+  return placed;
+}
+
+/**
+ * Returns true if the (x, z) position is on land — terrain
+ * height at the point is at or above water level. Returns true
+ * (do nothing) when no querier is registered (graceful
+ * degradation; agent can still place during onboarding before
+ * the scene's ready).
+ */
+function isOnLand(x: number, z: number): boolean {
+  const terrainY = getTerrainHeightAt(x, z);
+  const waterLevel = getWaterLevel();
+  if (terrainY === null || waterLevel === null) return true;
+  return terrainY >= waterLevel;
+}
 
 /**
  * Pure-function derivation: world ↦ world-center offset. Exposed
@@ -102,6 +147,16 @@ export interface AgentPlacementDispatcher {
    */
   placeDangerSource: (ds: WorldAreaDangerSource) => void;
   /**
+   * Returns true if the (x, z) point is on land — terrain height
+   * at the point is at or above water level. Returns true when
+   * no querier is registered (graceful degradation; before
+   * scene-ready or in onboarding-mode tests).
+   *
+   * Coordinates are SCENE-space (already offset). To check a
+   * game-space coord, add `worldCenterOffset` first.
+   */
+  isOnLand: (sceneX: number, sceneZ: number) => boolean;
+  /**
    * The offset used by all the placement functions in this
    * dispatcher. Exposed so callers (companion / dialog) can
    * surface a useful diagnostic when the offset is 0 (i.e. the
@@ -118,20 +173,42 @@ export function useAgentPlacementDispatcher(): AgentPlacementDispatcher {
 
   return useMemo<AgentPlacementDispatcher>(
     () => ({
-      placeNpc: (npc) => actions.addNPC(worldAreaNpcToPlaced(npc, offset)),
+      placeNpc: (npc) =>
+        actions.addNPC(snapToTerrain(worldAreaNpcToPlaced(npc, offset))),
       placeMobSpawn: (spawn) =>
-        actions.addMobSpawn(worldAreaMobSpawnToPlaced(spawn, offset)),
+        actions.addMobSpawn(
+          snapToTerrain(worldAreaMobSpawnToPlaced(spawn, offset)),
+        ),
       placeResource: (resource) =>
-        actions.addResource(worldAreaResourceToPlaced(resource, offset)),
+        actions.addResource(
+          snapToTerrain(worldAreaResourceToPlaced(resource, offset)),
+        ),
       placeStation: (station) =>
-        actions.addStation(worldAreaStationToPlaced(station, offset)),
+        actions.addStation(
+          snapToTerrain(worldAreaStationToPlaced(station, offset)),
+        ),
       placeTeleport: (teleport) =>
-        actions.addTeleport(worldAreaTeleportToPlaced(teleport, offset)),
-      placeRoad: (road) =>
-        actions.addCustomRoad(worldAreaRoadToPlaced(road, offset)),
-      placePOI: (poi) => actions.addPOI(worldAreaPOIToPlaced(poi, offset)),
+        actions.addTeleport(
+          snapToTerrain(worldAreaTeleportToPlaced(teleport, offset)),
+        ),
+      placeRoad: (road) => {
+        // Snap each waypoint independently so the road follows
+        // terrain elevation across hills + valleys instead of
+        // sitting at y=0 underwater.
+        const placed = worldAreaRoadToPlaced(road, offset);
+        for (const wp of placed.path) {
+          const ty = getTerrainHeightAt(wp.x, wp.z);
+          if (ty !== null) wp.y = ty;
+        }
+        actions.addCustomRoad(placed);
+      },
+      placePOI: (poi) =>
+        actions.addPOI(snapToTerrain(worldAreaPOIToPlaced(poi, offset))),
       placeDangerSource: (ds) =>
-        actions.addDangerSource(worldAreaDangerSourceToPlaced(ds, offset)),
+        actions.addDangerSource(
+          snapToTerrain(worldAreaDangerSourceToPlaced(ds, offset)),
+        ),
+      isOnLand,
       worldCenterOffset: offset,
     }),
     [actions, offset],
