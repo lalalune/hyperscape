@@ -26,6 +26,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { MeshBasicNodeMaterial, SpriteNodeMaterial } from "three/webgpu";
 
 import { useAgentWorldContent } from "../state/agentWorldContent";
 import type { TerrainSceneRefs } from "../../WorldBuilder/TileBasedTerrain";
@@ -40,7 +41,7 @@ interface MarkerEntry {
   /** Synchronous placeholder mesh; null after a real model swaps in. */
   placeholderMesh: THREE.Mesh | null;
   /** Material used by the placeholder. Disposed when the model swaps in. */
-  placeholderMaterial: THREE.MeshBasicMaterial | null;
+  placeholderMaterial: MeshBasicNodeMaterial | null;
   /** Loaded GLB root once async resolution completes. */
   modelRoot: THREE.Object3D | null;
   label: THREE.Sprite;
@@ -101,7 +102,7 @@ export function useAgentEntityMarkers(
       // path isn't reaching the visible viewport.
       const debugBeacon = new THREE.Mesh(
         new THREE.SphereGeometry(8, 16, 16),
-        new THREE.MeshBasicMaterial({
+        new MeshBasicNodeMaterial({
           color: 0xff00ff,
           depthTest: false,
           depthWrite: false,
@@ -304,7 +305,7 @@ function disposeMarkerEntry(parent: THREE.Group, entry: MarkerEntry): void {
   parent.remove(entry.group);
   if (entry.placeholderMaterial) entry.placeholderMaterial.dispose();
   if (entry.modelRoot) disposeSubtree(entry.modelRoot);
-  if (entry.label.material instanceof THREE.SpriteMaterial) {
+  if (entry.label.material instanceof SpriteNodeMaterial) {
     if (entry.label.material.map) entry.label.material.map.dispose();
     entry.label.material.dispose();
   }
@@ -335,7 +336,7 @@ function upsertMarker(
         existing.group.remove(existing.modelRoot);
         disposeSubtree(existing.modelRoot);
         existing.modelRoot = null;
-        const material = new THREE.MeshBasicMaterial({
+        const material = new MeshBasicNodeMaterial({
           color,
           transparent: true,
           opacity: 0.95,
@@ -354,7 +355,7 @@ function upsertMarker(
     return;
   }
 
-  const material = new THREE.MeshBasicMaterial({
+  const material = new MeshBasicNodeMaterial({
     color,
     transparent: true,
     opacity: 0.95,
@@ -458,7 +459,7 @@ function makeLabelSprite(text: string): THREE.Sprite {
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
-  const material = new THREE.SpriteMaterial({
+  const material = new SpriteNodeMaterial({
     map: texture,
     transparent: true,
     depthTest: false,
