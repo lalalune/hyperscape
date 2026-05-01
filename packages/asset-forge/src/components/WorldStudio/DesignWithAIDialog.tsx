@@ -109,6 +109,12 @@ interface OnboardingPlan {
   stations: unknown[];
   /** Teleport nodes (lodestones, portals, shortcuts). */
   teleports: unknown[];
+  /** Roads / paths the agent placed across the run. */
+  roads: unknown[];
+  /** Points of interest the agent placed across the run. */
+  pois: unknown[];
+  /** Danger sources / hazards the agent placed across the run. */
+  dangerSources: unknown[];
   uiPack: unknown | null;
 }
 
@@ -564,6 +570,9 @@ function buildDebugPlan(): OnboardingPlan {
       "@hyperforge/asset-pack-hyperia-trees-v1",
       "@hyperforge/asset-pack-hyperia-stations-v1",
     ],
+    roads: [],
+    pois: [],
+    dangerSources: [],
     uiPack: null,
   };
 }
@@ -693,6 +702,24 @@ function applyStreamingTurn(
           }));
         }
         break;
+      case "PROPOSE_ROAD":
+        if (data.road !== undefined) {
+          setPlan((p) => ({ ...p, roads: [...p.roads, data.road] }));
+        }
+        break;
+      case "PROPOSE_POI":
+        if (data.poi !== undefined) {
+          setPlan((p) => ({ ...p, pois: [...p.pois, data.poi] }));
+        }
+        break;
+      case "PROPOSE_DANGER_SOURCE":
+        if (data.dangerSource !== undefined) {
+          setPlan((p) => ({
+            ...p,
+            dangerSources: [...p.dangerSources, data.dangerSource],
+          }));
+        }
+        break;
       case "PROPOSE_ASSET_PACK_INSTALL":
         if (Array.isArray(data.assetPackIds)) {
           // Additive merge — multiple PROPOSE_ASSET_PACK_INSTALL
@@ -754,6 +781,27 @@ function applyStreamingTurn(
                   ...p,
                   teleports: p.teleports.filter(
                     (t) => (t as { id?: string }).id !== removal.id,
+                  ),
+                };
+              case "road":
+                return {
+                  ...p,
+                  roads: p.roads.filter(
+                    (r) => (r as { id?: string }).id !== removal.id,
+                  ),
+                };
+              case "poi":
+                return {
+                  ...p,
+                  pois: p.pois.filter(
+                    (n) => (n as { id?: string }).id !== removal.id,
+                  ),
+                };
+              case "dangerSource":
+                return {
+                  ...p,
+                  dangerSources: p.dangerSources.filter(
+                    (d) => (d as { id?: string }).id !== removal.id,
                   ),
                 };
               case "asset":
@@ -1106,6 +1154,15 @@ export function DesignWithAIDialog({
           teleports: Array.isArray(restored.plan.teleports)
             ? [...restored.plan.teleports]
             : [],
+          roads: Array.isArray(restored.plan.roads)
+            ? [...restored.plan.roads]
+            : [],
+          pois: Array.isArray(restored.plan.pois)
+            ? [...restored.plan.pois]
+            : [],
+          dangerSources: Array.isArray(restored.plan.dangerSources)
+            ? [...restored.plan.dangerSources]
+            : [],
           uiPack: restored.plan.uiPack ?? null,
         }
       : {
@@ -1120,6 +1177,9 @@ export function DesignWithAIDialog({
           resources: [],
           stations: [],
           teleports: [],
+          roads: [],
+          pois: [],
+          dangerSources: [],
           uiPack: null,
         },
   );
@@ -1240,6 +1300,9 @@ export function DesignWithAIDialog({
       const priorResources = effectivePlan.resources;
       const priorStations = effectivePlan.stations;
       const priorTeleports = effectivePlan.teleports;
+      const priorRoads = effectivePlan.roads;
+      const priorPois = effectivePlan.pois;
+      const priorDangerSources = effectivePlan.dangerSources;
       const priorAssetPackIds = effectivePlan.assetPackIds;
       let finalResponse: DesignResponse | null = null;
       let streamErrored: { message: string } | null = null;
@@ -1357,6 +1420,11 @@ export function DesignWithAIDialog({
             .stations;
           const finalTeleports = (finalPlan as { teleports?: unknown[] })
             .teleports;
+          const finalRoads = (finalPlan as { roads?: unknown[] }).roads;
+          const finalPois = (finalPlan as { pois?: unknown[] }).pois;
+          const finalDangerSources = (
+            finalPlan as { dangerSources?: unknown[] }
+          ).dangerSources;
           const finalAssetPackIds = (
             finalPlan as { assetPackIds?: string[] | null }
           ).assetPackIds;
@@ -1410,6 +1478,18 @@ export function DesignWithAIDialog({
               Array.isArray(finalTeleports) && finalTeleports.length > 0
                 ? [...priorTeleports, ...finalTeleports]
                 : prev.teleports,
+            roads:
+              Array.isArray(finalRoads) && finalRoads.length > 0
+                ? [...priorRoads, ...finalRoads]
+                : prev.roads,
+            pois:
+              Array.isArray(finalPois) && finalPois.length > 0
+                ? [...priorPois, ...finalPois]
+                : prev.pois,
+            dangerSources:
+              Array.isArray(finalDangerSources) && finalDangerSources.length > 0
+                ? [...priorDangerSources, ...finalDangerSources]
+                : prev.dangerSources,
             uiPack: finalPlan.uiPack !== null ? finalPlan.uiPack : prev.uiPack,
           }));
         }
@@ -1472,6 +1552,9 @@ export function DesignWithAIDialog({
       resources: [],
       stations: [],
       teleports: [],
+      roads: [],
+      pois: [],
+      dangerSources: [],
       uiPack: null,
     });
     setInput("");
@@ -1628,6 +1711,15 @@ export function DesignWithAIDialog({
       if (effectivePlan.teleports.length > 0) {
         patch.teleports = effectivePlan.teleports;
       }
+      if (effectivePlan.roads.length > 0) {
+        patch.roads = effectivePlan.roads;
+      }
+      if (effectivePlan.pois.length > 0) {
+        patch.pois = effectivePlan.pois;
+      }
+      if (effectivePlan.dangerSources.length > 0) {
+        patch.dangerSources = effectivePlan.dangerSources;
+      }
       if (effectivePlan.uiPack) {
         patch.uiPack = effectivePlan.uiPack;
       }
@@ -1664,6 +1756,8 @@ export function DesignWithAIDialog({
       collectRefs(effectivePlan.resources);
       collectRefs(effectivePlan.stations);
       collectRefs(effectivePlan.teleports);
+      collectRefs(effectivePlan.pois);
+      collectRefs(effectivePlan.dangerSources);
       const allPackIds = Array.from(refPackIds);
       if (allPackIds.length > 0) {
         try {
@@ -3127,6 +3221,9 @@ function hasAnyPlanContent(plan: OnboardingPlan): boolean {
     plan.resources.length > 0 ||
     plan.stations.length > 0 ||
     plan.teleports.length > 0 ||
+    plan.roads.length > 0 ||
+    plan.pois.length > 0 ||
+    plan.dangerSources.length > 0 ||
     plan.uiPack !== null
   );
 }
@@ -3168,6 +3265,11 @@ function planSummaryText(plan: OnboardingPlan): string {
   }
   if (plan.teleports.length > 0) {
     parts.push(`${plan.teleports.length} teleport(s)`);
+  }
+  if (plan.roads.length > 0) parts.push(`${plan.roads.length} road(s)`);
+  if (plan.pois.length > 0) parts.push(`${plan.pois.length} POI(s)`);
+  if (plan.dangerSources.length > 0) {
+    parts.push(`${plan.dangerSources.length} danger source(s)`);
   }
   if (plan.zones.length > 0) parts.push(`${plan.zones.length} zone(s)`);
   if (plan.quests.length > 0) parts.push(`${plan.quests.length} quest(s)`);

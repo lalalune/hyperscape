@@ -359,6 +359,18 @@ export interface OnboardingPlan {
   readonly zones: ReadonlyArray<unknown>;
   /** Every gathering resource the agent placed across the run. */
   readonly resources: ReadonlyArray<unknown>;
+  /** Every interaction station the agent placed across the run. */
+  readonly stations: ReadonlyArray<unknown>;
+  /** Every teleport node the agent placed across the run. */
+  readonly teleports: ReadonlyArray<unknown>;
+  /** Every road the agent placed across the run. */
+  readonly roads: ReadonlyArray<unknown>;
+  /** Every POI (point of interest) the agent placed across the run. */
+  readonly pois: ReadonlyArray<unknown>;
+  /** Every danger source the agent placed across the run. */
+  readonly dangerSources: ReadonlyArray<unknown>;
+  /** Asset pack manifest ids the agent proposed installing across the run (deduped). */
+  readonly assetPackIds: ReadonlyArray<string>;
   /** Last validated UI pack (B1.0). */
   readonly uiPack: unknown | null;
 }
@@ -701,6 +713,12 @@ function applyRemovalToAggregate(
     quests: unknown[];
     assets: unknown[];
     zones: unknown[];
+    resources: unknown[];
+    stations: unknown[];
+    teleports: unknown[];
+    roads: unknown[];
+    pois: unknown[];
+    dangerSources: unknown[];
   },
 ): void {
   if (!rawRemoval || typeof rawRemoval !== "object") return;
@@ -747,6 +765,24 @@ function applyRemovalToAggregate(
     case "zone":
       filterById(buffers.zones, r.id);
       break;
+    case "resource":
+      filterById(buffers.resources, r.id);
+      break;
+    case "station":
+      filterById(buffers.stations, r.id);
+      break;
+    case "teleport":
+      filterById(buffers.teleports, r.id);
+      break;
+    case "road":
+      filterById(buffers.roads, r.id);
+      break;
+    case "poi":
+      filterById(buffers.pois, r.id);
+      break;
+    case "dangerSource":
+      filterById(buffers.dangerSources, r.id);
+      break;
     default:
       break;
   }
@@ -792,6 +828,12 @@ function aggregatePlanFromTurns(
   const assets: unknown[] = [];
   const zones: unknown[] = [];
   const resources: unknown[] = [];
+  const stations: unknown[] = [];
+  const teleports: unknown[] = [];
+  const roads: unknown[] = [];
+  const pois: unknown[] = [];
+  const dangerSources: unknown[] = [];
+  const assetPackIdSet = new Set<string>();
   let uiPack: unknown | null = null;
 
   for (const turn of turns) {
@@ -828,6 +870,29 @@ function aggregatePlanFromTurns(
         case "PROPOSE_RESOURCE":
           if (data.resource !== undefined) resources.push(data.resource);
           break;
+        case "PROPOSE_STATION":
+          if (data.station !== undefined) stations.push(data.station);
+          break;
+        case "PROPOSE_TELEPORT":
+          if (data.teleport !== undefined) teleports.push(data.teleport);
+          break;
+        case "PROPOSE_ROAD":
+          if (data.road !== undefined) roads.push(data.road);
+          break;
+        case "PROPOSE_POI":
+          if (data.poi !== undefined) pois.push(data.poi);
+          break;
+        case "PROPOSE_DANGER_SOURCE":
+          if (data.dangerSource !== undefined)
+            dangerSources.push(data.dangerSource);
+          break;
+        case "PROPOSE_ASSET_PACK_INSTALL":
+          if (Array.isArray(data.assetPackIds)) {
+            for (const id of data.assetPackIds as unknown[]) {
+              if (typeof id === "string") assetPackIdSet.add(id);
+            }
+          }
+          break;
         case "PROPOSE_UI_PACK":
           if (data.pack !== undefined) uiPack = data.pack;
           break;
@@ -842,6 +907,12 @@ function aggregatePlanFromTurns(
             quests,
             assets,
             zones,
+            resources,
+            stations,
+            teleports,
+            roads,
+            pois,
+            dangerSources,
           });
           break;
         default:
@@ -860,6 +931,12 @@ function aggregatePlanFromTurns(
     assets,
     zones,
     resources,
+    stations,
+    teleports,
+    roads,
+    pois,
+    dangerSources,
+    assetPackIds: Array.from(assetPackIdSet),
     uiPack,
   };
 }
