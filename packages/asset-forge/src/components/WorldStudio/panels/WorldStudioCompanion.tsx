@@ -49,6 +49,7 @@ import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatche
 import type {
   WorldAreaMobSpawn,
   WorldAreaNPC,
+  WorldAreaPOI,
   WorldAreaResource,
   WorldAreaRoad,
   WorldAreaStation,
@@ -272,6 +273,8 @@ function CompanionInner({ projectId }: { projectId: string }) {
           placementDispatcher.placeResource(data.resource as WorldAreaResource);
         } else if (call.name === "PROPOSE_ROAD" && data.road !== undefined) {
           placementDispatcher.placeRoad(data.road as WorldAreaRoad);
+        } else if (call.name === "PROPOSE_POI" && data.poi !== undefined) {
+          placementDispatcher.placePOI(data.poi as WorldAreaPOI);
         } else if (
           call.name === "REMOVE_FROM_PROJECT" &&
           data.removal !== undefined
@@ -1002,6 +1005,10 @@ const TOOL_BREADCRUMB_SUMMARY: Record<
     icon: "🛣️",
     label: (n) => `Drew ${n} road${n === 1 ? "" : "s"}`,
   },
+  PROPOSE_POI: {
+    icon: "📍",
+    label: (n) => `Marked ${n} POI${n === 1 ? "" : "s"}`,
+  },
   PROPOSE_ASSET: {
     icon: "✨",
     label: (n) => `Queued ${n} asset bake${n === 1 ? "" : "s"}`,
@@ -1049,6 +1056,8 @@ function prettifyToolName(name: string): string {
       return "Placing a teleport…";
     case "PROPOSE_ROAD":
       return "Drawing a road…";
+    case "PROPOSE_POI":
+      return "Marking a point of interest…";
     case "REMOVE_FROM_PROJECT":
       return "Removing an entity…";
     case "GET_PROJECT_STATE":

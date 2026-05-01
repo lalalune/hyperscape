@@ -506,3 +506,88 @@ describe("WorldAreaRoadSchema (P2.a)", () => {
     ).toBe(false);
   });
 });
+
+// ─────────── P5.a — WorldAreaPOI ───────────
+
+import { WorldAreaPOISchema } from "./world-areas.js";
+
+describe("WorldAreaPOISchema (P5.a)", () => {
+  const validPOI = {
+    id: "whispering-cave",
+    name: "Whispering Cave",
+    category: "dungeon" as const,
+    position: { x: 120, y: 0, z: 80 },
+    importance: 0.8,
+    radius: 30,
+  };
+
+  it("accepts a canonical POI shape", () => {
+    expect(WorldAreaPOISchema.safeParse(validPOI).success).toBe(true);
+  });
+
+  it("accepts every category in the enum", () => {
+    const categories = [
+      "dungeon",
+      "shrine",
+      "landmark",
+      "resource_area",
+      "ruin",
+      "camp",
+      "crossing",
+      "waystation",
+      "fishing_spot",
+    ];
+    for (const category of categories) {
+      expect(
+        WorldAreaPOISchema.safeParse({ ...validPOI, category }).success,
+      ).toBe(true);
+    }
+  });
+
+  it("rejects unknown category", () => {
+    expect(
+      WorldAreaPOISchema.safeParse({ ...validPOI, category: "alien_base" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("rejects importance outside 0-1", () => {
+    expect(
+      WorldAreaPOISchema.safeParse({ ...validPOI, importance: -0.1 }).success,
+    ).toBe(false);
+    expect(
+      WorldAreaPOISchema.safeParse({ ...validPOI, importance: 1.5 }).success,
+    ).toBe(false);
+  });
+
+  it("accepts importance at boundaries (0 and 1)", () => {
+    expect(
+      WorldAreaPOISchema.safeParse({ ...validPOI, importance: 0 }).success,
+    ).toBe(true);
+    expect(
+      WorldAreaPOISchema.safeParse({ ...validPOI, importance: 1 }).success,
+    ).toBe(true);
+  });
+
+  it("rejects non-positive radius", () => {
+    expect(
+      WorldAreaPOISchema.safeParse({ ...validPOI, radius: 0 }).success,
+    ).toBe(false);
+    expect(
+      WorldAreaPOISchema.safeParse({ ...validPOI, radius: -10 }).success,
+    ).toBe(false);
+  });
+
+  it("accepts optional connectedRoads + entryPoint", () => {
+    const r = WorldAreaPOISchema.safeParse({
+      ...validPOI,
+      connectedRoads: ["road-1", "road-2"],
+      entryPoint: { x: 0, z: 5, angle: 1.5708 },
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.connectedRoads).toHaveLength(2);
+      expect(r.data.entryPoint?.angle).toBeCloseTo(1.5708);
+    }
+  });
+});

@@ -61,10 +61,12 @@ import type {
   WorldAreaStation,
   WorldAreaTeleportNode,
   WorldAreaRoad,
+  WorldAreaPOI,
 } from "@hyperforge/manifest-schema";
 
 import type {
   PlacedMobSpawn,
+  PlacedPOI,
   PlacedResource,
   PlacedStation,
   PlacedTeleport,
@@ -453,5 +455,57 @@ export function placedCustomRoadToWorldArea(
     name: road.name,
     path: road.path.map((p) => sceneToGame(p, worldCenterOffset)),
     width: road.width,
+  };
+}
+
+// ───────────────── POI ─────────────────
+//
+// PlacedPOI matches the agent shape almost 1:1 — same category
+// enum, same importance/radius/connectedRoads/entryPoint fields.
+// The mapper just translates position game ↔ scene and threads
+// the optional fields through. assetRef rides in `properties` for
+// round-trip (PlacedPOI doesn't have a top-level assetRef field).
+
+export function worldAreaPOIToPlaced(
+  poi: WorldAreaPOI,
+  worldCenterOffset: number,
+): PlacedPOI {
+  const properties: Record<string, unknown> = {
+    ...(poi.properties ?? {}),
+    ...(poi.assetRef ? { assetRef: poi.assetRef } : {}),
+  };
+  return {
+    id: poi.id,
+    name: poi.name,
+    category: poi.category,
+    position: gameToScene(poi.position, worldCenterOffset),
+    importance: poi.importance,
+    radius: poi.radius,
+    connectedRoads: poi.connectedRoads ?? [],
+    entryPoint: poi.entryPoint,
+    properties,
+  };
+}
+
+export function placedPOIToWorldArea(
+  placed: PlacedPOI,
+  worldCenterOffset: number,
+): WorldAreaPOI {
+  const props = { ...(placed.properties ?? {}) };
+  const assetRef =
+    typeof props.assetRef === "string" ? props.assetRef : undefined;
+  delete props.assetRef;
+
+  return {
+    id: placed.id,
+    name: placed.name,
+    category: placed.category,
+    position: sceneToGame(placed.position, worldCenterOffset),
+    importance: placed.importance,
+    radius: placed.radius,
+    connectedRoads: placed.connectedRoads,
+    entryPoint: placed.entryPoint,
+    assetRef,
+    properties: Object.keys(props).length > 0 ? props : undefined,
   };
 }

@@ -33,6 +33,7 @@ import { useMemo } from "react";
 import type {
   WorldAreaMobSpawn,
   WorldAreaNPC,
+  WorldAreaPOI,
   WorldAreaResource,
   WorldAreaRoad,
   WorldAreaStation,
@@ -44,6 +45,7 @@ import { useWorldStudio } from "../WorldStudioContext";
 import {
   worldAreaMobSpawnToPlaced,
   worldAreaNpcToPlaced,
+  worldAreaPOIToPlaced,
   worldAreaResourceToPlaced,
   worldAreaRoadToPlaced,
   worldAreaStationToPlaced,
@@ -87,6 +89,11 @@ export interface AgentPlacementDispatcher {
    */
   placeRoad: (road: WorldAreaRoad) => void;
   /**
+   * P5.a — agent POI placement (dungeon / shrine / landmark / etc.).
+   * Lands in `extendedLayers.pois` via `actions.addPOI`.
+   */
+  placePOI: (poi: WorldAreaPOI) => void;
+  /**
    * The offset used by all the placement functions in this
    * dispatcher. Exposed so callers (companion / dialog) can
    * surface a useful diagnostic when the offset is 0 (i.e. the
@@ -114,6 +121,7 @@ export function useAgentPlacementDispatcher(): AgentPlacementDispatcher {
         actions.addTeleport(worldAreaTeleportToPlaced(teleport, offset)),
       placeRoad: (road) =>
         actions.addCustomRoad(worldAreaRoadToPlaced(road, offset)),
+      placePOI: (poi) => actions.addPOI(worldAreaPOIToPlaced(poi, offset)),
       worldCenterOffset: offset,
     }),
     [actions, offset],

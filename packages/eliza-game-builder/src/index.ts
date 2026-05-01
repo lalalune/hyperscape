@@ -123,6 +123,7 @@ export {
   proposeStationAction,
   proposeTeleportAction,
   proposeRoadAction,
+  proposePOIAction,
   proposeTerrainConfigAction,
   proposeUIPackAction,
   proposeZoneAction,

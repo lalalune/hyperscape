@@ -31,4 +31,5 @@ export { listEntityTypesAction } from "./listEntityTypes.js";
 export { proposeStationAction } from "./proposeStation.js";
 export { proposeTeleportAction } from "./proposeTeleport.js";
 export { proposeRoadAction } from "./proposeRoad.js";
+export { proposePOIAction } from "./proposePOI.js";
 export { offerChoicesAction, type OfferedChoice } from "./offerChoices.js";

@@ -205,6 +205,66 @@ export type WorldAreaStation = z.infer<typeof WorldAreaStationSchema>;
  * `ALL_WORLD_AREAS` constant.
  */
 /**
+ * Point of Interest — a named landmark with a radius, importance
+ * weight, and optional road connectivity.
+ *
+ * P5.a of `PLAN_AGENT_STUDIO_PARITY.md`. Maps to the studio's
+ * `PlacedPOI` shape (which already exists in extendedLayers and
+ * has full property-panel + outliner integration). The category
+ * enum mirrors the studio's exactly so the mapper is a 1:1 field
+ * pass-through.
+ *
+ * Fields:
+ *   id          — unique POI id
+ *   name        — display name ("Whispering Cave")
+ *   category    — fixed enum: "dungeon" | "shrine" | "landmark" |
+ *                 "resource_area" | "ruin" | "camp" | "crossing" |
+ *                 "waystation" | "fishing_spot"
+ *   position    — game-space coords
+ *   importance  — 0-1, higher = more road connectivity in procgen
+ *   radius      — POI area radius in meters; positive
+ *
+ * Optional:
+ *   connectedRoads — ids of roads that terminate at / pass through
+ *                    this POI (so the agent can wire roads + POIs
+ *                    together coherently in one PROPOSE chain)
+ *   entryPoint     — { x, z, angle } where visitors should enter
+ *   assetRef       — pack ref for the POI's anchor model
+ */
+export const WorldAreaPOISchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    category: z.enum([
+      "dungeon",
+      "shrine",
+      "landmark",
+      "resource_area",
+      "ruin",
+      "camp",
+      "crossing",
+      "waystation",
+      "fishing_spot",
+    ]),
+    position: Vec3Schema,
+    importance: z.number().min(0).max(1),
+    radius: z.number().positive(),
+    connectedRoads: z.array(z.string().min(1)).optional(),
+    entryPoint: z
+      .object({
+        x: z.number(),
+        z: z.number(),
+        angle: z.number(),
+      })
+      .optional(),
+    /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
+    assetRef: AssetRefSchema.optional(),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough();
+export type WorldAreaPOI = z.infer<typeof WorldAreaPOISchema>;
+
+/**
  * Road / path placed by the agent or designer. Connects two
  * points (or, for multi-segment roads, runs through a sequence of
  * waypoints). The studio renders these as ribbons on the terrain

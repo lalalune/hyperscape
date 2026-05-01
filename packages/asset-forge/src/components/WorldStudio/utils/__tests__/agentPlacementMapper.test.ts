@@ -28,12 +28,14 @@ import {
   worldAreaStationToPlaced,
   worldAreaTeleportToPlaced,
   worldAreaRoadToPlaced,
+  worldAreaPOIToPlaced,
   placedNpcToWorldArea,
   placedMobSpawnToWorldArea,
   placedResourceToWorldArea,
   placedStationToWorldArea,
   placedTeleportToWorldArea,
   placedCustomRoadToWorldArea,
+  placedPOIToWorldArea,
 } from "../agentPlacementMapper";
 
 // World tests use a 5km world (50 tiles × 100m = 5000m total),
@@ -681,5 +683,115 @@ describe("Road mapper", () => {
       OFFSET,
     );
     expect(placed.path).toHaveLength(2);
+  });
+});
+
+// ───────────────── POI (P5.a) ─────────────────
+
+describe("POI mapper", () => {
+  it("maps required fields verbatim with coord conversion", () => {
+    const placed = worldAreaPOIToPlaced(
+      {
+        id: "whispering-cave",
+        name: "Whispering Cave",
+        category: "dungeon",
+        position: { x: 120, y: 0, z: 80 },
+        importance: 0.8,
+        radius: 30,
+      },
+      OFFSET,
+    );
+    expect(placed.id).toBe("whispering-cave");
+    expect(placed.name).toBe("Whispering Cave");
+    expect(placed.category).toBe("dungeon");
+    expect(placed.importance).toBe(0.8);
+    expect(placed.radius).toBe(30);
+    expect(placed.position).toEqual({ x: 2620, y: 0, z: 2580 });
+  });
+
+  it("defaults connectedRoads to empty array when absent", () => {
+    const placed = worldAreaPOIToPlaced(
+      {
+        id: "shrine",
+        name: "Shrine",
+        category: "shrine",
+        position: { x: 0, y: 0, z: 0 },
+        importance: 0.5,
+        radius: 10,
+      },
+      OFFSET,
+    );
+    expect(placed.connectedRoads).toEqual([]);
+  });
+
+  it("preserves connectedRoads + entryPoint", () => {
+    const placed = worldAreaPOIToPlaced(
+      {
+        id: "crossroads",
+        name: "The Crossroads",
+        category: "crossing",
+        position: { x: 0, y: 0, z: 0 },
+        importance: 0.6,
+        radius: 5,
+        connectedRoads: ["road-1", "road-2", "road-3"],
+        entryPoint: { x: 0, z: 5, angle: 1.5708 },
+      },
+      OFFSET,
+    );
+    expect(placed.connectedRoads).toEqual(["road-1", "road-2", "road-3"]);
+    expect(placed.entryPoint).toEqual({ x: 0, z: 5, angle: 1.5708 });
+  });
+
+  it("folds assetRef into properties for round-trip", () => {
+    const placed = worldAreaPOIToPlaced(
+      {
+        id: "p1",
+        name: "P1",
+        category: "landmark",
+        position: { x: 0, y: 0, z: 0 },
+        importance: 0.5,
+        radius: 5,
+        assetRef: "@my-pack/landmark-stone",
+      },
+      OFFSET,
+    );
+    expect(placed.properties.assetRef).toBe("@my-pack/landmark-stone");
+  });
+
+  it("round-trips lossless across all categories", () => {
+    const categories = [
+      "dungeon",
+      "shrine",
+      "landmark",
+      "resource_area",
+      "ruin",
+      "camp",
+      "crossing",
+      "waystation",
+      "fishing_spot",
+    ] as const;
+    for (const category of categories) {
+      const original = {
+        id: `poi-${category}`,
+        name: `Test ${category}`,
+        category,
+        position: { x: 50, y: 0, z: 25 },
+        importance: 0.7,
+        radius: 20,
+        connectedRoads: ["r1"],
+        assetRef: `@pack/${category}`,
+      };
+      const placed = worldAreaPOIToPlaced(original, OFFSET);
+      const back = placedPOIToWorldArea(placed, OFFSET);
+      expect(back.category).toBe(category);
+      expect(back.id).toBe(original.id);
+      expect(back.name).toBe(original.name);
+      expect(back.position.x).toBeCloseTo(original.position.x);
+      expect(back.position.z).toBeCloseTo(original.position.z);
+      expect(back.importance).toBe(original.importance);
+      expect(back.radius).toBe(original.radius);
+      expect(back.connectedRoads).toEqual(original.connectedRoads);
+      expect(back.assetRef).toBe(original.assetRef);
+    }
   });
 });
