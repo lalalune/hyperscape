@@ -35,7 +35,7 @@ import {
 } from "@hyperforge/shared/runtime";
 import type { ScriptGraph } from "../../../scripting/types";
 import { createPIEPluginHooks } from "../../../pie/pluginBoot";
-import { resolveProjectPluginSet } from "../toolbar/gamePluginResolver";
+import { resolveProjectPluginIds } from "../toolbar/gamePluginResolver";
 import type { WidgetRegistry } from "@hyperforge/ui-framework";
 import {
   bindAllWidgets,
@@ -777,12 +777,13 @@ export function usePIESession({
       debugSink: (entry: PIEDebugEntry) => onDebugRef.current?.(entry),
       gameMode: manifest,
       mode: pieMode === "play" ? "play" : "simulate",
-      // B0'.C: derive the active plugin set from the project's
-      // typed-layer surface (B0'.A) instead of env/localStorage.
-      // Empty `project.plugins` → "blank" → no game plugins boot.
-      // Hyperia template → "hyperscape" → full plugin chain.
+      // R2.P2: pass the project's plugin id list directly to PIE.
+      // No enum collapse — agent/studio can declare any plugin id
+      // present in pluginBoot's STATIC_PLUGIN_MAP and PIE boots
+      // it. Unknown ids skip with a warning instead of forcing
+      // the whole project into a 3-element preset.
       plugins: createPIEPluginHooks(
-        resolveProjectPluginSet({
+        resolveProjectPluginIds({
           plugins: state.project.plugins,
           templateId: state.project.templateId,
           projectLoaded: state.project.currentProjectId !== null,

@@ -55,9 +55,12 @@ export function isKnownGamePluginSetId(raw: unknown): raw is GamePluginSetId {
  *   5. No project context (e.g. PIE booted before project loaded)
  *      → `resolveGamePluginSetId()` legacy env/localStorage path.
  *
- * Phase B0'.C transition. Once B0'.D ships, the project's plugin
- * id list goes through the registry directly and this enum-based
- * resolver collapses.
+ * @deprecated R2.P2 of `PLAN_HYPERIA_DECOUPLING.md` replaced
+ * this enum-based resolver with `resolveProjectPluginIds()`,
+ * which returns the npm-style id list directly so PIE's static
+ * plugin map can boot any registered plugin without an enum
+ * mapping. Kept here only for legacy callers (HUD layout
+ * picker — see PIEHudOverlay) that haven't migrated yet.
  */
 export function resolveProjectPluginSet(args: {
   plugins: ReadonlyArray<string>;
@@ -82,6 +85,45 @@ export function resolveProjectPluginSet(args: {
   // Unknown plugin id — fall through to templateId.
   if (args.templateId === "hyperia") return "hyperscape";
   return DEFAULT_GAME;
+}
+
+/**
+ * R2.P2 — resolve the plugin id list PIE should boot, directly
+ * from the project's typed-layer surface. No enum collapse — the
+ * agent / studio can declare any plugin id and PIE looks it up
+ * in `pluginBoot.STATIC_PLUGIN_MAP`. Unknown ids skip with a
+ * warning instead of forcing the whole project into a 3-element
+ * preset.
+ *
+ * Resolution:
+ *   1. Project loaded with explicit plugins → return them
+ *      verbatim (PIE expands transitive deps internally).
+ *   2. Project loaded but plugins is empty → `[]` (blank canvas).
+ *   3. Project loaded with empty plugins but `templateId === "hyperia"`
+ *      → `["@hyperforge/hyperscape"]` (legacy template fallback;
+ *      can be removed once template seeding always populates
+ *      plugins[]).
+ *   4. No project context (PIE booted standalone for tests) →
+ *      legacy env/localStorage resolver translated to a single id.
+ */
+export function resolveProjectPluginIds(args: {
+  plugins: ReadonlyArray<string>;
+  templateId: string | null;
+  projectLoaded: boolean;
+}): ReadonlyArray<string> {
+  if (!args.projectLoaded) {
+    const legacy = resolveGamePluginSetId();
+    if (legacy === "blank") return [];
+    if (legacy === "shooter-demo") return ["@hyperforge/plugin-shooter-demo"];
+    return ["@hyperforge/hyperscape"];
+  }
+  if (args.plugins.length > 0) {
+    return [...args.plugins];
+  }
+  if (args.templateId === "hyperia") {
+    return ["@hyperforge/hyperscape"];
+  }
+  return [];
 }
 
 /**

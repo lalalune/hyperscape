@@ -53,7 +53,103 @@ import {
   shooterDemoPluginFactory,
 } from "@hyperforge/plugin-shooter-demo";
 
-import type { GamePluginSetId } from "../components/WorldStudio/toolbar/gamePluginResolver";
+/**
+ * R2.P2 of `PLAN_HYPERIA_DECOUPLING.md`. Static plugin map keyed
+ * by manifest id. The browser bundle requires every loadable
+ * plugin be statically imported so Vite can bundle it; the map
+ * is the editor's "what's installable" — the agent / studio /
+ * usePIESession can ask for any id, and if it's in the map, it
+ * boots. Adding a new plugin means: (1) static-import its
+ * manifest + factory at the top of this file, (2) add an entry
+ * here keyed by `manifest.id`. No more enum surgery, no more
+ * switch(gameId) anywhere.
+ *
+ * Future federation work (separate phase) replaces the static
+ * imports with dynamic module loading; the registry surface this
+ * file exposes stays the same.
+ */
+type LoadablePlugin = LoadedPluginModule<PluginContextBase>;
+
+const STATIC_PLUGIN_MAP: ReadonlyMap<string, () => LoadablePlugin> = new Map<
+  string,
+  () => LoadablePlugin
+>([
+  [
+    combatManifest.id,
+    () => ({
+      manifest: combatManifest,
+      factory: combatPluginFactory(DEFAULT_COMBAT_ABILITIES),
+    }),
+  ],
+  [
+    skillsManifest.id,
+    () => ({
+      manifest: skillsManifest,
+      factory: skillsPluginFactory(DEFAULT_SKILLS),
+    }),
+  ],
+  [
+    hyperscapeManifest.id,
+    () => ({ manifest: hyperscapeManifest, factory: hyperscapeFactory }),
+  ],
+  [
+    shooterDemoManifest.id,
+    () => ({
+      manifest: shooterDemoManifest,
+      factory: shooterDemoPluginFactory(),
+    }),
+  ],
+]);
+
+/**
+ * Translation from npm package name (`@hyperforge/hyperscape`) to
+ * the manifest id (`com.hyperforge.hyperscape`) the static map
+ * keys on. Project storage uses npm names because that's what
+ * users type in plugin lists; the framework keys on manifest id
+ * because that's the stable identifier in `plugin.json`. Adding
+ * a new entry to the static map should also add its npm-name
+ * alias here so projects can declare it either way.
+ */
+const NPM_TO_MANIFEST_ID: ReadonlyMap<string, string> = new Map([
+  ["@hyperforge/combat", combatManifest.id],
+  ["@hyperforge/skills", skillsManifest.id],
+  ["@hyperforge/hyperscape", hyperscapeManifest.id],
+  ["@hyperforge/plugin-shooter-demo", shooterDemoManifest.id],
+]);
+
+/** Hyperia plugin auto-pulls combat + skills as transitive deps. */
+const HYPERSCAPE_TRANSITIVE_PLUGINS: ReadonlyArray<string> = [
+  combatManifest.id,
+  skillsManifest.id,
+  hyperscapeManifest.id,
+];
+
+/** Shooter-demo auto-pulls combat. */
+const SHOOTER_TRANSITIVE_PLUGINS: ReadonlyArray<string> = [
+  combatManifest.id,
+  shooterDemoManifest.id,
+];
+
+function expandTransitivePlugins(ids: ReadonlyArray<string>): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (id: string) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    out.push(id);
+  };
+  for (const raw of ids) {
+    const manifestId = NPM_TO_MANIFEST_ID.get(raw) ?? raw;
+    if (manifestId === hyperscapeManifest.id) {
+      for (const dep of HYPERSCAPE_TRANSITIVE_PLUGINS) push(dep);
+    } else if (manifestId === shooterDemoManifest.id) {
+      for (const dep of SHOOTER_TRANSITIVE_PLUGINS) push(dep);
+    } else {
+      push(manifestId);
+    }
+  }
+  return out;
+}
 
 /**
  * Minimal shape `pluginBoot` needs from a host's UI widget registry.
@@ -74,48 +170,51 @@ export interface PIEUIWidgetRegistryLike {
 }
 
 /**
- * Resolve the set of plugin modules for a given plugin-set id.
- * Exported so a focused test can assert the second-game claim
- * (shooter-demo and hyperscape boot disjoint module sets) without
- * spinning up a full PIEEditorSession.
+ * Resolve the set of plugin modules for a list of plugin ids
+ * (manifest id or npm name — see `NPM_TO_MANIFEST_ID`).
+ *
+ * Empty input → empty result (B0'.C blank-canvas behavior).
+ * Unknown ids are silently skipped with a console warning so a
+ * typo / unbundled plugin doesn't block the rest of the set.
+ *
+ * Transitive dependencies are expanded automatically: declaring
+ * `@hyperforge/hyperscape` pulls in combat + skills.
+ *
+ * Exported so a focused test can assert composition behavior
+ * without spinning up a full PIEEditorSession.
+ */
+export function resolvePluginModules(
+  pluginIds: ReadonlyArray<string>,
+): ReadonlyArray<LoadedPluginModule<PluginContextBase>> {
+  if (pluginIds.length === 0) return [];
+  const expanded = expandTransitivePlugins(pluginIds);
+  const out: LoadablePlugin[] = [];
+  for (const id of expanded) {
+    const factory = STATIC_PLUGIN_MAP.get(id);
+    if (!factory) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[pie-plugin-boot] Plugin id "${id}" is not in the static map — skipping. Add it to STATIC_PLUGIN_MAP in pluginBoot.ts (and NPM_TO_MANIFEST_ID if applicable) to make it bootable from PIE.`,
+      );
+      continue;
+    }
+    out.push(factory());
+  }
+  return out;
+}
+
+/**
+ * @deprecated Use `resolvePluginModules(pluginIds)` instead.
+ * Kept as a thin shim during the R2.P2 transition; will be
+ * removed once all callers migrate.
  */
 export function getPluginModules(
-  gameId: GamePluginSetId,
+  gameId: "blank" | "hyperscape" | "shooter-demo",
 ): ReadonlyArray<LoadedPluginModule<PluginContextBase>> {
-  switch (gameId) {
-    case "blank":
-      // B0'.C: no plugins. PIE boots an engine-only world; PIE Play
-      // renders the project's terrain only. Designer / agent fills
-      // it via `PROPOSE_PLUGIN_SET` (B0'.I) and content actions
-      // (B0'.G+).
-      return [];
-    case "hyperscape":
-      return [
-        {
-          manifest: combatManifest,
-          factory: combatPluginFactory(DEFAULT_COMBAT_ABILITIES),
-        },
-        {
-          manifest: skillsManifest,
-          factory: skillsPluginFactory(DEFAULT_SKILLS),
-        },
-        {
-          manifest: hyperscapeManifest,
-          factory: hyperscapeFactory,
-        },
-      ];
-    case "shooter-demo":
-      return [
-        {
-          manifest: combatManifest,
-          factory: combatPluginFactory([]),
-        },
-        {
-          manifest: shooterDemoManifest,
-          factory: shooterDemoPluginFactory(),
-        },
-      ];
-  }
+  if (gameId === "blank") return resolvePluginModules([]);
+  if (gameId === "hyperscape")
+    return resolvePluginModules([hyperscapeManifest.id]);
+  return resolvePluginModules([shooterDemoManifest.id]);
 }
 
 function buildContextFactory(
@@ -219,15 +318,16 @@ function buildContextFactory(
 
 async function bootPluginsFor(
   world: World,
-  gameId: GamePluginSetId,
+  pluginIds: ReadonlyArray<string>,
   label: "server" | "client",
   uiWidgetRegistry: PIEUIWidgetRegistryLike | undefined,
 ): Promise<PluginSession<PluginContextBase>> {
-  const modules = getPluginModules(gameId);
+  const modules = resolvePluginModules(pluginIds);
   const combatService = createCombatAbilityService();
   const skillsService = createSkillsService();
+  // eslint-disable-next-line no-console
   console.log(
-    `[pie-plugin-boot:${label}] game=${gameId} — ${modules.length} plugin(s) in set`,
+    `[pie-plugin-boot:${label}] requested=[${pluginIds.join(", ") || "<empty>"}] resolved=${modules.length} plugin(s)`,
   );
   const session = await startPluginSessionFromModules(modules, {
     contextFactory: buildContextFactory(
@@ -274,7 +374,7 @@ async function bootPluginsFor(
  * on stop.
  */
 export function createPIEPluginHooks(
-  gameId: GamePluginSetId,
+  pluginIds: ReadonlyArray<string>,
   uiWidgetRegistry?: PIEUIWidgetRegistryLike,
 ): {
   bootServerPlugins: (
@@ -286,8 +386,8 @@ export function createPIEPluginHooks(
 } {
   return {
     bootServerPlugins: (serverWorld) =>
-      bootPluginsFor(serverWorld, gameId, "server", uiWidgetRegistry),
+      bootPluginsFor(serverWorld, pluginIds, "server", uiWidgetRegistry),
     bootClientPlugins: (clientWorld) =>
-      bootPluginsFor(clientWorld, gameId, "client", uiWidgetRegistry),
+      bootPluginsFor(clientWorld, pluginIds, "client", uiWidgetRegistry),
   };
 }
