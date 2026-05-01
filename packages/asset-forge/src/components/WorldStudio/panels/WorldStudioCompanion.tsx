@@ -604,6 +604,28 @@ function CompanionInner({ projectId }: { projectId: string }) {
         );
       }
 
+      // R1.P15 — fetch the installable-plugins catalog backed by
+      // PluginRegistryService. LIST_PLUGINS reads through this on
+      // the agent side; without it the action falls back to a
+      // hardcoded 2-element list. Failures drop silently.
+      let installablePlugins: Array<{
+        id: string;
+        npmName: string | null;
+        name: string;
+        description: string;
+        tags: string[];
+      }> = [];
+      try {
+        const res = await fetch("/api/plugins/installed", {
+          credentials: "same-origin",
+        });
+        if (res.ok) {
+          installablePlugins = (await res.json()) as typeof installablePlugins;
+        }
+      } catch (err) {
+        console.warn("[Companion] Failed to fetch installable plugins", err);
+      }
+
       // P0.5.b of PLAN_AGENT_STUDIO_PARITY — placements are now in
       // extendedLayers (designer + agent + procgen all merged via
       // P0.3 emit + P0.6 rehydrate). The agent's GET_PROJECT_STATE
@@ -694,6 +716,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
             history,
             projectContext,
             installableAssetPacks: installablePacks,
+            installablePlugins,
           }),
           signal: abortRef.current.signal,
         });

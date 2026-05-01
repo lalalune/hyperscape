@@ -29,21 +29,21 @@ import type {
   State,
 } from "@elizaos/core";
 import { GameBuilderService } from "../services/GameBuilderService.js";
-
-interface KnownPluginEntry {
-  readonly id: string;
-  readonly npmName: string | null;
-  readonly name: string;
-  readonly description: string;
-  readonly tags: ReadonlyArray<string>;
-}
+import {
+  PLUGIN_CATALOG_SERVICE_TYPE,
+  type IPluginCatalogService,
+  type InstallablePlugin,
+} from "../services/PluginCatalogService.js";
 
 /**
- * Static built-in plugin list. Mirrors what
- * `PluginRegistryService` would discover at the workspace root in
- * a fresh checkout. Order = stable id sort.
+ * Static built-in plugin list. Used as the fallback when no
+ * `PluginCatalogService` is plugged into the runtime — typically
+ * MCP / CLI / unit-test paths that don't go through the asset-forge
+ * studio's discovery endpoint. Production paths (the studio's
+ * Design with AI dialog) plumb the live registry through
+ * `PluginCatalogService` per request, and this fallback is unused.
  */
-const KNOWN_PLUGINS: ReadonlyArray<KnownPluginEntry> = [
+const KNOWN_PLUGINS: ReadonlyArray<InstallablePlugin> = [
   {
     id: "com.hyperforge.hyperscape",
     npmName: "@hyperforge/hyperscape",
@@ -93,7 +93,18 @@ export const listPluginsAction: Action = {
       return { success: false, error };
     }
 
-    const plugins = KNOWN_PLUGINS.map((p) => ({ ...p, tags: [...p.tags] }));
+    // R1.P15 — request-scoped catalog injected by the host
+    // (asset-forge studio fetches GET /api/plugins/installed and
+    // plugs the result through `PluginCatalogService`). Falls back
+    // to KNOWN_PLUGINS for paths that don't plumb a catalog (MCP /
+    // CLI / unit tests).
+    const catalog = runtime.getService(
+      PLUGIN_CATALOG_SERVICE_TYPE,
+    ) as unknown as IPluginCatalogService | null;
+    const live = catalog?.listInstallable() ?? null;
+    const source: ReadonlyArray<InstallablePlugin> =
+      live && live.length > 0 ? live : KNOWN_PLUGINS;
+    const plugins = source.map((p) => ({ ...p, tags: [...p.tags] }));
     const summaryLines = [
       `${plugins.length} plugin${plugins.length === 1 ? "" : "s"} available:`,
       ...plugins.map((p) => `  - ${p.id} (${p.name}) — ${p.description}`),

@@ -104,6 +104,13 @@ export {
 } from "./services/AssetPackCatalogService.js";
 
 export {
+  PLUGIN_CATALOG_SERVICE_TYPE,
+  makePluginCatalogService,
+  type IPluginCatalogService,
+  type InstallablePlugin,
+} from "./services/PluginCatalogService.js";
+
+export {
   catalogStatsAction,
   getPluginAction,
   getProjectStateAction,

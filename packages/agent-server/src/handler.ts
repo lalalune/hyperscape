@@ -46,7 +46,10 @@ import {
   proposeAssetPackInstallAction,
   ASSET_PACK_CATALOG_SERVICE_TYPE,
   makeAssetPackCatalogService,
+  PLUGIN_CATALOG_SERVICE_TYPE,
+  makePluginCatalogService,
   type InstallableAssetPack,
+  type InstallablePlugin,
   type OfferedChoice,
 } from "@hyperforge/eliza-game-builder";
 import { runAgentLoop, type LLMClient } from "@hyperforge/agent-runner";
@@ -298,6 +301,16 @@ export interface DesignRequest {
    * `projectContext.assetPacks` (the *installed* set).
    */
   readonly installableAssetPacks?: ReadonlyArray<InstallableAssetPack>;
+  /**
+   * R1.P15 of `PLAN_HYPERIA_DECOUPLING.md` — request-scoped
+   * catalog of plugins discoverable on the server (asset-forge
+   * fetches `GET /api/plugins/installed` backed by
+   * `PluginRegistryService`). Read by `LIST_PLUGINS`. When
+   * absent / empty, the action falls back to the hardcoded
+   * `KNOWN_PLUGINS` 2-element list — paths that don't plug a
+   * catalog (MCP / CLI / unit tests) keep working.
+   */
+  readonly installablePlugins?: ReadonlyArray<InstallablePlugin>;
 }
 
 /**
@@ -523,6 +536,13 @@ export async function handleDesignRequest(
     request.installableAssetPacks ?? [],
   );
 
+  // R1.P15 — request-scoped plugin catalog. Studio fetches
+  // `GET /api/plugins/installed` and plugs the result through;
+  // `LIST_PLUGINS` reads here instead of its hardcoded fallback.
+  const pluginCatalogService = makePluginCatalogService(
+    request.installablePlugins ?? [],
+  );
+
   const runtime = {
     getService: <T>(name: string) => {
       if (name === GameBuilderService.serviceType)
@@ -531,6 +551,8 @@ export async function handleDesignRequest(
         return projectContextService as unknown as T;
       if (name === ASSET_PACK_CATALOG_SERVICE_TYPE)
         return assetPackCatalogService as unknown as T;
+      if (name === PLUGIN_CATALOG_SERVICE_TYPE)
+        return pluginCatalogService as unknown as T;
       return null;
     },
   } as unknown as import("@elizaos/core").IAgentRuntime;
@@ -1013,6 +1035,13 @@ export function parseDesignRequest(
     );
   }
 
+  let installablePlugins: ReadonlyArray<InstallablePlugin> | undefined;
+  if (Array.isArray(b.installablePlugins)) {
+    installablePlugins = parseInstallablePlugins(
+      b.installablePlugins as ReadonlyArray<unknown>,
+    );
+  }
+
   return {
     prompt: b.prompt,
     model: typeof b.model === "string" ? b.model : undefined,
@@ -1021,7 +1050,41 @@ export function parseDesignRequest(
     history,
     projectContext,
     installableAssetPacks,
+    installablePlugins,
   };
+}
+
+/**
+ * R1.P15 — parse the per-request plugin catalog payload. Skips
+ * malformed entries silently (best-effort tolerance for legacy
+ * client versions). Required fields: id, name, description.
+ */
+function parseInstallablePlugins(
+  raw: ReadonlyArray<unknown>,
+): ReadonlyArray<InstallablePlugin> {
+  const out: InstallablePlugin[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const p = entry as Record<string, unknown>;
+    if (
+      typeof p.id !== "string" ||
+      typeof p.name !== "string" ||
+      typeof p.description !== "string"
+    )
+      continue;
+    const npmName = typeof p.npmName === "string" ? p.npmName : null;
+    const tags: string[] = Array.isArray(p.tags)
+      ? (p.tags as unknown[]).filter((t): t is string => typeof t === "string")
+      : [];
+    out.push({
+      id: p.id,
+      npmName,
+      name: p.name,
+      description: p.description,
+      tags,
+    });
+  }
+  return out;
 }
 
 function parseInstallableAssetPacks(

@@ -1224,6 +1224,21 @@ export function DesignWithAIDialog({
   const [resolvedPacks, setResolvedPacks] = useState<
     ResolvedProjectAssetPack[]
   >([]);
+  // R1.P15 — discoverable plugins from PluginRegistryService.
+  // Sent to agent-server with each /design request so the
+  // LIST_PLUGINS action sees actual on-disk plugins instead of
+  // a hardcoded 2-element fallback. Same fetch as
+  // BuildingBlocksPanel below; kept here at the dialog scope so
+  // the chat handler has access to it.
+  const [installablePlugins, setInstallablePlugins] = useState<
+    Array<{
+      id: string;
+      npmName: string | null;
+      name: string;
+      description: string;
+      tags: string[];
+    }>
+  >([]);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -1252,6 +1267,36 @@ export function DesignWithAIDialog({
       cancelled = true;
     };
   }, [teamId]);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/plugins/installed", {
+          credentials: "same-origin",
+        });
+        if (!res.ok) return;
+        const json = (await res.json()) as ReadonlyArray<{
+          id: string;
+          npmName: string | null;
+          name: string;
+          description: string;
+          tags: string[];
+        }>;
+        if (cancelled) return;
+        setInstallablePlugins(json.map((p) => ({ ...p, tags: [...p.tags] })));
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[DesignWithAIDialog] Failed to fetch installable plugins " +
+            "(agent will fall back to KNOWN_PLUGINS):",
+          err,
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // B1'.7 — persist (messages + plan) to localStorage so a stray
   // refresh doesn't lose the user's onboarding work. Skip while
@@ -1355,6 +1400,7 @@ export function DesignWithAIDialog({
             history,
             projectContext,
             installableAssetPacks: installablePacks,
+            installablePlugins,
           }),
           signal: abortRef.current.signal,
         });
