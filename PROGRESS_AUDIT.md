@@ -1,4 +1,190 @@
-# Hyperscape Progress Audit — 2026-05-01 (REFRESH 15)
+# Hyperscape Progress Audit — 2026-05-01 (REFRESH 16)
+
+## REFRESH 16 — Plan-portfolio audit + AAA % reconciliation post-deep-decoupling-audit (2026-05-01 afternoon)
+
+**Branch tip at refresh time:** `30cc871cc` (`docs(plan): expand
+decoupling plan with deep-audit findings`).
+
+**Trigger:** After 5e5aad816 made every AI-built world look like
+Hyperia, two rounds of deep audit ran. Round 1 found 11 pinch
+points in the asset-forge editor layer; Round 2 audited the full
+package portfolio and surfaced 16 more pinch points across
+engine, server, client, procgen, and the declared-but-unread
+plugin contribution surface. PLAN_HYPERIA_DECOUPLING.md was
+created and expanded from 9 → 15 phases (commits `bb7b281a3`
+and `30cc871cc`). This refresh reconciles the prior estimates
+against what the audit found.
+
+### Plan portfolio inventory (15 docs, 6,801 lines total)
+
+**ENGINE DECOUPLING (4 docs)**
+
+| Doc | Lines | Status | Note |
+|---|---|---|---|
+| PLAN_SERVERNETWORK_MIGRATION.md | 772 | **substantively COMPLETE** | Steps 1-9 shipped. PIE real loopback works (`054588a48`). 41 PIE roundtrip tests green. Step 8 sibling-shim cleanup is the only loose end (low-priority). |
+| PLAN_ENGINE_API_EXTRACTION.md | 294 | **substantively COMPLETE** | Phases A-G1 shipped. Substrate interfaces (`ISpatialIndex`, `IBroadcastService`, `IRegionSubscriptionService`, `ITileMovementService`, `IConnectionRegistry`) live; 14/14 handler families migrated. G remainder reclassified as engine-safe infrastructure. |
+| PLAN_ENGINE_GAME_SEPARATION.md | 170 | **WIP — Phase 2 next** | Phase 1 deferred (cycle is runtime, not types). Phase 2 = GameMode wiring (1-2 days). Phase 3 partial (real loopback exists). Phase 4 = heart of the project (2-3 weeks). 9-11 weeks total to publishable engine. |
+| PLAN_HEAVY_CLUSTER_MIGRATION.md | 180 | **WIP — blocked on diagnostics** | Wave 1 attempted + reverted at `fb8a01b62` (cross-package d.ts inference issue with numeric enum `ResourceSubType`). 5-6 waves remain. Tighten shared's tsconfig before retry. |
+
+**PROJECT / ASSET / UI (4 docs)**
+
+| Doc | Lines | Status | Note |
+|---|---|---|---|
+| PLAN_PROJECT_AS_DATA.md | 604 | **WIP — ~30% done** | B0' replaces older B0 framing. B0'.A (typed Project schema) shipped. B0'.E (Hyperia content into plugin) + B0'.F (parity smoke) + B0'.G-J pending. B1' (Design with AI hero UX) scoped, 0% shipped. |
+| PLAN_ASSET_PACKS.md | 246 | **scoped, 0% on system** | 10 Hyperia category packs (~142 assets) seeded as content; no install plumbing landed. AP1-AP4 substrate is the missing piece. `HYPERFORGE_DISABLE_ENGINE_DATA_LOAD` flag is the only mitigation today. |
+| PLAN_UI_PACK_AAA.md | 261 | **~95% done** | U0-U11 fully shipped (239 ui-framework + 79 client tests green). Only accessibility checklist + perf budget + telemetry + docs + flag flip remain. Closest to ready-to-ship of the four. |
+| PLAN_PHASE_D.md | 655 | **substantively COMPLETE** | D1-D7 shipped; D6.c long-tail closed via D8/D9/D10 wire-through (REFRESH 8). 28 widgets shipped. D6.c.4 panels (20+ remaining) is the open tail; gated on windowStore A/B/C decision. |
+
+**AI / AGENT (3 docs)**
+
+| Doc | Lines | Status | Note |
+|---|---|---|---|
+| PLAN_AI_AUTHORING_FOUNDATIONS.md | 320 | **A1-A4 shipped, only A5 remains** | Catalog + bindings + scaffolder + Eliza shells all complete. A5 (worked-example demo of AI building a tiny game end-to-end) is the only open phase. The framework is foundation-complete. |
+| PLAN_AGENT_STUDIO_PARITY.md | 423 | **WIP — P0+P1 + 3 actions shipped** | P0+P1 (data-layer unification, extendedLayers single store, source color-coding) shipped. P2.a (PROPOSE_ROAD), P5.a (PROPOSE_POI), P5.b (PROPOSE_DANGER_SOURCE) shipped. P2.b/P3/P4/P5-P13 pending. P4 (plugin-contributable property panels) overlaps with HYPERIA_DECOUPLING.P9. |
+| PLAN_HYPERIA_DECOUPLING.md | 481 | **DRAFT — created today, P1 not started** | 27 pinch points across 4 layers. 15 phases in 5 rounds. P1 (rename `DEFAULT_CREATION_CONFIG` → `HYPERIA_CREATION_CONFIG` + new `MINIMAL_CREATION_CONFIG`) is the smallest highest-leverage starting point. |
+
+**STATUS / QUALITY (4 docs)**
+
+| Doc | Lines | Status | Note |
+|---|---|---|---|
+| PROGRESS_AUDIT.md | 1146 | **live tracker** | This doc. REFRESH 15 → REFRESH 16 today. |
+| PLAN_AAA_QUALITY.md | 469 | **partly stale** | Phase A done. Phase B0 superseded by PLAN_PROJECT_AS_DATA. B1-B10 deferred until B0' lands. |
+| PLAN_NEXT_SESSIONS.md | 416 | **partly stale** | Sessions 2, 7, 8, 9, 10 closed. Session 1 ("Wire plugin into prod") was DONE before the doc was written per REFRESH 14 audit re-verification. Session 5 (D6.c) is the live work referenced. |
+| PLAN_WORLD_STUDIO_AAA_COMPLETION.md | 364 | **design spec, not yet executed** | 15-dimension Gap Matrix + 11-phase plan (A-K). Phase A (extract constants) is unstarted but is what HYPERIA_DECOUPLING pinch points #14-#17 expose at the engine layer. |
+
+### Reconciliation: AAA % estimate
+
+REFRESH 15 estimated **~91-92% AAA**. That estimate was based on
+the editor-side completion (Phases I, D, the 11 closed top-10
+items) and didn't fully weight the engine/server/client/procgen
+bake. Today's deep audit forces a downward revision.
+
+**Revised estimate: ~78-82% AAA**, decomposed:
+
+- **Editor surface + agent placement vocabulary**: ~92%
+  (REFRESH 15's number, still accurate for what it measures).
+- **Substrate plumbing (manifest authoritative, plugin
+  contributions actually fire at runtime)**: **~50%** —
+  HYPERIA_DECOUPLING.P10 finding that `plugin.json`
+  contributions are validated, snapshotted, and never read at
+  runtime drops this. Plugins register via callbacks; the
+  manifest is documentation pretending to be substrate.
+- **Engine genericness (zero Hyperia identifiers in
+  shared/server/client/procgen)**: **~60%** — `hyperiaPlayerId`
+  + `hyperiaLinked` in `Player` type, `BiomeType` enum at
+  engine level, `GrassWorker` 3-biome blending, `LeafShape`
+  oak hardcoding, 18 named tree presets in procgen, server
+  `bootServerPlugins` ignoring `project.plugins`, client's 27
+  hardcoded HUD panels, `KNOWN_PLUGINS` const in agent's
+  `LIST_PLUGINS` action.
+- **Acceptance test (second plugin + second pack proving
+  composability)**: **0%** — no non-Hyperia plugin or pack
+  exists.
+
+The headline % moves down because of three findings the prior
+refreshes underweighted:
+1. The substrate is cleaner than thought in 5 packages
+   (`manifest-schema`, `agent-runner`, `gameplay-framework`,
+   `ui-framework`, `widget-catalog`) — but the bake at engine
+   types is **deeper** than thought.
+2. Plugin manifest contributions don't fire at runtime —
+   the worst kind of slop because the manifest looks like
+   substrate but isn't.
+3. No second plugin or second pack exists, so "compose from
+   building blocks" is a theoretical claim.
+
+### Live priority queue (post-audit)
+
+Round 1 (S, ship-fast — together ~3 days):
+- **HYPERIA_DECOUPLING.P1** (rename `DEFAULT_CREATION_CONFIG`
+  → `HYPERIA_CREATION_CONFIG`, introduce
+  `MINIMAL_CREATION_CONFIG`, project-aware merge base)
+- **HYPERIA_DECOUPLING.P15** (replace `KNOWN_PLUGINS` const with
+  `PluginRegistryService.listPlugins()`)
+- **HYPERIA_DECOUPLING.P5** (project-scoped engine data load:
+  flip `HYPERFORGE_DISABLE_ENGINE_DATA_LOAD` from per-deploy
+  to per-project)
+
+Round 2 (M, substrate plumbing — ~2 weeks):
+- **HYPERIA_DECOUPLING.P2** (plugin enum → registry path)
+- **HYPERIA_DECOUPLING.P10** (read plugin contributions at
+  runtime — fixes the manifest-as-documentation problem)
+- **HYPERIA_DECOUPLING.P12** (detangle login/auth from engine
+  types; move `hyperiaPlayerId` etc. into auth-bridge package)
+
+Round 3 (L, extension surface — ~3-4 weeks):
+- **HYPERIA_DECOUPLING.P3** (plugin-contributable biomes)
+- **HYPERIA_DECOUPLING.P4** (plugin-aware `initEntityModels` /
+  unify on pack path)
+- **HYPERIA_DECOUPLING.P9** ≈ **AGENT_STUDIO_PARITY.P4**
+  (plugin-contributable property panels — same architectural
+  unlock; schedule once)
+- **HYPERIA_DECOUPLING.P11** (server + client plugin extension
+  hooks — registers tick systems, packet handlers, panels)
+- **HYPERIA_DECOUPLING.P13** (strip Hyperia styling from
+  ui-widgets — token reads instead of RGBA constants)
+
+Round 4 (M, polish — ~2 weeks):
+- **HYPERIA_DECOUPLING.P6** (plugin-aware onboarding prompt)
+- **HYPERIA_DECOUPLING.P14** (broaden plugin-scaffolder beyond
+  widgets)
+- **HYPERIA_DECOUPLING.P8** ≈ **AGENT_STUDIO_PARITY.P2/P5/P6**
+  (close agent action vocabulary gaps: PROPOSE_TOWN,
+  PROPOSE_WATER_BODY, PROPOSE_MUSIC_ZONE, PROPOSE_AMBIENT_ZONE,
+  PROPOSE_MINE, PROPOSE_WILDERNESS_BOUNDARY)
+
+Round 5 (M, acceptance test):
+- **HYPERIA_DECOUPLING.P7** (real second plugin + second pack —
+  tropical pirate sandbox)
+- **AI_AUTHORING_FOUNDATIONS.A5** (worked-example demo of
+  AI building a tiny game end-to-end — uses the second plugin
+  as the test case)
+
+Parallel tracks (not gated by HYPERIA_DECOUPLING):
+- **ENGINE_GAME_SEPARATION Phase 2** (GameMode wiring, 1-2
+  days) — independent unlock for engine publishability.
+- **HEAVY_CLUSTER_MIGRATION Wave 1 retry** — diagnose the
+  cross-package d.ts inference issue, then 5-6 waves over
+  ~3 weeks.
+- **PROJECT_AS_DATA B0'.E + B0'.F** — Hyperia content into
+  plugin onEnable, parity smoke test.
+
+### Cross-doc overlaps to consolidate
+
+The audit found these redundant work items across plans —
+schedule once, attribute to the plan that owns the surface:
+
+| Item | Plans that mention it | Owner |
+|---|---|---|
+| Plugin-contributable property panels | AGENT_STUDIO_PARITY.P4, HYPERIA_DECOUPLING.P9 | HYPERIA_DECOUPLING.P9 (broader scope) |
+| Agent vocabulary gaps (TOWN, WATER, MUSIC, AMBIENT, MINE, WILDERNESS) | AGENT_STUDIO_PARITY.P2/P5/P6, HYPERIA_DECOUPLING.P8 | AGENT_STUDIO_PARITY (closer to extendedLayers store) |
+| Plugin-scaffolder for plugins (not just widgets) | AI_AUTHORING_FOUNDATIONS.A3 (widget only), HYPERIA_DECOUPLING.P14 | HYPERIA_DECOUPLING.P14 (extends A3) |
+| Hyperia content into plugin onEnable | PROJECT_AS_DATA.B0'.E, HYPERIA_DECOUPLING.P5 | HYPERIA_DECOUPLING.P5 (project-scoped, broader) |
+| Plugin registry as source of truth | PROJECT_AS_DATA.B0'.D, HYPERIA_DECOUPLING.P2 + P15 | HYPERIA_DECOUPLING.P2 (loader) + P15 (agent surface) |
+
+### What's actually next
+
+The smallest leveraged starting move is **HYPERIA_DECOUPLING.P1**
+(<1 day). It rename-consolidates `DEFAULT_CREATION_CONFIG` →
+`HYPERIA_CREATION_CONFIG`, introduces a real `MINIMAL_CREATION_CONFIG`
+(generic terrain, no Hyperia tree species or town presets), and
+makes `DesignWithAIDialog.buildWorld` + `WorldStudioCompanion`'s
+terrain handler choose the merge base based on `project.plugins`.
+The visible effect: AI-built blank-template worlds stop looking
+exactly like Hyperia. Until P3 ships (plugins contribute biomes),
+biomes will still be tundra/forest/canyon — but tree species,
+town styles, and the island preset stop being forced.
+
+P15 + P5 can ship alongside P1 as 1-day independent quick wins.
+
+After Round 1, every Hyperia leak becomes a concrete bug to fix
+rather than "the substrate has Hyperia in it." That changes the
+conversation about the framework's promise from theoretical to
+fixable.
+
+---
+
+
 
 **This doc supersedes the 2026-04-24 cut.** That audit accurately
 described state at 50–60% AAA, with the engine/game separation
