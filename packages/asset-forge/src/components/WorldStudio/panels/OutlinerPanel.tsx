@@ -1617,7 +1617,10 @@ function buildAgentContentNode(
     content.npcs.size +
     content.spawns.size +
     content.quests.size +
-    content.zones.size;
+    content.zones.size +
+    content.resources.size +
+    content.stations.size +
+    content.teleports.size;
   if (totalCount === 0) return null;
 
   const folders: HierarchyNode[] = [];
@@ -1705,6 +1708,64 @@ function buildAgentContentNode(
           difficulty: zone.difficultyLevel,
           source: "agent",
         },
+      })),
+    });
+  }
+  if (content.resources.size > 0) {
+    folders.push({
+      id: "ai-resources",
+      label: "Resources",
+      type: "resources" as const,
+      badge: content.resources.size,
+      expandable: true,
+      children: Array.from(content.resources.entries()).map(([key, res]) => ({
+        id: `ai-resource-${key}`,
+        label: `${res.resourceId} (${res.type})`,
+        type: "resource" as const,
+        children: [],
+        dataId: key,
+        expandable: false,
+        metadata: {
+          resourceId: res.resourceId,
+          resourceType: res.type,
+          source: "agent",
+        },
+      })),
+    });
+  }
+  if (content.stations.size > 0) {
+    folders.push({
+      id: "ai-stations",
+      label: "Stations",
+      type: "stations" as const,
+      badge: content.stations.size,
+      expandable: true,
+      children: Array.from(content.stations.values()).map((station) => ({
+        id: `ai-station-${station.id}`,
+        label: `${station.id} (${station.type})`,
+        type: "station" as const,
+        children: [],
+        dataId: station.id,
+        expandable: false,
+        metadata: { stationType: station.type, source: "agent" },
+      })),
+    });
+  }
+  if (content.teleports.size > 0) {
+    folders.push({
+      id: "ai-teleports",
+      label: "Teleports",
+      type: "teleports" as const,
+      badge: content.teleports.size,
+      expandable: true,
+      children: Array.from(content.teleports.values()).map((tp) => ({
+        id: `ai-teleport-${tp.id}`,
+        label: `${tp.name} (${tp.type})`,
+        type: "teleport" as const,
+        children: [],
+        dataId: tp.id,
+        expandable: false,
+        metadata: { teleportType: tp.type, source: "agent" },
       })),
     });
   }
