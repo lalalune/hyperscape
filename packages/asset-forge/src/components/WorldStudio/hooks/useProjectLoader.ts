@@ -12,7 +12,6 @@ import {
   serializeWorld,
 } from "../../WorldBuilder/utils/worldPersistence";
 import {
-  DEFAULT_CREATION_CONFIG,
   DEFAULT_NOISE_CONFIG,
   DEFAULT_BIOME_CONFIG,
   DEFAULT_ISLAND_CONFIG,

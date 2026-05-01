@@ -48,7 +48,10 @@ import {
 import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatcher";
 import { buildTerrainSummary } from "../utils/buildTerrainSummary";
 import { generateWorldFromConfig } from "../../WorldBuilder/worldGeneration";
-import { DEFAULT_CREATION_CONFIG } from "../../WorldBuilder/types";
+import {
+  HYPERIA_CREATION_CONFIG,
+  MINIMAL_CREATION_CONFIG,
+} from "../../WorldBuilder/types";
 import { serializeWorld } from "../../WorldBuilder/utils/worldPersistence";
 import { saveWorldProject } from "../../../utils/worldProjectApi";
 import { mergeProcgenConfig } from "../utils/mergeProcgenConfig";
@@ -256,19 +259,29 @@ function CompanionInner({ projectId }: { projectId: string }) {
                 : Math.floor(Math.random() * 2147483647);
             // Deep-merge nested config sections so the agent emitting
             // partial `terrain: { worldSize: 100 }` doesn't wipe
-            // tileSize / maxHeight / tileResolution from the blank
-            // base. Without this, procgen reads undefined values
-            // and writes NaN into the heightmap → "Computed radius
-            // is NaN" error spam from BufferGeometry.
-            // Use the rich Hyperia default as the merge base —
-            // vegetation enabled, towns enabled, biomes
-            // distributed. BLANK_CREATION_CONFIG explicitly
-            // disables vegetation + sets townCount=0 (it's the
-            // "empty template" base; not what the agent wants when
-            // building a Hyperia-style world). The agent's
-            // overrides win field-by-field via deep-merge.
+            // tileSize / maxHeight / tileResolution from the base.
+            // Without this, procgen reads undefined values and
+            // writes NaN into the heightmap → "Computed radius is
+            // NaN" error spam from BufferGeometry.
+            //
+            // R1.P1 (PLAN_HYPERIA_DECOUPLING): pick the merge base
+            // from the project's plugin set, not from a global
+            // default.
+            //   - Hyperia plugin → HYPERIA_CREATION_CONFIG (full
+            //     Hyperia preset with tree species + town presets).
+            //   - else → MINIMAL_CREATION_CONFIG (procgen biomes,
+            //     empty species per biome, townCount=0). The
+            //     agent's PROPOSE_* actions fill in specifics.
+            const projectTargetsHyperia = projectPlugins.some(
+              (id) =>
+                id === "@hyperforge/hyperscape" ||
+                id === "com.hyperforge.hyperscape",
+            );
+            const baseConfig = projectTargetsHyperia
+              ? HYPERIA_CREATION_CONFIG
+              : MINIMAL_CREATION_CONFIG;
             const procgenConfig = mergeProcgenConfig(
-              DEFAULT_CREATION_CONFIG as unknown as Record<string, unknown>,
+              baseConfig as unknown as Record<string, unknown>,
               agentTerrain,
               seed,
             );

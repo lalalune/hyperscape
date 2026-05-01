@@ -60,7 +60,10 @@ import React, {
   type FormEvent,
 } from "react";
 
-import { DEFAULT_CREATION_CONFIG } from "../WorldBuilder/types";
+import {
+  HYPERIA_CREATION_CONFIG,
+  MINIMAL_CREATION_CONFIG,
+} from "../WorldBuilder/types";
 import { generateWorldFromConfig } from "../WorldBuilder/worldGeneration";
 import { mergeProcgenConfig } from "./utils/mergeProcgenConfig";
 import { serializeWorld } from "../WorldBuilder/utils/worldPersistence";
@@ -149,6 +152,28 @@ const MANIFEST_TO_NPM: Record<string, string> = {
   "com.hyperforge.hyperscape": "@hyperforge/hyperscape",
   "com.hyperforge.plugin-shooter-demo": "@hyperforge/plugin-shooter-demo",
 };
+
+/**
+ * Hyperia plugin identifiers in either form. Recognized when
+ * picking the procgen merge base (R1.P1): Hyperia plugin →
+ * `HYPERIA_CREATION_CONFIG`, otherwise `MINIMAL_CREATION_CONFIG`.
+ */
+const HYPERIA_PLUGIN_IDS: ReadonlySet<string> = new Set([
+  "com.hyperforge.hyperscape",
+  "@hyperforge/hyperscape",
+]);
+
+/**
+ * True when the agent's chosen plugin set targets Hyperia. Used
+ * to pick the procgen merge base. Returns false for empty /
+ * null plugin lists (the AI default is MINIMAL).
+ */
+function pluginsTargetHyperia(
+  pluginIds: ReadonlyArray<string> | null | undefined,
+): boolean {
+  if (!pluginIds || pluginIds.length === 0) return false;
+  return pluginIds.some((id) => HYPERIA_PLUGIN_IDS.has(id));
+}
 
 /** One message in the conversation thread. */
 interface ChatMessage {
@@ -1643,14 +1668,20 @@ export function DesignWithAIDialog({
       const projectDescription =
         summary.description ?? "Created via Design with AI onboarding.";
 
-      // Deep-merge agent's terrain knobs over the rich Hyperia
-      // default. Vegetation enabled, towns enabled, biomes
-      // distributed. BLANK_CREATION_CONFIG explicitly disables
-      // vegetation + sets townCount=0 — it's the "empty template"
-      // base; not what the agent wants when building a Hyperia-
-      // style world. Shallow spread silently corrupts nested
-      // objects (terrain, biomes, etc.); deep-merge preserves
-      // sibling fields. See mergeProcgenConfig for the full story.
+      // R1.P1 (PLAN_HYPERIA_DECOUPLING): pick the merge base from
+      // the agent's chosen plugin set, not from a global default.
+      //   - Hyperia plugin → HYPERIA_CREATION_CONFIG (Hyperia tree
+      //     species, hamlet/village/town presets, large-island).
+      //   - everything else (including no plugins) →
+      //     MINIMAL_CREATION_CONFIG (procgen biomes, empty tree
+      //     species per biome, townCount=0 — neutral base the
+      //     agent fills in via PROPOSE_* actions).
+      // Until R3.P3 plumbs plugin biome contributions, MINIMAL still
+      // uses the engine-hardcoded biome set; tree species + town
+      // presets stop being forced by template choice.
+      // Shallow spread silently corrupts nested objects (terrain,
+      // biomes, etc.); deep-merge preserves sibling fields. See
+      // mergeProcgenConfig for the full story.
       const seed = Math.floor(Math.random() * 2147483647);
       const agentTerrain = (effectivePlan.terrainConfig ?? {}) as Record<
         string,
@@ -1658,8 +1689,11 @@ export function DesignWithAIDialog({
       >;
       const resolvedSeed =
         typeof agentTerrain.seed === "number" ? agentTerrain.seed : seed;
+      const baseConfig = pluginsTargetHyperia(effectivePlan.pluginIds)
+        ? HYPERIA_CREATION_CONFIG
+        : MINIMAL_CREATION_CONFIG;
       const procgenConfig = mergeProcgenConfig(
-        DEFAULT_CREATION_CONFIG as unknown as Record<string, unknown>,
+        baseConfig as unknown as Record<string, unknown>,
         agentTerrain,
         resolvedSeed,
       ) as unknown as Parameters<typeof generateWorldFromConfig>[0];

@@ -42,12 +42,12 @@ import type {
   CreationModeState,
   HierarchyNode,
 } from "./types";
-import { DEFAULT_CREATION_CONFIG, DEFAULT_VIEWPORT_OVERLAYS } from "./types";
+import { HYPERIA_CREATION_CONFIG, DEFAULT_VIEWPORT_OVERLAYS } from "./types";
 
 // ============== INITIAL STATE ==============
 
 const initialCreationState: CreationModeState = {
-  config: DEFAULT_CREATION_CONFIG,
+  config: HYPERIA_CREATION_CONFIG,
   selectedPreset: "large-island",
   hasPreview: false,
   isGenerating: false,

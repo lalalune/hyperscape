@@ -26,7 +26,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../common/Modal";
 import {
   BLANK_CREATION_CONFIG,
-  DEFAULT_CREATION_CONFIG,
+  HYPERIA_CREATION_CONFIG,
 } from "../WorldBuilder/types";
 import { generateWorldFromConfig } from "../WorldBuilder/worldGeneration";
 import { serializeWorld } from "../WorldBuilder/utils/worldPersistence";
@@ -126,9 +126,13 @@ export function NewWorldDialog({
       // handled by `DesignWithAIDialog`.
       const isBlank = mode === "blank";
       const resolvedTemplateId = isBlank ? "blank" : selectedTemplateId!;
+      // Template mode here is the Hyperia template — the only
+      // non-blank canned template the dialog offers. AI mode routes
+      // through DesignWithAIDialog which makes its own merge-base
+      // choice based on which plugins the agent picks.
       const baseConfig = isBlank
         ? BLANK_CREATION_CONFIG
-        : DEFAULT_CREATION_CONFIG;
+        : HYPERIA_CREATION_CONFIG;
 
       // Run procgen client-side so the new project has a baked
       // terrain on first open.

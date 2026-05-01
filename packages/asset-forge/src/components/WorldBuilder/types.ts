@@ -1434,12 +1434,23 @@ export const DEFAULT_VEGETATION_CONFIG: VegetationConfig = {
 };
 
 /**
- * Default world creation configuration
+ * Hyperia-flavored world creation configuration.
+ *
+ * Renamed from `DEFAULT_CREATION_CONFIG` per
+ * `PLAN_HYPERIA_DECOUPLING.md` R1.P1: the prior name was
+ * misleading — it was Hyperia's terrain config (large-island
+ * preset, Hyperia tree species, Hyperia-style towns), not a
+ * neutral default. Use this only when the project explicitly
+ * targets Hyperia (template === "hyperia" or
+ * `plugins.includes("@hyperforge/hyperscape")`). For
+ * AI-composed worlds, use `MINIMAL_CREATION_CONFIG`. For
+ * truly empty worlds, use `BLANK_CREATION_CONFIG`.
+ *
  * Note: worldSize and tileResolution are kept modest for preview performance.
  * For final world generation, these can be increased before "Apply & Lock".
  * Memory usage ≈ worldSize² × tileResolution² × 36 bytes per vertex
  */
-export const DEFAULT_CREATION_CONFIG: WorldCreationConfig = {
+export const HYPERIA_CREATION_CONFIG: WorldCreationConfig = {
   seed: 0,
   preset: "large-island",
   useGamePipeline: true,
@@ -1457,6 +1468,66 @@ export const DEFAULT_CREATION_CONFIG: WorldCreationConfig = {
   towns: DEFAULT_TOWN_CONFIG,
   roads: DEFAULT_ROAD_CONFIG,
   vegetation: DEFAULT_VEGETATION_CONFIG,
+};
+
+/**
+ * Minimal world creation configuration — the **AI default**.
+ *
+ * Sits between `BLANK_CREATION_CONFIG` (no biomes, no
+ * vegetation, no towns) and `HYPERIA_CREATION_CONFIG` (full
+ * Hyperia preset). Produces a heightmap + biome distribution +
+ * basic procgen vegetation, but commits to **none of Hyperia's
+ * specifics**:
+ *
+ *   - no `large-island` preset — let the agent's terrain knobs
+ *     drive the shape
+ *   - `useGamePipeline: false` — engine-only generation, the
+ *     plugin pipeline opts in by overlaying its own knobs
+ *   - vegetation enabled, but tree species are EMPTY per biome
+ *     so we don't assume `tree_oak` / `tree_pine` / `tree_palm`
+ *     etc. exist in the project's gathering manifests
+ *   - `townCount: 0` — no Hyperia hamlet/village/town presets
+ *     spawn; the agent places towns explicitly via
+ *     `PROPOSE_TOWN` (R4.P8 vocabulary)
+ *
+ * Round-3 work (`HYPERIA_DECOUPLING.P3`) will make biomes
+ * plugin-contributable. Until then, MINIMAL still produces
+ * tundra/forest/canyon biomes because `BiomeType` is hardcoded
+ * at the engine level — but tree species, town styles, and the
+ * island preset stop being forced.
+ */
+export const MINIMAL_CREATION_CONFIG: WorldCreationConfig = {
+  seed: 0,
+  preset: null,
+  useGamePipeline: false,
+  terrain: {
+    tileSize: 100,
+    worldSize: 100,
+    tileResolution: 32,
+    maxHeight: 50,
+    waterThreshold: 16,
+  },
+  noise: DEFAULT_NOISE_CONFIG,
+  biomes: DEFAULT_BIOME_CONFIG,
+  island: DEFAULT_ISLAND_CONFIG,
+  shoreline: DEFAULT_SHORELINE_CONFIG,
+  // No Hyperia town presets. townCount: 0 means procgen
+  // produces no settlements — the agent places towns via
+  // PROPOSE_TOWN if/when that action lands in R4.P8.
+  towns: { ...DEFAULT_TOWN_CONFIG, townCount: 0 },
+  // Roads only generate between towns; with townCount: 0 this is
+  // dead config but kept for type compatibility.
+  roads: DEFAULT_ROAD_CONFIG,
+  // Vegetation enabled per biome with EMPTY species maps. The
+  // procgen pipeline runs its biome-coloring + grass passes but
+  // places no Hyperia-specific trees. A plugin contributing
+  // vegetation profiles (R3.P3) supplies its own species.
+  vegetation: Object.fromEntries(
+    Object.entries(DEFAULT_VEGETATION_CONFIG).map(([biomeName, biomeCfg]) => [
+      biomeName,
+      { ...biomeCfg, enabled: true, trees: {} },
+    ]),
+  ) as VegetationConfig,
 };
 
 /**
