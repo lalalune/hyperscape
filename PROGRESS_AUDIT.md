@@ -1,4 +1,4 @@
-# Hyperscape Progress Audit — 2026-04-30 (REFRESH 14)
+# Hyperscape Progress Audit — 2026-05-01 (REFRESH 15)
 
 **This doc supersedes the 2026-04-24 cut.** That audit accurately
 described state at 50–60% AAA, with the engine/game separation
@@ -39,6 +39,133 @@ Branch composition by additions (vs `main`):
 The branch is **~44% editor, 33% runtime engine, 15% game-plugin, 8% framework + everything else**.
 The shift from "shared has everything" to "plugin owns game logic"
 is the single biggest visible change in the past 48 hours.
+
+---
+
+## REFRESH 15 — Agent ↔ studio data-layer unification (P0+P1 of PLAN_AGENT_STUDIO_PARITY shipped end-to-end) (2026-05-01 early morning)
+
+**The single biggest user-visible architectural fix shipped tonight.** Before
+tonight, agent-emitted placements (NPCs/spawns/resources/stations/teleports)
+lived in a parallel `agentWorldContent` store. They rendered in the viewport
+via `useAgentEntityMarkers` but had:
+  - No transforms (gizmo wouldn't act on them)
+  - No property panels (couldn't edit fields)
+  - No `rotation` / `scale` / `properties bag` / `source` / `sourceRegionId`
+  - Separate "AI Generated" outliner subtree (not in the main hierarchy)
+  - Dual persistence path (worldContent JSON instead of via studio autosave)
+
+**After tonight's session, agent placements are structurally indistinguishable
+from designer/procgen placements** — same data store (`extendedLayers`),
+same render path (`useEditorWorldSync`), same edit path (gizmo + properties),
+same persistence (autosave), same load path. The dual-store ghost is gone.
+
+### Phase commits (in order shipped)
+
+- **P1 — Schema extension** `4bc4b6ac3`. `PlacementCommonSchema` Zod fragment
+  merged into all five `WorldArea*` schemas. Adds rotation, scale, properties
+  bag, source enum (designer/procgen/agent), sourceRegionId. All optional —
+  100% backward compat. +12 schema tests, total manifest-schema 1831 → 1842.
+- **P0.1 — Bidirectional mappers** `f58ed7de7`. Pure-function
+  `worldArea*ToPlaced` + `placed*ToWorldArea` for all 5 placement kinds.
+  Game-space (centered, agent's convention) ↔ scene-space (corner, studio's
+  convention) coordinate translation. Field-shape translation (NPC dialogue
+  Record → dialogId, Resource type free-form → restricted enum with
+  `originalType` round-trip, Station bankId/runeType, Teleport
+  type-enum-via-properties). +34 round-trip tests; lossless for every field
+  the forward mapper preserves.
+- **P0.2 — Dispatcher hook** `1b6bc2af8`. `useAgentPlacementDispatcher` hook
+  composes (state-derived `worldCenterOffset`) + (P0.1 mappers) + (existing
+  `actions.addNPC`/etc.) into 5 single-call dispatch functions. Pure-function
+  `computeWorldCenterOffset(world)` extracted for unit testing. +8 tests.
+- **P0.3 — Companion uses dispatcher** `83229c45e`. `WorldStudioCompanion`
+  swaps `setAndPersistAgentX` → `placementDispatcher.placeX`. Removals route
+  through `actions.removeX`. Composite-key kinds (mobSpawn / resource) match
+  by the synthesized `<key>@x,y,z` scene-space id format. Quests + zones stay
+  on the legacy path until P0.7+.
+- **P0.4 — Outliner color-codes by source** `80d7e7061`. `SourceIndicator`
+  component renders a 1.5×1.5px color dot per leaf node when
+  `metadata.source` is non-default: agent → primary purple
+  (#a855f7), procgen → amber (#f59e0b). Designer/hand-placed → no
+  indicator (default state).
+- **P0.6 — Project load rehydrates worldContent → extendedLayers**
+  `41b90fca6`. New `rehydrateExtendedLayersFromWorldContent` helper called
+  from `useProjectLoader` after world loads. Walks each placement kind in
+  the persisted JSON, maps via P0.1, dispatches via the actions surface.
+  Legacy `rehydrateAgentWorldContentFromProject` reduced to quests + zones
+  only (prevents double-render). +9 tests.
+- **P0.5.a — Delete useAgentEntityMarkers + AutomationPanel migration**
+  `97ea94158`. The 419-LOC parallel-store renderer is now dead code (no
+  writes go to its data source). File deleted, ViewportContainer call
+  removed. AutomationPanel demo button migrated to dispatcher (single line
+  of code instead of validate → store → manual persist).
+- **P0.5.b — Strip placement-side machinery from agentWorldContent**
+  `e7aca07cc`. `agentWorldContent.ts` 754 → ~330 LOC. Placement setters,
+  setAndPersist wrappers, composite-key helpers all deleted. Interface now
+  carries only `zones` + `quests`. `OutlinerPanel.buildAgentContentNode`
+  drops placement folders (agent placements show in main "Game Entities"
+  subtree color-coded by source). `WorldStudioCompanion`'s projectContext
+  builder reads ALL placement kinds from extendedLayers (drops dual-store
+  merge). `usePIESession` adds `extendedLayers.npcs` to PIE NPC list (covers
+  agent + designer-palette NPCs — pre-existing gap closed as a side benefit).
+
+### Net diff for the architectural unification
+
+| Metric | Value |
+|---|---:|
+| New code (mappers + dispatcher + rehydrator + tests) | ~+1,700 LOC |
+| Legacy code deleted (useAgentEntityMarkers + agentWorldContent placement side) | ~-1,021 LOC |
+| **Net** | **simpler post-unification** |
+| New tests | +63 (mappers 34, dispatcher 8, rehydrator 9, schema 12) |
+| Total tests across packages | 2,180 (was ~2,107) |
+
+### What this unlocks
+
+Agent emissions now get for free (no new code needed — they were already
+wired to extendedLayers, just hadn't been getting agent data):
+
+- Gizmo translate / rotate / scale (single + multi-select)
+- 16 PropertyPanel renderers (NPC, MobSpawn, Resource, Station, etc.)
+- Outliner integration with source-color tagging
+- Selection outline + multi-select
+- Undo / redo
+- Auto-save (extendedLayers persists through useAutoSave)
+- Brush systems can interact with agent placements
+- PIE (Play-In-Editor) sees agent NPCs as live game entities
+
+### What remains in PLAN_AGENT_STUDIO_PARITY
+
+P0+P1 done. Remaining 11 phases are additive (not blocking):
+
+| Phase | Effort | What |
+|---|---|---|
+| P2 | M | PROPOSE_TOWN + PROPOSE_ROAD (towns require new "customTowns" state slice; roads use existing CustomRoad path) |
+| P3 | S | PROPOSE_PATH (genre-agnostic primitive — racing checkpoints, FPS lanes, etc.) |
+| P4 | L | Plugin-contributable property panels (JSON-Schema-driven generic renderer for plugin-declared entity types) |
+| P5 | M each | Coverage parity — PROPOSE_WATER_BODY / MINE / POI / DANGER_SOURCE / WILDERNESS_BOUNDARY |
+| P6 | M | Audio zones (PROPOSE_MUSIC_ZONE / AMBIENT_ZONE / SFX_TRIGGER) |
+| P7 | M | Functional NPCs (PROPOSE_SHOP_INVENTORY + DIALOGUE_TREE + validators) |
+| P8 | L | Combat content authoring (mob defs, items, loot tables, bosses) |
+| P9 | M | Place-at-terrain-feature semantics ("near water", "on peak") |
+| P10 | L | Brush ops via agent (terrain sculpt, biome paint, vegetation) |
+| P11 | M | Plugin-contributed wizard flows |
+| P12 | L | Genre-agnostic primitives (cover meshes, capture points, checkpoints) |
+
+P2 is the highest-leverage next slice (largest visible "this is a real game
+world" win). P4 is the architectural unlock for non-RPG genres.
+
+### Pre-tonight context (also shipped earlier in the same calendar day)
+
+| Commit | What |
+|---|---|
+| `8679afa1d` | Asset pack ecosystem + AI ↔ assets ↔ plugins integration milestone (~150 files) |
+| `47e904b9c` → `2937da50d` | Teleport-vertical 3-slice (PROPOSE_TELEPORT action + studio wiring + e2e smoke) |
+| `e7eadba32` | Outliner shows agent resources/stations/teleports |
+| `d14a2ce3d` | DesignWithAIDialog wires all new agent actions |
+| `21f6905a2` | Plugin install endpoint + agent wiring |
+| `f9067f182` → `4f6822193` | Marker-visibility debugging odyssey (terrain-snap, MeshBasicNodeMaterial, scene-graph attachment, worldCenterOffset) |
+| `76529c67f` | Cap terrain.worldSize at 200 (262k-tile world bug) |
+| `bbaff64d0` | Onboarding sends projectContext + auto-installs ref'd packs |
+| `76bd272d4` | PLAN_AGENT_STUDIO_PARITY.md doc (423 lines, 14-phase plan) |
 
 ---
 
