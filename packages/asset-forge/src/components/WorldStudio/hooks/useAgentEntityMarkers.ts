@@ -77,14 +77,20 @@ export function useAgentEntityMarkers(
   const markersRef = useRef<Map<string, MarkerEntry>>(new Map());
 
   useEffect(() => {
-    if (!sceneRefs?.entityOverlay) return;
+    if (!sceneRefs?.scene) return;
 
     if (!groupRef.current) {
       const group = new THREE.Group();
       group.name = "agent-entity-markers";
       group.frustumCulled = false;
       group.renderOrder = 999;
-      sceneRefs.entityOverlay.add(group);
+      // Attach to scene root, not entityOverlay — every other
+      // overlay hook in the studio (useWaterBodyEditor, useBrush*,
+      // useWizardPreviewOverlay, useAreaBoundaryOverlay,
+      // useAudioZoneOverlay) attaches directly to sceneRefs.scene.
+      // entityOverlay is the wrong path — postprocessing pass()
+      // doesn't render it.
+      sceneRefs.scene.add(group);
       groupRef.current = group;
 
       // DIAGNOSTIC — drop a giant magenta sphere at world origin
