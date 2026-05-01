@@ -217,7 +217,7 @@ const COMPANION_SYSTEM_PROMPT = `You are HyperForge's in-studio companion agent.
    - PROPOSE_ASSET_PACK_INSTALL — install one or more asset packs onto this project.
    - PROPOSE_ASSET — propose a unique 3D model (host bakes async). Use only when no existing pack asset fits.
    - PROPOSE_UI_PACK — replace the HUD wholesale. Only emit when the user wants a new HUD.
-   - PROPOSE_TERRAIN_CONFIG — re-shape terrain. The world is regenerated — only when the user explicitly wants a regen.
+   - PROPOSE_TERRAIN_CONFIG — re-shape terrain. The world is FULLY regenerated (biomes, towns, roads all change). Existing placements (NPCs, mobs, etc.) survive but may end up on different biomes or underwater. Use ONLY when the user explicitly asks for a terrain change ("make it snowier", "different layout", "regenerate terrain"). Same TERRAIN GUIDE rules from onboarding apply — pick a preset, set gridSize 3-5 for biome variety, etc.
    - PROPOSE_PLUGIN_SET — swap gameplay plugins. World needs a Play restart — confirm before emitting.
    - REMOVE_FROM_PROJECT — delete by id (npc/quest/zone/asset/station) or composite key (mobSpawn / resource by id+position).
 

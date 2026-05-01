@@ -47,6 +47,10 @@ import {
 } from "../state/agentWorldContent";
 import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatcher";
 import { buildTerrainSummary } from "../utils/buildTerrainSummary";
+import { generateWorldFromConfig } from "../../WorldBuilder/worldGeneration";
+import { BLANK_CREATION_CONFIG } from "../../WorldBuilder/types";
+import { serializeWorld } from "../../WorldBuilder/utils/worldPersistence";
+import { saveWorldProject } from "../../../utils/worldProjectApi";
 import type {
   WorldAreaDangerSource,
   WorldAreaMobSpawn,
@@ -227,7 +231,52 @@ function CompanionInner({ projectId }: { projectId: string }) {
       for (const call of detail.toolCalls) {
         if (!call.success || !call.data) continue;
         const data = call.data as Record<string, unknown>;
-        if (call.name === "PROPOSE_UI_PACK" && data.pack !== undefined) {
+        if (
+          call.name === "PROPOSE_TERRAIN_CONFIG" &&
+          data.config !== undefined
+        ) {
+          // Regenerate the world with the agent's new terrain
+          // config. This is destructive — biome layout, town
+          // placement, road connectivity all change. extendedLayers
+          // entities (designer + agent placements) survive (they're
+          // a separate state slice) but their coords may now sit on
+          // different biomes / different elevations / underwater
+          // depending on how the new terrain shapes up.
+          //
+          // The terrain-snap in the dispatcher fires at PLACEMENT
+          // time, not at terrain-regen time, so existing y values
+          // stay where they were. Future P10 (brush ops) can add
+          // a "re-snap all entities to new terrain" sweep.
+          try {
+            const agentTerrain = data.config as Record<string, unknown>;
+            const seed =
+              typeof agentTerrain.seed === "number"
+                ? agentTerrain.seed
+                : Math.floor(Math.random() * 2147483647);
+            const procgenConfig = {
+              ...BLANK_CREATION_CONFIG,
+              ...agentTerrain,
+              seed,
+            };
+            const newWorld = generateWorldFromConfig(procgenConfig);
+            actions.loadWorld(newWorld);
+            // LOAD_WORLD sets hasUnsavedChanges=false (it's a load
+            // semantically), so useAutoSave won't fire. Persist
+            // directly so the new terrain survives a refresh.
+            void saveWorldProject(projectId, {
+              worldData: serializeWorld(newWorld) as unknown as Record<
+                string,
+                unknown
+              >,
+            }).catch((err: unknown) => {
+              // eslint-disable-next-line no-console
+              console.warn("[Companion] Terrain regen save failed:", err);
+            });
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.warn("[Companion] Terrain regen failed:", err);
+          }
+        } else if (call.name === "PROPOSE_UI_PACK" && data.pack !== undefined) {
           const r = setAgentPack(data.pack);
           if (r.ok) {
             void persistAgentPackToProject(
