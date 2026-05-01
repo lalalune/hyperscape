@@ -100,13 +100,13 @@ export function useAgentEntityMarkers(
       // sphere but no agent markers → coordinate-space issue.
       // If you don't see the sphere → the entire entityOverlay
       // path isn't reaching the visible viewport.
+      const debugBeaconMat = new MeshBasicNodeMaterial();
+      debugBeaconMat.color = new THREE.Color(0xff00ff);
+      debugBeaconMat.depthTest = false;
+      debugBeaconMat.depthWrite = false;
       const debugBeacon = new THREE.Mesh(
         new THREE.SphereGeometry(8, 16, 16),
-        new MeshBasicNodeMaterial({
-          color: 0xff00ff,
-          depthTest: false,
-          depthWrite: false,
-        }),
+        debugBeaconMat,
       );
       debugBeacon.name = "agent-marker-DEBUG-BEACON";
       debugBeacon.renderOrder = 9999;
@@ -336,14 +336,7 @@ function upsertMarker(
         existing.group.remove(existing.modelRoot);
         disposeSubtree(existing.modelRoot);
         existing.modelRoot = null;
-        const material = new MeshBasicNodeMaterial({
-          color,
-          transparent: true,
-          opacity: 0.95,
-          depthTest: false,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-        });
+        const material = makePlaceholderMaterial(color);
         const mesh = new THREE.Mesh(geometry, material);
         mesh.renderOrder = 999;
         existing.placeholderMesh = mesh;
@@ -355,14 +348,7 @@ function upsertMarker(
     return;
   }
 
-  const material = new MeshBasicNodeMaterial({
-    color,
-    transparent: true,
-    opacity: 0.95,
-    depthTest: false,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
+  const material = makePlaceholderMaterial(color);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 999;
   const labelSprite = makeLabelSprite(label);
@@ -459,14 +445,35 @@ function makeLabelSprite(text: string): THREE.Sprite {
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
-  const material = new SpriteNodeMaterial({
-    map: texture,
-    transparent: true,
-    depthTest: false,
-  });
+  // Node materials don't accept config objects in the constructor —
+  // set everything imperatively (see GameWorldEntitySync's
+  // getOrCreateBasicMaterial). This was the silent-render bug.
+  const material = new SpriteNodeMaterial();
+  material.map = texture;
+  material.transparent = true;
+  material.depthTest = false;
   const sprite = new THREE.Sprite(material);
   const aspect = canvas.width / canvas.height;
   const height = 0.3;
   sprite.scale.set(height * aspect, height, 1);
   return sprite;
+}
+
+/**
+ * MeshBasicNodeMaterial doesn't accept a config object in its
+ * constructor — properties must be set imperatively after `new`.
+ * Passing a config object silently leaves all defaults in place
+ * AND can cause the material not to render at all in some
+ * configurations. See `GameWorldEntitySync.getOrCreateBasicMaterial`
+ * for the proven pattern.
+ */
+function makePlaceholderMaterial(colorHex: number): MeshBasicNodeMaterial {
+  const mat = new MeshBasicNodeMaterial();
+  mat.color = new THREE.Color(colorHex);
+  mat.transparent = true;
+  mat.opacity = 0.95;
+  mat.depthTest = false;
+  mat.depthWrite = false;
+  mat.side = THREE.DoubleSide;
+  return mat;
 }
