@@ -83,13 +83,32 @@ export function useAgentEntityMarkers(
     }
     const parent = groupRef.current;
 
+    // Snap a placement onto the terrain. The agent typically emits
+    // `y: 0` (it has no terrain-height knowledge), so when y is at
+    // or near 0 we sample the terrain at (x, z) and use that
+    // instead — otherwise markers rendered on a +20m hill would be
+    // 20m underground. When y is non-trivial (agent set it
+    // explicitly, e.g. for floating teleport), we trust the
+    // emission.
+    const groundOf = (
+      pos: { x: number; y: number; z: number } | null | undefined,
+    ): { x: number; y: number; z: number } => {
+      const x = pos?.x ?? 0;
+      const z = pos?.z ?? 0;
+      const yIn = pos?.y ?? 0;
+      if (Math.abs(yIn) < 0.01) {
+        const terrainY = sceneRefs.getTerrainHeight(x, z);
+        return { x, y: terrainY, z };
+      }
+      return { x, y: yIn, z };
+    };
+
     const liveIds = new Set<string>();
 
     // ---- NPCs ----
     for (const [id, npc] of agentWorldContent.npcs) {
       const fullId = `npc:${id}`;
       liveIds.add(fullId);
-      const pos = npc.position ?? { x: 0, y: 0, z: 0 };
       const npcAssetRef = (npc as unknown as { assetRef?: unknown }).assetRef;
       const ref = typeof npcAssetRef === "string" ? npcAssetRef : null;
       upsertMarker(
@@ -98,7 +117,7 @@ export function useAgentEntityMarkers(
         fullId,
         NPC_GEOMETRY,
         NPC_COLOR,
-        pos,
+        groundOf(npc.position),
         npc.name ?? id,
         ref,
       );
@@ -117,7 +136,7 @@ export function useAgentEntityMarkers(
         fullId,
         SPAWN_GEOMETRY,
         SPAWN_COLOR,
-        spawn.position,
+        groundOf(spawn.position),
         `${spawn.mobId} ×${spawn.maxCount}`,
         ref,
       );
@@ -136,7 +155,7 @@ export function useAgentEntityMarkers(
         fullId,
         RESOURCE_GEOMETRY,
         RESOURCE_COLOR,
-        resource.position,
+        groundOf(resource.position),
         `${resource.resourceId} (${resource.type})`,
         ref,
       );
@@ -155,7 +174,7 @@ export function useAgentEntityMarkers(
         fullId,
         STATION_GEOMETRY,
         STATION_COLOR,
-        station.position,
+        groundOf(station.position),
         `${station.id} (${station.type})`,
         ref,
       );
@@ -174,7 +193,7 @@ export function useAgentEntityMarkers(
         fullId,
         TELEPORT_GEOMETRY,
         TELEPORT_COLOR,
-        teleport.position,
+        groundOf(teleport.position),
         `${teleport.name} (${teleport.type})`,
         ref,
       );
