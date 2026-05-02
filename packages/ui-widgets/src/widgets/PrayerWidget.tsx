@@ -42,53 +42,15 @@ export interface PrayerProps {
   items?: ReadonlyArray<PrayerRow>;
 }
 
-const FALLBACK: ReadonlyArray<PrayerRow> = [
-  {
-    id: "thick_skin",
-    name: "Thick Skin",
-    icon: "🛡",
-    levelRequired: 1,
-    drainRate: 1,
-    active: false,
-    unlocked: true,
-  },
-  {
-    id: "burst_of_strength",
-    name: "Burst of Strength",
-    icon: "💪",
-    levelRequired: 4,
-    drainRate: 1,
-    active: false,
-    unlocked: true,
-  },
-  {
-    id: "clarity_of_thought",
-    name: "Clarity of Thought",
-    icon: "🧠",
-    levelRequired: 7,
-    drainRate: 1,
-    active: false,
-    unlocked: true,
-  },
-  {
-    id: "sharp_eye",
-    name: "Sharp Eye",
-    icon: "🏹",
-    levelRequired: 8,
-    drainRate: 1,
-    active: false,
-    unlocked: true,
-  },
-  {
-    id: "mystic_will",
-    name: "Mystic Will",
-    icon: "✨",
-    levelRequired: 9,
-    drainRate: 1,
-    active: false,
-    unlocked: true,
-  },
-];
+// R3.P13 — empty fallback. Earlier versions hardcoded
+// Hyperia-specific prayer ids (`thick_skin`, `burst_of_strength`,
+// etc.) so the widget would render with content even when no
+// `items` were bound; that hardcoded a Hyperia gameplay model
+// into a generic widget. Now the consumer is expected to pass
+// `items` from its game's data source — empty `items` renders
+// an empty grid with the points header visible (which is the
+// honest behavior: "you haven't bound any prayers yet").
+const FALLBACK: ReadonlyArray<PrayerRow> = [];
 
 export const PrayerWidget = memo(function PrayerWidget({
   points,

@@ -32,7 +32,12 @@ export const TEXT_PRIMARY = "#e8e9ed";
 export const TEXT_SECONDARY = "#9a9caa";
 export const TEXT_MUTED = "#636577";
 export const TEXT_DISABLED = "#4a4c58";
-export const TEXT_ACCENT = "#fbbf24"; // OSRS gold
+// Warm gold accent (highlighted numbers, badges). Hex matches
+// Tailwind amber-400. R3.P13 of `PLAN_HYPERIA_DECOUPLING.md` —
+// comment cleaned to drop the franchise reference; the value
+// itself is theme-neutral and stays until runtime theme-token
+// plumbing lands (separate phase).
+export const TEXT_ACCENT = "#fbbf24";
 export const TEXT_ACCENT_SECONDARY = "#a5b4fc";
 
 export const STATE_SUCCESS = "#22c55e";

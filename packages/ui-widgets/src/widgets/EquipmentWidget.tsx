@@ -40,7 +40,9 @@ export interface EquipmentProps {
 
 const SLOT_SIZE = 40;
 
-// Grid layout (col, row) matches the OSRS paperdoll figure.
+// Grid layout (col, row) for a paperdoll figure. This default
+// layout is Hyperia-flavored; games shipping their own equipment
+// model contribute a custom EquipmentWidget variant.
 const SLOT_POSITIONS: ReadonlyArray<{
   key: string;
   label: string;

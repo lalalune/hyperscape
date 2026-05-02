@@ -3,7 +3,7 @@
  *
  * Matches the `hyperforge.panel.skills` widget schema from
  * `@hyperforge/ui-framework/builtins`. Renders a `columns`-wide grid
- * of skill cards (icon + OSRS-style slanted level display) with an
+ * of skill cards (icon + slanted current/base level display) with an
  * optional header strip showing Total / Combat levels.
  *
  * Live data flows in via `items`, `total`, and `combatLevel` bindings
@@ -58,7 +58,7 @@ const FALLBACK_ROWS: ReadonlyArray<SkillRow> = [
   { key: "constitution", label: "HP", icon: "❤", level: 10, xp: 0 },
 ];
 
-/** OSRS-style slanted current/base level display. */
+/** Slanted current-over-base level display. */
 function LevelSplit({ level }: { level: number }) {
   const color = level >= 99 ? SUCCESS : TEXT_ACCENT;
   return (

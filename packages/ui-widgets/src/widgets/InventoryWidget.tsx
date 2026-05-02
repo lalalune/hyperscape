@@ -9,8 +9,8 @@
  * matches the hand-coded `game/panels/InventoryPanel.tsx` at pixel level.
  *
  * Drag-and-drop, right-click context menus, tooltip text, coin pouch,
- * and OSRS "Use X → Y" targeting are intentionally NOT implemented
- * here — those are interactive concerns that remain in the hand-coded
+ * and item-on-item targeting are intentionally NOT implemented here
+ * — those are interactive concerns that remain in the hand-coded
  * panel until the runtime-bindings layer grows interaction hooks.
  */
 
@@ -46,9 +46,10 @@ const SLOT_FILLED_BG =
   "linear-gradient(180deg, rgba(40, 44, 52, 0.9) 0%, rgba(24, 26, 32, 0.95) 100%)";
 const SLOT_FILLED_BORDER = "rgba(255, 255, 255, 0.18)";
 const SLOT_INSET_SHADOW = "inset 0 1px 2px rgba(0, 0, 0, 0.35)";
-const QUANTITY_COLOR = "#fbbf24"; // OSRS-yellow quantity badge
+// Warm-yellow quantity badge (Tailwind amber-400).
+const QUANTITY_COLOR = "#fbbf24";
 
-/** OSRS-style compact quantity format (1k, 10M, etc). */
+/** Compact quantity format (1k, 10M, etc) for the slot badge. */
 function formatQuantity(qty: number): string {
   if (qty >= 10_000_000) return `${Math.floor(qty / 1_000_000)}M`;
   if (qty >= 100_000) return `${Math.floor(qty / 1_000)}K`;
