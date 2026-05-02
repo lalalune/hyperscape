@@ -25,6 +25,10 @@ import { BiomeSystem } from "@hyperforge/procgen/terrain";
 import { DataManager } from "@hyperforge/shared";
 import { GAME_BIOME_DEFINITIONS } from "../../WorldBuilder/GameTerrainAdapter";
 import {
+  setPluginBiomes,
+  type PluginBiomeContribution,
+} from "../utils/pluginBiomeRegistry";
+import {
   getWorldProject,
   saveWorldProject,
   acquireProjectLock,
@@ -294,6 +298,19 @@ export function useProjectLoader(projectId: string) {
         // pick up the latest value).
         DataManager.setActiveProjectPlugins(project.plugins ?? []);
 
+        // R3.P3 — populate the plugin biome registry from the
+        // active project's plugin set. Procgen's biome system
+        // reads through `getActiveBiomeDefinitions(GAME_BIOME_
+        // DEFINITIONS)` so contributions show up alongside
+        // (or override) the engine-default biomes. Fetch is
+        // best-effort — failures fall back to defaults-only.
+        const projectPluginIds = project.plugins ?? [];
+        if (projectPluginIds.length > 0) {
+          void fetchPluginBiomesAndRegister(projectPluginIds);
+        } else {
+          setPluginBiomes([]);
+        }
+
         // Set project context. `templateId` + `plugins` come from
         // the typed-layer surface (B0'.A); usePIESession reads them
         // to decide which plugin set to install on Play.
@@ -480,4 +497,53 @@ export function useProjectLoader(projectId: string) {
       }
     };
   }, [projectId, actions]);
+}
+
+/**
+ * R3.P3 — fetch the installed-plugin registry, filter to the
+ * active project's plugin set (manifest id or npm name match),
+ * and call `setPluginBiomes` with the union of their
+ * `contributions.biomes` arrays. Failures drop to "defaults-only"
+ * silently — the editor's biome painter falls back to engine
+ * defaults so the user can still place biomes.
+ */
+async function fetchPluginBiomesAndRegister(
+  projectPluginIds: ReadonlyArray<string>,
+): Promise<void> {
+  try {
+    const res = await fetch("/api/plugins/installed", {
+      credentials: "same-origin",
+    });
+    if (!res.ok) {
+      setPluginBiomes([]);
+      return;
+    }
+    type RegistryEntry = {
+      id: string;
+      npmName: string | null;
+      contributions?: {
+        biomes?: PluginBiomeContribution[];
+      };
+    };
+    const entries = (await res.json()) as ReadonlyArray<RegistryEntry>;
+    const eligibleIds = new Set(projectPluginIds);
+    const merged: PluginBiomeContribution[] = [];
+    for (const e of entries) {
+      const matchesProject =
+        eligibleIds.has(e.id) ||
+        (e.npmName !== null && eligibleIds.has(e.npmName));
+      if (!matchesProject) continue;
+      for (const b of e.contributions?.biomes ?? []) {
+        merged.push(b);
+      }
+    }
+    setPluginBiomes(merged);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[ProjectLoader] Failed to fetch plugin biomes — falling back to engine defaults:",
+      err,
+    );
+    setPluginBiomes([]);
+  }
 }

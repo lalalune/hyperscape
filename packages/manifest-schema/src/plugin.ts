@@ -74,6 +74,48 @@ export type PluginDependency = z.infer<typeof PluginDependencySchema>;
  * of guessing a string. Validators (future) can reject placements
  * whose type isn't supported by any installed plugin.
  */
+/**
+ * R3.P3 of `PLAN_HYPERIA_DECOUPLING.md` — plugin-contributable
+ * biome definition. The asset-forge editor's
+ * `GAME_BIOME_DEFINITIONS` was hardcoded to Hyperia's 3 biomes
+ * (tundra / forest / canyon); this contribution surface lets a
+ * plugin declare additional biomes (desert, jungle, swamp, etc.)
+ * that aggregate into the editor's biome registry at project
+ * load time.
+ *
+ * Engine-side `BiomeType` enum at `shared/src/world/world.d.ts`
+ * stays as a deprecated alias during the migration window —
+ * runtime code that branches on `BiomeType.Forest` etc. keeps
+ * working until a follow-up cut migrates it to a
+ * `BiomeId = string` registry lookup.
+ */
+export const BiomeContributionSchema = z.object({
+  /** Stable identifier (e.g. `desert`, `tropical_jungle`). Used
+   * as the key in `GAME_BIOME_DEFINITIONS` after aggregation. */
+  id: z.string().min(1),
+  /** Human-friendly name for editor surfaces. */
+  name: z.string().min(1),
+  /** Surface color as a 24-bit hex int (e.g. `0xe8e4e0`). The
+   * editor uses this for biome painting + terrain coloring. */
+  color: z.number().int().min(0).max(0xffffff),
+  /** Per-biome height noise multiplier. 1.0 = baseline; >1
+   * exaggerates relief, <1 flattens. */
+  terrainMultiplier: z.number().default(1),
+  /** Difficulty tier surfaced to mob-spawn rules + the agent's
+   * placement guidance. 0 = safe, higher = more hostile. */
+  difficultyLevel: z.number().int().min(0).default(0),
+  /** Allowed normalized height range `[min, max]` — biome only
+   * spawns where elevation falls within this band. */
+  heightRange: z.tuple([z.number(), z.number()]),
+  /** Max slope the biome appears on (steeper terrain remains
+   * uncolored / falls back to the default biome). */
+  maxSlope: z.number().default(1.5),
+  /** Multiplier on procgen resource placement density inside
+   * this biome (1 = default). */
+  resourceDensity: z.number().default(1),
+});
+export type BiomeContribution = z.infer<typeof BiomeContributionSchema>;
+
 export const EntityTypeContributionSchema = z.object({
   /**
    * Which world-content schema this contribution applies to.
@@ -124,6 +166,16 @@ export const PluginContributionsSchema = z.object({
    * default — old plugins keep working unchanged.
    */
   entityTypes: z.array(EntityTypeContributionSchema).default([]),
+  /**
+   * R3.P3 — biomes the plugin contributes to the procgen
+   * pipeline. Asset-forge aggregates these across active
+   * plugins into `GAME_BIOME_DEFINITIONS`. Empty by default;
+   * legacy plugins keep working unchanged (engine continues to
+   * ship Hyperia's tundra/forest/canyon as the engine-default
+   * set until a follow-up cut moves those into the Hyperscape
+   * plugin's contributions).
+   */
+  biomes: z.array(BiomeContributionSchema).default([]),
 });
 export type PluginContributions = z.infer<typeof PluginContributionsSchema>;
 
@@ -186,6 +238,7 @@ export const PluginManifestSchema = z
       toolbarTools: [],
       commands: [],
       entityTypes: [],
+      biomes: [],
     }),
     /** Free-form tags for Plugin Browser filtering. */
     tags: z.array(z.string().min(1)).default([]),

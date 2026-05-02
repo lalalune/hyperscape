@@ -29,6 +29,7 @@ import type {
 } from "./types";
 import { generateWorldName, createNewWorld } from "./utils";
 import { GAME_BIOME_DEFINITIONS } from "./GameTerrainAdapter";
+import { getActiveBiomeDefinitions } from "../WorldStudio/utils/pluginBiomeRegistry";
 
 // ============== ROAD GENERATION ==============
 
@@ -257,11 +258,16 @@ export function generateTerrainAndBiomes(config: WorldCreationConfig): {
 
   const terrainGenerator = new TerrainGenerator(terrainConfig);
 
+  // R3.P3 — biome system reads engine defaults merged with
+  // active plugins' biome contributions. Plugins that declare
+  // `desert` / `tropical_jungle` etc. via `contributions.biomes`
+  // show up alongside (or override) the engine defaults; blank-
+  // no-plugins projects fall through to defaults only.
   const biomeSystem = new BiomeSystem(
     config.seed,
     worldSizeMeters,
     config.biomes,
-    GAME_BIOME_DEFINITIONS,
+    getActiveBiomeDefinitions(GAME_BIOME_DEFINITIONS),
   );
   const biomeCenters = biomeSystem.getBiomeCenters();
   const biomes: GeneratedBiome[] = biomeCenters.map((center, index) => {

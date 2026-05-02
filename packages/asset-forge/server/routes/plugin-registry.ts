@@ -61,6 +61,25 @@ const PluginRegistryEntryResponse = t.Object({
         acceptedAssetTypes: t.Array(t.String()),
       }),
     ),
+    /**
+     * R3.P3 — biome contributions. Asset-forge merges these
+     * across active plugins into the editor's biome registry
+     * so a plugin declaring `desert` / `tropical_jungle` shows
+     * up alongside (or instead of) the Hyperia tundra/forest/
+     * canyon defaults.
+     */
+    biomes: t.Array(
+      t.Object({
+        id: t.String(),
+        name: t.String(),
+        color: t.Number(),
+        terrainMultiplier: t.Number(),
+        difficultyLevel: t.Number(),
+        heightRange: t.Tuple([t.Number(), t.Number()]),
+        maxSlope: t.Number(),
+        resourceDensity: t.Number(),
+      }),
+    ),
   }),
   /** Plugin ids this plugin depends on. */
   dependencies: t.Array(t.Object({ id: t.String(), versionRange: t.String() })),
@@ -141,6 +160,16 @@ function formatEntry(
         description: e.description,
         requiredFields: [...e.requiredFields],
         acceptedAssetTypes: [...e.acceptedAssetTypes],
+      })),
+      biomes: m.contributions.biomes.map((b) => ({
+        id: b.id,
+        name: b.name,
+        color: b.color,
+        terrainMultiplier: b.terrainMultiplier,
+        difficultyLevel: b.difficultyLevel,
+        heightRange: [b.heightRange[0], b.heightRange[1]] as [number, number],
+        maxSlope: b.maxSlope,
+        resourceDensity: b.resourceDensity,
       })),
     },
     dependencies: m.dependencies.map((d) => ({
