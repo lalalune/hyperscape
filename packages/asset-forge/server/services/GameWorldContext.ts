@@ -200,7 +200,24 @@ const BIOME_CONFIG = {
   influenceRadius: ISLAND_RADIUS * 0.6,
 };
 
-const GAME_BIOME_DEFINITIONS: Record<string, BiomeDefinition> = {
+/**
+ * Hyperia-specific biome data — the server-side mirror of
+ * `HYPERIA_LIVE_GAME_BIOMES` in
+ * `src/components/WorldBuilder/GameTerrainAdapter.ts`. Used by
+ * `getGameWorldContext` (the live Hyperia world reproducer for
+ * server-side tile / tree / layout queries).
+ *
+ * Phase D of `PLAN_AAA_CONTENT_SYSTEM.md` migrates this data
+ * (along with the rest of `getGameWorldContext`) into the
+ * Hyperscape plugin / content pack. Until then the constant
+ * stays here as a private module-local fallback.
+ *
+ * This entire module's exports are Hyperia-specific by design —
+ * called from `WorldLayoutService` / `WorldTreeService` for
+ * Hyperia-template projects. Non-Hyperia projects don't reach
+ * this code path.
+ */
+const HYPERIA_LIVE_GAME_BIOMES: Record<string, BiomeDefinition> = {
   tundra: {
     id: "tundra",
     name: "Tundra",
@@ -527,7 +544,7 @@ export function getGameWorldContext(
     seed,
     worldSizeMeters,
     biomeConfig,
-    GAME_BIOME_DEFINITIONS,
+    HYPERIA_LIVE_GAME_BIOMES,
   );
   const biomeCenters = biomeSystem.getBiomeCenters();
 

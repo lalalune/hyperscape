@@ -39,28 +39,22 @@ export const GAME_TILE_SIZE = 100;
 export const GAME_WORLD_SIZE = 100;
 export const GAME_TILE_RESOLUTION = 64;
 
-// Biome definitions for procgen BiomeSystem.
-//
-// Note: an earlier `GAME_BIOME_COLORS` const was removed —
-// `_biomeRGB` inside `createGameTerrainQuerier` now derives its
-// hex→RGB lookup from `GAME_BIOME_DEFINITIONS` (single source
-// of truth) and merges in plugin biome contributions via
-// `getActiveBiomeDefinitions`, so plugin-contributed biomes
-// (R3.P3 — see `contentRegistry.ts`) get the same
-// color treatment as engine defaults.
-//
-// R3.P3 leak status: engine still defaults to Hyperia's three
-// biomes (tundra / forest / canyon). Hyperia's plugin.json now
-// contributes the same three (commit `63e8e2992`); shooter-demo
-// contributes arena / wasteland / fortifications (commit
-// `d29712023`). Plugin contributions WIN on id collision, so
-// Hyperia projects see no behavior change. Non-Hyperia projects
-// see plugin biomes layered on top of these defaults — the
-// leak narrows but isn't fully closed (that needs the
-// `biomeForestWeight`/`biomeCanyonWeight` named-field refactor
-// at terrainHelpers.ts:635-636 + the `["tundra","forest","canyon"]`
-// hardcoded array below at line ~117 to be fully generalized).
-export const GAME_BIOME_DEFINITIONS: Record<string, BiomeDefinition> = {
+/**
+ * Hyperia-specific biome data — used only by the
+ * `createGameTerrainQuerier` path below (the live Hyperia
+ * game world reproducer). Hyperia's gameplay plugin already
+ * contributes these same three biomes via plugin.json
+ * `contributions.biomes` (commit `63e8e2992`), so the runtime
+ * registry overlays plugin biomes on top of any engine defaults.
+ *
+ * Phase D of `PLAN_AAA_CONTENT_SYSTEM.md` migrates this data
+ * (along with the rest of `createGameTerrainQuerier`) into the
+ * Hyperscape plugin / content pack so the engine package
+ * carries no Hyperia-specific data at all. Until then the
+ * constant stays here, but private — non-Hyperia callsites
+ * use the empty `GAME_BIOME_DEFINITIONS` export below.
+ */
+const HYPERIA_LIVE_GAME_BIOMES: Record<string, BiomeDefinition> = {
   tundra: {
     id: "tundra",
     name: "Tundra",
@@ -92,6 +86,21 @@ export const GAME_BIOME_DEFINITIONS: Record<string, BiomeDefinition> = {
     resourceDensity: 0.6,
   },
 };
+
+/**
+ * Generic engine biome fallback — `{}` per the AAA "blank means
+ * blank" goal (`PLAN_AAA_CONTENT_SYSTEM.md` Phase C). The
+ * runtime `contentRegistry` overlays plugin and content pack
+ * biome contributions on top; an unconfigured project sees zero
+ * biomes and renders a generic gray island, mirroring how a
+ * blank UE5 / Unity project starts with no terrain layers.
+ *
+ * The 3-biome Hyperia data that previously lived here is in
+ * `HYPERIA_LIVE_GAME_BIOMES` above (private), used only by
+ * Hyperia-specific procgen paths until Phase D migrates them
+ * into the Hyperscape content pack.
+ */
+export const GAME_BIOME_DEFINITIONS: Record<string, BiomeDefinition> = {};
 
 // Shoreline config
 const SHORELINE = {
@@ -157,7 +166,7 @@ export function createGameTerrainQuerier(seed: number = GAME_SEED) {
     seed,
     worldSizeMeters,
     biomeConfig,
-    GAME_BIOME_DEFINITIONS,
+    HYPERIA_LIVE_GAME_BIOMES,
   );
 
   const biomeCenters = biomeSystem.getBiomeCenters();
@@ -220,13 +229,16 @@ export function createGameTerrainQuerier(seed: number = GAME_SEED) {
   }
 
   // Pre-computed biome colors (avoid per-call hex→RGB conversion).
-  // R3.P3 — derive from the merged biome map (engine defaults +
-  // active plugin contributions) so a plugin's contributed biome
-  // (e.g. shooter-demo's "arena", "wasteland", "fortifications")
-  // gets a real RGB lookup instead of falling through to the
-  // default-biome color.
+  // R3.P3 — derive from the merged biome map (Hyperia engine
+  // baseline + active plugin / content pack contributions) so a
+  // plugin's contributed biome (e.g. shooter-demo's "arena",
+  // "wasteland", "fortifications") gets a real RGB lookup
+  // instead of falling through to the default-biome color.
+  // Uses `HYPERIA_LIVE_GAME_BIOMES` because this entire function
+  // is Hyperia-specific (gated by `useGamePipeline`); the
+  // generic `GAME_BIOME_DEFINITIONS` export is empty.
   const _biomeRGB: Record<string, { r: number; g: number; b: number }> = {};
-  const _activeBiomes = getActiveBiomeDefinitions(GAME_BIOME_DEFINITIONS);
+  const _activeBiomes = getActiveBiomeDefinitions(HYPERIA_LIVE_GAME_BIOMES);
   for (const [id, def] of Object.entries(_activeBiomes)) {
     const hex = def.color;
     _biomeRGB[id] = {
