@@ -71,6 +71,19 @@ export interface WorldProjectSummary {
    * of `PLAN_ASSET_PACKS.md`). Empty = no asset packs.
    */
   assetPacks: string[];
+  /**
+   * Biome pack manifest ids installed on this project
+   * (`PLAN_PACK_TYPES.md` Phase 2). Empty = no standalone biome
+   * packs; biomes still come from plugin contributions + engine
+   * defaults.
+   */
+  biomePacks: string[];
+  /** Terrain pack manifest ids — shader recipes + heightmap presets. */
+  terrainPacks: string[];
+  /** Water pack manifest ids — water shader recipes. */
+  waterPacks: string[];
+  /** Vegetation pack manifest ids — species + density rules. */
+  vegetationPacks: string[];
 }
 
 export interface WorldProjectDetail extends WorldProjectSummary {

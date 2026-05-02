@@ -78,7 +78,9 @@ import { createWorldProjectRoutes } from "./routes/world-projects";
 import { createWorldProjectTemplatesRoute } from "./routes/world-project-templates";
 import { createPluginRegistryRoutes } from "./routes/plugin-registry";
 import { createAssetPackRoutes } from "./routes/asset-packs";
+import { createBiomePackRoutes } from "./routes/biome-packs";
 import { AssetPackService } from "./services/AssetPackService";
+import { BiomePackService } from "./services/BiomePackService";
 import { createDeploymentRoutes } from "./routes/deployments";
 import { createModuleRoutes } from "./routes/modules";
 import { createScriptRoutes } from "./routes/scripts";
@@ -147,6 +149,7 @@ const worldProjectService = new WorldProjectService();
 const projectTemplateService = new ProjectTemplateService();
 const pluginRegistryService = new PluginRegistryService();
 const assetPackService = new AssetPackService();
+const biomePackService = new BiomePackService();
 const gameModuleService = new GameModuleService();
 const scriptService = new ScriptService();
 const uiLayoutService = new UILayoutService();
@@ -477,6 +480,9 @@ const app = new Elysia()
   .use(createWorldProjectTemplatesRoute(projectTemplateService))
   .use(createPluginRegistryRoutes(pluginRegistryService))
   .use(createAssetPackRoutes(assetPackService, teamService))
+  .use(
+    createBiomePackRoutes(biomePackService, worldProjectService, teamService),
+  )
   .use(
     createDeploymentRoutes(teamService, worldProjectService, auditLogService),
   )

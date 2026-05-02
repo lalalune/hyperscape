@@ -233,6 +233,19 @@ export const WorldProjectResponse = t.Object({
    * only place engine-default placeholders.
    */
   assetPacks: t.Array(t.String()),
+  /**
+   * Biome pack manifest ids installed on this project
+   * (`PLAN_PACK_TYPES.md` Phase 2). Empty = no standalone biome
+   * packs; biomes still come from gameplay plugin contributions
+   * + engine defaults.
+   */
+  biomePacks: t.Array(t.String()),
+  /** Terrain pack manifest ids — shader recipes + heightmap presets. */
+  terrainPacks: t.Array(t.String()),
+  /** Water pack manifest ids — water shader recipes. */
+  waterPacks: t.Array(t.String()),
+  /** Vegetation pack manifest ids — species + density rules. */
+  vegetationPacks: t.Array(t.String()),
 });
 
 export const WorldProjectDetailResponse = t.Composite([

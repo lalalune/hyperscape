@@ -909,6 +909,10 @@ function formatProjectResponse(project: {
   templateId?: string | null;
   plugins?: string[] | null;
   assetPacks?: string[] | null;
+  biomePacks?: string[] | null;
+  terrainPacks?: string[] | null;
+  waterPacks?: string[] | null;
+  vegetationPacks?: string[] | null;
 }) {
   return {
     id: project.id,
@@ -926,5 +930,9 @@ function formatProjectResponse(project: {
     templateId: project.templateId ?? null,
     plugins: project.plugins ?? [],
     assetPacks: project.assetPacks ?? [],
+    biomePacks: project.biomePacks ?? [],
+    terrainPacks: project.terrainPacks ?? [],
+    waterPacks: project.waterPacks ?? [],
+    vegetationPacks: project.vegetationPacks ?? [],
   };
 }
