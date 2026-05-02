@@ -37,4 +37,6 @@ export { proposeWaterBodyAction } from "./proposeWaterBody.js";
 export { proposeMusicZoneAction } from "./proposeMusicZone.js";
 export { proposeAmbientZoneAction } from "./proposeAmbientZone.js";
 export { proposeSfxTriggerAction } from "./proposeSfxTrigger.js";
+export { proposeMineAction } from "./proposeMine.js";
+export { proposeWildernessBoundaryAction } from "./proposeWildernessBoundary.js";
 export { offerChoicesAction, type OfferedChoice } from "./offerChoices.js";

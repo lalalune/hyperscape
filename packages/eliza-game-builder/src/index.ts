@@ -136,6 +136,8 @@ export {
   proposeMusicZoneAction,
   proposeAmbientZoneAction,
   proposeSfxTriggerAction,
+  proposeMineAction,
+  proposeWildernessBoundaryAction,
   proposeTerrainConfigAction,
   proposeUIPackAction,
   proposeZoneAction,

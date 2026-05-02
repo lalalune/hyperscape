@@ -487,6 +487,71 @@ export const WorldAreaSFXTriggerSchema = z
   .passthrough();
 export type WorldAreaSFXTrigger = z.infer<typeof WorldAreaSFXTriggerSchema>;
 
+/**
+ * R4.P8 — agent-placeable mine area. Studio's auto-gen
+ * pipeline already produces `PlacedMine` entries for the
+ * `mines` slot; this schema lets the agent author specific
+ * mines (e.g. "place an iron mine in the canyon biome").
+ *
+ *   id            — unique mine id
+ *   name          — display name ("Iron Outcrop")
+ *   position      — game-space (x, y, z) center
+ *   radius        — base mine area radius in meters (15-25 typical)
+ *   radialOffsets — 8 control points for organic shape (0.82-1.18)
+ *   entryAngle    — entry direction angle (radians) — rocks form a C
+ *                   on the opposite side
+ *   biome         — biome id at the mine center
+ *   tierIndex     — difficulty tier (0 = starter, higher = harder)
+ *   oreRocks      — ore breakdown (resource id + rock count)
+ */
+export const WorldAreaMineSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    position: Vec3Schema,
+    radius: z.number().positive(),
+    radialOffsets: z.array(z.number()).optional(),
+    entryAngle: z.number().default(0),
+    biome: z.string().min(1),
+    tierIndex: z.number().int().nonnegative().default(0),
+    oreRocks: z.array(
+      z.object({
+        resourceId: z.string().min(1),
+        count: z.number().int().nonnegative(),
+      }),
+    ),
+    /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
+    assetRef: AssetRefSchema.optional(),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough();
+export type WorldAreaMine = z.infer<typeof WorldAreaMineSchema>;
+
+/**
+ * R4.P8 — agent-placeable wilderness boundary. Marks the line
+ * where PvP unlocks; distance north of the line scales the
+ * wilderness level.
+ *
+ *   points     — east-west polyline (x, z) waypoints (>= 2)
+ *   levelScale — meters north of the line per +1 wilderness level
+ *   maxLevel   — clamp on the wilderness level scale
+ */
+export const WorldAreaWildernessBoundarySchema = z
+  .object({
+    /** Singleton id; today only one boundary is supported per
+     * project. Kept on the schema so a future "multi-zone PvP
+     * boundary" surface stays additive. */
+    id: z.string().min(1).default("wilderness"),
+    points: z.array(WaterPolygonPointSchema).min(2),
+    levelScale: z.number().positive(),
+    maxLevel: z.number().int().positive(),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough();
+export type WorldAreaWildernessBoundary = z.infer<
+  typeof WorldAreaWildernessBoundarySchema
+>;
+
 export const WorldAreaTeleportNodeSchema = z
   .object({
     id: z.string().min(1),

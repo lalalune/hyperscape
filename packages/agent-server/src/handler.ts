@@ -37,6 +37,8 @@ import {
   proposeMusicZoneAction,
   proposeAmbientZoneAction,
   proposeSfxTriggerAction,
+  proposeMineAction,
+  proposeWildernessBoundaryAction,
   proposeUIPackAction,
   proposeZoneAction,
   removeFromProjectAction,
@@ -395,6 +397,10 @@ export interface OnboardingPlan {
   readonly ambientZones: ReadonlyArray<unknown>;
   /** Point-source SFX triggers the agent placed across the run (R4.P8). */
   readonly sfxTriggers: ReadonlyArray<unknown>;
+  /** Mine areas the agent placed across the run (R4.P8). */
+  readonly mines: ReadonlyArray<unknown>;
+  /** Wilderness boundary the agent set (singleton; R4.P8). null when unset. */
+  readonly wildernessBoundary: unknown | null;
   /** Asset pack manifest ids the agent proposed installing across the run (deduped). */
   readonly assetPackIds: ReadonlyArray<string>;
   /** Last validated UI pack (B1.0). */
@@ -520,6 +526,8 @@ const ONBOARDING_ACTIONS = [
   proposeMusicZoneAction,
   proposeAmbientZoneAction,
   proposeSfxTriggerAction,
+  proposeMineAction,
+  proposeWildernessBoundaryAction,
   removeFromProjectAction,
   offerChoicesAction,
 ];
@@ -762,6 +770,7 @@ function applyRemovalToAggregate(
     musicZones: unknown[];
     ambientZones: unknown[];
     sfxTriggers: unknown[];
+    mines: unknown[];
   },
 ): void {
   if (!rawRemoval || typeof rawRemoval !== "object") return;
@@ -838,6 +847,9 @@ function applyRemovalToAggregate(
     case "sfxTrigger":
       filterById(buffers.sfxTriggers, r.id);
       break;
+    case "mine":
+      filterById(buffers.mines, r.id);
+      break;
     default:
       break;
   }
@@ -892,6 +904,8 @@ function aggregatePlanFromTurns(
   const musicZones: unknown[] = [];
   const ambientZones: unknown[] = [];
   const sfxTriggers: unknown[] = [];
+  const mines: unknown[] = [];
+  let wildernessBoundary: unknown | null = null;
   const assetPackIdSet = new Set<string>();
   let uiPack: unknown | null = null;
 
@@ -958,6 +972,14 @@ function aggregatePlanFromTurns(
         case "PROPOSE_SFX_TRIGGER":
           if (data.sfxTrigger !== undefined) sfxTriggers.push(data.sfxTrigger);
           break;
+        case "PROPOSE_MINE":
+          if (data.mine !== undefined) mines.push(data.mine);
+          break;
+        case "PROPOSE_WILDERNESS_BOUNDARY":
+          // Singleton — last emission wins.
+          if (data.wildernessBoundary !== undefined)
+            wildernessBoundary = data.wildernessBoundary;
+          break;
         case "PROPOSE_ASSET_PACK_INSTALL":
           if (Array.isArray(data.assetPackIds)) {
             for (const id of data.assetPackIds as unknown[]) {
@@ -989,6 +1011,7 @@ function aggregatePlanFromTurns(
             musicZones,
             ambientZones,
             sfxTriggers,
+            mines,
           });
           break;
         default:
@@ -1016,6 +1039,8 @@ function aggregatePlanFromTurns(
     musicZones,
     ambientZones,
     sfxTriggers,
+    mines,
+    wildernessBoundary,
     assetPackIds: Array.from(assetPackIdSet),
     uiPack,
   };
