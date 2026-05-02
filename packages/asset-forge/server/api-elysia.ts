@@ -78,6 +78,7 @@ import { createWorldProjectRoutes } from "./routes/world-projects";
 import { createWorldProjectTemplatesRoute } from "./routes/world-project-templates";
 import { createPluginRegistryRoutes } from "./routes/plugin-registry";
 import { createAssetPackRoutes } from "./routes/asset-packs";
+import { createContentPackRoutes } from "./routes/content-packs";
 import { AssetPackService } from "./services/AssetPackService";
 import { createDeploymentRoutes } from "./routes/deployments";
 import { createModuleRoutes } from "./routes/modules";
@@ -477,6 +478,7 @@ const app = new Elysia()
   .use(createWorldProjectTemplatesRoute(projectTemplateService))
   .use(createPluginRegistryRoutes(pluginRegistryService))
   .use(createAssetPackRoutes(assetPackService, teamService))
+  .use(createContentPackRoutes(assetPackService, worldProjectService))
   .use(
     createDeploymentRoutes(teamService, worldProjectService, auditLogService),
   )

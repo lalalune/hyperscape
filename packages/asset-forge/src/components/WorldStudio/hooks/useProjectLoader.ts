@@ -26,6 +26,8 @@ import { DataManager } from "@hyperforge/shared";
 import { GAME_BIOME_DEFINITIONS } from "../../WorldBuilder/GameTerrainAdapter";
 import {
   setPluginBiomes,
+  setContentPackContent,
+  type ContentPackContentInput,
   type PluginBiomeContribution,
 } from "../utils/contentRegistry";
 import {
@@ -311,6 +313,30 @@ export function useProjectLoader(projectId: string) {
           setPluginBiomes([]);
         }
 
+        // PLAN_AAA_CONTENT_SYSTEM Phase B — fetch the project's
+        // installed content packs and dispatch each manifest's
+        // typed sections (biomes, terrainShaders,
+        // vegetationSpecies, …) into the unified contentRegistry.
+        // Sections from packs without that section default to
+        // the empty array so the registry's per-section maps
+        // get cleared between project switches.
+        const projectContentPackIds = project.assetPacks ?? [];
+        if (projectContentPackIds.length > 0) {
+          void fetchContentPacksAndRegister(project.id);
+        } else {
+          // Project has no content packs — clear every section.
+          setContentPackContent({
+            biomes: [],
+            terrainShaders: [],
+            terrainHeightmapPresets: [],
+            terrainNoiseFunctions: [],
+            waterShaders: [],
+            waterAnimations: [],
+            vegetationSpecies: [],
+            vegetationDensityRules: [],
+          });
+        }
+
         // Set project context. `templateId` + `plugins` come from
         // the typed-layer surface (B0'.A); usePIESession reads them
         // to decide which plugin set to install on Play.
@@ -546,4 +572,87 @@ async function fetchPluginBiomesAndRegister(
     );
     setPluginBiomes([]);
   }
+}
+
+/**
+ * PLAN_AAA_CONTENT_SYSTEM Phase B — fetch the project's
+ * installed content packs from `/api/content-packs/installed`,
+ * union each manifest's typed sections, and atomically push
+ * them into the unified contentRegistry. Failures clear every
+ * section silently — engine defaults + plugin biomes still
+ * render the painter.
+ *
+ * Same best-effort posture as `fetchPluginBiomesAndRegister`:
+ * the loader doesn't block on this call.
+ */
+async function fetchContentPacksAndRegister(projectId: string): Promise<void> {
+  try {
+    const url = `/api/content-packs/installed?projectId=${encodeURIComponent(projectId)}`;
+    const res = await fetch(url, { credentials: "same-origin" });
+    if (!res.ok) {
+      clearContentPackSections();
+      return;
+    }
+    type InstalledContentPack = {
+      manifestId: string;
+      manifest: Partial<ContentPackContentInput>;
+    };
+    const packs = (await res.json()) as ReadonlyArray<InstalledContentPack>;
+    const merged: ContentPackContentInput = {
+      biomes: [],
+      terrainShaders: [],
+      terrainHeightmapPresets: [],
+      terrainNoiseFunctions: [],
+      waterShaders: [],
+      waterAnimations: [],
+      vegetationSpecies: [],
+      vegetationDensityRules: [],
+    };
+    for (const p of packs) {
+      const m = p.manifest ?? {};
+      if (m.biomes) (merged.biomes as unknown[])!.push(...m.biomes);
+      if (m.terrainShaders)
+        (merged.terrainShaders as unknown[])!.push(...m.terrainShaders);
+      if (m.terrainHeightmapPresets)
+        (merged.terrainHeightmapPresets as unknown[])!.push(
+          ...m.terrainHeightmapPresets,
+        );
+      if (m.terrainNoiseFunctions)
+        (merged.terrainNoiseFunctions as unknown[])!.push(
+          ...m.terrainNoiseFunctions,
+        );
+      if (m.waterShaders)
+        (merged.waterShaders as unknown[])!.push(...m.waterShaders);
+      if (m.waterAnimations)
+        (merged.waterAnimations as unknown[])!.push(...m.waterAnimations);
+      if (m.vegetationSpecies)
+        (merged.vegetationSpecies as unknown[])!.push(...m.vegetationSpecies);
+      if (m.vegetationDensityRules)
+        (merged.vegetationDensityRules as unknown[])!.push(
+          ...m.vegetationDensityRules,
+        );
+    }
+    setContentPackContent(merged);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[ProjectLoader] Failed to fetch content packs — clearing content-pack sections:",
+      err,
+    );
+    clearContentPackSections();
+  }
+}
+
+/** Clear every content-pack section. Used as the failure fallback. */
+function clearContentPackSections(): void {
+  setContentPackContent({
+    biomes: [],
+    terrainShaders: [],
+    terrainHeightmapPresets: [],
+    terrainNoiseFunctions: [],
+    waterShaders: [],
+    waterAnimations: [],
+    vegetationSpecies: [],
+    vegetationDensityRules: [],
+  });
 }

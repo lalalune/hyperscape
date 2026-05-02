@@ -277,6 +277,33 @@ export class AssetPackService {
     return updated ?? null;
   }
 
+  /**
+   * Resolve a list of pack manifest_ids into the full stored
+   * rows. Used by the project loader to fetch the manifests
+   * for every content pack the project has installed in one
+   * round-trip. Unknown ids are silently dropped — the caller
+   * always gets back a subset of installed packs.
+   *
+   * `PLAN_AAA_CONTENT_SYSTEM.md` Phase B. The `asset_packs`
+   * table now stores unified `ContentPackManifest` blobs (any
+   * combination of `assets`, `biomes`, `terrainShaders`,
+   * `vegetationSpecies`, etc.). The service surface stays the
+   * same; consumers extract whichever sections they need from
+   * the resolved manifests.
+   */
+  async resolveByManifestIds(
+    manifestIds: ReadonlyArray<string>,
+  ): Promise<AssetPack[]> {
+    if (manifestIds.length === 0) return [];
+    const db = getDb();
+    if (!isDatabaseEnabled() || !db) return [];
+
+    return db
+      .select()
+      .from(assetPacks)
+      .where(inArray(assetPacks.manifestId, [...manifestIds]));
+  }
+
   /** Fetch a single pack by its manifest_id (e.g. "@hyperforge/asset-pack-hyperia-v1"). */
   async getByManifestId(manifestId: string): Promise<AssetPack | null> {
     const db = getDb();
