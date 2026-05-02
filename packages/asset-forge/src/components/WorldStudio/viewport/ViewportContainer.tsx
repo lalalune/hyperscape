@@ -2047,6 +2047,16 @@ export function ViewportContainer() {
     >
       <TileBasedTerrain
         config={config}
+        // Bug #3 fix — explicit Hyperia-content gate, distinct
+        // from `config.useGamePipeline` (which legacy projects
+        // may still have baked into worldData). Non-Hyperia
+        // projects skip Hyperia bridges + duel arena +
+        // /api/manifests/* loads regardless of useGamePipeline.
+        projectTargetsHyperia={state.project.plugins.some(
+          (id) =>
+            id === "@hyperforge/hyperscape" ||
+            id === "com.hyperforge.hyperscape",
+        )}
         // Phase B0'.B / B0'.E follow-up — blank-template projects
         // skip vegetation entirely (no manifest-tree fetch, no
         // procgen tree fallback). Hyperia + every other template

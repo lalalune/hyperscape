@@ -535,6 +535,17 @@ export interface TileBasedTerrainProps {
   onGameEntitiesLoaded?: (data: GameEntityData) => void;
   /** Called on quick RMB click (no fly) with screen coords for context menu */
   onViewportContextMenu?: (x: number, y: number) => void;
+  /**
+   * Bug #3 fix — explicit "this project targets the Hyperia
+   * game" flag, distinct from `config.useGamePipeline` (which
+   * is a procgen-pipeline boolean baked into legacy world data).
+   * When `false`, the Hyperia-specific blocks
+   * (bridges, duel arena, `createGameWorldEntities`) skip even
+   * if `config.useGamePipeline` is true. Defaults to undefined
+   * → treated as legacy behavior (fall through to
+   * `useGamePipeline` boolean alone).
+   */
+  projectTargetsHyperia?: boolean;
   /** Show difficulty heatmap overlay on terrain */
   showDifficultyHeatmap?: boolean;
   /** Danger sources for difficulty heatmap overlay */
@@ -620,6 +631,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   onPlayerModeChange,
   brushOverlays,
   importedQuerier,
+  projectTargetsHyperia,
   timeOfDay = 12,
   enableShadows = false,
   enableBloom = false,
@@ -1872,6 +1884,19 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   terrainConfigRef.current = terrainConfig;
   const useGamePipelineRef = useRef(config.useGamePipeline);
   useGamePipelineRef.current = config.useGamePipeline;
+  // Bug #3 — Hyperia-content gate. When the project doesn't
+  // target Hyperia (plugins[] doesn't include
+  // @hyperforge/hyperscape) we MUST NOT load Hyperia bridges /
+  // duel arena / manifest entities, even if a legacy worldData
+  // shipped with `useGamePipeline: true`. `projectTargetsHyperia`
+  // explicitly says "this project wants Hyperia content";
+  // legacy callers that don't pass the prop default to the
+  // pre-fix behavior (config.useGamePipeline alone).
+  const hyperiaContentEnabledRef = useRef(false);
+  hyperiaContentEnabledRef.current =
+    projectTargetsHyperia === undefined
+      ? !!config.useGamePipeline
+      : projectTargetsHyperia && !!config.useGamePipeline;
   const showVegetationRef = useRef(showVegetation);
   showVegetationRef.current = showVegetation;
   const waterThresholdRef = useRef(waterThreshold);
@@ -2861,8 +2886,17 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     };
     initVegetation();
 
-    // ---- Game structures: bridges + duel arena + manifest entities ----
-    if (useGamePipelineRef.current) {
+    // ---- Hyperia content: bridges + duel arena + manifest entities ----
+    // Bug #3 fix — gated on `hyperiaContentEnabledRef` (the new
+    // project-aware flag), not just `useGamePipelineRef`. A
+    // legacy non-Hyperia project whose worldData has
+    // `useGamePipeline: true` baked in (from before R1.P1's
+    // honest-naming work) would otherwise still load Hyperia
+    // bridges, duel arena, and the `/api/manifests/{npcs,
+    // stations, gathering, world-areas}` JSON — Hyperia
+    // content leaking into projects that don't declare the
+    // Hyperia plugin.
+    if (hyperiaContentEnabledRef.current) {
       const heightQuerier = terrainQuerierRef.current;
       if (heightQuerier) {
         const getH = (wx: number, wz: number) => heightQuerier(wx, wz).height;
