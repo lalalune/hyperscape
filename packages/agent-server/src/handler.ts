@@ -33,6 +33,7 @@ import {
   proposeStationAction,
   proposeTeleportAction,
   proposeTerrainConfigAction,
+  proposeWaterBodyAction,
   proposeUIPackAction,
   proposeZoneAction,
   removeFromProjectAction,
@@ -382,6 +383,9 @@ export interface OnboardingPlan {
   readonly pois: ReadonlyArray<unknown>;
   /** Every danger source the agent placed across the run. */
   readonly dangerSources: ReadonlyArray<unknown>;
+  /** Every water body (river / lake / pond) the agent placed
+   * across the run (R4.P8). */
+  readonly waterBodies: ReadonlyArray<unknown>;
   /** Asset pack manifest ids the agent proposed installing across the run (deduped). */
   readonly assetPackIds: ReadonlyArray<string>;
   /** Last validated UI pack (B1.0). */
@@ -503,6 +507,7 @@ const ONBOARDING_ACTIONS = [
   proposeRoadAction,
   proposePOIAction,
   proposeDangerSourceAction,
+  proposeWaterBodyAction,
   removeFromProjectAction,
   offerChoicesAction,
 ];
@@ -741,6 +746,7 @@ function applyRemovalToAggregate(
     roads: unknown[];
     pois: unknown[];
     dangerSources: unknown[];
+    waterBodies: unknown[];
   },
 ): void {
   if (!rawRemoval || typeof rawRemoval !== "object") return;
@@ -805,6 +811,9 @@ function applyRemovalToAggregate(
     case "dangerSource":
       filterById(buffers.dangerSources, r.id);
       break;
+    case "waterBody":
+      filterById(buffers.waterBodies, r.id);
+      break;
     default:
       break;
   }
@@ -855,6 +864,7 @@ function aggregatePlanFromTurns(
   const roads: unknown[] = [];
   const pois: unknown[] = [];
   const dangerSources: unknown[] = [];
+  const waterBodies: unknown[] = [];
   const assetPackIdSet = new Set<string>();
   let uiPack: unknown | null = null;
 
@@ -908,6 +918,9 @@ function aggregatePlanFromTurns(
           if (data.dangerSource !== undefined)
             dangerSources.push(data.dangerSource);
           break;
+        case "PROPOSE_WATER_BODY":
+          if (data.waterBody !== undefined) waterBodies.push(data.waterBody);
+          break;
         case "PROPOSE_ASSET_PACK_INSTALL":
           if (Array.isArray(data.assetPackIds)) {
             for (const id of data.assetPackIds as unknown[]) {
@@ -935,6 +948,7 @@ function aggregatePlanFromTurns(
             roads,
             pois,
             dangerSources,
+            waterBodies,
           });
           break;
         default:
@@ -958,6 +972,7 @@ function aggregatePlanFromTurns(
     roads,
     pois,
     dangerSources,
+    waterBodies,
     assetPackIds: Array.from(assetPackIdSet),
     uiPack,
   };

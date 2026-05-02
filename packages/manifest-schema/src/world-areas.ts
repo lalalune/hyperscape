@@ -336,6 +336,67 @@ export const WorldAreaRoadSchema = z
   .passthrough();
 export type WorldAreaRoad = z.infer<typeof WorldAreaRoadSchema>;
 
+/**
+ * R4.P8 of `PLAN_HYPERIA_DECOUPLING.md` — agent-placeable water
+ * body (river / lake / pond). Studio's extendedLayers + marker
+ * rendering already support this slot; this schema lets the
+ * agent's `PROPOSE_WATER_BODY` action validate input.
+ *
+ *   bodyType  — river (waypoint chain) / lake (polygon) / pond (single point)
+ *   id        — unique water body id
+ *   name      — display name ("Misty River", "Eternal Lake")
+ *   waypoints — for rivers: ordered (x,z,halfWidth,depth) waypoints, min 2
+ *   polygon   — for lakes / ponds: closed polygon of (x,z) points, min 3
+ *   surfaceY  — water surface elevation (game-space y)
+ *   bermWidth — for rivers: width of the embankment beyond the waterway
+ */
+export const RiverWaypointSchema = z.object({
+  x: z.number(),
+  z: z.number(),
+  halfWidth: z.number().positive(),
+  depth: z.number().positive(),
+  surfaceY: z.number().optional(),
+});
+export type RiverWaypoint = z.infer<typeof RiverWaypointSchema>;
+
+export const WaterPolygonPointSchema = z.object({
+  x: z.number(),
+  z: z.number(),
+});
+export type WaterPolygonPoint = z.infer<typeof WaterPolygonPointSchema>;
+
+export const WorldAreaWaterBodySchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    bodyType: z.enum(["river", "lake", "pond"]),
+    /** River shape — ordered waypoints. Required when bodyType === "river". */
+    waypoints: z.array(RiverWaypointSchema).min(2).optional(),
+    /** Lake / pond shape — closed polygon. Required when bodyType !== "river". */
+    polygon: z.array(WaterPolygonPointSchema).min(3).optional(),
+    /** Water surface elevation in game-space y. */
+    surfaceY: z.number().optional(),
+    /** River-only: width of the embankment band on each side. */
+    bermWidth: z.number().positive().optional(),
+    /** River-only: valley-depth multiplier for the surrounding terrain. */
+    valleyMultiplier: z.number().positive().optional(),
+    /** Optional asset pack reference; see WorldAreaNPC.assetRef. */
+    assetRef: AssetRefSchema.optional(),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough()
+  .refine(
+    (v) =>
+      v.bodyType === "river"
+        ? Array.isArray(v.waypoints) && v.waypoints.length >= 2
+        : Array.isArray(v.polygon) && v.polygon.length >= 3,
+    {
+      message:
+        "WaterBody shape mismatch: river requires `waypoints` (>= 2); lake / pond require `polygon` (>= 3).",
+    },
+  );
+export type WorldAreaWaterBody = z.infer<typeof WorldAreaWaterBodySchema>;
+
 export const WorldAreaTeleportNodeSchema = z
   .object({
     id: z.string().min(1),

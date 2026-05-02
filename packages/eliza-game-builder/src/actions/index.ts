@@ -33,4 +33,5 @@ export { proposeTeleportAction } from "./proposeTeleport.js";
 export { proposeRoadAction } from "./proposeRoad.js";
 export { proposePOIAction } from "./proposePOI.js";
 export { proposeDangerSourceAction } from "./proposeDangerSource.js";
+export { proposeWaterBodyAction } from "./proposeWaterBody.js";
 export { offerChoicesAction, type OfferedChoice } from "./offerChoices.js";

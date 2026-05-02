@@ -132,6 +132,7 @@ export {
   proposeRoadAction,
   proposePOIAction,
   proposeDangerSourceAction,
+  proposeWaterBodyAction,
   proposeTerrainConfigAction,
   proposeUIPackAction,
   proposeZoneAction,
