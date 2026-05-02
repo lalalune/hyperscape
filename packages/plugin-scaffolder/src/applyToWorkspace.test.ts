@@ -85,6 +85,7 @@ describe("applyToWorkspace", () => {
 
   it("surfaces registration sites verbatim", () => {
     const r = scaffoldWidget(fixture, {
+      widgetsDir: "src/widgets",
       indexFile: "custom/index.ts",
     });
     const report = applyToWorkspace(r, { workspaceRoot: root });

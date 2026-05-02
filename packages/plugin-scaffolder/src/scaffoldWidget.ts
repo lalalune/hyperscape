@@ -17,18 +17,38 @@ import type {
 } from "./types.js";
 import { assertWidgetSpec } from "./validate.js";
 
-const DEFAULT_WIDGETS_DIR = "packages/hyperscape-plugin/src/widgets";
-const DEFAULT_INDEX_FILE = "packages/hyperscape-plugin/src/index.ts";
-
+/**
+ * R4.P14 of `PLAN_HYPERIA_DECOUPLING.md` — `widgetsDir` and
+ * `indexFile` are now REQUIRED. Earlier versions defaulted them
+ * to `packages/hyperscape-plugin/src/widgets` and `packages/
+ * hyperscape-plugin/src/index.ts` so a caller scaffolding without
+ * overrides would land their widget inside the Hyperia plugin —
+ * a Hyperia-shaped default that violated "blank means blank,
+ * Hyperia means Hyperia, anything else is composable."
+ *
+ * Callers must pick the target plugin explicitly. The CLI's
+ * `forge scaffold widget` surfaces missing flags as a typed
+ * error.
+ */
 export function scaffoldWidget(
   spec: WidgetSpec,
-  options: ScaffoldWidgetOptions = {},
+  options: ScaffoldWidgetOptions,
 ): ScaffoldResult {
   assertWidgetSpec(spec);
 
-  const widgetsDir = options.widgetsDir ?? DEFAULT_WIDGETS_DIR;
+  if (!options.widgetsDir) {
+    throw new Error(
+      "scaffoldWidget: `widgetsDir` is required. Pass the workspace-relative path to the target plugin's widgets directory (e.g. `packages/<your-plugin>/src/widgets`).",
+    );
+  }
+  if (!options.indexFile) {
+    throw new Error(
+      "scaffoldWidget: `indexFile` is required. Pass the workspace-relative path to the target plugin's contributions barrel (e.g. `packages/<your-plugin>/src/index.ts`).",
+    );
+  }
+  const widgetsDir = options.widgetsDir;
   const testsDir = options.testsDir ?? `${widgetsDir}/__tests__`;
-  const indexFile = options.indexFile ?? DEFAULT_INDEX_FILE;
+  const indexFile = options.indexFile;
 
   const sourcePath = `${widgetsDir}/${spec.name}Widget.tsx`;
   const testPath = `${testsDir}/${spec.name}Widget.test.ts`;

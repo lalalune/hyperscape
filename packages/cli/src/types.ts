@@ -16,8 +16,10 @@
  *   1 — bad CLI usage (missing arg, unknown subcommand)
  *   2 — file/IO error (missing catalog, unwritable directory)
  *   3 — validation error (spec invalid, widget id not found)
+ *   4 — missing required flag (R4.P14: scaffolder no longer
+ *       defaults the target plugin path)
  */
-export type ExitCode = 0 | 1 | 2 | 3;
+export type ExitCode = 0 | 1 | 2 | 3 | 4;
 
 /**
  * Output of every CLI command. The `data` payload is the

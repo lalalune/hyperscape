@@ -126,9 +126,10 @@ export interface ScaffoldResult {
 export interface ScaffoldWidgetOptions {
   /**
    * Workspace-relative directory the widget source lives in.
-   * Defaults to `packages/hyperscape-plugin/src/widgets`.
+   * Required (R4.P14) — caller must point at the target plugin
+   * explicitly. E.g. `packages/<your-plugin>/src/widgets`.
    */
-  readonly widgetsDir?: string;
+  readonly widgetsDir: string;
   /**
    * Workspace-relative directory the test companion lives in.
    * Defaults to `${widgetsDir}/__tests__`.
@@ -136,10 +137,11 @@ export interface ScaffoldWidgetOptions {
   readonly testsDir?: string;
   /**
    * Workspace-relative file that aggregates registrations. Surfaces
-   * as a `RegistrationSite`. Defaults to
-   * `packages/hyperscape-plugin/src/index.ts`.
+   * as a `RegistrationSite`. Required (R4.P14) — caller must pick
+   * the target plugin's index file explicitly. E.g.
+   * `packages/<your-plugin>/src/index.ts`.
    */
-  readonly indexFile?: string;
+  readonly indexFile: string;
   /**
    * When true, skip emitting the test file. Default false.
    */

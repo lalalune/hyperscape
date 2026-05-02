@@ -68,10 +68,25 @@ export function scaffoldWidgetCommand(
     });
   }
 
+  // R4.P14 — `widgetsDir` and `indexFile` are required flags.
+  // The scaffolder no longer defaults them to the Hyperia plugin
+  // path; callers must point at the target plugin explicitly.
+  const widgetsDir = stringFlag(args, "widgetsDir");
+  const indexFile = stringFlag(args, "indexFile");
+  if (!widgetsDir || !indexFile) {
+    return err(
+      "Missing required flags: --widgetsDir and --indexFile.\n" +
+        "Pass workspace-relative paths to the target plugin's widgets directory + index file.\n" +
+        "  e.g. --widgetsDir packages/<your-plugin>/src/widgets " +
+        "--indexFile packages/<your-plugin>/src/index.ts",
+      4,
+      { missing: { widgetsDir: !widgetsDir, indexFile: !indexFile } },
+    );
+  }
   const result = scaffoldWidget(spec, {
-    widgetsDir: stringFlag(args, "widgetsDir"),
+    widgetsDir,
     testsDir: stringFlag(args, "testsDir"),
-    indexFile: stringFlag(args, "indexFile"),
+    indexFile,
     skipTest: boolFlag(args, "skipTest", false),
   });
 

@@ -65,9 +65,17 @@ function topLevelExportNames(sf: ts.SourceFile): string[] {
   return names;
 }
 
+// R4.P14 — `widgetsDir` and `indexFile` are required. Tests
+// supply them explicitly to mirror real-world callers (CLI /
+// agent action) which now cannot rely on Hyperia-shaped defaults.
+const HYPERSCAPE_OPTS = {
+  widgetsDir: "packages/hyperscape-plugin/src/widgets",
+  indexFile: "packages/hyperscape-plugin/src/index.ts",
+};
+
 describe("scaffoldWidget — file shape", () => {
   it("emits source + test file pair by default", () => {
-    const r = scaffoldWidget(fixture);
+    const r = scaffoldWidget(fixture, HYPERSCAPE_OPTS);
     expect(r.files.length).toBe(2);
     expect(r.files[0]!.path).toBe(
       "packages/hyperscape-plugin/src/widgets/FooBarWidget.tsx",
@@ -78,7 +86,7 @@ describe("scaffoldWidget — file shape", () => {
   });
 
   it("skipTest:true emits only the source", () => {
-    const r = scaffoldWidget(fixture, { skipTest: true });
+    const r = scaffoldWidget(fixture, { ...HYPERSCAPE_OPTS, skipTest: true });
     expect(r.files.length).toBe(1);
     expect(r.files[0]!.path.endsWith("FooBarWidget.tsx")).toBe(true);
   });
@@ -97,19 +105,35 @@ describe("scaffoldWidget — file shape", () => {
   });
 
   it("registration site mentions the registration name", () => {
-    const r = scaffoldWidget(fixture);
+    const r = scaffoldWidget(fixture, HYPERSCAPE_OPTS);
     expect(r.registrationSites[0]!.hint).toContain("FooBar");
   });
 
   it("throws when spec is invalid", () => {
-    expect(() => scaffoldWidget({ ...fixture, name: "lower" })).toThrow(
-      /Invalid WidgetSpec/,
-    );
+    expect(() =>
+      scaffoldWidget({ ...fixture, name: "lower" }, HYPERSCAPE_OPTS),
+    ).toThrow(/Invalid WidgetSpec/);
+  });
+
+  it("throws when widgetsDir is missing", () => {
+    expect(() =>
+      scaffoldWidget(fixture, {
+        indexFile: "packages/demo/src/index.ts",
+      } as unknown as Parameters<typeof scaffoldWidget>[1]),
+    ).toThrow(/widgetsDir.*required/);
+  });
+
+  it("throws when indexFile is missing", () => {
+    expect(() =>
+      scaffoldWidget(fixture, {
+        widgetsDir: "packages/demo/src/widgets",
+      } as unknown as Parameters<typeof scaffoldWidget>[1]),
+    ).toThrow(/indexFile.*required/);
   });
 });
 
 describe("scaffoldWidget — generated source", () => {
-  const r = scaffoldWidget(fixture);
+  const r = scaffoldWidget(fixture, HYPERSCAPE_OPTS);
   const source = r.files[0]!.content;
   const sf = parse(source, "FooBarWidget.tsx");
   const exports = topLevelExportNames(sf);
@@ -163,7 +187,7 @@ describe("scaffoldWidget — generated source", () => {
   });
 
   it("renders an empty-props widget cleanly", () => {
-    const empty = scaffoldWidget({ ...fixture, props: [] });
+    const empty = scaffoldWidget({ ...fixture, props: [] }, HYPERSCAPE_OPTS);
     const src = empty.files[0]!.content;
     expect(src).toContain("z.object({})");
     expect(src).toContain("defaultProps: {},");
@@ -173,7 +197,7 @@ describe("scaffoldWidget — generated source", () => {
 });
 
 describe("scaffoldWidget — generated test companion", () => {
-  const r = scaffoldWidget(fixture);
+  const r = scaffoldWidget(fixture, HYPERSCAPE_OPTS);
   const test = r.files[1]!.content;
   const sf = parse(test, "FooBarWidget.test.ts");
 
