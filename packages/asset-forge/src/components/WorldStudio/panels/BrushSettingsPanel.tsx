@@ -16,7 +16,7 @@ import {
   Trash2,
   Sprout,
 } from "lucide-react";
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 
 import type {
   BrushType,
@@ -26,6 +26,7 @@ import type {
   VegetationPaintMode,
 } from "../types";
 import { useWorldStudio } from "../WorldStudioContext";
+import { useActiveBiomeIds } from "../hooks/useActiveContent";
 import {
   PropertySection,
   SliderInput,
@@ -57,18 +58,6 @@ const FALLOFF_OPTIONS: Array<{ value: BrushFalloff; label: string }> = [
   { value: "sharp", label: "Sharp" },
   { value: "linear", label: "Linear" },
   { value: "smooth", label: "Smooth" },
-];
-
-const BIOME_TYPES = [
-  "plains",
-  "forest",
-  "mountain",
-  "desert",
-  "swamp",
-  "ocean",
-  "cave",
-  "volcano",
-  "snow",
 ];
 
 const BIOME_PAINT_MODE_OPTIONS: Array<{
@@ -122,6 +111,26 @@ export function BrushSettingsPanel() {
     },
     [actions],
   );
+
+  // Biome paint targets come from the active content registry —
+  // every biome a project's installed plugins / content packs
+  // contribute. Empty registry → empty list (the dropdown
+  // displays a "(none)" placeholder).
+  const registeredBiomeIds = useActiveBiomeIds();
+  const biomeOptions = useMemo(() => {
+    // Always include the currently-selected target if it's not
+    // in the registry (e.g. a project saved before installing
+    // the relevant pack), so the dropdown can still show what's
+    // in use without forcing a silent change.
+    const ids = new Set<string>(registeredBiomeIds);
+    if (settings.biomePaintTarget) ids.add(settings.biomePaintTarget);
+    return Array.from(ids)
+      .sort()
+      .map((t) => ({
+        value: t,
+        label: t.charAt(0).toUpperCase() + t.slice(1),
+      }));
+  }, [registeredBiomeIds, settings.biomePaintTarget]);
 
   const strokeCount =
     settings.brushType === "terrain"
@@ -239,12 +248,16 @@ export function BrushSettingsPanel() {
                 onChange={(biomePaintTarget) =>
                   updateSetting({ biomePaintTarget })
                 }
-                options={BIOME_TYPES.map((t) => ({
-                  value: t,
-                  label: t.charAt(0).toUpperCase() + t.slice(1),
-                }))}
+                options={biomeOptions}
               />
             )}
+            {settings.biomePaintMode === "paint" &&
+              biomeOptions.length === 0 && (
+                <InfoRow
+                  label="No biomes"
+                  value="Install a content pack or plugin to add biomes."
+                />
+              )}
           </PropertySection>
         )}
 

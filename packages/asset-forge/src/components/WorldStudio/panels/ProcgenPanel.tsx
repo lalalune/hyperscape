@@ -55,6 +55,7 @@ import {
 } from "../../WorldBuilder/worldGeneration";
 import { useWorldGenerationWorker } from "../hooks/useWorldGenerationWorker";
 import { useWorldStudio } from "../WorldStudioContext";
+import { useActiveBiomes } from "../hooks/useActiveContent";
 
 import {
   exportHeightmap,
@@ -122,14 +123,15 @@ const TREE_DISPLAY_NAMES: Record<string, string> = {
   tree_windPine: "Wind Pine",
 };
 
-const BIOME_VEGETATION_LABELS: Record<
-  string,
-  { label: string; color: string }
-> = {
-  forest: { label: "Forest", color: "#228B22" },
-  canyon: { label: "Canyon", color: "#CD853F" },
-  tundra: { label: "Tundra", color: "#B0E0E6" },
-};
+/**
+ * Convert a 24-bit hex color int (`0xRRGGBB`) into a CSS color
+ * string (`"#rrggbb"`). Used to render biome swatches from the
+ * runtime registry (which stores ints) into the DOM (which
+ * expects strings).
+ */
+function hexIntToCss(hex: number): string {
+  return `#${hex.toString(16).padStart(6, "0")}`;
+}
 
 /** Fixed, perceptually distinct colors for each tree species (no random hues) */
 const SPECIES_COLORS: Record<string, string> = {
@@ -178,7 +180,30 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
   );
   const [showNoiseViz, setShowNoiseViz] = useState(false);
   const [showAdvancedNoise, setShowAdvancedNoise] = useState(false);
-  const [activeBiomeTab, setActiveBiomeTab] = useState<string>("forest");
+
+  // Active biome tabs come from the content registry — every
+  // biome installed plugins / content packs contribute. Empty
+  // registry = no tabs (an empty-state line renders below).
+  const registeredBiomes = useActiveBiomes();
+  const registeredBiomeIds = useMemo(
+    () => Object.keys(registeredBiomes).sort(),
+    [registeredBiomes],
+  );
+  const [activeBiomeTab, setActiveBiomeTab] = useState<string | null>(null);
+  // Keep the active tab in sync with the registry: if the
+  // current tab vanishes (project switch / pack uninstall),
+  // fall back to the first available biome. Initial mount also
+  // resolves through this effect.
+  useEffect(() => {
+    if (
+      registeredBiomeIds.length > 0 &&
+      (activeBiomeTab === null || !registeredBiomeIds.includes(activeBiomeTab))
+    ) {
+      setActiveBiomeTab(registeredBiomeIds[0]!);
+    } else if (registeredBiomeIds.length === 0 && activeBiomeTab !== null) {
+      setActiveBiomeTab(null);
+    }
+  }, [registeredBiomeIds, activeBiomeTab]);
   const [previewStats, setPreviewStats] = useState<{
     tiles: number;
     biomes: number;
@@ -1440,10 +1465,20 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
           icon={<TreePine size={10} />}
           defaultOpen={false}
         >
-          {/* Biome tab bar */}
-          <div className="flex rounded-md overflow-hidden border border-border-primary mb-2">
-            {Object.entries(BIOME_VEGETATION_LABELS).map(
-              ([biomeId, { label, color }]) => {
+          {/* Biome tab bar — driven by the runtime content
+              registry (every biome a project's installed plugins
+              / content packs contribute). Empty registry shows
+              an explicit empty state below instead of phantom
+              tabs. */}
+          {registeredBiomeIds.length === 0 ? (
+            <div className="text-[10px] text-text-tertiary py-2">
+              No biomes installed. Install a content pack or gameplay plugin to
+              add biomes.
+            </div>
+          ) : (
+            <div className="flex rounded-md overflow-hidden border border-border-primary mb-2">
+              {registeredBiomeIds.map((biomeId) => {
+                const def = registeredBiomes[biomeId]!;
                 const isActive = activeBiomeTab === biomeId;
                 return (
                   <button
@@ -1457,18 +1492,19 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                   >
                     <div
                       className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: color }}
+                      style={{ backgroundColor: hexIntToCss(def.color) }}
                     />
-                    {label}
+                    {def.name}
                   </button>
                 );
-              },
-            )}
-          </div>
+              })}
+            </div>
+          )}
 
           {/* Active biome content */}
           {(() => {
             const biomeId = activeBiomeTab;
+            if (!biomeId) return null;
             const biomeVeg = vegetationConfig[biomeId];
             if (!biomeVeg) return null;
             const totalWeight = Object.values(biomeVeg.trees).reduce(

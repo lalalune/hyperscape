@@ -97,6 +97,47 @@ const contentPackVegetationDensityRules = new Map<
 >();
 
 // ────────────────────────────────────────────────────────────
+// Subscription mechanism — lets React components re-render
+// when registry contents change. Components subscribe via
+// `useSyncExternalStore(subscribeContentRegistry,
+//  getContentRegistryEpoch)` and read the data they need
+// inside a `useMemo([epoch])`.
+//
+// Epoch bumps once per logical update (each setter call), even
+// when multiple sections change atomically — keeps re-renders
+// batched.
+// ────────────────────────────────────────────────────────────
+let epoch = 0;
+const subscribers = new Set<() => void>();
+
+function notifySubscribers(): void {
+  epoch++;
+  for (const cb of subscribers) {
+    try {
+      cb();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[contentRegistry] subscriber threw:", err);
+    }
+  }
+}
+
+/** Subscribe to registry change notifications. Returns a disposer. */
+export function subscribeContentRegistry(cb: () => void): () => void {
+  subscribers.add(cb);
+  return () => subscribers.delete(cb);
+}
+
+/**
+ * Returns a monotonically-increasing version counter that
+ * advances each time any setter mutates the registry. Pair
+ * with `subscribeContentRegistry` for `useSyncExternalStore`.
+ */
+export function getContentRegistryEpoch(): number {
+  return epoch;
+}
+
+// ────────────────────────────────────────────────────────────
 // Plugin-source setters
 // ────────────────────────────────────────────────────────────
 
@@ -112,6 +153,7 @@ export function setPluginBiomes(
   for (const c of contributions) {
     pluginBiomes.set(c.id, contributionToDefinition(c));
   }
+  notifySubscribers();
 }
 
 // ────────────────────────────────────────────────────────────
@@ -182,6 +224,7 @@ export function setContentPackContent(input: ContentPackContentInput): void {
     for (const r of input.vegetationDensityRules)
       contentPackVegetationDensityRules.set(r.id, r);
   }
+  notifySubscribers();
 }
 
 // ────────────────────────────────────────────────────────────

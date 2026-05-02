@@ -6,7 +6,7 @@
  */
 
 import { TreePine, Plus, X } from "lucide-react";
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 
 import type {
   WorldData,
@@ -16,6 +16,7 @@ import type {
   BiomeMobSpawnConfig,
 } from "../../../WorldBuilder/types";
 import { useWorldStudio } from "../../WorldStudioContext";
+import { useActiveBiomeIds } from "../../hooks/useActiveContent";
 import {
   PropertySection,
   InfoRow,
@@ -29,18 +30,6 @@ interface Props {
   biomeId: string;
   world: WorldData;
 }
-
-const BIOME_TYPES = [
-  "plains",
-  "forest",
-  "mountain",
-  "desert",
-  "swamp",
-  "ocean",
-  "cave",
-  "volcano",
-  "snow",
-];
 
 const VEGETATION_CATEGORIES = [
   "tree",
@@ -151,6 +140,24 @@ export function BiomeProperties({ biomeId, world }: Props) {
   const vegConfig = override?.vegetationOverride;
   const mobConfig = override?.mobSpawnConfig;
 
+  // Type-override options come from the active content registry —
+  // every biome a project's installed plugins / content packs
+  // contribute. Empty registry means no installed biomes; the
+  // dropdown still includes the current type so users on a blank
+  // project can see what's in use.
+  const registeredBiomeIds = useActiveBiomeIds();
+  const typeOptions = useMemo(() => {
+    const ids = new Set<string>(registeredBiomeIds);
+    ids.add(biome.type);
+    if (override?.typeOverride) ids.add(override.typeOverride);
+    return Array.from(ids)
+      .sort()
+      .map((t) => ({
+        value: t,
+        label: t.charAt(0).toUpperCase() + t.slice(1),
+      }));
+  }, [registeredBiomeIds, biome.type, override?.typeOverride]);
+
   return (
     <>
       <PropertySection title="Biome" icon={<TreePine size={10} />}>
@@ -161,10 +168,7 @@ export function BiomeProperties({ biomeId, world }: Props) {
           label="Type Override"
           value={displayType}
           onChange={(typeOverride) => updateOverride({ typeOverride })}
-          options={BIOME_TYPES.map((t) => ({
-            value: t,
-            label: t.charAt(0).toUpperCase() + t.slice(1),
-          }))}
+          options={typeOptions}
         />
         {override?.difficultyOverride != null && (
           <SliderInput
