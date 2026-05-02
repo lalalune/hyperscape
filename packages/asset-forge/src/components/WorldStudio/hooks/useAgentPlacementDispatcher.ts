@@ -39,6 +39,12 @@ import type {
   WorldAreaRoad,
   WorldAreaStation,
   WorldAreaTeleportNode,
+  WorldAreaWaterBody,
+  WorldAreaMusicZone,
+  WorldAreaAmbientZone,
+  WorldAreaSFXTrigger,
+  WorldAreaMine,
+  WorldAreaWildernessBoundary,
 } from "@hyperforge/manifest-schema";
 import type { WorldData } from "../../WorldBuilder/types";
 
@@ -52,6 +58,12 @@ import {
   worldAreaRoadToPlaced,
   worldAreaStationToPlaced,
   worldAreaTeleportToPlaced,
+  worldAreaWaterBodyToPlaced,
+  worldAreaMusicZoneToPlaced,
+  worldAreaAmbientZoneToPlaced,
+  worldAreaSfxTriggerToPlaced,
+  worldAreaMineToPlaced,
+  worldAreaWildernessBoundaryToPlaced,
 } from "../utils/agentPlacementMapper";
 import {
   getTerrainHeightAt,
@@ -146,6 +158,21 @@ export interface AgentPlacementDispatcher {
    * + spawn-density shaping.
    */
   placeDangerSource: (ds: WorldAreaDangerSource) => void;
+  /** R4.P8 — agent water body placement (river / lake / pond). */
+  placeWaterBody: (waterBody: WorldAreaWaterBody) => void;
+  /** R4.P8 — agent music zone placement (polygonal). */
+  placeMusicZone: (zone: WorldAreaMusicZone) => void;
+  /** R4.P8 — agent ambient zone placement (polygonal). */
+  placeAmbientZone: (zone: WorldAreaAmbientZone) => void;
+  /** R4.P8 — agent SFX trigger placement (point-source). */
+  placeSfxTrigger: (trigger: WorldAreaSFXTrigger) => void;
+  /** R4.P8 — agent mine area placement. */
+  placeMine: (mine: WorldAreaMine) => void;
+  /**
+   * R4.P8 — set the wilderness boundary (singleton). The
+   * boundary is a single polyline; subsequent calls overwrite.
+   */
+  placeWildernessBoundary: (boundary: WorldAreaWildernessBoundary) => void;
   /**
    * Returns true if the (x, z) point is on land — terrain height
    * at the point is at or above water level. Returns true when
@@ -207,6 +234,25 @@ export function useAgentPlacementDispatcher(): AgentPlacementDispatcher {
       placeDangerSource: (ds) =>
         actions.addDangerSource(
           snapToTerrain(worldAreaDangerSourceToPlaced(ds, offset)),
+        ),
+      placeWaterBody: (waterBody) =>
+        actions.addWaterBody(worldAreaWaterBodyToPlaced(waterBody, offset)),
+      placeMusicZone: (zone) =>
+        actions.addMusicZone(worldAreaMusicZoneToPlaced(zone, offset)),
+      placeAmbientZone: (zone) =>
+        actions.addAmbientZone(worldAreaAmbientZoneToPlaced(zone, offset)),
+      placeSfxTrigger: (trigger) =>
+        actions.addSFXTrigger(
+          // Snap point-source SFX to terrain so the trigger
+          // sphere doesn't sit underwater on a low-elevation
+          // patch when the agent emits y=0.
+          snapToTerrain(worldAreaSfxTriggerToPlaced(trigger, offset)),
+        ),
+      placeMine: (mine) =>
+        actions.addMine(snapToTerrain(worldAreaMineToPlaced(mine, offset))),
+      placeWildernessBoundary: (boundary) =>
+        actions.setWildernessBoundary(
+          worldAreaWildernessBoundaryToPlaced(boundary, offset),
         ),
       isOnLand,
       worldCenterOffset: offset,

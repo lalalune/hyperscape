@@ -64,6 +64,12 @@ import type {
   WorldAreaRoad,
   WorldAreaStation,
   WorldAreaTeleportNode,
+  WorldAreaWaterBody,
+  WorldAreaMusicZone,
+  WorldAreaAmbientZone,
+  WorldAreaSFXTrigger,
+  WorldAreaMine,
+  WorldAreaWildernessBoundary,
 } from "@hyperforge/manifest-schema";
 import {
   kickoffAssetGeneration,
@@ -377,6 +383,43 @@ function CompanionInner({ projectId }: { projectId: string }) {
         ) {
           placementDispatcher.placeDangerSource(
             data.dangerSource as WorldAreaDangerSource,
+          );
+        } else if (
+          call.name === "PROPOSE_WATER_BODY" &&
+          data.waterBody !== undefined
+        ) {
+          placementDispatcher.placeWaterBody(
+            data.waterBody as WorldAreaWaterBody,
+          );
+        } else if (
+          call.name === "PROPOSE_MUSIC_ZONE" &&
+          data.musicZone !== undefined
+        ) {
+          placementDispatcher.placeMusicZone(
+            data.musicZone as WorldAreaMusicZone,
+          );
+        } else if (
+          call.name === "PROPOSE_AMBIENT_ZONE" &&
+          data.ambientZone !== undefined
+        ) {
+          placementDispatcher.placeAmbientZone(
+            data.ambientZone as WorldAreaAmbientZone,
+          );
+        } else if (
+          call.name === "PROPOSE_SFX_TRIGGER" &&
+          data.sfxTrigger !== undefined
+        ) {
+          placementDispatcher.placeSfxTrigger(
+            data.sfxTrigger as WorldAreaSFXTrigger,
+          );
+        } else if (call.name === "PROPOSE_MINE" && data.mine !== undefined) {
+          placementDispatcher.placeMine(data.mine as WorldAreaMine);
+        } else if (
+          call.name === "PROPOSE_WILDERNESS_BOUNDARY" &&
+          data.wildernessBoundary !== undefined
+        ) {
+          placementDispatcher.placeWildernessBoundary(
+            data.wildernessBoundary as WorldAreaWildernessBoundary,
           );
         } else if (
           call.name === "REMOVE_FROM_PROJECT" &&

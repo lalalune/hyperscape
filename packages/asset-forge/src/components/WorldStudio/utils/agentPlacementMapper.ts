@@ -63,6 +63,12 @@ import type {
   WorldAreaRoad,
   WorldAreaPOI,
   WorldAreaDangerSource,
+  WorldAreaWaterBody,
+  WorldAreaMusicZone,
+  WorldAreaAmbientZone,
+  WorldAreaSFXTrigger,
+  WorldAreaMine,
+  WorldAreaWildernessBoundary,
 } from "@hyperforge/manifest-schema";
 
 import type {
@@ -72,6 +78,12 @@ import type {
   PlacedResource,
   PlacedStation,
   PlacedTeleport,
+  PlacedWaterBody,
+  MusicZone,
+  AmbientZone,
+  SFXTrigger,
+  PlacedMine,
+  WildernessBoundary,
 } from "../types";
 import type { PlacedNPC, CustomRoad } from "../../WorldBuilder/types";
 
@@ -547,5 +559,130 @@ export function placedDangerSourceToWorldArea(
     intensity: placed.intensity,
     falloffCurve: placed.falloffCurve,
     description: placed.description,
+  };
+}
+
+// ───────────────── Water body / audio / mine / wilderness ─────────────────
+//
+// R4.P8 — agent-side mappers for the polygonal/polyline /
+// singleton entity types whose schemas use (x, z) coordinates
+// in game-space. We translate (x, z) by the world-center offset
+// for scene-space rendering, mirroring the (x, y, z) handling
+// for points.
+
+function gameToScene2D(
+  p: { x: number; z: number },
+  worldCenterOffset: number,
+): { x: number; z: number } {
+  return { x: p.x + worldCenterOffset, z: p.z + worldCenterOffset };
+}
+
+export function worldAreaWaterBodyToPlaced(
+  wb: WorldAreaWaterBody,
+  worldCenterOffset: number,
+): PlacedWaterBody {
+  return {
+    id: wb.id,
+    name: wb.name,
+    bodyType: wb.bodyType,
+    waypoints: wb.waypoints
+      ? wb.waypoints.map((w) => ({
+          x: w.x + worldCenterOffset,
+          z: w.z + worldCenterOffset,
+          halfWidth: w.halfWidth,
+          depth: w.depth,
+          surfaceY: w.surfaceY,
+        }))
+      : undefined,
+    polygon: wb.polygon
+      ? wb.polygon.map((p) => gameToScene2D(p, worldCenterOffset))
+      : undefined,
+    surfaceY: wb.surfaceY,
+    bermWidth: wb.bermWidth,
+    valleyMultiplier: wb.valleyMultiplier,
+    properties: { ...(wb.properties ?? {}) },
+  };
+}
+
+export function worldAreaMusicZoneToPlaced(
+  z: WorldAreaMusicZone,
+  worldCenterOffset: number,
+): MusicZone {
+  return {
+    id: z.id,
+    name: z.name,
+    trackId: z.trackId,
+    combatTrackId: z.combatTrackId,
+    polygon: z.polygon.map((p) => gameToScene2D(p, worldCenterOffset)),
+    priority: z.priority,
+    blendDistance: z.blendDistance,
+  };
+}
+
+export function worldAreaAmbientZoneToPlaced(
+  z: WorldAreaAmbientZone,
+  worldCenterOffset: number,
+): AmbientZone {
+  return {
+    id: z.id,
+    name: z.name,
+    ambientType: z.ambientType,
+    tracks: [...z.tracks],
+    polygon: z.polygon.map((p) => gameToScene2D(p, worldCenterOffset)),
+    volume: z.volume,
+    falloffDistance: z.falloffDistance,
+  };
+}
+
+export function worldAreaSfxTriggerToPlaced(
+  t: WorldAreaSFXTrigger,
+  worldCenterOffset: number,
+): SFXTrigger {
+  return {
+    id: t.id,
+    name: t.name,
+    soundPath: t.soundPath,
+    position: gameToScene(t.position, worldCenterOffset),
+    radius: t.radius,
+    volume: t.volume,
+    looping: t.looping,
+    description: t.description,
+  };
+}
+
+export function worldAreaMineToPlaced(
+  m: WorldAreaMine,
+  worldCenterOffset: number,
+): PlacedMine {
+  return {
+    id: m.id,
+    name: m.name,
+    position: gameToScene(m.position, worldCenterOffset),
+    radius: m.radius,
+    radialOffsets: m.radialOffsets ??
+      // 8 control points at 1.0 = perfectly circular (procgen
+      // default when the agent omits the array).
+      [1, 1, 1, 1, 1, 1, 1, 1],
+    entryAngle: m.entryAngle,
+    biome: m.biome,
+    tierIndex: m.tierIndex,
+    oreRocks: m.oreRocks.map((r) => ({ ...r })),
+    source:
+      (m as { source?: "agent" | "designer" | "procgen" | "hand-placed" })
+        .source ?? "agent",
+    properties: {
+      ...((m as { properties?: Record<string, unknown> }).properties ?? {}),
+    },
+  };
+}
+
+export function worldAreaWildernessBoundaryToPlaced(
+  b: WorldAreaWildernessBoundary,
+  worldCenterOffset: number,
+): WildernessBoundary {
+  return {
+    points: b.points.map((p) => gameToScene2D(p, worldCenterOffset)),
+    levelScale: b.levelScale,
+    maxLevel: b.maxLevel,
   };
 }
