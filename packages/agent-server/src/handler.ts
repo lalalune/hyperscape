@@ -34,6 +34,9 @@ import {
   proposeTeleportAction,
   proposeTerrainConfigAction,
   proposeWaterBodyAction,
+  proposeMusicZoneAction,
+  proposeAmbientZoneAction,
+  proposeSfxTriggerAction,
   proposeUIPackAction,
   proposeZoneAction,
   removeFromProjectAction,
@@ -386,6 +389,12 @@ export interface OnboardingPlan {
   /** Every water body (river / lake / pond) the agent placed
    * across the run (R4.P8). */
   readonly waterBodies: ReadonlyArray<unknown>;
+  /** Music zones the agent painted across the run (R4.P8). */
+  readonly musicZones: ReadonlyArray<unknown>;
+  /** Ambient zones the agent painted across the run (R4.P8). */
+  readonly ambientZones: ReadonlyArray<unknown>;
+  /** Point-source SFX triggers the agent placed across the run (R4.P8). */
+  readonly sfxTriggers: ReadonlyArray<unknown>;
   /** Asset pack manifest ids the agent proposed installing across the run (deduped). */
   readonly assetPackIds: ReadonlyArray<string>;
   /** Last validated UI pack (B1.0). */
@@ -508,6 +517,9 @@ const ONBOARDING_ACTIONS = [
   proposePOIAction,
   proposeDangerSourceAction,
   proposeWaterBodyAction,
+  proposeMusicZoneAction,
+  proposeAmbientZoneAction,
+  proposeSfxTriggerAction,
   removeFromProjectAction,
   offerChoicesAction,
 ];
@@ -747,6 +759,9 @@ function applyRemovalToAggregate(
     pois: unknown[];
     dangerSources: unknown[];
     waterBodies: unknown[];
+    musicZones: unknown[];
+    ambientZones: unknown[];
+    sfxTriggers: unknown[];
   },
 ): void {
   if (!rawRemoval || typeof rawRemoval !== "object") return;
@@ -814,6 +829,15 @@ function applyRemovalToAggregate(
     case "waterBody":
       filterById(buffers.waterBodies, r.id);
       break;
+    case "musicZone":
+      filterById(buffers.musicZones, r.id);
+      break;
+    case "ambientZone":
+      filterById(buffers.ambientZones, r.id);
+      break;
+    case "sfxTrigger":
+      filterById(buffers.sfxTriggers, r.id);
+      break;
     default:
       break;
   }
@@ -865,6 +889,9 @@ function aggregatePlanFromTurns(
   const pois: unknown[] = [];
   const dangerSources: unknown[] = [];
   const waterBodies: unknown[] = [];
+  const musicZones: unknown[] = [];
+  const ambientZones: unknown[] = [];
+  const sfxTriggers: unknown[] = [];
   const assetPackIdSet = new Set<string>();
   let uiPack: unknown | null = null;
 
@@ -921,6 +948,16 @@ function aggregatePlanFromTurns(
         case "PROPOSE_WATER_BODY":
           if (data.waterBody !== undefined) waterBodies.push(data.waterBody);
           break;
+        case "PROPOSE_MUSIC_ZONE":
+          if (data.musicZone !== undefined) musicZones.push(data.musicZone);
+          break;
+        case "PROPOSE_AMBIENT_ZONE":
+          if (data.ambientZone !== undefined)
+            ambientZones.push(data.ambientZone);
+          break;
+        case "PROPOSE_SFX_TRIGGER":
+          if (data.sfxTrigger !== undefined) sfxTriggers.push(data.sfxTrigger);
+          break;
         case "PROPOSE_ASSET_PACK_INSTALL":
           if (Array.isArray(data.assetPackIds)) {
             for (const id of data.assetPackIds as unknown[]) {
@@ -949,6 +986,9 @@ function aggregatePlanFromTurns(
             pois,
             dangerSources,
             waterBodies,
+            musicZones,
+            ambientZones,
+            sfxTriggers,
           });
           break;
         default:
@@ -973,6 +1013,9 @@ function aggregatePlanFromTurns(
     pois,
     dangerSources,
     waterBodies,
+    musicZones,
+    ambientZones,
+    sfxTriggers,
     assetPackIds: Array.from(assetPackIdSet),
     uiPack,
   };

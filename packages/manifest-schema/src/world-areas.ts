@@ -397,6 +397,96 @@ export const WorldAreaWaterBodySchema = z
   );
 export type WorldAreaWaterBody = z.infer<typeof WorldAreaWaterBodySchema>;
 
+/**
+ * R4.P8 — agent-placeable audio surfaces. Studio's audioLayers
+ * (musicZones / ambientZones / sfxTriggers) supports these
+ * already; the schemas let the agent's PROPOSE_MUSIC_ZONE /
+ * PROPOSE_AMBIENT_ZONE / PROPOSE_SFX_TRIGGER actions validate
+ * input.
+ *
+ * MusicZone — polygonal area, plays a music track (with
+ * optional combat-override) while the player is inside.
+ * Higher `priority` wins on zone overlap; `blendDistance`
+ * cross-fades at edges.
+ */
+export const WorldAreaMusicZoneSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    /** Track id from the active music manifest. */
+    trackId: z.string().min(1),
+    /** Optional override that plays while the player is in
+     * combat inside this zone. */
+    combatTrackId: z.string().min(1).optional(),
+    /** Closed polygon in world (x, z) coords. */
+    polygon: z.array(WaterPolygonPointSchema).min(3),
+    /** Higher = wins zone-overlap resolution. */
+    priority: z.number().int().nonnegative().default(0),
+    /** Cross-fade distance at zone edges in meters. */
+    blendDistance: z.number().nonnegative().default(8),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough();
+export type WorldAreaMusicZone = z.infer<typeof WorldAreaMusicZoneSchema>;
+
+/**
+ * AmbientZone — polygonal area that layers an environmental
+ * loop (wind, surf, cave drips, marketplace bustle). One or
+ * more `tracks` play simultaneously; `volume` + `falloffDistance`
+ * shape the spatial mix.
+ */
+export const WorldAreaAmbientZoneSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    /** Themed bucket — used for stacking + UI categorization. */
+    ambientType: z.enum([
+      "forest",
+      "cave",
+      "ocean",
+      "town",
+      "desert",
+      "mountain",
+      "swamp",
+      "custom",
+    ]),
+    /** Sound asset paths to layer (typically 1-3). */
+    tracks: z.array(z.string().min(1)).min(1),
+    /** Closed polygon in world (x, z) coords. */
+    polygon: z.array(WaterPolygonPointSchema).min(3),
+    /** Mix gain (0..1). */
+    volume: z.number().min(0).max(1).default(0.5),
+    /** Edge falloff in meters. */
+    falloffDistance: z.number().nonnegative().default(8),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough();
+export type WorldAreaAmbientZone = z.infer<typeof WorldAreaAmbientZoneSchema>;
+
+/**
+ * SFXTrigger — point-source ambient sound (creaking sign, dripping
+ * fountain, distant thunder). Plays while the player is within
+ * `radius` meters of `position`.
+ */
+export const WorldAreaSFXTriggerSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    soundPath: z.string().min(1),
+    position: Vec3Schema,
+    /** Audible radius in meters. */
+    radius: z.number().positive(),
+    /** Playback volume (0..1). */
+    volume: z.number().min(0).max(1).default(0.7),
+    /** Whether the sound loops while the player is in range. */
+    looping: z.boolean().default(true),
+    /** Optional human-readable description (used by AI auto-pick). */
+    description: z.string().optional(),
+  })
+  .merge(PlacementCommonSchema)
+  .passthrough();
+export type WorldAreaSFXTrigger = z.infer<typeof WorldAreaSFXTriggerSchema>;
+
 export const WorldAreaTeleportNodeSchema = z
   .object({
     id: z.string().min(1),

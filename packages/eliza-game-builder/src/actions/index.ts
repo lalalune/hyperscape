@@ -34,4 +34,7 @@ export { proposeRoadAction } from "./proposeRoad.js";
 export { proposePOIAction } from "./proposePOI.js";
 export { proposeDangerSourceAction } from "./proposeDangerSource.js";
 export { proposeWaterBodyAction } from "./proposeWaterBody.js";
+export { proposeMusicZoneAction } from "./proposeMusicZone.js";
+export { proposeAmbientZoneAction } from "./proposeAmbientZone.js";
+export { proposeSfxTriggerAction } from "./proposeSfxTrigger.js";
 export { offerChoicesAction, type OfferedChoice } from "./offerChoices.js";
