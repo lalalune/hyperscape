@@ -1,7 +1,27 @@
 # Pack Types — orthogonal track architecture
 
-**Status:** 2026-05-02 · design + first cut shipped
+**Status:** 2026-05-02 · **SUPERSEDED by [PLAN_AAA_CONTENT_SYSTEM.md](./PLAN_AAA_CONTENT_SYSTEM.md)**
 **Branch:** `feat/world-studio`
+
+> ## ⚠️ This plan is superseded
+>
+> After comparing against UE5 + Unity, we converged on a single
+> `ContentPack` delivery unit (one schema, one DB table, one
+> registry) instead of 5 atomic pack types. Section schemas
+> shipped in Phase 1 (`BiomeContribution`, `TerrainShaderRecipe`,
+> `VegetationSpecies`, etc.) are kept — they become typed
+> sections inside `ContentPackManifestSchema`. The 5 outer
+> wrapper schemas + 4 new DB tables + 4 new project columns
+> from Phases 1-3 will be collapsed into one shape.
+>
+> See [`PLAN_AAA_CONTENT_SYSTEM.md`](./PLAN_AAA_CONTENT_SYSTEM.md)
+> for the active plan and migration steps. The Phase 1-3 commits
+> shipped under this plan are preserved as substrate; the unwind
+> + collapse happens in Phase A of the new plan.
+
+---
+
+The original (superseded) plan follows for archival reference:
 
 ## Why
 
