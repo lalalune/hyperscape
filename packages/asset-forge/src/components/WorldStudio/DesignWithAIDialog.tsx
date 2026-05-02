@@ -118,6 +118,18 @@ interface OnboardingPlan {
   pois: unknown[];
   /** Danger sources / hazards the agent placed across the run. */
   dangerSources: unknown[];
+  /** R4.P8 — water bodies (rivers / lakes / ponds). */
+  waterBodies: unknown[];
+  /** R4.P8 — polygonal music zones. */
+  musicZones: unknown[];
+  /** R4.P8 — polygonal ambient sound zones. */
+  ambientZones: unknown[];
+  /** R4.P8 — point-source SFX triggers. */
+  sfxTriggers: unknown[];
+  /** R4.P8 — mining areas with clustered ore rocks. */
+  mines: unknown[];
+  /** R4.P8 — singleton PvP wilderness boundary; null when unset. */
+  wildernessBoundary: unknown | null;
   uiPack: unknown | null;
 }
 
@@ -598,6 +610,12 @@ function buildDebugPlan(): OnboardingPlan {
     roads: [],
     pois: [],
     dangerSources: [],
+    waterBodies: [],
+    musicZones: [],
+    ambientZones: [],
+    sfxTriggers: [],
+    mines: [],
+    wildernessBoundary: null,
     uiPack: null,
   };
 }
@@ -742,6 +760,55 @@ function applyStreamingTurn(
           setPlan((p) => ({
             ...p,
             dangerSources: [...p.dangerSources, data.dangerSource],
+          }));
+        }
+        break;
+      case "PROPOSE_WATER_BODY":
+        if (data.waterBody !== undefined) {
+          setPlan((p) => ({
+            ...p,
+            waterBodies: [...p.waterBodies, data.waterBody],
+          }));
+        }
+        break;
+      case "PROPOSE_MUSIC_ZONE":
+        if (data.musicZone !== undefined) {
+          setPlan((p) => ({
+            ...p,
+            musicZones: [...p.musicZones, data.musicZone],
+          }));
+        }
+        break;
+      case "PROPOSE_AMBIENT_ZONE":
+        if (data.ambientZone !== undefined) {
+          setPlan((p) => ({
+            ...p,
+            ambientZones: [...p.ambientZones, data.ambientZone],
+          }));
+        }
+        break;
+      case "PROPOSE_SFX_TRIGGER":
+        if (data.sfxTrigger !== undefined) {
+          setPlan((p) => ({
+            ...p,
+            sfxTriggers: [...p.sfxTriggers, data.sfxTrigger],
+          }));
+        }
+        break;
+      case "PROPOSE_MINE":
+        if (data.mine !== undefined) {
+          setPlan((p) => ({
+            ...p,
+            mines: [...p.mines, data.mine],
+          }));
+        }
+        break;
+      case "PROPOSE_WILDERNESS_BOUNDARY":
+        // Singleton — last emission wins.
+        if (data.wildernessBoundary !== undefined) {
+          setPlan((p) => ({
+            ...p,
+            wildernessBoundary: data.wildernessBoundary,
           }));
         }
         break;
@@ -1188,6 +1255,22 @@ export function DesignWithAIDialog({
           dangerSources: Array.isArray(restored.plan.dangerSources)
             ? [...restored.plan.dangerSources]
             : [],
+          waterBodies: Array.isArray(restored.plan.waterBodies)
+            ? [...restored.plan.waterBodies]
+            : [],
+          musicZones: Array.isArray(restored.plan.musicZones)
+            ? [...restored.plan.musicZones]
+            : [],
+          ambientZones: Array.isArray(restored.plan.ambientZones)
+            ? [...restored.plan.ambientZones]
+            : [],
+          sfxTriggers: Array.isArray(restored.plan.sfxTriggers)
+            ? [...restored.plan.sfxTriggers]
+            : [],
+          mines: Array.isArray(restored.plan.mines)
+            ? [...restored.plan.mines]
+            : [],
+          wildernessBoundary: restored.plan.wildernessBoundary ?? null,
           uiPack: restored.plan.uiPack ?? null,
         }
       : {
@@ -1205,6 +1288,12 @@ export function DesignWithAIDialog({
           roads: [],
           pois: [],
           dangerSources: [],
+          waterBodies: [],
+          musicZones: [],
+          ambientZones: [],
+          sfxTriggers: [],
+          mines: [],
+          wildernessBoundary: null,
           uiPack: null,
         },
   );
@@ -1410,6 +1499,11 @@ export function DesignWithAIDialog({
       const priorRoads = effectivePlan.roads;
       const priorPois = effectivePlan.pois;
       const priorDangerSources = effectivePlan.dangerSources;
+      const priorWaterBodies = effectivePlan.waterBodies;
+      const priorMusicZones = effectivePlan.musicZones;
+      const priorAmbientZones = effectivePlan.ambientZones;
+      const priorSfxTriggers = effectivePlan.sfxTriggers;
+      const priorMines = effectivePlan.mines;
       const priorAssetPackIds = effectivePlan.assetPackIds;
       let finalResponse: DesignResponse | null = null;
       let streamErrored: { message: string } | null = null;
@@ -1533,6 +1627,18 @@ export function DesignWithAIDialog({
           const finalDangerSources = (
             finalPlan as { dangerSources?: unknown[] }
           ).dangerSources;
+          const finalWaterBodies = (finalPlan as { waterBodies?: unknown[] })
+            .waterBodies;
+          const finalMusicZones = (finalPlan as { musicZones?: unknown[] })
+            .musicZones;
+          const finalAmbientZones = (finalPlan as { ambientZones?: unknown[] })
+            .ambientZones;
+          const finalSfxTriggers = (finalPlan as { sfxTriggers?: unknown[] })
+            .sfxTriggers;
+          const finalMines = (finalPlan as { mines?: unknown[] }).mines;
+          const finalWildernessBoundary = (
+            finalPlan as { wildernessBoundary?: unknown }
+          ).wildernessBoundary;
           const finalAssetPackIds = (
             finalPlan as { assetPackIds?: string[] | null }
           ).assetPackIds;
@@ -1598,6 +1704,31 @@ export function DesignWithAIDialog({
               Array.isArray(finalDangerSources) && finalDangerSources.length > 0
                 ? [...priorDangerSources, ...finalDangerSources]
                 : prev.dangerSources,
+            waterBodies:
+              Array.isArray(finalWaterBodies) && finalWaterBodies.length > 0
+                ? [...priorWaterBodies, ...finalWaterBodies]
+                : prev.waterBodies,
+            musicZones:
+              Array.isArray(finalMusicZones) && finalMusicZones.length > 0
+                ? [...priorMusicZones, ...finalMusicZones]
+                : prev.musicZones,
+            ambientZones:
+              Array.isArray(finalAmbientZones) && finalAmbientZones.length > 0
+                ? [...priorAmbientZones, ...finalAmbientZones]
+                : prev.ambientZones,
+            sfxTriggers:
+              Array.isArray(finalSfxTriggers) && finalSfxTriggers.length > 0
+                ? [...priorSfxTriggers, ...finalSfxTriggers]
+                : prev.sfxTriggers,
+            mines:
+              Array.isArray(finalMines) && finalMines.length > 0
+                ? [...priorMines, ...finalMines]
+                : prev.mines,
+            wildernessBoundary:
+              finalWildernessBoundary !== undefined &&
+              finalWildernessBoundary !== null
+                ? finalWildernessBoundary
+                : prev.wildernessBoundary,
             uiPack: finalPlan.uiPack !== null ? finalPlan.uiPack : prev.uiPack,
           }));
         }
@@ -1663,6 +1794,12 @@ export function DesignWithAIDialog({
       roads: [],
       pois: [],
       dangerSources: [],
+      waterBodies: [],
+      musicZones: [],
+      ambientZones: [],
+      sfxTriggers: [],
+      mines: [],
+      wildernessBoundary: null,
       uiPack: null,
     });
     setInput("");
@@ -1837,6 +1974,24 @@ export function DesignWithAIDialog({
       if (effectivePlan.dangerSources.length > 0) {
         patch.dangerSources = effectivePlan.dangerSources;
       }
+      if (effectivePlan.waterBodies.length > 0) {
+        patch.waterBodies = effectivePlan.waterBodies;
+      }
+      if (effectivePlan.musicZones.length > 0) {
+        patch.musicZones = effectivePlan.musicZones;
+      }
+      if (effectivePlan.ambientZones.length > 0) {
+        patch.ambientZones = effectivePlan.ambientZones;
+      }
+      if (effectivePlan.sfxTriggers.length > 0) {
+        patch.sfxTriggers = effectivePlan.sfxTriggers;
+      }
+      if (effectivePlan.mines.length > 0) {
+        patch.mines = effectivePlan.mines;
+      }
+      if (effectivePlan.wildernessBoundary !== null) {
+        patch.wildernessBoundary = effectivePlan.wildernessBoundary;
+      }
       if (effectivePlan.uiPack) {
         patch.uiPack = effectivePlan.uiPack;
       }
@@ -1875,6 +2030,8 @@ export function DesignWithAIDialog({
       collectRefs(effectivePlan.teleports);
       collectRefs(effectivePlan.pois);
       collectRefs(effectivePlan.dangerSources);
+      collectRefs(effectivePlan.waterBodies);
+      collectRefs(effectivePlan.mines);
       const allPackIds = Array.from(refPackIds);
       if (allPackIds.length > 0) {
         try {
@@ -3341,6 +3498,12 @@ function hasAnyPlanContent(plan: OnboardingPlan): boolean {
     plan.roads.length > 0 ||
     plan.pois.length > 0 ||
     plan.dangerSources.length > 0 ||
+    plan.waterBodies.length > 0 ||
+    plan.musicZones.length > 0 ||
+    plan.ambientZones.length > 0 ||
+    plan.sfxTriggers.length > 0 ||
+    plan.mines.length > 0 ||
+    plan.wildernessBoundary !== null ||
     plan.uiPack !== null
   );
 }
@@ -3388,6 +3551,20 @@ function planSummaryText(plan: OnboardingPlan): string {
   if (plan.dangerSources.length > 0) {
     parts.push(`${plan.dangerSources.length} danger source(s)`);
   }
+  if (plan.waterBodies.length > 0) {
+    parts.push(`${plan.waterBodies.length} water body(s)`);
+  }
+  if (plan.musicZones.length > 0) {
+    parts.push(`${plan.musicZones.length} music zone(s)`);
+  }
+  if (plan.ambientZones.length > 0) {
+    parts.push(`${plan.ambientZones.length} ambient zone(s)`);
+  }
+  if (plan.sfxTriggers.length > 0) {
+    parts.push(`${plan.sfxTriggers.length} sfx trigger(s)`);
+  }
+  if (plan.mines.length > 0) parts.push(`${plan.mines.length} mine(s)`);
+  if (plan.wildernessBoundary !== null) parts.push("wilderness boundary");
   if (plan.zones.length > 0) parts.push(`${plan.zones.length} zone(s)`);
   if (plan.quests.length > 0) parts.push(`${plan.quests.length} quest(s)`);
   if (plan.uiPack) parts.push("HUD");
