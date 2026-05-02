@@ -1325,14 +1325,19 @@ export const DEFAULT_BIOME_CONFIG: BiomeConfig = {
 };
 
 /**
- * Default island configuration
+ * Default island configuration. Mirrors procgen's
+ * `DEFAULT_ISLAND_CONFIG`; values stay in sync between this
+ * studio-side default and `procgen/src/terrain/IslandMask.ts`.
+ *
+ * Edge noise tuned for visible per-seed coastline variation —
+ * see the comment on the procgen counterpart.
  */
 export const DEFAULT_ISLAND_CONFIG: IslandConfig = {
   enabled: true,
   maxWorldSizeTiles: 1000,
   falloffTiles: 4,
-  edgeNoiseScale: 0.0015,
-  edgeNoiseStrength: 0.03,
+  edgeNoiseScale: 0.005,
+  edgeNoiseStrength: 0.12,
 };
 
 /**

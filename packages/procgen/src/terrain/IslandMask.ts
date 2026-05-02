@@ -9,14 +9,24 @@ import { NoiseGenerator } from "./NoiseGenerator";
 import type { IslandConfig } from "./types";
 
 /**
- * Default island configuration
+ * Default island configuration.
+ *
+ * Edge noise tuned for visible per-seed coastline variation
+ * (the prior values — `edgeNoiseScale: 0.0015` /
+ * `edgeNoiseStrength: 0.03` — produced ~3% radius variance
+ * which read as "every island looks the same Hyperia shape"
+ * regardless of seed). Current values yield ~12% variance with
+ * higher-frequency detail so coastlines actually differ across
+ * seeds. The "archipelago" preset uses similar values; bringing
+ * the default in line with that preset's frequency makes
+ * single-island generation visibly seed-dependent.
  */
 export const DEFAULT_ISLAND_CONFIG: IslandConfig = {
   enabled: true,
   maxWorldSizeTiles: 100,
   falloffTiles: 4,
-  edgeNoiseScale: 0.0015,
-  edgeNoiseStrength: 0.03,
+  edgeNoiseScale: 0.005,
+  edgeNoiseStrength: 0.12,
 };
 
 /**

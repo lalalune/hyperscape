@@ -59,8 +59,12 @@ export const LARGE_ISLAND_PRESET: TerrainPreset = {
       enabled: true,
       maxWorldSizeTiles: 100,
       falloffTiles: 4,
-      edgeNoiseScale: 0.0015,
-      edgeNoiseStrength: 0.03,
+      // See DEFAULT_ISLAND_CONFIG comment in IslandMask.ts —
+      // increased edge noise so coastline visibly varies per
+      // seed instead of always producing the same Hyperia
+      // outline.
+      edgeNoiseScale: 0.005,
+      edgeNoiseStrength: 0.12,
     },
   },
 };
