@@ -78,6 +78,13 @@
       "when": 1813017600000,
       "tag": "0010_asset_pack_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1814313600000,
+      "tag": "0011_pack_types",
+      "breakpoints": true
     }
   ]
 }

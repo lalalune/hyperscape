@@ -74,6 +74,45 @@ export const worldProjects = pgTable(
       .array()
       .notNull()
       .default(sql`ARRAY[]::text[]`),
+    /**
+     * Biome pack ids this project has installed
+     * (`PLAN_PACK_TYPES.md` Phase 2). Each resolves to a
+     * `biome_packs.manifest_id`. Empty = no standalone biome
+     * packs installed; biomes can still come from gameplay
+     * plugin contributions (`pluginBiomeRegistry`).
+     */
+    biomePacks: text("biome_packs")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    /**
+     * Terrain pack ids — shader recipes + heightmap presets.
+     * Empty = engine-default terrain shader (current TSL
+     * 3-channel shader). The Phase 3 N-channel shader walks
+     * this array to compose the active recipe.
+     */
+    terrainPacks: text("terrain_packs")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    /**
+     * Water pack ids — water shader recipes + animation
+     * profiles. Empty = engine-default water shader.
+     */
+    waterPacks: text("water_packs")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    /**
+     * Vegetation pack ids — tree / plant species + density
+     * rules. Empty = engine-default species (legacy
+     * hardcoded presets). Phase 3 of `PLAN_PACK_TYPES.md`
+     * walks this array to populate the procgen scatterer.
+     */
+    vegetationPacks: text("vegetation_packs")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
     /** Authored content layered on top of plugin contributions. */
     worldContent: jsonb("world_content")
       .notNull()

@@ -17,6 +17,9 @@ export * from "./world-projects.schema";
 // World Studio — Asset Packs (AP1)
 export * from "./asset-packs.schema";
 
+// World Studio — Pack Types (PLAN_PACK_TYPES Phase 2: biome/terrain/water/vegetation)
+export * from "./pack-types.schema";
+
 // World Studio — Audit
 export * from "./audit-log.schema";
 
@@ -32,6 +35,7 @@ export * from "./ui-layouts.schema";
 // Re-export everything for drizzle
 import * as assetsSchema from "./assets.schema";
 import * as assetPacksSchema from "./asset-packs.schema";
+import * as packTypesSchema from "./pack-types.schema";
 import * as forgeUsersSchema from "./forge-users.schema";
 import * as teamsSchema from "./teams.schema";
 import * as teamMembersSchema from "./team-members.schema";
@@ -44,6 +48,7 @@ import * as uiLayoutsSchema from "./ui-layouts.schema";
 export const schema = {
   ...assetsSchema,
   ...assetPacksSchema,
+  ...packTypesSchema,
   ...forgeUsersSchema,
   ...teamsSchema,
   ...teamMembersSchema,
