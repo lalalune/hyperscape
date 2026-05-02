@@ -521,7 +521,11 @@ export function getGameWorldContext(
   if (existing) return existing;
 
   const noise = new NoiseGenerator(seed);
-  const biomeTypes = ["tundra", "forest", "canyon"];
+  // Biome type list — derived from `HYPERIA_LIVE_GAME_BIOMES`
+  // so the polygon center count tracks the Hyperia biome set
+  // (Phase D ships the data inside the Hyperscape content pack;
+  // until then it's the private constant above).
+  const biomeTypes = Object.keys(HYPERIA_LIVE_GAME_BIOMES);
   const explicitCenters = BiomeSystem.computePolygonCenters(
     biomeTypes,
     BIOME_CONFIG.placementRadius,

@@ -143,7 +143,11 @@ export function createGameTerrainQuerier(seed: number = GAME_SEED) {
     };
   }
 
-  const biomeTypes = ["tundra", "forest", "canyon"];
+  // Biome type list — derived from `HYPERIA_LIVE_GAME_BIOMES` so
+  // the polygon center count tracks the Hyperia biome set when
+  // it changes (e.g. Phase D ships the data inside the
+  // Hyperscape content pack and the count comes from the pack).
+  const biomeTypes = Object.keys(HYPERIA_LIVE_GAME_BIOMES);
   const explicitCenters = BiomeSystem.computePolygonCenters(
     biomeTypes,
     BIOME_CONFIG.placementRadius,
@@ -171,13 +175,12 @@ export function createGameTerrainQuerier(seed: number = GAME_SEED) {
 
   const biomeCenters = biomeSystem.getBiomeCenters();
 
-  // Pre-allocated biome weight pool — avoids per-vertex Record<string,number> allocation.
-  // Only 3 biome types exist (tundra, forest, canyon), so a fixed object is sufficient.
-  const _weightsPool: Record<string, number> = {
-    tundra: 0,
-    forest: 0,
-    canyon: 0,
-  };
+  // Pre-allocated biome weight pool — avoids per-vertex
+  // `Record<string,number>` allocation. Keys come from
+  // `HYPERIA_LIVE_GAME_BIOMES` so adding/removing a Hyperia
+  // biome flows through automatically.
+  const _weightsPool: Record<string, number> = {};
+  for (const id of biomeTypes) _weightsPool[id] = 0;
 
   function computeBiomeWeights(
     worldX: number,
