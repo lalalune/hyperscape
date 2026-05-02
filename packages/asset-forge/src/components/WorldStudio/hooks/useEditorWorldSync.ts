@@ -75,21 +75,43 @@ export function useEditorWorldSync({
 
   // Pre-load Hyperia's NPC / station / ore GLB models into the
   // shared cache so `tryLoadEntityModel` can resolve them at
-  // marker render time. Without this, blank-template projects
-  // (which is what the AI-built worlds use) never trigger
-  // `generateGameWorldEntities` (the manifest-driven path that
-  // normally calls initEntityModels), so agent-placed NPCs /
-  // mob spawns / stations / resources fall back to abstract
-  // colored markers — the user-reported "no real assets on the
-  // map" failure mode. Async, fire-and-forget; markers placed
-  // before init resolves stay placeholder until the next render
-  // pass after init lands.
+  // marker render time. R3.P4 of `PLAN_HYPERIA_DECOUPLING.md` —
+  // gated on `project.plugins` so blank / non-Hyperia projects
+  // don't get Hyperia GLBs pasted into their model cache. The
+  // 5e5aad816 fix made this run unconditionally to give blank-
+  // template AI worlds real assets at marker render time; that
+  // shipped Hyperia models everywhere as the universal fallback.
+  // R0.QW2 (assetRefResolver wiring) gives a cleaner path: when
+  // an entity carries `assetRef`, marker rendering resolves
+  // through the pack-aware path BEFORE this Hyperia cache. So
+  // non-Hyperia projects can still render real models per-pack
+  // without polluting the Hyperia caches.
+  //
+  // Async fire-and-forget; markers placed before init resolves
+  // stay placeholder until the next render pass after init lands.
+  // When the project's plugin set changes (rare; project-switch
+  // path), the effect re-runs and will load Hyperia models if
+  // the new project includes the Hyperscape plugin.
+  const projectPlugins = studioState.project.plugins;
+  const projectTargetsHyperia = projectPlugins.some(
+    (id) =>
+      id === "@hyperforge/hyperscape" || id === "com.hyperforge.hyperscape",
+  );
   useEffect(() => {
+    if (!projectTargetsHyperia) {
+      // Non-Hyperia project — leave the Hyperia caches empty.
+      // assetRef path (R0.QW2) handles renderable entities; the
+      // rest fall through to abstract colored markers. Future
+      // R3.P4 work loads packs declared by `project.assetPacks`
+      // through this same path once those packs ship preload
+      // manifests.
+      return;
+    }
     void initEntityModels().catch((err: unknown) => {
       // eslint-disable-next-line no-console
       console.warn("[useEditorWorldSync] initEntityModels failed:", err);
     });
-  }, []);
+  }, [projectTargetsHyperia]);
 
   // Sync extended layer entities
   const handleSyncLayers = useCallback(
