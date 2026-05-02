@@ -135,6 +135,38 @@
         "requiredFields": [],
         "acceptedAssetTypes": ["prop"]
       }
+    ],
+    "biomes": [
+      {
+        "id": "tundra",
+        "name": "Tundra",
+        "color": 15262944,
+        "terrainMultiplier": 1,
+        "difficultyLevel": 1,
+        "heightRange": [0.3, 0.8],
+        "maxSlope": 1.5,
+        "resourceDensity": 0.4
+      },
+      {
+        "id": "forest",
+        "name": "Forest",
+        "color": 3706428,
+        "terrainMultiplier": 1,
+        "difficultyLevel": 0,
+        "heightRange": [0, 0.5],
+        "maxSlope": 0.8,
+        "resourceDensity": 1
+      },
+      {
+        "id": "canyon",
+        "name": "Canyon",
+        "color": 9268835,
+        "terrainMultiplier": 1,
+        "difficultyLevel": 2,
+        "heightRange": [0.2, 1],
+        "maxSlope": 2,
+        "resourceDensity": 0.6
+      }
     ]
   },
   "tags": ["meta", "hyperia", "game"]
