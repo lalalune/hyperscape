@@ -133,20 +133,139 @@ export function _peekStubWorld(world: unknown): WorldStub | null {
 
 /**
  * Identifiers for the different game plugin sets the server knows
- * how to boot. Extend by adding a new case to
- * `getServerPluginModules()` and, if the new game has a typed
- * context (beyond the combat/skills/hyperscape cases already
- * handled), a new branch to `bootServerPlugins()`'s contextFactory.
+ * how to boot.
  *
- * Today's entries:
- *   - "hyperscape"   — production Hyperscape meta-plugin stack
- *                       (combat + skills + @hyperforge/hyperscape).
- *   - "shooter-demo" — acceptance-test alternate game stack
- *                       (combat + @hyperforge/plugin-shooter-demo).
- *                       Used to demonstrate master-plan criterion #4
- *                       at the server-boot level.
+ * @deprecated R3.P11 of `PLAN_HYPERIA_DECOUPLING.md` — replaced by
+ * `resolveServerPluginModules(pluginIds: ReadonlyArray<string>)`
+ * which keys on plugin manifest id (or npm name) directly. The
+ * 2-element enum stays as a transitional shim for callers that
+ * read `HYPERSCAPE_GAME_PLUGIN` env at boot.
  */
 export type GamePluginSetId = "hyperscape" | "shooter-demo";
+
+/**
+ * R3.P11 — server-side static plugin map keyed by manifest id.
+ * Mirrors `STATIC_PLUGIN_MAP` in `asset-forge/src/pie/pluginBoot.ts`
+ * (R2.P2). Adding a plugin = static-import its manifest+factory
+ * and add an entry here. Bundle-time constraint: in-binary plugins
+ * only — federation / dynamic imports are a separate phase.
+ */
+type LoadablePlugin = LoadedPluginModule<PluginContextBase>;
+
+const STATIC_PLUGIN_MAP: ReadonlyMap<string, () => LoadablePlugin> = new Map<
+  string,
+  () => LoadablePlugin
+>([
+  [
+    combatManifest.id,
+    () => ({
+      manifest: combatManifest,
+      factory: combatPluginFactory(DEFAULT_COMBAT_ABILITIES),
+    }),
+  ],
+  [
+    skillsManifest.id,
+    () => ({
+      manifest: skillsManifest,
+      factory: skillsPluginFactory(DEFAULT_SKILLS),
+    }),
+  ],
+  [
+    hyperscapeManifest.id,
+    () => ({ manifest: hyperscapeManifest, factory: hyperscapeFactory }),
+  ],
+  [
+    shooterDemoManifest.id,
+    () => ({
+      manifest: shooterDemoManifest,
+      factory: shooterDemoPluginFactory(),
+    }),
+  ],
+]);
+
+/**
+ * npm package name → manifest id alias. Projects declare plugins
+ * by either npm name (`@hyperforge/hyperscape`) or manifest id
+ * (`com.hyperforge.hyperscape`); this maps the former to the
+ * latter so the static map's lookup is uniform.
+ */
+const NPM_TO_MANIFEST_ID: ReadonlyMap<string, string> = new Map([
+  ["@hyperforge/combat", combatManifest.id],
+  ["@hyperforge/skills", skillsManifest.id],
+  ["@hyperforge/hyperscape", hyperscapeManifest.id],
+  ["@hyperforge/plugin-shooter-demo", shooterDemoManifest.id],
+]);
+
+/** Hyperscape pulls combat + skills + itself. */
+const HYPERSCAPE_TRANSITIVE_PLUGINS: ReadonlyArray<string> = [
+  combatManifest.id,
+  skillsManifest.id,
+  hyperscapeManifest.id,
+];
+
+/** Shooter-demo pulls combat + itself. Combat loads empty so the
+ * shooter contributes its own abilities. */
+const SHOOTER_TRANSITIVE_PLUGINS: ReadonlyArray<string> = [
+  combatManifest.id,
+  shooterDemoManifest.id,
+];
+
+function expandTransitivePlugins(ids: ReadonlyArray<string>): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (id: string) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    out.push(id);
+  };
+  for (const raw of ids) {
+    const manifestId = NPM_TO_MANIFEST_ID.get(raw) ?? raw;
+    if (manifestId === hyperscapeManifest.id) {
+      for (const dep of HYPERSCAPE_TRANSITIVE_PLUGINS) push(dep);
+    } else if (manifestId === shooterDemoManifest.id) {
+      for (const dep of SHOOTER_TRANSITIVE_PLUGINS) push(dep);
+    } else {
+      push(manifestId);
+    }
+  }
+  return out;
+}
+
+/**
+ * R3.P11 — resolve plugin modules from a list of plugin ids.
+ * Empty input → empty result. Unknown ids skip with a console.warn
+ * instead of forcing the project into a 3-element preset.
+ *
+ * Note: shooter-demo's "combat loads empty" semantic — when the
+ * input contains shooter-demo BUT NOT a combat-needs-default
+ * marker, combat is loaded via the static map's default factory
+ * (which uses DEFAULT_COMBAT_ABILITIES). For projects that want
+ * an empty combat starter pack alongside shooter-demo, the
+ * static factory would need a parametric form. Today's behavior
+ * matches the prior `getServerPluginModules("shooter-demo")`
+ * exactly: combat with empty abilities + shooter. Achieved by
+ * the shooter-demo branch in `getServerPluginModules`. Migration
+ * cleanup follow-up.
+ */
+export function resolveServerPluginModules(
+  pluginIds: ReadonlyArray<string>,
+): ReadonlyArray<LoadedPluginModule<PluginContextBase>> {
+  if (pluginIds.length === 0) return [];
+  const expanded = expandTransitivePlugins(pluginIds);
+  const out: LoadablePlugin[] = [];
+  for (const id of expanded) {
+    const factory = STATIC_PLUGIN_MAP.get(id);
+    if (!factory) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[plugin-boot] Plugin id "${id}" is not in the server's static map — skipping. Add it to STATIC_PLUGIN_MAP in plugins.ts (and NPM_TO_MANIFEST_ID if applicable) to make it bootable on the server.`,
+      );
+      continue;
+    }
+    out.push(factory());
+  }
+  return out;
+}
 
 /**
  * Resolve which game plugin set the server should boot from the
@@ -215,12 +334,23 @@ export function getServerPluginModules(
  */
 export async function bootServerPlugins(
   world?: World,
-  gameId: GamePluginSetId = resolveGamePluginSetIdFromEnv(),
+  gameIdOrPlugins:
+    | GamePluginSetId
+    | ReadonlyArray<string> = resolveGamePluginSetIdFromEnv(),
 ): Promise<PluginSession<PluginContextBase>> {
-  const modules = getServerPluginModules(gameId);
-  console.log(
-    `[plugin-boot] game=${gameId} — ${modules.length} plugin(s) in set`,
-  );
+  // R3.P11 — accept either the legacy gameId string OR a plugin
+  // id list (manifest id or npm name). The latter goes through
+  // resolveServerPluginModules which does the static-map lookup
+  // + transitive-dep expansion. The former preserves the legacy
+  // env / smoke-test boot path.
+  const isLegacyGameId = typeof gameIdOrPlugins === "string";
+  const modules = isLegacyGameId
+    ? getServerPluginModules(gameIdOrPlugins as GamePluginSetId)
+    : resolveServerPluginModules(gameIdOrPlugins);
+  const label = isLegacyGameId
+    ? `game=${gameIdOrPlugins}`
+    : `plugins=[${(gameIdOrPlugins as ReadonlyArray<string>).join(", ") || "<empty>"}]`;
+  console.log(`[plugin-boot] ${label} — ${modules.length} plugin(s) in set`);
   const session = await startPluginSessionFromModules(modules, {
     // Context factory dispatches by manifest id. Each plugin receives
     // its declared context shape (CombatContext / SkillsContext /
