@@ -165,56 +165,114 @@ export function validateAssetRef(
  * where the agent emits a quick "place a shopkeeper" without
  * fussing over which character model to use.
  */
-export function autoFillAssetRef(
+export interface AutoFillResult {
+  /** Resolved `<packId>/<entryId>` ref, or null when no match. */
+  readonly ref: string | null;
+  /** Why the auto-fill couldn't find a match; absent when ref is set. */
+  readonly missReason?:
+    | "no-context"
+    | "no-packs-installed"
+    | "no-matching-plugin-type"
+    | "no-accepted-asset-types"
+    | "no-matching-pack-asset";
+}
+
+/**
+ * Bug #1 fix — return a structured outcome instead of `string | null`.
+ * When the auto-fill couldn't pick a ref, the caller now knows WHY,
+ * which lets each propose-* action surface a clear hint to the
+ * agent ("install a pack with type X" / "use a different `type`
+ * value") instead of accepting the placement silently and
+ * rendering a placeholder.
+ *
+ * Old `autoFillAssetRef` returns `string | null` and is preserved
+ * as a thin wrapper for callers that don't yet consume the
+ * miss reason; new callers should use `autoFillAssetRefDetailed`.
+ */
+export function autoFillAssetRefDetailed(
   runtime: IAgentRuntime,
   kind: PlacementKind,
-  /**
-   * The placement's `type` field. For mob spawns (which don't have
-   * `type`), pass an empty string; mobId is the join key instead.
-   */
   type: string,
-  /**
-   * Optional id to prefer — when present, an exact-match entry id
-   * across installed packs takes priority over the type-based scan.
-   * Used by mob spawn auto-fill to pair `mobId="goblin"` with a
-   * pack entry whose id is `goblin`.
-   */
   preferredId?: string,
-): string | null {
+): AutoFillResult {
   const ctx = readProjectContext(runtime);
-  if (!ctx) return null;
+  if (!ctx) return { ref: null, missReason: "no-context" };
   const plugins = ctx.plugins ?? [];
   const packs = ctx.assetPacks ?? [];
-  if (packs.length === 0) return null;
+  if (packs.length === 0)
+    return { ref: null, missReason: "no-packs-installed" };
 
-  // 1. Exact-id pass — beats anything else when the agent's
-  // `mobId` / `resourceId` happens to match a pack entry id.
+  // 1. Exact-id pass.
   if (preferredId) {
     for (const pack of packs) {
       const hit = pack.assets.find((a) => a.id === preferredId);
-      if (hit) return `${pack.manifestId}/${hit.id}`;
+      if (hit) return { ref: `${pack.manifestId}/${hit.id}` };
     }
   }
 
-  // 2. Type-based pass — uses the entity-type contribution's
-  // `acceptedAssetTypes` to scope which pack entries are candidates.
-  if (plugins.length === 0 || !type) return null;
+  // 2. Type-based pass.
+  if (plugins.length === 0 || !type) {
+    return { ref: null, missReason: "no-matching-plugin-type" };
+  }
   const contributions = getEntityTypesForPlugins(plugins).filter(
     (e) => e.contribution.kind === kind && e.contribution.type === type,
   );
-  if (contributions.length === 0) return null;
+  if (contributions.length === 0) {
+    return { ref: null, missReason: "no-matching-plugin-type" };
+  }
   const accepted = new Set<string>();
   for (const c of contributions) {
     for (const t of c.contribution.acceptedAssetTypes) accepted.add(t);
   }
-  if (accepted.size === 0) return null;
+  if (accepted.size === 0) {
+    return { ref: null, missReason: "no-accepted-asset-types" };
+  }
 
   for (const pack of packs) {
     for (const asset of pack.assets) {
       if (accepted.has(asset.type)) {
-        return `${pack.manifestId}/${asset.id}`;
+        return { ref: `${pack.manifestId}/${asset.id}` };
       }
     }
   }
-  return null;
+  return { ref: null, missReason: "no-matching-pack-asset" };
+}
+
+/**
+ * Render an auto-fill miss as a one-line agent-facing hint
+ * pointing at the next concrete action the agent should take.
+ */
+export function describeAutoFillMiss(
+  result: AutoFillResult,
+  kind: PlacementKind,
+  type: string,
+): string | null {
+  if (result.ref) return null;
+  switch (result.missReason) {
+    case "no-context":
+    case "no-packs-installed":
+      return `No installed asset packs match a ${type} ${kind}. Call LIST_ASSET_PACKS, then PROPOSE_ASSET_PACK_INSTALL to add a pack with assets of an accepted type before placing more ${type}-typed entities.`;
+    case "no-matching-plugin-type":
+      return `Entity type "${type}" (${kind}) isn't contributed by any installed plugin. Call LIST_ENTITY_TYPES to see what types installed plugins handle, then either pick from that list or PROPOSE_PLUGIN_SET to install a plugin that contributes "${type}".`;
+    case "no-accepted-asset-types":
+      return `Entity type "${type}" (${kind}) declares no acceptedAssetTypes — no asset can be auto-picked. Set assetRef explicitly via GET_PROJECT_STATE select=availableAssets, or pick a different type.`;
+    case "no-matching-pack-asset":
+      return `No asset in installed packs has a type the "${type}" ${kind} accepts. Call PROPOSE_ASSET_PACK_INSTALL to add a pack with a matching asset type, or set assetRef explicitly.`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * @deprecated R-future — prefer `autoFillAssetRefDetailed`.
+ * This thin wrapper preserves the legacy `string | null` shape
+ * for callers that haven't migrated yet.
+ */
+export function autoFillAssetRef(
+  runtime: IAgentRuntime,
+  kind: PlacementKind,
+  type: string,
+  preferredId?: string,
+): string | null {
+  return autoFillAssetRefDetailed(runtime, kind, type, preferredId).ref;
 }

@@ -37,7 +37,8 @@ import type {
 import { WorldAreaNPCSchema } from "@hyperforge/manifest-schema";
 import { GameBuilderService } from "../services/GameBuilderService.js";
 import {
-  autoFillAssetRef,
+  autoFillAssetRefDetailed,
+  describeAutoFillMiss,
   validateAssetRef,
   validatePlacementType,
 } from "./placementValidators.js";
@@ -124,13 +125,20 @@ export const proposeNpcPlacementAction: Action = {
 
     // Auto-fill assetRef when omitted — pick the first matching
     // asset whose `type` is in the entity type's
-    // `acceptedAssetTypes`. Best-effort; null = render placeholder.
+    // `acceptedAssetTypes`. Best-effort; on miss, surface a
+    // structured hint so the agent knows the next concrete
+    // action (install pack / pick different type / set ref
+    // explicitly) instead of getting a silent placeholder.
     let autoFilledRef: string | null = null;
+    let autoFillMissHint: string | null = null;
     const providedRef = (entity as { assetRef?: string }).assetRef;
     if (!providedRef) {
-      autoFilledRef = autoFillAssetRef(runtime, "npc", entity.type);
+      const result = autoFillAssetRefDetailed(runtime, "npc", entity.type);
+      autoFilledRef = result.ref;
       if (autoFilledRef) {
         entity = { ...entity, assetRef: autoFilledRef };
+      } else {
+        autoFillMissHint = describeAutoFillMiss(result, "npc", entity.type);
       }
     }
 
@@ -159,6 +167,11 @@ export const proposeNpcPlacementAction: Action = {
       summary.push(
         `  assetRef: ${finalRef}${autoFilledRef ? " (auto-picked)" : ""}`,
       );
+    } else if (autoFillMissHint) {
+      // Bug #1 — surface auto-fill miss to the agent. The
+      // placement still goes through (rendered as a
+      // placeholder), but the agent now sees what to do next.
+      summary.push(`  warning:  ${autoFillMissHint}`);
     }
     const text = summary.join("\n");
 

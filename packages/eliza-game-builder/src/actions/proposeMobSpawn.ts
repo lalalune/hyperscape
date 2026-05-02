@@ -32,7 +32,11 @@ import type {
 } from "@elizaos/core";
 import { WorldAreaMobSpawnSchema } from "@hyperforge/manifest-schema";
 import { GameBuilderService } from "../services/GameBuilderService.js";
-import { autoFillAssetRef, validateAssetRef } from "./placementValidators.js";
+import {
+  autoFillAssetRefDetailed,
+  describeAutoFillMiss,
+  validateAssetRef,
+} from "./placementValidators.js";
 import { readObjectField } from "./shared.js";
 
 export const proposeMobSpawnAction: Action = {
@@ -107,11 +111,24 @@ export const proposeMobSpawnAction: Action = {
     // mobs pack). Falls back to any creature-type asset if no exact
     // match. Skipped when AI provided assetRef explicitly.
     let autoFilledRef: string | null = null;
+    let autoFillMissHint: string | null = null;
     const providedRef = (spawn as { assetRef?: string }).assetRef;
     if (!providedRef) {
-      autoFilledRef = autoFillAssetRef(runtime, "mobSpawn", "", spawn.mobId);
+      const result = autoFillAssetRefDetailed(
+        runtime,
+        "mobSpawn",
+        "",
+        spawn.mobId,
+      );
+      autoFilledRef = result.ref;
       if (autoFilledRef) {
         spawn = { ...spawn, assetRef: autoFilledRef };
+      } else {
+        autoFillMissHint = describeAutoFillMiss(
+          result,
+          "mobSpawn",
+          spawn.mobId,
+        );
       }
     }
 
@@ -141,6 +158,8 @@ export const proposeMobSpawnAction: Action = {
       summary.push(
         `  assetRef:     ${finalRef}${autoFilledRef ? " (auto-picked)" : ""}`,
       );
+    } else if (autoFillMissHint) {
+      summary.push(`  warning:      ${autoFillMissHint}`);
     }
     const text = summary.join("\n");
 
