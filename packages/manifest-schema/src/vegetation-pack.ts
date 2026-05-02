@@ -1,25 +1,24 @@
 /**
- * Vegetation Pack manifest schema.
+ * Vegetation section schemas — entries that show up in a
+ * `ContentPack`'s `vegetationSpecies[]` /
+ * `vegetationDensityRules[]` sections.
  *
- * Phase 1 of `PLAN_PACK_TYPES.md`. A vegetation pack ships
- * tree/plant species definitions plus density rules — the
- * data the procgen vegetation scatterer reads to decide
- * "where do trees go and what do they look like". Today the
- * 18 hardcoded species in `procgen/src/params/presets.ts` are
- * the only inventory available; Phase 3 walks installed
- * vegetation packs instead.
+ * Originally defined as the standalone `VegetationPack`
+ * schema (`PLAN_PACK_TYPES.md` Phase 1). Phase A of
+ * `PLAN_AAA_CONTENT_SYSTEM.md` collapsed every pack-type
+ * wrapper into one `ContentPackManifestSchema`; this file
+ * now hosts only the section-level schemas.
  *
- * Note: the existing `vegetation.ts` schema in this package
- * covers the *runtime asset catalog* the scatterer reads —
- * the GLB models, scale variation, slope tolerance, etc.
- * `VegetationPack` is the *author-facing bundle* that ships
- * those assets together with species data. Both surfaces will
- * coexist: a `VegetationPack` produces `VegetationManifest`
- * entries when it's resolved at runtime.
+ * Note: the existing `vegetation.ts` schema covers the
+ * *runtime asset catalog* the scatterer reads — the GLB
+ * models, scale variation, slope tolerance, etc. The
+ * sections here are the *author-facing* shape that ships
+ * inside a content pack. The runtime registry lowers a
+ * pack's `vegetationSpecies` into the same shape consumers
+ * already use.
  */
 
 import { z } from "zod";
-import { PackHeaderShape } from "./pack-header.js";
 
 /**
  * One plant/tree species. Combines visual data (model URL,
@@ -108,41 +107,3 @@ export const VegetationDensityRuleSchema = z.object({
   avoidSteepSlopes: z.boolean().default(true),
 });
 export type VegetationDensityRule = z.infer<typeof VegetationDensityRuleSchema>;
-
-export const VegetationPackManifestSchema = z.object({
-  ...PackHeaderShape,
-  /** Species this pack contributes. */
-  species: z.array(VegetationSpeciesSchema).min(1),
-  /** Density rules this pack contributes. */
-  densityRules: z.array(VegetationDensityRuleSchema).default([]),
-});
-export type VegetationPackManifest = z.infer<
-  typeof VegetationPackManifestSchema
->;
-
-export interface ValidateVegetationPackManifestResult {
-  ok: boolean;
-  manifest?: VegetationPackManifest;
-  issues?: ReadonlyArray<{
-    path: string;
-    message: string;
-    code: string;
-  }>;
-}
-
-export function validateVegetationPackManifest(
-  raw: unknown,
-): ValidateVegetationPackManifestResult {
-  const result = VegetationPackManifestSchema.safeParse(raw);
-  if (result.success) {
-    return { ok: true, manifest: result.data };
-  }
-  return {
-    ok: false,
-    issues: result.error.issues.map((i) => ({
-      path: i.path.join(".") || "(root)",
-      message: i.message,
-      code: i.code,
-    })),
-  };
-}

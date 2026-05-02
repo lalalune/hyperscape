@@ -1,29 +1,22 @@
 /**
- * Terrain Pack manifest schema.
+ * Terrain section schemas — entries that show up in a
+ * `ContentPack`'s `terrainShaders[]` /
+ * `terrainHeightmapPresets[]` / `terrainNoiseFunctions[]`
+ * sections.
  *
- * Phase 1 of `PLAN_PACK_TYPES.md`. A terrain pack ships a
- * shader recipe + heightmap presets + noise function variants
- * — everything that decides "what does the ground look like
- * and how is it shaped". Two projects with different
- * `TerrainPack`s installed look visibly different even when
- * they share the same biomes.
+ * Originally defined as the standalone `TerrainPack` schema
+ * (`PLAN_PACK_TYPES.md` Phase 1). Phase A of
+ * `PLAN_AAA_CONTENT_SYSTEM.md` collapsed every pack-type
+ * wrapper into one `ContentPackManifestSchema`; this file
+ * now hosts only the section-level schemas.
  *
- * Today the engine ships a single hardcoded TSL shader
- * (`packages/procgen/src/terrain/TerrainShaderTSL.ts`) plus a
- * single `IslandMask` preset. Phase 3 of `PLAN_PACK_TYPES.md`
- * replaces both with registry lookups keyed by the active
- * project's installed `TerrainPack`s.
- *
- * Phase 1 intentionally avoids defining a full shader DSL.
- * Each `recipe` carries a stable `recipeId` (the registry
- * resolves it at runtime) plus a free-form `params` record;
- * the catalog of valid recipe ids is contributed by whichever
- * package owns the renderer. This keeps the schema stable
- * while the renderer side iterates.
+ * Each `recipe` carries a stable `recipeId` that the runtime
+ * registry resolves to a concrete renderer factory plus a
+ * free-form `params` record. This keeps the schema stable
+ * while the renderer iterates on the recipe catalog.
  */
 
 import { z } from "zod";
-import { PackHeaderShape } from "./pack-header.js";
 
 /**
  * A terrain shader recipe. `recipeId` is the runtime key (e.g.
@@ -98,41 +91,3 @@ export const TerrainNoiseFunctionSchema = z.object({
   params: z.record(z.string(), z.unknown()).default({}),
 });
 export type TerrainNoiseFunction = z.infer<typeof TerrainNoiseFunctionSchema>;
-
-export const TerrainPackManifestSchema = z.object({
-  ...PackHeaderShape,
-  /** Shader recipes this pack contributes. */
-  shaders: z.array(TerrainShaderRecipeSchema).default([]),
-  /** Heightmap presets this pack contributes. */
-  heightmapPresets: z.array(TerrainHeightmapPresetSchema).default([]),
-  /** Noise function variants this pack contributes. */
-  noiseFunctions: z.array(TerrainNoiseFunctionSchema).default([]),
-});
-export type TerrainPackManifest = z.infer<typeof TerrainPackManifestSchema>;
-
-export interface ValidateTerrainPackManifestResult {
-  ok: boolean;
-  manifest?: TerrainPackManifest;
-  issues?: ReadonlyArray<{
-    path: string;
-    message: string;
-    code: string;
-  }>;
-}
-
-export function validateTerrainPackManifest(
-  raw: unknown,
-): ValidateTerrainPackManifestResult {
-  const result = TerrainPackManifestSchema.safeParse(raw);
-  if (result.success) {
-    return { ok: true, manifest: result.data };
-  }
-  return {
-    ok: false,
-    issues: result.error.issues.map((i) => ({
-      path: i.path.join(".") || "(root)",
-      message: i.message,
-      code: i.code,
-    })),
-  };
-}

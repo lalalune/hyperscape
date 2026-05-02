@@ -1,23 +1,17 @@
 /**
- * Water Pack manifest schema.
+ * Water section schemas — entries that show up in a
+ * `ContentPack`'s `waterShaders[]` / `waterAnimations[]`
+ * sections.
  *
- * Phase 1 of `PLAN_PACK_TYPES.md`. A water pack ships a water
- * shader recipe plus animation behavior — wave amplitude,
- * surface tint, foam settings, scroll speed. Lets a project
- * swap "deep blue realistic ocean" for "stylized turquoise
- * cartoon water" without touching the engine.
- *
- * Today the engine has a single hardcoded TSL water shader.
- * Phase 3 replaces it with a registry indexed by the active
- * project's installed `WaterPack`s.
- *
- * Same `recipeId` + `params` pattern as `TerrainPack`: the
- * schema stays loose, the runtime registry pins the concrete
- * shader factory.
+ * Originally defined as the standalone `WaterPack` schema
+ * (`PLAN_PACK_TYPES.md` Phase 1). Phase A of
+ * `PLAN_AAA_CONTENT_SYSTEM.md` collapsed every pack-type
+ * wrapper into one `ContentPackManifestSchema`; this file
+ * now hosts only the section-level schemas. Same
+ * `recipeId` + `params` shape as terrain.
  */
 
 import { z } from "zod";
-import { PackHeaderShape } from "./pack-header.js";
 
 export const WaterShaderRecipeSchema = z.object({
   /** Pack-scoped id (unique within the pack). */
@@ -57,39 +51,3 @@ export const WaterAnimationProfileSchema = z.object({
   params: z.record(z.string(), z.unknown()).default({}),
 });
 export type WaterAnimationProfile = z.infer<typeof WaterAnimationProfileSchema>;
-
-export const WaterPackManifestSchema = z.object({
-  ...PackHeaderShape,
-  /** Shader recipes this pack contributes. */
-  shaders: z.array(WaterShaderRecipeSchema).default([]),
-  /** Animation profiles this pack contributes. */
-  animations: z.array(WaterAnimationProfileSchema).default([]),
-});
-export type WaterPackManifest = z.infer<typeof WaterPackManifestSchema>;
-
-export interface ValidateWaterPackManifestResult {
-  ok: boolean;
-  manifest?: WaterPackManifest;
-  issues?: ReadonlyArray<{
-    path: string;
-    message: string;
-    code: string;
-  }>;
-}
-
-export function validateWaterPackManifest(
-  raw: unknown,
-): ValidateWaterPackManifestResult {
-  const result = WaterPackManifestSchema.safeParse(raw);
-  if (result.success) {
-    return { ok: true, manifest: result.data };
-  }
-  return {
-    ok: false,
-    issues: result.error.issues.map((i) => ({
-      path: i.path.join(".") || "(root)",
-      message: i.message,
-      code: i.code,
-    })),
-  };
-}

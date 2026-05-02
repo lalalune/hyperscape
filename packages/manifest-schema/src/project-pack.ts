@@ -1,26 +1,28 @@
 /**
  * Project Pack manifest schema.
  *
- * Phase 1 of `PLAN_PACK_TYPES.md`. A `ProjectPack` is the
- * "fork an entire game" surface: it bundles references to
- * gameplay plugins, asset packs, biome packs, terrain/water/
- * vegetation packs, plus optional snapshots of the project
- * config + authored world content.
+ * Phase A of `PLAN_AAA_CONTENT_SYSTEM.md`. A `ProjectPack` is
+ * the "fork an entire game" surface: it bundles references to
+ * gameplay plugins + content packs, plus optional snapshots
+ * of the project config + authored world content.
  *
  * Forking Hyperia = installing
  * `@hyperforge/project-pack-hyperia-v1`, whose manifest
- * transitively pulls in the Hyperscape plugin set, the
- * Hyperia asset packs, the Hyperia biome pack
- * (tundra/forest/canyon), the Hyperia terrain pack (the
- * current shader), and so on. Phase 5 of
- * `PLAN_PACK_TYPES.md` implements `ProjectPackService.fork`
- * which creates a new project, installs every referenced
- * pack, and applies the optional `initialConfig` +
+ * transitively pulls in the Hyperscape gameplay plugin and
+ * the Hyperia content pack (which itself carries biomes +
+ * terrain/water shader recipes + asset entries + procgen
+ * vegetation + density rules). Phase E of
+ * `PLAN_AAA_CONTENT_SYSTEM.md` implements
+ * `ProjectPackService.fork` which creates a new project,
+ * installs every referenced plugin + content pack, and
+ * applies the optional `initialConfig` +
  * `initialWorldContent` snapshots.
  *
- * The schema lands first (this phase) so tooling can validate
- * authored project packs and CLI scaffolding can exist before
- * the runtime fork plumbing is wired up.
+ * The earlier `PLAN_PACK_TYPES.md` cut split this into 5
+ * separate `*PackIds[]` arrays (asset/biome/terrain/water/
+ * vegetation). Phase A collapses them into a single
+ * `contentPackIds[]` ref array that points at unified
+ * `ContentPack`s carrying any combination of sections.
  */
 
 import { z } from "zod";
@@ -30,17 +32,6 @@ import {
   ProjectPluginIdSchema,
   ProjectWorldContentSchema,
 } from "./project.js";
-
-/**
- * Reference to a pack the project pack pulls in. The `id` is
- * a plain pack id today; a future supply-chain phase may add
- * `version` (semver-range) here without breaking existing
- * project packs.
- */
-const PackRefSchema = z.object({
-  id: PackIdSchema,
-});
-export type PackRef = z.infer<typeof PackRefSchema>;
 
 export const ProjectPackManifestSchema = z.object({
   ...PackHeaderShape,
@@ -52,25 +43,19 @@ export const ProjectPackManifestSchema = z.object({
    */
   pluginIds: z.array(ProjectPluginIdSchema).default([]),
 
-  /** Asset packs (3D models / audio / textures). */
-  assetPackIds: z.array(PackIdSchema).default([]),
-
-  /** Biome packs (id/name/color/zoning rules). */
-  biomePackIds: z.array(PackIdSchema).default([]),
-
-  /** Terrain packs (shader recipe + heightmap presets). */
-  terrainPackIds: z.array(PackIdSchema).default([]),
-
-  /** Water packs (water shader recipe + animation profile). */
-  waterPackIds: z.array(PackIdSchema).default([]),
-
-  /** Vegetation packs (species + density rules). */
-  vegetationPackIds: z.array(PackIdSchema).default([]),
+  /**
+   * Content pack ids this project pack installs. Each resolves
+   * to a `content_packs.manifest_id`. Content packs carry any
+   * combination of asset / biome / terrain shader / water shader
+   * / vegetation sections; the fork action installs them by
+   * setting the project's `contentPacks` column.
+   */
+  contentPackIds: z.array(PackIdSchema).default([]),
 
   /**
    * Optional procgen + project config snapshot applied to the
    * forked project. When absent, the fork uses the defaults
-   * from the installed plugin set.
+   * from the installed plugin / content pack set.
    */
   initialConfig: ProjectConfigSchema.optional(),
 
