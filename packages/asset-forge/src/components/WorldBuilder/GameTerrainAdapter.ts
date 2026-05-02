@@ -27,6 +27,7 @@ import {
 import { BiomeSystem } from "@hyperforge/procgen/terrain";
 import type { BiomeDefinition, BiomeConfig } from "@hyperforge/procgen/terrain";
 import { TERRAIN_CONSTANTS } from "@hyperforge/shared";
+import { getActiveBiomeDefinitions } from "../WorldStudio/utils/pluginBiomeRegistry";
 
 // ============== GAME CONSTANTS (re-exported for consumers) ==============
 
@@ -38,14 +39,27 @@ export const GAME_TILE_SIZE = 100;
 export const GAME_WORLD_SIZE = 100;
 export const GAME_TILE_RESOLUTION = 64;
 
-// Biome colors (from biomes.json)
-const GAME_BIOME_COLORS: Record<string, number> = {
-  tundra: 0xe8e4e0,
-  forest: 0x388e3c,
-  canyon: 0x8d6e63,
-};
-
-// Biome definitions for procgen BiomeSystem
+// Biome definitions for procgen BiomeSystem.
+//
+// Note: an earlier `GAME_BIOME_COLORS` const was removed —
+// `_biomeRGB` inside `createGameTerrainQuerier` now derives its
+// hex→RGB lookup from `GAME_BIOME_DEFINITIONS` (single source
+// of truth) and merges in plugin biome contributions via
+// `getActiveBiomeDefinitions`, so plugin-contributed biomes
+// (R3.P3 — see `pluginBiomeRegistry.ts`) get the same
+// color treatment as engine defaults.
+//
+// R3.P3 leak status: engine still defaults to Hyperia's three
+// biomes (tundra / forest / canyon). Hyperia's plugin.json now
+// contributes the same three (commit `63e8e2992`); shooter-demo
+// contributes arena / wasteland / fortifications (commit
+// `d29712023`). Plugin contributions WIN on id collision, so
+// Hyperia projects see no behavior change. Non-Hyperia projects
+// see plugin biomes layered on top of these defaults — the
+// leak narrows but isn't fully closed (that needs the
+// `biomeForestWeight`/`biomeCanyonWeight` named-field refactor
+// at terrainHelpers.ts:635-636 + the `["tundra","forest","canyon"]`
+// hardcoded array below at line ~117 to be fully generalized).
 export const GAME_BIOME_DEFINITIONS: Record<string, BiomeDefinition> = {
   tundra: {
     id: "tundra",
@@ -205,9 +219,16 @@ export function createGameTerrainQuerier(seed: number = GAME_SEED) {
     return dominant;
   }
 
-  // Pre-computed biome colors (avoid per-call hex→RGB conversion)
+  // Pre-computed biome colors (avoid per-call hex→RGB conversion).
+  // R3.P3 — derive from the merged biome map (engine defaults +
+  // active plugin contributions) so a plugin's contributed biome
+  // (e.g. shooter-demo's "arena", "wasteland", "fortifications")
+  // gets a real RGB lookup instead of falling through to the
+  // default-biome color.
   const _biomeRGB: Record<string, { r: number; g: number; b: number }> = {};
-  for (const [id, hex] of Object.entries(GAME_BIOME_COLORS)) {
+  const _activeBiomes = getActiveBiomeDefinitions(GAME_BIOME_DEFINITIONS);
+  for (const [id, def] of Object.entries(_activeBiomes)) {
+    const hex = def.color;
     _biomeRGB[id] = {
       r: ((hex >> 16) & 0xff) / 255,
       g: ((hex >> 8) & 0xff) / 255,
