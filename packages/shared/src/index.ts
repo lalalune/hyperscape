@@ -1,13 +1,19 @@
 /**
  * index.ts - @hyperforge/shared Package Entry Point
  *
- * This is the main export file for the Hyperia 3D multiplayer game engine.
- * It provides a comprehensive public API for building 3D multiplayer games and applications.
+ * Public API surface for the HyperForge engine substrate.
  *
  * Package Purpose:
- * Hyperia is a full-featured 3D multiplayer game engine built on three.js and PhysX.
- * It provides client-server architecture with authoritative physics, real-time voice chat,
- * VRM avatar support, and a complete RPG game framework.
+ * The HyperForge engine — built on three.js + PhysX, with
+ * client-server architecture, authoritative physics, real-time
+ * voice chat, and VRM avatar support. Engine-only; game-specific
+ * systems (combat, skills, RPG mechanics) live in plugins like
+ * @hyperforge/hyperscape (Hyperia is the flagship game built on
+ * the engine, not the engine itself).
+ *
+ * R2.P12 of `PLAN_HYPERIA_DECOUPLING.md` — header rebranded
+ * from "Hyperia 3D multiplayer game engine" to "HyperForge
+ * engine substrate" to reflect the engine/game separation.
  *
  * Main Exports:
  *

@@ -70,6 +70,25 @@ export interface PlayerDeathData {
 export interface Player {
   // Core identity
   id: string;
+  /**
+   * Opaque external-account identifier set by the host's auth
+   * bridge. R2.P12 of `PLAN_HYPERIA_DECOUPLING.md` — the engine
+   * carries one identity field and stays neutral; the Hyperia
+   * game plugin (or any other game) is what gives this id
+   * meaning (a Privy id, a Discord id, a third-party SSO id).
+   * Populated identically to the legacy `hyperiaPlayerId` for
+   * now — both fields hold the same value during the migration
+   * window. New code reads `externalAccountId`; old code keeps
+   * working through the `hyperiaPlayerId` alias.
+   */
+  externalAccountId: string;
+  /**
+   * @deprecated R2.P12 — renamed to `externalAccountId`. The
+   * engine's Player type isn't game-specific. Hyperia plugin
+   * classes that need a Hyperia-typed id should keep their own
+   * field on their own class. Read from `externalAccountId` in
+   * new code; this alias stays during the migration window.
+   */
   hyperiaPlayerId: string;
   name: string;
 
@@ -165,6 +184,11 @@ export class PlayerMigration {
 
     return {
       id: old.playerId,
+      // R2.P12 — populate both fields identically. Engine-side
+      // code reads `externalAccountId`; legacy plugin code that
+      // still reads `hyperiaPlayerId` keeps working. Both will
+      // collapse to a single field once consumers migrate.
+      externalAccountId: hyperiaPlayerId,
       hyperiaPlayerId,
       name: old.name,
       health: { current: currentHealth, max: maxHealth },
@@ -341,6 +365,8 @@ export class PlayerMigration {
     const constitutionLevel = skills.constitution.level;
     return {
       id,
+      // R2.P12 — populate both during migration window.
+      externalAccountId: hyperiaPlayerId,
       hyperiaPlayerId,
       name,
       health: { current: constitutionLevel, max: constitutionLevel },
@@ -388,11 +414,20 @@ export function isPlayer(obj: unknown): obj is Player {
 
   const candidate = obj as Record<string, unknown>;
 
+  // R2.P12 — accept either `externalAccountId` (new) or
+  // `hyperiaPlayerId` (legacy alias). During the migration
+  // window producers populate both, so this guard is order-
+  // independent. Once the alias is removed (future cut), drop
+  // the second clause.
+  const hasIdentity =
+    ("externalAccountId" in candidate &&
+      typeof candidate.externalAccountId === "string") ||
+    ("hyperiaPlayerId" in candidate &&
+      typeof candidate.hyperiaPlayerId === "string");
   return !!(
     "id" in candidate &&
     typeof candidate.id === "string" &&
-    "hyperiaPlayerId" in candidate &&
-    typeof candidate.hyperiaPlayerId === "string" &&
+    hasIdentity &&
     "name" in candidate &&
     typeof candidate.name === "string" &&
     "health" in candidate &&
