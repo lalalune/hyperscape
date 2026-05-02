@@ -1,29 +1,21 @@
 /**
- * Biome registry — runtime accumulator for biome contributions
- * from two sources: gameplay plugins (`plugin.json`
- * `contributions.biomes`) and standalone biome packs
- * (`PLAN_PACK_TYPES.md` Phase 3 — `BiomePackManifestSchema`).
+ * Plugin biome registry — runtime accumulator for biome
+ * contributions surfaced from `plugin.json` `contributions.biomes`.
  *
- * Originally R3.P3 of `PLAN_HYPERIA_DECOUPLING.md` (plugin-only).
- * Phase 3 of `PLAN_PACK_TYPES.md` adds the parallel biome-pack
- * source — a project can install a biome pack to get the
- * visual + zoning theme without installing the gameplay plugin
- * that originally owned those biomes.
+ * R3.P3 of `PLAN_HYPERIA_DECOUPLING.md`. The project-loader
+ * fetches `/api/plugins/installed`, extracts `contributions.biomes`,
+ * and registers them here; consumers read via
+ * `getActiveBiomeDefinitions()` to merge with engine-default
+ * biomes.
  *
- * Merge precedence (low → high):
- *   1. engine defaults — passed in by the caller; baseline
- *      Hyperia tundra/forest/canyon for blank projects so the
- *      biome painter is never empty.
- *   2. biome pack contributions — visual themes installed
- *      independently of plugins.
- *   3. plugin contributions — gameplay-driving biomes; win on
- *      id collision because their IDs feed mob-spawn rules,
- *      combat tuning, etc.
- *
- * The file name + the legacy `setPluginBiomes` API are kept for
- * one cut to avoid churning the four importers. A follow-up
- * rename to `biomeRegistry.ts` is queued in `PLAN_PACK_TYPES.md`
- * Phase 3.
+ * Phase B of `PLAN_AAA_CONTENT_SYSTEM.md` will replace this
+ * module with a unified `contentRegistry` that absorbs biome
+ * contributions from both plugins AND content packs (along
+ * with terrain shaders, water shaders, vegetation species,
+ * etc. as separate sections). Until then the file remains
+ * plugin-only — the biome-pack extension that briefly lived
+ * here was reverted alongside the rest of the orphaned
+ * `PLAN_PACK_TYPES` Phase 3 plumbing.
  */
 
 import type { BiomeDefinition } from "@hyperforge/procgen/terrain";
@@ -56,15 +48,6 @@ export interface PluginBiomeContribution {
 const registered = new Map<string, BiomeDefinition>();
 
 /**
- * Currently registered biome-pack biomes, keyed by id. A
- * second registration with the same id overwrites —
- * last-pack-wins, mirroring the plugin map's semantics. Lower
- * precedence than `registered` (plugin biomes); the merge in
- * `getActiveBiomeDefinitions` lays plugins over packs.
- */
-const biomePackBiomes = new Map<string, BiomeDefinition>();
-
-/**
  * Set the active project's plugin biomes. Replaces the prior
  * set entirely (idempotent across project switches). Pass an
  * empty array to clear.
@@ -79,67 +62,26 @@ export function setPluginBiomes(
 }
 
 /**
- * Set the active project's biome-pack biomes. Replaces the
- * prior set entirely (idempotent across project switches).
- * Pass an empty array to clear. Same contribution shape as
- * plugin biomes — a `BiomePackEntry` is structurally a
- * `PluginBiomeContribution`.
- */
-export function setBiomePackBiomes(
-  contributions: ReadonlyArray<PluginBiomeContribution>,
-): void {
-  biomePackBiomes.clear();
-  for (const c of contributions) {
-    biomePackBiomes.set(c.id, contributionToDefinition(c));
-  }
-}
-
-/**
- * Read the merged biome map: engine defaults < biome pack
- * contributions < plugin contributions (highest precedence).
- *
- *   - Engine defaults provide the baseline (typically
- *     `GAME_BIOME_DEFINITIONS` passed in by the caller — Hyperia
- *     tundra/forest/canyon while we're still mid-decoupling).
- *   - Biome pack contributions overlay defaults; a project that
- *     installed `@hyperforge/biome-pack-tropical-v1` sees
- *     `beach`, `jungle`, `mangrove` regardless of which gameplay
- *     plugin is active.
- *   - Plugin contributions overlay both; gameplay-driving biomes
- *     win on id collision because their IDs feed mob-spawn rules
- *     and combat tuning. A plugin's `desert` overrides a biome
- *     pack's `desert` so the gameplay rules stay coherent.
+ * Read the merged biome map: engine-default biomes (passed in
+ * by the caller — typically `GAME_BIOME_DEFINITIONS` from
+ * `GameTerrainAdapter`) overlaid with active plugin
+ * contributions. Plugin contributions win on id collision so a
+ * plugin can override a default biome's appearance.
  */
 export function getActiveBiomeDefinitions(
   engineDefaults: Record<string, BiomeDefinition>,
 ): Record<string, BiomeDefinition> {
-  if (registered.size === 0 && biomePackBiomes.size === 0) {
-    return engineDefaults;
-  }
+  if (registered.size === 0) return engineDefaults;
   const merged: Record<string, BiomeDefinition> = { ...engineDefaults };
-  for (const [id, def] of biomePackBiomes) {
-    merged[id] = def;
-  }
   for (const [id, def] of registered) {
     merged[id] = def;
   }
   return merged;
 }
 
-/** Test-only: clear the plugin-biome map between unit tests. */
+/** Test-only: clear the registry between unit tests. */
 export function _clearPluginBiomes(): void {
   registered.clear();
-}
-
-/** Test-only: clear the biome-pack-biome map between unit tests. */
-export function _clearBiomePackBiomes(): void {
-  biomePackBiomes.clear();
-}
-
-/** Test-only: clear both maps between unit tests. */
-export function _clearAllBiomes(): void {
-  registered.clear();
-  biomePackBiomes.clear();
 }
 
 function contributionToDefinition(c: PluginBiomeContribution): BiomeDefinition {

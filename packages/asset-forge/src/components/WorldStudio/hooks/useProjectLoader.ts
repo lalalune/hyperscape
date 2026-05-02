@@ -26,7 +26,6 @@ import { DataManager } from "@hyperforge/shared";
 import { GAME_BIOME_DEFINITIONS } from "../../WorldBuilder/GameTerrainAdapter";
 import {
   setPluginBiomes,
-  setBiomePackBiomes,
   type PluginBiomeContribution,
 } from "../utils/pluginBiomeRegistry";
 import {
@@ -312,19 +311,6 @@ export function useProjectLoader(projectId: string) {
           setPluginBiomes([]);
         }
 
-        // PLAN_PACK_TYPES Phase 3 — biome pack contributions
-        // overlay engine defaults but lose to plugin biomes
-        // on id collision. Fetch the project's installed
-        // biome packs and merge their `manifest.biomes`
-        // arrays into the registry. Empty / missing project
-        // → clear the biome-pack map.
-        const projectBiomePackIds = project.biomePacks ?? [];
-        if (projectBiomePackIds.length > 0) {
-          void fetchBiomePacksAndRegister(project.id);
-        } else {
-          setBiomePackBiomes([]);
-        }
-
         // Set project context. `templateId` + `plugins` come from
         // the typed-layer surface (B0'.A); usePIESession reads them
         // to decide which plugin set to install on Play.
@@ -559,49 +545,5 @@ async function fetchPluginBiomesAndRegister(
       err,
     );
     setPluginBiomes([]);
-  }
-}
-
-/**
- * PLAN_PACK_TYPES Phase 3 — fetch the project's installed
- * biome packs from `/api/biome-packs/installed`, extract each
- * pack's `manifest.biomes` array, and call `setBiomePackBiomes`
- * with the union. Failures clear the biome-pack map silently
- * — engine defaults + plugin biomes still render the painter.
- *
- * Same best-effort posture as `fetchPluginBiomesAndRegister`:
- * the loader doesn't block on this call, and an empty result
- * (no packs, fetch failed, project not found) is indistinguishable
- * to consumers.
- */
-async function fetchBiomePacksAndRegister(projectId: string): Promise<void> {
-  try {
-    const url = `/api/biome-packs/installed?projectId=${encodeURIComponent(projectId)}`;
-    const res = await fetch(url, { credentials: "same-origin" });
-    if (!res.ok) {
-      setBiomePackBiomes([]);
-      return;
-    }
-    type InstalledBiomePack = {
-      manifestId: string;
-      manifest: {
-        biomes?: PluginBiomeContribution[];
-      };
-    };
-    const packs = (await res.json()) as ReadonlyArray<InstalledBiomePack>;
-    const merged: PluginBiomeContribution[] = [];
-    for (const p of packs) {
-      for (const b of p.manifest?.biomes ?? []) {
-        merged.push(b);
-      }
-    }
-    setBiomePackBiomes(merged);
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      "[ProjectLoader] Failed to fetch biome packs — falling back to plugin biomes + engine defaults:",
-      err,
-    );
-    setBiomePackBiomes([]);
   }
 }

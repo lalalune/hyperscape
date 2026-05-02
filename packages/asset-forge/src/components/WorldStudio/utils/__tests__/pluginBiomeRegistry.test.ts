@@ -10,9 +10,8 @@ import { describe, it, expect, afterEach } from "vitest";
 import type { BiomeDefinition } from "@hyperforge/procgen/terrain";
 import {
   setPluginBiomes,
-  setBiomePackBiomes,
   getActiveBiomeDefinitions,
-  _clearAllBiomes,
+  _clearPluginBiomes,
   type PluginBiomeContribution,
 } from "../pluginBiomeRegistry";
 
@@ -55,7 +54,7 @@ const DESERT: PluginBiomeContribution = {
 
 describe("pluginBiomeRegistry", () => {
   afterEach(() => {
-    _clearAllBiomes();
+    _clearPluginBiomes();
   });
 
   it("returns engine defaults verbatim when no plugin biomes registered", () => {
@@ -120,81 +119,5 @@ describe("pluginBiomeRegistry", () => {
     expect(entry.difficultyLevel).toBe(0);
     expect(entry.maxSlope).toBe(1.5);
     expect(entry.resourceDensity).toBe(1);
-  });
-
-  // ──────────────────────────────────────────────────────────
-  // PLAN_PACK_TYPES Phase 3 — biome-pack contributions
-  // compose alongside plugin contributions.
-  // ──────────────────────────────────────────────────────────
-  it("biome pack contributions overlay engine defaults", () => {
-    const beach: PluginBiomeContribution = {
-      id: "beach",
-      name: "Beach",
-      color: 0xf5deb3,
-      heightRange: [0, 0.1],
-    };
-    setBiomePackBiomes([beach]);
-    const merged = getActiveBiomeDefinitions(ENGINE_DEFAULTS);
-    expect(Object.keys(merged).sort()).toEqual(["beach", "forest", "tundra"]);
-    expect(merged.beach?.color).toBe(0xf5deb3);
-  });
-
-  it("plugin biomes win over biome-pack biomes on id collision", () => {
-    const packDesert: PluginBiomeContribution = {
-      id: "desert",
-      name: "Visual-Theme Desert",
-      color: 0xddc89a,
-      heightRange: [0, 0.3],
-    };
-    const pluginDesert: PluginBiomeContribution = {
-      id: "desert",
-      name: "Gameplay Desert",
-      color: 0xc8a878,
-      heightRange: [0, 0.3],
-    };
-    setBiomePackBiomes([packDesert]);
-    setPluginBiomes([pluginDesert]);
-    const merged = getActiveBiomeDefinitions(ENGINE_DEFAULTS);
-    expect(merged.desert?.name).toBe("Gameplay Desert");
-    expect(merged.desert?.color).toBe(0xc8a878);
-  });
-
-  it("biome pack and plugin contributions both compose into the merged map", () => {
-    const beach: PluginBiomeContribution = {
-      id: "beach",
-      name: "Beach",
-      color: 0xf5deb3,
-      heightRange: [0, 0.1],
-    };
-    const swamp: PluginBiomeContribution = {
-      id: "swamp",
-      name: "Swamp",
-      color: 0x4a5d3a,
-      heightRange: [0, 0.2],
-    };
-    setBiomePackBiomes([beach]);
-    setPluginBiomes([swamp]);
-    const merged = getActiveBiomeDefinitions(ENGINE_DEFAULTS);
-    expect(Object.keys(merged).sort()).toEqual([
-      "beach",
-      "forest",
-      "swamp",
-      "tundra",
-    ]);
-  });
-
-  it("setBiomePackBiomes([]) clears prior biome-pack biomes only", () => {
-    const beach: PluginBiomeContribution = {
-      id: "beach",
-      name: "Beach",
-      color: 0xf5deb3,
-      heightRange: [0, 0.1],
-    };
-    setPluginBiomes([DESERT]);
-    setBiomePackBiomes([beach]);
-    setBiomePackBiomes([]);
-    const merged = getActiveBiomeDefinitions(ENGINE_DEFAULTS);
-    expect(merged.desert).toBeDefined();
-    expect(merged.beach).toBeUndefined();
   });
 });
