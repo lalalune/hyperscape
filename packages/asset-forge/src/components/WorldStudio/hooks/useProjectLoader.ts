@@ -27,7 +27,7 @@ import { GAME_BIOME_DEFINITIONS } from "../../WorldBuilder/GameTerrainAdapter";
 import {
   setPluginBiomes,
   type PluginBiomeContribution,
-} from "../utils/pluginBiomeRegistry";
+} from "../utils/contentRegistry";
 import {
   getWorldProject,
   saveWorldProject,

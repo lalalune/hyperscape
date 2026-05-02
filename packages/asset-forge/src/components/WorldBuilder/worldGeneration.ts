@@ -29,7 +29,7 @@ import type {
 } from "./types";
 import { generateWorldName, createNewWorld } from "./utils";
 import { GAME_BIOME_DEFINITIONS } from "./GameTerrainAdapter";
-import { getActiveBiomeDefinitions } from "../WorldStudio/utils/pluginBiomeRegistry";
+import { getActiveBiomeDefinitions } from "../WorldStudio/utils/contentRegistry";
 
 // ============== ROAD GENERATION ==============
 

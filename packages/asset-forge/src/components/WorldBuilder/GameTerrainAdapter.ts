@@ -27,7 +27,7 @@ import {
 import { BiomeSystem } from "@hyperforge/procgen/terrain";
 import type { BiomeDefinition, BiomeConfig } from "@hyperforge/procgen/terrain";
 import { TERRAIN_CONSTANTS } from "@hyperforge/shared";
-import { getActiveBiomeDefinitions } from "../WorldStudio/utils/pluginBiomeRegistry";
+import { getActiveBiomeDefinitions } from "../WorldStudio/utils/contentRegistry";
 
 // ============== GAME CONSTANTS (re-exported for consumers) ==============
 
@@ -46,7 +46,7 @@ export const GAME_TILE_RESOLUTION = 64;
 // hex→RGB lookup from `GAME_BIOME_DEFINITIONS` (single source
 // of truth) and merges in plugin biome contributions via
 // `getActiveBiomeDefinitions`, so plugin-contributed biomes
-// (R3.P3 — see `pluginBiomeRegistry.ts`) get the same
+// (R3.P3 — see `contentRegistry.ts`) get the same
 // color treatment as engine defaults.
 //
 // R3.P3 leak status: engine still defaults to Hyperia's three
