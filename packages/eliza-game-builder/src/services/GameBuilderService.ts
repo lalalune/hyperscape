@@ -187,6 +187,37 @@ export class GameBuilderService extends Service implements IGameBuilderService {
     if (!validation.ok) {
       return { validation };
     }
+    // R4.P14 — scaffoldWidget requires widgetsDir + indexFile.
+    // Surface missing values as a validation failure rather than
+    // throwing, so the agent's scaffold action returns a clean
+    // structured error to the caller.
+    if (!options.widgetsDir || !options.indexFile) {
+      return {
+        validation: {
+          ok: false,
+          issues: [
+            ...(!options.widgetsDir
+              ? [
+                  {
+                    path: "widgetsDir",
+                    message:
+                      "widgetsDir is required — pass the workspace-relative path to the target plugin's widgets directory (e.g. packages/<your-plugin>/src/widgets).",
+                  },
+                ]
+              : []),
+            ...(!options.indexFile
+              ? [
+                  {
+                    path: "indexFile",
+                    message:
+                      "indexFile is required — pass the workspace-relative path to the target plugin's contributions barrel (e.g. packages/<your-plugin>/src/index.ts).",
+                  },
+                ]
+              : []),
+          ],
+        },
+      };
+    }
     const result = scaffoldWidget(spec, {
       widgetsDir: options.widgetsDir,
       testsDir: options.testsDir,
