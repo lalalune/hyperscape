@@ -995,6 +995,8 @@ export interface HierarchyNode {
     | "dangerSources"
     | "dangerSource"
     | "wildernessBoundary"
+    | "mines"
+    | "mine"
     | "customAssets"
     | "customAsset"
     | "folder";

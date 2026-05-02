@@ -1687,7 +1687,10 @@ function buildExtendedLayersNode(
     ext.teleports.length +
     ext.spawnPoints.length +
     ext.pois.length +
-    ext.dangerSources.length;
+    ext.dangerSources.length +
+    ext.waterBodies.length +
+    ext.mines.length +
+    (ext.wildernessBoundary !== null ? 1 : 0);
   if (totalCount === 0) return null;
 
   const folders: HierarchyNode[] = [];
@@ -1856,6 +1859,66 @@ function buildExtendedLayersNode(
         expandable: false,
         metadata: { intensity: d.intensity },
       })),
+    });
+  }
+  // R4.P8 — water bodies, mines, wilderness boundary all live in
+  // extendedLayers and now ship via agent vocabulary
+  // (PROPOSE_WATER_BODY / PROPOSE_MINE / PROPOSE_WILDERNESS_BOUNDARY).
+  // Surface them in the outliner so users can see + select what
+  // the agent placed.
+  if (ext.waterBodies.length > 0) {
+    folders.push({
+      id: "ext-water-bodies",
+      label: "Water Bodies",
+      type: "waterBodies" as const,
+      badge: ext.waterBodies.length,
+      expandable: true,
+      children: ext.waterBodies.map((wb) => ({
+        id: `ext-waterbody-${wb.id}`,
+        label: wb.name,
+        type: "waterBody" as const,
+        children: [],
+        dataId: wb.id,
+        expandable: false,
+        metadata: { bodyType: wb.bodyType },
+      })),
+    });
+  }
+  if (ext.mines.length > 0) {
+    folders.push({
+      id: "ext-mines",
+      label: "Mines",
+      type: "mines" as const,
+      badge: ext.mines.length,
+      expandable: true,
+      children: ext.mines.map((m) => ({
+        id: `ext-mine-${m.id}`,
+        label: m.name,
+        type: "mine" as const,
+        children: [],
+        dataId: m.id,
+        expandable: false,
+        metadata: {
+          biome: m.biome,
+          tier: m.tierIndex,
+          source: m.source ?? "hand-placed",
+        },
+      })),
+    });
+  }
+  if (ext.wildernessBoundary !== null) {
+    folders.push({
+      id: "ext-wilderness-boundary",
+      label: "Wilderness Boundary",
+      type: "wildernessBoundary" as const,
+      badge: 1,
+      expandable: false,
+      children: [],
+      dataId: "wilderness",
+      metadata: {
+        levelScale: ext.wildernessBoundary.levelScale,
+        maxLevel: ext.wildernessBoundary.maxLevel,
+      },
     });
   }
 
