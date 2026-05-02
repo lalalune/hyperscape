@@ -2,7 +2,7 @@
   "id": "com.hyperforge.plugin-shooter-demo",
   "name": "Shooter Demo",
   "version": "0.1.0",
-  "description": "Minimal NON-Hyperscape game plugin. Proves the engine-layer infrastructure (gameplay-framework + combat plugin + server/client plugin boot) can compose a different game than Hyperscape without any @hyperforge/shared modifications. Depends on @hyperforge/combat and contributes one ranged ability ('shoot') — symmetric to how @hyperforge/hyperscape depends on combat and contributes its OSRS abilities.",
+  "description": "Minimal non-Hyperia game plugin. Proves the engine-layer infrastructure (gameplay-framework + combat plugin + server/client plugin boot) can compose a different game than Hyperia without any @hyperforge/shared modifications. Depends on @hyperforge/combat and contributes one ranged ability ('shoot'), arena-style biomes, and shooter-flavored entity types — symmetric to how @hyperforge/hyperscape depends on combat and contributes its tile-based MMORPG abilities.",
   "entry": "./dist/index.js",
   "author": {
     "name": "Hyperforge"
@@ -21,7 +21,83 @@
     "manifestSchemas": [],
     "paletteCategories": [],
     "toolbarTools": [],
-    "commands": []
+    "commands": [],
+    "entityTypes": [
+      {
+        "kind": "npc",
+        "type": "ammo_vendor",
+        "description": "Sells ammo, weapons, and shooter consumables. Reads `storeId`.",
+        "requiredFields": ["storeId"],
+        "acceptedAssetTypes": ["character"]
+      },
+      {
+        "kind": "npc",
+        "type": "match_host",
+        "description": "Match-making NPC. Click to enter the queue for a deathmatch / arena round.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["character"]
+      },
+      {
+        "kind": "mobSpawn",
+        "type": "training_dummy",
+        "description": "Stationary target for ranged practice. No retaliation; respawns on hit.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["creature", "prop"]
+      },
+      {
+        "kind": "mobSpawn",
+        "type": "drone",
+        "description": "Mobile aerial target. Patrols a small radius; takes ranged damage.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["creature"]
+      },
+      {
+        "kind": "station",
+        "type": "ammo_box",
+        "description": "Pickup-station. Refills the player's primary-weapon ammo on interact.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      },
+      {
+        "kind": "resource",
+        "type": "scrap",
+        "description": "Small interactive lootable that drops crafting scrap on hit.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      }
+    ],
+    "biomes": [
+      {
+        "id": "arena",
+        "name": "Arena",
+        "color": 7368816,
+        "terrainMultiplier": 0.4,
+        "difficultyLevel": 0,
+        "heightRange": [0, 0.2],
+        "maxSlope": 0.3,
+        "resourceDensity": 0.2
+      },
+      {
+        "id": "wasteland",
+        "name": "Wasteland",
+        "color": 10126450,
+        "terrainMultiplier": 0.7,
+        "difficultyLevel": 1,
+        "heightRange": [0, 0.5],
+        "maxSlope": 0.8,
+        "resourceDensity": 0.5
+      },
+      {
+        "id": "fortifications",
+        "name": "Fortifications",
+        "color": 13154454,
+        "terrainMultiplier": 0.6,
+        "difficultyLevel": 2,
+        "heightRange": [0.1, 0.6],
+        "maxSlope": 1,
+        "resourceDensity": 0.3
+      }
+    ]
   },
   "tags": ["demo", "acceptance-test", "shooter"]
 }
