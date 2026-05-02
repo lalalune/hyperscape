@@ -68,6 +68,7 @@ import {
 import {
   getTerrainHeightAt,
   getWaterLevel,
+  onQuerierReady,
 } from "../utils/terrainQueryRegistry";
 
 /**
@@ -89,10 +90,24 @@ import {
  */
 function snapToTerrain<
   T extends { position: { x: number; y: number; z: number } },
->(placed: T): T {
+>(placed: T, onLateSnap?: (snappedY: number) => void): T {
   const terrainY = getTerrainHeightAt(placed.position.x, placed.position.z);
   if (terrainY !== null) {
     placed.position.y = terrainY;
+  } else if (onLateSnap) {
+    // Bug #2 — querier not registered yet. Defer the snap. Once
+    // a querier registers (when ViewportContainer's scene
+    // becomes ready), the callback fires with the snapped y so
+    // the caller can dispatch an `update*` action that mutates
+    // the reducer state. The placement is added immediately
+    // with y=0 and updated to the correct elevation a few
+    // frames later — better than leaving it underwater forever.
+    const x = placed.position.x;
+    const z = placed.position.z;
+    onQuerierReady((q) => {
+      const y = q.getTerrainHeight(x, z);
+      onLateSnap(y);
+    });
   }
   return placed;
 }
@@ -200,24 +215,56 @@ export function useAgentPlacementDispatcher(): AgentPlacementDispatcher {
 
   return useMemo<AgentPlacementDispatcher>(
     () => ({
-      placeNpc: (npc) =>
-        actions.addNPC(snapToTerrain(worldAreaNpcToPlaced(npc, offset))),
-      placeMobSpawn: (spawn) =>
+      placeNpc: (npc) => {
+        const placed = worldAreaNpcToPlaced(npc, offset);
+        actions.addNPC(
+          snapToTerrain(placed, (snappedY) => {
+            actions.updateNPC(placed.id, {
+              position: { ...placed.position, y: snappedY },
+            });
+          }),
+        );
+      },
+      placeMobSpawn: (spawn) => {
+        const placed = worldAreaMobSpawnToPlaced(spawn, offset);
         actions.addMobSpawn(
-          snapToTerrain(worldAreaMobSpawnToPlaced(spawn, offset)),
-        ),
-      placeResource: (resource) =>
+          snapToTerrain(placed, (snappedY) => {
+            actions.updateMobSpawn(placed.id, {
+              position: { ...placed.position, y: snappedY },
+            });
+          }),
+        );
+      },
+      placeResource: (resource) => {
+        const placed = worldAreaResourceToPlaced(resource, offset);
         actions.addResource(
-          snapToTerrain(worldAreaResourceToPlaced(resource, offset)),
-        ),
-      placeStation: (station) =>
+          snapToTerrain(placed, (snappedY) => {
+            actions.updateResource(placed.id, {
+              position: { ...placed.position, y: snappedY },
+            });
+          }),
+        );
+      },
+      placeStation: (station) => {
+        const placed = worldAreaStationToPlaced(station, offset);
         actions.addStation(
-          snapToTerrain(worldAreaStationToPlaced(station, offset)),
-        ),
-      placeTeleport: (teleport) =>
+          snapToTerrain(placed, (snappedY) => {
+            actions.updateStation(placed.id, {
+              position: { ...placed.position, y: snappedY },
+            });
+          }),
+        );
+      },
+      placeTeleport: (teleport) => {
+        const placed = worldAreaTeleportToPlaced(teleport, offset);
         actions.addTeleport(
-          snapToTerrain(worldAreaTeleportToPlaced(teleport, offset)),
-        ),
+          snapToTerrain(placed, (snappedY) => {
+            actions.updateTeleport(placed.id, {
+              position: { ...placed.position, y: snappedY },
+            });
+          }),
+        );
+      },
       placeRoad: (road) => {
         // Snap each waypoint independently so the road follows
         // terrain elevation across hills + valleys instead of
@@ -229,26 +276,54 @@ export function useAgentPlacementDispatcher(): AgentPlacementDispatcher {
         }
         actions.addCustomRoad(placed);
       },
-      placePOI: (poi) =>
-        actions.addPOI(snapToTerrain(worldAreaPOIToPlaced(poi, offset))),
-      placeDangerSource: (ds) =>
+      placePOI: (poi) => {
+        const placed = worldAreaPOIToPlaced(poi, offset);
+        actions.addPOI(
+          snapToTerrain(placed, (snappedY) => {
+            actions.updatePOI(placed.id, {
+              position: { ...placed.position, y: snappedY },
+            });
+          }),
+        );
+      },
+      placeDangerSource: (ds) => {
+        const placed = worldAreaDangerSourceToPlaced(ds, offset);
         actions.addDangerSource(
-          snapToTerrain(worldAreaDangerSourceToPlaced(ds, offset)),
-        ),
+          snapToTerrain(placed, (snappedY) => {
+            // Danger source uses position object — partial update
+            // path mirrors the others.
+            actions.updateDangerSource(placed.id, {
+              position: { ...placed.position, y: snappedY },
+            });
+          }),
+        );
+      },
       placeWaterBody: (waterBody) =>
         actions.addWaterBody(worldAreaWaterBodyToPlaced(waterBody, offset)),
       placeMusicZone: (zone) =>
         actions.addMusicZone(worldAreaMusicZoneToPlaced(zone, offset)),
       placeAmbientZone: (zone) =>
         actions.addAmbientZone(worldAreaAmbientZoneToPlaced(zone, offset)),
-      placeSfxTrigger: (trigger) =>
+      placeSfxTrigger: (trigger) => {
+        const placed = worldAreaSfxTriggerToPlaced(trigger, offset);
         actions.addSFXTrigger(
           // Snap point-source SFX to terrain so the trigger
           // sphere doesn't sit underwater on a low-elevation
           // patch when the agent emits y=0.
-          snapToTerrain(worldAreaSfxTriggerToPlaced(trigger, offset)),
-        ),
+          snapToTerrain(placed, (snappedY) => {
+            actions.updateSFXTrigger(placed.id, {
+              position: { ...placed.position, y: snappedY },
+            });
+          }),
+        );
+      },
       placeMine: (mine) =>
+        // No `updateMine` action exists today, so deferred snap
+        // can't auto-correct mines placed before scene-ready.
+        // Practical impact small (mines have a large radius —
+        // a slightly-off y is less visible than a misplaced
+        // NPC). Add a `updateMine` action + late-snap callback
+        // here in a follow-up.
         actions.addMine(snapToTerrain(worldAreaMineToPlaced(mine, offset))),
       placeWildernessBoundary: (boundary) =>
         actions.setWildernessBoundary(
