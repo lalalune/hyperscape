@@ -93,25 +93,44 @@ export function useEditorWorldSync({
   // path), the effect re-runs and will load Hyperia models if
   // the new project includes the Hyperscape plugin.
   const projectPlugins = studioState.project.plugins;
+  const projectAssetPacks = studioState.project.assetPacks;
   const projectTargetsHyperia = projectPlugins.some(
     (id) =>
       id === "@hyperforge/hyperscape" || id === "com.hyperforge.hyperscape",
   );
+  // Pack-presence gate — AI-onboarding flows install Hyperia
+  // ASSET PACKS (so the agent's auto-filled assetRefs resolve
+  // to real GLBs) without installing the Hyperscape gameplay
+  // plugin. Without this branch, the plugin-only gate above
+  // would skip `initEntityModels` for those projects and the
+  // renderer falls back to colored placeholder cubes — exactly
+  // the "AI placement broken / no trees" bug the user reported.
+  // Any pack id that starts with `@hyperforge/asset-pack-hyperia-`
+  // OR `@hyperforge/content-pack-hyperia-` triggers Hyperia
+  // model loading; non-Hyperia packs continue to flow through
+  // the per-pack `assetRefResolver` path.
+  const projectHasHyperiaContent = projectAssetPacks.some(
+    (id) =>
+      id.startsWith("@hyperforge/asset-pack-hyperia-") ||
+      id.startsWith("@hyperforge/content-pack-hyperia-"),
+  );
+  const shouldLoadHyperiaModels =
+    projectTargetsHyperia || projectHasHyperiaContent;
   useEffect(() => {
-    if (!projectTargetsHyperia) {
-      // Non-Hyperia project — leave the Hyperia caches empty.
-      // assetRef path (R0.QW2) handles renderable entities; the
-      // rest fall through to abstract colored markers. Future
-      // R3.P4 work loads packs declared by `project.assetPacks`
-      // through this same path once those packs ship preload
-      // manifests.
+    if (!shouldLoadHyperiaModels) {
+      // No Hyperia plugin AND no Hyperia content/asset packs —
+      // leave the Hyperia model caches empty. The assetRef path
+      // (R0.QW2) handles renderable entities for whatever packs
+      // ARE installed; the rest fall through to abstract colored
+      // markers. Empty-state copy in the painter / scatter
+      // panels suggests installing a content pack.
       return;
     }
     void initEntityModels().catch((err: unknown) => {
       // eslint-disable-next-line no-console
       console.warn("[useEditorWorldSync] initEntityModels failed:", err);
     });
-  }, [projectTargetsHyperia]);
+  }, [shouldLoadHyperiaModels]);
 
   // Sync extended layer entities
   const handleSyncLayers = useCallback(
