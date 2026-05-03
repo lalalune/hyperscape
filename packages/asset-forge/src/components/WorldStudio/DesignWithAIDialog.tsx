@@ -3280,7 +3280,11 @@ function PlanPreviewPanel({
                   actionLabel={`Add ${slot.short.toLowerCase()}`}
                   onAction={set ? undefined : () => onAskFor(slot.emptyPrompt)}
                   actionDisabled={isPending || isCreating}
-                />
+                >
+                  {set && (
+                    <SecondarySlotEntryList plan={plan} slotKey={slot.key} />
+                  )}
+                </PlanSlot>
               );
             })}
           </div>
@@ -3410,6 +3414,308 @@ function secondarySlotSummary(plan: OnboardingPlan, key: PlanSlotKey): string {
 
 function getEmptyPrompt(key: PlanSlotKey): string {
   return PLAN_SLOTS.find((s) => s.key === key)!.emptyPrompt;
+}
+
+/**
+ * Inline entry list for a secondary plan slot — shows what
+ * actually got placed. Without this, the user sees only count
+ * badges ("3 placed") and has to dig into the outliner to see
+ * which roads / POIs / mines / water bodies the agent
+ * authored.
+ *
+ * Renders up to MAX_INLINE entries, with a "+N more" tail when
+ * the list is longer. Each row is a single line: primary label
+ * (name → id → fallback) and a secondary detail extracted per
+ * slot (type, category, position, polygon vertex count, etc.).
+ *
+ * Generic — drives off the slot key, so adding a new slot type
+ * doesn't require duplicating expand UI. Per-key field
+ * extraction lives in `extractEntrySummary` below.
+ */
+interface SecondarySlotEntryListProps {
+  plan: OnboardingPlan;
+  slotKey: PlanSlotKey;
+}
+
+const MAX_INLINE_ENTRIES = 5;
+
+function SecondarySlotEntryList({
+  plan,
+  slotKey,
+}: SecondarySlotEntryListProps): React.ReactElement | null {
+  const entries = collectSecondarySlotEntries(plan, slotKey);
+  if (entries.length === 0) return null;
+  const visible = entries.slice(0, MAX_INLINE_ENTRIES);
+  const overflow = entries.length - visible.length;
+  return (
+    <div className="mt-2 space-y-1">
+      {visible.map((entry, i) => (
+        <div
+          key={i}
+          className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-bg-primary/60 rounded-md text-[11px] ring-1 ring-white/[0.05]"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="text-text-primary truncate font-medium">
+              {entry.primary}
+            </div>
+            {entry.detail && (
+              <div className="text-text-tertiary truncate text-[10px]">
+                {entry.detail}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+      {overflow > 0 && (
+        <div className="text-[10.5px] text-text-tertiary px-2.5 py-1 italic">
+          +{overflow} more
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface SlotEntrySummary {
+  primary: string;
+  detail: string | null;
+}
+
+/**
+ * Per-slot entry extraction — pulls the entries array off the
+ * plan and converts each to {primary, detail} for inline render.
+ * Per-key knowledge of which fields name the entry vs which
+ * fields detail it lives here so the renderer above stays
+ * generic.
+ */
+function collectSecondarySlotEntries(
+  plan: OnboardingPlan,
+  key: PlanSlotKey,
+): SlotEntrySummary[] {
+  // Wilderness boundary is a singleton; everything else is an
+  // array. Surface the singleton's structure as a single entry.
+  if (key === "wildernessBoundary") {
+    const wb = plan.wildernessBoundary as {
+      id?: string;
+      points?: unknown[];
+      maxLevel?: number;
+    } | null;
+    if (!wb) return [];
+    const ptCount = Array.isArray(wb.points) ? wb.points.length : 0;
+    return [
+      {
+        primary: wb.id ?? "wilderness",
+        detail: `${ptCount}-point boundary${
+          typeof wb.maxLevel === "number" ? ` · max lvl ${wb.maxLevel}` : ""
+        }`,
+      },
+    ];
+  }
+
+  // Map slotKey to the plan's array field. The TS narrowing
+  // here is loose because OnboardingPlan's array fields share
+  // no common shape; we read each as a record-of-unknown.
+  const arr = ((): ReadonlyArray<unknown> => {
+    switch (key) {
+      case "zones":
+        return plan.zones;
+      case "resources":
+        return plan.resources;
+      case "stations":
+        return plan.stations;
+      case "teleports":
+        return plan.teleports;
+      case "roads":
+        return plan.roads;
+      case "pois":
+        return plan.pois;
+      case "dangerSources":
+        return plan.dangerSources;
+      case "waterBodies":
+        return plan.waterBodies;
+      case "musicZones":
+        return plan.musicZones;
+      case "ambientZones":
+        return plan.ambientZones;
+      case "sfxTriggers":
+        return plan.sfxTriggers;
+      case "mines":
+        return plan.mines;
+      case "assets":
+        return plan.assets;
+      default:
+        return [];
+    }
+  })();
+
+  return arr.map((raw) => extractEntrySummary(raw, key));
+}
+
+/** Format a position-bearing entry as a one-line detail. */
+function fmtPos(p: unknown): string {
+  const pos = (p ?? {}) as { x?: number; y?: number; z?: number };
+  if (typeof pos.x !== "number") return "";
+  return `(${Math.round(pos.x)}, ${Math.round(pos.y ?? 0)}, ${Math.round(
+    pos.z ?? 0,
+  )})`;
+}
+
+function extractEntrySummary(raw: unknown, key: PlanSlotKey): SlotEntrySummary {
+  const e = (raw ?? {}) as Record<string, unknown>;
+  const primary =
+    (e.name as string | undefined) ??
+    (e.id as string | undefined) ??
+    (e.resourceId as string | undefined) ??
+    "(unnamed)";
+
+  switch (key) {
+    case "zones": {
+      const biome = e.biomeType as string | undefined;
+      const safe = e.safeZone as boolean | undefined;
+      return {
+        primary,
+        detail:
+          [biome ?? "", safe ? "safe" : "hostile"]
+            .filter(Boolean)
+            .join(" · ") || null,
+      };
+    }
+    case "resources":
+      return {
+        primary,
+        detail:
+          [e.type as string | undefined, fmtPos(e.position)]
+            .filter(Boolean)
+            .join(" · ") || null,
+      };
+    case "stations":
+      return {
+        primary,
+        detail:
+          [e.type as string | undefined, fmtPos(e.position)]
+            .filter(Boolean)
+            .join(" · ") || null,
+      };
+    case "teleports":
+      return {
+        primary,
+        detail:
+          [e.type as string | undefined, fmtPos(e.position)]
+            .filter(Boolean)
+            .join(" · ") || null,
+      };
+    case "roads": {
+      const path = Array.isArray(e.path) ? e.path : [];
+      const width = e.width as number | undefined;
+      return {
+        primary,
+        detail: `${path.length}-pt path${
+          typeof width === "number" ? ` · ${width}m wide` : ""
+        }`,
+      };
+    }
+    case "pois": {
+      const cat = e.category as string | undefined;
+      const importance = e.importance as number | undefined;
+      return {
+        primary,
+        detail: [
+          cat,
+          typeof importance === "number"
+            ? `importance ${importance.toFixed(1)}`
+            : null,
+          fmtPos(e.position),
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    }
+    case "dangerSources": {
+      const intensity = e.intensity as number | undefined;
+      return {
+        primary,
+        detail:
+          [
+            typeof intensity === "number" ? `intensity ${intensity}` : null,
+            fmtPos(e.position),
+          ]
+            .filter(Boolean)
+            .join(" · ") || null,
+      };
+    }
+    case "waterBodies": {
+      const bodyType = e.bodyType as string | undefined;
+      const polygon = Array.isArray(e.polygon) ? e.polygon : null;
+      const waypoints = Array.isArray(e.waypoints) ? e.waypoints : null;
+      const shape = polygon
+        ? `${polygon.length}-vertex polygon`
+        : waypoints
+          ? `${waypoints.length}-pt path`
+          : null;
+      return {
+        primary,
+        detail: [bodyType, shape].filter(Boolean).join(" · ") || null,
+      };
+    }
+    case "musicZones": {
+      const polygon = Array.isArray(e.polygon) ? e.polygon : [];
+      const track = e.musicTrack as string | undefined;
+      return {
+        primary,
+        detail: [track, `${polygon.length}-vertex polygon`]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    }
+    case "ambientZones": {
+      const polygon = Array.isArray(e.polygon) ? e.polygon : [];
+      const ambientType = e.ambientType as string | undefined;
+      return {
+        primary,
+        detail: [ambientType, `${polygon.length}-vertex polygon`]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    }
+    case "sfxTriggers": {
+      const sfxId = e.sfxId as string | undefined;
+      const radius = e.radius as number | undefined;
+      return {
+        primary,
+        detail: [
+          sfxId,
+          typeof radius === "number" ? `r=${radius}` : null,
+          fmtPos(e.position),
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    }
+    case "mines": {
+      const biome = e.biome as string | undefined;
+      const oreRocks = Array.isArray(e.oreRocks) ? e.oreRocks : [];
+      const tier = e.tier as number | undefined;
+      return {
+        primary,
+        detail: [
+          biome,
+          `${oreRocks.length} ore type${oreRocks.length === 1 ? "" : "s"}`,
+          typeof tier === "number" ? `tier ${tier}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    }
+    case "assets": {
+      const type = e.type as string | undefined;
+      const subtype = e.subtype as string | undefined;
+      return {
+        primary,
+        detail: [type, subtype].filter(Boolean).join(" · ") || null,
+      };
+    }
+    default:
+      return { primary, detail: null };
+  }
 }
 
 interface PlanSlotProps {
