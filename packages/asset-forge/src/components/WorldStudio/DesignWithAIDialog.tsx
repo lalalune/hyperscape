@@ -38,18 +38,32 @@ import {
   Boxes,
   Bug,
   Check,
+  ChevronDown,
+  ChevronRight,
   Circle,
+  Droplets,
+  Flag,
+  Hammer,
   Layout,
   Loader2,
+  MapPin,
   Map as MapIcon,
+  Music,
+  Palette,
+  Pickaxe,
   RefreshCw,
+  Route,
   RotateCcw,
   ScrollText,
   Send,
+  Shield,
   Sparkles,
   Swords,
   Trash2,
+  TreePine,
   Users,
+  Volume2,
+  Waves,
   X,
 } from "lucide-react";
 import React, {
@@ -328,24 +342,66 @@ function nextStepChips(plan: OnboardingPlan): Array<{
  * the right-side plan panel. Centralising the order + labels +
  * icons here keeps both UIs synchronised. Used by Phase B1'.7.
  */
+/**
+ * Slot key for the right-side Plan panel. Mirrors the
+ * `OnboardingPlan` field surface so every slot the agent can
+ * fill becomes a visible UI artifact. Two tiers:
+ *
+ *   - "primary" — top-of-panel, always rendered. The slots a
+ *     user MUST care about for any onboarding (theme, plugins,
+ *     terrain, npcs, mobs, quests, hud). Filled = ready to build.
+ *   - "secondary" — collapsed by default into a "World Detail"
+ *     section. Optional but visible — water bodies, audio
+ *     zones, mines, roads, POIs, etc. The agent fills these
+ *     when the theme suggests them; user sees the work.
+ */
+type PlanSlotKey =
+  // Primary slots
+  | "theme"
+  | "pluginIds"
+  | "terrainConfig"
+  | "npcs"
+  | "mobSpawns"
+  | "quests"
+  | "uiPack"
+  // Secondary slots
+  | "zones"
+  | "resources"
+  | "stations"
+  | "teleports"
+  | "roads"
+  | "pois"
+  | "dangerSources"
+  | "waterBodies"
+  | "musicZones"
+  | "ambientZones"
+  | "sfxTriggers"
+  | "mines"
+  | "wildernessBoundary"
+  | "assets";
+
 const PLAN_SLOTS: ReadonlyArray<{
-  key:
-    | "pluginIds"
-    | "terrainConfig"
-    | "npcs"
-    | "mobSpawns"
-    | "quests"
-    | "uiPack";
+  key: PlanSlotKey;
   short: string;
   Icon: typeof Boxes;
   emptyPrompt: string;
+  tier: "primary" | "secondary";
 }> = [
+  {
+    key: "theme",
+    short: "Theme",
+    Icon: Palette,
+    emptyPrompt:
+      "Pick a themed content pack that matches the climate of this world.",
+    tier: "primary",
+  },
   {
     key: "pluginIds",
     short: "Plugins",
     Icon: Boxes,
     emptyPrompt:
       "What gameplay plugins should I use? List the choices and pick the best fit.",
+    tier: "primary",
   },
   {
     key: "terrainConfig",
@@ -353,48 +409,226 @@ const PLAN_SLOTS: ReadonlyArray<{
     Icon: MapIcon,
     emptyPrompt:
       "Propose a terrain configuration that fits the world we're designing.",
+    tier: "primary",
   },
   {
     key: "npcs",
     short: "NPCs",
     Icon: Users,
     emptyPrompt: "Add 1-3 starter NPCs that fit this world.",
+    tier: "primary",
   },
   {
     key: "mobSpawns",
     short: "Mobs",
     Icon: Swords,
     emptyPrompt: "Place a few mob spawn points that fit the difficulty curve.",
+    tier: "primary",
   },
   {
     key: "quests",
     short: "Quests",
     Icon: ScrollText,
     emptyPrompt: "Author 1-3 starter quests that introduce the gameplay loop.",
+    tier: "primary",
   },
   {
     key: "uiPack",
     short: "HUD",
     Icon: Layout,
     emptyPrompt: "Design a HUD layout that fits the game we're building.",
+    tier: "primary",
+  },
+  // ─── Secondary tier (rendered in the collapsible "World Detail" group) ───
+  {
+    key: "zones",
+    short: "Zones",
+    Icon: Flag,
+    emptyPrompt:
+      "Define 2-4 named regions for this world (safe town area, hostile wilderness, etc.).",
+    tier: "secondary",
+  },
+  {
+    key: "roads",
+    short: "Roads",
+    Icon: Route,
+    emptyPrompt:
+      "Connect the main settlements + landmarks with curving roads or trails.",
+    tier: "secondary",
+  },
+  {
+    key: "pois",
+    short: "Points of Interest",
+    Icon: MapPin,
+    emptyPrompt:
+      "Mark 3-6 landmark points the player can discover (dungeons, shrines, ruins, camps).",
+    tier: "secondary",
+  },
+  {
+    key: "resources",
+    short: "Gathering",
+    Icon: TreePine,
+    emptyPrompt:
+      "Place a handful of gathering nodes (trees, rocks, fishing spots) so woodcutting/mining/fishing has anchors.",
+    tier: "secondary",
+  },
+  {
+    key: "stations",
+    short: "Crafting Stations",
+    Icon: Hammer,
+    emptyPrompt:
+      "Drop in a few crafting stations (anvil, furnace, range, bank) tied to the main settlement.",
+    tier: "secondary",
+  },
+  {
+    key: "teleports",
+    short: "Teleports",
+    Icon: Sparkles,
+    emptyPrompt:
+      "Add 1-3 teleport nodes (lodestones, portals, or shortcuts) for fast travel.",
+    tier: "secondary",
+  },
+  {
+    key: "dangerSources",
+    short: "Danger Zones",
+    Icon: AlertTriangle,
+    emptyPrompt:
+      "Mark dangerous areas that bump local difficulty (corrupted shrines, warlord camps).",
+    tier: "secondary",
+  },
+  {
+    key: "wildernessBoundary",
+    short: "Wilderness Edge",
+    Icon: Shield,
+    emptyPrompt:
+      "Trace the boundary between safe territory and PvP / hostile wilderness.",
+    tier: "secondary",
+  },
+  {
+    key: "mines",
+    short: "Mines",
+    Icon: Pickaxe,
+    emptyPrompt:
+      "Designate 1-2 mining areas with clustered ore rocks (copper, iron, tin, etc.).",
+    tier: "secondary",
+  },
+  {
+    key: "waterBodies",
+    short: "Water Bodies",
+    Icon: Waves,
+    emptyPrompt: "Place named rivers / lakes / ponds that fit the climate.",
+    tier: "secondary",
+  },
+  {
+    key: "musicZones",
+    short: "Music Zones",
+    Icon: Music,
+    emptyPrompt:
+      "Bound 1-2 regions with mood-driven music (boss arena tension, town center theme).",
+    tier: "secondary",
+  },
+  {
+    key: "ambientZones",
+    short: "Ambient Sound",
+    Icon: Volume2,
+    emptyPrompt:
+      "Add ambient soundscape zones that match the climate (jungle insects, ocean waves, cave drips).",
+    tier: "secondary",
+  },
+  {
+    key: "sfxTriggers",
+    short: "SFX Triggers",
+    Icon: Droplets,
+    emptyPrompt:
+      "Place point-source sound triggers for landmark audio (waterfall splash, geyser, bell tower).",
+    tier: "secondary",
+  },
+  {
+    key: "assets",
+    short: "Asset Bakes",
+    Icon: Sparkles,
+    emptyPrompt:
+      "Generate any unique 3D assets the world needs (specific creatures, props).",
+    tier: "secondary",
   },
 ];
 
-function isSlotSet(
-  plan: OnboardingPlan,
-  key: (typeof PLAN_SLOTS)[number]["key"],
-): boolean {
-  if (key === "pluginIds")
-    return plan.pluginIds !== null && plan.pluginIds.length > 0;
-  if (key === "npcs") return plan.npcs.length > 0;
-  if (key === "mobSpawns") return plan.mobSpawns.length > 0;
-  if (key === "quests") return plan.quests.length > 0;
-  if (key === "terrainConfig") return plan.terrainConfig !== null;
-  return plan.uiPack !== null;
+function isSlotSet(plan: OnboardingPlan, key: PlanSlotKey): boolean {
+  switch (key) {
+    case "theme":
+      // Theme is "set" when the project has any content pack
+      // installed via the auto-install + agent recommendation
+      // path. We surface every pack id starting with
+      // `@hyperforge/content-pack-` (the canonical naming
+      // convention for themed content packs).
+      return (
+        Array.isArray(plan.assetPackIds) &&
+        plan.assetPackIds.some((id) =>
+          id.startsWith("@hyperforge/content-pack-"),
+        )
+      );
+    case "pluginIds":
+      return plan.pluginIds !== null && plan.pluginIds.length > 0;
+    case "terrainConfig":
+      return plan.terrainConfig !== null;
+    case "npcs":
+      return plan.npcs.length > 0;
+    case "mobSpawns":
+      return plan.mobSpawns.length > 0;
+    case "quests":
+      return plan.quests.length > 0;
+    case "uiPack":
+      return plan.uiPack !== null;
+    case "zones":
+      return plan.zones.length > 0;
+    case "resources":
+      return plan.resources.length > 0;
+    case "stations":
+      return plan.stations.length > 0;
+    case "teleports":
+      return plan.teleports.length > 0;
+    case "roads":
+      return plan.roads.length > 0;
+    case "pois":
+      return plan.pois.length > 0;
+    case "dangerSources":
+      return plan.dangerSources.length > 0;
+    case "waterBodies":
+      return plan.waterBodies.length > 0;
+    case "musicZones":
+      return plan.musicZones.length > 0;
+    case "ambientZones":
+      return plan.ambientZones.length > 0;
+    case "sfxTriggers":
+      return plan.sfxTriggers.length > 0;
+    case "mines":
+      return plan.mines.length > 0;
+    case "wildernessBoundary":
+      return plan.wildernessBoundary !== null;
+    case "assets":
+      return plan.assets.length > 0;
+    default: {
+      // Exhaustive check — TS narrows `key` to never if every
+      // case is handled. Returning false is a safe fallback for
+      // any stray key that escapes the type system.
+      const _exhaustive: never = key;
+      return _exhaustive;
+    }
+  }
 }
 
-function countSetSlots(plan: OnboardingPlan): number {
-  return PLAN_SLOTS.filter((s) => isSlotSet(plan, s.key)).length;
+/**
+ * Count slots a particular tier has set. Used by the build CTA
+ * (counts only primary slots — secondary slots fill in
+ * organically as the agent works through the world detail).
+ */
+function countSetSlots(
+  plan: OnboardingPlan,
+  tier: "primary" | "secondary" | "all" = "all",
+): number {
+  const slots =
+    tier === "all" ? PLAN_SLOTS : PLAN_SLOTS.filter((s) => s.tier === tier);
+  return slots.filter((s) => isSlotSet(plan, s.key)).length;
 }
 
 function initialGreeting(): ChatMessage {
@@ -2660,9 +2894,37 @@ function PlanPreviewPanel({
   const hasMobSpawns = plan.mobSpawns.length > 0;
   const hasQuests = plan.quests.length > 0;
   const hasAssets = plan.assets.length > 0;
-  const setCount = countSetSlots(plan);
+  const hasTheme = isSlotSet(plan, "theme");
+  const setCountAll = countSetSlots(plan, "all");
+  const setCountPrimary = countSetSlots(plan, "primary");
+  const setCountSecondary = countSetSlots(plan, "secondary");
+  const primarySlots = PLAN_SLOTS.filter((s) => s.tier === "primary");
+  const secondarySlots = PLAN_SLOTS.filter((s) => s.tier === "secondary");
   const totalSlots = PLAN_SLOTS.length;
-  const allSet = setCount === totalSlots;
+  const totalPrimary = primarySlots.length;
+  const allPrimarySet = setCountPrimary === totalPrimary;
+  // Build is gated on having at least one primary slot set (the
+  // user's intent must be visible). Secondary slots fill in
+  // organically — the agent emits them based on theme without
+  // the user having to ask.
+  const [worldDetailOpen, setWorldDetailOpen] = useState(setCountSecondary > 0);
+  // Auto-expand when the agent fills a secondary slot so the
+  // user sees the work happening.
+  useEffect(() => {
+    if (setCountSecondary > 0) setWorldDetailOpen(true);
+  }, [setCountSecondary]);
+
+  // Theme summary — extract the content pack id from
+  // `assetPackIds` and show its short name (arctic, tropical,
+  // desert, volcanic, wetland, hyperia).
+  const themePackId = (plan.assetPackIds ?? []).find((id) =>
+    id.startsWith("@hyperforge/content-pack-"),
+  );
+  const themeSummary = themePackId
+    ? themePackId
+        .replace(/^@hyperforge\/content-pack-/, "")
+        .replace(/-v\d+$/, "")
+    : "No theme picked yet";
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -2673,22 +2935,38 @@ function PlanPreviewPanel({
           </div>
           <div
             className={`text-[11px] font-mono px-1.5 py-0.5 rounded ${
-              allSet
+              allPrimarySet
                 ? "bg-primary/15 text-primary"
                 : "bg-bg-tertiary text-text-tertiary"
             }`}
           >
-            {setCount}/{totalSlots}
+            {setCountAll}/{totalSlots}
           </div>
         </div>
         <div className="text-[11px] text-text-tertiary mt-1 leading-snug">
-          {allSet
-            ? "All set. Generate your world below."
+          {allPrimarySet
+            ? "All core slots set. Generate your world below."
             : "Click an empty slot to ask the agent to fill it."}
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto design-ai-scrollbar px-3 py-3 space-y-2">
+        {/* Theme — content pack identity. The single most
+            user-visible decision: what climate is this world?
+            Surfaces the content pack the agent installed (or
+            the user picked); falls through to empty CTA. */}
+        <PlanSlot
+          icon={<Palette size={14} />}
+          title="Theme"
+          set={hasTheme}
+          summary={hasTheme ? themeSummary : "No theme picked yet"}
+          actionLabel="Pick a climate"
+          onAction={
+            hasTheme ? undefined : () => onAskFor(getEmptyPrompt("theme"))
+          }
+          actionDisabled={isPending || isCreating}
+        />
+
         <PlanSlot
           icon={<Boxes size={14} />}
           title="Plugins"
@@ -2955,6 +3233,58 @@ function PlanPreviewPanel({
           actionDisabled={isPending || isCreating}
           onRemove={hasUiPack ? onRemoveUiPack : undefined}
         />
+
+        {/* World Detail — secondary slots collapsed by default,
+            auto-expanded once the agent fills any of them. The
+            user sees roads/POIs/water/audio/mines/etc. without
+            having to ask, but they don't dominate the panel. */}
+        <button
+          type="button"
+          onClick={() => setWorldDetailOpen((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 px-3 py-2 mt-2 rounded-md bg-bg-tertiary/40 hover:bg-bg-tertiary/60 ring-1 ring-white/[0.04] transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            {worldDetailOpen ? (
+              <ChevronDown size={12} className="text-text-tertiary" />
+            ) : (
+              <ChevronRight size={12} className="text-text-tertiary" />
+            )}
+            <div className="text-[11px] font-semibold text-text-secondary">
+              World Detail
+            </div>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-bg-secondary text-text-tertiary">
+              {setCountSecondary}/{secondarySlots.length}
+            </span>
+          </div>
+          <div className="text-[10px] text-text-tertiary">
+            roads · pois · audio · mines · water
+          </div>
+        </button>
+
+        {worldDetailOpen && (
+          <div className="space-y-1.5 pt-1">
+            {secondarySlots.map((slot) => {
+              const set = isSlotSet(plan, slot.key);
+              const Icon = slot.Icon;
+              const summary = secondarySlotSummary(plan, slot.key);
+              return (
+                <PlanSlot
+                  key={slot.key}
+                  icon={<Icon size={14} />}
+                  title={slot.short}
+                  set={set}
+                  summary={summary}
+                  countBadge={
+                    set ? secondarySlotCount(plan, slot.key) : undefined
+                  }
+                  actionLabel={`Add ${slot.short.toLowerCase()}`}
+                  onAction={set ? undefined : () => onAskFor(slot.emptyPrompt)}
+                  actionDisabled={isPending || isCreating}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Build CTA — gradient when ready, celebratory when all 4 set */}
@@ -2966,7 +3296,7 @@ function PlanPreviewPanel({
           className={`relative w-full flex items-center justify-center gap-2 px-4 py-3 text-[13px] font-semibold rounded-lg transition-all disabled:cursor-not-allowed overflow-hidden group ${
             !canBuild
               ? "bg-bg-tertiary text-text-tertiary ring-1 ring-white/[0.06]"
-              : allSet
+              : allPrimarySet
                 ? "bg-gradient-to-br from-primary via-primary to-primary/90 text-white shadow-lg shadow-primary/40 hover:shadow-xl hover:shadow-primary/50 ring-1 ring-primary/40"
                 : "bg-gradient-to-br from-primary to-primary/85 text-white shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/40"
           }`}
@@ -2975,7 +3305,7 @@ function PlanPreviewPanel({
             <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
           )}
           {/* Subtle ambient pulse when fully ready */}
-          {allSet && canBuild && !isCreating && (
+          {allPrimarySet && canBuild && !isCreating && (
             <span className="absolute inset-0 bg-primary/30 animate-pulse rounded-lg opacity-30 pointer-events-none" />
           )}
           {isCreating ? (
@@ -2987,25 +3317,25 @@ function PlanPreviewPanel({
             <>
               <Sparkles
                 size={14}
-                className={`relative z-10 ${allSet ? "drop-shadow-[0_0_4px_rgba(255,255,255,0.6)]" : ""}`}
+                className={`relative z-10 ${allPrimarySet ? "drop-shadow-[0_0_4px_rgba(255,255,255,0.6)]" : ""}`}
               />
               <span className="relative z-10">
-                {allSet ? "Generate your world" : "Generate world"}
+                {allPrimarySet ? "Generate your world" : "Generate world"}
               </span>
             </>
           )}
         </button>
         {!canBuild && !isCreating && (
           <div className="text-[10.5px] text-text-tertiary text-center leading-snug">
-            {setCount === 0
+            {setCountAll === 0
               ? "Tell the agent what you want to build."
               : "Fill at least one slot to enable build."}
           </div>
         )}
-        {canBuild && !isCreating && setCount < totalSlots && (
+        {canBuild && !isCreating && setCountAll < totalSlots && (
           <div className="text-[10.5px] text-text-tertiary text-center leading-snug">
-            Building with {setCount} of {totalSlots} slots — defaults fill the
-            rest.
+            Building with {setCountAll} of {totalSlots} slots — defaults fill
+            the rest.
           </div>
         )}
       </div>
@@ -3013,7 +3343,72 @@ function PlanPreviewPanel({
   );
 }
 
-function getEmptyPrompt(key: (typeof PLAN_SLOTS)[number]["key"]): string {
+/**
+ * Per-secondary-slot count getter — used by the panel's compact
+ * row rendering. Lookup table of `OnboardingPlan` array
+ * lengths; the wildernessBoundary slot is a singleton (returns 1
+ * when set, 0 when null).
+ */
+function secondarySlotCount(plan: OnboardingPlan, key: PlanSlotKey): number {
+  switch (key) {
+    case "zones":
+      return plan.zones.length;
+    case "resources":
+      return plan.resources.length;
+    case "stations":
+      return plan.stations.length;
+    case "teleports":
+      return plan.teleports.length;
+    case "roads":
+      return plan.roads.length;
+    case "pois":
+      return plan.pois.length;
+    case "dangerSources":
+      return plan.dangerSources.length;
+    case "waterBodies":
+      return plan.waterBodies.length;
+    case "musicZones":
+      return plan.musicZones.length;
+    case "ambientZones":
+      return plan.ambientZones.length;
+    case "sfxTriggers":
+      return plan.sfxTriggers.length;
+    case "mines":
+      return plan.mines.length;
+    case "wildernessBoundary":
+      return plan.wildernessBoundary !== null ? 1 : 0;
+    case "assets":
+      return plan.assets.length;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * One-line summary string for a secondary slot — shows in the
+ * collapsed view. Empty slots show the empty prompt as
+ * placeholder text; set slots show count + first-entry name.
+ */
+function secondarySlotSummary(plan: OnboardingPlan, key: PlanSlotKey): string {
+  const count = secondarySlotCount(plan, key);
+  if (count === 0) {
+    const slot = PLAN_SLOTS.find((s) => s.key === key);
+    return slot ? `Not yet placed` : "—";
+  }
+  // Wilderness is the singleton; everything else is an array.
+  if (key === "wildernessBoundary") {
+    const wb = plan.wildernessBoundary as { points?: unknown[] } | null;
+    const ptCount = Array.isArray(wb?.points) ? wb!.points.length : 0;
+    return `${ptCount}-point boundary`;
+  }
+  const arrayKey = key as Exclude<PlanSlotKey, "wildernessBoundary">;
+  const arr = plan[arrayKey as keyof OnboardingPlan] as unknown[];
+  const first = (arr?.[0] ?? {}) as { id?: string; name?: string };
+  const firstLabel = first.name ?? first.id ?? "(unnamed)";
+  return count === 1 ? firstLabel : `${count} placed · ${firstLabel}, …`;
+}
+
+function getEmptyPrompt(key: PlanSlotKey): string {
   return PLAN_SLOTS.find((s) => s.key === key)!.emptyPrompt;
 }
 
