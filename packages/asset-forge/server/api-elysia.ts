@@ -498,6 +498,49 @@ console.log(`📊 Health check: http://localhost:${API_PORT}/api/health`);
 console.log(`🖼️  Temp images: http://localhost:${API_PORT}/temp-images/`);
 console.log(`✨ Performance: 22x faster than Express!`);
 
+// ────────────────────────────────────────────────────────────
+// Built-in content pack bootstrap — UE5 "Engine/" content
+// pattern: every install of asset-forge ships with a fixed
+// catalog of themed content packs that auto-bootstrap into the
+// `asset_packs` table on server start. No manual seeder run
+// required for first-boot or for picking up new packs added in
+// code.
+//
+// Idempotent — UPSERTs by manifest_id; re-runs replace only
+// when the in-code `packVersion` changes. Soft-fails per-pack
+// so one broken manifest doesn't block the rest. Async
+// fire-and-forget to keep server boot fast; the seed completes
+// in the background while the API is already accepting
+// requests (route handlers gracefully see an empty catalog
+// during the brief seed window).
+// ────────────────────────────────────────────────────────────
+import("./builtins/content-packs")
+  .then(({ upsertBuiltinContentPacks, BUILTIN_CONTENT_PACKS }) => {
+    void import("pg").then(async ({ Pool }) => {
+      const url =
+        process.env.DATABASE_URL ||
+        `postgresql://${process.env.FORGE_POSTGRES_USER || "forge"}:${process.env.FORGE_POSTGRES_PASSWORD || "forge_dev_password"}@localhost:${process.env.FORGE_POSTGRES_PORT || "5489"}/${process.env.FORGE_POSTGRES_DB || "forge"}`;
+      const pool = new Pool({ connectionString: url });
+      try {
+        const { ok, failed } = await upsertBuiltinContentPacks(pool);
+        console.log(
+          `📦 Built-in content packs: ${ok}/${BUILTIN_CONTENT_PACKS.length} ready` +
+            (failed > 0 ? ` (${failed} failed)` : ""),
+        );
+      } catch (err) {
+        console.warn(
+          "📦 Built-in content packs bootstrap failed (server still running):",
+          err,
+        );
+      } finally {
+        await pool.end();
+      }
+    });
+  })
+  .catch((err) => {
+    console.warn("📦 Built-in content packs module load failed:", err);
+  });
+
 if (!process.env.MESHY_API_KEY) {
   console.warn("⚠️  MESHY_API_KEY not found - Meshy retexturing will fail");
 }
