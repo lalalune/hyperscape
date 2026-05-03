@@ -35,6 +35,7 @@ import { GameBuilderService } from "../services/GameBuilderService.js";
 import {
   autoFillAssetRefDetailed,
   describeAutoFillMiss,
+  isStrictAutoFillFailure,
   validateAssetRef,
 } from "./placementValidators.js";
 import { readObjectField } from "./shared.js";
@@ -109,7 +110,10 @@ export const proposeMobSpawnAction: Action = {
     // Auto-fill assetRef when omitted — try to match mobId against
     // an exact pack-entry id first ("goblin" mob → goblin entry in
     // mobs pack). Falls back to any creature-type asset if no exact
-    // match. Skipped when AI provided assetRef explicitly.
+    // match. Strict mode: when the auto-fill can't pick because
+    // packs ARE installed but none have a matching mob model,
+    // REJECT with a clear next-action instruction. Graceful mode:
+    // when no packs at all are installed, accept with a warning.
     let autoFilledRef: string | null = null;
     let autoFillMissHint: string | null = null;
     const providedRef = (spawn as { assetRef?: string }).assetRef;
@@ -129,6 +133,21 @@ export const proposeMobSpawnAction: Action = {
           "mobSpawn",
           spawn.mobId,
         );
+        if (isStrictAutoFillFailure(result.missReason)) {
+          const text =
+            autoFillMissHint ??
+            `Mob spawn rejected — no installed asset pack contributes a model for mobId "${spawn.mobId}". Call LIST_ASSET_PACKS, install a pack with creature-type assets via PROPOSE_ASSET_PACK_INSTALL, then retry.`;
+          await callback?.({ text, error: true });
+          return {
+            success: false,
+            text,
+            data: {
+              kind: "mobSpawn",
+              mobId: spawn.mobId,
+              missReason: result.missReason,
+            } as unknown as ProviderDataRecord,
+          };
+        }
       }
     }
 

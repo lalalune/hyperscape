@@ -239,6 +239,40 @@ export function autoFillAssetRefDetailed(
 }
 
 /**
+ * Strict-mode classifier — returns true when an auto-fill
+ * miss should HARD-REJECT the placement instead of letting it
+ * through with a placeholder. The user requirement is "no fake
+ * stuff": every NPC / mob / resource / station must resolve to
+ * a real model from a real installed pack. The miss reasons
+ * that mean "packs were available but no match" are strict
+ * failures; the ones that mean "graceful degradation"
+ * (no-context, no-packs-installed) are accepted with a warning.
+ *
+ * Strict failures:
+ *   - no-matching-plugin-type    — entity type isn't contributed
+ *                                  by any installed plugin
+ *   - no-accepted-asset-types    — type contributed but declares
+ *                                  no acceptedAssetTypes
+ *   - no-matching-pack-asset     — packs installed but none
+ *                                  contribute the expected asset type
+ *
+ * Graceful (allow with warning):
+ *   - no-context                 — no project context yet
+ *                                  (onboarding / synthetic call)
+ *   - no-packs-installed         — empty project; there's
+ *                                  literally nothing to match against
+ */
+export function isStrictAutoFillFailure(
+  missReason: AutoFillResult["missReason"],
+): boolean {
+  return (
+    missReason === "no-matching-plugin-type" ||
+    missReason === "no-accepted-asset-types" ||
+    missReason === "no-matching-pack-asset"
+  );
+}
+
+/**
  * Render an auto-fill miss as a one-line agent-facing hint
  * pointing at the next concrete action the agent should take.
  */

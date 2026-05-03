@@ -39,6 +39,7 @@ import { GameBuilderService } from "../services/GameBuilderService.js";
 import {
   autoFillAssetRefDetailed,
   describeAutoFillMiss,
+  isStrictAutoFillFailure,
   validateAssetRef,
   validatePlacementType,
 } from "./placementValidators.js";
@@ -125,10 +126,13 @@ export const proposeNpcPlacementAction: Action = {
 
     // Auto-fill assetRef when omitted — pick the first matching
     // asset whose `type` is in the entity type's
-    // `acceptedAssetTypes`. Best-effort; on miss, surface a
-    // structured hint so the agent knows the next concrete
-    // action (install pack / pick different type / set ref
-    // explicitly) instead of getting a silent placeholder.
+    // `acceptedAssetTypes`. Strict mode: when the auto-fill
+    // can't pick because packs ARE installed but none match,
+    // REJECT the placement with a clear instruction instead of
+    // letting a placeholder cube into the scene. Graceful mode:
+    // when no packs are installed at all (empty project /
+    // synthetic test), accept with a warning so the agent's
+    // onboarding flow isn't blocked before a pack is added.
     let autoFilledRef: string | null = null;
     let autoFillMissHint: string | null = null;
     const providedRef = (entity as { assetRef?: string }).assetRef;
@@ -139,6 +143,26 @@ export const proposeNpcPlacementAction: Action = {
         entity = { ...entity, assetRef: autoFilledRef };
       } else {
         autoFillMissHint = describeAutoFillMiss(result, "npc", entity.type);
+        // Strict rejection — packs were available but none
+        // contributed a usable model for this entity type.
+        // Letting this through would render as a colored
+        // placeholder cube in the viewport; instead the agent
+        // gets a clear next-action instruction.
+        if (isStrictAutoFillFailure(result.missReason)) {
+          const text =
+            autoFillMissHint ??
+            `NPC rejected — no installed asset pack contributes a model for type "${entity.type}". Call LIST_ASSET_PACKS, then PROPOSE_ASSET_PACK_INSTALL with a pack that has a matching asset type, then retry.`;
+          await callback?.({ text, error: true });
+          return {
+            success: false,
+            text,
+            data: {
+              kind: "npc",
+              providedType: entity.type,
+              missReason: result.missReason,
+            } as unknown as ProviderDataRecord,
+          };
+        }
       }
     }
 
