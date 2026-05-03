@@ -1438,6 +1438,39 @@ export const DEFAULT_VEGETATION_CONFIG: VegetationConfig = {
     scaleVariation: [1.0, 1.2],
     maxSlope: 1.5,
   },
+  /**
+   * `default` biome — engine baseline (the single neutral biome
+   * shipped in `GAME_BIOME_DEFINITIONS` per
+   * `PLAN_AAA_CONTENT_SYSTEM.md` Phase C). Without this entry,
+   * projects whose only biome is `default` (truly-blank — no
+   * Hyperia plugin, no themed content pack) scatter zero trees
+   * because the procgen scatterer keys vegetation config by
+   * biomeId. Adds a moderate-density mixed-tree scatter so a
+   * blank project still has SOMETHING green growing.
+   *
+   * Tree species are shared procgen presets (`tree_general`,
+   * `tree_oak`, `tree_pine`) — generic shapes that work for any
+   * climate. Phase C3 of `PLAN_AAA_CONTENT_SYSTEM.md` will
+   * replace this with content-pack-contributed vegetation
+   * species, at which point the default biome's trees come
+   * from whichever content pack is installed.
+   */
+  default: {
+    enabled: true,
+    trees: {
+      tree_general: { weight: 40, maxHeight: 60 },
+      tree_oak: { weight: 30, maxHeight: 60 },
+      tree_pine: { weight: 30, minHeight: 30 },
+    },
+    density: 30,
+    minSpacing: 5,
+    clustering: false,
+    clusterSize: 0,
+    clusterRadius: 0,
+    clusterSpacing: 0,
+    scaleVariation: [0.9, 1.1],
+    maxSlope: 1.2,
+  },
 };
 
 /**
