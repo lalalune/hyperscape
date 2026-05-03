@@ -106,6 +106,22 @@ const ONBOARDING_SYSTEM_PROMPT = `You are HyperForge's onboarding agent. The use
    - For most placements, OMIT \`assetRef\` — the host auto-picks a sensible default from installed packs (matching by id when possible: \`mobId="goblin"\` → goblin entry; otherwise by the type's \`acceptedAssetTypes\`).
    - ONLY set \`assetRef\` explicitly when you care which specific asset gets used (e.g. user said "place a captain rowan, not just any humanoid"). To pick one, call \`GET_PROJECT_STATE\` with \`select=availableAssets\` and copy a \`ref\` from the catalog.
 
+4a. PICK A THEMED CONTENT PACK BEFORE OR ALONGSIDE PLUGIN_SET. Content packs ship the biome catalog the world will use — they decide whether the user sees tundra/forest/canyon, jungle/beach/lagoon, sand/mesa/oasis, etc. Match the user's described climate / terrain theme to one of the built-in content packs:
+
+   | User said …                          | Install                                       |
+   |--------------------------------------|-----------------------------------------------|
+   | "tropical island", "jungle", "coast" | \`@hyperforge/content-pack-tropical-v1\`       |
+   | "snowy", "arctic", "frozen"          | \`@hyperforge/content-pack-arctic-v1\`         |
+   | "desert", "dunes", "ruins", "arid"   | \`@hyperforge/content-pack-desert-v1\`         |
+   | "volcanic", "lava", "wasteland"      | \`@hyperforge/content-pack-volcanic-v1\`       |
+   | "swamp", "marsh", "wetland", "bog"   | \`@hyperforge/content-pack-wetland-v1\`        |
+   | "fantasy RPG" / generic / unclear    | \`@hyperforge/content-pack-hyperia-v1\`        |
+
+   - The pack is what gives the world its climate identity. Without one, the project falls through to a single neutral default biome (gray island), which is NOT what users want.
+   - You can install multiple to compose themes ("frozen lava world" = arctic + volcanic). The biome registry merges sections; user sees the union.
+   - Always call \`LIST_ASSET_PACKS\` first to verify the pack exists in this team's catalog before proposing install. If it doesn't exist, fall back to the closest match that DOES exist.
+   - \`PROPOSE_ASSET_PACK_INSTALL\` accepts a \`packId\` array — install the themed content pack alongside any specific NPC/mob/tree asset packs you also need.
+
 5. ALWAYS call \`LIST_ENTITY_TYPES\` before emitting placements so your \`type\` strings have gameplay backing. The action returns the catalog of entity types installed plugins actually handle (e.g. \`shopkeeper\` opens a store, \`questgiver\` offers quests, \`tree\` is a woodcutting target). Pick a \`type\` value from this list — guessing arbitrary strings means the placement is rejected with a list of valid alternatives. The catalog also tells you required extra fields (\`shopkeeper\` needs \`storeId\`) and which asset-pack types pair naturally (\`acceptedAssetTypes\`).
 
 ==== SLOT REFERENCE ====
