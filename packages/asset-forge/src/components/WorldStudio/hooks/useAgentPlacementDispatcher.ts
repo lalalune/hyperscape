@@ -317,18 +317,32 @@ export function useAgentPlacementDispatcher(): AgentPlacementDispatcher {
           }),
         );
       },
-      placeMine: (mine) =>
-        // No `updateMine` action exists today, so deferred snap
-        // can't auto-correct mines placed before scene-ready.
-        // Practical impact small (mines have a large radius —
-        // a slightly-off y is less visible than a misplaced
-        // NPC). Add a `updateMine` action + late-snap callback
-        // here in a follow-up.
-        actions.addMine(snapToTerrain(worldAreaMineToPlaced(mine, offset))),
-      placeWildernessBoundary: (boundary) =>
+      placeMine: (mine) => {
+        const placed = worldAreaMineToPlaced(mine, offset);
+        actions.addMine(
+          // Snap the mine center to terrain. When the querier
+          // isn't ready yet, defer — the new `updateMine`
+          // reducer action lets the late-snap callback
+          // overwrite the position once the scene comes online.
+          snapToTerrain(placed, (snappedY) => {
+            actions.updateMine(placed.id, {
+              position: { ...placed.position, y: snappedY },
+            });
+          }),
+        );
+      },
+      placeWildernessBoundary: (boundary) => {
+        // Wilderness boundary is a polyline — each {x, z} point
+        // sits on the terrain edge. The points carry no y today
+        // (it's a 2D polyline rendered at terrain height per
+        // segment), so this dispatcher just forwards the
+        // shape; the renderer samples terrain height per vertex
+        // when drawing the boundary line. No snap needed at
+        // this layer.
         actions.setWildernessBoundary(
           worldAreaWildernessBoundaryToPlaced(boundary, offset),
-        ),
+        );
+      },
       isOnLand,
       worldCenterOffset: offset,
     }),

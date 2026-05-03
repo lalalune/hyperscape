@@ -617,6 +617,7 @@ export type StudioSpecificAction =
     }
   | { type: "BATCH_ADD_MINES"; mines: PlacedMine[] }
   | { type: "ADD_MINE"; mine: PlacedMine }
+  | { type: "UPDATE_MINE"; id: string; updates: Partial<PlacedMine> }
   | { type: "REMOVE_MINE"; id: string }
   | { type: "CLEAR_ALL_AUTOGEN" }
   // Move a single town to a new position

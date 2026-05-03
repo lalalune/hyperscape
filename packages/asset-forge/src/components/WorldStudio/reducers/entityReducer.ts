@@ -298,9 +298,11 @@ export function entityReducer(
     case "REMOVE_WATER_BODY":
       return removeEntity(state, "waterBodies", action.id);
 
-    // --- Mines (ADD + REMOVE + batch) ---
+    // --- Mines (ADD + UPDATE + REMOVE + batch) ---
     case "ADD_MINE":
       return addEntity(state, "mines", action.mine);
+    case "UPDATE_MINE":
+      return updateEntity(state, "mines", action.id, action.updates);
     case "REMOVE_MINE":
       return removeEntity(state, "mines", action.id);
     case "BATCH_ADD_MINES":

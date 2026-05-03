@@ -416,6 +416,7 @@ interface WorldStudioContextValue {
     ) => void;
     batchAddMines: (mines: PlacedMine[]) => void;
     addMine: (mine: PlacedMine) => void;
+    updateMine: (id: string, updates: Partial<PlacedMine>) => void;
     removeMine: (id: string) => void;
     clearAllAutogen: () => void;
 
@@ -965,6 +966,8 @@ export function WorldStudioProvider({
       batchAddMines: (mines: PlacedMine[]) =>
         dispatch({ type: "BATCH_ADD_MINES", mines }),
       addMine: (mine: PlacedMine) => dispatch({ type: "ADD_MINE", mine }),
+      updateMine: (id: string, updates: Partial<PlacedMine>) =>
+        dispatch({ type: "UPDATE_MINE", id, updates }),
       removeMine: (id: string) => dispatch({ type: "REMOVE_MINE", id }),
       clearAllAutogen: () => dispatch({ type: "CLEAR_ALL_AUTOGEN" }),
 
