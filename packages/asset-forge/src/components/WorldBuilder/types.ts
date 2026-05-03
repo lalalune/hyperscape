@@ -1525,16 +1525,22 @@ export const MINIMAL_CREATION_CONFIG: WorldCreationConfig = {
   // Roads only generate between towns; with townCount: 0 this is
   // dead config but kept for type compatibility.
   roads: DEFAULT_ROAD_CONFIG,
-  // Vegetation enabled per biome with EMPTY species maps. The
-  // procgen pipeline runs its biome-coloring + grass passes but
-  // places no Hyperia-specific trees. A plugin contributing
-  // vegetation profiles (R3.P3) supplies its own species.
-  vegetation: Object.fromEntries(
-    Object.entries(DEFAULT_VEGETATION_CONFIG).map(([biomeName, biomeCfg]) => [
-      biomeName,
-      { ...biomeCfg, enabled: true, trees: {} },
-    ]),
-  ) as VegetationConfig,
+  // Vegetation: full `DEFAULT_VEGETATION_CONFIG` (Hyperia tree
+  // species per biome). AI-onboarding projects auto-install
+  // `@hyperforge/asset-pack-hyperia-trees-v1` (commit
+  // c52f3e988), so the species ids in the config (`tree_oak`,
+  // `tree_pine`, `tree_palm`, …) resolve to real GLB models on
+  // load. The earlier `trees: {}` override produced empty
+  // procgen scatter regardless of installed packs — the
+  // user's "no trees" complaint.
+  //
+  // Future: once Phase C3 of `PLAN_AAA_CONTENT_SYSTEM.md` lands
+  // (procgen reads vegetation species from `contentRegistry`),
+  // this config becomes a hint; the registry overrides per
+  // installed content pack. Tropical / desert / shooter packs
+  // contribute their own species; this default is the engine
+  // fallback equivalent to UE5's "Engine/" content folder.
+  vegetation: DEFAULT_VEGETATION_CONFIG,
 };
 
 /**
