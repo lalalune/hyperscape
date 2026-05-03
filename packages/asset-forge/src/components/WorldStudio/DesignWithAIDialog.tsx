@@ -2034,29 +2034,35 @@ export function DesignWithAIDialog({
       collectRefs(effectivePlan.mines);
 
       // AAA-baseline auto-install — every AI-generated project
-      // receives the Hyperia content pack + the trees asset pack
-      // even when the agent didn't reference them explicitly.
-      // Mirrors UE5's "Third Person Template" + "Engine/" content
-      // approach: new projects ship with sensible default
-      // material / mesh / vegetation assets so the world isn't
-      // empty out of the box. The user can uninstall later via
-      // the marketplace UI; the engine baseline biome (one
-      // neutral default in `GAME_BIOME_DEFINITIONS`) keeps the
-      // world renderable even after every pack is removed.
+      // gets at least ONE biome content pack so the world isn't
+      // empty out of the box. Mirrors UE5's "Third Person
+      // Template" pattern: new projects ship with sensible
+      // defaults; the user can uninstall later. The engine
+      // baseline biome (one neutral default in
+      // `GAME_BIOME_DEFINITIONS`) keeps the world renderable
+      // even after every pack is removed.
       //
-      // Why these specific packs:
-      //   - `content-pack-hyperia-v1` carries the biome catalog
-      //     (tundra/forest/canyon) + future shaders/vegetation
-      //     sections (Phase C3/C4 follow-ups).
-      //   - `asset-pack-hyperia-trees-v1` carries the actual GLB
-      //     tree models that the procgen vegetation scatterer
-      //     and `tree_oak`/`tree_pine` resolution paths consume.
+      // Themed content pack policy:
+      //   - If the agent has already proposed any
+      //     `@hyperforge/content-pack-*` (e.g. tropical, arctic,
+      //     desert, volcanic, wetland — see the
+      //     `seed-themed-content-packs.ts` catalog), use that.
+      //     The agent's pick should match the user's described
+      //     theme.
+      //   - Otherwise default to Hyperia (tundra/forest/canyon)
+      //     as the safe fallback for "generic fantasy RPG".
       //
-      // If the agent has already proposed a different content
-      // pack (e.g. `@hyperforge/content-pack-tropical-v1` once
-      // those exist), it stays — these defaults compose, they
-      // don't replace.
-      refPackIds.add("@hyperforge/content-pack-hyperia-v1");
+      // Trees asset pack: always installed, since today's procgen
+      // vegetation scatterer expects the Hyperia tree GLBs
+      // regardless of biome theme. Phase C3 (procgen reads
+      // species from `contentRegistry`) replaces this with
+      // theme-specific trees per content pack.
+      const hasThemedContentPack = Array.from(refPackIds).some((id) =>
+        id.startsWith("@hyperforge/content-pack-"),
+      );
+      if (!hasThemedContentPack) {
+        refPackIds.add("@hyperforge/content-pack-hyperia-v1");
+      }
       refPackIds.add("@hyperforge/asset-pack-hyperia-trees-v1");
 
       const allPackIds = Array.from(refPackIds);
