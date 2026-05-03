@@ -175,7 +175,26 @@ export function resolveLayersFromCreateInput(input: {
 export function synthLegacyBlob(
   layers: ProjectLayers,
 ): Record<string, unknown> {
-  if (layers.templateId === "hyperia") {
+  // The `_placeholder: true` sentinel signals "this project
+  // needs procgen on first open — no terrain has been generated
+  // yet." The loader checks `rawData._placeholder === true` and
+  // routes to `generateWorldFromConfig` instead of
+  // `deserializeWorld(rawData)` (which would crash on an empty
+  // blob).
+  //
+  // Pre-Phase-E this was just `templateId === "hyperia"` (the
+  // only template that ran procgen). Phase E
+  // (PLAN_AAA_CONTENT_SYSTEM) introduced project packs whose
+  // `templateId` is the manifest id (e.g.
+  // `@hyperforge/project-pack-hyperia-v1`). Any project pack
+  // fork needs the same first-open procgen behaviour, so the
+  // condition widens to recognize the canonical project-pack
+  // id prefix.
+  const needsFirstOpenProcgen =
+    layers.templateId === "hyperia" ||
+    (layers.templateId !== null &&
+      layers.templateId.startsWith("@hyperforge/project-pack-"));
+  if (needsFirstOpenProcgen) {
     return { _placeholder: true };
   }
   return layers.config !== null ? { config: layers.config } : {};

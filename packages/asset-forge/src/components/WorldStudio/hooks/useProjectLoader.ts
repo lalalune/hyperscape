@@ -288,8 +288,19 @@ export function useProjectLoader(projectId: string) {
         // sentinel for rows that haven't been migrated through the
         // 0007_project_typed_layers backfill yet.
         const rawData = project.worldData as Record<string, unknown>;
+        // "Needs first-open procgen" — true for the legacy
+        // Hyperia template, the `_placeholder: true` sentinel
+        // (synthLegacyBlob path), and any project pack fork
+        // (templateId is the canonical
+        // `@hyperforge/project-pack-*` id). Variable kept named
+        // `isHyperiaTemplate` for blame-readability with prior
+        // commits; semantically it's the broader "this project
+        // hasn't run procgen yet" gate.
         const isHyperiaTemplate =
-          project.templateId === "hyperia" || rawData?._placeholder === true;
+          project.templateId === "hyperia" ||
+          (project.templateId !== null &&
+            project.templateId.startsWith("@hyperforge/project-pack-")) ||
+          rawData?._placeholder === true;
         const hasGeneratedTerrain =
           rawData &&
           typeof rawData === "object" &&
