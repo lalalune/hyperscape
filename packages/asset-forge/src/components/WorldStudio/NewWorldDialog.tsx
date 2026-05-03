@@ -12,8 +12,13 @@
  *   - **Start blank** — empty flat-ish terrain (no towns, no
  *     vegetation, no plugins). Designer/agent fills it later.
  *
- *   - **Start from template** — clone a saved template (Hyperia
- *     today; future contributed templates). Reveals a sub-picker.
+ *   - **Fork a starter game** — one-click clone of a complete
+ *     project pack (plugins + content packs + assets all
+ *     installed). Hyperia is the canonical reference; future
+ *     packs (themed RPGs, shooters, etc.) auto-appear from the
+ *     marketplace + built-in catalog. Internally calls
+ *     `forkProjectPack` → `/api/project-packs/fork`. The mode
+ *     `key` stays `"template"` for backward compat with state.
  *
  * Substrate (Project schema, plugin set resolution, agent action
  * surface) is shipped in B0'.A–B0'.J. This dialog is the user-
@@ -232,8 +237,8 @@ export function NewWorldDialog({
                 disabled={isCreating}
               />
               <ModeCard
-                title="Start from template"
-                description="Clone a saved template. Hyperia (the reference RPG) is included as a sample to study or fork."
+                title="Fork a starter game"
+                description="One-click clone of a complete game — plugins + content packs + assets all installed. Hyperia (the reference RPG) is included; pick from any project pack in the catalog."
                 icon={Wand2}
                 selected={mode === "template"}
                 onSelect={() => setMode("template")}
@@ -355,6 +360,11 @@ export function NewWorldDialog({
               <>
                 <Sparkles size={14} />
                 Start with AI
+              </>
+            ) : mode === "template" ? (
+              <>
+                <Wand2 size={14} />
+                Fork project pack
               </>
             ) : (
               <>
