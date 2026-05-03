@@ -7,7 +7,6 @@ import { Elysia, t } from "elysia";
 import { authDerive, requireAuthGuard } from "../middleware/auth";
 import { TeamService } from "../services/TeamService";
 import { WorldProjectService } from "../services/WorldProjectService";
-import { ProjectTemplateService } from "../services/ProjectTemplateService";
 import { AuditLogService } from "../services/AuditLogService";
 import * as WS from "../models/world-studio.models";
 import * as Models from "../models";
@@ -17,7 +16,6 @@ export const createWorldProjectRoutes = (
   teamService: TeamService,
   worldProjectService: WorldProjectService,
   auditLogService: AuditLogService,
-  templateService: ProjectTemplateService,
 ) => {
   return new Elysia({
     prefix: "/api/world/projects",
@@ -50,33 +48,27 @@ export const createWorldProjectRoutes = (
               return { error: "project:create permission required" };
             }
 
-            // B0'.B: resolve typed project layers. When the caller
-            // supplies a `templateId`, clone the template and use
-            // its layers; that path is preferred. Otherwise, fall
-            // back to the legacy `worldData` blob — `create()` will
-            // decode it via `resolveLayersFromCreateInput`.
-            let templateLayers: Awaited<
-              ReturnType<typeof templateService.clone>
-            > | null = null;
-            if (body.templateId) {
-              templateLayers = templateService.clone(body.templateId);
-              if (!templateLayers) {
-                set.status = 400;
-                return { error: `Unknown template: ${body.templateId}` };
-              }
-            }
+            // Phase E of `PLAN_AAA_CONTENT_SYSTEM.md` consolidated
+            // the "create from template" path. ProjectPackService
+            // (POST /api/project-packs/fork) handles the AAA
+            // "fork an entire game" flow — plugins + content
+            // packs + initial config + worldContent from a
+            // ProjectPackManifest. This route's `templateId`
+            // field stays as a marker on the project record (so
+            // analytics / project listing know the source) but
+            // doesn't trigger any clone-from-template behavior.
+            // Pre-Phase-E callers passing `templateId: "blank"`
+            // continue to work — the "blank" string just lands
+            // on the column verbatim.
 
             const project = await worldProjectService.create({
               teamId: game.teamId,
               gameId: body.gameId,
               name: body.name,
               description: body.description,
-              ...(templateLayers
+              ...(body.templateId
                 ? {
-                    config: templateLayers.config,
-                    plugins: templateLayers.plugins,
-                    worldContent: templateLayers.worldContent,
-                    templateId: templateLayers.templateId ?? body.templateId,
+                    templateId: body.templateId,
                   }
                 : {}),
               ...(body.worldData

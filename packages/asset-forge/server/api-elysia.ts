@@ -60,7 +60,6 @@ import { ProcgenPresetService } from "./services/ProcgenPresetService";
 import { TeamService } from "./services/TeamService";
 import { AuditLogService } from "./services/AuditLogService";
 import { WorldProjectService } from "./services/WorldProjectService";
-import { ProjectTemplateService } from "./services/ProjectTemplateService";
 import { PluginRegistryService } from "./services/PluginRegistryService";
 import { GameModuleService } from "./services/GameModuleService";
 import { ScriptService } from "./services/ScriptService";
@@ -75,7 +74,6 @@ import { createAuthRoutes } from "./routes/auth";
 import { createTeamRoutes, createInviteAcceptRoute } from "./routes/teams";
 import { createGameRoutes } from "./routes/games";
 import { createWorldProjectRoutes } from "./routes/world-projects";
-import { createWorldProjectTemplatesRoute } from "./routes/world-project-templates";
 import { createPluginRegistryRoutes } from "./routes/plugin-registry";
 import { createAssetPackRoutes } from "./routes/asset-packs";
 import { createContentPackRoutes } from "./routes/content-packs";
@@ -147,7 +145,6 @@ const procgenPresetService = new ProcgenPresetService();
 const teamService = new TeamService();
 const auditLogService = new AuditLogService();
 const worldProjectService = new WorldProjectService();
-const projectTemplateService = new ProjectTemplateService();
 const pluginRegistryService = new PluginRegistryService();
 const assetPackService = new AssetPackService();
 const projectPackService = new ProjectPackService(worldProjectService);
@@ -471,14 +468,8 @@ const app = new Elysia()
   .use(createInviteAcceptRoute(teamService))
   .use(createGameRoutes(teamService, auditLogService, uiLayoutService))
   .use(
-    createWorldProjectRoutes(
-      teamService,
-      worldProjectService,
-      auditLogService,
-      projectTemplateService,
-    ),
+    createWorldProjectRoutes(teamService, worldProjectService, auditLogService),
   )
-  .use(createWorldProjectTemplatesRoute(projectTemplateService))
   .use(createPluginRegistryRoutes(pluginRegistryService))
   .use(createAssetPackRoutes(assetPackService, teamService))
   .use(createContentPackRoutes(assetPackService, worldProjectService))

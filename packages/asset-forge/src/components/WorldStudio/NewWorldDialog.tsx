@@ -24,16 +24,14 @@ import { AlertTriangle, Globe, Loader2, Sparkles, Wand2 } from "lucide-react";
 import React, { useEffect, useState, useCallback } from "react";
 
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../common/Modal";
-import {
-  BLANK_CREATION_CONFIG,
-  HYPERIA_CREATION_CONFIG,
-} from "../WorldBuilder/types";
+import { BLANK_CREATION_CONFIG } from "../WorldBuilder/types";
 import { generateWorldFromConfig } from "../WorldBuilder/worldGeneration";
 import { serializeWorld } from "../WorldBuilder/utils/worldPersistence";
 import {
   createWorldProject,
-  listProjectTemplates,
-  type ProjectTemplate,
+  forkProjectPack,
+  listProjectPacks,
+  type ProjectPack,
 } from "../../utils/worldProjectApi";
 import { DesignWithAIDialog } from "./DesignWithAIDialog";
 
@@ -71,32 +69,31 @@ export function NewWorldDialog({
    */
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
 
-  // Templates loaded for the "Start from template" sub-picker.
-  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(true);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    null,
-  );
+  // Project packs loaded for the "Start from template"
+  // sub-picker. Replaces the prior `listProjectTemplates`
+  // (hardcoded TS list) with `/api/project-packs` — the
+  // unified DB-backed catalog populated by the server's
+  // built-in bootstrap (`server/builtins/project-packs.ts`)
+  // plus marketplace + team uploads.
+  const [packs, setPacks] = useState<ProjectPack[]>([]);
+  const [packsLoading, setPacksLoading] = useState(true);
+  const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    listProjectTemplates()
+    listProjectPacks()
       .then((list) => {
         if (cancelled) return;
-        // Filter out the "blank" template — that path has its own
-        // top-level card now. The sub-picker is for non-blank
-        // templates only.
-        const nonBlank = list.filter((t) => t.id !== "blank");
-        setTemplates(nonBlank);
-        if (nonBlank[0]) setSelectedTemplateId(nonBlank[0].id);
+        setPacks(list);
+        if (list[0]) setSelectedPackId(list[0].manifestId);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
         // eslint-disable-next-line no-console
-        console.warn("[NewWorldDialog] template fetch failed:", err);
+        console.warn("[NewWorldDialog] project pack fetch failed:", err);
       })
       .finally(() => {
-        if (!cancelled) setTemplatesLoading(false);
+        if (!cancelled) setPacksLoading(false);
       });
     return () => {
       cancelled = true;
@@ -115,7 +112,7 @@ export function NewWorldDialog({
     }
 
     if (!name.trim()) return;
-    if (mode === "template" && !selectedTemplateId) return;
+    if (mode === "template" && !selectedPackId) return;
 
     setIsCreating(true);
     setError(null);
@@ -124,24 +121,35 @@ export function NewWorldDialog({
       // After the early-return at the top of this handler,
       // `mode` is narrowed to `"blank" | "template"`. AI mode is
       // handled by `DesignWithAIDialog`.
-      const isBlank = mode === "blank";
-      const resolvedTemplateId = isBlank ? "blank" : selectedTemplateId!;
-      // Template mode here is the Hyperia template — the only
-      // non-blank canned template the dialog offers. AI mode routes
-      // through DesignWithAIDialog which makes its own merge-base
-      // choice based on which plugins the agent picks.
-      const baseConfig = isBlank
-        ? BLANK_CREATION_CONFIG
-        : HYPERIA_CREATION_CONFIG;
+      if (mode === "template") {
+        // Project pack fork — the AAA "create from template"
+        // path. One POST → fully-configured project with
+        // plugins + content packs + initial config baked in.
+        // The fork backend reads the manifest's pluginIds /
+        // contentPackIds / initialConfig / initialWorldContent
+        // and writes them onto the new world_projects row;
+        // procgen runs on first open.
+        const result = await forkProjectPack({
+          projectPackId: selectedPackId!,
+          teamId,
+          gameId,
+          name: name.trim(),
+          description: description.trim() || null,
+        });
+        onCreated(result.projectId);
+        return;
+      }
 
-      // Run procgen client-side so the new project has a baked
-      // terrain on first open.
+      // Blank mode — no pack, no template; just create an
+      // empty project. Procgen runs on first open with the
+      // engine baseline (one neutral default biome from
+      // GAME_BIOME_DEFINITIONS, no plugins, no content packs).
       const worldData = await new Promise<ReturnType<typeof serializeWorld>>(
         (resolve, reject) => {
           setTimeout(() => {
             try {
               const config = {
-                ...baseConfig,
+                ...BLANK_CREATION_CONFIG,
                 seed: Math.floor(Math.random() * 2147483647),
               };
               const world = generateWorldFromConfig(config);
@@ -158,7 +166,7 @@ export function NewWorldDialog({
         gameId,
         name: name.trim(),
         description: description.trim() || undefined,
-        templateId: resolvedTemplateId,
+        templateId: "blank",
         worldData,
       });
       onCreated(project.id);
@@ -166,14 +174,14 @@ export function NewWorldDialog({
       setError(err instanceof Error ? err.message : "Failed to create world");
       setIsCreating(false);
     }
-  }, [name, description, teamId, gameId, onCreated, mode, selectedTemplateId]);
+  }, [name, description, teamId, gameId, onCreated, mode, selectedPackId]);
 
   const canCreate =
     !isCreating &&
     // AI mode doesn't require a name here — the conversational
     // dialog derives the project name from the conversation.
     (mode === "ai" || !!name.trim()) &&
-    !(mode === "template" && (!selectedTemplateId || templatesLoading));
+    !(mode === "template" && (!selectedPackId || packsLoading));
 
   // When the AI dialog is open, render it as a sibling overlay
   // *instead* of the picker modal — the picker stays mounted in
@@ -238,25 +246,26 @@ export function NewWorldDialog({
           {mode === "template" && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-text-secondary">
-                Template
+                Project Pack
               </label>
-              {templatesLoading ? (
+              {packsLoading ? (
                 <div className="flex items-center gap-2 p-3 bg-bg-tertiary rounded text-xs text-text-secondary">
                   <Loader2 size={14} className="animate-spin text-primary" />
-                  <span>Loading templates…</span>
+                  <span>Loading project packs…</span>
                 </div>
-              ) : templates.length === 0 ? (
+              ) : packs.length === 0 ? (
                 <div className="p-3 bg-bg-tertiary rounded text-xs text-text-tertiary">
-                  No templates available.
+                  No project packs available. Server bootstrap may still be
+                  running — refresh in a moment.
                 </div>
               ) : (
                 <div className="space-y-1.5" role="radiogroup">
-                  {templates.map((t) => (
-                    <TemplateOption
-                      key={t.id}
-                      template={t}
-                      selected={selectedTemplateId === t.id}
-                      onSelect={() => setSelectedTemplateId(t.id)}
+                  {packs.map((p) => (
+                    <ProjectPackOption
+                      key={p.manifestId}
+                      pack={p}
+                      selected={selectedPackId === p.manifestId}
+                      onSelect={() => setSelectedPackId(p.manifestId)}
                       disabled={isCreating}
                     />
                   ))}
@@ -429,22 +438,23 @@ function ModeCard({
   );
 }
 
-// ────────────────────────── TemplateOption ─────────────────────
+// ────────────────────────── ProjectPackOption ─────────────────────
 
-interface TemplateOptionProps {
-  template: ProjectTemplate;
+interface ProjectPackOptionProps {
+  pack: ProjectPack;
   selected: boolean;
   onSelect: () => void;
   disabled: boolean;
 }
 
-function TemplateOption({
-  template,
+function ProjectPackOption({
+  pack,
   selected,
   onSelect,
   disabled,
-}: TemplateOptionProps) {
-  const pluginCount = template.plugins.length;
+}: ProjectPackOptionProps) {
+  const pluginCount = pack.manifest.pluginIds.length;
+  const contentPackCount = pack.manifest.contentPackIds.length;
   return (
     <button
       type="button"
@@ -470,20 +480,29 @@ function TemplateOption({
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-text-primary">
-            {template.name}
+            {pack.manifest.name}
           </div>
-          <div className="text-xs text-text-secondary mt-0.5">
-            {template.description}
-          </div>
-          {pluginCount > 0 ? (
-            <div className="text-[11px] text-text-tertiary mt-1">
-              Plugins: {template.plugins.join(", ")}
-            </div>
-          ) : (
-            <div className="text-[11px] text-text-tertiary mt-1">
-              No plugins — pure terrain
+          {pack.manifest.description && (
+            <div className="text-xs text-text-secondary mt-0.5">
+              {pack.manifest.description}
             </div>
           )}
+          <div className="text-[11px] text-text-tertiary mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+            {pluginCount > 0 && (
+              <span>
+                {pluginCount} plugin{pluginCount === 1 ? "" : "s"}
+              </span>
+            )}
+            {contentPackCount > 0 && (
+              <span>
+                {contentPackCount} content pack
+                {contentPackCount === 1 ? "" : "s"}
+              </span>
+            )}
+            {pluginCount === 0 && contentPackCount === 0 && (
+              <span>Empty starter — procgen terrain only</span>
+            )}
+          </div>
         </div>
       </div>
     </button>

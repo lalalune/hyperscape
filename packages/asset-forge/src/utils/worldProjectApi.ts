@@ -220,23 +220,79 @@ export async function createWorldProject(data: {
   return res.json();
 }
 
-export interface ProjectTemplate {
-  id: string;
-  name: string;
-  description: string;
-  thumbnailUrl?: string;
-  defaultPick?: boolean;
-  /** Plugin ids the template installs. */
-  plugins: string[];
+/**
+ * Project pack — a forkable starter game. Bundles plugins +
+ * content packs + optional initial config + optional authored
+ * world content. The "template picker" in the New Project
+ * dialog renders these via `listProjectPacks`; user picks one
+ * → `forkProjectPack` creates a fully-configured project.
+ *
+ * Phase E of `PLAN_AAA_CONTENT_SYSTEM.md`. Replaces the prior
+ * `ProjectTemplate` shape — that one was hardcoded TS in
+ * `ProjectTemplateService`, didn't carry `assetPacks`/
+ * `contentPackIds`, and was authoring-closed (required code
+ * changes to add). Project packs are DB-backed, auto-bootstrap
+ * on server start, and authors can ship them via the
+ * marketplace.
+ */
+export interface ProjectPack {
+  manifestId: string;
+  manifest: {
+    id: string;
+    name: string;
+    description?: string;
+    packVersion: string;
+    tags?: string[];
+    pluginIds: string[];
+    contentPackIds: string[];
+  };
+  visibility: string;
+  teamId: string | null;
 }
 
 /**
- * List the available project templates. Used by the New-Project
- * dialog to render the template picker. Phase B0'.B.
+ * List every forkable project pack — built-in + marketplace +
+ * caller's team. Used by the New Project dialog to render the
+ * template picker.
  */
-export async function listProjectTemplates(): Promise<ProjectTemplate[]> {
-  const res = await apiFetch("/api/world/project-templates");
-  if (!res.ok) throw new Error(`Failed to list templates: ${res.status}`);
+export async function listProjectPacks(): Promise<ProjectPack[]> {
+  const res = await apiFetch("/api/project-packs");
+  if (!res.ok) throw new Error(`Failed to list project packs: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Fork a project pack into a new project. The host applies
+ * the manifest's pluginIds + contentPackIds + initialConfig +
+ * initialWorldContent in one server round-trip; the user
+ * opens the resulting project and the world is fully
+ * configured.
+ */
+export async function forkProjectPack(input: {
+  projectPackId: string;
+  teamId: string;
+  gameId: string;
+  name?: string;
+  description?: string | null;
+}): Promise<{
+  ok: true;
+  projectId: string;
+  forkedFrom: string;
+}> {
+  const res = await apiFetch("/api/project-packs/fork", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = (await res.json()) as { message?: string };
+      detail = body.message ? ` — ${body.message}` : "";
+    } catch {
+      /* ignore non-json error bodies */
+    }
+    throw new Error(`Failed to fork project pack: ${res.status}${detail}`);
+  }
   return res.json();
 }
 
