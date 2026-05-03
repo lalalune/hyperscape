@@ -2032,6 +2032,33 @@ export function DesignWithAIDialog({
       collectRefs(effectivePlan.dangerSources);
       collectRefs(effectivePlan.waterBodies);
       collectRefs(effectivePlan.mines);
+
+      // AAA-baseline auto-install — every AI-generated project
+      // receives the Hyperia content pack + the trees asset pack
+      // even when the agent didn't reference them explicitly.
+      // Mirrors UE5's "Third Person Template" + "Engine/" content
+      // approach: new projects ship with sensible default
+      // material / mesh / vegetation assets so the world isn't
+      // empty out of the box. The user can uninstall later via
+      // the marketplace UI; the engine baseline biome (one
+      // neutral default in `GAME_BIOME_DEFINITIONS`) keeps the
+      // world renderable even after every pack is removed.
+      //
+      // Why these specific packs:
+      //   - `content-pack-hyperia-v1` carries the biome catalog
+      //     (tundra/forest/canyon) + future shaders/vegetation
+      //     sections (Phase C3/C4 follow-ups).
+      //   - `asset-pack-hyperia-trees-v1` carries the actual GLB
+      //     tree models that the procgen vegetation scatterer
+      //     and `tree_oak`/`tree_pine` resolution paths consume.
+      //
+      // If the agent has already proposed a different content
+      // pack (e.g. `@hyperforge/content-pack-tropical-v1` once
+      // those exist), it stays — these defaults compose, they
+      // don't replace.
+      refPackIds.add("@hyperforge/content-pack-hyperia-v1");
+      refPackIds.add("@hyperforge/asset-pack-hyperia-trees-v1");
+
       const allPackIds = Array.from(refPackIds);
       if (allPackIds.length > 0) {
         try {
