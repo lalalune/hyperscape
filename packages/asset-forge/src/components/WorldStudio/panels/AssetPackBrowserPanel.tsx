@@ -104,6 +104,23 @@ interface PackManifestSummary {
   assetCount: number;
   tags: string[];
   author?: string;
+  /**
+   * Per `PLAN_AAA_CONTENT_SYSTEM.md` Phase A, the `asset_packs`
+   * table holds unified `ContentPackManifest` blobs that can
+   * carry any combination of typed sections (biomes,
+   * terrainShaders, waterShaders, vegetationSpecies, …) — not
+   * just `assets`. Surfaces section counts so the browser
+   * shows what the pack ACTUALLY contributes, not just
+   * "5 assets" when the pack is really a biome pack.
+   */
+  sectionCounts: ReadonlyArray<{ label: string; count: number }>;
+  /**
+   * High-level kind label. Themed content packs surface with
+   * their climate (Tropical, Arctic, etc.); legacy assets-only
+   * packs show "Asset library". Drives the visual chip in the
+   * pack header so users can scan quickly.
+   */
+  kindLabel: string;
 }
 
 /**
@@ -128,6 +145,66 @@ function visibilityLabel(v: string): {
   }
 }
 
+/**
+ * Inspect each typed section of a unified ContentPack manifest
+ * and produce a count breakdown the UI can display. Sections
+ * that are absent or empty don't appear.
+ */
+function summarizeSections(
+  m: Record<string, unknown>,
+): ReadonlyArray<{ label: string; count: number }> {
+  const sections: Array<{ label: string; count: number }> = [];
+  const arrLen = (key: string): number =>
+    Array.isArray(m[key]) ? (m[key] as unknown[]).length : 0;
+  const pairs: Array<[string, string]> = [
+    ["assets", "asset"],
+    ["biomes", "biome"],
+    ["terrainShaders", "terrain shader"],
+    ["terrainHeightmapPresets", "heightmap preset"],
+    ["terrainNoiseFunctions", "noise function"],
+    ["waterShaders", "water shader"],
+    ["waterAnimations", "water animation"],
+    ["vegetationSpecies", "vegetation species"],
+    ["vegetationDensityRules", "density rule"],
+  ];
+  for (const [field, singular] of pairs) {
+    const n = arrLen(field);
+    if (n > 0) {
+      sections.push({
+        label: n === 1 ? singular : `${singular}s`,
+        count: n,
+      });
+    }
+  }
+  return sections;
+}
+
+/**
+ * Derive a "what kind of pack is this?" label for the header
+ * chip. Themed content packs (id starts with
+ * `@hyperforge/content-pack-`) surface their climate name;
+ * asset-only packs show "Asset library"; mixed packs show
+ * "Content pack".
+ */
+function deriveKindLabel(
+  manifestId: string,
+  sectionCounts: ReadonlyArray<{ label: string; count: number }>,
+): string {
+  if (manifestId.startsWith("@hyperforge/content-pack-")) {
+    const slug = manifestId
+      .replace(/^@hyperforge\/content-pack-/, "")
+      .replace(/-v\d+$/, "");
+    if (slug.length === 0) return "Content pack";
+    return slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, " ");
+  }
+  // Non-themed packs: classify by what's inside.
+  const hasAssets = sectionCounts.some((s) => s.label.startsWith("asset"));
+  const hasOther = sectionCounts.some((s) => !s.label.startsWith("asset"));
+  if (hasOther && hasAssets) return "Content pack";
+  if (hasOther) return "Content pack";
+  return "Asset library";
+}
+
 function summarizeManifest(manifest: unknown): PackManifestSummary {
   const m =
     manifest && typeof manifest === "object"
@@ -149,7 +226,18 @@ function summarizeManifest(manifest: unknown): PackManifestSummary {
   ) {
     author = (a as { name: string }).name;
   }
-  return { description, packVersion, assetCount, tags, author };
+  const sectionCounts = summarizeSections(m);
+  const manifestId = typeof m.id === "string" ? m.id : "";
+  const kindLabel = deriveKindLabel(manifestId, sectionCounts);
+  return {
+    description,
+    packVersion,
+    assetCount,
+    tags,
+    author,
+    sectionCounts,
+    kindLabel,
+  };
 }
 
 /**
@@ -1711,8 +1799,12 @@ function PublishConfirmModal({
                 {packName}
               </p>
               <p className="text-[11px] text-text-tertiary truncate">
-                v{summary.packVersion} · {summary.assetCount} asset
-                {summary.assetCount === 1 ? "" : "s"}
+                v{summary.packVersion}
+                {summary.sectionCounts.length === 0
+                  ? " · empty"
+                  : ` · ${summary.sectionCounts
+                      .map((s) => `${s.count} ${s.label}`)
+                      .join(", ")}`}
               </p>
             </div>
           </div>
@@ -1873,11 +1965,33 @@ function PackCard({
             )}
           </p>
 
+          {/* Pack-kind chip — surfaces what the pack actually
+              contributes (themed climate name for content packs,
+              "Asset library" for legacy assets-only packs). */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary ring-1 ring-primary/20">
+              {summary.kindLabel}
+            </span>
+            {summary.sectionCounts.slice(0, 3).map((s) => (
+              <span
+                key={s.label}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-tertiary ring-1 ring-white/[0.04]"
+              >
+                {s.count} {s.label}
+              </span>
+            ))}
+            {summary.sectionCounts.length > 3 && (
+              <span className="text-[10px] text-text-tertiary/70">
+                +{summary.sectionCounts.length - 3} more
+              </span>
+            )}
+          </div>
+
           {/* Stats row */}
           <div className="flex items-center gap-2.5 text-[10px] text-text-tertiary/70 mt-auto pt-1">
             <span className="inline-flex items-center gap-1">
-              <Package size={9} className="text-text-tertiary/50" />
-              {summary.assetCount} asset{summary.assetCount === 1 ? "" : "s"}
+              <Package size={9} className="text-text-tertiary/50" />v
+              {summary.packVersion}
             </span>
             {summary.author && (
               <>
