@@ -281,6 +281,7 @@ export async function forkProjectPack(input: {
 }> {
   const res = await apiFetch("/api/project-packs/fork", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
   if (!res.ok) {
