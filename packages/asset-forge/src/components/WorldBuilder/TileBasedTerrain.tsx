@@ -2236,9 +2236,20 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     const generator = new TerrainGenerator(terrainConfigRef.current);
     generatorRef.current = generator;
 
-    // Build the terrain querier — game pipeline uses exact game algorithm,
-    // procgen pipeline wraps TerrainGenerator.queryPoint
-    if (useGamePipelineRef.current) {
+    // Build the terrain querier — Hyperia game pipeline uses
+    // `createGameTerrainQuerier` (which embeds Hyperia's
+    // hardcoded 3-biome polygon centers + island shape);
+    // everything else wraps `TerrainGenerator.queryPoint`.
+    //
+    // Bug #3 follow-up — gated on `hyperiaContentEnabledRef`,
+    // not the legacy `useGamePipelineRef`. Projects whose
+    // worldData was saved before R1.P1 carry
+    // `useGamePipeline: true` even when their plugins set
+    // doesn't include `@hyperforge/hyperscape`. Without this
+    // dual-gate, non-Hyperia projects flow through the
+    // Hyperia-specific terrain querier and inherit Hyperia's
+    // deterministic island shape + pie-slice biomes.
+    if (hyperiaContentEnabledRef.current) {
       const gameQuerier = createGameTerrainQuerier(configSeedRef.current);
       // Pre-allocated result object — queryPoint already pools internally,
       // but the wrapper previously allocated a new object per call.
@@ -2310,10 +2321,14 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     });
     heatmapManagerRef.current = heatmapManager;
 
-    // ---- Game pipeline: fetch exact towns + roads from server-side game code ----
-    // The Asset Forge API runs the ACTUAL TownGenerator + BFS road pathfinding
-    // from the game, producing pixel-identical town/road layouts.
-    if (useGamePipelineRef.current) {
+    // ---- Hyperia game pipeline: fetch exact towns + roads
+    // from server-side Hyperia game code ----
+    // The Asset Forge API runs the ACTUAL Hyperia TownGenerator
+    // + BFS road pathfinding, producing pixel-identical
+    // town/road layouts for the live Hyperia world. Non-Hyperia
+    // projects must not fetch this (the layout is Hyperia-
+    // specific) — same dual-gate as the terrain querier above.
+    if (hyperiaContentEnabledRef.current) {
       const initLayout = async () => {
         const layoutRes = await fetch("/api/world/layout");
         if (!mounted) return;

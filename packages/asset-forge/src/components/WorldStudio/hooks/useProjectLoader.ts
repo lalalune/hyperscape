@@ -80,6 +80,44 @@ const HYPERIA_GAME_WORLD_CONFIG: WorldCreationConfig = {
  * Worlds saved before the biome generation fix may have an empty biomes array
  * or biomes with empty tileKeys. This regenerates/backfills as needed.
  */
+/**
+ * Bug #4 follow-up — migrate saved island config to use the
+ * stronger edge noise introduced by commit `ea56e593b`. Projects
+ * saved before that commit have `edgeNoiseScale ≈ 0.0015` and
+ * `edgeNoiseStrength ≈ 0.03` baked into worldData. Those values
+ * produce ~3% radius variance on a 5km island — visually
+ * indistinguishable from a perfect circle, which is exactly what
+ * the user keeps reporting.
+ *
+ * The current `DEFAULT_ISLAND_CONFIG` ships `edgeNoiseScale:
+ * 0.005, edgeNoiseStrength: 0.12` — values where the fix
+ * actually shows up at render time. Migrating on load means old
+ * projects start producing varied coastlines without any
+ * regenerate-from-scratch step.
+ *
+ * Threshold-based detection: if the saved scale is below a
+ * conservative `0.002`, treat it as legacy. New worlds saved
+ * with the current defaults pass through untouched.
+ */
+function upgradeLegacyIslandConfig(world: WorldData): void {
+  const island = world.foundation?.config?.island;
+  if (!island) return;
+  const looksLegacy =
+    (typeof island.edgeNoiseScale === "number" &&
+      island.edgeNoiseScale < 0.002) ||
+    (typeof island.edgeNoiseStrength === "number" &&
+      island.edgeNoiseStrength < 0.05);
+  if (!looksLegacy) return;
+  // eslint-disable-next-line no-console
+  console.info(
+    "[ProjectLoader] Upgrading legacy island config: edgeNoise " +
+      `${island.edgeNoiseScale}/${island.edgeNoiseStrength} → ` +
+      `${DEFAULT_ISLAND_CONFIG.edgeNoiseScale}/${DEFAULT_ISLAND_CONFIG.edgeNoiseStrength}`,
+  );
+  island.edgeNoiseScale = DEFAULT_ISLAND_CONFIG.edgeNoiseScale;
+  island.edgeNoiseStrength = DEFAULT_ISLAND_CONFIG.edgeNoiseStrength;
+}
+
 function repairBiomes(world: WorldData): void {
   const config = world.foundation.config;
   const { worldSize, tileSize } = config.terrain;
@@ -288,6 +326,15 @@ export function useProjectLoader(projectId: string) {
             rawData as unknown as Parameters<typeof deserializeWorld>[0],
           );
         }
+
+        // Migrate saved island config — projects saved before
+        // commit `ea56e593b` (bug #4 fix) baked weak edge noise
+        // values (`edgeNoiseScale: 0.0015, edgeNoiseStrength:
+        // 0.03`) into worldData. The runtime defaults are now
+        // 0.005 / 0.12 — without migration, old projects render
+        // with the imperceptibly-weak edge noise from their
+        // saved config and look like identical circles.
+        upgradeLegacyIslandConfig(world);
 
         // Repair biomes for worlds saved before the biome generation fix
         repairBiomes(world);
