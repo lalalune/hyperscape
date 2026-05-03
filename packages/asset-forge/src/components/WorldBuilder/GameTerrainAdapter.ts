@@ -88,19 +88,38 @@ const HYPERIA_LIVE_GAME_BIOMES: Record<string, BiomeDefinition> = {
 };
 
 /**
- * Generic engine biome fallback — `{}` per the AAA "blank means
- * blank" goal (`PLAN_AAA_CONTENT_SYSTEM.md` Phase C). The
- * runtime `contentRegistry` overlays plugin and content pack
- * biome contributions on top; an unconfigured project sees zero
- * biomes and renders a generic gray island, mirroring how a
- * blank UE5 / Unity project starts with no terrain layers.
+ * Engine baseline biome — every project starts with this one
+ * neutral biome regardless of plugin / content pack installs.
  *
- * The 3-biome Hyperia data that previously lived here is in
- * `HYPERIA_LIVE_GAME_BIOMES` above (private), used only by
- * Hyperia-specific procgen paths until Phase D migrates them
- * into the Hyperscape content pack.
+ * This mirrors UE5's "Engine/" content (default lit material,
+ * default skybox) and Unity's URP starter assets: the engine
+ * ships SOME baseline so a fresh project renders out of the box.
+ * The "engine has zero opinionated content" goal means no
+ * specific game's content (no Hyperia tundra/forest/canyon),
+ * NOT zero content of any kind. New projects have ONE biome
+ * available (the default) until they install a plugin or
+ * content pack that contributes more.
+ *
+ * The runtime `contentRegistry` overlays plugin and content pack
+ * biome contributions on top of this baseline. Hyperia projects
+ * see their 3 biomes via the Hyperscape plugin's
+ * `contributions.biomes` (commit `63e8e2992`); shooter-demo
+ * projects see arena/wasteland/fortifications via theirs;
+ * unconfigured projects see just the default biome and render a
+ * generic gray island.
  */
-export const GAME_BIOME_DEFINITIONS: Record<string, BiomeDefinition> = {};
+export const GAME_BIOME_DEFINITIONS: Record<string, BiomeDefinition> = {
+  default: {
+    id: "default",
+    name: "Default",
+    color: 0x808080, // neutral mid-gray
+    terrainMultiplier: 1,
+    difficultyLevel: 0,
+    heightRange: [0, 1],
+    maxSlope: 1.5,
+    resourceDensity: 1,
+  },
+};
 
 // Shoreline config
 const SHORELINE = {
