@@ -79,7 +79,9 @@ import { createWorldProjectTemplatesRoute } from "./routes/world-project-templat
 import { createPluginRegistryRoutes } from "./routes/plugin-registry";
 import { createAssetPackRoutes } from "./routes/asset-packs";
 import { createContentPackRoutes } from "./routes/content-packs";
+import { createProjectPackRoutes } from "./routes/project-packs";
 import { AssetPackService } from "./services/AssetPackService";
+import { ProjectPackService } from "./services/ProjectPackService";
 import { createDeploymentRoutes } from "./routes/deployments";
 import { createModuleRoutes } from "./routes/modules";
 import { createScriptRoutes } from "./routes/scripts";
@@ -148,6 +150,7 @@ const worldProjectService = new WorldProjectService();
 const projectTemplateService = new ProjectTemplateService();
 const pluginRegistryService = new PluginRegistryService();
 const assetPackService = new AssetPackService();
+const projectPackService = new ProjectPackService(worldProjectService);
 const gameModuleService = new GameModuleService();
 const scriptService = new ScriptService();
 const uiLayoutService = new UILayoutService();
@@ -479,6 +482,7 @@ const app = new Elysia()
   .use(createPluginRegistryRoutes(pluginRegistryService))
   .use(createAssetPackRoutes(assetPackService, teamService))
   .use(createContentPackRoutes(assetPackService, worldProjectService))
+  .use(createProjectPackRoutes(projectPackService, teamService))
   .use(
     createDeploymentRoutes(teamService, worldProjectService, auditLogService),
   )
@@ -516,26 +520,39 @@ console.log(`✨ Performance: 22x faster than Express!`);
 // ────────────────────────────────────────────────────────────
 import("./builtins/content-packs")
   .then(({ upsertBuiltinContentPacks, BUILTIN_CONTENT_PACKS }) => {
-    void import("pg").then(async ({ Pool }) => {
-      const url =
-        process.env.DATABASE_URL ||
-        `postgresql://${process.env.FORGE_POSTGRES_USER || "forge"}:${process.env.FORGE_POSTGRES_PASSWORD || "forge_dev_password"}@localhost:${process.env.FORGE_POSTGRES_PORT || "5489"}/${process.env.FORGE_POSTGRES_DB || "forge"}`;
-      const pool = new Pool({ connectionString: url });
-      try {
-        const { ok, failed } = await upsertBuiltinContentPacks(pool);
-        console.log(
-          `📦 Built-in content packs: ${ok}/${BUILTIN_CONTENT_PACKS.length} ready` +
-            (failed > 0 ? ` (${failed} failed)` : ""),
-        );
-      } catch (err) {
-        console.warn(
-          "📦 Built-in content packs bootstrap failed (server still running):",
-          err,
-        );
-      } finally {
-        await pool.end();
-      }
-    });
+    void import("./builtins/project-packs").then(
+      ({ upsertBuiltinProjectPacks, BUILTIN_PROJECT_PACKS }) => {
+        void import("pg").then(async ({ Pool }) => {
+          const url =
+            process.env.DATABASE_URL ||
+            `postgresql://${process.env.FORGE_POSTGRES_USER || "forge"}:${process.env.FORGE_POSTGRES_PASSWORD || "forge_dev_password"}@localhost:${process.env.FORGE_POSTGRES_PORT || "5489"}/${process.env.FORGE_POSTGRES_DB || "forge"}`;
+          const pool = new Pool({ connectionString: url });
+          try {
+            const contentResult = await upsertBuiltinContentPacks(pool);
+            console.log(
+              `📦 Built-in content packs: ${contentResult.ok}/${BUILTIN_CONTENT_PACKS.length} ready` +
+                (contentResult.failed > 0
+                  ? ` (${contentResult.failed} failed)`
+                  : ""),
+            );
+            const projectResult = await upsertBuiltinProjectPacks(pool);
+            console.log(
+              `🎮 Built-in project packs: ${projectResult.ok}/${BUILTIN_PROJECT_PACKS.length} ready` +
+                (projectResult.failed > 0
+                  ? ` (${projectResult.failed} failed)`
+                  : ""),
+            );
+          } catch (err) {
+            console.warn(
+              "📦 Built-in pack bootstrap failed (server still running):",
+              err,
+            );
+          } finally {
+            await pool.end();
+          }
+        });
+      },
+    );
   })
   .catch((err) => {
     console.warn("📦 Built-in content packs module load failed:", err);
