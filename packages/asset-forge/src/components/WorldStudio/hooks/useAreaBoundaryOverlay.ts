@@ -24,6 +24,10 @@ import {
   stageAddition,
   cancelStagedAdditions,
 } from "../utils/deferredGpuDisposal";
+import {
+  getTerrainHeightAt,
+  getWaterLevel,
+} from "../utils/terrainQueryRegistry";
 
 // ============== CONSTANTS ==============
 
@@ -446,9 +450,31 @@ function buildWildernessBoundaryOverlay(
 ): void {
   if (boundary.points.length < 2) return;
 
+  // Per-vertex terrain elevation. Without this the boundary
+  // line floats at LINE_Y (0.5) — far below default water
+  // level (~y=8) — so on Hyperia-style worlds the line was
+  // INVISIBLE underwater on most coastal terrain. We sample
+  // the active terrain querier per point and lift each vertex
+  // a small fixed margin above ground OR water surface,
+  // whichever is higher, so the line is always visible
+  // following the actual contour.
+  //
+  // When the querier isn't registered yet (early load), we
+  // fall back to the legacy LINE_Y so the boundary still
+  // renders at SOMETHING. The next render pass after
+  // terrain-ready picks up real elevations.
+  const waterLevel = getWaterLevel();
+  const liftPoint = (p: { x: number; z: number }): number => {
+    const terrainY = getTerrainHeightAt(p.x, p.z);
+    if (terrainY === null) return LINE_Y;
+    const surfaceY =
+      waterLevel !== null && waterLevel > terrainY ? waterLevel : terrainY;
+    return surfaceY + 1.5; // small lift so the line floats above the surface
+  };
+
   // Main boundary line — thick red
   const points = boundary.points.map(
-    (p) => new THREE.Vector3(p.x, LINE_Y, p.z),
+    (p) => new THREE.Vector3(p.x, liftPoint(p), p.z),
   );
   const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
   const lineMat = new THREE.LineBasicMaterial({
@@ -477,19 +503,20 @@ function buildWildernessBoundaryOverlay(
       side: THREE.DoubleSide,
     });
     const dot = new THREE.Mesh(dotGeo, dotMat);
-    dot.position.set(p.x, LINE_Y + 0.1, p.z);
+    dot.position.set(p.x, liftPoint(p) + 0.1, p.z);
     dot.renderOrder = 999;
     dot.name = `wilderness-vertex-${i}`;
     group.add(dot);
   }
 
-  // Label at midpoint
+  // Label at midpoint — lifted above terrain (or water) so it
+  // floats clearly visible above the contour.
   const mid = boundary.points[Math.floor(boundary.points.length / 2)];
   const label = createLabelSprite(
     `Wilderness (Lv ${boundary.maxLevel})`,
     WILDERNESS_COLOR,
   );
-  label.position.set(mid.x, LINE_Y + 8, mid.z);
+  label.position.set(mid.x, liftPoint(mid) + 8, mid.z);
   label.name = "wilderness-boundary-label";
   group.add(label);
 }
