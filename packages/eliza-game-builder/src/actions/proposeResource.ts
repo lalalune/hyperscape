@@ -32,7 +32,9 @@ import type {
 import { WorldAreaResourceSchema } from "@hyperforge/manifest-schema";
 import { GameBuilderService } from "../services/GameBuilderService.js";
 import {
-  autoFillAssetRef,
+  autoFillAssetRefDetailed,
+  describeAutoFillMiss,
+  isStrictAutoFillFailure,
   validateAssetRef,
   validatePlacementType,
 } from "./placementValidators.js";
@@ -125,18 +127,48 @@ export const proposeResourceAction: Action = {
 
     // Auto-fill assetRef when omitted — try resourceId for an
     // exact-match (e.g. "tree_oak" → matching pack entry), else
-    // any prop matching the type's acceptedAssetTypes.
+    // any prop matching the type's acceptedAssetTypes. Strict
+    // mode: when the auto-fill can't pick because packs ARE
+    // installed but none have a matching prop, REJECT with a
+    // clear next-action instruction. Graceful mode: when no
+    // packs are installed at all, accept with a warning so the
+    // agent's onboarding flow isn't blocked before a pack is
+    // added.
     let autoFilledRef: string | null = null;
+    let autoFillMissHint: string | null = null;
     const providedRef = (resource as { assetRef?: string }).assetRef;
     if (!providedRef) {
-      autoFilledRef = autoFillAssetRef(
+      const result = autoFillAssetRefDetailed(
         runtime,
         "resource",
         resource.type,
         resource.resourceId,
       );
+      autoFilledRef = result.ref;
       if (autoFilledRef) {
         resource = { ...resource, assetRef: autoFilledRef };
+      } else {
+        autoFillMissHint = describeAutoFillMiss(
+          result,
+          "resource",
+          resource.type,
+        );
+        if (isStrictAutoFillFailure(result.missReason)) {
+          const text =
+            autoFillMissHint ??
+            `Resource rejected — no installed asset pack contributes a prop for resource type "${resource.type}". Call LIST_ASSET_PACKS, install a pack with matching prop assets via PROPOSE_ASSET_PACK_INSTALL, then retry.`;
+          await callback?.({ text, error: true });
+          return {
+            success: false,
+            text,
+            data: {
+              kind: "resource",
+              providedType: resource.type,
+              resourceId: resource.resourceId,
+              missReason: result.missReason,
+            } as unknown as ProviderDataRecord,
+          };
+        }
       }
     }
 

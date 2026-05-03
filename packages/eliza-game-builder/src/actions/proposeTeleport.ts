@@ -32,7 +32,12 @@ import type {
 } from "@elizaos/core";
 import { WorldAreaTeleportNodeSchema } from "@hyperforge/manifest-schema";
 import { GameBuilderService } from "../services/GameBuilderService.js";
-import { autoFillAssetRef, validateAssetRef } from "./placementValidators.js";
+import {
+  autoFillAssetRefDetailed,
+  describeAutoFillMiss,
+  isStrictAutoFillFailure,
+  validateAssetRef,
+} from "./placementValidators.js";
 import { readObjectField } from "./shared.js";
 
 export const proposeTeleportAction: Action = {
@@ -114,9 +119,10 @@ export const proposeTeleportAction: Action = {
     // preferred id (`lodestone` → `lodestone` entry in a portals
     // pack), then fall through to any prop the type matches.
     let autoFilledRef: string | null = null;
+    let autoFillMissHint: string | null = null;
     const providedRef = (teleport as { assetRef?: string }).assetRef;
     if (!providedRef) {
-      autoFilledRef = autoFillAssetRef(
+      const result = autoFillAssetRefDetailed(
         runtime,
         // No "teleport" PlacementKind — passing "station" is a
         // safe stand-in: type-based pass falls through (no
@@ -126,8 +132,37 @@ export const proposeTeleportAction: Action = {
         "",
         teleport.type,
       );
+      autoFilledRef = result.ref;
       if (autoFilledRef) {
         teleport = { ...teleport, assetRef: autoFilledRef };
+      } else {
+        autoFillMissHint = describeAutoFillMiss(
+          result,
+          "station",
+          teleport.type,
+        );
+        // Teleports are slightly more lenient than NPCs/mobs/
+        // stations — the type-based contribution pass always
+        // misses (no `teleport` PlacementKind), so the only
+        // miss reason that signals "real failure" is
+        // `no-matching-pack-asset` (preferred-id pass found
+        // nothing). The plugin-type miss reasons are expected
+        // for this kind and should NOT trigger strict reject.
+        if (result.missReason === "no-matching-pack-asset") {
+          const text =
+            autoFillMissHint ??
+            `Teleport rejected — no installed asset pack contributes a model for teleport type "${teleport.type}". Call LIST_ASSET_PACKS, install a pack with matching prop assets (lodestones / portal frames / shortcut markers), then retry.`;
+          await callback?.({ text, error: true });
+          return {
+            success: false,
+            text,
+            data: {
+              kind: "teleport",
+              providedType: teleport.type,
+              missReason: result.missReason,
+            } as unknown as ProviderDataRecord,
+          };
+        }
       }
     }
 

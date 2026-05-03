@@ -33,7 +33,9 @@ import type {
 import { WorldAreaStationSchema } from "@hyperforge/manifest-schema";
 import { GameBuilderService } from "../services/GameBuilderService.js";
 import {
-  autoFillAssetRef,
+  autoFillAssetRefDetailed,
+  describeAutoFillMiss,
+  isStrictAutoFillFailure,
   validateAssetRef,
   validatePlacementType,
 } from "./placementValidators.js";
@@ -120,18 +122,44 @@ export const proposeStationAction: Action = {
     // Auto-fill assetRef when omitted. Stations have a tight
     // `type` ↔ entry id correspondence in the seeded Hyperia
     // packs (`anvil` station → `anvil` entry), so we pass the
-    // type as the preferred id.
+    // type as the preferred id. Strict mode: when packs ARE
+    // installed but none have a matching station model, REJECT
+    // with a clear next-action instruction so the agent
+    // doesn't ship a placeholder cube.
     let autoFilledRef: string | null = null;
+    let autoFillMissHint: string | null = null;
     const providedRef = (station as { assetRef?: string }).assetRef;
     if (!providedRef) {
-      autoFilledRef = autoFillAssetRef(
+      const result = autoFillAssetRefDetailed(
         runtime,
         "station",
         station.type,
         station.type,
       );
+      autoFilledRef = result.ref;
       if (autoFilledRef) {
         station = { ...station, assetRef: autoFilledRef };
+      } else {
+        autoFillMissHint = describeAutoFillMiss(
+          result,
+          "station",
+          station.type,
+        );
+        if (isStrictAutoFillFailure(result.missReason)) {
+          const text =
+            autoFillMissHint ??
+            `Station rejected — no installed asset pack contributes a model for station type "${station.type}". Call LIST_ASSET_PACKS, install a pack with matching station assets via PROPOSE_ASSET_PACK_INSTALL, then retry.`;
+          await callback?.({ text, error: true });
+          return {
+            success: false,
+            text,
+            data: {
+              kind: "station",
+              providedType: station.type,
+              missReason: result.missReason,
+            } as unknown as ProviderDataRecord,
+          };
+        }
       }
     }
 
