@@ -222,6 +222,7 @@ function buildContextFactory(
   combatService: CombatAbilityService,
   skillsService: SkillsService,
   uiWidgetRegistry: PIEUIWidgetRegistryLike | undefined,
+  projectContentPackIds: ReadonlyArray<string>,
 ): PluginContextFactory<PluginContextBase> {
   return ({ pluginId, scope }) => {
     switch (pluginId) {
@@ -307,6 +308,13 @@ function buildContextFactory(
           scope,
           world,
           widgets,
+          // Strict-catalog gate (Hyperia leak #2 fix). The plugin's
+          // onEnable checks this list for
+          // `@hyperforge/content-pack-hyperia-v1` before registering
+          // Hyperia content-emitting systems (towns, POIs, NPC
+          // populations, quests, banks). Plumbed from the host's
+          // `state.project.assetPacks` through `createPIEPluginHooks`.
+          projectContentPackIds,
         };
         return ctx as PluginContextBase;
       }
@@ -321,6 +329,7 @@ async function bootPluginsFor(
   pluginIds: ReadonlyArray<string>,
   label: "server" | "client",
   uiWidgetRegistry: PIEUIWidgetRegistryLike | undefined,
+  projectContentPackIds: ReadonlyArray<string>,
 ): Promise<PluginSession<PluginContextBase>> {
   const modules = resolvePluginModules(pluginIds);
   const combatService = createCombatAbilityService();
@@ -338,6 +347,7 @@ async function bootPluginsFor(
       // where the PIE viewport's React tree is. Server-side hooks pass
       // undefined so the plugin's onEnable widget call no-ops there.
       label === "client" ? uiWidgetRegistry : undefined,
+      projectContentPackIds,
     ),
   });
   if (session.unresolvable.length > 0) {
@@ -376,6 +386,7 @@ async function bootPluginsFor(
 export function createPIEPluginHooks(
   pluginIds: ReadonlyArray<string>,
   uiWidgetRegistry?: PIEUIWidgetRegistryLike,
+  projectContentPackIds: ReadonlyArray<string> = [],
 ): {
   bootServerPlugins: (
     serverWorld: World,
@@ -386,8 +397,20 @@ export function createPIEPluginHooks(
 } {
   return {
     bootServerPlugins: (serverWorld) =>
-      bootPluginsFor(serverWorld, pluginIds, "server", uiWidgetRegistry),
+      bootPluginsFor(
+        serverWorld,
+        pluginIds,
+        "server",
+        uiWidgetRegistry,
+        projectContentPackIds,
+      ),
     bootClientPlugins: (clientWorld) =>
-      bootPluginsFor(clientWorld, pluginIds, "client", uiWidgetRegistry),
+      bootPluginsFor(
+        clientWorld,
+        pluginIds,
+        "client",
+        uiWidgetRegistry,
+        projectContentPackIds,
+      ),
   };
 }

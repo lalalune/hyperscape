@@ -158,13 +158,35 @@ function makeFakeScope(): FakeScope {
   return s;
 }
 
-function buildContext(world: FakeWorld, scope: FakeScope): HyperscapeContext {
+function buildContext(
+  world: FakeWorld,
+  scope: FakeScope,
+  options: { hyperiaContent?: boolean } = { hyperiaContent: true },
+): HyperscapeContext {
   return {
     pluginId: "com.hyperforge.hyperscape",
     scope: scope as unknown as HyperscapeContext["scope"],
     world: world as unknown as HyperscapeContext["world"],
+    projectContentPackIds: options.hyperiaContent
+      ? ["@hyperforge/content-pack-hyperia-v1"]
+      : [],
   };
 }
+
+/**
+ * Hyperia-content-gated registrations — these only fire when the
+ * project has installed `@hyperforge/content-pack-hyperia-v1`.
+ * Mirrors the `registerHyperiaContent()` calls in `index.ts`.
+ */
+const HYPERIA_CONTENT_REGISTRATIONS = [
+  "banking",
+  "quest",
+  "station-spawner",
+  "mob-npc-spawner",
+  "item-spawner",
+  "towns",
+  "pois",
+];
 
 // Cross-cutting (both server + client) — driven by the meta-plugin's
 // onEnable head section before the `if (isServer)` / `if (!isServer)`
@@ -306,5 +328,77 @@ describe("HyperscapePlugin.onEnable — registration contract", () => {
     expect(byName.get("resource-tile-debug")).toBe("ResourceTileDebugSystem");
     expect(byName.get("projectile-renderer")).toBe("ProjectileRenderer");
     expect(byName.get("damage-splat")).toBe("DamageSplatSystem");
+  });
+
+  it("skips Hyperia content registrations when the content pack is not installed (server)", () => {
+    const world = makeFakeWorld({ isServer: true });
+    const scope = makeFakeScope();
+    const plugin = defaultFactory(
+      buildContext(world, scope, { hyperiaContent: false }),
+    );
+    plugin.onEnable?.(buildContext(world, scope, { hyperiaContent: false }));
+
+    const names = world.registered.map((r) => r.name);
+    // Mechanics still register: combat, skills, prayer, equipment,
+    // inventory, gathering, processing, etc.
+    for (const mechanic of [
+      "prayer",
+      "combat",
+      "skills",
+      "equipment",
+      "inventory",
+      "resource",
+      "store",
+      "dialogue",
+      "mob-death",
+    ]) {
+      expect(names).toContain(mechanic);
+    }
+    // Hyperia content systems do NOT register.
+    for (const content of HYPERIA_CONTENT_REGISTRATIONS) {
+      expect(names).not.toContain(content);
+    }
+  });
+
+  it("skips Hyperia content registrations when the content pack is not installed (client)", () => {
+    const world = makeFakeWorld({ isServer: false });
+    const scope = makeFakeScope();
+    const plugin = defaultFactory(
+      buildContext(world, scope, { hyperiaContent: false }),
+    );
+    plugin.onEnable?.(buildContext(world, scope, { hyperiaContent: false }));
+
+    const names = world.registered.map((r) => r.name);
+    // Client-only mechanics still register.
+    for (const mechanic of [
+      "damage-splat",
+      "healthbars",
+      "projectile-renderer",
+      "vegetation",
+    ]) {
+      expect(names).toContain(mechanic);
+    }
+    // Hyperia content systems do NOT register.
+    for (const content of HYPERIA_CONTENT_REGISTRATIONS) {
+      expect(names).not.toContain(content);
+    }
+  });
+
+  it("treats undefined projectContentPackIds as no Hyperia content (defensive default)", () => {
+    const world = makeFakeWorld({ isServer: true });
+    const scope = makeFakeScope();
+    const ctx: HyperscapeContext = {
+      pluginId: "com.hyperforge.hyperscape",
+      scope: scope as unknown as HyperscapeContext["scope"],
+      world: world as unknown as HyperscapeContext["world"],
+      // projectContentPackIds intentionally omitted
+    };
+    const plugin = defaultFactory(ctx);
+    plugin.onEnable?.(ctx);
+
+    const names = world.registered.map((r) => r.name);
+    for (const content of HYPERIA_CONTENT_REGISTRATIONS) {
+      expect(names).not.toContain(content);
+    }
   });
 });

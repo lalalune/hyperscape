@@ -782,6 +782,12 @@ export function usePIESession({
       // present in pluginBoot's STATIC_PLUGIN_MAP and PIE boots
       // it. Unknown ids skip with a warning instead of forcing
       // the whole project into a 3-element preset.
+      //
+      // Hyperia leak #2 fix: forward the project's installed
+      // content pack ids so the hyperscape plugin's onEnable
+      // can decide whether to register Hyperia content-emitting
+      // systems. Empty list = mechanics only (no auto-spawned
+      // Hyperia towns / POIs / quests / banks).
       plugins: createPIEPluginHooks(
         resolveProjectPluginIds({
           plugins: state.project.plugins,
@@ -789,6 +795,7 @@ export function usePIESession({
           projectLoaded: state.project.currentProjectId !== null,
         }),
         widgetRegistry,
+        state.project.assetPacks,
       ),
       ...(pieMode === "play"
         ? {

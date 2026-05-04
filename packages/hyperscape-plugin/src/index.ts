@@ -1067,7 +1067,29 @@ export interface HyperscapeContext extends PluginContextBase {
    * don't have a world (e.g. some unit tests) can pass a stub.
    */
   readonly world: World;
+  /**
+   * Content pack ids the host project has installed. The plugin's
+   * `onEnable` checks for `@hyperforge/content-pack-hyperia-v1` to
+   * decide whether to register Hyperia-specific CONTENT-emitting
+   * systems (towns, POIs, NPC populations, quests, banks, station
+   * spawns) and load the Hyperia world-areas manifests.
+   *
+   * SYSTEMS that implement gameplay MECHANICS (combat, skills,
+   * prayer, equipment, inventory, gathering, processing, etc.)
+   * register unconditionally — they're game logic, not content.
+   *
+   * Empty / undefined = no Hyperia content. The plugin still
+   * provides combat / skills / banking-mechanics for any project
+   * that installs it, but doesn't auto-spawn Hyperia towns or
+   * populate the world with banker NPCs unless the Hyperia
+   * content pack is also installed.
+   */
+  readonly projectContentPackIds?: ReadonlyArray<string>;
 }
+
+/** Manifest id of the Hyperia content pack. */
+export const HYPERIA_CONTENT_PACK_ID =
+  "@hyperforge/content-pack-hyperia-v1" as const;
 
 /**
  * Default plugin factory. Today this is intentionally a no-op
@@ -1104,6 +1126,30 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
         ctx.world.register(name, Ctor as never);
         ctx.scope.register(() => w.unregister?.(name));
       };
+
+      // Strict-catalog gate: emit Hyperia CONTENT (towns, POIs,
+      // NPC populations, station/item/mob spawns from the Hyperia
+      // world-areas manifest, hardcoded starter banks, the
+      // built-in quest catalog) only when the host project has
+      // installed `@hyperforge/content-pack-hyperia-v1`. The
+      // SYSTEMS that implement gameplay MECHANICS register
+      // unconditionally below — combat, skills, prayer,
+      // equipment, inventory, gathering, processing, etc. — so a
+      // project that picks the hyperscape plugin for combat-only
+      // (e.g. an arctic survival game with melee mechanics) gets
+      // those mechanics without the Hyperia world content
+      // baking in.
+      const hasHyperiaContent =
+        ctx.projectContentPackIds?.includes(HYPERIA_CONTENT_PACK_ID) ?? false;
+      const registerHyperiaContent = (name: string, Ctor: unknown) => {
+        if (hasHyperiaContent) register(name, Ctor);
+      };
+      if (!hasHyperiaContent) {
+        // eslint-disable-next-line no-console
+        console.info(
+          "[hyperscape-plugin] Hyperia content pack not installed — registering MECHANICS only (no town/POI/NPC/quest content emission).",
+        );
+      }
 
       // Plugin-contributed HUD widgets — Phase D6.c.1 / Session 4.
       // `ctx.widgets` is host-supplied: the live browser client
@@ -1208,7 +1254,12 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
       // Banking — one bank per starter town, unlimited slots,
       // drag-to-store interface. No in-shared callers reference the
       // class type; SystemMap downgraded to `unknown`.
-      register("banking", BankingSystem);
+      // Hyperia-content-gated: BankingSystem.init() seeds 5 hardcoded
+      // STARTER_TOWN_BANKS at fixed Hyperia-world coords. For projects
+      // without the Hyperia content pack the banking UI mechanics
+      // aren't useful in isolation (no banks exist), so the
+      // registration moves under the gate.
+      registerHyperiaContent("banking", BankingSystem);
 
       // Stores — OSRS general stores. Per-player open/close session
       // handler; reads catalog from `storesRegistry` + `GENERAL_STORES`.
@@ -1223,7 +1274,10 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
       // stage progression, item rewards. PIE + dialogue + drop-condition
       // evaluators + the server quest handler all duck-type the surface
       // they need from this system.
-      register("quest", QuestSystem);
+      // Hyperia-content-gated: the quest catalog (`quests.json`) ships
+      // with the Hyperia content pack. Without it, QuestSystem would
+      // register but track zero quests.
+      registerHyperiaContent("quest", QuestSystem);
 
       // Aggro — mob aggression detection + chase + tile-based 21x21
       // region spatial index. Only MobEntity touches it directly (via
@@ -1247,17 +1301,22 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
 
       // Station spawner — places banks/furnaces/anvils/altars/ranges
       // from world-areas.json + stations.json. Static spawn at boot.
-      register("station-spawner", StationSpawnerSystem);
+      // Hyperia-content-gated: data source is the Hyperia world-areas
+      // manifest.
+      registerHyperiaContent("station-spawner", StationSpawnerSystem);
 
       // Mob spawner — reads world-areas.json + npcs.json, spawns
       // MobEntity instances via EntityManager + handles respawn after
-      // death. Cross-cutting registration so client-side `getSystem
-      // ("mob-npc-spawner")` lookups don't null in legacy paths.
-      register("mob-npc-spawner", MobNPCSpawnerSystem);
+      // death.
+      // Hyperia-content-gated: data sources are the Hyperia
+      // world-areas + npcs manifests.
+      registerHyperiaContent("mob-npc-spawner", MobNPCSpawnerSystem);
 
       // Item spawner — places ground items from world-areas.json.
       // Same EntityManager-driven pattern as mob spawner.
-      register("item-spawner", ItemSpawnerSystem);
+      // Hyperia-content-gated: data source is the Hyperia world-areas
+      // manifest.
+      registerHyperiaContent("item-spawner", ItemSpawnerSystem);
 
       // Ground items — tile-based pile manager for dropped items.
       // Migrated 2026-04-25 (Wave 1 follow-up). LootSystem +
@@ -1331,7 +1390,14 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
       // the heavy-cluster migration. Cross-cutting: TerrainSystem,
       // GrassExclusionGrid, ZoneDetectionSystem, and mob tile
       // movement all duck-type-lookup `world.getSystem("towns")`.
-      register("towns", TownSystem);
+      // Hyperia-content-gated: TownSystem.start() generates Hyperia
+      // towns via `loadManifestTowns()` + `generateTowns()` — both
+      // emit Hyperia-shaped buildings that don't belong in non-Hyperia
+      // themed projects. The duck-type lookups in TerrainSystem etc.
+      // soft-fall-through when the system isn't registered (no
+      // safe-zones / no grass-exclusion blocks; that's correct for a
+      // non-Hyperia world).
+      registerHyperiaContent("towns", TownSystem);
 
       // Bridges — collision + procedural deck/fence geometry.
       // Both client and server register it: server computes
@@ -1347,7 +1413,11 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
       // POIs — procedural points-of-interest (dungeons, shrines,
       // landmarks). Read by RoadNetworkSystem (still in shared)
       // via duck-typed `getConfig()` lookup.
-      register("pois", POISystem);
+      // Hyperia-content-gated: POISystem.start() generates ~100+
+      // Hyperia POIs from a hardcoded category catalog (8 dungeons /
+      // 12 shrines / 15 landmarks / etc.). Themed projects bring
+      // their own POIs through PROPOSE_POI plan slots.
+      registerHyperiaContent("pois", POISystem);
 
       // Scripting — visual scripting runtime. Subscribes to
       // trigger events, auto-loads entity behaviorGraphs on spawn,
@@ -1389,10 +1459,20 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
         // (world-areas.json, etc.) directly from the plugin's
         // onEnable so a project that doesn't install
         // `@hyperforge/hyperscape` doesn't end up with Hyperia
-        // content populated in `worldAreasRegistry`. Today this
-        // runs idempotently on top of `DataManager`'s legacy load;
-        // a follow-up cut removes the engine-wide load entirely.
-        loadHyperiaManifestsSync();
+        // content populated in `worldAreasRegistry`.
+        //
+        // Strict-catalog gate: only load when the project has the
+        // Hyperia content pack installed. Without the pack the
+        // manifests would still load into `worldAreasRegistry`,
+        // surfacing Hyperia NPCs/mobs/stations to the agent's
+        // `LIST_*` actions and through to spawners — exactly the
+        // leak we're closing. With the gate, a non-Hyperia themed
+        // project sees an empty `worldAreasRegistry` and the
+        // spawner systems have nothing to spawn (and aren't
+        // registered above either).
+        if (hasHyperiaContent) {
+          loadHyperiaManifestsSync();
+        }
 
         register("health-regen", HealthRegenSystem);
 
