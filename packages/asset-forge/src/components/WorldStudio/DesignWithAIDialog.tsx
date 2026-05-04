@@ -80,6 +80,10 @@ import {
 } from "../WorldBuilder/types";
 import { generateWorldFromConfig } from "../WorldBuilder/worldGeneration";
 import { mergeProcgenConfig } from "./utils/mergeProcgenConfig";
+import {
+  setContentPackContent,
+  type ContentPackContentInput,
+} from "./utils/contentRegistry";
 import { serializeWorld } from "../WorldBuilder/utils/worldPersistence";
 import {
   createWorldProject,
@@ -2295,6 +2299,31 @@ export function DesignWithAIDialog({
       // trees install — strict-catalog: a project gets only the
       // asset packs its installed content packs declare.
       const declaredAssetPackDeps = new Set<string>();
+      // Content-pack contributions accumulated across every
+      // resolved themed pack. Registered into `contentRegistry`
+      // BEFORE procgen runs — without this, procgen reads from
+      // an empty registry, falls through to engine defaults, and
+      // assigns every tile to the lone "default" biome (the
+      // smoking-gun symptom: outliner shows "Default (210
+      // tiles)" / "Default (333 tiles)" / etc. instead of named
+      // biomes).
+      //
+      // useProjectLoader's `fetchContentPacksAndRegister` ALSO
+      // registers these post-creation when the studio mounts —
+      // but the dialog runs procgen BEFORE creating the project,
+      // so we have to register here too. Idempotent: the loader's
+      // call replaces the same maps with the same data when it
+      // fires.
+      const registryAccumulator: ContentPackContentInput = {
+        biomes: [],
+        terrainShaders: [],
+        terrainHeightmapPresets: [],
+        terrainNoiseFunctions: [],
+        waterShaders: [],
+        waterAnimations: [],
+        vegetationSpecies: [],
+        vegetationDensityRules: [],
+      };
       try {
         const contentPackIds = Array.from(resolvedPackIds).filter((id) =>
           id.startsWith("@hyperforge/content-pack-"),
@@ -2310,9 +2339,57 @@ export function DesignWithAIDialog({
                 }>;
                 vegetationByBiome?: Record<string, Record<string, unknown>>;
                 assetPackDeps?: ReadonlyArray<string>;
+                biomes?: ReadonlyArray<unknown>;
+                terrainShaders?: ReadonlyArray<unknown>;
+                terrainNoiseFunctions?: ReadonlyArray<unknown>;
+                waterShaders?: ReadonlyArray<unknown>;
+                waterAnimations?: ReadonlyArray<unknown>;
+                vegetationSpecies?: ReadonlyArray<unknown>;
+                vegetationDensityRules?: ReadonlyArray<unknown>;
               }
             | null
             | undefined;
+          // Accumulate every content-pack section the dialog
+          // recognizes. Sections the manifest doesn't ship just
+          // stay empty.
+          if (Array.isArray(m?.biomes)) {
+            (registryAccumulator.biomes as unknown[])!.push(...m.biomes);
+          }
+          if (Array.isArray(m?.terrainShaders)) {
+            (registryAccumulator.terrainShaders as unknown[])!.push(
+              ...m.terrainShaders,
+            );
+          }
+          if (Array.isArray(m?.terrainHeightmapPresets)) {
+            (registryAccumulator.terrainHeightmapPresets as unknown[])!.push(
+              ...m.terrainHeightmapPresets,
+            );
+          }
+          if (Array.isArray(m?.terrainNoiseFunctions)) {
+            (registryAccumulator.terrainNoiseFunctions as unknown[])!.push(
+              ...m.terrainNoiseFunctions,
+            );
+          }
+          if (Array.isArray(m?.waterShaders)) {
+            (registryAccumulator.waterShaders as unknown[])!.push(
+              ...m.waterShaders,
+            );
+          }
+          if (Array.isArray(m?.waterAnimations)) {
+            (registryAccumulator.waterAnimations as unknown[])!.push(
+              ...m.waterAnimations,
+            );
+          }
+          if (Array.isArray(m?.vegetationSpecies)) {
+            (registryAccumulator.vegetationSpecies as unknown[])!.push(
+              ...m.vegetationSpecies,
+            );
+          }
+          if (Array.isArray(m?.vegetationDensityRules)) {
+            (registryAccumulator.vegetationDensityRules as unknown[])!.push(
+              ...m.vegetationDensityRules,
+            );
+          }
           // First themed pack wins on heightmap + vegetation
           // overrides; subsequent themed packs only contribute
           // asset-pack deps. (Multiple themed content packs at
@@ -2351,6 +2428,26 @@ export function DesignWithAIDialog({
           console.info(
             `[DesignWithAIDialog] Resolved ${declaredAssetPackDeps.size} asset-pack deps from ${contentPackIds.length} content pack(s): ${Array.from(declaredAssetPackDeps).join(", ")}`,
           );
+        }
+        // Register accumulated content-pack contributions BEFORE
+        // procgen runs. The studio's `useProjectLoader` ALSO
+        // registers them post-creation (via
+        // `fetchContentPacksAndRegister`) — this pre-procgen
+        // call closes the timing gap where procgen would
+        // otherwise see an empty registry and assign every tile
+        // to the engine's lone "default" biome (the bug visible
+        // as `Default (210 tiles)` / `Default (333 tiles)` /
+        // etc. in the outliner instead of named biomes).
+        const accumulatedBiomes = registryAccumulator.biomes ?? [];
+        if (accumulatedBiomes.length > 0) {
+          // eslint-disable-next-line no-console
+          console.info(
+            `[DesignWithAIDialog] Registering ${accumulatedBiomes.length} content-pack biomes into runtime registry pre-procgen: ${accumulatedBiomes
+              .map((b) => (b as { id?: string }).id)
+              .filter(Boolean)
+              .join(", ")}`,
+          );
+          setContentPackContent(registryAccumulator);
         }
       } catch (err) {
         // eslint-disable-next-line no-console
