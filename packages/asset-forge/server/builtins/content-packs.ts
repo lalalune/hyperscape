@@ -108,6 +108,26 @@ interface BuiltinPack {
    * untouched, so their biomes inherit the default scatter.
    */
   vegetationByBiome?: Record<string, Record<string, unknown>>;
+  /**
+   * Asset packs this content pack depends on. The dialog walks
+   * the union of `assetPackDeps` across every resolved content
+   * pack and installs them — replacing the previous
+   * unconditional `@hyperforge/asset-pack-hyperia-trees-v1`
+   * install.
+   *
+   * Every themed pack today declares the Hyperia trees pack
+   * because their `vegetationByBiome` references species ids
+   * (`tree_palm`, `tree_pine`, `tree_dead`, etc.) that live in
+   * that asset pack. When per-theme tree GLBs are authored
+   * (Phase C3 proper), each themed pack swaps its dep to the
+   * matching theme-specific asset pack — no client code change.
+   *
+   * Strict-catalog promise: the agent only installs what packs
+   * declare. A project that picks `content-pack-tropical-v1`
+   * gets only the asset packs tropical declares; nothing
+   * Hyperia-shaped sneaks in.
+   */
+  assetPackDeps?: ReadonlyArray<string>;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -438,6 +458,7 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["hyperia", "fantasy", "rpg", "content-pack", "built-in"],
     packVersion: "1.0.0",
     biomes: HYPERIA_BIOMES,
+    assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
     terrainHeightmapPreset: {
       id: "hyperia-default",
       name: "Hyperia island",
@@ -463,6 +484,7 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["arctic", "snow", "frozen", "mountain", "cold", "content-pack"],
     packVersion: "1.0.0",
     biomes: ARCTIC_BIOMES,
+    assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
     terrainHeightmapPreset: {
       id: "arctic-mountain-range",
       name: "Arctic mountain range",
@@ -552,6 +574,7 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["tropical", "jungle", "beach", "warm", "humid", "content-pack"],
     packVersion: "1.0.0",
     biomes: TROPICAL_BIOMES,
+    assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
     terrainHeightmapPreset: {
       id: "tropical-atoll",
       name: "Tropical atoll",
@@ -684,6 +707,7 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["desert", "sand", "arid", "mesa", "warm", "content-pack"],
     packVersion: "1.0.0",
     biomes: DESERT_BIOMES,
+    assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
     terrainHeightmapPreset: {
       id: "desert-mesa-flatlands",
       name: "Desert mesa flatlands",
@@ -777,6 +801,7 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["volcanic", "lava", "fire", "ash", "hostile", "content-pack"],
     packVersion: "1.0.0",
     biomes: VOLCANIC_BIOMES,
+    assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
     terrainHeightmapPreset: {
       id: "volcanic-rugged-peak",
       name: "Volcanic central peak",
@@ -852,6 +877,7 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["wetland", "swamp", "marsh", "humid", "content-pack"],
     packVersion: "1.0.0",
     biomes: WETLAND_BIOMES,
+    assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
     terrainHeightmapPreset: {
       id: "wetland-low-delta",
       name: "Wetland delta",
@@ -1000,6 +1026,15 @@ function buildManifest(pack: BuiltinPack): Record<string, unknown> {
   // species source.
   if (pack.vegetationByBiome) {
     m.vegetationByBiome = pack.vegetationByBiome;
+  }
+  // Asset packs this content pack needs installed alongside it.
+  // Replaces the previous unconditional Hyperia trees install in
+  // the dialog — strict-catalog: a project picking
+  // `content-pack-tropical-v1` only gets the asset packs
+  // tropical declares, nothing Hyperia-shaped sneaks in unless
+  // tropical itself depends on it.
+  if (pack.assetPackDeps && pack.assetPackDeps.length > 0) {
+    m.assetPackDeps = pack.assetPackDeps;
   }
   return m;
 }

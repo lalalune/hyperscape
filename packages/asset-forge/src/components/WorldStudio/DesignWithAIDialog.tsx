@@ -2290,12 +2290,18 @@ export function DesignWithAIDialog({
         string,
         Record<string, unknown>
       > | null = null;
+      // Asset packs that resolved content packs declare as
+      // dependencies. Replaces the previous unconditional Hyperia
+      // trees install — strict-catalog: a project gets only the
+      // asset packs its installed content packs declare.
+      const declaredAssetPackDeps = new Set<string>();
       try {
-        const themedPackId = Array.from(resolvedPackIds).find((id) =>
+        const contentPackIds = Array.from(resolvedPackIds).filter((id) =>
           id.startsWith("@hyperforge/content-pack-"),
         );
-        if (themedPackId) {
-          const fullPack = await getAssetPack(themedPackId);
+        let firstThemedPackUsedForOverrides: string | null = null;
+        for (const packId of contentPackIds) {
+          const fullPack = await getAssetPack(packId);
           const m = fullPack?.manifest as
             | {
                 terrainHeightmapPresets?: ReadonlyArray<{
@@ -2303,24 +2309,48 @@ export function DesignWithAIDialog({
                   params?: Record<string, unknown>;
                 }>;
                 vegetationByBiome?: Record<string, Record<string, unknown>>;
+                assetPackDeps?: ReadonlyArray<string>;
               }
             | null
             | undefined;
-          const firstPreset = m?.terrainHeightmapPresets?.[0];
-          if (firstPreset?.params) {
-            heightmapPresetParams = firstPreset.params;
-            // eslint-disable-next-line no-console
-            console.info(
-              `[DesignWithAIDialog] Applying heightmap preset "${firstPreset.id ?? "(unnamed)"}" from ${themedPackId}`,
-            );
+          // First themed pack wins on heightmap + vegetation
+          // overrides; subsequent themed packs only contribute
+          // asset-pack deps. (Multiple themed content packs at
+          // once is rare today but the catalog supports it.)
+          if (firstThemedPackUsedForOverrides === null) {
+            const firstPreset = m?.terrainHeightmapPresets?.[0];
+            if (firstPreset?.params) {
+              heightmapPresetParams = firstPreset.params;
+              // eslint-disable-next-line no-console
+              console.info(
+                `[DesignWithAIDialog] Applying heightmap preset "${firstPreset.id ?? "(unnamed)"}" from ${packId}`,
+              );
+            }
+            if (
+              m?.vegetationByBiome &&
+              typeof m.vegetationByBiome === "object"
+            ) {
+              packVegetationByBiome = m.vegetationByBiome;
+              // eslint-disable-next-line no-console
+              console.info(
+                `[DesignWithAIDialog] Applying vegetation overrides for ${Object.keys(packVegetationByBiome).length} biomes from ${packId}`,
+              );
+            }
+            firstThemedPackUsedForOverrides = packId;
           }
-          if (m?.vegetationByBiome && typeof m.vegetationByBiome === "object") {
-            packVegetationByBiome = m.vegetationByBiome;
-            // eslint-disable-next-line no-console
-            console.info(
-              `[DesignWithAIDialog] Applying vegetation overrides for ${Object.keys(packVegetationByBiome).length} biomes from ${themedPackId}`,
-            );
+          if (Array.isArray(m?.assetPackDeps)) {
+            for (const depId of m.assetPackDeps) {
+              if (typeof depId === "string" && depId.length > 0) {
+                declaredAssetPackDeps.add(depId);
+              }
+            }
           }
+        }
+        if (declaredAssetPackDeps.size > 0) {
+          // eslint-disable-next-line no-console
+          console.info(
+            `[DesignWithAIDialog] Resolved ${declaredAssetPackDeps.size} asset-pack deps from ${contentPackIds.length} content pack(s): ${Array.from(declaredAssetPackDeps).join(", ")}`,
+          );
         }
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -2448,16 +2478,19 @@ export function DesignWithAIDialog({
         }
       }
 
-      // Reuse the pre-procgen `resolvedPackIds` computed above —
-      // same agent picks + collected entity refs + tag-based
-      // themed-pack fallback. The trees asset-pack is appended
-      // unconditionally because today's procgen vegetation
-      // scatterer expects the Hyperia tree GLBs regardless of
-      // biome theme. Phase C3 (procgen reads species from
-      // `contentRegistry`) replaces that with theme-specific
-      // trees per content pack.
+      // Strict-catalog: install only what packs declare. The
+      // resolved set = pack-ids the agent proposed +
+      // entity-ref-derived packs + the union of `assetPackDeps`
+      // declared by every installed content pack (computed
+      // above as `declaredAssetPackDeps`). The previous
+      // unconditional `@hyperforge/asset-pack-hyperia-trees-v1`
+      // append is gone — content packs that need those tree
+      // GLBs declare the dep themselves; packs with their own
+      // tree assets bring different deps.
       const refPackIds = new Set<string>(resolvedPackIds);
-      refPackIds.add("@hyperforge/asset-pack-hyperia-trees-v1");
+      for (const depId of declaredAssetPackDeps) {
+        refPackIds.add(depId);
+      }
       const allPackIds = Array.from(refPackIds);
       if (allPackIds.length > 0) {
         try {
