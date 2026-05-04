@@ -251,7 +251,19 @@ export function getActiveBiomeDefinitions(
   if (pluginBiomes.size === 0 && contentPackBiomes.size === 0) {
     return engineDefaults;
   }
-  const merged: Record<string, BiomeDefinition> = { ...engineDefaults };
+  // When a content pack ships biomes, the project is fully themed
+  // — the engine's neutral "default" biome should NOT leak into
+  // the palette alongside themed biomes (otherwise procgen
+  // distributes ~1/Nth of tiles to the unthemed default, visible
+  // in the outliner as `Default (137 tiles)` mixed in with
+  // `Jungle (190 tiles)` / `Mangrove (116 tiles)` etc.).
+  //
+  // Plugin-only contributions (no content pack) still merge over
+  // engine defaults — a project that picks the hyperscape plugin
+  // for combat without a content pack still wants the engine's
+  // neutral biome as the baseline scatter target.
+  const merged: Record<string, BiomeDefinition> =
+    contentPackBiomes.size > 0 ? {} : { ...engineDefaults };
   for (const [id, def] of contentPackBiomes) merged[id] = def;
   for (const [id, def] of pluginBiomes) merged[id] = def;
   return merged;

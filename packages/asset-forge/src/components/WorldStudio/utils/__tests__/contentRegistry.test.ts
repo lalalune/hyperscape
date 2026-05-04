@@ -108,7 +108,12 @@ describe("contentRegistry — biomes (plugin path)", () => {
 describe("contentRegistry — biomes (content pack path)", () => {
   afterEach(() => _clearAll());
 
-  it("content pack biomes overlay engine defaults", () => {
+  it("content pack biomes REPLACE engine defaults (project is fully themed)", () => {
+    // When a content pack ships biomes, the project is fully themed:
+    // engine defaults must NOT leak into the palette alongside content
+    // pack biomes — otherwise procgen distributes ~1/Nth of tiles to
+    // the unthemed `default` biome, leaving "Default (137 tiles)"
+    // entries alongside the themed ones in the outliner.
     const beach: BiomeContribution = {
       id: "beach",
       name: "Beach",
@@ -122,7 +127,8 @@ describe("contentRegistry — biomes (content pack path)", () => {
     setContentPackContent({ biomes: [beach] });
     const merged = getActiveBiomeDefinitions(ENGINE_DEFAULTS);
     expect(merged.beach?.color).toBe(0xf5deb3);
-    expect(Object.keys(merged).sort()).toEqual(["beach", "forest", "tundra"]);
+    // Only the content pack biome — engine defaults dropped.
+    expect(Object.keys(merged).sort()).toEqual(["beach"]);
   });
 
   it("plugin biomes win over content pack biomes on id collision", () => {
