@@ -79,6 +79,7 @@ import {
   resolveProjectAssetPacks,
   listInstallableAssetPacks,
   setProjectAssetPacks,
+  getAssetPack,
   type InstallablePackSummary,
 } from "../../../utils/assetPackApi";
 import { setProjectPlugins } from "../../../utils/worldProjectApi";
@@ -257,76 +258,144 @@ function CompanionInner({ projectId }: { projectId: string }) {
           // time, not at terrain-regen time, so existing y values
           // stay where they were. Future P10 (brush ops) can add
           // a "re-snap all entities to new terrain" sweep.
-          try {
-            const agentTerrain = data.config as Record<string, unknown>;
-            const seed =
-              typeof agentTerrain.seed === "number"
-                ? agentTerrain.seed
-                : Math.floor(Math.random() * 2147483647);
-            // Deep-merge nested config sections so the agent emitting
-            // partial `terrain: { worldSize: 100 }` doesn't wipe
-            // tileSize / maxHeight / tileResolution from the base.
-            // Without this, procgen reads undefined values and
-            // writes NaN into the heightmap → "Computed radius is
-            // NaN" error spam from BufferGeometry.
-            //
-            // R1.P1 (PLAN_HYPERIA_DECOUPLING): pick the merge base
-            // from the project's plugin set, not from a global
-            // default.
-            //   - Hyperia plugin → HYPERIA_CREATION_CONFIG (full
-            //     Hyperia preset with tree species + town presets).
-            //   - else → MINIMAL_CREATION_CONFIG (procgen biomes,
-            //     empty species per biome, townCount=0). The
-            //     agent's PROPOSE_* actions fill in specifics.
-            const projectTargetsHyperia = projectPlugins.some(
-              (id) =>
-                id === "@hyperforge/hyperscape" ||
-                id === "com.hyperforge.hyperscape",
-            );
-            const baseConfig = projectTargetsHyperia
-              ? HYPERIA_CREATION_CONFIG
-              : MINIMAL_CREATION_CONFIG;
-            const procgenConfig = mergeProcgenConfig(
-              baseConfig as unknown as Record<string, unknown>,
-              agentTerrain,
-              seed,
-            );
-            const newWorld = generateWorldFromConfig(
-              procgenConfig as unknown as Parameters<
-                typeof generateWorldFromConfig
-              >[0],
-            );
-            actions.loadWorld(newWorld);
-            // LOAD_WORLD sets hasUnsavedChanges=false (it's a load
-            // semantically), so useAutoSave won't fire. Persist
-            // directly so the new terrain survives a refresh.
-            //
-            // Critically: include the CURRENT extendedLayers in the
-            // serialized worldData. Without this, the save passes
-            // ONLY the new world (foundation + manifest layers) and
-            // overwrites the persisted extendedLayers with nothing —
-            // silently wiping every agent + designer placement on
-            // disk. autoSave merges them in normally; we have to
-            // mirror that behavior here.
-            const serialized = serializeWorld(newWorld) as unknown as Record<
-              string,
-              unknown
-            >;
-            const ext = state.extendedLayers;
-            const hasExt = Object.values(ext).some((v) =>
-              Array.isArray(v) ? v.length > 0 : v !== null,
-            );
-            if (hasExt) serialized.extendedLayers = ext;
-            void saveWorldProject(projectId, {
-              worldData: serialized,
-            }).catch((err: unknown) => {
+          // Async IIFE so we can await the themed-pack manifest
+          // fetch (heightmap preset + vegetationByBiome). Treated
+          // as fire-and-forget; if the fetch errors the regen
+          // still runs against the base config.
+          void (async () => {
+            try {
+              const agentTerrain = data.config as Record<string, unknown>;
+              const seed =
+                typeof agentTerrain.seed === "number"
+                  ? agentTerrain.seed
+                  : Math.floor(Math.random() * 2147483647);
+              // Deep-merge nested config sections so the agent emitting
+              // partial `terrain: { worldSize: 100 }` doesn't wipe
+              // tileSize / maxHeight / tileResolution from the base.
+              // Without this, procgen reads undefined values and
+              // writes NaN into the heightmap → "Computed radius is
+              // NaN" error spam from BufferGeometry.
+              //
+              // R1.P1 (PLAN_HYPERIA_DECOUPLING): pick the merge base
+              // from the project's plugin set, not from a global
+              // default.
+              //   - Hyperia plugin → HYPERIA_CREATION_CONFIG (full
+              //     Hyperia preset with tree species + town presets).
+              //   - else → MINIMAL_CREATION_CONFIG (procgen biomes,
+              //     empty species per biome, townCount=0). The
+              //     agent's PROPOSE_* actions fill in specifics.
+              const projectTargetsHyperia = projectPlugins.some(
+                (id) =>
+                  id === "@hyperforge/hyperscape" ||
+                  id === "com.hyperforge.hyperscape",
+              );
+              const baseConfig = projectTargetsHyperia
+                ? HYPERIA_CREATION_CONFIG
+                : MINIMAL_CREATION_CONFIG;
+              // Pull the active themed content pack's heightmap
+              // preset + vegetation overrides — same path as
+              // DesignWithAIDialog's onboarding flow. Mid-edit
+              // PROPOSE_TERRAIN_CONFIG calls now respect the
+              // theme's island shape and per-biome scatter rules
+              // instead of ignoring them.
+              let heightmapPresetParams: Record<string, unknown> | null = null;
+              let packVegetationByBiome: Record<
+                string,
+                Record<string, unknown>
+              > | null = null;
+              try {
+                const themedPackId = projectAssetPackIds.find((id) =>
+                  id.startsWith("@hyperforge/content-pack-"),
+                );
+                if (themedPackId) {
+                  const fullPack = await getAssetPack(themedPackId);
+                  const m = fullPack?.manifest as
+                    | {
+                        terrainHeightmapPresets?: ReadonlyArray<{
+                          id?: string;
+                          params?: Record<string, unknown>;
+                        }>;
+                        vegetationByBiome?: Record<
+                          string,
+                          Record<string, unknown>
+                        >;
+                      }
+                    | null
+                    | undefined;
+                  const firstPreset = m?.terrainHeightmapPresets?.[0];
+                  if (firstPreset?.params) {
+                    heightmapPresetParams = firstPreset.params;
+                  }
+                  if (
+                    m?.vegetationByBiome &&
+                    typeof m.vegetationByBiome === "object"
+                  ) {
+                    packVegetationByBiome = m.vegetationByBiome;
+                  }
+                }
+              } catch (err) {
+                // eslint-disable-next-line no-console
+                console.warn(
+                  "[Companion] themed-pack fetch failed; using base config:",
+                  err,
+                );
+              }
+              const baseWithPreset = heightmapPresetParams
+                ? (mergeProcgenConfig(
+                    baseConfig as unknown as Record<string, unknown>,
+                    heightmapPresetParams,
+                    seed,
+                  ) as unknown as Record<string, unknown>)
+                : (baseConfig as unknown as Record<string, unknown>);
+              const baseWithVegetation = packVegetationByBiome
+                ? (mergeProcgenConfig(
+                    baseWithPreset,
+                    { vegetation: packVegetationByBiome },
+                    seed,
+                  ) as unknown as Record<string, unknown>)
+                : baseWithPreset;
+              const procgenConfig = mergeProcgenConfig(
+                baseWithVegetation,
+                agentTerrain,
+                seed,
+              );
+              const newWorld = generateWorldFromConfig(
+                procgenConfig as unknown as Parameters<
+                  typeof generateWorldFromConfig
+                >[0],
+              );
+              actions.loadWorld(newWorld);
+              // LOAD_WORLD sets hasUnsavedChanges=false (it's a load
+              // semantically), so useAutoSave won't fire. Persist
+              // directly so the new terrain survives a refresh.
+              //
+              // Critically: include the CURRENT extendedLayers in the
+              // serialized worldData. Without this, the save passes
+              // ONLY the new world (foundation + manifest layers) and
+              // overwrites the persisted extendedLayers with nothing —
+              // silently wiping every agent + designer placement on
+              // disk. autoSave merges them in normally; we have to
+              // mirror that behavior here.
+              const serialized = serializeWorld(newWorld) as unknown as Record<
+                string,
+                unknown
+              >;
+              const ext = state.extendedLayers;
+              const hasExt = Object.values(ext).some((v) =>
+                Array.isArray(v) ? v.length > 0 : v !== null,
+              );
+              if (hasExt) serialized.extendedLayers = ext;
+              void saveWorldProject(projectId, {
+                worldData: serialized,
+              }).catch((err: unknown) => {
+                // eslint-disable-next-line no-console
+                console.warn("[Companion] Terrain regen save failed:", err);
+              });
+            } catch (err) {
               // eslint-disable-next-line no-console
-              console.warn("[Companion] Terrain regen save failed:", err);
-            });
-          } catch (err) {
-            // eslint-disable-next-line no-console
-            console.warn("[Companion] Terrain regen failed:", err);
-          }
+              console.warn("[Companion] Terrain regen failed:", err);
+            }
+          })();
         } else if (call.name === "PROPOSE_UI_PACK" && data.pack !== undefined) {
           const r = setAgentPack(data.pack);
           if (r.ok) {
