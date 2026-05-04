@@ -85,6 +85,29 @@ interface BuiltinPack {
      */
     params: Record<string, unknown>;
   };
+  /**
+   * Per-biome procgen vegetation overrides keyed by biome id.
+   * Shape mirrors the client-side `BiomeTreeVegetationConfig`
+   * (`enabled`, `trees`, `density`, `minSpacing`, `clustering`,
+   * etc.) — see `packages/asset-forge/src/components/WorldBuilder/types.ts`.
+   * The dialog deep-merges this into `procgenConfig.vegetation`
+   * after the heightmap preset, so each themed pack scatters
+   * theme-appropriate species on its own biome ids:
+   *
+   *   - tropical_beach → `tree_palm` cluster scatter
+   *   - jungle         → dense `tree_palm` + `tree_banana`
+   *   - frozen_tundra  → sparse `tree_pine` + `tree_dead`
+   *   - sand_dune      → near-zero density (cacti once a tree id exists)
+   *   - lava_field     → `tree_dead` only, low density
+   *   - marsh          → `tree_dead` + `tree_general`
+   *
+   * Tree species ids must match the engine's vegetation manifest
+   * (`@hyperforge/asset-pack-hyperia-trees-v1`) until Phase C3
+   * proper ships per-pack vegetation species. Optional — packs
+   * that don't ship overrides leave `procgenConfig.vegetation`
+   * untouched, so their biomes inherit the default scatter.
+   */
+  vegetationByBiome?: Record<string, Record<string, unknown>>;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -456,6 +479,70 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
         },
       },
     },
+    vegetationByBiome: {
+      frozen_tundra: {
+        enabled: true,
+        enableSnow: true,
+        trees: {
+          tree_pine: { weight: 60, minHeight: 20 },
+          tree_pineDead: { weight: 25, minHeight: 25 },
+          tree_dead: { weight: 15, minHeight: 30 },
+        },
+        density: 18,
+        minSpacing: 6,
+        clustering: true,
+        clusterSize: 25,
+        clusterRadius: 100,
+        clusterSpacing: 110,
+        scaleVariation: [0.9, 1.1],
+        maxSlope: 1.4,
+      },
+      snow_plain: {
+        enabled: true,
+        enableSnow: true,
+        trees: {
+          tree_pine: { weight: 70, minHeight: 15 },
+          tree_dead: { weight: 30 },
+        },
+        density: 8,
+        minSpacing: 8,
+        clustering: false,
+        scaleVariation: [0.9, 1.1],
+        maxSlope: 1.2,
+      },
+      glacial_peak: {
+        enabled: true,
+        enableSnow: true,
+        trees: {
+          tree_pineDead: { weight: 60, minHeight: 50 },
+          tree_dead: { weight: 40, minHeight: 50 },
+        },
+        density: 3,
+        minSpacing: 15,
+        clustering: false,
+        scaleVariation: [0.7, 1.0],
+        maxSlope: 2.0,
+      },
+      frozen_lake: {
+        enabled: false,
+        trees: {},
+        density: 0,
+        minSpacing: 10,
+        clustering: false,
+      },
+      ice_field: {
+        enabled: true,
+        enableSnow: true,
+        trees: {
+          tree_dead: { weight: 100 },
+        },
+        density: 4,
+        minSpacing: 12,
+        clustering: false,
+        scaleVariation: [0.8, 1.0],
+        maxSlope: 1.0,
+      },
+    },
   },
   {
     manifestId: "@hyperforge/content-pack-tropical-v1",
@@ -479,6 +566,113 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
           edgeNoiseScale: 0.012,
           edgeNoiseStrength: 0.28,
         },
+      },
+    },
+    vegetationByBiome: {
+      tropical_beach: {
+        enabled: true,
+        trees: {
+          tree_palm: {
+            weight: 80,
+            waterAffinity: 0.9,
+            waterSearchRadius: 80,
+            waterMaxDistance: 60,
+          },
+          tree_banana: {
+            weight: 20,
+            waterAffinity: 0.7,
+            waterSearchRadius: 100,
+            waterMaxDistance: 80,
+          },
+        },
+        density: 25,
+        minSpacing: 6,
+        clustering: true,
+        clusterSize: 15,
+        clusterRadius: 60,
+        clusterSpacing: 50,
+        scaleVariation: [0.9, 1.3],
+        maxSlope: 0.8,
+      },
+      jungle: {
+        enabled: true,
+        trees: {
+          tree_palm: { weight: 35 },
+          tree_banana: { weight: 35 },
+          tree_general: { weight: 15 },
+          tree_eucalyptus: { weight: 15, maxHeight: 50 },
+        },
+        density: 80,
+        minSpacing: 4,
+        clustering: true,
+        clusterSize: 50,
+        clusterRadius: 100,
+        clusterSpacing: 60,
+        scaleVariation: [1.0, 1.4],
+        maxSlope: 1.5,
+      },
+      mangrove: {
+        enabled: true,
+        trees: {
+          tree_palm: {
+            weight: 40,
+            waterAffinity: 1.0,
+            waterSearchRadius: 60,
+            waterMaxDistance: 30,
+          },
+          tree_banana: {
+            weight: 30,
+            waterAffinity: 0.9,
+            waterSearchRadius: 60,
+            waterMaxDistance: 40,
+          },
+          tree_dead: { weight: 30 },
+        },
+        density: 45,
+        minSpacing: 5,
+        clustering: true,
+        clusterSize: 25,
+        clusterRadius: 70,
+        clusterSpacing: 50,
+        scaleVariation: [0.9, 1.1],
+        maxSlope: 0.5,
+      },
+      palm_grove: {
+        enabled: true,
+        trees: {
+          tree_palm: { weight: 90 },
+          tree_banana: { weight: 10 },
+        },
+        density: 60,
+        minSpacing: 5,
+        clustering: true,
+        clusterSize: 30,
+        clusterRadius: 80,
+        clusterSpacing: 60,
+        scaleVariation: [1.0, 1.3],
+        maxSlope: 1.0,
+      },
+      lagoon: {
+        enabled: true,
+        trees: {
+          tree_palm: {
+            weight: 70,
+            waterAffinity: 1.0,
+            waterSearchRadius: 50,
+            waterMaxDistance: 25,
+          },
+          tree_banana: {
+            weight: 30,
+            waterAffinity: 0.8,
+            waterSearchRadius: 60,
+            waterMaxDistance: 40,
+          },
+        },
+        density: 15,
+        minSpacing: 8,
+        clustering: false,
+        scaleVariation: [0.9, 1.2],
+        maxSlope: 0.6,
       },
     },
   },
@@ -506,6 +700,74 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
         },
       },
     },
+    vegetationByBiome: {
+      sand_dune: {
+        enabled: true,
+        trees: {
+          tree_dead: { weight: 100 },
+        },
+        density: 2,
+        minSpacing: 20,
+        clustering: false,
+        scaleVariation: [0.7, 1.0],
+        maxSlope: 1.5,
+      },
+      mesa: {
+        enabled: true,
+        trees: {
+          tree_dead: { weight: 80 },
+          tree_general: { weight: 20, maxHeight: 40 },
+        },
+        density: 4,
+        minSpacing: 18,
+        clustering: false,
+        scaleVariation: [0.8, 1.0],
+        maxSlope: 0.8,
+      },
+      salt_flat: {
+        enabled: false,
+        trees: {},
+        density: 0,
+        minSpacing: 25,
+        clustering: false,
+      },
+      oasis: {
+        enabled: true,
+        trees: {
+          tree_palm: {
+            weight: 70,
+            waterAffinity: 1.0,
+            waterSearchRadius: 40,
+            waterMaxDistance: 20,
+          },
+          tree_banana: {
+            weight: 30,
+            waterAffinity: 0.9,
+            waterSearchRadius: 50,
+            waterMaxDistance: 30,
+          },
+        },
+        density: 35,
+        minSpacing: 5,
+        clustering: true,
+        clusterSize: 12,
+        clusterRadius: 40,
+        clusterSpacing: 30,
+        scaleVariation: [0.9, 1.2],
+        maxSlope: 0.6,
+      },
+      badlands: {
+        enabled: true,
+        trees: {
+          tree_dead: { weight: 100 },
+        },
+        density: 5,
+        minSpacing: 16,
+        clustering: false,
+        scaleVariation: [0.7, 1.0],
+        maxSlope: 2.0,
+      },
+    },
   },
   {
     manifestId: "@hyperforge/content-pack-volcanic-v1",
@@ -529,6 +791,56 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
           edgeNoiseScale: 0.007,
           edgeNoiseStrength: 0.18,
         },
+      },
+    },
+    vegetationByBiome: {
+      lava_field: {
+        enabled: false,
+        trees: {},
+        density: 0,
+        minSpacing: 20,
+        clustering: false,
+      },
+      ash_plain: {
+        enabled: true,
+        trees: {
+          tree_dead: { weight: 100 },
+        },
+        density: 6,
+        minSpacing: 14,
+        clustering: false,
+        scaleVariation: [0.7, 1.0],
+        maxSlope: 1.2,
+      },
+      basalt_peak: {
+        enabled: true,
+        trees: {
+          tree_dead: { weight: 80, minHeight: 40 },
+          tree_pineDead: { weight: 20, minHeight: 50 },
+        },
+        density: 3,
+        minSpacing: 16,
+        clustering: false,
+        scaleVariation: [0.7, 1.0],
+        maxSlope: 2.0,
+      },
+      sulfur_pool: {
+        enabled: false,
+        trees: {},
+        density: 0,
+        minSpacing: 25,
+        clustering: false,
+      },
+      obsidian_flow: {
+        enabled: true,
+        trees: {
+          tree_dead: { weight: 100 },
+        },
+        density: 4,
+        minSpacing: 18,
+        clustering: false,
+        scaleVariation: [0.7, 0.9],
+        maxSlope: 1.6,
       },
     },
   },
@@ -556,6 +868,105 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
         },
       },
     },
+    vegetationByBiome: {
+      marsh: {
+        enabled: true,
+        trees: {
+          tree_dead: { weight: 50 },
+          tree_general: {
+            weight: 30,
+            waterAffinity: 0.7,
+            waterSearchRadius: 50,
+            waterMaxDistance: 30,
+          },
+          tree_eucalyptus: { weight: 20, maxHeight: 30 },
+        },
+        density: 30,
+        minSpacing: 6,
+        clustering: true,
+        clusterSize: 18,
+        clusterRadius: 70,
+        clusterSpacing: 60,
+        scaleVariation: [0.9, 1.2],
+        maxSlope: 0.4,
+      },
+      swamp: {
+        enabled: true,
+        trees: {
+          tree_dead: { weight: 60 },
+          tree_general: {
+            weight: 25,
+            waterAffinity: 0.8,
+            waterSearchRadius: 40,
+            waterMaxDistance: 25,
+          },
+          tree_eucalyptus: { weight: 15 },
+        },
+        density: 50,
+        minSpacing: 5,
+        clustering: true,
+        clusterSize: 25,
+        clusterRadius: 80,
+        clusterSpacing: 60,
+        scaleVariation: [0.9, 1.3],
+        maxSlope: 0.5,
+      },
+      bog: {
+        enabled: true,
+        trees: {
+          tree_dead: { weight: 80 },
+          tree_general: { weight: 20 },
+        },
+        density: 20,
+        minSpacing: 7,
+        clustering: false,
+        scaleVariation: [0.8, 1.1],
+        maxSlope: 0.4,
+      },
+      fen: {
+        enabled: true,
+        trees: {
+          tree_dead: { weight: 40 },
+          tree_general: { weight: 40 },
+          tree_bamboo: { weight: 20 },
+        },
+        density: 35,
+        minSpacing: 5,
+        clustering: true,
+        clusterSize: 15,
+        clusterRadius: 50,
+        clusterSpacing: 40,
+        scaleVariation: [0.9, 1.2],
+        maxSlope: 0.5,
+      },
+      river_delta: {
+        enabled: true,
+        trees: {
+          tree_palm: {
+            weight: 30,
+            waterAffinity: 1.0,
+            waterSearchRadius: 50,
+            waterMaxDistance: 25,
+          },
+          tree_banana: {
+            weight: 20,
+            waterAffinity: 0.9,
+            waterSearchRadius: 60,
+            waterMaxDistance: 35,
+          },
+          tree_dead: { weight: 30 },
+          tree_general: { weight: 20 },
+        },
+        density: 40,
+        minSpacing: 5,
+        clustering: true,
+        clusterSize: 20,
+        clusterRadius: 60,
+        clusterSpacing: 45,
+        scaleVariation: [0.9, 1.2],
+        maxSlope: 0.4,
+      },
+    },
   },
 ]);
 
@@ -577,6 +988,18 @@ function buildManifest(pack: BuiltinPack): Record<string, unknown> {
   // mountain range for arctic, etc.).
   if (pack.terrainHeightmapPreset) {
     m.terrainHeightmapPresets = [pack.terrainHeightmapPreset];
+  }
+  // Per-biome vegetation overrides — keys match the pack's biome
+  // ids. The dialog deep-merges these into procgen's vegetation
+  // config so themed biomes scatter theme-appropriate species
+  // (palms on tropical_beach, pines on frozen_tundra, etc.).
+  // Phase C3 of `PLAN_AAA_CONTENT_SYSTEM.md` proper will replace
+  // this with content-pack-contributed `vegetationSpecies` +
+  // `vegetationDensityRules`; this is the lower-friction first
+  // cut that uses today's static vegetation manifest as the
+  // species source.
+  if (pack.vegetationByBiome) {
+    m.vegetationByBiome = pack.vegetationByBiome;
   }
   return m;
 }

@@ -2286,6 +2286,10 @@ export function DesignWithAIDialog({
       // ship a preset, the dialog falls back to the base config
       // (no preset merge). Procgen still runs.
       let heightmapPresetParams: Record<string, unknown> | null = null;
+      let packVegetationByBiome: Record<
+        string,
+        Record<string, unknown>
+      > | null = null;
       try {
         const themedPackId = Array.from(resolvedPackIds).find((id) =>
           id.startsWith("@hyperforge/content-pack-"),
@@ -2298,6 +2302,7 @@ export function DesignWithAIDialog({
                   id?: string;
                   params?: Record<string, unknown>;
                 }>;
+                vegetationByBiome?: Record<string, Record<string, unknown>>;
               }
             | null
             | undefined;
@@ -2309,20 +2314,31 @@ export function DesignWithAIDialog({
               `[DesignWithAIDialog] Applying heightmap preset "${firstPreset.id ?? "(unnamed)"}" from ${themedPackId}`,
             );
           }
+          if (m?.vegetationByBiome && typeof m.vegetationByBiome === "object") {
+            packVegetationByBiome = m.vegetationByBiome;
+            // eslint-disable-next-line no-console
+            console.info(
+              `[DesignWithAIDialog] Applying vegetation overrides for ${Object.keys(packVegetationByBiome).length} biomes from ${themedPackId}`,
+            );
+          }
         }
       } catch (err) {
         // eslint-disable-next-line no-console
         console.warn(
-          "[DesignWithAIDialog] heightmap preset fetch failed; using base config:",
+          "[DesignWithAIDialog] themed-pack fetch failed; using base config:",
           err,
         );
       }
 
-      // Merge order: baseConfig → preset params → agent's
-      // PROPOSE_TERRAIN_CONFIG. Each later layer wins on
-      // overlapping keys. Agent's explicit emission has highest
-      // priority since it represents user intent expressed
-      // through the chat.
+      // Merge order for terrain knobs: baseConfig → heightmap
+      // preset → agent's PROPOSE_TERRAIN_CONFIG. Vegetation is
+      // an additive overlay merged separately below — the
+      // pack's per-biome scatter rules add new keys onto the
+      // base config's vegetation map, which the worker then
+      // looks up at scatter time using each tile's biome id.
+      // Each later layer wins on overlapping keys. Agent's
+      // explicit emission has highest priority since it
+      // represents user intent expressed through the chat.
       const baseWithPreset = heightmapPresetParams
         ? (mergeProcgenConfig(
             baseConfig as unknown as Record<string, unknown>,
@@ -2330,8 +2346,15 @@ export function DesignWithAIDialog({
             resolvedSeed,
           ) as unknown as Record<string, unknown>)
         : (baseConfig as unknown as Record<string, unknown>);
+      const baseWithVegetation = packVegetationByBiome
+        ? (mergeProcgenConfig(
+            baseWithPreset,
+            { vegetation: packVegetationByBiome },
+            resolvedSeed,
+          ) as unknown as Record<string, unknown>)
+        : baseWithPreset;
       const procgenConfig = mergeProcgenConfig(
-        baseWithPreset,
+        baseWithVegetation,
         agentTerrain,
         resolvedSeed,
       ) as unknown as Parameters<typeof generateWorldFromConfig>[0];
