@@ -87,6 +87,7 @@ import {
   setProjectPlugins,
 } from "../../utils/worldProjectApi";
 import {
+  getAssetPack,
   listInstallableAssetPacks,
   resolveProjectAssetPacks,
   setProjectAssetPacks,
@@ -2216,14 +2217,121 @@ export function DesignWithAIDialog({
       >;
       const resolvedSeed =
         typeof agentTerrain.seed === "number" ? agentTerrain.seed : seed;
-      const projectIsHyperiaThemed = (effectivePlan.assetPackIds ?? []).some(
-        (id) => id === "@hyperforge/content-pack-hyperia-v1",
+
+      // Resolve the FINAL set of pack ids before procgen so the
+      // heightmap preset from whichever themed pack is actually
+      // installed can drive the procgen shape. Mirrors the
+      // `refPackIds` collection that runs after project creation
+      // for the install call — same agent picks + collected
+      // refs + tag-based fallback. Hoisted here so we can read
+      // the active pack's `terrainHeightmapPresets` BEFORE
+      // procgen runs, not after.
+      const resolvedPackIds = new Set<string>(effectivePlan.assetPackIds ?? []);
+      const collectRefsForResolve = (entries: ReadonlyArray<unknown>): void => {
+        for (const e of entries) {
+          const ref = (e as { assetRef?: unknown })?.assetRef;
+          if (typeof ref !== "string") continue;
+          const slash = ref.lastIndexOf("/");
+          if (slash > 0) resolvedPackIds.add(ref.slice(0, slash));
+        }
+      };
+      collectRefsForResolve(effectivePlan.npcs);
+      collectRefsForResolve(effectivePlan.mobSpawns);
+      collectRefsForResolve(effectivePlan.resources);
+      collectRefsForResolve(effectivePlan.stations);
+      collectRefsForResolve(effectivePlan.teleports);
+      collectRefsForResolve(effectivePlan.pois);
+      collectRefsForResolve(effectivePlan.dangerSources);
+      collectRefsForResolve(effectivePlan.waterBodies);
+      collectRefsForResolve(effectivePlan.mines);
+      // Tag-based fallback if no themed pack was proposed.
+      const alreadyHasThemedPack = Array.from(resolvedPackIds).some((id) =>
+        id.startsWith("@hyperforge/content-pack-"),
+      );
+      if (!alreadyHasThemedPack) {
+        const inferredPack = inferThemedPackFromCatalog(
+          messages,
+          installablePacks.map((p) => ({
+            manifestId: p.manifestId,
+            tags: p.tags,
+          })),
+        );
+        resolvedPackIds.add(
+          inferredPack ?? "@hyperforge/content-pack-hyperia-v1",
+        );
+      }
+
+      const projectIsHyperiaThemed = resolvedPackIds.has(
+        "@hyperforge/content-pack-hyperia-v1",
       );
       const baseConfig = projectIsHyperiaThemed
         ? HYPERIA_CREATION_CONFIG
         : MINIMAL_CREATION_CONFIG;
+
+      // Fetch the heightmap preset from the active themed pack.
+      // Each themed content pack ships ONE preset under
+      // `manifest.terrainHeightmapPresets[0]` (per
+      // `server/builtins/content-packs.ts`). The preset's
+      // `params` carry WorldCreationConfig overrides
+      // (terrain.maxHeight, island.maxWorldSizeTiles, edge
+      // noise, etc.) — we deep-merge them into baseConfig so
+      // the theme actually shapes the procgen output:
+      //   - tropical: smaller atoll-like landmass, irregular coast
+      //   - arctic:   bigger mountainous landmass, smoother edges
+      //   - desert:   wide flat with mesa relief
+      //   - volcanic: tall central peak, rugged
+      //   - wetland:  flat low-elevation marsh with many cuts
+      //
+      // Soft-fail: if the fetch errors or the manifest doesn't
+      // ship a preset, the dialog falls back to the base config
+      // (no preset merge). Procgen still runs.
+      let heightmapPresetParams: Record<string, unknown> | null = null;
+      try {
+        const themedPackId = Array.from(resolvedPackIds).find((id) =>
+          id.startsWith("@hyperforge/content-pack-"),
+        );
+        if (themedPackId) {
+          const fullPack = await getAssetPack(themedPackId);
+          const m = fullPack?.manifest as
+            | {
+                terrainHeightmapPresets?: ReadonlyArray<{
+                  id?: string;
+                  params?: Record<string, unknown>;
+                }>;
+              }
+            | null
+            | undefined;
+          const firstPreset = m?.terrainHeightmapPresets?.[0];
+          if (firstPreset?.params) {
+            heightmapPresetParams = firstPreset.params;
+            // eslint-disable-next-line no-console
+            console.info(
+              `[DesignWithAIDialog] Applying heightmap preset "${firstPreset.id ?? "(unnamed)"}" from ${themedPackId}`,
+            );
+          }
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[DesignWithAIDialog] heightmap preset fetch failed; using base config:",
+          err,
+        );
+      }
+
+      // Merge order: baseConfig → preset params → agent's
+      // PROPOSE_TERRAIN_CONFIG. Each later layer wins on
+      // overlapping keys. Agent's explicit emission has highest
+      // priority since it represents user intent expressed
+      // through the chat.
+      const baseWithPreset = heightmapPresetParams
+        ? (mergeProcgenConfig(
+            baseConfig as unknown as Record<string, unknown>,
+            heightmapPresetParams,
+            resolvedSeed,
+          ) as unknown as Record<string, unknown>)
+        : (baseConfig as unknown as Record<string, unknown>);
       const procgenConfig = mergeProcgenConfig(
-        baseConfig as unknown as Record<string, unknown>,
+        baseWithPreset,
         agentTerrain,
         resolvedSeed,
       ) as unknown as Parameters<typeof generateWorldFromConfig>[0];
@@ -2317,102 +2425,16 @@ export function DesignWithAIDialog({
         }
       }
 
-      // Asset packs the agent recommended (PROPOSE_ASSET_PACK_INSTALL)
-      // PLUS any pack referenced by an entity's assetRef. The agent's
-      // auto-fill picks refs from the projectContext.assetPacks we
-      // sent (full installable catalog), so those packs need to be
-      // actually installed on the new project for the renderer to
-      // resolve them post-Generate. Walk every entity slot, extract
-      // pack ids from assetRefs, dedupe, and install.
-      const refPackIds = new Set<string>(effectivePlan.assetPackIds ?? []);
-      const collectRefs = (entries: ReadonlyArray<unknown>): void => {
-        for (const e of entries) {
-          const ref = (e as { assetRef?: unknown })?.assetRef;
-          if (typeof ref !== "string") continue;
-          const slash = ref.lastIndexOf("/");
-          if (slash > 0) refPackIds.add(ref.slice(0, slash));
-        }
-      };
-      collectRefs(effectivePlan.npcs);
-      collectRefs(effectivePlan.mobSpawns);
-      collectRefs(effectivePlan.resources);
-      collectRefs(effectivePlan.stations);
-      collectRefs(effectivePlan.teleports);
-      collectRefs(effectivePlan.pois);
-      collectRefs(effectivePlan.dangerSources);
-      collectRefs(effectivePlan.waterBodies);
-      collectRefs(effectivePlan.mines);
-
-      // AAA-baseline auto-install — every AI-generated project
-      // gets at least ONE biome content pack so the world isn't
-      // empty out of the box. Mirrors UE5's "Third Person
-      // Template" pattern: new projects ship with sensible
-      // defaults; the user can uninstall later. The engine
-      // baseline biome (one neutral default in
-      // `GAME_BIOME_DEFINITIONS`) keeps the world renderable
-      // even after every pack is removed.
-      //
-      // Themed content pack policy:
-      //   - If the agent has already proposed any
-      //     `@hyperforge/content-pack-*` (e.g. tropical, arctic,
-      //     desert, volcanic, wetland — see the
-      //     `seed-themed-content-packs.ts` catalog), use that.
-      //     The agent's pick should match the user's described
-      //     theme.
-      //   - Otherwise default to Hyperia (tundra/forest/canyon)
-      //     as the safe fallback for "generic fantasy RPG".
-      //
-      // Trees asset pack: always installed, since today's procgen
-      // vegetation scatterer expects the Hyperia tree GLBs
-      // regardless of biome theme. Phase C3 (procgen reads
-      // species from `contentRegistry`) replaces this with
-      // theme-specific trees per content pack.
-      const hasThemedContentPack = Array.from(refPackIds).some((id) =>
-        id.startsWith("@hyperforge/content-pack-"),
-      );
-      if (!hasThemedContentPack) {
-        // Tag-based fallback — match the user's prompt against
-        // the LIVE pack catalog's tags (each themed pack ships
-        // its own tags: tropical → ["tropical","jungle","beach",
-        // "warm","humid"]; arctic → ["arctic","snow","frozen",
-        // "mountain","cold"]; etc.). New packs added to
-        // `server/builtins/content-packs.ts` with appropriate
-        // tags become pickable here automatically — no code
-        // changes required.
-        //
-        // The agent's PROPOSE_ASSET_PACK_INSTALL choice takes
-        // precedence over this; the fallback only fires when
-        // no themed pack was proposed (typical when the agent
-        // server prompt is stale or the agent simply stays
-        // silent on this slot).
-        const inferredPack = inferThemedPackFromCatalog(
-          messages,
-          installablePacks.map((p) => ({
-            manifestId: p.manifestId,
-            tags: p.tags,
-          })),
-        );
-        if (inferredPack) {
-          // eslint-disable-next-line no-console
-          console.info(
-            `[DesignWithAIDialog] Tag-based fallback: installing ${inferredPack} (catalog match)`,
-          );
-          refPackIds.add(inferredPack);
-        } else {
-          // No tag match — Hyperia is the safe default for
-          // unspecified prompts (mirrors UE5's third-person
-          // template default for empty New Project flows).
-          // eslint-disable-next-line no-console
-          console.info(
-            "[DesignWithAIDialog] Tag-based fallback: no catalog match, " +
-              "installing @hyperforge/content-pack-hyperia-v1 as the " +
-              "generic-fantasy default.",
-          );
-          refPackIds.add("@hyperforge/content-pack-hyperia-v1");
-        }
-      }
+      // Reuse the pre-procgen `resolvedPackIds` computed above —
+      // same agent picks + collected entity refs + tag-based
+      // themed-pack fallback. The trees asset-pack is appended
+      // unconditionally because today's procgen vegetation
+      // scatterer expects the Hyperia tree GLBs regardless of
+      // biome theme. Phase C3 (procgen reads species from
+      // `contentRegistry`) replaces that with theme-specific
+      // trees per content pack.
+      const refPackIds = new Set<string>(resolvedPackIds);
       refPackIds.add("@hyperforge/asset-pack-hyperia-trees-v1");
-
       const allPackIds = Array.from(refPackIds);
       if (allPackIds.length > 0) {
         try {

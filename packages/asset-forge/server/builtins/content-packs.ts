@@ -53,6 +53,38 @@ interface BuiltinPack {
   tags: string[];
   packVersion: string;
   biomes: ReadonlyArray<BiomeContribution>;
+  /**
+   * Per-theme procgen heightmap preset. Carries
+   * `WorldCreationConfig`-shaped overrides (terrain / island /
+   * noise / shoreline knobs) that the dialog deep-merges into
+   * the procgen base config before generating the world. Lets
+   * each themed pack ship a distinct island shape, sea level,
+   * peak height, and coastline irregularity:
+   *
+   *   - tropical: smaller landmass, lower peaks, irregular coast
+   *   - arctic:   larger landmass, taller peaks, smoother edges
+   *   - desert:   larger flat landmass with sharper relief
+   *   - volcanic: central tall peak, rugged slopes
+   *   - wetland:  flat low-elevation marsh with many water cuts
+   *   - hyperia:  the canonical defaults (DEFAULT_ISLAND_CONFIG)
+   *
+   * Optional — packs that don't ship a preset use the
+   * client-side `DEFAULT_*` constants. Existing fields
+   * (`tags`, `biomes`) are unchanged.
+   */
+  terrainHeightmapPreset?: {
+    id: string;
+    name: string;
+    description: string;
+    /**
+     * `WorldCreationConfig` partial — top-level keys must match
+     * the client-side `WorldCreationConfig` (`terrain`, `island`,
+     * `noise`, `shoreline`). Each sub-object's keys are
+     * deep-merged into the base config. Extra keys are
+     * ignored client-side; missing keys inherit the default.
+     */
+    params: Record<string, unknown>;
+  };
 }
 
 // ────────────────────────────────────────────────────────────
@@ -383,6 +415,22 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["hyperia", "fantasy", "rpg", "content-pack", "built-in"],
     packVersion: "1.0.0",
     biomes: HYPERIA_BIOMES,
+    terrainHeightmapPreset: {
+      id: "hyperia-default",
+      name: "Hyperia island",
+      description:
+        "The canonical Hyperia heightmap — single circular landmass, mid-elevation peaks, gentle coastline irregularity. Matches the reference Hyperia world.",
+      params: {
+        terrain: { maxHeight: 50, waterThreshold: 16 },
+        island: {
+          enabled: true,
+          maxWorldSizeTiles: 1000,
+          falloffTiles: 4,
+          edgeNoiseScale: 0.005,
+          edgeNoiseStrength: 0.12,
+        },
+      },
+    },
   },
   {
     manifestId: "@hyperforge/content-pack-arctic-v1",
@@ -392,6 +440,22 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["arctic", "snow", "frozen", "mountain", "cold", "content-pack"],
     packVersion: "1.0.0",
     biomes: ARCTIC_BIOMES,
+    terrainHeightmapPreset: {
+      id: "arctic-mountain-range",
+      name: "Arctic mountain range",
+      description:
+        "Larger landmass with taller jagged peaks and smoother glacial coastlines. Higher max elevation = visible mountain ranges; lower edge noise strength = smooth glacier shores.",
+      params: {
+        terrain: { maxHeight: 90, waterThreshold: 14 },
+        island: {
+          enabled: true,
+          maxWorldSizeTiles: 1200,
+          falloffTiles: 6,
+          edgeNoiseScale: 0.004,
+          edgeNoiseStrength: 0.08,
+        },
+      },
+    },
   },
   {
     manifestId: "@hyperforge/content-pack-tropical-v1",
@@ -401,6 +465,22 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["tropical", "jungle", "beach", "warm", "humid", "content-pack"],
     packVersion: "1.0.0",
     biomes: TROPICAL_BIOMES,
+    terrainHeightmapPreset: {
+      id: "tropical-atoll",
+      name: "Tropical atoll",
+      description:
+        "Smaller landmass with lower peaks and wildly irregular coastline — atoll-like silhouette with many bays and inlets. Lower max height keeps mountains absent; high edge noise gives the coast its irregular shape.",
+      params: {
+        terrain: { maxHeight: 30, waterThreshold: 12 },
+        island: {
+          enabled: true,
+          maxWorldSizeTiles: 800,
+          falloffTiles: 3,
+          edgeNoiseScale: 0.012,
+          edgeNoiseStrength: 0.28,
+        },
+      },
+    },
   },
   {
     manifestId: "@hyperforge/content-pack-desert-v1",
@@ -410,6 +490,22 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["desert", "sand", "arid", "mesa", "warm", "content-pack"],
     packVersion: "1.0.0",
     biomes: DESERT_BIOMES,
+    terrainHeightmapPreset: {
+      id: "desert-mesa-flatlands",
+      name: "Desert mesa flatlands",
+      description:
+        "Wide flat landmass with sharp mesa relief — low base elevation but with dramatic mesa peaks. Larger world size; smoother edges (deserts don't have rocky coasts).",
+      params: {
+        terrain: { maxHeight: 45, waterThreshold: 10 },
+        island: {
+          enabled: true,
+          maxWorldSizeTiles: 1300,
+          falloffTiles: 5,
+          edgeNoiseScale: 0.006,
+          edgeNoiseStrength: 0.1,
+        },
+      },
+    },
   },
   {
     manifestId: "@hyperforge/content-pack-volcanic-v1",
@@ -419,6 +515,22 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["volcanic", "lava", "fire", "ash", "hostile", "content-pack"],
     packVersion: "1.0.0",
     biomes: VOLCANIC_BIOMES,
+    terrainHeightmapPreset: {
+      id: "volcanic-rugged-peak",
+      name: "Volcanic central peak",
+      description:
+        "Mid-sized landmass with one dominant tall central peak and rugged slopes. Tall max height (volcano cone); mid-strength edge noise (rocky coasts, lava-cooled flows).",
+      params: {
+        terrain: { maxHeight: 75, waterThreshold: 14 },
+        island: {
+          enabled: true,
+          maxWorldSizeTiles: 900,
+          falloffTiles: 4,
+          edgeNoiseScale: 0.007,
+          edgeNoiseStrength: 0.18,
+        },
+      },
+    },
   },
   {
     manifestId: "@hyperforge/content-pack-wetland-v1",
@@ -428,11 +540,27 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     tags: ["wetland", "swamp", "marsh", "humid", "content-pack"],
     packVersion: "1.0.0",
     biomes: WETLAND_BIOMES,
+    terrainHeightmapPreset: {
+      id: "wetland-low-delta",
+      name: "Wetland delta",
+      description:
+        "Low flat landmass with very high water level and many water cuts — feels like a river delta or expansive marsh. Very low max height; high edge noise strength carves the coast into many fingers.",
+      params: {
+        terrain: { maxHeight: 22, waterThreshold: 16 },
+        island: {
+          enabled: true,
+          maxWorldSizeTiles: 950,
+          falloffTiles: 3,
+          edgeNoiseScale: 0.014,
+          edgeNoiseStrength: 0.32,
+        },
+      },
+    },
   },
 ]);
 
 function buildManifest(pack: BuiltinPack): Record<string, unknown> {
-  return {
+  const m: Record<string, unknown> = {
     version: 1,
     id: pack.manifestId,
     name: pack.name,
@@ -443,6 +571,14 @@ function buildManifest(pack: BuiltinPack): Record<string, unknown> {
     tags: pack.tags,
     biomes: pack.biomes,
   };
+  // Themed packs ship a heightmap preset; the dialog reads it
+  // when generating procgen config so each theme produces a
+  // visibly different island shape (atoll for tropical,
+  // mountain range for arctic, etc.).
+  if (pack.terrainHeightmapPreset) {
+    m.terrainHeightmapPresets = [pack.terrainHeightmapPreset];
+  }
+  return m;
 }
 
 /**
