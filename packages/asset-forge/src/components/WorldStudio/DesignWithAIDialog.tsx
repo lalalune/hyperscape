@@ -201,6 +201,70 @@ function pluginsTargetHyperia(
   return pluginIds.some((id) => HYPERIA_PLUGIN_IDS.has(id));
 }
 
+/**
+ * Tag-based theme inference — matches user prompt words against
+ * the LIVE pack catalog's tags. Each themed content pack ships
+ * its own tags (e.g. tropical pack: ["tropical", "jungle",
+ * "beach", "warm", "humid"]). The dialog fetches the catalog
+ * once on mount and the matcher walks the user's conversation
+ * looking for tag overlap; the pack with the highest tag-hit
+ * count wins.
+ *
+ * This is the dynamic AAA approach: the catalog is the source
+ * of truth for what packs exist + what they're for. Adding a
+ * new themed pack is a data-only change — drop a manifest into
+ * `server/builtins/content-packs.ts` with appropriate tags and
+ * the dialog picks it up automatically. No client-side keyword
+ * tables, no per-pack code changes.
+ *
+ * Used only as a safety-net WHEN the agent didn't propose any
+ * themed pack itself. The agent's prompt-driven choice (via
+ * PROPOSE_ASSET_PACK_INSTALL) takes precedence — this fallback
+ * fires only when the agent stays silent.
+ */
+function inferThemedPackFromCatalog(
+  messages: ReadonlyArray<{ role: string; text: string }>,
+  catalog: ReadonlyArray<{ manifestId: string; tags: ReadonlyArray<string> }>,
+): string | null {
+  if (catalog.length === 0) return null;
+  const userText = messages
+    .filter((m) => m.role === "user")
+    .map((m) => m.text)
+    .join(" ")
+    .toLowerCase();
+  if (!userText) return null;
+
+  let bestPack: string | null = null;
+  let bestHits = 0;
+  for (const pack of catalog) {
+    if (!pack.manifestId.startsWith("@hyperforge/content-pack-")) continue;
+    let hits = 0;
+    for (const tag of pack.tags) {
+      const tagLower = tag.toLowerCase();
+      // Skip generic tags that every pack carries — they don't
+      // discriminate between themes ("content-pack", "built-in",
+      // pack-id duplicates).
+      if (
+        tagLower === "content-pack" ||
+        tagLower === "built-in" ||
+        tagLower === "fork" ||
+        tagLower === "starter"
+      ) {
+        continue;
+      }
+      // Word-boundary check would be ideal but `includes` is
+      // fine for our short catalogs — a false positive on
+      // "snow" inside "snowflake" doesn't break anything.
+      if (userText.includes(tagLower)) hits += 1;
+    }
+    if (hits > bestHits) {
+      bestHits = hits;
+      bestPack = pack.manifestId;
+    }
+  }
+  return bestPack;
+}
+
 /** One message in the conversation thread. */
 interface ChatMessage {
   readonly role: "user" | "agent" | "system";
@@ -2122,17 +2186,26 @@ export function DesignWithAIDialog({
       const projectDescription =
         summary.description ?? "Created via Design with AI onboarding.";
 
-      // R1.P1 (PLAN_HYPERIA_DECOUPLING): pick the merge base from
-      // the agent's chosen plugin set, not from a global default.
-      //   - Hyperia plugin → HYPERIA_CREATION_CONFIG (Hyperia tree
-      //     species, hamlet/village/town presets, large-island).
-      //   - everything else (including no plugins) →
-      //     MINIMAL_CREATION_CONFIG (procgen biomes, empty tree
-      //     species per biome, townCount=0 — neutral base the
-      //     agent fills in via PROPOSE_* actions).
-      // Until R3.P3 plumbs plugin biome contributions, MINIMAL still
-      // uses the engine-hardcoded biome set; tree species + town
-      // presets stop being forced by template choice.
+      // Procgen merge base — was previously selected by
+      // "did the agent install the Hyperscape plugin?" which
+      // forced HYPERIA_CREATION_CONFIG (Hyperia island shape,
+      // useGamePipeline=true → createGameTerrainQuerier with
+      // hardcoded Hyperia heightmap + biome polygons) for
+      // EVERY RPG-style prompt. Result: tropical / arctic /
+      // desert prompts produced the Hyperia island shape
+      // because the plugin gates the procgen, not the theme.
+      //
+      // Right shape: pick HYPERIA_CREATION_CONFIG ONLY when
+      // the agent explicitly installed the canonical Hyperia
+      // content pack (i.e. the user is asking for a Hyperia
+      // clone). For every other theme — tropical, arctic,
+      // desert, volcanic, wetland — use MINIMAL_CREATION_CONFIG
+      // so procgen runs the generic pipeline driven by the
+      // theme's biome registry instead of the Hyperia game-
+      // world reproducer. The Hyperscape plugin can still be
+      // installed for gameplay (combat, skills, banking) — it
+      // just doesn't force the terrain shape anymore.
+      //
       // Shallow spread silently corrupts nested objects (terrain,
       // biomes, etc.); deep-merge preserves sibling fields. See
       // mergeProcgenConfig for the full story.
@@ -2143,7 +2216,10 @@ export function DesignWithAIDialog({
       >;
       const resolvedSeed =
         typeof agentTerrain.seed === "number" ? agentTerrain.seed : seed;
-      const baseConfig = pluginsTargetHyperia(effectivePlan.pluginIds)
+      const projectIsHyperiaThemed = (effectivePlan.assetPackIds ?? []).some(
+        (id) => id === "@hyperforge/content-pack-hyperia-v1",
+      );
+      const baseConfig = projectIsHyperiaThemed
         ? HYPERIA_CREATION_CONFIG
         : MINIMAL_CREATION_CONFIG;
       const procgenConfig = mergeProcgenConfig(
@@ -2295,7 +2371,45 @@ export function DesignWithAIDialog({
         id.startsWith("@hyperforge/content-pack-"),
       );
       if (!hasThemedContentPack) {
-        refPackIds.add("@hyperforge/content-pack-hyperia-v1");
+        // Tag-based fallback — match the user's prompt against
+        // the LIVE pack catalog's tags (each themed pack ships
+        // its own tags: tropical → ["tropical","jungle","beach",
+        // "warm","humid"]; arctic → ["arctic","snow","frozen",
+        // "mountain","cold"]; etc.). New packs added to
+        // `server/builtins/content-packs.ts` with appropriate
+        // tags become pickable here automatically — no code
+        // changes required.
+        //
+        // The agent's PROPOSE_ASSET_PACK_INSTALL choice takes
+        // precedence over this; the fallback only fires when
+        // no themed pack was proposed (typical when the agent
+        // server prompt is stale or the agent simply stays
+        // silent on this slot).
+        const inferredPack = inferThemedPackFromCatalog(
+          messages,
+          installablePacks.map((p) => ({
+            manifestId: p.manifestId,
+            tags: p.tags,
+          })),
+        );
+        if (inferredPack) {
+          // eslint-disable-next-line no-console
+          console.info(
+            `[DesignWithAIDialog] Tag-based fallback: installing ${inferredPack} (catalog match)`,
+          );
+          refPackIds.add(inferredPack);
+        } else {
+          // No tag match — Hyperia is the safe default for
+          // unspecified prompts (mirrors UE5's third-person
+          // template default for empty New Project flows).
+          // eslint-disable-next-line no-console
+          console.info(
+            "[DesignWithAIDialog] Tag-based fallback: no catalog match, " +
+              "installing @hyperforge/content-pack-hyperia-v1 as the " +
+              "generic-fantasy default.",
+          );
+          refPackIds.add("@hyperforge/content-pack-hyperia-v1");
+        }
       }
       refPackIds.add("@hyperforge/asset-pack-hyperia-trees-v1");
 
