@@ -2220,7 +2220,21 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     const waterTemplate = new THREE.PlaneGeometry(tileSize, tileSize);
     waterTemplate.rotateX(-Math.PI / 2);
     waterTemplateGeometryRef.current = waterTemplate;
-    terrainMaterialRef.current = createTerrainMaterial();
+    // Phase C4 first cut — non-Hyperia projects render terrain via
+    // per-vertex RGB from the runtime content registry. The shader's
+    // tundra/forest/canyon texture blend would otherwise treat every
+    // tile as 100% tundra (since `biomeForestWeight` and
+    // `biomeCanyonWeight` are 0 for tropical / arctic / desert
+    // biomes), producing a snowy-white island regardless of the
+    // pack's authored biome colors. With `useVertexColorBase=true`,
+    // the shader reads the per-vertex `color` attribute (populated
+    // by `terrainHelpers.generateTileGeometry` from
+    // `getActiveBiomeDefinitions`) directly, so themed packs render
+    // their actual biome tints. Hyperia projects keep the textured
+    // path.
+    terrainMaterialRef.current = createTerrainMaterial({
+      useVertexColorBase: !hyperiaContentEnabledRef.current,
+    });
     const {
       material: editorWaterMat,
       uniforms: editorWaterUniforms,

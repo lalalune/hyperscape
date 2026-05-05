@@ -971,6 +971,39 @@ export interface TerrainMaterialOptions {
   fogEnabled?: boolean;
   /** Override texture base URL (default: CDN). Editor serves from asset-forge API. */
   textureBaseUrl?: string;
+  /**
+   * Phase C4 first cut — N-channel base color from per-vertex RGB.
+   *
+   * When `true`, the material reads `baseColor` directly from the
+   * per-vertex `color` attribute (already populated by
+   * `terrainHelpers.generateTileGeometry()` from the runtime
+   * content registry's biome colors) and SKIPS the 3-biome
+   * tundra/forest/canyon texture-blend pipeline entirely. Works
+   * for projects with any number of biomes (5 tropical, 5 arctic,
+   * 21 themed mix) — the per-vertex RGB is the single source of
+   * truth for ground color.
+   *
+   * When `false` (default — Hyperia game pipeline path), the
+   * shader uses the existing 3-channel texture blend with
+   * tundra/forest/canyon grass + dirt + cliff textures, weighted
+   * by `biomeForestWeight` + `biomeCanyonWeight` per-vertex
+   * attributes (tundra weight implicit = 1 - fW - cW). This is
+   * the textured path that gives Hyperia's distinctive
+   * snowy-mountain / forest / canyon look.
+   *
+   * Downstream effects (sand-near-water, shoreline, river bed,
+   * road overlay, mine overlay, lighting, fog) apply in BOTH
+   * paths — they're height- / influence- / lighting-driven, not
+   * biome-textured.
+   *
+   * Phase C4 follow-up replaces this with a true N-channel
+   * texture-array path so non-Hyperia themed packs can ship
+   * their own grass/dirt/cliff textures (palm-grove sand,
+   * basalt cliff, snow-pine bark, etc.). Today: vertex color
+   * only — visibly correct biome tints, no per-biome surface
+   * textures.
+   */
+  useVertexColorBase?: boolean;
 }
 
 /**
@@ -988,6 +1021,7 @@ export function createTerrainMaterial(
     includeRiverProximity = true,
     fogEnabled = true,
     textureBaseUrl,
+    useVertexColorBase = false,
   } = options;
 
   // Ensure noise texture is generated (still used for dirt patch variation)
@@ -1251,6 +1285,23 @@ export function createTerrainMaterial(
     cliffColor,
     smoothstep(float(0.3), float(0.55), dSlope),
   );
+
+  // Phase C4 first cut — N-channel base color from per-vertex RGB.
+  // When `useVertexColorBase=true` (non-Hyperia themed projects),
+  // the per-vertex `color` attribute (already populated by
+  // `terrainHelpers.generateTileGeometry()` from the runtime
+  // content registry's biome colors) replaces the 3-channel
+  // tundra/forest/canyon texture-blend baseColor. Works for any
+  // number of biomes — N-channel via the per-vertex attribute,
+  // no texture-array needed for this first cut.
+  //
+  // Downstream effects below (sand-near-water, shoreline, river
+  // bed, road overlay, mine overlay, lighting, fog) apply
+  // unmodified — they're height- / influence- / lighting-driven,
+  // not biome-textured.
+  if (useVertexColorBase) {
+    baseColor = attribute("color", "vec3");
+  }
 
   // Sand near water (flat areas, stronger in canyon — using distorted height)
   const sandBlend = mul(

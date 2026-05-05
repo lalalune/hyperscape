@@ -23,6 +23,7 @@ import { MeshStandardNodeMaterial } from "three/webgpu";
 
 import { THREE } from "@/utils/webgpu-renderer";
 import type { GeneratedRoad } from "./types";
+import { getActiveBiomeDefinitions } from "../WorldStudio/utils/contentRegistry";
 
 // ============== TYPES ==============
 
@@ -60,8 +61,22 @@ export interface TownFlattenZone {
 
 // ============== CONSTANTS ==============
 
-// Biome colors matching the game's BIOMES data
-const BIOME_COLORS: Record<string, { r: number; g: number; b: number }> = {
+/**
+ * Default fallback biome colors. Used only when:
+ *   1. The procgen path doesn't supply `query.color` (it reads from
+ *      this lookup), AND
+ *   2. The runtime `contentRegistry` doesn't yet have the biome id
+ *      (project hasn't loaded any content packs).
+ *
+ * For themed projects (`tropical_beach`, `jungle`, `frozen_tundra`,
+ * etc.) the registry-backed `lookupBiomeColor()` resolves first
+ * and this map is bypassed. Phase C4 N-channel rewrite makes this
+ * unconditionally registry-driven.
+ */
+const FALLBACK_BIOME_COLORS: Record<
+  string,
+  { r: number; g: number; b: number }
+> = {
   plains: { r: 0.486, g: 0.729, b: 0.373 },
   forest: { r: 0.227, g: 0.42, b: 0.208 },
   valley: { r: 0.353, g: 0.541, b: 0.31 },
@@ -72,6 +87,43 @@ const BIOME_COLORS: Record<string, { r: number; g: number; b: number }> = {
   lakes: { r: 0.29, g: 0.478, b: 0.722 },
   canyon: { r: 0.553, g: 0.431, b: 0.388 },
 };
+
+/**
+ * Resolve a biome's RGB from the runtime content registry, falling
+ * back to the static `FALLBACK_BIOME_COLORS` table when the
+ * registry doesn't have the id (e.g. fresh project before content
+ * packs land).
+ *
+ * The registry-first pattern unblocks tropical / arctic / desert
+ * themed projects: their content packs ship `BiomeContribution.color`
+ * for every biome id (`tropical_beach`, `jungle`, `mangrove`,
+ * `palm_grove`, `lagoon`, etc.), so per-vertex baking gets correct
+ * theme tints instead of falling through to a default green
+ * (`plains`) or, for the texture-blend shader path, snowy white
+ * (`tundra` weight = 1).
+ */
+function lookupBiomeColor(biomeId: string): {
+  r: number;
+  g: number;
+  b: number;
+} {
+  // Pass empty engineDefaults — when no content pack is registered,
+  // `getActiveBiomeDefinitions({})` returns `{}` and the static
+  // `FALLBACK_BIOME_COLORS` map below resolves Hyperia's classic
+  // ids (forest / canyon / tundra). When a themed pack is loaded,
+  // it returns the pack's registered biomes.
+  const active = getActiveBiomeDefinitions({});
+  const def = active[biomeId];
+  if (def) {
+    const hex = def.color;
+    return {
+      r: ((hex >> 16) & 0xff) / 255,
+      g: ((hex >> 8) & 0xff) / 255,
+      b: (hex & 0xff) / 255,
+    };
+  }
+  return FALLBACK_BIOME_COLORS[biomeId] ?? FALLBACK_BIOME_COLORS.plains!;
+}
 
 // Shoreline tint color (sandy brown)
 const SHORELINE_COLOR = { r: 0.545, g: 0.451, b: 0.333 };
@@ -230,7 +282,23 @@ export function createTemplateGeometry(
  *
  * No fallback - the game shader must load for correct road rendering.
  */
-export function createTerrainMaterial(): THREE.Material & {
+export interface EditorTerrainMaterialOptions {
+  /**
+   * Phase C4 first cut — N-channel base color from per-vertex RGB.
+   * When `true`, the material reads `baseColor` from the per-vertex
+   * `color` attribute (already populated by `generateTileGeometry`
+   * from the runtime content registry's biome colors) instead of
+   * the 3-biome tundra/forest/canyon texture blend. Set to `true`
+   * for non-Hyperia themed projects (tropical / arctic / desert /
+   * etc.) so themed biomes render their authored tints. Hyperia
+   * projects keep the textured path (the default).
+   */
+  useVertexColorBase?: boolean;
+}
+
+export function createTerrainMaterial(
+  options: EditorTerrainMaterialOptions = {},
+): THREE.Material & {
   terrainUniforms: TerrainUniforms;
 } {
   // Use the ACTUAL game terrain shader — same code that renders in Hyperia.
@@ -241,6 +309,7 @@ export function createTerrainMaterial(): THREE.Material & {
     includeRiverProximity: false, // No riverProximity attribute in editor
     fogEnabled: false, // Editor camera at altitude — fog not useful
     textureBaseUrl: `${window.location.protocol}//${window.location.hostname}:3401/game-textures/terrain-biomes`,
+    useVertexColorBase: options.useVertexColorBase ?? false,
   });
   return material;
 }
@@ -600,7 +669,7 @@ export function generateTileGeometry(
       g = query.color.g;
       b = query.color.b;
     } else {
-      const biomeColor = BIOME_COLORS[query.biome] || BIOME_COLORS.plains;
+      const biomeColor = lookupBiomeColor(query.biome);
       r = biomeColor.r;
       g = biomeColor.g;
       b = biomeColor.b;
