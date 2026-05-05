@@ -23,7 +23,10 @@ import { MeshStandardNodeMaterial } from "three/webgpu";
 
 import { THREE } from "@/utils/webgpu-renderer";
 import type { GeneratedRoad } from "./types";
-import { getActiveBiomeDefinitions } from "../WorldStudio/utils/contentRegistry";
+import {
+  getActiveBiomeDefinitions,
+  subscribeContentRegistry,
+} from "../WorldStudio/utils/contentRegistry";
 
 // ============== TYPES ==============
 
@@ -89,39 +92,62 @@ const FALLBACK_BIOME_COLORS: Record<
 };
 
 /**
- * Resolve a biome's RGB from the runtime content registry, falling
- * back to the static `FALLBACK_BIOME_COLORS` table when the
- * registry doesn't have the id (e.g. fresh project before content
- * packs land).
+ * Cached biome→RGB map, rebuilt lazily on first access and
+ * invalidated when the content registry changes via
+ * `subscribeContentRegistry`. Critical for hot-path performance:
+ * `lookupBiomeColor` is called once per vertex during tile mesh
+ * generation (tens of millions of calls per world regen at
+ * 100×100 tiles × 32×32 verts), so the previous per-call
+ * registry walk + object spread tanked viewport FPS to ~2.
  *
- * The registry-first pattern unblocks tropical / arctic / desert
- * themed projects: their content packs ship `BiomeContribution.color`
- * for every biome id (`tropical_beach`, `jungle`, `mangrove`,
- * `palm_grove`, `lagoon`, etc.), so per-vertex baking gets correct
- * theme tints instead of falling through to a default green
- * (`plains`) or, for the texture-blend shader path, snowy white
- * (`tundra` weight = 1).
+ * Cache pattern: nullable `Map<string, RGB>` — null means
+ * "rebuild on next access." Subscriber clears it on every
+ * registry mutation (setContentPackContent / setPluginBiomes).
+ * Hot path is one Map.get + fallback — no allocation, no spread.
+ */
+let _biomeColorCache: Map<string, { r: number; g: number; b: number }> | null =
+  null;
+
+subscribeContentRegistry(() => {
+  _biomeColorCache = null;
+});
+
+function getBiomeColorMap(): Map<string, { r: number; g: number; b: number }> {
+  if (_biomeColorCache !== null) return _biomeColorCache;
+  const map = new Map<string, { r: number; g: number; b: number }>();
+  // Pass empty engineDefaults — when no content pack is registered,
+  // `getActiveBiomeDefinitions({})` returns `{}` and the static
+  // `FALLBACK_BIOME_COLORS` map below resolves classic ids. When a
+  // themed pack is loaded, it returns the pack's registered biomes.
+  const active = getActiveBiomeDefinitions({});
+  for (const [id, def] of Object.entries(active)) {
+    const hex = def.color;
+    map.set(id, {
+      r: ((hex >> 16) & 0xff) / 255,
+      g: ((hex >> 8) & 0xff) / 255,
+      b: (hex & 0xff) / 255,
+    });
+  }
+  _biomeColorCache = map;
+  return map;
+}
+
+/**
+ * Resolve a biome's RGB. O(1) Map lookup — see `_biomeColorCache`
+ * above for the invalidation pattern. Themed packs register their
+ * biome colors at project load (or pre-procgen in
+ * DesignWithAIDialog); this function reads the cached merged map
+ * with a constant-time hash lookup. Fallback table covers Hyperia
+ * classic ids (forest / canyon / tundra) for legacy projects
+ * before any content pack registers.
  */
 function lookupBiomeColor(biomeId: string): {
   r: number;
   g: number;
   b: number;
 } {
-  // Pass empty engineDefaults — when no content pack is registered,
-  // `getActiveBiomeDefinitions({})` returns `{}` and the static
-  // `FALLBACK_BIOME_COLORS` map below resolves Hyperia's classic
-  // ids (forest / canyon / tundra). When a themed pack is loaded,
-  // it returns the pack's registered biomes.
-  const active = getActiveBiomeDefinitions({});
-  const def = active[biomeId];
-  if (def) {
-    const hex = def.color;
-    return {
-      r: ((hex >> 16) & 0xff) / 255,
-      g: ((hex >> 8) & 0xff) / 255,
-      b: (hex & 0xff) / 255,
-    };
-  }
+  const cached = getBiomeColorMap().get(biomeId);
+  if (cached) return cached;
   return FALLBACK_BIOME_COLORS[biomeId] ?? FALLBACK_BIOME_COLORS.plains!;
 }
 
