@@ -4338,7 +4338,17 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     const scene = sceneRef.current;
     if (!scene) return;
 
-    if (enableGrass) {
+    // EditorGrassManager hardcodes a 3-channel tundra/forest/canyon
+    // grass blend (same Hyperia-shaped assumption Phase C4 first
+    // cut closes for the terrain shader). For non-Hyperia themed
+    // projects (tropical / arctic / desert / volcanic / wetland),
+    // every per-vertex weight resolves to tundraW=1, so grass
+    // renders as snow over the corrected biome tints — visually
+    // worse than no grass. Suppress until Phase C4 follow-up
+    // ships per-pack grass textures + N-channel weights.
+    const grassAllowed = enableGrass && hyperiaContentEnabledRef.current;
+
+    if (grassAllowed) {
       const querier = terrainQuerierRef.current;
       const gen = generatorRef.current;
       const offset = worldCenterOffsetRef.current;
