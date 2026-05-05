@@ -164,7 +164,17 @@ const _clickScale = new THREE.Vector3();
 const TILE_LOAD_RADIUS = 5; // tiles in each direction from camera (standalone)
 const TILE_LOAD_RADIUS_STUDIO = 3; // full-detail radius for World Studio
 const TILE_UNLOAD_RADIUS = 7; // tiles beyond this are unloaded
-const MAX_TILES_PER_FRAME = 2; // limit tile generation per frame for performance
+const MAX_TILES_PER_FRAME = 2; // limit tile generation per frame after initial load (keeps interactive FPS high)
+/**
+ * Full-res tile generation budget while the initial-load overlay is
+ * still visible. The viewport is hidden during this window so we can
+ * spend much more time per frame meshing tiles without dropping
+ * user-visible FPS. Pairs with the existing 32ms `LOW_RES_TIME_BUDGET_MS`
+ * during init — both phases scale up together so a 100×100-tile world
+ * (~10k tiles at high-altitude radius) finishes its first paint in
+ * ~30s instead of ~5min.
+ */
+const MAX_TILES_PER_FRAME_INITIAL_LOAD = 16;
 // GPU resource lifecycle (staging + disposal) is managed by SceneResourceManager.
 // See SceneResourceManager.ts for rate-limiting constants and phase separation logic.
 
@@ -1473,12 +1483,18 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       // tiny (8×8 = 64 vertices) — a few per frame combined with staging is fine.
       // Full-res tiles (32×32 = 1024 vertices) are paused during staging.
       const hasStagedWork = resourceManager.hasStagedWork;
-      const maxFullThisFrame = hasStagedWork ? 0 : MAX_TILES_PER_FRAME;
+      // Initial-load fast path — viewport is hidden, so we can spend
+      // much more time per frame meshing without affecting interactive
+      // FPS. Drops to MAX_TILES_PER_FRAME (2) once the overlay clears.
+      const duringInitialLoad = !initialLoadCompleteRef.current;
+      const fullResBudget = duringInitialLoad
+        ? MAX_TILES_PER_FRAME_INITIAL_LOAD
+        : MAX_TILES_PER_FRAME;
+      const maxFullThisFrame = hasStagedWork ? 0 : fullResBudget;
 
       // Low-res tiles use a time-based budget. During initial load (loading
       // overlay visible), spend up to 32ms/frame since the viewport is hidden —
       // fills the map 4× faster. After initial load, cap at 8ms for 60fps.
-      const duringInitialLoad = !initialLoadCompleteRef.current;
       const LOW_RES_TIME_BUDGET_MS = duringInitialLoad ? 32 : 8;
       const lowResDeadline = frameTime + LOW_RES_TIME_BUDGET_MS;
 
