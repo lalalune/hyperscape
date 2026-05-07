@@ -337,6 +337,7 @@ export async function bootServerPlugins(
   gameIdOrPlugins:
     | GamePluginSetId
     | ReadonlyArray<string> = resolveGamePluginSetIdFromEnv(),
+  projectContentPackIds?: ReadonlyArray<string>,
 ): Promise<PluginSession<PluginContextBase>> {
   // R3.P11 — accept either the legacy gameId string OR a plugin
   // id list (manifest id or npm name). The latter goes through
@@ -351,6 +352,29 @@ export async function bootServerPlugins(
     ? `game=${gameIdOrPlugins}`
     : `plugins=[${(gameIdOrPlugins as ReadonlyArray<string>).join(", ") || "<empty>"}]`;
   console.log(`[plugin-boot] ${label} — ${modules.length} plugin(s) in set`);
+  // Hyperia content gate (commit 5226d8ae1 added the gate to
+  // hyperscape-plugin's onEnable; this commit closes the loop on
+  // the server side). The hyperscape plugin's `onEnable` checks
+  // `ctx.projectContentPackIds` for `@hyperforge/content-pack-hyperia-v1`
+  // before registering 7 content-emitting systems (towns, POIs,
+  // bankers, NPC populations, item spawners, quests, station
+  // spawners). Without this list passed through, the gate
+  // silently fails closed on production Hyperia deploys.
+  //
+  // Default behavior:
+  //   - Legacy gameId "hyperscape": pass the Hyperia content pack
+  //     id automatically (preserves legacy production boot — the
+  //     env says "hyperscape", so we ARE the Hyperia game).
+  //   - Legacy gameId "shooter-demo" / "blank": empty list (no
+  //     Hyperia content).
+  //   - Explicit `projectContentPackIds` arg: caller-supplied
+  //     list wins (used by per-project hosts like asset-forge PIE
+  //     and any future project-aware production server).
+  const resolvedContentPackIds: ReadonlyArray<string> =
+    projectContentPackIds ??
+    (isLegacyGameId && gameIdOrPlugins === "hyperscape"
+      ? ["@hyperforge/content-pack-hyperia-v1"]
+      : []);
   const session = await startPluginSessionFromModules(modules, {
     // Context factory dispatches by manifest id. Each plugin receives
     // its declared context shape (CombatContext / SkillsContext /
@@ -389,10 +413,17 @@ export async function bootServerPlugins(
           // Tests that don't supply a world fall back to a tiny stub
           // — `register` is a no-op there so the plugin's registration
           // call doesn't blow up.
+          //
+          // `projectContentPackIds` is resolved above. It tells the
+          // hyperscape plugin's onEnable whether to register the 7
+          // Hyperia content-emitting systems (towns, POIs, bankers,
+          // etc.) or skip them (mechanics-only mode for non-Hyperia
+          // projects that pick the plugin for combat / skills only).
           const ctx: HyperscapeContext = {
             pluginId,
             scope,
             world: world ?? createNoopWorldStub(),
+            projectContentPackIds: resolvedContentPackIds,
           };
           return ctx as PluginContextBase;
         }
