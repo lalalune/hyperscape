@@ -1092,6 +1092,109 @@ export const HYPERIA_CONTENT_PACK_ID =
   "@hyperforge/content-pack-hyperia-v1" as const;
 
 /**
+ * Register Hyperia's UI widget contributions onto the host's
+ * widget registry. Extracted from `onEnable` (Phase 3.2 first cut
+ * of the monolith decomposition outlined in PLAN_AAA_MASTER_AUDIT
+ * debt #3) — keeps the lifecycle hook focused on system + entity
+ * registrations instead of inlining 50+ widget calls.
+ *
+ * Widgets are declared in their own modules; we just route them
+ * to whatever registry the host attached to `ctx.widgets`. The
+ * client gives us a real registry; server / test contexts pass
+ * undefined and this function isn't called.
+ *
+ * Disposers attached by the underlying registration calls will
+ * fire when the plugin's scope tears down (`session.stop()`),
+ * so widgets unregister cleanly with the rest of the plugin.
+ */
+function registerHyperiaWidgets(
+  widgets: NonNullable<HyperscapeContext["widgets"]>,
+): void {
+  widgets.register(xpOrbRegistration);
+  widgets.register(levelUpToastRegistration);
+  widgets.register(kickedOverlayRegistration);
+  widgets.register(disconnectedOverlayRegistration);
+  widgets.register(deathScreenRegistration);
+  widgets.register(connectionIndicatorRegistration);
+  widgets.register(minimapStaminaOrbRegistration);
+  widgets.register(minimapCompassRegistration);
+  widgets.register(actionProgressBarRegistration);
+  widgets.register(homeTeleportButtonRegistration);
+  widgets.register(minimapHomeTeleportOrbRegistration);
+  widgets.register(skillSelectModalRegistration);
+  widgets.register(floatingXPDropsRegistration);
+  widgets.register(unlocksSectionRegistration);
+  widgets.register(coinPouchRegistration);
+  widgets.register(selectOptionRegistration);
+  widgets.register(confirmDialogRegistration);
+  widgets.register(quantityPromptRegistration);
+  widgets.register(incomingRequestModalRegistration);
+  widgets.register(equipmentSlotIconRegistration);
+  widgets.register(dialoguePanelRegistration);
+  widgets.register(arrayInputRegistration);
+  widgets.register(curvePreviewRegistration);
+  widgets.register(contextMenuRegistration);
+  widgets.register(keyValueListRegistration);
+  widgets.register(cursorTooltipRegistration);
+  widgets.register(notificationToastListRegistration);
+  widgets.register(buffBarRegistration);
+  widgets.register(victoryOverlayRegistration);
+  widgets.register(alignmentGuidesRegistration);
+  widgets.register(dragGhostOverlayRegistration);
+  widgets.register(progressBarRegistration);
+  widgets.register(loadingSpinnerRegistration);
+  widgets.register(toggleSwitchRegistration);
+  widgets.register(rangeSliderRegistration);
+  widgets.register(badgeRegistration);
+  widgets.register(segmentedControlRegistration);
+  widgets.register(textInputRegistration);
+  widgets.register(avatarRegistration);
+  widgets.register(emptyStateRegistration);
+  widgets.register(chipListRegistration);
+  widgets.register(sectionHeaderRegistration);
+  widgets.register(countdownDisplayRegistration);
+  widgets.register(breadcrumbsRegistration);
+  widgets.register(checkboxRegistration);
+  widgets.register(keyboardShortcutHintRegistration);
+  widgets.register(paginationRegistration);
+  widgets.register(iconButtonRegistration);
+  widgets.register(dividerRegistration);
+  widgets.register(skeletonRegistration);
+  widgets.register(stepIndicatorRegistration);
+  widgets.register(codeBlockRegistration);
+}
+
+/**
+ * Register Hyperia's ECS entity types with the engine's entity
+ * registry. Pre-2026-04-26 the registry hardcoded these in
+ * shared `Entities.ts` — decoupled so the engine no longer
+ * imports game classes. Order doesn't matter; lookup is by
+ * string key.
+ *
+ * Extracted from `onEnable` for the same reason as
+ * `registerHyperiaWidgets`. Always called (entity types aren't
+ * gated on Hyperia content; they're available for studio /
+ * editor introspection regardless of whether content packs
+ * spawn instances).
+ */
+function registerHyperiaEntityTypes(): void {
+  registerEntityType("player", PlayerEntity as never);
+  registerEntityType("playerLocal", PlayerLocal as never);
+  registerEntityType("playerRemote", PlayerRemote as never);
+  registerEntityType("item", ItemEntity as never);
+  registerEntityType("mob", MobEntity as never);
+  registerEntityType("npc", NPCEntity as never);
+  registerEntityType("resource", ResourceEntity as never);
+  registerEntityType("headstone", HeadstoneEntity as never);
+  registerEntityType("bank", BankEntity as never);
+  registerEntityType("furnace", FurnaceEntity as never);
+  registerEntityType("anvil", AnvilEntity as never);
+  registerEntityType("altar", AltarEntity as never);
+  registerEntityType("range", RangeEntity as never);
+  registerEntityType("runecrafting_altar", RunecraftingAltarEntity as never);
+}
+
+/**
  * Default plugin factory. Today this is intentionally a no-op
  * lifecycle:
  *   - The constituent plugins (combat for now) are declared as
@@ -1159,81 +1262,10 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
       // silent no-op. Disposers attached to `ctx.scope` so
       // `session.stop()` removes the widget from the host registry.
       if (ctx.widgets) {
-        ctx.widgets.register(xpOrbRegistration);
-        ctx.widgets.register(levelUpToastRegistration);
-        ctx.widgets.register(kickedOverlayRegistration);
-        ctx.widgets.register(disconnectedOverlayRegistration);
-        ctx.widgets.register(deathScreenRegistration);
-        ctx.widgets.register(connectionIndicatorRegistration);
-        ctx.widgets.register(minimapStaminaOrbRegistration);
-        ctx.widgets.register(minimapCompassRegistration);
-        ctx.widgets.register(actionProgressBarRegistration);
-        ctx.widgets.register(homeTeleportButtonRegistration);
-        ctx.widgets.register(minimapHomeTeleportOrbRegistration);
-        ctx.widgets.register(skillSelectModalRegistration);
-        ctx.widgets.register(floatingXPDropsRegistration);
-        ctx.widgets.register(unlocksSectionRegistration);
-        ctx.widgets.register(coinPouchRegistration);
-        ctx.widgets.register(selectOptionRegistration);
-        ctx.widgets.register(confirmDialogRegistration);
-        ctx.widgets.register(quantityPromptRegistration);
-        ctx.widgets.register(incomingRequestModalRegistration);
-        ctx.widgets.register(equipmentSlotIconRegistration);
-        ctx.widgets.register(dialoguePanelRegistration);
-        ctx.widgets.register(arrayInputRegistration);
-        ctx.widgets.register(curvePreviewRegistration);
-        ctx.widgets.register(contextMenuRegistration);
-        ctx.widgets.register(keyValueListRegistration);
-        ctx.widgets.register(cursorTooltipRegistration);
-        ctx.widgets.register(notificationToastListRegistration);
-        ctx.widgets.register(buffBarRegistration);
-        ctx.widgets.register(victoryOverlayRegistration);
-        ctx.widgets.register(alignmentGuidesRegistration);
-        ctx.widgets.register(dragGhostOverlayRegistration);
-        ctx.widgets.register(progressBarRegistration);
-        ctx.widgets.register(loadingSpinnerRegistration);
-        ctx.widgets.register(toggleSwitchRegistration);
-        ctx.widgets.register(rangeSliderRegistration);
-        ctx.widgets.register(badgeRegistration);
-        ctx.widgets.register(segmentedControlRegistration);
-        ctx.widgets.register(textInputRegistration);
-        ctx.widgets.register(avatarRegistration);
-        ctx.widgets.register(emptyStateRegistration);
-        ctx.widgets.register(chipListRegistration);
-        ctx.widgets.register(sectionHeaderRegistration);
-        ctx.widgets.register(countdownDisplayRegistration);
-        ctx.widgets.register(breadcrumbsRegistration);
-        ctx.widgets.register(checkboxRegistration);
-        ctx.widgets.register(keyboardShortcutHintRegistration);
-        ctx.widgets.register(paginationRegistration);
-        ctx.widgets.register(iconButtonRegistration);
-        ctx.widgets.register(dividerRegistration);
-        ctx.widgets.register(skeletonRegistration);
-        ctx.widgets.register(stepIndicatorRegistration);
-        ctx.widgets.register(codeBlockRegistration);
+        registerHyperiaWidgets(ctx.widgets);
       }
 
-      // Register Hyperia entity types with the engine ECS. Pre-2026-04-26
-      // the registry hardcoded these in shared `Entities.ts` —
-      // decoupled so the engine no longer imports game classes.
-      // Order doesn't matter; lookup is by string key.
-      registerEntityType("player", PlayerEntity as never);
-      registerEntityType("playerLocal", PlayerLocal as never);
-      registerEntityType("playerRemote", PlayerRemote as never);
-      registerEntityType("item", ItemEntity as never);
-      registerEntityType("mob", MobEntity as never);
-      registerEntityType("npc", NPCEntity as never);
-      registerEntityType("resource", ResourceEntity as never);
-      registerEntityType("headstone", HeadstoneEntity as never);
-      registerEntityType("bank", BankEntity as never);
-      registerEntityType("furnace", FurnaceEntity as never);
-      registerEntityType("anvil", AnvilEntity as never);
-      registerEntityType("altar", AltarEntity as never);
-      registerEntityType("range", RangeEntity as never);
-      registerEntityType(
-        "runecrafting_altar",
-        RunecraftingAltarEntity as never,
-      );
+      registerHyperiaEntityTypes();
 
       // Cross-cutting systems that run on both server + client.
       register("mob-death", MobDeathSystem);
