@@ -563,11 +563,21 @@ export class TerrainGenerator {
     const dominantBiome = biomeInfluences[0].type;
     const islandMaskValue = this.islandMask.getIslandMaskAt(worldX, worldZ);
     const normal = this.getNormalAt(worldX, worldZ);
+    // Phase 0.3 — populate `query.color` so the procgen path
+    // matches the game pipeline (GameTerrainAdapter also returns
+    // a pre-blended color on its query result). Downstream
+    // consumers in `terrainHelpers.generateTileGeometry` can now
+    // read `query.color` uniformly without a fallback to the
+    // registry-cached `lookupBiomeColor`. Both `biomeInfluences`
+    // and `color` are borrowed pooled references — must be
+    // consumed synchronously per vertex.
+    const color = this.biomeSystem.blendBiomeColors(biomeInfluences);
 
     return {
       height,
       biome: dominantBiome,
       biomeInfluences,
+      color,
       islandMask: islandMaskValue,
       normal,
     };

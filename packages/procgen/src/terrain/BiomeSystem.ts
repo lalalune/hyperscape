@@ -74,6 +74,17 @@ export class BiomeSystem {
   private biomeCenters: BiomeCenter[] = [];
 
   /**
+   * Per-instance pooled blend output for `blendBiomeColors`. The
+   * function returns a fresh `{r,g,b}` object today (line 432); on
+   * the per-vertex hot path that's another 10M+ allocations per
+   * regen. Reusing this slot is safe because the typical caller
+   * (`TerrainGenerator.queryPoint` populating `query.color`)
+   * consumes the value synchronously per vertex. Documented as a
+   * borrowed reference, same contract as `_pooledInfluences`.
+   */
+  private readonly _pooledBlendColor = { r: 0, g: 0, b: 0 };
+
+  /**
    * Per-instance pooled scratch state for `getBiomeInfluencesAtPosition`.
    *
    * Why pooled: that function is on the hottest path of the entire
@@ -434,6 +445,11 @@ export class BiomeSystem {
     g: number;
     b: number;
   } {
+    // Reuse pooled output. Safe because the per-vertex caller
+    // (TerrainGenerator.queryPoint → terrainHelpers.generate
+    // TileGeometry) consumes the result synchronously and copies
+    // r/g/b into a Float32Array slot. Documented borrowed-reference
+    // contract identical to `_pooledInfluences`.
     let r = 0;
     let g = 0;
     let b = 0;
@@ -452,6 +468,9 @@ export class BiomeSystem {
       b += biomeB * influence.weight;
     }
 
-    return { r, g, b };
+    this._pooledBlendColor.r = r;
+    this._pooledBlendColor.g = g;
+    this._pooledBlendColor.b = b;
+    return this._pooledBlendColor;
   }
 }

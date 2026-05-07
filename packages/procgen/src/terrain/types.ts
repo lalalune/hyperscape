@@ -246,6 +246,19 @@ export interface TerrainPointQuery {
   biome: string;
   /** All biome influences at the position */
   biomeInfluences: BiomeInfluence[];
+  /**
+   * Pre-blended biome color for this position (RGB 0-1). Populated
+   * by `TerrainGenerator.queryPoint` from `BiomeSystem.blendBiomeColors`.
+   *
+   * Borrowed reference into `BiomeSystem._pooledBlendColor` — must
+   * be consumed synchronously by the caller. This matches the
+   * `GameTerrainAdapter.createGameTerrainQuerier` path which also
+   * returns a pooled color object on its query result, so
+   * downstream consumers like `terrainHelpers.generateTileGeometry`
+   * can read `query.color` uniformly without branching on the
+   * pipeline.
+   */
+  color: { r: number; g: number; b: number };
   /** Island mask value (0 = ocean, 1 = full land) */
   islandMask: number;
   /** Surface normal at the position */
