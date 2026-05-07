@@ -210,18 +210,34 @@ export const ERROR_CODES = {
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
 // Error types
-export class HyperiaError extends Error {
+//
+// Phase 3.2 of PLAN_AAA_MASTER_AUDIT — engine errors are
+// game-agnostic and named accordingly. `HyperiaError` was the
+// legacy name back when the engine self-identified as Hyperia;
+// since Hyperia is now one game among many built on the
+// HyperForge engine, the base error class is `EngineError`.
+//
+// `HyperiaError` is kept as a deprecated alias so external
+// callers (none today inside the monorepo, but plugin authors
+// may have used it) don't break on this rename. Drop the alias
+// in a follow-up cut after one release window.
+export class EngineError extends Error {
   constructor(
     message: string,
     public readonly code: ErrorCode,
     public readonly context: Record<string, string | number | boolean> = {},
   ) {
     super(message);
-    this.name = "HyperiaError";
+    this.name = "EngineError";
   }
 }
 
-export class SystemError extends HyperiaError {
+/** @deprecated Use `EngineError`. Kept for one release window. */
+export const HyperiaError = EngineError;
+/** @deprecated Use `EngineError`. Kept for one release window. */
+export type HyperiaError = EngineError;
+
+export class SystemError extends EngineError {
   constructor(
     systemName: string,
     message: string,
@@ -235,7 +251,7 @@ export class SystemError extends HyperiaError {
   }
 }
 
-export class PlayerError extends HyperiaError {
+export class PlayerError extends EngineError {
   constructor(
     playerId: string,
     message: string,
@@ -249,7 +265,7 @@ export class PlayerError extends HyperiaError {
   }
 }
 
-export class ItemError extends HyperiaError {
+export class ItemError extends EngineError {
   constructor(
     itemId: string,
     message: string,

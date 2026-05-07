@@ -2,17 +2,28 @@
  * Three.js Type Extensions for WebGPU
  *
  * Augments the Three.js type definitions with WebGPU-specific types
- * and Hyperia custom extensions.
+ * and HyperForge engine custom extensions.
  */
 
 import * as THREE from "three";
 
 /**
- * Hyperia extended Object3D type
+ * HyperForge engine's extended Object3D type — adds a typed
+ * `userData` slot the engine uses to attach metadata to scene
+ * graph nodes (entity ids, system tags, etc.) without leaking
+ * `unknown` typings to consumers.
  */
-export type HyperiaObject3D = THREE.Object3D & {
+export type EngineObject3D = THREE.Object3D & {
   userData: Record<string, unknown>;
 };
+
+/**
+ * @deprecated Use `EngineObject3D`. The legacy name dates from
+ * when the engine self-identified as Hyperia; the engine is now
+ * `@hyperforge/shared` and Hyperia is one game built on it.
+ * Kept as an alias for one release window.
+ */
+export type HyperiaObject3D = EngineObject3D;
 
 declare module "three" {
   /**
