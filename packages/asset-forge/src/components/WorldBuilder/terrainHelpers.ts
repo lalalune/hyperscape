@@ -35,10 +35,18 @@ export interface TerrainQueryResult {
   height: number;
   biome: string;
   color?: { r: number; g: number; b: number };
-  /** Forest biome weight 0-1 for per-biome shader blending */
+  /** Forest biome weight 0-1 for per-biome shader blending (legacy 3-channel path) */
   biomeForestWeight?: number;
-  /** Canyon biome weight 0-1 for per-biome shader blending */
+  /** Canyon biome weight 0-1 for per-biome shader blending (legacy 3-channel path) */
   biomeCanyonWeight?: number;
+  /**
+   * Phase 2.1 — full per-biome influences sorted descending by
+   * weight. Optional because legacy `GameTerrainAdapter` paths
+   * may not populate it; `TerrainGenerator.queryPoint` does.
+   * The N-channel attribute write path reads up to top-4 entries
+   * for the per-vertex `biomeIndices` + `biomeWeights` attrs.
+   */
+  biomeInfluences?: ReadonlyArray<{ type: string; weight: number }>;
 }
 export type TerrainQuerier = (
   worldX: number,
@@ -108,8 +116,29 @@ const FALLBACK_BIOME_COLORS: Record<
 let _biomeColorCache: Map<string, { r: number; g: number; b: number }> | null =
   null;
 
+/**
+ * Phase 2.1 (N-channel terrain) — stable biome-id → palette
+ * index map, used by `generateTileGeometry` to write packed
+ * `biomeIndices` per-vertex attributes that the upcoming
+ * N-channel TSL shader will look up against a `biomePalette`
+ * uniform array.
+ *
+ * Indexing semantics:
+ *   - Order is alphabetical by biome id (deterministic, stable
+ *     across tile regens within the same registry epoch).
+ *   - Indices restart from 0 each time the registry mutates.
+ *   - Index 0 is reserved as the "fallback" slot for biomes
+ *     not present in the active palette (defensive default).
+ *
+ * The same invalidation hook clears both caches together so
+ * they stay in lockstep — a registry change rebuilds both on
+ * next access.
+ */
+let _biomePaletteIndexCache: Map<string, number> | null = null;
+
 subscribeContentRegistry(() => {
   _biomeColorCache = null;
+  _biomePaletteIndexCache = null;
 });
 
 function getBiomeColorMap(): Map<string, { r: number; g: number; b: number }> {
@@ -149,6 +178,53 @@ function lookupBiomeColor(biomeId: string): {
   const cached = getBiomeColorMap().get(biomeId);
   if (cached) return cached;
   return FALLBACK_BIOME_COLORS[biomeId] ?? FALLBACK_BIOME_COLORS.plains!;
+}
+
+/**
+ * Build (or reuse) the biome-id → palette-index Map. Indices are
+ * assigned by alphabetical sort of active biome ids (deterministic,
+ * stable across tile regens within the same registry epoch).
+ *
+ * Used by the N-channel terrain attribute write path: the
+ * per-vertex `biomeIndices` attribute holds up to 4 palette indices
+ * per vertex, and the upcoming N-channel TSL shader looks them up
+ * against a `biomePalette: vec3[]` uniform array. The palette
+ * uniform is populated using THIS SAME mapping so
+ * `palette[indices[i]] = lookupBiomeColor(idxToBiome[i])`.
+ *
+ * Hot-path-safe: O(1) Map.get after first build per registry epoch.
+ */
+function getBiomePaletteIndexMap(): Map<string, number> {
+  if (_biomePaletteIndexCache !== null) return _biomePaletteIndexCache;
+  const sortedIds = Array.from(getBiomeColorMap().keys()).sort();
+  const map = new Map<string, number>();
+  for (let i = 0; i < sortedIds.length; i++) map.set(sortedIds[i], i);
+  _biomePaletteIndexCache = map;
+  return map;
+}
+
+/**
+ * Resolve a biome's palette index. Returns 0 (fallback slot) for
+ * biomes not in the active palette — defensive default that keeps
+ * the shader from sampling out of bounds when stale per-vertex
+ * data outlives a registry mutation.
+ */
+function lookupBiomePaletteIndex(biomeId: string): number {
+  return getBiomePaletteIndexMap().get(biomeId) ?? 0;
+}
+
+/**
+ * Public read for the palette uniform: returns biome ids in
+ * palette-index order (i.e. `result[i]` is the biome that the
+ * `biomeIndices` attribute value `i` references). The TSL shader
+ * setup will translate each id through `lookupBiomeColor` to fill
+ * the `vec3[]` palette uniform.
+ */
+export function getActiveBiomePaletteOrder(): ReadonlyArray<string> {
+  const map = getBiomePaletteIndexMap();
+  const out: string[] = new Array(map.size);
+  for (const [id, idx] of map) out[idx] = id;
+  return out;
 }
 
 // Shoreline tint color (sandy brown)
@@ -485,6 +561,28 @@ export function generateTileGeometry(
       ? ((geometry.getAttribute("materialWeights1") as THREE.BufferAttribute)
           .array as Float32Array)
       : new Float32Array(positions.count * 4);
+  // Phase 2.1 (N-channel terrain) — per-vertex top-K biome blend
+  // attributes. Replaces the legacy 3-channel
+  // `biomeForestWeight` + `biomeCanyonWeight` hardcode.
+  // `biomeIndices` (vec4) holds up to 4 biome palette indices
+  // (encoded as floats so they round-trip through Float32Array;
+  // the shader will floor-and-cast to int when sampling the
+  // `biomePalette` uniform). `biomeWeights` (vec4) holds the
+  // matching normalized weights summing to 1. The TSL shader
+  // (next session) blends N biome colors via these attributes
+  // + a palette uniform; this commit ships the CPU-side
+  // foundation only — values are written every regen but the
+  // shader doesn't read them yet.
+  const biomeIndices =
+    canReuse && geometry.getAttribute("biomeIndices")
+      ? ((geometry.getAttribute("biomeIndices") as THREE.BufferAttribute)
+          .array as Float32Array)
+      : new Float32Array(positions.count * 4);
+  const biomeWeights =
+    canReuse && geometry.getAttribute("biomeWeights")
+      ? ((geometry.getAttribute("biomeWeights") as THREE.BufferAttribute)
+          .array as Float32Array)
+      : new Float32Array(positions.count * 4);
 
   let hasWater = false;
   const shorelineThreshold = waterThreshold / maxHeight + 0.1; // Normalized
@@ -732,6 +830,43 @@ export function generateTileGeometry(
     terrainBlend[i4blend + 2] = roadInfluenceValue; // .z = roadInfluence
     // .w = mineInfluence (set below if mines exist)
 
+    // Phase 2.1 (N-channel terrain) — top-4 palette indices +
+    // weights for the upcoming N-channel TSL shader. Reads from
+    // `query.biomeInfluences` (already sorted descending by
+    // weight inside `BiomeSystem.getBiomeInfluencesAtPosition`).
+    // Defensive fallback if query lacks influences (shouldn't
+    // happen post Phase 0.3): single-biome palette = dominant.
+    const influences = query.biomeInfluences;
+    if (influences && influences.length > 0) {
+      const k = Math.min(4, influences.length);
+      let topSum = 0;
+      for (let s = 0; s < k; s++) topSum += influences[s].weight;
+      // Renormalize over the top-k subset so shader weights
+      // still sum to 1 even after dropping the long tail.
+      const invTopSum = topSum > 0 ? 1 / topSum : 0;
+      for (let s = 0; s < 4; s++) {
+        if (s < k) {
+          biomeIndices[i4blend + s] = lookupBiomePaletteIndex(
+            influences[s].type,
+          );
+          biomeWeights[i4blend + s] = influences[s].weight * invTopSum;
+        } else {
+          biomeIndices[i4blend + s] = 0;
+          biomeWeights[i4blend + s] = 0;
+        }
+      }
+    } else {
+      // No influences — single-channel fallback at index 0.
+      biomeIndices[i4blend] = lookupBiomePaletteIndex(query.biome);
+      biomeIndices[i4blend + 1] = 0;
+      biomeIndices[i4blend + 2] = 0;
+      biomeIndices[i4blend + 3] = 0;
+      biomeWeights[i4blend] = 1;
+      biomeWeights[i4blend + 1] = 0;
+      biomeWeights[i4blend + 2] = 0;
+      biomeWeights[i4blend + 3] = 0;
+    }
+
     // Mine influence for terrain shader — rocky floor color overlay.
     // Skip function call overhead when no mines exist (common case for most tiles).
     if (precomputedMines) {
@@ -779,6 +914,16 @@ export function generateTileGeometry(
       "materialWeights1",
     ) as THREE.BufferAttribute | null;
     if (mw1Attr) mw1Attr.needsUpdate = true;
+    // Phase 2.1 — N-channel attributes follow the same in-place
+    // update pattern as the rest of the dirty-tile regen path.
+    const biomeIndicesAttr = geometry.getAttribute(
+      "biomeIndices",
+    ) as THREE.BufferAttribute | null;
+    if (biomeIndicesAttr) biomeIndicesAttr.needsUpdate = true;
+    const biomeWeightsAttr = geometry.getAttribute(
+      "biomeWeights",
+    ) as THREE.BufferAttribute | null;
+    if (biomeWeightsAttr) biomeWeightsAttr.needsUpdate = true;
   } else {
     // New geometry: create fresh BufferAttribute objects
     geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
@@ -794,6 +939,17 @@ export function generateTileGeometry(
     geometry.setAttribute(
       "materialWeights1",
       new THREE.BufferAttribute(matWeights1, 4),
+    );
+    // Phase 2.1 — N-channel biome blend attributes. Shader does
+    // not yet read these (lands next session); written every
+    // regen so the foundation is in place.
+    geometry.setAttribute(
+      "biomeIndices",
+      new THREE.BufferAttribute(biomeIndices, 4),
+    );
+    geometry.setAttribute(
+      "biomeWeights",
+      new THREE.BufferAttribute(biomeWeights, 4),
     );
     positions.needsUpdate = true;
   }

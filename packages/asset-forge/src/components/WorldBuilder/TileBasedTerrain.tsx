@@ -2299,7 +2299,14 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
         return _gameResult;
       };
     } else {
-      // Pre-allocated result object for procgen pipeline
+      // Pre-allocated result object for procgen pipeline. Phase 2.1
+      // also forwards `biomeInfluences` (full top-N weighted list)
+      // and `color` (pre-blended per-vertex RGB from procgen) so
+      // the N-channel attribute write path in `terrainHelpers`
+      // can populate the new `biomeIndices` + `biomeWeights`
+      // attributes. Borrowed-ref contract: both fields point into
+      // procgen's pooled scratch state — terrainHelpers consumes
+      // them synchronously per vertex.
       const _procgenResult: import("./terrainHelpers").TerrainQueryResult = {
         height: 0,
         biome: "forest",
@@ -2308,7 +2315,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       };
       terrainQuerierRef.current = (worldX: number, worldZ: number) => {
         const q = generator.queryPoint(worldX, worldZ);
-        // Extract per-biome weights for shader blending
+        // Extract per-biome weights for legacy 3-channel shader path
         const fW =
           q.biomeInfluences?.find((b) => b.type === "forest")?.weight ?? 0;
         const cW =
@@ -2317,6 +2324,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
         _procgenResult.biome = q.biome;
         _procgenResult.biomeForestWeight = fW;
         _procgenResult.biomeCanyonWeight = cW;
+        _procgenResult.biomeInfluences = q.biomeInfluences;
+        _procgenResult.color = q.color;
         return _procgenResult;
       };
     }
