@@ -100,6 +100,7 @@ import {
 import { EditorGrassManager } from "./EditorGrassManager";
 import { useStandaloneSky } from "./hooks/useStandaloneSky";
 import { useGameFog } from "./hooks/useGameFog";
+import { useShadowsCSM } from "./hooks/useShadowsCSM";
 import { TownRenderer } from "./systems/TownRenderer";
 import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
 // TODO: Wire these system classes for full decomposition (CameraController, SelectionManager, TileManager)
@@ -119,7 +120,6 @@ import {
   computeTargetExposure,
   updateSceneFog,
 } from "@hyperforge/shared";
-import { CSMShadowNode } from "three/addons/csm/CSMShadowNode.js";
 
 // Town rendering moved to TownRenderer — shared geometry singletons, type aliases,
 // and material constructors are now managed by TownRenderer.ts.
@@ -711,8 +711,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
   const timeOfDayRef = useRef(timeOfDay);
   timeOfDayRef.current = timeOfDay;
-  const enableShadowsRef = useRef(enableShadows);
-  enableShadowsRef.current = enableShadows;
+  // Shadow + CSM lifecycle owned by `useShadowsCSM` (Phase 1.1
+  // third carve). Hook is installed below alongside the other
+  // hook installations; returns `enableShadowsRef` for the
+  // animation loop and main scene effect to consult.
   const enableBloomRef = useRef(enableBloom);
   enableBloomRef.current = enableBloom;
   // Game-fog lifecycle owned by `useGameFog` (Phase 1.1 second
@@ -736,9 +738,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     enableGameFog,
     sceneRef,
   });
+  // useShadowsCSM is installed AFTER isStudioModeRef is declared
+  // (line ~848) — see the post-isStudioModeRef block.
   const standaloneGrassRef = useRef<EditorGrassManager | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const csmShadowNodeRef = useRef<any>(null);
+  // CSM shadow node ref owned by `useShadowsCSM` hook.
   const viewHelperRef = useRef<ViewHelper | null>(null);
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
   const viewModeRef = useRef<ViewMode>("lit");
@@ -840,6 +843,13 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   // (avoids adding hideBuiltinOverlays to callback dep arrays)
   const isStudioModeRef = useRef(hideBuiltinOverlays);
   isStudioModeRef.current = hideBuiltinOverlays;
+  // Phase 1.1 third carve — shadow + CSM lifecycle. Installed
+  // after `isStudioModeRef` because the shadow effect respects
+  // studio-mode override.
+  const { enableShadowsRef } = useShadowsCSM({
+    enableShadows,
+    hostRefs: { rendererRef, sunRef, cameraRef, isStudioModeRef },
+  });
 
   // Raycasting for selection
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
@@ -4197,11 +4207,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
         standaloneGrassRef.current = null;
       }
 
-      // Dispose CSM shadow node
-      if (csmShadowNodeRef.current) {
-        csmShadowNodeRef.current.dispose();
-        csmShadowNodeRef.current = null;
-      }
+      // CSM shadow node disposal handled by `useShadowsCSM`
+      // hook's effect cleanup (Phase 1.1 third carve).
 
       // Dispose shared resources
       currentTemplateGeometry.current?.dispose();
@@ -4243,67 +4250,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     tileResolution,
   ]);
 
-  // Phase 4: Dynamic shadow toggle with CSM (Cascaded Shadow Maps)
-  useEffect(() => {
-    const renderer = rendererRef.current;
-    const sun = sunRef.current;
-    const camera = cameraRef.current;
-    if (!renderer || !sun) return;
-    const shouldEnable = !isStudioModeRef.current || enableShadows;
-    renderer.shadowMap.enabled = shouldEnable;
-    sun.castShadow = shouldEnable;
-
-    // Dispose existing CSM
-    if (csmShadowNodeRef.current) {
-      csmShadowNodeRef.current.dispose();
-      csmShadowNodeRef.current = null;
-      sun.shadow.shadowNode = undefined;
-    }
-
-    if (shouldEnable && camera) {
-      // CSM with game's "med" preset: 3 cascades, lambda=0.8 log/uniform blend
-      const customSplitCallback = (
-        cascades: number,
-        near: number,
-        far: number,
-        breaks: number[],
-      ) => {
-        const lambda = 0.8;
-        for (let i = 1; i < cascades; i++) {
-          const log = (near * Math.pow(far / near, i / cascades)) / far;
-          const uni = (near + ((far - near) * i) / cascades) / far;
-          breaks.push(lambda * log + (1 - lambda) * uni);
-        }
-        breaks.push(1);
-      };
-
-      try {
-        const csm = new CSMShadowNode(sun, {
-          cascades: 3,
-          maxFar: 300,
-          mode: "custom",
-          customSplitsCallback: customSplitCallback,
-          lightMargin: 150,
-        });
-        csm.fade = true;
-        sun.shadow.shadowNode = csm;
-        csmShadowNodeRef.current = csm;
-      } catch (err) {
-        console.warn(
-          "[TileBasedTerrain] CSM init failed, using basic shadows:",
-          err,
-        );
-      }
-    }
-
-    return () => {
-      if (csmShadowNodeRef.current) {
-        csmShadowNodeRef.current.dispose();
-        csmShadowNodeRef.current = null;
-        if (sun) sun.shadow.shadowNode = undefined;
-      }
-    };
-  }, [enableShadows]);
+  // Shadow + CSM lifecycle owned by `useShadowsCSM` hook
+  // (Phase 1.1 third carve — see `hooks/useShadowsCSM.ts`).
 
   // Phase 6: Dynamic bloom toggle — delegates to ViewportRenderLoop
   useEffect(() => {
