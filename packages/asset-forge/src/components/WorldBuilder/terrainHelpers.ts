@@ -399,6 +399,76 @@ export interface EditorTerrainMaterialOptions {
 }
 
 /**
+ * Phase 0.2 — module-level registry of palette textures owned by
+ * live terrain materials. When the content registry mutates
+ * (themed pack installed mid-session, agent registers new
+ * biomes, etc.) we walk this set and refresh each texture's
+ * data in place. The shader's uniform binding to the texture
+ * object doesn't change — same `THREE.DataTexture`, same GPU
+ * resource, just fresh texel data + `needsUpdate=true`. So
+ * mid-session pack installation propagates to render without
+ * a material recompile or scene rebuild.
+ *
+ * Add (`createTerrainMaterial`) and remove on material disposal
+ * (currently the consumer doesn't dispose materials, so this
+ * grows monotonically per dev-server session — acceptable for
+ * a development tool).
+ */
+const _liveBiomePaletteTextures = new Set<THREE.DataTexture>();
+
+subscribeContentRegistry(() => {
+  for (const tex of _liveBiomePaletteTextures) {
+    refreshBiomePaletteTexture(tex);
+  }
+});
+
+/**
+ * Rewrite an existing palette texture's data from the current
+ * registry contents. Index assignment is alphabetical-by-id
+ * (deterministic, matches the per-vertex `biomeIndices` write
+ * path in `generateTileGeometry`). Adding a biome appends a new
+ * slot — existing per-vertex indices stay valid. Removing a
+ * biome shifts indices and would invalidate baked tile meshes;
+ * not handled in this pass.
+ *
+ * If the active palette outgrows the texture's allocated size
+ * (more biomes than texels), we can't grow the texture in place
+ * — log a warning and fall back to clamping. A texture resize
+ * requires recreating the DataTexture, which means recreating
+ * the material binding; leaving that to the future "rebuild
+ * material on content change" path.
+ */
+function refreshBiomePaletteTexture(tex: THREE.DataTexture): void {
+  const order = getActiveBiomePaletteOrder();
+  const data = tex.image.data as Float32Array;
+  const allocatedSlots = data.length / 4;
+  const writeCount = Math.min(order.length, allocatedSlots);
+  if (order.length > allocatedSlots) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[terrainHelpers] palette has ${order.length} biomes but texture only allocated ${allocatedSlots} slots — clamping to ${writeCount}. Reload the project to grow the palette.`,
+    );
+  }
+  for (let i = 0; i < writeCount; i++) {
+    const c = lookupBiomeColor(order[i]);
+    data[i * 4 + 0] = c.r;
+    data[i * 4 + 1] = c.g;
+    data[i * 4 + 2] = c.b;
+    data[i * 4 + 3] = 1;
+  }
+  // Zero out unused slots — any stale `biomeIndices` values that
+  // overflow the active palette will sample (0,0,0,1) instead of
+  // the previous (e.g. uninstalled) biome's color.
+  for (let i = writeCount; i < allocatedSlots; i++) {
+    data[i * 4 + 0] = 0;
+    data[i * 4 + 1] = 0;
+    data[i * 4 + 2] = 0;
+    data[i * 4 + 3] = 1;
+  }
+  tex.needsUpdate = true;
+}
+
+/**
  * Build the 1×N RGB palette texture that the N-channel splatmap
  * shader path samples. Each texel maps a biome palette index
  * (assigned by `getBiomePaletteIndexMap`) to its RGB color from
@@ -414,6 +484,11 @@ export interface EditorTerrainMaterialOptions {
  * switch). The shader holds a uniform binding to `texture.image`,
  * so updating texels in place + `needsUpdate=true` works for
  * mid-session palette changes without recompiling the shader.
+ *
+ * Phase 0.2 — texture is registered in `_liveBiomePaletteTextures`
+ * so the registry subscriber refreshes it on content-pack mutation.
+ * Allocates with headroom (16 slots minimum) so adding a few
+ * biomes mid-session doesn't require recreating the texture.
  */
 function buildBiomePaletteTexture(): {
   texture: THREE.DataTexture;
@@ -422,11 +497,18 @@ function buildBiomePaletteTexture(): {
   const order = getActiveBiomePaletteOrder();
   const n = order.length;
   if (n === 0) return null;
+  // Allocate with headroom so adding a few biomes mid-session
+  // (e.g. `agent installs an additional themed pack`) doesn't
+  // require recreating the texture. The shader's UV math uses
+  // `paletteSize` (the allocated count), so unused slots
+  // contribute 0 weight via the per-vertex `biomeIndices`/
+  // `biomeWeights` (existing tiles never reference past-active
+  // biomes; new tiles get the new indices).
+  const allocatedSize = Math.max(16, n * 2);
   // RGBA float texture — three.js (post-r137) doesn't accept
   // RGBFormat for DataTexture; use RGBAFormat and write 4 floats
-  // per texel (alpha=1, unused). 1×N layout: width=N, height=1.
-  // Shader reads `.rgb` and ignores alpha.
-  const data = new Float32Array(n * 4);
+  // per texel (alpha=1, unused). 1×allocatedSize layout.
+  const data = new Float32Array(allocatedSize * 4);
   for (let i = 0; i < n; i++) {
     const c = lookupBiomeColor(order[i]);
     data[i * 4 + 0] = c.r;
@@ -434,9 +516,12 @@ function buildBiomePaletteTexture(): {
     data[i * 4 + 2] = c.b;
     data[i * 4 + 3] = 1;
   }
+  // Tail slots: zeros (never sampled at meaningful weights since
+  // `biomeIndices` only references registered biomes).
+  for (let i = n; i < allocatedSize; i++) data[i * 4 + 3] = 1;
   const tex = new THREE.DataTexture(
     data,
-    n,
+    allocatedSize,
     1,
     THREE.RGBAFormat,
     THREE.FloatType,
@@ -449,7 +534,11 @@ function buildBiomePaletteTexture(): {
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.generateMipmaps = false;
   tex.needsUpdate = true;
-  return { texture: tex, size: n };
+  // Register for mid-session refresh by the contentRegistry
+  // subscriber above. When packs install / uninstall, the texel
+  // data updates in place — no shader recompile.
+  _liveBiomePaletteTextures.add(tex);
+  return { texture: tex, size: allocatedSize };
 }
 
 export function createTerrainMaterial(
