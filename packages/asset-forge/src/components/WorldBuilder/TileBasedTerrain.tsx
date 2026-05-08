@@ -98,6 +98,7 @@ import {
   type EditorWaterUniforms,
 } from "./EditorWaterMaterial";
 import { EditorGrassManager } from "./EditorGrassManager";
+import { useStandaloneSky } from "./hooks/useStandaloneSky";
 import { TownRenderer } from "./systems/TownRenderer";
 import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
 // TODO: Wire these system classes for full decomposition (CameraController, SelectionManager, TileManager)
@@ -112,7 +113,6 @@ import {
   SUN_LIGHT,
   DAY_CYCLE,
   FOG_COLORS,
-  StandaloneSky,
   updateSceneLighting,
   hourToDayPhase,
   computeTargetExposure,
@@ -716,12 +716,20 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   enableBloomRef.current = enableBloom;
   const enableGameFogRef = useRef(enableGameFog);
   enableGameFogRef.current = enableGameFog;
-  const enableSkyRef = useRef(enableSky);
-  enableSkyRef.current = enableSky;
   const enableGrassRef = useRef(enableGrass);
   enableGrassRef.current = enableGrass;
   const hemiLightRef = useRef<THREE.HemisphereLight | null>(null);
-  const standaloneSkyRef = useRef<StandaloneSky | null>(null);
+  // Phase 1.1 first carve — sky lifecycle is owned by
+  // `useStandaloneSky` (created/disposed when `enableSky`
+  // toggles, async-init guarded against fast-toggle races,
+  // background swap with the day-color flat scene). The hook
+  // returns the stable refs we read from the animation loop.
+  // The hook installation is below — see `const { skyRef,
+  // enableSkyRef } = useStandaloneSky(...)`.
+  const { skyRef: standaloneSkyRef, enableSkyRef } = useStandaloneSky({
+    enableSky,
+    hostRefs: { sceneRef, rendererRef, cameraRef },
+  });
   const standaloneGrassRef = useRef<EditorGrassManager | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const csmShadowNodeRef = useRef<any>(null);
@@ -4174,11 +4182,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       foliageManagerRef.current?.dispose();
       foliageManagerRef.current = null;
 
-      // Dispose standalone sky system
-      if (standaloneSkyRef.current) {
-        standaloneSkyRef.current.dispose();
-        standaloneSkyRef.current = null;
-      }
+      // Standalone sky disposal handled by `useStandaloneSky`
+      // hook's effect cleanup (Phase 1.1 first carve).
 
       // Dispose standalone grass system
       if (standaloneGrassRef.current) {
@@ -4312,51 +4317,11 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     }
   }, [enableGameFog]);
 
-  // Dynamic sky toggle — create/destroy StandaloneSky
-  useEffect(() => {
-    const scene = sceneRef.current;
-    const renderer = rendererRef.current;
-    const camera = cameraRef.current;
-    if (!scene || !renderer || !camera) return;
-
-    if (enableSky) {
-      // Create and initialize sky system
-      const sky = new StandaloneSky(
-        scene,
-        renderer as unknown as THREE.WebGPURenderer,
-        camera,
-        {
-          textureBasePath: "/textures/",
-        },
-      );
-      standaloneSkyRef.current = sky;
-      // Remove flat background color (sky dome replaces it)
-      scene.background = null;
-      // Async init + start
-      sky
-        .init()
-        .then(() => {
-          if (standaloneSkyRef.current === sky) sky.start();
-        })
-        .catch((e: unknown) =>
-          console.warn("[TileBasedTerrain] Sky init failed:", e),
-        );
-    } else {
-      // Dispose sky and restore flat background
-      if (standaloneSkyRef.current) {
-        standaloneSkyRef.current.dispose();
-        standaloneSkyRef.current = null;
-      }
-      scene.background = new THREE.Color(FOG_COLORS.DAY);
-    }
-
-    return () => {
-      if (standaloneSkyRef.current) {
-        standaloneSkyRef.current.dispose();
-        standaloneSkyRef.current = null;
-      }
-    };
-  }, [enableSky]);
+  // Sky lifecycle owned by `useStandaloneSky` (Phase 1.1 first
+  // carve from the monolith — see `hooks/useStandaloneSky.ts`).
+  // The hook installation is at the top of the component
+  // alongside the other ref declarations; the animation loop
+  // below reads `standaloneSkyRef` to tick the sky each frame.
 
   // Phase 5: Game-accurate grass toggle (EditorGrassManager)
   useEffect(() => {
