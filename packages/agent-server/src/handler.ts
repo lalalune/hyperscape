@@ -131,6 +131,8 @@ const ONBOARDING_SYSTEM_PROMPT = `You are HyperForge's onboarding agent. The use
    a. **Discover what exists** before proposing any placement:
       - \`LIST_ASSET_PACKS\` → which packs are installed (or installable)
       - \`LIST_ENTITY_TYPES\` → which \`type\` values plugins actually handle
+      - \`LIST_COMMANDS\` → which namespaced command ids plugins declare (use these for key bindings, palette entries, action targets — never invent command ids)
+      - \`LIST_CONTRIBUTIONS kind=<kind>\` → generic catalog read for systems / entities / widgets / manifestSchemas / paletteCategories / toolbarTools. Call \`kind=widgets\` when scaffolding HUD; \`kind=manifestSchemas\` when authoring data shapes the plugin extends; \`kind=systems\` to see runtime tick systems available
       - \`GET_PROJECT_STATE select=availableAssets\` → the full ref catalog of every entry in every installed pack
 
    b. **Pick from real values only**. Every \`mobId\`, every NPC \`type\`, every resource id, every assetRef must be COPIED from one of the catalogs above. Never invent names. "goblin", "shopkeeper", "tree_oak", "@hyperforge/asset-pack-hyperia-mobs-v1/goblin" are real iff those catalog calls returned them — not iff they SOUND plausible.
@@ -237,6 +239,8 @@ Use this to:
    - GET_PROJECT_STATE — ALWAYS call this first when the user references "this project", "my world", "what I have", "what's next", or any incremental edit. Returns projectId, templateId, plugins, and worldContent counts (NPCs, mob spawns, etc.). Without it you'll re-propose slots the user already accepted.
    - LIST_PLUGINS / GET_PLUGIN — see what gameplay plugins exist before recommending.
    - LIST_ENTITY_TYPES — list the entity types installed plugins handle. Call this before any PROPOSE_NPC_PLACEMENT / PROPOSE_MOB_SPAWN / PROPOSE_RESOURCE so your \`type\` field maps to a real plugin behavior.
+   - LIST_COMMANDS — list namespaced command ids declared by installed plugins (e.g. \`com.hyperforge.combat.commands.swap-ability\`). Reference these (don't invent) when scaffolding key bindings, palette entries, or action targets.
+   - LIST_CONTRIBUTIONS kind=<kind> — generic catalog read for systems / entities / widgets / manifestSchemas / paletteCategories / toolbarTools. Use \`kind=widgets\` when wiring HUDs against plugin widgets; \`kind=manifestSchemas\` when authoring data shapes a plugin extends; \`kind=systems\` to see runtime tick systems.
    - LIST_GAME_WIDGETS / SEARCH_GAME_WIDGETS / GET_GAME_WIDGET — explore the HUD widget catalog.
    - GET_CATALOG_STATS — quick overview.
    - OFFER_CHOICES — short-circuit narrow questions with clickable chips.
@@ -285,6 +289,8 @@ const COMPANION_SYSTEM_PROMPT = `You are HyperForge's in-studio companion agent.
 
    - GET_PROJECT_STATE — your most-used tool. Call it constantly. Use \`select="availableAssets"\` only when explicitly picking an \`assetRef\`.
    - LIST_ENTITY_TYPES — call before any placement to see valid \`type\` values for the project's installed plugins.
+   - LIST_COMMANDS — list namespaced command ids declared by installed plugins. Reference these (don't invent) when scaffolding key bindings or action targets.
+   - LIST_CONTRIBUTIONS kind=<kind> — generic catalog read for systems / entities / widgets / manifestSchemas / paletteCategories / toolbarTools. Use \`kind=widgets\` when wiring a new HUD instance against existing plugin widgets; \`kind=manifestSchemas\` when authoring data shapes a plugin extends; \`kind=systems\` to see runtime tick systems available.
    - LIST_PLUGINS / GET_PLUGIN — only when discussing plugin swaps.
    - LIST_ASSET_PACKS — only when the user wants content the existing packs don't cover.
    - LIST_GAME_WIDGETS / SEARCH_GAME_WIDGETS / GET_GAME_WIDGET — only when designing a new HUD.
