@@ -162,41 +162,10 @@ import {
 /** Camera altitude above which entity markers are hidden (saves thousands of draw calls) */
 const MARKER_HIDE_ALTITUDE = 400;
 
-/** Build town flatten zones for a tile, with AABB rejection to skip distant towns. */
-function buildTownFlattenZones(
-  towns: TerrainSceneRefs["runtimeTowns"],
-  tileX: number,
-  tileZ: number,
-  tileSize: number,
-  wcOffset: number,
-  querier: TerrainQuerier,
-): TownFlattenZone[] | undefined {
-  if (towns.length === 0) return undefined;
-  const tileMinX = tileX * tileSize - wcOffset;
-  const tileMaxX = tileMinX + tileSize;
-  const tileMinZ = tileZ * tileSize - wcOffset;
-  const tileMaxZ = tileMinZ + tileSize;
-  const zones: TownFlattenZone[] = [];
-  for (const t of towns) {
-    const r = t.safeZoneRadius;
-    const outerR = r * 1.4;
-    if (
-      t.position.x + outerR < tileMinX ||
-      t.position.x - outerR > tileMaxX ||
-      t.position.z + outerR < tileMinZ ||
-      t.position.z - outerR > tileMaxZ
-    )
-      continue;
-    zones.push({
-      x: t.position.x,
-      z: t.position.z,
-      centerHeight: querier(t.position.x, t.position.z).height,
-      innerRadius: r * 0.85,
-      outerRadius: outerR,
-    });
-  }
-  return zones.length > 0 ? zones : undefined;
-}
+// Per-tile town flatten zone builder extracted to
+// `hooks/buildTownFlattenZones.ts` (Phase 1.1 eighth carve).
+// Pure AABB-rejection + zone construction; no React or scene refs.
+import { buildTownFlattenZones } from "./hooks/buildTownFlattenZones";
 
 // Building LOD distances and town size colors now live in TownRenderer.ts.
 
