@@ -166,6 +166,11 @@ const MARKER_HIDE_ALTITUDE = 400;
 // `hooks/buildTownFlattenZones.ts` (Phase 1.1 eighth carve).
 // Pure AABB-rejection + zone construction; no React or scene refs.
 import { buildTownFlattenZones } from "./hooks/buildTownFlattenZones";
+// Dirty-tile-by-distance ordering extracted to
+// `hooks/markDirtyTilesByDistance.ts` (Phase 1.1 ninth carve).
+// Used by terrain-config / road / mine change effects to
+// prioritize regenerating tiles near the camera first.
+import { markDirtyTilesByDistance } from "./hooks/markDirtyTilesByDistance";
 
 // Building LOD distances and town size colors now live in TownRenderer.ts.
 
@@ -4335,18 +4340,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     // instead of tearing them all down and rebuilding from scratch.
     // Skip dirty marking when only maxHeight changed — the fast-path handles it.
     if (tilesRef.current.size > 0 && !onlyMaxHeightChanged) {
-      dirtyTileKeysRef.current = [];
-      // Sort dirty tiles by distance to camera so nearby tiles update first
-      const camTile = lastCameraTileRef.current;
-      const entries: Array<{ key: string; dist: number }> = [];
-      for (const [key, tile] of tilesRef.current) {
-        tile.dirty = true;
-        const dx = tile.tileX - camTile.tileX;
-        const dz = tile.tileZ - camTile.tileZ;
-        entries.push({ key, dist: dx * dx + dz * dz });
-      }
-      entries.sort((a, b) => a.dist - b.dist);
-      dirtyTileKeysRef.current = entries.map((e) => e.key);
+      dirtyTileKeysRef.current = markDirtyTilesByDistance(
+        tilesRef.current,
+        lastCameraTileRef.current,
+      );
     }
 
     prevMaxHeightRef.current = maxHeight;
@@ -4427,16 +4424,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       `[TileBasedTerrain] Roads changed — marking ${tilesRef.current.size} tiles dirty for ${providedRoads.length} roads`,
     );
 
-    const camTile = lastCameraTileRef.current;
-    const entries: Array<{ key: string; dist: number }> = [];
-    for (const [key, tile] of tilesRef.current) {
-      tile.dirty = true;
-      const dx = tile.tileX - camTile.tileX;
-      const dz = tile.tileZ - camTile.tileZ;
-      entries.push({ key, dist: dx * dx + dz * dz });
-    }
-    entries.sort((a, b) => a.dist - b.dist);
-    dirtyTileKeysRef.current = entries.map((e) => e.key);
+    dirtyTileKeysRef.current = markDirtyTilesByDistance(
+      tilesRef.current,
+      lastCameraTileRef.current,
+    );
   }, [providedRoads]);
 
   // Regenerate ALL tiles when mines change so the terrain shader picks up
@@ -4455,16 +4446,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       `[TileBasedTerrain] Mines changed — marking ${tilesRef.current.size} tiles dirty for ${providedMines.length} mines`,
     );
 
-    const camTile = lastCameraTileRef.current;
-    const entries: Array<{ key: string; dist: number }> = [];
-    for (const [key, tile] of tilesRef.current) {
-      tile.dirty = true;
-      const dx = tile.tileX - camTile.tileX;
-      const dz = tile.tileZ - camTile.tileZ;
-      entries.push({ key, dist: dx * dx + dz * dz });
-    }
-    entries.sort((a, b) => a.dist - b.dist);
-    dirtyTileKeysRef.current = entries.map((e) => e.key);
+    dirtyTileKeysRef.current = markDirtyTilesByDistance(
+      tilesRef.current,
+      lastCameraTileRef.current,
+    );
   }, [providedMines]);
 
   // Notify parent of tile count changes
