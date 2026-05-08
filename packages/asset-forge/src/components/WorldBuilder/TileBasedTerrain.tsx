@@ -310,32 +310,11 @@ function _getVisualBiome(q: TerrainQueryResult): string {
  * ambiguous, so we fall back to "tundra" whose conifers (WindPine, Fir, Pine,
  * Birch) look natural on any ground color and create a pleasing transition.
  */
-/**
- * Deterministic LCG RNG for tile-based tree generation (client-side).
- * Matches the server's createTileRng exactly so same seed → same trees.
- */
-function _createTileRng(
-  baseSeed: number,
-  tileX: number,
-  tileZ: number,
-  salt: string,
-): () => number {
-  const seed = baseSeed >>> 0;
-  let saltHash = 5381 >>> 0;
-  for (let i = 0; i < salt.length; i++) {
-    saltHash = (((saltHash << 5) + saltHash) ^ salt.charCodeAt(i)) >>> 0;
-  }
-  let state =
-    (seed ^
-      ((tileX * 73856093) >>> 0) ^
-      ((tileZ * 19349663) >>> 0) ^
-      saltHash) >>>
-    0;
-  return () => {
-    state = (1664525 * state + 1013904223) >>> 0;
-    return state / 0xffffffff;
-  };
-}
+// Deterministic per-tile LCG RNG extracted to
+// `hooks/tileSeedRng.ts` (Phase 1.1 seventh carve). Pure
+// stateless function; matches the server's createTileRng
+// byte-for-byte so client and server placements stay in sync.
+import { createTileRng as _createTileRng } from "./hooks/tileSeedRng";
 
 /** Refs exposed to parent for editing tool integration */
 export interface TerrainSceneRefs {
