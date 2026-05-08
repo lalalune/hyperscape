@@ -99,6 +99,7 @@ import {
 } from "./EditorWaterMaterial";
 import { EditorGrassManager } from "./EditorGrassManager";
 import { useStandaloneSky } from "./hooks/useStandaloneSky";
+import { useGameFog } from "./hooks/useGameFog";
 import { TownRenderer } from "./systems/TownRenderer";
 import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
 // TODO: Wire these system classes for full decomposition (CameraController, SelectionManager, TileManager)
@@ -714,8 +715,9 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   enableShadowsRef.current = enableShadows;
   const enableBloomRef = useRef(enableBloom);
   enableBloomRef.current = enableBloom;
-  const enableGameFogRef = useRef(enableGameFog);
-  enableGameFogRef.current = enableGameFog;
+  // Game-fog lifecycle owned by `useGameFog` (Phase 1.1 second
+  // carve). Hook returns `enableGameFogRef` for the animation
+  // loop's day-cycle fog-color interpolation.
   const enableGrassRef = useRef(enableGrass);
   enableGrassRef.current = enableGrass;
   const hemiLightRef = useRef<THREE.HemisphereLight | null>(null);
@@ -729,6 +731,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   const { skyRef: standaloneSkyRef, enableSkyRef } = useStandaloneSky({
     enableSky,
     hostRefs: { sceneRef, rendererRef, cameraRef },
+  });
+  const { enableGameFogRef } = useGameFog({
+    enableGameFog,
+    sceneRef,
   });
   const standaloneGrassRef = useRef<EditorGrassManager | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -4304,18 +4310,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     renderLoopRef.current?.setBloomEnabled(enableBloom);
   }, [enableBloom]);
 
-  // Phase 6: Dynamic fog toggle — switch between studio fog and game-matching fog
-  useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene) return;
-    if (enableGameFog) {
-      // Match game fog: warm sandy color, tight near/far (from FogConfig.ts)
-      scene.fog = new THREE.Fog(FOG_COLORS.DAY, 400, 800);
-    } else {
-      // Default studio fog: sky blue, loose distances
-      scene.fog = new THREE.Fog(0x87ceeb, 500, 3000);
-    }
-  }, [enableGameFog]);
+  // Game-fog toggle lifecycle owned by `useGameFog` hook
+  // (Phase 1.1 second carve — see `hooks/useGameFog.ts`).
 
   // Sky lifecycle owned by `useStandaloneSky` (Phase 1.1 first
   // carve from the monolith — see `hooks/useStandaloneSky.ts`).
