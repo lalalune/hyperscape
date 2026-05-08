@@ -176,6 +176,11 @@ import { markDirtyTilesByDistance } from "./hooks/markDirtyTilesByDistance";
 // `hooks/mouseEventToNdc.ts` (Phase 1.1 tenth carve). Used by
 // click and hover handlers before raycasting.
 import { mouseEventToNdc } from "./hooks/mouseEventToNdc";
+// Per-mesh Y rescale extracted to `hooks/rescaleVertexY.ts`
+// (Phase 1.1 twelfth carve). Used by the maxHeight-change
+// fast-path that scales loaded tile geometry in place rather
+// than regenerating from scratch.
+import { rescaleVertexY } from "./hooks/rescaleVertexY";
 
 // Building LOD distances and town size colors now live in TownRenderer.ts.
 
@@ -4388,16 +4393,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     if (!isFinite(scale) || scale === 0) return;
 
     for (const [, tile] of tilesRef.current) {
-      const posAttr = tile.mesh.geometry.getAttribute("position");
-      if (!posAttr) continue;
-      const arr = posAttr.array as Float32Array;
-      // Y is at stride index 1 (x,y,z per vertex)
-      for (let i = 1; i < arr.length; i += 3) {
-        arr[i] *= scale;
-      }
-      posAttr.needsUpdate = true;
-      tile.mesh.geometry.computeVertexNormals();
-      tile.mesh.geometry.computeBoundingSphere();
+      rescaleVertexY(tile.mesh.geometry, scale);
     }
   }, [maxHeight]);
 
