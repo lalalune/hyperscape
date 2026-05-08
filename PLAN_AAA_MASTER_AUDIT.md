@@ -149,10 +149,51 @@ These are the blocking issues. Each must be closed; no partial credit.
 | 14 | **Combat damage authority unverified** — server-side calc not confirmed audited. | C | HIGH | 1 week to audit + fix any client-trust |
 | 15 | **No spatial index for tile streaming neighbors** — full-radius scan per camera move. | A | MEDIUM | 3 days |
 
+## Progress log (revised through 2026-05-08)
+
+The original audit estimated 12-16 weeks. Substantial progress
+has been made; what's actually shipped:
+
+| Phase | Status | Commits |
+|---|---|---|
+| **0.1** — BiomeSystem perf hot path | ✅ done | `cc74be34c` |
+| **0.2** — Reactive material on registry mutation | ✅ done | `b3fd003fa` |
+| **0.3** — `query.color` unification | ✅ done | `7fe20caf7` |
+| **2.1** CPU — N-channel attribute foundation | ✅ done | `3b1ee7b04` |
+| **2.1** Shader — N-channel splatmap consumer | ✅ done | `dfd81c53f` |
+| **3.1** — All 7 plugin contribution fields wired | ✅ done | `a3f8355fc` `62efd334e` `9103c9dd7` |
+| **3.2** Engine error/Object3D rename | ✅ done | `a9be4fdd4` |
+| **3.2** Plugin monolith first cut | ✅ done | `a9f116ae0` |
+| **3.3** — Server R3.P11 plumbs content packs | ✅ done | `6640dc17d` |
+| **1.1** carve 1 — `useStandaloneSky` | ✅ done | `ffd26ae88` |
+| **1.1** carve 2 — `useGameFog` | ✅ done | `4b7bc41eb` |
+| **1.1** carve 3 — `useShadowsCSM` | ✅ done | `f3fe7e041` |
+| **1.1** carve 4 — `setupTerrainLighting` | ✅ done | `7106b11ad` |
+| **1.1** remaining carves — water, brush, foliage state, town/road overlays, tile streamer | ⏸ pending | est. 2-3 weeks |
+| **1.2** — DesignWithAIDialog split | ⏸ not started | est. 2 weeks |
+| **2.1 follow-up** — GrassWorker / QuadChunkWorker N-channel | ⏸ not started | est. 1 week |
+| **3.1 editor consumers** — ContentBrowser/MainToolbar reading registry | ⏸ not started | est. 3 days |
+| **3.2 deeper** — Drop `Player.hyperiaPlayerId`, `BiomeType` enum | ⏸ partial | est. 1 week |
+| **5** — AAA acceptance demo (second non-Hyperia plugin) | ⏸ not started | est. 2 weeks |
+
+**Effort remaining**: ~6-8 weeks of focused engineering. Down
+from the original 12-16-week estimate. Phase 0 / 2.1 / 3.1 /
+3.3 are fully closed; Phase 1.1 has 4/12 carves done; Phase 3.2
+has the small wins done (renames, plugin monolith first cut).
+
+The biggest remaining unblockers:
+- **Tile streamer extraction** (~1000 lines of `TileBasedTerrain.tsx`,
+  the heart of the file — needs its own focused multi-day session).
+- **DesignWithAIDialog split** (4,596 lines, parallel to 1.1
+  pattern but on a different file).
+- **AAA acceptance demo** — proves the framework end-to-end with
+  a second non-Hyperia plugin.
+
 ## Master plan — 6-phase sequencing to AAA
 
-**Total estimated effort: 12–16 focused engineering weeks.** Ordered
-by user impact and unblocks-other-work value.
+**Total estimated effort (original): 12–16 focused engineering weeks.**
+**Effort remaining as of 2026-05-08: ~6-8 weeks.** Ordered by user
+impact and unblocks-other-work value.
 
 ### Phase 0 — Stop the bleed (1 week, blocking)
 
