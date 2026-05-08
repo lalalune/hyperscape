@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getDynamicLoadRadius,
+  getFullDetailRadius,
   TILE_LOAD_RADIUS_STANDALONE,
   TILE_LOAD_RADIUS_STUDIO,
 } from "../tileStreamingRadius";
@@ -46,5 +47,39 @@ describe("getDynamicLoadRadius", () => {
   it("never returns less than the studio base", () => {
     // Negative altitudes shouldn't happen but be safe.
     expect(getDynamicLoadRadius(-100, true)).toBe(TILE_LOAD_RADIUS_STUDIO);
+  });
+});
+
+describe("getFullDetailRadius", () => {
+  it("returns the fixed standalone radius outside studio mode", () => {
+    expect(getFullDetailRadius(0, false)).toBe(TILE_LOAD_RADIUS_STANDALONE);
+    expect(getFullDetailRadius(500, false)).toBe(TILE_LOAD_RADIUS_STANDALONE);
+    expect(getFullDetailRadius(5000, false)).toBe(TILE_LOAD_RADIUS_STANDALONE);
+  });
+
+  it("returns base studio radius at or below 200m altitude", () => {
+    expect(getFullDetailRadius(0, true)).toBe(TILE_LOAD_RADIUS_STUDIO);
+    expect(getFullDetailRadius(50, true)).toBe(TILE_LOAD_RADIUS_STUDIO);
+    expect(getFullDetailRadius(200, true)).toBe(TILE_LOAD_RADIUS_STUDIO);
+  });
+
+  it("scales DOWN linearly above 200m (opposite of dynamic load radius)", () => {
+    // Y=400: scale = 1 - (400-200)/600 = 0.667 → round(3*0.667) = 2
+    expect(getFullDetailRadius(400, true)).toBe(2);
+    // Y=500: scale = 1 - 300/600 = 0.5 → round(3*0.5) = 2 (round half to even/up)
+    expect(getFullDetailRadius(500, true)).toBeGreaterThanOrEqual(1);
+    expect(getFullDetailRadius(500, true)).toBeLessThanOrEqual(2);
+    // Y=600: scale = 0.333 → round(1) = 1
+    expect(getFullDetailRadius(600, true)).toBe(1);
+  });
+
+  it("clamps to a floor of 1 — never returns 0 even at extreme altitude", () => {
+    expect(getFullDetailRadius(800, true)).toBe(1);
+    expect(getFullDetailRadius(5000, true)).toBe(1);
+    expect(getFullDetailRadius(Number.MAX_SAFE_INTEGER, true)).toBe(1);
+  });
+
+  it("handles negative altitudes gracefully (returns base)", () => {
+    expect(getFullDetailRadius(-100, true)).toBe(TILE_LOAD_RADIUS_STUDIO);
   });
 });

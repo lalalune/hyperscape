@@ -154,6 +154,7 @@ import {
   TILE_LOD_LOW_RESOLUTION,
   MAX_LOW_RES_TILES_PER_FRAME,
   getDynamicLoadRadius,
+  getFullDetailRadius,
 } from "./hooks/tileStreamingRadius";
 
 // GPU resource lifecycle (staging + disposal) is managed by SceneResourceManager.
@@ -1304,25 +1305,15 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
 
         const isStudio = isStudioModeRef.current;
 
-        // Altitude-dependent full-detail radius: at ground level, use full
-        // radius (3 in studio → 49 full-res tiles). At high altitude, scale
-        // down to 1 (9 full-res tiles) since distant detail isn't visible.
-        // This cuts vertex count by ~80% when zoomed out.
-        const cameraY = camera.position.y;
-        const altitudeScale = isStudio
-          ? Math.max(0, 1 - (cameraY - 200) / 600)
-          : 1;
-        const baseFullDetailRadius = isStudio
-          ? TILE_LOAD_RADIUS_STUDIO
-          : TILE_LOAD_RADIUS;
-        const fullDetailRadius = Math.max(
-          1,
-          Math.round(
-            baseFullDetailRadius * Math.max(0, Math.min(1, altitudeScale)),
-          ),
+        // Full-detail vs far-LOD radii are altitude-driven; both
+        // live in `hooks/tileStreamingRadius.ts` so the math stays
+        // testable. Full-detail scales DOWN with altitude (less
+        // close-detail when zoomed out); far-LOD scales UP (more
+        // visible horizon when zoomed out).
+        const fullDetailRadius = getFullDetailRadius(
+          camera.position.y,
+          isStudio,
         );
-
-        // Far radius scales with camera altitude — covers visible area when zoomed out
         const farRadius = getDynamicLoadRadius(camera.position.y, isStudio);
 
         // In World Studio mode, tiles are never evicted — the full map fits in memory.

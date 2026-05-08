@@ -106,3 +106,46 @@ export function getDynamicLoadRadius(
   const extra = Math.max(0, cameraY - 50) / 80;
   return Math.min(50, Math.round(base + extra));
 }
+
+/**
+ * Full-detail radius — the inner subset of loaded tiles that
+ * gets full 32×32-vertex meshes. Tiles outside this radius but
+ * inside `getDynamicLoadRadius` get the cheap 8×8 LOD geometry
+ * instead.
+ *
+ * Standalone mode: fixed at `TILE_LOAD_RADIUS_STANDALONE`. The
+ * standalone view doesn't fly the camera high enough to need
+ * altitude scaling.
+ *
+ * World Studio mode: scales DOWN with altitude (opposite
+ * direction from `getDynamicLoadRadius`). At ground level we
+ * want the maximum full-detail tiles for the editing
+ * experience; at high altitude every full-detail tile is wasted
+ * vertex work because individual ground details aren't visible
+ * anyway. Below 200m the scale is 1 (full radius). Above 200m
+ * it ramps linearly to 0 at 800m, where the floor of 1 tile
+ * (9 tiles total full-res) kicks in.
+ *
+ * Verified mappings (studio mode, base = 3):
+ *   - Y=0     → 3  (49 full-res tiles)
+ *   - Y=200   → 3  (49)  ← still at full
+ *   - Y=400   → 2  (25)  ← scale = 0.667 → round(3*0.667) = 2
+ *   - Y=600   → 1  (9)   ← scale = 0.333 → round(3*0.333) = 1
+ *   - Y=800+  → 1  (9)   ← floor of 1 tile
+ *
+ * The 200m / 600m breakpoints + the 1-tile floor are empirical;
+ * adjust together (the rest of the scale follows from the linear
+ * interpolation).
+ */
+export function getFullDetailRadius(
+  cameraY: number,
+  isStudio: boolean,
+): number {
+  if (!isStudio) return TILE_LOAD_RADIUS_STANDALONE;
+  const altitudeScale = Math.max(0, 1 - (cameraY - 200) / 600);
+  const base = TILE_LOAD_RADIUS_STUDIO;
+  return Math.max(
+    1,
+    Math.round(base * Math.max(0, Math.min(1, altitudeScale))),
+  );
+}
