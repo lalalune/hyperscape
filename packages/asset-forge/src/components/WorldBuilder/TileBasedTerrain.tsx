@@ -160,39 +160,26 @@ const _clickScale = new THREE.Vector3();
 
 // ============== CONSTANTS ==============
 
-const TILE_LOAD_RADIUS = 5; // tiles in each direction from camera (standalone)
-const TILE_LOAD_RADIUS_STUDIO = 3; // full-detail radius for World Studio
-const TILE_UNLOAD_RADIUS = 7; // tiles beyond this are unloaded
-const MAX_TILES_PER_FRAME = 2; // limit tile generation per frame after initial load (keeps interactive FPS high)
-/**
- * Full-res tile generation budget while the initial-load overlay is
- * still visible. The viewport is hidden during this window so we can
- * spend much more time per frame meshing tiles without dropping
- * user-visible FPS. Pairs with the existing 32ms `LOW_RES_TIME_BUDGET_MS`
- * during init — both phases scale up together so a 100×100-tile world
- * (~10k tiles at high-altitude radius) finishes its first paint in
- * ~30s instead of ~5min.
- */
-const MAX_TILES_PER_FRAME_INITIAL_LOAD = 16;
+// Tile streaming radius constants + altitude-scaled radius
+// computation extracted to `hooks/tileStreamingRadius.ts`
+// (Phase 1.1 fifth carve, first piece of the tile-streamer
+// extraction outlined in PLAN_AAA_MASTER_AUDIT debt #2).
+import {
+  TILE_LOAD_RADIUS_STANDALONE as TILE_LOAD_RADIUS,
+  TILE_LOAD_RADIUS_STUDIO,
+  TILE_UNLOAD_RADIUS,
+  MAX_TILES_PER_FRAME,
+  MAX_TILES_PER_FRAME_INITIAL_LOAD,
+  TILE_LOD_LOW_RESOLUTION,
+  MAX_LOW_RES_TILES_PER_FRAME,
+  getDynamicLoadRadius,
+} from "./hooks/tileStreamingRadius";
+
 // GPU resource lifecycle (staging + disposal) is managed by SceneResourceManager.
 // See SceneResourceManager.ts for rate-limiting constants and phase separation logic.
 
-// LOD terrain: low-res tiles fill the horizon when zoomed out
-const TILE_LOD_LOW_RESOLUTION = 8; // 8×8 grid for far tiles (vs 32×32 full)
-const MAX_LOW_RES_TILES_PER_FRAME = 32; // low-res tiles are 16× cheaper to generate
-
 /** Camera altitude above which entity markers are hidden (saves thousands of draw calls) */
 const MARKER_HIDE_ALTITUDE = 400;
-
-/** Compute how many tiles to load based on camera altitude */
-function getDynamicLoadRadius(cameraY: number, isStudio: boolean): number {
-  if (!isStudio) return TILE_LOAD_RADIUS;
-  // Near ground: radius 3 (49 tiles). As altitude increases, scale up.
-  // Y=50→3, Y=200→5, Y=400→8, Y=800→13, Y=1500→20, Y=3000+→40
-  const base = TILE_LOAD_RADIUS_STUDIO;
-  const extra = Math.max(0, cameraY - 50) / 80;
-  return Math.min(50, Math.round(base + extra));
-}
 
 /** Build town flatten zones for a tile, with AABB rejection to skip distant towns. */
 function buildTownFlattenZones(
