@@ -1352,6 +1352,8 @@ function parseInstallableAssetPacks(
     const tags = Array.isArray(p.tags)
       ? (p.tags as unknown[]).filter((x): x is string => typeof x === "string")
       : [];
+    const optCount = (key: string): number | undefined =>
+      typeof p[key] === "number" ? (p[key] as number) : undefined;
     out.push({
       manifestId: p.manifestId,
       name: p.name,
@@ -1360,6 +1362,14 @@ function parseInstallableAssetPacks(
       assetCount: p.assetCount,
       tags,
       source,
+      biomeCount: optCount("biomeCount"),
+      terrainShaderCount: optCount("terrainShaderCount"),
+      terrainHeightmapPresetCount: optCount("terrainHeightmapPresetCount"),
+      terrainNoiseFunctionCount: optCount("terrainNoiseFunctionCount"),
+      waterShaderCount: optCount("waterShaderCount"),
+      waterAnimationCount: optCount("waterAnimationCount"),
+      vegetationSpeciesCount: optCount("vegetationSpeciesCount"),
+      vegetationDensityRuleCount: optCount("vegetationDensityRuleCount"),
     });
   }
   return out;

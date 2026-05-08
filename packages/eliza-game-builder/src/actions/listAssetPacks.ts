@@ -40,7 +40,7 @@ export const listAssetPacksAction: Action = {
     "ASSET_PACK_CATALOG",
   ],
   description:
-    'List the asset packs the active project could install. Returns one entry per pack with `manifestId`, `name`, `description`, `packVersion`, `assetCount`, `tags`, and `source` ("builtin" / "team" / "marketplace"). Use this BEFORE PROPOSE_ASSET_PACK_INSTALL so the install proposal references real pack ids.',
+    'List the asset packs the active project could install. Returns one entry per pack with `manifestId`, `name`, `description`, `packVersion`, `assetCount`, `tags`, `source` ("builtin" / "team" / "marketplace"), plus section counts (`biomeCount`, `terrainShaderCount`, `terrainHeightmapPresetCount`, `terrainNoiseFunctionCount`, `waterShaderCount`, `waterAnimationCount`, `vegetationSpeciesCount`, `vegetationDensityRuleCount`) so you can answer "how many biomes / vegetation species does pack X ship?" without re-fetching the full manifest. Use this BEFORE PROPOSE_ASSET_PACK_INSTALL so the install proposal references real pack ids.',
 
   parameters: [],
 
@@ -70,8 +70,41 @@ export const listAssetPacksAction: Action = {
       );
       for (const p of packs) {
         const tagPart = p.tags.length > 0 ? ` [${p.tags.join(", ")}]` : "";
+        const sectionParts: string[] = [];
+        if ((p.biomeCount ?? 0) > 0)
+          sectionParts.push(
+            `${p.biomeCount} biome${p.biomeCount === 1 ? "" : "s"}`,
+          );
+        if ((p.terrainShaderCount ?? 0) > 0)
+          sectionParts.push(
+            `${p.terrainShaderCount} terrain shader${p.terrainShaderCount === 1 ? "" : "s"}`,
+          );
+        if ((p.terrainHeightmapPresetCount ?? 0) > 0)
+          sectionParts.push(
+            `${p.terrainHeightmapPresetCount} heightmap preset${p.terrainHeightmapPresetCount === 1 ? "" : "s"}`,
+          );
+        if ((p.terrainNoiseFunctionCount ?? 0) > 0)
+          sectionParts.push(
+            `${p.terrainNoiseFunctionCount} noise fn${p.terrainNoiseFunctionCount === 1 ? "" : "s"}`,
+          );
+        if ((p.waterShaderCount ?? 0) > 0)
+          sectionParts.push(
+            `${p.waterShaderCount} water shader${p.waterShaderCount === 1 ? "" : "s"}`,
+          );
+        if ((p.waterAnimationCount ?? 0) > 0)
+          sectionParts.push(
+            `${p.waterAnimationCount} water anim${p.waterAnimationCount === 1 ? "" : "s"}`,
+          );
+        if ((p.vegetationSpeciesCount ?? 0) > 0)
+          sectionParts.push(`${p.vegetationSpeciesCount} vegetation species`);
+        if ((p.vegetationDensityRuleCount ?? 0) > 0)
+          sectionParts.push(
+            `${p.vegetationDensityRuleCount} vegetation rule${p.vegetationDensityRuleCount === 1 ? "" : "s"}`,
+          );
+        const sectionPart =
+          sectionParts.length > 0 ? ` {${sectionParts.join(", ")}}` : "";
         summary.push(
-          `  - ${p.manifestId} v${p.packVersion} (${p.name}, ${p.assetCount} asset${p.assetCount === 1 ? "" : "s"}, ${p.source})${tagPart} — ${p.description}`,
+          `  - ${p.manifestId} v${p.packVersion} (${p.name}, ${p.assetCount} asset${p.assetCount === 1 ? "" : "s"}, ${p.source})${tagPart}${sectionPart} — ${p.description}`,
         );
       }
     }
@@ -92,6 +125,14 @@ export const listAssetPacksAction: Action = {
           assetCount: p.assetCount,
           tags: [...p.tags],
           source: p.source,
+          biomeCount: p.biomeCount,
+          terrainShaderCount: p.terrainShaderCount,
+          terrainHeightmapPresetCount: p.terrainHeightmapPresetCount,
+          terrainNoiseFunctionCount: p.terrainNoiseFunctionCount,
+          waterShaderCount: p.waterShaderCount,
+          waterAnimationCount: p.waterAnimationCount,
+          vegetationSpeciesCount: p.vegetationSpeciesCount,
+          vegetationDensityRuleCount: p.vegetationDensityRuleCount,
         })),
       } as unknown as ProviderDataRecord,
     };

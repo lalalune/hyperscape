@@ -44,6 +44,21 @@ export interface InstallableAssetPack {
    * to decide whether to render an "in your library" badge.
    */
   readonly source: "builtin" | "team" | "marketplace";
+  /**
+   * Phase 5 / C3 prep — section counts for non-asset content
+   * the pack ships. Lets the agent answer "how many biomes
+   * does pack X have?" / "does pack Y declare any vegetation
+   * species?" without re-fetching the full manifest.
+   * Defaults to 0 when the section is absent.
+   */
+  readonly biomeCount?: number;
+  readonly terrainShaderCount?: number;
+  readonly terrainHeightmapPresetCount?: number;
+  readonly terrainNoiseFunctionCount?: number;
+  readonly waterShaderCount?: number;
+  readonly waterAnimationCount?: number;
+  readonly vegetationSpeciesCount?: number;
+  readonly vegetationDensityRuleCount?: number;
 }
 
 export interface IAssetPackCatalogService {
@@ -71,6 +86,14 @@ export function makeAssetPackCatalogService(
     assetCount: p.assetCount,
     tags: [...p.tags],
     source: p.source,
+    biomeCount: p.biomeCount,
+    terrainShaderCount: p.terrainShaderCount,
+    terrainHeightmapPresetCount: p.terrainHeightmapPresetCount,
+    terrainNoiseFunctionCount: p.terrainNoiseFunctionCount,
+    waterShaderCount: p.waterShaderCount,
+    waterAnimationCount: p.waterAnimationCount,
+    vegetationSpeciesCount: p.vegetationSpeciesCount,
+    vegetationDensityRuleCount: p.vegetationDensityRuleCount,
   }));
   return {
     listInstallable() {

@@ -115,6 +115,23 @@ export interface InstallablePackSummary {
   assetCount: number;
   tags: string[];
   source: "builtin" | "team" | "marketplace";
+  /**
+   * Phase 5 / C3 prep — counts for each non-asset content
+   * section the pack ships. The agent uses these to decide
+   * which packs match a player's request ("how many biomes
+   * does the tropical pack have?") without re-fetching the
+   * full manifest. Counts default to 0 when the section is
+   * absent — same as the pack browser UI's badge surface
+   * (`AssetPackBrowserPanel.tsx`).
+   */
+  biomeCount: number;
+  terrainShaderCount: number;
+  terrainHeightmapPresetCount: number;
+  terrainNoiseFunctionCount: number;
+  waterShaderCount: number;
+  waterAnimationCount: number;
+  vegetationSpeciesCount: number;
+  vegetationDensityRuleCount: number;
 }
 
 /**
@@ -136,19 +153,34 @@ export async function listInstallableAssetPacks(
         packVersion?: string;
         assets?: ReadonlyArray<unknown>;
         tags?: ReadonlyArray<string>;
+        biomes?: ReadonlyArray<unknown>;
+        terrainShaders?: ReadonlyArray<unknown>;
+        terrainHeightmapPresets?: ReadonlyArray<unknown>;
+        terrainNoiseFunctions?: ReadonlyArray<unknown>;
+        waterShaders?: ReadonlyArray<unknown>;
+        waterAnimations?: ReadonlyArray<unknown>;
+        vegetationSpecies?: ReadonlyArray<unknown>;
+        vegetationDensityRules?: ReadonlyArray<unknown>;
       } | null;
       if (!manifest || typeof manifest !== "object") return null;
-      const assetCount = Array.isArray(manifest.assets)
-        ? manifest.assets.length
-        : 0;
+      const arrLen = (a: ReadonlyArray<unknown> | undefined) =>
+        Array.isArray(a) ? a.length : 0;
       return {
         manifestId: pack.manifestId,
         name: manifest.name ?? pack.manifestId,
         description: manifest.description ?? "",
         packVersion: manifest.packVersion ?? pack.version,
-        assetCount,
+        assetCount: arrLen(manifest.assets),
         tags: Array.isArray(manifest.tags) ? [...manifest.tags] : [],
         source: pack.teamId === null ? "builtin" : "team",
+        biomeCount: arrLen(manifest.biomes),
+        terrainShaderCount: arrLen(manifest.terrainShaders),
+        terrainHeightmapPresetCount: arrLen(manifest.terrainHeightmapPresets),
+        terrainNoiseFunctionCount: arrLen(manifest.terrainNoiseFunctions),
+        waterShaderCount: arrLen(manifest.waterShaders),
+        waterAnimationCount: arrLen(manifest.waterAnimations),
+        vegetationSpeciesCount: arrLen(manifest.vegetationSpecies),
+        vegetationDensityRuleCount: arrLen(manifest.vegetationDensityRules),
       } as InstallablePackSummary;
     })
     .filter((p): p is InstallablePackSummary => p !== null);
