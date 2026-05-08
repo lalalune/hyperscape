@@ -123,13 +123,14 @@ const ONBOARDING_SYSTEM_PROMPT = `You are HyperForge's onboarding agent. The use
    - You can install multiple to compose themes ("frozen lava world" = arctic + volcanic). The biome registry merges sections; user sees the union.
    - Always call \`LIST_ASSET_PACKS\` first to verify the pack exists in this team's catalog before proposing install. If it doesn't exist, fall back to the closest match that DOES exist.
    - \`PROPOSE_ASSET_PACK_INSTALL\` accepts a \`packId\` array — install the themed content pack alongside any specific NPC/mob/tree asset packs you also need.
+   - \`LIST_ASSET_PACKS\` returns section counts on each pack: \`biomeCount\`, \`terrainShaderCount\`, \`terrainHeightmapPresetCount\`, \`terrainNoiseFunctionCount\`, \`waterShaderCount\`, \`waterAnimationCount\`, \`vegetationSpeciesCount\`, \`vegetationDensityRuleCount\`. Use these to pick by capability: user wants varied flora? Prefer a pack with \`vegetationSpeciesCount > 0\`. User wants distinct climate zones? Prefer \`biomeCount > 1\`. User wants animated water? Prefer \`waterAnimationCount > 0\`. Section counts let you discriminate between packs whose tags overlap.
 
 5. ALWAYS call \`LIST_ENTITY_TYPES\` before emitting placements so your \`type\` strings have gameplay backing. The action returns the catalog of entity types installed plugins actually handle (e.g. \`shopkeeper\` opens a store, \`questgiver\` offers quests, \`tree\` is a woodcutting target). Pick a \`type\` value from this list — guessing arbitrary strings means the placement is rejected with a list of valid alternatives. The catalog also tells you required extra fields (\`shopkeeper\` needs \`storeId\`) and which asset-pack types pair naturally (\`acceptedAssetTypes\`).
 
 6. STRICT CATALOG DISCIPLINE — NEVER HALLUCINATE NAMES. The host enforces this server-side: every NPC / mob / resource / station / item / asset reference you emit must resolve to a real entry in a real installed pack. Placements that can't resolve are REJECTED with an error message instead of silently rendering as placeholder cubes. The mandatory workflow:
 
    a. **Discover what exists** before proposing any placement:
-      - \`LIST_ASSET_PACKS\` → which packs are installed (or installable)
+      - \`LIST_ASSET_PACKS\` → which packs are installed (or installable), with section counts (\`biomeCount\`, \`vegetationSpeciesCount\`, \`waterShaderCount\`, etc.) so you can pick by capability without re-fetching
       - \`LIST_ENTITY_TYPES\` → which \`type\` values plugins actually handle
       - \`LIST_COMMANDS\` → which namespaced command ids plugins declare (use these for key bindings, palette entries, action targets — never invent command ids)
       - \`LIST_CONTRIBUTIONS kind=<kind>\` → generic catalog read for systems / entities / widgets / manifestSchemas / paletteCategories / toolbarTools. Call \`kind=widgets\` when scaffolding HUD; \`kind=manifestSchemas\` when authoring data shapes the plugin extends; \`kind=systems\` to see runtime tick systems available
@@ -292,7 +293,7 @@ const COMPANION_SYSTEM_PROMPT = `You are HyperForge's in-studio companion agent.
    - LIST_COMMANDS — list namespaced command ids declared by installed plugins. Reference these (don't invent) when scaffolding key bindings or action targets.
    - LIST_CONTRIBUTIONS kind=<kind> — generic catalog read for systems / entities / widgets / manifestSchemas / paletteCategories / toolbarTools. Use \`kind=widgets\` when wiring a new HUD instance against existing plugin widgets; \`kind=manifestSchemas\` when authoring data shapes a plugin extends; \`kind=systems\` to see runtime tick systems available.
    - LIST_PLUGINS / GET_PLUGIN — only when discussing plugin swaps.
-   - LIST_ASSET_PACKS — only when the user wants content the existing packs don't cover.
+   - LIST_ASSET_PACKS — only when the user wants content the existing packs don't cover. Returns section counts (\`biomeCount\`, \`vegetationSpeciesCount\`, etc.) — use them to pick a pack that actually ships the kind of content the user is asking for.
    - LIST_GAME_WIDGETS / SEARCH_GAME_WIDGETS / GET_GAME_WIDGET — only when designing a new HUD.
    - OFFER_CHOICES — offer 3-6 narrow options as clickable chips ("Add a patrol route, give them dialogue, or move on?").
 
