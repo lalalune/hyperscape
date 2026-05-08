@@ -128,6 +128,41 @@ interface BuiltinPack {
    * Hyperia-shaped sneaks in.
    */
   assetPackDeps?: ReadonlyArray<string>;
+  /**
+   * Phase 5 / Phase C3 prep — proper `VegetationSpecies` array
+   * matching the manifest-schema shape. Each entry declares one
+   * tree / bush / etc. the pack contributes: id, modelRef
+   * (`<assetPackId>/<entryId>` or `asset://`), category, scale,
+   * slope tolerance, etc.
+   *
+   * The contentRegistry already accepts these via
+   * `setContentPackContent` and `getActiveVegetationSpecies`
+   * surfaces them at runtime. The procgen consumer wiring (Phase
+   * C3 follow-up) reads from this list to scatter species rather
+   * than from today's `vegetationByBiome` legacy bandaid (which
+   * uses engine-hardcoded tree IDs).
+   *
+   * Authoring this field today validates the schema, makes the
+   * pack contents introspectable to the agent / pack browser,
+   * and unlocks the future per-pack tree-model migration without
+   * a manifest schema change.
+   */
+  vegetationSpecies?: ReadonlyArray<{
+    id: string;
+    name: string;
+    description?: string;
+    category: string;
+    modelRef: string;
+    baseScale?: number;
+    scaleVariation?: [number, number];
+    randomRotation?: boolean;
+    alignToNormal?: boolean;
+    yOffset?: number;
+    maxSlope?: number;
+    minHeight?: number;
+    maxHeight?: number;
+    tags?: ReadonlyArray<string>;
+  }>;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -565,6 +600,58 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
         maxSlope: 1.0,
       },
     },
+    // Phase 5 / C3 prep — arctic species declarations.
+    // modelRefs point at the existing Hyperia trees pack pending
+    // per-theme tree GLB authoring; arctic species ids stay
+    // stable when the modelRefs swap.
+    vegetationSpecies: [
+      {
+        id: "arctic_pine",
+        name: "Hardy Pine",
+        description:
+          "Snow-tolerant evergreen forming the bulk of frozen-tundra and snow-plain scatter.",
+        category: "tree",
+        modelRef: "@hyperforge/asset-pack-hyperia-trees-v1/tree_pine",
+        baseScale: 1.0,
+        scaleVariation: [0.85, 1.15],
+        randomRotation: true,
+        alignToNormal: false,
+        yOffset: 0,
+        maxSlope: 0.6,
+        tags: ["arctic", "evergreen", "snow"],
+      },
+      {
+        id: "arctic_dead_pine",
+        name: "Frozen Dead Pine",
+        description:
+          "Snow-stripped trunk used at glacial peak edges and high-altitude scatter for atmosphere.",
+        category: "tree",
+        modelRef: "@hyperforge/asset-pack-hyperia-trees-v1/tree_pineDead",
+        baseScale: 0.95,
+        scaleVariation: [0.8, 1.1],
+        randomRotation: true,
+        alignToNormal: false,
+        yOffset: 0,
+        maxSlope: 0.7,
+        minHeight: 25,
+        tags: ["arctic", "atmospheric", "altitude"],
+      },
+      {
+        id: "arctic_dead_tree",
+        name: "Bare Dead Tree",
+        description:
+          "Generic stripped trunk used across all arctic biomes for sparse atmospheric scatter.",
+        category: "tree",
+        modelRef: "@hyperforge/asset-pack-hyperia-trees-v1/tree_dead",
+        baseScale: 0.85,
+        scaleVariation: [0.7, 1.0],
+        randomRotation: true,
+        alignToNormal: false,
+        yOffset: 0,
+        maxSlope: 0.7,
+        tags: ["arctic", "atmospheric"],
+      },
+    ],
   },
   {
     manifestId: "@hyperforge/content-pack-tropical-v1",
@@ -698,6 +785,89 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
         maxSlope: 0.6,
       },
     },
+    // Phase 5 / C3 prep — tropical species declarations. modelRefs
+    // point at the existing Hyperia trees pack (the only published
+    // tree GLBs today) but the species IDENTITY is tropical. When
+    // per-theme tree GLBs ship (a future content authoring
+    // session), only the modelRefs change; ids and metadata stay.
+    vegetationSpecies: [
+      {
+        id: "tropical_palm",
+        name: "Coconut Palm",
+        description:
+          "Tall single-trunk palm with arching fronds. Defines the tropical-beach silhouette.",
+        category: "tree",
+        modelRef: "@hyperforge/asset-pack-hyperia-trees-v1/tree_palm",
+        baseScale: 1.1,
+        scaleVariation: [0.9, 1.4],
+        randomRotation: true,
+        alignToNormal: false,
+        yOffset: 0,
+        maxSlope: 0.5,
+        tags: ["tropical", "palm", "coastal"],
+      },
+      {
+        id: "tropical_banana",
+        name: "Banana Tree",
+        description:
+          "Short broad-leaved trunk. Clumps near water in jungle and lagoon biomes.",
+        category: "tree",
+        modelRef: "@hyperforge/asset-pack-hyperia-trees-v1/tree_banana",
+        baseScale: 0.9,
+        scaleVariation: [0.8, 1.1],
+        randomRotation: true,
+        alignToNormal: false,
+        yOffset: 0,
+        maxSlope: 0.4,
+        tags: ["tropical", "fruit", "humid"],
+      },
+      {
+        id: "tropical_jungle_canopy",
+        name: "Jungle Canopy Tree",
+        description:
+          "Tall broadleaf tree forming dense canopy in jungle and palm-grove biomes.",
+        category: "tree",
+        modelRef: "@hyperforge/asset-pack-hyperia-trees-v1/tree_general",
+        baseScale: 1.2,
+        scaleVariation: [1.0, 1.5],
+        randomRotation: true,
+        alignToNormal: false,
+        yOffset: 0,
+        maxSlope: 0.6,
+        tags: ["tropical", "jungle", "canopy"],
+      },
+      {
+        id: "tropical_eucalyptus",
+        name: "Tropical Eucalyptus",
+        description:
+          "Tall slender canopy filler used in jungle and mangrove biomes for vertical variety.",
+        category: "tree",
+        modelRef: "@hyperforge/asset-pack-hyperia-trees-v1/tree_eucalyptus",
+        baseScale: 1.0,
+        scaleVariation: [0.9, 1.3],
+        randomRotation: true,
+        alignToNormal: false,
+        yOffset: 0,
+        maxSlope: 0.5,
+        maxHeight: 50,
+        tags: ["tropical", "jungle"],
+      },
+      {
+        id: "tropical_dead_mangrove",
+        name: "Dead Mangrove Trunk",
+        description:
+          "Bare trunk used in mangrove + lagoon edges for atmospheric variety.",
+        category: "tree",
+        modelRef: "@hyperforge/asset-pack-hyperia-trees-v1/tree_dead",
+        baseScale: 0.85,
+        scaleVariation: [0.7, 1.0],
+        randomRotation: true,
+        alignToNormal: false,
+        yOffset: 0,
+        maxSlope: 0.4,
+        tags: ["tropical", "mangrove", "atmospheric"],
+      },
+    ],
   },
   {
     manifestId: "@hyperforge/content-pack-desert-v1",
@@ -1035,6 +1205,16 @@ function buildManifest(pack: BuiltinPack): Record<string, unknown> {
   // tropical itself depends on it.
   if (pack.assetPackDeps && pack.assetPackDeps.length > 0) {
     m.assetPackDeps = pack.assetPackDeps;
+  }
+  // Proper `vegetationSpecies` array — manifest-schema shape.
+  // The contentRegistry consumer side already exists
+  // (`setContentPackContent({ vegetationSpecies: [...] })` + the
+  // `getActiveVegetationSpecies` reader). Procgen worker
+  // consumer is the Phase C3 follow-up; today this populates
+  // the registry so the studio's pack browser + agent's
+  // catalog introspection can surface real species data.
+  if (pack.vegetationSpecies && pack.vegetationSpecies.length > 0) {
+    m.vegetationSpecies = pack.vegetationSpecies;
   }
   return m;
 }
