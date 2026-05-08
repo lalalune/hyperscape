@@ -398,11 +398,76 @@ export interface EditorTerrainMaterialOptions {
   useVertexColorBase?: boolean;
 }
 
+/**
+ * Build the 1×N RGB palette texture that the N-channel splatmap
+ * shader path samples. Each texel maps a biome palette index
+ * (assigned by `getBiomePaletteIndexMap`) to its RGB color from
+ * the runtime content registry. The TSL shader does
+ * `texture(palette, ((idx + 0.5) / N, 0.5)).rgb` per channel and
+ * accumulates `paletteSample[i] * weights[i]` for i in 0..3.
+ *
+ * Returns `null` if the active palette is empty (no content packs
+ * registered yet) — caller should fall back to the legacy paths.
+ *
+ * Caveat — texture lifecycle: callers should `dispose()` the
+ * texture when the material is replaced (registry change, project
+ * switch). The shader holds a uniform binding to `texture.image`,
+ * so updating texels in place + `needsUpdate=true` works for
+ * mid-session palette changes without recompiling the shader.
+ */
+function buildBiomePaletteTexture(): {
+  texture: THREE.DataTexture;
+  size: number;
+} | null {
+  const order = getActiveBiomePaletteOrder();
+  const n = order.length;
+  if (n === 0) return null;
+  // RGBA float texture — three.js (post-r137) doesn't accept
+  // RGBFormat for DataTexture; use RGBAFormat and write 4 floats
+  // per texel (alpha=1, unused). 1×N layout: width=N, height=1.
+  // Shader reads `.rgb` and ignores alpha.
+  const data = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    const c = lookupBiomeColor(order[i]);
+    data[i * 4 + 0] = c.r;
+    data[i * 4 + 1] = c.g;
+    data[i * 4 + 2] = c.b;
+    data[i * 4 + 3] = 1;
+  }
+  const tex = new THREE.DataTexture(
+    data,
+    n,
+    1,
+    THREE.RGBAFormat,
+    THREE.FloatType,
+  );
+  // Nearest filtering — index lookups should be exact texel reads,
+  // not lerps between neighboring biome colors.
+  tex.minFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.NearestFilter;
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.generateMipmaps = false;
+  tex.needsUpdate = true;
+  return { texture: tex, size: n };
+}
+
 export function createTerrainMaterial(
   options: EditorTerrainMaterialOptions = {},
 ): THREE.Material & {
   terrainUniforms: TerrainUniforms;
 } {
+  // Phase 2.1 second cut — when the editor enables vertex-color
+  // base (non-Hyperia projects), prefer the N-channel splatmap
+  // path over the per-vertex pre-blended RGB path. The splatmap
+  // gives smoother per-fragment blending (interpolated indices +
+  // weights at fragment stage rather than baked vertex colors)
+  // and is the architecturally correct AAA pattern. Falls back
+  // to vertex-color when no content packs are registered (palette
+  // would be empty).
+  const useVertexColorBase = options.useVertexColorBase ?? false;
+  const palette = useVertexColorBase ? buildBiomePaletteTexture() : null;
+
   // Use the ACTUAL game terrain shader — same code that renders in Hyperia.
   // "One system, two contexts" — packedAttributes + disabled game-only features.
   const material = createGameTerrainMaterial({
@@ -411,7 +476,9 @@ export function createTerrainMaterial(
     includeRiverProximity: false, // No riverProximity attribute in editor
     fogEnabled: false, // Editor camera at altitude — fog not useful
     textureBaseUrl: `${window.location.protocol}//${window.location.hostname}:3401/game-textures/terrain-biomes`,
-    useVertexColorBase: options.useVertexColorBase ?? false,
+    useVertexColorBase,
+    paletteTexture: palette?.texture,
+    paletteSize: palette?.size,
   });
   return material;
 }

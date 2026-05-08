@@ -1004,6 +1004,33 @@ export interface TerrainMaterialOptions {
    * textures.
    */
   useVertexColorBase?: boolean;
+  /**
+   * Phase 2.1 second cut — N-channel splatmap palette texture.
+   * 1×N RGB texture mapping each palette index → biome color
+   * (UV: `(idx + 0.5) / paletteSize`, `0.5`). When supplied AND
+   * `useVertexColorBase=true`, the shader switches from the
+   * vertex-color base-color path (per-vertex pre-blended RGB) to
+   * a true N-channel splatmap blend: per-vertex `biomeIndices`
+   * (vec4) + `biomeWeights` (vec4) attributes are sampled
+   * against this palette and accumulated. UE5 Landscape /
+   * Unity HDRP pattern.
+   *
+   * Caller (asset-forge's local `createTerrainMaterial` wrapper)
+   * builds the texture from `getActiveBiomePaletteOrder()` +
+   * `lookupBiomeColor()` and updates it on content registry
+   * mutation by writing the texture's `image.data` and setting
+   * `needsUpdate=true` (no shader recompilation needed — same
+   * material instance, same uniform binding, just fresh texels).
+   *
+   * Optional — when omitted the shader falls back to the
+   * vertex-color base path (Phase C4 first cut).
+   */
+  paletteTexture?: THREE.Texture;
+  /**
+   * Number of biome slots in `paletteTexture`. Used to compute
+   * sample UVs as `(idx + 0.5) / paletteSize`.
+   */
+  paletteSize?: number;
 }
 
 /**
@@ -1022,7 +1049,21 @@ export function createTerrainMaterial(
     fogEnabled = true,
     textureBaseUrl,
     useVertexColorBase = false,
+    paletteTexture,
+    paletteSize,
   } = options;
+  // N-channel splatmap is preferred over the vertex-color path
+  // when the caller supplied a palette. The two share the
+  // `useVertexColorBase` umbrella because both retire the
+  // 3-channel texture-blend pipeline; only the inner expression
+  // for `baseColor` differs. Validate paletteSize > 0 — a 0-slot
+  // palette would divide by zero in the UV calc.
+  const useNChannelSplatmap = Boolean(
+    useVertexColorBase &&
+    paletteTexture !== undefined &&
+    paletteSize !== undefined &&
+    paletteSize > 0,
+  );
 
   // Ensure noise texture is generated (still used for dirt patch variation)
   const noiseTex = generateNoiseTexture();
@@ -1148,7 +1189,52 @@ export function createTerrainMaterial(
   let dirtColor: any = vec3(0, 0, 0);
   let cliffColor: any = vec3(0, 0, 0);
   if (useVertexColorBase) {
-    baseColor = attribute("color", "vec3");
+    if (useNChannelSplatmap) {
+      // Phase 2.1 second cut — N-channel splatmap blend.
+      // Per-vertex `biomeIndices` carries up to 4 palette
+      // indices; `biomeWeights` carries matching normalized
+      // weights summing to 1. Each channel samples the 1×N
+      // palette texture at UV `((idx + 0.5) / paletteSize, 0.5)`
+      // and accumulates its weighted contribution. Works for any
+      // number of biomes — N comes from the palette texture's
+      // width, not from the shader.
+      //
+      // The +0.5 nudges sampling to the texel center (avoids the
+      // half-texel boundary lerp ambiguity at edges). Uses
+      // nearest filtering on the palette texture (set by the
+      // caller) so the index lookup is exact.
+      const biomeIndices = attribute("biomeIndices", "vec4");
+      const biomeWeights = attribute("biomeWeights", "vec4");
+      const paletteTexNode = texture(paletteTexture as THREE.Texture);
+      const invPaletteSize = float(1 / (paletteSize as number));
+      const sampleSlot = (idx: any, weight: any) => {
+        const u = mul(add(idx, float(0.5)), invPaletteSize);
+        const sampled = texture(
+          paletteTexture as THREE.Texture,
+          vec2(u, float(0.5)),
+        ).rgb;
+        return mul(sampled, weight);
+      };
+      // Reference paletteTexNode once so the TSL graph keeps it
+      // (some compilers prune uniforms only referenced inside
+      // closures). The accumulated baseColor below references the
+      // palette via fresh texture() calls per-channel.
+      void paletteTexNode;
+      baseColor = add(
+        add(
+          sampleSlot(biomeIndices.x, biomeWeights.x),
+          sampleSlot(biomeIndices.y, biomeWeights.y),
+        ),
+        add(
+          sampleSlot(biomeIndices.z, biomeWeights.z),
+          sampleSlot(biomeIndices.w, biomeWeights.w),
+        ),
+      );
+    } else {
+      // Phase C4 first cut — vertex-color path. Per-vertex
+      // pre-blended RGB read from the existing `color` attribute.
+      baseColor = attribute("color", "vec3");
+    }
   } else {
     // --- TERRAIN BIOME TEXTURES ---
     const texBase = textureBaseUrl || `${getCdnUrl()}/${TERRAIN_TEX_DIR}`;
