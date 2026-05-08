@@ -736,6 +736,9 @@ function CompanionInner({ projectId }: { projectId: string }) {
           requiredFields: string[];
           acceptedAssetTypes: string[];
         }>;
+        // Phase 3.1 — namespaced command ids the plugin
+        // contributes; agent's `LIST_COMMANDS` reads these.
+        commandContributions?: string[];
       };
       let installablePlugins: CompanionPluginEntry[] = [];
       try {
@@ -757,6 +760,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
                 requiredFields: string[];
                 acceptedAssetTypes: string[];
               }>;
+              commands?: string[];
             };
           };
           const json = (await res.json()) as ReadonlyArray<RegistryEntry>;
@@ -766,6 +770,9 @@ function CompanionInner({ projectId }: { projectId: string }) {
             name: p.name,
             description: p.description,
             tags: [...p.tags],
+            commandContributions: p.contributions?.commands
+              ? [...p.contributions.commands]
+              : undefined,
             entityTypeContributions: p.contributions?.entityTypes
               ? p.contributions.entityTypes.map((e) => ({
                   kind: e.kind,

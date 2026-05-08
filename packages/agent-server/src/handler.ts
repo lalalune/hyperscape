@@ -48,6 +48,7 @@ import {
   PROJECT_CONTEXT_SERVICE_TYPE,
   makeProjectContextService,
   listAssetPacksAction,
+  listCommandsAction,
   listEntityTypesAction,
   proposeAssetPackInstallAction,
   ASSET_PACK_CATALOG_SERVICE_TYPE,
@@ -556,6 +557,7 @@ const ONBOARDING_ACTIONS = [
   getProjectStateAction,
   listEntityTypesAction,
   listAssetPacksAction,
+  listCommandsAction,
   proposeTerrainConfigAction,
   proposePluginSetAction,
   proposeAssetPackInstallAction,
@@ -1214,6 +1216,12 @@ function parseInstallablePlugins(
     const entityTypeContributions = parseEntityTypeContributions(
       p.entityTypeContributions,
     );
+    // Phase 3.1 of PLAN_AAA_MASTER_AUDIT — pass through command
+    // contributions so `LIST_COMMANDS` can surface real plugin-
+    // declared command ids to the agent.
+    const commandContributions = parseCommandContributions(
+      p.commandContributions,
+    );
     out.push({
       id: p.id,
       npmName,
@@ -1221,7 +1229,28 @@ function parseInstallablePlugins(
       description: p.description,
       tags,
       entityTypeContributions,
+      commandContributions,
     });
+  }
+  return out;
+}
+
+/**
+ * Parse the `commandContributions` array from a request-side
+ * plugin entry. Each entry must be a non-empty namespaced
+ * string (e.g. `com.hyperforge.combat.commands.swap-ability`).
+ * Malformed entries are silently dropped; missing field returns
+ * undefined to preserve "no commands declared" semantics.
+ */
+function parseCommandContributions(
+  raw: unknown,
+): ReadonlyArray<string> | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: string[] = [];
+  for (const entry of raw) {
+    if (typeof entry === "string" && entry.length > 0) {
+      out.push(entry);
+    }
   }
   return out;
 }

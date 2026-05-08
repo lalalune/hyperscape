@@ -116,6 +116,8 @@ export {
   getProjectStateAction,
   getWidgetAction,
   listAssetPacksAction,
+  listCommandsAction,
+  type PluginCommandsGroup,
   listEntityTypesAction,
   listPluginsAction,
   listWidgetsAction,

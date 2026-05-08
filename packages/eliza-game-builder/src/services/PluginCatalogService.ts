@@ -66,6 +66,20 @@ export interface InstallablePlugin {
    * action's static fallback fires.
    */
   readonly entityTypeContributions?: ReadonlyArray<InstallablePluginEntityType>;
+  /**
+   * R2.P10 broader (Phase 3.1 of PLAN_AAA_MASTER_AUDIT) —
+   * command id contributions from the plugin's live
+   * `plugin.json`. Each entry is a namespaced command id (e.g.
+   * `com.hyperforge.combat.commands.swap-ability`). The
+   * upcoming `LIST_COMMANDS` action surfaces these to the
+   * agent so it can reference real plugin-declared commands
+   * when scaffolding gameplay (key bindings, palette entries,
+   * action targets) instead of inventing names.
+   *
+   * Empty / undefined preserves legacy behavior (no commands
+   * known) — the action returns an empty list.
+   */
+  readonly commandContributions?: ReadonlyArray<string>;
 }
 
 export interface IPluginCatalogService {
@@ -99,6 +113,9 @@ export function makePluginCatalogService(
           requiredFields: [...c.requiredFields],
           acceptedAssetTypes: [...c.acceptedAssetTypes],
         }))
+      : undefined,
+    commandContributions: p.commandContributions
+      ? [...p.commandContributions]
       : undefined,
   }));
   return {

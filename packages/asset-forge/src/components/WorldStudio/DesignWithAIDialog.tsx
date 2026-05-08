@@ -1639,6 +1639,12 @@ export function DesignWithAIDialog({
         requiredFields: string[];
         acceptedAssetTypes: string[];
       }>;
+      // Phase 3.1 of PLAN_AAA_MASTER_AUDIT — namespaced command
+      // ids the plugin contributes (e.g.
+      // `com.hyperforge.combat.commands.swap-ability`). Forwarded
+      // to agent-server so `LIST_COMMANDS` returns real plugin-
+      // declared command ids the agent can reference.
+      commandContributions?: string[];
     }>
   >([]);
   useEffect(() => {
@@ -1691,6 +1697,7 @@ export function DesignWithAIDialog({
               requiredFields: string[];
               acceptedAssetTypes: string[];
             }>;
+            commands?: string[];
           };
         };
         const json = (await res.json()) as ReadonlyArray<RegistryEntry>;
@@ -1710,6 +1717,9 @@ export function DesignWithAIDialog({
                   requiredFields: [...e.requiredFields],
                   acceptedAssetTypes: [...e.acceptedAssetTypes],
                 }))
+              : undefined,
+            commandContributions: p.contributions?.commands
+              ? [...p.contributions.commands]
               : undefined,
           })),
         );

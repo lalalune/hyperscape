@@ -28,6 +28,10 @@ export { proposePluginSetAction } from "./proposePluginSet.js";
 export { listAssetPacksAction } from "./listAssetPacks.js";
 export { proposeAssetPackInstallAction } from "./proposeAssetPackInstall.js";
 export { listEntityTypesAction } from "./listEntityTypes.js";
+export {
+  listCommandsAction,
+  type PluginCommandsGroup,
+} from "./listCommands.js";
 export { proposeStationAction } from "./proposeStation.js";
 export { proposeTeleportAction } from "./proposeTeleport.js";
 export { proposeRoadAction } from "./proposeRoad.js";
