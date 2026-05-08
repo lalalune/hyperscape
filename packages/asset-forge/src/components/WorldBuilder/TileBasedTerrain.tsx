@@ -3554,16 +3554,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
             console.log(
               `[refreshTownMarkers] Marking ${tilesRef.current.size} tiles dirty for town terrain flattening`,
             );
-            const camTile = lastCameraTileRef.current;
-            const dEntries: Array<{ key: string; dist: number }> = [];
-            for (const [key, tile] of tilesRef.current) {
-              tile.dirty = true;
-              const dx = tile.tileX - camTile.tileX;
-              const dz = tile.tileZ - camTile.tileZ;
-              dEntries.push({ key, dist: dx * dx + dz * dz });
-            }
-            dEntries.sort((a, b) => a.dist - b.dist);
-            dirtyTileKeysRef.current = dEntries.map((e) => e.key);
+            dirtyTileKeysRef.current = markDirtyTilesByDistance(
+              tilesRef.current,
+              lastCameraTileRef.current,
+            );
             // Force updateTiles to re-scan on next frame
             lastCameraTileRef.current.tileX = -Infinity;
           }
