@@ -153,6 +153,13 @@ export const listContributionsAction: Action = {
     ) as unknown as IProjectContextService | null;
     const ctx = ctxService?.getProjectContext() ?? null;
     const installedPluginIds = ctx?.plugins ?? [];
+    // Distinguish "no host context plumbed" (ctx === null —
+    // backwards compat for MCP / CLI / unit-test scenarios that
+    // don't register a ProjectContextService) from "host says
+    // project has zero plugins" (ctx is set, plugins is empty).
+    // Without this distinction the chat text says "no plugins
+    // installed" while data returns the entire catalog.
+    const filterByInstalled = ctx !== null;
 
     const pluginCatalog = runtime.getService(
       PLUGIN_CATALOG_SERVICE_TYPE,
@@ -161,7 +168,7 @@ export const listContributionsAction: Action = {
     const groups: PluginContributionGroup[] = pluginCatalog
       ? pluginCatalog.listInstallable().flatMap((p) => {
           const eligible =
-            installedPluginIds.length === 0 ||
+            !filterByInstalled ||
             installedPluginIds.includes(p.id) ||
             (p.npmName !== null && installedPluginIds.includes(p.npmName));
           if (!eligible) return [];
