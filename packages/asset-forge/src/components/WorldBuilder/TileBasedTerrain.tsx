@@ -101,6 +101,7 @@ import { EditorGrassManager } from "./EditorGrassManager";
 import { useStandaloneSky } from "./hooks/useStandaloneSky";
 import { useGameFog } from "./hooks/useGameFog";
 import { useShadowsCSM } from "./hooks/useShadowsCSM";
+import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
 import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
 // TODO: Wire these system classes for full decomposition (CameraController, SelectionManager, TileManager)
@@ -110,9 +111,6 @@ import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
 
 import { THREE, type AssetForgeRenderer } from "@/utils/webgpu-renderer";
 import {
-  HEMISPHERE_LIGHT,
-  AMBIENT_LIGHT,
-  SUN_LIGHT,
   DAY_CYCLE,
   FOG_COLORS,
   updateSceneLighting,
@@ -2204,49 +2202,18 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       wildernessGroup as THREE.Group & { skullSprite?: THREE.Sprite }
     ).skullSprite = skullSprite;
 
-    // Lighting — game-parity: hemisphere + ambient + directional sun
-    // HemisphereLight provides sky/ground ambient (matches game's Environment.ts)
-    const hemiLight = new THREE.HemisphereLight(
-      HEMISPHERE_LIGHT.INITIAL_SKY_COLOR,
-      HEMISPHERE_LIGHT.INITIAL_GROUND_COLOR,
-      HEMISPHERE_LIGHT.INITIAL_INTENSITY,
-    );
-    hemiLight.name = "StudioHemisphereLight";
-    scene.add(hemiLight);
-    hemiLightRef.current = hemiLight;
-
-    const ambient = new THREE.AmbientLight(
-      AMBIENT_LIGHT.INITIAL_COLOR,
-      AMBIENT_LIGHT.INITIAL_INTENSITY,
-    );
-    scene.add(ambient);
+    // Phase 1.1 fourth carve — lighting setup extracted into
+    // `setupTerrainLighting` utility (`hooks/setupTerrainLighting.ts`).
+    // The util constructs + adds all three lights to the scene and
+    // returns refs the parent stores so its animation loop can
+    // drive the day cycle.
+    const { sun, hemi, ambient } = setupTerrainLighting(scene, {
+      isStudioMode: isStudioModeRef.current,
+      enableShadows: enableShadowsRef.current,
+    });
+    hemiLightRef.current = hemi;
     ambientLightRef.current = ambient;
-
-    const sun = new THREE.DirectionalLight(
-      0xffffff,
-      SUN_LIGHT.DAY_INTENSITY_MULTIPLIER,
-    );
-    sun.position.set(
-      SUN_LIGHT.DEFAULT_DIRECTION[0] * 2000,
-      SUN_LIGHT.DEFAULT_DIRECTION[1] * 2000,
-      SUN_LIGHT.DEFAULT_DIRECTION[2] * 2000,
-    );
     sunRef.current = sun;
-    // Shadows: enabled in game mode always, or in studio when toggle is on
-    sun.castShadow = !isStudioModeRef.current || enableShadowsRef.current;
-    sun.shadow.mapSize.width = 2048; // Reduced from 4096 for editor perf
-    sun.shadow.mapSize.height = 2048;
-    sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 400;
-    sun.shadow.camera.left = -200; // Game uses ±200 frustum
-    sun.shadow.camera.right = 200;
-    sun.shadow.camera.top = 200;
-    sun.shadow.camera.bottom = -200;
-    sun.shadow.camera.updateProjectionMatrix();
-    sun.shadow.bias = 0.0002; // Match game bias values
-    sun.shadow.normalBias = 0.01;
-    scene.add(sun);
-    scene.add(sun.target); // Required for shadow follow to work
 
     // Create terrain resources (full-res + low-res LOD template)
     templateGeometryRef.current = createTemplateGeometry(
