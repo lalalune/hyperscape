@@ -171,6 +171,10 @@ import { buildTownFlattenZones } from "./hooks/buildTownFlattenZones";
 // Used by terrain-config / road / mine change effects to
 // prioritize regenerating tiles near the camera first.
 import { markDirtyTilesByDistance } from "./hooks/markDirtyTilesByDistance";
+// Mouse → NDC conversion extracted to
+// `hooks/mouseEventToNdc.ts` (Phase 1.1 tenth carve). Used by
+// click and hover handlers before raycasting.
+import { mouseEventToNdc } from "./hooks/mouseEventToNdc";
 
 // Building LOD distances and town size colors now live in TownRenderer.ts.
 
@@ -1582,9 +1586,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       if (rmbFlyActiveRef.current) return;
 
       // Selection mode: perform raycast to find what was clicked
-      const rect = container.getBoundingClientRect();
-      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      mouseEventToNdc(event, container, mouseRef.current);
 
       raycasterRef.current.setFromCamera(mouseRef.current, camera);
 
@@ -4589,12 +4591,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     const camera = cameraRef.current;
     if (!container || !camera) return;
 
-    // Calculate mouse position
-    const rect = container.getBoundingClientRect();
-    mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    // Update raycaster
+    // Calculate mouse position + raycaster
+    mouseEventToNdc(event, container, mouseRef.current);
     raycasterRef.current.setFromCamera(mouseRef.current, camera);
 
     // Check for intersections (recursive to catch building child meshes)
