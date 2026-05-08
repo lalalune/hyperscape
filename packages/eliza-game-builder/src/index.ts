@@ -118,6 +118,8 @@ export {
   listAssetPacksAction,
   listCommandsAction,
   type PluginCommandsGroup,
+  listContributionsAction,
+  type PluginContributionGroup,
   listEntityTypesAction,
   listPluginsAction,
   listWidgetsAction,

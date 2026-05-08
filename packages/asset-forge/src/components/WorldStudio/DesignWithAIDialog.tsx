@@ -1639,12 +1639,18 @@ export function DesignWithAIDialog({
         requiredFields: string[];
         acceptedAssetTypes: string[];
       }>;
-      // Phase 3.1 of PLAN_AAA_MASTER_AUDIT — namespaced command
-      // ids the plugin contributes (e.g.
-      // `com.hyperforge.combat.commands.swap-ability`). Forwarded
-      // to agent-server so `LIST_COMMANDS` returns real plugin-
-      // declared command ids the agent can reference.
+      // Phase 3.1 of PLAN_AAA_MASTER_AUDIT — 6 uniform string-
+      // array contribution kinds the plugin's `plugin.json`
+      // declares. Forwarded to agent-server so `LIST_COMMANDS`
+      // and `LIST_CONTRIBUTIONS` return real plugin-declared
+      // identifiers the agent can reference.
       commandContributions?: string[];
+      systemContributions?: string[];
+      entityContributions?: string[];
+      widgetContributions?: string[];
+      manifestSchemaContributions?: string[];
+      paletteCategoryContributions?: string[];
+      toolbarToolContributions?: string[];
     }>
   >([]);
   useEffect(() => {
@@ -1698,6 +1704,12 @@ export function DesignWithAIDialog({
               acceptedAssetTypes: string[];
             }>;
             commands?: string[];
+            systems?: string[];
+            entities?: string[];
+            widgets?: string[];
+            manifestSchemas?: string[];
+            paletteCategories?: string[];
+            toolbarTools?: string[];
           };
         };
         const json = (await res.json()) as ReadonlyArray<RegistryEntry>;
@@ -1720,6 +1732,24 @@ export function DesignWithAIDialog({
               : undefined,
             commandContributions: p.contributions?.commands
               ? [...p.contributions.commands]
+              : undefined,
+            systemContributions: p.contributions?.systems
+              ? [...p.contributions.systems]
+              : undefined,
+            entityContributions: p.contributions?.entities
+              ? [...p.contributions.entities]
+              : undefined,
+            widgetContributions: p.contributions?.widgets
+              ? [...p.contributions.widgets]
+              : undefined,
+            manifestSchemaContributions: p.contributions?.manifestSchemas
+              ? [...p.contributions.manifestSchemas]
+              : undefined,
+            paletteCategoryContributions: p.contributions?.paletteCategories
+              ? [...p.contributions.paletteCategories]
+              : undefined,
+            toolbarToolContributions: p.contributions?.toolbarTools
+              ? [...p.contributions.toolbarTools]
               : undefined,
           })),
         );

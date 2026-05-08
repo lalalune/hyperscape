@@ -736,9 +736,16 @@ function CompanionInner({ projectId }: { projectId: string }) {
           requiredFields: string[];
           acceptedAssetTypes: string[];
         }>;
-        // Phase 3.1 — namespaced command ids the plugin
-        // contributes; agent's `LIST_COMMANDS` reads these.
+        // Phase 3.1 — 6 uniform string-array contribution kinds.
+        // Agent's `LIST_COMMANDS` and generic `LIST_CONTRIBUTIONS`
+        // surface these to the agent.
         commandContributions?: string[];
+        systemContributions?: string[];
+        entityContributions?: string[];
+        widgetContributions?: string[];
+        manifestSchemaContributions?: string[];
+        paletteCategoryContributions?: string[];
+        toolbarToolContributions?: string[];
       };
       let installablePlugins: CompanionPluginEntry[] = [];
       try {
@@ -761,6 +768,12 @@ function CompanionInner({ projectId }: { projectId: string }) {
                 acceptedAssetTypes: string[];
               }>;
               commands?: string[];
+              systems?: string[];
+              entities?: string[];
+              widgets?: string[];
+              manifestSchemas?: string[];
+              paletteCategories?: string[];
+              toolbarTools?: string[];
             };
           };
           const json = (await res.json()) as ReadonlyArray<RegistryEntry>;
@@ -772,6 +785,24 @@ function CompanionInner({ projectId }: { projectId: string }) {
             tags: [...p.tags],
             commandContributions: p.contributions?.commands
               ? [...p.contributions.commands]
+              : undefined,
+            systemContributions: p.contributions?.systems
+              ? [...p.contributions.systems]
+              : undefined,
+            entityContributions: p.contributions?.entities
+              ? [...p.contributions.entities]
+              : undefined,
+            widgetContributions: p.contributions?.widgets
+              ? [...p.contributions.widgets]
+              : undefined,
+            manifestSchemaContributions: p.contributions?.manifestSchemas
+              ? [...p.contributions.manifestSchemas]
+              : undefined,
+            paletteCategoryContributions: p.contributions?.paletteCategories
+              ? [...p.contributions.paletteCategories]
+              : undefined,
+            toolbarToolContributions: p.contributions?.toolbarTools
+              ? [...p.contributions.toolbarTools]
               : undefined,
             entityTypeContributions: p.contributions?.entityTypes
               ? p.contributions.entityTypes.map((e) => ({

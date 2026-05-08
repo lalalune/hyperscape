@@ -32,6 +32,10 @@ export {
   listCommandsAction,
   type PluginCommandsGroup,
 } from "./listCommands.js";
+export {
+  listContributionsAction,
+  type PluginContributionGroup,
+} from "./listContributions.js";
 export { proposeStationAction } from "./proposeStation.js";
 export { proposeTeleportAction } from "./proposeTeleport.js";
 export { proposeRoadAction } from "./proposeRoad.js";

@@ -71,16 +71,71 @@ export interface InstallablePlugin {
    * command id contributions from the plugin's live
    * `plugin.json`. Each entry is a namespaced command id (e.g.
    * `com.hyperforge.combat.commands.swap-ability`). The
-   * upcoming `LIST_COMMANDS` action surfaces these to the
-   * agent so it can reference real plugin-declared commands
-   * when scaffolding gameplay (key bindings, palette entries,
-   * action targets) instead of inventing names.
+   * `LIST_COMMANDS` (and generic `LIST_CONTRIBUTIONS`) action
+   * surfaces these to the agent so it can reference real
+   * plugin-declared commands when scaffolding gameplay (key
+   * bindings, palette entries, action targets) instead of
+   * inventing names.
    *
    * Empty / undefined preserves legacy behavior (no commands
    * known) — the action returns an empty list.
    */
   readonly commandContributions?: ReadonlyArray<string>;
+  /**
+   * R2.P10 broader — system contribution names from the
+   * plugin's `plugin.json`. Each entry is the registered
+   * system name the plugin wires into the host world via
+   * `world.register("name", System)`.
+   */
+  readonly systemContributions?: ReadonlyArray<string>;
+  /**
+   * R2.P10 broader — entity-class contribution names. Each
+   * entry is a registered entity-type id consumed by
+   * `EntityManager.spawn`. Distinct from `entityType
+   * Contributions` (typed agent-facing placement entries) —
+   * this list is the raw class-name catalog.
+   */
+  readonly entityContributions?: ReadonlyArray<string>;
+  /**
+   * R2.P10 broader — UI widget contribution ids. Each entry
+   * is a widget registration id consumed by `bindAllWidgets`
+   * via the host's widget registry.
+   */
+  readonly widgetContributions?: ReadonlyArray<string>;
+  /**
+   * R2.P10 broader — manifest schema contribution ids
+   * (Zod-validated authoring schemas the plugin extends with
+   * its own data shapes — quests, dialogues, etc.).
+   */
+  readonly manifestSchemaContributions?: ReadonlyArray<string>;
+  /**
+   * R2.P10 broader — palette category contribution ids
+   * (drives the studio's `ContentBrowser` left-panel
+   * categories when the editor reads from this registry —
+   * Phase 3.1 follow-up will wire the consumer side).
+   */
+  readonly paletteCategoryContributions?: ReadonlyArray<string>;
+  /**
+   * R2.P10 broader — toolbar tool contribution ids (drives
+   * the studio's `MainToolbar` mode palette).
+   */
+  readonly toolbarToolContributions?: ReadonlyArray<string>;
 }
+
+/**
+ * The 6 plugin-contribution fields that share a uniform
+ * `string[]` shape (commands + 5 we wire together in Phase
+ * 3.1). Used as the `kind` parameter for the generic
+ * `LIST_CONTRIBUTIONS` action.
+ */
+export type PluginContributionKind =
+  | "commands"
+  | "systems"
+  | "entities"
+  | "widgets"
+  | "manifestSchemas"
+  | "paletteCategories"
+  | "toolbarTools";
 
 export interface IPluginCatalogService {
   /**
@@ -116,6 +171,24 @@ export function makePluginCatalogService(
       : undefined,
     commandContributions: p.commandContributions
       ? [...p.commandContributions]
+      : undefined,
+    systemContributions: p.systemContributions
+      ? [...p.systemContributions]
+      : undefined,
+    entityContributions: p.entityContributions
+      ? [...p.entityContributions]
+      : undefined,
+    widgetContributions: p.widgetContributions
+      ? [...p.widgetContributions]
+      : undefined,
+    manifestSchemaContributions: p.manifestSchemaContributions
+      ? [...p.manifestSchemaContributions]
+      : undefined,
+    paletteCategoryContributions: p.paletteCategoryContributions
+      ? [...p.paletteCategoryContributions]
+      : undefined,
+    toolbarToolContributions: p.toolbarToolContributions
+      ? [...p.toolbarToolContributions]
       : undefined,
   }));
   return {

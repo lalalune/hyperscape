@@ -49,6 +49,7 @@ import {
   makeProjectContextService,
   listAssetPacksAction,
   listCommandsAction,
+  listContributionsAction,
   listEntityTypesAction,
   proposeAssetPackInstallAction,
   ASSET_PACK_CATALOG_SERVICE_TYPE,
@@ -558,6 +559,7 @@ const ONBOARDING_ACTIONS = [
   listEntityTypesAction,
   listAssetPacksAction,
   listCommandsAction,
+  listContributionsAction,
   proposeTerrainConfigAction,
   proposePluginSetAction,
   proposeAssetPackInstallAction,
@@ -1216,12 +1218,12 @@ function parseInstallablePlugins(
     const entityTypeContributions = parseEntityTypeContributions(
       p.entityTypeContributions,
     );
-    // Phase 3.1 of PLAN_AAA_MASTER_AUDIT — pass through command
-    // contributions so `LIST_COMMANDS` can surface real plugin-
-    // declared command ids to the agent.
-    const commandContributions = parseCommandContributions(
-      p.commandContributions,
-    );
+    // Phase 3.1 — pass through 6 string-array contribution
+    // kinds (`commands` already wired; `systems` / `entities` /
+    // `widgets` / `manifestSchemas` / `paletteCategories` /
+    // `toolbarTools` wired here in one cut). The agent surfaces
+    // these via the dedicated `LIST_COMMANDS` action and the
+    // generic `LIST_CONTRIBUTIONS` action.
     out.push({
       id: p.id,
       npmName,
@@ -1229,20 +1231,35 @@ function parseInstallablePlugins(
       description: p.description,
       tags,
       entityTypeContributions,
-      commandContributions,
+      commandContributions: parseStringArrayContribution(
+        p.commandContributions,
+      ),
+      systemContributions: parseStringArrayContribution(p.systemContributions),
+      entityContributions: parseStringArrayContribution(p.entityContributions),
+      widgetContributions: parseStringArrayContribution(p.widgetContributions),
+      manifestSchemaContributions: parseStringArrayContribution(
+        p.manifestSchemaContributions,
+      ),
+      paletteCategoryContributions: parseStringArrayContribution(
+        p.paletteCategoryContributions,
+      ),
+      toolbarToolContributions: parseStringArrayContribution(
+        p.toolbarToolContributions,
+      ),
     });
   }
   return out;
 }
 
 /**
- * Parse the `commandContributions` array from a request-side
- * plugin entry. Each entry must be a non-empty namespaced
- * string (e.g. `com.hyperforge.combat.commands.swap-ability`).
- * Malformed entries are silently dropped; missing field returns
- * undefined to preserve "no commands declared" semantics.
+ * Parse any of the 6 uniform string-array contribution arrays
+ * from a request-side plugin entry. Each entry must be a non-
+ * empty string; malformed entries are silently dropped; a
+ * missing/non-array field returns undefined to preserve "field
+ * not declared" semantics (the action handlers distinguish
+ * "explicitly empty" from "not provided" via undefined).
  */
-function parseCommandContributions(
+function parseStringArrayContribution(
   raw: unknown,
 ): ReadonlyArray<string> | undefined {
   if (!Array.isArray(raw)) return undefined;
