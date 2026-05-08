@@ -122,34 +122,15 @@ import {
 // Town rendering moved to TownRenderer — shared geometry singletons, type aliases,
 // and material constructors are now managed by TownRenderer.ts.
 
-// ============== TILE GEOMETRY POOL ==============
-// Instead of disposing tile geometries on eviction and cloning templates on
-// creation, pool them by vertex count for reuse. This eliminates GPU buffer
-// allocation/deallocation churn during steady-state camera movement.
-const _tileGeomPool = new Map<number, THREE.BufferGeometry[]>();
-const MAX_POOLED_PER_SIZE = 32;
-
-function acquirePooledGeometry(
-  vertexCount: number,
-): THREE.BufferGeometry | undefined {
-  const pool = _tileGeomPool.get(vertexCount);
-  return pool && pool.length > 0 ? pool.pop() : undefined;
-}
-
-function releaseToGeomPool(geom: THREE.BufferGeometry): void {
-  const count = geom.attributes.position?.count ?? 0;
-  if (count === 0) return;
-  let pool = _tileGeomPool.get(count);
-  if (!pool) {
-    pool = [];
-    _tileGeomPool.set(count, pool);
-  }
-  if (pool.length < MAX_POOLED_PER_SIZE) {
-    pool.push(geom);
-  } else {
-    geom.dispose(); // Pool full — dispose normally
-  }
-}
+// Tile geometry pool extracted to `hooks/tileGeometryPool.ts`
+// (Phase 1.1 sixth carve, second piece of the tile-streamer
+// extraction outlined in PLAN_AAA_MASTER_AUDIT debt #2). Pure
+// module-scope `Map<vertex-count, BufferGeometry[]>` with two
+// pull/push helpers; behavior preserved verbatim.
+import {
+  acquirePooledGeometry,
+  releaseToGeomPool,
+} from "./hooks/tileGeometryPool";
 
 // ============== PRE-ALLOCATED MATH OBJECTS (avoid per-click/per-frame GC) ==============
 
