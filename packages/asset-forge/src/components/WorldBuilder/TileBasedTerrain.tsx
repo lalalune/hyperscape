@@ -181,6 +181,18 @@ import { mouseEventToNdc } from "./hooks/mouseEventToNdc";
 // fast-path that scales loaded tile geometry in place rather
 // than regenerating from scratch.
 import { rescaleVertexY } from "./hooks/rescaleVertexY";
+// Tile streamer LOD + eviction predicates extracted to
+// `hooks/tileLodDecisions.ts` (Phase 1.1 thirteenth carve).
+// Pure rules buried in the 200-line updateTiles callback;
+// pulling them out lets us unit-test the Chebyshev-vs-Manhattan
+// distance choice + LOD-resolution selection in isolation.
+import {
+  isFullResResolution,
+  pickTileResolution,
+  shouldEvictTile,
+  tileChebyshevDistance,
+  tileManhattanDistance,
+} from "./hooks/tileLodDecisions";
 
 // Building LOD distances and town size colors now live in TownRenderer.ts.
 
@@ -1338,11 +1350,13 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
             if (!isInBounds(tileX, tileZ)) continue;
 
             const key = getTileKey(tileX, tileZ);
-            const dist = Math.max(Math.abs(dx), Math.abs(dz)); // Chebyshev distance
+            const dist = tileChebyshevDistance(dx, dz);
             const wantFullRes = dist <= fullDetailRadius;
-            const wantRes = wantFullRes
-              ? tileResolution
-              : TILE_LOD_LOW_RESOLUTION;
+            const wantRes = pickTileResolution(
+              dist,
+              fullDetailRadius,
+              tileResolution,
+            );
 
             const existing = tilesRef.current.get(key);
             if (existing) {
@@ -1392,7 +1406,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
 
             if (!tileQueueSetRef.current.has(key)) {
               tileQueueSetRef.current.add(key);
-              const distance = Math.abs(dx) + Math.abs(dz);
+              const distance = tileManhattanDistance(dx, dz);
               newEntries.push({ tileX, tileZ, resolution: wantRes, distance });
             }
           }
@@ -1409,13 +1423,16 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
         // Eviction check: only in non-studio mode (studio never evicts)
         if (!isStudio) {
           for (const [key, tile] of tilesRef.current) {
-            const dx = Math.abs(tile.tileX - cameraTileX);
-            const dz = Math.abs(tile.tileZ - cameraTileZ);
-
-            if (dx > unloadRadius || dz > unloadRadius) {
-              if (frameTime - tile.lastAccessed > 1000) {
-                unloadTile(key);
-              }
+            if (
+              shouldEvictTile(
+                tile.tileX - cameraTileX,
+                tile.tileZ - cameraTileZ,
+                unloadRadius,
+                frameTime,
+                tile.lastAccessed,
+              )
+            ) {
+              unloadTile(key);
             }
           }
         }
@@ -1456,7 +1473,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       remaining.length = 0;
 
       for (const entry of tileQueueRef.current) {
-        const isFullRes = entry.resolution > TILE_LOD_LOW_RESOLUTION;
+        const isFullRes = isFullResResolution(entry.resolution);
 
         if (isFullRes && fullResGen >= maxFullThisFrame) {
           remaining.push(entry);
