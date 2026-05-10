@@ -193,6 +193,11 @@ import {
   tileChebyshevDistance,
   tileManhattanDistance,
 } from "./hooks/tileLodDecisions";
+// Tile coord ↔ key encoders extracted to `hooks/tileKey.ts`
+// (Phase 1.1 fourteenth carve). The `+500` offset packing and
+// the in-bounds predicate are pure stateless functions; only
+// the per-component LRU string cache stays in the hook itself.
+import { formatTileKey, isTileInBounds, packTileKey } from "./hooks/tileKey";
 
 // Building LOD distances and town size colors now live in TownRenderer.ts.
 
@@ -872,10 +877,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   // the string is computed once per unique tile coordinate.
   const _tileKeyCache = useRef(new Map<number, string>());
   const getTileKey = useCallback((tileX: number, tileZ: number): string => {
-    const packed = (tileX + 500) * 1000 + (tileZ + 500);
+    const packed = packTileKey(tileX, tileZ);
     let key = _tileKeyCache.current.get(packed);
     if (!key) {
-      key = `${tileX}_${tileZ}`;
+      key = formatTileKey(tileX, tileZ);
       _tileKeyCache.current.set(packed, key);
     }
     return key;
@@ -886,9 +891,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
 
   // Check if tile is within world bounds
   const isInBounds = useCallback(
-    (tileX: number, tileZ: number) => {
-      return tileX >= 0 && tileX < worldSize && tileZ >= 0 && tileZ < worldSize;
-    },
+    (tileX: number, tileZ: number) => isTileInBounds(tileX, tileZ, worldSize),
     [worldSize],
   );
 
