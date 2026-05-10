@@ -462,7 +462,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
   getPlayerData(): Player {
     return {
       id: this.id,
-      hyperiaPlayerId: this.hyperiaPlayerId,
+      // Engine-side `Player.externalAccountId` is populated from
+      // the plugin's own `hyperiaPlayerId` field. Phase 3.2 deeper
+      // closed the legacy `Player.hyperiaPlayerId` alias on the
+      // engine type.
+      externalAccountId: this.hyperiaPlayerId,
       name: this.data.name || "Unknown Player",
       health: this._playerHealth,
       alive: this.alive,

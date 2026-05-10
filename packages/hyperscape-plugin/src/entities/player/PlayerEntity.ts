@@ -549,7 +549,12 @@ export class PlayerEntity extends CombatantEntity {
     return {
       // Core identity
       id: this.playerId,
-      hyperiaPlayerId: this.hyperiaPlayerId,
+      // Engine-side `Player.externalAccountId` is populated from
+      // the plugin's own `hyperiaPlayerId` field (which the
+      // Hyperia plugin keeps as a plugin-private identifier).
+      // Phase 3.2 deeper closed the legacy `Player.hyperiaPlayerId`
+      // alias on the engine type.
+      externalAccountId: this.hyperiaPlayerId,
       name: this.playerName,
 
       // Health and status (delegate to Entity properties)
