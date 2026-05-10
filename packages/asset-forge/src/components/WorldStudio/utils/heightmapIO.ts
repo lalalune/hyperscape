@@ -187,14 +187,26 @@ export function createHeightmapQuerier(
   const { maxHeight } = metadata;
 
   return (worldX: number, worldZ: number): TerrainQueryResult => {
-    // Map world coords to texel coords
-    const tx = (worldX / worldExtent) * (width - 1);
-    const tz = (worldZ / worldExtent) * (height - 1);
+    // Map world coords to texel coords + clamp BEFORE computing
+    // fx/fz so out-of-bounds queries return the nearest in-bounds
+    // texel value instead of extrapolating with negative or
+    // oversized weights. (Without this clamp, `q(-100, -100)`
+    // returned a negative height — the integer indices clamped
+    // but the fractional weights didn't.)
+    const tx = Math.max(
+      0,
+      Math.min(width - 1, (worldX / worldExtent) * (width - 1)),
+    );
+    const tz = Math.max(
+      0,
+      Math.min(height - 1, (worldZ / worldExtent) * (height - 1)),
+    );
 
-    // Bilinear interpolation
-    const x0 = Math.max(0, Math.min(width - 1, Math.floor(tx)));
+    // Bilinear interpolation — indices already in-bounds because
+    // tx/tz are pre-clamped above.
+    const x0 = Math.floor(tx);
     const x1 = Math.min(width - 1, x0 + 1);
-    const z0 = Math.max(0, Math.min(height - 1, Math.floor(tz)));
+    const z0 = Math.floor(tz);
     const z1 = Math.min(height - 1, z0 + 1);
 
     const fx = tx - x0;
