@@ -45,8 +45,17 @@ export function isValidColor(value: unknown): value is string {
 
 export function isValidUrl(value: unknown): value is string {
   if (!isString(value)) return false;
-  new URL(value);
-  return true;
+  // `new URL(value)` throws on invalid input; the type-guard
+  // contract is a boolean return, so swallow the throw and
+  // return false. Without this the function fails closed in
+  // a way callers don't expect (an `if (isValidUrl(x))` guard
+  // would crash mid-evaluation on a bad string).
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Position validation
