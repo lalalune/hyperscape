@@ -329,8 +329,11 @@ export function parseTestResult(
   }
 
   // Parse recommendation
+  // Order alternations longest-first: `pass_with_changes` MUST come
+  // before `pass`, otherwise greedy left-to-right alternation would
+  // match just "pass" against a "pass_with_changes" input.
   const recommendationMatch = responseText.match(
-    /\*\*Recommendation:\*\*\s*(pass|pass_with_changes|fail)/i,
+    /\*\*Recommendation:\*\*\s*(pass_with_changes|pass|fail)/i,
   );
   if (recommendationMatch) {
     result.recommendation =
