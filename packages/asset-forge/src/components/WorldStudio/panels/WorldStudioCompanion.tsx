@@ -47,6 +47,7 @@ import {
 } from "../state/agentWorldContent";
 import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatcher";
 import { buildTerrainSummary } from "../utils/buildTerrainSummary";
+import { prettifyToolName } from "../utils/proposeActionRegistry";
 import { generateWorldFromConfig } from "../../WorldBuilder/worldGeneration";
 import {
   HYPERIA_CREATION_CONFIG,
@@ -1350,55 +1351,5 @@ const TOOL_BREADCRUMB_SUMMARY: Record<
   },
 };
 
-function prettifyToolName(name: string): string {
-  switch (name) {
-    case "LIST_PLUGINS":
-      return "Looking up plugins…";
-    case "GET_PLUGIN":
-      return "Inspecting a plugin…";
-    case "LIST_GAME_WIDGETS":
-      return "Listing widgets…";
-    case "SEARCH_GAME_WIDGETS":
-      return "Searching widgets…";
-    case "GET_GAME_WIDGET":
-      return "Inspecting a widget…";
-    case "GET_CATALOG_STATS":
-      return "Reading catalog stats…";
-    case "PROPOSE_TERRAIN_CONFIG":
-      return "Shaping the terrain…";
-    case "PROPOSE_PLUGIN_SET":
-      return "Picking a plugin set…";
-    case "PROPOSE_NPC_PLACEMENT":
-      return "Placing an NPC…";
-    case "PROPOSE_MOB_SPAWN":
-      return "Placing a mob spawn…";
-    case "PROPOSE_QUEST":
-      return "Authoring a quest…";
-    case "PROPOSE_ASSET":
-      return "Designing a new asset…";
-    case "PROPOSE_ZONE":
-      return "Carving a zone…";
-    case "PROPOSE_RESOURCE":
-      return "Placing a resource…";
-    case "PROPOSE_STATION":
-      return "Placing a station…";
-    case "PROPOSE_TELEPORT":
-      return "Placing a teleport…";
-    case "PROPOSE_ROAD":
-      return "Drawing a road…";
-    case "PROPOSE_POI":
-      return "Marking a point of interest…";
-    case "PROPOSE_DANGER_SOURCE":
-      return "Adding a danger zone…";
-    case "REMOVE_FROM_PROJECT":
-      return "Removing an entity…";
-    case "GET_PROJECT_STATE":
-      return "Reviewing the project…";
-    case "PROPOSE_UI_PACK":
-      return "Drafting the HUD…";
-    case "OFFER_CHOICES":
-      return "Offering choices…";
-    default:
-      return `Running ${name}…`;
-  }
-}
+// `prettifyToolName` lives in `utils/proposeActionRegistry.ts`
+// (Phase 1.3 first cut). Imported above.
