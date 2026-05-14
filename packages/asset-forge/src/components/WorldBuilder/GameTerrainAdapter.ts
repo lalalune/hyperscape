@@ -28,6 +28,7 @@ import { BiomeSystem } from "@hyperforge/procgen/terrain";
 import type { BiomeDefinition, BiomeConfig } from "@hyperforge/procgen/terrain";
 import { TERRAIN_CONSTANTS } from "@hyperforge/shared";
 import { getActiveBiomeDefinitions } from "../WorldStudio/utils/contentRegistry";
+import { HYPERIA_LIVE_GAME_BIOMES } from "./hyperiaBiomes";
 
 // ============== GAME CONSTANTS (re-exported for consumers) ==============
 
@@ -39,53 +40,12 @@ export const GAME_TILE_SIZE = 100;
 export const GAME_WORLD_SIZE = 100;
 export const GAME_TILE_RESOLUTION = 64;
 
-/**
- * Hyperia-specific biome data — used only by the
- * `createGameTerrainQuerier` path below (the live Hyperia
- * game world reproducer). Hyperia's gameplay plugin already
- * contributes these same three biomes via plugin.json
- * `contributions.biomes` (commit `63e8e2992`), so the runtime
- * registry overlays plugin biomes on top of any engine defaults.
- *
- * Phase D of `PLAN_AAA_CONTENT_SYSTEM.md` migrates this data
- * (along with the rest of `createGameTerrainQuerier`) into the
- * Hyperscape plugin / content pack so the engine package
- * carries no Hyperia-specific data at all. Until then the
- * constant stays here, but private — non-Hyperia callsites
- * use the empty `GAME_BIOME_DEFINITIONS` export below.
- */
-const HYPERIA_LIVE_GAME_BIOMES: Record<string, BiomeDefinition> = {
-  tundra: {
-    id: "tundra",
-    name: "Tundra",
-    color: 0xe8e4e0,
-    terrainMultiplier: 1,
-    difficultyLevel: 1,
-    heightRange: [0.3, 0.8],
-    maxSlope: 1.5,
-    resourceDensity: 0.4,
-  },
-  forest: {
-    id: "forest",
-    name: "Forest",
-    color: 0x388e3c,
-    terrainMultiplier: 1,
-    difficultyLevel: 0,
-    heightRange: [0, 0.5],
-    maxSlope: 0.8,
-    resourceDensity: 1.0,
-  },
-  canyon: {
-    id: "canyon",
-    name: "Canyon",
-    color: 0x8d6e63,
-    terrainMultiplier: 1,
-    difficultyLevel: 2,
-    heightRange: [0.2, 1.0],
-    maxSlope: 2.0,
-    resourceDensity: 0.6,
-  },
-};
+// Hyperia-specific biome data lives in `./hyperiaBiomes` so the
+// server's `GameWorldContext.ts` shares the same definitions
+// (Phase 3.4 dedup of PLAN_AAA_MASTER_AUDIT.md). Used only by
+// the `createGameTerrainQuerier` path below (the live Hyperia
+// game world reproducer); non-Hyperia callsites use the empty
+// `GAME_BIOME_DEFINITIONS` export below.
 
 /**
  * Engine baseline biome — every project starts with this one

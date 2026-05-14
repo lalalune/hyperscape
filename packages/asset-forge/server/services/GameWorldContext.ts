@@ -8,7 +8,9 @@
  */
 
 import { NoiseGenerator, BiomeSystem } from "@hyperforge/procgen/terrain";
-import type { BiomeDefinition, BiomeConfig } from "@hyperforge/procgen/terrain";
+import type { BiomeConfig } from "@hyperforge/procgen/terrain";
+
+import { HYPERIA_LIVE_GAME_BIOMES } from "../../src/components/WorldBuilder/hyperiaBiomes";
 
 // ============== GAME CONSTANTS ==============
 // Mirrored from TerrainHeightParams.ts / TerrainSystem.ts / GameTerrainAdapter.ts
@@ -200,55 +202,14 @@ const BIOME_CONFIG = {
   influenceRadius: ISLAND_RADIUS * 0.6,
 };
 
-/**
- * Hyperia-specific biome data — the server-side mirror of
- * `HYPERIA_LIVE_GAME_BIOMES` in
- * `src/components/WorldBuilder/GameTerrainAdapter.ts`. Used by
- * `getGameWorldContext` (the live Hyperia world reproducer for
- * server-side tile / tree / layout queries).
- *
- * Phase D of `PLAN_AAA_CONTENT_SYSTEM.md` migrates this data
- * (along with the rest of `getGameWorldContext`) into the
- * Hyperscape plugin / content pack. Until then the constant
- * stays here as a private module-local fallback.
- *
- * This entire module's exports are Hyperia-specific by design —
- * called from `WorldLayoutService` / `WorldTreeService` for
- * Hyperia-template projects. Non-Hyperia projects don't reach
- * this code path.
- */
-const HYPERIA_LIVE_GAME_BIOMES: Record<string, BiomeDefinition> = {
-  tundra: {
-    id: "tundra",
-    name: "Tundra",
-    color: 0xe8e4e0,
-    terrainMultiplier: 1,
-    difficultyLevel: 1,
-    heightRange: [0.3, 0.8],
-    maxSlope: 1.5,
-    resourceDensity: 0.4,
-  },
-  forest: {
-    id: "forest",
-    name: "Forest",
-    color: 0x388e3c,
-    terrainMultiplier: 1,
-    difficultyLevel: 0,
-    heightRange: [0, 0.5],
-    maxSlope: 0.8,
-    resourceDensity: 1.0,
-  },
-  canyon: {
-    id: "canyon",
-    name: "Canyon",
-    color: 0x8d6e63,
-    terrainMultiplier: 1,
-    difficultyLevel: 2,
-    heightRange: [0.2, 1.0],
-    maxSlope: 2.0,
-    resourceDensity: 0.6,
-  },
-};
+// Hyperia biome data imported from
+// `src/components/WorldBuilder/hyperiaBiomes` (Phase 3.4 dedup of
+// PLAN_AAA_MASTER_AUDIT.md). Single source of truth for both the
+// client `GameTerrainAdapter.ts` and this server-side live-world
+// reproducer. This entire module's exports are Hyperia-specific
+// by design — called from `WorldLayoutService` /
+// `WorldTreeService` for Hyperia-template projects; non-Hyperia
+// projects don't reach this code path.
 
 // ============== NOISE ADAPTER ==============
 
