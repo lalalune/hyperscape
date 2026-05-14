@@ -26,7 +26,7 @@ import React, {
   useState,
   useMemo,
 } from "react";
-import { MeshBasicNodeMaterial, LineBasicNodeMaterial } from "three/webgpu";
+import { MeshBasicNodeMaterial } from "three/webgpu";
 // TSL post-processing (pass, fxaa, bloom) now lives inside ViewportRenderLoop.
 
 import { useCameraControls } from "./useCameraControls";
@@ -101,6 +101,11 @@ import { EditorGrassManager } from "./EditorGrassManager";
 import { useStandaloneSky } from "./hooks/useStandaloneSky";
 import { useGameFog } from "./hooks/useGameFog";
 import { useShadowsCSM } from "./hooks/useShadowsCSM";
+import {
+  setupWildernessOverlay,
+  disposeWildernessOverlay,
+  type WildernessOverlay,
+} from "./hooks/setupWildernessOverlay";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
 import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
@@ -719,7 +724,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   const entityOverlayRef = useRef<THREE.Group | null>(null);
   const foliageContainerRef = useRef<THREE.Group | null>(null);
   const foliageManagerRef = useRef<FoliageManager | null>(null);
-  const wildernessOverlayRef = useRef<THREE.Mesh | null>(null);
+  // Wilderness PVP-zone visual — Hyperia-only. Construction +
+  // disposal owned by `setupWildernessOverlay` (Phase 1.1 fifth
+  // carve from the monolith).
+  const wildernessOverlayRef = useRef<WildernessOverlay | null>(null);
   /** Vegetation tree positions in game-space, populated by refreshVegetation(). */
   const vegetationPositionsRef = useRef<Array<{ x: number; z: number }>>([]);
   /** Full vegetation tree data for manifest export. */
@@ -2003,143 +2011,18 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     foliageContainerRef.current = foliageContainer;
     foliageManagerRef.current = new FoliageManager(foliageContainer);
 
-    // Wilderness zone visual (PVP area in north) - border band + floating skull
-    const wildernessStartPercent = 0.3; // Start at 30% from center (north direction)
-    const worldSizeForWilderness = worldSize * tileSize;
-    const worldCenterForWilderness = worldSizeForWilderness / 2;
-    const wildernessBoundaryZ =
-      worldCenterForWilderness -
-      worldSizeForWilderness * wildernessStartPercent;
-    const wildernessDepth = wildernessBoundaryZ; // From boundary to north edge (z=0)
-    const wildernessWidth = worldSizeForWilderness;
-
-    // Create wilderness border group
-    const wildernessGroup = new THREE.Group();
-    const borderHeight = 8.0; // Height of border walls
-    const borderColor = 0xff0000; // Bright red
-
-    // Border wall material (very transparent to not block grass)
-    const borderWallMaterial = new MeshBasicNodeMaterial();
-    borderWallMaterial.color = new THREE.Color(borderColor);
-    borderWallMaterial.transparent = true;
-    borderWallMaterial.opacity = 0.15;
-    borderWallMaterial.side = THREE.DoubleSide;
-    borderWallMaterial.depthWrite = false;
-
-    // South wall (the main boundary line players cross)
-    const southWallGeom = new THREE.PlaneGeometry(
-      wildernessWidth,
-      borderHeight,
-    );
-    const southWall = new THREE.Mesh(southWallGeom, borderWallMaterial);
-    southWall.position.set(0, borderHeight / 2, wildernessDepth / 2);
-    southWall.rotation.y = Math.PI;
-    wildernessGroup.add(southWall);
-
-    // East wall
-    const eastWallGeom = new THREE.PlaneGeometry(wildernessDepth, borderHeight);
-    const eastWall = new THREE.Mesh(eastWallGeom, borderWallMaterial);
-    eastWall.position.set(wildernessWidth / 2, borderHeight / 2, 0);
-    eastWall.rotation.y = -Math.PI / 2;
-    wildernessGroup.add(eastWall);
-
-    // West wall
-    const westWallGeom = new THREE.PlaneGeometry(wildernessDepth, borderHeight);
-    const westWall = new THREE.Mesh(westWallGeom, borderWallMaterial);
-    westWall.position.set(-wildernessWidth / 2, borderHeight / 2, 0);
-    westWall.rotation.y = Math.PI / 2;
-    wildernessGroup.add(westWall);
-
-    // North wall (at z=0, edge of world)
-    const northWallGeom = new THREE.PlaneGeometry(
-      wildernessWidth,
-      borderHeight,
-    );
-    const northWall = new THREE.Mesh(northWallGeom, borderWallMaterial);
-    northWall.position.set(0, borderHeight / 2, -wildernessDepth / 2);
-    wildernessGroup.add(northWall);
-
-    // Border edge lines
-    const lineMaterial = new LineBasicNodeMaterial();
-    lineMaterial.color = new THREE.Color(borderColor);
-
-    // Top edge outline
-    const topEdgePoints = [
-      new THREE.Vector3(
-        -wildernessWidth / 2,
-        borderHeight,
-        -wildernessDepth / 2,
-      ),
-      new THREE.Vector3(
-        wildernessWidth / 2,
-        borderHeight,
-        -wildernessDepth / 2,
-      ),
-      new THREE.Vector3(wildernessWidth / 2, borderHeight, wildernessDepth / 2),
-      new THREE.Vector3(
-        -wildernessWidth / 2,
-        borderHeight,
-        wildernessDepth / 2,
-      ),
-      new THREE.Vector3(
-        -wildernessWidth / 2,
-        borderHeight,
-        -wildernessDepth / 2,
-      ),
-    ];
-    const topEdgeGeom = new THREE.BufferGeometry().setFromPoints(topEdgePoints);
-    const topEdgeLine = new THREE.Line(topEdgeGeom, lineMaterial);
-    wildernessGroup.add(topEdgeLine);
-
-    // Position wilderness group at center (lifted 10m above terrain)
-    wildernessGroup.position.set(
-      worldCenterForWilderness,
-      12,
-      wildernessDepth / 2,
-    );
-    scene.add(wildernessGroup);
-
-    // Create floating skull sprite
-    const skullCanvas = document.createElement("canvas");
-    const skullSize = 256;
-    skullCanvas.width = skullSize;
-    skullCanvas.height = skullSize;
-    const skullCtx = skullCanvas.getContext("2d");
-    if (skullCtx) {
-      skullCtx.clearRect(0, 0, skullSize, skullSize);
-      skullCtx.font = `${skullSize * 0.8}px serif`;
-      skullCtx.textAlign = "center";
-      skullCtx.textBaseline = "middle";
-      skullCtx.fillText("💀", skullSize / 2, skullSize / 2);
-      // Add glow
-      skullCtx.shadowColor = "rgba(255, 0, 0, 0.8)";
-      skullCtx.shadowBlur = 20;
-      skullCtx.fillText("💀", skullSize / 2, skullSize / 2);
+    // Wilderness PVP-zone visual — gated on Hyperia content so
+    // non-Hyperia themed projects (arctic/tropical/etc.) don't
+    // get a Hyperia gameplay overlay leaking into their scene.
+    // Construction + disposal owned by `setupWildernessOverlay`
+    // (Phase 1.1 fifth carve from the monolith).
+    if (hyperiaContentEnabledRef.current) {
+      wildernessOverlayRef.current = setupWildernessOverlay(
+        scene,
+        worldSize,
+        tileSize,
+      );
     }
-    const skullTexture = new THREE.CanvasTexture(skullCanvas);
-
-    const skullMaterial = new THREE.SpriteMaterial({
-      map: skullTexture,
-      transparent: true,
-      depthWrite: false,
-    });
-    const skullSprite = new THREE.Sprite(skullMaterial);
-    const skullSpriteSize = 30.0;
-    skullSprite.scale.set(skullSpriteSize, skullSpriteSize, 1);
-    skullSprite.position.set(
-      worldCenterForWilderness,
-      50, // High above terrain
-      wildernessDepth / 4, // Centered in wilderness zone
-    );
-    // Phase 4E: Add skull to wildernessGroup (not scene) so cleanup traverses it
-    wildernessGroup.add(skullSprite);
-
-    // Store reference for cleanup (use group as main reference)
-    wildernessOverlayRef.current = wildernessGroup as unknown as THREE.Mesh;
-    // Store skull for animation
-    (
-      wildernessGroup as THREE.Group & { skullSprite?: THREE.Sprite }
-    ).skullSprite = skullSprite;
 
     // Phase 1.1 fourth carve — lighting setup extracted into
     // `setupTerrainLighting` utility (`hooks/setupTerrainLighting.ts`).
@@ -3913,18 +3796,16 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
           }
         }
 
-        // Animate wilderness skull (bobbing and pulsing)
-        if (wildernessOverlayRef.current) {
-          const wildernessGroup =
-            wildernessOverlayRef.current as unknown as THREE.Group & {
-              skullSprite?: THREE.Sprite;
-            };
-          if (wildernessGroup.skullSprite) {
+        // Animate wilderness skull (bobbing + pulsing) — ref is
+        // typed as `WildernessOverlay` which exposes `skullSprite`.
+        {
+          const overlay = wildernessOverlayRef.current;
+          if (overlay?.skullSprite) {
             const baseY = 50;
-            wildernessGroup.skullSprite.position.y =
+            overlay.skullSprite.position.y =
               baseY + Math.sin(elapsedSeconds * 1.2) * 3.0;
             const scalePulse = 1.0 + Math.sin(elapsedSeconds * 0.5) * 0.05;
-            wildernessGroup.skullSprite.scale.set(
+            overlay.skullSprite.scale.set(
               30.0 * scalePulse,
               30.0 * scalePulse,
               1,
@@ -4080,18 +3961,12 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       }
       disposeEntitySyncGeometry();
 
-      // Dispose wilderness overlay (stored as a Group, not a Mesh)
+      // Dispose wilderness overlay — owned by setupWildernessOverlay
+      // (Phase 1.1 fifth carve). Helper walks the subtree disposing
+      // every geometry + material + texture (incl. skull's canvas).
       if (wildernessOverlayRef.current) {
-        const wildernessObj =
-          wildernessOverlayRef.current as unknown as THREE.Object3D;
-        wildernessObj.traverse((child) => {
-          if (child instanceof THREE.Mesh || child instanceof THREE.Sprite) {
-            child.geometry?.dispose();
-            if (child.material instanceof THREE.Material) {
-              child.material.dispose();
-            }
-          }
-        });
+        disposeWildernessOverlay(wildernessOverlayRef.current);
+        wildernessOverlayRef.current = null;
       }
 
       // Dispose foliage system
