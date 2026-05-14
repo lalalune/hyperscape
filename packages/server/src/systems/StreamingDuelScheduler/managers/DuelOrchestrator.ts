@@ -18,6 +18,7 @@ import {
   EventType,
   ITEMS,
   SPELL_ORDER,
+  TICK_DURATION_MS,
   UnknownCombatTuningProfileError,
   getDuelArenaConfig,
   getItem,
@@ -2968,8 +2969,6 @@ export class DuelOrchestrator {
     }
     this.combatLoopTickCount = 0;
 
-    const TICK_MS = 600; // Match game tick duration
-
     this.combatLoopInterval = setInterval(() => {
       const cycle = this.getCurrentCycle();
       if (!cycle || cycle.phase !== "FIGHTING") {
@@ -3021,7 +3020,7 @@ export class DuelOrchestrator {
 
       // Re-initiate combat via system
       this.tryMutualCombat(agent1.characterId, agent2.characterId);
-    }, TICK_MS);
+    }, TICK_DURATION_MS);
   }
 
   /**

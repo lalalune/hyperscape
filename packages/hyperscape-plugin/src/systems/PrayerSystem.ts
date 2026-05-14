@@ -3,13 +3,13 @@
  *
  * Server-authoritative system that handles all prayer operations:
  * - Activating/deactivating prayers
- * - Prayer point drain mechanics (OSRS-accurate formula)
+ * - Prayer point drain mechanics (classic-MMORPG drain-resistance formula)
  * - Conflict resolution (auto-deactivate conflicting prayers)
  * - Level requirement validation
  * - Combat bonus calculations
  * - Database persistence
  *
- * OSRS Prayer Drain Formula:
+ * Prayer Drain Formula (classic tile-based MMORPG):
  * drain_resistance = 2 * prayer_bonus + 60
  * drain_per_tick = drain_effect / drain_resistance (per 0.6s game tick)
  *
@@ -19,7 +19,7 @@
 
 // Migrated 2026-04-25 from `packages/shared/src/systems/shared/character/`
 // into `@hyperforge/hyperscape` (14th migration; 2nd cross-cutting
-// server-side system after CoinPouchSystem). OSRS prayer points +
+// server-side system after CoinPouchSystem). Prayer points +
 // drain + bonus calculations + altar interactions. Self-gates
 // internally on `world.isServer` for server-only branches (drain
 // timer, persistence) and client-only branches (UI state sync).
@@ -53,6 +53,7 @@ import {
   PRAYER_TOGGLE_COOLDOWN_MS,
   PRAYER_TOGGLE_RATE_LIMIT,
   SystemBase,
+  TICK_DURATION_MS,
   toPlayerID,
   type World,
 } from "@hyperforge/shared";
@@ -71,21 +72,18 @@ interface MutablePrayerBonuses {
 // CONSTANTS
 // ============================================================================
 
-/** Game tick duration in ms (OSRS uses 600ms ticks) */
-const GAME_TICK_MS = 600;
-
-/** How often to process prayer drain (in ms) */
-const DRAIN_INTERVAL_MS = GAME_TICK_MS;
+/** How often to process prayer drain (in ms) — one server tick. */
+const DRAIN_INTERVAL_MS = TICK_DURATION_MS;
 
 /** Default starting prayer points */
 const DEFAULT_PRAYER_POINTS = 1;
 
 // MAX_PRAYER_POINTS imported from prayer-types.ts
 
-/** Base drain resistance constant (OSRS formula) */
+/** Base drain resistance constant (drain-resistance formula) */
 const BASE_DRAIN_RESISTANCE = 60;
 
-/** Prayer bonus multiplier for drain resistance (OSRS formula) */
+/** Prayer bonus multiplier for drain resistance (drain-resistance formula) */
 const PRAYER_BONUS_MULTIPLIER = 2;
 
 /**
@@ -956,7 +954,7 @@ export class PrayerSystem extends SystemBase {
 
       if (totalDrain <= 0) continue;
 
-      // OSRS drain formula: drain_resistance = 2 * prayer_bonus + 60
+      // Drain formula: drain_resistance = 2 * prayer_bonus + 60
       const drainResistance =
         PRAYER_BONUS_MULTIPLIER * prayerBonus + BASE_DRAIN_RESISTANCE;
 

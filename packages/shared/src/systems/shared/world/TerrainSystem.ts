@@ -10,7 +10,7 @@ import { EventType } from "../../../types/events";
 import { NoiseGenerator } from "../../../utils/NoiseGenerator";
 import { InstancedMeshManager } from "../../../utils/rendering/InstancedMeshManager";
 import { CollisionFlag, CollisionMask } from "../movement/CollisionFlags";
-import { worldToTile } from "../movement/TileSystem";
+import { worldToTile, TICK_DURATION_MS } from "../movement/TileSystem";
 import {
   generateTerrainTilesBatch,
   terminateTerrainWorkerPool,
@@ -6135,7 +6135,7 @@ export class TerrainSystem extends System {
       position: { x: localX, y: height, z: localZ },
       health: 100,
       maxHealth: 100,
-      respawnTime: respawnTicks * 600, // ticks to ms (600ms/tick)
+      respawnTime: respawnTicks * TICK_DURATION_MS,
       harvestable: true,
       requiredLevel,
       scale: 1,

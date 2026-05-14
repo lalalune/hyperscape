@@ -6,7 +6,7 @@
  */
 
 import type { EntityID } from "@hyperforge/shared";
-import { Logger } from "@hyperforge/shared";
+import { Logger, TICK_DURATION_MS } from "@hyperforge/shared";
 
 /**
  * Combat violation severity levels
@@ -723,7 +723,9 @@ export class CombatAntiCheat {
     gameTick: number,
   ): void {
     // Convert ms-based config to ticks for comparison (600ms per tick)
-    const warningCooldownTicks = Math.ceil(this.config.warningCooldownMs / 600);
+    const warningCooldownTicks = Math.ceil(
+      this.config.warningCooldownMs / TICK_DURATION_MS,
+    );
 
     // Check for auto-ban (highest priority)
     if (
