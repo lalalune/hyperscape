@@ -16,9 +16,10 @@
  *     etc) → label table + ellipsis; unknown → "Running NAME…".
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   PROPOSE_ACTIONS,
+  applyProposalToDispatcher,
   applyProposalToPlan,
   getProposeActionDef,
   prettifyToolName,
@@ -351,6 +352,157 @@ describe("applyProposalToPlan — pass-through cases", () => {
     // Generic helper passes through unfiltered — caller must
     // filter when they want strings only.
     expect(next.pluginIds).toEqual(["a", 42, "b"]);
+  });
+});
+
+// ============================================================================
+// dispatcherMethod field + applyProposalToDispatcher
+// ============================================================================
+
+describe("PROPOSE_ACTIONS — dispatcherMethod assignments", () => {
+  /**
+   * The Companion's `AgentPlacementDispatcher` interface declares
+   * exactly these 14 placeX methods. The registry's
+   * dispatcherMethod values must match. A typo / drift here is
+   * silent at runtime (the helper just no-ops) — this test
+   * surfaces the drift.
+   */
+  const VALID_DISPATCHER_METHODS = new Set([
+    "placeNpc",
+    "placeMobSpawn",
+    "placeResource",
+    "placeStation",
+    "placeTeleport",
+    "placeRoad",
+    "placePOI",
+    "placeDangerSource",
+    "placeWaterBody",
+    "placeMusicZone",
+    "placeAmbientZone",
+    "placeSfxTrigger",
+    "placeMine",
+    "placeWildernessBoundary",
+  ]);
+
+  it("every dispatcherMethod value matches a real AgentPlacementDispatcher method", () => {
+    for (const def of PROPOSE_ACTIONS) {
+      if (def.dispatcherMethod === undefined) continue;
+      expect(VALID_DISPATCHER_METHODS.has(def.dispatcherMethod)).toBe(true);
+    }
+  });
+
+  it("every dispatcher method is claimed by exactly one PROPOSE_* action", () => {
+    const claimed = new Set<string>();
+    for (const def of PROPOSE_ACTIONS) {
+      if (def.dispatcherMethod === undefined) continue;
+      expect(claimed.has(def.dispatcherMethod)).toBe(false);
+      claimed.add(def.dispatcherMethod);
+    }
+    expect(claimed.size).toBe(VALID_DISPATCHER_METHODS.size);
+  });
+
+  it("actions without a live dispatch path omit dispatcherMethod", () => {
+    // PROPOSE_TERRAIN_CONFIG / PROPOSE_PLUGIN_SET don't dispatch
+    // live. PROPOSE_QUEST / PROPOSE_ZONE / PROPOSE_ASSET have
+    // other persistence paths.
+    const expectNoDispatcher = [
+      "PROPOSE_TERRAIN_CONFIG",
+      "PROPOSE_PLUGIN_SET",
+      "PROPOSE_QUEST",
+      "PROPOSE_ASSET",
+      "PROPOSE_ZONE",
+    ];
+    for (const name of expectNoDispatcher) {
+      const def = getProposeActionDef(name);
+      expect(def?.dispatcherMethod).toBeUndefined();
+    }
+  });
+});
+
+describe("applyProposalToDispatcher", () => {
+  it("invokes the registry's dispatcherMethod with the payload value", () => {
+    const placeNpc = vi.fn();
+    const placeMobSpawn = vi.fn();
+    const dispatcher = { placeNpc, placeMobSpawn };
+    const dispatched = applyProposalToDispatcher(
+      dispatcher,
+      "PROPOSE_NPC_PLACEMENT",
+      { entity: { id: "n1" } },
+    );
+    expect(dispatched).toBe(true);
+    expect(placeNpc).toHaveBeenCalledWith({ id: "n1" });
+    expect(placeMobSpawn).not.toHaveBeenCalled();
+  });
+
+  it("returns false (no-op) when the action isn't in the registry", () => {
+    const dispatcher = { placeNpc: vi.fn() };
+    const dispatched = applyProposalToDispatcher(
+      dispatcher,
+      "PROPOSE_UNKNOWN",
+      { entity: { id: "n1" } },
+    );
+    expect(dispatched).toBe(false);
+    expect(dispatcher.placeNpc).not.toHaveBeenCalled();
+  });
+
+  it("returns false when the registry entry has no dispatcherMethod", () => {
+    // PROPOSE_QUEST is in the registry but has no dispatcherMethod
+    // (it goes through setAndPersistAgentQuest, not the dispatcher).
+    const dispatcher = { placeNpc: vi.fn() };
+    const dispatched = applyProposalToDispatcher(dispatcher, "PROPOSE_QUEST", {
+      quest: { id: "q1" },
+    });
+    expect(dispatched).toBe(false);
+  });
+
+  it("returns false when the payload is missing the registry's dataKey", () => {
+    const placeNpc = vi.fn();
+    const dispatcher = { placeNpc };
+    const dispatched = applyProposalToDispatcher(
+      dispatcher,
+      "PROPOSE_NPC_PLACEMENT",
+      { npc: { id: "n1" } }, // wrong key — registry says "entity"
+    );
+    expect(dispatched).toBe(false);
+    expect(placeNpc).not.toHaveBeenCalled();
+  });
+
+  it("returns false when the dispatcher is missing the named method", () => {
+    // dispatcher has no placeNpc — the helper bails defensively.
+    const dispatcher = {};
+    const dispatched = applyProposalToDispatcher(
+      dispatcher,
+      "PROPOSE_NPC_PLACEMENT",
+      { entity: { id: "n1" } },
+    );
+    expect(dispatched).toBe(false);
+  });
+
+  it("dispatches each of the 14 placeable actions to its mapped method", () => {
+    const calls: Array<{ method: string; payload: unknown }> = [];
+    const dispatcher = new Proxy(
+      {},
+      {
+        get(_, prop: string) {
+          return (payload: unknown) => calls.push({ method: prop, payload });
+        },
+      },
+    ) as Record<string, unknown>;
+
+    const placeableActions = PROPOSE_ACTIONS.filter(
+      (a) => a.dispatcherMethod !== undefined,
+    );
+    for (const def of placeableActions) {
+      applyProposalToDispatcher(dispatcher, def.name, {
+        [def.dataKey]: { mock: def.name },
+      });
+    }
+
+    expect(calls).toHaveLength(placeableActions.length);
+    for (let i = 0; i < placeableActions.length; i++) {
+      expect(calls[i].method).toBe(placeableActions[i].dispatcherMethod);
+      expect(calls[i].payload).toEqual({ mock: placeableActions[i].name });
+    }
   });
 });
 

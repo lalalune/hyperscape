@@ -53,6 +53,18 @@ export interface ProposeActionDef {
   readonly arity: ProposeArity;
   /** Status label for the agent activity bar (no trailing punctuation). */
   readonly statusLabel: string;
+  /**
+   * Method name on the studio's placement dispatcher that
+   * applies this proposal live (Companion mode). When set, the
+   * Companion's tool-call handler can dispatch generically via
+   * `dispatcher[def.dispatcherMethod](payload)` instead of a
+   * bespoke else-if arm. Omitted for actions whose Companion
+   * handling goes through a different persistence path
+   * (PROPOSE_QUEST / PROPOSE_ZONE write to a different state
+   * slice via setAndPersist*; PROPOSE_TERRAIN_CONFIG /
+   * PROPOSE_PLUGIN_SET don't dispatch live at all).
+   */
+  readonly dispatcherMethod?: string;
 }
 
 /**
@@ -68,6 +80,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "terrainConfig",
     arity: "singleton",
     statusLabel: "Shaping the terrain",
+    // No dispatcherMethod — terrain config doesn't dispatch live.
   },
   {
     name: "PROPOSE_PLUGIN_SET",
@@ -75,6 +88,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "pluginIds",
     arity: "singleton",
     statusLabel: "Picking a plugin set",
+    // No dispatcherMethod — plugin sets aren't placed live.
   },
   {
     name: "PROPOSE_NPC_PLACEMENT",
@@ -82,6 +96,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "npcs",
     arity: "list",
     statusLabel: "Placing an NPC",
+    dispatcherMethod: "placeNpc",
   },
   {
     name: "PROPOSE_MOB_SPAWN",
@@ -89,6 +104,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "mobSpawns",
     arity: "list",
     statusLabel: "Placing a mob spawn",
+    dispatcherMethod: "placeMobSpawn",
   },
   {
     name: "PROPOSE_QUEST",
@@ -96,6 +112,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "quests",
     arity: "list",
     statusLabel: "Authoring a quest",
+    // No dispatcherMethod — quests persist via setAndPersistAgentQuest.
   },
   {
     name: "PROPOSE_ASSET",
@@ -103,6 +120,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "assets",
     arity: "list",
     statusLabel: "Designing a new asset",
+    // No dispatcherMethod — asset bakes fire post-project-create.
   },
   {
     name: "PROPOSE_ZONE",
@@ -110,6 +128,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "zones",
     arity: "list",
     statusLabel: "Carving a zone",
+    // No dispatcherMethod — zones persist via setAndPersistAgentZone.
   },
   {
     name: "PROPOSE_RESOURCE",
@@ -117,6 +136,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "resources",
     arity: "list",
     statusLabel: "Placing a resource",
+    dispatcherMethod: "placeResource",
   },
   {
     name: "PROPOSE_STATION",
@@ -124,6 +144,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "stations",
     arity: "list",
     statusLabel: "Placing a station",
+    dispatcherMethod: "placeStation",
   },
   {
     name: "PROPOSE_TELEPORT",
@@ -131,6 +152,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "teleports",
     arity: "list",
     statusLabel: "Placing a teleport",
+    dispatcherMethod: "placeTeleport",
   },
   {
     name: "PROPOSE_ROAD",
@@ -138,6 +160,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "roads",
     arity: "list",
     statusLabel: "Drawing a road",
+    dispatcherMethod: "placeRoad",
   },
   {
     name: "PROPOSE_POI",
@@ -145,6 +168,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "pois",
     arity: "list",
     statusLabel: "Marking a point of interest",
+    dispatcherMethod: "placePOI",
   },
   {
     name: "PROPOSE_DANGER_SOURCE",
@@ -152,6 +176,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "dangerSources",
     arity: "list",
     statusLabel: "Adding a danger zone",
+    dispatcherMethod: "placeDangerSource",
   },
   {
     name: "PROPOSE_WATER_BODY",
@@ -159,6 +184,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "waterBodies",
     arity: "list",
     statusLabel: "Placing a water body",
+    dispatcherMethod: "placeWaterBody",
   },
   {
     name: "PROPOSE_MUSIC_ZONE",
@@ -166,6 +192,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "musicZones",
     arity: "list",
     statusLabel: "Defining a music zone",
+    dispatcherMethod: "placeMusicZone",
   },
   {
     name: "PROPOSE_AMBIENT_ZONE",
@@ -173,6 +200,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "ambientZones",
     arity: "list",
     statusLabel: "Defining an ambient zone",
+    dispatcherMethod: "placeAmbientZone",
   },
   {
     name: "PROPOSE_SFX_TRIGGER",
@@ -180,6 +208,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "sfxTriggers",
     arity: "list",
     statusLabel: "Placing a sound trigger",
+    dispatcherMethod: "placeSfxTrigger",
   },
   {
     name: "PROPOSE_MINE",
@@ -187,6 +216,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "mines",
     arity: "list",
     statusLabel: "Marking a mining area",
+    dispatcherMethod: "placeMine",
   },
   {
     name: "PROPOSE_WILDERNESS_BOUNDARY",
@@ -194,6 +224,7 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "wildernessBoundary",
     arity: "singleton",
     statusLabel: "Drawing the wilderness boundary",
+    dispatcherMethod: "placeWildernessBoundary",
   },
 ];
 
@@ -285,6 +316,41 @@ export function prettifyToolName(name: string): string {
  * own switch arms in the caller — this helper handles the
  * 18 actions that follow the dataKey→planField pattern.
  */
+/**
+ * Live-dispatch variant of `applyProposalToPlan` for the
+ * Companion. Looks up the registry entry's `dispatcherMethod`
+ * and invokes it on the supplied dispatcher with the payload
+ * value at the registry's `dataKey`.
+ *
+ * Returns `true` when the action was dispatched, `false`
+ * otherwise (caller can then fall through to its bespoke
+ * else-if chain for actions that aren't in the registry,
+ * don't have a `dispatcherMethod`, or have a missing payload
+ * field).
+ *
+ * Uses indexed property access on the dispatcher object —
+ * each registry entry's `dispatcherMethod` value MUST match a
+ * real method name on `AgentPlacementDispatcher`. The
+ * proposeActionRegistry tests pin this contract against an
+ * inline list of expected dispatcher methods, so a typo in
+ * the registry surfaces as a test failure rather than a
+ * runtime no-op.
+ */
+export function applyProposalToDispatcher(
+  dispatcher: Record<string, unknown>,
+  name: string,
+  data: Record<string, unknown>,
+): boolean {
+  const def = getProposeActionDef(name);
+  if (!def || !def.dispatcherMethod) return false;
+  const value = data[def.dataKey];
+  if (value === undefined) return false;
+  const method = dispatcher[def.dispatcherMethod];
+  if (typeof method !== "function") return false;
+  (method as (v: unknown) => void).call(dispatcher, value);
+  return true;
+}
+
 export function applyProposalToPlan<TPlan extends object>(
   plan: TPlan,
   name: string,

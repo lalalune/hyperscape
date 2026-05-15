@@ -47,7 +47,10 @@ import {
 } from "../state/agentWorldContent";
 import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatcher";
 import { buildTerrainSummary } from "../utils/buildTerrainSummary";
-import { prettifyToolName } from "../utils/proposeActionRegistry";
+import {
+  applyProposalToDispatcher,
+  prettifyToolName,
+} from "../utils/proposeActionRegistry";
 import { generateWorldFromConfig } from "../../WorldBuilder/worldGeneration";
 import {
   HYPERIA_CREATION_CONFIG,
@@ -56,22 +59,10 @@ import {
 import { serializeWorld } from "../../WorldBuilder/utils/worldPersistence";
 import { saveWorldProject } from "../../../utils/worldProjectApi";
 import { mergeProcgenConfig } from "../utils/mergeProcgenConfig";
-import type {
-  WorldAreaDangerSource,
-  WorldAreaMobSpawn,
-  WorldAreaNPC,
-  WorldAreaPOI,
-  WorldAreaResource,
-  WorldAreaRoad,
-  WorldAreaStation,
-  WorldAreaTeleportNode,
-  WorldAreaWaterBody,
-  WorldAreaMusicZone,
-  WorldAreaAmbientZone,
-  WorldAreaSFXTrigger,
-  WorldAreaMine,
-  WorldAreaWildernessBoundary,
-} from "@hyperforge/manifest-schema";
+// WorldArea* type imports dropped — Phase 1.3 third cut moved
+// the per-action dispatcher casts into `applyProposalToDispatcher`
+// in the registry, where the payload flows through as `unknown`
+// and the dispatcher's own method signatures own the typing.
 import {
   kickoffAssetGeneration,
   type AgentAssetProposal,
@@ -406,19 +397,22 @@ function CompanionInner({ projectId }: { projectId: string }) {
             );
           }
         } else if (
-          call.name === "PROPOSE_NPC_PLACEMENT" &&
-          data.entity !== undefined
+          applyProposalToDispatcher(
+            placementDispatcher as unknown as Record<string, unknown>,
+            call.name,
+            data,
+          )
         ) {
-          // P0.3 — dispatch through the studio reducer instead of
-          // the parallel agentWorldContent store. Auto-saved to
-          // the project via useAutoSave; no explicit persistence
-          // call needed.
-          placementDispatcher.placeNpc(data.entity as WorldAreaNPC);
-        } else if (
-          call.name === "PROPOSE_MOB_SPAWN" &&
-          data.spawn !== undefined
-        ) {
-          placementDispatcher.placeMobSpawn(data.spawn as WorldAreaMobSpawn);
+          // Phase 1.3 third cut: 14 placement-dispatcher else-if
+          // arms collapsed into one registry-driven dispatch.
+          // Covers PROPOSE_NPC_PLACEMENT / MOB_SPAWN / STATION /
+          // TELEPORT / RESOURCE / ROAD / POI / DANGER_SOURCE /
+          // WATER_BODY / MUSIC_ZONE / AMBIENT_ZONE / SFX_TRIGGER
+          // / MINE / WILDERNESS_BOUNDARY — see
+          // `proposeActionRegistry.ts` for the action→method
+          // mapping. PROPOSE_QUEST / PROPOSE_ZONE have separate
+          // persistence paths (state slices live outside the
+          // studio reducer) so they stay below as bespoke arms.
         } else if (call.name === "PROPOSE_QUEST" && data.quest !== undefined) {
           // Quests live in worldContent (separate from extendedLayers).
           // Keep the legacy persistence path until P0.6 unifies.
@@ -426,71 +420,6 @@ function CompanionInner({ projectId }: { projectId: string }) {
         } else if (call.name === "PROPOSE_ZONE" && data.zone !== undefined) {
           // Zones likewise — separate state slice from extendedLayers.
           void setAndPersistAgentZone(projectId, data.zone);
-        } else if (
-          call.name === "PROPOSE_STATION" &&
-          data.station !== undefined
-        ) {
-          placementDispatcher.placeStation(data.station as WorldAreaStation);
-        } else if (
-          call.name === "PROPOSE_TELEPORT" &&
-          data.teleport !== undefined
-        ) {
-          placementDispatcher.placeTeleport(
-            data.teleport as WorldAreaTeleportNode,
-          );
-        } else if (
-          call.name === "PROPOSE_RESOURCE" &&
-          data.resource !== undefined
-        ) {
-          placementDispatcher.placeResource(data.resource as WorldAreaResource);
-        } else if (call.name === "PROPOSE_ROAD" && data.road !== undefined) {
-          placementDispatcher.placeRoad(data.road as WorldAreaRoad);
-        } else if (call.name === "PROPOSE_POI" && data.poi !== undefined) {
-          placementDispatcher.placePOI(data.poi as WorldAreaPOI);
-        } else if (
-          call.name === "PROPOSE_DANGER_SOURCE" &&
-          data.dangerSource !== undefined
-        ) {
-          placementDispatcher.placeDangerSource(
-            data.dangerSource as WorldAreaDangerSource,
-          );
-        } else if (
-          call.name === "PROPOSE_WATER_BODY" &&
-          data.waterBody !== undefined
-        ) {
-          placementDispatcher.placeWaterBody(
-            data.waterBody as WorldAreaWaterBody,
-          );
-        } else if (
-          call.name === "PROPOSE_MUSIC_ZONE" &&
-          data.musicZone !== undefined
-        ) {
-          placementDispatcher.placeMusicZone(
-            data.musicZone as WorldAreaMusicZone,
-          );
-        } else if (
-          call.name === "PROPOSE_AMBIENT_ZONE" &&
-          data.ambientZone !== undefined
-        ) {
-          placementDispatcher.placeAmbientZone(
-            data.ambientZone as WorldAreaAmbientZone,
-          );
-        } else if (
-          call.name === "PROPOSE_SFX_TRIGGER" &&
-          data.sfxTrigger !== undefined
-        ) {
-          placementDispatcher.placeSfxTrigger(
-            data.sfxTrigger as WorldAreaSFXTrigger,
-          );
-        } else if (call.name === "PROPOSE_MINE" && data.mine !== undefined) {
-          placementDispatcher.placeMine(data.mine as WorldAreaMine);
-        } else if (
-          call.name === "PROPOSE_WILDERNESS_BOUNDARY" &&
-          data.wildernessBoundary !== undefined
-        ) {
-          placementDispatcher.placeWildernessBoundary(
-            data.wildernessBoundary as WorldAreaWildernessBoundary,
-          );
         } else if (
           call.name === "REMOVE_FROM_PROJECT" &&
           data.removal !== undefined
