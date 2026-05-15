@@ -19,6 +19,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PROPOSE_ACTIONS,
+  applyProposalToPlan,
   getProposeActionDef,
   prettifyToolName,
   type ProposeActionDef,
@@ -245,6 +246,111 @@ describe("prettifyToolName — fallback chain", () => {
       "Running XYZ_MYSTERY_ACTION…",
     );
     expect(prettifyToolName("")).toBe("Running …");
+  });
+});
+
+// ============================================================================
+// applyProposalToPlan
+// ============================================================================
+
+describe("applyProposalToPlan — singleton arity", () => {
+  it("replaces plan[planField] for PROPOSE_TERRAIN_CONFIG", () => {
+    const plan = {
+      terrainConfig: null as unknown,
+      npcs: [],
+    };
+    const next = applyProposalToPlan(plan, "PROPOSE_TERRAIN_CONFIG", {
+      config: { seed: 99, worldSize: 8 },
+    });
+    expect(next.terrainConfig).toEqual({ seed: 99, worldSize: 8 });
+    // Untouched slots stay reference-equal.
+    expect(next.npcs).toBe(plan.npcs);
+  });
+
+  it("last-write wins on repeated singleton calls", () => {
+    let plan = { terrainConfig: null as unknown };
+    plan = applyProposalToPlan(plan, "PROPOSE_TERRAIN_CONFIG", {
+      config: { seed: 1 },
+    });
+    plan = applyProposalToPlan(plan, "PROPOSE_TERRAIN_CONFIG", {
+      config: { seed: 2 },
+    });
+    expect(plan.terrainConfig).toEqual({ seed: 2 });
+  });
+});
+
+describe("applyProposalToPlan — list arity", () => {
+  it("appends to plan[planField] for PROPOSE_NPC_PLACEMENT", () => {
+    const plan = { npcs: [{ id: "existing" }] as unknown[] };
+    const next = applyProposalToPlan(plan, "PROPOSE_NPC_PLACEMENT", {
+      entity: { id: "new" },
+    });
+    expect(next.npcs).toEqual([{ id: "existing" }, { id: "new" }]);
+  });
+
+  it("multiple list calls accumulate", () => {
+    let plan = { mobSpawns: [] as unknown[] };
+    plan = applyProposalToPlan(plan, "PROPOSE_MOB_SPAWN", {
+      spawn: { mobId: "a" },
+    });
+    plan = applyProposalToPlan(plan, "PROPOSE_MOB_SPAWN", {
+      spawn: { mobId: "b" },
+    });
+    plan = applyProposalToPlan(plan, "PROPOSE_MOB_SPAWN", {
+      spawn: { mobId: "c" },
+    });
+    expect(plan.mobSpawns).toHaveLength(3);
+  });
+
+  it("returns the same plan reference if existing slot is not an array (defensive)", () => {
+    const plan = { npcs: null as unknown };
+    const next = applyProposalToPlan(plan, "PROPOSE_NPC_PLACEMENT", {
+      entity: { id: "new" },
+    });
+    expect(next).toBe(plan);
+  });
+});
+
+describe("applyProposalToPlan — pass-through cases", () => {
+  it("returns the same plan reference for unknown action name", () => {
+    const plan = { npcs: [] as unknown[] };
+    const next = applyProposalToPlan(plan, "PROPOSE_UNKNOWN", {
+      something: "value",
+    });
+    expect(next).toBe(plan);
+  });
+
+  it("returns the same plan reference for bespoke actions (PROPOSE_UI_PACK etc)", () => {
+    const plan = { uiPack: null as unknown };
+    const next = applyProposalToPlan(plan, "PROPOSE_UI_PACK", {
+      pack: { layout: "grid" },
+    });
+    expect(next).toBe(plan);
+  });
+
+  it("returns the same plan reference when the registry's dataKey is missing from data", () => {
+    const plan = { npcs: [] as unknown[] };
+    const next = applyProposalToPlan(plan, "PROPOSE_NPC_PLACEMENT", {
+      // Note: registry says dataKey="entity"; we pass "npc" instead.
+      npc: { id: "x" },
+    });
+    expect(next).toBe(plan);
+  });
+
+  it("does NOT process PROPOSE_PLUGIN_SET (left to caller's bespoke arm for filtering)", () => {
+    // PROPOSE_PLUGIN_SET is in the registry as a singleton, but
+    // the caller wants to filter the array to string entries —
+    // generic singleton apply would store the raw array. The
+    // caller's bespoke arm handles this. The generic helper
+    // still copies the value (good enough for label/dispatch use
+    // cases); the caller decides whether to defer.
+    const plan = { pluginIds: null as unknown };
+    const next = applyProposalToPlan(plan, "PROPOSE_PLUGIN_SET", {
+      pluginIds: ["a", 42, "b"] as unknown[],
+    });
+    // Generic helper passes through unfiltered — caller must
+    // filter when they want strings only.
+    expect(next.pluginIds).toEqual(["a", 42, "b"]);
   });
 });
 

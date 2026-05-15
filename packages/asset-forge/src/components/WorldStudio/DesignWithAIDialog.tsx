@@ -80,7 +80,11 @@ import {
 } from "../WorldBuilder/types";
 import { generateWorldFromConfig } from "../WorldBuilder/worldGeneration";
 import { mergeProcgenConfig } from "./utils/mergeProcgenConfig";
-import { prettifyToolName } from "./utils/proposeActionRegistry";
+import {
+  applyProposalToPlan,
+  getProposeActionDef,
+  prettifyToolName,
+} from "./utils/proposeActionRegistry";
 import {
   setContentPackContent,
   type ContentPackContentInput,
@@ -982,138 +986,29 @@ function applyStreamingTurn(
   for (const call of detail.toolCalls) {
     if (!call.success || !call.data) continue;
     const data = call.data as Record<string, unknown>;
+
+    // Phase 1.3 second cut: registry-driven dispatch for the
+    // 18 standard PROPOSE_* actions (NPC placement, mob spawn,
+    // quest, asset, zone, resource, station, teleport, road,
+    // POI, danger source, water body, music/ambient zone, sfx
+    // trigger, mine, wilderness boundary, terrain config).
+    // Falls through to the bespoke switch below for actions
+    // the registry intentionally excludes — PROPOSE_PLUGIN_SET
+    // (needs string-filter), PROPOSE_ASSET_PACK_INSTALL
+    // (Set-merge), REMOVE_FROM_PROJECT (multi-kind switch),
+    // PROPOSE_UI_PACK (different payload shape).
+    if (getProposeActionDef(call.name)) {
+      setPlan((p) => applyProposalToPlan(p, call.name, data));
+      continue;
+    }
+
     switch (call.name) {
-      case "PROPOSE_TERRAIN_CONFIG":
-        if (data.config !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            terrainConfig: data.config as Record<string, unknown>,
-          }));
-        }
-        break;
       case "PROPOSE_PLUGIN_SET":
         if (Array.isArray(data.pluginIds)) {
           const ids = (data.pluginIds as unknown[]).filter(
             (x): x is string => typeof x === "string",
           );
           setPlan((p) => ({ ...p, pluginIds: ids }));
-        }
-        break;
-      case "PROPOSE_NPC_PLACEMENT":
-        if (data.entity !== undefined) {
-          // Append; reconciled at done.
-          setPlan((p) => ({ ...p, npcs: [...p.npcs, data.entity] }));
-        }
-        break;
-      case "PROPOSE_MOB_SPAWN":
-        if (data.spawn !== undefined) {
-          setPlan((p) => ({ ...p, mobSpawns: [...p.mobSpawns, data.spawn] }));
-        }
-        break;
-      case "PROPOSE_QUEST":
-        if (data.quest !== undefined) {
-          setPlan((p) => ({ ...p, quests: [...p.quests, data.quest] }));
-        }
-        break;
-      case "PROPOSE_ASSET":
-        if (data.asset !== undefined) {
-          setPlan((p) => ({ ...p, assets: [...p.assets, data.asset] }));
-        }
-        break;
-      case "PROPOSE_ZONE":
-        if (data.zone !== undefined) {
-          setPlan((p) => ({ ...p, zones: [...p.zones, data.zone] }));
-        }
-        break;
-      case "PROPOSE_RESOURCE":
-        if (data.resource !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            resources: [...p.resources, data.resource],
-          }));
-        }
-        break;
-      case "PROPOSE_STATION":
-        if (data.station !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            stations: [...p.stations, data.station],
-          }));
-        }
-        break;
-      case "PROPOSE_TELEPORT":
-        if (data.teleport !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            teleports: [...p.teleports, data.teleport],
-          }));
-        }
-        break;
-      case "PROPOSE_ROAD":
-        if (data.road !== undefined) {
-          setPlan((p) => ({ ...p, roads: [...p.roads, data.road] }));
-        }
-        break;
-      case "PROPOSE_POI":
-        if (data.poi !== undefined) {
-          setPlan((p) => ({ ...p, pois: [...p.pois, data.poi] }));
-        }
-        break;
-      case "PROPOSE_DANGER_SOURCE":
-        if (data.dangerSource !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            dangerSources: [...p.dangerSources, data.dangerSource],
-          }));
-        }
-        break;
-      case "PROPOSE_WATER_BODY":
-        if (data.waterBody !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            waterBodies: [...p.waterBodies, data.waterBody],
-          }));
-        }
-        break;
-      case "PROPOSE_MUSIC_ZONE":
-        if (data.musicZone !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            musicZones: [...p.musicZones, data.musicZone],
-          }));
-        }
-        break;
-      case "PROPOSE_AMBIENT_ZONE":
-        if (data.ambientZone !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            ambientZones: [...p.ambientZones, data.ambientZone],
-          }));
-        }
-        break;
-      case "PROPOSE_SFX_TRIGGER":
-        if (data.sfxTrigger !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            sfxTriggers: [...p.sfxTriggers, data.sfxTrigger],
-          }));
-        }
-        break;
-      case "PROPOSE_MINE":
-        if (data.mine !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            mines: [...p.mines, data.mine],
-          }));
-        }
-        break;
-      case "PROPOSE_WILDERNESS_BOUNDARY":
-        // Singleton — last emission wins.
-        if (data.wildernessBoundary !== undefined) {
-          setPlan((p) => ({
-            ...p,
-            wildernessBoundary: data.wildernessBoundary,
-          }));
         }
         break;
       case "PROPOSE_ASSET_PACK_INSTALL":

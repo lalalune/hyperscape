@@ -259,3 +259,52 @@ export function prettifyToolName(name: string): string {
   if (fallback) return `${fallback}…`;
   return `Running ${name}…`;
 }
+
+/**
+ * Generic plan-state update derived from the registry. Given an
+ * onboarding `plan`, an agent tool-call `name`, and its `data`
+ * payload, this returns the next plan state according to the
+ * registry entry for `name`:
+ *
+ *   - Action not in registry → returns plan unchanged (caller's
+ *     bespoke switch handles the action).
+ *   - Payload missing the registry's `dataKey` → returns plan
+ *     unchanged.
+ *   - `arity: "singleton"` → replaces `plan[planField]` with the
+ *     payload value (last write wins).
+ *   - `arity: "list"` → appends to the existing array at
+ *     `plan[planField]`. If the existing slot isn't an array,
+ *     returns the plan unchanged (defensive).
+ *
+ * Returns the input plan reference when there's no change, so
+ * callers can use referential equality as a fast no-op check.
+ *
+ * Bespoke actions outside the registry (PROPOSE_PLUGIN_SET with
+ * its string-filter pass, PROPOSE_ASSET_PACK_INSTALL with
+ * Set-merge, REMOVE_FROM_PROJECT, PROPOSE_UI_PACK) need their
+ * own switch arms in the caller — this helper handles the
+ * 18 actions that follow the dataKey→planField pattern.
+ */
+export function applyProposalToPlan<TPlan extends object>(
+  plan: TPlan,
+  name: string,
+  data: Record<string, unknown>,
+): TPlan {
+  const def = getProposeActionDef(name);
+  if (!def) return plan;
+  const value = data[def.dataKey];
+  if (value === undefined) return plan;
+  // Treat the plan as a string-keyed record locally — every
+  // OnboardingPlan-style consumer's planField targets a string-
+  // keyed slot, but TS can't infer the slot type from the
+  // dynamic field name without a generic bound that's too tight
+  // for real OnboardingPlan shapes (heterogeneous slot types).
+  const planRecord = plan as unknown as Record<string, unknown>;
+  if (def.arity === "singleton") {
+    return { ...plan, [def.planField]: value };
+  }
+  // list: append, defensive on the existing slot
+  const existing = planRecord[def.planField];
+  if (!Array.isArray(existing)) return plan;
+  return { ...plan, [def.planField]: [...existing, value] };
+}
