@@ -26,7 +26,8 @@ import React, {
   useState,
   useMemo,
 } from "react";
-import { MeshBasicNodeMaterial } from "three/webgpu";
+// MeshBasicNodeMaterial moved to `hooks/setupWildernessOverlay.ts`
+// and `hooks/useSelectionOutline.ts` (Phase 1.1 carves 5 and 6).
 // TSL post-processing (pass, fxaa, bloom) now lives inside ViewportRenderLoop.
 
 import { useCameraControls } from "./useCameraControls";
@@ -106,6 +107,7 @@ import {
   disposeWildernessOverlay,
   type WildernessOverlay,
 } from "./hooks/setupWildernessOverlay";
+import { useSelectionOutline } from "./hooks/useSelectionOutline";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
 import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
@@ -811,9 +813,19 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   const selectableObjectsRef = useRef<THREE.Object3D[]>([]);
 
   // Selection highlighting
-  const selectionOutlineRef = useRef<THREE.Mesh | null>(null);
   /** Track which selectable has labels shown due to being selected */
   const selectedLabelRef = useRef<THREE.Object3D | null>(null);
+  // Selection outline owned by `useSelectionOutline` (Phase 1.1
+  // sixth carve from the monolith). Hook owns the wireframe-box
+  // mesh lifecycle + label visibility toggle on the prior /
+  // current selection. The animation loop still reads
+  // `selectedLabelRef` directly each frame for label
+  // screen-space sizing.
+  const { selectionOutlineRef: _selectionOutlineRef } = useSelectionOutline({
+    selectedId,
+    hostRefs: { sceneRef, selectableObjectsRef, selectedLabelRef },
+  });
+  void _selectionOutlineRef;
 
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -4355,93 +4367,11 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     }
   }, [dangerSources]);
 
-  // Selection highlighting effect
-  useEffect(() => {
-    const scene = sceneRef.current;
-
-    // Hide labels from previously selected entity
-    if (selectedLabelRef.current) {
-      for (const child of selectedLabelRef.current.children) {
-        if (child.userData?.isLabel) child.visible = false;
-      }
-      selectedLabelRef.current = null;
-    }
-
-    if (!scene || !selectedId) {
-      // Remove existing selection outline
-      if (selectionOutlineRef.current) {
-        scene?.remove(selectionOutlineRef.current);
-        selectionOutlineRef.current.geometry.dispose();
-        if (selectionOutlineRef.current.material instanceof THREE.Material) {
-          selectionOutlineRef.current.material.dispose();
-        }
-        selectionOutlineRef.current = null;
-      }
-      return;
-    }
-
-    // Find the selected object
-    const selectedObject = selectableObjectsRef.current.find(
-      (obj) => obj.userData.selectableId === selectedId,
-    );
-
-    if (selectedObject) {
-      // Show labels for selected entity (UE5 style)
-      for (const child of selectedObject.children) {
-        if (child.userData?.isLabel) child.visible = true;
-      }
-      selectedLabelRef.current = selectedObject;
-
-      // Remove existing outline
-      if (selectionOutlineRef.current) {
-        scene.remove(selectionOutlineRef.current);
-        selectionOutlineRef.current.geometry.dispose();
-        if (selectionOutlineRef.current.material instanceof THREE.Material) {
-          selectionOutlineRef.current.material.dispose();
-        }
-      }
-
-      // Create outline based on object's bounding box (works for Groups and Meshes)
-      const box = new THREE.Box3().setFromObject(selectedObject);
-      if (box.isEmpty()) return;
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-
-      // Padding scales with object size for entities vs buildings
-      const padding = Math.min(size.length() * 0.15, 2);
-
-      // Create a wireframe box as selection indicator
-      const outlineGeometry = new THREE.BoxGeometry(
-        size.x + padding,
-        size.y + padding,
-        size.z + padding,
-      );
-      const outlineMaterial = new MeshBasicNodeMaterial();
-      outlineMaterial.color = new THREE.Color(0x4fc3f7); // Light blue (UE5-style)
-      outlineMaterial.wireframe = true;
-      outlineMaterial.transparent = true;
-      outlineMaterial.opacity = 0.9;
-      outlineMaterial.depthTest = false;
-      const outline = new THREE.Mesh(outlineGeometry, outlineMaterial);
-      outline.position.copy(center);
-      outline.renderOrder = 999; // Render on top
-
-      scene.add(outline);
-      selectionOutlineRef.current = outline;
-    }
-
-    return () => {
-      // Cleanup on unmount or selectedId change
-      if (selectionOutlineRef.current && scene) {
-        scene.remove(selectionOutlineRef.current);
-        selectionOutlineRef.current.geometry.dispose();
-        if (selectionOutlineRef.current.material instanceof THREE.Material) {
-          selectionOutlineRef.current.material.dispose();
-        }
-        selectionOutlineRef.current = null;
-      }
-    };
-  }, [selectedId]);
+  // Selection-outline effect was extracted to `useSelectionOutline`
+  // (Phase 1.1 sixth carve from the monolith). The hook is
+  // installed near the top of the component alongside other
+  // hooks; the animation loop still reads `selectedLabelRef`
+  // directly for label screen-space sizing.
 
   // Hover detection for tooltip + UE5-style label visibility
   // Throttled to max ~15fps to avoid expensive raycasts on every mousemove
