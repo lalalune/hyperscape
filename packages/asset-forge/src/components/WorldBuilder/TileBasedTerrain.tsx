@@ -112,6 +112,7 @@ import { useMarkDirtyTilesOnArrayChange } from "./hooks/useMarkDirtyTilesOnArray
 import { useWaterThresholdSync } from "./hooks/useWaterThresholdSync";
 import { useMaxHeightRescale } from "./hooks/useMaxHeightRescale";
 import { useStandaloneGrass } from "./hooks/useStandaloneGrass";
+import { useRegenerateFoliageOnPaintChange } from "./hooks/useRegenerateFoliageOnPaintChange";
 import { animateFocusToPosition } from "./hooks/animateFocusToPosition";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
@@ -4062,27 +4063,23 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   // from generateTile / unloadTile / regenerateTileInPlace /
   // the animation loop / the destroy path.
 
-  // Phase 7: Regenerate foliage when foliage paint strokes change
+  // Foliage paint-stroke regen owned by
+  // `useRegenerateFoliageOnPaintChange` (Phase 1.1 twelfth carve).
+  // Re-fires when paint strokes are added / removed (count
+  // changes), tile size changes, or water threshold changes.
   const foliagePaintCount = brushOverlays?.foliagePaints?.length ?? 0;
-  useEffect(() => {
-    const mgr = foliageManagerRef.current;
-    const querier = terrainQuerierRef.current;
-    if (!mgr || !querier) return;
-
-    // Clear all foliage and reschedule loaded tiles
-    mgr.clearAll();
-    for (const [, tileData] of tilesRef.current) {
-      mgr.scheduleTile({
-        tileX: tileData.tileX,
-        tileZ: tileData.tileZ,
-        tileSize,
-        worldSeed: configSeedRef.current,
-        querier,
-        waterThreshold,
-        foliagePaints: brushOverlaysRef.current?.foliagePaints,
-      });
-    }
-  }, [foliagePaintCount, tileSize, waterThreshold]);
+  useRegenerateFoliageOnPaintChange({
+    foliagePaintCount,
+    tileSize,
+    waterThreshold,
+    refs: {
+      foliageManagerRef,
+      terrainQuerierRef,
+      tilesRef,
+      configSeedRef,
+      brushOverlaysRef,
+    },
+  });
 
   // Regenerate terrain when config changes — marks existing tiles dirty for
   // incremental in-place regeneration instead of unloading everything.
