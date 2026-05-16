@@ -113,6 +113,7 @@ import { useWaterThresholdSync } from "./hooks/useWaterThresholdSync";
 import { useMaxHeightRescale } from "./hooks/useMaxHeightRescale";
 import { useStandaloneGrass } from "./hooks/useStandaloneGrass";
 import { useRegenerateFoliageOnPaintChange } from "./hooks/useRegenerateFoliageOnPaintChange";
+import { useHeatmapBindings } from "./hooks/useHeatmapBindings";
 import { animateFocusToPosition } from "./hooks/animateFocusToPosition";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
@@ -4245,17 +4246,14 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     }
   }, [showVegetation]);
 
-  // Toggle difficulty heatmap visibility
-  useEffect(() => {
-    heatmapManagerRef.current?.setVisible(showDifficultyHeatmap);
-  }, [showDifficultyHeatmap]);
-
-  // Feed danger sources to heatmap manager
-  useEffect(() => {
-    if (heatmapManagerRef.current && dangerSources) {
-      heatmapManagerRef.current.setDangerSources(dangerSources);
-    }
-  }, [dangerSources]);
+  // Heatmap visibility + danger source bindings owned by
+  // `useHeatmapBindings` (Phase 1.1 thirteenth carve — see
+  // `hooks/useHeatmapBindings.ts`).
+  useHeatmapBindings({
+    showDifficultyHeatmap,
+    dangerSources,
+    heatmapManagerRef,
+  });
 
   // Selection-outline effect was extracted to `useSelectionOutline`
   // (Phase 1.1 sixth carve from the monolith). The hook is
