@@ -49,6 +49,7 @@ import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatche
 import { buildTerrainSummary } from "../utils/buildTerrainSummary";
 import {
   applyProposalToDispatcher,
+  getProposeActionDef,
   prettifyToolName,
 } from "../utils/proposeActionRegistry";
 import { generateWorldFromConfig } from "../../WorldBuilder/worldGeneration";
@@ -1216,63 +1217,32 @@ function summarizeToolCalls(
 ): ReadonlyArray<{ icon: string; label: string }> {
   const out: Array<{ icon: string; label: string }> = [];
   for (const [name, count] of tally) {
-    const summary = TOOL_BREADCRUMB_SUMMARY[name];
-    if (!summary) continue;
-    out.push({ icon: summary.icon, label: summary.label(count) });
+    // Standard PROPOSE_* actions: read icon + breadcrumb label
+    // from the registry (Phase 1.3 follow-up). Drift-proof against
+    // future R4.P8-style additions — declaring a new PROPOSE_* in
+    // the registry automatically gets it a breadcrumb chip.
+    const def = getProposeActionDef(name);
+    if (def) {
+      out.push({ icon: def.icon, label: def.breadcrumbLabel(count) });
+      continue;
+    }
+    const bespoke = BESPOKE_BREADCRUMB_SUMMARY[name];
+    if (bespoke) {
+      out.push({ icon: bespoke.icon, label: bespoke.label(count) });
+    }
   }
   return out;
 }
 
-const TOOL_BREADCRUMB_SUMMARY: Record<
+/**
+ * Bespoke actions not in the registry — same icon/label shape
+ * but handled here because their dispatch semantics don't fit
+ * the registry's dataKey/arity/dispatcherMethod model.
+ */
+const BESPOKE_BREADCRUMB_SUMMARY: Record<
   string,
   { icon: string; label: (count: number) => string }
 > = {
-  PROPOSE_TERRAIN_CONFIG: { icon: "🗺️", label: () => "Shaped the terrain" },
-  PROPOSE_PLUGIN_SET: { icon: "🧩", label: () => "Picked plugins" },
-  PROPOSE_NPC_PLACEMENT: {
-    icon: "👤",
-    label: (n) => `Placed ${n} NPC${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_MOB_SPAWN: {
-    icon: "⚔️",
-    label: (n) => `Placed ${n} mob spawn${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_QUEST: {
-    icon: "📜",
-    label: (n) => `Wrote ${n} quest${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_ZONE: {
-    icon: "🌍",
-    label: (n) => `Carved ${n} zone${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_RESOURCE: {
-    icon: "🪵",
-    label: (n) => `Placed ${n} resource${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_STATION: {
-    icon: "🛠️",
-    label: (n) => `Placed ${n} station${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_TELEPORT: {
-    icon: "🌀",
-    label: (n) => `Placed ${n} teleport${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_ROAD: {
-    icon: "🛣️",
-    label: (n) => `Drew ${n} road${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_POI: {
-    icon: "📍",
-    label: (n) => `Marked ${n} POI${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_DANGER_SOURCE: {
-    icon: "⚠️",
-    label: (n) => `Added ${n} danger source${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_ASSET: {
-    icon: "✨",
-    label: (n) => `Queued ${n} asset bake${n === 1 ? "" : "s"}`,
-  },
   PROPOSE_UI_PACK: { icon: "🎛️", label: () => "Designed the HUD" },
   REMOVE_FROM_PROJECT: {
     icon: "🗑️",

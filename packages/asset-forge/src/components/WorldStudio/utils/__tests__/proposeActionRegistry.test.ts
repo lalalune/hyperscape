@@ -506,6 +506,74 @@ describe("applyProposalToDispatcher", () => {
   });
 });
 
+// ============================================================================
+// icon + breadcrumbLabel coverage
+// ============================================================================
+
+describe("PROPOSE_ACTIONS — icon + breadcrumbLabel fields", () => {
+  it("every entry has a non-empty icon (emoji) and a breadcrumbLabel fn", () => {
+    for (const def of PROPOSE_ACTIONS) {
+      expect(typeof def.icon).toBe("string");
+      expect(def.icon.length).toBeGreaterThan(0);
+      expect(typeof def.breadcrumbLabel).toBe("function");
+    }
+  });
+
+  it("icons are unique across the registry (avoid visual ambiguity)", () => {
+    const seen = new Set<string>();
+    for (const def of PROPOSE_ACTIONS) {
+      expect(seen.has(def.icon)).toBe(false);
+      seen.add(def.icon);
+    }
+  });
+
+  it("breadcrumbLabel pluralizes correctly: n=1 singular, n=2+ plural", () => {
+    const def = PROPOSE_ACTIONS.find(
+      (a) => a.name === "PROPOSE_NPC_PLACEMENT",
+    )!;
+    expect(def.breadcrumbLabel(1)).toBe("Placed 1 NPC");
+    expect(def.breadcrumbLabel(3)).toBe("Placed 3 NPCs");
+  });
+
+  it("breadcrumbLabel handles irregular plural for 'water body' (-ies)", () => {
+    const def = PROPOSE_ACTIONS.find((a) => a.name === "PROPOSE_WATER_BODY")!;
+    expect(def.breadcrumbLabel(1)).toBe("Placed 1 water body");
+    expect(def.breadcrumbLabel(2)).toBe("Placed 2 water bodies");
+  });
+
+  it("singleton actions ignore the count argument", () => {
+    const terrain = PROPOSE_ACTIONS.find(
+      (a) => a.name === "PROPOSE_TERRAIN_CONFIG",
+    )!;
+    expect(terrain.breadcrumbLabel(1)).toBe("Shaped the terrain");
+    expect(terrain.breadcrumbLabel(99)).toBe("Shaped the terrain");
+
+    const wilderness = PROPOSE_ACTIONS.find(
+      (a) => a.name === "PROPOSE_WILDERNESS_BOUNDARY",
+    )!;
+    expect(wilderness.breadcrumbLabel(5)).toBe("Drew the wilderness boundary");
+  });
+
+  it("covers all R4.P8 actions (water/music/ambient/sfx/mine/wilderness) — the drift fixed in this cut", () => {
+    const required = [
+      "PROPOSE_WATER_BODY",
+      "PROPOSE_MUSIC_ZONE",
+      "PROPOSE_AMBIENT_ZONE",
+      "PROPOSE_SFX_TRIGGER",
+      "PROPOSE_MINE",
+      "PROPOSE_WILDERNESS_BOUNDARY",
+    ];
+    for (const name of required) {
+      const def = getProposeActionDef(name);
+      expect(def).toBeDefined();
+      expect(def!.icon.length).toBeGreaterThan(0);
+      expect(typeof def!.breadcrumbLabel).toBe("function");
+      // breadcrumbLabel must produce a non-empty string.
+      expect(def!.breadcrumbLabel(1).length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("PROPOSE_ACTIONS — registry is the type ProposeActionDef[]", () => {
   it("entries are assignable to ProposeActionDef", () => {
     // Compile-time-ish check: every entry can be referenced by type.

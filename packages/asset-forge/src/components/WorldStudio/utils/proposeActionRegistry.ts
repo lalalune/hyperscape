@@ -65,6 +65,29 @@ export interface ProposeActionDef {
    * PROPOSE_PLUGIN_SET don't dispatch live at all).
    */
   readonly dispatcherMethod?: string;
+  /** Emoji icon for the Companion's tool-breadcrumb summary chips. */
+  readonly icon: string;
+  /**
+   * Past-tense count-aware label for the breadcrumb summary
+   * ("Placed 3 NPCs", "Drew 1 road"). Receives the rolled-up
+   * tally; returns plural-aware text.
+   */
+  readonly breadcrumbLabel: (count: number) => string;
+}
+
+/**
+ * Pluralizer for the standard "Placed N thing(s)" pattern.
+ * Singular for `n === 1`, plural otherwise. When the plural
+ * suffix is `"ies"`, the trailing `y` of the singular is
+ * stripped first ("water body" → "water bodies", not
+ * "water bodyies").
+ */
+function plural(n: number, singular: string, suffix = "s"): string {
+  if (n === 1) return `${n} ${singular}`;
+  if (suffix === "ies" && singular.endsWith("y")) {
+    return `${n} ${singular.slice(0, -1)}ies`;
+  }
+  return `${n} ${singular}${suffix}`;
 }
 
 /**
@@ -80,6 +103,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "terrainConfig",
     arity: "singleton",
     statusLabel: "Shaping the terrain",
+    icon: "🗺️",
+    breadcrumbLabel: () => "Shaped the terrain",
     // No dispatcherMethod — terrain config doesn't dispatch live.
   },
   {
@@ -88,6 +113,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "pluginIds",
     arity: "singleton",
     statusLabel: "Picking a plugin set",
+    icon: "🧩",
+    breadcrumbLabel: () => "Picked plugins",
     // No dispatcherMethod — plugin sets aren't placed live.
   },
   {
@@ -96,6 +123,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "npcs",
     arity: "list",
     statusLabel: "Placing an NPC",
+    icon: "👤",
+    breadcrumbLabel: (n) => `Placed ${plural(n, "NPC")}`,
     dispatcherMethod: "placeNpc",
   },
   {
@@ -104,6 +133,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "mobSpawns",
     arity: "list",
     statusLabel: "Placing a mob spawn",
+    icon: "⚔️",
+    breadcrumbLabel: (n) => `Placed ${plural(n, "mob spawn")}`,
     dispatcherMethod: "placeMobSpawn",
   },
   {
@@ -112,6 +143,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "quests",
     arity: "list",
     statusLabel: "Authoring a quest",
+    icon: "📜",
+    breadcrumbLabel: (n) => `Wrote ${plural(n, "quest")}`,
     // No dispatcherMethod — quests persist via setAndPersistAgentQuest.
   },
   {
@@ -120,6 +153,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "assets",
     arity: "list",
     statusLabel: "Designing a new asset",
+    icon: "✨",
+    breadcrumbLabel: (n) => `Queued ${plural(n, "asset bake")}`,
     // No dispatcherMethod — asset bakes fire post-project-create.
   },
   {
@@ -128,6 +163,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "zones",
     arity: "list",
     statusLabel: "Carving a zone",
+    icon: "🌍",
+    breadcrumbLabel: (n) => `Carved ${plural(n, "zone")}`,
     // No dispatcherMethod — zones persist via setAndPersistAgentZone.
   },
   {
@@ -136,6 +173,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "resources",
     arity: "list",
     statusLabel: "Placing a resource",
+    icon: "🪵",
+    breadcrumbLabel: (n) => `Placed ${plural(n, "resource")}`,
     dispatcherMethod: "placeResource",
   },
   {
@@ -144,6 +183,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "stations",
     arity: "list",
     statusLabel: "Placing a station",
+    icon: "🛠️",
+    breadcrumbLabel: (n) => `Placed ${plural(n, "station")}`,
     dispatcherMethod: "placeStation",
   },
   {
@@ -152,6 +193,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "teleports",
     arity: "list",
     statusLabel: "Placing a teleport",
+    icon: "🌀",
+    breadcrumbLabel: (n) => `Placed ${plural(n, "teleport")}`,
     dispatcherMethod: "placeTeleport",
   },
   {
@@ -160,6 +203,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "roads",
     arity: "list",
     statusLabel: "Drawing a road",
+    icon: "🛣️",
+    breadcrumbLabel: (n) => `Drew ${plural(n, "road")}`,
     dispatcherMethod: "placeRoad",
   },
   {
@@ -168,6 +213,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "pois",
     arity: "list",
     statusLabel: "Marking a point of interest",
+    icon: "📍",
+    breadcrumbLabel: (n) => `Marked ${plural(n, "POI")}`,
     dispatcherMethod: "placePOI",
   },
   {
@@ -176,6 +223,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "dangerSources",
     arity: "list",
     statusLabel: "Adding a danger zone",
+    icon: "⚠️",
+    breadcrumbLabel: (n) => `Added ${plural(n, "danger source")}`,
     dispatcherMethod: "placeDangerSource",
   },
   {
@@ -184,6 +233,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "waterBodies",
     arity: "list",
     statusLabel: "Placing a water body",
+    icon: "💧",
+    breadcrumbLabel: (n) => `Placed ${plural(n, "water body", "ies")}`,
     dispatcherMethod: "placeWaterBody",
   },
   {
@@ -192,6 +243,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "musicZones",
     arity: "list",
     statusLabel: "Defining a music zone",
+    icon: "🎵",
+    breadcrumbLabel: (n) => `Defined ${plural(n, "music zone")}`,
     dispatcherMethod: "placeMusicZone",
   },
   {
@@ -200,6 +253,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "ambientZones",
     arity: "list",
     statusLabel: "Defining an ambient zone",
+    icon: "🌫️",
+    breadcrumbLabel: (n) => `Defined ${plural(n, "ambient zone")}`,
     dispatcherMethod: "placeAmbientZone",
   },
   {
@@ -208,6 +263,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "sfxTriggers",
     arity: "list",
     statusLabel: "Placing a sound trigger",
+    icon: "🔔",
+    breadcrumbLabel: (n) => `Placed ${plural(n, "sound trigger")}`,
     dispatcherMethod: "placeSfxTrigger",
   },
   {
@@ -216,6 +273,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "mines",
     arity: "list",
     statusLabel: "Marking a mining area",
+    icon: "⛏️",
+    breadcrumbLabel: (n) => `Marked ${plural(n, "mining area")}`,
     dispatcherMethod: "placeMine",
   },
   {
@@ -224,6 +283,8 @@ export const PROPOSE_ACTIONS: readonly ProposeActionDef[] = [
     planField: "wildernessBoundary",
     arity: "singleton",
     statusLabel: "Drawing the wilderness boundary",
+    icon: "☠️",
+    breadcrumbLabel: () => "Drew the wilderness boundary",
     dispatcherMethod: "placeWildernessBoundary",
   },
 ];
