@@ -15,7 +15,6 @@
 // (`RoadNetworkSystem` still in shared) calls one method
 // (`poiSystem.getConfig()`) — duck-typed at the callsite.
 import {
-  BiomeType,
   DataManager,
   DEFAULT_BIOME,
   dist2D,
@@ -58,47 +57,47 @@ const CATEGORY_PROPERTIES: Record<
   dungeon: {
     radius: 30,
     baseImportance: 0.9,
-    preferredBiomes: [BiomeType.Canyon, BiomeType.Tundra],
+    preferredBiomes: ["canyon", "tundra"],
   },
   shrine: {
     radius: 10,
     baseImportance: 0.6,
-    preferredBiomes: [BiomeType.Forest, BiomeType.Tundra],
+    preferredBiomes: ["forest", "tundra"],
   },
   landmark: {
     radius: 20,
     baseImportance: 0.5,
-    preferredBiomes: [BiomeType.Canyon, BiomeType.Tundra],
+    preferredBiomes: ["canyon", "tundra"],
   },
   resource_area: {
     radius: 25,
     baseImportance: 0.7,
-    preferredBiomes: [BiomeType.Forest, BiomeType.Canyon],
+    preferredBiomes: ["forest", "canyon"],
   },
   ruin: {
     radius: 35,
     baseImportance: 0.8,
-    preferredBiomes: [BiomeType.Canyon, BiomeType.Tundra],
+    preferredBiomes: ["canyon", "tundra"],
   },
   camp: {
     radius: 20,
     baseImportance: 0.4,
-    preferredBiomes: [BiomeType.Forest, BiomeType.Tundra],
+    preferredBiomes: ["forest", "tundra"],
   },
   crossing: {
     radius: 15,
     baseImportance: 0.85,
-    preferredBiomes: [BiomeType.Canyon, BiomeType.Tundra],
+    preferredBiomes: ["canyon", "tundra"],
   },
   waystation: {
     radius: 12,
     baseImportance: 0.3,
-    preferredBiomes: [BiomeType.Forest, BiomeType.Tundra],
+    preferredBiomes: ["forest", "tundra"],
   },
   fishing_spot: {
     radius: 15,
     baseImportance: 0.75,
-    preferredBiomes: [BiomeType.Forest, BiomeType.Tundra],
+    preferredBiomes: ["forest", "tundra"],
   },
 };
 

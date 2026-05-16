@@ -25,7 +25,6 @@ import { texture, uniform, Fn, float } from "three/tsl";
 import type { World } from "../../../core/World";
 import type { CollisionMatrix } from "../movement/CollisionMatrix";
 import { CollisionFlag, CollisionMask } from "../movement/CollisionFlags";
-import { BiomeType } from "./TerrainBiomeTypes";
 import { BIOMES } from "../../../data/world-structure";
 import { isBiomesDataAvailable, resolveBiomeOrFallback } from "../../../biomes";
 // Was `from "./ProceduralGrass"` — state moved 2026-04-25 to
@@ -67,8 +66,8 @@ const GRID_CONFIG = {
   RECENTER_THRESHOLD: 64, // Re-center when player moves 64m from texture center
   /** Biomes where grass never grows - matched from biomes.json terrain types */
   NON_GRASSY_TERRAINS: new Set<string>([
-    BiomeType.Canyon,
-    BiomeType.Tundra,
+    "canyon",
+    "tundra",
     "mountains",
     "lake",
     "frozen",

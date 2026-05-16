@@ -85,7 +85,7 @@ export type PluginDependency = z.infer<typeof PluginDependencySchema>;
  *
  * Engine-side `BiomeType` enum at `shared/src/world/world.d.ts`
  * stays as a deprecated alias during the migration window —
- * runtime code that branches on `BiomeType.Forest` etc. keeps
+ * runtime code that branches on `"forest"` etc. keeps
  * working until a follow-up cut migrates it to a
  * `BiomeId = string` registry lookup.
  */

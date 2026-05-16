@@ -29,7 +29,7 @@ import {
   BIOME_CONFIGS,
 } from "./TerrainHeightParams";
 import type { ShorelineConfig, BiomeNoiseSet } from "./TerrainHeightParams";
-import { BiomeType, DEFAULT_BIOME, BIOME_LIST } from "./TerrainBiomeTypes";
+import { type BiomeId, DEFAULT_BIOME, BIOME_LIST } from "./TerrainBiomeTypes";
 import { WaterBodyRegistry } from "./WaterBodyRegistry";
 // BridgeSystem migrated to @hyperforge/hyperscape (2026-04-25).
 // Duck-typed inline below — only `registerBridgeCollision` is
@@ -1144,8 +1144,8 @@ export class TerrainSystem extends System {
         this.computeBiomeWeightsAtPosition(worldX, worldZ);
       if (totalWeight > 0) {
         const invW = 1 / totalWeight;
-        forestWeights[i] = (biomeWeightMap.get(BiomeType.Forest) || 0) * invW;
-        canyonWeights[i] = (biomeWeightMap.get(BiomeType.Canyon) || 0) * invW;
+        forestWeights[i] = (biomeWeightMap.get("forest") || 0) * invW;
+        canyonWeights[i] = (biomeWeightMap.get("canyon") || 0) * invW;
       }
     }
 
@@ -1430,7 +1430,7 @@ export class TerrainSystem extends System {
         z: originZ + r.position.z,
       },
     }));
-    const genericBiome = (tile.biome as BiomeType) || DEFAULT_BIOME;
+    const genericBiome = (tile.biome as BiomeId) || DEFAULT_BIOME;
     this.world.emit(EventType.TERRAIN_TILE_GENERATED, {
       tileId: `${tileX},${tileZ}`,
       position: { x: originX, z: originZ },
@@ -2261,9 +2261,9 @@ export class TerrainSystem extends System {
       .getBiomeSystem()
       .getBiomeCenters() as BiomeCenter[];
 
-    const tCfg = getGrassConfigForBiome(BiomeType.Tundra);
-    const fCfg = getGrassConfigForBiome(BiomeType.Forest);
-    const cCfg = getGrassConfigForBiome(BiomeType.Canyon);
+    const tCfg = getGrassConfigForBiome("tundra");
+    const fCfg = getGrassConfigForBiome("forest");
+    const cCfg = getGrassConfigForBiome("canyon");
 
     const resolveTint = (cfg: ReturnType<typeof getGrassConfigForBiome>) => ({
       density: cfg.density,
@@ -2293,9 +2293,9 @@ export class TerrainSystem extends System {
         tintStrength: number;
       }
     > = {
-      [BiomeType.Tundra]: resolveTint(tCfg),
-      [BiomeType.Forest]: resolveTint(fCfg),
-      [BiomeType.Canyon]: resolveTint(cCfg),
+      ["tundra"]: resolveTint(tCfg),
+      ["forest"]: resolveTint(fCfg),
+      ["canyon"]: resolveTint(cCfg),
     };
 
     const tileSize = this.CONFIG.TILE_SIZE;
@@ -2952,7 +2952,7 @@ export class TerrainSystem extends System {
       };
       return { id: r.id, type: r.type, position: pos };
     });
-    const genericBiome = (tile.biome as BiomeType) || DEFAULT_BIOME;
+    const genericBiome = (tile.biome as BiomeId) || DEFAULT_BIOME;
     this.world.emit(EventType.TERRAIN_TILE_GENERATED, {
       tileId: `${tileX},${tileZ}`,
       position: { x: originX, z: originZ },
@@ -3192,8 +3192,8 @@ export class TerrainSystem extends System {
             dominantBiome = type;
           }
         }
-        forestWeights[i] = (biomeWeightMap.get(BiomeType.Forest) || 0) * invW;
-        canyonWeights[i] = (biomeWeightMap.get(BiomeType.Canyon) || 0) * invW;
+        forestWeights[i] = (biomeWeightMap.get("forest") || 0) * invW;
+        canyonWeights[i] = (biomeWeightMap.get("canyon") || 0) * invW;
       }
       // Override biome from brush-overlays.json biome paint strokes.
       // Painted biome overrides the procedurally computed dominant biome.
@@ -5533,9 +5533,9 @@ export class TerrainSystem extends System {
       canyonW,
     );
 
-    const tCfg = getGrassConfigForBiome(BiomeType.Tundra);
-    const fCfg = getGrassConfigForBiome(BiomeType.Forest);
-    const cCfg = getGrassConfigForBiome(BiomeType.Canyon);
+    const tCfg = getGrassConfigForBiome("tundra");
+    const fCfg = getGrassConfigForBiome("forest");
+    const cCfg = getGrassConfigForBiome("canyon");
 
     const maxSlope =
       tCfg.maxSlope * tundraW +
@@ -7935,7 +7935,7 @@ export class TerrainSystem extends System {
       tilesData.push({
         tileX: tile.x,
         tileZ: tile.z,
-        biome: (tile.biome as BiomeType) || DEFAULT_BIOME,
+        biome: (tile.biome as BiomeId) || DEFAULT_BIOME,
       });
     }
 

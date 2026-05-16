@@ -9,7 +9,7 @@
  * them directly as TypeScript constants.
  */
 
-import { BiomeType, DEFAULT_BIOME } from "./TerrainBiomeTypes";
+import { DEFAULT_BIOME } from "./TerrainBiomeTypes";
 import { TERRAIN_CONSTANTS } from "../../../constants/GameConstants";
 import {
   smoothstep,
@@ -208,9 +208,9 @@ export const CANYON_CONFIG: BiomeTerrainConfig = {
 };
 
 export const BIOME_CONFIGS: Record<string, BiomeTerrainConfig> = {
-  [BiomeType.Tundra]: TUNDRA_CONFIG,
-  [BiomeType.Forest]: FOREST_CONFIG,
-  [BiomeType.Canyon]: CANYON_CONFIG,
+  ["tundra"]: TUNDRA_CONFIG,
+  ["forest"]: FOREST_CONFIG,
+  ["canyon"]: CANYON_CONFIG,
 };
 
 // ---------------------------------------------------------------------------

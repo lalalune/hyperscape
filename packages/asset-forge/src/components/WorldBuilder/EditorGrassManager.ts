@@ -52,10 +52,7 @@ import {
   computeTerrainColorCPU,
   calculateSlope,
 } from "../../../../shared/src/systems/shared/world/TerrainShader";
-import {
-  getGrassConfigForBiome,
-  BiomeType,
-} from "../../../../shared/src/systems/shared/world/TerrainBiomeTypes";
+import { getGrassConfigForBiome } from "../../../../shared/src/systems/shared/world/TerrainBiomeTypes";
 import { TERRAIN_CONSTANTS } from "../../../../shared/src/constants/GameConstants";
 
 // ---------------------------------------------------------------------------
@@ -360,9 +357,9 @@ export class EditorGrassManager {
     const querier = this.querier!;
     const getHeight = this.getHeight!;
 
-    const tCfg = getGrassConfigForBiome(BiomeType.Tundra);
-    const fCfg = getGrassConfigForBiome(BiomeType.Forest);
-    const cCfg = getGrassConfigForBiome(BiomeType.Canyon);
+    const tCfg = getGrassConfigForBiome("tundra");
+    const fCfg = getGrassConfigForBiome("forest");
+    const cCfg = getGrassConfigForBiome("canyon");
 
     for (let i = 0; i < maxCount; i++) {
       const lx = (rng() - 0.5) * size;

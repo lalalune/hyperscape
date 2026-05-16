@@ -20,7 +20,7 @@
 
 import THREE from "../../../extras/three/three";
 import type { QuadChunkWorkerOutput } from "../../../utils/workers/QuadChunkWorker";
-import { BiomeType, DEFAULT_BIOME } from "./TerrainBiomeTypes";
+import { DEFAULT_BIOME } from "./TerrainBiomeTypes";
 
 /**
  * Main-thread callbacks for game-state queries that can't run in a worker.
@@ -463,13 +463,9 @@ export function generateQuadChunkDataSync(
       biomeData[idx] = provider.getBiomeId(dominantBiome);
 
       const fwNorm =
-        totalWeight > 0
-          ? (biomeWeightMap.get(BiomeType.Forest) || 0) / totalWeight
-          : 0;
+        totalWeight > 0 ? (biomeWeightMap.get("forest") || 0) / totalWeight : 0;
       const dwNorm =
-        totalWeight > 0
-          ? (biomeWeightMap.get(BiomeType.Canyon) || 0) / totalWeight
-          : 0;
+        totalWeight > 0 ? (biomeWeightMap.get("canyon") || 0) / totalWeight : 0;
       biomeForestWeight[idx] = fwNorm;
       biomeCanyonWeight[idx] = dwNorm;
 
