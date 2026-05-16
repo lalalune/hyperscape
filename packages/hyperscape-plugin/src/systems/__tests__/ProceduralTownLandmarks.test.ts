@@ -6,7 +6,13 @@
  */
 
 import { describe, it, expect } from "vitest";
-import THREE from "../../../../extras/three/three";
+// The landmark factories use `mergeGeometries` from
+// `three/examples/jsm/utils/BufferGeometryUtils.js` which
+// returns plain `three.BufferGeometry`. Importing
+// BufferGeometry directly from `three` (not `three/webgpu`)
+// ensures `toBeInstanceOf` checks resolve to the same class
+// identity as the geometry the factory returns.
+import { BufferGeometry } from "three";
 
 // Import geometry creation functions for testing
 import {
@@ -21,7 +27,7 @@ describe("ProceduralTownLandmarks", () => {
     describe("createFencePostGeometry", () => {
       it("creates valid BufferGeometry", () => {
         const geo = createFencePostGeometry();
-        expect(geo).toBeInstanceOf(THREE.BufferGeometry);
+        expect(geo).toBeInstanceOf(BufferGeometry);
         expect(geo.attributes.position).toBeDefined();
         expect(geo.attributes.normal).toBeDefined();
       });
@@ -55,7 +61,7 @@ describe("ProceduralTownLandmarks", () => {
     describe("createLamppostGeometry", () => {
       it("creates valid BufferGeometry", () => {
         const geo = createLamppostGeometry();
-        expect(geo).toBeInstanceOf(THREE.BufferGeometry);
+        expect(geo).toBeInstanceOf(BufferGeometry);
         expect(geo.attributes.position).toBeDefined();
         expect(geo.attributes.normal).toBeDefined();
       });
@@ -79,7 +85,7 @@ describe("ProceduralTownLandmarks", () => {
     describe("createWellGeometry", () => {
       it("creates valid BufferGeometry", () => {
         const geo = createWellGeometry();
-        expect(geo).toBeInstanceOf(THREE.BufferGeometry);
+        expect(geo).toBeInstanceOf(BufferGeometry);
         expect(geo.attributes.position).toBeDefined();
         expect(geo.attributes.normal).toBeDefined();
       });
@@ -109,7 +115,7 @@ describe("ProceduralTownLandmarks", () => {
     describe("createSignpostGeometry", () => {
       it("creates valid BufferGeometry", () => {
         const geo = createSignpostGeometry();
-        expect(geo).toBeInstanceOf(THREE.BufferGeometry);
+        expect(geo).toBeInstanceOf(BufferGeometry);
         expect(geo.attributes.position).toBeDefined();
         expect(geo.attributes.normal).toBeDefined();
       });
