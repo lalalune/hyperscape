@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
 
 describe("Combat XP Distribution", () => {
   // Use constants instead of magic numbers

@@ -1,9 +1,9 @@
 import EventEmitter from "eventemitter3";
 import { describe, expect, it, vi } from "vitest";
-import { EventBus } from "../../infrastructure/EventBus";
+import { EventBus } from "@hyperforge/shared";
 import { PrayerSystem } from "../PrayerSystem";
-import { EventType, type PlayerJoinedPayload } from "../../../../types/events";
-import type { World } from "../../../../core/World";
+import { EventType, type PlayerJoinedPayload } from "@hyperforge/shared";
+import type { World } from "@hyperforge/shared";
 
 interface MockDatabaseRow {
   prayerLevel: number;

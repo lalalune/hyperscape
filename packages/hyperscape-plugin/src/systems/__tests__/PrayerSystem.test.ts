@@ -28,7 +28,7 @@ import {
   MIN_PRAYER_LEVEL,
   MAX_PRAYER_POINTS,
   PRAYER_ID_PATTERN,
-} from "../../../../types/game/prayer-types";
+} from "@hyperforge/shared";
 
 describe("Prayer System Type Guards", () => {
   describe("isValidPrayerId", () => {

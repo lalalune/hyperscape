@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { EatDelayManager } from "../EatDelayManager";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
 
 describe("EatDelayManager", () => {
   let eatDelayManager: EatDelayManager;
