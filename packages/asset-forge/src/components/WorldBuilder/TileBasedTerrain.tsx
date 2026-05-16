@@ -115,6 +115,7 @@ import { useStandaloneGrass } from "./hooks/useStandaloneGrass";
 import { useRegenerateFoliageOnPaintChange } from "./hooks/useRegenerateFoliageOnPaintChange";
 import { useHeatmapBindings } from "./hooks/useHeatmapBindings";
 import { usePointerLockSync } from "./hooks/usePointerLockSync";
+import { useLoadingOverlayFadeOut } from "./hooks/useLoadingOverlayFadeOut";
 import { animateFocusToPosition } from "./hooks/animateFocusToPosition";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
@@ -4379,13 +4380,16 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     onChange: setIsFlyModeActive,
   });
 
-  // Remove loading overlay from DOM after fade-out animation completes
-  useEffect(() => {
-    if (initialLoadComplete && loadingOverlayVisible) {
-      const timer = setTimeout(() => setLoadingOverlayVisible(false), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [initialLoadComplete, loadingOverlayVisible]);
+  // Loading-overlay DOM removal owned by
+  // `useLoadingOverlayFadeOut` (Phase 1.1 fifteenth carve — see
+  // `hooks/useLoadingOverlayFadeOut.ts`). The 500ms delay
+  // matches the CSS fade-out animation.
+  useLoadingOverlayFadeOut({
+    initialLoadComplete,
+    loadingOverlayVisible,
+    fadeOutDelayMs: 500,
+    onHide: () => setLoadingOverlayVisible(false),
+  });
 
   const totalTiles = worldSize * worldSize;
   const loadProgress =
