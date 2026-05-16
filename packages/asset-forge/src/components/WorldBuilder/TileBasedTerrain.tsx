@@ -114,6 +114,7 @@ import { useMaxHeightRescale } from "./hooks/useMaxHeightRescale";
 import { useStandaloneGrass } from "./hooks/useStandaloneGrass";
 import { useRegenerateFoliageOnPaintChange } from "./hooks/useRegenerateFoliageOnPaintChange";
 import { useHeatmapBindings } from "./hooks/useHeatmapBindings";
+import { usePointerLockSync } from "./hooks/usePointerLockSync";
 import { animateFocusToPosition } from "./hooks/animateFocusToPosition";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
@@ -4371,15 +4372,12 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   // Track if fly mode is active for UI
   const [isFlyModeActive, setIsFlyModeActive] = useState(false);
 
-  // Sync internal fly mode state with pointer lock
-  useEffect(() => {
-    const checkPointerLock = () => {
-      setIsFlyModeActive(document.pointerLockElement === containerRef.current);
-    };
-    document.addEventListener("pointerlockchange", checkPointerLock);
-    return () =>
-      document.removeEventListener("pointerlockchange", checkPointerLock);
-  }, []);
+  // Fly-mode pointer-lock sync owned by `usePointerLockSync`
+  // (Phase 1.1 fourteenth carve — see `hooks/usePointerLockSync.ts`).
+  usePointerLockSync({
+    containerRef,
+    onChange: setIsFlyModeActive,
+  });
 
   // Remove loading overlay from DOM after fade-out animation completes
   useEffect(() => {
