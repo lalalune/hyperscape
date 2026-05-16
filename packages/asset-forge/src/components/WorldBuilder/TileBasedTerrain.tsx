@@ -111,6 +111,7 @@ import { useSelectionOutline } from "./hooks/useSelectionOutline";
 import { useMarkDirtyTilesOnArrayChange } from "./hooks/useMarkDirtyTilesOnArrayChange";
 import { useWaterThresholdSync } from "./hooks/useWaterThresholdSync";
 import { useMaxHeightRescale } from "./hooks/useMaxHeightRescale";
+import { animateFocusToPosition } from "./hooks/animateFocusToPosition";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
 import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
@@ -2973,35 +2974,9 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
         focusOnPosition: (target: THREE.Vector3, radius: number) => {
           const ctrl = orbitControlsRef.current;
           if (!ctrl) return;
-          // Calculate camera distance to frame the object
-          const fov = camera.fov * (Math.PI / 180);
-          const distance = Math.max(radius * 2.5, 10) / Math.tan(fov / 2);
-          // Animate orbit target and camera position
-          const startTarget = ctrl.target.clone();
-          const startPos = camera.position.clone();
-          const endTarget = target.clone();
-          const endPos = target
-            .clone()
-            .add(
-              camera.position
-                .clone()
-                .sub(ctrl.target)
-                .normalize()
-                .multiplyScalar(distance),
-            );
-          const duration = 300; // ms
-          const startTime = performance.now();
-          const animateFocus = () => {
-            const elapsed = performance.now() - startTime;
-            const t = Math.min(elapsed / duration, 1);
-            // Ease-out cubic
-            const ease = 1 - Math.pow(1 - t, 3);
-            ctrl.target.lerpVectors(startTarget, endTarget, ease);
-            camera.position.lerpVectors(startPos, endPos, ease);
-            ctrl.update();
-            if (t < 1) requestAnimationFrame(animateFocus);
-          };
-          animateFocus();
+          // Animation owned by `animateFocusToPosition` (Phase 1.1
+          // tenth carve from the monolith).
+          animateFocusToPosition(camera, ctrl, target, radius);
         },
         setViewMode: (mode: ViewMode) => {
           viewModeRef.current = mode;
