@@ -14,8 +14,8 @@
 
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { SafeAreaDeathHandler } from "../SafeAreaDeathHandler";
-import { ZoneType } from "../../../../types/death";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
+import { ZoneType } from "@hyperforge/shared";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
 
 // Mock types
 interface MockWorld {

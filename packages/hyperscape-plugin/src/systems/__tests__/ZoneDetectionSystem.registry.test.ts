@@ -32,9 +32,9 @@ import {
   type WorldAreasManifest,
 } from "@hyperforge/manifest-schema";
 
-import { worldAreasRegistry } from "../../../../world-areas/index.js";
+import { worldAreasRegistry } from "@hyperforge/shared";
 import { ZoneDetectionSystem } from "../ZoneDetectionSystem.js";
-import { ZoneType } from "../../../../types/death/index.js";
+import { ZoneType } from "@hyperforge/shared";
 
 // Minimal duck-typed World stub — SystemBase only needs `$eventBus`,
 // and ZoneDetectionSystem only calls `world.getSystem("towns")`. We

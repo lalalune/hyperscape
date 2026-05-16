@@ -14,7 +14,7 @@
 
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { DeathStateManager } from "../DeathStateManager";
-import { ZoneType } from "../../../../types/death";
+import { ZoneType } from "@hyperforge/shared";
 
 // Mock types
 interface MockWorld {

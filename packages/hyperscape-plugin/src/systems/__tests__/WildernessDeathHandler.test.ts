@@ -14,9 +14,9 @@
 
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { WildernessDeathHandler } from "../WildernessDeathHandler";
-import { ZoneType } from "../../../../types/death";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
-import { ticksToMs } from "../../../../utils/game/CombatCalculations";
+import { ZoneType } from "@hyperforge/shared";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
+import { ticksToMs } from "@hyperforge/shared";
 
 // Mock types
 interface MockWorld {
