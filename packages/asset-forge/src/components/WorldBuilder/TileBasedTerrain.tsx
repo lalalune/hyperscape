@@ -109,6 +109,7 @@ import {
 } from "./hooks/setupWildernessOverlay";
 import { useSelectionOutline } from "./hooks/useSelectionOutline";
 import { useMarkDirtyTilesOnArrayChange } from "./hooks/useMarkDirtyTilesOnArrayChange";
+import { useWaterThresholdSync } from "./hooks/useWaterThresholdSync";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
 import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
@@ -774,8 +775,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
 
   /** Previous maxHeight for fast-path scaling */
   const prevMaxHeightRef = useRef<number>(config.terrain.maxHeight);
-  /** Previous waterThreshold for fast-path water plane move */
-  const prevWaterThresholdRef = useRef<number>(config.terrain.waterThreshold);
+  // prevWaterThresholdRef moved into `useWaterThresholdSync` hook
+  // (Phase 1.1 carve) — its lifecycle is self-contained there.
 
   /** Previous deps for the terrain config effect — used to detect maxHeight-only
    *  changes so we can skip expensive dirty-tile regeneration (fast-path handles it). */
@@ -4257,30 +4258,15 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     importedQuerier,
   ]);
 
-  // Fast-path: when waterThreshold changes, move water planes without
-  // regenerating terrain geometry. This runs in addition to the terrain config
-  // effect which marks tiles dirty — the dirty regen will also update water,
-  // but this gives an instant visual response before dirty tiles process.
-  useEffect(() => {
-    const prev = prevWaterThresholdRef.current;
-    if (waterThreshold === prev) return;
-    prevWaterThresholdRef.current = waterThreshold;
-
-    // Instantly reposition all existing water meshes.
-    // In studio mode there's a single world-sized water plane in the container;
-    // in standalone mode each tile has its own water mesh.
-    const wc = waterContainerRef.current;
-    if (wc) {
-      for (const child of wc.children) {
-        child.position.y = waterThreshold;
-      }
-    }
-    for (const [, tile] of tilesRef.current) {
-      if (tile.water) {
-        tile.water.position.y = waterThreshold;
-      }
-    }
-  }, [waterThreshold]);
+  // Fast-path water-plane sync owned by `useWaterThresholdSync`
+  // (Phase 1.1 carve). Instant visual response on slider drag;
+  // the dirty-tile regen below would catch up but only over
+  // multiple frames. The hook owns the prev-ref internally so
+  // its lifecycle is self-contained.
+  useWaterThresholdSync({
+    waterThreshold,
+    hostRefs: { waterContainerRef, tilesRef },
+  });
 
   // Fast-path: when maxHeight changes, scale vertex Y positions on all
   // loaded tiles by the ratio newMax/oldMax. Also recomputes normals so the
