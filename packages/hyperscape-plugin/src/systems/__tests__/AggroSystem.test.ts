@@ -12,7 +12,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { AggroSystem } from "../AggroSystem";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
 
 // Mock World
 function createMockWorld() {
