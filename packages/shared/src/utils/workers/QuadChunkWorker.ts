@@ -59,6 +59,17 @@ export interface QuadChunkWorkerInput {
     influence: number;
   }>;
   biomes: Record<string, { color: { r: number; g: number; b: number } }>;
+  /**
+   * Phase 2.1 follow-up — stable palette ordering for N-channel
+   * terrain shading. Position in this array == palette texture
+   * row index the shader will sample. Parent thread builds this
+   * via `getActiveBiomePaletteOrder()`. When omitted (legacy
+   * callers), the worker still emits the new `biomeIndices` +
+   * `biomeWeights` attrs but all indices are 0 — the shader
+   * falls back to the 3-channel `biomeForestWeight` /
+   * `biomeCanyonWeight` path which remains dual-written.
+   */
+  biomeOrder?: ReadonlyArray<string>;
 }
 
 export interface QuadChunkWorkerOutput {
@@ -74,6 +85,22 @@ export interface QuadChunkWorkerOutput {
   biomeForestWeight: Float32Array;
   biomeCanyonWeight: Float32Array;
   riverProximity: Float32Array;
+  /**
+   * Phase 2.1 follow-up — top-4 biome palette indices per
+   * vertex (vec4 packed as 4 consecutive bytes). Each byte is
+   * a row index into the palette texture the parent thread
+   * uploads. Length = vertexCount * 4. Optional because the
+   * sync-fallback path in `TerrainQuadChunkGenerator` doesn't
+   * emit it; live worker output always populates it.
+   */
+  biomeIndices?: Uint8Array;
+  /**
+   * Top-4 biome blend weights per vertex (vec4 packed as 4
+   * consecutive floats). Sum is renormalized to 1 across the
+   * 4 retained channels. Length = vertexCount * 4. Optional
+   * for the same reason as `biomeIndices`.
+   */
+  biomeWeights?: Float32Array;
 }
 
 const QUAD_CHUNK_WORKER_CODE = `
@@ -86,7 +113,19 @@ BIOME_IDS[BT_FOREST] = 1;
 BIOME_IDS[BT_CANYON] = 2;
 
 function generateQuadChunk(input) {
-  const { centerX, centerZ, size, resolution, config, seed, biomeCenters, biomes } = input;
+  const { centerX, centerZ, size, resolution, config, seed, biomeCenters, biomes, biomeOrder } = input;
+  // Build biome-id → palette index lookup from the optional
+  // ordering. Missing ids resolve to 0 (the shader's safe
+  // default-biome slot). When biomeOrder is omitted, every
+  // index resolves to 0 — the N-channel shader path falls
+  // back to the 3-channel path via the dual-written legacy
+  // attrs.
+  var paletteIndex = Object.create(null);
+  if (biomeOrder) {
+    for (var pi = 0; pi < biomeOrder.length; pi++) {
+      paletteIndex[biomeOrder[pi]] = pi;
+    }
+  }
   const {
     MAX_HEIGHT,
     BIOME_GAUSSIAN_COEFF,
@@ -170,6 +209,13 @@ function generateQuadChunk(input) {
   const biomeForestWeight = new Float32Array(vertexCount);
   const biomeCanyonWeight = new Float32Array(vertexCount);
   const riverProximity = new Float32Array(vertexCount);
+  // Phase 2.1 follow-up — N-channel palette indices + weights.
+  // 4 entries per vertex packed as vec4 the shader samples.
+  const biomeIndices = new Uint8Array(vertexCount * 4);
+  const biomeWeights = new Float32Array(vertexCount * 4);
+  // Scratch sort buffer reused per vertex.
+  var topIds = [null, null, null, null];
+  var topWeights = [0, 0, 0, 0];
 
   for (let iz = 0; iz < segments; iz++) {
     for (let ix = 0; ix < segments; ix++) {
@@ -190,10 +236,45 @@ function generateQuadChunk(input) {
 
       var dominantBiome = BT_DEFAULT;
       var dominantWeight = -1;
+      // Reset top-4 scratch buffers per vertex.
+      topIds[0] = null; topIds[1] = null; topIds[2] = null; topIds[3] = null;
+      topWeights[0] = 0; topWeights[1] = 0; topWeights[2] = 0; topWeights[3] = 0;
       for (var bk in bw) {
-        if (bw[bk] > dominantWeight) { dominantWeight = bw[bk]; dominantBiome = bk; }
+        var bwVal = bw[bk];
+        if (bwVal > dominantWeight) { dominantWeight = bwVal; dominantBiome = bk; }
+        // Maintain a descending-by-weight top-4 via in-place
+        // insertion. Cheap for 4 slots; avoids allocating an
+        // array per vertex.
+        if (bwVal > topWeights[3]) {
+          if (bwVal > topWeights[0]) {
+            topWeights[3] = topWeights[2]; topIds[3] = topIds[2];
+            topWeights[2] = topWeights[1]; topIds[2] = topIds[1];
+            topWeights[1] = topWeights[0]; topIds[1] = topIds[0];
+            topWeights[0] = bwVal; topIds[0] = bk;
+          } else if (bwVal > topWeights[1]) {
+            topWeights[3] = topWeights[2]; topIds[3] = topIds[2];
+            topWeights[2] = topWeights[1]; topIds[2] = topIds[1];
+            topWeights[1] = bwVal; topIds[1] = bk;
+          } else if (bwVal > topWeights[2]) {
+            topWeights[3] = topWeights[2]; topIds[3] = topIds[2];
+            topWeights[2] = bwVal; topIds[2] = bk;
+          } else {
+            topWeights[3] = bwVal; topIds[3] = bk;
+          }
+        }
       }
       biomeData[idx] = BIOME_IDS[dominantBiome] || 0;
+      // Renormalize the retained top-4 so they sum to 1 — the
+      // shader expects post-renormalization weights so dropped
+      // long-tail biomes don't darken the blend.
+      var topSum = topWeights[0] + topWeights[1] + topWeights[2] + topWeights[3];
+      var invTopSum = topSum > 0 ? 1 / topSum : 0;
+      var i4 = idx * 4;
+      for (var s = 0; s < 4; s++) {
+        var bid = topIds[s];
+        biomeIndices[i4 + s] = bid !== null ? (paletteIndex[bid] || 0) : 0;
+        biomeWeights[i4 + s] = topWeights[s] * invTopSum;
+      }
 
       let colorR = 0, colorG = 0, colorB = 0;
       for (var bk2 in bw) {
@@ -231,7 +312,9 @@ function generateQuadChunk(input) {
     biomeData,
     biomeForestWeight,
     biomeCanyonWeight,
-    riverProximity
+    riverProximity,
+    biomeIndices,
+    biomeWeights
   };
 }
 
@@ -247,7 +330,9 @@ self.onmessage = function(e) {
         result.biomeData.buffer,
         result.biomeForestWeight.buffer,
         result.biomeCanyonWeight.buffer,
-        result.riverProximity.buffer
+        result.riverProximity.buffer,
+        result.biomeIndices.buffer,
+        result.biomeWeights.buffer
       ]);
     } catch (error) {
       self.postMessage({ error: error.message || 'Unknown error' });

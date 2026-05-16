@@ -92,6 +92,8 @@ export function assembleQuadChunkGeometry(
     biomeForestWeight,
     biomeCanyonWeight,
     riverProximity: riverProximityData,
+    biomeIndices: biomeIndicesIn,
+    biomeWeights: biomeWeightsIn,
   } = workerData;
   const segments = resolution;
   const halfSize = size * 0.5;
@@ -107,6 +109,11 @@ export function assembleQuadChunkGeometry(
   const canyonWeights = new Float32Array(totalVertices);
   const roadInfluences = new Float32Array(totalVertices);
   const riverProximities = new Float32Array(totalVertices);
+  // Phase 2.1 follow-up — N-channel palette indices + weights
+  // forwarded from the worker into the geometry's vertex
+  // attributes. Itemsize 4 per vertex (vec4 in the shader).
+  const biomeIndicesOut = new Uint8Array(totalVertices * 4);
+  const biomeWeightsOut = new Float32Array(totalVertices * 4);
 
   let flatZoneModified = false;
 
@@ -144,6 +151,23 @@ export function assembleQuadChunkGeometry(
       forestWeights[idx] = biomeForestWeight[idx];
       canyonWeights[idx] = biomeCanyonWeight[idx];
       riverProximities[idx] = riverProximityData?.[idx] ?? 0;
+      // Forward the N-channel palette indices + weights. The
+      // worker may have been called pre-Phase-2.1 without
+      // `biomeOrder`, in which case both arrays are missing —
+      // we leave the geometry's slots at zero so the shader's
+      // fallback path (legacy forestWeight/canyonWeight) is
+      // what gets sampled.
+      if (biomeIndicesIn && biomeWeightsIn) {
+        const i4 = idx * 4;
+        biomeIndicesOut[i4] = biomeIndicesIn[i4];
+        biomeIndicesOut[i4 + 1] = biomeIndicesIn[i4 + 1];
+        biomeIndicesOut[i4 + 2] = biomeIndicesIn[i4 + 2];
+        biomeIndicesOut[i4 + 3] = biomeIndicesIn[i4 + 3];
+        biomeWeightsOut[i4] = biomeWeightsIn[i4];
+        biomeWeightsOut[i4 + 1] = biomeWeightsIn[i4 + 1];
+        biomeWeightsOut[i4 + 2] = biomeWeightsIn[i4 + 2];
+        biomeWeightsOut[i4 + 3] = biomeWeightsIn[i4 + 3];
+      }
 
       const roadTileX = Math.floor(worldX / provider.TILE_SIZE);
       const roadTileZ = Math.floor(worldZ / provider.TILE_SIZE);
@@ -182,6 +206,20 @@ export function assembleQuadChunkGeometry(
     canyonWeights[skirtIdx] = canyonWeights[mainIdx];
     roadInfluences[skirtIdx] = roadInfluences[mainIdx];
     riverProximities[skirtIdx] = riverProximities[mainIdx];
+    // Copy the N-channel vec4 attrs onto the skirt vertex so
+    // skirt geometry samples the same biome palette / weights
+    // as the main edge — otherwise skirts would render as the
+    // default-biome flat tint.
+    const sI4 = skirtIdx * 4;
+    const mI4 = mainIdx * 4;
+    biomeIndicesOut[sI4] = biomeIndicesOut[mI4];
+    biomeIndicesOut[sI4 + 1] = biomeIndicesOut[mI4 + 1];
+    biomeIndicesOut[sI4 + 2] = biomeIndicesOut[mI4 + 2];
+    biomeIndicesOut[sI4 + 3] = biomeIndicesOut[mI4 + 3];
+    biomeWeightsOut[sI4] = biomeWeightsOut[mI4];
+    biomeWeightsOut[sI4 + 1] = biomeWeightsOut[mI4 + 1];
+    biomeWeightsOut[sI4 + 2] = biomeWeightsOut[mI4 + 2];
+    biomeWeightsOut[sI4 + 3] = biomeWeightsOut[mI4 + 3];
     skirtIdx++;
   };
 
@@ -290,6 +328,17 @@ export function assembleQuadChunkGeometry(
   geometry.setAttribute(
     "biomeCanyonWeight",
     new THREE.BufferAttribute(canyonWeights, 1),
+  );
+  // Phase 2.1 follow-up — N-channel palette attrs. `normalized:
+  // true` would convert Uint8 0..255 → 0..1 in the shader; we
+  // pass raw integer indices, so leave normalization off.
+  geometry.setAttribute(
+    "biomeIndices",
+    new THREE.BufferAttribute(biomeIndicesOut, 4),
+  );
+  geometry.setAttribute(
+    "biomeWeights",
+    new THREE.BufferAttribute(biomeWeightsOut, 4),
   );
   geometry.setAttribute(
     "roadInfluence",

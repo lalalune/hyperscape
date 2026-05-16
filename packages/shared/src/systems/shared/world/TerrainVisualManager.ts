@@ -62,6 +62,16 @@ export class TerrainVisualManager implements QuadTreeListener {
   private workerSeed: number;
   private workerBiomeCenters: QuadChunkWorkerInput["biomeCenters"];
   private workerBiomes: QuadChunkWorkerInput["biomes"];
+  /**
+   * Phase 2.1 follow-up — stable palette ordering used by the
+   * worker to emit `biomeIndices` per-vertex. Position in the
+   * array == palette texture row the shader samples. When
+   * undefined, the worker still emits N-channel attrs but all
+   * indices are 0 and the shader falls back to the 3-channel
+   * `biomeForestWeight` / `biomeCanyonWeight` path which is
+   * dual-written.
+   */
+  private workerBiomeOrder: ReadonlyArray<string> | undefined;
   private useWorkers: boolean;
 
   /** Node IDs with in-flight worker promises */
@@ -190,6 +200,17 @@ export class TerrainVisualManager implements QuadTreeListener {
   }
 
   /**
+   * Phase 2.1 follow-up — set the stable palette ordering the
+   * worker uses to compute `biomeIndices`. Pass the same array
+   * the shader's `paletteTexture` uniform is built from so
+   * worker output and shader sampling agree. Pass `undefined`
+   * to clear and fall back to the 3-channel legacy path.
+   */
+  setBiomeOrder(biomeOrder: ReadonlyArray<string> | undefined): void {
+    this.workerBiomeOrder = biomeOrder;
+  }
+
+  /**
    * Invalidate quad-tree chunks that overlap a world-space AABB.
    * Destroys affected chunks so they get regenerated on the next update
    * with current flat-zone / road data. Called when flat zones are
@@ -270,6 +291,7 @@ export class TerrainVisualManager implements QuadTreeListener {
       seed: this.workerSeed,
       biomeCenters: this.workerBiomeCenters,
       biomes: this.workerBiomes,
+      biomeOrder: this.workerBiomeOrder,
     };
 
     this.pendingNodeIds.add(node.id);
