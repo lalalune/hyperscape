@@ -111,6 +111,7 @@ import { useSelectionOutline } from "./hooks/useSelectionOutline";
 import { useMarkDirtyTilesOnArrayChange } from "./hooks/useMarkDirtyTilesOnArrayChange";
 import { useWaterThresholdSync } from "./hooks/useWaterThresholdSync";
 import { useMaxHeightRescale } from "./hooks/useMaxHeightRescale";
+import { useStandaloneGrass } from "./hooks/useStandaloneGrass";
 import { animateFocusToPosition } from "./hooks/animateFocusToPosition";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
@@ -697,7 +698,11 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   });
   // useShadowsCSM is installed AFTER isStudioModeRef is declared
   // (line ~848) — see the post-isStudioModeRef block.
-  const standaloneGrassRef = useRef<EditorGrassManager | null>(null);
+  // standaloneGrassRef lifecycle is owned by `useStandaloneGrass`
+  // (Phase 1.1 eleventh carve — see `hooks/useStandaloneGrass.ts`).
+  // The ref is exposed back to the parent so generateTile /
+  // unloadTile / regenerateTile / the animation loop / cleanup
+  // can read `.current` without the hook owning those concerns.
   // CSM shadow node ref owned by `useShadowsCSM` hook.
   const viewHelperRef = useRef<ViewHelper | null>(null);
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
@@ -1902,6 +1907,23 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   showVegetationRef.current = showVegetation;
   const waterThresholdRef = useRef(waterThreshold);
   waterThresholdRef.current = waterThreshold;
+
+  // Phase 1.1 eleventh carve — see header on useStandaloneGrass.
+  // Installed here (after hyperiaContentEnabledRef + all host
+  // refs the hook reads) so its effect-deps array is satisfied.
+  const { grassRef: standaloneGrassRef } = useStandaloneGrass({
+    enableGrass,
+    tileSize,
+    hostRefs: {
+      sceneRef,
+      terrainQuerierRef,
+      generatorRef,
+      worldCenterOffsetRef,
+      hyperiaContentEnabledRef,
+      foliageManagerRef,
+      tilesRef,
+    },
+  });
 
   const handleMouseMoveRef = useRef(handleMouseMove);
   handleMouseMoveRef.current = handleMouseMove;
@@ -4032,76 +4054,13 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   // alongside the other ref declarations; the animation loop
   // below reads `standaloneSkyRef` to tick the sky each frame.
 
-  // Phase 5: Game-accurate grass toggle (EditorGrassManager)
-  useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene) return;
-
-    // EditorGrassManager hardcodes a 3-channel tundra/forest/canyon
-    // grass blend (same Hyperia-shaped assumption Phase C4 first
-    // cut closes for the terrain shader). For non-Hyperia themed
-    // projects (tropical / arctic / desert / volcanic / wetland),
-    // every per-vertex weight resolves to tundraW=1, so grass
-    // renders as snow over the corrected biome tints — visually
-    // worse than no grass. Suppress until Phase C4 follow-up
-    // ships per-pack grass textures + N-channel weights.
-    const grassAllowed = enableGrass && hyperiaContentEnabledRef.current;
-
-    if (grassAllowed) {
-      const querier = terrainQuerierRef.current;
-      const gen = generatorRef.current;
-      const offset = worldCenterOffsetRef.current;
-
-      // Height callback in scene-space (EditorGrassManager handles offset internally)
-      const getHeight = (sceneX: number, sceneZ: number): number => {
-        if (querier) return querier(sceneX - offset, sceneZ - offset).height;
-        if (gen) return gen.getHeightAt(sceneX - offset, sceneZ - offset);
-        return 0;
-      };
-
-      // Terrain querier (takes world-space coords, without offset)
-      const editorQuerier = (terrainX: number, terrainZ: number) => {
-        if (querier) return querier(terrainX, terrainZ);
-        return {
-          height: gen ? gen.getHeightAt(terrainX, terrainZ) : 0,
-          biomeForestWeight: 0,
-          biomeCanyonWeight: 0,
-        };
-      };
-
-      const grass = new EditorGrassManager(scene, {
-        waterThreshold: GAME_WATER_THRESHOLD,
-      });
-      grass.setTerrainCallbacks(editorQuerier, getHeight, offset);
-
-      // Generate grass for all currently loaded terrain tiles
-      const halfTile = tileSize / 2;
-      for (const [, td] of tilesRef.current) {
-        const cx = td.tileX * tileSize + halfTile;
-        const cz = td.tileZ * tileSize + halfTile;
-        grass.addTile(cx, cz, tileSize);
-      }
-
-      standaloneGrassRef.current = grass;
-
-      // Disable FoliageRenderer to avoid duplicate grass instances
-      foliageManagerRef.current?.setEnabled(false);
-    } else {
-      if (standaloneGrassRef.current) {
-        standaloneGrassRef.current.dispose();
-        standaloneGrassRef.current = null;
-      }
-      // Re-enable FoliageRenderer when StandaloneGrass is off
-      foliageManagerRef.current?.setEnabled(true);
-    }
-
-    return () => {
-      if (standaloneGrassRef.current) {
-        standaloneGrassRef.current.dispose();
-        standaloneGrassRef.current = null;
-      }
-    };
-  }, [enableGrass, tileSize]);
+  // Game-accurate grass toggle lifecycle owned by
+  // `useStandaloneGrass` (Phase 1.1 eleventh carve — see
+  // `hooks/useStandaloneGrass.ts`). The hook installation is at
+  // the top of the component alongside the other Phase 1.1
+  // ref-exposing hooks; the parent reads `standaloneGrassRef`
+  // from generateTile / unloadTile / regenerateTileInPlace /
+  // the animation loop / the destroy path.
 
   // Phase 7: Regenerate foliage when foliage paint strokes change
   const foliagePaintCount = brushOverlays?.foliagePaints?.length ?? 0;
