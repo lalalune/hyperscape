@@ -34,29 +34,21 @@ import type {
 import {
   lootTablesProvider,
   mobLootTableMappingsProvider,
-  registerEntityType,
   type World,
   writePacket,
 } from "@hyperforge/shared";
 import { createDropConditionDispatcher } from "./systems/economy/DropConditionDispatcher.js";
 import { installWorldDropConditions } from "./systems/economy/WorldDropConditionEvaluators.js";
 import { loadHyperiaManifestsSync } from "./onEnable/loadHyperiaManifests.js";
-import { MobEntity } from "./entities/npc/MobEntity.js";
-import { PlayerEntity } from "./entities/player/PlayerEntity.js";
-import { PlayerLocal } from "./entities/player/PlayerLocal.js";
-import { PlayerRemote } from "./entities/player/PlayerRemote.js";
+// Entity-class imports for registerHyperiaEntityTypes moved into
+// `./onEnable/registerHyperiaEntityTypes.ts` (Phase 3.2 third cut).
+// Re-exports of PlayerEntity / PlayerLocal / PlayerRemote stay
+// at lines ~954-959 — they use `export ... from` so they don't
+// need a binding in this scope.
+// (see comment above)
 // Entity classes that migrated to plugin (2026-04-26 follow-up to
 // the Entities decoupling refactor).
-import { AltarEntity } from "./entities/world/AltarEntity.js";
-import { AnvilEntity } from "./entities/world/AnvilEntity.js";
-import { BankEntity } from "./entities/world/BankEntity.js";
-import { FurnaceEntity } from "./entities/world/FurnaceEntity.js";
-import { HeadstoneEntity } from "./entities/world/HeadstoneEntity.js";
-import { ItemEntity } from "./entities/world/ItemEntity.js";
-import { NPCEntity } from "./entities/npc/NPCEntity.js";
-import { RangeEntity } from "./entities/world/RangeEntity.js";
-import { ResourceEntity } from "./entities/world/ResourceEntity.js";
-import { RunecraftingAltarEntity } from "./entities/world/RunecraftingAltarEntity.js";
+// World entity imports moved into ./onEnable/registerHyperiaEntityTypes.ts
 
 import { AggroSystem } from "./systems/AggroSystem.js";
 import { BankingSystem } from "./systems/BankingSystem.js";
@@ -191,6 +183,7 @@ import { WalkableTileDebugSystem } from "./systems/WalkableTileDebugSystem.js";
 // `./onEnable/registerHyperiaWidgets.ts` (Phase 3.2 second cut
 // of the monolith decomposition per PLAN_AAA_MASTER_AUDIT debt #3).
 import { registerHyperiaWidgets } from "./onEnable/registerHyperiaWidgets.js";
+import { registerHyperiaEntityTypes } from "./onEnable/registerHyperiaEntityTypes.js";
 import { WaterfallVisualsSystem } from "./systems/WaterfallVisualsSystem.js";
 import { ZoneVisualsSystem } from "./systems/ZoneVisualsSystem.js";
 
@@ -1059,35 +1052,9 @@ export const HYPERIA_CONTENT_PACK_ID =
  * fire when the plugin's scope tears down (`session.stop()`),
  * so widgets unregister cleanly with the rest of the plugin.
  */
-/**
- * Register Hyperia's ECS entity types with the engine's entity
- * registry. Pre-2026-04-26 the registry hardcoded these in
- * shared `Entities.ts` — decoupled so the engine no longer
- * imports game classes. Order doesn't matter; lookup is by
- * string key.
- *
- * Extracted from `onEnable` for the same reason as
- * `registerHyperiaWidgets`. Always called (entity types aren't
- * gated on Hyperia content; they're available for studio /
- * editor introspection regardless of whether content packs
- * spawn instances).
- */
-function registerHyperiaEntityTypes(): void {
-  registerEntityType("player", PlayerEntity as never);
-  registerEntityType("playerLocal", PlayerLocal as never);
-  registerEntityType("playerRemote", PlayerRemote as never);
-  registerEntityType("item", ItemEntity as never);
-  registerEntityType("mob", MobEntity as never);
-  registerEntityType("npc", NPCEntity as never);
-  registerEntityType("resource", ResourceEntity as never);
-  registerEntityType("headstone", HeadstoneEntity as never);
-  registerEntityType("bank", BankEntity as never);
-  registerEntityType("furnace", FurnaceEntity as never);
-  registerEntityType("anvil", AnvilEntity as never);
-  registerEntityType("altar", AltarEntity as never);
-  registerEntityType("range", RangeEntity as never);
-  registerEntityType("runecrafting_altar", RunecraftingAltarEntity as never);
-}
+// registerHyperiaEntityTypes lives in
+// `./onEnable/registerHyperiaEntityTypes.ts` (Phase 3.2 third cut
+// of the monolith decomposition per PLAN_AAA_MASTER_AUDIT debt #3).
 
 /**
  * Default plugin factory. Today this is intentionally a no-op
