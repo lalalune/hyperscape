@@ -2102,8 +2102,20 @@ export function getVariantsPerPreset(): number {
 }
 
 /**
- * All procgen tree presets used in the game.
- * Use with prewarmCache() to load all variants at startup.
+ * Default procgen tree presets the engine has shipped since
+ * the original hardcoded array. Phase 3.5 of
+ * PLAN_AAA_MASTER_AUDIT moves the SSOT to content packs — each
+ * pack declares its `treePresets` array (see
+ * `BuiltinPack.treePresets` in asset-forge/server/builtins).
+ * The Hyperia content pack ships these 8 entries; non-Hyperia
+ * packs declare their own preset lists.
+ *
+ * Engine fallback: when no content pack registry is plumbed
+ * (legacy callers / standalone engine tests), `prewarmCache`
+ * falls back to this array so single-pack consumers still
+ * boot. Asset-forge clients walk the union of `treePresets`
+ * across installed packs and pass that explicit list to
+ * `prewarmCache` instead.
  */
 export const TREE_PRESETS = [
   "quakingAspen", // tree_normal

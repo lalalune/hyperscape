@@ -163,6 +163,26 @@ interface BuiltinPack {
     maxHeight?: number;
     tags?: ReadonlyArray<string>;
   }>;
+  /**
+   * Phase 3.5 — procgen tree preset ids this pack ships. Each
+   * entry is the camelCase preset key consumed by `procgen`'s
+   * `generateProcgenTree` (e.g. `"quakingAspen"`,
+   * `"blackOak"`). When the engine prewarms its tree cache, it
+   * walks the union of `treePresets` from installed content
+   * packs instead of the legacy hardcoded `TREE_PRESETS`
+   * array in `ProcgenTreeCache.ts`.
+   *
+   * The Hyperia content pack ships the 8 fantasy-RPG presets
+   * the engine has always used. Non-Hyperia themed packs ship
+   * their own preset lists (or omit the field to skip procgen
+   * tree generation entirely — packs scattering only GLB
+   * assets via `vegetationSpecies` don't need procgen trees).
+   *
+   * Optional — packs that don't ship procgen trees omit the
+   * field; the engine sees no contribution from that pack and
+   * the union excludes it.
+   */
+  treePresets?: ReadonlyArray<string>;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -510,6 +530,24 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
         },
       },
     },
+    // Phase 3.5 — the 8 procgen tree presets the engine has
+    // shipped since the original hardcoded `TREE_PRESETS`
+    // array. Hyperia maps each preset onto its tree-id
+    // (`tree_normal` etc.) via the engine's tree-mesh
+    // resolver; non-Hyperia packs declare their own preset
+    // lists (currently empty — they scatter only GLB assets
+    // via vegetationSpecies until Phase C3 ships per-theme
+    // procgen species).
+    treePresets: [
+      "quakingAspen", // tree_normal
+      "blackOak", // tree_oak
+      "weepingWillow", // tree_willow
+      "blackTupelo", // tree_teak
+      "acer", // tree_maple
+      "sassafras", // tree_mahogany
+      "europeanLarch", // tree_yew
+      "hillCherry", // tree_magic
+    ],
   },
   {
     manifestId: "@hyperforge/content-pack-arctic-v1",
