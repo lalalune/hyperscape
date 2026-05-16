@@ -110,6 +110,7 @@ import {
 import { useSelectionOutline } from "./hooks/useSelectionOutline";
 import { useMarkDirtyTilesOnArrayChange } from "./hooks/useMarkDirtyTilesOnArrayChange";
 import { useWaterThresholdSync } from "./hooks/useWaterThresholdSync";
+import { useMaxHeightRescale } from "./hooks/useMaxHeightRescale";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
 import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
@@ -185,11 +186,11 @@ import { markDirtyTilesByDistance } from "./hooks/markDirtyTilesByDistance";
 // `hooks/mouseEventToNdc.ts` (Phase 1.1 tenth carve). Used by
 // click and hover handlers before raycasting.
 import { mouseEventToNdc } from "./hooks/mouseEventToNdc";
-// Per-mesh Y rescale extracted to `hooks/rescaleVertexY.ts`
+// Per-mesh Y rescale consumed by `hooks/useMaxHeightRescale.ts`
 // (Phase 1.1 twelfth carve). Used by the maxHeight-change
 // fast-path that scales loaded tile geometry in place rather
 // than regenerating from scratch.
-import { rescaleVertexY } from "./hooks/rescaleVertexY";
+// rescaleVertexY imported via hooks/useMaxHeightRescale.
 // Tile streamer LOD + eviction predicates extracted to
 // `hooks/tileLodDecisions.ts` (Phase 1.1 thirteenth carve).
 // Pure rules buried in the 200-line updateTiles callback;
@@ -773,8 +774,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   >([]);
   const lodDowngradeQueueSetRef = useRef<Set<string>>(new Set());
 
-  /** Previous maxHeight for fast-path scaling */
-  const prevMaxHeightRef = useRef<number>(config.terrain.maxHeight);
+  // prevMaxHeightRef moved into `useMaxHeightRescale` hook
+  // (Phase 1.1 carve + bug fix).
   // prevWaterThresholdRef moved into `useWaterThresholdSync` hook
   // (Phase 1.1 carve) — its lifecycle is self-contained there.
 
@@ -4247,7 +4248,9 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       );
     }
 
-    prevMaxHeightRef.current = maxHeight;
+    // (prevMaxHeightRef is now owned by `useMaxHeightRescale` —
+    // its lifecycle is entirely inside that hook. Phase 1.1 carve
+    // + bug fix.)
   }, [
     terrainConfig,
     tileSize,
@@ -4268,22 +4271,17 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     hostRefs: { waterContainerRef, tilesRef },
   });
 
-  // Fast-path: when maxHeight changes, scale vertex Y positions on all
-  // loaded tiles by the ratio newMax/oldMax. Also recomputes normals so the
-  // result is visually identical to a full tile regeneration — this means
-  // dirty-tile regen can be skipped entirely for maxHeight-only changes.
-  useEffect(() => {
-    const prev = prevMaxHeightRef.current;
-    if (maxHeight === prev) return;
-    // prevMaxHeightRef is updated by the terrain config effect
-
-    const scale = maxHeight / prev;
-    if (!isFinite(scale) || scale === 0) return;
-
-    for (const [, tile] of tilesRef.current) {
-      rescaleVertexY(tile.mesh.geometry, scale);
-    }
-  }, [maxHeight]);
+  // Fast-path maxHeight rescale owned by `useMaxHeightRescale`
+  // (Phase 1.1 carve + bug fix). When maxHeight changes alone,
+  // the terrain-config effect skips dirty marking and this hook
+  // scales tile vertex Y in place. The hook owns its own
+  // prevMaxHeightRef internally so it survives in declaration
+  // order — the previous in-monolith implementation deferred
+  // prev-tracking to the terrain-config effect, which runs
+  // FIRST in declaration order and overwrote the prev value
+  // before this fast-path effect read it (bail condition
+  // tripped every time, dead code).
+  useMaxHeightRescale({ maxHeight, hostRefs: { tilesRef } });
 
   // Regenerate ALL tiles when roads / mines change so the terrain
   // shader picks up the road/mine influence (surface coloring,
