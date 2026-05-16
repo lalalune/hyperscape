@@ -25,11 +25,7 @@ import {
 } from "./ProceduralBridge";
 import { createProceduralArena } from "./ProceduralArena";
 
-import {
-  getTreeConfigForBiome,
-  BIOME_LIST,
-  BiomeType,
-} from "@hyperforge/shared/world";
+import { getTreeConfigForBiome, BIOME_LIST } from "@hyperforge/shared/world";
 
 // ============== TYPES ==============
 

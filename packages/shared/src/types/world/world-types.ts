@@ -5,7 +5,7 @@
 
 import * as THREE from "../../extras/three/three";
 import type { Position3D } from "../core/base-types";
-import type { BiomeType } from "../../systems/shared/world/TerrainBiomeTypes";
+import type { BiomeId } from "../../systems/shared/world/TerrainBiomeTypes";
 
 // Temporary imports from core.ts - will be updated when those modules are created
 import type { MobData } from "../core/core";
@@ -367,7 +367,7 @@ export interface BiomeData {
   name: string;
   description: string;
   difficultyLevel: 0 | 1 | 2 | 3; // 0 = safe zones, 1-3 = mob levels
-  terrain: BiomeType;
+  terrain: BiomeId;
   resources: string[]; // Available resource types
   mobs: string[]; // Mob types that spawn here
   fogIntensity: number; // 0-1 for visual atmosphere
