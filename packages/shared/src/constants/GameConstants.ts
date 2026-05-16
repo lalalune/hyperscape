@@ -20,13 +20,12 @@
  *   - GATHERING_CONSTANTS — GatheringConstants.ts (extracted in A3)
  *   - BANKING_CONSTANTS.MAX_BANK_SLOTS — BankingConstants.ts (A7)
  *   - HEALTH_BAR_DIMENSIONS — HealthBarRenderer (single source of truth)
- *   - BiomeType / DEFAULT_BIOME / BIOME_LIST — TerrainBiomeTypes
+ *   - BiomeId / DEFAULT_BIOME / BIOME_LIST — TerrainBiomeTypes
  */
 
 import { GameManifestSchema } from "@hyperforge/manifest-schema";
 
 import { HEALTH_BAR_DIMENSIONS } from "../utils/rendering/HealthBarRenderer";
-import { BiomeType as _BT } from "../systems/shared/world/TerrainBiomeTypes";
 import { BANKING_CONSTANTS } from "./BankingConstants";
 import { COMBAT_CONSTANTS } from "./CombatConstants";
 import { GATHERING_CONSTANTS } from "./GatheringConstants";
@@ -34,7 +33,6 @@ import gameManifestJson from "./game-constants.json" with { type: "json" };
 
 // Re-exports preserved for backwards compat
 export {
-  BiomeType,
   DEFAULT_BIOME,
   BIOME_LIST,
 } from "../systems/shared/world/TerrainBiomeTypes";
@@ -372,13 +370,14 @@ export const ITEM_ID_TO_KEY: Record<number, string> = (() => {
 export const MOB_TYPES = Object.freeze({} as const);
 
 // === BIOME TYPES ===
-// Deprecated: use BiomeType enum (re-exported above) instead.
-// Kept for backward compat; maps to the same string values.
+// Deprecated: import BiomeId from TerrainBiomeTypes and use string
+// literals directly. Kept here as a literal frozen map for callers
+// that still reference BIOME_TYPES.TUNDRA / FOREST / CANYON.
 export const BIOME_TYPES = Object.freeze({
-  TUNDRA: _BT.Tundra,
-  FOREST: _BT.Forest,
-  CANYON: _BT.Canyon,
-});
+  TUNDRA: "tundra",
+  FOREST: "forest",
+  CANYON: "canyon",
+} as const);
 
 // === SKILL NAMES ===
 // All skills matching the Skills interface in entity-types.ts

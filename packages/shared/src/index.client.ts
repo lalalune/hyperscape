@@ -1636,7 +1636,6 @@ export type {
 export { NoiseGenerator } from "./utils/NoiseGenerator";
 export {
   type BiomeId,
-  BiomeType,
   DEFAULT_BIOME,
 } from "./systems/shared/world/TerrainBiomeTypes";
 export { dist2D } from "./utils/MathUtils";

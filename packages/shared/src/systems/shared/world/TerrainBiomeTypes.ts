@@ -22,19 +22,6 @@ import { TreeId } from "../../../constants/TreeTypes";
  */
 export type BiomeId = string;
 
-/**
- * @deprecated Use `BiomeId` (string) instead. The enum is
- *   retained one cut for callsite migration; subsequent
- *   commits will replace `BiomeType.Tundra` etc. value
- *   references with their string-literal equivalents and
- *   `BiomeType` type annotations with `BiomeId`.
- */
-export enum BiomeType {
-  Tundra = "tundra",
-  Forest = "forest",
-  Canyon = "canyon",
-}
-
 /** Hyperia's default biome id. New projects with no content
  *  pack installed see this as the engine fallback. */
 export const DEFAULT_BIOME: BiomeId = "forest";
@@ -219,14 +206,14 @@ const TUNDRA_GRASS_CONFIG: BiomeGrassConfig = {
   tintStrength: 0.4,
 };
 
-const BIOME_GRASS_CONFIGS: Record<BiomeType, BiomeGrassConfig> = {
-  [BiomeType.Forest]: FOREST_GRASS_CONFIG,
-  [BiomeType.Canyon]: CANYON_GRASS_CONFIG,
-  [BiomeType.Tundra]: TUNDRA_GRASS_CONFIG,
+const BIOME_GRASS_CONFIGS: Record<BiomeId, BiomeGrassConfig> = {
+  forest: FOREST_GRASS_CONFIG,
+  canyon: CANYON_GRASS_CONFIG,
+  tundra: TUNDRA_GRASS_CONFIG,
 };
 
-export function getGrassConfigForBiome(biomeId: string): BiomeGrassConfig {
-  return BIOME_GRASS_CONFIGS[biomeId as BiomeType] ?? FOREST_GRASS_CONFIG;
+export function getGrassConfigForBiome(biomeId: BiomeId): BiomeGrassConfig {
+  return BIOME_GRASS_CONFIGS[biomeId] ?? FOREST_GRASS_CONFIG;
 }
 
 /** Biome IDs whose tree config has enableSnow set to true. */

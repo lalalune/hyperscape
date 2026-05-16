@@ -196,16 +196,10 @@ export declare class NoiseGenerator {
 
 /**
  * Biome id — opaque string identifier sourced from the content
- * registry. Replaces `BiomeType` (kept as a deprecated alias).
+ * registry. Replaced the legacy 3-value `BiomeType` enum
+ * (Phase 3.2 deeper of PLAN_AAA_MASTER_AUDIT).
  */
 export type BiomeId = string;
-
-/** @deprecated Use `BiomeId` instead. */
-export declare enum BiomeType {
-  Tundra = "tundra",
-  Forest = "forest",
-  Canyon = "canyon",
-}
 
 export declare const DEFAULT_BIOME: BiomeId;
 export declare const BIOME_LIST: BiomeId[];
