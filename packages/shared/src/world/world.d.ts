@@ -194,14 +194,21 @@ export declare class NoiseGenerator {
 
 // ---------- TerrainBiomeTypes ----------
 
+/**
+ * Biome id — opaque string identifier sourced from the content
+ * registry. Replaces `BiomeType` (kept as a deprecated alias).
+ */
+export type BiomeId = string;
+
+/** @deprecated Use `BiomeId` instead. */
 export declare enum BiomeType {
   Tundra = "tundra",
   Forest = "forest",
   Canyon = "canyon",
 }
 
-export declare const DEFAULT_BIOME: BiomeType;
-export declare const BIOME_LIST: BiomeType[];
+export declare const DEFAULT_BIOME: BiomeId;
+export declare const BIOME_LIST: BiomeId[];
 export declare function getTreeConfigForBiome(biomeId: string): BiomeTreeConfig;
 
 // ---------- TreeTypes ----------

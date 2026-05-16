@@ -1447,6 +1447,7 @@ export type {
 } from "./types/world/world-types";
 export { NoiseGenerator } from "./utils/NoiseGenerator";
 export {
+  type BiomeId,
   BiomeType,
   DEFAULT_BIOME,
 } from "./systems/shared/world/TerrainBiomeTypes";

@@ -9,25 +9,59 @@
 import type { BiomeTreeConfig } from "../../../types/world/world-types";
 import { TreeId } from "../../../constants/TreeTypes";
 
+/**
+ * Biome id — an opaque string identifier sourced from the
+ * content registry (plugin contributions or content packs).
+ *
+ * Replaces the legacy `BiomeType` enum (Phase 3.2 deeper of
+ * PLAN_AAA_MASTER_AUDIT). The enum hardcoded 3 Hyperia values
+ * (tundra / forest / canyon) and blocked plugins from
+ * contributing new biomes with non-Hyperia names. `BiomeId`
+ * is structurally `string` so any contributed id (arctic,
+ * tropical, volcanic, etc.) flows through.
+ */
+export type BiomeId = string;
+
+/**
+ * @deprecated Use `BiomeId` (string) instead. The enum is
+ *   retained one cut for callsite migration; subsequent
+ *   commits will replace `BiomeType.Tundra` etc. value
+ *   references with their string-literal equivalents and
+ *   `BiomeType` type annotations with `BiomeId`.
+ */
 export enum BiomeType {
   Tundra = "tundra",
   Forest = "forest",
   Canyon = "canyon",
 }
 
-export const DEFAULT_BIOME = BiomeType.Forest;
-export const BIOME_LIST: BiomeType[] = Object.values(BiomeType);
+/** Hyperia's default biome id. New projects with no content
+ *  pack installed see this as the engine fallback. */
+export const DEFAULT_BIOME: BiomeId = "forest";
+
+/**
+ * @deprecated The hardcoded 3-biome list is being phased out.
+ *   Callers wanting the active biome set should read from
+ *   `useActiveBiomes` / `getActiveBiomeDefinitions` instead.
+ *   Kept for backward compat with the worker JS path that
+ *   needs an in-bundle list before the registry is populated.
+ */
+export const BIOME_LIST: BiomeId[] = ["tundra", "forest", "canyon"];
 
 /**
  * Worker-injectable JS that defines BiomeType constants.
  * Injected once at the top of inline worker code so the worker
- * can reference BT_TUNDRA, BT_FOREST, BT_CANYON without magic strings.
+ * can reference BT_TUNDRA, BT_FOREST, BT_CANYON without magic
+ * strings. These remain hardcoded for the Hyperia 3-biome path
+ * (`biomeForestWeight` / `biomeCanyonWeight` vertex attrs);
+ * Phase 2.1 follow-up moves the worker to an N-channel pattern
+ * that reads from the registry instead.
  */
 export function buildBiomeConstantsJS(): string {
   return `
-  var BT_TUNDRA = "${BiomeType.Tundra}";
-  var BT_FOREST = "${BiomeType.Forest}";
-  var BT_CANYON = "${BiomeType.Canyon}";
+  var BT_TUNDRA = "tundra";
+  var BT_FOREST = "forest";
+  var BT_CANYON = "canyon";
   var BT_DEFAULT = BT_FOREST;
   `;
 }
@@ -112,18 +146,23 @@ const TUNDRA_TREE_CONFIG: BiomeTreeConfig = {
   maxSlope: 1.5,
 };
 
-const BIOME_TREE_CONFIGS: Record<BiomeType, BiomeTreeConfig> = {
-  [BiomeType.Forest]: FOREST_TREE_CONFIG,
-  [BiomeType.Canyon]: CANYON_TREE_CONFIG,
-  [BiomeType.Tundra]: TUNDRA_TREE_CONFIG,
+// Keyed by `BiomeId` (string) so plugins / content packs can
+// contribute new entries via `registerBiomeTreeConfig` (future).
+// Until that registry exists, Hyperia's 3 baseline configs ship
+// here; non-Hyperia biome ids fall through to the forest config
+// via `getTreeConfigForBiome`.
+const BIOME_TREE_CONFIGS: Record<BiomeId, BiomeTreeConfig> = {
+  forest: FOREST_TREE_CONFIG,
+  canyon: CANYON_TREE_CONFIG,
+  tundra: TUNDRA_TREE_CONFIG,
 };
 
 /**
  * Get the tree config for a specific biome.
  * Falls back to the forest config for unknown biomes.
  */
-export function getTreeConfigForBiome(biomeId: string): BiomeTreeConfig {
-  return BIOME_TREE_CONFIGS[biomeId as BiomeType] ?? FOREST_TREE_CONFIG;
+export function getTreeConfigForBiome(biomeId: BiomeId): BiomeTreeConfig {
+  return BIOME_TREE_CONFIGS[biomeId] ?? FOREST_TREE_CONFIG;
 }
 
 // ---------------------------------------------------------------------------

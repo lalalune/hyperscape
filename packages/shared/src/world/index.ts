@@ -39,6 +39,7 @@ export { NoiseGenerator } from "../utils/NoiseGenerator";
 
 // Biome types & tree config
 export {
+  type BiomeId,
   BiomeType,
   DEFAULT_BIOME,
   BIOME_LIST,
