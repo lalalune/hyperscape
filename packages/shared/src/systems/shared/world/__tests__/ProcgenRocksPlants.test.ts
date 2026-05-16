@@ -20,7 +20,7 @@ import type {
   BiomeRockConfig,
   BiomePlantConfig,
 } from "../../../../types/world/world-types";
-import { BiomeType, BIOME_LIST } from "../TerrainBiomeTypes";
+import { BIOME_LIST } from "../TerrainBiomeTypes";
 
 /**
  * Deterministic PRNG - creates seeded random for reproducible tests
@@ -101,10 +101,10 @@ describe("Rock Generation Algorithms", () => {
 
   describe("getRockPresetsForBiome", () => {
     it("returns correct presets for known biomes", () => {
-      const forestPresets = getRockPresetsForBiome(BiomeType.Forest);
+      const forestPresets = getRockPresetsForBiome("forest");
       expect(forestPresets.presets).toContain("boulder");
 
-      const canyonPresets = getRockPresetsForBiome(BiomeType.Canyon);
+      const canyonPresets = getRockPresetsForBiome("canyon");
       expect(canyonPresets.presets).toContain("sandstone");
     });
 
@@ -114,7 +114,7 @@ describe("Rock Generation Algorithms", () => {
     });
 
     it("is case-insensitive", () => {
-      const lower = getRockPresetsForBiome(BiomeType.Forest);
+      const lower = getRockPresetsForBiome("forest");
       const upper = getRockPresetsForBiome("FOREST");
       expect(lower.presets).toEqual(upper.presets);
     });
@@ -137,29 +137,29 @@ describe("Rock Generation Algorithms", () => {
     });
 
     it("generates rocks when enabled", () => {
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
     });
 
     it("returns empty array when disabled", () => {
       rockConfig.enabled = false;
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBe(0);
     });
 
     it("respects density setting", () => {
       rockConfig.density = 5;
-      const rocksLow = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocksLow = generateRocks(ctx, rockConfig, "forest");
 
       rockConfig.density = 20;
-      const rocksHigh = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocksHigh = generateRocks(ctx, rockConfig, "forest");
 
       expect(rocksHigh.length).toBeGreaterThan(rocksLow.length);
     });
 
     it("generates deterministic results for same tile", () => {
-      const rocks1 = generateRocks(ctx, rockConfig, BiomeType.Forest);
-      const rocks2 = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks1 = generateRocks(ctx, rockConfig, "forest");
+      const rocks2 = generateRocks(ctx, rockConfig, "forest");
 
       expect(rocks1.length).toBe(rocks2.length);
 
@@ -173,8 +173,8 @@ describe("Rock Generation Algorithms", () => {
 
     it("generates different results for different tiles", () => {
       const ctx2 = createTestContext(1, 0);
-      const rocks1 = generateRocks(ctx, rockConfig, BiomeType.Forest);
-      const rocks2 = generateRocks(ctx2, rockConfig, BiomeType.Forest);
+      const rocks1 = generateRocks(ctx, rockConfig, "forest");
+      const rocks2 = generateRocks(ctx2, rockConfig, "forest");
 
       // Positions should differ
       if (rocks1.length > 0 && rocks2.length > 0) {
@@ -184,7 +184,7 @@ describe("Rock Generation Algorithms", () => {
 
     it("uses presets from config", () => {
       rockConfig.presets = ["granite"];
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
 
       for (const rock of rocks) {
         expect(rock.assetId).toBe("granite");
@@ -193,7 +193,7 @@ describe("Rock Generation Algorithms", () => {
 
     it("falls back to biome presets when config presets is empty", () => {
       rockConfig.presets = [];
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
 
       // Should use forest biome presets
       for (const rock of rocks) {
@@ -203,7 +203,7 @@ describe("Rock Generation Algorithms", () => {
 
     it("applies scale within range", () => {
       rockConfig.scaleRange = [0.2, 0.8];
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
 
       for (const rock of rocks) {
         expect(rock.scale).toBeGreaterThanOrEqual(0.2);
@@ -212,7 +212,7 @@ describe("Rock Generation Algorithms", () => {
     });
 
     it("sets category to rock", () => {
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
 
       for (const rock of rocks) {
         expect(rock.category).toBe("rock");
@@ -220,7 +220,7 @@ describe("Rock Generation Algorithms", () => {
     });
 
     it("sets tileKey correctly", () => {
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
 
       for (const rock of rocks) {
         expect(rock.tileKey).toBe("0_0");
@@ -233,7 +233,7 @@ describe("Rock Generation Algorithms", () => {
         getHeightAt: (x, _z) => (x < 50 ? 5 : 15), // Left half underwater
       });
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
 
       // All rocks should be on the right side (above water)
       for (const rock of rocks) {
@@ -246,7 +246,7 @@ describe("Rock Generation Algorithms", () => {
         isOnRoad: (x, _z) => x > 40 && x < 60, // Road in middle
       });
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
 
       // No rocks should be on the road
       for (const rock of rocks) {
@@ -258,7 +258,7 @@ describe("Rock Generation Algorithms", () => {
     it("respects minimum spacing", () => {
       rockConfig.minSpacing = 10;
       rockConfig.density = 50; // High density to test spacing
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
 
       // Check spacing between all pairs
       for (let i = 0; i < rocks.length; i++) {
@@ -299,10 +299,10 @@ describe("Plant Generation Algorithms", () => {
 
   describe("getPlantPresetsForBiome", () => {
     it("returns correct presets for known biomes", () => {
-      const forestPresets = getPlantPresetsForBiome(BiomeType.Forest);
+      const forestPresets = getPlantPresetsForBiome("forest");
       expect(forestPresets.presets).toContain("monstera");
 
-      const canyonPresets = getPlantPresetsForBiome(BiomeType.Canyon);
+      const canyonPresets = getPlantPresetsForBiome("canyon");
       expect(canyonPresets.presets).toContain("zamioculcas");
     });
 
@@ -330,29 +330,29 @@ describe("Plant Generation Algorithms", () => {
     });
 
     it("generates plants when enabled", () => {
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
       expect(plants.length).toBeGreaterThan(0);
     });
 
     it("returns empty array when disabled", () => {
       plantConfig.enabled = false;
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
       expect(plants.length).toBe(0);
     });
 
     it("respects density setting", () => {
       plantConfig.density = 5;
-      const plantsLow = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plantsLow = generatePlants(ctx, plantConfig, "forest");
 
       plantConfig.density = 30;
-      const plantsHigh = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plantsHigh = generatePlants(ctx, plantConfig, "forest");
 
       expect(plantsHigh.length).toBeGreaterThan(plantsLow.length);
     });
 
     it("generates deterministic results for same tile", () => {
-      const plants1 = generatePlants(ctx, plantConfig, BiomeType.Forest);
-      const plants2 = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants1 = generatePlants(ctx, plantConfig, "forest");
+      const plants2 = generatePlants(ctx, plantConfig, "forest");
 
       expect(plants1.length).toBe(plants2.length);
 
@@ -364,7 +364,7 @@ describe("Plant Generation Algorithms", () => {
 
     it("uses presets from config", () => {
       plantConfig.presets = ["calathea"];
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
 
       for (const plant of plants) {
         expect(plant.assetId).toBe("calathea");
@@ -373,7 +373,7 @@ describe("Plant Generation Algorithms", () => {
 
     it("applies scale within range", () => {
       plantConfig.scaleRange = [0.3, 0.6];
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
 
       for (const plant of plants) {
         expect(plant.scale).toBeGreaterThanOrEqual(0.3);
@@ -382,7 +382,7 @@ describe("Plant Generation Algorithms", () => {
     });
 
     it("sets category to plant", () => {
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
 
       for (const plant of plants) {
         expect(plant.category).toBe("plant");
@@ -395,7 +395,7 @@ describe("Plant Generation Algorithms", () => {
         getHeightAt: (x, _z) => (x < 50 ? 5 : 15),
       });
 
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
 
       for (const plant of plants) {
         expect(plant.position.x).toBeGreaterThanOrEqual(50);
@@ -406,7 +406,7 @@ describe("Plant Generation Algorithms", () => {
       plantConfig.minSpacing = 5;
       plantConfig.density = 50;
       plantConfig.clustering = false;
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
 
       for (let i = 0; i < plants.length; i++) {
         for (let j = i + 1; j < plants.length; j++) {
@@ -441,8 +441,8 @@ describe("Biome Integration", () => {
       minSpacing: 1.5,
     };
 
-    const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
-    const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+    const rocks = generateRocks(ctx, rockConfig, "forest");
+    const plants = generatePlants(ctx, plantConfig, "forest");
 
     expect(rocks.length).toBeGreaterThan(0);
     expect(plants.length).toBeGreaterThan(0);
@@ -466,8 +466,8 @@ describe("Biome Integration", () => {
       minSpacing: 2,
     };
 
-    const forestRocks = generateRocks(forestCtx, rockConfig, BiomeType.Forest);
-    const canyonRocks = generateRocks(canyonCtx, rockConfig, BiomeType.Canyon);
+    const forestRocks = generateRocks(forestCtx, rockConfig, "forest");
+    const canyonRocks = generateRocks(canyonCtx, rockConfig, "canyon");
 
     // Should use different rock types
     const forestTypes = new Set(forestRocks.map((r) => r.assetId));
@@ -492,7 +492,7 @@ describe("ID Generation", () => {
       minSpacing: 2,
     };
 
-    const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+    const rocks = generateRocks(ctx, rockConfig, "forest");
     const ids = rocks.map((r) => r.id);
     const uniqueIds = new Set(ids);
 
@@ -511,7 +511,7 @@ describe("ID Generation", () => {
       minSpacing: 2,
     };
 
-    const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+    const rocks = generateRocks(ctx, rockConfig, "forest");
 
     for (const rock of rocks) {
       expect(rock.id).toContain("3_7");
@@ -536,7 +536,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBe(0);
     });
 
@@ -551,7 +551,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 10, // Large spacing will limit actual count
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       // Spacing should limit the count significantly
       // 50x50 tile with 10m spacing can fit ~25 rocks maximum
       expect(rocks.length).toBeLessThan(30);
@@ -569,7 +569,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBe(0);
     });
   });
@@ -586,7 +586,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
 
       // Position should be in negative world space
@@ -608,7 +608,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
 
       // Positions should be in far positive world space
@@ -631,7 +631,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
 
       for (const rock of rocks) {
@@ -650,7 +650,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
 
       for (const rock of rocks) {
@@ -670,7 +670,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
 
       for (const rock of rocks) {
@@ -692,7 +692,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 0,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
       // With zero spacing, rocks can be placed anywhere
     });
@@ -708,7 +708,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 100, // Larger than tile
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       // Should only be able to place 1 rock max
       expect(rocks.length).toBeLessThanOrEqual(1);
     });
@@ -726,7 +726,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
       // Rocks should be more evenly distributed
     });
@@ -743,7 +743,7 @@ describe("Boundary Conditions - Rocks", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
     });
   });
@@ -761,7 +761,7 @@ describe("Boundary Conditions - Plants", () => {
         minSpacing: 1.5,
       };
 
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
       expect(plants.length).toBe(0);
     });
   });
@@ -778,7 +778,7 @@ describe("Boundary Conditions - Plants", () => {
         clustering: false,
       };
 
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
       expect(plants.length).toBeGreaterThan(0);
     });
 
@@ -794,7 +794,7 @@ describe("Boundary Conditions - Plants", () => {
         clusterSize: [5, 10],
       };
 
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
       expect(plants.length).toBeGreaterThan(0);
     });
   });
@@ -839,7 +839,7 @@ describe("Error Handling - Invalid Inputs", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
 
       for (const rock of rocks) {
@@ -861,7 +861,7 @@ describe("Error Handling - Invalid Inputs", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
 
       // All presets should appear (granite/limestone get weight 1)
@@ -891,7 +891,7 @@ describe("Error Handling - Invalid Inputs", () => {
         minSpacing: 1,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(10);
 
       // Count each type
@@ -926,7 +926,7 @@ describe("Data Verification", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
 
       for (const rock of rocks) {
@@ -948,7 +948,7 @@ describe("Data Verification", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
 
       const minX = 5 * tileSize;
       const maxX = 6 * tileSize;
@@ -976,7 +976,7 @@ describe("Data Verification", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
 
       for (const rock of rocks) {
@@ -998,7 +998,7 @@ describe("Data Verification", () => {
         minSpacing: 1.5,
       };
 
-      const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+      const plants = generatePlants(ctx, plantConfig, "forest");
       expect(plants.length).toBeGreaterThan(0);
 
       for (const plant of plants) {
@@ -1023,7 +1023,7 @@ describe("Data Verification", () => {
         minSpacing: 1,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(20);
 
       const boulderCount = rocks.filter((r) => r.assetId === "boulder").length;
@@ -1058,7 +1058,7 @@ describe("Terrain Constraints", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBe(0);
     });
   });
@@ -1078,7 +1078,7 @@ describe("Terrain Constraints", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBe(0);
     });
   });
@@ -1111,7 +1111,7 @@ describe("Terrain Constraints", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
 
       for (const rock of rocks) {
         const localX = rock.position.x % 100;
@@ -1140,7 +1140,7 @@ describe("Terrain Constraints", () => {
         minSpacing: 2,
       };
 
-      const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+      const rocks = generateRocks(ctx, rockConfig, "forest");
       expect(rocks.length).toBeGreaterThan(0);
     });
   });
@@ -1165,9 +1165,9 @@ describe("Concurrent Generation", () => {
       minSpacing: 2,
     };
 
-    const rocks1 = generateRocks(ctx1, rockConfig, BiomeType.Forest);
-    const rocks2 = generateRocks(ctx2, rockConfig, BiomeType.Forest);
-    const rocks3 = generateRocks(ctx3, rockConfig, BiomeType.Forest);
+    const rocks1 = generateRocks(ctx1, rockConfig, "forest");
+    const rocks2 = generateRocks(ctx2, rockConfig, "forest");
+    const rocks3 = generateRocks(ctx3, rockConfig, "forest");
 
     expect(rocks1.length).toBe(rocks2.length);
     expect(rocks2.length).toBe(rocks3.length);
@@ -1199,7 +1199,7 @@ describe("Concurrent Generation", () => {
     };
 
     const results = tiles.map((ctx) =>
-      generateRocks(ctx, rockConfig, BiomeType.Forest),
+      generateRocks(ctx, rockConfig, "forest"),
     );
 
     // Each tile should have different positions
@@ -1228,7 +1228,7 @@ describe("VegetationInstance Structure", () => {
       minSpacing: 2,
     };
 
-    const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+    const rocks = generateRocks(ctx, rockConfig, "forest");
     expect(rocks.length).toBeGreaterThan(0);
 
     for (const rock of rocks) {
@@ -1268,7 +1268,7 @@ describe("VegetationInstance Structure", () => {
       minSpacing: 1.5,
     };
 
-    const plants = generatePlants(ctx, plantConfig, BiomeType.Forest);
+    const plants = generatePlants(ctx, plantConfig, "forest");
     expect(plants.length).toBeGreaterThan(0);
 
     for (const plant of plants) {
@@ -1313,7 +1313,7 @@ describe("Biome Defaults Completeness", () => {
 
   it("unknown biomes fall back to forest presets", () => {
     const unknownPresets = getRockPresetsForBiome("nonexistent");
-    const forestPresets = getRockPresetsForBiome(BiomeType.Forest);
+    const forestPresets = getRockPresetsForBiome("forest");
     expect(unknownPresets.presets).toEqual(forestPresets.presets);
   });
 });
@@ -1411,7 +1411,7 @@ describe("ProcgenRockCache Exports", () => {
 
   describe("getCacheRockPresets", () => {
     it("returns array for known biomes", () => {
-      const presets = getCacheRockPresets(BiomeType.Forest);
+      const presets = getCacheRockPresets("forest");
       expect(Array.isArray(presets)).toBe(true);
       expect(presets.length).toBeGreaterThan(0);
     });
@@ -1484,7 +1484,7 @@ describe("ProcgenPlantCache Exports", () => {
 
   describe("getCachePlantPresets", () => {
     it("returns array for known biomes", () => {
-      const presets = getCachePlantPresets(BiomeType.Canyon);
+      const presets = getCachePlantPresets("canyon");
       expect(Array.isArray(presets)).toBe(true);
       expect(presets.length).toBeGreaterThan(0);
     });
@@ -1514,7 +1514,7 @@ describe("Performance Characteristics", () => {
     };
 
     const start = performance.now();
-    const rocks = generateRocks(ctx, rockConfig, BiomeType.Forest);
+    const rocks = generateRocks(ctx, rockConfig, "forest");
     const elapsed = performance.now() - start;
 
     expect(rocks.length).toBeGreaterThan(0);
@@ -1535,7 +1535,7 @@ describe("Performance Characteristics", () => {
     const start = performance.now();
     for (let i = 0; i < 10; i++) {
       const ctx = createTestContext(i, i);
-      generateRocks(ctx, rockConfig, BiomeType.Forest);
+      generateRocks(ctx, rockConfig, "forest");
     }
     const elapsed = performance.now() - start;
 

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { BiomeType, BIOME_LIST } from "../TerrainBiomeTypes";
+import { BIOME_LIST } from "../TerrainBiomeTypes";
 
 // ============== Constants (must match TownSystem.ts) ==============
 const TOWN_COUNT = 25;

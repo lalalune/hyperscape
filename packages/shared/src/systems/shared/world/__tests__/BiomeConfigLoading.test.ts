@@ -12,7 +12,6 @@ import fs from "fs";
 import path from "path";
 import { BIOMES } from "../../../../data/world-structure";
 import type { BiomeData } from "../../../../types/core/core";
-import { BiomeType } from "../TerrainBiomeTypes";
 
 /**
  * Get path to local biomes manifest for tests
