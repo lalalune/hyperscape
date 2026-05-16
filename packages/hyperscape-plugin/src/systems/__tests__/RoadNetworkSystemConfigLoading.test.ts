@@ -2,8 +2,8 @@
  * Tests for RoadNetworkSystem config loading from world-config.json
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { DataManager } from "../../../../data/DataManager";
-import type { WorldConfigManifest } from "../../../../types/world/world-types";
+import { DataManager } from "@hyperforge/shared";
+import type { WorldConfigManifest } from "@hyperforge/shared";
 import { loadRoadConfig, getDirections } from "../RoadNetworkSystem";
 
 const DEFAULTS = {

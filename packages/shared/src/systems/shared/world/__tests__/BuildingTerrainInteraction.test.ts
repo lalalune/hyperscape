@@ -924,9 +924,16 @@ describe("TERRAIN_CONSTANTS Centralization", () => {
 
   it("should have consistent WATER_THRESHOLD value", async () => {
     const { TERRAIN_CONSTANTS } = await import("@hyperforge/shared");
-
-    // WATER_THRESHOLD should be 8.0 (as per TerrainSystem)
-    expect(TERRAIN_CONSTANTS.WATER_THRESHOLD).toBe(8.0);
+    const manifestData =
+      await import("../../../../constants/game-constants.json");
+    // WATER_THRESHOLD comes from `game-constants.json` (the
+    // canonical world-manifest). Test asserts they match — pins
+    // the centralization contract without hardcoding the value
+    // (which has changed historically from 8.0 → 16.0 as
+    // terrain max-height was rescaled).
+    expect(TERRAIN_CONSTANTS.WATER_THRESHOLD).toBe(
+      manifestData.default.terrain.waterThreshold,
+    );
   });
 
   it("should have consistent MAX_WALKABLE_SLOPE value", async () => {
