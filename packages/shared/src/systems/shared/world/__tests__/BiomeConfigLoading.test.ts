@@ -105,7 +105,14 @@ describe("Biome Configuration Loading", () => {
 
   describe("Biome structure validation", () => {
     it("all biomes have required fields", () => {
+      // `BIOMES` is dual-indexed by `biome.id` AND `biome.terrain`
+      // (see DataManager.ts:1136-1142) so World-Studio-generated
+      // ids like "biome-0" resolve to a real biome via the terrain
+      // alias. The id-equality check only applies to canonical
+      // (id-keyed) entries; skip terrain-aliased entries where the
+      // key intentionally differs from biome.id.
       for (const [id, biome] of Object.entries(BIOMES)) {
+        if (id !== biome.id) continue;
         expect(biome.id, `${id} should have id`).toBe(id);
         expect(biome.name, `${id} should have name`).toBeDefined();
         expect(
