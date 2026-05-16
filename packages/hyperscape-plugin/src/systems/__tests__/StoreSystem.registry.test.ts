@@ -14,7 +14,7 @@ import {
   type StoresManifest,
 } from "@hyperforge/manifest-schema";
 
-import { storesRegistry } from "../../../../stores/index.js";
+import { storesRegistry } from "@hyperforge/shared";
 import { StoreSystem } from "../StoreSystem.js";
 
 function createStubWorld(): unknown {

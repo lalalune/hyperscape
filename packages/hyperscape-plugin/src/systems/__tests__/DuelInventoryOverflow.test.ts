@@ -12,10 +12,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import type { World } from "../../../../core/World";
+import type { World } from "@hyperforge/shared";
 import { GroundItemSystem } from "../GroundItemSystem";
-import { ITEMS } from "../../../../data/items";
-import type { Item } from "../../../../types";
+import { ITEMS } from "@hyperforge/shared";
+import type { Item } from "@hyperforge/shared";
 
 // Register test items before tests run
 function registerTestItems() {
