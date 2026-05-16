@@ -108,6 +108,7 @@ import {
   type WildernessOverlay,
 } from "./hooks/setupWildernessOverlay";
 import { useSelectionOutline } from "./hooks/useSelectionOutline";
+import { useMarkDirtyTilesOnArrayChange } from "./hooks/useMarkDirtyTilesOnArrayChange";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
 import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
@@ -4298,49 +4299,23 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     }
   }, [maxHeight]);
 
-  // Regenerate ALL tiles when roads change so the terrain shader picks up
-  // road influence (road coloring baked into terrain surface) and height
-  // flattening. This is the SAME path used by the world wizard on initial
-  // generation — roads update in state → prop changes → tiles regenerate.
-  const prevRoadsRef = useRef<GeneratedRoad[] | undefined>(undefined);
-  useEffect(() => {
-    if (providedRoads === prevRoadsRef.current) return;
-    prevRoadsRef.current = providedRoads;
-    providedRoadsRef.current = providedRoads;
-    if (!providedRoads || providedRoads.length === 0) return;
-    if (tilesRef.current.size === 0) return; // No tiles loaded yet
-
-    console.log(
-      `[TileBasedTerrain] Roads changed — marking ${tilesRef.current.size} tiles dirty for ${providedRoads.length} roads`,
-    );
-
-    dirtyTileKeysRef.current = markDirtyTilesByDistance(
-      tilesRef.current,
-      lastCameraTileRef.current,
-    );
-  }, [providedRoads]);
-
-  // Regenerate ALL tiles when mines change so the terrain shader picks up
-  // mine influence (rocky floor coloring) and height flattening.
-  const prevMinesRef = useRef<TileBasedTerrainProps["mines"] | undefined>(
-    undefined,
-  );
-  useEffect(() => {
-    if (providedMines === prevMinesRef.current) return;
-    prevMinesRef.current = providedMines;
-    runtimeMinesRef.current = providedMines;
-    if (!providedMines || providedMines.length === 0) return;
-    if (tilesRef.current.size === 0) return;
-
-    console.log(
-      `[TileBasedTerrain] Mines changed — marking ${tilesRef.current.size} tiles dirty for ${providedMines.length} mines`,
-    );
-
-    dirtyTileKeysRef.current = markDirtyTilesByDistance(
-      tilesRef.current,
-      lastCameraTileRef.current,
-    );
-  }, [providedMines]);
+  // Regenerate ALL tiles when roads / mines change so the terrain
+  // shader picks up the road/mine influence (surface coloring,
+  // height flattening). Phase 1.1 eighth carve — the two
+  // previously-duplicate useEffects are consolidated by the
+  // shared `useMarkDirtyTilesOnArrayChange` hook.
+  useMarkDirtyTilesOnArrayChange({
+    items: providedRoads,
+    label: "Roads",
+    runtimeRef: providedRoadsRef,
+    hostRefs: { tilesRef, lastCameraTileRef, dirtyTileKeysRef },
+  });
+  useMarkDirtyTilesOnArrayChange({
+    items: providedMines,
+    label: "Mines",
+    runtimeRef: runtimeMinesRef,
+    hostRefs: { tilesRef, lastCameraTileRef, dirtyTileKeysRef },
+  });
 
   // Notify parent of tile count changes
   useEffect(() => {
