@@ -10,8 +10,8 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { CombatStateService } from "../CombatStateService";
-import { createEntityID } from "../../../../types/core/identifiers";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
+import { createEntityID } from "@hyperforge/shared";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
 
 describe("CombatSystem Performance", () => {
   let stateService: CombatStateService;

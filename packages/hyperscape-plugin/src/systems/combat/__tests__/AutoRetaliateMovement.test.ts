@@ -14,8 +14,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { CombatSystem } from "../CombatSystem";
-import { EventType } from "../../../../types/events";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
+import { EventType } from "@hyperforge/shared";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
 
 /**
  * Create a mock player entity

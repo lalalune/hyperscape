@@ -15,7 +15,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { CombatSystem } from "../CombatSystem";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
 import type { World } from "../../../../core/World";
 
 // Track health changes for damage verification

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
 
 // Type for mocked nextAttackTicks map
 type EntityID = string & { __brand: "EntityID" };

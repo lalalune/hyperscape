@@ -13,10 +13,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
-import { PlayerDeathSystem } from "../PlayerDeathSystem";
-import { DeathState } from "../../../../types/entities";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
-import { EventType } from "../../../../types/events";
+import { PlayerDeathSystem } from "../../PlayerDeathSystem";
+import { DeathState } from "@hyperforge/shared";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
 
 // =============================================================================
 // MOCK INFRASTRUCTURE

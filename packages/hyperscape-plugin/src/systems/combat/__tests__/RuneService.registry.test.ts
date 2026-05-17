@@ -15,7 +15,7 @@ import {
   type RunesManifest,
 } from "@hyperforge/manifest-schema";
 
-import { runesRegistry } from "../../../../runes/index.js";
+import { runesRegistry } from "@hyperforge/shared";
 import { RuneService } from "../RuneService.js";
 import type { Item } from "../../../../types/game/item-types.js";
 

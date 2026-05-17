@@ -14,8 +14,8 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { PidManager } from "../PidManager";
-import { SeededRandom } from "../../../../utils/SeededRandom";
-import type { EntityID } from "../../../../types/core/identifiers";
+import { SeededRandom } from "@hyperforge/shared";
+import type { EntityID } from "@hyperforge/shared";
 
 describe("PidManager", () => {
   let pidManager: PidManager;

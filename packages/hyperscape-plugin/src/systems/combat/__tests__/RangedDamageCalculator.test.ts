@@ -15,7 +15,7 @@ import {
   RangedDamageCalculator,
   type RangedDamageParams,
 } from "../RangedDamageCalculator";
-import { SeededRandom } from "../../../../utils/SeededRandom";
+import { SeededRandom } from "@hyperforge/shared";
 
 describe("RangedDamageCalculator", () => {
   describe("calculateRangedDamage", () => {

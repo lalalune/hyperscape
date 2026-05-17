@@ -15,7 +15,7 @@ import {
   type CombatSpellsManifest,
 } from "@hyperforge/manifest-schema";
 
-import { combatSpellsRegistry } from "../../../../combat-spells/index.js";
+import { combatSpellsRegistry } from "@hyperforge/shared";
 import { SpellService } from "../SpellService.js";
 
 function buildManifest(): CombatSpellsManifest {

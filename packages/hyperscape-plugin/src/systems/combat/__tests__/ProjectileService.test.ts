@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { ProjectileService } from "../ProjectileService";
-import { AttackType } from "../../../../types/game/item-types";
+import { AttackType } from "@hyperforge/shared";
 
 describe("ProjectileService", () => {
   let service: ProjectileService;

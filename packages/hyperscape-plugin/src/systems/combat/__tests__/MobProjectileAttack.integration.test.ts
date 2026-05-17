@@ -15,12 +15,12 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { CombatSystem } from "../CombatSystem";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
-import { ALL_NPCS } from "../../../../data/npcs";
-import { EventType } from "../../../../types/events";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
+import { ALL_NPCS } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
 import type { NPCData } from "../../../../types/entities/npc-mob-types";
 import type { World } from "../../../../core/World";
-import { EventBus } from "../../infrastructure/EventBus";
+import { EventBus } from "@hyperforge/shared";
 
 // ─── Test NPC IDs ────────────────────────────────────────────────
 const TEST_MAGE_ID = "test_mage";

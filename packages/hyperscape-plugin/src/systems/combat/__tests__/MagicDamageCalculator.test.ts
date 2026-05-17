@@ -14,7 +14,7 @@ import {
   MagicDamageCalculator,
   type MagicDamageParams,
 } from "../MagicDamageCalculator";
-import { SeededRandom } from "../../../../utils/SeededRandom";
+import { SeededRandom } from "@hyperforge/shared";
 
 describe("MagicDamageCalculator", () => {
   describe("calculateMagicDamage", () => {

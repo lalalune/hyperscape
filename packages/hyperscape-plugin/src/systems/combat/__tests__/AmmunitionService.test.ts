@@ -10,11 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import { AmmunitionService } from "../AmmunitionService";
-import {
-  WeaponType,
-  type Item,
-  type EquipmentSlot,
-} from "../../../../types/game/item-types";
+import { WeaponType, type Item, type EquipmentSlot } from "@hyperforge/shared";
 
 describe("AmmunitionService", () => {
   const service = new AmmunitionService();

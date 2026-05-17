@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { CombatRotationManager } from "../CombatRotationManager";
-import { quaternionPool } from "../../../../utils/pools/QuaternionPool";
+import { quaternionPool } from "@hyperforge/shared";
 
 /**
  * Position interface

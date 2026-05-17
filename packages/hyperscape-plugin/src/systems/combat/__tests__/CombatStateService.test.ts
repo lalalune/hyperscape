@@ -10,9 +10,9 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CombatStateService, CombatData } from "../CombatStateService";
-import { createEntityID } from "../../../../utils/IdentifierUtils";
-import { WeaponType } from "../../../../types/game/item-types";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
+import { createEntityID } from "@hyperforge/shared";
+import { WeaponType } from "@hyperforge/shared";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
 import type { World } from "../../../../core/World";
 
 interface MockPlayer {

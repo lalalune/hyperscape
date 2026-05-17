@@ -24,8 +24,8 @@ import {
   type NPCSizesManifest,
 } from "@hyperforge/manifest-schema";
 
-import { npcSizesRegistry } from "../../../../npc-sizes/index.js";
-import { getNPCSize } from "../RangeSystem.js";
+import { npcSizesRegistry } from "@hyperforge/shared";
+import { getNPCSize } from "../../RangeSystem";
 
 function buildManifest(
   sizes: Record<string, { width: number; depth: number }>,

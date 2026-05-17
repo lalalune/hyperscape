@@ -17,12 +17,9 @@ import {
   CombatViolationSeverity,
 } from "../CombatAntiCheat";
 import { CombatRateLimiter } from "../CombatRateLimiter";
-import {
-  RANGED_STYLE_BONUSES,
-  MAGIC_STYLE_BONUSES,
-} from "../../../../constants/CombatConstants";
-import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
-import { EventType } from "../../../../types/events";
+import { RANGED_STYLE_BONUSES, MAGIC_STYLE_BONUSES } from "@hyperforge/shared";
+import { COMBAT_CONSTANTS } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
 
 describe("CombatRemediation", () => {
   describe("Longrange range modifier", () => {
