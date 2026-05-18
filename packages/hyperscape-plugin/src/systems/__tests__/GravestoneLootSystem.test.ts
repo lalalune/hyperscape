@@ -19,12 +19,12 @@ import {
   type Mock,
 } from "vitest";
 import { GravestoneLootSystem } from "../GravestoneLootSystem";
-import { EventBus } from "../../infrastructure/EventBus";
-import { EventType } from "../../../../types/events";
-import { DeathState } from "../../../../types/entities";
-import { ITEMS } from "../../../../data/items";
-import type { Item } from "../../../../types";
-import type { InventoryItem } from "../../../../types/core/core";
+import { EventBus } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
+import { DeathState } from "@hyperforge/shared";
+import { ITEMS } from "@hyperforge/shared";
+import type { Item } from "@hyperforge/shared";
+import type { InventoryItem } from "@hyperforge/shared";
 
 // ============================================================================
 // Mock Types

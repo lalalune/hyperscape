@@ -16,9 +16,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { DialogueManifest } from "@hyperforge/manifest-schema";
 
 import { DialogueSystem } from "../DialogueSystem";
-import { EventType } from "../../../../types/events";
+import { EventType } from "@hyperforge/shared";
 import type { World } from "../../../../types/index";
-import { LocalizationCatalog } from "../../../../localization";
+import { LocalizationCatalog } from "@hyperforge/shared";
 
 interface EmitCall {
   type: string;

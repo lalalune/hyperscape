@@ -14,10 +14,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { FletchingSystem } from "../FletchingSystem";
-import { EventBus } from "../../infrastructure/EventBus";
-import { EventType } from "../../../../types/events";
+import { EventBus } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
 import type { World } from "../../../../types/index";
-import { processingDataProvider } from "../../../../data/ProcessingDataProvider";
+import { processingDataProvider } from "@hyperforge/shared";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 

@@ -14,13 +14,13 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { RunecraftingSystem } from "../RunecraftingSystem";
-import { EventBus } from "../../infrastructure/EventBus";
-import { EventType } from "../../../../types/events";
+import { EventBus } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
 import type { World } from "../../../../types/index";
 import {
   processingDataProvider,
   type RunecraftingManifest,
-} from "../../../../data/ProcessingDataProvider";
+} from "@hyperforge/shared";
 import * as fs from "fs";
 import * as path from "path";
 

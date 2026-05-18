@@ -17,7 +17,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { ResourceSystem } from "../ResourceSystem";
-import { EventType } from "../../../../types/events";
+import { EventType } from "@hyperforge/shared";
 
 // ===== MOCK WORLD FACTORY =====
 

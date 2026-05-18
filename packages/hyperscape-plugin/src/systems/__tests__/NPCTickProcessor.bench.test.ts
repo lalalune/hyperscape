@@ -19,9 +19,9 @@ import type {
   NPCTarget,
   HitCalculationResult,
 } from "../../../../types/systems/npc-strategies";
-import type { TileCoord } from "../../movement/TileSystem";
+import type { TileCoord } from "@hyperforge/shared";
 import type { Position3D } from "../../../../types/core";
-import { AttackType } from "../../../../types/core/core";
+import { AttackType } from "@hyperforge/shared";
 
 /**
  * Mock NPC implementation for benchmarks

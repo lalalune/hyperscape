@@ -14,7 +14,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ResourceSystem } from "../ResourceSystem";
-import type { ResourceDrop } from "../../../../types/core/core";
+import type { ResourceDrop } from "@hyperforge/shared";
 // Import module functions directly for testing
 import {
   lerpSuccessRate as lerpSuccessRateModule,

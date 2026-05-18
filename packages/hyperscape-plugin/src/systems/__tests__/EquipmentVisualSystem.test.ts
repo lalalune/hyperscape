@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as THREE from "three";
 import { EquipmentVisualSystem } from "../EquipmentVisualSystem";
-import { EventType } from "../../../types/events";
+import { EventType } from "@hyperforge/shared";
 
 // Mock dependencies
 vi.mock("three/examples/jsm/libs/meshopt_decoder.module.js", () => ({
@@ -38,7 +38,7 @@ vi.mock("../../../libs/gltfloader/GLTFLoader", () => {
   };
 });
 
-import * as itemsModule from "../../../data/items";
+import * as itemsModule from "@hyperforge/shared";
 
 const originalGetItem = itemsModule.getItem;
 vi.spyOn(itemsModule, "getItem").mockImplementation((id: string) => {
