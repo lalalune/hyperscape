@@ -393,7 +393,7 @@ interface AssetDetailsCardProps {
 **Features**:
 - Asset name and description input
 - Asset type selection (weapon, armor, character, etc.)
-- Game style presets (RuneScape, custom)
+- Game style presets (tile-based MMORPG, custom)
 - Custom style creation and management
 
 #### 3. PipelineOptionsCard (`PipelineOptionsCard.tsx`)

@@ -7,7 +7,7 @@ manifest, eliminating the current drift where PIE uses a WASD fly-cam while
 the shipped game is click-to-walk.
 
 > **Why this exists.** Hyperia was built first; World Studio came second.
-> Today `PlayerLocal` hardcodes OSRS-style click-to-walk and `PlayTestWorld`
+> Today `PlayerLocal` hardcodes tile-based-MMORPG-style click-to-walk and `PlayTestWorld`
 > re-implements a parallel WASD loop. Adding a second game (top-down shooter,
 > Diablo-like, FPS, platformer) is impossible without an abstraction to pick
 > between. World Studio's larger goal is to be a multi-game AI studio, with
@@ -126,7 +126,7 @@ packages/shared/src/gameMode/
     CameraController.ts              # base interface (follow / transform / zoom)
     OrbitCameraController.ts         # extracted from current Hyperia camera
     FirstPersonCameraController.ts
-    FixedAngleCameraController.ts    # Diablo/OSRS fixed pitch + zoom
+    FixedAngleCameraController.ts    # Diablo/tile-based MMORPG fixed pitch + zoom
   input/
     InputContext.ts                  # InputMappingContext analogue (action → binding)
     defaultContexts.ts               # hyperia-default, wasd-default, fps-default
@@ -739,7 +739,7 @@ exhaustive. All 22 tests pass.
   future extension, not a v1 requirement.
 - **Per-player override is v2.** The UE5 pattern of pushing an alternate
   `InputMappingContext` at runtime is the migration path (e.g., player
-  opts into WASD inside an OSRS-style game), but v1 only supports
+  opts into WASD inside an tile-based-MMORPG-style game), but v1 only supports
   per-game defaults.
 - **Simulate vs Play in PIE.** Ships in Phase 3. Level designers need
   to position cameras without engaging the game's controller.

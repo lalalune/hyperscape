@@ -29,7 +29,7 @@ User Input
     ↓
 Asset Type Prompts (avatar/item categories)
     ↓
-Game Style Prompts (RuneScape, generic, custom)
+Game Style Prompts (tile-based MMORPG, generic, custom)
     ↓
 Generation Prompts (base image generation)
     ↓
@@ -360,11 +360,11 @@ Base templates for image generation:
 ```
 Input:
   description: "bronze longsword"
-  style: "RuneScape 2007"
+  style: "tile-based MMORPG 2007"
   assetType: "weapon"
 
 Output:
-  "bronze longsword. RuneScape 2007 style, weapon, clean geometry suitable for 3D conversion."
+  "bronze longsword. tile-based MMORPG 2007 style, weapon, clean geometry suitable for 3D conversion."
 ```
 
 #### Fallback Enhancement
@@ -451,13 +451,13 @@ Game style prompts define art style characteristics for consistent generation.
 
 ### Default Styles
 
-#### RuneScape 2007
+#### tile-based MMORPG 2007
 
 ```json
 "runescape": {
-  "name": "RuneScape 2007",
-  "base": "Low-poly RuneScape 2007",
-  "enhanced": "low-poly RuneScape style",
+  "name": "tile-based MMORPG 2007",
+  "base": "Low-poly tile-based MMORPG 2007",
+  "enhanced": "low-poly tile-based MMORPG style",
   "generation": "runescape2007"
 }
 ```
@@ -724,10 +724,10 @@ Material prompts provide templates for retexturing assets with different materia
 
 Generic templates using variable substitution:
 
-#### RuneScape Template
+#### tile-based MMORPG Template
 
 ```json
-"runescape": "${materialId} texture, low-poly RuneScape style"
+"runescape": "${materialId} texture, low-poly tile-based MMORPG style"
 ```
 
 **Variables**:
@@ -736,7 +736,7 @@ Generic templates using variable substitution:
 **Example**:
 ```
 materialId: "bronze"
-Result: "bronze texture, low-poly RuneScape style"
+Result: "bronze texture, low-poly tile-based MMORPG style"
 ```
 
 #### Generic Template
@@ -759,8 +759,8 @@ Material-specific prompt overrides:
 
 ```json
 "customOverrides": {
-  "dragon": "legendary dragon scale texture, deep crimson red, metallic shimmer, magical aura, RuneScape 2007 style",
-  "crystal": "transparent crystal texture, cyan glow, internal facets, magical energy, RuneScape 2007 style"
+  "dragon": "legendary dragon scale texture, deep crimson red, metallic shimmer, magical aura, tile-based MMORPG 2007 style",
+  "crystal": "transparent crystal texture, cyan glow, internal facets, magical energy, tile-based MMORPG 2007 style"
 }
 ```
 
@@ -812,7 +812,7 @@ Base instructions for prompt enhancement:
   "Clear, specific visual details",
   "Material and texture descriptions",
   "Geometric shape and form",
-  "Style consistency (especially for ${config.style || 'low-poly RuneScape'} style)"
+  "Style consistency (especially for ${config.style || 'low-poly tile-based MMORPG'} style)"
 ]
 ```
 
@@ -885,7 +885,7 @@ Asset-type specific enhancement rules:
 
 **After Enhancement**:
 ```
-"bronze chest plate armor piece, floating without stand, SHAPED FOR T-POSE BODY with shoulder openings pointing STRAIGHT OUT SIDEWAYS at 90 degrees like a scarecrow, wide T-shape when viewed from front, ends at shoulders with no arm extensions, hollow shoulder openings, bronze metal texture with copper brown color and slightly dull metallic finish, low-poly RuneScape 2007 style"
+"bronze chest plate armor piece, floating without stand, SHAPED FOR T-POSE BODY with shoulder openings pointing STRAIGHT OUT SIDEWAYS at 90 degrees like a scarecrow, wide T-shape when viewed from front, ends at shoulders with no arm extensions, hollow shoulder openings, bronze metal texture with copper brown color and slightly dull metallic finish, low-poly tile-based MMORPG 2007 style"
 ```
 
 **Improvements**:
@@ -1039,9 +1039,9 @@ Simple variable substitution:
 
 ```javascript
 const template = "${description}. ${style} style."
-const values = { description: "bronze sword", style: "RuneScape" }
+const values = { description: "bronze sword", style: "tile-based MMORPG" }
 const result = template.replace(/\$\{(\w+)\}/g, (_, key) => values[key])
-// Result: "bronze sword. RuneScape style."
+// Result: "bronze sword. tile-based MMORPG style."
 ```
 
 ### Nested Variables

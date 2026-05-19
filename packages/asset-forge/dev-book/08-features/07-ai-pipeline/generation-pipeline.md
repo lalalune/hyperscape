@@ -225,7 +225,7 @@ The blade has a subtle fuller groove running down the center.
 Simple cross-guard with slight downward curve.
 Leather-wrapped wooden grip with visible wrap texture.
 Round pommel with iron finish.
-Low-poly RuneScape style with clean edges and minimal polygons.
+Low-poly tile-based MMORPG style with clean edges and minimal polygons.
 The sword should have a slightly weathered iron texture with subtle scratches."
 ```
 

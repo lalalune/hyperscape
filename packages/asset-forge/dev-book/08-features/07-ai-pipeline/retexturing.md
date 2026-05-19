@@ -170,10 +170,10 @@ interface RetextureResponse {
 
 **Example Templates:**
 
-**RuneScape Style:**
+**tile-based MMORPG Style:**
 ```typescript
 const runescapeTemplate = (material: string) =>
-  `${material} texture, low-poly RuneScape style, vibrant colors, simple shading`
+  `${material} texture, low-poly tile-based MMORPG style, vibrant colors, simple shading`
 ```
 
 **Generic Style:**
@@ -194,42 +194,42 @@ const realisticTemplate = (material: string) =>
 
 **Bronze:**
 ```
-"Bronze texture, low-poly RuneScape style,
+"Bronze texture, low-poly tile-based MMORPG style,
 warm orange-brown metal with slight patina,
 simple shading, game asset quality"
 ```
 
 **Iron:**
 ```
-"Iron texture, low-poly RuneScape style,
+"Iron texture, low-poly tile-based MMORPG style,
 dark gray metallic surface with minimal rust,
 simple shading, game asset quality"
 ```
 
 **Steel:**
 ```
-"Steel texture, low-poly RuneScape style,
+"Steel texture, low-poly tile-based MMORPG style,
 bright silver-gray polished metal,
 simple shading, game asset quality"
 ```
 
 **Mithril:**
 ```
-"Mithril texture, low-poly RuneScape style,
+"Mithril texture, low-poly tile-based MMORPG style,
 light blue-silver magical metal with subtle glow,
 simple shading, game asset quality"
 ```
 
 **Adamant:**
 ```
-"Adamant texture, low-poly RuneScape style,
+"Adamant texture, low-poly tile-based MMORPG style,
 dark green metallic surface,
 simple shading, game asset quality"
 ```
 
 **Rune:**
 ```
-"Rune texture, low-poly RuneScape style,
+"Rune texture, low-poly tile-based MMORPG style,
 cyan-blue magical metal with mystical appearance,
 simple shading, game asset quality"
 ```
@@ -280,7 +280,7 @@ fine grain, polished finish"
 - Be specific about material type
 - Include color description
 - Mention texture characteristics
-- Specify style (RuneScape, realistic, etc.)
+- Specify style (tile-based MMORPG, realistic, etc.)
 - Keep prompts concise (< 200 characters)
 
 **DON'T:**
@@ -325,7 +325,7 @@ interface MaterialPreset {
       "category": "metal",
       "tier": 1,
       "color": "#CD7F32",
-      "stylePrompt": "Bronze texture, low-poly RuneScape style, warm orange-brown metal"
+      "stylePrompt": "Bronze texture, low-poly tile-based MMORPG style, warm orange-brown metal"
     },
     {
       "id": "iron",
@@ -334,7 +334,7 @@ interface MaterialPreset {
       "category": "metal",
       "tier": 2,
       "color": "#7F7F7F",
-      "stylePrompt": "Iron texture, low-poly RuneScape style, dark gray metallic surface"
+      "stylePrompt": "Iron texture, low-poly tile-based MMORPG style, dark gray metallic surface"
     },
     {
       "id": "steel",
@@ -343,7 +343,7 @@ interface MaterialPreset {
       "category": "metal",
       "tier": 3,
       "color": "#C0C0C0",
-      "stylePrompt": "Steel texture, low-poly RuneScape style, bright silver-gray polished metal"
+      "stylePrompt": "Steel texture, low-poly tile-based MMORPG style, bright silver-gray polished metal"
     }
   ]
 }
@@ -397,7 +397,7 @@ await createCustomPreset({
   category: 'exotic',
   tier: 10,
   color: '#8B0000',
-  stylePrompt: 'Dragon scale texture with iridescent sheen, dark red with green highlights, RuneScape style'
+  stylePrompt: 'Dragon scale texture with iridescent sheen, dark red with green highlights, tile-based MMORPG style'
 })
 ```
 
@@ -974,7 +974,7 @@ interface VariantAssetMetadata {
     "category": "metal",
     "tier": 1,
     "color": "#CD7F32",
-    "stylePrompt": "Bronze texture, low-poly RuneScape style"
+    "stylePrompt": "Bronze texture, low-poly tile-based MMORPG style"
   },
 
   "retextureTaskId": "meshy-retexture-789",

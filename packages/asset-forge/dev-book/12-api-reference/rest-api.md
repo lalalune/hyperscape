@@ -410,7 +410,7 @@ Content-Type: application/json
       "category": "metal",
       "tier": 1,
       "color": "#CD7F32",
-      "stylePrompt": "bronze texture, low-poly RuneScape style"
+      "stylePrompt": "bronze texture, low-poly tile-based MMORPG style"
     },
     {
       "id": "steel",
@@ -419,7 +419,7 @@ Content-Type: application/json
       "category": "metal",
       "tier": 2,
       "color": "#C0C0C0",
-      "stylePrompt": "polished steel texture, low-poly RuneScape style"
+      "stylePrompt": "polished steel texture, low-poly tile-based MMORPG style"
     }
   ],
   "enableGeneration": true,
@@ -570,7 +570,7 @@ Host: localhost:3004
     "category": "metal",
     "tier": 1,
     "color": "#CD7F32",
-    "stylePrompt": "bronze metal with copper-brown coloring, low-poly RuneScape 2007 style, simple shading",
+    "stylePrompt": "bronze metal with copper-brown coloring, low-poly tile-based MMORPG 2007 style, simple shading",
     "description": "Basic bronze metal with copper-brown coloring"
   },
   {
@@ -580,7 +580,7 @@ Host: localhost:3004
     "category": "metal",
     "tier": 2,
     "color": "#C0C0C0",
-    "stylePrompt": "polished steel metal with silver-gray finish, low-poly RuneScape style",
+    "stylePrompt": "polished steel metal with silver-gray finish, low-poly tile-based MMORPG style",
     "description": "Strong steel metal with silver-gray finish"
   }
 ]

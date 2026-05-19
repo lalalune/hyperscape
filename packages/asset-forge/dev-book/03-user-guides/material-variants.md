@@ -903,7 +903,7 @@ Total Assets: 4 weapons × 5 tiers = 20 items
 
 Settings for all:
 ├─ Quality: high
-├─ Style: RuneScape 2007
+├─ Style: tile-based MMORPG 2007
 └─ Enable variants: bronze, steel, mithril, adamant, rune
 ```
 

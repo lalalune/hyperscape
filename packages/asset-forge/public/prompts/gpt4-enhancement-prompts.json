@@ -7,7 +7,7 @@
       "Clear, specific visual details",
       "Material and texture descriptions", 
       "Geometric shape and form",
-      "Style consistency (especially for ${config.style || 'low-poly RuneScape'} style)"
+      "Style consistency (especially for ${config.style || 'low-poly tile-based MMORPG'} style)"
     ],
     "closingInstruction": "Keep the enhanced prompt concise but detailed."
   },

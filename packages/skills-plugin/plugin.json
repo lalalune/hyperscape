@@ -2,7 +2,7 @@
   "id": "com.hyperforge.skills",
   "name": "Skills",
   "version": "0.1.0",
-  "description": "Reference skills plugin. Registers a starter pack of OSRS-style skills (attack, strength, hitpoints, woodcutting, fishing, cooking) on a caller-supplied SkillsService. Ships alongside @hyperforge/combat as the second concrete reference plugin.",
+  "description": "Reference skills plugin. Registers a starter pack of tile-based-MMORPG-style skills (attack, strength, hitpoints, woodcutting, fishing, cooking) on a caller-supplied SkillsService. Ships alongside @hyperforge/combat as the second concrete reference plugin.",
   "entry": "./dist/index.js",
   "author": {
     "name": "Hyperforge"

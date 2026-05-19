@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Reference skills plugin built on @hyperforge/gameplay-framework. Ships a small starter pack of OSRS-style skills (attack, strength, hitpoints, woodcutting, fishing, cooking) on a caller-supplied SkillsService. Demonstrates the full author surface — onLoad validation, onEnable registration, scope-tracked teardown — without depending on @hyperforge/shared internals.",
+  "description": "Reference skills plugin built on @hyperforge/gameplay-framework. Ships a small starter pack of tile-based-MMORPG-style skills (attack, strength, hitpoints, woodcutting, fishing, cooking) on a caller-supplied SkillsService. Demonstrates the full author surface — onLoad validation, onEnable registration, scope-tracked teardown — without depending on @hyperforge/shared internals.",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",

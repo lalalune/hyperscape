@@ -276,10 +276,10 @@ at entrance, wooden sign hanging from iron bracket"
 ```
 Field: style
 Type: Dropdown (optional)
-Default: "RuneScape 2007"
+Default: "tile-based MMORPG 2007"
 
 Options:
-├─ RuneScape 2007: Low-poly nostalgic MMORPG style
+├─ tile-based MMORPG 2007: Low-poly nostalgic MMORPG style
 └─ Generic: Standard game-ready 3D asset style
 
 Custom Style:
@@ -594,7 +594,7 @@ Status Messages:
 What Happens:
 1. Uses enhanced prompt for image generation
 2. Creates 1024x1024px concept art
-3. Applies art style (RuneScape/Generic/Custom)
+3. Applies art style (tile-based MMORPG/Generic/Custom)
 4. Uploads image to server
 5. Displays preview
 

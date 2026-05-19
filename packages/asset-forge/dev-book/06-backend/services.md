@@ -266,7 +266,7 @@ Focus on:
 - Clear, specific visual details
 - Material and texture descriptions
 - Geometric shape and form
-- Style consistency (especially for low-poly RuneScape style)
+- Style consistency (especially for low-poly tile-based MMORPG style)
 - T-pose stance with empty hands for rigging compatibility
 
 Keep the enhanced prompt concise but detailed.
@@ -403,7 +403,7 @@ Generates concept art using OpenAI's GPT-Image-1 model.
 ```javascript
 {
   imageUrl: "data:image/png;base64,iVBORw0KGgo...",
-  prompt: "A fierce goblin warrior. low-poly RuneScape style...",
+  prompt: "A fierce goblin warrior. low-poly tile-based MMORPG style...",
   metadata: {
     model: "gpt-image-1",
     resolution: "1024x1024",

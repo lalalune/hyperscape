@@ -43,7 +43,7 @@ Material Preset
 - **Category system** for logical grouping
 - **Color theming** for UI consistency
 - **Style prompts** for AI generation
-- **RuneScape 2007 aesthetic** by default
+- **tile-based MMORPG 2007 aesthetic** by default
 
 ### File Locations
 
@@ -71,7 +71,7 @@ Asset Forge includes 9 pre-configured material presets organized into 4 categori
   "category": "metal",
   "tier": 1,
   "color": "#CD7F32",
-  "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style",
+  "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, tile-based MMORPG 2007 style",
   "description": "Basic copper-brown metal, entry-level equipment"
 }
 ```
@@ -94,7 +94,7 @@ Asset Forge includes 9 pre-configured material presets organized into 4 categori
   "category": "metal",
   "tier": 2,
   "color": "#C0C0C0",
-  "stylePrompt": "steel metal texture, silver gray color, polished metallic finish, RuneScape 2007 style",
+  "stylePrompt": "steel metal texture, silver gray color, polished metallic finish, tile-based MMORPG 2007 style",
   "description": "Silver-gray metal, intermediate quality equipment"
 }
 ```
@@ -117,7 +117,7 @@ Asset Forge includes 9 pre-configured material presets organized into 4 categori
   "category": "metal",
   "tier": 3,
   "color": "#4169E1",
-  "stylePrompt": "mithril metal texture, blue-gray color with magical shimmer, fantasy metallic finish, RuneScape 2007 style",
+  "stylePrompt": "mithril metal texture, blue-gray color with magical shimmer, fantasy metallic finish, tile-based MMORPG 2007 style",
   "description": "Magical blue-gray metal, high-quality equipment"
 }
 ```
@@ -142,7 +142,7 @@ Asset Forge includes 9 pre-configured material presets organized into 4 categori
   "category": "wood",
   "tier": 1,
   "color": "#DEB887",
-  "stylePrompt": "light wood texture, natural pine color, basic wooden finish, RuneScape 2007 style",
+  "stylePrompt": "light wood texture, natural pine color, basic wooden finish, tile-based MMORPG 2007 style",
   "description": "Basic light wood, entry-level equipment"
 }
 ```
@@ -165,7 +165,7 @@ Asset Forge includes 9 pre-configured material presets organized into 4 categori
   "category": "wood",
   "tier": 2,
   "color": "#8B4513",
-  "stylePrompt": "oak wood texture, medium brown color, solid wooden finish, RuneScape 2007 style",
+  "stylePrompt": "oak wood texture, medium brown color, solid wooden finish, tile-based MMORPG 2007 style",
   "description": "Strong oak wood, intermediate quality"
 }
 ```
@@ -188,7 +188,7 @@ Asset Forge includes 9 pre-configured material presets organized into 4 categori
   "category": "wood",
   "tier": 3,
   "color": "#9ACD32",
-  "stylePrompt": "willow wood texture, pale yellow-green color, flexible wooden finish, RuneScape 2007 style",
+  "stylePrompt": "willow wood texture, pale yellow-green color, flexible wooden finish, tile-based MMORPG 2007 style",
   "description": "Flexible willow wood, good for bows"
 }
 ```
@@ -213,7 +213,7 @@ Asset Forge includes 9 pre-configured material presets organized into 4 categori
   "category": "leather",
   "tier": 1,
   "color": "#8B4513",
-  "stylePrompt": "brown leather texture, natural cowhide, worn leather finish, RuneScape 2007 style",
+  "stylePrompt": "brown leather texture, natural cowhide, worn leather finish, tile-based MMORPG 2007 style",
   "description": "Basic brown leather, entry-level armor"
 }
 ```
@@ -236,7 +236,7 @@ Asset Forge includes 9 pre-configured material presets organized into 4 categori
   "category": "leather",
   "tier": 2,
   "color": "#654321",
-  "stylePrompt": "hardened brown leather texture, reinforced cowhide, sturdy leather finish, RuneScape 2007 style",
+  "stylePrompt": "hardened brown leather texture, reinforced cowhide, sturdy leather finish, tile-based MMORPG 2007 style",
   "description": "Reinforced leather, improved protection"
 }
 ```
@@ -259,7 +259,7 @@ Asset Forge includes 9 pre-configured material presets organized into 4 categori
   "category": "leather",
   "tier": 3,
   "color": "#8B4513",
-  "stylePrompt": "studded leather texture, brown leather with metal studs, reinforced leather finish, RuneScape 2007 style",
+  "stylePrompt": "studded leather texture, brown leather with metal studs, reinforced leather finish, tile-based MMORPG 2007 style",
   "description": "Leather reinforced with metal studs"
 }
 ```
@@ -284,7 +284,7 @@ Asset Forge includes 9 pre-configured material presets organized into 4 categori
   "category": "custom",
   "tier": 10,
   "color": "#fa0000",
-  "stylePrompt": "Dragon metal texture, red with matte finish, RuneScape 2007 style",
+  "stylePrompt": "Dragon metal texture, red with matte finish, tile-based MMORPG 2007 style",
   "description": "Custom material"
 }
 ```
@@ -402,7 +402,7 @@ interface MaterialPreset {
 
 **Type**: String
 **Format**: Natural language description
-**Example**: `"bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style"`
+**Example**: `"bronze metal texture, copper brown color, slightly dull metallic finish, tile-based MMORPG 2007 style"`
 
 **Purpose**: AI prompt for retexturing
 
@@ -415,7 +415,7 @@ interface MaterialPreset {
 1. **Material Type**: bronze metal, oak wood, studded leather
 2. **Color Description**: copper brown, silver gray, yellow-green
 3. **Finish Type**: polished, dull, matte, glossy
-4. **Art Style**: RuneScape 2007 style, low-poly, realistic
+4. **Art Style**: tile-based MMORPG 2007 style, low-poly, realistic
 
 **Best Practices**:
 - Be specific about texture details
@@ -624,7 +624,7 @@ Users can create custom materials by adding entries to `material-presets.json`.
   "category": "special",
   "tier": 8,
   "color": "#00FFFF",
-  "stylePrompt": "crystalline material texture, transparent cyan color, magical shimmer, glowing effect, RuneScape 2007 style",
+  "stylePrompt": "crystalline material texture, transparent cyan color, magical shimmer, glowing effect, tile-based MMORPG 2007 style",
   "description": "Magical crystalline material with inner glow"
 }
 ```
@@ -649,7 +649,7 @@ Generate an asset variant using the new material to verify appearance.
   "category": "special",
   "tier": 7,
   "color": "#1C1C1C",
-  "stylePrompt": "obsidian volcanic glass texture, glossy black color with purple reflections, sharp edges, RuneScape 2007 style",
+  "stylePrompt": "obsidian volcanic glass texture, glossy black color with purple reflections, sharp edges, tile-based MMORPG 2007 style",
   "description": "Volcanic glass material, sharp and dark"
 }
 ```
@@ -664,7 +664,7 @@ Generate an asset variant using the new material to verify appearance.
   "category": "metal",
   "tier": 4,
   "color": "#FFD700",
-  "stylePrompt": "gold metal texture, bright yellow-gold color, highly polished metallic finish, RuneScape 2007 style",
+  "stylePrompt": "gold metal texture, bright yellow-gold color, highly polished metallic finish, tile-based MMORPG 2007 style",
   "description": "Precious gold metal, ornamental equipment"
 }
 ```
@@ -679,7 +679,7 @@ Generate an asset variant using the new material to verify appearance.
   "category": "wood",
   "tier": 4,
   "color": "#C04000",
-  "stylePrompt": "mahogany wood texture, rich reddish-brown color, fine grain pattern, polished wooden finish, RuneScape 2007 style",
+  "stylePrompt": "mahogany wood texture, rich reddish-brown color, fine grain pattern, polished wooden finish, tile-based MMORPG 2007 style",
   "description": "Exotic hardwood, deep red-brown color"
 }
 ```
@@ -726,7 +726,7 @@ Material prompts can use templates for consistency across game styles.
 {
   "version": "1.0.0",
   "templates": {
-    "runescape": "${materialId} texture, low-poly RuneScape style",
+    "runescape": "${materialId} texture, low-poly tile-based MMORPG style",
     "generic": "${materialId} texture"
   },
   "customOverrides": {}
@@ -745,7 +745,7 @@ Material prompts can use templates for consistency across game styles.
 ```javascript
 const template = templates.runescape
 const prompt = template.replace('${materialId}', 'bronze')
-// Result: "bronze texture, low-poly RuneScape style"
+// Result: "bronze texture, low-poly tile-based MMORPG style"
 ```
 
 ### Style-Specific Templates
@@ -755,7 +755,7 @@ Different game styles may require different prompt formats:
 ```json
 {
   "templates": {
-    "runescape": "${materialId} texture, low-poly RuneScape 2007 style, simple textures",
+    "runescape": "${materialId} texture, low-poly tile-based MMORPG 2007 style, simple textures",
     "realistic": "${materialId} material, photorealistic PBR textures, 4K resolution",
     "stylized": "${materialId} material, hand-painted stylized art, vibrant colors",
     "lowpoly": "${materialId} texture, flat colors, low-poly game asset style"
@@ -770,8 +770,8 @@ Override templates for specific materials:
 ```json
 {
   "customOverrides": {
-    "dragon": "legendary dragon scale texture, deep crimson red, metallic shimmer, magical aura, RuneScape 2007 style",
-    "crystal": "transparent crystal texture, cyan glow, internal facets, magical energy, RuneScape 2007 style"
+    "dragon": "legendary dragon scale texture, deep crimson red, metallic shimmer, magical aura, tile-based MMORPG 2007 style",
+    "crystal": "transparent crystal texture, cyan glow, internal facets, magical energy, tile-based MMORPG 2007 style"
   }
 }
 ```
@@ -904,7 +904,7 @@ The complete material presets file structure and best practices.
     "category": "metal",
     "tier": 1,
     "color": "#CD7F32",
-    "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style",
+    "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, tile-based MMORPG 2007 style",
     "description": "Basic copper-brown metal, entry-level equipment"
   },
   {
@@ -914,7 +914,7 @@ The complete material presets file structure and best practices.
     "category": "metal",
     "tier": 2,
     "color": "#C0C0C0",
-    "stylePrompt": "steel metal texture, silver gray color, polished metallic finish, RuneScape 2007 style",
+    "stylePrompt": "steel metal texture, silver gray color, polished metallic finish, tile-based MMORPG 2007 style",
     "description": "Silver-gray metal, intermediate quality equipment"
   }
 ]

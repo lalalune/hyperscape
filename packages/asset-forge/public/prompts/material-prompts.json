@@ -2,7 +2,7 @@
   "__comment": "Material generation prompts - templates for material variations",
   "version": "1.0.0",
   "templates": {
-    "runescape": "${materialId} texture, low-poly RuneScape style",
+    "runescape": "${materialId} texture, low-poly tile-based MMORPG style",
     "generic": "${materialId} texture"
   },
   "customOverrides": {}
