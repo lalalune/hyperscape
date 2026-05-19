@@ -194,9 +194,17 @@ export class TerrainVisualManager implements QuadTreeListener {
   updateBiomeData(
     biomeCenters: QuadChunkWorkerInput["biomeCenters"],
     biomes: QuadChunkWorkerInput["biomes"],
+    biomeOrder?: ReadonlyArray<string>,
   ): void {
     this.workerBiomeCenters = biomeCenters;
     this.workerBiomes = biomes;
+    // Phase 2.1 follow-up cut 2 — keep palette ordering in sync
+    // when biome data hot-reloads (e.g. mid-session content pack
+    // install). Pass undefined to leave existing ordering
+    // untouched; pass an explicit array to overwrite.
+    if (biomeOrder !== undefined) {
+      this.workerBiomeOrder = biomeOrder;
+    }
   }
 
   /**

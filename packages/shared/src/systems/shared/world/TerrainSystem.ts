@@ -2175,6 +2175,17 @@ export class TerrainSystem extends System {
       this.CONFIG.QUADTREE_MAX_ASSEMBLIES_PER_FRAME,
     );
 
+    // Phase 2.1 follow-up cut 2 — stable palette ordering used
+    // by QuadChunkWorker to emit `biomeIndices` per-vertex
+    // attributes. Ordering matches the `workerBiomes` map's
+    // iteration order, which the QuadChunkWorker reads to
+    // compute per-vertex top-4 indices into the palette. When
+    // the shader later swaps to N-channel sampling (auto-
+    // detection follow-up), the same array indexes the
+    // paletteTexture rows — keeping worker emission and shader
+    // sampling in sync without further plumbing.
+    this.quadTreeVisualManager.setBiomeOrder(Object.keys(workerBiomes));
+
     // Water quad-tree visual manager — flat water meshes aligned with terrain chunks
     if (this.waterSystem) {
       const waterContainer = new THREE.Group();
