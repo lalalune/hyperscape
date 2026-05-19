@@ -41,6 +41,11 @@ import type {
   VegetationSpecies,
   VegetationDensityRule,
 } from "@hyperforge/manifest-schema";
+// Phase 3.5 follow-up — bridge contentPackTreePresets to shared's
+// active-preset registry so `createClientWorld` prewarms the
+// right set. Imported as a value, not a type, because the side
+// effect runs inside `setContentPackContent`.
+import { setActiveTreePresets } from "@hyperforge/shared";
 
 /**
  * Plugin biome contribution shape — historically defined here
@@ -95,6 +100,14 @@ const contentPackVegetationDensityRules = new Map<
   string,
   VegetationDensityRule
 >();
+// Phase 3.5 follow-up — set of camelCase procgen tree preset ids
+// the active content packs declare. Different shape than the
+// other maps because preset ids are opaque strings (no
+// associated definition object); a Set is enough. The host
+// hook subscribes to this and forwards into shared's
+// `setActiveTreePresets()` so `createClientWorld`'s prewarm
+// pulls only what installed packs ship.
+const contentPackTreePresets = new Set<string>();
 
 // ────────────────────────────────────────────────────────────
 // Subscription mechanism — lets React components re-render
@@ -181,6 +194,14 @@ export interface ContentPackContentInput {
   waterAnimations?: ReadonlyArray<WaterAnimationProfile>;
   vegetationSpecies?: ReadonlyArray<VegetationSpecies>;
   vegetationDensityRules?: ReadonlyArray<VegetationDensityRule>;
+  /**
+   * Phase 3.5 follow-up — camelCase procgen tree preset ids
+   * the pack ships (Hyperia declares 8, themed packs declare 0
+   * or their own theme-specific list). Forwarded into shared's
+   * `setActiveTreePresets()` by the host hook so
+   * `createClientWorld`'s prewarm walks only what's installed.
+   */
+  treePresets?: ReadonlyArray<string>;
 }
 
 export function setContentPackContent(input: ContentPackContentInput): void {
@@ -223,6 +244,15 @@ export function setContentPackContent(input: ContentPackContentInput): void {
     contentPackVegetationDensityRules.clear();
     for (const r of input.vegetationDensityRules)
       contentPackVegetationDensityRules.set(r.id, r);
+  }
+  if (input.treePresets !== undefined) {
+    contentPackTreePresets.clear();
+    for (const id of input.treePresets) contentPackTreePresets.add(id);
+    // Bridge to shared's active-preset registry. The engine's
+    // post-PhysX prewarm in createClientWorld reads through
+    // `getActiveTreePresets()`, so this keeps the live game's
+    // prewarm in lockstep with installed content packs.
+    setActiveTreePresets(Array.from(contentPackTreePresets));
   }
   notifySubscribers();
 }
@@ -319,6 +349,17 @@ export function getActiveVegetationDensityRules(): ReadonlyMap<
 }
 
 /**
+ * Phase 3.5 follow-up — union of `treePresets` ids contributed
+ * by the active content packs. Returned as a fresh array so
+ * callers can sort / dedup / pass directly to shared's
+ * `setActiveTreePresets()` without aliasing the registry's
+ * internal Set.
+ */
+export function getActiveContentPackTreePresets(): ReadonlyArray<string> {
+  return Array.from(contentPackTreePresets);
+}
+
+/**
  * Convenience: filter density rules to those targeting a
  * specific biome id. Returns a freshly-allocated array; safe
  * to mutate.
@@ -352,6 +393,7 @@ export function _clearContentPackContent(): void {
   contentPackWaterAnimations.clear();
   contentPackVegetationSpecies.clear();
   contentPackVegetationDensityRules.clear();
+  contentPackTreePresets.clear();
 }
 
 /** Test-only: clear every map between tests. */
