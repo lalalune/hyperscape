@@ -75,7 +75,17 @@ type AgentRouteDb = {
   };
   select: (fields?: unknown) => {
     from: (table: unknown) => {
-      where: (condition: unknown) => Promise<unknown[]>;
+      where: (condition: unknown) => Promise<unknown[]> & {
+        // Drizzle builder methods accessible AFTER where() in
+        // the real API. Without these, the `.where()` chain ends
+        // at Promise<unknown[]> and calls to .orderBy() / .limit()
+        // fail typecheck. Each returns a Promise so terminal
+        // awaits remain valid.
+        orderBy: (...exprs: unknown[]) => Promise<unknown[]> & {
+          limit: (n: number) => Promise<unknown[]>;
+        };
+        limit: (n: number) => Promise<unknown[]>;
+      };
     };
   };
   update: (table: unknown) => {
@@ -2925,7 +2935,16 @@ export function registerAgentRoutes(
             .where(eq(agentThoughtsTable.characterId, characterId))
             .orderBy(desc(agentThoughtsTable.timestamp))
             .limit(limit);
-          thoughts = rows.map((r) => ({
+          // AgentRouteDb.select() returns Promise<unknown[]>;
+          // narrow per-row to the schema's known column shape.
+          type ThoughtRow = {
+            characterId: string;
+            timestamp: number;
+            type: string;
+            content: string;
+            decisionPath?: string | null;
+          };
+          thoughts = (rows as ThoughtRow[]).map((r) => ({
             id: `${r.characterId}-thought-${r.timestamp}`,
             type: r.type,
             content: r.content,
