@@ -1665,14 +1665,15 @@ export function resolveDashboardIntent(
         targetName: rawItem.name,
       };
     }
-    // No specific item found, try any raw food
-    const anyRaw = inventoryEntries.find((e) =>
-      e.item?.itemId?.startsWith("raw_"),
-    );
+    // No specific item found, try any raw food.
+    // `e.item` is an Item (from getItem); the field name on
+    // Item is `id`, not `itemId`. `InventoryEntry.itemId` is the
+    // outer-shape field — use that for the command payload.
+    const anyRaw = inventoryEntries.find((e) => e.item?.id?.startsWith("raw_"));
     if (anyRaw) {
       return {
         command: "cook",
-        data: { itemId: anyRaw.item!.itemId! },
+        data: { itemId: anyRaw.itemId },
         text: `Cooking ${anyRaw.name}.`,
         thought: `Operator requested cooking. Found ${anyRaw.name} in inventory.`,
         targetName: anyRaw.name,
