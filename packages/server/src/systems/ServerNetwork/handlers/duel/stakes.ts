@@ -23,6 +23,8 @@ import {
 import type { ServerSocket } from "../../../../shared/types";
 import type { DatabaseConnection } from "../trade/types";
 import { AuditLogger, Logger } from "../../services";
+// Phase 4.3 — duel stake mutations must be idempotent.
+import { getIdempotencyService } from "../../services/IdempotencyService";
 import {
   rateLimiter,
   sendDuelError,
@@ -85,6 +87,21 @@ export async function handleDuelAddStake(
   ) {
     sendDuelError(socket, "Invalid inventory slot", "INVALID_SLOT");
     return;
+  }
+
+  // Phase 4.3 idempotency — adding a stake is a value-transfer
+  // intent. A double-click would double-add the same slot/quantity
+  // before the DB transaction sees the first update, potentially
+  // staking more than the player actually has.
+  {
+    const idempotencyKey = getIdempotencyService().generateKey(
+      playerId,
+      "duelAddStake",
+      { duelId, inventorySlot, quantity },
+    );
+    if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+      return;
+    }
   }
 
   // Use a dedicated client so SELECT FOR UPDATE holds the row lock
@@ -258,6 +275,21 @@ export async function handleDuelRemoveStake(
   if (stakeIndex < 0 || stakeIndex >= stakes.length) {
     sendDuelError(socket, "Invalid stake index", "INVALID_INDEX");
     return;
+  }
+
+  // Phase 4.3 idempotency — duplicate remove attempts on the
+  // same stake index would otherwise race against the
+  // server-side removal and could produce inconsistent UI state
+  // for the requesting client.
+  {
+    const idempotencyKey = getIdempotencyService().generateKey(
+      playerId,
+      "duelRemoveStake",
+      { duelId, stakeIndex },
+    );
+    if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+      return;
+    }
   }
 
   // Copy stake data before removal for audit

@@ -34,6 +34,10 @@ import { InventoryRepository } from "../../../database/repositories/InventoryRep
 import * as schema from "../../../database/schema";
 import { eq, sql } from "drizzle-orm";
 
+// Phase 4.3 — store buy/sell must be idempotent. A double-click
+// on "Buy 100" must not buy 200 (and spend 2× the coins).
+import { getIdempotencyService } from "../services/IdempotencyService";
+
 // Import shared input validation and rate limiting from services
 import {
   RateLimitService,
@@ -203,6 +207,26 @@ export async function handleStoreBuy(
   }
 
   const totalCost = storeItem.price * data.quantity;
+
+  // Step 7.5: Phase 4.3 idempotency — purchase intent is uniquely
+  // identified by (player, store, item, quantity). A double-click
+  // on "Buy 100" must not buy 200 + spend 2x the coins. Replay-
+  // attack timestamp validation is handled separately upstream;
+  // this catch is for benign duplicates only.
+  {
+    const idempotencyKey = getIdempotencyService().generateKey(
+      ctx.playerId,
+      "storeBuy",
+      {
+        storeId: data.storeId,
+        itemId: data.itemId,
+        quantity: data.quantity,
+      },
+    );
+    if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+      return;
+    }
+  }
 
   // Step 8: Execute transaction with inventory lock (prevents race conditions)
   const result = await executeInventoryTransaction(ctx, async () => {
@@ -469,6 +493,23 @@ export async function handleStoreSell(
   }
 
   const totalValue = sellPrice * data.quantity;
+
+  // Step 6.5: Phase 4.3 idempotency — double-click on "Sell 100"
+  // must not sell 200 items.
+  {
+    const idempotencyKey = getIdempotencyService().generateKey(
+      ctx.playerId,
+      "storeSell",
+      {
+        storeId: data.storeId,
+        itemId: data.itemId,
+        quantity: data.quantity,
+      },
+    );
+    if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+      return;
+    }
+  }
 
   // Step 7: Execute transaction with inventory lock (prevents race conditions)
   const result = await executeInventoryTransaction(ctx, async () => {
