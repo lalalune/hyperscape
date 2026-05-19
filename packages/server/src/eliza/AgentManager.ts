@@ -1419,13 +1419,30 @@ export class AgentManager {
         return null;
       }
 
+      // Eliza 2.0 alpha.76+ InMemoryDatabaseAdapter shape no longer
+      // declares `log` on its public type — older versions did, and
+      // the wrapping logic below is defensive across the version
+      // window. Cast to a structural alias that makes `log`
+      // optional + unknown-typed so the runtime check narrows
+      // correctly and the wrapper can still inspect the legacy
+      // `logs` buffer without ts-ignore.
       const adapter = new InMemoryDatabaseAdapter();
-      // Eliza 2.0 alpha.76+ InMemoryDatabaseAdapter may omit `log`; only wrap when present.
-      if (typeof adapter.log === "function") {
-        const originalLog = adapter.log.bind(adapter);
-        adapter.log = async (params: Parameters<typeof originalLog>[0]) => {
+      // Eliza 2.0 alpha.76+ InMemoryDatabaseAdapter shape no longer
+      // declares `log` on the public type — older versions did, and
+      // the wrapping logic below is defensive across the version
+      // window. Use a localized structural alias only when reading
+      // / writing log fields so the surrounding IDatabaseAdapter
+      // typing is preserved for the downstream consumer.
+      type LogShape = {
+        log?: (params: unknown) => Promise<unknown>;
+        logs?: unknown[];
+      };
+      const adapterLog = adapter as unknown as LogShape;
+      if (typeof adapterLog.log === "function") {
+        const originalLog = adapterLog.log.bind(adapter);
+        adapterLog.log = async (params: unknown) => {
           await originalLog(params);
-          const logs = (adapter as unknown as { logs?: unknown[] }).logs;
+          const logs = adapterLog.logs;
           if (logs && logs.length > 50) {
             logs.splice(0, logs.length - 50);
           }
