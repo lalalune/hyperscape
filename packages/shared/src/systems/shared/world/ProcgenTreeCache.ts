@@ -2131,6 +2131,47 @@ export const TREE_PRESETS = [
 export type TreePreset = (typeof TREE_PRESETS)[number];
 
 /**
+ * Phase 3.5 follow-up — host-populated active tree preset list.
+ *
+ * Defaults to the engine fallback `TREE_PRESETS`. Hosts that
+ * load content packs (asset-forge studio, agent-server, the
+ * production server) call `setActiveTreePresets(union)` with
+ * the union of `treePresets` declared by each installed
+ * `BuiltinPack` before `createClientWorld`'s prewarm fires.
+ *
+ * The prewarm reads through `getActiveTreePresets()` so the
+ * exact preset set warmed matches what scattering systems
+ * will actually request — non-Hyperia projects don't pay the
+ * cache-allocation cost for Hyperia-only presets and vice
+ * versa.
+ *
+ * Module-level mutable is intentional: this is a singleton
+ * runtime config the host sets once at boot. Tests can poke
+ * it directly via `setActiveTreePresets`.
+ */
+let _activeTreePresets: ReadonlyArray<string> = TREE_PRESETS;
+
+/**
+ * Replace the active tree preset list. Pass the union of
+ * `treePresets` from installed content packs. Pass an empty
+ * array to skip prewarm entirely (the cache populates lazily
+ * on first scatter request, just slower).
+ */
+export function setActiveTreePresets(presets: ReadonlyArray<string>): void {
+  _activeTreePresets = presets;
+}
+
+/**
+ * Read the active tree preset list. Defaults to the engine
+ * fallback `TREE_PRESETS` when no host has called
+ * `setActiveTreePresets()` — preserves boot behavior for
+ * standalone engine tests and legacy callers.
+ */
+export function getActiveTreePresets(): ReadonlyArray<string> {
+  return _activeTreePresets;
+}
+
+/**
  * Add a tree instance using instanced rendering.
  * This is the preferred method for rendering procgen trees - uses batched draw calls.
  *

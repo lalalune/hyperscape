@@ -81,10 +81,14 @@ import { TerrainSystem } from "../systems/shared";
 // ProceduralTownLandmarksSystem migrated to @hyperforge/hyperscape (2026-04-25)
 import { Physics } from "../systems/shared";
 
-// Tree cache pre-warming for faster world loading
+// Tree cache pre-warming for faster world loading.
+// Phase 3.5 follow-up — getActiveTreePresets returns the
+// host-supplied union of `treePresets` from installed content
+// packs; falls back to the engine's hardcoded TREE_PRESETS when
+// no host has called setActiveTreePresets().
 import {
   prewarmCache as prewarmTreeCache,
-  TREE_PRESETS,
+  getActiveTreePresets,
 } from "../systems/shared/world/ProcgenTreeCache";
 import {
   initGLBTreeInstancer,
@@ -451,8 +455,11 @@ export function createClientWorld() {
               "[createClientWorld] PhysX loaded, starting tree cache pre-warm...",
             );
 
-            // Now safe to run heavy tree generation
-            await prewarmTreeCache([...TREE_PRESETS]);
+            // Now safe to run heavy tree generation. Read through
+            // the active preset registry so non-Hyperia projects
+            // don't pay the cache-allocation cost for Hyperia-only
+            // presets and vice versa.
+            await prewarmTreeCache([...getActiveTreePresets()]);
           } catch (err) {
             console.warn(
               "[createClientWorld] Tree cache pre-warm failed:",

@@ -1358,6 +1358,15 @@ export {
 } from "./systems/shared/world/LODConfig";
 export { csmLevels } from "./systems/shared/world/Environment";
 export { updateTreeInstances } from "./systems/shared/world/ProcgenTreeCache";
+// Phase 3.5 follow-up — hosts call setActiveTreePresets() with
+// the union of `treePresets` from installed content packs
+// before the world prewarm fires; createClientWorld's prewarm
+// reads through getActiveTreePresets() instead of the
+// hardcoded TREE_PRESETS array.
+export {
+  setActiveTreePresets,
+  getActiveTreePresets,
+} from "./systems/shared/world/ProcgenTreeCache";
 // (`getGlobalCullingManager` already exported via the
 // utils/compute block below; only `isGPUComputeAvailable` added.)
 export { isGPUComputeAvailable } from "./utils/compute";
