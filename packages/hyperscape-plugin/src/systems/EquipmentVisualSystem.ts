@@ -194,7 +194,7 @@ export class EquipmentVisualSystem extends SystemBase {
       },
     );
 
-    // OSRS-STYLE: Show gathering tool during gathering (e.g., fishing rod during fishing)
+    // Tile-based-MMORPG behavior: show gathering tool during gathering (e.g., fishing rod during fishing)
     this.subscribe(
       EventType.GATHERING_TOOL_SHOW,
       (data: { playerId: string; itemId: string; slot: string }) => {
@@ -210,7 +210,7 @@ export class EquipmentVisualSystem extends SystemBase {
       },
     );
 
-    // OSRS-STYLE: Hide melee weapon during magic/ranged attacks
+    // Tile-based-MMORPG behavior: hide melee weapon during magic/ranged attacks
     this.subscribe(
       EventType.COMBAT_PROJECTILE_LAUNCHED,
       (data: { attackerId: string }) => {
@@ -434,7 +434,7 @@ export class EquipmentVisualSystem extends SystemBase {
   }
 
   /**
-   * OSRS-STYLE: Hide melee weapon during magic/ranged attacks.
+   * Hide melee weapon during magic/ranged attacks (tile-based-MMORPG combat-visual convention).
    *
    * When a non-melee projectile is launched, the attacker's equipped melee weapon
    * should be hidden for the duration of the attack animation. Staffs and bows
@@ -508,7 +508,7 @@ export class EquipmentVisualSystem extends SystemBase {
   }
 
   /**
-   * OSRS-STYLE: Show gathering tool in hand during gathering animation
+   * Show gathering tool in hand during gathering animation (tile-based-MMORPG convention)
    * (e.g., fishing rod appears in hand even though it's in inventory, not equipped)
    *
    * This temporarily hides any equipped weapon and shows the gathering tool instead.
@@ -548,7 +548,7 @@ export class EquipmentVisualSystem extends SystemBase {
     }
     const equipment = this.playerEquipment.get(playerId)!;
 
-    // OSRS-STYLE: Temporarily hide the equipped weapon while showing gathering tool
+    // Temporarily hide the equipped weapon while showing gathering tool
     // Check hiddenWeapons to prevent hiding multiple times on rapid calls
     if (
       equipment.weapon &&
@@ -595,7 +595,7 @@ export class EquipmentVisualSystem extends SystemBase {
     // Remove the gathering tool visual
     this.unequipVisual(playerId, "gatheringTool", equipment, vrm);
 
-    // OSRS-STYLE: Restore the equipped weapon that was hidden
+    // Restore the equipped weapon that was hidden
     // Verify weapon exists and is currently hidden before restoring
     if (
       this.hiddenWeapons.has(playerId) &&
