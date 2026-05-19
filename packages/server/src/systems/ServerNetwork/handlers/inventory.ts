@@ -5,7 +5,7 @@
  * - Item pickup from ground
  * - Item drop to ground
  * - Item equip/unequip
- * - Inventory slot swapping (OSRS-style)
+ * - Inventory slot swapping (tile-based-MMORPG-style)
  *
  * All inputs are validated before processing.
  * Includes rate limiting to prevent spam attacks.
@@ -69,7 +69,7 @@ function isValidEntityId(value: unknown): value is string {
 
 /**
  * Valid equipment slot names for unequip operations
- * Matches OSRS equipment slots
+ * Matches tile-based MMORPG equipment slots
  */
 const VALID_EQUIPMENT_SLOTS = new Set([
   "weapon",
@@ -416,7 +416,7 @@ export function handleEquipItem(
     ? payload.inventorySlot
     : undefined;
 
-  // Block all equip/unequip during active duels (OSRS: can't change gear mid-duel)
+  // Block all equip/unequip during active duels (Tile-based MMORPG: can't change gear mid-duel)
   const duelSystemEquip = world.getSystem("duel") as
     | {
         getStakedSlots?: (id: string) => Set<number>;
@@ -440,7 +440,7 @@ export function handleEquipItem(
     }
   }
 
-  // Block equip during active trades (OSRS: can't change gear mid-trade)
+  // Block equip during active trades (Tile-based MMORPG: can't change gear mid-trade)
   const tradingSystemEquip = getTradingSystem(world);
   if (tradingSystemEquip?.isPlayerInTrade(playerEntity.id)) {
     sendInventoryError(
@@ -451,7 +451,7 @@ export function handleEquipItem(
     return;
   }
 
-  // Block equip while dead (OSRS: can't change gear while dead)
+  // Block equip while dead (Tile-based MMORPG: can't change gear while dead)
   const entityDataEquip = playerEntity.data as
     | { deathState?: DeathState }
     | undefined;
@@ -485,7 +485,7 @@ export function handleEquipItem(
  * - Slot and itemId validation
  * - Server-authoritative (actual consumption handled by InventorySystem)
  *
- * OSRS Flow:
+ * tile-based MMORPG Flow:
  * Client sends useItem → Server emits INVENTORY_USE → InventorySystem.useItem()
  * → ITEM_USED → PlayerSystem.handleItemUsed() → healing + eat delay
  *
@@ -504,7 +504,7 @@ export function handleUseItem(
     return;
   }
 
-  // Rate limit check (separate from equip to allow OSRS-style PvP gear+eat combos)
+  // Rate limit check (separate from equip to allow tile-based-MMORPG-style PvP gear+eat combos)
   if (!getConsumeRateLimiter().check(playerEntity.id)) {
     return;
   }
@@ -634,7 +634,7 @@ export function handleUnequipItem(
     return;
   }
 
-  // Block unequip during active duels (OSRS: can't change gear mid-duel)
+  // Block unequip during active duels (Tile-based MMORPG: can't change gear mid-duel)
   const duelSystemUnequip = world.getSystem("duel") as
     | { isPlayerInActiveDuel?: (id: string) => boolean }
     | undefined;
@@ -647,7 +647,7 @@ export function handleUnequipItem(
     return;
   }
 
-  // Block unequip during active trades (OSRS: can't change gear mid-trade)
+  // Block unequip during active trades (Tile-based MMORPG: can't change gear mid-trade)
   const tradingSystemUnequip = getTradingSystem(world);
   if (tradingSystemUnequip?.isPlayerInTrade(playerEntity.id)) {
     sendInventoryError(
@@ -658,7 +658,7 @@ export function handleUnequipItem(
     return;
   }
 
-  // Block unequip while dead (OSRS: can't change gear while dead)
+  // Block unequip while dead (Tile-based MMORPG: can't change gear while dead)
   const entityDataUnequip = playerEntity.data as
     | { deathState?: DeathState }
     | undefined;
@@ -684,9 +684,9 @@ export function handleUnequipItem(
 }
 
 /**
- * Handle inventory slot move/swap request (OSRS-style)
+ * Handle inventory slot move/swap request (tile-based-MMORPG-style)
  *
- * Implements OSRS-style SWAP behavior:
+ * Implements tile-based-MMORPG-style SWAP behavior:
  * - Dragging item A to slot B swaps them
  * - Does NOT shift/insert like typical drag-drop
  *

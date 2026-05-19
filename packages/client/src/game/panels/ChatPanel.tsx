@@ -34,8 +34,8 @@ interface ChatMessage {
    * - warning: Warning messages
    * - news: News/event announcements
    * - trade: Trade channel messages
-   * - trade_request: OSRS-style clickable trade request
-   * - duel_challenge: OSRS-style clickable duel challenge
+   * - trade_request: tile-based-MMORPG-style clickable trade request
+   * - duel_challenge: tile-based-MMORPG-style clickable duel challenge
    * - private: Private/whisper messages
    * - clan/guild: Clan chat messages
    */
@@ -88,7 +88,7 @@ const MESSAGE_COLORS = {
   activity: COLORS.SUCCESS, // Green for activity (logins, etc.)
   warning: COLORS.ERROR, // Red for warnings
   news: "#a855f7", // Purple for news/events (no exact match in COLORS)
-  trade_request: "#FF00FF", // Pink/magenta for trade requests (OSRS-style)
+  trade_request: "#FF00FF", // Pink/magenta for trade requests (tile-based-MMORPG-style)
   duel_challenge: "#FF4444", // Red for duel challenges
   default: COLORS.TEXT_PRIMARY,
 };

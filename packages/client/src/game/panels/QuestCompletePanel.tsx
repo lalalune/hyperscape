@@ -1,5 +1,5 @@
 /**
- * QuestCompletePanel - OSRS-style quest completion overlay
+ * QuestCompletePanel - tile-based-MMORPG-style quest completion overlay
  *
  * Features:
  * - Scroll/parchment style modal

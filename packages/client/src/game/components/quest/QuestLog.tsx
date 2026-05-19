@@ -1,7 +1,7 @@
 /**
  * Quest Log Component
  *
- * Clean OSRS-style quest log with minimal UI chrome.
+ * Clean tile-based-MMORPG-style quest log with minimal UI chrome.
  * Features color-coded quest status and collapsible filters.
  *
  * @packageDocumentation
@@ -1049,7 +1049,7 @@ const PinnedGroup = memo(function PinnedGroup({
 /**
  * Quest Log Component
  *
- * Clean OSRS-style quest log with minimal UI chrome and collapsible filters.
+ * Clean tile-based-MMORPG-style quest log with minimal UI chrome and collapsible filters.
  */
 export const QuestLog = memo(function QuestLog({
   quests,

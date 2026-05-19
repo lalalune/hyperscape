@@ -17,7 +17,7 @@
  *   use `modelVariants` instead (trees pick a random variant) or have no
  *   visible model (fishing spots are transparent click targets).
  * - `harvestYield` base entry applies to all three skills. Fishing extends it
- *   with `levelRequired`, `catchLow`, `catchHigh` for OSRS-accurate per-fish
+ *   with `levelRequired`, `catchLow`, `catchHigh` for tile-based-MMORPG-accurate per-fish
  *   catch-rate curves.
  * - JSON `$schema` values are file paths (`../schemas/gathering-xxx.schema.json`)
  *   rather than version literals — we accept any string here.
@@ -40,7 +40,7 @@ export const GatheringYieldSchema = HarvestYieldBaseSchema;
 export type GatheringYield = z.infer<typeof GatheringYieldSchema>;
 
 /**
- * Fishing yield — base + OSRS-style per-fish rates.
+ * Fishing yield — base + tile-based-MMORPG-style per-fish rates.
  * `catchLow` / `catchHigh` are the x/256 rate endpoints used by the
  * fishing-spot LERP.
  */

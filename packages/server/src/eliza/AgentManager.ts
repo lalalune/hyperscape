@@ -1607,7 +1607,7 @@ export class AgentManager {
     const mapAwareness = instance.service.formatMapAwarenessForLlm();
 
     const prompt = [
-      `You are defining the CHARACTER BUILD IDENTITY for a player in an OSRS-style MMO.`,
+      `You are defining the CHARACTER BUILD IDENTITY for a player in an tile-based-MMORPG-style MMO.`,
       `This is NOT a vague ambition — it is a SPECIFIC, OPINIONATED build archetype that drives every decision.`,
       `Pick ONE clear identity and commit to it. Examples: "Melee tank", "Ranged pure", "Mage-prayer hybrid", "Skiller (woodcutting/fishing)", "Combat berserker".`,
       `The narrative should describe WHO this character IS as a player and what they prioritize. Be bold — no "balanced" or "well-rounded" hedging.`,

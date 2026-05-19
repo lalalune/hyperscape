@@ -1,7 +1,7 @@
 /**
  * Tier requirements manifest schema.
  *
- * Source of truth for OSRS-accurate tier → skill-requirement
+ * Source of truth for tile-based-MMORPG-accurate tier → skill-requirement
  * mappings used by equipment and tools. The JSON is loaded at
  * runtime by `DataManager` and handed to `loadTierRequirements()`
  * in `packages/shared/src/data/TierDataProvider.ts`.

@@ -407,7 +407,7 @@ div[data-privy-backdrop] {
   background-color: rgba(139, 69, 19, 0.8);
 }
 
-/* OSRS-Style Scrollbar - Gold accent with dark track */
+/* tile-based MMORPG-Style Scrollbar - Gold accent with dark track */
 .osrs-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #c9a227 rgba(0, 0, 0, 0.3);

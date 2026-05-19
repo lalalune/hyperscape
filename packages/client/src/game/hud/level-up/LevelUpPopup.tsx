@@ -1,5 +1,5 @@
 /**
- * LevelUpPopup - RuneScape-style level-up notification popup
+ * LevelUpPopup - tile-based-MMORPG-style level-up notification popup
  *
  * Uses the reusable AchievementPopup component with:
  * - Centered modal with skill icon and level

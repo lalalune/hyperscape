@@ -825,7 +825,7 @@ export class BuildingGenerator {
     const floorGeometries: THREE.BufferGeometry[] = []; // Walkable surfaces
     const wallGeometries: THREE.BufferGeometry[] = []; // Non-walkable (walls, ceilings, props)
     const roofGeometries: THREE.BufferGeometry[] = [];
-    // Terrace railings are separate so they can be hidden with roofs (RuneScape-style)
+    // Terrace railings are separate so they can be hidden with roofs (tile-based-MMORPG-style)
     const terraceRailingGeometries: THREE.BufferGeometry[] = [];
 
     // New geometry arrays for windows and doors
@@ -1138,7 +1138,7 @@ export class BuildingGenerator {
       }
     }
 
-    // Create terrace railings mesh (hidden with roofs when inside building - RuneScape-style)
+    // Create terrace railings mesh (hidden with roofs when inside building - tile-based-MMORPG-style)
     if (terraceRailingGeometries.length > 0) {
       const mergedTerraceRailings = mergeGeometries(
         terraceRailingGeometries,

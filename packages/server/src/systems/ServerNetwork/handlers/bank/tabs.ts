@@ -36,7 +36,7 @@ import {
  * Creates a new custom tab (1-9) with an item from main tab (or another tab).
  * The item becomes the first item in the new tab and its icon.
  *
- * OSRS Behavior:
+ * tile-based MMORPG Behavior:
  * - Drag item to "+" button or empty tab slot to create
  * - First item becomes the tab icon
  * - Max 9 custom tabs (1-9)
@@ -173,7 +173,7 @@ export async function handleBankCreateTab(
  * Deletes a custom tab and moves all items to main tab (index 0).
  * Tab 0 (main) cannot be deleted.
  *
- * OSRS Behavior:
+ * tile-based MMORPG Behavior:
  * - Items from deleted tab are appended to main tab
  * - Tab numbers above the deleted tab shift down
  *

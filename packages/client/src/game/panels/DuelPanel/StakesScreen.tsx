@@ -4,7 +4,7 @@
  * Screen where both players stake items for the duel.
  * Similar to trade panel but for duel stakes.
  *
- * OSRS-style features:
+ * tile-based-MMORPG-style features:
  * - Left-click inventory item: stake 1
  * - Right-click: context menu for quantity options
  * - Both players must accept for duel to proceed

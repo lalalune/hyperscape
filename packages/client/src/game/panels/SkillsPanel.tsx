@@ -166,7 +166,7 @@ const DraggableSkillCard = memo(function DraggableSkillCard({
         >
           {skill.icon}
         </span>
-        {/* OSRS-style slanted level display: current↗/↘base */}
+        {/* tile-based-MMORPG-style slanted level display: current↗/↘base */}
         <div
           style={{
             display: "flex",
@@ -291,7 +291,7 @@ export function SkillsPanel({ stats }: SkillsPanelProps) {
           </div>
         </div>
 
-        {/* Right: Total / Combat with OSRS-style angled split */}
+        {/* Right: Total / Combat with tile-based-MMORPG-style angled split */}
         <div
           style={{ textAlign: "center", cursor: "default" }}
           onMouseEnter={(e) => {

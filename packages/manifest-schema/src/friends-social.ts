@@ -53,7 +53,7 @@ export const FriendsListRulesSchema = z
   .object({
     /**
      * Max simultaneous friends per player. Default 99 matches the
-     * RS-classic / OSRS limit (single-byte friend list count).
+     * RS-classic / tile-based MMORPG limit (single-byte friend list count).
      */
     maxFriends: z.number().int().min(1).max(1000).default(99),
     /** Persistence scope for the friends list. */
@@ -95,7 +95,7 @@ export const IgnoreListRulesSchema = z
   .object({
     /**
      * Max simultaneous ignored players per player. Default 99 matches
-     * the RS-classic / OSRS limit (symmetric with friends list).
+     * the RS-classic / tile-based MMORPG limit (symmetric with friends list).
      */
     maxIgnored: z.number().int().min(1).max(1000).default(99),
     /** Persistence scope for the ignore list. */

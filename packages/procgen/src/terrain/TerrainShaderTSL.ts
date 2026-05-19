@@ -5,7 +5,7 @@
  * Both Asset Forge and the game engine share this code for visual consistency.
  *
  * Features:
- * - OSRS-style flat-shaded vertex colors (no textures)
+ * - tile-based-MMORPG-style flat-shaded vertex colors (no textures)
  * - Height and slope-based biome blending
  * - Noise-based dirt patches
  * - Snow at high elevations
@@ -354,11 +354,11 @@ export interface TerrainMaterialOptions {
 }
 
 // ============================================================================
-// TERRAIN MATERIAL - OSRS Style (No Textures)
+// TERRAIN MATERIAL - tile-based MMORPG Style (No Textures)
 // ============================================================================
 
 /**
- * Create the game-accurate OSRS-style terrain material
+ * Create the game-accurate tile-based-MMORPG-style terrain material
  *
  * This is the EXACT same material used in the game engine.
  * Uses TSL (Three Shader Language) for WebGPU rendering.

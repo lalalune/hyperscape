@@ -164,7 +164,7 @@ function DroppableEquipmentSlot({
 
         if (!slot.item) return;
 
-        // OSRS uses orange for item names in context menus
+        // the tile-based MMORPG genre uses orange for item names in context menus
         const itemName = slot.item.name;
 
         const items = [
@@ -604,7 +604,7 @@ export const EquipmentPanel = React.memo(function EquipmentPanel({
           type: "info",
           position: ce.detail.position,
         });
-        // Also add to chat (OSRS-style game message)
+        // Also add to chat (tile-based-MMORPG-style game message)
         if (world?.chat?.add) {
           world.chat.add({
             id: uuid(),

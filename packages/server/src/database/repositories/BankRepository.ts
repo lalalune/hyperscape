@@ -36,7 +36,7 @@ export interface BankTab {
 }
 
 /**
- * Bank placeholder representation (OSRS-style slot reservation)
+ * Bank placeholder representation (tile-based-MMORPG-style slot reservation)
  */
 export interface BankPlaceholder {
   tabIndex: number;

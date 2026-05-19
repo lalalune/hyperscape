@@ -8,7 +8,7 @@
 // Grid Layout
 // ============================================================================
 
-/** Number of columns in trade grid (OSRS style) */
+/** Number of columns in trade grid (tile-based MMORPG style) */
 export const TRADE_GRID_COLS = 4;
 
 /** Number of rows in trade grid */

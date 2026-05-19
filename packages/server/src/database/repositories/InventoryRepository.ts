@@ -1,7 +1,7 @@
 /**
  * InventoryRepository - Player inventory management operations
  *
- * Handles player inventory storage with 28 slots (like RuneScape classic).
+ * Handles player inventory storage with 28 slots (like tile-based MMORPG classic).
  * Each item has an ID, quantity, slot index, and optional metadata.
  *
  * Responsibilities:

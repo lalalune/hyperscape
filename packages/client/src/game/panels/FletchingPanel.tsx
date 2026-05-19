@@ -1,5 +1,5 @@
 /**
- * FletchingPanel - OSRS-style fletching interface
+ * FletchingPanel - tile-based-MMORPG-style fletching interface
  *
  * Features:
  * - Shows available items to fletch based on player's materials

@@ -259,7 +259,7 @@ const skillRowSchema = z.object({
 });
 
 const skillsPropsSchema = z.object({
-  /** Grid columns. OSRS uses 3 for desktop, 2 for mobile. */
+  /** Grid columns. the tile-based MMORPG genre uses 3 for desktop, 2 for mobile. */
   columns: z.number().int().positive(),
   /** Show the Total-level / Combat-level header strip. */
   showHeader: z.boolean(),
@@ -280,7 +280,7 @@ export const skillsWidget: Widget<z.infer<typeof skillsPropsSchema>> =
       id: "hyperforge.panel.skills",
       name: "Skills",
       description:
-        "Skill levels grid with combat/total header — matches OSRS layout.",
+        "Skill levels grid with combat/total header — matches tile-based MMORPG layout.",
       category: "panel",
       icon: "Sparkles",
       defaultSize: { width: 6, height: 8 },
@@ -395,7 +395,7 @@ const prayerPropsSchema = z.object({
   points: z.number().nonnegative(),
   /** Max prayer points. */
   maxPoints: z.number().positive(),
-  /** Grid columns. OSRS uses 5 desktop, 3 mobile. */
+  /** Grid columns. the tile-based MMORPG genre uses 5 desktop, 3 mobile. */
   columns: z.number().int().positive(),
   /** Prayer rows. */
   items: z.array(prayerRowSchema).optional(),
@@ -509,7 +509,7 @@ const bankSlotSchema = z.object({
 });
 
 const bankPropsSchema = z.object({
-  /** Grid columns. OSRS default is 8. */
+  /** Grid columns. tile-based MMORPG default is 8. */
   columns: z.number().int().positive(),
   /** Show the search field above the grid. */
   showSearch: z.boolean(),

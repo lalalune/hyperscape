@@ -69,7 +69,7 @@ export const TradeSessionRulesSchema = z
     inactivityTimeoutSec: z.number().int().min(0).max(600).default(300),
     /**
      * Max item slots each side can offer in one session. Default 28
-     * matches RS-classic / OSRS inventory size (one full inventory per
+     * matches RS-classic / tile-based MMORPG inventory size (one full inventory per
      * side).
      */
     maxItemSlotsPerSide: z.number().int().min(1).max(28).default(28),

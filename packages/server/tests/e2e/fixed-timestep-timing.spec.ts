@@ -363,7 +363,7 @@ test.describe("Fixed Timestep Timing System", () => {
         );
 
         // Server ticks should be ~600ms (allow some variance for network/scheduling)
-        // This verifies the OSRS-style tick system is working
+        // This verifies the tile-based-MMORPG-style tick system is working
         expect(avgInterval).toBeGreaterThan(400); // At least 400ms
         expect(avgInterval).toBeLessThan(1000); // At most 1000ms
         logs.push(`[${testName}] ✅ Tick timing within expected range`);

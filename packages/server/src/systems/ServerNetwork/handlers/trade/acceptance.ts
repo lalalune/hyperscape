@@ -57,7 +57,7 @@ export async function handleTradeAccept(
   // Send update to both players
   sendTradeUpdate(world, tradingSystem, data.tradeId);
 
-  // Two-screen confirmation flow (OSRS-style):
+  // Two-screen confirmation flow (tile-based-MMORPG-style):
   // 1. On offer screen: both accept → move to confirmation screen
   // 2. On confirmation screen: both accept → complete trade
   if (result.moveToConfirming) {

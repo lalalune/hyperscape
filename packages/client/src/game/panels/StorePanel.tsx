@@ -1,5 +1,5 @@
 /**
- * StorePanel - RuneScape-style store interface
+ * StorePanel - tile-based-MMORPG-style store interface
  *
  * Features:
  * - Grid display of store items for sale

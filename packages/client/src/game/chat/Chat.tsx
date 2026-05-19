@@ -944,14 +944,14 @@ function Messages({
 function Message({ msg, world }: { msg: ChatMessage; world: ChatWorld }) {
   const theme = useThemeStore((s) => s.theme);
 
-  // Handle trade request messages (OSRS-style pink display only)
+  // Handle trade request messages (tile-based-MMORPG-style pink display only)
   // Trade accept is handled by ChatPanel - this component just displays the message
   if (msg.type === "trade_request" && msg.tradeId) {
     return (
       <div
         className="message text-[0.75rem] leading-[1.35]"
         style={{
-          color: "#FF00FF", // OSRS-style pink/magenta
+          color: "#FF00FF", // tile-based-MMORPG-style pink/magenta
           fontFamily: "'Inter', system-ui, sans-serif",
           textShadow: "0 1px 2px rgba(0,0,0,0.75)",
         }}

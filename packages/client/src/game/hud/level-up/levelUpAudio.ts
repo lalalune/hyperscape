@@ -13,7 +13,7 @@
 
 /**
  * Milestone levels that get special fanfare
- * Matches OSRS significant level milestones
+ * Matches tile-based MMORPG significant level milestones
  */
 const MILESTONE_LEVELS = [10, 25, 50, 75, 99];
 

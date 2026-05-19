@@ -12,7 +12,7 @@
  *   simpler and Zod validation faster.
  * - **Every field has a minimum viable doc.** That doc renders as tooltip
  *   help in the editor.
- * - **Tick-based values keep their OSRS semantics.** 1 tick = 600ms.
+ * - **Tick-based values keep their tile-based MMORPG semantics.** 1 tick = 600ms.
  */
 
 import { z } from "zod";
@@ -87,7 +87,7 @@ export const CombatTicksSchema = z.object({
     .number()
     .int()
     .positive()
-    .describe("Milliseconds per tick (OSRS = 600)"),
+    .describe("Milliseconds per tick (tile-based MMORPG = 600)"),
   defaultAttackSpeedTicks: z
     .number()
     .int()

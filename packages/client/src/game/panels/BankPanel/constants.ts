@@ -62,7 +62,7 @@ export const BANK_THEME = Object.freeze({
   TAB_BG_SELECTED: "rgba(139, 69, 19, 0.6)",
   TAB_BORDER: "rgba(139, 69, 19, 0.5)",
 
-  // Text colors - gold theme with OSRS quantity colors
+  // Text colors - gold theme with tile-based MMORPG quantity colors
   TEXT_GOLD: "#f2d08a", // Primary gold
   TEXT_GOLD_DIM: "rgba(242, 208, 138, 0.7)",
   TEXT_YELLOW: "#ffff00", // Quantity < 100K

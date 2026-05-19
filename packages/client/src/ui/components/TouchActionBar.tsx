@@ -1,7 +1,7 @@
 /**
  * Touch Action Bar Component
  *
- * Mobile-optimized action bar with 5 slots (OSRS-mobile pattern).
+ * Mobile-optimized action bar with 5 slots (tile-based MMORPG-mobile pattern).
  * Features:
  * - 48x48px minimum touch targets
  * - 8px spacing between targets

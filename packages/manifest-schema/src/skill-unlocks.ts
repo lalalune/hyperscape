@@ -1,7 +1,7 @@
 /**
  * Skill unlocks manifest schema.
  *
- * OSRS-style content unlocks per skill level (displayed in the
+ * tile-based-MMORPG-style content unlocks per skill level (displayed in the
  * level-up notification popup). The JSON is loaded at runtime by
  * `DataManager` and handed to `loadSkillUnlocks()` in
  * `packages/shared/src/data/skill-unlocks.ts`.
@@ -33,7 +33,7 @@ export const SkillUnlocksManifestSchema = z.object({
   $schema: z.string().optional(),
   /** Free-form comment field retained from legacy docs. */
   _comment: z.string().optional(),
-  /** Per-skill unlock arrays, keyed by OSRS skill name. */
+  /** Per-skill unlock arrays, keyed by tile-based MMORPG skill name. */
   skills: z.record(z.string().min(1), z.array(SkillUnlockEntrySchema)),
 });
 export type SkillUnlocksManifest = z.infer<typeof SkillUnlocksManifestSchema>;

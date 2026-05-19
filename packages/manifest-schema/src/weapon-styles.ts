@@ -1,7 +1,7 @@
 /**
  * Weapon-style manifest schema.
  *
- * Source of truth for the OSRS-accurate combat style availability table
+ * Source of truth for the tile-based-MMORPG-accurate combat style availability table
  * previously hardcoded in `packages/shared/src/constants/WeaponStyleConfig.ts`.
  * Extracted as part of Phase A8 of `PLAN_WORLD_STUDIO_AAA_COMPLETION.md`.
  *

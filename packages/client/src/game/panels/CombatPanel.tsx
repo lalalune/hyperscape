@@ -849,7 +849,7 @@ interface CombatPanelProps {
 }
 
 // Client-side cache for combat style state (persists across panel opens/closes)
-// This enables instant display when reopening panel (RuneScape pattern)
+// This enables instant display when reopening panel (tile-based MMORPG pattern)
 const combatStyleCache = new Map<string, string>();
 const autoRetaliateCache = new Map<string, boolean>();
 const VALID_WEAPON_TYPES = new Set<string>(Object.values(WeaponType));
@@ -882,7 +882,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   const [cooldown, setCooldown] = useState<number>(0);
   const [targetName, setTargetName] = useState<string | null>(null);
   const [targetHealth, setTargetHealth] = useState<PlayerHealth | null>(null);
-  // Auto-retaliate state (OSRS default is ON)
+  // Auto-retaliate state (tile-based MMORPG default is ON)
   const [autoRetaliate, setAutoRetaliate] = useState<boolean>(() => {
     const player = world.entities?.player;
     const playerId = player?.id;
@@ -896,12 +896,12 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
     if (typeof playerCombat?.autoRetaliate === "boolean") {
       return playerCombat.autoRetaliate;
     }
-    return true; // OSRS default: ON
+    return true; // tile-based MMORPG default: ON
   });
   const playerId = world.entities?.player?.id ?? null;
   const previousPlayerIdRef = useRef<string | null>(null);
 
-  // Calculate combat level using OSRS formula (melee-only MVP)
+  // Calculate combat level using tile-based MMORPG formula (melee-only MVP)
   const combatLevel = stats?.skills
     ? (() => {
         const s = stats.skills;
@@ -1070,7 +1070,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
 
     if (!actions?.actionMethods?.changeAttackStyle) return;
 
-    // Optimistic: update UI instantly (OSRS has zero visible delay)
+    // Optimistic: update UI instantly (tile-based MMORPG has zero visible delay)
     combatStyleCache.set(playerId, next);
     setStyle(next);
 
@@ -1078,7 +1078,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
     // which will overwrite our optimistic value with the authoritative one
     actions.actionMethods.changeAttackStyle(playerId, next);
 
-    // OSRS-accurate: selecting autocast opens the spells panel for spell selection
+    // tile-based-MMORPG-accurate: selecting autocast opens the spells panel for spell selection
     if (next === "autocast") {
       const store = useWindowStore.getState();
       const windows = Array.from(store.windows.values());
@@ -1130,7 +1130,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
 
     const newValue = !autoRetaliate;
 
-    // Optimistic: update UI instantly (OSRS has zero visible delay)
+    // Optimistic: update UI instantly (tile-based MMORPG has zero visible delay)
     autoRetaliateCache.set(playerId, newValue);
     setAutoRetaliate(newValue);
 
@@ -1140,7 +1140,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   };
 
   // All possible combat styles with their XP training info and colors
-  // Includes melee, ranged, and magic styles (OSRS-accurate)
+  // Includes melee, ranged, and magic styles (tile-based-MMORPG-accurate)
   const allStyles: Array<{
     id: string;
     label: string;
@@ -1194,7 +1194,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
     },
   ];
 
-  // Filter styles based on equipped weapon (OSRS-accurate restrictions)
+  // Filter styles based on equipped weapon (tile-based-MMORPG-accurate restrictions)
   const styles = useMemo(() => {
     const normalizedWeaponType = equipment?.weapon?.weaponType?.toLowerCase();
     const weaponType = normalizedWeaponType

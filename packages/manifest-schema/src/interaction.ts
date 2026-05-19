@@ -8,7 +8,7 @@
  *
  * What lives here:
  *   - SessionType enum values (store/bank/dialogue)
- *   - Per-session-type max interaction distance (Chebyshev, OSRS-style)
+ *   - Per-session-type max interaction distance (Chebyshev, tile-based-MMORPG-style)
  *   - Transaction rate limit (ms)
  *   - Session validation tick intervals
  *   - Generic input validation limits (item id / store id string length,

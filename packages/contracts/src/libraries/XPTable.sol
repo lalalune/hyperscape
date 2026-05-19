@@ -5,12 +5,12 @@ import { Constants } from "./Constants.sol";
 
 /**
  * @title XPTable
- * @notice OSRS-accurate XP table for skill levels 1-99.
+ * @notice tile-based-MMORPG-accurate XP table for skill levels 1-99.
  *
  * The XP formula for each level N (1-indexed) is:
  *   xpForLevel[N] = sum from i=1 to N-1 of floor(i + 300 * 2^(i/7)) / 4
  *
- * This matches the RuneScape XP table exactly and must produce identical
+ * This matches the tile-based MMORPG XP table exactly and must produce identical
  * values to SkillsSystem.generateXPTable() in the TypeScript codebase.
  *
  * Because Solidity cannot do floating-point 2^(i/7), we use a precomputed
@@ -30,10 +30,10 @@ library XPTable {
 
         // Precomputed XP thresholds for levels 1-99.
         // Generated from: floor(sum(i=1..N-1, floor(i + 300 * 2^(i/7)) / 4))
-        // These values match the OSRS wiki exactly.
+        // These values match the tile-based MMORPG wiki exactly.
         // Generated from the TypeScript SkillsSystem.generateXPTable() formula.
         // These MUST match the game server's values exactly (JavaScript floating-point).
-        // Differs from OSRS wiki values by up to 37 XP at level 99 due to float rounding.
+        // Differs from tile-based MMORPG wiki values by up to 37 XP at level 99 due to float rounding.
         uint32[99] memory table = [
             uint32(0),        // Level 1
             uint32(83),       // Level 2

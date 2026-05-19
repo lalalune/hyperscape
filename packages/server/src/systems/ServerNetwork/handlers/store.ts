@@ -14,7 +14,7 @@
  * - Quantity bounds checking prevents integer overflow
  * - Coin balance verification before purchase
  * - Inventory space verification before adding items
- * - Distance validation using Chebyshev distance (OSRS-style)
+ * - Distance validation using Chebyshev distance (tile-based-MMORPG-style)
  *
  * This follows the same security patterns as bank.ts.
  * Common patterns are extracted to ./common/ for reuse.

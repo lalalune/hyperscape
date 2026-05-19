@@ -41,7 +41,7 @@ import {
   EventType,
   getItem,
   uuid,
-  // OSRS-accurate item helpers (extracted to shared)
+  // tile-based-MMORPG-accurate item helpers (extracted to shared)
   isFood,
   isPotion,
   isBone,
@@ -61,7 +61,7 @@ import { CoinPouch } from "./inventory";
 import { zIndex } from "../../constants/tokens";
 
 /**
- * Maximum inventory slots (OSRS-style: 28 slots).
+ * Maximum inventory slots (tile-based-MMORPG-style: 28 slots).
  * Read live through `getMaxInventorySlots()` so PIE-hotreloaded game-manifest
  * edits take effect without a client reload.
  */
@@ -133,10 +133,10 @@ interface DraggableItemProps {
   ) => void;
 }
 
-// OSRS-style: 4 columns × 7 rows = 28 slots, all visible (no pagination)
+// tile-based-MMORPG-style: 4 columns × 7 rows = 28 slots, all visible (no pagination)
 
 /**
- * Format quantity for OSRS-style display
+ * Format quantity for tile-based-MMORPG-style display
  * - Under 100K: show exact number
  * - 100K-9.99M: green "123K" format
  * - 10M+: green "12M" format
@@ -209,10 +209,10 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
   // Slots stay fixed - no transform! Only the DragOverlay moves.
   const isEmpty = !item;
 
-  // OSRS-style targeting mode checks
+  // tile-based-MMORPG-style targeting mode checks
   const isTargetingActive = targetingState?.active ?? false;
 
-  // Check if THIS slot is the source item (gets white border in OSRS)
+  // Check if THIS slot is the source item (gets white border in the tile-based MMORPG genre)
   const isSourceItem =
     isTargetingActive && targetingState?.sourceItem?.slot === index;
 
@@ -270,15 +270,15 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
           if (isValidTarget && item && onTargetClick) {
             onTargetClick(item, index);
           } else if (item && !isValidTarget && onInvalidTargetClick) {
-            // OSRS: Clicking an invalid item shows "Nothing interesting happens."
+            // Tile-based MMORPG: Clicking an invalid item shows "Nothing interesting happens."
             // (Empty slots don't trigger this - only actual items)
             onInvalidTargetClick();
           }
-          // Clicking empty slot does nothing (OSRS behavior)
+          // Clicking empty slot does nothing (tile-based MMORPG behavior)
           return;
         }
 
-        // Shift-click to drop instantly (OSRS-style)
+        // Shift-click to drop instantly (tile-based-MMORPG-style)
         if (e.shiftKey && item && onShiftClick) {
           e.preventDefault();
           e.stopPropagation();
@@ -286,7 +286,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
           return;
         }
 
-        // Left-click: execute primary action (OSRS-style)
+        // Left-click: execute primary action (tile-based-MMORPG-style)
         // Uses manifest-first approach with heuristic fallback
         // Uses memoized itemData and isItemNoted for efficiency
         if (item && onPrimaryAction) {
@@ -299,7 +299,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
       }}
       onMouseEnter={(e) => {
         setIsHovered(true);
-        // OSRS-style: show "Use X → Y" tooltip when hovering valid target
+        // tile-based-MMORPG-style: show "Use X → Y" tooltip when hovering valid target
         if (isValidTarget && item && onTargetHover) {
           onTargetHover(item, { x: e.clientX, y: e.clientY });
         } else if (!isTargetingActive && item && onItemHoverStart) {
@@ -348,7 +348,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
         const itemName = itemData?.name || item.itemId;
         const isNoted = isItemNoted;
 
-        // Build menu items - OSRS-accurate: use inventoryActions from manifest if available
+        // Build menu items - tile-based-MMORPG-accurate: use inventoryActions from manifest if available
         const menuItems: Array<{
           id: string;
           label: string;
@@ -356,7 +356,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
           enabled: boolean;
         }> = [];
 
-        // OSRS-accurate: Check manifest's inventoryActions first
+        // tile-based-MMORPG-accurate: Check manifest's inventoryActions first
         if (
           itemData?.inventoryActions &&
           itemData.inventoryActions.length > 0 &&
@@ -488,7 +488,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
           });
         }
 
-        // OSRS-style: Cancel is always the last option
+        // tile-based-MMORPG-style: Cancel is always the last option
         menuItems.push({
           id: "cancel",
           label: "Cancel",
@@ -513,14 +513,14 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
       style={{
         // Use 'size' for 2D container queries (cqw/cqh) in responsive grid
         containerType: "size",
-        // OSRS-style targeting:
+        // tile-based-MMORPG-style targeting:
         // - Source item: WHITE border (the item being used)
         // - Valid targets: normal appearance, cursor indicates validity
         // - Invalid targets: normal appearance, cursor shows not-allowed
         ...slotChrome,
         opacity: isDragging ? 0.3 : slotChrome.opacity,
         borderColor: isSourceItem
-          ? "rgba(255, 255, 255, 0.95)" // OSRS: White border on source item
+          ? "rgba(255, 255, 255, 0.95)" // Tile-based MMORPG: White border on source item
           : isOver
             ? "rgba(242, 208, 138, 0.5)" // Gold highlight when dragging over
             : isEmpty
@@ -537,7 +537,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
               ? "linear-gradient(180deg, rgba(215, 200, 165, 0.95) 0%, rgba(235, 225, 195, 0.95) 100%)" // Parchment - lighter at bottom for emboss
               : "var(--color-slot-filled)", // Use theme slot.filled color
         boxShadow: isSourceItem
-          ? "0 0 8px rgba(255, 255, 255, 0.6)" // OSRS: White glow on source item
+          ? "0 0 8px rgba(255, 255, 255, 0.6)" // Tile-based MMORPG: White glow on source item
           : isOver
             ? "inset 0 0 8px rgba(183, 140, 76, 0.24), 0 0 0 1px rgba(183, 140, 76, 0.12)"
             : isEmpty
@@ -545,7 +545,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
               : isItemNoted
                 ? "inset 1px 1px 3px rgba(0, 0, 0, 0.25), inset -1px -1px 1px rgba(255, 255, 255, 0.4)" // Subtle paper emboss
                 : "inset 2px 2px 4px rgba(0, 0, 0, 0.34), inset -1px -1px 2px rgba(98, 82, 60, 0.1)", // Emboss for filled
-        // OSRS-style cursor changes during targeting mode
+        // tile-based-MMORPG-style cursor changes during targeting mode
         cursor: isTargetingActive
           ? isSourceItem
             ? "default" // Source item - no special cursor
@@ -646,7 +646,7 @@ interface PendingMove {
 
 /**
  * Targeting mode state for "Use X on Y" interactions (firemaking, cooking)
- * OSRS-style: source item gets white border, cursor changes for valid/invalid targets
+ * tile-based-MMORPG-style: source item gets white border, cursor changes for valid/invalid targets
  */
 interface TargetingState {
   active: boolean;
@@ -656,7 +656,7 @@ interface TargetingState {
 }
 
 /**
- * Hover state for "Use X → Y" tooltip (OSRS-style)
+ * Hover state for "Use X → Y" tooltip (tile-based-MMORPG-style)
  */
 interface TargetHoverState {
   targetName: string;
@@ -810,7 +810,7 @@ export function InventoryPanel({
     initialTargetingState,
   );
 
-  // OSRS-style hover tooltip state for "Use X → Y"
+  // tile-based-MMORPG-style hover tooltip state for "Use X → Y"
   const [targetHover, setTargetHover] = useState<TargetHoverState | null>(null);
 
   // RS3-style hover tooltip state for item stats
@@ -875,7 +875,7 @@ export function InventoryPanel({
       );
   }, [slotItems, world]);
 
-  // Listen for targeting mode events (OSRS-style "Use X on Y")
+  // Listen for targeting mode events (tile-based-MMORPG-style "Use X on Y")
   useEffect(() => {
     if (!world) return;
 
@@ -1046,7 +1046,7 @@ export function InventoryPanel({
       preMoveSlotsSnapshot: [...slotItems],
     };
 
-    // OSRS-style SWAP: exchange two slots directly (don't shift/insert)
+    // tile-based-MMORPG-style SWAP: exchange two slots directly (don't shift/insert)
     // Create deep copies of items to avoid mutating props and update .slot property
     const newSlots = [...slotItems];
     const fromItem = newSlots[fromIndex];
@@ -1115,7 +1115,7 @@ export function InventoryPanel({
       hoveredItem: InventorySlotViewItem,
       position: { x: number; y: number },
     ) => {
-      // OSRS-style "Use X → Y" tooltip
+      // tile-based-MMORPG-style "Use X → Y" tooltip
       setTargetHover({
         targetName: hoveredItem.itemId,
         position,
@@ -1179,10 +1179,10 @@ export function InventoryPanel({
   );
 
   const handleInvalidTargetClick = useCallback(() => {
-    // OSRS: "Nothing interesting happens." when using item on invalid target
+    // Tile-based MMORPG: "Nothing interesting happens." when using item on invalid target
     const message = "Nothing interesting happens.";
 
-    // Show in chat (OSRS-style game message)
+    // Show in chat (tile-based-MMORPG-style game message)
     if (world?.chat?.add) {
       world.chat.add({
         id: uuid(),
@@ -1274,7 +1274,7 @@ export function InventoryPanel({
         boxShadow: "none",
       }}
     >
-      {/* OSRS-style "Use X → Y" tooltip - rendered via portal to avoid transform issues */}
+      {/* tile-based-MMORPG-style "Use X → Y" tooltip - rendered via portal to avoid transform issues */}
       {targetingState.active &&
         targetHover &&
         targetingState.sourceItem &&
@@ -1324,7 +1324,7 @@ export function InventoryPanel({
         <div
           className="grid h-full w-full"
           style={{
-            // Both mobile and desktop: 4 columns × 7 rows (OSRS style)
+            // Both mobile and desktop: 4 columns × 7 rows (tile-based MMORPG style)
             gridTemplateColumns: "repeat(4, 1fr)",
             gridTemplateRows: "repeat(7, 1fr)",
             // Mobile: tighter gap, Desktop: scales with container

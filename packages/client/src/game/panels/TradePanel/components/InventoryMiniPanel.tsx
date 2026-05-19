@@ -2,7 +2,7 @@
  * Inventory Mini Panel Component
  *
  * Inventory mini-panel for selecting items to trade.
- * OSRS style: displayed to the right of trade offers, 4x7 grid matching inventory.
+ * tile-based MMORPG style: displayed to the right of trade offers, 4x7 grid matching inventory.
  * Left-click: add 1 item, Right-click: context menu
  */
 
@@ -40,7 +40,7 @@ export function InventoryMiniPanel({
       <div
         className="grid gap-1 p-2 rounded"
         style={{
-          // OSRS style: 4 columns x 7 rows = 28 slots
+          // tile-based MMORPG style: 4 columns x 7 rows = 28 slots
           gridTemplateColumns: `repeat(${TRADE_GRID_COLS}, 36px)`,
           ...getPanelInsetStyle(theme, {
             emphasis: "strong",

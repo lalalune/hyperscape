@@ -166,7 +166,7 @@ function checkOverflow(
 /**
  * Calculate optimal tooltip position with automatic flipping and shifting.
  *
- * This implements RuneScape-style tooltip positioning where:
+ * This implements tile-based-MMORPG-style tooltip positioning where:
  * - Tooltips flip to the opposite side if they would overflow
  * - Tooltips shift along their axis to stay fully visible
  * - Maintains consistent offset from the anchor point

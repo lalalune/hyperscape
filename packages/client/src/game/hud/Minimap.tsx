@@ -1380,7 +1380,7 @@ function MinimapInner({
               if (pip.subType && drawMinimapIcon(ctx, x, y, pip.subType)) {
                 // Icon drawn via cached OffscreenCanvas — no path work needed
               } else if (pip.isLocalPlayer) {
-                // RS3/OSRS: local player is a white square (slightly larger than dots)
+                // RS3/Tile-based MMORPG: local player is a white square (slightly larger than dots)
                 const sqHalf = 2.5;
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(x - sqHalf, y - sqHalf, sqHalf * 2, sqHalf * 2);

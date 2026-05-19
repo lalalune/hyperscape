@@ -1,5 +1,5 @@
 /**
- * BankPanel - RuneScape-style bank interface
+ * BankPanel - tile-based-MMORPG-style bank interface
  *
  * SIMPLE SERVER-AUTHORITATIVE APPROACH:
  * - NO optimistic predictions - just display what server tells us
@@ -7,7 +7,7 @@
  * - Clicks fire requests to server and wait for response
  * - 100% reliable - no desync, no duplication bugs, no oscillation
  *
- * This approach is used by many successful MMOs including early RuneScape.
+ * This approach is used by many successful MMOs including early tile-based MMORPG.
  * Trade-off: Very slightly less responsive (wait ~50-100ms for server),
  * but 100% reliable with zero edge cases.
  *
@@ -197,7 +197,7 @@ export function BankPanel({
   // We'll initialize it after the useBankActions call below
 
   // ========== BANK NOTE SYSTEM STATE ==========
-  // OSRS-style: Toggle between withdrawing as base items or bank notes
+  // tile-based-MMORPG-style: Toggle between withdrawing as base items or bank notes
   // Notes are stackable, so 1000 noted logs = 1 inventory slot
   // Persisted to localStorage for convenience
   const [withdrawAsNote, setWithdrawAsNote] = useState<boolean>(() => {
@@ -570,7 +570,7 @@ export function BankPanel({
 
                   return (
                     <div key={tabIdx}>
-                      {/* Tab Header - OSRS style separator - DROPPABLE to move items to this tab */}
+                      {/* Tab Header - tile-based MMORPG style separator - DROPPABLE to move items to this tab */}
                       <div
                         className="flex items-center gap-2 mb-1 pb-0.5 transition-colors"
                         style={{

@@ -2761,7 +2761,7 @@ Respond with ONLY the action name, nothing else.`;
         this.handleGoalOverride(data);
         break;
 
-      // Tile movement packets (RuneScape-style 600ms tick movement)
+      // Tile movement packets (tile-based-MMORPG-style 600ms tick movement)
       case "tileMovementStart": {
         // Movement started - update position tracking
         // Packet contains: { id, startTile, path, running, destinationTile, moveSeq, emote }

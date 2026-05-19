@@ -746,7 +746,7 @@ export function buildBehaviorDecisionPrompt(
     .join("\n");
 
   return [
-    `You are ${instance.config.name}, an autonomous agent playing an OSRS-style RPG 24/7.`,
+    `You are ${instance.config.name}, an autonomous agent playing an tile-based-MMORPG-style RPG 24/7.`,
     `You THINK before you act. Every tick (~8s), you assess the situation, follow or revise your plan, and pick the best action.`,
     stuckWarning,
     ``,

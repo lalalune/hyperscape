@@ -338,14 +338,14 @@ export const DESERT_PRESET: TerrainPreset = {
 
 /**
  * Demo Island preset
- * RuneScape Tutorial Island-sized: small, mostly flat, walkable in a few minutes.
+ * tile-based MMORPG Tutorial Island-sized: small, mostly flat, walkable in a few minutes.
  * Gentle terrain with 2-3 biomes — perfect for prototyping gameplay loops.
  */
 export const DEMO_ISLAND_PRESET: TerrainPreset = {
   id: "demo-island",
   name: "Demo Island",
   description:
-    "Tiny, mostly flat island inspired by RuneScape Tutorial Island — ideal for gameplay prototyping",
+    "Tiny, mostly flat island inspired by tile-based MMORPG Tutorial Island — ideal for gameplay prototyping",
   config: {
     tileSize: 100,
     worldSize: 20, // 2km × 2km — crossable in ~2 min at walk speed

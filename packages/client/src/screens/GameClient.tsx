@@ -401,7 +401,7 @@ export function GameClient({
       // Boot the in-binary plugin set on the client. Mirrors the
       // server's `bootServerPlugins(world)` call. Today this registers
       // the meta-plugin's bilateral systems (mob-death, gravestone-loot,
-      // and the six OSRS skill processing systems) on the client world.
+      // and the six tile-based MMORPG skill processing systems) on the client world.
       // Each system self-gates `init()` on `world.isServer`, so the
       // bilateral registration is harmless on the client side.
       const { bootClientPlugins } = await import("../startup/plugins");

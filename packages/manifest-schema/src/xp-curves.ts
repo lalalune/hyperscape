@@ -3,7 +3,7 @@
  *
  * Phase F1 of the World Studio AAA plan — authors describe how XP
  * scales into levels, either as a closed-form `formula` (e.g.
- * "rs-classic" matches the RuneScape 99-level table) or as an
+ * "rs-classic" matches the tile-based MMORPG 99-level table) or as an
  * explicit `lookup` table where entry `n` holds the cumulative XP
  * required to reach level `n+1`.
  *

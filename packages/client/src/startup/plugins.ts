@@ -9,7 +9,7 @@
  * and `world.isServer === false`, so `HealthRegenSystem` (server-
  * gated in the meta-plugin's onEnable) is not registered here.
  *
- * The bilateral systems (mob-death, gravestone-loot, all six OSRS
+ * The bilateral systems (mob-death, gravestone-loot, all six tile-based MMORPG
  * skill processing systems) DO register on the client world. They
  * self-gate their `init()` on `world.isServer` so the no-op happens
  * at init-time rather than register-time.

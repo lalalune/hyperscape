@@ -1,6 +1,6 @@
 /**
  * Skill Guide Panel
- * OSRS-style popup showing skill unlocks at each level
+ * tile-based-MMORPG-style popup showing skill unlocks at each level
  *
  * Uses ModalWindow for consistent styling and behavior.
  */

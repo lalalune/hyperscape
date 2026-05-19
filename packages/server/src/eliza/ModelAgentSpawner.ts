@@ -1074,7 +1074,7 @@ async function createBehaviorPlan(
   ).length;
 
   const prompt = [
-    `You are ${config.displayName}, an OSRS-style RPG agent between arena duels.`,
+    `You are ${config.displayName}, an tile-based-MMORPG-style RPG agent between arena duels.`,
     `Plan your next 3-5 actions to prepare for the next duel.`,
     ``,
     `STATE: HP ${healthPct}%, ${inventory.length}/28 inventory, ${foodCount} food, ${inCombat ? "IN COMBAT" : "idle"}`,

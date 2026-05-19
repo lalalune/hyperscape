@@ -1,7 +1,7 @@
 /**
  * Inventory Item Component
  *
- * Clickable inventory item for OSRS-style trade panel.
+ * Clickable inventory item for tile-based-MMORPG-style trade panel.
  * Left-click: add 1 to trade
  * Right-click: show context menu
  */

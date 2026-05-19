@@ -64,7 +64,7 @@ contract PlayerRegistrySystem is System {
         // Create reverse lookup
         CharacterOwner.set(characterId, playerAddress);
 
-        // Initialize combat skills with OSRS defaults
+        // Initialize combat skills with tile-based MMORPG defaults
         CombatSkills.set(
             characterId,
             1, 0,   // attack: level 1, 0 xp

@@ -1,6 +1,6 @@
 /**
  * Spells Panel
- * OSRS-inspired magic spellbook interface
+ * tile-based MMORPG-inspired magic spellbook interface
  * Shows available combat spells with level requirements
  * Click to select autocast spell
  *

@@ -235,7 +235,7 @@ export function validateBankTabRows(rows: unknown[]): BankTabRowData[] {
 /**
  * Compact bank slots after an item is deleted.
  *
- * OSRS-style behavior: When an item is fully withdrawn, remaining items
+ * tile-based-MMORPG-style behavior: When an item is fully withdrawn, remaining items
  * shift left to fill the gap. No empty slots in the middle of the bank.
  *
  * NOTE: This compacts within the CURRENT tab only (tab 0 by default for backwards compatibility).

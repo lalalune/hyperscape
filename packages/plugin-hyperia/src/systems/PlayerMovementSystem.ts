@@ -84,7 +84,7 @@ export class PlayerMovementSystem extends EventEmitter {
   private updateInterval: number = 50; // Network update interval in ms
   private lastNetworkUpdate: number = Date.now();
 
-  /** Shared BFSPathfinder instance - same algorithm used by server for OSRS-accurate movement */
+  /** Shared BFSPathfinder instance - same algorithm used by server for tile-based-MMORPG-accurate movement */
   private pathfinder: BFSPathfinder = new BFSPathfinder();
 
   constructor(world: World) {
@@ -257,7 +257,7 @@ export class PlayerMovementSystem extends EventEmitter {
   /**
    * Find a path from start to end using the shared BFSPathfinder.
    *
-   * Uses the same OSRS-accurate pathfinding algorithm as the server:
+   * Uses the same tile-based-MMORPG-accurate pathfinding algorithm as the server:
    * - Naive diagonal pathing first (walk diagonally toward target, then straight)
    * - Falls back to BFS if obstacles block the naive path
    *

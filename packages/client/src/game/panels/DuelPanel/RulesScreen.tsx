@@ -4,7 +4,7 @@
  * Screen where both players negotiate duel rules and equipment restrictions.
  * Both players must accept for the duel to proceed to the Stakes screen.
  *
- * OSRS-style features:
+ * tile-based-MMORPG-style features:
  * - 10 rule toggles (combat restrictions)
  * - 11 equipment slot toggles
  * - Accept button that shows opponent's acceptance status

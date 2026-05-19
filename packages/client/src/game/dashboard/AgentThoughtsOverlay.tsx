@@ -293,7 +293,7 @@ export const AgentThoughtsOverlay: React.FC<AgentThoughtsOverlayProps> = ({
 
   return (
     <div className="bg-[#11151b]/95 backdrop-blur-md border border-[#3c444f]/70 rounded-xl shadow-2xl w-80 overflow-hidden">
-      {/* Header - RuneScape scroll style */}
+      {/* Header - tile-based MMORPG scroll style */}
       <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-[#1c2128] to-[#12161c] border-b border-white/10">
         <div className="flex items-center gap-2">
           <div className="relative">

@@ -2,7 +2,7 @@
  * Skill icons manifest schema.
  *
  * Source of truth for UI display metadata (label, emoji icon,
- * category, default level) per OSRS-style skill, plus the broader
+ * category, default level) per tile-based-MMORPG-style skill, plus the broader
  * emoji icon lookup table covering legacy/alias skill keys.
  * Previously hardcoded in `packages/shared/src/data/skill-icons.ts`.
  *
@@ -35,7 +35,7 @@ export type SkillDefinition = z.infer<typeof SkillDefinitionSchema>;
 
 export const SkillIconsManifestSchema = z.object({
   $schema: z.literal("hyperforge.skill-icons.v1"),
-  /** Skill definitions in OSRS-style display order. */
+  /** Skill definitions in tile-based-MMORPG-style display order. */
   definitions: z.array(SkillDefinitionSchema).min(1),
   /** Emoji icons keyed by lowercase skill name (covers aliases). */
   icons: z.record(z.string().min(1), z.string().min(1)),

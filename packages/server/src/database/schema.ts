@@ -12,7 +12,7 @@
  * - `users`: Account authentication and user profiles
  * - `entities`: Serialized world objects and props
  *
- * **Character System** (RuneScape-inspired):
+ * **Character System** (tile-based MMORPG-inspired):
  * - `characters`: Player characters with stats, levels, XP, and position
  *   - Combat skills: attack, strength, defense, constitution (health), ranged, prayer
  *   - Gathering skills: woodcutting, fishing, firemaking, cooking
@@ -366,7 +366,7 @@ export const items = pgTable("items", {
 /**
  * Inventory Table - Player inventory items
  *
- * Stores items in a player's inventory (28 slots like RuneScape).
+ * Stores items in a player's inventory (28 slots like tile-based MMORPG).
  * Each row represents one stack of items in one slot.
  *
  * Key columns:
@@ -482,7 +482,7 @@ export const bankStorage = pgTable(
 /**
  * Bank Tabs Table - Custom bank tab configuration
  *
- * Stores custom bank tabs created by players (OSRS-style).
+ * Stores custom bank tabs created by players (tile-based-MMORPG-style).
  * Tab 0 (main tab) is implicit and not stored here.
  *
  * Key columns:
@@ -516,7 +516,7 @@ export const bankTabs = pgTable(
 );
 
 /**
- * Bank Placeholders Table - Reserved item slots (OSRS-style)
+ * Bank Placeholders Table - Reserved item slots (tile-based-MMORPG-style)
  *
  * Stores placeholders for items that have been withdrawn.
  * When a player withdraws all of an item with placeholders enabled,

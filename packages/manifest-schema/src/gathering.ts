@@ -7,7 +7,7 @@
  *
  * Design notes
  * ------------
- * - **OSRS LERP rates are tables, not constants.** Keeping them as records
+ * - **tile-based MMORPG LERP rates are tables, not constants.** Keeping them as records
  *   keyed by resource id (then, for woodcutting, axe tier) lets GameModes
  *   add new resources/tools without touching engine code.
  * - **Regex survives JSON as a string.** `validResourceIdPattern` stores the
@@ -16,7 +16,7 @@
 
 import { z } from "zod";
 
-/** OSRS success numerator range used in the LERP formula. Values are x/256. */
+/** tile-based MMORPG success numerator range used in the LERP formula. Values are x/256. */
 export const SuccessRateSchema = z.object({
   low: z.number().int().nonnegative().max(256),
   high: z.number().int().nonnegative().max(256),

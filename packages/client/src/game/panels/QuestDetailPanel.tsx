@@ -59,7 +59,7 @@ function savePinnedQuests(pinnedIds: Set<string>): void {
   }
 }
 
-// OSRS-style status colors
+// tile-based-MMORPG-style status colors
 const STATUS_COLORS: Record<string, string> = {
   available: COLORS.ERROR, // Red - not started
   active: COLORS.WARNING, // Yellow - in progress

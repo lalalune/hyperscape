@@ -34,7 +34,7 @@ const Vec3Schema = z.object({
   z: z.number(),
 });
 
-/** OSRS-style stats. ALL NPCs carry the full block; defaults are 1. */
+/** tile-based-MMORPG-style stats. ALL NPCs carry the full block; defaults are 1. */
 export const NpcDefinitionStatsSchema = z
   .object({
     level: z.number().int().nonnegative(),
@@ -100,7 +100,7 @@ export const NpcDefaultDropSchema = z
   .passthrough();
 export type NpcDefaultDrop = z.infer<typeof NpcDefaultDropSchema>;
 
-/** Tiered drop tables — RuneScape-style 5-tier rarity. */
+/** Tiered drop tables — tile-based-MMORPG-style 5-tier rarity. */
 export const NpcDefinitionDropsSchema = z
   .object({
     defaultDrop: NpcDefaultDropSchema,

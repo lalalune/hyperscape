@@ -82,7 +82,7 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
 }
 
 /**
- * FullscreenWorldMap - RuneScape-style fullscreen world map overlay
+ * FullscreenWorldMap - tile-based-MMORPG-style fullscreen world map overlay
  *
  * Features:
  * - Takes up entire screen with dark backdrop
@@ -1060,7 +1060,7 @@ export const InterfaceModalsRenderer = memo(function InterfaceModalsRenderer({
         </ModalWindow>
       )}
 
-      {/* World Map - Fullscreen Overlay (RuneScape-style) */}
+      {/* World Map - Fullscreen Overlay (tile-based-MMORPG-style) */}
       {worldMapOpen && (
         <FullscreenWorldMap
           world={world}

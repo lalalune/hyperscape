@@ -284,7 +284,7 @@ export async function handleBankWithdrawCoins(
         await tx
           .delete(schema.bankStorage)
           .where(eq(schema.bankStorage.id, bankCoinsRow.id));
-        // OSRS-style: compact slots to fill the gap
+        // tile-based-MMORPG-style: compact slots to fill the gap
         await compactBankSlots(tx, ctx.playerId, bankCoinsRow.slot);
       } else {
         // Decrement quantity

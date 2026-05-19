@@ -5,7 +5,7 @@
  * - Displays all trainable skills in a grid
  * - Shows current level for each skill
  * - Allows player to select which skill receives XP
- * - OSRS-style appearance
+ * - tile-based-MMORPG-style appearance
  */
 
 import React from "react";

@@ -5,9 +5,9 @@
  * - Displays NPC dialogue text
  * - Shows response options as clickable buttons
  * - Closes when dialogue ends (no responses)
- * - OSRS-style appearance
+ * - tile-based-MMORPG-style appearance
  *
- * PRODUCTION PATTERN (OSRS/WoW style):
+ * PRODUCTION PATTERN (tile-based MMORPG/WoW style):
  * - Server is the single source of truth for UI state
  * - Server tracks active dialogue sessions via InteractionSessionManager
  * - Server validates distance and sends close packets when player moves away

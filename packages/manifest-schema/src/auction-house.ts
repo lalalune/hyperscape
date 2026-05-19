@@ -3,7 +3,7 @@
  *
  * Authored policy blob governing the server-wide auction house — the
  * "post an item, set a buyout, earn gold while offline" pattern
- * (WoW AH / EVE market / OSRS Grand Exchange). Covers listing rules
+ * (WoW AH / EVE market / tile-based MMORPG Grand Exchange). Covers listing rules
  * (fees, duration, stack sizing), bidding behavior (min increment,
  * sniping guards), search/discovery, cancellation rules, and
  * anti-market-manipulation heuristics.

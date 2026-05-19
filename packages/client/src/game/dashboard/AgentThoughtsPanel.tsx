@@ -248,7 +248,7 @@ export const AgentThoughtsPanel: React.FC<AgentThoughtsPanelProps> = ({
 
   return (
     <div className="border-t border-white/10">
-      {/* Header - RuneScape scroll style */}
+      {/* Header - tile-based MMORPG scroll style */}
       <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-[#1c2128] to-[#12161c]">
         <div className="flex items-center gap-2">
           <div className="relative">

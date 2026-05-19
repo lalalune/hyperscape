@@ -27,14 +27,14 @@ import { useRegistryReload } from "@hyperforge/ui-widgets";
  * propagate into the HUD without a restart.
  *
  * If the registry is unloaded (missing/invalid manifest), callers
- * fall back to the canonical-OSRS hardcoded table below.
+ * fall back to the canonical-tile-based MMORPG hardcoded table below.
  */
 const DEFAULT_XP_CURVE_ID = "osrs-classic";
 import type { ClientWorld } from "../../../types";
 
 // === CONSTANTS ===
 
-/** Game tick duration in ms (OSRS-style) */
+/** Game tick duration in ms (tile-based-MMORPG-style) */
 export const GAME_TICK_MS = 600;
 /** Duration before orb starts fading (in ms) - ~10 seconds like RuneLite default */
 export const ORB_VISIBLE_DURATION_MS = 10000;
@@ -87,7 +87,7 @@ export function normalizeSkillName(skill: string): string {
   return lower;
 }
 
-// Pre-computed XP table for O(1) lookups (OSRS formula)
+// Pre-computed XP table for O(1) lookups (tile-based MMORPG formula)
 // Computed once at module load instead of looping on every render
 const XP_TABLE: readonly number[] = (() => {
   const table: number[] = new Array(100).fill(0);
@@ -105,7 +105,7 @@ const XP_TABLE: readonly number[] = (() => {
  * O(1) lookup for XP required at a given level.
  *
  * Prefers the shared `xpCurveRegistry` (manifest-driven, PIE
- * hot-reloadable) when loaded. Falls back to the canonical-OSRS
+ * hot-reloadable) when loaded. Falls back to the canonical-tile-based MMORPG
  * hardcoded `XP_TABLE` when the registry is unloaded or the default
  * curve id is unknown — this keeps the HUD functional when the
  * `xp-curves.json` manifest is missing or invalid on boot.

@@ -9,7 +9,7 @@
  *
  * Shape:
  *   - `SkillCategory` — gameplay grouping ("combat" | "gathering"
- *     | "production" | "support") matching OSRS skill panel layout
+ *     | "production" | "support") matching tile-based MMORPG skill panel layout
  *   - `SkillDefinition` — pure data record describing a skill
  *     (id, displayName, category, maxLevel, defaultLevel, icon)
  *   - `SkillsService` — caller-supplied registry the plugin writes
@@ -38,7 +38,7 @@ import type {
 } from "@hyperforge/gameplay-framework";
 
 /**
- * Skill grouping. Matches the OSRS-style skill-panel layout:
+ * Skill grouping. Matches the tile-based-MMORPG-style skill-panel layout:
  *   - combat: Attack, Strength, Defense, Ranged, Magic, Hitpoints, Prayer
  *   - gathering: Woodcutting, Mining, Fishing, Hunter
  *   - production: Cooking, Smithing, Crafting, Fletching, Herblore
@@ -55,7 +55,7 @@ export interface SkillDefinition {
   readonly id: string;
   readonly displayName: string;
   readonly category: SkillCategory;
-  /** Cap level (typically 99 in OSRS). Must be ≥ defaultLevel. */
+  /** Cap level (typically 99 in the tile-based MMORPG genre). Must be ≥ defaultLevel. */
   readonly maxLevel: number;
   /** Starting level for new players (typically 1; 10 for hitpoints). */
   readonly defaultLevel: number;
@@ -99,11 +99,11 @@ export interface SkillsContext extends PluginContextBase {
 }
 
 /**
- * Default starter pack — 6 skills covering the major OSRS categories.
+ * Default starter pack — 6 skills covering the major tile-based MMORPG categories.
  * Exported so callers can extend or replace it without rebuilding.
  *
  * Layout: 3 combat + 2 gathering + 1 production. Hitpoints starts
- * at 10 (matches OSRS); all other skills start at 1.
+ * at 10 (matches tile-based MMORPG); all other skills start at 1.
  */
 export const DEFAULT_SKILLS: readonly SkillDefinition[] = Object.freeze([
   {

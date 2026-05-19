@@ -51,7 +51,7 @@ const SESSION_TYPE_DISPLAY_NAMES: Readonly<Record<string, string>> = {
 
 /**
  * Verify player is within interaction distance of session target.
- * Uses Chebyshev distance (OSRS-style square range).
+ * Uses Chebyshev distance (tile-based-MMORPG-style square range).
  *
  * @returns Error message if invalid, null if valid
  */
@@ -92,7 +92,7 @@ function verifyDistanceToTarget(
     return "Player position not found";
   }
 
-  // Chebyshev distance check (OSRS-style)
+  // Chebyshev distance check (tile-based-MMORPG-style)
   const distance = chebyshevDistance(playerEntity.position, targetPos);
   const maxDistance = getInteractionDistanceFor(sessionType);
 

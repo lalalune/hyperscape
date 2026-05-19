@@ -131,7 +131,7 @@ export const DeathPenaltyRulesSchema = z
      * - `none`: nothing drops
      * - `inventoryUnequipped`: only inventory items (equipment kept)
      * - `inventoryAndEquipped`: everything (hardcore PvP)
-     * - `lowestValueFirst`: drop N lowest-value items (OSRS 3-item rule)
+     * - `lowestValueFirst`: drop N lowest-value items (tile-based MMORPG 3-item rule)
      */
     dropPolicy: z
       .enum([

@@ -1,5 +1,5 @@
 /**
- * QuestStartPanel - OSRS-style quest accept overlay
+ * QuestStartPanel - tile-based-MMORPG-style quest accept overlay
  *
  * Features:
  * - Shows quest name, description, requirements

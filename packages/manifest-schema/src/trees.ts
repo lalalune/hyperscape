@@ -40,7 +40,7 @@ export type TreeTypeTable = z.infer<typeof TreeTypeTableSchema>;
 /**
  * Full trees manifest. One JSON file per game.
  *
- * Hyperscape ships its own (12 species, OSRS-inspired). Alternate GameModes
+ * Hyperscape ships its own (12 species, tile-based MMORPG-inspired). Alternate GameModes
  * can ship their own catalog — e.g., a sci-fi mode with "crystal tree" entries.
  */
 export const TreeManifestSchema = z.object({
