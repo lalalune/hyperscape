@@ -330,6 +330,9 @@ export {
   PRAYER_TOGGLE_COOLDOWN_MS,
   PRAYER_TOGGLE_RATE_LIMIT,
   PRAYER_ID_PATTERN,
+  MIN_PRAYER_LEVEL,
+  MAX_PRAYER_LEVEL,
+  MAX_PRAYER_POINTS,
 } from "./types/game/prayer-types";
 export type {
   PrayerCategory,
