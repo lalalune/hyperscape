@@ -133,13 +133,16 @@ export interface DuelSystem {
   acceptRules(duelId: string, playerId: string): DuelOperationResult;
 
   // Stakes
+  // Value is computed server-side inside the impl via
+  // `getItem(itemId).value * quantity` — callers must NOT pass
+  // a value (the parameter was removed to prevent client-trusted
+  // pricing). Interface previously listed it; was stale.
   addStake(
     duelId: string,
     playerId: string,
     inventorySlot: number,
     itemId: string,
     quantity: number,
-    value: number,
   ): DuelOperationResult;
   removeStake(
     duelId: string,
