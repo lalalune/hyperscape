@@ -116,6 +116,7 @@ import { useRegenerateFoliageOnPaintChange } from "./hooks/useRegenerateFoliageO
 import { useHeatmapBindings } from "./hooks/useHeatmapBindings";
 import { usePointerLockSync } from "./hooks/usePointerLockSync";
 import { useLoadingOverlayFadeOut } from "./hooks/useLoadingOverlayFadeOut";
+import { useLatestRef } from "./hooks/useLatestRef";
 import { animateFocusToPosition } from "./hooks/animateFocusToPosition";
 import { setupTerrainLighting } from "./hooks/setupTerrainLighting";
 import { TownRenderer } from "./systems/TownRenderer";
@@ -1929,32 +1930,24 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     },
   });
 
-  const handleMouseMoveRef = useRef(handleMouseMove);
-  handleMouseMoveRef.current = handleMouseMove;
-  const handleKeyDownRef = useRef(handleKeyDown);
-  handleKeyDownRef.current = handleKeyDown;
-  const handleKeyUpRef = useRef(handleKeyUp);
-  handleKeyUpRef.current = handleKeyUp;
-  const handleMouseDownRef = useRef(handleMouseDown);
-  handleMouseDownRef.current = handleMouseDown;
-  const handleMouseUpRef = useRef(handleMouseUp);
-  handleMouseUpRef.current = handleMouseUp;
-  const handleWheelRef = useRef(handleWheel);
-  handleWheelRef.current = handleWheel;
-  const handleContextMenuRef = useRef(handleContextMenu);
-  handleContextMenuRef.current = handleContextMenu;
-  const handlePointerLockChangeRef = useRef(handlePointerLockChange);
-  handlePointerLockChangeRef.current = handlePointerLockChange;
-  const handleClickRef = useRef(handleClick);
-  handleClickRef.current = handleClick;
-  const updateCameraRef = useRef(updateCamera);
-  updateCameraRef.current = updateCamera;
-  const updateTilesRef = useRef(updateTiles);
-  updateTilesRef.current = updateTiles;
-  const generateTileRef = useRef(generateTile);
-  generateTileRef.current = generateTile;
-  const brushOverlaysRef = useRef(brushOverlays);
-  brushOverlaysRef.current = brushOverlays;
+  // Phase 1.1 sixteenth carve — 12 hand-rolled ref+sync pairs
+  // collapsed via useLatestRef (utility hook). Long-lived DOM
+  // event listeners and the animation loop read `.current` to
+  // see the freshest callback without forcing per-render
+  // listener-rebind churn.
+  const handleMouseMoveRef = useLatestRef(handleMouseMove);
+  const handleKeyDownRef = useLatestRef(handleKeyDown);
+  const handleKeyUpRef = useLatestRef(handleKeyUp);
+  const handleMouseDownRef = useLatestRef(handleMouseDown);
+  const handleMouseUpRef = useLatestRef(handleMouseUp);
+  const handleWheelRef = useLatestRef(handleWheel);
+  const handleContextMenuRef = useLatestRef(handleContextMenu);
+  const handlePointerLockChangeRef = useLatestRef(handlePointerLockChange);
+  const handleClickRef = useLatestRef(handleClick);
+  const updateCameraRef = useLatestRef(updateCamera);
+  const updateTilesRef = useLatestRef(updateTiles);
+  const generateTileRef = useLatestRef(generateTile);
+  const brushOverlaysRef = useLatestRef(brushOverlays);
 
   // Initialize Three.js scene with WebGPU
   useEffect(() => {
