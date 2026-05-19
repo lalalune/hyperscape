@@ -583,6 +583,11 @@ export class AgentBehaviorBridge {
         resourceSystemAvailable,
         spawnAnchors: [],
         worldResources: [],
+        // Same placeholder pattern: worker overwrites with the
+        // shared station cache. Declared here so the AgentTickInput
+        // type is satisfied at construction time (the SharedTickData
+        // merge happens inside agentBehaviorWorker.ts).
+        stationPositions: [],
         agentState: {
           goal: instance.goal,
           questsAccepted: Array.from(instance.questsAccepted),

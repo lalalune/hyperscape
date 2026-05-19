@@ -58,6 +58,7 @@ function makeInput(overrides: Partial<AgentTickInput> = {}): AgentTickInput {
     resourceSystemAvailable: true,
     spawnAnchors: [{ position: [100, 0, 100], name: "spawn" }],
     worldResources: [],
+    stationPositions: [],
     ...overrides,
   };
 }
