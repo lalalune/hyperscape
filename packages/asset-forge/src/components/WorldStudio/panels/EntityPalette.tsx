@@ -419,7 +419,8 @@ export const EntityPalette = React.memo(function EntityPalette() {
         id: "teleport-lodestone",
         name: "Lodestone",
         category: "teleports" as PaletteCategory,
-        description: "Teleport node unlocked by visiting (RuneScape-style)",
+        description:
+          "Teleport node unlocked by visiting (tile-based-MMORPG-style)",
         manifestData: { nodeType: "lodestone" },
       },
       {

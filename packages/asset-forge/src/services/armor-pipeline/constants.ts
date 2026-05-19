@@ -127,7 +127,7 @@ export const ATTACHMENT_SLOTS: AttachmentSlotDef[] = [
   },
 ];
 
-/** RuneScape-style material tier definitions */
+/** tile-based-MMORPG-style material tier definitions */
 export interface MaterialTier {
   id: string;
   label: string;

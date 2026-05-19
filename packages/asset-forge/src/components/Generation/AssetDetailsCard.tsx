@@ -236,7 +236,7 @@ const GameStyleSelector: React.FC<{
         onChange={(e) => handleChange(e.target.value)}
         className="w-full px-4 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all appearance-none cursor-pointer [&>option]:bg-bg-primary [&>option]:text-text-primary"
       >
-        <option value="runescape">RuneScape 2007</option>
+        <option value="runescape">tile-based MMORPG 2007</option>
         {Object.entries(customGameStyles).map(([styleId, style]) => (
           <option key={styleId} value={`custom:${styleId}`}>
             {style.name}

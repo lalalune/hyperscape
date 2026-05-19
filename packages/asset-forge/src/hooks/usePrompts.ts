@@ -41,9 +41,9 @@ export function useGameStylePrompts() {
           version: "1.0.0",
           default: {
             runescape: {
-              name: "RuneScape 2007",
-              base: "Low-poly RuneScape 2007",
-              enhanced: "low-poly RuneScape style",
+              name: "tile-based MMORPG 2007",
+              base: "Low-poly tile-based MMORPG 2007",
+              enhanced: "low-poly tile-based MMORPG style",
               generation: "runescape2007",
             },
             generic: {
@@ -281,7 +281,7 @@ export function useMaterialPromptTemplates() {
     customOverrides: Record<string, string>;
   }>({
     templates: {
-      runescape: "${materialId} texture, low-poly RuneScape style",
+      runescape: "${materialId} texture, low-poly tile-based MMORPG style",
       generic: "${materialId} texture",
     },
     customOverrides: {},

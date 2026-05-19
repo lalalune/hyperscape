@@ -865,7 +865,7 @@ export function generateTileGeometry(
       roadInfluenceValue = roadResult.influence;
     }
 
-    // RuneScape-style mine depression: gentle, shallow bowl that blends
+    // tile-based-MMORPG-style mine depression: gentle, shallow bowl that blends
     // smoothly into the surrounding terrain. No rim or steep walls — just
     // a subtle dip where mining has worn the ground down.
     if (precomputedMines && townFlattenInfluence < 1) {

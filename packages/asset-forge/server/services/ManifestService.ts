@@ -1119,7 +1119,7 @@ const MANIFEST_DEFINITIONS: ManifestInfo[] = [
     name: "weapon-styles",
     filename: "weapon-styles.json",
     description:
-      "OSRS-accurate combat-style availability table keyed by weapon type. No baseline — record key is exhaustive enum.",
+      "tile-based-MMORPG-accurate combat-style availability table keyed by weapon type. No baseline — record key is exhaustive enum.",
     category: "combat",
     editable: true,
     schema: "weapon-styles",
@@ -1146,7 +1146,7 @@ const MANIFEST_DEFINITIONS: ManifestInfo[] = [
     name: "skill-icons",
     filename: "skill-icons.json",
     description:
-      "OSRS-style UI display metadata per skill (label/icon/category/defaultLevel) + emoji icon lookup table.",
+      "tile-based-MMORPG-style UI display metadata per skill (label/icon/category/defaultLevel) + emoji icon lookup table.",
     category: "progression",
     editable: true,
     schema: "skill-icons",

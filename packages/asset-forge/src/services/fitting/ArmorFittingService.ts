@@ -2215,7 +2215,7 @@ export class ArmorFittingService {
   }
 
   /**
-   * Export skinned armor for use in game environments (RuneScape-style)
+   * Export skinned armor for use in game environments (tile-based-MMORPG-style)
    * The armor will work with any character that has the same bone structure
    *
    * @example
@@ -2524,7 +2524,7 @@ export class ArmorFittingService {
   }
 
   /**
-   * Equip game-ready armor to a character (RuneScape-style)
+   * Equip game-ready armor to a character (tile-based-MMORPG-style)
    * The armor already has bones and just needs to be synchronized with the character's skeleton
    * @param loadedArmor - The loaded armor group/scene from GLTFLoader
    * @param characterMesh - The character's skinned mesh to equip armor on

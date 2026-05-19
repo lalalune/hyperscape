@@ -247,7 +247,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
     }
   }, [riggedPieces, visiblePieces, addLog]);
 
-  /** OSRS-style item name mapping from slot */
+  /** tile-based-MMORPG-style item name mapping from slot */
   const slotItemName = (
     slot: string,
     tier: string,

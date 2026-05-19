@@ -68,7 +68,7 @@ export function buildGenerationConfig(
   let materialVariants = [];
 
   if (gameStyle === "runescape") {
-    // RuneScape material presets
+    // tile-based MMORPG material presets
     materialVariants = selectedMaterials.map((materialId, index) => {
       const preset = materialPresets.find((p) => p.id === materialId);
       return {
@@ -92,7 +92,7 @@ export function buildGenerationConfig(
           preset?.stylePrompt ||
           (
             materialPromptTemplates?.runescape ||
-            "${materialId} texture, low-poly RuneScape style"
+            "${materialId} texture, low-poly tile-based MMORPG style"
           ).replace("${materialId}", materialId),
       };
     });

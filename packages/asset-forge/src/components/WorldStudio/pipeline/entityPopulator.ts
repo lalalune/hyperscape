@@ -4,7 +4,7 @@
  * Phase A: Place mobs first (avoid hand-placed entities)
  * Phase B: Place resources second (avoid mobs via proximity buffer)
  *
- * The mob-resource buffer creates RuneScape-style gameplay dynamics:
+ * The mob-resource buffer creates tile-based-MMORPG-style gameplay dynamics:
  * - Safe zones: resources far from mobs (30m) — gather freely
  * - Mid zones: resources closer to mobs (15m) — need to clear area
  * - Extreme zones: resources on top of mobs (3m) — gathering is combat

@@ -714,7 +714,7 @@ export function useZoneAutoGen() {
           halfWidth: (r.width ?? 6) / 2 + 0.5,
         }));
 
-        // Town centers for the broad density gradient (RuneScape-style:
+        // Town centers for the broad density gradient (tile-based-MMORPG-style:
         // sparse near center, gradually thickening into full forest).
         const towns = result.generatedTowns.map((t) => ({
           x: t.position.x,

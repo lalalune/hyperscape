@@ -66,10 +66,10 @@ interface MaterialPreset {
 }
 
 /** Preset material prompts organized by style.
- *  OSRS presets include hex codes + specific material descriptors for Meshy-6 color accuracy.
+ *  tile-based MMORPG presets include hex codes + specific material descriptors for Meshy-6 color accuracy.
  *  Fantasy presets are detailed AI prompts with surface quality keywords. */
 const MATERIAL_PRESETS: MaterialPreset[] = [
-  // ── OSRS-style solid color tiers ──────────────────────────
+  // ── tile-based-MMORPG-style solid color tiers ──────────────────────────
   {
     id: "bronze",
     label: "Bronze",
@@ -388,7 +388,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
         return;
       }
 
-      // ── Batch Tiers: generate all 8 OSRS tiers at once (programmatic) ──
+      // ── Batch Tiers: generate all 8 tile-based MMORPG tiers at once (programmatic) ──
       if (textureMethod === "batch") {
         const tierPresets = MATERIAL_PRESETS.filter((p) => p.group === "osrs");
         setStage("loading-result");
@@ -450,7 +450,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
       // ── AI Retexture: Meshy API ──
       const prompt = getPrompt();
       const preset = MATERIAL_PRESETS.find((p) => p.id === selectedPreset);
-      const swatchHex = preset?.swatch; // only OSRS presets have swatch
+      const swatchHex = preset?.swatch; // only tile-based MMORPG presets have swatch
 
       // CRITICAL: Do NOT send image_style_url alongside text_style_prompt.
       // Per Meshy docs, image_style_url OVERRIDES text_style_prompt entirely —
@@ -971,7 +971,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                         setSelectedPreset("rune");
                       }
                     }
-                    // AI mode keeps whatever preset is selected — supports both OSRS and fantasy
+                    // AI mode keeps whatever preset is selected — supports both tile-based MMORPG and fantasy
                   }}
                   className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all text-center ${
                     textureMethod === id
@@ -1103,7 +1103,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
           {textureMethod === "batch" && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-text-secondary">
-                All 8 OSRS Tiers
+                All 8 tile-based MMORPG Tiers
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {MATERIAL_PRESETS.filter((p) => p.group === "osrs").map(
@@ -1168,7 +1168,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
           {/* ── AI Texture options ── */}
           {textureMethod === "ai" && (
             <>
-              {/* OSRS Metal Tiers — AI textured with style reference for consistency */}
+              {/* tile-based MMORPG Metal Tiers — AI textured with style reference for consistency */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-text-secondary">
                   Metal Tier{" "}
@@ -1510,14 +1510,16 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                 </>
               ) : textureMethod === "batch" ? (
                 <>
-                  <li>Generates all 8 OSRS metal tiers side-by-side</li>
+                  <li>
+                    Generates all 8 tile-based MMORPG metal tiers side-by-side
+                  </li>
                   <li>Instant — no API call needed</li>
                   <li>Download exports each tier × slot as separate GLBs</li>
                 </>
               ) : (
                 <>
                   <li>Instant — no API call, no cost</li>
-                  <li>Perfect for OSRS-style flat metal armor</li>
+                  <li>Perfect for tile-based-MMORPG-style flat metal armor</li>
                   <li>Adjust metalness/roughness for different looks</li>
                 </>
               )}

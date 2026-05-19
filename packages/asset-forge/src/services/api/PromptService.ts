@@ -121,7 +121,7 @@ class PromptServiceClass {
     const templates = {
       runescape:
         data.templates?.runescape ??
-        "${materialId} texture, low-poly RuneScape style",
+        "${materialId} texture, low-poly tile-based MMORPG style",
       generic: data.templates?.generic ?? "${materialId} texture",
       ...data.templates,
     };

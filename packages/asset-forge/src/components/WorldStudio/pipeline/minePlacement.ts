@@ -1,7 +1,7 @@
 /**
  * minePlacement — Place dedicated mine areas with clustered ore rocks
  *
- * RuneScape-style mine POIs: clustered ore deposits within a rocky area
+ * tile-based-MMORPG-style mine POIs: clustered ore deposits within a rocky area
  * that gets terrain coloring (via mine influence vertex attributes).
  *
  * Runs BEFORE populateEntities() so scattered mining rocks can be filtered
