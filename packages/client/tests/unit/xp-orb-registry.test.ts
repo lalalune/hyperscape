@@ -1,7 +1,7 @@
 /**
  * Proof that `useXPOrbState.getXPForLevel` reads through the shared
  * `xpCurveRegistry` when loaded, and falls back cleanly to the
- * hardcoded canonical-OSRS table when the registry is empty.
+ * hardcoded canonical-tile-based MMORPG table when the registry is empty.
  *
  * This is the first client-side consumer that treats xp-curves.json as
  * live, hot-reloadable data. When a PIE editor save fires
@@ -23,9 +23,9 @@ afterEach(() => {
 });
 
 describe("xp-orb HUD → xpCurveRegistry consumer wiring", () => {
-  it("falls back to canonical-OSRS hardcoded table when registry is empty", () => {
+  it("falls back to canonical-tile-based MMORPG hardcoded table when registry is empty", () => {
     expect(xpCurveRegistry.isLoaded()).toBe(false);
-    // These are the canonical-OSRS values that the legacy client
+    // These are the canonical-tile-based MMORPG values that the legacy client
     // table also produces, since the legacy table already used
     // sum-of-floors math.
     expect(getXPForLevel(1)).toBe(0);
@@ -37,7 +37,7 @@ describe("xp-orb HUD → xpCurveRegistry consumer wiring", () => {
     xpCurveRegistry.load([
       {
         id: "osrs-classic",
-        name: "OSRS Classic",
+        name: "tile-based MMORPG Classic",
         description: "",
         kind: "formula",
         formula: "rs-classic",
@@ -53,7 +53,7 @@ describe("xp-orb HUD → xpCurveRegistry consumer wiring", () => {
     xpCurveRegistry.load([
       {
         id: "osrs-classic",
-        name: "OSRS Classic",
+        name: "tile-based MMORPG Classic",
         description: "",
         kind: "formula",
         formula: "rs-classic",
@@ -105,7 +105,7 @@ describe("xp-orb HUD → xpCurveRegistry consumer wiring", () => {
     xpCurveRegistry.load([
       {
         id: "osrs-classic",
-        name: "OSRS Classic",
+        name: "tile-based MMORPG Classic",
         description: "",
         kind: "formula",
         formula: "rs-classic",
@@ -127,7 +127,7 @@ describe("xp-orb HUD → xpCurveRegistry.onReloaded() subscription", () => {
     xpCurveRegistry.load([
       {
         id: "osrs-classic",
-        name: "OSRS Classic",
+        name: "tile-based MMORPG Classic",
         description: "",
         kind: "formula",
         formula: "rs-classic",

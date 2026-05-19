@@ -97,7 +97,7 @@ describe("@hyperforge/hyperscape", () => {
     expect(typeof plugin.onDisable).toBe("function");
   });
 
-  it("re-exports DEFAULT_SKILLS (the 6-skill OSRS starter pack)", () => {
+  it("re-exports DEFAULT_SKILLS (the 6-skill tile-based MMORPG starter pack)", () => {
     expect(DEFAULT_SKILLS).toHaveLength(6);
     expect(DEFAULT_SKILLS.map((s) => s.id)).toContain(
       "com.hyperforge.skills.attack",

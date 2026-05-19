@@ -7,7 +7,7 @@
  * This is critical: any mismatch means the on-chain skill levels would
  * diverge from the game server's calculations.
  *
- * Reference: OSRS XP formula
+ * Reference: tile-based MMORPG XP formula
  *   xpDelta(level) = floor((level - 1 + 300 * 2^((level-1)/7)) / 4)
  *   xpForLevel(N) = sum(xpDelta(1)..xpDelta(N-1))
  */
@@ -64,7 +64,7 @@ describe("XP Table Parity - TypeScript vs Solidity", () => {
 
 describe("XP Table - Key Milestones", () => {
   // These are the actual values from the JS formula, which differ slightly
-  // from OSRS wiki values at higher levels due to floating-point rounding.
+  // from tile-based MMORPG wiki values at higher levels due to floating-point rounding.
   const tsTable = generateTypeScriptXPTable();
 
   it("level 1 = 0 XP", () => {
@@ -159,7 +159,7 @@ describe("XP Table - Level Lookup (Reverse)", () => {
 
 describe("Combat Level Formula Parity", () => {
   /**
-   * OSRS combat level formula (from CombatLevel.sol and CombatCalculations.ts):
+   * tile-based MMORPG combat level formula (from CombatLevel.sol and CombatCalculations.ts):
    *   base = 0.25 * (defense + constitution + floor(prayer / 2))
    *   melee = 0.325 * (attack + strength)
    *   ranged = 0.325 * floor(ranged * 1.5)

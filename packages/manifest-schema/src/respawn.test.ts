@@ -303,7 +303,7 @@ describe("RespawnManifestSchema", () => {
     expect(RespawnManifestSchema.safeParse(bad).success).toBe(false);
   });
 
-  it("accepts dropItemsOnDeath=true with lowestValueFirst policy (OSRS 3-item rule)", () => {
+  it("accepts dropItemsOnDeath=true with lowestValueFirst policy (tile-based MMORPG 3-item rule)", () => {
     const ok = {
       bindPoints: [
         {

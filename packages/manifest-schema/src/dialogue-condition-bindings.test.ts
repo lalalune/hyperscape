@@ -254,7 +254,7 @@ describe("DialogueConditionBindingsManifestSchema — top-level", () => {
 });
 
 describe("DialogueBindingSkillKeySchema", () => {
-  it("lists every OSRS-style skill key the runtime supports (17 total)", () => {
+  it("lists every tile-based-MMORPG-style skill key the runtime supports (17 total)", () => {
     expect(DialogueBindingSkillKeySchema.options.sort()).toEqual(
       [
         "agility",

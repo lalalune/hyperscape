@@ -6,7 +6,7 @@
  *   - all 3 plugins (combat + skills + hyperscape meta-plugin)
  *     start in toposort order
  *   - the hyperscape meta-plugin's `onEnable` registers its
- *     bilateral systems (mob-death, gravestone-loot, all six OSRS
+ *     bilateral systems (mob-death, gravestone-loot, all six tile-based MMORPG
  *     skill processing systems) on the client world
  *   - HealthRegenSystem is NOT registered when world.isServer is
  *     false — preserves the server-only gate from the meta-plugin

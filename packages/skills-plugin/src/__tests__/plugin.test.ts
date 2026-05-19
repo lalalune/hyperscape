@@ -73,7 +73,7 @@ describe("@hyperforge/skills", () => {
     expect(categories.has("production")).toBe(true);
   });
 
-  it("hitpoints starts at level 10 (matches OSRS contract)", () => {
+  it("hitpoints starts at level 10 (matches tile-based MMORPG contract)", () => {
     const hp = DEFAULT_SKILLS.find(
       (s) => s.id === "com.hyperforge.skills.hitpoints",
     );

@@ -10,7 +10,7 @@ const reference: XpCurvesManifest = [
   {
     id: "rs-classic",
     name: "RS Classic 1-99",
-    description: "Exponential table matching OSRS",
+    description: "Exponential table matching tile-based MMORPG",
     kind: "formula",
     formula: "rs-classic",
     maxLevel: 99,

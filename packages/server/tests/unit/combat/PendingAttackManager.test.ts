@@ -249,7 +249,7 @@ describe("PendingAttackManager", () => {
       expect(manager.hasPendingAttack("player1")).toBe(false);
     });
 
-    it("does NOT emit combat when player is diagonal with range 1 (OSRS rule)", () => {
+    it("does NOT emit combat when player is diagonal with range 1 (tile-based MMORPG rule)", () => {
       // Place mob at tile (5, 5)
       mobPositions.set("mob1", { x: 5.5, y: 0, z: 5.5 });
       aliveMobs.add("mob1");
@@ -326,7 +326,7 @@ describe("PendingAttackManager", () => {
       expect(tileMovementManager._movePlayerToward).not.toHaveBeenCalled();
     });
 
-    it("follows indefinitely - no timeout (OSRS behavior)", () => {
+    it("follows indefinitely - no timeout (tile-based MMORPG behavior)", () => {
       mobPositions.set("mob1", { x: 100.5, y: 0, z: 100.5 });
       aliveMobs.add("mob1");
       world.setPlayerPosition("player1", 0.5, 0, 0.5);

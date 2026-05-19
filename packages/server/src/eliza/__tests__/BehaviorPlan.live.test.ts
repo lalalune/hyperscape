@@ -86,7 +86,7 @@ function buildBehaviorPrompt(scenario: {
   items: Array<{ name: string; distance: number }>;
 }): string {
   return [
-    `You are ${scenario.agentName}, an OSRS-style RPG agent between arena duels.`,
+    `You are ${scenario.agentName}, an tile-based-MMORPG-style RPG agent between arena duels.`,
     `Plan your next 3-5 actions to prepare for the next duel.`,
     ``,
     `STATE: HP ${scenario.healthPct}%, ${scenario.inventoryCount}/28 inventory, ${scenario.foodCount} food, ${scenario.inCombat ? "IN COMBAT" : "idle"}`,

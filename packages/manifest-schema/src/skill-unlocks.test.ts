@@ -6,7 +6,7 @@ import {
 } from "./skill-unlocks.js";
 
 const hyperscapeSkillUnlocks: SkillUnlocksManifest = {
-  _comment: "OSRS-accurate skill unlocks for implemented skills.",
+  _comment: "tile-based-MMORPG-accurate skill unlocks for implemented skills.",
   skills: {
     attack: [
       { level: 1, description: "Bronze weapons", type: "item" },

@@ -1,11 +1,11 @@
 /**
  * FollowManager Unit Tests
  *
- * Tests the OSRS-accurate player following system.
+ * Tests the tile-based-MMORPG-accurate player following system.
  *
  * Key behaviors tested:
  * - Starting and stopping follows
- * - 1-tick delay before following starts (OSRS-accurate)
+ * - 1-tick delay before following starts (tile-based-MMORPG-accurate)
  * - 1-tile trailing behavior using previousTile
  * - Re-pathing when target moves
  * - Cleanup on player disconnect

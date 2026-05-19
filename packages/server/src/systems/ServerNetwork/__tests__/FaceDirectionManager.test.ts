@@ -1,7 +1,7 @@
 /**
  * FaceDirectionManager Tests
  *
- * Tests the OSRS-accurate face direction system:
+ * Tests the tile-based-MMORPG-accurate face direction system:
  * - Cardinal face direction (N/S/E/W) for resources
  * - Point-based face target for legacy interactions
  * - Movement flag tracking (skip rotation if moved)
@@ -289,7 +289,7 @@ describe("FaceDirectionManager", () => {
 
       // Rotation should NOT be applied
       expect(player.node?.quaternion?.set).not.toHaveBeenCalled();
-      // But faceTarget should PERSIST (OSRS behavior)
+      // But faceTarget should PERSIST (tile-based MMORPG behavior)
       expect(player.faceTarget).toEqual({ x: 15, z: 10 });
     });
 

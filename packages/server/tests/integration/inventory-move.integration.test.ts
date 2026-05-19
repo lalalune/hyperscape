@@ -2,7 +2,7 @@
  * Inventory Move Integration Tests
  *
  * Tests the inventory move/swap handler logic with mocked socket/world dependencies.
- * Verifies OSRS-style SWAP behavior (not INSERT), validation, and rate limiting.
+ * Verifies tile-based-MMORPG-style SWAP behavior (not INSERT), validation, and rate limiting.
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -112,7 +112,7 @@ function isValidInventorySlot(value: unknown): value is number {
   );
 }
 
-// Simulate the OSRS-style SWAP logic from InventorySystem.moveItem
+// Simulate the tile-based-MMORPG-style SWAP logic from InventorySystem.moveItem
 function performSwap(
   inventory: MockInventory,
   fromSlot: number,
@@ -136,7 +136,7 @@ function performSwap(
     return false;
   }
 
-  // OSRS-style SWAP: exchange two slots directly
+  // tile-based-MMORPG-style SWAP: exchange two slots directly
   if (fromItem && toItem) {
     // Both slots occupied - swap
     fromItem.slot = toSlot;
@@ -224,7 +224,7 @@ function handleMoveItem(
   return { success: false, error: "Swap failed" };
 }
 
-describe("Inventory Move Integration - OSRS-style SWAP", () => {
+describe("Inventory Move Integration - tile-based-MMORPG-style SWAP", () => {
   let player: MockPlayer;
   let socket: MockSocket;
   let world: MockWorld;
@@ -804,7 +804,7 @@ describe("Inventory Move Integration - Stackable Items", () => {
   });
 
   it("swaps stackable items without merging stacks", () => {
-    // OSRS inventory swap doesn't merge stacks - that's a bank operation
+    // tile-based MMORPG inventory swap doesn't merge stacks - that's a bank operation
     const arrows1 = createMockItem("bronze_arrows", 0, 50);
     arrows1.item.stackable = true;
     const arrows2 = createMockItem("bronze_arrows", 5, 100);
