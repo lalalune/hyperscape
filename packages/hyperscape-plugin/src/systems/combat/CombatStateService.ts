@@ -23,7 +23,7 @@ export interface CombatData {
   weaponType: AttackType;
   inCombat: boolean;
 
-  // TICK-BASED timing (OSRS-accurate)
+  // TICK-BASED timing (tile-based-MMORPG-accurate)
   lastAttackTick: number;
   nextAttackTick: number;
   combatEndTick: number;
@@ -272,7 +272,7 @@ export class CombatStateService {
   }
 
   /**
-   * Mark player as in combat but without a target (OSRS auto-retaliate OFF behavior)
+   * Mark player as in combat but without a target (tile-based MMORPG auto-retaliate OFF behavior)
    * Player is being attacked but won't fight back - still triggers combat timer
    * Stores attackerId so we can start combat if auto-retaliate is toggled ON
    * @param entityId - Entity ID (accepts both EntityID and string for backwards compatibility)

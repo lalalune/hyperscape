@@ -11,16 +11,16 @@
  * 4. Server paths player to that tile via movePlayerToward()
  * 5. Every tick, server checks if player arrived at cardinal tile
  * 6. When arrived, server sets face target via FaceDirectionManager and starts gathering
- * 7. At end of tick, FaceDirectionManager applies rotation (OSRS-accurate deferred facing)
+ * 7. At end of tick, FaceDirectionManager applies rotation (tile-based-MMORPG-accurate deferred facing)
  *
  * KEY DIFFERENCES FROM OLD APPROACH:
  * - Uses movePlayerToward() with GATHERING_RANGE (like combat's MELEE_RANGE_STANDARD)
  * - Tick-based processing (like PendingAttackManager) instead of setInterval
- * - Uses FaceDirectionManager for rotation (OSRS-accurate deferred face direction)
+ * - Uses FaceDirectionManager for rotation (tile-based-MMORPG-accurate deferred face direction)
  * - No client-side position calculations
  *
  * @see PendingAttackManager - combat equivalent
- * @see FaceDirectionManager - handles OSRS-accurate rotation
+ * @see FaceDirectionManager - handles tile-based-MMORPG-accurate rotation
  */
 
 import {
@@ -242,7 +242,7 @@ export class PendingGatherManager {
     // PERF: Reduced logging - only log on actual state changes, not every tick
 
     // FISHING: Find shore tile FIRST, then check if player is already there
-    // OSRS behavior: Player ALWAYS walks to shore before fishing (not just "in range")
+    // tile-based MMORPG behavior: Player ALWAYS walks to shore before fishing (not just "in range")
     if (isFishing) {
       // Find the closest walkable shore tile to the fishing spot
       const shoreTile = this.tileMovementManager.findClosestWalkableTile(
@@ -536,7 +536,7 @@ export class PendingGatherManager {
       // and bundled with tileMovementEnd packet for atomic delivery to client.
       // This prevents race condition where client sets "idle" before emote arrives.
 
-      // Use FaceDirectionManager for OSRS-accurate rotation (like other resources)
+      // Use FaceDirectionManager for tile-based-MMORPG-accurate rotation (like other resources)
       this.setFaceTargetViaManager(
         playerId,
         pending.resourceAnchorTile,

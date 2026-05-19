@@ -4,14 +4,14 @@
  * Renders health bars for all entities (players and mobs) using a single
  * instanced mesh for optimal performance with TSL Node Materials.
  *
- * Names are shown in right-click context menus only (OSRS pattern).
+ * Names are shown in right-click context menus only (tile-based MMORPG pattern).
  *
  * @see HealthBarRenderer for the drawing logic
  */
 
 // Migrated 2026-04-24 from `packages/shared/src/systems/client/`
 // into `@hyperforge/hyperscape` (8th client-only system migration).
-// OSRS-style entity health bars rendered as a single instanced TSL
+// tile-based-MMORPG-style entity health bars rendered as a single instanced TSL
 // mesh. HealthBarRenderer (canvas drawing helpers) + HEALTH_BAR_*
 // constants are re-exported from `@hyperforge/shared` for this
 // system's consumption.

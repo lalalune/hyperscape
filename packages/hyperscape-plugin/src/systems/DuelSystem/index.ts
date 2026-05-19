@@ -1,5 +1,5 @@
 /**
- * DuelSystem - Server-authoritative player-to-player dueling (OSRS-accurate)
+ * DuelSystem - Server-authoritative player-to-player dueling (tile-based-MMORPG-accurate)
  *
  * Manages duel sessions with rules negotiation, stakes, and combat enforcement.
  *
@@ -1154,7 +1154,7 @@ export class DuelSystem {
     const session = this.getPlayerDuel(playerId);
     if (!session) return true; // Not in duel, can move freely
 
-    // Freeze during countdown (OSRS-accurate)
+    // Freeze during countdown (tile-based-MMORPG-accurate)
     if (session.state === "COUNTDOWN") {
       return false;
     }
@@ -1324,7 +1324,7 @@ export class DuelSystem {
     session.state = "FIGHTING";
     session.fightStartedAt = Date.now();
 
-    // OSRS-accurate: Restore both players to full stats before the fight
+    // tile-based-MMORPG-accurate: Restore both players to full stats before the fight
     this.restorePlayerStats(session.challengerId);
     this.restorePlayerStats(session.targetId);
 
@@ -1354,7 +1354,7 @@ export class DuelSystem {
 
   /**
    * Restore a player to full health, prayer, and stamina before a duel fight
-   * OSRS-accurate: Players always start duels at full stats
+   * tile-based-MMORPG-accurate: Players always start duels at full stats
    */
   private restorePlayerStats(playerId: string): void {
     // PlayerEntity migrated to @hyperforge/hyperscape (2026-04-26).

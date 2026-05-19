@@ -14,7 +14,7 @@
  *
  * **Visual Representation**:
  * - VRM avatar rendering
- * - Name shown in right-click menu (OSRS pattern)
+ * - Name shown in right-click menu (tile-based MMORPG pattern)
  * - Chat bubbles for messages
  * - Health bar (if in combat)
  * - Capsule collider visualization (debug mode)
@@ -221,15 +221,15 @@ export class PlayerRemote extends Entity implements HotReloadable {
   // This bypasses the Node system and avoids expensive SkinnedMesh raycast
   private raycastProxy: THREE.Mesh | null = null;
 
-  // Combat state for RuneScape-style auto-retaliate
+  // Combat state for tile-based-MMORPG-style auto-retaliate
   combat = {
     inCombat: false,
     combatTarget: null as string | null,
   };
 
-  /** Combat level for OSRS-style display and PvP range checks */
+  /** Combat level for tile-based-MMORPG-style display and PvP range checks */
   get combatLevel(): number {
-    return (this.data.combatLevel as number) || 3; // Default to OSRS minimum
+    return (this.data.combatLevel as number) || 3; // Default to tile-based MMORPG minimum
   }
 
   // Guard to prevent double initialization
@@ -343,7 +343,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
       const currentHealth = (this.data.health as number) || 100;
       const maxHealth = (this.data.maxHealth as number) || 100;
       this._healthBarHandle = healthbars.add(this.id, currentHealth, maxHealth);
-      // Health bar starts hidden (RuneScape pattern: only show during combat)
+      // Health bar starts hidden (tile-based MMORPG pattern: only show during combat)
     }
 
     this.bubble = createNode("ui", {
@@ -1382,7 +1382,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
     }
     if (data.combatLevel !== undefined) {
       this.data.combatLevel = data.combatLevel as number;
-      // Combat level stored in data - shown in right-click menu (OSRS pattern)
+      // Combat level stored in data - shown in right-click menu (tile-based MMORPG pattern)
     }
     if (data.maxHealth !== undefined) {
       this.data.maxHealth = data.maxHealth as number;
@@ -1420,12 +1420,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
       const vel = data.v as number[];
       this.velocity.set(vel[0], vel[1], vel[2]);
     }
-    // Handle combat state updates for RuneScape-style auto-retaliate rotation
+    // Handle combat state updates for tile-based-MMORPG-style auto-retaliate rotation
     // Using abbreviated key 'c' for inCombat (network efficiency)
     if ("c" in data) {
       const newInCombat = data.c as boolean;
       this.combat.inCombat = newInCombat;
-      // Show/hide health bar via HealthBars system (RuneScape pattern)
+      // Show/hide health bar via HealthBars system (tile-based MMORPG pattern)
       if (this._healthBarHandle) {
         if (newInCombat) {
           // Sync health bar with current entity data before showing.

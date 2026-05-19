@@ -11,7 +11,7 @@
 // Migrated 2026-04-25 from `packages/shared/src/systems/shared/interaction/`
 // into `@hyperforge/hyperscape` (17th system migration; 5th
 // cross-cutting server-side after CoinPouch + Prayer + Banking +
-// Store). OSRS-style NPC dialogue trees with effects (openBank,
+// Store). tile-based-MMORPG-style NPC dialogue trees with effects (openBank,
 // startQuest, …) and authored-dialogue runner.
 //
 // In-shared consumers (`PIEEditorSession`,

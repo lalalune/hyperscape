@@ -152,7 +152,7 @@ export class AnvilEntity extends InteractableEntity {
   }
 
   /**
-   * Return tiles occupied by this station for OSRS-style interaction checking.
+   * Return tiles occupied by this station for tile-based-MMORPG-style interaction checking.
    * Uses the same tiles registered for collision.
    */
   protected override getOccupiedTiles(): TileCoord[] {

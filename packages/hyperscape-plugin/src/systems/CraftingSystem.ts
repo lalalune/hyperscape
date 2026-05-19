@@ -1,7 +1,7 @@
 /**
  * CraftingSystem - Handles Crafting Skills
  *
- * OSRS-accurate crafting implementation:
+ * tile-based-MMORPG-accurate crafting implementation:
  * - Leather/dragonhide: use needle + thread + hides
  * - Jewelry: use mould + gold bar at furnace
  * - Gem cutting: use chisel on uncut gems
@@ -17,7 +17,7 @@
 // Migrated 2026-04-24 from
 // `packages/shared/src/systems/shared/interaction/` into
 // `@hyperforge/hyperscape` as part of the fourth migration batch.
-// OSRS leather/jewelry/gem-cutting crafting.
+// tile-based MMORPG leather/jewelry/gem-cutting crafting.
 import {
   type CraftingRecipeData,
   EventType,
@@ -114,7 +114,7 @@ export class CraftingSystem extends SystemBase {
       },
     );
 
-    // Cancel crafting on movement (OSRS: any click cancels skilling)
+    // Cancel crafting on movement (Tile-based MMORPG: any click cancels skilling)
     this.subscribe<{
       playerId: string;
       targetPosition: { x: number; y: number; z: number };
@@ -197,7 +197,7 @@ export class CraftingSystem extends SystemBase {
     let filteredRecipes =
       processingDataProvider.getCraftingRecipesByStation(station);
 
-    // Filter by specific input item if provided (OSRS-accurate: only show relevant recipes)
+    // Filter by specific input item if provided (tile-based-MMORPG-accurate: only show relevant recipes)
     if (inputItemId) {
       filteredRecipes = filteredRecipes.filter((recipe) =>
         recipe.inputs.some((inp) => inp.item === inputItemId),
@@ -464,7 +464,7 @@ export class CraftingSystem extends SystemBase {
       return;
     }
 
-    // Play crafting animation (OSRS-style)
+    // Play crafting animation (tile-based-MMORPG-style)
     this.emitTypedEvent(EventType.ANIMATION_PLAY, {
       entityId: playerId,
       animation: "crafting",
@@ -521,7 +521,7 @@ export class CraftingSystem extends SystemBase {
       batchTotal: session.quantity,
     });
 
-    // Success message (OSRS style - shows item name)
+    // Success message (tile-based MMORPG style - shows item name)
     const itemName = recipe.name || recipe.output.replace(/_/g, " ");
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,

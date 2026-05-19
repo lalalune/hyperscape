@@ -9,11 +9,11 @@
  *
  * Responsibilities:
  * - Track combat state (in combat vs peaceful)
- * - Manage attack cooldowns using game ticks (OSRS-accurate)
+ * - Manage attack cooldowns using game ticks (tile-based-MMORPG-accurate)
  * - Validate attack conditions
  * - Prevent logout while in combat
  * - Track last attacker for retaliation
- * - Handle OSRS-accurate retaliation timing
+ * - Handle tile-based-MMORPG-accurate retaliation timing
  *
  * @see https://oldschool.runescape.wiki/w/Auto_Retaliate - Auto-retaliate mechanics
  * @see https://oldschool.runescape.wiki/w/Attack_speed - Attack speed ticks
@@ -42,7 +42,7 @@ export class PlayerCombatStateManager {
   private lastAttackerId: string | null = null;
   private config: PlayerCombatStateConfig;
 
-  // Auto-retaliate state (enabled by default in OSRS)
+  // Auto-retaliate state (enabled by default in the tile-based MMORPG genre)
   private autoRetaliateEnabled = true;
 
   // AFK tracking for auto-retaliate disable
@@ -149,7 +149,7 @@ export class PlayerCombatStateManager {
   /**
    * Called when player is attacked - handles retaliation timing
    *
-   * OSRS-accurate retaliation:
+   * tile-based-MMORPG-accurate retaliation:
    * - If auto-retaliate is enabled and player is not AFK
    * - Retaliation happens after: ceil(attack_speed / 2) + 1 ticks
    *
@@ -167,7 +167,7 @@ export class PlayerCombatStateManager {
 
     // Check if auto-retaliate should trigger
     if (this.shouldAutoRetaliate(currentTick)) {
-      // Calculate OSRS retaliation delay: ceil(attack_speed / 2) + 1 ticks
+      // Calculate tile-based MMORPG retaliation delay: ceil(attack_speed / 2) + 1 ticks
       const retaliationDelay = Math.ceil(this.config.attackSpeedTicks / 2) + 1;
       const retaliationTick = currentTick + retaliationDelay;
 
@@ -234,7 +234,7 @@ export class PlayerCombatStateManager {
   /**
    * Check if player can logout (not prevented by combat)
    *
-   * OSRS: Cannot logout for 9.6 seconds (16 ticks) after taking damage
+   * Tile-based MMORPG: Cannot logout for 9.6 seconds (16 ticks) after taking damage
    * @see https://oldschool.runescape.wiki/w/Combat#Logout
    */
   canLogout(currentTick: number): boolean {

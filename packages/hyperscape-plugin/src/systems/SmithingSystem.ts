@@ -1,7 +1,7 @@
 /**
  * SmithingSystem - Handles Smithing at Anvils
  *
- * OSRS-accurate smithing implementation:
+ * tile-based-MMORPG-accurate smithing implementation:
  * - Use bars on anvil to smith items
  * - Requires hammer in inventory (not consumed)
  * - Consumes bars based on recipe
@@ -16,7 +16,7 @@
 // Migrated 2026-04-24 from
 // `packages/shared/src/systems/shared/interaction/` into
 // `@hyperforge/hyperscape` as part of the third migration batch.
-// Hammer + anvil + bar = OSRS-specific gameplay.
+// Hammer + anvil + bar = tile-based-MMORPG-specific gameplay.
 import {
   EventType,
   getHammerItemId,
@@ -328,7 +328,7 @@ export class SmithingSystem extends SystemBase {
       return;
     }
 
-    // Play smithing animation (OSRS-style)
+    // Play smithing animation (tile-based-MMORPG-style)
     this.emitTypedEvent(EventType.ANIMATION_PLAY, {
       entityId: playerId,
       animation: "smithing",
@@ -364,7 +364,7 @@ export class SmithingSystem extends SystemBase {
 
     session.smithed++;
 
-    // Success message (OSRS style - shows item name)
+    // Success message (tile-based MMORPG style - shows item name)
     const qtyText = qty > 1 ? `${qty} ${recipe.name}` : `a ${recipe.name}`;
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,

@@ -273,12 +273,12 @@ export class CombatSystem extends SystemBase {
   private readonly _attackerTile: PooledTile = tilePool.acquire();
   private readonly _targetTile: PooledTile = tilePool.acquire();
 
-  // OSRS-accurate: Track last known target tile per attacker for persistent combat follow.
-  // In OSRS, the player continuously follows the target while in combat — not just when
+  // tile-based-MMORPG-accurate: Track last known target tile per attacker for persistent combat follow.
+  // In the tile-based MMORPG genre, the player continuously follows the target while in combat — not just when
   // out of range. This map lets us detect when the target has moved and re-path accordingly.
   private lastCombatTargetTile = new Map<string, { x: number; z: number }>();
 
-  // Auto-retaliate disabled after 20 minutes of no input (OSRS behavior)
+  // Auto-retaliate disabled after 20 minutes of no input (tile-based MMORPG behavior)
   private lastInputTick = new Map<string, number>();
 
   private damageHandlers: Map<"player" | "mob", DamageHandler>;
@@ -624,8 +624,8 @@ export class CombatSystem extends SystemBase {
       },
     );
 
-    // OSRS-accurate: Player clicked to move = cancel their attacking combat
-    // In OSRS, clicking anywhere else cancels your current action including combat
+    // tile-based-MMORPG-accurate: Player clicked to move = cancel their attacking combat
+    // In the tile-based MMORPG genre, clicking anywhere else cancels your current action including combat
     // SERVER-ONLY: Combat state changes must happen on server
     this.subscribe(
       EventType.COMBAT_PLAYER_DISENGAGE,
@@ -753,7 +753,7 @@ export class CombatSystem extends SystemBase {
           rangedStrength?: number;
           magicAttack?: number;
           magicDefense?: number;
-          // Optional per-style bonuses (OSRS combat triangle)
+          // Optional per-style bonuses (tile-based MMORPG combat triangle)
           defenseStab?: number;
           defenseSlash?: number;
           defenseCrush?: number;
@@ -897,7 +897,7 @@ export class CombatSystem extends SystemBase {
 
   /**
    * Handle auto-retaliate being toggled ON while being attacked
-   * OSRS behavior: Player should start fighting back immediately
+   * tile-based MMORPG behavior: Player should start fighting back immediately
    *
    * Supports both PvE (mob attacker) and PvP (player attacker) scenarios.
    */
@@ -948,14 +948,14 @@ export class CombatSystem extends SystemBase {
   }
 
   /**
-   * OSRS-accurate: Handle player clicking to move (disengage from combat)
-   * In OSRS, clicking anywhere else cancels YOUR current action including combat.
+   * tile-based-MMORPG-accurate: Handle player clicking to move (disengage from combat)
+   * In the tile-based MMORPG genre, clicking anywhere else cancels YOUR current action including combat.
    *
    * CRITICAL: This only affects the DISENGAGING player's combat state.
    * The player who was attacking them (their target) keeps their combat state
-   * and continues chasing. This is correct OSRS behavior:
+   * and continues chasing. This is correct tile-based MMORPG behavior:
    * - "Deliberate movement out of the opponent's weapon range to force them to follow
-   *    is called dragging." - OSRS Wiki (Free-to-play PvP techniques)
+   *    is called dragging." - tile-based MMORPG genre wiki (Free-to-play PvP techniques)
    * - Pathfinding recalculates every tick when targeting a moving entity
    *
    * @see https://oldschool.runescape.wiki/w/Free-to-play_PvP_techniques
@@ -970,7 +970,7 @@ export class CombatSystem extends SystemBase {
     const targetId = String(combatState.targetId);
     const typedPlayerId = createEntityID(playerId);
 
-    // OSRS-ACCURATE: Only remove THIS player's combat state
+    // tile-based MMORPG-ACCURATE: Only remove THIS player's combat state
     // DO NOT call forceEndCombat() as it removes BOTH players' states!
     // The target (who may be attacking this player) keeps their combat state
     // and continues chasing this player. This enables the "dragging" PvP technique.
@@ -992,7 +992,7 @@ export class CombatSystem extends SystemBase {
     // If auto-retaliate is ON and attacker catches up and hits, player will start fighting again
     this.stateService.markInCombatWithoutTarget(playerId, targetId);
 
-    // OSRS-ACCURATE: Do NOT face the target when walking away
+    // tile-based MMORPG-ACCURATE: Do NOT face the target when walking away
     // Player should face their walking direction (handled by tile movement)
     // Only face target when auto-retaliate triggers (handled by enterCombat)
   }
@@ -1078,7 +1078,7 @@ export class CombatSystem extends SystemBase {
       attacker,
       opts.attackerType,
     );
-    // OSRS-accurate melee range check (cardinal-only for range 1)
+    // tile-based-MMORPG-accurate melee range check (cardinal-only for range 1)
     if (
       !tilesWithinMeleeRange(
         this._attackerTile,
@@ -1111,7 +1111,7 @@ export class CombatSystem extends SystemBase {
    * Check if player is on attack cooldown
    * Used by eating system to determine if eat should add attack delay
    *
-   * OSRS Rule: Foods only add to EXISTING attack delay.
+   * Tile-based MMORPG rule: Foods only add to EXISTING attack delay.
    * If weapon is ready to attack (cooldown expired), eating does NOT add delay.
    *
    * @param playerId - Player to check
@@ -1129,9 +1129,9 @@ export class CombatSystem extends SystemBase {
 
   /**
    * Add delay ticks to player's next attack
-   * Used by eating system (OSRS: eating during combat adds 3 tick delay)
+   * Used by eating system (Tile-based MMORPG: eating during combat adds 3 tick delay)
    *
-   * OSRS-Accurate: Only called when player is ALREADY on cooldown.
+   * Tile-based-MMORPG-accurate: Only called when player is ALREADY on cooldown.
    * If weapon is ready, eating does not add delay.
    *
    * @param playerId - Player to modify
@@ -1151,7 +1151,7 @@ export class CombatSystem extends SystemBase {
         combatData.nextAttackTick += delayTicks;
       }
     }
-    // If no current cooldown, do nothing (OSRS-accurate: no delay if weapon ready)
+    // If no current cooldown, do nothing (tile-based-MMORPG-accurate: no delay if weapon ready)
   }
 
   public forceEndCombat(
@@ -1170,7 +1170,7 @@ export class CombatSystem extends SystemBase {
 
   /**
    * Check if a player can logout based on combat state
-   * OSRS-accurate: Cannot logout while actively in combat
+   * tile-based-MMORPG-accurate: Cannot logout while actively in combat
    * Uses the combat timeout window to determine if player is in active combat
    *
    * @param playerId - The player's entity ID
@@ -1199,7 +1199,7 @@ export class CombatSystem extends SystemBase {
   /**
    * Update the last input tick for a player
    * Called by PlayerSystem when player performs any action
-   * OSRS: Auto-retaliate disabled after 20 minutes of no input
+   * Tile-based MMORPG: Auto-retaliate disabled after 20 minutes of no input
    *
    * @param playerId - The player's entity ID
    * @param currentTick - The current game tick
@@ -1210,7 +1210,7 @@ export class CombatSystem extends SystemBase {
 
   /**
    * Check if a player has been AFK too long (20 minutes)
-   * OSRS-accurate: Auto-retaliate disabled after 2000 ticks of no input
+   * tile-based-MMORPG-accurate: Auto-retaliate disabled after 2000 ticks of no input
    *
    * @param playerId - The player's entity ID
    * @param currentTick - The current game tick
@@ -1288,7 +1288,7 @@ export class CombatSystem extends SystemBase {
   // Combat update loop - DEPRECATED: Combat logic now handled by processCombatTick() via TickSystem
   // This method is kept for compatibility but does nothing - all combat runs through tick system
   update(_dt: number): void {
-    // Combat logic moved to processCombatTick() for OSRS-accurate tick-based timing
+    // Combat logic moved to processCombatTick() for tile-based-MMORPG-accurate tick-based timing
     // This is called by TickSystem at TickPriority.COMBAT
   }
 

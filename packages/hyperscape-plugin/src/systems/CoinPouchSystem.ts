@@ -1,5 +1,5 @@
 /**
- * CoinPouchSystem - Manages player coin balances (OSRS-style Money Pouch)
+ * CoinPouchSystem - Manages player coin balances (tile-based-MMORPG-style Money Pouch)
  *
  * Server-authoritative system that handles all coin operations:
  * - Adding coins (loot, store sales, trades)
@@ -7,7 +7,7 @@
  * - Querying coin balances
  * - Persisting to database
  *
- * Coins are stored separately from inventory (like OSRS money pouch):
+ * Coins are stored separately from inventory (like tile-based MMORPG money pouch (separate-from-inventory)):
  * - Protected on death (coins stay with player)
  * - No slot usage
  * - Unlimited stacking
@@ -19,7 +19,7 @@
 
 // Migrated 2026-04-25 from `packages/shared/src/systems/shared/character/`
 // into `@hyperforge/hyperscape` (1st cross-cutting server-side system
-// migration). OSRS-style separate-from-inventory currency. The lone
+// migration). tile-based-MMORPG-style separate-from-inventory currency. The lone
 // in-shared consumer (`InventorySystem`) duck-types the surface it
 // needs via a local `CoinPouchSystemLike` interface; SystemLoader's
 // registration is removed and the plugin's onEnable cross-cutting
@@ -42,7 +42,7 @@ import {
 const DEFAULT_STARTING_COINS = 100;
 
 /** Maximum coins a player can hold (prevent overflow) */
-const MAX_COINS = 2147483647; // Max 32-bit signed integer (OSRS cap)
+const MAX_COINS = 2147483647; // Max 32-bit signed integer (tile-based MMORPG cap)
 
 /**
  * CoinPouchSystem - Manages player coin balances

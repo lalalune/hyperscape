@@ -315,7 +315,7 @@ export class ItemEntity extends InteractableEntity {
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
 
-    // OSRS-style pile visibility - only top item in pile is visible
+    // tile-based-MMORPG-style pile visibility - only top item in pile is visible
     if (this.mesh) {
       const visibleInPile = this.getProperty("visibleInPile", true);
       if (this.mesh.visible !== visibleInPile) {
@@ -357,7 +357,7 @@ export class ItemEntity extends InteractableEntity {
 
   private checkDespawn(): void {
     // Skip native despawn for items managed by GroundItemSystem
-    // GroundItemSystem uses tick-based despawn which is more accurate (OSRS-style)
+    // GroundItemSystem uses tick-based despawn which is more accurate (tile-based-MMORPG-style)
     // Only run native despawn for world spawn items (from ItemSpawnerSystem)
     if (this.id.startsWith("ground_item_")) {
       // GroundItemSystem handles despawn via processTick()

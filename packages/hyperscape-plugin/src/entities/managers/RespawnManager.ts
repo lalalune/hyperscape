@@ -2,11 +2,11 @@
  * RespawnManager - Manages mob respawn locations and timing (TICK-BASED)
  *
  * Production-quality respawn system:
- * - Mobs spawn in an AREA, not at a single point (RuneScape-style)
+ * - Mobs spawn in an AREA, not at a single point (tile-based-MMORPG-style)
  * - Random spawn location within configured radius
  * - Separate initial spawn from respawn locations
  * - Prevents spawn camping and exploitation
- * - TICK-BASED timing for OSRS-accurate respawn mechanics
+ * - TICK-BASED timing for tile-based-MMORPG-accurate respawn mechanics
  *
  * Design:
  * 1. Define spawn area (center point + radius)
@@ -16,7 +16,7 @@
  *
  * Timing:
  * - Config accepts milliseconds for backwards compatibility
- * - Internally converts to ticks for OSRS-accurate timing
+ * - Internally converts to ticks for tile-based-MMORPG-accurate timing
  * - Respawn timer tracked in ticks (600ms per tick)
  *
  * @see https://oldschool.runescape.wiki/w/Respawn_rate
@@ -40,7 +40,7 @@ export class RespawnManager {
   private config: RespawnConfig;
   private currentRespawnPoint: Position3D | null = null;
 
-  // TICK-BASED respawn timing (OSRS-accurate)
+  // TICK-BASED respawn timing (tile-based-MMORPG-accurate)
   private respawnStartTick: number | null = null;
   private respawnDurationTicks: number = 0;
 

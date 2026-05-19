@@ -1,12 +1,12 @@
 /**
  * WildernessDeathHandler (TICK-BASED)
  *
- * Handles player death in wilderness/PvP zones (RuneScape-style):
+ * Handles player death in wilderness/PvP zones (tile-based-MMORPG-style):
  * 1. Items → ground items immediately (200 ticks = 2 minutes)
  * 2. Ground items despawn via GroundItemSystem tick processing
  * No gravestone protection in dangerous areas
  *
- * TICK-BASED TIMING (OSRS-accurate):
+ * TICK-BASED TIMING (tile-based-MMORPG-accurate):
  * - Uses tick constants from COMBAT_CONSTANTS
  * - Ground item despawn handled by GroundItemSystem.processTick()
  * - Loot protection expires after 100 ticks (1 minute)

@@ -45,7 +45,7 @@ interface SplatPoolItem {
   active: boolean;
 }
 
-// Color coding for countdown numbers (OSRS-style)
+// Color coding for countdown numbers (tile-based-MMORPG-style)
 const COUNT_COLORS: Record<number, string> = {
   3: "#ff4444", // Red
   2: "#ff8800", // Orange

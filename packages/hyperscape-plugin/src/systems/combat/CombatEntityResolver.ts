@@ -182,7 +182,7 @@ export class CombatEntityResolver {
   }
 
   /**
-   * Get attack speed in TICKS for an entity (OSRS-accurate)
+   * Get attack speed in TICKS for an entity (tile-based-MMORPG-accurate)
    * @param entityId - Entity ID to check
    * @param entityType - Type of entity ("player" or "mob")
    * @returns Attack speed in game ticks (default: 4 ticks = 2.4 seconds)
@@ -235,7 +235,7 @@ export class CombatEntityResolver {
   /**
    * Get combat range for an entity in tiles
    * Mobs use combatRange from manifest, players use equipped weapon's attackRange
-   * OSRS-accurate: If player has a spell selected, use magic range (10 tiles)
+   * tile-based-MMORPG-accurate: If player has a spell selected, use magic range (10 tiles)
    * @param entity - Entity to check
    * @param entityType - Type of entity ("player" or "mob")
    * @returns Combat range in tiles (default: 1 for unarmed)
@@ -248,7 +248,7 @@ export class CombatEntityResolver {
     }
 
     if (entityType === "player") {
-      // OSRS-accurate: Check if player has a spell selected first
+      // tile-based-MMORPG-accurate: Check if player has a spell selected first
       // You can cast spells without a staff - the staff just provides magic bonus
       const selectedSpell = (entity as { data?: { selectedSpell?: string } })
         ?.data?.selectedSpell;
@@ -276,7 +276,7 @@ export class CombatEntityResolver {
         if (equipment?.weapon?.item) {
           const weaponItem = equipment.weapon.item;
 
-          // OSRS-accurate: Magic weapons (staffs/wands) only use their attackRange
+          // tile-based-MMORPG-accurate: Magic weapons (staffs/wands) only use their attackRange
           // when a spell is selected (autocast). Without autocast, staffs default
           // to melee range. The selectedSpell check above already returns 10 for
           // magic range, so if we reach here, no spell is selected.

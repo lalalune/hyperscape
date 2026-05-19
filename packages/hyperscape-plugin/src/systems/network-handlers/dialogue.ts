@@ -12,7 +12,7 @@
  *
  * Unlike store/bank handlers, dialogue does NOT require:
  * - Database transactions (no persistent state changes)
- * - Heavy rate limiting (OSRS allows fast dialogue clicking)
+ * - Heavy rate limiting (the tile-based MMORPG genre allows fast dialogue clicking)
  *
  * The DialogueSystem (shared package) handles the actual dialogue state
  * machine. This handler is just the network entry point with validation.

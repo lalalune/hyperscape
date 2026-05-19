@@ -44,7 +44,7 @@ export const rateLimiter = new RateLimitService();
 // ============================================================================
 
 /**
- * Maximum distance in tiles for players to initiate a trade (OSRS-style)
+ * Maximum distance in tiles for players to initiate a trade (tile-based-MMORPG-style)
  * Players must be adjacent (1 tile) to trade
  */
 export const TRADE_PROXIMITY_TILES = 1;
@@ -112,7 +112,7 @@ export function getPlayerName(world: World, playerId: string): string {
  * Get player combat level from world entities
  *
  * Returns player's combat level, or 3 (minimum) if not found.
- * Level 3 is the base combat level in OSRS.
+ * Level 3 is the base combat level in the tile-based MMORPG genre.
  */
 export function getPlayerCombatLevel(world: World, playerId: string): number {
   const player = world.entities?.players?.get(playerId);
@@ -137,7 +137,7 @@ export function getPlayerCombatLevel(world: World, playerId: string): number {
 
 /**
  * Calculate Chebyshev distance between two positions (tile-based)
- * In OSRS, adjacency is measured using Chebyshev distance (allows diagonals)
+ * In the tile-based MMORPG genre, adjacency is measured using Chebyshev distance (allows diagonals)
  */
 export function chebyshevDistance(
   pos1: { x: number; z: number },
@@ -259,7 +259,7 @@ export function calculateFreeSlots(
     | undefined;
 
   if (!inventorySystem?.getInventoryData) {
-    return 28; // OSRS inventory size
+    return 28; // tile-based MMORPG inventory size
   }
 
   const inventoryData = inventorySystem.getInventoryData(playerId);
@@ -354,7 +354,7 @@ export function sendTradeUpdate(
 }
 
 /**
- * Send confirmation screen packet to both participants (OSRS two-screen flow)
+ * Send confirmation screen packet to both participants (tile-based MMORPG two-screen flow)
  * Includes item values for wealth transfer indicator
  */
 export function sendTradeConfirmScreen(

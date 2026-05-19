@@ -3,16 +3,16 @@
  *
  * Migrated 2026-04-24 from `packages/shared/src/systems/shared/interaction/`
  * into `@hyperforge/hyperscape` as the third slice of the
- * Hyperscape→meta-plugin extraction. Tanning is OSRS-specific
+ * Hyperscape→meta-plugin extraction. Tanning is tile-based-MMORPG-specific
  * gameplay (cowhide → leather, dragonhide → dragon leather, fixed
  * 1gp / 20gp coin cost per hide) so it belongs in the Hyperscape
  * plugin, not in `@hyperforge/shared`.
  *
- * OSRS-accurate tanning implementation:
+ * tile-based-MMORPG-accurate tanning implementation:
  * - Talk to tanner NPC to open tanning interface
  * - Select hide type and quantity
  * - Instant conversion: deduct coins + hide, add leather
- * - No tick delay — tanning is instant in OSRS
+ * - No tick delay — tanning is instant in the tile-based MMORPG genre
  * - Costs: cowhide → leather (1gp), green dragonhide → green dragon leather (20gp)
  *
  * @see https://oldschool.runescape.wiki/w/Tanner

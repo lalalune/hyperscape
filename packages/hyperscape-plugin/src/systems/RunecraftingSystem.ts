@@ -1,7 +1,7 @@
 /**
  * RunecraftingSystem - Instant Essence-to-Rune Conversion at Altars
  *
- * OSRS-accurate runecrafting implementation:
+ * tile-based-MMORPG-accurate runecrafting implementation:
  * - Click altar to instantly convert all carried essence into runes
  * - Two essence types: rune_essence (basic runes), pure_essence (all runes)
  * - Multi-rune crafting at higher levels (e.g., 2x air runes at level 11)
@@ -18,7 +18,7 @@
  * Migrated 2026-04-24 from `packages/shared/src/systems/shared/interaction/`
  * into `@hyperforge/hyperscape` as part of the third Hyperscape→
  * meta-plugin batch (with ItemTargetingSystem + SmithingSystem).
- * OSRS-specific gameplay (essence + altar = runes) — belongs in the
+ * tile-based-MMORPG-specific gameplay (essence + altar = runes) — belongs in the
  * Hyperscape plugin, not in `@hyperforge/shared`.
  */
 

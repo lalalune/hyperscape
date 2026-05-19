@@ -496,7 +496,7 @@ export class DuelCombatResolver {
 
   /**
    * Restore player to full stats after duel
-   * OSRS-accurate: Both winner and loser get full HP, prayer, stamina restored
+   * tile-based-MMORPG-accurate: Both winner and loser get full HP, prayer, stamina restored
    * @param spawnPosition - Must match the teleport destination to avoid lerpPosition conflicts
    */
   private restorePlayerHealth(

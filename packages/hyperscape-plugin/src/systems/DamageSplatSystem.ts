@@ -1,8 +1,8 @@
 /**
- * DamageSplatSystem - RuneScape-style Damage Splats
+ * DamageSplatSystem - tile-based-MMORPG-style Damage Splats
  *
  * Creates visual damage numbers (hit splats) that appear above entities when they take damage.
- * Mimics Old School RuneScape's iconic damage feedback system.
+ * Mimics tile-based MMORPG tile-based MMORPG's iconic damage feedback system.
  *
  * Features:
  * - Red splats for successful hits (damage > 0)
@@ -16,12 +16,12 @@
  * - Animates with fadeout and upward movement
  * - Auto-removes after animation completes
  *
- * @see https://oldschool.runescape.wiki/w/Hitsplat - OSRS hitsplat mechanics and colors
+ * @see https://oldschool.runescape.wiki/w/Hitsplat - tile-based MMORPG hitsplat mechanics and colors
  */
 
 // Migrated 2026-04-24 from `packages/shared/src/systems/client/`
 // into `@hyperforge/hyperscape` as the first CLIENT-ONLY plugin
-// migration. Visual hit-splats are OSRS-specific feedback. The
+// migration. Visual hit-splats are tile-based-MMORPG-specific feedback. The
 // meta-plugin's onEnable registers this only when world.isServer
 // is false, preserving the original SystemLoader's `if (world.isClient)`
 // gate.
@@ -217,7 +217,7 @@ export class DamageSplatSystem extends System {
     // Clear canvas and redraw
     context.clearRect(0, 0, size, size);
 
-    // Draw OSRS-style hit splat
+    // Draw tile-based-MMORPG-style hit splat
     const isHit = damage > 0;
     const bgColor = isHit ? "#8B0000" : "#000080"; // Dark red or dark blue
     const textColor = "#FFFFFF";

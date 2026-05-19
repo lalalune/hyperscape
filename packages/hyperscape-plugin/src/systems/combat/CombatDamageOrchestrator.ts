@@ -180,7 +180,7 @@ export class CombatDamageOrchestrator {
       }
     }
 
-    // Determine melee attack style from weapon type (OSRS combat triangle).
+    // Determine melee attack style from weapon type (tile-based MMORPG combat triangle).
     let meleeAttackStyle: MeleeAttackStyle | undefined;
     if (!(attacker instanceof MobEntity)) {
       const weapon = this.getEquippedWeapon((attacker as Entity).id);
@@ -224,7 +224,7 @@ export class CombatDamageOrchestrator {
         ? target.getMobData().defense
         : this.playerQueries.getPlayerSkillLevel(String(target.id), "defense");
 
-    // Per-style defenseRanged from equipment (OSRS combat triangle).
+    // Per-style defenseRanged from equipment (tile-based MMORPG combat triangle).
     const targetEquipStats = this.playerEquipmentStats.get(String(target.id));
     const targetRangedDefense =
       targetType === "mob" && isMobEntity(target)

@@ -4,7 +4,7 @@
  * Server-authoritative system for tracking players walking toward mobs to attack.
  * This replaces unreliable client-side tracking with 100% reliable server-side logic.
  *
- * OSRS-style behavior (from wiki):
+ * tile-based-MMORPG-style behavior (from wiki):
  * 1. Player clicks mob to attack
  * 2. If not in range, server queues "pending attack" and moves player toward mob
  * 3. Every tick, server re-checks range and re-paths if mob moved
@@ -83,7 +83,7 @@ export class PendingAttackManager {
    * Queue a pending attack for a player
    * Called when player clicks target but is not in range
    *
-   * OSRS: When clicking an NPC/player, pathfinding targets all tiles within attack range
+   * Tile-based MMORPG: When clicking an NPC/player, pathfinding targets all tiles within attack range
    *
    * @param attackRange - Weapon's attack range (1 = standard melee/unarmed, 2 = halberd, 10 = ranged/magic)
    * @param targetType - "mob" for PvE, "player" for PvP
@@ -189,15 +189,15 @@ export class PendingAttackManager {
   /**
    * Process all pending attacks - called every tick
    *
-   * OSRS behavior (from wiki):
+   * tile-based MMORPG behavior (from wiki):
    * - "if the clicked entity is an NPC or player, a new pathfinding attempt
    *    will be started every tick, until a target tile can be found"
    * - NO TIMEOUT - players follow indefinitely until they click elsewhere
-   * - Uses OSRS melee range rules (cardinal-only for range 1)
+   * - Uses tile-based MMORPG melee range rules (cardinal-only for range 1)
    */
   processTick(_currentTick: number): void {
     for (const [playerId, pending] of this.pendingAttacks) {
-      // NO TIMEOUT - OSRS follows indefinitely (removed timeout check)
+      // NO TIMEOUT - tile-based MMORPG follows indefinitely (removed timeout check)
 
       // Check if target still exists and is alive (supports both mobs and players)
       if (!this.isTargetAlive(pending.targetId, pending.targetType)) {
@@ -223,7 +223,7 @@ export class PendingAttackManager {
       worldToTileInto(playerPos.x, playerPos.z, this._playerTile);
       worldToTileInto(targetPos.x, targetPos.z, this._targetTile);
 
-      // OSRS-accurate range check:
+      // tile-based-MMORPG-accurate range check:
       // - Melee range 1: Cardinal only (N/S/E/W)
       // - Melee range 2+: Allows diagonal (Chebyshev distance)
       // - Ranged/Magic: Chebyshev distance + Line of Sight
@@ -261,7 +261,7 @@ export class PendingAttackManager {
       }
 
       // Not in range - check if target moved and re-path if needed
-      // OSRS: recalculates path every tick when target moves
+      // Tile-based MMORPG: recalculates path every tick when target moves
       if (
         !pending.lastTargetTile ||
         pending.lastTargetTile.x !== this._targetTile.x ||
@@ -288,7 +288,7 @@ export class PendingAttackManager {
   /**
    * Process pending attack for a specific player
    *
-   * OSRS-ACCURATE: Called by GameTickProcessor during player phase
+   * tile-based MMORPG-ACCURATE: Called by GameTickProcessor during player phase
    * This processes just one player's pending attack instead of all.
    *
    * @param playerId - The player to process
@@ -322,7 +322,7 @@ export class PendingAttackManager {
     worldToTileInto(playerPos.x, playerPos.z, this._playerTile);
     worldToTileInto(targetPos.x, targetPos.z, this._targetTile);
 
-    // OSRS-accurate range check based on attack type
+    // tile-based-MMORPG-accurate range check based on attack type
     // Ranged/Magic additionally require Line of Sight
     const inRange =
       pending.attackType === AttackType.MELEE

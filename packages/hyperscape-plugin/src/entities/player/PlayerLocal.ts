@@ -433,7 +433,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     combatStyle: "attack",
     inCombat: false,
     combatTarget: null,
-    autoRetaliate: true, // OSRS default: ON
+    autoRetaliate: true, // tile-based MMORPG default: ON
   };
   // Issue #322: Store last combat-facing rotation to preserve facing direction after combat ends
   private _lastCombatRotation: THREE.Quaternion | null = null;
@@ -535,9 +535,9 @@ export class PlayerLocal extends Entity implements HotReloadable {
   // Internal avatar reference (rename existing avatar property)
   private _avatar?: AvatarNode;
 
-  // ========== PLAYER SILHOUETTE (RuneScape-style x-ray effect) ==========
+  // ========== PLAYER SILHOUETTE (tile-based-MMORPG-style x-ray effect) ==========
   //
-  // TECHNIQUE (from official RuneScape dev blog):
+  // TECHNIQUE (from official tile-based MMORPG dev blog):
   // "Silhouettes are handled... we use the same size for both and only check
   // against the depth buffer on the last draw operation."
   //
@@ -998,7 +998,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     if ("c" in data) {
       const newInCombat = data.c as boolean;
       this.combat.inCombat = newInCombat;
-      // Show/hide health bar based on combat state (RuneScape pattern)
+      // Show/hide health bar based on combat state (tile-based MMORPG pattern)
       if (this._healthBarHandle) {
         if (newInCombat) {
           // Sync health bar with current entity data before showing.
@@ -1310,7 +1310,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
       throw new Error("Failed to create aura node for PlayerLocal");
     }
 
-    // Nametags disabled - OSRS pattern: names shown in right-click menu only
+    // Nametags disabled - tile-based MMORPG pattern: names shown in right-click menu only
 
     // Register with HealthBars system
     const healthbars = this.world.getSystem?.("healthbars") as
@@ -1321,7 +1321,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
       const currentHealth = (this.data.health as number) || 100;
       const maxHealth = (this.data.maxHealth as number) || 100;
       this._healthBarHandle = healthbars.add(this.id, currentHealth, maxHealth);
-      // Health bar starts hidden (RuneScape pattern: only show during combat)
+      // Health bar starts hidden (tile-based MMORPG pattern: only show during combat)
     }
 
     this.bubble = createNode("ui", {
@@ -1735,7 +1735,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
         success: true,
       });
 
-      // Create silhouette effect for x-ray visibility (RuneScape-style)
+      // Create silhouette effect for x-ray visibility (tile-based-MMORPG-style)
       this.createPlayerSilhouette();
 
       // PERFORMANCE: Disable raycasting on ALL local player VRM meshes
@@ -1775,7 +1775,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   /**
-   * Create RuneScape-style silhouette for x-ray visibility when occluded.
+   * Create tile-based-MMORPG-style silhouette for x-ray visibility when occluded.
    * Silhouette renders with depthTest=false (always draws), player overwrites where visible.
    */
   private createPlayerSilhouette(): void {
@@ -2094,7 +2094,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     });
   }
 
-  // RuneScape-style run mode toggle (persists across movements)
+  // tile-based-MMORPG-style run mode toggle (persists across movements)
   public runMode: boolean = true;
   private clientPredictMovement: boolean = true;
 
@@ -2292,7 +2292,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // ALWAYS log first 10 updates with high visibility
     // (logging removed but keeping structure for future use)
 
-    // COMBAT ROTATION: Rotate to face target when in combat (RuneScape-style)
+    // COMBAT ROTATION: Rotate to face target when in combat (tile-based-MMORPG-style)
     // Client is display-only - server controls all combat facing
     // Priority: 1) Our combat target (from server), 2) Server face target (attacker)
     let combatTarget: {
@@ -2343,7 +2343,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
       }
     }
 
-    // OSRS behavior: Only face combat target when STANDING STILL
+    // tile-based MMORPG behavior: Only face combat target when STANDING STILL
     // When moving, face movement direction (handled by TileInterpolator)
     const isMoving = this.data?.tileMovementActive === true;
 
@@ -2357,7 +2357,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
 
     if (combatTarget && !isMoving) {
-      // Calculate angle to target (XZ plane only, like RuneScape)
+      // Calculate angle to target (XZ plane only, like tile-based MMORPG)
       const dx = combatTarget.position.x - this.position.x;
       const dz = combatTarget.position.z - this.position.z;
       let angle = Math.atan2(dx, dz);
@@ -2702,7 +2702,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   onNetworkData(_data: Partial<NetworkData>): void {
-    // Name stored in this.data.name - shown in right-click menu (OSRS pattern)
+    // Name stored in this.data.name - shown in right-click menu (tile-based MMORPG pattern)
     // Health bar is NOT updated here - visual updates ONLY via handleHealthChange()
     // to prevent stale snapshot data from overwriting event-driven values
   }
@@ -3088,7 +3088,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
       this._avatar = undefined;
     }
 
-    // Clean up player silhouette (RuneScape-style x-ray effect)
+    // Clean up player silhouette (tile-based-MMORPG-style x-ray effect)
     this.destroyPlayerSilhouette();
 
     // Clean up UI elements

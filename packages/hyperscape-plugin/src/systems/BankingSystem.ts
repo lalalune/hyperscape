@@ -1,6 +1,6 @@
 // Migrated 2026-04-25 from `packages/shared/src/systems/shared/economy/`
 // into `@hyperforge/hyperscape` (15th migration; 3rd cross-cutting
-// server-side system after CoinPouch + Prayer). OSRS-style banking:
+// server-side system after CoinPouch + Prayer). tile-based-MMORPG-style banking:
 // one bank per starter town, unlimited slots, drag-to-store interface.
 //
 // In-shared consumers cleaned up via SystemMap downgrade — no

@@ -26,7 +26,7 @@
 // Migrated 2026-04-24 from `packages/shared/src/systems/client/`
 // into `@hyperforge/hyperscape` (5th client-only migration). Visual
 // projectile renderer for ranged + magic attacks. Uses THREE.Sprite
-// arc + lerp interpolation. OSRS-specific feedback.
+// arc + lerp interpolation. tile-based-MMORPG-specific feedback.
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import {
   type ArrowVisualConfig,

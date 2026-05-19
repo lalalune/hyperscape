@@ -1,7 +1,7 @@
 /**
  * FletchingSystem - Handles Fletching Skill
  *
- * OSRS-accurate fletching implementation:
+ * tile-based-MMORPG-accurate fletching implementation:
  * - Knife + logs → arrow shafts (multi-output) or unstrung bows
  * - Bowstring + unstrung bow → strung bow (item-on-item)
  * - Arrowtips + headless arrows → finished arrows (item-on-item, multi-output)
@@ -17,7 +17,7 @@
 // Migrated 2026-04-24 from
 // `packages/shared/src/systems/shared/interaction/` into
 // `@hyperforge/hyperscape` as part of the fourth migration batch.
-// OSRS knife+logs / stringing / arrow-tipping fletching.
+// tile-based MMORPG knife+logs / stringing / arrow-tipping fletching.
 import {
   EventType,
   type FletchingRecipeData,
@@ -115,7 +115,7 @@ export class FletchingSystem extends SystemBase {
       },
     );
 
-    // Cancel fletching on movement (OSRS: any click cancels skilling)
+    // Cancel fletching on movement (Tile-based MMORPG: any click cancels skilling)
     this.subscribe<{
       playerId: string;
       targetPosition: { x: number; y: number; z: number };

@@ -33,7 +33,7 @@ import {
 /**
  * Handle trade request from Player A to Player B
  *
- * OSRS-style behavior: If not in range, player walks up to target first
+ * tile-based-MMORPG-style behavior: If not in range, player walks up to target first
  */
 export function handleTradeRequest(
   socket: ServerSocket,
@@ -142,10 +142,10 @@ export function handleTradeRequest(
       return;
     }
 
-    // Send notification to target player as OSRS-style pink chat message
+    // Send notification to target player as tile-based-MMORPG-style pink chat message
     const targetSocket = getSocketByPlayerId(world, targetPlayerId);
     if (targetSocket) {
-      // Send trade request as a clickable chat message (OSRS-style)
+      // Send trade request as a clickable chat message (tile-based-MMORPG-style)
       const chatMessage = {
         id: uuid(),
         from: "",
@@ -281,7 +281,7 @@ export function handleTradeRequestRespond(
   );
   const recipientLevel = getPlayerCombatLevel(world, playerId);
 
-  // Calculate initial free slots for each player (OSRS-style indicator)
+  // Calculate initial free slots for each player (tile-based-MMORPG-style indicator)
   const initiatorFreeSlots = calculateFreeSlots(
     world,
     session.initiator.playerId,

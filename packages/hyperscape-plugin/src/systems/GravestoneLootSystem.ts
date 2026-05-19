@@ -17,7 +17,7 @@
 // Migrated 2026-04-24 from
 // `packages/shared/src/systems/shared/loot/` into
 // `@hyperforge/hyperscape` as the 9th Hyperscape→meta-plugin
-// extraction. Headstone-corpse loot is OSRS-specific gameplay.
+// extraction. Headstone-corpse loot is tile-based-MMORPG-specific gameplay.
 import {
   DeathState,
   EventType,

@@ -1,13 +1,13 @@
 /**
- * FaceDirectionManager - OSRS-Accurate Face Direction System
+ * FaceDirectionManager - Tile-based-MMORPG-accurate Face Direction System
  *
- * Implements the OSRS face direction mask behavior:
+ * Implements the tile-based MMORPG face direction mask behavior:
  * 1. When player interacts with object/NPC, faceTarget is SET (not applied)
  * 2. At END of each tick, if player did NOT move, rotation is applied
  * 3. If player moved, rotation is skipped but faceTarget PERSISTS
  * 4. Player will face the target when they eventually stop moving
  *
- * This creates the authentic OSRS behavior where clicking a tree then
+ * This creates the authentic tile-based MMORPG behavior where clicking a tree then
  * walking away will still cause you to face the tree once you stop.
  *
  * @see https://osrs-docs.com/docs/packets/outgoing/updating/masks/face-direction/
@@ -57,14 +57,14 @@ interface FaceableEntity {
 }
 
 /**
- * OSRS 8-direction constants
+ * Tile-based MMORPG 8-direction constants
  * Players/NPCs can only face these 8 directions
  */
 const DIRECTION_COUNT = 8;
 const DIRECTION_STEP = (Math.PI * 2) / DIRECTION_COUNT; // 45 degrees = PI/4
 
 /**
- * FaceDirectionManager handles OSRS-accurate deferred face direction
+ * FaceDirectionManager handles tile-based-MMORPG-accurate deferred face direction
  */
 export class FaceDirectionManager {
   private world: World;
@@ -86,7 +86,7 @@ export class FaceDirectionManager {
    * Set a face target for a player
    * Called when player interacts with objects, NPCs, resources, etc.
    *
-   * OSRS: The target is stored but NOT applied until end of tick
+   * Tile-based MMORPG: The target is stored but NOT applied until end of tick
    *
    * @param playerId - Player to set face target for
    * @param targetX - X coordinate to face
@@ -220,7 +220,7 @@ export class FaceDirectionManager {
    * Mark a player as having moved this tick
    * Called by TileMovementManager when player moves
    *
-   * OSRS: If entity moved, face direction is NOT applied this tick
+   * Tile-based MMORPG: If entity moved, face direction is NOT applied this tick
    *
    * @param playerId - Player who moved
    */
@@ -256,7 +256,7 @@ export class FaceDirectionManager {
    * Process face direction for all players
    * Called at END of tick by GameTickProcessor, AFTER all movement
    *
-   * OSRS behavior:
+   * tile-based MMORPG behavior:
    * - Only applies rotation if player has faceTarget AND did NOT move
    * - faceTarget persists even if not applied (player will face when they stop)
    * - Rotation snapped to 8 directions (N, NE, E, SE, S, SW, W, NW)
@@ -283,7 +283,7 @@ export class FaceDirectionManager {
         );
       }
 
-      // OSRS: Skip if player moved this tick (but keep targets for later)
+      // Tile-based MMORPG: Skip if player moved this tick (but keep targets for later)
       if (player.movedThisTick) {
         if (DEBUG_FACE_DIRECTION) {
           if (player.cardinalFaceDirection) {
@@ -353,7 +353,7 @@ export class FaceDirectionManager {
       // Calculate raw angle
       const rawAngle = Math.atan2(dx, dz);
 
-      // OSRS: Snap to nearest 45 degrees (8 directions)
+      // Tile-based MMORPG: Snap to nearest 45 degrees (8 directions)
       const snappedAngle =
         Math.round(rawAngle / DIRECTION_STEP) * DIRECTION_STEP;
 
@@ -380,7 +380,7 @@ export class FaceDirectionManager {
         );
       }
 
-      // OSRS: Clear face target after successfully applying
+      // Tile-based MMORPG: Clear face target after successfully applying
       player.faceTarget = undefined;
     }
   }

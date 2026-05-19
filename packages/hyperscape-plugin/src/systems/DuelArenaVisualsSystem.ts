@@ -14,7 +14,7 @@
  * Performance: ~22 draw calls via InstancedMesh (down from ~846 individual meshes).
  * All 28 PointLights replaced with GPU-animated TSL emissive brazier materials.
  *
- * Arena Layout (OSRS-style):
+ * Arena Layout (tile-based-MMORPG-style):
  * - 6 rectangular arenas in a 2x3 grid
  * - Each arena is 20m wide x 24m long
  * - 4m gap between arenas

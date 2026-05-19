@@ -9,7 +9,7 @@
  * - Release arenas when duels complete
  * - Provide spawn points and bounds for each arena
  *
- * Arena Layout (OSRS-style):
+ * Arena Layout (tile-based-MMORPG-style):
  * - 6 rectangular arenas arranged in a 2x3 grid
  * - Each arena has 2 spawn points (north and south)
  * - Arena bounds used for movement clamping if noMovement rule

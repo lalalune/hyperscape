@@ -56,7 +56,7 @@ export class CombatStateManager {
   }
 
   /**
-   * First attack happens next tick, not immediately (OSRS-accurate)
+   * First attack happens next tick, not immediately (tile-based-MMORPG-accurate)
    *
    * Guard: Only sets up timing if NOT already in combat. This is intentional:
    * - Prevents resetting timing on rapid CHASE→ATTACK→CHASE→ATTACK transitions

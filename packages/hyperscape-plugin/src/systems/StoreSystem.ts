@@ -1,6 +1,6 @@
 // Migrated 2026-04-25 from `packages/shared/src/systems/shared/economy/`
 // into `@hyperforge/hyperscape` (16th migration; 4th cross-cutting
-// server-side system after CoinPouch + Prayer + Banking). OSRS-style
+// server-side system after CoinPouch + Prayer + Banking). tile-based-MMORPG-style
 // general stores — interaction handler that opens/closes per-player
 // store sessions. Server-authoritative.
 import {

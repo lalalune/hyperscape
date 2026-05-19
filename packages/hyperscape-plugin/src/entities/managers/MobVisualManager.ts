@@ -848,7 +848,7 @@ export class MobVisualManager {
    * is instant and stays for the entity's lifetime.
    *
    * IMMEDIATE INTERACTION: Also ensures the mob is interactive BEFORE VRM loads.
-   * RuneScape-style: entity is functional immediately, visuals are secondary.
+   * tile-based-MMORPG-style: entity is functional immediately, visuals are secondary.
    */
   createRaycastProxy(): void {
     // Skip on server - no visuals needed

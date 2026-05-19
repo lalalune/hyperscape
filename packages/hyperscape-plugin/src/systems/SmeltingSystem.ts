@@ -1,7 +1,7 @@
 /**
  * SmeltingSystem - Handles Smelting at Furnaces
  *
- * OSRS-accurate smelting implementation:
+ * tile-based-MMORPG-accurate smelting implementation:
  * - Use ores on furnace to smelt bars
  * - Consumes primary ore, secondary ore (bronze), and coal
  * - Iron ore has 50% success rate (others always succeed)
@@ -15,7 +15,7 @@
 // Migrated 2026-04-24 from
 // `packages/shared/src/systems/shared/interaction/` into
 // `@hyperforge/hyperscape` as part of the fourth migration batch
-// (with CraftingSystem + FletchingSystem). OSRS smelting at furnaces.
+// (with CraftingSystem + FletchingSystem). tile-based MMORPG smelting at furnaces.
 import {
   EventType,
   getItemQuantity,
@@ -101,7 +101,7 @@ export class SmeltingSystem extends SystemBase {
       },
     );
 
-    // Cancel smelting on movement (OSRS: any click cancels skilling)
+    // Cancel smelting on movement (Tile-based MMORPG: any click cancels skilling)
     this.subscribe<{
       playerId: string;
       targetPosition: { x: number; y: number; z: number };
@@ -355,7 +355,7 @@ export class SmeltingSystem extends SystemBase {
       return;
     }
 
-    // Play smelting animation (OSRS-style)
+    // Play smelting animation (tile-based-MMORPG-style)
     this.emitTypedEvent(EventType.ANIMATION_PLAY, {
       entityId: playerId,
       animation: "smelting",

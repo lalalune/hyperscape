@@ -37,7 +37,7 @@ function sendPlayerError(socket: ServerSocket, reason: string): void {
 /**
  * Handle follow player request from client
  *
- * OSRS behavior:
+ * tile-based MMORPG behavior:
  * - Player walks behind the target
  * - Re-paths when target moves
  * - Cancelled by clicking elsewhere, trading, equipping items

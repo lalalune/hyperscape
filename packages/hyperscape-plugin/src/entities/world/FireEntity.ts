@@ -3,7 +3,7 @@
  *
  * Represents a fire that players can cook on.
  * Created when player successfully uses tinderbox on logs.
- * Expires after 60-119 seconds (OSRS accurate).
+ * Expires after 60-119 seconds (tile-based-MMORPG-accurate).
  *
  * **Extends**: InteractableEntity (players can interact to cook)
  *

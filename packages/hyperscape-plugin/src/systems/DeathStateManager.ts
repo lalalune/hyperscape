@@ -50,7 +50,7 @@ interface DeathLockData {
   zoneType: ZoneType;
   itemCount: number;
   items: DeathItemData[];
-  keptItems?: DeathItemData[]; // OSRS keep-3 items returned on respawn
+  keptItems?: DeathItemData[]; // tile-based MMORPG keep-3 items returned on respawn
   killedBy: string;
   recovered: boolean;
 }

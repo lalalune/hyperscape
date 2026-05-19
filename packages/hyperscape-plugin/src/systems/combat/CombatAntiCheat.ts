@@ -909,7 +909,7 @@ export class CombatAntiCheat {
   ): boolean {
     const attackerIdStr = String(attackerId);
     // Calculate maximum possible hit for this attacker
-    // OSRS formula: Max Hit = floor(0.5 + EffectiveStrength × (StrengthBonus + 64) / 640)
+    // tile-based MMORPG formula: Max Hit = floor(0.5 + EffectiveStrength × (StrengthBonus + 64) / 640)
     // EffectiveStrength = StrengthLevel + 8 + 3 (max style bonus)
     const effectiveStrength = attackerStrength + 8 + 3;
     const maxPossibleHit = Math.floor(

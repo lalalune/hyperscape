@@ -2,7 +2,7 @@
 // into `@hyperforge/hyperscape` (12th client-only system migration).
 // Home-teleport blue-helix VFX — TSL-shaded particle pools driven by
 // `home_teleport:start` / `:cancel` events from PlayerSystem.
-// Hyperscape-specific (OSRS home teleport feel).
+// Hyperscape-specific (tile-based MMORPG home teleport feel).
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import {
   add,

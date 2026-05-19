@@ -4,7 +4,7 @@
  * Client-side debug visualization for resource tile occupancy.
  * Shows red ground planes for tiles that resources occupy.
  *
- * OSRS-ACCURACY: Resources occupy specific tiles based on their footprint:
+ * TILE-BASED-MMORPG-ACCURACY: Resources occupy specific tiles based on their footprint:
  * - standard (1×1): Single tile
  * - large (2×2): Four tiles from anchor (SW corner)
  * - massive (3×3): Nine tiles from anchor

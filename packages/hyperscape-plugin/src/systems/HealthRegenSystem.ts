@@ -1,14 +1,14 @@
 /**
- * HealthRegenSystem - Passive Health Regeneration (OSRS-style)
+ * HealthRegenSystem - Passive Health Regeneration (tile-based-MMORPG-style)
  *
  * Migrated 2026-04-24 from `packages/shared/src/systems/shared/character/`
  * into `@hyperforge/hyperscape` as the second slice of the
  * Hyperscape→meta-plugin extraction. The 17-tick cooldown / 100-tick
- * regen interval / no-regen-while-in-combat behavior is OSRS-specific
+ * regen interval / no-regen-while-in-combat behavior is tile-based-MMORPG-specific
  * Hyperscape gameplay — it belongs in the Hyperscape plugin, not in
  * `@hyperforge/shared`.
  *
- * Server-authoritative system. Implements OSRS-accurate mechanics
+ * Server-authoritative system. Implements tile-based-MMORPG-accurate mechanics
  * using game ticks (600ms each):
  * - No regeneration while in combat
  * - 17 tick cooldown (10.2 seconds) after taking damage before regen starts
@@ -219,7 +219,7 @@ export class HealthRegenSystem extends SystemBase {
   }
 
   /**
-   * Get last damage tick from entity (tick-based for OSRS accuracy)
+   * Get last damage tick from entity (tick-based for tile-based MMORPG accuracy)
    */
   private getLastDamageTick(entity: unknown): number | null {
     if (!entity || typeof entity !== "object") return null;

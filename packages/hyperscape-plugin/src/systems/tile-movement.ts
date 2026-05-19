@@ -1,7 +1,7 @@
 /**
  * Tile Movement Manager
  *
- * RuneScape-style tile-based movement system.
+ * tile-based-MMORPG-style tile-based movement system.
  * Players move discretely from tile to tile on server ticks (600ms).
  *
  * Key differences from the old continuous system:
@@ -52,7 +52,7 @@ const AGILITY_TILES_PER_XP_GRANT = 100; // Tiles needed before XP is granted
 const AGILITY_XP_PER_GRANT = 50; // XP granted per threshold (effectively 1 XP per 2 tiles)
 
 /**
- * Tile-based movement manager for RuneScape-style movement
+ * Tile-based movement manager for tile-based-MMORPG-style movement
  */
 export class TileMovementManager {
   private playerStates: Map<string, TileMovementState> = new Map();
@@ -77,11 +77,11 @@ export class TileMovementManager {
   private arrivalEmotes: Map<string, string> = new Map();
 
   /**
-   * OSRS-ACCURATE: Tick-start positions for all players
+   * tile-based MMORPG-ACCURATE: Tick-start positions for all players
    * Captured at the VERY START of onTick(), BEFORE any movement processing.
    * Used by FollowManager to create the 1-tick delay effect.
    *
-   * Key insight from OSRS: "The important part is to set the previousTile
+   * Key insight from Tile-based MMORPG: "The important part is to set the previousTile
    * at the start (or the end) of the tick not when they actually move"
    */
   private tickStartTiles: Map<string, TileCoord> = new Map();
@@ -498,10 +498,10 @@ export class TileMovementManager {
 
     const payload = validation.payload!;
 
-    // OSRS-ACCURACY: Emit click-to-move event for weak queue cancellation
+    // TILE-BASED-MMORPG-ACCURACY: Emit click-to-move event for weak queue cancellation
     // This MUST happen before any early returns (same-tile, cancel, etc.)
     // ResourceSystem subscribes to this to cancel gathering when player clicks ground
-    // In OSRS, ANY click cancels weak queue actions like gathering
+    // In the tile-based MMORPG genre, ANY click cancels weak queue actions like gathering
     this.world.emit(EventType.MOVEMENT_CLICK_TO_MOVE, {
       playerId: playerId,
       targetPosition: {
@@ -622,7 +622,7 @@ export class TileMovementManager {
     if (path.length > 0) {
       playerEntity.data.tileMovementActive = true;
 
-      // OSRS-accurate: Clicking ground cancels your attack
+      // tile-based-MMORPG-accurate: Clicking ground cancels your attack
       // Player is walking away - they're no longer attacking their target
       // The mob continues chasing them, and auto-retaliate can trigger if hit
       this.world.emit(EventType.COMBAT_PLAYER_DISENGAGE, {
@@ -669,7 +669,7 @@ export class TileMovementManager {
       // path: tiles to walk through (server's BFS result)
       // destinationTile: final target (for verification)
       // moveSeq: packet ordering to ignore stale packets
-      // emote: bundled animation (OSRS-style, no separate packet)
+      // emote: bundled animation (tile-based-MMORPG-style, no separate packet)
 
       // Zero-allocation: copy path to pre-allocated network buffer
       this._networkPathBuffer.length = path.length;
@@ -760,7 +760,7 @@ export class TileMovementManager {
     this._walkabilityCache.clear();
     this._directionalBlockCache.clear();
 
-    // OSRS-ACCURATE: Capture tick-start positions for ALL players FIRST
+    // tile-based MMORPG-ACCURATE: Capture tick-start positions for ALL players FIRST
     // This happens BEFORE any movement, so FollowManager can see where
     // players were at the START of this tick (creating 1-tick delay effect)
     // Overwrite existing tile objects in-place to avoid per-tick allocations.
@@ -826,7 +826,7 @@ export class TileMovementManager {
       for (let i = 0; i < tilesToMove; i++) {
         if (state.pathIndex >= state.path.length) break;
 
-        // OSRS-ACCURATE: Capture the tile we're stepping OFF of
+        // tile-based MMORPG-ACCURATE: Capture the tile we're stepping OFF of
         // This ensures previousTile is always 1 tile behind currentTile
         // Used by FollowManager for 1-tile trailing effect
         state.previousTile!.x = state.currentTile.x;
@@ -947,7 +947,7 @@ export class TileMovementManager {
         this._worldPos.z,
       ];
 
-      // OSRS-ACCURATE: Mark player as having moved this tick
+      // tile-based MMORPG-ACCURATE: Mark player as having moved this tick
       // Face direction system will skip rotation update if player moved
       // @see https://osrs-docs.com/docs/packets/outgoing/updating/masks/face-direction/
       const faceManager = (
@@ -1105,7 +1105,7 @@ export class TileMovementManager {
   /**
    * Process movement for a specific player on this tick
    *
-   * OSRS-ACCURATE: Called by GameTickProcessor during player phase
+   * tile-based MMORPG-ACCURATE: Called by GameTickProcessor during player phase
    * This processes just one player's movement instead of all players.
    *
    * Zero-allocation: Uses pre-allocated tile buffers.
@@ -1143,7 +1143,7 @@ export class TileMovementManager {
     for (let i = 0; i < tilesToMove; i++) {
       if (state.pathIndex >= state.path.length) break;
 
-      // OSRS-ACCURATE: Capture the tile we're stepping OFF of
+      // tile-based MMORPG-ACCURATE: Capture the tile we're stepping OFF of
       // This ensures previousTile is always 1 tile behind currentTile
       // Used by FollowManager for 1-tile trailing effect
       state.previousTile!.x = state.currentTile.x;
@@ -1225,7 +1225,7 @@ export class TileMovementManager {
       this._worldPos.z,
     ];
 
-    // OSRS-ACCURATE: Mark player as having moved this tick
+    // tile-based MMORPG-ACCURATE: Mark player as having moved this tick
     // Face direction system will skip rotation update if player moved
     const faceManager = (
       this.world as {
@@ -1677,13 +1677,13 @@ export class TileMovementManager {
   /**
    * Get the previous tile for a player (where they were at START of tick)
    *
-   * OSRS-ACCURATE: Used by FollowManager for follow mechanic.
+   * tile-based MMORPG-ACCURATE: Used by FollowManager for follow mechanic.
    * Followers path to target's PREVIOUS tile, creating the
    * characteristic 1-tick trailing effect.
    *
    * Edge cases:
    * - If no previous tile (just spawned/teleported): use tile WEST of current
-   * - This matches OSRS behavior per private server community research
+   * - This matches tile-based MMORPG behavior per private server community research
    *
    * @see https://rune-server.org/threads/help-with-player-dancing-spinning-when-following-each-other.706121/
    */
@@ -1696,7 +1696,7 @@ export class TileMovementManager {
     }
 
     // Fallback: If no previous tile (just spawned/teleported), use tile WEST of current
-    // This matches OSRS behavior per private server research
+    // This matches tile-based MMORPG behavior per private server research
     if (state) {
       return {
         x: state.currentTile.x - 1,
@@ -1721,7 +1721,7 @@ export class TileMovementManager {
   /**
    * Get the tick-start tile for a player
    *
-   * OSRS-ACCURATE: Returns where the player was at the VERY START of the
+   * tile-based MMORPG-ACCURATE: Returns where the player was at the VERY START of the
    * current tick, BEFORE any movement was processed. This is different from
    * previousTile (which is the last tile stepped off during movement).
    *
@@ -1797,7 +1797,7 @@ export class TileMovementManager {
    * Server-initiated movement toward a target position
    * Used for combat follow when target moves out of range
    *
-   * OSRS-style pathfinding (from wiki):
+   * tile-based-MMORPG-style pathfinding (from wiki):
    * - When clicking on an NPC, the requested tiles are all tiles within attack range
    * - BFS finds the CLOSEST valid tile among those options
    * - For melee range 1: only cardinal tiles (N/S/E/W) are valid destinations

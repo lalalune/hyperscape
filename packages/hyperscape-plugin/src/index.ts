@@ -1133,13 +1133,13 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
       register("mob-death", MobDeathSystem);
       register("gravestone-loot", GravestoneLootSystem);
 
-      // Coin pouch — OSRS-style separate-from-inventory currency.
+      // Coin pouch — tile-based-MMORPG-style separate-from-inventory currency.
       // Lazy-looked-up by InventorySystem (in shared) at
       // PLAYER_REGISTERED time, so plugin onEnable's later
       // registration order is fine.
       register("coin-pouch", CoinPouchSystem);
 
-      // Prayer — OSRS prayer points / drain / bonus calculations.
+      // Prayer — tile-based MMORPG prayer points / drain / bonus calculations.
       // CombatSystem (in shared) duck-types the surface it needs
       // and looks up via getSystem at runtime. Self-gates internally
       // on world.isServer for server-only branches.
@@ -1155,7 +1155,7 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
       // registration moves under the gate.
       registerHyperiaContent("banking", BankingSystem);
 
-      // Stores — OSRS general stores. Per-player open/close session
+      // Stores — tile-based MMORPG general stores. Per-player open/close session
       // handler; reads catalog from `storesRegistry` + `GENERAL_STORES`.
       register("store", StoreSystem);
 
@@ -2190,7 +2190,7 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
         // self-no-op when there are no river-derived definitions.
         register("waterfall-visuals", WaterfallVisualsSystem);
         // Per-entity HP bars — single instanced TSL mesh keyed by
-        // entity id. OSRS pattern (right-click menus carry names;
+        // entity id. tile-based MMORPG pattern (right-click menus carry names;
         // bars carry HP percent).
         register("healthbars", HealthBars);
         // Zone overlays (skull / home / swords) + chat warnings on
@@ -2199,7 +2199,7 @@ const defaultFactory: PluginFactory<HyperscapeContext> = () => {
         // in shared because combat consumes it).
         register("zone-visuals", ZoneVisualsSystem);
         // Home-teleport blue-helix VFX. Driven by `home_teleport:start`
-        // / `:cancel` events from PlayerSystem. OSRS teleport feel.
+        // / `:cancel` events from PlayerSystem. tile-based MMORPG teleport feel.
         register("teleport-effects", ClientTeleportEffectsSystem);
         // Debug overlays — toggled via F5 panel keys (B / W) and 'P'.
         register("bfsPathDebug", BFSPathDebugSystem);

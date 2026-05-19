@@ -1,5 +1,5 @@
 /**
- * RangedDamageCalculator - OSRS-accurate ranged damage formulas
+ * RangedDamageCalculator - tile-based-MMORPG-accurate ranged damage formulas
  *
  * Effective Level = floor(rangedLevel * prayerBonus) + styleBonus + 8
  * Attack Roll = effectiveLevel * (equipmentBonus + 64)
@@ -132,7 +132,7 @@ function calculateRangedMaxHit(
 }
 
 /**
- * Calculate ranged damage using OSRS-accurate formulas
+ * Calculate ranged damage using tile-based-MMORPG-accurate formulas
  *
  * @param params - Ranged damage calculation parameters
  * @param rng - Optional seeded random number generator
