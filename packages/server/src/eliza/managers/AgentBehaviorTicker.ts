@@ -1945,6 +1945,67 @@ export class AgentBehaviorTicker {
     })[0];
   }
 
+  /**
+   * Read the required woodcutting level off a nearby-resource
+   * record. Falls back to 1 (minimum) when the resource doesn't
+   * advertise a required level. Used by the resource-selector
+   * sort to prefer trees the agent is qualified to fell.
+   *
+   * The signature was added as part of feat:agent-quest-system
+   * (commit c6282ac1b) but the body was missing — fills the
+   * gap so callers typecheck and behave coherently at runtime.
+   */
+  private getRequiredWoodcuttingLevel(resource: NearbyEntityData): number {
+    // NearbyEntityData carries `level?: number` directly when the
+    // upstream entity provider advertises it. Default 1 keeps the
+    // sort stable when level is absent.
+    if (typeof resource.level === "number" && Number.isFinite(resource.level)) {
+      return Math.max(1, Math.floor(resource.level));
+    }
+    return 1;
+  }
+
+  /**
+   * Generalized version reading a level from a free-form data
+   * blob (the entity registry uses heterogeneous shapes). Common
+   * keys checked: `requiredWoodcuttingLevel`, `requiredLevel`,
+   * `level`. Returns 1 when none is present.
+   */
+  private getRequiredWoodcuttingLevelFromData(
+    data: Record<string, unknown> | undefined,
+  ): number {
+    if (!data) return 1;
+    const candidate =
+      data["requiredWoodcuttingLevel"] ??
+      data["requiredLevel"] ??
+      data["level"];
+    if (typeof candidate === "number" && Number.isFinite(candidate)) {
+      return Math.max(1, Math.floor(candidate));
+    }
+    return 1;
+  }
+
+  /**
+   * Check if the agent is already gathering the given resource.
+   * "Actively" means the agent has marked this target inside
+   * the gather-cooldown window AND has an attempt position set
+   * (i.e., it walked to the resource and started the action).
+   * Used by the resource-pick path to avoid double-queueing
+   * the same gather request.
+   */
+  private isActivelyGatheringResource(
+    instance: AgentInstance,
+    targetId: string,
+  ): boolean {
+    // Window matches the local GATHER_REQUEUE_COOLDOWN constant
+    // used at line 1781 (where the original local-scope version
+    // lives). Hoisting to a module constant is a follow-up.
+    const REQUEUE_WINDOW_MS = 30000;
+    if (instance.lastGatherTargetId !== targetId) return false;
+    if (instance.lastGatherAttemptPosition === null) return false;
+    return Date.now() - instance.lastGatherQueuedAt < REQUEUE_WINDOW_MS;
+  }
+
   public moveToNpcOrAccept(
     instance: AgentInstance,
     position: [number, number, number],
