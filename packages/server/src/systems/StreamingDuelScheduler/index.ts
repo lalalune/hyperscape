@@ -2551,7 +2551,23 @@ export class StreamingDuelScheduler {
     const { users, characters } = await import("../../database/schema.js");
     const { eq } = await import("drizzle-orm");
 
-    const existing = await db.query.characters.findFirst({
+    // The cached NodePgDatabase type is parameterized without the
+    // schema generic, so `db.query.characters` isn't reachable
+    // through the declared type. Narrow at the call site rather
+    // than retrofitting the schema generic across all callers —
+    // the runtime API is correct, only the static surface is
+    // missing.
+    type CharactersQuery = {
+      findFirst: (opts: {
+        where: (
+          chars: { id: typeof characters.id },
+          ops: { eq: typeof eq },
+        ) => unknown;
+      }) => Promise<{ id: string } | null | undefined>;
+    };
+    const queryChar = (db.query as unknown as { characters: CharactersQuery })
+      .characters;
+    const existing = await queryChar.findFirst({
       where: (chars, ops) => ops.eq(chars.id, characterId),
     });
     if (existing) {
