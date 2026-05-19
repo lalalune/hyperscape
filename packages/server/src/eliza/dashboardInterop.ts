@@ -1034,8 +1034,12 @@ export function findWorldMapMoveTarget(
   const resources = (worldMap.resources as WorldPlace[]) || [];
   const towns = (worldMap.towns as WorldPlace[]) || [];
   const npcs = (worldMap.npcs as WorldPlace[]) || [];
-  const pois =
-    ((worldMap.pointsOfInterest || worldMap.pois) as WorldPlace[]) || [];
+  // `pointsOfInterest` was a legacy field name that no longer
+  // exists on EmbeddedWorldMapData — the field is just `pois`.
+  // Defensive fallback dropped because the type union no longer
+  // includes it; defensive access through `unknown` would just
+  // re-introduce the compile error elsewhere.
+  const pois = (worldMap.pois as WorldPlace[]) || [];
   const allNamedPlaces = [...towns, ...pois];
 
   const wantsSettlement =
