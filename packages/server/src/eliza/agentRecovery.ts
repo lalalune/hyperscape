@@ -47,7 +47,12 @@ function getGroundedY(
     : fallbackY;
 }
 
-function isActiveStreamingDuelContestant(playerId: string): boolean {
+// Exported for streamingDuelEligibilityDb's dynamic import — the
+// arena-ejection guard reuses the same logic to avoid kicking
+// out a currently-dueling agent. Was internal-only before; the
+// dynamic-import call site at streamingDuelEligibilityDb:158
+// failed to destructure it.
+export function isActiveStreamingDuelContestant(playerId: string): boolean {
   const scheduler = getStreamingDuelScheduler();
   const cycle = scheduler?.getCurrentCycle();
   if (!cycle?.agent1 || !cycle.agent2) {

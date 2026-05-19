@@ -18,8 +18,13 @@ import {
 import type {
   TradeOfferView,
   TradeOfferItem,
-  TradingSystem,
 } from "../../../types/trade-types.js";
+// Use the CONCRETE TradingSystem class type from the system
+// module, not the duck-typed interface from trade-types. The
+// world stores the real instance — returning the interface type
+// here forces server-side consumers (e.g. executeTradeSwap which
+// imports the class) to widen their parameter types unnecessarily.
+import type { TradingSystem } from "../../TradingSystem/index.js";
 // PendingTradeManager migrated to @hyperforge/hyperscape (Phase D1,
 // 2026-04-26). Duck-typed locally — only `queuePendingTrade` is
 // called from the trade handlers; plugin's concrete class
