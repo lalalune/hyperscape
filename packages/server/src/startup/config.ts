@@ -376,6 +376,76 @@ async function fetchManifestsFromCDN(
 }
 
 /**
+ * Phase 4.6 — JWT secret strength check. CLAUDE.md mandates real
+ * production secrets must never live in tracked files; this
+ * function provides the corresponding runtime guard so a server
+ * with a weak / placeholder secret can't boot in production.
+ *
+ * Rules (production only):
+ *   1. JWT_SECRET must be set (non-empty).
+ *   2. JWT_SECRET must be at least 32 characters — enough entropy
+ *      for HS256 to resist offline brute force.
+ *   3. JWT_SECRET must not be a known placeholder ("change-me",
+ *      "your-secret-here", "secret", "test", etc.) — these
+ *      appear in .env.example boilerplate and indicate the
+ *      operator forgot to rotate.
+ *
+ * Non-production (dev / test / staging) skips these checks so
+ * local development with an empty secret continues to work.
+ * Throws a single, actionable error message on first failure.
+ */
+const WEAK_JWT_PLACEHOLDERS: ReadonlyArray<string> = [
+  "",
+  "change-me",
+  "change-this",
+  "changeme",
+  "your-secret-here",
+  "your-jwt-secret",
+  "secret",
+  "secret-key",
+  "test",
+  "test-secret",
+  "placeholder",
+  "todo",
+  "tbd",
+  "xxx",
+  "xxxxxxxxxxxxxxxx", // 16-char placeholder
+];
+
+function validateJwtSecretForProduction(
+  jwtSecret: string | undefined,
+  nodeEnv: string,
+): void {
+  if (nodeEnv !== "production") return;
+
+  if (!jwtSecret || jwtSecret.trim().length === 0) {
+    throw new Error(
+      "[Config] JWT_SECRET is required in production. Generate a strong " +
+        "secret (32+ random characters) and set it as an environment " +
+        "variable or in your platform's secret manager. Never commit " +
+        "it to source control.",
+    );
+  }
+
+  if (jwtSecret.length < 32) {
+    throw new Error(
+      `[Config] JWT_SECRET is too short (${jwtSecret.length} chars). ` +
+        "Minimum 32 characters required for HS256 production use. " +
+        "Generate a new one with: openssl rand -base64 48",
+    );
+  }
+
+  const lowered = jwtSecret.trim().toLowerCase();
+  if (WEAK_JWT_PLACEHOLDERS.includes(lowered)) {
+    throw new Error(
+      `[Config] JWT_SECRET appears to be a placeholder value ("${jwtSecret}"). ` +
+        "Rotate to a real cryptographically-strong secret before deploying. " +
+        "Generate one with: openssl rand -base64 48",
+    );
+  }
+}
+
+/**
  * Load and validate server configuration
  *
  * Loads environment variables from multiple locations (workspace root, parent dirs),
@@ -439,6 +509,12 @@ export async function loadConfig(): Promise<ServerConfig> {
   const SYSTEMS_PATH = process.env["SYSTEMS_PATH"];
   const ADMIN_CODE = process.env["ADMIN_CODE"];
   const JWT_SECRET = process.env["JWT_SECRET"];
+  // Phase 4.6 — fail fast if production is booting with a weak or
+  // missing JWT secret. Throws with an actionable error message
+  // before any HTTP listener starts so the operator sees the
+  // misconfig immediately instead of after the first failed
+  // token-validation request.
+  validateJwtSecretForProduction(JWT_SECRET, NODE_ENV);
   const SAVE_INTERVAL = parseInt(process.env["SAVE_INTERVAL"] || "60", 10);
   const COMMIT_HASH = process.env["COMMIT_HASH"];
 
@@ -492,6 +568,10 @@ export async function loadConfig(): Promise<ServerConfig> {
     commitHash: COMMIT_HASH,
   };
 }
+
+// Re-exported for unit tests to assert the strength check
+// without needing the full config-load harness.
+export { validateJwtSecretForProduction };
 
 /**
  * Get public environment variables for client
