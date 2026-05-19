@@ -144,10 +144,26 @@ type CommandData = {
   interaction?: string;
   /** Recipe id used by cook/smelt/smith commands. */
   recipe?: string;
-  /** Inventory slot used by use/equip/drop commands. */
+  /** Inventory slot index used by use/equip/drop commands. */
   slot?: number;
+  /**
+   * Slot NAME used by unequip commands (e.g. "weapon", "helmet",
+   * "cape"). Distinct from the numeric `slot` above — the
+   * unequip handler addresses equipment by slot name, the
+   * inventory handlers by slot index. Kept as separate fields to
+   * preserve type strictness at both call sites.
+   */
+  slotName?: string;
   /** Quest id used by questAccept commands. */
   questId?: string;
+  /**
+   * Human-readable description of a move target — typically a
+   * world-map location name like "lumbridge" or "varrock". The
+   * `move` command may pass coords + description so the
+   * downstream UI can show the operator-facing label without
+   * a second resolver call.
+   */
+  description?: string;
 };
 
 type DistancePreference = "nearest" | "furthest";
@@ -426,7 +442,32 @@ export function syncEmbeddedAgentDashboardForTick(
     return;
   }
 
-  let bucket = ServerNetwork.agentActivity.get(characterId);
+  // `agentActivity` is a runtime-attached debug map on the
+  // ServerNetwork module — not declared on its TypeScript type,
+  // same pattern as the sibling `agentThoughts` cast a few lines
+  // up. Read/write through the same structural alias.
+  type ActivityEntry = {
+    type: string;
+    description: string;
+    timestamp: number;
+  };
+  type ActivityBucket = {
+    recentActions: ActivityEntry[];
+    sessionStats: {
+      kills: number;
+      deaths: number;
+      totalXpGained: number;
+      goldEarned: number;
+      resourcesGathered: Record<string, number>;
+    };
+  };
+  const sn = ServerNetwork as {
+    agentActivity?: Map<string, ActivityBucket>;
+  };
+  if (!sn.agentActivity) {
+    sn.agentActivity = new Map<string, ActivityBucket>();
+  }
+  let bucket = sn.agentActivity.get(characterId);
   if (!bucket) {
     bucket = {
       recentActions: [],
@@ -438,7 +479,7 @@ export function syncEmbeddedAgentDashboardForTick(
         resourcesGathered: {},
       },
     };
-    ServerNetwork.agentActivity.set(characterId, bucket);
+    sn.agentActivity.set(characterId, bucket);
   }
 
   const entry = {
@@ -1774,7 +1815,7 @@ export function resolveDashboardIntent(
                     : "weapon";
     return {
       command: "unequip",
-      data: { slot: slotGuess },
+      data: { slotName: slotGuess },
       text: `Unequipping ${slotGuess}.`,
       thought: `Operator requested unequipping ${slotGuess} slot.`,
     };

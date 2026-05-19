@@ -2526,6 +2526,15 @@ export class DuelOrchestrator {
     const tuning1 = this.resolveTuningForAgent(agent1.characterId, role1);
     const tuning2 = this.resolveTuningForAgent(agent2.characterId, role2);
 
+    // DuelCombatConfig.combatRole accepts only the 3 attack-type
+    // roles ("melee" | "ranged" | "mage"). DuelCombatRole also has
+    // "prayer" (a defensive-style role for the scheduler) — for
+    // combat-AI purposes a prayer-leaning agent fights as melee.
+    const toCombatRole = (r: DuelCombatRole): "melee" | "ranged" | "mage" =>
+      r === "prayer" ? "melee" : r;
+    const combatRole1 = toCombatRole(role1);
+    const combatRole2 = toCombatRole(role2);
+
     if (service1) {
       const ai1 = new DuelCombatAI(
         service1,
@@ -2533,7 +2542,7 @@ export class DuelOrchestrator {
         {
           ...baseAiConfig,
           useLlmTactics: llmTacticsEnabled && !!runtime1,
-          combatRole: role1,
+          combatRole: combatRole1,
           initialStrafeSign: 1,
           tuning: tuning1,
         },
@@ -2559,7 +2568,7 @@ export class DuelOrchestrator {
         {
           ...baseAiConfig,
           useLlmTactics: llmTacticsEnabled && !!runtime2,
-          combatRole: role2,
+          combatRole: combatRole2,
           initialStrafeSign: -1,
           tuning: tuning2,
         },
