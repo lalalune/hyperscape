@@ -229,6 +229,17 @@ export class EmbeddedHyperiaService implements IEmbeddedHyperiaService {
   }
 
   /**
+   * Update the agent's display name. Called when an operator
+   * renames the character via the dashboard / agent-management
+   * route. The new name flows into player-data network payloads
+   * the next time `getInfo()` builds one (see line ~430 where
+   * `playerData?.name || this.name` falls through to this).
+   */
+  setDisplayName(name: string): void {
+    this.name = name;
+  }
+
+  /**
    * Initialize the service and spawn the agent's player entity
    */
   async initialize(): Promise<void> {

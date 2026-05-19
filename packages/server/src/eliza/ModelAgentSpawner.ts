@@ -1452,3 +1452,40 @@ async function executeBehaviorTick(
     agentPlans.delete(getModelAgentKey(config));
   }
 }
+
+// ─── Embedded-agent LLM planning loop stubs ──────────────────────────
+//
+// AgentManager dynamic-imports these functions to start / stop a
+// per-character LLM-driven planning loop alongside the autonomous
+// behavior ticker. The implementation was never landed — the call
+// sites are wrapped in `try/catch` with a soft-fail warning, so the
+// system functions without them.
+//
+// Stubbed here as exported no-ops so the typecheck passes and a
+// future implementation can drop in without changing the call sites.
+// When implemented, this is where the per-character planning loop
+// would be wired (likely reusing the planning machinery from
+// `executeAgentPlan` above).
+
+/**
+ * Start a per-character LLM planning loop. Currently a no-op
+ * placeholder — the caller in AgentManager logs the soft-fail if
+ * this throws, so adding behavior here later requires no caller
+ * change.
+ */
+export function startEmbeddedAgentLlmPlanningLoop(
+  _characterId: string,
+  _runtime: AgentRuntime,
+  _service: EmbeddedHyperiaService,
+  _agentName: string,
+): void {
+  // Intentionally empty — see header comment.
+}
+
+/**
+ * Stop a per-character LLM planning loop. Currently a no-op
+ * placeholder paired with the start stub above.
+ */
+export function stopEmbeddedAgentLlmPlanningLoop(_characterId: string): void {
+  // Intentionally empty — see header comment.
+}
