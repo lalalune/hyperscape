@@ -1848,7 +1848,7 @@ export function resolveDashboardIntent(
       if (bestQuest && bestScore > 0) {
         return {
           command: "questAccept",
-          data: { questId: bestQuest.id },
+          data: { questId: bestQuest.questId },
           text: `Accepting quest "${bestQuest.name}".`,
           thought: `Operator asked to begin quest. Matched "${bestQuest.name}" from available quests.`,
           targetName: bestQuest.name,
@@ -1861,7 +1861,7 @@ export function resolveDashboardIntent(
       const first = startable[0];
       return {
         command: "questAccept",
-        data: { questId: first.id },
+        data: { questId: first.questId },
         text: `Accepting quest "${first.name}".`,
         thought: `Operator asked to begin a quest. No specific match — picking first available: "${first.name}".`,
         targetName: first.name,
