@@ -19,6 +19,10 @@ import {
   sendToSocket,
   sendErrorToast,
 } from "../common";
+// Phase 4.3 — bank coin deposit/withdraw must be idempotent. A
+// client retry during a network glitch (or a malicious double-
+// click) would otherwise double-process the value transfer.
+import { getIdempotencyService } from "../../services/IdempotencyService";
 
 import {
   rateLimiter,
@@ -68,6 +72,21 @@ export async function handleBankDepositCoins(
   if (!isValidQuantity(data.amount)) {
     sendErrorToast(socket, "Invalid amount");
     return;
+  }
+
+  // Step 2.5: Phase 4.3 idempotency. Silently drop duplicate
+  // deposit-coins requests within the 5-second window — a
+  // double-click or network retry must not double-debit the
+  // money pouch.
+  {
+    const idempotencyKey = getIdempotencyService().generateKey(
+      ctx.playerId,
+      "bankDepositCoins",
+      { amount: data.amount },
+    );
+    if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+      return;
+    }
   }
 
   // Step 3: Execute atomic transaction
@@ -225,6 +244,19 @@ export async function handleBankWithdrawCoins(
   if (!isValidQuantity(data.amount)) {
     sendErrorToast(socket, "Invalid amount");
     return;
+  }
+
+  // Step 2.5: Phase 4.3 idempotency — silently drop duplicate
+  // withdraw-coins requests within the 5-second window.
+  {
+    const idempotencyKey = getIdempotencyService().generateKey(
+      ctx.playerId,
+      "bankWithdrawCoins",
+      { amount: data.amount },
+    );
+    if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+      return;
+    }
   }
 
   // Step 3: Execute atomic transaction

@@ -16,6 +16,9 @@ import type { ServerSocket } from "../../../../shared/types";
 import * as schema from "../../../../database/schema";
 import { sql } from "drizzle-orm";
 
+// Phase 4.3 — bank equipment deposit/withdraw must be idempotent.
+import { getIdempotencyService } from "../../services/IdempotencyService";
+
 import {
   isValidItemId,
   isValidBankTabIndex,
@@ -116,6 +119,19 @@ export async function handleBankWithdrawToEquipment(
   if (!equip.canPlayerEquipItem(ctx.playerId, data.itemId)) {
     sendErrorToast(socket, "You don't meet the requirements for this item");
     return;
+  }
+
+  // Step 3.5: Phase 4.3 idempotency — double-click on a bank
+  // item must not pull twice from the same bank slot.
+  {
+    const idempotencyKey = getIdempotencyService().generateKey(
+      ctx.playerId,
+      "bankWithdrawToEquipment",
+      { itemId: data.itemId, tabIndex: data.tabIndex, slot: data.slot },
+    );
+    if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+      return;
+    }
   }
 
   // Step 4: Execute transaction
@@ -330,6 +346,19 @@ export async function handleBankDepositEquipment(
 
   const equip = equipmentSystem as unknown as EquipmentSystem;
 
+  // Step 3.5: Phase 4.3 idempotency — slot key uniquely
+  // identifies the unequip-to-bank intent for this player.
+  {
+    const idempotencyKey = getIdempotencyService().generateKey(
+      ctx.playerId,
+      "bankDepositEquipment",
+      { slot: data.slot },
+    );
+    if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+      return;
+    }
+  }
+
   // Step 4: Execute transaction
   const result = await executeSecureTransaction(ctx, {
     errorMessages: {
@@ -480,6 +509,20 @@ export async function handleBankDepositAllEquipment(
       type: "info",
     });
     return;
+  }
+
+  // Step 2.5: Phase 4.3 idempotency — bulk-deposit-all has no
+  // user-supplied params; key off the action alone so a rapid
+  // double-click on "Deposit all equipment" doesn't double-fire.
+  {
+    const idempotencyKey = getIdempotencyService().generateKey(
+      ctx.playerId,
+      "bankDepositAllEquipment",
+      {},
+    );
+    if (!getIdempotencyService().checkAndMark(idempotencyKey)) {
+      return;
+    }
   }
 
   // Step 3: Execute transaction
