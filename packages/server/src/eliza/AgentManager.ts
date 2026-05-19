@@ -94,7 +94,12 @@ async function getSqlPlugin(): Promise<Plugin | null> {
 async function getGoalsPlugin(): Promise<Plugin | null> {
   try {
     const mod = await import("@elizaos/plugin-goals");
-    const plugin: Plugin = mod.GoalsPlugin ?? mod.default;
+    // @elizaos/plugin-goals nests its own copy of @elizaos/core, so
+    // the Plugin type returned here is nominally distinct from OUR
+    // top-level Plugin even though they're structurally identical.
+    // Cast through unknown at the import boundary; downstream
+    // consumers stay strict-typed against our core's Plugin.
+    const plugin = (mod.GoalsPlugin ?? mod.default) as unknown as Plugin;
     if (plugin) {
       return plugin;
     }
@@ -224,7 +229,12 @@ async function getModelProviderPlugin(
   if (elizaKey) {
     try {
       const mod = await import("@elizaos/plugin-elizacloud");
-      const plugin = mod.elizaOSCloudPlugin ?? mod.default;
+      // Same nominal-Plugin-mismatch pattern as getGoalsPlugin
+      // above — @elizaos/plugin-elizacloud nests its own copy of
+      // @elizaos/core. Cast through unknown at the import boundary.
+      const plugin = (mod.elizaOSCloudPlugin ?? mod.default) as
+        | Plugin
+        | undefined;
       if (plugin) {
         const model = concreteLargeModel(
           charModel,

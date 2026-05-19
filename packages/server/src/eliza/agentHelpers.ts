@@ -162,8 +162,13 @@ export async function loadSqlPlugin(tag = "Agent"): Promise<Plugin | null> {
 export async function loadGoalsPlugin(tag = "Agent"): Promise<Plugin | null> {
   try {
     const mod = await import("@elizaos/plugin-goals");
-    // Published package exports `GoalsPlugin` as named export and default
-    const plugin: Plugin = mod.GoalsPlugin ?? mod.default;
+    // Published package exports `GoalsPlugin` as named export and default.
+    // The Plugin type from @elizaos/plugin-goals/node_modules/@elizaos/core
+    // is structurally identical to our top-level Plugin but nominally
+    // distinct (separate node_modules copy of @elizaos/core). Cast
+    // through `unknown` at this single boundary so consumers of the
+    // returned Plugin can stay strict-typed against OUR core.
+    const plugin = (mod.GoalsPlugin ?? mod.default) as unknown as Plugin;
     if (plugin) {
       console.log(`[${tag}] ✅ Goals plugin loaded`);
       return plugin;
