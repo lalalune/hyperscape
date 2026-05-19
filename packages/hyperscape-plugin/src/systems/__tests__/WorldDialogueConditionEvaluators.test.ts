@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, vi } from "vitest";
 
-import type { World } from "../../../../types/index";
+import type { World } from "@hyperforge/shared";
 import type { DialogueConditionArgs } from "../DialogueSystem";
 import { DialogueSystem } from "../DialogueSystem";
 import {
@@ -18,7 +18,7 @@ import {
   createManagedDialogueConditionInstall,
   installWorldDialogueConditions,
   type DialogueConditionBinding,
-} from "../WorldDialogueConditionEvaluators";
+} from "@hyperforge/shared";
 
 interface FakeSystems {
   quest?: {

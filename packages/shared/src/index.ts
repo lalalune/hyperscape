@@ -1092,6 +1092,16 @@ export type {
 export type { NPCLocation } from "./data/world-areas";
 export { worldAreasRegistry } from "./world-areas";
 export { SHOP_ITEMS } from "./data/items";
+// World dialogue condition evaluators (used by plugin's
+// DialogueSystem to install authored predicates at runtime).
+export {
+  buildDialoguePredicate,
+  installWorldDialogueConditions,
+  createManagedDialogueConditionInstall,
+  type DialogueConditionArgs,
+  type DialogueConditionBinding,
+  type ManagedDialogueConditionInstall,
+} from "./systems/shared/interaction/WorldDialogueConditionEvaluators";
 export {
   getEntitiesSystem,
   getSystem,
