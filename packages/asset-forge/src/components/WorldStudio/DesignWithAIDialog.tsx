@@ -534,6 +534,10 @@ import {
   planSummaryText,
   terrainSummary,
 } from "./utils/planSummary";
+import {
+  findLatestAgentIndex,
+  summariseConversation,
+} from "./utils/chatMessageHelpers";
 
 const loadDraft = (teamId: string, gameId: string) =>
   loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
@@ -3269,32 +3273,3 @@ function TypingIndicator({ status }: { status: string | null }) {
 }
 
 // ──────────────────────── helpers ──────────────────────────────
-
-/**
- * Best-effort: derive a project name + description from the
- * conversation thread. Today this just returns the first user
- * message lightly truncated. Future cut: have the agent itself
- * emit a `name` + `description` field on its proposal.
- */
-function summariseConversation(messages: ReadonlyArray<ChatMessage>): {
-  name: string | null;
-  description: string | null;
-} {
-  const firstUser = messages.find((m) => m.role === "user");
-  if (!firstUser) return { name: null, description: null };
-  const summary = firstUser.text.trim().slice(0, 200);
-  const name = summary.slice(0, 60);
-  return { name, description: summary };
-}
-
-/**
- * Index of the most recent `role === "agent"` message. Only that
- * message's choice chips are clickable — older offers are stale.
- * Returns -1 when there's no agent message yet.
- */
-function findLatestAgentIndex(messages: ReadonlyArray<ChatMessage>): number {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i]?.role === "agent") return i;
-  }
-  return -1;
-}
