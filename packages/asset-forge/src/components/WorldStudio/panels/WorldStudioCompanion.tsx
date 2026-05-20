@@ -76,11 +76,9 @@ import {
   type InstallablePackSummary,
 } from "../../../utils/assetPackApi";
 import { setProjectPlugins } from "../../../utils/worldProjectApi";
-
-const COMPANION_MANIFEST_TO_NPM: Record<string, string> = {
-  "com.hyperforge.hyperscape": "@hyperforge/hyperscape",
-  "com.hyperforge.plugin-shooter-demo": "@hyperforge/plugin-shooter-demo",
-};
+import { parseSSEBlock } from "../utils/parseSSEBlock";
+import { findLatestAgentIndex } from "../utils/chatMessageHelpers";
+import { toNpmName } from "../utils/pluginManifestNpm";
 
 const DEFAULT_DESIGN_ENDPOINT = "http://localhost:5180/design";
 
@@ -569,9 +567,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
           const incoming = (data.pluginIds as unknown[]).filter(
             (x): x is string => typeof x === "string",
           );
-          const npmIds = incoming.map(
-            (id) => COMPANION_MANIFEST_TO_NPM[id] ?? id,
-          );
+          const npmIds = incoming.map((id) => toNpmName(id));
           void setProjectPlugins(projectId, npmIds)
             .then(() => {
               // Mirror into studio state so the next agent request's
@@ -1187,29 +1183,6 @@ function TypingIndicator({ status }: { status: string | null }) {
       </div>
     </div>
   );
-}
-
-function findLatestAgentIndex(messages: ReadonlyArray<ChatMessage>): number {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i]!.role === "agent") return i;
-  }
-  return -1;
-}
-
-function parseSSEBlock(block: string): { event: string; data: unknown } | null {
-  const lines = block.split("\n");
-  let eventName = "message";
-  let dataStr = "";
-  for (const line of lines) {
-    if (line.startsWith("event: ")) eventName = line.slice(7).trim();
-    else if (line.startsWith("data: ")) dataStr += line.slice(6);
-  }
-  if (!dataStr) return null;
-  try {
-    return { event: eventName, data: JSON.parse(dataStr) };
-  } catch {
-    return null;
-  }
 }
 
 function summarizeToolCalls(
