@@ -1119,89 +1119,11 @@ function applyStreamingTurn(
 // `prettifyToolName` lives in `utils/proposeActionRegistry.ts`
 // (Phase 1.3 first cut). Imported above.
 
-/**
- * Roll a tool-call tally into a list of compact human chips.
- *
- *   PROPOSE_MOB_SPAWN × 3 → "⚔️ Placed 3 mob spawns"
- *   PROPOSE_QUEST × 1     → "📜 Wrote 1 quest"
- *   GET_PROJECT_STATE × 2 → (omitted — discovery isn't worth a chip)
- *
- * Discovery tools (LIST/GET/SEARCH/CATALOG) are filtered out —
- * they're noise from the user's perspective. PROPOSE_* and
- * REMOVE_FROM_PROJECT survive.
- */
-function summarizeToolCalls(
-  tally: Map<string, number>,
-): ReadonlyArray<{ icon: string; label: string }> {
-  const out: Array<{ icon: string; label: string }> = [];
-  for (const [name, count] of tally) {
-    const summary = TOOL_BREADCRUMB_SUMMARY[name];
-    if (!summary) continue; // skip discovery tools
-    out.push({
-      icon: summary.icon,
-      label: summary.label(count),
-    });
-  }
-  return out;
-}
-
-const TOOL_BREADCRUMB_SUMMARY: Record<
-  string,
-  { icon: string; label: (count: number) => string }
-> = {
-  PROPOSE_TERRAIN_CONFIG: {
-    icon: "🗺️",
-    label: () => "Shaped the terrain",
-  },
-  PROPOSE_PLUGIN_SET: {
-    icon: "🧩",
-    label: () => "Picked plugins",
-  },
-  PROPOSE_NPC_PLACEMENT: {
-    icon: "👤",
-    label: (n) => `Placed ${n} NPC${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_MOB_SPAWN: {
-    icon: "⚔️",
-    label: (n) => `Placed ${n} mob spawn${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_QUEST: {
-    icon: "📜",
-    label: (n) => `Wrote ${n} quest${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_ZONE: {
-    icon: "🌍",
-    label: (n) => `Carved ${n} zone${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_RESOURCE: {
-    icon: "🪵",
-    label: (n) => `Placed ${n} resource${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_STATION: {
-    icon: "🛠️",
-    label: (n) => `Placed ${n} station${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_TELEPORT: {
-    icon: "🌀",
-    label: (n) => `Placed ${n} teleport${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_ASSET_PACK_INSTALL: {
-    icon: "📦",
-    label: (n) => `Picked ${n} asset pack${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_ASSET: {
-    icon: "✨",
-    label: (n) => `Queued ${n} asset bake${n === 1 ? "" : "s"}`,
-  },
-  PROPOSE_UI_PACK: {
-    icon: "🎛️",
-    label: () => "Designed the HUD",
-  },
-  REMOVE_FROM_PROJECT: {
-    icon: "🗑️",
-    label: (n) => `Removed ${n} ${n === 1 ? "entity" : "entities"}`,
-  },
-};
+// Tool-call breadcrumb summarizer extracted to
+// `utils/toolBreadcrumbSummary.ts` (Phase 1.2 fourth carve).
+// The registry + `summarizeToolCalls` helper move together — the
+// helper is meaningless without the registry it consults, and
+// adding a new tool is a single-file edit there.
 
 // ────────────── Draft persistence (B1'.7) ────────────────────
 //
@@ -1220,6 +1142,7 @@ import {
 } from "./utils/designDraftStorage";
 import { parseSSEBlock } from "./utils/parseSSEBlock";
 import { MANIFEST_TO_NPM } from "./utils/pluginManifestNpm";
+import { summarizeToolCalls } from "./utils/toolBreadcrumbSummary";
 
 const loadDraft = (teamId: string, gameId: string) =>
   loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
