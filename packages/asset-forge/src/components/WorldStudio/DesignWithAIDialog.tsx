@@ -252,6 +252,7 @@ import {
   summariseConversation,
 } from "./utils/chatMessageHelpers";
 import { inferThemedPackFromCatalog } from "./utils/inferThemedPack";
+import { buildWorldContentPatch } from "./utils/buildWorldContentPatch";
 import { applyStreamingTurn } from "./utils/applyStreamingTurn";
 import {
   AgentAvatar,
@@ -1339,61 +1340,11 @@ export function DesignWithAIDialog({
         worldData,
       });
 
-      // Build the worldContent patch from the plan's content +
-      // plugin slots. The server's `patchWorldContent` merges these
-      // into the project; null entries delete keys.
-      const patch: Record<string, unknown> = {};
-      if (effectivePlan.npcs.length > 0) {
-        patch.npcs = effectivePlan.npcs;
-      }
-      if (effectivePlan.mobSpawns.length > 0) {
-        patch.spawns = effectivePlan.mobSpawns;
-      }
-      if (effectivePlan.quests.length > 0) {
-        patch.quests = effectivePlan.quests;
-      }
-      if (effectivePlan.zones.length > 0) {
-        patch.zones = effectivePlan.zones;
-      }
-      if (effectivePlan.resources.length > 0) {
-        patch.resources = effectivePlan.resources;
-      }
-      if (effectivePlan.stations.length > 0) {
-        patch.stations = effectivePlan.stations;
-      }
-      if (effectivePlan.teleports.length > 0) {
-        patch.teleports = effectivePlan.teleports;
-      }
-      if (effectivePlan.roads.length > 0) {
-        patch.roads = effectivePlan.roads;
-      }
-      if (effectivePlan.pois.length > 0) {
-        patch.pois = effectivePlan.pois;
-      }
-      if (effectivePlan.dangerSources.length > 0) {
-        patch.dangerSources = effectivePlan.dangerSources;
-      }
-      if (effectivePlan.waterBodies.length > 0) {
-        patch.waterBodies = effectivePlan.waterBodies;
-      }
-      if (effectivePlan.musicZones.length > 0) {
-        patch.musicZones = effectivePlan.musicZones;
-      }
-      if (effectivePlan.ambientZones.length > 0) {
-        patch.ambientZones = effectivePlan.ambientZones;
-      }
-      if (effectivePlan.sfxTriggers.length > 0) {
-        patch.sfxTriggers = effectivePlan.sfxTriggers;
-      }
-      if (effectivePlan.mines.length > 0) {
-        patch.mines = effectivePlan.mines;
-      }
-      if (effectivePlan.wildernessBoundary !== null) {
-        patch.wildernessBoundary = effectivePlan.wildernessBoundary;
-      }
-      if (effectivePlan.uiPack) {
-        patch.uiPack = effectivePlan.uiPack;
-      }
+      // Build the worldContent patch from the plan's content
+      // slots — extracted to `utils/buildWorldContentPatch`.
+      // Empty slots omitted so partial sessions don't erase
+      // editor-authored content.
+      const patch = buildWorldContentPatch(effectivePlan);
       if (Object.keys(patch).length > 0) {
         try {
           await patchProjectWorldContent(project.id, patch);
