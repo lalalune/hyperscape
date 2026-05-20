@@ -238,6 +238,88 @@ function parseOptionalInt(value: string | undefined): number | undefined {
 }
 
 /**
+ * Phase 4.5 — operational tuning constants. All overridable via
+ * environment variables so deployment-specific behavior doesn't
+ * require code changes.
+ *
+ *   POSTGRES_POOL_MAX / DB_POOL_MAX
+ *     Max concurrent connections per pool. Default depends on
+ *     detected DB type:
+ *       - Standard PG:  30
+ *       - Serverless:   15 (Neon, Supabase, Railway)
+ *       - Supavisor:     6 (pooler, tighter limit)
+ *   POSTGRES_POOL_MIN / DB_POOL_MIN
+ *     Min idle connections kept warm. Default 2 (standard) or 1
+ *     (serverless to avoid keep-alive overhead).
+ *   POSTGRES_STATEMENT_TIEOUT_MS
+ *     Per-query statement timeout. Default 30s — query-level
+ *     timeout aborts any single query that hangs longer (e.g.
+ *     missing index causing seq scan over millions of rows).
+ *   POSTGRES_SLOW_QUERY_MS
+ *     Threshold for slow-query logging. Queries running longer
+ *     than this are logged with their text + duration. Default
+ *     1000ms (1s); set higher in dev to silence ad-hoc queries.
+ */
+const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
+const DEFAULT_SLOW_QUERY_MS = 1_000;
+
+function getStatementTimeoutMs(): number {
+  return (
+    parseOptionalInt(process.env.POSTGRES_STATEMENT_TIMEOUT_MS) ??
+    DEFAULT_STATEMENT_TIMEOUT_MS
+  );
+}
+
+function getSlowQueryThresholdMs(): number {
+  return (
+    parseOptionalInt(process.env.POSTGRES_SLOW_QUERY_MS) ??
+    DEFAULT_SLOW_QUERY_MS
+  );
+}
+
+/**
+ * Wrap pool.query to log queries exceeding the slow-query
+ * threshold. Returns the original pool unchanged structurally;
+ * just intercepts the `.query` method.
+ *
+ * Slow-query logging is operator-visible only — every entry has
+ * `[DB:slow]` prefix and includes the duration + truncated SQL.
+ * Helps identify hot-path issues (N+1, missing indexes) without
+ * needing always-on EXPLAIN ANALYZE.
+ */
+function installSlowQueryLogger(pool: pg.Pool, thresholdMs: number): void {
+  const originalQuery = pool.query.bind(pool);
+  // Cast to `any` so we can preserve all overload signatures —
+  // pg.Pool.query has 7+ overloads and TypeScript can't redeclare
+  // them all cleanly. The runtime behavior is unchanged.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (pool as unknown as { query: any }).query = function wrappedQuery(
+    this: pg.Pool,
+    ...args: unknown[]
+  ): unknown {
+    const start = Date.now();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = (originalQuery as any).apply(this, args);
+    if (result && typeof (result as Promise<unknown>).then === "function") {
+      return (result as Promise<unknown>).finally(() => {
+        const elapsed = Date.now() - start;
+        if (elapsed >= thresholdMs) {
+          const sql =
+            typeof args[0] === "string"
+              ? args[0]
+              : ((args[0] as { text?: string })?.text ?? "<unknown>");
+          const truncated = sql.length > 200 ? `${sql.slice(0, 200)}…` : sql;
+          console.warn(
+            `[DB:slow] ${elapsed}ms — ${truncated.replace(/\s+/g, " ")}`,
+          );
+        }
+      });
+    }
+    return result;
+  };
+}
+
+/**
  * Initialize the database and run migrations
  *
  * This is the main entry point for database setup. It creates a connection pool,
@@ -298,6 +380,20 @@ export async function initializeDatabase(connectionString: string) {
     envMin !== undefined && envMin >= 0 ? envMin : defaultMin;
   const poolMin = Math.min(poolMinCandidate, poolMax);
 
+  const statementTimeoutMs = getStatementTimeoutMs();
+  const slowQueryThresholdMs = getSlowQueryThresholdMs();
+
+  // Phase 4.5 — statement_timeout aborts queries hanging beyond
+  // the threshold. Set as a -c flag on the connection options so
+  // every session in the pool inherits it. Serverless skip the
+  // options line (Neon pooler rejects search_path as startup
+  // params; we keep `options` undefined for them and forgo
+  // statement_timeout at the connection level — those deployments
+  // typically configure it server-side).
+  const connectionOptions = isServerless
+    ? undefined
+    : `-c search_path=public -c statement_timeout=${statementTimeoutMs}`;
+
   const poolConfig: pg.PoolConfig = {
     connectionString,
     // Keep these configurable so local environments with low max_connections
@@ -311,18 +407,20 @@ export async function initializeDatabase(connectionString: string) {
     // Enable SSL for cloud databases
     ssl: needsSSL ? { rejectUnauthorized: false } : undefined,
     // Keep all unqualified tables in public, never in drizzle or role schemas.
-    // Neon pooled connections reject search_path as a startup parameter, so skip it for serverless.
-    options: isServerless ? undefined : "-c search_path=public",
+    // Combined with statement_timeout for non-serverless deployments
+    // (Neon pooled connections reject startup parameters).
+    options: connectionOptions,
     // TCP keepalive settings to detect dead connections faster
     keepAlive: true,
     keepAliveInitialDelayMillis: isServerless ? 10000 : 30000,
   };
 
   console.log(
-    `[DB] Initializing ${isServerless ? "serverless" : "standard"} PostgreSQL pool (max: ${poolConfig.max}, keepAlive: ${poolConfig.keepAlive})`,
+    `[DB] Initializing ${isServerless ? "serverless" : "standard"} PostgreSQL pool (max: ${poolConfig.max}, keepAlive: ${poolConfig.keepAlive}, statementTimeout: ${statementTimeoutMs}ms, slowQuery: ${slowQueryThresholdMs}ms)`,
   );
 
   const pool = new Pool(poolConfig);
+  installSlowQueryLogger(pool, slowQueryThresholdMs);
 
   // Add pool error handlers for connection issues
   pool.on("error", (err) => {
