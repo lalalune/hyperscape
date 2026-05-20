@@ -177,39 +177,18 @@ interface DesignResponse {
 }
 
 /**
- * Manifest id → npm name lookup. The agent server's
- * `proposePluginSetAction` resolves ids to manifest-style
- * (`com.hyperforge.x`) but the project's `plugins` array stores
- * npm-style (`@hyperforge/x`) because that's what
- * `resolveProjectPluginSet` matches against. Translate at this
- * seam.
+ * MANIFEST_TO_NPM map extracted to `utils/pluginManifestNpm.ts`
+ * (Phase 1.2 third carve). The agent server emits manifest-style
+ * plugin ids (`com.hyperforge.x`); the project store + asset-pack
+ * resolver expect npm-style names (`@hyperforge/x`). Translate
+ * at this seam.
+ *
+ * Removed alongside: `HYPERIA_PLUGIN_IDS` const + `pluginsTargetHyperia`
+ * helper. Both were declared here but never called anywhere in
+ * the codebase — dead code from an earlier procgen-base picker
+ * that's since been replaced by the content-pack-driven theme
+ * resolution path.
  */
-const MANIFEST_TO_NPM: Record<string, string> = {
-  "com.hyperforge.hyperscape": "@hyperforge/hyperscape",
-  "com.hyperforge.plugin-shooter-demo": "@hyperforge/plugin-shooter-demo",
-};
-
-/**
- * Hyperia plugin identifiers in either form. Recognized when
- * picking the procgen merge base (R1.P1): Hyperia plugin →
- * `HYPERIA_CREATION_CONFIG`, otherwise `MINIMAL_CREATION_CONFIG`.
- */
-const HYPERIA_PLUGIN_IDS: ReadonlySet<string> = new Set([
-  "com.hyperforge.hyperscape",
-  "@hyperforge/hyperscape",
-]);
-
-/**
- * True when the agent's chosen plugin set targets Hyperia. Used
- * to pick the procgen merge base. Returns false for empty /
- * null plugin lists (the AI default is MINIMAL).
- */
-function pluginsTargetHyperia(
-  pluginIds: ReadonlyArray<string> | null | undefined,
-): boolean {
-  if (!pluginIds || pluginIds.length === 0) return false;
-  return pluginIds.some((id) => HYPERIA_PLUGIN_IDS.has(id));
-}
 
 /**
  * Tag-based theme inference — matches user prompt words against
@@ -1240,6 +1219,7 @@ import {
   clearDraft as clearDraftFromStorage,
 } from "./utils/designDraftStorage";
 import { parseSSEBlock } from "./utils/parseSSEBlock";
+import { MANIFEST_TO_NPM } from "./utils/pluginManifestNpm";
 
 const loadDraft = (teamId: string, gameId: string) =>
   loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
