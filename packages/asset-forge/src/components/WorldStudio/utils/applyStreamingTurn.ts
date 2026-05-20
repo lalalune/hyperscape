@@ -25,22 +25,18 @@
 import type React from "react";
 
 import type { OnboardingPlan } from "./onboardingPlan";
+import type { StreamTurnEvent } from "./designStreamEvents";
 import {
   applyProposalToPlan,
   getProposeActionDef,
   prettifyToolName,
 } from "./proposeActionRegistry";
 
-/** One streamed turn the SSE handler emits. */
-export interface StreamTurnEvent {
-  turn: number;
-  assistantText: string;
-  toolCalls: ReadonlyArray<{
-    name: string;
-    success: boolean;
-    data: unknown;
-  }>;
-}
+// `StreamTurnEvent` moved to `utils/designStreamEvents.ts` — the
+// canonical home for the `/design/stream` protocol types shared
+// with the companion. Re-exported here so existing imports keep
+// working without churn.
+export type { StreamTurnEvent } from "./designStreamEvents";
 
 /**
  * Apply one streamed turn event: update the live status string

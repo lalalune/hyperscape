@@ -83,6 +83,11 @@ import {
 import { setProjectPlugins } from "../../../utils/worldProjectApi";
 import { parseSSEStream } from "../utils/parseSSEStream";
 import { DEFAULT_DESIGN_ENDPOINT } from "../utils/designEndpoint";
+import type {
+  DesignResponse,
+  OfferedChoicesPayload,
+  StreamTurnEvent,
+} from "../utils/designStreamEvents";
 import { findLatestAgentIndex } from "../utils/chatMessageHelpers";
 import { toNpmName } from "../utils/pluginManifestNpm";
 
@@ -90,35 +95,14 @@ interface ChatMessage {
   role: "user" | "agent";
   text: string;
   /** B1'.4 — clickable choice chips offered on the agent's last turn. */
-  choices?: {
-    question: string | null;
-    choices: ReadonlyArray<{ label: string; prompt: string }>;
-  } | null;
+  choices?: OfferedChoicesPayload | null;
   /** Tool-call breadcrumbs — what the agent actually did this turn. */
   toolBreadcrumbs?: ReadonlyArray<{ icon: string; label: string }>;
 }
 
-interface DesignResponse {
-  ok: boolean;
-  pack?: unknown;
-  finalText?: string;
-  turns?: number;
-  truncated?: boolean;
-  error?: string;
-  plan?: {
-    terrainConfig: unknown | null;
-    pluginIds: ReadonlyArray<string> | null;
-    npcs: ReadonlyArray<unknown>;
-    uiPack: unknown | null;
-  };
-  choices?: ChatMessage["choices"];
-}
-
-interface StreamTurnEvent {
-  turn: number;
-  assistantText: string;
-  toolCalls: ReadonlyArray<{ name: string; success: boolean; data: unknown }>;
-}
+// `DesignResponse` + `StreamTurnEvent` + `OfferedChoicesPayload`
+// extracted to `utils/designStreamEvents.ts` — the canonical home
+// for the `/design/stream` protocol types shared with the dialog.
 
 function initialGreeting(): ChatMessage {
   return {

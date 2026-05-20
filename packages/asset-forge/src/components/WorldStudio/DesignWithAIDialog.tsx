@@ -112,24 +112,6 @@ import { kickoffAssetGeneration } from "../../utils/assetGenApi";
 // downstream pipeline iteration.
 
 /** Hybrid-UX choice chips (B1'.4) — agent's last OFFER_CHOICES. */
-interface OfferedChoicesPayload {
-  question: string | null;
-  choices: Array<{ label: string; prompt: string }>;
-}
-
-interface DesignResponse {
-  ok: boolean;
-  pack?: unknown;
-  finalText?: string;
-  turns?: number;
-  truncated?: boolean;
-  error?: string;
-  /** B1'.2.2 — present when the request was sent in onboarding mode. */
-  plan?: OnboardingPlan;
-  /** B1'.4 — choice chips offered on the last agent turn. */
-  choices?: OfferedChoicesPayload | null;
-}
-
 /**
  * MANIFEST_TO_NPM map extracted to `utils/pluginManifestNpm.ts`
  * (Phase 1.2 third carve). The agent server emits manifest-style
@@ -239,6 +221,11 @@ import {
 } from "./utils/designDraftStorage";
 import { parseSSEStream } from "./utils/parseSSEStream";
 import { DEFAULT_DESIGN_ENDPOINT } from "./utils/designEndpoint";
+import type {
+  DesignResponse,
+  OfferedChoicesPayload,
+  StreamTurnEvent,
+} from "./utils/designStreamEvents";
 import { MANIFEST_TO_NPM } from "./utils/pluginManifestNpm";
 import { summarizeToolCalls } from "./utils/toolBreadcrumbSummary";
 import { IDLE_SUGGESTIONS, nextStepChips } from "./utils/onboardingChips";
@@ -265,10 +252,7 @@ import {
   summariseConversation,
 } from "./utils/chatMessageHelpers";
 import { inferThemedPackFromCatalog } from "./utils/inferThemedPack";
-import {
-  applyStreamingTurn,
-  type StreamTurnEvent,
-} from "./utils/applyStreamingTurn";
+import { applyStreamingTurn } from "./utils/applyStreamingTurn";
 import {
   AgentAvatar,
   ChatBubble,
