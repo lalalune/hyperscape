@@ -105,8 +105,6 @@ import {
 } from "../../utils/assetPackApi";
 import { kickoffAssetGeneration } from "../../utils/assetGenApi";
 
-const DEFAULT_DESIGN_ENDPOINT = "http://localhost:5180/design";
-
 // `OnboardingPlan` interface + `buildDebugPlan` extracted to
 // `utils/onboardingPlan.ts` (Phase 1.2 seventh carve). The
 // dialog accumulates the agent's PROPOSE_* tool calls into one
@@ -239,7 +237,8 @@ import {
   saveDraft as saveDraftToStorage,
   clearDraft as clearDraftFromStorage,
 } from "./utils/designDraftStorage";
-import { parseSSEBlock } from "./utils/parseSSEBlock";
+import { parseSSEStream } from "./utils/parseSSEStream";
+import { DEFAULT_DESIGN_ENDPOINT } from "./utils/designEndpoint";
 import { MANIFEST_TO_NPM } from "./utils/pluginManifestNpm";
 import { summarizeToolCalls } from "./utils/toolBreadcrumbSummary";
 import { IDLE_SUGGESTIONS, nextStepChips } from "./utils/onboardingChips";
@@ -702,39 +701,26 @@ export function DesignWithAIDialog({
         if (!res.ok || !res.body) {
           throw new Error(`HTTP ${res.status}`);
         }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          let sepIdx: number;
-          while ((sepIdx = buffer.indexOf("\n\n")) !== -1) {
-            const block = buffer.slice(0, sepIdx);
-            buffer = buffer.slice(sepIdx + 2);
-            const parsed = parseSSEBlock(block);
-            if (!parsed) continue;
-            if (parsed.event === "turn") {
-              const turnEvent = parsed.data as StreamTurnEvent;
-              applyStreamingTurn(
-                turnEvent,
-                setEffectivePlan,
-                setPendingStatus,
-                priorNpcs,
+        for await (const parsed of parseSSEStream(res.body)) {
+          if (parsed.event === "turn") {
+            const turnEvent = parsed.data as StreamTurnEvent;
+            applyStreamingTurn(
+              turnEvent,
+              setEffectivePlan,
+              setPendingStatus,
+              priorNpcs,
+            );
+            for (const call of turnEvent.toolCalls) {
+              if (!call.success) continue;
+              toolCallTally.set(
+                call.name,
+                (toolCallTally.get(call.name) ?? 0) + 1,
               );
-              for (const call of turnEvent.toolCalls) {
-                if (!call.success) continue;
-                toolCallTally.set(
-                  call.name,
-                  (toolCallTally.get(call.name) ?? 0) + 1,
-                );
-              }
-            } else if (parsed.event === "done") {
-              finalResponse = parsed.data as DesignResponse;
-            } else if (parsed.event === "error") {
-              streamErrored = parsed.data as { message: string };
             }
+          } else if (parsed.event === "done") {
+            finalResponse = parsed.data as DesignResponse;
+          } else if (parsed.event === "error") {
+            streamErrored = parsed.data as { message: string };
           }
         }
 

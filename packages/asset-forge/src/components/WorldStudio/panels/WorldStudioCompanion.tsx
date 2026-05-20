@@ -81,11 +81,10 @@ import {
   type InstallablePackSummary,
 } from "../../../utils/assetPackApi";
 import { setProjectPlugins } from "../../../utils/worldProjectApi";
-import { parseSSEBlock } from "../utils/parseSSEBlock";
+import { parseSSEStream } from "../utils/parseSSEStream";
+import { DEFAULT_DESIGN_ENDPOINT } from "../utils/designEndpoint";
 import { findLatestAgentIndex } from "../utils/chatMessageHelpers";
 import { toNpmName } from "../utils/pluginManifestNpm";
-
-const DEFAULT_DESIGN_ENDPOINT = "http://localhost:5180/design";
 
 interface ChatMessage {
   role: "user" | "agent";
@@ -809,34 +808,21 @@ function CompanionInner({ projectId }: { projectId: string }) {
         if (!res.ok || !res.body) {
           throw new Error(`HTTP ${res.status}`);
         }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          let sepIdx: number;
-          while ((sepIdx = buffer.indexOf("\n\n")) !== -1) {
-            const block = buffer.slice(0, sepIdx);
-            buffer = buffer.slice(sepIdx + 2);
-            const parsed = parseSSEBlock(block);
-            if (!parsed) continue;
-            if (parsed.event === "turn") {
-              const turnEvent = parsed.data as StreamTurnEvent;
-              applyTurnSideEffects(turnEvent);
-              for (const call of turnEvent.toolCalls) {
-                if (!call.success) continue;
-                toolCallTally.set(
-                  call.name,
-                  (toolCallTally.get(call.name) ?? 0) + 1,
-                );
-              }
-            } else if (parsed.event === "done") {
-              finalResponse = parsed.data as DesignResponse;
-            } else if (parsed.event === "error") {
-              streamErrored = parsed.data as { message: string };
+        for await (const parsed of parseSSEStream(res.body)) {
+          if (parsed.event === "turn") {
+            const turnEvent = parsed.data as StreamTurnEvent;
+            applyTurnSideEffects(turnEvent);
+            for (const call of turnEvent.toolCalls) {
+              if (!call.success) continue;
+              toolCallTally.set(
+                call.name,
+                (toolCallTally.get(call.name) ?? 0) + 1,
+              );
             }
+          } else if (parsed.event === "done") {
+            finalResponse = parsed.data as DesignResponse;
+          } else if (parsed.event === "error") {
+            streamErrored = parsed.data as { message: string };
           }
         }
         if (streamErrored) throw new Error(streamErrored.message);
