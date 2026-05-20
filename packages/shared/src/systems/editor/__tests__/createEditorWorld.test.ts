@@ -146,11 +146,16 @@ describeWithDom("createEditorWorld", () => {
       expect(world.getSystem("terrain")).toBeUndefined();
     });
 
-    it("should register vegetation when enableVegetation is true (default)", () => {
+    it("editor world no longer registers vegetation by default", () => {
+      // Vegetation registration was migrated to @hyperforge/hyperscape
+      // (see comments in createEditorWorld.ts lines 33-45). The
+      // `enableVegetation` flag is preserved for callers that
+      // manually register the system afterwards, but the editor
+      // world itself ships without it.
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
 
-      expect(world.getSystem("vegetation")).toBeDefined();
+      expect(world.getSystem("vegetation")).toBeUndefined();
     });
 
     it("should not register vegetation when enableVegetation is false", () => {
@@ -160,11 +165,12 @@ describeWithDom("createEditorWorld", () => {
       expect(world.getSystem("vegetation")).toBeUndefined();
     });
 
-    it("should register grass when enableGrass is true (default)", () => {
+    it("editor world no longer registers grass by default", () => {
+      // Migrated to @hyperforge/hyperscape per createEditorWorld.ts.
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
 
-      expect(world.getSystem("grass")).toBeDefined();
+      expect(world.getSystem("grass")).toBeUndefined();
     });
 
     it("should not register grass when enableGrass is false", () => {
@@ -174,11 +180,12 @@ describeWithDom("createEditorWorld", () => {
       expect(world.getSystem("grass")).toBeUndefined();
     });
 
-    it("should register flowers when enableFlowers is true (default)", () => {
+    it("editor world no longer registers flowers by default", () => {
+      // Migrated to @hyperforge/hyperscape per createEditorWorld.ts.
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
 
-      expect(world.getSystem("flowers")).toBeDefined();
+      expect(world.getSystem("flowers")).toBeUndefined();
     });
 
     it("should not register flowers when enableFlowers is false", () => {
@@ -188,12 +195,13 @@ describeWithDom("createEditorWorld", () => {
       expect(world.getSystem("flowers")).toBeUndefined();
     });
 
-    it("should register towns when enableTowns is true (default)", () => {
+    it("editor world no longer registers towns / pois by default", () => {
+      // Migrated to @hyperforge/hyperscape per createEditorWorld.ts.
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
 
-      expect(world.getSystem("towns")).toBeDefined();
-      expect(world.getSystem("pois")).toBeDefined();
+      expect(world.getSystem("towns")).toBeUndefined();
+      expect(world.getSystem("pois")).toBeUndefined();
     });
 
     it("should not register towns when enableTowns is false", () => {
@@ -204,11 +212,12 @@ describeWithDom("createEditorWorld", () => {
       expect(world.getSystem("pois")).toBeUndefined();
     });
 
-    it("should register roads when enableRoads is true (default)", () => {
+    it("editor world no longer registers roads by default", () => {
+      // Migrated to @hyperforge/hyperscape per createEditorWorld.ts.
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
 
-      expect(world.getSystem("roads")).toBeDefined();
+      expect(world.getSystem("roads")).toBeUndefined();
     });
 
     it("should not register roads when enableRoads is false", () => {
@@ -218,11 +227,12 @@ describeWithDom("createEditorWorld", () => {
       expect(world.getSystem("roads")).toBeUndefined();
     });
 
-    it("should register buildings when enableBuildings is true (default)", () => {
+    it("editor world no longer registers building-rendering by default", () => {
+      // Migrated to @hyperforge/hyperscape per createEditorWorld.ts.
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
 
-      expect(world.getSystem("building-rendering")).toBeDefined();
+      expect(world.getSystem("building-rendering")).toBeUndefined();
     });
 
     it("should not register buildings when enableBuildings is false", () => {
@@ -305,40 +315,49 @@ describeWithDom("createEditorWorld", () => {
       expect(world.getSystem("terrain")).toBeDefined();
     });
 
-    it("should default enableVegetation to true", () => {
+    // These tests originally asserted that vegetation/grass/flowers/
+    // towns/roads/buildings defaulted on. The systems were
+    // migrated to @hyperforge/hyperscape per createEditorWorld.ts
+    // comments (lines 33-45) — the flags are preserved on the
+    // options interface for callers that opt in via manual
+    // registration, but the editor world no longer ships them.
+    // Updated assertions to .toBeUndefined() to pin the new
+    // contract.
+
+    it("vegetation system is no longer auto-registered (migrated to plugin)", () => {
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
-      expect(world.getSystem("vegetation")).toBeDefined();
+      expect(world.getSystem("vegetation")).toBeUndefined();
     });
 
-    it("should default enableGrass to true", () => {
+    it("grass system is no longer auto-registered (migrated to plugin)", () => {
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
-      expect(world.getSystem("grass")).toBeDefined();
+      expect(world.getSystem("grass")).toBeUndefined();
     });
 
-    it("should default enableFlowers to true", () => {
+    it("flowers system is no longer auto-registered (migrated to plugin)", () => {
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
-      expect(world.getSystem("flowers")).toBeDefined();
+      expect(world.getSystem("flowers")).toBeUndefined();
     });
 
-    it("should default enableTowns to true", () => {
+    it("towns system is no longer auto-registered (migrated to plugin)", () => {
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
-      expect(world.getSystem("towns")).toBeDefined();
+      expect(world.getSystem("towns")).toBeUndefined();
     });
 
-    it("should default enableRoads to true", () => {
+    it("roads system is no longer auto-registered (migrated to plugin)", () => {
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
-      expect(world.getSystem("roads")).toBeDefined();
+      expect(world.getSystem("roads")).toBeUndefined();
     });
 
-    it("should default enableBuildings to true", () => {
+    it("building-rendering system is no longer auto-registered (migrated to plugin)", () => {
       const viewport = document.createElement("div");
       const world = createEditorWorld({ viewport });
-      expect(world.getSystem("building-rendering")).toBeDefined();
+      expect(world.getSystem("building-rendering")).toBeUndefined();
     });
 
     it("should default enableWater to false", () => {
