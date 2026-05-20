@@ -275,6 +275,7 @@ import {
   ChatBubble,
   TypingIndicator,
 } from "./utils/chatMessageRenderers";
+import { RightTabButton } from "./utils/RightTabButton";
 
 const loadDraft = (teamId: string, gameId: string) =>
   loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
@@ -2649,33 +2650,6 @@ function PlanSlot({
         </div>
       </div>
     </div>
-  );
-}
-
-// ────────────────────── RightTabButton (B1'.6) ────────────────
-
-interface RightTabButtonProps {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}
-
-function RightTabButton({ active, label, onClick }: RightTabButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex-1 relative px-3 py-3 text-[11px] font-semibold transition-colors ${
-        active
-          ? "text-text-primary"
-          : "text-text-tertiary hover:text-text-secondary"
-      }`}
-    >
-      {label}
-      {active && (
-        <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
-      )}
-    </button>
   );
 }
 
