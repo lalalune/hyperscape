@@ -226,7 +226,8 @@ import type {
   OfferedChoicesPayload,
   StreamTurnEvent,
 } from "./utils/designStreamEvents";
-import { MANIFEST_TO_NPM } from "./utils/pluginManifestNpm";
+import { toNpmName } from "./utils/pluginManifestNpm";
+import { messagesToHistory } from "./utils/messagesToHistory";
 import { summarizeToolCalls } from "./utils/toolBreadcrumbSummary";
 import { IDLE_SUGGESTIONS, nextStepChips } from "./utils/onboardingChips";
 import {
@@ -627,10 +628,7 @@ export function DesignWithAIDialog({
       // amnesiac and the agent could only emit PROPOSE_* in a
       // single batch on the final turn — which is why the right
       // pane stayed empty until the very end.
-      const history = messages.map((m) => ({
-        role: m.role === "agent" ? ("assistant" as const) : ("user" as const),
-        text: m.text,
-      }));
+      const history = messagesToHistory(messages);
 
       abortRef.current = new AbortController();
       // B1'.7 / A2 — snapshot prior-turn NPCs and mob spawns so
@@ -1379,9 +1377,7 @@ export function DesignWithAIDialog({
       // `resolveProjectPluginSet` matches against. Soft-fails
       // (project still created) on error.
       if (effectivePlan.pluginIds && effectivePlan.pluginIds.length > 0) {
-        const npmIds = effectivePlan.pluginIds.map(
-          (id) => MANIFEST_TO_NPM[id] ?? id,
-        );
+        const npmIds = effectivePlan.pluginIds.map((id) => toNpmName(id));
         try {
           await setProjectPlugins(project.id, npmIds);
         } catch (err) {

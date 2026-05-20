@@ -90,6 +90,7 @@ import type {
 } from "../utils/designStreamEvents";
 import { findLatestAgentIndex } from "../utils/chatMessageHelpers";
 import { toNpmName } from "../utils/pluginManifestNpm";
+import { messagesToHistory } from "../utils/messagesToHistory";
 
 interface ChatMessage {
   role: "user" | "agent";
@@ -556,10 +557,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
       setError(null);
       setPendingStatus(null);
 
-      const history = messages.map((m) => ({
-        role: m.role === "agent" ? ("assistant" as const) : ("user" as const),
-        text: m.text,
-      }));
+      const history = messagesToHistory(messages);
 
       // AP4 — resolve installed asset pack manifestIds into the
       // catalog the agent reads via GET_PROJECT_STATE
