@@ -12,6 +12,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WorldAreasManifestSchema } from "@hyperforge/manifest-schema";
 
 import { resolveStarterTownArea, worldAreasRegistry } from "../index.js";
+// DataManager runtime-populates STARTER_TOWNS via Object.assign at
+// init (lines 1126 / 1549). Earlier tests in the same vitest run
+// can leave the map populated, which breaks the "in-tree empty"
+// baseline this file pins. Import the mutable Record and clear it
+// in beforeEach to isolate.
+import { STARTER_TOWNS } from "../../data/world-areas.js";
 
 function emptyManifest() {
   return WorldAreasManifestSchema.parse({
@@ -46,10 +52,19 @@ function manifestWithCentralHaven() {
 describe("resolveStarterTownArea", () => {
   beforeEach(() => {
     worldAreasRegistry._unloadForTests();
+    // Wipe STARTER_TOWNS so the "in-tree empty" baseline holds
+    // regardless of whether a sibling test in this run populated
+    // it via DataManager.
+    for (const key of Object.keys(STARTER_TOWNS)) {
+      delete STARTER_TOWNS[key];
+    }
   });
 
   afterEach(() => {
     worldAreasRegistry._unloadForTests();
+    for (const key of Object.keys(STARTER_TOWNS)) {
+      delete STARTER_TOWNS[key];
+    }
   });
 
   it("returns undefined when registry is unloaded AND in-tree STARTER_TOWNS is empty (current baseline)", () => {
