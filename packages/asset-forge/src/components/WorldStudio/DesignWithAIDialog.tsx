@@ -291,40 +291,10 @@ interface ChatMessage {
  * one-line subtitle so the empty state feels like a curated
  * welcome instead of a row of pills.
  */
-const IDLE_SUGGESTIONS: ReadonlyArray<{
-  emoji: string;
-  title: string;
-  subtitle: string;
-  prompt: string;
-}> = [
-  {
-    emoji: "🏝️",
-    title: "Tropical island RPG",
-    subtitle: "Village, combat, quest giver",
-    prompt:
-      "Build me a tropical island RPG with a starter village, basic combat, and a quest giver.",
-  },
-  {
-    emoji: "🏔️",
-    title: "Snowy mountains",
-    subtitle: "Rugged terrain · exploration",
-    prompt:
-      "Make a snowy mountain region with rugged terrain, a few NPCs, and exploration-focused gameplay.",
-  },
-  {
-    emoji: "🌑",
-    title: "Empty canvas",
-    subtitle: "Open terrain, no setup",
-    prompt: "Just give me an empty terrain to start exploring on my own.",
-  },
-  {
-    emoji: "🎯",
-    title: "Top-down shooter",
-    subtitle: "Crosshair HUD · minimal terrain",
-    prompt:
-      "Build a top-down shooter with a crosshair HUD and minimal terrain.",
-  },
-];
+// IDLE_SUGGESTIONS + nextStepChips extracted to
+// `utils/onboardingChips.ts` (Phase 1.2 fifth carve). Both move
+// together — they feed complementary chip surfaces (idle =
+// empty-chat cards, next-step = live progress-driven chips).
 
 export interface DesignWithAIDialogProps {
   readonly teamId: string;
@@ -335,60 +305,11 @@ export interface DesignWithAIDialogProps {
   readonly endpoint?: string;
 }
 
-/**
- * Always-on next-step suggestion chips. Computed from the current
- * effective plan so the user never has to wonder "what's next?".
- * Each chip is a one-click prompt the user can shoot back at the
- * agent. As the agent fills slots the chip set shrinks toward
- * "Build my world".
- *
- * Phase B1'.7 of `PLAN_PROJECT_AS_DATA.md`.
- */
-function nextStepChips(plan: OnboardingPlan): Array<{
-  label: string;
-  prompt: string;
-}> {
-  const chips: Array<{ label: string; prompt: string }> = [];
-  if (plan.pluginIds === null) {
-    chips.push({
-      label: "Pick a gameplay style",
-      prompt:
-        "What gameplay plugins should I use? List the choices and pick the best fit.",
-    });
-  }
-  if (plan.terrainConfig === null) {
-    chips.push({
-      label: "Shape the terrain",
-      prompt:
-        "Propose a terrain configuration that fits the world we're designing.",
-    });
-  }
-  if (plan.npcs.length === 0) {
-    chips.push({
-      label: "Add NPCs",
-      prompt: "Add 1-3 starter NPCs that fit this world.",
-    });
-  }
-  if (plan.mobSpawns.length === 0) {
-    chips.push({
-      label: "Place mobs",
-      prompt: "Place a few mob spawn points that fit the difficulty curve.",
-    });
-  }
-  if (plan.quests.length === 0) {
-    chips.push({
-      label: "Add quests",
-      prompt: "Author 1-3 starter quests that introduce the gameplay loop.",
-    });
-  }
-  if (plan.uiPack === null) {
-    chips.push({
-      label: "Design the HUD",
-      prompt: "Design a HUD layout that fits the game we're building.",
-    });
-  }
-  return chips;
-}
+// `nextStepChips` extracted alongside IDLE_SUGGESTIONS to
+// `utils/onboardingChips.ts`. The helper is generic over the
+// plan shape — accepts any object with the OnboardingPlan
+// subset { pluginIds, terrainConfig, npcs, mobSpawns, quests,
+// uiPack } that nextStepChips actually reads.
 
 /**
  * The four ordered slots shown in the header progress strip and
@@ -1143,6 +1064,7 @@ import {
 import { parseSSEBlock } from "./utils/parseSSEBlock";
 import { MANIFEST_TO_NPM } from "./utils/pluginManifestNpm";
 import { summarizeToolCalls } from "./utils/toolBreadcrumbSummary";
+import { IDLE_SUGGESTIONS, nextStepChips } from "./utils/onboardingChips";
 
 const loadDraft = (teamId: string, gameId: string) =>
   loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
