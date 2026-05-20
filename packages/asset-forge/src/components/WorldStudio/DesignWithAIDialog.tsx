@@ -253,6 +253,7 @@ import {
 } from "./utils/chatMessageHelpers";
 import { inferThemedPackFromCatalog } from "./utils/inferThemedPack";
 import { buildWorldContentPatch } from "./utils/buildWorldContentPatch";
+import { resolvePlanPackIds } from "./utils/collectAssetPackRefs";
 import { applyStreamingTurn } from "./utils/applyStreamingTurn";
 import {
   AgentAvatar,
@@ -1062,24 +1063,12 @@ export function DesignWithAIDialog({
       // refs + tag-based fallback. Hoisted here so we can read
       // the active pack's `terrainHeightmapPresets` BEFORE
       // procgen runs, not after.
-      const resolvedPackIds = new Set<string>(effectivePlan.assetPackIds ?? []);
-      const collectRefsForResolve = (entries: ReadonlyArray<unknown>): void => {
-        for (const e of entries) {
-          const ref = (e as { assetRef?: unknown })?.assetRef;
-          if (typeof ref !== "string") continue;
-          const slash = ref.lastIndexOf("/");
-          if (slash > 0) resolvedPackIds.add(ref.slice(0, slash));
-        }
-      };
-      collectRefsForResolve(effectivePlan.npcs);
-      collectRefsForResolve(effectivePlan.mobSpawns);
-      collectRefsForResolve(effectivePlan.resources);
-      collectRefsForResolve(effectivePlan.stations);
-      collectRefsForResolve(effectivePlan.teleports);
-      collectRefsForResolve(effectivePlan.pois);
-      collectRefsForResolve(effectivePlan.dangerSources);
-      collectRefsForResolve(effectivePlan.waterBodies);
-      collectRefsForResolve(effectivePlan.mines);
+      // Pre-procgen pack-id resolution — explicit installs +
+      // assetRef prefixes from every entity-bearing slot. Used
+      // to look up the active themed pack's heightmap preset
+      // BEFORE procgen runs. The post-creation pass below adds
+      // declared deps on top of this base set.
+      const resolvedPackIds = resolvePlanPackIds(effectivePlan);
       // Tag-based fallback if no themed pack was proposed.
       const alreadyHasThemedPack = Array.from(resolvedPackIds).some((id) =>
         id.startsWith("@hyperforge/content-pack-"),
