@@ -1,101 +1,58 @@
 /**
- * toolBreadcrumbSummary — registry + summarizer tests.
+ * toolBreadcrumbSummary — registry-first + bespoke fallback tests.
  *
- * Phase 1.2 fourth carve. Pins the tool-call rollup the dialog
- * shows below each agent message ("⚔️ Placed 3 mob spawns").
+ * Phase 1.2 fourth carve, upgraded later to subsume Companion's
+ * parallel impl. Tests pin both lookup tiers:
  *
- * Tests cover:
- *   - Every PROPOSE_* tool present in the registry has a
- *     stable icon + pluralizing label.
- *   - Discovery tools (LIST/GET/SEARCH/CATALOG) are filtered
- *     out by the summarizer.
- *   - Pluralization is correct at count 0 / 1 / many.
- *   - Iteration order of the input Map is preserved (so the
- *     UI shows actions in the order the agent took them).
+ *   - Registry-first: PROPOSE_* actions render with the
+ *     proposeActionRegistry's icon + breadcrumbLabel — including
+ *     the 9 R4.P8 actions that the old static map was missing.
+ *   - Bespoke fallback: PROPOSE_UI_PACK + REMOVE_FROM_PROJECT
+ *     (the 2 actions outside the registry) render via the
+ *     BESPOKE_BREADCRUMB_SUMMARY map.
+ *   - Discovery noise (LIST/GET/SEARCH/CATALOG) drops out.
+ *   - Pluralization correct at 0 / 1 / many.
+ *   - Map iteration order preserved.
  */
 
 import { describe, it, expect } from "vitest";
 
 import {
-  TOOL_BREADCRUMB_SUMMARY,
+  BESPOKE_BREADCRUMB_SUMMARY,
   summarizeToolCalls,
 } from "../toolBreadcrumbSummary";
 
-describe("TOOL_BREADCRUMB_SUMMARY registry", () => {
-  const expectedTools = [
-    "PROPOSE_TERRAIN_CONFIG",
-    "PROPOSE_PLUGIN_SET",
-    "PROPOSE_NPC_PLACEMENT",
-    "PROPOSE_MOB_SPAWN",
-    "PROPOSE_QUEST",
-    "PROPOSE_ZONE",
-    "PROPOSE_RESOURCE",
-    "PROPOSE_STATION",
-    "PROPOSE_TELEPORT",
-    "PROPOSE_ASSET_PACK_INSTALL",
-    "PROPOSE_ASSET",
-    "PROPOSE_UI_PACK",
-    "REMOVE_FROM_PROJECT",
-  ];
-
-  it.each(expectedTools)("has entry for %s", (toolName) => {
-    expect(TOOL_BREADCRUMB_SUMMARY[toolName]).toBeDefined();
-    expect(typeof TOOL_BREADCRUMB_SUMMARY[toolName].icon).toBe("string");
-    expect(typeof TOOL_BREADCRUMB_SUMMARY[toolName].label).toBe("function");
+describe("BESPOKE_BREADCRUMB_SUMMARY", () => {
+  it("ships exactly the 2 actions outside the registry", () => {
+    const keys = Object.keys(BESPOKE_BREADCRUMB_SUMMARY).sort();
+    expect(keys).toEqual(["PROPOSE_UI_PACK", "REMOVE_FROM_PROJECT"]);
   });
 
-  it("uses unique icons across tools", () => {
-    // Pin the icon uniqueness so a future contributor adding a
-    // new entry has to pick a non-colliding emoji.
-    const icons = Object.values(TOOL_BREADCRUMB_SUMMARY).map((e) => e.icon);
-    expect(new Set(icons).size).toBe(icons.length);
-  });
-});
-
-describe("TOOL_BREADCRUMB_SUMMARY label pluralization", () => {
-  it("PROPOSE_NPC_PLACEMENT singular vs plural", () => {
-    const e = TOOL_BREADCRUMB_SUMMARY.PROPOSE_NPC_PLACEMENT;
-    expect(e.label(1)).toBe("Placed 1 NPC");
-    expect(e.label(2)).toBe("Placed 2 NPCs");
-  });
-
-  it("PROPOSE_QUEST singular vs plural", () => {
-    const e = TOOL_BREADCRUMB_SUMMARY.PROPOSE_QUEST;
-    expect(e.label(1)).toBe("Wrote 1 quest");
-    expect(e.label(3)).toBe("Wrote 3 quests");
-  });
-
-  it("REMOVE_FROM_PROJECT uses 'entity' / 'entities' for 1 vs many", () => {
-    const e = TOOL_BREADCRUMB_SUMMARY.REMOVE_FROM_PROJECT;
-    expect(e.label(1)).toBe("Removed 1 entity");
-    expect(e.label(5)).toBe("Removed 5 entities");
-  });
-
-  it("PROPOSE_TERRAIN_CONFIG ignores count (single-shot action)", () => {
-    const e = TOOL_BREADCRUMB_SUMMARY.PROPOSE_TERRAIN_CONFIG;
-    expect(e.label(1)).toBe("Shaped the terrain");
-    expect(e.label(99)).toBe("Shaped the terrain");
-  });
-
-  it("PROPOSE_PLUGIN_SET ignores count", () => {
-    expect(TOOL_BREADCRUMB_SUMMARY.PROPOSE_PLUGIN_SET.label(1)).toBe(
-      "Picked plugins",
+  it("PROPOSE_UI_PACK ignores count (singleton action)", () => {
+    expect(BESPOKE_BREADCRUMB_SUMMARY.PROPOSE_UI_PACK.label(1)).toBe(
+      "Designed the HUD",
     );
-  });
-
-  it("PROPOSE_UI_PACK ignores count", () => {
-    expect(TOOL_BREADCRUMB_SUMMARY.PROPOSE_UI_PACK.label(1)).toBe(
+    expect(BESPOKE_BREADCRUMB_SUMMARY.PROPOSE_UI_PACK.label(99)).toBe(
       "Designed the HUD",
     );
   });
+
+  it("REMOVE_FROM_PROJECT uses 'entity' / 'entities' for 1 vs many", () => {
+    expect(BESPOKE_BREADCRUMB_SUMMARY.REMOVE_FROM_PROJECT.label(1)).toBe(
+      "Removed 1 entity",
+    );
+    expect(BESPOKE_BREADCRUMB_SUMMARY.REMOVE_FROM_PROJECT.label(5)).toBe(
+      "Removed 5 entities",
+    );
+  });
 });
 
-describe("summarizeToolCalls", () => {
+describe("summarizeToolCalls — registry path", () => {
   it("returns empty array for an empty tally", () => {
     expect(summarizeToolCalls(new Map())).toEqual([]);
   });
 
-  it("emits one chip per registered tool with its rendered label", () => {
+  it("emits chips for registry-declared actions", () => {
     const tally = new Map<string, number>([
       ["PROPOSE_MOB_SPAWN", 3],
       ["PROPOSE_QUEST", 1],
@@ -106,19 +63,70 @@ describe("summarizeToolCalls", () => {
     ]);
   });
 
-  it("filters out discovery tools not in the registry", () => {
+  it("emits chips for R4.P8 actions previously missing from the static map", () => {
+    const tally = new Map<string, number>([
+      ["PROPOSE_WATER_BODY", 1],
+      ["PROPOSE_MUSIC_ZONE", 2],
+      ["PROPOSE_MINE", 1],
+    ]);
+    const result = summarizeToolCalls(tally);
+    expect(result).toHaveLength(3);
+    // Don't pin exact labels (registry owns them) — just verify
+    // each one resolved to a chip with a non-empty icon + label.
+    for (const chip of result) {
+      expect(chip.icon.length).toBeGreaterThan(0);
+      expect(chip.label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("emits chip for PROPOSE_TERRAIN_CONFIG (singleton, ignores count)", () => {
+    const tally = new Map<string, number>([["PROPOSE_TERRAIN_CONFIG", 1]]);
+    const [chip] = summarizeToolCalls(tally);
+    expect(chip.label).toBe("Shaped the terrain");
+    expect(chip.icon).toBe("🗺️");
+  });
+});
+
+describe("summarizeToolCalls — bespoke fallback", () => {
+  it("emits chip for PROPOSE_UI_PACK via bespoke map", () => {
+    const tally = new Map<string, number>([["PROPOSE_UI_PACK", 1]]);
+    expect(summarizeToolCalls(tally)).toEqual([
+      { icon: "🎛️", label: "Designed the HUD" },
+    ]);
+  });
+
+  it("emits chip for REMOVE_FROM_PROJECT via bespoke map", () => {
+    const tally = new Map<string, number>([["REMOVE_FROM_PROJECT", 5]]);
+    expect(summarizeToolCalls(tally)).toEqual([
+      { icon: "🗑️", label: "Removed 5 entities" },
+    ]);
+  });
+});
+
+describe("summarizeToolCalls — discovery noise filtering", () => {
+  it("drops LIST/GET/SEARCH/CATALOG calls", () => {
     const tally = new Map<string, number>([
       ["GET_PROJECT_STATE", 2],
       ["LIST_PLUGINS", 1],
       ["SEARCH_ASSETS", 4],
       ["CATALOG_BIOMES", 1],
-      ["PROPOSE_QUEST", 1], // the only one that survives
+      ["PROPOSE_QUEST", 1], // the only one that surfaces
     ]);
     const result = summarizeToolCalls(tally);
     expect(result).toEqual([{ icon: "📜", label: "Wrote 1 quest" }]);
   });
 
-  it("preserves Map iteration order (LIFO-of-insertion)", () => {
+  it("drops fully-unknown tool names without surfacing them", () => {
+    const tally = new Map<string, number>([
+      ["MYSTERY_TOOL", 5],
+      ["FUTURE_TOOL", 1],
+    ]);
+    expect(summarizeToolCalls(tally)).toEqual([]);
+  });
+});
+
+describe("summarizeToolCalls — ordering", () => {
+  it("preserves Map iteration order so chips render in agent's action order", () => {
     const tally = new Map<string, number>();
     tally.set("PROPOSE_NPC_PLACEMENT", 2);
     tally.set("PROPOSE_QUEST", 1);
@@ -128,11 +136,13 @@ describe("summarizeToolCalls", () => {
     expect(result.map((r) => r.icon)).toEqual(["👤", "📜", "🗺️"]);
   });
 
-  it("handles a fully-unknown tally as empty output", () => {
-    const tally = new Map<string, number>([
-      ["MYSTERY_TOOL", 5],
-      ["FUTURE_TOOL", 1],
-    ]);
-    expect(summarizeToolCalls(tally)).toEqual([]);
+  it("interleaves registry + bespoke chips in insertion order", () => {
+    const tally = new Map<string, number>();
+    tally.set("PROPOSE_NPC_PLACEMENT", 1);
+    tally.set("PROPOSE_UI_PACK", 1); // bespoke
+    tally.set("PROPOSE_QUEST", 1);
+
+    const result = summarizeToolCalls(tally);
+    expect(result.map((r) => r.icon)).toEqual(["👤", "🎛️", "📜"]);
   });
 });

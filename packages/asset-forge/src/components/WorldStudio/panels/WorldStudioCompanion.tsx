@@ -49,9 +49,9 @@ import { useAgentPlacementDispatcher } from "../hooks/useAgentPlacementDispatche
 import { buildTerrainSummary } from "../utils/buildTerrainSummary";
 import {
   applyProposalToDispatcher,
-  getProposeActionDef,
   prettifyToolName,
 } from "../utils/proposeActionRegistry";
+import { summarizeToolCalls } from "../utils/toolBreadcrumbSummary";
 import { generateWorldFromConfig } from "../../WorldBuilder/worldGeneration";
 import {
   HYPERIA_CREATION_CONFIG,
@@ -1184,44 +1184,6 @@ function TypingIndicator({ status }: { status: string | null }) {
     </div>
   );
 }
-
-function summarizeToolCalls(
-  tally: Map<string, number>,
-): ReadonlyArray<{ icon: string; label: string }> {
-  const out: Array<{ icon: string; label: string }> = [];
-  for (const [name, count] of tally) {
-    // Standard PROPOSE_* actions: read icon + breadcrumb label
-    // from the registry (Phase 1.3 follow-up). Drift-proof against
-    // future R4.P8-style additions — declaring a new PROPOSE_* in
-    // the registry automatically gets it a breadcrumb chip.
-    const def = getProposeActionDef(name);
-    if (def) {
-      out.push({ icon: def.icon, label: def.breadcrumbLabel(count) });
-      continue;
-    }
-    const bespoke = BESPOKE_BREADCRUMB_SUMMARY[name];
-    if (bespoke) {
-      out.push({ icon: bespoke.icon, label: bespoke.label(count) });
-    }
-  }
-  return out;
-}
-
-/**
- * Bespoke actions not in the registry — same icon/label shape
- * but handled here because their dispatch semantics don't fit
- * the registry's dataKey/arity/dispatcherMethod model.
- */
-const BESPOKE_BREADCRUMB_SUMMARY: Record<
-  string,
-  { icon: string; label: (count: number) => string }
-> = {
-  PROPOSE_UI_PACK: { icon: "🎛️", label: () => "Designed the HUD" },
-  REMOVE_FROM_PROJECT: {
-    icon: "🗑️",
-    label: (n) => `Removed ${n} ${n === 1 ? "entity" : "entities"}`,
-  },
-};
 
 // `prettifyToolName` lives in `utils/proposeActionRegistry.ts`
 // (Phase 1.3 first cut). Imported above.
