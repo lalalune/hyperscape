@@ -146,70 +146,6 @@ interface DesignResponse {
  * resolution path.
  */
 
-/**
- * Tag-based theme inference — matches user prompt words against
- * the LIVE pack catalog's tags. Each themed content pack ships
- * its own tags (e.g. tropical pack: ["tropical", "jungle",
- * "beach", "warm", "humid"]). The dialog fetches the catalog
- * once on mount and the matcher walks the user's conversation
- * looking for tag overlap; the pack with the highest tag-hit
- * count wins.
- *
- * This is the dynamic AAA approach: the catalog is the source
- * of truth for what packs exist + what they're for. Adding a
- * new themed pack is a data-only change — drop a manifest into
- * `server/builtins/content-packs.ts` with appropriate tags and
- * the dialog picks it up automatically. No client-side keyword
- * tables, no per-pack code changes.
- *
- * Used only as a safety-net WHEN the agent didn't propose any
- * themed pack itself. The agent's prompt-driven choice (via
- * PROPOSE_ASSET_PACK_INSTALL) takes precedence — this fallback
- * fires only when the agent stays silent.
- */
-function inferThemedPackFromCatalog(
-  messages: ReadonlyArray<{ role: string; text: string }>,
-  catalog: ReadonlyArray<{ manifestId: string; tags: ReadonlyArray<string> }>,
-): string | null {
-  if (catalog.length === 0) return null;
-  const userText = messages
-    .filter((m) => m.role === "user")
-    .map((m) => m.text)
-    .join(" ")
-    .toLowerCase();
-  if (!userText) return null;
-
-  let bestPack: string | null = null;
-  let bestHits = 0;
-  for (const pack of catalog) {
-    if (!pack.manifestId.startsWith("@hyperforge/content-pack-")) continue;
-    let hits = 0;
-    for (const tag of pack.tags) {
-      const tagLower = tag.toLowerCase();
-      // Skip generic tags that every pack carries — they don't
-      // discriminate between themes ("content-pack", "built-in",
-      // pack-id duplicates).
-      if (
-        tagLower === "content-pack" ||
-        tagLower === "built-in" ||
-        tagLower === "fork" ||
-        tagLower === "starter"
-      ) {
-        continue;
-      }
-      // Word-boundary check would be ideal but `includes` is
-      // fine for our short catalogs — a false positive on
-      // "snow" inside "snowflake" doesn't break anything.
-      if (userText.includes(tagLower)) hits += 1;
-    }
-    if (hits > bestHits) {
-      bestHits = hits;
-      bestPack = pack.manifestId;
-    }
-  }
-  return bestPack;
-}
-
 /** One message in the conversation thread. */
 interface ChatMessage {
   readonly role: "user" | "agent" | "system";
@@ -538,6 +474,7 @@ import {
   findLatestAgentIndex,
   summariseConversation,
 } from "./utils/chatMessageHelpers";
+import { inferThemedPackFromCatalog } from "./utils/inferThemedPack";
 
 const loadDraft = (teamId: string, gameId: string) =>
   loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
