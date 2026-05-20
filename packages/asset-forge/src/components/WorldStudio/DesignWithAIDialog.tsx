@@ -270,6 +270,11 @@ import {
   applyStreamingTurn,
   type StreamTurnEvent,
 } from "./utils/applyStreamingTurn";
+import {
+  AgentAvatar,
+  ChatBubble,
+  TypingIndicator,
+} from "./utils/chatMessageRenderers";
 
 const loadDraft = (teamId: string, gameId: string) =>
   loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
@@ -2930,76 +2935,6 @@ function renderContribGroup(label: string, items: ReadonlyArray<string>) {
     <div className="text-[10px] leading-snug">
       <span className="font-semibold text-text-secondary">{label}</span>
       <span className="text-text-tertiary"> · {items.join(", ")}</span>
-    </div>
-  );
-}
-
-// ────────────────────────── ChatBubble ─────────────────────────
-
-function ChatBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === "user";
-  if (isUser) {
-    return (
-      <div className="flex justify-end pl-10">
-        <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-tr-md bg-gradient-to-br from-primary/25 to-primary/15 text-text-primary text-[13px] leading-relaxed whitespace-pre-wrap border border-primary/25 shadow-sm shadow-primary/10">
-          {message.text}
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="flex justify-start gap-2.5 pr-10">
-      <AgentAvatar />
-      <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-tl-md bg-bg-secondary text-text-primary text-[13px] leading-relaxed whitespace-pre-wrap border border-white/[0.06] shadow-sm">
-        {message.text}
-      </div>
-    </div>
-  );
-}
-
-function AgentAvatar({ pulsing = false }: { pulsing?: boolean }) {
-  return (
-    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-primary/40 to-primary/10 flex items-center justify-center mt-0.5 ring-1 ring-primary/30 shadow-sm shadow-primary/20">
-      <Sparkles
-        size={12}
-        className={`text-primary ${pulsing ? "animate-pulse" : ""}`}
-      />
-    </div>
-  );
-}
-
-/**
- * Three-dot bouncing typing indicator — drop-in replacement for
- * the bare "Thinking…" line. Optionally shows a status string
- * below the dots (e.g. "Drafting the HUD…").
- */
-function TypingIndicator({ status }: { status: string | null }) {
-  return (
-    <div className="flex justify-start gap-2.5 pr-10">
-      <AgentAvatar pulsing />
-      <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-bg-secondary border border-white/[0.06] shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1">
-            <span
-              className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce"
-              style={{ animationDelay: "0ms" }}
-            />
-            <span
-              className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce"
-              style={{ animationDelay: "150ms" }}
-            />
-            <span
-              className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce"
-              style={{ animationDelay: "300ms" }}
-            />
-          </span>
-          {status && (
-            <span className="text-[11px] text-text-tertiary leading-none">
-              {status}
-            </span>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
