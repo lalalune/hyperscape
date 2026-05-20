@@ -109,6 +109,7 @@ import {
 } from "./hooks/setupWildernessOverlay";
 import { useSelectionOutline } from "./hooks/useSelectionOutline";
 import { useMarkDirtyTilesOnArrayChange } from "./hooks/useMarkDirtyTilesOnArrayChange";
+import { setupStudioWorldWater } from "./hooks/setupStudioWorldWater";
 import { useWaterThresholdSync } from "./hooks/useWaterThresholdSync";
 import { useMaxHeightRescale } from "./hooks/useMaxHeightRescale";
 import { useStandaloneGrass } from "./hooks/useStandaloneGrass";
@@ -2001,32 +2002,19 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     scene.add(waterContainer);
     waterContainerRef.current = waterContainer;
 
-    // Single world-sized water plane — replaces per-tile water meshes.
-    // One draw call instead of potentially hundreds.
-    // Phase 8.2: Use Gerstner wave material for visual parity with game.
+    // Studio-mode world water — extracted to
+    // `hooks/setupStudioWorldWater.ts` (Phase 1.1 carve). Single
+    // world-sized water plane (one draw call) instead of
+    // per-tile water meshes, Gerstner wave material for in-game
+    // visual parity.
     if (isStudioModeRef.current) {
-      const worldSizeMeters = worldSize * tileSize;
-      const wg = new THREE.PlaneGeometry(
-        worldSizeMeters,
-        worldSizeMeters,
-        128,
-        128,
-      );
-      wg.rotateX(-Math.PI / 2);
-      const {
-        material: wMat,
-        uniforms: wUniforms,
-        textures: wTextures,
-      } = createEditorWaterMaterial();
-      waterUniformsRef.current = wUniforms;
-      waterTexturesRef.current = wTextures;
-      const worldWater = new THREE.Mesh(wg, wMat);
-      worldWater.position.set(
-        worldSizeMeters / 2,
+      const studioWater = setupStudioWorldWater(waterContainer, {
+        worldSize,
+        tileSize,
         waterThreshold,
-        worldSizeMeters / 2,
-      );
-      waterContainer.add(worldWater);
+      });
+      waterUniformsRef.current = studioWater.uniforms;
+      waterTexturesRef.current = studioWater.textures;
     }
 
     const townMarkers = new THREE.Group();
