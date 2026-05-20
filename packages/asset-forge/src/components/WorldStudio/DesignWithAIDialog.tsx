@@ -523,6 +523,12 @@ import {
   type PlanSlotKey,
 } from "./utils/planSlots";
 import { buildDebugPlan, type OnboardingPlan } from "./utils/onboardingPlan";
+import {
+  collectSecondarySlotEntries,
+  getEmptyPrompt,
+  secondarySlotCount,
+  secondarySlotSummary,
+} from "./utils/secondarySlotSummaries";
 
 const loadDraft = (teamId: string, gameId: string) =>
   loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
@@ -2743,75 +2749,6 @@ function PlanPreviewPanel({
 }
 
 /**
- * Per-secondary-slot count getter — used by the panel's compact
- * row rendering. Lookup table of `OnboardingPlan` array
- * lengths; the wildernessBoundary slot is a singleton (returns 1
- * when set, 0 when null).
- */
-function secondarySlotCount(plan: OnboardingPlan, key: PlanSlotKey): number {
-  switch (key) {
-    case "zones":
-      return plan.zones.length;
-    case "resources":
-      return plan.resources.length;
-    case "stations":
-      return plan.stations.length;
-    case "teleports":
-      return plan.teleports.length;
-    case "roads":
-      return plan.roads.length;
-    case "pois":
-      return plan.pois.length;
-    case "dangerSources":
-      return plan.dangerSources.length;
-    case "waterBodies":
-      return plan.waterBodies.length;
-    case "musicZones":
-      return plan.musicZones.length;
-    case "ambientZones":
-      return plan.ambientZones.length;
-    case "sfxTriggers":
-      return plan.sfxTriggers.length;
-    case "mines":
-      return plan.mines.length;
-    case "wildernessBoundary":
-      return plan.wildernessBoundary !== null ? 1 : 0;
-    case "assets":
-      return plan.assets.length;
-    default:
-      return 0;
-  }
-}
-
-/**
- * One-line summary string for a secondary slot — shows in the
- * collapsed view. Empty slots show the empty prompt as
- * placeholder text; set slots show count + first-entry name.
- */
-function secondarySlotSummary(plan: OnboardingPlan, key: PlanSlotKey): string {
-  const count = secondarySlotCount(plan, key);
-  if (count === 0) {
-    const slot = PLAN_SLOTS.find((s) => s.key === key);
-    return slot ? `Not yet placed` : "—";
-  }
-  // Wilderness is the singleton; everything else is an array.
-  if (key === "wildernessBoundary") {
-    const wb = plan.wildernessBoundary as { points?: unknown[] } | null;
-    const ptCount = Array.isArray(wb?.points) ? wb!.points.length : 0;
-    return `${ptCount}-point boundary`;
-  }
-  const arrayKey = key as Exclude<PlanSlotKey, "wildernessBoundary">;
-  const arr = plan[arrayKey as keyof OnboardingPlan] as unknown[];
-  const first = (arr?.[0] ?? {}) as { id?: string; name?: string };
-  const firstLabel = first.name ?? first.id ?? "(unnamed)";
-  return count === 1 ? firstLabel : `${count} placed · ${firstLabel}, …`;
-}
-
-function getEmptyPrompt(key: PlanSlotKey): string {
-  return PLAN_SLOTS.find((s) => s.key === key)!.emptyPrompt;
-}
-
-/**
  * Inline entry list for a secondary plan slot — shows what
  * actually got placed. Without this, the user sees only count
  * badges ("3 placed") and has to dig into the outliner to see
@@ -2825,7 +2762,7 @@ function getEmptyPrompt(key: PlanSlotKey): string {
  *
  * Generic — drives off the slot key, so adding a new slot type
  * doesn't require duplicating expand UI. Per-key field
- * extraction lives in `extractEntrySummary` below.
+ * extraction lives in `extractEntrySummary` (in utils/secondarySlotSummaries.ts).
  */
 interface SecondarySlotEntryListProps {
   plan: OnboardingPlan;
@@ -2868,249 +2805,6 @@ function SecondarySlotEntryList({
       )}
     </div>
   );
-}
-
-interface SlotEntrySummary {
-  primary: string;
-  detail: string | null;
-}
-
-/**
- * Per-slot entry extraction — pulls the entries array off the
- * plan and converts each to {primary, detail} for inline render.
- * Per-key knowledge of which fields name the entry vs which
- * fields detail it lives here so the renderer above stays
- * generic.
- */
-function collectSecondarySlotEntries(
-  plan: OnboardingPlan,
-  key: PlanSlotKey,
-): SlotEntrySummary[] {
-  // Wilderness boundary is a singleton; everything else is an
-  // array. Surface the singleton's structure as a single entry.
-  if (key === "wildernessBoundary") {
-    const wb = plan.wildernessBoundary as {
-      id?: string;
-      points?: unknown[];
-      maxLevel?: number;
-    } | null;
-    if (!wb) return [];
-    const ptCount = Array.isArray(wb.points) ? wb.points.length : 0;
-    return [
-      {
-        primary: wb.id ?? "wilderness",
-        detail: `${ptCount}-point boundary${
-          typeof wb.maxLevel === "number" ? ` · max lvl ${wb.maxLevel}` : ""
-        }`,
-      },
-    ];
-  }
-
-  // Map slotKey to the plan's array field. The TS narrowing
-  // here is loose because OnboardingPlan's array fields share
-  // no common shape; we read each as a record-of-unknown.
-  const arr = ((): ReadonlyArray<unknown> => {
-    switch (key) {
-      case "zones":
-        return plan.zones;
-      case "resources":
-        return plan.resources;
-      case "stations":
-        return plan.stations;
-      case "teleports":
-        return plan.teleports;
-      case "roads":
-        return plan.roads;
-      case "pois":
-        return plan.pois;
-      case "dangerSources":
-        return plan.dangerSources;
-      case "waterBodies":
-        return plan.waterBodies;
-      case "musicZones":
-        return plan.musicZones;
-      case "ambientZones":
-        return plan.ambientZones;
-      case "sfxTriggers":
-        return plan.sfxTriggers;
-      case "mines":
-        return plan.mines;
-      case "assets":
-        return plan.assets;
-      default:
-        return [];
-    }
-  })();
-
-  return arr.map((raw) => extractEntrySummary(raw, key));
-}
-
-/** Format a position-bearing entry as a one-line detail. */
-function fmtPos(p: unknown): string {
-  const pos = (p ?? {}) as { x?: number; y?: number; z?: number };
-  if (typeof pos.x !== "number") return "";
-  return `(${Math.round(pos.x)}, ${Math.round(pos.y ?? 0)}, ${Math.round(
-    pos.z ?? 0,
-  )})`;
-}
-
-function extractEntrySummary(raw: unknown, key: PlanSlotKey): SlotEntrySummary {
-  const e = (raw ?? {}) as Record<string, unknown>;
-  const primary =
-    (e.name as string | undefined) ??
-    (e.id as string | undefined) ??
-    (e.resourceId as string | undefined) ??
-    "(unnamed)";
-
-  switch (key) {
-    case "zones": {
-      const biome = e.biomeType as string | undefined;
-      const safe = e.safeZone as boolean | undefined;
-      return {
-        primary,
-        detail:
-          [biome ?? "", safe ? "safe" : "hostile"]
-            .filter(Boolean)
-            .join(" · ") || null,
-      };
-    }
-    case "resources":
-      return {
-        primary,
-        detail:
-          [e.type as string | undefined, fmtPos(e.position)]
-            .filter(Boolean)
-            .join(" · ") || null,
-      };
-    case "stations":
-      return {
-        primary,
-        detail:
-          [e.type as string | undefined, fmtPos(e.position)]
-            .filter(Boolean)
-            .join(" · ") || null,
-      };
-    case "teleports":
-      return {
-        primary,
-        detail:
-          [e.type as string | undefined, fmtPos(e.position)]
-            .filter(Boolean)
-            .join(" · ") || null,
-      };
-    case "roads": {
-      const path = Array.isArray(e.path) ? e.path : [];
-      const width = e.width as number | undefined;
-      return {
-        primary,
-        detail: `${path.length}-pt path${
-          typeof width === "number" ? ` · ${width}m wide` : ""
-        }`,
-      };
-    }
-    case "pois": {
-      const cat = e.category as string | undefined;
-      const importance = e.importance as number | undefined;
-      return {
-        primary,
-        detail: [
-          cat,
-          typeof importance === "number"
-            ? `importance ${importance.toFixed(1)}`
-            : null,
-          fmtPos(e.position),
-        ]
-          .filter(Boolean)
-          .join(" · "),
-      };
-    }
-    case "dangerSources": {
-      const intensity = e.intensity as number | undefined;
-      return {
-        primary,
-        detail:
-          [
-            typeof intensity === "number" ? `intensity ${intensity}` : null,
-            fmtPos(e.position),
-          ]
-            .filter(Boolean)
-            .join(" · ") || null,
-      };
-    }
-    case "waterBodies": {
-      const bodyType = e.bodyType as string | undefined;
-      const polygon = Array.isArray(e.polygon) ? e.polygon : null;
-      const waypoints = Array.isArray(e.waypoints) ? e.waypoints : null;
-      const shape = polygon
-        ? `${polygon.length}-vertex polygon`
-        : waypoints
-          ? `${waypoints.length}-pt path`
-          : null;
-      return {
-        primary,
-        detail: [bodyType, shape].filter(Boolean).join(" · ") || null,
-      };
-    }
-    case "musicZones": {
-      const polygon = Array.isArray(e.polygon) ? e.polygon : [];
-      const track = e.musicTrack as string | undefined;
-      return {
-        primary,
-        detail: [track, `${polygon.length}-vertex polygon`]
-          .filter(Boolean)
-          .join(" · "),
-      };
-    }
-    case "ambientZones": {
-      const polygon = Array.isArray(e.polygon) ? e.polygon : [];
-      const ambientType = e.ambientType as string | undefined;
-      return {
-        primary,
-        detail: [ambientType, `${polygon.length}-vertex polygon`]
-          .filter(Boolean)
-          .join(" · "),
-      };
-    }
-    case "sfxTriggers": {
-      const sfxId = e.sfxId as string | undefined;
-      const radius = e.radius as number | undefined;
-      return {
-        primary,
-        detail: [
-          sfxId,
-          typeof radius === "number" ? `r=${radius}` : null,
-          fmtPos(e.position),
-        ]
-          .filter(Boolean)
-          .join(" · "),
-      };
-    }
-    case "mines": {
-      const biome = e.biome as string | undefined;
-      const oreRocks = Array.isArray(e.oreRocks) ? e.oreRocks : [];
-      const tier = e.tier as number | undefined;
-      return {
-        primary,
-        detail: [
-          biome,
-          `${oreRocks.length} ore type${oreRocks.length === 1 ? "" : "s"}`,
-          typeof tier === "number" ? `tier ${tier}` : null,
-        ]
-          .filter(Boolean)
-          .join(" · "),
-      };
-    }
-    case "assets": {
-      const type = e.type as string | undefined;
-      const subtype = e.subtype as string | undefined;
-      return {
-        primary,
-        detail: [type, subtype].filter(Boolean).join(" · ") || null,
-      };
-    }
-    default:
-      return { primary, detail: null };
-  }
 }
 
 interface PlanSlotProps {
