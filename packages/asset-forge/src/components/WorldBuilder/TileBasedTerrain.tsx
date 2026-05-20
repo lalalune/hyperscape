@@ -233,56 +233,11 @@ interface TileData {
   dirty?: boolean;
 }
 
-/** Selection info returned when clicking objects in the viewport */
-export interface ViewportSelection {
-  type:
-    | "terrain"
-    | "chunk"
-    | "tile"
-    | "biome"
-    | "town"
-    | "building"
-    | "road"
-    | "entity"
-    | "vegetation"
-    | "bridge"
-    | "duelArena";
-  id: string;
-  position: { x: number; y: number; z: number };
-  townId?: string;
-  townName?: string;
-  buildingType?: string;
-  biomeType?: string;
-  tileKey?: string;
-  /** Entity type for entity selections (spawnPoint, teleport, mobSpawn, etc.) */
-  entityType?: string;
-  /** Entity ID for entity selections */
-  entityId?: string;
-  /** Display name for entity selections */
-  entityDisplayName?: string;
-  /** Full entity metadata from userData (for game world entities) */
-  entityData?: Record<string, unknown>;
-  /** Vegetation instance data (for vegetation selections) */
-  vegetationSpecies?: string;
-  vegetationInstanceIndex?: number;
-  /** Tile inspector data for terrain selections */
-  tileData?: {
-    tileX: number;
-    tileZ: number;
-    chunkX: number;
-    chunkZ: number;
-    worldX: number;
-    worldZ: number;
-    height: number;
-    biome: string;
-    slope: number;
-    walkable: boolean;
-    inTown: boolean;
-    townId?: string;
-    inWilderness: boolean;
-    difficultyLevel: number;
-  };
-}
+// `ViewportSelection` moved to `./viewportSelection.ts` —
+// re-exported here so existing imports keep working without
+// churn at the consumer sites.
+import type { ViewportSelection } from "./viewportSelection";
+export type { ViewportSelection };
 
 /** View mode for the viewport */
 export type ViewMode = "lit" | "wireframe" | "biomeColors";
