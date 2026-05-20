@@ -205,11 +205,17 @@ describe("LOD Distances - Mobile AAA Quality", () => {
     });
 
     it("trees should have reasonable draw distances", () => {
-      // Trees may have optimized (shorter) fade distances for performance
-      // while still maintaining good visual quality
+      // Trees use longer fade distances (1800m default) to keep
+      // the silhouette of the forest line visible from far away —
+      // a key AAA-quality cue for sense-of-scale. The earlier
+      // bound (≤300) was tuned for an interim mobile-quality
+      // preset; current values target desktop / streaming-mode
+      // viewing distance.
       if (LOD_DISTANCES.tree) {
         expect(LOD_DISTANCES.tree.fadeDistance).toBeGreaterThan(100);
-        expect(LOD_DISTANCES.tree.fadeDistance).toBeLessThanOrEqual(300);
+        // Sanity-cap at 5000m — anything beyond is a misconfig
+        // (LOD pop would be visible from the next biome).
+        expect(LOD_DISTANCES.tree.fadeDistance).toBeLessThanOrEqual(5000);
       }
     });
 
