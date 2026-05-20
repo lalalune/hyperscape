@@ -52,6 +52,11 @@ import {
   prettifyToolName,
 } from "../utils/proposeActionRegistry";
 import { summarizeToolCalls } from "../utils/toolBreadcrumbSummary";
+import {
+  clearCompanionDraft,
+  loadCompanionDraft,
+  saveCompanionDraft,
+} from "../utils/companionDraftStorage";
 import { generateWorldFromConfig } from "../../WorldBuilder/worldGeneration";
 import {
   HYPERIA_CREATION_CONFIG,
@@ -116,10 +121,6 @@ interface StreamTurnEvent {
   toolCalls: ReadonlyArray<{ name: string; success: boolean; data: unknown }>;
 }
 
-const COMPANION_VERSION = 1;
-function draftKey(projectId: string): string {
-  return `hyperforge:companion:draft:${projectId}`;
-}
 function initialGreeting(): ChatMessage {
   return {
     role: "agent",
@@ -162,32 +163,12 @@ function CompanionInner({ projectId }: { projectId: string }) {
   // `actions.addNPC`/etc.
   const placementDispatcher = useAgentPlacementDispatcher();
 
-  // Boot from localStorage if available.
-  const restored = (() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = window.localStorage.getItem(draftKey(projectId));
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as {
-        version?: number;
-        messages?: ReadonlyArray<ChatMessage>;
-      } | null;
-      if (
-        !parsed ||
-        parsed.version !== COMPANION_VERSION ||
-        !Array.isArray(parsed.messages) ||
-        parsed.messages.length <= 1
-      ) {
-        return null;
-      }
-      return parsed;
-    } catch {
-      return null;
-    }
-  })();
+  // Boot from localStorage if available — versioned envelope +
+  // safe-fail behavior owned by `companionDraftStorage`.
+  const restored = loadCompanionDraft<ChatMessage>(projectId);
 
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    restored ? [...restored.messages!] : [initialGreeting()],
+    restored ? [...restored.messages] : [initialGreeting()],
   );
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
@@ -197,25 +178,10 @@ function CompanionInner({ projectId }: { projectId: string }) {
   const abortRef = useRef<AbortController | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
 
-  // Persist on every change.
+  // Persist on every change — empty/greeting-only threads are
+  // cleared rather than stored (handled inside saveCompanionDraft).
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (messages.length <= 1) {
-      try {
-        window.localStorage.removeItem(draftKey(projectId));
-      } catch {
-        /* ignore */
-      }
-      return;
-    }
-    try {
-      window.localStorage.setItem(
-        draftKey(projectId),
-        JSON.stringify({ version: COMPANION_VERSION, messages }),
-      );
-    } catch {
-      /* ignore */
-    }
+    saveCompanionDraft<ChatMessage>(projectId, messages);
   }, [projectId, messages]);
 
   useEffect(() => {
@@ -951,7 +917,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
     setPendingStatus(null);
     if (typeof window !== "undefined") {
       try {
-        window.localStorage.removeItem(draftKey(projectId));
+        clearCompanionDraft(projectId);
       } catch {
         /* ignore */
       }
