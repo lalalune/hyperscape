@@ -940,26 +940,8 @@ interface StreamTurnEvent {
   }>;
 }
 
-/**
- * Parse one SSE event block (`event: ...\ndata: ...`) into a
- * structured event. Returns null if the block isn't a recognisable
- * event (comment, blank, malformed).
- */
-function parseSSEBlock(block: string): { event: string; data: unknown } | null {
-  const lines = block.split("\n");
-  let eventName = "message";
-  let dataStr = "";
-  for (const line of lines) {
-    if (line.startsWith("event: ")) eventName = line.slice(7).trim();
-    else if (line.startsWith("data: ")) dataStr += line.slice(6);
-  }
-  if (!dataStr) return null;
-  try {
-    return { event: eventName, data: JSON.parse(dataStr) };
-  } catch {
-    return null;
-  }
-}
+// SSE block parser extracted to `utils/parseSSEBlock.ts`
+// (Phase 1.2 second carve). The dialog imports it directly.
 
 /**
  * Apply one streamed turn event: update the live status string
@@ -1257,6 +1239,7 @@ import {
   saveDraft as saveDraftToStorage,
   clearDraft as clearDraftFromStorage,
 } from "./utils/designDraftStorage";
+import { parseSSEBlock } from "./utils/parseSSEBlock";
 
 const loadDraft = (teamId: string, gameId: string) =>
   loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
