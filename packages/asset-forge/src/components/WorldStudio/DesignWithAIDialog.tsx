@@ -1249,66 +1249,24 @@ const TOOL_BREADCRUMB_SUMMARY: Record<
 // the user's onboarding work. Keyed by team + game so multiple
 // projects don't trample each other.
 
-const DRAFT_VERSION = 1;
+// Phase 1.2 first carve — draft storage extracted to
+// `utils/designDraftStorage.ts`. The dialog still calls the
+// helpers directly; only the implementation moved.
+import {
+  loadDraft as loadDraftFromStorage,
+  saveDraft as saveDraftToStorage,
+  clearDraft as clearDraftFromStorage,
+} from "./utils/designDraftStorage";
 
-interface DesignDraft {
-  readonly version: number;
-  readonly messages: ReadonlyArray<ChatMessage>;
-  readonly plan: OnboardingPlan;
-}
-
-function draftKey(teamId: string, gameId: string): string {
-  return `hyperforge:design-with-ai:draft:${teamId}:${gameId}`;
-}
-
-function loadDraft(teamId: string, gameId: string): DesignDraft | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(draftKey(teamId, gameId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<DesignDraft> | null;
-    if (
-      !parsed ||
-      typeof parsed !== "object" ||
-      parsed.version !== DRAFT_VERSION ||
-      !Array.isArray(parsed.messages) ||
-      !parsed.plan
-    ) {
-      return null;
-    }
-    return parsed as DesignDraft;
-  } catch {
-    return null;
-  }
-}
-
-function saveDraft(
+const loadDraft = (teamId: string, gameId: string) =>
+  loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
+const saveDraft = (
   teamId: string,
   gameId: string,
   messages: ReadonlyArray<ChatMessage>,
   plan: OnboardingPlan,
-): void {
-  if (typeof window === "undefined") return;
-  try {
-    const draft: DesignDraft = { version: DRAFT_VERSION, messages, plan };
-    window.localStorage.setItem(
-      draftKey(teamId, gameId),
-      JSON.stringify(draft),
-    );
-  } catch {
-    // localStorage may be disabled (Safari private mode etc.) —
-    // best-effort persistence, don't crash the UI.
-  }
-}
-
-function clearDraft(teamId: string, gameId: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(draftKey(teamId, gameId));
-  } catch {
-    /* ignore */
-  }
-}
+) => saveDraftToStorage(teamId, gameId, messages, plan);
+const clearDraft = clearDraftFromStorage;
 
 export function DesignWithAIDialog({
   teamId,
