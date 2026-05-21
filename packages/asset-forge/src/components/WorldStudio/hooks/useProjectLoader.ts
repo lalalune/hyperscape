@@ -30,6 +30,7 @@ import {
   type ContentPackContentInput,
   type PluginBiomeContribution,
 } from "../utils/contentRegistry";
+import { mergeContentPackManifests } from "../utils/mergeContentPackManifests";
 import {
   getWorldProject,
   saveWorldProject,
@@ -656,40 +657,13 @@ async function fetchContentPacksAndRegister(projectId: string): Promise<void> {
       manifest: Partial<ContentPackContentInput>;
     };
     const packs = (await res.json()) as ReadonlyArray<InstalledContentPack>;
-    const merged: ContentPackContentInput = {
-      biomes: [],
-      terrainShaders: [],
-      terrainHeightmapPresets: [],
-      terrainNoiseFunctions: [],
-      waterShaders: [],
-      waterAnimations: [],
-      vegetationSpecies: [],
-      vegetationDensityRules: [],
-    };
-    for (const p of packs) {
-      const m = p.manifest ?? {};
-      if (m.biomes) (merged.biomes as unknown[])!.push(...m.biomes);
-      if (m.terrainShaders)
-        (merged.terrainShaders as unknown[])!.push(...m.terrainShaders);
-      if (m.terrainHeightmapPresets)
-        (merged.terrainHeightmapPresets as unknown[])!.push(
-          ...m.terrainHeightmapPresets,
-        );
-      if (m.terrainNoiseFunctions)
-        (merged.terrainNoiseFunctions as unknown[])!.push(
-          ...m.terrainNoiseFunctions,
-        );
-      if (m.waterShaders)
-        (merged.waterShaders as unknown[])!.push(...m.waterShaders);
-      if (m.waterAnimations)
-        (merged.waterAnimations as unknown[])!.push(...m.waterAnimations);
-      if (m.vegetationSpecies)
-        (merged.vegetationSpecies as unknown[])!.push(...m.vegetationSpecies);
-      if (m.vegetationDensityRules)
-        (merged.vegetationDensityRules as unknown[])!.push(
-          ...m.vegetationDensityRules,
-        );
-    }
+    // Phase 5.4 — composition rule for multiple installed packs
+    // lives in `mergeContentPackManifests`. Each section is
+    // concatenated across packs in install order; later packs
+    // win on intra-section id conflicts at the registry layer.
+    const merged = mergeContentPackManifests(
+      packs.map((p) => p.manifest ?? {}),
+    );
     setContentPackContent(merged);
   } catch (err) {
     // eslint-disable-next-line no-console
