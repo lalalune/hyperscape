@@ -213,7 +213,7 @@ function DialogueTreePreview({
         {nodes.map((n) => {
           const isEntry = n.id === entryNodeId;
           const pos = nodePosition(n.id)!;
-          const stroke = isEntry ? "#34d399" : "var(--border-primary)";
+          const stroke = isEntry ? "#4FDD96" : "var(--border-primary)";
           const fill = isEntry
             ? "rgba(52, 211, 153, 0.12)"
             : "rgba(148, 163, 184, 0.08)";

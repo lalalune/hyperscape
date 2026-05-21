@@ -39,7 +39,7 @@ const HEADER_BTN =
   "p-1 rounded text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors";
 
 const FILTER_BTN_OFF =
-  "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-[#16171d] text-white/45 hover:text-white/80 hover:bg-[#1e1f28] border border-[#252733] transition-colors";
+  "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-[#141416] text-white/45 hover:text-white/80 hover:bg-[#1e1f28] border border-[#1C1E22] transition-colors";
 
 const FILTER_BTN_ON =
   "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-[rgba(99,102,241,0.18)] text-primary border border-primary/40 transition-colors";

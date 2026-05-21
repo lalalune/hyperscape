@@ -170,7 +170,7 @@ const CHIP =
 
 /** Button — opaque surface for interactive controls */
 const CHIP_BTN_OFF =
-  "flex items-center gap-1 px-2 py-1 rounded-[4px] bg-[#16171d] text-white/50 hover:text-white/80 hover:bg-[#1e1f28] border border-[#252733] transition-all duration-120";
+  "flex items-center gap-1 px-2 py-1 rounded-[4px] bg-[#141416] text-white/50 hover:text-white/80 hover:bg-[#1e1f28] border border-[#1C1E22] transition-all duration-120";
 const CHIP_BTN_ON =
   "flex items-center gap-1 px-2 py-1 rounded-[4px] bg-[rgba(99,102,241,0.12)] text-primary border border-primary/40 shadow-[0_0_8px_rgba(99,102,241,0.15)] transition-all duration-120";
 
@@ -296,7 +296,7 @@ function MinimapPopover({
     // Camera
     const cx = cameraPosition.x * scale;
     const cz = cameraPosition.z * scale;
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = "#F5F5F5";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(cx, cz, 6, 0, Math.PI * 2);
@@ -320,7 +320,7 @@ function MinimapPopover({
   );
 
   return (
-    <div className="bg-[rgba(10,11,16,0.92)] backdrop-blur-xl border border-[#252733] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-2 mb-1.5">
+    <div className="bg-[rgba(10,11,16,0.92)] backdrop-blur-xl border border-[#1C1E22] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-2 mb-1.5">
       <div className="flex items-center justify-between mb-1 px-0.5">
         <span className="text-[9px] text-white/50 uppercase tracking-wider font-medium">
           World Map
@@ -581,7 +581,7 @@ export function ViewportOverlay({
           )}
 
           {/* Coordinate system */}
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[#16171d] text-white/50 border border-[#252733] text-[10px]">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[#141416] text-white/50 border border-[#1C1E22] text-[10px]">
             {transformSpace === "world" ? (
               <Globe size={10} />
             ) : (

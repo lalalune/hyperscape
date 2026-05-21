@@ -74,9 +74,9 @@ const MATERIAL_PRESETS: MaterialPreset[] = [
     id: "bronze",
     label: "Bronze",
     prompt:
-      "bronze metal armor plate, warm copper-gold #cd7f32 color, polished bronze surface",
+      "bronze metal armor plate, warm copper-gold #D4AF37 color, polished bronze surface",
     group: "osrs",
-    swatch: "#cd7f32",
+    swatch: "#D4AF37",
   },
   {
     id: "iron",
@@ -266,7 +266,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
   const getSolidColor = useCallback((): string => {
     if (useCustomColor) return customColor;
     const preset = MATERIAL_PRESETS.find((p) => p.id === selectedPreset);
-    return preset?.swatch ?? "#888888";
+    return preset?.swatch ?? "#7A7A82";
   }, [useCustomColor, customColor, selectedPreset]);
 
   const handleGenerate = useCallback(async () => {
@@ -418,7 +418,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
             geo.deleteAttribute("skinWeight");
 
             const material = new THREE.MeshStandardMaterial({
-              color: new THREE.Color(tier.swatch ?? "#888888"),
+              color: new THREE.Color(tier.swatch ?? "#7A7A82"),
               metalness,
               roughness,
               side: THREE.DoubleSide,
@@ -480,7 +480,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
         // metallic object instead of a grey body shape.
         const glbBlob = await shellServiceRef.current!.exportShellAsGLB(
           shell,
-          swatchHex, // e.g. "#cd7f32" for bronze — undefined for fantasy presets
+          swatchHex, // e.g. "#D4AF37" for bronze — undefined for fantasy presets
         );
 
         const { taskId: newTaskId, sizeKB } =
@@ -690,7 +690,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
           geo.deleteAttribute("skinIndex");
           geo.deleteAttribute("skinWeight");
           const mat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color(tier.swatch ?? "#888888"),
+            color: new THREE.Color(tier.swatch ?? "#7A7A82"),
             metalness,
             roughness,
           });
@@ -1047,7 +1047,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                         value={customColor}
                         onChange={(e) => setCustomColor(e.target.value)}
                         className="flex-1 bg-bg-secondary border border-border-primary rounded px-2 py-1 text-xs text-text-primary font-mono"
-                        placeholder="#cd7f32"
+                        placeholder="#D4AF37"
                       />
                     </div>
                   )}

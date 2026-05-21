@@ -198,7 +198,7 @@ export function StatusBar() {
         {/* Unsaved indicator */}
         {computed.hasUnsavedChanges && (
           <span className="flex items-center gap-1 text-amber-400">
-            <StatusDot color="#fbbf24" />
+            <StatusDot color="#FF9933" />
             Unsaved
           </span>
         )}

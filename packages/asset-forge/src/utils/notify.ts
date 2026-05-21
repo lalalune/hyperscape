@@ -34,19 +34,19 @@ function showToast(message: string, level: NotifyLevel, opts?: NotifyOptions) {
   toast.textContent = message;
   toast.style.padding = "10px 12px";
   toast.style.borderRadius = "8px";
-  toast.style.color = "#fff";
+  toast.style.color = "#F5F5F5";
   toast.style.fontSize = "14px";
   toast.style.boxShadow = "0 6px 18px rgba(0,0,0,0.18)";
   toast.style.maxWidth = "420px";
   toast.style.wordBreak = "break-word";
   toast.style.background =
     level === "error"
-      ? "#ef4444"
+      ? "#E84A4A"
       : level === "warning"
-        ? "#f59e0b"
+        ? "#FF7A00"
         : level === "success"
-          ? "#10b981"
-          : "#3b82f6";
+          ? "#28D47A"
+          : "#2D8CFF";
 
   container.appendChild(toast);
 

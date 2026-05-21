@@ -32,10 +32,10 @@ const NODE_SPACING_Y = 80;
 const GRAPH_PADDING = 40;
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  novice: "#22c55e",
-  intermediate: "#3b82f6",
-  advanced: "#f59e0b",
-  expert: "#ef4444",
+  novice: "#28D47A",
+  intermediate: "#2D8CFF",
+  advanced: "#FF7A00",
+  expert: "#E84A4A",
   master: "#a855f7",
 };
 
@@ -271,7 +271,7 @@ function QuestDetailPanel({
   quest: ManifestQuest;
   onClose: () => void;
 }) {
-  const diffColor = DIFFICULTY_COLORS[quest.difficulty] ?? "#6b7280";
+  const diffColor = DIFFICULTY_COLORS[quest.difficulty] ?? "#7A7A82";
 
   return (
     <div className="border-t border-border-primary bg-bg-tertiary/50 p-3 space-y-2 text-xs">
@@ -690,7 +690,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#7A7A82" />
             </marker>
             <marker
               id="quest-graph-arrow-highlight"
@@ -701,7 +701,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#2D8CFF" />
             </marker>
           </defs>
 
@@ -721,7 +721,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
                   key={`${edge.fromId}-${edge.toId}`}
                   d={edgePath(edge.fromNode, edge.toNode)}
                   fill="none"
-                  stroke={isConnectedToSelected ? "#3b82f6" : "#6b7280"}
+                  stroke={isConnectedToSelected ? "#2D8CFF" : "#7A7A82"}
                   strokeWidth={isConnectedToSelected ? 2 : 1}
                   strokeOpacity={
                     isSearchDimmed ? 0.15 : isConnectedToSelected ? 0.9 : 0.4
@@ -738,7 +738,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
             {/* Nodes */}
             {Array.from(layout.nodes.values()).map((node) => {
               const q = node.quest;
-              const diffColor = DIFFICULTY_COLORS[q.difficulty] ?? "#6b7280";
+              const diffColor = DIFFICULTY_COLORS[q.difficulty] ?? "#7A7A82";
               const isSelected = selectedQuestId === q.id;
               const isSearchMatch = highlightedIds?.has(q.id) ?? false;
               const isSearchDimmed =
@@ -766,10 +766,10 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
                     fill="#1e1e2e"
                     stroke={
                       isSelected
-                        ? "#3b82f6"
+                        ? "#2D8CFF"
                         : isSearchMatch
-                          ? "#f59e0b"
-                          : "#374151"
+                          ? "#FF7A00"
+                          : "#3A3D45"
                     }
                     strokeWidth={isSelected ? 2 : 1}
                   />
@@ -812,12 +812,12 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
                     width={28}
                     height={16}
                     rx={3}
-                    fill="#374151"
+                    fill="#3A3D45"
                   />
                   <text
                     x={26}
                     y={43}
-                    fill="#9ca3af"
+                    fill="#A8A8B0"
                     fontSize={9}
                     textAnchor="middle"
                     fontFamily="system-ui, sans-serif"
@@ -832,12 +832,12 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
                     width={32}
                     height={16}
                     rx={3}
-                    fill="#374151"
+                    fill="#3A3D45"
                   />
                   <text
                     x={60}
                     y={43}
-                    fill="#9ca3af"
+                    fill="#A8A8B0"
                     fontSize={9}
                     textAnchor="middle"
                     fontFamily="system-ui, sans-serif"

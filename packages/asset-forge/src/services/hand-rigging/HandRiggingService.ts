@@ -409,8 +409,8 @@ export class HandRiggingService {
 
       // Step 1: Try multiple capture attempts with different settings
       const captureAttempts = [
-        { backgroundColor: "#ffffff", padding: 0.5 },
-        { backgroundColor: "#000000", padding: 0.7 },
+        { backgroundColor: "#F5F5F5", padding: 0.5 },
+        { backgroundColor: "#0B0B0D", padding: 0.7 },
         { backgroundColor: "#808080", padding: 1.0 },
         { backgroundColor: "#ffeecc", padding: 0.6 }, // Skin-like background
         { backgroundColor: "#0066cc", padding: 0.8 }, // Blue background for contrast

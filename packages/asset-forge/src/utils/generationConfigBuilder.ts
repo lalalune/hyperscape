@@ -86,7 +86,7 @@ export function buildGenerationConfig(
               ? "wood"
               : "metal"),
         tier: index + 1,
-        color: preset?.color || "#888888",
+        color: preset?.color || "#7A7A82",
         stylePrompt:
           materialPromptOverrides[materialId] ||
           preset?.stylePrompt ||
@@ -109,7 +109,7 @@ export function buildGenerationConfig(
             materialId.slice(1).replace(/-/g, " "),
         category: preset?.category || "custom",
         tier: index + 1,
-        color: preset?.color || "#888888",
+        color: preset?.color || "#7A7A82",
         stylePrompt:
           materialPromptOverrides[materialId] ||
           preset?.stylePrompt ||

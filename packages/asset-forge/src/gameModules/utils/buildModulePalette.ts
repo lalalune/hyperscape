@@ -97,7 +97,7 @@ export function buildModulePalette(
       label: catDef.label,
       icon: catDef.icon,
       description: catDef.description,
-      color: entityTypes[0]?.color ?? "#888",
+      color: entityTypes[0]?.color ?? "#7A7A82",
       items,
     });
   }

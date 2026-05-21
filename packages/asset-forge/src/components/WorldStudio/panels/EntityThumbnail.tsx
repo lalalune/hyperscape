@@ -266,17 +266,17 @@ function renderFallbackThumbnail(category: string): string {
 
   const COLORS: Record<string, string> = {
     npcs: "#a855f7",
-    stations: "#f59e0b",
-    "mob-spawns": "#ef4444",
-    "resources-mining": "#f59e0b",
-    "resources-woodcutting": "#22c55e",
+    stations: "#FF7A00",
+    "mob-spawns": "#E84A4A",
+    "resources-mining": "#FF7A00",
+    "resources-woodcutting": "#28D47A",
     "resources-fishing": "#06b6d4",
-    "spawn-points": "#22c55e",
-    teleports: "#8b5cf6",
+    "spawn-points": "#28D47A",
+    teleports: "#6D3AFF",
     pois: "#ec4899",
     "water-bodies": "#06b6d4",
   };
-  const color = COLORS[category] ?? "#6b7280";
+  const color = COLORS[category] ?? "#7A7A82";
 
   const cx = THUMB_SIZE / 2;
   const cy = THUMB_SIZE / 2;

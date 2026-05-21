@@ -54,7 +54,7 @@ export const MaterialVariantsDisplay: React.FC<
           {variants.map((variant, i) => {
             const materialName = getMaterialName(variant, i);
             const color =
-              TIER_DISPLAY_COLORS[materialName.toLowerCase()] || "#888888";
+              TIER_DISPLAY_COLORS[materialName.toLowerCase()] || "#7A7A82";
             const isSuccess =
               typeof variant === "object" &&
               variant !== null &&

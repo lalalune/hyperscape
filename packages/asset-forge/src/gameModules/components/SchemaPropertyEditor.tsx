@@ -330,7 +330,7 @@ function SchemaField({
       return (
         <ColorInput
           label={field.label}
-          value={typeof value === "string" ? value : "#000000"}
+          value={typeof value === "string" ? value : "#0B0B0D"}
           onChange={onChange as (v: string) => void}
         />
       );

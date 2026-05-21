@@ -68,7 +68,7 @@ export function RoadZonePreview({ data }: { data: RoadZoneStageResult }) {
                     style={{
                       backgroundColor:
                         DEFAULT_TIERS.find((t) => t.name === tb.tierName)
-                          ?.color ?? "#888",
+                          ?.color ?? "#7A7A82",
                     }}
                   />
                   <span className="text-text-primary font-medium">
@@ -100,7 +100,7 @@ export function RoadZonePreview({ data }: { data: RoadZoneStageResult }) {
                   className="w-2 h-2 rounded-sm flex-shrink-0"
                   style={{
                     backgroundColor:
-                      DEFAULT_TIERS[zone.tierIndex]?.color ?? "#888",
+                      DEFAULT_TIERS[zone.tierIndex]?.color ?? "#7A7A82",
                   }}
                 />
                 <span className="text-text-primary truncate">{zone.name}</span>

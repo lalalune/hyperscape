@@ -33,10 +33,10 @@ export interface BaseNodeData extends Record<string, unknown> {
 
 const DATA_TYPE_COLORS: Record<string, string> = {
   string: "#f472b6",
-  number: "#60a5fa",
-  boolean: "#a78bfa",
-  entity: "#34d399",
-  position: "#fbbf24",
+  number: "#5BA6FF",
+  boolean: "#8B5FFF",
+  entity: "#4FDD96",
+  position: "#FF9933",
 };
 
 const FLOW_COLOR = "#cbd5e1";

@@ -91,13 +91,13 @@ const TEMPLATE_ICON_MAP: Record<
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  combat: "#ef4444",
-  npc: "#3b82f6",
-  quest: "#f59e0b",
-  resource: "#10b981",
-  zone: "#8b5cf6",
-  economy: "#f97316",
-  utility: "#6b7280",
+  combat: "#E84A4A",
+  npc: "#2D8CFF",
+  quest: "#FF7A00",
+  resource: "#28D47A",
+  zone: "#6D3AFF",
+  economy: "#FF7A00",
+  utility: "#7A7A82",
 };
 
 // ============== TYPES ==============
@@ -586,11 +586,11 @@ export function ScriptEditorPanel({
                 nodeColor={(node) => {
                   const data = node.data as Record<string, unknown>;
                   const scriptType = data?.scriptType as string | undefined;
-                  if (scriptType?.startsWith("trigger")) return "#10b981";
-                  if (scriptType?.startsWith("condition")) return "#f59e0b";
-                  if (scriptType?.startsWith("action")) return "#3b82f6";
-                  if (scriptType?.startsWith("flow")) return "#8b5cf6";
-                  return "#6b7280";
+                  if (scriptType?.startsWith("trigger")) return "#28D47A";
+                  if (scriptType?.startsWith("condition")) return "#FF7A00";
+                  if (scriptType?.startsWith("action")) return "#2D8CFF";
+                  if (scriptType?.startsWith("flow")) return "#6D3AFF";
+                  return "#7A7A82";
                 }}
                 maskColor="rgba(0, 0, 0, 0.7)"
                 style={{
@@ -650,7 +650,7 @@ export function ScriptEditorPanel({
                   {SCRIPT_TEMPLATES.map((tmpl) => {
                     const IconComp = TEMPLATE_ICON_MAP[tmpl.icon] ?? FileCode;
                     const catColor =
-                      CATEGORY_COLORS[tmpl.category] ?? "#6b7280";
+                      CATEGORY_COLORS[tmpl.category] ?? "#7A7A82";
                     return (
                       <button
                         key={tmpl.id}
@@ -794,7 +794,7 @@ export function ScriptEditorPanel({
                   gap: 4,
                   fontSize: 10,
                   fontWeight: 600,
-                  color: consoleShowErrors ? "#fff" : "var(--text-muted)",
+                  color: consoleShowErrors ? "#F5F5F5" : "var(--text-muted)",
                   background: consoleShowErrors
                     ? "var(--color-error)"
                     : "transparent",
@@ -819,9 +819,9 @@ export function ScriptEditorPanel({
                   gap: 4,
                   fontSize: 10,
                   fontWeight: 600,
-                  color: consoleShowWarnings ? "#fff" : "var(--text-muted)",
+                  color: consoleShowWarnings ? "#F5F5F5" : "var(--text-muted)",
                   background: consoleShowWarnings
-                    ? "var(--color-warning, #f59e0b)"
+                    ? "var(--color-warning, #FF7A00)"
                     : "transparent",
                   border: consoleShowWarnings
                     ? "none"
@@ -959,7 +959,7 @@ export function ScriptEditorPanel({
                       <AlertTriangle
                         size={12}
                         style={{
-                          color: "var(--color-warning, #f59e0b)",
+                          color: "var(--color-warning, #FF7A00)",
                           flexShrink: 0,
                           marginTop: 2,
                         }}

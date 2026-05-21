@@ -680,7 +680,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                     style={{
                       backgroundColor:
                         MATERIAL_TIERS.find((t) => t.id === publishTier)
-                          ?.color ?? "#888",
+                          ?.color ?? "#7A7A82",
                     }}
                   />
                 </div>

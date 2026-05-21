@@ -197,7 +197,7 @@ export const Minimap: React.FC<MinimapProps> = ({
             ? "#ffd700"
             : town.size === "village"
               ? "#c0c0c0"
-              : "#cd7f32";
+              : "#D4AF37";
 
         // Draw town marker (square)
         ctx.fillStyle = color;
@@ -209,7 +209,7 @@ export const Minimap: React.FC<MinimapProps> = ({
         );
 
         // Draw town border
-        ctx.strokeStyle = "#ffffff";
+        ctx.strokeStyle = "#F5F5F5";
         ctx.lineWidth = 1;
         ctx.strokeRect(
           pos.x - markerSize / 2,
@@ -261,7 +261,7 @@ export const Minimap: React.FC<MinimapProps> = ({
       ctx.fill();
 
       // White outline around camera
-      ctx.strokeStyle = "#ffffff";
+      ctx.strokeStyle = "#F5F5F5";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(camPos.x, camPos.y, 8, 0, Math.PI * 2);

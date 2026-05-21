@@ -67,7 +67,7 @@ const DEFAULT_UI_CONFIG: GrassUIConfig = {
   gustSpeed: 0.4,
   flutterIntensity: 0.15,
   // Colors matched to TerrainShader.ts grassGreen (0.3, 0.55, 0.15)
-  baseColor: "#4d8c26", // rgb(77, 140, 38) ≈ (0.3, 0.55, 0.15)
+  baseColor: "#1FA862", // rgb(77, 140, 38) ≈ (0.3, 0.55, 0.15)
   tipColor: "#619e38", // Slightly lighter tip (0.38, 0.62, 0.22)
   dryColorMix: 0.2,
 };
@@ -78,7 +78,7 @@ const BIOME_UI_PRESETS: Record<string, Partial<GrassUIConfig>> = {
     density: 10,
     bladeHeight: 0.45,
     windStrength: 1.2,
-    baseColor: "#4d8c26",
+    baseColor: "#1FA862",
     tipColor: "#619e38",
     dryColorMix: 0.15,
   },
@@ -87,14 +87,14 @@ const BIOME_UI_PRESETS: Record<string, Partial<GrassUIConfig>> = {
     bladeHeight: 0.35,
     windStrength: 0.6,
     baseColor: "#386b1a",
-    tipColor: "#4d8c26",
+    tipColor: "#1FA862",
     dryColorMix: 0.1,
   },
   hills: {
     density: 7,
     bladeHeight: 0.38,
     windStrength: 1.5,
-    baseColor: "#4d8c26",
+    baseColor: "#1FA862",
     tipColor: "#619e38",
     dryColorMix: 0.25,
   },
@@ -103,7 +103,7 @@ const BIOME_UI_PRESETS: Record<string, Partial<GrassUIConfig>> = {
     bladeHeight: 0.55,
     windStrength: 0.4,
     baseColor: "#386b1a",
-    tipColor: "#4d8c26",
+    tipColor: "#1FA862",
     dryColorMix: 0.05,
   },
   savanna: {

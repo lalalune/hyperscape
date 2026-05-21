@@ -148,9 +148,9 @@ export const MATERIAL_TIERS: MaterialTier[] = [
   {
     id: "bronze",
     label: "Bronze",
-    color: "#cd7f32",
+    color: "#D4AF37",
     prompt:
-      "bronze metal armor plate, warm copper-gold #cd7f32 color, polished bronze surface",
+      "bronze metal armor plate, warm copper-gold #D4AF37 color, polished bronze surface",
     style: TIER_STYLE_SUFFIX,
   },
   {

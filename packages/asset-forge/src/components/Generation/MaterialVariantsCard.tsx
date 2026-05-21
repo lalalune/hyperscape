@@ -343,7 +343,7 @@ const CustomMaterialsSection: React.FC<{
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={mat.color || "#888888"}
+                    value={mat.color || "#7A7A82"}
                     onChange={(e) => {
                       onUpdateCustomMaterial(index, {
                         ...mat,
@@ -382,7 +382,7 @@ const CustomMaterialsSection: React.FC<{
             variant="secondary"
             size="sm"
             onClick={() => {
-              onAddCustomMaterial({ name: "", prompt: "", color: "#888888" });
+              onAddCustomMaterial({ name: "", prompt: "", color: "#7A7A82" });
             }}
             className="flex-1 gap-2 border-2 border-dashed hover:border-secondary"
           >

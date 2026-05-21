@@ -1429,7 +1429,7 @@ const DamageSplatCanvas: React.FC = () => {
     // Draw hit splat (left)
     drawSplat(ctx, w * 0.25, h * 0.4, "#8b0000", "17");
     // Draw miss splat (right)
-    drawSplat(ctx, w * 0.75, h * 0.4, "#000080", "0");
+    drawSplat(ctx, w * 0.75, h * 0.4, "#0B0B0D080", "0");
 
     // Labels
     ctx.font = "12px Arial";
@@ -1481,7 +1481,7 @@ function drawSplat(
   ctx.closePath();
   ctx.fillStyle = bg;
   ctx.fill();
-  ctx.strokeStyle = "#000";
+  ctx.strokeStyle = "#0B0B0D";
   ctx.lineWidth = 3;
   ctx.stroke();
 
@@ -1489,7 +1489,7 @@ function drawSplat(
   ctx.font = "bold 28px Arial";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = "#F5F5F5";
   ctx.fillText(text, cx, cy);
 }
 

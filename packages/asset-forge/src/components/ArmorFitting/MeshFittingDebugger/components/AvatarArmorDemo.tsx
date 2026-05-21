@@ -474,7 +474,7 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
       <DreiText
         position={[0, 4.5, 0]}
         fontSize={0.3}
-        color="#ffffff"
+        color="#F5F5F5"
         anchorX="center"
         anchorY="middle"
       >

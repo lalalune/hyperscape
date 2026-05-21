@@ -29,7 +29,7 @@ export function useMaterialPresets() {
           displayName: mat.displayName || mat.name,
           category: "custom",
           tier: materialPresets.length + 1,
-          color: mat.color || "#888888",
+          color: mat.color || "#7A7A82",
           stylePrompt: mat.prompt,
           description: "Custom material",
         }));

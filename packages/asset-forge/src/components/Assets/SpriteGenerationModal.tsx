@@ -379,8 +379,8 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
                     }
                   >
                     <option value="transparent">Transparent</option>
-                    <option value="#ffffff">White</option>
-                    <option value="#000000">Black</option>
+                    <option value="#F5F5F5">White</option>
+                    <option value="#0B0B0D">Black</option>
                     <option value="#1a1a1a">Dark Gray</option>
                   </Select>
                 </div>

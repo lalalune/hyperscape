@@ -45,10 +45,10 @@ const DEFAULT_DURATION = 4000;
 const MAX_VISIBLE = 5;
 
 const ACCENT_COLORS: Record<ToastType, string> = {
-  info: "#3b82f6",
-  success: "#10b981",
-  warning: "#f59e0b",
-  error: "#ef4444",
+  info: "#2D8CFF",
+  success: "#28D47A",
+  warning: "#FF7A00",
+  error: "#E84A4A",
 };
 
 /* ------------------------------------------------------------------ */

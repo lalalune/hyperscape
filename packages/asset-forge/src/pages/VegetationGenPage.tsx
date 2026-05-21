@@ -93,7 +93,7 @@ const BIOME_PRESETS: Record<string, Partial<VegetationConfig>> = {
     grassBladeHeight: 0.45,
     windStrength: 0.08,
     flowerDensity: 40,
-    grassBaseColor: "#4d8c26",
+    grassBaseColor: "#1FA862",
     grassTipColor: "#619e38",
   },
   forest: {
@@ -102,7 +102,7 @@ const BIOME_PRESETS: Record<string, Partial<VegetationConfig>> = {
     windStrength: 0.03,
     flowerDensity: 24,
     grassBaseColor: "#386b1a",
-    grassTipColor: "#4d8c26",
+    grassTipColor: "#1FA862",
   },
   meadow: {
     grassDensity: 280,

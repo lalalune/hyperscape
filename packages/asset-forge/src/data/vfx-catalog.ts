@@ -237,8 +237,8 @@ export const GLOW_EFFECTS: GlowEffect[] = [
     previewType: "glow",
     palette: [
       { label: "Core", hex: "#c4b5fd" },
-      { label: "Mid", hex: "#8b5cf6" },
-      { label: "Outer", hex: "#60a5fa" },
+      { label: "Mid", hex: "#6D3AFF" },
+      { label: "Outer", hex: "#5BA6FF" },
     ],
     layers: [
       {
@@ -487,31 +487,31 @@ export const TELEPORT_EFFECT: TeleportEffect = {
   previewType: "static",
   duration: 2.5,
   colors: [
-    { label: "Cyan", hex: "#66ccff" },
-    { label: "White-Cyan", hex: "#ccffff" },
-    { label: "White", hex: "#ffffff" },
+    { label: "Cyan", hex: "#5BA6FF" },
+    { label: "White-Cyan", hex: "#5BA6FF" },
+    { label: "White", hex: "#F5F5F5" },
     { label: "Gold", hex: "#ffdd66" },
   ],
   phases: [
-    { name: "Gather", start: 0, end: 0.2, color: "#66ccff" },
-    { name: "Erupt", start: 0.2, end: 0.34, color: "#ffffff" },
-    { name: "Sustain", start: 0.34, end: 0.68, color: "#ccffff" },
+    { name: "Gather", start: 0, end: 0.2, color: "#5BA6FF" },
+    { name: "Erupt", start: 0.2, end: 0.34, color: "#F5F5F5" },
+    { name: "Sustain", start: 0.34, end: 0.68, color: "#5BA6FF" },
     { name: "Fade", start: 0.68, end: 1.0, color: "#4488cc" },
   ],
   components: [
     {
       name: "Ground Rune Circle",
-      color: "#66ccff",
+      color: "#5BA6FF",
       description: "Scale 0.5→2.0, rotates at 2.0 rad/s",
     },
     {
       name: "Base Glow Disc",
-      color: "#ccffff",
+      color: "#5BA6FF",
       description: "Scale 1.5 + pulse, opacity 0.8",
     },
     {
       name: "Inner Beam",
-      color: "#ffffff",
+      color: "#F5F5F5",
       description: "White→cyan gradient, Hermite elastic height",
     },
     {
@@ -521,27 +521,27 @@ export const TELEPORT_EFFECT: TeleportEffect = {
     },
     {
       name: "Core Flash",
-      color: "#ffffff",
+      color: "#F5F5F5",
       description: "Pop 0→2.5 scale at t=0.20-0.22s",
     },
     {
       name: "Shockwave Ring 1",
-      color: "#ccffff",
+      color: "#5BA6FF",
       description: "Scale 1→13 easeOutExpo, 0.2s",
     },
     {
       name: "Shockwave Ring 2",
-      color: "#66ccff",
+      color: "#5BA6FF",
       description: "Scale 1→11, delayed 0.024s",
     },
     {
       name: "Point Light",
-      color: "#66ccff",
+      color: "#5BA6FF",
       description: "Peak intensity 5.0 at eruption, radius 8",
     },
     {
       name: "Helix Particles (12)",
-      color: "#66ccff",
+      color: "#5BA6FF",
       description: "2 strands × 6, spiral radius 0.8→0.1",
     },
     {
@@ -582,9 +582,9 @@ export const COMBAT_HUD_EFFECTS: CombatHudEffect[] = [
     previewType: "static",
     colors: [
       { label: "Hit BG", hex: "#8b0000" },
-      { label: "Miss BG", hex: "#000080" },
-      { label: "Text", hex: "#ffffff" },
-      { label: "Border", hex: "#000000" },
+      { label: "Miss BG", hex: "#0B0B0D080" },
+      { label: "Text", hex: "#F5F5F5" },
+      { label: "Border", hex: "#0B0B0D" },
     ],
     params: [
       { label: "Pool Size", value: 50 },
@@ -600,14 +600,14 @@ export const COMBAT_HUD_EFFECTS: CombatHudEffect[] = [
         label: "Hit (damage > 0)",
         colors: [
           { label: "Background", hex: "#8b0000" },
-          { label: "Text", hex: "#ffffff" },
+          { label: "Text", hex: "#F5F5F5" },
         ],
       },
       {
         label: "Miss (damage = 0)",
         colors: [
-          { label: "Background", hex: "#000080" },
-          { label: "Text", hex: "#ffffff" },
+          { label: "Background", hex: "#0B0B0D080" },
+          { label: "Text", hex: "#F5F5F5" },
         ],
       },
     ],

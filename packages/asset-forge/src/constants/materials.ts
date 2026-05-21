@@ -1,7 +1,7 @@
 // Material tier colors used throughout the application
 export const TIER_COLORS: Record<string, string> = {
   // Metals
-  bronze: "#CD7F32",
+  bronze: "#D4AF37",
   iron: "#434B4D",
   steel: "#71797E",
   mithril: "#26619C",
@@ -27,7 +27,7 @@ export const getTierColor = (tier?: string): string => {
 // Lighter colors for material display overlays
 export const TIER_DISPLAY_COLORS: Record<string, string> = {
   // Metals
-  bronze: "#CD7F32",
+  bronze: "#D4AF37",
   iron: "#B0B0B0",
   steel: "#C0C0C0",
   mithril: "#3D5D8F",

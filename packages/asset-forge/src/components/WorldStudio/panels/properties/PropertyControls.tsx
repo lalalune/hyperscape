@@ -776,7 +776,7 @@ export function Toggle({ label, value, onChange }: ToggleProps) {
         <div
           className="w-3.5 h-3.5 rounded-full absolute top-[2px] shadow-sm"
           style={{
-            background: value ? "#fff" : "var(--text-tertiary)",
+            background: value ? "#F5F5F5" : "var(--text-tertiary)",
             transform: value ? "translateX(18px)" : "translateX(2px)",
             transition:
               "transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), background 150ms",
@@ -1037,7 +1037,7 @@ interface ColorInputProps {
 
 /** Hex-string color picker with swatch + text entry. Commits on blur/Enter. */
 export function ColorInput({ label, value, onChange }: ColorInputProps) {
-  const safe = HEX_COLOR_RE.test(value) ? value : "#000000";
+  const safe = HEX_COLOR_RE.test(value) ? value : "#0B0B0D";
   const [draft, setDraft] = useState(safe);
   const commit = useCallback(
     (next: string) => {
@@ -1740,7 +1740,7 @@ export function ColorRampInput({
       ? `linear-gradient(to right, ${stops
           .map((s) => `${s.color} ${(s.stop * 100).toFixed(1)}%`)
           .join(", ")})`
-      : "linear-gradient(to right, #000 0%, #000 100%)";
+      : "linear-gradient(to right, #0B0B0D 0%, #0B0B0D 100%)";
 
   const updateStop = (i: number, patch: Partial<ColorRampStop>) => {
     const next = stops.map((s, idx) =>
@@ -1762,7 +1762,7 @@ export function ColorRampInput({
   };
   const addStop = () => {
     const lastStop = stops.length ? stops[stops.length - 1].stop : 0;
-    const lastColor = stops.length ? stops[stops.length - 1].color : "#ffffff";
+    const lastColor = stops.length ? stops[stops.length - 1].color : "#F5F5F5";
     const newStop = Math.min(1, lastStop + 0.1);
     onChange([...stops, { stop: newStop, color: lastColor }]);
   };

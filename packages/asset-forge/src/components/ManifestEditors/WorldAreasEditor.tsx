@@ -103,10 +103,10 @@ interface WorldAreasEditorProps {
 }
 
 const AREA_CATEGORIES = [
-  { key: "starterTowns", label: "Starter Towns", color: "#22c55e" },
-  { key: "level1Areas", label: "Level 1 Areas", color: "#eab308" },
-  { key: "level2Areas", label: "Level 2 Areas", color: "#f97316" },
-  { key: "level3Areas", label: "Level 3 Areas", color: "#ef4444" },
+  { key: "starterTowns", label: "Starter Towns", color: "#28D47A" },
+  { key: "level1Areas", label: "Level 1 Areas", color: "#D4AF37" },
+  { key: "level2Areas", label: "Level 2 Areas", color: "#FF7A00" },
+  { key: "level3Areas", label: "Level 3 Areas", color: "#E84A4A" },
 ] as const;
 
 type AreaCategory = (typeof AREA_CATEGORIES)[number]["key"];
@@ -689,7 +689,7 @@ export const WorldAreasEditor: React.FC<WorldAreasEditorProps> = ({
                             cx={pos.x}
                             cy={pos.y}
                             r={4 * mapZoom}
-                            fill="#3b82f6"
+                            fill="#2D8CFF"
                             stroke="white"
                             strokeWidth={1}
                           />
@@ -709,7 +709,7 @@ export const WorldAreasEditor: React.FC<WorldAreasEditorProps> = ({
                             cx={pos.x}
                             cy={pos.y}
                             r={4 * mapZoom}
-                            fill="#ef4444"
+                            fill="#E84A4A"
                             stroke="white"
                             strokeWidth={1}
                           />

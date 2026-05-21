@@ -1646,7 +1646,8 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                                   (treeConfig.weight / totalWeight) * 100,
                                 )
                               : 0;
-                          const speciesColor = SPECIES_COLORS[treeId] ?? "#888";
+                          const speciesColor =
+                            SPECIES_COLORS[treeId] ?? "#7A7A82";
                           return (
                             <SliderInput
                               key={treeId}
@@ -1687,7 +1688,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                                   style={{
                                     width: `${pct}%`,
                                     backgroundColor:
-                                      SPECIES_COLORS[treeId] ?? "#888",
+                                      SPECIES_COLORS[treeId] ?? "#7A7A82",
                                   }}
                                   title={`${TREE_DISPLAY_NAMES[treeId] ?? treeId}: ${Math.round(pct)}%`}
                                 />

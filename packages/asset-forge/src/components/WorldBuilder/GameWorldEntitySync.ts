@@ -262,7 +262,7 @@ const labelCache = new Map<string, THREE.Texture>();
 
 function createLabelTexture(
   text: string,
-  color: string = "#ffffff",
+  color: string = "#F5F5F5",
 ): THREE.Texture {
   const key = `${text}|${color}`;
   if (labelCache.has(key)) return labelCache.get(key)!;
@@ -301,7 +301,7 @@ function createLabelTexture(
 function createLabelSprite(
   text: string,
   position: THREE.Vector3,
-  color: string = "#ffffff",
+  color: string = "#F5F5F5",
   yOffset: number = 2.5,
 ): THREE.Sprite {
   const texture = createLabelTexture(text, color);

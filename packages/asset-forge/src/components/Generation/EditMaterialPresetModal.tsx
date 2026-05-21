@@ -104,7 +104,7 @@ export const EditMaterialPresetModal: React.FC<
                     color: e.target.value,
                   })
                 }
-                placeholder="#000000"
+                placeholder="#0B0B0D"
                 className="flex-1"
               />
             </div>

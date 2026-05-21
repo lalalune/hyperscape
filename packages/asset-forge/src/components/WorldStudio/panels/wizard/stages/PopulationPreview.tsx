@@ -84,7 +84,7 @@ export function PopulationPreview({
                       style={{
                         backgroundColor:
                           DEFAULT_TIERS.find((t) => t.name === tierName)
-                            ?.color ?? "#888",
+                            ?.color ?? "#7A7A82",
                       }}
                     />
                     <span className="text-text-primary font-medium">

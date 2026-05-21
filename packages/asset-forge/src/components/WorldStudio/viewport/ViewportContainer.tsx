@@ -2127,7 +2127,7 @@ export function ViewportContainer() {
             className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-[4px] border transition-all duration-120 ${
               playerMode
                 ? "bg-[rgba(99,102,241,0.15)] text-primary border-primary/40 shadow-[0_0_8px_rgba(99,102,241,0.15)]"
-                : "bg-[#16171d] text-white/60 hover:text-white/80 border-[#252733] hover:bg-[#1e1f28]"
+                : "bg-[#141416] text-white/60 hover:text-white/80 border-[#1C1E22] hover:bg-[#1e1f28]"
             }`}
             onClick={handleTogglePlayerMode}
             title="Player Preview (walk the world at eye height)"

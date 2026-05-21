@@ -129,7 +129,7 @@ const DEFAULT_ACCENT: TailwindAccent = {
 };
 
 /**
- * Convert a hex color string (e.g., "#ef4444") to the nearest Tailwind accent palette.
+ * Convert a hex color string (e.g., "#E84A4A") to the nearest Tailwind accent palette.
  * Falls back to slate for invalid or gray colors.
  */
 export function hexToTailwindAccent(hex: string): TailwindAccent {

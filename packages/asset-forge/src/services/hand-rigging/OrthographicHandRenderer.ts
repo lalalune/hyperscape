@@ -207,7 +207,7 @@ export class OrthographicHandRenderer {
 
     const resolution = options.resolution || this.DEFAULT_RESOLUTION;
     const padding = options.padding || this.DEFAULT_PADDING;
-    const backgroundColor = options.backgroundColor || "#000000";
+    const backgroundColor = options.backgroundColor || "#0B0B0D";
 
     // Update renderer size
     this.renderer.setSize(resolution, resolution);

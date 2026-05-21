@@ -2006,7 +2006,7 @@ export class ShellExtractionService {
 
   /**
    * Export a shell as a standalone GLB file.
-   * @param baseColor Optional hex color to pre-paint the shell (e.g. "#cd7f32" for bronze).
+   * @param baseColor Optional hex color to pre-paint the shell (e.g. "#D4AF37" for bronze).
    *   Pre-painting with the target color dramatically improves Meshy retexture accuracy
    *   because the AI sees "bronze metallic object" instead of "grey body shape".
    * @param baseMetalness Metalness for the export material (default 0.85 when color is set).
@@ -2022,7 +2022,7 @@ export class ShellExtractionService {
     const exporter = new GLTFExporter();
 
     const material = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(baseColor || "#888888"),
+      color: new THREE.Color(baseColor || "#7A7A82"),
       roughness: baseColor ? 0.35 : 0.7,
       metalness: baseMetalness ?? (baseColor ? 0.85 : 0.1),
     });

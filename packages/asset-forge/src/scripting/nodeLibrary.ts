@@ -46,13 +46,13 @@ export interface NodeTypeDefinition {
 // ============== CATEGORY COLORS ==============
 
 const CATEGORY_COLORS = {
-  trigger: "#10b981", // emerald / green
-  condition: "#f59e0b", // amber / yellow
-  action: "#3b82f6", // blue
-  flow: "#8b5cf6", // purple
+  trigger: "#28D47A", // emerald / green
+  condition: "#FF7A00", // amber / yellow
+  action: "#2D8CFF", // blue
+  flow: "#6D3AFF", // purple
   math: "#ec4899", // pink
   variable: "#14b8a6", // teal
-  data: "#f97316", // orange
+  data: "#FF7A00", // orange
 } as const;
 
 // ============== HELPERS ==============
@@ -2510,7 +2510,7 @@ const ACTION_NODES: NodeTypeDefinition[] = [
         label: "Color",
         type: "color",
         section: "Config",
-        default: "#ffffff",
+        default: "#F5F5F5",
       },
     ],
   },
@@ -4297,5 +4297,5 @@ export function getAllCategories(): string[] {
 
 /** Get the color assigned to a category. */
 export function getCategoryColor(category: string): string {
-  return CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] ?? "#6b7280";
+  return CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] ?? "#7A7A82";
 }

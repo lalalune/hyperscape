@@ -81,7 +81,7 @@ export const BasicDemo = forwardRef<BasicDemoRef, BasicDemoProps>(
           <DreiText
             position={[0, 2, 0]}
             fontSize={0.3}
-            color="#ffffff"
+            color="#F5F5F5"
             anchorX="center"
             anchorY="middle"
           >
@@ -113,7 +113,7 @@ export const BasicDemo = forwardRef<BasicDemoRef, BasicDemoProps>(
           <DreiText
             position={[0, 2, 0]}
             fontSize={0.3}
-            color="#ffffff"
+            color="#F5F5F5"
             anchorX="center"
             anchorY="middle"
           >
