@@ -17,20 +17,39 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   className = "",
 }) => {
   return (
-    <div className={`text-center p-8 ${className}`}>
-      <div className="relative">
-        <div className="absolute inset-0 bg-primary opacity-20 blur-3xl " />
+    <div className={`relative text-center p-12 overflow-hidden ${className}`}>
+      {/* Atmospheric backdrop — volumetric Graphite radial fade,
+         faint Gold horizon. Brand: distant rendered atmospheres. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, rgba(28,30,34,0.6) 0%, transparent 70%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-1/2 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, rgba(212,175,55,0.08), transparent)",
+        }}
+      />
+
+      <div className="relative z-10">
         <Icon
           size={iconSize}
-          className="text-text-muted mb-6 mx-auto relative z-10 animate-float"
+          className="text-text-tertiary mb-6 mx-auto animate-float"
+          strokeWidth={1.25}
         />
+        <h3 className="font-display text-2xl font-medium text-text-primary mb-3 tracking-tight">
+          {title}
+        </h3>
+        <p className="text-text-tertiary text-base max-w-md mx-auto leading-relaxed">
+          {description}
+        </p>
       </div>
-      <h3 className="font-display text-2xl font-medium text-text-primary mb-2 tracking-tight">
-        {title}
-      </h3>
-      <p className="text-text-tertiary text-lg max-w-md mx-auto">
-        {description}
-      </p>
     </div>
   );
 };

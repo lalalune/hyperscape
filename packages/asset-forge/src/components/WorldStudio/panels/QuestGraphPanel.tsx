@@ -763,7 +763,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
                     height={NODE_HEIGHT}
                     rx={6}
                     ry={6}
-                    fill="#1e1e2e"
+                    fill="#1C1E22"
                     stroke={
                       isSelected
                         ? "#2D8CFF"
@@ -796,7 +796,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
                   <text
                     x={12}
                     y={22}
-                    fill="#e5e7eb"
+                    fill="#F5F5F5"
                     fontSize={11}
                     fontWeight={500}
                     fontFamily="system-ui, sans-serif"
@@ -817,7 +817,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
                   <text
                     x={26}
                     y={43}
-                    fill="#A8A8B0"
+                    fill="#C8C8D0"
                     fontSize={9}
                     textAnchor="middle"
                     fontFamily="system-ui, sans-serif"
@@ -837,7 +837,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
                   <text
                     x={60}
                     y={43}
-                    fill="#A8A8B0"
+                    fill="#C8C8D0"
                     fontSize={9}
                     textAnchor="middle"
                     fontFamily="system-ui, sans-serif"

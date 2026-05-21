@@ -70,12 +70,51 @@ export function WorldStudioLanding() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-bg-primary relative overflow-hidden">
-      {/* Faint horizon — single architectural element, not a grid */}
+      {/* Atmospheric volumetric depth — radial Graphite gradient suggests
+         a vast architectural space. Brand: distant rendered atmospheres. */}
       <div
-        className="absolute inset-x-0 top-1/2 h-px pointer-events-none"
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "linear-gradient(90deg, transparent, rgba(212,175,55,0.12), transparent)",
+            "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(28,30,34,0.7) 0%, transparent 60%)",
+        }}
+      />
+
+      {/* Architectural monoliths — vertical Graphite silhouettes suggesting
+         distant structures. Two columns flanking the content, asymmetric. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-[18%] w-px"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, rgba(28,30,34,0.9) 40%, rgba(28,30,34,0.9) 60%, transparent 100%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-[22%] w-px"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, rgba(28,30,34,0.7) 35%, rgba(28,30,34,0.7) 65%, transparent 100%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-[8%] w-px"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, rgba(28,30,34,0.5) 45%, rgba(28,30,34,0.5) 55%, transparent 100%)",
+        }}
+      />
+
+      {/* Faint Gold horizon — single architectural element, celestial light */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-1/2 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, rgba(212,175,55,0.18), transparent)",
         }}
       />
 
