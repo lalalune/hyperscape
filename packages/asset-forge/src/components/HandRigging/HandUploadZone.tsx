@@ -55,7 +55,7 @@ export function HandUploadZone() {
 
   return (
     <Card className={cn("overflow-hidden", "animate-slide-in-left")}>
-      <CardHeader className="bg-gradient-to-r from-bg-secondary to-bg-tertiary">
+      <CardHeader className="bg-bg-tertiary">
         <CardTitle className="flex items-center gap-2">
           <Upload className="w-5 h-5 text-primary" />
           Model Upload
@@ -68,7 +68,7 @@ export function HandUploadZone() {
         <div
           className={cn(
             "relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300",
-            "hover:border-primary hover:bg-primary/5 hover:shadow-lg hover:scale-[1.02]",
+            "hover:border-primary hover:bg-primary/5",
             selectedFile
               ? "border-primary bg-primary/5"
               : "border-border-primary",
@@ -88,7 +88,7 @@ export function HandUploadZone() {
           {selectedFile ? (
             <div className="space-y-3">
               <div className="relative">
-                <Box className="w-16 h-16 mx-auto text-primary animate-pulse" />
+                <Box className="w-16 h-16 mx-auto text-primary" />
                 <CheckCircle className="w-6 h-6 text-success absolute -top-1 -right-1" />
               </div>
               <div>
@@ -102,7 +102,7 @@ export function HandUploadZone() {
             </div>
           ) : (
             <div className="space-y-3">
-              <Upload className="w-16 h-16 mx-auto text-text-tertiary animate-pulse" />
+              <Upload className="w-16 h-16 mx-auto text-text-tertiary" />
               <div>
                 <p className="text-sm font-medium text-text-secondary">
                   Drop GLB/GLTF file here

@@ -2586,7 +2586,7 @@ interface TypeStyle {
 
 const DEFAULT_TYPE_STYLE: TypeStyle = {
   Icon: Package,
-  bgGradient: "from-white/[0.04] to-black/30",
+  bgGradient: "from-bg-tertiary to-bg-primary/60",
   fg: "text-text-tertiary/70",
 };
 
@@ -2606,8 +2606,8 @@ function getTypeStyle(
   if (subtype === "tree" || subtype === "plant" || subtype === "vegetation") {
     return {
       Icon: TreePine,
-      bgGradient: "from-emerald-500/15 to-emerald-900/25",
-      fg: "text-emerald-300",
+      bgGradient: "from-bg-tertiary to-bg-primary/60",
+      fg: "text-text-secondary",
     };
   }
   if (
@@ -2618,15 +2618,15 @@ function getTypeStyle(
   ) {
     return {
       Icon: Gem,
-      bgGradient: "from-slate-400/15 to-slate-700/25",
-      fg: "text-slate-200",
+      bgGradient: "from-bg-tertiary to-bg-primary/60",
+      fg: "text-text-secondary",
     };
   }
   if (subtype === "sword" || subtype === "axe" || subtype === "dagger") {
     return {
       Icon: Sword,
-      bgGradient: "from-red-500/15 to-red-900/25",
-      fg: "text-red-300",
+      bgGradient: "from-bg-tertiary to-bg-primary/60",
+      fg: "text-text-secondary",
     };
   }
   if (
@@ -2636,15 +2636,15 @@ function getTypeStyle(
   ) {
     return {
       Icon: Shield,
-      bgGradient: "from-amber-500/15 to-amber-900/25",
-      fg: "text-amber-300",
+      bgGradient: "from-bg-tertiary to-bg-primary/60",
+      fg: "text-text-secondary",
     };
   }
   if (subtype === "humanoid" || subtype === "human") {
     return {
       Icon: User,
-      bgGradient: "from-sky-500/15 to-sky-900/25",
-      fg: "text-sky-300",
+      bgGradient: "from-bg-tertiary to-bg-primary/60",
+      fg: "text-text-secondary",
     };
   }
 
@@ -2653,38 +2653,38 @@ function getTypeStyle(
     case "character":
       return {
         Icon: User,
-        bgGradient: "from-sky-500/15 to-sky-900/25",
-        fg: "text-sky-300",
+        bgGradient: "from-bg-tertiary to-bg-primary/60",
+        fg: "text-text-secondary",
       };
     case "creature":
       return {
         Icon: Ghost,
-        bgGradient: "from-purple-500/15 to-purple-900/25",
-        fg: "text-purple-300",
+        bgGradient: "from-bg-tertiary to-bg-primary/60",
+        fg: "text-text-secondary",
       };
     case "weapon":
       return {
         Icon: Sword,
-        bgGradient: "from-red-500/15 to-red-900/25",
-        fg: "text-red-300",
+        bgGradient: "from-bg-tertiary to-bg-primary/60",
+        fg: "text-text-secondary",
       };
     case "armor":
       return {
         Icon: Shield,
-        bgGradient: "from-amber-500/15 to-amber-900/25",
-        fg: "text-amber-300",
+        bgGradient: "from-bg-tertiary to-bg-primary/60",
+        fg: "text-text-secondary",
       };
     case "tool":
       return {
         Icon: Hammer,
-        bgGradient: "from-slate-400/15 to-slate-700/25",
-        fg: "text-slate-200",
+        bgGradient: "from-bg-tertiary to-bg-primary/60",
+        fg: "text-text-secondary",
       };
     case "vehicle":
       return {
         Icon: Car,
-        bgGradient: "from-yellow-500/15 to-yellow-900/25",
-        fg: "text-yellow-300",
+        bgGradient: "from-bg-tertiary to-bg-primary/60",
+        fg: "text-text-secondary",
       };
     case "prop":
       return DEFAULT_TYPE_STYLE;

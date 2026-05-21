@@ -49,7 +49,7 @@ export function HandProcessingSteps() {
       className={cn("overflow-hidden", "animate-slide-in-left")}
       style={{ animationDelay: "0.2s" }}
     >
-      <CardHeader className="bg-gradient-to-r from-bg-secondary to-bg-tertiary">
+      <CardHeader className="bg-bg-tertiary">
         <CardTitle className="flex items-center gap-2">
           <Layers className="w-5 h-5 text-primary" />
           Processing Pipeline
@@ -63,8 +63,7 @@ export function HandProcessingSteps() {
               key={step.id}
               className={cn(
                 "relative flex items-center gap-4 p-4 rounded-lg transition-all duration-500",
-                step.status === "active" &&
-                  "bg-primary/10 shadow-lg scale-[1.02]",
+                step.status === "active" && "bg-primary/10",
                 step.status === "complete" && "opacity-75",
                 step.status === "error" && "bg-error/10",
                 "animate-fade-in",
@@ -77,8 +76,7 @@ export function HandProcessingSteps() {
                   "relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300",
                   step.status === "pending" &&
                     "bg-bg-tertiary text-text-tertiary",
-                  step.status === "active" &&
-                    "bg-primary text-white shadow-lg animate-pulse",
+                  step.status === "active" && "bg-primary text-white",
                   step.status === "complete" && "bg-success text-white",
                   step.status === "error" && "bg-error text-white",
                 )}
@@ -88,10 +86,7 @@ export function HandProcessingSteps() {
                 ) : step.status === "error" ? (
                   <AlertCircle className="w-5 h-5" />
                 ) : step.status === "active" ? (
-                  <div className="relative">
-                    {step.icon}
-                    <div className="absolute inset-0 rounded-full bg-primary animate-ping opacity-75"></div>
-                  </div>
+                  step.icon
                 ) : (
                   step.icon
                 )}

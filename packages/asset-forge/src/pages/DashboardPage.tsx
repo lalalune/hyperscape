@@ -21,6 +21,7 @@ import {
   BrickWall,
   Landmark,
   ArrowRight,
+  type LucideIcon,
 } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
@@ -32,8 +33,7 @@ interface ToolCard {
   route: string;
   label: string;
   desc: string;
-  icon: React.ElementType;
-  accent?: string;
+  icon: LucideIcon;
 }
 
 const QUICK_ACTIONS: ToolCard[] = [
@@ -42,28 +42,24 @@ const QUICK_ACTIONS: ToolCard[] = [
     label: "Generate",
     desc: "Create 3D models with AI",
     icon: Wand2,
-    accent: "from-violet-500/20 to-purple-500/20 border-violet-500/20",
   },
   {
     route: ROUTES.WORLD_STUDIO,
     label: "World Studio",
     desc: "Build and edit game worlds",
     icon: Map,
-    accent: "from-emerald-500/20 to-teal-500/20 border-emerald-500/20",
   },
   {
     route: ROUTES.ASSETS,
     label: "Assets",
     desc: "Browse and manage all assets",
     icon: Database,
-    accent: "from-blue-500/20 to-cyan-500/20 border-blue-500/20",
   },
   {
     route: ROUTES.MANIFESTS,
     label: "Manifests",
     desc: "Game data and configurations",
     icon: FileJson,
-    accent: "from-amber-500/20 to-orange-500/20 border-amber-500/20",
   },
 ];
 
@@ -177,19 +173,25 @@ function QuickActionCard({ card }: { card: ToolCard }) {
   return (
     <Link
       to={card.route}
-      className={`group relative flex flex-col gap-3 p-5 rounded-xl bg-gradient-to-br ${card.accent} border backdrop-blur-sm hover:scale-[1.02] hover:shadow-lg transition-all duration-200`}
+      className="group relative flex flex-col gap-3 p-5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/40 transition-colors duration-200"
     >
+      {/* Earned Gold edge — appears only on hover */}
+      <div className="absolute left-0 top-4 bottom-4 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+
       <div className="flex items-center justify-between">
-        <card.icon size={22} className="text-text-primary" />
+        <card.icon
+          size={20}
+          className="text-text-secondary group-hover:text-primary transition-colors duration-200"
+          strokeWidth={1.5}
+        />
         <ArrowRight
           size={14}
-          className="text-text-tertiary opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200"
+          className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          strokeWidth={1.5}
         />
       </div>
       <div>
-        <h3 className="text-sm font-semibold text-text-primary">
-          {card.label}
-        </h3>
+        <h3 className="text-sm font-medium text-text-primary">{card.label}</h3>
         <p className="text-xs text-text-tertiary mt-0.5">{card.desc}</p>
       </div>
     </Link>
@@ -199,7 +201,7 @@ function QuickActionCard({ card }: { card: ToolCard }) {
 function ToolGrid({ title, tools }: { title: string; tools: ToolCard[] }) {
   return (
     <div>
-      <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">
+      <h2 className="text-[11px] font-medium text-text-tertiary uppercase tracking-[0.12em] mb-4">
         {title}
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -207,11 +209,12 @@ function ToolGrid({ title, tools }: { title: string; tools: ToolCard[] }) {
           <Link
             key={tool.route}
             to={tool.route}
-            className="group flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-bg-secondary/60 border border-border-primary/50 hover:border-primary/30 hover:bg-bg-secondary transition-all duration-150"
+            className="group flex items-center gap-3 px-3.5 py-3 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/30 transition-colors duration-150"
           >
             <tool.icon
               size={16}
-              className="text-text-tertiary group-hover:text-primary transition-colors flex-shrink-0"
+              className="text-text-tertiary group-hover:text-primary transition-colors duration-150 flex-shrink-0"
+              strokeWidth={1.5}
             />
             <div className="min-w-0">
               <p className="text-sm font-medium text-text-primary truncate">
@@ -237,26 +240,26 @@ export function DashboardPage() {
     "there";
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8">
+    <div className="max-w-5xl mx-auto px-6 py-10">
       {/* Welcome */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary">
+      <div className="mb-10">
+        <h1 className="font-display text-3xl font-medium text-text-primary tracking-tight">
           Welcome back, {displayName}
         </h1>
-        <p className="text-sm text-text-tertiary mt-1">
+        <p className="text-sm text-text-tertiary mt-2">
           What would you like to work on?
         </p>
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-12">
         {QUICK_ACTIONS.map((card) => (
           <QuickActionCard key={card.route} card={card} />
         ))}
       </div>
 
       {/* Tool sections */}
-      <div className="space-y-8">
+      <div className="space-y-10">
         <ToolGrid title="World & Environment" tools={WORLD_TOOLS} />
         <ToolGrid title="Nature & Vegetation" tools={NATURE_TOOLS} />
         <ToolGrid title="Asset Pipeline" tools={PIPELINE_TOOLS} />

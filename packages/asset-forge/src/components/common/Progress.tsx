@@ -28,11 +28,14 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
   ) => {
     const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
 
+    // FORGE brand: single-tone fills. No multi-stop gradients on
+    // progress bars — the brand calls for restrained, infrastructural
+    // surfaces. Each variant maps to its semantic brand color directly.
     const variants = {
-      primary: "bg-gradient-to-r from-primary to-primary-light",
-      success: "bg-gradient-to-r from-success to-success-light",
-      warning: "bg-gradient-to-r from-warning to-warning-light",
-      error: "bg-gradient-to-r from-error to-error-light",
+      primary: "bg-primary",
+      success: "bg-success",
+      warning: "bg-warning",
+      error: "bg-error",
     };
 
     const sizes = {
@@ -64,7 +67,9 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
             className={cn(
               "h-full transition-all duration-300 ease-out",
               variants[variant],
-              animated && "animate-pulse",
+              // Brand prefers heavy/deliberate motion. The `animated`
+              // flag fades opacity instead of the SaaS-y pulse.
+              animated && "opacity-90",
             )}
             style={{ width: `${percentage}%` }}
           />

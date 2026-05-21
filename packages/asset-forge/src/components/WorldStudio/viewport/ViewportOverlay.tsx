@@ -166,13 +166,13 @@ const BIOME_COLORS: Record<string, string> = {
 
 /** Shared chip style — deep frosted glass for passive HUD */
 const CHIP =
-  "inline-flex items-center gap-1.5 bg-[rgba(8,9,14,0.78)] backdrop-blur-xl rounded-[5px] px-2.5 py-1 border border-white/[0.06] shadow-[0_2px_8px_rgba(0,0,0,0.5)]";
+  "inline-flex items-center gap-1.5 bg-[rgba(8,9,14,0.78)] rounded-[5px] px-2.5 py-1 border border-white/[0.06] shadow-[0_2px_8px_rgba(0,0,0,0.5)]";
 
 /** Button — opaque surface for interactive controls */
 const CHIP_BTN_OFF =
   "flex items-center gap-1 px-2 py-1 rounded-[4px] bg-[#141416] text-white/50 hover:text-white/80 hover:bg-[#1e1f28] border border-[#1C1E22] transition-all duration-120";
 const CHIP_BTN_ON =
-  "flex items-center gap-1 px-2 py-1 rounded-[4px] bg-[rgba(99,102,241,0.12)] text-primary border border-primary/40 shadow-[0_0_8px_rgba(99,102,241,0.15)] transition-all duration-120";
+  "flex items-center gap-1 px-2 py-1 rounded-[4px] bg-[rgba(212, 175, 55, 0.12)] text-primary border border-primary/40  transition-all duration-120";
 
 // ---------------------------------------------------------------------------
 // Minimap Popover — draws once per data change, NO animation loop
@@ -320,7 +320,7 @@ function MinimapPopover({
   );
 
   return (
-    <div className="bg-[rgba(10,11,16,0.92)] backdrop-blur-xl border border-[#1C1E22] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-2 mb-1.5">
+    <div className="bg-[rgba(10,11,16,0.92)] border border-[#1C1E22] rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.4)] p-2 mb-1.5">
       <div className="flex items-center justify-between mb-1 px-0.5">
         <span className="text-[9px] text-white/50 uppercase tracking-wider font-medium">
           World Map
@@ -435,7 +435,7 @@ function ControlsTooltip() {
       </button>
 
       {open && (
-        <div className="absolute bottom-full right-0 mb-1.5 bg-[rgba(8,9,14,0.92)] backdrop-blur-xl rounded-lg border border-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-3 w-56 pointer-events-auto">
+        <div className="absolute bottom-full right-0 mb-1.5 bg-[rgba(8,9,14,0.92)] rounded-lg border border-white/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.4)] p-3 w-56 pointer-events-auto">
           <div className="text-[9px] text-white/50 uppercase tracking-wider font-medium mb-1.5">
             Controls
           </div>

@@ -166,15 +166,15 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
 
         {/* Asset Type Toggle - Show avatars and appropriate equipment type */}
         {hideTypeToggle && (
-          <div className="flex gap-2 p-1 bg-bg-tertiary/30 rounded-xl">
+          <div className="flex gap-2 p-1 bg-bg-tertiary rounded-xl">
             <button
               onClick={() => onAssetTypeChange("avatar")}
               className={cn(
                 "flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                 "flex items-center justify-center gap-2",
                 assetType === "avatar"
-                  ? "bg-primary/80 text-white shadow-lg shadow-primary/20"
-                  : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/20",
+                  ? "bg-primary/80 text-white shadow-primary/20"
+                  : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary",
               )}
             >
               <User size={16} />
@@ -188,8 +188,8 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
                 "flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                 "flex items-center justify-center gap-2",
                 assetType === (equipmentSlot === "Head" ? "helmet" : "armor")
-                  ? "bg-primary/80 text-white shadow-lg shadow-primary/20"
-                  : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/20",
+                  ? "bg-primary/80 text-white shadow-primary/20"
+                  : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary",
               )}
             >
               {equipmentSlot === "Head" ? (
@@ -211,7 +211,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {/* Search */}
-        <div className="p-4 sticky top-0 bg-bg-primary bg-opacity-95 z-10 backdrop-blur-sm">
+        <div className="p-4 sticky top-0 bg-bg-primary  z-10">
           <div className="relative">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
@@ -236,7 +236,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
             </div>
           ) : filteredAssets.length === 0 ? (
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-bg-secondary/50 rounded-2xl mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-bg-secondary rounded-2xl mb-4">
                 {assetType === "avatar" ? (
                   <User size={24} className="text-text-tertiary" />
                 ) : (
@@ -265,7 +265,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
                       "w-full p-4 rounded-xl border transition-all duration-200 text-left group",
                       selectedAsset?.id === asset.id
                         ? "bg-primary/20 border-primary shadow-md shadow-primary/20"
-                        : "bg-bg-tertiary/20 border-white/10 hover:border-white/20 hover:bg-bg-tertiary/30",
+                        : "bg-bg-tertiary border-border-primary hover:border-border-secondary hover:bg-bg-tertiary",
                     )}
                   >
                     <div className="flex items-center justify-between">
@@ -281,7 +281,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
                             <Badge
                               variant="secondary"
                               size="sm"
-                              className="capitalize bg-bg-tertiary/50 text-text-secondary border border-white/10"
+                              className="capitalize bg-bg-tertiary text-text-secondary border border-border-primary"
                             >
                               {assetType === "avatar" ? "Character" : "Helmet"}
                             </Badge>
@@ -331,7 +331,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
                               "w-full p-4 rounded-xl border transition-all duration-200 text-left group",
                               selectedAsset?.id === asset.id
                                 ? "bg-primary/20 border-primary shadow-md shadow-primary/20"
-                                : "bg-bg-tertiary/20 border-white/10 hover:border-white/20 hover:bg-bg-tertiary/30",
+                                : "bg-bg-tertiary border-border-primary hover:border-border-secondary hover:bg-bg-tertiary",
                             )}
                           >
                             <div className="flex items-center justify-between">
@@ -347,7 +347,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
                                     <Badge
                                       variant="secondary"
                                       size="sm"
-                                      className="capitalize bg-bg-tertiary/50 text-text-secondary border border-white/10"
+                                      className="capitalize bg-bg-tertiary text-text-secondary border border-border-primary"
                                     >
                                       {asset.type}
                                     </Badge>

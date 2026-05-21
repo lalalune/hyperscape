@@ -295,10 +295,7 @@ export function PropertySection({
       >
         {/* UE5-style left accent bar when expanded */}
         {open && (
-          <div
-            className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary"
-            style={{ boxShadow: "1px 0 6px rgba(99, 102, 241, 0.25)" }}
-          />
+          <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
         )}
         <ChevronDown
           size={9}
@@ -403,7 +400,7 @@ export function DragNumberInput({
           className="w-20 px-1.5 py-0.5 text-xs border border-primary/50 rounded-[3px] font-mono text-text-primary text-right focus:outline-none"
           style={{
             background: "var(--input-bg)",
-            boxShadow: "var(--input-shadow), 0 0 0 1px rgba(99, 102, 241, 0.2)",
+            boxShadow: "var(--input-shadow), 0 0 0 1px rgba(212, 175, 55, 0.2)",
           }}
         />
       ) : (
@@ -422,7 +419,7 @@ export function DragNumberInput({
             style={{
               width: `${pct}%`,
               background:
-                "linear-gradient(90deg, rgba(99, 102, 241, 0.1) 0%, rgba(99, 102, 241, 0.22) 100%)",
+                "linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0%, rgba(212, 175, 55, 0.22) 100%)",
             }}
           />
           {/* Value text */}
@@ -549,7 +546,7 @@ export function SliderInput({
             style={{
               background: "var(--input-bg)",
               boxShadow:
-                "var(--input-shadow), 0 0 0 1px rgba(99, 102, 241, 0.2)",
+                "var(--input-shadow), 0 0 0 1px rgba(212, 175, 55, 0.2)",
             }}
           />
           {unit && (
@@ -564,9 +561,9 @@ export function SliderInput({
           }`}
           style={{
             background: "var(--input-bg)",
-            border: `1px solid ${dragging ? "rgba(99, 102, 241, 0.4)" : "var(--input-border)"}`,
+            border: `1px solid ${dragging ? "rgba(212, 175, 55, 0.4)" : "var(--input-border)"}`,
             boxShadow: dragging
-              ? "var(--input-shadow), 0 0 8px rgba(99, 102, 241, 0.1)"
+              ? "var(--input-shadow), 0 0 8px rgba(212, 175, 55, 0.1)"
               : "var(--input-shadow)",
           }}
           onMouseDown={handleBarMouseDown}
@@ -588,7 +585,7 @@ export function SliderInput({
             style={{
               width: `${pct}%`,
               background:
-                "linear-gradient(90deg, rgba(99, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.28) 100%)",
+                "linear-gradient(90deg, rgba(212, 175, 55, 0.12) 0%, rgba(212, 175, 55, 0.28) 100%)",
             }}
           />
           {/* Value overlay text */}
@@ -676,7 +673,7 @@ export function NumberInput({
             style={{
               background: "var(--input-bg)",
               boxShadow:
-                "var(--input-shadow), 0 0 0 1px rgba(99, 102, 241, 0.2)",
+                "var(--input-shadow), 0 0 0 1px rgba(212, 175, 55, 0.2)",
             }}
           />
         ) : (
@@ -704,7 +701,7 @@ export function NumberInput({
                 style={{
                   width: `${pct}%`,
                   background:
-                    "linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, rgba(99, 102, 241, 0.18) 100%)",
+                    "linear-gradient(90deg, rgba(212, 175, 55, 0.08) 0%, rgba(212, 175, 55, 0.18) 100%)",
                 }}
               />
             )}
@@ -768,7 +765,7 @@ export function Toggle({ label, value, onChange }: ToggleProps) {
       <button
         className={`w-9 h-[18px] rounded-full relative transition-all duration-200 ${
           value
-            ? "bg-primary shadow-[0_0_8px_rgba(99,102,241,0.3)]"
+            ? "bg-primary"
             : "bg-[var(--input-bg)] border border-[var(--input-border)] shadow-[var(--input-shadow)]"
         }`}
         onClick={() => onChange(!value)}

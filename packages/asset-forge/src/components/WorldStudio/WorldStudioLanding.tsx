@@ -3,6 +3,10 @@
  *
  * Gates the entire Asset Forge app behind Privy sign-in.
  * Clicking "Sign In" opens the Privy modal (email, Google, or wallet).
+ *
+ * Design: FORGE brand-compliant. Solid Obsidian backdrop, restrained
+ * architectural surfaces, single earned Gold accent. No grid, no glow,
+ * no gradient halos.
  */
 
 import {
@@ -65,63 +69,57 @@ export function WorldStudioLanding() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-bg-primary via-bg-secondary to-bg-primary relative overflow-hidden">
-      {/* Background grid */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03]">
-        <div
-          className="h-full w-full"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(99,102,241,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.3) 1px, transparent 1px)",
-            backgroundSize: "64px 64px",
-          }}
-        />
-      </div>
-
-      {/* Glow orb */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+    <div className="flex flex-col items-center justify-center min-h-screen bg-bg-primary relative overflow-hidden">
+      {/* Faint horizon — single architectural element, not a grid */}
+      <div
+        className="absolute inset-x-0 top-1/2 h-px pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, rgba(212,175,55,0.12), transparent)",
+        }}
+      />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center px-6 max-w-3xl text-center">
-        {/* Icon */}
-        <div className="relative mb-6">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 border border-primary/20 flex items-center justify-center">
-            <Hammer size={36} className="text-primary" />
-          </div>
-          <div className="absolute -inset-1 rounded-2xl bg-primary/10 blur-xl -z-10" />
+        {/* Icon — solid Graphite, thin Gold border, no halo */}
+        <div className="mb-8 w-20 h-20 rounded-xl bg-bg-tertiary border border-border-primary flex items-center justify-center">
+          <Hammer size={32} className="text-primary" strokeWidth={1.5} />
         </div>
 
         {/* Title */}
-        <h1 className="text-3xl font-bold text-text-primary mb-2 tracking-tight">
+        <h1 className="font-display text-4xl font-medium text-text-primary mb-3 tracking-tight">
           Asset Forge
         </h1>
-        <p className="text-base text-text-tertiary mb-8 max-w-md leading-relaxed">
+        <p className="text-sm text-text-tertiary mb-10 max-w-md leading-relaxed">
           AI-powered 3D asset creation, procedural world building, and game
           content pipeline.
         </p>
 
-        {/* Sign In */}
+        {/* Sign In — restrained, no glow, no shine */}
         <button
-          className="group relative inline-flex items-center gap-2.5 px-8 py-3 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-dark transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5"
+          className="inline-flex items-center gap-2.5 px-7 py-2.5 text-sm font-medium rounded-md bg-primary text-bg-primary hover:bg-primary-dark transition-colors duration-200 border border-primary"
           onClick={auth.login}
         >
-          <LogIn size={16} />
+          <LogIn size={15} strokeWidth={2} />
           Sign In
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
 
         <p className="text-xs text-text-tertiary mt-3">
           Email, Google, or wallet
         </p>
 
-        {/* Features grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-14 w-full max-w-xl">
+        {/* Features grid — low-contrast Graphite panels */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-16 w-full max-w-2xl">
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="flex flex-col items-center gap-2 p-4 rounded-lg bg-bg-secondary/50 border border-border-primary/50"
+              className="flex flex-col items-center gap-2 p-5 rounded-md bg-bg-tertiary border border-border-primary"
             >
-              <f.icon size={18} className="text-primary/70" />
+              <f.icon
+                size={16}
+                className="text-text-tertiary"
+                strokeWidth={1.5}
+              />
               <span className="text-xs font-medium text-text-secondary">
                 {f.title}
               </span>

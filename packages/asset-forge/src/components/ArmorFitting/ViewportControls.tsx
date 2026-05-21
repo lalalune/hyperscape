@@ -19,10 +19,10 @@ export const ViewportControls: React.FC<ViewportControlsProps> = ({
       <button
         onClick={onToggleWireframe}
         className={cn(
-          "p-2 rounded-lg backdrop-blur-sm transition-all",
+          "p-2 rounded-lg transition-all",
           showWireframe
             ? "bg-primary/20 text-primary"
-            : "bg-bg-tertiary/50 text-text-secondary hover:text-text-primary",
+            : "bg-bg-tertiary text-text-secondary hover:text-text-primary",
         )}
         title="Toggle wireframe"
       >
@@ -30,7 +30,7 @@ export const ViewportControls: React.FC<ViewportControlsProps> = ({
       </button>
       <button
         onClick={onResetCamera}
-        className="p-2 rounded-lg bg-bg-tertiary/50 text-text-secondary hover:text-text-primary backdrop-blur-sm transition-all"
+        className="p-2 rounded-lg bg-bg-tertiary text-text-secondary hover:text-text-primary transition-all"
         title="Reset camera"
       >
         <Camera size={18} />

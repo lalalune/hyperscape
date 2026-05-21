@@ -2126,7 +2126,7 @@ export function ViewportContainer() {
           <button
             className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-[4px] border transition-all duration-120 ${
               playerMode
-                ? "bg-[rgba(99,102,241,0.15)] text-primary border-primary/40 shadow-[0_0_8px_rgba(99,102,241,0.15)]"
+                ? "bg-[rgba(212, 175, 55, 0.15)] text-primary border-primary/40 "
                 : "bg-[#141416] text-white/60 hover:text-white/80 border-[#1C1E22] hover:bg-[#1e1f28]"
             }`}
             onClick={handleTogglePlayerMode}
@@ -2144,14 +2144,14 @@ export function ViewportContainer() {
       {/* Player preview / PIE overlay indicator */}
       {playerMode && (
         <div
-          className="absolute top-10 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 backdrop-blur-sm text-white text-xs font-medium rounded-[4px] border shadow-[0_4px_16px_rgba(0,0,0,0.5)]"
+          className="absolute top-10 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 text-white text-xs font-medium rounded-[4px] border shadow-[0_4px_16px_rgba(0,0,0,0.5)]"
           style={{
             backgroundColor: state.pie.active
               ? "rgba(16, 185, 129, 0.85)"
-              : "rgba(99, 102, 241, 0.85)",
+              : "rgba(212, 175, 55, 0.85)",
             borderColor: state.pie.active
               ? "rgba(16, 185, 129, 0.3)"
-              : "rgba(99, 102, 241, 0.3)",
+              : "rgba(212, 175, 55, 0.3)",
           }}
         >
           {state.pie.active

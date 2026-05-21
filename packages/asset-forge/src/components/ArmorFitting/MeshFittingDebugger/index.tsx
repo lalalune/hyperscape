@@ -452,10 +452,10 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm pt-16">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-bg-primary/80 pt-16">
       <div className="relative w-[90vw] h-[85vh] max-w-[1600px] bg-bg-primary rounded-2xl shadow-2xl flex overflow-hidden">
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 h-16 bg-bg-secondary/80 backdrop-blur-sm border-b border-white/10 flex items-center justify-between px-6 z-20">
+        <div className="absolute top-0 left-0 right-0 h-16 bg-bg-secondary border-b border-border-primary flex items-center justify-between px-6 z-20">
           <h2 className="text-xl font-semibold text-text-primary">
             Mesh Fitting Debugger
           </h2>
@@ -468,7 +468,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                 "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
                 viewMode === "sphereCube"
                   ? "bg-primary text-white"
-                  : "bg-bg-tertiary text-text-secondary hover:bg-white/10",
+                  : "bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary",
               )}
             >
               Basic Demo
@@ -479,7 +479,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                 "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
                 viewMode === "avatarArmor"
                   ? "bg-primary text-white"
-                  : "bg-bg-tertiary text-text-secondary hover:bg-white/10",
+                  : "bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary",
               )}
             >
               Avatar/Armor
@@ -490,7 +490,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                 "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
                 viewMode === "helmetFitting"
                   ? "bg-primary text-white"
-                  : "bg-bg-tertiary text-text-secondary hover:bg-white/10",
+                  : "bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary",
               )}
             >
               Helmet Fitting
@@ -499,7 +499,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-200"
+            className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors duration-200"
           >
             <X className="w-5 h-5 text-text-secondary" />
           </button>
@@ -508,7 +508,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         {/* Main Content Area */}
         <div className="flex-1 flex mt-16">
           {/* Left Panel - Asset Selection & Controls */}
-          <div className="w-80 bg-bg-secondary/50 backdrop-blur-sm border-r border-white/10 p-6 overflow-y-auto custom-scrollbar">
+          <div className="w-80 bg-bg-secondary border-r border-border-primary p-6 overflow-y-auto custom-scrollbar">
             <div className="space-y-6">
               {/* Model Selection - Only show for avatar/armor and helmet modes */}
               {(viewMode === "avatarArmor" || viewMode === "helmetFitting") && (
@@ -654,7 +654,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                         "px-2 py-1.5 rounded text-xs font-medium transition-all",
                         currentAnimation === "tpose"
                           ? "bg-primary text-white"
-                          : "bg-bg-tertiary text-text-secondary hover:bg-white/10",
+                          : "bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary",
                       )}
                     >
                       T-Pose
@@ -665,7 +665,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                         "px-2 py-1.5 rounded text-xs font-medium transition-all",
                         currentAnimation === "walking"
                           ? "bg-primary text-white"
-                          : "bg-bg-tertiary text-text-secondary hover:bg-white/10",
+                          : "bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary",
                       )}
                     >
                       Walk
@@ -676,7 +676,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                         "px-2 py-1.5 rounded text-xs font-medium transition-all",
                         currentAnimation === "running"
                           ? "bg-primary text-white"
-                          : "bg-bg-tertiary text-text-secondary hover:bg-white/10",
+                          : "bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary",
                       )}
                     >
                       Run
@@ -690,8 +690,8 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                       currentAnimation === "tpose"
                         ? "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
                         : isAnimationPlaying
-                          ? "bg-orange-600 text-white hover:bg-orange-700"
-                          : "bg-green-600 text-white hover:bg-green-700",
+                          ? "bg-warning text-white hover:bg-orange-700"
+                          : "bg-success text-white hover:bg-green-700",
                     )}
                   >
                     {isAnimationPlaying ? (
@@ -981,7 +981,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
 
                   {/* Debug Visualization Subsection - Only for avatarArmor mode */}
                   {viewMode === "avatarArmor" && (
-                    <div className="space-y-2 border-t border-white/10 pt-4 mt-4">
+                    <div className="space-y-2 border-t border-border-primary pt-4 mt-4">
                       <h4 className="text-sm font-semibold text-primary">
                         Debug Visualization
                       </h4>
@@ -1062,7 +1062,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                           </div>
 
                           {/* Color Legend */}
-                          <div className="mt-3 p-2 bg-bg-secondary/50 rounded">
+                          <div className="mt-3 p-2 bg-bg-secondary rounded">
                             <p className="text-xs font-medium text-text-secondary mb-1">
                               Color Legend
                             </p>
@@ -1273,7 +1273,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                       />
                     </div>
 
-                    <div className="pt-2 space-y-2 border-t border-white/10 mt-4">
+                    <div className="pt-2 space-y-2 border-t border-border-primary mt-4">
                       <Checkbox
                         checked={showWireframe}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -1337,7 +1337,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
 
             {/* Wireframe Indicator */}
             {showWireframe && (
-              <div className="absolute top-4 left-4 bg-bg-primary/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/10 flex items-center gap-2">
+              <div className="absolute top-4 left-4 bg-bg-primary rounded-lg px-3 py-1.5 border border-border-primary flex items-center gap-2">
                 <Grid3x3 className="w-4 h-4 text-primary" />
                 <span className="text-xs text-text-secondary">Wireframe</span>
               </div>
@@ -1354,7 +1354,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                     disabled={isProcessing}
                     className={cn(
                       "px-5 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2.5",
-                      "bg-primary text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
+                      "bg-primary text-white",
                       isProcessing && "opacity-50 cursor-not-allowed",
                     )}
                   >
@@ -1366,7 +1366,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                     disabled={isProcessing}
                     className={cn(
                       "px-5 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2.5",
-                      "bg-secondary text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
+                      "bg-secondary text-white",
                       isProcessing && "opacity-50 cursor-not-allowed",
                     )}
                   >
@@ -1384,7 +1384,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                       }
                       className={cn(
                         "px-5 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2.5",
-                        "bg-primary text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
+                        "bg-primary text-white",
                         (isProcessing || !selectedAvatar || !selectedArmor) &&
                           "opacity-50 cursor-not-allowed",
                       )}
@@ -1401,7 +1401,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                             disabled={isProcessing}
                             className={cn(
                               "px-5 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2.5",
-                              "bg-green-600 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
+                              "bg-success text-white",
                               isProcessing && "opacity-50 cursor-not-allowed",
                             )}
                           >
@@ -1412,7 +1412,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                             onClick={handleFullReset}
                             className={cn(
                               "px-4 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2",
-                              "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary border border-white/10",
+                              "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary border border-border-primary",
                             )}
                           >
                             <RotateCcw className="w-4 h-4" />
@@ -1429,7 +1429,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                               }
                               className={cn(
                                 "px-5 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2.5",
-                                "bg-blue-600 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
+                                "bg-accent-aether text-white",
                               )}
                             >
                               <Download className="w-4 h-4" />
@@ -1443,7 +1443,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                             </button>
 
                             {showExportDropdown && (
-                              <div className="absolute bottom-full mb-2 left-0 right-0 min-w-[250px] bg-bg-primary rounded-lg shadow-xl border border-white/10 overflow-hidden">
+                              <div className="absolute bottom-full mb-2 left-0 right-0 min-w-[250px] bg-bg-primary rounded-lg border border-border-primary overflow-hidden">
                                 <div className="p-2 max-h-[400px] overflow-y-auto custom-scrollbar">
                                   <button
                                     onClick={() =>
@@ -1498,7 +1498,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
 
                                   {showDebugOptions && (
                                     <>
-                                      <div className="h-px bg-white/10 my-2" />
+                                      <div className="h-px bg-border-primary my-2" />
 
                                       <button
                                         onClick={() =>
@@ -1549,7 +1549,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                               className={cn(
                                 "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2",
                                 "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary",
-                                "border border-white/10",
+                                "border border-border-primary",
                               )}
                             >
                               <Settings className="w-4 h-4" />
@@ -1566,7 +1566,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                             </button>
 
                             {showDebugOptions && (
-                              <div className="absolute bottom-full mb-2 right-0 w-64 bg-bg-primary rounded-lg shadow-xl border border-white/10 overflow-hidden">
+                              <div className="absolute bottom-full mb-2 right-0 w-64 bg-bg-primary rounded-lg border border-border-primary overflow-hidden">
                                 <div className="p-3 space-y-2">
                                   <button
                                     onClick={async () => {
@@ -1643,7 +1643,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                     disabled={isProcessing}
                     className={cn(
                       "px-5 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2.5",
-                      "bg-primary text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
+                      "bg-primary text-white",
                       isProcessing && "opacity-50 cursor-not-allowed",
                     )}
                   >
@@ -1663,8 +1663,8 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                         className={cn(
                           "px-5 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2.5",
                           isHelmetAttached
-                            ? "bg-orange-600 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
-                            : "bg-green-600 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
+                            ? "bg-warning text-white"
+                            : "bg-success text-white",
                           (isProcessing || !helmetMeshRef.current) &&
                             "opacity-50 cursor-not-allowed",
                         )}
@@ -1678,7 +1678,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                       </button>
 
                       {isHelmetAttached && (
-                        <div className="px-4 py-2 bg-green-600/20 border border-green-600/30 rounded-lg text-green-400 text-sm font-medium flex items-center gap-2">
+                        <div className="px-4 py-2 bg-success/20 border border-green-600/30 rounded-lg text-green-400 text-sm font-medium flex items-center gap-2">
                           <Link className="w-4 h-4" />
                           <span>Helmet Attached</span>
                         </div>
@@ -1694,9 +1694,9 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                 disabled={isProcessing}
                 className={cn(
                   "px-5 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2.5",
-                  "bg-bg-primary/80 backdrop-blur-sm border border-white/10 text-text-primary",
-                  "hover:bg-bg-secondary hover:border-white/20 hover:scale-105",
-                  "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
+                  "bg-bg-primary border border-border-primary text-text-primary",
+                  "hover:bg-bg-secondary hover:border-border-secondary",
+                  "disabled:opacity-50 disabled:cursor-not-allowed",
                 )}
               >
                 <RotateCcw className="w-4 h-4" />

@@ -13,7 +13,7 @@ export const FittingProgress: React.FC<FittingProgressProps> = ({
 }) => {
   return (
     <div className="absolute bottom-4 left-4 right-4">
-      <Card className="bg-bg-tertiary/80 backdrop-blur-md border border-white/10">
+      <Card className="bg-bg-tertiary border border-border-primary">
         <CardContent className="py-3">
           <div className="flex items-center gap-3">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
