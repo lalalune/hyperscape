@@ -18,11 +18,12 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { getPluginModules } from "../pluginBoot";
+import { getPluginModules, resolvePluginModules } from "../pluginBoot";
 import { manifest as combatManifest } from "@hyperforge/combat";
 import { manifest as skillsManifest } from "@hyperforge/skills";
 import { manifest as hyperscapeManifest } from "@hyperforge/hyperscape";
 import { manifest as shooterDemoManifest } from "@hyperforge/plugin-shooter-demo";
+import { manifest as arcticSurvivalManifest } from "@hyperforge/plugin-arctic-survival";
 
 describe("pluginBoot.getPluginModules — second-game smoke (H2)", () => {
   it("blank → empty plugin set", () => {
@@ -67,5 +68,66 @@ describe("pluginBoot.getPluginModules — second-game smoke (H2)", () => {
         expect(m.factory).toBeTypeOf("function");
       }
     }
+  });
+});
+
+describe("resolvePluginModules — arctic-survival (Phase 5.1 third-plugin scaffold)", () => {
+  it("arctic-survival → combat + arctic-survival, NO hyperscape, NO skills, NO shooter", () => {
+    const modules = resolvePluginModules([arcticSurvivalManifest.id]);
+    const ids = modules.map((m) => m.manifest.id).sort();
+    expect(ids).toContain(combatManifest.id);
+    expect(ids).toContain(arcticSurvivalManifest.id);
+    expect(ids).not.toContain(hyperscapeManifest.id);
+    expect(ids).not.toContain(skillsManifest.id);
+    expect(ids).not.toContain(shooterDemoManifest.id);
+  });
+
+  it("resolves arctic-survival via its npm name alias", () => {
+    const modules = resolvePluginModules([
+      "@hyperforge/plugin-arctic-survival",
+    ]);
+    const ids = modules.map((m) => m.manifest.id);
+    expect(ids).toContain(arcticSurvivalManifest.id);
+  });
+
+  it("combat loads BEFORE arctic-survival (transitive dependency order)", () => {
+    const modules = resolvePluginModules([arcticSurvivalManifest.id]);
+    const ids = modules.map((m) => m.manifest.id);
+    const combatIdx = ids.indexOf(combatManifest.id);
+    const arcticIdx = ids.indexOf(arcticSurvivalManifest.id);
+    expect(combatIdx).toBeGreaterThanOrEqual(0);
+    expect(arcticIdx).toBeGreaterThan(combatIdx);
+  });
+
+  it("composes with shooter-demo when both ids are requested simultaneously", () => {
+    // Critical proof: a future project that wants to ship BOTH
+    // gameplay flavors (e.g. arctic-themed shooter) can declare
+    // both and the resolver returns a clean union — combat,
+    // shooter-demo, arctic-survival — no duplicates, no leaks.
+    const modules = resolvePluginModules([
+      shooterDemoManifest.id,
+      arcticSurvivalManifest.id,
+    ]);
+    const ids = modules.map((m) => m.manifest.id);
+    expect(ids).toContain(combatManifest.id);
+    expect(ids).toContain(shooterDemoManifest.id);
+    expect(ids).toContain(arcticSurvivalManifest.id);
+    // No duplicates (combat is a transitive dep of BOTH and
+    // must appear exactly once).
+    const uniqueIds = new Set(ids);
+    expect(uniqueIds.size).toBe(ids.length);
+    // And no Hyperia leak.
+    expect(ids).not.toContain(hyperscapeManifest.id);
+    expect(ids).not.toContain(skillsManifest.id);
+  });
+
+  it("arctic-survival is bootable via the static plugin map (returns manifest + factory)", () => {
+    const modules = resolvePluginModules([arcticSurvivalManifest.id]);
+    const arctic = modules.find(
+      (m) => m.manifest.id === arcticSurvivalManifest.id,
+    );
+    expect(arctic).toBeDefined();
+    expect(arctic!.manifest.id).toBe(arcticSurvivalManifest.id);
+    expect(arctic!.factory).toBeTypeOf("function");
   });
 });

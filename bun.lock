@@ -136,6 +136,7 @@
         "@hyperforge/hyperscape": "workspace:*",
         "@hyperforge/impostor": "workspace:*",
         "@hyperforge/manifest-schema": "workspace:*",
+        "@hyperforge/plugin-arctic-survival": "workspace:*",
         "@hyperforge/plugin-shooter-demo": "workspace:*",
         "@hyperforge/procgen": "workspace:*",
         "@hyperforge/shared": "workspace:*",

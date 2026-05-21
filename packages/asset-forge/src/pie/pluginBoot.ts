@@ -52,6 +52,10 @@ import {
   manifest as shooterDemoManifest,
   shooterDemoPluginFactory,
 } from "@hyperforge/plugin-shooter-demo";
+import {
+  manifest as arcticSurvivalManifest,
+  arcticSurvivalPluginFactory,
+} from "@hyperforge/plugin-arctic-survival";
 
 /**
  * R2.P2 of `PLAN_HYPERIA_DECOUPLING.md`. Static plugin map keyed
@@ -99,6 +103,13 @@ const STATIC_PLUGIN_MAP: ReadonlyMap<string, () => LoadablePlugin> = new Map<
       factory: shooterDemoPluginFactory(),
     }),
   ],
+  [
+    arcticSurvivalManifest.id,
+    () => ({
+      manifest: arcticSurvivalManifest,
+      factory: arcticSurvivalPluginFactory(),
+    }),
+  ],
 ]);
 
 /**
@@ -115,6 +126,7 @@ const NPM_TO_MANIFEST_ID: ReadonlyMap<string, string> = new Map([
   ["@hyperforge/skills", skillsManifest.id],
   ["@hyperforge/hyperscape", hyperscapeManifest.id],
   ["@hyperforge/plugin-shooter-demo", shooterDemoManifest.id],
+  ["@hyperforge/plugin-arctic-survival", arcticSurvivalManifest.id],
 ]);
 
 /** Hyperia plugin auto-pulls combat + skills as transitive deps. */
@@ -128,6 +140,12 @@ const HYPERSCAPE_TRANSITIVE_PLUGINS: ReadonlyArray<string> = [
 const SHOOTER_TRANSITIVE_PLUGINS: ReadonlyArray<string> = [
   combatManifest.id,
   shooterDemoManifest.id,
+];
+
+/** Arctic-survival auto-pulls combat. */
+const ARCTIC_SURVIVAL_TRANSITIVE_PLUGINS: ReadonlyArray<string> = [
+  combatManifest.id,
+  arcticSurvivalManifest.id,
 ];
 
 function expandTransitivePlugins(ids: ReadonlyArray<string>): string[] {
@@ -144,6 +162,8 @@ function expandTransitivePlugins(ids: ReadonlyArray<string>): string[] {
       for (const dep of HYPERSCAPE_TRANSITIVE_PLUGINS) push(dep);
     } else if (manifestId === shooterDemoManifest.id) {
       for (const dep of SHOOTER_TRANSITIVE_PLUGINS) push(dep);
+    } else if (manifestId === arcticSurvivalManifest.id) {
+      for (const dep of ARCTIC_SURVIVAL_TRANSITIVE_PLUGINS) push(dep);
     } else {
       push(manifestId);
     }
