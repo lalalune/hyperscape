@@ -31,16 +31,24 @@ import type { BiomeDefinition } from "@hyperforge/procgen/terrain";
 import type {
   BiomeContribution,
   TerrainHeightmapPreset,
+  TerrainNoiseFunction,
+  TerrainShaderRecipe,
   VegetationSpecies,
   VegetationDensityRule,
+  WaterAnimationProfile,
+  WaterShaderRecipe,
 } from "@hyperforge/manifest-schema";
 
 import {
   _clearAll,
   getActiveBiomeDefinitions,
   getActiveTerrainHeightmapPresets,
+  getActiveTerrainNoiseFunctions,
+  getActiveTerrainShaders,
   getActiveVegetationSpecies,
   getActiveVegetationDensityRules,
+  getActiveWaterAnimations,
+  getActiveWaterShaders,
   setContentPackContent,
   setPluginBiomes,
   type PluginBiomeContribution,
@@ -183,16 +191,88 @@ const ARCTIC_DENSITY: ReadonlyArray<VegetationDensityRule> = [
   },
 ];
 
+// Renderer-shader fixtures — `recipeId` references a renderer-
+// side factory; `params` is the free-form bag the factory reads.
+const TROPICAL_TERRAIN_SHADER: TerrainShaderRecipe = {
+  id: "tropical-terrain",
+  name: "Tropical terrain",
+  description: "Sandy-beach + jungle-canopy splatmap blend.",
+  recipeId: "splatmap-v1",
+  params: { baseTint: 0xf2e8c9, jungleTint: 0x2f6f3f },
+};
+
+const ARCTIC_TERRAIN_SHADER: TerrainShaderRecipe = {
+  id: "arctic-terrain",
+  name: "Arctic terrain",
+  description: "Snow + glacier splatmap blend.",
+  recipeId: "splatmap-v1",
+  params: { baseTint: 0xe8e8f0, glacierTint: 0xd0e8f5 },
+};
+
+const TROPICAL_NOISE: TerrainNoiseFunction = {
+  id: "tropical-fbm",
+  name: "Tropical fbm",
+  description: "Low-octave fbm for atoll silhouette.",
+  functionId: "fbm-v1",
+  params: { octaves: 4, lacunarity: 2.0 },
+};
+
+const ARCTIC_NOISE: TerrainNoiseFunction = {
+  id: "arctic-ridged",
+  name: "Arctic ridged",
+  description: "Ridged multifractal for glacier peaks.",
+  functionId: "ridged-v1",
+  params: { octaves: 6, sharpness: 1.4 },
+};
+
+const TROPICAL_WATER_SHADER: WaterShaderRecipe = {
+  id: "tropical-lagoon",
+  name: "Tropical lagoon",
+  description: "Crystal-clear shallow lagoon water.",
+  recipeId: "gerstner-v1",
+  params: { tint: 0x4ec5dd, fresnelPower: 5 },
+};
+
+const ARCTIC_WATER_SHADER: WaterShaderRecipe = {
+  id: "arctic-frozen",
+  name: "Arctic frozen",
+  description: "Frozen surface with ice cracks.",
+  recipeId: "ice-v1",
+  params: { tint: 0xc8e0f0, crackScale: 0.8 },
+};
+
+const TROPICAL_WATER_ANIM: WaterAnimationProfile = {
+  id: "tropical-calm",
+  name: "Tropical calm",
+  description: "Low-amplitude lagoon ripples.",
+  params: { amplitude: 0.05, frequency: 0.4 },
+};
+
+const ARCTIC_WATER_ANIM: WaterAnimationProfile = {
+  id: "arctic-still",
+  name: "Arctic still",
+  description: "Frozen — no animation.",
+  params: { amplitude: 0, frequency: 0 },
+};
+
 const TROPICAL_PACK: ContentPackManifestSlice = {
   biomes: TROPICAL_BIOMES,
+  terrainShaders: [TROPICAL_TERRAIN_SHADER],
   terrainHeightmapPresets: [TROPICAL_HEIGHTMAP],
+  terrainNoiseFunctions: [TROPICAL_NOISE],
+  waterShaders: [TROPICAL_WATER_SHADER],
+  waterAnimations: [TROPICAL_WATER_ANIM],
   vegetationSpecies: TROPICAL_SPECIES,
   vegetationDensityRules: TROPICAL_DENSITY,
 };
 
 const ARCTIC_PACK: ContentPackManifestSlice = {
   biomes: ARCTIC_BIOMES,
+  terrainShaders: [ARCTIC_TERRAIN_SHADER],
   terrainHeightmapPresets: [ARCTIC_HEIGHTMAP],
+  terrainNoiseFunctions: [ARCTIC_NOISE],
+  waterShaders: [ARCTIC_WATER_SHADER],
+  waterAnimations: [ARCTIC_WATER_ANIM],
   vegetationSpecies: ARCTIC_SPECIES,
   vegetationDensityRules: ARCTIC_DENSITY,
 };
@@ -290,6 +370,46 @@ describe("Phase 5.4 — tropical + arctic content packs compose", () => {
     const arcticRule = rules.get("snow_plain_trees");
     expect(tropicalRule?.biomeId).toBe("tropical_beach");
     expect(arcticRule?.biomeId).toBe("snow_plain");
+  });
+
+  it("terrain shaders from both packs reach the renderer-side registry", () => {
+    setContentPackContent(
+      mergeContentPackManifests([TROPICAL_PACK, ARCTIC_PACK]),
+    );
+    const shaders = getActiveTerrainShaders();
+    expect(shaders.size).toBe(2);
+    expect(shaders.get("tropical-terrain")?.recipeId).toBe("splatmap-v1");
+    expect(shaders.get("arctic-terrain")?.recipeId).toBe("splatmap-v1");
+  });
+
+  it("terrain noise functions from both packs are reachable", () => {
+    setContentPackContent(
+      mergeContentPackManifests([TROPICAL_PACK, ARCTIC_PACK]),
+    );
+    const noise = getActiveTerrainNoiseFunctions();
+    expect(noise.size).toBe(2);
+    expect(noise.get("tropical-fbm")?.functionId).toBe("fbm-v1");
+    expect(noise.get("arctic-ridged")?.functionId).toBe("ridged-v1");
+  });
+
+  it("water shaders from both packs are reachable", () => {
+    setContentPackContent(
+      mergeContentPackManifests([TROPICAL_PACK, ARCTIC_PACK]),
+    );
+    const water = getActiveWaterShaders();
+    expect(water.size).toBe(2);
+    expect(water.get("tropical-lagoon")?.recipeId).toBe("gerstner-v1");
+    expect(water.get("arctic-frozen")?.recipeId).toBe("ice-v1");
+  });
+
+  it("water animation profiles from both packs are reachable", () => {
+    setContentPackContent(
+      mergeContentPackManifests([TROPICAL_PACK, ARCTIC_PACK]),
+    );
+    const anims = getActiveWaterAnimations();
+    expect(anims.size).toBe(2);
+    expect(anims.has("tropical-calm")).toBe(true);
+    expect(anims.has("arctic-still")).toBe(true);
   });
 });
 
