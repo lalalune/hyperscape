@@ -153,6 +153,48 @@ describe("@hyperforge/plugin-shooter-demo — declared contributions", () => {
     const ids = (parsed.contributions.biomes ?? []).map((b) => b.id);
     expect(ids).toEqual(["arena", "wasteland", "fortifications"]);
   });
+
+  it("declares paletteCategories for the studio's ContentBrowser grouping", () => {
+    // The studio's eventual ContentBrowser carving (Phase 3.1
+    // editor consumers) reads paletteCategoryContributions to
+    // group entityTypes by section heading. shooter-demo's
+    // entityTypes split naturally into combatants + pickups.
+    const parsed = PluginManifestSchema.parse(shooterManifest);
+    expect(parsed.contributions.paletteCategories).toContain(
+      "shooter-combatants",
+    );
+    expect(parsed.contributions.paletteCategories).toContain("shooter-pickups");
+  });
+
+  it("declares toolbarTools the studio MainToolbar can surface", () => {
+    // toolbarToolContributions back the studio's MainToolbar
+    // plugin-tool slot. shooter-demo declares its
+    // deathmatch-setup tool so the framework's authoring UI
+    // can surface arena configuration without the studio
+    // hardcoding the tool id.
+    const parsed = PluginManifestSchema.parse(shooterManifest);
+    expect(parsed.contributions.toolbarTools).toContain(
+      "shooter-deathmatch-setup",
+    );
+  });
+
+  it("every declared contribution kind has a stable namespace prefix", () => {
+    // Drift guard: any future contribution string must follow
+    // the namespace convention so cross-plugin id collisions
+    // are impossible. Commands use the manifest-id prefix
+    // (`com.hyperforge.shooter-demo.commands.*`); the lighter
+    // surfaces use a `shooter-` prefix so they're recognisably
+    // shooter-demo-owned across the framework.
+    const c = shooterManifest.contributions;
+    for (const w of c.widgets)
+      expect(w.startsWith("com.hyperforge.shooter-demo")).toBe(true);
+    for (const cmd of c.commands)
+      expect(cmd.startsWith("com.hyperforge.shooter-demo")).toBe(true);
+    for (const cat of c.paletteCategories)
+      expect(cat.startsWith("shooter-")).toBe(true);
+    for (const tool of c.toolbarTools)
+      expect(tool.startsWith("shooter-")).toBe(true);
+  });
 });
 
 describe("@hyperforge/plugin-shooter-demo — widget contribution", () => {

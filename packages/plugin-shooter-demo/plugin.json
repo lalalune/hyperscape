@@ -26,8 +26,13 @@
       "com.hyperforge.shooter-demo.crosshair"
     ],
     "manifestSchemas": [],
-    "paletteCategories": [],
-    "toolbarTools": [],
+    "paletteCategories": [
+      "shooter-combatants",
+      "shooter-pickups"
+    ],
+    "toolbarTools": [
+      "shooter-deathmatch-setup"
+    ],
     "commands": [
       "com.hyperforge.shooter-demo.commands.shoot"
     ],
