@@ -54,6 +54,10 @@ import {
   manifest as shooterDemoManifest,
   shooterDemoPluginFactory,
 } from "@hyperforge/plugin-shooter-demo";
+import {
+  manifest as arcticSurvivalManifest,
+  arcticSurvivalPluginFactory,
+} from "@hyperforge/plugin-arctic-survival";
 
 /**
  * Per-plugin services live for the lifetime of the server. They get
@@ -181,6 +185,13 @@ const STATIC_PLUGIN_MAP: ReadonlyMap<string, () => LoadablePlugin> = new Map<
       factory: shooterDemoPluginFactory(),
     }),
   ],
+  [
+    arcticSurvivalManifest.id,
+    () => ({
+      manifest: arcticSurvivalManifest,
+      factory: arcticSurvivalPluginFactory(),
+    }),
+  ],
 ]);
 
 /**
@@ -194,6 +205,7 @@ const NPM_TO_MANIFEST_ID: ReadonlyMap<string, string> = new Map([
   ["@hyperforge/skills", skillsManifest.id],
   ["@hyperforge/hyperscape", hyperscapeManifest.id],
   ["@hyperforge/plugin-shooter-demo", shooterDemoManifest.id],
+  ["@hyperforge/plugin-arctic-survival", arcticSurvivalManifest.id],
 ]);
 
 /** Hyperscape pulls combat + skills + itself. */
@@ -210,6 +222,12 @@ const SHOOTER_TRANSITIVE_PLUGINS: ReadonlyArray<string> = [
   shooterDemoManifest.id,
 ];
 
+/** Arctic-survival auto-pulls combat. */
+const ARCTIC_SURVIVAL_TRANSITIVE_PLUGINS: ReadonlyArray<string> = [
+  combatManifest.id,
+  arcticSurvivalManifest.id,
+];
+
 function expandTransitivePlugins(ids: ReadonlyArray<string>): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -224,6 +242,8 @@ function expandTransitivePlugins(ids: ReadonlyArray<string>): string[] {
       for (const dep of HYPERSCAPE_TRANSITIVE_PLUGINS) push(dep);
     } else if (manifestId === shooterDemoManifest.id) {
       for (const dep of SHOOTER_TRANSITIVE_PLUGINS) push(dep);
+    } else if (manifestId === arcticSurvivalManifest.id) {
+      for (const dep of ARCTIC_SURVIVAL_TRANSITIVE_PLUGINS) push(dep);
     } else {
       push(manifestId);
     }

@@ -15,6 +15,7 @@ import { manifest as combatManifest } from "@hyperforge/combat";
 import { manifest as skillsManifest } from "@hyperforge/skills";
 import { manifest as hyperscapeManifest } from "@hyperforge/hyperscape";
 import { manifest as shooterDemoManifest } from "@hyperforge/plugin-shooter-demo";
+import { manifest as arcticSurvivalManifest } from "@hyperforge/plugin-arctic-survival";
 
 describe("resolveServerPluginModules — registry-driven server boot (R3.P11)", () => {
   it("empty input → empty result (blank-canvas server)", () => {
@@ -80,5 +81,52 @@ describe("resolveServerPluginModules — registry-driven server boot (R3.P11)", 
       expect(m.manifest.id).toBeTruthy();
       expect(m.factory).toBeTypeOf("function");
     }
+  });
+
+  // ─── Phase 5.1 — arctic-survival third plugin parity ───
+  // Mirrors the asset-forge PIE resolver tests so the server's
+  // static-map dispatch matches PIE byte-for-byte. Drift fails
+  // here before it ships to prod boot.
+
+  it("arctic-survival npm name → combat + arctic-survival (no hyperscape / skills / shooter)", () => {
+    const ids = resolveServerPluginModules([
+      "@hyperforge/plugin-arctic-survival",
+    ]).map((m) => m.manifest.id);
+    expect(ids).toContain(combatManifest.id);
+    expect(ids).toContain(arcticSurvivalManifest.id);
+    expect(ids).not.toContain(hyperscapeManifest.id);
+    expect(ids).not.toContain(skillsManifest.id);
+    expect(ids).not.toContain(shooterDemoManifest.id);
+  });
+
+  it("arctic-survival manifest id also resolves (com.hyperforge.plugin-arctic-survival)", () => {
+    const ids = resolveServerPluginModules([arcticSurvivalManifest.id]).map(
+      (m) => m.manifest.id,
+    );
+    expect(ids).toContain(arcticSurvivalManifest.id);
+    expect(ids).toContain(combatManifest.id);
+  });
+
+  it("combat loads BEFORE arctic-survival (transitive dependency order)", () => {
+    const ids = resolveServerPluginModules([arcticSurvivalManifest.id]).map(
+      (m) => m.manifest.id,
+    );
+    const combatIdx = ids.indexOf(combatManifest.id);
+    const arcticIdx = ids.indexOf(arcticSurvivalManifest.id);
+    expect(combatIdx).toBeGreaterThanOrEqual(0);
+    expect(arcticIdx).toBeGreaterThan(combatIdx);
+  });
+
+  it("composes shooter-demo + arctic-survival cleanly (single combat, no leaks)", () => {
+    const ids = resolveServerPluginModules([
+      shooterDemoManifest.id,
+      arcticSurvivalManifest.id,
+    ]).map((m) => m.manifest.id);
+    expect(ids).toContain(combatManifest.id);
+    expect(ids).toContain(shooterDemoManifest.id);
+    expect(ids).toContain(arcticSurvivalManifest.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).not.toContain(hyperscapeManifest.id);
+    expect(ids).not.toContain(skillsManifest.id);
   });
 });
