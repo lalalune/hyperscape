@@ -70,6 +70,45 @@ export interface OnboardingPlan {
 }
 
 /**
+ * Empty-state `OnboardingPlan` factory.
+ *
+ * Used as the initial state for fresh dialog sessions + the
+ * fallback when `startOver` resets the conversation. Returns a
+ * fresh object every call (no shared mutable state across
+ * callers).
+ *
+ * Adding a new slot to `OnboardingPlan` requires updating ONE
+ * place — this factory — instead of every inline literal that
+ * had to redeclare the empty shape across the codebase (the
+ * dialog had two, every test file had its own helper).
+ */
+export function createEmptyOnboardingPlan(): OnboardingPlan {
+  return {
+    terrainConfig: null,
+    pluginIds: null,
+    assetPackIds: null,
+    npcs: [],
+    mobSpawns: [],
+    quests: [],
+    assets: [],
+    zones: [],
+    resources: [],
+    stations: [],
+    teleports: [],
+    roads: [],
+    pois: [],
+    dangerSources: [],
+    waterBodies: [],
+    musicZones: [],
+    ambientZones: [],
+    sfxTriggers: [],
+    mines: [],
+    wildernessBoundary: null,
+    uiPack: null,
+  };
+}
+
+/**
  * Debug-mode plan — a fully-populated `OnboardingPlan` that
  * mimics what the agent would produce after a multi-turn
  * conversation. Loading this short-circuits the LLM calls so we

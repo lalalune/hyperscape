@@ -9,50 +9,30 @@
 import { describe, it, expect } from "vitest";
 
 import { buildWorldContentPatch } from "../buildWorldContentPatch";
-import type { OnboardingPlan } from "../onboardingPlan";
-
-function emptyPlan(): OnboardingPlan {
-  return {
-    terrainConfig: null,
-    pluginIds: null,
-    assetPackIds: null,
-    npcs: [],
-    mobSpawns: [],
-    quests: [],
-    assets: [],
-    zones: [],
-    resources: [],
-    stations: [],
-    teleports: [],
-    roads: [],
-    pois: [],
-    dangerSources: [],
-    waterBodies: [],
-    musicZones: [],
-    ambientZones: [],
-    sfxTriggers: [],
-    mines: [],
-    wildernessBoundary: null,
-    uiPack: null,
-  };
-}
+import {
+  createEmptyOnboardingPlan,
+  type OnboardingPlan,
+} from "../onboardingPlan";
 
 describe("buildWorldContentPatch — empty plan", () => {
   it("returns {} on an empty plan", () => {
-    expect(buildWorldContentPatch(emptyPlan())).toEqual({});
+    expect(buildWorldContentPatch(createEmptyOnboardingPlan())).toEqual({});
   });
 });
 
 describe("buildWorldContentPatch — list slots", () => {
   it("copies non-empty npcs into patch.npcs", () => {
-    const plan = { ...emptyPlan(), npcs: [{ id: "shopkeeper" }] };
+    const plan = {
+      ...createEmptyOnboardingPlan(),
+      npcs: [{ id: "shopkeeper" }],
+    };
     const out = buildWorldContentPatch(plan);
     expect(out).toEqual({ npcs: [{ id: "shopkeeper" }] });
   });
 
   it("renames mobSpawns to patch.spawns (engine compat)", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       mobSpawns: [{ id: "spawn1", mobId: "goblin" }],
     };
     const out = buildWorldContentPatch(plan);
@@ -62,7 +42,7 @@ describe("buildWorldContentPatch — list slots", () => {
 
   it("copies every non-empty list slot in one pass", () => {
     const plan: OnboardingPlan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       npcs: [{ id: "a" }],
       mobSpawns: [{ id: "b" }],
       quests: [{ id: "c" }],
@@ -105,7 +85,7 @@ describe("buildWorldContentPatch — list slots", () => {
 describe("buildWorldContentPatch — singleton slots", () => {
   it("includes wildernessBoundary when set", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       wildernessBoundary: { id: "wb", points: [] },
     };
     const out = buildWorldContentPatch(plan);
@@ -113,36 +93,39 @@ describe("buildWorldContentPatch — singleton slots", () => {
   });
 
   it("includes uiPack when set", () => {
-    const plan = { ...emptyPlan(), uiPack: { id: "hud-1" } };
+    const plan = { ...createEmptyOnboardingPlan(), uiPack: { id: "hud-1" } };
     const out = buildWorldContentPatch(plan);
     expect(out.uiPack).toEqual({ id: "hud-1" });
   });
 
   it("omits wildernessBoundary when null", () => {
-    const out = buildWorldContentPatch(emptyPlan());
+    const out = buildWorldContentPatch(createEmptyOnboardingPlan());
     expect("wildernessBoundary" in out).toBe(false);
   });
 
   it("omits uiPack when null/falsy", () => {
-    const out = buildWorldContentPatch(emptyPlan());
+    const out = buildWorldContentPatch(createEmptyOnboardingPlan());
     expect("uiPack" in out).toBe(false);
   });
 });
 
 describe("buildWorldContentPatch — excluded slots", () => {
   it("does NOT include terrainConfig (applied via procgen, not patch)", () => {
-    const plan = { ...emptyPlan(), terrainConfig: { seed: 42 } };
+    const plan = {
+      ...createEmptyOnboardingPlan(),
+      terrainConfig: { seed: 42 },
+    };
     expect("terrainConfig" in buildWorldContentPatch(plan)).toBe(false);
   });
 
   it("does NOT include pluginIds (dedicated endpoint)", () => {
-    const plan = { ...emptyPlan(), pluginIds: ["combat"] };
+    const plan = { ...createEmptyOnboardingPlan(), pluginIds: ["combat"] };
     expect("pluginIds" in buildWorldContentPatch(plan)).toBe(false);
   });
 
   it("does NOT include assetPackIds (dedicated endpoint)", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       assetPackIds: ["@hyperforge/content-pack-tropical"],
     };
     expect("assetPackIds" in buildWorldContentPatch(plan)).toBe(false);
@@ -150,7 +133,7 @@ describe("buildWorldContentPatch — excluded slots", () => {
 
   it("does NOT include assets (baked post-creation)", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       assets: [{ name: "asset1", type: "mob" }],
     };
     expect("assets" in buildWorldContentPatch(plan)).toBe(false);
@@ -159,7 +142,7 @@ describe("buildWorldContentPatch — excluded slots", () => {
 
 describe("buildWorldContentPatch — empty-omission semantics", () => {
   it("empty arrays are omitted entirely (not written as [])", () => {
-    const out = buildWorldContentPatch(emptyPlan());
+    const out = buildWorldContentPatch(createEmptyOnboardingPlan());
     // Explicit `[]` would cause server to clear that slot —
     // empty slot must be ABSENT, not present-but-empty.
     expect("npcs" in out).toBe(false);

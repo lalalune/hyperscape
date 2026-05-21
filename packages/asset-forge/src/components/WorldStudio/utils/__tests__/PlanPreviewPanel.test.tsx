@@ -9,40 +9,17 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
-import type { OnboardingPlan } from "../onboardingPlan";
+import {
+  createEmptyOnboardingPlan,
+  type OnboardingPlan,
+} from "../onboardingPlan";
 import { PlanPreviewPanel } from "../PlanPreviewPanel";
-
-function emptyPlan(): OnboardingPlan {
-  return {
-    terrainConfig: null,
-    pluginIds: null,
-    assetPackIds: null,
-    npcs: [],
-    mobSpawns: [],
-    quests: [],
-    assets: [],
-    zones: [],
-    resources: [],
-    stations: [],
-    teleports: [],
-    roads: [],
-    pois: [],
-    dangerSources: [],
-    waterBodies: [],
-    musicZones: [],
-    ambientZones: [],
-    sfxTriggers: [],
-    mines: [],
-    wildernessBoundary: null,
-    uiPack: null,
-  };
-}
 
 function defaultProps(
   overrides: Partial<React.ComponentProps<typeof PlanPreviewPanel>> = {},
 ) {
   return {
-    plan: emptyPlan(),
+    plan: createEmptyOnboardingPlan(),
     canBuild: false,
     isCreating: false,
     isPending: false,
@@ -67,7 +44,7 @@ describe("PlanPreviewPanel — header counter", () => {
 
   it("counts primary + secondary slots in the badge", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       pluginIds: ["combat"],
       roads: [{ id: "r1" }],
     };
@@ -113,7 +90,7 @@ describe("PlanPreviewPanel — empty slot CTAs", () => {
 describe("PlanPreviewPanel — filled slots", () => {
   it("renders 'NPCs' count badge + per-entry name when npcs are set", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       npcs: [
         { id: "shop", name: "Eldric", type: "shopkeeper" },
         { id: "guard", name: "Garrick", type: "guard" },
@@ -130,7 +107,7 @@ describe("PlanPreviewPanel — filled slots", () => {
   it("clicking remove on an NPC fires onRemoveNpc with the index", () => {
     const onRemoveNpc = vi.fn();
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       npcs: [
         { id: "shop", name: "Eldric" },
         { id: "guard", name: "Garrick" },
@@ -150,7 +127,10 @@ describe("PlanPreviewPanel — filled slots", () => {
     const withAssets = render(
       <PlanPreviewPanel
         {...defaultProps({
-          plan: { ...emptyPlan(), assets: [{ name: "asset_a" }] },
+          plan: {
+            ...createEmptyOnboardingPlan(),
+            assets: [{ name: "asset_a" }],
+          },
         })}
       />,
     );
@@ -167,7 +147,7 @@ describe("PlanPreviewPanel — theme summary", () => {
 
   it("derives short theme name from content-pack-* id", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       assetPackIds: ["@hyperforge/content-pack-tropical-v1"],
     };
     const { container } = render(
@@ -178,7 +158,7 @@ describe("PlanPreviewPanel — theme summary", () => {
 
   it("ignores non-content-pack-* installs for theme detection", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       assetPackIds: ["@hyperforge/asset-pack-hyperia-trees-v1"],
     };
     const { container } = render(
@@ -239,7 +219,7 @@ describe("PlanPreviewPanel — Build CTA", () => {
     const someWithoutCanBuild = render(
       <PlanPreviewPanel
         {...defaultProps({
-          plan: { ...emptyPlan(), pluginIds: ["combat"] },
+          plan: { ...createEmptyOnboardingPlan(), pluginIds: ["combat"] },
           canBuild: false,
         })}
       />,
@@ -259,7 +239,10 @@ describe("PlanPreviewPanel — World Detail collapsible", () => {
   });
 
   it("auto-expands when at least one secondary slot is set", () => {
-    const plan = { ...emptyPlan(), roads: [{ id: "r1", name: "Main Road" }] };
+    const plan = {
+      ...createEmptyOnboardingPlan(),
+      roads: [{ id: "r1", name: "Main Road" }],
+    };
     const { container } = render(
       <PlanPreviewPanel {...defaultProps({ plan })} />,
     );
@@ -269,7 +252,7 @@ describe("PlanPreviewPanel — World Detail collapsible", () => {
 
   it("shows X/14 secondary slot counter", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       roads: [{ id: "r1" }],
       mines: [{ id: "m1" }],
     };

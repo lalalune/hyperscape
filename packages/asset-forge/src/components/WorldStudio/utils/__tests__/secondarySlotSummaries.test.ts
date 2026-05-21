@@ -9,7 +9,10 @@
 
 import { describe, it, expect } from "vitest";
 
-import type { OnboardingPlan } from "../onboardingPlan";
+import {
+  createEmptyOnboardingPlan,
+  type OnboardingPlan,
+} from "../onboardingPlan";
 import {
   collectSecondarySlotEntries,
   extractEntrySummary,
@@ -18,35 +21,9 @@ import {
   secondarySlotSummary,
 } from "../secondarySlotSummaries";
 
-function emptyPlan(): OnboardingPlan {
-  return {
-    terrainConfig: null,
-    pluginIds: null,
-    assetPackIds: null,
-    npcs: [],
-    mobSpawns: [],
-    quests: [],
-    assets: [],
-    zones: [],
-    resources: [],
-    stations: [],
-    teleports: [],
-    roads: [],
-    pois: [],
-    dangerSources: [],
-    waterBodies: [],
-    musicZones: [],
-    ambientZones: [],
-    sfxTriggers: [],
-    mines: [],
-    wildernessBoundary: null,
-    uiPack: null,
-  };
-}
-
 describe("secondarySlotCount", () => {
   it("returns 0 for empty plan across every secondary slot", () => {
-    const p = emptyPlan();
+    const p = createEmptyOnboardingPlan();
     expect(secondarySlotCount(p, "zones")).toBe(0);
     expect(secondarySlotCount(p, "resources")).toBe(0);
     expect(secondarySlotCount(p, "mines")).toBe(0);
@@ -54,13 +31,16 @@ describe("secondarySlotCount", () => {
   });
 
   it("wildernessBoundary counts as 1 when set", () => {
-    const p = { ...emptyPlan(), wildernessBoundary: { points: [] } };
+    const p = {
+      ...createEmptyOnboardingPlan(),
+      wildernessBoundary: { points: [] },
+    };
     expect(secondarySlotCount(p, "wildernessBoundary")).toBe(1);
   });
 
   it("array slots return their length", () => {
     const p = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       roads: [{ id: "r1" }, { id: "r2" }, { id: "r3" }],
     };
     expect(secondarySlotCount(p, "roads")).toBe(3);
@@ -69,17 +49,22 @@ describe("secondarySlotCount", () => {
 
 describe("secondarySlotSummary", () => {
   it("empty slot returns 'Not yet placed'", () => {
-    expect(secondarySlotSummary(emptyPlan(), "roads")).toBe("Not yet placed");
+    expect(secondarySlotSummary(createEmptyOnboardingPlan(), "roads")).toBe(
+      "Not yet placed",
+    );
   });
 
   it("one-entry slot shows just the first entry's name", () => {
-    const p = { ...emptyPlan(), roads: [{ name: "Main Road" }] };
+    const p = {
+      ...createEmptyOnboardingPlan(),
+      roads: [{ name: "Main Road" }],
+    };
     expect(secondarySlotSummary(p, "roads")).toBe("Main Road");
   });
 
   it("multi-entry slot shows count + first label", () => {
     const p = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       roads: [{ name: "Main Road" }, { name: "Side Path" }, { id: "r3" }],
     };
     expect(secondarySlotSummary(p, "roads")).toBe("3 placed · Main Road, …");
@@ -87,7 +72,7 @@ describe("secondarySlotSummary", () => {
 
   it("wildernessBoundary summary shows point count", () => {
     const p = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       wildernessBoundary: {
         id: "wild1",
         points: [
@@ -103,12 +88,12 @@ describe("secondarySlotSummary", () => {
   });
 
   it("falls back to id when name is missing", () => {
-    const p = { ...emptyPlan(), roads: [{ id: "r1" }] };
+    const p = { ...createEmptyOnboardingPlan(), roads: [{ id: "r1" }] };
     expect(secondarySlotSummary(p, "roads")).toBe("r1");
   });
 
   it("falls back to '(unnamed)' when both name + id are missing", () => {
-    const p = { ...emptyPlan(), roads: [{}] };
+    const p = { ...createEmptyOnboardingPlan(), roads: [{}] };
     expect(secondarySlotSummary(p, "roads")).toBe("(unnamed)");
   });
 });
@@ -230,7 +215,7 @@ describe("extractEntrySummary — per-slot detail extraction", () => {
 describe("collectSecondarySlotEntries", () => {
   it("maps an array slot to SlotEntrySummary[]", () => {
     const p = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       roads: [
         { name: "Road A", path: [{}, {}], width: 3 },
         { name: "Road B", path: [{}], width: 5 },
@@ -244,7 +229,7 @@ describe("collectSecondarySlotEntries", () => {
 
   it("wildernessBoundary returns a synthetic single-entry array", () => {
     const p = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       wildernessBoundary: {
         id: "wild1",
         points: [{}, {}, {}],
@@ -260,13 +245,16 @@ describe("collectSecondarySlotEntries", () => {
 
   it("wildernessBoundary returns [] when boundary is null", () => {
     expect(
-      collectSecondarySlotEntries(emptyPlan(), "wildernessBoundary"),
+      collectSecondarySlotEntries(
+        createEmptyOnboardingPlan(),
+        "wildernessBoundary",
+      ),
     ).toEqual([]);
   });
 
   it("returns empty for unknown slot key", () => {
     const out = collectSecondarySlotEntries(
-      emptyPlan(),
+      createEmptyOnboardingPlan(),
       "uiPack" as never, // not a secondary slot
     );
     expect(out).toEqual([]);

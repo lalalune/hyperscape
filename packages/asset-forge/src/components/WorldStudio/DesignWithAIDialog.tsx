@@ -236,7 +236,11 @@ import {
   isSlotSet,
   type PlanSlotKey,
 } from "./utils/planSlots";
-import { buildDebugPlan, type OnboardingPlan } from "./utils/onboardingPlan";
+import {
+  buildDebugPlan,
+  createEmptyOnboardingPlan,
+  type OnboardingPlan,
+} from "./utils/onboardingPlan";
 import {
   collectSecondarySlotEntries,
   getEmptyPrompt,
@@ -377,29 +381,7 @@ export function DesignWithAIDialog({
           wildernessBoundary: restored.plan.wildernessBoundary ?? null,
           uiPack: restored.plan.uiPack ?? null,
         }
-      : {
-          terrainConfig: null,
-          pluginIds: null,
-          assetPackIds: null,
-          npcs: [],
-          mobSpawns: [],
-          quests: [],
-          assets: [],
-          zones: [],
-          resources: [],
-          stations: [],
-          teleports: [],
-          roads: [],
-          pois: [],
-          dangerSources: [],
-          waterBodies: [],
-          musicZones: [],
-          ambientZones: [],
-          sfxTriggers: [],
-          mines: [],
-          wildernessBoundary: null,
-          uiPack: null,
-        },
+      : createEmptyOnboardingPlan(),
   );
   const [rightTab, setRightTab] = useState<"plan" | "blocks">("plan");
   const abortRef = useRef<AbortController | null>(null);
@@ -907,29 +889,7 @@ export function DesignWithAIDialog({
     abortRef.current?.abort();
     abortRef.current = null;
     setMessages([initialGreeting()]);
-    setEffectivePlan({
-      terrainConfig: null,
-      pluginIds: null,
-      assetPackIds: null,
-      npcs: [],
-      mobSpawns: [],
-      quests: [],
-      assets: [],
-      zones: [],
-      resources: [],
-      stations: [],
-      teleports: [],
-      roads: [],
-      pois: [],
-      dangerSources: [],
-      waterBodies: [],
-      musicZones: [],
-      ambientZones: [],
-      sfxTriggers: [],
-      mines: [],
-      wildernessBoundary: null,
-      uiPack: null,
-    });
+    setEffectivePlan(createEmptyOnboardingPlan());
     setInput("");
     setError(null);
     setLastFailedPrompt(null);

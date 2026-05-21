@@ -13,33 +13,10 @@ import {
   extractAssetPackId,
   resolvePlanPackIds,
 } from "../collectAssetPackRefs";
-import type { OnboardingPlan } from "../onboardingPlan";
-
-function emptyPlan(): OnboardingPlan {
-  return {
-    terrainConfig: null,
-    pluginIds: null,
-    assetPackIds: null,
-    npcs: [],
-    mobSpawns: [],
-    quests: [],
-    assets: [],
-    zones: [],
-    resources: [],
-    stations: [],
-    teleports: [],
-    roads: [],
-    pois: [],
-    dangerSources: [],
-    waterBodies: [],
-    musicZones: [],
-    ambientZones: [],
-    sfxTriggers: [],
-    mines: [],
-    wildernessBoundary: null,
-    uiPack: null,
-  };
-}
+import {
+  createEmptyOnboardingPlan,
+  type OnboardingPlan,
+} from "../onboardingPlan";
 
 describe("extractAssetPackId", () => {
   it("returns null when entry has no assetRef field", () => {
@@ -82,12 +59,12 @@ describe("extractAssetPackId", () => {
 
 describe("collectEntityPackRefs", () => {
   it("returns empty array on an empty plan", () => {
-    expect(collectEntityPackRefs(emptyPlan())).toEqual([]);
+    expect(collectEntityPackRefs(createEmptyOnboardingPlan())).toEqual([]);
   });
 
   it("collects refs across all 9 entity-bearing slots", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       npcs: [{ assetRef: "@scope/npcs/shop" }],
       mobSpawns: [{ assetRef: "@scope/mobs/goblin" }],
       resources: [{ assetRef: "@scope/trees/oak" }],
@@ -114,7 +91,7 @@ describe("collectEntityPackRefs", () => {
 
   it("skips entries without an assetRef", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       npcs: [{ assetRef: "@scope/npcs/shop" }, { id: "no-ref" }],
     };
     expect(collectEntityPackRefs(plan)).toEqual(["@scope/npcs"]);
@@ -122,7 +99,7 @@ describe("collectEntityPackRefs", () => {
 
   it("does not include zones / quests / roads (no assetRef expected)", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       zones: [{ id: "z" }],
       quests: [{ id: "q" }],
       roads: [{ id: "r" }],
@@ -133,7 +110,7 @@ describe("collectEntityPackRefs", () => {
 
   it("emits duplicates when multiple entries reference the same pack", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       npcs: [
         { assetRef: "@scope/npcs/shop" },
         { assetRef: "@scope/npcs/guard" },
@@ -145,13 +122,13 @@ describe("collectEntityPackRefs", () => {
 
 describe("resolvePlanPackIds", () => {
   it("returns empty Set on an empty plan with no extras", () => {
-    const out = resolvePlanPackIds(emptyPlan());
+    const out = resolvePlanPackIds(createEmptyOnboardingPlan());
     expect(out.size).toBe(0);
   });
 
   it("includes plan.assetPackIds (explicit installs)", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       assetPackIds: ["@hyperforge/content-pack-tropical-v1"],
     };
     const out = resolvePlanPackIds(plan);
@@ -160,14 +137,14 @@ describe("resolvePlanPackIds", () => {
 
   it("includes entity ref prefixes", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       npcs: [{ assetRef: "@scope/npcs/shop" }],
     };
     expect(resolvePlanPackIds(plan).has("@scope/npcs")).toBe(true);
   });
 
   it("merges in caller-provided extras", () => {
-    const plan = emptyPlan();
+    const plan = createEmptyOnboardingPlan();
     const out = resolvePlanPackIds(plan, [
       "@hyperforge/asset-pack-hyperia-trees-v1",
     ]);
@@ -176,7 +153,7 @@ describe("resolvePlanPackIds", () => {
 
   it("dedups across all three sources", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       assetPackIds: ["@scope/shared"],
       npcs: [{ assetRef: "@scope/shared/npc" }],
     };
@@ -187,7 +164,7 @@ describe("resolvePlanPackIds", () => {
 
   it("returns a Set the caller can union with further", () => {
     const plan = {
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       assetPackIds: ["@scope/a"],
     };
     const out = resolvePlanPackIds(plan);

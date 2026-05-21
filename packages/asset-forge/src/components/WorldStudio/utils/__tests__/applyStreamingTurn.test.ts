@@ -10,37 +10,14 @@
 
 import { describe, it, expect, vi } from "vitest";
 
-import type { OnboardingPlan } from "../onboardingPlan";
+import {
+  createEmptyOnboardingPlan,
+  type OnboardingPlan,
+} from "../onboardingPlan";
 import {
   applyStreamingTurn,
   type StreamTurnEvent,
 } from "../applyStreamingTurn";
-
-function emptyPlan(): OnboardingPlan {
-  return {
-    terrainConfig: null,
-    pluginIds: null,
-    assetPackIds: null,
-    npcs: [],
-    mobSpawns: [],
-    quests: [],
-    assets: [],
-    zones: [],
-    resources: [],
-    stations: [],
-    teleports: [],
-    roads: [],
-    pois: [],
-    dangerSources: [],
-    waterBodies: [],
-    musicZones: [],
-    ambientZones: [],
-    sfxTriggers: [],
-    mines: [],
-    wildernessBoundary: null,
-    uiPack: null,
-  };
-}
 
 /**
  * Mini React-state harness — stand-in for the dialog's
@@ -72,7 +49,7 @@ function turn(partial: Partial<StreamTurnEvent> = {}): StreamTurnEvent {
 describe("applyStreamingTurn — status updates", () => {
   it("surfaces the most-recent tool name as status", () => {
     const status = makeState<string | null>(null);
-    const plan = makeState<OnboardingPlan>(emptyPlan());
+    const plan = makeState<OnboardingPlan>(createEmptyOnboardingPlan());
     applyStreamingTurn(
       turn({
         toolCalls: [
@@ -92,7 +69,7 @@ describe("applyStreamingTurn — status updates", () => {
 
   it("falls back to 'Drafting reply…' when there are no tool calls", () => {
     const status = makeState<string | null>(null);
-    const plan = makeState<OnboardingPlan>(emptyPlan());
+    const plan = makeState<OnboardingPlan>(createEmptyOnboardingPlan());
     applyStreamingTurn(
       turn({ assistantText: "Some prose" }),
       plan.set,
@@ -104,7 +81,7 @@ describe("applyStreamingTurn — status updates", () => {
 
   it("doesn't update status when toolCalls and assistantText are both empty", () => {
     const status = makeState<string | null>(null);
-    const plan = makeState<OnboardingPlan>(emptyPlan());
+    const plan = makeState<OnboardingPlan>(createEmptyOnboardingPlan());
     applyStreamingTurn(turn(), plan.set, status.set, []);
     expect(status.set).not.toHaveBeenCalled();
   });
@@ -118,7 +95,7 @@ describe("applyStreamingTurn — PROPOSE_PLUGIN_SET (registry-driven)", () => {
 
   it("assigns pluginIds via the registry singleton path", () => {
     const status = makeState<string | null>(null);
-    const plan = makeState<OnboardingPlan>(emptyPlan());
+    const plan = makeState<OnboardingPlan>(createEmptyOnboardingPlan());
     applyStreamingTurn(
       turn({
         toolCalls: [
@@ -138,7 +115,7 @@ describe("applyStreamingTurn — PROPOSE_PLUGIN_SET (registry-driven)", () => {
 
   it("skips when data.pluginIds is absent (registry undefined-guard)", () => {
     const status = makeState<string | null>(null);
-    const plan = makeState<OnboardingPlan>(emptyPlan());
+    const plan = makeState<OnboardingPlan>(createEmptyOnboardingPlan());
     applyStreamingTurn(
       turn({
         toolCalls: [
@@ -157,7 +134,7 @@ describe("applyStreamingTurn — PROPOSE_ASSET_PACK_INSTALL", () => {
   it("merges incoming pack ids additively", () => {
     const status = makeState<string | null>(null);
     const plan = makeState<OnboardingPlan>({
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       assetPackIds: ["@hyperforge/asset-pack-a"],
     });
     applyStreamingTurn(
@@ -183,7 +160,7 @@ describe("applyStreamingTurn — PROPOSE_ASSET_PACK_INSTALL", () => {
   it("deduplicates pack ids across the merge", () => {
     const status = makeState<string | null>(null);
     const plan = makeState<OnboardingPlan>({
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       assetPackIds: ["@hyperforge/asset-pack-a"],
     });
     applyStreamingTurn(
@@ -205,7 +182,7 @@ describe("applyStreamingTurn — PROPOSE_ASSET_PACK_INSTALL", () => {
 
   it("starts a fresh array when prior assetPackIds is null", () => {
     const status = makeState<string | null>(null);
-    const plan = makeState<OnboardingPlan>(emptyPlan());
+    const plan = makeState<OnboardingPlan>(createEmptyOnboardingPlan());
     applyStreamingTurn(
       turn({
         toolCalls: [
@@ -228,7 +205,7 @@ describe("applyStreamingTurn — REMOVE_FROM_PROJECT", () => {
   it("removes an NPC by id", () => {
     const status = makeState<string | null>(null);
     const plan = makeState<OnboardingPlan>({
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       npcs: [{ id: "shop" }, { id: "guard" }],
     });
     applyStreamingTurn(
@@ -251,7 +228,7 @@ describe("applyStreamingTurn — REMOVE_FROM_PROJECT", () => {
   it("removes a quest by id", () => {
     const status = makeState<string | null>(null);
     const plan = makeState<OnboardingPlan>({
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       quests: [{ id: "q1" }, { id: "q2" }],
     });
     applyStreamingTurn(
@@ -274,7 +251,7 @@ describe("applyStreamingTurn — REMOVE_FROM_PROJECT", () => {
   it("removes a mob spawn by mobId + position match", () => {
     const status = makeState<string | null>(null);
     const plan = makeState<OnboardingPlan>({
-      ...emptyPlan(),
+      ...createEmptyOnboardingPlan(),
       mobSpawns: [
         { mobId: "goblin", position: { x: 0, y: 0, z: 0 } },
         { mobId: "goblin", position: { x: 10, y: 0, z: 10 } },
@@ -308,7 +285,7 @@ describe("applyStreamingTurn — REMOVE_FROM_PROJECT", () => {
 
   it("leaves plan untouched for unknown removal kinds", () => {
     const status = makeState<string | null>(null);
-    const original = { ...emptyPlan(), npcs: [{ id: "shop" }] };
+    const original = { ...createEmptyOnboardingPlan(), npcs: [{ id: "shop" }] };
     const plan = makeState<OnboardingPlan>(original);
     applyStreamingTurn(
       turn({
@@ -331,7 +308,7 @@ describe("applyStreamingTurn — REMOVE_FROM_PROJECT", () => {
 describe("applyStreamingTurn — PROPOSE_UI_PACK", () => {
   it("sets uiPack to the proposed pack", () => {
     const status = makeState<string | null>(null);
-    const plan = makeState<OnboardingPlan>(emptyPlan());
+    const plan = makeState<OnboardingPlan>(createEmptyOnboardingPlan());
     applyStreamingTurn(
       turn({
         toolCalls: [
@@ -351,7 +328,7 @@ describe("applyStreamingTurn — PROPOSE_UI_PACK", () => {
 
   it("skips when data.pack is undefined", () => {
     const status = makeState<string | null>(null);
-    const plan = makeState<OnboardingPlan>(emptyPlan());
+    const plan = makeState<OnboardingPlan>(createEmptyOnboardingPlan());
     applyStreamingTurn(
       turn({
         toolCalls: [{ name: "PROPOSE_UI_PACK", success: true, data: {} }],
@@ -367,7 +344,7 @@ describe("applyStreamingTurn — PROPOSE_UI_PACK", () => {
 describe("applyStreamingTurn — call gating", () => {
   it("ignores failed tool calls", () => {
     const status = makeState<string | null>(null);
-    const plan = makeState<OnboardingPlan>(emptyPlan());
+    const plan = makeState<OnboardingPlan>(createEmptyOnboardingPlan());
     applyStreamingTurn(
       turn({
         toolCalls: [
@@ -387,7 +364,7 @@ describe("applyStreamingTurn — call gating", () => {
 
   it("ignores tool calls with empty data", () => {
     const status = makeState<string | null>(null);
-    const plan = makeState<OnboardingPlan>(emptyPlan());
+    const plan = makeState<OnboardingPlan>(createEmptyOnboardingPlan());
     applyStreamingTurn(
       turn({
         toolCalls: [{ name: "PROPOSE_PLUGIN_SET", success: true, data: null }],
