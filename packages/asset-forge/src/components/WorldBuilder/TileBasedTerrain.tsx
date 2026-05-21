@@ -80,6 +80,7 @@ import {
 import {
   applySculptStrokesToGeometry,
   applyVegetationPaintStrokes,
+  reapplyTileSculpts,
 } from "../WorldStudio/utils/brushApplication";
 import type {
   WorldCreationConfig,
@@ -959,17 +960,16 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
         pooledGeom, // Reuse pooled geometry if available
       );
 
-      // Re-apply any brush sculpt strokes so they persist across tile unload/reload
-      const sculpts = brushOverlaysRef.current?.terrainSculpts;
-      if (sculpts && sculpts.length > 0) {
-        const halfTileOffset = tileSize / 2;
-        applySculptStrokesToGeometry(
-          geometry,
-          tileX * tileSize + halfTileOffset,
-          tileZ * tileSize + halfTileOffset,
-          sculpts,
-        );
-      }
+      // Re-apply any brush sculpt strokes so they persist across
+      // tile unload/reload — wrapper absorbs the tile-world offset
+      // calc that was previously duplicated below in swapTileResolution.
+      reapplyTileSculpts(
+        geometry,
+        tileX,
+        tileZ,
+        tileSize,
+        brushOverlaysRef.current?.terrainSculpts,
+      );
 
       // One-time diagnostic: check if road influence is being baked into regenerated tiles.
       // Log every 100th tile to track progress without flooding the console.
@@ -1209,17 +1209,14 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
         reuseGeometry,
       );
 
-      // Apply brush strokes
-      const sculpts = brushOverlaysRef.current?.terrainSculpts;
-      if (sculpts && sculpts.length > 0) {
-        const halfTileOffset = tileSize / 2;
-        applySculptStrokesToGeometry(
-          geometry,
-          tile.tileX * tileSize + halfTileOffset,
-          tile.tileZ * tileSize + halfTileOffset,
-          sculpts,
-        );
-      }
+      // Apply brush strokes — wrapper matches the call in generateTile.
+      reapplyTileSculpts(
+        geometry,
+        tile.tileX,
+        tile.tileZ,
+        tileSize,
+        brushOverlaysRef.current?.terrainSculpts,
+      );
 
       // Only swap geometry when a NEW geometry was created (LOD change).
       // For in-place updates, the mesh already references the updated geometry.

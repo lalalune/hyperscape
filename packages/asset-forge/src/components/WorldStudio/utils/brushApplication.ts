@@ -735,3 +735,44 @@ export function applyMaterialPaintStrokesToGeometry(
   mw0Attr.needsUpdate = true;
   mw1Attr.needsUpdate = true;
 }
+
+/**
+ * Re-apply brush sculpt strokes to a freshly-generated tile geometry.
+ *
+ * Convenience wrapper around `applySculptStrokesToGeometry` that
+ * absorbs the two-line tile-world-offset calculation duplicated
+ * across `generateTile` and `swapTileResolution` in
+ * `TileBasedTerrain.tsx`. Both call sites had byte-identical
+ * setup:
+ *
+ *   const sculpts = brushOverlaysRef.current?.terrainSculpts;
+ *   if (sculpts && sculpts.length > 0) {
+ *     const halfTileOffset = tileSize / 2;
+ *     applySculptStrokesToGeometry(
+ *       geometry,
+ *       tileX * tileSize + halfTileOffset,
+ *       tileZ * tileSize + halfTileOffset,
+ *       sculpts,
+ *     );
+ *   }
+ *
+ * After: one call to `reapplyTileSculpts(geometry, tileX, tileZ, tileSize, sculpts)`.
+ * No-op when `strokes` is `undefined` / empty so callers can pass the
+ * ref's `?.terrainSculpts` directly without guarding.
+ */
+export function reapplyTileSculpts(
+  geometry: THREE.BufferGeometry,
+  tileX: number,
+  tileZ: number,
+  tileSize: number,
+  strokes: ReadonlyArray<TerrainSculptStroke> | undefined,
+): boolean {
+  if (!strokes || strokes.length === 0) return false;
+  const halfTileOffset = tileSize / 2;
+  return applySculptStrokesToGeometry(
+    geometry,
+    tileX * tileSize + halfTileOffset,
+    tileZ * tileSize + halfTileOffset,
+    strokes as TerrainSculptStroke[],
+  );
+}
