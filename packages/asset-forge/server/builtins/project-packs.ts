@@ -59,8 +59,37 @@ const HYPERIA_PROJECT_PACK: BuiltinProjectPack = {
   ],
 };
 
+/**
+ * Phase 5.1 of PLAN_AAA_MASTER_AUDIT — the third gameplay
+ * plugin is paired with its themed content pack as a one-click
+ * starter. Forking this project pack creates an arctic-themed
+ * sandbox with the new arctic-survival plugin's frost-blast
+ * ability + TemperatureGauge HUD, plus the arctic content
+ * pack's snow / glacier / frozen-lake biomes and arctic
+ * vegetation. Concrete proof that a non-Hyperia game lives
+ * alongside Hyperia in the same forkable starter catalog.
+ */
+const ARCTIC_SURVIVAL_PROJECT_PACK: BuiltinProjectPack = {
+  manifestId: "@hyperforge/project-pack-arctic-survival-v1",
+  name: "Arctic Survival",
+  description:
+    "Fork a cold-weather survival sandbox in one click. Bundles the Arctic Survival gameplay plugin (frost-blast magic + temperature gauge HUD + heat sources / ice / frozen caches) + the Arctic content pack (snow / glacier / frozen-lake biomes + arctic vegetation species). Open the resulting project and you have a working frozen-tundra exploration world — terrain shaped by the arctic heightmap preset, vegetation scattered per biome, ready to compose with the AI companion.",
+  packVersion: "1.0.0",
+  tags: [
+    "arctic",
+    "survival",
+    "cold-weather",
+    "starter",
+    "fork",
+    "project-pack",
+    "built-in",
+  ],
+  pluginIds: ["@hyperforge/plugin-arctic-survival"],
+  contentPackIds: ["@hyperforge/content-pack-arctic-v1"],
+};
+
 export const BUILTIN_PROJECT_PACKS: ReadonlyArray<BuiltinProjectPack> =
-  Object.freeze([HYPERIA_PROJECT_PACK]);
+  Object.freeze([HYPERIA_PROJECT_PACK, ARCTIC_SURVIVAL_PROJECT_PACK]);
 
 function buildManifest(pack: BuiltinProjectPack): Record<string, unknown> {
   return {

@@ -22,11 +22,16 @@ import { BUILTIN_CONTENT_PACKS } from "../content-packs.js";
 import { BUILTIN_PROJECT_PACKS } from "../project-packs.js";
 
 const HYPERIA_PROJECT_PACK_ID = "@hyperforge/project-pack-hyperia-v1";
+const ARCTIC_SURVIVAL_PROJECT_PACK_ID =
+  "@hyperforge/project-pack-arctic-survival-v1";
 
 describe("BUILTIN_PROJECT_PACKS — top-level contract", () => {
-  it("ships exactly the canonical Hyperia project pack", () => {
+  it("ships the canonical Hyperia + arctic-survival project packs", () => {
     const ids = BUILTIN_PROJECT_PACKS.map((p) => p.manifestId);
-    expect(ids).toEqual([HYPERIA_PROJECT_PACK_ID]);
+    expect(ids).toEqual([
+      HYPERIA_PROJECT_PACK_ID,
+      ARCTIC_SURVIVAL_PROJECT_PACK_ID,
+    ]);
   });
 
   it("the array is frozen — production-safety guarantee", () => {
@@ -45,7 +50,7 @@ describe("BUILTIN_PROJECT_PACKS — top-level contract", () => {
   it("manifest ids follow the `@hyperforge/project-pack-X-v1` convention", () => {
     for (const pack of BUILTIN_PROJECT_PACKS) {
       expect(pack.manifestId).toMatch(
-        /^@hyperforge\/project-pack-[a-z]+-v\d+$/,
+        /^@hyperforge\/project-pack-[a-z][a-z-]*-v\d+$/,
       );
     }
   });
@@ -132,5 +137,60 @@ describe("BUILTIN_PROJECT_PACKS — cross-referential integrity", () => {
         }
       }
     }
+  });
+});
+
+describe("BUILTIN_PROJECT_PACKS — arctic-survival (Phase 5.1)", () => {
+  // The third gameplay plugin shows up as a one-click starter
+  // pairing the arctic-survival plugin with the arctic content
+  // pack. This block pins the bundle contract so a regression
+  // (e.g. dropping the content pack reference) trips before it
+  // reaches the studio's project-create dropdown.
+
+  it("bundles arctic-survival plugin + arctic content pack", () => {
+    const pack = BUILTIN_PROJECT_PACKS.find(
+      (p) => p.manifestId === ARCTIC_SURVIVAL_PROJECT_PACK_ID,
+    );
+    expect(pack).toBeDefined();
+    expect(pack!.pluginIds).toContain("@hyperforge/plugin-arctic-survival");
+    expect(pack!.contentPackIds).toContain(
+      "@hyperforge/content-pack-arctic-v1",
+    );
+  });
+
+  it("declares survival + arctic tags so theme filtering finds it", () => {
+    const pack = BUILTIN_PROJECT_PACKS.find(
+      (p) => p.manifestId === ARCTIC_SURVIVAL_PROJECT_PACK_ID,
+    );
+    expect(pack).toBeDefined();
+    expect(pack!.tags).toContain("arctic");
+    expect(pack!.tags).toContain("survival");
+    expect(pack!.tags).toContain("starter");
+    expect(pack!.tags).toContain("built-in");
+  });
+
+  it("description mentions both halves of the bundle (plugin + content)", () => {
+    const pack = BUILTIN_PROJECT_PACKS.find(
+      (p) => p.manifestId === ARCTIC_SURVIVAL_PROJECT_PACK_ID,
+    );
+    expect(pack).toBeDefined();
+    // Must mention the gameplay surface (frost-blast or
+    // temperature gauge) and the world surface (snow or
+    // glacier or biomes) so the user understands what they're
+    // forking.
+    const desc = pack!.description.toLowerCase();
+    expect(/frost-blast|temperature gauge/.test(desc)).toBe(true);
+    expect(/snow|glacier|biome|arctic content/.test(desc)).toBe(true);
+  });
+
+  it("contains NO hyperscape leak in plugin or content lists", () => {
+    const pack = BUILTIN_PROJECT_PACKS.find(
+      (p) => p.manifestId === ARCTIC_SURVIVAL_PROJECT_PACK_ID,
+    );
+    expect(pack).toBeDefined();
+    expect(pack!.pluginIds).not.toContain("@hyperforge/hyperscape");
+    expect(pack!.contentPackIds).not.toContain(
+      "@hyperforge/content-pack-hyperia-v1",
+    );
   });
 });
