@@ -351,30 +351,36 @@
            border-[var(--color-primary)] border-opacity-50;
   }
   
-  /* Form Components */
+  /* Form Components
+     Brand: subtle borders, soft focus, restrained. Focus thickens the
+     border color rather than throwing a halo ring. */
   .input {
-    @apply w-full px-3 py-2 text-sm
+    @apply w-full px-3.5 py-2.5 text-sm
            bg-[var(--bg-secondary)] text-[var(--text-primary)]
            border border-[var(--border-primary)] rounded-md
-           placeholder:text-[var(--text-muted)]
+           placeholder:text-[var(--text-tertiary)]
            transition-colors duration-[var(--duration-base)]
-           focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] focus:border-transparent;
+           hover:border-[var(--border-hover)]
+           focus:outline-none focus:border-[var(--color-primary)]
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-[var(--border-primary)];
   }
-  
+
   .input-error {
-    @apply border-[var(--color-error)] focus:ring-[var(--color-error)];
+    @apply border-[var(--color-error)] focus:border-[var(--color-error)];
   }
-  
+
+  /* Editorial form labels — small caps with wide letter-spacing reads as
+     engineering tooling, not generic SaaS form. */
   .label {
-    @apply block text-sm font-medium text-[var(--text-primary)] mb-1;
+    @apply block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5 uppercase tracking-[0.08em];
   }
-  
+
   .helper-text {
-    @apply text-xs text-[var(--text-tertiary)] mt-1;
+    @apply text-xs text-[var(--text-tertiary)] mt-1.5 leading-relaxed;
   }
-  
+
   .error-text {
-    @apply text-xs text-[var(--color-error)] mt-1;
+    @apply text-xs text-[var(--color-error)] mt-1.5 leading-relaxed;
   }
   
   /* Badge Components */

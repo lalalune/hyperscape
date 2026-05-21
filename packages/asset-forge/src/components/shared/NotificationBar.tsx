@@ -20,22 +20,25 @@ const NotificationBar: React.FC = () => {
 
   if (!notification) return null;
 
-  const icon =
-    notification.type === "success" ? (
-      <CheckCircle size={20} />
-    ) : (
-      <XCircle size={20} />
-    );
-  const bgColor = notification.type === "success" ? "bg-success" : "bg-error";
+  const isSuccess = notification.type === "success";
+  const Icon = isSuccess ? CheckCircle : XCircle;
+  const accentColor = isSuccess ? "text-success" : "text-error";
+  const edgeColor = isSuccess ? "before:bg-success" : "before:bg-error";
 
   return (
     <div
-      className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${bgColor} text-white animate-slide-up`}
+      className={`fixed top-4 right-4 z-50 relative flex items-center gap-3 px-4 py-3 rounded-md
+        bg-bg-secondary border border-border-primary
+        before:absolute before:left-0 before:top-2 before:bottom-2 before:w-px ${edgeColor}
+        text-text-primary animate-slide-up shadow-[0_4px_16px_rgba(0,0,0,0.4)]`}
     >
-      {icon}
-      <span className="font-medium">{notification.message}</span>
-      <button onClick={clearNotification} className="ml-2 hover:opacity-80">
-        <X size={18} />
+      <Icon size={18} className={accentColor} strokeWidth={1.5} />
+      <span className="text-sm font-medium">{notification.message}</span>
+      <button
+        onClick={clearNotification}
+        className="ml-2 text-text-tertiary hover:text-text-primary transition-colors duration-300 ease-out"
+      >
+        <X size={16} strokeWidth={1.5} />
       </button>
     </div>
   );

@@ -74,9 +74,12 @@ const NAV_ITEMS = [
   { route: ROUTES.ARMOR_PIPELINE, label: "Armor v2", icon: Gem },
 ] as const;
 
-const ACTIVE_BG = "bg-[rgba(99,102,241,0.15)] text-primary";
+// Active state: subtle Graphite + earned Forge Gold left-edge accent.
+// Mirrors UE5 / Apple Pro sidebar treatment — architectural, restrained.
+const ACTIVE_CLASSES =
+  "relative bg-bg-tertiary text-text-primary before:absolute before:left-0 before:top-2 before:bottom-2 before:w-px before:bg-primary";
 const INACTIVE_CLASSES =
-  "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary";
+  "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/60";
 
 const Navigation: React.FC = () => {
   const [open, setOpen] = useState(false);
@@ -122,8 +125,8 @@ const Navigation: React.FC = () => {
   }, [open]);
 
   const navLinkClass = (route: string) =>
-    `flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-150 ${
-      currentPath === route ? ACTIVE_BG : INACTIVE_CLASSES
+    `flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-colors duration-300 ease-out ${
+      currentPath === route ? ACTIVE_CLASSES : INACTIVE_CLASSES
     }`;
 
   return (
@@ -137,7 +140,7 @@ const Navigation: React.FC = () => {
         >
           <Menu size={20} />
         </button>
-        <span className="ml-3 text-sm font-medium text-text-secondary">
+        <span className="ml-3 font-display text-sm font-medium text-text-secondary tracking-tight">
           Asset Forge
         </span>
 
@@ -149,26 +152,26 @@ const Navigation: React.FC = () => {
         )}
       </div>
 
-      {/* Backdrop */}
+      {/* Backdrop — Obsidian dim, no glass blur */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/50 z-[200] transition-opacity duration-500 ease-out"
+          className="fixed inset-0 bg-bg-primary/70 z-[200] transition-opacity duration-500 ease-out"
           onClick={() => setOpen(false)}
         />
       )}
 
-      {/* Sidebar drawer */}
+      {/* Sidebar drawer — cinematic slide */}
       <div
         ref={sidebarRef}
-        className={`fixed top-0 left-0 h-full w-[280px] bg-bg-secondary border-r border-border-primary shadow-xl z-[201] flex flex-col transition-transform duration-300 ease-out ${
+        className={`fixed top-0 left-0 h-full w-[280px] bg-bg-secondary border-r border-border-primary z-[201] flex flex-col transition-transform duration-500 ease-out ${
           open ? "translate-x-0" : "-translate-x-full pointer-events-none"
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+        <div className="flex items-center justify-between px-5 py-5 border-b border-border-primary">
           <Link
             to={ROUTES.DASHBOARD}
-            className="text-lg font-semibold text-gradient hover:opacity-80 transition-opacity ease-out"
+            className="font-display text-lg font-medium text-text-primary tracking-tight hover:text-primary transition-colors duration-300 ease-out"
           >
             Asset Forge
           </Link>
@@ -202,7 +205,7 @@ const Navigation: React.FC = () => {
             <button
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-300 ${
                 isGeneratorRoute && !generatorsExpanded
-                  ? ACTIVE_BG
+                  ? ACTIVE_CLASSES
                   : INACTIVE_CLASSES
               } ease-out`}
               onClick={() => setGeneratorsExpanded(!generatorsExpanded)}
@@ -225,7 +228,7 @@ const Navigation: React.FC = () => {
                       to={item.route}
                       className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-300 ${
                         currentPath === item.route
-                          ? ACTIVE_BG
+                          ? ACTIVE_CLASSES
                           : INACTIVE_CLASSES
                       } ease-out`}
                     >
@@ -244,7 +247,7 @@ const Navigation: React.FC = () => {
           <div className="border-t border-border-primary">
             {/* User profile */}
             <div className="px-4 py-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-bg-tertiary border border-border-primary flex items-center justify-center flex-shrink-0">
                 <User size={14} className="text-primary" />
               </div>
               <div className="min-w-0 flex-1">
