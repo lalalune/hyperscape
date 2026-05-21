@@ -91,6 +91,7 @@ import type {
 import { findLatestAgentIndex } from "../utils/chatMessageHelpers";
 import { toNpmName } from "../utils/pluginManifestNpm";
 import { messagesToHistory } from "../utils/messagesToHistory";
+import { isContentPackId } from "../utils/contentPackConstants";
 
 interface ChatMessage {
   role: "user" | "agent";
@@ -246,7 +247,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
               > | null = null;
               try {
                 const themedPackId = projectAssetPackIds.find((id) =>
-                  id.startsWith("@hyperforge/content-pack-"),
+                  isContentPackId(id),
                 );
                 if (themedPackId) {
                   const fullPack = await getAssetPack(themedPackId);

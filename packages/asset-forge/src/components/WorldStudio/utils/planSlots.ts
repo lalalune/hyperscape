@@ -42,6 +42,7 @@ import {
   Volume2,
   Waves,
 } from "lucide-react";
+import { isContentPackId } from "./contentPackConstants";
 
 /**
  * Slot key — one entry per agent-fillable section of the plan.
@@ -300,9 +301,7 @@ export function isSlotSet(plan: PlanSlotShape, key: PlanSlotKey): boolean {
     case "theme":
       return (
         Array.isArray(plan.assetPackIds) &&
-        plan.assetPackIds.some((id) =>
-          id.startsWith("@hyperforge/content-pack-"),
-        )
+        plan.assetPackIds.some((id) => isContentPackId(id))
       );
     case "pluginIds":
       return plan.pluginIds !== null && plan.pluginIds.length > 0;

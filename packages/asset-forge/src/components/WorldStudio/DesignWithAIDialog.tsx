@@ -228,6 +228,10 @@ import type {
 } from "./utils/designStreamEvents";
 import { toNpmName } from "./utils/pluginManifestNpm";
 import { messagesToHistory } from "./utils/messagesToHistory";
+import {
+  HYPERIA_CONTENT_PACK_ID,
+  isContentPackId,
+} from "./utils/contentPackConstants";
 import { summarizeToolCalls } from "./utils/toolBreadcrumbSummary";
 import { IDLE_SUGGESTIONS, nextStepChips } from "./utils/onboardingChips";
 import {
@@ -1069,7 +1073,7 @@ export function DesignWithAIDialog({
       const resolvedPackIds = resolvePlanPackIds(effectivePlan);
       // Tag-based fallback if no themed pack was proposed.
       const alreadyHasThemedPack = Array.from(resolvedPackIds).some((id) =>
-        id.startsWith("@hyperforge/content-pack-"),
+        isContentPackId(id),
       );
       if (!alreadyHasThemedPack) {
         const inferredPack = inferThemedPackFromCatalog(
@@ -1079,13 +1083,11 @@ export function DesignWithAIDialog({
             tags: p.tags,
           })),
         );
-        resolvedPackIds.add(
-          inferredPack ?? "@hyperforge/content-pack-hyperia-v1",
-        );
+        resolvedPackIds.add(inferredPack ?? HYPERIA_CONTENT_PACK_ID);
       }
 
       const projectIsHyperiaThemed = resolvedPackIds.has(
-        "@hyperforge/content-pack-hyperia-v1",
+        HYPERIA_CONTENT_PACK_ID,
       );
       const baseConfig = projectIsHyperiaThemed
         ? HYPERIA_CREATION_CONFIG
@@ -1145,7 +1147,7 @@ export function DesignWithAIDialog({
       };
       try {
         const contentPackIds = Array.from(resolvedPackIds).filter((id) =>
-          id.startsWith("@hyperforge/content-pack-"),
+          isContentPackId(id),
         );
         let firstThemedPackUsedForOverrides: string | null = null;
         for (const packId of contentPackIds) {

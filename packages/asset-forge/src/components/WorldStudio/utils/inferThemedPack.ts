@@ -1,3 +1,4 @@
+import { isContentPackId } from "./contentPackConstants";
 /**
  * Tag-based themed-pack inference.
  *
@@ -56,7 +57,7 @@ export function inferThemedPackFromCatalog(
   let bestPack: string | null = null;
   let bestHits = 0;
   for (const pack of catalog) {
-    if (!pack.manifestId.startsWith("@hyperforge/content-pack-")) continue;
+    if (!isContentPackId(pack.manifestId)) continue;
     let hits = 0;
     for (const tag of pack.tags) {
       const tagLower = tag.toLowerCase();

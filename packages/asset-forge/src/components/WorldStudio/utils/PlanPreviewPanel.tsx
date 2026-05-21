@@ -57,6 +57,7 @@ import {
   secondarySlotCount,
   secondarySlotSummary,
 } from "./secondarySlotSummaries";
+import { isContentPackId } from "./contentPackConstants";
 
 export interface PlanPreviewPanelProps {
   plan: OnboardingPlan;
@@ -118,7 +119,7 @@ export function PlanPreviewPanel({
   // `assetPackIds` and show its short name (arctic, tropical,
   // desert, volcanic, wetland, hyperia).
   const themePackId = (plan.assetPackIds ?? []).find((id) =>
-    id.startsWith("@hyperforge/content-pack-"),
+    isContentPackId(id),
   );
   const themeSummary = themePackId
     ? themePackId

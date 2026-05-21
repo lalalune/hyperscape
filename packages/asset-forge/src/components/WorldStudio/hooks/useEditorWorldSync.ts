@@ -35,6 +35,7 @@ import {
   syncBoundaryRing,
   disposeSyncState,
 } from "../utils/editorMarkers";
+import { isHyperiaContentPackId } from "../utils/contentPackConstants";
 
 // Re-export for external consumers that import from the hook module
 export { getPlacementYOffset } from "../utils/editorMarkers";
@@ -112,7 +113,7 @@ export function useEditorWorldSync({
   const projectHasHyperiaContent = projectAssetPacks.some(
     (id) =>
       id.startsWith("@hyperforge/asset-pack-hyperia-") ||
-      id.startsWith("@hyperforge/content-pack-hyperia-"),
+      isHyperiaContentPackId(id),
   );
   const shouldLoadHyperiaModels =
     projectTargetsHyperia || projectHasHyperiaContent;

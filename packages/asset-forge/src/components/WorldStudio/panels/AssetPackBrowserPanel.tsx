@@ -83,6 +83,7 @@ import { Link } from "react-router-dom";
 import { ROUTES } from "../../../constants";
 import { getAssetConceptArtUrl } from "../../../utils/api";
 import { ModelThumbnail } from "../../shared/ModelThumbnail";
+import { isContentPackId } from "../utils/contentPackConstants";
 
 type SubTab = "marketplace" | "team";
 
@@ -190,7 +191,7 @@ function deriveKindLabel(
   manifestId: string,
   sectionCounts: ReadonlyArray<{ label: string; count: number }>,
 ): string {
-  if (manifestId.startsWith("@hyperforge/content-pack-")) {
+  if (isContentPackId(manifestId)) {
     const slug = manifestId
       .replace(/^@hyperforge\/content-pack-/, "")
       .replace(/-v\d+$/, "");
