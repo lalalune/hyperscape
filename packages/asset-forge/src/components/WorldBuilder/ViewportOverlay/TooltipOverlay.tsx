@@ -21,7 +21,7 @@ import type { HoverInfo } from "../types";
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   biome: <Mountain className="w-4 h-4 text-emerald-400" />,
-  tile: <Globe className="w-4 h-4 text-gray-400" />,
+  tile: <Globe className="w-4 h-4 text-text-secondary" />,
   town: <MapPin className="w-4 h-4 text-orange-400" />,
   building: <Building2 className="w-4 h-4 text-yellow-400" />,
   npc: <User className="w-4 h-4 text-cyan-400" />,

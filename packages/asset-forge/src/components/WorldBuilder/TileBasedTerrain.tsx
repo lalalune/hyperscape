@@ -4339,7 +4339,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
             <div className="text-lg font-semibold mb-2">
               GPU connection lost — recovering...
             </div>
-            <div className="text-sm text-gray-300">
+            <div className="text-sm text-text-primary">
               Attempt {gpuRecoveryCountRef.current} of 3
             </div>
           </div>
@@ -4353,7 +4353,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
             <div className="text-lg font-semibold mb-2 text-red-400">
               GPU Error
             </div>
-            <div className="text-sm text-gray-300 mb-4">{gpuError}</div>
+            <div className="text-sm text-text-primary mb-4">{gpuError}</div>
             <button
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm"
               onClick={() => window.location.reload()}

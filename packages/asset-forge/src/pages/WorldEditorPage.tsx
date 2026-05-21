@@ -84,10 +84,10 @@ function EditorToolbar({
   snapEnabled,
 }: EditorToolbarProps) {
   return (
-    <div className="flex items-center gap-2 p-2 bg-gray-900 border-b border-gray-700">
+    <div className="flex items-center gap-2 p-2 bg-bg-secondary border-b border-border-primary">
       {/* Camera Mode */}
       <div className="flex items-center gap-1 mr-4">
-        <span className="text-xs text-gray-400 mr-2">Camera:</span>
+        <span className="text-xs text-text-secondary mr-2">Camera:</span>
         <Button
           size="sm"
           variant={cameraMode === "orbit" ? "primary" : "ghost"}
@@ -116,7 +116,7 @@ function EditorToolbar({
 
       {/* Transform Mode */}
       <div className="flex items-center gap-1 mr-4">
-        <span className="text-xs text-gray-400 mr-2">Transform:</span>
+        <span className="text-xs text-text-secondary mr-2">Transform:</span>
         <Button
           size="sm"
           variant={transformMode === "translate" ? "primary" : "ghost"}
@@ -179,7 +179,7 @@ function SystemPanel({
   const [expanded, setExpanded] = useState(true);
 
   return (
-    <Card className="bg-gray-800 border-gray-700">
+    <Card className="bg-bg-secondary border-border-primary">
       <CardHeader className="py-2 px-3">
         <div className="flex items-center justify-between">
           <button
@@ -199,7 +199,7 @@ function SystemPanel({
         </div>
       </CardHeader>
       {expanded && children && (
-        <CardContent className="py-2 px-3 border-t border-gray-700">
+        <CardContent className="py-2 px-3 border-t border-border-primary">
           {children}
         </CardContent>
       )}
@@ -248,7 +248,7 @@ function EditorControlsPanel() {
 
   if (!world) {
     return (
-      <div className="p-4 text-center text-gray-400">
+      <div className="p-4 text-center text-text-secondary">
         <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
         <p>Initializing editor...</p>
       </div>
@@ -258,7 +258,7 @@ function EditorControlsPanel() {
   return (
     <div className="flex flex-col gap-2 p-2 h-full overflow-y-auto">
       {/* Environment Controls */}
-      <Card className="bg-gray-800 border-gray-700">
+      <Card className="bg-bg-secondary border-border-primary">
         <CardHeader className="py-2 px-3">
           <CardTitle className="text-sm flex items-center gap-2">
             {timeOfDay >= 6 && timeOfDay < 18 ? (
@@ -269,9 +269,11 @@ function EditorControlsPanel() {
             Environment
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-2 px-3 border-t border-gray-700">
+        <CardContent className="py-2 px-3 border-t border-border-primary">
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400 w-20">Time of Day</label>
+            <label className="text-xs text-text-secondary w-20">
+              Time of Day
+            </label>
             <input
               type="range"
               min="0"
@@ -283,7 +285,7 @@ function EditorControlsPanel() {
               }
               className="flex-1"
             />
-            <span className="text-xs text-gray-300 w-12 text-right">
+            <span className="text-xs text-text-primary w-12 text-right">
               {Math.floor(timeOfDay)}:
               {String(Math.round((timeOfDay % 1) * 60)).padStart(2, "0")}
             </span>
@@ -307,7 +309,7 @@ function EditorControlsPanel() {
             <RefreshCw className="w-3 h-3 mr-1" />
             Regenerate
           </Button>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-text-secondary">
             Using real TerrainSystem with streaming heightmap, biomes, and LOD.
           </p>
         </div>
@@ -320,7 +322,7 @@ function EditorControlsPanel() {
         enabled={vegetationEnabled}
         onToggle={() => setVegetationEnabled(!vegetationEnabled)}
       >
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-text-secondary">
           Real VegetationSystem with GPU instancing, LOD transitions, and
           impostor rendering.
         </p>
@@ -336,7 +338,7 @@ function EditorControlsPanel() {
           grass?.setEnabled?.(!grassEnabled);
         }}
       >
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-text-secondary">
           Real ProceduralGrassSystem with streaming heightmap and road
           avoidance.
         </p>
@@ -350,7 +352,7 @@ function EditorControlsPanel() {
         onToggle={() => setTownsEnabled(!townsEnabled)}
       >
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-text-secondary">
             Real TownSystem with flatness-based placement and building spawning.
           </p>
           {towns && (
@@ -368,7 +370,7 @@ function EditorControlsPanel() {
         enabled={roadsEnabled}
         onToggle={() => setRoadsEnabled(!roadsEnabled)}
       >
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-text-secondary">
           Real RoadNetworkSystem with A* pathfinding and terrain cost weighting.
         </p>
       </SystemPanel>
@@ -380,7 +382,7 @@ function EditorControlsPanel() {
         enabled={buildingsEnabled}
         onToggle={() => setBuildingsEnabled(!buildingsEnabled)}
       >
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-text-secondary">
           Real BuildingRenderingSystem with LOD, batching, and dynamic
           impostors.
         </p>
@@ -471,7 +473,7 @@ function EditorCanvas() {
       />
 
       {/* Status bar */}
-      <div className="flex items-center justify-between px-2 py-1 bg-gray-800 border-b border-gray-700 text-xs text-gray-400">
+      <div className="flex items-center justify-between px-2 py-1 bg-bg-secondary border-b border-border-primary text-xs text-text-secondary">
         <div className="flex items-center gap-4">
           <span>
             Camera: {cameraMode.charAt(0).toUpperCase() + cameraMode.slice(1)}
@@ -509,7 +511,7 @@ function WorldEditorContent() {
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Sidebar */}
-      <div className="w-72 border-r border-gray-700 bg-gray-850 overflow-hidden flex flex-col">
+      <div className="w-72 border-r border-border-primary bg-bg-secondary overflow-hidden flex flex-col">
         <EditorControlsPanel />
       </div>
 
@@ -533,9 +535,9 @@ export function WorldEditorPage() {
   }, []);
 
   return (
-    <div className="h-[calc(100vh-44px)] flex flex-col bg-gray-900">
+    <div className="h-[calc(100vh-44px)] flex flex-col bg-bg-secondary">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+      <header className="flex items-center justify-between px-4 py-2 bg-bg-secondary border-b border-border-primary">
         <h1 className="text-lg font-semibold text-white flex items-center gap-2">
           <Mountain className="w-5 h-5" />
           World Editor
@@ -578,8 +580,8 @@ export function WorldEditorPage() {
 
         {/* Loading state */}
         {!containerReady && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-            <div className="text-center text-gray-400">
+          <div className="absolute inset-0 flex items-center justify-center bg-bg-secondary">
+            <div className="text-center text-text-secondary">
               <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
               <p>Initializing WebGPU...</p>
             </div>

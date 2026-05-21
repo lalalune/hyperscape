@@ -44,7 +44,7 @@ export const DebugImages: React.FC<DebugImagesProps> = ({
               <img
                 src={dataUrl}
                 alt={key}
-                className="w-full aspect-square object-cover rounded-lg border-2 border-border-primary group-hover:border-primary transition-all duration-300 ease-out"
+                className="w-full aspect-square object-cover rounded-lg border border-border-primary group-hover:border-primary transition-all duration-300 ease-out"
               />
               <p className="text-xs text-text-secondary text-center mt-2 font-medium">
                 {key.charAt(0).toUpperCase() + key.slice(1)} View

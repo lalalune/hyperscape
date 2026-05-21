@@ -176,10 +176,10 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
               </div>
 
               <div className="flex-1">
-                <CardTitle className="text-lg font-semibold text-gray-900 mb-2">
+                <CardTitle className="text-lg font-semibold text-text-primary mb-2">
                   Material Presets
                 </CardTitle>
-                <CardDescription className="text-gray-600">
+                <CardDescription className="text-text-tertiary">
                   Quick generation using pre-configured material templates
                   optimized for your asset type
                 </CardDescription>
@@ -196,7 +196,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
 
               <span
                 className={cn(
-                  "w-5 h-5 text-gray-400 transition-all duration-200",
+                  "w-5 h-5 text-text-secondary transition-all duration-200",
                   "group-hover:text-primary-600 group-hover:translate-x-1",
                 )}
               >
@@ -226,10 +226,10 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
               </div>
 
               <div className="flex-1">
-                <CardTitle className="text-lg font-semibold text-gray-900 mb-2">
+                <CardTitle className="text-lg font-semibold text-text-primary mb-2">
                   Custom Description
                 </CardTitle>
-                <CardDescription className="text-gray-600">
+                <CardDescription className="text-text-tertiary">
                   Describe your desired materials and style in natural language
                   for custom generation
                 </CardDescription>
@@ -237,7 +237,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
 
               <span
                 className={cn(
-                  "w-5 h-5 text-gray-400 transition-all duration-200",
+                  "w-5 h-5 text-text-secondary transition-all duration-200",
                   "group-hover:text-success-600 group-hover:translate-x-1",
                 )}
               >
@@ -267,10 +267,10 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
               </div>
 
               <div className="flex-1">
-                <CardTitle className="text-lg font-semibold text-gray-900 mb-2">
+                <CardTitle className="text-lg font-semibold text-text-primary mb-2">
                   Image Reference
                 </CardTitle>
-                <CardDescription className="text-gray-600">
+                <CardDescription className="text-text-tertiary">
                   Upload or provide a reference image to match specific
                   materials and textures
                 </CardDescription>
@@ -278,7 +278,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
 
               <span
                 className={cn(
-                  "w-5 h-5 text-gray-400 transition-all duration-200",
+                  "w-5 h-5 text-text-secondary transition-all duration-200",
                   "group-hover:text-warning-600 group-hover:translate-x-1",
                 )}
               >
@@ -327,7 +327,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
       <div className="space-y-6">
         {/* Category Selection */}
         <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-3">
+          <h4 className="text-sm font-medium text-text-tertiary mb-3">
             Material Categories
           </h4>
           <div className="flex flex-wrap gap-2">
@@ -358,7 +358,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => _setShowCustomMaterialForm(true)}
-              className="border border-dashed border-gray-300 hover:border-gray-400"
+              className="border border-dashed border-border-secondary hover:border-border-primary"
             >
               <Plus size={16} />
               Add Category
@@ -367,7 +367,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
         </div>
 
         {/* Material Grid */}
-        <div className="grid grid-cols-4 gap-4 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded-lg">
+        <div className="grid grid-cols-4 gap-4 max-h-96 overflow-y-auto p-4 bg-bg-tertiary rounded-lg">
           {filteredPresets.map((preset, index) => {
             // Create a unique key by combining multiple properties
             const uniqueKey = `${preset.category}-${preset.id}-${preset.tier}-${index}`;
@@ -393,10 +393,10 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
               >
                 <CardContent className="p-4">
                   <div
-                    className="w-16 h-16 rounded-full mx-auto mb-3 shadow-lg border-2 border-white"
+                    className="w-16 h-16 rounded-full mx-auto mb-3 shadow-lg border border-white"
                     style={{ backgroundColor: preset.color }}
                   />
-                  <h5 className="font-medium text-sm text-gray-900 mb-1">
+                  <h5 className="font-medium text-sm text-text-primary mb-1">
                     {preset.displayName}
                   </h5>
                   <Badge variant="secondary" size="sm">
@@ -499,14 +499,14 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-text-tertiary mb-2">
             Upload Image
           </label>
           <input
             type="file"
             accept="image/*"
             onChange={(e) => setUploadedImage(e.target.files?.[0] || null)}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+            className="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
           />
         </div>
       </div>
@@ -520,10 +520,10 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
         <Loader className="w-8 h-8 text-primary-600 animate-spin" />
       </div>
 
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+      <h3 className="text-lg font-semibold text-text-primary mb-2">
         Generating Textures
       </h3>
-      <p className="text-gray-600 mb-6">
+      <p className="text-text-tertiary mb-6">
         Creating high-quality material variants for your asset...
       </p>
 
@@ -543,7 +543,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
               key={index}
               className="flex items-center justify-between text-sm"
             >
-              <span className="text-gray-700">{result.name}</span>
+              <span className="text-text-tertiary">{result.name}</span>
               <Badge
                 variant={
                   result.status === "done"
@@ -574,10 +574,10 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
         <CheckCircle className="w-8 h-8 text-success-600" />
       </div>
 
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+      <h3 className="text-lg font-semibold text-text-primary mb-2">
         Textures Generated Successfully!
       </h3>
-      <p className="text-gray-600 mb-6">
+      <p className="text-text-tertiary mb-6">
         Your material variants have been created and are ready to use.
       </p>
 

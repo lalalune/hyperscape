@@ -627,12 +627,12 @@ export const LeafClusterPage: React.FC = () => {
 
         {/* Overlay Controls */}
         <div className="absolute top-4 left-4 flex flex-col gap-2">
-          <div className="bg-gray-900/90 rounded-lg p-3 ">
+          <div className="bg-bg-secondary rounded-lg p-3 ">
             <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
               <TreePine className="w-5 h-5 text-green-400" />
               Branch Cluster Viewer
             </h2>
-            <p className="text-xs text-gray-400 mb-3">
+            <p className="text-xs text-text-secondary mb-3">
               SpeedTree-style branch-aware clustering
             </p>
 
@@ -641,7 +641,7 @@ export const LeafClusterPage: React.FC = () => {
               <select
                 value={preset}
                 onChange={(e) => setPreset(e.target.value)}
-                className="flex-1 bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-700"
+                className="flex-1 bg-bg-secondary text-white text-sm rounded px-2 py-1 border border-border-primary"
               >
                 {getPresetNames().map((name) => (
                   <option key={name} value={name}>
@@ -651,7 +651,7 @@ export const LeafClusterPage: React.FC = () => {
               </select>
               <button
                 onClick={() => setSeed(Math.floor(Math.random() * 100000))}
-                className="px-2 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
+                className="px-2 py-1 bg-bg-tertiary text-white rounded hover:bg-bg-tertiary"
                 title="Random seed"
               >
                 🎲
@@ -672,7 +672,7 @@ export const LeafClusterPage: React.FC = () => {
           </div>
 
           {/* View Mode Toggles */}
-          <div className="bg-gray-900/90 rounded-lg p-3 ">
+          <div className="bg-bg-secondary rounded-lg p-3 ">
             <h3 className="text-sm font-semibold text-white mb-2">View Mode</h3>
             <div className="flex flex-col gap-1">
               <button
@@ -680,7 +680,7 @@ export const LeafClusterPage: React.FC = () => {
                 className={`flex items-center gap-2 px-2 py-1 rounded text-sm ${
                   viewMode.showTree
                     ? "bg-amber-600 text-white"
-                    : "bg-gray-700 text-gray-400"
+                    : "bg-bg-tertiary text-text-secondary"
                 }`}
               >
                 {viewMode.showTree ? (
@@ -695,7 +695,7 @@ export const LeafClusterPage: React.FC = () => {
                 className={`flex items-center gap-2 px-2 py-1 rounded text-sm ${
                   viewMode.showLeaves
                     ? "bg-green-600 text-white"
-                    : "bg-gray-700 text-gray-400"
+                    : "bg-bg-tertiary text-text-secondary"
                 }`}
               >
                 {viewMode.showLeaves ? (
@@ -710,7 +710,7 @@ export const LeafClusterPage: React.FC = () => {
                 className={`flex items-center gap-2 px-2 py-1 rounded text-sm ${
                   viewMode.showClusters
                     ? "bg-teal-600 text-white"
-                    : "bg-gray-700 text-gray-400"
+                    : "bg-bg-tertiary text-text-secondary"
                 }`}
               >
                 {viewMode.showClusters ? (
@@ -725,7 +725,7 @@ export const LeafClusterPage: React.FC = () => {
                 className={`flex items-center gap-2 px-2 py-1 rounded text-sm ${
                   viewMode.showClusterBounds
                     ? "bg-purple-600 text-white"
-                    : "bg-gray-700 text-gray-400"
+                    : "bg-bg-tertiary text-text-secondary"
                 }`}
               >
                 {viewMode.showClusterBounds ? (
@@ -740,7 +740,7 @@ export const LeafClusterPage: React.FC = () => {
                 className={`flex items-center gap-2 px-2 py-1 rounded text-sm ${
                   viewMode.showBranches
                     ? "bg-orange-600 text-white"
-                    : "bg-gray-700 text-gray-400"
+                    : "bg-bg-tertiary text-text-secondary"
                 }`}
               >
                 {viewMode.showBranches ? (
@@ -754,10 +754,10 @@ export const LeafClusterPage: React.FC = () => {
           </div>
 
           {/* Camera Controls */}
-          <div className="bg-gray-900/90 rounded-lg p-3 ">
+          <div className="bg-bg-secondary rounded-lg p-3 ">
             <button
               onClick={resetCamera}
-              className="flex items-center gap-2 px-2 py-1 bg-gray-700 text-white rounded text-sm hover:bg-gray-600"
+              className="flex items-center gap-2 px-2 py-1 bg-bg-tertiary text-white rounded text-sm hover:bg-bg-tertiary"
             >
               <RotateCcw className="w-4 h-4" />
               Reset Camera
@@ -767,11 +767,11 @@ export const LeafClusterPage: React.FC = () => {
 
         {/* Stats Overlay */}
         {stats && (
-          <div className="absolute top-4 right-4 bg-gray-900/90 rounded-lg p-3 ">
+          <div className="absolute top-4 right-4 bg-bg-secondary rounded-lg p-3 ">
             <h3 className="text-sm font-semibold text-white mb-2">
               Statistics
             </h3>
-            <div className="text-xs text-gray-300 space-y-1">
+            <div className="text-xs text-text-primary space-y-1">
               <div>
                 Total Leaves:{" "}
                 <span className="text-green-400">
@@ -807,33 +807,33 @@ export const LeafClusterPage: React.FC = () => {
         )}
 
         {/* Legend */}
-        <div className="absolute bottom-4 left-4 bg-gray-900/90 rounded-lg p-3 ">
+        <div className="absolute bottom-4 left-4 bg-bg-secondary rounded-lg p-3 ">
           <h3 className="text-xs font-semibold text-white mb-2">
             Cluster Colors by Depth
           </h3>
           <div className="flex gap-2">
             <div className="flex items-center gap-1 text-xs">
               <div className="w-3 h-3 rounded bg-red-400"></div>
-              <span className="text-gray-400">D0</span>
+              <span className="text-text-secondary">D0</span>
             </div>
             <div className="flex items-center gap-1 text-xs">
               <div className="w-3 h-3 rounded bg-teal-400"></div>
-              <span className="text-gray-400">D1</span>
+              <span className="text-text-secondary">D1</span>
             </div>
             <div className="flex items-center gap-1 text-xs">
               <div className="w-3 h-3 rounded bg-yellow-400"></div>
-              <span className="text-gray-400">D2</span>
+              <span className="text-text-secondary">D2</span>
             </div>
             <div className="flex items-center gap-1 text-xs">
               <div className="w-3 h-3 rounded bg-green-400"></div>
-              <span className="text-gray-400">D3+</span>
+              <span className="text-text-secondary">D3+</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Settings Panel */}
-      <div className="w-80 bg-gray-900 border-l border-gray-800 overflow-y-auto">
+      <div className="w-80 bg-bg-secondary border-l border-border-primary overflow-y-auto">
         <div className="p-4">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Sliders className="w-5 h-5" />
@@ -842,7 +842,7 @@ export const LeafClusterPage: React.FC = () => {
 
           {/* Texture Size */}
           <div className="mb-4">
-            <label className="block text-sm text-gray-400 mb-1">
+            <label className="block text-sm text-text-secondary mb-1">
               Texture Size (per cluster)
             </label>
             <select
@@ -853,7 +853,7 @@ export const LeafClusterPage: React.FC = () => {
                   textureSize: parseInt(e.target.value),
                 }))
               }
-              className="w-full bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-700"
+              className="w-full bg-bg-secondary text-white text-sm rounded px-2 py-1 border border-border-primary"
             >
               <option value={64}>64x64 (Low)</option>
               <option value={128}>128x128 (Medium)</option>
@@ -864,7 +864,7 @@ export const LeafClusterPage: React.FC = () => {
 
           {/* Min Stem Depth */}
           <div className="mb-4">
-            <label className="block text-sm text-gray-400 mb-1">
+            <label className="block text-sm text-text-secondary mb-1">
               Min Branch Depth: {settings.minStemDepth}
             </label>
             <input
@@ -880,14 +880,14 @@ export const LeafClusterPage: React.FC = () => {
               }
               className="w-full"
             />
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-text-secondary mt-1">
               0 = include trunk, 1+ = branches only
             </div>
           </div>
 
           {/* Min Leaves Per Cluster */}
           <div className="mb-4">
-            <label className="block text-sm text-gray-400 mb-1">
+            <label className="block text-sm text-text-secondary mb-1">
               Min Leaves/Cluster: {settings.minLeavesPerCluster}
             </label>
             <input
@@ -907,7 +907,7 @@ export const LeafClusterPage: React.FC = () => {
 
           {/* Max Leaves Per Cluster */}
           <div className="mb-4">
-            <label className="block text-sm text-gray-400 mb-1">
+            <label className="block text-sm text-text-secondary mb-1">
               Max Leaves/Cluster: {settings.maxLeavesPerCluster}
             </label>
             <input
@@ -927,7 +927,7 @@ export const LeafClusterPage: React.FC = () => {
 
           {/* Target Cluster Count */}
           <div className="mb-4">
-            <label className="block text-sm text-gray-400 mb-1">
+            <label className="block text-sm text-text-secondary mb-1">
               Target Clusters: {settings.targetClusterCount}
             </label>
             <input
@@ -945,7 +945,7 @@ export const LeafClusterPage: React.FC = () => {
             />
           </div>
 
-          <hr className="border-gray-700 my-4" />
+          <hr className="border-border-primary my-4" />
 
           {/* Overlap Culling Section */}
           <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
@@ -954,7 +954,7 @@ export const LeafClusterPage: React.FC = () => {
           </h4>
 
           <div className="mb-4">
-            <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
               <input
                 type="checkbox"
                 checked={settings.cullOverlapping}
@@ -964,18 +964,18 @@ export const LeafClusterPage: React.FC = () => {
                     cullOverlapping: e.target.checked,
                   }))
                 }
-                className="rounded bg-gray-800 border-gray-700"
+                className="rounded bg-bg-secondary border-border-primary"
               />
               Enable Overlap Culling
             </label>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-text-secondary mt-1">
               Removes leaves that overlap in screen space
             </div>
           </div>
 
           {settings.cullOverlapping && (
             <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-1">
+              <label className="block text-sm text-text-secondary mb-1">
                 Overlap Threshold: {settings.overlapThreshold.toFixed(2)}
               </label>
               <input
@@ -992,13 +992,13 @@ export const LeafClusterPage: React.FC = () => {
                 }
                 className="w-full"
               />
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-text-secondary mt-1">
                 Lower = more aggressive culling
               </div>
             </div>
           )}
 
-          <hr className="border-gray-700 my-4" />
+          <hr className="border-border-primary my-4" />
 
           {/* Cluster List */}
           <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
@@ -1006,14 +1006,14 @@ export const LeafClusterPage: React.FC = () => {
             Clusters ({clusterResult?.clusters.length || 0})
           </h4>
 
-          <div className="max-h-64 overflow-y-auto bg-gray-800 rounded p-2">
+          <div className="max-h-64 overflow-y-auto bg-bg-secondary rounded p-2">
             {clusterResult?.clusters.map((cluster, idx) => (
               <div
                 key={cluster.id}
                 className={`text-xs p-2 rounded mb-1 cursor-pointer ${
                   viewMode.selectedCluster === idx
                     ? "bg-teal-600 text-white"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    : "bg-bg-tertiary text-text-primary hover:bg-bg-tertiary"
                 }`}
                 onClick={() => {
                   setViewMode((prev) => ({ ...prev, selectedCluster: idx }));
@@ -1028,7 +1028,7 @@ export const LeafClusterPage: React.FC = () => {
                   <GitBranch className="w-3 h-3" />
                   Cluster {cluster.id} (D{cluster.stemDepth})
                 </div>
-                <div className="text-gray-400">
+                <div className="text-text-secondary">
                   {cluster.leafIndices.length} leaves •{" "}
                   {cluster.width.toFixed(2)}x{cluster.height.toFixed(2)}m
                   {cluster.overlapCulled && (
@@ -1039,19 +1039,19 @@ export const LeafClusterPage: React.FC = () => {
             ))}
           </div>
 
-          <hr className="border-gray-700 my-4" />
+          <hr className="border-border-primary my-4" />
 
           {/* Info Panel */}
-          <div className="bg-gray-800 rounded p-3">
+          <div className="bg-bg-secondary rounded p-3">
             <h4 className="text-sm font-semibold text-teal-400 mb-2">
               SpeedTree Approach
             </h4>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-text-secondary">
               This generator clusters leaves by their{" "}
               <strong>parent branch</strong>, creating more natural groupings
               than pure spatial clustering.
             </p>
-            <ul className="text-xs text-gray-400 mt-2 list-disc list-inside space-y-1">
+            <ul className="text-xs text-text-secondary mt-2 list-disc list-inside space-y-1">
               <li>Groups leaves by stem hierarchy</li>
               <li>Billboard oriented perpendicular to branch</li>
               <li>Screen-space overlap culling</li>

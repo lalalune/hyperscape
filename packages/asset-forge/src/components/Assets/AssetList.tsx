@@ -298,7 +298,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
 
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center">
-            <div className="w-20 h-20 bg-bg-primary bg-opacity-40 rounded-2xl flex items-center justify-center mx-auto mb-4 ">
+            <div className="w-20 h-20 bg-bg-primary bg-opacity-40 rounded-xl flex items-center justify-center mx-auto mb-4 ">
               <Package size={32} className="text-text-muted opacity-50" />
             </div>
             <p className="text-text-secondary text-sm font-medium">

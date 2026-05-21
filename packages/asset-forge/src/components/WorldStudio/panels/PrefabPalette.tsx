@@ -111,13 +111,13 @@ export function PrefabPalette() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-gray-700/50">
+      <div className="px-3 py-2 border-b border-border-primary">
         <div className="flex items-center gap-2 mb-2">
           <Package size={14} className="text-purple-400" />
-          <span className="text-xs font-semibold text-gray-200 uppercase tracking-[0.12em]">
+          <span className="text-xs font-semibold text-text-primary uppercase tracking-[0.12em]">
             Prefabs
           </span>
-          <span className="text-[10px] text-gray-500 ml-auto">
+          <span className="text-[10px] text-text-secondary ml-auto">
             {prefabs.length}
           </span>
         </div>
@@ -126,14 +126,14 @@ export function PrefabPalette() {
         <div className="relative">
           <Search
             size={12}
-            className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500"
+            className="absolute left-2 top-1/2 -translate-y-1/2 text-text-secondary"
           />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search prefabs..."
-            className="w-full pl-7 pr-2 py-1 text-xs bg-gray-800 border border-gray-700/50 rounded text-gray-300 placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+            className="w-full pl-7 pr-2 py-1 text-xs bg-bg-secondary border border-border-primary rounded text-text-primary placeholder-text-tertiary focus:outline-none focus:border-purple-500/50"
           />
         </div>
       </div>
@@ -141,7 +141,7 @@ export function PrefabPalette() {
       {/* Prefab grid */}
       <div className="flex-1 overflow-y-auto p-2">
         {filtered.length === 0 ? (
-          <div className="text-center text-xs text-gray-500 py-8">
+          <div className="text-center text-xs text-text-secondary py-8">
             {prefabs.length === 0
               ? "No prefabs yet. Select entities and use right-click → Create Prefab."
               : "No prefabs match your search."}
@@ -151,7 +151,7 @@ export function PrefabPalette() {
             {filtered.map((prefab) => (
               <div
                 key={prefab.id}
-                className="group bg-gray-800/60 hover:bg-gray-700/60 border border-gray-700/30 hover:border-purple-500/30 rounded p-2 cursor-pointer transition-colors ease-out"
+                className="group bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-purple-500/30 rounded p-2 cursor-pointer transition-colors ease-out"
                 onContextMenu={(e) => handleContextMenu(e, prefab)}
                 onClick={() => handlePlace(prefab)}
                 title={`Click to place • Right-click for options\n${prefab.description ?? ""}`}
@@ -167,25 +167,25 @@ export function PrefabPalette() {
                       if (e.key === "Enter") commitRename(prefab.id);
                       if (e.key === "Escape") setEditingId(null);
                     }}
-                    className="w-full text-xs bg-gray-900 border border-purple-500/50 rounded px-1 py-0.5 text-gray-200 focus:outline-none"
+                    className="w-full text-xs bg-bg-secondary border border-purple-500/50 rounded px-1 py-0.5 text-text-primary focus:outline-none"
                     autoFocus
                     onClick={(e) => e.stopPropagation()}
                   />
                 ) : (
-                  <div className="text-xs font-medium text-gray-200 truncate">
+                  <div className="text-xs font-medium text-text-primary truncate">
                     {prefab.name}
                   </div>
                 )}
 
                 {/* Entity count + place icon */}
                 <div className="flex items-center justify-between mt-1">
-                  <span className="text-[10px] text-gray-500">
+                  <span className="text-[10px] text-text-secondary">
                     {prefab.entries.length} entit
                     {prefab.entries.length === 1 ? "y" : "ies"}
                   </span>
                   <MapPin
                     size={10}
-                    className="text-gray-600 group-hover:text-purple-400 transition-colors ease-out"
+                    className="text-text-tertiary group-hover:text-purple-400 transition-colors ease-out"
                   />
                 </div>
               </div>
@@ -202,30 +202,30 @@ export function PrefabPalette() {
             onClick={() => setContextMenu(null)}
           />
           <div
-            className="fixed z-50 bg-gray-800 border border-gray-600 rounded shadow-xl py-1 min-w-[140px]"
+            className="fixed z-50 bg-bg-secondary border border-border-primary rounded shadow-xl py-1 min-w-[140px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
             <button
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary"
               onClick={() => handlePlace(contextMenu.prefab)}
             >
               <MapPin size={12} /> Place
             </button>
             <button
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary"
               onClick={() => startRename(contextMenu.prefab)}
             >
               <Pencil size={12} /> Rename
             </button>
             <button
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary"
               onClick={() => handleExport(contextMenu.prefab)}
             >
               <Download size={12} /> Export JSON
             </button>
-            <div className="border-t border-gray-700 my-1" />
+            <div className="border-t border-border-primary my-1" />
             <button
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-bg-tertiary"
               onClick={() => handleDelete(contextMenu.prefab)}
             >
               <Trash2 size={12} /> Delete

@@ -128,7 +128,7 @@ export function HandRiggingControls({
                 onClick={() => setUseSimpleMode(true)}
                 disabled={isProcessing()}
                 className={cn(
-                  "relative p-4 rounded-lg border-2 transition-all duration-200",
+                  "relative p-4 rounded-lg border transition-all duration-200",
                   " hover:shadow-md",
                   useSimpleMode
                     ? "border-primary bg-primary/10 shadow-lg"
@@ -156,7 +156,7 @@ export function HandRiggingControls({
                 onClick={() => setUseSimpleMode(false)}
                 disabled={isProcessing()}
                 className={cn(
-                  "relative p-4 rounded-lg border-2 transition-all duration-200",
+                  "relative p-4 rounded-lg border transition-all duration-200",
                   " hover:shadow-md",
                   !useSimpleMode
                     ? "border-primary bg-primary/10 shadow-lg"

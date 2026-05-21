@@ -146,7 +146,7 @@ export const ReferenceImageCard: React.FC<ReferenceImageCardProps> = ({
                 "hover:border-primary hover:bg-primary/5 transition-colors",
               )}
             >
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-text-tertiary mb-2">
                 Upload Image
               </label>
               <div className="flex items-center gap-2">

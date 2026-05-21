@@ -67,7 +67,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   items: "text-yellow-400",
   progression: "text-purple-400",
   audio: "text-pink-400",
-  generated: "text-gray-400",
+  generated: "text-text-secondary",
 };
 
 // Manifest list item from API

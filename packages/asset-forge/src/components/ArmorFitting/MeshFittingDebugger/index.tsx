@@ -453,7 +453,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-bg-primary/80 pt-16">
-      <div className="relative w-[90vw] h-[85vh] max-w-[1600px] bg-bg-primary rounded-2xl shadow-2xl flex overflow-hidden">
+      <div className="relative w-[90vw] h-[85vh] max-w-[1600px] bg-bg-primary rounded-xl shadow-2xl flex overflow-hidden">
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 h-16 bg-bg-secondary border-b border-border-primary flex items-center justify-between px-6 z-20">
           <h2 className="text-xl font-semibold text-text-primary">
@@ -1619,7 +1619,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                     disabled={!boundArmorMesh}
                                     className={cn(
                                       "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2",
-                                      "bg-gray-600 text-white hover:bg-gray-700",
+                                      "bg-bg-tertiary text-white hover:bg-bg-tertiary",
                                       !boundArmorMesh &&
                                         "opacity-50 cursor-not-allowed",
                                     )}

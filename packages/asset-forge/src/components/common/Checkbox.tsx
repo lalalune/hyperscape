@@ -60,7 +60,7 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           />
           <div
             className={cn(
-              "flex items-center justify-center rounded-sm border-2 transition-all duration-200",
+              "flex items-center justify-center rounded-sm border transition-all duration-200",
               sizes[size],
               "bg-bg-secondary",
               props.checked

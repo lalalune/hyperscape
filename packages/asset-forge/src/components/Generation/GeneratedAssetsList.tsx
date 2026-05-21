@@ -83,7 +83,7 @@ export const GeneratedAssetsList: React.FC<GeneratedAssetsListProps> = ({
               className={cn(
                 "w-full p-4 rounded-xl text-left transition-all duration-200 relative group",
                 selectedAsset?.id === asset.id
-                  ? "bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary shadow-sm"
+                  ? "bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary shadow-sm"
                   : "bg-bg-secondary hover:bg-bg-secondary/80 border border-border-primary hover:border-secondary/50",
               )}
             >

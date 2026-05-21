@@ -10,7 +10,7 @@ export const GenerationTypeSelector: React.FC<GenerationTypeSelectorProps> = ({
 }) => {
   return (
     <div className="h-screen flex items-center justify-center bg-gradient-to-br from-bg-primary to-bg-secondary overflow-hidden">
-      <div className="bg-bg-primary bg-opacity-50 rounded-2xl p-8 shadow-2xl border border-border-primary max-w-2xl w-full animate-scale-in">
+      <div className="bg-bg-primary bg-opacity-50 rounded-xl p-8 shadow-2xl border border-border-primary max-w-2xl w-full animate-scale-in">
         <h1 className="font-display text-3xl font-medium text-text-primary text-center mb-2 tracking-tight">
           What would you like to create?
         </h1>

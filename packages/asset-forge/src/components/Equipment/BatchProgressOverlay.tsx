@@ -32,7 +32,7 @@ export const BatchProgressOverlay: React.FC<BatchProgressOverlayProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 ">
-      <div className="bg-bg-primary border border-border-primary rounded-2xl shadow-2xl p-6 w-96 space-y-4">
+      <div className="bg-bg-primary border border-border-primary rounded-xl shadow-2xl p-6 w-96 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-text-primary">
             Applying Fitting Config

@@ -322,7 +322,7 @@ export const Minimap: React.FC<MinimapProps> = ({
         ref={canvasRef}
         width={MINIMAP_SIZE}
         height={MINIMAP_SIZE}
-        className="shadow-lg cursor-crosshair rounded border-2 border-border-secondary"
+        className="shadow-lg cursor-crosshair rounded border border-border-secondary"
         onClick={handleClick}
         title="Click to teleport camera"
       />

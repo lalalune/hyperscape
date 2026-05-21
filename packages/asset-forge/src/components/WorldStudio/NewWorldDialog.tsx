@@ -480,7 +480,7 @@ function ProjectPackOption({
     >
       <div className="flex items-start gap-3">
         <div
-          className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+          className={`mt-0.5 w-4 h-4 rounded-full border flex-shrink-0 ${
             selected ? "border-primary" : "border-border-primary"
           }`}
         >
