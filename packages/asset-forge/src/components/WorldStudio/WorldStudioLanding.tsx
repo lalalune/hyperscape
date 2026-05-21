@@ -10,7 +10,6 @@
  */
 
 import {
-  Hammer,
   Mountain,
   TreePine,
   Building2,
@@ -23,6 +22,7 @@ import {
 import React from "react";
 
 import { useForgeAuth } from "../../auth/ForgeAuthProvider";
+import { ForgeLogo } from "../shared/ForgeLogo";
 
 const FEATURES = [
   {
@@ -62,8 +62,13 @@ export function WorldStudioLanding() {
 
   if (!auth.ready) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-bg-primary">
-        <Loader2 size={24} className="animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-bg-primary gap-6">
+        <ForgeLogo size={56} />
+        <Loader2
+          size={16}
+          className="animate-spin text-text-tertiary"
+          strokeWidth={1.5}
+        />
       </div>
     );
   }
@@ -120,10 +125,9 @@ export function WorldStudioLanding() {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center px-6 max-w-3xl text-center">
-        {/* Icon — solid Graphite, thin Gold border, no halo */}
-        <div className="mb-8 w-20 h-20 rounded-xl bg-bg-tertiary border border-border-primary flex items-center justify-center">
-          <Hammer size={32} className="text-primary" strokeWidth={1.5} />
-        </div>
+        {/* FORGE mark — brand identity, no container chrome.
+           Lets the symmetric form carry the moment on its own. */}
+        <ForgeLogo size={64} className="mb-8" title="Asset Forge" />
 
         {/* Title */}
         <h1 className="font-display text-4xl font-medium text-text-primary mb-3 tracking-tight">

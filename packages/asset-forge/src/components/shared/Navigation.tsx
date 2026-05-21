@@ -35,6 +35,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { useForgeAuth } from "../../auth/ForgeAuthProvider";
 import { ROUTES } from "../../constants";
+import { ForgeLogo } from "./ForgeLogo";
 
 // Procedural generator menu items
 // Note: Leaf Clusters consolidated into Trees
@@ -140,7 +141,8 @@ const Navigation: React.FC = () => {
         >
           <Menu size={20} />
         </button>
-        <span className="ml-3 font-display text-sm font-medium text-text-secondary tracking-tight">
+        <ForgeLogo size={18} className="ml-3" />
+        <span className="ml-2 font-display text-sm font-medium text-text-secondary tracking-tight">
           Asset Forge
         </span>
 
@@ -171,8 +173,9 @@ const Navigation: React.FC = () => {
         <div className="flex items-center justify-between px-5 py-5 border-b border-border-primary">
           <Link
             to={ROUTES.DASHBOARD}
-            className="font-display text-lg font-medium text-text-primary tracking-tight hover:text-primary transition-colors duration-300 ease-out"
+            className="flex items-center gap-2.5 font-display text-lg font-medium text-text-primary tracking-tight hover:text-primary transition-colors duration-300 ease-out"
           >
+            <ForgeLogo size={22} />
             Asset Forge
           </Link>
           <button
