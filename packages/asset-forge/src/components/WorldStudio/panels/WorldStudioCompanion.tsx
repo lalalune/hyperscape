@@ -92,6 +92,10 @@ import { findLatestAgentIndex } from "../utils/chatMessageHelpers";
 import { toNpmName } from "../utils/pluginManifestNpm";
 import { messagesToHistory } from "../utils/messagesToHistory";
 import { isContentPackId } from "../utils/contentPackConstants";
+import {
+  extractThemedPackOverrides,
+  type ThemedPackManifestLike,
+} from "../utils/themedPackOverrides";
 
 interface ChatMessage {
   role: "user" | "agent";
@@ -251,29 +255,11 @@ function CompanionInner({ projectId }: { projectId: string }) {
                 );
                 if (themedPackId) {
                   const fullPack = await getAssetPack(themedPackId);
-                  const m = fullPack?.manifest as
-                    | {
-                        terrainHeightmapPresets?: ReadonlyArray<{
-                          id?: string;
-                          params?: Record<string, unknown>;
-                        }>;
-                        vegetationByBiome?: Record<
-                          string,
-                          Record<string, unknown>
-                        >;
-                      }
-                    | null
-                    | undefined;
-                  const firstPreset = m?.terrainHeightmapPresets?.[0];
-                  if (firstPreset?.params) {
-                    heightmapPresetParams = firstPreset.params;
-                  }
-                  if (
-                    m?.vegetationByBiome &&
-                    typeof m.vegetationByBiome === "object"
-                  ) {
-                    packVegetationByBiome = m.vegetationByBiome;
-                  }
+                  const overrides = extractThemedPackOverrides(
+                    fullPack?.manifest as ThemedPackManifestLike | undefined,
+                  );
+                  heightmapPresetParams = overrides.heightmapPresetParams;
+                  packVegetationByBiome = overrides.vegetationByBiome;
                 }
               } catch (err) {
                 // eslint-disable-next-line no-console

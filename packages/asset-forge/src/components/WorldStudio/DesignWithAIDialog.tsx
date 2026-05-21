@@ -214,11 +214,7 @@ function initialGreeting(): ChatMessage {
 // Phase 1.2 first carve — draft storage extracted to
 // `utils/designDraftStorage.ts`. The dialog still calls the
 // helpers directly; only the implementation moved.
-import {
-  loadDraft as loadDraftFromStorage,
-  saveDraft as saveDraftToStorage,
-  clearDraft as clearDraftFromStorage,
-} from "./utils/designDraftStorage";
+import { loadDraft, saveDraft, clearDraft } from "./utils/designDraftStorage";
 import { parseSSEStream } from "./utils/parseSSEStream";
 import { DEFAULT_DESIGN_ENDPOINT } from "./utils/designEndpoint";
 import type {
@@ -259,6 +255,10 @@ import {
 import { inferThemedPackFromCatalog } from "./utils/inferThemedPack";
 import { buildWorldContentPatch } from "./utils/buildWorldContentPatch";
 import { resolvePlanPackIds } from "./utils/collectAssetPackRefs";
+import {
+  extractThemedPackOverrides,
+  type ThemedPackManifestLike,
+} from "./utils/themedPackOverrides";
 import { applyStreamingTurn } from "./utils/applyStreamingTurn";
 import {
   AgentAvatar,
@@ -268,16 +268,6 @@ import {
 import { RightTabButton } from "./utils/RightTabButton";
 import { BuildingBlocksPanel } from "./utils/BuildingBlocksPanel";
 import { PlanPreviewPanel } from "./utils/PlanPreviewPanel";
-
-const loadDraft = (teamId: string, gameId: string) =>
-  loadDraftFromStorage<ChatMessage, OnboardingPlan>(teamId, gameId);
-const saveDraft = (
-  teamId: string,
-  gameId: string,
-  messages: ReadonlyArray<ChatMessage>,
-  plan: OnboardingPlan,
-) => saveDraftToStorage(teamId, gameId, messages, plan);
-const clearDraft = clearDraftFromStorage;
 
 export function DesignWithAIDialog({
   teamId,
@@ -289,7 +279,7 @@ export function DesignWithAIDialog({
   // B1'.7 — restore a saved draft (messages + plan) so a refresh
   // or accidental close doesn't lose the user's onboarding work.
   const restored = (() => {
-    const d = loadDraft(teamId, gameId);
+    const d = loadDraft<ChatMessage, OnboardingPlan>(teamId, gameId);
     if (!d) return null;
     // Discard a draft that's just the empty greeting — no signal
     // worth persisting.
@@ -1216,19 +1206,18 @@ export function DesignWithAIDialog({
           // asset-pack deps. (Multiple themed content packs at
           // once is rare today but the catalog supports it.)
           if (firstThemedPackUsedForOverrides === null) {
-            const firstPreset = m?.terrainHeightmapPresets?.[0];
-            if (firstPreset?.params) {
-              heightmapPresetParams = firstPreset.params;
+            const overrides = extractThemedPackOverrides(
+              m as ThemedPackManifestLike | undefined,
+            );
+            if (overrides.heightmapPresetParams) {
+              heightmapPresetParams = overrides.heightmapPresetParams;
               // eslint-disable-next-line no-console
               console.info(
-                `[DesignWithAIDialog] Applying heightmap preset "${firstPreset.id ?? "(unnamed)"}" from ${packId}`,
+                `[DesignWithAIDialog] Applying heightmap preset "${overrides.heightmapPresetId ?? "(unnamed)"}" from ${packId}`,
               );
             }
-            if (
-              m?.vegetationByBiome &&
-              typeof m.vegetationByBiome === "object"
-            ) {
-              packVegetationByBiome = m.vegetationByBiome;
+            if (overrides.vegetationByBiome) {
+              packVegetationByBiome = overrides.vegetationByBiome;
               // eslint-disable-next-line no-console
               console.info(
                 `[DesignWithAIDialog] Applying vegetation overrides for ${Object.keys(packVegetationByBiome).length} biomes from ${packId}`,
