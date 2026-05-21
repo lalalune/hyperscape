@@ -1,0 +1,56 @@
+{
+  "id": "com.hyperforge.plugin-arctic-survival",
+  "name": "Arctic Survival",
+  "version": "0.1.0",
+  "description": "Third non-Hyperia game plugin. Arctic-themed survival gameplay — depends on @hyperforge/combat for ability registry; contributes one utility ability ('frost-blast'), a TemperatureGauge HUD widget showing cold-exposure depletion, and arctic-survival entityTypes (heat_source, ice_block, frozen_cache). Pairs naturally with @hyperforge/content-pack-arctic-v1 for biomes + vegetation but does not require it (the plugin's contribution surface stands alone).",
+  "entry": "./dist/index.js",
+  "author": {
+    "name": "Hyperforge"
+  },
+  "license": "GPL-3.0",
+  "hyperforgeApi": "0.1.0",
+  "dependencies": [
+    { "id": "com.hyperforge.combat", "versionRange": "^0.1.0" }
+  ],
+  "loadAfter": ["com.hyperforge.combat"],
+  "enabledByDefault": false,
+  "contributions": {
+    "systems": [],
+    "entities": [],
+    "widgets": ["com.hyperforge.arctic-survival.temperature-gauge"],
+    "manifestSchemas": [],
+    "paletteCategories": ["arctic-shelters", "arctic-resources"],
+    "toolbarTools": ["arctic-cold-exposure-debug"],
+    "commands": ["com.hyperforge.arctic-survival.commands.frost-blast"],
+    "entityTypes": [
+      {
+        "kind": "station",
+        "type": "heat_source",
+        "description": "Campfire / brazier / stove that radiates warmth in a small radius. Pause cold exposure inside the heat radius.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      },
+      {
+        "kind": "resource",
+        "type": "ice_block",
+        "description": "Static ice formation. Mining yields water + cold-tier crafting material. Spawns near frozen_lake biomes.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      },
+      {
+        "kind": "resource",
+        "type": "frozen_cache",
+        "description": "Preserved loot stash beneath glacial ice — interact to thaw + claim. One-shot per spawn.",
+        "requiredFields": [],
+        "acceptedAssetTypes": ["prop"]
+      },
+      {
+        "kind": "npc",
+        "type": "expedition_guide",
+        "description": "Quest-giver NPC. Marks survival objectives + sells cold-weather gear. Reads `storeId`.",
+        "requiredFields": ["storeId"],
+        "acceptedAssetTypes": ["character"]
+      }
+    ]
+  }
+}

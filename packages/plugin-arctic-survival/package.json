@@ -1,0 +1,52 @@
+{
+  "name": "@hyperforge/plugin-arctic-survival",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Third non-Hyperia game plugin. Arctic-themed survival gameplay — depends on @hyperforge/combat for ability registry, ships a 'frost-blast' utility ability + a TemperatureGauge HUD widget + arctic-survival entityTypes (heat_source, ice_block, frozen_cache). Proves that ANY number of independent gameplay plugins coexist via the framework's plugin boot pipeline.",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "import": "./dist/manifest.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "plugin.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@hyperforge/combat": "*",
+    "@hyperforge/gameplay-framework": "*",
+    "@hyperforge/manifest-schema": "*",
+    "@hyperforge/ui-framework": "*",
+    "zod": "^4.1.11"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.6"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "GPL-3.0"
+}
