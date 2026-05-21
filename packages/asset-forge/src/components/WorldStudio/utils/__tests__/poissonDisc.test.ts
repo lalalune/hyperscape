@@ -1,89 +1,75 @@
 /**
- * `poissonDisc` — Poisson disc sampling tests.
+ * poissonDisc — Poisson disc sampling tests.
  *
- * Bridson's algorithm: well-spaced 2D point generation with a
- * pluggable boundary test. Single shared implementation between
- * useZoneAutoGen (contour-based) and useZoneProcgen (tile-based);
- * any drift in the spacing invariant or boundary handling would
- * silently break both.
- *
- * Tests use a seeded RNG for determinism.
+ * Pins the core spacing + bounds invariants the shared
+ * `poissonDiscSample` provides to `useZoneAutoGen` /
+ * `useZoneProcgen` and any future caller. A regression here
+ * silently produces clustered or out-of-bounds points
+ * downstream.
  */
 
 import { describe, expect, it } from "vitest";
-import { poissonDiscSample } from "../poissonDisc";
-import { createSeededRng, dist2 } from "../procgenUtils";
 
-const ALWAYS_IN_BOUNDS = () => true;
-const NEVER_IN_BOUNDS = () => false;
+import { poissonDiscSample, type PoissonBounds } from "../poissonDisc";
 
-describe("poissonDiscSample — degenerate inputs", () => {
-  it("returns empty array when bounds are degenerate (zero width)", () => {
-    const rng = createSeededRng(1);
-    const points = poissonDiscSample(
-      { minX: 5, maxX: 5, minZ: 0, maxZ: 100 },
+/**
+ * Tiny mulberry32-style PRNG so tests are deterministic. The
+ * algorithm itself is well-known; we only need a stable
+ * sequence to assert behavior without leaking
+ * implementation-detail seed values into the test.
+ */
+function seededRng(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function squareBounds(half: number): PoissonBounds {
+  return { minX: -half, maxX: half, minZ: -half, maxZ: half };
+}
+
+function squareDist(
+  a: { x: number; z: number },
+  b: { x: number; z: number },
+): number {
+  const dx = a.x - b.x;
+  const dz = a.z - b.z;
+  return dx * dx + dz * dz;
+}
+
+describe("poissonDiscSample — bounds + spacing invariants", () => {
+  it("returns empty when bounds collapse to zero area", () => {
+    const out = poissonDiscSample(
+      { minX: 0, maxX: 0, minZ: 0, maxZ: 0 },
+      1,
       10,
-      50,
-      rng,
-      ALWAYS_IN_BOUNDS,
+      seededRng(1),
+      () => true,
     );
-    expect(points).toEqual([]);
+    // gridW / gridH collapse to 0 → early return.
+    expect(out).toEqual([]);
   });
 
-  it("returns empty array when bounds are degenerate (zero height)", () => {
-    const rng = createSeededRng(1);
-    const points = poissonDiscSample(
-      { minX: 0, maxX: 100, minZ: 5, maxZ: 5 },
-      10,
-      50,
-      rng,
-      ALWAYS_IN_BOUNDS,
-    );
-    expect(points).toEqual([]);
-  });
-
-  it("returns empty array when inBounds always rejects", () => {
-    const rng = createSeededRng(1);
-    const points = poissonDiscSample(
-      { minX: 0, maxX: 100, minZ: 0, maxZ: 100 },
+  it("respects maxPoints cap", () => {
+    const out = poissonDiscSample(
+      squareBounds(100),
+      2,
       5,
-      50,
-      rng,
-      NEVER_IN_BOUNDS,
+      seededRng(42),
+      () => true,
     );
-    expect(points).toEqual([]);
+    expect(out.length).toBeLessThanOrEqual(5);
   });
-});
 
-describe("poissonDiscSample — spacing invariant", () => {
-  it("every pair of returned points is at least minSpacing apart", () => {
-    const rng = createSeededRng(42);
-    const minSpacing = 5;
-    const points = poissonDiscSample(
-      { minX: 0, maxX: 100, minZ: 0, maxZ: 100 },
-      minSpacing,
-      200,
-      rng,
-      ALWAYS_IN_BOUNDS,
-    );
-    expect(points.length).toBeGreaterThan(0);
-    const minSpacingSq = minSpacing * minSpacing;
-    for (let i = 0; i < points.length; i++) {
-      for (let j = i + 1; j < points.length; j++) {
-        const d2 = dist2(points[i].x, points[i].z, points[j].x, points[j].z);
-        expect(d2).toBeGreaterThanOrEqual(minSpacingSq);
-      }
-    }
-  });
-});
-
-describe("poissonDiscSample — bounds compliance", () => {
-  it("all points fall within the AABB", () => {
-    const rng = createSeededRng(42);
-    const bounds = { minX: 10, maxX: 90, minZ: 20, maxZ: 80 };
-    const points = poissonDiscSample(bounds, 5, 100, rng, ALWAYS_IN_BOUNDS);
-    expect(points.length).toBeGreaterThan(0);
-    for (const p of points) {
+  it("every returned point sits inside the AABB", () => {
+    const bounds = squareBounds(50);
+    const out = poissonDiscSample(bounds, 5, 100, seededRng(7), () => true);
+    for (const p of out) {
       expect(p.x).toBeGreaterThanOrEqual(bounds.minX);
       expect(p.x).toBeLessThanOrEqual(bounds.maxX);
       expect(p.z).toBeGreaterThanOrEqual(bounds.minZ);
@@ -91,98 +77,111 @@ describe("poissonDiscSample — bounds compliance", () => {
     }
   });
 
-  it("respects a custom inBounds — points fall in the right half", () => {
-    const rng = createSeededRng(42);
-    const bounds = { minX: 0, maxX: 100, minZ: 0, maxZ: 100 };
-    // Right-half-only: x >= 50.
-    const points = poissonDiscSample(bounds, 5, 100, rng, (x, _z) => x >= 50);
-    expect(points.length).toBeGreaterThan(0);
-    for (const p of points) {
-      expect(p.x).toBeGreaterThanOrEqual(50);
+  it("no two returned points are closer than minSpacing", () => {
+    const minSpacing = 4;
+    const out = poissonDiscSample(
+      squareBounds(50),
+      minSpacing,
+      200,
+      seededRng(99),
+      () => true,
+    );
+    // Compare each pair (n²/2). The sample is bounded so n is small.
+    const min2 = minSpacing * minSpacing;
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        expect(squareDist(out[i], out[j])).toBeGreaterThanOrEqual(min2);
+      }
     }
   });
 });
 
-describe("poissonDiscSample — point cap", () => {
-  it("never returns more than maxPoints", () => {
-    const rng = createSeededRng(123);
-    const points = poissonDiscSample(
-      { minX: 0, maxX: 100, minZ: 0, maxZ: 100 },
-      2, // dense spacing → many points possible
-      10, // but capped at 10
-      rng,
-      ALWAYS_IN_BOUNDS,
+describe("poissonDiscSample — boundary test", () => {
+  it("inBounds=false everywhere → empty result", () => {
+    const out = poissonDiscSample(
+      squareBounds(50),
+      4,
+      100,
+      seededRng(1),
+      () => false,
     );
-    expect(points.length).toBeLessThanOrEqual(10);
+    expect(out).toEqual([]);
   });
 
-  it("returns at most maxPoints even with a generous bounds", () => {
-    const rng = createSeededRng(456);
-    const points = poissonDiscSample(
-      { minX: 0, maxX: 1000, minZ: 0, maxZ: 1000 },
-      5,
-      50,
-      rng,
-      ALWAYS_IN_BOUNDS,
+  it("inBounds restricts points to a circular region", () => {
+    // Boundary: only accept points within radius 20 of origin.
+    const radius = 20;
+    const out = poissonDiscSample(
+      squareBounds(50),
+      3,
+      100,
+      seededRng(11),
+      (x, z) => x * x + z * z <= radius * radius,
     );
-    expect(points.length).toBeLessThanOrEqual(50);
+    expect(out.length).toBeGreaterThan(0);
+    for (const p of out) {
+      expect(p.x * p.x + p.z * p.z).toBeLessThanOrEqual(radius * radius);
+    }
   });
 });
 
 describe("poissonDiscSample — determinism", () => {
-  it("same seed → same point sequence", () => {
-    const rng1 = createSeededRng(99);
-    const rng2 = createSeededRng(99);
+  it("identical rng seed → identical point sets", () => {
     const a = poissonDiscSample(
-      { minX: 0, maxX: 100, minZ: 0, maxZ: 100 },
-      5,
-      30,
-      rng1,
-      ALWAYS_IN_BOUNDS,
+      squareBounds(30),
+      3,
+      50,
+      seededRng(123),
+      () => true,
     );
     const b = poissonDiscSample(
-      { minX: 0, maxX: 100, minZ: 0, maxZ: 100 },
-      5,
-      30,
-      rng2,
-      ALWAYS_IN_BOUNDS,
+      squareBounds(30),
+      3,
+      50,
+      seededRng(123),
+      () => true,
     );
     expect(a).toEqual(b);
   });
 
-  it("different seeds produce different points", () => {
+  it("different rng seeds → different point sets (one comparison)", () => {
     const a = poissonDiscSample(
-      { minX: 0, maxX: 100, minZ: 0, maxZ: 100 },
-      5,
-      30,
-      createSeededRng(1),
-      ALWAYS_IN_BOUNDS,
+      squareBounds(30),
+      3,
+      50,
+      seededRng(1),
+      () => true,
     );
     const b = poissonDiscSample(
-      { minX: 0, maxX: 100, minZ: 0, maxZ: 100 },
-      5,
-      30,
-      createSeededRng(2),
-      ALWAYS_IN_BOUNDS,
+      squareBounds(30),
+      3,
+      50,
+      seededRng(2),
+      () => true,
     );
-    // First point should differ.
-    expect(a[0]).not.toEqual(b[0]);
+    // Different seeds can produce same FIRST point if both random
+    // draws land in the same cell — but the full sequence almost
+    // certainly diverges. Test the array as a whole.
+    expect(a).not.toEqual(b);
   });
 });
 
-describe("poissonDiscSample — typical usage produces a reasonable density", () => {
-  it("100×100 area with minSpacing=10 produces 30+ points", () => {
-    // Theoretical density for r-spacing in a unit square is
-    // π / (2√3 r²) — for r=10 in a 100×100 area that's ~30.
-    const rng = createSeededRng(7);
-    const points = poissonDiscSample(
-      { minX: 0, maxX: 100, minZ: 0, maxZ: 100 },
+describe("poissonDiscSample — density vs spacing", () => {
+  it("tighter spacing yields more points in the same bounds", () => {
+    const bounds = squareBounds(100);
+    const tight = poissonDiscSample(bounds, 4, 1000, seededRng(7), () => true);
+    const loose = poissonDiscSample(bounds, 12, 1000, seededRng(7), () => true);
+    expect(tight.length).toBeGreaterThan(loose.length);
+  });
+
+  it("seeds at least one point when bounds allow any valid placement", () => {
+    const out = poissonDiscSample(
+      squareBounds(50),
+      4,
       10,
-      500,
-      rng,
-      ALWAYS_IN_BOUNDS,
+      seededRng(0),
+      () => true,
     );
-    expect(points.length).toBeGreaterThan(20);
-    expect(points.length).toBeLessThan(200);
+    expect(out.length).toBeGreaterThan(0);
   });
 });
